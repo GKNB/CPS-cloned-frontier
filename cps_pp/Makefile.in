@@ -1,5 +1,5 @@
 # CPS makefile
-# $Id: Makefile.in,v 1.34 2008-05-16 16:07:47 chulwoo Exp $
+# $Id: Makefile.in,v 1.34.124.1 2012-07-25 20:07:40 yinnht Exp $
 # @configure_input@
 
 SRCDIR = @abs_top_srcdir@
@@ -10,13 +10,43 @@ DOCDIR = doc
 QOS = @QOS@
 QOSLIB = ${QOS}/quser/gcc-lib-user///
 
+# Added by Hantao
+#
+# Purpose is to have a single ar operation at the end (so we can
+# concurrently build).
+ifeq	($(LIB_NAME_SET),yes)
+SEPARATE_LIB = yes
+endif
+
+ifeq	($(SEPARATE_LIB),yes)
+DIR2 := $(subst util/,,$(DIR))
+DIR2 := $(subst dirac_op/,,$(DIR2))
+DIR2 := $(subst mem/,,$(DIR2))
+DIR2 := $(subst comms/,,$(DIR2))
+DIR2 := $(subst alg/,,$(DIR2))
+LIBNAME := XXX$(subst /,_,$(DIR2))XXX
+LIBNAME := $(subst XXX_,,$(LIBNAME))
+LIBNAME := $(subst _XXX,,$(LIBNAME))
+LIBNAME := $(subst XXX,,$(LIBNAME))
+else
+LIBNAME = cps
+endif
+LIBNAME ?= cps
+
+AR = @AR@
+#End of Hantao's addition
+
 ifneq "$(BUILDDIR)"  "$(SRCDIR)"
 builddir_isnt_srcdir="yes"
 else
 builddir_isnt_srcdir=
 endif
 
+# Find command added by Hantao, use find/xargs/ar to create the library file 
+#
+# It only works with GNU find/xargs (due to -print0/-0).
 all: rpcgenvml vml recurse copy_testdir
+	find $(BUILDDIR) \( -name '*.o' -o -name '*.xlo' \) -a -print0 | xargs -0 ${AR} rcs ${BUILDDIR}/$(LIBNAME).a
 
 cps: recurse
 

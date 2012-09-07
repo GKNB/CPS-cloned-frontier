@@ -3,18 +3,18 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of GnoneFnone class.
 
-  $Id: lattice_nn.C,v 1.4 2004-08-18 11:58:05 zs Exp $
+  $Id: lattice_nn.C,v 1.4.450.1 2012-07-22 14:11:57 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: zs $
-//  $Date: 2004-08-18 11:58:05 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_types/lattice_nn.C,v 1.4 2004-08-18 11:58:05 zs Exp $
-//  $Id: lattice_nn.C,v 1.4 2004-08-18 11:58:05 zs Exp $
+//  $Author: yinnht $
+//  $Date: 2012-07-22 14:11:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_types/lattice_nn.C,v 1.4.450.1 2012-07-22 14:11:57 yinnht Exp $
+//  $Id: lattice_nn.C,v 1.4.450.1 2012-07-22 14:11:57 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.4 $
+//  $Revision: 1.4.450.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_types/lattice_nn.C,v $
 //  $State: Exp $
 //

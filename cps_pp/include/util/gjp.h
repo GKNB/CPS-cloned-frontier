@@ -1,22 +1,23 @@
-#include<config.h>
 #ifndef INCLUDED_GLOBAL_JOB_PARAMETER_H
-#define INCLUDED_GLOBAL_JOB_PARAMETER_H     //!< Prevent multiple inclusion
+#define INCLUDED_GLOBAL_JOB_PARAMETER_H
+
+#include<config.h>
 /*!\file
   \brief  Definitions of global job parameters.
 
-  $Id: gjp.h,v 1.40 2012-03-26 13:50:11 chulwoo Exp $
+  $Id: gjp.h,v 1.40.12.2 2012-07-26 15:22:36 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-26 13:50:11 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.40 2012-03-26 13:50:11 chulwoo Exp $
-//  $Id: gjp.h,v 1.40 2012-03-26 13:50:11 chulwoo Exp $
+//  $Author: yinnht $
+//  $Date: 2012-07-26 15:22:36 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.40.12.2 2012-07-26 15:22:36 yinnht Exp $
+//  $Id: gjp.h,v 1.40.12.2 2012-07-26 15:22:36 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: gjp.h,v $
-//  $Revision: 1.40 $
+//  $Revision: 1.40.12.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v $
 //  $State: Exp $
 //--------------------------------------------------------------------
@@ -47,8 +48,6 @@
 #include <alg/do_arg.h>
 #include <alg/cg_arg.h>
 CPS_START_NAMESPACE
-
-//struct DoArg;
 
 #ifdef PARALLEL
 extern int gjp_local_axis[];
@@ -119,7 +118,7 @@ const int MAX_FILENAME_LEN = 100;
 class GlobalJobParameter
 {
  private:
-  char *cname;    // Class name.
+  const char *cname;    // Class name.
   DoArg doarg_int;
 
   int* argc_int;

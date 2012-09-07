@@ -1,3 +1,4 @@
+// -*- mode: c++ -*-
 //------------------------------------------------------------------
 //
 // qpropw.h
@@ -431,6 +432,30 @@ public:
   SourceType SrcType(){ return BOX; }
   int BoxSrcStart() const { return box_arg.box_start; } 
   int BoxSrcEnd()   const { return box_arg.box_end; }     
+};
+
+// Added by Hantao to handle 4D boxes (in fact it handles all uniform
+// point/wall/box sources as special cases).
+class QPropW4DBoxSrc : public QPropW
+{
+protected:
+    QPropW4DBoxArg box_arg;
+public:
+  
+    QPropW4DBoxSrc(Lattice& lat, QPropWArg* arg,
+                   QPropW4DBoxArg *b_arg, CommonArg* c_arg);
+  
+    void SetSource(FermionVectorTp& src, int spin, int color);
+
+    SourceType SrcType(){ return BOX_4D; }
+
+    int BoxSrcStart(int mu)const {
+        return box_arg.box_start[mu];
+    }
+
+    int BoxSrcSize(int mu)const {
+        return box_arg.box_size[mu];
+    }
 };
 
 class QPropWRand : public QPropW {

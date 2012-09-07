@@ -3,6 +3,8 @@
 #include <util/ReadLatticePar.h>
 #include <util/time_cps.h>
 
+#include <qmp.h>
+
 CPS_START_NAMESPACE
 using namespace std;
 
@@ -43,7 +45,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     ERR.FileR(cname, fname, rd_arg.FileName);
   log();
 
-  broadcastInt(&hd.data_start);
+  QMP_broadcast(&hd.data_start, sizeof(long));
   broadcastInt(&hd.recon_row_3);
   //  cout << "recon_row_3 = " << hd.recon_row_3 << endl;
 

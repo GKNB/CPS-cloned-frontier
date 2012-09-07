@@ -13,8 +13,6 @@
 
 
 CPS_START_NAMESPACE
-using namespace std;
-
 
 class QioArg {
  public:
@@ -151,7 +149,7 @@ class QioControl {
  private:
   int do_log;
   int logging;
-  fstream logs;
+  std::fstream logs;
   long log_point;
   time_t log_start;
   char log_dir[200];

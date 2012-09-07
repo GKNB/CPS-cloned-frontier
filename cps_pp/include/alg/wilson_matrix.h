@@ -95,7 +95,11 @@ public:
   ~WilsonVector() {}
 
   void Zero()
-	{ for(int s1=0;s1<4;s1++) for(int c1=0;c1<3;c1++) d[s1].c[c1] = 0.0; }
+  {
+      for(int s1=0;s1<4;s1++)
+          for(int c1=0;c1<3;c1++)
+              d[s1].c[c1] = 0.0;
+  }
 
   WilsonVector& operator+=(WilsonVector& rhs) {
     for(int s1=0;s1<4;s1++) for(int c1=0; c1<3;c1++)
@@ -244,7 +248,7 @@ class WilsonMatrix {
 public:
   
 
-  WilsonMatrix();
+  WilsonMatrix() {}
   WilsonMatrix(const WilsonMatrix& rhs);
   WilsonMatrix(const wilson_matrix& rhs);
   WilsonMatrix(const Float& rhs);
@@ -298,12 +302,16 @@ public:
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
   WilsonMatrix glA(int dir);
   //! glA another version. result = gamma_dir*gamma_5*from
-  void glA(const WilsonMatrix & from, int dir);
+  WilsonMatrix& glA(const WilsonMatrix & from, int dir);
   //! mult the prop by gamma_dir on the left, and return the new matrix
   WilsonMatrix glV(int dir);
   //! glV another version. result = gamma_dir*from
-  void glV(const WilsonMatrix & from, int dir);
+  WilsonMatrix& glV(const WilsonMatrix & from, int dir);
 
+  //! mult the prop by gamma_dir*gamma_5 on the left
+  WilsonMatrix& grA(const WilsonMatrix & from, int dir);
+  //! mult the prop by gamma_dir on the left
+  WilsonMatrix& grV(const WilsonMatrix & from, int dir);
 
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gr(int dir); 
@@ -318,7 +326,16 @@ public:
   wilson_vector& sol(int source_spin, int source_color); 
 
   void load_vec(int sink_spin, int sink_color, const wilson_vector&);
-  void load_row(int source_spin, int source_color, const wilson_vector&);
+  void load_row(int source_spin, int source_color, const wilson_vector&rhs)
+  {
+      for(int s1 = 0; s1 < 4; ++s1) {
+          for(int c1 = 0; c1 < 3; ++c1) {
+              p.d[s1].c[c1].d[source_spin].c[source_color]
+                  = rhs.d[s1].c[c1];
+          }
+      }
+  }
+      
   Rcomplex Trace();
   const wilson_matrix& wmat() const; // get p 
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
@@ -436,6 +453,7 @@ extern Rcomplex Tr(const Matrix& a, const Matrix& b);
 
 //! trace of two SpinMatrices
 extern Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b);
+
 
 CPS_END_NAMESPACE
 

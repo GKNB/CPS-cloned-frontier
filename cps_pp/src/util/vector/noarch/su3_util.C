@@ -3,18 +3,18 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Utility routines for SU(3) matrices.
 
-  $Id: su3_util.C,v 1.5 2004-08-18 11:58:08 zs Exp $
+  $Id: su3_util.C,v 1.5.450.3 2012-07-12 00:50:16 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: zs $
-//  $Date: 2004-08-18 11:58:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/noarch/su3_util.C,v 1.5 2004-08-18 11:58:08 zs Exp $
-//  $Id: su3_util.C,v 1.5 2004-08-18 11:58:08 zs Exp $
+//  $Author: yinnht $
+//  $Date: 2012-07-12 00:50:16 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/noarch/su3_util.C,v 1.5.450.3 2012-07-12 00:50:16 yinnht Exp $
+//  $Id: su3_util.C,v 1.5.450.3 2012-07-12 00:50:16 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.5 $
+//  $Revision: 1.5.450.3 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/noarch/su3_util.C,v $
 //  $State: Exp $
 //
@@ -173,13 +173,6 @@ void Matrix::Det(IFloat* q) const
          + *(p+4) * re2 - *(p+5) * im2 ;
     *(q+1) = *p * im0 + *(p+1) * re0 + *(p+2) * im1 + *(p+3) * re1
             + *(p+4) * im2 + *(p+5) * re2 ;
-}
-
-
-IFloat Matrix::ReTr() const
-{
-    IFloat *p = (IFloat *)u;
-    return *p + *(p+8) + *(p+16);
 }
 
 /*!

@@ -8,7 +8,7 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
+//  $Author: yinnht $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson_types/eigen_wilson.C,v $
 //  $State: Exp $
 //
@@ -404,7 +404,7 @@ int DiracOpWilsonTypes::RitzEig(Vector **psi, Float lambda_H[], int valid_eig[],
                     {
                       if ( ( x==i && valid_eig[y] ) || ( y==i && valid_eig[x] ) )
                         {
-                          Float value( off_diag[xy].abs() );
+                            Float value( abs(off_diag[xy]) );
                           sum+=value*value*rEig2;
                         }
                       xy++;
@@ -503,7 +503,7 @@ int DiracOpWilsonTypes::RitzEig(Vector **psi, Float lambda_H[], int valid_eig[],
         {
           onorm+=tmp->CompDotProductGlbSum(psi[i],f_size);
         }
-      if ( onorm.norm() > snorm.norm() )
+      if ( norm(onorm) > norm(snorm) )
         {
           psi[N_dp]->CopyVec( tmp2, f_size );
         }

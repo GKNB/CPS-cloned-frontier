@@ -4,6 +4,8 @@
 #include <util/qcdio.h>
 #include <util/time_cps.h>
 
+#include <qmp.h>
+
 using namespace std;
 CPS_START_NAMESPACE
 
@@ -114,7 +116,7 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
 //    ERR.General(cname,fname,"Writing header failed\n");
   log();
 
-  broadcastInt(&hd.data_start);
+  QMP_broadcast(&hd.data_start, sizeof(long));
 
   if(parIO()) {
     ParallelIO pario(wt_arg);

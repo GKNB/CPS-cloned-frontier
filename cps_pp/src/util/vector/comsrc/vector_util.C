@@ -4,18 +4,18 @@ CPS_START_NAMESPACE
   \brief  Definitions of functions that perform operations on complex matrices
   and vectors.
 
-  $Id: vector_util.C,v 1.3 2012-03-26 13:50:12 chulwoo Exp $
+  $Id: vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-26 13:50:12 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v 1.3 2012-03-26 13:50:12 chulwoo Exp $
-//  $Id: vector_util.C,v 1.3 2012-03-26 13:50:12 chulwoo Exp $
+//  $Author: yinnht $
+//  $Date: 2012-08-13 12:52:48 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
+//  $Id: vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.3 $
+//  $Revision: 1.3.12.3 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v $
 //  $State: Exp $
 //
@@ -31,6 +31,7 @@ CPS_END_NAMESPACE
 #include <string.h>		/* memcpy */
 #include <util/vector.h>
 #include <util/time_cps.h>
+#include<omp.h>
 CPS_START_NAMESPACE
 
 
@@ -62,8 +63,8 @@ void moveFloat(Float *b, const Float *a, int len) {
 #endif
 
 #ifdef USE_OMP
-#pragma omp parallel for default(shared)
-    for(int i =0;i<len;i++) *(b+i) = *(a+i); 
+#pragma omp parallel for
+    for(int i =0;i<len;i++) b[i] = a[i];
 #else
     memcpy(b, a, len*sizeof(Float)); 
 #endif
@@ -283,9 +284,9 @@ void uDotXEqual(IFloat* y, const IFloat* u, const IFloat* x)
 IFloat dotProduct(const IFloat *a, const IFloat *b, int len)
 {
     IFloat sum = 0.0;
-#pragma omp parallel for default(shared) reduction(+:sum)
+// #pragma omp parallel for reduction(+:sum)
     for(int i = 0; i < len; ++i) {
-    	sum += *(a+i) * *(b+i);
+    	sum += a[i] * b[i];
     }
     return sum;
 }
@@ -298,9 +299,9 @@ IFloat dotProduct(const IFloat *a, const IFloat *b, int len)
  */
 void vecTimesEquFloat(IFloat *a, IFloat b, int len)
 {
-#pragma omp parallel for default(shared)
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*(a+i) *= b;
+    	a[i] *= b;
     }
 }
 
@@ -354,16 +355,10 @@ void vecMinusEquVec(IFloat *a, const IFloat *b, int len)
 void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
 	const IFloat *d, int len)
 {
-#if 0
-#pragma omp parallel for default(shared)
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*(a+i) = b * *(c+i) + *(d+i);
+    	a[i] = b * c[i] + d[i];
     }
-#else
-    for(int i = 0; i < len; ++i) {
-    	*a++ = b * *c++ + *d++;
-    }
-#endif
 }
 
 /*!
@@ -376,8 +371,9 @@ void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
 void fTimesV1MinusV2(IFloat *a, IFloat b, const IFloat *c,
 	const IFloat *d, int len)
 {
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*a++ = b * *c++ - *d++;
+    	a[i] = b * c[i] - d[i];
     }
 }
 
@@ -471,10 +467,9 @@ void cTimesV1MinusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
   \post This vector has the value 0.
 */
 void vecZero(IFloat *a, int len) {
-
-  for (int i=0; i<len; i++)
-    *a++ = 0.0;
-
+    for (int i=0; i<len; i++) {
+        a[i] = 0.0;
+    }
 }
 
 CPS_END_NAMESPACE

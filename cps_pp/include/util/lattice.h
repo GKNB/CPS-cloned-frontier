@@ -1,3 +1,6 @@
+#ifndef INCLUDED_LATTICE_H
+#define INCLUDED_LATTICE_H
+
 #include<config.h>
 #include<math.h>
 
@@ -5,23 +8,20 @@
 /*!\file
   \brief  Definitions of the Lattice classes.
 
-  $Id: lattice.h,v 1.59 2011-03-24 15:56:27 chulwoo Exp $
+  $Id: lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
 */
 /*----------------------------------------------------------------------
-  $Author: chulwoo $
-  $Date: 2011-03-24 15:56:27 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.59 2011-03-24 15:56:27 chulwoo Exp $
-  $Id: lattice.h,v 1.59 2011-03-24 15:56:27 chulwoo Exp $
+  $Author: yinnht $
+  $Date: 2012-08-27 15:54:51 $
+  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
+  $Id: lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
   $Name: not supported by cvs2svn $
-  $Revision: 1.59 $
+  $Revision: 1.59.24.4.4.2 $
   $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v $
   $State: Exp $
 */  
 //------------------------------------------------------------------
 
-
-#ifndef INCLUDED_LATTICE_H
-#define INCLUDED_LATTICE_H           //!< Prevent multiple inclusion
 
 #include <util/gjp.h>
 #include <util/enum.h>
@@ -64,7 +64,7 @@ class Lattice
 
  private:
 
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
     static Matrix* gauge_field;
        // Pointer to the gauge field configuration.
@@ -238,11 +238,13 @@ class Lattice
 
     virtual ~Lattice();
 
-    Matrix *GaugeField() const;
-    	//!< Returns the pointer to the gauge field configuration.
+    Matrix *GaugeField() const {
+        return gauge_field;
+    }
+    //!< Returns the pointer to the gauge field configuration.
 
     void GaugeField(Matrix *u);
-        //!< Copies an array into the gauge configuration.
+    //!< Copies an array into the gauge configuration.
 
     int GsiteOffset(const int *x) const
         { return x[0]*g_dir_offset[0]+x[1]*g_dir_offset[1]
@@ -1120,6 +1122,21 @@ class Lattice
     //!< staggered fermion formulations).
     virtual void BforceVector(Vector *in, CgArg *cg_arg) = 0;
 
+    // added by Hantao to facilitate doing force statistics.
+    void updateForce(ForceArg &f_arg, const Matrix &m)const {
+        Float a2 = m.norm();
+        Float a = sqrt(a2);
+
+        f_arg.L1 += a;
+        f_arg.L2 += a2;
+        f_arg.Linf = f_arg.Linf > a ? f_arg.Linf : a;
+    }
+
+    //!< Toggle boundary condition
+    //
+    //!< Note: Agent classes which needs to import gauge field to
+    //!external libraries need to overwrite this function.
+    virtual void BondCond();
 };
 
 //------------------------------------------------------------------
@@ -1142,7 +1159,7 @@ class Gnone : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
  public:
 
@@ -1182,7 +1199,7 @@ class Gwilson : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
  public:
 
@@ -1235,7 +1252,7 @@ class GpowerPlaq : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
  public:
 
@@ -1295,7 +1312,7 @@ class GimprRect : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
     Float plaq_coeff; // - GJP.Beta() * ( 1.0 - 8.0 * GJP.C1() ) / 3.0
 
@@ -1354,7 +1371,7 @@ class GtadpoleRect : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
     Float plaq_coeff; // - GJP.Beta() * ( 1.0 - 8.0 * GJP.C1() ) / 3.0
 
@@ -1424,7 +1441,7 @@ class GpowerRect : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
     Float plaq_coeff; // - GJP.Beta() * ( 1.0 - 8.0 * GJP.C1() ) / 3.0
 
@@ -1511,7 +1528,7 @@ class GimprOLSym : public virtual Lattice
 {
 
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
     Float rect_coeff; // loop 2x1
     Float cube_coeff; // loop 1x1x1
@@ -1563,7 +1580,7 @@ class GimprOLSym : public virtual Lattice
 class Fsmear : public virtual Lattice
 {
 private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
 protected:
     int n_fields;    //!< The number of smeared fields
@@ -1601,7 +1618,7 @@ public:
 class Fnone : public virtual Lattice
 {
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
     
  public:
 
@@ -1722,7 +1739,7 @@ class Fnone : public virtual Lattice
 class FstagTypes : public virtual Lattice
 {
 	 private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
     int xv[3];
     
   protected:
@@ -1786,7 +1803,7 @@ class FstagTypes : public virtual Lattice
 class Fstag : public virtual FstagTypes
 {
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
     void getUDagX(Vector& v, const Vector *cvp, int *x, int mu) const;
     
  public:
@@ -1867,7 +1884,7 @@ class ParTransAsqtad; //forward declaration
 class Fasqtad : public virtual FstagTypes, public virtual Fsmear
 {
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
  public:
 
@@ -1970,7 +1987,7 @@ class ParTransP4; //forward declaration
 class Fp4 : public virtual FstagTypes, public virtual Fsmear
 {
  private:
-    char *cname;    // Class name.
+    const char *cname;    // Class name.
 
  public:
 
@@ -2054,15 +2071,11 @@ class Fp4 : public virtual FstagTypes, public virtual Fsmear
 			     Matrix*);
 
     void force_product_sum(const Vector*, const Vector*, IFloat, Matrix*);
-
-
-    
 };
+
 CPS_END_NAMESPACE
 
 #include <util/lattice/f_wilson_types.h>
 #include <util/lattice/lattice_types.h>
 
-CPS_START_NAMESPACE
-CPS_END_NAMESPACE
 #endif

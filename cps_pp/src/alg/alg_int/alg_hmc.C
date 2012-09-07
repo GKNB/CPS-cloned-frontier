@@ -133,13 +133,14 @@ AlgHmc::~AlgHmc() {
 //------------------------------------------------------------------
 Float AlgHmc::run(void)
 {
+  char *fname = "run()";
+
 #if TARGET==cpsMPI
   using MPISCU::fprintf;
 #endif
-//  int step;                            // Trajectory step
+
   int accept;
 
-  char *fname = "run()";
   FILE *fp;
   VRB.Func(cname,fname);
 
@@ -333,7 +334,7 @@ Float AlgHmc::run(void)
   }
 
   VRB.Result(cname,fname,
-	     "Hmc steps = %d, Delta_hamilton = %e, accept = %d, dev = %e, max_diff = %e\n",
+	     "Hmc steps = %d, Delta_hamilton = %.20e, accept = %d, dev = %e, max_diff = %e\n",
 	     hmc_arg->steps_per_traj,
 	     IFloat(delta_h), 
 	     accept,
