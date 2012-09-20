@@ -75,6 +75,9 @@ private:
 
   void copySendFrmData(Float v3d[], Float v4d[], int mu, bool send_neg);
 
+  // complex version of axpy()
+  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp);
+public:
   void thread_work_partial_nobarrier(int nwork, int me, int nthreads,
                                      int &mywork, int &myoff)
   {
@@ -86,9 +89,6 @@ private:
         myoff += (me-backfill);
   }
 
-  // complex version of axpy()
-  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp);
-public:
   // compute fermion force:
   //
   // mom += coef * (phiL^\dag e_i(M) \phiR + \phiR^\dag e_i(M^\dag) \phiL)

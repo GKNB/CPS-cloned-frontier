@@ -1,8 +1,7 @@
+// -*- mode:c++; c-basic-offset:4 -*-
 
 // a slight modification on ReadLattice class (if not inheritance)
 // to enable parallel reading/writing of "Gauge Connection Format" lattice data
-
-
 
 // Read the format of Gauge Connection Format
 // from QCDSP {load,unload}_lattice format
@@ -12,6 +11,7 @@
 #include <math.h>
 #include <util/gjp.h>
 #include <util/iostyle.h>
+#include <util/qcdio.h>
 #include <util/fpconv.h>
 #include <util/time_cps.h>
 #include <comms/scu.h>
@@ -19,6 +19,9 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
+#include <map>
+#include <algorithm>
+#include <cassert>
 
 using namespace std;
 
@@ -49,12 +52,12 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
   int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
   int ns = rd_arg.Snodes() * rd_arg.SnodeSites();
 
-  int chars_per_site  = data_per_site * dconv.fileDataSize();
+  const long chars_per_site  = data_per_site * dconv.fileDataSize();
 
-  int64_t yblk = nx*chars_per_site;
-  int64_t zblk = ny * yblk;
-  int64_t tblk = nz * zblk;
-  int64_t sblk = nt * tblk;
+  long yblk = nx*chars_per_site;
+  long zblk = ny * yblk;
+  long tblk = nz * zblk;
+  long sblk = nt * tblk;
 
   int xbegin = rd_arg.XnodeSites() * rd_arg.Xcoor(), xend = rd_arg.XnodeSites() * (rd_arg.Xcoor()+1);
   int ybegin = rd_arg.YnodeSites() * rd_arg.Ycoor(), yend = rd_arg.YnodeSites() * (rd_arg.Ycoor()+1);
@@ -95,7 +98,7 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
 
   input.seekg(hd.dataStart(),ios_base::beg);
 
-  int64_t jump = 0;
+  long jump = 0;
   if(dimension == 5) jump = sbegin * sblk;
 
   for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
@@ -219,7 +222,7 @@ int ParallelIO::store(iostream & output,
   int error = 0;
 
   //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
-  const int chars_per_site = data_per_site * dconv.fileDataSize();
+  const long chars_per_site = data_per_site * dconv.fileDataSize();
   QioArg & wt_arg = qio_arg;
 
   int xbegin = wt_arg.XnodeSites() * wt_arg.Xcoor(), xend = wt_arg.XnodeSites() * (wt_arg.Xcoor()+1);
@@ -235,10 +238,10 @@ int ParallelIO::store(iostream & output,
   int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
 
 
-  int64_t yblk = nx*chars_per_site;
-  int64_t zblk = yblk * ny;
-  int64_t tblk = zblk * nz;
-  int64_t sblk = tblk * nt;
+  long yblk = nx*chars_per_site;
+  long zblk = yblk * ny;
+  long tblk = zblk * nz;
+  long sblk = tblk * nt;
 
 
   // TempBufAlloc is a mem allocator that prevents mem leak on function exits
@@ -266,7 +269,7 @@ do {
   if(dimension ==5 || wt_arg.Scoor() == 0) { // this line differs from read()
     output.seekp(hd.data_start,ios_base::beg);
 
-    int64_t jump=0;
+    long jump=0;
     unsigned long long  r_pos=0, w_pos;
     if(dimension==5) jump = sbegin * sblk;
 
@@ -398,12 +401,12 @@ do {
 /* SerialIO functions ***********************************************/
 /*********************************************************************/
 
-int SerialIO::load(char * data, const int data_per_site, const int site_mem,
-		   const LatHeaderBase & hd, const DataConversion & dconv, 
+int SerialIO::load(char *data, const int data_per_site, const int site_mem,
+		   const LatHeaderBase &hd, const DataConversion &dconv, 
 		   const int dimension /* 4 or 5 */,
-		   unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-		   Float * rand_sum, Float * rand_2_sum) {
-  const char * fname = "load()";
+		   unsigned int *ptrcsum, unsigned int *ptrpdcsum,
+		   Float *rand_sum, Float *rand_2_sum) {
+  const char *fname = "load()";
 
   // only node 0 is responsible for writing
   int error = 0;
@@ -529,128 +532,272 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
   return 1;
 }
 
-int SerialIO::store(iostream & output,
-		    char * data, const int data_per_site, const int site_mem,
-		    LatHeaderBase & hd, const DataConversion & dconv,
-		    const int dimension /* 4 or 5 */,
-		    unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-		    Float * rand_sum, Float * rand_2_sum)  { 
-  const char * fname = "store()";
-  
-  int error = 0;
-
-  QioArg & wt_arg = qio_arg;
-
-  //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
-  const int chars_per_site = data_per_site * dconv.fileDataSize();
-
-  int nx = wt_arg.XnodeSites() * wt_arg.Xnodes();
-  int ny = wt_arg.YnodeSites() * wt_arg.Ynodes();
-  int nz = wt_arg.ZnodeSites() * wt_arg.Znodes();
-  int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
-  int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
-
-
-  TempBufAlloc fbuf(chars_per_site);
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-
-  // start serial writing
-  unsigned int csum = 0, pdcsum = 0;
-  Float RandSum = 0, Rand2Sum = 0;
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-//if(hd.headerType() != LatHeaderBase::LATTICE_HEADER)
-//  printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
-  int global_id = 0;
-
-  output.seekp(hd.dataStart(), ios_base::beg);
-
-  VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
-  for(int sc=0; dimension==4 || sc<ns; sc++) {
-    for(int tc=0;tc<nt;tc++) {
-      for(int zc=0;zc<nz;zc++) {
-	for(int yc=0;yc<ny;yc++) {
-	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
-	    if(isNode0()) {
-	      const char * pd = data;
-
-	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
-//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
-		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-		  for(int mat=0;mat<4;mat++) {
-		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
-		    pd += site_mem/4;
-		  }
-		}
-		else { //LatHeaderBase::LATRNG_HEADER
-		  // dump
-//                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
-		  ugran[xst].store(rng.IntPtr());
-		  dconv.host2file(fbuf,rng,data_per_site);
-		  // next rand
-		  Float rn = ugran[xst].Grand();
-//		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
-		  RandSum += rn;
-		  Rand2Sum += rn*rn;
-		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
-		  ugran[xst].load(rng.IntPtr());
-#endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
-
-		csum += dconv.checksum(fbuf,data_per_site);
-		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
-					   -1, global_id);
-		output.write(fbuf,chars_per_site);
-		if(!output.good()) {
-		  error = 1;
-		  goto sync_error;
-		} 
-
-		global_id ++;
-	      } //xst
-	    } // ifNode0()
-
-	    xShiftNode(data, site_mem * wt_arg.XnodeSites());
-	  }
-	  
-	  yShift(data, site_mem * wt_arg.XnodeSites());
-	}
-	
-	zShift(data, site_mem * wt_arg.XnodeSites());
-      }
-      
-      tShift(data, site_mem * wt_arg.XnodeSites());
-
-      if(dimension==4)
-	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
+unsigned long long lcl2glb_id(unsigned long long lclid,
+                              const unsigned glb[5],
+                              const unsigned lcl[5],
+                              const unsigned node_coor[5],
+                              unsigned dim)
+{
+    unsigned x[5];
+    for(int i = 0; i < dim; ++i) {
+        x[i] = lclid % lcl[i] + lcl[i] * node_coor[i];
+        lclid /= lcl[i];
     }
-    
-    if(dimension==4) break;
 
-    sShift(data, site_mem * wt_arg.XnodeSites());
-    VRB.Result(cname,fname, "Serial unloading: %d%% done.\n", (int)((sc+1)*100.0/ns));
-  }
-
- sync_error:
-  if(synchronize(error)>0) 
-    ERR.FileW(cname,fname,wt_arg.FileName);
-
-  VRB.Result(cname, fname, "Serial Unloading done!\n");
-
-  if(ptrcsum) *ptrcsum = csum;
-  if(ptrpdcsum) *ptrpdcsum = pdcsum;
-  if(rand_sum) *rand_sum = RandSum;
-  if(rand_2_sum) *rand_2_sum = Rand2Sum;
-
-
-  return 1;
+    unsigned long long glbid = 0;
+    for(int i = dim - 1; i >= 0; --i) {
+        glbid = glbid * glb[i] + x[i];
+    }
+    return glbid;
 }
 
+void remap2(char *out, char *in, char *tmp,
+            const unsigned glb[5],
+            const unsigned lcl[5],
+            const unsigned node[5],
+            const unsigned node_coor[5],
+            size_t site_size, // bytes per site
+            const int dims)
+{
+    const char *cname = "";
+    const char *fname = "remap2()";
+
+    VRB.Result(cname, fname, "Start remapping, dims = %d.\n", dims);
+
+    const unsigned long long lcl_vol = lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
+    // x direction is contiguous
+    const size_t block_size = site_size * lcl[0];
+    const size_t node_size = block_size * lcl[1] * lcl[2] * lcl[3] * lcl[4];
+    assert(node_size % sizeof(IFloat) == 0); // for getPlusData().
+
+    // How many shifts (i.e., calls to getPlusData()) we need to do.
+    // Note: There is no need to shift in the direction of the last
+    // dimension.
+    unsigned long shifts = 1;
+    for(int i = 0; i < dims - 1; ++i) {
+        shifts *= node[i];
+    }
+
+    unsigned long long mynodeid = 0;
+    for(int i = dims - 1; i >= 0; --i) {
+        mynodeid = mynodeid * node[i] + node_coor[i];
+    }
+
+    char *o = in;
+    char *n = tmp;
+
+    unsigned long copied = 0;
+    for(unsigned long i = 0; i < shifts; ++i) {
+        // compute which node's data we have now
+        unsigned node_x[5];
+
+        unsigned long long id = i;
+        for(int k = 0; k < 5; ++k) {
+            node_x[k] = (id + node_coor[k]) % node[k]; id /= node[k];
+        }
+
+        // loop over current local data and pick up blocks
+        // FIXME: put an OpenMP directive here!
+        for(unsigned long long k = 0; k < lcl_vol; k += lcl[0]) {
+            unsigned long long glbid = lcl2glb_id(k, glb, lcl, node_x, dims);
+
+            if(glbid / lcl_vol == mynodeid) {
+                memcpy(out + glbid % lcl_vol * site_size,
+                       o + k * site_size,
+                       block_size);
+                ++copied;
+            }
+        }
+
+        // shift data
+        id = i;
+        for(int j = 0; j < dims; ++j) {
+            getPlusData((IFloat *)n, (IFloat *)o, node_size/sizeof(IFloat), j);
+            swap(o, n);
+            if(id % node[j] < node[j] - 1) break;
+            id /= node[j];
+        }
+    }
+
+    assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
+
+    if(n == in) {
+        memcpy(n, o, node_size);
+    }
+    VRB.Result(cname, fname, "End remapping.\n");
+}
+
+// data_per_site : how many numbers (floating point numbers for gauge
+// field or unsigned integers for RNG) per site we will store in the
+// file.
+//
+// site_mem : The size of per site data in bytes in memory (e.g. for gauge
+// field this is always sizeof(Matrix) * 4).
+int SerialIO::store(iostream &output, char *data,
+                    const int data_per_site, const int site_mem,
+		    LatHeaderBase &hd, const DataConversion &dconv,
+		    const int dimension /* 4 or 5 */,
+		    unsigned int *ptrcsum, unsigned int *ptrpdcsum,
+		    Float *rand_sum, Float *rand_2_sum)
+{ 
+    const char *fname = "store()";
+  
+    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
+
+    const unsigned glb[5] = {
+        qio_arg.XnodeSites() * qio_arg.Xnodes(),
+        qio_arg.YnodeSites() * qio_arg.Ynodes(),
+        qio_arg.ZnodeSites() * qio_arg.Znodes(),
+        qio_arg.TnodeSites() * qio_arg.Tnodes(),
+        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
+    };
+    const unsigned lcl[5] = {
+        qio_arg.XnodeSites(),
+        qio_arg.YnodeSites(),
+        qio_arg.ZnodeSites(),
+        qio_arg.TnodeSites(),
+        dimension == 4 ? 1 : qio_arg.SnodeSites(),
+    };
+    const unsigned node[5] = {
+        qio_arg.Xnodes(),
+        qio_arg.Ynodes(),
+        qio_arg.Znodes(),
+        qio_arg.Tnodes(),
+        qio_arg.Snodes(),
+    };
+    const unsigned node_coor[5] = {
+        qio_arg.Xcoor(),
+        qio_arg.Ycoor(),
+        qio_arg.Zcoor(),
+        qio_arg.Tcoor(),
+        qio_arg.Scoor(),
+    };
+
+    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
+    const size_t node_size = site_mem * lcl_vol;
+    VRB.Result(cname, fname, "Data size per node in mem = %llu\n", (unsigned long long)node_size);
+
+    char *fdata = new char[lcl_vol * chars_per_site];
+    ////////////////////////////////////////////////////////////////////////
+    // start converting data
+    const size_t fsize = chars_per_site;
+    const size_t msize = site_mem;
+
+    unsigned int csum = 0, pdcsum = 0;
+    Float RandSum = 0, Rand2Sum = 0;
+
+    TempBufAlloc rng(data_per_site * dconv.hostDataSize());
+
+    VRB.Result(cname, fname, "Start converting data.\n");
+    UGrandomGenerator *ugran = (UGrandomGenerator*)data;
+    for(unsigned long long xst = 0; xst < lcl_vol; ++xst) {
+        char *fsite = fdata + xst * fsize;
+        char *msite =  data + xst * msize;
+
+        if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
+            for(int mat = 0; mat < 4; ++mat) {
+                dconv.host2file(fsite + fsize / 4 * mat,
+                                msite + msize / 4 * mat,
+                                data_per_site / 4);
+            }
+        } else { // rng
+            ugran[xst].store(rng.IntPtr());
+            dconv.host2file(fsite, rng, data_per_site);
+            // next rand
+            Float rn = ugran[xst].Grand();
+            RandSum += rn;
+            Rand2Sum += rn*rn;
+            // recover
+            ugran[xst].load(rng.IntPtr());
+        }
+
+        // it's int for backward compatibility
+        int global_id = lcl2glb_id(xst, glb, lcl, node_coor, dimension);
+
+        csum += dconv.checksum(fsite, data_per_site);
+        pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
+                                   -1, global_id);
+    } //xst
+    VRB.Result(cname, fname, "End converting data.\n");
+    // end converting data
+    ////////////////////////////////////////////////////////////////////////
+
+    // FIXME: Possible problem with 4D splitting?
+    QMP_sum_unsigned(&csum);
+    QMP_sum_unsigned(&pdcsum);
+
+    // zero out csum/pdcsum for all non-master nodes since there is
+    // another glbsum.
+    if(UniqueID()) {
+        csum = 0;
+        pdcsum = 0;
+    }
+
+    char *rdata = new char[lcl_vol * chars_per_site];
+    char * temp = new char[lcl_vol * chars_per_site];
+    remap2(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension);
+
+    output.seekp(hd.dataStart(), ios_base::beg);
+    VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
+    
+    FILE *fp = Fopen(qio_arg.FileName, "ab");
+
+    unsigned long shifts = 1;
+    for(int i = 0; i < dimension; ++i) {
+        shifts *= node[i];
+    }
+
+    char *o = rdata;
+    char *n = temp;
+
+    int error = 0;
+    for(unsigned long i = 0; i < shifts; ++i) {
+        Fwrite(o, chars_per_site, lcl_vol, fp);
+        Fflush(fp);
+        if(isNode0()) {
+            // output.write(fbuf,chars_per_site);
+            // if(!output.good()) {
+            //     error = 1;
+            //     goto sync_error;
+            // }
+        } // ifNode0()
+
+        // shift data
+        unsigned long tmp = i;
+        for(int j = 0; j < dimension; ++j) {
+            // getData(n, o, node_size, j, +1);
+            getPlusData((IFloat *)n, (IFloat *)o, lcl_vol * chars_per_site / sizeof(IFloat), j);
+            swap(o, n);
+            if(tmp % node[j] < node[j] - 1) break;
+            tmp /= node[j];
+        }
+    }
+
+    Fclose(fp);
+
+    // if(isNode0())     output.close();
+    // if(!input.good()) error = 1;
+
+    VRB.Result(cname, fname, "Serial unloading <thru node 0> finishing\n");
+
+ sync_error:
+    if(synchronize(error)>0) 
+        ERR.FileW(cname,fname,qio_arg.FileName);
+
+    VRB.Result(cname, fname, "Serial Unloading done!\n");
+
+    if(ptrcsum) *ptrcsum = csum;
+    if(ptrpdcsum) *ptrpdcsum = pdcsum;
+    if(rand_sum) *rand_sum = RandSum;
+    if(rand_2_sum) *rand_2_sum = Rand2Sum;
 
 
+    delete[] fdata;
+    delete[] rdata;
+    delete[] temp;
+
+    return 1;
+}
 
 // NOTE: !!!
 // the x-shift is a little different from y-, z-, & t-shift.

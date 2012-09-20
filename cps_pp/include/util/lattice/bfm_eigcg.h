@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <cstring>
 #include <cassert>
 
 #ifdef LIST_ENGINE
@@ -439,7 +440,11 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                 //. The way we save QZ is transpozed to column first 
                 struct timeval proj_start_1,proj_end_1,proj_diff_1;
                 gettimeofday(&proj_start_1,NULL);
-                eigcg_vec_mult(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me);
+
+                // eigcg_vec_mult(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me);
+                // eigcg_vec_mult2(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
+                eigcg_vec_mult3(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
+
                 eigProj_flops += 2*eigcg->get_vec_len()*m*rank;
                 gettimeofday(&proj_end_1,NULL);
                 timersub(&proj_end_1,&proj_start_1,&proj_diff_1);
@@ -990,6 +995,90 @@ void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_
     delete [] aux;
     delete [] x;
     delete [] Vptr;
+}
+
+template<class Float>
+void eigcg_vec_mult2(Float* V, const int m, double *QZ, const int n, const int f_size_cb,
+                     const int nthread, const int me,
+                     bfm_evo<Float> &bfmobj)
+//QZ is saved in column major format. 
+//perform V = V*QZ;
+{
+    std::vector<Fermion_t> ret(n, NULL);
+    for(int i = 0; i < n; ++i) {
+        ret[i] = bfmobj.threadedAllocFermion();
+    }
+
+    for(int i = 0; i < n; ++i) {
+        bfmobj.set_zero(ret[i]);
+        for(int j = 0; j < m; ++j) {
+            bfmobj.axpy(ret[i],
+                        (Fermion_t)(V + j * f_size_cb), ret[i],
+                        QZ[i * m + j]);
+        }
+    }
+
+    for(int i = 0; i < n; ++i) {
+        bfmobj.copy((Fermion_t)(V + i * f_size_cb), ret[i]);
+        bfmobj.threadedFreeFermion(ret[i]);
+    }
+}
+
+#ifndef ALIGNIT
+#define ALIGNIT(A) (double *)( (((uint64_t)A) + 31)& (~0x1FUL) );
+#endif
+
+template <class Float>
+void myaxpy(Float *r, Float *x, Float *y, double a, int len)
+{
+  double aa_b[4+4]; // 64 bytes
+  double *aa = ALIGNIT(aa_b);
+  for(int i=0;i<4;i++) aa[i] = a;
+
+  if ( sizeof(Float) == sizeof(double) ) {
+    vmx_vaxpy((double *)r,(double *)aa,(double *)x,(double *)y,len);
+  } else { 
+    vmx_vaxpy_s((float *)r,(double *)aa,(float *)x,(float *)y,len);
+  }
+
+  // thread_barrier();
+
+  return;
+}
+
+template<class Float>
+void eigcg_vec_mult3(Float* V, const int m, double *QZ, const int n, const int f_size_cb,
+                     const int nthread, const int me,
+                     bfm_evo<Float> &bfmobj)
+//QZ is saved in column major format. 
+//perform V = V*QZ;
+{
+    std::vector<Float *> ret(n, NULL);
+    for(int i = 0; i < n; ++i) {
+        ret[i] = (Float *)bfmobj.threadedAllocFermion();
+        bfmobj.set_zero(ret[i]);
+    }
+
+    assert(nthread >= n);
+    int mywork, myoff;
+    bfmobj.thread_work_partial_nobarrier(f_size_cb / 24, me / n, nthread / n, mywork, myoff);
+    myoff *= 24;
+
+    if(me < nthread / n * n) {
+        int i = me % n;
+        for(int j = 0; j < m; ++j) {
+            myaxpy(ret[i] + myoff, // &r
+                   V + j * f_size_cb + myoff, // &x
+                   ret[i] + myoff, // &y
+                   QZ[i * m + j], // a
+                   mywork); // length
+        }
+    }
+
+    for(int i = 0; i < n; ++i) {
+        bfmobj.copy((Fermion_t)(V + i * f_size_cb), ret[i]);
+        bfmobj.threadedFreeFermion(ret[i]);
+    }
 }
 
 #endif

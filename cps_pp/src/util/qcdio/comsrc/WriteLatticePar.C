@@ -169,7 +169,4 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   VRB.FuncEnd(cname,fname);
 }
 
-
-
-
 CPS_END_NAMESPACE
