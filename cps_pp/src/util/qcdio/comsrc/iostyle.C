@@ -434,17 +434,6 @@ int ParallelIO::store(iostream & output,
         RandSum = Rand2Sum = 0;
     }
 
-    // // FIXME: Possible problem with S direction splitting?
-    // QMP_sum_unsigned(&csum);
-    // QMP_sum_unsigned(&pdcsum);
-
-    // // zero out csum/pdcsum for all non-master nodes since there is
-    // // another glbsum.
-    // if(UniqueID()) {
-    //     csum = 0;
-    //     pdcsum = 0;
-    // }
-
     char *rdata = new char[lcl_vol * chars_per_site];
     char * temp = new char[lcl_vol * chars_per_site];
     remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension);
@@ -716,17 +705,6 @@ int SerialIO::store(iostream &output, char *data,
         csum = pdcsum = 0;
         RandSum = Rand2Sum = 0;
     }
-
-    // // FIXME: Possible problem with S direction splitting?
-    // QMP_sum_unsigned(&csum);
-    // QMP_sum_unsigned(&pdcsum);
-
-    // // zero out csum/pdcsum for all non-master nodes since there is
-    // // another glbsum.
-    // if(UniqueID()) {
-    //     csum = 0;
-    //     pdcsum = 0;
-    // }
 
     char *rdata = new char[lcl_vol * chars_per_site];
     char * temp = new char[lcl_vol * chars_per_site];
