@@ -732,7 +732,6 @@ int SerialIO::store(iostream &output, char *data,
     char * temp = new char[lcl_vol * chars_per_site];
     remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension);
 
-    output.seekp(hd.dataStart(), ios_base::beg);
     VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
     
     FILE *fp = Fopen(qio_arg.FileName, "ab");
