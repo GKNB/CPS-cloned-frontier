@@ -114,6 +114,7 @@ public:
 	 bool Vml(VML *vmls,char *instance);
 	int box_start[4];
 	int box_size[4];
+	Float mom[4];
 	   QPropW4DBoxArg (  ) ;
 };
 

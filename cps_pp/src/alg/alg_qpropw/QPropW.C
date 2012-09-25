@@ -227,8 +227,10 @@ QPropW::QPropW(QPropW& prop1, QPropW& prop2):Alg(prop1)
    sink_type = prop1.sink_type;
 
    Allocate(PROP);
-   for (int i=0; i<GJP.VolNodeSites(); i++)
+#pragma omp parallel for
+   for (int i=0; i<GJP.VolNodeSites(); i++) {
      prop[i] = ((Float)0.5)*(prop1.prop[i]+prop2.prop[i]);
+   }
 
    qp_arg = prop1.qp_arg;
 }
@@ -3001,6 +3003,7 @@ QPropW4DBoxSrc::QPropW4DBoxSrc(Lattice& lat, QPropWArg* arg,
     for(int mu = 0; mu < 4; ++mu) {
         box_arg.box_start[mu] = b_arg->box_start[mu];
         box_arg.box_size[mu] = b_arg->box_size[mu];
+        box_arg.mom[mu] = b_arg->mom[mu];
     }
 
     Run();
@@ -3011,7 +3014,7 @@ void QPropW4DBoxSrc::SetSource(FermionVectorTp& src, int spin, int color)
     const char *fname = "SetSource()";
     VRB.Func(cname, fname);
   
-    src.Set4DBoxSource(color, spin, box_arg.box_start, box_arg.box_size);
+    src.Set4DBoxSource(color, spin, box_arg.box_start, box_arg.box_size, box_arg.mom);
 
     if (GFixedSrc()) {
         int t_size_glb = GJP.Tnodes() * GJP.TnodeSites();

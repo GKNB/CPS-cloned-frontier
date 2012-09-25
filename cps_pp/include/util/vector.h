@@ -6,19 +6,19 @@
 
   Also declarations of functions that perform operations on complex vectors.
 
-  $Id: vector.h,v 1.29.12.6 2012-07-12 00:50:16 yinnht Exp $
+  $Id: vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-12 00:50:16 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.29.12.6 2012-07-12 00:50:16 yinnht Exp $
-//  $Id: vector.h,v 1.29.12.6 2012-07-12 00:50:16 yinnht Exp $
+//  $Date: 2012-09-25 14:18:02 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
+//  $Id: vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: vector.h,v $
-//  $Revision: 1.29.12.6 $
+//  $Revision: 1.29.12.6.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v $
 //  $State: Exp $
 //
@@ -258,6 +258,20 @@ class Matrix
     Matrix& operator*=(IFloat c) {
         for(int i = 0; i < COLORS * COLORS * 2; ++i)
             u[i] *= c;
+        return *this;
+    }
+
+    //! Multiplies this matrix by a complex scalar.
+    /*!
+      \param c The complex scalar
+      \return The multiplied matrix
+    */
+    // Added by Hantao
+    Matrix &operator*=(const Complex &c) {
+        Complex *uc = (Complex *)u;
+        for(int i = 0; i < COLORS * COLORS; ++i) {
+            uc[i] *= c;
+        }
         return *this;
     }
 

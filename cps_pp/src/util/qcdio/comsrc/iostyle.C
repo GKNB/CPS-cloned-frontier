@@ -19,7 +19,6 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
-#include <map>
 #include <algorithm>
 #include <cassert>
 
@@ -722,7 +721,7 @@ int SerialIO::store(iostream &output, char *data,
     // end converting data
     ////////////////////////////////////////////////////////////////////////
 
-    // FIXME: Possible problem with 4D splitting?
+    // FIXME: Possible problem with S direction splitting?
     QMP_sum_unsigned(&csum);
     QMP_sum_unsigned(&pdcsum);
 
@@ -752,8 +751,12 @@ int SerialIO::store(iostream &output, char *data,
 
     int error = 0;
     for(unsigned long i = 0; i < shifts; ++i) {
-        Fwrite(o, chars_per_site, lcl_vol, fp);
-        Fflush(fp);
+        size_t ret = Fwrite(o, chars_per_site, lcl_vol, fp);
+        if(ret != lcl_vol) {
+            error = 1;
+            goto sync_error;
+        }
+
         if(isNode0()) {
             // output.write(fbuf,chars_per_site);
             // if(!output.good()) {
@@ -761,6 +764,7 @@ int SerialIO::store(iostream &output, char *data,
             //     goto sync_error;
             // }
         } // ifNode0()
+        Fflush(fp);
 
         // shift data
         unsigned long tmp = i;

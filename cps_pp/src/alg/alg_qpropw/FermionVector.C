@@ -14,6 +14,7 @@
 #include <comms/sysfunc_cps.h>
 #include <alg/fermion_vector.h>
 
+#include <cmath>
 #include <omp.h>
 
 CPS_START_NAMESPACE
@@ -230,7 +231,8 @@ inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
 void FermionVectorTp::Set4DBoxSource(int color,
                                      int spin,
                                      const int start[4], // global starting location in x, y, z and t directions
-                                     const int size[4]) // global size in x, y, z and t directions
+                                     const int size[4], // global size in x, y, z and t directions
+                                     const Float mom[4]) // momentum
 {
     const char *fname = "Set4DBoxSource()";
 
@@ -267,6 +269,9 @@ void FermionVectorTp::Set4DBoxSource(int color,
     // have to use Float since there is no CPS glb_sum() for int.
     Float src_vol = 0;
 
+    VRB.Result(cname, fname, "mom = %.3e %.3e %.3e %.3e\n",
+               mom[0], mom[1], mom[2], mom[3]);
+
 #pragma omp parallel for reduction(+:src_vol)
     for(int i = 0; i < sites; ++i) {
         int glb_x[4];
@@ -282,7 +287,15 @@ void FermionVectorTp::Set4DBoxSource(int color,
 
         if(inbox) {
             src_vol += 1;
-            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)] = 1.0;
+
+            const double PI = 3.1415926535897932384626433832795028842;
+            double alpha = 0.;
+            for(int mu = 0; mu < 4; ++mu) {
+                alpha += mom[mu] * 2.0 * PI * glb_x[mu] / glb[mu];
+            }
+
+            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)    ] = std::cos(alpha);
+            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin) + 1] = std::sin(alpha);
         }
     }
 

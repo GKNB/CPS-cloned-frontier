@@ -64,7 +64,8 @@ public:
   void Set4DBoxSource(int color,
                       int spin,
                       const int start[4], // global starting location in x, y, z and t directions
-                      const int size[4]); // global size in x, y, z and t directions
+                      const int size[4], // global size in x, y, z and t directions
+                      const Float mom[4]); // momentum
 
   /*! Gauge fix sink - Coulomb gauge only */
   void GaugeFixSink       ( Lattice& lat, int dir);

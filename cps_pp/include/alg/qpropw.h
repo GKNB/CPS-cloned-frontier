@@ -226,6 +226,9 @@ public:
   /*! Returns the prop */
   WilsonMatrix& operator[](int i){ return prop[i]; }
 
+  /*! Returns the prop */
+  const WilsonMatrix& operator[](int i)const{ return prop[i]; }
+
   /*! Returns the midpoint prop */
   WilsonMatrix& operator()(int i){ return midprop[i]; }
   

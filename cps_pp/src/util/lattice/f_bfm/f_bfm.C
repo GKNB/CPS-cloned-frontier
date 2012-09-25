@@ -890,6 +890,12 @@ void Fbfm::BondCond()
     bevo.cps_importGauge(gauge);
 }
 
+void Fbfm::ImportGauge()
+{
+    Float *gauge = (Float *)(this->GaugeField());
+    bevo.cps_importGauge(gauge);
+}
+
 CPS_END_NAMESPACE
 
 #endif

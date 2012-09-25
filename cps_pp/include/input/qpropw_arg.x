@@ -94,6 +94,9 @@ class QPropW4DBoxArg {
     // These are NOT start/end pairs!
     int box_start[4];
     int box_size[4];
+    // momentum, in units of 2*Pi/L, where L is the global size of the
+    // lattice in the concerned direction.
+    Float mom[4];
     memfun QPropW4DBoxArg();
 };
 

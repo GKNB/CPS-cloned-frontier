@@ -442,8 +442,8 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                 gettimeofday(&proj_start_1,NULL);
 
                 // eigcg_vec_mult(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me);
-                // eigcg_vec_mult2(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
-                eigcg_vec_mult3(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
+                eigcg_vec_mult2(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
+                // eigcg_vec_mult3(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
 
                 eigProj_flops += 2*eigcg->get_vec_len()*m*rank;
                 gettimeofday(&proj_end_1,NULL);

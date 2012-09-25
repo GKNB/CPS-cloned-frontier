@@ -248,6 +248,8 @@ public:
     //!external libraries need to overwrite this function.
     virtual void BondCond();
 
+    void ImportGauge();
+
     void SetMass(Float mass) {
         if(bevo.mass == mass) return;
         bevo.mass = mass;
