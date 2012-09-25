@@ -308,11 +308,11 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   //  cout << "size_rng_ints = " << size_rng_ints << endl;
   int size_rng_chars = size_rng_ints * intconv.fileIntSize();
 
-#if TARGET == QCDOC
-  setParallel();
-#else
-  setSerial();
-#endif
+// #if TARGET == QCDOC
+//   setParallel();
+// #else
+//   setSerial();
+// #endif
   VRB.Result(cname,fname,"parIO()=%d ConcurIONumber=%d\n",parIO(),wt_arg.ConcurIONumber);
 
   log();
@@ -372,31 +372,29 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
     if(! pario.store(output, (char*)ugran, size_rng_ints,
 		     sizeof(UGrandomGenerator), hd, intconv, 5,
 		     &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
-      ERR.General(cname, fname, "Unloading failed\n");
-
+        ERR.General(cname, fname, "Unloading failed\n");
+    
     VRB.Flow(cname,fname,"Node %d - 5D: csum=%x, order_csum=%x\n",
 	       UniqueID(),csum[0],pos_dep_csum[0]);
-//    printf("Node %d - 5D: csum=%x, order_csum=%x\n",
-//	       UniqueID(),csum[0],pos_dep_csum[0]);
+    //    printf("Node %d - 5D: csum=%x, order_csum=%x\n",
+    //	       UniqueID(),csum[0],pos_dep_csum[0]);
 
 
     hd.data_start += (long)size_rng_chars * (long)rng_arg.VolSites() * 
-                     (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
+        (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
  
     VRB.Flow(cname,fname,"Start Unloading 4-D RNGs\n");
-
+    
     if(! pario.store(output, (char*)ugran_4d, size_rng_ints, 
 		     sizeof(UGrandomGenerator), hd, intconv, 4,
 		     &csum[1], &pos_dep_csum[1], &RandSum[1], &Rand2Sum[1]))
-      ERR.General(cname, fname, "Unloading Failed\n");
-
+        ERR.General(cname, fname, "Unloading Failed\n");
+    
     VRB.Flow(cname,fname,"Node %d - 4D: csum=%x, order_csum=%x\n",
-	       UniqueID(),csum[1],pos_dep_csum[1]);
-//    printf("Node %d - 4D: csum=%x, order_csum=%x\n",
-//	       UniqueID(),csum[1],pos_dep_csum[1]);
-
-  }
-  else {
+             UniqueID(),csum[1],pos_dep_csum[1]);
+    //    printf("Node %d - 4D: csum=%x, order_csum=%x\n",
+    //	       UniqueID(),csum[1],pos_dep_csum[1]);
+  } else {
     VRB.Flow(cname,fname,"Start Unloading 5-D RNGs\n");
 
     SerialIO serio(rng_arg);

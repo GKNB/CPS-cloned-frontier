@@ -62,9 +62,9 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
 
   unsigned int csum = 0;
 
-#if TARGET != QCDOC   // when not on QCDOC(like on LINUX), use serial IO mode
-  setSerial();
-#endif
+// #if TARGET != QCDOC   // when not on QCDOC(like on LINUX), use serial IO mode
+//   setSerial();
+// #endif
   
   fstream output;
 
@@ -124,11 +124,6 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
 		    hd, fpconv, 4, &csum)) 
       ERR.General(cname, fname, "Unload failed\n");
 
-//    printf("Node %d: lattice write csum=%x\n",UniqueID(),csum);
-    if(wt_arg.Scoor() == 0) 
-      csum = globalSumUint(csum);
-    else 
-      globalSumUint(0);
   }
 #if 1
   else {
@@ -138,6 +133,11 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
       ERR.General(cname, fname, "Unload failed\n");
   }
 #endif
+  //    printf("Node %d: lattice write csum=%x\n",UniqueID(),csum);
+  if(wt_arg.Scoor() == 0)
+      csum = globalSumUint(csum);
+  else
+      globalSumUint(0);
 //  output.flush();
 
   log();
