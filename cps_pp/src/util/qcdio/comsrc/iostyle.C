@@ -9,7 +9,6 @@
 #include <config.h>
 
 #include <math.h>
-#include <util/gjp.h>
 #include <util/iostyle.h>
 #include <util/qcdio.h>
 #include <util/fpconv.h>
@@ -200,23 +199,23 @@ void convert2file(char *fsite, char *msite,
                   Float *RandSum, Float *Rand2Sum,
                   TempBufAlloc &rng)
 {
-        if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
-            for(int mu = 0; mu < 4; ++mu) {
-                dconv.host2file(fsite + fsize / 4 * mu,
-                                msite + msize / 4 * mu,
-                                data_per_site / 4);
-            }
-        } else { // rng
-            UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
-            ugran->store(rng.IntPtr());
-            dconv.host2file(fsite, rng, data_per_site);
-            // next rand
-            Float rn = ugran->Grand();
-            *RandSum += rn;
-            *Rand2Sum += rn*rn;
-            // recover
-            ugran->load(rng.IntPtr());
+    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
+        for(int mu = 0; mu < 4; ++mu) {
+            dconv.host2file(fsite + fsize / 4 * mu,
+                            msite + msize / 4 * mu,
+                            data_per_site / 4);
         }
+    } else { // rng
+        UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
+        ugran->store(rng.IntPtr());
+        dconv.host2file(fsite, rng, data_per_site);
+        // next rand
+        Float rn = ugran->Grand();
+        *RandSum += rn;
+        *Rand2Sum += rn*rn;
+        // recover
+        ugran->load(rng.IntPtr());
+    }
 }
 
 // convert to memory format, csum and pdcsum are computed outside.
@@ -325,180 +324,126 @@ void convert_data(char *fdata, char *mdata, size_t fsize, size_t msize,
 /*********************************************************************/
 
 // the last three pointers used to return information when loading Lattice Random Generators
-int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
-		     const LatHeaderBase & hd, const DataConversion & dconv, 
+int ParallelIO::load(char *data, const int data_per_site, const int site_mem,
+		     const LatHeaderBase &hd, const DataConversion &dconv, 
 		     const int dimension /* 4 or 5 */,
-		     unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-		     Float * rand_sum, Float * rand_2_sum)
+		     unsigned int *ptrcsum, unsigned int *ptrpdcsum,
+		     Float *rand_sum, Float *rand_2_sum)
 {
-  const char * fname = "load()";
+    const char *fname = "load()";
 
-  int error = 0;
-  QioArg & rd_arg = qio_arg;
+    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
 
-  // check dimensions, b.c, etc
-  int nx = rd_arg.Xnodes() * rd_arg.XnodeSites();
-  int ny = rd_arg.Ynodes() * rd_arg.YnodeSites();
-  int nz = rd_arg.Znodes() * rd_arg.ZnodeSites();
-  int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
-  int ns = rd_arg.Snodes() * rd_arg.SnodeSites();
+    const unsigned glb[5] = {
+        qio_arg.XnodeSites() * qio_arg.Xnodes(),
+        qio_arg.YnodeSites() * qio_arg.Ynodes(),
+        qio_arg.ZnodeSites() * qio_arg.Znodes(),
+        qio_arg.TnodeSites() * qio_arg.Tnodes(),
+        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
+    };
+    const unsigned lcl[5] = {
+        qio_arg.XnodeSites(),
+        qio_arg.YnodeSites(),
+        qio_arg.ZnodeSites(),
+        qio_arg.TnodeSites(),
+        dimension == 4 ? 1 : qio_arg.SnodeSites(),
+    };
+    const unsigned node[5] = {
+        qio_arg.Xnodes(),
+        qio_arg.Ynodes(),
+        qio_arg.Znodes(),
+        qio_arg.Tnodes(),
+        qio_arg.Snodes(),
+    };
+    const unsigned node_coor[5] = {
+        qio_arg.Xcoor(),
+        qio_arg.Ycoor(),
+        qio_arg.Zcoor(),
+        qio_arg.Tcoor(),
+        qio_arg.Scoor(),
+    };
 
-  const long chars_per_site  = data_per_site * dconv.fileDataSize();
+    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
 
-  long yblk = nx*chars_per_site;
-  long zblk = ny * yblk;
-  long tblk = nz * zblk;
-  long sblk = nt * tblk;
+    char *fdata = new char[lcl_vol * chars_per_site];
+    char *rdata = new char[lcl_vol * chars_per_site];
+    char * temp = new char[lcl_vol * chars_per_site];
 
-  int xbegin = rd_arg.XnodeSites() * rd_arg.Xcoor(), xend = rd_arg.XnodeSites() * (rd_arg.Xcoor()+1);
-  int ybegin = rd_arg.YnodeSites() * rd_arg.Ycoor(), yend = rd_arg.YnodeSites() * (rd_arg.Ycoor()+1);
-  int zbegin = rd_arg.ZnodeSites() * rd_arg.Zcoor(), zend = rd_arg.ZnodeSites() * (rd_arg.Zcoor()+1);
-  int tbegin = rd_arg.TnodeSites() * rd_arg.Tcoor(), tend = rd_arg.TnodeSites() * (rd_arg.Tcoor()+1);
-  int sbegin = rd_arg.SnodeSites() * rd_arg.Scoor(), send = rd_arg.SnodeSites() * (rd_arg.Scoor()+1);
+    int error = 0;
+    //////////////////////////////////////////////////////////////////////
+    // step 1: load data from file
+    //
+    // Note: we don't need sSpread() because all nodes will
+    // participate in loading.
+    VRB.Result(cname, fname, "Parallel loading starting\n");
+    setConcurIONumber(qio_arg.ConcurIONumber);
 
+    getIOTimeSlot();
 
-  // all open file and check error
-  ifstream input(rd_arg.FileName);
-  if ( !input.good() )   error = 1;
-
-  // executed by all, sync and share error status information
-  if(synchronize(error) != 0)   
-    ERR.FileR(cname, fname, rd_arg.FileName);
-
-  // TempBufAlloc is a Mem Allocator that prevents mem leak on function exits
-  TempBufAlloc fbuf(chars_per_site);  // buffer only stores one site
-  
-  // these two only needed when loading LatRng
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-
-
-  // read in parallel manner, node 0 will assign & dispatch IO time slots
-  uint32_t csum = 0;
-  uint32_t pdcsum = 0;
-  Float RandSum = 0;
-  Float Rand2Sum = 0;
-  int siteid = 0;
-  char * pd = data;
-
-  VRB.Result(cname, fname, "Parallel loading starting\n");
-  setConcurIONumber(rd_arg.ConcurIONumber);
-//  setConcurIONumber(1);
-  //
-  getIOTimeSlot();
-
-  input.seekg(hd.dataStart(),ios_base::beg);
-
-  long jump = 0;
-  if(dimension == 5) jump = sbegin * sblk;
-
-  for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
-    jump += tbegin * tblk;
-    for(int tr=tbegin;tr<tend;tr++) {
-      jump += zbegin * zblk;
-      for(int zr=zbegin;zr<zend;zr++) {
-	jump += ybegin * yblk;
-	for(int yr=ybegin;yr<yend;yr++) {
-	  jump += xbegin * chars_per_site;
-	  input.seekg(jump,ios_base::cur);
-
-	  for(int xr=xbegin;xr<xend;xr++) {
-	    int try_num =0;
-#if 0
-           input.read(fbuf,chars_per_site);
-           if(!input.good()) {
-             error = 1;
-             goto sync_error;
-           }
-#else
-            unsigned int r_pos = input.tellg();
-            long long lcsum=-1,lcsum2=-1;
-            do {
-              lcsum2=lcsum;
-	      input.seekg(r_pos,ios::beg);
-	      input.read(fbuf,chars_per_site);
-              lcsum = dconv.checksum(fbuf,data_per_site);
-              try_num++;
-              if(try_num%100==0)
-                printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
-            } while ( ( (lcsum==0) || (lcsum!=lcsum2)) && try_num<1000);
-//	    if(!input.good()) {
-//	      error = 1;
-//             printf("Node %d: csum error in ParIO::load()\n",UniqueID());
-//	      goto sync_error;
-//	    }
-#endif
-
-	    csum += dconv.checksum(fbuf,data_per_site);
-	    pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension,	rd_arg, siteid, 0);
-            if(try_num>2)
-            printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
-
-	    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-	      for(int mat=0;mat<4;mat++) {
-		dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
-		pd += site_mem/4;
-	      }
-	    }
-	    else { // LatHeaderBase::LATRNG_HEADER
-	      // load
-	      dconv.file2host(rng,fbuf,data_per_site);
-	      ugran[siteid].load(rng.IntPtr());
-	      // generate next rand for verification
-	      Float rn = ugran[siteid].Grand(1);
-	      RandSum += rn;
-	      Rand2Sum += rn*rn;
-	      // recover loading
-	      ugran[siteid].load(rng.IntPtr());
-	    }
-	   
-	    siteid++;
-	  }
-	  jump = (nx-xend) * chars_per_site;  // "jump" restart from 0 and count
-	}
-	jump += (ny-yend) * yblk;
-      }
-      jump += (nz-zend) * zblk;
-      
-      if(dimension == 4)
-	VRB.Result(cname,fname, "Parallel loading: %d%% done.\n", (int)((tr-tbegin+1) * 100.0 /(tend-tbegin)));
+    unsigned long long mynodeid = 0;
+    for(int i = dimension - 1; i >= 0; --i) {
+        mynodeid = mynodeid * node[i] + node_coor[i];
     }
-    
-    if(dimension == 4) break;
 
-    jump += (nt-tend) * tblk;
+    FILE *fp = fopen(qio_arg.FileName, "rb");
+    if(fp == NULL) {
+        error = 1;
+        ERR.FileR(cname, fname, qio_arg.FileName);
+    }
+        
+    fseek(fp, hd.dataStart() + (long)(mynodeid * lcl_vol * chars_per_site), SEEK_SET);
+        
+    if(fread(fdata, chars_per_site, lcl_vol, fp) != lcl_vol) {
+        error = 1;
+        ERR.FileR(cname, fname, qio_arg.FileName);
+    }
+        
+    fclose(fp);
+        
+    VRB.Result(cname, fname, "Parallel loading finishing\n");
 
-    VRB.Result(cname,fname, "Parallel loading: %d%% done.\n",(int)((sr-sbegin+1) * 100.0 /(send-sbegin)));
-  }
-
-  VRB.Flow(cname,fname, "This Group Done!\n");
-
- sync_error:
-
-  finishIOTimeSlot();
-  //
+    finishIOTimeSlot();
   
-  input.close();
-  if ( !input.good() )  error = 1;
+    if(synchronize(error) != 0) {
+        ERR.FileR(cname, fname, qio_arg.FileName);
+    }
 
-  if(synchronize(error) != 0)  
-    ERR.FileR(cname, fname, rd_arg.FileName);
+    //////////////////////////////////////////////////////////////////////
+    // step 2: do remapping
+    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension, false);
 
-  // This 3 lines differ from unloading part
-  // these nodes participate in loading but not in summation
-  if(dimension == 4 && rd_arg.Scoor()!=0) { 
-    csum = pdcsum = 0;
-    RandSum = Rand2Sum = 0;
-  }
+    //////////////////////////////////////////////////////////////////////
+    // step 3: convert data from file format to memory format
+    unsigned int csum = 0;
+    unsigned int pdcsum = 0;
+    Float RandSum = 0;
+    Float Rand2Sum = 0;
 
-  VRB.Result(cname,fname,"Parallel Loading done!\n");
+    convert_data(rdata, data, chars_per_site, site_mem,
+                 data_per_site, lcl_vol,
+                 hd, dconv,
+                 dimension, qio_arg,
+                 &csum, &pdcsum, &RandSum, &Rand2Sum, false);
 
-  if(ptrcsum) *ptrcsum = csum;
-  if(ptrpdcsum) *ptrpdcsum = pdcsum;
-  if(rand_sum) *rand_sum = RandSum;
-  if(rand_2_sum) *rand_2_sum = Rand2Sum;
+    //////////////////////////////////////////////////////////////////////
+    // step 4: for 4D data we don't need duplicated checksums.
+    if(dimension == 4 && qio_arg.Scoor() != 0) {
+        csum = pdcsum = 0;
+        RandSum = Rand2Sum = 0;
+    }
 
-  return 1;
+    VRB.Result(cname, fname, "Parallel Loading done!\n");
+
+    if(ptrcsum) *ptrcsum = csum;
+    if(ptrpdcsum) *ptrpdcsum = pdcsum;
+    if(rand_sum) *rand_sum = RandSum;
+    if(rand_2_sum) *rand_2_sum = Rand2Sum;
+
+    delete[] fdata;
+    delete[] rdata;
+    delete[] temp;
+
+    return 1;
 }
 
 int ParallelIO::store(iostream & output,
@@ -565,7 +510,7 @@ int ParallelIO::store(iostream & output,
     char * temp = new char[lcl_vol * chars_per_site];
     remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension, true);
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
     // start parallel writing
     VRB.Result(cname, fname, "Parallel unloading starting\n");
     setConcurIONumber(qio_arg.ConcurIONumber);
@@ -693,6 +638,8 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
         fseek(fp, hd.dataStart(), SEEK_SET);
     }
 
+    VRB.Result(cname, fname, "Serial loading <thru node 0> starting\n");
+
     char *o = fdata;
     char *n = temp;
 
@@ -712,17 +659,22 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
 
     VRB.Result(cname, fname, "Serial loading <thru node 0> finishing\n");
 
- sync_error:
     if(synchronize(error) > 0) {
         ERR.FileR(cname, fname, qio_arg.FileName);
     }
 
     //////////////////////////////////////////////////////////////////////
-    // step 2: do remapping
+    // step 2: spread (clone) lattice data along s-dim
+    if(dimension == 4) {
+        sSpread(o, chars_per_site * qio_arg.VolNodeSites());
+    }
+  
+    //////////////////////////////////////////////////////////////////////
+    // step 3: do remapping
     remap(rdata, o, n, glb, lcl, node, node_coor, chars_per_site, dimension, false);
 
     //////////////////////////////////////////////////////////////////////
-    // step 3: convert data from file format to memory format
+    // step 4: convert data from file format to memory format
     unsigned int csum = 0;
     unsigned int pdcsum = 0;
     Float RandSum = 0;
@@ -735,11 +687,12 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
                  &csum, &pdcsum, &RandSum, &Rand2Sum, false);
 
     //////////////////////////////////////////////////////////////////////
-    // step 4: spread (clone) lattice data along s-dim
-    if(dimension==4) {
-        sSpread(data, site_mem * qio_arg.VolNodeSites());
+    // step 5: for 4D data we don't need duplicated checksums.
+    if(dimension == 4 && qio_arg.Scoor() != 0) {
+        csum = pdcsum = 0;
+        RandSum = Rand2Sum = 0;
     }
-  
+
     VRB.Result(cname, fname, "Serial Loading done!\n");
 
     if(ptrcsum) *ptrcsum = csum;
