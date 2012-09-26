@@ -25,11 +25,12 @@
 using namespace std;
 CPS_START_NAMESPACE
 
-unsigned long long lcl2glb_id(unsigned long long lclid,
-                              const unsigned glb[5],
-                              const unsigned lcl[5],
-                              const unsigned node_coor[5],
-                              unsigned dim)
+// Compute global offset from local offset and node ID.
+unsigned long long lcl2glb(unsigned long long lclid,
+                           const unsigned glb[5],
+                           const unsigned lcl[5],
+                           const unsigned node_coor[5],
+                           unsigned dim)
 {
     unsigned x[5];
     for(int i = 0; i < dim; ++i) {
@@ -44,13 +45,14 @@ unsigned long long lcl2glb_id(unsigned long long lclid,
     return glbid;
 }
 
-void find_place(unsigned long long *node_id,
-                unsigned long long *site_id,
-                unsigned long long glbid,
-                const unsigned glb[5],
-                const unsigned lcl[5],
-                const unsigned node[5],
-                unsigned dim)
+// Compute local data offset and node ID from global offset.
+void glb2lcl(unsigned long long *node_id,
+             unsigned long long *site_id,
+             unsigned long long glbid,
+             const unsigned glb[5],
+             const unsigned lcl[5],
+             const unsigned node[5],
+             unsigned dim)
 {
     unsigned x[5];
     for(int i = 0; i < dim; ++i) {
@@ -64,6 +66,32 @@ void find_place(unsigned long long *node_id,
     for(int i = dim - 1; i >= 0; --i) {
         *node_id = *node_id * node[i] + x[i] / lcl[i];
         *site_id = *site_id * lcl[i]  + x[i] % lcl[i];
+    }
+}
+
+// Shift local data.
+//
+// Before calling this function, node 0 must have node (0 + i)'s data.
+// After calling this function node 0 has node (0 + i + 1)'s data.
+//
+// For other nodes it's a bit more complicated, work it out.
+//
+// So a series of calls to this function with i = 0, 1, 2, ...  let
+// each node loop over the entire lattice. Node 0 will go over the
+// global lattice in a natural order, other nodes go over the global
+// lattice in a different (but still simple) order.
+void shift_data(char **o, char **n, unsigned long i,
+                size_t size, 
+                const unsigned node[5])
+{
+    // FIXME: Rewrite getPlusData() to remove this restriction.
+    assert(size % sizeof(IFloat) == 0);
+
+    for(int j = 0; j < 5; ++j) {
+        getPlusData((IFloat *)*n, (IFloat *)*o, size / sizeof(IFloat), j);
+        swap(*o, *n);
+        if(i % node[j] < node[j] - 1) break;
+        i /= node[j];
     }
 }
 
@@ -117,9 +145,9 @@ void remap(char *out, char *in, char *tmp,
         }
 
         // loop over current local data and pick up blocks
-        // FIXME: put an OpenMP directive here!
+        // FIXME: put an OpenMP directive here?
         for(unsigned long long k = 0; k < lcl_vol; k += lcl[0]) {
-            unsigned long long glbid = lcl2glb_id(k, glb, lcl, node_x, dims);
+            unsigned long long glbid = lcl2glb(k, glb, lcl, node_x, dims);
 
             if(glbid / lcl_vol == mynodeid) {
                 memcpy(out + glbid % lcl_vol * site_size,
@@ -129,14 +157,7 @@ void remap(char *out, char *in, char *tmp,
             }
         }
 
-        // shift data
-        id = i;
-        for(int j = 0; j < dims; ++j) {
-            getPlusData((IFloat *)n, (IFloat *)o, node_size/sizeof(IFloat), j);
-            swap(o, n);
-            if(id % node[j] < node[j] - 1) break;
-            id /= node[j];
-        }
+        shift_data(&o, &n, i, node_size, node);
     }
 
     assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
@@ -206,7 +227,7 @@ void remap2(char *out, char *in, char *tmp,
             unsigned long long glbid = file_node * lcl_vol + k;
             
             unsigned long long node_id, site_id;
-            find_place(&node_id, &site_id, glbid, glb, lcl, node, dims);
+            glb2lcl(&node_id, &site_id, glbid, glb, lcl, node, dims);
 
             if(node_id == mynodeid) {
                 memcpy(out + site_id * site_size,
@@ -216,14 +237,7 @@ void remap2(char *out, char *in, char *tmp,
             }
         }
 
-        // shift data
-        id = i;
-        for(int j = 0; j < dims; ++j) {
-            getPlusData((IFloat *)n, (IFloat *)o, node_size/sizeof(IFloat), j);
-            swap(o, n);
-            if(id % node[j] < node[j] - 1) break;
-            id /= node[j];
-        }
+        shift_data(&o, &n, i, node_size, node);
     }
 
     assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
@@ -297,7 +311,7 @@ void convert_data(char *out, char *in, size_t fsize, size_t msize,
         }
 
         // it's int for backward compatibility
-        int global_id = lcl2glb_id(xst, glb, lcl, node_coor, dimension);
+        int global_id = lcl2glb(xst, glb, lcl, node_coor, dimension);
 
         *csum += dconv.checksum(fsite, data_per_site);
         *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
@@ -351,7 +365,7 @@ void convert_data2(char *out, char *in, size_t fsize, size_t msize,
         char *fsite =  in + xst * fsize;
 
         // it's int for backward compatibility
-        int global_id = lcl2glb_id(xst, glb, lcl, node_coor, dimension);
+        int global_id = lcl2glb(xst, glb, lcl, node_coor, dimension);
 
         *csum += dconv.checksum(fsite, data_per_site);
         *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
@@ -600,8 +614,6 @@ int ParallelIO::store(iostream & output,
     };
 
     const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    const size_t node_size = site_mem * lcl_vol;
-    VRB.Result(cname, fname, "Data size per node in mem = %llu\n", (unsigned long long)node_size);
 
     char *fdata = new char[lcl_vol * chars_per_site];
 
@@ -651,7 +663,6 @@ int ParallelIO::store(iostream & output,
             }
 
             fseek(fp, hd.dataStart() + (long)(mynodeid * lcl_vol * chars_per_site), SEEK_SET);
-            // fseek(fp, hd.data_start + mynodeid * lcl_vol * chars_per_site, SEEK_SET);
 
             if(fwrite(rdata, chars_per_site, lcl_vol, fp) != lcl_vol) {
                 error = 1;
@@ -734,8 +745,6 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
     };
 
     const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    const size_t node_size = site_mem * lcl_vol;
-    VRB.Result(cname, fname, "Data size per node in mem = %llu\n", (unsigned long long)node_size);
 
     char *fdata = new char[lcl_vol * chars_per_site];
     char *rdata = new char[lcl_vol * chars_per_site];
@@ -743,17 +752,17 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
 
     //////////////////////////////////////////////////////////////////////
     // step 1: read from the file
+    unsigned long shifts = 1;
+    for(int i = 0; i < dimension; ++i) {
+        shifts *= node[i];
+    }
+
     FILE *fp = Fopen(qio_arg.FileName, "r");
     if(fp == NULL) {
         ERR.FileW(cname, fname, qio_arg.FileName);
     }
     if(UniqueID() == 0) {
         fseek(fp, hd.dataStart(), SEEK_SET);
-    }
-
-    unsigned long shifts = 1;
-    for(int i = 0; i < dimension; ++i) {
-        shifts *= node[i];
     }
 
     char *o = fdata;
@@ -769,14 +778,7 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
             }
         }
 
-        // shift data
-        unsigned long tmp = i;
-        for(int j = 0; j < dimension; ++j) {
-            getPlusData((IFloat *)n, (IFloat *)o, lcl_vol * chars_per_site / sizeof(IFloat), j);
-            swap(o, n);
-            if(tmp % node[j] < node[j] - 1) break;
-            tmp /= node[j];
-        }
+        shift_data(&o, &n, i, lcl_vol * chars_per_site, node);
     }
     Fclose(fp);
 
@@ -871,8 +873,6 @@ int SerialIO::store(iostream &output, char *data,
     };
 
     const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    const size_t node_size = site_mem * lcl_vol;
-    VRB.Result(cname, fname, "Data size per node in mem = %llu\n", (unsigned long long)node_size);
 
     char *fdata = new char[lcl_vol * chars_per_site];
 
@@ -917,15 +917,7 @@ int SerialIO::store(iostream &output, char *data,
         }
         Fflush(fp);
 
-        // shift data
-        unsigned long tmp = i;
-        for(int j = 0; j < dimension; ++j) {
-            // getData(n, o, node_size, j, +1);
-            getPlusData((IFloat *)n, (IFloat *)o, lcl_vol * chars_per_site / sizeof(IFloat), j);
-            swap(o, n);
-            if(tmp % node[j] < node[j] - 1) break;
-            tmp /= node[j];
-        }
+        shift_data(&o, &n, i, lcl_vol * chars_per_site, node);
     }
 
     Fclose(fp);
