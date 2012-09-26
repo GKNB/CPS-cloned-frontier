@@ -121,11 +121,11 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
 
 //#if TARGET == QCDOC  // when on QCDOC, only Parallel (direct IO) mode is used
-#if 1
-  setParallel();
-#else
-  setSerial();
-#endif
+// #if 1
+//   setParallel();
+// #else
+//   setSerial();
+// #endif
   VRB.Result(cname,fname,"parIO()=%d\n",parIO());
 
   if(parIO()) {
