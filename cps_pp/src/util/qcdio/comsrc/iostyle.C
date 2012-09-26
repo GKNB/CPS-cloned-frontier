@@ -729,14 +729,6 @@ int SerialIO::store(iostream &output, char *data,
             error = 1;
             goto sync_error;
         }
-
-        if(isNode0()) {
-            // output.write(fbuf,chars_per_site);
-            // if(!output.good()) {
-            //     error = 1;
-            //     goto sync_error;
-            // }
-        } // ifNode0()
         Fflush(fp);
 
         // shift data
