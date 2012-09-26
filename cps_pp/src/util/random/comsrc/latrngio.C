@@ -121,11 +121,11 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
 
 //#if TARGET == QCDOC  // when on QCDOC, only Parallel (direct IO) mode is used
-// #if 1
-//   setParallel();
-// #else
-//   setSerial();
-// #endif
+#if 1
+  setParallel();
+#else
+  setSerial();
+#endif
   VRB.Result(cname,fname,"parIO()=%d\n",parIO());
 
   if(parIO()) {
@@ -308,11 +308,11 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   //  cout << "size_rng_ints = " << size_rng_ints << endl;
   int size_rng_chars = size_rng_ints * intconv.fileIntSize();
 
-// #if TARGET == QCDOC
-//   setParallel();
-// #else
-//   setSerial();
-// #endif
+#if TARGET == QCDOC
+  setParallel();
+#else
+  setSerial();
+#endif
   VRB.Result(cname,fname,"parIO()=%d ConcurIONumber=%d\n",parIO(),wt_arg.ConcurIONumber);
 
   log();
