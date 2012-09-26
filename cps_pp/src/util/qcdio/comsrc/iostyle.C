@@ -18,7 +18,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <string.h>
+#include <cstring>
 #include <algorithm>
 #include <cassert>
 
@@ -97,14 +97,18 @@ void shift_data(char **o, char **n, unsigned long i,
 
 // remap: Do a remapping so the data layout is suitable for I/O.
 //
-// for store
+// If from_lcl == true then we are mapping from local storage order to
+// global storage order (and thus will store the data to file
+// subsequently), otherwise we are mapping from global to local (and
+// thus we will recover the data from file subsequently).
 void remap(char *out, char *in, char *tmp,
-            const unsigned glb[5],
-            const unsigned lcl[5],
-            const unsigned node[5],
-            const unsigned node_coor[5],
-            size_t site_size, // bytes per site
-            const int dims)
+           const unsigned glb[5],
+           const unsigned lcl[5],
+           const unsigned node[5],
+           const unsigned node_coor[5],
+           size_t site_size, // bytes per site
+           const int dims,
+           bool from_lcl)
 {
     const char *cname = "";
     const char *fname = "remap()";
@@ -116,7 +120,6 @@ void remap(char *out, char *in, char *tmp,
     // x direction is contiguous
     const size_t block_size = site_size * lcl[0];
     const size_t node_size = block_size * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    assert(node_size % sizeof(IFloat) == 0); // for getPlusData().
 
     // How many shifts (i.e., calls to getPlusData()) we need to do.
     // Note: There is no need to shift in the direction of the last
@@ -144,101 +147,41 @@ void remap(char *out, char *in, char *tmp,
             node_x[k] = (id + node_coor[k]) % node[k]; id /= node[k];
         }
 
-        // loop over current local data and pick up blocks
-        // FIXME: put an OpenMP directive here?
-        for(unsigned long long k = 0; k < lcl_vol; k += lcl[0]) {
-            unsigned long long glbid = lcl2glb(k, glb, lcl, node_x, dims);
-
-            if(glbid / lcl_vol == mynodeid) {
-                memcpy(out + glbid % lcl_vol * site_size,
-                       o + k * site_size,
-                       block_size);
-                ++copied;
-            }
-        }
-
-        shift_data(&o, &n, i, node_size, node);
-    }
-
-    assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
-
-    if(n == in) {
-        memcpy(n, o, node_size);
-    }
-    VRB.Result(cname, fname, "End remapping.\n");
-}
-
-// remap2: Do a remapping so the data layout is suitable for I/O.
-//
-// for load
-void remap2(char *out, char *in, char *tmp,
-            const unsigned glb[5],
-            const unsigned lcl[5],
-            const unsigned node[5],
-            const unsigned node_coor[5],
-            size_t site_size, // bytes per site
-            const int dims)
-{
-    const char *cname = "";
-    const char *fname = "remap2()";
-
-    VRB.Result(cname, fname, "Start remapping, dims = %d.\n", dims);
-
-    const unsigned long long lcl_vol
-        = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    // x direction is contiguous
-    const size_t block_size = site_size * lcl[0];
-    const size_t node_size = block_size * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-    assert(node_size % sizeof(IFloat) == 0); // for getPlusData().
-
-    // How many shifts (i.e., calls to getPlusData()) we need to do.
-    // Note: There is no need to shift in the direction of the last
-    // dimension.
-    unsigned long shifts = 1;
-    for(int i = 0; i < dims - 1; ++i) {
-        shifts *= node[i];
-    }
-
-    unsigned long long mynodeid = 0;
-    for(int i = dims - 1; i >= 0; --i) {
-        mynodeid = mynodeid * node[i] + node_coor[i];
-    }
-
-    char *o = in;
-    char *n = tmp;
-
-    unsigned long copied = 0;
-    for(unsigned long i = 0; i < shifts; ++i) {
-        // compute which node's data we have now
-        unsigned node_x[5];
-
-        unsigned long long id = i;
-        for(int k = 0; k < 5; ++k) {
-            node_x[k] = (id + node_coor[k]) % node[k]; id /= node[k];
-        }
+        // this will only be used if from_lcl == false
         unsigned long long file_node = 0;
         for(int k = dims - 1; k >= 0; --k) {
             file_node = file_node * node[k] + node_x[k];
         }
 
         // loop over current local data and pick up blocks
-        // FIXME: put an OpenMP directive here!
+        // FIXME: put an OpenMP directive here?
         for(unsigned long long k = 0; k < lcl_vol; k += lcl[0]) {
-            unsigned long long glbid = file_node * lcl_vol + k;
-            
-            unsigned long long node_id, site_id;
-            glb2lcl(&node_id, &site_id, glbid, glb, lcl, node, dims);
-
-            if(node_id == mynodeid) {
-                memcpy(out + site_id * site_size,
-                       o + k * site_size,
-                       block_size);
-                ++copied;
+            if(from_lcl) { // local ==> global
+                unsigned long long glbid = lcl2glb(k, glb, lcl, node_x, dims);
+                
+                if(glbid / lcl_vol == mynodeid) {
+                    memcpy(out + glbid % lcl_vol * site_size,
+                           o + k * site_size,
+                           block_size);
+                    ++copied;
+                }
+            } else { // global ==> local
+                unsigned long long glbid = file_node * lcl_vol + k;
+                
+                unsigned long long node_id, site_id;
+                glb2lcl(&node_id, &site_id, glbid, glb, lcl, node, dims);
+                
+                if(node_id == mynodeid) {
+                    memcpy(out + site_id * site_size,
+                           o + k * site_size,
+                           block_size);
+                    ++copied;
+                }
             }
-        }
+        } // end for local sites
 
         shift_data(&o, &n, i, node_size, node);
-    }
+    } // end for shifts
 
     assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
 
@@ -248,17 +191,78 @@ void remap2(char *out, char *in, char *tmp,
     VRB.Result(cname, fname, "End remapping.\n");
 }
 
-// convert_data: convert data suitable for write.
+// convert to file format, csum and pdcsum are computed outside.
+//
+// we have data in msite, need to fill fsite.
+void convert2file(char *fsite, char *msite,
+                  size_t fsize, size_t msize, int data_per_site,
+                  const LatHeaderBase &hd, const DataConversion &dconv,
+                  Float *RandSum, Float *Rand2Sum,
+                  TempBufAlloc &rng)
+{
+        if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
+            for(int mu = 0; mu < 4; ++mu) {
+                dconv.host2file(fsite + fsize / 4 * mu,
+                                msite + msize / 4 * mu,
+                                data_per_site / 4);
+            }
+        } else { // rng
+            UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
+            ugran->store(rng.IntPtr());
+            dconv.host2file(fsite, rng, data_per_site);
+            // next rand
+            Float rn = ugran->Grand();
+            *RandSum += rn;
+            *Rand2Sum += rn*rn;
+            // recover
+            ugran->load(rng.IntPtr());
+        }
+}
+
+// convert to memory format, csum and pdcsum are computed outside.
+//
+// Note: now we have data in fsite, need to fill msite.
+void convert2mem(char *fsite, char *msite,
+                 size_t fsize, size_t msize, int data_per_site,
+                 const LatHeaderBase &hd, const DataConversion &dconv,
+                 Float *RandSum, Float *Rand2Sum,
+                 TempBufAlloc &rng)
+{
+    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
+        for(int mu = 0; mu < 4; ++mu) {
+            dconv.file2host(msite + msize / 4 * mu,
+                            fsite + fsize / 4 * mu,
+                            data_per_site / 4);
+        }
+    } else { // rng
+        dconv.file2host(rng, fsite, data_per_site);
+        UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
+        ugran->load(rng.IntPtr());
+        // next rand
+        Float rn = ugran->Grand();
+        *RandSum += rn;
+        *Rand2Sum += rn*rn;
+        // recover
+        ugran->load(rng.IntPtr());
+    }
+}
+
+// convert_data: convert data suitable for I/O.
 //
 // fsize: size per site in file
 // msize: size per site in memory
 //
-// for write
-void convert_data(char *out, char *in, size_t fsize, size_t msize,
+// If mem2file == true then we are converting to file format,
+// otherwise converting to memory format.
+//
+// Whether we have data in fdata or mdata depends on the flag
+// mem2file.
+void convert_data(char *fdata, char *mdata, size_t fsize, size_t msize,
                   int data_per_site, unsigned long long lcl_vol,
                   const LatHeaderBase &hd, const DataConversion &dconv,
                   int dimension, QioArg &qio_arg, 
-                  unsigned *csum, unsigned *pdcsum, Float *RandSum, Float *Rand2Sum)
+                  unsigned *csum, unsigned *pdcsum, Float *RandSum, Float *Rand2Sum,
+                  bool mem2file)
 {
     const char *cname = "";
     const char *fname = "convert_data()";
@@ -289,105 +293,29 @@ void convert_data(char *out, char *in, size_t fsize, size_t msize,
     };
 
     for(unsigned long long xst = 0; xst < lcl_vol; ++xst) {
-        char *fsite = out + xst * fsize;
-        char *msite =  in + xst * msize;
-
-        if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
-            for(int mat = 0; mat < 4; ++mat) {
-                dconv.host2file(fsite + fsize / 4 * mat,
-                                msite + msize / 4 * mat,
-                                data_per_site / 4);
-            }
-        } else { // rng
-            UGrandomGenerator *ugran = (UGrandomGenerator*)in;
-            ugran[xst].store(rng.IntPtr());
-            dconv.host2file(fsite, rng, data_per_site);
-            // next rand
-            Float rn = ugran[xst].Grand();
-            *RandSum += rn;
-            *Rand2Sum += rn*rn;
-            // recover
-            ugran[xst].load(rng.IntPtr());
-        }
+        char *fsite = fdata + xst * fsize;
+        char *msite = mdata + xst * msize;
 
         // it's int for backward compatibility
         int global_id = lcl2glb(xst, glb, lcl, node_coor, dimension);
 
-        *csum += dconv.checksum(fsite, data_per_site);
-        *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
-                                    -1, global_id);
-    } //xst
-    VRB.Result(cname, fname, "End converting data.\n");
-}
+        if(mem2file) { // memory ==> file
+            convert2file(fsite, msite, fsize, msize, data_per_site,
+                         hd, dconv, RandSum, Rand2Sum, rng);
 
-// convert_data2: convert data after reading from a file.
-//
-// fsize: size per site in file
-// msize: size per site in memory
-//
-// for load
-void convert_data2(char *out, char *in, size_t fsize, size_t msize,
-                   int data_per_site, unsigned long long lcl_vol,
-                   const LatHeaderBase &hd, const DataConversion &dconv,
-                   int dimension, QioArg &qio_arg, 
-                   unsigned *csum, unsigned *pdcsum, Float *RandSum, Float *Rand2Sum)
-{
-    const char *cname = "";
-    const char *fname = "convert_data2()";
+            *csum += dconv.checksum(fsite, data_per_site);
+            *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
+                                        -1, global_id);
+        } else { // file ==> memory
+            // the order of function calls is different!
+            *csum += dconv.checksum(fsite, data_per_site);
+            *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
+                                        -1, global_id);
 
-    VRB.Result(cname, fname, "Start converting data.\n");
-    TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-
-    const unsigned glb[5] = {
-        qio_arg.XnodeSites() * qio_arg.Xnodes(),
-        qio_arg.YnodeSites() * qio_arg.Ynodes(),
-        qio_arg.ZnodeSites() * qio_arg.Znodes(),
-        qio_arg.TnodeSites() * qio_arg.Tnodes(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
-    };
-    const unsigned lcl[5] = {
-        qio_arg.XnodeSites(),
-        qio_arg.YnodeSites(),
-        qio_arg.ZnodeSites(),
-        qio_arg.TnodeSites(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites(),
-    };
-    const unsigned node_coor[5] = {
-        qio_arg.Xcoor(),
-        qio_arg.Ycoor(),
-        qio_arg.Zcoor(),
-        qio_arg.Tcoor(),
-        qio_arg.Scoor(),
-    };
-
-    for(unsigned long long xst = 0; xst < lcl_vol; ++xst) {
-        char *msite = out + xst * msize;
-        char *fsite =  in + xst * fsize;
-
-        // it's int for backward compatibility
-        int global_id = lcl2glb(xst, glb, lcl, node_coor, dimension);
-
-        *csum += dconv.checksum(fsite, data_per_site);
-        *pdcsum += dconv.posDepCsum(fsite, data_per_site, dimension, qio_arg,
-                                    -1, global_id);
-
-        if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) { // Gauge
-            for(int mat = 0; mat < 4; ++mat) {
-                dconv.file2host(msite + msize / 4 * mat,
-                                fsite + fsize / 4 * mat,
-                                data_per_site / 4);
-            }
-        } else { // rng
-            dconv.file2host(rng, fsite, data_per_site);
-            UGrandomGenerator *ugran = (UGrandomGenerator*)in;
-            ugran[xst].load(rng.IntPtr());
-            // next rand
-            Float rn = ugran[xst].Grand();
-            *RandSum += rn;
-            *Rand2Sum += rn*rn;
-            // recover
-            ugran[xst].load(rng.IntPtr());
+            convert2mem (fsite, msite, fsize, msize, data_per_site,
+                         hd, dconv, RandSum, Rand2Sum, rng);
         }
+
     } //xst
     VRB.Result(cname, fname, "End converting data.\n");
 }
@@ -625,7 +553,7 @@ int ParallelIO::store(iostream & output,
                  data_per_site, lcl_vol,
                  hd, dconv,
                  dimension, qio_arg,
-                 &csum, &pdcsum, &RandSum, &Rand2Sum);
+                 &csum, &pdcsum, &RandSum, &Rand2Sum, true);
 
     // simple hack to prevent duplicated checksum values.
     if(dimension == 4 && qio_arg.Scoor() != 0) {
@@ -635,7 +563,7 @@ int ParallelIO::store(iostream & output,
 
     char *rdata = new char[lcl_vol * chars_per_site];
     char * temp = new char[lcl_vol * chars_per_site];
-    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension);
+    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension, true);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // start parallel writing
@@ -791,7 +719,7 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
 
     //////////////////////////////////////////////////////////////////////
     // step 2: do remapping
-    remap2(rdata, o, n, glb, lcl, node, node_coor, chars_per_site, dimension);
+    remap(rdata, o, n, glb, lcl, node, node_coor, chars_per_site, dimension, false);
 
     //////////////////////////////////////////////////////////////////////
     // step 3: convert data from file format to memory format
@@ -800,11 +728,11 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
     Float RandSum = 0;
     Float Rand2Sum = 0;
 
-    convert_data2(data, rdata, chars_per_site, site_mem,
-                  data_per_site, lcl_vol,
-                  hd, dconv,
-                  dimension, qio_arg,
-                  &csum, &pdcsum, &RandSum, &Rand2Sum);
+    convert_data(rdata, data, chars_per_site, site_mem,
+                 data_per_site, lcl_vol,
+                 hd, dconv,
+                 dimension, qio_arg,
+                 &csum, &pdcsum, &RandSum, &Rand2Sum, false);
 
     //////////////////////////////////////////////////////////////////////
     // step 4: spread (clone) lattice data along s-dim
@@ -884,7 +812,7 @@ int SerialIO::store(iostream &output, char *data,
                  data_per_site, lcl_vol,
                  hd, dconv,
                  dimension, qio_arg,
-                 &csum, &pdcsum, &RandSum, &Rand2Sum);
+                 &csum, &pdcsum, &RandSum, &Rand2Sum, true);
 
     // simple hack to prevent duplicated checksum values.
     if(dimension == 4 && qio_arg.Scoor() != 0) {
@@ -894,7 +822,7 @@ int SerialIO::store(iostream &output, char *data,
 
     char *rdata = new char[lcl_vol * chars_per_site];
     char * temp = new char[lcl_vol * chars_per_site];
-    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension);
+    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension, true);
 
     VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
     
