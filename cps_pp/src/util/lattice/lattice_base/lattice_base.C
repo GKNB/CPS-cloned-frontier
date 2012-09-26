@@ -6,19 +6,19 @@
 /*!\file
   \brief  Lattice class methods.
   
-  $Id: lattice_base.C,v 1.60.12.7.2.1 2012-08-24 20:35:33 yinnht Exp $
+  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-08-24 20:35:33 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.60.12.7.2.1 2012-08-24 20:35:33 yinnht Exp $
-//  $Id: lattice_base.C,v 1.60.12.7.2.1 2012-08-24 20:35:33 yinnht Exp $
+//  $Date: 2012-09-26 01:59:50 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
+//  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.60.12.7.2.1 $
+//  $Revision: 1.60.12.7.2.1.2.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
 //  $State: Exp $
 //
@@ -3013,7 +3013,7 @@ void Lattice::BondCond()
 
         const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
 
-        #pragma omp parallel for
+#pragma omp parallel for
         for(int i = 0; i < hl_sites; ++i) {
             int x[4];
             compute_coord(x, hl, low, i);
