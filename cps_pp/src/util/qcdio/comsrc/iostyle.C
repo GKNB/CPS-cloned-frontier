@@ -136,7 +136,6 @@ void remap(char *out, char *in, char *tmp,
     char *o = in;
     char *n = tmp;
 
-    unsigned long copied = 0;
     for(unsigned long i = 0; i < shifts; ++i) {
         // compute which node's data we have now
         unsigned node_x[5];
@@ -162,7 +161,6 @@ void remap(char *out, char *in, char *tmp,
                     memcpy(out + glbid % lcl_vol * site_size,
                            o + k * site_size,
                            block_size);
-                    ++copied;
                 }
             } else { // global ==> local
                 unsigned long long glbid = file_node * lcl_vol + k;
@@ -174,15 +172,12 @@ void remap(char *out, char *in, char *tmp,
                     memcpy(out + site_id * site_size,
                            o + k * site_size,
                            block_size);
-                    ++copied;
                 }
             }
         } // end for local sites
 
         shift_data(&o, &n, i, node_size, node);
     } // end for shifts
-
-    assert(copied == (unsigned long long)lcl[1] * lcl[2] * lcl[3] * lcl[4]);
 
     if(n == in) {
         memcpy(n, o, node_size);
