@@ -1,3 +1,4 @@
+// -*- mode:c++ -*-
 //------------------------------------------------------------------
 //
 // wilson_matrix.h
@@ -241,9 +242,11 @@ typedef struct { color_wilson_vector d[4]; } wilson_matrix;
        \end{tabular}\right)
        \f]
 */
-class WilsonMatrix {
-
-  wilson_matrix p;
+class WilsonMatrix
+{
+private:
+    static const char *cname;
+    wilson_matrix p;
   
 public:
   
@@ -304,7 +307,7 @@ public:
   //! glA another version. result = gamma_dir*gamma_5*from
   WilsonMatrix& glA(const WilsonMatrix & from, int dir);
   //! mult the prop by gamma_dir on the left, and return the new matrix
-  WilsonMatrix glV(int dir);
+  WilsonMatrix glV(int dir)const;
   //! glV another version. result = gamma_dir*from
   WilsonMatrix& glV(const WilsonMatrix & from, int dir);
 

@@ -18,6 +18,8 @@
 
 CPS_START_NAMESPACE
 
+const char *WilsonMatrix::cname = "WilsonMatrix";
+
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 // The WilsonMatrix class member functions.
@@ -25,10 +27,10 @@ CPS_START_NAMESPACE
 //------------------------------------------------------------------
 
 WilsonMatrix::WilsonMatrix(const wilson_matrix& rhs)
-{ p=rhs; };
+{ p=rhs; }
 
 WilsonMatrix::WilsonMatrix(const WilsonMatrix& rhs)
-{ p=rhs.p; };
+{ p=rhs.p; }
 
 // copy complex element
 WilsonMatrix::WilsonMatrix(int sink_spin, int sink_color, 
@@ -717,13 +719,13 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
                 }
         break;
     default:
-        //VRB.Result(cname,fname,"BAD CALL TO glV()\n");
+        ERR.General(cname, "glV", "BAD CALL TO glV(), dir = %d\n", dir);
 	break;
     }
     return *this;
 }
 //multiply gamma(i) on the left and return a new one
-WilsonMatrix WilsonMatrix::glV(int dir)
+WilsonMatrix WilsonMatrix::glV(int dir)const
 {
     int i; /*color*/
     int c2,s2;    /* column indices, color and spin */
@@ -779,7 +781,7 @@ WilsonMatrix WilsonMatrix::glV(int dir)
                 }
         break;
     default:
-        //VRB.Result(cname,fname,"BAD CALL TO glV()\n");
+        ERR.General(cname, "glV", "BAD CALL TO glV(), dir = %d\n", dir);
 	break;
     }
     return WilsonMatrix(result);
@@ -842,7 +844,7 @@ WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
                 }
         break;
     default:
-        //VRB.Result(cname,fname,"BAD CALL TO glA(int)\n");
+        ERR.General(cname, "glA", "BAD CALL TO glA(), dir = %d\n", dir);
 	break;
     }
     return *this;
@@ -904,7 +906,7 @@ WilsonMatrix WilsonMatrix::glA(int dir)
                 }
         break;
     default:
-        //VRB.Result(cname,fname,"BAD CALL TO glA(int)\n");
+        ERR.General(cname, "glA", "BAD CALL TO glA(), dir = %d\n", dir);
 	break;
     }
     return WilsonMatrix(result);

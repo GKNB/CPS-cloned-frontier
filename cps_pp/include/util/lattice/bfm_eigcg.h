@@ -27,30 +27,6 @@
 
 #include<qmp.h>
 
-// check if the data in M is the same on each node
-// should be called by only 1 thread on each node
-static void glb_check_darray(double *M, int size, bool isBoss)
-{
-    double *Q = new double[size];
-
-    if(isBoss) {
-        memcpy(Q, M, sizeof(double) * size);
-    }
-    QMP_broadcast(Q, sizeof(double) * size);
-
-    for(int i = 0; i < size; ++i) {
-        if(M[i] == Q[i]) continue;
-        printf("Failed checking array on element %d.\n", i);
-        exit(-1);
-    }
-
-    if(isBoss) {
-        printf("Global check successful.\n");
-    }
-
-    delete[] Q;
-}
-
 void eigen_solver(double *A, double *EV, double *E, int n);
 template<class Float> void matrix_dgemm (const int M,const int N, const int K, Float **A, const double *B, double *C);
 void min_eig_index(int *INDEX, int nev,double *EIG, int n);
@@ -611,11 +587,6 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             for(int j=2*eigcg->get_nev()-1;j>i;j--) {
                 if(M[low[j]]<M[low[j-1]]){s=low[j];low[j]=low[j-1];low[j-1]=s;}
             }
-        }
-
-        // added by Hantao
-        if(!me) {
-            glb_check_darray(M, 2*eigcg->get_nev(), this->isBoss());
         }
 
         //add
