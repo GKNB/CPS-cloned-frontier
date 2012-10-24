@@ -232,6 +232,9 @@ public:
   /*! Returns the midpoint prop */
   WilsonMatrix& operator()(int i){ return midprop[i]; }
   
+  /*! Returns the midpoint prop */
+  const WilsonMatrix& operator()(int i)const{ return midprop[i]; }
+
   // DESTRUCTORS
   virtual ~QPropW();
   int GFixedSrc() const { return qp_arg.gauge_fix_src; } 
