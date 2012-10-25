@@ -383,43 +383,36 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where)
 // COULOMB GAUGE ONLY!
 void FermionVectorTp::GaugeFixSink(Lattice &lat, int dir)
 {
-  char *fname = "GaugeFixSink()";
-  VRB.Func(cname, fname);
+    char *fname = "GaugeFixSink()";
+    VRB.Func(cname, fname);
 
-  if(dir!=3) {
-      ERR.General(cname,fname,"Works only for dir=3\n");
-  }
-  if(lat.FixGaugeKind()!=FIX_GAUGE_COULOMB_T) {
-      ERR.General(cname,fname,"Works only for FIX_GAUGE_COULOMB_T\n");
-  }
-
-  Matrix **gm = lat.FixGaugePtr();
-
-  for (int t=0; t < GJP.TnodeSites(); t++) {
-      Matrix *pM = gm[t];
-    Vector temp;
-
-    if(gm[t] != NULL ){
-      for (int z = 0; z < GJP.ZnodeSites(); z++)
-	for (int y = 0; y < GJP.YnodeSites(); y++)
-	  for (int x = 0; x < GJP.XnodeSites(); x++)
-	    {
-	      // the matrix offset
-	      int j =  x + GJP.XnodeSites() * ( y + GJP.YnodeSites() * z);
-	      for (int spin = 0; spin < 4; spin++)
-		{
-		  // the vector offset
-		  int i= 2 * GJP.Colors() * ( spin + 4 * (
-                         x + GJP.XnodeSites() * (
-                         y + GJP.YnodeSites() * (
-                         z + GJP.ZnodeSites() * t))));
-		  temp.CopyVec((Vector*)&fv[i], 6);
-		  uDotXEqual((IFloat*)&fv[i],(const IFloat*)&pM[j],
-			     (const IFloat*)&temp);
-		}
-	    }
+    if(dir!=3) {
+        ERR.General(cname,fname,"Works only for dir=3\n");
     }
-  }
+    if(lat.FixGaugeKind()!=FIX_GAUGE_COULOMB_T) {
+        ERR.General(cname,fname,"Works only for FIX_GAUGE_COULOMB_T\n");
+    }
+
+    Matrix **gm = lat.FixGaugePtr();
+
+    int loc_3d = GJP.VolNodeSites() / GJP.TnodeSites();
+#pragma omp parallel for 
+    for(int site = 0; site < GJP.VolNodeSites(); site++) {
+        int t = site / loc_3d;
+        // the matrix offset
+        int j = site % loc_3d;
+        Matrix *pM = gm[t];
+
+        if(gm[t] != NULL ) {
+            for (int spin = 0; spin < 4; spin++) {
+                int i= 6 * (spin + 4 * site);
+                Vector *v = (Vector *)(fv + i);
+                Vector vt(*v);
+                uDotXEqual((IFloat*)&fv[i],(const IFloat*)&pM[j],
+                           (const IFloat*)&vt);
+            }
+        }
+    }
 }
 
 void FermionVectorTp::LandauGaugeFixSink( Lattice& lat )
