@@ -537,7 +537,7 @@ WilsonMatrix& WilsonMatrix::gl(int dir)
                 }
         break;
     default:
-	//VRB.Result(cname,fname,"BAD CALL TO gl()\n");
+	ERR.General("WilsonMatrix", "gl()", "BAD CALL TO gl()\n");
 	break;
     }
     return *this;
