@@ -3015,6 +3015,7 @@ void QPropW4DBoxSrc::SetSource(FermionVectorTp& src, int spin, int color)
     src.Set4DBoxSource(color, spin, box_arg.box_start, box_arg.box_size, box_arg.mom);
 
     if (GFixedSrc()) {
+      // only works for t direction!
         int t_size_glb = GJP.Tnodes() * GJP.TnodeSites();
         for (int t = 0; t < t_size_glb; t++) {
             if((t + t_size_glb - box_arg.box_start[3]) % t_size_glb >= box_arg.box_size[3]) continue;
