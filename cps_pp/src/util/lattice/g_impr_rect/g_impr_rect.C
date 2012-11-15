@@ -4,18 +4,18 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of GimprRect class.
 
-  $Id: g_impr_rect.C,v 1.12 2008-09-18 15:23:17 chulwoo Exp $
+  $Id: g_impr_rect.C,v 1.12.112.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2008-09-18 15:23:17 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/g_impr_rect/g_impr_rect.C,v 1.12 2008-09-18 15:23:17 chulwoo Exp $
-//  $Id: g_impr_rect.C,v 1.12 2008-09-18 15:23:17 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/g_impr_rect/g_impr_rect.C,v 1.12.112.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: g_impr_rect.C,v 1.12.112.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.12 $
+//  $Revision: 1.12.112.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/g_impr_rect/g_impr_rect.C,v $
 //  $State: Exp $
 //
@@ -30,9 +30,11 @@ CPS_END_NAMESPACE
 #include <util/gjp.h>
 #include <util/gw_hb.h>
 #include <util/time_cps.h>
+#include <util/fpconv.h>
 #include <comms/nga_reg.h>
 #include <comms/glb.h>
 #include <comms/cbuf.h>
+#include <util/qioarg.h>
 CPS_START_NAMESPACE
 #ifdef _TARTAN
 CPS_END_NAMESPACE
@@ -75,7 +77,7 @@ static Matrix *mp2 = &mt2;
 GimprRect::GimprRect()
 {
   cname = "GimprRect";
-  char *fname = "GimprRect()";
+  const char *fname = "GimprRect()";
   VRB.Func(cname,fname);
 
 // This action cannot be used with anisotropic lattices
@@ -95,7 +97,7 @@ GimprRect::GimprRect()
 //------------------------------------------------------------------------------
 GimprRect::~GimprRect()
 {
-  char *fname = "~GimprRect()";
+  const char *fname = "~GimprRect()";
   VRB.Func(cname,fname);
 }
 
@@ -110,6 +112,13 @@ GclassType GimprRect::Gclass(void){
 
 unsigned GimprRect::CBUF_MODE4 = 0xcca52112;
 
+//CK for testing
+unsigned int MCheckSum2(Matrix &matrix){
+  FPConv fp;
+  enum FP_FORMAT format = FP_IEEE64LITTLE;
+  uint32_t csum_contrib = fp.checksum((char *)&matrix,18,format);
+  return csum_contrib;
+}
 
 //------------------------------------------------------------------------------
 // GforceSite(Matrix& force, int *x, int mu):
@@ -117,7 +126,7 @@ unsigned GimprRect::CBUF_MODE4 = 0xcca52112;
 //------------------------------------------------------------------------------
 void GimprRect::GforceSite(Matrix& force, int *x, int mu)
 {
-  char *fname = "GforceSite(M&,i*,i)";
+  const char *fname = "GforceSite(M&,i*,i)";
 //  VRB.Func(cname,fname);
 
   Float tmp ;
@@ -133,6 +142,8 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
   Staple(*mp1, x, mu);	
   ForceFlops += 198*3*3+12+216*3;
 
+  Float nstaple = ((Matrix*)mp1)->norm();
+  unsigned int cksumstaple = MCheckSum2(*mp1);
   //----------------------------------------------------------------------------
   // mp2 = U_mu(x)
   //----------------------------------------------------------------------------
@@ -154,6 +165,8 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
   RectStaple(*mp1, x, mu) ;
   ForceFlops += 198*3*18+216*3*6;
 
+  Float nrect = ((Matrix*)mp1)->norm();
+  unsigned int cksumrect = MCheckSum2(*mp1);
   //----------------------------------------------------------------------------
   // mp2 = -(beta*c_1/3)*U_mu(x)
   //----------------------------------------------------------------------------
@@ -172,6 +185,12 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
   mp1->Dagger((IFloat *)&force);
   force.TrLessAntiHermMatrix(*mp1);
   ForceFlops +=198+24;
+  // printf("GForceSite %d %d %d %d, %d: norms: staple %e, rect %e, checksums %u %u\n",
+  // 	 x[0]+GJP.XnodeCoor()*GJP.XnodeSites(),
+  // 	 x[1]+GJP.YnodeCoor()*GJP.YnodeSites(),
+  // 	 x[2]+GJP.ZnodeCoor()*GJP.ZnodeSites(),
+  // 	 x[3]+GJP.TnodeCoor()*GJP.TnodeSites(),
+  // 	 mu,nstaple,nrect,cksumstaple,cksumrect);
 }
 
 
@@ -180,12 +199,40 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
 // The pure gauge Hamiltonian of the node sublattice.
 //------------------------------------------------------------------------------
 Float GimprRect::GhamiltonNode(void){
-  char *fname = "GhamiltonNode()";
+  const char *fname = "GhamiltonNode()";
   VRB.Func(cname,fname);
 
-  Float sum ;
+  //test checksum the lattice prior to calculating energy
+  {
+    unsigned int gcsum = CheckSum();
+
+    //note: for 2f G-parity the above lat.CheckSum just checksums the flavour-0 part
+    //      so for correct comparison between 1f and 2f we need to do both flavours
+    //      this takes extra computation so make it optional
+
+    if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+      CopyConjGaugeField();
+      gcsum += CheckSum(GaugeField() + 4*GJP.VolNodeSites());
+    }
+
+    QioControl qc;
+    gcsum = qc.globalSumUint(gcsum);
+    if(UniqueID()==0) printf("GimprRect::GhamiltonNode lattice checksum %u\n",gcsum);
+  }
+
+  Float sum(0.0);
   sum  = plaq_coeff * SumReTrPlaqNode() ;
+  {
+    Float gsum_h(sum);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0)   printf("GimprRect::GhamiltonNode plaquette contrib %e\n",gsum_h);
+  }
   sum += rect_coeff * SumReTrRectNode() ;
+  {
+    Float gsum_h(sum);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0)   printf("GimprRect::GhamiltonNode plaquette+rect contrib %e\n",gsum_h);
+  }
   return sum ;
 }
 
@@ -197,7 +244,7 @@ Float GimprRect::GhamiltonNode(void){
 //------------------------------------------------------------------------------
 void GimprRect::GactionGradient(Matrix &grad, int *x, int mu)
 {
-  char *fname = "GactionGradient(M&,i*,i)" ;
+  const char *fname = "GactionGradient(M&,i*,i)" ;
   VRB.Func(cname, fname) ;
 
   //----------------------------------------------------------------------------
@@ -259,7 +306,7 @@ void GimprRect::GactionGradient(Matrix &grad, int *x, int mu)
 //------------------------------------------------------------------------
 void GimprRect::
 AllStaple(Matrix &stap, const int *x, int mu){
-  char * fname = "AllStaple()"; 
+  const char * fname = "AllStaple()"; 
   VRB.Func(cname, fname);
 
   Matrix mat;

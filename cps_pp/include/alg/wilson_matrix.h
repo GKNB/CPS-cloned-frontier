@@ -129,6 +129,18 @@ public:
   }
 
   WilsonVector& gamma(int dir);
+
+  //Added by CK
+  WilsonVector & ccl(int dir);
+
+  //Added by CK
+  IFloat norm() const{
+    Float out(0.0);
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	out += std::norm(d[s1].c[c1]);
+    return out;
+  }
   
   /*!
     Rotate from Dirac to Chiral basis.
@@ -289,6 +301,23 @@ public:
   //WilsonMatrix& hconj();
   void hconj();
  
+
+  //! complex conjugate the WilsonMatrix
+  void cconj();
+
+  //! transpose the WilsonMatrix
+  void transpose();
+  
+  // added by CK
+  //! norm^2 of the WilsonMatrix
+  IFloat norm() const{
+    IFloat out(0.0);
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	out += p.d[s1].c[c1].norm();
+    return out;
+  }
+
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gl(int dir); 
   //! mult the prop by gamma_dir*(1-gamma_5) on the left, and return the new matrix
@@ -305,6 +334,15 @@ public:
   //! glV another version. result = gamma_dir*from
   void glV(const WilsonMatrix & from, int dir);
 
+  //Added by CK
+  //! left multiply by 1/2(1-gamma_5)
+  WilsonMatrix& glPL();
+  //! left multiply by 1/2(1+gamma_5)
+  WilsonMatrix& glPR(); 
+  //! right multiply by 1/2(1-gamma_5)
+  WilsonMatrix& grPL(); 
+  //! right multiply by 1/2(1+gamma_5)
+  WilsonMatrix& grPR(); 
 
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gr(int dir); 

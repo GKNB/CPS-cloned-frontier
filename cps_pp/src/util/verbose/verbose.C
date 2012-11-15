@@ -8,14 +8,14 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-07-13 15:27:42 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/verbose/verbose.C,v 1.21 2012-07-13 15:27:42 chulwoo Exp $
-//  $Id: verbose.C,v 1.21 2012-07-13 15:27:42 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/verbose/verbose.C,v 1.21.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: verbose.C,v 1.21.6.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: verbose.C,v $
-//  $Revision: 1.21 $
+//  $Revision: 1.21.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/verbose/verbose.C,v $
 //  $State: Exp $
 //
@@ -152,7 +152,7 @@ int Verbose::Active(int test_level, int level){
 	    y = x % base;
 	    if( int(test_level) == y){
              if (!UniqueID())
-             printf("Verbose::Acitve(%d,%d)=1\n",test_level,level);
+             printf("Verbose::Active(%d,%d)=1\n",test_level,level);
              return 1;
              }
 	    x = (x - y) / base;

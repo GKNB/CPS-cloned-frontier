@@ -56,6 +56,7 @@ public:
 	int y;
 	int z;
 	int t;
+	int flavor;
 	int gauge_fix_src;
 	int gauge_fix_snk;
 	int store_midprop;

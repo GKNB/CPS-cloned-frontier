@@ -462,6 +462,7 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
             updateCgStats(&frm_cg_arg_md[i]);
 
             int g_size = GJP.VolNodeSites() * lat.GsiteSize();
+	    if(GJP.Gparity()) g_size*=2;
             Matrix *mom_tmp;
 
             if (force_measure == FORCE_MEASURE_YES) {

@@ -8,22 +8,24 @@
 #include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
 #endif
 
+#warning "Using deprecated wilson dslash"
+
 CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
 
-  $Id: wilson_dslash_qmp.C,v 1.2 2012-03-26 13:50:12 chulwoo Exp $
+  $Id: wilson_dslash_qmp.C,v 1.2.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-26 13:50:12 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_qmp.C,v 1.2 2012-03-26 13:50:12 chulwoo Exp $
-//  $Id: wilson_dslash_qmp.C,v 1.2 2012-03-26 13:50:12 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_qmp.C,v 1.2.28.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: wilson_dslash_qmp.C,v 1.2.28.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.2 $
+//  $Revision: 1.2.28.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_qmp.C,v $
 //  $State: Exp $
 //
@@ -111,6 +113,13 @@ void wilson_dslash(IFloat *chi_p_f,
 			int dag,
 			Wilson *wilson_p)
 {
+  if(GJP.Gparity()){ 
+    if(!UniqueID()) printf("Error: wilson_dslash_qmp not G-parity ready. Should be deprecated in favour of wilson_dslash_vec\n");
+    exit(-1);
+  }
+  if(!UniqueID()) printf("Using deprecated wilson_dslash\n");
+  exit(0);
+
 	char *cname = "";
 	char *fname = "wilson_dslash";
 	int lx, ly, lz, lt;
@@ -557,7 +566,12 @@ Printf("getMinusData((IFloat *)fbuf, (IFloat *)tmp6, SPINOR_SIZE, 1);\n");
 /* Loop over sites                                                          */
 /*--------------------------------------------------------------------------*/
 	for(int i=0;i<SPINOR_SIZE;i++) fbuf[i]=0.;
+#if TARGET == BGQ
 	omp_set_num_threads(64);
+#else
+	omp_set_num_threads(1);
+#endif
+
 	int index=0;
 #pragma omp parallel for default(shared) private(mu)
 	for(index = 0; index<vol*2;index++){
@@ -588,7 +602,7 @@ Printf("getMinusData((IFloat *)fbuf, (IFloat *)tmp6, SPINOR_SIZE, 1);\n");
 	y = temp % ly; temp = temp/ly;
 	z = temp % lz; temp = temp/lz;
 	t = temp % lt; temp = temp/lt;
-	if ((called%1000000==0) &&(!UniqueID())){
+	if (!UniqueID()){
 printf("wilson_dslash: %d %d %d %d %d: thread %d of %d tmp=%p \n",index,x,y,z,t,omp_get_thread_num(),omp_get_num_threads(),tmp);
 	}
 

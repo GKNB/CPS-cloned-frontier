@@ -5,19 +5,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class CG solver methods.
 
-  $Id: inv_cg.C,v 1.14 2012-03-27 21:17:55 chulwoo Exp $
+  $Id: inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-27 21:17:55 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v 1.14 2012-03-27 21:17:55 chulwoo Exp $
-//  $Id: inv_cg.C,v 1.14 2012-03-27 21:17:55 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: inv_cg.C,v $
-//  $Revision: 1.14 $
+//  $Revision: 1.14.28.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v $
 //  $State: Exp $
 //
@@ -151,6 +151,8 @@ int DiracOp::InvCgShift(Vector *out,
     f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
   }
     
+  if(GJP.Gparity()) f_size_cb*=2;
+
 // Allocate memory for the residual vector res.
 //------------------------------------------------------------------
   Vector *res = (Vector *) smalloc(f_size_cb * sizeof(Float));
@@ -175,7 +177,7 @@ int DiracOp::InvCgShift(Vector *out,
 // If src_norm_sq is not provided calculate it
 //------------------------------------------------------------------
   if(src_norm_sq == 0){
-    src_norm_sq = src->NormSqNode(f_size_cb);
+    src_norm_sq = src->NormSqNode(f_size_cb); //CK: in G-parity situation we want the norm^2 of the whole 2-flavour double-wrapped source
     DiracOpGlbSum(&src_norm_sq);
   }
   VRB.Flow(cname,fname,"src_norm_sq=%e\n",src_norm_sq);

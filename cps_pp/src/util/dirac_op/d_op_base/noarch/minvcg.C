@@ -6,7 +6,7 @@ CPS_START_NAMESPACE
  /*! \file
    \brief  Definition of DiracOp class multishift CG solver method.
 
-   $Id: minvcg.C,v 1.14 2012-03-26 13:50:11 chulwoo Exp $
+   $Id: minvcg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
  */
 
 CPS_END_NAMESPACE
@@ -89,6 +89,8 @@ int DiracOp::MInvCG(Vector **psi, Vector *chi, Float chi_norm, Float *mass,
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / 2;
   else
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / (lat.FchkbEvl()+1);
+
+  if(GJP.Gparity()) f_size*=2;
 
   Vector *r = (Vector*)smalloc(f_size*sizeof(Float),cname,fname,"r");
   

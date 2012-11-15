@@ -630,6 +630,12 @@ class FdwfBase : public virtual FwilsonTypes
         // It evolves the canonical momentum mom by step_size
         // using the fermion force.
 
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *frm, 
+				    Float mass, Float step_size);
+        // It evolve the canonical momentum mom  by step_size in G-parity scenario
+        // using the bosonic quotient force.
+        // It is automatically called by EvolveMomFforce when appropriate
+
     ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 			  Float mass, Float step_size);
         // It evolve the canonical momentum mom  by step_size

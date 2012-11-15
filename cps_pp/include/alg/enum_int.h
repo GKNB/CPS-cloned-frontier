@@ -127,6 +127,7 @@ extern struct vml_enum_map DagType_map[];
 enum BndCndType {
 	BND_CND_PRD = 0,
 	BND_CND_APRD = 1,
+	BND_CND_GPARITY = 2,
 };
 typedef enum BndCndType BndCndType;
 extern struct vml_enum_map BndCndType_map[];

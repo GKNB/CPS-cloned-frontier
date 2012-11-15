@@ -211,6 +211,7 @@ vml_BndCndType (VML *vmls, char *name,BndCndType *objp)
 struct vml_enum_map BndCndType_map[] = {
 	{"BndCndType","BND_CND_PRD",BND_CND_PRD},
 	{"BndCndType","BND_CND_APRD",BND_CND_APRD},
+	{"BndCndType","BND_CND_GPARITY",BND_CND_GPARITY},
 	{NULL,NULL,0}
 };
 

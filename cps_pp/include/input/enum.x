@@ -7,19 +7,19 @@ typedef float pooh;
 /*!\file
   \brief  Magic numbers.
 
-  $Id: enum.x,v 1.24 2012-07-06 20:22:08 chulwoo Exp $
+  $Id: enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $
 */
 /*--------------------------------------------------------------------*/
 /*  CVS keywords*/
 /**/
-/*  $Author: chulwoo $*/
-/*  $Date: 2012-07-06 20:22:08 $*/
-/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.24 2012-07-06 20:22:08 chulwoo Exp $*/
-/*  $Id: enum.x,v 1.24 2012-07-06 20:22:08 chulwoo Exp $*/
+/*  $Author: ckelly $*/
+/*  $Date: 2012-11-15 18:17:08 $*/
+/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $*/
+/*  $Id: enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $*/
 /*  $Name: not supported by cvs2svn $*/
 /*  $Locker:  $*/
 /*  $RCSfile: enum.x,v $*/
-/*  $Revision: 1.24 $*/
+/*  $Revision: 1.24.6.1 $*/
 /*  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v $*/
 /*  $State: Exp $*/
 /**/
@@ -263,7 +263,8 @@ enum DagType {
 /*------------------------------------------------------------------*/
 enum BndCndType {
     BND_CND_PRD,    /*!< Periodic */
-    BND_CND_APRD    /*!< Antiperiodic */
+    BND_CND_APRD,    /*!< Antiperiodic */
+    BND_CND_GPARITY    /*!< G-parity */
 };
 
 

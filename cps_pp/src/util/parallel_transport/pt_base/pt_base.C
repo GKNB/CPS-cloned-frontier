@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of ParTrans class methods.
   
-  $Id: pt_base.C,v 1.10 2004-08-18 11:58:06 zs Exp $
+  $Id: pt_base.C,v 1.10.470.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: zs $
-//  $Date: 2004-08-18 11:58:06 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/pt_base.C,v 1.10 2004-08-18 11:58:06 zs Exp $
-//  $Id: pt_base.C,v 1.10 2004-08-18 11:58:06 zs Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/pt_base.C,v 1.10.470.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: pt_base.C,v 1.10.470.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt_base.C,v $
-//  $Revision: 1.10 $
+//  $Revision: 1.10.470.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/pt_base.C,v $
 //  $State: Exp $
 //
@@ -43,6 +43,7 @@ int ParTrans::node_sites[5] = {0,0,0,0,0};
 
 void ParTrans::BondCond(Lattice& lat, Matrix *u_base)
 {
+  int uconj_offset = 4*GJP.VolNodeSites();
   for(int u = 0; u < 4; ++u) {
     if(bc[u]) {
       int x[4];
@@ -51,7 +52,33 @@ void ParTrans::BondCond(Lattice& lat, Matrix *u_base)
 	  for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
 	    for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
 	      if(x[u]==node_sites[u]-1) {
-	        Matrix *m = u_base+lat.GsiteOffset(x)+u;
+		int site_off = lat.GsiteOffset(x);
+	        Matrix *m = u_base+site_off+u;
+	        *m *= -1;
+
+		if(GJP.Gparity()){
+		  //for example, APBC in time direction
+		  Matrix *m = u_base+uconj_offset+site_off+u;
+		  *m *= -1;
+		}	
+
+	      }
+	    }
+          }
+	}
+      }
+    }
+
+    if(GJP.Bc(u)==BND_CND_GPARITY && GJP.NodeCoor(u) == GJP.Nodes(u)-1){
+      int x[4];
+      //also put minus signs on outwards facing links of U* field
+      for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
+        for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
+          for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
+            for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+	      if(x[u]==node_sites[u]-1) {
+		int site_off = lat.GsiteOffset(x);
+	        Matrix *m = u_base+uconj_offset+site_off+u;
 	        *m *= -1;
 	      }
 	    }
@@ -59,6 +86,8 @@ void ParTrans::BondCond(Lattice& lat, Matrix *u_base)
 	}
       }
     }
+
+
   }
 }
 

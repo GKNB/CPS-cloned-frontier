@@ -4,7 +4,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Definitions of the AlgEig class.
 
-  $Id: alg_eig.h,v 1.4 2005-12-02 15:00:21 chulwoo Exp $
+  $Id: alg_eig.h,v 1.4.278.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //------------------------------------------------------------------
 
@@ -48,7 +48,6 @@ class AlgEig : public Alg
 
     int n_masses;
     // The number of masses in the loop
-
  public:
     AlgEig(Lattice & latt, CommonArg *c_arg, EigArg *arg);
 
@@ -56,6 +55,9 @@ class AlgEig : public Alg
 
     void run(void);
     void run(Float **lambda);
+
+    //Added by CK. Call these only *after* running
+    Vector ** getEigenVectors();
 };
 
 #endif

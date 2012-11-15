@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgEig class.
   
-  $Id: alg_eig.C,v 1.26 2011-07-13 02:18:50 chulwoo Exp $
+  $Id: alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-07-13 02:18:50 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v 1.26 2011-07-13 02:18:50 chulwoo Exp $
-//  $Id: alg_eig.C,v 1.26 2011-07-13 02:18:50 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: alg_eig.C,v $
-//  $Revision: 1.26 $
+//  $Revision: 1.26.32.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v $
 //  $State: Exp $
 //
@@ -98,6 +98,8 @@ AlgEig::AlgEig(Lattice& latt,
   // will act.
   //----------------------------------------------------------------
   int f_size = GJP.VolNodeSites() * latt.FsiteSize() * Ncb / 2;
+  if(GJP.Gparity()) f_size*=2;
+
   VRB.Flow(cname,fname,"f_size=%d\n",0);
 //  int f_size = GJP.VolNodeSites() * Ncb / 2;
 //  exit(1);
@@ -211,9 +213,11 @@ void AlgEig::run(Float **evalues)
   //----------------------------------------------------------------
   Lattice& lat = AlgLattice();
   eig_arg = alg_eig_arg;
-  Float **hsum;
+
   const int N_eig = eig_arg->N_eig;
-  const int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+  int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+  if(GJP.Gparity()) f_size*=2;
+  Float **hsum;
   int hsum_len = 0;
   int n;
 
@@ -242,7 +246,8 @@ void AlgEig::run(Float **evalues)
      default:
       ERR.General(cname,fname,"Invalid direction\n");
     }
-
+    
+    if(GJP.Bc(eig_arg->hsum_dir) == BND_CND_GPARITY) hsum_len*=2; //stack hsum for second flavour after first
     hsum = (Float **) smalloc(cname,fname,"hsum",N_eig * sizeof(Float*)); // surely Float* ?
   
     for(n = 0; n < N_eig; ++n)
@@ -323,6 +328,35 @@ void AlgEig::run(Float **evalues)
     for(n = 0; n<N_eig; ++n)
     {
       lat.RandGaussVector(eigenv[n], 0.5, Ncb);
+
+      if(GJP.Gparity1fX() && GJP.Gparity1fY()){
+	if(Ncb!=1) ERR.General(cname,fname,"G-parity 1f XY Only set up for odd-even preconditioned fermion vectors\n");
+	if(!UniqueID()){ printf("Putting minus sign on fermion source in UR quadrant\n"); fflush(stdout); }
+	//make source on upper-right quadrant negative (RNGs should be correct)
+	for(int s=0;s<GJP.SnodeSites();s++){
+	  for(int t=0;t<GJP.TnodeSites();t++){
+	    for(int z=0;z<GJP.ZnodeSites();z++){
+	      for(int y=0;y<GJP.YnodeSites();y++){
+		for(int x=0;x<GJP.XnodeSites();x++){
+		  if( (x+y+z+t+s)%2 == 0) continue; //ferm vect is odd parity only
+
+		  int gx = x+GJP.XnodeCoor()*GJP.XnodeSites();
+		  int gy = y+GJP.YnodeCoor()*GJP.YnodeSites();
+
+		  if(gx>=GJP.Xnodes()*GJP.XnodeSites()/2 && gy>=GJP.Ynodes()*GJP.YnodeSites()/2){
+		    int pos[5] = {x,y,z,t,s};
+		    int f_off = lat.FsiteOffsetChkb(pos) * lat.SpinComponents();
+
+		    for(int spn=0;spn<lat.SpinComponents();spn++) *(eigenv[n]+f_off+spn) *=-1;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+
+
     }
 
 /*
@@ -491,12 +525,19 @@ void AlgEig::run(Float **evalues)
       for(n = 0; n < N_eig; ++n)
         {
           sfree(cname,fname,"eig_store[n]",eig_store[n]);
+	  if (eig_arg->print_hsum) sfree(cname,fname,"hsum[n]",hsum[n]);
         }
       sfree(cname,fname,"eig_store",eig_store);
+      if (eig_arg->print_hsum) sfree(cname,fname,"hsum",hsum);
     }
   time +=dclock();
   print_flops(cname,fname,0,time);
 
 }
+
+Vector ** AlgEig::getEigenVectors(){
+  return eigenv;
+}
+
 
 CPS_END_NAMESPACE

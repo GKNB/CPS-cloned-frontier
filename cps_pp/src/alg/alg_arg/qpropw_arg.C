@@ -83,6 +83,8 @@ vml_QPropWArg (VML *vmls, char *name,QPropWArg *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "t", &objp->t))
 		 return FALSE;
+	 if (!vml_int (vmls, "flavor", &objp->flavor))
+		 return FALSE;
 	 if (!vml_int (vmls, "gauge_fix_src", &objp->gauge_fix_src))
 		 return FALSE;
 	 if (!vml_int (vmls, "gauge_fix_snk", &objp->gauge_fix_snk))

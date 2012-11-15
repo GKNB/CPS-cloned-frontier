@@ -32,6 +32,10 @@ AlgInt::~AlgInt()
 
 }
 
+void AlgInt::copyConjLattice(){
+  //do nothing for all derived classes bar AlgActionGauge 
+}
+
 // Calculate preliminary force for force gradient. This is just a trap
 // for all derived classes that don't implement force gradient
 // evolution.

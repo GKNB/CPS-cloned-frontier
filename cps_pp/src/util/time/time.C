@@ -1,7 +1,7 @@
 /*!\file
   \brief Implementation of functions for timing and performance measurement.
 
-  $Id: time.C,v 1.14 2012-03-26 13:50:12 chulwoo Exp $
+  $Id: time.C,v 1.14.28.1 2012-11-15 18:17:09 ckelly Exp $
 */
 
 #include <config.h>
@@ -106,5 +106,99 @@ Float print_flops(const char cname[], const char fname[], double nflops, Float t
 	printf("Node 0: %s:%s: ",cname,fname);
     return print_flops(nflops,time);
 }
+
+CPS_END_NAMESPACE
+#include <util/time_cps.h>
+CPS_START_NAMESPACE
+
+void TimeStamp::set_file(const char *filename){
+  stream = Fopen(ZERO_ONLY,filename,"w");
+  reset();
+}
+void TimeStamp::reset(){
+  cur_depth = 0;
+  start = dclock();
+  enabled = true;
+}
+void TimeStamp::close_file(){
+  Fclose(stream);
+  enabled=false;
+}
+void TimeStamp::vstamp(const char *format, va_list args){
+  char into[1024];
+  vsprintf(into,format,args);
+
+  Float time = dclock()-start;
+
+  Float rem = time;
+  int hours = int(floor(rem/3600));
+  rem -= hours*3600;
+  int mins = int(floor(rem/60));
+  rem -= mins*60;
+    
+  Fprintf(ZERO_ONLY,stream,"TimeStamp depth %d : %e secs (%d h %d m %.4f s): %s\n",cur_depth,time,hours,mins,rem,into);
+} 
+
+void TimeStamp::stamp(const char *format,...){
+  if(!enabled) return;
+
+  va_list args;
+  va_start(args,format);
+  vstamp(format,args);
+  va_end(args);
+}
+void TimeStamp::stamp_incr(const char *format,...){
+  if(!enabled) return;
+
+  va_list args;
+  va_start(args,format);
+  vstamp(format,args);
+  va_end(args);
+
+  incr_depth();
+}
+void TimeStamp::stamp_decr(const char *format,...){
+  if(!enabled) return;
+
+  va_list args;
+  va_start(args,format);
+  vstamp(format,args);
+  va_end(args);
+
+  decr_depth();
+}
+void TimeStamp::incr_stamp(const char *format,...){
+  if(!enabled) return;
+  incr_depth();
+
+  va_list args;
+  va_start(args,format);
+  vstamp(format,args);
+  va_end(args);
+}
+void TimeStamp::decr_stamp(const char *format,...){
+  if(!enabled) return;
+  decr_depth();
+
+  va_list args;
+  va_start(args,format);
+  vstamp(format,args);
+  va_end(args);
+}
+
+void TimeStamp::start_func(const char* cls, const char *fnc){
+  stamp("Starting %s::%s",cls,fnc);
+}
+void TimeStamp::end_func(const char* cls, const char *fnc){
+  stamp("Finished %s::%s",cls,fnc);
+}
+ 
+void TimeStamp::incr_depth(){ cur_depth++; }
+void TimeStamp::decr_depth(){ cur_depth--; }  
+
+int TimeStamp::cur_depth(0);
+FILE *TimeStamp::stream(NULL);
+bool TimeStamp::enabled(false);
+Float TimeStamp::start(0.0);
 
 CPS_END_NAMESPACE

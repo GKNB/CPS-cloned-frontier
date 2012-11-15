@@ -11,6 +11,7 @@
 
 CPS_START_NAMESPACE
 
+
 /************************************************************************************/
 
 class IoStyle : protected QioControl {
@@ -62,6 +63,8 @@ class SerialIO : public IoStyle {
  private:
   char * cname;
  public:
+  static bool dbl_latt_storemode;
+
   SerialIO(const QioArg & qarg) : IoStyle(qarg), cname("SerialIO") { }
 
   virtual int load(char * data, const int data_per_site, const int site_mem,
@@ -69,7 +72,20 @@ class SerialIO : public IoStyle {
 		   const int dimension /* 4 or 5 */,
 		   unsigned int * ptrcsum, unsigned int * ptrpdcsum = 0,
 		   Float * rand_sum = 0, Float * rand_2_sum = 0);
-    virtual int store(std::iostream & output,
+  virtual int store(std::iostream & output,
+		    char * data, const int data_per_site, const int site_mem,
+		    LatHeaderBase & hd, const DataConversion & dconv,
+		    const int dimension /* 4 or 5 */,
+		    unsigned int * ptrcsum, unsigned int * ptrpdcsum = 0,
+		    Float * rand_sum = 0, Float * rand_2_sum = 0);
+  virtual int storeGparityInterleaved(std::iostream & output,
+		    char * data, const int data_per_site, const int site_mem,
+		    LatHeaderBase & hd, const DataConversion & dconv,
+		    const int dimension /* 4 or 5 */,
+		    unsigned int * ptrcsum, unsigned int * ptrpdcsum = 0,
+		    Float * rand_sum = 0, Float * rand_2_sum = 0);
+
+  virtual int storeGparityXYInterleaved(std::iostream & output,
 		    char * data, const int data_per_site, const int site_mem,
 		    LatHeaderBase & hd, const DataConversion & dconv,
 		    const int dimension /* 4 or 5 */,

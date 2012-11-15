@@ -1,7 +1,7 @@
 /*!\file
   \brief Declaration of functions for timing and performance measurement.
 
-  $Id: time_cps.h,v 1.6 2012-03-27 05:02:40 chulwoo Exp $
+  $Id: time_cps.h,v 1.6.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 
 #ifndef UTIL_TIME_H
@@ -33,6 +33,36 @@ Float print_flops(double nflops, struct timeval *start, struct timeval *end);
 Float print_flops(const char cname[], const char fname[], double nflops, struct timeval *start, struct timeval *end);
 
 /*! @} */
+
+//CK: static timestamp class with optional output stream and 'depth' tagging of stamps enabling easy parsing of output
+//    writes output to a file
+
+class TimeStamp{
+ protected:
+  static int cur_depth;
+  static FILE *stream;
+  static bool enabled;
+  static Float start;
+  
+  static void vstamp(const char *format, va_list args);
+ public:
+  static void set_file(const char *filename);
+  static void reset();
+  static void close_file();
+  static void stamp(const char *format,...);
+  static void incr_depth();
+  static void decr_depth();
+  
+  static void stamp_incr(const char *format,...);
+  static void stamp_decr(const char *format,...);
+
+  static void incr_stamp(const char *format,...);
+  static void decr_stamp(const char *format,...);
+
+  static void start_func(const char* cls, const char *fnc);
+  static void end_func(const char* cls, const char *fnc);
+};
+
 
 CPS_END_NAMESPACE
 #endif

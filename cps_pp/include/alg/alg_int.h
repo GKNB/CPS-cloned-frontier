@@ -65,6 +65,8 @@ public:
     //!< method used to reinitialise the integrator
     virtual void init() = 0;
 
+  //!< when G-parity active, this function (which should be do something only by AlgActionGauge) copy-conjugates the gauge field
+  virtual void copyConjLattice();
 };
 
 /*!< 
@@ -803,6 +805,8 @@ public:
 
     void init();
 
+  //!< when G-parity active, this function (which should be do something only by AlgActionGauge) copy-conjugates the gauge field
+  void copyConjLattice();
 };
 
 #endif

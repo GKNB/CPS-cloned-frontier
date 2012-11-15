@@ -18,6 +18,7 @@ CPS_END_NAMESPACE
 #include<util/smalloc.h>
 #include<util/verbose.h>
 #include<util/error.h>
+#include<util/time_cps.h>
 #include<alg/alg_int.h>
 CPS_START_NAMESPACE
 
@@ -42,13 +43,22 @@ AlgIntAB::~AlgIntAB() {
 
 // Maybe use tmp in future but can ignore for now
 void AlgIntAB::heatbath() {
+  TimeStamp::start_func(cname,"heatbath()");
   traj++;
+  TimeStamp::incr_depth();
   A->heatbath();
   B->heatbath();
+  TimeStamp::decr_depth();
+  TimeStamp::end_func(cname,"heatbath()");
 }
 
 Float AlgIntAB::energy() {
-  return A->energy() + B->energy();
+  TimeStamp::start_func(cname,"energy()");
+  TimeStamp::incr_depth();
+  Float out = A->energy() + B->energy();
+  TimeStamp::decr_depth();
+  TimeStamp::end_func(cname,"energy()");
+  return out;
 }
 
 void AlgIntAB::cost(CgStats *cg_stats) {

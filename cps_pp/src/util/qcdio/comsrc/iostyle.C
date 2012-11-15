@@ -51,11 +51,20 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
 
   int chars_per_site  = data_per_site * dconv.fileDataSize();
 
+  int nstacked = 1;
+  //CK in end use only a single random generator per site. However for testing it is useful to have two
+  //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+
   int64_t yblk = nx*chars_per_site;
   int64_t zblk = ny * yblk;
   int64_t tblk = nz * zblk;
-  int64_t sblk = nt * tblk;
+  int64_t stkblk = tblk *nt;
 
+  int64_t sblk = stkblk *nstacked; //tblk * nt;
+
+  //printf("blk sizes y:%d z:%d t:%d stk:%d s:%d\n",yblk,zblk,tblk,stkblk,sblk);
   int xbegin = rd_arg.XnodeSites() * rd_arg.Xcoor(), xend = rd_arg.XnodeSites() * (rd_arg.Xcoor()+1);
   int ybegin = rd_arg.YnodeSites() * rd_arg.Ycoor(), yend = rd_arg.YnodeSites() * (rd_arg.Ycoor()+1);
   int zbegin = rd_arg.ZnodeSites() * rd_arg.Zcoor(), zend = rd_arg.ZnodeSites() * (rd_arg.Zcoor()+1);
@@ -100,6 +109,8 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
   if(dimension == 5) jump = sbegin * sblk;
 
   for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
+    for(int stk=0;stk<nstacked;stk++){
+      //if(stk==1) printf("Stk idx 1 begins at loc %p\n",(char *)&ugran[siteid]);
     jump += tbegin * tblk;
     for(int tr=tbegin;tr<tend;tr++) {
       jump += zbegin * zblk;
@@ -167,13 +178,15 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
       }
       jump += (nz-zend) * zblk;
       
-      if(dimension == 4)
+	if(dimension == 4 && stk==nstacked-1)
 	VRB.Result(cname,fname, "Parallel loading: %d%% done.\n", (int)((tr-tbegin+1) * 100.0 /(tend-tbegin)));
+      }
+      jump += (nt-tend) * tblk; //after nt * tblk is start of next stacked field
     }
     
     if(dimension == 4) break;
 
-    jump += (nt-tend) * tblk;
+    //jump += (nt-tend) * tblk;
 
     VRB.Result(cname,fname, "Parallel loading: %d%% done.\n",(int)((sr-sbegin+1) * 100.0 /(send-sbegin)));
   }
@@ -235,12 +248,18 @@ int ParallelIO::store(iostream & output,
   int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
   int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
 
+  int nstacked = 1;
+  //CK in end use only a single random generator per site. However for testing it is useful to have two
+  //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
 
   int64_t yblk = nx*chars_per_site;
   int64_t zblk = yblk * ny;
   int64_t tblk = zblk * nz;
-  int64_t sblk = tblk * nt;
+  int64_t stkblk = tblk *nt;
 
+  int64_t sblk = stkblk *nstacked; //tblk * nt;
 
   // TempBufAlloc is a mem allocator that prevents mem leak on function exits
   TempBufAlloc fbuf(chars_per_site);
@@ -273,6 +292,7 @@ do {
     if(dimension==5) jump = sbegin * sblk;
 
     for(int sr=sbegin; dimension==4 || sr<send; sr++) {
+	for(int stk=0;stk<nstacked;stk++){	  
       jump += tbegin * tblk;
       for(int tr=tbegin;tr<tend;tr++) {
 	jump += zbegin * zblk;
@@ -353,11 +373,14 @@ do {
 	if(dimension==4)
 	  VRB.Result(cname,fname, "Parallel Unloading: %d%% done.\n", (int)((tr-tbegin+1)*100.0/(tend-tbegin)));
       }
+	  jump += (nt-tend) * tblk; //after nt * tblk is start of next stacked field
+	}
 
       if(dimension == 4) break;
 
-      jump += (nt-tend) * tblk;
+	//no need to skip to end of stacked blocks
 
+	// jump += (nt-tend) * tblk;
       VRB.Result(cname,fname, "Parallel Unloading: %d%% done.\n",(int)((sr-sbegin+1)*100.0/(send-sbegin)));
     }
   }
@@ -448,7 +471,10 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
   	VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)input.tellg());
   }
   
-  
+  int nstacked = 1;
+  if(GJP.Gparity()) nstacked=2; //2 fields consecutive in memory
+  if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+
   int global_id = 0;
   unsigned int csum = 0;
   unsigned int pdcsum = 0;
@@ -458,6 +484,10 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 
   VRB.Result(cname, fname, "Serial loading <thru node 0> starting\n");
   for(int sc=0; dimension==4 || sc<ns; sc++) {
+    for(int stk=0;stk<nstacked;stk++){
+      char *data_stk = data + stk*site_mem* rd_arg.VolNodeSites(); //shifted field pointer for stacked fields on node
+      ugran = (UGrandomGenerator*)data_stk;
+
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
 		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) 
@@ -465,7 +495,7 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<rd_arg.Xnodes(); xnd++) {
 	    if(isNode0()) { // only node 0 reads
-	      char * pd = data;
+		char * pd = data_stk;
 
 	      // only read file to lowest end of buffer,
 	      // then shift (counter-shift) to final place
@@ -501,19 +531,20 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 	      }
 	    } // endif(isNode0())
 	  
-	    xShiftNode(data, site_mem * rd_arg.XnodeSites());
+	      xShiftNode(data_stk, site_mem * rd_arg.XnodeSites());
 	  }
 
-	  yShift(data, site_mem * rd_arg.XnodeSites());
+	    yShift(data_stk, site_mem * rd_arg.XnodeSites());
 	}
 
-	zShift(data, site_mem * rd_arg.XnodeSites());
+	  zShift(data_stk, site_mem * rd_arg.XnodeSites());
       }
 
-      tShift(data, site_mem * rd_arg.XnodeSites());
+	tShift(data_stk, site_mem * rd_arg.XnodeSites());
 
       if(dimension==4)
 	VRB.Result(cname,fname,"Serial loading: %d%% done.\n",(int)((tc+1) * 100.0 / nt));
+      }
     }
 
     if(dimension==4) break;
@@ -530,8 +561,10 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
     ERR.FileR(cname, fname, rd_arg.FileName);
 
   // spread (clone) lattice data along s-dim
-  if(dimension==4) 
+  if(dimension==4){ 
     sSpread(data, site_mem * rd_arg.VolNodeSites());
+    if(GJP.Gparity()) sSpread(data + site_mem * rd_arg.VolNodeSites(), site_mem * rd_arg.VolNodeSites());
+  }
   
   VRB.Result(cname, fname, "Serial Loading done!\n");
 
@@ -553,6 +586,14 @@ int SerialIO::store(iostream & output,
   const char * fname = "store()";
   VRB.Func(cname,fname);
   
+  if(dbl_latt_storemode){
+    if(GJP.Bc(2)==BND_CND_GPARITY) ERR.General(cname,fname,"Test code for writing to 1flavour lattices only works for G-parity in X or X&Y directions");
+
+    if(GJP.Bc(0)==BND_CND_GPARITY && GJP.Bc(1)==BND_CND_GPARITY)
+      return storeGparityXYInterleaved(output,data,data_per_site,site_mem,hd,dconv,dimension,ptrcsum,ptrpdcsum,rand_sum,rand_2_sum);
+    else if(GJP.Bc(0)==BND_CND_GPARITY)
+      return storeGparityInterleaved(output,data,data_per_site,site_mem,hd,dconv,dimension,ptrcsum,ptrpdcsum,rand_sum,rand_2_sum);
+  }      
   int error = 0;
 
   QioArg & wt_arg = qio_arg;
@@ -574,6 +615,7 @@ int SerialIO::store(iostream & output,
   unsigned int csum = 0, pdcsum = 0;
   Float RandSum = 0, Rand2Sum = 0;
   UGrandomGenerator * ugran = (UGrandomGenerator*)data;
+
   VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)output.tellp());
   int global_id = 0;
 
@@ -581,14 +623,25 @@ int SerialIO::store(iostream & output,
   output.seekp(hd.dataStart(), ios_base::beg);
   VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)output.tellp());
 
+  int nstacked = 1;
+  //CK in end use only a single random generator per site. However for testing it is useful to have two
+  //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+  if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+
   VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
   for(int sc=0; dimension==4 || sc<ns; sc++) {
+    for(int stk=0;stk<nstacked;stk++){
+      //for gauge fields, site_mem = 72 = re/im * ncol*ncol * dirs
+      char *data_stk = data + stk*site_mem* wt_arg.VolNodeSites(); //shifted field pointer for stacked fields
+      ugran = (UGrandomGenerator*)data_stk;
+      //printf("ugran ptr %p,  data ptr %p\n", (char *)&ugran[0], data_stk);
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
 	    if(isNode0()) {
-	      const char * pd = data;
+		const char * pd = data_stk;
 
 	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
 //                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
@@ -630,20 +683,21 @@ int SerialIO::store(iostream & output,
 	      } //xst
 	    } // ifNode0()
 
-	    xShiftNode(data, site_mem * wt_arg.XnodeSites());
+	      xShiftNode(data_stk, site_mem * wt_arg.XnodeSites());
 	  }
 	  
-	  yShift(data, site_mem * wt_arg.XnodeSites());
+	    yShift(data_stk, site_mem * wt_arg.XnodeSites());
 	}
 	
-	zShift(data, site_mem * wt_arg.XnodeSites());
+	  zShift(data_stk, site_mem * wt_arg.XnodeSites());
       }
       
-      tShift(data, site_mem * wt_arg.XnodeSites());
+	tShift(data_stk, site_mem * wt_arg.XnodeSites());
 
       if(dimension==4)
 	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
     }
+    }//for(int stk=0;stk<nstacked....
     
     if(dimension==4) break;
 
@@ -668,6 +722,443 @@ int SerialIO::store(iostream & output,
 }
 
 
+
+bool SerialIO::dbl_latt_storemode(false);
+
+//In this version of the function we write out the two stacked fields as a single field of double the size in the 
+//G-parity direction
+
+int SerialIO::storeGparityInterleaved(iostream & output,
+		    char * data, const int data_per_site, const int site_mem,
+		    LatHeaderBase & hd, const DataConversion & dconv,
+		    const int dimension /* 4 or 5 */,
+		    unsigned int * ptrcsum, unsigned int * ptrpdcsum,
+		    Float * rand_sum, Float * rand_2_sum)  { 
+  const char * fname = "storeGparityInterleaved()";
+
+  if(!GJP.Gparity()) ERR.General(cname, fname, "Function only for use with G-parity boundary conditions\n");
+
+  int gparity_dir;
+  int ngp(0);
+  for(int mu=0;mu<3;mu++){
+    if(GJP.Bc(mu) == BND_CND_GPARITY){
+      gparity_dir = mu;
+      ngp++;
+    }
+  }
+  if(ngp!=1 || gparity_dir!=0){
+    ERR.General(cname, fname, "Function only designed for G-parity in X-direction\n");
+  }
+
+
+  int error = 0;
+
+  QioArg & wt_arg = qio_arg;
+
+  //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
+  const int chars_per_site = data_per_site * dconv.fileDataSize();
+
+  int nx = wt_arg.XnodeSites() * wt_arg.Xnodes();
+  int ny = wt_arg.YnodeSites() * wt_arg.Ynodes();
+  int nz = wt_arg.ZnodeSites() * wt_arg.Znodes();
+  int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
+  int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
+
+  TempBufAlloc fbuf(chars_per_site);
+  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
+
+  // start serial writing
+  unsigned int csum = 0, pdcsum = 0;
+  Float RandSum = 0, Rand2Sum = 0;
+  UGrandomGenerator * ugran;
+//if(hd.headerType() != LatHeaderBase::LATTICE_HEADER)
+//  printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
+  int global_id = 0;
+
+  output.seekp(hd.dataStart(), ios_base::beg);
+
+  VRB.Result(cname, fname, "Double latt Serial unloading <thru node 0> starting\n");
+  for(int sc=0; dimension==4 || sc<ns; sc++) {
+    for(int tc=0;tc<nt;tc++) {
+      for(int zc=0;zc<nz;zc++) {
+	for(int yc=0;yc<ny;yc++) {
+	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
+	    if(isNode0()) {
+	      const char * pd = data;
+	      ugran = (UGrandomGenerator*)data;
+
+	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
+		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
+		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
+		  for(int mat=0;mat<4;mat++) {
+		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
+		    pd += site_mem/4;
+		  }
+		}
+		else { //LatHeaderBase::LATRNG_HEADER
+		  // dump
+		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+		  ugran[xst].store(rng.IntPtr());
+		  dconv.host2file(fbuf,rng,data_per_site);
+		  // next rand
+		  Float rn = ugran[xst].Grand();
+		  //		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
+		  RandSum += rn;
+		  Rand2Sum += rn*rn;
+		  // recover
+		  ugran[xst].load(rng.IntPtr());
+#if 0
+		  Float rn2 = ugran[xst].Grand();
+		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
+		  ugran[xst].load(rng.IntPtr());
+#endif
+		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+
+		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
+		csum += csum_contrib;
+
+		if(dimension == 5){
+		  int loc[] = {xnd*wt_arg.XnodeSites() + xst,yc,zc,tc,sc};
+
+		  if(GJP.Gparity())
+		    printf("Writing coord %d %d %d %d %d, stk %d csum contrib %ud\n",loc[0],loc[1],loc[2],loc[3],loc[4],0,csum_contrib);
+		  else
+		    printf("Writing coord %d %d %d %d %d\n",loc[0],loc[1],loc[2],loc[3],loc[4]);
+		}
+		
+		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
+					   -1, global_id);
+		output.write(fbuf,chars_per_site);
+		if(!output.good()) {
+		  error = 1;
+		  goto sync_error;
+		} 
+
+		global_id ++;
+	      } //xst
+
+	      pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+	      ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+
+	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
+		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
+		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
+		  for(int mat=0;mat<4;mat++) {
+		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
+		    pd += site_mem/4;
+		  }
+		}
+		else { //LatHeaderBase::LATRNG_HEADER
+		  // dump
+		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+		  ugran[xst].store(rng.IntPtr());
+		  dconv.host2file(fbuf,rng,data_per_site);
+		  // next rand
+		  Float rn = ugran[xst].Grand();
+		  //		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
+		  RandSum += rn;
+		  Rand2Sum += rn*rn;
+		  // recover
+		  ugran[xst].load(rng.IntPtr());
+#if 0
+		  Float rn2 = ugran[xst].Grand();
+		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
+		  ugran[xst].load(rng.IntPtr());
+#endif
+		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+
+		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
+		csum += csum_contrib;
+		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
+					   -1, global_id);
+
+		if(dimension == 5){
+		  int loc[] = {xnd*wt_arg.XnodeSites() + xst,yc,zc,tc,sc};
+
+		  if(GJP.Gparity())
+		    printf("Loading coord %d %d %d %d %d, stk %d csum contrib %ud\n",loc[0],loc[1],loc[2],loc[3],loc[4],1,csum_contrib);
+		  else
+		    printf("Loading coord %d %d %d %d %d\n",loc[0],loc[1],loc[2],loc[3],loc[4]);
+		}
+
+
+		output.write(fbuf,chars_per_site);
+		if(!output.good()) {
+		  error = 1;
+		  goto sync_error;
+		} 
+
+		global_id ++;
+	      } //xst
+
+
+	    } // ifNode0()
+
+	    xShiftNode(data, site_mem * wt_arg.XnodeSites());
+	    xShiftNode(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+	  }
+	  
+	  yShift(data, site_mem * wt_arg.XnodeSites());
+	  yShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+	}
+	
+	zShift(data, site_mem * wt_arg.XnodeSites());
+	zShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+      }
+      
+      tShift(data, site_mem * wt_arg.XnodeSites());
+      tShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+
+      if(dimension==4)
+	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
+    }
+
+
+    if(dimension==4) break;
+
+    sShift(data, site_mem * wt_arg.XnodeSites()); //CK G-parity: jumps over both lattice volume correctly
+    VRB.Result(cname,fname, "Serial unloading: %d%% done.\n", (int)((sc+1)*100.0/ns));
+  }
+
+ sync_error:
+  if(synchronize(error)>0) 
+    ERR.FileW(cname,fname,wt_arg.FileName);
+
+  VRB.Result(cname, fname, "Serial Unloading done!\n");
+
+  if(ptrcsum) *ptrcsum = csum;
+  if(ptrpdcsum) *ptrpdcsum = pdcsum;
+  if(rand_sum) *rand_sum = RandSum;
+  if(rand_2_sum) *rand_2_sum = Rand2Sum;
+
+
+  VRB.Func(cname,fname);
+  return 1;
+}
+
+//This version of the function is applicable to G-parity in 2 directions (XY hardcoded currently): 
+//we write out the two stacked fields as a single field of double the size in the 
+//X and Y directions in the following checkerboard form:
+/*
+    | U* | U  |
+    -----------
+    | U  | U* |
+
+Here the x and y axes correspond to the X and Y lattice directions
+ */
+
+
+int SerialIO::storeGparityXYInterleaved(iostream & output,
+		    char * data, const int data_per_site, const int site_mem,
+		    LatHeaderBase & hd, const DataConversion & dconv,
+		    const int dimension /* 4 or 5 */,
+		    unsigned int * ptrcsum, unsigned int * ptrpdcsum,
+		    Float * rand_sum, Float * rand_2_sum)  { 
+  const char * fname = "storeGparityXYInterleaved()";
+
+  if(!GJP.Gparity()) ERR.General(cname, fname, "Function only for use with G-parity boundary conditions\n");
+
+  if( !(GJP.Bc(0) == BND_CND_GPARITY && GJP.Bc(1) == BND_CND_GPARITY) || GJP.Bc(2) == BND_CND_GPARITY )
+    ERR.General(cname, fname, "Function only for use with G-parity boundary conditions in both X and Y directions\n");
+
+  int error = 0;
+
+  QioArg & wt_arg = qio_arg;
+
+  //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
+  const int chars_per_site = data_per_site * dconv.fileDataSize();
+
+  int nx = wt_arg.XnodeSites() * wt_arg.Xnodes();
+  int ny = wt_arg.YnodeSites() * wt_arg.Ynodes();
+  int nz = wt_arg.ZnodeSites() * wt_arg.Znodes();
+  int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
+  int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
+
+  TempBufAlloc fbuf(chars_per_site);
+  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
+
+  // start serial writing
+  unsigned int csum = 0, pdcsum = 0;
+  Float RandSum = 0, Rand2Sum = 0;
+  UGrandomGenerator * ugran;
+//if(hd.headerType() != LatHeaderBase::LATTICE_HEADER)
+//  printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
+  int global_id = 0;
+
+  output.seekp(hd.dataStart(), ios_base::beg);
+  VRB.Result(cname, fname, "Quad latt Serial unloading <thru node 0> starting at file position %d\n",output.tellg());
+ 
+  for(int sc=0; dimension==4 || sc<ns; sc++) {
+    for(int tc=0;tc<nt;tc++) {
+      for(int zc=0;zc<nz;zc++) {
+	for(int ycycle=0;ycycle<2;ycycle++){
+	for(int yc=0;yc<ny;yc++) {
+	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
+	    if(isNode0()) {
+	      const char * pd;
+
+	      int stk;
+
+	      if(ycycle==1){
+		//U* field
+		pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+		ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+		stk = 1;
+	      }else{
+		//U field
+		pd = data;
+		ugran = (UGrandomGenerator*)data;
+		stk = 0;
+	      }
+
+	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
+		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
+		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
+		  for(int mat=0;mat<4;mat++) {
+		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
+		    pd += site_mem/4;
+		  }
+		}
+		else { //LatHeaderBase::LATRNG_HEADER
+		  // dump
+		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+		  ugran[xst].store(rng.IntPtr());
+		  dconv.host2file(fbuf,rng,data_per_site);
+		  // next rand
+		  Float rn = ugran[xst].Grand();
+		  //		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
+		  RandSum += rn;
+		  Rand2Sum += rn*rn;
+		  // recover
+		  ugran[xst].load(rng.IntPtr());
+#if 0
+		  Float rn2 = ugran[xst].Grand();
+		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
+		  ugran[xst].load(rng.IntPtr());
+#endif
+		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+
+		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
+		csum += csum_contrib;
+
+		// if(1||dimension == 5){
+		//   int loc[] = {xnd*wt_arg.XnodeSites() + xst,yc,zc,tc,sc};
+		//   printf("Writing coord %d %d %d %d %d (ycycle %d), stk %d csum contrib %ud\n",loc[0],loc[1],loc[2],loc[3],loc[4],ycycle,stk,csum_contrib);		  
+		// }
+		
+		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
+					   -1, global_id);
+		output.write(fbuf,chars_per_site);
+		if(!output.good()) {
+		  error = 1;
+		  goto sync_error;
+		} 
+
+		global_id ++;
+	      } //xst
+
+	      if(ycycle==1){
+		//U field
+		pd = data;
+		ugran = (UGrandomGenerator*)data;
+		stk = 0;
+	      }else{
+		//U* field
+		pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+		ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+		stk = 1;
+	      }
+
+	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
+		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
+		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
+		  for(int mat=0;mat<4;mat++) {
+		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
+		    pd += site_mem/4;
+		  }
+		}
+		else { //LatHeaderBase::LATRNG_HEADER
+		  // dump
+		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+		  ugran[xst].store(rng.IntPtr());
+		  dconv.host2file(fbuf,rng,data_per_site);
+		  // next rand
+		  Float rn = ugran[xst].Grand();
+		  //		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
+		  RandSum += rn;
+		  Rand2Sum += rn*rn;
+		  // recover
+		  ugran[xst].load(rng.IntPtr());
+#if 0
+		  Float rn2 = ugran[xst].Grand();
+		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
+		  ugran[xst].load(rng.IntPtr());
+#endif
+		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+
+		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
+		csum += csum_contrib;
+		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
+					   -1, global_id);
+
+		// if(1||dimension == 5){
+		//   int loc[] = {xnd*wt_arg.XnodeSites() + xst,yc,zc,tc,sc};		  
+		//   printf("Writing coord %d %d %d %d %d (ycycle %d), stk %d csum contrib %ud\n",loc[0],loc[1],loc[2],loc[3],loc[4],ycycle,stk,csum_contrib);
+		// }
+
+
+		output.write(fbuf,chars_per_site);
+		if(!output.good()) {
+		  error = 1;
+		  goto sync_error;
+		} 
+
+		global_id ++;
+	      } //xst
+
+
+	    } // ifNode0()
+
+	    xShiftNode(data, site_mem * wt_arg.XnodeSites());
+	    xShiftNode(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+	  }
+	  
+	  yShift(data, site_mem * wt_arg.XnodeSites());
+	  yShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+	}}
+	
+	zShift(data, site_mem * wt_arg.XnodeSites());
+	zShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+      }
+      
+      tShift(data, site_mem * wt_arg.XnodeSites());
+      tShift(data+ site_mem * wt_arg.VolNodeSites(), site_mem * wt_arg.XnodeSites());
+
+      if(dimension==4)
+	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
+    }
+
+
+    if(dimension==4) break;
+
+    sShift(data, site_mem * wt_arg.XnodeSites()); //CK G-parity: jumps over both lattice volume correctly
+    VRB.Result(cname,fname, "Serial unloading: %d%% done.\n", (int)((sc+1)*100.0/ns));
+  }
+
+ sync_error:
+  if(synchronize(error)>0) 
+    ERR.FileW(cname,fname,wt_arg.FileName);
+
+  VRB.Result(cname, fname, "Serial Unloading done! Finish at file position %d\n",output.tellg());
+
+  if(ptrcsum) *ptrcsum = csum;
+  if(ptrpdcsum) *ptrpdcsum = pdcsum;
+  if(rand_sum) *rand_sum = RandSum;
+  if(rand_2_sum) *rand_2_sum = Rand2Sum;
+
+
+  return 1;
+}
 
 
 // NOTE: !!!
@@ -960,6 +1451,12 @@ void SerialIO::sShift(char * data, const int xblk, const int dir) const {
   int zblk = yblk * qio_arg.ZnodeSites();
   int tblk = zblk * qio_arg.TnodeSites();
 
+  int nstacked = 1;
+  if(GJP.Gparity()) nstacked = 2; //2 stacked 4d volumes at each s
+  //in final implementation, just check the header type to only skip double volume on lattice save, not RNG
+
+  int stkblk = nstacked * tblk;
+
     int fsize = xblk/sizeof(IFloat);
     if (xblk%sizeof(IFloat)>0) fsize++;
     TempBufAlloc  sendbuf (fsize*sizeof(IFloat));
@@ -972,9 +1469,12 @@ void SerialIO::sShift(char * data, const int xblk, const int dir) const {
   SCUDirArg send, recv;
 #endif
   
-  char * lohypcb = data;
-  char * hihypcb = data + tblk * (qio_arg.SnodeSites()-1);
+  char * lodblhypcb = data;
+  char * hidblhypcb = data + stkblk * (qio_arg.SnodeSites()-1);
   
+  for(int stk=0;stk<nstacked;stk++){ 
+    char * lohypcb = lodblhypcb + stk*tblk;
+    char * hihypcb = hidblhypcb + stk*tblk;
   for(int tc=0;tc<qio_arg.TnodeSites();tc++) {
     char * locube = lohypcb + tc*zblk;
     char * hicube = hihypcb + tc*zblk;
@@ -1021,15 +1521,16 @@ void SerialIO::sShift(char * data, const int xblk, const int dir) const {
 	
 	if(dir > 0) {
 	  for(int sc=qio_arg.SnodeSites()-1;sc>0;sc--) {
-	    memcpy(data + sc*tblk     + tc*zblk + zc*yblk + yc*xblk, 
-		   data + (sc-1)*tblk + tc*zblk + zc*yblk + yc*xblk,
+	      memcpy(data + sc*stkblk  +stk*tblk  + tc*zblk + zc*yblk + yc*xblk, 
+		     data + (sc-1)*stkblk + stk*tblk + tc*zblk + zc*yblk + yc*xblk,
 		   xblk);
 	  }
 	}
 	else {
 	  for(int sc=0;sc<qio_arg.SnodeSites()-1;sc++) {
-	    memcpy(data + sc*tblk     + tc*zblk + zc*yblk + yc*xblk, 
-		   data + (sc+1)*tblk + tc*zblk + zc*yblk + yc*xblk, 
+
+	      memcpy(data + sc*stkblk  + stk*tblk  + tc*zblk + zc*yblk + yc*xblk, 
+		     data + (sc+1)*stkblk + stk*tblk + tc*zblk + zc*yblk + yc*xblk, 
 		   xblk);
 	  }
 	}
@@ -1043,6 +1544,7 @@ void SerialIO::sShift(char * data, const int xblk, const int dir) const {
 	}
 	else{
 	  memcpy(hiface + yc*xblk, recvbuf, xblk);
+	  }
 	}
       }
     }

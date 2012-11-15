@@ -47,7 +47,7 @@ void copy_vector(IFloat *u, IFloat *v, int *length, unsigned long *dest, unsigne
 //tmpfrm - Transported matrix field
 //gauge_field - pointer to the gauge_field
 
-#if 1
+#if 0
   void copy_gauge(IFloat *res, struct gauge_agg *src, int *length,
 		  unsigned long *res_ptr)
 {

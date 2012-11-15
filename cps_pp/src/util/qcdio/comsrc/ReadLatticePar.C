@@ -108,15 +108,17 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   // read lattice data, using parallel style or serial (all on node 0) style
   unsigned int csum;
 
-
-#if TARGET != QCDOC
-  setSerial();
-#endif
+  //CK: removed hardcoded IO style. Replaced with default IO style in constructor
+// #if TARGET != QCDOC
+//   setSerial();
+// #endif
 
   log();
 
   VRB.Flow(cname,fname,"Reading configuation to address: %p\n", rd_arg.StartConfLoadAddr);
   if(parIO()) {
+    //if(GJP.Gparity()) ERR.General(cname,fname,"Parallel IO not G-parity ready\n"); 
+
     ParallelIO pario(rd_arg);
     if(! pario.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
 		    hd, fpconv, 4, &csum))  
@@ -168,8 +170,13 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 
   if(hd.recon_row_3) {
     VRB.Flow(cname,fname,"Reconstructing row 3\n");
+    int nstacked = 1;
+    //CK: rather than saving/loading the U* links, we save just the U links and reconstruct the U* links at load-time
+    //if(GJP.Gparity()) nstacked = 2;
+
+    for(int stk=0;stk<nstacked;stk++){
     for(int mat=0; mat<size_matrices; mat++) {
-      Float * rec = (Float*)&lpoint[mat];
+	Float * rec = (Float*)&lpoint[mat + stk*size_matrices];
       // reconstruct the 3rd row
       rec[12] =  rec[2] * rec[10] - rec[3] * rec[11] - rec[4] * rec[8] + rec[5] * rec[9];
       rec[13] = -rec[2] * rec[11] - rec[3] * rec[10] + rec[4] * rec[9] + rec[5] * rec[8];
@@ -178,7 +185,16 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
       rec[16] =  rec[0] * rec[ 8] - rec[1] * rec[ 9] - rec[2] * rec[6] + rec[3] * rec[7];
       rec[17] = -rec[0] * rec[ 9] - rec[1] * rec[ 8] + rec[2] * rec[7] + rec[3] * rec[6];
     }
+    }
   }
+
+  if(GJP.Gparity()){
+    //regenerate U* links
+    for(int mat=0;mat<size_matrices; mat++) {
+      lpoint[mat + size_matrices].Conj(lpoint[mat]);
+    }
+  }
+
 
   // STEP 3: check plaq and linktrace
   if(lat.GaugeField() != lpoint) lat.GaugeField(lpoint);
@@ -207,6 +223,7 @@ bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg
   int error = 0;
 
   Float plaq = lat.SumReTrPlaq() / 18.0 / rd_arg.VolSites() ;
+  if(GJP.Gparity()) plaq/=2;
   Float devplaq(0.0);
   if(isRoot()) {
     devplaq = fabs(  (plaq - plaq_inheader) / plaq ) ;
@@ -214,6 +231,11 @@ bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg
 	     cname,fname,plaq, plaq_inheader, devplaq);
   }
 
+  //CK: G-parity; ReTr should be the same for U and U*
+  //int nstacked = 1;
+  //if(GJP.Gparity()) nstacked = 2;
+
+  //for(int stk=0;stk<nstacked;stk++){ //after 1 iteration, m will point to second stacked field
   Float linktrace(0);
   int is;
   Matrix *m =  lat.GaugeField(); 
@@ -241,8 +263,9 @@ bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg
     if(devplaq > chkprec) {
       VRB.Flow(cname,fname, "Plaquette different from header\n");
       error = 1;
+      }
     }
-  }
+  //}
 
   if(synchronize(error) != 0) return false;
 

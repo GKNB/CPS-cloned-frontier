@@ -9,19 +9,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Functions used by the data layout conversion routines.
 
-  $Id: convert_func.C,v 1.22 2012-05-15 05:50:09 chulwoo Exp $
+  $Id: convert_func.C,v 1.22.6.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-05-15 05:50:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/convert/convert_func.C,v 1.22 2012-05-15 05:50:09 chulwoo Exp $
-//  $Id: convert_func.C,v 1.22 2012-05-15 05:50:09 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/convert/convert_func.C,v 1.22.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: convert_func.C,v 1.22.6.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: convert_func.C,v $
-//  $Revision: 1.22 $
+//  $Revision: 1.22.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/convert/convert_func.C,v $
 //  $State: Exp $
 //
@@ -206,6 +206,7 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 {
 	unsigned offset,x,y,z,t,r,row,col,mu ;
 	unsigned *site_sort_tbl, *link_sort_tbl ;
+	int cb_off, nstacked, table_size; //CK: for G-parity
 
 	char *fname = "CanonToAnything(CAP,StrOrdType)" ;
 
@@ -298,19 +299,28 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 				"Converting gauge field order: %s",
 				"CANONICAL -> G_WILSON_HB\n");
 
+			table_size = cap->vol*sizeof(unsigned);
+			if(GJP.Gparity()) table_size *=2;
+
 			site_sort_tbl = (unsigned *)
 			fmalloc(cname_none,fname,
 				    "site_sort_tbl" , 
-				    cap->vol*sizeof(unsigned)) ;
-
-
+				    table_size) ;
 
 			offset = 0 ;
 
 //-------------------------------------------------------------------------
 // Loop over current (CANONICAL) equation for site sequence number
 //-------------------------------------------------------------------------
+			cb_off = cap->vol; //why is this not vol/2?? Is it because GConverter does >> 1 on all sites (equiv to /=2)?
+			nstacked = 1;
+			if(GJP.Gparity()){
+			  if (new_str_ord == G_WILSON_HB) ERR.General(cname_none,fname,"G-parity code not written for G_WILSON_HB\n");
+			  cb_off*=2;
+			  nstacked =2;
+			}
 
+			for(int stk=0;stk<nstacked;stk++)
 			for (t=0; t<cap->lt; t++)
 			for (z=0; z<cap->lz; z++)
 			for (y=0; y<cap->ly; y++)
@@ -321,11 +331,16 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 // actual WILSON formula is (x-x%2+lx*(y+ly*(z+lz*t))+vol*((x+y+z+t)%2))/2
 // LSB = 1 indicates site needs converting
 //-------------------------------------------------------------------------
-
+			  //CK: bitwise operation r | 1 is equiv to if(r%2 == 0) r++;,  i.e. add one if even number 
+			  //                      r << 1 is equiv to r*=2
+			  //I think the extra factor of 2 in the offset to the second cb and also the | 1 operation is
+			  //because these are pointer offsets for the Floats and not the Complex
+			  
 				if (new_str_ord == WILSON)
 					*(site_sort_tbl+offset) = (x - x%2
 					+ cap->lx*(y+cap->ly*(z+cap->lz*t))
-					+ cap->vol*((x+y+z+t)%2)) | 1 ;
+					+ stk*cb_off/2			   
+					+ cb_off*((x+y+z+t)%2)) | 1 ;
 				else		// G_WILSON_HB
 					*(site_sort_tbl+offset) = 
 					z+cap->lz*(y+cap->ly*(x+cap->lx*t))
@@ -364,6 +379,7 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 				offset++ ;
 			}
 
+			if(GJP.Gparity()) cap->vol *=2; //hack to get GConverter to expect correct number of sites for gauge field if gparity
 			RunGConverter(cap, site_sort_tbl, link_sort_tbl) ;
 
 			sfree(cname_none,fname, "link_sort_tbl", link_sort_tbl);

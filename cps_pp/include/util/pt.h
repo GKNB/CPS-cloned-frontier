@@ -12,19 +12,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of the parallel transport classes.
 
-  $Id: pt.h,v 1.23 2011-02-26 00:19:27 chulwoo Exp $
+  $Id: pt.h,v 1.23.48.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-02-26 00:19:27 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/pt.h,v 1.23 2011-02-26 00:19:27 chulwoo Exp $
-//  $Id: pt.h,v 1.23 2011-02-26 00:19:27 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/pt.h,v 1.23.48.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: pt.h,v 1.23.48.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt.h,v $
-//  $Revision: 1.23 $
+//  $Revision: 1.23.48.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/pt.h,v $
 //  $State: Exp $
 //
@@ -44,6 +44,7 @@ void pt_init(Lattice &lat);  //!< Initialization for parallel transporters
 void pt_init_g();
 void pt_delete();
 void pt_delete_g();
+//NOTE: for G-parity, pt_mat assumes the matrice 'min' obey complex conjugate boundary conditions just like the gauge fields.
 void pt_mat(int n, Float **mout, Float **min, const int *dir);
 void pt_1vec(int n, Float **vout, Float **vin, int const *dir);
 void pt_2vec(int n, Float **vout, Float **vin, const int *dir);

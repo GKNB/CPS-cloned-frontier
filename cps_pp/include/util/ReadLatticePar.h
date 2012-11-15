@@ -37,24 +37,40 @@ class  ReadLatticeParallel : public QioControl
 public:
   // ctor for 2-step loading
     ReadLatticeParallel()
-        : QioControl(), cname("ReadLatticeParallel"), UseParIO(1)
-    {  }
+    : QioControl(), cname("ReadLatticeParallel")
+    { 
+      //CK set architecture-dependent default IO style rather than hardcoding it.
+#if TARGET == BGQ
+      setSerial();
+#else
+      setParallel();
+#endif
+    }
 
   // ctor invoking loading behavior
-    ReadLatticeParallel(Lattice &lat, const char *filename, const Float chkprec = 0.01)
-    : 
-    QioControl(),
-    cname("ReadLatticeParallel") , 
-    UseParIO(1)
-    {        
+ ReadLatticeParallel(Lattice & lat, const char * filename, const Float chkprec = 0.01): QioControl(), cname("ReadLatticeParallel"){        
+    //CK set architecture-dependent default IO style rather than hardcoding it.
+#if TARGET == BGQ
+      setSerial();
+#else
+      setParallel();
+#endif   
+
     QioArg rd_arg(filename,chkprec);
     read(lat,rd_arg);
   }
 
   // ctor invoking loading behavior
   ReadLatticeParallel(Lattice & lat, const QioArg & rd_arg) 
-    : QioControl(), cname("ReadLatticeParallel"), UseParIO(1)
+    : QioControl(), cname("ReadLatticeParallel")
   {
+    //CK set architecture-dependent default IO style rather than hardcoding it.
+#if TARGET == BGQ
+      setSerial();
+#else
+      setParallel();
+#endif
+
     read(lat,rd_arg);
   }
   

@@ -5,19 +5,19 @@
 /*!\file
   \brief  Definitions of global job parameters.
 
-  $Id: gjp.h,v 1.41 2012-08-10 14:05:33 chulwoo Exp $
+  $Id: gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-08-10 14:05:33 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.41 2012-08-10 14:05:33 chulwoo Exp $
-//  $Id: gjp.h,v 1.41 2012-08-10 14:05:33 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: gjp.h,v $
-//  $Revision: 1.41 $
+//  $Revision: 1.41.4.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v $
 //  $State: Exp $
 //--------------------------------------------------------------------
@@ -154,8 +154,20 @@ class GlobalJobParameter
   int vol_node_sites;  // The number of sites (4-D) of a single node.
   int vol_sites;       // The number of sites (4-D) of the whole lattice
 
+  //2f G-parity
+  int gparity; // are G-parity boundary conditions in use?
+
   void Initialize();
       
+  //1f G-parity: for testing purposes we can compare the 2f model with the 1f model 
+  //in up to 2-directions (double/quadrupled lattice size) fixed to X (double latt) or X&Y (quad latt)
+  //these can be switched on using the options in do_arg
+  int gparity_1f_X;
+  int gparity_1f_Y;      
+
+  //option to execute extra code required to ensure 1f and 2f G-parity internal quantities like mom field checksum
+  //are equal (sometimes this requires extra copy-conjugation to be done, hence making this optional)
+  int gparity_doing_1f2f_comparison; 
 
   MdwfArg *mdwf_arg;
   MdwfTuning *mdwf_tuning;
@@ -423,6 +435,19 @@ public:
   /*!<
     \return The type of global boundary condition along the T axis.
   */
+
+  bool Gparity() const
+  { return gparity; }
+  //!< Determine whether G-parity boundary conditions are in use in any of the 3 spatial directions.
+  /*!<
+    \return true if G-parity boundary conditions are in use.
+  */
+  
+  bool Gparity1fX() const { return gparity_1f_X == 1; }
+  bool Gparity1fY() const { return gparity_1f_Y == 1; }
+
+  void EnableGparity1f2fComparisonCode(){  gparity_doing_1f2f_comparison = 1; }
+  bool Gparity1f2fComparisonCode() const { return gparity_doing_1f2f_comparison == 1; }
 
   BndCndType NodeBc(int dir) const
       { return node_bc[dir];}

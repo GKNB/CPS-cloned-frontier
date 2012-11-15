@@ -71,16 +71,18 @@ AlgHmc::AlgHmc(AlgIntAB &Integrator, CommonArg &c_arg, HmcArg &arg)
   {
     Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
 
-    g_size = GJP.VolNodeSites() * lat.GsiteSize();
+    g_size = GJP.VolNodeSites() * lat.GsiteSize(); //re/im * colors*colors * dim * vol
+    int alloc_size = g_size;
+    if(GJP.Gparity()) alloc_size*=2;
 
     //!< Allocate memory for the initial gauge field.
-    gauge_field_init = (Matrix *) smalloc(g_size * sizeof(Float), 
+    gauge_field_init = (Matrix *) smalloc(alloc_size * sizeof(Float), 
 					  "gauge_field_init",fname,cname);
     
     if (hmc_arg->reverse == REVERSE_YES) {
       
       //!< Allocate memory for the final gauge field.
-      gauge_field_final = (Matrix *) smalloc(g_size * sizeof(Float), 
+      gauge_field_final = (Matrix *) smalloc(alloc_size * sizeof(Float), 
 					     "gauge_field_final",fname,cname);
       
     }
@@ -152,11 +154,11 @@ Float AlgHmc::run(void)
 
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
   if(!ScuChecksum::ChecksumsOn())
-  ScuChecksum::Initialise(true,true);
+    ScuChecksum::Initialise(true,true);
 #endif
  
   // Set the microcanonical time step
-//  Float dt = hmc_arg->step_size;
+  //  Float dt = hmc_arg->step_size;
 
   //!< Save initial lattice and rngs (if necessary)
   int Ntests = saveInitialState();
@@ -186,14 +188,28 @@ Float AlgHmc::run(void)
       //!< Calculate initial Hamiltonian
       wilson_set_sloppy( false);
       h_init = integrator->energy();
-//      Float total_h_init =h_init;
-//      glb_sum(&total_h_init);
+      //      Float total_h_init =h_init;
+      //      glb_sum(&total_h_init);
+
+      {
+	Float gsum_h(h_init);
+	glb_sum(&gsum_h);
+	if(UniqueID()==0) printf("Initial Hamiltonian %e\n",gsum_h);
+      }
 
       // Molecular Dynamics Trajectory
       if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
       integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
 
+      {
+	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
+	unsigned int gcsum = lat.CheckSum();
+	QioControl qc;
+	gcsum = qc.globalSumUint(gcsum);
+	LatticeFactory::Destroy();
+	if(UniqueID()==0) printf("Pre-reunitarize gauge field %u\n",gcsum);
+      }
       // Reunitarize
       if(hmc_arg->reunitarize == REUNITARIZE_YES){
 	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
@@ -201,22 +217,36 @@ Float AlgHmc::run(void)
 	LatticeFactory::Destroy();
       }
 
+      {
+	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
+	unsigned int gcsum = lat.CheckSum();
+	QioControl qc;
+	gcsum = qc.globalSumUint(gcsum);
+	LatticeFactory::Destroy();
+	if(UniqueID()==0) printf("Post-reunitarize gauge field %u\n",gcsum);	     
+      }
+
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
       printf("SCU checksum test\n");
-  if ( ! ScuChecksum::CsumSwap() )
-    ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
+      if ( ! ScuChecksum::CsumSwap() )
+	ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
 #endif
 
       //!< Calculate final Hamiltonian
       h_final = integrator->energy();
-//      Float total_h_final =h_final;
-//      glb_sum(&total_h_final);
+      {
+	Float gsum_h = h_final;
+	glb_sum(&gsum_h);
+	if(UniqueID()==0) printf("Final Hamiltonian %e\n",gsum_h);
+      }
+      //      Float total_h_final =h_final;
+      //      glb_sum(&total_h_final);
 
       // Calculate Final-Initial Hamiltonian 
       delta_h = h_final - h_init;
       glb_sum(&delta_h);
-//      VRB.Result(cname,fname,"h_init=%0.14e h_final=%0.14e delta_h=%0.14e \n",
-//        total_h_init,total_h_final,delta_h);
+      //      VRB.Result(cname,fname,"h_init=%0.14e h_final=%0.14e delta_h=%0.14e \n",
+      //        total_h_init,total_h_final,delta_h);
 
       // Check that delta_h is the same across all s-slices 
       // (relevant only if GJP.Snodes() != 1)
@@ -236,14 +266,14 @@ Float AlgHmc::run(void)
 	saveFinalState();
 
 	integrator->reverse();
-      if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+	if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
 	integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
-      wilson_set_sloppy(false);
+	wilson_set_sloppy(false);
 
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
-  printf("SCU checksum test\n");
-  if ( ! ScuChecksum::CsumSwap() )
-    ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
+	printf("SCU checksum test\n");
+	if ( ! ScuChecksum::CsumSwap() )
+	  ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
 #endif
 
 	h_delta = h_final - integrator->energy();
@@ -266,7 +296,7 @@ Float AlgHmc::run(void)
   {
     Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
     
-	VRB.Result(cname,fname,"hmc_arg->metropolis=%d\n",hmc_arg->metropolis);
+    VRB.Result(cname,fname,"hmc_arg->metropolis=%d\n",hmc_arg->metropolis);
     //!< Metropolis step
     if(hmc_arg->metropolis == METROPOLIS_YES){
       accept = lat.MetropolisAccept(delta_h,&acceptance);

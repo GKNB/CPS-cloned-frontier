@@ -2,19 +2,19 @@
 /*! \file
   \brief  Definition of parallel transport definitions for QCDOC.
   
-  $Id: pt_ordering.C,v 1.5 2009-05-12 21:50:01 chulwoo Exp $
+  $Id: pt_ordering.C,v 1.5.104.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2009-05-12 21:50:01 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_ordering.C,v 1.5 2009-05-12 21:50:01 chulwoo Exp $
-//  $Id: pt_ordering.C,v 1.5 2009-05-12 21:50:01 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_ordering.C,v 1.5.104.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: pt_ordering.C,v 1.5.104.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt_ordering.C,v $
-//  $Revision: 1.5 $
+//  $Revision: 1.5.104.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_ordering.C,v $
 //  $State: Exp $
 //
@@ -179,6 +179,26 @@ void PT::dag_cpy (IFloat *dest, IFloat *src){
       dest[2*(3*i+j)+1]=-src[2*(3*j+i)+1];
     }
 }
+
+//CK:
+
+//dest=src.Conj()
+void PT::star_cpy (IFloat *dest, IFloat *src){
+  for(int i=0;i<18;i+=2)
+    dest[i]=src[i];
+  for(int i=1;i<18;i+=2)
+    dest[i]=-src[i];
+}
+
+//dest=src.Trans()
+void PT::trans_cpy (IFloat *dest, IFloat *src){
+  for(int i=0;i<3;i++)
+    for(int j=0;j<3;j++){
+      dest[2*(3*i+j)]=src[2*(3*j+i)];
+      dest[2*(3*i+j)+1]=src[2*(3*j+i)+1];
+    }
+}
+
 
 //Returns lexical index associated with coordinate x[4]
 //where the 0th coordinate runs fastest, 3rd coordinate runs slowest

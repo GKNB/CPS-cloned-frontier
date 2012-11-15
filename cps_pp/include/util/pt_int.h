@@ -14,7 +14,7 @@
 /*!\file
   \brief Declaration of functions used by the parallel transport classes.
 
-  $Id: pt_int.h,v 1.23 2012-08-02 21:20:00 chulwoo Exp $
+  $Id: pt_int.h,v 1.23.4.1 2012-11-15 18:17:08 ckelly Exp $
   Why are (at least some of) these not class methods?
 */
 #ifdef USE_SCU
@@ -62,6 +62,16 @@ class PT  {
 //link matrix.  One for local parallel transport, another for non-local
     gauge_agg *uc_l[2*NDIM];
     gauge_agg *uc_nl[2*NDIM];
+
+    //when parallel transporting matrices under G-parity, the matrices must obey
+    //complex conjugate boundary conditions. With local comms the matrices pulled over the boundary
+    //aren't stored in a buffer, but we need them to be so that we can take their complex conjugate.
+    //We therefore handle these separately.
+    gauge_agg *uc_l_gpbound[2*NDIM];
+
+    //number of parallel transports that can be done locally but are at the gparity boundary
+    int local_chi_gp[2*NDIM];
+
 
 //---------------------------------------------------------------------------
 //Holds source,destination indexes for the matrix multiplication.
@@ -187,12 +197,23 @@ int conjugated;
 //Function primitives
     void (*Copy) (Float *dest, Float *src);
     void (*DagCopy) (Float *dest, Float *src);
+
+    //CK:
+    void (*StarCopy) (Float *dest, Float *src); //complex conjugate copy
+    void (*TransCopy) (Float *dest, Float *src); //transpose copy
+
     int (*LexVector)(int *x);
     int (*LexVector_cb)(int *x);
     int (*LexGauge) (int *x,int mu);
     int (*LexGauge2) (int *x, int mu);
     static void cpy (Float *dest, Float *src);
     static void dag_cpy (Float *dest, Float *src);
+
+    //CK
+    static void star_cpy (Float *dest, Float *src); //complex conjugate copy
+    static void trans_cpy (Float *dest, Float *src); //transpose copy
+
+
     static int lex_xyzt(int *x);
     static int lex_xyzt_cb_o(int *x);
     static int lex_xyzt_cb_e(int *x);

@@ -4,18 +4,18 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class methods.
   
-  $Id: dirac_op_base.C,v 1.12 2011-04-13 19:05:04 chulwoo Exp $
+  $Id: dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-04-13 19:05:04 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v 1.12 2011-04-13 19:05:04 chulwoo Exp $
-//  $Id: dirac_op_base.C,v 1.12 2011-04-13 19:05:04 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.12 $
+//  $Revision: 1.12.40.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v $
 //  $State: Exp $
 //
@@ -51,7 +51,9 @@ static int bc[4] = {0,0,0,0};	// boundary condition on this node
 
 static void BondCond(Lattice& lat, Matrix *u_base)
 {
-      int x[4];
+  //printf("BondCond %d %d %d %d\n",bc[0],bc[1],bc[2],bc[3]);
+  int uconj_offset = 4*GJP.VolNodeSites();
+  int x[4];
   for(int u = 0; u < 4; ++u) {
     if(bc[u]) {
       for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
@@ -59,7 +61,30 @@ static void BondCond(Lattice& lat, Matrix *u_base)
           for(x[2] = 0; x[2] < nx[2]; ++x[2]) {
             for(x[3] = 0; x[3] < nx[3]; ++x[3]) {
 	      if(x[u]==nx[u]-1) {
-	        Matrix *m = u_base+lat.GsiteOffset(x)+u;
+		int site_off = lat.GsiteOffset(x);
+	        Matrix *m = u_base+site_off+u;
+	        *m *= -1;
+
+		if(GJP.Gparity()){
+		  //for example, APBC in time direction
+		  Matrix *m = u_base+uconj_offset+site_off+u;
+		  *m *= -1;
+		}	
+	      }
+	    }
+          }
+	}
+      }
+    }
+    if(GJP.Bc(u)==BND_CND_GPARITY && GJP.NodeCoor(u) == GJP.Nodes(u)-1){
+      //also put minus signs on outwards facing links of U* field
+      for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
+        for(x[1] = 0; x[1] < nx[1]; ++x[1]) {
+          for(x[2] = 0; x[2] < nx[2]; ++x[2]) {
+            for(x[3] = 0; x[3] < nx[3]; ++x[3]) {
+	      if(x[u]==nx[u]-1) {
+		int site_off = lat.GsiteOffset(x);
+	        Matrix *m = u_base+uconj_offset+site_off+u;
 	        *m *= -1;
 	      }
 	    }
@@ -67,6 +92,7 @@ static void BondCond(Lattice& lat, Matrix *u_base)
 	}
       }
     }
+
   }
 }
 

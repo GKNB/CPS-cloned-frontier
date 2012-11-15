@@ -71,7 +71,7 @@ protected:
   
   //! The class name
   char *cname; 
-
+  
   int src_hyper;
   int hyper_lower[4];
   int hyper_upper[4];
@@ -95,7 +95,6 @@ protected:
       VRB.Result(cname,fname, "sc_part_file_exist=%d",sc_part_file_exist);
 	return sc_part_file_exist;
   } 
-  
 public:
 
   Float* conserved;
@@ -189,6 +188,9 @@ public:
 
    //! computes a*prop+b*Q
   void LinComb(QPropW& Q, Float a, Float b);
+  
+  //! computes the norm of the propagator. If global_sum is true it will return the node sum.
+  IFloat norm(const bool &global_sum = true) const;
 
   //! Comunicate Wilson Matrices...
   WilsonMatrix& GetMatrix(const int *, WilsonMatrix&) const;
@@ -248,6 +250,8 @@ public:
   // operator functions
   
   QPropW& operator=(const QPropW& rhs);
+  /*! Alternative to operator[] that allows choice of flavor index in G-parity scenario*/
+  WilsonMatrix & SiteMatrix(const int &site_idx, const int &flavor=0){ return prop[site_idx+flavor*GJP.VolNodeSites()]; }
 
   /*! Returns the prop */
   WilsonMatrix& operator[](int i){ return prop[i]; }

@@ -4,18 +4,18 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
   
-  $Id: wilson_init.C,v 1.2 2011-02-26 00:19:27 chulwoo Exp $
+  $Id: wilson_init.C,v 1.2.48.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-02-26 00:19:27 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/sse/wilson_init.C,v 1.2 2011-02-26 00:19:27 chulwoo Exp $
-//  $Id: wilson_init.C,v 1.2 2011-02-26 00:19:27 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/sse/wilson_init.C,v 1.2.48.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: wilson_init.C,v 1.2.48.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.2 $
+//  $Revision: 1.2.48.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/sse/wilson_init.C,v $
 //  $State: Exp $
 //
@@ -171,6 +171,7 @@ void wilson_init(Wilson *wilson_p)  /* pointer to Wilson type structure    */
 /* spinors.)                                                                */
 /*--------------------------------------------------------------------------*/
   spinor_words = SPINOR_SIZE * wilson_p->vol[0];
+  if(GJP.Gparity()) spinor_words *=2; //use second half for f1
 
   wilson_p->af[0] = (IFloat *) smalloc(spinor_words*sizeof(Float));
   if(wilson_p->af[0] == 0)
@@ -205,7 +206,14 @@ void wilson_init(Wilson *wilson_p)  /* pointer to Wilson type structure    */
   const int   vol = wilson_p->vol[0];
 
 #pragma omp parallel
+  //CK: uses openmp's default number of threads, but this is not always a good idea
+  //as it defaults to the number of cores. When running on a cluster some of those cores
+  //might be running as different nodes
+
   wilson_p->num_threads= omp_get_num_threads();
+
+  if(!UniqueID()) printf("SSE wilson dslash initialising on %d threads\n",wilson_p->num_threads);
+
 
 #if 0
   /*
@@ -236,6 +244,8 @@ void wilson_init(Wilson *wilson_p)  /* pointer to Wilson type structure    */
   block[2]=HALF_SPINOR_SIZE*lx*ly*lt/2;
   block[3]=HALF_SPINOR_SIZE*lx*ly*lz/2;
 
+  if(GJP.Gparity())
+    for(int i=0;i<4;i++) block[i]*=2; //comms buffers are double the usual size
 
   if(GJP.Xnodes()!=1){
     int dir=0;     wilson_init_comm(dir, block[dir], wilson_p);

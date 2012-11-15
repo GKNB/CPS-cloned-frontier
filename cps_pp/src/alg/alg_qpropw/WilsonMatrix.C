@@ -84,7 +84,6 @@ void WilsonMatrix::load_vec(int sink_spin, int sink_color, const wilson_vector& 
 {
          p.d[sink_spin].c[sink_color]=rhs;
 }
-
 void WilsonMatrix::load_row(int source_spin, int source_color, const wilson_vector& rhs)
 {
         int c1;
@@ -137,6 +136,40 @@ void WilsonMatrix::hconj()
 	    for(s2=0;s2<4;s2++)
 	      for(c2=0;c2<3;c2++)
 	        p.d[s2].c[c2].d[s1].c[c1] = conj(mat.d[s1].c[c1].d[s2].c[c2]);
+}
+
+/*! 
+  Complex conjugate of the propagator
+  \f[ P_{s_1,c_1;s_2,c_2} = P^*_{s_1,c_1;s_2,c_2}\f]
+*/
+void WilsonMatrix::cconj()
+{
+        int c1, c2;
+        int s1, s2;
+
+	for(s1=0;s1<4;s1++)
+	  for(c1=0;c1<3;c1++)
+	    for(s2=0;s2<4;s2++)
+	      for(c2=0;c2<3;c2++)
+	        p.d[s1].c[c1].d[s2].c[c2] = conj(p.d[s1].c[c1].d[s2].c[c2]);
+	
+}
+
+/*! 
+  Transpose of the propagator
+  \f[ P_{s_1,c_1;s_2,c_2} = P_{s_2,c_2;s_1,c_1}\f]
+*/
+void WilsonMatrix::transpose()
+{
+        int c1, c2;
+        int s1, s2;
+	wilson_matrix mat=p;
+
+	for(s1=0;s1<4;s1++)
+	  for(c1=0;c1<3;c1++)
+	    for(s2=0;s2<4;s2++)
+	      for(c2=0;c2<3;c2++)
+	        p.d[s2].c[c2].d[s1].c[c1] = mat.d[s1].c[c1].d[s2].c[c2];
 	
 }
 
@@ -819,6 +852,7 @@ Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 #endif
 
 // Left mult by Charge conjugation matrix C or gamma5*C
+// NOTE : There is a wrong minus sign here! M.ccl(1) should be CM and M.ccl(-1) C^{-1}M but they're opposite here (not for ccr)
 WilsonMatrix& WilsonMatrix::ccl(int dir)
 {
   int i; /*color*/
@@ -918,6 +952,46 @@ WilsonMatrix& WilsonMatrix::ccr(int dir)
   }
 	return *this;
 }
+
+
+  //Added by CK
+  //! left multiply by 1/2(1-gamma_5)
+WilsonMatrix& WilsonMatrix::glPL(){
+  for(int srow =0;srow<2;srow++)
+    for(int crow=0;crow<3;crow++)
+      for(int scol=0;scol<4;scol++)
+	for(int ccol=0;ccol<3;ccol++)
+	  p.d[srow].c[crow].d[scol].c[ccol] = 0.0;
+  return *this;
+}
+//! left multiply by 1/2(1+gamma_5)
+WilsonMatrix& WilsonMatrix::glPR(){
+  for(int srow =2;srow<4;srow++)
+    for(int crow=0;crow<3;crow++)
+      for(int scol=0;scol<4;scol++)
+	for(int ccol=0;ccol<3;ccol++)
+	  p.d[srow].c[crow].d[scol].c[ccol] = 0.0;
+  return *this;
+}
+//! right multiply by 1/2(1-gamma_5)
+WilsonMatrix& WilsonMatrix::grPL(){
+  for(int srow =0;srow<4;srow++)
+    for(int crow=0;crow<3;crow++)
+      for(int scol=0;scol<2;scol++)
+	for(int ccol=0;ccol<3;ccol++)
+	  p.d[srow].c[crow].d[scol].c[ccol] = 0.0;
+  return *this;
+}
+//! right multiply by 1/2(1+gamma_5)
+WilsonMatrix& WilsonMatrix::grPR(){
+  for(int srow =0;srow<4;srow++)
+    for(int crow=0;crow<3;crow++)
+      for(int scol=2;scol<4;scol++)
+	for(int ccol=0;ccol<3;ccol++)
+	  p.d[srow].c[crow].d[scol].c[ccol] = 0.0;
+  return *this;
+}
+
 
 
 //------------------------------------------------------------------------
@@ -1105,6 +1179,51 @@ WilsonVector& WilsonVector::gamma(int dir){
 }
 
 
+//CK: This is the same for ccl for WilsonMatrix. NOTE: I have fixed the minus sign errors present in the WilsonMatrix version, so V.ccl(1) is C*V and V.ccl(-1) is C^-1 * V
+// I have also fixed ccl(5). All matrix multiplications should be correct according to the matrices below:
+
+/*
+ Chiral basis (gamma_x and gamma_z are minus continuum convention)
+    CConj          InvCConj     CConj*gamma(FIVE)
+  0  1  0  0      0 -1  0  0      0  1  0  0    
+ -1  0  0  0      1  0  0  0     -1  0  0  0    
+  0  0  0 -1      0  0  0  1      0  0  0  1    
+  0  0  1  0      0  0 -1  0      0  0 -1  0    
+*/
+WilsonVector & WilsonVector::ccl(int dir){
+  int i; /*color*/
+  WilsonVector src=*this;
+
+  switch(dir){
+  case -1:
+    for(i=0;i<3;i++){
+      TIMESPLUSONE(  src.d[3].c[i], d[2].c[i] );
+      TIMESMINUSONE( src.d[2].c[i], d[3].c[i] );
+      TIMESMINUSONE( src.d[1].c[i], d[0].c[i] );
+      TIMESPLUSONE(  src.d[0].c[i], d[1].c[i] );
+    }
+    break;
+  case 1:
+    for(i=0;i<3;i++){
+      TIMESMINUSONE( src.d[3].c[i], d[2].c[i] );
+      TIMESPLUSONE(  src.d[2].c[i], d[3].c[i] );
+      TIMESPLUSONE(  src.d[1].c[i], d[0].c[i] );
+      TIMESMINUSONE( src.d[0].c[i], d[1].c[i] );
+    }
+    break;
+  case 5:
+    for(i=0;i<3;i++){
+      TIMESPLUSONE(  src.d[3].c[i], d[2].c[i] );
+      TIMESMINUSONE( src.d[2].c[i], d[3].c[i] );
+      TIMESPLUSONE(  src.d[1].c[i], d[0].c[i] );
+      TIMESMINUSONE( src.d[0].c[i], d[1].c[i] );
+    }
+    break;
+  default:
+    break;
+  }
+  return *this;
+}
 
 /*!
     Rotate from Dirac to Chiral basis.

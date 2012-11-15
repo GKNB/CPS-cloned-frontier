@@ -1,18 +1,18 @@
 #include<config.h>
 CPS_START_NAMESPACE
 /*!\file
-  $Id: fix_gauge.C,v 1.11 2012-08-15 03:45:46 chulwoo Exp $
+  $Id: fix_gauge.C,v 1.11.4.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-08-15 03:45:46 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.11 2012-08-15 03:45:46 chulwoo Exp $
-//  $Id: fix_gauge.C,v 1.11 2012-08-15 03:45:46 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.11.4.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: fix_gauge.C,v 1.11.4.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.11 $
+//  $Revision: 1.11.4.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v $
 //  $State: Exp $
 //
@@ -35,7 +35,6 @@ CPS_END_NAMESPACE
 #include <util/time_cps.h>
 #include <comms/scu.h>
 #include <comms/glb.h>
-//#include <omp.h>
 CPS_START_NAMESPACE
 
 #ifdef _TARTAN
@@ -304,7 +303,7 @@ l0(L0)
 			nbr_gauge_minus_send[i] = (Matrix*) smalloc(mem_size);
 			nbr_gauge_plus_rec[i] = (Matrix*) smalloc(mem_size);
 			nbr_gauge_plus_send[i] = (Matrix*) smalloc(mem_size);
-		}
+}
 		copy_nbr_gauge();
   }
 }
@@ -490,8 +489,6 @@ void HyperPlane::copy_nbr_gauge()
 		getPlusData((IFloat*)nbr_gauge_plus_rec[i], (IFloat*)nbr_gauge_plus_send[i], memsize, ind2dir[i]);
 	}
 }	
-
-
 //-------------------------------------------------------------------------
 //
 // CRITICAL PERFORMANCE CODE !!!
@@ -566,8 +563,8 @@ Matrix& HyperPlane::G_loc()
 
 Matrix& HyperPlane::G(int ind_link)
 {
-	if(index[ind_link] == -1)
-	{
+  if(index[ind_link] == -1)
+    {
 		//index[ind_link] = node_size[ind_link] - 1;
 		//getMinusData((IFloat*)&g_buf, (IFloat*)&G_loc(), 
 		// sizeof(Matrix)/sizeof(IFloat), ind2dir[ind_link]);
@@ -579,11 +576,11 @@ Matrix& HyperPlane::G(int ind_link)
 			{
 				idx *= node_size[i];
 				idx += index[i];
-			}
+    }
 		return nbr_gauge_minus_rec[ind_link][idx];
 	}
-	else if(index[ind_link] == node_size[ind_link])
-	{
+  else if(index[ind_link] == node_size[ind_link])
+    {
 		//index[ind_link] = 0;
 		//getPlusData((IFloat*)&g_buf, (IFloat*)&G_loc(), 
 		//		sizeof(Matrix)/sizeof(IFloat), ind2dir[ind_link]);
@@ -595,13 +592,13 @@ Matrix& HyperPlane::G(int ind_link)
 			{
 				idx *= node_size[i];
 				idx += index[i];
-			}
+    }
 		return nbr_gauge_plus_rec[ind_link][idx];
 	}
-	else
-	{
-		return G_loc();
-	}
+  else
+    {
+      return G_loc();
+    }
 }
 
 
@@ -729,15 +726,15 @@ void FixHPlane::iter()
     iter(recurse, dist);
   } else {
      VRB.Flow(cname,fname,"using checkerboared order gauge fixing");
-		 //Even or Odd part
-		 for(int dist = dist_max[recurse] + 1; (dist=dist-2) >= 0; )
-			 iter(recurse, dist);
+  //Even or Odd part
+  for(int dist = dist_max[recurse] + 1; (dist=dist-2) >= 0; )
+    iter(recurse, dist);
 		 copy_nbr_gauge();
-		 //Odd or Even part
-		 for(int dist = dist_max[recurse] + 2; (dist=dist-2) >= 0; )
-			 iter(recurse, dist);
+  //Odd or Even part
+  for(int dist = dist_max[recurse] + 2; (dist=dist-2) >= 0; )
+    iter(recurse, dist);
 		 copy_nbr_gauge();
-	}
+  }
 
 }
 
@@ -821,7 +818,12 @@ Matrix& FixHPlane::findA()
 	tmp_m1 *= GJP.XiGfix();
 	tmp_m.DotMPlus(G(i), tmp_m1);
       } else {
+	if(GJP.Bc(i)==BND_CND_GPARITY && GJP.NodeCoor(i)==0 && index[i]==-1){
+	  //CK crosses a G-parity boundary, must complex conjugate the L and G
+	  mStarDotMStarPlus( (IFloat*)&tmp_m, (IFloat*)&G(i), (IFloat*)&L(i) ); 
+	}else{
         tmp_m.DotMPlus(G(i), L(i));
+      }
       }
       // End modification
 
@@ -835,8 +837,14 @@ Matrix& FixHPlane::findA()
       if ( ind2dir[i] == GJP.XiDir() ) tmp_m1 *= GJP.XiGfix();
       // End modification
 
+      if(GJP.Bc(i)==BND_CND_GPARITY && GJP.NodeCoor(i)==GJP.Nodes(i)-1 && index[i]==node_size[i]-1){
+	//CK crosses a G-parity boundary, must complex conjugate the G (not the L, which is local).
+	//index[i] is node_size[i]-1 rather than node_size[i] as index was decreased after G was called
+	mStarDotMPlus( (IFloat*)&tmp_m, (IFloat*)&G_plus_i, (IFloat*)&tmp_m1 );
+      }else{
       tmp_m.DotMPlus(G_plus_i, tmp_m1);
 
+    }
     }
 
   tmp_m1.Dagger(G_loc());  // local G
@@ -1181,6 +1189,40 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
 		hplane.unitarize();
 	      }
 
+	    if(GJP.Gparity()){
+	      //C.Kelly: In order to save time, we don't run the gauge fixing algorithm for the U^* field, just copy-conjugate the 
+	      //gauge-fixing matrices after they are determined for the U field (G-parity BC is implemented within by complex-conjugating
+	      //the links/G when necessary in such a way as to incur no extra computational cost)
+
+	      if(fix_gauge_kind==FIX_GAUGE_LANDAU){
+	    	//For Landau we have a single 'hyperplane' of size Lx*Ly*Lz*Lt. In memory we allocated space for 2 of these, where the
+	    	//second will contain the Landau gauge-fixing matrices for the U^* field
+
+	    	int fourvol = 1;
+	    	for(int d=0; d<XXX::Dimension; d++)
+	    	  fourvol *= XXX::Node_Size_in_Dir(d);
+		
+	    	for(int from=0;from<fourvol;from++){
+	    	  int to = from + fourvol;
+	    	  fix_gauge_ptr[0][to].Conj( (IFloat*)&fix_gauge_ptr[0][from] );
+	    	}
+
+	      }else{
+	    	//Copy-conjugate hyperplane i onto 'hyperplane' i+L, where the latter corresponds to the U^* field
+
+	    	int threevol = 1;
+	    	for(int d=0; d<XXX::Dimension; d++)
+	    	  if(d != NormDir)
+	    	    threevol *= XXX::Node_Size_in_Dir(d);
+
+	    	int hplane_to = i + XXX::Node_Size_in_Dir(NormDir);
+
+	    	for(int pos=0;pos<threevol;pos++)
+	    	  fix_gauge_ptr[hplane_to][pos].Conj( (IFloat*)&fix_gauge_ptr[i][pos] );
+		
+	      }
+	    }
+
 	    if(iternum >= MaxIterNum)
 	      not_converged += 1;
 	    
@@ -1194,7 +1236,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   //------------------------------------------------------------------------
   VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
   sfree(Ind2Dir);
-  
+
 	//Add by Jianglei
 	VRB.Result(cname, fname, "Iteration numbers = %d", tot_iternum);
 
@@ -1234,6 +1276,14 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   the gauge.along the direction orthogonal to them. This list should be in
   increasing order.  This is ignored for Landau gauge fixing and when \a
   NHplanes is zero.
+*/
+/*CKelly G-parity
+  In Coulomb gauge we have an array of hyperplanes along the gauge-fixing direction. For G-parity we double this array
+  and place the gauge-fixing matrices for the U^* field on the second half. That way the hyperplane size is the same
+  as the usual setup.
+
+  For Landau gauge, we have a single matrix for each site. With G-parity we double the array of matrices (Lx*Ly*Lz*Lt) and place the gauge-fixing
+  matrices on the second half.
 */
 //-------------------------------------------------------------------------//
 
@@ -1295,17 +1345,21 @@ void Lattice::FixGaugeAllocate(FixGaugeType GaugeKind,
 
   {
     //--- NormDir is numerically equal to fix_gauge_kind
-    NormDir = int(fix_gauge_kind);
+    NormDir = int(fix_gauge_kind); //is -1 for Landau
 
     //--- number of fields in fix_gauge_ptr
     GaugePtrLen = (fix_gauge_kind == FIX_GAUGE_LANDAU) ?
       1 : XXX::Node_Size_in_Dir(NormDir); 
+
+    if(GJP.Gparity() && fix_gauge_kind != FIX_GAUGE_LANDAU) GaugePtrLen*=2; //CK G-parity for Coulomb gauge
 
     //--- Number of matrices in each memory block
     MemBlockLen = 1;
     for(int i=0; i<XXX::Dimension; i++)
       if(i != NormDir)
 	MemBlockLen *= XXX::Node_Size_in_Dir(i);
+
+    if(GJP.Gparity() && fix_gauge_kind == FIX_GAUGE_LANDAU) MemBlockLen*=2; //CK G-parity for Landau gauge
   }
 
   //------------------------------------------------------------------------
@@ -1361,9 +1415,20 @@ void Lattice::FixGaugeAllocate(FixGaugeType GaugeKind,
 		  ERR.Pointer(cname, fname, "fix_gauge_ptr[i]");
 		VRB.Smalloc(cname, fname, "fix_gauge_ptr[i]", 
 			    fix_gauge_ptr[crd_loc], mem_size);
+
+		if(GJP.Gparity()){
+		  //allocate a second hyperplane for the U* fields
+		  crd_loc += GaugePtrLen/2;
+		  
+		  fix_gauge_ptr[crd_loc] = (Matrix*) smalloc(mem_size);
+		  if(fix_gauge_ptr[crd_loc] == NULL)
+		    ERR.Pointer(cname, fname, "G-parity fix_gauge_ptr[i]");
+		  VRB.Smalloc(cname, fname, "G-parity fix_gauge_ptr[i]", 
+			    fix_gauge_ptr[crd_loc], mem_size);
 	      }
 	  }
       }
+  }
   }
 
   //------------------------------------------------------------------------
@@ -1412,6 +1477,7 @@ void Lattice::FixGaugeFree()
 
     int GaugePtrLen = (fix_gauge_kind == FIX_GAUGE_LANDAU) ?
       1 : XXX::Node_Size_in_Dir(NormDir);
+    if(GJP.Gparity() && fix_gauge_kind != FIX_GAUGE_LANDAU) GaugePtrLen*=2; //CK G-parity
 
     //--- Notice: to avoid memory fragmentation here, 
     //--- entries in Hplanes[] should be in increasing order

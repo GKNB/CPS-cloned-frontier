@@ -6,7 +6,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FdwfBase class.
 
-  $Id: f_dwf_base.C,v 1.40 2012-08-02 21:20:01 chulwoo Exp $
+  $Id: f_dwf_base.C,v 1.40.4.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
@@ -232,6 +232,8 @@ int FdwfBase::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   VRB.Func(cname,fname);
 
   int f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
+  if(GJP.Gparity()) f_size*=2;
+
   Float dot = f_in -> NormSqGlbSum(f_size);
   VRB.Result(cname,fname,"f_size=%d\n",f_size);
 
@@ -963,9 +965,13 @@ void FdwfBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
 // Initializations
 //------------------------------------------------------------------
   int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb/2;
+  if(GJP.Gparity()) f_size*=2;
+
   int ls = GJP.SnodeSites();
   int vol_4d = GJP.VolNodeSites()*Ncb/2;
   int ls_stride = 24 * vol_4d;
+  if(GJP.Gparity()) ls_stride*=2;
+
   int s_u_local = s_u % GJP.SnodeSites();
   int s_l_local = s_l % GJP.SnodeSites();
   int s_u_node = s_u / GJP.SnodeSites();
@@ -996,6 +1002,15 @@ void FdwfBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
       field_4D  = field_4D  + 24;
       field_5D  = field_5D  + 24;
     }
+    if(GJP.Gparity()){ //CK:08/11 do second stacked field
+      for(x=0; x<vol_4d; x++){
+	for(i=0; i<12; i++){
+	  field_5D[i]  = field_4D[i];
+  }
+	field_4D  = field_4D  + 24;
+	field_5D  = field_5D  + 24;
+      }
+    }
   }
 
   // Do the two lower spin components if s_l is in the node
@@ -1011,6 +1026,15 @@ void FdwfBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
       }
       field_4D  = field_4D  + 24;
       field_5D  = field_5D  + 24;
+    }
+    if(GJP.Gparity()){
+      for(x=0; x<vol_4d; x++){
+	for(i=0; i<12; i++){
+	  field_5D[i]  = field_4D[i];
+  }
+	field_4D  = field_4D  + 24;
+	field_5D  = field_5D  + 24;
+      }
     }
   }
 
@@ -1049,8 +1073,12 @@ void FdwfBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
 //------------------------------------------------------------------
   int ls = GJP.SnodeSites();
   int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb / (ls*2);
+  if(GJP.Gparity()) f_size*=2;
+
   int vol_4d = GJP.VolNodeSites()*Ncb/2;
   int ls_stride = 24 * vol_4d;
+  if(GJP.Gparity()) ls_stride*=2;
+
   int s_u_local = s_u % GJP.SnodeSites();
   int s_l_local = s_l % GJP.SnodeSites();
   int s_u_node = s_u / GJP.SnodeSites();
@@ -1081,8 +1109,17 @@ void FdwfBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
       field_4D = field_4D + 24;
       field_5D = field_5D + 24;
     }
+    if(GJP.Gparity()){
+      for(x=0; x<vol_4d; x++){
+	for(i=0; i<12; i++){
+	  field_4D[i] = field_5D[i];
   }
+	field_4D = field_4D + 24;
+	field_5D = field_5D + 24;
+      }
+    }
 
+  }
   // Do the two lower spin components if s_l is in the node
   //----------------------------------------------------------------
   if( s_l_node == GJP.SnodeCoor() ){
@@ -1096,6 +1133,15 @@ void FdwfBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
       }
       field_4D = field_4D + 24;
       field_5D = field_5D + 24;
+    }
+    if(GJP.Gparity()){
+      for(x=0; x<vol_4d; x++){
+	for(i=0; i<12; i++){
+	  field_4D[i] = field_5D[i];
+	}
+	field_4D = field_4D + 24;
+	field_5D = field_5D + 24;
+      }
     }
   }
 
@@ -1225,6 +1271,8 @@ int FdwfBase::FeigSolv(Vector **f_eigenv, Float *lambda,
   // calculate chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
   int f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
+  if(GJP.Gparity()) f_size*=2;
+
   Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
   Vector *fourg5 = (Vector *) smalloc (cname,fname, "fourg5", f_size * sizeof(Float));
   Float help;
@@ -1237,7 +1285,11 @@ int FdwfBase::FeigSolv(Vector **f_eigenv, Float *lambda,
     glb_sum(&factor);
     factor=1./sqrt(factor);
     four->VecTimesEquFloat(factor,f_size);
-    Gamma5(fourg5,four,GJP.VolNodeSites()*Ncb/2);
+    
+    int nspinvect = GJP.VolNodeSites()*Ncb/2;
+    if(GJP.Gparity()) nspinvect*=2;
+
+    Gamma5(fourg5,four,nspinvect);
     chirality[i]= four->ReDotProductNode(fourg5, f_size);
     glb_sum(&chirality[i]);
   }
@@ -1250,17 +1302,19 @@ int FdwfBase::FeigSolv(Vector **f_eigenv, Float *lambda,
       for(int i=0; i < N_eig; ++i)
 	Fconvert(f_eigenv[i], CANONICAL, StrOrd());
 
-    Float *f_in = (Float *) smalloc (cname, fname, "f_in", 
-		GJP.VolNodeSites()*GJP.SnodeSites()*sizeof(Float));
+    int finsize = GJP.VolNodeSites()*GJP.SnodeSites()*sizeof(Float);
+    if(GJP.Gparity()) finsize*=2;
+
+    Float *f_in = (Float *) smalloc (cname, fname, "f_in", finsize);
     
     for(i=0; i < N_eig; ++i) {
       IFloat *fp= (IFloat *) f_eigenv[i];
       int j;
-      for (j=0; j<GJP.VolNodeSites()*GJP.SnodeSites(); j++, fp+= 24) 
+      for (j=0; j<finsize; j++, fp+= 24) 
 	f_in[j]= Float (dotProduct (fp,fp,24));
 
       if (i==0) {
-	for (j=0; j<GJP.VolNodeSites()*GJP.SnodeSites(); j++)
+	for (j=0; j<finsize; j++)
 	  printf ("%f ", f_in[j]);
       }
       printf ("\n");
@@ -1674,7 +1728,8 @@ ForceArg FdwfBase::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
   Float Linf = 0.0;
 
   int g_size = GJP.VolNodeSites() * GsiteSize();
-
+  if(GJP.Gparity()) g_size*=2;
+  
   Matrix *mom_tmp;
 
   if (force_measure == FORCE_MEASURE_YES) {
@@ -1749,6 +1804,7 @@ Float FdwfBase::FhamiltonNode(Vector *phi, Vector *chi){
     ERR.Pointer(cname,fname,"chi") ;
 
   int f_size = GJP.VolNodeSites() * FsiteSize() / 2 ;
+  if(GJP.Gparity()) f_size *=2;
 
   Float ret_val;
   ret_val = phi->ReDotProductNode(chi, f_size ) ;
@@ -1775,6 +1831,7 @@ Float FdwfBase::BhamiltonNode(Vector *boson, Float mass){
     ERR.Pointer(cname,fname,"boson");
 
   int f_size = GJP.VolNodeSites() * FsiteSize() / 2 ;
+  if(GJP.Gparity()) f_size *=2;
 
   char *str_tmp = "bsn_tmp" ;
   Vector *bsn_tmp = (Vector *)
@@ -1805,15 +1862,29 @@ Float FdwfBase::BhamiltonNode(Vector *boson, Float mass){
 //------------------------------------------------------------------
 int FdwfBase::FsiteOffsetChkb(const int *x) const {
 // ???
-//  ERR.NotImplemented(cname, "FsiteOffsetChkb");
-  int index = x[4];
+  //For G-parity the odd-sites for flavour 1 and flavour 2 are consectutive, then the even sites for flavour 1 and 2
+  //this applies for each s:  s=0{| f1 odd | f2 odd}
+  //                          s=1{| f1 odd | f2 odd}
+  //                          ....
+  //                          s=0{| f1 even | f2 even}
+  //                          s=1{| f1 even | f2 even}
+  //etc...
+  //This function only returns the offset for flavour 0. To get flavour 1, shift the index by the VolNodeSites()/2
+
+  //index = ((((s*lt + t)*lz + z)*ly + y)*lx + x)/2 + lx/2*ly*lz*lt*ls * parity
+  //for G-parity, second flavour stacked after first half-4-volume between s-layers
+
+  int index = x[4]; if(GJP.Gparity()) index*=2;
   int vol = GJP.NodeSites(4);
   int parity = (x[4]+x[3]+x[2]+x[1]+x[0]+1)%2; //Odd first
   for(int i = 3; i>=0;i--){
     index = index*GJP.NodeSites(i)+x[i];
     vol *= GJP.NodeSites(i);
   }
-  index = (index + vol*parity)/2;
+  int cboff = vol;
+  if(GJP.Gparity()) cboff*=2;
+
+  index = (index + cboff*parity)/2;
   if (0){
 	printf("FsiteOffsetChkb:(%d %d %d %d %d) %d\n",
 	x[0],x[1],x[2],x[3],x[4],index);

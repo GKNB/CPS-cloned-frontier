@@ -60,6 +60,8 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
     f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1);
     //!< Number of Vectors in a Vector array
     f_vec_count = f_sites * lat.SpinComponents();
+    if(GJP.Gparity()) f_vec_count *= 2; //2 stacked G-parity flavors
+
     //!< Number of Floats in a Vector array
     f_size = f_vec_count * lat.Colors() * 2;
 

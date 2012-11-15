@@ -45,13 +45,13 @@ public:
 
   // MANIPULATORS
 
-  void SetPointSource( int color, int spin, int x, int y, int z, int t);
+  void SetPointSource( int color, int spin, int x, int y, int z, int t, int flavor=0);
 
   /*! Point source, fixed into Landau gauge */
   void SetGFPointSource( Lattice& lat, int colour, int spin,
                          int x, int y, int z, int t );
 
-  void SetWallSource ( int color, int spin, int time_slice);
+  void SetWallSource ( int color, int spin, int time_slice, int flavor=0);
   void SetWallSource ( int color, int spin, int time_slice, Float* src);
   void SetBoxSource  ( int color, int spin, int bstart, int bend, 
 		    int time_slice);
@@ -68,7 +68,7 @@ public:
 
 
   void SetLandauWallSource( Lattice& lat, int spin, int where );
-  void GFWallSource       ( Lattice& lat, int spin, int dir, int source_time );
+  void GFWallSource       ( Lattice& lat, int spin, int dir, int source_time, int flavor = 0);
 
   void ZeroSource();
 //  void SetVolSourceEqualZero();
@@ -103,8 +103,8 @@ public:
   //  void FermionVectorTp::setMomSource(int color, int spin, int source_time,
   //                                   int* mom);
 
-  void SetMomSource(int color, int spin, int source_time, ThreeMom& mom) ;
-  void SetMomCosSource(int color, int spin, int source_time, ThreeMom& mom) ;
+  void SetMomSource(int color, int spin, int source_time, ThreeMom& mom, int flavor = 0) ; //this works for G-parity BCs (quark momenta discretised in units of pi/2L)
+  void SetMomCosSource(int color, int spin, int source_time, ThreeMom& mom, int flavor = 0) ; //this works for G-parity BCs
   void SetMomCosTwistSource(int color, int spin, int source_time, ThreeMomTwist& mom); // Use this if you are using twisted boundary conditions
 
   void ChiralToDirac();

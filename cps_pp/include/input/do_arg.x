@@ -130,6 +130,12 @@ class DoArg {
     //! Coefficient of the Lepage term in the P4 improved staggered fermion action.
     Float p4_lepage; 
     
+    /*G-parity 1f testing options*/
+    /*Directions: choose X or X&Y, not Y alone*/
+    int gparity_1f_X;
+    int gparity_1f_Y;
+
+
 memfun  DoArg();
 memfun  void SetupAsqTadU0(double u0);
 

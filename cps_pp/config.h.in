@@ -3,7 +3,7 @@
 
   Generated automatically from config.h.in by configure procedure.
 
-  $Id: config.h.in,v 1.29 2012-03-26 13:50:11 chulwoo Exp $
+  $Id: config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 /* Global options for compiling the Columbia code:  
  * @configure_input@
@@ -11,14 +11,14 @@
  *--------------------------------------------------------------------
  *  CVS keywords
  *
- *  $Author: chulwoo $
- *  $Date: 2012-03-26 13:50:11 $
- *  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v 1.29 2012-03-26 13:50:11 chulwoo Exp $
- *  $Id: config.h.in,v 1.29 2012-03-26 13:50:11 chulwoo Exp $
+ *  $Author: ckelly $
+ *  $Date: 2012-11-15 18:17:08 $
+ *  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
+ *  $Id: config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
  *  $Name: not supported by cvs2svn $
  *  $Locker:  $
  *  $RCSfile: config.h.in,v $
- *  $Revision: 1.29 $
+ *  $Revision: 1.29.28.1 $
  *  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v $
  *  $State: Exp $
  */
@@ -44,6 +44,8 @@
 
 #define TARGET @ARCH@
 #@ENABLE_PARALLEL@
+
+#@HAVE_BFM@
 
 // The configure procedure should make this unnecessary, but just in case...
 #ifndef TARGET

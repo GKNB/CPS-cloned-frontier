@@ -205,6 +205,7 @@ void AlgActionRational::heatbath() {
 
   //!< Only evaluate heatbath if necessary
   if (!heatbathEval) {
+    if(!UniqueID()) printf("AlgActionRational::heatbath\n");
 
     //!< Create an appropriate lattice
     Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
@@ -215,6 +216,41 @@ void AlgActionRational::heatbath() {
       //!< Potentially can merge all these three functions
       //!, Certainly can for 2 and 3
       lat.RandGaussVector(frmn[0], 0.5, Ncb);
+      
+      if(GJP.Gparity1fX() && GJP.Gparity1fY()){
+      	if(!UniqueID()){ printf("Putting minus sign on fermion source in UR quadrant\n"); fflush(stdout); }
+      //make source on upper-right quadrant negative (RNGs should be correct)
+      	for(int s=0;s<GJP.SnodeSites();s++){
+      	  for(int t=0;t<GJP.TnodeSites();t++){
+      	    for(int z=0;z<GJP.ZnodeSites();z++){
+      	      for(int y=0;y<GJP.YnodeSites();y++){
+      		for(int x=0;x<GJP.XnodeSites();x++){
+      		  if( (x+y+z+t+s)%2 == 0) continue; //ferm vect is odd parity only
+
+      		  int gx = x+GJP.XnodeCoor()*GJP.XnodeSites();
+      		  int gy = y+GJP.YnodeCoor()*GJP.YnodeSites();
+
+      		  if(gx>=GJP.Xnodes()*GJP.XnodeSites()/2 && gy>=GJP.Ynodes()*GJP.YnodeSites()/2){
+      		    int pos[5] = {x,y,z,t,s};
+      		    int f_off = lat.FsiteOffsetChkb(pos) * lat.SpinComponents();
+
+      		    for(int spn=0;spn<lat.SpinComponents();spn++) *(frmn[0]+f_off+spn) *=-1;
+      		  }
+      		}
+      	      }
+      	    }
+      	  }
+      	}
+      }
+
+
+      {//for testing
+	Float norm = dotProduct((IFloat *)frmn[0],(IFloat *)frmn[0],f_size);
+	if(GJP.Gparity1fY()) norm/=2; //quad lattice has 2 copies of the 2-flavour G-parity source
+	glb_sum_five(&norm);
+	if(!UniqueID()) printf("pseudofermion source %d norm %f\n",i,norm);
+      }
+
       h_init += lat.FhamiltonNode(frmn[0],frmn[0]);
       phi[i] -> 
 	VecEqualsVecTimesEquFloat(frmn[0], remez_arg_mc[i].norm_inv, f_size);
@@ -224,6 +260,13 @@ void AlgActionRational::heatbath() {
 				frm_cg_arg_mc[i], CNV_FRM_NO, SINGLE,
 				remez_arg_mc[i].residue_inv);
       
+      {//for testing
+	Float norm = dotProduct((IFloat *)phi[i],(IFloat *)phi[i],f_size);
+	if(GJP.Gparity1fY()) norm/=2;
+	glb_sum_five(&norm);
+	if(!UniqueID()) printf("phi %d norm %f\n",i,norm);
+      }
+
       updateCgStats(frm_cg_arg_mc[i][0]);
     }
 
@@ -271,6 +314,13 @@ Float AlgActionRational::energy() {
       // shift this evaluation into minvcg?
       h += lat.FhamiltonNode(frmn[0], frmn[0]);
     }
+
+    {
+      Float hlat = h;
+      glb_sum_five(&hlat);
+      if(!UniqueID()) printf("AlgActionRational energy %f\n",hlat);
+    }
+
 
     LatticeFactory::Destroy();
 
@@ -358,6 +408,8 @@ void AlgActionRational::evolve(Float dt, int nsteps, int **fractionSplit)
   if (n_masses <= 0) return;
   Float trueMass;
     
+  if(!UniqueID()) printf("Entered AlgActionRational::evolve\n");
+
   //!< Variables required for ASQTAD partial fraction splitting
   int total_split_degree = 0;
   for (int i=0; i<n_masses; i++)
@@ -376,12 +428,31 @@ void AlgActionRational::evolve(Float dt, int nsteps, int **fractionSplit)
       int isz = fractionSplit[0][i];
 	
       if (deg > 0) {
+	{
+	  unsigned int gcsum = lat.CheckSum();
+
+	  if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+	    gcsum += lat.CheckSum(lat.GaugeField() + 4*GJP.VolNodeSites());
+	  }
+
+	  QioControl qc;
+	  gcsum = qc.globalSumUint(gcsum);
+	  if(UniqueID()==0) printf("AlgActionRational::evolve step %d lattice checksum %u\n",steps,gcsum);
+	}
 
         cg_iter = lat.FmatEvlMInv(frmn+shift+isz, phi[i], 
                                   remez_arg_md[i].pole+isz, deg, isz, 
                                   frm_cg_arg_md[i]+isz, CNV_FRM_NO, 
                                   frmn_d+shift+isz);
-	  
+
+	{//for testing
+	  Float norm1 = dotProduct((IFloat *)phi[i],(IFloat *)phi[i],f_size);
+	  glb_sum_five(&norm1);
+	  Float norm2 = dotProduct((IFloat *)frmn[shift+isz],(IFloat *)frmn[shift+isz],f_size);
+	  glb_sum_five(&norm2);
+	  if(!UniqueID()) printf("AlgActionRational::evolve step %d, phi[%d] norm %f, out norm %f\n",steps,i,norm1,norm2);
+	}
+
         updateCgStats(frm_cg_arg_md[i][isz]);
 
         if (force_measure == FORCE_MEASURE_YES ||

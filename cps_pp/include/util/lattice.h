@@ -8,15 +8,15 @@
 /*!\file
   \brief  Definitions of the Lattice classes.
 
-  $Id: lattice.h,v 1.63 2012-08-10 14:05:33 chulwoo Exp $
+  $Id: lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
 */
 /*----------------------------------------------------------------------
-  $Author: chulwoo $
-  $Date: 2012-08-10 14:05:33 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.63 2012-08-10 14:05:33 chulwoo Exp $
-  $Id: lattice.h,v 1.63 2012-08-10 14:05:33 chulwoo Exp $
+  $Author: ckelly $
+  $Date: 2012-11-15 18:17:08 $
+  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
   $Name: not supported by cvs2svn $
-  $Revision: 1.63 $
+  $Revision: 1.63.4.1 $
   $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v $
   $State: Exp $
 */  
@@ -162,7 +162,7 @@ class Lattice
 
  public:
 
-    const Matrix * GetLink(const int *x, int mu) const;
+    const Matrix * GetLink(const int *x, int mu, const int &field_idx = 0) const;
       //!< Gets the gauge link U_mu(x).
       // defined relative to the local site (0,0,0,0).
       // If the link is on-node, it returns a reference to
@@ -171,6 +171,7 @@ class Lattice
       // Since the buffer can be used by other routines as well as other
       // calls to this routine, as a general rule, the link should be
       // used immediately or else copied.
+      // CK: 09/11  field_idx is 0 for standard gauge links, 1 for stored conjugate links
 
     const Matrix * GetLinkOld(Matrix *g_offset, const int *x,
              int dir, int mu) const;
@@ -238,6 +239,10 @@ class Lattice
 
     virtual ~Lattice();
 
+    //!< Frees memory associated with gauge field and sets is_allocated = 0 and is_initialized = 0.
+    //Does not take off the scope lock (destructor does this).
+    virtual void FreeGauge();
+
     Matrix *GaugeField() const {
         return gauge_field;
     }
@@ -259,6 +264,7 @@ class Lattice
 	*/
     virtual unsigned long GsiteOffset(const int *x, const int dir) const;
 
+    unsigned int CheckSum(Matrix *field = gauge_field);
 
     void CopyGaugeField(Matrix* u);
         //!< Copies the  gauge configuration into an array;
@@ -280,6 +286,9 @@ class Lattice
         // GRF: consider changing the function name
         // to Lattice::PlaqStaple() for consistency.
 
+    void GparityStaple(Matrix& stap, int *x, int mu);
+    //!< Gparity staple. Automatically called by Staple.
+
     void BufferedStaple(Matrix & stap, const int *x, int mu);
         //!< Calculates the gauge field square staple sum  around a link
         //Buffered version of staple
@@ -297,6 +306,9 @@ class Lattice
         //   + U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~  U_v(x-2v)  U_v(x-v)
         // }
         //
+    void GparityRectStaple(Matrix& stap, int *x, int mu) ;
+    //!< Gparity rect staple. Automatically called by Staple.
+
     void BufferedRectStaple(Matrix& stap, const int *x, int mu);
         //!< Calculates the rectangle staple sum around a link.
         //buffered version of RectStaple 
@@ -353,6 +365,9 @@ class Lattice
         //
         //   U_u(x) U_v(x+u) U_u(x+v)~ U_v(x)~
 
+    Float GparityReTrPlaq(int *x, int mu, int nu) const;
+    //!< Equivalent to ReTrPlaq for G-parity. Automatically called by ReTrPlaq.
+
     Float SumReTrPlaqNode() const;
        //!< Calculates the local sum of the real part of the trace of the plaquette 
 
@@ -368,6 +383,9 @@ class Lattice
        //
        //   U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
        //
+
+    Float GparityReTrRect(int *x, int mu, int nu) const;
+    //!< G-parity equivalent of ReTrRect. Automatically called by ReTrRect
 
     Float SumReTrRectNode() const;
         //!< Calculates the local sum of the real part of the trace of the 6-link rectangle.
@@ -387,6 +405,13 @@ class Lattice
 
     Float SumReTrCube() ;
     //!< Calculates the global sum of the real part of the trace of the cube
+
+    //!< For G-parity, copy-conjugate all gauge links onto the second half of the lattice array
+    static void CopyConjMatrixField(Matrix *field, const int & nmat_per_site = 4);
+
+    void CopyConjGaugeField(){
+      return Lattice::CopyConjMatrixField(gauge_field);
+    }
 
   // Added in by Ping for anisotropic lattices
   //------------------------------------------------------------------
@@ -984,7 +1009,7 @@ class Lattice
 	{ return FmatEvlInv(f_out, f_in, cg_arg, 0, cnv_frm); }
 
 	virtual void Fsolfour2five(Vector *sol_5d, Vector *sol_4d, Vector *src_5d, CgArg *cg_arg){
-		char *fname = "Fsolfour2five()";
+      const char *fname = "Fsolfour2five()";
 		ERR.NotImplemented(cname,fname);
 	}
     // Recover the 5D solution from the 4D solution, without solve the equation again.

@@ -2,19 +2,19 @@
 /*! \file
   \brief  Definition of parallel transport definitions for QCDOC.
   
-  $Id: pt_init.C,v 1.6 2012-08-02 21:20:01 chulwoo Exp $
+  $Id: pt_init.C,v 1.6.4.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-08-02 21:20:01 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_init.C,v 1.6 2012-08-02 21:20:01 chulwoo Exp $
-//  $Id: pt_init.C,v 1.6 2012-08-02 21:20:01 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_init.C,v 1.6.4.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: pt_init.C,v 1.6.4.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt_init.C,v $
-//  $Revision: 1.6 $
+//  $Revision: 1.6.4.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_init.C,v $
 //  $State: Exp $
 //
@@ -23,6 +23,7 @@
 #include <string.h>
 #include "asq_data_types.h"
 #include "pt_int.h"
+#include <util/gjp.h>
 
 int PT::size[NDIM];
 int PT::vol;
@@ -36,6 +37,7 @@ void PT::init(PTArg *pt_arg)
 //printf("%s\n",fname);
   int i, j, x[NDIM],nei[NDIM];
   int local_count[2*NDIM];
+  int local_gpbound_count[2*NDIM];
   int non_local_count[2*NDIM];
   int vlen = VECT_LEN*sizeof(IFloat); //size of incoming vector
   int vlen2 =VECT_LEN_OUT*sizeof(IFloat); //size of outgoing vector (maybe different to optimize for QCDOC PEC)
@@ -69,8 +71,6 @@ void PT::init(PTArg *pt_arg)
   v_str_ord_cb = pt_arg->v_str_ord_cb;
   evenodd = pt_arg->evenodd;
   prec = pt_arg->prec;
-
-//  printf("g_str_ord=%d v_str_ord=%d v_str_ord_cb=%d g_conj=%d\n", g_str_ord, v_str_ord, v_str_ord_cb,g_conj);
 
   switch(g_str_ord){
     case PT_XYZT:
@@ -111,8 +111,8 @@ void PT::init(PTArg *pt_arg)
       break;
   }
   
-  if (g_conj) { Copy = &dag_cpy; DagCopy = &cpy; conjugated = PT_DAG_YES;}
-  else        { Copy = &cpy; DagCopy = &dag_cpy; conjugated = PT_DAG_NO;}
+  if (g_conj) { Copy = &dag_cpy; DagCopy = &cpy; StarCopy = &trans_cpy; TransCopy = &star_cpy; conjugated = PT_DAG_YES;}
+  else        { Copy = &cpy; DagCopy = &dag_cpy; StarCopy = &star_cpy; TransCopy = &trans_cpy; conjugated = PT_DAG_NO;}
 
 
   //For the fastest changing index, data must be sent in many short messages
@@ -139,7 +139,19 @@ void PT::init(PTArg *pt_arg)
       non_local_chi[2*i+1] = non_local_chi[2*i] = 0;
     else 
       non_local_chi[2*i+1] = non_local_chi[2*i] = vol/size[i];
+
     local_chi[2*i+1] = local_chi[2*i] = vol - non_local_chi[2*i];
+
+    if(local[i] && cps::GJP.Bc(i)==cps::BND_CND_GPARITY){
+      printf("Local comms in G-parity direction %d: special treatment of %d boundary sites\n",i,vol/size[i]); fflush(stdout);
+      //Separately handle local comms on the G-parity boundary
+      local_chi_gp[2*i+1] = local_chi_gp[2*i] = vol/size[i];
+      local_chi[2*i+1]-=local_chi_gp[2*i+1];
+      local_chi[2*i]-=local_chi_gp[2*i];
+    }else{
+      local_chi_gp[2*i+1] = local_chi_gp[2*i] = 0;
+    }
+
 //printf("local_chi[%d]=%d non_local_chi[%d]=%d\n", i*2,local_chi[i*2],i*2,non_local_chi[i*2]);
 //printf("local_chi[%d]=%d non_local_chi[%d]=%d\n", i*2+1,local_chi[i*2+1],i*2+1,non_local_chi[i*2+1]);
   }
@@ -184,6 +196,7 @@ void PT::init(PTArg *pt_arg)
 	non_local_chi_cb[2*i+1] = non_local_chi_cb[2*i] = vol/(2*size[i]);
       else
 	non_local_chi_cb[2*i+1] = non_local_chi_cb[2*i] = 0;
+
       local_chi_cb[2*i+1] = local_chi_cb[2*i] = vol/2 - non_local_chi_cb[2*i];
   //    printf("non_local_chi_cb[2*%d] = %d; local_chi_cb[2*%d] = %d\n",i,non_local_chi_cb[2*i],i,local_chi_cb[2*i]);
     }
@@ -191,7 +204,7 @@ void PT::init(PTArg *pt_arg)
   //---------------------------------------------------------------------------
 
   for(i=0; i<2*NDIM;i++){
-    local_count[i]=non_local_count[i]=0;
+    local_count[i]=local_gpbound_count[i]=non_local_count[i]=0;
     //-------------------------------------------------------------------------
     for(int parity = 0; parity < 2; parity++)
       local_count_cb[parity][i] = non_local_count_cb[parity][i] = 0;
@@ -200,6 +213,11 @@ void PT::init(PTArg *pt_arg)
 
       uc_l[i] = (gauge_agg *)Alloc(cname,fname,"uc_l[i]",
 				     sizeof(gauge_agg)*(1+local_chi[i]));
+      if(cps::GJP.Bc(i/2)==cps::BND_CND_GPARITY && local[i/2]){
+	//printf("Allocating resources for local G-parity boundary sites on wire %d\n",i); fflush(stdout);
+	uc_l_gpbound[i] = (gauge_agg *)Alloc(cname,fname,"uc_l_gpbound[i]", sizeof(gauge_agg)*(1+local_chi_gp[i]));
+      }
+
       uc_nl[i] = (gauge_agg *)Alloc(cname,fname,"uc_nl[i]",
 				      sizeof(gauge_agg)*(1+non_local_chi[i]),0,non_local_chi[i]);
 
@@ -250,6 +268,8 @@ void PT::init(PTArg *pt_arg)
   int parity = 0;
   //---------------------------------------------------------------------------
  
+  //printf("Setting up source and destination offsets\n"); fflush(stdout);
+  
   //Calculate source and destination indices for gauge aggregates (see set_hop_pointer())
   //Only for one hop
    for(x[3]=0,nei[3]=0;x[3]<size[3];x[3]++,nei[3]++)
@@ -261,6 +281,7 @@ void PT::init(PTArg *pt_arg)
 //	    printf("%d %d %d %d %d\n",x[0],x[1],x[2],x[3],i);
 	    // positive direction
 	    //This is for transport of a vector in the negative direction
+	    //V'(x) = U_mu(x)V(x+mu) 
 	    //An even index for uc_nl, uc_l, uc_nl_cb, uc_l_cb corresponds
 	    //to parallel transport in the negative direction
 	    
@@ -272,13 +293,24 @@ void PT::init(PTArg *pt_arg)
 	      if (non_local_count[i*2]>non_local_chi[i*2])
 		fprintf(stderr,"%s:non_local_count[%d](%d)>non_local_chi[%d](%d)\n",
 			fname,2*i,non_local_count[2*i],2*i,non_local_chi[2*i]);
-	    } 
+	    }
+	    else if(x[i]==0 && cps::GJP.Bc(i)==cps::BND_CND_GPARITY && local[i]){
+	      nei[i] = (x[i]-1+size[i])%size[i];
+	      //printf("x = %d %d %d %d on G-parity boundary with local comms: backwards PT to neighbour %d %d %d %d being handled specially\n",x[0],x[1],x[2],x[3],nei[0],nei[1],nei[2],nei[3]); fflush(stdout);
+	      (uc_l_gpbound[2*i]+local_gpbound_count[2*i])->src = LexVector(x)*vlen;
+	      (uc_l_gpbound[2*i]+local_gpbound_count[2*i])->dest = LexVector(nei)*vlen2;
+	      local_gpbound_count[i*2]++;
+	    }
 	    else {
 	      nei[i] = (x[i]-1+size[i])%size[i];
+	      //printf("x = %d %d %d %d regular site with local comms: backwards PT to neighbour %d %d %d %d being handled normally\n",x[0],x[1],x[2],x[3],nei[0],nei[1],nei[2],nei[3]); fflush(stdout);
 	      if(local_count[2*i]<0) fprintf(stderr,"%s:local_count[%d]=%d]n",
 			fname,2*i,local_count[2*i]);
 	      (uc_l[2*i]+local_count[2*i])->src = LexVector(x)*vlen;
 	      (uc_l[2*i]+local_count[2*i])->dest = LexVector(nei)*vlen2;
+
+	      //printf("backwards PT wire %d, site %d, src = %d, dest = %d\n",2*i,local_count[2*i], (uc_l[2*i]+local_count[2*i])->src, (uc_l[2*i]+local_count[2*i])->dest); fflush(stdout);
+	      
 	      local_count[i*2]++;
 	      if (local_count[i*2]>local_chi[i*2])
 		fprintf(stderr,"%s:local_count[%d](%d)>local_chi[%d](%d)\n",
@@ -288,6 +320,7 @@ void PT::init(PTArg *pt_arg)
 	    //This is parallel transport in the positive direction
 	    //An odd index for uc_l, uc_nl, uc_l_cb,uc_nl_cb corresponds to
 	    //transport in the positive direction
+	    //V'(x) = U^dag_mu(x-mu)V(x-mu)
 	    if((x[i] == (size[i] -1))  && (!local[i])){
 	      nei[i] = 0;
 	      (uc_nl[2*i+1]+non_local_count[2*i+1])->src = non_local_count[2*i+1]*vlen;
@@ -296,12 +329,22 @@ void PT::init(PTArg *pt_arg)
 	      if (non_local_count[i*2+1]>non_local_chi[i*2+1])
 		fprintf(stderr,"%s:non_local_count[%d](%d)>non_local_chi[%d](%d)\n",
 			fname,2*i+1,non_local_count[2*i+1],2*i+1,non_local_chi[2*i+1]);
-	    } else {
+	    } 
+	    else if(x[i] == size[i]-1 && cps::GJP.Bc(i)==cps::BND_CND_GPARITY && local[i]){
 	      nei[i] = (x[i]+1)%size[i];
+	      //printf("x = %d %d %d %d on G-parity boundary with local comms: forwardswards PT to neighbour %d %d %d %d being handled specially\n",x[0],x[1],x[2],x[3],nei[0],nei[1],nei[2],nei[3]); fflush(stdout);
+	      (uc_l_gpbound[2*i+1]+local_gpbound_count[2*i+1])->src = LexVector(x)*vlen;
+	      (uc_l_gpbound[2*i+1]+local_gpbound_count[2*i+1])->dest = LexVector(nei)*vlen2;
+	      local_gpbound_count[i*2+1]++;
+	    }
+	    else {
+	      nei[i] = (x[i]+1)%size[i];
+	      //printf("x = %d %d %d %d regular site with local comms: forwards PT to neighbour %d %d %d %d being handled normally\n",x[0],x[1],x[2],x[3],nei[0],nei[1],nei[2],nei[3]); fflush(stdout);
 	      if(local_count[2*i+1]<0) fprintf(stderr,"%s:local_count[%d]=%d]n",
 					       fname,2*i+local_count[2*i+1]);
 	      (uc_l[2*i+1]+local_count[2*i+1])->src = LexVector(x)*vlen;
 	      (uc_l[2*i+1]+local_count[2*i+1])->dest = LexVector(nei)*vlen2;
+	      //printf("forwards PT wire %d, site %d, src = %d, dest = %d\n",2*i+1,local_count[2*i+1], (uc_l[2*i+1]+local_count[2*i+1])->src, (uc_l[2*i+1]+local_count[2*i+1])->dest); fflush(stdout);
 	      local_count[i*2+1]++;
 	      if (local_count[i*2+1]>local_chi[i*2+1])
 		fprintf(stderr,"%s:local_count[%d](%d)>local_chi[%d](%d)\n",
@@ -310,6 +353,8 @@ void PT::init(PTArg *pt_arg)
 	    nei[i] = x[i];
 	  }
 	}
+
+   //printf("Finished source/dest setup for non checkerboard lattices\n"); fflush(stdout);
 
    //--------------------------------------------------------------------------
   //Calculate source and destination indices for gauge aggregates
@@ -437,15 +482,24 @@ void PT::init(PTArg *pt_arg)
 	}
    //--------------------------------------------------------------------------
 
-  //Sets bits in uc_l and uc_nl to zero
-  for(i=0;i<NDIM*2;i++){
-    gauge_agg *tmp = uc_l[i]+local_chi[i];
-    memcpy(tmp,tmp-1,sizeof(gauge_agg));
-	if(non_local_chi[i]){
-      tmp = uc_nl[i]+non_local_chi[i];
-      memcpy(tmp,tmp-1,sizeof(gauge_agg));
-	}
-  }
+   //printf("Setting bits to zero (?)\n"); fflush(stdout);
+
+   //Sets bits in uc_l and uc_nl to zero
+   for(i=0;i<NDIM*2;i++){
+     gauge_agg *tmp = uc_l[i]+local_chi[i];
+     memcpy(tmp,tmp-1,sizeof(gauge_agg));
+     if(non_local_chi[i]){
+       tmp = uc_nl[i]+non_local_chi[i];
+       memcpy(tmp,tmp-1,sizeof(gauge_agg));
+     }
+
+     if(local[i/2] && cps::GJP.Bc(i/2)==cps::BND_CND_GPARITY && local_chi_gp[i]){
+       //printf("Setting G-parity bits to zero (?)\n"); fflush(stdout);
+       tmp = uc_l_gpbound[i]+local_gpbound_count[i];
+       memcpy(tmp,tmp-1,sizeof(gauge_agg));
+     }
+
+   }
 
   //Calculate offsets?
   //For even array index (transfer in the negative  direction) the
@@ -543,6 +597,7 @@ void PT::delete_buf(){
   for(int i = 0; i < 2*NDIM; i++){
     Free(uc_l[i]);
     Free(uc_nl[i]);
+    if(local[i/2] && cps::GJP.Bc(i/2)==cps::BND_CND_GPARITY) Free(uc_l_gpbound[i]);
     //--------------------------------------------------------------------
 
     for(int parity = 0; parity < 2; parity++)

@@ -8,6 +8,9 @@ void ThreeMom::CalcLatMom(void){
   pp[0] = TWO_PI/(GJP.XnodeSites()*GJP.Xnodes()) ;
   pp[1] = TWO_PI/(GJP.YnodeSites()*GJP.Ynodes()) ;
   pp[2] = TWO_PI/(GJP.ZnodeSites()*GJP.Znodes()) ;
+
+  for(int i=0;i<3;i++)
+    if(GJP.Bc(i)==BND_CND_GPARITY) pp[i]/=4.0; //CK: units of momentum are pi/2L not 2pi/L in G-parity directions
 }
 #undef TWO_PI
 

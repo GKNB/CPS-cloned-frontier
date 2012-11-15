@@ -5,19 +5,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class CG solver methods.
 
-  $Id: inv_cg.C,v 1.3 2012-03-26 13:50:11 chulwoo Exp $
+  $Id: inv_cg.C,v 1.3.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-26 13:50:11 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/inv_cg.C,v 1.3 2012-03-26 13:50:11 chulwoo Exp $
-//  $Id: inv_cg.C,v 1.3 2012-03-26 13:50:11 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/inv_cg.C,v 1.3.28.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: inv_cg.C,v 1.3.28.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: inv_cg.C,v $
-//  $Revision: 1.3 $
+//  $Revision: 1.3.28.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/inv_cg.C,v $
 //  $State: Exp $
 //
@@ -110,6 +110,8 @@ int DiracOp::InvCgShift(Vector *out,
   int i, ic, icb;
   char *fname = "InvCg(V*,V*,F,F*)";
   IFloat *temp;
+
+if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc inv_cg routines");
 
 // Flash the LED and then turn it off
 //------------------------------------------------------------------

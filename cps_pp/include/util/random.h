@@ -3,19 +3,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of RNG classes.
 
-  $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
+  $Id: random.h,v 1.28.142.1 2012-11-15 18:17:08 ckelly Exp $
  */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2008-04-21 14:19:17 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
-//  $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v 1.28.142.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: random.h,v 1.28.142.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: random.h,v $
-//  $Revision: 1.28 $
+//  $Revision: 1.28.142.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v $
 //  $State: Exp $
 //
@@ -57,6 +57,11 @@ class RandomGenerator {
     RandomGenerator() {    }
     virtual ~RandomGenerator() {    }
 
+    //CK for testing add copy constructor and equivalence operator
+    RandomGenerator(const RandomGenerator &in);
+    RandomGenerator & operator=(const RandomGenerator &in);
+    bool operator==(const RandomGenerator &in) const;
+
     //! Gets a random number 
     IFloat Rand();
 
@@ -77,18 +82,10 @@ class RandomGenerator {
     virtual int RNGints() const { return state_size + 2; } // ma & inext & inextp
 
     //! to store this object
-    void store(int *buf) {
-      memcpy(buf,ma,state_size * sizeof(int));
-      buf[state_size] = inext;
-      buf[state_size+1] = inextp;
-    }
+    void store(int *buf);
 
     //! to load from file
-    void load(int *buf) {
-      memcpy(ma,buf,state_size * sizeof(int));
-      inext = buf[state_size];
-      inextp = buf[state_size+1];
-    }
+    void load(int *buf);
 #endif
     
 };
@@ -178,6 +175,11 @@ class GaussianRandomGenerator : public virtual RandomGenerator
 	RandomGenerator(), iset(0) {SetSigma(s2);}    
     ~GaussianRandomGenerator() {}
 
+    //CK: Added copy constructor and equivalene operator for testing purposes
+    GaussianRandomGenerator(const GaussianRandomGenerator &in);
+    GaussianRandomGenerator & operator=(const GaussianRandomGenerator &in);
+    bool operator==(const GaussianRandomGenerator &in) const;
+
 //! Sets the variance of the distribution.
 /*!
   \param s2 the variance of the gaussian distribution.
@@ -229,6 +231,11 @@ public UniformRandomGenerator, public GaussianRandomGenerator
     UGrandomGenerator():
 	UniformRandomGenerator(),
 	GaussianRandomGenerator() {};
+
+    //CK added copy constructor and equivalence operator
+    UGrandomGenerator(const UGrandomGenerator&in);
+    UGrandomGenerator & operator=(const UGrandomGenerator&in);
+    bool operator==(const UGrandomGenerator&in) const;
 
     //! Get a gaussian random number
     IFloat Grand(int noexit=0) { return GaussianRandomGenerator::Rand(noexit); }
@@ -295,7 +302,18 @@ class LatRanGen
   public:
     LatRanGen();
     ~LatRanGen();
+
+    //CK added for testing
+    LatRanGen(const LatRanGen &in);
+    LatRanGen &operator=(const LatRanGen &in);
+    bool operator==(const LatRanGen &in) const;
+
     void Initialize();  
+
+    void Reinitialize(); //added by CK - turns off is_initialised flag, frees memory and runs initialize again
+    //below added by CK as I need access to the random number gens themselves.
+    UGrandomGenerator & UGrandGen(const int &idx){ return ugran[idx]; }
+    UGrandomGenerator & UGrandGen4D(const int &idx){ return ugran_4d[idx]; }
 
     //! Get a uniform random number.
     IFloat Urand(FermionFieldDimension frm_dim=FOUR_D);
@@ -314,11 +332,11 @@ class LatRanGen
     void SetInterval(IFloat high, IFloat low);
 
     //! Specifies which hypercube RNG to use.
-    void AssignGenerator(int x, int y, int z, int t,int s = 0);
+    void AssignGenerator(int x, int y, int z, int t,int s=0, const int &field_idx = 0);
     //! Specifies which hypercube RNG to use.
-    void AssignGenerator(const int * coor);
+    void AssignGenerator(const int * coor, const int &field_idx = 0);
     //! Specifies which hypercube RNG to use.
-    void AssignGenerator(int i);
+    void AssignGenerator(int i, const int &field_idx = 0);
 
     //! Size of the RNG state (per hypercube).
     int StateSize() const;
@@ -347,6 +365,11 @@ class LatRanGen
     bool Read(const char* filename, int concur_io_num = 0);
     bool Write(const char* filename, int concur_io_num = 0);
 
+    int GetGeneratorIndex(const FermionFieldDimension &frm_dim = FIVE_D) const{
+      if(frm_dim == FOUR_D) return rgen_pos_4d;
+      else return rgen_pos;
+    }
+    
  private:
     bool UseParIO;
     bool io_good;

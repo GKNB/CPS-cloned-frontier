@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpDwf class methods.
 
-  $Id: d_op_dwf.C,v 1.5 2011-04-13 19:05:04 chulwoo Exp $
+  $Id: d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-04-13 19:05:04 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.5 2011-04-13 19:05:04 chulwoo Exp $
-//  $Id: d_op_dwf.C,v 1.5 2011-04-13 19:05:04 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: d_op_dwf.C,v $
-//  $Revision: 1.5 $
+//  $Revision: 1.5.40.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v $
 //  $State: Exp $
 //
@@ -42,6 +42,10 @@ CPS_END_NAMESPACE
 #include <util/dwf.h>
 #include <mem/p2v.h>
 #include <comms/glb.h>
+
+#include <util/fpconv.h>
+#include <util/checksum.h>
+#include <util/qioarg.h>
 
 #ifdef USE_CG_DWF_WRAPPER
 #include "cps_cg_dwf.h"
@@ -345,7 +349,8 @@ int DiracOpDwf::MatInv(Vector *out,
   // Implement routine
   //----------------------------------------------------------------
   Vector *temp2;
-  unsigned long long temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  unsigned long long temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2; //odd-even preconditioned
+  if(GJP.Gparity()) temp_size*=2; //each parity comprises 2 stacked fields on each ls site
 
 //  printf("temp_size:%d\n",temp_size);
 //  printf("MatInv : %e %e\n",in->NormSqNode(temp_size),out->NormSqNode(temp_size));
@@ -380,6 +385,32 @@ int DiracOpDwf::MatInv(Vector *out,
 
 	
   Dslash(temp, even_in, CHKB_EVEN, DAG_NO);
+
+  //DEBUG - checksum the temp vector
+  {
+    int nwilson = GJP.VolNodeSites()*GJP.SnodeSites()/2; //how many blocks of 24 floats
+    if(GJP.Gparity()) nwilson*=2;
+    
+    FPConv fp;
+    enum FP_FORMAT format = FP_IEEE64LITTLE;
+    uint32_t csum(0);
+    
+    Float *field_5D = (Float *)temp;
+    
+    for(int x=0; x<nwilson; x++){
+      uint32_t csum_contrib = fp.checksum((char *)(field_5D),24,format);
+      csum += csum_contrib;
+      field_5D+=24;
+    }
+    
+    QioControl qc;
+    csum = qc.globalSumUint(csum);
+    
+    if(UniqueID()==0) printf("Even sites after Dslash(src) checksum %u\n",csum);
+  }
+  //DEBUG
+
+
 //  printf("MatInv : even : Dslash : temp:%e even:%e\n",temp->NormSqNode(temp_size),even_in->NormSqNode(temp_size));
 
   fTimesV1PlusV2((IFloat *)temp, (IFloat) dwf_arg->dwf_kappa, (IFloat *)temp,
@@ -407,6 +438,32 @@ int DiracOpDwf::MatInv(Vector *out,
 	}
 #endif
     MatPcDag(in, temp);
+    //DEBUG - checksum the converted 5d source
+    {
+      int nwilson = GJP.VolNodeSites()*GJP.SnodeSites(); //how many blocks of 24 floats
+      if(GJP.Gparity()) nwilson*=2;
+    
+      FPConv fp;
+      enum FP_FORMAT format = FP_IEEE64LITTLE;
+      uint32_t csum(0);
+    
+      Float *field_5D = (Float *)in;
+    
+      for(int x=0; x<nwilson; x++){
+	uint32_t csum_contrib = fp.checksum((char *)(field_5D),24,format);
+	csum += csum_contrib;
+	field_5D+=24;
+      }
+    
+      QioControl qc;
+      csum = qc.globalSumUint(csum);
+    
+      if(UniqueID()==0) printf("After initial D^\dagger D(src) checksum %u\n",csum);
+    }
+    //DEBUG
+
+
+    //printf("Starting invCG\n"); fflush(stdout);//DEBUG
     iter = InvCg(out,in,true_res);
     break;
   case BICGSTAB:
@@ -603,7 +660,7 @@ void DiracOpDwf::MatHerm(Vector *out, Vector *in) {
 
   \post The vector \a f_field_out is \f$ (1+D)\chi \f$
 
-  and the vector \a f_field_in is \f$ (D^\dagger-\kappa^2 M)\chi \f$
+  and the vector \a f_field_in is \f$ (D^\dagger-\kappa^2 M)\chi \f$  //CK: this does not match with what is actually done below!
 
   where \e M is the odd-even preconditioned fermion matrix connecting odd to
   odd parity sites and \e D is the hopping term connecting odd to
@@ -640,11 +697,13 @@ void DiracOpDwf::CalcHmdForceVecs(Vector *chi)
 
 //------------------------------------------------------------------
 // f_out stores (chi,rho), f_in stores (psi,sigma)
+// CK: rho = Dslash chi,  psi = -kappa^2(1-kappa^2 D_oe D_eo)chi  , sigma = Dslash^dag psi
 //------------------------------------------------------------------
 
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
+  if(GJP.Gparity()) f_size_cb*=2; //odd-parity sites for CubarT field stored immediately after odd-parity sites for d field
 
   chi_new = f_out ;
 

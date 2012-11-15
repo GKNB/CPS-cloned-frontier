@@ -41,6 +41,8 @@ class QPropWArg {
   int z;
   int t;
 
+  //!CK:08/11 G-parity
+  int flavor; 
 
   //! Gauge Fixing flags
   int gauge_fix_src;

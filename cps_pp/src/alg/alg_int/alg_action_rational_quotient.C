@@ -42,6 +42,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 
   cname = "AlgActionRationalQuotient";
   char *fname = "AlgActionRationalQuotient()";
+  TimeStamp::start_func(cname,fname);
 
   int_type = INT_RATIONAL_QUOTIENT;
   rat_quo_arg = &r_arg;
@@ -123,6 +124,8 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 
   if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) 
     generateEigArg(rat_quo_arg->eigen);
+
+  TimeStamp::end_func(cname,fname);
 }
 
 AlgActionRationalQuotient::~AlgActionRationalQuotient() {
@@ -224,8 +227,8 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 
 //!< Heat Bath for the pseudo-fermions (phi)
 void AlgActionRationalQuotient::heatbath() {
-
   char *fname = "heatbath()";
+  TimeStamp::start_func(cname,fname);
 
   Float dtime = -dclock();
 
@@ -239,6 +242,33 @@ void AlgActionRationalQuotient::heatbath() {
     for(int i=0; i<n_masses; i++){
 
       lat.RandGaussVector(phi[i], 0.5, Ncb);
+
+      if(GJP.Gparity1fX() && GJP.Gparity1fY()){
+      	if(!UniqueID()){ printf("Putting minus sign on fermion source in UR quadrant\n"); fflush(stdout); }
+	//make source on upper-right quadrant negative (RNGs should be correct)
+      	for(int s=0;s<GJP.SnodeSites();s++){
+      	  for(int t=0;t<GJP.TnodeSites();t++){
+      	    for(int z=0;z<GJP.ZnodeSites();z++){
+      	      for(int y=0;y<GJP.YnodeSites();y++){
+      		for(int x=0;x<GJP.XnodeSites();x++){
+      		  if( (x+y+z+t+s)%2 == 0) continue; //ferm vect is odd parity only
+
+      		  int gx = x+GJP.XnodeCoor()*GJP.XnodeSites();
+      		  int gy = y+GJP.YnodeCoor()*GJP.YnodeSites();
+
+      		  if(gx>=GJP.Xnodes()*GJP.XnodeSites()/2 && gy>=GJP.Ynodes()*GJP.YnodeSites()/2){
+      		    int pos[5] = {x,y,z,t,s};
+      		    int f_off = lat.FsiteOffsetChkb(pos) * lat.SpinComponents();
+
+      		    for(int spn=0;spn<lat.SpinComponents();spn++) *(frmn[0]+f_off+spn) *=-1;
+      		  }
+      		}
+      	      }
+      	    }
+      	  }
+      	}
+      }
+
       h_init += lat.FhamiltonNode(phi[i],phi[i]);
 
       //!< First apply the fermion rational
@@ -273,12 +303,14 @@ void AlgActionRationalQuotient::heatbath() {
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  TimeStamp::end_func(cname,fname);
 }
 
 // Calculate rhmc fermion contribution to the Hamiltonian
 Float AlgActionRationalQuotient::energy() {
 
   char *fname="energy()";
+  TimeStamp::start_func(cname,fname);
 
   if (energyEval) {
     return 0.0;
@@ -333,6 +365,7 @@ Float AlgActionRationalQuotient::energy() {
 
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
+    TimeStamp::end_func(cname,fname);
     return h;
   }
 }
@@ -466,6 +499,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 
       L1 /= 4.0*GJP.VolSites();
       L2 /= 4.0*GJP.VolSites();	 
+      if(GJP.Gparity()){ L1*=2; L2*=2; }
 
       ((Vector *)force)->VecAddEquVec((Vector *)mom_tmp, g_size);
 
@@ -491,6 +525,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
   char * fname = "evolve(Float, int)";
+  TimeStamp::start_func(cname,fname);
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;
@@ -507,11 +542,13 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       //! First apply boson rational
       int shift = 0;
       dtime_cg -= dclock();
+      TimeStamp::stamp_incr("Multishift boson solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn, phi[i], 
                                 bsn_remez_arg_md[i].pole, 
                                 bsn_deg, 0, 
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
+      TimeStamp::decr_stamp("Multishift boson solve end, step %d, mass idx %d",steps,i);
       dtime_cg += dclock();
 
       updateCgStats(bsn_cg_arg_md[i][0]);
@@ -526,11 +563,14 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       dtime_cg -= dclock();
       //!< Now apply fermion rational
       shift += bsn_deg;
+
+      TimeStamp::stamp_incr("Multishift ferm solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn+shift, eta[0], 
                                 frm_remez_arg_md[i].pole, 
                                 frm_deg, 0, 
                                 frm_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);
+      TimeStamp::decr_stamp("Multishift ferm solve end, step %d, mass idx %d",steps,i);
       dtime_cg += dclock();
 
       updateCgStats(frm_cg_arg_md[i][0]);
@@ -545,12 +585,15 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       dtime_cg -= dclock();
       //!< Apply final boson rational
       shift += frm_deg;
+
+      TimeStamp::stamp_incr("Multishift second boson solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn+shift, eta[1], 
                                 bsn_remez_arg_md[i].pole, 
                                 bsn_deg, 0, 
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
       dtime_cg += dclock();
+      TimeStamp::decr_stamp("Multishift second boson solve end, step %d, mass idx %d",steps,i);
 
       updateCgStats(bsn_cg_arg_md[i][0]);
 
@@ -582,9 +625,12 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 
       dtime_force -= dclock();
       //!< Do bosonic force contribution
+      TimeStamp::stamp_incr("Start calculate boson force contribution, step %d, mass idx %d",steps,i);
       Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
                                      all_res, bsn_mass[i], dt, frmn_d, 
                                      force_measure);
+      TimeStamp::decr_stamp("End calculate boson force contribution, step %d, mass idx %d",steps,i);
+
       if (force_measure == FORCE_MEASURE_YES) {	  
         char label[200];
         sprintf(label, "%s (boson), mass = %e:", 
@@ -593,9 +639,11 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       }
 
       //!< Do fermionic force contribution
+      TimeStamp::stamp_incr("Start calculate ferm force contribution, step %d, mass idx %d",steps,i);
       Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
                                      frm_remez_arg_md[i].residue, frm_mass[i], 
                                      dt, frmn_d, force_measure);
+      TimeStamp::decr_stamp("End calculate ferm force contribution, step %d, mass idx %d",steps,i);
       dtime_force += dclock();
 
       if (force_measure == FORCE_MEASURE_YES) {	  
@@ -649,6 +697,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, "evolve::cg()", 0, dtime_cg);
   print_flops(cname, "evolve::force()", 0, dtime_force);
+  TimeStamp::end_func(cname,fname);
 }
 
 bool AlgActionRationalQuotient::checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r)

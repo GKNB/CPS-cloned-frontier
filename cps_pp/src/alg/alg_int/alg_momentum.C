@@ -28,7 +28,6 @@ AlgMomentum::AlgMomentum() : AlgHamiltonian()
 
   int_type = INT_MOM;
   md_time_str = "MD_time/step_size = ";
-
   mom = (Matrix*)smalloc(g_size*sizeof(Float),"mom",fname,cname);
 }
 
@@ -39,12 +38,56 @@ AlgMomentum::~AlgMomentum() {
 
 //!< Heat Bath for the conjugate momentum
 void AlgMomentum::heatbath() {
-
   const char *fname = "heatbath()";
+  TimeStamp::start_func(cname,fname);
   Float dtime = -dclock();
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   lat.RandGaussAntiHermMatrix(mom, 1.0);
+
+  if(UniqueID()==0) printf("Heatbath for conjugate momentum\n");
+
+  if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+    //For comparison with 1f approach, run RNG over second field too
+    //to keep RNG sync'd over evolution
+    for(int n = 0; n < GJP.VolNodeSites(); n++) {
+      LRG.AssignGenerator(n,1);
+      for(int j = 0; j < 4; j++) {
+	for(int i = 0; i < 8; ++i) {
+	  LRG.Grand(FOUR_D);
+	}
+      }
+    }
+  }
+
+  if(GJP.Gparity1fX()){
+    //doubled lattice in X-direction
+    //need | P | P* |
+    //or quad lattice in XY-directions (if GJP.Gparity1fY() also - note GJP.Gparity1fY() cannot return true without Gparity1fX() also true)
+    // | P* | P  |
+    // | P  | P* |
+    if(!UniqueID()){ printf("1f G-parity: copy-conjugating momentum field\n"); fflush(stdout); }
+    Lattice::CopyConjMatrixField(mom,4);
+  }
+
+  {
+    unsigned int gcsum = lat.CheckSum(mom);
+
+    //note: for 2f G-parity the above lat.CheckSum just checksums the flavour-0 part
+    //      so for correct comparison between 1f and 2f we need to do both flavours
+    //      this takes extra computation so make it optional
+
+    if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+      if(!UniqueID()){ printf("2f G-parity: copy-conjugating momentum field for checksum\n"); fflush(stdout); }
+      Lattice::CopyConjMatrixField(mom,4);
+      gcsum += lat.CheckSum(mom + 4*GJP.VolNodeSites());
+    }
+
+    QioControl qc;
+    gcsum = qc.globalSumUint(gcsum);
+
+    if(UniqueID()==0) printf("Initial conjugate momentum checksum %u\n",gcsum);
+  }
 
   //!< reset MD time in Lattice (a momentum refresh means a new trajectory)
   lat.MdTime(0.0);
@@ -54,20 +97,32 @@ void AlgMomentum::heatbath() {
   
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  TimeStamp::end_func(cname,fname);
 }
 
 //!< Calculate gauge contribution to the Hamiltonian
 Float AlgMomentum::energy() {
+  const char *fname = "energy()";
+  TimeStamp::start_func(cname,fname);
   Float dtime = -dclock();
 
-  const char *fname = "energy()";
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
+
+  if(GJP.Gparity1fX() && !GJP.Gparity1fY()) h/=2;
+  else if(GJP.Gparity1fX() && GJP.Gparity1fY()) h/=4;
+
+  {
+    Float gsum_h(h);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0) printf("AlgMomentum::energy() %e\n",gsum_h);
+  }
+
   LatticeFactory::Destroy();
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-
+  TimeStamp::end_func(cname,fname);
   return h;
 }
 
@@ -75,16 +130,35 @@ Float AlgMomentum::energy() {
 void AlgMomentum::evolve(Float dt, int steps) 
 {
   const char *fname = "evolve()";
+  TimeStamp::start_func(cname,fname);
   Float dtime = -dclock();
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   for (int i=0; i<steps; i++) lat.EvolveGfield(mom, dt);
   lat.MdTimeInc(dt*steps);
   VRB.Flow(cname,fname,"%s%f\n", md_time_str, IFloat(lat.MdTime()));
+
+  {
+    unsigned int gcsum = lat.CheckSum();
+
+    //note: for 2f G-parity the above lat.CheckSum just checksums the flavour-0 part
+    //      so for correct comparison between 1f and 2f we need to do both flavours
+    //      this takes extra computation so make it optional
+
+    if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+      lat.CopyConjGaugeField();
+      gcsum += lat.CheckSum(lat.GaugeField() + 4*GJP.VolNodeSites());
+    }
+
+    QioControl qc;
+    gcsum = qc.globalSumUint(gcsum);
+    if(UniqueID()==0) printf("Post AlgMomentum evolve lattice checksum %u\n",gcsum);
+  }
   LatticeFactory::Destroy();
 
   dtime += dclock();
   print_flops(cname, fname, 1968. * 4. * GJP.VolNodeSites() * steps, dtime);
+  TimeStamp::end_func(cname,fname);
 }
 
 void AlgMomentum::cost(CgStats *cg_stats_global){

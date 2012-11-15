@@ -187,7 +187,7 @@ bool_t TextEncoder::Array     ( VML *vmls, char *type, char *name,
   } else if ( vmls->x_op == VML_DECODE ) { 
     if (!vmls->Gets((char *)line,256)) return false;
     sprintf(tmp,"%s %s[%%d] = { \n",type,name);
-    sscanf(line,tmp,&nvals);
+    if(sscanf(line,tmp,&nvals)!=1){ printf("Scan failure, failed to match '%s' to '%s'\n",tmp,line); exit(-1); }
 
     if ( DoAlloc ) { 
       if ( nvals )

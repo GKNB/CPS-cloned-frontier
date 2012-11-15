@@ -9,14 +9,14 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2008-02-08 18:35:07 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/qmp/inv_cg.C,v 1.4 2008-02-08 18:35:07 chulwoo Exp $
-//  $Id: inv_cg.C,v 1.4 2008-02-08 18:35:07 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/qmp/inv_cg.C,v 1.4.162.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: inv_cg.C,v 1.4.162.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: inv_cg.C,v $
-//  $Revision: 1.4 $
+//  $Revision: 1.4.162.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/qmp/inv_cg.C,v $
 //  $State: Exp $
 //
@@ -99,6 +99,7 @@ int DiracOp::InvCg(Vector *out,
   Float d;
   int i, j;
   char *fname = "InvCg(V*,V*,F,F*)";
+  if(GJP.Gparity()) ERR.General(cname,fname,"(QMP subdir version) Code not written for Gparity");
 
 // Flash the LED and then turn it off
 //------------------------------------------------------------------

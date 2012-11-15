@@ -2,19 +2,19 @@
 /*! \file
   \brief  Functions used by the ParTransAsqtad class.
   
-  $Id: pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
+  $Id: pt.C,v 1.12.4.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-08-02 21:20:01 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/noarch/pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
-//  $Id: pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/noarch/pt.C,v 1.12.4.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: pt.C,v 1.12.4.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt.C,v $
-//  $Revision: 1.12 $
+//  $Revision: 1.12.4.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/noarch/pt.C,v $
 //  $State: Exp $
 //
@@ -29,10 +29,12 @@ enum {MATRIX_SIZE = 18,NUM_DIR=8, VECT_LEN = 6};
 static int vol;
 static Lattice  *Lat;
 static int node_sites[5];
-//--------------------------------------------------------------------
-
 #ifndef USE_QMP
+//--------------------------------------------------------------------
+//NOTE: for G-parity, pt_mat assumes the matrice 'min' obey complex conjugate boundary conditions just like the gauge fields.
 void pt_mat(int N, IFloat **fout, IFloat **fin, const int *dir){
+  if(GJP.Gparity()) ERR.General("","pt_mat(int,IFloat**m,IFloat**,const int)[noarch version]","Not yet implemented correctly for G-parity");
+
 
     IFloat *u, *v;
     int s[4], spm[4];
@@ -46,7 +48,7 @@ void pt_mat(int N, IFloat **fout, IFloat **fin, const int *dir){
 	vout[d] = (Matrix *)fout[d];
 
 	int mu = dir[d];
-	bool backwards = mu%2 ? true : false;
+	bool backwards = mu%2 ? true : false; //if mu is odd, backwards is true, else is false
         mu /= 2;
 
 	for(spm[3]=s[3]=0; s[3]<GJP.TnodeSites(); spm[3]++, s[3]++)
@@ -60,8 +62,24 @@ void pt_mat(int N, IFloat **fout, IFloat **fin, const int *dir){
 			      getMinusData((IFloat*)&m, (IFloat*)(Lat->GaugeField()+Lat->GsiteOffset(spm)+mu), MATRIX_SIZE, mu);
 			      getMinusData((IFloat*)&mp, (IFloat*)(&vin[d][Lat->FsiteOffset(spm)]), MATRIX_SIZE, mu);
 			      // STAG stores hermitian conjugate links
-			      mDotMEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
-					    (IFloat *)&m, (IFloat *)&mp);		    			    
+
+			      //CK: for non-conjugated (non STAG) links this appears to do: V'(x) = U_mu(x-mu)V(x-mu)
+			      //which is incorrect. 
+			      //correct transport should be V'(x) = U^dag(x-mu)\psi(x-mu) 
+			      //like in the Dirac matrix  \psi^dag(x) M(x,y) \psi(y) ~ \sum_mu \psi^dag(x) U(x) \psi(x+mu) - \psi^dag(x) U^dag(x-mu)\psi(x-mu) 
+			      //I guess this assumes staggered?
+
+			      bool gpbound(false);
+			      if(GJP.Bc(mu) == BND_CND_GPARITY && GJP.NodeCoor(mu) == 0) gpbound = true;
+
+			      if(!gpbound)
+				mDotMEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
+					   (IFloat *)&m, (IFloat *)&mp);		    			    
+			      else
+				mStarDotMStarEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
+						   (IFloat *)&m, (IFloat *)&mp); //complex conjugate gauge link and matrix (see note above)
+
+
 			  }
 			  else {
 			    spm[mu] = s[mu]-1;
@@ -77,9 +95,19 @@ void pt_mat(int N, IFloat **fout, IFloat **fin, const int *dir){
 			    getPlusData((IFloat*)&mp, (IFloat*)(&vin[d][Lat->FsiteOffset(spm)]), MATRIX_SIZE, mu);
 			    ud.Dagger(*(Lat->GaugeField()+Lat->GsiteOffset(s)+mu));
 			    u = (IFloat*)&ud;
+
+			    //V'(x) = U(x)V(x+mu)
+
+			    bool gpbound(false);
+			    if(GJP.Bc(mu) == BND_CND_GPARITY && GJP.NodeCoor(mu) == GJP.Nodes(mu)-1) gpbound = true;
+
 			    // STAG stores hermitian conjugate links
-			    mDotMEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
-				      u, (IFloat *)&mp);	
+			    if(!gpbound)
+			      mDotMEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
+					 u, (IFloat *)&mp);	
+			    else
+			      mDotMStarEqual((IFloat*)&vout[d][Lat->FsiteOffset(s)],
+					     u, (IFloat *)&mp);  //complex conjugate matrix
 			  }
 			  else {
 			    spm[mu] = spm[mu]+1;
@@ -864,4 +892,5 @@ void pt_1vec_cb_pad(int n, IFloat *fout, IFloat **fin, const int *dir,ChkbType c
 #endif //USE_QMP
 
 CPS_END_NAMESPACE
+
 	

@@ -190,6 +190,10 @@ vml_DoArg (VML *vmls, char *name,DoArg *objp)
 		 return FALSE;
 	 if (!vml_Float (vmls, "p4_lepage", &objp->p4_lepage))
 		 return FALSE;
+	 if (!vml_int (vmls, "gparity_1f_X", &objp->gparity_1f_X))
+		 return FALSE;
+	 if (!vml_int (vmls, "gparity_1f_Y", &objp->gparity_1f_Y))
+		 return FALSE;
 	 vml_class_end(vmls,"DoArg",name);
 	return TRUE;
 }

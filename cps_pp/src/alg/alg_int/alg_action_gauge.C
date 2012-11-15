@@ -36,7 +36,6 @@ AlgActionGauge::~AlgActionGauge() {
 
 //!< Heat Bath for the gauge action (i.e., does nothing)
 void AlgActionGauge::heatbath() {
-
 }
 
 //!< Calculate gauge contribution to the Hamiltonian
@@ -44,14 +43,23 @@ Float AlgActionGauge::energy() {
   Float dtime = -dclock();
 
   char *fname = "energy()";
+  TimeStamp::start_func(cname,fname);
+
   Lattice &lat = 
     LatticeFactory::Create(F_CLASS_NONE, gluon);
   Float h = lat.GhamiltonNode();
+
+  {
+    Float gsum_h(h);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0)   printf("AlgActionGauge::energy() %e\n",gsum_h);
+  }
+
   LatticeFactory::Destroy();
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-
+  TimeStamp::end_func(cname,fname);
   return h;
 }
 
@@ -78,6 +86,7 @@ void AlgActionGauge::evolve(Float dt, int steps)
 {
   Float dtime = -dclock();
   const char *fname = "evolve()";
+  TimeStamp::start_func(cname,fname);
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
 
@@ -91,9 +100,17 @@ void AlgActionGauge::evolve(Float dt, int steps)
     }
   }
 
+  {
+    unsigned int gcsum = lat.CheckSum(mom);
+    QioControl qc;
+    gcsum = qc.globalSumUint(gcsum);
+    if(UniqueID()==0)   printf("Post AlgActionGauge evolve mom checksum %u\n",gcsum);
+  }
+
   LatticeFactory::Destroy();
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  TimeStamp::end_func(cname,fname);
 }
 
 //!< Dummy methods
@@ -104,5 +121,12 @@ void AlgActionGauge::cost(CgStats *cg_stats_global) {
 void AlgActionGauge::init() {
 
 }
+
+void AlgActionGauge::copyConjLattice(){
+  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
+  lat.CopyConjGaugeField();
+  LatticeFactory::Destroy();
+}
+
 
 CPS_END_NAMESPACE

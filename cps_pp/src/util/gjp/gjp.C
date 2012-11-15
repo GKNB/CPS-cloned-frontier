@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of GlobalJobParameter class methods.
 
-  $Id: gjp.C,v 1.43 2012-07-13 15:27:42 chulwoo Exp $
+  $Id: gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-07-13 15:27:42 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v 1.43 2012-07-13 15:27:42 chulwoo Exp $
-//  $Id: gjp.C,v 1.43 2012-07-13 15:27:42 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:09 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Id: gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: gjp.C,v $
-//  $Revision: 1.43 $
+//  $Revision: 1.43.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v $
 //  $State: Exp $
 //
@@ -247,6 +247,23 @@ nodes[0], nodes[1], nodes[2], nodes[3], nodes[4]);
       ERR.General(cname,fname,
 	"Bad value %d for %s_node_sites; must be divisible by 2\n", node_sites[i], dim_name[i]);
 
+  //CK: for G-parity testing we compare the 2f to the 1f model. The 1f model uses a doubled/quadrupled lattice for G-parity
+  //    in 1 or 2 directions, and antiperiodic boundary conditions in those directions
+  if(doarg_int.gparity_1f_X){
+    VRB.Result(cname,fname,"1f G-parity enabled in X-direction, doubling xsites from %d to %d\n",node_sites[0],node_sites[0]*2);
+    node_sites[0]*=2;
+    gparity_1f_X = 1;
+  }else gparity_1f_X = 0;
+
+  if(doarg_int.gparity_1f_Y){
+    if(!doarg_int.gparity_1f_X) ERR.General(cname,fname,
+					    "G-parity 1f model can choose either X or both X and Y directions for BC application, not Y alone\n");
+    VRB.Result(cname,fname,"1f G-parity enabled in Y-direction, doubling ysites from %d to %d\n",node_sites[1],node_sites[1]*2);
+    node_sites[1]*=2;
+    gparity_1f_Y = 1;
+  }else gparity_1f_Y = 0;
+
+
   // Set the volume values
   //----------------------------------------------------------------
  
@@ -329,7 +346,18 @@ node_coor[0], node_coor[1], node_coor[2], node_coor[3], node_coor[4]);
     bc[i] = BND_CND_PRD;
 #endif
 
+  //1f G-parity
+  gparity_doing_1f2f_comparison = 0;
+
+  if(doarg_int.gparity_1f_X){
+    bc[0] = BND_CND_APRD;
+  }
+  if(doarg_int.gparity_1f_Y){
+    bc[1] = BND_CND_APRD;
+  }
+
   // Set the boundary conditions for the sub-lattice on this node
+  // Note the 2f G-parity boundary conditions are handled separately
   //----------------------------------------------------------------
   for(i = 0; i<4 ; i++){
   node_bc[i] = BND_CND_PRD;
@@ -375,6 +403,16 @@ if (!UniqueID())
 
  mdwf_arg = NULL;
  mdwf_tuning = NULL;
+
+ gparity = false;
+ if(Xbc()==BND_CND_GPARITY ||
+    Ybc()==BND_CND_GPARITY ||
+    Zbc()==BND_CND_GPARITY){
+   gparity = true;
+   printf("2f G-parity boundary conditions active\n");
+ }
+ if(Tbc()==BND_CND_GPARITY) ERR.General(cname,fname,"Cannot use G-parity boundary conditions in the time-direction!\n");
+ 
   VRB.FuncEnd(cname,fname);
 }
 

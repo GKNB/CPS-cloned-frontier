@@ -3,19 +3,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgPbp class.
   
-  $Id: alg_pbp.C,v 1.14 2012-07-06 20:22:08 chulwoo Exp $
+  $Id: alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-07-06 20:22:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v 1.14 2012-07-06 20:22:08 chulwoo Exp $
-//  $Id: alg_pbp.C,v 1.14 2012-07-06 20:22:08 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2012-11-15 18:17:08 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Id: alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: alg_pbp.C,v $
-//  $Revision: 1.14 $
+//  $Revision: 1.14.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v $
 //  $State: Exp $
 //
@@ -82,7 +82,7 @@ AlgPbp::AlgPbp(Lattice& latt,
   // Set the node size of the full (non-checkerboarded) fermion field
   //----------------------------------------------------------------
   f_size = GJP.VolNodeSites() * latt.FsiteSize();
-
+  if(GJP.Gparity()) f_size*=2;
 
   // Allocate memory for the source.
   //----------------------------------------------------------------
@@ -126,7 +126,7 @@ AlgPbp::~AlgPbp() {
   structure.
 */
 //------------------------------------------------------------------
-void AlgPbp::run()
+void AlgPbp::run(Float *results)
 {
 #if TARGET==cpsMPI
     using MPISCU::fprintf;
@@ -196,6 +196,28 @@ void AlgPbp::run()
     // initialize 4-dimensional source
     lat.RandGaussVector(src_4d, 0.5, FOUR_D);
 
+    if(GJP.Gparity1fX() && GJP.Gparity1fY()){
+      //1f G-parity source in upper-right quadrant needs minus sign
+      for(int t=0;t<GJP.TnodeSites();t++){
+	for(int z=0;z<GJP.ZnodeSites();z++){
+	  for(int y=0;y<GJP.YnodeSites();y++){
+	    for(int x=0;x<GJP.XnodeSites();x++){
+
+	      int gx = x+GJP.XnodeCoor()*GJP.XnodeSites();
+	      int gy = y+GJP.YnodeCoor()*GJP.YnodeSites();
+
+	      if(gx>=GJP.Xnodes()*GJP.XnodeSites()/2 && gy>=GJP.Ynodes()*GJP.YnodeSites()/2){
+		int f_off = x + GJP.XnodeSites()*(y + GJP.YnodeSites()*(z + GJP.ZnodeSites()*t));
+		f_off*=lat.SpinComponents();
+
+		for(int spn=0;spn<lat.SpinComponents();spn++) *(src_4d+f_off+spn) *=-1;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+
     // set the 5-dimensional source
     lat.Ffour2five(src, src_4d, pbp_arg->src_u_s, pbp_arg->src_l_s);
 
@@ -232,6 +254,8 @@ void AlgPbp::run()
 
       // Calculate the pbp normalization factor 
       pbp_norm = GJP.VolSites() * lat.Colors() * lat.SpinComponents();
+      if(GJP.Gparity()) pbp_norm *=2;
+
       if(lat.Fclass() == F_CLASS_DWF) {
           pbp_norm *= 4.0 + GJP.DwfA5Inv() - GJP.DwfHeight();
       }
@@ -240,6 +264,8 @@ void AlgPbp::run()
       //   * ( lat.FsiteSize() / (2 * GJP.SnodeSites()) );  
 
       VRB.Result(cname, fname, "pbp_norm = %17.10e\n", pbp_norm);
+
+      int g5sites = GJP.VolNodeSites(); if(GJP.Gparity()) g5sites*=2;
 
       if (pbp_arg->snk_loop) {
 	// Loop over sink - source separation
@@ -252,7 +278,7 @@ void AlgPbp::run()
 	             / pbp_norm;
 
           // Calculate pbg5p = Tr[ PsiBar * Gamma5 * Psi]
-	  lat.Gamma5(sol_4d, sol_4d, GJP.VolNodeSites());
+	  lat.Gamma5(sol_4d, sol_4d,g5sites);
           pbg5p_all[i] = sol_4d->ReDotProductGlbSum4D(src_4d, f_size/ls)
 	               / pbp_norm;
         }
@@ -265,7 +291,7 @@ void AlgPbp::run()
         pbp = sol_4d->ReDotProductGlbSum4D(src_4d, f_size/ls) / pbp_norm;
 
 	// Calculate pbg5p = Tr[ PsiBar * Gamma5 * Psi]
-	lat.Gamma5(sol_4d, sol_4d, GJP.VolNodeSites());
+	lat.Gamma5(sol_4d, sol_4d, g5sites);
 	pbg5p = sol_4d->ReDotProductGlbSum4D(src_4d, f_size/ls) / pbp_norm;
       }
 
@@ -298,6 +324,18 @@ void AlgPbp::run()
 		  IFloat(true_res));
         }
 	Fclose(fp);
+      }
+
+      if(results!=0){
+	if (pbp_arg->snk_loop) {
+	  for (int i = 0; i < ls_glb; i++) {
+	    results[2*ls_glb*m + 2*i] = pbp_all[i];
+	    results[2*ls_glb*m + 2*i + 1] = pbg5p_all[i];
+	  }
+	}else{
+	  results[2*m] = pbp;
+	  results[2*m + 1] = pbg5p;
+	}
       }
 
       // If there is another mass loop iteration ahead, we should

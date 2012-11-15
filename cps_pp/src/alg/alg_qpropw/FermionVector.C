@@ -29,6 +29,8 @@ FermionVectorTp::FermionVectorTp() {
 
   // allocate space for source
   int fv_size = GJP.VolNodeSites() * GJP.Colors() * 8;
+  if(GJP.Gparity()) fv_size*=2;
+
   fv = (Float*)smalloc(fv_size * sizeof(Float));
   if(fv == 0) ERR.Pointer(cname, fname, "fv");
   VRB.Smalloc(cname,fname, "fv", fv, fv_size * sizeof(Float));
@@ -52,6 +54,8 @@ void FermionVectorTp::ZeroSource() {
   VRB.Func(cname, fname);
 
   int fv_size = GJP.VolNodeSites() * 2 * GJP.Colors() * 4;
+  if(GJP.Gparity()) fv_size*=2;
+
   for (int i=0; i<fv_size; i++)
 	fv[i] = 0.0;
 }
@@ -72,6 +76,8 @@ void FermionVectorTp::SetVolSource(int color, int spin) {
     "Spin index out of range: spin = %d\n", spin);
 
   int fv_size = GJP.VolNodeSites() * GJP.Colors() * 8;
+  if(GJP.Gparity()) fv_size*=2;
+
   for (int i = 0; i < fv_size; i++) {
 	if(i%SPINOR_SIZE == 2*(color + COLORS*spin)) {
 	  fv[i] = 1.0;
@@ -98,6 +104,8 @@ void FermionVectorTp::SetVolSource(int color, int spin, Float* src)
 
   //zero source on all nodes
   int fv_size = GJP.VolNodeSites() * GJP.Colors() * 8;
+  if(GJP.Gparity()) fv_size*=2;
+
   for (int j = 0; j < fv_size; j++) {
     fv[j] = 0.0;
   }
@@ -108,9 +116,42 @@ void FermionVectorTp::SetVolSource(int color, int spin, Float* src)
   }
 }
 
+static void SetWallSource1fGparity(Float *fv,int color, int spin, int source_time, int flavor){
+  //G-parity 1f model.
+  int sz[4] = {GJP.XnodeSites(),GJP.YnodeSites(),GJP.ZnodeSites(),GJP.TnodeSites()};
+  int toff = + GJP.TnodeCoor()*sz[3];
+  if(source_time < toff || source_time >= toff + sz[3]) return;
+
+  int xy_globoff[2] = {GJP.XnodeCoor()*sz[0],GJP.YnodeCoor()*sz[1]};
+  int xy_hfglobsz[2] = {GJP.Xnodes()*sz[0]/2,GJP.Ynodes()*sz[1]/2};
+  if(!GJP.Gparity1fY()) xy_hfglobsz[1]*=2;
+
+  int t = source_time - toff;
+
+  for(int z=0;z<GJP.ZnodeSites();z++){
+    for(int y=0;y<GJP.YnodeSites();y++){
+      int yglob = y+xy_globoff[1];
+      for(int x=0;x<GJP.XnodeSites();x++){
+	int xglob = x+xy_globoff[0];
+	if(flavor == 0 && xglob < xy_hfglobsz[0] && yglob < xy_hfglobsz[1]){
+	  fv[2 * (color + GJP.Colors() * (spin + 4 * (x + sz[0] * ( y + sz[1] * ( z + sz[2] * t)))))] = 1.0;
+	}else if(flavor == 0 && xglob >= xy_hfglobsz[0] && yglob >= xy_hfglobsz[1]){
+	  fv[2 * (color + GJP.Colors() * (spin + 4 * (x + sz[0] * ( y + sz[1] * ( z + sz[2] * t)))))] = -1.0;
+	}else if(flavor == 1 && xglob >= xy_hfglobsz[0] && yglob < xy_hfglobsz[1]){
+	  fv[2 * (color + GJP.Colors() * (spin + 4 * (x + sz[0] * ( y + sz[1] * ( z + sz[2] * t)))))] = 1.0;	    
+	}else if(flavor == 1 && xglob < xy_hfglobsz[0] && yglob >= xy_hfglobsz[1]){
+	  fv[2 * (color + GJP.Colors() * (spin + 4 * (x + sz[0] * ( y + sz[1] * ( z + sz[2] * t)))))] = -1.0;
+	}
+      }
+    }
+  }
+  
+};
+
+
 // Unit color/spin source at every space point on time_slice
 // Does not zero the rest of the  time slices
-void FermionVectorTp::SetWallSource(int color, int spin, int source_time) {
+void FermionVectorTp::SetWallSource(int color, int spin, int source_time, int flavor) {
   char *fname = "SetWallSource(color,spin,source_time)";
   
   VRB.Func(cname, fname);
@@ -122,6 +163,10 @@ void FermionVectorTp::SetWallSource(int color, int spin, int source_time) {
   if (spin < 0 || spin > 3)
     ERR.General(cname, fname,
     "Spin index out of range: spin = %d\n", spin);
+
+  if(GJP.Gparity1fX() || GJP.Gparity1fY()) return SetWallSource1fGparity(fv,color,spin,source_time,flavor);
+
+
 
 #ifdef PARALLEL
   int my_node = GJP.TnodeCoor();
@@ -137,7 +182,7 @@ void FermionVectorTp::SetWallSource(int color, int spin, int source_time) {
 #endif
      if(i < wall_size*node_ts || i >= wall_size*(node_ts+1)) continue;
      if(i%SPINOR_SIZE != 2*(color + COLORS*spin)) continue;
-     fv[i] = 1.0;
+     fv[i+flavor*fv_size] = 1.0;
   }
 }
 
@@ -169,6 +214,8 @@ void FermionVectorTp::SetBoxSource(int color,
   //#endif
   int node_ts = source_time%GJP.TnodeSites();
   int fv_size = GJP.VolNodeSites() * GJP.Colors() * 8;
+  if(GJP.Gparity()) fv_size*=2;
+
   int xsize = GJP.XnodeSites();
   int ysize = GJP.YnodeSites();
   int zsize = GJP.ZnodeSites();
@@ -256,47 +303,22 @@ void FermionVectorTp::SetWallSource(int color, int spin, int source_time,
 }
 
 // COULOMB GAUGE ONLY!
-void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where) {
+void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where, int flavor) {
 
   char *cname = "FermionVectorT";
   char *fname = "GFWallSource()";
   VRB.Func(cname, fname);
-  VRB.Result(cname,fname,"lat=%p spin=%d dir=%d  where=%d\n",&lat,spin,dir,where);
 
   int len;     //the local (on processor) length in "dir" direction
   //int nproc;   // total number of processors in d_ direction
   int lproc;   // local processor coordinate in d_ direction
                // 0 <= lproc <= nproc
  
-  switch(dir) {
-    case 0:
-      len = GJP.XnodeSites();
-      //nproc = GJP.Xnodes();
-      lproc = GJP.XnodeCoor();
-      break;
-    case 1:
-      len = GJP.YnodeSites();
-      //nproc = GJP.Ynodes();
-      lproc = GJP.YnodeCoor();
-      break;
-    case 2:
-      len = GJP.ZnodeSites();
-      //nproc = GJP.Znodes();
-      lproc = GJP.ZnodeCoor();
-      break;
-    case 3:
-      len = GJP.TnodeSites();
-      //nproc = GJP.Tnodes();
-      lproc = GJP.TnodeCoor();
-      break;
-    // trap for wrong direction
-    //-----------------------------------------------------------
-    default:
-      {
-		len = lproc = 0 ; // Keep GCC happy!
-		ERR.General(cname, fname, "bad argument: dir = %d\n", dir);
-      }
-  }
+  if(dir!=3) ERR.General(cname,fname,"Works only for dir=3\n"); //Added by CK, see site loop below to verify
+
+  //CK remove nasty switch in favour of improved GJP commands
+  len = GJP.NodeSites(dir);
+  lproc = GJP.NodeCoor(dir);
 
   Matrix **gm = lat.FixGaugePtr();
 
@@ -313,7 +335,7 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where) {
     int local = where % len; // on processor coordinate of
 	VRB.Result(cname,fname,"gm=%p local=%d\n",gm,local);
                              // source hyperplane
-    Matrix *pM = gm[local];
+    Matrix *pM = gm[local + flavor * len]; //CK G-parity, gauge fixing matrices for U* field (flavor==1) are stored after the U hyperplanes
 
     for (int z = 0; z < GJP.ZnodeSites(); z++)
     for (int y = 0; y < GJP.YnodeSites(); y++) 
@@ -326,6 +348,8 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where) {
               x + GJP.XnodeSites() * (
               y + GJP.YnodeSites() * (
               z + GJP.ZnodeSites() * local))));
+      if(GJP.Gparity() && flavor == 1) i+=GJP.VolNodeSites() * GJP.Colors() * 8; //CK: skip on field
+
       temp.CopyVec((Vector*)&fv[i], 6);
       tempmat.Dagger((IFloat*)&pM[j]);
       uDotXEqual((IFloat*)&fv[i], (const IFloat*)&tempmat, (const IFloat*)&temp);
@@ -1067,13 +1091,22 @@ FermionVectorTp& FermionVectorTp::operator*=(Float f){
     for(int spin(0);spin<4;spin++)
       *((Vector *)fv + spin + 4 * s.Index()) *= f;
   }
+  
+  if(GJP.Gparity()){
+    Vector* gfv = (Vector*)fv + GJP.VolNodeSites() * 4;
+    for(s.Begin();s.End();s.nextSite()){
+      for(int spin(0);spin<4;spin++){
+	*(gfv + spin + 4 * s.Index()) *= f;
+      }
+    }
+  }
   return *this ;
 }
 
 // Momentum wall source
 // Check this if it is correct...
 void FermionVectorTp::SetMomSource(int color, int spin, int source_time,
-				    ThreeMom& mom) {
+				   ThreeMom& mom, int flavor) {
   char *fname = "SetMomSource(color,spin,source_time,Mom)";
   
   VRB.Func(cname, fname);
@@ -1087,16 +1120,19 @@ void FermionVectorTp::SetMomSource(int color, int spin, int source_time,
 		"Spin index out of range: spin = %d\n", spin);
   }
 
+  int cmplx_offset = 0;
+  if(GJP.Gparity() && flavor == 1) cmplx_offset = GJP.VolNodeSites() * GJP.Colors() * 4; //CK: skip on field
+
   Site s ;
   for(s.Begin();s.End();s.nextSite())
     if( source_time == s.physT()) // continue only physical time is source_time
-      ((Complex *)fv)[color + COLORS*(spin + 4*s.Index())] = mom.Fact(s);
+      ((Complex *)fv)[color + COLORS*(spin + 4*s.Index()) + cmplx_offset] = mom.Fact(s); //CK: ThreeMom correctly uses units of pi/2L for momenta in G-parity directions
 }
 
 // Momentum Cosine wall source
 // Check this if it is correct...
 void FermionVectorTp::SetMomCosSource(int color, int spin, int source_time,
-				    ThreeMom& mom) {
+				      ThreeMom& mom, int flavor) {
   char *fname = "SetMomCosSource(color,spin,source_time,Mom)";
   
   VRB.Func(cname, fname);
@@ -1109,11 +1145,13 @@ void FermionVectorTp::SetMomCosSource(int color, int spin, int source_time,
     ERR.General(cname, fname,
 		"Spin index out of range: spin = %d\n", spin);
   }
+  int cmplx_offset = 0;
+  if(GJP.Gparity() && flavor == 1) cmplx_offset = GJP.VolNodeSites() * GJP.Colors() * 4; //CK: skip on field
 
   Site s ;
   for(s.Begin();s.End();s.nextSite())
     if( source_time == s.physT()) // continue only physical time is source_time
-      ((Complex *)fv)[color + COLORS*(spin + 4*s.Index())] = mom.FactCos(s);
+      ((Complex *)fv)[color + COLORS*(spin + 4*s.Index()) + cmplx_offset] = mom.FactCos(s); //CK: ThreeMom correctly uses units of pi/2L for momenta in G-parity directions
 }
 
 // Momentum Cosine wall source for twisted boundary conditions
@@ -1127,10 +1165,57 @@ void FermionVectorTp::SetMomCosTwistSource(int color, int spin, int source_time,
   SetMomCosSource(color,spin,source_time,mom);
 }
 
+static void SetPointSource1fGparity(Float *fv,int color, int spin, 
+				    int x, int y, int z, int t, int flavor) {
+  char *cname = "";
+  char *fname = "SetPointSource1fGparity(color,spin,x,y,z,t,flavor)";
+
+  //G-parity 1f model.
+  int inpos[4] = {x,y,z,t};
+  int sz[4] = {GJP.XnodeSites(),GJP.YnodeSites(),GJP.ZnodeSites(),GJP.TnodeSites()};
+  int xy_globsz[2] = {GJP.Xnodes()*sz[0],GJP.Ynodes()*sz[1]};  
+  int coor[4] = {GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor()};
+
+  if(x >= xy_globsz[0]/2 || (GJP.Gparity1fY() && y >= xy_globsz[1]/2) ) ERR.General(cname,fname,"1f point source location must be in lower-left quadrant of global X-Y plane");
+
+  int npt = 1; //number of point sources needed
+  if(GJP.Gparity1fX() && GJP.Gparity1fY()) npt = 2;
+
+  int ptcoord[npt][4];
+  for(int i=0;i<4;i++) ptcoord[0][i] = inpos[i];
+  ptcoord[0][0] += flavor*xy_globsz[0]/2; //LL or LR
+
+  Float ptsign[npt];
+  ptsign[0] = 1.0;
+
+  if(npt == 2){
+    ptsign[1] = -1.0;
+    for(int i=0;i<4;i++) ptcoord[1][i] = inpos[i];
+    //UR or UL
+    ptcoord[1][0] += (1-flavor)*xy_globsz[0]/2 ;  //R / L
+    ptcoord[1][1] += xy_globsz[1]/2; //U
+  }
+
+  int procCoor[npt][4];
+  int localCoor[npt][4];
+
+  for(int p=0;p<npt;p++){
+    for(int i=0;i<4;i++){
+      procCoor[p][i] = ptcoord[p][i]/sz[i];
+      localCoor[p][i] = ptcoord[p][i] % sz[i];
+    }
+  }
+  
+  for(int p=0;p<npt;p++){
+    bool ptcoormatch = true;
+    for(int i=0;i<4;i++) if(coor[i]!=procCoor[p][i]){ ptcoormatch = false; break; }
+    if(ptcoormatch) fv[2*(color + GJP.Colors()*(spin + 4*(localCoor[p][0] + sz[0]*(localCoor[p][1] + sz[1]*(localCoor[p][2] + sz[2]*localCoor[p][3])))))] = ptsign[p];
+  }
+};
 
 // set point source 
 void FermionVectorTp::SetPointSource(int color, int spin, 
-				     int x, int y, int z, int t) {
+				     int x, int y, int z, int t, int flavor) {
 
   char *fname = "SetPointSource(color,spin,x,y,z,t)";
   
@@ -1152,6 +1237,9 @@ void FermionVectorTp::SetPointSource(int color, int spin,
   if (spin < 0 || spin > 3)
     ERR.General(cname, fname,
     "Spin index out of range: spin = %d\n", spin);
+
+  
+  if(GJP.Gparity1fX() || GJP.Gparity1fY()) return SetPointSource1fGparity(fv,color,spin,x,y,z,t,flavor);
 
   // zero the vector
   //int fv_size = GJP.VolNodeSites() * GJP.Colors() * 8;
@@ -1179,15 +1267,29 @@ void FermionVectorTp::SetPointSource(int color, int spin,
   coor_t = GJP.TnodeCoor();
 #endif
 //VRB.Result("","","HH %d %d %d %d\n", coor_x, coor_y, coor_z, coor_t);
+  int offset = 0;
+  if(GJP.Gparity() && flavor == 1) offset = GJP.VolNodeSites() * GJP.Colors() * 8; //CK: skip on field
 
   if (coor_x == procCoorX &&
       coor_y == procCoorY &&
       coor_z == procCoorZ &&
-      coor_t == procCoorT)
+      coor_t == procCoorT){
     fv[2 * (color + GJP.Colors() * (spin + 4 * (
     localX + GJP.XnodeSites() * (
     localY + GJP.YnodeSites() * (
-    localZ + GJP.ZnodeSites() * localT)))))] = 1.0;
+    localZ + GJP.ZnodeSites() * localT)))))
+    +offset] = 1.0;
+
+    if(GJP.Gparity() && flavor == 2){
+      offset = GJP.VolNodeSites() * GJP.Colors() * 8; //CK: temp hack for placing source on both flavors
+      
+      fv[2 * (color + GJP.Colors() * (spin + 4 * (
+      localX + GJP.XnodeSites() * (
+      localY + GJP.YnodeSites() * (
+      localZ + GJP.ZnodeSites() * localT)))))
+      +offset] = 1.0;
+    }
+  }
 
 }
 
