@@ -19,9 +19,10 @@ public:
     // parameters.
     static bfmarg bfm_arg;
     static bool use_mixed_solver;
+
+    bfm_evo<Float> bevo;
 private:
     const char *cname;
-    bfm_evo<Float> bevo;
 public:
     Fbfm(void);
     virtual ~Fbfm(void);

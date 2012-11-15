@@ -145,6 +145,22 @@ public:
   void threaded_free(void *handle);
   int EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2]);
   int Eig_CGNE_prec(Fermion_t psi, Fermion_t src);
+
+  // copied from Jianglei's bfm
+  double CompactMprec(Fermion_t compact_psi,
+                      Fermion_t compact_chi,
+                      Fermion_t psi,
+                      Fermion_t chi,
+                      Fermion_t tmp,
+                      int dag,int donrm=0) ;
+
+  // copied from Jianglei's bfm
+  void CompactMunprec(Fermion_t compact_psi[2],
+                      Fermion_t compact_chi[2],
+                      Fermion_t psi[2],
+                      Fermion_t chi[2],
+                      Fermion_t tmp,
+                      int dag);
 };
 
 template<class Float>
@@ -1213,6 +1229,37 @@ int bfm_evo<Float>::bicgstab_M(Fermion_t sol, Fermion_t src)
   this->threadedFreeFermion(tv2);
   
   return k;
+}
+
+// copied from Jianglei's bfm
+template<typename Float>
+double bfm_evo<Float>::CompactMprec(Fermion_t compact_psi,
+                                    Fermion_t compact_chi,
+                                    Fermion_t psi,
+                                    Fermion_t chi,
+                                    Fermion_t tmp,
+                                    int dag,int donrm)
+{
+  this->copy(psi, compact_psi);
+  double result = this->Mprec(psi, chi, tmp, dag, donrm);
+  this->copy(compact_chi, chi);
+  return result;
+}
+
+// copied from Jianglei's bfm
+template<typename Float>
+void bfm_evo<Float>::CompactMunprec(Fermion_t compact_psi[2],
+                                    Fermion_t compact_chi[2],
+                                    Fermion_t psi[2],
+                                    Fermion_t chi[2],
+                                    Fermion_t tmp,
+                                    int dag)
+{
+  this->copy(psi[0], compact_psi[0]);
+  this->copy(psi[1], compact_psi[1]);
+  this->Munprec(psi, chi, tmp, dag);
+  this->copy(compact_chi[0], chi[0]);
+  this->copy(compact_chi[1], chi[1]);
 }
 
 #endif
