@@ -242,23 +242,60 @@ typedef struct { color_wilson_vector d[4]; } wilson_matrix;
        \end{tabular}\right)
        \f]
 */
+class WilsonMatrix;
+
+// single precision WilsonMatrix, just to save memory.
+class WilsonMatrixS
+{
+public:
+    WilsonMatrixS() {}
+    WilsonMatrixS(const WilsonMatrix &w);
+    const WilsonMatrixS &operator=(const WilsonMatrix &w);
+
+    float a[288];
+};
+
 class WilsonMatrix
 {
 private:
     static const char *cname;
     wilson_matrix p;
-  
-public:
-  
 
-  WilsonMatrix() {}
-  WilsonMatrix(const WilsonMatrix& rhs);
-  WilsonMatrix(const wilson_matrix& rhs);
-  WilsonMatrix(const Float& rhs);
-  WilsonMatrix(const Rcomplex& rhs);
-  WilsonMatrix(int sink_spin, int sink_color, const wilson_vector&);
-  WilsonMatrix(int sink_spin, int sink_color, int source_spin, 
-               int source_color, const Rcomplex&);
+public:
+    WilsonMatrix() {}
+    WilsonMatrix(const WilsonMatrix& rhs);
+    WilsonMatrix(const wilson_matrix& rhs);
+    WilsonMatrix(const Float& rhs);
+    WilsonMatrix(const Rcomplex& rhs);
+    WilsonMatrix(int sink_spin, int sink_color, const wilson_vector&);
+    WilsonMatrix(int sink_spin, int sink_color, int source_spin, 
+                 int source_color, const Rcomplex&);
+
+    // added by Hantao
+    WilsonMatrix(const WilsonMatrixS &ws) {
+        for(int i = 0; i < 144; ++i) {
+            int j = i;
+            int c2 = j % 3; j /= 3;
+            int s2 = j % 4; j /= 4;
+            int c1 = j % 3; j /= 3;
+            int s1 = j % 4;
+
+            p.d[s1].c[c1].d[s2].c[c2] = Complex(ws.a[2*i], ws.a[2*i+1]);
+        }
+    }
+
+    const WilsonMatrix &operator=(const WilsonMatrixS &ws) {
+        for(int i = 0; i < 144; ++i) {
+            int j = i;
+            int c2 = j % 3; j /= 3;
+            int s2 = j % 4; j /= 4;
+            int c1 = j % 3; j /= 3;
+            int s1 = j % 4;
+
+            p.d[s1].c[c1].d[s2].c[c2] = Complex(ws.a[2*i], ws.a[2*i+1]);
+        }
+        return *this;
+    }
 
   // Access to elements 
 
@@ -385,6 +422,35 @@ public:
   
 };
 
+// added by Hantao
+inline WilsonMatrixS::WilsonMatrixS(const WilsonMatrix &w) {
+    for(int i = 0; i < 144; ++i) {
+        int j = i;
+        int c2 = j % 3; j /= 3;
+        int s2 = j % 4; j /= 4;
+        int c1 = j % 3; j /= 3;
+        int s1 = j % 4;
+        
+        a[2*i  ] = std::real(w(s1, c1, s2, c2));
+        a[2*i+1] = std::imag(w(s1, c1, s2, c2));
+    }
+}
+
+inline const WilsonMatrixS &WilsonMatrixS::operator=(const WilsonMatrix &w) {
+    for(int i = 0; i < 144; ++i) {
+        int j = i;
+        int c2 = j % 3; j /= 3;
+        int s2 = j % 4; j /= 4;
+        int c1 = j % 3; j /= 3;
+        int s1 = j % 4;
+        
+        a[2*i  ] = std::real(w(s1, c1, s2, c2));
+        a[2*i+1] = std::imag(w(s1, c1, s2, c2));
+    }
+    return *this;
+}
+
+
 WilsonMatrix& eq_mult( WilsonMatrix& xmat,
 		       const WilsonMatrix& amat,
 		       const WilsonMatrix& bmat );
@@ -461,5 +527,3 @@ extern Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b);
 CPS_END_NAMESPACE
 
 #endif
-
-
