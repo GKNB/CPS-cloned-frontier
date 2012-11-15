@@ -275,7 +275,7 @@ void run_all(Lattice &lat,
     Float dtime3 = dclock();
 
     VRB.Result(cname, fname, "fix gauge    = %17.10e seconds\n", dtime1 - dtime0);
-    VRB.Result(cname, fname, "fix gauge    = %17.10e seconds\n", dtime2 - dtime1);
+    VRB.Result(cname, fname, "propagators  = %17.10e seconds\n", dtime2 - dtime1);
     VRB.Result(cname, fname, "contractions = %17.10e seconds\n", dtime3 - dtime2);
 }
 
