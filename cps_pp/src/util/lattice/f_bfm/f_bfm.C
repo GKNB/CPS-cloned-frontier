@@ -23,7 +23,7 @@
 CPS_START_NAMESPACE
 
 bfmarg Fbfm::bfm_arg;
-bool Fbfm::use_mixed_solver = 0;
+bool Fbfm::use_mixed_solver = false;
 
 // NOTE:
 //
@@ -39,11 +39,26 @@ Fbfm::Fbfm(void):cname("Fbfm")
     if(GJP.Snodes() != 1) {
         ERR.NotImplemented(cname, fname);
     }
+    if(sizeof(Float) == sizeof(float)) {
+        ERR.NotImplemented(cname, fname);
+    }
 
-    bevo.init(bfm_arg);
+    bd.init(bfm_arg);
+
+    if(use_mixed_solver) {
+        bd.comm_end();
+        bf.init(bfm_arg);
+        bf.comm_end();
+        bd.comm_init();
+    }
 
     // call our own version to import gauge field.
     Fbfm::BondCond();
+
+    evec = NULL;
+    evald = NULL;
+    evalf = NULL;
+    ecnt = 0;
 }
 
 Fbfm::~Fbfm(void)
@@ -51,7 +66,10 @@ Fbfm::~Fbfm(void)
     // we call base version just to revert the change, no need to
     // import to BFM in a destructor.
     Lattice::BondCond();
-    bevo.end();
+    bd.end();
+    if(use_mixed_solver) {
+        bf.end();
+    }
 }
 
 // This function differs from the original CalcHmdForceVecsBilinear()
@@ -63,28 +81,28 @@ void Fbfm::CalcHmdForceVecsBilinear(Float *v1,
                                     Vector *phi2,
                                     Float mass)
 {
-    Fermion_t pi[2] = {bevo.allocFermion(), bevo.allocFermion()};
-    Fermion_t po[4] = {bevo.allocFermion(), bevo.allocFermion(),
-                       bevo.allocFermion(), bevo.allocFermion()};
+    Fermion_t pi[2] = {bd.allocFermion(), bd.allocFermion()};
+    Fermion_t po[4] = {bd.allocFermion(), bd.allocFermion(),
+                       bd.allocFermion(), bd.allocFermion()};
 
     SetMass(mass);
-    bevo.cps_impexcbFermion((Float *)phi1, pi[0], 1, 1);
-    bevo.cps_impexcbFermion((Float *)phi2, pi[1], 1, 1);
+    bd.cps_impexcbFermion((Float *)phi1, pi[0], 1, 1);
+    bd.cps_impexcbFermion((Float *)phi2, pi[1], 1, 1);
 
 #pragma omp parallel
     {
-        bevo.calcMDForceVecs(po + 0, po + 2, pi[0], pi[1]);
+        bd.calcMDForceVecs(po + 0, po + 2, pi[0], pi[1]);
     }
 
-    bevo.cps_impexFermion_s(v1, po + 0, 0);
-    bevo.cps_impexFermion_s(v2, po + 2, 0);
+    bd.cps_impexFermion_s(v1, po + 0, 0);
+    bd.cps_impexFermion_s(v2, po + 2, 0);
 
-    bevo.freeFermion(pi[0]);
-    bevo.freeFermion(pi[1]);
-    bevo.freeFermion(po[0]);
-    bevo.freeFermion(po[1]);
-    bevo.freeFermion(po[2]);
-    bevo.freeFermion(po[3]);
+    bd.freeFermion(pi[0]);
+    bd.freeFermion(pi[1]);
+    bd.freeFermion(po[0]);
+    bd.freeFermion(po[1]);
+    bd.freeFermion(po[2]);
+    bd.freeFermion(po[3]);
 }
 
 ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
@@ -95,21 +113,21 @@ ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
 
     Float dtime = -dclock();
 
-    Fermion_t in[2] = {bevo.allocFermion(), bevo.allocFermion()};
+    Fermion_t in[2] = {bd.allocFermion(), bd.allocFermion()};
 
     SetMass(mass);
 
-    bevo.cps_impexcbFermion((Float *)phi1, in[0], 1, 1);
-    bevo.cps_impexcbFermion((Float *)phi2, in[1], 1, 1);
+    bd.cps_impexcbFermion((Float *)phi1, in[0], 1, 1);
+    bd.cps_impexcbFermion((Float *)phi2, in[1], 1, 1);
 
     Float *gauge = (Float *)(this->GaugeField());
 #pragma omp parallel
     {
-        bevo.compute_force((Float *)mom, gauge, in[0], in[1], coef);
+        bd.compute_force((Float *)mom, gauge, in[0], in[1], coef);
     }
 
-    bevo.freeFermion(in[0]);
-    bevo.freeFermion(in[1]);
+    bd.freeFermion(in[0]);
+    bd.freeFermion(in[1]);
 
     dtime += dclock();
 
@@ -176,14 +194,6 @@ void Fbfm::Gamma5(Vector *v_out, Vector *v_in, int num_sites)
     }
 }
 
-//------------------------------------------------------------------
-// returns the type of fermion class
-//------------------------------------------------------------------
-FclassType Fbfm::Fclass(void)const
-{
-    return F_CLASS_BFM;
-}
-
 // Sets the offsets for the fermion fields on a 
 // checkerboard. The fermion field storage order
 // is not the canonical one but it is particular
@@ -205,21 +215,6 @@ int Fbfm::FsiteOffset(const int *x) const
     ERR.NotImplemented(cname, fname);
 }
 
-// Returns the number of fermion field 
-// components (including real/imaginary) on a
-// site of the 4-D lattice.
-int Fbfm::FsiteSize(void)const
-{
-    return 24 * GJP.SnodeSites();
-}
-
-// Returns 0 => If no checkerboard is used for the evolution
-//      or the CG that inverts the evolution matrix.
-int Fbfm::FchkbEvl(void)const
-{
-    return 1;
-}
-
 // It calculates f_out where A * f_out = f_in and
 // A is the preconditioned fermion matrix that appears
 // in the HMC evolution (even/odd preconditioning 
@@ -238,158 +233,38 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
                      Float *true_res,
                      CnvFrmType cnv_frm)
 {
-    const char *fname = "FmatEvlInv(V*, V*, CgArg *, ...)";
+    const char *fname = "FmatEvlInv()";
 
     if(cg_arg == NULL)
         ERR.Pointer(cname, fname, "cg_arg");
 
-    if(use_mixed_solver) {
-        return FmatEvlInvMixed(f_out, f_in, cg_arg, 1e-5,
-                               cg_arg->max_num_iter,
-                               5);
-    }
-
-    Fermion_t in  = bevo.allocFermion();
-    Fermion_t out = bevo.allocFermion();
+    Fermion_t in  = bd.allocFermion();
+    Fermion_t out = bd.allocFermion();
 
     SetMass(cg_arg->mass);
-    bevo.residual = cg_arg->stop_rsd;
-    bevo.max_iter = cg_arg->max_num_iter;
+    bd.residual = cg_arg->stop_rsd;
+    bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
+    // FIXME: pass single precision rsd in a reasonable way.
+    bf.residual = 1e-5;
 
-    bevo.cps_impexcbFermion((Float *)f_in , in,  1, 1);
-    bevo.cps_impexcbFermion((Float *)f_out, out, 1, 1);
-
-    int iter;
-#pragma omp parallel
-    {
-        iter = bevo.CGNE_prec_MdagM(out, in);
-    }
-
-    bevo.cps_impexcbFermion((Float *)f_out, out, 0, 1);
-
-    bevo.freeFermion(in);
-    bevo.freeFermion(out);
-
-    return iter;
-}
-
-int Fbfm::FmatEvlInvMixed(Vector *f_out, Vector *f_in, 
-                          CgArg *cg_arg,
-                          Float single_rsd,
-                          int max_iter,
-                          int max_cycle)
-{
-    bfm_arg.mass = cg_arg->mass;
-
-    bfm_evo<float> bfm_f;
-    bfm_f.init(bfm_arg);
-    bfm_f.residual = single_rsd;
-    bfm_f.max_iter = max_iter;
-
-    Float *gauge = (Float *)(this->GaugeField());
-    bfm_f.cps_importGauge(gauge);
-
-    bfm_f.comm_end();
-    bevo.comm_init();
-
-    SetMass(cg_arg->mass);
-    bevo.residual = cg_arg->stop_rsd;
-    bevo.max_iter = cg_arg->max_num_iter;
-
-    Fermion_t src = bevo.allocFermion();
-    Fermion_t sol = bevo.allocFermion();
-
-    bevo.cps_impexcbFermion((Float *)f_in , src, 1, 1);
-    bevo.cps_impexcbFermion((Float *)f_out, sol, 1, 1);
+    bd.cps_impexcbFermion((Float *)f_in , in,  1, 1);
+    bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
 
     int iter = -1;
 #pragma omp parallel
     {
-        iter = mixed_cg::threaded_cg_mixed_MdagM(sol, src, bevo, bfm_f, max_cycle);
-
-        // bevo.max_iter = 20;
-        // iter = mixed_cg::cg_MdagM_single_precnd(sol, src, bevo, bfm_f);
-        // bevo.max_iter = cg_arg->max_num_iter;
+        iter =
+            use_mixed_solver 
+            ? mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5)
+            : bd.CGNE_prec_MdagM(out, in);
     }
 
-    bevo.comm_end();
-    bfm_f.comm_init();
-    bfm_f.end();
-    bevo.comm_init();
+    bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
 
-    bevo.cps_impexcbFermion((Float *)f_out, sol, 0, 1);
-
-    bevo.freeFermion(src);
-    bevo.freeFermion(sol);
+    bd.freeFermion(in);
+    bd.freeFermion(out);
 
     return iter;
-}
-
-int Fbfm::FmatInvMixed(Vector *f_out, Vector *f_in, 
-                       CgArg *cg_arg,
-                       Float single_rsd,
-                       int max_iter,
-                       int max_cycle)
-{
-    bfm_arg.mass = cg_arg->mass;
-
-    bfm_evo<float> bfm_f;
-    bfm_f.init(bfm_arg);
-    bfm_f.residual = single_rsd;
-    bfm_f.max_iter = max_iter;
-
-    Float *gauge = (Float *)(this->GaugeField());
-    bfm_f.cps_importGauge(gauge);
-
-    bfm_f.comm_end();
-    bevo.comm_init();
-
-    SetMass(cg_arg->mass);
-    bevo.residual = cg_arg->stop_rsd;
-    bevo.max_iter = cg_arg->max_num_iter;
-
-    Fermion_t in[2]  = {bevo.allocFermion(), bevo.allocFermion()};
-    Fermion_t out[2] = {bevo.allocFermion(), bevo.allocFermion()};
-
-    // handle Mobius Dminus for source vector
-    if(bevo.solver == HmCayleyTanh) {
-        bevo.cps_impexFermion((Float *)f_in , out,  1);
-#pragma omp parallel
-        {
-            bevo.G5D_Dminus(out, in, 0);
-        }
-    } else {
-        bevo.cps_impexFermion((Float *)f_in , in,  1);
-    }
-
-    bevo.cps_impexFermion((Float *)f_out, out, 1);
-
-    int iter = -1;
-#pragma omp parallel
-    {
-        iter = mixed_cg::threaded_cg_mixed_M(out, in, bevo, bfm_f, max_cycle, cg_arg->Inverter == EIGCG);
-    }
-
-    bevo.comm_end();
-    bfm_f.comm_init();
-    bfm_f.end();
-    bevo.comm_init();
-
-    bevo.cps_impexFermion((Float *)f_out, out, 0);
-
-    bevo.freeFermion(in[0]);
-    bevo.freeFermion(in[1]);
-    bevo.freeFermion(out[0]);
-    bevo.freeFermion(out[1]);
-
-    return iter;
-}
-
-int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in, 
-                     CgArg *cg_arg, 
-                     CnvFrmType cnv_frm)
-{
-    return FmatEvlInv(f_out, f_in, cg_arg, NULL, cnv_frm);
 }
 
 int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
@@ -407,23 +282,23 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     double *ones = new double[Nshift];
     double *mresidual = new double[Nshift];
     for(int i = 0; i < Nshift; ++i) {
-        sol_multi[i] = bevo.allocFermion();
+        sol_multi[i] = bd.allocFermion();
         ones[i] = 1.0;
         mresidual[i] = cg_arg[i]->stop_rsd;
     }
 
     // source
-    Fermion_t src = bevo.allocFermion();
-    bevo.cps_impexcbFermion((Float *)f_in, src, 1, 1);
+    Fermion_t src = bd.allocFermion();
+    bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
 
     SetMass(cg_arg[0]->mass);
-    bevo.residual = cg_arg[0]->stop_rsd;
-    bevo.max_iter = cg_arg[0]->max_num_iter;
+    bd.residual = cg_arg[0]->stop_rsd;
+    bd.max_iter = cg_arg[0]->max_num_iter;
 
     int iter;
 #pragma omp parallel
     {
-        iter = bevo.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+        iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
     }
 
     if(type == SINGLE) {
@@ -432,19 +307,19 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
         Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
 
         for(int i = 0; i < Nshift; ++i) {
-            bevo.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
+            bd.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
             f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
         }
         sfree(cname, fname, "t", t);
     } else {
         for(int i = 0; i < Nshift; ++i) {
-            bevo.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
+            bd.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
         }
     }
 
-    bevo.freeFermion(src);
+    bd.freeFermion(src);
     for(int i = 0; i < Nshift; ++i) {
-        bevo.freeFermion(sol_multi[i]);
+        bd.freeFermion(sol_multi[i]);
     }
 
     delete[] sol_multi;
@@ -493,70 +368,64 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     if(cg_arg == NULL)
         ERR.Pointer(cname, fname, "cg_arg");
 
-    if(use_mixed_solver) {
-        return FmatInvMixed(f_out, f_in, cg_arg, 1e-5,
-                            cg_arg->max_num_iter,
-                            5);
-    }
-
-    Fermion_t in[2]  = {bevo.allocFermion(), bevo.allocFermion()};
-    Fermion_t out[2] = {bevo.allocFermion(), bevo.allocFermion()};
+    Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
+    Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
 
     SetMass(cg_arg->mass);
-    bevo.residual = cg_arg->stop_rsd;
-    bevo.max_iter = cg_arg->max_num_iter;
+    bd.residual = cg_arg->stop_rsd;
+    bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
+    // FIXME: pass single precision rsd in a reasonable way.
+    bf.residual = 1e-5;
 
-    // handle Mobius Dminus for source vector
-    if(bevo.solver == HmCayleyTanh) {
-        bevo.cps_impexFermion((Float *)f_in , out,  1);
+    // deal with Mobius Dminus
+    if(bd.solver == HmCayleyTanh) {
+        bd.cps_impexFermion((Float *)f_in , out,  1);
 #pragma omp parallel
         {
-            bevo.G5D_Dminus(out, in, 0);
+            bd.G5D_Dminus(out, in, 0);
         }
     } else {
-        bevo.cps_impexFermion((Float *)f_in , in,  1);
+        bd.cps_impexFermion((Float *)f_in , in,  1);
     }
 
-    bevo.cps_impexFermion((Float *)f_out, out, 1);
+    bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
 #pragma omp parallel
     {
-        int me = bevo.thread_barrier();
-        switch(cg_arg->Inverter) {
-        case CG:
-            iter = bevo.CGNE_M(out, in);
-            break;
-        case EIGCG:
-            iter = bevo.EIG_CGNE_M(out, in);
-            break;
-        default:
-            if(bevo.isBoss() && !me) {
-                printf("%s::%s: Not implemented\n", cname, fname);
+        if(use_mixed_solver) {
+            iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
+        } else {
+            switch(cg_arg->Inverter) {
+            case CG:
+                if(evec && evald && ecnt) {
+                    iter = bd.CGNE_M(out, in, *evec, *evald);
+                } else {
+                    iter = bd.CGNE_M(out, in);
+                }
+                break;
+            case EIGCG:
+                iter = bd.EIG_CGNE_M(out, in);
+                break;
+            default:
+                if(bd.isBoss()) {
+                    printf("%s::%s: Not implemented\n", cname, fname);
+                }
+                exit(-1);
+                break;
             }
-            exit(-1);
-            break;
         }
     }
 
-    bevo.cps_impexFermion((Float *)f_out, out, 0);
+    bd.cps_impexFermion((Float *)f_out, out, 0);
 
-    bevo.freeFermion(in[0]);
-    bevo.freeFermion(in[1]);
-    bevo.freeFermion(out[0]);
-    bevo.freeFermion(out[1]);
+    bd.freeFermion(in[0]);
+    bd.freeFermion(in[1]);
+    bd.freeFermion(out[0]);
+    bd.freeFermion(out[1]);
 
     return iter;
 }
-
-int Fbfm::FmatInv(Vector *f_out, Vector *f_in, 
-                  CgArg *cg_arg, 
-                  CnvFrmType cnv_frm,
-                  PreserveType prs_f_in)
-{
-    return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in);
-}
-
 
 //!< Transforms a 4-dimensional fermion field into a 5-dimensional field.
 /* The 5d field is zero */
@@ -678,27 +547,27 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
     }
     
     SetMass(eig_arg->mass);
-    bevo.residual = eig_arg->Rsdlam;
-    bevo.max_iter = eig_arg->MaxCG;
+    bd.residual = eig_arg->Rsdlam;
+    bd.max_iter = eig_arg->MaxCG;
 
     VRB.Result(cname, fname, "residual = %17.10e max_iter = %d mass = %17.10e\n",
-               bevo.residual, bevo.max_iter, bevo.mass);
+               bd.residual, bd.max_iter, bd.mass);
 
-    Fermion_t in = bevo.allocFermion();
-    bevo.cps_impexcbFermion((Float *)f_eigenv[0], in, 1, 1);
+    Fermion_t in = bd.allocFermion();
+    bd.cps_impexcbFermion((Float *)f_eigenv[0], in, 1, 1);
 
 #pragma omp parallel
     {
-        lambda[0] = bevo.ritz(in, eig_arg->RitzMatOper == MATPCDAG_MATPC);
+        lambda[0] = bd.ritz(in, eig_arg->RitzMatOper == MATPCDAG_MATPC);
     }
 
-    bevo.cps_impexcbFermion((Float *)f_eigenv[0], in, 0, 1);
+    bd.cps_impexcbFermion((Float *)f_eigenv[0], in, 0, 1);
 
     // correct the eigenvalue for a dumb convention problem.
     if(eig_arg->RitzMatOper == NEG_MATPCDAG_MATPC) lambda[0] = -lambda[0];
 
     valid_eig[0] = 1;
-    bevo.freeFermion(in);
+    bd.freeFermion(in);
 
     return 0;
 }
@@ -723,22 +592,22 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
 {
     const char *fname = "MatPc()";
 
-    Fermion_t i = bevo.allocFermion();
-    Fermion_t o = bevo.allocFermion();
-    Fermion_t t = bevo.allocFermion();
+    Fermion_t i = bd.allocFermion();
+    Fermion_t o = bd.allocFermion();
+    Fermion_t t = bd.allocFermion();
 
-    SetMass(mass); 
+    SetMass(mass);
 
-    bevo.cps_impexcbFermion((Float *)in , i, 1, 1);
+    bd.cps_impexcbFermion((Float *)in , i, 1, 1);
 #pragma omp parallel
     {
-        bevo.Mprec(i, o, t, dag == DAG_YES, 0);
+        bd.Mprec(i, o, t, dag == DAG_YES, 0);
     }
-    bevo.cps_impexcbFermion((Float *)out, o, 0, 1);
+    bd.cps_impexcbFermion((Float *)out, o, 0, 1);
 
-    bevo.freeFermion(i);
-    bevo.freeFermion(o);
-    bevo.freeFermion(t);
+    bd.freeFermion(i);
+    bd.freeFermion(o);
+    bd.freeFermion(t);
 }
 
 // It evolves the canonical momentum mom by step_size
@@ -848,16 +717,6 @@ void Fbfm::Freflex(Vector *out, Vector *in)
     ERR.NotImplemented(cname, fname);
 }
 
-int Fbfm::SpinComponents()const
-{
-    return 4;
-}
-
-int Fbfm::ExactFlavors()const
-{
-    return 2;
-}
-    
 //!< Method to ensure bosonic force works (does nothing for Wilson
 //!< theories.
 void Fbfm::BforceVector(Vector *in, CgArg *cg_arg)
@@ -886,14 +745,20 @@ void Fbfm::Dminus(Vector *out, Vector *in)
 void Fbfm::BondCond()
 {
     Lattice::BondCond();
-    Float *gauge = (Float *)(this->GaugeField());
-    bevo.cps_importGauge(gauge);
+    ImportGauge();
 }
 
 void Fbfm::ImportGauge()
 {
     Float *gauge = (Float *)(this->GaugeField());
-    bevo.cps_importGauge(gauge);
+    bd.cps_importGauge(gauge);
+    if(use_mixed_solver) {
+        bd.comm_end();
+        bf.comm_init();
+        bf.cps_importGauge(gauge);
+        bf.comm_end();
+        bd.comm_init();
+    }
 }
 
 CPS_END_NAMESPACE

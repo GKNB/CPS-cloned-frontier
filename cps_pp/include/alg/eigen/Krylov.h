@@ -374,7 +374,6 @@ Krylov<S>::~Krylov()
     //release memory for eigenvectors
     for(int i = 0; i < get; i++)
         this->free_fermion(bq[i]);
-    //dop.end();
 }
 
 ///Run the Eigensolver

@@ -18,14 +18,48 @@ public:
     // have to do this since lattice factory does not accept any input
     // parameters.
     static bfmarg bfm_arg;
+
+    // set true to use single precision BFM object.
     static bool use_mixed_solver;
 
-    bfm_evo<Float> bevo;
+    bfm_evo<double> bd;
+    bfm_evo<float> bf;
 private:
     const char *cname;
+
+    // These are eigenvectors/eigenvalues obtained from Rudy's Lanczos
+    // code. Use them for deflation.
+    multi1d<bfm_fermion> *evec;
+    multi1d<double> *evald;
+    multi1d<float> *evalf;
+    int ecnt;
 public:
     Fbfm(void);
     virtual ~Fbfm(void);
+
+    template<typename EVAL_TYPE>
+    void set_deflation(multi1d<Fermion_t[2]> *_evec,
+                       multi1d<EVAL_TYPE> *_eval,
+                       int _ecnt)
+    {
+        evec = _evec;
+
+        evald = NULL;
+        evalf = NULL;
+        if(sizeof(EVAL_TYPE) == sizeof(double)) {
+            evald = (multi1d<double> *)_eval;
+        } else {
+            evalf = (multi1d<float> *)_eval;
+        }
+        ecnt = _ecnt;
+    }
+
+    void unset_deflation(void) {
+        evec = NULL;
+        evald = NULL;
+        evalf = NULL;
+        ecnt = 0;
+    }
 
     void CalcHmdForceVecsBilinear(Float *v1, Float *v2,
                                   Vector *phi1, Vector *phi2,
@@ -49,7 +83,9 @@ public:
     // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
     // note: this function does not exist in the base Lattice class.
 
-    FclassType Fclass()const;
+    FclassType Fclass()const {
+        return F_CLASS_BFM;
+    }
     // It returns the type of fermion class
   
     //! Multiplication of a lattice spin-colour vector by gamma_5.
@@ -68,12 +104,16 @@ public:
     // is the canonical one. X[I] is the
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
-    int FsiteSize() const;
+    int FsiteSize() const {
+        return 24 * GJP.SnodeSites();
+    }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a
     // site of the 4-D lattice.
   
-    int FchkbEvl() const;
+    int FchkbEvl() const {
+        return 1;
+    }
     // Returns 0 => If no checkerboard is used for the evolution
     //      or the CG that inverts the evolution matrix.
   
@@ -96,20 +136,11 @@ public:
     // The function returns the total number of CG iterations.
     int FmatEvlInv(Vector *f_out, Vector *f_in, 
                    CgArg *cg_arg, 
-                   CnvFrmType cnv_frm = CNV_FRM_YES);
+                   CnvFrmType cnv_frm = CNV_FRM_YES)
+    {
+        return FmatEvlInv(f_out, f_in, cg_arg, NULL, cnv_frm);
+    }
   
-    int FmatEvlInvMixed(Vector *f_out, Vector *f_in, 
-                        CgArg *cg_arg,
-                        Float single_rsd,
-                        int max_iter,
-                        int max_cycle);
-
-    int FmatInvMixed(Vector *f_out, Vector *f_in, 
-                     CgArg *cg_arg,
-                     Float single_rsd,
-                     int max_iter,
-                     int max_cycle);
-
     int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
                     int Nshift, int isz, CgArg **cg_arg, 
                     CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
@@ -143,7 +174,10 @@ public:
     int FmatInv(Vector *f_out, Vector *f_in, 
                 CgArg *cg_arg, 
                 CnvFrmType cnv_frm = CNV_FRM_YES,
-                PreserveType prs_f_in = PRESERVE_YES);
+                PreserveType prs_f_in = PRESERVE_YES)
+    {
+        return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in);
+    }
   
     void Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb=2);
     //!< Transforms a 4-dimensional fermion field into a 5-dimensional field.
@@ -223,9 +257,13 @@ public:
     // Reflexion in s operator, needed for the hermitian version 
     // of the dirac operator in the Ritz solver.
 
-    int SpinComponents() const;
+    int SpinComponents() const {
+        return 4;
+    }
 
-    int ExactFlavors() const;
+    int ExactFlavors() const {
+        return 2;
+    }
     
     //!< Method to ensure bosonic force works (does nothing for Wilson
     //!< theories.
@@ -252,11 +290,16 @@ public:
     void ImportGauge();
 
     void SetMass(Float mass) {
-        if(bevo.mass == mass) return;
-        bevo.mass = mass;
-        // reinitialize since we are using a new mass.
-        bevo.GeneralisedFiveDimEnd();
-        bevo.GeneralisedFiveDimInit();
+        if(bd.mass != mass) {
+            bd.mass = mass;
+            bd.GeneralisedFiveDimEnd();
+            bd.GeneralisedFiveDimInit();
+        }
+        if(use_mixed_solver && bf.mass != mass) {
+            bf.mass = mass;
+            bf.GeneralisedFiveDimEnd();
+            bf.GeneralisedFiveDimInit();
+        }
     }
 };
 

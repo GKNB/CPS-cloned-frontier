@@ -3,6 +3,7 @@
 #define INCLUDED_BFM_MIXED_SOLVER_HT_H
 
 #include <util/lattice/bfm_evo.h>
+#include <alg/enum_int.h>
 
 #include <chroma.h>
 #include <omp.h>
@@ -141,7 +142,11 @@ namespace mixed_cg {
     // max_cycle: the maximum number of restarts will be performed.
     inline int threaded_cg_mixed_MdagM(Fermion_t sol, Fermion_t src,
                                        bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
-                                       int max_cycle, bool do_eigcg = false)
+                                       int max_cycle, cps::InverterType itype = cps::CG,
+                                       // the following parameters are for deflation
+                                       multi1d<Fermion_t[2]> *evec = NULL,
+                                       multi1d<float> *eval = NULL,
+                                       int N = 0)
     {
         int me = bfm_d.thread_barrier();
 
@@ -181,10 +186,21 @@ namespace mixed_cg {
             switch_comm(bfm_f, bfm_d);
 
             bfm_f.set_zero(sol_f);
-            if(do_eigcg) {
-                iter += bfm_f.Eig_CGNE_prec(sol_f, src_f);
-            } else {
+            switch(itype) {
+            case cps::CG:
+                if(evec && eval && N) {
+                    bfm_f.deflate(sol_f, src_f, evec, eval, N);
+                }
                 iter += bfm_f.CGNE_prec_MdagM(sol_f, src_f);
+                break;
+            case cps::EIGCG:
+                iter += bfm_f.Eig_CGNE_prec(sol_f, src_f);
+                break;
+            default:
+                if(bfm_f.isBoss() && !me) {
+                    printf("cg_mixed_MdagM: unsupported inverter type.\n");
+                }
+                exit(-1);
             }
 
             switch_comm(bfm_d, bfm_f);
@@ -330,7 +346,11 @@ namespace mixed_cg {
     
     inline int threaded_cg_mixed_M(Fermion_t sol[2], Fermion_t src[2],
                                    bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
-                                   int max_cycle, bool do_eigcg = false)
+                                   int max_cycle, cps::InverterType itype = cps::CG,
+                                   // the following parameters are for deflation
+                                   multi1d<Fermion_t[2]> *evec = NULL,
+                                   multi1d<float> *eval = NULL,
+                                   int N = 0)
     {
         int me = bfm_d.thread_barrier();
         Fermion_t be = bfm_d.threadedAllocFermion();
@@ -349,7 +369,7 @@ namespace mixed_cg {
         bfm_d.axpy    (ta, tb, src[Odd], -1.0);
         bfm_d.Mprec   (ta, bo, tb, DaggerYes); // bo = Mprec^dag (src[o] - Moe Mee^{-1} src[e])
 
-        int iter = threaded_cg_mixed_MdagM(sol[Odd], bo, bfm_d, bfm_f, max_cycle, do_eigcg);
+        int iter = threaded_cg_mixed_MdagM(sol[Odd], bo, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);
   
         bfm_d.Meo(sol[Odd], ta, Even, DaggerNo);
         bfm_d.axpy(tb, ta, src[Even], -1.0);

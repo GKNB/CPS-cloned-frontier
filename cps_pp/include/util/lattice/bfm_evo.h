@@ -161,6 +161,11 @@ public:
                       Fermion_t chi[2],
                       Fermion_t tmp,
                       int dag);
+
+  // do deflation using eigenvectors/eigenvalues from Rudy's Lanczos code.
+  void deflate(Fermion_t out, Fermion_t in,
+               const multi1d<Fermion_t [2]> *evec,
+               const multi1d<Float> *eval, int N);
 };
 
 template<class Float>
@@ -1260,6 +1265,26 @@ void bfm_evo<Float>::CompactMunprec(Fermion_t compact_psi[2],
   this->Munprec(psi, chi, tmp, dag);
   this->copy(compact_chi[0], chi[0]);
   this->copy(compact_chi[1], chi[1]);
+}
+
+template<typename Float>
+void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
+                             const multi1d<Fermion_t [2]> *evec,
+                             const multi1d<Float> *eval,
+                             int N)
+{
+  if(N == 0 || evec == NULL || eval == NULL) {
+    if(this->isBoss()) {
+      printf("bfm_evo::deflate() must provide eigenvectors.\n");
+    }
+    exit(-1);
+  }
+
+  this->set_zero(out);
+  for(int i = 0; i < N; ++i) {
+    std::complex<double> dot = this->inner((*evec)[i][1], in);
+    this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));
+  }
 }
 
 #endif

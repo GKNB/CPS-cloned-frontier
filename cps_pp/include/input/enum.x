@@ -7,19 +7,19 @@ typedef float pooh;
 /*!\file
   \brief  Magic numbers.
 
-  $Id: enum.x,v 1.23.16.2 2012-06-15 16:17:00 yinnht Exp $
+  $Id: enum.x,v 1.23.16.2.6.1 2012-11-20 16:11:33 yinnht Exp $
 */
 /*--------------------------------------------------------------------*/
 /*  CVS keywords*/
 /**/
 /*  $Author: yinnht $*/
-/*  $Date: 2012-06-15 16:17:00 $*/
-/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.23.16.2 2012-06-15 16:17:00 yinnht Exp $*/
-/*  $Id: enum.x,v 1.23.16.2 2012-06-15 16:17:00 yinnht Exp $*/
+/*  $Date: 2012-11-20 16:11:33 $*/
+/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.23.16.2.6.1 2012-11-20 16:11:33 yinnht Exp $*/
+/*  $Id: enum.x,v 1.23.16.2.6.1 2012-11-20 16:11:33 yinnht Exp $*/
 /*  $Name: not supported by cvs2svn $*/
 /*  $Locker:  $*/
 /*  $RCSfile: enum.x,v $*/
-/*  $Revision: 1.23.16.2 $*/
+/*  $Revision: 1.23.16.2.6.1 $*/
 /*  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v $*/
 /*  $State: Exp $*/
 /**/
