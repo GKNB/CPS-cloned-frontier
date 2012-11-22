@@ -28,25 +28,45 @@ class SpinMatrix
 
   public:
     // CREATORS
-    SpinMatrix();
+    SpinMatrix() {}
     SpinMatrix(Float c);
     SpinMatrix(const Complex& c);
-    SpinMatrix(const SpinMatrix& m);
 
     SpinMatrix& operator=(Float c);
     SpinMatrix& operator=(const Complex& c);
 
-    void ZeroSpinMatrix(void);
+    void ZeroSpinMatrix(void) {
+        for(int i=0; i<2*SPINS*SPINS; i++) u[i] = 0;
+    }
     void UnitSpinMatrix(void);
 
     // ACCESSORS
-    Complex& operator()(int i, int j);
-    const Complex& operator()(int i, int j) const;
-    Complex& operator[](int i) { return ((Complex*)u)[i]; }
-    const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
+    Complex& operator()(int i, int j) {
+        return ((Complex*)u)[i*SPINS+j];
+    }
+    const Complex& operator()(int i, int j) const {
+        return ((Complex*)u)[i*SPINS+j];
+    }
+
+    Complex& operator[](int i) {
+        return ((Complex*)u)[i];
+    }
+    const Complex& operator[](int i)const {
+        return ((Complex*)u)[i];
+    }
+
     Complex Tr() const;
 };
 
+static inline Rcomplex Trace(const SpinMatrix &a, const SpinMatrix &b) {
+    Rcomplex ret = 0;
+    for(int i = 0; i < 4; ++i) {
+        for(int j = 0; j < 4; ++j) {
+            ret += a(i, j) * b(j, i);
+        }
+    }
+    return ret;
+}
 
 CPS_END_NAMESPACE
 #endif

@@ -411,7 +411,7 @@ void Krylov<S>::Run()
             std::vector<std::vector<S> > tevecs(this->M - lock_num);
 
             //chekc true residual
-            //True_Residual();
+            // True_Residual();
             //check residual of polynominal 
             TestConv(this->M, tevals, tevecs);
             if(this->con >= this->get)

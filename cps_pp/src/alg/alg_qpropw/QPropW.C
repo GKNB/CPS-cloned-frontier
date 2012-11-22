@@ -2812,7 +2812,7 @@ QPropWMomCosSrc::QPropWMomCosSrc(Lattice& lat, CommonArg* c_arg):
   VRB.Func(cname, fname);
 }
 QPropWMomCosSrc::QPropWMomCosSrc(Lattice& lat,  QPropWArg* arg, 
-			   int* p, CommonArg* c_arg): 
+			   const int* p, CommonArg* c_arg): 
   QPropWWallSrc(lat, c_arg), mom(p) {
  
   char *fname = "QPropWMomCosSrc(L&, QPropWArg*, ComArg*)";
@@ -2827,6 +2827,7 @@ QPropWMomCosSrc::QPropWMomCosSrc(Lattice& lat,  QPropWArg* arg,
 
   Run();
 }
+
 // copy constructor
 QPropWMomCosSrc::QPropWMomCosSrc(const QPropWMomCosSrc& rhs) : 
   QPropWWallSrc(rhs), mom(rhs.mom) {

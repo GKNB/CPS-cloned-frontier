@@ -1,18 +1,18 @@
 #include<config.h>
 CPS_START_NAMESPACE
 /*!\file
-  $Id: fix_gauge.C,v 1.9.30.1 2012-07-07 20:03:31 yinnht Exp $
+  $Id: fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-07 20:03:31 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.9.30.1 2012-07-07 20:03:31 yinnht Exp $
-//  $Id: fix_gauge.C,v 1.9.30.1 2012-07-07 20:03:31 yinnht Exp $
+//  $Date: 2012-11-22 20:04:41 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
+//  $Id: fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.9.30.1 $
+//  $Revision: 1.9.30.1.6.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v $
 //  $State: Exp $
 //
@@ -1196,7 +1196,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   sfree(Ind2Dir);
   
 	//Add by Jianglei
-	VRB.Result(cname, fname, "Iteration numbers = %d", tot_iternum);
+	VRB.Result(cname, fname, "Iteration numbers = %d\n", tot_iternum);
 
   //--------------------------------------------------------------
   // Issue a warning through broadcast if MaxIterNum is reached

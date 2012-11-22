@@ -335,9 +335,9 @@ public:
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gl(int dir); 
   //! mult the prop by gamma_dir*(1-gamma_5) on the left, and return the new matrix
-  WilsonMatrix glL(int dir);
+  WilsonMatrix glL(int dir)const;
   //! mult the prop by gamma_dir*(1+gamma_5) on the left, and return the new matrix
-  WilsonMatrix glR(int dir);
+  WilsonMatrix glR(int dir)const;
 
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
   WilsonMatrix glA(int dir);

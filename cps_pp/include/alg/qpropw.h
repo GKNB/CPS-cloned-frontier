@@ -345,7 +345,7 @@ public:
   // CONSTRUCTORS
   QPropWMomCosSrc(Lattice& lat, CommonArg* c_arg);
   QPropWMomCosSrc(const QPropWMomCosSrc& rhs);
-  QPropWMomCosSrc(Lattice& lat, QPropWArg* arg, int *p, CommonArg* c_arg);
+  QPropWMomCosSrc(Lattice& lat, QPropWArg* arg, const int *p, CommonArg* c_arg);
   
   void SetSource(FermionVectorTp& src, int spin, int color);
   

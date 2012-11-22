@@ -543,7 +543,7 @@ WilsonMatrix& WilsonMatrix::gl(int dir)
     return *this;
 }
 
-WilsonMatrix WilsonMatrix::glR(int dir)
+WilsonMatrix WilsonMatrix::glR(int dir)const
 {
     int i; /*color*/
     int c2,s2;    /* column indices, color and spin */
@@ -591,12 +591,13 @@ WilsonMatrix WilsonMatrix::glR(int dir)
                 }
         break;
     default:
-	ERR.General("wilsonmatrix","glL(int)","BAD CALL TO gl()\n");
+	ERR.General(cname, "glR()", "BAD CALL TO glR()\n");
 	break;
     }
     return WilsonMatrix(result);
 }
-WilsonMatrix WilsonMatrix::glL(int dir)
+
+WilsonMatrix WilsonMatrix::glL(int dir)const
 {
     int i; /*color*/
     int c2,s2;    /* column indices, color and spin */
@@ -644,7 +645,7 @@ WilsonMatrix WilsonMatrix::glL(int dir)
                 }
         break;
     default:
-	ERR.General("wilsonmatrix","glR(int)","BAD CALL TO gl()\n");
+	ERR.General(cname, "glL()", "BAD CALL TO glL()\n");
 	break;
     }
     return WilsonMatrix(result);
@@ -991,7 +992,7 @@ WilsonMatrix& WilsonMatrix::gr(int dir)
                 }
         break;
     default:
-        //VRB.Result(cname,fname,"BAD CALL TO gl()\n");
+        ERR.General(cname, "gr()", "BAD CALL TO gr()\n");
         break;
     }
     return *this;
