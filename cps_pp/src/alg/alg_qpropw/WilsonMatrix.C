@@ -26,11 +26,8 @@ const char *WilsonMatrix::cname = "WilsonMatrix";
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 
-WilsonMatrix::WilsonMatrix(const wilson_matrix& rhs)
-{ p=rhs; }
-
-WilsonMatrix::WilsonMatrix(const WilsonMatrix& rhs)
-{ p=rhs.p; }
+// WilsonMatrix::WilsonMatrix(const WilsonMatrix& rhs)
+// { p=rhs.p; }
 
 // copy complex element
 WilsonMatrix::WilsonMatrix(int sink_spin, int sink_color, 
@@ -141,22 +138,6 @@ WilsonMatrix WilsonMatrix::conj_cp()
                 }
     return mat;
 }
-
-// "equal" operator for WilsonMatrix
-WilsonMatrix& WilsonMatrix::operator=(const WilsonMatrix& rhs)
-{
-    p=rhs.p;
-    return *this;
-}
-
-// another "equal" operator for WilsonMatrix
-WilsonMatrix& WilsonMatrix::operator=(const wilson_matrix& rhs)
-{
-    p=rhs;
-    return *this;
-}
-
-
 
 // trace of WilsonMatrix
 Rcomplex WilsonMatrix::Trace()

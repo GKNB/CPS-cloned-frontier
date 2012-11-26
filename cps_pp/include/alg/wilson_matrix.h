@@ -244,7 +244,7 @@ typedef struct { color_wilson_vector d[4]; } wilson_matrix;
 */
 class WilsonMatrix;
 
-// single precision WilsonMatrix, just to save memory.
+// single precision WilsonMatrix, only a container to save memory.
 class WilsonMatrixS
 {
 public:
@@ -263,11 +263,20 @@ private:
 
 public:
     WilsonMatrix() {}
-    WilsonMatrix(const WilsonMatrix& rhs);
-    WilsonMatrix(const wilson_matrix& rhs);
+
+    // no need to redefine copy constructor.
+    // WilsonMatrix(const WilsonMatrix& rhs);
+
+    WilsonMatrix(const wilson_matrix& rhs) {
+        p = rhs;
+    }
+
     WilsonMatrix(const Float& rhs);
+
     WilsonMatrix(const Rcomplex& rhs);
+
     WilsonMatrix(int sink_spin, int sink_color, const wilson_vector&);
+
     WilsonMatrix(int sink_spin, int sink_color, int source_spin, 
                  int source_color, const Rcomplex&);
 
@@ -392,8 +401,12 @@ public:
   
   // operator functions
 
-  WilsonMatrix& operator= (const WilsonMatrix& rhs);
-  WilsonMatrix& operator= (const wilson_matrix& rhs);
+    // another "equal" operator for WilsonMatrix
+    WilsonMatrix& operator= (const wilson_matrix& rhs) {
+        p=rhs;
+        return *this;
+    }
+
   WilsonMatrix& operator= (const Float& rhs);
   WilsonMatrix& operator+=(const WilsonMatrix& rhs);
   WilsonMatrix& operator-=(const WilsonMatrix& rhs);
