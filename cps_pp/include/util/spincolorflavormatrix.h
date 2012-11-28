@@ -7,7 +7,7 @@ CPS_END_NAMESPACE
 #include <alg/alg_base.h>
 #include <alg/qpropw.h>
 #include <alg/prop_attribute_arg.h>
-
+#include <alg/propagatorcontainer.h>
 CPS_START_NAMESPACE
 
 enum FlavorMatrixType {F0, F1, Fud, sigma3};
@@ -40,15 +40,10 @@ public:
     PointSourceAttrArg *pt;
     MomentumAttrArg *mom;
     MomCosAttrArg *cos;
-    WallSourceAttrArg *wl;
-    if( from.getAttr(pt) ){
-      if(from.getAttr(mom) && (mom->p[0]!=0 || mom->p[1]!=0 || mom->p[2]!=0) ){
-	ERR.General(cname,fname,"Cannot generate prop elements without a real source. Prop is a point source but with non-zero momentum");
-      }
-    }else if( from.getAttr(wl) && from.getAttr(cos) && from.getAttr(mom) ){
-      //this is a cos source
+    if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) ){
+      //cos source (point or wall) or zero momentum point source
     }else{
-      ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos or Point source");
+      ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point source");
     }
     
     if(wmat!=NULL) free();
