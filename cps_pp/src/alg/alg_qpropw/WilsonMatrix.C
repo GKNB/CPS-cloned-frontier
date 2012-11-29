@@ -706,6 +706,7 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
     }
     return *this;
 }
+
 //multiply gamma(i) on the left and return a new one
 WilsonMatrix WilsonMatrix::glV(int dir)const
 {
