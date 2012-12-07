@@ -361,7 +361,7 @@ public:
   // CONSTRUCTORS
   QPropWMomCosTwistSrc(Lattice& lat, CommonArg* c_arg);
   QPropWMomCosTwistSrc(const QPropWMomCosTwistSrc& rhs);
-  QPropWMomCosTwistSrc(Lattice& lat, QPropWArg* arg, int *p, CommonArg* c_arg);
+  QPropWMomCosTwistSrc(Lattice& lat, QPropWArg* arg, const int *p, CommonArg* c_arg);
   
   void SetSource(FermionVectorTp& src, int spin, int color);
   

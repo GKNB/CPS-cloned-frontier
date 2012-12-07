@@ -2859,7 +2859,7 @@ QPropWMomCosTwistSrc::QPropWMomCosTwistSrc(Lattice& lat, CommonArg* c_arg):
   VRB.Func(cname, fname);
 }
 QPropWMomCosTwistSrc::QPropWMomCosTwistSrc(Lattice& lat,  QPropWArg* arg, 
-			   int* p, CommonArg* c_arg): 
+			   const int* p, CommonArg* c_arg): 
   QPropWWallSrc(lat, c_arg), mom(p) {
  
   char *fname = "QPropWMomCosTwistSrc(L&, QPropWArg*, ComArg*)";
