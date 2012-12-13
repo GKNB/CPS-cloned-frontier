@@ -349,7 +349,7 @@ public:
   WilsonMatrix glR(int dir)const;
 
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
-  WilsonMatrix glA(int dir);
+  WilsonMatrix glA(int dir)const;
   //! glA another version. result = gamma_dir*gamma_5*from
   WilsonMatrix& glA(const WilsonMatrix & from, int dir);
   //! mult the prop by gamma_dir on the left, and return the new matrix

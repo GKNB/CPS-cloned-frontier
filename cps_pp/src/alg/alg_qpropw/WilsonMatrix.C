@@ -833,7 +833,7 @@ WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
     return *this;
 }
 //multiply gamma(i)gamma(5) on the left and return a new one
-WilsonMatrix WilsonMatrix::glA(int dir)
+WilsonMatrix WilsonMatrix::glA(int dir)const
 {
     int i; /*color*/
     int c2,s2;    /* column indices, color and spin */
