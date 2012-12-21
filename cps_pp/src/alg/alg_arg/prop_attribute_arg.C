@@ -23,6 +23,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","CG_ATTR",CG_ATTR},
 	{"AttrType","GAUGE_FIX_ATTR",GAUGE_FIX_ATTR},
 	{"AttrType","MOM_COS_ATTR",MOM_COS_ATTR},
+	{"AttrType","PROP_COMBINATION_ATTR",PROP_COMBINATION_ATTR},
 	{NULL,NULL,0}
 };
 
@@ -268,6 +269,52 @@ void MomCosAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_PropCombination (VML *vmls, char *name,PropCombination *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,PropCombination_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map PropCombination_map[] = {
+	{"PropCombination","A_PLUS_B",A_PLUS_B},
+	{"PropCombination","A_MINUS_B",A_MINUS_B},
+	{NULL,NULL,0}
+};
+
+bool_t
+vml_PropCombinationAttrArg (VML *vmls, char *name,PropCombinationAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"PropCombinationAttrArg",name);
+	 if (!vml_string (vmls, "prop_A", &objp->prop_A, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "prop_B", &objp->prop_B, ~0))
+		 return FALSE;
+	 if (!vml_PropCombination (vmls, "combination", &objp->combination))
+		 return FALSE;
+	 vml_struct_end(vmls,"PropCombinationAttrArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<PropCombinationAttrArg>::doit(PropCombinationAttrArg &into, PropCombinationAttrArg const &from){
+	  rpc_deepcopy<char *>::doit(into.prop_A,from.prop_A,strlen(from.prop_A)+1);
+	  rpc_deepcopy<char *>::doit(into.prop_B,from.prop_B,strlen(from.prop_B)+1);
+	  rpc_deepcopy<PropCombination>::doit(into.combination,from.combination);
+}
+void PropCombinationAttrArg::deep_copy(PropCombinationAttrArg const &rhs){
+	rpc_deepcopy<PropCombinationAttrArg>::doit(*this,rhs);
+}
+void rpc_print<PropCombinationAttrArg>::doit(PropCombinationAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.prop_A,strlen(what.prop_A)+1,spaces+" prop_A = ");
+	rpc_print<char *>::doit(what.prop_B,strlen(what.prop_B)+1,spaces+" prop_B = ");
+	rpc_print<PropCombination>::doit(what.combination,spaces+" combination = ");
+	std::cout << spaces << "}\n";
+}
+void PropCombinationAttrArg::print(const std::string &prefix){
+	rpc_print<PropCombinationAttrArg>::doit(*this,prefix);
+}
+
+bool_t
 vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 {
 	 if (!vml_AttrType (vmls, "type", &objp->type))
@@ -309,6 +356,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_MomCosAttrArg (vmls, "mom_cos_attr", &objp->AttributeContainer_u.mom_cos_attr))
 			 return FALSE;
 		break;
+	case PROP_COMBINATION_ATTR:
+		 if (!vml_PropCombinationAttrArg (vmls, "prop_combination_attr", &objp->AttributeContainer_u.prop_combination_attr))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -341,6 +392,9 @@ template <> AttrType AttributeContainer::type_map<GaugeFixAttrArg>(){
 template <> AttrType AttributeContainer::type_map<MomCosAttrArg>(){
 	 return MOM_COS_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>(){
+	 return PROP_COMBINATION_ATTR;
+}
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -362,6 +416,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<GaugeFixAttrArg>::doit(into.AttributeContainer_u.gauge_fix_attr,from.AttributeContainer_u.gauge_fix_attr); break;
 	    case MOM_COS_ATTR:
 	      rpc_deepcopy<MomCosAttrArg>::doit(into.AttributeContainer_u.mom_cos_attr,from.AttributeContainer_u.mom_cos_attr); break;
+	    case PROP_COMBINATION_ATTR:
+	      rpc_deepcopy<PropCombinationAttrArg>::doit(into.AttributeContainer_u.prop_combination_attr,from.AttributeContainer_u.prop_combination_attr); break;
 	  };
 }
 void AttributeContainer::deep_copy(AttributeContainer const &rhs){
@@ -389,6 +445,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<GaugeFixAttrArg>::doit(what.AttributeContainer_u.gauge_fix_attr,spaces+" union AttributeContainer_u.gauge_fix_attr = "); break;
 	    case MOM_COS_ATTR:
 	      rpc_print<MomCosAttrArg>::doit(what.AttributeContainer_u.mom_cos_attr,spaces+" union AttributeContainer_u.mom_cos_attr = "); break;
+	    case PROP_COMBINATION_ATTR:
+	      rpc_print<PropCombinationAttrArg>::doit(what.AttributeContainer_u.prop_combination_attr,spaces+" union AttributeContainer_u.prop_combination_attr = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

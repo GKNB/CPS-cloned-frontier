@@ -12,7 +12,8 @@ enum AttrType {
   GPARITY_FLAVOR_ATTR,
   CG_ATTR,
   GAUGE_FIX_ATTR,
-  MOM_COS_ATTR };
+  MOM_COS_ATTR,
+  PROP_COMBINATION_ATTR };
 
 struct GenericPropAttrArg{
   string tag<>;
@@ -80,6 +81,22 @@ struct MomCosAttrArg{
   rpccommand GENERATE_PRINT_METHOD;
 };
 
+
+enum PropCombination {
+  A_PLUS_B,
+  A_MINUS_B };
+
+struct PropCombinationAttrArg{	
+ string prop_A<>;
+ string prop_B<>;
+ PropCombination combination;
+ memfun static AttrType getType();
+ memfun PropCombinationAttrArg clone();
+ rpccommand GENERATE_DEEPCOPY_METHOD;
+ rpccommand GENERATE_PRINT_METHOD;
+};
+
+
 union AttributeContainer{
 switch(AttrType type){
  case GENERIC_PROP_ATTR:
@@ -100,6 +117,8 @@ switch(AttrType type){
    GaugeFixAttrArg gauge_fix_attr;
  case MOM_COS_ATTR:
    MomCosAttrArg mom_cos_attr;
+ case PROP_COMBINATION_ATTR:
+   PropCombinationAttrArg prop_combination_attr;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

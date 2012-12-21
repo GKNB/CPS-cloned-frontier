@@ -21,6 +21,7 @@ AttrType GparityFlavorAttrArg::getType (  ){ return GPARITY_FLAVOR_ATTR; }
 AttrType CGAttrArg::getType (  ){ return CG_ATTR; }
 AttrType GaugeFixAttrArg::getType (  ){ return GAUGE_FIX_ATTR; }
 AttrType MomCosAttrArg::getType (  ){ return MOM_COS_ATTR; }
+AttrType PropCombinationAttrArg::getType (  ){ return PROP_COMBINATION_ATTR; }
 
 //As AttrArg types are used in a union, we cannot write copy constructors. Instead write a clone function to perform a deep copy,
 //and the automatically generated trivial copy constructor is shallow.
@@ -96,6 +97,11 @@ GaugeFixAttrArg GaugeFixAttrArg::clone(){
 }
 MomCosAttrArg MomCosAttrArg::clone(){
   return *this;
+}
+PropCombinationAttrArg PropCombinationAttrArg::clone(){
+  PropCombinationAttrArg out;
+  out.deep_copy(*this);
+  return out;
 }
 
 CPS_END_NAMESPACE

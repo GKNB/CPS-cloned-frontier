@@ -23,6 +23,7 @@ enum AttrType {
 	CG_ATTR = 6,
 	GAUGE_FIX_ATTR = 7,
 	MOM_COS_ATTR = 8,
+	PROP_COMBINATION_ATTR = 9,
 };
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
@@ -206,6 +207,37 @@ template<> struct rpc_print<MomCosAttrArg>{
 };
 
 
+enum PropCombination {
+	A_PLUS_B = 0,
+	A_MINUS_B = 1,
+};
+typedef enum PropCombination PropCombination;
+extern struct vml_enum_map PropCombination_map[];
+
+
+#include <util/vml/vml_templates.h>
+struct PropCombinationAttrArg {
+	char *prop_A;
+	char *prop_B;
+	PropCombination combination;
+	   static AttrType getType (  ) ;
+	   PropCombinationAttrArg clone (  ) ;
+	   void deep_copy(const PropCombinationAttrArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct PropCombinationAttrArg PropCombinationAttrArg;
+template<> struct rpc_deepcopy<PropCombinationAttrArg>{
+	static void doit(PropCombinationAttrArg &into, PropCombinationAttrArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<PropCombinationAttrArg>{
+	static void doit(PropCombinationAttrArg const &what, const std::string &prefix="" );
+};
+
+
 
 #include <util/vml/vml_templates.h>
 struct AttributeContainer {
@@ -220,6 +252,7 @@ struct AttributeContainer {
 		CGAttrArg cg_attr;
 		GaugeFixAttrArg gauge_fix_attr;
 		MomCosAttrArg mom_cos_attr;
+		PropCombinationAttrArg prop_combination_attr;
 	} AttributeContainer_u;
 	   template <typename T> static AttrType type_map();
 	   void deep_copy(const AttributeContainer &rhs);
@@ -238,6 +271,7 @@ template <> AttrType AttributeContainer::type_map<GparityFlavorAttrArg>();
 template <> AttrType AttributeContainer::type_map<CGAttrArg>();
 template <> AttrType AttributeContainer::type_map<GaugeFixAttrArg>();
 template <> AttrType AttributeContainer::type_map<MomCosAttrArg>();
+template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>();
 template<> struct rpc_deepcopy<AttributeContainer>{
 	static void doit(AttributeContainer &into, AttributeContainer const &from);
 };
@@ -324,6 +358,8 @@ extern  bool_t vml_GparityFlavorAttrArg (VML *, char *instance, GparityFlavorAtt
 extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
+extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
+extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
 extern  bool_t vml_PropagatorArg (VML *, char *instance, PropagatorArg*);
 extern  bool_t vml_JobPropagatorArgs (VML *, char *instance, JobPropagatorArgs*);
@@ -339,6 +375,8 @@ extern  bool_t vml_GparityFlavorAttrArg (VML *, char *instance, GparityFlavorAtt
 extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
+extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
+extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
 extern  bool_t vml_PropagatorArg (VML *, char *instance, PropagatorArg*);
 extern  bool_t vml_JobPropagatorArgs (VML *, char *instance, JobPropagatorArgs*);
