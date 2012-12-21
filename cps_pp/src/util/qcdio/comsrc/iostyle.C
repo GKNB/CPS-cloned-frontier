@@ -26,6 +26,9 @@ CPS_START_NAMESPACE
 
 #define PROFILE
 
+#define GPARITY_GAUGEIO_RECONSTRUCT
+//if GPARITY_GAUGEIO_RECONSTRUCT is defined, we save only the U links and reconstruct the U* links upon load
+//some older lattices may require this to be turned off.
 
 /*********************************************************************/
 /* ParallelIO functions ***********************************************/
@@ -55,7 +58,9 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
   //CK in end use only a single random generator per site. However for testing it is useful to have two
   //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
   if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
   if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+#endif
 
   int64_t yblk = nx*chars_per_site;
   int64_t zblk = ny * yblk;
@@ -252,7 +257,9 @@ int ParallelIO::store(iostream & output,
   //CK in end use only a single random generator per site. However for testing it is useful to have two
   //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
   if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
   if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+#endif
 
   int64_t yblk = nx*chars_per_site;
   int64_t zblk = yblk * ny;
@@ -473,7 +480,9 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
   
   int nstacked = 1;
   if(GJP.Gparity()) nstacked=2; //2 fields consecutive in memory
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
   if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+#endif
 
   int global_id = 0;
   unsigned int csum = 0;
@@ -627,7 +636,9 @@ int SerialIO::store(iostream & output,
   //CK in end use only a single random generator per site. However for testing it is useful to have two
   //if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
   if(GJP.Gparity()) nstacked=2; //2 gauge fields consecutive in memory
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
   if(hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()) nstacked = 1; //no point in saving U* field when it can be trivially calculated from U at load
+#endif
 
   VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
   for(int sc=0; dimension==4 || sc<ns; sc++) {

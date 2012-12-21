@@ -7,6 +7,11 @@ CPS_START_NAMESPACE
 using namespace std;
 
 #define PROFILE
+
+#define GPARITY_GAUGEIO_RECONSTRUCT
+//if GPARITY_GAUGEIO_RECONSTRUCT is defined, we save only the U links and reconstruct the U* links upon load
+//some older lattices may require this to be turned off.
+
 void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 {
   const char * fname = "read()";
@@ -171,8 +176,12 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   if(hd.recon_row_3) {
     VRB.Flow(cname,fname,"Reconstructing row 3\n");
     int nstacked = 1;
+    
     //CK: rather than saving/loading the U* links, we save just the U links and reconstruct the U* links at load-time
-    //if(GJP.Gparity()) nstacked = 2;
+#ifndef GPARITY_GAUGEIO_RECONSTRUCT
+    //if this option is turned off, load and check both the U and U* links
+    if(GJP.Gparity()) nstacked = 2;
+#endif
 
     for(int stk=0;stk<nstacked;stk++){
     for(int mat=0; mat<size_matrices; mat++) {
@@ -187,14 +196,14 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     }
     }
   }
-
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
   if(GJP.Gparity()){
     //regenerate U* links
     for(int mat=0;mat<size_matrices; mat++) {
       lpoint[mat + size_matrices].Conj(lpoint[mat]);
     }
   }
-
+#endif
 
   // STEP 3: check plaq and linktrace
   if(lat.GaugeField() != lpoint) lat.GaugeField(lpoint);
@@ -223,7 +232,11 @@ bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg
   int error = 0;
 
   Float plaq = lat.SumReTrPlaq() / 18.0 / rd_arg.VolSites() ;
+#ifdef GPARITY_GAUGEIO_RECONSTRUCT
+  //some old lattices that did not use the above option also did not divide the plaquette by 2
   if(GJP.Gparity()) plaq/=2;
+#endif
+
   Float devplaq(0.0);
   if(isRoot()) {
     devplaq = fabs(  (plaq - plaq_inheader) / plaq ) ;
