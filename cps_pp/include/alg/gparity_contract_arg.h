@@ -13,14 +13,117 @@
 #include <util/defines.h>
 CPS_START_NAMESPACE
 
+enum ContractionType {
+	CONTRACTION_TYPE_LL_MESONS = 0,
+	CONTRACTION_TYPE_HL_MESONS = 1,
+	CONTRACTION_TYPE_O_VV_P_AA = 2,
+};
+typedef enum ContractionType ContractionType;
+extern struct vml_enum_map ContractionType_map[];
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeLLMesons {
+	char *prop_L;
+	int sink_mom[3];
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeLLMesons &rhs);
+};
+typedef struct ContractionTypeLLMesons ContractionTypeLLMesons;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeLLMesons>{
+	static void doit(ContractionTypeLLMesons const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeLLMesons>{
+	static void doit(ContractionTypeLLMesons &into, ContractionTypeLLMesons const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeHLMesons {
+	char *prop_H;
+	char *prop_L;
+	int sink_mom[3];
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeHLMesons &rhs);
+};
+typedef struct ContractionTypeHLMesons ContractionTypeHLMesons;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeHLMesons>{
+	static void doit(ContractionTypeHLMesons const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeHLMesons>{
+	static void doit(ContractionTypeHLMesons &into, ContractionTypeHLMesons const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeOVVpAA {
+	char *prop_H_t0;
+	char *prop_L_t0;
+	char *prop_H_t1;
+	char *prop_L_t1;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeOVVpAA &rhs);
+};
+typedef struct ContractionTypeOVVpAA ContractionTypeOVVpAA;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeOVVpAA>{
+	static void doit(ContractionTypeOVVpAA const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeOVVpAA>{
+	static void doit(ContractionTypeOVVpAA &into, ContractionTypeOVVpAA const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
 struct GparityMeasurement {
-	char *prop_1;
-	char *prop_2;
-	char *label_stub;
-	char *file_stub;
+	ContractionType type;
+	union {
+		ContractionTypeLLMesons contraction_type_ll_mesons;
+		ContractionTypeHLMesons contraction_type_hl_mesons;
+		ContractionTypeOVVpAA contraction_type_o_vv_p_aa;
+	} GparityMeasurement_u;
+	   template <typename T> static ContractionType type_map();
+	   void deep_copy(const GparityMeasurement &rhs);
+	   void print(const std::string &prefix ="");
 };
 typedef struct GparityMeasurement GparityMeasurement;
+template <typename T> ContractionType GparityMeasurement::type_map(){
+	 return -1000;
+}
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeLLMesons>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeHLMesons>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeOVVpAA>();
+template<> struct rpc_deepcopy<GparityMeasurement>{
+	static void doit(GparityMeasurement &into, GparityMeasurement const &from);
+};
 
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<GparityMeasurement>{
+	static void doit(GparityMeasurement const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
 class VML;
 class GparityContractArg {
 public:
@@ -37,7 +140,12 @@ public:
 	int conf_lessthan;
 	FixGaugeArg fix_gauge;
 	   GparityContractArg (  ) ;
+	   void deep_copy(const GparityContractArg &rhs);
 };
+template<> struct rpc_deepcopy<GparityContractArg>{
+	static void doit(GparityContractArg &into, GparityContractArg const &from);
+};
+
 
 /* the xdr functions */
 
@@ -46,10 +154,18 @@ extern "C" {
 #endif
 
 #if defined(__STDC__) || defined(__cplusplus)
+extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
+extern  bool_t vml_ContractionTypeLLMesons (VML *, char *instance, ContractionTypeLLMesons*);
+extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTypeHLMesons*);
+extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 
 #else /* K&R C */
+extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
+extern  bool_t vml_ContractionTypeLLMesons (VML *, char *instance, ContractionTypeLLMesons*);
+extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTypeHLMesons*);
+extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 
