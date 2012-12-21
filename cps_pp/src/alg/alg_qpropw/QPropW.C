@@ -161,12 +161,16 @@ QPropW::QPropW(const QPropW& rhs):Alg(rhs),midprop(NULL),prop(NULL) {
   VRB.Func(cname, fname);
    
   Allocate(PROP);
-  for (int i=0;i<GJP.VolNodeSites();i++)
+
+  int sz = GJP.VolNodeSites();
+  if(GJP.Gparity()) sz*=2;
+
+  for (int i=0;i<sz;i++)
     prop[i] = rhs.prop[i];
   
   if (rhs.StoreMidprop()) {
 	Allocate(MIDPROP);
-	for (int i=0;i<GJP.VolNodeSites();i++)
+	for (int i=0;i<sz;i++)
 	  midprop[i] = rhs.midprop[i];
   }
 
@@ -193,12 +197,15 @@ QPropW& QPropW::operator=(const QPropW& rhs) {
 
     Allocate(PROP);
     
-    for (int i=0;i<GJP.VolNodeSites();i++)
+    int sz = GJP.VolNodeSites();
+    if(GJP.Gparity()) sz*=2;
+
+    for (int i=0;i<sz;i++)
       prop[i] = rhs.prop[i];
 
     if (rhs.StoreMidprop()) {
 	  Allocate(MIDPROP);
-	  for (int i=0;i<GJP.VolNodeSites();i++)
+	  for (int i=0;i<sz;i++)
 	  midprop[i]=rhs.midprop[i];
 	}
   
@@ -229,7 +236,11 @@ QPropW::QPropW(QPropW& prop1, QPropW& prop2):Alg(prop1)
    sink_type = prop1.sink_type;
 
    Allocate(PROP);
-   for (int i=0; i<GJP.VolNodeSites(); i++)
+
+   int sz = GJP.VolNodeSites();
+   if(GJP.Gparity()) sz*=2;
+
+   for (int i=0; i<sz; i++)
      prop[i] = ((Float)0.5)*(prop1.prop[i]+prop2.prop[i]);
 
    qp_arg = prop1.qp_arg;
