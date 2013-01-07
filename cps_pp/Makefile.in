@@ -1,5 +1,5 @@
 # CPS makefile
-# $Id: Makefile.in,v 1.34.124.1 2012-07-25 20:07:40 yinnht Exp $
+# $Id: Makefile.in,v 1.34.124.1.6.1 2013-01-07 18:45:51 yinnht Exp $
 # @configure_input@
 
 SRCDIR = @abs_top_srcdir@
@@ -58,13 +58,13 @@ clean: recurse
 
 buildlib: recurse
 
-recurse:
+recurse: vml
 	mkdir -p $(BUILDDIR)/objs
 	touch -a $(BUILDDIR)/objs/Makefile_depend
 	cp -p $(SRCDIR)/src/Makefile $(BUILDDIR)/objs
 	$(MAKE) -C $(BUILDDIR)/objs $(filter-out test, $(MAKECMDGOALS))
 
-vml:
+vml: rpcgenvml
 	-cp $(BUILDDIR)/include/input/Makefile ${SRCDIR}/include/input
 	$(MAKE) -C $(SRCDIR)/include/input
 

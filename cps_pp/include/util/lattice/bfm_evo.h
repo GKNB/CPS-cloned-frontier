@@ -76,7 +76,9 @@ private:
   void copySendFrmData(Float v3d[], Float v4d[], int mu, bool send_neg);
 
   // complex version of axpy()
-  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp);
+  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp) {
+    this->zaxpy(r, x, y, a);
+  }
 public:
   void thread_work_partial_nobarrier(int nwork, int me, int nthreads,
                                      int &mywork, int &myoff)
@@ -117,6 +119,14 @@ public:
   // FIXME: test code only, don't use it unless you know what you are
   // doing.
   int bicgstab_M(Fermion_t sol, Fermion_t src);
+
+  // GCR, solves M x = b
+  int gcr_M(Fermion_t sol, Fermion_t src);
+
+  // GMRES(m) solves M x = b.
+  //
+  // Restarts after m iterations.
+  int gmres_M(Fermion_t sol, Fermion_t src, const int m);
 public:
   //======================================================================
   // the following member functions are single-threaded functions:
@@ -1015,13 +1025,13 @@ void bfm_evo<Float>::compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fer
 }
 
 // complex version of axpy()
-template<class Float>
-void bfm_evo<Float>::axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp)
-{
-  this->copy(tmp, x);
-  this->scale(tmp, std::real(a), std::imag(a));
-  this->axpy(r, tmp, y, 1.0);
-}
+// template<class Float>
+// void bfm_evo<Float>::axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp)
+// {
+//   this->copy(tmp, x);
+//   this->scale(tmp, std::real(a), std::imag(a));
+//   this->axpy(r, tmp, y, 1.0);
+// }
 
 // bicg_M: Biconjugate gradient method on preconditioned Dirac
 // operator (It never converges).
@@ -1285,6 +1295,243 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
     std::complex<double> dot = this->inner((*evec)[i][1], in);
     this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));
   }
+}
+
+// GCR, the matrix is preconditioned M.
+template<class Float>
+int bfm_evo<Float>::gcr_M(Fermion_t sol, Fermion_t src)
+{
+  int me = this->thread_barrier();
+
+  Fermion_t r   = this->threadedAllocFermion();
+  Fermion_t gr  = this->threadedAllocFermion();
+  Fermion_t agr = this->threadedAllocFermion();
+  Fermion_t p   = this->threadedAllocFermion();
+  Fermion_t ap  = this->threadedAllocFermion();
+  Fermion_t x   = sol;
+  Fermion_t tv1 = this->threadedAllocFermion();
+  Fermion_t tv2 = this->threadedAllocFermion();
+
+  const double src_norm = this->norm(src);
+  const double stop = src_norm * this->residual * this->residual;
+
+  this->Mprec(x, r, tv2, 0, 0);
+  double rnorm = this->axpy_norm(r, r, src, -1.0); // r <- b - M x
+
+  if ( this->isBoss() && !me ) {
+    std::printf("gcr_M: iter = %5d rsd = %10.3e true rsd = %10.3e\n",
+                0, std::sqrt(rnorm / src_norm),
+                std::sqrt(rnorm / src_norm));
+  }
+
+  this->g5r5(gr, r);
+  this->Mprec(gr, agr, tv1, 0, 0);
+  this->copy(p, gr);
+  this->copy(ap, agr);
+
+  std::complex<double> ragr = this->inner(r, agr);
+
+  int k = 1;
+  for(; k <= this->max_iter; ++k) {
+    double pdmmp = this->norm(ap);
+
+    std::complex<double> alpha = ragr / pdmmp;
+    this->zaxpy(x, p, x, alpha);
+    this->zaxpy(r, ap, r, -alpha);
+    rnorm = this->norm(r);
+
+    if(rnorm < stop) {
+      if(this->isBoss() && !me) {
+        std::printf("gcr_M: converged in %d iterations.\n", k);
+        std::printf("gcr_M: rsd = %10.3e\n", std::sqrt(rnorm/src_norm));
+      }
+      break;
+    }
+
+    this->g5r5(gr, r);
+    this->Mprec(gr, agr, tv2, 0, 0);
+
+    std::complex<double> ragrn = this->inner(r, agr);
+    std::complex<double> beta = ragrn / ragr;
+    ragr = ragrn;
+
+    this->zaxpy(p, p, gr, beta);
+    this->zaxpy(ap, ap, agr, beta);
+
+    // ======================================================================
+    // Computing true residual and other information, the
+    // following can be removed without any effect on convergence.
+    this->Mprec(x, tv1, tv2, 0, 0);
+    double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
+
+    if ( this->isBoss() && !me ) {
+      std::printf("gcr_M: iter = %5d rsd = %10.3e true_rsd = %10.3e\n",
+                  k,
+                  std::sqrt(rnorm / src_norm),
+                  std::sqrt(true_rsd / src_norm));
+    }
+    // ======================================================================
+  }
+
+  if(k > this->max_iter) {
+    if(this->isBoss() && !me) {
+      std::printf("gcr_M: not converged in %d iterations.\n", k);
+    }
+  }
+
+  this->Mprec(x, tv1, tv2, 0, 0);
+  double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
+
+  if(this->isBoss() && !me) {
+    std::printf("gcr_M: true_rsd = %10.3e\n",
+                std::sqrt(true_rsd/src_norm));
+  }
+
+  this->threadedFreeFermion(r);
+  this->threadedFreeFermion(gr);
+  this->threadedFreeFermion(agr);
+  this->threadedFreeFermion(p);
+  this->threadedFreeFermion(ap);
+  this->threadedFreeFermion(tv1);
+  this->threadedFreeFermion(tv2);
+  
+  return k;
+}
+
+// GMRES(m), we restart after m iterations.
+template<class Float>
+int bfm_evo<Float>::gmres_M(Fermion_t sol, Fermion_t src, const int m)
+{
+  using namespace std;
+  typedef complex<double> cmplx;
+
+  int me = this->thread_barrier();
+
+  Fermion_t r   = this->threadedAllocFermion();
+  Fermion_t w   = this->threadedAllocFermion();
+  Fermion_t tv1 = this->threadedAllocFermion();
+
+  // the history of search directions
+  vector<Fermion_t> v(m + 1, NULL);
+  for(int i = 0; i <= m; ++i) {
+    v[i] = this->threadedAllocFermion();
+  }
+
+  vector<cmplx> H((m + 1) * m, 0);
+  vector<cmplx> R((m + 1) * m, 0);
+  vector<cmplx> B(m, 0);
+
+  vector<cmplx> C(m, 0);
+  vector<cmplx> S(m, 0);
+  vector<cmplx> Y(m, 0);
+
+  const double len = sqrt(this->norm(src));
+  const double stop = len * this->residual;
+
+  this->Mprec(sol, r, tv1, 0, 0);
+  double rsq = this->axpy_norm(r, r, src, -1.0); // r <- b - M x
+
+  int j = 0;
+  for(; j < this->max_iter / m; ++j) {
+    double beta = sqrt(rsq);
+    this->axpy(v[0], r, r, 1/beta - 1); // v[0] <- r / beta
+
+    B.assign(m, 0);
+    B[0] = beta;
+
+    int nr = m;
+    double rho = len;
+
+    for(int i = 0; i < m; ++i) {
+      this->Mprec(v[i], w, tv1, 0, 0);
+
+      // Arnoldi iteration
+      for(int k = 0; k <= i; ++k) {
+        H[k*m+i] = this->inner(v[k], w);
+        this->zaxpy(w, v[k], w, -H[k*m+i]);
+      }
+      double w2 = sqrt(this->norm(w));
+
+      H[(i+1)*m+i] = w2;
+      this->axpy(v[i+1], w, w, 1/w2 - 1);
+            
+      R[0*m+i] = H[0*m+i];
+
+      // Givens transformation
+      for(int k = 1; k <= i; ++k) {
+        cmplx gamma = C[k-1] * R[(k-1)*m+i] + conj(S[k-1]) * H[k*m+i];
+        R[k*m+i] = -S[k-1] * R[(k-1)*m+i] + C[k-1] * H[k*m+i];
+        R[(k-1)*m+i] = gamma;
+      }
+
+      double rii = norm(R[i*m+i]);
+      double hii = norm(H[(i+1)*m+i]);
+      double delta = sqrt(rii + hii);
+
+      cmplx mu, tau;
+      if(rii < hii) {
+        mu = R[i*m+i] / H[(i+1)*m+i];
+        tau = conj(mu) / abs(mu);
+      } else {
+        mu = H[(i+1)*m+i] / R[i*m+i];
+        tau = mu / abs(mu);
+      }
+
+      C[i] = sqrt(rii) / delta;
+      S[i] = sqrt(hii) * tau / delta;
+
+      R[i*m+i] = C[i] * R[i*m+i] + conj(S[i]) * H[(i+1)*m+i];
+      B[i+1] = -S[i] * B[i];
+      B[i] *= C[i];
+
+      rho = abs(B[i+1]);
+
+      if(this->isBoss() && !me) {
+        std::printf("gmres: (j i) = %4d %4d rsd = %10.3e\n",
+                    j, i, rho / len);
+      }
+
+      if(rho < stop) {
+        nr = i;
+        break;
+      }
+    }
+
+    for(int k = nr - 1; k >= 0; --k) {
+      Y[k] = B[k];
+      for(int i = k + 1; i < nr; ++i) {
+        Y[k] -= R[k*m+i] * Y[i];
+      }
+      Y[k] /= R[k*m+k];
+
+      this->zaxpy(sol, v[k], sol, Y[k]);
+    }
+
+    this->Mprec(sol, r, tv1, 0, 0);
+    rsq = this->axpy_norm(r, r, src, -1.0);
+    if(rho < stop) break;
+  }
+
+  if(j >= this->max_iter / m) {
+    if(this->isBoss() && !me) {
+      std::printf("gmres: not converged in %d iterations.\n", j);
+    }
+  }
+
+  if(this->isBoss() && !me) {
+    std::printf("gmres: true_rsd = %10.3e\n",
+                std::sqrt(rsq) / len);
+  }
+
+  this->threadedFreeFermion(r);
+  this->threadedFreeFermion(w);
+  this->threadedFreeFermion(tv1);
+  
+  for(int i = 0; i <= m; ++i) {
+    this->threadedFreeFermion(v[i]);
+  }
+
+  return j;
 }
 
 #endif

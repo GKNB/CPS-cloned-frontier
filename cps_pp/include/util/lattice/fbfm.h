@@ -105,7 +105,7 @@ public:
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
     int FsiteSize() const {
-        return 24 * GJP.SnodeSites();
+        return 24 * Fbfm::bfm_arg.Ls;
     }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a

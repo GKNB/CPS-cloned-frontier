@@ -411,9 +411,6 @@ void QPropW::Run(const int do_rerun, const Float precision)
 		 
 	 if (common_arg->results != 0) {
 	   FILE *fp = Fopen((char *)common_arg->results, "a");
-	   if (fp == NULL) {
-	     ERR.FileA(cname,fname, (char *)common_arg->results);
-	   }
 	   Fprintf(fp, "Cg iters = %d true residual = %e\n",
 		   iter, (Float)true_res);
 	   Fclose(fp);
@@ -550,8 +547,6 @@ void QPropW::Run(const int do_rerun, const Float precision)
       
      }
 
-       
-
      sprintf(propType,"4D propagator, mass=%0.4f, StpCond=%0.0E,\nBC=%s%s%s%s,\n%s,\n%s", 
 	     qp_arg.cg.mass, qp_arg.cg.stop_rsd,
 	     ((GJP.Xbc()==BND_CND_PRD) ? "P" : "A"),
@@ -561,7 +556,6 @@ void QPropW::Run(const int do_rerun, const Float precision)
 	     gfixInfo, fermionInfo
 	     );
     
-     //sprintf(sourceType, "fullSource");
      // be a bit more sophisticated
      sprintf(sourceType,"%s-source at t=%i",SourceType_map[SrcType()].name ,SourceTime());
    

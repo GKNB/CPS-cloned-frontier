@@ -181,12 +181,16 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                     invHUb[i] += invH[i*eigcg->def_len+j]*Ub[j]; //notice the index ofr invH.
             }
         }
+
+        // FIXME: I don't know why copying stuff directly to psi doesn't work.
+        this->set_zero(tmp);
         for(int i=0;i<eigcg->def_len;i++) {
-            //zthis->axpy(psi, (Fermion_t)(eigcg->getU(i)), psi, invHUb[i]); 
-            this->copy(tmp,(Fermion_t)(eigcg->getU(i)));
-            this->scale(tmp,invHUb[i].real(), invHUb[i].imag());
-            this->axpy(psi,tmp,psi,1.0);
+            this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]); 
+            // this->copy(tmp,(Fermion_t)(eigcg->getU(i)));
+            // this->scale(tmp,invHUb[i].real(), invHUb[i].imag());
+            // this->axpy(psi,tmp,psi,1.0);
         }
+        this->copy(psi, tmp);
 
         threaded_free(Ub);
         threaded_free(invHUb);
@@ -498,10 +502,10 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             //set tmp=0.0;
             this->set_zero(tmp);
             for(int i=0;i<eigcg->def_len;i++) {
-                //zthis->axpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]);
-                this->copy(mp,(Fermion_t)(eigcg->getU(i)));
-                this->scale(mp,invHUb[i].real(), invHUb[i].imag());
-                this->axpy(tmp,mp,tmp,1.0);
+                this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]);
+                // this->copy(mp,(Fermion_t)(eigcg->getU(i)));
+                // this->scale(mp,invHUb[i].real(), invHUb[i].imag());
+                // this->axpy(tmp,mp,tmp,1.0);
             }
             threaded_free(Ub);
             threaded_free(invHUb);
