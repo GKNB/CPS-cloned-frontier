@@ -1,18 +1,18 @@
 #include<config.h>
 CPS_START_NAMESPACE
 /*!\file
-  $Id: fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
+  $Id: fix_gauge.C,v 1.9.30.1.6.2 2013-01-25 23:50:30 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-11-22 20:04:41 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
-//  $Id: fix_gauge.C,v 1.9.30.1.6.1 2012-11-22 20:04:41 yinnht Exp $
+//  $Date: 2013-01-25 23:50:30 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v 1.9.30.1.6.2 2013-01-25 23:50:30 yinnht Exp $
+//  $Id: fix_gauge.C,v 1.9.30.1.6.2 2013-01-25 23:50:30 yinnht Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.9.30.1.6.1 $
+//  $Revision: 1.9.30.1.6.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/fix_gauge/fix_gauge.C,v $
 //  $State: Exp $
 //
@@ -1133,7 +1133,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   //------------------------------------------------------------------------
 
   Float not_converged = 0;
-  int tot_iternum = 0;
+  Float tot_iternum = 0;
 
   {
     int loop_num = 
@@ -1195,8 +1195,11 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
   sfree(Ind2Dir);
   
-	//Add by Jianglei
-	VRB.Result(cname, fname, "Iteration numbers = %d\n", tot_iternum);
+  // Added by Hantao, sum in t direction.
+  glb_sum(&tot_iternum);
+  tot_iternum /= GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes();
+  //Add by Jianglei
+  VRB.Result(cname, fname, "Iteration numbers = %f\n", tot_iternum);
 
   //--------------------------------------------------------------
   // Issue a warning through broadcast if MaxIterNum is reached
@@ -1207,11 +1210,11 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
       VRB.Warn(cname,fname, 
 	       "Some hyperplanes did not reach accuracy in %d iterations\n",
 	       MaxIterNum);
-      return -tot_iternum;
+      return -(int)tot_iternum;
     }
   else
     {
-      return tot_iternum;
+        return (int)tot_iternum;
     }
 }
 
