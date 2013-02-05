@@ -250,7 +250,6 @@ WilsonMatrix& WilsonMatrix::operator*=(const Float& rhs)
 // times-equal member operator for WilsonMatrix
 WilsonMatrix& WilsonMatrix::operator*=(const Rcomplex& rhs)
 {
-
     for(int s1=0;s1<4;++s1){
         for(int c1=0;c1<3;++c1){
 	    for(int s2=0;s2<4;++s2){
@@ -261,7 +260,7 @@ WilsonMatrix& WilsonMatrix::operator*=(const Rcomplex& rhs)
         }
     }
     return *this;
-} 
+}
 
 // equal member operator for WilsonMatrix
 WilsonMatrix& WilsonMatrix::operator=(const Float& rhs)
