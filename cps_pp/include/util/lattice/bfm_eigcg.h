@@ -60,7 +60,6 @@ Fermion_t bfm_evo<Float>::allocCompactFermion   (int mem_type)
     return (Fermion_t)ferm;
 }
 
-
 template <class Float>
 void* bfm_evo<Float>::threaded_alloc(int length, int mem_type)
 {
