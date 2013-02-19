@@ -8,10 +8,6 @@ using namespace std;
 
 #define PROFILE
 
-#define GPARITY_GAUGEIO_RECONSTRUCT
-//if GPARITY_GAUGEIO_RECONSTRUCT is defined, we save only the U links and reconstruct the U* links upon load
-//some older lattices may require this to be turned off.
-
 void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 {
   const char * fname = "read()";
@@ -122,9 +118,12 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 
   VRB.Flow(cname,fname,"Reading configuation to address: %p\n", rd_arg.StartConfLoadAddr);
   if(parIO()) {
-    //if(GJP.Gparity()) ERR.General(cname,fname,"Parallel IO not G-parity ready\n"); 
-
     ParallelIO pario(rd_arg);
+    if(!doGparityReconstructUstarField() ){
+      if(!UniqueID()) printf("ReadLatticeParallel is disabling reconstruction bit on the ParallelIO object\n");
+      pario.disableGparityReconstructUstarField();
+    }
+
     if(! pario.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
 		    hd, fpconv, 4, &csum))  
       ERR.General(cname,fname,"Load Failed\n");  // failed to load
@@ -132,6 +131,8 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 #if 1
   else {
     SerialIO serio(rd_arg);
+    if(!doGparityReconstructUstarField() ) serio.disableGparityReconstructUstarField();
+
     if(! serio.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
 		    hd, fpconv, 4, &csum))
       ERR.General(cname,fname,"Load Failed\n");  // failed to load
@@ -178,10 +179,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     int nstacked = 1;
     
     //CK: rather than saving/loading the U* links, we save just the U links and reconstruct the U* links at load-time
-#ifndef GPARITY_GAUGEIO_RECONSTRUCT
-    //if this option is turned off, load and check both the U and U* links
-    if(GJP.Gparity()) nstacked = 2;
-#endif
+    if(GJP.Gparity() && !doGparityReconstructUstarField() ) nstacked = 2;     //if this option is turned off, load and check both the U and U* links
 
     for(int stk=0;stk<nstacked;stk++){
     for(int mat=0; mat<size_matrices; mat++) {
@@ -196,14 +194,13 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     }
     }
   }
-#ifdef GPARITY_GAUGEIO_RECONSTRUCT
-  if(GJP.Gparity()){
+
+  if(GJP.Gparity() && doGparityReconstructUstarField() ){
     //regenerate U* links
     for(int mat=0;mat<size_matrices; mat++) {
       lpoint[mat + size_matrices].Conj(lpoint[mat]);
     }
   }
-#endif
 
   // STEP 3: check plaq and linktrace
   if(lat.GaugeField() != lpoint) lat.GaugeField(lpoint);
@@ -232,10 +229,9 @@ bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg
   int error = 0;
 
   Float plaq = lat.SumReTrPlaq() / 18.0 / rd_arg.VolSites() ;
-#ifdef GPARITY_GAUGEIO_RECONSTRUCT
-  //some old lattices that did not use the above option also did not divide the plaquette by 2
-  if(GJP.Gparity()) plaq/=2;
-#endif
+
+  //some old lattices that did not use the reconstruct option also did not divide the plaquette by 2
+  if(GJP.Gparity() && doGparityReconstructUstarField() ) plaq/=2;
 
   Float devplaq(0.0);
   if(isRoot()) {
