@@ -6,19 +6,19 @@
 /*!\file
   \brief  Lattice class methods.
   
-  $Id: lattice_base.C,v 1.68.4.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68.4.1 2012-11-15 18:17:09 ckelly Exp $
-//  $Id: lattice_base.C,v 1.68.4.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Date: 2013-02-19 23:21:13 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
+//  $Id: lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.68.4.1 $
+//  $Revision: 1.68.4.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
 //  $State: Exp $
 //
@@ -60,6 +60,10 @@
 
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
+#endif
+
+#ifdef USE_OMP
+#include <omp.h>
 #endif
 
 CPS_START_NAMESPACE
@@ -3198,6 +3202,15 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size)
   CSM.SaveCsum(CSUM_EVL_MOM,loc_sum);
 
   Matrix *curU_p = GaugeField();
+
+#ifdef USE_OMP
+#if TARGET == BGQ
+  omp_set_dynamic(false);
+  omp_set_num_threads(64);
+#else
+  omp_set_num_threads(1);
+#endif
+#endif
 
     // Hantao: no problem with this since there are no thread reductions.
 #pragma omp parallel for
