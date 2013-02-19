@@ -5,19 +5,19 @@
 /*! \file
   \brief  Definition of parallel transport definitions for QCDOC.
   
-  $Id: pt_mat.C,v 1.8.6.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: pt_mat.C,v 1.8.6.2 2013-02-19 23:25:51 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v 1.8.6.1 2012-11-15 18:17:09 ckelly Exp $
-//  $Id: pt_mat.C,v 1.8.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Date: 2013-02-19 23:25:51 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v 1.8.6.2 2013-02-19 23:25:51 ckelly Exp $
+//  $Id: pt_mat.C,v 1.8.6.2 2013-02-19 23:25:51 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: pt_mat.C,v $
-//  $Revision: 1.8.6.1 $
+//  $Revision: 1.8.6.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v $
 //  $State: Exp $
 //
@@ -269,11 +269,15 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 //  VRB.Func("",fname);
 //  if (call_num%100==1) printf("PT:mat()\n");
 
-//#if TARGET == BGQ
-//  printf("BGQ setting thread num to 64\n"); fflush(stdout);
-//  omp_set_dynamic(false);
-//  omp_set_num_threads(64);
-//#endif
+#if TARGET == BGQ
+  //  printf("BGQ setting thread num to 64\n"); fflush(stdout);
+  omp_set_dynamic(false);
+  omp_set_num_threads(64);
+#else
+  omp_set_num_threads(1);
+#endif
+
+  if (!QMP_get_node_number() ) printf("PT::mat with omp_get_max_threads() = %d\n", omp_get_max_threads() );
 
   for(i=0;i<n;i++) wire[i] = dir[i]; 
 #ifdef PROFILE
@@ -354,28 +358,38 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 
     //do the local pt on the G-parity boundary
     if(omp_get_max_threads()<n){
-      omp_set_num_threads(n);
-    }
+      //omp_set_num_threads(n); THIS IS A BAD IDEA
 
-    //assume nt > n!
-    static char *cname="mat()";
-#pragma omp parallel default(shared)
-    {
-      int iam,nt,ipoints,istart,offset;
-      iam = omp_get_thread_num(); //current thread number
-      nt = omp_get_num_threads(); //number of threads
-      int nt_dir = nt/n; //split number of matrices (= number of directions in direction vector) to be transported across the threads. nt_dir is number of threads per matrix
-      int n_t = iam/nt_dir; //matrix number of this thread
-      int i_t = iam%nt_dir; //index within set of threads operating on this matrix
-      if (n_t >= n ){  n_t = n-1;
-	i_t = iam - (n-1)*nt_dir;
-	nt_dir = nt -(n-1)*nt_dir;
+      //Do it unthreaded
+      for(int n_t =0; n_t < n; n_t++){ //local stuff
+	int w_t = wire[n_t];
+	int ipoints = local_chi_gp[w_t]/2;
+	int offset = 0;
+	partrans_cmm_agg((uc_l_gpbound[w_t]+offset*2),gp_l_conj_buf[n_t],mout[n_t],ipoints);
       }
-      int w_t = wire[n_t]; //direction of comms for this matrix
-      ipoints = (local_chi_gp[w_t]/2)/nt_dir; //number of local sites for this matrix divide by number of threads working on this matrix (why divide by 2?)
-      offset = ipoints*i_t;
-      if (i_t == (nt_dir-1)) ipoints = (local_chi_gp[w_t]/2)-offset;
-      partrans_cmm_agg((uc_l_gpbound[w_t]+offset*2),gp_l_conj_buf[n_t],mout[n_t],ipoints);
+
+    }else{
+
+      //assume nt > n!
+      static char *cname="mat()";
+#pragma omp parallel default(shared)
+      {
+	int iam,nt,ipoints,istart,offset;
+	iam = omp_get_thread_num(); //current thread number
+	nt = omp_get_num_threads(); //number of threads
+	int nt_dir = nt/n; //split number of matrices (= number of directions in direction vector) to be transported across the threads. nt_dir is number of threads per matrix
+	int n_t = iam/nt_dir; //matrix number of this thread
+	int i_t = iam%nt_dir; //index within set of threads operating on this matrix
+	if (n_t >= n ){  n_t = n-1;
+	  i_t = iam - (n-1)*nt_dir;
+	  nt_dir = nt -(n-1)*nt_dir;
+	}
+	int w_t = wire[n_t]; //direction of comms for this matrix
+	ipoints = (local_chi_gp[w_t]/2)/nt_dir; //number of local sites for this matrix divide by number of threads working on this matrix (why divide by 2?)
+	offset = ipoints*i_t;
+	if (i_t == (nt_dir-1)) ipoints = (local_chi_gp[w_t]/2)-offset;
+	partrans_cmm_agg((uc_l_gpbound[w_t]+offset*2),gp_l_conj_buf[n_t],mout[n_t],ipoints);
+      }
     }
     
     //restore original site offsets
@@ -389,7 +403,7 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
       Free(gp_l_conj_buf[wireidx]);
       Free(gp_l_orig_offsets[wireidx]);
     }
-    
+
   }//end of G-parity local
 
   if (call_num==1 && !QMP_get_node_number())
@@ -410,39 +424,50 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 #ifdef USE_TEST2
 
   if(omp_get_max_threads()<n){
-    omp_set_num_threads(n);
-  }
-  
-  //assume nt > n!
-  static char *cname="mat()";
-#pragma omp parallel default(shared)
-  {  
-    int iam,nt,ipoints,istart,offset;
-    iam = omp_get_thread_num(); //current thread number
-    nt = omp_get_num_threads(); //number of threads
-    int nt_dir = nt/n; //split number of matrices (= number of directions in direction vector) to be transported across the threads. nt_dir is number of threads per matrix
-    int n_t = iam/nt_dir; //matrix number of this thread
-    int i_t = iam%nt_dir; //index within set of threads operating on this matrix
-    if (n_t >= n ){  n_t = n-1;
-      i_t = iam - (n-1)*nt_dir;
-      nt_dir = nt -(n-1)*nt_dir;
+    //omp_set_num_threads(n); THIS IS A BAD IDEA
+
+    //Do it unthreaded
+    for(int n_t =0; n_t < n; n_t++){ //local stuff
+      int w_t = wire[n_t];
+      int ipoints = local_chi[w_t]/2;
+      int offset = 0;
+      partrans_cmm_agg((uc_l[w_t]+offset*2),min[n_t],mout[n_t],ipoints);
     }
-    int w_t = wire[n_t]; //direction of comms for this matrix
-    ipoints = (local_chi[w_t]/2)/nt_dir; //number of local sites for this matrix divide by number of threads working on this matrix (why divide by 2?)
-    offset = ipoints*i_t;
-    if (i_t == (nt_dir-1)) ipoints = (local_chi[w_t]/2)-offset;
-    if ( if_print )
-      printf("thread %d of %d nt_dir n_t i_t ipoints offset= %d %d %d %d %d\n",iam,nt,nt_dir,n_t,i_t,ipoints,offset);
-    //Interleaving of local computation of matrix multiplication
-    //if wire[i] is even, we receive from the node in front (backwards comms)
-    //if wire[i] is odd, we receive from the node behind (forwards comms)
 
-    partrans_cmm_agg((uc_l[w_t]+offset*2),min[n_t],mout[n_t],ipoints);
-
-    if ( if_print )
-      printf("thread %d of %d done\n",iam,nt);
-  }
+  }else{
   
+    //assume nt > n!
+    static char *cname="mat()";
+#pragma omp parallel default(shared)
+    {  
+      int iam,nt,ipoints,istart,offset;
+      iam = omp_get_thread_num(); //current thread number
+      nt = omp_get_num_threads(); //number of threads
+      int nt_dir = nt/n; //split number of matrices (= number of directions in direction vector) to be transported across the threads. nt_dir is number of threads per matrix
+      int n_t = iam/nt_dir; //matrix number of this thread
+      int i_t = iam%nt_dir; //index within set of threads operating on this matrix
+      if (n_t >= n ){  n_t = n-1;
+	i_t = iam - (n-1)*nt_dir;
+	nt_dir = nt -(n-1)*nt_dir;
+      }
+      int w_t = wire[n_t]; //direction of comms for this matrix
+      ipoints = (local_chi[w_t]/2)/nt_dir; //number of local sites for this matrix divide by number of threads working on this matrix (why divide by 2?)
+      offset = ipoints*i_t;
+      if (i_t == (nt_dir-1)) ipoints = (local_chi[w_t]/2)-offset;
+      if ( if_print )
+	printf("thread %d of %d nt_dir n_t i_t ipoints offset= %d %d %d %d %d\n",iam,nt,nt_dir,n_t,i_t,ipoints,offset);
+      //Interleaving of local computation of matrix multiplication
+      //if wire[i] is even, we receive from the node in front (backwards comms)
+      //if wire[i] is odd, we receive from the node behind (forwards comms)
+
+      partrans_cmm_agg((uc_l[w_t]+offset*2),min[n_t],mout[n_t],ipoints);
+
+      if ( if_print )
+	printf("thread %d of %d done\n",iam,nt);
+    }
+  
+  }
+
 #else
   {
     //Interleaving of local computation of matrix multiplication
@@ -477,44 +502,67 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
   //Do non-local computations
 #ifdef USE_TEST2
   if(omp_get_max_threads()<n){
-    omp_set_num_threads(n);
-  }
-  
-  //assume nt > n!
-#pragma omp parallel default(shared)
-  {
-    int iam,nt,ipoints,istart,offset;
-    iam = omp_get_thread_num();
-    nt = omp_get_num_threads();
-    int nt_dir = nt/n;
-    int n_t = iam/nt_dir;
-    int i_t = iam%nt_dir;
-    if (n_t >= n ){  n_t = n-1;
-      i_t = iam - (n-1)*nt_dir;
-      nt_dir = nt -(n-1)*nt_dir;
-    }
-    int w_t = wire[n_t];
-    ipoints = (non_local_chi[w_t]/2)/nt_dir;
-    offset = ipoints*i_t;
-    if (i_t == (nt_dir-1)) ipoints = (non_local_chi[w_t]/2)-offset;
-    if ( if_print )
-      printf("thread %d of %d nt_dir n_t i_t ipoints offset= %d %d %d %d %d\n",iam,nt,nt_dir,n_t,i_t,ipoints,offset);
-    //Non-local computation
-    if (ipoints>0){
-      int mu = w_t/2;
-      if(cps::GJP.Bc(mu) == cps::BND_CND_GPARITY && 
-	 ( (cps::GJP.NodeCoor(mu)==0 && w_t%2==1) || (cps::GJP.NodeCoor(mu)==cps::GJP.Nodes(mu)-1 && w_t%2==0)  ) ){
-	gauge_agg *agg = uc_nl[w_t]+offset*2;
-	for(int m=0;m<2*ipoints;m++){
-	  IFloat* mat = (IFloat *)((long long)rcv_buf[w_t] + 3*agg[m].src);
-	  for(int c=1;c<18;c+=2) mat[c]*=-1; //complex conjugate all the matrices in the receive buffer
+    //omp_set_num_threads(n); //THIS IS A BAD IDEA
+    
+    //Do it unthreaded
+    for(int n_t =0; n_t < n; n_t++){
+      int w_t = wire[n_t];
+      int ipoints = non_local_chi[w_t]/2;
+      int offset = 0;
+      if (ipoints>0){
+	int mu = w_t/2;
+	if(cps::GJP.Bc(mu) == cps::BND_CND_GPARITY && 
+	   ( (cps::GJP.NodeCoor(mu)==0 && w_t%2==1) || (cps::GJP.NodeCoor(mu)==cps::GJP.Nodes(mu)-1 && w_t%2==0)  ) ){
+	  gauge_agg *agg = uc_nl[w_t]+offset*2;
+	  for(int m=0;m<2*ipoints;m++){
+	    IFloat* mat = (IFloat *)((long long)rcv_buf[w_t] + 3*agg[m].src);
+	    for(int c=1;c<18;c+=2) mat[c]*=-1; //complex conjugate all the matrices in the receive buffer
+	  }
 	}
+	partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
       }
-      partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
     }
-    if ( if_print )
-      printf("thread %d of %d done\n",iam,nt);
+
+  }else{
+  
+    //assume nt > n!
+#pragma omp parallel default(shared)
+    {
+      int iam,nt,ipoints,istart,offset;
+      iam = omp_get_thread_num();
+      nt = omp_get_num_threads();
+      int nt_dir = nt/n;
+      int n_t = iam/nt_dir;
+      int i_t = iam%nt_dir;
+      if (n_t >= n ){  n_t = n-1;
+	i_t = iam - (n-1)*nt_dir;
+	nt_dir = nt -(n-1)*nt_dir;
+      }
+      int w_t = wire[n_t];
+      ipoints = (non_local_chi[w_t]/2)/nt_dir;
+      offset = ipoints*i_t;
+      if (i_t == (nt_dir-1)) ipoints = (non_local_chi[w_t]/2)-offset;
+      if ( if_print )
+	printf("thread %d of %d nt_dir n_t i_t ipoints offset= %d %d %d %d %d\n",iam,nt,nt_dir,n_t,i_t,ipoints,offset);
+      //Non-local computation
+      if (ipoints>0){
+	int mu = w_t/2;
+	if(cps::GJP.Bc(mu) == cps::BND_CND_GPARITY && 
+	   ( (cps::GJP.NodeCoor(mu)==0 && w_t%2==1) || (cps::GJP.NodeCoor(mu)==cps::GJP.Nodes(mu)-1 && w_t%2==0)  ) ){
+	  gauge_agg *agg = uc_nl[w_t]+offset*2;
+	  for(int m=0;m<2*ipoints;m++){
+	    IFloat* mat = (IFloat *)((long long)rcv_buf[w_t] + 3*agg[m].src);
+	    for(int c=1;c<18;c+=2) mat[c]*=-1; //complex conjugate all the matrices in the receive buffer
+	  }
+	}
+	partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
+      }
+      if ( if_print )
+	printf("thread %d of %d done\n",iam,nt);
+    }
+
   }
+
 
 #else
   {
