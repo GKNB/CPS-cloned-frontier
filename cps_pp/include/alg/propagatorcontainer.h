@@ -3,6 +3,7 @@ CPS_START_NAMESPACE
 #define PROPAGATOR_CONTAINER_H
 CPS_END_NAMESPACE
 
+#include<vector>
 #include<config.h>
 #include <alg/qpropw.h>
 #include <alg/prop_attribute_arg.h>
@@ -30,6 +31,12 @@ public:
 
   void momentum(int *into) const; //get the quark 3-momentum
   int flavor() const; //get the quark flavor
+
+  void printAttribs() const;
+
+  //for props that are formed by combining other props, copy over the attributes
+  void propCombSetupAttrib();
+  std::vector<std::vector<int> > get_allowed_momenta() const;
 
   PropagatorContainer();
   ~PropagatorContainer();
