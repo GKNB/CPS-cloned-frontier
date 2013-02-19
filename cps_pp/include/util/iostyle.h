@@ -21,6 +21,8 @@ class IoStyle : protected QioControl {
   IoStyle(const QioArg & qarg) : QioControl(), qio_arg(qarg) {  }
 
  public:
+  using QioControl::disableGparityReconstructUstarField;
+
   virtual int load(char * data, const int data_per_site, const int site_mem,
 		   const LatHeaderBase & hd, const DataConversion & dconv,
 		   const int dimension /* 4 or 5 */,
@@ -39,6 +41,7 @@ class ParallelIO : public IoStyle {
  private:
   char * cname;
  public:
+
   ParallelIO(const QioArg & qarg) : IoStyle(qarg), cname("ParallelIO") { }
 
   virtual int load(char * data, const int data_per_site, const int site_mem,
