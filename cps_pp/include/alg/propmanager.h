@@ -18,6 +18,7 @@ public:
   static PropagatorContainer & addProp(PropagatorArg &arg); //this does not actually invert the propagator until getProp is called on the PropagatorContainer or using the above function on the vector
   static void setup(JobPropagatorArgs &prop_args); //set up props from an args struct
   static void startNewTraj(); //deletes all existing props, but keeps the containers so they can be recreated on this new configuration
+  static void calcProps(Lattice &latt); //read/invert all propagators
   static void clear(); //deletes all props and containers
 };
 
