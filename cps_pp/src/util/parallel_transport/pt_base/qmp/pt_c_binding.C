@@ -35,7 +35,7 @@ void pt_init(Lattice &Lat){
   pt_arg.gauge_field_addr = (IFloat *)Lat.GaugeField();
 
   StrOrdType str_ord = Lat.StrOrd();
-  printf("str_ord=%d\n",str_ord);
+  //printf("str_ord=%d\n",str_ord);
 
   switch(str_ord){
     case CANONICAL:
