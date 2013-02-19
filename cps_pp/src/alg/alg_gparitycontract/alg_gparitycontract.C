@@ -419,28 +419,27 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
   const int *desired_mom_x = sink_mom;
 
   {
-    /*Mesons comprising $ \bar u $ and $ s$*/
-    /*Require a "CorrelationFunction &corrfunc"*/
-    std::ostringstream os; os << "HL_MESON_U_S " << gamma_idx_1 << " " << gamma_idx_2;
+    /*<<(\bar s',s)*(\bar s,s')>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_SPRIME_S_S_SPRIME " << gamma_idx_1 << " " << gamma_idx_2;
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
-    if(UniqueID()==0) printf("Doing HL_MESON_U_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+    if(UniqueID()==0) printf("Doing HL_MESON_SPRIME_S_S_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
     /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
     {
       QuarkMomCombination momcomb;
-      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, false);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, false);
       momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, false);
       bool desired_mom_available(momcomb.contains(desired_mom_x));
       /*Create an appropriate error message if !desired_mom_available*/
       if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
     }
 
-
-    corrfunc.setNcontractions(1);
+    corrfunc.setNcontractions(2);
 #pragma omp parallel for default(shared)
     for(int x=0;x<GJP.VolNodeSites();x++){
       int x_pos_vec[4];
@@ -449,32 +448,29 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       /*Get all SpinColorFlavorMatrices needed*/
       SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
   
-      SpinColorFlavorMatrix prop_ud_snk_x_src_y_trans_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
-      prop_ud_snk_x_src_y_trans_scfmat.transpose();
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_trans_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+      prop_sprimes_snk_x_src_y_trans_scfmat.transpose();
   
       /*Starting contraction 0*/
-      /*[{\rm tr}_{scf,0}\left\{C S_1 F_1 F_\updownarrow \mathcal{G}^{[s^\prime/s] }_{x,y} F_0 F_\updownarrow S_2 C \mathcal{G}^{[u/d] T}_{x,y}\right\}_{0}  ]*[1 ]*/
+      /*[{\rm tr}_{scf,0}\left\{C \Gamma[g2] F_1 F_\updownarrow \mathcal{G}^{[s^\prime/s] T}_{x,y} F_1 F_\updownarrow C \Gamma[g1] \mathcal{G}^{[s^\prime/s] }_{x,y}\right\}_{0}  ]*[f_\Gamma(g2,T) ]*/
   
       {
 	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_2,true,false);
 	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
     
 	Rcomplex result_subdiag0(1.0);
 	{
-	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_scfmat);
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_trans_scfmat);
 	  sdiag0_trset0_scfmat_prod.pl(Fud);
 	  sdiag0_trset0_scfmat_prod.pl(F1);
-	  //sdiag0_trset0_scfmat_prod = S_1 * sdiag0_trset0_scfmat_prod;
-	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_1);
-
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_2);
 	  sdiag0_trset0_scfmat_prod.ccl(-1);
-	  sdiag0_trset0_scfmat_prod.pr(F0);
+	  sdiag0_trset0_scfmat_prod.pr(F1);
 	  sdiag0_trset0_scfmat_prod.pr(Fud);
-	  //sdiag0_trset0_scfmat_prod *= S_2;
-	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_2);
-
 	  sdiag0_trset0_scfmat_prod.ccr(1);
-	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_trans_scfmat;
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod *= prop_sprimes_snk_x_src_y_scfmat;
 	  Rcomplex sdiag0_trset0_cmplx;
 	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
 	  result_subdiag0 *= sdiag0_trset0_cmplx;
@@ -484,21 +480,50 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
     
 	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
       }
+      /*Starting contraction 1*/
+      /*[{\rm tr}_{scf,0}\left\{\Gamma[g2] C F_0 F_\updownarrow \mathcal{G}^{[s^\prime/s] T}_{x,y} F_1 F_\updownarrow C \Gamma[g1] \mathcal{G}^{[s^\prime/s] }_{x,y}\right\}_{0}  ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_trans_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(Fud);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  sdiag0_trset0_scfmat_prod.ccl(-1);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.pr(F1);
+	  sdiag0_trset0_scfmat_prod.pr(Fud);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod *= prop_sprimes_snk_x_src_y_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),1,x_pos_vec[3]) += contraction;
+      }
     }
+
     corrfunc.write(fp);
   }
 
+
   {
-    /*Mesons comprising $ \bar d $ and $ s$*/
-    /*Require a "CorrelationFunction &corrfunc"*/
-    std::ostringstream os; os << "HL_MESON_D_S " << gamma_idx_1 << " " << gamma_idx_2;
+    /*<<(\bar d,s)*(\bar s,d)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_D_S_S_D " << gamma_idx_1 << " " << gamma_idx_2;
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
-    if(UniqueID()==0) printf("Doing HL_MESON_D_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+    if(UniqueID()==0) printf("Doing HL_MESON_D_S_S_D %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
     /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
     /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -511,7 +536,6 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
     }
 
-
     corrfunc.setNcontractions(1);
 #pragma omp parallel for default(shared)
     for(int x=0;x<GJP.VolNodeSites();x++){
@@ -519,13 +543,13 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       global_coord(x,x_pos_vec);
   
       /*Get all SpinColorFlavorMatrices needed*/
-      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
-  
       SpinColorFlavorMatrix prop_ud_snk_x_src_y_hconj_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
       prop_ud_snk_x_src_y_hconj_scfmat.hconj();
   
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+  
       /*Starting contraction 0*/
-      /*[-1 ]*[{\rm tr}_{scf,0}\left\{\gamma^5 S_1 F_0 \mathcal{G}^{[s^\prime/s] }_{x,y} F_0 S_2 \gamma^5 \mathcal{G}^{[u/d] \dagger}_{x,y}\right\}_{0}  ]*/
+      /*[-1 ]*[{\rm tr}_{scf,0}\left\{\gamma^5 \Gamma[g1] F_0 \mathcal{G}^{[s^\prime/s] }_{x,y} F_0 \Gamma[g2] \gamma^5 \mathcal{G}^{[u/d] \dagger}_{x,y}\right\}_{0}  ]*/
   
       {
 	Rcomplex contraction(-1 , 0);
@@ -535,14 +559,10 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 	{
 	  SpinColorFlavorMatrix sdiag1_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_scfmat);
 	  sdiag1_trset0_scfmat_prod.pl(F0);
-	  //sdiag1_trset0_scfmat_prod = S_1 * sdiag1_trset0_scfmat_prod;
 	  qdp_gl(sdiag1_trset0_scfmat_prod,gamma_idx_1);
-
 	  sdiag1_trset0_scfmat_prod.gl(-5);
 	  sdiag1_trset0_scfmat_prod.pr(F0);
-	  //sdiag1_trset0_scfmat_prod *= S_2;
 	  qdp_gr(sdiag1_trset0_scfmat_prod,gamma_idx_2);
-
 	  sdiag1_trset0_scfmat_prod.gr(-5);
 	  sdiag1_trset0_scfmat_prod *= prop_ud_snk_x_src_y_hconj_scfmat;
 	  Rcomplex sdiag1_trset0_cmplx;
@@ -559,12 +579,224 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
   }
 
   {
-    /*Mesons comprising $ \bar s' $ and $ d$*/
-    /*Require a "CorrelationFunction &corrfunc"*/
-    std::ostringstream os; os << "HL_MESON_SPRIME_D " << gamma_idx_1 << " " << gamma_idx_2;
+    /*<<(\bar d,s)*(\bar u,s')>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_D_S_U_SPRIME " << gamma_idx_1 << " " << gamma_idx_2;
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
-    if(UniqueID()==0) printf("Doing HL_MESON_SPRIME_D %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+    if(UniqueID()==0) printf("Doing HL_MESON_D_S_U_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+
+    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
+    /*Fourier transform on sink index x*/
+    /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
+    {
+      QuarkMomCombination momcomb;
+      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, true);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, false);
+      bool desired_mom_available(momcomb.contains(desired_mom_x));
+      /*Create an appropriate error message if !desired_mom_available*/
+      if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
+    }
+
+    corrfunc.setNcontractions(1);
+#pragma omp parallel for default(shared)
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      int x_pos_vec[4];
+      global_coord(x,x_pos_vec);
+  
+      /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_hconj_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+      prop_ud_snk_x_src_y_hconj_scfmat.hconj();
+  
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+  
+      /*Starting contraction 0*/
+      /*[{\rm tr}_{scf,0}\left\{\gamma^5 \Gamma[g1] F_0 \mathcal{G}^{[s^\prime/s] }_{x,y} F_1 C \Gamma[g2] \gamma^5 C \mathcal{G}^{[u/d] \dagger}_{x,y}\right\}_{0}  ]*[f_\Gamma(g2,T) ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_2,true,false);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  sdiag0_trset0_scfmat_prod.pr(F1);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_hconj_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
+      }
+    }
+    corrfunc.write(fp);
+
+  }
+
+  {
+    /*<<(\bar d,s')*(\bar s',d)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_D_SPRIME_SPRIME_D " << gamma_idx_1 << " " << gamma_idx_2;
+    CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+    if(UniqueID()==0) printf("Doing HL_MESON_D_SPRIME_SPRIME_D %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+
+    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
+    /*Fourier transform on sink index x*/
+    /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
+    {
+      QuarkMomCombination momcomb;
+      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, true);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, true);
+      bool desired_mom_available(momcomb.contains(desired_mom_x));
+      /*Create an appropriate error message if !desired_mom_available*/
+      if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
+    }
+
+    corrfunc.setNcontractions(1);
+#pragma omp parallel for default(shared)
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      int x_pos_vec[4];
+      global_coord(x,x_pos_vec);
+  
+      /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_cconj_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+      prop_sprimes_snk_x_src_y_cconj_scfmat.cconj();
+  
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_hconj_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+      prop_ud_snk_x_src_y_hconj_scfmat.hconj();
+  
+      /*Starting contraction 0*/
+      /*[{\rm tr}_{scf,0}\left\{\gamma^5 \Gamma[g1] \gamma^5 C F_0 F_\updownarrow \mathcal{G}^{[s^\prime/s] *}_{x,y} F_1 F_\updownarrow \gamma^5 C \Gamma[g2] \gamma^5 \mathcal{G}^{[u/d] \dagger}_{x,y}\right\}_{0}  ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_cconj_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(Fud);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  sdiag0_trset0_scfmat_prod.ccl(-1);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  sdiag0_trset0_scfmat_prod.pr(F1);
+	  sdiag0_trset0_scfmat_prod.pr(Fud);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_hconj_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
+      }
+    }
+    
+    corrfunc.write(fp);
+  }
+
+  {
+    /*<<(\bar d,s')*(\bar u,s)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/    
+    std::ostringstream os; os << "HL_MESON_D_SPRIME_U_S " << gamma_idx_1 << " " << gamma_idx_2;
+    CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+    if(UniqueID()==0) printf("Doing HL_MESON_D_SPRIME_U_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+
+    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
+    /*Fourier transform on sink index x*/
+    /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
+    {
+      QuarkMomCombination momcomb;
+      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, true);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, true);
+      bool desired_mom_available(momcomb.contains(desired_mom_x));
+      /*Create an appropriate error message if !desired_mom_available*/
+      if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
+    }
+
+    corrfunc.setNcontractions(1);
+#pragma omp parallel for default(shared)
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      int x_pos_vec[4];
+      global_coord(x,x_pos_vec);
+  
+      /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_hconj_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+      prop_ud_snk_x_src_y_hconj_scfmat.hconj();
+  
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_cconj_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+      prop_sprimes_snk_x_src_y_cconj_scfmat.cconj();
+  
+      /*Starting contraction 0*/
+      /*[{\rm tr}_{scf,0}\left\{\gamma^5 \Gamma[g1] \gamma^5 C F_0 F_\updownarrow \mathcal{G}^{[s^\prime/s] *}_{x,y} F_0 F_\updownarrow \gamma^5 \Gamma[g2] \gamma^5 C \mathcal{G}^{[u/d] \dagger}_{x,y}\right\}_{0}  ]*[f_\Gamma(g2,T) ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_2,true,false);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_cconj_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(Fud);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  sdiag0_trset0_scfmat_prod.ccl(-1);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  sdiag0_trset0_scfmat_prod.pr(F0);
+	  sdiag0_trset0_scfmat_prod.pr(Fud);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_hconj_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
+      }
+    }
+    corrfunc.write(fp);
+  }
+
+  {
+    /*<<(\bar u,s)*(\bar s,u)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_U_S_S_U " << gamma_idx_1 << " " << gamma_idx_2;
+    CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+    if(UniqueID()==0) printf("Doing HL_MESON_U_S_S_U %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
     /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
     /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
@@ -580,7 +812,6 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
     }
 
-
     corrfunc.setNcontractions(1);
 #pragma omp parallel for default(shared)
     for(int x=0;x<GJP.VolNodeSites();x++){
@@ -588,33 +819,30 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       global_coord(x,x_pos_vec);
   
       /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+  
       SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_trans_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
       prop_sprimes_snk_x_src_y_trans_scfmat.transpose();
   
-      SpinColorFlavorMatrix prop_ud_snk_x_src_y_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
-  
       /*Starting contraction 0*/
-      /*[{\rm tr}_{scf,0}\left\{S_2 C F_0 F_\updownarrow \mathcal{G}^{[s^\prime/s] T}_{x,y} F_1 F_\updownarrow C S_1 \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*[1 ]*/
+      /*[{\rm tr}_{scf,0}\left\{C \Gamma[g2] F_1 F_\updownarrow \mathcal{G}^{[s^\prime/s] T}_{x,y} F_0 F_\updownarrow \Gamma[g1] C \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*[f_\Gamma(g2,T) ]*[f_\Gamma(g1,T) ]*/
   
       {
 	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_2,true,false)*qdp_gcoeff(gamma_idx_1,true,false);
 	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
     
 	Rcomplex result_subdiag0(1.0);
 	{
 	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_trans_scfmat);
 	  sdiag0_trset0_scfmat_prod.pl(Fud);
-	  sdiag0_trset0_scfmat_prod.pl(F0);
-	  sdiag0_trset0_scfmat_prod.ccl(-1);
-	  //sdiag0_trset0_scfmat_prod = S_2 * sdiag0_trset0_scfmat_prod;
+	  sdiag0_trset0_scfmat_prod.pl(F1);
 	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_2);
-
-	  sdiag0_trset0_scfmat_prod.pr(F1);
+	  sdiag0_trset0_scfmat_prod.ccl(-1);
+	  sdiag0_trset0_scfmat_prod.pr(F0);
 	  sdiag0_trset0_scfmat_prod.pr(Fud);
-	  sdiag0_trset0_scfmat_prod.ccr(1);
-	  //sdiag0_trset0_scfmat_prod *= S_1;
 	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_1);
-
+	  sdiag0_trset0_scfmat_prod.ccr(1);
 	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_scfmat;
 	  Rcomplex sdiag0_trset0_cmplx;
 	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
@@ -629,13 +857,84 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
     corrfunc.write(fp);
   }
 
+
   {
-    /*Mesons comprising $ \bar u $ and $ s'$*/
-    /*Require a "CorrelationFunction &corrfunc"*/
-    std::ostringstream os; os << "HL_MESON_U_SPRIME " << gamma_idx_1 << " " << gamma_idx_2;
+    /*<<(\bar u,s)*(\bar d,s')>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_U_S_D_SPRIME " << gamma_idx_1 << " " << gamma_idx_2;
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
-    if(UniqueID()==0) printf("Doing HL_MESON_U_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+    if(UniqueID()==0) printf("Doing HL_MESON_U_S_D_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+
+    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
+    /*Fourier transform on sink index x*/
+    /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
+    {
+      QuarkMomCombination momcomb;
+      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, false);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, false);
+      bool desired_mom_available(momcomb.contains(desired_mom_x));
+      /*Create an appropriate error message if !desired_mom_available*/
+      if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
+    }
+
+    corrfunc.setNcontractions(1);
+#pragma omp parallel for default(shared)
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      int x_pos_vec[4];
+      global_coord(x,x_pos_vec);
+  
+      /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+  
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_trans_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+      prop_sprimes_snk_x_src_y_trans_scfmat.transpose();
+  
+      /*Starting contraction 0*/
+      /*[{\rm tr}_{scf,0}\left\{\Gamma[g2] C F_0 F_\updownarrow \mathcal{G}^{[s^\prime/s] T}_{x,y} F_0 F_\updownarrow \Gamma[g1] C \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*[f_\Gamma(g1,T) ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_1,true,false);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_trans_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(Fud);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  sdiag0_trset0_scfmat_prod.ccl(-1);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.pr(F0);
+	  sdiag0_trset0_scfmat_prod.pr(Fud);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
+      }
+    }
+
+
+    corrfunc.write(fp);
+  }
+
+
+  {
+    /*<<(\bar u,s')*(\bar s',u)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_U_SPRIME_SPRIME_U " << gamma_idx_1 << " " << gamma_idx_2;
+    CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+    if(UniqueID()==0) printf("Doing HL_MESON_U_SPRIME_SPRIME_U %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
     /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
     /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
@@ -651,7 +950,6 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
     }
 
-
     corrfunc.setNcontractions(1);
 #pragma omp parallel for default(shared)
     for(int x=0;x<GJP.VolNodeSites();x++){
@@ -665,10 +963,11 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
       prop_sprimes_snk_x_src_y_hconj_scfmat.hconj();
   
       /*Starting contraction 0*/
-      /*[-1 ]*[{\rm tr}_{scf,0}\left\{C S_2^T \gamma^5 C F_1 \mathcal{G}^{[s^\prime/s] \dagger}_{x,y} F_1 \gamma^5 C S_1^T C \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*/
+      /*[-1 ]*[{\rm tr}_{scf,0}\left\{C \Gamma[g2] \gamma^5 C F_1 \mathcal{G}^{[s^\prime/s] \dagger}_{x,y} F_1 \gamma^5 C \Gamma[g1] C \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*[f_\Gamma(g2,T) ]*[f_\Gamma(g1,T) ]*/
   
       {
 	Rcomplex contraction(-1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_2,true,false)*qdp_gcoeff(gamma_idx_1,true,false);
 	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
     
 	Rcomplex result_subdiag1(1.0);
@@ -677,18 +976,12 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 	  sdiag1_trset0_scfmat_prod.pl(F1);
 	  sdiag1_trset0_scfmat_prod.ccl(-1);
 	  sdiag1_trset0_scfmat_prod.gl(-5);
-	  //sdiag1_trset0_scfmat_prod = S_2.trans() * sdiag1_trset0_scfmat_prod;
 	  qdp_gl(sdiag1_trset0_scfmat_prod,gamma_idx_2);
-	  result_subdiag1 *= qdp_gcoeff(gamma_idx_2,true,false);
-
 	  sdiag1_trset0_scfmat_prod.ccl(-1);
 	  sdiag1_trset0_scfmat_prod.pr(F1);
 	  sdiag1_trset0_scfmat_prod.gr(-5);
 	  sdiag1_trset0_scfmat_prod.ccr(1);
-	  //sdiag1_trset0_scfmat_prod *= S_1.trans();
 	  qdp_gr(sdiag1_trset0_scfmat_prod,gamma_idx_1);
-	  result_subdiag1 *= qdp_gcoeff(gamma_idx_1,true,false);
-
 	  sdiag1_trset0_scfmat_prod.ccr(1);
 	  sdiag1_trset0_scfmat_prod *= prop_ud_snk_x_src_y_scfmat;
 	  Rcomplex sdiag1_trset0_cmplx;
@@ -701,9 +994,79 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
       }
     }
+
     corrfunc.write(fp);
   }
 
+
+
+  {
+    /*<<(\bar u,s')*(\bar d,s)>>*/
+    /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
+    std::ostringstream os; os << "HL_MESON_U_SPRIME_D_S " << gamma_idx_1 << " " << gamma_idx_2;
+    CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+    if(UniqueID()==0) printf("Doing HL_MESON_U_SPRIME_D_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
+    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+
+    /*Fourier transform on sink index x*/
+    /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
+    {
+      QuarkMomCombination momcomb;
+      momcomb.add_prop(prop_src_y_u_d_eitherflav_pcon, false);
+      momcomb.add_prop(prop_src_y_sprime_s_eitherflav_pcon, true);
+      bool desired_mom_available(momcomb.contains(desired_mom_x));
+      /*Create an appropriate error message if !desired_mom_available*/
+      if(!desired_mom_available) MomCombError("AlgGparityContract","meson_HL_gparity",desired_mom_x,momcomb);
+    }
+
+    corrfunc.setNcontractions(1);
+#pragma omp parallel for default(shared)
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      int x_pos_vec[4];
+      global_coord(x,x_pos_vec);
+  
+      /*Get all SpinColorFlavorMatrices needed*/
+      SpinColorFlavorMatrix prop_sprimes_snk_x_src_y_hconj_scfmat(prop_src_y_sprime_s_eitherflav_pcon , AlgLattice(), x);
+      prop_sprimes_snk_x_src_y_hconj_scfmat.hconj();
+  
+      SpinColorFlavorMatrix prop_ud_snk_x_src_y_scfmat(prop_src_y_u_d_eitherflav_pcon , AlgLattice(), x);
+  
+      /*Starting contraction 0*/
+      /*[{\rm tr}_{scf,0}\left\{\Gamma[g2] \gamma^5 F_0 \mathcal{G}^{[s^\prime/s] \dagger}_{x,y} F_1 \gamma^5 C \Gamma[g1] C \mathcal{G}^{[u/d] }_{x,y}\right\}_{0}  ]*[f_\Gamma(g1,T) ]*/
+  
+      {
+	Rcomplex contraction(1 , 0);
+	contraction *= qdp_gcoeff(gamma_idx_1,true,false);
+	contraction *= sink_phasefac(desired_mom_x,x_pos_vec,false);
+    
+	Rcomplex result_subdiag0(1.0);
+	{
+	  SpinColorFlavorMatrix sdiag0_trset0_scfmat_prod(prop_sprimes_snk_x_src_y_hconj_scfmat);
+	  sdiag0_trset0_scfmat_prod.pl(F0);
+	  sdiag0_trset0_scfmat_prod.gl(-5);
+	  qdp_gl(sdiag0_trset0_scfmat_prod,gamma_idx_2);
+	  sdiag0_trset0_scfmat_prod.pr(F1);
+	  sdiag0_trset0_scfmat_prod.gr(-5);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  qdp_gr(sdiag0_trset0_scfmat_prod,gamma_idx_1);
+	  sdiag0_trset0_scfmat_prod.ccr(1);
+	  sdiag0_trset0_scfmat_prod *= prop_ud_snk_x_src_y_scfmat;
+	  Rcomplex sdiag0_trset0_cmplx;
+	  sdiag0_trset0_cmplx = sdiag0_trset0_scfmat_prod.Trace();
+	  result_subdiag0 *= sdiag0_trset0_cmplx;
+	}
+	contraction *= result_subdiag0;
+    
+    
+	corrfunc(omp_get_thread_num(),0,x_pos_vec[3]) += contraction;
+      }
+    }
+
+
+    corrfunc.write(fp);
+  }
 }
 
 
