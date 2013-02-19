@@ -51,7 +51,7 @@ void QioArg::init(const char * file, const int concur_io_number, const Float chk
 // QioControl members////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 QioControl::QioControl() 
-  : num_concur_io(0), do_log(0), cname("QioControl"), io_good(false)
+  : num_concur_io(0), do_log(0), cname("QioControl"), io_good(false), GparityReconstructUstarField(true)
 {
   //  cout << "I am on a " << GJP.Xnodes() << "x"<< GJP.Ynodes() << "x"<< GJP.Znodes() 
   //       << "x"<< GJP.Tnodes() <<"x"<<GJP.Snodes() << " machine" << endl;
