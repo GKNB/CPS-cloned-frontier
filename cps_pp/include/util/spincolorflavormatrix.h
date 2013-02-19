@@ -40,10 +40,11 @@ public:
     PointSourceAttrArg *pt;
     MomentumAttrArg *mom;
     MomCosAttrArg *cos;
-    if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) ){
+    WallSourceAttrArg *wall;
+    if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) || ( from.getAttr(wall) && !from.getAttr(mom) ) ){
       //cos source (point or wall) or zero momentum point source
     }else{
-      ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point source");
+      ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point or Wall source");
     }
     
     if(wmat!=NULL) free();
