@@ -1,5 +1,10 @@
 #include<math.h>
+#include<stdio.h>
 #include<stdlib.h>
+#include"essl.h"
+#include<util/verbose.h>
+
+USING_NAMESPACE_CPS
 
 void tred2(double **a, int n, double *d, double *e);
 int tqli(double *d, double *e, int n, double **z);
@@ -209,54 +214,97 @@ void min_eig_index(int *INDEX, int nev,double *EIG, int n)
 }
 
 #include<complex>
-void invert_H_matrix(std::complex<double> *data, int n)
+void invert_H_matrix(std::complex<double> *data, int N)
 {
-	int actualsize=n;
-    if (actualsize <= 0) return;  // sanity check
-    if (actualsize == 1) {data[0]=1.0/data[0];return;}  // must be of dimension >= 2
+    if (N <= 0) return;  // sanity check
+    if (N == 1) {data[0]=1.0/data[0];return;}  // must be of dimension >= 2
 
-    for (int i=1; i < actualsize; i++) data[i] /= data[0]; // normalize row 0
+    for (int i=1; i < N; i++) {
+        data[i] /= data[0]; // normalize row 0
+    }
 
-    for (int i=1; i < actualsize; i++)  
-	{ 
-      for (int j=i; j < actualsize; j++)  { // do a column of L
-        std::complex<double> sum = 0.0;
-        for (int k = 0; k < i; k++)  
-            sum += data[j*actualsize+k] * data[k*actualsize+i];
-        data[j*actualsize+i] -= sum;
+    for (int i=1; i < N; i++) {
+        for (int j=i; j < N; j++)  { // do a column of L
+            std::complex<double> sum = 0.0;
+            for (int k = 0; k < i; k++) {
+                sum += data[j*N+k] * data[k*N+i];
+            }
+
+            data[j*N+i] -= sum;
         }
-      if (i == actualsize-1) continue;
-      for (int j=i+1; j < actualsize; j++)  {  // do a row of U
-        std::complex<double> sum = 0.0;
-        for (int k = 0; k < i; k++)
-            sum += data[i*actualsize+k]*data[k*actualsize+j];
-        data[i*actualsize+j] = 
-           (data[i*actualsize+j]-sum) / data[i*actualsize+i];
+        if (i == N-1) continue;
+        for (int j=i+1; j < N; j++)  {  // do a row of U
+            std::complex<double> sum = 0.0;
+            for (int k = 0; k < i; k++)
+                sum += data[i*N+k]*data[k*N+j];
+            data[i*N+j] = 
+                (data[i*N+j]-sum) / data[i*N+i];
         }
-      }
-    for ( int i = 0; i < actualsize; i++ )  // invert L
-      for ( int j = i; j < actualsize; j++ )  {
-        std::complex<double> x = 1.0;
-        if ( i != j ) {
-          x = 0.0;
-          for ( int k = i; k < j; k++ ) 
-              x -= data[j*actualsize+k]*data[k*actualsize+i];
-          }
-        data[j*actualsize+i] = x / data[j*actualsize+j];
+    }
+
+    for ( int i = 0; i < N; i++ ) { // invert L
+        for ( int j = i; j < N; j++ )  {
+            std::complex<double> x = 1.0;
+            if ( i != j ) {
+                x = 0.0;
+                for ( int k = i; k < j; k++ ) 
+                    x -= data[j*N+k]*data[k*N+i];
+            }
+            data[j*N+i] = x / data[j*N+j];
         }
-    for ( int i = 0; i < actualsize; i++ )   // invert U
-      for ( int j = i; j < actualsize; j++ )  {
-        if ( i == j ) continue;
-        std::complex<double> sum = 0.0;
-        for ( int k = i; k < j; k++ )
-            sum += data[k*actualsize+j]*( (i==k) ? 1.0 : data[i*actualsize+k] );
-        data[i*actualsize+j] = -sum;
+    }
+
+    for ( int i = 0; i < N; i++ ) {  // invert U
+        for ( int j = i; j < N; j++ )  {
+            if ( i == j ) continue;
+            std::complex<double> sum = 0.0;
+            for ( int k = i; k < j; k++ )
+                sum += data[k*N+j]*( (i==k) ? 1.0 : data[i*N+k] );
+            data[i*N+j] = -sum;
         }
-    for ( int i = 0; i < actualsize; i++ )   // final inversion
-      for ( int j = 0; j < actualsize; j++ )  {
-        std::complex<double> sum = 0.0;
-        for ( int k = ((i>j)?i:j); k < actualsize; k++ )  
-            sum += ((j==k)?1.0:data[j*actualsize+k])*data[k*actualsize+i];
-        data[j*actualsize+i] = sum;
+    }
+
+    for ( int i = 0; i < N; i++ ) {  // final inversion
+        for ( int j = 0; j < N; j++ )  {
+            std::complex<double> sum = 0.0;
+            for ( int k = ((i>j)?i:j); k < N; k++ )  
+                sum += ((j==k)?1.0:data[j*N+k])*data[k*N+i];
+            data[j*N+i] = sum;
         }
+    }
+}
+
+void invert_H_zpotri(std::complex<double> *data, int N)
+{
+    const char type = 'U';
+    int info = 0;
+
+    int *ipiv = new int[N];
+    std::complex<double> *work = new std::complex<double>[N*N];
+
+    // Sometimes zpotrf() fails, reporting non positive definite Hermitian matrix.
+    // zpotrf(&type, N, (void*)data, N, info);
+
+    // if(info != 0) {
+    //     printf("zpotrf() failed!\n");
+    //     exit(-1);
+    // }
+
+    // zpotri(&type, N, (void*)data, N, info);
+    // if(info != 0) {
+    //     printf("zpotri() failed!\n");
+    //     exit(-1);
+    // }
+
+    // for(int i = 1; i < N; ++i) {
+    //     for(int j = 0; j < i; ++j) {
+    //         data[j*N+i]=conj(data[i*N+j]);
+    //     }
+    // }
+
+    zgetrf(N, N, (void*)data, N, ipiv, info);
+    zgetri(N, (void*)data, N, ipiv, work, N*N, info);
+    
+    delete[] ipiv;
+    delete[] work;
 }

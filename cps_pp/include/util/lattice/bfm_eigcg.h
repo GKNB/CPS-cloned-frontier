@@ -25,13 +25,23 @@
 #include <pprefetch.h>
 #endif
 
+#ifdef USE_QMP
 #include<qmp.h>
+#endif
 
 void eigen_solver(double *A, double *EV, double *E, int n);
 template<class Float> void matrix_dgemm (const int M,const int N, const int K, Float **A, const double *B, double *C);
 void min_eig_index(int *INDEX, int nev,double *EIG, int n);
-void invert_H_matrix(complex<double> *data, int n); //if n is large enough, must be parallerized!!!
+void invert_H_zpotri(std::complex<double> *data, int N);
+void invert_H_matrix(complex<double> *data, int N); //if n is large enough, must be parallerized!!!
 template<class Float> void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_size_cb, const int nthread, const int me);
+
+static double time_diff(const struct timeval &end_time, const struct timeval &start_time)
+{
+    long int sec_diff = end_time.tv_sec - start_time.tv_sec;
+    long int usec_diff = end_time.tv_usec - start_time.tv_usec;
+    return sec_diff + 1.0e-6 * usec_diff;
+}
 
 template <class Float>
 Fermion_t bfm_evo<Float>::threadedAllocCompactFermion   (int mem_type)
@@ -121,6 +131,10 @@ int bfm_evo<Float>::EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2])
 template<class Float>
 int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
 {
+    printf("int bfm_evo<Float>::Eig_CGNE_prec temporarily disabled\n");
+    exit(-1);
+#if 0
+
     double f;
     double cp,c,a,d,b;
     int me = this->thread_barrier();
@@ -143,8 +157,9 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
 
     complex<double> *invH=NULL;
     if(eigcg->def_len > 0) {
-        struct timeval proj_start,proj_end,proj_diff;
-        gettimeofday(&proj_start,NULL);
+
+        struct timeval dtime0;
+        gettimeofday(&dtime0, NULL);
 
         if(eigcg->def_len<eigcg->get_max_def_len()) {
             invH = (complex<double>*)threaded_alloc(eigcg->def_len*eigcg->def_len*sizeof(complex<double>));
@@ -155,13 +170,16 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                 for(int i=0;i<eigcg->def_len;i++)
                     for(int j=0;j<eigcg->def_len;j++)
                         invH[i*eigcg->def_len+j]=eigcg->H[i*eigcg->get_max_def_len()+j];
-                invert_H_matrix(invH, eigcg->def_len);
+                // invert_H_matrix(invH, eigcg->def_len);
+                invert_H_zpotri(invH, eigcg->def_len);
             }
-            this->thread_barrier();
             //------
         } else {
             invH = eigcg->H;
         }
+
+        struct timeval dtime1;
+        gettimeofday(&dtime1, NULL);
 
         complex<double> *Ub = NULL;
         complex<double> *invHUb = NULL;
@@ -181,6 +199,9 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             }
         }
 
+        struct timeval dtime2;
+        gettimeofday(&dtime2, NULL);
+
         // FIXME: I don't know why copying stuff directly to psi doesn't work.
         this->set_zero(tmp);
         for(int i=0;i<eigcg->def_len;i++) {
@@ -194,11 +215,13 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
         threaded_free(Ub);
         threaded_free(invHUb);
 
-        gettimeofday(&proj_end,NULL);
-        timersub(&proj_end,&proj_start,&proj_diff);
+        struct timeval dtime3;
+        gettimeofday(&dtime3, NULL);
 
         if ( this->isBoss() && this->verbose && !me ) {
-            printf("bfmbase::eig_CGNE_prec projection of lowmodes in %d.%6.6d s\n",proj_diff.tv_sec,proj_diff.tv_usec);
+            printf("bfmbase::Eig_CGNE_prec time1-0 = %17.10e sec\n", time_diff(dtime1, dtime0));
+            printf("bfmbase::Eig_CGNE_prec time2-1 = %17.10e sec\n", time_diff(dtime2, dtime1));
+            printf("bfmbase::Eig_CGNE_prec time3-2 = %17.10e sec\n", time_diff(dtime3, dtime2));
         }
     }
 
@@ -424,9 +447,10 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                 eigcg_vec_mult2(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
                 // eigcg_vec_mult3(eigcg->getV(0),m,QZ,rank,eigcg->get_vec_len(), this->nthread, me, *this);
 
-                eigProj_flops += 2*eigcg->get_vec_len()*m*rank;
+                eigProj_flops += 2.0 * eigcg->get_vec_len() * m * rank;
                 gettimeofday(&proj_end_1,NULL);
                 timersub(&proj_end_1,&proj_start_1,&proj_diff_1);
+
                 t_lancos_proj += proj_diff_1.tv_sec*1.0E6 + proj_diff_1.tv_usec;
 
                 if(me==0) {
@@ -459,8 +483,9 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             this->scale(eigcg->getV(i_eig),1.0/std::sqrt(cp));
             i_eig++;
 
-            gettimeofday(&proj_end,NULL);
-            timersub(&proj_end,&proj_start,&proj_diff);
+            gettimeofday(&proj_end, NULL);
+            timersub(&proj_end, &proj_start, &proj_diff);
+
             t_lancos += proj_diff.tv_sec*1e6+proj_diff.tv_usec;
         }
 
@@ -498,6 +523,7 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
                         invHUb[i] += invH[i*eigcg->def_len+j]*Ub[j]; //notice the index ofr invH.
                 }
             }
+
             //set tmp=0.0;
             this->set_zero(tmp);
             for(int i=0;i<eigcg->def_len;i++) {
@@ -542,11 +568,12 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
 
             gettimeofday(&stop,NULL);
             struct timeval diff;
-            timersub(&stop,&start,&diff);
+            timersub(&stop, &start, &diff);
 
-            if ( this->isBoss() && !me ) printf("bfmbase::CGNE_prec converged in %d iterations\n",k);
-            if ( this->isBoss() && !me ) printf("bfmbase::CGNE_prec converged in total %d.%6.6d s\n",diff.tv_sec,diff.tv_usec);
-
+            if ( this->isBoss() && !me ) {
+                printf("bfmbase::CGNE_prec converged in %d iterations\n",k);
+                printf("bfmbase::CGNE_prec converged in total %d.%6.6d s\n",diff.tv_sec,diff.tv_usec);
+            }
 
             double flops = this->mprecFlops()*2.0 + 2.0*this->axpyNormFlops() + this->axpyFlops()*2.0;
             flops = flops * k;
@@ -554,7 +581,6 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             t += diff.tv_sec*1.0E6 + diff.tv_usec;
             t -= t_lancos;
             if ( this->isBoss()&& !me ) {
-                //printf("bfmbase::Eig_CGNE_prec: %d mprec flops/site\n",mprecFlopsPerSite());
                 printf("bfmbase::Eig_CGNE_prec: CG part: %le s for %le flops\n",t/1e6, flops);
                 printf("bfmbase::Eig_CGNE_prec: CG part: %le Mflops per node\n",flops/t);
                 if(do_eigcg) {
@@ -633,8 +659,10 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
         delete [] low;
         if(me==0) {
             if(eigcg->def_len == eigcg->get_max_def_len())
-                invert_H_matrix(eigcg->H,eigcg->get_max_def_len());
+                invert_H_zpotri(eigcg->H,eigcg->get_max_def_len());
+                // invert_H_matrix(eigcg->H,eigcg->get_max_def_len());
         }
+
         gettimeofday(&addV_end,NULL);
         timersub(&addV_end,&addV_start,&addV_diff);
         if(this->isBoss() && !me) {
@@ -672,6 +700,7 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
     else {
         return this->iter;
     }
+#endif
 }
 
 #ifndef BLOCK_SIZE

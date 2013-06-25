@@ -13,6 +13,7 @@ CPS_START_NAMESPACE
 //
 // 1. Make sure the gauge field has the boundry condition turned
 // on. This class doesn't in any way deal with boundry settings.
+// CK: G-parity boundary conditions are handled correctly
 //
 // 2. vec1 and vec2 are 2 auxiliary vectors.  They must be stored in
 // (color, spin, s, x, y, z, t) order.
