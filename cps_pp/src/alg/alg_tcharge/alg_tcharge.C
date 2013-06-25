@@ -374,7 +374,7 @@ const char* names[5] = { "1x1",
 			 "1x3" };
 
 
-void AlgTcharge::run()
+void AlgTcharge::run(Float **result)
 {
   Lattice& lattice( AlgLattice() );  
 
@@ -435,9 +435,14 @@ void AlgTcharge::run()
       for (int f2(f1);f2<nfunc;f2++)
 	{
 	  glb_sum( &tmat[f1][f2] );
+	  if(GJP.Gparity1fX()) tmat[f1][f2]/=2; //counted twice
+	  if(GJP.Gparity1fX() && GJP.Gparity1fY()) tmat[f1][f2]/=2; //counted twice more
 	}
     }
   
+
+  
+
   // Print out results
   //----------------------------------------------------------------
 
@@ -461,6 +466,12 @@ void AlgTcharge::run()
 	}
       Fclose(fp);
     }
+
+  //CK: output the results
+  if(result != NULL)
+  for (int f1(0);f1<nfunc;f1++)
+    for (int f2(0);f2<nfunc;f2++)
+      result[f1][f2] = tmat[f1][f2];
 
 }
 
@@ -758,6 +769,8 @@ void AlgTcharge::smartrun()
 {
   const char fname[] = "smartrun()";
   Lattice& lat( AlgLattice() );  
+
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for G-parity");
 
   const int Slab = 3; //Expansion in each direction
   const int MatrixSize = 2 * lat.Colors() * lat.Colors();

@@ -7,19 +7,19 @@ typedef float pooh;
 /*!\file
   \brief  Magic numbers.
 
-  $Id: enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: enum.x,v 1.24.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 /*--------------------------------------------------------------------*/
 /*  CVS keywords*/
 /**/
 /*  $Author: ckelly $*/
-/*  $Date: 2012-11-15 18:17:08 $*/
-/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $*/
-/*  $Id: enum.x,v 1.24.6.1 2012-11-15 18:17:08 ckelly Exp $*/
+/*  $Date: 2013-06-25 19:56:57 $*/
+/*  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v 1.24.6.2 2013-06-25 19:56:57 ckelly Exp $*/
+/*  $Id: enum.x,v 1.24.6.2 2013-06-25 19:56:57 ckelly Exp $*/
 /*  $Name: not supported by cvs2svn $*/
 /*  $Locker:  $*/
 /*  $RCSfile: enum.x,v $*/
-/*  $Revision: 1.24.6.1 $*/
+/*  $Revision: 1.24.6.2 $*/
 /*  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/enum.x,v $*/
 /*  $State: Exp $*/
 /**/
@@ -51,7 +51,8 @@ enum FclassType {
     F_CLASS_P4,
     F_CLASS_WILSON_TM,
     F_CLASS_MDWF,
-    F_CLASS_BFM
+    F_CLASS_BFM,
+    F_CLASS_BFM_TYPE2
 };
 
 
@@ -264,7 +265,9 @@ enum DagType {
 enum BndCndType {
     BND_CND_PRD,    /*!< Periodic */
     BND_CND_APRD,    /*!< Antiperiodic */
-    BND_CND_GPARITY    /*!< G-parity */
+    BND_CND_TWISTED,  /*!< Twisted BCs */
+    BND_CND_GPARITY,    /*!< G-parity */
+    BND_CND_GPARITY_TWISTED /*!< G-parity + Twisted BCs*/
 };
 
 

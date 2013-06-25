@@ -5,19 +5,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class CG solver methods.
 
-  $Id: inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: inv_cg.C,v 1.14.28.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: inv_cg.C,v 1.14.28.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v 1.14.28.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: inv_cg.C,v 1.14.28.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: inv_cg.C,v $
-//  $Revision: 1.14.28.1 $
+//  $Revision: 1.14.28.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/noarch/inv_cg.C,v $
 //  $State: Exp $
 //
@@ -108,7 +108,7 @@ int DiracOp::InvCgShift(Vector *out,
   Float b;
   Float d;
   int i, ic, icb;
-  char *fname = "InvCg(V*,V*,F,F*)";
+  const char *fname = "InvCgShift(V*,V*,F,F*) [d_op_base/noarch version]";
   IFloat *temp;
 
 // Flash the LED and then turn it off
@@ -463,7 +463,7 @@ int DiracOp::InvCg(Vector *out,
 		   Vector *in, 
 		   Float src_norm_sq, 
 		   Float *true_res){
-	InvCgShift(out,in,src_norm_sq,true_res,NULL);
+  return InvCgShift(out,in,src_norm_sq,true_res,NULL);
 }
 
 

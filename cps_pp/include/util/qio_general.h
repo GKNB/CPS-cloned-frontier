@@ -151,7 +151,6 @@
 
 
 CPS_START_NAMESPACE
-using namespace std;
 
 //! source types
 enum QIO_PROP_SOURCE_TYPES {QIO_UNKNOWN_SOURCE=0, QIO_SCALAR_SOURCE, QIO_FULL_SOURCE};
@@ -170,7 +169,7 @@ class qio_init {
     {
 
       #ifdef DEBUG_Init
-      printf("qio_init is up\n");
+        std::printf("qio_init is up\n");
       #endif //DEBUG_Init
 
       const char * fname = "qio_init()";
@@ -243,7 +242,7 @@ class qio_init {
     virtual ~qio_init()
       {
 	#ifdef DEBUG_Init
-	printf("shut down qio_init\n");
+          std::printf("shut down qio_init\n");
 	#endif //DEBUG_Init
 
 	const char * fname = "~qio_init()";

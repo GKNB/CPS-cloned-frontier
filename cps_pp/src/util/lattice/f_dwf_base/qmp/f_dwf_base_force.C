@@ -7,7 +7,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FdwfBase class.
 
-  $Id: f_dwf_base_force.C,v 1.11.6.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: f_dwf_base_force.C,v 1.11.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
@@ -166,7 +166,9 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
                                Float  mass, 
                                Float dt )
 {
-  char *fname = "EvolveMomFforce(M*,V*,V*,F,F)";
+  const char *fname = "EvolveMomFforce(M*,V*,V*,F,F)";
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for G-parity\n");
+
   VRB.Func(cname,fname);
   
   Matrix *gauge = GaugeField() ;
@@ -200,6 +202,17 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
   ForceFlops=0;
 #endif
 
+  //CK: Bosonic force vectors
+  //f_out = v1 = (eta, Deo eta)
+  //f_in = v2 = (-kappa^2 phi, -kappa^2 Deo^dag phi)
+
+  
+  //Note the fermionic force vectors calculated by CalcHmdForceVecs are the following:
+  //f_out = ( chi, D_eo chi )
+  //f_in = ( -kappa^2 Mprec chi, -kappa^2 D_eo^dag Mprec chi )    
+  //where chi is the input vector. These are the same as the bosonic force vectors if we use  phi = Mprec chi  and  eta = chi as inputs
+
+
   //Calculate v1, v2. Both must be in CANONICAL order afterwards
   {
     CgArg cg_arg ;
@@ -221,7 +234,7 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
     // full vector (v2)
     v1->CopyVec(eta,f_size_cb);
         
-    dwf.Dslash(v2+(f_size_cb/6), v2 , CHKB_ODD, DAG_YES);
+    dwf.Dslash(v2+(f_size_cb/6), v2 , CHKB_ODD, DAG_YES); //note 6 is the size of a Vector object!
     dwf.Dslash(v1+(f_size_cb/6), v1 , CHKB_ODD, DAG_NO);
     
     // v1 and v2 are now the vectors needed to contruct the force term
@@ -480,16 +493,16 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
 	}
 
         OMP_DEBUG("gauge_offset=%d vec_plus_mu_offset=%d vec_plus_mu_stride=%d thread=%d\n",gauge_offset,vec_plus_mu_offset,vec_plus_mu_stride,omp_get_thread_num());
-	//printf("Doing outer product for f1 P+\n"); fflush(stdout);
+	//printf("Doing outer product for f1 P-\n"); fflush(stdout);
 
-	//tmp_mat1_{ij} = tr_s ( P_+^mu v1(x+mu)_i v2^\dagger(x)_j )
+	//tmp_mat1_{ij} = tr_s ( P_-^mu v1(x+mu)_i v2^\dagger(x)_j )
 	sproj_tr[mu]( (IFloat *)tmp_mat1,
 		      (IFloat *)v1_plus_mu,
 		      (IFloat *)v2+vec_offset,
 		      ls, vec_plus_mu_stride, vec_stride) ;
-	//printf("Doing outer product for f1 P-\n"); fflush(stdout);
+	//printf("Doing outer product for f1 P+\n"); fflush(stdout);
 
-	//tmp_mat2_{ij} = tr_s ( P_-^mu v2(x+mu)_i v1^\dagger(x)_j 
+	//tmp_mat2_{ij} = tr_s ( P_+^mu v2(x+mu)_i v1^\dagger(x)_j 
 	sproj_tr[mu+4]( (IFloat *)tmp_mat2,
 			(IFloat *)v2_plus_mu,
 			(IFloat *)v1+vec_offset,
@@ -503,16 +516,16 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
 	  //for flavour 2 field we must flip the projection operator used for the force term
 	  //and swap the coordinates of the force vectors
 
-	  //printf("Doing outer product for f2 P-\n"); fflush(stdout);
+	  //printf("Doing outer product for f2 P+\n"); fflush(stdout);
 
-	  //tmp_mat2_{ij} = tr_s ( P_-^mu v1(x)_i v2^\dagger(x+mu)_j 
+	  //tmp_mat2_{ij} = tr_s ( P_+^mu v1(x)_i v2^\dagger(x+mu)_j 
 	  sproj_tr[mu+4]( (IFloat *)tmp_mat2,
 			  (IFloat *)v1+vec_offset+f_size_4d,
 			  (IFloat *)v2_plus_mu_f2,
 			  ls, vec_stride, vec_plus_mu_stride) ;
 
-	  //printf("Doing outer product for f2 P+\n"); fflush(stdout);
-	  //tmp_mat3_{ij} = tr_s ( P_+^mu v2(x)_i v1^\dagger(x+mu)_j 
+	  //printf("Doing outer product for f2 P-\n"); fflush(stdout);
+	  //tmp_mat3_{ij} = tr_s ( P_-^mu v2(x)_i v1^\dagger(x+mu)_j 
 	  sproj_tr[mu]( (IFloat *)tmp_mat3,
 			(IFloat *)v2+vec_offset+f_size_4d,
 			(IFloat *)v1_plus_mu_f2,

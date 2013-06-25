@@ -17,6 +17,7 @@
 #include <omp.h>
 #include <math.h>
 #include <vector>
+#include <util/gjp.h>
 #include "bfm_evo_aux.h"
 
 // FIXME: it inherits from bfm_qdp for the sole reason of using its
@@ -25,15 +26,19 @@
 template <class Float>
 class bfm_evo : public bfm_qdp<Float> {
 public:
-  enum {Even = 0, Odd};
+  // BFM has this
+  // enum {Even = 0, Odd};
 
   integer cps_idx_cb(int x[4], int s, int reim, int i, int i_size);
+  integer cps_idx_cb_gparity(int x[4], int s, int reim, int i, int i_size, int flav);
 
   // s outer most
   integer cps_idx(int x[4], int s, int reim, int i, int i_size);
+  integer cps_idx_gparity(int x[4], int s, int reim, int i, int i_size, int flav);
 
   // s inner most (but outside color and spin)
   integer cps_idx_s(int x[4], int s, int reim, int i, int i_size);
+  integer cps_idx_s_gparity(int x[4], int s, int reim, int i, int i_size, int flav);
 
   // compute the vector pair (v1, v2) needed to calculate fermion force.
   void calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
@@ -51,16 +56,21 @@ public:
 
   // solve a propagator, for HtCayleyTanh this is just unpreconditioned CG
   // for HmCayleyTanh this is D^{-1} Dminus acting on in[2].
-  int prop_solve(Fermion_t out[2], Fermion_t in[2]);
+  // int prop_solve(Fermion_t out[2], Fermion_t in[2]);
 
   // ======================================================================
   // these functions need to be rewritten to fit into bfm style.
   // currently they contain both bfm and CPS style gauge/fermion fields.
+#if 0 //testing
 private:
+#endif
   // auxiliary functions used by compute_force().
+  //CK: gpf1_offset_p is the offset to reach the second G-parity flavour in the vectors v1p and v2p.
+  //    Its value depends on whether v1p/v2p are internal vectors (24*5dvol) or in the buffer send 
+  //    from the next node (24*Ls*3dsurfvol  where 3dsurfvol is the 3d surface volume in the comms direction)
   void fforce_site(Float *mom, Float *gauge,
                    Float *v1, Float *v1p,
-                   Float *v2, Float *v2p, int mu, Float coef);
+                   Float *v2, Float *v2p, int mu, Float coef, int gpf1_offset_p = 0);
 
   void fforce_internal(Float *mom, Float *gauge,
                        Float *v1, Float *v2, // internal data
@@ -74,6 +84,15 @@ private:
 
   void copySendFrmData(Float v3d[], Float v4d[], int mu, bool send_neg);
 
+  // complex version of axpy()
+  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp) {
+    printf("void axpy_c temporarily disabled\n");
+    exit(-1);
+#if 0
+    this->zaxpy(r, x, y, a);
+#endif
+  }
+public:
   void thread_work_partial_nobarrier(int nwork, int me, int nthreads,
                                      int &mywork, int &myoff)
   {
@@ -85,9 +104,6 @@ private:
         myoff += (me-backfill);
   }
 
-  // complex version of axpy()
-  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp);
-public:
   // compute fermion force:
   //
   // mom += coef * (phiL^\dag e_i(M) \phiR + \phiR^\dag e_i(M^\dag) \phiL)
@@ -116,6 +132,14 @@ public:
   // FIXME: test code only, don't use it unless you know what you are
   // doing.
   int bicgstab_M(Fermion_t sol, Fermion_t src);
+
+  // GCR, solves M x = b
+  int gcr_M(Fermion_t sol, Fermion_t src);
+
+  // GMRES(m) solves M x = b.
+  //
+  // Restarts after m iterations.
+  int gmres_M(Fermion_t sol, Fermion_t src, const int m);
 public:
   //======================================================================
   // the following member functions are single-threaded functions:
@@ -136,8 +160,38 @@ public:
 
   template<typename FloatEXT>
   void cps_importGauge(FloatEXT *importme);
+
+  //EigCG
+  Fermion_t allocCompactFermion   (int mem_type=mem_slow);
+  Fermion_t threadedAllocCompactFermion   (int mem_type=mem_slow);
+  void* threaded_alloc(int length, int mem_type=mem_slow);
+  void threaded_free(void *handle);
+  int EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2]);
+  int Eig_CGNE_prec(Fermion_t psi, Fermion_t src);
+
+  // copied from Jianglei's bfm
+  double CompactMprec(Fermion_t compact_psi,
+                      Fermion_t compact_chi,
+                      Fermion_t psi,
+                      Fermion_t chi,
+                      Fermion_t tmp,
+                      int dag,int donrm=0) ;
+
+  // copied from Jianglei's bfm
+  void CompactMunprec(Fermion_t compact_psi[2],
+                      Fermion_t compact_chi[2],
+                      Fermion_t psi[2],
+                      Fermion_t chi[2],
+                      Fermion_t tmp,
+                      int dag);
+
+  // do deflation using eigenvectors/eigenvalues from Rudy's Lanczos code.
+  void deflate(Fermion_t out, Fermion_t in,
+               const multi1d<Fermion_t [2]> *evec,
+               const multi1d<Float> *eval, int N);
 };
 
+//CK: this function gives the offset within a checkerboarded vector
 template<class Float>
 integer bfm_evo<Float>::cps_idx_cb(int x[4], int s, int reim, int i, int i_size)
 {
@@ -160,6 +214,30 @@ integer bfm_evo<Float>::cps_idx_cb(int x[4], int s, int reim, int i, int i_size)
   return csite*i_size*2 + i*2 + reim;
 }
 
+//For G-parity the WILSON layout is 5d preconditioned
+//|       s=0       |        s=1        | ......... |        s = 0      |.....
+//| odd f0 | odd f1 | even f0 | even f1 | ......... | even f0 | even f1 |.....
+//where the blocks on the lowest line have their *4d* parity indicated. (5d parity) = [(4d parity) + s] % 2
+//hence the first half of the full WILSON vector had 5d parity odd, and the second half 5d parity even
+
+template<class Float>
+integer bfm_evo<Float>::cps_idx_cb_gparity(int x[4], int s, int reim, int i, int i_size, int flav)
+{
+  int s_off = this->node_latt[0] * this->node_latt[1] * this->node_latt[2] * this->node_latt[3]; //2 4D half-volumes, one for each flavour
+  int f_off = s_off/2;
+
+  int csite
+    =x[0] +this->node_latt[0]
+    *(x[1] + this->node_latt[1]
+      *(x[2] +this->node_latt[2] * x[3]));
+  csite /= 2;
+  
+  csite += flav * f_off + s*s_off;
+      
+  return csite*i_size*2 + i*2 + reim;
+}
+
+
 template<class Float>
 integer bfm_evo<Float>::cps_idx(int x[4], int s, int reim, int i, int i_size)
 {
@@ -173,6 +251,25 @@ integer bfm_evo<Float>::cps_idx(int x[4], int s, int reim, int i, int i_size)
 }
 
 template<class Float>
+integer bfm_evo<Float>::cps_idx_gparity(int x[4], int s, int reim, int i, int i_size, int flav)
+{
+  //For G-parity we have 2 flavours on each s-slice
+  int s_off = 2*this->node_latt[0] * this->node_latt[1] * this->node_latt[2] * this->node_latt[3]; //2 4D volumes, one for each flavour
+  int f_off = s_off/2;
+
+  int csite =
+    x[0] + this->node_latt[0]
+    *(x[1] + this->node_latt[1]
+      *(x[2] +this->node_latt[2]*x[3]));
+  csite += s*s_off + flav * f_off;
+
+  return (csite*i_size + i)*2 + reim;
+}
+
+
+
+
+template<class Float>
 integer bfm_evo<Float>::cps_idx_s(int x[4], int s, int reim, int i, int i_size)
 {
   int csite =
@@ -184,6 +281,23 @@ integer bfm_evo<Float>::cps_idx_s(int x[4], int s, int reim, int i, int i_size)
 
   return (csite*i_size + i)*2 + reim;
 }
+template<class Float>
+integer bfm_evo<Float>::cps_idx_s_gparity(int x[4], int s, int reim, int i, int i_size, int flav)
+{
+  //This s-inner mapping is new here. Offset the second flavour by 1 5D volume, just like in bfm
+  int f_off = this->Ls * this->node_latt[0] * this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
+
+  int csite =
+    s + this->Ls
+    *(x[0] + this->node_latt[0]
+      *(x[1] + this->node_latt[1]
+        *(x[2] +this->node_latt[2]
+          *x[3])));
+  csite += flav * f_off;
+
+  return (csite*i_size + i)*2 + reim;
+}
+
 
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doimport, int cb)
@@ -200,8 +314,13 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
   Float *bagel = (Float *)handle;
   omp_set_num_threads(this->nthread);
 
+  int work = vol5d;
+  if(cps::GJP.Gparity()) work*=2;
+
 #pragma omp parallel for 
-  for (int site = 0; site < vol5d; site++) {
+  for (int sf = 0; sf < work; sf++) {
+    int flav = sf;
+    int site = flav % vol5d; flav /= vol5d;
     
     int x[4], s;
     int si=site;
@@ -214,8 +333,15 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
     int sp = this->precon_5d ? s : 0;
     if ( (x[0]+x[1]+x[2]+x[3] + sp &0x1) == cb ) {
 
-      int bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
-      int cidx_base = this->cps_idx_cb(x, s, 0, 0, Nspinco);
+      int bidx_base;
+      int cidx_base;
+      if(cps::GJP.Gparity()){
+	bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
+	cidx_base = this->cps_idx_cb_gparity(x, s, 0, 0, Nspinco, flav);
+      }else{
+	bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
+	cidx_base = this->cps_idx_cb(x, s, 0, 0, Nspinco);
+      }
 
       for ( int co=0;co<Nspinco;co++ ) { 
         for ( int reim=0;reim<2;reim++ ) {
@@ -232,6 +358,10 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
   }//xyzts
 }
 
+
+//Convert a bfm-style Fermion_t pair to or from a CANONICAL format CPS-style fermion
+//if doimport == 0 psi is the output and handle the input
+//if doimport == 1 handle is the output and psi the input
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_impexFermion(FloatEXT *psi, Fermion_t handle[2], int doimport)
 {
@@ -247,8 +377,14 @@ void bfm_evo<Float>::cps_impexFermion(FloatEXT *psi, Fermion_t handle[2], int do
   omp_set_num_threads(this->nthread);
   Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
 
+  int work = vol5d;
+  if(cps::GJP.Gparity()) work*=2;
+
 #pragma omp parallel for 
-  for (int site = 0; site < vol5d; site++) {
+  for (int sf = 0; sf < work; sf++) {
+    int flav = sf;
+    int site = flav % vol5d; flav /= vol5d;
+
     int x[4], s;
     int si=site;
     x[0]=si%this->node_latt[0];    si=si/this->node_latt[0];
@@ -260,8 +396,16 @@ void bfm_evo<Float>::cps_impexFermion(FloatEXT *psi, Fermion_t handle[2], int do
     int sp = this->precon_5d ? s : 0;
     int cb = x[0]+x[1]+x[2]+x[3]+sp &0x1;
 
-    int bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
-    int cidx_base = this->cps_idx(x, s, 0, 0, Nspinco);
+    int bidx_base;
+    int cidx_base;
+    
+    if(cps::GJP.Gparity()){
+      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
+      cidx_base = this->cps_idx_gparity(x, s, 0, 0, Nspinco, flav);
+    }else{
+      bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
+      cidx_base = this->cps_idx(x, s, 0, 0, Nspinco);
+    }
 
     for ( int co=0;co<Nspinco;co++ ) { 
       for ( int reim=0;reim<2;reim++ ) { 
@@ -277,6 +421,9 @@ void bfm_evo<Float>::cps_impexFermion(FloatEXT *psi, Fermion_t handle[2], int do
   }//xyzts
 }
 
+//Convert a bfm style Fermion_t pair (left,right) to a 's-ordered' fermion
+//if doimport == 0 the input is handle and the output psi
+//if doimport == 1 the input is psi and the output handle
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int doimport)
 {
@@ -292,8 +439,14 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
   omp_set_num_threads(this->nthread);
   Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
 
+  int work = vol5d;
+  if(cps::GJP.Gparity()) work*=2;
+
 #pragma omp parallel for 
-  for (int site = 0; site < vol5d; site++) {
+  for (int sf = 0; sf < work; sf++) {
+    int flav = sf;
+    int site = flav % vol5d; flav /= vol5d;
+
     int x[4], s;
     int si=site;
     s   =si%this->Ls;              si=si/this->Ls;
@@ -305,8 +458,15 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
     int sp = this->precon_5d ? s : 0;
     int cb = x[0]+x[1]+x[2]+x[3]+sp & 0x1;
 
-    int bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
-    int cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
+    int bidx_base;
+    int cidx_base;
+    if(cps::GJP.Gparity()){
+      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1,flav);
+      cidx_base = this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav);
+    }else{
+      bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
+      cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
+    }
 
     for ( int co=0;co<Nspinco;co++ ) {
       for ( int reim=0;reim<2;reim++ ) {
@@ -321,6 +481,9 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
   }//xyzts
 }
 
+//Convert a bfm style Fermion_t pair (left,right) to a 's-ordered' fermion
+//if doimport == 0 the input is handle and the output psi
+//if doimport == 1 the input is psi and the output handle
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int doimport)
 {
@@ -334,13 +497,19 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
     this->Ls;
 
   int me, thrlen, throff;
-  this->thread_work(vol5d, me, thrlen, throff);
+
+  int work = vol5d;
+  if(cps::GJP.Gparity()) work*=2;
+  this->thread_work(work, me, thrlen, throff);
 
   Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
 
   for (int site = 0; site < thrlen; ++site) {
+    int flav = site + throff;
+    int site = flav % vol5d; flav /= vol5d;
+
     int x[4], s;
-    int si=site + throff;
+    int si=site;
     s   =si%this->Ls;              si=si/this->Ls;
     x[0]=si%this->node_latt[0];    si=si/this->node_latt[0];
     x[1]=si%this->node_latt[1];    si=si/this->node_latt[1];
@@ -350,8 +519,15 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
     int sp = this->precon_5d ? s : 0;
     int cb = x[0]+x[1]+x[2]+x[3]+sp & 0x1;
 
-    int bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
-    int cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
+    int bidx_base;
+    int cidx_base;
+    if(cps::GJP.Gparity()){
+      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
+      cidx_base = this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav);
+    }else{
+      bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
+      cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
+    }
 
     for ( int co=0;co<Nspinco;co++ ) {
       for ( int reim=0;reim<2;reim++ ) {
@@ -424,11 +600,14 @@ static inline int idx_5d_surf(const int x[5], const int lx[5], int mu) {
   return ret;
 }
 
+//CK: Appears to assume 'importme' is in canonical ordering
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
 {
-  multi1d<LatticeColorMatrix> U(Nd);
-
+  int u_sz = Nd;
+  if(cps::GJP.Gparity()) u_sz *= 2; //U* fields are stacked on second set of Nd LatticeColorMatrix objects in the array
+  
+  multi1d<LatticeColorMatrix> U(u_sz);
   omp_set_num_threads(this->nthread);
 
   int Ndircoco=72;
@@ -441,16 +620,17 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
     this->node_latt[2] *
     this->node_latt[3];
 
-  for (int mu=0;mu<Nd;mu++) {
-    U_p = (QDPdouble *)&(U[mu].elem(0).elem());
+  for (int muu=0;muu<u_sz;muu++) {
+    U_p = (QDPdouble *)&(U[muu].elem(0).elem());
+    int flav = muu / Nd; int mu = muu % Nd;
 
 #pragma omp parallel for 
     for (int site=0;site<vol4d;site++ ) {
       int x[4];
       int s=site;
-      x[0]=s%this->node_latt[0];    s=s/this->node_latt[0];
-      x[1]=s%this->node_latt[1];    s=s/this->node_latt[1];
-      x[2]=s%this->node_latt[2];    s=s/this->node_latt[2];
+      x[0]=s%this->node_latt[0];    s/=this->node_latt[0];
+      x[1]=s%this->node_latt[1];    s/=this->node_latt[1];
+      x[2]=s%this->node_latt[2];    s/=this->node_latt[2];
       x[3]=s%this->node_latt[3];
       
       int qidx_base = this->chroma_idx(x, 0, 0, Ncoco);
@@ -460,7 +640,7 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
           // int qidx = this->chroma_idx(x,reim,coco,Ncoco);
           int qidx = qidx_base + reim + coco * 2;
 
-          int siteoff = mu + Nd * site;
+          int siteoff = mu + Nd * site + flav*Nd*vol4d; //Second G-parity flavour offset by Nd*vol4d
           int cidx = reim + 2 * (coco + Ncoco * siteoff);
           U_p[qidx] = importme[cidx];
         }} // reim,coco
@@ -471,6 +651,13 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   this->importGauge(U);
 }
 
+
+//CK: phi1 = Mprec phi2 for fermionic vectors.
+
+//Calculates: (odd,even)
+//v2 = (Boo phi2, Bee MeeInv Meo phi2)
+//v1 = (phi1,  MeeInv^dag Meo^dag phi1)
+
 template <class Float>
 void bfm_evo<Float>::calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
                        Fermion_t phi1, Fermion_t phi2)
@@ -480,19 +667,29 @@ void bfm_evo<Float>::calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
   // Mee/Moo: check bfmbase<Float>::G5D_Mooee().
   // Mee/Moo inverse: check bfmbase<Float>::G5D_MooeeInv().
   
-  // v2e
-  this->Meo(phi2, v1[Odd], Even, DaggerNo);
-  this->MooeeInv(v1[Odd], v1[Even], DaggerNo);
+  //2kappa = 1/(5-M5)
+  
+  // v2e      =  Bee * 2kappa * Meo phi2
+  this->Meo(phi2, v1[Odd], Even, DaggerNo); //Uses v1[Odd] as temp storage
+  this->MooeeInv(v1[Odd], v1[Even], DaggerNo); 
   this->Booee(v1[Even], v2[Even], DaggerNo);
 
-  // v2o
+  // v2o = Boo phi2
   this->Booee(phi2, v2[Odd], DaggerNo);
 
-  // v1e
+  // v1e  =  2kappa Meo^dag phi1
   this->Meo(phi1, v1[Odd], Even, DaggerYes);
-  this->MooeeInv(v1[Odd], v1[Even], DaggerYes); // v1e in place
+  this->MooeeInv(v1[Odd], v1[Even], DaggerYes);
 
-  // v1o
+  //CK: For WilsonTM, comparison to CPS version
+  //MooeeInv = 2 kappa g5theta(ctheta,-stheta)
+  //kappa = 1/[2 sqrt( (m+4)^2 + eps^2 )]
+  //ctheta = 2 (m+4) kappa
+  //stheta = 2 eps kappa
+  //g5theta(ctheta,stheta) = ctheta + i stheta g5
+
+
+  // v1o = 1oo phi1
   this->copy(v1[Odd], phi1);
 }
 
@@ -548,9 +745,12 @@ void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
     // Booee is the identity matrix in this case.
     this->copy(chi, psi);
     return;
+  } else if(this->solver == WilsonTM && this->precon_5d ==0){ //CK: I hope this is correct
+    this->copy(chi, psi);
+    return;
   } else {
     if ( this->isBoss() ) {
-      printf("Booee: preconditioned unimplemented \n");
+      printf("Booee: method not implemented for this fermion type / preconditioning type\n");
     }
     exit(-1);
   }
@@ -628,18 +828,22 @@ double bfm_evo<Float>::ritz(Fermion_t x, int compute_min)
   }
 
   // y = A x, A = MdagM or -MdagM
-  mu = this->Mprec(x, t, y, 0, 1);
-  this->Mprec(t, y, u, 1);
+  mu = this->Mprec(x, t, y, 0, 1); // t = Mpc x  (y temp)
+  this->Mprec(t, y, u, 1); //y = Mpc^dag t (u temp)
   if(! compute_min) {
-    this->scale(y, -1.);
+    this->scale(y, -1.); //y=-y
     mu = -mu;
   }
 
-  gnorm2 = this->axpy_norm(p, x, y, -mu);
+  gnorm2 = this->axpy_norm(p, x, y, -mu); //p = -mu * x + y
   pnorm = sqrt(gnorm2);
 
   int i;
   for(i = 0; i < this->max_iter; ++i) {
+    if(this->isBoss() && !me && i%100==0) {
+      printf("bfm_evo::ritz iter = %6d gnorm2 = %17.10e, targ gnorm2 = %17.10e,  mu = %17.10e\n", i, gnorm2, stop_rsd, mu); 
+    }
+
     if(gnorm2 < stop_rsd) break;
 
     // if(i % 100 == 0 && this->isBoss() && !me) {
@@ -710,42 +914,6 @@ double bfm_evo<Float>::ritz(Fermion_t x, int compute_min)
   return mu / xnorm;
 }
 
-template <class Float>
-int bfm_evo<Float>::prop_solve(Fermion_t out[2], Fermion_t in[2])
-{
-  int me = this->thread_barrier();
-
-  // DWF
-  if(this->solver == DWF && this->precon_5d == 1 ||
-     this->solver == HtCayleyTanh && this->precon_5d == 0) {
-    return this->CGNE_M(out, in);
-  }
-
-  // Mobius
-  if(this->solver == HmCayleyTanh && this->precon_5d == 0) {
-    Fermion_t tmp[2] = {
-      this->threadedAllocFermion(),
-      this->threadedAllocFermion()};
-
-    this->set_zero(tmp[0]);
-    this->set_zero(tmp[1]);
-
-    this->G5D_Dminus(in, tmp, 0);
-    int i = this->CGNE_M(out, tmp);
-
-    this->threadedFreeFermion(tmp[0]);
-    this->threadedFreeFermion(tmp[1]);
-
-    return i;
-  }
-
-  if(this->isBoss() && !me) {
-    printf("prop_solve not implemented\n");
-  }
-  exit(-1);
-  return 0;
-}
-
 // FIXME: I'll need to replace getPlusData by something else.
 // For now it works.
 #include <comms/scu.h>
@@ -761,7 +929,7 @@ void bfm_evo<Float>::copySendFrmData(Float v3d[], Float v4d[], int mu, bool send
 
   int low[4] = { 0, 0, 0, 0 };
   int high[4] = {lclx[0], lclx[1], lclx[2], lclx[3] };
-  low[mu] = send_neg ? 0 : lclx[mu] - 1;
+  low[mu] = send_neg ? 0 : lclx[mu] - 1; //pick out the slice at the boundary in the send direction
   high[mu] = low[mu] + 1;
 
   int block_size = 24 * lclx[4]; // s inner most
@@ -770,14 +938,21 @@ void bfm_evo<Float>::copySendFrmData(Float v3d[], Float v4d[], int mu, bool send
                      high[1] - low[1],
                      high[2] - low[2],
                      high[3] - low[3] };
-  const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
+  const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3]; //3-volume on surface (hl[mu]=1) [in units of blocks of size 24*Ls]
+  const int vol4d = this->node_latt[0] * this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
 
   int me, thrlen, throff;
-  this->thread_work(hl_sites, me, thrlen, throff);
+  int work = hl_sites; if(cps::GJP.Gparity()) work *=2;
+  this->thread_work(work, me, thrlen, throff);
 
   for(int i = 0; i < thrlen; ++i) {
-    int x[4];
+    int x[4], flav;
     int tmp = i + throff;
+
+    //For G-parity, fermion data blocks [each of size 24*Ls] increment in x,y,z,t,flav
+    //Use similar mapping for surface volume, with flav changing slowest (offset 1 * surface 3-volume blocks)
+    flav = tmp/hl_sites; tmp = tmp % hl_sites;
+
     x[0] = tmp % hl[0] + low[0]; tmp /= hl[0];
     x[1] = tmp % hl[1] + low[1]; tmp /= hl[1];
     x[2] = tmp % hl[2] + low[2]; tmp /= hl[2];
@@ -786,9 +961,21 @@ void bfm_evo<Float>::copySendFrmData(Float v3d[], Float v4d[], int mu, bool send
     int off_4d = idx_4d(x, lclx);
     int off_3d = idx_4d_surf(x, lclx, mu);
         
-    memcpy(v3d + off_3d * block_size,
-           v4d + off_4d * block_size,
-           sizeof(Float) * block_size);
+    if(cps::GJP.Gparity()){
+      //Implement G-parity flavour twist where appropriate. Note that the boundary sign on the boundary between C \bar{u}^T and d fields is implemented on the gauge links
+      //here so we do not need to explicitly apply it to the communicated data.
+      if(cps::GJP.Bc(mu) == cps::BND_CND_GPARITY && (send_neg && cps::GJP.NodeCoor(mu) == 0) || (!send_neg && cps::GJP.NodeCoor(mu) == cps::GJP.Nodes(mu)-1)   ){
+	if(flav==0) memcpy(v3d + off_3d * block_size + hl_sites * block_size,  v4d + off_4d * block_size,  sizeof(Float) * block_size); //d -> CubarT buf
+	else memcpy(v3d + off_3d * block_size,  v4d + off_4d * block_size + vol4d * block_size,  sizeof(Float) * block_size); //CubarT -> d buf
+      }else{ //copy both flavours to their respective buffers
+	memcpy(v3d + off_3d * block_size,  v4d + off_4d * block_size,  sizeof(Float) * block_size); //d -> d
+	memcpy(v3d + off_3d * block_size + hl_sites * block_size,  v4d + off_4d * block_size + vol4d * block_size,  sizeof(Float) * block_size); //CubarT -> CubarT
+      }
+    }else{
+      memcpy(v3d + off_3d * block_size,
+	     v4d + off_4d * block_size,
+	     sizeof(Float) * block_size);
+    }
   }
 }
 
@@ -797,12 +984,36 @@ void bfm_evo<Float>::copySendFrmData(Float v3d[], Float v4d[], int mu, bool send
 //
 // FIXME: need to add a line sum in s direction to support splitting
 // in s direction.
+
+//CK: v1p = v1[x+mu]
+//    fermion vectors appear to be in CANONICAL ordering
 template<class Float>
 void bfm_evo<Float>::fforce_site(Float *mom, Float *gauge,
                                  Float *v1, Float *v1p,
-                                 Float *v2, Float *v2p, int mu, Float coef)
+                                 Float *v2, Float *v2p, int mu, Float coef,int gpf1_offset_p)
 {
     Float t1[18], t2[18];
+
+    if(cps::GJP.Gparity()) printf("flav 0\n");
+
+    printf("v1: ");
+    printf("%f %f ... %f",v1[0],v1[1],v1[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v2: ");
+    printf("%f %f ... %f",v2[0],v2[1],v2[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v1p: ");
+    printf("%f %f ... %f",v1p[0],v1p[1],v1p[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v2p: ");
+    printf("%f %f ... %f",v2p[0],v2p[1],v2p[24*this->Ls-1]);
+    printf("\n");
+    
+    printf("gauge: %f %f ...%f\n",gauge[0],gauge[1],gauge[17]); 
+    printf("mom: %f %f ...%f\n",mom[0],mom[1],mom[17]); 
 
     switch(mu) {
     case 0:
@@ -821,11 +1032,94 @@ void bfm_evo<Float>::fforce_site(Float *mom, Float *gauge,
       bfm_evo_aux::sprojTrTm(t1, v1p, v2, this->Ls, 0, 0);
       bfm_evo_aux::sprojTrTp(t2, v2p, v1, this->Ls, 0, 0);
     }
+    printf("Minus proj contrib: %f %f ... %f\n",t1[0],t1[1],t1[17]);
+    printf("Plus proj contrib: %f %f ... %f\n",t2[0],t2[1],t2[17]);
 
-    bfm_evo_aux::su3_add(t1, t2);
-    bfm_evo_aux::mDotMEqual(t2, gauge, t1);
+    bfm_evo_aux::su3_add(t1, t2); //t1 -> t1 + t2
+    bfm_evo_aux::mDotMEqual(t2, gauge, t1); //t2 -> gauge * t1
     bfm_evo_aux::trless_am(t2, -coef);
+
+    printf("Traceless AHmat contrib: %f %f ... %f\n",t2[0],t2[1],t2[17]);
+
+    if(cps::GJP.Gparity1fX()) for(int i=0;i<18;i++) t2[i]*=2.0;  //double latt testing, not production code
+
     bfm_evo_aux::su3_add(mom, t2);
+
+    if(cps::GJP.Gparity()){
+      //add force from second flavour
+      Float t1_f1[18], t2_f1[18];
+      const int vol4d = this->node_latt[0] * this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
+      const int f1_off = 24*this->Ls * vol4d; //f1 offset by 5d volume in this ordering scheme
+
+      v1+=f1_off; v2+=f1_off; 
+      v1p+=gpf1_offset_p; v2p+=gpf1_offset_p; //offset for 'plus' site depends on whether the data is stored in the buffer or the on-node vector
+
+      printf("flav 1\n");
+
+    printf("v1: ");
+    printf("%f %f ... %f",v1[0],v1[1],v1[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v2: ");
+    printf("%f %f ... %f",v2[0],v2[1],v2[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v1p: ");
+    printf("%f %f ... %f",v1p[0],v1p[1],v1p[24*this->Ls-1]);
+    printf("\n");
+
+    printf("v2p: ");
+    printf("%f %f ... %f",v2p[0],v2p[1],v2p[24*this->Ls-1]);
+    printf("\n");
+
+    Float *gauge_f1 = gauge + vol4d*18*4;
+    Float *mom_f1 = mom + vol4d*18*4;
+    printf("gauge: %f %f ...%f\n",gauge_f1[0],gauge_f1[1],gauge_f1[17]); 
+    printf("mom: %f %f ...%f\n",mom_f1[0],mom_f1[1],mom_f1[17]); 
+
+      switch(mu) {
+      case 0:
+	bfm_evo_aux::sprojTrXp(t1_f1, v1, v2p, this->Ls, 0, 0);   
+	bfm_evo_aux::sprojTrXm(t2_f1, v2, v1p, this->Ls, 0, 0);
+	break;
+      case 1:
+	bfm_evo_aux::sprojTrYp(t1_f1, v1, v2p, this->Ls, 0, 0);
+	bfm_evo_aux::sprojTrYm(t2_f1, v2, v1p, this->Ls, 0, 0);
+	break;
+      case 2:
+	bfm_evo_aux::sprojTrZp(t1_f1, v1, v2p, this->Ls, 0, 0);
+	bfm_evo_aux::sprojTrZm(t2_f1, v2, v1p, this->Ls, 0, 0);
+	break;
+      default:
+	bfm_evo_aux::sprojTrTp(t1_f1, v1, v2p, this->Ls, 0, 0);
+	bfm_evo_aux::sprojTrTm(t2_f1, v2, v1p, this->Ls, 0, 0);
+      }
+
+      {
+	cps::Matrix a; a.Trans(t1_f1); Float *aa = (Float*) &a[0];
+	cps::Matrix b; b.Trans(t2_f1); Float *bb = (Float*) &b[0];
+	printf("Minus proj contrib: %f %f ... %f\n",aa[0],aa[1],aa[17]);
+	printf("Plus proj contrib: %f %f ... %f\n",bb[0],bb[1],bb[17]);
+      }
+
+      bfm_evo_aux::su3_add(t1_f1, t2_f1); //t1_f1 -> t1_f1 + t2_f1
+      
+      //set it up to use the f1 gauge field (sign*U*), such that the boundary sign comes free
+      //this will need to be complex conjugated
+
+      bfm_evo_aux::mStarDotMTransEqual(t2_f1, gauge_f1, t1_f1); // do  (U*)* t^T 
+      bfm_evo_aux::trless_am(t2_f1, -coef);
+
+      printf("Traceless AHmat contrib: %f %f ... %f\n",t2_f1[0],t2_f1[1],t2_f1[17]);
+
+      bfm_evo_aux::su3_add(mom, t2_f1);
+
+      //setup momentum for the second flavour
+      for(int i=1;i<18;i+=2){ t2[i]*=-1; t2_f1[i]*=-1; } //mom[f1] is mom[f0]*
+      bfm_evo_aux::su3_add(mom_f1, t2);
+      bfm_evo_aux::su3_add(mom_f1, t2_f1);
+    }
+
 }
 
 template<class Float>
@@ -841,7 +1135,7 @@ void bfm_evo<Float>::fforce_internal(Float *mom, Float *gauge,
                  this->Ls};
   int low[4] = { 0, 0, 0, 0 };
   int high[4] = { lclx[0], lclx[1], lclx[2], lclx[3] };
-  --high[mu];
+  --high[mu]; //exclude the site on the boundary
 
   int block_size = 24 * lclx[4];
 
@@ -851,16 +1145,18 @@ void bfm_evo<Float>::fforce_internal(Float *mom, Float *gauge,
                      high[3] - low[3] };
   const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
 
+  const int gparity_vp_off = block_size * lclx[0] * lclx[1] * lclx[2] * lclx[3]; //offset of second flavour (not used when G-parity is off)
+  
   // note: some of the threads are dedicated to communication. There
   // must be exactly *nthreads* threads executing this function, the
   // variable *me* must range from 0 to nthreads - 1, inclusive.
   int thrlen, throff;
   this->thread_work_partial_nobarrier(hl_sites, me, nthreads,
                                       thrlen, throff);
-
   for(int i = 0; i < thrlen; ++i) {
     int x[4];
     int tmp = i + throff;
+
     x[0] = tmp % hl[0] + low[0]; tmp /= hl[0];
     x[1] = tmp % hl[1] + low[1]; tmp /= hl[1];
     x[2] = tmp % hl[2] + low[2]; tmp /= hl[2];
@@ -874,10 +1170,84 @@ void bfm_evo<Float>::fforce_internal(Float *mom, Float *gauge,
     ++y[mu];
     int fidp = block_size * idx_4d(y, lclx);
 
+    //testing
+    int gx[4] = { x[0] + cps::GJP.XnodeSites()*cps::GJP.XnodeCoor(), 
+		  x[1] + cps::GJP.YnodeSites()*cps::GJP.YnodeCoor(),
+		  x[2] + cps::GJP.ZnodeSites()*cps::GJP.ZnodeCoor(),
+		  x[3] + cps::GJP.TnodeSites()*cps::GJP.TnodeCoor() };
+
+    if(cps::GJP.Gparity1fX()){
+      int flav = 0;    
+      if( gx[0] >= cps::GJP.XnodeSites()*cps::GJP.Xnodes()/2 ){ gx[0] -= cps::GJP.XnodeSites()*cps::GJP.Xnodes()/2; flav = 1; }
+      printf("1f GP coord (%d %d %d %d) flav %d\n",gx[0],gx[1],gx[2],gx[3],flav);      
+    }else if(cps::GJP.Gparity()){
+      printf("2f GP coord (%d %d %d %d)\n",gx[0],gx[1],gx[2],gx[3]);
+    }
+
+
+    //Note fforce_site computes the force on this site from both flavours in the case of G-parity BCs
     this->fforce_site(mom + 18 * gid, gauge + 18 * gid,
                       v2 + fid, v2 + fidp,
-                      v1 + fid, v1 + fidp, mu, coef);
+                      v1 + fid, v1 + fidp, mu, coef, gparity_vp_off);
   }
+
+  //GPARITY TESTING: COMPARE 1F AND 2F METHODS (NOT USED IN PRODUCTION CODE)
+  if(cps::GJP.Gparity1fX() && me==0){ //use only first thread for this (does not need to be fast as it is only testing)
+    this->thread_barrier();
+
+    printf("Patching up 1f G-parity force\n");
+
+    //want  p_0' = p_0 + delta p_0 + cconj(delta p_1)
+    //      p_1' = p_1 + delta p_1 + cconj(delta p_0)
+    //we did p_i' = p_i + 2 * delta p_i
+    //and we know p_1 = cconj(p_0)
+    //so we now do  p_0' = 0.5* p_0' + 0.5* cconj(p_1')
+    //so we now do  p_1' = 0.5* p_1' + 0.5* cconj(p_0')
+    //to fix this
+    int momsz = 4*18*cps::GJP.VolNodeSites();
+    Float *buf = (Float *)bfm_alloc(momsz * sizeof(Float) );
+    for(int ii=0;ii<momsz;ii++) buf[ii] = 0.0;
+
+    //Communicate \delta p from first half onto second half and vice versa
+    Float *data_buf = mom;
+    Float *send_buf = data_buf;
+    Float *recv_buf = buf;
+
+    if(cps::GJP.Xnodes()>1){
+      //pass between nodes
+      for(int i=0;i<cps::GJP.Xnodes()/2;i++){
+	cps::getMinusData((Float *)recv_buf, (Float *)send_buf, momsz , 0);
+	data_buf = recv_buf;
+	recv_buf = send_buf;
+	send_buf = data_buf;
+      }
+    }else{
+      //shift mom[mu] field by xsites/2
+      for(long i=0;i<cps::GJP.VolNodeSites();i++){
+	//i = (x + Lx*(y+Ly*(z+Lz*t) ) )
+	int x = i % cps::GJP.XnodeSites();
+	int pos_rem = i/cps::GJP.XnodeSites(); //(y+Ly*(z+Lz*t)
+
+	int x_from = (x + cps::GJP.XnodeSites()/2) % cps::GJP.XnodeSites();
+
+	int i_from = 18*mu + 18*4*(x_from + cps::GJP.XnodeSites()*pos_rem);
+	int i_to = 18*mu + 18*4*i;
+
+	for(int j=0;j<18;j++) buf[i_to+j] = mom[i_from+j];
+      }
+      data_buf = buf;
+    }
+    for(int i=0;i<cps::GJP.VolNodeSites();i++){ //do fixup step
+      int mat_off = 18*mu + 18*4*i;
+      
+      for(int j=0;j<18;j++){
+	if(j%2==0) mom[mat_off+j] = mom[mat_off+j]/2.0 + data_buf[mat_off+j]/2.0;
+	else mom[mat_off+j] = mom[mat_off+j]/2.0 - data_buf[mat_off+j]/2.0;
+      }
+    }
+    bfm_free(buf);
+  }
+
 }
 
 template<class Float>
@@ -906,6 +1276,8 @@ void bfm_evo<Float>::fforce_surface(Float *mom, Float *gauge,
   int me, thrlen, throff;
   this->thread_work(hl_sites, me, thrlen, throff);
 
+  const int gparity_vp_off = block_size * hl_sites; //offset of second flavour (not used when G-parity is off)
+
   for(int i = 0; i < thrlen; ++i) {
     int x[4];
     int tmp = i + throff;
@@ -921,8 +1293,68 @@ void bfm_evo<Float>::fforce_surface(Float *mom, Float *gauge,
 
     this->fforce_site(mom + 18 * gid, gauge + 18 * gid,
                       v2 + fid, v2_s + fid_s,
-                      v1 + fid, v1_s + fid_s, mu, coef);
+                      v1 + fid, v1_s + fid_s, mu, coef,gparity_vp_off);
   }
+
+
+  //GPARITY TESTING: COMPARE 1F AND 2F METHODS (NOT USED IN PRODUCTION CODE)
+  if(cps::GJP.Gparity1fX() && me==0){ //use only first thread for this (does not need to be fast as it is only testing)
+    this->thread_barrier();
+
+    printf("Patching up 1f G-parity force\n");
+
+    //want  p_0' = p_0 + delta p_0 + cconj(delta p_1)
+    //      p_1' = p_1 + delta p_1 + cconj(delta p_0)
+    //we did p_i' = p_i + 2 * delta p_i
+    //and we know p_1 = cconj(p_0)
+    //so we now do  p_0' = 0.5* p_0' + 0.5* cconj(p_1')
+    //so we now do  p_1' = 0.5* p_1' + 0.5* cconj(p_0')
+    //to fix this
+    int momsz = 4*18*cps::GJP.VolNodeSites();
+    Float *buf = (Float *)bfm_alloc(momsz * sizeof(Float) );
+    for(int ii=0;ii<momsz;ii++) buf[ii] = 0.0;
+
+    //Communicate \delta p from first half onto second half and vice versa
+    Float *data_buf = mom;
+    Float *send_buf = data_buf;
+    Float *recv_buf = buf;
+
+    if(cps::GJP.Xnodes()>1){
+      //pass between nodes
+      for(int i=0;i<cps::GJP.Xnodes()/2;i++){
+	cps::getMinusData((Float *)recv_buf, (Float *)send_buf, momsz , 0);
+	data_buf = recv_buf;
+	recv_buf = send_buf;
+	send_buf = data_buf;
+      }
+    }else{
+      //shift mom[mu] field by xsites/2
+      for(long i=0;i<cps::GJP.VolNodeSites();i++){
+	//i = (x + Lx*(y+Ly*(z+Lz*t) ) )
+	int x = i % cps::GJP.XnodeSites();
+	int pos_rem = i/cps::GJP.XnodeSites(); //(y+Ly*(z+Lz*t)
+
+	int x_from = (x + cps::GJP.XnodeSites()/2) % cps::GJP.XnodeSites();
+
+	int i_from = 18*mu + 18*4*(x_from + cps::GJP.XnodeSites()*pos_rem);
+	int i_to = 18*mu + 18*4*i;
+
+	for(int j=0;j<18;j++) buf[i_to+j] = mom[i_from+j];
+      }
+      data_buf = buf;
+    }
+    for(int i=0;i<cps::GJP.VolNodeSites();i++){ //do fixup step
+      int mat_off = 18*mu + 18*4*i;
+      
+      for(int j=0;j<18;j++){
+	if(j%2==0) mom[mat_off+j] = mom[mat_off+j]/2.0 + data_buf[mat_off+j]/2.0;
+	else mom[mat_off+j] = mom[mat_off+j]/2.0 - data_buf[mat_off+j]/2.0;
+      }
+    }
+    bfm_free(buf);
+  }
+
+
 }
 
 // compute fermion force for Mobius class fermions:
@@ -952,6 +1384,8 @@ void bfm_evo<Float>::compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fer
   int surf_size_all = 0;
   for(int i = 0; i < 4; ++i) {
     surf_size[i] = vol_5d / lclx[i];
+    if(cps::GJP.Gparity()) surf_size[i] *=2; //2 flavours
+
     surf_size_all += 2 * surf_size[i];
   }
   
@@ -964,8 +1398,10 @@ void bfm_evo<Float>::compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fer
     surf_v2[i] = surf_v1[i] + surf_size[i];
   }
   
-  Float *v1f = this->threadedAllocFloat(vol_5d);
-  Float *v2f = this->threadedAllocFloat(vol_5d);
+  int fsize = vol_5d; if(cps::GJP.Gparity()) fsize*=2; 
+
+  Float *v1f = this->threadedAllocFloat(fsize);
+  Float *v2f = this->threadedAllocFloat(fsize);
   Float *sndbuf = this->threadedAllocFloat(surf_size_all);
   Float *rcvbuf = this->threadedAllocFloat(surf_size_all);
 
@@ -977,26 +1413,40 @@ void bfm_evo<Float>::compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fer
     this->copySendFrmData(sndbuf + surf_v2[i], v2f, i, true);
   }
 
-  // Fused comm/internal force.
-  //
-  // The last 4 threads (typically 60-63) are used for
-  // communication. All other threads (typically 0-59) are used to
-  // calculate internal forces.
   if(this->nthread <= 4) {
+//#define DROPOUT_LT5THREADS
+#ifdef DROPOUT_LT5THREADS
     if(!me) {
       printf("compute_force: Oops, at least 5 threads are needed.\n");
     }
     exit(-1);
-  }
-
-  // parallelize comm/internal force calculation
-  if(me >= this->nthread - 4) {
-    int dir = this->nthread - me - 1;
-    cps::getPlusData(rcvbuf + surf_v1[dir], sndbuf + surf_v1[dir],
-                     surf_size[dir] * 2, dir);
-  } else {
+#else
+    //CK: We can do it with less than 5 threads, but less efficiently (so this will work on a cluster/laptop)
+    if(me==0){ //Do comms on single thread
+      for(int dir=0; dir<4; dir++)
+	cps::getPlusData(rcvbuf + surf_v1[dir], sndbuf + surf_v1[dir],
+			 surf_size[dir] * 2, dir);
+    }    
     for(int i = 0; i < 4; ++i) {
-      fforce_internal(mom, gauge, v1f, v2f, coef, i, me, this->nthread - 4);
+      fforce_internal(mom, gauge, v1f, v2f, coef, i, me, this->nthread); //run over however many threads we have
+    }
+#endif
+  }else{
+    // Fused comm/internal force.
+    //
+    // The last 4 threads (typically 60-63) are used for
+    // communication. All other threads (typically 0-59) are used to
+    // calculate internal forces.
+    
+    // parallelize comm/internal force calculation
+    if(me >= this->nthread - 4) {
+      int dir = this->nthread - me - 1;
+      cps::getPlusData(rcvbuf + surf_v1[dir], sndbuf + surf_v1[dir],
+		       surf_size[dir] * 2, dir);
+    } else {
+      for(int i = 0; i < 4; ++i) {
+	fforce_internal(mom, gauge, v1f, v2f, coef, i, me, this->nthread - 4);
+      }
     }
   }
 
@@ -1021,13 +1471,13 @@ void bfm_evo<Float>::compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fer
 }
 
 // complex version of axpy()
-template<class Float>
-void bfm_evo<Float>::axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp)
-{
-  this->copy(tmp, x);
-  this->scale(tmp, std::real(a), std::imag(a));
-  this->axpy(r, tmp, y, 1.0);
-}
+// template<class Float>
+// void bfm_evo<Float>::axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp)
+// {
+//   this->copy(tmp, x);
+//   this->scale(tmp, std::real(a), std::imag(a));
+//   this->axpy(r, tmp, y, 1.0);
+// }
 
 // bicg_M: Biconjugate gradient method on preconditioned Dirac
 // operator (It never converges).
@@ -1240,6 +1690,309 @@ int bfm_evo<Float>::bicgstab_M(Fermion_t sol, Fermion_t src)
   this->threadedFreeFermion(tv2);
   
   return k;
+}
+
+// copied from Jianglei's bfm
+template<typename Float>
+double bfm_evo<Float>::CompactMprec(Fermion_t compact_psi,
+                                    Fermion_t compact_chi,
+                                    Fermion_t psi,
+                                    Fermion_t chi,
+                                    Fermion_t tmp,
+                                    int dag,int donrm)
+{
+  this->copy(psi, compact_psi);
+  double result = this->Mprec(psi, chi, tmp, dag, donrm);
+  this->copy(compact_chi, chi);
+  return result;
+}
+
+// copied from Jianglei's bfm
+template<typename Float>
+void bfm_evo<Float>::CompactMunprec(Fermion_t compact_psi[2],
+                                    Fermion_t compact_chi[2],
+                                    Fermion_t psi[2],
+                                    Fermion_t chi[2],
+                                    Fermion_t tmp,
+                                    int dag)
+{
+  this->copy(psi[0], compact_psi[0]);
+  this->copy(psi[1], compact_psi[1]);
+  this->Munprec(psi, chi, tmp, dag);
+  this->copy(compact_chi[0], chi[0]);
+  this->copy(compact_chi[1], chi[1]);
+}
+
+template<typename Float>
+void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
+                             const multi1d<Fermion_t [2]> *evec,
+                             const multi1d<Float> *eval,
+                             int N)
+{
+  printf("void bfm_evo<Float>::deflate temporarily disabled\n");
+  exit(-1);
+
+#if 0
+  if(N == 0 || evec == NULL || eval == NULL) {
+    if(this->isBoss()) {
+      printf("bfm_evo::deflate() must provide eigenvectors.\n");
+    }
+    exit(-1);
+  }
+
+  this->set_zero(out);
+  for(int i = 0; i < N; ++i) {
+    std::complex<double> dot = this->inner((*evec)[i][1], in);
+    this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));
+  }
+#endif
+}
+
+// GCR, the matrix is preconditioned M.
+template<class Float>
+int bfm_evo<Float>::gcr_M(Fermion_t sol, Fermion_t src)
+{
+  printf("int bfm_evo<Float>::gcr_M temporarily disabled");
+  exit(-1);
+  
+#if 0
+  int me = this->thread_barrier();
+
+  Fermion_t r   = this->threadedAllocFermion();
+  Fermion_t gr  = this->threadedAllocFermion();
+  Fermion_t agr = this->threadedAllocFermion();
+  Fermion_t p   = this->threadedAllocFermion();
+  Fermion_t ap  = this->threadedAllocFermion();
+  Fermion_t x   = sol;
+  Fermion_t tv1 = this->threadedAllocFermion();
+  Fermion_t tv2 = this->threadedAllocFermion();
+
+  const double src_norm = this->norm(src);
+  const double stop = src_norm * this->residual * this->residual;
+
+  this->Mprec(x, r, tv2, 0, 0);
+  double rnorm = this->axpy_norm(r, r, src, -1.0); // r <- b - M x
+
+  if ( this->isBoss() && !me ) {
+    std::printf("gcr_M: iter = %5d rsd = %10.3e true rsd = %10.3e\n",
+                0, std::sqrt(rnorm / src_norm),
+                std::sqrt(rnorm / src_norm));
+  }
+
+  this->g5r5(gr, r);
+  this->Mprec(gr, agr, tv1, 0, 0);
+  this->copy(p, gr);
+  this->copy(ap, agr);
+
+  std::complex<double> ragr = this->inner(r, agr);
+
+  int k = 1;
+  for(; k <= this->max_iter; ++k) {
+    double pdmmp = this->norm(ap);
+
+    std::complex<double> alpha = ragr / pdmmp;
+    this->zaxpy(x, p, x, alpha);
+    this->zaxpy(r, ap, r, -alpha);
+    rnorm = this->norm(r);
+
+    if(rnorm < stop) {
+      if(this->isBoss() && !me) {
+        std::printf("gcr_M: converged in %d iterations.\n", k);
+        std::printf("gcr_M: rsd = %10.3e\n", std::sqrt(rnorm/src_norm));
+      }
+      break;
+    }
+
+    this->g5r5(gr, r);
+    this->Mprec(gr, agr, tv2, 0, 0);
+
+    std::complex<double> ragrn = this->inner(r, agr);
+    std::complex<double> beta = ragrn / ragr;
+    ragr = ragrn;
+
+    this->zaxpy(p, p, gr, beta);
+    this->zaxpy(ap, ap, agr, beta);
+
+    // ======================================================================
+    // Computing true residual and other information, the
+    // following can be removed without any effect on convergence.
+    this->Mprec(x, tv1, tv2, 0, 0);
+    double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
+
+    if ( this->isBoss() && !me ) {
+      std::printf("gcr_M: iter = %5d rsd = %10.3e true_rsd = %10.3e\n",
+                  k,
+                  std::sqrt(rnorm / src_norm),
+                  std::sqrt(true_rsd / src_norm));
+    }
+    // ======================================================================
+  }
+
+  if(k > this->max_iter) {
+    if(this->isBoss() && !me) {
+      std::printf("gcr_M: not converged in %d iterations.\n", k);
+    }
+  }
+
+  this->Mprec(x, tv1, tv2, 0, 0);
+  double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
+
+  if(this->isBoss() && !me) {
+    std::printf("gcr_M: true_rsd = %10.3e\n",
+                std::sqrt(true_rsd/src_norm));
+  }
+
+  this->threadedFreeFermion(r);
+  this->threadedFreeFermion(gr);
+  this->threadedFreeFermion(agr);
+  this->threadedFreeFermion(p);
+  this->threadedFreeFermion(ap);
+  this->threadedFreeFermion(tv1);
+  this->threadedFreeFermion(tv2);
+  
+  return k;
+#endif
+}
+
+// GMRES(m), we restart after m iterations.
+template<class Float>
+int bfm_evo<Float>::gmres_M(Fermion_t sol, Fermion_t src, const int m)
+{
+  printf("int bfm_evo<Float>::gmres_M temporarily disabled\n");
+  exit(-1);
+
+#if 0
+  using namespace std;
+  typedef complex<double> cmplx;
+
+  int me = this->thread_barrier();
+
+  Fermion_t r   = this->threadedAllocFermion();
+  Fermion_t w   = this->threadedAllocFermion();
+  Fermion_t tv1 = this->threadedAllocFermion();
+
+  // the history of search directions
+  vector<Fermion_t> v(m + 1, NULL);
+  for(int i = 0; i <= m; ++i) {
+    v[i] = this->threadedAllocFermion();
+  }
+
+  vector<cmplx> H((m + 1) * m, 0);
+  vector<cmplx> R((m + 1) * m, 0);
+  vector<cmplx> B(m, 0);
+
+  vector<cmplx> C(m, 0);
+  vector<cmplx> S(m, 0);
+  vector<cmplx> Y(m, 0);
+
+  const double len = sqrt(this->norm(src));
+  const double stop = len * this->residual;
+
+  this->Mprec(sol, r, tv1, 0, 0);
+  double rsq = this->axpy_norm(r, r, src, -1.0); // r <- b - M x
+
+  int j = 0;
+  for(; j < this->max_iter / m; ++j) {
+    double beta = sqrt(rsq);
+    this->axpy(v[0], r, r, 1/beta - 1); // v[0] <- r / beta
+
+    B.assign(m, 0);
+    B[0] = beta;
+
+    int nr = m;
+    double rho = len;
+
+    for(int i = 0; i < m; ++i) {
+      this->Mprec(v[i], w, tv1, 0, 0);
+
+      // Arnoldi iteration
+      for(int k = 0; k <= i; ++k) {
+        H[k*m+i] = this->inner(v[k], w);
+        this->zaxpy(w, v[k], w, -H[k*m+i]);
+      }
+      double w2 = sqrt(this->norm(w));
+
+      H[(i+1)*m+i] = w2;
+      this->axpy(v[i+1], w, w, 1/w2 - 1);
+            
+      R[0*m+i] = H[0*m+i];
+
+      // Givens transformation
+      for(int k = 1; k <= i; ++k) {
+        cmplx gamma = C[k-1] * R[(k-1)*m+i] + conj(S[k-1]) * H[k*m+i];
+        R[k*m+i] = -S[k-1] * R[(k-1)*m+i] + C[k-1] * H[k*m+i];
+        R[(k-1)*m+i] = gamma;
+      }
+
+      double rii = norm(R[i*m+i]);
+      double hii = norm(H[(i+1)*m+i]);
+      double delta = sqrt(rii + hii);
+
+      cmplx mu, tau;
+      if(rii < hii) {
+        mu = R[i*m+i] / H[(i+1)*m+i];
+        tau = conj(mu) / abs(mu);
+      } else {
+        mu = H[(i+1)*m+i] / R[i*m+i];
+        tau = mu / abs(mu);
+      }
+
+      C[i] = sqrt(rii) / delta;
+      S[i] = sqrt(hii) * tau / delta;
+
+      R[i*m+i] = C[i] * R[i*m+i] + conj(S[i]) * H[(i+1)*m+i];
+      B[i+1] = -S[i] * B[i];
+      B[i] *= C[i];
+
+      rho = abs(B[i+1]);
+
+      if(this->isBoss() && !me) {
+        std::printf("gmres: (j i) = %4d %4d rsd = %10.3e\n",
+                    j, i, rho / len);
+      }
+
+      if(rho < stop) {
+        nr = i;
+        break;
+      }
+    }
+
+    for(int k = nr - 1; k >= 0; --k) {
+      Y[k] = B[k];
+      for(int i = k + 1; i < nr; ++i) {
+        Y[k] -= R[k*m+i] * Y[i];
+      }
+      Y[k] /= R[k*m+k];
+
+      this->zaxpy(sol, v[k], sol, Y[k]);
+    }
+
+    this->Mprec(sol, r, tv1, 0, 0);
+    rsq = this->axpy_norm(r, r, src, -1.0);
+    if(rho < stop) break;
+  }
+
+  if(j >= this->max_iter / m) {
+    if(this->isBoss() && !me) {
+      std::printf("gmres: not converged in %d iterations.\n", j);
+    }
+  }
+
+  if(this->isBoss() && !me) {
+    std::printf("gmres: true_rsd = %10.3e\n",
+                std::sqrt(rsq) / len);
+  }
+
+  this->threadedFreeFermion(r);
+  this->threadedFreeFermion(w);
+  this->threadedFreeFermion(tv1);
+  
+  for(int i = 0; i <= m; ++i) {
+    this->threadedFreeFermion(v[i]);
+  }
+
+  return j;
+#endif
 }
 
 #endif

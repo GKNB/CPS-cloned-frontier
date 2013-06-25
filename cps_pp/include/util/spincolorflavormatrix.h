@@ -1,16 +1,15 @@
-CPS_START_NAMESPACE
 #ifndef SPIN_COLOR_FLAVOR_MATRIX_H
 #define SPIN_COLOR_FLAVOR_MATRIX_H
-CPS_END_NAMESPACE
 
 #include<config.h>
 #include <alg/alg_base.h>
 #include <alg/qpropw.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/propagatorcontainer.h>
+#include <alg/propmanager.h>
 CPS_START_NAMESPACE
 
-enum FlavorMatrixType {F0, F1, Fud, sigma3};
+enum FlavorMatrixType {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
 
 class SpinColorFlavorMatrix{
 protected:
@@ -19,6 +18,11 @@ protected:
 public:
   SpinColorFlavorMatrix(PropagatorContainer &from, Lattice &lattice, const int &site): wmat(NULL), cname("SpinColorFlavorMatrix"){
     generate(from,lattice,site);
+  }
+  SpinColorFlavorMatrix(): cname("SpinColorFlavorMatrix"){
+    wmat = new WilsonMatrix* [2];
+    wmat[0] = new WilsonMatrix[2];
+    wmat[1] = new WilsonMatrix[2];
   }
   SpinColorFlavorMatrix(const SpinColorFlavorMatrix &from): wmat(NULL), cname("SpinColorFlavorMatrix"){
     wmat = new WilsonMatrix* [2];
@@ -29,6 +33,26 @@ public:
     wmat[0][1] = from.wmat[0][1];
     wmat[1][0] = from.wmat[1][0];
     wmat[1][1] = from.wmat[1][1];
+  }
+  SpinColorFlavorMatrix(const Float &rhs): cname("SpinColorFlavorMatrix"){
+    wmat = new WilsonMatrix* [2];
+    wmat[0] = new WilsonMatrix[2];
+    wmat[1] = new WilsonMatrix[2];
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+	wmat[i][j] = rhs;
+  }
+
+  void generate(PropagatorContainer &from_f0, PropagatorContainer &from_f1, Lattice &lattice, const int &site){
+    if(wmat!=NULL) free();
+    wmat = new WilsonMatrix* [2];
+    wmat[0] = new WilsonMatrix[2];
+    wmat[1] = new WilsonMatrix[2];
+
+    wmat[0][0] = from_f0.getProp(lattice).SiteMatrix(site,0);
+    wmat[1][0] = from_f0.getProp(lattice).SiteMatrix(site,1);
+    wmat[0][1] = from_f1.getProp(lattice).SiteMatrix(site,0);
+    wmat[1][1] = from_f1.getProp(lattice).SiteMatrix(site,1);
   }
 
   void generate(PropagatorContainer &from, Lattice &lattice, const int &site){
@@ -44,7 +68,16 @@ public:
     if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) || ( from.getAttr(wall) && !from.getAttr(mom) ) ){
       //cos source (point or wall) or zero momentum point source
     }else{
-      ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point or Wall source");
+      GparityOtherFlavPropAttrArg* otherfarg; //if a propagator with the same properties but the other flavor exists then use both to generate the matrix
+      if(from.getAttr(otherfarg)){
+	PropagatorContainer &otherfprop = PropManager::getProp(otherfarg->tag);
+	if(otherfprop.flavor() == from.flavor()) ERR.General(cname,fname,"Found a propagator %s with supposedly the other flavor to propagator %s, but in fact the flavors are identical!",otherfarg->tag,from.tag());
+	PropagatorContainer *f0prop; PropagatorContainer *f1prop;
+	if(from.flavor() == 0){ f0prop = &from; f1prop = &otherfprop; }
+	else { f1prop = &from; f0prop = &otherfprop; }
+	
+	return generate(*f0prop,*f1prop,lattice,site);
+      }else ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point or Wall source, or else two props with the same attributes but different flavors and a GparityOtherFlavPropAttrArg given");
     }
     
     if(wmat!=NULL) free();
@@ -105,6 +138,18 @@ public:
       wmat[1][0] = _00;
       wmat[1][1] = _01;
       return *this;
+    }else if(type == sigma0){
+      return *this;
+    }else if(type == sigma1){
+      return pl(Fud);
+    }else if(type == sigma2){
+      WilsonMatrix _i00(wmat[0][0]); _i00*=Complex(0.0,1.0);
+      WilsonMatrix _i01(wmat[0][1]); _i01*=Complex(0.0,1.0);
+      wmat[0][0] = wmat[1][0]; wmat[0][0]*=Complex(0.0,-1.0);
+      wmat[0][1] = wmat[1][1]; wmat[0][1]*=Complex(0.0,-1.0);
+      wmat[1][0] = _i00;
+      wmat[1][1] = _i01;
+      return *this;
     }else if(type == sigma3){
       wmat[1][0]*=-1.0;
       wmat[1][1]*=-1.0;
@@ -129,6 +174,18 @@ public:
       wmat[1][0] = wmat[1][1];
       wmat[0][1] = _00;
       wmat[1][1] = _10;
+      return *this;
+    }else if(type == sigma0){
+      return *this;
+    }else if(type == sigma1){
+      return pr(Fud);
+    }else if(type == sigma2){
+      WilsonMatrix _mi00(wmat[0][0]); _mi00 *= Complex(0.0,-1.0);
+      WilsonMatrix _mi10(wmat[1][0]); _mi10 *= Complex(0.0,-1.0);
+      wmat[0][0] = wmat[0][1]; wmat[0][0] *= Complex(0.0,1.0); 
+      wmat[1][0] = wmat[1][1]; wmat[1][0] *= Complex(0.0,1.0);
+      wmat[0][1] = _mi00;
+      wmat[1][1] = _mi10;
       return *this;
     }else if(type == sigma3){
       wmat[0][1]*=-1.0;
@@ -339,6 +396,9 @@ public:
   }
   Complex& operator()(int s1, int c1, int f1, int s2, int c2, int f2){
     return wmat[f1][f2](s1,c1,s2,c2);
+  }  
+  const Complex& operator()(int s1, int c1, int f1, int s2, int c2, int f2) const{
+    return wmat[f1][f2](s1,c1,s2,c2);
   }
   WilsonMatrix &operator()(int f1,int f2){
     return wmat[f1][f2];
@@ -347,5 +407,10 @@ public:
     return wmat[f1][f2];
   }
 };
-#endif
+
+Rcomplex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
+
 CPS_END_NAMESPACE
+
+#endif
+

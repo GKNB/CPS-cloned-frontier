@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgEig class.
   
-  $Id: alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: alg_eig.C,v 1.26.32.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: alg_eig.C,v 1.26.32.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v 1.26.32.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: alg_eig.C,v 1.26.32.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: alg_eig.C,v $
-//  $Revision: 1.26.32.1 $
+//  $Revision: 1.26.32.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v $
 //  $State: Exp $
 //
@@ -132,6 +132,9 @@ AlgEig::AlgEig(Lattice& latt,
 	    "Mass_final = %g\n",IFloat(alg_eig_arg->Mass_final));
   VRB.Input(cname,fname,
 	    "Mass_step = %g\n",IFloat(alg_eig_arg->Mass_step));
+
+  //CK: add check for twisted mass fermions
+  if(latt.Fclass() == F_CLASS_WILSON_TM && alg_eig_arg->pattern_kind != ARRAY) ERR.General(cname,fname,"Not implemented for pattern_kind other than ARRAY");
 
   // Calculate n_masses if necessary
   VRB.Flow(cname,fname,"alg_eig_arg->pattern_kind=%d\n",alg_eig_arg->pattern_kind);
@@ -285,6 +288,7 @@ void AlgEig::run(Float **evalues)
   switch( eig_arg->pattern_kind ) {
   case ARRAY: 
     eig_arg->mass = eig_arg->Mass.Mass_val[0]; 
+    eig_arg->epsilon = eig_arg->Epsilon.Epsilon_val[0]; //Added by CK for twisted mass fermions
     break;
   case LIN:   
     // Loop over mass values
@@ -503,7 +507,8 @@ void AlgEig::run(Float **evalues)
     if( m < n_masses - 1 ) {
       switch( eig_arg->pattern_kind ) {
       case ARRAY: 
-	eig_arg->mass = eig_arg->Mass.Mass_val[m+1]; 
+	eig_arg->mass = eig_arg->Mass.Mass_val[m+1];
+	eig_arg->epsilon = eig_arg->Epsilon.Epsilon_val[m+1]; //CK: Added for twisted mass fermions
 	break;
       case LIN:   
 	eig_arg->mass += eig_arg->Mass_step; 

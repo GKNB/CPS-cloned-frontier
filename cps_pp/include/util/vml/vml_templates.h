@@ -53,6 +53,8 @@ struct rpc_print{
 template<typename T>
 struct rpc_print<T*>{
   static void doit(T const * const &what, const int &size, const std::string &prefix="" ){
+    if(size == 0) return;
+
     if(size>1){
       std::cout << prefix << " array of size " << size << " at " << static_cast<void const* const &>(what) << std::endl;
       for(int i=0;i<size;i++){

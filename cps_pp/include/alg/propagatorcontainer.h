@@ -31,6 +31,7 @@ public:
 
   void momentum(int *into) const; //get the quark 3-momentum
   int flavor() const; //get the quark flavor
+  char const* tag() const;
 
   void printAttribs() const;
 

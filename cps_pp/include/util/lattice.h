@@ -8,15 +8,15 @@
 /*!\file
   \brief  Definitions of the Lattice classes.
 
-  $Id: lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: lattice.h,v 1.63.4.2 2013-06-25 19:56:57 ckelly Exp $
 */
 /*----------------------------------------------------------------------
   $Author: ckelly $
-  $Date: 2012-11-15 18:17:08 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
-  $Id: lattice.h,v 1.63.4.1 2012-11-15 18:17:08 ckelly Exp $
+  $Date: 2013-06-25 19:56:57 $
+  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.63.4.2 2013-06-25 19:56:57 ckelly Exp $
+  $Id: lattice.h,v 1.63.4.2 2013-06-25 19:56:57 ckelly Exp $
   $Name: not supported by cvs2svn $
-  $Revision: 1.63.4.1 $
+  $Revision: 1.63.4.2 $
   $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v $
   $State: Exp $
 */  
@@ -494,8 +494,15 @@ class Lattice
     //!< Metropolis algorithm decision.
         // 0 reject, 1 accept. If delta_h < 0 it accepts unconditionally.
 
-    void EvolveGfield(Matrix *mom, Float step_size);
+    void EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparity_flavors = false);
         //!< Molecular dynamics evolution of the gauge field.
+//CK: For G-parity by default this only evolves the U links but not the U* links. This is because the evolving of the gauge field
+//    is most often called from the lowest level integrator, which steps back and forth between evolving the conjugate momentum 
+//    via the gauge action and then evolving the gauge field. In the evaluation of the gauge force, we can significantly reduce
+//    the number of flops by only calculating the force for the U links, ensuring only that links pulled across the G-parity boundary
+//    are complex conjugated appropriately. We can therefore wait to sync the U* fields until the lowest level integrator has finished
+//    evolving. Use evolve_both_gparity_flavors = true to sync the U* links in this function (e.g. in force gradient integrator)
+
 
     Float MomHamiltonNode(Matrix *momentum);
     //!< The kinetic energy term of the canonical Hamiltonian on the local lattice.
@@ -592,6 +599,20 @@ class Lattice
     Float FixGaugeStopCond();
       //!< Returns the stopping condition used 
 
+    const Matrix* FixGaugeMatrix(const int &site, const int &flavor = 0);
+    //!< Returns the gauge fixing matrix for the site 'site' (and G-parity flavor 'flavor')
+    //   for Coulomb gauge, if the hyperplane on which site resides has not been gauge fixed, the function will return NULL    
+
+    const Matrix* FixGaugeMatrix(int const* pos,const int &flavor = 0);
+    //!< Returns the gauge fixing matrix for the position 'pos' (and G-parity flavor 'flavor')
+    //   for Coulomb gauge, if the hyperplane on which pos resides has not been gauge fixed, the function will return NULL
+
+
+    //Determine how close the gauge fixing matrices 'gfix_mat' come to satisfying the gauge fixing condition
+    //returns an array of size 1 for Landau and NodeSites(fixdir) for Coulomb, where fixdir is the gauge fixing direction
+    //the elements of the array are the deviation from the gauge fixing condition in units of the stopping condition (not SmallFloat but a value derived from it)
+    //values < 1 mean all hyperplanes satisfy the gauge fixing condition
+    IFloat* GaugeFixCondSatisfaction(Matrix **gfix_mat, FixGaugeType gfix_type, Float SmallFloat) const;
 
     void *Aux0Ptr();
      //!< Returns a general purpose auxiliary pointer.
@@ -1162,6 +1183,11 @@ class Lattice
         f_arg.L2 += a2;
         f_arg.Linf = f_arg.Linf > a ? f_arg.Linf : a;
     }
+    //!< Toggle boundary condition
+    //
+    //!< Note: Agent classes which needs to import gauge field to
+    //!external libraries need to overwrite this function.
+    virtual void BondCond();
 };
 
 //------------------------------------------------------------------

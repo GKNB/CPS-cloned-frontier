@@ -3,20 +3,20 @@
 /*!\file
   \brief Prototypes of gauge configuration IO functions.
 
-  $Id: qcdio.h,v 1.11 2012-07-06 20:22:08 chulwoo Exp $
+  $Id: qcdio.h,v 1.11.6.1 2013-06-25 19:56:57 ckelly Exp $
 */
 /*2  A.N.Jackson: ajackson@epcc.ed.ac.uk                      
   -----------------------------------------------------------
    CVS keywords
  
-   $Author: chulwoo $
-   $Date: 2012-07-06 20:22:08 $
-   $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/qcdio.h,v 1.11 2012-07-06 20:22:08 chulwoo Exp $
-   $Id: qcdio.h,v 1.11 2012-07-06 20:22:08 chulwoo Exp $
+   $Author: ckelly $
+   $Date: 2013-06-25 19:56:57 $
+   $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/qcdio.h,v 1.11.6.1 2013-06-25 19:56:57 ckelly Exp $
+   $Id: qcdio.h,v 1.11.6.1 2013-06-25 19:56:57 ckelly Exp $
    $Name: not supported by cvs2svn $
    $Locker:  $
    $RCSfile: qcdio.h,v $
-   $Revision: 1.11 $
+   $Revision: 1.11.6.1 $
    $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/qcdio.h,v $
    $State: Exp $  */
 /*----------------------------------------------------------*/
@@ -134,6 +134,7 @@ int Fclose( FileIoType type, FILE *stream);
 
 size_t Fwrite( const void *ptr, size_t size, size_t n, FILE *stream);
 size_t Fread(void *ptr, size_t size, size_t n, FILE *stream);
+int Fflush(FILE *stream);
 
 //! Read & Write from a file
 /*!

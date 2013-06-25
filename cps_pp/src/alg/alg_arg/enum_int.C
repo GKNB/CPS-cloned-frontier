@@ -64,6 +64,7 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_WILSON_TM",F_CLASS_WILSON_TM},
 	{"FclassType","F_CLASS_MDWF",F_CLASS_MDWF},
 	{"FclassType","F_CLASS_BFM",F_CLASS_BFM},
+	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
 	{NULL,NULL,0}
 };
 
@@ -211,7 +212,9 @@ vml_BndCndType (VML *vmls, char *name,BndCndType *objp)
 struct vml_enum_map BndCndType_map[] = {
 	{"BndCndType","BND_CND_PRD",BND_CND_PRD},
 	{"BndCndType","BND_CND_APRD",BND_CND_APRD},
+	{"BndCndType","BND_CND_TWISTED",BND_CND_TWISTED},
 	{"BndCndType","BND_CND_GPARITY",BND_CND_GPARITY},
+	{"BndCndType","BND_CND_GPARITY_TWISTED",BND_CND_GPARITY_TWISTED},
 	{NULL,NULL,0}
 };
 

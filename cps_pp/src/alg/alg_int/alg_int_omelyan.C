@@ -48,44 +48,27 @@ AlgIntOmelyan::~AlgIntOmelyan() {
 void AlgIntOmelyan::evolve(Float dt, int steps) 
 {
   char * fname = "evolve(Float, int)";
-
-  TimeStamp::stamp("AlgIntOmelyan evolving with dt = %f for %d steps",dt,steps);
   
   step_cnt = 0;
   if (level == TOP_LEVEL_INTEGRATOR) CSM.SaveComment(step_cnt);
 
-  TimeStamp::stamp_incr("AlgIntOmelyan evolving integrator A with dt = %f for %d steps",lambda*dt/(Float)A_steps, A_steps);
   A->evolve(lambda*dt/(Float)A_steps, A_steps);
-  TimeStamp::decr_depth();
 
   for (int i=0; i<steps; i++) {
     if (level == TOP_LEVEL_INTEGRATOR) CSM.SaveComment(++step_cnt);
     
-    TimeStamp::stamp_incr("AlgIntOmelyan step %d evolving integrator B with dt = %f for %d steps",i,dt/(2.0*(Float)B_steps), B_steps);
     B->evolve(dt/(2.0*(Float)B_steps), B_steps);
-    TimeStamp::decr_depth();
-
-    TimeStamp::stamp_incr("AlgIntOmelyan step %d evolving integrator A with dt = %f for %d steps",i,(1-2*lambda)*dt/(Float)A_steps, A_steps);
     A->evolve((1-2*lambda)*dt/(Float)A_steps, A_steps);
-    TimeStamp::decr_depth();
-
-    TimeStamp::stamp_incr("AlgIntOmelyan step %d evolving integrator B with dt = %f for %d steps",i,dt/(2.0*(Float)B_steps), B_steps);
     B->evolve(dt/(2.0*(Float)B_steps), B_steps);
-    TimeStamp::decr_depth();
 
     if (i < steps-1){
-      TimeStamp::stamp_incr("AlgIntOmelyan step %d evolving integrator A with dt = %f for %d steps",i,2.0*lambda*dt/(Float)A_steps, A_steps);
       A->evolve(2.0*lambda*dt/(Float)A_steps, A_steps);
-      TimeStamp::decr_depth();
     }
     else{
-      TimeStamp::stamp_incr("AlgIntOmelyan step %d evolving integrator A with dt = %f for %d steps",i,lambda*dt/(Float)A_steps, A_steps);
       A->evolve(lambda*dt/(Float)A_steps, A_steps);
-      TimeStamp::decr_depth();
     }
   }
   if(GJP.Gparity()){
-    TimeStamp::stamp_incr("AlgIntOmelyan copy-conjugating 2f G-parity lattice");
     /*C.Kelly 09/11:
      *For lowest level integrator, during evolution of momentum and gauge fields we can be more efficient by only updating the links and not their conjugate copies
      *(the links we pull across the boundary can be conjugated in place for very few, if any, extra flops by using alternate functions, eg. Trans rather than Dagger.)
@@ -94,11 +77,9 @@ void AlgIntOmelyan::evolve(Float dt, int steps)
      */
     A->copyConjLattice();
     B->copyConjLattice();
-    TimeStamp::decr_stamp("AlgIntOmelyan finished copy-conjugating 2f G-parity lattice");
   }
 
   if (level == TOP_LEVEL_INTEGRATOR) CSM.SaveComment(++step_cnt);
-  TimeStamp::stamp("AlgIntOmelyan finished evolving with dt = %f for %d steps",dt,steps);
 }
 
 CPS_END_NAMESPACE

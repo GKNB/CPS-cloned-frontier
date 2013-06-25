@@ -267,6 +267,62 @@ void test_props(const JobPropagatorArgs &prop_args, const int &f0idx, const int 
 	exit(-1);
       }else printf(" true\n");
     }
+
+
+    
+    {
+      printf("Testing new 1,1 = f'(0,0):");
+      WilsonMatrix f_0_0 = g_0_0;
+      f_0_0.cconj();
+      f_0_0.ccl(-1).gl(-5).ccr(1).gr(-5);
+      bool result = test_equals(g_1_1,f_0_0,1e-08);
+      if(!result){
+	printf(" false\n");
+	print(g_1_1);
+	print(f_0_0);
+	exit(-1);
+      }else printf(" true\n");
+    }
+    {
+      printf("Testing new 1,0 = f(0,1):");
+      WilsonMatrix f_0_1 = g_0_1;
+      f_0_1.cconj();
+      f_0_1.ccl(-1).gl(-5).ccr(1).gr(-5);
+      bool result = test_equals(g_1_0,f_0_1,1e-08);
+      if(!result){
+	printf(" false\n");
+	print(g_1_0);
+	print(f_0_1);
+	exit(-1);
+      }else printf(" true\n");
+    }
+    {
+      printf("Testing new 0,1 = f(1,0):");
+      WilsonMatrix f_1_0 = g_1_0;
+      f_1_0.cconj();
+      f_1_0.ccl(-1).gl(-5).ccr(1).gr(-5);
+      bool result = test_equals(g_0_1,f_1_0,1e-08);
+      if(!result){
+	printf(" false\n");
+	print(g_0_1);
+	print(f_1_0);
+	exit(-1);
+      }else printf(" true\n");
+    }
+    {
+      printf("Testing new 0,0 = f(1,1):");
+      WilsonMatrix f_1_1 = g_1_1;
+      f_1_1.cconj();
+      f_1_1.ccl(-1).gl(-5).ccr(1).gr(-5);
+      bool result = test_equals(g_0_0,f_1_1,1e-08);
+      if(!result){
+	printf(" false\n");
+	print(g_0_0);
+	print(f_1_1);
+	exit(-1);
+      }else printf(" true\n");
+    }
+
   }
     
 }

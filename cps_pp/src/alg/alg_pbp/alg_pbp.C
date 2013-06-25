@@ -3,19 +3,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgPbp class.
   
-  $Id: alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: alg_pbp.C,v 1.14.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: alg_pbp.C,v 1.14.6.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v 1.14.6.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: alg_pbp.C,v 1.14.6.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: alg_pbp.C,v $
-//  $Revision: 1.14.6.1 $
+//  $Revision: 1.14.6.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v $
 //  $State: Exp $
 //
@@ -49,6 +49,11 @@ CPS_END_NAMESPACE
 #include <util/vector.h>
 #include <util/verbose.h>
 #include <util/error.h>
+
+#ifdef USE_BFM
+#include <util/lattice/fbfm.h>
+#endif
+
 CPS_START_NAMESPACE
 
 #define POINT
@@ -134,10 +139,10 @@ void AlgPbp::run(Float *results)
   int iter;
   int ls;
   int ls_glb;
-  Float pbp= 0., pbd0p, pbdip;
+  Float pbp= 0., pbd0p =0, pbdip=0;
   Float pbg5p= 0.;
-  Float pbp_norm;
-  Float true_res;
+  Float pbp_norm =0;
+  Float true_res =0;
   PbpArg *pbp_arg;
   CgArg cg_arg_struct;
   CgArg *cg_arg = &cg_arg_struct;
@@ -167,7 +172,16 @@ void AlgPbp::run(Float *results)
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
+  bool is_5d_fbfm = false;
+  bool is_4d_fbfm = false;
+#ifdef USE_BFM
+  if( lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
+    if( Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonTM && Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonFermion ) is_5d_fbfm = true;
+    else is_4d_fbfm = true;
+  }
+#endif
+
+  if(lat.Fclass() == F_CLASS_DWF || is_5d_fbfm){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 
@@ -217,6 +231,8 @@ void AlgPbp::run(Float *results)
 	}
       }
     }
+
+    cg_arg->epsilon = 0.0;
 
     // set the 5-dimensional source
     lat.Ffour2five(src, src_4d, pbp_arg->src_u_s, pbp_arg->src_l_s);
@@ -371,7 +387,16 @@ void AlgPbp::run(Float *results)
   // Wilson or Clover fermions
   //----------------------------------------------------------------
   else if (   (lat.Fclass() == F_CLASS_WILSON) 
-	   || (lat.Fclass() == F_CLASS_CLOVER)   ) {  
+	      || (lat.Fclass() == F_CLASS_CLOVER) || lat.Fclass() == F_CLASS_WILSON_TM || is_4d_fbfm ) {  
+
+    //CK: twisted mass parameter is not specified in pbp_arg so we cannot do WilsonTm quarks (could add it if it is ever used)
+    if( lat.Fclass() == F_CLASS_WILSON_TM 
+#ifdef USE_BFM
+	|| (is_4d_fbfm && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM )
+#endif
+	)
+      ERR.General(cname,fname,"Twisted Mass quarks but PbpArg does not contain the twisted mass parameter");
+      
 
     // Allocate memory for gamma_5 * solution
     Vector *sol_g5 = (Vector *) smalloc(f_size * sizeof(Float));
@@ -673,7 +698,7 @@ void AlgPbp::runPointSource(int x, int y, int z, int t)
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
+  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 

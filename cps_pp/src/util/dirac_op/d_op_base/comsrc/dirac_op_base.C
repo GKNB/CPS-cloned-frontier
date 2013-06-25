@@ -4,18 +4,18 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class methods.
   
-  $Id: dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: dirac_op_base.C,v 1.12.40.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: dirac_op_base.C,v 1.12.40.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v 1.12.40.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: dirac_op_base.C,v 1.12.40.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.12.40.1 $
+//  $Revision: 1.12.40.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C,v $
 //  $State: Exp $
 //
@@ -52,40 +52,34 @@ static int bc[4] = {0,0,0,0};	// boundary condition on this node
 static void BondCond(Lattice& lat, Matrix *u_base)
 {
   //printf("BondCond %d %d %d %d\n",bc[0],bc[1],bc[2],bc[3]);
+  Complex twist_phase;
   int uconj_offset = 4*GJP.VolNodeSites();
   int x[4];
   for(int u = 0; u < 4; ++u) {
-    if(bc[u]) {
+    if(bc[u]) { //is 1 if Bc(u) is not BND_CND_PRD and on right-most node in direction u
+      if(GJP.Bc(u) == BND_CND_TWISTED || GJP.Bc(u) == BND_CND_GPARITY_TWISTED) twist_phase = GJP.TwistPhase(u);
+
       for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
         for(x[1] = 0; x[1] < nx[1]; ++x[1]) {
           for(x[2] = 0; x[2] < nx[2]; ++x[2]) {
             for(x[3] = 0; x[3] < nx[3]; ++x[3]) {
 	      if(x[u]==nx[u]-1) {
+		//If GPBC in this direction, we apply the minus sign or twist only on the second flavour
 		int site_off = lat.GsiteOffset(x);
 	        Matrix *m = u_base+site_off+u;
-	        *m *= -1;
-
-		if(GJP.Gparity()){
-		  //for example, APBC in time direction
-		  Matrix *m = u_base+uconj_offset+site_off+u;
+		if(GJP.Bc(u) == BND_CND_APRD)
 		  *m *= -1;
+		else if(GJP.Bc(u) == BND_CND_TWISTED)
+		  *m *= twist_phase;
+
+		if(GJP.Gparity()){ //do BC on second quark flavour
+		  //for example, APBC in time direction
+		  m = u_base+uconj_offset+site_off+u;
+		  if(GJP.Bc(u) == BND_CND_APRD || GJP.Bc(u) == BND_CND_GPARITY)
+		    *m *= -1;
+		  else if(GJP.Bc(u) == BND_CND_TWISTED || GJP.Bc(u) == BND_CND_GPARITY_TWISTED)
+		    *m *= twist_phase;	  
 		}	
-	      }
-	    }
-          }
-	}
-      }
-    }
-    if(GJP.Bc(u)==BND_CND_GPARITY && GJP.NodeCoor(u) == GJP.Nodes(u)-1){
-      //also put minus signs on outwards facing links of U* field
-      for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
-        for(x[1] = 0; x[1] < nx[1]; ++x[1]) {
-          for(x[2] = 0; x[2] < nx[2]; ++x[2]) {
-            for(x[3] = 0; x[3] < nx[3]; ++x[3]) {
-	      if(x[u]==nx[u]-1) {
-		int site_off = lat.GsiteOffset(x);
-	        Matrix *m = u_base+uconj_offset+site_off+u;
-	        *m *= -1;
 	      }
 	    }
           }
@@ -151,23 +145,30 @@ DiracOp::DiracOp(Lattice & latt,           // Lattice object
   //----------------------------------------------------------------
   // Initialize boundary condition on this node
   //----------------------------------------------------------------
-  bc[0] = 0;
-  bc[1] = 0;
-  bc[2] = 0;
-  bc[3] = 0;
-  if(GJP.Xbc() == BND_CND_APRD)
-  	bc[0] = GJP.XnodeCoor() == (GJP.Xnodes()-1) ? 1 : 0;
-  if(GJP.Ybc() == BND_CND_APRD)
-  	bc[1] = GJP.YnodeCoor() == (GJP.Ynodes()-1) ? 1 : 0;
-  if(GJP.Zbc() == BND_CND_APRD)
-  	bc[2] = GJP.ZnodeCoor() == (GJP.Znodes()-1) ? 1 : 0;
-  if(GJP.Tbc() == BND_CND_APRD)
-  	bc[3] = GJP.TnodeCoor() == (GJP.Tnodes()-1) ? 1 : 0;
+  for(int i=0;i<4;i++){
+    bc[i] = 0;
+    if(GJP.Bc(i) != BND_CND_PRD && GJP.NodeCoor(i) == GJP.Nodes(i)-1) bc[i] = 1;
+    nx[i] = GJP.NodeSites(i);
+  }
 
-  nx[0] = GJP.XnodeSites();
-  nx[1] = GJP.YnodeSites();
-  nx[2] = GJP.ZnodeSites();
-  nx[3] = GJP.TnodeSites();
+
+  // bc[0] = 0;
+  // bc[1] = 0;
+  // bc[2] = 0;
+  // bc[3] = 0;
+  // if(GJP.Xbc() == BND_CND_APRD)
+  // 	bc[0] = GJP.XnodeCoor() == (GJP.Xnodes()-1) ? 1 : 0;
+  // if(GJP.Ybc() == BND_CND_APRD)
+  // 	bc[1] = GJP.YnodeCoor() == (GJP.Ynodes()-1) ? 1 : 0;
+  // if(GJP.Zbc() == BND_CND_APRD)
+  // 	bc[2] = GJP.ZnodeCoor() == (GJP.Znodes()-1) ? 1 : 0;
+  // if(GJP.Tbc() == BND_CND_APRD)
+  // 	bc[3] = GJP.TnodeCoor() == (GJP.Tnodes()-1) ? 1 : 0;
+
+  // nx[0] = GJP.XnodeSites();
+  // nx[1] = GJP.YnodeSites();
+  // nx[2] = GJP.ZnodeSites();
+  // nx[3] = GJP.TnodeSites();
 
 
   //----------------------------------------------------------------

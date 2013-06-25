@@ -194,7 +194,7 @@ Float AlgHmc::run(void)
       {
 	Float gsum_h(h_init);
 	glb_sum(&gsum_h);
-	if(UniqueID()==0) printf("Initial Hamiltonian %e\n",gsum_h);
+	if(UniqueID()==0) printf("Initial Hamiltonian %.9e\n",gsum_h);
       }
 
       // Molecular Dynamics Trajectory
@@ -202,28 +202,11 @@ Float AlgHmc::run(void)
       integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
 
-      {
-	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
-	unsigned int gcsum = lat.CheckSum();
-	QioControl qc;
-	gcsum = qc.globalSumUint(gcsum);
-	LatticeFactory::Destroy();
-	if(UniqueID()==0) printf("Pre-reunitarize gauge field %u\n",gcsum);
-      }
       // Reunitarize
       if(hmc_arg->reunitarize == REUNITARIZE_YES){
 	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
 	lat.Reunitarize(dev, max_diff);
 	LatticeFactory::Destroy();
-      }
-
-      {
-	Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
-	unsigned int gcsum = lat.CheckSum();
-	QioControl qc;
-	gcsum = qc.globalSumUint(gcsum);
-	LatticeFactory::Destroy();
-	if(UniqueID()==0) printf("Post-reunitarize gauge field %u\n",gcsum);	     
       }
 
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
@@ -237,7 +220,7 @@ Float AlgHmc::run(void)
       {
 	Float gsum_h = h_final;
 	glb_sum(&gsum_h);
-	if(UniqueID()==0) printf("Final Hamiltonian %e\n",gsum_h);
+	if(UniqueID()==0) printf("Final Hamiltonian %.9e\n",gsum_h);
       }
       //      Float total_h_final =h_final;
       //      glb_sum(&total_h_final);

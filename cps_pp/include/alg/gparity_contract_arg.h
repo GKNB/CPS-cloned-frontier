@@ -17,6 +17,13 @@ enum ContractionType {
 	CONTRACTION_TYPE_LL_MESONS = 0,
 	CONTRACTION_TYPE_HL_MESONS = 1,
 	CONTRACTION_TYPE_O_VV_P_AA = 2,
+	CONTRACTION_TYPE_ALL_BILINEARS = 3,
+	CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS = 4,
+	CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM = 5,
+	CONTRACTION_TYPE_FOURIER_PROP = 6,
+	CONTRACTION_TYPE_BILINEAR_VERTEX = 7,
+	CONTRACTION_TYPE_QUADRILINEAR_VERTEX = 8,
+	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 9,
 };
 typedef enum ContractionType ContractionType;
 extern struct vml_enum_map ContractionType_map[];
@@ -92,12 +99,278 @@ template<> struct rpc_deepcopy<ContractionTypeOVVpAA>{
 
 
 #include <util/vml/vml_templates.h>
+struct MomArg {
+	Float p[3];
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const MomArg &rhs);
+};
+typedef struct MomArg MomArg;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<MomArg>{
+	static void doit(MomArg const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<MomArg>{
+	static void doit(MomArg &into, MomArg const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct MomPairArg {
+	Float p1[3];
+	Float p2[3];
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const MomPairArg &rhs);
+};
+typedef struct MomPairArg MomPairArg;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<MomPairArg>{
+	static void doit(MomPairArg const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<MomPairArg>{
+	static void doit(MomPairArg &into, MomPairArg const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeAllBilinears {
+	char *prop_1;
+	char *prop_2;
+	struct {
+		u_int momenta_len;
+		MomArg *momenta_val;
+	} momenta;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeAllBilinears &rhs);
+};
+typedef struct ContractionTypeAllBilinears ContractionTypeAllBilinears;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeAllBilinears>{
+	static void doit(ContractionTypeAllBilinears const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeAllBilinears>{
+	static void doit(ContractionTypeAllBilinears &into, ContractionTypeAllBilinears const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeAllWallSinkBilinears {
+	char *prop_1;
+	char *prop_2;
+	struct {
+		u_int momenta_len;
+		MomArg *momenta_val;
+	} momenta;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeAllWallSinkBilinears &rhs);
+};
+typedef struct ContractionTypeAllWallSinkBilinears ContractionTypeAllWallSinkBilinears;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeAllWallSinkBilinears>{
+	static void doit(ContractionTypeAllWallSinkBilinears const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeAllWallSinkBilinears>{
+	static void doit(ContractionTypeAllWallSinkBilinears &into, ContractionTypeAllWallSinkBilinears const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeAllWallSinkBilinearsSpecificMomentum {
+	char *prop_1;
+	char *prop_2;
+	struct {
+		u_int momenta_len;
+		MomPairArg *momenta_val;
+	} momenta;
+	int cosine_sink;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeAllWallSinkBilinearsSpecificMomentum &rhs);
+};
+typedef struct ContractionTypeAllWallSinkBilinearsSpecificMomentum ContractionTypeAllWallSinkBilinearsSpecificMomentum;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeAllWallSinkBilinearsSpecificMomentum>{
+	static void doit(ContractionTypeAllWallSinkBilinearsSpecificMomentum const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeAllWallSinkBilinearsSpecificMomentum>{
+	static void doit(ContractionTypeAllWallSinkBilinearsSpecificMomentum &into, ContractionTypeAllWallSinkBilinearsSpecificMomentum const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeFourierProp {
+	char *prop;
+	int gauge_fix;
+	struct {
+		u_int momenta_len;
+		MomArg *momenta_val;
+	} momenta;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeFourierProp &rhs);
+};
+typedef struct ContractionTypeFourierProp ContractionTypeFourierProp;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeFourierProp>{
+	static void doit(ContractionTypeFourierProp const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeFourierProp>{
+	static void doit(ContractionTypeFourierProp &into, ContractionTypeFourierProp const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeBilinearVertex {
+	char *prop_1;
+	char *prop_2;
+	struct {
+		u_int momenta_len;
+		MomArg *momenta_val;
+	} momenta;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeBilinearVertex &rhs);
+};
+typedef struct ContractionTypeBilinearVertex ContractionTypeBilinearVertex;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeBilinearVertex>{
+	static void doit(ContractionTypeBilinearVertex const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeBilinearVertex>{
+	static void doit(ContractionTypeBilinearVertex &into, ContractionTypeBilinearVertex const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct QuadrilinearSpinStructure {
+	struct {
+		u_int Gamma1_len;
+		int *Gamma1_val;
+	} Gamma1;
+	struct {
+		u_int Gamma2_len;
+		int *Gamma2_val;
+	} Gamma2;
+	struct {
+		u_int Sigma1_len;
+		int *Sigma1_val;
+	} Sigma1;
+	struct {
+		u_int Sigma2_len;
+		int *Sigma2_val;
+	} Sigma2;
+	   void print(const std::string &prefix ="");
+};
+typedef struct QuadrilinearSpinStructure QuadrilinearSpinStructure;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<QuadrilinearSpinStructure>{
+	static void doit(QuadrilinearSpinStructure const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeQuadrilinearVertex {
+	char *prop_1;
+	char *prop_2;
+	char *prop_3;
+	char *prop_4;
+	struct {
+		u_int momenta_len;
+		MomArg *momenta_val;
+	} momenta;
+	char *file;
+	struct {
+		u_int spin_structs_len;
+		QuadrilinearSpinStructure *spin_structs_val;
+	} spin_structs;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeQuadrilinearVertex &rhs);
+};
+typedef struct ContractionTypeQuadrilinearVertex ContractionTypeQuadrilinearVertex;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeQuadrilinearVertex>{
+	static void doit(ContractionTypeQuadrilinearVertex const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeQuadrilinearVertex>{
+	static void doit(ContractionTypeQuadrilinearVertex &into, ContractionTypeQuadrilinearVertex const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeTopologicalCharge {
+	int n_ape_smearing_cycles;
+	int ape_smear_su3_project;
+	Float ape_su3_proj_tolerance;
+	int ape_orthog;
+	Float ape_coef;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeTopologicalCharge &rhs);
+};
+typedef struct ContractionTypeTopologicalCharge ContractionTypeTopologicalCharge;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeTopologicalCharge>{
+	static void doit(ContractionTypeTopologicalCharge const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeTopologicalCharge>{
+	static void doit(ContractionTypeTopologicalCharge &into, ContractionTypeTopologicalCharge const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
 struct GparityMeasurement {
 	ContractionType type;
 	union {
 		ContractionTypeLLMesons contraction_type_ll_mesons;
 		ContractionTypeHLMesons contraction_type_hl_mesons;
 		ContractionTypeOVVpAA contraction_type_o_vv_p_aa;
+		ContractionTypeAllBilinears contraction_type_all_bilinears;
+		ContractionTypeAllWallSinkBilinears contraction_type_all_wallsink_bilinears;
+		ContractionTypeAllWallSinkBilinearsSpecificMomentum contraction_type_all_wallsink_bilinears_specific_momentum;
+		ContractionTypeFourierProp contraction_type_fourier_prop;
+		ContractionTypeBilinearVertex contraction_type_bilinear_vertex;
+		ContractionTypeQuadrilinearVertex contraction_type_quadrilinear_vertex;
+		ContractionTypeTopologicalCharge contraction_type_topological_charge;
 	} GparityMeasurement_u;
 	   template <typename T> static ContractionType type_map();
 	   void deep_copy(const GparityMeasurement &rhs);
@@ -110,6 +383,13 @@ template <typename T> ContractionType GparityMeasurement::type_map(){
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeLLMesons>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeHLMesons>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeOVVpAA>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllBilinears>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinears>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinearsSpecificMomentum>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeFourierProp>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeBilinearVertex>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrilinearVertex>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>();
 template<> struct rpc_deepcopy<GparityMeasurement>{
 	static void doit(GparityMeasurement &into, GparityMeasurement const &from);
 };
@@ -158,6 +438,16 @@ extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
 extern  bool_t vml_ContractionTypeLLMesons (VML *, char *instance, ContractionTypeLLMesons*);
 extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTypeHLMesons*);
 extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
+extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
+extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
+extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
+extern  bool_t vml_ContractionTypeAllWallSinkBilinears (VML *, char *instance, ContractionTypeAllWallSinkBilinears*);
+extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
+extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);
+extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, ContractionTypeBilinearVertex*);
+extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, QuadrilinearSpinStructure*);
+extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
+extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 
@@ -166,6 +456,16 @@ extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
 extern  bool_t vml_ContractionTypeLLMesons (VML *, char *instance, ContractionTypeLLMesons*);
 extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTypeHLMesons*);
 extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
+extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
+extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
+extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
+extern  bool_t vml_ContractionTypeAllWallSinkBilinears (VML *, char *instance, ContractionTypeAllWallSinkBilinears*);
+extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
+extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);
+extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, ContractionTypeBilinearVertex*);
+extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, QuadrilinearSpinStructure*);
+extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
+extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 

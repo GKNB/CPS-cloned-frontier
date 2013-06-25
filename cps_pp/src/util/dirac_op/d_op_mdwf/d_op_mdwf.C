@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpMdwf class methods.
 
-  $Id: d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
+  $Id: d_op_mdwf.C,v 1.5.32.1 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-06-26 06:45:29 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
-//  $Id: d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v 1.5.32.1 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: d_op_mdwf.C,v 1.5.32.1 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: d_op_mdwf.C,v $
-//  $Revision: 1.5 $
+//  $Revision: 1.5.32.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v $
 //  $State: Exp $
 //
@@ -244,6 +244,9 @@ DiracOpMdwf::DiracOpMdwf(Lattice& latt,            // Lattice object.
     // mdwf library doesn't allow splitting in Ls direction.
     // is this the case?
     ERR.NotImplemented(cname, fname);
+  }
+  if( GJP.Gparity() ){
+    ERR.General(cname,fname,"MDWF library has not been modified for G-parity BCs");
   }
 
   latt_ptr = &latt;

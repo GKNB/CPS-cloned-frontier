@@ -5,19 +5,19 @@
 /*!\file
   \brief  Definitions of global job parameters.
 
-  $Id: gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: gjp.h,v 1.41.4.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: gjp.h,v 1.41.4.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.41.4.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: gjp.h,v 1.41.4.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: gjp.h,v $
-//  $Revision: 1.41.4.1 $
+//  $Revision: 1.41.4.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v $
 //  $State: Exp $
 //--------------------------------------------------------------------
@@ -154,6 +154,10 @@ class GlobalJobParameter
   int vol_node_sites;  // The number of sites (4-D) of a single node.
   int vol_sites;       // The number of sites (4-D) of the whole lattice
 
+  Float twist_angle[3]; // Twist angle for (partially-)twisted BCs in units of pi
+                        // Note: for regular case  p = n*2*pi/L + theta/L  where theta is the twist_angle
+                        // For twisted G-parity  p = n*2*pi/(2*L) + theta/(2*L)  as BC is applied on u->d boundary but not d->u
+                        // Reproduce untwisted G-parity with theta = pi  (APBC on doubled lattice length)
   //2f G-parity
   int gparity; // are G-parity boundary conditions in use?
 
@@ -434,6 +438,20 @@ public:
   //!< Gets the global lattice boundary condition in the T direction.
   /*!<
     \return The type of global boundary condition along the T axis.
+  */
+  const Float& TwistAngle(const int &dir) const{ return twist_angle[dir]; }
+  //!< Get the twist angle in the 'dir'-direction
+  /*!< 
+    \param dir The direction in which to obtain the boundary 
+    condition; 0, 1, or 2 corresponding to X, Y, Z.
+    \return Twist angle in units of pi
+  */
+  Complex TwistPhase(const int &dir) const;
+  //!< Get the twist phase in the 'dir'-direction
+  /*!< 
+    \param dir The direction in which to obtain the boundary 
+    condition; 0, 1, or 2 corresponding to X, Y, Z.
+    \return Complex twist phase
   */
 
   bool Gparity() const
@@ -804,6 +822,12 @@ public:
   //! Sets the global lattice boundary condition in the T direction.
   void Tbc(BndCndType bc) { Bc(3,bc);}
 
+  //! Sets the twist angle in direction 'dir', specified in units of pi
+  // Note: for regular case  p = n*2*pi/L + theta/L  where theta is the twist_angle
+  // For twisted G-parity  p = n*2*pi/(2*L) + theta/(2*L)  as BC is applied on u->d boundary but not d->u
+  // Reproduce untwisted G-parity with theta = pi  (APBC on doubled lattice length)
+  void TwistAngle(const int &dir, const Float &theta){ twist_angle[dir] = theta; }
+    
   void StartConfKind(StartConfType sc)
       {doarg_int.start_conf_kind = sc;}
   //!< Sets the type of initial  gauge configuration.

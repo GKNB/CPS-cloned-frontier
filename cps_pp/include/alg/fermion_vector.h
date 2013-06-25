@@ -64,16 +64,23 @@ public:
   void SetLandauGaugeMomentaSource ( Lattice& lat , 
                                      int colour   , 
                                      int spin     ,
-                                     int p[]     );
+                                     int p[],
+				     int flavor = 0
+				     );
 
 
   void SetLandauWallSource( Lattice& lat, int spin, int where );
   void GFWallSource       ( Lattice& lat, int spin, int dir, int source_time, int flavor = 0);
 
+  //CK: Gauge fix fermion vector, works for any gauge fixing
+  void GaugeFixVector(Lattice &lat, int spin);
+
   void ZeroSource();
 //  void SetVolSourceEqualZero();
-  void SetVolSource(int color, int spin);
+  void SetVolSource(int color, int spin, int flavor = 0);
   void SetVolSource(int color, int spin, Float* src) ;
+
+  void SetVolMomSource(int color, int spin, ThreeMom& mom, int flavor = 0);
 
   //Peter and HueyWen for general function source
   void SetGFLfuncSource(Lattice& lat, int color, int spin,

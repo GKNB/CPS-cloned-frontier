@@ -251,6 +251,14 @@ public:
 		Float *frm_mass_val;
 	} frm_mass;
 	struct {
+		u_int bsn_mass_epsilon_len;
+		Float *bsn_mass_epsilon_val;
+	} bsn_mass_epsilon;
+	struct {
+		u_int frm_mass_epsilon_len;
+		Float *frm_mass_epsilon_val;
+	} frm_mass_epsilon;
+	struct {
 		u_int bosons_len;
 		RationalDescr *bosons_val;
 	} bosons;

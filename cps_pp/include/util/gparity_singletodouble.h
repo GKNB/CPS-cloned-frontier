@@ -854,6 +854,10 @@ public:
     ord(_ord),
     Ncb(_Ncb){
       
+      if(ord == WILSON){
+	ERR.General("SingleToDouble5dVectorField","SingleToDouble5dVectorField(...)","WILSON ord conversion has not been tested and probably doesn't work!");
+      }
+
     nsites_orig = GJP.VolNodeSites()*GJP.SnodeSites(); //factor of 2 in X direction included already as VolNodeSites calculated *after* lattice doubling
     if(gparity_X && gparity_Y) nsites_orig/=2; //duplication in Y direction
     if(ord == WILSON && Ncb == 1) nsites_orig/=2;
@@ -968,6 +972,142 @@ public:
 };
 
 
+class SingleToDouble4dVectorField : public SingleToDouble{
+public:
+  Vector *orig_field;
+  Vector *dbl_field;
+  int nsites_orig;
+  StrOrdType ord;
+  int Ncb; //number of checkerboards in vector
+
+  SingleToDouble4dVectorField(bool _gparity_X, bool _gparity_Y, Vector *_orig_field, Vector *_dbl_field, StrOrdType _ord, const int &_Ncb=2): 
+    SingleToDouble(_gparity_X,_gparity_Y), 
+    orig_field(_orig_field),
+    dbl_field(_dbl_field),
+    ord(_ord),
+    Ncb(_Ncb){
+      
+    nsites_orig = GJP.VolNodeSites(); //factor of 2 in X direction included already as VolNodeSites calculated *after* lattice doubling
+    if(gparity_X && gparity_Y) nsites_orig/=2; //duplication in Y direction
+    if(ord == WILSON && Ncb == 1) nsites_orig/=2;
+  } 
+
+  int SiteSize(){ return 24; }//in units of Float
+  int Ndata(){ return nsites_orig; }
+  void Store(Float *buf, int site){
+    Float *from = (Float*)orig_field + 24 * site;
+    Float* to = buf + 24 * site;
+    memcpy((void*)to,(void*)from,24*sizeof(Float));
+  }
+
+  int SiteOffset(int* pos, int flav, bool gparity, int *sz){
+    if(ord == CANONICAL){
+      if(gparity) return pos[0] + sz[0]*(pos[1]+sz[1]*(pos[2]+sz[2]*(pos[3]+sz[3]*flav)));
+      else return pos[0] + sz[0]*(pos[1]+sz[1]*(pos[2]+sz[2]*pos[3]));
+    }else if(ord == WILSON){
+      int index = 0;
+      int vol = 1;
+      int parity = (pos[3]+pos[2]+pos[1]+pos[0]+1)%2; //Odd first
+
+      if(Ncb == 1 && parity == 1) ERR.General("SingleToDouble4dVectorField","SiteOffset","Invalid position for single checkerboard: %d,%d,%d,%d\n",pos[0],pos[1],pos[2],pos[3]);
+
+      for(int i = 3; i>=0;i--){
+	index = index*sz[i]+pos[i];
+	vol *= sz[i];
+      }
+      int cboff = vol;
+      if(gparity) cboff*=2;
+      else flav =0;
+
+      int offset = (index + flav*vol + cboff*parity)/2;
+      //if(gparity) printf("2f siteOffset of site (%d %d %d %d) flav %d, parity is %d, offset is %d (float offset %d)\n",pos[0],pos[1],pos[2],pos[3],flav,parity,offset,offset*24);
+      //else printf("1f siteOffset of site (%d %d %d %d), parity is %d, offset is %d (float offset %d)\n",pos[0],pos[1],pos[2],pos[3],parity,offset,offset*24);
+
+      return offset;
+    }else ERR.General("SingleToDouble4dVectorField","SiteOffset","Invalid fermion ordering\n");
+  }
+
+
+  void LoadX(Float *buf, int* pos, int flav){
+    //load from buf into new data at position pos and flavour flav
+    int pos_orig[4]; 
+    memcpy((void*)pos_orig,(void*)pos,4*sizeof(int));
+    if(pos[0] >= GJP.XnodeSites()/2) pos_orig[0] -= GJP.XnodeSites()/2;
+
+    //printf("LoadX called with pos (%d %d %d %d) [flav %d]. Pos on original latt (%d %d %d %d)\n",pos[0],pos[1],pos[2],pos[3],flav,pos_orig[0],pos_orig[1],pos_orig[2],pos_orig[3]);
+    
+
+    int sz[4] = {GJP.XnodeSites()/2, GJP.YnodeSites(), GJP.ZnodeSites(), GJP.TnodeSites()};
+    int orig_idx = SiteOffset(pos_orig,flav,true,sz);
+      
+    Float* orig_data = buf + 24 * orig_idx;
+    sz[0]*=2;
+    int new_idx = SiteOffset(pos,0,false,sz);
+
+    Float* to = (Float*)dbl_field + 24*new_idx;
+    memcpy((void*)to,(void*)orig_data,24*sizeof(Float));
+
+    //printf("LoadX from pos %d,%d,%d,%d,%d (%d) maps to %d,%d,%d,%d,%d flav %d: %f %f\n",pos[0],pos[1],pos[2],pos[3],pos[4],new_idx,pos_orig[0],pos_orig[1],pos_orig[2],pos_orig[3],pos_orig[4],flav,*orig_data,*to);
+  }
+
+  void LoadXY(Float *buf, int* pos, int flav){
+    //load from buf into new data at position pos and flavour flav
+    int pos_orig[4]; 
+    memcpy((void*)pos_orig,(void*)pos,4*sizeof(int));
+    if(pos_orig[0]>=GJP.XnodeSites()/2) pos_orig[0]-=GJP.XnodeSites()/2;
+    if(pos_orig[1]>=GJP.YnodeSites()/2) pos_orig[1]-=GJP.YnodeSites()/2;
+
+    int sz[4] = {GJP.XnodeSites()/2, GJP.YnodeSites()/2, GJP.ZnodeSites(), GJP.TnodeSites()};
+    int orig_idx = SiteOffset(pos_orig,flav,true,sz);
+      
+    Float* orig_data = buf + 24 * orig_idx;
+    sz[0]*=2; sz[1]*=2;
+    int new_idx = SiteOffset(pos,0,false,sz);
+
+    Float* to = (Float*)dbl_field + 24*new_idx;
+    memcpy((void*)to,(void*)orig_data,24*sizeof(Float));
+    
+    //upper-right quadrant needs (-) sign
+    if( (GJP.Xnodes()>1 && GJP.Ynodes()>1 && GJP.XnodeCoor()>=GJP.Xnodes()/2 && GJP.YnodeCoor()>=GJP.Ynodes()/2) ||
+	(GJP.Xnodes()>1 && GJP.Ynodes() == 1 && GJP.XnodeCoor()>=GJP.Xnodes()/2 && pos[1]>=GJP.YnodeSites()/2) ||
+	(GJP.Xnodes()==1 && GJP.Ynodes()>1 && GJP.YnodeCoor()>=GJP.Ynodes()/2 && pos[0]>=GJP.XnodeSites()/2) ||
+	(GJP.Xnodes()==1 && GJP.Ynodes()==1 && pos[0]>=GJP.XnodeSites()/2 && pos[1]>=GJP.YnodeSites()/2) ){
+      for(int i=0;i<24;i++) to[i]*=-1;
+    }
+
+  }
+
+  void IncrPos(int *pos){
+    //printf("IncrPos incrementing position (%d %d %d %d)\n",pos[0],pos[1],pos[2],pos[3]);
+
+    //increment the position vector
+    pos[0] ++; 
+    if(pos[0]>=GJP.XnodeSites()){
+      pos[0] = 0;
+      pos[1] ++;
+      if(pos[1]>=GJP.YnodeSites()){
+	pos[1] = 0;
+	pos[2] ++;
+	if(pos[2]>=GJP.ZnodeSites()){
+	  pos[2] = 0;
+	  pos[3] ++;
+	}
+      }
+    }
+    if(Ncb == 1 && (pos[3]+pos[2]+pos[1]+pos[0])%2 == 0){
+      //printf("Odd checkerboard only and new position (%d %d %d %d) has even parity, skipping\n",pos[0],pos[1],pos[2],pos[3]);
+      return IncrPos(pos); //skip even parity
+    }
+  }
+  void StartPos(int *pos){
+    if( (ord == WILSON && Ncb==2) || ord == CANONICAL){
+      pos[0]=0; pos[1]=0; pos[2]=0; pos[3]=0;
+    }else{
+      //odd sites only
+      pos[0]=1; pos[1]=0; pos[2]=0; pos[3]=0;
+    }
+  }
+};
 
 
 CPS_END_NAMESPACE

@@ -43,7 +43,6 @@ Float AlgActionGauge::energy() {
   Float dtime = -dclock();
 
   char *fname = "energy()";
-  TimeStamp::start_func(cname,fname);
 
   Lattice &lat = 
     LatticeFactory::Create(F_CLASS_NONE, gluon);
@@ -59,7 +58,6 @@ Float AlgActionGauge::energy() {
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-  TimeStamp::end_func(cname,fname);
   return h;
 }
 
@@ -86,9 +84,18 @@ void AlgActionGauge::evolve(Float dt, int steps)
 {
   Float dtime = -dclock();
   const char *fname = "evolve()";
-  TimeStamp::start_func(cname,fname);
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
+
+  if(!UniqueID()){
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+
+    printf("AlgActionGauge::evolve() start dt = %f, nsteps = %d, conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",dt,steps,pvals[0],pvals[1],pvals[2],pvals[3]);
+  }
 
   for (int i=0; i<steps; i++) {
     Fdt = lat.EvolveMomGforce(mom, dt);
@@ -100,17 +107,20 @@ void AlgActionGauge::evolve(Float dt, int steps)
     }
   }
 
-  {
-    unsigned int gcsum = lat.CheckSum(mom);
-    QioControl qc;
-    gcsum = qc.globalSumUint(gcsum);
-    if(UniqueID()==0)   printf("Post AlgActionGauge evolve mom checksum %u\n",gcsum);
-  }
-
   LatticeFactory::Destroy();
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-  TimeStamp::end_func(cname,fname);
+
+  if(!UniqueID()){
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+
+    printf("AlgActionGauge::evolve() end conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+  }
+
 }
 
 //!< Dummy methods

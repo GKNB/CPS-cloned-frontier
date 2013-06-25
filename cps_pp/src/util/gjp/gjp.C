@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of GlobalJobParameter class methods.
 
-  $Id: gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: gjp.C,v 1.43.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
-//  $Id: gjp.C,v 1.43.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v 1.43.6.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: gjp.C,v 1.43.6.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: gjp.C,v $
-//  $Revision: 1.43.6.1 $
+//  $Revision: 1.43.6.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/gjp/gjp.C,v $
 //  $State: Exp $
 //
@@ -349,10 +349,11 @@ node_coor[0], node_coor[1], node_coor[2], node_coor[3], node_coor[4]);
   //1f G-parity
   gparity_doing_1f2f_comparison = 0;
 
-  if(doarg_int.gparity_1f_X){
+  //If twisted BCs are desired in the 1f G-parity direction, set that global BC to BND_CND_TWISTED
+  if(doarg_int.gparity_1f_X && bc[0] != BND_CND_TWISTED){
     bc[0] = BND_CND_APRD;
   }
-  if(doarg_int.gparity_1f_Y){
+  if(doarg_int.gparity_1f_Y && bc[0] != BND_CND_TWISTED){
     bc[1] = BND_CND_APRD;
   }
 
@@ -360,9 +361,8 @@ node_coor[0], node_coor[1], node_coor[2], node_coor[3], node_coor[4]);
   // Note the 2f G-parity boundary conditions are handled separately
   //----------------------------------------------------------------
   for(i = 0; i<4 ; i++){
-  node_bc[i] = BND_CND_PRD;
-  if(bc[i] == BND_CND_APRD) 
-    node_bc[i] = ( node_coor[i] == (nodes[i]-1) ) ? BND_CND_APRD : BND_CND_PRD;
+    node_bc[i] = BND_CND_PRD;
+    if(bc[i] != BND_CND_PRD) node_bc[i] = ( node_coor[i] == (nodes[i]-1) ) ? bc[i] : BND_CND_PRD;
   }
 
   // Set the initial configuration load address
@@ -405,17 +405,54 @@ if (!UniqueID())
  mdwf_tuning = NULL;
 
  gparity = false;
- if(Xbc()==BND_CND_GPARITY ||
-    Ybc()==BND_CND_GPARITY ||
-    Zbc()==BND_CND_GPARITY){
-   gparity = true;
-   printf("2f G-parity boundary conditions active\n");
- }
+ for(int i=0;i<3;i++) 
+   if(Bc(i) == BND_CND_GPARITY || Bc(i) == BND_CND_GPARITY_TWISTED){
+     gparity = true;
+     printf("2f G-parity boundary conditions active\n");
+     break;
+   }
  if(Tbc()==BND_CND_GPARITY) ERR.General(cname,fname,"Cannot use G-parity boundary conditions in the time-direction!\n");
  
+ //CK: Set default twist angles
+ for(int i=0;i<3;i++){
+   //theta = 2*L*pi   p = n*2*pi/(2*L) + theta/(2*L)
+   if(Bc(i)==BND_CND_GPARITY_TWISTED) twist_angle[i] = 1; //APBC on u->d boundary (twist angle in units of pi)
+   else twist_angle[i] = 0;
+ }
+ //For 1f test code APBC on u->d boundary
+ if(doarg_int.gparity_1f_X && Bc(0) == BND_CND_TWISTED) twist_angle[0] = Nodes(0)*NodeSites(0);
+ if(doarg_int.gparity_1f_Y && Bc(1) == BND_CND_TWISTED) twist_angle[1] = Nodes(1)*NodeSites(1);
+
   VRB.FuncEnd(cname,fname);
 }
 
+
+  //!< Get the twist phase in the 'dir'-direction
+  /*!< 
+    \param dir The direction in which to obtain the boundary 
+    condition; 0, 1, or 2 corresponding to X, Y, Z.
+    \return Complex twist phase
+  */
+Complex GlobalJobParameter::TwistPhase(const int &dir) const{ 
+  const static Float pi = 3.1415926535897932384626433832795;
+  Complex twist_phase;
+  if(Bc(dir) == BND_CND_TWISTED || Bc(dir) == BND_CND_GPARITY_TWISTED){
+    //Note we use the phase e^{-i*theta} as we use the convention that
+    //a Fourier transform into momentum space is \sum_x e^{ipx}
+    //and a backwards Fourier transform \sum_p e^{-ipx}
+    //yet we want theta to add to the momentum
+    //For twisted BCs
+    // Y(x+L) = \sum_p e^{-ip(x+L)} Y(p)
+    // Y(x) = \sum_p e^{-ipx} Y(p)
+    // \sum_p e^{-ip(x+L)} Y(p) = e^{-i*theta} \sum_p e^{-ipx} Y(p)
+    // thus e^{-ipL} = e^{-i*theta},  i.e.  e^{-i(pL-theta)} = 1
+    // p = n*2*pi/L + theta/L
+ 
+    twist_phase.real() = cos(TwistAngle(dir)*pi);
+    twist_phase.imag() = -sin(TwistAngle(dir)*pi);
+  }
+  return twist_phase;
+}
 
 //------------------------------------------------------------------
 /*!
@@ -434,8 +471,8 @@ void GlobalJobParameter::Bc(int dir, BndCndType cond){
   // Set the x boundary condition for the sub-lattice on this node
   //----------------------------------------------------------------
   node_bc[dir] = BND_CND_PRD;
-  if(bc[dir] == BND_CND_APRD) 
-    node_bc[dir] = ( node_coor[dir] == (nodes[dir]-1) ) ? BND_CND_APRD : BND_CND_PRD;
+  if(bc[dir] != BND_CND_PRD) 
+    node_bc[dir] = ( node_coor[dir] == (nodes[dir]-1) ) ? bc[dir] : BND_CND_PRD;
 }
 
 

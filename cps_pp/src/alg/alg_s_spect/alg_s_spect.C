@@ -3,14 +3,14 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2008-02-08 18:35:05 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_s_spect/alg_s_spect.C,v 1.13 2008-02-08 18:35:05 chulwoo Exp $
-//  $Id: alg_s_spect.C,v 1.13 2008-02-08 18:35:05 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_s_spect/alg_s_spect.C,v 1.13.160.1 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: alg_s_spect.C,v 1.13.160.1 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: alg_s_spect.C,v $
-//  $Revision: 1.13 $
+//  $Revision: 1.13.160.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_s_spect/alg_s_spect.C,v $
 //  $State: Exp $
 //
@@ -142,7 +142,7 @@ static void write_to_file(const Float *data_p, FILE *fp,
     }
   }
 
-  else {
+  else if ( bc == BND_CND_PRD ) {
     for (i = unit; i < half_length; ++i) {
       k = unit*(N_t - i/unit) + i%unit;
       Float tmp;
@@ -154,7 +154,7 @@ static void write_to_file(const Float *data_p, FILE *fp,
 
       Fprintf(fp, "%e\n", (IFloat)tmp);
     }
-  }
+  }else ERR.General("(alg_s_spect.C) ","write_to_file","Unknown boundary condition");
 
   //-------------------------------------------------------------
   // * write C(t=N_t/2)

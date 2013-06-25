@@ -266,6 +266,11 @@ class FwilsonTm : public virtual Fwilson
 		   Float *true_res,
 		   CnvFrmType cnv_frm = CNV_FRM_YES);
 
+    //CK: modified in f_wilsonTm to create wilsonTm fermions 
+    int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
+		    int Nshift, int isz, CgArg **cg_arg, 
+		    CnvFrmType cnv_frm, MultiShiftSolveType type, 
+		    Float *alpha, Vector **f_out_d);
    //
    //~~ the following functions are versions with the epsilon parameter  
    //~~ for twisted mass Wilson fermions; all implemented here
@@ -283,6 +288,23 @@ class FwilsonTm : public virtual Fwilson
 
     Float BhamiltonNode(Vector *boson, Float mass, Float epsilon);
 
+    //Implementations of the above for G-parity boundary conditions (note, the standard versions will redirect to these functions when G-parity is active)
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *frm, 
+				 Float mass, Float epsilon, Float step_size);
+
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *phi, Vector *eta,
+				    Float mass, Float epsilon, Float step_size);
+
+    //Added by CK:
+    ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
+				  int isz, Float *alpha, Float mass, Float epsilon, Float dt,
+				  Vector **sol_d, ForceMeasure measure);
+    int FeigSolv(Vector **f_eigenv, Float *lambda, 
+		 Float *chirality, int *valid_eig,
+		 Float **hsum,
+		 EigArg *eig_arg, 
+		 CnvFrmType cnv_frm = CNV_FRM_YES);
+
     //
     //~~ the following functions are "normal" versions without the
     //~~ epsilon parameter; should never be called by wilsonTm fermions
@@ -293,8 +315,10 @@ class FwilsonTm : public virtual Fwilson
  
     ForceArg EvolveMomFforce(Matrix *mom, Vector *frm, 
 				 Float mass, Float step_size);
+    
     ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 				  Float mass, Float step_size);
+
     Float BhamiltonNode(Vector *boson, Float mass);
 };
 

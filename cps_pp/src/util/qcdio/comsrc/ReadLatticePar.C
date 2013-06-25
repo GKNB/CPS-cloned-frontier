@@ -13,7 +13,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   const char * fname = "read()";
   VRB.Func(cname,fname);
   
-  char loginfo[100];
+  char loginfo[strlen(rd_arg.FileName + 10)];
   sprintf(loginfo,"Load %s",rd_arg.FileName);
   startLogging(loginfo);
 

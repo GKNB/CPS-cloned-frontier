@@ -17,110 +17,59 @@ class Fbfm : public virtual Lattice {
 public:
     // have to do this since lattice factory does not accept any input
     // parameters.
-    static bfmarg bfm_arg;
+  //static bfmarg bfm_arg;
+  
+  //CK: Modified to allow for multiple sets of arguments for different fermion types
+  static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
+  static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
+  
 
+    // set true to use single precision BFM object.
     static bool use_mixed_solver;
+
+    bfm_evo<double> bd;
+    bfm_evo<float> bf;
 private:
     const char *cname;
-    
-    // local lattice size
-    int lclx[5];
 
-    // 4D surface size of a 5D xyzts volume in xyzt directions.
-    int surf_size[4];
-    int surf_size_all;
-    // offset of the 4 surfaces in sndbuf/rcvbuf.
-    int surf_v1[4];
-    int surf_v2[4];
-
-    void (*sproj_tr[8])(IFloat *f, 
-                        IFloat *v, 
-                        IFloat *w, 
-                        int num_blk, 
-                        int v_stride,
-                        int w_stride);
-    //!< Array of pointers to external functions.
-    /*!<
-      These functions compute 
-      \f$ f_{ij} = Tr_{spins}[ (1 \pm \gamma_\mu) v_i w^\dagger_j ] \f$
-      for spin-colour vectors \a v and \a w where \a i and \a j are
-      colour indices.
-    */
-    // Array with entries that point to 12 non-member functions.
-    // These functions are called as follows:
-    // Sigmaproj_tr[SigmaprojType mu_nu]();
-    // For the various SprojTypes see enum.h
-    // These functions return a color matrix in f constructed from
-    // the spinors v, w using: 
-    // f_(i,j) = Tr_spin[ (1 +/- gamma_mu) v_i w^dag_j ]
-    //
-    // num_blk is the number of spinors v, w. The routines 
-    // accumulate the sum over spinors in f.
-    //
-    // v_stride and w_stride are the number of Floats between spinors
-    // (a stride = 0 means that the spinors are consecutive in memory)
-  
-    bfm_evo<Float> bevo;
+    // These are eigenvectors/eigenvalues obtained from Rudy's Lanczos
+    // code. Use them for deflation.
+    multi1d<bfm_fermion> *evec;
+    multi1d<double> *evald;
+    multi1d<float> *evalf;
+    int ecnt;
 public:
     Fbfm(void);
     virtual ~Fbfm(void);
 
-    int idx_4d(const int x[4], const int lx[4])const {
-        int ret = 0;
-        for(int i = 3; i >= 0; --i) {
-            ret = ret * lx[i] + x[i];
+    template<typename EVAL_TYPE>
+    void set_deflation(multi1d<Fermion_t[2]> *_evec,
+                       multi1d<EVAL_TYPE> *_eval,
+                       int _ecnt)
+    {
+        evec = _evec;
+
+        evald = NULL;
+        evalf = NULL;
+        if(sizeof(EVAL_TYPE) == sizeof(double)) {
+            evald = (multi1d<double> *)_eval;
+        } else {
+            evalf = (multi1d<float> *)_eval;
         }
-        return ret;
+        ecnt = _ecnt;
     }
 
-    int idx_5d(const int x[5], const int lx[5])const {
-        int ret = 0;
-        for(int i = 4; i >= 0; --i) {
-            ret = ret * lx[i] + x[i];
-        }
-        return ret;
+    void unset_deflation(void) {
+        evec = NULL;
+        evald = NULL;
+        evalf = NULL;
+        ecnt = 0;
     }
 
-    int idx_4d_surf(const int x[4], const int lx[4], int mu)const {
-        int ret = 0;
-        for(int i = 3; i >= 0; --i) {
-            if(i == mu) continue;
-            ret = ret * lx[i] + x[i];
-        }
-        return ret;
-    }
-
-    int idx_5d_surf(const int x[5], const int lx[5], int mu)const {
-        int ret = 0;
-        for(int i = 4; i >= 0; --i) {
-            if(i == mu) continue;
-            ret = ret * lx[i] + x[i];
-        }
-        return ret;
-    }
-
-    // copy 3d surface data from v4d to v3d in mu direction, use this
-    // function to fill the buffer v3d before communication.
-    void CopySendFrmData(Float *v3d, Float *v4d, int mu, bool send_neg);
-
-    // evolve momentum, only calculates internal forces
-    ForceArg EvolveMomFforceInternal(Matrix *mom,
-                                     Float *v1, Float *v2, // only internal data will be used
-                                     Float coef, int mu, int nthreads);
-
-    // evolve momemtum, only calculates surface forces
-    ForceArg EvolveMomFforceSurface(Matrix *mom,
-                                    Float *v1, Float *v2, // internal data
-                                    Float *v1_s, Float *v2_s, // surface data
-                                    Float coef, int mu);
-
-    // Calculate fermion force on a specific site, also do the
-    // summation over s direction.
-    void FforceSiteS(Matrix& force, Matrix &gauge,
-                     Float *v1, Float *v1p,
-                     Float *v2, Float *v2p, int mu);
-
-    void CalcHmdForceVecsBilinear(Float *v1, Float *v2, Vector *phi1, Vector *phi2, Float mass);
+    void CalcHmdForceVecsBilinear(Float *v1, Float *v2,
+                                  Vector *phi1, Vector *phi2,
+                                  Float mass, Float epsilon = -12345);
+    
 
     ForceArg EvolveMomFforceBaseThreaded(Matrix *mom,
                                          Vector *phi1,
@@ -130,17 +79,30 @@ public:
     // It evolves the canonical Momemtum mom:
     // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
     // note: this function does not exist in the base Lattice class.
+    //CK: This function is not used, so I have not modified it for WilsonTM
 
     ForceArg EvolveMomFforceBase(Matrix *mom,
                                  Vector *phi1,
                                  Vector *phi2,
-                                 Float mass,
+                                 Float mass, Float epsilon,
                                  Float coef);
     // It evolves the canonical Momemtum mom:
     // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
     // note: this function does not exist in the base Lattice class.
+    ForceArg EvolveMomFforceBase(Matrix *mom,
+                                 Vector *phi1,
+                                 Vector *phi2,
+                                 Float mass,
+                                 Float coef){
+      return EvolveMomFforceBase(mom,phi1,phi2,mass,-12345,coef);
+    }
+    //CK: Version for non-WilsonTm quarks. Will throw an error if used for WilsonTm
 
-    FclassType Fclass()const;
+
+    FclassType Fclass()const {
+      if(current_arg_idx == 0) return F_CLASS_BFM;
+      else if(current_arg_idx == 1) return F_CLASS_BFM_TYPE2;
+    }
     // It returns the type of fermion class
   
     //! Multiplication of a lattice spin-colour vector by gamma_5.
@@ -159,12 +121,16 @@ public:
     // is the canonical one. X[I] is the
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
-    int FsiteSize() const;
+    int FsiteSize() const {
+        return 24 * Fbfm::bfm_args[current_arg_idx].Ls;
+    }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a
     // site of the 4-D lattice.
   
-    int FchkbEvl() const;
+    int FchkbEvl() const {
+        return 1;
+    }
     // Returns 0 => If no checkerboard is used for the evolution
     //      or the CG that inverts the evolution matrix.
   
@@ -187,14 +153,11 @@ public:
     // The function returns the total number of CG iterations.
     int FmatEvlInv(Vector *f_out, Vector *f_in, 
                    CgArg *cg_arg, 
-                   CnvFrmType cnv_frm = CNV_FRM_YES);
+                   CnvFrmType cnv_frm = CNV_FRM_YES)
+    {
+        return FmatEvlInv(f_out, f_in, cg_arg, NULL, cnv_frm);
+    }
   
-    int FmatEvlInvMixed(Vector *f_out, Vector *f_in, 
-                        CgArg *cg_arg,
-                        Float single_rsd,
-                        int max_iter,
-                        int max_cycle);
-
     int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
                     int Nshift, int isz, CgArg **cg_arg, 
                     CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
@@ -228,7 +191,10 @@ public:
     int FmatInv(Vector *f_out, Vector *f_in, 
                 CgArg *cg_arg, 
                 CnvFrmType cnv_frm = CNV_FRM_YES,
-                PreserveType prs_f_in = PRESERVE_YES);
+                PreserveType prs_f_in = PRESERVE_YES)
+    {
+        return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in);
+    }
   
     void Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb=2);
     //!< Transforms a 4-dimensional fermion field into a 5-dimensional field.
@@ -269,27 +235,51 @@ public:
     // on solution. f_eigenv is defined on the whole lattice.
     // The function returns the total number of Ritz iterations.
   
-    void MatPc(Vector *out, Vector *in, Float mass, DagType dag);
+    Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
+                 Float mass, Float epsilon, DagType dag);
+    // It sets the pseudofermion field phi from frm1, frm2.
 
     Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
-                 Float mass, DagType dag);
-    // It sets the pseudofermion field phi from frm1, frm2.
-  
+                 Float mass, DagType dag){
+      return SetPhi(phi,frm1,frm2,mass,-12345,dag);
+    }
+    
+    void MatPc(Vector *out, Vector *in, Float mass, Float epsilon, DagType dag);
+
+    void MatPc(Vector *out, Vector *in, Float mass, DagType dag){
+      return MatPc(out,in,mass,-12345,dag);
+    }
+
     ForceArg EvolveMomFforce(Matrix *mom, Vector *frm,
-                             Float mass, Float step_size);
+                             Float mass, Float epsilon, Float step_size);
+
+    ForceArg EvolveMomFforce(Matrix *mom, Vector *frm,
+                             Float mass, Float step_size){
+      return EvolveMomFforce(mom,frm,mass,-12345,step_size);
+    }
     // It evolves the canonical momentum mom by step_size
     // using the fermion force.
   
     ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
-                             Float mass, Float step_size) {
-        return EvolveMomFforceBase(mom, phi, eta, mass, -step_size);
+                             Float mass, Float epsilon, Float step_size) {
+      return EvolveMomFforceBase(mom, phi, eta, mass, epsilon, -step_size);
     }
+    ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
+                             Float mass, Float step_size) {
+      return EvolveMomFforceBase(mom, phi, eta, mass, -12345, -step_size);
+    }
+
     // It evolve the canonical momentum mom  by step_size
     // using the bosonic quotient force.
   
     ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
-                                  int isz, Float *alpha, Float mass, Float dt,
+                                  int isz, Float *alpha, Float mass, Float epsilon, Float dt,
                                   Vector **sol_d, ForceMeasure measure);
+    ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
+                                  int isz, Float *alpha, Float mass, Float dt,
+                                  Vector **sol_d, ForceMeasure measure){
+      return RHMC_EvolveMomFforce(mom,sol,degree,isz,alpha,mass,-12345,dt,sol_d,measure);
+    }
   
     Float FhamiltonNode( Vector *phi,  Vector *chi) ;
     // The fermion Hamiltonian of the node sublattice.
@@ -300,7 +290,10 @@ public:
                   StrOrdType from);
     // Convert fermion field f_field from -> to
   
-    Float BhamiltonNode(Vector *boson, Float mass);
+    Float BhamiltonNode(Vector *boson, Float mass, Float epsilon);
+    Float BhamiltonNode(Vector *boson, Float mass){
+      return BhamiltonNode(boson,mass,-12345);
+    }
     // The boson Hamiltonian of the node sublattice
   
     void Freflex (Vector *out, Vector *in);
@@ -308,9 +301,13 @@ public:
     // Reflexion in s operator, needed for the hermitian version 
     // of the dirac operator in the Ritz solver.
 
-    int SpinComponents() const;
+    int SpinComponents() const {
+        return 4;
+    }
 
-    int ExactFlavors() const;
+    int ExactFlavors() const {
+        return 2;
+    }
     
     //!< Method to ensure bosonic force works (does nothing for Wilson
     //!< theories.
@@ -327,6 +324,32 @@ public:
     //
     // !< where D_-^s = c[s] D_W - 1, D_W is the 4D Wilson Dirac operator.
     void Dminus(Vector *out, Vector *in);
+
+    //!< Toggle boundary condition
+    //
+    //!< Note: Agent classes which needs to import gauge field to
+    //!external libraries need to overwrite this function.
+    virtual void BondCond();
+
+    void ImportGauge();
+
+    //CK: Added WilsonTm twist parameter epsilon. Use -12345 as a default for non WilsonTm fermions. Add a catch if using WilsonTm and this value of epsilon is passed in
+    void SetMass(Float mass, Float epsilon) {
+      if(epsilon == -12345 && bfm_args[current_arg_idx].solver == WilsonTM) ERR.General("Fbfm","SetMass(Float,Float)","Must specify epsilon for twisted mass Wilson fermions"); 
+
+      if(bd.mass != mass || bd.twistedmass != epsilon) {
+	bd.mass = mass;
+	bd.twistedmass = epsilon;
+	bd.GeneralisedFiveDimEnd();
+	bd.GeneralisedFiveDimInit();
+      }
+      if(use_mixed_solver && (bf.mass != mass || bf.twistedmass != epsilon) ) {
+	bf.mass = mass;
+	bf.twistedmass = epsilon;
+	bf.GeneralisedFiveDimEnd();
+	bf.GeneralisedFiveDimInit();
+      }
+    }
 };
 
 class GnoneFbfm

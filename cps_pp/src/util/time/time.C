@@ -1,7 +1,7 @@
 /*!\file
   \brief Implementation of functions for timing and performance measurement.
 
-  $Id: time.C,v 1.14.28.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: time.C,v 1.14.28.2 2013-06-25 19:56:57 ckelly Exp $
 */
 
 #include <config.h>
@@ -200,5 +200,34 @@ int TimeStamp::cur_depth(0);
 FILE *TimeStamp::stream(NULL);
 bool TimeStamp::enabled(false);
 Float TimeStamp::start(0.0);
+
+
+Elapsed::Elapsed(const Float &delta){
+  hours=delta/3600.0;
+  mins=(delta-3600.0*hours)/60.0;
+  secs=delta-3600.0*hours-60.0*mins;
+}
+
+Float Timer::dtime_begin(dclock());
+Float Timer::dtime_last(dclock());
+
+void Timer::reset(){
+  dtime_begin = dclock();
+  dtime_last = dtime_begin;
+}
+//Time since last reset
+Elapsed Timer::elapsed_time(){
+  return Elapsed(dclock()-dtime_begin);
+}
+//Time since last call to this function
+Elapsed Timer::relative_time(){
+  Float now = dclock();
+  Float delta = now - dtime_last;
+  dtime_last = now;
+  return Elapsed(delta);
+}
+
+
+
 
 CPS_END_NAMESPACE

@@ -15,6 +15,7 @@ JobPropagatorArgs::~JobPropagatorArgs(){
 AttrType GenericPropAttrArg::getType (  ){ return GENERIC_PROP_ATTR; }
 AttrType PointSourceAttrArg::getType (  ){ return POINT_SOURCE_ATTR; }
 AttrType WallSourceAttrArg::getType (  ){ return WALL_SOURCE_ATTR; }
+AttrType VolumeSourceAttrArg::getType (  ){ return VOLUME_SOURCE_ATTR; }
 AttrType MomentumAttrArg::getType (  ){ return MOMENTUM_ATTR; }
 AttrType PropIOAttrArg::getType (  ){ return PROP_IO_ATTR; }
 AttrType GparityFlavorAttrArg::getType (  ){ return GPARITY_FLAVOR_ATTR; }
@@ -22,7 +23,8 @@ AttrType CGAttrArg::getType (  ){ return CG_ATTR; }
 AttrType GaugeFixAttrArg::getType (  ){ return GAUGE_FIX_ATTR; }
 AttrType MomCosAttrArg::getType (  ){ return MOM_COS_ATTR; }
 AttrType PropCombinationAttrArg::getType (  ){ return PROP_COMBINATION_ATTR; }
-
+AttrType GparityOtherFlavPropAttrArg::getType ( ){ return GPARITY_OTHER_FLAV_PROP_ATTR; }
+AttrType TwistedBcAttrArg::getType( ){ return TWISTED_BC_ATTR; }
 //As AttrArg types are used in a union, we cannot write copy constructors. Instead write a clone function to perform a deep copy,
 //and the automatically generated trivial copy constructor is shallow.
 
@@ -76,6 +78,9 @@ PointSourceAttrArg PointSourceAttrArg::clone(){
 WallSourceAttrArg WallSourceAttrArg::clone(){
   return *this;
 }
+VolumeSourceAttrArg VolumeSourceAttrArg::clone(){
+  return *this;
+}
 MomentumAttrArg MomentumAttrArg::clone(){
   MomentumAttrArg out;
   memcpy(out.p,p,3*sizeof(int));
@@ -100,6 +105,16 @@ MomCosAttrArg MomCosAttrArg::clone(){
 }
 PropCombinationAttrArg PropCombinationAttrArg::clone(){
   PropCombinationAttrArg out;
+  out.deep_copy(*this);
+  return out;
+}
+GparityOtherFlavPropAttrArg GparityOtherFlavPropAttrArg::clone(){
+  GparityOtherFlavPropAttrArg out;
+  out.deep_copy(*this);
+  return out;
+}
+TwistedBcAttrArg TwistedBcAttrArg::clone(){
+  TwistedBcAttrArg out;
   out.deep_copy(*this);
   return out;
 }

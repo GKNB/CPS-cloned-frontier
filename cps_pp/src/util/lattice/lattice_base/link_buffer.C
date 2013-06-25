@@ -9,13 +9,13 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2008-09-18 15:23:17 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/link_buffer.C,v 1.8 2008-09-18 15:23:17 chulwoo Exp $
-//  $Id: link_buffer.C,v 1.8 2008-09-18 15:23:17 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/link_buffer.C,v 1.8.116.1 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: link_buffer.C,v 1.8.116.1 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.8 $
+//  $Revision: 1.8.116.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/link_buffer.C,v $
 //  $State: Exp $
 //
@@ -677,6 +677,29 @@ BufferedCubeStaple(Matrix &stap, const int *x, int u){
   moveMem((IFloat*)&stap, (IFloat*)acumulate_mp, MATRIX_SIZE*sizeof(IFloat));
 }
 
+//Given a coordinate relative to the origin of this node, determine how many G-parity boundaries are crossed to reach it
+static int nGparityBoundariesCrossed(const int * x){
+  if(!GJP.Gparity()) return 0;
+  int n_crossed = 0;
+  for(int i=0;i<4;i++){
+    if(GJP.Bc(i)!=BND_CND_GPARITY) continue;
+    int bound_sep = GJP.Nodes(i)*GJP.NodeSites(i);
+
+    if(x[i] < 0 && GJP.NodeCoor(i) == 0){ //crosses at least 1 G-parity boundary. 
+      // | 0    1   2       .... L-1 | 0 1 2 ... L-1 |
+      // | -L -L+1 -L+2          -1    x
+      // Any x[i] < -L crosses 2 G-parity boundaries,  x[i] < -2L crosses 3, etc
+      n_crossed += 1;
+      int nwrap = (-x[i]-1)/bound_sep; //if it wraps around the entire lattice it might cross the boundary more than once
+      n_crossed += nwrap;
+    }else if(x[i] >= GJP.NodeSites(i) && GJP.NodeCoor(i) == GJP.Nodes(i)-1){
+      n_crossed += 1;
+      int nwrap = (x[i] - GJP.NodeSites(i))/bound_sep;
+      n_crossed += nwrap;
+    }
+  }
+  return n_crossed;
+}
 
 //-------------------------------------------------------------------
 /*!
@@ -727,6 +750,10 @@ PathOrdProdPlus(Matrix & mat, const int * x, const int* dirs, int n){
   link_site[abs_dir] -= dir_sign; 
     //if dir_sign == 1, the link is at x-n_v
 
+  //Crossings of G-parity boundaries pick up the complex-conjugate links
+  int n_gparity_bounds_crossed = 0;
+  if(dir_sign) n_gparity_bounds_crossed = nGparityBoundariesCrossed(link_site);
+
   p1 = GetBufferedLink(link_site, abs_dir);  
     //get the first link 
 
@@ -734,14 +761,19 @@ PathOrdProdPlus(Matrix & mat, const int * x, const int* dirs, int n){
     //if dir_sign == 0, march on to the next site, if dir_sign == 1, we have
     //already moved.
 
-  if (dir_sign) 
+  if (dir_sign){
+    if(n_gparity_bounds_crossed % 2 == 0){
       result1_mp->Dagger((IFloat*)p1); 
-        //if dir_sign==1 the link is going backward so get its dagger
-  else 
-      moveMem((IFloat*) result1_mp, (IFloat*)p1, 
-              MATRIX_SIZE * sizeof(IFloat));
-        //simply move to the cram
-  
+      //if dir_sign==1 the link is going backward so get its dagger
+    }else{
+      result1_mp->Trans((IFloat*)p1); //if it crosses an odd number of G-parity boundaries we need the complex conjugate links
+    }
+  }else{ //if dir_sign is zero then the site is guaranteed to be local and there is no chance of a G-parity boundary crossing
+    moveMem((IFloat*) result1_mp, (IFloat*)p1, 
+	    MATRIX_SIZE * sizeof(IFloat));     //simply move to the cram
+  }    
+
+
   for(i=1;i<n;i++){
     abs_dir = dirs[i]&3; 
     dir_sign = dirs[i]>>2; 
@@ -749,17 +781,27 @@ PathOrdProdPlus(Matrix & mat, const int * x, const int* dirs, int n){
     link_site[abs_dir] -= dir_sign; 
 
     p1 = GetBufferedLink(link_site, abs_dir);  
+    n_gparity_bounds_crossed = nGparityBoundariesCrossed(link_site);
 
     link_site[abs_dir] += 1-dir_sign; 
 
     //put the next link on the path in mat1
     //--------------------------------------
     if(dir_sign){  
-      mat1.Dagger((IFloat*)p1); 
+      if(n_gparity_bounds_crossed % 2 == 0){
+	mat1.Dagger((IFloat*)p1); 
+      }else{
+	mat1.Trans((IFloat*)p1);
+      }
     }
-    else 
-      moveMem((IFloat*)&mat1, (IFloat*)p1, 
-              MATRIX_SIZE*sizeof(IFloat));
+    else{
+      if(n_gparity_bounds_crossed % 2 == 0){
+	moveMem((IFloat*)&mat1, (IFloat*)p1, 
+		MATRIX_SIZE*sizeof(IFloat));
+      }else{
+	mat1.Conj((IFloat*)p1);
+      }
+    }
 
     if(i!=n-1)
       mDotMEqual((IFloat*) result_mp, (IFloat*)result1_mp, (IFloat*)&mat1);

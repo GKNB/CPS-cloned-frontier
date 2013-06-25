@@ -20,6 +20,7 @@ CPS_END_NAMESPACE
 #include<util/verbose.h>
 #include<util/error.h>
 #include<util/time_cps.h>
+#include<util/lattice/fbfm.h>
 #include<alg/alg_int.h>
 #include<alg/alg_remez.h>
 CPS_START_NAMESPACE
@@ -41,8 +42,9 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 {
 
   cname = "AlgActionRationalQuotient";
-  char *fname = "AlgActionRationalQuotient()";
-  TimeStamp::start_func(cname,fname);
+  const char *fname = "AlgActionRationalQuotient()";
+
+  if(!UniqueID()){ printf("AlgActionRationalQuotient constructor started\n"); fflush(stdout); }
 
   int_type = INT_RATIONAL_QUOTIENT;
   rat_quo_arg = &r_arg;
@@ -79,18 +81,35 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
       bsn_mass[i] = rat_quo_arg->bsn_mass.bsn_mass_val[i];
       frm_mass[i] = rat_quo_arg->frm_mass.frm_mass_val[i];
     }
+
+    //CK: added for twisted mass fermions
+    bsn_mass_epsilon = (Float*) smalloc(n_masses * sizeof(Float), "bsn_mass_epsilon", fname, cname);
+    frm_mass_epsilon = (Float*) smalloc(n_masses * sizeof(Float), "frm_mass_epsilon", fname, cname);
+    
+    for(int i=0; i<n_masses; i++) {
+      bsn_mass_epsilon[i] = rat_quo_arg->bsn_mass_epsilon.bsn_mass_epsilon_val[i];
+      frm_mass_epsilon[i] = rat_quo_arg->frm_mass_epsilon.frm_mass_epsilon_val[i];
+    }
     
     //!< construct approximation if necessary
     if(!loadPoles()) {
+      //CK: Note that the Remez approximation does not actually depend upon the quark mass. The mass
+      //    is only used to bound the eigenvalues when RATIONAL_BOUNDS_AUTOMATIC is chosen (currently
+      //    this is only implemented for ASQTAD, Staggered and P4 actions)
+      //    This means that we do not have to modify the Remez part to accomodate the twist term for 
+      //    twisted Wilson fermions
+      if(!UniqueID()){ printf("Generating rational approximation\n"); fflush(stdout); }
+
       generateApprox(frm_mass,&frm_remez_arg_md,&frm_remez_arg_mc,
                      rat_quo_arg->fermions.fermions_val);
       generateApprox(bsn_mass,&bsn_remez_arg_md,&bsn_remez_arg_mc,
                      rat_quo_arg->bosons.bosons_val);
       savePoles();
+      if(!UniqueID()){ printf("Finished generating rational approximation\n"); fflush(stdout); }
     }
-    generateCgArg(frm_mass,&frm_cg_arg_fg, &frm_cg_arg_md,&frm_cg_arg_mc,"frm_cg_arg",
+    generateCgArg(frm_mass,frm_mass_epsilon,&frm_cg_arg_fg, &frm_cg_arg_md,&frm_cg_arg_mc,"frm_cg_arg",
 		  rat_quo_arg->fermions.fermions_val);
-    generateCgArg(bsn_mass,&bsn_cg_arg_fg, &bsn_cg_arg_md,&bsn_cg_arg_mc,"bsn_cg_arg",
+    generateCgArg(bsn_mass,bsn_mass_epsilon,&bsn_cg_arg_fg, &bsn_cg_arg_md,&bsn_cg_arg_mc,"bsn_cg_arg",
 		  rat_quo_arg->bosons.bosons_val);
 
     max_size = 0;
@@ -125,12 +144,12 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
   if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) 
     generateEigArg(rat_quo_arg->eigen);
 
-  TimeStamp::end_func(cname,fname);
+  if(!UniqueID()){ printf("AlgActionRationalQuotient constructor finished\n"); fflush(stdout); }
 }
 
 AlgActionRationalQuotient::~AlgActionRationalQuotient() {
 
-  char *fname = "~AlgActionRationalQuotient()" ;
+  const char *fname = "~AlgActionRationalQuotient()" ;
   VRB.Func(cname,fname);
 
   //!< Free memory for timescale split partial fraction
@@ -159,6 +178,10 @@ AlgActionRationalQuotient::~AlgActionRationalQuotient() {
     sfree(bsn_mass,"bsn_mass",fname,cname);
     sfree(frm_mass,"frm_mass",fname,cname);
 
+    //CK: Added for twisted mass fermions
+    sfree(bsn_mass_epsilon,"bsn_mass_epsilon",fname,cname);
+    sfree(frm_mass_epsilon,"frm_mass_epsilon",fname,cname);
+
     if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) destroyEigArg();
   }
 
@@ -167,7 +190,7 @@ AlgActionRationalQuotient::~AlgActionRationalQuotient() {
 //!< Heat Bath for the pseudo-fermions (phi)
 void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 
-  char *fname = "reweight()";
+  const char *fname = "reweight()";
 
 
 //    if (n_masses>1)
@@ -175,8 +198,8 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 
     //!< Before energy is measured, do we want to check bounds?
     if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) {
-      checkApprox(bsn_mass, bsn_remez_arg_mc, rat_quo_arg->eigen);
-      checkApprox(frm_mass, frm_remez_arg_mc, rat_quo_arg->eigen);
+      checkApprox(bsn_mass, bsn_mass_epsilon, bsn_remez_arg_mc, rat_quo_arg->eigen);
+      checkApprox(frm_mass, frm_mass_epsilon, frm_remez_arg_mc, rat_quo_arg->eigen);
     }
 
     //!< Create an appropriate lattice
@@ -227,9 +250,7 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 
 //!< Heat Bath for the pseudo-fermions (phi)
 void AlgActionRationalQuotient::heatbath() {
-  char *fname = "heatbath()";
-  TimeStamp::start_func(cname,fname);
-
+  const char *fname = "heatbath()";
   Float dtime = -dclock();
 
   //!< Only evaluate heatbath if necessary
@@ -240,8 +261,19 @@ void AlgActionRationalQuotient::heatbath() {
     h_init = 0.0;
     
     for(int i=0; i<n_masses; i++){
-
+      // printf("Calling RandGaussVector with Ncb = %d\n",Ncb);
+      
+      // {
+      // 	Float grand_5d = LRG.Grand(FIVE_D);
+      // 	Float grand_4d = LRG.Grand(FOUR_D);
+      // 	printf("Pre RGV Random numbers: %f %f\n",grand_5d,grand_4d);
+      // }
       lat.RandGaussVector(phi[i], 0.5, Ncb);
+      // {
+      // 	Float grand_5d = LRG.Grand(FIVE_D);
+      // 	Float grand_4d = LRG.Grand(FOUR_D);
+      // 	printf("Post RGV Random numbers: %f %f\n",grand_5d,grand_4d);
+      // }
 
       if(GJP.Gparity1fX() && GJP.Gparity1fY()){
       	if(!UniqueID()){ printf("Putting minus sign on fermion source in UR quadrant\n"); fflush(stdout); }
@@ -269,7 +301,15 @@ void AlgActionRationalQuotient::heatbath() {
       	}
       }
 
-      h_init += lat.FhamiltonNode(phi[i],phi[i]);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
+      
+      Float delta_h = lat.FhamiltonNode(phi[i],phi[i]);
+      {
+	Float gsum_h(delta_h);
+	glb_sum(&gsum_h);
+	if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] delta H for mass %d:  %.9e\n",force_label,i,gsum_h);
+      }
+      h_init += delta_h;
 
       //!< First apply the fermion rational
       frmn[0] -> 
@@ -303,30 +343,33 @@ void AlgActionRationalQuotient::heatbath() {
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-  TimeStamp::end_func(cname,fname);
 }
 
 // Calculate rhmc fermion contribution to the Hamiltonian
 Float AlgActionRationalQuotient::energy() {
 
-  char *fname="energy()";
-  TimeStamp::start_func(cname,fname);
+  const char *fname="energy()";
 
   if (energyEval) {
     return 0.0;
   } else if (!evolved) {
     energyEval = 1;
+    {
+      Float gsum_h(h_init);
+      glb_sum(&gsum_h);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.9e\n",force_label,gsum_h);
+    }
     return h_init;
   } else {
-      Float dtime = -dclock();
+    Float dtime = -dclock();
 
     int shift = 0;
     Float h = 0.0;
 
     //!< Before energy is measured, do we want to check bounds?
     if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) {
-      checkApprox(bsn_mass, bsn_remez_arg_mc, rat_quo_arg->eigen);
-      checkApprox(frm_mass, frm_remez_arg_mc, rat_quo_arg->eigen);
+      checkApprox(bsn_mass, bsn_mass_epsilon, bsn_remez_arg_mc, rat_quo_arg->eigen);
+      checkApprox(frm_mass, frm_mass_epsilon, frm_remez_arg_mc, rat_quo_arg->eigen);
     }
 
     //!< Create an appropriate lattice
@@ -365,17 +408,32 @@ Float AlgActionRationalQuotient::energy() {
 
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
-    TimeStamp::end_func(cname,fname);
+
+    {
+      Float gsum_h(h);
+      glb_sum(&gsum_h);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.9e\n",force_label,gsum_h);
+    }
+
     return h;
   }
 }
 
 void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 {
-  char * fname = "prepare_fg(M*,F)";
+  const char * fname = "prepare_fg(M*,F)";
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
+
+  if(!UniqueID()){    
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)force)[off];
+    }
+    if(UniqueID()==0) printf("AlgActionRationalQuotient::prepare_fg() [%s] start, input temp conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
+  }  
 
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
 
@@ -458,9 +516,20 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     
     dtime_force -= dclock();
     //!< Do bosonic force contribution
-    Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
-                                   all_res, bsn_mass[i], dt_ratio, frmn_d, 
-                                   force_measure);
+    //CK: Modified for twisted mass fermions
+    if(fermion == F_CLASS_WILSON_TM) 
+      Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+							       all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
+							       force_measure);
+    else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
+      Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+							  all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
+							  force_measure);
+    else
+      Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+				     all_res, bsn_mass[i], dt_ratio, frmn_d, 
+				     force_measure);
+
     if (force_measure == FORCE_MEASURE_YES) {	  
       char label[200];
       sprintf(label, "%s (boson), mass = %e:", 
@@ -469,9 +538,20 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     }
 
     //!< Do fermionic force contribution
-    Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
-                                   frm_remez_arg_md[i].residue, frm_mass[i], 
-                                   dt_ratio, frmn_d, force_measure);
+    //CK: Modified for twisted mass fermions
+    if(fermion == F_CLASS_WILSON_TM) 
+      Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+							       frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+							       dt_ratio, frmn_d, force_measure);
+    else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
+      Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+							  frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+							  dt_ratio, frmn_d, force_measure);
+    else
+      Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+				     frm_remez_arg_md[i].residue, frm_mass[i], 
+				     dt_ratio, frmn_d, force_measure);
+    
     dtime_force += dclock();
 
     if (force_measure == FORCE_MEASURE_YES) {
@@ -483,23 +563,8 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 
     //!< Monitor total force contribution
     if (force_measure == FORCE_MEASURE_YES) {
-      Float L1 = 0.0;
-      Float L2 = 0.0;
-      Float Linf = 0.0;
-      for (int k=0; k<g_size/18; k++) {
-        Float norm = (mom_tmp + k)->norm();
-        Float tmp = sqrt(norm);
-        L1 += tmp;
-        L2 += norm;
-        Linf = (tmp>Linf ? tmp : Linf);
-      }
-      glb_sum(&L1);
-      glb_sum(&L2);
-      glb_max(&Linf);
-
-      L1 /= 4.0*GJP.VolSites();
-      L2 /= 4.0*GJP.VolSites();	 
-      if(GJP.Gparity()){ L1*=2; L2*=2; }
+        Fdt.measure(mom_tmp);
+        Fdt.glb_reduce();
 
       ((Vector *)force)->VecAddEquVec((Vector *)mom_tmp, g_size);
 
@@ -507,7 +572,6 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       sprintf(label, "%s (total), mass = (%e,%e):", 
               force_label, frm_mass[i], bsn_mass[i]);
 
-      Fdt = ForceArg(L1, sqrt(L2), Linf);
       Fdt.print(dt_ratio, label);
 
       sfree(mom_tmp, "mom_tmp", fname, cname);
@@ -519,13 +583,22 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, "prepare_fg::cg()", 0, dtime_cg);
   print_flops(cname, "prepare_fg::force()", 0, dtime_force);
+
+  if(!UniqueID()){    
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)force)[off];
+    }
+    if(UniqueID()==0) printf("AlgActionRationalQuotient::prepare_fg() [%s] end, output temp conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
+  } 
+
 }
 
 //!< run method evolves the integrator
 void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
-  char * fname = "evolve(Float, int)";
-  TimeStamp::start_func(cname,fname);
+  const char * fname = "evolve(Float, int)";
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;
@@ -534,21 +607,31 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
     
+  {
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+    if(UniqueID()==0) printf("AlgActionRationalQuotient::evolve() [%s] start, conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
+  }  
+
+
   for(int steps = 0; steps<nsteps; steps++) {
     for(int i=0; i<n_masses; i++){
+      if(UniqueID()==0) printf("AlgActionRationalQuotient::evolve() [%s] step %d mass %d\n",force_label,steps,i);
+
       int bsn_deg = bsn_remez_arg_md[i].degree;
       int frm_deg = frm_remez_arg_md[i].degree;
 
       //! First apply boson rational
       int shift = 0;
       dtime_cg -= dclock();
-      TimeStamp::stamp_incr("Multishift boson solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn, phi[i], 
                                 bsn_remez_arg_md[i].pole, 
                                 bsn_deg, 0, 
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
-      TimeStamp::decr_stamp("Multishift boson solve end, step %d, mass idx %d",steps,i);
       dtime_cg += dclock();
 
       updateCgStats(bsn_cg_arg_md[i][0]);
@@ -564,13 +647,11 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       //!< Now apply fermion rational
       shift += bsn_deg;
 
-      TimeStamp::stamp_incr("Multishift ferm solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn+shift, eta[0], 
                                 frm_remez_arg_md[i].pole, 
                                 frm_deg, 0, 
                                 frm_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);
-      TimeStamp::decr_stamp("Multishift ferm solve end, step %d, mass idx %d",steps,i);
       dtime_cg += dclock();
 
       updateCgStats(frm_cg_arg_md[i][0]);
@@ -586,14 +667,12 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       //!< Apply final boson rational
       shift += frm_deg;
 
-      TimeStamp::stamp_incr("Multishift second boson solve start, step %d, mass idx %d",steps,i);
       cg_iter = lat.FmatEvlMInv(frmn+shift, eta[1], 
                                 bsn_remez_arg_md[i].pole, 
                                 bsn_deg, 0, 
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
       dtime_cg += dclock();
-      TimeStamp::decr_stamp("Multishift second boson solve end, step %d, mass idx %d",steps,i);
 
       updateCgStats(bsn_cg_arg_md[i][0]);
 
@@ -625,11 +704,19 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 
       dtime_force -= dclock();
       //!< Do bosonic force contribution
-      TimeStamp::stamp_incr("Start calculate boson force contribution, step %d, mass idx %d",steps,i);
-      Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
-                                     all_res, bsn_mass[i], dt, frmn_d, 
-                                     force_measure);
-      TimeStamp::decr_stamp("End calculate boson force contribution, step %d, mass idx %d",steps,i);
+      //CK: Modified for twisted mass fermions
+      if(fermion == F_CLASS_WILSON_TM) 
+	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+								 all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
+								 force_measure);
+      else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
+	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+							    all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
+							    force_measure);
+      else
+	Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
+				       all_res, bsn_mass[i], dt, frmn_d, 
+				       force_measure);	
 
       if (force_measure == FORCE_MEASURE_YES) {	  
         char label[200];
@@ -639,11 +726,19 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
       }
 
       //!< Do fermionic force contribution
-      TimeStamp::stamp_incr("Start calculate ferm force contribution, step %d, mass idx %d",steps,i);
-      Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
-                                     frm_remez_arg_md[i].residue, frm_mass[i], 
-                                     dt, frmn_d, force_measure);
-      TimeStamp::decr_stamp("End calculate ferm force contribution, step %d, mass idx %d",steps,i);
+      if(fermion == F_CLASS_WILSON_TM) 
+	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+								 frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+								 dt, frmn_d, force_measure);
+      else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
+	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+							    frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+							    dt, frmn_d, force_measure);
+      else
+	Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
+								 frm_remez_arg_md[i].residue, frm_mass[i], 
+								 dt, frmn_d, force_measure);
+
       dtime_force += dclock();
 
       if (force_measure == FORCE_MEASURE_YES) {	  
@@ -654,22 +749,8 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 
       //!< Monitor total force contribution
       if (force_measure == FORCE_MEASURE_YES) {
-        Float L1 = 0.0;
-        Float L2 = 0.0;
-        Float Linf = 0.0;
-        for (int k=0; k<g_size/18; k++) {
-          Float norm = (mom_tmp+k)->norm();
-          Float tmp = sqrt(norm);
-          L1 += tmp;
-          L2 += norm;
-          Linf = (tmp>Linf ? tmp : Linf);
-        }
-        glb_sum(&L1);
-        glb_sum(&L2);
-        glb_max(&Linf);
-
-        L1 /= 4.0*GJP.VolSites();
-        L2 /= 4.0*GJP.VolSites();	 
+          Fdt.measure(mom_tmp);
+          Fdt.glb_reduce();
 
         fTimesV1PlusV2((IFloat*)mom,1.0,(IFloat*)mom_tmp,(IFloat*)mom,g_size);
         sfree(mom_tmp);
@@ -678,10 +759,20 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
         sprintf(label, "%s (total), mass = (%e,%e):", 
                 force_label, frm_mass[i], bsn_mass[i]);
 
-        Fdt = ForceArg(L1, sqrt(L2), Linf);
         Fdt.print(dt, label);
 
       }
+
+      {
+	Float pvals[4];
+	for(int ii=0;ii<4;ii++){
+	  int off = 18 * ii + 2;
+	  pvals[ii] = ((Float*)mom)[off];
+	}
+	if(UniqueID()==0) printf("AlgActionRationalQuotient::evolve() [%s] end of step %d, mass %d: conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",
+				 force_label,steps,i,pvals[0],pvals[1],pvals[2],pvals[3]);
+      }  
+
 
     }
 
@@ -690,6 +781,15 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
     energyEval = 0;
     md_steps++;
   }
+
+  {
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+    if(UniqueID()==0) printf("AlgActionRationalQuotient::evolve() [%s] end, conj mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
+  }  
     
   LatticeFactory::Destroy();
 
@@ -697,7 +797,6 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, "evolve::cg()", 0, dtime_cg);
   print_flops(cname, "evolve::force()", 0, dtime_force);
-  TimeStamp::end_func(cname,fname);
 }
 
 bool AlgActionRationalQuotient::checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r)

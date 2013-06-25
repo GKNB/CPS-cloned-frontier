@@ -88,7 +88,7 @@ class ActionRationalArg {
 
   ActionBilinearArg bi_arg;
    
-  int remez_generate;
+  int remez_generate; //! Force it to regenerate remez poles
   string rat_poles_file<>;
 
   RationalDescr rationals<>;
@@ -189,6 +189,10 @@ class ActionRationalQuotientArg {
 
   Float bsn_mass<>;
   Float frm_mass<>;
+
+  //!Twist parameters for twisted mass Wilson fermions
+  Float bsn_mass_epsilon<>;
+  Float frm_mass_epsilon<>;
 
   RationalDescr bosons<>;
   RationalDescr fermions<>;

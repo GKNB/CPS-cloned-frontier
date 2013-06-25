@@ -17,13 +17,16 @@ enum AttrType {
 	GENERIC_PROP_ATTR = 0,
 	POINT_SOURCE_ATTR = 1,
 	WALL_SOURCE_ATTR = 2,
-	MOMENTUM_ATTR = 3,
-	PROP_IO_ATTR = 4,
-	GPARITY_FLAVOR_ATTR = 5,
-	CG_ATTR = 6,
-	GAUGE_FIX_ATTR = 7,
-	MOM_COS_ATTR = 8,
-	PROP_COMBINATION_ATTR = 9,
+	VOLUME_SOURCE_ATTR = 3,
+	MOMENTUM_ATTR = 4,
+	PROP_IO_ATTR = 5,
+	GPARITY_FLAVOR_ATTR = 6,
+	CG_ATTR = 7,
+	GAUGE_FIX_ATTR = 8,
+	MOM_COS_ATTR = 9,
+	PROP_COMBINATION_ATTR = 10,
+	GPARITY_OTHER_FLAV_PROP_ATTR = 11,
+	TWISTED_BC_ATTR = 12,
 };
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
@@ -88,6 +91,22 @@ typedef struct WallSourceAttrArg WallSourceAttrArg;
 #endif
 template<> struct rpc_print<WallSourceAttrArg>{
 	static void doit(WallSourceAttrArg const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct VolumeSourceAttrArg {
+	   static AttrType getType (  ) ;
+	   VolumeSourceAttrArg clone (  ) ;
+	   void print(const std::string &prefix ="");
+};
+typedef struct VolumeSourceAttrArg VolumeSourceAttrArg;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<VolumeSourceAttrArg>{
+	static void doit(VolumeSourceAttrArg const &what, const std::string &prefix="" );
 };
 
 
@@ -207,6 +226,50 @@ template<> struct rpc_print<MomCosAttrArg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+struct GparityOtherFlavPropAttrArg {
+	char *tag;
+	   static AttrType getType (  ) ;
+	   GparityOtherFlavPropAttrArg clone (  ) ;
+	   void deep_copy(const GparityOtherFlavPropAttrArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct GparityOtherFlavPropAttrArg GparityOtherFlavPropAttrArg;
+template<> struct rpc_deepcopy<GparityOtherFlavPropAttrArg>{
+	static void doit(GparityOtherFlavPropAttrArg &into, GparityOtherFlavPropAttrArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<GparityOtherFlavPropAttrArg>{
+	static void doit(GparityOtherFlavPropAttrArg const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct TwistedBcAttrArg {
+	int theta[3];
+	   static AttrType getType (  ) ;
+	   TwistedBcAttrArg clone (  ) ;
+	   void deep_copy(const TwistedBcAttrArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct TwistedBcAttrArg TwistedBcAttrArg;
+template<> struct rpc_deepcopy<TwistedBcAttrArg>{
+	static void doit(TwistedBcAttrArg &into, TwistedBcAttrArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<TwistedBcAttrArg>{
+	static void doit(TwistedBcAttrArg const &what, const std::string &prefix="" );
+};
+
+
 enum PropCombination {
 	A_PLUS_B = 0,
 	A_MINUS_B = 1,
@@ -246,6 +309,7 @@ struct AttributeContainer {
 		GenericPropAttrArg generic_prop_attr;
 		PointSourceAttrArg point_source_attr;
 		WallSourceAttrArg wall_source_attr;
+		VolumeSourceAttrArg volume_source_attr;
 		MomentumAttrArg momentum_attr;
 		PropIOAttrArg prop_io_attr;
 		GparityFlavorAttrArg gparity_flavor_attr;
@@ -253,6 +317,8 @@ struct AttributeContainer {
 		GaugeFixAttrArg gauge_fix_attr;
 		MomCosAttrArg mom_cos_attr;
 		PropCombinationAttrArg prop_combination_attr;
+		GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
+		TwistedBcAttrArg twisted_bc_attr;
 	} AttributeContainer_u;
 	   template <typename T> static AttrType type_map();
 	   void deep_copy(const AttributeContainer &rhs);
@@ -265,6 +331,7 @@ template <typename T> AttrType AttributeContainer::type_map(){
 template <> AttrType AttributeContainer::type_map<GenericPropAttrArg>();
 template <> AttrType AttributeContainer::type_map<PointSourceAttrArg>();
 template <> AttrType AttributeContainer::type_map<WallSourceAttrArg>();
+template <> AttrType AttributeContainer::type_map<VolumeSourceAttrArg>();
 template <> AttrType AttributeContainer::type_map<MomentumAttrArg>();
 template <> AttrType AttributeContainer::type_map<PropIOAttrArg>();
 template <> AttrType AttributeContainer::type_map<GparityFlavorAttrArg>();
@@ -272,6 +339,8 @@ template <> AttrType AttributeContainer::type_map<CGAttrArg>();
 template <> AttrType AttributeContainer::type_map<GaugeFixAttrArg>();
 template <> AttrType AttributeContainer::type_map<MomCosAttrArg>();
 template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>();
+template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>();
+template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>();
 template<> struct rpc_deepcopy<AttributeContainer>{
 	static void doit(AttributeContainer &into, AttributeContainer const &from);
 };
@@ -352,12 +421,15 @@ extern  bool_t vml_AttrType (VML *, char *instance, AttrType*);
 extern  bool_t vml_GenericPropAttrArg (VML *, char *instance, GenericPropAttrArg*);
 extern  bool_t vml_PointSourceAttrArg (VML *, char *instance, PointSourceAttrArg*);
 extern  bool_t vml_WallSourceAttrArg (VML *, char *instance, WallSourceAttrArg*);
+extern  bool_t vml_VolumeSourceAttrArg (VML *, char *instance, VolumeSourceAttrArg*);
 extern  bool_t vml_MomentumAttrArg (VML *, char *instance, MomentumAttrArg*);
 extern  bool_t vml_PropIOAttrArg (VML *, char *instance, PropIOAttrArg*);
 extern  bool_t vml_GparityFlavorAttrArg (VML *, char *instance, GparityFlavorAttrArg*);
 extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
+extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
+extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
@@ -369,12 +441,15 @@ extern  bool_t vml_AttrType (VML *, char *instance, AttrType*);
 extern  bool_t vml_GenericPropAttrArg (VML *, char *instance, GenericPropAttrArg*);
 extern  bool_t vml_PointSourceAttrArg (VML *, char *instance, PointSourceAttrArg*);
 extern  bool_t vml_WallSourceAttrArg (VML *, char *instance, WallSourceAttrArg*);
+extern  bool_t vml_VolumeSourceAttrArg (VML *, char *instance, VolumeSourceAttrArg*);
 extern  bool_t vml_MomentumAttrArg (VML *, char *instance, MomentumAttrArg*);
 extern  bool_t vml_PropIOAttrArg (VML *, char *instance, PropIOAttrArg*);
 extern  bool_t vml_GparityFlavorAttrArg (VML *, char *instance, GparityFlavorAttrArg*);
 extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
+extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
+extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);

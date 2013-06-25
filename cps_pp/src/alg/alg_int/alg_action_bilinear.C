@@ -34,7 +34,7 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
   : AlgAction(mom, b_arg.action_arg) {
 
   cname = "AlgActionBiliniear";
-  char *fname="AlgActionBilinear(FclassType, int, HmdArg*, Matrix*)";
+  const char *fname="AlgActionBilinear(FclassType, int, HmdArg*, Matrix*)";
   VRB.Func(cname,fname);
 
   //!< First copy required instance parameters
@@ -67,9 +67,9 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
 
     if(lat.FchkbEvl() == 1) Ncb = 1;      //!< Half Checkerboard
     else if(lat.FchkbEvl() == 0) Ncb = 2; //!< Full Checkerboard
-    
+
     LatticeFactory::Destroy();
-    
+
     //!< Allocate memory for the phi field array
     phi = (Vector **) smalloc(n_masses * sizeof(Vector*),
 			      "phi",fname,cname);
@@ -86,7 +86,6 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
       mass[i] = bi_arg->bilinears.bilinears_val[i].mass;
       max_num_iter[i] = bi_arg->bilinears.bilinears_val[i].max_num_iter;
     }
-
   }
 
   init();

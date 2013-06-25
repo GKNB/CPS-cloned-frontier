@@ -362,6 +362,7 @@ public:
   Rcomplex Trace();
   const wilson_matrix& wmat() const; // get p 
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
+  WilsonMatrix& LeftTimesEqual(const Matrix& lhs);
   
   //! Projects positive parity on the sink
   WilsonMatrix& PParProjectSink();

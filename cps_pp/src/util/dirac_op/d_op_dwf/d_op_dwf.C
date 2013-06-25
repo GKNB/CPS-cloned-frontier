@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpDwf class methods.
 
-  $Id: d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: d_op_dwf.C,v 1.5.40.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: d_op_dwf.C,v 1.5.40.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.5.40.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: d_op_dwf.C,v 1.5.40.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: d_op_dwf.C,v $
-//  $Revision: 1.5.40.1 $
+//  $Revision: 1.5.40.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v $
 //  $State: Exp $
 //
@@ -695,11 +695,6 @@ void DiracOpDwf::CalcHmdForceVecs(Vector *chi)
   // Implement routine
   //----------------------------------------------------------------
 
-//------------------------------------------------------------------
-// f_out stores (chi,rho), f_in stores (psi,sigma)
-// CK: rho = Dslash chi,  psi = -kappa^2(1-kappa^2 D_oe D_eo)chi  , sigma = Dslash^dag psi
-//------------------------------------------------------------------
-
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
@@ -707,29 +702,27 @@ void DiracOpDwf::CalcHmdForceVecs(Vector *chi)
 
   chi_new = f_out ;
 
-  chi_new->CopyVec(chi, f_size_cb) ;
+  chi_new->CopyVec(chi, f_size_cb) ; //f_out[ODD] = chi[ODD]
 
-  psi = f_in ;
+  psi = f_in ; //f_in[ODD]
 
-//  fprintf(stderr,"psi=%p chi=%p rho=%p sigma=%p\n",psi,chi,rho,sigma);
-  MatPc(psi,chi) ;
-//  fprintf(stderr,"MatPc\n");
-
+  MatPc(psi,chi) ;  //f_in[ODD] = Mprec chi[ODD] = (1 - 1/[2(5-M5)]^2 Doe Deo) chi [ODD]
   {
     Float kappa = ((Dwf *)dwf_lib_arg)->dwf_kappa ;
-    psi->VecTimesEquFloat(-kappa*kappa,f_size_cb) ;
+    psi->VecTimesEquFloat(-kappa*kappa,f_size_cb) ;  //f_in[ODD] = -kappa^2 Mprec chi[ODD];
   }
 
-  rho = (Vector *)((Float *)f_out + f_size_cb) ;
+  rho = (Vector *)((Float *)f_out + f_size_cb) ; //f_out[EVEN]
 
-  Dslash(rho, chi, CHKB_ODD, DAG_NO) ;
-//  fprintf(stderr,"Dslash\n");
+  Dslash(rho, chi, CHKB_ODD, DAG_NO) ;  //f_out[EVEN] = D_eo f_out[ODD] = D_eo chi [ODD]
 
-  sigma = (Vector *)((Float *)f_in + f_size_cb) ;
+  sigma = (Vector *)((Float *)f_in + f_size_cb) ; //f_in[EVEN]
 
-  Dslash(sigma, psi, CHKB_ODD, DAG_YES) ;
-//  fprintf(stderr,"Dslash\n");
+  Dslash(sigma, psi, CHKB_ODD, DAG_YES) ; //f_in[EVEN] = -kappa^2 D_eo^dag Mprec chi[ODD];
 
+  //Net result is:
+  // f_in = ( -kappa^2 Mprec chi, -kappa^2 D_eo^dag Mprec chi )    f_out = ( chi, D_eo chi )
+  // These are converted into CANONICAL format when DiracOpDWF is destroyed
   return ;
 }
 

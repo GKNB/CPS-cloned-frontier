@@ -2,7 +2,7 @@
 /*!\file
   \brief  Definitions of the EigArg structure.
   
-  $Id: eig_arg.x,v 1.7 2008-05-19 21:06:37 chulwoo Exp $
+  $Id: eig_arg.x,v 1.7.144.1 2013-06-25 19:56:57 ckelly Exp $
 */
 /*------------------------------------------------------------------*/
 
@@ -22,6 +22,8 @@ class EigArg {
     Float Mass<>;   /*!< Relevant to the ::ARRAY pattern:
 				The array of mass values for which 
                                 the eigenvalue is measured. */
+    Float Epsilon<>; /*!< CK: Epsilon factor for twisted mass fermions */    
+
     int n_masses; 
 
     int N_eig;		/*!< The number of eigenvectors/values to calculate */
@@ -57,7 +59,8 @@ class EigArg {
 			   */
 
     Float mass;		/*!< The mass to use in the eigenvector solver */
-
+    Float epsilon;      /*< CK: Epsilon factor for twisted mass fermions */ 
+    
       // the following two variables should be added, as in QCDSP -- Sam
     string fname<>;   // should be moved from common_arg to here -- Sam
     int ncorr;

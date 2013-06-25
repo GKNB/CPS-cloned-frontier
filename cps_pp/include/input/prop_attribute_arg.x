@@ -7,18 +7,21 @@ enum AttrType {
   GENERIC_PROP_ATTR,
   POINT_SOURCE_ATTR,
   WALL_SOURCE_ATTR,
+  VOLUME_SOURCE_ATTR,
   MOMENTUM_ATTR,
   PROP_IO_ATTR,
   GPARITY_FLAVOR_ATTR,
   CG_ATTR,
   GAUGE_FIX_ATTR,
   MOM_COS_ATTR,
-  PROP_COMBINATION_ATTR };
+  PROP_COMBINATION_ATTR,
+  GPARITY_OTHER_FLAV_PROP_ATTR,
+  TWISTED_BC_ATTR };
 
 struct GenericPropAttrArg{
   string tag<>;
   Float mass;
-  BndCndType bc[4]; /*Currently does nothing, BCs are set globally for the job. Could try creating a new function in GJP to reinitialise the boundary conditions*/
+  BndCndType bc[4];
 
   memfun static AttrType getType();
   memfun GenericPropAttrArg clone();
@@ -36,6 +39,11 @@ struct WallSourceAttrArg {
   int t;
   memfun static AttrType getType();
   memfun WallSourceAttrArg clone();
+  rpccommand GENERATE_PRINT_METHOD;
+};
+struct VolumeSourceAttrArg {
+  memfun static AttrType getType();
+  memfun VolumeSourceAttrArg clone();
   rpccommand GENERATE_PRINT_METHOD;
 };
 struct  MomentumAttrArg {
@@ -80,6 +88,21 @@ struct MomCosAttrArg{
   memfun MomCosAttrArg clone();
   rpccommand GENERATE_PRINT_METHOD;
 };
+struct GparityOtherFlavPropAttrArg{ /*Give the tag of a propagator with the same source properties but the other G-parity flavour index*/
+  string tag<>;
+
+  memfun static AttrType getType();
+  memfun GparityOtherFlavPropAttrArg clone();
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
+struct  TwistedBcAttrArg {
+  int theta[3];
+  memfun static AttrType getType();
+  memfun TwistedBcAttrArg clone();
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
 
 
 enum PropCombination {
@@ -105,6 +128,8 @@ switch(AttrType type){
    PointSourceAttrArg point_source_attr;
  case WALL_SOURCE_ATTR:
    WallSourceAttrArg wall_source_attr;
+ case VOLUME_SOURCE_ATTR:
+   VolumeSourceAttrArg volume_source_attr;
  case MOMENTUM_ATTR:
    MomentumAttrArg momentum_attr;
  case PROP_IO_ATTR:
@@ -119,6 +144,10 @@ switch(AttrType type){
    MomCosAttrArg mom_cos_attr;
  case PROP_COMBINATION_ATTR:
    PropCombinationAttrArg prop_combination_attr;
+ case GPARITY_OTHER_FLAV_PROP_ATTR:
+   GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
+ case TWISTED_BC_ATTR:
+   TwistedBcAttrArg twisted_bc_attr;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

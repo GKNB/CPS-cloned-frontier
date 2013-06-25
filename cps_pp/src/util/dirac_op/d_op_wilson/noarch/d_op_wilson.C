@@ -9,18 +9,18 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpWilson class methods.
 
-  $Id: d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
+  $Id: d_op_wilson.C,v 1.9.48.1 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2011-03-04 11:25:28 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
-//  $Id: d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v 1.9.48.1 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: d_op_wilson.C,v 1.9.48.1 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.9 $
+//  $Revision: 1.9.48.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v $
 //  $State: Exp $
 //
@@ -229,6 +229,7 @@ int DiracOpWilson::MatInv(Vector *out,
   Vector *temp2 = NULL;
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  if(GJP.Gparity()) temp_size *= 2;
 
   Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
   if (temp == 0) ERR.Pointer(cname, fname, "temp");
@@ -325,6 +326,7 @@ void DiracOpWilson::Mat(Vector *out, Vector *in) {
   VRB.Func(cname,fname);
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  if(GJP.Gparity()) temp_size *= 2;
 
   // points to the even part of fermion source 
   Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
@@ -349,6 +351,7 @@ void DiracOpWilson::MatDag(Vector *out, Vector *in) {
   VRB.Func(cname,fname);
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  if(GJP.Gparity()) temp_size *= 2;
 
   // points to the even part of fermion source 
   Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
@@ -373,6 +376,8 @@ void DiracOpWilson::MatHerm(Vector *out, Vector *in) {
   VRB.Func(cname,fname);
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize();
+  if(GJP.Gparity()) temp_size *= 2;
+
   Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
   if (temp == 0) 
     ERR.Pointer(cname, fname, "temp");
@@ -424,6 +429,7 @@ void DiracOpWilson::CalcHmdForceVecs(Vector *chi)
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int f_size_cb = 12 * GJP.VolNodeSites() ;
+  if(GJP.Gparity()) f_size_cb *= 2;
 
   chi_new = f_out ;
 

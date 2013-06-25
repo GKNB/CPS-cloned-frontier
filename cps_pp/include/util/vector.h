@@ -6,19 +6,19 @@
 
   Also declarations of functions that perform operations on complex vectors.
 
-  $Id: vector.h,v 1.34.4.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: vector.h,v 1.34.4.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.34.4.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: vector.h,v 1.34.4.1 2012-11-15 18:17:08 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.34.4.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: vector.h,v 1.34.4.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: vector.h,v $
-//  $Revision: 1.34.4.1 $
+//  $Revision: 1.34.4.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v $
 //  $State: Exp $
 //
@@ -375,6 +375,16 @@ class Matrix
         for(int i = 0; i < COLORS * COLORS * 2; ++i)
             u[i] *= c;
         return *this;
+    }
+
+    Matrix& operator*=(const Complex &c) {
+      for(int i = 0; i < COLORS * COLORS; ++i){
+	int reidx = 2*i; int imidx = reidx+1;
+	Float rev = u[reidx];
+	u[reidx] = u[reidx]*c.real() - u[imidx]*c.imag();
+	u[imidx] = rev*c.imag() + u[imidx]*c.real();
+      }
+      return *this;
     }
 
     Matrix operator+(const Matrix &m)const {

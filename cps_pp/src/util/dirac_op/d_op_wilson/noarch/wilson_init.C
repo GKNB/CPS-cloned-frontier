@@ -6,18 +6,18 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
   
-  $Id: wilson_init.C,v 1.6 2012-03-26 13:50:12 chulwoo Exp $
+  $Id: wilson_init.C,v 1.6.28.1 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-03-26 13:50:12 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/wilson_init.C,v 1.6 2012-03-26 13:50:12 chulwoo Exp $
-//  $Id: wilson_init.C,v 1.6 2012-03-26 13:50:12 chulwoo Exp $
+//  $Author: ckelly $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/wilson_init.C,v 1.6.28.1 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: wilson_init.C,v 1.6.28.1 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
-//  $Revision: 1.6 $
+//  $Revision: 1.6.28.1 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/wilson_init.C,v $
 //  $State: Exp $
 //
@@ -100,6 +100,7 @@ void wilson_init(Wilson *wilson_p)  /* pointer to Wilson type structure    */
 /* spinors.)                                                                */
 /*--------------------------------------------------------------------------*/
   spinor_words = SPINOR_SIZE * wilson_p->vol[0];
+  if(GJP.Gparity()) spinor_words *=2; //2 flavours
 
   wilson_p->af[0] = (IFloat *) smalloc(spinor_words*sizeof(Float));
   if(wilson_p->af[0] == 0)

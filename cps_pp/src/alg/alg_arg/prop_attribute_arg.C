@@ -17,6 +17,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","GENERIC_PROP_ATTR",GENERIC_PROP_ATTR},
 	{"AttrType","POINT_SOURCE_ATTR",POINT_SOURCE_ATTR},
 	{"AttrType","WALL_SOURCE_ATTR",WALL_SOURCE_ATTR},
+	{"AttrType","VOLUME_SOURCE_ATTR",VOLUME_SOURCE_ATTR},
 	{"AttrType","MOMENTUM_ATTR",MOMENTUM_ATTR},
 	{"AttrType","PROP_IO_ATTR",PROP_IO_ATTR},
 	{"AttrType","GPARITY_FLAVOR_ATTR",GPARITY_FLAVOR_ATTR},
@@ -24,6 +25,8 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","GAUGE_FIX_ATTR",GAUGE_FIX_ATTR},
 	{"AttrType","MOM_COS_ATTR",MOM_COS_ATTR},
 	{"AttrType","PROP_COMBINATION_ATTR",PROP_COMBINATION_ATTR},
+	{"AttrType","GPARITY_OTHER_FLAV_PROP_ATTR",GPARITY_OTHER_FLAV_PROP_ATTR},
+	{"AttrType","TWISTED_BC_ATTR",TWISTED_BC_ATTR},
 	{NULL,NULL,0}
 };
 
@@ -118,6 +121,22 @@ void rpc_print<WallSourceAttrArg>::doit(WallSourceAttrArg const &what, const std
 }
 void WallSourceAttrArg::print(const std::string &prefix){
 	rpc_print<WallSourceAttrArg>::doit(*this,prefix);
+}
+
+bool_t
+vml_VolumeSourceAttrArg (VML *vmls, char *name,VolumeSourceAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"VolumeSourceAttrArg",name);
+	 vml_struct_end(vmls,"VolumeSourceAttrArg",name);
+	return TRUE;
+}
+void rpc_print<VolumeSourceAttrArg>::doit(VolumeSourceAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	std::cout << spaces << "}\n";
+}
+void VolumeSourceAttrArg::print(const std::string &prefix){
+	rpc_print<VolumeSourceAttrArg>::doit(*this,prefix);
 }
 
 bool_t
@@ -269,6 +288,64 @@ void MomCosAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_GparityOtherFlavPropAttrArg (VML *vmls, char *name,GparityOtherFlavPropAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"GparityOtherFlavPropAttrArg",name);
+	 if (!vml_string (vmls, "tag", &objp->tag, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"GparityOtherFlavPropAttrArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<GparityOtherFlavPropAttrArg>::doit(GparityOtherFlavPropAttrArg &into, GparityOtherFlavPropAttrArg const &from){
+	  rpc_deepcopy<char *>::doit(into.tag,from.tag,strlen(from.tag)+1);
+}
+void GparityOtherFlavPropAttrArg::deep_copy(GparityOtherFlavPropAttrArg const &rhs){
+	rpc_deepcopy<GparityOtherFlavPropAttrArg>::doit(*this,rhs);
+}
+void rpc_print<GparityOtherFlavPropAttrArg>::doit(GparityOtherFlavPropAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.tag,strlen(what.tag)+1,spaces+" tag = ");
+	std::cout << spaces << "}\n";
+}
+void GparityOtherFlavPropAttrArg::print(const std::string &prefix){
+	rpc_print<GparityOtherFlavPropAttrArg>::doit(*this,prefix);
+}
+
+bool_t
+vml_TwistedBcAttrArg (VML *vmls, char *name,TwistedBcAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"TwistedBcAttrArg",name);
+	int i;
+	 if (!vml_vector (vmls, "theta", (char *)objp->theta, 3,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 vml_struct_end(vmls,"TwistedBcAttrArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<TwistedBcAttrArg>::doit(TwistedBcAttrArg &into, TwistedBcAttrArg const &from){
+	  for(int i=0;i<3;i++) rpc_deepcopy<int>::doit(into.theta[i],from.theta[i]);
+}
+void TwistedBcAttrArg::deep_copy(TwistedBcAttrArg const &rhs){
+	rpc_deepcopy<TwistedBcAttrArg>::doit(*this,rhs);
+}
+void rpc_print<TwistedBcAttrArg>::doit(TwistedBcAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	{
+	  std::ostringstream os; os << spaces << " theta[3] = { ";
+	  std::string newprefix = os.str(); std::string newspaces(newprefix.size(),' ');
+	  std::cout << newprefix << std::endl;
+	  for(int i=0;i<3;i++){ std::ostringstream tos; tos << newspaces << " theta["<<i<<"] = "; rpc_print<int>::doit(what.theta[i],tos.str()); }
+	  newspaces[newspaces.size()-1] = '}'; std::cout << newspaces << std::endl;
+	}
+	std::cout << spaces << "}\n";
+}
+void TwistedBcAttrArg::print(const std::string &prefix){
+	rpc_print<TwistedBcAttrArg>::doit(*this,prefix);
+}
+
+bool_t
 vml_PropCombination (VML *vmls, char *name,PropCombination *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,PropCombination_map))
@@ -332,6 +409,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_WallSourceAttrArg (vmls, "wall_source_attr", &objp->AttributeContainer_u.wall_source_attr))
 			 return FALSE;
 		break;
+	case VOLUME_SOURCE_ATTR:
+		 if (!vml_VolumeSourceAttrArg (vmls, "volume_source_attr", &objp->AttributeContainer_u.volume_source_attr))
+			 return FALSE;
+		break;
 	case MOMENTUM_ATTR:
 		 if (!vml_MomentumAttrArg (vmls, "momentum_attr", &objp->AttributeContainer_u.momentum_attr))
 			 return FALSE;
@@ -360,6 +441,14 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_PropCombinationAttrArg (vmls, "prop_combination_attr", &objp->AttributeContainer_u.prop_combination_attr))
 			 return FALSE;
 		break;
+	case GPARITY_OTHER_FLAV_PROP_ATTR:
+		 if (!vml_GparityOtherFlavPropAttrArg (vmls, "gparity_other_flav_prop_attr", &objp->AttributeContainer_u.gparity_other_flav_prop_attr))
+			 return FALSE;
+		break;
+	case TWISTED_BC_ATTR:
+		 if (!vml_TwistedBcAttrArg (vmls, "twisted_bc_attr", &objp->AttributeContainer_u.twisted_bc_attr))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -373,6 +462,9 @@ template <> AttrType AttributeContainer::type_map<PointSourceAttrArg>(){
 }
 template <> AttrType AttributeContainer::type_map<WallSourceAttrArg>(){
 	 return WALL_SOURCE_ATTR;
+}
+template <> AttrType AttributeContainer::type_map<VolumeSourceAttrArg>(){
+	 return VOLUME_SOURCE_ATTR;
 }
 template <> AttrType AttributeContainer::type_map<MomentumAttrArg>(){
 	 return MOMENTUM_ATTR;
@@ -395,6 +487,12 @@ template <> AttrType AttributeContainer::type_map<MomCosAttrArg>(){
 template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>(){
 	 return PROP_COMBINATION_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>(){
+	 return GPARITY_OTHER_FLAV_PROP_ATTR;
+}
+template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>(){
+	 return TWISTED_BC_ATTR;
+}
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -404,6 +502,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<PointSourceAttrArg>::doit(into.AttributeContainer_u.point_source_attr,from.AttributeContainer_u.point_source_attr); break;
 	    case WALL_SOURCE_ATTR:
 	      rpc_deepcopy<WallSourceAttrArg>::doit(into.AttributeContainer_u.wall_source_attr,from.AttributeContainer_u.wall_source_attr); break;
+	    case VOLUME_SOURCE_ATTR:
+	      rpc_deepcopy<VolumeSourceAttrArg>::doit(into.AttributeContainer_u.volume_source_attr,from.AttributeContainer_u.volume_source_attr); break;
 	    case MOMENTUM_ATTR:
 	      rpc_deepcopy<MomentumAttrArg>::doit(into.AttributeContainer_u.momentum_attr,from.AttributeContainer_u.momentum_attr); break;
 	    case PROP_IO_ATTR:
@@ -418,6 +518,10 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<MomCosAttrArg>::doit(into.AttributeContainer_u.mom_cos_attr,from.AttributeContainer_u.mom_cos_attr); break;
 	    case PROP_COMBINATION_ATTR:
 	      rpc_deepcopy<PropCombinationAttrArg>::doit(into.AttributeContainer_u.prop_combination_attr,from.AttributeContainer_u.prop_combination_attr); break;
+	    case GPARITY_OTHER_FLAV_PROP_ATTR:
+	      rpc_deepcopy<GparityOtherFlavPropAttrArg>::doit(into.AttributeContainer_u.gparity_other_flav_prop_attr,from.AttributeContainer_u.gparity_other_flav_prop_attr); break;
+	    case TWISTED_BC_ATTR:
+	      rpc_deepcopy<TwistedBcAttrArg>::doit(into.AttributeContainer_u.twisted_bc_attr,from.AttributeContainer_u.twisted_bc_attr); break;
 	  };
 }
 void AttributeContainer::deep_copy(AttributeContainer const &rhs){
@@ -433,6 +537,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<PointSourceAttrArg>::doit(what.AttributeContainer_u.point_source_attr,spaces+" union AttributeContainer_u.point_source_attr = "); break;
 	    case WALL_SOURCE_ATTR:
 	      rpc_print<WallSourceAttrArg>::doit(what.AttributeContainer_u.wall_source_attr,spaces+" union AttributeContainer_u.wall_source_attr = "); break;
+	    case VOLUME_SOURCE_ATTR:
+	      rpc_print<VolumeSourceAttrArg>::doit(what.AttributeContainer_u.volume_source_attr,spaces+" union AttributeContainer_u.volume_source_attr = "); break;
 	    case MOMENTUM_ATTR:
 	      rpc_print<MomentumAttrArg>::doit(what.AttributeContainer_u.momentum_attr,spaces+" union AttributeContainer_u.momentum_attr = "); break;
 	    case PROP_IO_ATTR:
@@ -447,6 +553,10 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<MomCosAttrArg>::doit(what.AttributeContainer_u.mom_cos_attr,spaces+" union AttributeContainer_u.mom_cos_attr = "); break;
 	    case PROP_COMBINATION_ATTR:
 	      rpc_print<PropCombinationAttrArg>::doit(what.AttributeContainer_u.prop_combination_attr,spaces+" union AttributeContainer_u.prop_combination_attr = "); break;
+	    case GPARITY_OTHER_FLAV_PROP_ATTR:
+	      rpc_print<GparityOtherFlavPropAttrArg>::doit(what.AttributeContainer_u.gparity_other_flav_prop_attr,spaces+" union AttributeContainer_u.gparity_other_flav_prop_attr = "); break;
+	    case TWISTED_BC_ATTR:
+	      rpc_print<TwistedBcAttrArg>::doit(what.AttributeContainer_u.twisted_bc_attr,spaces+" union AttributeContainer_u.twisted_bc_attr = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

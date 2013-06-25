@@ -6,19 +6,19 @@
 /*!\file
   \brief  Lattice class methods.
   
-  $Id: lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
+  $Id: lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2013-02-19 23:21:13 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
-//  $Id: lattice_base.C,v 1.68.4.2 2013-02-19 23:21:13 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.68.4.2 $
+//  $Revision: 1.68.4.3 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
 //  $State: Exp $
 //
@@ -47,6 +47,8 @@
 #include <comms/scu.h>
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
+
+#include <util/lattice/fbfm.h>
 
 #ifdef _TARTAN
 #include <math64.h>
@@ -604,6 +606,16 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
     Matrix *U = field;
     Matrix *Ustar = field + nmat_per_site*GJP.VolNodeSites();
 
+#ifdef USE_OMP
+#if TARGET == BGQ
+  omp_set_dynamic(false);
+  omp_set_num_threads(64);
+#else
+  omp_set_num_threads(1);
+#endif
+#endif
+
+#pragma omp parallel for
     for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
       Ustar[m].Conj(U[m]);
     }
@@ -3161,7 +3173,15 @@ void Lattice::MltFloatImpl(Float factor, int dir)
   numerical integration of the equations of motion.  
 */  
 //------------------------------------------------------------------
-void Lattice::EvolveGfield(Matrix *mom, Float step_size)
+
+//CK: For G-parity by default this only evolves the U links but not the U* links. This is because the evolving of the gauge field
+//    is most often called from the lowest level integrator, which steps back and forth between evolving the conjugate momentum 
+//    via the gauge action and then evolving the gauge field. In the evaluation of the gauge force, we can significantly reduce
+//    the number of flops by only calculating the force for the U links, ensuring only that links pulled across the G-parity boundary
+//    are complex conjugated appropriately. We can therefore wait to sync the U* fields until the lowest level integrator has finished
+//    evolving. Use evolve_both_gparity_flavors = true to sync the U* links in this function (e.g. in force gradient integrator)
+
+void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparity_flavors)
 {
     const char *fname = "EvolveGfield(M*,F)";
   VRB.Func(cname,fname);
@@ -3176,22 +3196,6 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size)
     global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
 #endif
 
-  {
-    unsigned int gcsum = CheckSum();
-
-    //note: for 2f G-parity the above lat.CheckSum just checksums the flavour-0 part
-    //      so for correct comparison between 1f and 2f we need to do both flavours
-    //      this takes extra computation so make it optional
-
-    if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
-      CopyConjGaugeField();
-      gcsum += CheckSum(GaugeField() + 4*GJP.VolNodeSites());
-    }
-
-    QioControl qc;
-    gcsum = qc.globalSumUint(gcsum);
-    if(UniqueID()==0) printf("Pre-EvolveGfield gauge field %u\n",gcsum);
-  }
   // checksuming local gauge matrices before update
   //-------------------------------------------------
   unsigned long loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
@@ -3215,28 +3219,30 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size)
     // Hantao: no problem with this since there are no thread reductions.
 #pragma omp parallel for
   for(int i = 0; i < n_links; ++i) {
-        Matrix t1, t2, t3;
+    Matrix t1, t2, t3;
 
-        t1 = mom[i];
-        t1 *= step_size;
-        t2 = t1;
+    t1 = mom[i];
+    t1 *= step_size;
+    t2 = t1;
 
     for(int j = 9; j > 1; --j) {
 
-            // t3 = 1 + (1/j) * t2
-            oneMinusfTimesMatrix((Float *)&t3, -1./j, (const Float *)&t2, 18);
-            // t2 = t1 * t3
-            t2.DotMEqual(t1, t3);
+      // t3 = 1 + (1/j) * t2
+      oneMinusfTimesMatrix((Float *)&t3, -1./j, (const Float *)&t2, 18);
+      // t2 = t1 * t3
+      t2.DotMEqual(t1, t3);
 
     }
 
 
-        // t3 = 1 + t2
-        oneMinusfTimesMatrix((Float *)&t3, -1., (const Float *)&t2, 18);
-        t2 = curU_p[i];
-        // U' = t3 * U
-        curU_p[i].DotMEqual(t3, t2);
+    // t3 = 1 + t2
+    oneMinusfTimesMatrix((Float *)&t3, -1., (const Float *)&t2, 18);
+    t2 = curU_p[i];
+    // U' = t3 * U
+    curU_p[i].DotMEqual(t3, t2);
   }
+
+  if(GJP.Gparity() && evolve_both_gparity_flavors) CopyConjMatrixField(GaugeField(),4);
 
 
   // checksuming local gauge matrices after update
@@ -3590,7 +3596,11 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      // FIXME: check Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)) {
+     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2)
+#ifdef USE_BFM
+     || ( (Fclass() == F_CLASS_BFM || Fclass() == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM) //added by CK
+#endif
+     ) {
     s_node_sites = 1; frm_dim = FOUR_D;
   }
   LRG.SetSigma(sigma2);
@@ -4204,5 +4214,60 @@ unsigned long Lattice::GsiteOffset(const int *x, const int dir) const{
   return index;
 }
 
+inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
+{
+    x[0] = i % hl[0] + low[0]; i /= hl[0];
+    x[1] = i % hl[1] + low[1]; i /= hl[1];
+    x[2] = i % hl[2] + low[2]; i /= hl[2];
+    x[3] = i % hl[3] + low[3];
+}
+
+// ----------------------------------------------------------------
+// BondCond: toggle boundary condition on/off for gauge field. Based
+// on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
+//
+// The gauge field must be in CANONICAL order.
+// ----------------------------------------------------------------
+void Lattice::BondCond()
+{
+    Matrix *u_base = this->GaugeField();
+    Complex twist_phase;
+    const int uconj_offset = 4*GJP.VolNodeSites();
+
+    for(int mu = 0; mu < 4; ++mu) {
+        if(GJP.NodeBc(mu) == BND_CND_PRD) continue;
+
+	if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED) twist_phase = GJP.TwistPhase(mu);
+
+        int low[4] = { 0, 0, 0, 0 };
+        int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
+                        GJP.ZnodeSites(), GJP.TnodeSites() };
+        low[mu] = high[mu] - 1;
+
+        int hl[4] = { high[0] - low[0], high[1] - low[1],
+                      high[2] - low[2], high[3] - low[3] };
+
+        const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
+
+#pragma omp parallel for
+        for(int i = 0; i < hl_sites; ++i) {
+            int x[4];
+            compute_coord(x, hl, low, i);
+
+            int off = mu + 4 * (x[0] + high[0] *
+                                (x[1] + high[1] *
+                                 (x[2] + high[2] * x[3])));
+	    if(GJP.Bc(mu) == BND_CND_APRD)        u_base[off] *= -1;
+	    else if(GJP.Bc(mu) == BND_CND_TWISTED) u_base[off] *= twist_phase;
+
+	    if(GJP.Gparity()){ //do BC on second quark flavour
+	      //for example, APBC in time direction
+	      off += uconj_offset;
+	      if(GJP.Bc(mu) == BND_CND_APRD || GJP.Bc(mu) == BND_CND_GPARITY)                  u_base[off] *= -1;
+	      else if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED)  u_base[off] *= twist_phase;	  
+	    }	    
+        }
+    }
+}
 
 CPS_END_NAMESPACE

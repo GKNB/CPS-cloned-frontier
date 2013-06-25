@@ -43,21 +43,13 @@ AlgIntAB::~AlgIntAB() {
 
 // Maybe use tmp in future but can ignore for now
 void AlgIntAB::heatbath() {
-  TimeStamp::start_func(cname,"heatbath()");
   traj++;
-  TimeStamp::incr_depth();
   A->heatbath();
   B->heatbath();
-  TimeStamp::decr_depth();
-  TimeStamp::end_func(cname,"heatbath()");
 }
 
 Float AlgIntAB::energy() {
-  TimeStamp::start_func(cname,"energy()");
-  TimeStamp::incr_depth();
   Float out = A->energy() + B->energy();
-  TimeStamp::decr_depth();
-  TimeStamp::end_func(cname,"energy()");
   return out;
 }
 
@@ -106,9 +98,7 @@ AlgIntAB& AlgIntAB::Create(AlgInt &A, AlgInt &B, IntABArg &ab_arg) {
 }
 
 void AlgIntAB::Destroy(AlgIntAB &ab) {
-
   delete &ab;
-
 }
 
 CPS_END_NAMESPACE

@@ -4,7 +4,7 @@
 
   AlgSmear, AlgApeSmear, AlgKineticSmear and AlgHypSmear classes.
   
-  $Id: alg_smear.C,v 1.10 2012-08-15 03:45:46 chulwoo Exp $
+  $Id: alg_smear.C,v 1.10.4.1 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 #include <config.h>
@@ -113,6 +113,8 @@ inline Float * GsiteOffset(Float * p, const int *x, const int *g_dir_offset)
     x[3] * g_dir_offset[3];
 }
 
+extern int nGparityBoundariesCrossed(const int * x); //defined in link_buffer.C
+
 void PathOrdProdPlus(Matrix & mat, int* x, int* dirs, int n, 
     Float *gfield, const int *g_dir_offset)
 {
@@ -152,7 +154,7 @@ void PathOrdProdPlus(Matrix & mat, int* x, int* dirs, int n,
   Matrix *pmc  = &mc;
 
   //if dir_sign==1 the link is going backward so get its dagger
-  if(dir_sign) 
+  if(dir_sign)
     pma -> Dagger((IFloat*)p1);
   else 
     memcpy((IFloat*)pma, (IFloat*)p1, MatrixSize * sizeof(IFloat));
@@ -227,7 +229,8 @@ AlgSmear::AlgSmear( Lattice&   lat,
   orthog       (-1)
 {
   cname = "AlgSmear";
-  lat_back = new Matrix[GJP.VolNodeSites()*4];
+  long lat_sz = GJP.VolNodeSites()*4; if(GJP.Gparity()) lat_sz *= 2;
+  lat_back = new Matrix[lat_sz];
   if ( lat_back == 0x0 ) { ERR.Pointer(cname, cname,"lat_back"); }
 }
 
@@ -287,6 +290,7 @@ void AlgSmear::run()
   lattice.GaugeField(lat_back);
   lattice.ClearAllBufferedLink();
 
+  if(GJP.Gparity()) lattice.CopyConjMatrixField(lattice.GaugeField(),4);
 }
 
 /*!
@@ -486,6 +490,9 @@ void AlgApeSmear::run()
 void AlgApeSmear::smartrun()
 {
   const char fname[] = "smartrun";
+
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for G-parity");
+
 
   if(common_arg->filename != 0)
   {

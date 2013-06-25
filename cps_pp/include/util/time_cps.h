@@ -1,7 +1,7 @@
 /*!\file
   \brief Declaration of functions for timing and performance measurement.
 
-  $Id: time_cps.h,v 1.6.28.1 2012-11-15 18:17:08 ckelly Exp $
+  $Id: time_cps.h,v 1.6.28.2 2013-06-25 19:56:57 ckelly Exp $
 */
 
 #ifndef UTIL_TIME_H
@@ -61,6 +61,28 @@ class TimeStamp{
 
   static void start_func(const char* cls, const char *fnc);
   static void end_func(const char* cls, const char *fnc);
+};
+
+struct Elapsed{
+  int hours;
+  int mins;
+  Float secs;
+
+  Elapsed():hours(0),mins(0),secs(0){}
+  Elapsed(const Float &delta);
+};
+
+class Timer{
+ protected:
+  static Float dtime_begin;
+  static Float dtime_last;
+
+ public:
+  static void reset();
+  //Time since last reset
+  static Elapsed elapsed_time();
+  //Time since last call to this function
+  static Elapsed relative_time();
 };
 
 

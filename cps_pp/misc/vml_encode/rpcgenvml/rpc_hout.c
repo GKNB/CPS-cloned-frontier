@@ -32,7 +32,7 @@
  * From: @(#)rpc_hout.c 1.12 89/02/22 (C) 1987 SMI
  */
 char hout_rcsid[] =
-  "$Id: rpc_hout.c,v 1.3.358.1 2012-11-15 18:17:08 ckelly Exp $";
+  "$Id: rpc_hout.c,v 1.3.358.2 2013-06-25 19:56:57 ckelly Exp $";
 
 /*
  * rpc_hout.c, Header file outputter for the RPC protocol compiler
@@ -126,7 +126,7 @@ print_datadef (definition *def)
       pconstdef (def);
       break;
     }
-  if (def->def_kind != DEF_PROGRAM && def->def_kind != DEF_CONST)
+  if (def->def_kind != DEF_PROGRAM && def->def_kind != DEF_CONST && def->def_kind != DEF_INCLUDEPRAGMA)
     {
       storexdrfuncdecl(def->def_name,
  		       def->def_kind != DEF_TYPEDEF ||

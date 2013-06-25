@@ -585,6 +585,12 @@ vml_ActionRationalQuotientArg (VML *vmls, char *name,ActionRationalQuotientArg *
 	 if (!vml_array (vmls, "frm_mass", (char **)&objp->frm_mass.frm_mass_val, (u_int *) &objp->frm_mass.frm_mass_len, ~0,
 		sizeof (Float), (vmlproc_t) vml_Float))
 		 return FALSE;
+	 if (!vml_array (vmls, "bsn_mass_epsilon", (char **)&objp->bsn_mass_epsilon.bsn_mass_epsilon_val, (u_int *) &objp->bsn_mass_epsilon.bsn_mass_epsilon_len, ~0,
+		sizeof (Float), (vmlproc_t) vml_Float))
+		 return FALSE;
+	 if (!vml_array (vmls, "frm_mass_epsilon", (char **)&objp->frm_mass_epsilon.frm_mass_epsilon_val, (u_int *) &objp->frm_mass_epsilon.frm_mass_epsilon_len, ~0,
+		sizeof (Float), (vmlproc_t) vml_Float))
+		 return FALSE;
 	 if (!vml_array (vmls, "bosons", (char **)&objp->bosons.bosons_val, (u_int *) &objp->bosons.bosons_len, ~0,
 		sizeof (RationalDescr), (vmlproc_t) vml_RationalDescr))
 		 return FALSE;

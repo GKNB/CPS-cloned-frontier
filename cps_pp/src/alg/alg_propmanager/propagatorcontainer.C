@@ -162,11 +162,20 @@ void PropagatorContainer::calcProp(Lattice &latt){
   qpropw_arg.EndSrcColor = 3;
 
   //boundary conditions
-  if(generics->bc[0]!=GJP.Xbc() || generics->bc[1]!=GJP.Ybc() || generics->bc[2]!=GJP.Zbc()){
-    ERR.General(cname,fname,"Propagator %s: valence and sea spatial boundary conditions do not match\n",generics->tag);
+  BndCndType init_bc[4];
+  TwistedBcAttrArg *tbcarg;
+  for(int i=0;i<4;i++){
+    if(i<3 && generics->bc[i] != GJP.Bc(i) && !(generics->bc[i] == BND_CND_TWISTED || generics->bc[i] == BND_CND_GPARITY_TWISTED) )
+      ERR.General(cname,fname,"Propagator %s: valence and sea spatial boundary conditions do not match (partially-twisted BCs are allowed)\n",generics->tag);
+    if( GJP.Bc(i) != BND_CND_GPARITY && generics->bc[i] == BND_CND_GPARITY_TWISTED ) ERR.General(cname,fname,"Propagator %s: Cannot use twisted G-parity valence BCs in a non-Gparity direction");
+
+    if(generics->bc[i] == BND_CND_TWISTED || generics->bc[i] == BND_CND_GPARITY_TWISTED){
+      if(getAttr(tbcarg)) for(int j=0;j<3;j++) GJP.TwistAngle(j, tbcarg->theta[j]);
+      else for(int j=0;j<3;j++) GJP.TwistAngle(j,0.0); //default twist angle is zero
+    }
+    init_bc[i] = GJP.Bc(i);
+    GJP.Bc(i,generics->bc[i]);
   }
-  BndCndType init_tbc = GJP.Tbc();
-  GJP.Tbc(generics->bc[3]);
 
   //fill out qpropw_arg arguments
   GparityFlavorAttrArg *flav;
@@ -193,8 +202,9 @@ void PropagatorContainer::calcProp(Lattice &latt){
 
   PointSourceAttrArg *pt;
   WallSourceAttrArg *wl;
-  if(getAttr(pt) && getAttr(wl) )
-    ERR.General(cname,fname,"Propagator %s cannot have both WallSourceAttrArg and PointSourceAttrArg\n",generics->tag);
+  VolumeSourceAttrArg *vl;
+  if(getAttr(pt) && getAttr(wl) || getAttr(pt) && getAttr(vl) || getAttr(vl) && getAttr(wl) )
+    ERR.General(cname,fname,"Propagator %s: Must specify only one source type attribute\n",generics->tag);
 
   //NOTE: Momentum units are:
   //                         Periodic  2\pi/L
@@ -248,12 +258,27 @@ void PropagatorContainer::calcProp(Lattice &latt){
     if(getAttr(mom)){
       MomCosAttrArg *cos;
       if(getAttr(cos)){ //a cosine source
-	prop = new QPropWMomCosSrc(latt,&qpropw_arg,mom->p,&c_arg); //knows about correct G-parity units of momentum
+	prop = new QPropWMomCosSrc(latt,&qpropw_arg,mom->p,&c_arg); //knows about correct G-parity units of momentum (cf. ThreeMom::CalcLatMom)
       }else{ //a regular momentum source
 	prop = new QPropWMomSrc(latt,&qpropw_arg,mom->p,&c_arg); //knows about correct G-parity units of momentum
       }
     }else{
       prop = new QPropWWallSrc(latt,&qpropw_arg,&c_arg);
+    }
+  }else if(getAttr(vl)){
+    if(qpropw_arg.gauge_fix_src == 1 && latt.FixGaugeKind() == FIX_GAUGE_NONE)
+      ERR.General(cname,fname,"Gauge fixed volume source requested, but no gauge fixing has been performed\n");
+    
+    MomentumAttrArg *mom;
+    if(getAttr(mom)){
+      MomCosAttrArg *cos;
+      if(getAttr(cos)){
+	ERR.General(cname,fname,"No volume cosine source implemented");
+      }else{
+	prop = new QPropWVolMomSrc(latt,&qpropw_arg,mom->p,&c_arg);
+      }
+    }else{
+      prop = new QPropWVolSrc(latt,&qpropw_arg,&c_arg);
     }
   }else{
     ERR.General(cname,fname,"Propagator %s has no source type AttrArg\n",generics->tag);
@@ -264,7 +289,8 @@ void PropagatorContainer::calcProp(Lattice &latt){
   }
   
   //restore boundary conditions to original
-  GJP.Tbc(init_tbc);
+  for(int i=0;i<4;i++) GJP.Bc(i,init_bc[i]);
+  for(int j=0;j<3;j++) GJP.TwistAngle(j,0);
 }
 
 
@@ -296,6 +322,12 @@ bool PropagatorContainer::tagEquals(const char* what){
   if(strcmp(generics->tag,what)==0) return true;
   return false;
 }
+char const* PropagatorContainer::tag() const{
+  GenericPropAttrArg *generics;
+  if(!getAttr(generics)) ERR.General("PropagatorContainer","tag()","Propagator attribute list does not contain a GenericPropAttr\n");
+  return generics->tag;
+}
+
 
 void PropagatorContainer::deleteProp(){
   if(prop!=NULL){ delete prop; prop=NULL; }

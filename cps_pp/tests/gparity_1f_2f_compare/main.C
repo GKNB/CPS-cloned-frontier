@@ -374,6 +374,16 @@ int main(int argc,char *argv[])
   }
 
   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args.props.props_len);
+  if(gparity_X){
+    for(int i=0;i<prop_args.props.props_len;i++){
+      prop_args.props.props_val[i].generics.bc[0] = BND_CND_GPARITY;
+    }
+  }
+  if(gparity_Y){
+    for(int i=0;i<prop_args.props.props_len;i++){
+      prop_args.props.props_val[i].generics.bc[1] = BND_CND_GPARITY;
+    }
+  }
 
   PropManager::setup(prop_args);
 
@@ -532,7 +542,16 @@ int main(int argc,char *argv[])
     if(!UniqueID()) printf("Passed rand field comparison test\n");
   }
 #endif
-
+  if(gparity_X){
+    for(int i=0;i<prop_args.props.props_len;i++){
+      prop_args.props.props_val[i].generics.bc[0] = BND_CND_APRD;
+    }
+  }
+  if(gparity_Y){
+    for(int i=0;i<prop_args.props.props_len;i++){
+      prop_args.props.props_val[i].generics.bc[1] = BND_CND_APRD;
+    }
+  }
 
   PropManager::setup(prop_args);
 

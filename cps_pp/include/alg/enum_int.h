@@ -40,6 +40,7 @@ enum FclassType {
 	F_CLASS_WILSON_TM = 7,
 	F_CLASS_MDWF = 8,
 	F_CLASS_BFM = 9,
+	F_CLASS_BFM_TYPE2 = 10,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];
@@ -127,7 +128,9 @@ extern struct vml_enum_map DagType_map[];
 enum BndCndType {
 	BND_CND_PRD = 0,
 	BND_CND_APRD = 1,
-	BND_CND_GPARITY = 2,
+	BND_CND_TWISTED = 2,
+	BND_CND_GPARITY = 3,
+	BND_CND_GPARITY_TWISTED = 4,
 };
 typedef enum BndCndType BndCndType;
 extern struct vml_enum_map BndCndType_map[];

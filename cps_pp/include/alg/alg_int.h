@@ -384,6 +384,8 @@ public:
     virtual Float energy() = 0;
     virtual void evolve(Float dt, int steps) = 0;
 
+    Vector** getPhi(){ return phi; }
+
     void init();
 
 };
@@ -411,8 +413,8 @@ private:
     RemezArg *remez_arg_md;
     RemezArg *remez_arg_mc;
 
-protected:
-
+    //protected:
+public: //CK: temporarily public for testing
     //!< Has any evolution taken place?
     int evolved;
 
@@ -469,6 +471,8 @@ protected:
     //!< Used to store calculated eigenvalue bounds
 
     //!< Automatic generation of the rational approximation.
+    //Note masses are only used to bound the eigenvalues if RATIONAL_BOUNDS_AUTOMATIC is switched on
+    //hence no modification is required for twisted mass fermions
     void generateApprox(Float *mass, RemezArg **remez_arg_md, 
                         RemezArg **remez_arg_mc, RationalDescr *rat);
   
@@ -476,11 +480,20 @@ protected:
     void destroyApprox(RemezArg *remez_arg_md, RemezArg *remez_arg_mc);
   
     //!< Allocate and setup cg arguments
+    //CK: added for twisted mass fermions. For non-twisted mass fermions pass either NULL or a float array of size n_masses for the epsilon parameter
+    void generateCgArg(Float *mass,
+		       Float *epsilon,
+                       CgArg **** cg_arg_fg,
+                       CgArg **** cg_arg_md, 
+                       CgArg **** cg_arg_mc, const char *label, 
+                       RationalDescr *rat_des); 
+    //CK: passes epsilon=NULL to the above. Has a catch to prevent mistakenly using this function for twisted mass fermions 
     void generateCgArg(Float *mass,
                        CgArg **** cg_arg_fg,
                        CgArg **** cg_arg_md, 
                        CgArg **** cg_arg_mc, const char *label, 
                        RationalDescr *rat_des);
+
 
     //<! Free cg args
     void destroyCgArg(CgArg ***cg_arg_fg,
@@ -495,7 +508,8 @@ protected:
     //!< Free EigArg
     void destroyEigArg();
 
-    void checkApprox(Float *mass, RemezArg *remez_arg, EigenDescr eigen);
+    void checkApprox(Float *mass, Float *epsilon, RemezArg *remez_arg, EigenDescr eigen); //For non-twisted mass fermions pass either NULL or a float array of size n_masses for the epsilon parameter
+    void checkApprox(Float *mass, RemezArg *remez_arg, EigenDescr eigen); //passes epsilon=NULL to the above. Has a catch to prevent mistakenly using this function for twisted mass fermions
     //!< Check that the approximation is still valid
 
 public:
@@ -525,6 +539,7 @@ public:
     void checkSplit();
     //!< Check that all the partial fractions have been accounted for
   
+    const ActionRationalArg & getRationalArg() const{ return *rat_arg; }
 };
 
 /*!< 
@@ -731,10 +746,18 @@ private:
     int **fractionSplit;
     ActionRationalQuotientArg *rat_quo_arg;
 
-protected:
+
+    //protected:
+public:
+    //CK: temporarily public, for testing
 
     Float *bsn_mass;  //!< The boson mass parameter that appears in the quotient
     Float *frm_mass;  //!< The fermion mass parameter that appears in the quotient
+
+    //CK: ~~added for twisted mass Wilson fermions (for DSDR term with G-parity square-root)
+    Float* bsn_mass_epsilon; //!< The boson mass parameter that appears in the quotient
+    Float* frm_mass_epsilon; //!< The fermion mass parameter that appears in the quotient
+
     //!< This is where the rational parameters are stored
     RemezArg *frm_remez_arg_md;
     RemezArg *frm_remez_arg_mc;

@@ -664,10 +664,21 @@ void AlgActionRational::generateCgArg(Float *mass,
                                       CgArg ****cg_arg_fg,
                                       CgArg ****cg_arg_md, 
 				      CgArg ****cg_arg_mc, const char *label, 
+				      RationalDescr *rat){
+  const char *fname = "generateCgArg(F*,Cg****,Cg***,Cg***,char*,RationalDescr*)";
+  if(fermion == F_CLASS_WILSON_TM) ERR.General(cname,fname,"Must specify epsilon parameters for twisted mass fermions");
+  return generateCgArg(mass,NULL,cg_arg_fg,cg_arg_md,cg_arg_mc,label,rat);
+}
+
+void AlgActionRational::generateCgArg(Float *mass,
+				      Float *epsilon,
+                                      CgArg ****cg_arg_fg,
+                                      CgArg ****cg_arg_md, 
+				      CgArg ****cg_arg_mc, const char *label, 
 				      RationalDescr *rat)
 {
 
-  char *fname = "generateCgArg(F*,Cg****,Cg***,Cg***,char*,RationalDescr*)";
+  const char *fname = "generateCgArg(F*,F*,Cg****,Cg***,Cg***,char*,RationalDescr*)";
   char fg_label[100], fg_label_i[100], fg_label_ij[100];
   char md_label[100], md_label_i[100], md_label_ij[100];
   char mc_label[100], mc_label_i[100], mc_label_ij[100];
@@ -702,12 +713,18 @@ void AlgActionRational::generateCgArg(Float *mass,
       // normal MD step, except that the stopping condition is different.
       (*cg_arg_fg)[i][j] = (CgArg*)smalloc(sizeof(CgArg),fg_label_ij,fname,cname);
       (*cg_arg_fg)[i][j]->mass = mass[i];
+      //CK: added for twisted mass fermions
+      if(epsilon!=NULL) (*cg_arg_fg)[i][j]->epsilon = epsilon[i];
+
       (*cg_arg_fg)[i][j]->max_num_iter = max_num_iter[i];
       (*cg_arg_fg)[i][j]->stop_rsd = rat[i].stop_rsd_fg_mult *
 	rat[i].md_approx.stop_rsd.stop_rsd_val[j];
 
       (*cg_arg_md)[i][j] = (CgArg*)smalloc(sizeof(CgArg),md_label_ij,fname,cname);
       (*cg_arg_md)[i][j]->mass = mass[i];
+      //CK: added for twisted mass fermions
+      if(epsilon!=NULL) (*cg_arg_md)[i][j]->epsilon = epsilon[i];
+
       (*cg_arg_md)[i][j]->max_num_iter = max_num_iter[i];
       (*cg_arg_md)[i][j]->stop_rsd = 
 	rat[i].md_approx.stop_rsd.stop_rsd_val[j];
@@ -716,6 +733,9 @@ void AlgActionRational::generateCgArg(Float *mass,
     for (int j=0; j<rat[i].mc_approx.stop_rsd.stop_rsd_len; j++) {
       (*cg_arg_mc)[i][j] = (CgArg*)smalloc(sizeof(CgArg),mc_label_ij,fname,cname);
       (*cg_arg_mc)[i][j]->mass = mass[i];
+      //CK: added for twisted mass fermions
+      if(epsilon!=NULL) (*cg_arg_mc)[i][j]->epsilon = epsilon[i];
+
       (*cg_arg_mc)[i][j]->max_num_iter = max_num_iter[i];
       (*cg_arg_mc)[i][j]->stop_rsd = 
 	rat[i].mc_approx.stop_rsd.stop_rsd_val[j];
@@ -772,6 +792,12 @@ void AlgActionRational::generateEigArg(EigenDescr eigen) {
   eig_arg.Mass.Mass_len = n_masses;
   eig_arg.Mass.Mass_val = 
     (Float*) smalloc(n_masses*sizeof(Float),"Mass_val", fname, cname);
+
+  //CK: added for twisted mass fermions
+  eig_arg.Epsilon.Epsilon_len = n_masses;
+  eig_arg.Epsilon.Epsilon_val = 
+    (Float*) smalloc(n_masses*sizeof(Float),"Epsilon_val", fname, cname);
+
   eig_arg.N_eig = 1;
   eig_arg.Kalk_Sim = 0;
   eig_arg.MaxCG = eigen.max_num_iter;
@@ -812,7 +838,7 @@ void AlgActionRational::destroyEigArg() {
   sfree(lambda_high,"lambda_high",fname, cname);
   
   sfree(eig_arg.Mass.Mass_val, "Mass_val", fname, cname);
-
+  sfree(eig_arg.Epsilon.Epsilon_val, "Epsilon_val", fname, cname);
 }
 
 //!< Set mass i, pole j as being included (used when splitting time scales)
@@ -830,7 +856,7 @@ void AlgActionRational::setSplit(int i, int j) {
 
 //!< Check that all of the partial fractions have been accounted for
 void AlgActionRational::checkSplit() {
-  char *fname = "checkSplit()";
+  const char *fname = "checkSplit()";
   for (int i=0; i<n_masses; i++) {
     for (int j=0; j<remez_arg_md[i].degree; j++) {
       if (!splitCheck[i][j]) 
@@ -841,18 +867,30 @@ void AlgActionRational::checkSplit() {
 
 }
 
-
 //!< Check that the approximation bounds are still valid for the mc approx
 void AlgActionRational::checkApprox(Float *mass, RemezArg *remez_arg, 
+				    EigenDescr eigen){
+  const char *fname = "checkApprox()";
+  if(fermion == F_CLASS_WILSON_TM){
+    ERR.General(cname,fname,"Epsilon parameters must be specified for Wilson fermions");
+  }
+  return checkApprox(mass, NULL, remez_arg, eigen);
+}
+
+//Can use epsilon = NULL for non-twisted-mass fermions
+void AlgActionRational::checkApprox(Float *mass, Float *epsilon, RemezArg *remez_arg, 
 				    EigenDescr eigen) 
 {
 
-  char *fname = "checkApprox()";
+  const char *fname = "checkApprox()";
   
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
   
   //!< First setup the masses
-  for (int i=0; i<n_masses; i++) eig_arg.Mass.Mass_val[i] = mass[i];
+  for (int i=0; i<n_masses; i++){
+    eig_arg.Mass.Mass_val[i] = mass[i];
+    if(epsilon!=NULL) eig_arg.Epsilon.Epsilon_val[i] = epsilon[i];
+  }
 
   {
     //!< Measure the lowest eigenvalue

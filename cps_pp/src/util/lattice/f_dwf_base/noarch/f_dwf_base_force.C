@@ -3,7 +3,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FdwfBase class.
 
-  $Id: f_dwf_base_force.C,v 1.13.144.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: f_dwf_base_force.C,v 1.13.144.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
@@ -356,20 +356,21 @@ ForceArg FdwfBase::EvolveMomFforce(Matrix *mom, Vector *chi,
 #else
 	int pos[4];
 	for (mu=0; mu<4; mu++)
-        for (pos[3]=0; pos[3]<size[3]; pos[3]++)
-        for (pos[2]=0; pos[2]<size[2]; pos[2]++)
-        for (pos[1]=0; pos[1]<size[1]; pos[1]++)
-        for (pos[0]=0; pos[0]<size[0]; pos[0]++){
+	  for (pos[3]=0; pos[3]<size[3]; pos[3]++)
+	    for (pos[2]=0; pos[2]<size[2]; pos[2]++)
+	      for (pos[1]=0; pos[1]<size[1]; pos[1]++)
+		for (pos[0]=0; pos[0]<size[0]; pos[0]++){
 #endif
-	  int gauge_offset = mu + 4*(pos[0]+size[0]*(pos[1]+size[1]*(pos[2]+size[2]*pos[3])));
+		  int gauge_offset = mu + 4*(pos[0]+size[0]*(pos[1]+size[1]*(pos[2]+size[2]*pos[3])));
       
-	  //complex conjugate the \delta p from the other flavour
-	  Float *m = (Float*) &data_buf[gauge_offset];
-	  for(int c=1;c<18;c+=2) m[c] *= -1;
+		  //complex conjugate the \delta p from the other flavour
+		  Float *m = (Float*) &data_buf[gauge_offset];
+		  for(int c=1;c<18;c+=2) m[c] *= -1;
       
-	  //add it to the momentum at this site
-	  *(mom+gauge_offset) += data_buf[gauge_offset];
-	}
+		  //add it to the momentum at this site
+		  *(mom+gauge_offset) += data_buf[gauge_offset];
+		}
+        ffree(buf2);
       }
 
     
@@ -496,21 +497,11 @@ ForceArg FdwfBase::EvolveMomFforceGparity(Matrix *mom, Vector *chi,
 
     DiracOpDwf dwf(*this, v1, v2, &cg_arg, CNV_FRM_YES) ;
     dwf.CalcHmdForceVecs(chi) ;
-    //note: constructor of DiracOpDwf converts v1 and v2 back into canonical form
-
-    //v1 becomes (1+D)\chi and v2 becomes (D^\dagger-\kappa^2 M)\chi
-    // M is the odd-even preconditioned fermion matrix connecting odd to
-    // odd parity sites and \e D is the hopping term connecting odd to
-    // even parity sites. Recall that \a chi is defined on odd sites only.
-    // The new vectors are in odd-even order.
-
-      // f_out stores (chi,rho), f_in stores (psi,sigma)
-      // CK: rho = D_eo chi,  psi = -kappa^2(1-kappa^2 D_oe D_eo)chi  , sigma = D_eo^dag psi
-
-      //so M = (1-kappa^2 D_oe D_eo). Other part doesnt match, why? sigma should be (Dslash^dag chi) for this to make sense...
-
-      //D_eo and D_oe are the parts of the Dirac matrix that contain the gauge links
-
+    //Net result is:  (odd, even)
+    // f_in = ( -kappa^2 Mprec chi, -kappa^2 D_eo^dag Mprec chi )    f_out = ( chi, D_eo chi )
+    // kappa = 1/[2(5-M5)]
+    // These are converted into CANONICAL format when DiracOpDWF is destroyed
+    // here we have f_out = v1,   f_in = v2
   }
   VRB.Flow(cname, fname, "After calc force vecs.\n") ;
 #ifdef PROFILE
@@ -643,48 +634,14 @@ ForceArg FdwfBase::EvolveMomFforceGparity(Matrix *mom, Vector *chi,
                     (IFloat *)v2+vec_offset,
                     ls, vec_plus_mu_stride, 2*f_size_4d-f_site_size_4d) ;
 
-      // if(gauge_offset == 4){
-      // 	printf("f1 contrib a:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat1;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
       //tmp_mat2_{ij} = tr_s ( P_-^mu v2(x+mu)_i v1^\dagger(x)_j 
       sproj_tr[mu+4]( (IFloat *)&tmp_mat2,
                       (IFloat *)v2_plus_mu,
                       (IFloat *)v1+vec_offset,
                       ls, vec_plus_mu_stride, 2*f_size_4d-f_site_size_4d) ;
 
-      // if(gauge_offset == 4){
-      // 	printf("f1 contrib b:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat2;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
       tmp_mat1 += tmp_mat2 ;
       tmp_mat1 *= d_coeff; //moved from final stage
-
-      // if(gauge_offset == 4){
-      // 	printf("f1 contrib:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat1;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
 
       //for flavour 2 field we must flip the projection operator used for the force term
       //and swap the coordinates of the force vectors
@@ -695,52 +652,17 @@ ForceArg FdwfBase::EvolveMomFforceGparity(Matrix *mom, Vector *chi,
 		      (IFloat *)v2_plus_mu_CubarT,
 		      ls, 2*f_size_4d-f_site_size_4d, vec_plus_mu_stride) ;
 
-      // if(gauge_offset == 4){
-      // 	printf("f2 contrib a:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat2;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
       //tmp_mat3_{ij} = tr_s ( P_+^mu v2(x)_i v1^\dagger(x+mu)_j 
       sproj_tr[mu]( (IFloat *)&tmp_mat3,
 		    (IFloat *)v2+vec_offset+f_size_4d,
 		    (IFloat *)v1_plus_mu_CubarT,
 		    ls, 2*f_size_4d-f_site_size_4d, vec_plus_mu_stride) ;
       
-      // if(gauge_offset == 4){
-      // 	printf("f2 contrib b:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat3;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
-
       tmp_mat2 += tmp_mat3;
 
       tmp_mat3.Trans(tmp_mat2);//must transpose outer product on colour index
       tmp_mat3 *= CubarT_coeff;//different coefficient for the two flavours
       tmp_mat1 += tmp_mat3 ;
-
-      // if(gauge_offset == 4){
-      // 	printf("f2 contrib:\n");
-      // 	IFloat *m = (IFloat *)&tmp_mat3;
-      // 	for(int i=0;i<3;i++){
-      // 	  for(int j=0;j<3;j++){ 
-      // 	    printf("(%f,%f) ",*m,*(m+1)); m+=2;
-      // 	  }
-      // 	  printf("\n");
-      // 	}
-      // }
-
 
       // If GJP.Snodes > 1 sum up contributions from all s nodes
       if(GJP.Snodes() > 1) {
@@ -822,7 +744,7 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
   if (SpinComponents()!=4) { ERR.General(cname,fname,"Wrong nbr of spin comp.") ;}
   if (mom == 0)            { ERR.Pointer(cname,fname,"mom") ; }
   if (phi == 0)            { ERR.Pointer(cname,fname,"phi") ; }
-   
+  if(GJP.Gparity()) { ERR.General(cname,fname,"Not implemented for G-parity boundary conditions") ; }
   // allocate space for two CANONICAL fermion fields
 
   // these are all full fermion vector sizes ( i.e. *not* preconditioned )

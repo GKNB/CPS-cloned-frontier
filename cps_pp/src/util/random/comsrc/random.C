@@ -3,19 +3,19 @@ CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
 
-  $Id: random.C,v 1.34.6.1 2012-11-15 18:17:09 ckelly Exp $
+  $Id: random.C,v 1.34.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v 1.34.6.1 2012-11-15 18:17:09 ckelly Exp $
-//  $Id: random.C,v 1.34.6.1 2012-11-15 18:17:09 ckelly Exp $
+//  $Date: 2013-06-25 19:56:57 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v 1.34.6.2 2013-06-25 19:56:57 ckelly Exp $
+//  $Id: random.C,v 1.34.6.2 2013-06-25 19:56:57 ckelly Exp $
 //  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: random.C,v $
-//  $Revision: 1.34.6.1 $
+//  $Revision: 1.34.6.2 $
 //  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v $
 //  $State: Exp $
 //
@@ -361,7 +361,9 @@ void LatRanGen::Initialize()
   //for 4d RNGs, stack 2 4d lattice volumes on top of each other
   //for 5d RNGs, we have the same idea, only each block is a 2^5 hypercube. We still stack 2 on each s layer.
   if(GJP.Gparity()){ n_rgen*=2; n_rgen_4d*=2; }
-  int blocks_per_s_layer = n_rgen /( GJP.SnodeSites() / 2 );
+  int blocks_per_s_layer;
+  if(GJP.SnodeSites()>=2) blocks_per_s_layer = n_rgen /( GJP.SnodeSites() / 2 );
+  else blocks_per_s_layer = 1;
 
   int default_concur=0;
 #if TARGET==BGQ
