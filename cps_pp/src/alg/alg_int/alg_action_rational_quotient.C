@@ -250,7 +250,11 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 
 //!< Heat Bath for the pseudo-fermions (phi)
 void AlgActionRationalQuotient::heatbath() {
-  const char *fname = "heatbath()";
+  char fname[20+strlen(force_label)];
+  sprintf(fname, "heatbath() [%s]",force_label);
+    
+
+  //const char *fname = "heatbath()";
   Float dtime = -dclock();
 
   //!< Only evaluate heatbath if necessary
@@ -348,7 +352,9 @@ void AlgActionRationalQuotient::heatbath() {
 // Calculate rhmc fermion contribution to the Hamiltonian
 Float AlgActionRationalQuotient::energy() {
 
-  const char *fname="energy()";
+  //const char *fname="energy()";
+  char fname[20+strlen(force_label)];
+  sprintf(fname, "energy() [%s]",force_label);
 
   if (energyEval) {
     return 0.0;
@@ -421,7 +427,12 @@ Float AlgActionRationalQuotient::energy() {
 
 void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 {
-  const char * fname = "prepare_fg(M*,F)";
+  //const char * fname = "prepare_fg(M*,F)";
+
+  char fname[30+strlen(force_label)];
+  sprintf(fname, "prepare_fg(M*,F) [%s]",force_label);
+
+
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
@@ -580,9 +591,18 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   LatticeFactory::Destroy();
 
   dtime += dclock();
+
+  char fname_cg[30+strlen(force_label)];
+  sprintf(fname_cg,"prepare_fg::cg() [%s]",force_label);
+  char fname_force[30+strlen(force_label)];
+  sprintf(fname_force,"prepare_fg::force() [%s]",force_label);
+
   print_flops(cname, fname, 0, dtime);
-  print_flops(cname, "prepare_fg::cg()", 0, dtime_cg);
-  print_flops(cname, "prepare_fg::force()", 0, dtime_force);
+  print_flops(cname, fname_cg, 0, dtime_cg);
+  print_flops(cname, fname_force, 0, dtime_force);
+
+  //print_flops(cname, "prepare_fg::cg() [%s]", 0, dtime_cg);
+  //print_flops(cname, "prepare_fg::force() [%s]", 0, dtime_force);
 
   if(!UniqueID()){    
     Float pvals[4];
@@ -598,7 +618,9 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 //!< run method evolves the integrator
 void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
-  const char * fname = "evolve(Float, int)";
+  //const char * fname = "evolve(Float, int)";
+  char fname[30+strlen(force_label)];
+  sprintf(fname, "evolve(Float, int) [%s]",force_label);
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;
@@ -793,10 +815,15 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
     
   LatticeFactory::Destroy();
 
+  char fname_cg[30+strlen(force_label)];
+  sprintf(fname_cg,"evolve::cg() [%s]",force_label);
+  char fname_force[30+strlen(force_label)];
+  sprintf(fname_force,"evolve::force() [%s]",force_label);
+
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
-  print_flops(cname, "evolve::cg()", 0, dtime_cg);
-  print_flops(cname, "evolve::force()", 0, dtime_force);
+  print_flops(cname, fname_cg, 0, dtime_cg);
+  print_flops(cname, fname_force, 0, dtime_force);
 }
 
 bool AlgActionRationalQuotient::checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r)

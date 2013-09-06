@@ -269,7 +269,7 @@ void _ContractedBilinear_helper<SpinColorFlavorMatrix>::write(FILE *fp, const Rc
   std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
   std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
 
-  //format is gamma1 sigma1 gamma2 sigma2 bilidx p^2 px py pz t val.re val.im
+  //format is gamma1 sigma1 gamma2 sigma2 p^2 px py pz t val.re val.im
   Fprintf(fp, "%d %d %d %d %.16e %.16e %.16e %.16e %d %.16e %.16e\n",
 	  gamma_sigma1.first,gamma_sigma1.second,
 	  gamma_sigma2.first,gamma_sigma2.second,
@@ -278,7 +278,7 @@ void _ContractedBilinear_helper<SpinColorFlavorMatrix>::write(FILE *fp, const Rc
 
 
 void _ContractedBilinear_helper<WilsonMatrix>::write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t){
-  //format is gamma1 gamma2 bilidx p^2 px py pz t val.re val.im
+  //format is gamma1 gamma2 p^2 px py pz t val.re val.im
   Fprintf(fp, "%d %d %.16e %.16e %.16e %.16e %d %.16e %.16e\n",idx1,idx2,p2,mom[0],mom[1],mom[2],t,val.real(),val.imag());
 }
 
@@ -526,7 +526,7 @@ void _ContractedWallSinkBilinearSpecMomentum_helper<SpinColorFlavorMatrix>::writ
   std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
   std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
 
-  //format is gamma1 sigma1 gamma2 sigma2 bilidx p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
+  //format is gamma1 sigma1 gamma2 sigma2 p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
   Fprintf(fp, "%d %d %d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %d %.16e %.16e\n",
 	  gamma_sigma1.first,gamma_sigma1.second,
 	  gamma_sigma2.first,gamma_sigma2.second,
@@ -536,7 +536,7 @@ void _ContractedWallSinkBilinearSpecMomentum_helper<SpinColorFlavorMatrix>::writ
 
 void _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>::write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, 
 									 const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t){
-  //format is gamma1 gamma2 bilidx p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
+  //format is gamma1 gamma2 p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
   Fprintf(fp, "%d %d %.16e %.16e %.16e %.16e %.16e %.16e %.16e %d %.16e %.16e\n",idx1,idx2,p2,mom1[0],mom1[1],mom1[2],mom2[0],mom2[1],mom2[2],t,val.real(),val.imag());
 }
 

@@ -1,6 +1,3 @@
-//In this code we demonstrate the relationship 
-// \prop^(1-j,1-k) (y,z) = (-1)^|j-k| \gamma^5 C [ \prop^(j,k) (y,z) ]* C^\dagger \gamma^5
-
 #include<bitset>
 #include <config.h>
 #include <stdio.h>
@@ -53,6 +50,7 @@
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
 #include <alg/alg_gparitycontract.h>
+#include <alg/prop_dft.h>
 
 #include <util/spincolorflavormatrix.h>
 
@@ -97,11 +95,12 @@ bool test_equals(const SpinColorFlavorMatrix &a, const SpinColorFlavorMatrix &b,
   return true;
 }
 void print(const SpinColorFlavorMatrix &w){
-  for(int i=0;i<2;i++)
+  for(int i=0;i<2;i++){
     for(int j=0;j<2;j++){
-      printf("flavour indices %d %d\n",i,j);
-      print(w(i,j));
+      printf("Flav idx %d %d\n",i,j);
+      print(w(i,j));      
     }
+  }
 }
 
 void global_coord(const int &site, int *into_vec){
@@ -207,101 +206,6 @@ Float qdp_gcoeff(const int &gidx, const bool &transpose, const bool &conj){
   }
   return out;
 }
-
-void test_props(const JobPropagatorArgs &prop_args, Lattice &latt){
-  //assume 2 props, one point source at 0 on flavour 0 and one point source at 0 on flavour 1
-  PropagatorContainer &q_f0_pc = PropManager::getProp(prop_args.props.props_val[0].generics.tag);
-  PropagatorContainer &q_f1_pc = PropManager::getProp(prop_args.props.props_val[1].generics.tag);
-  
-  QPropW &q_f0_qpw = q_f0_pc.getProp(latt);
-  QPropW &q_f1_qpw = q_f1_pc.getProp(latt);
-  
-  int shift_x = GJP.XnodeCoor()*GJP.XnodeSites();
-  int shift_y = GJP.YnodeCoor()*GJP.YnodeSites();
-  int shift_z = GJP.ZnodeCoor()*GJP.ZnodeSites();
-  int shift_t = GJP.TnodeCoor()*GJP.TnodeSites();
-  //Local lattice dimensions:
-  int size_x = GJP.XnodeSites();
-  int size_y = GJP.YnodeSites();
-  int size_z = GJP.ZnodeSites();
-  int size_t = GJP.TnodeSites();
-  int size_xy = size_x*size_y;
-  int spatial_vol = (GJP.VolNodeSites()/GJP.TnodeSites()); // =size_x*size_y_size_z
-
-  for(int i=0;i<GJP.VolNodeSites();i++){
-    int pos[4];
-    pos[3] = i/spatial_vol + shift_t;
-    pos[2] = (i%spatial_vol)/size_xy + shift_z;
-    pos[1] = (i%size_xy)/size_x + shift_y;
-    pos[0] = i%size_x + shift_x;
-
-    printf("(%d,%d,%d,%d):\n",pos[0],pos[1],pos[2],pos[3]);
-
-    WilsonMatrix g_0_0 = q_f0_qpw.SiteMatrix(i,0);
-    WilsonMatrix g_1_0 = q_f0_qpw.SiteMatrix(i,1);
-    WilsonMatrix g_0_1 = q_f1_qpw.SiteMatrix(i,0);
-    WilsonMatrix g_1_1 = q_f1_qpw.SiteMatrix(i,1);
-
-    //note, due to CPS oddity, A.ccl(1) = C^-1 A,  A.ccl(-1) = C A
-    //                whereas, A.ccr(1) = A C,          A.ccr(-1) = A C^-1
-
-    // \prop^(1-j,1-k) (y,z) = (-1)^|j-k| \gamma^5 C [ \prop^(j,k) (y,z) ]* C^\dagger \gamma^5
-    {
-      printf("Testing 1,1 = f(0,0):");
-      WilsonMatrix f_0_0 = g_0_0;
-      f_0_0.cconj();
-      f_0_0.ccl(-1).gl(-5).ccr(-1).gr(-5);
-      bool result = test_equals(g_1_1,f_0_0,1e-08);
-      if(!result){
-	printf(" false\n");
-	print(g_1_1);
-	print(f_0_0);
-	exit(-1);
-      }else printf(" true\n");
-    }
-    {
-      printf("Testing 1,0 = f(0,1):");
-      WilsonMatrix f_0_1 = g_0_1;
-      f_0_1.cconj();
-      f_0_1.ccl(-1).gl(-5).ccr(-1).gr(-5)*=Complex(-1.0,0.0);
-      bool result = test_equals(g_1_0,f_0_1,1e-08);
-      if(!result){
-	printf(" false\n");
-	print(g_1_0);
-	print(f_0_1);
-	exit(-1);
-      }else printf(" true\n");
-    }
-    {
-      printf("Testing 0,1 = f(1,0):");
-      WilsonMatrix f_1_0 = g_1_0;
-      f_1_0.cconj();
-      f_1_0.ccl(-1).gl(-5).ccr(-1).gr(-5)*=Complex(-1.0,0.0);
-      bool result = test_equals(g_0_1,f_1_0,1e-08);
-      if(!result){
-	printf(" false\n");
-	print(g_0_1);
-	print(f_1_0);
-	exit(-1);
-      }else printf(" true\n");
-    }
-    {
-      printf("Testing 0,0 = f(1,1):");
-      WilsonMatrix f_1_1 = g_1_1;
-      f_1_1.cconj();
-      f_1_1.ccl(-1).gl(-5).ccr(-1).gr(-5);
-      bool result = test_equals(g_0_0,f_1_1,1e-08);
-      if(!result){
-	printf(" false\n");
-	print(g_0_0);
-	print(f_1_1);
-	exit(-1);
-      }else printf(" true\n");
-    }
-  }
-    
-}
-
 
 void calc_pi_minus(CorrelationFunction &corrfunc, const char *prop, Lattice &lattice, const int *desired_mom_x){
   int g1(15), g2(15);
@@ -606,6 +510,10 @@ void calc_etahat(CorrelationFunction &corrfunc, const char* prop_l, Lattice &lat
   corrfunc.sumLattice();
 }
 
+
+
+
+
 int main(int argc,char *argv[])
 {
   Start(&argc,&argv);
@@ -814,406 +722,105 @@ int main(int argc,char *argv[])
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
 
+  SpinColorFlavorMatrix one; _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unit_matrix(one);
+
+  bool fail(false);
+
+  printf("Doing gcoeff test\n");
+  //test gcoeff
+  fail = false;
+  for(int i=0;i<16;i++){
+    SpinColorFlavorMatrix mat(one); 
+    AlgGparityContract::qdp_gr(mat,i);  
+    
+    SpinColorFlavorMatrix mat_T(mat); 
+    mat_T.transpose();
+    mat_T *= AlgGparityContract::qdp_gcoeff(i,true,false);    //trans,conj
+
+    if(!test_equals(mat_T,mat,1e-12)){ printf("Gamma^T err %d:\n",i); print(mat); print(mat_T); fail=true; }
+
+    SpinColorFlavorMatrix mat_star(mat); 
+    mat_star.cconj();
+    mat_star *= AlgGparityContract::qdp_gcoeff(i,false,true); 
+    
+    if(!test_equals(mat_star,mat,1e-12)){ printf("Gamma^* err %d:\n",i); print(mat); print(mat_star); fail=true; }
+
+    SpinColorFlavorMatrix mat_dag(mat); 
+    mat_dag.hconj();
+    mat_dag *= AlgGparityContract::qdp_gcoeff(i,true,true); 
+    
+    if(!test_equals(mat_dag,mat,1e-12)){ printf("Gamma^dag err %d:\n",i); print(mat); print(mat_dag); fail=true; }
+  }
+  if(fail){
+    printf("gcoeff test fail\n");
+    exit(0);
+  }else{
+    printf("gcoeff test passed\n");
+  }
+
+  printf("Doing pauli_coeff test\n");
+  fail = false;
+  const static FlavorMatrixType fmap[4] = {sigma0, sigma1, sigma2, sigma3};   
+
+  for(int i=0;i<4;i++){
+    SpinColorFlavorMatrix mat(one); 
+    mat.pr(fmap[i]);
+    
+    SpinColorFlavorMatrix mat_T(mat); 
+    mat_T.transpose();
+    mat_T *= AlgGparityContract::pauli_coeff(i,true,false);    //trans,conj
+
+    if(!test_equals(mat_T,mat,1e-12)){ printf("Sigma^T err %d:\n",i); print(mat); print(mat_T); fail=true; }
+
+    SpinColorFlavorMatrix mat_star(mat); 
+    mat_star.cconj();
+    mat_star *= AlgGparityContract::pauli_coeff(i,false,true); 
+    
+    if(!test_equals(mat_star,mat,1e-12)){ printf("Sigma^* err %d:\n",i); print(mat); print(mat_star); fail=true; }
+
+    SpinColorFlavorMatrix mat_dag(mat); 
+    mat_dag.hconj();
+    mat_dag *= AlgGparityContract::pauli_coeff(i,true,true); 
+    
+    if(!test_equals(mat_dag,mat,1e-12)){ printf("Sigma^dag err %d:\n",i); print(mat); print(mat_dag); fail=true; }
+  }
+  if(fail){
+    printf("pauli_coeff test fail\n");
+    exit(0);
+  }else{
+    printf("pauli_coeff test passed\n");
+  }
+
+
+
+
+
+
 #define SETUP_ARRAY(OBJ,ARRAYNAME,TYPE,SIZE)	\
   OBJ . ARRAYNAME . ARRAYNAME##_len = SIZE; \
   OBJ . ARRAYNAME . ARRAYNAME##_val = new TYPE [SIZE]
 
 #define ELEM(OBJ,ARRAYNAME,IDX) OBJ . ARRAYNAME . ARRAYNAME##_val[IDX]
 
-  //test with a point source on both flavours
 
-  JobPropagatorArgs prop_args;
-  SETUP_ARRAY(prop_args,props,PropagatorArg,2);
-  
-  char* names[2] = {"prop_f0","prop_f1"};
-  
-  for(int i=0;i<2;i++){
-    PropagatorArg &parg = prop_args.props.props_val[i];
-    
-    parg.generics.tag = names[i];
-    parg.generics.mass = 0.1;
-    parg.generics.bc[0] = GJP.Xbc();
-    parg.generics.bc[1] = GJP.Ybc();
-
-    SETUP_ARRAY(parg,attributes,AttributeContainer,3);
-    
-    ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
-    PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
-    for(int j=0;j<4;j++) srcarg.pos[j] = 0;
-
-    ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
-    GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
-    gparg.flavor = i;
-
-    ELEM(parg,attributes,2).type = CG_ATTR;
-    CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
-    cgattr.max_num_iter = 5000;
-    cgattr.stop_rsd = 1e-08;
-    cgattr.true_rsd = 1e-08;
-  }
-  if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args.props.props_len);
-
-  PropManager::setup(prop_args);
-
-  PropagatorContainer &q_f0_pc = PropManager::getProp(prop_args.props.props_val[0].generics.tag);
-  PropagatorContainer &q_f1_pc = PropManager::getProp(prop_args.props.props_val[1].generics.tag);
-
-  QPropW & q_f1_qpw = q_f1_pc.getProp(lattice);
-  QPropW & q_f0_qpw = q_f0_pc.getProp(lattice);
-
-  for(int i=0;i<GJP.VolNodeSites();i++){
-    printf("Starting site %d\n",i);
-    SpinColorFlavorMatrix f(q_f0_pc,lattice,i);
-
-    //first test generation
-    
-    //test f[0][1]
-    WilsonMatrix &f01 = f(0,1);
-    WilsonMatrix &q_0_1 = q_f1_qpw.SiteMatrix(i,0);
-    
-    printf("Testing f[0][1]\n");
-    if(!test_equals(f01, q_0_1, 1e-08)){
-      printf("Comparison of f[0][1] and q_0_1 failed on site %d:\n",i);
-      print(f01);
-      print(q_0_1);
-      exit(-1);
-    }
-    printf("Passed\n");
-
-    //test f[1][1]
-    WilsonMatrix &f11 = f(1,1);
-    WilsonMatrix &q_1_1 = q_f1_qpw.SiteMatrix(i,1);
-    
-    printf("Testing f[1][1]\n");
-    if(!test_equals(f11, q_1_1, 1e-08)){
-      printf("Comparison of f[1][1] and q_1_1 failed on site %d:\n",i);
-      print(f11);
-      print(q_1_1);
-      exit(-1);
-    }
-    printf("Passed\n");
-
-    //prop reln test
-    {
-      SpinColorFlavorMatrix g(f);
-      g.cconj();
-      g.pl(sigma3).ccl(-1).gl(-5).pl(Fud) .pr(sigma3).ccr(-1).gr(-5).pr(Fud);
-      
-      printf("Testing prop relation\n");
-      if(!test_equals(g, f, 1e-08)){
-	printf("Prop relation test failed on site %d:\n",i);
-	print(g);
-	print(f);
-	exit(-1);
-      }
-      printf("Passed\n");
-    }
-
-    //prop transpose reln
-    if(i==0){ //assuming point source at 0!
-      SpinColorFlavorMatrix fT(f);
-      fT.transpose();
-      SpinColorFlavorMatrix g(f);
-      g.pl(Fud).ccl(-1).pl(sigma3) .pr(Fud).ccr(-1).pr(sigma3);
-      
-      printf("Testing prop transpose relation\n");
-      if(!test_equals(fT, g, 1e-08)){
-	printf("Prop relation test failed on site %d:\n",i);
-	print(fT);
-	print(g);
-	exit(-1);
-      }
-      printf("Passed\n");
-    }
-
-    {
-      //Compare first contraction of pi^+ propagator
-    
-      //{\rm tr}_{scf,0}\left\{\gamma^5 C F_\updownarrow F_1 \mathcal{G}^{[u/d] T}_{x,z} F_\updownarrow F_1 \gamma^5 C \mathcal{G}^{[u/d] }_{x,z}\right\}_{0}
-
-      //vs.
-
-      //{\rm tr}\gamma^5 C G^{(1,0)}_{x,z}\gamma^5 C G^{(0,1) T} 
-    
-      SpinColorFlavorMatrix c1(f);
-      c1.transpose();
-      c1.pl(F1).pl(Fud).ccl(-1).gl(-5) . pr(Fud).pr(F1).gr(-5).ccr(1);
-      c1 *= f;   
-      Rcomplex con1 = c1.Trace();
-
-      WilsonMatrix w1(q_f0_qpw.SiteMatrix(i,1));
-      w1.ccl(-1).gl(-5) . gr(-5).ccr(1);
-      WilsonMatrix w2(q_f1_qpw.SiteMatrix(i,0));
-      w2.transpose();
-      w1*=w2;
-      Rcomplex con2 = w1.Trace();
-
-
-      if( fabs(con1.real()-con2.real())>1e-08 || fabs(con1.imag()-con2.imag())>1e-08 ){
-	printf("pi^+ correlator test failed on site %d:\n",i);
-	printf("(%f,%f) : (%f,%f)\n",con1.real(),con1.imag(),con2.real(),con2.imag());
-	exit(-1);
-      }
-    }
-   
-    {
-      printf("Testing left and right projection\n");
-
-      //Test left and right projection operators
-      WilsonMatrix ww(q_f1_qpw.SiteMatrix(i,0));
-      WilsonMatrix _1d2(0.0);
-      for(int i=0;i<4;i++) for(int j=0;j<3;j++) _1d2(i,j,i,j) = Complex(1.0/2.0,0.0);
-
-      WilsonMatrix _g5d2(_1d2); _g5d2.gr(-5);
-      
-      WilsonMatrix PL = _1d2-_g5d2;
-      WilsonMatrix PR = _1d2+_g5d2;      
-
-      printf("PL:\n");
-      print(PL);
-      printf("PR:\n");
-      print(PR);
-
-      WilsonMatrix PLww = PL*ww;
-      WilsonMatrix PLww_f = ww; PLww_f.glPL();
-
-      bool stop(false);
-
-      if(!test_equals(PLww,PLww_f,1e-08)){
-	printf("PLww test failed\n");
-	print(PLww);
-	print(PLww_f);
-	stop=true;
-      }
-
-
-      WilsonMatrix wwPL = ww*PL;
-      WilsonMatrix wwPL_f = ww; wwPL_f.grPL();
-      if(!test_equals(wwPL,wwPL_f,1e-08)){
-	printf("wwPL test failed\n");
-	print(wwPL);
-	print(wwPL_f);
-	stop=true;
-      }
-
-
-      WilsonMatrix PRww = PR*ww;
-      WilsonMatrix PRww_f = ww; PRww_f.glPR();
-      if(!test_equals(PRww,PRww_f,1e-08)){
-	printf("PRww test failed\n");
-	print(PRww);
-	print(PRww_f);
-	stop=true;
-      }
-
-
-      WilsonMatrix wwPR = ww*PR;
-      WilsonMatrix wwPR_f = ww; wwPR_f.grPR();
-      if(!test_equals(wwPR,wwPR_f,1e-08)){
-	printf("wwPR test failed\n");
-	print(wwPR);
-	print(wwPR_f);
-	stop=true;
-      }
-      if(stop) exit(-1);
-
-
-      printf("Passed\n");
-	     
-    }
- 
-
-  }
-
-  {
-    printf("Doing threaded correlation function test\n");
-
-    //test threaded and unthreaded correlation function
-    CorrelationFunction corrfunc_unthreaded("unthreaded");
-    corrfunc_unthreaded.setNcontractions(1);
-
-    for(int x=0;x<GJP.VolNodeSites();x++){
-      int x_pos_vec[4];
-      global_coord(x,x_pos_vec);
-
-      WilsonMatrix A(q_f0_qpw.SiteMatrix(x,0));
-      A.hconj();
-      WilsonMatrix B(q_f0_qpw.SiteMatrix(x,0));
-    
-      Rcomplex result = Trace(A,B);
-      corrfunc_unthreaded(0,x_pos_vec[3]) += result;
-    }
-
-    omp_set_num_threads(2);
-    CorrelationFunction corrfunc_threaded("threaded",CorrelationFunction::THREADED);
-    corrfunc_threaded.setNcontractions(1);
-
-    printf("OMP num threads %d\n",omp_get_max_threads());
-  
-#pragma omp parallel for default(shared)
-    for(int x=0;x<GJP.VolNodeSites();x++){
-      printf("Thread %d, x %d start\n",omp_get_thread_num(),x); fflush(stdout);
-
-      int x_pos_vec[4];
-      global_coord(x,x_pos_vec);
-
-      WilsonMatrix A(q_f0_qpw.SiteMatrix(x,0));
-      A.hconj();
-      WilsonMatrix B(q_f0_qpw.SiteMatrix(x,0));
-    
-      Rcomplex result = Trace(A,B);
-      corrfunc_threaded(omp_get_thread_num(),0,x_pos_vec[3]) += result;
-      printf("Thread %d, x %d end\n",omp_get_thread_num(),x); fflush(stdout);
-    }
-    //write does sumlattice which also sums over threads
-    corrfunc_unthreaded.write("pooh1.dat");
-    corrfunc_threaded.write("pooh2.dat");
-
-    bool fail(false);
-    
-    for(int t=0;t<GJP.TnodeSites();t++){
-      if( fabs( corrfunc_unthreaded(0,t).real() - corrfunc_threaded(0,t).real() )>1e-08 ||
-	  fabs( corrfunc_unthreaded(0,t).imag() - corrfunc_threaded(0,t).imag() )>1e-08 ){
-	printf("Fail at t=%d: (%f,%f) -- (%f,%f)\n",t,
-	       corrfunc_unthreaded(0,t).real(),corrfunc_unthreaded(0,t).imag(),
-	       corrfunc_threaded(0,t).real(),corrfunc_threaded(0,t).imag());
-	fail = true;
-      }
-    }
-    if(fail){
-      printf("Failed\n");
-      exit(-1);
-    }
-
-    printf("Passed\n");
-  }
-
-
-  //test P+A and P-A props
-  {
-    printf("Starting P+-A test\n");
-    PropManager::clear();
-
-    JobPropagatorArgs prop_args2;
-    SETUP_ARRAY(prop_args2,props,PropagatorArg,4);
-  
-    char* names[4] = {"prop_P","prop_A","prop_F","prop_B"};
-    BndCndType bndcnd[2] = {BND_CND_PRD,BND_CND_APRD};
-
-    for(int i=0;i<2;i++){
-      PropagatorArg &parg = prop_args2.props.props_val[i];
-    
-      parg.generics.tag = names[i];
-      parg.generics.mass = 0.1;
-      parg.generics.bc[0] = GJP.Xbc();
-      parg.generics.bc[1] = GJP.Ybc();
-      parg.generics.bc[2] = GJP.Zbc();
-      parg.generics.bc[3] = bndcnd[i];
-
-      SETUP_ARRAY(parg,attributes,AttributeContainer,3);
-    
-      ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
-      PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
-      for(int j=0;j<4;j++) srcarg.pos[j] = 0;
-
-      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
-      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
-      gparg.flavor = 0;
-
-      ELEM(parg,attributes,2).type = CG_ATTR;
-      CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
-      cgattr.max_num_iter = 5000;
-      cgattr.stop_rsd = 1e-08;
-      cgattr.true_rsd = 1e-08;
-    }
-    PropCombination comb[2] = {A_PLUS_B,A_MINUS_B};
-
-    for(int i=2;i<4;i++){
-      PropagatorArg &parg = prop_args2.props.props_val[i];
-    
-      parg.generics.tag = names[i];
-      parg.generics.mass = 0.1;
-      parg.generics.bc[0] = GJP.Xbc();
-      parg.generics.bc[1] = GJP.Ybc();
-
-      SETUP_ARRAY(parg,attributes,AttributeContainer,1);
-
-      ELEM(parg,attributes,0).type = PROP_COMBINATION_ATTR;
-      PropCombinationAttrArg &carg = ELEM(parg,attributes,0).AttributeContainer_u.prop_combination_attr;
-      carg.prop_A = names[0];
-      carg.prop_B = names[1];
-      carg.combination = comb[i-2];
-    }
-
-    if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
-
-    PropManager::setup(prop_args2);
-    
-    PropagatorContainer &q_p = PropManager::getProp(names[0]);
-    PropagatorContainer &q_a = PropManager::getProp(names[1]);
-    PropagatorContainer &q_f = PropManager::getProp(names[2]);
-    PropagatorContainer &q_b = PropManager::getProp(names[3]);
-    
-    QPropW & q_p_qpw = q_p.getProp(lattice);
-    QPropW & q_a_qpw = q_a.getProp(lattice);
-    QPropW & q_f_qpw = q_f.getProp(lattice);
-    QPropW & q_b_qpw = q_b.getProp(lattice);
-
-    q_f.printAttribs();
-    q_b.printAttribs();
-
-    bool fail(false);
-
-    for(int x=0;x<GJP.VolNodeSites();x++){
-      int x_pos_vec[4];
-      global_coord(x,x_pos_vec);
-
-      WilsonMatrix P(q_p_qpw.SiteMatrix(x,0));
-      WilsonMatrix A(q_a_qpw.SiteMatrix(x,0));
-      
-      WilsonMatrix PpA = 0.5*(P+A);
-      WilsonMatrix PmA = 0.5*(P-A);
-
-      WilsonMatrix F(q_f_qpw.SiteMatrix(x,0));
-      WilsonMatrix B(q_b_qpw.SiteMatrix(x,0));
-
-      if(!test_equals(PpA,F,1e-08)){
-	printf("P+A fail at x=%d: ",x);
-	print(PpA);
-	print(F);
-	fail=true;
-      }
-      if(!test_equals(PmA,B,1e-08)){
-	printf("P-A fail at x=%d: ",x);
-	print(PmA);
-	print(B);
-	fail=true;
-      }
-    }
-    if(fail){
-      printf("P+-A test failed\n"); exit(-1);
-    }else printf("P+-A Test Passed\n");
-
-  }
-
-
-  {
-    //test pion correlation functions with cosine sources
+  if(0){
+    //test pion correlation functions with cosine sources is reproduced by new code using ContractionQuarkMomCombination
      printf("Starting pion correlation functions with cosine sources test\n");
     PropManager::clear();
 
     JobPropagatorArgs prop_args2;
     SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
   
-    char* names[2] = {"prop+","prop-"};
+    char* names[2] = {"prop","prop_H"};
     BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
-    int psign[2] = {1,-1};
+    int psign[2] = {1,1};
+    Float masses[2] = {0.1,0.5};
 
     for(int i=0;i<2;i++){
       PropagatorArg &parg = prop_args2.props.props_val[i];
     
       parg.generics.tag = names[i];
-      parg.generics.mass = 0.1;
+      parg.generics.mass = masses[i];
       parg.generics.bc[0] = GJP.Xbc();
       parg.generics.bc[1] = GJP.Ybc();
       parg.generics.bc[2] = GJP.Zbc();
@@ -1248,85 +855,171 @@ int main(int argc,char *argv[])
     PropManager::setup(prop_args2);   
     PropManager::calcProps(lattice);
 
-    {
-      printf("+ve momentum\n");
+    int desired_mom_x[3] = {0,0,0};
+    for(int i=0;i<3;i++) 
+      if(GJP.Bc(i)==BND_CND_GPARITY) desired_mom_x[i] = 2;
+      else desired_mom_x[i] = 0;
 
-      int desired_mom_x[3] = {0,0,0};
-      for(int i=0;i<3;i++) 
-	if(GJP.Bc(i)==BND_CND_GPARITY) desired_mom_x[i] = 2;
-	else desired_mom_x[i] = 0;
+    CorrelationFunction pi_plus("pi^+");
+    calc_pi_plus(pi_plus, names[0], lattice, desired_mom_x);
+    
+    const static Float Pi_const = 3.1415926535897932384626433832795;
+    std::vector<Float> momvec(3); 
+    for(int i=0;i<3;i++){
+      momvec[i] = desired_mom_x[i]* Pi_const/(2.0*GJP.Nodes(i)*GJP.NodeSites(i));
+    }
+    
+    ContractedBilinear<SpinColorFlavorMatrix> conbil;
+    conbil.add_momentum(momvec);
 
-      CorrelationFunction pi_minus("pi^-");
-      CorrelationFunction pi_plus("pi^+");
+    TimeStamp::set_file("timestamp.log");
 
-      calc_pi_minus(pi_minus, names[0], lattice, desired_mom_x);
-      calc_pi_plus(pi_plus, names[0], lattice, desired_mom_x);
+    TimeStamp::stamp("Starting version 0");
+    std::vector<Rcomplex> result_1_sigma3 = conbil.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop",PropDFT::Dagger,
+							       0,0,0,3);
+    std::vector<Rcomplex> result_sigma3_sigma3 = conbil.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop",PropDFT::Dagger,
+								    0,3,0,3);
+    TimeStamp::stamp("End of version 0");
 
-      if(!UniqueID()){
-	for(int c=0;c<2;c++){
-	  printf("Contraction %d\n",c);
-	  for(int t=0;t<GJP.TnodeSites();t++){
 
-	    Rcomplex &pm = pi_minus(c,t);
-	    Rcomplex &pp = pi_plus(c,t);
+    conbil.clear();
+    conbil.add_momentum(momvec);
 
-	    printf("pi+:pi-  (%f,%f) : (%f,%f)\n",pp.real(),pp.imag(),pm.real(),pm.imag());
+    TimeStamp::stamp("Starting version 1");
+    std::vector<Rcomplex> resultv2_1_sigma3 = conbil.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop",PropDFT::Dagger,
+								 0,0,0,3,1);
+    std::vector<Rcomplex> resultv2_sigma3_sigma3 = conbil.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop",PropDFT::Dagger,
+								      0,3,0,3,1);
+    TimeStamp::stamp("End of version 1");
+
+    TimeStamp::close_file();
+
+    for(int t=0;t<GJP.TnodeSites();t++){
+      Rcomplex pp = pi_plus(0,t) + pi_plus(1,t);
+      Rcomplex pp2 = 0.5*result_1_sigma3[t] - 0.5*result_sigma3_sigma3[t];
+      Rcomplex pp3 = 0.5*resultv2_1_sigma3[t] - 0.5*resultv2_sigma3_sigma3[t];
+      printf("pi+:  orig (%f,%f) : v1 (%f,%f)  v2 (%f,%f)\n",pp.real(),pp.imag(),pp2.real(),pp2.imag(),pp3.real(),pp3.imag());      
+    }
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GlGh;
+    conbil_GlGh.add_momentum(momvec);
+    conbil_GlGh.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None);
+    
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GhdagGldag;
+    conbil_GhdagGldag.add_momentum(momvec);
+    conbil_GhdagGldag.calculateBilinears(lattice,momvec,"prop_H",PropDFT::Dagger,"prop",PropDFT::Dagger);  
+
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GldagGhdag;
+    conbil_GldagGhdag.add_momentum(momvec);
+    conbil_GldagGhdag.calculateBilinears(lattice,momvec,"prop",PropDFT::Dagger,"prop_H",PropDFT::Dagger);  
+
+
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GltransGh;
+    conbil_GltransGh.add_momentum(momvec);
+    conbil_GltransGh.calculateBilinears(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None);
+    
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GlGhtrans;
+    conbil_GlGhtrans.add_momentum(momvec);
+    conbil_GlGhtrans.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::Transpose);
+
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GhtransGl;
+    conbil_GhtransGl.add_momentum(momvec);
+    conbil_GhtransGl.calculateBilinears(lattice,momvec,"prop_H",PropDFT::Transpose,"prop",PropDFT::None);
+
+    ContractedBilinear<SpinColorFlavorMatrix> conbil_GlstarGhstar;
+    conbil_GlstarGhstar.add_momentum(momvec);
+    conbil_GlstarGhstar.calculateBilinears(lattice,momvec,"prop",PropDFT::Conj,"prop_H",PropDFT::Conj);  
+
+
+
+    //test trace identities that allow us to skip the calculation of certain combinations
+    fail = false;
+    for(int s1=0;s1<16;s1++){
+      for(int f1=0;f1<4;f1++){
+	for(int s2=0;s2<16;s2++){
+	  for(int f2=0;f2<4;f2++){
+	    //calculate tr(A Gl B Gh) by various means
+	    std::vector<Rcomplex> GlGh = conbil_GlGh.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None,
+								 s1,f1,s2,f2);
+	    std::vector<Rcomplex> from_GhdagGldag = conbil_GhdagGldag.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None,
+										  s1,f1,s2,f2);
+	    std::vector<Rcomplex> from_GldagGhdag = conbil_GldagGhdag.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None,
+										  s1,f1,s2,f2);
+	    std::vector<Rcomplex> from_GlstarGhstar = conbil_GlstarGhstar.getBilinear(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None,
+										      s1,f1,s2,f2);
+
+	    std::vector<Rcomplex> GltransGh = conbil_GltransGh.getBilinear(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None,
+									   s1,f1,s2,f2);
+	    std::vector<Rcomplex> from_GlGhtrans = conbil_GlGhtrans.getBilinear(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None,
+										s1,f1,s2,f2);
+
+	    std::vector<Rcomplex> from_GhtransGl = conbil_GhtransGl.getBilinear(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None,
+										s1,f1,s2,f2);
+
+	    for(int t=0;t<GJP.TnodeSites();t++){
+	      if( fabs( from_GhdagGldag[t].real()-GlGh[t].real() ) > 1e-12 || fabs( from_GhdagGldag[t].imag()-GlGh[t].imag() ) > 1e-12){
+		printf("Gl Gh from  Gh^dag Gl^dag err %d %d %d %d: %d  -- (%f,%f) (%f,%f)\n",s1,f1,s2,f2,t,GlGh[t].real(),GlGh[t].imag(),
+		       from_GhdagGldag[t].real(), from_GhdagGldag[t].imag());
+		fail = true;
+	      }
+	      if( fabs( from_GldagGhdag[t].real()-GlGh[t].real() ) > 1e-12 || fabs( from_GldagGhdag[t].imag()-GlGh[t].imag() ) > 1e-12){
+		printf("Gl Gh from  Gl^dag Gh^dag err %d %d %d %d: %d  -- (%f,%f) (%f,%f)\n",s1,f1,s2,f2,t,GlGh[t].real(),GlGh[t].imag(),
+		       from_GldagGhdag[t].real(), from_GldagGhdag[t].imag());
+		fail = true;
+	      }
+	      if( fabs( from_GlstarGhstar[t].real()-GlGh[t].real() ) > 1e-12 || fabs( from_GlstarGhstar[t].imag()-GlGh[t].imag() ) > 1e-12){
+		printf("Gl Gh from  Gl^dag Gh^dag err %d %d %d %d: %d  -- (%f,%f) (%f,%f)\n",s1,f1,s2,f2,t,GlGh[t].real(),GlGh[t].imag(),
+		       from_GlstarGhstar[t].real(), from_GlstarGhstar[t].imag());
+		fail = true;
+	      }
+	      if( fabs( from_GlGhtrans[t].real()-GltransGh[t].real() ) > 1e-12 || fabs( from_GlGhtrans[t].imag()-GltransGh[t].imag() ) > 1e-12){
+		printf("Gl^T Gh from  Gl Gh^T err %d %d %d %d: %d  -- (%f,%f) (%f,%f)\n",s1,f1,s2,f2,t,GltransGh[t].real(),GltransGh[t].imag(),
+		       from_GlGhtrans[t].real(), from_GlGhtrans[t].imag());
+		fail = true;
+	      }	      
+	      if( fabs( from_GhtransGl[t].real()-GltransGh[t].real() ) > 1e-12 || fabs( from_GhtransGl[t].imag()-GltransGh[t].imag() ) > 1e-12){
+		printf("Gl^T Gh from  Gh^T Gl err %d %d %d %d: %d  -- (%f,%f) (%f,%f)\n",s1,f1,s2,f2,t,GltransGh[t].real(),GltransGh[t].imag(),
+		       from_GhtransGl[t].real(), from_GhtransGl[t].imag());
+		fail = true;
+	      }
+	    }
 	  }
 	}
       }
     }
-    {
-      printf("-ve momentum\n");
-
-      int desired_mom_x[3] = {0,0,0};
-      for(int i=0;i<3;i++) 
-	if(GJP.Bc(i)==BND_CND_GPARITY) desired_mom_x[i] = -2;
-	else desired_mom_x[i] = 0;
-
-      CorrelationFunction pi_minus("pi^-");
-      CorrelationFunction pi_plus("pi^+");
-
-      calc_pi_minus(pi_minus, names[0], lattice, desired_mom_x);
-      calc_pi_plus(pi_plus, names[0], lattice, desired_mom_x);
-
-      if(!UniqueID()){
-	for(int c=0;c<2;c++){
-	  printf("Contraction %d\n",c);
-	  for(int t=0;t<GJP.TnodeSites();t++){
-
-	    Rcomplex &pm = pi_minus(c,t);
-	    Rcomplex &pp = pi_plus(c,t);
-
-	    printf("pi+:pi-  (%f,%f) : (%f,%f)\n",pp.real(),pp.imag(),pm.real(),pm.imag());
-	  }
-	}
-      }
+    if(fail){
+      printf("bilinear test fail\n");
+      exit(0);
+    }else{
+      printf("bilinear test passed\n");
     }
 
   }
 
+
+
   {
-    //test pion correlation functions with zero-momentum wall sources
-    printf("Starting pion correlation functions with zero-momentum wall sources test\n");
+    //test PropagatorBilinear
     PropManager::clear();
 
     JobPropagatorArgs prop_args2;
-    SETUP_ARRAY(prop_args2,props,PropagatorArg,1);
+    SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
   
-    char* names[1] = {"prop"};
-    BndCndType bndcnd[1] = {BND_CND_APRD};
+    char* names[2] = {"prop","prop_H"};
+    BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
+    int psign[2] = {1,1};
+    Float masses[2] = {0.1,0.5};
 
-    for(int i=0;i<1;i++){
+    for(int i=0;i<2;i++){
       PropagatorArg &parg = prop_args2.props.props_val[i];
     
       parg.generics.tag = names[i];
-      parg.generics.mass = 0.1;
+      parg.generics.mass = masses[i];
       parg.generics.bc[0] = GJP.Xbc();
       parg.generics.bc[1] = GJP.Ybc();
       parg.generics.bc[2] = GJP.Zbc();
       parg.generics.bc[3] = bndcnd[i];
 
-      SETUP_ARRAY(parg,attributes,AttributeContainer,3);
+      SETUP_ARRAY(parg,attributes,AttributeContainer,5);
     
       ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
       WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
@@ -1341,295 +1034,400 @@ int main(int argc,char *argv[])
       cgattr.max_num_iter = 5000;
       cgattr.stop_rsd = 1e-08;
       cgattr.true_rsd = 1e-08;
+
+      ELEM(parg,attributes,3).type = MOMENTUM_ATTR;
+      MomentumAttrArg & momarg = ELEM(parg,attributes,3).AttributeContainer_u.momentum_attr;
+      for(int ii=0;ii<3;ii++) 
+	if(GJP.Bc(ii)==BND_CND_GPARITY) momarg.p[ii] = 1; //units of pi/2L
+	else momarg.p[ii] = 0;
+
+      ELEM(parg,attributes,4).type = MOM_COS_ATTR;
     }
     if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
 
     PropManager::setup(prop_args2);   
     PropManager::calcProps(lattice);
 
-    {
-      printf("0 momentum\n");
-
-      int desired_mom_x[3] = {0,0,0};
-
-      CorrelationFunction pi_minus("pi^-");
-      CorrelationFunction pi_plus("pi^+");
-
-      calc_pi_minus(pi_minus, names[0], lattice, desired_mom_x);
-      calc_pi_plus(pi_plus, names[0], lattice, desired_mom_x);
-
-      if(!UniqueID()){
-	for(int c=0;c<2;c++){
-	  printf("Contraction %d\n",c);
-	  for(int t=0;t<GJP.TnodeSites();t++){
-
-	    Rcomplex &pm = pi_minus(c,t);
-	    Rcomplex &pp = pi_plus(c,t);
-
-	    printf("pi+:pi-  (%f,%f) : (%f,%f)\n",pp.real(),pp.imag(),pm.real(),pm.imag());
-	  }
-	}
-      }
-    }
-  }
-
-  {
-    //test real and imaginary parts of K^0 propagator
-    printf("Starting test real and imaginary parts of K^0 and \hat eta propagator with point source\n");
-    PropManager::clear();
-
-    JobPropagatorArgs prop_args2;
-    SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
-  
-    char* names[2] = {"prop_h","prop_l"};
-    BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
-    double mass[2] = {0.4,0.1};
-
-    for(int i=0;i<2;i++){
-      PropagatorArg &parg = prop_args2.props.props_val[i];
+    printf("Propagators calculated\n");
     
-      parg.generics.tag = names[i];
-      parg.generics.mass = mass[i];
-      parg.generics.bc[0] = GJP.Xbc();
-      parg.generics.bc[1] = GJP.Ybc();
-      parg.generics.bc[2] = GJP.Zbc();
-      parg.generics.bc[3] = bndcnd[i];
+    int desired_mom_x[3] = {0,0,0};
+    for(int i=0;i<3;i++) 
+      if(GJP.Bc(i)==BND_CND_GPARITY) desired_mom_x[i] = 2;
+      else desired_mom_x[i] = 0;
 
-      SETUP_ARRAY(parg,attributes,AttributeContainer,3);
+    const static Float Pi_const = 3.1415926535897932384626433832795;
+    std::vector<Float> momvec(3); 
+    for(int i=0;i<3;i++){
+      momvec[i] = desired_mom_x[i]* Pi_const/(2.0*GJP.Nodes(i)*GJP.NodeSites(i));
+    }
     
-      ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
-      PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
-      srcarg.pos[0] = 0;
-      srcarg.pos[1] = 0;
-      srcarg.pos[2] = 0;
-      srcarg.pos[3] = 0;
+    PropagatorBilinear<SpinColorFlavorMatrix> pb;
+    
+    for(int Gamma=0;Gamma<16;Gamma++){
+      for(int Sigma=0;Sigma<4;Sigma++){
+	printf("Gamma = %d Sigma = %d\n",Gamma,Sigma);
 
-      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
-      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
-      gparg.flavor = 0;
-
-      ELEM(parg,attributes,2).type = CG_ATTR;
-      CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
-      cgattr.max_num_iter = 5000;
-      cgattr.stop_rsd = 1e-08;
-      cgattr.true_rsd = 1e-08;
-    }
-    if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
-
-    PropManager::setup(prop_args2);   
-    PropManager::calcProps(lattice);
-
-    {
-      printf("0 momentum\n");
-
-      int desired_mom_x[3] = {0,0,0};
-      CorrelationFunction kzero("K^0");
-      calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
-
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = kzero(0,t);
-	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-      }
-
-      CorrelationFunction etahat("\\hat eta");
-      Rcomplex etahat_txdep[GJP.TnodeSites()*GJP.XnodeSites()];
-      calc_etahat(etahat,names[1],lattice,desired_mom_x, &(etahat_txdep[0]));
-
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = etahat(0,t);
-	  printf("\\hat eta[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-	printf("X dep:\n");
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  printf("t=%d\n",t);
-	  for(int x=0;x<GJP.XnodeSites();x++){
-	    Rcomplex &pp = etahat_txdep[t+GJP.TnodeSites()*x];
-	    printf("\\hat eta[x=%d] (%f,%f)\n",x,pp.real(),pp.imag());
-	  }
-	}
-
-      }
-    }
-
-    {
-      printf("\\sqrt{n}\pi/L momentum\n");
-
-      int desired_mom_x[3] = {0,0,0};
-      if(GJP.Xbc()==BND_CND_GPARITY) desired_mom_x[0] = 2; //units of pi/2L
-      if(GJP.Ybc()==BND_CND_GPARITY) desired_mom_x[1] = 2;
-
-      CorrelationFunction kzero("K^0");
-      calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
-
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = kzero(0,t);
-	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-      }
-
-      Rcomplex etahat_txdep[GJP.TnodeSites()*GJP.XnodeSites()];
-      CorrelationFunction etahat("\\hat eta");
-      calc_etahat(etahat,names[1],lattice,desired_mom_x,etahat_txdep);
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = etahat(0,t);
-	  printf("\\hat eta[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-	printf("X dep:\n");
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  printf("t=%d\n",t);
-	  for(int x=0;x<GJP.XnodeSites();x++){
-	    Rcomplex &pp = etahat_txdep[t+GJP.TnodeSites()*x];
-	    printf("\\hat eta[x=%d] (%f,%f)\n",x,pp.real(),pp.imag());
-	  }
-	}
+	pb.clear();
+	pb.add_momentum(momvec);
+	printf("Calculating GlGh\n"); fflush(stdout);
+	const std::vector<SpinColorFlavorMatrix> & GlGh = pb.getBilinear(lattice,momvec,
+									 "prop",PropDFT::None,
+									 "prop_H",PropDFT::None,
+									 Gamma,Sigma);
 	
+	pb.clear();
+	pb.add_momentum(momvec);
+	printf("Calculating GltrGhtr\n"); fflush(stdout);
+	const std::vector<SpinColorFlavorMatrix> & GhtrGltr = pb.getBilinear(lattice,momvec,
+									 "prop_H",PropDFT::Transpose,
+									 "prop",PropDFT::Transpose,
+									 Gamma,Sigma);
+	printf("Attempting to calculated GlGh from GhtrGltr using existing result\n");
+	const std::vector<SpinColorFlavorMatrix> & GlGh_fromGhtrGltr = pb.getBilinear(lattice,momvec,
+										      "prop",PropDFT::None,
+										      "prop_H",PropDFT::None,
+										      Gamma,Sigma);
+
       }
     }
+
+
+
+
+  }
+
+
+
+
+
+
+
+
+  // {
+  //   //test pion correlation functions with zero-momentum wall sources
+  //   printf("Starting pion correlation functions with zero-momentum wall sources test\n");
+  //   PropManager::clear();
+
+  //   JobPropagatorArgs prop_args2;
+  //   SETUP_ARRAY(prop_args2,props,PropagatorArg,1);
+  
+  //   char* names[1] = {"prop"};
+  //   BndCndType bndcnd[1] = {BND_CND_APRD};
+
+  //   for(int i=0;i<1;i++){
+  //     PropagatorArg &parg = prop_args2.props.props_val[i];
+    
+  //     parg.generics.tag = names[i];
+  //     parg.generics.mass = 0.1;
+  //     parg.generics.bc[0] = GJP.Xbc();
+  //     parg.generics.bc[1] = GJP.Ybc();
+  //     parg.generics.bc[2] = GJP.Zbc();
+  //     parg.generics.bc[3] = bndcnd[i];
+
+  //     SETUP_ARRAY(parg,attributes,AttributeContainer,3);
+    
+  //     ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+  //     WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+  //     srcarg.t = 0;
+
+  //     ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+  //     GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+  //     gparg.flavor = 0;
+
+  //     ELEM(parg,attributes,2).type = CG_ATTR;
+  //     CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
+  //     cgattr.max_num_iter = 5000;
+  //     cgattr.stop_rsd = 1e-08;
+  //     cgattr.true_rsd = 1e-08;
+  //   }
+  //   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
+
+  //   PropManager::setup(prop_args2);   
+  //   PropManager::calcProps(lattice);
+
+  //   {
+  //     printf("0 momentum\n");
+
+  //     int desired_mom_x[3] = {0,0,0};
+
+  //     CorrelationFunction pi_minus("pi^-");
+  //     CorrelationFunction pi_plus("pi^+");
+
+  //     calc_pi_minus(pi_minus, names[0], lattice, desired_mom_x);
+  //     calc_pi_plus(pi_plus, names[0], lattice, desired_mom_x);
+
+  //     if(!UniqueID()){
+  // 	for(int c=0;c<2;c++){
+  // 	  printf("Contraction %d\n",c);
+  // 	  for(int t=0;t<GJP.TnodeSites();t++){
+
+  // 	    Rcomplex &pm = pi_minus(c,t);
+  // 	    Rcomplex &pp = pi_plus(c,t);
+
+  // 	    printf("pi+:pi-  (%f,%f) : (%f,%f)\n",pp.real(),pp.imag(),pm.real(),pm.imag());
+  // 	  }
+  // 	}
+  //     }
+  //   }
+  // }
+
+  // {
+  //   //test real and imaginary parts of K^0 propagator
+  //   printf("Starting test real and imaginary parts of K^0 and \hat eta propagator with point source\n");
+  //   PropManager::clear();
+
+  //   JobPropagatorArgs prop_args2;
+  //   SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
+  
+  //   char* names[2] = {"prop_h","prop_l"};
+  //   BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
+  //   double mass[2] = {0.4,0.1};
+
+  //   for(int i=0;i<2;i++){
+  //     PropagatorArg &parg = prop_args2.props.props_val[i];
+    
+  //     parg.generics.tag = names[i];
+  //     parg.generics.mass = mass[i];
+  //     parg.generics.bc[0] = GJP.Xbc();
+  //     parg.generics.bc[1] = GJP.Ybc();
+  //     parg.generics.bc[2] = GJP.Zbc();
+  //     parg.generics.bc[3] = bndcnd[i];
+
+  //     SETUP_ARRAY(parg,attributes,AttributeContainer,3);
+    
+  //     ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
+  //     PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
+  //     srcarg.pos[0] = 0;
+  //     srcarg.pos[1] = 0;
+  //     srcarg.pos[2] = 0;
+  //     srcarg.pos[3] = 0;
+
+  //     ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+  //     GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+  //     gparg.flavor = 0;
+
+  //     ELEM(parg,attributes,2).type = CG_ATTR;
+  //     CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
+  //     cgattr.max_num_iter = 5000;
+  //     cgattr.stop_rsd = 1e-08;
+  //     cgattr.true_rsd = 1e-08;
+  //   }
+  //   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
+
+  //   PropManager::setup(prop_args2);   
+  //   PropManager::calcProps(lattice);
+
+  //   {
+  //     printf("0 momentum\n");
+
+  //     int desired_mom_x[3] = {0,0,0};
+  //     CorrelationFunction kzero("K^0");
+  //     calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
+
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = kzero(0,t);
+  // 	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  //     }
+
+  //     CorrelationFunction etahat("\\hat eta");
+  //     Rcomplex etahat_txdep[GJP.TnodeSites()*GJP.XnodeSites()];
+  //     calc_etahat(etahat,names[1],lattice,desired_mom_x, &(etahat_txdep[0]));
+
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = etahat(0,t);
+  // 	  printf("\\hat eta[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  // 	printf("X dep:\n");
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  printf("t=%d\n",t);
+  // 	  for(int x=0;x<GJP.XnodeSites();x++){
+  // 	    Rcomplex &pp = etahat_txdep[t+GJP.TnodeSites()*x];
+  // 	    printf("\\hat eta[x=%d] (%f,%f)\n",x,pp.real(),pp.imag());
+  // 	  }
+  // 	}
+
+  //     }
+  //   }
+
+  //   {
+  //     printf("\\sqrt{n}\pi/L momentum\n");
+
+  //     int desired_mom_x[3] = {0,0,0};
+  //     if(GJP.Xbc()==BND_CND_GPARITY) desired_mom_x[0] = 2; //units of pi/2L
+  //     if(GJP.Ybc()==BND_CND_GPARITY) desired_mom_x[1] = 2;
+
+  //     CorrelationFunction kzero("K^0");
+  //     calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
+
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = kzero(0,t);
+  // 	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  //     }
+
+  //     Rcomplex etahat_txdep[GJP.TnodeSites()*GJP.XnodeSites()];
+  //     CorrelationFunction etahat("\\hat eta");
+  //     calc_etahat(etahat,names[1],lattice,desired_mom_x,etahat_txdep);
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = etahat(0,t);
+  // 	  printf("\\hat eta[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  // 	printf("X dep:\n");
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  printf("t=%d\n",t);
+  // 	  for(int x=0;x<GJP.XnodeSites();x++){
+  // 	    Rcomplex &pp = etahat_txdep[t+GJP.TnodeSites()*x];
+  // 	    printf("\\hat eta[x=%d] (%f,%f)\n",x,pp.real(),pp.imag());
+  // 	  }
+  // 	}
+	
+  //     }
+  //   }
    
-  }
+  // }
 
 
-  {
-    //test real and imaginary parts of K^0 propagator
-    printf("Starting test real and imaginary parts of K^0 propagator with cosine source\n");
-    PropManager::clear();
+  // {
+  //   //test real and imaginary parts of K^0 propagator
+  //   printf("Starting test real and imaginary parts of K^0 propagator with cosine source\n");
+  //   PropManager::clear();
 
-    JobPropagatorArgs prop_args2;
-    SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
+  //   JobPropagatorArgs prop_args2;
+  //   SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
   
-    char* names[2] = {"prop_h","prop_l"};
-    BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
-    double mass[2] = {0.4,0.1};
+  //   char* names[2] = {"prop_h","prop_l"};
+  //   BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
+  //   double mass[2] = {0.4,0.1};
     
-    for(int i=0;i<2;i++){
-      PropagatorArg &parg = prop_args2.props.props_val[i];
+  //   for(int i=0;i<2;i++){
+  //     PropagatorArg &parg = prop_args2.props.props_val[i];
     
-      parg.generics.tag = names[i];
-      parg.generics.mass = mass[i];
-      parg.generics.bc[0] = GJP.Xbc();
-      parg.generics.bc[1] = GJP.Ybc();
-      parg.generics.bc[2] = GJP.Zbc();
-      parg.generics.bc[3] = bndcnd[i];
+  //     parg.generics.tag = names[i];
+  //     parg.generics.mass = mass[i];
+  //     parg.generics.bc[0] = GJP.Xbc();
+  //     parg.generics.bc[1] = GJP.Ybc();
+  //     parg.generics.bc[2] = GJP.Zbc();
+  //     parg.generics.bc[3] = bndcnd[i];
 
-      SETUP_ARRAY(parg,attributes,AttributeContainer,5);
+  //     SETUP_ARRAY(parg,attributes,AttributeContainer,5);
     
-      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
-      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
-      srcarg.t = 0;
+  //     ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+  //     WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+  //     srcarg.t = 0;
 
-      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
-      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
-      gparg.flavor = 0;
+  //     ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+  //     GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+  //     gparg.flavor = 0;
 
-      ELEM(parg,attributes,2).type = CG_ATTR;
-      CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
-      cgattr.max_num_iter = 5000;
-      cgattr.stop_rsd = 1e-08;
-      cgattr.true_rsd = 1e-08;
+  //     ELEM(parg,attributes,2).type = CG_ATTR;
+  //     CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
+  //     cgattr.max_num_iter = 5000;
+  //     cgattr.stop_rsd = 1e-08;
+  //     cgattr.true_rsd = 1e-08;
 
-      ELEM(parg,attributes,3).type = MOMENTUM_ATTR;
-      MomentumAttrArg & momarg = ELEM(parg,attributes,3).AttributeContainer_u.momentum_attr;
-      for(int ii=0;ii<3;ii++) 
-	if(GJP.Bc(ii)==BND_CND_GPARITY) momarg.p[ii] = 1; //units of pi/2L
-	else momarg.p[ii] = 0;
+  //     ELEM(parg,attributes,3).type = MOMENTUM_ATTR;
+  //     MomentumAttrArg & momarg = ELEM(parg,attributes,3).AttributeContainer_u.momentum_attr;
+  //     for(int ii=0;ii<3;ii++) 
+  // 	if(GJP.Bc(ii)==BND_CND_GPARITY) momarg.p[ii] = 1; //units of pi/2L
+  // 	else momarg.p[ii] = 0;
 
-      ELEM(parg,attributes,4).type = MOM_COS_ATTR;
-    }
-    if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
+  //     ELEM(parg,attributes,4).type = MOM_COS_ATTR;
+  //   }
+  //   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
 
-    PropManager::setup(prop_args2);   
-    PropManager::calcProps(lattice);
+  //   PropManager::setup(prop_args2);   
+  //   PropManager::calcProps(lattice);
 
-    {
-      printf("0 momentum\n");
+  //   {
+  //     printf("0 momentum\n");
 
-      int desired_mom_x[3] = {0,0,0};
-      CorrelationFunction kzero("K^0");
-      calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
+  //     int desired_mom_x[3] = {0,0,0};
+  //     CorrelationFunction kzero("K^0");
+  //     calc_k0(kzero, names[0], names[1], lattice, desired_mom_x);
 
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = kzero(0,t);
-	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-      }
-    }
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = kzero(0,t);
+  // 	  printf("K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  //     }
+  //   }
 
-  }
+  // }
 
 
-  {
-    //test real and imaginary parts of <A_4 K^0> Green's function
-    printf("Starting test real and imaginary parts of <A_4 K^0> Green's function with cosine source\n");
-    PropManager::clear();
+  // {
+  //   //test real and imaginary parts of <A_4 K^0> Green's function
+  //   printf("Starting test real and imaginary parts of <A_4 K^0> Green's function with cosine source\n");
+  //   PropManager::clear();
 
-    JobPropagatorArgs prop_args2;
-    SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
+  //   JobPropagatorArgs prop_args2;
+  //   SETUP_ARRAY(prop_args2,props,PropagatorArg,2);
   
-    char* names[2] = {"prop_h","prop_l"};
-    BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
-    double mass[2] = {0.4,0.1};
+  //   char* names[2] = {"prop_h","prop_l"};
+  //   BndCndType bndcnd[2] = {BND_CND_APRD,BND_CND_APRD};
+  //   double mass[2] = {0.4,0.1};
     
-    for(int i=0;i<2;i++){
-      PropagatorArg &parg = prop_args2.props.props_val[i];
+  //   for(int i=0;i<2;i++){
+  //     PropagatorArg &parg = prop_args2.props.props_val[i];
     
-      parg.generics.tag = names[i];
-      parg.generics.mass = mass[i];
-      parg.generics.bc[0] = GJP.Xbc();
-      parg.generics.bc[1] = GJP.Ybc();
-      parg.generics.bc[2] = GJP.Zbc();
-      parg.generics.bc[3] = bndcnd[i];
+  //     parg.generics.tag = names[i];
+  //     parg.generics.mass = mass[i];
+  //     parg.generics.bc[0] = GJP.Xbc();
+  //     parg.generics.bc[1] = GJP.Ybc();
+  //     parg.generics.bc[2] = GJP.Zbc();
+  //     parg.generics.bc[3] = bndcnd[i];
 
-      SETUP_ARRAY(parg,attributes,AttributeContainer,5);
+  //     SETUP_ARRAY(parg,attributes,AttributeContainer,5);
     
-      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
-      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
-      srcarg.t = 0;
+  //     ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+  //     WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+  //     srcarg.t = 0;
 
-      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
-      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
-      gparg.flavor = 0;
+  //     ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+  //     GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+  //     gparg.flavor = 0;
 
-      ELEM(parg,attributes,2).type = CG_ATTR;
-      CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
-      cgattr.max_num_iter = 5000;
-      cgattr.stop_rsd = 1e-08;
-      cgattr.true_rsd = 1e-08;
+  //     ELEM(parg,attributes,2).type = CG_ATTR;
+  //     CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
+  //     cgattr.max_num_iter = 5000;
+  //     cgattr.stop_rsd = 1e-08;
+  //     cgattr.true_rsd = 1e-08;
 
-      ELEM(parg,attributes,3).type = MOMENTUM_ATTR;
-      MomentumAttrArg & momarg = ELEM(parg,attributes,3).AttributeContainer_u.momentum_attr;
-      for(int ii=0;ii<3;ii++) 
-	if(GJP.Bc(ii)==BND_CND_GPARITY) momarg.p[ii] = 1; //units of pi/2L
-	else momarg.p[ii] = 0;
+  //     ELEM(parg,attributes,3).type = MOMENTUM_ATTR;
+  //     MomentumAttrArg & momarg = ELEM(parg,attributes,3).AttributeContainer_u.momentum_attr;
+  //     for(int ii=0;ii<3;ii++) 
+  // 	if(GJP.Bc(ii)==BND_CND_GPARITY) momarg.p[ii] = 1; //units of pi/2L
+  // 	else momarg.p[ii] = 0;
 
-      ELEM(parg,attributes,4).type = MOM_COS_ATTR;
-    }
-    if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
+  //     ELEM(parg,attributes,4).type = MOM_COS_ATTR;
+  //   }
+  //   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args2.props.props_len);
 
-    PropManager::setup(prop_args2);   
-    PropManager::calcProps(lattice);
+  //   PropManager::setup(prop_args2);   
+  //   PropManager::calcProps(lattice);
 
-    {
-      printf("0 momentum\n");
+  //   {
+  //     printf("0 momentum\n");
 
-      int desired_mom_x[3] = {0,0,0};
-      CorrelationFunction a4kzero("K^0");
-      calc_a4k0(a4kzero, names[0], names[1], lattice, desired_mom_x);
+  //     int desired_mom_x[3] = {0,0,0};
+  //     CorrelationFunction a4kzero("K^0");
+  //     calc_a4k0(a4kzero, names[0], names[1], lattice, desired_mom_x);
 
-      if(!UniqueID()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  Rcomplex &pp = a4kzero(0,t);
-	  printf("A_4 K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
-	}
-      }
-    }
+  //     if(!UniqueID()){
+  // 	for(int t=0;t<GJP.TnodeSites();t++){
+  // 	  Rcomplex &pp = a4kzero(0,t);
+  // 	  printf("A_4 K^0[%d] (%f,%f)\n",t,pp.real(),pp.imag());
+  // 	}
+  //     }
+  //   }
 
-  }
+  // }
 
 
   if(gauge_fix) lattice.FixGaugeFree();

@@ -448,6 +448,12 @@ void AlgEig::run(Float **evalues)
 	  
 	  FILE* filep;
 	  filep=Fopen(eig_arg->fname,"a");
+
+	  //CK: Might be nice to actually write out the eigenvalues too!
+	  for (int eig=0; eig<eig_arg->N_eig; eig++) {
+	    Fprintf(filep,"eigenvalue: %d %g\n",
+		    eig, lambda[eig]);
+	  }
               
 	  int i_eig,j_eig;
               

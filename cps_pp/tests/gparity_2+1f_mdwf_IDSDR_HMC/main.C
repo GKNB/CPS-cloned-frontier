@@ -12,6 +12,8 @@
 #include <comms/scu.h>
 #include <comms/glb.h>
 
+#include<util/lattice/fbfm.h>
+
 #include<util/lattice.h>
 #include<util/random.h>
 #include<util/time_cps.h>
@@ -64,6 +66,7 @@
 
 #include <util/gparity_singletodouble.h>
 
+
 #ifdef HAVE_BFM
 #include <chroma.h>
 #endif
@@ -76,15 +79,22 @@ HmcArg hmc_arg;
 HmcArg hmc_arg_pass;
 
 ActionGaugeArg gauge_arg;
+ActionRationalQuotientArg rat_quo_tm_arg;
 ActionRationalQuotientArg rat_quo_l_arg;
 ActionRationalQuotientArg rat_quo_h_arg;
+
+ActionRationalQuotientArg rat_quo_tm_arg_1f;
+ActionRationalQuotientArg rat_quo_l_arg_1f;
+ActionRationalQuotientArg rat_quo_h_arg_1f;
+
 IntABArg ab1_arg;
 IntABArg ab2_arg;
 IntABArg ab3_arg;
 DoArg do_arg;
 
 void checkpoint(int traj);
-void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, int *pwr_num, int *pwr_den);
+void setupRatQuoArgFerm(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, int *pwr_num, int *pwr_den, char* force_label);
+void setupRatQuoArgDSDR(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, Float* bsn_mass_epsilon, Float* frm_mass_epsilion, int *pwr_num, int *pwr_den, char* force_label);
 void setup_double_latt(Lattice &double_latt, Matrix* orig_gfield, bool gparity_X, bool gparity_Y);
 void setup_double_rng(bool gparity_X, bool gparity_Y);
 void setup_double_matrixfield(Matrix* double_mat, Matrix* orig_mat, int nmat_per_site, bool gparity_X, bool gparity_Y);
@@ -93,6 +103,142 @@ char * strconcat(char *a,char*b){
   char *tmp = new char[strlen(a)+strlen(b)+4];
   sprintf(tmp,"%s%s",a,b);
   return tmp;
+}
+
+#define printdebug(ARGS) if(!UniqueID()){ printf(ARGS); fflush(stdout); }
+
+void init_bfm(int *argc, char **argv[])
+{
+    Chroma::initialize(argc, argv);
+    multi1d<int> nrow(Nd);
+
+    for(int i = 0; i< Nd; ++i)
+        nrow[i] = GJP.Sites(i);
+
+    Layout::setLattSize(nrow);
+    Layout::create();
+
+    //Set for Mobius fermions
+    Fbfm::bfm_arg.solver = HmCayleyTanh;
+    Fbfm::bfm_arg.precon_5d = 0;
+
+    // mixed-precision CG *based on environment variable*, *true by default*
+    char* use_mixed_solver_env = getenv( "use_mixed_solver" );
+    Fbfm::use_mixed_solver = true;
+    if ( use_mixed_solver_env && strcmp( use_mixed_solver_env, "false" ) == 0 )
+      Fbfm::use_mixed_solver = false;
+    VRB.Result( "cps", "init_bfm", "Fbfm::use_mixed_solver: %d\n", Fbfm::use_mixed_solver );
+
+    Fbfm::bfm_arg.Ls = GJP.SnodeSites();
+    Fbfm::bfm_arg.M5 = GJP.DwfHeight();
+    Fbfm::bfm_arg.mass = 0.1;
+    Fbfm::bfm_arg.residual = 1e-8;
+    Fbfm::bfm_arg.max_iter = 10000;
+    Fbfm::bfm_arg.Csw = 0.0;
+
+    Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+    Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+    Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+    Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+
+    multi1d<int> procs = QDP::Layout::logicalSize();
+    multi1d<int> ncoor = QDP::Layout::nodeCoord();
+
+    for(int i=0;i<4;i++) Fbfm::bfm_arg.ncoor[i] = ncoor[i];
+
+    Fbfm::bfm_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
+    Fbfm::bfm_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
+    Fbfm::bfm_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
+    Fbfm::bfm_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
+
+    if(GJP.Gparity()){
+      Fbfm::bfm_arg.gparity = 1;
+      if(!UniqueID()) printf("G-parity directions: ");
+      for(int d=0;d<3;d++)
+	if(GJP.Bc(d) == BND_CND_GPARITY){ Fbfm::bfm_arg.gparity_dir[d] = 1; if(!UniqueID()) printf("%d ",d); }
+	else Fbfm::bfm_arg.gparity_dir[d] = 0;
+      for(int d=0;d<4;d++){
+	Fbfm::bfm_arg.nodes[d] = procs[d];
+      }
+      if(!UniqueID()) printf("\n");
+    }
+
+    // mobius_scale = b + c in Andrew's notation
+    bfmarg::mobius_scale = 2.0;
+
+#if TARGET == BGQ  
+    bfmarg::Threads(64); //32
+#else
+    bfmarg::Threads(1);
+#endif
+    bfmarg::Reproduce(0);
+    bfmarg::ReproduceChecksum(0);
+    bfmarg::ReproduceMasterCheck(0);
+    bfmarg::Verbose(0);
+}
+
+//'results' should have space for 4, i.e. (2*n_masses) floats
+void measure_pbp(Float* results)
+{
+  CommonArg common_arg;
+
+  const char *fname = "measure_pbp()";
+
+  PbpArg pbp_arg;
+  pbp_arg.pattern_kind = ARRAY;
+  
+  pbp_arg.n_masses = 2;
+  pbp_arg.mass_start =   1.0000000000000000e-02;
+  pbp_arg.mass_step =   1.0000000000000000e-02;
+  for(int i=0;i<100;i++) pbp_arg.mass[i]=0.0;
+  
+  pbp_arg.mass[0] = 0.4;
+  pbp_arg.mass[1] = 0.5;
+
+  pbp_arg.max_num_iter = 1000000;
+  pbp_arg.stop_rsd =   1.0000000000000000e-10;
+  pbp_arg.snk_loop = 0;
+
+  // fix pbp_arg
+  pbp_arg.src_u_s = 0;
+  pbp_arg.src_l_s = GJP.SnodeSites() * GJP.Snodes() - 1;
+  pbp_arg.snk_u_s = GJP.SnodeSites() * GJP.Snodes() - 1;
+  pbp_arg.snk_l_s = 0;
+
+  Float dtime = -dclock();
+
+  LRGState rng_state;
+  rng_state.GetStates();
+
+  Lattice &lat = LatticeFactory::Create(F_CLASS_BFM, G_CLASS_NONE);
+  VRB.Result( "cps", "measure_pbp", "LatticeFactory::Create(F_CLASS_BFM, G_CLASS_NONE)" );
+
+  AlgPbp pbp(lat, &common_arg, &pbp_arg);
+  pbp.run(results);
+
+  LatticeFactory::Destroy();
+  rng_state.SetStates();
+
+  dtime += dclock();
+  print_flops("AlgPbp", "run()", 0, dtime);
+}
+
+//results should contain 6 floats
+void measure_plaq(Float *results)
+{
+  const char *fname = "measure_plaq()";
+  CommonArg common_arg;
+  NoArg no_arg;
+
+  Float dtime = -dclock();
+
+  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_WILSON);
+  AlgPlaq plaq(lat, &common_arg, &no_arg);
+  plaq.run(results);
+  LatticeFactory::Destroy();
+
+  dtime += dclock();
+  print_flops("AlgPlaq", "run()", 0, dtime);	
 }
 
 int main(int argc, char *argv[])
@@ -108,12 +254,12 @@ int main(int argc, char *argv[])
   bool gparity_Y(false);
 
   int arg0 = CommandLine::arg_as_int(0);
-  printf("Arg0 is %d\n",arg0);
+  if(!UniqueID()) printf("Arg0 is %d\n",arg0);
   if(arg0==0){
     gparity_X=true;
-    printf("Doing G-parity HMC test in X direction\n");
+    if(!UniqueID()) printf("Doing G-parity HMC test in X direction\n");
   }else if(arg0==1){
-    printf("Doing G-parity HMC test in X and Y directions\n");
+    if(!UniqueID()) printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
   }else{
@@ -130,8 +276,8 @@ int main(int argc, char *argv[])
   char *load_lrg_file;
   int nsteps = 4;
 
-  bool readwrite_remez_poles(false);
-  char* remez_file_stub;
+  bool readwrite_remez_poles(true);
+  char* remez_file_stub = "remez";
 
   int i=2;
   while(i<argc){
@@ -143,7 +289,7 @@ int main(int argc, char *argv[])
       i+=2;
     }else if( strncmp(cmd,"-latt",10) == 0){
       if(i>argc-6){
-	printf("Did not specify enough arguments for 'latt' (require 5 dimensions)\n"); exit(-1);
+	if(!UniqueID()) printf("Did not specify enough arguments for 'latt' (require 5 dimensions)\n"); exit(-1);
       }
       size[0] = CommandLine::arg_as_int(i); //CommandLine ignores zeroth input arg (i.e. executable name)
       size[1] = CommandLine::arg_as_int(i+1);
@@ -155,32 +301,32 @@ int main(int argc, char *argv[])
       dbl_latt_storemode = true;
       i++;       
     }else if( strncmp(cmd,"-nsteps",10) == 0){
-      if(i==argc-1){ printf("-nsteps requires an argument\n"); exit(-1); }
+      if(i==argc-1){ ERR.General(cname,fname,"-nsteps requires an argument\n"); }
       nsteps = atoi(argv[i+1]);
       i+=2; 
     }else if( strncmp(cmd,"-save_lrg",15) == 0){
-      if(i==argc-1){ printf("-save_lrg requires an argument\n"); exit(-1); }
+      if(i==argc-1){ ERR.General(cname,fname,"-save_lrg requires an argument\n"); }
       save_lrg=true;
       save_lrg_file = argv[i+1];
       i+=2;
     }else if( strncmp(cmd,"-load_lrg",15) == 0){
-      if(i==argc-1){ printf("-load_lrg requires an argument\n"); exit(-1); }
+      if(i==argc-1){ ERR.General(cname,fname,"-load_lrg requires an argument\n"); }
       load_lrg=true;
       load_lrg_file = argv[i+1];
       i+=2;
     }else if( strncmp(cmd,"-readwrite_remez_poles",15) == 0){
-      if(i==argc-1){ printf("-readwrite_remez_poles requires an argument\n"); exit(-1); }
+      if(i==argc-1){ ERR.General(cname,fname,"-readwrite_remez_poles requires an argument\n"); }
       readwrite_remez_poles=true;
       remez_file_stub = argv[i+1];
       i+=2;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+      ERR.General(cname,fname,"Unrecognised argument: %s\n",cmd);
       exit(-1);
     }
   }
   SerialIO::dbl_latt_storemode = dbl_latt_storemode;
 
-  printf("Lattice size is %d %d %d %d\n",size[0],size[1],size[2],size[3],size[4]);
+  if(!UniqueID()) printf("Lattice size is %d %d %d %d\n",size[0],size[1],size[2],size[3],size[4]);
 
   DoArg do_arg;
   do_arg.x_sites = size[0];
@@ -262,6 +408,11 @@ int main(int argc, char *argv[])
   GJP.Initialize(do_arg);
   // VRB.Level(VERBOSE_RESULT_LEVEL);
   LRG.Initialize();
+
+  printdebug("Running init_bfm\n");
+  init_bfm(&argc,&argv);
+  printdebug("Finished init_bfm\n");
+
   if(load_lrg){
     if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
     LRG.Read(load_lrg_file,32);
@@ -272,27 +423,42 @@ int main(int argc, char *argv[])
     LRG.Write(save_lrg_file,32);
   }
 
+  printdebug("Setting up args\n");
   // Outer config loop
 
   gauge_arg.gluon = G_CLASS_IMPR_RECT;
   gauge_arg.action_arg.force_measure = FORCE_MEASURE_YES;
   gauge_arg.action_arg.force_label = "Gauge";
   
+  char* rql_flabel = "LightQuarkRQ";
   {
     Float bsn_mass = 1.0;
     Float frm_mass = 0.4;
     int pwr_num = 1;
     int pwr_den = 2;
-    setupRatQuoArg(rat_quo_l_arg,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den);
+    setupRatQuoArgFerm(rat_quo_l_arg,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den,rql_flabel);
+    setupRatQuoArgFerm(rat_quo_l_arg_1f,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den,rql_flabel);
   }    
-
+  char* rqh_flabel = "HeavyQuarkRQ";
   {
     Float bsn_mass = 1.0;
     Float frm_mass = 0.5;
     int pwr_num = 1;
     int pwr_den = 4;
-    setupRatQuoArg(rat_quo_h_arg,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den);
+    setupRatQuoArgFerm(rat_quo_h_arg,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den,rqh_flabel);
+    setupRatQuoArgFerm(rat_quo_h_arg_1f,1, &bsn_mass, &frm_mass, &pwr_num, &pwr_den,rqh_flabel);
   }  
+  char* rqtw_flabel = "TwistedRQ";
+  {
+    Float bsn_mass = -1.8;
+    Float bsn_mass_epsilon = 0.5;
+    Float frm_mass = -1.8;
+    Float frm_mass_epsilon = 0.02;
+    int pwr_num = 1;
+    int pwr_den = 2;
+    setupRatQuoArgDSDR(rat_quo_tm_arg,1, &bsn_mass, &frm_mass, &bsn_mass_epsilon, &frm_mass_epsilon, &pwr_num, &pwr_den,rqtw_flabel);
+    setupRatQuoArgDSDR(rat_quo_tm_arg_1f,1, &bsn_mass, &frm_mass, &bsn_mass_epsilon, &frm_mass_epsilon, &pwr_num, &pwr_den,rqtw_flabel);
+  }    
 
   hmc_arg.steps_per_traj = 1;
   hmc_arg.step_size =   1.2500000000000000e-01;
@@ -306,38 +472,55 @@ int main(int argc, char *argv[])
   hmc_arg_pass = hmc_arg;
 
   //!< Construct numerical integrators
-  ab1_arg.type = INT_OMELYAN;
+  ab1_arg.type = INT_FORCE_GRAD_QPQPQ; // INT_OMELYAN;
   ab1_arg.A_steps = 1;
   ab1_arg.B_steps = 1;
   ab1_arg.level = EMBEDDED_INTEGRATOR;
   ab1_arg.lambda =   2.2000000000000000e-01;
     
-  ab2_arg.type = INT_OMELYAN;
+  ab2_arg.type = INT_FORCE_GRAD_QPQPQ;  //INT_OMELYAN;
   ab2_arg.A_steps = 1;
   ab2_arg.B_steps = 1;
   ab2_arg.level = EMBEDDED_INTEGRATOR;
   //ab2_arg.level = TOP_LEVEL_INTEGRATOR;
   ab2_arg.lambda =   2.2000000000000000e-01;
 
-  ab3_arg.type = INT_OMELYAN;
+  ab3_arg.type = INT_FORCE_GRAD_QPQPQ;   //INT_OMELYAN;
   ab3_arg.A_steps = 1;
   ab3_arg.B_steps = 1;
   ab3_arg.level = TOP_LEVEL_INTEGRATOR;
   ab3_arg.lambda =   2.2000000000000000e-01;
+  
+  printdebug("Finished setting up args\n");
 
   //!< Create fictitous Hamiltonian (mom + action)
   AlgMomentum mom;
   AlgActionGauge gauge(mom, gauge_arg);
 
   if(readwrite_remez_poles) rat_quo_h_arg.rat_poles_file = strconcat(remez_file_stub,"_2f_h.remez");   
-  if(readwrite_remez_poles) rat_quo_l_arg.rat_poles_file = strconcat(remez_file_stub,"_2f_l.remez");   
+  if(readwrite_remez_poles) rat_quo_l_arg.rat_poles_file = strconcat(remez_file_stub,"_2f_l.remez"); 
+  if(readwrite_remez_poles) rat_quo_tm_arg.rat_poles_file = strconcat(remez_file_stub,"_2f_tm.remez"); 
 
+  printdebug("Setting up RQ heavy\n");
   AlgActionRationalQuotient rat_quo_h(mom, rat_quo_h_arg);
+  printdebug("Setting up RQ light\n");
   AlgActionRationalQuotient rat_quo_l(mom, rat_quo_l_arg);
+  printdebug("Setting up RQ tm\n");
+  AlgActionRationalQuotient rat_quo_tm(mom, rat_quo_tm_arg);
 
-  AlgIntOmelyan ab1(mom, gauge, ab1_arg);
-  AlgIntOmelyan ab2(ab1, rat_quo_h, ab2_arg);
-  AlgIntOmelyan ab3(ab2, rat_quo_l, ab3_arg);
+  IntABArg sum_arg;
+  sum_arg.A_steps = 1;
+  sum_arg.B_steps = 1;
+  sum_arg.level = EMBEDDED_INTEGRATOR;
+  AlgIntSum sum(rat_quo_l, rat_quo_h, sum_arg);
+
+  printdebug("Setting up integrators\n");
+  //typedef AlgIntOmelyan IntegratorType;
+  typedef AlgIntForceGrad IntegratorType;
+
+  IntegratorType ab1(mom, gauge, ab1_arg);
+  IntegratorType ab2(ab1, rat_quo_tm, ab2_arg);
+  IntegratorType ab3(ab2, sum, ab3_arg);
 
   //switch to 1f mode to setup integrators
   if(!UniqueID()){ printf("Switching back to 1f mode\n"); fflush(stdout); }
@@ -354,18 +537,38 @@ int main(int argc, char *argv[])
 
   GJP.Initialize(do_arg);
 
+#ifdef HAVE_BFM
+      {
+	QDP::multi1d<int> nrow(Nd);  
+	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
+	QDP::Layout::setLattSize(nrow);
+	QDP::Layout::create();
+
+	Fbfm::bfm_arg.gparity = 0;
+	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+      }
+#endif
+
+
   AlgMomentum mom_1f;
   AlgActionGauge gauge_1f(mom_1f, gauge_arg);
 
-  if(readwrite_remez_poles) rat_quo_h_arg.rat_poles_file = strconcat(remez_file_stub,"_1f_h.remez");   
-  if(readwrite_remez_poles) rat_quo_l_arg.rat_poles_file = strconcat(remez_file_stub,"_1f_l.remez");   
+  if(readwrite_remez_poles) rat_quo_h_arg_1f.rat_poles_file = strconcat(remez_file_stub,"_1f_h.remez");   
+  if(readwrite_remez_poles) rat_quo_l_arg_1f.rat_poles_file = strconcat(remez_file_stub,"_1f_l.remez");   
+  if(readwrite_remez_poles) rat_quo_tm_arg_1f.rat_poles_file = strconcat(remez_file_stub,"_1f_tm.remez");   
 
-  AlgActionRationalQuotient rat_quo_h_1f(mom_1f, rat_quo_h_arg);
-  AlgActionRationalQuotient rat_quo_l_1f(mom_1f, rat_quo_l_arg);
+  AlgActionRationalQuotient rat_quo_h_1f(mom_1f, rat_quo_h_arg_1f);
+  AlgActionRationalQuotient rat_quo_l_1f(mom_1f, rat_quo_l_arg_1f);
+  AlgActionRationalQuotient rat_quo_tm_1f(mom_1f, rat_quo_tm_arg_1f);
+ 
+  AlgIntSum sum_1f(rat_quo_l_1f, rat_quo_h_1f, sum_arg);
 
-  AlgIntOmelyan ab1_1f(mom_1f, gauge_1f, ab1_arg);
-  AlgIntOmelyan ab2_1f(ab1_1f, rat_quo_h_1f, ab2_arg);
-  AlgIntOmelyan ab3_1f(ab2_1f, rat_quo_l_1f, ab3_arg);
+  IntegratorType ab1_1f(mom_1f, gauge_1f, ab1_arg);
+  IntegratorType ab2_1f(ab1_1f, rat_quo_tm_1f, ab2_arg);
+  IntegratorType ab3_1f(ab2_1f, sum_1f, ab3_arg);
 
   if(!UniqueID()){ printf("Switching back to 2f mode\n"); fflush(stdout); }
 
@@ -382,11 +585,33 @@ int main(int argc, char *argv[])
 
   GJP.Initialize(do_arg);
   GJP.EnableGparity1f2fComparisonCode();
+
+#ifdef HAVE_BFM
+      {
+	QDP::multi1d<int> nrow(Nd);  
+	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
+	QDP::Layout::setLattSize(nrow);
+	QDP::Layout::create();
+
+	Fbfm::bfm_arg.gparity = 1;
+	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+      }
+#endif
+
   //start config loop
 
   if(!UniqueID()){ printf("Starting trajectory loop\n"); fflush(stdout); }
 
   //FILE *fp = fopen("links.dat","w");
+
+  Float* plaq_2f = new Float[6];
+  Float* plaq_1f = new Float[6];
+
+  Float* pbp_2f = new Float[4];
+  Float* pbp_1f = new Float[4];
 
   for(int conf=0; conf< 1; conf ++ ) {
     for(int traj=0;traj< nsteps;traj++) {
@@ -487,6 +712,10 @@ int main(int argc, char *argv[])
       }
 #endif
 
+      //Get plaquette and chiral/pseudoscalar condensate
+      measure_plaq(plaq_2f);
+      measure_pbp(pbp_2f);
+
       //store 2f G-parity results
       Matrix *_2f_lat_posthmc = (Matrix *) pmalloc(array_size);
       {
@@ -521,6 +750,12 @@ int main(int argc, char *argv[])
 	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
+
+	Fbfm::bfm_arg.gparity = 0;
+	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
       }
 #endif
       
@@ -541,7 +776,35 @@ int main(int argc, char *argv[])
 	print_flops("AlgHmc 1f G-parity","run()",0,time);
       }
 
-      //boost 2f result to 1f lattice setup
+      //Get plaquette and chiral/pseudoscalar condensate
+      measure_plaq(plaq_1f);
+      measure_pbp(pbp_1f);
+
+      //compare pbp and plaq
+      bool fail(false);
+
+      {
+	for(int i=0;i<6;i++){
+	  if( fabs(plaq_1f[i]-plaq_2f[i]) > 1e-08 ){
+	    printf("Plaquette test failed result_idx %d: %.9e %.9e\n",i,plaq_1f[i],plaq_2f[i]); fail=true;
+	  }
+	}
+	if(fail){
+	  printf("Failed plaquette test on traj step %d\n",traj);// exit(-1);
+	}else printf("Passed plaquette test on traj step %d\n",traj);
+
+	for(int i=0;i<4;i++){
+	  if( fabs(pbp_1f[i]-pbp_2f[i]) > 1e-08 ){
+	    printf("Pbp test failed result_idx %d: %.9e %.9e\n",i,pbp_1f[i],pbp_2f[i]); fail=true;
+	  }
+	}
+	if(fail){
+	  printf("Failed pbp test on traj step %d\n",traj);// exit(-1);
+	}else printf("Passed pbp test on traj step %d\n",traj);
+      }
+
+
+      //boost 2f gauge field result to 1f lattice setup
       {
 	Lattice &lattice = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE); 
 	array_size = lattice.GsiteSize() * GJP.VolNodeSites() * sizeof(Float);
@@ -550,9 +813,8 @@ int main(int argc, char *argv[])
       Matrix *_2f_lat_posthmc_1fsetup = (Matrix *) pmalloc(array_size);
       setup_double_matrixfield(_2f_lat_posthmc_1fsetup,_2f_lat_posthmc,4,gparity_X,gparity_Y);
 
-      //compare
+      //compare gauge fields
       {
-	bool err(false);
 	Lattice &lattice = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
 	for(int t=0;t<GJP.TnodeSites();t++){
 	  for(int z=0;z<GJP.ZnodeSites();z++){
@@ -563,9 +825,9 @@ int main(int argc, char *argv[])
 		  int off = lattice.GsiteOffset(pos) + mu;
 		  Float* m = (Float*)(lattice.GaugeField()+off);
 		  Float* mc = (Float*)(_2f_lat_posthmc_1fsetup+off);
-		  if(fabs(*m - *mc) > 1e-06 || fabs(*(m+1) - *(mc+1)) > 1e-06 ){
-		    printf("Error: 1f:2f (%d %d %d %d), %d: (%f %f), (%f %f)\n",x,y,z,t,mu,*m,*(m+1),*mc, *(mc+1));
-		    err=true;
+		  if(fabs(*m - *mc) > 1e-08 || fabs(*(m+1) - *(mc+1)) > 1e-08 ){
+		    printf("Error: 1f:2f (%d %d %d %d), %d: (%.9e %.9e), (%.9e %.9e)\n",x,y,z,t,mu,*m,*(m+1),*mc, *(mc+1));
+		    fail=true;
 		  }
 		}
 	      }
@@ -574,7 +836,7 @@ int main(int argc, char *argv[])
 	}
 	LatticeFactory::Destroy();
 
-	if(err){
+	if(fail){
 	  printf("Failed evolve test on traj step %d\n",traj);
 	  exit(-1);
 	}
@@ -591,8 +853,6 @@ int main(int argc, char *argv[])
 	LatticeFactory::Destroy();
       }
 
-      //repeat evolution from start with 1f G-parity
-
       if(gparity_X){ do_arg.gparity_1f_X = 0; do_arg.x_bc = BND_CND_GPARITY; }
       if(gparity_Y){ do_arg.gparity_1f_Y = 0; do_arg.y_bc = BND_CND_GPARITY; }
 
@@ -604,6 +864,12 @@ int main(int argc, char *argv[])
 	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
+
+	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+	Fbfm::bfm_arg.gparity = 1;
       }
 #endif
 
@@ -649,13 +915,13 @@ int main(int argc, char *argv[])
   } 
 
   End();
-  printf("End of program\n");
+  if(!UniqueID()) printf("End of program\n");
  return(0);
 }
 
-void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, int *pwr_num, int *pwr_den){
+void setupRatQuoArgFerm(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, int *pwr_num, int *pwr_den, char* force_label){
   //bi_arg
-  into.bi_arg.fermion = F_CLASS_DWF;
+  into.bi_arg.fermion = F_CLASS_BFM;
   into.bi_arg.bilinears.bilinears_len = ndet;
   into.bi_arg.bilinears.bilinears_val = new BilinearDescr[ndet];
   for(int i=0;i<ndet;i++){
@@ -663,7 +929,7 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
     into.bi_arg.bilinears.bilinears_val[i].max_num_iter = 5000;
   }
   into.bi_arg.action_arg.force_measure = FORCE_MEASURE_YES;
-  into.bi_arg.action_arg.force_label = "RationalQuotient";
+  into.bi_arg.action_arg.force_label = force_label;
   
   into.spread = 0.0;
   into.remez_generate= 0;
@@ -681,6 +947,177 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
   for(int i=0;i<ndet;i++){
     into.frm_mass.frm_mass_val[i] = frm_masses[i];
   }
+
+  //epsilon parameters
+  into.bsn_mass_epsilon.bsn_mass_epsilon_len = ndet;
+  into.bsn_mass_epsilon.bsn_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bsn_mass_epsilon.bsn_mass_epsilon_val[i] = 0.0;
+  }
+  into.frm_mass_epsilon.frm_mass_epsilon_len = ndet;
+  into.frm_mass_epsilon.frm_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.frm_mass_epsilon.frm_mass_epsilon_val[i] = 0.0;
+  }
+
+
+  //bosons
+  into.bosons.bosons_len = ndet;
+  into.bosons.bosons_val = new RationalDescr[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bosons.bosons_val[i].field_type = BOSON;
+    into.bosons.bosons_val[i].power_num = pwr_num[i];
+    into.bosons.bosons_val[i].power_den = pwr_den[i];
+    into.bosons.bosons_val[i].precision = 40;
+    into.bosons.bosons_val[i].stop_rsd_fg_mult = 1.0;
+    
+    ApproxDescr *approx = &into.bosons.bosons_val[i].md_approx;
+    approx->approx_type = RATIONAL_APPROX_POWER;
+    approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
+    approx->lambda_low =   4.0000000000000002e-03;
+    approx->lambda_high =   100;
+    approx->stop_rsd.stop_rsd_len = 9;
+    approx->stop_rsd.stop_rsd_val = new Float[9];
+    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-07;
+    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-08;
+    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-09;
+    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-10;
+    
+    approx = &into.bosons.bosons_val[i].mc_approx;
+    approx->approx_type = RATIONAL_APPROX_POWER;
+    approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
+    approx->lambda_low =   4.0000000000000002e-03;
+    approx->lambda_high =   100;
+    approx->stop_rsd.stop_rsd_len = 15;
+    approx->stop_rsd.stop_rsd_val = new Float[15];
+    for(int j=0;j<15;j++) approx->stop_rsd.stop_rsd_val[j]= 1.0000000000000000e-10; 
+
+    into.bosons.bosons_val[i].stag_bsn_mass = 0.0;
+  }
+  //fermions
+  into.fermions.fermions_len = ndet;
+  into.fermions.fermions_val = new RationalDescr[ndet];
+  for(int i=0;i<ndet;i++){
+    into.fermions.fermions_val[i].field_type = FERMION;
+    into.fermions.fermions_val[i].power_num = pwr_num[i];
+    into.fermions.fermions_val[i].power_den = pwr_den[i];
+    into.fermions.fermions_val[i].precision = 40;
+    into.fermions.fermions_val[i].stop_rsd_fg_mult = 1.0;
+    
+    ApproxDescr *approx = &into.fermions.fermions_val[i].md_approx;
+    approx->approx_type = RATIONAL_APPROX_POWER;
+    approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
+    approx->lambda_low =   4.0000000000000002e-03;
+    approx->lambda_high =   100;
+    approx->stop_rsd.stop_rsd_len = 9;
+    approx->stop_rsd.stop_rsd_val = new Float[9];
+    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-07;
+    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-08;
+    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-09;
+    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-10;
+
+    approx = &into.fermions.fermions_val[i].mc_approx;
+    approx->approx_type = RATIONAL_APPROX_POWER;
+    approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
+    approx->lambda_low =   4.0000000000000002e-03;
+    approx->lambda_high =   100;
+    approx->stop_rsd.stop_rsd_len = 15;
+    approx->stop_rsd.stop_rsd_val = new Float[15];
+    for(int j=0;j<15;j++) approx->stop_rsd.stop_rsd_val[j]= 1.0000000000000000e-10; 
+
+    into.fermions.fermions_val[i].stag_bsn_mass = 0.0;
+  }
+
+  into.eigen.eigen_measure = EIGEN_MEASURE_YES;
+  into.eigen.stop_rsd = 0.0005;
+  into.eigen.max_num_iter = 10000;
+  into.eigen.eig_lo_stem = "eig_low";
+  into.eigen.eig_hi_stem = "eig_hi";
+}
+
+
+
+// class ActionQuotientArg quo_tm_arg = {
+// class ActionBilinearArg bi_arg = {
+// FclassType fermion = F_CLASS_WILSON_TM
+// Array bilinears[1] = { 
+// class BilinearDescr bilinears[0] = {
+// double mass =   0.0000000000000000e+00
+// int max_num_iter = 1000000
+// }
+// }
+// class ActionArg action_arg = {
+// ForceMeasure force_measure = FORCE_MEASURE_NO
+// string force_label = "Quotient-Tm"
+// }
+// }
+// Array quotients[1] = { 
+// class QuotientDescr quotients[0] = {
+// double bsn_mass =  -1.8000000000000000e+00
+// double bsn_mass_epsilon =   5.0000000000000000e-01
+// double frm_mass =  -1.8000000000000000e+00
+// double frm_mass_epsilon =   2.0000000000000000e-02
+// int chrono = 0
+// double stop_rsd_hb =   1.0000000000000000e-10
+// double stop_rsd_fg_mult =   1.0000000000000000e+00
+// double stop_rsd_md =   1.0000000000000000e-08
+// double stop_rsd_mc =   1.0000000000000000e-10
+// }
+// }
+// }
+
+
+void setupRatQuoArgDSDR(ActionRationalQuotientArg &into, const int &ndet, Float* bsn_masses, Float* frm_masses, Float* bsn_mass_epsilon, Float* frm_mass_epsilon,  int *pwr_num, int *pwr_den, char* force_label){
+  //bi_arg
+  into.bi_arg.fermion = F_CLASS_WILSON_TM;
+  into.bi_arg.bilinears.bilinears_len = ndet;
+  into.bi_arg.bilinears.bilinears_val = new BilinearDescr[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bi_arg.bilinears.bilinears_val[i].mass = 0.0;
+    into.bi_arg.bilinears.bilinears_val[i].max_num_iter = 5000;
+  }
+  into.bi_arg.action_arg.force_measure = FORCE_MEASURE_YES;
+  into.bi_arg.action_arg.force_label = force_label;
+
+  into.spread = 0.0;
+  into.remez_generate= 0;
+  into.rat_poles_file = "";
+
+  //bsn_mass
+  into.bsn_mass.bsn_mass_len = ndet;
+  into.bsn_mass.bsn_mass_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bsn_mass.bsn_mass_val[i] = bsn_masses[i];
+  }
+  //frm_mass
+  into.frm_mass.frm_mass_len = ndet;
+  into.frm_mass.frm_mass_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.frm_mass.frm_mass_val[i] = frm_masses[i];
+  }
+  //epsilon parameters
+  into.bsn_mass_epsilon.bsn_mass_epsilon_len = ndet;
+  into.bsn_mass_epsilon.bsn_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bsn_mass_epsilon.bsn_mass_epsilon_val[i] = bsn_mass_epsilon[i];
+  }
+  into.frm_mass_epsilon.frm_mass_epsilon_len = ndet;
+  into.frm_mass_epsilon.frm_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.frm_mass_epsilon.frm_mass_epsilon_val[i] = frm_mass_epsilon[i];
+  }
+
+
   //bosons
   into.bosons.bosons_len = ndet;
   into.bosons.bosons_val = new RationalDescr[ndet];
@@ -695,24 +1132,24 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
     approx->approx_type = RATIONAL_APPROX_POWER;
     approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
     approx->lambda_low =   4.0000000000000002e-04;
-    approx->lambda_high =   2.5000000000000000e+00;
+    approx->lambda_high =   1.500000000000000e+01;
     approx->stop_rsd.stop_rsd_len = 9;
     approx->stop_rsd.stop_rsd_val = new Float[9];
-    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-05;
-    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-06;
-    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-07;
-    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-08;
+    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-07;
+    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-08;
+    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-09;
+    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-10;
     
     approx = &into.bosons.bosons_val[i].mc_approx;
     approx->approx_type = RATIONAL_APPROX_POWER;
     approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
     approx->lambda_low =   4.0000000000000002e-04;
-    approx->lambda_high =   2.5000000000000000e+00;
+    approx->lambda_high =   1.5000000000000000e+01;
     approx->stop_rsd.stop_rsd_len = 15;
     approx->stop_rsd.stop_rsd_val = new Float[15];
     for(int j=0;j<15;j++) approx->stop_rsd.stop_rsd_val[j]= 1.0000000000000000e-10; 
@@ -733,24 +1170,24 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
     approx->approx_type = RATIONAL_APPROX_POWER;
     approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
     approx->lambda_low =   4.0000000000000002e-04;
-    approx->lambda_high =   2.5000000000000000e+00;
+    approx->lambda_high =   1.500000000000000e+01;
     approx->stop_rsd.stop_rsd_len = 9;
     approx->stop_rsd.stop_rsd_val = new Float[9];
-    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-05;
-    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-06;
-    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-07;
-    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-08;
-    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-08;
+    approx->stop_rsd.stop_rsd_val[0] =   2.0000000000000002e-07;
+    approx->stop_rsd.stop_rsd_val[1] =   1.9999999999999999e-08;
+    approx->stop_rsd.stop_rsd_val[2] =   1.9999999999999999e-09;
+    approx->stop_rsd.stop_rsd_val[3] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[4] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[5] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[6] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[7] =   9.9999999999999995e-10;
+    approx->stop_rsd.stop_rsd_val[8] =   9.9999999999999995e-10;
 
     approx = &into.fermions.fermions_val[i].mc_approx;
     approx->approx_type = RATIONAL_APPROX_POWER;
     approx->bounds_type = RATIONAL_BOUNDS_MANUAL;
     approx->lambda_low =   4.0000000000000002e-04;
-    approx->lambda_high =   2.5000000000000000e+00;
+    approx->lambda_high =   1.5000000000000000e+01;
     approx->stop_rsd.stop_rsd_len = 15;
     approx->stop_rsd.stop_rsd_val = new Float[15];
     for(int j=0;j<15;j++) approx->stop_rsd.stop_rsd_val[j]= 1.0000000000000000e-10; 
@@ -764,12 +1201,6 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
   into.eigen.eig_lo_stem = "eig_low";
   into.eigen.eig_hi_stem = "eig_hi";
 }
-
-
-
-
-
-
 
 void checkpoint(int traj)
 {

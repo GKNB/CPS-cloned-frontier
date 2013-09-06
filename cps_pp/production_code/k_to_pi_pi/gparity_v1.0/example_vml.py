@@ -67,10 +67,10 @@ contract.addMeas( generate_vml.ContractionTypeAllBilinears(prop_h_f, prop_l_f, [
 fn = "../results/bilinears_%g_%g_BB" % (masses[1],masses[0])
 contract.addMeas( generate_vml.ContractionTypeAllBilinears(prop_h_b, prop_l_b, [mom_zero], fn) )
 
-fn = "../results/coswallsink_bilinears_%g_%g_FF" % (masses[1],masses[0])
+fn = "../results/wallsink_bilinears_%g_%g_FF" % (masses[1],masses[0])
 contract.addMeas( generate_vml.ContractionTypeAllWallSinkBilinearsSpecificMomentum(prop_h_f, prop_l_f, [mom_pair_zero], coswall, fn) )
 
-fn = "../results/coswallsink_bilinears_%g_%g_BB" % (masses[1],masses[0])
+fn = "../results/wallsink_bilinears_%g_%g_BB" % (masses[1],masses[0])
 contract.addMeas( generate_vml.ContractionTypeAllWallSinkBilinearsSpecificMomentum(prop_h_b, prop_l_b, [mom_pair_zero], coswall, fn) )
 
 #Topological charge
