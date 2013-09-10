@@ -3,7 +3,7 @@
 
   Generated automatically from config.h.in by configure procedure.
 
-  $Id: config.h,v 1.1.10.1 2013-06-25 20:16:58 ckelly Exp $
+  $Id: config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
 */
 /* Global options for compiling the Columbia code:  
  * config.h.  Generated from config.h.in by configure.
@@ -12,14 +12,14 @@
  *  CVS keywords
  *
  *  $Author: ckelly $
- *  $Date: 2013-06-25 20:16:58 $
- *  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/config.h,v 1.1.10.1 2013-06-25 20:16:58 ckelly Exp $
- *  $Id: config.h,v 1.1.10.1 2013-06-25 20:16:58 ckelly Exp $
+ *  $Date: 2012-11-15 18:17:08 $
+ *  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
+ *  $Id: config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
  *  $Name: not supported by cvs2svn $
  *  $Locker:  $
- *  $RCSfile: config.h,v $
- *  $Revision: 1.1.10.1 $
- *  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/input/config.h,v $
+ *  $RCSfile: config.h.in,v $
+ *  $Revision: 1.29.28.1 $
+ *  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v $
  *  $State: Exp $
  */
 /* ------------------------------------------------------------------*/

@@ -791,6 +791,19 @@ return S;
 
 }
 
+template <class T> void Gram(vector<vector<T> > &q){
+
+int M = q.size();
+for(int j=0;j<M;j++){
+for(int i=0;i<j;i++){
+q[j] = sub( q[j]   ,  times(  ( inner(q[i],q[j])/norm2(q[i]) ) , q[i])  );
+}
+q[j] = times( q[j] , ( 1.0/sqrt( norm2(q[j]) ) ) );
+}
+
+}
+
+
 
 template <class T> void CG_Matrix(Matrix<T> &A, vector<T> source, vector<T> &solution){
 
@@ -857,6 +870,59 @@ template <class T> void CG_Matrix(Matrix<T> &A, vector<T> source, vector<T> &sol
 }
 
 
+static void Gram(LatticeFermion &r, multi1d<LatticeFermion> q, int N){
+  for(int i=0;i<N;i++){
+    r = r   -  ( innerProduct(q[i],r)/innerProduct(q[i],q[i]) )*q[i];
+  }
+  r = r*( 1.0/sqrt( norm2(r) ) );
+}
+
+static void Gram(LatticeFermion &r, multi1d<LatticeFermion> q){
+  int N = q.size();
+  for(int i=0;i<N;i++){
+    r = r   -  ( innerProduct(q[i],r)/innerProduct(q[i],q[i]) )*q[i];
+  }
+  r = r*( 1.0/sqrt( norm2(r) ) );
+}
+
+static void Gram(multi1d<LatticeFermion> &q){
+  int M = q.size();
+  for(int j=0;j<M;j++){
+    for(int i=0;i<j;i++){
+      q[j] = q[j]   -  ( innerProduct(q[i],q[j])/innerProduct(q[i],q[i]) )*q[i];
+    }
+    q[j] = q[j]*( 1.0/sqrt( norm2(q[j]) ) );
+  }
+}
+
+static void Gram(vector<LatticeFermion> &q){
+  int M = q.size();
+  for(int j=0;j<M;j++){
+    for(int i=0;i<j;i++){
+      q[j] = q[j]   -  ( innerProduct(q[i],q[j])/innerProduct(q[i],q[i]) )*q[i];
+    }
+    q[j] = q[j]*( 1.0/sqrt( norm2(q[j]) ) );
+  }
+}
+
+
+static void Gram(multi1d<LatticeFermion> &q, int M){
+  for(int j=0;j<M;j++){
+    for(int i=0;i<j;i++){
+      q[j] = q[j]   -  ( innerProduct(q[i],q[j])/innerProduct(q[i],q[i]) )*q[i];
+    }
+    q[j] = q[j]*( 1.0/sqrt( norm2(q[j]) ) );
+  }
+}
+
+static void Gram(vector<LatticeFermion> &q, int M){
+  for(int j=0;j<M;j++){
+    for(int i=0;i<j;i++){
+      q[j] = q[j]   -  ( innerProduct(q[i],q[j])/innerProduct(q[i],q[i]) )*q[i];
+    }
+    q[j] = q[j]*( 1.0/sqrt( norm2(q[j]) ) );
+  } 
+}
 
 /// q -> q Q
 template <class T> void times(multi1d<LatticeFermion> &q, Matrix<T> &Q){

@@ -1,5 +1,5 @@
-SRCDIR = /home/ckelly/CPS/build_v5_0_19_gparity_branch/../cps++_v5_0_19_gparity_branch
-BUILDDIR = /home/ckelly/CPS/build_v5_0_19_gparity_branch
+SRCDIR = /home/ckelly/CPS/git/cps/build/../cps_pp
+BUILDDIR = /home/ckelly/CPS/git/cps/build
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/
