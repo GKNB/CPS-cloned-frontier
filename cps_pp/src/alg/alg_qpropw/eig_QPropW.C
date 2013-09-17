@@ -1,3 +1,4 @@
+#include <util/dirac_op.h>
 #include <config.h> 
 #include <stdlib.h>     // exit()
 #include <stdio.h>
@@ -23,7 +24,6 @@
 #include <alg/alg_plaq.h>
 #include <alg/alg_smear.h>
 #include <alg/no_arg.h>
-#include <util/dirac_op.h>
 
 #define VOLFMT QIO_VOLFMT
 
