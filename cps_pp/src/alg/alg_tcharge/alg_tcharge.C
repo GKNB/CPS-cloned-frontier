@@ -6,10 +6,7 @@
 #include <alg/alg_tcharge.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
-#include <util/omp_wrapper.h>
-//#ifdef USE_OMP
-//#include <omp.h>
-//#endif
+#include <omp.h>
 CPS_START_NAMESPACE
 
 //----------------------------------------------------------
@@ -1226,6 +1223,17 @@ void AlgTcharge::smartrun()
 
   Float tmp[64][nfunc][nfunc] = {0};
 
+  Float* process_slice_sums[64][nfunc];
+  for(int p = 0; p < 64; p++) {
+    for(int f = 0; f < nfunc; f++) {
+      process_slice_sums[p][f] = new Float[GJP.Sites(3)];
+      for(int t = 0; t < GJP.Sites(3); t++) {
+	process_slice_sums[p][f][t] = 0;
+      }
+    }
+  }
+
+
   omp_set_num_threads(64);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
@@ -1253,11 +1261,32 @@ void AlgTcharge::smartrun()
         }
         index ++;
       }
+    
     j = omp_get_thread_num();
-    for(int f1(0); f1 < nfunc; ++f1)
-      for(int f2(f1); f2 < nfunc; ++f2)
-        tmp[j][f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
-       // tmat[f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+    int t = y[3] - ysta[3] + GJP.TnodeSites() * GJP.TnodeCoor(); //global time slice index
+    
+    for(int f1(0); f1 < nfunc; ++f1) {
+      for(int f2(f1); f2 < nfunc; ++f2) {
+	Float top = MkTop(plaqs[f1],plaqs[f2]).real();
+        tmp[j][f1][f2] += top;
+        
+	if(f1 == f2) {
+	  process_slice_sums[j][f1][t] += top;
+	}
+      }
+    }
+  }
+
+  Float* slice_sums[nfunc];
+  for(int f = 0; f < nfunc; f++) {
+    slice_sums[f] = new Float[GJP.Sites(3)];
+    for(int t = 0; t < GJP.Sites(3); t++) {
+      slice_sums[f][t] = 0;
+      for(int p = 0; p < 64; p++) {
+        slice_sums[f][t] += process_slice_sums[p][f][t];
+      }
+      glb_sum(&slice_sums[f][t]);
+    }
   }
 
   for(int f1(0); f1 < nfunc; ++f1)
@@ -1284,7 +1313,24 @@ void AlgTcharge::smartrun()
     for (int f1(0); f1 < nfunc; ++f1)
       for (int f2(f1); f2 < nfunc; ++f2)
         Fprintf(fp, "%i %i : %15e\n", f1, f2, tmat[f1][f2]);
+    
+    for(int f = 0; f < nfunc; f++) {
+      Fprintf(fp, "%d : ", f);
+      for(int t = 0; t < GJP.Sites(3); t++) {
+	Fprintf(fp, "%15e ", slice_sums[f][t]);
+      }
+      Fprintf(fp, "\n");
+    }
+
     Fclose(fp);
+  }
+  
+  
+  for(int f = 0; f < nfunc; f++) {
+    delete[] slice_sums[f];
+    for(int p = 0; p < 64; p++) {
+      delete[] process_slice_sums[p][f];
+    }
   }
 }
 
