@@ -9,19 +9,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpWilson class methods.
 
-  $Id: d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
+  $Id: d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2011-03-04 11:25:28 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
-//  $Id: d_op_wilson.C,v 1.9 2011-03-04 11:25:28 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2011/03/04 11:25:28 $
+//  $Header: /space/cvs/cps/cps++/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
+//  $Id: d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
+//  $Name: v5_0_19 $
 //  $Locker:  $
 //  $Revision: 1.9 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -45,6 +45,8 @@ CPS_END_NAMESPACE
 #include <comms/glb.h>
 CPS_START_NAMESPACE
 
+bool DiracOpWilson::use_bfm = false;
+bfmarg DiracOpWilson::bfm_arg;
 
 //------------------------------------------------------------------
 /*!
@@ -77,6 +79,16 @@ DiracOpWilson::DiracOpWilson(Lattice & latt,
   char *fname = "DiracOpWilson(L&,V*,V*,CgArg*,CnvFrmType)";
   VRB.Func(cname,fname);
 
+  if(use_bfm) {
+    assert(bfm_arg.solver == WilsonFermion || bfm_arg.solver == WilsonTM);
+    bevo.init(bfm_arg);
+
+    assert(lat.StrOrd() == CANONICAL); //required by BondCond()
+    Float *gauge = (Float *)(lat.GaugeField());
+    latt.BondCond();
+    bevo.cps_importGauge(gauge);
+    latt.BondCond();
+  }
 
   //----------------------------------------------------------------
   // Do the necessary conversions
@@ -119,6 +131,7 @@ DiracOpWilson::~DiracOpWilson() {
   else if(cnv_frm == CNV_FRM_NO)
     lat.Convert(CANONICAL);
 
+  if(use_bfm) bevo.end();
 }
 
 
@@ -146,6 +159,13 @@ DiracOpWilson::~DiracOpWilson() {
 void DiracOpWilson::MatPcDagMatPc(Vector *out, 
 					 Vector *in, 
 					 Float *dot_prd){
+  const char* fname = "MatPcDagMatPc()";
+
+  if(use_bfm) {
+    MatPcDagMatPc_BFM(out, in, dot_prd);
+    return; 
+  }
+
   wilson_mdagm((IFloat *)out, 
 	       (IFloat *)gauge_field, 
 	       (IFloat *)in, 
@@ -168,6 +188,9 @@ void DiracOpWilson::Dslash(Vector *out,
 			   Vector *in, 
 			   ChkbType cb, 
 			   DagType dag) {
+  const char* fname = "Dslash()";
+  if(use_bfm) ERR.NotImplemented(cname, fname);
+
   wilson_dslash((IFloat *)out, 
 		(IFloat *)gauge_field, 
 		(IFloat *)in, 
@@ -184,6 +207,12 @@ void DiracOpWilson::Dslash(Vector *out,
 */
 //------------------------------------------------------------------
 void DiracOpWilson::MatPc(Vector *out, Vector *in) {  
+
+  if(use_bfm) {
+    MatPc_BFM(out, in, DAG_NO);
+    return;
+  }
+
   wilson_m((IFloat *)out, 
 	   (IFloat *)gauge_field, 
 	   (IFloat *)in, 
@@ -200,6 +229,12 @@ void DiracOpWilson::MatPc(Vector *out, Vector *in) {
 */
 //------------------------------------------------------------------
 void DiracOpWilson::MatPcDag(Vector *out, Vector *in) {
+  
+  if(use_bfm) {
+    MatPc_BFM(out, in, DAG_YES);
+    return;
+  }
+  
   wilson_mdag((IFloat *)out, 
 	      (IFloat *)gauge_field, 
 	      (IFloat *)in, 
@@ -226,6 +261,9 @@ int DiracOpWilson::MatInv(Vector *out,
 			  PreserveType prs_in) {
   char *fname = "MatInv(V*,V*,F*)";
   VRB.Func(cname,fname);
+  
+  if(use_bfm) ERR.NotImplemented(cname, fname);
+  
   Vector *temp2 = NULL;
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
@@ -293,7 +331,6 @@ int DiracOpWilson::MatInv(Vector *out,
   return iter;
 }
 
-
 //------------------------------------------------------------------
 // Overloaded function is same as original 
 // but true_res=0.
@@ -324,6 +361,11 @@ void DiracOpWilson::Mat(Vector *out, Vector *in) {
   char *fname = "Mat(V*,V*)";
   VRB.Func(cname,fname);
 
+  if(use_bfm) {
+    Mat_BFM(out, in, DAG_NO);
+    return;
+  }
+
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
   // points to the even part of fermion source 
@@ -347,6 +389,11 @@ void DiracOpWilson::Mat(Vector *out, Vector *in) {
 void DiracOpWilson::MatDag(Vector *out, Vector *in) {
   char *fname = "MatDag(V*,V*)";
   VRB.Func(cname,fname);
+  
+  if(use_bfm) {
+    Mat_BFM(out, in, DAG_YES);
+    return;
+  }
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
@@ -408,8 +455,10 @@ void DiracOpWilson::MatHerm(Vector *out, Vector *in) {
 
 void DiracOpWilson::CalcHmdForceVecs(Vector *chi)
 {
-  char *fname = "CalcHmdForceVecs(V*)" ;
+  const char *fname = "CalcHmdForceVecs(V*)" ;
   VRB.Func(cname,fname) ;
+  
+  if(use_bfm) ERR.NotImplemented(cname, fname);
 
   if (f_out == 0)
     ERR.Pointer(cname, fname, "f_out") ;
@@ -445,6 +494,181 @@ void DiracOpWilson::CalcHmdForceVecs(Vector *chi)
 
   return ;
 }
+
+
+
+
+enum {
+  ImportToBfm = 1,
+  ExportFromBfm = 0
+};
+
+void DiracOpWilson::Mat_BFM(Vector *out, Vector *in, DagType dag) {  
+  const char* fname = "Mat_BFM(V*,V*,DagType)";
+
+  int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+
+  // points to the even part of fermion source 
+  Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
+  // points to the even part of fermion solution
+  Vector *even_out = (Vector *) ( (IFloat *) out + temp_size );
+  
+  Vector *odd_in = in;
+  Vector *odd_out = out;
+  
+  Fermion_t bfm_in[2]; // = {even, odd}
+  Fermion_t bfm_out[2]; // = {even, odd}
+  bfm_in[0] = bevo.allocFermion();
+  bfm_in[1] = bevo.allocFermion();
+  bfm_out[0] = bevo.allocFermion();
+  bfm_out[1] = bevo.allocFermion();
+  Fermion_t bfm_tmp = bevo.allocFermion();
+
+  bevo.mass = dirac_arg->mass;
+
+  bevo.cps_impexcbFermion((Float *)even_in , bfm_in[0], ImportToBfm, Even);
+  bevo.cps_impexcbFermion((Float *)odd_in , bfm_in[1], ImportToBfm, Odd);
+#pragma omp parallel
+  {
+    bevo.Munprec(bfm_in, bfm_out, bfm_tmp, (dag == DAG_YES ? DaggerYes : DaggerNo));
+  }
+  bevo.cps_impexcbFermion((Float *)even_out , bfm_out[0], ExportFromBfm, Even);
+  bevo.cps_impexcbFermion((Float *)odd_out , bfm_out[1], ExportFromBfm, Odd);
+
+  bevo.freeFermion(bfm_in[0]);
+  bevo.freeFermion(bfm_in[1]);
+  bevo.freeFermion(bfm_out[0]);
+  bevo.freeFermion(bfm_out[1]);
+  bevo.freeFermion(bfm_tmp);
+}
+
+void DiracOpWilson::MatPc_BFM(Vector *out, Vector *in, DagType dag) {  
+  const char* fname = "MatPc_BFM(V*,V*,DagType)";
+
+  Fermion_t bfm_in = bevo.allocFermion();
+  Fermion_t bfm_out = bevo.allocFermion();
+  Fermion_t bfm_tmp = bevo.allocFermion();
+
+  bevo.mass = dirac_arg->mass;
+
+  bevo.cps_impexcbFermion((Float *)in , bfm_in, ImportToBfm, Odd);
+#pragma omp parallel
+  {
+    bevo.Mprec(bfm_in, bfm_out, bfm_tmp, (dag == DAG_YES ? DaggerYes : DaggerNo));
+  }
+  bevo.cps_impexcbFermion((Float *)out, bfm_out, ExportFromBfm, Odd);
+
+  bevo.freeFermion(bfm_in);
+  bevo.freeFermion(bfm_out);
+  bevo.freeFermion(bfm_tmp);
+}
+
+void DiracOpWilson::MatPcDagMatPc_BFM(Vector *out, Vector *in, Float *dot_prd) {  
+  const char* fname = "MatPc_BFM(V*,V*,DagType)";
+
+  Fermion_t bfm_in = bevo.allocFermion();
+  Fermion_t bfm_out = bevo.allocFermion();
+  Fermion_t bfm_tmp = bevo.allocFermion();
+  Fermion_t bfm_intermediate = bevo.allocFermion();
+
+  bevo.mass = dirac_arg->mass;
+  int do_nrm = (dot_prd != NULL);
+
+  bevo.cps_impexcbFermion((Float *)in , bfm_in, ImportToBfm, Odd);
+
+#pragma omp parallel
+  {
+    Float norm = bevo.Mprec(bfm_in, bfm_intermediate, bfm_tmp, DaggerNo, do_nrm);
+    if(do_nrm) *dot_prd = norm;
+    bevo.Mprec(bfm_intermediate, bfm_out, bfm_tmp, DaggerYes);
+  }
+  bevo.cps_impexcbFermion((Float *)out, bfm_out, ExportFromBfm, Odd);
+
+  bevo.freeFermion(bfm_in);
+  bevo.freeFermion(bfm_out);
+  bevo.freeFermion(bfm_tmp);
+  bevo.freeFermion(bfm_intermediate);
+}
+
+int DiracOpWilson::RitzEig_BFM(Vector **eigenv, Float lambda[], int valid_eig[], EigArg *eig_arg)
+{
+  const char* fname = "RitzEig_BFM";
+  if(eig_arg->N_eig != 1) ERR.NotImplemented(cname, fname);
+  if(eig_arg->RitzMatOper != MATPCDAG_MATPC &&
+     eig_arg->RitzMatOper != NEG_MATPCDAG_MATPC) ERR.NotImplemented(cname, fname);
+
+  bool compute_min = (eig_arg->RitzMatOper == MATPCDAG_MATPC);
+  bevo.residual = 1e-8;
+  bevo.max_iter = 1000000;
+
+  Fermion_t bfm_eigenv = bevo.allocFermion();
+  Fermion_t bfm_temp1 = bevo.allocFermion();
+  Fermion_t bfm_temp2 = bevo.allocFermion();
+  Fermion_t bfm_throwaway = bevo.allocFermion();
+  
+  int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  int do_nrm;
+    
+  Float bfm_norm_sq_eigenv, bfm_vAv, bfm_temp2_dot_eigenv, bfm_normsq_temp2;
+
+  bevo.mass = dirac_arg->mass;
+
+  bevo.cps_impexcbFermion((Float *)eigenv[0], bfm_eigenv, ImportToBfm, Odd);
+#pragma omp parallel
+  {
+    lambda[0] = bevo.ritz(bfm_eigenv, compute_min);
+
+    bfm_norm_sq_eigenv = bevo.norm(bfm_eigenv);
+
+    do_nrm = true;
+    bfm_vAv = bevo.Mprec(bfm_eigenv, bfm_temp1, bfm_throwaway, DaggerNo, do_nrm);
+    bfm_normsq_temp2 = bevo.Mprec(bfm_temp1, bfm_temp2, bfm_throwaway, DaggerYes, do_nrm); 
+
+    bfm_temp2_dot_eigenv = bevo.inner_real(bfm_temp2, bfm_eigenv);
+  }
+  bevo.cps_impexcbFermion((Float *)eigenv[0], bfm_eigenv, ExportFromBfm, Odd);
+  
+  bevo.freeFermion(bfm_eigenv);
+  bevo.freeFermion(bfm_temp1);
+  bevo.freeFermion(bfm_temp2);
+  bevo.freeFermion(bfm_throwaway);
+  
+  valid_eig[0] = 1;
+  
+   
+
+
+  Vector *temp = (Vector *)smalloc(temp_size * sizeof(Float));
+  Vector *temp2 = (Vector *)smalloc(temp_size * sizeof(Float));
+  MatPc(temp, eigenv[0]);  
+  Float vAv = temp->NormSqGlbSum(temp_size);
+  Float norm_sq_eigenv = eigenv[0]->NormSqGlbSum(temp_size);
+  
+  MatPcDag(temp2, temp);
+  Float temp2_dot_eigenv = temp2->ReDotProductGlbSum(eigenv[0], temp_size);
+
+  Float normsq_temp2 = temp2->NormSqGlbSum(temp_size);
+  
+  Fermion_t bfm_import_test = bevo.allocFermion();
+
+  bevo.cps_impexcbFermion((Float *)eigenv[0], bfm_import_test, ImportToBfm, Odd);
+  eigenv[0]->VecZero(temp_size);
+  bevo.cps_impexcbFermion((Float *)eigenv[0], bfm_import_test, ExportFromBfm, Odd);
+
+  bevo.freeFermion(bfm_import_test);
+}
+
+int DiracOpWilson::RitzEig(Vector **eigenv, Float lambda[], int valid_eig[], EigArg *eig_arg)
+{
+  if(use_bfm) {
+    return RitzEig_BFM(eigenv, lambda, valid_eig, eig_arg);
+  } else {
+    return DiracOpWilsonTypes::RitzEig(eigenv, lambda, valid_eig, eig_arg);
+  }
+}
+
+//------------------------------------------------------------------
+
 
 CPS_END_NAMESPACE
 #endif

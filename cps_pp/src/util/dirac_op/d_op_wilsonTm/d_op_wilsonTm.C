@@ -87,6 +87,9 @@ void g5theta(Vector *in, int vol, IFloat ctheta, IFloat stheta) {
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+
+
 //------------------------------------------------------------------
 /*!
   Only one instance of this class is allowed to be in existence at
@@ -120,6 +123,11 @@ DiracOpWilsonTm::DiracOpWilsonTm(Lattice & latt,
   cname = "DiracOpWilsonTm";
   char *fname = "DiracOpWilsonTm(L&,V*,V*,CgArg*,CnvFrmType)";
   VRB.Func(cname,fname);
+
+  if(use_bfm) {
+    assert(bfm_arg.solver == WilsonTM);
+    //DiracOpWilson constructor will import gauge field to bevo
+  }
 
   //----------------------------------------------------------------
   // Re-initializes parameters to include epsilon that 
@@ -173,6 +181,9 @@ void DiracOpWilsonTm::Dslash(Vector *out,
 			   Vector *in, 
 			   ChkbType cb, 
 			   DagType dag) {
+  const char* fname = "Dslash(V*,V*,ChkbType,DagType)";
+  
+  if (use_bfm) ERR.NotImplemented(cname, fname);
 
 /*	    wilson_dslash((IFloat *)out, 
 			(IFloat *)gauge_field, 
@@ -180,6 +191,7 @@ void DiracOpWilsonTm::Dslash(Vector *out,
 			int(cb),
 			int(dag),
 			(Wilson *)wilson_lib_arg); */ 
+  
 
 	DiracOpWilson::Dslash(out, in, cb, dag); 
 
@@ -194,6 +206,9 @@ void DiracOpWilsonTm::Dslash_tm(Vector *out,
 			   Vector *in, 
 			   ChkbType cb, 
 			   DagType dag) {
+  const char* fname = "Dslash_tm(V*,V*,ChkbType,DagType)";
+  
+  if (use_bfm) ERR.NotImplemented(cname, fname);
 
 /*--------------------------------------------------------------------------*/
 /* Initializations                                                          */
@@ -230,6 +245,12 @@ else
 //------------------------------------------------------------------
 void DiracOpWilsonTm::MatPc(Vector *out, Vector *in) {  
   
+  if(use_bfm) {
+    bevo.twistedmass = dirac_arg->epsilon;
+    DiracOpWilson::MatPc_BFM(out, in, DAG_NO);
+    return;
+  }
+
   Vector *tmp1;
   int vol;
   int r, c, s, n;
@@ -281,6 +302,12 @@ void DiracOpWilsonTm::MatPc(Vector *out, Vector *in) {
 */
 //------------------------------------------------------------------
 void DiracOpWilsonTm::MatPcDag(Vector *out, Vector *in) {
+  
+  if(use_bfm) {
+    bevo.twistedmass = dirac_arg->epsilon;
+    DiracOpWilson::MatPc_BFM(out, in, DAG_YES);
+    return;
+  }
 
   Vector *tmp1;
   int vol;
@@ -336,6 +363,11 @@ void DiracOpWilsonTm::MatPcDag(Vector *out, Vector *in) {
 void DiracOpWilsonTm::MatPcDagMatPc(Vector *out, 
 					 Vector *in, 
 					 Float *dot_prd){
+  if(use_bfm) {
+    bevo.twistedmass = dirac_arg->epsilon;
+    DiracOpWilson::MatPcDagMatPc_BFM(out, in, dot_prd);
+    return;
+  }
 
   Vector *tmp1;
   Vector *tmp2;
@@ -471,6 +503,12 @@ void DiracOpWilsonTm::Mat(Vector *out, Vector *in) {
   char *fname = "Mat(V*,V*)";
   VRB.Func(cname,fname);
 
+  if(use_bfm) {
+    bevo.twistedmass = dirac_arg->epsilon;
+    DiracOpWilson::Mat_BFM(out, in, DAG_NO);
+    return;
+  }
+
   ERR.General(cname,fname,"d_op_wilsonTm: Mat not implemented\n");
 }
 
@@ -483,6 +521,12 @@ void DiracOpWilsonTm::Mat(Vector *out, Vector *in) {
 void DiracOpWilsonTm::MatDag(Vector *out, Vector *in) {
   char *fname = "MatDag(V*,V*)";
   VRB.Func(cname,fname);
+  
+  if(use_bfm) {
+    bevo.twistedmass = dirac_arg->epsilon;
+    DiracOpWilson::Mat_BFM(out, in, DAG_YES);
+    return;
+  }
 
   ERR.General(cname,fname,"d_op_wilsonTm: MatDag not implemented\n");
 }
@@ -527,6 +571,8 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
 {
   char *fname = "CalcHmdForceVecs(V*)" ;
   VRB.Func(cname,fname) ;
+
+  if (use_bfm) ERR.NotImplemented(cname, fname);
 
   if (f_out == 0)
     ERR.Pointer(cname, fname, "f_out") ;
@@ -647,6 +693,8 @@ void DiracOpWilsonTm::CalcBsnForceVecs(Vector *chi, Vector *phi)
   char *fname = "CalcBsnForceVecs(V*)" ;
   VRB.Func(cname,fname) ;
 
+  if (use_bfm) ERR.NotImplemented(cname, fname);
+
   if (f_out == 0) ERR.Pointer(cname, fname, "f_out") ;
   if (f_in == 0) ERR.Pointer(cname, fname, "f_in") ;
 
@@ -688,6 +736,12 @@ void DiracOpWilsonTm::CalcBsnForceVecs(Vector *chi, Vector *phi)
   g5theta(v2even, vol, ctheta, stheta);
 
   return ;
+}
+
+
+int DiracOpWilsonTm::RitzEig(Vector **eigenv, Float lambda[], int valid_eig[], EigArg *eig_arg)
+{
+  return DiracOpWilsonTypes::RitzEig(eigenv, lambda, valid_eig, eig_arg);
 }
 
 

@@ -2,12 +2,13 @@
 /*!\file
   \brief  Definition of the Dirac operator classes: DiracOp, DiracOpStagTypes.
 
-  $Id: dirac_op.h,v 1.35 2012-08-14 19:32:46 chulwoo Exp $
+  $Id: dirac_op.h,v 1.35 2012/08/14 19:32:46 chulwoo Exp $
 */
 
 #ifndef INCLUDED_DIRAC_OP_H
 #define INCLUDED_DIRAC_OP_H
 
+#include <util/lattice/bfm_evo.h>
 #include<util/enum.h>
 #include <util/lattice.h>
 #include <util/vector.h>
@@ -919,7 +920,6 @@ class DiracOpWilsonTypes : public DiracOp
 };
 
 
-
 //-----------------------------------------------------------------
 //! A class describing the Dirac operator for Wilson fermions.
 /*!
@@ -936,8 +936,25 @@ class DiracOpWilson : public DiracOpWilsonTypes
 {
  private:
   const char *cname;    // Class name.
+  
+ // This section added by Greg:
+ // Enables using BFM for some matrix operations.
+ public:
+  static bool use_bfm;
+  static bfmarg bfm_arg;
+ protected:
+  bfm_evo<Float> bevo;
+  virtual void Mat_BFM(Vector *out, Vector *in, DagType dag);
+  virtual void MatPc_BFM(Vector *out, Vector *in, DagType dag);
+  virtual void MatPcDagMatPc_BFM(Vector *out, Vector *in, Float *dot_prd);
+  virtual int RitzEig_BFM(Vector **eigenv, Float lambda[], int valid_eig[], 
+		          EigArg *eig_arg);
 
  public:
+  
+  //Added by Greg
+  virtual int RitzEig(Vector **eigenv, Float lambda[], int valid_eig[], 
+		      EigArg *eig_arg);
 
   void *wilson_lib_arg;  // pointer to an argument structure related
                          // to the wilson library.
@@ -1023,6 +1040,8 @@ class DiracOpWilson : public DiracOpWilsonTypes
 
 };
 
+
+
 //-----------------------------------------------------------------
 //! ~~ A class describing the Dirac operator for twisted-mass Wilson fermions.
 /*!
@@ -1039,7 +1058,7 @@ class DiracOpWilsonTm : public DiracOpWilson
 
   Float epsilon;	 // fractional imaginary mass 
   Float ctheta, stheta;	 // gamma_5(theta) parameters
-
+ 
  public:
 
 //
@@ -1115,7 +1134,8 @@ class DiracOpWilsonTm : public DiracOpWilson
   void Mat(Vector *out, Vector *in);
 
   void MatDag(Vector *out, Vector *in);
-  
+
+  int RitzEig(Vector **eigenv, Float lambda[], int valid_eig[], EigArg *eig_arg);
 };
 
 //------------------------------------------------------------------
