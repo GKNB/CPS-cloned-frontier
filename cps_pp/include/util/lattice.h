@@ -1137,6 +1137,12 @@ class Lattice
         f_arg.L2 += a2;
         f_arg.Linf = f_arg.Linf > a ? f_arg.Linf : a;
     }
+
+    //!< Toggle boundary condition
+    //
+    //!< Note: Agent classes which needs to import gauge field to
+    //!external libraries need to overwrite this function.
+    virtual void BondCond();
 };
 
 //------------------------------------------------------------------
