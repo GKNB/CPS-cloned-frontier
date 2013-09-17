@@ -266,6 +266,14 @@ class FwilsonTm : public virtual Fwilson
 		   Float *true_res,
 		   CnvFrmType cnv_frm = CNV_FRM_YES);
 
+    
+    int FeigSolv(Vector **f_eigenv, Float *lambda,
+                 Float *chirality, int *valid_eig,
+                 Float **hsum,
+                 EigArg *eig_arg,
+                 CnvFrmType cnv_frm);
+
+
    //
    //~~ the following functions are versions with the epsilon parameter  
    //~~ for twisted mass Wilson fermions; all implemented here
