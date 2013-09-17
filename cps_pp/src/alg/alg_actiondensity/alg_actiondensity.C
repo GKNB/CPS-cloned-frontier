@@ -313,8 +313,6 @@ void AlgActionDensity::smartrun()
   const char fname[] = "smartrun()";
   Lattice& lat( AlgLattice() );  
 
-  lat.CheckForNans("Before AlgActionDensity::smartrun()", lat.GaugeField());
-
   const int Slab = 1; //Expansion in each direction
   const int MatrixSize = 2 * lat.Colors() * lat.Colors();
   const int GsiteSize = 4 * MatrixSize;
