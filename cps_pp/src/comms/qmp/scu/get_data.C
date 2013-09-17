@@ -119,13 +119,15 @@ static void PassData(IFloat *rcv_noncache, IFloat *send_noncache, int len_i, int
   int dir = DIR(mu,sign);
 
   if (len != msglen[dir]){
-  if(!UniqueID())printf("PassData(%p %p %d %d %d)\n",rcv_noncache,send_noncache,len_i,mu,sign);
+  //Commented out by Greg for speed and log readability
+  //if(!UniqueID())printf("PassData(%p %p %d %d %d)\n",rcv_noncache,send_noncache,len_i,mu,sign);
     if (msglen[dir]>0){ 	// previously allocated
       QMP_free_msghandle(sndhandle[dir]);
       QMP_free_msghandle(rcvhandle[dir]);
       QMP_free_msgmem(sndmem[dir]);
       QMP_free_msgmem(rcvmem[dir]);
-      if(!UniqueID())printf("msglen[%d](%d) deleted\n",dir,msglen[dir]); 
+      //Commented out by Greg for speed and log readability:
+      //if(!UniqueID())printf("msglen[%d](%d) deleted\n",dir,msglen[dir]); 
     }
     sndmem[dir] = QMP_declare_msgmem(send_noncache, len*sizeof(IFloat));
     rcvmem[dir] = QMP_declare_msgmem(rcv_noncache, len*sizeof(IFloat));
