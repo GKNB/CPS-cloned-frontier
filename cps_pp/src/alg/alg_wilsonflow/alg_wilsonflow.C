@@ -21,20 +21,6 @@ CPS_START_NAMESPACE
 extern void generateSU3(Matrix &mat, Float Q[8]);
 extern const Float SU3_lambda[8][18];
 
-void check_for_nans(const Matrix& m, const char* message) 
-{
-  for(int i = 0; i < 9; i++) {
-    if(m[i].real() != m[i].real()) {
-      ERR.General("AlgWilsonFlow", "check_for_nans", "NaN at Re of matrix element %d of \"%s\"", i, message);
-      exit(55);
-    }
-    if(m[i].imag() != m[i].imag()) {
-      ERR.General("AlgWilsonFlow", "check_for_nans", "NaN at Im of matrix element %d of \"%s\"", i, message);
-      exit(55);
-    }
-  }
-}
-
 AlgWilsonFlow::AlgWilsonFlow(Lattice &lat, CommonArg *ca, Float dtime, bool proj, Float tol):
 	Alg(lat,ca),su3_proj(proj),tolerance(tol),dt(dtime)
 {
@@ -155,22 +141,17 @@ void AlgWilsonFlow::calculateZ(Lattice &lat, Site &site, int mu, Float Z[8])
 {
 	Matrix stap;
 	three_staple(lat,stap,site.pos(),mu);
-        check_for_nans(stap, "calculateZ, output of three_staple");
 	Matrix stapdag;
 	stapdag.Dagger(stap);
-        check_for_nans(stapdag, "calculateZ, stapdag");
 
     const Matrix *link=lat.GetLink(site.pos(),mu);
-    check_for_nans(*link, "calculateZ, *link");
 	Matrix loop;
 	mDotMEqual((Float *)(&loop),(Float*)link, (Float*)(&stapdag));
-        check_for_nans(loop, "calculateZ, loop");
 
 	Float tmp[18];
 	for(int i=0;i<8;i++)
 	{
 		mDotMEqual(tmp, SU3_lambda[i],(Float*)(&loop));
-                check_for_nans(*((Matrix*)&tmp), "calculateZ, tmp");
 		Z[i]=-(tmp[1]+tmp[9]+tmp[17]); //-ImTr(tmp)
 	}
 	
@@ -201,10 +182,8 @@ void AlgWilsonFlow::three_staple( Lattice& latt,  Matrix& link , int *pos, int u
 		latt.PathOrdProdPlus(acumulate_mp, pos, dir, 3); 
                 char message[128];
                 sprintf(message, "three_staple, acumulate_mp, pos = (%d, %d, %d, %d), dir = (%d, %d, %d)", pos[0], pos[1], pos[2], pos[3], dir[0], dir[1], dir[2]);
-                check_for_nans(acumulate_mp, message);
 	}
 	moveMem((Float *) &link, (Float*)&acumulate_mp, 18*sizeof(Float));
-        check_for_nans(link, "three_staple, link");
 }
 
 
@@ -751,8 +730,6 @@ void AlgWilsonFlow::smartrun()
 
   Float * gfield = (Float*) smalloc(cname, fname, "gfield", GsiteSize * g_lcl_vol * sizeof(Float)); 
 
-  lat.CheckForNans("AlgWilsonFlow before smartrun()", lat.GaugeField());
-
   for(int rk4_step = 0; rk4_step < 3; rk4_step++) 
   {
     //Grab all the needed links from neighboring nodes
@@ -766,13 +743,6 @@ void AlgWilsonFlow::smartrun()
     {
       DoRK4Step(rk4_step, site, lfield, l_dir_offset, gfield, g_dir_offset);
     }
-  
-    char message[128];
-    sprintf(message, "AlgWilsonFlow lfield after rk4_step = %d", rk4_step);
-    lat.CheckForNans(message, (Matrix*)lfield);
-    memcpy((Float *)lat.GaugeField(), lfield, GsiteSize * vol_node_sites * sizeof(Float));
-    sprintf(message, "AlgWilsonFlow lat.GaugeField() after rk4_step = %d", rk4_step);
-    lat.CheckForNans(message, lat.GaugeField());
   }
 
   sfree(cname, fname, "gfield", gfield);
