@@ -743,6 +743,8 @@ void AlgWilsonFlow::smartrun()
     {
       DoRK4Step(rk4_step, site, lfield, l_dir_offset, gfield, g_dir_offset);
     }
+
+    memcpy((Float *)lat.GaugeField(), lfield, GsiteSize * vol_node_sites * sizeof(Float));
   }
 
   sfree(cname, fname, "gfield", gfield);
