@@ -58,6 +58,7 @@ class MesonField {
 		int x_size;
 		int y_size;
 		int z_size;
+		//CK: For G-parity, the *_size variables are the size of a *single flavour*, not both
 		int size_4d;
 		int size_3d;
 		int size_4d_sc;
@@ -68,7 +69,7 @@ class MesonField {
 		void wh2w(cps::Vector *w, cps::Vector *wh, int hitid, int sc);
 		void set_expsrc(fftw_complex *, cps::Float);
 		void set_boxsrc(fftw_complex *, int);
-		void prepare_src(double, int);
+		void prepare_src(double, int, const int &flavour = 0, const bool &zero_other_flavour = true);
 		void src_glb2lcl(fftw_complex *, fftw_complex *);
 		complex<double> Gamma5(complex<double> *, complex<double> *, complex<double>);
 		complex<double> Unit(complex<double> *, complex<double> *, complex<double>);
@@ -93,5 +94,8 @@ class MesonField {
 		cps::Vector *mf_ww[3]; // 0: light w light w; 1: light w strange w; 2: strange w light w;
 		cps::Vector *wh_fftw[2];
 		cps::Vector *wh_s_fftw;
+
+		friend class MesonFieldTesting;
+		friend void Gparity_1f_FFT(fftw_complex *fft_mem);
 };
 #endif

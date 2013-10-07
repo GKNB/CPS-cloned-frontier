@@ -61,26 +61,54 @@ void Krylov_5d<S>::init()
   int sizebf;
   if(this->kr == lan)
     sizebf = 1;
+  else{
+    QDPIO::cerr << "bf vector unknown size for thie krylovtype\n";
+    exit(-1);
+  }
+
   this->bf.resize(sizebf); 
+
+  if(this->dop.gparity) QDPIO::cout << "Krylov init for 2f G-parity\n";
+  else QDPIO::cout << "Krylov init for standard fermions\n";
+  
   for(int i = 0; i < sizebf; ++i)
   {
     this->init_fermion(this->bf[i]);
     this->zero_fermion(this->bf[i]);
   }
-  multi1d<LatticeFermion> st(this->dop.Ls);
+
   Fermion of = zero;
   SpinVector tspin = zero;
+  
+  //CK: seems to generate a source vector with 1.0 on every spin-color index
   Complex cno = cmplx(Real(1), Real(0));
   for(int spn = 0; spn < Nd; spn++) 
     pokeSpin(tspin, cno, spn);
-  for(int col = 0; col < Nd; col++) 
+  for(int col = 0; col < Nd; col++)  //shouldn't this be 3, not 4??
     pokeColor(of, tspin, col);
 
-  st[0] = of; 
-  st[this->dop.Ls - 1] = of; 
-  for(int k = 1; k < this->dop.Ls - 1; ++k)
-    st[k] = zero;
-  this->qdp_to_bfm(st, this->bq[0]);
+  if(!this->dop.gparity){
+    multi1d<LatticeFermion> st(this->dop.Ls);
+    //CK: place the 4d source vector on both walls of the 5th dimension and set other s-slices to 0
+    st[0] = of; 
+    st[this->dop.Ls - 1] = of; 
+    for(int k = 1; k < this->dop.Ls - 1; ++k)
+      st[k] = zero;
+    this->qdp_to_bfm(st, this->bq[0]);
+  }else{
+    //CK: for G-parity, on each s-slice, 2 4d fields are expected: s=0 |f0 f1| s=1 |f0 f1| ....
+    //As the source is 1.0 on every spin-color index, it makes sense to make it 1.0 on both flavour indices too
+    printf("Making multi1d<LatticeFermion> of size %d\n", 2*this->dop.Ls);
+    multi1d<LatticeFermion> st(2*this->dop.Ls);
+    //CK: place the 4d source vector on both walls of the 5th dimension and set other s-slices to 0
+    st[0] = of; st[1] = of;
+    st[2*this->dop.Ls - 1] = of;  st[2*this->dop.Ls - 2] = of; 
+
+    for(int k = 2; k < 2*this->dop.Ls - 2; ++k)
+      st[k] = zero;
+    this->qdp_to_bfm(st, this->bq[0]);
+  }
+
   double hnorm = this->norm(this->bq[0]);
   this->axpby(this->bq[0], 0, this->bq[0], 1.0/hnorm, this->bq[0]);
   this->initialized = true;
@@ -143,9 +171,14 @@ void Krylov_5d<S>::herm_mult(bfm_fermion input, bfm_fermion &result)
     dwf_multiply(this->tmp1, result, true);    
     this->mvprod += 2;
   }
-  else
-    QDPIO::cerr << "Don't know what to do with that operator" << endl;
-	this->dslash_time += dclock();
+  else{
+    QDPIO::cerr << "Krylov_5d<S>::herm_mult : Don't know what to do with that operator" << endl;
+    exit(-1); //Added by CK: why would we continue??
+  }
+
+  this->dslash_time += dclock();
+  
+
 }
 
 template <class T> 
@@ -155,6 +188,9 @@ class Lanczos_5d : public Krylov_5d<T>
     Lanczos_5d(bfm_evo<T> &dwf) : Krylov_5d<T>(dwf){this->kr = lan;}
     Lanczos_5d(bfm_evo<T> &dwf, cps::LancArg &lanc_arg) : Krylov_5d<T>(dwf, lanc_arg) {this->kr = lan;} //Jasper
     virtual ~Lanczos_5d(){}
+
+    void do_init(){ this->init(); } //CK: testing workaround for fact that init is protected
+
     //Jasper
     //void Initial_State(multi1d< multi1d<LatticeFermion> > Eigs, multi1d<Complex> val)
     //{

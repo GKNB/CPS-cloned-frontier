@@ -151,7 +151,7 @@ template <class T> int QReigensystem(Matrix<T> &Hin, vector<T> &evals, vector<ve
     }
 
     if(it > 100000){
-      cout << "bugger it got stuck after 100000 iterations" << endl;
+      cout << "QReigensystem: bugger it got stuck after 100000 iterations" << endl;
       cout << "got " << e << " evals " << l << " " << N << endl;
       exit(1);
     }
@@ -377,7 +377,7 @@ int Wilkinson(Matrix<T> &Hin, vector<T> &evals, vector<vector<T> > &evecs, doubl
     //Jasper
     if(it > 1000000)
     {
-      QDPIO::cout << "bugger it got stuck after 100000 iterations" << endl;
+      QDPIO::cout << "Wilkinson: bugger it got stuck after 100000 iterations" << endl;
       QDPIO::cout << "got " << e << " evals " << l << " " << N << endl;
       exit(1);
     }

@@ -46,6 +46,7 @@ struct vml_enum_map RandomType_map[] = {
 	{"RandomType","UONE",UONE},
 	{"RandomType","ZTWO",ZTWO},
 	{"RandomType","NORAND",NORAND},
+	{"RandomType","ZFOUR",ZFOUR},
 	{NULL,NULL,0}
 };
 	 bool QPropWArg::Encode(char *filename,char *instance){

@@ -162,13 +162,17 @@ public:
   void cps_importGauge(FloatEXT *importme);
 
   //EigCG
+#if 0 //THESE ARE IN BFM
   Fermion_t allocCompactFermion   (int mem_type=mem_slow);
   Fermion_t threadedAllocCompactFermion   (int mem_type=mem_slow);
   void* threaded_alloc(int length, int mem_type=mem_slow);
   void threaded_free(void *handle);
+#endif
+
   int EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2]);
   int Eig_CGNE_prec(Fermion_t psi, Fermion_t src);
 
+#if 0 //CK: leaving them in BFM
   // copied from Jianglei's bfm
   double CompactMprec(Fermion_t compact_psi,
                       Fermion_t compact_chi,
@@ -184,6 +188,7 @@ public:
                       Fermion_t chi[2],
                       Fermion_t tmp,
                       int dag);
+#endif
 
   // do deflation using eigenvectors/eigenvalues from Rudy's Lanczos code.
   void deflate(Fermion_t out, Fermion_t in,
@@ -1692,6 +1697,7 @@ int bfm_evo<Float>::bicgstab_M(Fermion_t sol, Fermion_t src)
   return k;
 }
 
+#if 0 //CK: in BFM, leaving them there!
 // copied from Jianglei's bfm
 template<typename Float>
 double bfm_evo<Float>::CompactMprec(Fermion_t compact_psi,
@@ -1722,6 +1728,7 @@ void bfm_evo<Float>::CompactMunprec(Fermion_t compact_psi[2],
   this->copy(compact_chi[0], chi[0]);
   this->copy(compact_chi[1], chi[1]);
 }
+#endif
 
 template<typename Float>
 void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,

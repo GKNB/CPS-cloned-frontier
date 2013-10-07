@@ -1,7 +1,7 @@
 #ifndef KRYLOV_H
 #define KRYLOV_H
 
-#include <bfm_qdp.h>
+#include <util/lattice/bfm_evo.h>
 
 #include <omp.h>
 #include "Deflate.h"
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <time.h>
 
-#include <util/lattice/bfm_eigcg.h>
+//#include <util/lattice/bfm_eigcg.h> //THIS IS IN BFM
 #include <alg/lanc_arg.h>
 #include <util/time_cps.h>
 
@@ -359,6 +359,8 @@ Krylov<S>::Krylov(bfm_evo<S> &dwf, cps::LancArg &lanc_arg): dop(dwf)
 template <class S> void Krylov<S>::Krylov_init(){
 
     this->P = this->M-this->K;
+    if(this->P < 1){ QDPIO::cerr << "Krylov<S>::Krylov_init() Need dimension (M) - number of converged vectors (K) to be 1 or larger\n"; exit(-1); } //CK
+
     this->H.resize(this->M); this->H.Fill(0.0);
     this->evals.resize(this->M);
     this->evecs.resize(this->M);
@@ -390,6 +392,7 @@ void Krylov<S>::Run()
 	{
             QDPIO::cout << "Krylov: Lanczos_Factor() ff = "<< ff << " " << this->M << endl;
             ff = Lanczos_Factor(ff, this->M);
+	    QDPIO::cout << "Krylov: Lanczos_Factor() result " << ff << endl;
 	}
 
     if(ff < this->M)
@@ -514,52 +517,60 @@ template <class S> void Krylov<S>::Abort(int ff, vector<S> &evals,  vector<vecto
 template <class S> 
 void Krylov<S>::G5R(bfm_fermion result, bfm_fermion input)
 {
-    int Ls = dop.Ls;
-    int x[4];
-    int Nspinco = 12;
-    int cb0, cb1, site, bidx, rb_idx;
-    S sgn;
-    // PAB
-    // Very inefficient
-    //for(int s=0;s<this->Ls;s++){
+  int Ls = dop.Ls;
+  int x[4];
+  int Nspinco = 12;
+  int cb0, cb1, site, bidx, rb_idx;
+  S sgn;
+  // PAB
+  // Very inefficient
+  //for(int s=0;s<this->Ls;s++){
+  int n_flav(1);
+  if(dop.gparity) n_flav = 2;
+  for(int f=0;f<n_flav;f++){
     for(int s=0;s<Ls;s++){
-        for ( x[3]=0; x[3]<dop.node_latt[3];x[3]++ ) { 
-            for ( x[2]=0; x[2]<dop.node_latt[2];x[2]++ ) { 
-                for ( x[1]=0; x[1]<dop.node_latt[1];x[1]++ ) { 
-                    for ( x[0]=0; x[0]<dop.node_latt[0];x[0]++ ) { 
+      for ( x[3]=0; x[3]<dop.node_latt[3];x[3]++ ) { 
+	for ( x[2]=0; x[2]<dop.node_latt[2];x[2]++ ) { 
+	  for ( x[1]=0; x[1]<dop.node_latt[1];x[1]++ ) { 
+	    for ( x[0]=0; x[0]<dop.node_latt[0];x[0]++ ) { 
 
-                        site = x[0]+x[1]+x[2]+x[3];   
-                        if(dop.precon_5d == 1){
-                            cb0 = ((site+s)&0x1);
-                            cb1 = ((site+Ls-1-s)&0x1);}
-                        else{
-                            cb0 = ((site)&0x1);
-                            cb1 = ((site)&0x1);}
+	      site = x[0]+x[1]+x[2]+x[3];   
+	      if(dop.precon_5d == 1){
+		cb0 = ((site+s)&0x1); //equiv to (site+s)%2
+		cb1 = ((site+Ls-1-s)&0x1);}
+	      else{
+		cb0 = ((site)&0x1);
+		cb1 = ((site)&0x1);}
 
-                        for ( int co=0;co<Nspinco;co++ ) { 
-                            for ( int reim=0;reim<2;reim++ ) { 
+	      for ( int co=0;co<Nspinco;co++ ) { 
+		for ( int reim=0;reim<2;reim++ ) { 
+		  if(!dop.gparity){
+		    bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1);
+		    rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1);	///TODO Must be an easier way...
+		  }else{
+		    bidx = dop.bagel_gparity_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
+		    rb_idx = dop.bagel_gparity_idx5d(x,s,reim,co,Nspinco,1,f);
+		  }
 
-                                bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1);
-                                rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1);	///TODO Must be an easier way...
-                                sgn = 1.0;
-                                if(co > 5) sgn = -1.0;
+		  sgn = 1.0;
+		  if(co > 5) sgn = -1.0;
 
 
-                                if(this->prec == 0){
-                                    S * forward = (S *)input[cb1];
-                                    S * backward = (S *)result[cb0];
-                                    backward[rb_idx] = sgn * forward[bidx]; 
-                                }
-                                else{
-                                    S * forward = (S *)input[1];
-                                    S * backward = (S *)result[1];
-                                    backward[rb_idx] = sgn * forward[bidx]; 
-                                }
+		  if(this->prec == 0){
+		    S * forward = (S *)input[cb1];
+		    S * backward = (S *)result[cb0];
+		    backward[rb_idx] = sgn * forward[bidx]; 
+		  }
+		  else{
+		    S * forward = (S *)input[1];
+		    S * backward = (S *)result[1];
+		    backward[rb_idx] = sgn * forward[bidx]; 
+		  }
 
-                            }}
-                    }}}}
+		}}
+	    }}}}
     }
-
+  }
 }
 
 template <class S> int Krylov<S>::Lanczos_Factor(int start, int end){
@@ -570,21 +581,28 @@ template <class S> int Krylov<S>::Lanczos_Factor(int start, int end){
     QDPIO::cout<<"Lanczos_Factor start/end " <<start <<"/"<<end<<endl;
     ///Starting from scratch, bq[0] contains a random vector and |bq[0]| = 1
     if(start == 0){
+      QDPIO::cout << "start == 0\n"; //TESTING
         start++;
         Chebyshev(this->bq[0],this->bf[0]);						//bf = A bq[0]
         alpha = this->innerProduct(this->bq[0],this->bf[0]);this->innerprod++;	//alpha =  bq[0]^dag A bq[0]
+	QDPIO::cout << "real(alpha) = " << real(alpha) << std::endl;
         this->axpy(this->bf[0] ,-1.0*real(alpha), this->bq[0], this->bf[0]);	//bf =  A bq[0] - alpha bq[0]
         this->H( real(alpha),0,0);							//bq[0] . bf =  bq[0]^dag A bq[0] - alpha |bq[0]|^2 = 0
+	QDPIO::cout << "Set H(0,0) to " << H(0,0) << std::endl;
     }
     int re = 0;
     start--;
 
     beta = this->axpy_norm(this->bf[0],0.0,this->bf[0],this->bf[0]);		//|bf|^2
+    QDPIO::cout << "beta = " << beta << std::endl;
     S sqbt = sqrt(beta);
 
-    if( this->cont){beta = 0;sqbt = 0;}	
+    if( this->cont){
+      QDPIO::cout << "this->cont is true so setting beta to zero\n";
+      beta = 0;sqbt = 0;
+    }	
     for(int j=start+1;j<end;j++){
-        QDPIO::cerr << "Factor j " << j+1 << endl;
+        QDPIO::cout << "Factor j " << j+1 << endl;
         if(this->cont){
             this->axpy(this->bq[j] , 0.0 , this->bf[0], this->bf[0]);this->cont = false;
         }
@@ -602,6 +620,7 @@ template <class S> int Krylov<S>::Lanczos_Factor(int start, int end){
         S bck = sqrt( real( conj(alpha)*alpha ) + beta );
         beta = fnorm;
         sqbt = sqrt(beta);
+	QDPIO::cout << "real(alpha) = " << real(alpha) << " fnorm = " << fnorm << '\n';
 
         ///Iterative refinement of orthogonality V = [ bq[0]  bq[1]  ...  bq[M] ]
         while( re == this->ref || (sqbt < this->rho * bck && re < 5) ){
@@ -625,7 +644,9 @@ template <class S> int Krylov<S>::Lanczos_Factor(int start, int end){
             bck = sqrt( nmbex );
             re++;
         }
+	QDPIO::cout << "Iteratively refined orthogonality, changes alpha\n";
         this->H( real(alpha) ,j,j);
+	QDPIO::cout << "Set H[" << j << "][" << j << "] to " << this->H(j,j) << " which should be equal to real(alpha): " << real(alpha) << std::endl;
         if(re > 1) QDPIO::cout << "orthagonality refined " << re << " times" << endl;
     }
     return end;
@@ -703,6 +724,8 @@ void Krylov<S>::TestConv(int SS, vector<S> &tevals, vector<vector<S> > &tevecs)
     if(this->kr == lan) 
         resid_nrm =  this->axpy_norm(bf[0], 0., bf[0], bf[0]) ;
 
+    QDPIO::cout << "Norm of residual " << resid_nrm << endl;
+
     if(!this->lock) this->con = 0;
 
     for(int i = SS - lock_num - 1; i >= SS - this->K && i >= 0; --i)
@@ -745,15 +768,18 @@ void Krylov<S>::TestConv(int SS, vector<S> &tevals, vector<vector<S> > &tevecs)
 template <class S> 
 void Krylov<S>::ImplicitRestart(int TM, vector<S> &evals,  vector<vector<S> > &evecs)
 {
+  //QDPIO::cout << "ImplicitRestart begin. Eigensort starting\n";
     /// Sort by smallest imaginary part or whatever
     EigenSort(evals, evecs, this->comp);
+    //QDPIO::cout << "ImplicitRestart Eigensort complete\n";
     ///Assign shifts
     if(this->K - this->con < 4) this->P = (this->M - this->K-1); //one
     //if(this->K - this->con == 1) this->P = (this->M - this->K - ( (this->M -this->K)/2 ) ); //two
     //if(this->K - this->con < (this->M -this->K)/2 ) this->P = (this->M - this->K - ( (this->M -this->K)/2 ) ); //three Best?
     //if(this->K - this->con == 1) this->P = (this->M - this->K-1); //one
-
+    //QDPIO::cout << "ImplicitRestart vector alloc size " << this->P + this->shift_extra.size() << std::endl;
     std::vector<S> shifts(this->P + this->shift_extra.size());
+    //QDPIO::cout << "ImplicitRestart vector allocated\n";
     for(int k = 0; k < this->P; ++k)
         shifts[k] = evals[k]; 
 
@@ -970,11 +996,13 @@ void Krylov<S>::equate(bfm_fermion x, bfm_fermion y)
 template <class S> 
 void Krylov<S>::init_fermion(bfm_fermion x)
 {
+  //if(!cps::UniqueID()) printf("Krylov<S>::init_fermion initialising fermion. this->prec = %d\n",this->prec);
 #pragma omp parallel 
     {
         for(int cb = this->prec; cb < 2; cb++)
             {
-                x[cb] = dop.threadedAllocCompactFermion();
+	      //if(!cps::UniqueID()) printf("Krylov<S>::init_fermion thread calling allocate for cb = %d\n",cb);
+	      x[cb] = dop.threadedAllocCompactFermion();
             } 
     }
 }
@@ -1230,6 +1258,8 @@ template <class Float> void Krylov<Float>::times_real(multi1d<bfm_fermion> &q, M
             QZ[i*N + j] = Q(j, i);
 
     int f_size_cb = dop.cbLs*24*dop.node_cbvol;
+    if(dop.gparity) f_size_cb *=2; //on each checkerboard live 2 flavours stacked
+    //QDPIO::cout << "Krylov<Float>::times_real with checkerboard fermion size " << f_size_cb << std::endl;
 
     for(int cb = this->prec; cb < 2; cb++)
 	{
@@ -1269,6 +1299,7 @@ template <class S> void Krylov<S>::Check(){
             QZ[i*NM+j] = this->evecs[i][j];
 
     int f_size_cb = 24*dop.cbLs*dop.node_cbvol;
+    if(dop.gparity) f_size_cb *=2; //why does this quantity need to be redefined in every...single...function??
 
     for(int cb = this->prec; cb < 2; cb++)
 	{

@@ -43,6 +43,8 @@ static double time_diff(const struct timeval &end_time, const struct timeval &st
     return sec_diff + 1.0e-6 * usec_diff;
 }
 
+//CK: The region below is now included in BFM directly
+#if 0
 template <class Float>
 Fermion_t bfm_evo<Float>::threadedAllocCompactFermion   (int mem_type)
 {
@@ -99,6 +101,9 @@ void bfm_evo<Float>::threaded_free(void* handle)
     }
     this->thread_barrier();
 }
+#endif
+
+
 
 template<class Float>
 int bfm_evo<Float>::EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2])
@@ -706,6 +711,7 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
 #ifndef BLOCK_SIZE
 #define BLOCK_SIZE ((int) 4)
 #endif
+//CK: Come on guys, using inscrutable single-letter variable names DOES NOT MAKE THE CODE RUN FASTER! What on Earth does this do??
 template<class Float> void basic_dgemm (const int KB, const int M, const int N, const int K, Float **A, const double *B, double *C, const int NB)
 {
     int i, j, k;
@@ -745,7 +751,8 @@ template<class Float> void basic_dgemm (const int KB, const int M, const int N, 
                             register double cij = *(C + i*NB + j);
                             cij += pA[0][i]*(*(Bp++));
                             cij += pA[1][i]*(*(Bp++));
-                            cij += pA[3][i]*(*(Bp++));
+                            //cij += pA[3][i]*(*(Bp++)); CK: Should this not be index 2? This line causes SEGV for me
+                            cij += pA[2][i]*(*(Bp++)); 
                             *(C + i*NB + j) = cij;
                         }
                 }

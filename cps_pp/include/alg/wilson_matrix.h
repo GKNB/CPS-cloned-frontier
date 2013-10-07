@@ -328,11 +328,11 @@ public:
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
   WilsonMatrix glA(int dir);
   //! glA another version. result = gamma_dir*gamma_5*from
-  void glA(const WilsonMatrix & from, int dir);
+  WilsonMatrix& glA(const WilsonMatrix & from, int dir);
   //! mult the prop by gamma_dir on the left, and return the new matrix
   WilsonMatrix glV(int dir);
   //! glV another version. result = gamma_dir*from
-  void glV(const WilsonMatrix & from, int dir);
+  WilsonMatrix& glV(const WilsonMatrix & from, int dir);
 
   //Added by CK
   //! left multiply by 1/2(1-gamma_5)

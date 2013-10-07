@@ -40,6 +40,7 @@ enum RandomType {
 	UONE = 1,
 	ZTWO = 2,
 	NORAND = 3,
+	ZFOUR = 4,
 };
 typedef enum RandomType RandomType;
 extern struct vml_enum_map RandomType_map[];

@@ -5,7 +5,7 @@
 #ifdef USE_BFM
 
 #include <util/lattice/bfm_evo.h>
-#include <util/lattice/bfm_eigcg.h>
+#include <util/lattice/bfm_eigcg.h> //Is included in BFM
 #include <util/lattice/fbfm.h>
 #include <util/wilson.h>
 #include <util/verbose.h>

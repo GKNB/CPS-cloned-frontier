@@ -74,6 +74,8 @@ class A2APropbfm : public Alg {
 
 		// minimum number of wall sources (with 1 hit per time slice)
 		// equals GJP.Tnodes() * GJP.TnodeSites() * 12 / a2a.src_width
+		//CK: presumably source_width is the number of time-slices spanned by a given stochastic source
+		//Hmm, further code reading suggests the same stochastic source is used for both time slices
 		int nh_base;
 
 		// number of actual wall sources used (nh should always be nh_site * nh_base)
