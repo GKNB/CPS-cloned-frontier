@@ -68,6 +68,10 @@ class Lattice
 
     static Matrix* gauge_field;
        // Pointer to the gauge field configuration.
+    
+    static int* sigma_field;
+       // There is one sigma variable for each plaquette.
+       // Each sigma variable is either 0 or 1.
   
     static int is_allocated;	
        // 0 = gauge field has not been allocated
@@ -243,6 +247,17 @@ class Lattice
     }
     //!< Returns the pointer to the gauge field configuration.
 
+    Matrix *SigmaField() const {
+        return sigma_field;
+    }
+    //!< Returns the pointer to the sigma field configuration.
+
+    static Float delta_beta;
+    int GetSigma(const int *site, int mu, int nu) const;
+    void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float plaq_multiplier, Float delta_plaq_multiplier);
+    Float SumSigmaEnergyNode(Float delta_plaq_multiplier);
+    virtual void SigmaHeatBath() { ERR.NotImplemented(cname, "SigmaHeatBath()"); }
+
     void GaugeField(Matrix *u);
     //!< Copies an array into the gauge configuration.
 
@@ -258,6 +273,8 @@ class Lattice
 	\return The array index.
 	*/
     virtual unsigned long GsiteOffset(const int *x, const int dir) const;
+ 
+    int SigmaOffset(const int x[4], int mu, int nu) const;
 
 
     void CopyGaugeField(Matrix* u);

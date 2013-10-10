@@ -83,6 +83,8 @@ enum { MATRIX_SIZE = 18 };
 // Initialize static variables
 //------------------------------------------------------------------
 Matrix* Lattice::gauge_field = 0;
+int* Lattice::sigma_field = 0;
+Float Lattice::delta_beta = 0.0;
 int Lattice::is_allocated = 0;
 int Lattice::is_initialized = 0;
 StrOrdType Lattice::str_ord = CANONICAL;
@@ -167,10 +169,13 @@ Lattice::Lattice()
     VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
 #else
       gauge_field = (Matrix *) pmalloc(array_size);
+      sigma_field = (int*) pmalloc(GJP.VolNodeSites() * 6 * sizeof(int)); //six plaquettes per site.
 #endif
 //     printf("gauge_field=%p\n",gauge_field);
       if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
+      if( sigma_field == 0) ERR.Pointer(cname,fname, "sigma_field");
       VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
+      VRB.Pmalloc(cname, fname, "sigma_field", sigma_field, array_size);
       GJP.StartConfLoadAddr(gauge_field);
     }
 
@@ -543,6 +548,57 @@ GetLinkOld(Matrix *g_offset, const int *x, int v, int mu) const
     }
 }
 
+int Lattice::GetSigma(const int *site, int mu, int nu) const
+{
+  const char *fname = "GetSigma()";
+
+  // offset out-of-range coordinates site[] into on_node_site[]
+  // in order to locate the link
+  //------------------------------------------------------------------------
+  int on_node_site[4];
+  int on_node = 1;
+  const int on_node_sigma;
+  {
+    for (int i = 0; i < 4; ++i) {
+      on_node_site[i] = site[i] ;
+      while (on_node_site[i] < 0) {
+        on_node_site[i] += node_sites[i] ;
+      }
+      on_node_site[i] %= node_sites[i];
+      if (on_node_site[i] != site[i]) {
+        on_node = 0;
+      }
+    }
+    on_node_sigma = sigma_field[SigmaOffset(on_node_site, mu, nu)];
+  }
+
+#ifndef PARALLEL
+  return on_node_sigma;
+#endif
+
+  // send to the destination node if the site is off-node
+  //------------------------------------------------------------------------
+  if (on_node) {
+    return on_node_sigma;
+  } else {
+    IFloat send = (IFloat)on_node_sigma;
+    IFloat recv = -1.0;
+    for (int i = 0; i < 4; ++i) {
+      while (site[i] != on_node_site[i]) {
+        if (site[i] < 0) {
+          getMinusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          on_node_site[i] -= node_sites[i];
+        } else {
+          getPlusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          on_node_site[i] += node_sites[i];
+        }
+        send = recv;
+      }
+    }
+    assert(recv == 0.0 || recv == 1.0);
+    return (recv == 1.0 ? 1 : 0);
+  }
+}
 
 
 const unsigned CBUF_MODE2 = 0xcca52112;
@@ -672,6 +728,160 @@ void Lattice::Staple(Matrix& stap, int *x, int mu)
 		MATRIX_SIZE);
 	
       } else {
+	mDotMPlus((IFloat *)&stap, (const IFloat *)mp3,
+		  (const IFloat *)mp2);
+        // dummy read
+	*((IFloat *)mp2) = *((IFloat *)g_offpv);
+      }
+    }
+  }
+}
+
+
+//Utility function for below
+//Scale this staple properly by multiplying mp3 by the appropriate sigma factor
+static void ScaleStaple(Matrix *stap, const int x[4], int mu, int nu, Float plaq_multiplier, Float delta_plaq_multiplier) {
+  int sigma = GetSigma(x, mu, nu);
+  if(sigma == 0) {
+    stap *= 1.0 + delta_plaq_multipler / plaq_multiplier;
+  } else {
+    assert(sigma == 1);
+    Float re_tr_plaq = ReTrPlaq(x, mu, nu);
+    Float exponent = delta_plaq_multiplier * re_tr_plaq;
+    stap *= 1.0 - delta_plaq_multiplier / (plaq_multiplier * (exp(exponent) - 1.0));
+  }
+}      
+
+//------------------------------------------------------------------
+/*!
+  The staple sum around the link \f$ U_mu(x) \f$ is
+\f[
+   \sum_{\nu \neq \mu}[
+              U_\nu(x+\mu) U^\dagger_\mu(x+\nu) U^\dagger_\nu(x)
+           +  U^\dagger_\nu(x+\mu-\nu) U^\dagger_\mu(x-\nu) U_\nu(x-\nu)]     
+\f]
+  \param stap The computed staple sum.
+  \param x The coordinates of the lattice site 
+  \param mu The link direction 
+*/
+//------------------------------------------------------------------
+void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float plaq_multiplier, Float delta_plaq_multiplier)
+{
+//const char *fname = "Staple(M&,i*,i)";
+//VRB.Func(cname,fname);
+
+  // set cbuf
+  setCbufCntrlReg(2, CBUF_MODE2);
+  setCbufCntrlReg(4, CBUF_MODE4);
+
+  const Matrix *p1;
+  int offset_x = GsiteOffset(x);
+  Matrix *g_offset = GaugeField()+offset_x;
+
+  for(int nu = 0; nu < 4; ++nu) {
+    if(nu != mu) {
+
+      //----------------------------------------------------------
+      // mp3 = U_u(x+v)~
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offset, x, nu, mu);
+      mp3->Dagger((IFloat *)p1);
+
+
+      //----------------------------------------------------------
+      // p1 = &U_v(x+u)
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offset, x, mu, nu);
+
+
+      //----------------------------------------------------------
+      // mp2 = U_v(x+u) U_u(x+v)~
+      //----------------------------------------------------------
+      mDotMEqual((IFloat *)mp2, (const IFloat *)p1,
+		 (const IFloat *)mp3);
+      
+
+      //----------------------------------------------------------
+      //  mp3 = U_v(x)~
+      //----------------------------------------------------------
+      mp3->Dagger((IFloat *)(g_offset+nu));
+
+      //----------------------------------------------------------
+      // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
+      //----------------------------------------------------------
+      if( nu == 0  ||  (mu==0 && nu==1) )
+	mDotMEqual((IFloat *)&stap, (const IFloat *)mp2,
+		   (const IFloat *)mp3);
+      else
+	mDotMPlus((IFloat *)&stap, (const IFloat *)mp2,
+		  (const IFloat *)mp3);
+      
+      ScaleStaple(&stap, x, mu, nu, plaq_multiplier, delta_plaq_multiplier);
+
+
+
+      
+      //----------------------------------------------------------
+      //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
+      //----------------------------------------------------------
+      int off_pv = (x[nu] == 0) ?
+              (node_sites[nu]-1)*g_dir_offset[nu]
+	    : -g_dir_offset[nu];
+
+      Matrix *g_offpv = g_offset+off_pv;
+
+
+      //----------------------------------------------------------
+      // p1 = U_v(x+u-v)
+      // mp3 = U_v(x+u-v)
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offpv, x, mu, nu);
+      moveMem((IFloat *)mp3, (IFloat *)p1, 
+	      MATRIX_SIZE * sizeof(IFloat));
+
+
+      //----------------------------------------------------------
+      // mp2 = U_u(x-v) U_v(x+u-v)
+      //----------------------------------------------------------
+      mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offpv+mu),
+		 (const IFloat *)mp3);
+      
+
+      //----------------------------------------------------------
+      // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
+      //----------------------------------------------------------
+      mp3->Dagger((IFloat *)mp2);
+
+
+      //----------------------------------------------------------
+      // mp2 = U_v(x-v)
+      //----------------------------------------------------------
+      moveMem((IFloat *)mp2, (const IFloat *)(g_offpv+nu),
+	  MATRIX_SIZE * sizeof(IFloat));
+      
+      int x_minus_nuhat[] = {x[0], x[1], x[2], x[3]};
+      x_minus_nuhat[nu] -= 1;
+
+      //----------------------------------------------------------
+      // stap += mp3 * mp2
+      //----------------------------------------------------------
+      if(x[nu] == 0) {	// x-v off node
+	mDotMEqual((IFloat *)&m_tmp1, (const IFloat *)mp3,
+		   (const IFloat *)mp2);
+	
+	// m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
+	getMinusData((IFloat *)&m_tmp2, (IFloat *)&m_tmp1,
+		     MATRIX_SIZE, nu);
+
+        ScaleStaple(&m_tmp2, x_minus_nuhat, mu, nu, plaq_multiplier, delta_plaq_multiplier);
+	
+	//stap += m_tmp2;
+	vecAddEquVec((IFloat *)&stap, (IFloat *)&m_tmp2,
+		MATRIX_SIZE);
+	
+      } else {
+        ScaleStaple(&mp3, x_minus_nuhat, mu, nu, plaq_multiplier, delta_plaq_multiplier);
+
 	mDotMPlus((IFloat *)&stap, (const IFloat *)mp3,
 		  (const IFloat *)mp2);
         // dummy read
@@ -1232,6 +1442,39 @@ Float Lattice::SumReTrPlaqNode(void) const
   return sum;
 }
 
+Float Lattice::SumSigmaEnergyNode(Float delta_plaq_multiplier) {
+  Float sum = 0.0;
+  int x[4];
+  
+  for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
+    for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
+      for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
+	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+	  for (int mu = 0; mu < 3; ++mu) {
+	    for(int nu = mu+1; nu < 4; ++nu) {
+              int sigma = GetSigma(x, mu, nu);
+
+              Float re_tr_plaq = ReTrPlaq(x, mu, nu);
+
+              if(sigma == 0) {
+                sum += delta_plaq_multiplier * re_tr_plaq;
+              } else {
+                assert(sigma == 1);
+
+                Float exponent = -delta_plaq_multiplier * re_tr_plaq;
+                assert(exponent < 0);
+
+                sum += log(1 - exp(exponent));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return sum;
+}
 
 //------------------------------------------------------------------
 /*!
@@ -2980,6 +3223,36 @@ unsigned long Lattice::GsiteOffset(const int *x, const int dir) const{
     ERR.NotImplemented(cname,fname);
   }
   return index;
+}
+
+static const int sigma_offset_lookup[4][4] = { {-1,  0,  1,  2},
+                                               {-1, -1,  3,  4},
+                                               {-1, -1, -1,  5},
+                                               {-1, -1, -1, -1} };
+
+// There is one sigma variable for each plaquette. This function gives the
+// index into the sigma_field array that corresponds to a given plaquette
+int Lattice::SigmaOffset(const int x[4], int mu, int nu) const { 
+  assert(mu != nu);
+  assert(mu >= 0);
+  assert(nu >= 0);
+  assert(mu < 4);
+  assert(nu < 4);
+
+  if(mu > nu) {
+    int tmp = mu;
+    mu = nu;
+    nu = tmp;
+  }
+  assert(nu > mu);
+  //now nu > mu
+  
+  int plaq_offset = sigma_offset_lookup[mu][nu];
+  assert(offset != -1);
+
+  int site_offset = 6 * node_sites[0]*(x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]))) 
+
+  return site_offset + plaq_offset;
 }
 
 

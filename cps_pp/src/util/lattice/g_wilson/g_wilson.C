@@ -102,6 +102,56 @@ GclassType Gwilson::Gclass(void){
 
 const unsigned CBUF_MODE4 = 0xcca52112;
 
+void Gwilson::SigmaHeatBath() 
+{
+  const char* fname = "SigmaHeatBath()";
+  VRB.Result(cname, fname, "Entering SigmaHeatBath()\n");
+
+  int x[4];
+
+  Float delta_plaq_multiplier = delta_beta * invs3;
+
+  int n_zero = 0;
+  int n_one = 0;
+  Float max_plaq = -999.0;
+  Float min_plaq = +999.0;
+  
+  for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
+    for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
+      for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
+	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+	  for (int mu = 0; mu < 3; ++mu) {
+	    for(int nu = mu+1; nu < 4; ++nu) {
+              Float re_tr_plaq = ReTrPlaq(x, mu, nu);
+              if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
+              if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
+              
+              Float exponent = -delta_plaq_multiplier * re_tr_plaq;
+              assert(exponent < 0);
+              Float probability_zero = exp(exponent);
+
+              LRG.AssignGenerator(x);
+              IFloat rand = LRG.Urand();
+              assert(rand > 0 && rand < 1);
+              if(rand < probability_zero) {
+                sigma_field[SigmaOffset(x, mu, nu)] = 0;
+                n_zero++;
+              } else {
+                sigma_field[SigmaOffset(x, mu, nu)] = 1;
+                n_one++;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  glb_sum(&n_zero);
+  glb_sum(&n_one);
+
+  VRB.Result(cname, fname, "Finished: n_zero = %d, n_one = %d; max_plaq = %f, min_plaq = %f\n", n_zero, n_one, max_plaq, min_plaq);
+}
 
 //------------------------------------------------------------------
 /*!
@@ -120,12 +170,15 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
 
   Matrix *u_off = GaugeField()+GsiteOffset(x)+mu;
 
+  Float plaq_multiplier = GJP.Beta()*invs3;
+  Float delta_plaq_multiplier = delta_beta * invs3;
 
   //----------------------------------------
   //  get staple
   //     mp1 = staple
   //----------------------------------------
-  Staple(*mp1, x, mu);	
+  //Staple(*mp1, x, mu);	
+  StapleWithSigmaCorrections(*mp1, x, mu, plaq_multiplier, delta_plaq_multiplier)
   ForceFlops += 198*3*3+12+216*3;
   
 
@@ -142,7 +195,6 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
   //----------------------------------------
   mDotMEqual((IFloat *)&force, (const IFloat *)mp2, (const IFloat *)mp1);
 
-  Float tmp = GJP.Beta()*invs3;
   vecTimesEquFloat((IFloat *)&force, tmp, MATRIX_SIZE);
 
   
@@ -161,9 +213,13 @@ Float Gwilson::GhamiltonNode(void){
   char *fname = "GhamiltonNode()";
   VRB.Func(cname,fname);
 
-  Float tmp = GJP.Beta()*invs3;
+  Float plaq_multiplier = GJP.Beta()*invs3;
   Float sum = SumReTrPlaqNode();
-  sum *= tmp;
+  sum *= plaq_multiplier;
+
+  Float delta_plaq_multiplier = delta_beta * invs3;
+  Float sigma_energy = SumSigmaEnergyNode(delta_plaq_multiplier);
+
   return sum;
 
 }
