@@ -4208,6 +4208,7 @@ unsigned long Lattice::GsiteOffset(const int *x, const int dir) const{
   case CANONICAL:
     //Added by CK.
     index = 4*(x[0]+GJP.XnodeSites()*(x[1]+GJP.YnodeSites()*(x[2]+GJP.ZnodeSites()*x[3])))+dir;
+    break;
   default:
     ERR.NotImplemented(cname,fname);
   }
