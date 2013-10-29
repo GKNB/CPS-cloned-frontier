@@ -85,9 +85,11 @@ void create_blocks_gauge(multi1d<multi1d<LatticeColorMatrix> > &u_xblock, multi1
   int nrow[] = {nodes[0]*lx,nodes[1]*ly,nodes[2]*lz,nodes[3]*lt};
 
   for(int mu = 0;mu<Nd;mu++){
+    QDPIO::cout << "Mu = " << mu << std::endl;
     //loop over global coords
     multi1d<int> xx(4);
     for(xx[0] = 0; xx[0] < nrow[0]; xx[0]++){
+      QDPIO::cout << "x = " << xx[0] << std::endl;
       //what xnode is this?
       int xnode = xx[0]/lx;
       //how far is this into the block
@@ -103,6 +105,7 @@ void create_blocks_gauge(multi1d<multi1d<LatticeColorMatrix> > &u_xblock, multi1
       for(xx[1] = 0; xx[1] < nrow[1]; xx[1]++){
 	for(xx[2] = 0; xx[2] < nrow[2]; xx[2]++){
 	  for(xx[3] = 0; xx[3] < nrow[3]; xx[3]++){
+	    QDPIO::cout << "y,z,t = " << xx[1] << "," << xx[2]<< "," << xx[3] << std::endl;
 
 	    multi1d<int> yy(xx); 
 	    yy[0] = x0;
@@ -447,6 +450,7 @@ int main (int argc,char **argv )
     chi_h[0] = dwf.allocFermion();
     chi_h[1] = dwf.allocFermion();
     
+    QDPIO::cout << "Importing gauge and fermion vectors\n";
     dwf.importGauge(u);
 
     dwf.importFermion(psi,psi_h[0],0);
@@ -461,6 +465,7 @@ int main (int argc,char **argv )
     dwf.qdp_psi_h[0]=psi_h[0];
     dwf.qdp_psi_h[1]=psi_h[1];
 
+    QDPIO::cout << "Inverting\n";
     bfm_spawn_cg(dwf);
 
 
@@ -469,13 +474,14 @@ int main (int argc,char **argv )
     //   dwf.CGNE(chi_h,psi_h);
     // }
     
+    QDPIO::cout << "Finishing up\n";
     dwf.exportFermion(chi,chi_h[0],0);
     dwf.exportFermion(chi,chi_h[1],1);
     dwf.end();
   }
  
   //now do double lattice
-
+  QDPIO::cout << "Preparing doubled lattice\n";
   int x[4];
 
   Double n2gp;
@@ -492,9 +498,11 @@ int main (int argc,char **argv )
     psi_xblock[i].resize(Ls);
     chi_xblock[i].resize(Ls);
   }
-
+  QDPIO::cout << "Preparing double gauge\n";
   create_blocks_gauge(u_xblock,u_nogp);
+  QDPIO::cout << "Preparing double psi\n";
   create_blocks_ferm(psi_xblock,psi_nogp_f0,psi_nogp_f1,Ls);
+  QDPIO::cout << "Preparing double chi\n";
   create_blocks_ferm(chi_xblock,chi_nogp_f0,chi_nogp_f1,Ls);
 
   QDPdouble* block_ptrs[2][Nd];

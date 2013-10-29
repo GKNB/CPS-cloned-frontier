@@ -21,6 +21,7 @@ private:
 
   ThreadType threadtype;
   int max_threads; //the max amount of threads when the array of Rcomplex was created
+  bool global_sum_on_write; //do a global summation before writing. Defaults to true.
 public:
   void setNcontractions(const int &n);
   void write(const char *file);
@@ -28,10 +29,17 @@ public:
   Rcomplex & operator()(const int &contraction_idx, const int &t);
   Rcomplex & operator()(const int &thread_idx, const int &contraction_idx, const int &t);
 
-  void sumLattice(); //sum each element of wick[contraction][t] over all nodes (and threads if threaded). Result is stored in wick and after sum accessible via operator() (non-threaded version)
+  void sumThreads(); //Form the sum of wick[contraction][t] over all threads on the local node. Result is stored in wick and after sum accessible via operator() (i.e. the non-threaded version)
+  void sumLattice(); //Form the sum of wick[contraction][t] over all nodes (and threads if threaded). Result is stored in wick and after sum accessible via operator() (i.e. the non-threaded version)
   void clear();
 
+  void setGlobalSumOnWrite(const bool &b){ global_sum_on_write = b; }
+
+  const ThreadType & threadType() const{ return threadtype; }
+
   CorrelationFunction(const char *_label, const ThreadType &thread = UNTHREADED);
+  CorrelationFunction(const char *_label, const int &n_contractions, const ThreadType &thread = UNTHREADED);
+
   ~CorrelationFunction();
 };
 

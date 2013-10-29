@@ -423,6 +423,45 @@ void convert_2f_A2A_prop_to_1f(A2APropbfm &prop_2f, bool gparity_X, bool gparity
     pfree(new_wh);
   }
 
+  //FFTW fields
+
+  if(prop_2f.get_v_fftw(0)!=NULL){
+
+    //Assumes just 1 set of v and w (i.e. no strange quark)
+    //v_fftw   size a2a_prop->get_nvec()
+    for(int i=0;i< prop_2f.get_nvec(); i++){
+      //On each index is a CPS fermion
+      int vsz = 24*four_vol*sizeof(Float);
+      Float* new_v = (Float*)pmalloc(vsz);
+      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_v_fftw(i), new_v);
+      doubler.Run();
+      memcpy( (void*)prop_2f.get_v_fftw(i), (void*)new_v, vsz);
+      pfree(new_v);
+    }
+    //wl_fftw[0] (light part)  size a2a_prop->get_nl()
+    for(int i=0;i< prop_2f.get_nl(); i++){
+      //On each index is a CPS fermion
+      int vsz = 24*four_vol*sizeof(Float);
+      Float* new_v = (Float*)pmalloc(vsz);
+      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_wl_fftw(i), new_v);
+      doubler.Run();
+      memcpy( (void*)prop_2f.get_wl_fftw(i), (void*)new_v, vsz);
+      pfree(new_v);
+    }
+    //wh_fftw[0] is 12*a2a_prop->get_nhits() stacked fermion vectors
+    for(int i=0;i< 12*prop_2f.get_nhits(); i++){
+      int off = i*24*four_vol; //(float units)
+      Float* fld = (Float*)prop_2f.get_wh_fftw() + off;
+
+      int vsz = 24*four_vol*sizeof(Float);
+      Float* new_v = (Float*)pmalloc(vsz);
+      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, fld, new_v);
+      doubler.Run();
+      memcpy( fld, (void*)new_v, vsz);
+      pfree(new_v);
+    }     
+
+  }
 }
 
 
@@ -487,6 +526,10 @@ void compare_1f_2f_A2A_prop(A2APropbfm &prop_2f, A2APropbfm &prop_1f){
   }
   printf("Successfully compared 1f and 2f A2A propagators\n");
 }
+
+
+
+
 void setup_gfix_args(FixGaugeArg &r){
   r.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
   r.hyperplane_start = 0;
@@ -495,6 +538,9 @@ void setup_gfix_args(FixGaugeArg &r){
   r.stop_cond = 1e-06;
   r.max_iter_num = 6000;
 }
+
+CPS_START_NAMESPACE
+
 class MesonFieldTesting{
 public:
   static void convert_mesonfield_2f_1f(MesonField &mf, const bool &gparity_X, const bool &gparity_Y){
@@ -534,8 +580,9 @@ public:
       memcpy( fld, (void*)new_v, vsz);
       pfree(new_v);
     }       
+    //Note 1f and 2f mesonfields themselves have the same layout
   }
-  static void compare_mesonfield(MesonField &_1f, MesonField &_2f){
+  static void compare_fftw_vecs(MesonField &_1f, MesonField &_2f){
     printf("Comparing meson fields\n");
     int four_vol = GJP.VolNodeSites();
 
@@ -578,12 +625,194 @@ public:
 
     printf("Passed comparison of meson fields\n");
   }
-	   
+  //Ensure that the old MesonField FFT results are the same as those obtained from new A2APropBfm
+  static void compare_fftw_fields(MesonField &mf, A2APropbfm &a2a){
+    printf("Comparing FFTW fields between MesonField and A2APropbfm\n");
+    int four_vol = GJP.VolNodeSites();
+    int gpfac = (GJP.Gparity()?2:1);
 
+    for(int i=0;i< a2a.get_nl(); i++){
+      printf("Comparing wl_fftw for vec idx %d\n",i);
+      bool fail(false);
+      for(int j=0;j< gpfac*24*four_vol;j++){
+	Float v1f = ((Float*)mf.wl_fftw[0][i])[j];
+	Float v2f = ((Float*)a2a.get_wl_fftw(i))[j];
+	if( fabs( v1f  - v2f ) > 1e-12 ){ printf("Failed on wl_fftw mode idx %d at ferm offset %d: %.14e  %.14e\n",i,j,v1f,v2f); fail = true; }
+      }
+      if(fail){ printf("Comparison of wl_fftw for vec idx %d failed\n",i); exit(-1); }
+    }
+    for(int i=0;i< 12* a2a.get_nhits(); i++){
+      int off = i*gpfac*24*four_vol; //(float units)
+      Float* fl1f = (Float*)mf.wh_fftw[0] + off;
+      Float* fl2f = (Float*)a2a.get_wh_fftw() + off;
+
+      printf("Comparing wh_fftw for hit/spin-color idx %d\n",i);
+      bool fail(false);
+      for(int j=0;j<gpfac*24*four_vol;j++){
+	Float v1f = fl1f[j];
+	Float v2f = fl2f[j];
+	if( fabs( v1f  - v2f ) > 1e-12 ){ printf("Failed on wh_fftw hit/spin-color idx %d at ferm offset %d: %.14e  %.14e\n",i,j,v1f,v2f); fail = true; }
+      }
+      if(fail){ printf("Comparison of wh_fftw for hit/spin-color idx %d failed\n",i); exit(-1); }
+    }
+    for(int i=0;i< a2a.get_nvec(); i++){
+      printf("Comparing v_fftw for vec idx %d\n",i);
+      bool fail(false);
+      for(int j=0;j<gpfac*24*four_vol;j++){
+	Float v1f = ((Float*)mf.v_fftw[i])[j];
+	Float v2f = ((Float*)a2a.get_v_fftw(i))[j];
+	if( fabs( v1f  - v2f ) > 1e-12 ){ printf("Failed on v_fftw vec idx %d at ferm offset %d: %.14e  %.14e\n",i,j,v1f,v2f); fail = true; }
+      }
+      if(fail){ printf("Comparison of v_fftw for vec idx %d failed\n",i); exit(-1); }
+    }
+    printf("Passed comparison of FFTW fields between MesonField and A2APropbfm\n");
+  }
+  
+  //Compare the 1f and 2f mesonfield object MesonField.mf. Has the same memory layout for the 2 implementations so no conversion is necessary
+  static void compare_mf_ll(MesonField &mf_1f, MesonField &mf_2f){
+    int t_size = GJP.TnodeSites()*GJP.Tnodes();
+    int size = mf_1f.nvec[0]*(mf_1f.nl[0]+12*mf_1f.nhits[0])*t_size*2;
+    bool fail(false);
+    for(int i=0;i<size;i++){
+      int rem = i;
+      int reim = rem % 2; rem/=2;
+      int glb_t = rem % t_size; rem/=t_size;
+      int mat_j = rem % mf_1f.nvec[0]; rem/=mf_1f.nvec[0];
+      int mat_i = rem;
+
+      Float* _1f = (Float*)mf_1f.mf + i;
+      Float* _2f = (Float*)mf_2f.mf + i;
+      if( fabs(*_1f - *_2f) > 1e-12 ){ if(!UniqueID()) printf("Failed on mf_ll offset %d: %.14e   %.14e\n",i,*_1f,*_2f); fail = true; }      
+    }
+    if(fail){ printf("Failed mf_ll test\n"); exit(-1); }
+    else printf("Passed mf_ll test\n");
+  }
+
+  static void compare_source_MesonField2_2f(MesonField &mf, MFsource &src){
+    bool fail(false);
+    for(int i=0;i<2*GJP.VolNodeSites()/GJP.TnodeSites();i++){
+      Float* _orig = (Float*)mf.src + i;
+      Float* _new = (Float*)src.src + i;
+      if( fabs(*_orig - *_new) > 1e-12 ){ if(!UniqueID()) printf("Failed on source comparison offset %d: %.14e   %.14e\n",i,*_orig,*_new); fail = true; }
+      else printf("Passed on source comparison offset %d: %.14e   %.14e\n",i,*_orig,*_new);
+    }
+    if(fail){ printf("Failed source comparison test\n"); exit(-1); }
+    else printf("Passed source comparison test\n");
+  }
+
+  static void compare_mf_ll_MesonField2_2f(MesonField &mf_2f, MesonField2 &mf2_2f){
+    int t_size = GJP.TnodeSites()*GJP.Tnodes();
+    int size = mf_2f.nvec[0]*(mf_2f.nl[0]+12*mf_2f.nhits[0])*t_size*2;
+    bool fail(false);
+    for(int i=0;i<size;i++){
+      int rem = i;
+      int reim = rem % 2; rem/=2;
+      int glb_t = rem % t_size; rem/=t_size;
+      int mat_i = rem % mf_2f.nvec[0]; rem/=mf_2f.nvec[0];
+      int mat_j = rem;
+
+      Float* _orig = (Float*)mf_2f.mf + i;
+      Float* _new = (Float*)mf2_2f.mf + i;
+      if( fabs(*_orig - *_new) > 1e-12 ){ if(!UniqueID()) printf("Failed on mf_ll_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new); fail = true; }      
+      else if(!UniqueID()) printf("Passed on mf_ll_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new);
+    }
+    if(fail){ printf("Failed mf_ll_MesonField2_2f test\n"); exit(-1); }
+    else printf("Passed mf_ll_MesonField2_2f test\n");
+  }
+  static void compare_mf_sl_MesonField2_2f(MesonField &mf_2f, MesonField2 &mf2_2f){
+    int t_size = GJP.TnodeSites()*GJP.Tnodes();
+    int size = mf_2f.nvec[0]*(mf_2f.nl[1]+12*mf_2f.nhits[1])*t_size*2;
+    bool fail(false);
+    for(int i=0;i<size;i++){
+      int rem = i;
+      int reim = rem % 2; rem/=2;
+      int glb_t = rem % t_size; rem/=t_size;
+      int mat_i = rem % mf_2f.nvec[0]; rem/=mf_2f.nvec[0];
+      int mat_j = rem;
+
+      Float* _orig = (Float*)mf_2f.mf_sl + i;
+      Float* _new = (Float*)mf2_2f.mf + i;
+      if( fabs(*_orig - *_new) > 1e-12 ){ if(!UniqueID()) printf("Failed on mf_sl_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new); fail = true; }      
+      else if(!UniqueID()) printf("Passed on mf_sl_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new);
+    }
+    if(fail){ printf("Failed mf_sl_MesonField2_2f test\n"); exit(-1); }
+    else printf("Passed mf_sl_MesonField2_2f test\n");
+  }
+  static void compare_mf_ls_MesonField2_2f(MesonField &mf_2f, MesonField2 &mf2_2f){
+    int t_size = GJP.TnodeSites()*GJP.Tnodes();
+    int size = mf_2f.nvec[1]*(mf_2f.nl[0]+12*mf_2f.nhits[0])*t_size*2;
+    bool fail(false);
+    for(int i=0;i<size;i++){
+      int rem = i;
+      int reim = rem % 2; rem/=2;
+      int glb_t = rem % t_size; rem/=t_size;
+      int mat_i = rem % mf_2f.nvec[1]; rem/=mf_2f.nvec[1];
+      int mat_j = rem;
+
+      Float* _orig = (Float*)mf_2f.mf_ls + i;
+      Float* _new = (Float*)mf2_2f.mf + i;
+      if( fabs(*_orig - *_new) > 1e-12 ){ if(!UniqueID()) printf("Failed on mf_ls_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new); fail = true; }      
+      else if(!UniqueID()) printf("Passed on mf_ls_MesonField2_2f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new);
+    }
+    if(fail){ printf("Failed mf_ls_MesonField2_2f test\n"); exit(-1); }
+    else printf("Passed mf_ls_MesonField2_2f test\n");
+  }
+
+
+  static void compare_mf_ll_MesonField2_2f_1f(MesonField2 &mf2_2f, MesonField2 &mf2_1f){
+    int t_size = GJP.TnodeSites()*GJP.Tnodes();
+    int size = mf2_2f.nvec[0]*(mf2_2f.nl[0]+12*mf2_2f.nhits[0])*t_size*2;
+    bool fail(false);
+    for(int i=0;i<size;i++){
+      int rem = i;
+      int reim = rem % 2; rem/=2;
+      int glb_t = rem % t_size; rem/=t_size;
+      int mat_i = rem % mf2_2f.nvec[0]; rem/=mf2_2f.nvec[0];
+      int mat_j = rem;
+
+      Float* _orig = (Float*)mf2_2f.mf + i;
+      Float* _new = (Float*)mf2_1f.mf + i;
+      if( fabs(*_orig - *_new) > 1e-12 ){ if(!UniqueID()) printf("Failed on mf_ll_MesonField2_2f_1f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new); fail = true; }      
+      else if(!UniqueID()) printf("Passed on mf_ll_MesonField2_2f_1f offset %d (i %d j %d t %d reim %d): %.14e   %.14e\n",i,mat_i,mat_j,glb_t,reim,*_orig,*_new);
+    }
+    if(fail){ printf("Failed mf_ll_MesonField2_2f_1f test\n"); exit(-1); }
+    else printf("Passed mf_ll_MesonField2_2f_1f test\n");
+  }
+
+  static void compare_kaon_corr_MesonField2_2f(std::complex<double> *kaoncorr_orig, CorrelationFunction &kaoncorr_mf2){
+    //std::complex<double> *kaoncorr_orig = (std::complex<double> *)pmalloc(sizeof(std::complex<double>)*GJP.Tnodes()*GJP.TnodeSites());
+    bool fail(false);
+
+    const char* thr = kaoncorr_mf2.threadType() == CorrelationFunction::THREADED ? "threaded" : "unthreaded";
+
+    for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
+      double *_orig = (double*) &kaoncorr_orig[t];
+      double *_new = (double*) &kaoncorr_mf2(0,t);
+      for(int i=0;i<2;i++){	
+	if( fabs(_orig[i] - _new[i]) > 1e-12 ){ if(!UniqueID()) printf("Failed on compare_kaon_corr_MesonField2_2f t = %d i = %d: %.14e   %.14e\n",t,i,_orig[i],_new[i]); fail = true; }      
+      }
+    }
+    if(fail){ printf("Failed compare_kaon_corr_MesonField2_2f (%s) test\n",thr); exit(-1); }
+    else printf("Passed compare_kaon_corr_MesonField2_2f (%s) test\n",thr);
+  }
+
+
+
+  static void wallsource_amplitude_2f(MesonField2 &mf2_2f){
+    
+
+
+
+  }
+  
 
 };
+CPS_END_NAMESPACE
 
+//(complex<double> *)mf + (j*nvec[0]+i)*t_size*n_flav2 + t_size*(2*g + f) +glb_t;
+  // int mf_fac = GJP.Gparity() || GJP.Gparity1fX() ? 4 : 1; //flavour matrix indices also
 
+  // mf = (Vector *)smalloc(cname, fname, "mf", sizeof(Float)*nvec[0]*(nl[0]+sc_size*nhits[0])*t_size*2 * mf_fac);
 
 using namespace Chroma;
 using namespace cps;
@@ -830,7 +1059,60 @@ int main (int argc,char **argv )
   //Generate MesonField object
   MesonField mesonfield_2f(*lattice, prop_2f, &fix_gauge_2f, &c_arg);
   mesonfield_2f.allocate_vw_fftw();
-  mesonfield_2f.prepare_vw();
+
+  //Do the FFTW on the A2APropbfm also and test this new code
+  fix_gauge_2f.run();
+  prop_2f->allocate_vw_fftw();
+  prop_2f->fft_vw();
+  fix_gauge_2f.free(); //free gauge fixing matrices
+
+  mesonfield_2f.prepare_vw(); //re-performs gauge fixing
+  MesonFieldTesting::compare_fftw_fields(mesonfield_2f,*prop_2f);
+
+  //Calculate mesonfield with exponential source with radius 2
+  int source_type = 2;   //exp 1 box 2
+  double radius = 2;
+
+  MFBasicSource::SourceType source_type2 = MFBasicSource::BoxSource; //MFBasicSource::ExponentialSource;
+  mesonfield_2f.cal_mf_ll(radius,source_type);
+
+  //Try to duplicate mf_ll using MesonField2
+  MFqdpMatrix structure_2f(MFstructure::W, MFstructure::V, true, false,15,sigma0); //gamma^5 spin, unit mat flavour
+  MFBasicSource source_2f(source_type2,radius);
+  
+  MesonFieldTesting::compare_source_MesonField2_2f(mesonfield_2f,source_2f);  
+  MesonField2 mf2_2f(*prop_2f,*prop_2f, structure_2f, source_2f);
+  MesonFieldTesting::compare_mf_ll_MesonField2_2f(mesonfield_2f, mf2_2f);
+
+  //Calculate a 'kaon' correlation function in both Daiqian's code and mine (both modified for G-parity)
+  {
+    AlgFixGauge fix_gauge_2f_ls(*lattice,&c_arg,&gfix_arg);
+    MesonField mesonfield_2f_ls(*lattice, prop_2f, prop_2f, &fix_gauge_2f_ls, &c_arg); //pretend the propagator is also a strange quark for testing :)
+    mesonfield_2f_ls.allocate_vw_fftw();
+    mesonfield_2f_ls.prepare_vw();
+
+    mesonfield_2f_ls.cal_mf_sl(radius,source_type);
+    MesonFieldTesting::compare_mf_sl_MesonField2_2f(mesonfield_2f_ls,mf2_2f);
+
+    mesonfield_2f_ls.cal_mf_ls(radius,source_type);
+    MesonFieldTesting::compare_mf_ls_MesonField2_2f(mesonfield_2f_ls,mf2_2f);
+
+    std::complex<double> *kaoncorr_orig = (std::complex<double> *)pmalloc(sizeof(std::complex<double>)*GJP.Tnodes()*GJP.TnodeSites());
+    mesonfield_2f_ls.run_kaon(kaoncorr_orig);
+    
+    CorrelationFunction kaoncorr_mf2("",1);
+    MesonField2::contract(mf2_2f, mf2_2f, kaoncorr_mf2);
+    
+    MesonFieldTesting::compare_kaon_corr_MesonField2_2f(kaoncorr_orig, kaoncorr_mf2);
+
+    //Check threaded version
+    CorrelationFunction kaoncorr_mf2_thr("",1, CorrelationFunction::THREADED);
+    MesonField2::contract(mf2_2f, mf2_2f, kaoncorr_mf2_thr);
+    kaoncorr_mf2_thr.sumThreads();
+
+    MesonFieldTesting::compare_kaon_corr_MesonField2_2f(kaoncorr_orig, kaoncorr_mf2_thr);
+
+  }
 
   //Restore LRG backup to reset RNG for 1f section
   LRG = LRGbak;
@@ -890,10 +1172,26 @@ int main (int argc,char **argv )
   mesonfield_1f.allocate_vw_fftw();
   mesonfield_1f.prepare_vw();
 
+  //Calculate mesonfield with exponential source with radius 2
+  mesonfield_1f.cal_mf_ll(radius,source_type);
+
   MesonFieldTesting::convert_mesonfield_2f_1f(mesonfield_2f,gparity_X,gparity_Y);
 
   //Compare meson fields
-  MesonFieldTesting::compare_mesonfield(mesonfield_1f,mesonfield_2f);
+  MesonFieldTesting::compare_fftw_vecs(mesonfield_1f,mesonfield_2f);
+  MesonFieldTesting::compare_mf_ll(mesonfield_1f, mesonfield_2f);
+
+  //Test MesonField2 1f code against its 2f version (its 2f version has already been compared to the original MesonField code above)
+  fix_gauge_1f.run();
+  prop_1f->allocate_vw_fftw();
+  prop_1f->fft_vw();
+  fix_gauge_1f.free();
+
+  MFqdpMatrix structure_1f(MFstructure::W, MFstructure::V, true, false,15,sigma0); //gamma^5 spin, unit mat flavour
+  MFBasicSource source_1f(source_type2,radius);
+  
+  MesonField2 mf2_1f(*prop_1f,*prop_1f, structure_1f, source_1f);
+  MesonFieldTesting::compare_mf_ll_MesonField2_2f_1f(mf2_2f,mf2_1f);
 
 
 

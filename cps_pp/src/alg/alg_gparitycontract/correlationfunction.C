@@ -25,11 +25,19 @@
 #include <omp.h>
 CPS_START_NAMESPACE
 
-CorrelationFunction::CorrelationFunction(const char *_label, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread){
+CorrelationFunction::CorrelationFunction(const char *_label, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true){
   time_size=GJP.Tnodes()*GJP.TnodeSites();
   label = new char[strlen(_label)+1];
   strcpy(label,_label);
 }
+CorrelationFunction::CorrelationFunction(const char *_label, const int &n_contractions, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true){
+  time_size=GJP.Tnodes()*GJP.TnodeSites();
+  label = new char[strlen(_label)+1];
+  strcpy(label,_label);
+  setNcontractions(n_contractions);
+}
+
+
 void CorrelationFunction::setNcontractions(const int &n){
   clear();
 
@@ -93,17 +101,24 @@ Rcomplex & CorrelationFunction::operator()(const int &thread_idx, const int &con
   return wick_threaded[thread_idx][contraction_idx][t];
 }
 
-void CorrelationFunction::sumLattice(){
+void CorrelationFunction::sumThreads(){
   if(threadtype == THREADED){
     //do the thread sum to wick
     for(int i=0;i<ncontract;i++){
       for(int t=0;t<time_size;t++){
+	wick[i][t] = 0.0;
 	for(int s=0;s<max_threads;s++){
 	  wick[i][t] += wick_threaded[s][i][t];
 	}
       }
     }
   }
+}
+
+
+void CorrelationFunction::sumLattice(){
+  sumThreads();
+
   //now do the lattice sum
   for(int i=0;i<ncontract;i++){
     for(int t=0;t<time_size;t++){
@@ -120,7 +135,7 @@ void CorrelationFunction::write(const char *file){
   Fclose(fp);
 }
 void CorrelationFunction::write(FILE *fp){
-  sumLattice(); //sum the correlation function over all nodes
+  if(global_sum_on_write) sumLattice(); //sum the correlation function over all nodes
 
   Fprintf(fp,"%s\n",label);
   Fprintf(fp,"%d contractions\n",ncontract);

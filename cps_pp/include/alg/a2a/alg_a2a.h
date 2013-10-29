@@ -14,6 +14,7 @@
 #include <util/lattice/bfm_evo.h>
 #include <alg/a2a/lanc_arg.h>
 #include <alg/eigen/Krylov_5d.h>
+#include <fftw3.h>
 
 CPS_START_NAMESPACE
 
@@ -28,10 +29,13 @@ class A2APropbfm : public Alg {
 
 		void allocate_vw();
 		void free_vw();
+		void allocate_vw_fftw();
+		void free_vw_fftw();
 
 		bool compute_vw_low(bfm_evo<double> &dwf);
 		bool compute_vw_high(bfm_evo<double> &dwf);
 		bool compute_vw(void);
+		void fft_vw(); //Perform FFT of v and w
 
 		void save_vw(void);
 		void save_v(int i);
@@ -56,8 +60,31 @@ class A2APropbfm : public Alg {
 		Vector *get_v(int i);
 		Vector *get_wl(int i);
 		Vector *get_wh(void) { return wh;};
+		
+		Vector *get_v_fftw(int i);
+		Vector *get_wl_fftw(int i);
+		Vector *get_wh_fftw(void) { return wh_fftw;};
 
 		void test(bfm_evo<double> &dwf);
+
+		//Get FFT v for light/heavy quark at four-momentum index k in the range  0 -> four-vol. vec_idx is a mode index in the 
+		//range 0 -> a2a_prop->get_nvec() = nl + nhits * Lt * sc_size / width. flavor is the G-parity flavor index (0,1)
+		inline std::complex<double>* get_v_fftw(const int &vec_idx, const int &k, const int &flavor = 0){ return (complex<double> *)(v_fftw[vec_idx]) + k * SPINOR_SIZE/2 + flavor* GJP.VolNodeSites() * SPINOR_SIZE/2; }
+
+		//Get FFT w for light/heavy quark at four-momentum index k in the range  0 -> four-vol. vec_idx is a mode index in the range 0 -> nl + sc_size * nhits. flavor is the G-parity flavor index (0,1)
+		inline std::complex<double>* get_w_fftw(const int &vec_idx, const int &k, const int &flavor = 0){ 
+		  if(vec_idx<a2a.nl) return (complex<double> *)(wl_fftw[vec_idx]) + k * SPINOR_SIZE/2 + flavor * GJP.VolNodeSites() * SPINOR_SIZE/2;
+		  else return (complex<double> *)(wh_fftw) +  k * SPINOR_SIZE/2 + ( (GJP.Gparity() ? 2:1) * (vec_idx-a2a.nl) + flavor )* GJP.VolNodeSites() * SPINOR_SIZE/2;
+		}
+
+		inline int v_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
+		inline int w_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
+
+		//For 1-flavour G-parity (X-DIRECTION ONLY) with Xnodes>1, copy/communicate the fields such that copies of both flavours reside on the first and second halves of the lattice in the X direction
+		//Their memory layout for each half is identical to the 2f case. Contractions of v and w should be confined to the first half of the lattice with the second half contributing zero to the global sum
+		//(or global sum and divide by 2!)
+		void gparity_1f_fftw_comm_flav();
+
 	private:
 		const char *cname;
 		A2AArg a2a;
@@ -65,6 +92,12 @@ class A2APropbfm : public Alg {
 		Vector **v; // v
 		Vector **wl; // low modes w
 		Vector *wh; // high modes w, compressed.
+
+		Vector **v_fftw;
+		Vector **wl_fftw;
+		Vector *wh_fftw; //FFT of wh
+	       
+		bool gparity_1f_fftw_comm_flav_performed;
 
 		int nvec;
 		Lanczos_5d<double> *eig;
@@ -74,8 +107,6 @@ class A2APropbfm : public Alg {
 
 		// minimum number of wall sources (with 1 hit per time slice)
 		// equals GJP.Tnodes() * GJP.TnodeSites() * 12 / a2a.src_width
-		//CK: presumably source_width is the number of time-slices spanned by a given stochastic source
-		//Hmm, further code reading suggests the same stochastic source is used for both time slices
 		int nh_base;
 
 		// number of actual wall sources used (nh should always be nh_site * nh_base)
@@ -84,6 +115,9 @@ class A2APropbfm : public Alg {
 		// eigenvectors and eigenvalues of Hee
 		Vector **evec;
 		Float *eval;
+
+		void cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_glb);
+		void gf_vec(Vector *out, Vector *in);
 };
 
 CPS_END_NAMESPACE

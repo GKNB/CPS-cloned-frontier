@@ -6,13 +6,14 @@
 #include <util/rcomplex.h>
 #include <util/wilson.h>
 #include <util/qcdio.h>
+#include <assert.h>
 #ifdef USE_QMP
 #include <qmp.h>
 #endif
 
 using namespace std;
-using namespace cps;
 
+CPS_START_NAMESPACE
 
 int cout_time(char *info)
 {
@@ -69,8 +70,10 @@ MesonField::MesonField(Lattice &_lat, A2APropbfm *_a2aprop, AlgFixGauge *_fixgau
   mf_ww[0] = mf_ww[1] = mf_ww[2] = NULL;
   wh_fftw[0] = wh_fftw[1] = NULL;
 
-  int fftw_alloc_size = size_4d/GJP.TnodeSites(); if(GJP.Gparity()) fftw_alloc_size *= 2;
+  int fftw_alloc_size = size_4d/GJP.TnodeSites();  //if(GJP.Gparity()) fftw_alloc_size *= 2; Use same source of each combination of flavour index of w and v
   src = fftw_alloc_complex(fftw_alloc_size);
+
+  assert(sizeof(complex<double>[2]) == sizeof(double[4])); //check that we can cast complex<double>* to double*
 }
 
 MesonField::MesonField(Lattice &_lat, A2APropbfm *_a2aprop, A2APropbfm *_a2aprop_s, AlgFixGauge *_fixgauge, CommonArg *_common_arg):a2a_prop(_a2aprop),a2a_prop_s(_a2aprop_s),fix_gauge(_fixgauge),lat(_lat),common_arg(_common_arg),sc_size(12)
@@ -102,14 +105,17 @@ MesonField::MesonField(Lattice &_lat, A2APropbfm *_a2aprop, A2APropbfm *_a2aprop
   v_fftw = NULL;
   v_s_fftw = NULL;
   wl_fftw[0] = wl_fftw[1] = NULL;
+
   mf = (Vector *)smalloc(cname, fname, "mf", sizeof(Float)*nvec[0]*(nl[0]+sc_size*nhits[0])*t_size*2);
   mf_sl = (Vector *)smalloc(cname, fname, "mf_sl", sizeof(Float)*nvec[0]*(nl[1]+sc_size*nhits[1])*t_size*2);
   mf_ls = (Vector *)smalloc(cname, fname, "mf_ls", sizeof(Float)*nvec[1]*(nl[0]+sc_size*nhits[0])*t_size*2);
   mf_ww[0] = mf_ww[1] = mf_ww[2] = NULL;
   wh_fftw[0] = wh_fftw[1] = NULL;
 
-  int fftw_alloc_size = size_4d/GJP.TnodeSites(); if(GJP.Gparity()) fftw_alloc_size *= 2;
+  int fftw_alloc_size = size_4d/GJP.TnodeSites(); //(GJP.Gparity()?2:1) *     Use same source of each combination of flavour index of w and v
   src = fftw_alloc_complex(fftw_alloc_size);
+
+  assert(sizeof(complex<double>[2]) == sizeof(double[4])); //check that we can cast complex<double>* to double*
 }
 
 void MesonField::allocate_vw_fftw()
@@ -132,7 +138,10 @@ void MesonField::allocate_vw_fftw()
 
   wh_fftw[0] = (Vector *)smalloc(cname, fname, "wh_fftw[0]", nhits[0]*ferm_sz*sc_size); //separate FT of each spin-color component, hence 12 fermion vectors per hit
 
+  printf("nl[0] %d nhits[0] %d nvec[0] %d\n",nl[0],nhits[0],nvec[0]);
+
   if(do_strange) {
+    printf("MesonField::allocate_vw_fftw allocating for strange quark\n"); 
     v_s_fftw = (Vector **)smalloc(cname, fname, "v_s_fftw", v_ptr_sz * nvec[1]);
     wl_fftw[1] = (Vector **)smalloc(cname, fname, "wl_fftw[1]", v_ptr_sz * nl[1]);
     for(int i = 0; i < nvec[1]; ++i) {
@@ -142,6 +151,8 @@ void MesonField::allocate_vw_fftw()
       wl_fftw[1][i] = (Vector *)smalloc(cname, fname, "wl_fftw[1][i]", ferm_sz);
     }
     wh_fftw[1] = (Vector *)smalloc(cname, fname, "wh_fftw[1]", nhits[1]*ferm_sz*sc_size);
+
+    printf("nl[1] %d nhits[1] %d nvec[1] %d\n",nl[1],nhits[1],nvec[1]);
   }
 }
 
@@ -252,8 +263,7 @@ void MesonField::cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_g
     GJP.TnodeSites() * GJP.TnodeCoor(),
   };
 
-  int glb_vol = glb_dim[0] * glb_dim[1] * glb_dim[2] * glb_dim[3];
-  if(GJP.Gparity()) glb_vol *= 2;
+  int glb_vol = (GJP.Gparity()?2:1)*glb_dim[0] * glb_dim[1] * glb_dim[2] * glb_dim[3];
   if(lcl_to_glb) {
     set_zero(glb, glb_vol * sc_size);
   }
@@ -261,7 +271,7 @@ void MesonField::cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_g
   int lcl_size_3d = lcl_dim[0] * lcl_dim[1] * lcl_dim[2];
   int glb_size_3d = glb_dim[0] * glb_dim[1] * glb_dim[2];
 
-  int nflav = 1; if(GJP.Gparity()) nflav = 2;
+  int nflav = GJP.Gparity() ? 2 : 1;
   
   for(int flav = 0; flav < nflav; ++flav){
   for(int t = 0; t < lcl_dim[3]; ++t) {
@@ -381,10 +391,14 @@ void MesonField::prepare_vw()
 {
   const char *fname = "prepare_vw()";
 
-  cout_time("Coulomb T gauge fixing BEGIN!");
-  fix_gauge->run();
-  cout_time("Coulomb T gauge fixing END!");
-	
+  if(lat.FixGaugeKind() != FIX_GAUGE_COULOMB_T){
+    if(lat.FixGaugeKind() != FIX_GAUGE_NONE) lat.FixGaugeFree();
+
+    cout_time("Coulomb T gauge fixing BEGIN!");
+    fix_gauge->run();
+    cout_time("Coulomb T gauge fixing END!");
+  }	
+
   fftw_init_threads();
   fftw_plan_with_nthreads(bfmarg::threads);
   const int fft_dim[3] = { GJP.ZnodeSites() * GJP.Znodes(),
@@ -412,7 +426,7 @@ void MesonField::prepare_vw()
 	//4_ base pointer of input = fft_mem + sc
 	//5) arg for advanced feature not used = NULL
 	//6) the offset between data included in the FFT. The spin-colour indices are transformed separately, hence stride = sc_size
-	//7) the offset between data blocks used for each of the transforms (of which there are Lt) = sc_size
+	//7) the offset between data blocks used for each of the transforms (of which there are Lt) = sc_size * three-volume
 	//8,9,10,11) same as previous four but for output. As we FFT in-place these are identical to the above
 	//12,13) Other FFT args
 
@@ -452,14 +466,15 @@ void MesonField::prepare_vw()
       }
     cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wl_fftw[0][j]), false);
   }
-
   // load and process wh  
+  //In A2APropBfm, wh is 'nhits' field of c-numbers, and we generate independent v for each timeslice, spin-color and hit index
+  //Here we perform the FFT for each spin-color index of w separately
   for(int j = 0; j < nhits[0]; ++j) 
-    for(int w_sc = 0; w_sc < sc_size; w_sc++) {       //Perform separate FFT for each spin-color component
+    for(int w_sc = 0; w_sc < sc_size; w_sc++) {
+       //Perform separate FFT for each spin-color component
       int off_fac = 1; if(GJP.Gparity()) off_fac = 2;
       Float *wh_fftw_offset = (Float *)(wh_fftw[0]) + off_fac * size_4d_sc * 2 * (j * sc_size + w_sc); //each hit is offset by  four_vol * 12*12 * 2
-
-      wh2w((Vector *)wh_fftw_offset, a2a_prop->get_wh(), j, w_sc);
+      wh2w((Vector *)wh_fftw_offset, a2a_prop->get_wh(), j, w_sc);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc, where it is set to the value from hit j of wh
       gf_vec((Vector *)wh_fftw_offset, (Vector *)wh_fftw_offset);
       cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wh_fftw_offset), true);
       for(int sc = 0; sc < sc_size; sc++)
@@ -522,7 +537,6 @@ void MesonField::prepare_vw()
 	}
       cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wl_fftw[1][j]), false);
     }
-
     // load and process wh  
     for(int j = 0; j < nhits[1]; ++j) 
       for(int w_sc = 0; w_sc < sc_size; w_sc++) {
@@ -537,7 +551,7 @@ void MesonField::prepare_vw()
 
 	    if(GJP.Gparity1fX()) Gparity_1f_FFT(fft_mem, sc,sc_size,t_size); //1f G-parity testing
 	    else{
-	      plan = fftw_plan_many_dft(3, fft_dim, t_size,
+	      plan = fftw_plan_many_dft(3, fft_dim, n_fft,
 					fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
 					fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
 					FFTW_FORWARD, FFTW_ESTIMATE);
@@ -548,6 +562,13 @@ void MesonField::prepare_vw()
 	  }
 	cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wh_fftw_offset), false);
       }
+
+    if(a2a_prop == a2a_prop_s){
+      printf("Note: strange and light quark propagators are the same."); //Checking fftw vectors\n");
+    }
+
+
+
   }
 
   sfree(cname, fname, "t", t);
@@ -567,17 +588,20 @@ void MesonField::set_zero(fftw_complex *v, int n)
 
 
 //CK: Method to poke onto a particular spin-color index the complex number from wh for a given hit
-//    w is an output fermion field 
+//    w is an output fermion field that is zero everywhere apart from on spin-color index sc
 void MesonField::wh2w(Vector *w, Vector *wh, int hitid, int sc) // In order to fft the high modes scource
 {
   char *fname = "wh2w()";
 	
-  int hit_size = size_4d; if(GJP.Gparity()) hit_size *= 2;
+  int hit_size = GJP.Gparity() ? 2*size_4d : size_4d;
   complex<double> *whi = (complex<double> *)wh + hitid * hit_size;
   complex<double> *t = (complex<double> *)w;
 
   for(int i = 0; i < hit_size; i++) {
-    memset(t + i * sc_size, 0, sizeof(complex<double>) * sc_size); //Fill the spin-color vector at position offset i with null stuff
+    //memset(t + i * sc_size, 0, sizeof(complex<double>) * sc_size); //Fill the spin-color vector at position offset i with null stuff
+    double *p = (double*)(t+i*sc_size);
+    double *end = p + 2*sc_size; 
+    while(p!=end) *(p++) = 0.0;
     t[sc + i * sc_size] = whi[i]; //At spin-colour index sc poke the complex number from wh
   }
 }
@@ -623,44 +647,212 @@ void MesonField::cal_mf_ww(double rad, int src_kind, QUARK left, QUARK right)
   QDPIO::cout<<"Global sum done!"<<endl;
 }
 
+
+
+
+
+//Calculate   \sum_k  v_i(k) \gamma^5 w_j (k)      where 'k' is a three-vector index in the range 0 -> spatial-volume. 
+//'i' is the mode index of v, running from 0 -> nl + nhits * Lt * sc_size / width
+//'j' is the mode index of w, running from 0 -> nl + nhits * sc_size
+//The output is stored in 'mf', which has Lt complex numbers per combination of i,j. The mapping to a complex number array offset is:
+//t + Lt*i + Lt*nvec*j   (global t)
+
+//For G-parity the mesonfield is also a 2x2 matrix in flavour space:   M_{f, g}. The mapping to a complex number array offset is:
+//t + Lt*f + 2*Lt*g + 4*Lt*i + 4*Lt*nvec*j
+
 void MesonField::cal_mf_ll(double rad, int src_kind)
 {
-  char *fname = "cal_mf_ll()";
+  //Unit matrix in flavour space  
+  if(GJP.Gparity1fX()) return cal_mf_ll_gp1fx(rad, src_kind);
 
-  mf->VecZero(nvec[0]*(nl[0]+sc_size*nhits[0])*t_size*2);
-  prepare_src(rad, src_kind);
+  const char *fname = "cal_mf_ll()";
+
+  int n_flav = (GJP.Gparity() ? 2 : 1);
+
+  mf->VecZero(nvec[0]*(nl[0]+sc_size*nhits[0]) * t_size * 2);
+  prepare_src(rad, src_kind); //essentially a weighting factor for the sum over position
+
+  printf("MesonField::cal_mf_ll rows = %d cols = %d. mf size %d\n",nl[0] + sc_size * nhits[0],nvec[0],nvec[0]*(nl[0]+sc_size*nhits[0]) * t_size * 2);
 
   cout_time("Inner product of light v and light w begins!");
   int nthreads = bfmarg::threads;
   omp_set_num_threads(nthreads);
 #pragma omp parallel for
-  for(int i = 0; i < nvec[0]; i++)
-    for(int j = 0; j < nl[0] + sc_size * nhits[0]; j++)
-      {
-	for(int x = 0; x < size_4d; x++)
-	  {
-	    int x_3d = x % size_3d;
-	    int t = x / size_3d;
-	    int glb_t = t + GJP.TnodeCoor() * GJP.TnodeSites();
+  for(int j = 0; j < nl[0] + sc_size * nhits[0]; j++)
+    for(int i = 0; i < nvec[0]; i++){ // nvec = nl + nhits * Lt * sc_size / width   for v generated independently for each hit, source timeslice and spin-color index
+      for(int x = 0; x < size_4d; x++){
+	int x_3d = x % size_3d;
+	int t = x / size_3d;
+	int glb_t = t + GJP.TnodeCoor() * GJP.TnodeSites();
+	complex<double> *mf_off = (complex<double> *)mf + (j*nvec[0]+i)*t_size +glb_t;
 
-	    complex<double> *v_off = (complex<double> *)(v_fftw[i]) + x * sc_size;
-	    complex<double> *w_off;
-	    if(j<nl[0]) w_off = (complex<double> *)(wl_fftw[0][j]) + x * sc_size;
-	    else w_off = (complex<double> *)(wh_fftw[0]) + size_4d * sc_size * (j-nl[0]) + x * sc_size;
+	complex<double> incr(0.0);
 
-	    complex<double> *mf_off = (complex<double> *)mf + (j*nvec[0]+i)*t_size+glb_t;
-	    *mf_off+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);
-	  }
+	for(int f=0;f<n_flav;++f){
+	  int g = f;//unit matrix
+	  
+	  complex<double> *v_off = (complex<double> *)v_fftw[i] + f * size_4d * sc_size + x * sc_size;
+	  complex<double> *w_off;
+	  if(j<nl[0]) w_off = (complex<double> *)wl_fftw[0][j] + g * size_4d * sc_size + x * sc_size;
+	  else w_off = (complex<double> *)wh_fftw[0] + size_4d * sc_size * ( n_flav*(j-nl[0]) + g ) + x * sc_size;
+	    
+	  incr += Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]); //v g5 w*
+	}
+	*mf_off+=incr;
+
+	//if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf = %f %f\n",j,i,x,incr.real(),incr.imag(),mf_off->real(),mf_off->imag()); //yes j and i are swapped; this is because despite the way this code is written the i and j in the code are actually the *column* and *row* indices resp.
       }
+    }
+
   cout_time("Inner product of light v and light w ends!");
 
   sum_double_array((Float *)mf,nvec[0]*(nl[0]+sc_size*nhits[0])*t_size*2);
   QDPIO::cout<<"Global sum done!"<<endl;
 }
 
+
+
+//FOR GPARITY 1F IN X DIRECTION ONLY
+static void get_other_flavour(Float* of, Float* into, const int &site_size){ //site_size is in FLOAT UNITS
+  if(GJP.Xnodes() == 1){
+    //Both flavours are stored on the same node, so we just copy the second half of 'of' onto the first half of 'into' and the first half of 'of' onto the second half of 'into'. local_size is not used
+    int halfX = GJP.XnodeSites()/2;
+    for(int yzt = 0; yzt < GJP.YnodeSites()*GJP.ZnodeSites()*GJP.TnodeSites(); ++yzt){
+      for(int x = 0; x < GJP.XnodeSites(); x++){
+	int off_of = (x + GJP.XnodeSites()*yzt) * site_size;
+	int off_into = ( (x+halfX)%GJP.XnodeSites() + GJP.XnodeSites()*yzt) * site_size;
+	for(int s=0;s<site_size;++s) into[off_into + s ] = of[off_of + s ];
+      }
+    }
+  }else{
+    int local_size = GJP.VolNodeSites()*site_size;
+    Float* buffer = (Float*)pmalloc(local_size * sizeof(Float) );
+    memcpy( (void*)into, (void*)of, local_size * sizeof(Float) );
+    
+    Float* send = into;
+    Float* recv = buffer;
+    for(int shift = 0; shift < GJP.Xnodes()/2; shift++){
+      getPlusData(recv,send,local_size,0); //cyclically permute anticlockwise around the torus
+      Float* tmp = send;
+      send = recv;
+      recv = tmp;
+    }
+    if(recv != into) memcpy( (void*)into, (void*)recv, local_size * sizeof(Float) );
+  }
+}
+
+
+void MesonField::cal_mf_ll_gp1fx(double rad, int src_kind)
+{
+  if(!GJP.Gparity1fX() || GJP.Gparity1fY() ) ERR.General("MesonField","cal_mf_ll_gp1fx(...)","Only knows how to do 1f G-parity for GPBC in X-direction\n");
+  const char *fname = "cal_mf_ll_gp1fx()";
+  
+  int n_flav = 2;
+
+  mf->VecZero(nvec[0]*(nl[0]+sc_size*nhits[0]) * t_size * 2);
+  prepare_src(rad, src_kind); //essentially a weighting factor for the sum over position
+
+  int nthreads = bfmarg::threads;
+  omp_set_num_threads(nthreads);
+  cout_time("Inner product of light v and light w begins!");
+
+
+  if(GJP.Xnodes() == 1){
+#pragma omp parallel for
+    for(int i = 0; i < nvec[0]; i++) // nvec = nl + nhits * Lt * sc_size / width   for v generated independently for each hit, source timeslice and spin-color index
+      for(int j = 0; j < nl[0] + sc_size * nhits[0]; j++){
+	for(int f=0;f<n_flav;++f){
+	  int g=f; //unit flavour matrix
+	  for(int x = 0; x < size_4d; x++){
+	    if(x % GJP.XnodeSites() >= GJP.XnodeSites()/2) continue; //only do first half (flavour 0)
+
+	    int x_3d = x % size_3d;
+	    int t = x / size_3d;
+	    int glb_t = t + GJP.TnodeCoor() * GJP.TnodeSites();
+	    
+	    complex<double> *v_base = (f == 0 ? (complex<double> *)v_fftw[i]      :  (complex<double> *)v_fftw[i] + GJP.XnodeSites()/2*sc_size);
+	    complex<double> *v_off = v_base + x * sc_size;
+	      
+
+	    complex<double> *wl_base = (g == 0 ? (complex<double> *)wl_fftw[0][j] :  (complex<double> *)wl_fftw[0][j] + GJP.XnodeSites()/2*sc_size);
+	    complex<double> *wh_base = (g == 0 ? (complex<double> *)wh_fftw[0]    :  (complex<double> *)wh_fftw[0] +  GJP.XnodeSites()/2*sc_size);
+
+	    complex<double> *w_off;
+	    if(j<nl[0]) w_off = wl_base + x * sc_size;
+	    else w_off = wh_base + size_4d * sc_size *(j-nl[0]) + x * sc_size;
+	    
+	    complex<double> *mf_off = (complex<double> *)mf + (j*nvec[0]+i)*t_size  +glb_t;
+
+	    //complex<double> test(1.0,0.0);
+	    //*mf_off+=Gamma5(v_off,w_off,test);	    
+
+	    *mf_off+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);	          
+	  }
+	}
+      }
+
+  }else{
+    int node_flav = (GJP.XnodeCoor() >= GJP.Xnodes()/2 ? 1 : 0);  //For Xnodes>1 only
+
+    //We need to communicate and store a local copy of the v_fftw, wl_fftw and wh_fftw fields from the other flavour index - i.e. the other half of the lattice
+    int ferm_sz = size_4d * sc_size * 2 *sizeof(Float);
+    Vector** v_fftw_otherflav = (Vector **)pmalloc(sizeof(Vector*)* nvec[0]);
+    for(int i = 0; i < nvec[0]; ++i){
+      v_fftw_otherflav[i]  = (Vector *)pmalloc(ferm_sz);
+      get_other_flavour( (Float*)v_fftw[i],  (Float*)v_fftw_otherflav[i], sc_size*2);
+    }
+    Vector** wl_fftw_otherflav = (Vector **)pmalloc(sizeof(Vector*)* nl[0]);
+    for(int i = 0; i < nl[0]; ++i){
+      wl_fftw_otherflav[i]  = (Vector *)pmalloc(ferm_sz);
+      get_other_flavour( (Float*)wl_fftw[0][i],  (Float*)wl_fftw_otherflav[i], sc_size*2);
+    }
+
+    Vector* wh_fftw_otherflav = (Vector *)pmalloc(nhits[0]*ferm_sz*sc_size);
+    for(int h=0;h<sc_size * nhits[0];h++) get_other_flavour( (Float*)wh_fftw[0] + h*size_4d * sc_size *2,  (Float*)wh_fftw_otherflav + h*size_4d * sc_size *2, sc_size*2);
+
+#pragma omp parallel for
+    for(int i = 0; i < nvec[0]; i++) // nvec = nl + nhits * Lt * sc_size / width   for v generated independently for each hit, source timeslice and spin-color index
+      for(int j = 0; j < nl[0] + sc_size * nhits[0]; j++){
+	for(int f=0;f<n_flav;++f){ 
+	  int g=f; //unit flavour matrix
+	  for(int x = 0; x < size_4d; x++){
+	    int x_3d = x % size_3d;
+	    int t = x / size_3d;
+	    int glb_t = t + GJP.TnodeCoor() * GJP.TnodeSites();
+	    
+	    complex<double> *v_base = (f == node_flav ? (complex<double> *)v_fftw[i]      :  (complex<double> *)v_fftw_otherflav[i] );
+	    complex<double> *v_off = v_base + x * sc_size;
+	      
+	    complex<double> *wl_base = (g == node_flav ? (complex<double> *)wl_fftw[0][j] :  (complex<double> *)wl_fftw_otherflav[j] );
+	    complex<double> *wh_base = (g == node_flav ? (complex<double> *)wh_fftw[0]    :  (complex<double> *)wh_fftw_otherflav  );
+
+	    complex<double> *w_off;
+	    if(j<nl[0]) w_off = wl_base + x * sc_size;
+	    else w_off = wh_base + size_4d * sc_size *(j-nl[0]) + x * sc_size;
+	    
+	    complex<double> *mf_off = (complex<double> *)mf + (j*nvec[0]+i)*t_size +glb_t;
+	    *mf_off+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);	         
+	  }
+	}
+      }
+  }
+
+
+  cout_time("Inner product of light v and light w ends!");
+  
+  sum_double_array((Float *)mf,nvec[0]*(nl[0]+sc_size*nhits[0])*t_size*2);
+  QDPIO::cout<<"Global sum done!"<<endl;
+}
+
+
+
+
+
 void MesonField::cal_mf_ls(double rad, int src_kind)
 {
   char *fname = "cal_mf_ls()";
+
+  int n_flav = (GJP.Gparity() ? 2 : 1);
 
   mf_ls->VecZero(nvec[1]*(nl[0]+sc_size*nhits[0])*t_size*2);
   prepare_src(rad, src_kind);
@@ -678,13 +870,22 @@ void MesonField::cal_mf_ls(double rad, int src_kind)
 	    int t = x / size_3d;
 	    int glb_t = t + GJP.TnodeCoor()*GJP.TnodeSites();
 
-	    complex<double> *v_off = (complex<double> *)(v_s_fftw[i]) + x * sc_size;
-	    complex<double> *w_off;
-	    if(j<nl[0]) w_off = (complex<double> *)(wl_fftw[0][j]) + x * sc_size;
-	    else w_off = (complex<double> *)(wh_fftw[0]) + size_4d * sc_size * (j-nl[0]) + x * sc_size;
-
 	    complex<double> *mf_off = (complex<double> *)mf_ls + (j*nvec[1]+i)*t_size+glb_t;
-	    *mf_off+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);
+
+	    complex<double> incr(0.0);
+	    for(int f=0;f<n_flav;++f){
+	      int g=f; //unit matrix in flavour space
+
+	      complex<double> *v_off = (complex<double> *)(v_s_fftw[i]) + f*size_4d*sc_size +  x * sc_size;
+	      complex<double> *w_off;
+	      if(j<nl[0]) w_off = (complex<double> *)(wl_fftw[0][j]) + g*size_4d*sc_size + x * sc_size;
+	      else w_off = (complex<double> *)(wh_fftw[0]) + size_4d * sc_size * ( n_flav*(j-nl[0]) + g ) + x * sc_size;
+	      
+	      incr += Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);
+	    }
+	    *mf_off+=incr;
+	    if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf_ls = %f %f\n",j,i,x,incr.real(),incr.imag(),mf_off->real(),mf_off->imag()); //yes j and i are swapped; this is because despite the way this code is written the i and j in the code are actually the *column* and *row* indices resp.
+
 	  }
       }
   cout_time("Inner product of strange v and light w ends!");
@@ -696,15 +897,19 @@ void MesonField::cal_mf_sl(double rad, int src_kind)
 {
   char *fname = "cal_mf_sl()";
 	
+  printf("MesonField::cal_mf_sl rows = %d cols = %d. mf size %d\n",nl[1] + sc_size * nhits[1],nvec[0],nvec[0]*(nl[1]+sc_size*nhits[1]) * t_size * 2);
+
   mf_sl->VecZero(nvec[0]*(nl[1]+sc_size*nhits[1])*t_size*2);
   prepare_src(rad, src_kind);
 
+  int n_flav = (GJP.Gparity() ? 2 : 1);
+  
   cout_time("Inner product of light v and strange w begins!");
   int nthreads = bfmarg::threads;
   omp_set_num_threads(nthreads);
 #pragma omp parallel for
-  for(int i = 0; i < nvec[0] ; i++)
-    for(int j = 0; j < nl[1] + sc_size * nhits[1]; j++)
+  for(int j = 0; j < nl[1] + sc_size * nhits[1]; j++)
+    for(int i = 0; i < nvec[0] ; i++)
       {
 	for(int x = 0; x < size_4d; x++)
 	  {
@@ -712,13 +917,22 @@ void MesonField::cal_mf_sl(double rad, int src_kind)
 	    int t = x / size_3d;
 	    int glb_t = t + GJP.TnodeCoor()*GJP.TnodeSites();
 
-	    complex<double> *v_off = (complex<double> *)(v_fftw[i]) + x * sc_size;
-	    complex<double> *w_off;
-	    if(j<nl[1]) w_off = (complex<double> *)(wl_fftw[1][j]) + x * sc_size;
-	    else w_off = (complex<double> *)(wh_fftw[1]) + size_4d * sc_size * (j-nl[1]) + x * sc_size;
-
 	    complex<double> *mf_off = (complex<double> *)mf_sl + (j*nvec[0]+i)*t_size+glb_t;
-	    *mf_off+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);
+
+	    complex<double> incr(0.0);
+
+	    for(int f=0;f<n_flav;++f){
+	      int g=f; //unit matrix in flavour space (you could insert some other flavour matrix here if you wished)
+
+	      complex<double> *v_off = (complex<double> *)(v_fftw[i]) + f*size_4d*sc_size + x * sc_size;
+	      complex<double> *w_off;
+	      if(j<nl[1]) w_off = (complex<double> *)(wl_fftw[1][j]) + g*size_4d*sc_size + x * sc_size;
+	      else w_off = (complex<double> *)(wh_fftw[1]) + size_4d * sc_size * ( n_flav*(j-nl[1]) + g ) + x * sc_size;
+
+	      incr+=Gamma5(v_off,w_off,((complex<double> *)src)[x_3d]);
+	    }
+	    *mf_off += incr;
+	    if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf_sl = %f %f\n",j,i,x,incr.real(),incr.imag(),mf_off->real(),mf_off->imag()); //yes j and i are swapped; this is because despite the way this code is written the i and j in the code are actually the *column* and *row* indices resp. For comparison to my code I call the row index i and the column index j
 	  }
       }
   cout_time("Inner product of light v and strange w ends!");
@@ -784,7 +998,7 @@ void MesonField::set_expsrc(fftw_complex *src, Float radius)
 {
   const char *fname = "set_expsrc()";
 
-  const int X = x_size;
+  const int X = (GJP.Gparity1fX() ? x_size/2 : x_size);
   const int Y = y_size;
   const int Z = z_size;
 
@@ -805,11 +1019,15 @@ void MesonField::set_expsrc(fftw_complex *src, Float radius)
 
 void MesonField::set_boxsrc(fftw_complex *src, int size)
 {
-  const int glb_dim[3] = {
+  int glb_dim[3] = {
     GJP.XnodeSites() * GJP.Xnodes(),
     GJP.YnodeSites() * GJP.Ynodes(),
     GJP.ZnodeSites() * GJP.Znodes(),
   };
+  //For 1f G-parity it is assumed that the prepare_src method will place a second copy of this source on the flavour-1 side 
+  if(GJP.Gparity1fX()) glb_dim[0]/=2;
+  if(GJP.Gparity1fY()) glb_dim[1]/=2;
+
 
   const int bound1[3] = { size / 2,
 			  size / 2,
@@ -841,35 +1059,75 @@ void MesonField::set_boxsrc(fftw_complex *src, int size)
   }
 }
 
-void MesonField::prepare_src(double rad, int kind, const int &flavour, const bool &zero_other_flavour) // kind1 exp; kind2 box
+void MesonField::prepare_src(double rad, int kind) // kind1 exp; kind2 box
 {
-  //CK: Single time-slice sources of exponential or box variety. Placed in the 'src' vector on flavour index 'flavour' in the G-parity case
-  //    If G-parity is active and zero_other_flavour is true (which it is by default), the method will set the source on the other flavour to zero
   char *fname = "prepare_src()";
-  const int fft_dim[3] = {z_size, y_size, x_size};
+  int fft_dim[3] = {z_size, y_size, x_size};
   const int size_3d_glb = fft_dim[0] * fft_dim[1] * fft_dim[2];
 
-  int fftw_alloc_size = size_3d_glb;
-  fftw_complex *fft_mem = fftw_alloc_complex(fftw_alloc_size);
+  if(GJP.Gparity1fY()) ERR.General("MesonField","prepare_src(...)","Not implemented for Gparity 1f in Y-directionn");
 
-  int n_fft = 1;
-  fftw_plan plan_src = fftw_plan_many_dft(3, fft_dim, n_fft,
-					  fft_mem, NULL, 1, size_3d_glb,
-					  fft_mem, NULL, 1, size_3d_glb,
-					  FFTW_FORWARD, FFTW_ESTIMATE);
-  switch(kind)
-    {
-    case 1: set_expsrc(fft_mem, rad); break;
-    case 2: set_boxsrc(fft_mem, int(rad)); break;
-    default: VRB.Result(cname, fname, "Src kind not implemented yet!"); exit(1);
-    }
-  fftw_execute(plan_src);
+  fftw_complex *fft_mem;
 
-  int flav_off = GJP.VolNodeSites()/GJP.TnodeSites();
-  src_glb2lcl(fft_mem,src + flavour * flav_off);
-  if(zero_other_flavour) set_zero(src + (1-flavour) * flav_off, flav_off);
+  if(!GJP.Gparity1fX()){
+    fft_mem = fftw_alloc_complex(size_3d_glb);
 
-  fftw_destroy_plan(plan_src);
+    fftw_plan plan_src = fftw_plan_many_dft(3, fft_dim, 1,
+					    fft_mem, NULL, 1, size_3d_glb,
+					    fft_mem, NULL, 1, size_3d_glb,
+					    FFTW_FORWARD, FFTW_ESTIMATE);
+    switch(kind)
+      {
+      case 1: set_expsrc(fft_mem, rad); break;
+      case 2: set_boxsrc(fft_mem, int(rad)); break;
+      default: VRB.Result(cname, fname, "Src kind not implemented yet!"); exit(1);
+      }
+
+    //printf("MesonField::prepare_src standard mode\n");
+    //for(int i=0;i<size_3d_glb;i++) printf("Source %d: %f %f\n",i,fft_mem[i][0],fft_mem[i][1]);
+
+    fftw_execute(plan_src);
+    fftw_destroy_plan(plan_src);
+  }else{
+    //1-flavour (double lattice) G-parity
+    //Place a copy of the same source on the first and second halves of the lattice
+    fftw_complex* fft_mem_half = fftw_alloc_complex(size_3d_glb/2); //one half-volume field
+
+    fft_dim[2]/=2;
+    fftw_plan plan_src = fftw_plan_many_dft(3, fft_dim, 1,
+					    fft_mem_half, NULL, 1, size_3d_glb/2,
+					    fft_mem_half, NULL, 1, size_3d_glb/2,
+					    FFTW_FORWARD, FFTW_ESTIMATE);
+    switch(kind)
+      {
+      case 1: set_expsrc(fft_mem_half, rad); break;
+      case 2: set_boxsrc(fft_mem_half, int(rad)); break;
+      default: VRB.Result(cname, fname, "Src kind not implemented yet!"); exit(1);
+      }
+
+    fftw_execute(plan_src);
+    fftw_destroy_plan(plan_src);
+    fft_dim[2]*=2;
+
+    //allocate a full volume and copy the result of the FFT onto the first and second halves in the x-direction
+    fft_mem = fftw_alloc_complex(size_3d_glb); //one half-volume field
+    for(int z=0;z<z_size;++z)
+      for(int y=0;y<y_size;++y)
+	for(int x=0;x<x_size/2;++x){
+	  int off0 = x+x_size*(y+y_size*z);
+	  int off1 = x+x_size/2 + x_size*(y+y_size*z);
+
+	  int off_half = x + x_size/2*(y+y_size*z);
+	  fft_mem[off0][0] = fft_mem_half[off_half][0];
+	  fft_mem[off0][1] = fft_mem_half[off_half][1];
+
+	  fft_mem[off1][0] = fft_mem_half[off_half][0];
+	  fft_mem[off1][1] = fft_mem_half[off_half][1];
+	}
+    fftw_free(fft_mem_half);
+  }
+
+  src_glb2lcl(fft_mem,src);
   fftw_free(fft_mem);
 }
 
@@ -890,6 +1148,8 @@ void MesonField::src_glb2lcl(fftw_complex *glb, fftw_complex *lcl)
     int y = tmp % GJP.YnodeSites() + shift[1]; tmp /= GJP.YnodeSites();
     int z = tmp + shift[2];
     int xyz_glb = x + x_size * (y + y_size * z);
+
+    //printf("MesonField::src_glb2lcl  lcl %d  glb %d\n",xyz,xyz_glb);
 
     lcl[xyz][0] = glb[xyz_glb][0];
     lcl[xyz][1] = glb[xyz_glb][1];
@@ -1070,6 +1330,60 @@ void MesonField::run_pipi(int sep)
 }
 
 
+void MesonField::run_kaon(complex<double> *kaoncorr){ //writes to array (size should be Lt complex numbers)
+  ((Vector *)kaoncorr)->VecZero(t_size*2);
+  int t_dis;
+  int offset_i;
+  int offset_j;
+
+  //Note: mf_sl and mf_ls have the form   \sum_k  w*_i(k) \gamma^5 v_j (k)      where 'k' is a three-vector index in the range 0 -> spatial-volume. 
+  //'j' is the mode index of v, running from 0 -> nl + nhits * Lt * sc_size / width
+  //'i' is the mode index of w, running from 0 -> nl + nhits * sc_size
+  //Each 'mf', which has Lt complex numbers per combination of i,j. The mapping to a complex number array offset is:
+  //t + Lt*i + Lt*nvec*j   (global t)
+  
+  //For G-parity the mesonfield is also a 2x2 matrix in flavour space:   M_{f, g}. The mapping to a complex number array offset is:
+  //t + Lt*f + 2*Lt*g + 4*Lt*i + 4*Lt*nvec*j
+
+  for(int tsrc=0;tsrc<t_size;tsrc++)
+    for(int tsnk=0;tsnk<t_size;tsnk++) {
+      t_dis = (tsnk-tsrc+t_size)%t_size;
+      for(int j=0;j<nl[1]+nhits[1]*12;j++)
+	for(int i=0;i<nl[0]+nhits[0]*12;i++){	    
+	  offset_i = i<nl[0]?i:(nl[0]+(i-nl[0])/12*nbase[0]+tsnk/src_width[0]*12+(i-nl[0])%12); //Convert  0 <= i <  nl[0]+nhits[0]*12   to   0 <= i' < nl[0] + nhits[0] * Lt * sc_size / width[0]
+	  offset_j = j<nl[1]?j:(nl[1]+(j-nl[1])/12*nbase[1]+tsrc/src_width[1]*12+(j-nl[1])%12);
+
+	  complex<double> l = ((complex<double> *)mf_sl)[tsrc + t_size * (j*nvec[0] + offset_i)];
+	  complex<double> r = ((complex<double> *)mf_ls)[tsnk + t_size * (i*nvec[1] + offset_j)];
+	  
+	  printf("mf tsrc %d tsnk %d tdis %d i %d j %d  l = (%f %f)  r = (%f %f)  contr = (%f %f) -> ",tsrc,tsnk,t_dis,j,i, l.real(), l.imag(), r.real(), r.imag(), kaoncorr[t_dis].real(), kaoncorr[t_dis].imag());	  
+	  kaoncorr[t_dis] += l*r;
+	  printf("(%f %f)\n",kaoncorr[t_dis].real(), kaoncorr[t_dis].imag());
+
+	  //kaoncorr[t_dis] += ((complex<double> *)mf_sl)[tsrc + t_size * (offset_i + nvec[0] * j)] * ((complex<double> *)mf_ls)[tsnk + t_size * (offset_j + nvec[1] * i)];
+	}
+    }
+}
+
+
+  // if(into.threadType() == CorrelationFunction::UNTHREADED){
+  //   for(int tsrc=0;tsrc<t_size;++tsrc)
+  //     for(int tsnk=0;tsnk<t_size;++tsnk){
+  // 	int t_dis = (tsnk-tsrc+t_size)% t_size;
+  // 	for(int i=0;i<left.nl[0]+left.nhits[0]*12;++i)
+  // 	  for(int j=0;j<left.nl[1]+left.nhits[1]*12;++j){
+  // 	    cnum l = left(i,j,tsnk);
+  // 	    cnum r = right(j,i,tsrc);
+  // 	    printf("mf2 tsrc %d tsnk %d tdis %d i %d j %d  l = (%f %f)  r = (%f %f)  contr = (%f %f) + (%f %f) = ",tsrc,tsnk,t_dis,i,j, l.real(), l.imag(), r.real(), r.imag(), into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
+
+  // 	    into(contraction_idx,t_dis) += l*r;
+  // 	    printf("(%f %f)\n",into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
+
+  // 	    //into(contraction_idx,t_dis) += left(i,j,tsnk)*right(j,i,tsrc);
+  // 	  }
+  //     }
+
+
 void MesonField::run_kaon(double rad) 
 {
   char *fname = "run_kaon()";
@@ -1077,20 +1391,8 @@ void MesonField::run_kaon(double rad)
   char fn[1024];
   sprintf(fn,"%s_kaoncorr_%1.2f",common_arg->filename,rad);
   complex<double> *kaoncorr = (complex<double> *)smalloc(cname,fname,"kaoncorr",sizeof(complex<double>)*t_size);
-  ((Vector *)kaoncorr)->VecZero(t_size*2);
-  int t_dis;
-  int offset_i;
-  int offset_j;
-  for(int tsrc=0;tsrc<t_size;tsrc++)
-    for(int tsnk=0;tsnk<t_size;tsnk++) {
-      t_dis = (tsnk-tsrc+t_size)%t_size;
-      for(int i=0;i<nl[0]+nhits[0]*12;i++)
-	for(int j=0;j<nl[1]+nhits[1]*12;j++) {
-	  offset_i = i<nl[0]?i:(nl[0]+(i-nl[0])/12*nbase[0]+tsnk/src_width[0]*12+(i-nl[0])%12);
-	  offset_j = j<nl[1]?j:(nl[1]+(j-nl[1])/12*nbase[1]+tsrc/src_width[1]*12+(j-nl[1])%12);
-	  kaoncorr[t_dis] += ((complex<double> *)mf_sl)[tsrc + t_size * (offset_i + nvec[0] * j)] * ((complex<double> *)mf_ls)[tsnk + t_size * (offset_j + nvec[1] * i)];
-	}
-    }
+  
+  run_kaon(kaoncorr);
 
   FILE *p;
   if((p = Fopen(fn,"w")) == NULL)
@@ -2909,3 +3211,348 @@ void MesonField::show_wilson(const WilsonMatrix &a)
 	QDPIO::cout<<endl;
       }
 }
+
+
+
+
+
+void MFBasicSource::set_expsrc(fftw_complex *tmpsrc, const Float &radius)
+{
+  int x_size = GJP.Xnodes()*GJP.XnodeSites();
+  int y_size = GJP.Ynodes()*GJP.YnodeSites();
+  int z_size = GJP.Znodes()*GJP.ZnodeSites();
+
+  const int X = (GJP.Gparity1fX() ? x_size/2 : x_size);
+  const int Y = y_size;
+  const int Z = z_size;
+
+  for(int x = 0; x < X; ++x) {
+    for(int y = 0; y < Y; ++y) {
+      for(int z = 0; z < Z; ++z) {
+	int off = x + X * (y + Y * z);
+	int xr = (x + X / 2) % X - X / 2;
+	int yr = (y + Y / 2) % Y - Y / 2;
+	int zr = (z + Z / 2) % Z - Z / 2;
+	Float v = sqrt(xr * xr + yr * yr + zr * zr) / radius;
+	tmpsrc[off][0] = exp(-v) / (X * Y * Z);
+	tmpsrc[off][1] = 0.;
+      }
+    }
+  }
+}
+
+void MFBasicSource::set_boxsrc(fftw_complex *tmpsrc, const int &size)
+{
+  int glb_dim[3] = {
+    GJP.XnodeSites() * GJP.Xnodes(),
+    GJP.YnodeSites() * GJP.Ynodes(),
+    GJP.ZnodeSites() * GJP.Znodes(),
+  };
+  //For 1f G-parity it is assumed that the prepare_src method will place a second copy of this source on the flavour-1 side 
+  if(GJP.Gparity1fX()) glb_dim[0]/=2;
+  if(GJP.Gparity1fY()) glb_dim[1]/=2;
+
+
+  const int bound1[3] = { size / 2,
+			  size / 2,
+			  size / 2 };
+
+  const int bound2[3] = { glb_dim[0] - size + size / 2 + 1,
+			  glb_dim[1] - size + size / 2 + 1,
+			  glb_dim[2] - size + size / 2 + 1 };
+  int glb_size_3d = glb_dim[0] * glb_dim[1] * glb_dim[2];
+
+  int x[3];
+  for(x[0] = 0; x[0] < glb_dim[0]; ++x[0]) {
+    for(x[1] = 0; x[1] < glb_dim[1]; ++x[1]) {
+      for(x[2] = 0; x[2] < glb_dim[2]; ++x[2]) {
+	int offset = x[0] + glb_dim[0] * (x[1] + glb_dim[1] * x[2]     );
+
+	if(
+	   (x[0] <= bound1[0] || x[0] >= bound2[0])
+	   && (x[1] <= bound1[1] || x[1] >= bound2[1])
+	   && (x[2] <= bound1[2] || x[2] >= bound2[2])
+	   ) {
+	  tmpsrc[offset][0] = 1. / glb_size_3d;
+	}else {
+	  tmpsrc[offset][0] = 0.;
+	}
+	tmpsrc[offset][1] = 0.;
+      }
+    }
+  }
+}
+
+
+void MFsource::src_glb2lcl(const fftw_complex *glb, fftw_complex *lcl)
+{
+  //CK: Convert a time-slice local source to global or the inverse. Does not need modification for G-parity (cf. prepare_src)
+  int x_size = GJP.XnodeSites() * GJP.Xnodes(),  y_size = GJP.YnodeSites() * GJP.Ynodes(),  z_size =  GJP.ZnodeSites() * GJP.Znodes();
+
+  const int shift[3] = { GJP.XnodeSites() * GJP.XnodeCoor(), GJP.YnodeSites() * GJP.YnodeCoor() , GJP.ZnodeSites() * GJP.ZnodeCoor() };
+  int size_4d = GJP.VolNodeSites();
+
+  for(int xyz = 0; xyz < size_4d / GJP.TnodeSites(); xyz++) {
+    int tmp = xyz;
+    int x = tmp % GJP.XnodeSites() + shift[0]; tmp /= GJP.XnodeSites();
+    int y = tmp % GJP.YnodeSites() + shift[1]; tmp /= GJP.YnodeSites();
+    int z = tmp + shift[2];
+    int xyz_glb = x + x_size * (y + y_size * z);
+
+    //printf("MFsource::src_glb2lcl  lcl %d  glb %d\n",xyz,xyz_glb);
+
+    lcl[xyz][0] = glb[xyz_glb][0];
+    lcl[xyz][1] = glb[xyz_glb][1];
+  }
+}
+
+//Generate the source Fourier transform
+void MFsource::fft_src(){
+  int x_size = GJP.XnodeSites()*GJP.Xnodes(), y_size = GJP.YnodeSites()*GJP.Ynodes(), z_size = GJP.ZnodeSites()*GJP.Znodes();
+  
+  int fft_dim[3] = {z_size, y_size, x_size};
+  const int size_3d_glb = fft_dim[0] * fft_dim[1] * fft_dim[2];
+
+  if(GJP.Gparity1fY()) ERR.General("MFsource","fft_src()","Not implemented for Gparity 1f in Y-directionn");
+
+  allocate(); //allocate the source field if not done so already
+
+  fftw_complex *fft_mem;
+
+  if(!GJP.Gparity1fX()){
+    //Generate the source in position space
+    fft_mem = fftw_alloc_complex(size_3d_glb);
+
+    //FFT the source
+    fftw_plan plan_src = fftw_plan_many_dft(3, fft_dim, 1,
+					    fft_mem, NULL, 1, size_3d_glb,
+					    fft_mem, NULL, 1, size_3d_glb,
+					    FFTW_FORWARD, FFTW_ESTIMATE);
+    set_source(fft_mem);
+
+    //printf("MFsource::fft_src standard mode\n");
+    //for(int i=0;i<size_3d_glb;i++) printf("Source %d: %f %f\n",i,fft_mem[i][0],fft_mem[i][1]);
+
+    fftw_execute(plan_src);
+    fftw_destroy_plan(plan_src);
+  }else{
+    //1-flavour (double lattice) G-parity
+    //Place a copy of the same source on the first and second halves of the lattice
+    fftw_complex* fft_mem_half = fftw_alloc_complex(size_3d_glb/2); //one half-volume field
+    set_source(fft_mem_half);
+
+    fft_dim[2]/=2;
+    fftw_plan plan_src = fftw_plan_many_dft(3, fft_dim, 1,
+					    fft_mem_half, NULL, 1, size_3d_glb/2,
+					    fft_mem_half, NULL, 1, size_3d_glb/2,
+					    FFTW_FORWARD, FFTW_ESTIMATE);
+
+    fftw_execute(plan_src);
+    fftw_destroy_plan(plan_src);
+    fft_dim[2]*=2;
+
+    //allocate a full volume and copy the result of the FFT onto the first and second halves in the x-direction
+    fft_mem = fftw_alloc_complex(size_3d_glb); //one half-volume field
+    for(int z=0;z<z_size;++z)
+      for(int y=0;y<y_size;++y)
+	for(int x=0;x<x_size/2;++x){
+	  int off0 = x+x_size*(y+y_size*z);
+	  int off1 = x+x_size/2 + x_size*(y+y_size*z);
+
+	  int off_half = x + x_size/2*(y+y_size*z);
+	  fft_mem[off0][0] = fft_mem_half[off_half][0];
+	  fft_mem[off0][1] = fft_mem_half[off_half][1];
+
+	  fft_mem[off1][0] = fft_mem_half[off_half][0];
+	  fft_mem[off1][1] = fft_mem_half[off_half][1];
+	}
+    fftw_free(fft_mem_half);
+  }
+
+  src_glb2lcl(fft_mem,src);
+  fftw_free(fft_mem);
+}
+
+
+
+void MFqdpMatrix::set_matrix(const int &qdp_spin_idx, const FlavorMatrixType &flav_mat){ 
+  int n[4];
+  int rem = qdp_spin_idx; 
+  for(int i=0;i<4;i++){ n[i] = rem % 2; rem /= 2; }
+
+  scf *= 0.0; //clear the scfmatrix and set to unit matrix
+  for(int f=0;f<2;++f)     
+    for(int i=0;i<4;++i)
+      for(int a=0;a<3;++a)
+	scf(i,a,f,i,a,f) = Complex(1.0,0.0);
+  //Set the spin structure
+  for(int i=0;i<4;i++) if(n[i]) scf.gr(i);
+
+  //Set the flavour structure
+  scf.pr(flav_mat);
+}
+
+//\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
+MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left[2], const cnum* right[2]) const{
+  cnum ret(0,0);
+  for(int f=0;f<2;++f) 
+    for(int g=0;g<2;++g) 
+      for(int i=0;i<4;++i) 
+	for(int j=0;j<4;++j) 
+	  for(int a=0;a<3;++a) 
+	    for(int b=0;b<3;++b)
+	      ret += (this->conj_left ? conj(left[f][3*i+a]) : left[f][3*i+a]) * scf(i,a,f,j,b,g) * (this->conj_right ? conj(right[g][3*j+b]) : right[g][3*j+b]);  
+  return ret;
+}
+MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left, const cnum* right) const{
+  cnum ret(0,0);
+  for(int i=0;i<4;++i) 
+    for(int j=0;j<4;++j) 
+      for(int a=0;a<3;++a) 
+	for(int b=0;b<3;++b)
+	  ret += (this->conj_left ? conj(left[3*i+a]) : left[3*i+a]) * scf(i,a,0,j,b,0) * (this->conj_right ? conj(right[3*j+b]) : right[3*j+b]);
+  
+  return ret;
+}
+
+
+void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source){
+  const char *fname = "construct(...)";
+
+  //Assign stored parameters etc
+  n_flav = (GJP.Gparity() ? 2 : 1);
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+  int sc_size = 12;
+  int size_4d = GJP.VolNodeSites();
+  int size_3d = size_4d / GJP.TnodeSites();
+
+  nvec[0] = left.get_nvec(); nvec[1] = right.get_nvec(); 
+  nl[0] = left.get_nl(); nl[1] = right.get_nl();
+  nhits[0] = left.get_nhits(); nhits[1] = right.get_nhits();
+  src_width[0] = left.get_src_width();   src_width[1] = right.get_src_width(); 
+  nbase[0] = t_size * 12 / src_width[0];    nbase[1] = t_size * 12 / src_width[1];
+  form[0] = structure.left_vector(); form[1] = structure.right_vector();
+  conj[0] = structure.cconj_left(); conj[1] = structure.cconj_right(); 
+
+  size[0] = (form[0] == MFstructure::V) ? nvec[0] :  nl[0]+nhits[0]*12;
+  size[1] = (form[1] == MFstructure::V) ? nvec[1] :  nl[1]+nhits[1]*12;
+
+  //Allocate mf if not done so already
+  int mf_size = size[0] * size[1] * t_size * 2;
+
+  if(mf == NULL) mf = (Float*)pmalloc( mf_size * sizeof(Float) );
+
+  //Zero mf
+  ((Vector*)mf)->VecZero( mf_size ); //despite being a method of cps::Vector,   VecZero actually operates on the floats and its argument is the number of floats. Crazy huh?
+
+  cout_time("Inner product begins!");
+  int nthreads = bfmarg::threads;
+  omp_set_num_threads(nthreads);
+
+  //For G-parity 1f in the X-direction we perform comms such that both flavours reside on each node with the memory layout the same as for the 2f approach
+  if(GJP.Gparity1fX() && GJP.Xnodes()>1){ left.gparity_1f_fftw_comm_flav(); right.gparity_1f_fftw_comm_flav(); }
+
+  int left_flavour_stride = (form[0] == MFstructure::V) ? left.v_flavour_stride() : left.w_flavour_stride();
+  int right_flavour_stride = (form[1] == MFstructure::V) ? right.v_flavour_stride() : right.w_flavour_stride();
+
+  printf("MesonField2::construct rows = %d cols = %d. mf size %d\n",size[0],size[1],mf_size);
+
+#pragma omp parallel for
+  for(int i = 0; i < size[0]; i++) // nvec = nl + nhits * Lt * sc_size / width   for v generated independently for each hit, source timeslice and spin-color index
+    for(int j = 0; j < size[1]; j++)
+      for(int x = 0; x < size_4d; x++){	
+	if(GJP.Gparity1fX())
+	  if(GJP.Xnodes() == 1 && x % GJP.XnodeSites() >= GJP.XnodeSites()/2) continue; //only do first half (flavour 0)
+	  else if(GJP.Xnodes() > 1 && GJP.XnodeCoor() >= GJP.Xnodes()/2) continue; //yeah I know this can be moved out but 1f code doesn't need to be efficient
+
+	int x_3d = x % size_3d;
+	int t = x / size_3d;
+	int glb_t = t + GJP.TnodeCoor() * GJP.TnodeSites();
+	
+	complex<double> *left_vec = (form[0] == MFstructure::V) ? left.get_v_fftw(i,x,0) : left.get_w_fftw(i,x,0);
+	complex<double> *right_vec = (form[1] == MFstructure::V) ? right.get_v_fftw(j,x,0) : right.get_w_fftw(j,x,0);
+
+	complex<double> *mf_to = mf_val(i,j,glb_t);
+	if(GJP.Gparity() || GJP.Gparity1fX()){
+	  const complex<double> *flvec[2] = {left_vec, left_vec+left_flavour_stride};
+	  const complex<double> *frvec[2] = {right_vec, right_vec+right_flavour_stride};
+
+	  //Contract spin, colour and flavour
+	  //*mf_to += source(x_3d)*structure.contract_internal_indices(flvec,frvec);
+
+	  complex<double> incr = source(x_3d)*structure.contract_internal_indices(flvec,frvec);
+	  *mf_to += incr;
+
+	  if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf2 = %f %f\n",i,j,x,incr.real(),incr.imag(),mf_to->real(),mf_to->imag());
+
+	}else *mf_to += source(x_3d)*structure.contract_internal_indices(left_vec,right_vec);
+      }
+
+  cout_time("Inner product ends!");
+
+  sum_double_array((Float *)mf,mf_size);
+  if(!UniqueID()) printf("Global sum done!");
+}
+
+
+
+//Form the contraction of two mesonfields, summing over mode indices and flavour
+//Expects MesonField2 objects of the for W* \Gamma V   or  V \Gamma W* 
+void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, CorrelationFunction &into){
+  //Check the contraction makes sense
+  if( !parameter_match(left,right,Right,Left) || !parameter_match(left,right,Left,Right) )
+    ERR.General("MesonField2","contract(..)","Field parameters do not match\n");
+  int cform_l = con_form(left),  cform_r = con_form(right);
+  if( cform_l != cform_r  || cform_l == 0)
+    ERR.General("MesonField2","contract(..)","MesonFields must be both of W*V or VW* form\n");
+
+  const int &cform = cform_l; //1 if W*V form, -1 if VW* form
+
+  into.setGlobalSumOnWrite(false);
+
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  if(into.threadType() == CorrelationFunction::UNTHREADED){
+    for(int tsrc=0;tsrc<t_size;++tsrc)
+      for(int tsnk=0;tsnk<t_size;++tsnk){
+	int t_dis = (tsnk-tsrc+t_size)% t_size;
+	for(int i=0;i<left.nl[0]+left.nhits[0]*12;++i)
+	  for(int j=0;j<left.nl[1]+left.nhits[1]*12;++j){
+	    const cnum &l = (cform == 1) ? left(i,j,tsrc,tsrc,tsnk) : left(i,j,tsrc,tsnk,tsrc);
+	    const cnum &r = (cform == 1) ? right(j,i,tsnk,tsnk,tsrc) : right(j,i,tsnk,tsrc,tsnk);
+	    printf("mf2 tsrc %d tsnk %d tdis %d i %d j %d  l = (%f %f)  r = (%f %f)  contr = (%f %f) -> ",tsrc,tsnk,t_dis,i,j, l.real(), l.imag(), r.real(), r.imag(), into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
+
+	    into(contraction_idx,t_dis) += l*r;
+	    printf("(%f %f)\n",into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
+	  }
+      }
+  }else{
+    int n_threads = bfmarg::threads;
+    omp_set_num_threads(n_threads);
+    int nmodes[2] = {left.nl[0]+left.nhits[0]*12 , left.nl[1]+left.nhits[1]*12 };
+
+#pragma omp parallel for 
+    for(int r=0;r<t_size*t_size*nmodes[0]*nmodes[1];++r){
+      //r = j + nmodes[1]*(i + nmodes[0]*(tsnk + t_size*tsrc))
+
+      int rem = r;
+      int j=rem % nmodes[1]; rem/=nmodes[1];
+      int i=rem % nmodes[0]; rem/=nmodes[0];
+      int tsnk = rem % t_size;
+      int tsrc = rem / t_size;
+      int t_dis = (tsnk-tsrc+t_size)% t_size;
+
+      const cnum &l = (cform == 1) ? left(i,j,tsrc,tsrc,tsnk) : left(i,j,tsrc,tsnk,tsrc);
+      const cnum &r = (cform == 1) ? right(j,i,tsnk,tsnk,tsrc) : right(j,i,tsnk,tsrc,tsnk);
+      into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
+    }
+  }
+}
+
+
+
+
+
+
+
+CPS_END_NAMESPACE
