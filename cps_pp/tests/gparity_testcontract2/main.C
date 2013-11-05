@@ -54,6 +54,19 @@
 
 #include <util/spincolorflavormatrix.h>
 
+#ifdef USE_BFM
+
+//CK: these are redefined by BFM (to the same values)
+#undef ND
+#undef SPINOR_SIZE
+#undef HALF_SPINOR_SIZE
+#undef GAUGE_SIZE
+
+#include<util/lattice/fbfm.h>
+#include <chroma.h>
+#include <pthread.h>
+#endif
+
 
 #ifdef USE_OMP
 #include <omp.h>
@@ -62,10 +75,17 @@
 using namespace std;
 USING_NAMESPACE_CPS
 
+#define SETUP_ARRAY(OBJ,ARRAYNAME,TYPE,SIZE)	\
+  OBJ . ARRAYNAME . ARRAYNAME##_len = SIZE; \
+  OBJ . ARRAYNAME . ARRAYNAME##_val = new TYPE [SIZE]
+
+#define ELEM(OBJ,ARRAYNAME,IDX) OBJ . ARRAYNAME . ARRAYNAME##_val[IDX]
+
+
 void print(const WilsonMatrix &w){
   for(int i=0;i<4;i++){
     for(int j=0;j<4;j++){
-      Complex c = w(i,0,j,0);
+      cps::Complex c = w(i,0,j,0);
       printf("(%.4f %.4f) ",c.real(),c.imag());
     }
     printf("\n");
@@ -78,8 +98,8 @@ bool test_equals(const WilsonMatrix &a, const WilsonMatrix &b, const double &eps
     for(int j=0;j<4;j++){
       for(int aa=0;aa<3;aa++){
 	for(int bb=0;bb<3;bb++){
-	  Complex ca = a(i,aa,j,bb);
-	  Complex cb = b(i,aa,j,bb);
+	  cps::Complex ca = a(i,aa,j,bb);
+	  cps::Complex cb = b(i,aa,j,bb);
 	  if( fabs(ca.real()-cb.real()) > eps || fabs(ca.imag()-cb.imag()) > eps ) return false;
 	}
       }
@@ -512,6 +532,235 @@ void calc_etahat(CorrelationFunction &corrfunc, const char* prop_l, Lattice &lat
 
 
 
+//CK: modified global sum routines used here such that QMP is not required
+static void sum_double_array(Float* data, const int &size){
+#ifdef USE_QMP
+  QMP_sum_double_array((double *)data, size);  
+#else
+  slice_sum(data,size,99);
+#endif
+}
+
+
+static void compute_coord(int x[4], const int size[4], int i)
+{
+    for(int j = 0; j < 4; ++j) {
+        x[j] = i % size[j];
+        i /= size[j];
+    }
+}
+//Hantao's mres code
+// void run_mres(const cps::QPropW &qp,
+//               unsigned tsrc, const char fn[])
+
+void run_mres(cps::QPropW &qp, std::vector<Rcomplex> &pion, std::vector<Rcomplex> &j5_q, const int &tsrc=0){
+  if(qp.StoreMidprop() == 0) ERR.General("Hantao's code","mres","Requires midprop to be stored!\n");
+
+  const int t_size_glb = GJP.TnodeSites() * GJP.Tnodes();
+  
+  const int lcl[4] = {GJP.XnodeSites(), GJP.YnodeSites(),
+		      GJP.ZnodeSites(), GJP.TnodeSites(),};
+  const int lcl_vol = lcl[0] * lcl[1] * lcl[2] * lcl[3];
+  const int shift = GJP.TnodeSites() * GJP.TnodeCoor();
+  
+  pion.resize(t_size_glb, Rcomplex(0,0) );
+  j5_q.resize(t_size_glb, Rcomplex(0,0) );
+
+  //vector<Rcomplex> pion(t_size_glb, Rcomplex(0, 0));
+  //vector<Rcomplex> j5_q(t_size_glb, Rcomplex(0, 0));
+
+#pragma omp parallel
+    {
+        // threaded results
+      std::vector<Rcomplex> pion_tmp(t_size_glb, Rcomplex(0, 0));
+      std::vector<Rcomplex> j5_q_tmp(t_size_glb, Rcomplex(0, 0));
+
+#pragma omp for
+        for(int i = 0; i < lcl_vol; ++i) {
+            int x[4];
+            compute_coord(x, lcl, i);
+            int t_glb = x[3] + shift;
+            
+            // J5 contraction (pion)
+            WilsonMatrix p[2]  = {qp[i], qp[i]};
+            p[1].hconj();
+            // J5q contraction (midplane)
+            WilsonMatrix q[2]  = {qp(i), qp(i)};
+            q[1].hconj();
+            
+            pion_tmp[t_glb] += Trace(p[0], p[1]);
+            j5_q_tmp[t_glb] += Trace(q[0], q[1]);
+        } // sites
+#pragma omp critical
+        for(int t = 0; t < t_size_glb; ++t) {
+            pion[t] += pion_tmp[(t+tsrc)%t_size_glb];
+            j5_q[t] += j5_q_tmp[(t+tsrc)%t_size_glb];
+        } // critical, for
+    }//omp
+
+    // FIXME
+    if(GJP.Snodes() != 1) ERR.General("Hantaos code","mres","Requires snodes=1\n");
+    sum_double_array((double *)pion.data(), 2 * t_size_glb);
+    sum_double_array((double *)j5_q.data(), 2 * t_size_glb);
+
+    // FILE *fp = Fopen(fn, "a+");
+    // for(unsigned t = 0; t < t_size_glb; ++t) {
+    //     Fprintf(fp, "%3u %3u %17.10e %17.10e %17.10e %17.10e\n", tsrc, t,
+    //             pion[t].real(), pion[t].imag(),
+    //             j5_q[t].real(), j5_q[t].imag());
+    // }
+    // Fclose(fp);
+}
+
+
+
+
+void nogparity_mrescalc_test(Lattice &lat){
+  //Generate a simple propagator with midprop
+
+  PropManager::clear();
+  
+  JobPropagatorArgs prop_args;
+  SETUP_ARRAY(prop_args,props,PropagatorArg,1);
+  
+  PropagatorArg &parg = prop_args.props.props_val[0];
+    
+  parg.generics.tag = "prop";
+  parg.generics.mass = 0.1;
+  parg.generics.bc[0] = GJP.Xbc();
+  parg.generics.bc[1] = GJP.Ybc();
+  parg.generics.bc[2] = GJP.Zbc();
+  parg.generics.bc[3] = GJP.Tbc();
+
+  SETUP_ARRAY(parg,attributes,AttributeContainer,2);
+    
+  ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
+  PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
+  for(int i=0;i<4;i++) srcarg.pos[i] = 0;
+
+  ELEM(parg,attributes,1).type = STORE_MIDPROP_ATTR;
+
+  PropManager::setup(prop_args);
+  PropManager::calcProps(lat);
+
+  CommonArg c_arg;
+  AlgGparityContract con(lat,c_arg);
+
+  CorrelationFunction pion("pion",1,CorrelationFunction::THREADED);
+  CorrelationFunction j5_q("j5q",1,CorrelationFunction::THREADED);
+  ContractionTypeMres meas; meas.prop = "prop"; meas.file = "";
+
+  {
+    const char* first_prop = prop_args.props.props_val[0].generics.tag;
+    PropagatorContainer &prop_pcon = PropManager::getProp(first_prop);
+    QPropW & qp = prop_pcon.getProp(lat);
+    printf("First prop %s site 0: ",first_prop);
+    for(int ii=0;ii<18;ii++) printf("%f ",((Float*)&qp[0])[ii]);
+    printf("\n");
+  }
+
+
+  //Test mres measurement against Hantao's version
+  con.measure_mres(meas,pion,j5_q);
+
+  std::vector<Rcomplex> pion_hantao, j5_q_hantao;
+  run_mres(PropManager::getProp("prop").getProp(lat), pion_hantao,j5_q_hantao);
+  
+  bool fail(false);
+  for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
+    if( abs(pion(0,t).real() - pion_hantao[t].real()) > 1e-12 ){ printf("mres pion match fail real %.14e %.14e\n",pion(0,t).real(),pion_hantao[t].real()); fail = true; }
+    else printf("mres pion match pass real %.14e %.14e\n",pion(0,t).real(),pion_hantao[t].real());
+
+    if( abs(pion(0,t).imag() - pion_hantao[t].imag()) > 1e-12 ){ printf("mres pion match fail imag %.14e %.14e\n",pion(0,t).imag(),pion_hantao[t].imag()); fail = true; }
+    else printf("mres pion match pass imag %.14e %.14e\n",pion(0,t).imag(),pion_hantao[t].imag());
+
+    if( abs(j5_q(0,t).real() - j5_q_hantao[t].real()) > 1e-12 ){ printf("mres j5_q match fail real %.14e %.14e\n",j5_q(0,t).real(),j5_q_hantao[t].real()); fail = true; }
+    else printf("mres j5_q match pass real %.14e %.14e\n",j5_q(0,t).real(),j5_q_hantao[t].real());
+
+    if( abs(j5_q(0,t).imag() - j5_q_hantao[t].imag()) > 1e-12 ){ printf("mres j5_q match fail imag %.14e %.14e\n",j5_q(0,t).imag(),j5_q_hantao[t].imag()); fail = true; }
+    else printf("mres j5_q match pass imag %.14e %.14e\n",j5_q(0,t).imag(),j5_q_hantao[t].imag());
+  }
+  if(fail){
+    if(!UniqueID()) printf("mres comparison failed\n"); 
+    exit(-1);
+  }else if(!UniqueID()) printf("mres comparison passed\n"); 
+}
+
+
+
+#ifndef USE_BFM
+void init_bfm(int *argc, char **argv[]){}
+#else
+void init_bfm(int *argc, char **argv[])
+{
+    const char* fname = "init_bfm()";
+
+    Chroma::initialize(argc, argv);
+    multi1d<int> nrow(Nd);
+
+    for(int i = 0; i< Nd; ++i)
+        nrow[i] = GJP.Sites(i);
+
+    Layout::setLattSize(nrow);
+    Layout::create();
+
+    //This is regular DWF:
+    // Fbfm::bfm_args[0].solver = DWF;
+    // Fbfm::bfm_args[0].precon_5d = 1;
+
+    //This is Mobius:
+    Fbfm::bfm_args[0].solver = HmCayleyTanh;
+    Fbfm::bfm_args[0].precon_5d = 0;
+    
+    //This is 4D even-odd preconditioned DWF:
+    //It is identical to Mobius with Mobius parameter = 1
+    // Fbfm::bfm_args[0].solver = HtCayleyTanh;
+    // Fbfm::bfm_args[0].precon_5d = 0;
+
+
+    Fbfm::bfm_args[0].Ls = GJP.SnodeSites();
+    Fbfm::bfm_args[0].M5 = GJP.DwfHeight();
+    Fbfm::bfm_args[0].mass = 0.1;
+    Fbfm::bfm_args[0].residual = 1e-8;
+    Fbfm::bfm_args[0].max_iter = 10000;
+    Fbfm::bfm_args[0].Csw = 0.0;
+
+    Fbfm::bfm_args[0].node_latt[0] = QDP::Layout::subgridLattSize()[0];
+    Fbfm::bfm_args[0].node_latt[1] = QDP::Layout::subgridLattSize()[1];
+    Fbfm::bfm_args[0].node_latt[2] = QDP::Layout::subgridLattSize()[2];
+    Fbfm::bfm_args[0].node_latt[3] = QDP::Layout::subgridLattSize()[3];
+
+    multi1d<int> procs = QDP::Layout::logicalSize();
+
+    Fbfm::bfm_args[0].local_comm[0] = procs[0] > 1 ? 0 : 1;
+    Fbfm::bfm_args[0].local_comm[1] = procs[1] > 1 ? 0 : 1;
+    Fbfm::bfm_args[0].local_comm[2] = procs[2] > 1 ? 0 : 1;
+    Fbfm::bfm_args[0].local_comm[3] = procs[3] > 1 ? 0 : 1;
+
+    Fbfm::bfm_args[0].ncoor[0] = 0;
+    Fbfm::bfm_args[0].ncoor[1] = 0;
+    Fbfm::bfm_args[0].ncoor[2] = 0;
+    Fbfm::bfm_args[0].ncoor[3] = 0;
+
+    // mobius_scale = b + c in Andrew's notation
+    bfmarg::mobius_scale = 4.;
+#if TARGET == BGQ
+    bfmarg::Threads(64);
+#else
+    bfmarg::Threads(1);
+#endif
+
+    bfmarg::Reproduce(0);
+    bfmarg::ReproduceChecksum(0);
+    bfmarg::ReproduceMasterCheck(0);
+    bfmarg::Verbose(1);
+
+    Fbfm::use_mixed_solver = true;
+
+    VRB.Result("", fname, "init_bfm finished successfully\n");
+}
+#endif
+
 
 
 int main(int argc,char *argv[])
@@ -526,11 +775,13 @@ int main(int argc,char *argv[])
   printf("Arg0 is %d\n",arg0);
   if(arg0==0){
     gparity_X=true;
-    printf("Doing G-parity HMC test in X direction\n");
+    printf("Doing G-parity test in X direction\n");
   }else if(arg0==1){
-    printf("Doing G-parity HMC test in X and Y directions\n");
+    printf("Doing G-parity test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
+  }else if(arg0==2){
+    printf("Doing standard periodic lattice\n");
   }
 
   bool dbl_latt_storemode(false);
@@ -547,6 +798,8 @@ int main(int argc,char *argv[])
 
   int size[] = {2,2,2,2,2};
   int seed = 83209;
+
+  bool do_mobius(false);
 
   int i=2;
   while(i<argc){
@@ -573,6 +826,9 @@ int main(int argc,char *argv[])
       i+=6;
     }else if( strncmp(cmd,"-save_double_latt",20) == 0){
       dbl_latt_storemode = true;
+      i++;
+    }else if( strncmp(cmd,"-mobius",20) == 0){
+      do_mobius = true;
       i++;
     }else if( strncmp(cmd,"-load_lrg",15) == 0){
       if(i==argc-1){ printf("-load_lrg requires an argument\n"); exit(-1); }
@@ -688,17 +944,31 @@ int main(int argc,char *argv[])
     LRG.Write(save_lrg_file,32);
   }
 
-
-  GwilsonFdwf lattice;
-					       
+  Lattice *lattice_p;
+  if(do_mobius){
+#ifndef USE_BFM
+    ERR.General("","main","Cannot use Fbfm without bfm library!\n");
+#endif
+    init_bfm(&argc,&argv);
+    lattice_p = new GnoneFbfm;
+  }else{
+    lattice_p = new GwilsonFdwf;
+  }
+  Lattice &lattice = *lattice_p;
+  
   if(!load_config){
-    printf("Creating gauge field\n");
+    printf("Creating gauge field\n"); fflush(stdout);
     lattice.SetGfieldDisOrd(); //unit gauge
+    printf("Gauge checksum = %d\n", lattice.CheckSum());  fflush(stdout);
   }else{
     ReadLatticeParallel readLat;
     if(UniqueID()==0) printf("Reading: %s (NERSC-format)\n",load_config_file);
     readLat.read(lattice,load_config_file);
     if(UniqueID()==0) printf("Config read.\n");
+  }
+  if(do_mobius){
+    GnoneFbfm* l =dynamic_cast<GnoneFbfm*>(lattice_p);
+    l->BondCond(); //re-import gauge field to internal bfm object
   }
 
   if(save_config){
@@ -720,6 +990,21 @@ int main(int argc,char *argv[])
     lattice.FixGaugeAllocate(FIX_GAUGE_COULOMB_T);
     lattice.FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
+  }
+
+  if(!gparity_X && !gparity_Y){
+    if(!UniqueID()) printf("Running periodic lattice tests\n");
+
+    nogparity_mrescalc_test(lattice);
+
+    if(gauge_fix) lattice.FixGaugeFree();
+    
+    if(UniqueID()==0){
+      printf("Main job complete\n"); 
+      fflush(stdout);
+    }
+  
+    return 0;
   }
 
   SpinColorFlavorMatrix one; _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unit_matrix(one);
@@ -790,17 +1075,6 @@ int main(int argc,char *argv[])
   }else{
     printf("pauli_coeff test passed\n");
   }
-
-
-
-
-
-
-#define SETUP_ARRAY(OBJ,ARRAYNAME,TYPE,SIZE)	\
-  OBJ . ARRAYNAME . ARRAYNAME##_len = SIZE; \
-  OBJ . ARRAYNAME . ARRAYNAME##_val = new TYPE [SIZE]
-
-#define ELEM(OBJ,ARRAYNAME,IDX) OBJ . ARRAYNAME . ARRAYNAME##_val[IDX]
 
 
   if(0){
@@ -902,32 +1176,38 @@ int main(int argc,char *argv[])
     }
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GlGh;
     conbil_GlGh.add_momentum(momvec);
-    conbil_GlGh.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None);
+    //conbil_GlGh.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None);
+    conbil_GlGh.calculateBilinears(lattice,"prop",PropDFT::None,"prop_H",PropDFT::None);
     
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GhdagGldag;
     conbil_GhdagGldag.add_momentum(momvec);
-    conbil_GhdagGldag.calculateBilinears(lattice,momvec,"prop_H",PropDFT::Dagger,"prop",PropDFT::Dagger);  
+    //conbil_GlGh.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::None);
+    conbil_GhdagGldag.calculateBilinears(lattice,"prop_H",PropDFT::Dagger,"prop",PropDFT::Dagger);  
 
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GldagGhdag;
     conbil_GldagGhdag.add_momentum(momvec);
-    conbil_GldagGhdag.calculateBilinears(lattice,momvec,"prop",PropDFT::Dagger,"prop_H",PropDFT::Dagger);  
-
+    //conbil_GldagGhdag.calculateBilinears(lattice,momvec,"prop",PropDFT::Dagger,"prop_H",PropDFT::Dagger);  
+    conbil_GldagGhdag.calculateBilinears(lattice,"prop",PropDFT::Dagger,"prop_H",PropDFT::Dagger);  
 
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GltransGh;
     conbil_GltransGh.add_momentum(momvec);
-    conbil_GltransGh.calculateBilinears(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None);
+    //conbil_GltransGh.calculateBilinears(lattice,momvec,"prop",PropDFT::Transpose,"prop_H",PropDFT::None);
+    conbil_GltransGh.calculateBilinears(lattice,"prop",PropDFT::Transpose,"prop_H",PropDFT::None);
     
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GlGhtrans;
     conbil_GlGhtrans.add_momentum(momvec);
-    conbil_GlGhtrans.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::Transpose);
+    //conbil_GlGhtrans.calculateBilinears(lattice,momvec,"prop",PropDFT::None,"prop_H",PropDFT::Transpose);
+    conbil_GlGhtrans.calculateBilinears(lattice,"prop",PropDFT::None,"prop_H",PropDFT::Transpose);
 
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GhtransGl;
     conbil_GhtransGl.add_momentum(momvec);
-    conbil_GhtransGl.calculateBilinears(lattice,momvec,"prop_H",PropDFT::Transpose,"prop",PropDFT::None);
+    //conbil_GhtransGl.calculateBilinears(lattice,momvec,"prop_H",PropDFT::Transpose,"prop",PropDFT::None);
+    conbil_GhtransGl.calculateBilinears(lattice,"prop_H",PropDFT::Transpose,"prop",PropDFT::None);
 
     ContractedBilinear<SpinColorFlavorMatrix> conbil_GlstarGhstar;
     conbil_GlstarGhstar.add_momentum(momvec);
-    conbil_GlstarGhstar.calculateBilinears(lattice,momvec,"prop",PropDFT::Conj,"prop_H",PropDFT::Conj);  
+    //conbil_GlstarGhstar.calculateBilinears(lattice,momvec,"prop",PropDFT::Conj,"prop_H",PropDFT::Conj);  
+    conbil_GlstarGhstar.calculateBilinears(lattice,"prop",PropDFT::Conj,"prop_H",PropDFT::Conj);  
 
 
 

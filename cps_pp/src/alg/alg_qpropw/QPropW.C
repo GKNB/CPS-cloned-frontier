@@ -61,41 +61,39 @@ CPS_START_NAMESPACE
 
 // Allocate space for propagators
 void QPropW::Allocate(int mid) {
-
-  char *fname = "Allocate(int)";
+  const char *fname = "Allocate(int)";
   VRB.Func(cname, fname);
 
-  int sz = GJP.VolNodeSites()*sizeof(WilsonMatrix);
-  if(GJP.Gparity()) sz*=2;
+  int sz = (GJP.Gparity()?2:1) * GJP.VolNodeSites()*sizeof(WilsonMatrix);
 
   if (!mid) {
     if (prop == NULL) { // Allocate only if needed
       prop = (WilsonMatrix*)smalloc(cname, fname, "prop", sz);
-	}
+    }
   } else {
     if (midprop == NULL) { // Allocate only if needed
       midprop = (WilsonMatrix*)smalloc(cname, fname, "midprop", sz);
-	}
+    }
   }
 }
 // Free space for propagators
 void QPropW::Delete(int mid) {
 
-  char *fname = "Delete(int)";
+  const char *fname = "Delete(int)";
   VRB.Func(cname, fname);
 
   if (!mid) {
     if (prop != NULL) {
-	  VRB.Sfree(cname, fname, "prop", prop);
-	  sfree(prop);
-	  prop = NULL;
-	}
+      VRB.Sfree(cname, fname, "prop", prop);
+      sfree(prop);
+      prop = NULL;
+    }
   } else {
-	if (midprop != NULL) {
-	  VRB.Sfree(cname, fname, "midprop", midprop);
-	  sfree(midprop);
-	  midprop = NULL;
-	}
+    if (midprop != NULL) {
+      VRB.Sfree(cname, fname, "midprop", midprop);
+      sfree(midprop);
+      midprop = NULL;
+    }
   }
 }
 
@@ -781,54 +779,54 @@ void QPropW::CG(FermionVectorTp& source, FermionVectorTp& sol,
     //Get the lattice form the Alg base class
     Lattice& Lat = this->AlgLattice() ;
 
-    //DEBUG - checksum the 4d source
-    {
-      FPConv fp;
-      enum FP_FORMAT format = FP_IEEE64LITTLE;
-      uint32_t csum(0);
+    // //DEBUG - checksum the 4d source
+    // {
+    //   FPConv fp;
+    //   enum FP_FORMAT format = FP_IEEE64LITTLE;
+    //   uint32_t csum(0);
       
-      Float *field_4D = (Float *)src_4d;
-      int vol_4d = GJP.VolNodeSites();
-      for(int x=0; x<vol_4d; x++){
-	uint32_t csum_contrib = fp.checksum((char *)(field_4D),24,format);
-	csum += csum_contrib;
-	field_4D+=24;
-      }
+    //   Float *field_4D = (Float *)src_4d;
+    //   int vol_4d = GJP.VolNodeSites();
+    //   for(int x=0; x<vol_4d; x++){
+    // 	uint32_t csum_contrib = fp.checksum((char *)(field_4D),24,format);
+    // 	csum += csum_contrib;
+    // 	field_4D+=24;
+    //   }
 
-      QioControl qc;
-      csum = qc.globalSumUint(csum);
+    //   QioControl qc;
+    //   csum = qc.globalSumUint(csum);
 
-      if(UniqueID()==0) printf("4D source checksum %u\n",csum);
-    }
-    //DEBUG
+    //   if(UniqueID()==0) printf("4D source checksum %u\n",csum);
+    // }
+    // //DEBUG
 
 
     //printf("CG converting 4D source to 5D\n"); //DEBUG
     Lat.Ffour2five(src_5d, src_4d, 0, ls_glb-1);
     Lat.Ffour2five(sol_5d, sol_4d, ls_glb-1, 0);
 
-    //DEBUG - checksum the 5d source
-    {
-      int nwilson = GJP.VolNodeSites()*GJP.SnodeSites(); //how many blocks of 24 floats
-      if(GJP.Gparity()) nwilson*=2;
+    // //DEBUG - checksum the 5d source
+    // {
+    //   int nwilson = GJP.VolNodeSites()*GJP.SnodeSites(); //how many blocks of 24 floats
+    //   if(GJP.Gparity()) nwilson*=2;
 
-      FPConv fp;
-      enum FP_FORMAT format = FP_IEEE64LITTLE;
-      uint32_t csum(0);
+    //   FPConv fp;
+    //   enum FP_FORMAT format = FP_IEEE64LITTLE;
+    //   uint32_t csum(0);
       
-      Float *field_5D = (Float *)src_5d;
+    //   Float *field_5D = (Float *)src_5d;
 
-      for(int x=0; x<nwilson; x++){
-	uint32_t csum_contrib = fp.checksum((char *)(field_5D),24,format);
-	csum += csum_contrib;
-	field_5D+=24;
-      }
+    //   for(int x=0; x<nwilson; x++){
+    // 	uint32_t csum_contrib = fp.checksum((char *)(field_5D),24,format);
+    // 	csum += csum_contrib;
+    // 	field_5D+=24;
+    //   }
 
-      QioControl qc;
-      csum = qc.globalSumUint(csum);
+    //   QioControl qc;
+    //   csum = qc.globalSumUint(csum);
 
-      if(UniqueID()==0) printf("5D source checksum %u\n",csum);
-    }
+    //   if(UniqueID()==0) printf("5D source checksum %u\n",csum);
+    // }
 
 
     iter = Lat.FmatInv(sol_5d, src_5d, &(qp_arg.cg), &true_res,
@@ -955,29 +953,17 @@ void QPropW::UnfixSol(FermionVectorTp& sol) {
 void QPropW::LoadRow(int spin, int color, FermionVectorTp& sol, 
 		     FermionVectorTp& midsol) {
   int i;
-  for (int s=0; s<GJP.VolNodeSites(); s++) {
+  int prop_sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
+
+  for (int s=0; s< prop_sz ; s++) {
     i = s*SPINOR_SIZE; // FermionVector index
     prop[s].load_row(spin, color, (wilson_vector &)sol[i]);
   }
-  if(GJP.Gparity()){ //CK: do second stacked field
-    for (int s=GJP.VolNodeSites(); s<2*GJP.VolNodeSites(); s++) {
-      i = s*SPINOR_SIZE; // FermionVector index
-      prop[s].load_row(spin, color, (wilson_vector &)sol[i]);
-    }
-  }
 
   if (StoreMidprop()) { // Collect solutions in midpoint propagator.
-    for (int s=0; s<GJP.VolNodeSites(); s++) {
+    for (int s=0; s< prop_sz ; s++) {
       i = s*SPINOR_SIZE; // lattice site
       midprop[s].load_row(spin, color, (wilson_vector &)midsol[i]);
-    }
-    if(GJP.Gparity()){ //CK: do second stacked field
-      for (int s=GJP.VolNodeSites(); s<2*GJP.VolNodeSites(); s++) {
-	i = s*SPINOR_SIZE; // FermionVector index
-
-	
-	midprop[s].load_row(spin, color, (wilson_vector &)midsol[i]);
-      }
     }
   }
 }
@@ -988,12 +974,14 @@ void QPropW::LoadRow(int spin, int color, FermionVectorTp& sol,
 void QPropW::SaveRow(int spin, int color, FermionVectorTp& sol, 
 		     FermionVectorTp& midsol) {
   int i;
-  for (int s=0; s<GJP.VolNodeSites(); s++) {
+  int prop_sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
+
+  for (int s=0; s< prop_sz ; s++) {
     i = s*SPINOR_SIZE; // FermionVector index
     prop[s].save_row(spin, color, (wilson_vector &)sol[i]);
   }
   if (StoreMidprop()) { // Collect solutions in midpoint propagator.
-    for (int s=0; s<GJP.VolNodeSites(); s++) {
+    for (int s=0; s< prop_sz ; s++) {
       i = s*SPINOR_SIZE; // lattice site
       midprop[s].save_row(spin, color, (wilson_vector &)midsol[i]);
     } 
@@ -1089,8 +1077,7 @@ void QPropW::ShiftPropBackward(int n) {
   the averaging constructor should be removed since it is now obsolete.
  */
 void QPropW::Average(QPropW& Q) {
-  int sz = GJP.VolNodeSites();
-  if(GJP.Gparity()) sz*=2;
+  int sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
 
   if ((Q.prop != NULL)&&(prop !=NULL))
     for (int i=0; i< sz; i++)
@@ -1177,7 +1164,7 @@ WilsonMatrix& QPropW::GetMatrix(const int *vec, WilsonMatrix& tmp) const {
       }
     }
     on_node_wmat = prop + (on_node_site[0] + GJP.XnodeSites()*(
-						   on_node_site[1] + GJP.YnodeSites()*(
+			   on_node_site[1] + GJP.YnodeSites()*(
                            on_node_site[2] + GJP.ZnodeSites()*
                            on_node_site[3])));
   }
@@ -1219,13 +1206,8 @@ WilsonMatrix& QPropW::GetMatrix(const int *vec, WilsonMatrix& tmp) const {
 
 
 void QPropW::SetSource(FermionVectorTp& src, int spin, int color) {
-
-   char *fname = "SetSource()";
-   VRB.Func(cname, fname);
-
-   // Do nothing
-   // This function should be overridden by specific QPropW types
-   
+  const char *fname = "SetSource()";
+  VRB.Func(cname, fname);
 }
 
 Complex& QPropW::rand_src(int i) const { 

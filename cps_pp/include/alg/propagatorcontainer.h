@@ -18,8 +18,12 @@ protected:
 public:
   void add(const AttributeContainer &p);
   void setup(PropagatorArg &arg);
+
   template<typename T>
   bool getAttr(T* &to) const;
+
+  template<typename T>
+  bool hasAttr() const{ return findAttr(T::getType())!=NULL; }
   
   void readProp(Lattice &latt); //loads prop if on disk, does nothing otherwise
   void calcProp(Lattice &latt); //perform prop inversion

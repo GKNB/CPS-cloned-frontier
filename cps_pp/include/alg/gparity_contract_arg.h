@@ -24,6 +24,7 @@ enum ContractionType {
 	CONTRACTION_TYPE_BILINEAR_VERTEX = 7,
 	CONTRACTION_TYPE_QUADRILINEAR_VERTEX = 8,
 	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 9,
+	CONTRACTION_TYPE_MRES = 10,
 };
 typedef enum ContractionType ContractionType;
 extern struct vml_enum_map ContractionType_map[];
@@ -358,6 +359,27 @@ template<> struct rpc_deepcopy<ContractionTypeTopologicalCharge>{
 
 
 #include <util/vml/vml_templates.h>
+struct ContractionTypeMres {
+	char *prop;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeMres &rhs);
+};
+typedef struct ContractionTypeMres ContractionTypeMres;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeMres>{
+	static void doit(ContractionTypeMres const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeMres>{
+	static void doit(ContractionTypeMres &into, ContractionTypeMres const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
 struct GparityMeasurement {
 	ContractionType type;
 	union {
@@ -371,6 +393,7 @@ struct GparityMeasurement {
 		ContractionTypeBilinearVertex contraction_type_bilinear_vertex;
 		ContractionTypeQuadrilinearVertex contraction_type_quadrilinear_vertex;
 		ContractionTypeTopologicalCharge contraction_type_topological_charge;
+		ContractionTypeMres contraction_type_mres;
 	} GparityMeasurement_u;
 	   template <typename T> static ContractionType type_map();
 	   void deep_copy(const GparityMeasurement &rhs);
@@ -390,6 +413,7 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeFourierP
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeBilinearVertex>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrilinearVertex>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>();
 template<> struct rpc_deepcopy<GparityMeasurement>{
 	static void doit(GparityMeasurement &into, GparityMeasurement const &from);
 };
@@ -448,6 +472,7 @@ extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, Contrac
 extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, QuadrilinearSpinStructure*);
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
+extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 
@@ -466,6 +491,7 @@ extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, Contrac
 extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, QuadrilinearSpinStructure*);
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
+extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 

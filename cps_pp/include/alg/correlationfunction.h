@@ -24,8 +24,11 @@ private:
   bool global_sum_on_write; //do a global summation before writing. Defaults to true.
 public:
   void setNcontractions(const int &n);
+  const int & nContractions() const{ return ncontract; }
   void write(const char *file);
   void write(FILE *fp);
+
+  //Get the value at *global* time coordinate t
   Rcomplex & operator()(const int &contraction_idx, const int &t);
   Rcomplex & operator()(const int &thread_idx, const int &contraction_idx, const int &t);
 
@@ -33,7 +36,7 @@ public:
   void sumLattice(); //Form the sum of wick[contraction][t] over all nodes (and threads if threaded). Result is stored in wick and after sum accessible via operator() (i.e. the non-threaded version)
   void clear();
 
-  void setGlobalSumOnWrite(const bool &b){ global_sum_on_write = b; }
+  void setGlobalSumOnWrite(const bool &b){ global_sum_on_write = b; } //Global sum on write is disabled automatically if sumLattice() is called manually
 
   const ThreadType & threadType() const{ return threadtype; }
 

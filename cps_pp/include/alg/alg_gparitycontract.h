@@ -91,7 +91,16 @@ private:
   void contract_OVVpAA_std(const ContractionTypeOVVpAA &args, const int &conf_idx);
 public:
   AlgGparityContract(Lattice & latt, CommonArg& c_arg, GparityContractArg& arg);
+  AlgGparityContract(Lattice & latt, CommonArg& c_arg);
+
+  void set_args(GparityContractArg *to){ args = to; }
+
+  //Run the measurement programme defined by the 'job' input. 
+  //By default it uses the args pointer provided when this object is constructed or set using set_args, but user can choose a different run script.
   void run(const int &conf_idx);
+  void run(const int &conf_idx, const GparityContractArg& job);
+
+  //Measure the quantity specified by the GparityMeasurement input (essentially a factory)
   void spectrum(const GparityMeasurement &measargs,const int &conf_idx);
 
   void contract_LL_mesons(const ContractionTypeLLMesons &args, const int &conf_idx);
@@ -104,6 +113,8 @@ public:
   void contract_bilinear_vertex(const ContractionTypeBilinearVertex &args, const int &conf_idx);
   void contract_quadrilinear_vertex(const ContractionTypeQuadrilinearVertex &args, const int &conf_idx);
   void measure_topological_charge(const ContractionTypeTopologicalCharge &args, const int &conf_idx);
+  void measure_mres(const ContractionTypeMres &args, const int &conf_idx);
+  void measure_mres(const ContractionTypeMres &args, CorrelationFunction &pion, CorrelationFunction &j5_q);
 };
 
 CPS_END_NAMESPACE

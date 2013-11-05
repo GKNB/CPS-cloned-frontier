@@ -8,7 +8,8 @@ enum ContractionType {
   CONTRACTION_TYPE_FOURIER_PROP,
   CONTRACTION_TYPE_BILINEAR_VERTEX,
   CONTRACTION_TYPE_QUADRILINEAR_VERTEX,
-  CONTRACTION_TYPE_TOPOLOGICAL_CHARGE
+  CONTRACTION_TYPE_TOPOLOGICAL_CHARGE,
+  CONTRACTION_TYPE_MRES
 };
 struct ContractionTypeLLMesons{
  string prop_L<>;
@@ -173,6 +174,15 @@ struct ContractionTypeTopologicalCharge{
 };
 
 
+struct ContractionTypeMres{
+  string prop<>;  
+  string file<>;
+                                          
+ rpccommand GENERATE_PRINT_METHOD;
+ rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
+
 
 union GparityMeasurement{
 switch(ContractionType type){
@@ -196,6 +206,8 @@ switch(ContractionType type){
    ContractionTypeQuadrilinearVertex contraction_type_quadrilinear_vertex;
  case CONTRACTION_TYPE_TOPOLOGICAL_CHARGE:
    ContractionTypeTopologicalCharge contraction_type_topological_charge;
+ case CONTRACTION_TYPE_MRES:
+   ContractionTypeMres contraction_type_mres;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

@@ -27,6 +27,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","PROP_COMBINATION_ATTR",PROP_COMBINATION_ATTR},
 	{"AttrType","GPARITY_OTHER_FLAV_PROP_ATTR",GPARITY_OTHER_FLAV_PROP_ATTR},
 	{"AttrType","TWISTED_BC_ATTR",TWISTED_BC_ATTR},
+	{"AttrType","STORE_MIDPROP_ATTR",STORE_MIDPROP_ATTR},
 	{NULL,NULL,0}
 };
 
@@ -346,6 +347,22 @@ void TwistedBcAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_StoreMidpropAttrArg (VML *vmls, char *name,StoreMidpropAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"StoreMidpropAttrArg",name);
+	 vml_struct_end(vmls,"StoreMidpropAttrArg",name);
+	return TRUE;
+}
+void rpc_print<StoreMidpropAttrArg>::doit(StoreMidpropAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	std::cout << spaces << "}\n";
+}
+void StoreMidpropAttrArg::print(const std::string &prefix){
+	rpc_print<StoreMidpropAttrArg>::doit(*this,prefix);
+}
+
+bool_t
 vml_PropCombination (VML *vmls, char *name,PropCombination *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,PropCombination_map))
@@ -449,6 +466,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_TwistedBcAttrArg (vmls, "twisted_bc_attr", &objp->AttributeContainer_u.twisted_bc_attr))
 			 return FALSE;
 		break;
+	case STORE_MIDPROP_ATTR:
+		 if (!vml_StoreMidpropAttrArg (vmls, "store_midprop_attr", &objp->AttributeContainer_u.store_midprop_attr))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -493,6 +514,9 @@ template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>()
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>(){
 	 return TWISTED_BC_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>(){
+	 return STORE_MIDPROP_ATTR;
+}
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -522,6 +546,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<GparityOtherFlavPropAttrArg>::doit(into.AttributeContainer_u.gparity_other_flav_prop_attr,from.AttributeContainer_u.gparity_other_flav_prop_attr); break;
 	    case TWISTED_BC_ATTR:
 	      rpc_deepcopy<TwistedBcAttrArg>::doit(into.AttributeContainer_u.twisted_bc_attr,from.AttributeContainer_u.twisted_bc_attr); break;
+	    case STORE_MIDPROP_ATTR:
+	      rpc_deepcopy<StoreMidpropAttrArg>::doit(into.AttributeContainer_u.store_midprop_attr,from.AttributeContainer_u.store_midprop_attr); break;
 	  };
 }
 void AttributeContainer::deep_copy(AttributeContainer const &rhs){
@@ -557,6 +583,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<GparityOtherFlavPropAttrArg>::doit(what.AttributeContainer_u.gparity_other_flav_prop_attr,spaces+" union AttributeContainer_u.gparity_other_flav_prop_attr = "); break;
 	    case TWISTED_BC_ATTR:
 	      rpc_print<TwistedBcAttrArg>::doit(what.AttributeContainer_u.twisted_bc_attr,spaces+" union AttributeContainer_u.twisted_bc_attr = "); break;
+	    case STORE_MIDPROP_ATTR:
+	      rpc_print<StoreMidpropAttrArg>::doit(what.AttributeContainer_u.store_midprop_attr,spaces+" union AttributeContainer_u.store_midprop_attr = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

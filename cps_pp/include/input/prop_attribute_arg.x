@@ -16,7 +16,9 @@ enum AttrType {
   MOM_COS_ATTR,
   PROP_COMBINATION_ATTR,
   GPARITY_OTHER_FLAV_PROP_ATTR,
-  TWISTED_BC_ATTR };
+  TWISTED_BC_ATTR,
+  STORE_MIDPROP_ATTR
+};
 
 struct GenericPropAttrArg{
   string tag<>;
@@ -103,6 +105,11 @@ struct  TwistedBcAttrArg {
   rpccommand GENERATE_DEEPCOPY_METHOD;
   rpccommand GENERATE_PRINT_METHOD;
 };
+struct StoreMidpropAttrArg{
+  memfun static AttrType getType();
+  memfun StoreMidpropAttrArg clone();
+  rpccommand GENERATE_PRINT_METHOD;
+};
 
 
 enum PropCombination {
@@ -148,6 +155,8 @@ switch(AttrType type){
    GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
  case TWISTED_BC_ATTR:
    TwistedBcAttrArg twisted_bc_attr;
+ case STORE_MIDPROP_ATTR:
+   StoreMidpropAttrArg store_midprop_attr;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

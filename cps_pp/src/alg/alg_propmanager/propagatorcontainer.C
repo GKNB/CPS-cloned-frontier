@@ -181,6 +181,9 @@ void PropagatorContainer::calcProp(Lattice &latt){
   GparityFlavorAttrArg *flav;
   if(getAttr(flav)) qpropw_arg.flavor = flav->flavor;
 
+  //mid-point correlator?
+  if(hasAttr<StoreMidpropAttrArg>()) qpropw_arg.store_midprop = 1;
+
   PropIOAttrArg *io;
   if(getAttr(io)){ 
     qpropw_arg.save_prop = io->save_to_disk;

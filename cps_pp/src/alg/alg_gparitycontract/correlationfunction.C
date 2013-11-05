@@ -87,6 +87,7 @@ void CorrelationFunction::clear(){
       sfree(wick_threaded);
     }
   }
+  global_sum_on_write = true;
 }
 
 
@@ -125,6 +126,7 @@ void CorrelationFunction::sumLattice(){
       slice_sum( (Float*)&wick[i][t], 2, 99); //2 for re/im, 99 is a *magic* number (we are abusing slice_sum here)
     }
   }
+  setGlobalSumOnWrite(false); //disable further sums
 }
 void CorrelationFunction::write(const char *file){
   FILE *fp;

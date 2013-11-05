@@ -222,6 +222,9 @@ std::vector<Float> ContractionQuarkMomCombination::get_p(const int &contraction)
 AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg, GparityContractArg& arg): Alg(latt,&c_arg), args(&arg){ 
   cname = "AlgGparityContract"; 
 }
+AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg): Alg(latt,&c_arg), args(NULL){
+  cname = "AlgGparityContract"; 
+}
 
 void AlgGparityContract::global_coord(const int &site, int *into_vec){
   int rem = site;
@@ -232,14 +235,19 @@ void AlgGparityContract::global_coord(const int &site, int *into_vec){
 }
 
 void AlgGparityContract::run(const int &conf_idx){
+  if(args == NULL) ERR.General(cname,"run(const int)","args pointer has not been set\n");
+  run(conf_idx,*args);
+}
+
+void AlgGparityContract::run(const int &conf_idx, const GparityContractArg& job){
   //Calculate propagators first. When contracting on only a single thread
   //this is not strictly necessary as the PropagatorContainer will calculate
   //the prop if it has not already been done. However in a multi-threaded
   //inversion, all the threads try to calculate the prop independently, and it will crash.
   PropManager::calcProps(AlgLattice());
 
-  for(int i=0;i<args->meas.meas_len;i++){
-    spectrum(args->meas.meas_val[i],conf_idx);   
+  for(int i=0;i<job.meas.meas_len;i++){
+    spectrum(job.meas.meas_val[i],conf_idx);   
   }
 }
 
@@ -1733,6 +1741,64 @@ void AlgGparityContract::measure_topological_charge(const ContractionTypeTopolog
   common_arg.filename = NULL; //OH MY GOD I HATE C-STRINGS!
 }
 
+void AlgGparityContract::measure_mres(const ContractionTypeMres &args, const int &conf_idx){
+  std::ostringstream file; file << args.file << "." << conf_idx;
+
+  FILE *fp;
+  if ((fp = Fopen(file.str().c_str(), "w")) == NULL) {
+    ERR.FileW(cname,"measure_mres",file.str().c_str());
+  }
+  CorrelationFunction pion("pion",1,CorrelationFunction::THREADED);
+  CorrelationFunction j5_q("j5q",1,CorrelationFunction::THREADED);
+
+  measure_mres(args,pion,j5_q);
+
+  pion.write(fp);
+  j5_q.write(fp);
+  
+  Fclose(fp);
+}
+
+
+void AlgGparityContract::measure_mres(const ContractionTypeMres &args, CorrelationFunction &pion, CorrelationFunction &j5_q){
+  if(GJP.Gparity()) ERR.General(cname,"measure_mres(...)","G-parity measurement not yet implemented\n");
+  if(GJP.Snodes()!=1) ERR.General(cname,"measure_mres(...)","Assumes only 1 node in s-direction\n");
+  if(pion.threadType() != CorrelationFunction::THREADED || j5_q.threadType() != CorrelationFunction::THREADED) ERR.General(cname,"measure_mres(...)","Assumes multi-thread CorrelationFunctions\n");
+  if(pion.nContractions() !=1 || j5_q.nContractions() != 1) ERR.General(cname,"measure_mres(...)","CorrelationFunctions must have space for only one contraction\n");
+
+  PropagatorContainer &prop_pcon = PropManager::getProp(args.prop);
+  if(!prop_pcon.hasAttr<StoreMidpropAttrArg>()) ERR.General(cname,"measure_mres(...)","Propagator must have midprop stored to form mres\n");
+
+  QPropW & qp = prop_pcon.getProp(AlgLattice());
+
+#pragma omp parallel for default(shared)
+  for(int i = 0; i < GJP.VolNodeSites(); ++i) {
+    int x[4];
+    global_coord(i,x);
+    
+    // J5 contraction (pion)
+    WilsonMatrix p[2]  = {qp[i], qp[i]};
+    p[1].hconj();
+    // J5q contraction (midplane)
+    WilsonMatrix q[2]  = {qp(i), qp(i)};
+    q[1].hconj();
+    
+    Rcomplex pion_incr = Trace(p[0], p[1]);
+    Rcomplex j5q_incr = Trace(q[0], q[1]);
+
+    printf("Thread %d, pos %i, global coord %d %d %d %d,  pion += %f %f   j5q += %f %f\n", omp_get_thread_num(), i, x[0],x[1],x[2],x[3], pion_incr.real(), pion_incr.imag(), j5q_incr.real(), j5q_incr.imag());
+    printf("QP: ");
+    for(int ii=0;ii<18;ii++) printf("%f ",((Float*)qp[i].ptr())[ii]);
+    printf("\n");
+    
+    pion(omp_get_thread_num(),0,x[3]) += pion_incr;
+    j5_q(omp_get_thread_num(),0,x[3]) += j5q_incr;
+  }
+  
+  pion.sumLattice();
+  j5_q.sumLattice();
+}
+
 
 
 void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &conf_idx){
@@ -1747,6 +1813,7 @@ void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &
   else if(measargs.type == CONTRACTION_TYPE_BILINEAR_VERTEX) contract_bilinear_vertex(measargs.GparityMeasurement_u.contraction_type_bilinear_vertex, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_QUADRILINEAR_VERTEX) contract_quadrilinear_vertex(measargs.GparityMeasurement_u.contraction_type_quadrilinear_vertex, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_TOPOLOGICAL_CHARGE) measure_topological_charge(measargs.GparityMeasurement_u.contraction_type_topological_charge, conf_idx);
+  else if(measargs.type == CONTRACTION_TYPE_MRES) measure_mres(measargs.GparityMeasurement_u.contraction_type_mres, conf_idx);
 
   else ERR.General("AlgGparityContract","spectrum(...)","Invalid contraction type");
 }

@@ -24,6 +24,7 @@ struct vml_enum_map ContractionType_map[] = {
 	{"ContractionType","CONTRACTION_TYPE_BILINEAR_VERTEX",CONTRACTION_TYPE_BILINEAR_VERTEX},
 	{"ContractionType","CONTRACTION_TYPE_QUADRILINEAR_VERTEX",CONTRACTION_TYPE_QUADRILINEAR_VERTEX},
 	{"ContractionType","CONTRACTION_TYPE_TOPOLOGICAL_CHARGE",CONTRACTION_TYPE_TOPOLOGICAL_CHARGE},
+	{"ContractionType","CONTRACTION_TYPE_MRES",CONTRACTION_TYPE_MRES},
 	{NULL,NULL,0}
 };
 
@@ -561,6 +562,35 @@ void ContractionTypeTopologicalCharge::deep_copy(ContractionTypeTopologicalCharg
 }
 
 bool_t
+vml_ContractionTypeMres (VML *vmls, char *name,ContractionTypeMres *objp)
+{
+	 vml_struct_begin(vmls,"ContractionTypeMres",name);
+	 if (!vml_string (vmls, "prop", &objp->prop, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "file", &objp->file, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"ContractionTypeMres",name);
+	return TRUE;
+}
+void rpc_print<ContractionTypeMres>::doit(ContractionTypeMres const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.prop,strlen(what.prop)+1,spaces+" prop = ");
+	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
+	std::cout << spaces << "}\n";
+}
+void ContractionTypeMres::print(const std::string &prefix){
+	rpc_print<ContractionTypeMres>::doit(*this,prefix);
+}
+void rpc_deepcopy<ContractionTypeMres>::doit(ContractionTypeMres &into, ContractionTypeMres const &from){
+	  rpc_deepcopy<char *>::doit(into.prop,from.prop,strlen(from.prop)+1);
+	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
+}
+void ContractionTypeMres::deep_copy(ContractionTypeMres const &rhs){
+	rpc_deepcopy<ContractionTypeMres>::doit(*this,rhs);
+}
+
+bool_t
 vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 {
 	 if (!vml_ContractionType (vmls, "type", &objp->type))
@@ -606,6 +636,10 @@ vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 		 if (!vml_ContractionTypeTopologicalCharge (vmls, "contraction_type_topological_charge", &objp->GparityMeasurement_u.contraction_type_topological_charge))
 			 return FALSE;
 		break;
+	case CONTRACTION_TYPE_MRES:
+		 if (!vml_ContractionTypeMres (vmls, "contraction_type_mres", &objp->GparityMeasurement_u.contraction_type_mres))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -641,6 +675,9 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrili
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>(){
 	 return CONTRACTION_TYPE_TOPOLOGICAL_CHARGE;
 }
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>(){
+	 return CONTRACTION_TYPE_MRES;
+}
 void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMeasurement const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -664,6 +701,8 @@ void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMea
 	      rpc_deepcopy<ContractionTypeQuadrilinearVertex>::doit(into.GparityMeasurement_u.contraction_type_quadrilinear_vertex,from.GparityMeasurement_u.contraction_type_quadrilinear_vertex); break;
 	    case CONTRACTION_TYPE_TOPOLOGICAL_CHARGE:
 	      rpc_deepcopy<ContractionTypeTopologicalCharge>::doit(into.GparityMeasurement_u.contraction_type_topological_charge,from.GparityMeasurement_u.contraction_type_topological_charge); break;
+	    case CONTRACTION_TYPE_MRES:
+	      rpc_deepcopy<ContractionTypeMres>::doit(into.GparityMeasurement_u.contraction_type_mres,from.GparityMeasurement_u.contraction_type_mres); break;
 	  };
 }
 void GparityMeasurement::deep_copy(GparityMeasurement const &rhs){
@@ -693,6 +732,8 @@ void rpc_print<GparityMeasurement>::doit(GparityMeasurement const &what, const s
 	      rpc_print<ContractionTypeQuadrilinearVertex>::doit(what.GparityMeasurement_u.contraction_type_quadrilinear_vertex,spaces+" union GparityMeasurement_u.contraction_type_quadrilinear_vertex = "); break;
 	    case CONTRACTION_TYPE_TOPOLOGICAL_CHARGE:
 	      rpc_print<ContractionTypeTopologicalCharge>::doit(what.GparityMeasurement_u.contraction_type_topological_charge,spaces+" union GparityMeasurement_u.contraction_type_topological_charge = "); break;
+	    case CONTRACTION_TYPE_MRES:
+	      rpc_print<ContractionTypeMres>::doit(what.GparityMeasurement_u.contraction_type_mres,spaces+" union GparityMeasurement_u.contraction_type_mres = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

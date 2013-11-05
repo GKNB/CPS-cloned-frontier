@@ -25,6 +25,7 @@ AttrType MomCosAttrArg::getType (  ){ return MOM_COS_ATTR; }
 AttrType PropCombinationAttrArg::getType (  ){ return PROP_COMBINATION_ATTR; }
 AttrType GparityOtherFlavPropAttrArg::getType ( ){ return GPARITY_OTHER_FLAV_PROP_ATTR; }
 AttrType TwistedBcAttrArg::getType( ){ return TWISTED_BC_ATTR; }
+AttrType StoreMidpropAttrArg::getType( ){ return STORE_MIDPROP_ATTR; }
 //As AttrArg types are used in a union, we cannot write copy constructors. Instead write a clone function to perform a deep copy,
 //and the automatically generated trivial copy constructor is shallow.
 
@@ -118,5 +119,10 @@ TwistedBcAttrArg TwistedBcAttrArg::clone(){
   out.deep_copy(*this);
   return out;
 }
+StoreMidpropAttrArg StoreMidpropAttrArg::clone(){
+  return *this;
+}
+
+
 
 CPS_END_NAMESPACE
