@@ -29,6 +29,8 @@ vml_A2AArg(VML *vmls,char *name,A2AArg *objp)
 		return FALSE;
 	if (!vml_int (vmls, "src_width", &objp->src_width))
 		return FALSE;
+	if (!vml_int (vmls, "dilute_flavor", &objp->dilute_flavor))
+		return FALSE;
 	vml_class_end(vmls,"A2APropArg",name);
 	return TRUE;
 }

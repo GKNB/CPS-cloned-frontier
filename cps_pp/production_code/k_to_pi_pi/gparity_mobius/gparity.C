@@ -209,16 +209,6 @@ int main(int argc,char *argv[])
       fix_gauge.run();
     }
 
-    PropManager::calcProps(lattice);
-
-    const char* first_prop = prop_args.props.props_val[0].generics.tag;
-    PropagatorContainer &prop_pcon = PropManager::getProp(first_prop);
-    QPropW & qp = prop_pcon.getProp(lattice);
-    printf("First prop %s site 0: ",first_prop);
-    for(int ii=0;ii<18;ii++) printf("%f ",((Float*)&qp[0])[ii]);
-    printf("\n");
-
-
     //Perform the inversions/contractions
     AlgGparityContract contract(lattice,carg,contract_args);
     contract.run(conf);

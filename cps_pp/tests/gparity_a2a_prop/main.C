@@ -1,6 +1,9 @@
 //Test G-parity modified version of Daiqian's a2a code. This presupposes that the Lanczos works, so test this first (gparity_lanczos)
 //NOTE: You will need to link against libfftw3 and libfftw3_threads
 
+//Enable flavor dilution with -dilute_flavor command line option
+
+
 #include <alg/a2a/lanc_arg.h>
 #include <alg/eigen/Krylov_5d.h>
 
@@ -283,11 +286,12 @@ void lanczos_arg(LancArg &into, const bool &precon){
   into.fname = "Lanczos";
 }
 
-void a2a_arg(A2AArg &into){
+void a2a_arg(A2AArg &into, const int &flavor_dilution = 0){
   into.nl = 8;
   into.nhits = 1;
   into.rand_type = UONE;
   into.src_width = 1;
+  into.dilute_flavor = flavor_dilution;
 }
 
 void create_eig(GwilsonFdwf* lattice, Lanczos_5d<double>* &eig, const bool &precon){
@@ -365,170 +369,211 @@ void create_eig_1f(GwilsonFdwf* lattice, Lanczos_5d<double>* &eig_1f, const Lanc
 }
 
 
-//Lanczos should be precomputed. prop pointer will be assigned to an a2a propagator
-void a2a_prop_gen(A2APropbfm* &prop, GwilsonFdwf* lattice, Lanczos_5d<double> &eig){
-  A2AArg arg;
-  a2a_arg(arg);
+CPS_START_NAMESPACE
+
+class A2APropbfmTesting{
+public:
+  //Lanczos should be precomputed. prop pointer will be assigned to an a2a propagator
+  static void a2a_prop_gen(A2APropbfm* &prop, GwilsonFdwf* lattice, Lanczos_5d<double> &eig, const int &dilute_flavor = 0){
+    A2AArg arg;
+    a2a_arg(arg,dilute_flavor);
   
-  bfm_evo<double> &dwf = eig.dop;
+    bfm_evo<double> &dwf = eig.dop;
 
-  CommonArg carg;
-  prop = new A2APropbfm(*lattice,arg,carg,&eig);
+    CommonArg carg;
+    prop = new A2APropbfm(*lattice,arg,carg,&eig);
 
-  prop->allocate_vw();
-  QDPIO::cout << "Computing A2a low modes component\n";
-  prop->compute_vw_low(dwf);
-  QDPIO::cout << "Computing A2a high modes component\n";
-  prop->compute_vw_high(dwf);
-  QDPIO::cout << "Completed A2A prop\n";
-}
-void convert_2f_A2A_prop_to_1f(A2APropbfm &prop_2f, bool gparity_X, bool gparity_Y){
-  //Called in 1f context!
-
-  int four_vol = GJP.VolNodeSites(); //size includes factor of 2 for second G-parity flavour as we are in the 1f context
-  //Vector **v; // v  size   [nvec][24*four_vol *2(gp)]
-  for(int vec = 0; vec < prop_2f.get_nvec(); ++vec){
-    int vsz = 24*four_vol*sizeof(Float);
-    Float* new_v = (Float*)pmalloc(vsz);
-    SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_v(vec), new_v);
-    doubler.Run();
-    memcpy( (void*)prop_2f.get_v(vec), (void*)new_v, vsz);
-    pfree(new_v);
-  }
-  
-  //Vector **wl; // low modes w [A2AArg.nl][24*four_vol *2(gp)]
-
-  for(int l = 0; l < prop_2f.get_nl(); ++l){
-    int wlsz = 24*four_vol*sizeof(Float);
-    Float* new_wl = (Float*)pmalloc(wlsz);
-    SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_wl(l), new_wl);
-    doubler.Run();
-    memcpy( (void*)prop_2f.get_wl(l), (void*)new_wl, wlsz);
-    pfree(new_wl);
+    prop->allocate_vw();
+    QDPIO::cout << "Computing A2a low modes component\n";
+    prop->compute_vw_low(dwf);
+    QDPIO::cout << "Computing A2a high modes component\n";
+    prop->compute_vw_high(dwf);
+    QDPIO::cout << "Completed A2A prop\n";
   }
 
-  //Vector *wh; // high modes w, compressed  [2*four_vol*nh_site*2]   where nh_site = A2AArg.nhits
+  static void convert_2f_A2A_prop_to_1f(A2APropbfm &prop_2f, bool gparity_X, bool gparity_Y){
+    //Called in 1f context!
 
-  //G-parity wh mapping  (re/im=[0,1], site=[0..four_vol-1],flav=[0,1],hit=[0..nh_site]) ->    re/im + 2*( site + flav*four_vol + hit*2*four_vol )
-  //Standard  (re/im=[0,1], site=[0..four_vol-1],hit=[0..nh_site]) ->    re/im + 2*( site + hit*four_vol )
-  {
-    int wh_bytes = 2*four_vol*prop_2f.get_nhits()*sizeof(Float);
-    Float* new_wh = (Float*)pmalloc(wh_bytes);
+    int four_vol = GJP.VolNodeSites(); //size includes factor of 2 for second G-parity flavour as we are in the 1f context
+    //Vector **v; // v  size   [nvec][24*four_vol *2(gp)]
+    for(int vec = 0; vec < prop_2f.get_nvec(); ++vec){
+      int vsz = 24*four_vol*sizeof(Float);
+      Float* new_v = (Float*)pmalloc(vsz);
+      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_v(vec), new_v);
+      doubler.Run();
+      memcpy( (void*)prop_2f.get_v(vec), (void*)new_v, vsz);
+      pfree(new_v);
+    }
+  
+    //Vector **wl; // low modes w [A2AArg.nl][24*four_vol *2(gp)]
+
+    for(int l = 0; l < prop_2f.get_nl(); ++l){
+      int wlsz = 24*four_vol*sizeof(Float);
+      Float* new_wl = (Float*)pmalloc(wlsz);
+      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_wl(l), new_wl);
+      doubler.Run();
+      memcpy( (void*)prop_2f.get_wl(l), (void*)new_wl, wlsz);
+      pfree(new_wl);
+    }
+
+    //Vector *wh; // high modes w, compressed  [2*four_vol*nh_site*2]   where nh_site = A2AArg.nhits
+
+    //G-parity wh mapping  (re/im=[0,1], site=[0..four_vol-1],flav=[0,1],hit=[0..nh_site]) ->    re/im + 2*( site + flav*four_vol + hit*2*four_vol )
+    //Standard or G-parity and flavor dilution (re/im=[0,1], site=[0..four_vol-1],hit=[0..nh_site]) ->    re/im + 2*( site + hit*four_vol )
+    {
+      if(!prop_2f.a2a.dilute_flavor){
+	int hit_stride = 2*four_vol; //complex number * sites   (in double lattice context so four_vol is actually twice the original four_vol, and covers both flavours)
+	int wh_bytes = hit_stride*prop_2f.get_nhits()*sizeof(Float);
+	Float* new_wh = (Float*)pmalloc(wh_bytes);
+	
+	for(int hit = 0; hit < prop_2f.get_nhits(); hit++){
+	  SingleToDoubleField doubler(gparity_X, gparity_Y, 2, (Float*)prop_2f.get_wh() + hit*hit_stride, new_wh + hit*hit_stride);
+	  doubler.Run();
+	}
+	memcpy( (void*)prop_2f.get_wh(), (void*)new_wh, wh_bytes);
+	pfree(new_wh);
+      }else{
+	//wh is the same for both flavours and is not stored in a double field. To move to a double lattice version it is simplest just
+	//to copy wh onto a double-size vector and use the usual doubling routines
+
+	int hit_stride_1f = 2*four_vol;
+	int hit_stride_2f = four_vol; //complex number * number of sites for 1 flavour (half number of sites of double lattice)
+
+	int wh_bytes = hit_stride_1f*prop_2f.get_nhits()*sizeof(Float);
+	Float* new_wh = (Float*)pmalloc(wh_bytes);	
+	Float* double_wh = (Float*)pmalloc(wh_bytes);
+
+	for(int hit = 0; hit < prop_2f.get_nhits(); hit++){
+	  Float* from = (Float*)prop_2f.get_wh() + hit*hit_stride_2f;
+	  memcpy( (void*)double_wh, (void*)from, hit_stride_2f*sizeof(Float));
+	  memcpy( (void*)(double_wh+hit_stride_2f), (void*)from, hit_stride_2f*sizeof(Float));
+
+	  SingleToDoubleField doubler(gparity_X, gparity_Y, 2, double_wh, new_wh + hit*hit_stride_1f);
+	  doubler.Run();
+	}
+	//the memory location for wh in the 2f version is a factor of 2 smaller, hence we must deallocate and reallocate
+	sfree(prop_2f.wh);
+	prop_2f.wh = (Vector*)new_wh;
+
+	//memcpy( (void*)prop_2f.get_wh(), (void*)new_wh, wh_bytes);
+	//pfree(new_wh);
+	pfree(double_wh);
+      }
+    }
+
+    //FFTW fields
+
+    if(prop_2f.get_v_fftw(0)!=NULL){
+
+      //Assumes just 1 set of v and w (i.e. no strange quark)
+      //v_fftw   size a2a_prop->get_nvec()
+      for(int i=0;i< prop_2f.get_nvec(); i++){
+	//On each index is a CPS fermion
+	int vsz = 24*four_vol*sizeof(Float);
+	Float* new_v = (Float*)pmalloc(vsz);
+	SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_v_fftw(i), new_v);
+	doubler.Run();
+	memcpy( (void*)prop_2f.get_v_fftw(i), (void*)new_v, vsz);
+	pfree(new_v);
+      }
+      //wl_fftw[0] (light part)  size a2a_prop->get_nl()
+      for(int i=0;i< prop_2f.get_nl(); i++){
+	//On each index is a CPS fermion
+	int vsz = 24*four_vol*sizeof(Float);
+	Float* new_v = (Float*)pmalloc(vsz);
+	SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_wl_fftw(i), new_v);
+	doubler.Run();
+	memcpy( (void*)prop_2f.get_wl_fftw(i), (void*)new_v, vsz);
+	pfree(new_v);
+      }
+      //wh_fftw[0] is 12*a2a_prop->get_nhits() stacked fermion vectors (factor of 2 for flavor dilution)
+      for(int i=0;i< 12*prop_2f.get_nhits() * (prop_2f.a2a.dilute_flavor ? 2 : 1) ; i++){
+	int off = i*24*four_vol; //(float units)
+	Float* fld = (Float*)prop_2f.get_wh_fftw() + off;
+
+	int vsz = 24*four_vol*sizeof(Float);
+	Float* new_v = (Float*)pmalloc(vsz);
+	SingleToDoubleField doubler(gparity_X, gparity_Y, 24, fld, new_v);
+	doubler.Run();
+	memcpy( fld, (void*)new_v, vsz);
+	pfree(new_v);
+      }     
+
+    }
+  }
+
+
+  //Compare 1f 2f A2A propagator components (v and w). 2f propagator should have been converted to 1f layout using the above
+  static void compare_1f_2f_A2A_prop(A2APropbfm &prop_2f, A2APropbfm &prop_1f){
+    //CALL IN 1F CONTEXT
+    int four_vol = GJP.VolNodeSites(); 
+    printf("Comparing 1f and 2f A2A propagators\n");
+    //Compare wl
+    for(int l = 0; l < prop_2f.get_nl(); ++l){
+      printf("\n\n1f 2f A2A prop starting wl comparison, mode %d\n",l);
+      int wlsz = 24*four_vol;
+      Float* wl_2f = (Float*)prop_2f.get_wl(l);
+      Float* wl_1f = (Float*)prop_1f.get_wl(l);
+
+      bool fail = false;
+      for(int i=0;i<wlsz;++i)
+	if( fabs(wl_2f[i]-wl_1f[i]) > 1e-12 ){
+	  printf("1f 2f A2A prop wl comparison fail mode %d, offset %d.  1f: %.13e     2f: %.13e\n",l,i,wl_1f[i],wl_2f[i]);
+	  fail = true;
+	}
+      if(fail){
+	printf("1f 2f A2A prop wl comparison failed on mode %d\n",l); exit(-1);
+      }
+    }
+    //Compare wh
     for(int hit = 0; hit < prop_2f.get_nhits(); hit++){
-      int hit_off = 2*four_vol*hit;
-      SingleToDoubleField doubler(gparity_X, gparity_Y, 2, (Float*)prop_2f.get_wh() + hit_off, new_wh + hit_off);
-      doubler.Run();
-    }
-    memcpy( (void*)prop_2f.get_wh(), (void*)new_wh, wh_bytes);
-    pfree(new_wh);
-  }
+      printf("\n\n1f 2f A2A prop starting wh comparison, hit %d\n",hit);
+      int whsz = 2*four_vol;
 
-  //FFTW fields
+      int hit_off = whsz*hit;
 
-  if(prop_2f.get_v_fftw(0)!=NULL){
+      Float* wh_2f = (Float*)prop_2f.get_wh() + hit_off;
+      Float* wh_1f = (Float*)prop_1f.get_wh() + hit_off;
 
-    //Assumes just 1 set of v and w (i.e. no strange quark)
-    //v_fftw   size a2a_prop->get_nvec()
-    for(int i=0;i< prop_2f.get_nvec(); i++){
-      //On each index is a CPS fermion
-      int vsz = 24*four_vol*sizeof(Float);
-      Float* new_v = (Float*)pmalloc(vsz);
-      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_v_fftw(i), new_v);
-      doubler.Run();
-      memcpy( (void*)prop_2f.get_v_fftw(i), (void*)new_v, vsz);
-      pfree(new_v);
-    }
-    //wl_fftw[0] (light part)  size a2a_prop->get_nl()
-    for(int i=0;i< prop_2f.get_nl(); i++){
-      //On each index is a CPS fermion
-      int vsz = 24*four_vol*sizeof(Float);
-      Float* new_v = (Float*)pmalloc(vsz);
-      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, (Float*)prop_2f.get_wl_fftw(i), new_v);
-      doubler.Run();
-      memcpy( (void*)prop_2f.get_wl_fftw(i), (void*)new_v, vsz);
-      pfree(new_v);
-    }
-    //wh_fftw[0] is 12*a2a_prop->get_nhits() stacked fermion vectors
-    for(int i=0;i< 12*prop_2f.get_nhits(); i++){
-      int off = i*24*four_vol; //(float units)
-      Float* fld = (Float*)prop_2f.get_wh_fftw() + off;
-
-      int vsz = 24*four_vol*sizeof(Float);
-      Float* new_v = (Float*)pmalloc(vsz);
-      SingleToDoubleField doubler(gparity_X, gparity_Y, 24, fld, new_v);
-      doubler.Run();
-      memcpy( fld, (void*)new_v, vsz);
-      pfree(new_v);
-    }     
-
-  }
-}
-
-
-//Compare 1f 2f A2A propagator components (v and w). 2f propagator should have been converted to 1f layout using the above
-void compare_1f_2f_A2A_prop(A2APropbfm &prop_2f, A2APropbfm &prop_1f){
-  //CALL IN 1F CONTEXT
-  int four_vol = GJP.VolNodeSites(); 
-  printf("Comparing 1f and 2f A2A propagators\n");
-  //Compare wl
-  for(int l = 0; l < prop_2f.get_nl(); ++l){
-    printf("\n\n1f 2f A2A prop starting wl comparison, mode %d\n",l);
-    int wlsz = 24*four_vol;
-    Float* wl_2f = (Float*)prop_2f.get_wl(l);
-    Float* wl_1f = (Float*)prop_1f.get_wl(l);
-
-    bool fail = false;
-    for(int i=0;i<wlsz;++i)
-      if( fabs(wl_2f[i]-wl_1f[i]) > 1e-12 ){
-	printf("1f 2f A2A prop wl comparison fail mode %d, offset %d.  1f: %.13e     2f: %.13e\n",l,i,wl_1f[i],wl_2f[i]);
-	fail = true;
+      bool fail = false;
+      for(int i=0;i<whsz;++i){
+	int rem = i;
+	int reim = rem % 2; rem/=2;
+	int pos[4];
+	for(int xx=0;xx<4;xx++){ pos[xx] = rem % GJP.NodeSites(xx); rem /= GJP.NodeSites(xx); }
+	
+	if( fabs(wh_2f[i]-wh_1f[i]) > 1e-12 ){
+	  printf("1f 2f A2A prop wh comparison fail hit %d, offset %d (reim %d, pos %d %d %d %d).  1f: %.13e     2f: %.13e\n",hit,i,reim,pos[0],pos[1],pos[2],pos[3],wh_1f[i],wh_2f[i]);
+	  fail = true;
+	}else printf("1f 2f A2A prop wh comparison pass hit %d, offset %d (reim %d, pos %d %d %d %d).  1f: %.13e     2f: %.13e\n",hit,i,reim,pos[0],pos[1],pos[2],pos[3],wh_1f[i],wh_2f[i]);
       }
-    if(fail){
-      printf("1f 2f A2A prop wl comparison failed on mode %d\n",l); exit(-1);
-    }
-  }
-  //Compare wh
-  for(int hit = 0; hit < prop_2f.get_nhits(); hit++){
-    printf("\n\n1f 2f A2A prop starting wh comparison, hit %d\n",hit);
-    int hit_off = 2*four_vol*hit;
-
-    Float* wh_2f = (Float*)prop_2f.get_wh() + hit_off;
-    Float* wh_1f = (Float*)prop_1f.get_wh() + hit_off;
-
-    int whsz = 2*four_vol;
-
-    bool fail = false;
-    for(int i=0;i<whsz;++i)
-      if( fabs(wh_2f[i]-wh_1f[i]) > 1e-12 ){
-	printf("1f 2f A2A prop wh comparison fail hit %d, offset %d.  1f: %.13e     2f: %.13e\n",hit,i,wh_1f[i],wh_2f[i]);
-	fail = true;
+      if(fail){
+	printf("1f 2f A2A prop wh comparison failed on hit %d\n",hit); exit(-1);
       }
-    if(fail){
-      printf("1f 2f A2A prop wh comparison failed on hit %d\n",hit); exit(-1);
-    }
-  }  
-  //Compare v
-  for(int vec = 0; vec < prop_2f.get_nvec(); ++vec){
-    printf("\n\n1f 2f A2A prop starting v comparison, vec %d\n",vec);
-    int vsz = 24*four_vol;  
-    Float* v_2f = (Float*)prop_2f.get_v(vec);
-    Float* v_1f = (Float*)prop_1f.get_v(vec);
+    }  
+    //Compare v
+    for(int vec = 0; vec < prop_2f.get_nvec(); ++vec){
+      printf("\n\n1f 2f A2A prop starting v comparison, vec %d\n",vec);
+      int vsz = 24*four_vol;  
+      Float* v_2f = (Float*)prop_2f.get_v(vec);
+      Float* v_1f = (Float*)prop_1f.get_v(vec);
 
-    bool fail = false;
-    for(int i=0;i<vsz;++i)
-      if( fabs(v_2f[i]-v_1f[i]) > 1e-12 ){
-	printf("1f 2f A2A prop v comparison fail vec %d, offset %d.  1f: %.13e     2f: %.13e\n",vec,i,v_1f[i],v_2f[i]);
-	fail = true;
+      bool fail = false;
+      for(int i=0;i<vsz;++i)
+	if( fabs(v_2f[i]-v_1f[i]) > 1e-12 ){
+	  printf("1f 2f A2A prop v comparison fail vec %d, offset %d.  1f: %.13e     2f: %.13e\n",vec,i,v_1f[i],v_2f[i]);
+	  fail = true;
+	}
+      if(fail){
+	printf("1f 2f A2A prop v comparison failed on vec %d\n",vec); exit(-1);
       }
-    if(fail){
-      printf("1f 2f A2A prop v comparison failed on vec %d\n",vec); exit(-1);
     }
+    printf("Successfully compared 1f and 2f A2A propagators\n");
   }
-  printf("Successfully compared 1f and 2f A2A propagators\n");
-}
 
+};
 
-
+CPS_END_NAMESPACE
 
 void setup_gfix_args(FixGaugeArg &r){
   r.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
@@ -864,6 +909,8 @@ int main (int argc,char **argv )
 
   int size[] = {2,2,2,2,2};
 
+  int dilute_flavor = 0;
+
   int i=2;
   while(i<argc){
     char* cmd = argv[i];  
@@ -902,6 +949,10 @@ int main (int argc,char **argv )
       i+=2;  
     }else if( strncmp(cmd,"-verbose",15) == 0){
       verbose=true;
+      i++;
+    }else if( strncmp(cmd,"-dilute_flavor",15) == 0){
+      printf("Running with flavor dilution\n");
+      dilute_flavor = 1;
       i++;
     }else if( strncmp(cmd,"-skip_gparity_inversion",30) == 0){
       skip_gparity_inversion=true;
@@ -1032,7 +1083,11 @@ int main (int argc,char **argv )
 
   cps_qdp_init(&argc,&argv);
   
+#if TARGET == BGQ
+  omp_set_num_threads(64);
+#else
   omp_set_num_threads(1);
+#endif
 
   bool precon = true;
   //Backup LRG
@@ -1044,7 +1099,7 @@ int main (int argc,char **argv )
 
   //Generate A2A prop in 2f environment
   A2APropbfm* prop_2f;
-  a2a_prop_gen(prop_2f, lattice, *eig_2f);
+  A2APropbfmTesting::a2a_prop_gen(prop_2f, lattice, *eig_2f, dilute_flavor);
 
   //Pull the eigenvectors out of eig into CPS canonical ordered fields for later 2f->1f conversion
   Float** eigv_2f_cps;
@@ -1059,7 +1114,7 @@ int main (int argc,char **argv )
   //Generate MesonField object
   MesonField mesonfield_2f(*lattice, prop_2f, &fix_gauge_2f, &c_arg);
   mesonfield_2f.allocate_vw_fftw();
-
+  
   //Do the FFTW on the A2APropbfm also and test this new code
   fix_gauge_2f.run();
   prop_2f->allocate_vw_fftw();
@@ -1067,25 +1122,25 @@ int main (int argc,char **argv )
   fix_gauge_2f.free(); //free gauge fixing matrices
 
   mesonfield_2f.prepare_vw(); //re-performs gauge fixing
-  MesonFieldTesting::compare_fftw_fields(mesonfield_2f,*prop_2f);
+  if(!dilute_flavor) MesonFieldTesting::compare_fftw_fields(mesonfield_2f,*prop_2f); //I did not modify Daiqian's original code for flavor dilution
 
   //Calculate mesonfield with exponential source with radius 2
   int source_type = 2;   //exp 1 box 2
   double radius = 2;
 
   MFBasicSource::SourceType source_type2 = MFBasicSource::BoxSource; //MFBasicSource::ExponentialSource;
-  mesonfield_2f.cal_mf_ll(radius,source_type);
+  if(!dilute_flavor) mesonfield_2f.cal_mf_ll(radius,source_type);
 
   //Try to duplicate mf_ll using MesonField2
   MFqdpMatrix structure_2f(MFstructure::W, MFstructure::V, true, false,15,sigma0); //gamma^5 spin, unit mat flavour
   MFBasicSource source_2f(source_type2,radius);
   
-  MesonFieldTesting::compare_source_MesonField2_2f(mesonfield_2f,source_2f);  
+  if(!dilute_flavor) MesonFieldTesting::compare_source_MesonField2_2f(mesonfield_2f,source_2f);  
   MesonField2 mf2_2f(*prop_2f,*prop_2f, structure_2f, source_2f);
-  MesonFieldTesting::compare_mf_ll_MesonField2_2f(mesonfield_2f, mf2_2f);
+  if(!dilute_flavor) MesonFieldTesting::compare_mf_ll_MesonField2_2f(mesonfield_2f, mf2_2f);
 
   //Calculate a 'kaon' correlation function in both Daiqian's code and mine (both modified for G-parity)
-  {
+  if(!dilute_flavor){
     AlgFixGauge fix_gauge_2f_ls(*lattice,&c_arg,&gfix_arg);
     MesonField mesonfield_2f_ls(*lattice, prop_2f, prop_2f, &fix_gauge_2f_ls, &c_arg); //pretend the propagator is also a strange quark for testing :)
     mesonfield_2f_ls.allocate_vw_fftw();
@@ -1156,31 +1211,32 @@ int main (int argc,char **argv )
 
   //Create 1f A2A prop
   A2APropbfm* prop_1f;
-  a2a_prop_gen(prop_1f, lattice, *eig_1f);
+  A2APropbfmTesting::a2a_prop_gen(prop_1f, lattice, *eig_1f, dilute_flavor);
 
   //In-place convert 2f A2A prop to 1f format
-  convert_2f_A2A_prop_to_1f(*prop_2f, gparity_X, gparity_Y);
+  A2APropbfmTesting::convert_2f_A2A_prop_to_1f(*prop_2f, gparity_X, gparity_Y);
 
   //Compare props
-  compare_1f_2f_A2A_prop(*prop_2f, *prop_1f);
+  A2APropbfmTesting::compare_1f_2f_A2A_prop(*prop_2f, *prop_1f);
 
   //Fix the gauge
   AlgFixGauge fix_gauge_1f(*lattice,&c_arg,&gfix_arg);
   
-  //Generate MesonField object
-  MesonField mesonfield_1f(*lattice, prop_1f, &fix_gauge_1f, &c_arg);
-  mesonfield_1f.allocate_vw_fftw();
-  mesonfield_1f.prepare_vw();
-
-  //Calculate mesonfield with exponential source with radius 2
-  mesonfield_1f.cal_mf_ll(radius,source_type);
-
-  MesonFieldTesting::convert_mesonfield_2f_1f(mesonfield_2f,gparity_X,gparity_Y);
-
-  //Compare meson fields
-  MesonFieldTesting::compare_fftw_vecs(mesonfield_1f,mesonfield_2f);
-  MesonFieldTesting::compare_mf_ll(mesonfield_1f, mesonfield_2f);
-
+  if(!dilute_flavor){
+    //Generate MesonField object
+    MesonField mesonfield_1f(*lattice, prop_1f, &fix_gauge_1f, &c_arg);
+    mesonfield_1f.allocate_vw_fftw();
+    mesonfield_1f.prepare_vw();
+    
+    //Calculate mesonfield with exponential source with radius 2
+    mesonfield_1f.cal_mf_ll(radius,source_type);
+    
+    MesonFieldTesting::convert_mesonfield_2f_1f(mesonfield_2f,gparity_X,gparity_Y);
+    
+    //Compare meson fields
+    MesonFieldTesting::compare_fftw_vecs(mesonfield_1f,mesonfield_2f);
+    MesonFieldTesting::compare_mf_ll(mesonfield_1f, mesonfield_2f);
+  }
   //Test MesonField2 1f code against its 2f version (its 2f version has already been compared to the original MesonField code above)
   fix_gauge_1f.run();
   prop_1f->allocate_vw_fftw();

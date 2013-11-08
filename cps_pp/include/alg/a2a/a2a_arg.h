@@ -22,6 +22,7 @@ class A2AArg{
 		int nhits;
 		enum RandomType rand_type;
 		int src_width;
+		int dilute_flavor;		
 };
 
 extern bool_t vml_A2AArg(VML *, char *instance, A2AArg *);

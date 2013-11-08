@@ -68,15 +68,18 @@ class A2APropbfm : public Alg {
 		void test(bfm_evo<double> &dwf);
 
 		//Get FFT v for light/heavy quark at four-momentum index k in the range  0 -> four-vol. vec_idx is a mode index in the 
-		//range 0 -> a2a_prop->get_nvec() = nl + nhits * Lt * sc_size / width. flavor is the G-parity flavor index (0,1)
+		//range 0 -> a2a_prop->get_nvec() = nl + nhits * Lt * sc_size / width  (*2 with flavor dilution). flavor is the G-parity flavor index (0,1)
 		inline std::complex<double>* get_v_fftw(const int &vec_idx, const int &k, const int &flavor = 0){ return (complex<double> *)(v_fftw[vec_idx]) + k * SPINOR_SIZE/2 + flavor* GJP.VolNodeSites() * SPINOR_SIZE/2; }
 
-		//Get FFT w for light/heavy quark at four-momentum index k in the range  0 -> four-vol. vec_idx is a mode index in the range 0 -> nl + sc_size * nhits. flavor is the G-parity flavor index (0,1)
+		//Get FFT w for light/heavy quark at four-momentum index k in the range  0 -> four-vol. 
+		//If flavor-dilution is switched off, vec_idx is a mode index in the range 0 -> nl + sc_size * nhits. flavor is the G-parity flavor index (0,1)
+		//If flavor dilution is switched on,  vec_idx is a mode index in the range 0 -> nl + sc_size * nhits * 2
 		inline std::complex<double>* get_w_fftw(const int &vec_idx, const int &k, const int &flavor = 0){ 
 		  if(vec_idx<a2a.nl) return (complex<double> *)(wl_fftw[vec_idx]) + k * SPINOR_SIZE/2 + flavor * GJP.VolNodeSites() * SPINOR_SIZE/2;
 		  else return (complex<double> *)(wh_fftw) +  k * SPINOR_SIZE/2 + ( (GJP.Gparity() ? 2:1) * (vec_idx-a2a.nl) + flavor )* GJP.VolNodeSites() * SPINOR_SIZE/2;
 		}
 
+		//Complex number offset to second G-parity flavor. DOES THIS ALSO WORK FOR FLAVOR DILUTION?
 		inline int v_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
 		inline int w_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
 
@@ -84,7 +87,7 @@ class A2APropbfm : public Alg {
 		//Their memory layout for each half is identical to the 2f case. Contractions of v and w should be confined to the first half of the lattice with the second half contributing zero to the global sum
 		//(or global sum and divide by 2!)
 		void gparity_1f_fftw_comm_flav();
-
+		void gen_rand_4d_init_gp1f_flavdilute(void);
 	private:
 		const char *cname;
 		A2AArg a2a;
@@ -106,7 +109,7 @@ class A2APropbfm : public Alg {
 		int nh_site;
 
 		// minimum number of wall sources (with 1 hit per time slice)
-		// equals GJP.Tnodes() * GJP.TnodeSites() * 12 / a2a.src_width
+		// equals GJP.Tnodes() * GJP.TnodeSites() * 12 / a2a.src_width  (*2 with flavor dilution)
 		int nh_base;
 
 		// number of actual wall sources used (nh should always be nh_site * nh_base)
@@ -118,6 +121,12 @@ class A2APropbfm : public Alg {
 
 		void cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_glb);
 		void gf_vec(Vector *out, Vector *in);
+		//Perform the FFT of the vector 'vec'. fft_mem should be pre-allocated and is used as temporary memory for the FFT. 
+		//fft_dim are the dimensions in the z,y and x directions respectively
+		//Output into result
+		void fft_vector(Vector* result, Vector* vec, const int fft_dim[3], fftw_complex* fft_mem); //, Vector *tmp); tmp should be pre-allocated and is used as temporary memory for the gauge fixing
+
+		friend class A2APropbfmTesting;
 };
 
 CPS_END_NAMESPACE

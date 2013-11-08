@@ -54,7 +54,9 @@ A2APropbfm::A2APropbfm(Lattice &latt,
   }
 
   nh_site = a2a.nhits;
-  nh_base = GJP.Tnodes() * GJP.TnodeSites() * latt.Colors() * latt.SpinComponents() / a2a.src_width;
+  nh_base = GJP.Tnodes() * GJP.TnodeSites() * latt.Colors() * latt.SpinComponents() / a2a.src_width; //'dilution' in spin, color and timeslice (allowing for multi-timeslice sources)
+  if( (GJP.Gparity1fX()||GJP.Gparity()) && a2a.dilute_flavor) nh_base *= 2; //activate flavor dilution
+
   nh = nh_site * nh_base;
   nvec = a2a.nl + nh;
 
@@ -99,7 +101,8 @@ void A2APropbfm::allocate_vw(void)
 
   // allocate wh
   int wh_size = 2 * GJP.VolNodeSites() * nh_site; //nhits of fields of complex numbers
-  if(GJP.Gparity()) wh_size *= 2;
+  if(GJP.Gparity() && !a2a.dilute_flavor) wh_size *= 2; //We generate a set of independent random numbers for the second flavor, stacked after the first in memory
+
   wh = (Vector *)smalloc(cname, fname, "wh", sizeof(Float) * wh_size);
 
   //CK: The mapping fo the wh vector is as follows:
@@ -115,9 +118,7 @@ void A2APropbfm::allocate_vw(void)
   //'i' is an index running from 0 to Lx * Ly * Lz / src_width   -1,  
   //i.e. each hit occupies a four-volume of complex doubles
 
-  //It seems that despite the src_width variable, the size of a given hit is fixed to the spatial volume (see memory allocation above)
-
-  //For G-parity we add an extra flavour index, which we place between the time and hit indices in the mapping
+  //For G-parity without flavor dilution we add an extra flavour index, which we place between the time and hit indices in the mapping
   //wh_offset = wh_id * 2 * (four-vol) + flav * (four_vol) + t_lcl * (three-vol) + i
 	
 }
@@ -139,8 +140,10 @@ void A2APropbfm::allocate_vw_fftw(void)
   for(int i = 0; i < a2a.nl; ++i) {
     wl_fftw[i] = (Vector *)smalloc(cname, fname, "wl_fftw[i]", ferm_sz);
   }
+  int dilute_factor = SPINOR_SIZE/2;
+  if( (GJP.Gparity()||GJP.Gparity1fX()) && a2a.dilute_flavor ) dilute_factor *= 2;
 
-  wh_fftw = (Vector *)smalloc(cname, fname, "wh_fftw", a2a.nhits *ferm_sz * SPINOR_SIZE/2); //separate FT of each spin-color component, hence 12 fermion vectors per hit
+  wh_fftw = (Vector *)smalloc(cname, fname, "wh_fftw", a2a.nhits *ferm_sz * dilute_factor); //separate FT of each spin-color component, hence 12 fermion vectors per hit. For flavor dilution we also break out the flavour index
 }
 
 void A2APropbfm::free_vw_fftw(void)
@@ -169,16 +172,109 @@ void A2APropbfm::free_vw_fftw(void)
   }
 }
 
+//Only generate wh on flavour 0. Copy the random numbers to the second half so we don't need to do comms to retrieve them later
+void A2APropbfm::gen_rand_4d_init_gp1f_flavdilute(void){
+  const char *fname = "gen_rand_4d_init_gp1f_flavdilute()";
+  if(!wh) ERR.Pointer(cname, fname, "wh");
+
+  LRG.SetInterval(1, 0);
+  const int vol_node_sites = GJP.VolNodeSites();
+  int sites = vol_node_sites;
+
+  Float *f = (Float *)wh;
+
+  const Float PI = 3.14159265358979323846;
+
+  int node_flav = GJP.Xnodes()>1 ? GJP.XnodeCoor() / (GJP.Xnodes()/2) : 0; //for multi-node
+
+  if(GJP.Xnodes() == 1 || (GJP.Xnodes()>1 && node_flav == 0)){
+    for(int i = 0; i < sites; ++i) {
+      int site_flav = (i % GJP.XnodeSites()) / (GJP.XnodeSites()/2); //for single-node
+
+      if(GJP.Xnodes() > 1 ||  (GJP.Xnodes()==1 && site_flav==0)){
+	LRG.AssignGenerator(i);
+	for(int j = 0; j < nh_site; ++j) { //loop over hits
+	  Float theta = LRG.Urand(FOUR_D);
+	  switch(a2a.rand_type) {
+	  case UONE:
+	    f[2 * (j * sites + i)    ] = cos(2. * PI * theta);
+	    f[2 * (j * sites + i) + 1] = sin(2. * PI * theta);
+	    break;
+	  case ZTWO:
+	    f[2 * (j * sites + i)    ] = theta > 0.5 ? 1 : -1;
+	    f[2 * (j * sites + i) + 1] = 0;
+	    break;
+	  case ZFOUR:
+	    if(theta > 0.75) {
+	      f[2 * (j * sites + i)    ] = 1;
+	      f[2 * (j * sites + i) + 1] = 0;
+	    }else if(theta > 0.5) {
+	      f[2 * (j * sites + i)    ] = -1;
+	      f[2 * (j * sites + i) + 1] = 0;
+	    }else if(theta > 0.25) {
+	      f[2 * (j * sites + i)    ] = 0;
+	      f[2 * (j * sites + i) + 1] = 1;
+	    }else {
+	      f[2 * (j * sites + i)    ] = 0;
+	      f[2 * (j * sites + i) + 1] = -1;
+	    }
+	    break;
+	  default:
+	    ERR.NotImplemented(cname, fname);
+	  }
+	}
+      }
+    }
+  }
+
+  if(GJP.Xnodes()==1){
+    for(int i = 0; i < sites; ++i) {
+      int site_flav = (i % GJP.XnodeSites()) / (GJP.XnodeSites()/2); //for single-node
+
+      if(site_flav == 1){ //copy from flavour 0 to flavour 1
+	int i_flav0 = i - GJP.XnodeSites()/2;
+
+	for(int j = 0; j < nh_site; ++j) { //loop over hits
+	  f[2 * (j * sites + i) ] = 	f[2 * (j * sites + i_flav0) ]; 
+	  f[2 * (j * sites + i)+1] = 	f[2 * (j * sites + i_flav0)+1]; 
+	}
+      }
+    }
+  }else{
+    //COPY FIELD FROM FIRST FLAVOUR TO SECOND!
+    int buf_sz = 2 * GJP.VolNodeSites() * nh_site;
+    int buf_sz_f = buf_sz * sizeof(Float);
+    Float *tmp1 = (Float*)pmalloc( buf_sz_f );
+    Float *tmp2 = (Float*)pmalloc( buf_sz_f );
+    Float *send = tmp1;
+    Float *recv = tmp2;
+    memcpy( (void*)send, (void*)wh, buf_sz_f );
+    
+    for(int comm = 0; comm < GJP.Xnodes(); ++comm){
+      getMinusData(recv,send,buf_sz,0);
+      Float *p = send;  
+      send = recv; 
+      recv = p;
+    }
+      
+    int node_flav = GJP.XnodeCoor() / (GJP.XnodeSites()/2);
+    if(node_flav == 1) memcpy( (void*)f, (void*)recv, buf_sz);
+    pfree(tmp1); pfree(tmp2);
+  }
+}
+
+
 
 void A2APropbfm::gen_rand_4d_init(void)
 {
   //CK: Fills wh (high mode source) with random numbers
-  //For G-parity we do this for both flavours (LRG maintains different generators for the second flavour)
+  //For G-parity without flavor dilution, we generate a second independent set of random numbers for the second flavor
 
   //CK: wh mappings
-  //Standard  (re/im=[0,1], site=[0..four_vol-1],hit=[0..nh_site]) ->    re/im + 2*( site + hit*four_vol )
-  //G-parity  (re/im=[0,1], site=[0..four_vol-1],flav=[0,1],hit=[0..nh_site]) ->    re/im + 2*( site + flav*four_vol + hit*2*four_vol )
-  
+  //Standard or G-parity with flavor dilution  (re/im=[0,1], site=[0..four_vol-1],hit=[0..nh_site]) ->    re/im + 2*( site + hit*four_vol )
+  //G-parity without flavor dilution           (re/im=[0,1], site=[0..four_vol-1],flav=[0,1],hit=[0..nh_site]) ->    re/im + 2*( site + flav*four_vol + hit*2*four_vol )
+  if(GJP.Gparity1fX()){ return gen_rand_4d_init_gp1f_flavdilute(); }
+
   const char *fname = "gen_rand_4d_init()";
 
   if(!wh) {
@@ -188,7 +284,7 @@ void A2APropbfm::gen_rand_4d_init(void)
   LRG.SetInterval(1, 0);
   const int vol_node_sites = GJP.VolNodeSites();
   int sites = vol_node_sites;
-  if(GJP.Gparity()) sites*=2;
+  if(GJP.Gparity() && !a2a.dilute_flavor) sites*=2;
 
   Float *f = (Float *)wh;
 
@@ -199,7 +295,7 @@ void A2APropbfm::gen_rand_4d_init(void)
     int st = i % vol_node_sites;
 
     LRG.AssignGenerator(st,flav);
-    for(int j = 0; j < nh_site; ++j) {
+    for(int j = 0; j < nh_site; ++j) { //loop over hits
       Float theta = LRG.Urand(FOUR_D);
       switch(a2a.rand_type) {
       case UONE:
@@ -291,80 +387,88 @@ bool A2APropbfm::compute_vw_low(bfm_evo<double> &dwf)
 //Using  wh (complex number field identical for each high mode), 
 //and given a spin-color index (sc_id), a global timeslice (t_id) and a stochastic hit (wh_id) in the form of an integer:   id = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id)
 //Generate a four-d complex field  v4d  that is zero apart from on time-slice t_id, and spin-color index sc_id, for which it takes the appropriate value from wh 
+
+//For G-parity with flavor dilution we modify the mapping:   id = (sc_id + 3*4 * flav + 2*3*4/src_width * t_id +  2*3*4/src_width*Lt * wh_id)
+
+//Regular               id = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id) =  (sc_id + nh_base/Lt * t_id +  nh_base * wh_id)   with nh_base = Lt * 3 * 4 / src_width
+//Flavor dilution       id = (sc_id + 3*4 * flav + 2*3*4/src_width * t_id +  2*3*4/src_width*Lt * wh_id) = (sc_id + 3*4 * flav + nh_base/Lt * t_id +  nh_base * wh_id)  with nh_base = Lt * 3 * 4 * 2/ src_width
+
 void A2APropbfm::gen_rand_4d(Vector *v4d, int id)
 {
   const char *fname = "gen_rand_4d()";
 
   Lattice &lat = AlgLattice();
-  const int t_glb = GJP.Tnodes() * GJP.TnodeSites();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   const int spin_color = lat.Colors() * lat.SpinComponents();
+  const int n_flav = GJP.Gparity() ? 2 : 1; //v is a 2-flavor field for G-parity whether flavor dilution is in use or not
 
-  if(!GJP.Gparity()){
-    const int size_4d = GJP.VolNodeSites() * 2 * spin_color;
-    v4d->VecZero(size_4d);
+  const int nodesites = GJP.VolNodeSites();
 
-    const int wh_id = id / nh_base;
-    const int t_id = id % nh_base / spin_color * a2a.src_width;
-    const int sc_id = id % nh_base % spin_color;
-	
-    //CK: id is an integer between 0 and nhits*nh_base - 1:    sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id
-    //Note: nh_base = Lt * 3 * 4 / src_width
+  const int size_4d = nodesites * 2 * spin_color * n_flav;
+  v4d->VecZero(size_4d);
 
-    VRB.Result(cname, fname, "Generating random wall source %d = (%d, %d, %d).\n    ", id, wh_id, t_id, sc_id);
+  int rem = id;
+  int wh_id = rem / nh_base;  rem %= nh_base;
+  int t_id = rem * Lt/nh_base;   rem %= (nh_base/Lt);
+  int flav_id = 0;
+  if( (GJP.Gparity()||GJP.Gparity1fX()) && a2a.dilute_flavor){  flav_id = rem / spin_color; rem %= spin_color;  }
+  int sc_id = rem;
 
-    if(t_id / GJP.TnodeSites() != GJP.TnodeCoor()) return;
+  //CK: id is an integer between 0 and nhits*nh_base - 1:    sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id
+  //Note: nh_base = Lt * 3 * 4 / src_width  (*2 if flavor dilution)
 
-    const int t_lcl = t_id % GJP.TnodeSites();
-    const int wall_size = size_4d / GJP.TnodeSites();
+  VRB.Result(cname, fname, "Generating random wall source %d = (%d, %d, %d).\n    ", id, wh_id, t_id, sc_id);
 
-    Float *vf = (Float *)v4d;
-    Float *whf = (Float *)wh;
+  if(t_id / GJP.TnodeSites() != GJP.TnodeCoor()) return;
+
+  const int t_lcl = t_id % GJP.TnodeSites();
+  const int wall_size = size_4d / GJP.TnodeSites() / n_flav; // = (3-vol)*(3 col)*(4 spin)*(2 re/im)
+
+  Float *vf = (Float *)v4d;
+  Float *whf = (Float *)wh;
+
+  if(GJP.Gparity1fX() && a2a.dilute_flavor){
+    int node_flav = GJP.Xnodes()>1 ? GJP.XnodeCoor() / (GJP.XnodeSites()/2) : 0;
+    if(GJP.Xnodes() == 1 || (GJP.Xnodes()>1 && node_flav == flav_id)){
+      for(int i = sc_id; i < wall_size / 2 * a2a.src_width; i += spin_color) {   //CK:  i < lx * ly * lz * 3 * 4 * src_width
+	int offset = t_lcl * wall_size / 2 + i; //Offset of t_lcl wall in units of complex numbers.
+      
+	//I believe  i/spin_color =  x + lx*(y+ly*(z+lz*tslice))  where  0 < tslice < src_width
+	int x = (i / spin_color / a2a.src_width) % GJP.XnodeSites();
+	int site_flav = x / (GJP.XnodeSites()/2);
+	if(GJP.Xnodes()>1 || site_flav == flav_id){ 
+	  //offset of hit 'wh_id', timeslice/block 't_lcl' and spatial (or spatio-temporal if src_width>1) coordinate in range  0 <= i/spin_color < lx * ly * lz * src_width
+	  int wh_offset = wh_id * nodesites  + t_lcl * nodesites / GJP.TnodeSites() + i / spin_color; 
+	  
+	  vf[2 * offset    ] = whf[2 * wh_offset    ];
+	  vf[2 * offset + 1] = whf[2 * wh_offset + 1];
+	}
+      }
+    }
+  }else if(!GJP.Gparity() || (GJP.Gparity() && a2a.dilute_flavor) ){
     for(int i = sc_id; i < wall_size / 2 * a2a.src_width; i += spin_color) {   //CK:  i < lx * ly * lz * 3 * 4 * src_width
-      int offset = t_lcl * wall_size / 2 + i; //Offset of t_lcl wall in units of complex numbers 
-      int wh_offset =
-	wh_id * GJP.VolNodeSites()
-	+ t_lcl * GJP.VolNodeSites() / GJP.TnodeSites()
-	+ i / spin_color; //offset of hit 'wh_id', timeslice 't_lcl' and spin-color offset 'sc_id'
-
+      int offset = flav_id * nodesites * spin_color + t_lcl * wall_size / 2 + i; //Offset of t_lcl wall in units of complex numbers. Second flavour stacked after first at offset 12*(four-vol) in units of complex number size.
+      
+      //offset of hit 'wh_id', timeslice/block 't_lcl' and spatial (or spatio-temporal if src_width>1) coordinate in range  0 <= i/spin_color < lx * ly * lz * src_width
+      int wh_offset = wh_id * nodesites  + t_lcl * nodesites / GJP.TnodeSites() + i / spin_color; 
+      
       vf[2 * offset    ] = whf[2 * wh_offset    ];
       vf[2 * offset + 1] = whf[2 * wh_offset + 1];
     }
   }else{
-    //CK: G-parity.  Mapping of id is the same. Need to loop over flavours
-
-    const int vol_node_sites = GJP.VolNodeSites();
-    const int vec_size_4d = vol_node_sites * 2 * spin_color * 2; //2 flavours
-    v4d->VecZero(vec_size_4d);
-
-    const int wh_id = id / nh_base;
-    const int t_id = id % nh_base / spin_color * a2a.src_width;
-    const int sc_id = id % nh_base % spin_color;
-	
-    VRB.Result(cname, fname, "Generating random G-parity wall source %d = (%d, %d, %d).\n    ", id, wh_id, t_id, sc_id);
-
-    if(t_id / GJP.TnodeSites() != GJP.TnodeCoor()) return;
-
-    const int t_lcl = t_id % GJP.TnodeSites();
-    const int wall_size = vec_size_4d / GJP.TnodeSites() / 2; // = (3-vol)*(3 col)*(4 spin)*(2 re/im)   want to fill in only a single flavour at a time
-
-    Float *vf = (Float *)v4d;
-    Float *whf = (Float *)wh;
-    for(int flav = 0; flav < 2; ++flav){
+    //G-parity 2f without flavor dilution, loop over flavors
+    for(int f=0;f<n_flav;++f)
       for(int i = sc_id; i < wall_size / 2 * a2a.src_width; i += spin_color) {   //CK:  i < lx * ly * lz * 3 * 4 * src_width
-	//G-parity: wh_offset = wh_id * 2 * (four-vol) + flav * (four_vol) + t_lcl * (three-vol) + i/spin_color
+	//G-parity (no flavor dilution):  wh_offset = wh_id * 2 * (four-vol) + flav * (four_vol) + t_lcl * (three-vol) + i/spin_color
+	int offset = f * nodesites * spin_color + t_lcl * wall_size / 2 + i; //Offset of t_lcl wall in units of complex numbers. Second flavour stacked after first at offset 12*(four-vol) in units of complex number size.
 
-	int offset = flav * vol_node_sites * spin_color + t_lcl * wall_size / 2 + i;   //second flavour stacked after first at offset 12*(four-vol) in units of complex number size
-	int wh_offset =
-	  wh_id * vol_node_sites * 2
-	  + flav * vol_node_sites
-	  + t_lcl * vol_node_sites / GJP.TnodeSites()
-	  + i / spin_color;
-	    
-	//v size is  3 (col) *4 (spin) *vol_node_sites * 2 (flav)
+	//offset of hit 'wh_id', timeslice/block 't_lcl' and spatial (or spatio-temporal if src_width>1) coordinate in range  0 <= i/spin_color < lx * ly * lz * src_width
+	//2 independent random number sets for G-parity without flavor dilution
+	int wh_offset = wh_id * nodesites * n_flav  + f * nodesites +  t_lcl * nodesites / GJP.TnodeSites() + i / spin_color; 
+	
 	vf[2 * offset    ] = whf[2 * wh_offset    ];
 	vf[2 * offset + 1] = whf[2 * wh_offset + 1];
       }
-    }
   }
 }
 
@@ -376,7 +480,6 @@ bool A2APropbfm::compute_vw_high(bfm_evo<double> &dwf)
   const char *fname = "compute_vw_high()";
   VRB.Result(cname, fname, "Start computing high modes.\n");
   Lattice &lat = AlgLattice();
-
   
   gen_rand_4d_init(); // Set random complex number for each site (used for every high mode)
 
@@ -404,7 +507,7 @@ bool A2APropbfm::compute_vw_high(bfm_evo<double> &dwf)
     // use v[i] as a temporary storage
 
     //Fill four-d complex field v[i] with zero apart from on time-slice t_id, and spin-color index sc_id, for which it takes the appropriate value from wh, 
-    //where  i-a2a.nl = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id)
+    //where  i-a2a.nl = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id)  or for G-parity with flavor dilution  (sc_id + 3*4*flav_id + 2*3*4/src_width * t_id +  2*3*4/src_width*Lt * wh_id)
     gen_rand_4d(v[i], i-a2a.nl);  
     lat.Ffour2five(a, v[i], 0, glb_ls-1, 2); //convert v[i] to a 5d field a
     dwf.cps_impexFermion((Float *)a,src,1); //convert a to BFM-format 5d field 'src'
@@ -548,23 +651,55 @@ static void sum_double_array(Float* data, const int &size){
   slice_sum(data,size,99);
 #endif
 }
-//CK: Method to poke onto a particular spin-color index the complex number from wh for a given hit
-//    w is an output fermion field that is zero everywhere apart from on spin-color index sc
-static void wh2w(Vector *w, Vector *wh, int hitid, int sc) // In order to fft the high modes scource
+
+//zero the 12-component complex spin-color vector 'f'
+inline static void zero_sc(double *f){
+  double *end = f + SPINOR_SIZE; 
+  while(f!=end) *(f++) = 0.0;
+}
+
+//w is a fermion field that is zero apart from on spin-color index 'sc' where it takes the value of the complex number field 'wh' with hit index 'hitid'
+//With G-parity and flavor dilution we must also provide a flavor index for w, which is treated identically to the already-diluted spin and color indices
+//For G-parity without flavor dilution use flav_id = -1.  We fill both flavors according to the doubled random field wh, which has separate random numbers for each flavor. 
+static void wh2w(Vector *w, const Vector *wh, const int &hitid, const int &sc, const int &flav_id = -1) // In order to fft the high modes scource
 {
-  char *fname = "wh2w()";
-	
-  int hit_size = (GJP.Gparity()?2:1) * GJP.VolNodeSites();
-  complex<double> *whi = (complex<double> *)wh + hitid * hit_size;
+  bool dilute_flavor = (GJP.Gparity() && flav_id != -1);
+  int nodesites = GJP.VolNodeSites();
+  int hit_size = (GJP.Gparity() && !dilute_flavor ?2:1) * nodesites;
+  const complex<double> *whi = (const complex<double> *)wh + hitid * hit_size;
   complex<double> *t = (complex<double> *)w;
 
   for(int i = 0; i < hit_size; i++) {
-    double *p = (double*)(t+i*SPINOR_SIZE/2);
-    double *end = p + SPINOR_SIZE; 
-    while(p!=end) *(p++) = 0.0;
-    t[sc + i * SPINOR_SIZE/2] = whi[i]; //At spin-colour index sc poke the complex number from wh
+    complex<double> *t_site = t + i*SPINOR_SIZE/2;
+    zero_sc( (double*)t_site );
+    if(GJP.Gparity() && dilute_flavor){
+      zero_sc( (double*)(t_site) + nodesites*SPINOR_SIZE ); //zero both flavors (if !flavor_dilution this happens automatically because hit_size is twice as large)
+      t_site += flav_id*nodesites*SPINOR_SIZE/2; //offset to desired w flavor
+    }
+    t_site[sc] = whi[i]; //At spin-colour index sc poke the complex number from wh
   }
 }
+//G-parity 1f mode with flavor dilution. If not diluting in flavor then use wh2w
+static void wh2w_GP1f_flavor_dilute(Vector *w, const Vector *wh, const int &hitid, const int &sc, const int &flav_id){
+  int nodesites = GJP.VolNodeSites();
+  int hit_size = nodesites;
+  const complex<double> *whi = (const complex<double> *)wh + hitid * hit_size;
+  complex<double> *t = (complex<double> *)w;
+
+  int node_flav = GJP.Xnodes()>1 ? GJP.XnodeCoor() / (GJP.Xnodes()/2): 0; //applicable to multi-node GP1f
+  
+  for(int i = 0; i < hit_size; i++) {
+    complex<double> *t_site = t + i*SPINOR_SIZE/2;
+    zero_sc( (double*)t_site );
+
+    int lcl_x = i % GJP.XnodeSites();
+    int x_flav = lcl_x / (GJP.XnodeSites()/2);
+
+    if( (GJP.Xnodes() == 1 && x_flav == flav_id) || (GJP.Xnodes()>1 && node_flav == flav_id) ) t_site[sc] = whi[i]; //At spin-colour index sc poke the complex number from wh
+  }
+}
+
+
 
 void A2APropbfm::cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_glb)
 {
@@ -582,7 +717,7 @@ void A2APropbfm::cnv_lcl_glb(fftw_complex *glb, fftw_complex *lcl, bool lcl_to_g
   int lcl_size_3d = lcl_dim[0] * lcl_dim[1] * lcl_dim[2];
   int glb_size_3d = glb_dim[0] * glb_dim[1] * glb_dim[2];
 
-  int nflav = 1; if(GJP.Gparity()) nflav = 2;
+  int nflav = GJP.Gparity() ? 2: 1;
   
   for(int flav = 0; flav < nflav; ++flav){
   for(int t = 0; t < lcl_dim[3]; ++t) {
@@ -693,6 +828,45 @@ static void Gparity_1f_FFT(fftw_complex *fft_mem, const int &sc, const int &sc_s
   fftw_free(fft_flavs[1]);
 }
 
+//Perform the FFT of the vector 'vec'. fft_mem should be pre-allocated and is used as temporary memory for the FFT. 
+//fft_dim are the dimensions in the z,y and x directions respectively
+//Output into result
+void A2APropbfm::fft_vector(Vector* result, Vector* vec, const int fft_dim[3], fftw_complex* fft_mem){
+  const static int sc_size = SPINOR_SIZE/2;
+  const int size_3d_glb = fft_dim[0]*fft_dim[1]*fft_dim[2];
+  const int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  gf_vec(result, vec);   
+  cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(result), true); //convert local gauge fixed field to global 'fft_mem'
+
+  for(int sc = 0; sc < sc_size; sc++){ //loop over the 12 spin-colour indices
+    //CK: DFT on each timeslice. Arguments are 
+    //1) tensor rank = 3,  
+    //2) the dimension in each direction being fft_dim[dir]
+    //3) how many FFTs are performed = Lt (aka t_size)
+    //4_ base pointer of input = fft_mem + sc
+    //5) arg for advanced feature not used = NULL
+    //6) the offset between data included in the FFT. The spin-colour indices are transformed separately, hence stride = sc_size
+    //7) the offset between data blocks used for each of the transforms (of which there are Lt) = sc_size * three-volume
+    //8,9,10,11) same as previous four but for output. As we FFT in-place these are identical to the above
+    //12,13) Other FFT args
+
+    //For G-parity the vector for the second flavour is stacked after the four-volume associated with the first flavour, so we only need to modify the number of FFTs
+    int n_fft = ( GJP.Gparity() ? 2 : 1 ) * t_size;
+
+    if(GJP.Gparity1fX()) Gparity_1f_FFT(fft_mem, sc,sc_size,t_size); //1f G-parity testing
+    else{
+      fftw_plan plan = fftw_plan_many_dft(3, fft_dim, n_fft,
+					  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
+					  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
+					  FFTW_FORWARD, FFTW_ESTIMATE);
+      fftw_execute(plan);
+      fftw_destroy_plan(plan);
+    }
+  }
+  cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(result), false);
+} 
+
 void A2APropbfm::fft_vw(){
   const char *fname = "fft_vw()";
 
@@ -705,94 +879,48 @@ void A2APropbfm::fft_vw(){
 			   GJP.XnodeSites() * GJP.Xnodes()};
   const int t_size = GJP.TnodeSites()*GJP.Tnodes();
   const int size_4d = GJP.VolNodeSites();
-  const int size_3d_glb = fft_dim[0] * fft_dim[1] * fft_dim[2];
+  const int size_3d_glb = fft_dim[0]*fft_dim[1]*fft_dim[2];
   const int sc_size = SPINOR_SIZE/2;
 
   int fftw_alloc_sz = ( GJP.Gparity() ? 2 : 1 ) * size_3d_glb * t_size * sc_size;
   fftw_complex *fft_mem = fftw_alloc_complex(fftw_alloc_sz);
 
-  int t_size_alloc = ( GJP.Gparity() ? 2 : 1 ) * size_4d * SPINOR_SIZE / 2 * sizeof(complex<double>);
-  Vector *t  = (Vector *)smalloc(cname, fname, "t" , t_size_alloc);
-  fftw_plan plan;
-
   // load and process v
-  for(int j = 0; j < nvec; ++j) {
-    gf_vec(t, get_v(j)); 
-    cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(t), true); //convert local 't' to global 'fft_mem'
-    for(int sc = 0; sc < sc_size; sc++){ //loop over the 12 spin-colour indices
-      //CK: DFT on each timeslice. Arguments are 
-      //1) tensor rank = 3,  
-      //2) the dimension in each direction being fft_dim[dir]
-      //3) how many FFTs are performed = Lt (aka t_size)
-      //4_ base pointer of input = fft_mem + sc
-      //5) arg for advanced feature not used = NULL
-      //6) the offset between data included in the FFT. The spin-colour indices are transformed separately, hence stride = sc_size
-      //7) the offset between data blocks used for each of the transforms (of which there are Lt) = sc_size * three-volume
-      //8,9,10,11) same as previous four but for output. As we FFT in-place these are identical to the above
-      //12,13) Other FFT args
-
-      //For G-parity the vector for the second flavour is stacked after the four-volume associated with the first flavour, so we only need to modify the number of FFTs
-      int n_fft = ( GJP.Gparity() ? 2 : 1 ) * t_size;
-
-      if(GJP.Gparity1fX()) Gparity_1f_FFT(fft_mem, sc,sc_size,t_size); //1f G-parity testing
-      else{
-	plan = fftw_plan_many_dft(3, fft_dim, n_fft,
-				  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				  FFTW_FORWARD, FFTW_ESTIMATE);
-	fftw_execute(plan);
-	fftw_destroy_plan(plan);
-      }
-    }
-    cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(v_fftw[j]), false);
-  }
+  for(int j = 0; j < nvec; ++j) fft_vector(v_fftw[j],get_v(j),fft_dim,fft_mem);
 
   // load and process wl
-  for(int j = 0; j < a2a.nl; ++j) {
-    gf_vec(t, get_wl(j));
-    cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(t), true);
-    for(int sc = 0; sc < sc_size; sc++){
-      int n_fft = ( GJP.Gparity() ? 2 : 1 ) * t_size;
-	
-      if(GJP.Gparity1fX()) Gparity_1f_FFT(fft_mem, sc,sc_size,t_size); //1f G-parity testing
-      else{
-	plan = fftw_plan_many_dft(3, fft_dim, n_fft,
-				  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				  fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				  FFTW_FORWARD, FFTW_ESTIMATE);
-	fftw_execute(plan);
-	fftw_destroy_plan(plan);
-      }
-    }
-    cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wl_fftw[j]), false);
-  }
+  for(int j = 0; j < a2a.nl; ++j) fft_vector(wl_fftw[j],get_wl(j),fft_dim,fft_mem);
+
   // load and process wh  
   //wh is 'nhits' field of c-numbers, and we generate independent v for each timeslice, spin-color and hit index
-  //Here we perform the FFT for each spin-color index of w separately
+  //Here we perform the FFT for each spin-color index of w separately. With G-parity and flavor dilution we treat the flavour index in the same way
   for(int j = 0; j < a2a.nhits; ++j) 
     for(int w_sc = 0; w_sc < sc_size; w_sc++) {
-      //Perform separate FFT for each spin-color component
-      int off_fac = ( GJP.Gparity() ? 2 : 1 );
-      Float *wh_fftw_offset = (Float *)(wh_fftw) + off_fac * size_4d * sc_size * 2 * (j * sc_size + w_sc); //each hit is offset by  four_vol * 12*12 * 2
-      wh2w((Vector *)wh_fftw_offset, get_wh(), j, w_sc);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc, where it is set to the value from hit j of wh
-      gf_vec((Vector *)wh_fftw_offset, (Vector *)wh_fftw_offset);
-      cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wh_fftw_offset), true);
-      for(int sc = 0; sc < sc_size; sc++){
-	int n_fft = ( GJP.Gparity() ? 2 : 1 ) * t_size;
-	
-	if(GJP.Gparity1fX()) Gparity_1f_FFT(fft_mem, sc,sc_size,t_size); //1f G-parity testing
-	else{
-	  plan = fftw_plan_many_dft(3, fft_dim, n_fft,
-				    fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				    fft_mem + sc, NULL, sc_size, size_3d_glb * sc_size,
-				    FFTW_FORWARD, FFTW_ESTIMATE);	  
-	  fftw_execute(plan);
-	  fftw_destroy_plan(plan);
+      int ferm_stride = ( GJP.Gparity() ? 2 : 1 ) * size_4d * sc_size * 2; //stride between fermion fields in memory in Float units
+
+      //The field wh is simply a field of complex numbers. For G-parity without flavor dilution it is 2 independent fields, one for each flavor
+      //In order to Fourier transform we must gauge fix, which we do independently for each spin-color index. We produce 12 separate fields of spin-color vectors wh_fftw 
+      //where each field is generated by filling a spin-color vector field with 0 apart from on that one spin-color index per site, upon which it takes the value from wh at that site
+      //(for G-parity without flavor dilution, wh_fftw comprises two flavors with the second flavor offset stacked after the first in memory as usual)
+
+      //For G-parity *with* flavor dilution, wh is a single field of complex numbers. We generate wh_fftw by filling a two-flavor field of spin-color vectors with 0 apart from 
+      //on that one spin-color and flavor index per site, upon which it takes the value from wh at that site
+
+      if( (GJP.Gparity()||GJP.Gparity1fX()) && a2a.dilute_flavor){
+	for(int w_f = 0; w_f < 2; ++w_f){
+	  Float *wh_fftw_offset = (Float *)(wh_fftw) + ferm_stride * (j * sc_size * 2 + w_f * sc_size + w_sc);
+	  if(GJP.Gparity()) wh2w((Vector *)wh_fftw_offset, get_wh(), j, w_sc, w_f);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc and flavor index w_f, where it is set to the value from hit j of wh	  
+	  else wh2w_GP1f_flavor_dilute((Vector *)wh_fftw_offset, get_wh(), j, w_sc, w_f);
+
+	  fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,fft_mem);
 	}
+      }else{
+	Float *wh_fftw_offset = (Float *)(wh_fftw) + ferm_stride * (j * sc_size + w_sc);
+	wh2w((Vector *)wh_fftw_offset, get_wh(), j, w_sc);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc, where it is set to the value from hit j of wh
+	fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,fft_mem);
       }
-      cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(wh_fftw_offset), false);
     }
-  sfree(cname, fname, "t", t);
+
   fftw_free(fft_mem);
   fftw_cleanup();
   fftw_cleanup_threads();
@@ -823,17 +951,16 @@ void A2APropbfm::gparity_1f_fftw_comm_flav(){
   if(gparity_1f_fftw_comm_flav_performed) return; //No need to do it twice!
   int size_4d = GJP.VolNodeSites();
   int sc_size = SPINOR_SIZE/2;
-
   int node_flav = (GJP.XnodeCoor() >= GJP.Xnodes()/2 ? 1 : 0);  //For Xnodes>1 only					     
-  int ferm_sz = size_4d * sc_size * 2 * 2 * sizeof(Float); //Both flavours
+  int ferm_sz = size_4d * SPINOR_SIZE * 2 * sizeof(Float); //Both flavours
 
   //Do v_fftw
   for(int i = 0; i < nvec; ++i){
     Vector* new_v_fftw  = (Vector *)pmalloc(ferm_sz);
-    Float* local_off = node_flav == 0 ? (Float*)new_v_fftw : (Float*)new_v_fftw + size_4d * sc_size * 2;
-    Float* remote_off = node_flav == 1 ? (Float*)new_v_fftw : (Float*)new_v_fftw + size_4d * sc_size * 2;
+    Float* local_off = node_flav == 0 ? (Float*)new_v_fftw : (Float*)new_v_fftw + size_4d * SPINOR_SIZE;
+    Float* remote_off = node_flav == 1 ? (Float*)new_v_fftw : (Float*)new_v_fftw + size_4d * SPINOR_SIZE;
     memcpy( (void*)local_off, (void*)v_fftw[i], ferm_sz/2 );
-    get_other_flavour( (Float*)v_fftw[i], remote_off, sc_size*2);
+    get_other_flavour( (Float*)v_fftw[i], remote_off, SPINOR_SIZE);
 
     sfree(v_fftw[i]);
     v_fftw[i] = new_v_fftw;
@@ -841,24 +968,29 @@ void A2APropbfm::gparity_1f_fftw_comm_flav(){
   //Do wl_fftw
   for(int i = 0; i < a2a.nl; ++i){
     Vector* new_wl_fftw  = (Vector *)pmalloc(ferm_sz);
-    Float* local_off = node_flav == 0 ? (Float*)new_wl_fftw : (Float*)new_wl_fftw + size_4d * sc_size * 2;
-    Float* remote_off = node_flav == 1 ? (Float*)new_wl_fftw : (Float*)new_wl_fftw + size_4d * sc_size * 2;
+    Float* local_off = node_flav == 0 ? (Float*)new_wl_fftw : (Float*)new_wl_fftw + size_4d * SPINOR_SIZE;
+    Float* remote_off = node_flav == 1 ? (Float*)new_wl_fftw : (Float*)new_wl_fftw + size_4d * SPINOR_SIZE;
     memcpy( (void*)local_off, (void*)wl_fftw[i], ferm_sz/2 );
-    get_other_flavour( (Float*)wl_fftw[i], remote_off, sc_size*2);
+    get_other_flavour( (Float*)wl_fftw[i], remote_off, SPINOR_SIZE);
 
     sfree(wl_fftw[i]);
     wl_fftw[i] = new_wl_fftw;
   }
   //Do wh_fftw
-  Vector* new_wh_fftw = (Vector *)pmalloc(a2a.nhits*ferm_sz*sc_size);
-  for(int h=0;h<sc_size * a2a.nhits;h++){
-    Float* from = (Float*)wh_fftw + h*size_4d * sc_size *2;
-    Float* base_off = (Float*)new_wh_fftw + h*size_4d * sc_size *2 * 2;
-    Float* local_off = node_flav == 0 ? base_off : base_off + size_4d * sc_size *2;
-    Float* remote_off = node_flav == 1 ? base_off : base_off + size_4d * sc_size *2;
+  int wh_sz = sc_size * a2a.nhits;
+  if(a2a.dilute_flavor) wh_sz *= 2;
+
+  Vector* new_wh_fftw = (Vector *)pmalloc(wh_sz*ferm_sz);
+  int ferm_flav_stride = size_4d * SPINOR_SIZE;
+
+  for(int h=0;h<wh_sz;h++){
+    Float* from = (Float*)wh_fftw + h*size_4d * SPINOR_SIZE;
+    Float* base_off = (Float*)new_wh_fftw + h* ferm_flav_stride * 2; //stride between each 'h' is doubled to accomodate the two flavors
+    Float* local_off = node_flav == 0 ? base_off : base_off + ferm_flav_stride;
+    Float* remote_off = node_flav == 1 ? base_off : base_off + ferm_flav_stride;
 
     memcpy( (void*)local_off, (void*)from, ferm_sz/2 );
-    get_other_flavour(from, remote_off, sc_size*2);
+    get_other_flavour(from, remote_off, SPINOR_SIZE);
   }
   sfree(wh_fftw);
   wh_fftw = new_wh_fftw;
