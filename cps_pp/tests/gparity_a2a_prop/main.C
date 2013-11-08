@@ -806,8 +806,11 @@ public:
 
   static void compare_mf_ll_MesonField2_2f_1f(MesonField2 &mf2_2f, MesonField2 &mf2_1f){
     int t_size = GJP.TnodeSites()*GJP.Tnodes();
-    int size = mf2_2f.nvec[0]*(mf2_2f.nl[0]+12*mf2_2f.nhits[0])*t_size*2;
+    int size = mf2_2f.nvec[0]*(mf2_2f.nl[0]+mf2_2f.dilute_size*mf2_2f.nhits[0])*t_size*2;
     bool fail(false);
+    if(mf2_2f.dilute_flavor) printf("Flavour dilution\n");
+    else printf("No flavour dilution\n");
+
     for(int i=0;i<size;i++){
       int rem = i;
       int reim = rem % 2; rem/=2;

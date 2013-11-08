@@ -230,27 +230,32 @@ class MesonField2{
   int src_width[2];
   int nbase[2];
 
+  bool dilute_flavor;
+
+  int dilute_size; //span of diluted indices. This is 3 color * 4 spin, and with an extra factor of 2 if using flavor dilution
+
   enum LeftOrRight { Left=0, Right=1 };
   MFstructure::VorW form[2]; //Gives the types (V or W) of the left and right fields of the meson field comprises
 
   bool conj[2];
 
-  int size[2]; //size of each vector: for V is it nvec, for W nl+nhits*sc_size
+  int size[2]; //size of each vector: for V is it nvec, for W nl+nhits*dilute_size
 
   int n_flav; //Number of flavours - 1 or 2 with G-parity
 
-  //Convert from 0 <= i <  nl[0]+nhits[0]*12 to mode index of left or right field vector given a timeslice t: if field is v:  0 <= i' < nl[0] + nhits[0] * Lt * sc_size / width[0]   else if field is w: i' = i  
-  //Note: nbase = Lt * sc_size / width,   sc_size=12
+  //Convert from 0 <= i <  nl[0]+nhits[0]*dilute_size to mode index of left or right field vector given a timeslice t: if field is v:  0 <= i' < nl[0] + nhits[0] * Lt * dilute_size / width[0]   else if field is w: i' = i  
+  //Note: nbase = Lt * dilute_size / width
   inline int idx(const int &i, const int &t, const LeftOrRight &field) const{
-    return (form[(int)field] == MFstructure::W || i < nl[(int)field]) ?   i  :  nl[(int)field] + (i-nl[(int)field])/12*nbase[(int)field] + t/src_width[(int)field]*12 + (i-nl[(int)field])%12 ; //hit_idx, t, sc_idx
-    //Note: for high mode indices of v, the mapping for a mode index j (j>nl) is :    j-nl = (sc_idx + 12/src_width * t_idx +  12/src_width*Lt * hit_idx),
-    //hence (i-nl)/12*nbase = hit_idx * (12/src_width*Lt)
+    return (form[(int)field] == MFstructure::W || i < nl[(int)field]) ?   i  :  nl[(int)field] + (i-nl[(int)field])/dilute_size*nbase[(int)field] + t/src_width[(int)field]*dilute_size + (i-nl[(int)field])%dilute_size ; //hit_idx, t, sc_idx
+    //Note: for high mode indices of v, the mapping for a mode index j (j>nl) is : (no flavor dilution)   j-nl = (sc_idx + 12/src_width * t_idx +  12/src_width*Lt * hit_idx),
+    //                                                                             (with flavor dilution)      = (sc_idx + 12*flav_idx + 24/src_width * t_idx +  24/src_width*Lt * hit_idx),
+    //hence (i-nl)/dilute_size*nbase = hit_idx * (dilute_size/src_width*Lt)  (RECALL i IS NOT A MODE INDEX!)
   }
 
   //Check a2a propagator parameters for the fields V and W match between 2 MesonField2 instances
   inline static bool parameter_match(const MesonField2 &left, const MesonField2 &right, const LeftOrRight &field_left, const LeftOrRight &field_right){
     return left.nvec[(int)field_left] == right.nvec[(int)field_right] && left.nl[(int)field_left] == right.nl[(int)field_right] && left.nhits[(int)field_left] == right.nhits[(int)field_right] &&
-      left.src_width[(int)field_left] == right.src_width[(int)field_right] && left.nbase[(int)field_left] == right.nbase[(int)field_right]; 
+      left.src_width[(int)field_left] == right.src_width[(int)field_right] && left.nbase[(int)field_left] == right.nbase[(int)field_right] && left.dilute_flavor == right.dilute_flavor;      
   }
 
   typedef std::complex<Float> cnum;
@@ -268,8 +273,8 @@ class MesonField2{
   }
 
 public:
-  MesonField2(): mf(NULL){}
-  MesonField2(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source): mf(NULL){ construct(left,right,structure,source); }
+ MesonField2(): mf(NULL), dilute_flavor(false), dilute_size(12){}
+ MesonField2(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source): mf(NULL), dilute_flavor(false), dilute_size(12){ construct(left,right,structure,source); }
 
   //Get the value of the real part of the meson field for left/right mode indices i and j (where  0 <= i,j < nl + nhits*12)
   //For a general contraction this requires 3 times specified (some of which may be the same). The first, t_mf is the time-slice

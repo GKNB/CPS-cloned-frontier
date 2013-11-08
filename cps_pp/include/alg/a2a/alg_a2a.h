@@ -57,6 +57,8 @@ class A2APropbfm : public Alg {
 		int get_nh_base()const { return nh_base; }
 		int get_nvec()const { return nvec; }
 
+		const A2AArg & get_args() const{ return a2a; }
+
 		Vector *get_v(int i);
 		Vector *get_wl(int i);
 		Vector *get_wh(void) { return wh;};

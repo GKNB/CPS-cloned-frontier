@@ -414,7 +414,8 @@ void A2APropbfm::gen_rand_4d(Vector *v4d, int id)
   if( (GJP.Gparity()||GJP.Gparity1fX()) && a2a.dilute_flavor){  flav_id = rem / spin_color; rem %= spin_color;  }
   int sc_id = rem;
 
-  //CK: id is an integer between 0 and nhits*nh_base - 1:    sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id
+  //CK: id is an integer between 0 and nhits*nh_base - 1:   (without flavor dilution) sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id
+  //                                                        (with flavor dilution)    sc_id + 3*4*flav_id + 3*4*2/src_width * t_id +  3*4*2/src_width*Lt * wh_id
   //Note: nh_base = Lt * 3 * 4 / src_width  (*2 if flavor dilution)
 
   VRB.Result(cname, fname, "Generating random wall source %d = (%d, %d, %d).\n    ", id, wh_id, t_id, sc_id);

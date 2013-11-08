@@ -3426,16 +3426,20 @@ void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructu
   int size_4d = GJP.VolNodeSites();
   int size_3d = size_4d / GJP.TnodeSites();
 
+  if(left.get_args().dilute_flavor != right.get_args().dilute_flavor) ERR.General("MesonField2",fname,"One propagator is flavor diluted, the other isn't\n");
+  dilute_flavor = left.get_args().dilute_flavor;
+  if(dilute_flavor) dilute_size = 24;
+
   nvec[0] = left.get_nvec(); nvec[1] = right.get_nvec(); 
   nl[0] = left.get_nl(); nl[1] = right.get_nl();
   nhits[0] = left.get_nhits(); nhits[1] = right.get_nhits();
   src_width[0] = left.get_src_width();   src_width[1] = right.get_src_width(); 
-  nbase[0] = t_size * 12 / src_width[0];    nbase[1] = t_size * 12 / src_width[1];
+  nbase[0] = t_size * dilute_size / src_width[0];    nbase[1] = t_size * dilute_size / src_width[1];
   form[0] = structure.left_vector(); form[1] = structure.right_vector();
   conj[0] = structure.cconj_left(); conj[1] = structure.cconj_right(); 
 
-  size[0] = (form[0] == MFstructure::V) ? nvec[0] :  nl[0]+nhits[0]*12;
-  size[1] = (form[1] == MFstructure::V) ? nvec[1] :  nl[1]+nhits[1]*12;
+  size[0] = (form[0] == MFstructure::V) ? nvec[0] :  nl[0]+nhits[0]*dilute_size;
+  size[1] = (form[1] == MFstructure::V) ? nvec[1] :  nl[1]+nhits[1]*dilute_size;
 
   //Allocate mf if not done so already
   int mf_size = size[0] * size[1] * t_size * 2;
@@ -3497,7 +3501,7 @@ void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructu
 
 
 //Form the contraction of two mesonfields, summing over mode indices and flavour
-//Expects MesonField2 objects of the for W* \Gamma V   or  V \Gamma W* 
+//Expects MesonField2 objects of the form W* \Gamma V   or  V \Gamma W* 
 void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, CorrelationFunction &into){
   //Check the contraction makes sense
   if( !parameter_match(left,right,Right,Left) || !parameter_match(left,right,Left,Right) )
@@ -3516,8 +3520,8 @@ void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, co
     for(int tsrc=0;tsrc<t_size;++tsrc)
       for(int tsnk=0;tsnk<t_size;++tsnk){
 	int t_dis = (tsnk-tsrc+t_size)% t_size;
-	for(int i=0;i<left.nl[0]+left.nhits[0]*12;++i)
-	  for(int j=0;j<left.nl[1]+left.nhits[1]*12;++j){
+	for(int i=0;i<left.nl[0]+left.nhits[0]*left.dilute_size;++i)
+	  for(int j=0;j<left.nl[1]+left.nhits[1]*left.dilute_size;++j){
 	    const cnum &l = (cform == 1) ? left(i,j,tsrc,tsrc,tsnk) : left(i,j,tsrc,tsnk,tsrc);
 	    const cnum &r = (cform == 1) ? right(j,i,tsnk,tsnk,tsrc) : right(j,i,tsnk,tsrc,tsnk);
 	    printf("mf2 tsrc %d tsnk %d tdis %d i %d j %d  l = (%f %f)  r = (%f %f)  contr = (%f %f) -> ",tsrc,tsnk,t_dis,i,j, l.real(), l.imag(), r.real(), r.imag(), into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
@@ -3529,7 +3533,7 @@ void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, co
   }else{
     int n_threads = bfmarg::threads;
     omp_set_num_threads(n_threads);
-    int nmodes[2] = {left.nl[0]+left.nhits[0]*12 , left.nl[1]+left.nhits[1]*12 };
+    int nmodes[2] = {left.nl[0]+left.nhits[0]*left.dilute_size , left.nl[1]+left.nhits[1]*left.dilute_size };
 
 #pragma omp parallel for 
     for(int r=0;r<t_size*t_size*nmodes[0]*nmodes[1];++r){
