@@ -458,7 +458,7 @@ int DiracOpDwf::MatInv(Vector *out,
       QioControl qc;
       csum = qc.globalSumUint(csum);
     
-      if(UniqueID()==0) printf("After initial D^\dagger D(src) checksum %u\n",csum);
+      if(UniqueID()==0) printf("After initial D^dag D(src) checksum %u\n",csum);
     }
     //DEBUG
 
