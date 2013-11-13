@@ -1,8 +1,9 @@
 #ifndef VML_TEMPLATES_H
 #define VML_TEMPLATES_H
 
+CPS_END_NAMESPACE
 #include <string.h>
-
+CPS_START_NAMESPACE
 /*C.Kelly 2012 - templates for rpccommands*/
 
 
