@@ -32,10 +32,25 @@ struct vml_enum_map AttrType_map[] = {
 };
 
 bool_t
+vml_PropagatorType (VML *vmls, char *name,PropagatorType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,PropagatorType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map PropagatorType_map[] = {
+	{"PropagatorType","QPROPW_TYPE",QPROPW_TYPE},
+	{"PropagatorType","A2A_PROP_TYPE",A2A_PROP_TYPE},
+	{NULL,NULL,0}
+};
+
+bool_t
 vml_GenericPropAttrArg (VML *vmls, char *name,GenericPropAttrArg *objp)
 {
 	 vml_struct_begin(vmls,"GenericPropAttrArg",name);
 	int i;
+	 if (!vml_PropagatorType (vmls, "type", &objp->type))
+		 return FALSE;
 	 if (!vml_string (vmls, "tag", &objp->tag, ~0))
 		 return FALSE;
 	 if (!vml_Float (vmls, "mass", &objp->mass))
@@ -47,6 +62,7 @@ vml_GenericPropAttrArg (VML *vmls, char *name,GenericPropAttrArg *objp)
 	return TRUE;
 }
 void rpc_deepcopy<GenericPropAttrArg>::doit(GenericPropAttrArg &into, GenericPropAttrArg const &from){
+	  rpc_deepcopy<PropagatorType>::doit(into.type,from.type);
 	  rpc_deepcopy<char *>::doit(into.tag,from.tag,strlen(from.tag)+1);
 	  rpc_deepcopy<Float>::doit(into.mass,from.mass);
 	  for(int i=0;i<4;i++) rpc_deepcopy<BndCndType>::doit(into.bc[i],from.bc[i]);
@@ -57,6 +73,7 @@ void GenericPropAttrArg::deep_copy(GenericPropAttrArg const &rhs){
 void rpc_print<GenericPropAttrArg>::doit(GenericPropAttrArg const &what, const std::string &prefix){
 	std::cout << prefix << "{\n";
 	std::string spaces(prefix.size(),' ');
+	rpc_print<PropagatorType>::doit(what.type,spaces+" type = ");
 	rpc_print<char *>::doit(what.tag,strlen(what.tag)+1,spaces+" tag = ");
 	rpc_print<Float>::doit(what.mass,spaces+" mass = ");
 	{

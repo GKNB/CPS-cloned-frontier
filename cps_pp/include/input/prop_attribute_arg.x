@@ -20,7 +20,13 @@ enum AttrType {
   STORE_MIDPROP_ATTR
 };
 
+enum PropagatorType { 
+     QPROPW_TYPE, 
+     A2A_PROP_TYPE 
+};
+
 struct GenericPropAttrArg{
+  PropagatorType type;     
   string tag<>;
   Float mass;
   BndCndType bc[4];

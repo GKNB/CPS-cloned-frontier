@@ -32,7 +32,7 @@
 CPS_START_NAMESPACE
 
 
-PropagatorContainer::PropagatorContainer(): prop(NULL){ for(int i=0;i<50;i++) attributes[i]=NULL;}
+PropagatorContainer::PropagatorContainer(){ for(int i=0;i<50;i++) attributes[i]=NULL;}
 
 
 void PropagatorContainer::setup(PropagatorArg &arg){
@@ -67,11 +67,43 @@ AttributeContainer*  PropagatorContainer::findAttr(const AttrType &type) const{
 }
 PropagatorContainer::~PropagatorContainer(){
   for(int i=0;i<50;i++) if(attributes[i]) delete attributes[i];
-  if(prop!=NULL) delete prop;
 }
 
+bool PropagatorContainer::tagEquals(const char* what){
+  GenericPropAttrArg *generics;
+  if(!getAttr(generics)) ERR.General("PropagatorContainer","tagEquals(const char* what)","Propagator attribute list does not contain a GenericPropAttr\n");
+  if(strcmp(generics->tag,what)==0) return true;
+  return false;
+}
+char const* PropagatorContainer::tag() const{
+  GenericPropAttrArg *generics;
+  if(!getAttr(generics)) ERR.General("PropagatorContainer","tag()","Propagator attribute list does not contain a GenericPropAttr\n");
+  return generics->tag;
+}
 
-void PropagatorContainer::readProp(Lattice &latt){
+void PropagatorContainer::printAttribs() const{
+  printf("Propagator Attributes:\n");
+  for(int i=0;i<50;i++){
+    if(attributes[i]!=NULL){
+      printf("%s:",AttrType_map[i].name);
+      attributes[i]->print();
+    }
+  }
+}
+PropagatorType PropagatorContainer::type() const{
+  if(hasAttr<GenericPropAttrArg>()) return getAttr<GenericPropAttrArg>()->type;
+  else ERR.General("PropagatorContainer","type()","Propagator attribute list does not contain a GenericPropAttr\n");
+}
+
+PropagatorContainer* PropagatorContainer::create(const PropagatorType &ctype){
+  if(ctype == QPROPW_TYPE){
+    return new QPropWcontainer;
+  }else{
+    ERR.General("PropagatorContainer","create(...)","Unknown type\n");
+  }
+}
+
+void QPropWcontainer::readProp(Lattice &latt){
   if(prop!=NULL) return; //don't load if already inverted
   PropIOAttrArg *io;
   if(!getAttr(io)) return;
@@ -86,7 +118,7 @@ void PropagatorContainer::readProp(Lattice &latt){
   prop->ReLoad(io->qio_filename);
 }
 
-void PropagatorContainer::calcProp(Lattice &latt){
+void QPropWcontainer::calcProp(Lattice &latt){
   //function acts as factory for QPropW objects depending on the attribute objects
   if(prop!=NULL) return; //don't calculate twice
 
@@ -106,12 +138,14 @@ void PropagatorContainer::calcProp(Lattice &latt){
     PropagatorContainer &A = PropManager::getProp(propcomb->prop_A);
     PropagatorContainer &B = PropManager::getProp(propcomb->prop_B);
 
+    if(A.type()!=QPROPW_TYPE || B.type()!=QPROPW_TYPE) ERR.General("QPropWcontainer","calcProp(Lattice &latt)","When combining propagators, either/both \"%s\" and \"%s\" are not a QPropWcontainer\n",propcomb->prop_A,propcomb->prop_B);
+
     //copy attributes from A. Does not check that attributes of A and B match
     propCombSetupAttrib();
 
     //calculate A and B if they have not yet been calculated
-    QPropW &A_qpw = A.getProp(latt);
-    QPropW &B_qpw = B.getProp(latt);
+    QPropW &A_qpw = A.convert<QPropWcontainer>().getProp(latt);
+    QPropW &B_qpw = B.convert<QPropWcontainer>().getProp(latt);
 
     prop = new QPropW(A_qpw);
     //perform the combination
@@ -297,12 +331,12 @@ void PropagatorContainer::calcProp(Lattice &latt){
 }
 
 
-int PropagatorContainer::flavor() const{
+int QPropWcontainer::flavor() const{
   GparityFlavorAttrArg *flav;
   if(getAttr(flav)) return flav->flavor;
   return 0;
 }
-void PropagatorContainer::momentum(int *into) const{
+void QPropWcontainer::momentum(int *into) const{
     MomentumAttrArg *mom;
     if(getAttr(mom)){
       for(int i=0;i<3;i++) into[i] = mom->p[i];
@@ -311,7 +345,7 @@ void PropagatorContainer::momentum(int *into) const{
     }
 }
 
-QPropW & PropagatorContainer::getProp(Lattice &latt){
+QPropW & QPropWcontainer::getProp(Lattice &latt){
   if(prop==NULL){
     readProp(latt);
     calcProp(latt); //will calculate if prop was not read
@@ -319,47 +353,36 @@ QPropW & PropagatorContainer::getProp(Lattice &latt){
   return *prop;
 }
 
-bool PropagatorContainer::tagEquals(const char* what){
-  GenericPropAttrArg *generics;
-  if(!getAttr(generics)) ERR.General("PropagatorContainer","tagEquals(const char* what)","Propagator attribute list does not contain a GenericPropAttr\n");
-  if(strcmp(generics->tag,what)==0) return true;
-  return false;
+
+QPropWcontainer & QPropWcontainer::verify_convert(PropagatorContainer &pc, const char* cname, const char* fname){
+  if(pc.type()!=QPROPW_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be QPropW type\n",pc.tag());
+  return pc.convert<QPropWcontainer>();
 }
-char const* PropagatorContainer::tag() const{
-  GenericPropAttrArg *generics;
-  if(!getAttr(generics)) ERR.General("PropagatorContainer","tag()","Propagator attribute list does not contain a GenericPropAttr\n");
-  return generics->tag;
+const QPropWcontainer & QPropWcontainer::verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname){
+  if(pc.type()!=QPROPW_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be QPropW type\n",pc.tag());
+  return pc.convert<QPropWcontainer>();
 }
 
 
-void PropagatorContainer::deleteProp(){
+void QPropWcontainer::deleteProp(){
   if(prop!=NULL){ delete prop; prop=NULL; }
 }
 
-void PropagatorContainer::printAttribs() const{
-  printf("Propagator Attributes:\n");
-  for(int i=0;i<50;i++){
-    if(attributes[i]!=NULL){
-      printf("%s:",AttrType_map[i].name);
-      attributes[i]->print();
-    }
-  }
-}
 
-void PropagatorContainer::propCombSetupAttrib(){
+
+void QPropWcontainer::propCombSetupAttrib(){
   PropCombinationAttrArg *propcomb;
   if(getAttr(propcomb)){
     PropagatorContainer &A = PropManager::getProp(propcomb->prop_A);
-
     //copy attributes from A. Does not check that attributes of A and B match
     for(int i=0;i<50;i++) 
-      if((AttrType)i != GENERIC_PROP_ATTR && attributes[i]==NULL && A.attributes[i]!=NULL) 
-  	add(*A.attributes[i]);
+      if((AttrType)i != GENERIC_PROP_ATTR && attributes[i]==NULL && A.findAttr( (AttrType)i )!=NULL) 
+  	add(*A.findAttr( (AttrType)i ) );
   }
 }
 
 
-std::vector<std::vector<int> > PropagatorContainer::get_allowed_momenta() const{
+std::vector<std::vector<int> > QPropWcontainer::get_allowed_momenta() const{
   std::vector<std::vector<int> > out;
 
   MomCosAttrArg *cos;

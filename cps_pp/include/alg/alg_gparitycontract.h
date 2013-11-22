@@ -29,7 +29,7 @@ class QuarkMomCombination{
 public:
   QuarkMomCombination(): cname("QuarkMomCombination"), chosen_momcomb(-1), allowed_comb_calculated(false){};
   void reset();
-  void add_prop(const PropagatorContainer &prop, const bool &conj);
+  void add_prop(const QPropWcontainer &prop, const bool &conj);
 
   void set_desired_momentum(const std::vector<int> &what);
   void set_desired_momentum(const int *what);
@@ -81,11 +81,11 @@ private:
 
   void global_coord(const int &site, int *into_vec);
   
-  void meson_LL_std(PropagatorContainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
-  void meson_LL_gparity(PropagatorContainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
+  void meson_LL_std(QPropWcontainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
+  void meson_LL_gparity(QPropWcontainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
 
-  void meson_HL_gparity(PropagatorContainer &prop_H, PropagatorContainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
-  void meson_HL_std(PropagatorContainer &prop_H, PropagatorContainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
+  void meson_HL_gparity(QPropWcontainer &prop_H, QPropWcontainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
+  void meson_HL_std(QPropWcontainer &prop_H, QPropWcontainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp);
 
   void contract_OVVpAA_gparity(const ContractionTypeOVVpAA &args, const int &conf_idx);
   void contract_OVVpAA_std(const ContractionTypeOVVpAA &args, const int &conf_idx);

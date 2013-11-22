@@ -119,7 +119,7 @@ void PropDFT::find_p2sorted(std::vector< std::pair<Float,int> > &p2list, std::ma
 
 
 
-void _FourierProp_helper<SpinColorFlavorMatrix>::site_matrix(SpinColorFlavorMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site){
+void _FourierProp_helper<SpinColorFlavorMatrix>::site_matrix(SpinColorFlavorMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site){
   into.generate(prop, lat,site);
 }
 
@@ -149,7 +149,7 @@ void _FourierProp_helper<SpinColorFlavorMatrix>::write(FILE *fp, const SpinColor
   }
 }
 
-void _FourierProp_helper<WilsonMatrix>::site_matrix(WilsonMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site){
+void _FourierProp_helper<WilsonMatrix>::site_matrix(WilsonMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site){
   into = prop.getProp(lat).SiteMatrix(site,0);
 }
 
@@ -192,7 +192,7 @@ Float _PropagatorBilinear_helper<SpinColorFlavorMatrix>::coeff(const int &scf_id
   return AlgGparityContract::qdp_gcoeff(sfidx.first,transpose,conj) * AlgGparityContract::pauli_coeff(sfidx.second,transpose,conj);
 }
 
-void _PropagatorBilinear_helper<SpinColorFlavorMatrix>::site_matrix(SpinColorFlavorMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site){ 
+void _PropagatorBilinear_helper<SpinColorFlavorMatrix>::site_matrix(SpinColorFlavorMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site){ 
   return _FourierProp_helper<SpinColorFlavorMatrix>::site_matrix(into,prop,lat,site); 
 }
 
@@ -238,7 +238,7 @@ Float _PropagatorBilinear_helper<WilsonMatrix>::coeff(const int &sidx, const boo
 }
 typedef _PropagatorBilinear_generics::map_info_scmat map_info_type; //the map type
 
-void _PropagatorBilinear_helper<WilsonMatrix>::site_matrix(WilsonMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site){ 
+void _PropagatorBilinear_helper<WilsonMatrix>::site_matrix(WilsonMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site){ 
   return _FourierProp_helper<WilsonMatrix>::site_matrix(into,prop,lat,site); 
 }
   

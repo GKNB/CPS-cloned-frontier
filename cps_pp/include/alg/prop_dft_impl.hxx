@@ -135,8 +135,7 @@ void FourierProp<MatrixType>::calcProp(const std::string &tag, Lattice &lat){
       for(int thr=0;thr<omp_get_max_threads();thr++) thread_mats[p][t][thr] = 0.0;
     }
   }
-
-  PropagatorContainer &prop = PropManager::getProp(tag.c_str());
+  QPropWcontainer &prop = QPropWcontainer::verify_convert(PropManager::getProp(tag.c_str()),"FourierProp<MatrixType>","calcProp(const std::string &tag, Lattice &lat)");
 
 #pragma omp parallel for default(shared)
   for(int x=0;x<GJP.VolNodeSites();x++){
@@ -305,8 +304,8 @@ void PropagatorBilinear<MatrixType>::calcAllBilinears(const prop_info_pair &prop
     }
     mats[idx] = &(*all_mats[idx])[props];
   }
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.c_str());
-  PropagatorContainer &prop_B = PropManager::getProp(props.second.first.c_str());
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.c_str()),"PropagatorBilinear<MatrixType>","calcAllBilinears(const prop_info_pair &props, Lattice &lat)");
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"PropagatorBilinear<MatrixType>","calcAllBilinears(const prop_info_pair &props, Lattice &lat)");
 
   int global_T = GJP.Tnodes()*GJP.TnodeSites();
   int local_T = GJP.TnodeSites();
@@ -408,8 +407,8 @@ void PropagatorBilinear<MatrixType>::calcBilinear(const int &idx, const prop_inf
   }
 
   //OK then, calculate it
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.c_str());
-  PropagatorContainer &prop_B = PropManager::getProp(props.second.first.c_str());
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.c_str()), "PropagatorBilinear<MatrixType>","calcBilinear(const int &idx, const prop_info_pair &props, Lattice &lat)");
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"PropagatorBilinear<MatrixType>","calcBilinear(const int &idx, const prop_info_pair &props, Lattice &lat)");
   std::pair<int,int> spin_flav = _PropagatorBilinear_helper<MatrixType>::unmap(idx); //if MatrixType is WilsonMatrix, the second index can be ignored
         
   int global_T = GJP.Tnodes()*GJP.TnodeSites();
@@ -665,8 +664,8 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
     if(i<mat_per_thread) bil[i] = 0.0;
     thread_bil[i] = 0.0;
   }
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.c_str());
-  PropagatorContainer &prop_B = PropManager::getProp(props.second.first.c_str());
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.c_str()), "ContractedBilinear<MatrixType>","calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat)");
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"ContractedBilinear<MatrixType>","calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat)");
 
 #pragma omp parallel for default(shared)
   for(int x=0;x<GJP.VolNodeSites();x++){
@@ -768,8 +767,8 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears2(const prop_info
     if(i<array_size) into[i] = 0.0;
     thread_result[i] =  0.0;
   }
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.c_str());
-  PropagatorContainer &prop_B = PropManager::getProp(props.second.first.c_str());
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.c_str()),"ContractedBilinear<MatrixType>","calcAllContractedBilinears2(const prop_info_pair &props, Lattice &lat)");
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"ContractedBilinear<MatrixType>","calcAllContractedBilinears2(const prop_info_pair &props, Lattice &lat)");
 
 #pragma omp parallel for default(shared)
   for(int x=0;x<GJP.VolNodeSites();x++){
@@ -1139,11 +1138,13 @@ void PropagatorQuadrilinear<MatrixType>::calcQuadrilinear(const int &idx, const 
       }
     }
   }
-
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.first.c_str()); //prop_info_quad:  [bil][prop][first=tag, second=superscript]
-  PropagatorContainer &prop_B = PropManager::getProp(props.first.second.first.c_str());
-  PropagatorContainer &prop_C = PropManager::getProp(props.second.first.first.c_str());
-  PropagatorContainer &prop_D = PropManager::getProp(props.second.second.first.c_str());
+  const char* cname = "PropagatorQuadrilinear<MatrixType>";
+  const char* fname = "calcQuadrilinear(const int &idx, const prop_info_quad &props, Lattice &lat)";
+  //prop_info_quad:  [bil][prop][first=tag, second=superscript]
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.first.c_str()),cname,fname);
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.first.second.first.c_str()),cname,fname);
+  QPropWcontainer &prop_C = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.first.c_str()),cname,fname);
+  QPropWcontainer &prop_D = QPropWcontainer::verify_convert(PropManager::getProp(props.second.second.first.c_str()),cname,fname);
 
   int idx1, idx2;
   unmap(idx,idx1,idx2);
@@ -1264,11 +1265,13 @@ void PropagatorQuadrilinear<MatrixType>::calcAllQuadrilinears(const prop_info_qu
       }
     }
   }
+  static const char* cname = "PropagatorQuadrilinear<MatrixType>";
+  static const char* fname = "calcAllQuadrilinears(const prop_info_quad &props, Lattice &lat)";
 
-  PropagatorContainer &prop_A = PropManager::getProp(props.first.first.first.c_str()); //prop_info_quad:  [bil][prop][first=tag, second=superscript]
-  PropagatorContainer &prop_B = PropManager::getProp(props.first.second.first.c_str());
-  PropagatorContainer &prop_C = PropManager::getProp(props.second.first.first.c_str());
-  PropagatorContainer &prop_D = PropManager::getProp(props.second.second.first.c_str());
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.first.c_str()),cname,fname); //prop_info_quad:  [bil][prop][first=tag, second=superscript]
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.first.second.first.c_str()),cname,fname);
+  QPropWcontainer &prop_C = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.first.c_str()),cname,fname);
+  QPropWcontainer &prop_D = QPropWcontainer::verify_convert(PropManager::getProp(props.second.second.first.c_str()),cname,fname);
 
 #pragma omp parallel for default(shared)
   for(int idx=0; idx<nmatpairs; idx++){

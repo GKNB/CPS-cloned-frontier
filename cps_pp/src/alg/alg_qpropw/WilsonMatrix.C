@@ -343,11 +343,9 @@ WilsonMatrix& WilsonMatrix::LeftTimesEqual(const Matrix& lhs)
 	    for(s2=0;s2<4;++s2){
 	      for(c2=0;c2<3;++c2){
 		p.d[s1].c[c1].d[s2].c[c2]=0.0;
-	        for(s3=0;s3<4;++s3){
-	          for(c3=0;c3<3;++c3){
-		    p.d[s1].c[c1].d[s2].c[c2]+= lhs(c1,c3) * temp.d[s1].c[c3].d[s2].c[c2];
-	          }
-	        }
+		for(c3=0;c3<3;++c3){
+		  p.d[s1].c[c1].d[s2].c[c2]+= lhs(c1,c3) * temp.d[s1].c[c3].d[s2].c[c2];
+		}
 	      }
 	    }
 	  }

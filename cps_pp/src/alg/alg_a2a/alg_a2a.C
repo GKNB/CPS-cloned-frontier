@@ -61,6 +61,8 @@ A2APropbfm::A2APropbfm(Lattice &latt,
   nvec = a2a.nl + nh;
 
   gparity_1f_fftw_comm_flav_performed = false;
+  fftw_computed = false;
+  do_gfix = true;
 }
 
 A2APropbfm::~A2APropbfm()
@@ -170,6 +172,7 @@ void A2APropbfm::free_vw_fftw(void)
     sfree(cname,fname,"wh_fftw",wh_fftw);
     wh_fftw=NULL;
   }
+  fftw_computed = false;
 }
 
 //Only generate wh on flavour 0. Copy the random numbers to the second half so we don't need to do comms to retrieve them later
@@ -218,6 +221,10 @@ void A2APropbfm::gen_rand_4d_init_gp1f_flavdilute(void){
 	      f[2 * (j * sites + i)    ] = 0;
 	      f[2 * (j * sites + i) + 1] = -1;
 	    }
+	    break;
+	  case NORAND:
+	    f[2 * (j * sites + i)    ] = 1.0;
+	    f[2 * (j * sites + i) + 1] = 0.0;
 	    break;
 	  default:
 	    ERR.NotImplemented(cname, fname);
@@ -273,7 +280,7 @@ void A2APropbfm::gen_rand_4d_init(void)
   //CK: wh mappings
   //Standard or G-parity with flavor dilution  (re/im=[0,1], site=[0..four_vol-1],hit=[0..nh_site]) ->    re/im + 2*( site + hit*four_vol )
   //G-parity without flavor dilution           (re/im=[0,1], site=[0..four_vol-1],flav=[0,1],hit=[0..nh_site]) ->    re/im + 2*( site + flav*four_vol + hit*2*four_vol )
-  if(GJP.Gparity1fX()){ return gen_rand_4d_init_gp1f_flavdilute(); }
+  if(GJP.Gparity1fX() && a2a.dilute_flavor){ return gen_rand_4d_init_gp1f_flavdilute(); }
 
   const char *fname = "gen_rand_4d_init()";
 
@@ -320,6 +327,10 @@ void A2APropbfm::gen_rand_4d_init(void)
 	  f[2 * (j * sites + i)    ] = 0;
 	  f[2 * (j * sites + i) + 1] = -1;
 	}
+	break;
+      case NORAND:
+	f[2 * (j * sites + i)    ] = 1.0;
+	f[2 * (j * sites + i) + 1] = 0.0;
 	break;
       default:
 	ERR.NotImplemented(cname, fname);
@@ -615,15 +626,20 @@ void A2APropbfm::free_vw(void)
 void A2APropbfm::gf_vec(Vector *out, Vector *in)
 {
   const char *fname = "gf_vector(Vector *in, Vector *out)";
-  Vector tmp;
 
   int size_4d = GJP.VolNodeSites();
+  int nsites = (GJP.Gparity() ? 2 : 1) * size_4d;
+
+  if(!do_gfix){
+    memcpy( (void*)out, (void*)in, nsites*SPINOR_SIZE*sizeof(Float) );
+    return;
+  }
   int size_3d = size_4d / GJP.TnodeSites();
+
+  Vector tmp;
 
   Float *fi = (Float *)in;
   Float *fo = (Float *)out;
-
-  int nsites = (GJP.Gparity() ? 2 : 1) * size_4d;
 
   for(int i = 0; i < nsites; ++i) {
     const int flav = i / size_4d; 
@@ -871,7 +887,12 @@ void A2APropbfm::fft_vector(Vector* result, Vector* vec, const int fft_dim[3], f
 void A2APropbfm::fft_vw(){
   const char *fname = "fft_vw()";
 
-  if(AlgLattice().FixGaugeKind() == FIX_GAUGE_NONE) ERR.General(cname,fname,"Lattice must be gauge fixed\n");
+  if(!v_fftw || !wl_fftw || !wh_fftw){
+    if(v_fftw || wl_fftw || wh_fftw) free_vw_fftw();
+    allocate_vw_fftw();
+  }
+
+  if(do_gfix && AlgLattice().FixGaugeKind() == FIX_GAUGE_NONE) ERR.General(cname,fname,"Lattice must be gauge fixed\n");
 	
   fftw_init_threads();
   fftw_plan_with_nthreads(bfmarg::threads);
@@ -925,6 +946,7 @@ void A2APropbfm::fft_vw(){
   fftw_free(fft_mem);
   fftw_cleanup();
   fftw_cleanup_threads();
+  fftw_computed = true;
 }
 
 static void get_other_flavour(Float* of, Float* into, const int &site_size){ //site_size is in FLOAT UNITS

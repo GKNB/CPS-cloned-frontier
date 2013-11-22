@@ -131,7 +131,7 @@ public:
   }  
   void fft_src(); //Generate the source Fourier transform. Unless called by a derived class constructor, this function must be called manually before using the source in a MesonField2 contraction
 
-  //Overridable method to set the 3d source layout in position space. Default is to setup one of the basic types according to the previously set variables basic_src_radius and basic_src_type
+  //Overridable method to set the 3d source layout in position space.
   //THIS FUNCTION IS CALLED BY fft_src
   virtual void set_source(fftw_complex *src_3d) = 0;
 
@@ -276,10 +276,16 @@ public:
  MesonField2(): mf(NULL), dilute_flavor(false), dilute_size(12){}
  MesonField2(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source): mf(NULL), dilute_flavor(false), dilute_size(12){ construct(left,right,structure,source); }
 
-  //Get the value of the real part of the meson field for left/right mode indices i and j (where  0 <= i,j < nl + nhits*12)
-  //For a general contraction this requires 3 times specified (some of which may be the same). The first, t_mf is the time-slice
-  //for the mesonfield. t_left and t_right are associated with the right and left vectors respectively; for a vector of type W this time is ignored
-  //and for a vector of type V it is only relevant to the high-modes, for which it refers to the time-slice of the stochastic source
+  //Get the value of the real part of the meson field for left/right mode indices i and j (where  0 <= i,j < nl + nhits*dilute_size)  where dilute_size = 3*4*(2) where the final 2 is for when flavor dilution is active
+  //The meson field is formed as M_ij(t) = \sum_{\vec p} V_i(\vec p,t) S(\vec p,t) W_j*(\vec p,t)
+  //hence we need only specify the mode indices i and j and the timeslice.
+  //However in practise we use timeslice dilution for the high modes, so as well as specifying a hit index and spin/color(/flavor) combined index we must also specify a source *timeslice* when we are referring to the high-modes
+  //of the vector V.
+  //Within the A2APropbfm class the source timeslice index is combined with the hit/spin/color(/flavor) index into a larger 'mode' index. However it is convenient here to work with a unified range 0 <= i,j < nl + nhits*dilute_size
+  //that applies both to W and V, and consider the source timeslice separately.
+  
+  //Allowing for a general form, including VV, we must allow for 3 specified timeslices. The first is the timeslice of the meson field ('t' in the above), then the source timeslice of the left and right vectors
+  //which are used appropriately depending on the form of the contraction
 
   inline const cnum& operator()(const int &i, const int &j, const int &t_mf, const int &t_left, const int &t_right) const{ 
     return *( (const cnum*)mf + t_mf + GJP.TnodeSites()*GJP.Tnodes()*( idx(j,t_right,Right) + size[1]* idx(i,t_left,Left) ) );  //column index is fastest-changing
@@ -289,6 +295,8 @@ public:
   //Form the contraction of two mesonfields, summing over mode indices:   left_ij right_ji.  For G-parity we do  left_ij,fg right_ji,gf
   static void contract(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, CorrelationFunction &into);
   static void contract(const MesonField2 &left, const MesonField2 &right, CorrelationFunction &into){ return contract(left,right,0,into); }
+  //Same as above but the user specifies a particular source and time-slice rather than summing over all. Useful for testing
+  static void contract_specify_tsrc(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, const int &tsrc, CorrelationFunction &into);
 
   friend class MesonFieldTesting;
 };

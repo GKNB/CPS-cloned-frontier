@@ -32,9 +32,17 @@ enum AttrType {
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
 
+enum PropagatorType {
+	QPROPW_TYPE = 0,
+	A2A_PROP_TYPE = 1,
+};
+typedef enum PropagatorType PropagatorType;
+extern struct vml_enum_map PropagatorType_map[];
+
 
 #include <util/vml/vml_templates.h>
 struct GenericPropAttrArg {
+	PropagatorType type;
 	char *tag;
 	Float mass;
 	BndCndType bc[4];
@@ -437,6 +445,7 @@ extern "C" {
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t vml_AttrType (VML *, char *instance, AttrType*);
+extern  bool_t vml_PropagatorType (VML *, char *instance, PropagatorType*);
 extern  bool_t vml_GenericPropAttrArg (VML *, char *instance, GenericPropAttrArg*);
 extern  bool_t vml_PointSourceAttrArg (VML *, char *instance, PointSourceAttrArg*);
 extern  bool_t vml_WallSourceAttrArg (VML *, char *instance, WallSourceAttrArg*);
@@ -458,6 +467,7 @@ extern  bool_t vml_JobPropagatorArgs (VML *, char *instance, JobPropagatorArgs*)
 
 #else /* K&R C */
 extern  bool_t vml_AttrType (VML *, char *instance, AttrType*);
+extern  bool_t vml_PropagatorType (VML *, char *instance, PropagatorType*);
 extern  bool_t vml_GenericPropAttrArg (VML *, char *instance, GenericPropAttrArg*);
 extern  bool_t vml_PointSourceAttrArg (VML *, char *instance, PointSourceAttrArg*);
 extern  bool_t vml_WallSourceAttrArg (VML *, char *instance, WallSourceAttrArg*);

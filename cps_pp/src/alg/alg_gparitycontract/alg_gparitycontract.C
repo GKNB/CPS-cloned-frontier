@@ -48,15 +48,15 @@ void QuarkMomCombination::reset(){
   chosen_momcomb = -1;
   allowed_comb_calculated = false;
 }
-void QuarkMomCombination::add_prop(const PropagatorContainer &prop, const bool &conj){
-  std::vector<std::vector<int> > qmom = prop.get_allowed_momenta();
-  if(qmom.size()==0){ ERR.General(cname,"add_prop","Propagator has no allowed momenta!\n"); }
+void QuarkMomCombination::add_prop(const QPropWcontainer &prop, const bool &conj){
+  std::vector<std::vector<int> > qmom = prop.convert<const QPropWcontainer>().get_allowed_momenta();
+  if(qmom.size()==0) ERR.General(cname,"add_prop","Propagator has no allowed momenta!\n");
   if(conj) //complex conjugation of prop inverts the allowed sink momenta
     for(int i=0;i<qmom.size();i++)
       for(int j=0;j<3;j++) qmom[i][j]*=-1;
   quark_mom.push_back(qmom);
 
-  props.push_back(std::pair<PropagatorContainer const*,bool>(&prop,conj));
+  props.push_back(std::pair<QPropWcontainer const*,bool>(&prop,conj));
 }
 void QuarkMomCombination::calc_allowed_combinations(){
   if(allowed_comb_calculated) return;
@@ -241,7 +241,7 @@ void AlgGparityContract::run(const int &conf_idx){
 
 void AlgGparityContract::run(const int &conf_idx, const GparityContractArg& job){
   //Calculate propagators first. When contracting on only a single thread
-  //this is not strictly necessary as the PropagatorContainer will calculate
+  //this is not strictly necessary as the QPropWcontainer will calculate
   //the prop if it has not already been done. However in a multi-threaded
   //inversion, all the threads try to calculate the prop independently, and it will crash.
   PropManager::calcProps(AlgLattice());
@@ -313,7 +313,7 @@ Float AlgGparityContract::pauli_coeff(const int &pidx, const bool &transpose, co
   else return 1.0; //all others are real and invariant under transpose
 }
 
-void AlgGparityContract::meson_LL_std(PropagatorContainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){  
+void AlgGparityContract::meson_LL_std(QPropWcontainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){  
   /*Mesons comprising $ \bar u $ and $ d$*/
   std::ostringstream os; os << "LL_MESON " << gamma_idx_1 << " " << gamma_idx_2;
   CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
@@ -322,8 +322,8 @@ void AlgGparityContract::meson_LL_std(PropagatorContainer &prop, const int* sink
 
   /*Mesons comprising $ \bar u $ and $ d$*/
   /*Require a "CorrelationFunction &corrfunc"*/
-  /*Require propagator "PropagatorContainer &prop_src_y_0_pcon corresponding to \mathcal{G}^{(0)}_{x,y}*/
-  PropagatorContainer &prop_src_y_0_pcon = prop;
+  /*Require propagator "QPropWcontainer &prop_src_y_0_pcon corresponding to \mathcal{G}^{(0)}_{x,y}*/
+  QPropWcontainer &prop_src_y_0_pcon = prop;
 
   /*Fourier transform on sink index x*/
   ContractionQuarkMomCombination cmomenta;  
@@ -385,7 +385,7 @@ void AlgGparityContract::meson_LL_std(PropagatorContainer &prop, const int* sink
   corrfunc.write(fp);
 }
 
-void AlgGparityContract::meson_LL_gparity(PropagatorContainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
+void AlgGparityContract::meson_LL_gparity(QPropWcontainer &prop, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
   /*Mesons comprising $ \bar u $ and $ d$*/
   /*Require a "CorrelationFunction &corrfunc"*/
   std::ostringstream os; os << "LL_MESON " << gamma_idx_1 << " " << gamma_idx_2;
@@ -395,8 +395,8 @@ void AlgGparityContract::meson_LL_gparity(PropagatorContainer &prop, const int* 
 
   /*Mesons comprising $ \bar u $ and $ d$*/
   /*Require a "CorrelationFunction &corrfunc"*/
-  /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-  PropagatorContainer &prop_src_y_u_d_eitherflav_pcon = prop;
+  /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+  QPropWcontainer &prop_src_y_u_d_eitherflav_pcon = prop;
 
   /*Fourier transform on sink index x*/
   /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -501,30 +501,32 @@ void AlgGparityContract::contract_LL_mesons(const ContractionTypeLLMesons &args,
   if ((fp = Fopen(file.str().c_str(), "w")) == NULL) {
     ERR.FileW("CorrelationFunction","write(const char *file)",file.str().c_str());
   }
-
   PropagatorContainer &prop = PropManager::getProp(args.prop_L);
 
-  //loop through LL meson correlation functions
-  if(GJP.Gparity()){
-    for(int g1=0;g1<16;g1++){
-      for(int g2=0;g2<16;g2++){
-	meson_LL_gparity(prop, args.sink_mom, g1, g2, fp);
+  if(prop.type() == QPROPW_TYPE){
+    //loop through LL meson correlation functions
+    if(GJP.Gparity()){
+      for(int g1=0;g1<16;g1++){
+	for(int g2=0;g2<16;g2++){
+	  meson_LL_gparity(prop.convert<QPropWcontainer>(), args.sink_mom, g1, g2, fp);
+	}
+      }
+    }else{
+      for(int g1=0;g1<16;g1++){
+	for(int g2=0;g2<16;g2++){
+	  meson_LL_std(prop.convert<QPropWcontainer>(), args.sink_mom, g1, g2, fp);
+	}
       }
     }
-  }else{
-    for(int g1=0;g1<16;g1++){
-      for(int g2=0;g2<16;g2++){
-	meson_LL_std(prop, args.sink_mom, g1, g2, fp);
-      }
-    }
-  }
+  }else ERR.General("AlgGparityContract","contract_LL_mesons(const ContractionTypeLLMesons &args, const int &conf_idx)","Not implemented for types other than QPROPW_TYPE\n");
+
   Fclose(fp);
 }
 
 
-void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,PropagatorContainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
-  PropagatorContainer &prop_src_y_u_d_eitherflav_pcon = prop_L;
-  PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon = prop_H;
+void AlgGparityContract::meson_HL_gparity(QPropWcontainer &prop_H,QPropWcontainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
+  QPropWcontainer &prop_src_y_u_d_eitherflav_pcon = prop_L;
+  QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon = prop_H;
   const int *desired_mom_x = sink_mom;
 
   {
@@ -535,7 +537,7 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_SPRIME_S_S_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -633,8 +635,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_D_S_S_D %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -697,8 +699,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_D_S_U_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -765,8 +767,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_D_SPRIME_SPRIME_D %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -832,13 +834,13 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
   {
     /*<<(\bar d,s')*(\bar u,s)>>*/
     /*Require a "CorrelationFunction &corrfunc" with option "CorrelationFunction::THREADED"*/
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/    
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/    
     std::ostringstream os; os << "HL_MESON_D_SPRIME_U_S " << gamma_idx_1 << " " << gamma_idx_2;
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
     if(UniqueID()==0) printf("Doing HL_MESON_D_SPRIME_U_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -909,8 +911,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_U_S_S_U %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -977,8 +979,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_U_S_D_SPRIME %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -1047,8 +1049,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 
     if(UniqueID()==0) printf("Doing HL_MESON_U_SPRIME_SPRIME_U %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -1118,8 +1120,8 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
     CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
     if(UniqueID()==0) printf("Doing HL_MESON_U_SPRIME_D_S %d %d contraction\n",gamma_idx_1,gamma_idx_2);
-    /*Require propagator "PropagatorContainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-    /*Require propagator "PropagatorContainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+    /*Require propagator "QPropWcontainer &prop_src_y_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{x,y} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
 
     /*Fourier transform on sink index x*/
     /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -1181,7 +1183,7 @@ void AlgGparityContract::meson_HL_gparity(PropagatorContainer &prop_H,Propagator
 }
 
 
-void AlgGparityContract::meson_HL_std(PropagatorContainer &prop_H,PropagatorContainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
+void AlgGparityContract::meson_HL_std(QPropWcontainer &prop_H,QPropWcontainer &prop_L, const int* sink_mom, const int &gamma_idx_1, const int &gamma_idx_2, FILE *fp){
   /*Mesons comprising $ \bar u $ and $ s$*/
   /*Require a "CorrelationFunction &corrfunc"*/
   std::ostringstream os; os << "HL_MESON_L_H " << gamma_idx_1 << " " << gamma_idx_2;
@@ -1189,10 +1191,10 @@ void AlgGparityContract::meson_HL_std(PropagatorContainer &prop_H,PropagatorCont
 
   if(UniqueID()==0) printf("Doing HL_MESON_L_H %d %d contraction\n",gamma_idx_1,gamma_idx_2);
 
-  /*Require propagator "PropagatorContainer &prop_src_y_0_pcon corresponding to \mathcal{G}^{(0)}_{x,y}*/
-  /*Require propagator "PropagatorContainer &prop_src_y_s_pcon corresponding to \mathcal{G}^{(s)}_{x,y}*/
-  PropagatorContainer &prop_src_y_0_pcon = prop_L;
-  PropagatorContainer &prop_src_y_s_pcon = prop_H;
+  /*Require propagator "QPropWcontainer &prop_src_y_0_pcon corresponding to \mathcal{G}^{(0)}_{x,y}*/
+  /*Require propagator "QPropWcontainer &prop_src_y_s_pcon corresponding to \mathcal{G}^{(s)}_{x,y}*/
+  QPropWcontainer &prop_src_y_0_pcon = prop_L;
+  QPropWcontainer &prop_src_y_s_pcon = prop_H;
 
   /*Fourier transform on sink index x*/
   /*Require a 3-component array 'desired_mom_x' representing the required momentum at this sink position*/
@@ -1259,38 +1261,42 @@ void AlgGparityContract::contract_HL_mesons(const ContractionTypeHLMesons &args,
   PropagatorContainer &prop_H = PropManager::getProp(args.prop_H);
   PropagatorContainer &prop_L = PropManager::getProp(args.prop_L);
 
+  if(prop_H.type() == QPROPW_TYPE && prop_L.type() == QPROPW_TYPE){
   //loop through HL meson correlation functions
   if(GJP.Gparity()){
     for(int g1=0;g1<16;g1++){
       for(int g2=0;g2<16;g2++){
-	meson_HL_gparity(prop_H,prop_L, args.sink_mom, g1, g2, fp);
+	meson_HL_gparity(prop_H.convert<QPropWcontainer>(),prop_L.convert<QPropWcontainer>(), args.sink_mom, g1, g2, fp);
       }
     }
   }else{
     for(int g1=0;g1<16;g1++){
       for(int g2=0;g2<16;g2++){
-  	meson_HL_std(prop_H,prop_L, args.sink_mom, g1, g2, fp);
+  	meson_HL_std(prop_H.convert<QPropWcontainer>(),prop_L.convert<QPropWcontainer>(), args.sink_mom, g1, g2, fp);
       }
     }
   }
+  }else ERR.General("AlgGparityContract","contract_HL_mesons(const ContractionTypeHLMesons &args, const int &conf_idx)","Not implemented for types other than QPROPW_TYPE\n");
+
   Fclose(fp);
 }
 
 void AlgGparityContract::contract_OVVpAA_gparity(const ContractionTypeOVVpAA &args, const int &conf_idx){
   /*Require a "CorrelationFunction &corrfunc"*/
-  /*Require propagator "PropagatorContainer &prop_src_z_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-  /*Require propagator "PropagatorContainer &prop_src_z_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-  /*Require propagator "PropagatorContainer &prop_src_x_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-  /*Require propagator "PropagatorContainer &prop_src_x_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+  /*Require propagator "QPropWcontainer &prop_src_z_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+  /*Require propagator "QPropWcontainer &prop_src_z_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+  /*Require propagator "QPropWcontainer &prop_src_x_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
+  /*Require propagator "QPropWcontainer &prop_src_x_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
   std::ostringstream os; os << "O_VV_P_AA";
   CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
   if(UniqueID()==0) printf("Doing OVVpAA contractions with G-parity BCs\n");
+  const char* fname = "contract_OVVpAA_gparity(const ContractionTypeOVVpAA &args, const int &conf_idx)";
 
-  PropagatorContainer &prop_src_z_u_d_eitherflav_pcon = PropManager::getProp(args.prop_L_t1);
-  PropagatorContainer &prop_src_z_sprime_s_eitherflav_pcon = PropManager::getProp(args.prop_H_t1);
-  PropagatorContainer &prop_src_x_u_d_eitherflav_pcon = PropManager::getProp(args.prop_L_t0);
-  PropagatorContainer &prop_src_x_sprime_s_eitherflav_pcon = PropManager::getProp(args.prop_H_t0);
+  QPropWcontainer &prop_src_z_u_d_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_L_t1),cname,fname);
+  QPropWcontainer &prop_src_z_sprime_s_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_H_t1),cname,fname);
+  QPropWcontainer &prop_src_x_u_d_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_L_t0),cname,fname);
+  QPropWcontainer &prop_src_x_sprime_s_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_H_t0),cname,fname);
 
   /*Fourier transform on sink index y*/
   /*Require a 3-component array 'desired_mom_y' representing the required momentum at this sink position*/
@@ -1499,15 +1505,16 @@ void AlgGparityContract::contract_OVVpAA_std(const ContractionTypeOVVpAA &args, 
 
   if(UniqueID()==0) printf("Doing OVVpAA contractions\n");
 
-  /*Require propagator "PropagatorContainer &prop_src_z_0_pcon corresponding to \mathcal{G}^{(0)}_{y,z}*/
-  /*Require propagator "PropagatorContainer &prop_src_z_s_pcon corresponding to \mathcal{G}^{(s)}_{y,z}*/
-  /*Require propagator "PropagatorContainer &prop_src_x_0_pcon corresponding to \mathcal{G}^{(0)}_{y,x}*/
-  /*Require propagator "PropagatorContainer &prop_src_x_s_pcon corresponding to \mathcal{G}^{(s)}_{y,x}*/
+  /*Require propagator "QPropWcontainer &prop_src_z_0_pcon corresponding to \mathcal{G}^{(0)}_{y,z}*/
+  /*Require propagator "QPropWcontainer &prop_src_z_s_pcon corresponding to \mathcal{G}^{(s)}_{y,z}*/
+  /*Require propagator "QPropWcontainer &prop_src_x_0_pcon corresponding to \mathcal{G}^{(0)}_{y,x}*/
+  /*Require propagator "QPropWcontainer &prop_src_x_s_pcon corresponding to \mathcal{G}^{(s)}_{y,x}*/
+  const char* fname = "contract_OVVpAA_std(const ContractionTypeOVVpAA &args, const int &conf_idx)";
 
-  PropagatorContainer &prop_src_z_0_pcon = PropManager::getProp(args.prop_L_t1);
-  PropagatorContainer &prop_src_z_s_pcon = PropManager::getProp(args.prop_H_t1);
-  PropagatorContainer &prop_src_x_0_pcon = PropManager::getProp(args.prop_L_t0);
-  PropagatorContainer &prop_src_x_s_pcon = PropManager::getProp(args.prop_H_t0);
+  QPropWcontainer &prop_src_z_0_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_L_t1),cname,fname);
+  QPropWcontainer &prop_src_z_s_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_H_t1),cname,fname);
+  QPropWcontainer &prop_src_x_0_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_L_t0),cname,fname);
+  QPropWcontainer &prop_src_x_s_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_H_t0),cname,fname);
 
   /*Fourier transform on sink index y*/
   /*Require a 3-component array 'desired_mom_y' representing the required momentum at this sink position*/
@@ -1766,7 +1773,9 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, Correlati
   if(pion.threadType() != CorrelationFunction::THREADED || j5_q.threadType() != CorrelationFunction::THREADED) ERR.General(cname,"measure_mres(...)","Assumes multi-thread CorrelationFunctions\n");
   if(pion.nContractions() !=1 || j5_q.nContractions() != 1) ERR.General(cname,"measure_mres(...)","CorrelationFunctions must have space for only one contraction\n");
 
-  PropagatorContainer &prop_pcon = PropManager::getProp(args.prop);
+  PropagatorContainer *pc = &PropManager::getProp(args.prop);
+  if(pc->type()!=QPROPW_TYPE) ERR.General(cname,"measure_mres(...)","Propagator must be QPropW type\n");
+  QPropWcontainer &prop_pcon = pc->convert<QPropWcontainer>();
   if(!prop_pcon.hasAttr<StoreMidpropAttrArg>()) ERR.General(cname,"measure_mres(...)","Propagator must have midprop stored to form mres\n");
 
   QPropW & qp = prop_pcon.getProp(AlgLattice());

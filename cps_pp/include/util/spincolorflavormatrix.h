@@ -16,7 +16,7 @@ protected:
   WilsonMatrix** wmat;
   const char *cname;
 public:
-  SpinColorFlavorMatrix(PropagatorContainer &from, Lattice &lattice, const int &site): wmat(NULL), cname("SpinColorFlavorMatrix"){
+  SpinColorFlavorMatrix(QPropWcontainer &from, Lattice &lattice, const int &site): wmat(NULL), cname("SpinColorFlavorMatrix"){
     generate(from,lattice,site);
   }
   SpinColorFlavorMatrix(): cname("SpinColorFlavorMatrix"){
@@ -43,7 +43,7 @@ public:
 	wmat[i][j] = rhs;
   }
 
-  void generate(PropagatorContainer &from_f0, PropagatorContainer &from_f1, Lattice &lattice, const int &site){
+  void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site){
     if(wmat!=NULL) free();
     wmat = new WilsonMatrix* [2];
     wmat[0] = new WilsonMatrix[2];
@@ -55,7 +55,7 @@ public:
     wmat[1][1] = from_f1.getProp(lattice).SiteMatrix(site,1);
   }
 
-  void generate(PropagatorContainer &from, Lattice &lattice, const int &site){
+  void generate(QPropWcontainer &from, Lattice &lattice, const int &site){
     const char* fname = "generate(PropagatorContainer &from, const int &site)";
     
     if(!GJP.Gparity()){
@@ -70,9 +70,9 @@ public:
     }else{
       GparityOtherFlavPropAttrArg* otherfarg; //if a propagator with the same properties but the other flavor exists then use both to generate the matrix
       if(from.getAttr(otherfarg)){
-	PropagatorContainer &otherfprop = PropManager::getProp(otherfarg->tag);
+	QPropWcontainer &otherfprop = PropManager::getProp(otherfarg->tag).convert<QPropWcontainer>();
 	if(otherfprop.flavor() == from.flavor()) ERR.General(cname,fname,"Found a propagator %s with supposedly the other flavor to propagator %s, but in fact the flavors are identical!",otherfarg->tag,from.tag());
-	PropagatorContainer *f0prop; PropagatorContainer *f1prop;
+	QPropWcontainer *f0prop; QPropWcontainer *f1prop;
 	if(from.flavor() == 0){ f0prop = &from; f1prop = &otherfprop; }
 	else { f1prop = &from; f0prop = &otherfprop; }
 	
@@ -406,6 +406,23 @@ public:
   const WilsonMatrix &operator()(int f1,int f2) const{
     return wmat[f1][f2];
   }
+  SpinColorFlavorMatrix& LeftTimesEqual(const SpinColorFlavorMatrix& lhs){
+    SpinColorFlavorMatrix tmp(*this);
+    for(int f1=0;f1<2;f1++) for(int f2=0;f2<2;f2++){
+	wmat[f1][f2] = 0.0;
+	for(int f3=0;f3<2;f3++) wmat[f1][f2] += lhs.wmat[f1][f3]*tmp.wmat[f3][f2];
+    }
+    return *this;
+  }
+  SpinColorFlavorMatrix& LeftTimesEqual(const WilsonMatrix& lhs){
+    for(int f1=0;f1<2;f1++) for(int f2=0;f2<2;f2++) wmat[f1][f2].LeftTimesEqual(lhs);
+    return *this;
+  }
+  SpinColorFlavorMatrix& LeftTimesEqual(const Matrix& lhs){
+    for(int f1=0;f1<2;f1++) for(int f2=0;f2<2;f2++) wmat[f1][f2].LeftTimesEqual(lhs);
+    return *this;
+  }
+
 };
 
 Rcomplex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);

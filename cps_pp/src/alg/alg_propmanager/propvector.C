@@ -33,7 +33,7 @@ const int &PropVector::size() const{ return sz; }
 
 PropagatorContainer & PropVector::addProp(PropagatorArg &arg){
   if(sz==MAX_SIZE){ ERR.General("PropVector","addProp(PropagatorArg &arg)","Reached maximum number of allowed propagators: %d\n",MAX_SIZE); }
-  PropagatorContainer* p = new PropagatorContainer;
+  PropagatorContainer* p = PropagatorContainer::create(arg.generics.type);
   p->setup(arg);
   props[sz++] = p;
   return *p;

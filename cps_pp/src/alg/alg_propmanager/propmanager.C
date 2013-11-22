@@ -41,7 +41,7 @@ void PropManager::setup(JobPropagatorArgs &prop_args){
     addProp(prop_args.props.props_val[i]);
   }
   //after all props are loaded in, the attributes of props that combine other props are copied over
-  for(int i=0;i<props.size();i++) props[i].propCombSetupAttrib();
+  for(int i=0;i<props.size();i++) if(props[i].type() == QPROPW_TYPE) props[i].convert<QPropWcontainer>().propCombSetupAttrib();
 }
 
 void PropManager::startNewTraj(){

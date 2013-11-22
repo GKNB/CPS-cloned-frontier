@@ -115,6 +115,10 @@
 #include <util/time_cps.h>
 #include <util/lattice/fforce_wilson_type.h>
 
+#include <alg/prop_dft.h>
+
+#include <string>
+
 #include<omp.h>
 
 #ifdef HAVE_BFM
@@ -252,8 +256,8 @@ void setup_bfmargs(bfmarg &dwfa, const BfmSolver &solver = DWF){
   dwfa.M5   = toDouble(GJP.DwfHeight());
   dwfa.mass = toDouble(0.5);
   dwfa.Csw  = 0.0;
-  dwfa.max_iter = 5000;
-  dwfa.residual = 1e-08;
+  dwfa.max_iter = 6000;
+  dwfa.residual = 1e-10;
   printf("Finished setting up bfmargs\n");
 }
 
@@ -286,10 +290,10 @@ void lanczos_arg(LancArg &into, const bool &precon){
   into.fname = "Lanczos";
 }
 
-void a2a_arg(A2AArg &into, const int &flavor_dilution = 0){
-  into.nl = 8;
+void a2a_arg(A2AArg &into, const int &flavor_dilution = 0, const RandomType &rand_type = UONE, const int &nl= 8){
+  into.nl = nl;
   into.nhits = 1;
-  into.rand_type = UONE;
+  into.rand_type = rand_type;
   into.src_width = 1;
   into.dilute_flavor = flavor_dilution;
 }
@@ -374,9 +378,9 @@ CPS_START_NAMESPACE
 class A2APropbfmTesting{
 public:
   //Lanczos should be precomputed. prop pointer will be assigned to an a2a propagator
-  static void a2a_prop_gen(A2APropbfm* &prop, GwilsonFdwf* lattice, Lanczos_5d<double> &eig, const int &dilute_flavor = 0){
+  static void a2a_prop_gen(A2APropbfm* &prop, Lattice* lattice, Lanczos_5d<double> &eig, const int &dilute_flavor = 0, const RandomType &rand_type = UONE, const int &nl= 8){
     A2AArg arg;
-    a2a_arg(arg,dilute_flavor);
+    a2a_arg(arg,dilute_flavor,rand_type,nl);
   
     bfm_evo<double> &dwf = eig.dop;
 
@@ -845,12 +849,1023 @@ public:
   }
 
 
+#define SETUP_ARRAY(OBJ,ARRAYNAME,TYPE,SIZE)	\
+  OBJ . ARRAYNAME . ARRAYNAME##_len = SIZE; \
+  OBJ . ARRAYNAME . ARRAYNAME##_val = new TYPE [SIZE]
 
-  static void wallsource_amplitude_2f(MesonField2 &mf2_2f){
+#define ELEM(OBJ,ARRAYNAME,IDX) OBJ . ARRAYNAME . ARRAYNAME##_val[IDX]
+
+  static void global_coord(const int &site, int *into_vec){
+    int rem = site;
+    for(int i=0;i<4;i++){
+      into_vec[i] = rem % GJP.NodeSites(i) + GJP.NodeCoor(i)*GJP.NodeSites(i);
+      rem /= GJP.NodeSites(i);
+    }
+  }
+
+  inline static bool ratio_diff_match(const Float &a, const Float &b, const Float &tolerance){
+    Float rat = a/b;
+    if(rat < 0.0) return false; //opposite signs
+    else return fabs(rat-1.0) <= tolerance;
+  }
+
+  static void wallsource_amplitude_nogparity(Lattice &lattice, Lanczos_5d<double> &eig){
+    //Use a MesonField2 object with flavor dilution and NORAND high modes for this comparison
+    //Source type must be a box source filling the entire lattice 3-volume
+    //Compare to traditional wall source contraction
+
+    // With zero low modes,    w_a^i(x) = \delta_a^{i}   \forall x   where i runs from 0 to 11
+
+    // \sum_i w_a^i(x) [w_b^i(y)]*  =  \sum_{ij} w_a^i(x) \delta_{ij} [w_b^j(y)]*
+    //                              =  \delta_a^{i}  \delta_{ij}  \delta_b^{j}
+    //                              =  \delta_{ab}
+
+    // for all x,y.
+
+    // v_a^i(x) = \sum_y D^{-1}_{ab}(x,y) w_b^i(y) = \sum_y D^{-1}_{ai}(x,y)
+
+    // which is just a wall source propagator.
+
+    // \sum_i v_a^i(x) [w_b^i(y)]* = \sum_y D^{-1}_{ai}(x,y)\delta_b^{i} = \sum_y D^{-1}_{ab}(x,y)
+
+    // is also a wall source propagator.
+
+    // Using   \sum_i v_a^i(x) [w_b^i(y)]* = \sum_y D^{-1}_{ai}(x,y)\delta_b^{i} = \sum_y D^{-1}_{ab}(x,y)   we calculate a generic meson correlation function:
+
+    // \sum_{x,x'}\sum_{y,y'} f(|x-x'|) D^{-1}_{ab}(x,y) M_{bc} f(|y-y'|) D^{-1}_{cd}(y',x') M_{da}
+    // =
+    // \sum_{x,x'}\sum_{y,y'} f(|x-x'|) [\sum_i v_a^i(x) [w_b^i(y)]* ]  M_{bc} f(|y-y'|)  [\sum_j v_c^j(y') [w_d^j(x')]* ] M_{da}
+    // =
+    // \sum_{ij} \sum_{x,x'}\sum_{y,y'} [ f(|x-x'|) [w_d^j(x')]* M_{da} v_a^i(x)  ]    [ f(|y-y'|) [w_b^i(y)]* M_{bc} v_c^j(y')  ]
+
+    // then use
+
+    // \sum_{x,x'} [ f(|x-x'|) [w_d^j(x')]* M_{da} v_a^i(x)  ]
+    // =
+    // \sum_{x,x',z} [ f(|z|)\delta(z-x'+x) [w_d^j(x')]* M_{da} v_a^i(x)  ]
+    // =
+
+    // \sum_p [ \sum_z f(|z|) e^{ipz} ] [\sum_x' e^{ipx'} w_d^j(x')]* M_{da}  [\sum_x v_a^i(x) e^{ipx} ]
+
+    //Gauge fix lattice if not done already
+    CommonArg c_arg;
+    FixGaugeArg gfix_arg;
+    setup_gfix_args(gfix_arg);
+    AlgFixGauge fix_gauge(lattice,&c_arg,&gfix_arg);
+    bool free_gfix(false);
+    if(lattice.FixGaugeKind()==FIX_GAUGE_NONE){
+      fix_gauge.run();
+      free_gfix = true; //will be freed at end of method
+    }
+   
+    bool test_with_gauge_fixing = true;
+
+    int neig =0;
+
+    //Generate the a2a prop
+    A2APropbfm* prop_f;
+    A2APropbfmTesting::a2a_prop_gen(prop_f, &lattice, eig, 1,NORAND,neig);
+    if(!test_with_gauge_fixing) prop_f->do_gauge_fix(false);
+
+    printf("Wall source prop with %d eigenvectors\n",prop_f->get_args().nl);
+
+    {
+      //Check wh is just a wall source on each time-slice
+      //wh_offset = wh_id * nodesites + (x + Lx*(y+Ly*(z+Lz*t)))    (wh_id is a hit index)
+      Float* wh = (Float*) prop_f->get_wh();
+      bool fail(false);
+      for(int i=0;i<GJP.VolNodeSites();i++){
+	if( wh[2*i]!=1.0 || wh[2*i+1]!=0.0 ){ printf("Wh check fail site %d: %.14e %.14e\n",i,wh[2*i], wh[2*i+1]);  fail=true; }
+      }
+      if(fail){ printf("Wh check failed\n"); exit(-1); }
+      else printf("Wh check passed\n"); 
+    }
+
+
+    //Calculate mesonfield with wall source, i.e. box source of size L^3
+    MFqdpMatrix structure_wdagv(MFstructure::W, MFstructure::V, true, false,15); //gamma^5 spin
+    MFBasicSource source(MFBasicSource::BoxSource,GJP.Xnodes()*GJP.XnodeSites());
     
+    {
+      //Check source structure is a delta function p=0 (Fourier transform of a uniform wall source)
+      bool fail(false);
+      for(int i=0;i<GJP.Xnodes()*GJP.XnodeSites()*GJP.Ynodes()*GJP.YnodeSites()*GJP.Znodes()*GJP.ZnodeSites();i++){
+	std::complex<Float> val = source(i);	
+	if(i==0 && (val.real()!=1.0 || val.imag()!=0.0)){ printf("Source failed %d : %.14e %.14e expected 1,0\n",i,val.real(),val.imag()); fail=true; }
+	else if(i!=0 && (val.real()!=0.0 || val.imag()!=0.0)){ printf("Source failed %d : %.14e %.14e expected 0,0\n",i,val.real(),val.imag()); fail=true; }
+      }
+      if(fail){ printf("Source check failed\n"); exit(-1); }
+      else printf("Source check passed\n");
+    }
+
+    MesonField2 mf(*prop_f,*prop_f, structure_wdagv, source);
+
+    //Calculate correlation function
+    CorrelationFunction corr_a2a("",1, CorrelationFunction::THREADED);
+
+    int tsrc_con = 0;
+    MesonField2::contract_specify_tsrc(mf,mf,0, tsrc_con, corr_a2a);
+    corr_a2a.sumThreads();
+
+    //Generate wall source propagators (yeah I know it should be a momentum source, but for this comparison with a single translationally non-invariant lattice it should not matter)
+    PropManager::clear();
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    JobPropagatorArgs prop_args;
+    SETUP_ARRAY(prop_args,props,PropagatorArg,Lt);
+
+    std::string prop_names_srct[Lt];
+
+    for(int t=0;t<Lt;t++){
+      PropagatorArg &parg = prop_args.props.props_val[t];
+    
+      std::ostringstream os; os << "prop_"<<t;
+      prop_names_srct[t] = os.str();
+
+      parg.generics.tag = const_cast<char*>(prop_names_srct[t].c_str());
+      parg.generics.type = QPROPW_TYPE;
+      parg.generics.mass = 0.01; //needs to be the same as the mass in the a2a_arg function!
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+
+      //int sz = test_with_gauge_fixing ? 3 : 2;
+      int sz = 2;
+
+      SETUP_ARRAY(parg,attributes,AttributeContainer,sz);
+      
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = t;
+
+      ELEM(parg,attributes,1).type = CG_ATTR;
+      CGAttrArg &cgattr = ELEM(parg,attributes,1).AttributeContainer_u.cg_attr;
+      cgattr.max_num_iter = 6000;
+      cgattr.stop_rsd = 1e-10;
+      cgattr.true_rsd = 1e-10;
+      
+      //In A2A the v vector is D^{-1} w  where w does not contain the gauge fixing matrices. Only after v is calculated are the gauge fixing matrices applied to w (after it is spin-color diluted)
+      //and the intrinsic delta function in space ensures the meson field w*v is gauge invariant
+      
+      // if(test_with_gauge_fixing){
+      // 	ELEM(parg,attributes,2).type = GAUGE_FIX_ATTR;
+      // 	GaugeFixAttrArg &gfattr = ELEM(parg,attributes,2).AttributeContainer_u.gauge_fix_attr;
+      // 	gfattr.gauge_fix_src = 1;
+      // 	gfattr.gauge_fix_snk = 0;
+      // }
+    }
+
+    PropManager::setup(prop_args);   
+    PropManager::calcProps(lattice);
 
 
 
+    for(int tsrc=0;tsrc<Lt;tsrc++){
+      //Check propagators match. We have set up v and w such that v are just wall source propagators
+      //There should be  Lt * 12 vectors. We want to pick out the one originating from timeslice tsrc
+      //Mapping is
+      //i-a2a.nl = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id)
+      //where a2a.nl=0 here,  src_width=1  and nhits=1
+      QPropWcontainer &pcon = PropManager::getProp(prop_names_srct[tsrc].c_str()).convert<QPropWcontainer>();
+
+      bool fail = false;
+      for(int x=0;x<GJP.VolNodeSites();++x){
+	WilsonMatrix & qpw_site = pcon.getProp(lattice).SiteMatrix(x);
+
+	for(int sc_id=0;sc_id<12;sc_id++){
+	  int scol=sc_id/3;
+	  int ccol=sc_id%3;
+
+	  int i = sc_id + 12*tsrc;
+	  Float* v_i = (Float*)prop_f->get_v(i) + 24*x;
+	
+	  //Here sc_id is the column spin-color index
+	  for(int rowidx=0;rowidx<12;rowidx++){
+	    int srow = rowidx/3;
+	    int crow = rowidx %3;
+	    Float* qpw_cmp = (Float*)& qpw_site(srow,crow,scol,ccol);
+	    for(int reim=0;reim<2;reim++){
+	      Float qpw_val = qpw_cmp[reim];
+	      Float v_val = v_i[reim + 2*rowidx];
+	    
+	      //NOTE THERE IS A NORMALIZATION DIFFERENCE! QPW = (5-M5) A2A for DWF
+	      qpw_val/= 3.2;
+
+	      if( !ratio_diff_match(qpw_val,v_val,1e-3) ){
+		printf("Wall source tsrc %d v and qpropw test fail x=%d sc_col=%d sc_row=%d reim=%d: %.14e %.14e, ratio %.14e\n",tsrc,x,sc_id,rowidx,reim,qpw_val,v_val,qpw_val/v_val);
+		fail=true;
+	      }
+	    }
+	  }
+	}
+      }
+      if(fail){
+	printf("Wall source tsrc %d v and qpropw test failed\n",tsrc); exit(-1);
+      }else printf("Wall source tsrc %d v and qpropw test passed\n",tsrc);    
+    }
+
+    std::vector<Float> mom(3,0.0);
+    FourierProp<WilsonMatrix> ftprop_calc;
+    ftprop_calc.add_momentum(mom);
+    if(!test_with_gauge_fixing) ftprop_calc.gaugeFixSink(false);
+
+    std::vector<WilsonMatrix> ftprop_srct[Lt];
+
+    for(int t=0;t<Lt;t++)
+      ftprop_srct[t] = ftprop_calc.getFTProp(lattice,mom,prop_names_srct[t].c_str());
+
+    if(!prop_f->fft_vw_computed()){ printf("FFTW vectors have not been computed, why?\n"); exit(-1); }
+  
+    {
+      //Independently calculate zero momentum FTprop and confirm FourierProp result
+      WilsonMatrix p0propft[Lt][Lt]; //src, snk
+      for(int tsrc = 0; tsrc <Lt; tsrc++) for(int tsnk=0;tsnk<Lt;tsnk++) p0propft[tsrc][tsnk] = 0.0;
+
+      for(int tsrc = 0; tsrc <Lt; tsrc++){
+	for(int x=0;x<GJP.VolNodeSites();x++){
+	  int tsnk = x/(GJP.VolNodeSites()/GJP.TnodeSites()) + GJP.TnodeSites()*GJP.TnodeCoor();
+	  
+	  WilsonMatrix site = PropManager::getProp(prop_names_srct[tsrc].c_str()).convert<QPropWcontainer>().getProp(lattice).SiteMatrix(x);
+	  if(test_with_gauge_fixing) site.LeftTimesEqual(*lattice.FixGaugeMatrix(x));
+
+	  p0propft[tsrc][tsnk] += site;
+	}
+      }
+      for(int tsrc = 0; tsrc <Lt; tsrc++) 
+	for(int tsnk=0;tsnk<Lt;tsnk++){
+	  Float* w = (Float*)p0propft[tsrc][tsnk].ptr(); //returns Rcomplex*
+	  static const int size = 2*12*12;
+	  slice_sum(w, size, 99);
+	}
+
+      for(int tsrc=0;tsrc<Lt;tsrc++){
+	bool fail = false;
+
+	for(int tsnk=0;tsnk<Lt;tsnk++){
+	  for(int sc_id=0;sc_id<12;sc_id++){
+	    int scol=sc_id/3;
+	    int ccol=sc_id%3;
+
+	    //Here sc_id is the column spin-color index
+	    for(int rowidx=0;rowidx<12;rowidx++){
+	      int srow = rowidx/3;
+	      int crow = rowidx %3;
+
+	      Float* manualgf_ft = (Float*)pmalloc( 2 *sizeof(Float) );
+	      for(int p=0;p<2;++p) manualgf_ft[p] = 0.0;
+
+	      for(int x=0;x<GJP.VolNodeSites();x++){
+		WilsonMatrix site = PropManager::getProp(prop_names_srct[tsrc].c_str()).convert<QPropWcontainer>().getProp(lattice).SiteMatrix(x);
+		int t_glb = x/(GJP.VolNodeSites()/GJP.TnodeSites()) + GJP.TnodeCoor()*GJP.TnodeSites();
+		if(t_glb!=tsnk) continue;
+
+		if(test_with_gauge_fixing) site.LeftTimesEqual(*lattice.FixGaugeMatrix(x));
+		
+		manualgf_ft[0] += site(srow,crow,scol,ccol).real();
+		manualgf_ft[1] += site(srow,crow,scol,ccol).imag();
+	      }
+	      slice_sum(manualgf_ft, 2*Lt, 99);
+
+	      Float* qpw_cmp = (Float*)& ftprop_srct[tsrc][tsnk](srow,crow,scol,ccol);
+	      Float* p0manual_cmp = (Float*)& p0propft[tsrc][tsnk](srow,crow,scol,ccol);
+
+	      for(int reim=0;reim<2;reim++){
+		Float qpw_val = qpw_cmp[reim];
+		Float v_val = p0manual_cmp[reim];
+		Float manual_val = manualgf_ft[reim];
+
+		if( fabs(qpw_val-v_val) > 1e-12 ){
+		  printf("FFT propw and manually computed p0 tsrc %d test fail tsnk=%d sc_col=%d sc_row=%d reim=%d: qpw %.14e manual %.14e, ratio %.14e\n",tsrc,tsnk,sc_id,rowidx,reim,qpw_val,v_val,qpw_val/v_val);
+		  fail=true;
+		}else if( fabs(qpw_val-manual_val)>1e-12 ){
+		  printf("FFT propw and manually computed p0 tsrc %d component sum test fail tsnk=%d sc_col=%d sc_row=%d reim=%d: qpw %.14e manual %.14e, ratio %.14e\n",tsrc,tsnk,sc_id,rowidx,reim,qpw_val,manual_val,qpw_val/manual_val);
+		  fail=true;
+		}
+	      }
+	    }
+	  }
+	}
+      
+	if(fail){
+	  printf("FFT propw and manually computed p0 tsrc %d test failed\n",tsrc); exit(-1);
+	}else printf("FFT propw and manually computed p0 tsrc %d test passed\n",tsrc);   
+      }
+    }
+  
+    if(test_with_gauge_fixing){
+      //Test A2A prop gauge fixing
+      for(int tsrc=0;tsrc<Lt;tsrc++){
+	for(int src_sc = 0; src_sc < 12 ; src_sc ++){
+	  Float* a2agf = (Float*)pmalloc( 24*GJP.VolNodeSites() *sizeof(Float) );
+	  Float* manualgf = (Float*)pmalloc( 24*GJP.VolNodeSites() *sizeof(Float) );
+	  Float* ungf = (Float*)pmalloc( 24*GJP.VolNodeSites() *sizeof(Float) );
+	  Float* ungf_ft = (Float*)pmalloc( 24*Lt *sizeof(Float) );
+	  Float* manualgf_ft = (Float*)pmalloc( 24*Lt *sizeof(Float) );
+	  for(int p=0;p<24*Lt;++p){
+	    ungf_ft[p] = 0.0;
+	    manualgf_ft[p] = 0.0;
+	  }
+	  
+	  for(int x=0;x<GJP.VolNodeSites();x++){
+	    WilsonMatrix site = PropManager::getProp(prop_names_srct[tsrc].c_str()).convert<QPropWcontainer>().getProp(lattice).SiteMatrix(x);
+
+	    int t_glb = x/(GJP.VolNodeSites()/GJP.TnodeSites()) + GJP.TnodeCoor()*GJP.TnodeSites();
+
+	    for(int snk_sc=0;snk_sc<12;snk_sc++){
+	      int off = 24*x + 2*snk_sc;
+	      *((Rcomplex*)(ungf+off)) = site(snk_sc/3,snk_sc%3, src_sc/3, src_sc%3);
+
+	      ungf_ft[24*t_glb + 2*snk_sc] +=  ungf[off];
+	      ungf_ft[24*t_glb + 2*snk_sc+1] +=  ungf[off+1];
+	    }
+	    int off = 24*x;
+	    memcpy( (void*)(manualgf+off), (void*)(ungf+off), 24*sizeof(Float));
+	    memcpy( (void*)(a2agf+off), (void*)(ungf+off), 24*sizeof(Float));
+	    
+	    const Matrix &V = *lattice.FixGaugeMatrix(x);
+	    for(int s=0;s<4;s++){
+	      Vector tmp = *((Vector*)(manualgf+off) + s);
+	      ((Vector*)(manualgf+off) + s)->DotXEqual(V,tmp);
+	    }
+
+	    //IS THIS SOMEHOW DIFFERING FROM THE WILSON MATRIX MULTIPLY????? Yes it does appear so.... why??? OK. so it was a bug in WilsonMatrix that has been fixed in the latest CPS but clearly not in this version!
+	    bool fail=false;
+	    WilsonMatrix site_copy(site);
+
+	    site_copy.LeftTimesEqual(V); //this one looks right! Check the other one
+	    
+	    Float * dotxeq_check_out = (Float*)pmalloc( 24 * sizeof(Float) );
+	    Float * dotxeq_check_in = (Float*)pmalloc( 24 * sizeof(Float) );
+	    memcpy( (void*)dotxeq_check_in, (void*)(ungf+off), 24*sizeof(Float));
+	    for(int ii=0;ii<24;ii++) dotxeq_check_out[ii] = 0.0;
+
+	    for(int s_i=0;s_i<4;s_i++){
+	      Rcomplex* out_si = (Rcomplex*)(dotxeq_check_out + 6*s_i);
+	      Rcomplex* in_si = (Rcomplex*)(dotxeq_check_in + 6*s_i);
+	      for(int ii=0;ii<3;ii++){
+		for(int jj=0;jj<3;jj++){
+		  out_si[ii] += V(ii, jj) * in_si[jj];
+		}
+	      }
+	    }
+	    
+	    for(int s=0;s<4;s++){
+	      Vector *mgf = (Vector*)(manualgf+off) + s;
+	      Vector *dotxcheck_s = (Vector*)dotxeq_check_out + s;
+	      Vector wmm;
+	      Float* wmmf = (Float*)&wmm;
+	      for(int c=0;c<3;c++){
+		wmmf[2*c] = site_copy(s,c,src_sc/3,src_sc%3).real();
+		wmmf[2*c+1] = site_copy(s,c,src_sc/3,src_sc%3).imag();
+	      }
+	      for(int ss=0;ss<6;ss++){
+		Float mf_v = *( (Float*)mgf + ss );
+		Float wmm_v = *( wmmf + ss );
+		Float dotxcheck_v = *( (Float*)dotxcheck_s + ss );
+
+		if( fabs(mf_v-wmm_v) > 1e-12 ){ printf("GF matrix multiply check failed tsrc=%d src_sc=%d x=%d sink spin=%d col_reim_idx=%d: WMM %.14e  VM %.14e, ratio %.14e, dotXcheck %.14e\n",tsrc,src_sc,x,s,ss,wmm_v,mf_v,wmm_v/mf_v,dotxcheck_v); fail=true; }
+	      }
+	    }
+	    if(fail){ printf("GF matrix multiply check failed\n"); exit(-1); }
+
+	    for(int snk_sc=0;snk_sc<12;snk_sc++){
+	      for(int reim=0;reim<2;reim++){
+		int off2 = reim + 2*snk_sc + 24*x;
+		manualgf_ft[24*t_glb + 2*snk_sc + reim] += manualgf[off2];
+		
+		printf("x=%d tsrc=%d src_sc=%d snk_sc=%d reim=%d gauge fixed vs not gauge-fixed: %.14e  %.14e\n",x,tsrc,src_sc,snk_sc,reim,ungf[off2],manualgf[off2]);
+	      }
+	    }
+	  }
+	  Float* tmp = (Float*)pmalloc( 24*GJP.VolNodeSites() *sizeof(Float) );
+	  memcpy((void*)tmp,(void*)a2agf, 24*GJP.VolNodeSites() *sizeof(Float));
+
+	  prop_f->gf_vec(  (Vector*)a2agf,  (Vector*)tmp );
+
+	  bool fail=false;
+	  for(int x=0;x<24*GJP.VolNodeSites();x++){
+	    if(fabs(a2agf[x]-manualgf[x])>1e-12){ printf("A2A manual prop gfix test fail i=%d: got %.14e expect %.14e\n",x,a2agf[x],manualgf[x]); fail=true; }
+	  }
+	  if(fail){ printf("A2A manual prop gfix test fail\n"); exit(-1); }
+	  else printf("A2A manual prop gfix test pass\n");
+
+	  //Try using A2APropbfm FFT code to get p=0 FTprop and compare to FTprop calculated above
+	  fftw_init_threads();
+	  fftw_plan_with_nthreads(bfmarg::threads);
+	  const int fft_dim[3] = { GJP.ZnodeSites() * GJP.Znodes(),
+				   GJP.YnodeSites() * GJP.Ynodes(),
+				   GJP.XnodeSites() * GJP.Xnodes()};
+	  const int t_size = GJP.TnodeSites()*GJP.Tnodes();
+	  const int size_4d = GJP.VolNodeSites();
+	  const int size_3d_glb = fft_dim[0]*fft_dim[1]*fft_dim[2];
+	  const int sc_size = 12;
+
+	  int fftw_alloc_sz = size_3d_glb * t_size * sc_size;
+	  fftw_complex *fft_mem = fftw_alloc_complex(fftw_alloc_sz);
+
+	  prop_f->fft_vector( (Vector*)ungf, (Vector*) ungf, fft_dim, fft_mem);
+
+	  prop_f->do_gauge_fix(false);
+	  prop_f->fft_vector( (Vector*)manualgf, (Vector*) manualgf, fft_dim, fft_mem);
+	  prop_f->do_gauge_fix(true);
+
+	  fftw_free(fft_mem);
+	  fftw_cleanup();
+	  fftw_cleanup_threads();
+
+	  if(GJP.XnodeCoor()==0 && GJP.YnodeCoor()==0 && GJP.ZnodeCoor()==0){ 	    //we want p=0
+	    bool fail = false;
+	    for(int tsnk=0; tsnk<Lt;tsnk++){
+	      if(tsnk < GJP.TnodeCoor()*GJP.TnodeSites() || tsnk >= (GJP.TnodeCoor()+1)*GJP.TnodeSites() ) continue;
+	      int tsnk_loc = tsnk - GJP.TnodeCoor()*GJP.TnodeSites();
+	    
+	      for(int snk_sc=0;snk_sc<12;snk_sc++){
+		Float *a2a_val = ungf + 2*snk_sc + 24*GJP.VolNodeSites()/GJP.TnodeSites()*tsnk_loc;
+		Float *qpw_val = (Float*)&ftprop_srct[tsrc][tsnk](snk_sc/3,snk_sc%3, src_sc/3, src_sc%3);
+		Float *pregf_val = manualgf + 2*snk_sc + 24*GJP.VolNodeSites()/GJP.TnodeSites()*tsnk_loc;
+		Float* mangf_val = manualgf_ft + 2*snk_sc + 24*tsnk;
+
+		for(int reim=0;reim<2;reim++){
+		  if( fabs(a2a_val[reim]-qpw_val[reim]) > 1e-07){ printf("FFTprop p=0 ftprop comp test fail tsrc=%d tsnk=%d sc_src=%d sc_snk=%d reim=%d: expect %.14e got %.14e   ratio %.14e  (FFT pre-gf version %.14e  manual FT gf version %.14e)\n",tsrc,tsnk,src_sc,snk_sc,reim,qpw_val[reim], a2a_val[reim], qpw_val[reim]/a2a_val[reim], pregf_val[reim], mangf_val[reim] ); fail=true; }
+
+		}
+		
+	      }
+	    }
+	    if(fail){ printf("FFTprop p=0 ftprop comp test fail\n"); exit(-1); }
+	    else printf("FFTprop p=0 ftprop comp test passed\n");
+	  }
+
+	}
+      }
+    }
+
+    //Check FT props at p=0 agree
+    for(int tsrc=0;tsrc<Lt;tsrc++){
+      bool fail = false;
+
+      for(int tsnk=0;tsnk<Lt;tsnk++){
+	if( tsnk < GJP.TnodeCoor()*GJP.TnodeSites() || tsnk >= (GJP.TnodeCoor()+1)*GJP.TnodeSites() ) continue; //fftw vecs are redistributed locally after fft
+
+	for(int sc_id=0;sc_id<12;sc_id++){
+	  int scol=sc_id/3;
+	  int ccol=sc_id%3;
+
+	  int i = sc_id + 12*tsrc;
+	  Float* v_i = (Float*)prop_f->get_v_fftw(i) + 24*GJP.VolNodeSites()/GJP.TnodeSites()*tsnk ; //p=0 at offset 0 spatial coord and t temporal
+	
+	  //Here sc_id is the column spin-color index
+	  for(int rowidx=0;rowidx<12;rowidx++){
+	    int srow = rowidx/3;
+	    int crow = rowidx %3;
+	    Float* qpw_cmp = (Float*)& ftprop_srct[tsrc][tsnk](srow,crow,scol,ccol);
+	    for(int reim=0;reim<2;reim++){
+	      Float qpw_val = qpw_cmp[reim];
+	      Float v_val = v_i[reim + 2*rowidx];
+	    
+	      //NOTE THERE IS A NORMALIZATION DIFFERENCE! QPW = (5-M5) A2A for DWF
+	      qpw_val/= 3.2;
+
+	      if( !ratio_diff_match(qpw_val,v_val,1e-3) && fabs(qpw_val-v_val) > 1e-7 ){ //latter because we don't expect elements to be accurate to much more than 1e-07
+		printf("FFTW v and qpropw tsrc %d test fail tsnk=%d sc_col=%d sc_row=%d reim=%d: qpw %.14e a2a %.14e, ratio %.14e\n",tsrc,tsnk,sc_id,rowidx,reim,qpw_val,v_val,qpw_val/v_val);
+		fail=true;
+	      }
+	    }
+	  }
+	}
+      }
+      
+      if(fail){
+	printf("FFTW v and qpropw tsrc %d test failed\n",tsrc); exit(-1);
+      }else printf("FFTW v and qpropw tsrc %d test passed\n",tsrc);   
+    }
+
+    int Vglob = 1;
+    for(int i=0;i<3;i++) Vglob*= GJP.Nodes(i)*GJP.NodeSites(i);
+
+    WilsonMatrix FTw[Lt];
+    for(int t=0;t<Lt;t++) FTw[t] = 0.0;
+    WilsonMatrix _one(0.0);
+    for(int i=0;i<12;i++) _one(i/3,i%3, i/3, i%3) = std::complex<Float>(1.0,0.0);
+    
+    //If gauge fixing we need the FT of w (zero mom) for comparison
+    for(int t=0;t<GJP.TnodeSites();t++){
+      int t_glb = GJP.TnodeCoor()*GJP.TnodeSites() + t;
+      for(int x3d=0;x3d<GJP.VolNodeSites()/GJP.TnodeSites();x3d++){
+	int x4d = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
+	const Matrix &V =  *lattice.FixGaugeMatrix(x4d);
+	WilsonMatrix tmp(_one);
+	tmp.LeftTimesEqual(V);
+
+	FTw[t_glb] += tmp;
+      }
+    }
+    slice_sum( (Float*)&FTw, 12*12*2*Lt, 99);
+    {
+      //Check FFT w field is  (no gauge fixing)  w_a^i = \sum_x e^{ipx} \delta_a^i = Vol3d \delta(p) \delta_a^i
+      //                                               = \sum_x e^{ipx} V_ab(x,t) \delta_b^i 
+
+      bool fail=false;
+      for(int i=0;i<12;i++){
+	Float* wh_fftw = (Float*)prop_f->get_wh_fftw() + 24*GJP.VolNodeSites()*i;
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  for(int p=0;p<GJP.VolNodeSites()/GJP.TnodeSites();p++){
+	    int t_glb = GJP.TnodeCoor()*GJP.TnodeSites() + t;
+	    
+	    int p_glb[3]; int rem=p;
+	    for(int i=0;i<3;i++){ 
+	      p_glb[i] = rem % GJP.NodeSites(i) + GJP.NodeCoor(i)*GJP.NodeSites(i); rem/=GJP.NodeSites(i); 
+	    }
+
+	    for(int sc=0;sc<12;sc++){
+	      for(int reim=0;reim<2;reim++){
+		Float* val = wh_fftw + reim + 2*sc + 24*( p+ GJP.VolNodeSites()/GJP.TnodeSites()*t );
+
+		if(!test_with_gauge_fixing){
+		  if( p_glb[0]==0 && p_glb[1]==0 && p_glb[2]==0 && sc ==i && reim==0 && *val != Vglob ){ printf("w fail at p=0 on t=%d, i=%d sc=%d: expect 1.0 got %.14e\n",t_glb,i,sc,*val); fail=true; }
+		  else if( !(p_glb[0]==0 && p_glb[1]==0 && p_glb[2]==0 && sc ==i && reim==0) && *val != 0.0 ){ printf("w fail at p=0 on t=%d, i=%d sc=%d: expect 0.0 got %.14e\n",t_glb,i,sc,*val); fail=true; }
+		}else{
+		  //Just do p=0 part
+		  if( p_glb[0]==0 && p_glb[1]==0 && p_glb[2]==0){
+		    Float expect = ((Float*)&(FTw[t_glb](sc/3,sc%3, i/3,i%3)))[reim];
+		    
+		    if( fabs(*val - expect)>1e-7 ){ printf("w fail at p=0 on t=%d, i=%d sc=%d: expect %.14e got %.14e\n",t_glb,i,sc,expect,*val); fail=true; }
+		  }
+		}
+
+	      }
+	    }
+
+	  }
+	}
+      }
+      if(fail){ printf("w fail\n"); exit(-1); }
+      else printf("w pass\n");
+    }
+
+      //Meson field is (no gauge fixing)
+      //M^{ij}(t;t') = \sum_{p} \delta(p) [\sum_x e^{-ipx}[w_a^i(x,t)]* ] \gamma^5_{ab} [\sum_y e^{ipy} v_b^j(y,t; t')]   (wall source is zero momentum delta function - tested above)
+      //Here i and j both run from 0..11 and the diluted source time-slice is t'
+      //          = [\sum_x \delta_a^i] \gamma^5_{ab}  \sum_y v_b^j(y,t; t')
+      //          = [\sum_x \delta_a^i] \gamma^5_{ab}  \sum_{y,y'}  D^{-1}_{bc}(y,t; y',t') w_c^i(y',t')
+      //          = [\sum_x \delta_a^i] \gamma^5_{ab}  \sum_{y,y'}  D^{-1}_{bc}(y,t; y',t') \delta_c^j
+      //          = V \gamma^5_{ib}  \sum_{y,y'}  D^{-1}_{bj}(y,t; y',t')
+      //where V is the *spatial* three-volume 
+
+
+
+    {
+      //Check   [w_a^i]* \gamma^5_ab v_b^j contraction working
+      WilsonMatrix g5(0.0);
+      for(int s=0;s<4;s++) for(int c=0;c<4;c++) g5(s,c,s,c) = 1.0;
+      g5.gr(-5);
+      
+      bool fail = false;
+      int size_4d = GJP.VolNodeSites();
+      int size_3d = size_4d/GJP.TnodeSites();
+      
+      for(int i = 0; i < 12; i++){ // nvec = nl + nhits * Lt * sc_size / width   for v generated independently for each hit, source timeslice and spin-color index
+	for(int j = 0; j < 12*Lt; j++){
+	  //We can also build the zero momentum part of the contraction from the FTprops about and check that too
+	  int t_j = j/12; //v source time
+	  int sc_j = j%12;
+
+	  complex<double> mf_ij_repro[Lt]; //indexed by sink time
+
+	  for(int tsnk = 0; tsnk<Lt; tsnk++){
+	    WilsonMatrix tmp = ftprop_srct[t_j][tsnk];
+	    tmp.gl(-5);
+	    if(!test_with_gauge_fixing){
+	      tmp *= Float(Vglob)/3.2; //normalise
+	    }else{
+	      WilsonMatrix wstar = FTw[tsnk];
+	      wstar.hconj();
+
+	      tmp.LeftTimesEqual(wstar);
+	      tmp *= 1.0/3.2;
+	    }
+
+	    mf_ij_repro[tsnk] = tmp(i/3, i%3, sc_j/3, sc_j%3);
+	  }
+	  for(int x = 0; x < size_4d; x++){	
+	    int x_3d = x % size_3d;
+	    int t = x / size_3d;
+	    
+	    int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
+
+	    int rem = x_3d;
+	    int pos_glb[3];
+	    for(int ii=0;ii<3;ii++){
+	      pos_glb[ii] = rem % GJP.NodeSites(ii) + GJP.NodeCoor(ii)*GJP.Nodes(ii);
+	      rem/=GJP.NodeSites(ii);
+	    }
+
+	    complex<double> *left_vec = prop_f->get_w_fftw(i,x,0);
+	    complex<double> *right_vec = prop_f->get_v_fftw(j,x,0);
+	    
+	    complex<double> con = structure_wdagv.contract_internal_indices(left_vec,right_vec);
+
+	    complex<double> expect(0.0,0.0);
+	    for(int a=0;a<12;a++) for(int b=0;b<12;b++) expect +=  conj(left_vec[a]) * g5(a/3,a%3, b/3,b%3) * right_vec[b];
+
+	    for(int reim=0;reim<2;reim++){
+	      Float ex = ((Float*)&expect)[reim];
+	      Float c = ((Float*)&con)[reim];
+
+	      if( fabs(ex-c) > 1e-12 ){
+		printf("Contraction check fail i=%d j=%d x=%d t=%d reim %d: expect %.14e go %.14e  ratio %.14e\n",i,j,x_3d,t,reim,((Float*)&expect)[reim], ((Float*)&con)[reim], ((Float*)&expect)[reim]/((Float*)&con)[reim] );
+		fail = true;
+	      }
+	      if(pos_glb[0]==0 && pos_glb[1]==0 && pos_glb[2] == 0){
+		//FOR MULTI-NODE NEED TO SUM OVER NODES FOR THIS COMPARISON
+		Float r = ((Float*)&mf_ij_repro[t_glb])[reim];
+		//Compare to FTprop result
+		if( !ratio_diff_match(r,c,1e-4) && fabs(r-c) > 1e-07 ){
+		  printf("Zero mom prop mf repro test fail i=%d j=%d t=%d reim %d: expect %.14e go %.14e  ratio %.14e\n",i,j,t_glb,reim,((Float*)&mf_ij_repro[t_glb])[reim], ((Float*)&con)[reim], ((Float*)&mf_ij_repro[t_glb])[reim]/((Float*)&con)[reim] );
+		  fail = true;
+		}
+	      }
+
+	    }
+	  }
+	}
+      }
+      if(fail){ printf("Contraction check fail\n"); exit(-1); }
+      else printf("Contraction check pass\n");
+	
+    }
+
+
+    {
+      bool fail = false;
+      for(int tsnk=0;tsnk<Lt;tsnk++){
+	for(int tsrc=0;tsrc<Lt;tsrc++){
+	  WilsonMatrix expect = ftprop_srct[tsrc][tsnk];
+	  expect.gl(-5);
+
+	  if(!test_with_gauge_fixing){
+	     expect *= Float(Vglob)/3.2; //normalise
+	  }else{
+	    WilsonMatrix wstar = FTw[tsnk];
+	    wstar.hconj();
+	    
+	    expect.LeftTimesEqual(wstar);
+	    expect *= 1.0/3.2;
+	  }
+
+
+	  for(int i=0;i<12;i++){
+	    for(int j=0;j<12;j++){
+	      const static int NA = -1;
+	      Float* mf_val = (Float*)&mf(i,j,tsnk,NA,tsrc);
+	      Float* e_val = (Float*)& expect(i/3,i%3, j/3,j%3);
+	      //Check idx function
+	      int lidx_e = i;
+	      int ridx_e = j+12*tsrc;
+	      int lidx_mf = mf.idx(i,NA,MesonField2::Left);
+	      int ridx_mf = mf.idx(j,tsrc,MesonField2::Right);
+	      if( lidx_e != lidx_mf || ridx_e != ridx_mf ){ 
+		printf("Idx check fail: for W expect %d got %d,  for V expect %d got %d\n",lidx_e,lidx_mf,ridx_e,ridx_mf); fail = true;
+	      }
+
+	      //Check operator() is pulling out the right term
+	      Float* chk = (Float*)mf.mf + 2*tsnk + 2*GJP.Tnodes()*GJP.TnodeSites()*( (j+12*tsrc) + 12*Lt*i );
+	      if( chk!=mf_val ){
+		printf("Pointer check fail: expect %p, got %p. Contents %.14e and %.14e compare to expected val from FTprop %.14e\n",chk,mf_val,*chk,*mf_val,*e_val);
+		fail = true;
+	      }
+	      
+	      for(int reim=0;reim<2;reim++){
+		if( !ratio_diff_match(mf_val[reim],e_val[reim],1e-4) && fabs(mf_val[reim]-e_val[reim])>5e-7 ){ printf("Mesonfield test failed tsrc=%d tsnk=%d i=%d j=%d reim=%d: got %.14e expect %.14e, ratio %.14e\n",tsrc,tsnk,i,j,reim,mf_val[reim],e_val[reim],e_val[reim]/mf_val[reim] ); fail=true; }
+	      }	    
+	    }
+	  }
+	}
+      }
+      if(fail){ printf("Mesonfield test failed\n"); exit(-1); }
+      else printf("Mesonfield test passed\n");
+    }
+
+
+    //Wall source wall sink
+    CorrelationFunction corr_qpw("",1,CorrelationFunction::UNTHREADED);
+    for(int t=0;t<Lt;t++){
+      WilsonMatrix g1 = ftprop_srct[tsrc_con][t];
+      g1.gr(-5);
+      g1.gl(-5);
+
+      WilsonMatrix g2 = ftprop_srct[t][tsrc_con];
+
+      if(!test_with_gauge_fixing){
+	g1 *= Float(Vglob)/3.2; //normalise
+	g2 *= Float(Vglob)/3.2; //normalise
+      }else{
+	WilsonMatrix wstar = FTw[t];
+	wstar.hconj();
+	
+	g1.LeftTimesEqual(wstar);
+	g1 *= 1.0/3.2;
+	
+	wstar = FTw[tsrc_con];
+	wstar.hconj();
+	
+	g2.LeftTimesEqual(wstar);
+	g2 *= 1.0/3.2;
+      }
+
+
+      int t_dis = (t-tsrc_con+Lt)% Lt;
+
+      //Each FTprop needs to be normalised to Float(Vglob)/3.2
+
+      corr_qpw(0,t_dis) += Trace(g1,g2);
+    }
+    
+    //Compare 
+    bool fail=false;
+    for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
+      if( fabs( corr_a2a(0,t).real() - corr_qpw(0,t).real() ) > 1e-7 ){
+	if(!UniqueID()) printf("Wall source comparison test real part fail t=%d:  %.14e %.14e, ratio qpw/a2a %.14e\n",t,corr_a2a(0,t).real(),corr_qpw(0,t).real(),corr_qpw(0,t).real()/corr_a2a(0,t).real());
+	fail=true;
+      }else if(!UniqueID()) printf("Wall source comparison test real part pass t=%d:  %.14e %.14e\n",t,corr_a2a(0,t).real(),corr_qpw(0,t).real());
+      
+      if( fabs( corr_a2a(0,t).imag() - corr_qpw(0,t).imag() ) > 1e-7 ){
+	if(!UniqueID()) printf("Wall source comparison test imag part fail t=%d:  %.14e %.14e, ratio qpw/a2a %.14e\n",t,corr_a2a(0,t).imag(),corr_qpw(0,t).imag(),corr_qpw(0,t).imag()/corr_a2a(0,t).imag());
+	fail=true;
+      }else if(!UniqueID()) printf("Wall source comparison imag real part pass t=%d:  %.14e %.14e\n",t,corr_a2a(0,t).imag(),corr_qpw(0,t).imag());
+    }
+    if(fail){
+      if(!UniqueID()) printf("Wall source comparison test failed, exiting\n");
+      exit(-1);
+    }else if(!UniqueID()) printf("Wall source comparison test passed\n");
+
+    if(free_gfix) fix_gauge.free();
+  }
+
+
+
+
+  static void wallsource_amplitude_2f(Lattice &lattice, Lanczos_5d<double> &eig){
+    //Use a MesonField2 object with flavor dilution and NORAND high modes for this comparison
+    //Source type must be a box source filling the entire lattice 3-volume
+    //Compare to traditional wall source contraction
+
+    //Gauge fix lattice if not done already
+    CommonArg c_arg;
+    FixGaugeArg gfix_arg;
+    setup_gfix_args(gfix_arg);
+    AlgFixGauge fix_gauge(lattice,&c_arg,&gfix_arg);
+    bool free_gfix(false);
+    if(lattice.FixGaugeKind()==FIX_GAUGE_NONE){
+      fix_gauge.run();
+      free_gfix = true; //will be freed at end of method
+    }
+   
+    //Generate the a2a prop
+    int neig = 0;
+
+    A2APropbfm* prop_f;
+    A2APropbfmTesting::a2a_prop_gen(prop_f, &lattice, eig, 1,NORAND,neig);
+
+    printf("Wall source prop with %d eigenvectors\n",prop_f->get_args().nl);
+
+    //Calculate mesonfield with wall source, i.e. box source of size L^3
+    MFqdpMatrix structure_wdagv(MFstructure::W, MFstructure::V, true, false,15,sigma1); //gamma^5 spin, sigma1 flavour
+    MFBasicSource source(MFBasicSource::BoxSource,GJP.Xnodes()*GJP.XnodeSites());
+    
+    MesonField2 mf(*prop_f,*prop_f, structure_wdagv, source);
+
+    //Calculate correlation function
+    CorrelationFunction corr_a2a("",1, CorrelationFunction::THREADED);
+
+    int tsrc=0;
+
+    MesonField2::contract_specify_tsrc(mf,mf,0, tsrc, corr_a2a);
+    corr_a2a.sumThreads();
+
+    //Generate a wall source propagator (yeah I know it should be a momentum source, but for this comparison with a single translationally non-invariant lattice it should not matter)
+    PropManager::clear();
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    JobPropagatorArgs prop_args;
+    SETUP_ARRAY(prop_args,props,PropagatorArg,Lt);
+
+    std::string prop_names_srct[Lt];
+
+    for(int t=0;t<Lt;t++){
+      PropagatorArg &parg = prop_args.props.props_val[t];
+    
+      std::ostringstream os; os << "prop_"<<t;
+      prop_names_srct[t] = os.str();
+
+      parg.generics.tag = const_cast<char*>(prop_names_srct[t].c_str());
+      parg.generics.type = QPROPW_TYPE;
+      parg.generics.mass = 0.01; //needs to be the same as the mass in the a2a_arg function!
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+
+      SETUP_ARRAY(parg,attributes,AttributeContainer,3);
+    
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = t;
+
+      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+      gparg.flavor = 0; //other flavor will be automatically generated using the flavour relation
+
+      ELEM(parg,attributes,2).type = CG_ATTR;
+      CGAttrArg &cgattr = ELEM(parg,attributes,2).AttributeContainer_u.cg_attr;
+      cgattr.max_num_iter = 5000;
+      cgattr.stop_rsd = 1e-08;
+      cgattr.true_rsd = 1e-08;
+    }
+
+    PropManager::setup(prop_args);   
+    PropManager::calcProps(lattice);
+
+    for(int tsrc=0;tsrc<Lt;tsrc++){
+      //Check propagators match. We have set up v and w such that v are just wall source propagators
+      //There should be  Lt * 24 vectors. We want to pick out the one originating from timeslice tsrc
+      //Mapping is
+      //i-a2a.nl = (sc_id + 12*flav_id + 24/src_width * t_id +  24/src_width*Lt * wh_id)
+      //where a2a.nl=0 here,  src_width=1  and nhits=1
+      QPropWcontainer &pcon = PropManager::getProp(prop_names_srct[tsrc].c_str()).convert<QPropWcontainer>();
+
+      bool fail = false;
+      for(int x=0;x<GJP.VolNodeSites();++x){
+	SpinColorFlavorMatrix site_matrix(pcon,lattice,x);
+
+	for(int scf_id=0;scf_id<24;scf_id++){
+	  int sc_id = scf_id % 12,  flav_id = scf_id/12;
+
+	  int scol=sc_id/3;
+	  int ccol=sc_id%3;
+
+	  int i = sc_id + 12*flav_id + 24*tsrc;
+	  Float* v_i = (Float*)prop_f->get_v(i) + 24*x;
+	
+	  //Here scf_id is the column spin-color index
+	  for(int rowidx=0;rowidx<24;rowidx++){
+	    int f_row = rowidx/12, sc_row = rowidx%12;
+
+	    int srow = sc_row/3;
+	    int crow = sc_row %3;
+	    Float* qpw_cmp = (Float*)& site_matrix(srow,crow,f_row, scol,ccol,flav_id);
+	    for(int reim=0;reim<2;reim++){
+	      Float qpw_val = qpw_cmp[reim];
+	      Float v_val = v_i[reim + 2*sc_row + f_row*24*GJP.VolNodeSites() ];
+	    
+	      //NOTE THERE IS A NORMALIZATION DIFFERENCE! QPW = (5-M5) A2A for DWF
+	      qpw_val/= 3.2;
+
+	      if( !ratio_diff_match(qpw_val,v_val,1e-3) ){
+		printf("Wall source tsrc %d v and qpropw test fail x=%d sc_col=%d f_col=%d sc_row=%d f_row=%d reim=%d: %.14e %.14e, ratio %.14e\n",tsrc,x,sc_id,flav_id,sc_row,f_row,reim,qpw_val,v_val,qpw_val/v_val);
+		fail=true;
+	      }
+	    }
+	  }
+	}
+      }
+      if(fail){
+	printf("Wall source tsrc %d v and qpropw test failed\n",tsrc); exit(-1);
+      }else printf("Wall source tsrc %d v and qpropw test passed\n",tsrc);    
+    }
+
+
+
+    std::vector<Float> mom(3,0.0);
+    FourierProp<SpinColorFlavorMatrix> ftprop_calc;
+    ftprop_calc.add_momentum(mom);
+
+    std::vector<SpinColorFlavorMatrix> ftprop_srct[Lt];
+
+    for(int t=0;t<Lt;t++)
+      ftprop_srct[t] = ftprop_calc.getFTProp(lattice,mom,prop_names_srct[t].c_str());
+
+    SpinColorFlavorMatrix FTw[Lt];
+    for(int t=0;t<Lt;t++) FTw[t] = 0.0;
+
+    WilsonMatrix _onew(0.0);
+    for(int i=0;i<12;i++) _onew(i/3,i%3, i/3, i%3) = std::complex<Float>(1.0,0.0);
+
+    SpinColorFlavorMatrix _one(0.0);
+    for(int f=0;f<2;f++) _one(f,f) = _onew;
+
+    //If gauge fixing we need the FT of w (zero mom) for comparison
+    for(int t=0;t<GJP.TnodeSites();t++){
+      int t_glb = GJP.TnodeCoor()*GJP.TnodeSites() + t;
+      for(int x3d=0;x3d<GJP.VolNodeSites()/GJP.TnodeSites();x3d++){
+	int x4d = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
+	const Matrix &V_f0 =  *lattice.FixGaugeMatrix(x4d,0);
+	const Matrix &V_f1 =  *lattice.FixGaugeMatrix(x4d,1);
+
+	SpinColorFlavorMatrix tmp(_one);
+	for(int j=0;j<2;j++){
+	  tmp(0,j).LeftTimesEqual(V_f0);
+	  tmp(1,j).LeftTimesEqual(V_f1);
+	}
+	FTw[t_glb] += tmp;
+      }
+    }
+    for(int t=0;t<Lt;t++)
+      for(int f1=0;f1<2;f1++)
+	for(int f2=0;f2<2;f2++)
+	  slice_sum( (Float*)& FTw[t](f1,f2), 12*12*2, 99);
+
+    {
+      //Check FFT w field is  w_a^i = \sum_x e^{ipx} V_ab(x,t) \delta_b^i 
+
+      bool fail=false;
+      for(int i=0;i<24;i++){
+	int i_f = i/12, i_sc=i%12;
+
+	Float* wh_fftw = (Float*)prop_f->get_wh_fftw() + 24*2*GJP.VolNodeSites()*( 12*i_f + i_sc );
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  for(int p=0;p<GJP.VolNodeSites()/GJP.TnodeSites();p++){
+	    int t_glb = GJP.TnodeCoor()*GJP.TnodeSites() + t;
+	    
+	    int p_glb[3]; int rem=p;
+	    for(int i=0;i<3;i++){ 
+	      p_glb[i] = rem % GJP.NodeSites(i) + GJP.NodeCoor(i)*GJP.NodeSites(i); rem/=GJP.NodeSites(i); 
+	    }
+
+	    for(int scf=0;scf<24;scf++){
+	      int sc = scf%12, f= scf/12;
+
+	      for(int reim=0;reim<2;reim++){
+		Float* val = wh_fftw + reim + 2*sc + 24*( p+ GJP.VolNodeSites()/GJP.TnodeSites()*t + f*GJP.VolNodeSites() );
+
+		//Just do p=0 part
+		if( p_glb[0]==0 && p_glb[1]==0 && p_glb[2]==0){
+		  Float expect = ((Float*)&(FTw[t_glb](f,i_f)(sc/3,sc%3, i_sc/3,i_sc%3)))[reim];
+		    
+		  if( fabs(*val - expect)>1e-7 ){ printf("w fail at p=0 on t=%d, i=%d sc=%d f=%d: expect %.14e got %.14e, ratio %.14e\n",t_glb,i,sc,f,expect,*val, expect/(*val)); fail=true; }
+		}
+	      }
+	    }
+
+	  }
+	}
+      }
+      if(fail){ printf("w fail\n"); exit(-1); }
+      else printf("w pass\n");
+    }
+
+
+
+    CorrelationFunction corr_qpw("",1,CorrelationFunction::UNTHREADED);
+
+    for(int t=0;t<Lt;t++){
+      SpinColorFlavorMatrix g1 = ftprop_srct[tsrc][t];
+      g1.gl(-5).pl(sigma1);
+
+      SpinColorFlavorMatrix g2 = ftprop_srct[t][tsrc];
+      g2.gl(-5).pl(sigma1);
+
+      SpinColorFlavorMatrix wstar = FTw[t];
+      wstar.hconj();
+	
+      g1.LeftTimesEqual(wstar);
+      g1 *= 1.0/3.2;
+	
+      wstar = FTw[tsrc];
+      wstar.hconj();
+	
+      g2.LeftTimesEqual(wstar);
+      g2 *= 1.0/3.2;
+
+      int t_dis = (t-tsrc+Lt)% Lt;
+
+      //Each FTprop needs to be normalised to Float(Vglob)/3.2
+
+      corr_qpw(0,t_dis) += Trace(g1,g2);
+    }
+    
+    //Compare 
+    bool fail(false);
+    for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
+      if( !ratio_diff_match(corr_a2a(0,t).real(),corr_qpw(0,t).real(),1e-3) && fabs( corr_a2a(0,t).real() - corr_qpw(0,t).real() ) > 1e-7 ){
+	if(!UniqueID()) printf("Wall source comparison test real part fail t=%d:  %.14e %.14e, ratio qpw/a2a %.14e\n",t,corr_a2a(0,t).real(),corr_qpw(0,t).real(), corr_qpw(0,t).real()/corr_a2a(0,t).real() );
+	fail=true;
+      }else if(!UniqueID()) printf("Wall source comparison test real part pass t=%d:  %.14e %.14e\n",t,corr_a2a(0,t).real(),corr_qpw(0,t).real());
+      
+      if( !ratio_diff_match(corr_a2a(0,t).imag(),corr_qpw(0,t).imag(),1e-3) && fabs( corr_a2a(0,t).imag() - corr_qpw(0,t).imag() ) > 1e-7 ){
+	if(!UniqueID()) printf("Wall source comparison test imag part fail t=%d:  %.14e %.14e, ratio qpw/a2a %.14e\n",t,corr_a2a(0,t).imag(),corr_qpw(0,t).imag(), corr_qpw(0,t).imag()/corr_a2a(0,t).imag());
+	fail=true;
+      }else if(!UniqueID()) printf("Wall source comparison imag real part pass t=%d:  %.14e %.14e\n",t,corr_a2a(0,t).imag(),corr_qpw(0,t).imag());
+    }
+    if(fail){
+      if(!UniqueID()) printf("Wall source comparison test failed, exiting\n");
+      exit(-1);
+    }else if(!UniqueID()) printf("Wall source comparison test passed, exiting\n");
+
+    if(free_gfix) fix_gauge.free();
   }
   
 
@@ -890,11 +1905,13 @@ int main (int argc,char **argv )
   printf("Arg0 is %d\n",arg0);
   if(arg0==0){
     gparity_X=true;
-    printf("Doing G-parity HMC test in X direction\n");
-  }else{
-    printf("Doing G-parity HMC test in X and Y directions\n");
+    printf("Doing G-parity test in X direction\n");
+  }else if(arg0==1){
+    printf("Doing G-parity test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
+  }else{
+    printf("Doing standard lattice test\n");
   }
 
   bool dbl_latt_storemode(false);
@@ -1100,6 +2117,17 @@ int main (int argc,char **argv )
   Lanczos_5d<double>* eig_2f;
   create_eig(lattice,eig_2f,precon);
 
+  //Different tests if no G-parity active
+  if(!gparity_X && !gparity_Y){
+    MesonFieldTesting::wallsource_amplitude_nogparity(*lattice, *eig_2f);
+#ifdef HAVE_BFM
+    Chroma::finalize();
+#endif
+    
+    if(UniqueID()==0) printf("Main job complete\n"); 
+    return 0;
+  }
+
   //Generate A2A prop in 2f environment
   A2APropbfm* prop_2f;
   A2APropbfmTesting::a2a_prop_gen(prop_2f, lattice, *eig_2f, dilute_flavor);
@@ -1171,6 +2199,10 @@ int main (int argc,char **argv )
     MesonFieldTesting::compare_kaon_corr_MesonField2_2f(kaoncorr_orig, kaoncorr_mf2_thr);
 
   }
+  
+  //Test flavor dilution and everything else by generating a2a props with non-random high modes (1.0 on all sites) and with a wall source
+  //and compare to traditional wall source
+  if(dilute_flavor) MesonFieldTesting::wallsource_amplitude_2f(*lattice, *eig_2f);
 
   //Restore LRG backup to reset RNG for 1f section
   LRG = LRGbak;

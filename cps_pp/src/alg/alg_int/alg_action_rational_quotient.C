@@ -374,7 +374,9 @@ Float AlgActionRationalQuotient::energy() {
 
     //!< Before energy is measured, do we want to check bounds?
     if (rat_quo_arg->eigen.eigen_measure == EIGEN_MEASURE_YES) {
+      if(!UniqueID()) printf("AlgActionRationalQuotient::energy() [%s] checking bosonic eigenvalue bounds\n",force_label);
       checkApprox(bsn_mass, bsn_mass_epsilon, bsn_remez_arg_mc, rat_quo_arg->eigen);
+      if(!UniqueID()) printf("AlgActionRationalQuotient::energy() [%s] checking fermionic eigenvalue bounds\n",force_label);
       checkApprox(frm_mass, frm_mass_epsilon, frm_remez_arg_mc, rat_quo_arg->eigen);
     }
 

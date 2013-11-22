@@ -82,14 +82,14 @@ template<typename MatrixType>
 struct _FourierProp_helper{};
 template<>
 struct _FourierProp_helper<SpinColorFlavorMatrix>{
-  static void site_matrix(SpinColorFlavorMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site);
+  static void site_matrix(SpinColorFlavorMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site);
   static void lattice_sum(SpinColorFlavorMatrix &what);
   static void mult_gauge_fix_mat(SpinColorFlavorMatrix &what, const int &site, Lattice &lat);
   static void write(FILE *fp, const SpinColorFlavorMatrix &mat, const Float &p2, const std::vector<Float> &mom, const int &t);
 };
 template<>
 struct _FourierProp_helper<WilsonMatrix>{
-  static void site_matrix(WilsonMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site);
+  static void site_matrix(WilsonMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site);
   static void lattice_sum(WilsonMatrix &what);
   static void mult_gauge_fix_mat(WilsonMatrix &what, const int &site, Lattice &lat);
   static void write(FILE *fp, const WilsonMatrix &mat, const Float &p2, const std::vector<Float> &mom, const int &t);
@@ -180,7 +180,7 @@ struct _PropagatorBilinear_helper<SpinColorFlavorMatrix>{
 
   typedef _PropagatorBilinear_generics::map_info_scfmat map_info_type; //the map type
 
-  static void site_matrix(SpinColorFlavorMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site);
+  static void site_matrix(SpinColorFlavorMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site);
 
   //right-multiply with spin and flavour matrices
   static void rmult_matrix(SpinColorFlavorMatrix &into, const std::pair<int,int> &spin_flav);
@@ -205,7 +205,7 @@ struct _PropagatorBilinear_helper<WilsonMatrix>{
 
   typedef _PropagatorBilinear_generics::map_info_scmat map_info_type; //the map type
 
-  static void site_matrix(WilsonMatrix &into, PropagatorContainer &prop, Lattice &lat, const int &site);
+  static void site_matrix(WilsonMatrix &into, QPropWcontainer &prop, Lattice &lat, const int &site);
   
   //right-multiply with spin matrices
   static void rmult_matrix(WilsonMatrix &into, const std::pair<int,int> &spin_flav);

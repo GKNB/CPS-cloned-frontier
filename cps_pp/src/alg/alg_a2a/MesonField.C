@@ -3391,7 +3391,6 @@ void MFqdpMatrix::set_matrix(const int &qdp_spin_idx, const FlavorMatrixType &fl
   //Set the flavour structure
   scf.pr(flav_mat);
 }
-
 //\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
 MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left[2], const cnum* right[2]) const{
   cnum ret(0,0);
@@ -3404,6 +3403,8 @@ MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left[2], co
 	      ret += (this->conj_left ? conj(left[f][3*i+a]) : left[f][3*i+a]) * scf(i,a,f,j,b,g) * (this->conj_right ? conj(right[g][3*j+b]) : right[g][3*j+b]);  
   return ret;
 }
+
+#if 1
 MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left, const cnum* right) const{
   cnum ret(0,0);
   for(int i=0;i<4;++i) 
@@ -3414,6 +3415,20 @@ MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left, const
   
   return ret;
 }
+#else
+//TEST
+std::complex<double> MFqdpMatrix::contract_internal_indices(const std::complex<double> *w, const std::complex<double> *v) const{
+  printf("GAMMA 5!\n");
+  std::complex<double> ret(0,0);
+
+  int half_sc = 6;
+  for(int i=0;i<half_sc;i++)
+    ret += v[i]*conj(w[i]);
+  for(int i=half_sc;i<2*half_sc;i++)
+    ret -= v[i]*conj(w[i]);
+  return ret;
+}
+#endif
 
 
 void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source){
@@ -3427,8 +3442,13 @@ void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructu
   int size_3d = size_4d / GJP.TnodeSites();
 
   if(left.get_args().dilute_flavor != right.get_args().dilute_flavor) ERR.General("MesonField2",fname,"One propagator is flavor diluted, the other isn't\n");
+
+  //Ensure the FFT vectors have been computed, if not make it so
+  if(!left.fft_vw_computed()) left.fft_vw();
+  if(&right!=&left && !right.fft_vw_computed()) right.fft_vw();
+
   dilute_flavor = left.get_args().dilute_flavor;
-  if(dilute_flavor) dilute_size = 24;
+  if( (GJP.Gparity()||GJP.Gparity1fX()) && dilute_flavor) dilute_size = 24;
 
   nvec[0] = left.get_nvec(); nvec[1] = right.get_nvec(); 
   nl[0] = left.get_nl(); nl[1] = right.get_nl();
@@ -3498,8 +3518,6 @@ void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructu
   if(!UniqueID()) printf("Global sum done!");
 }
 
-
-
 //Form the contraction of two mesonfields, summing over mode indices and flavour
 //Expects MesonField2 objects of the form W* \Gamma V   or  V \Gamma W* 
 void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, CorrelationFunction &into){
@@ -3516,18 +3534,19 @@ void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, co
 
   int t_size = GJP.Tnodes()*GJP.TnodeSites();
 
+  static const int NA = -1; //non-applicable!
+
   if(into.threadType() == CorrelationFunction::UNTHREADED){
     for(int tsrc=0;tsrc<t_size;++tsrc)
       for(int tsnk=0;tsnk<t_size;++tsnk){
 	int t_dis = (tsnk-tsrc+t_size)% t_size;
 	for(int i=0;i<left.nl[0]+left.nhits[0]*left.dilute_size;++i)
 	  for(int j=0;j<left.nl[1]+left.nhits[1]*left.dilute_size;++j){
-	    const cnum &l = (cform == 1) ? left(i,j,tsrc,tsrc,tsnk) : left(i,j,tsrc,tsnk,tsrc);
-	    const cnum &r = (cform == 1) ? right(j,i,tsnk,tsnk,tsrc) : right(j,i,tsnk,tsrc,tsnk);
-	    printf("mf2 tsrc %d tsnk %d tdis %d i %d j %d  l = (%f %f)  r = (%f %f)  contr = (%f %f) -> ",tsrc,tsnk,t_dis,i,j, l.real(), l.imag(), r.real(), r.imag(), into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
-
+	    //G(tsrc,tsnk) A G(tsnk,tsrc) B = A V_j(tsrc,tsnk)W_j*(tsnk) B V_i(tsnk,tsrc)W_i*(tsrc) =  [W_i*(tsrc) A V_j(tsrc,tsnk)] [W_j*(tsnk) B V_i(tsnk,tsrc)]
+	    //                                                                              =  [V_j(tsrc,tsnk) A^T W_i*(tsrc)] [V_i(tsnk,tsrc) B^T W_j*(tsnk)]  (can now rename indices i<->j as done below)
+	    const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
+	    const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
 	    into(contraction_idx,t_dis) += l*r;
-	    printf("(%f %f)\n",into(contraction_idx,t_dis).real(), into(contraction_idx,t_dis).imag());
 	  }
       }
   }else{
@@ -3546,14 +3565,58 @@ void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, co
       int tsrc = rem / t_size;
       int t_dis = (tsnk-tsrc+t_size)% t_size;
 
-      const cnum &l = (cform == 1) ? left(i,j,tsrc,tsrc,tsnk) : left(i,j,tsrc,tsnk,tsrc);
-      const cnum &r = (cform == 1) ? right(j,i,tsnk,tsnk,tsrc) : right(j,i,tsnk,tsrc,tsnk);
+      const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
+      const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
       into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
     }
   }
 }
 
+void MesonField2::contract_specify_tsrc(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, const int &tsrc, CorrelationFunction &into){
+  if( !parameter_match(left,right,Right,Left) || !parameter_match(left,right,Left,Right) )
+    ERR.General("MesonField2","contract_specify_tsrc(..)","Field parameters do not match\n");
+  int cform_l = con_form(left),  cform_r = con_form(right);
+  if( cform_l != cform_r  || cform_l == 0)
+    ERR.General("MesonField2","contract_specify_tsrc(..)","MesonFields must be both of W*V or VW* form\n");
 
+  const int &cform = cform_l; //1 if W*V form, -1 if VW* form
+
+  into.setGlobalSumOnWrite(false);
+
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  static const int NA = -1; //non-applicable!
+
+  if(into.threadType() == CorrelationFunction::UNTHREADED){
+    for(int tsnk=0;tsnk<t_size;++tsnk)
+      for(int i=0;i<left.nl[0]+left.nhits[0]*left.dilute_size;++i)
+	for(int j=0;j<left.nl[1]+left.nhits[1]*left.dilute_size;++j){
+	  int t_dis = (tsnk-tsrc+t_size)% t_size;
+	  const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
+	  const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
+	  into(contraction_idx,t_dis) += l*r;
+	}
+  }else{
+    int n_threads = bfmarg::threads;
+    omp_set_num_threads(n_threads);
+    int nmodes[2] = {left.nl[0]+left.nhits[0]*left.dilute_size , left.nl[1]+left.nhits[1]*left.dilute_size };
+
+#pragma omp parallel for 
+    for(int r=0;r<nmodes[0]*nmodes[1]*t_size;++r){
+      //r = j + nmodes[1]*(i+nmodes[0]*tsnk)
+      int rem = r;
+      int j=rem % nmodes[1]; rem/=nmodes[1];
+      int i=rem % nmodes[0]; rem/=nmodes[0];
+      int tsnk = rem;
+
+      int t_dis = (tsnk-tsrc+t_size)% t_size;
+
+      const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
+      const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
+      into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
+    }
+  }
+}
 
 
 

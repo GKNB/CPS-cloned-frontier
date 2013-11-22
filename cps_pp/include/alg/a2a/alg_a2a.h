@@ -29,13 +29,15 @@ class A2APropbfm : public Alg {
 
 		void allocate_vw();
 		void free_vw();
-		void allocate_vw_fftw();
+		void allocate_vw_fftw(); //Automatically called from fft_vw if not previously called
 		void free_vw_fftw();
 
 		bool compute_vw_low(bfm_evo<double> &dwf);
 		bool compute_vw_high(bfm_evo<double> &dwf);
 		bool compute_vw(void);
 		void fft_vw(); //Perform FFT of v and w
+
+		bool fft_vw_computed() const{ return fftw_computed; }
 
 		void save_vw(void);
 		void save_v(int i);
@@ -58,7 +60,9 @@ class A2APropbfm : public Alg {
 		int get_nvec()const { return nvec; }
 
 		const A2AArg & get_args() const{ return a2a; }
-
+		bool do_gauge_fix() const{ return do_gfix; } //Are we gauge fixing? Defaults to true
+		void do_gauge_fix(const bool &b){ do_gfix = b; }
+		
 		Vector *get_v(int i);
 		Vector *get_wl(int i);
 		Vector *get_wh(void) { return wh;};
@@ -101,7 +105,10 @@ class A2APropbfm : public Alg {
 		Vector **v_fftw;
 		Vector **wl_fftw;
 		Vector *wh_fftw; //FFT of wh
-	       
+
+		bool fftw_computed;
+		bool do_gfix;
+
 		bool gparity_1f_fftw_comm_flav_performed;
 
 		int nvec;
@@ -129,6 +136,7 @@ class A2APropbfm : public Alg {
 		void fft_vector(Vector* result, Vector* vec, const int fft_dim[3], fftw_complex* fft_mem); //, Vector *tmp); tmp should be pre-allocated and is used as temporary memory for the gauge fixing
 
 		friend class A2APropbfmTesting;
+		friend class MesonFieldTesting;
 };
 
 CPS_END_NAMESPACE
