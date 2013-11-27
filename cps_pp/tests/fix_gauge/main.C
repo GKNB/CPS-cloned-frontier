@@ -500,6 +500,8 @@ q************/
 #define MZ 0L
 #define FAC 1.0e-9			/* 	1.0/MBIG 	*/
 
+CPS_START_NAMESPACE
+
 static long ma[55] ;
 static long mk,mj  ;
 static int i,k,ii ;
@@ -550,5 +552,4 @@ Float ran345(long *idum)
 	return temp;
 }
 
-
-
+CPS_END_NAMESPACE

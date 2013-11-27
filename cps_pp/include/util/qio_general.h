@@ -20,10 +20,12 @@
 
 #include <alg/do_arg.h>
 
+#ifdef USE_QIO
 #include <qio.h>
 #include <qioxml.h>
 
 #include <qmp.h>
+#endif
 
 #define EES_ADDON
 #if TARGET == BGQ

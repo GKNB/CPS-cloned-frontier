@@ -27,11 +27,6 @@ int main(int argc,char *argv[]){
     do_arg.z_node_sites = 4;
     do_arg.t_node_sites = 4;
 
-#if TARGET==cpsMPI
-    using MPISCU::printf;
-    using MPISCU::fprintf;
-    MPISCU::set_pe_grid(2,2,1,1);    
-#endif
 
     do_arg.x_nodes = SizeX();
     do_arg.y_nodes = SizeY();    

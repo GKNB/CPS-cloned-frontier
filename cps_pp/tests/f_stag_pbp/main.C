@@ -59,11 +59,6 @@ int main(int argc,char *argv[])
   do_arg.start_seed_kind = START_SEED_FIXED;
   do_arg.beta = 6.0;
 
-#if TARGET==cpsMPI
-    MPISCU::set_pe_grid(do_arg.x_nodes, do_arg.y_nodes, do_arg.z_nodes, do_arg.t_nodes);    
-    using MPISCU::fprintf;
-    using MPISCU::printf;
-#endif
 
 
   GJP.Initialize(do_arg);

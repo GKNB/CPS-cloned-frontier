@@ -49,11 +49,6 @@ int main(int argc,char *argv[])
   //----------------------------------------------------------------
   DoArg do_arg;
 
-#if TARGET==cpsMPI
-  MPISCU::set_pe_grid(1,1,1,2,2);
-    using MPISCU::fprintf;
-    using MPISCU::printf;
-#endif
 
 #ifdef PARALLEL
   do_arg.x_node_sites = 4/SizeX();
