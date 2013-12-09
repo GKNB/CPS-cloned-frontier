@@ -25,6 +25,7 @@ CPS_START_NAMESPACE
 int Fbfm::current_arg_idx(0);
 bfmarg Fbfm::bfm_args[2] = {};
 bool Fbfm::use_mixed_solver = false;
+bool Fbfm::single_prec_multi_shift = false;
 
 // NOTE:
 //
@@ -299,14 +300,43 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     Fermion_t src = bd.allocFermion();
     bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
 
-    SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
-    bd.residual = cg_arg[0]->stop_rsd;
-    bd.max_iter = cg_arg[0]->max_num_iter;
+    if(single_prec_multi_shift && !use_mixed_solver){ //hack to get SetMass to set parameters in bf
+	use_mixed_solver = true;
+	SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
+	use_mixed_solver = false;
+    }else 
+	SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
 
     int iter;
+
+    if(single_prec_multi_shift){
+	bf.residual = cg_arg[0]->stop_rsd;
+	bf.max_iter = cg_arg[0]->max_num_iter;
+	
 #pragma omp parallel
-    {
-        iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	{
+	    Fermion_t src_f = bf.threadedAllocFermion();
+	    Fermion_t sol_f[Nshift];
+	    for(int i=0;i<Nshift;i++) sol_f[i] = bf.threadedAllocFermion();
+
+	    mixed_cg::threaded_convFermion(src_f,src,bf,bd);
+	    mixed_cg::switch_comm(bf,bd);
+	    iter = bf.CGNE_prec_MdagM_multi_shift(sol_f, src_f, shift, ones, Nshift, mresidual, 0);
+	    mixed_cg::switch_comm(bd,bf);
+	    for(int i=0;i<Nshift;i++){
+		mixed_cg::threaded_convFermion(sol_multi[i],sol_f[i],bd,bf);
+		bf.threadedFreeFermion(sol_f[i]);
+	    }
+	    bf.threadedFreeFermion(src_f);
+	}       
+    }else{
+	bd.residual = cg_arg[0]->stop_rsd;
+	bd.max_iter = cg_arg[0]->max_num_iter;
+	
+#pragma omp parallel
+	{
+	    iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	}
     }
 
     if(type == SINGLE) {
@@ -330,7 +360,7 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     for(int i = 0; i < Nshift; ++i) {
         bd.freeFermion(sol_multi[i]);
     }
-
+    
     delete[] sol_multi;
     delete[] ones;
     delete[] mresidual;

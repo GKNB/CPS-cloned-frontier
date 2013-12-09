@@ -25,6 +25,7 @@ struct vml_enum_map ContractionType_map[] = {
 	{"ContractionType","CONTRACTION_TYPE_QUADRILINEAR_VERTEX",CONTRACTION_TYPE_QUADRILINEAR_VERTEX},
 	{"ContractionType","CONTRACTION_TYPE_TOPOLOGICAL_CHARGE",CONTRACTION_TYPE_TOPOLOGICAL_CHARGE},
 	{"ContractionType","CONTRACTION_TYPE_MRES",CONTRACTION_TYPE_MRES},
+	{"ContractionType","CONTRACTION_TYPE_A2A_BILINEAR",CONTRACTION_TYPE_A2A_BILINEAR},
 	{NULL,NULL,0}
 };
 
@@ -591,6 +592,196 @@ void ContractionTypeMres::deep_copy(ContractionTypeMres const &rhs){
 }
 
 bool_t
+vml_A2ASmearingType (VML *vmls, char *name,A2ASmearingType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2ASmearingType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2ASmearingType_map[] = {
+	{"A2ASmearingType","BOX_3D_SMEARING",BOX_3D_SMEARING},
+	{"A2ASmearingType","EXPONENTIAL_3D_SMEARING",EXPONENTIAL_3D_SMEARING},
+	{NULL,NULL,0}
+};
+
+bool_t
+vml_Box3dSmearing (VML *vmls, char *name,Box3dSmearing *objp)
+{
+	 vml_struct_begin(vmls,"Box3dSmearing",name);
+	 if (!vml_int (vmls, "side_length", &objp->side_length))
+		 return FALSE;
+	 vml_struct_end(vmls,"Box3dSmearing",name);
+	return TRUE;
+}
+void rpc_print<Box3dSmearing>::doit(Box3dSmearing const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<int>::doit(what.side_length,spaces+" side_length = ");
+	std::cout << spaces << "}\n";
+}
+void Box3dSmearing::print(const std::string &prefix){
+	rpc_print<Box3dSmearing>::doit(*this,prefix);
+}
+
+bool_t
+vml_Exponential3dSmearing (VML *vmls, char *name,Exponential3dSmearing *objp)
+{
+	 vml_struct_begin(vmls,"Exponential3dSmearing",name);
+	 if (!vml_Float (vmls, "radius", &objp->radius))
+		 return FALSE;
+	 vml_struct_end(vmls,"Exponential3dSmearing",name);
+	return TRUE;
+}
+void rpc_print<Exponential3dSmearing>::doit(Exponential3dSmearing const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<Float>::doit(what.radius,spaces+" radius = ");
+	std::cout << spaces << "}\n";
+}
+void Exponential3dSmearing::print(const std::string &prefix){
+	rpc_print<Exponential3dSmearing>::doit(*this,prefix);
+}
+
+bool_t
+vml_A2ASmearing (VML *vmls, char *name,A2ASmearing *objp)
+{
+	 if (!vml_A2ASmearingType (vmls, "type", &objp->type))
+		 return FALSE;
+	switch (objp->type) {
+	case BOX_3D_SMEARING:
+		 if (!vml_Box3dSmearing (vmls, "box_3d_smearing", &objp->A2ASmearing_u.box_3d_smearing))
+			 return FALSE;
+		break;
+	case EXPONENTIAL_3D_SMEARING:
+		 if (!vml_Exponential3dSmearing (vmls, "exponential_3d_smearing", &objp->A2ASmearing_u.exponential_3d_smearing))
+			 return FALSE;
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+template <> A2ASmearingType A2ASmearing::type_map<Box3dSmearing>(){
+	 return BOX_3D_SMEARING;
+}
+template <> A2ASmearingType A2ASmearing::type_map<Exponential3dSmearing>(){
+	 return EXPONENTIAL_3D_SMEARING;
+}
+void rpc_deepcopy<A2ASmearing>::doit(A2ASmearing &into, A2ASmearing const &from){
+	  into.type = from.type;
+	  switch(from.type){
+	    case BOX_3D_SMEARING:
+	      rpc_deepcopy<Box3dSmearing>::doit(into.A2ASmearing_u.box_3d_smearing,from.A2ASmearing_u.box_3d_smearing); break;
+	    case EXPONENTIAL_3D_SMEARING:
+	      rpc_deepcopy<Exponential3dSmearing>::doit(into.A2ASmearing_u.exponential_3d_smearing,from.A2ASmearing_u.exponential_3d_smearing); break;
+	  };
+}
+void A2ASmearing::deep_copy(A2ASmearing const &rhs){
+	rpc_deepcopy<A2ASmearing>::doit(*this,rhs);
+}
+void rpc_print<A2ASmearing>::doit(A2ASmearing const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	  switch(what.type){
+	    case BOX_3D_SMEARING:
+	      rpc_print<Box3dSmearing>::doit(what.A2ASmearing_u.box_3d_smearing,spaces+" union A2ASmearing_u.box_3d_smearing = "); break;
+	    case EXPONENTIAL_3D_SMEARING:
+	      rpc_print<Exponential3dSmearing>::doit(what.A2ASmearing_u.exponential_3d_smearing,spaces+" union A2ASmearing_u.exponential_3d_smearing = "); break;
+	  };
+	std::cout << spaces << "}\n";
+}
+void A2ASmearing::print(const std::string &prefix){
+	rpc_print<A2ASmearing>::doit(*this,prefix);
+}
+
+bool_t
+vml_MatIdxAndCoeff (VML *vmls, char *name,MatIdxAndCoeff *objp)
+{
+	 vml_struct_begin(vmls,"MatIdxAndCoeff",name);
+	 if (!vml_int (vmls, "idx", &objp->idx))
+		 return FALSE;
+	 if (!vml_Float (vmls, "coeff", &objp->coeff))
+		 return FALSE;
+	 vml_struct_end(vmls,"MatIdxAndCoeff",name);
+	return TRUE;
+}
+void rpc_print<MatIdxAndCoeff>::doit(MatIdxAndCoeff const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<int>::doit(what.idx,spaces+" idx = ");
+	rpc_print<Float>::doit(what.coeff,spaces+" coeff = ");
+	std::cout << spaces << "}\n";
+}
+void MatIdxAndCoeff::print(const std::string &prefix){
+	rpc_print<MatIdxAndCoeff>::doit(*this,prefix);
+}
+
+bool_t
+vml_ContractionTypeA2ABilinear (VML *vmls, char *name,ContractionTypeA2ABilinear *objp)
+{
+	 vml_struct_begin(vmls,"ContractionTypeA2ABilinear",name);
+	 if (!vml_string (vmls, "prop_src_snk", &objp->prop_src_snk, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "prop_snk_src", &objp->prop_snk_src, ~0))
+		 return FALSE;
+	 if (!vml_A2ASmearing (vmls, "source_smearing", &objp->source_smearing))
+		 return FALSE;
+	 if (!vml_A2ASmearing (vmls, "sink_smearing", &objp->sink_smearing))
+		 return FALSE;
+	 if (!vml_array (vmls, "source_spin_matrix", (char **)&objp->source_spin_matrix.source_spin_matrix_val, (u_int *) &objp->source_spin_matrix.source_spin_matrix_len, ~0,
+		sizeof (MatIdxAndCoeff), (vmlproc_t) vml_MatIdxAndCoeff))
+		 return FALSE;
+	 if (!vml_array (vmls, "sink_spin_matrix", (char **)&objp->sink_spin_matrix.sink_spin_matrix_val, (u_int *) &objp->sink_spin_matrix.sink_spin_matrix_len, ~0,
+		sizeof (MatIdxAndCoeff), (vmlproc_t) vml_MatIdxAndCoeff))
+		 return FALSE;
+	 if (!vml_array (vmls, "source_flavor_matrix", (char **)&objp->source_flavor_matrix.source_flavor_matrix_val, (u_int *) &objp->source_flavor_matrix.source_flavor_matrix_len, ~0,
+		sizeof (MatIdxAndCoeff), (vmlproc_t) vml_MatIdxAndCoeff))
+		 return FALSE;
+	 if (!vml_array (vmls, "sink_flavor_matrix", (char **)&objp->sink_flavor_matrix.sink_flavor_matrix_val, (u_int *) &objp->sink_flavor_matrix.sink_flavor_matrix_len, ~0,
+		sizeof (MatIdxAndCoeff), (vmlproc_t) vml_MatIdxAndCoeff))
+		 return FALSE;
+	 if (!vml_string (vmls, "file", &objp->file, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"ContractionTypeA2ABilinear",name);
+	return TRUE;
+}
+void rpc_print<ContractionTypeA2ABilinear>::doit(ContractionTypeA2ABilinear const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.prop_src_snk,strlen(what.prop_src_snk)+1,spaces+" prop_src_snk = ");
+	rpc_print<char *>::doit(what.prop_snk_src,strlen(what.prop_snk_src)+1,spaces+" prop_snk_src = ");
+	rpc_print<A2ASmearing>::doit(what.source_smearing,spaces+" source_smearing = ");
+	rpc_print<A2ASmearing>::doit(what.sink_smearing,spaces+" sink_smearing = ");
+	rpc_print<MatIdxAndCoeff *>::doit(what.source_spin_matrix.source_spin_matrix_val,what.source_spin_matrix.source_spin_matrix_len,spaces+" source_spin_matrix = ");
+	rpc_print<MatIdxAndCoeff *>::doit(what.sink_spin_matrix.sink_spin_matrix_val,what.sink_spin_matrix.sink_spin_matrix_len,spaces+" sink_spin_matrix = ");
+	rpc_print<MatIdxAndCoeff *>::doit(what.source_flavor_matrix.source_flavor_matrix_val,what.source_flavor_matrix.source_flavor_matrix_len,spaces+" source_flavor_matrix = ");
+	rpc_print<MatIdxAndCoeff *>::doit(what.sink_flavor_matrix.sink_flavor_matrix_val,what.sink_flavor_matrix.sink_flavor_matrix_len,spaces+" sink_flavor_matrix = ");
+	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
+	std::cout << spaces << "}\n";
+}
+void ContractionTypeA2ABilinear::print(const std::string &prefix){
+	rpc_print<ContractionTypeA2ABilinear>::doit(*this,prefix);
+}
+void rpc_deepcopy<ContractionTypeA2ABilinear>::doit(ContractionTypeA2ABilinear &into, ContractionTypeA2ABilinear const &from){
+	  rpc_deepcopy<char *>::doit(into.prop_src_snk,from.prop_src_snk,strlen(from.prop_src_snk)+1);
+	  rpc_deepcopy<char *>::doit(into.prop_snk_src,from.prop_snk_src,strlen(from.prop_snk_src)+1);
+	  rpc_deepcopy<A2ASmearing>::doit(into.source_smearing,from.source_smearing);
+	  rpc_deepcopy<A2ASmearing>::doit(into.sink_smearing,from.sink_smearing);
+	  into.source_spin_matrix.source_spin_matrix_len = from.source_spin_matrix.source_spin_matrix_len;
+	  rpc_deepcopy<MatIdxAndCoeff *>::doit(into.source_spin_matrix.source_spin_matrix_val,from.source_spin_matrix.source_spin_matrix_val,from.source_spin_matrix.source_spin_matrix_len);
+	  into.sink_spin_matrix.sink_spin_matrix_len = from.sink_spin_matrix.sink_spin_matrix_len;
+	  rpc_deepcopy<MatIdxAndCoeff *>::doit(into.sink_spin_matrix.sink_spin_matrix_val,from.sink_spin_matrix.sink_spin_matrix_val,from.sink_spin_matrix.sink_spin_matrix_len);
+	  into.source_flavor_matrix.source_flavor_matrix_len = from.source_flavor_matrix.source_flavor_matrix_len;
+	  rpc_deepcopy<MatIdxAndCoeff *>::doit(into.source_flavor_matrix.source_flavor_matrix_val,from.source_flavor_matrix.source_flavor_matrix_val,from.source_flavor_matrix.source_flavor_matrix_len);
+	  into.sink_flavor_matrix.sink_flavor_matrix_len = from.sink_flavor_matrix.sink_flavor_matrix_len;
+	  rpc_deepcopy<MatIdxAndCoeff *>::doit(into.sink_flavor_matrix.sink_flavor_matrix_val,from.sink_flavor_matrix.sink_flavor_matrix_val,from.sink_flavor_matrix.sink_flavor_matrix_len);
+	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
+}
+void ContractionTypeA2ABilinear::deep_copy(ContractionTypeA2ABilinear const &rhs){
+	rpc_deepcopy<ContractionTypeA2ABilinear>::doit(*this,rhs);
+}
+
+bool_t
 vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 {
 	 if (!vml_ContractionType (vmls, "type", &objp->type))
@@ -640,6 +831,10 @@ vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 		 if (!vml_ContractionTypeMres (vmls, "contraction_type_mres", &objp->GparityMeasurement_u.contraction_type_mres))
 			 return FALSE;
 		break;
+	case CONTRACTION_TYPE_A2A_BILINEAR:
+		 if (!vml_ContractionTypeA2ABilinear (vmls, "contraction_type_a2a_bilinear", &objp->GparityMeasurement_u.contraction_type_a2a_bilinear))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -678,6 +873,9 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologi
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>(){
 	 return CONTRACTION_TYPE_MRES;
 }
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeA2ABilinear>(){
+	 return CONTRACTION_TYPE_A2A_BILINEAR;
+}
 void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMeasurement const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -703,6 +901,8 @@ void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMea
 	      rpc_deepcopy<ContractionTypeTopologicalCharge>::doit(into.GparityMeasurement_u.contraction_type_topological_charge,from.GparityMeasurement_u.contraction_type_topological_charge); break;
 	    case CONTRACTION_TYPE_MRES:
 	      rpc_deepcopy<ContractionTypeMres>::doit(into.GparityMeasurement_u.contraction_type_mres,from.GparityMeasurement_u.contraction_type_mres); break;
+	    case CONTRACTION_TYPE_A2A_BILINEAR:
+	      rpc_deepcopy<ContractionTypeA2ABilinear>::doit(into.GparityMeasurement_u.contraction_type_a2a_bilinear,from.GparityMeasurement_u.contraction_type_a2a_bilinear); break;
 	  };
 }
 void GparityMeasurement::deep_copy(GparityMeasurement const &rhs){
@@ -734,6 +934,8 @@ void rpc_print<GparityMeasurement>::doit(GparityMeasurement const &what, const s
 	      rpc_print<ContractionTypeTopologicalCharge>::doit(what.GparityMeasurement_u.contraction_type_topological_charge,spaces+" union GparityMeasurement_u.contraction_type_topological_charge = "); break;
 	    case CONTRACTION_TYPE_MRES:
 	      rpc_print<ContractionTypeMres>::doit(what.GparityMeasurement_u.contraction_type_mres,spaces+" union GparityMeasurement_u.contraction_type_mres = "); break;
+	    case CONTRACTION_TYPE_A2A_BILINEAR:
+	      rpc_print<ContractionTypeA2ABilinear>::doit(what.GparityMeasurement_u.contraction_type_a2a_bilinear,spaces+" union GparityMeasurement_u.contraction_type_a2a_bilinear = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

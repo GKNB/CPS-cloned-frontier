@@ -9,7 +9,8 @@ enum ContractionType {
   CONTRACTION_TYPE_BILINEAR_VERTEX,
   CONTRACTION_TYPE_QUADRILINEAR_VERTEX,
   CONTRACTION_TYPE_TOPOLOGICAL_CHARGE,
-  CONTRACTION_TYPE_MRES
+  CONTRACTION_TYPE_MRES,
+  CONTRACTION_TYPE_A2A_BILINEAR
 };
 struct ContractionTypeLLMesons{
  string prop_L<>;
@@ -184,6 +185,61 @@ struct ContractionTypeMres{
 
 
 
+enum A2ASmearingType {
+  BOX_3D_SMEARING,
+  EXPONENTIAL_3D_SMEARING
+};
+
+struct Box3dSmearing{
+  int side_length;
+                                          
+ rpccommand GENERATE_PRINT_METHOD;
+};
+struct Exponential3dSmearing{
+  Float radius;
+                                          
+ rpccommand GENERATE_PRINT_METHOD;
+};
+
+union A2ASmearing{
+switch(A2ASmearingType type){
+ case BOX_3D_SMEARING:
+   Box3dSmearing box_3d_smearing;
+ case EXPONENTIAL_3D_SMEARING:
+   Exponential3dSmearing exponential_3d_smearing;
+}
+  rpccommand GENERATE_UNION_TYPEMAP;
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
+
+struct MatIdxAndCoeff{
+  int idx;
+  Float coeff;
+  rpccommand GENERATE_PRINT_METHOD;
+};
+
+struct ContractionTypeA2ABilinear{
+  string prop_src_snk<>; /*Prop from source to sink*/
+  string prop_snk_src<>; /*Prop from sink to source*/
+  A2ASmearing source_smearing;
+  A2ASmearing sink_smearing;
+
+  /*Spin matrix indices run from 0..15 (QDP conventions). Resulting spin matrix is the linear combination of those matrices specified with the given coefficients*/
+  /*Common examples are gamma^5 (15),  gamma^1 (1),  gamma^2 (2), gamma^3 (4), gamma^4 (8)*/
+  MatIdxAndCoeff source_spin_matrix<>;
+  MatIdxAndCoeff sink_spin_matrix<>;
+  /*Flavor matrix indices run from 0..3 (unit matrix + 3 Pauli matrices)*/
+  MatIdxAndCoeff source_flavor_matrix<>;
+  MatIdxAndCoeff sink_flavor_matrix<>;
+
+  string file<>;
+                                          
+ rpccommand GENERATE_PRINT_METHOD;
+ rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
+
 union GparityMeasurement{
 switch(ContractionType type){
  case CONTRACTION_TYPE_LL_MESONS:
@@ -208,6 +264,8 @@ switch(ContractionType type){
    ContractionTypeTopologicalCharge contraction_type_topological_charge;
  case CONTRACTION_TYPE_MRES:
    ContractionTypeMres contraction_type_mres;
+ case CONTRACTION_TYPE_A2A_BILINEAR:
+   ContractionTypeA2ABilinear contraction_type_a2a_bilinear;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

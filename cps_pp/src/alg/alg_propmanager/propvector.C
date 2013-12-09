@@ -25,26 +25,19 @@
 
 CPS_START_NAMESPACE
 
-PropagatorContainer & PropVector::operator[](const int &idx){ return *props[idx]; }
-PropVector::PropVector(): sz(0){ for(int i=0;i<MAX_SIZE;i++) props[i] = NULL; }
-PropVector::~PropVector(){ for(int i=0;i<MAX_SIZE;i++) if(props[i]!=NULL) delete props[i]; }
-  
-const int &PropVector::size() const{ return sz; }
+PropVector::PropVector(): PointerArray<PropagatorContainer>(){}
 
 PropagatorContainer & PropVector::addProp(PropagatorArg &arg){
-  if(sz==MAX_SIZE){ ERR.General("PropVector","addProp(PropagatorArg &arg)","Reached maximum number of allowed propagators: %d\n",MAX_SIZE); }
   PropagatorContainer* p = PropagatorContainer::create(arg.generics.type);
   p->setup(arg);
-  props[sz++] = p;
-  return *p;
+  return append(p);
 }
-void PropVector::clear(){
-  for(int i=0;i<MAX_SIZE;i++)
-    if(props[i]!=NULL){
-      delete props[i];
-      props[i]=NULL;
-    }
-  sz = 0;
+
+LanczosVector::LanczosVector(): PointerArray<LanczosContainer>(){}
+
+LanczosContainer & LanczosVector::add(LanczosContainerArg &arg){
+  return append(new LanczosContainer(arg));
 }
+
 
 CPS_END_NAMESPACE

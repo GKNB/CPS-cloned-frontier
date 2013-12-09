@@ -9,7 +9,12 @@ PropagatorArg::~PropagatorArg(){
 JobPropagatorArgs::~JobPropagatorArgs(){
   //if(props.props_val) delete props.props_val;
 }
-
+JobPropagatorArgs::JobPropagatorArgs(){
+  props.props_len = 0; 
+  props.props_val = NULL;
+  lanczos.lanczos_len = 0; 
+  lanczos.lanczos_val = NULL;
+}
 
 //type mapping
 AttrType GenericPropAttrArg::getType (  ){ return GENERIC_PROP_ATTR; }
@@ -26,6 +31,7 @@ AttrType PropCombinationAttrArg::getType (  ){ return PROP_COMBINATION_ATTR; }
 AttrType GparityOtherFlavPropAttrArg::getType ( ){ return GPARITY_OTHER_FLAV_PROP_ATTR; }
 AttrType TwistedBcAttrArg::getType( ){ return TWISTED_BC_ATTR; }
 AttrType StoreMidpropAttrArg::getType( ){ return STORE_MIDPROP_ATTR; }
+AttrType A2AAttrArg::getType( ){ return A2A_ATTR; }
 //As AttrArg types are used in a union, we cannot write copy constructors. Instead write a clone function to perform a deep copy,
 //and the automatically generated trivial copy constructor is shallow.
 
@@ -122,7 +128,11 @@ TwistedBcAttrArg TwistedBcAttrArg::clone(){
 StoreMidpropAttrArg StoreMidpropAttrArg::clone(){
   return *this;
 }
-
+A2AAttrArg A2AAttrArg::clone(){
+  A2AAttrArg out;
+  out.deep_copy(*this);
+  return out;
+}
 
 
 CPS_END_NAMESPACE

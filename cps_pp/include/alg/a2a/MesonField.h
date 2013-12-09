@@ -6,7 +6,7 @@ CPS_END_NAMESPACE
 #include <util/rcomplex.h>
 #include <util/vector.h>
 #include <util/error.h>
-#include "alg_a2a.h"
+#include <alg/a2a/alg_a2a.h>
 #include <alg/alg_fix_gauge.h>
 #include <alg/alg_base.h>
 #include <alg/wilson_matrix.h>
@@ -213,8 +213,14 @@ public:
   MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right, const int &qdp_spin_idx, const FlavorMatrixType &flav_mat = sigma0): MFstructure(){
     set_form(leftv,rightv,_conj_left,_conj_right); set_matrix(qdp_spin_idx,flav_mat);
   }
-
+  //Matrix form must be manually specified in the version below
+  MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right): MFstructure(){
+    set_form(leftv,rightv,_conj_left,_conj_right);
+  }
   void set_matrix(const int &qdp_spin_idx, const FlavorMatrixType &flav_mat = sigma0);
+  
+  //Any 4x4 complex matrix can be represented as a linear combination of the 16 Gamma matrices (here in QDP order cf. below), and likewise any 2x2 complex matrix is a linear combination of Pauli matrices and the unit matrix (index 0)
+  void set_matrix(const Float gamma_matrix_linear_comb[16], const Float pauli_matrix_linear_comb[4]);
 
   //\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
   cnum contract_internal_indices(const cnum* left[2], const cnum* right[2]) const;

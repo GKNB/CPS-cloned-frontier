@@ -28,6 +28,7 @@ enum AttrType {
 	GPARITY_OTHER_FLAV_PROP_ATTR = 11,
 	TWISTED_BC_ATTR = 12,
 	STORE_MIDPROP_ATTR = 13,
+	A2A_ATTR = 14,
 };
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
@@ -295,6 +296,34 @@ template<> struct rpc_print<StoreMidpropAttrArg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+struct A2AAttrArg {
+	char *lanczos_tag;
+	int nl;
+	int nhits;
+	RandomType rand_type;
+	int src_width;
+	int dilute_flavor;
+	int do_gauge_fix;
+	   static AttrType getType (  ) ;
+	   A2AAttrArg clone (  ) ;
+	   void deep_copy(const A2AAttrArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct A2AAttrArg A2AAttrArg;
+template<> struct rpc_deepcopy<A2AAttrArg>{
+	static void doit(A2AAttrArg &into, A2AAttrArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<A2AAttrArg>{
+	static void doit(A2AAttrArg const &what, const std::string &prefix="" );
+};
+
+
 enum PropCombination {
 	A_PLUS_B = 0,
 	A_MINUS_B = 1,
@@ -345,6 +374,7 @@ struct AttributeContainer {
 		GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
 		TwistedBcAttrArg twisted_bc_attr;
 		StoreMidpropAttrArg store_midprop_attr;
+		A2AAttrArg a2a_attr;
 	} AttributeContainer_u;
 	   template <typename T> static AttrType type_map();
 	   void deep_copy(const AttributeContainer &rhs);
@@ -368,6 +398,7 @@ template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>();
 template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>();
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>();
 template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>();
+template <> AttrType AttributeContainer::type_map<A2AAttrArg>();
 template<> struct rpc_deepcopy<AttributeContainer>{
 	static void doit(AttributeContainer &into, AttributeContainer const &from);
 };
@@ -412,6 +443,37 @@ template<> struct rpc_print<PropagatorArg>{
 
 #include <util/vml/vml_templates.h>
 class VML;
+class LanczosContainerArg {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	char *tag;
+	LancArg lanc_arg;
+	int cg_max_iter;
+	Float cg_residual;
+	int cg_precon_5d;
+	BfmSolverType solver;
+	Float mobius_scale;
+	BndCndType tbc;
+	   void deep_copy(const LanczosContainerArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+template<> struct rpc_deepcopy<LanczosContainerArg>{
+	static void doit(LanczosContainerArg &into, LanczosContainerArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<LanczosContainerArg>{
+	static void doit(LanczosContainerArg const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+class VML;
 class JobPropagatorArgs {
 public:
 	 bool Encode(char *filename,char *instance);
@@ -421,6 +483,11 @@ public:
 		u_int props_len;
 		PropagatorArg *props_val;
 	} props;
+	struct {
+		u_int lanczos_len;
+		LanczosContainerArg *lanczos_val;
+	} lanczos;
+	   JobPropagatorArgs (  ) ;
 	   ~JobPropagatorArgs (  ) ;
 	   void deep_copy(const JobPropagatorArgs &rhs);
 	   void print(const std::string &prefix ="");
@@ -459,10 +526,12 @@ extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
 extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
+extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
 extern  bool_t vml_PropagatorArg (VML *, char *instance, PropagatorArg*);
+extern  bool_t vml_LanczosContainerArg (VML *, char *instance, LanczosContainerArg*);
 extern  bool_t vml_JobPropagatorArgs (VML *, char *instance, JobPropagatorArgs*);
 
 #else /* K&R C */
@@ -481,10 +550,12 @@ extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
 extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
+extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
 extern  bool_t vml_PropagatorArg (VML *, char *instance, PropagatorArg*);
+extern  bool_t vml_LanczosContainerArg (VML *, char *instance, LanczosContainerArg*);
 extern  bool_t vml_JobPropagatorArgs (VML *, char *instance, JobPropagatorArgs*);
 
 #endif /* K&R C */

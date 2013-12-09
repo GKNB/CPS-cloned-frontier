@@ -115,6 +115,9 @@ public:
   void measure_topological_charge(const ContractionTypeTopologicalCharge &args, const int &conf_idx);
   void measure_mres(const ContractionTypeMres &args, const int &conf_idx);
   void measure_mres(const ContractionTypeMres &args, CorrelationFunction &pion, CorrelationFunction &j5_q);
+
+  void contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, CorrelationFunction &result);
+  void contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, const int &conf);
 };
 
 CPS_END_NAMESPACE

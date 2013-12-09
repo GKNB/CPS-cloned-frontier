@@ -26,6 +26,8 @@ public:
 
     // set true to use single precision BFM object.
     static bool use_mixed_solver;
+    // set to true to do multi-shift solves in single precision
+    static bool single_prec_multi_shift;
 
     bfm_evo<double> bd;
     bfm_evo<float> bf;

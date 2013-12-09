@@ -31,6 +31,15 @@ CPS_END_NAMESPACE
 #include<util/qcdio.h>
 #include<util/wilson.h>
 
+#ifdef USE_BFM
+//CK: these are redefined by BFM (to the same values) (THIS IS VERY ANNOYING, WHY ARE THESE NOT STATIC VARIABLES THAT LIVE IN THE CPS NAMESPACE?)
+#undef ND
+#undef SPINOR_SIZE
+#undef HALF_SPINOR_SIZE
+#undef GAUGE_SIZE
+#include <util/lattice/fbfm.h>
+#endif
+
 #ifdef HAVE_STRINGS_H
 #include <strings.h>
 #endif
@@ -198,9 +207,19 @@ Float AlgHmc::run(void)
       }
 
       // Molecular Dynamics Trajectory
-      if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+      if(hmc_arg->wfm_md_sloppy){
+	wilson_set_sloppy(true);
+	#ifdef USE_BFM
+	Fbfm::single_prec_multi_shift = true; //reuse this handy and likely unused hmc_arg variable for enabling sloppy RHMC during MD
+	#endif
+      }
+
       integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
+
       wilson_set_sloppy(false);
+#ifdef USE_BFM
+      Fbfm::single_prec_multi_shift = false;
+#endif
 
       // Reunitarize
       if(hmc_arg->reunitarize == REUNITARIZE_YES){

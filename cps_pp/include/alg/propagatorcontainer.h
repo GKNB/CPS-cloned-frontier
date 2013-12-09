@@ -6,7 +6,12 @@ CPS_END_NAMESPACE
 #include<vector>
 #include<config.h>
 #include <alg/qpropw.h>
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
+//#include <alg/eigen/Krylov_5d.h>
+
+template<class T> class Lanczos_5d;
+template<class T> class bfm_evo;
 
 CPS_START_NAMESPACE
 
@@ -94,6 +99,58 @@ class QPropWcontainer: public PropagatorContainer{
 
   ~QPropWcontainer(){ if(prop!=NULL) delete prop; }
 };
+
+class A2APropbfm;
+
+class A2ApropContainer: public PropagatorContainer{
+ protected:
+  A2APropbfm *prop;
+
+ public:
+  A2ApropContainer(): PropagatorContainer(), prop(NULL){}
+
+  void readProp(Lattice &latt); //loads prop if on disk (or if possible), does nothing otherwise
+  void calcProp(Lattice &latt); //perform prop inversion
+  void deleteProp(); //deletes the prop from memory, used to save space. Will be automatically recalculated if getProp is called again
+
+  //Convenience function to check and then convert a base class reference. Pass in cname and fname
+  static A2ApropContainer & verify_convert(PropagatorContainer &pc, const char* cname, const char* fname);
+  static const A2ApropContainer & verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname);
+
+  A2APropbfm & getProp(Lattice &latt); //get the prop, calculate or load if necessary
+
+  ~A2ApropContainer(){ if(prop!=NULL) delete prop; }
+};
+
+
+
+
+class LanczosContainer{
+  Lanczos_5d<double> *lanczos;
+  bfm_evo<double> *dwf;
+  
+  bool reload_gauge;
+
+  LanczosContainerArg args;
+ public:
+  LanczosContainer(LanczosContainerArg &_args): reload_gauge(false), dwf(NULL), lanczos(NULL){ args.deep_copy(_args); } 
+
+  void calcEig(Lattice &latt);
+  void deleteEig();
+
+  Lanczos_5d<double> & getEig(Lattice &latt);
+
+  inline bool tagEquals(const char* what){ //check if tag is equal to input
+    return (strcmp(args.tag,what)==0);
+  }
+
+  inline char const* tag() const{ return args.tag; }
+
+  void reloadGauge(){ reload_gauge = true; }
+
+  void set_lanczos(Lanczos_5d<double> *to); //Does not check arguments match those in args, so use only if you know what you are doing!
+};
+
 
 
 

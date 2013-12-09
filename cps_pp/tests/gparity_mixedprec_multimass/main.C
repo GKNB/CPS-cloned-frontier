@@ -42,6 +42,7 @@
 
 #include <util/data_shift.h>
 
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -237,679 +238,6 @@ Float* rand_5d_canonical_fermion(Lattice &lat){
 
 #include <bfm_vmx.h>
 
-namespace mixed_cg {
-  /*CK: Implementation of multi-shift with guesses from 
-    J.~C.~Osborn,
-    ``Initial guesses for multi-shift solvers,''
-    PoS LATTICE {\bf 2008} (2008) 029
-    [arXiv:0810.1081 [hep-lat]].
-  */
-
-  double sum_prod_skip_i(double shifts[], int idx_start, int N, int i, int prod_size_remaining){
-    if(prod_size_remaining == 0) return 1.0;
-    
-    int stop_at = N - prod_size_remaining; //e.g. for products of 2 shifts, the outermost sum stops at shift[N-2]
-
-    double out = 0.0;
-    for(int j = idx_start; j<= stop_at; j++){
-      if(j==i) continue;
-      out += shifts[j] * sum_prod_skip_i(shifts, j+1, N, i, prod_size_remaining-1);
-    }
-    return out;
-  }
-
-  double coeff_i_B_pow_n_w(int n, int N, int i, double shifts[]){
-    if(n == N){ printf("coeff_i_B_pow_n_w, N=n, why?\n"); exit(-1); }
-    int prod_size = N-1-n; //the result is a sum over products, where each product comprises prod_size shifts
-    return sum_prod_skip_i(shifts,0,N,i,0,prod_size); 
-    //if n == N-1 then prod_size = 0, hence this returns 1.0
-    //if n == N-2 then prod_size = 1, hence this returns sum_{j!=i} shift[j]
-    //for general n
-    // ( sum_{j!=i, j<= N-1-n} shift[j] * ( sum_{k!=i, k<= N-1-n+1, k>j} shift[k] * ( sum_{l!=i, l<= N-1-n+2, l>k} shift[l] * (....) )))
-  }
-
-
-  template <typename Float>
-  int CGNE_prec_MdagM_multi_shift_with_guesses(Fermion_t psi[], 
-					       Fermion_t src,
-					       Fermion_t guesses[],
-					       double    mass[],
-					       double    alpha[],
-					       int       nshift,
-					       double mresidual[],
-					       int single)
-  {
-    int me = thread_barrier();
-    if(single){ printf("CGNE_prec_MdagM_multi_shift_with_guesses: Not sure what to do in 'single' mode\n"); exit(-1); }
-
-    //Form combination of guesses that results in a new source y in the common Krylov space
-    Fermion_t w = threadedAllocFermion();
-    set_zero(w);
-    for(int i = 0; i < nshift; i++){
-      double c_i = 1.0;
-      for(int j=0;j<nshift;j++){
-	if(j==i) continue;
-	c_i *= 1.0/(mass[j] - mass[i]);
-      }
-      axpy(w, guess[i], w, c_i);
-      if(isBoss() && (!me)) printf("CGNE_prec_MdagM_multi_shift_with_guesses: c_%d = %e\n",i,c_i);
-    }
-
-    //First form y_i = Prod_{j!=i} (MMdag + shift[j]) w
-    Fermion_t y[nshift];
-    for(int i=0;i<nshift;i++){
-      y[i] = threadedAllocFermion(mem_fast);
-      set_zero(y[i]);
-    }
-
-    //We can multiply out. Let MMdag = B
-    //y_i = Prod_{j!=i, j<=N-1} (MMdag + shift[j]) w = B^{N-1}w + (sum_{j!=i, j<=N-1} shift[j])B^{N-2}w +  sum_{j!=i, j<=N-2} shift[j] * ( sum_{k!=i,k>j, k<=N-1} shift[k] ) B^{N-3}w ... 
-    //The coefficient of a term B^n is the sum of all the unique products of (N-1)-n elements of the set of shifts excluding shift[i]: { shift[0], shift[1],.. excl shift[i].... shift[N-2], shift[N-1] }
-    //We take a product of size zero to have value 1.0 (as we would with factorials). Indices all start from 0 and end at N-1.
-    //For example
-    //n=N-1 has coefficent 1.0, which is the product of (N-1)-(N-1)=0 shifts
-    //n=N-2 is the sum of all products comprising 1 shift:  sum_{j!=i, j<=N-1} shift[j], which
-    //n=N-3 is the sum of all products of 2 shifts: shift[0]*(shift[1] + shift[2] + ... shift[N-1]) + shift[1]*(shift[2] + shift[3] + ... shift[N-1]) + ... + shift[N-2]*shift[N-1]   
-    //                                               =  sum_{j!=i, j<=N-2} shift[j] * ( sum_{k!=i,k>j;k<=N-1} shift[k] )
-    //etc...
-
-    //We calculate using nested sums in ascending order to avoid double counting.
-
-    //coeff_i_B_pow_n_w(int n, int N, int i, double shifts[]){
-  
-    //contain the running product in w: w_n+1 = MMdag w_n
-    //w_0 = w
-    Fermion_t tmp = threadedAllocFermion(mem_fast); 
-    Fermion_t tmp2 = threadedAllocFermion(mem_fast); 
-
-    for(int n=0;n<nshift;n++){ // MMdag^n w
-      for(int i=0;i<nshift;i++){
-	double coeff_i = coeff_i_B_pow_n_w(n,nshift,i,mass);
-	axpy(y[i],w,y[i],coeff_i);
-      }
-      Mprec(w,tmp,tmp2,DaggerNo);
-      Mprec(tmp,w,tmp2,DaggerYes);
-    }
-
-    Fermion_t r = threadedAllocFermion(mem_fast);
-    //Also need r = src - Prod_j (MMdag + shift[j]) w = src - (MMdag + shift[N-1])y[N-1]
-  
-    Mprec(y[nshift-1],tmp,tmp2,DaggerNo); 
-    Mprec(tmp,r,tmp2,DaggerYes); //after this, r = MMdag y[N-1]
-    axpy(r,y[nshift-1],r,mass[nshift-1]); // r = (MMdag + shift[N-1])y[N-1]
-    axpy(r,r,src,-1.0); // r = src - (MMdag + shift[N-1])y[N-1]
-
-
-    //run standard multi-shift with r as the source
-    CGNE_prec_MdagM_multi_shift(psi, r, mass, alpga, nshift, mresidual, single); 
-
-  
-  
-
-
-
-
-
-  //MdagM+m[0]
-#if 0
-   d= Mprec(p,mp,tmp,DaggerNo,1); 
-   Mprec(mp,mmp,tmp,DaggerYes);
-#else
-
-   if(mass[0]<0 && CPS_NEGATIVE_SHIFT_MODIFICATION){
-     d= Mprec(p,mp,tmp,DaggerNo,1); 
-     Mprec(mp,mmp,tmp,DaggerYes);
-   }else{
-     //not correct yet (CK: Who wrote this and what does it mean?)
-     d= Mprec(p,mp,tmp,DaggerNo,1); //mp = Mpc p,  what is the 'norm' of?? I think its |Mpc p|^2
-     Mprec(mp,mmp,tmp,DaggerYes); //mmp = Mpc^dag mp = Mpc^dag Mpc p
-     axpy(mmp,p,mmp,mass[0]); //mmp = p*mass[0]+mmp
-
-     //Overall  mmp = (Mpc^dag Mpc + mass[0])*p
-     
-     double rn = norm(p);
-     d += rn*mass[0];
-   }
-#endif
-
-  b = -cp /d;
-  if ( isBoss() && !me ) printf("bfmbase::CGNE_prec_multi: b = -cp/d = -%le/%le = %le\n",cp,d,b);
-
-  // Set up the various shift variables
-  int       iz=0;
-
-  z[0][1-iz] = 1.0;
-  z[0][iz]   = 1.0;
-  bs[0]      = b;
-  for(int s=1;s<nshift;s++){
-    z[s][1-iz] = 1.0;
-    z[s][iz]   = 1.0/( 1.0 - b*(mass[s]-mass[0]));
-    bs[s]      = b*z[s][iz]; // Sign relative to Mike - FIXME
-  }
-
-  // r += b[0] A.p[0]
-  // c= norm(r)
-  c=axpy_norm(r,mmp,r,b);
-
-  if ( isBoss() && !me ) printf("bfmbase::CGNE_prec_multi: k=0 residual %le \n",c);
-
-  // Linear algebra overhead can be minimised if summing results
-  // psi-= b[0]p[0] = -b[0]src
-
-  //  if ( single ) {
-  //    double coeff=0;
-  //    for(int s=0;s<nshift;s++) coeff+=-bs[s]*alpha[s];
-  //    axpby(psi[0],src,src,0.0,coeff);
-  //  }  else {
-  //  }
-  for(int s=0;s<nshift;s++) {
-    axpby(psi[s],src,src,0.,-bs[s]*alpha[s]);
-  }
-  
-
-  // Iteration loop
-  for (int k=1;k<=max_iter;k++){
-    if ( isBoss() && !me ) printf("bfmbase::CGNE_prec_multi: k=%d residual %le \n",k,c);
-
-
-    a = c /cp;
-    axpy(p,p,r,a);
-
-    // Note to self - direction ps is iterated seperately
-    // for each shift. Does not appear to have any scope
-    // for avoiding linear algebra in "single" case.
-    // 
-    // However SAME r is used. Could load "r" and update
-    // ALL ps[s]. Bandwidth goes to that of "copy".
-    // Could compare AXPY and COPY performance to estimate gain.
-    for(int s=0;s<nshift;s++){
-      if ( ! converged[s] ) {
-        if (s==0){
-          axpy(ps[s],ps[s],r,a);
-        } else{
-        double as =a *z[s][iz]*bs[s] /(z[s][1-iz]*b);
-        axpby(ps[s],r,ps[s],z[s][iz],as);
-        }
-      }
-    }
-
-    cp=c;
-    
-    if(mass[0]<0 && CPS_NEGATIVE_SHIFT_MODIFICATION){ //CK: cf above
-      d= Mprec(p,mp,tmp,DaggerNo,1); 
-      Mprec(mp,mmp,tmp,DaggerYes);
-    }else{
-      d= Mprec(p,mp,tmp,DaggerNo,1); 
-      Mprec(mp,mmp,tmp,DaggerYes);
-      axpy(mmp,p,mmp,mass[0]);
-      double rn = norm(p);
-      d += rn*mass[0];
-    }
-
-    bp=b;
-    b=-cp/d;
-    
-    c=axpy_norm(r,mmp,r,b);
-
-    // Toggle the recurrence history
-    bs[0] = b;
-    iz = 1-iz;
-
-    for(int s=1;s<nshift;s++){
-      if(!converged[s]){
-	double z0 = z[s][1-iz];
-	double z1 = z[s][iz];
-	z[s][iz] = z0*z1*bp
-	  / (b*a*(z1-z0) + z1*bp*(1- (mass[s]-mass[0])*b)); 
-	bs[s] = b*z[s][iz]/z0; // NB sign  rel to Mike
-      }
-    }
-    
-    // Fixme - Mike has a variable "at" that is missing here.
-    // Understand this. NB sign of bs rel to Mike
-    for(int s=0;s<nshift;s++){
-      int ss = s;
-      // Scope for optimisation here in case of "single".
-      // Could load psi[0] and pull all ps[s] in.
-      //      if ( single ) ss=primary;
-      if(!converged[s])
-      axpy(psi[ss],ps[s],psi[ss],-bs[s]*alpha[s]);
-    }
-
-    // Convergence checks
-    int all_converged = 1;
-    if ( ((k%100)==0) && isBoss() && (!me) ) printf("bfmbase::CGNE_prec_multi: k=%d c=%g\n",k,c);
-    for(int s=0;s<nshift;s++){
-
-      if (!converged[s]){
-
-	double css  = c * z[s][iz]* z[s][iz];
-	
-	if ( ((k%100)==0) && isBoss() && (!me) ) printf("bfmbase::CGNE_prec_multi: Shift %d convergence test cur %g, targ %g\n",s,css,rsq[s]);
-
-	if(css<rsq[s]){
-	  converged[s]=1;
-	  if ( isBoss() && (!me) ) printf("bfmbase::CGNE_prec_multi: Shift %d convergence test cur %g, targ %g\n",s,css,rsq[s]);
-	  if ( isBoss() && (!me) ) printf("bfmbase::CGNE_prec_multi: k=%d Shift %d has converged\n",k,s);
-	} else {
-	  all_converged=0;
-	}
-
-      }
-    }
-
-    if ( all_converged ){
-      if ( isBoss() && (!me) )printf("bfmbase::CGNE_prec_multi: k=%d All shifts have converged\n",k);
-      if ( isBoss() && (!me) )printf("bfmbase::CGNE_prec_multi: k=%d Checking solutions\n",k);
-      // Check answers 
-      for(int s=0; s < nshift; s++) { 
-	Mprec(psi[s],mp,tmp,DaggerNo);
-	Mprec(mp,mmp,tmp,DaggerYes);
-        axpy(tmp,psi[s],mmp,mass[s]);
-	axpy(r,tmp,src,-1);
-	double rn = norm(r);
-	double cn = norm(src);
-	if ( isBoss() && !me ) {
-	  printf("bfmbase::CGNE_prec_multi: shift[%d] true residual %le \n",s,sqrt(rn/cn));
-	}
-      }
-
-      if ( single ) {
-	for(int s=1; s < nshift; s++) { 
-	  axpy(psi[0],psi[s],psi[0],1.0);
-	}      
-      }
-
-      threadedFreeFermion(tmp);
-      threadedFreeFermion(p);
-      threadedFreeFermion(mp);
-      threadedFreeFermion(mmp);
-      threadedFreeFermion(r);
-      for(int i=0;i<nshift;i++){
-	threadedFreeFermion(ps[i]);
-      }  
-
-      if ( this->isBoss() && (!me) ) { 
-	this->InverterExit();
-      }
-      return k;
-    }
-  }
-
-  if ( isBoss() && !me ) printf("bfmbase::CGNE_prec_multi: CG not converged \n");
-
-  threadedFreeFermion(tmp);
-  threadedFreeFermion(p);
-  threadedFreeFermion(mp);
-  threadedFreeFermion(mmp);
-  threadedFreeFermion(r);
-  for(int i=0;i<nshift;i++){
-    threadedFreeFermion(ps[i]);
-  }  
-  if ( this->isBoss() && (!me) ) { 
-    this->InverterExit();
-  }
-}
-
-
-
-
-
-
-  //CK: Modified version of int bfm::CGNE_prec that solves (MdagM + shift) psi = src
-  template<typename Float>
-  int threaded_CGNE_MdagM_plus_shift(Fermion_t psi, Fermion_t src, Float shift, bfm_evo<Float> &bfm)
-  {
-    //Standard CG algorithm from BFM:
-    //(Use subscript to label iteration)
-
-    //r_1 = MMdag psi - src,   p_1 = MMdag psi - src,   c_1 = |r_1|^2 = |p_1|^2
-    //Iteration:
-    //d_k = |M p_k|^2 = p_k^dag M^dag M p_k
-    //a_k = c_k / d_k
-    //r_k+1 = MMdag p_k - a_k r_k
-    //c_k+1 = |r_k+1|^2
-    //b_k = c_k+1 / c_k
-    //psi = a_k p_k + psi
-    //p_k+1 = b_k p_k + r_k+1
-    
-    //Note: norm(vec) is actually |vec|^2
-
-    //Shift modified version should look similar:
-    //r_1 = (MMdag+shift) psi - src,   p_1 = (MMdag+shift) psi - src,   c_1 = |r_1|^2 = |p_1|^2
-    //Iteration:
-    //d_k = p_k^dag M^dag M p_k + shift * p_k^dag p_k 
-    //a_k = c_k / d_k
-    //r_k+1 = (MMdag+shift) p_k - a_k r_k
-    //c_k+1 = |r_k+1|^2
-    //b_k = c_k+1 / c_k
-    //psi = a_k p_k + psi
-    //p_k+1 = b_k p_k + r_k+1
-
-    int verbose = bfm.verbose;
-
-    double f;
-    double cp,c,a,d,b;
-    double residual = bfm.residual;
-    int max_iter = bfm.max_iter;
-    int me = bfm.thread_barrier();
-
-    if ( bfm.isBoss() && (!me) ) { 
-      bfm.InverterEnter();
-    }
-
-    Fermion_t p   = bfm.threadedAllocFermion(mem_fast); 
-    Fermion_t tmp = bfm.threadedAllocFermion(mem_fast); 
-    Fermion_t mp  = bfm.threadedAllocFermion(mem_fast); 
-    Fermion_t mmp = bfm.threadedAllocFermion(mem_fast); 
-    Fermion_t r   = bfm.threadedAllocFermion(mem_fast); 
-
-    //Initial residual computation & set up
-    double guess = bfm.norm(psi);
-    d = bfm.Mprec(psi,mp,tmp,DaggerNo);
-    bfm.Mprec(mp,mmp,tmp,DaggerYes);
-    b = bfm.axpy_norm(mmp,psi,mmp,shift); //MMdag psi + shift*psi
-
-    cp= bfm.axpy_norm (r, mmp, src,-1.0);
-    a = bfm.axpy_norm (p, mmp, src,-1.0);
-
-    //a = bfm.norm(p);
-    //cp= bfm.norm(r);
-    //r_1 = (MMdag+shift) psi - src,   p_1 = (MMdag+shift) psi - src,   c_1 = |r_1|^2 = |p_1|^2
-
-    Float ssq =  bfm.norm(src);
-    if ( verbose && bfm.isBoss() && !me ) {
-      printf("mixed_cg::CGNE_MdagM_plus_shift gues %le \n",guess);
-      printf("mixed_cg::CGNE_MdagM_plus_shift src  %le \n",ssq);
-      printf("mixed_cg::CGNE_MdagM_plus_shift  Mp  %le \n",d);
-      printf("mixed_cg::CGNE_MdagM_plus_shift  (MMdag + shift)p %le \n",b);
-      printf("mixed_cg::CGNE_MdagM_plus_shift   r  %le \n",cp);
-      printf("mixed_cg::CGNE_MdagM_plus_shift   p  %le \n",a);
-    }
-    Float rsq =  residual* residual*ssq;
-
-    //Check if guess is really REALLY good :)
-    if ( cp <= rsq ) {
-      if ( verbose && bfm.isBoss() && !me ) {
-	printf("mixed_cg::CGNE_MdagM_plus_shift k=0 converged - suspiciously nice guess %le %le\n",cp,rsq);
-      }
-      bfm.threadedFreeFermion(tmp);
-      bfm.threadedFreeFermion(p);
-      bfm.threadedFreeFermion(mp);
-      bfm.threadedFreeFermion(mmp);
-      bfm.threadedFreeFermion(r);
-      if ( bfm.isBoss() && (!me) ) { 
-	bfm.InverterExit();
-      }
-      return 0;
-    }
-    if ( verbose && bfm.isBoss() && !me ) 
-      printf("mixed_cg::CGNE_MdagM_plus_shift k=0 residual %le rsq %le\n",cp,rsq);
-
-    if ( bfm.isBoss() && !me ) {
-      if ( bfm.watchfile ) {
-	printf("mixed_cg::CGNE_MdagM_plus_shift watching file \"%s\"\n",bfm.watchfile);
-      }    
-    }
-    struct timeval start,stop;
-    gettimeofday(&start,NULL);
-
-
-    for (int k=1;k<=max_iter;k++){
-      bfm.iter=k;
-      uint64_t t_iter_1=GetTimeBase();
-
-      c=cp; 
-
-      uint64_t t_mprec_1=GetTimeBase();
-
-      //d_k = p_k^dag M^dag M p_k + shift * p_k^dag p_k 
-      d = bfm.Mprec(p,mp,tmp,0,1);
-      double norm_p = bfm.norm(p);
-      d += shift * norm_p;
-
-      uint64_t t_mprec_2=GetTimeBase();
-      a = c/d;
-
-      uint64_t t_mprec_3=GetTimeBase();
-      bfm.Mprec(mp,mmp,tmp,1); 
-      bfm.axpy(mmp,p,mmp,shift); // mmp = MMdag p + shift * p
-
-
-      uint64_t t_mprec_4=GetTimeBase();
-
-      uint64_t tr1=GetTimeBase();
-      cp = bfm.axpy_norm(r,mmp,r,-a); //r_k+1 = (MMdag+shift) p_k - a_k r_k
-      b = cp/c;
-      uint64_t tr2=GetTimeBase();
-
-      uint64_t tpsi1=GetTimeBase();
-      bfm.axpy(psi,p,psi,a);
-      uint64_t tpsi2=GetTimeBase();
-      // New (conjugate/M-orthogonal) search direction
-      uint64_t tp1=GetTimeBase();
-      bfm.axpy(p,p,r,b);
-      uint64_t tp2=GetTimeBase();
-
-      uint64_t t_iter_2=GetTimeBase();
-
-      // verbose nonsense
-      if ( (bfm.iter==bfm.time_report_iter) && bfm.isBoss() && (!me)  && verbose) {
-      
-	int lx = bfm.node_latt[0];
-	int ly = bfm.node_latt[1];
-	int lz = bfm.node_latt[2];
-	int lt = bfm.node_latt[3];
-
-	int cb4dsites = (lx*ly*lz*lt)/2;
-	printf("fermionCacheFootprint: %ld \n",7*bfm.axpyBytes()/3);
-	printf("gauge  CacheFootprint: %ld \n",2*18*8*cb4dsites*2);
-	printf("fermionVecBytes      : %ld \n",bfm.axpyBytes()/3);
-	printf("axpyBytes            : %ld \n",bfm.axpyBytes());
-	printf("axpy      (soln)     : %ld cyc %le MB/s\n",(tpsi2-tpsi1),(double)bfm.axpyBytes()*1600./(tpsi2-tpsi1));
-	printf("axpy_norm (residual) : %ld cyc %le MB/s\n",(tr2-tr1),(double)bfm.axpyBytes()*1600./(tr2-tr1));
-	printf("axpy      (search)   : %ld cyc %le MB/s\n",(tp2-tp1),(double)bfm.axpyBytes()*1600./(tp2-tp1));
-	printf("Iter time            : %ld cyc\n",t_iter_2-t_iter_1);
-	printf("linalg time          : %ld cyc\n",t_iter_2-t_iter_1-(t_mprec_2-t_mprec_1)-(t_mprec_4-t_mprec_3));
-	printf("Mprec time           : %ld cyc\n",t_mprec_2-t_mprec_1);
-	printf("Mprec time           : %ld cyc\n",t_mprec_4-t_mprec_3);
-	fflush(stdout);
-      }
-
-
-      if ( ((k%100 == 0) && (verbose!=0)) || (verbose > 10)){
-	if ( bfm.isBoss() && !me ) {
-	  printf("mixed_cg::CGNE_MdagM_plus_shift: k=%d r^2=%le %le %lx\n",k,cp,sqrt(cp/ssq),&bfm);
-	}
-      }
-
-      // Stopping condition
-      if ( cp <= rsq ) { 
-	//I did not update the flops count so I have commented them out
-
-	gettimeofday(&stop,NULL);
-	struct timeval diff;
-	timersub(&stop,&start,&diff);
-
-	if ( bfm.isBoss() && !me ) printf("mixed_cg::CGNE_MdagM_plus_shift converged in %d iterations\n",k);
-	if ( bfm.isBoss() && !me ) printf("mixed_cg::CGNE_MdagM_plus_shift converged in %d.%6.6d s\n",diff.tv_sec,diff.tv_usec);
-
-
-	//double flops = mprecFlops()*2.0 + 2.0*axpyNormFlops() + axpyFlops()*2.0;
-	//flops = flops * k;
-
-	//double t = diff.tv_sec*1.0E6 + diff.tv_usec;
-	// if ( isBoss()&& !me ) 
-	//   printf("mixed_cg::CGNE_MdagM_plus_shift: %d mprec flops/site\n",mprecFlopsPerSite());
-	// if ( isBoss()&& !me ) printf("mixed_cg::CGNE_MdagM_plus_shift: %le flops\n",flops);
-	// if ( isBoss()&& !me ) printf("mixed_cg::CGNE_MdagM_plus_shift: %le mflops per node\n",flops/t);
-
-	bfm.Mprec(psi,mp,tmp,0);
-	bfm.Mprec(mp,mmp,tmp,1); 
-	bfm.axpy(mmp,psi,mmp,shift);
-
-	bfm.axpy(tmp,src,mmp,-1.0);
-	double true_residual = sqrt(bfm.norm(tmp)/bfm.norm(src));
-	if ( bfm.isBoss() && !me ) 
-	  printf("mixed_cg::CGNE_MdagM_plus_shift: true residual is %le \n",true_residual);
-
-	bfm.threadedFreeFermion(tmp);
-	bfm.threadedFreeFermion(p);
-	bfm.threadedFreeFermion(mp);
-	bfm.threadedFreeFermion(mmp);
-	bfm.threadedFreeFermion(r);
-#ifdef LIST_ENGINE
-	if ( bfm.list_engine) bfm.L1P_PatternUnconfigure();
-#endif
-	if ( bfm.isBoss() && (!me) ) { 
-	  bfm.InverterExit();
-	}
-	return k;
-      }
-
-    }
-    if ( bfm.isBoss() && !me ) printf("mixed_cg::CGNE_MdagM_plus_shift: CG not converged \n");
-    bfm.threadedFreeFermion(tmp);
-    bfm.threadedFreeFermion(p);
-    bfm.threadedFreeFermion(mp);
-    bfm.threadedFreeFermion(mmp);
-    bfm.threadedFreeFermion(r);
-#ifdef LIST_ENGINE
-    if (bfm.list_engine ) bfm.L1P_PatternUnconfigure();
-#endif
-    if ( bfm.isBoss() && (!me) ) { 
-      bfm.InverterExit();
-    }
-
-    return -1;
-  }
-
-  // Both sol and src are double precision fermions. Single precision
-  // solver is only used internally.
-  //
-  // Things to be set before using this function:
-  //
-  // double precision solver mass, stopping condition, max iteration
-  // number.
-  //
-  // single precision solver mass, stopping condition, max iteration
-  // number.
-  //
-  // Gauge field must be initialized for both double and single prec
-  // solvers.
-  //
-  // the communication subsystem must be ready for bfm_d to use (due to
-  // the way bfmcommspi is written, one must reinitialize the
-  // communication object when switching between single and double
-  // precisions).
-  //
-  // max_cycle: the maximum number of restarts will be performed.
-
-  //min_fp_resid: the smallest value for the residual of the initial single-precision multi-mass solve
-  inline int threaded_cg_mixed_MdagM_multi_shift(Fermion_t sol[], Fermion_t src,
-						 double  mass[], double  alpha[], 
-						 bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, int nshift,
-						 double mresidual[], double min_fp_resid, int single,
-						 int max_cycle){
-    if(single){ cps::ERR.General("mixed_cg","threaded_cg_mixed_MdagM_multi_shift","Not implemented for SINGLE mode\n"); }
-    double frsd = bfm_f.residual; //save original residual for later restoration
-    int me = bfm_d.thread_barrier();
-
-    //First we perform the multi-mass inversion using the single-precision solver
-    double single_prec_residual[nshift];
-    for(int i=0;i<nshift;i++) 
-      if(mresidual[i]>min_fp_resid) single_prec_residual[i] = mresidual[i];
-      else single_prec_residual[i] = min_fp_resid; //tuning this might increase performance
-
-    Fermion_t src_f = bfm_f.threadedAllocFermion();
-    Fermion_t sol_f[nshift];
-    for(int i=0;i<nshift;i++) sol_f[i] = bfm_f.threadedAllocFermion();
-
-    threaded_convFermion(src_f, src, bfm_f, bfm_d);
-    switch_comm(bfm_f, bfm_d);
-
-    int single_prec_iter = bfm_f.CGNE_prec_MdagM_multi_shift(sol_f, src_f, mass, alpha, nshift, single_prec_residual, single);
-	
-    if(bfm_f.isBoss() && !me) {
-      printf("cg_mixed_MdagM_multi_shift: single-prec multi-shift iter = %d\n",single_prec_iter);
-    }
-
-    //Now we loop through the shifted solutions and do defect-correction on each individually
-    switch_comm(bfm_d, bfm_f);
-    for(int i=0;i<nshift;i++) threaded_convFermion(sol[i], sol_f[i], bfm_d, bfm_f);
-	
-    double src_norm = bfm_d.norm(src);
-
-    Fermion_t tv1_d = bfm_d.threadedAllocFermion();
-    Fermion_t tv2_d = bfm_d.threadedAllocFermion();
-    Fermion_t src_d = bfm_d.threadedAllocFermion();
-
-    int iter = 0;
-    for(int shift=0;shift<nshift;shift++){
-      double stop = src_norm * mresidual[shift]*mresidual[shift];
-      bfm_f.residual = mresidual[shift];
-
-      for(int i = 0; i < max_cycle; ++i) {
-	// compute double precision rsd and also new RHS vector.
-	bfm_d.Mprec(sol[shift],   tv1_d, src_d, 0, 0); //here src_d is just used as a temp storage
-	bfm_d.Mprec(tv1_d, tv2_d, src_d, 1, 0); // tv2_d = MdagM * sol
-	bfm_d.axpy(tv2_d,sol[shift],tv2_d,mass[shift]); //tv2_d = (MdagM + shift)* sol
-
-	double norm = bfm_d.axpy_norm(src_d, tv2_d, src, -1.);
-
-	if(bfm_f.isBoss() && !me) {
-	  printf("cg_mixed_MdagM_multi_shift: shift = %d, defect correction cycle = %d rsd = %17.10e(d) stop = %17.10e(d)\n",
-		 shift,i, norm, stop);
-	}
-
-	// Hantao's ad hoc stopping condition
-	if(norm < 100. * stop) break;
-
-	while(norm * bfm_f.residual * bfm_f.residual < stop) bfm_f.residual *= 2;
-
-	//We need to invert MdagM + shift, for which we cannot use the regular inverter. Use my optimised single-shift inverter
-	//Could also use the multi-shift with a single shift, but we can avoid some overhead by using my optimised version
-	threaded_convFermion(src_f, src_d, bfm_f, bfm_d);
-	switch_comm(bfm_f, bfm_d);
-
-	bfm_f.set_zero(sol_f[shift]);
-	iter += threaded_CGNE_MdagM_plus_shift<float>(sol_f[shift],src_f,mass[shift],bfm_f);
-
-	switch_comm(bfm_d, bfm_f);
-	threaded_convFermion(tv1_d, sol_f[shift], bfm_d, bfm_f);
-
-	bfm_d.axpy(sol[shift], tv1_d, sol[shift], 1.);
-      }
-      bfm_f.residual = frsd; //restore original single precision residual at end of each step
-    }
-
-    bfm_d.threadedFreeFermion(src_d);
-    bfm_d.threadedFreeFermion(tv1_d);
-    bfm_d.threadedFreeFermion(tv2_d);
-
-    for(int i=0;i<nshift;i++) bfm_f.threadedFreeFermion(sol_f[i]);
-    bfm_f.threadedFreeFermion(src_f);
-
-    for(int shift=0;shift<nshift;shift++){
-      if(bfm_d.isBoss() && !me) printf("cg_mixed_MdagM: doing final inversion for shift %d using corrected solution as guess\n",shift);
-      iter += threaded_CGNE_MdagM_plus_shift<double>(sol[shift],src,mass[shift],bfm_d);
-      double sol_norm = bfm_d.norm(sol[shift]);      
-      if(bfm_d.isBoss() && !me) printf("cg_mixed_MdagM: final sol[%d] norm = %17.10e\n", shift,sol_norm);
-    }
-    
-    return iter;
-  }
-}
-
-
-
-
-
-
-
-
-
-
 static int no_gparity_test(Lattice* lattice, const BfmSolver &solver, const double &min_fp_resid){
   //1) Test the single shift inverter by comparing to the multi-shift inverter with a single shift
   
@@ -935,9 +263,13 @@ static int no_gparity_test(Lattice* lattice, const BfmSolver &solver, const doub
 
   printf("Allocating fermions\n"); fflush(stdout);
   Fermion_t src[2] = {bfm_d.allocFermion(), bfm_d.allocFermion()}; //odd/even
+
   printf("Impexing random vector to bfm src vectors\n"); fflush(stdout);
   bfm_d.cps_impexFermion(v1,src,1);
   
+  Fermion_t src_copy = bfm_d.allocFermion();
+  bfm_d.copy(src_copy,src[0]);
+
   printf("Allocating sol_1\n");
   Fermion_t sol_1 = bfm_d.allocFermion();
   printf("Setting it to zero\n");
@@ -1054,8 +386,6 @@ static int no_gparity_test(Lattice* lattice, const BfmSolver &solver, const doub
   for(int shift=0;shift<4;shift++){
     bfm_d.cps_impexcbFermion(sol_mm_mixed_cps,sol_mm_mixed[shift],0,1);
     bfm_d.cps_impexcbFermion(sol_mm_std_cps,sol_mm_std[shift],0,1);
-    bfm_d.freeFermion(sol_mm_mixed[shift]);
-    bfm_d.freeFermion(sol_mm_std[shift]);
 
     for(int i=0;i<f_size_cb;i++){
       if( fabs(sol_mm_mixed_cps[i] - sol_mm_std_cps[i]) > 1e-07 ){ 
@@ -1068,9 +398,129 @@ static int no_gparity_test(Lattice* lattice, const BfmSolver &solver, const doub
     }else printf("Passed Mixed-prec multi-mass test. Shift %d.\n",shift);
   }
 
+
+  {
+    //Test the version with guesses by first doing a single precision multi-shift and then using the solutions as guesses
+    int nshift = 4;
+    for(int i=0;i<nshift;i++) resid[i] = 1e-03;
+
+    gettimeofday(&start_std,NULL);
+#pragma omp parallel
+    {
+      if(!UniqueID()) printf("Doing single precision multi-shift for multi-shift with guesses test\n");
+      Fermion_t src_f = bfm_f.threadedAllocFermion();
+      mixed_cg::threaded_convFermion(src_f, src[0], bfm_f, bfm_d);
+      mixed_cg::switch_comm(bfm_f, bfm_d);
+      
+      Fermion_t sol_f[nshift];
+      for(int i=0;i<nshift;i++) sol_f[i] = bfm_f.threadedAllocFermion();
+     
+      bfm_f.CGNE_prec_MdagM_multi_shift(sol_f,src_f,mass,alpha_ms,nshift,resid,0);
+      
+      for(int i=0;i<nshift;i++) mixed_cg::threaded_convFermion(sol_mm_std[i], sol_f[i], bfm_d, bfm_f);
+      mixed_cg::switch_comm(bfm_d, bfm_f);
+    }
+
+    //Do the double precision version with guesses from single prec solve
+    for(int i=0;i<nshift;i++) resid[i] = 1e-08;
+
+#pragma omp parallel
+    {
+      if(!UniqueID()) printf("Doing double precision multi-shift with guesses\n");
+      mixed_cg::CGNE_prec_MdagM_multi_shift_with_guesses(sol_mm_mixed, src[0], sol_mm_std, mass, alpha_ms, nshift, resid, 0, bfm_d);
+    }
+    gettimeofday(&stop_std,NULL);
+
+    struct timeval diff_std;
+    timersub(&stop_std,&start_std,&diff_std);
+     
+    if(!UniqueID()) printf("Mixed-precision restarted solve time %d.%6.6d s\n",diff_std.tv_sec,diff_std.tv_usec);
+  }
+
+  {
+    //Test multi-source method. Do a single precision multi-shift solve and use the residuals as sources for double prec solve 
+    int nshift = 4;
+    for(int i=0;i<nshift;i++) resid[i] = 1e-03;
+
+    gettimeofday(&start_std,NULL);
+    Fermion_t multi_src[nshift];
+
+#pragma omp parallel
+    {
+      if(!UniqueID()) printf("Doing single precision multi-shift for multiple sources test\n");
+      Fermion_t src_f = bfm_f.threadedAllocFermion();
+      mixed_cg::threaded_convFermion(src_f, src[0], bfm_f, bfm_d);
+      mixed_cg::switch_comm(bfm_f, bfm_d);
+      
+      Fermion_t sol_f[nshift];
+      for(int i=0;i<nshift;i++) sol_f[i] = bfm_f.threadedAllocFermion();
+     
+      bfm_f.CGNE_prec_MdagM_multi_shift(sol_f,src_f,mass,alpha_ms,nshift,resid,0);
+      
+      for(int i=0;i<nshift;i++) mixed_cg::threaded_convFermion(sol_mm_std[i], sol_f[i], bfm_d, bfm_f);
+      mixed_cg::switch_comm(bfm_d, bfm_f);
+
+      Fermion_t tmp = bfm_d.threadedAllocFermion();
+      Fermion_t tmp2 = bfm_d.threadedAllocFermion();
+      Fermion_t tmp3 = bfm_d.threadedAllocFermion();
+      Fermion_t tmp4 = bfm_d.threadedAllocFermion();
+      
+      for(int i=0;i<nshift;i++){
+	multi_src[i] = bfm_d.threadedAllocFermion();
+	bfm_d.copy(multi_src[i],src[0]);
+
+	mixed_cg::threaded_convFermion(tmp, sol_f[i], bfm_d, bfm_f);
+	mixed_cg::MdagMplusShift(tmp,tmp2,mass[i], tmp3,tmp4, bfm_d);
+	bfm_d.axpy(multi_src[i],  tmp2, multi_src[i], -1.0); //residual
+      }
+      bfm_d.freeFermion(tmp); bfm_d.freeFermion(tmp2); bfm_d.freeFermion(tmp3); bfm_d.freeFermion(tmp4);      
+    }
+
+    //Do the double precision version with guesses from single prec solve
+    for(int i=0;i<nshift;i++) resid[i] = 1e-08;
+
+#pragma omp parallel
+    {
+      mixed_cg::CGNE_prec_MdagM_multi_shift_multi_src<double>(sol_mm_mixed, multi_src, mass, alpha_ms, nshift, resid, 0, bfm_d);
+    }
+    gettimeofday(&stop_std,NULL);
+
+    struct timeval diff_std;
+    timersub(&stop_std,&start_std,&diff_std);
+     
+    if(!UniqueID()) printf("Mixed-precision restarted multi-src solve time %d.%6.6d s\n",diff_std.tv_sec,diff_std.tv_usec);
+    for(int i=0;i<nshift;i++) bfm_d.freeFermion(multi_src[i]);
+  }
+
+  {
+    //Test restarted mixed prec multi-shift
+    int nshift = 4;
+    double fresid[nshift];
+    for(int i=0;i<nshift;i++){
+      resid[i] = 1e-08;
+      fresid[i] = 1e-04;
+    }
+
+    gettimeofday(&start_std,NULL);
+
+#pragma omp parallel
+    {
+      if(!UniqueID()) printf("Doing restarted multi-mass test\n");
+      mixed_cg::threaded_cg_mixed_multi_shift_MdagM(sol_mm_mixed,src[0],mass,alpha_ms,nshift,resid,fresid,0,bfm_d,bfm_f,100);
+    }
+  }
+
+
+
+
+
+  //Free mem
+  for(int shift=0;shift<4;shift++){
+    bfm_d.freeFermion(sol_mm_mixed[shift]);
+    bfm_d.freeFermion(sol_mm_std[shift]);
+  }
   pfree(sol_mm_mixed_cps);
   pfree(sol_mm_std_cps);
-
 
   lattice->BondCond();
 

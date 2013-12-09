@@ -25,6 +25,7 @@ enum ContractionType {
 	CONTRACTION_TYPE_QUADRILINEAR_VERTEX = 8,
 	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 9,
 	CONTRACTION_TYPE_MRES = 10,
+	CONTRACTION_TYPE_A2A_BILINEAR = 11,
 };
 typedef enum ContractionType ContractionType;
 extern struct vml_enum_map ContractionType_map[];
@@ -378,6 +379,129 @@ template<> struct rpc_deepcopy<ContractionTypeMres>{
 };
 
 
+enum A2ASmearingType {
+	BOX_3D_SMEARING = 0,
+	EXPONENTIAL_3D_SMEARING = 1,
+};
+typedef enum A2ASmearingType A2ASmearingType;
+extern struct vml_enum_map A2ASmearingType_map[];
+
+
+#include <util/vml/vml_templates.h>
+struct Box3dSmearing {
+	int side_length;
+	   void print(const std::string &prefix ="");
+};
+typedef struct Box3dSmearing Box3dSmearing;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<Box3dSmearing>{
+	static void doit(Box3dSmearing const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct Exponential3dSmearing {
+	Float radius;
+	   void print(const std::string &prefix ="");
+};
+typedef struct Exponential3dSmearing Exponential3dSmearing;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<Exponential3dSmearing>{
+	static void doit(Exponential3dSmearing const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct A2ASmearing {
+	A2ASmearingType type;
+	union {
+		Box3dSmearing box_3d_smearing;
+		Exponential3dSmearing exponential_3d_smearing;
+	} A2ASmearing_u;
+	   template <typename T> static A2ASmearingType type_map();
+	   void deep_copy(const A2ASmearing &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct A2ASmearing A2ASmearing;
+template <typename T> A2ASmearingType A2ASmearing::type_map(){
+	 return -1000;
+}
+template <> A2ASmearingType A2ASmearing::type_map<Box3dSmearing>();
+template <> A2ASmearingType A2ASmearing::type_map<Exponential3dSmearing>();
+template<> struct rpc_deepcopy<A2ASmearing>{
+	static void doit(A2ASmearing &into, A2ASmearing const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<A2ASmearing>{
+	static void doit(A2ASmearing const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct MatIdxAndCoeff {
+	int idx;
+	Float coeff;
+	   void print(const std::string &prefix ="");
+};
+typedef struct MatIdxAndCoeff MatIdxAndCoeff;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<MatIdxAndCoeff>{
+	static void doit(MatIdxAndCoeff const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeA2ABilinear {
+	char *prop_src_snk;
+	char *prop_snk_src;
+	A2ASmearing source_smearing;
+	A2ASmearing sink_smearing;
+	struct {
+		u_int source_spin_matrix_len;
+		MatIdxAndCoeff *source_spin_matrix_val;
+	} source_spin_matrix;
+	struct {
+		u_int sink_spin_matrix_len;
+		MatIdxAndCoeff *sink_spin_matrix_val;
+	} sink_spin_matrix;
+	struct {
+		u_int source_flavor_matrix_len;
+		MatIdxAndCoeff *source_flavor_matrix_val;
+	} source_flavor_matrix;
+	struct {
+		u_int sink_flavor_matrix_len;
+		MatIdxAndCoeff *sink_flavor_matrix_val;
+	} sink_flavor_matrix;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeA2ABilinear &rhs);
+};
+typedef struct ContractionTypeA2ABilinear ContractionTypeA2ABilinear;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeA2ABilinear>{
+	static void doit(ContractionTypeA2ABilinear const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeA2ABilinear>{
+	static void doit(ContractionTypeA2ABilinear &into, ContractionTypeA2ABilinear const &from);
+};
+
+
 
 #include <util/vml/vml_templates.h>
 struct GparityMeasurement {
@@ -394,6 +518,7 @@ struct GparityMeasurement {
 		ContractionTypeQuadrilinearVertex contraction_type_quadrilinear_vertex;
 		ContractionTypeTopologicalCharge contraction_type_topological_charge;
 		ContractionTypeMres contraction_type_mres;
+		ContractionTypeA2ABilinear contraction_type_a2a_bilinear;
 	} GparityMeasurement_u;
 	   template <typename T> static ContractionType type_map();
 	   void deep_copy(const GparityMeasurement &rhs);
@@ -414,6 +539,7 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeBilinear
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrilinearVertex>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeA2ABilinear>();
 template<> struct rpc_deepcopy<GparityMeasurement>{
 	static void doit(GparityMeasurement &into, GparityMeasurement const &from);
 };
@@ -473,6 +599,12 @@ extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, Quadrilinea
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
+extern  bool_t vml_A2ASmearingType (VML *, char *instance, A2ASmearingType*);
+extern  bool_t vml_Box3dSmearing (VML *, char *instance, Box3dSmearing*);
+extern  bool_t vml_Exponential3dSmearing (VML *, char *instance, Exponential3dSmearing*);
+extern  bool_t vml_A2ASmearing (VML *, char *instance, A2ASmearing*);
+extern  bool_t vml_MatIdxAndCoeff (VML *, char *instance, MatIdxAndCoeff*);
+extern  bool_t vml_ContractionTypeA2ABilinear (VML *, char *instance, ContractionTypeA2ABilinear*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 
@@ -492,6 +624,12 @@ extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, Quadrilinea
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
+extern  bool_t vml_A2ASmearingType (VML *, char *instance, A2ASmearingType*);
+extern  bool_t vml_Box3dSmearing (VML *, char *instance, Box3dSmearing*);
+extern  bool_t vml_Exponential3dSmearing (VML *, char *instance, Exponential3dSmearing*);
+extern  bool_t vml_A2ASmearing (VML *, char *instance, A2ASmearing*);
+extern  bool_t vml_MatIdxAndCoeff (VML *, char *instance, MatIdxAndCoeff*);
+extern  bool_t vml_ContractionTypeA2ABilinear (VML *, char *instance, ContractionTypeA2ABilinear*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 

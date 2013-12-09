@@ -20,6 +20,7 @@
 #include<unistd.h>
 #include<config.h>
 
+#include <alg/lanc_arg.h>
 #include <util/spincolorflavormatrix.h>
 #include <alg/propmanager.h>
 #include <alg/fix_gauge_arg.h>

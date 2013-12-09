@@ -1,4 +1,5 @@
 #include <config.h>
+#include <alg/lanc_arg.h>
 #include <alg/a2a/MesonField.h>
 
 #include <fstream>
@@ -37,7 +38,7 @@ static void sum_double_array(Float* data, const int &size){
 MesonField::MesonField(Lattice &_lat, A2APropbfm *_a2aprop, AlgFixGauge *_fixgauge, CommonArg *_common_arg):a2a_prop(_a2aprop),a2a_prop_s(NULL),fix_gauge(_fixgauge),lat(_lat),common_arg(_common_arg),sc_size(12)
 {
   cname = "MesonField";
-  char *fname = "Mesonfield(A2APropbfm &_a2aprop, AlgFixGauge &_fixgauge,  int src_type, int snk_type, int *pv, int *pw)";
+  const char *fname = "Mesonfield(A2APropbfm &_a2aprop, AlgFixGauge &_fixgauge,  int src_type, int snk_type, int *pv, int *pw)";
   t_size = GJP.TnodeSites()*GJP.Tnodes();
   x_size = GJP.XnodeSites()*GJP.Xnodes();
   y_size = GJP.YnodeSites()*GJP.Ynodes();
@@ -591,7 +592,7 @@ void MesonField::set_zero(fftw_complex *v, int n)
 //    w is an output fermion field that is zero everywhere apart from on spin-color index sc
 void MesonField::wh2w(Vector *w, Vector *wh, int hitid, int sc) // In order to fft the high modes scource
 {
-  char *fname = "wh2w()";
+  const char *fname = "wh2w()";
 	
   int hit_size = GJP.Gparity() ? 2*size_4d : size_4d;
   complex<double> *whi = (complex<double> *)wh + hitid * hit_size;
@@ -608,7 +609,7 @@ void MesonField::wh2w(Vector *w, Vector *wh, int hitid, int sc) // In order to f
 
 void MesonField::cal_mf_ww(double rad, int src_kind, QUARK left, QUARK right)
 {
-  char *fname = "cal_mf_ww()";
+  const char *fname = "cal_mf_ww()";
 
   prepare_src(rad, src_kind);
 
@@ -3380,17 +3381,46 @@ void MFqdpMatrix::set_matrix(const int &qdp_spin_idx, const FlavorMatrixType &fl
   int rem = qdp_spin_idx; 
   for(int i=0;i<4;i++){ n[i] = rem % 2; rem /= 2; }
 
-  scf *= 0.0; //clear the scfmatrix and set to unit matrix
-  for(int f=0;f<2;++f)     
-    for(int i=0;i<4;++i)
-      for(int a=0;a<3;++a)
-	scf(i,a,f,i,a,f) = Complex(1.0,0.0);
+  scf.unit();
   //Set the spin structure
   for(int i=0;i<4;i++) if(n[i]) scf.gr(i);
 
   //Set the flavour structure
   scf.pr(flav_mat);
 }
+
+//Any 4x4 complex matrix can be represented as a linear combination of the 16 Gamma matrices (here in QDP order cf. below), and likewise any 2x2 complex matrix is a linear combination of Pauli matrices and the unit matrix (index 0)
+void MFqdpMatrix::set_matrix(const Float gamma_matrix_linear_comb[16], const Float pauli_matrix_linear_comb[4]){
+  scf = 0.0;
+  for(int g=0;g<16;g++){
+    if(gamma_matrix_linear_comb[g]==0.0) continue;
+    SpinColorFlavorMatrix gamma; 
+    gamma.unit();
+    gamma *= gamma_matrix_linear_comb[g];
+    int rem = g; 
+    for(int i=0;i<4;i++){ 
+      int n = rem % 2; rem /= 2; 
+      if(n) gamma.gr(i);
+    }
+    scf += gamma;
+  }
+  if(GJP.Gparity() || GJP.Gparity1fX()){
+    SpinColorFlavorMatrix pcomb = 0.0;
+    const static FlavorMatrixType pmats[4] = {sigma0, sigma1, sigma2, sigma3};
+    
+    for(int p=0;p<4;p++){
+      if(pauli_matrix_linear_comb[p]==0.0) continue;
+      SpinColorFlavorMatrix pauli; 
+      pauli.unit();
+      pauli *= pauli_matrix_linear_comb[p];
+      if(p>0) pauli.pr(pmats[p]);
+      pcomb += pauli;
+    }
+    scf *= pcomb;
+  }
+}
+
+
 //\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
 MFqdpMatrix::cnum MFqdpMatrix::contract_internal_indices(const cnum* left[2], const cnum* right[2]) const{
   cnum ret(0,0);
@@ -3569,6 +3599,7 @@ void MesonField2::contract(const MesonField2 &left, const MesonField2 &right, co
       const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
       into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
     }
+    into.sumThreads();
   }
 }
 
@@ -3615,6 +3646,7 @@ void MesonField2::contract_specify_tsrc(const MesonField2 &left, const MesonFiel
       const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
       into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
     }
+    into.sumThreads();
   }
 }
 

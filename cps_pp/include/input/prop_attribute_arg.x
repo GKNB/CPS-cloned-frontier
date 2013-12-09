@@ -17,12 +17,13 @@ enum AttrType {
   PROP_COMBINATION_ATTR,
   GPARITY_OTHER_FLAV_PROP_ATTR,
   TWISTED_BC_ATTR,
-  STORE_MIDPROP_ATTR
+  STORE_MIDPROP_ATTR,
+  A2A_ATTR
 };
 
 enum PropagatorType { 
      QPROPW_TYPE, 
-     A2A_PROP_TYPE 
+     A2A_PROP_TYPE
 };
 
 struct GenericPropAttrArg{
@@ -117,6 +118,19 @@ struct StoreMidpropAttrArg{
   rpccommand GENERATE_PRINT_METHOD;
 };
 
+struct A2AAttrArg{
+  string lanczos_tag<>;
+  int nl;
+  int nhits;
+  RandomType rand_type;
+  int src_width;
+  int dilute_flavor;
+  int do_gauge_fix;
+  memfun static AttrType getType();
+  memfun A2AAttrArg clone();
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
 
 enum PropCombination {
   A_PLUS_B,
@@ -163,6 +177,8 @@ switch(AttrType type){
    TwistedBcAttrArg twisted_bc_attr;
  case STORE_MIDPROP_ATTR:
    StoreMidpropAttrArg store_midprop_attr;
+ case A2A_ATTR:
+   A2AAttrArg a2a_attr;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;
@@ -178,9 +194,26 @@ class PropagatorArg {
   rpccommand GENERATE_PRINT_METHOD;
 };
 
+class LanczosContainerArg {
+  string tag<>;
+  LancArg lanc_arg;
+  int cg_max_iter;
+  Float cg_residual;
+  int cg_precon_5d;
+  BfmSolverType solver;
+  Float mobius_scale;
+  
+  BndCndType tbc; /*Temporal boundary condition*/
+
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
+
 class JobPropagatorArgs {
   PropagatorArg props<>;
-
+  LanczosContainerArg lanczos<>;
+  
+  memfun JobPropagatorArgs();
   memfun ~JobPropagatorArgs();
   rpccommand GENERATE_DEEPCOPY_METHOD;
   rpccommand GENERATE_PRINT_METHOD;

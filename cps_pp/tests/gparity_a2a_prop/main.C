@@ -296,6 +296,7 @@ void a2a_arg(A2AArg &into, const int &flavor_dilution = 0, const RandomType &ran
   into.rand_type = rand_type;
   into.src_width = 1;
   into.dilute_flavor = flavor_dilution;
+  into.do_gauge_fix = true;
 }
 
 void create_eig(GwilsonFdwf* lattice, Lanczos_5d<double>* &eig, const bool &precon){
@@ -1639,11 +1640,12 @@ public:
 
     //Calculate correlation function
     CorrelationFunction corr_a2a("",1, CorrelationFunction::THREADED);
+    CorrelationFunction corr_a2a_tsepsum("",1, CorrelationFunction::THREADED);
 
     int tsrc=0;
 
     MesonField2::contract_specify_tsrc(mf,mf,0, tsrc, corr_a2a);
-    corr_a2a.sumThreads();
+    MesonField2::contract(mf,mf,0, corr_a2a_tsepsum);
 
     //Generate a wall source propagator (yeah I know it should be a momentum source, but for this comparison with a single translationally non-invariant lattice it should not matter)
     PropManager::clear();
@@ -1652,7 +1654,7 @@ public:
 
     JobPropagatorArgs prop_args;
     SETUP_ARRAY(prop_args,props,PropagatorArg,Lt);
-
+    prop_args.lanczos.lanczos_len = 0;
     std::string prop_names_srct[Lt];
 
     for(int t=0;t<Lt;t++){
@@ -1686,7 +1688,7 @@ public:
       cgattr.true_rsd = 1e-08;
     }
 
-    PropManager::setup(prop_args);   
+    PropManager::setup(prop_args);
     PropManager::calcProps(lattice);
 
     for(int tsrc=0;tsrc<Lt;tsrc++){
@@ -1816,9 +1818,6 @@ public:
       if(fail){ printf("w fail\n"); exit(-1); }
       else printf("w pass\n");
     }
-
-
-
     CorrelationFunction corr_qpw("",1,CorrelationFunction::UNTHREADED);
 
     for(int t=0;t<Lt;t++){
@@ -1846,7 +1845,7 @@ public:
 
       corr_qpw(0,t_dis) += Trace(g1,g2);
     }
-    
+
     //Compare 
     bool fail(false);
     for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
@@ -1864,6 +1863,96 @@ public:
       if(!UniqueID()) printf("Wall source comparison test failed, exiting\n");
       exit(-1);
     }else if(!UniqueID()) printf("Wall source comparison test passed, exiting\n");
+
+
+    //Test using alg_gparitycontract methods
+    PropManager::clear();
+
+    //Put the existing Lanczos object in PropManager for tag retrieval
+    {
+      LanczosContainerArg larg;
+      larg.tag = "lanczos";
+      larg.lanc_arg.fname = "";
+
+      PropManager::addLanczos(larg).set_lanczos(&eig);
+    }
+
+
+    {
+      JobPropagatorArgs prop_args_a2a;
+      SETUP_ARRAY(prop_args_a2a,props,PropagatorArg,1);
+      
+      PropagatorArg &parg = prop_args_a2a.props.props_val[0];
+    
+      parg.generics.tag = "a2a_prop";
+      parg.generics.type = A2A_PROP_TYPE;
+      parg.generics.mass = 0.01; //needs to be the same as the mass in the a2a_arg function!
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+
+      SETUP_ARRAY(parg,attributes,AttributeContainer,1);
+    
+      ELEM(parg,attributes,0).type = A2A_ATTR;
+      A2AAttrArg &a2a_arg = ELEM(parg,attributes,0).AttributeContainer_u.a2a_attr;
+
+      a2a_arg  = prop_f->get_args();
+      a2a_arg.lanczos_tag = "lanczos";
+
+      PropManager::setup(prop_args_a2a);   
+      PropManager::calcProps(lattice);
+    }
+
+    {
+      ContractionTypeA2ABilinear con_args;
+      con_args.prop_src_snk = "a2a_prop";
+      con_args.prop_snk_src = "a2a_prop";
+      con_args.source_smearing.type = BOX_3D_SMEARING;
+      con_args.source_smearing.A2ASmearing_u.box_3d_smearing.side_length = GJP.Xnodes()*GJP.XnodeSites();
+      con_args.sink_smearing.type = BOX_3D_SMEARING;
+      con_args.sink_smearing.A2ASmearing_u.box_3d_smearing.side_length = GJP.Xnodes()*GJP.XnodeSites();
+      SETUP_ARRAY(con_args,source_spin_matrix,MatIdxAndCoeff,1);
+      SETUP_ARRAY(con_args,sink_spin_matrix,MatIdxAndCoeff,1);
+      SETUP_ARRAY(con_args,source_flavor_matrix,MatIdxAndCoeff,1);
+      SETUP_ARRAY(con_args,sink_flavor_matrix,MatIdxAndCoeff,1);
+
+      con_args.source_spin_matrix.source_spin_matrix_val[0].idx = 15;
+      con_args.source_spin_matrix.source_spin_matrix_val[0].coeff = 1.0;
+
+      con_args.sink_spin_matrix.sink_spin_matrix_val[0].idx = 15;
+      con_args.sink_spin_matrix.sink_spin_matrix_val[0].coeff = 1.0;
+
+      con_args.source_flavor_matrix.source_flavor_matrix_val[0].idx = 1;
+      con_args.source_flavor_matrix.source_flavor_matrix_val[0].coeff = 1.0;
+
+      con_args.sink_flavor_matrix.sink_flavor_matrix_val[0].idx = 1;
+      con_args.sink_flavor_matrix.sink_flavor_matrix_val[0].coeff = 1.0;
+
+      con_args.file = "";
+    
+      CommonArg c_arg;
+      AlgGparityContract con(lattice,c_arg);
+      CorrelationFunction gpcon_result("",1, CorrelationFunction::THREADED);
+      con.contract_a2a_bilinear(con_args, gpcon_result);
+
+      for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();++t){
+	if( fabs( corr_a2a_tsepsum(0,t).real() - gpcon_result(0,t).real() ) > 1e-12 ){
+	  if(!UniqueID()) printf("AlgGparityContract comparison test real part fail t=%d:  %.14e %.14e, ratio gpcon/a2a %.14e\n",t,corr_a2a_tsepsum(0,t).real(),gpcon_result(0,t).real(), gpcon_result(0,t).real()/corr_a2a_tsepsum(0,t).real() );
+	  fail=true;
+	}else if(!UniqueID()) printf("AlgGparityContract comparison test real part pass t=%d:  %.14e %.14e\n",t,corr_a2a_tsepsum(0,t).real(),gpcon_result(0,t).real());
+      
+	if( fabs( corr_a2a_tsepsum(0,t).imag() - gpcon_result(0,t).imag() ) > 1e-12 ){
+	  if(!UniqueID()) printf("AlgGparityContract comparison test imag part fail t=%d:  %.14e %.14e, ratio gpcon/a2a %.14e\n",t,corr_a2a_tsepsum(0,t).imag(),gpcon_result(0,t).imag(), gpcon_result(0,t).imag()/corr_a2a_tsepsum(0,t).imag());
+	  fail=true;
+	}else if(!UniqueID()) printf("AlgGparityContract comparison imag real part pass t=%d:  %.14e %.14e\n",t,corr_a2a_tsepsum(0,t).imag(),gpcon_result(0,t).imag());
+      }
+      if(fail){	if(!UniqueID()) printf("AlgGparityContract comparison test failed, exiting\n"); exit(-1); }
+      else if(!UniqueID()) printf("AlgGparityContract comparison test passed, exiting\n");    
+    }
+
+
+    PropManager::getLanczos("lanczos").set_lanczos(NULL); //prevent future PropManager::clear() operations from destroying the Lanczos object
 
     if(free_gfix) fix_gauge.free();
   }

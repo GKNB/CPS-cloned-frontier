@@ -85,7 +85,7 @@ class A2APropbfm : public Alg {
 		  else return (complex<double> *)(wh_fftw) +  k * SPINOR_SIZE/2 + ( (GJP.Gparity() ? 2:1) * (vec_idx-a2a.nl) + flavor )* GJP.VolNodeSites() * SPINOR_SIZE/2;
 		}
 
-		//Complex number offset to second G-parity flavor. DOES THIS ALSO WORK FOR FLAVOR DILUTION?
+		//Complex number offset to second G-parity flavor.
 		inline int v_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
 		inline int w_flavour_stride() const{ return (GJP.Gparity1fX() && GJP.Xnodes() == 1) ? GJP.XnodeSites()/2*SPINOR_SIZE/2 : GJP.VolNodeSites()*SPINOR_SIZE/2; }
 

@@ -20,6 +20,7 @@
 #include<unistd.h>
 #include<config.h>
 
+#include <alg/lanc_arg.h>
 #include <util/spincolorflavormatrix.h>
 #include <alg/propmanager.h>
 #include <alg/fix_gauge_arg.h>
@@ -34,6 +35,16 @@
 #include <bitset>
 
 #include <util/lat_cont.h>
+
+#ifdef USE_BFM 
+
+//CK: these are redefined by BFM (to the same values)
+#undef ND
+#undef SPINOR_SIZE
+#undef HALF_SPINOR_SIZE
+#undef GAUGE_SIZE
+#endif
+#include <alg/a2a/MesonField.h>
 
 #ifdef USE_OMP
 #include <omp.h>
@@ -1808,7 +1819,63 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, Correlati
   j5_q.sumLattice();
 }
 
+inline static void set_matrix(Float into[], const MatIdxAndCoeff * from, const int &size){
+  for(int i=0;i<size;i++) into[ from[i].idx ] = from[i].coeff;
+}
+static void set_smearing(MFBasicSource &smearing, const A2ASmearing &from){
+  if(from.type == BOX_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::BoxSource, (Float)from.A2ASmearing_u.box_3d_smearing.side_length);
+  else if(from.type == EXPONENTIAL_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::ExponentialSource, from.A2ASmearing_u.exponential_3d_smearing.radius);
+  else ERR.General("","set_smearing(MFBasicSource &smearing, const A2ASmearing &from)","Unknown smearing type\n");
+}
+void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, const int &conf){
+  CorrelationFunction corr_a2a("A2A Bilinear",1, CorrelationFunction::THREADED);
+  contract_a2a_bilinear(args,corr_a2a);
+  std::ostringstream file; file << args.file << "." << conf;
+  corr_a2a.write(file.str().c_str());
+}
 
+void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, CorrelationFunction &corr_a2a){
+  Float src_gamma_matrix_linear_comb[16];
+  Float snk_gamma_matrix_linear_comb[16];
+  for(int i=0;i<16;i++){
+    src_gamma_matrix_linear_comb[i] = 0.0;
+    snk_gamma_matrix_linear_comb[i] = 0.0;
+  }
+  set_matrix(src_gamma_matrix_linear_comb, args.source_spin_matrix.source_spin_matrix_val, args.source_spin_matrix.source_spin_matrix_len);
+  set_matrix(snk_gamma_matrix_linear_comb, args.sink_spin_matrix.sink_spin_matrix_val, args.sink_spin_matrix.sink_spin_matrix_len);
+
+  Float src_flav_matrix_linear_comb[4];
+  Float snk_flav_matrix_linear_comb[4];
+  for(int i=0;i<4;i++){
+    src_flav_matrix_linear_comb[i] = 0.0;
+    snk_flav_matrix_linear_comb[i] = 0.0;
+  }
+  set_matrix(src_flav_matrix_linear_comb, args.source_flavor_matrix.source_flavor_matrix_val, args.source_flavor_matrix.source_flavor_matrix_len);
+  set_matrix(snk_flav_matrix_linear_comb, args.sink_flavor_matrix.sink_flavor_matrix_val, args.sink_flavor_matrix.sink_flavor_matrix_len);
+
+  MFqdpMatrix source_wdagv(MFstructure::W, MFstructure::V, true, false);  //W* V
+  source_wdagv.set_matrix(src_gamma_matrix_linear_comb, src_flav_matrix_linear_comb);
+
+  MFqdpMatrix sink_wdagv(MFstructure::W, MFstructure::V, true, false);  //W* V
+  sink_wdagv.set_matrix(snk_gamma_matrix_linear_comb, snk_flav_matrix_linear_comb);
+  
+  MFBasicSource src_smearing;
+  set_smearing(src_smearing, args.source_smearing);
+  src_smearing.fft_src();
+  
+  MFBasicSource snk_smearing;
+  set_smearing(snk_smearing, args.sink_smearing);
+  snk_smearing.fft_src();
+  
+  A2APropbfm & prop_snk_src = PropManager::getProp(args.prop_snk_src).convert<A2ApropContainer>().getProp(AlgLattice()); //prop from snk -> src
+  A2APropbfm & prop_src_snk = PropManager::getProp(args.prop_src_snk).convert<A2ApropContainer>().getProp(AlgLattice()); //prop from src -> snk
+  
+  MesonField2 mf_src(prop_src_snk,prop_snk_src, source_wdagv, src_smearing); // W*(t_src) V(t_src; t_snk)  where V has origin on t_snk and terminates at t_src and hence belongs to prop_snk_src , and W belongs to prop_src_snk
+  MesonField2 mf_snk(prop_snk_src,prop_src_snk, sink_wdagv, snk_smearing); // W*(t_snk) V(t_snk; t_src)  where V has origin on t_src and terminates at t_snk and hence belongs to prop_src_snk , and W belongs to prop_snk_src
+  
+  //Calculate correlation function
+  MesonField2::contract(mf_src,mf_snk,0,corr_a2a);
+}
 
 void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &conf_idx){
   if(measargs.type == CONTRACTION_TYPE_LL_MESONS) contract_LL_mesons(measargs.GparityMeasurement_u.contraction_type_ll_mesons, conf_idx);
@@ -1823,6 +1890,8 @@ void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &
   else if(measargs.type == CONTRACTION_TYPE_QUADRILINEAR_VERTEX) contract_quadrilinear_vertex(measargs.GparityMeasurement_u.contraction_type_quadrilinear_vertex, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_TOPOLOGICAL_CHARGE) measure_topological_charge(measargs.GparityMeasurement_u.contraction_type_topological_charge, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_MRES) measure_mres(measargs.GparityMeasurement_u.contraction_type_mres, conf_idx);
+
+  else if(measargs.type == CONTRACTION_TYPE_A2A_BILINEAR) contract_a2a_bilinear(measargs.GparityMeasurement_u.contraction_type_a2a_bilinear, conf_idx);
 
   else ERR.General("AlgGparityContract","spectrum(...)","Invalid contraction type");
 }

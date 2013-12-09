@@ -28,6 +28,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","GPARITY_OTHER_FLAV_PROP_ATTR",GPARITY_OTHER_FLAV_PROP_ATTR},
 	{"AttrType","TWISTED_BC_ATTR",TWISTED_BC_ATTR},
 	{"AttrType","STORE_MIDPROP_ATTR",STORE_MIDPROP_ATTR},
+	{"AttrType","A2A_ATTR",A2A_ATTR},
 	{NULL,NULL,0}
 };
 
@@ -380,6 +381,55 @@ void StoreMidpropAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_A2AAttrArg (VML *vmls, char *name,A2AAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"A2AAttrArg",name);
+	 if (!vml_string (vmls, "lanczos_tag", &objp->lanczos_tag, ~0))
+		 return FALSE;
+	 if (!vml_int (vmls, "nl", &objp->nl))
+		 return FALSE;
+	 if (!vml_int (vmls, "nhits", &objp->nhits))
+		 return FALSE;
+	 if (!vml_RandomType (vmls, "rand_type", &objp->rand_type))
+		 return FALSE;
+	 if (!vml_int (vmls, "src_width", &objp->src_width))
+		 return FALSE;
+	 if (!vml_int (vmls, "dilute_flavor", &objp->dilute_flavor))
+		 return FALSE;
+	 if (!vml_int (vmls, "do_gauge_fix", &objp->do_gauge_fix))
+		 return FALSE;
+	 vml_struct_end(vmls,"A2AAttrArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<A2AAttrArg>::doit(A2AAttrArg &into, A2AAttrArg const &from){
+	  rpc_deepcopy<char *>::doit(into.lanczos_tag,from.lanczos_tag,strlen(from.lanczos_tag)+1);
+	  rpc_deepcopy<int>::doit(into.nl,from.nl);
+	  rpc_deepcopy<int>::doit(into.nhits,from.nhits);
+	  rpc_deepcopy<RandomType>::doit(into.rand_type,from.rand_type);
+	  rpc_deepcopy<int>::doit(into.src_width,from.src_width);
+	  rpc_deepcopy<int>::doit(into.dilute_flavor,from.dilute_flavor);
+	  rpc_deepcopy<int>::doit(into.do_gauge_fix,from.do_gauge_fix);
+}
+void A2AAttrArg::deep_copy(A2AAttrArg const &rhs){
+	rpc_deepcopy<A2AAttrArg>::doit(*this,rhs);
+}
+void rpc_print<A2AAttrArg>::doit(A2AAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.lanczos_tag,strlen(what.lanczos_tag)+1,spaces+" lanczos_tag = ");
+	rpc_print<int>::doit(what.nl,spaces+" nl = ");
+	rpc_print<int>::doit(what.nhits,spaces+" nhits = ");
+	rpc_print<RandomType>::doit(what.rand_type,spaces+" rand_type = ");
+	rpc_print<int>::doit(what.src_width,spaces+" src_width = ");
+	rpc_print<int>::doit(what.dilute_flavor,spaces+" dilute_flavor = ");
+	rpc_print<int>::doit(what.do_gauge_fix,spaces+" do_gauge_fix = ");
+	std::cout << spaces << "}\n";
+}
+void A2AAttrArg::print(const std::string &prefix){
+	rpc_print<A2AAttrArg>::doit(*this,prefix);
+}
+
+bool_t
 vml_PropCombination (VML *vmls, char *name,PropCombination *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,PropCombination_map))
@@ -487,6 +537,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_StoreMidpropAttrArg (vmls, "store_midprop_attr", &objp->AttributeContainer_u.store_midprop_attr))
 			 return FALSE;
 		break;
+	case A2A_ATTR:
+		 if (!vml_A2AAttrArg (vmls, "a2a_attr", &objp->AttributeContainer_u.a2a_attr))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -534,6 +588,9 @@ template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>(){
 template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>(){
 	 return STORE_MIDPROP_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<A2AAttrArg>(){
+	 return A2A_ATTR;
+}
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -565,6 +622,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<TwistedBcAttrArg>::doit(into.AttributeContainer_u.twisted_bc_attr,from.AttributeContainer_u.twisted_bc_attr); break;
 	    case STORE_MIDPROP_ATTR:
 	      rpc_deepcopy<StoreMidpropAttrArg>::doit(into.AttributeContainer_u.store_midprop_attr,from.AttributeContainer_u.store_midprop_attr); break;
+	    case A2A_ATTR:
+	      rpc_deepcopy<A2AAttrArg>::doit(into.AttributeContainer_u.a2a_attr,from.AttributeContainer_u.a2a_attr); break;
 	  };
 }
 void AttributeContainer::deep_copy(AttributeContainer const &rhs){
@@ -602,6 +661,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<TwistedBcAttrArg>::doit(what.AttributeContainer_u.twisted_bc_attr,spaces+" union AttributeContainer_u.twisted_bc_attr = "); break;
 	    case STORE_MIDPROP_ATTR:
 	      rpc_print<StoreMidpropAttrArg>::doit(what.AttributeContainer_u.store_midprop_attr,spaces+" union AttributeContainer_u.store_midprop_attr = "); break;
+	    case A2A_ATTR:
+	      rpc_print<A2AAttrArg>::doit(what.AttributeContainer_u.a2a_attr,spaces+" union AttributeContainer_u.a2a_attr = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }
@@ -657,6 +718,77 @@ void rpc_print<PropagatorArg>::doit(PropagatorArg const &what, const std::string
 void PropagatorArg::print(const std::string &prefix){
 	rpc_print<PropagatorArg>::doit(*this,prefix);
 }
+	 bool LanczosContainerArg::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool LanczosContainerArg::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool LanczosContainerArg::Vml(VML *vmls,char *instance){
+		 if(!vml_LanczosContainerArg(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_LanczosContainerArg (VML *vmls, char *name,LanczosContainerArg *objp)
+{
+	 vml_class_begin(vmls,"LanczosContainerArg",name);
+	 if (!vml_string (vmls, "tag", &objp->tag, ~0))
+		 return FALSE;
+	 if (!vml_LancArg (vmls, "lanc_arg", &objp->lanc_arg))
+		 return FALSE;
+	 if (!vml_int (vmls, "cg_max_iter", &objp->cg_max_iter))
+		 return FALSE;
+	 if (!vml_Float (vmls, "cg_residual", &objp->cg_residual))
+		 return FALSE;
+	 if (!vml_int (vmls, "cg_precon_5d", &objp->cg_precon_5d))
+		 return FALSE;
+	 if (!vml_BfmSolverType (vmls, "solver", &objp->solver))
+		 return FALSE;
+	 if (!vml_Float (vmls, "mobius_scale", &objp->mobius_scale))
+		 return FALSE;
+	 if (!vml_BndCndType (vmls, "tbc", &objp->tbc))
+		 return FALSE;
+	 vml_class_end(vmls,"LanczosContainerArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<LanczosContainerArg>::doit(LanczosContainerArg &into, LanczosContainerArg const &from){
+	  rpc_deepcopy<char *>::doit(into.tag,from.tag,strlen(from.tag)+1);
+	  rpc_deepcopy<LancArg>::doit(into.lanc_arg,from.lanc_arg);
+	  rpc_deepcopy<int>::doit(into.cg_max_iter,from.cg_max_iter);
+	  rpc_deepcopy<Float>::doit(into.cg_residual,from.cg_residual);
+	  rpc_deepcopy<int>::doit(into.cg_precon_5d,from.cg_precon_5d);
+	  rpc_deepcopy<BfmSolverType>::doit(into.solver,from.solver);
+	  rpc_deepcopy<Float>::doit(into.mobius_scale,from.mobius_scale);
+	  rpc_deepcopy<BndCndType>::doit(into.tbc,from.tbc);
+}
+void LanczosContainerArg::deep_copy(LanczosContainerArg const &rhs){
+	rpc_deepcopy<LanczosContainerArg>::doit(*this,rhs);
+}
+void rpc_print<LanczosContainerArg>::doit(LanczosContainerArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.tag,strlen(what.tag)+1,spaces+" tag = ");
+	rpc_print<LancArg>::doit(what.lanc_arg,spaces+" lanc_arg = ");
+	rpc_print<int>::doit(what.cg_max_iter,spaces+" cg_max_iter = ");
+	rpc_print<Float>::doit(what.cg_residual,spaces+" cg_residual = ");
+	rpc_print<int>::doit(what.cg_precon_5d,spaces+" cg_precon_5d = ");
+	rpc_print<BfmSolverType>::doit(what.solver,spaces+" solver = ");
+	rpc_print<Float>::doit(what.mobius_scale,spaces+" mobius_scale = ");
+	rpc_print<BndCndType>::doit(what.tbc,spaces+" tbc = ");
+	std::cout << spaces << "}\n";
+}
+void LanczosContainerArg::print(const std::string &prefix){
+	rpc_print<LanczosContainerArg>::doit(*this,prefix);
+}
 	 bool JobPropagatorArgs::Encode(char *filename,char *instance){
 		 VML vmls;
 		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
@@ -683,12 +815,17 @@ vml_JobPropagatorArgs (VML *vmls, char *name,JobPropagatorArgs *objp)
 	 if (!vml_array (vmls, "props", (char **)&objp->props.props_val, (u_int *) &objp->props.props_len, ~0,
 		sizeof (PropagatorArg), (vmlproc_t) vml_PropagatorArg))
 		 return FALSE;
+	 if (!vml_array (vmls, "lanczos", (char **)&objp->lanczos.lanczos_val, (u_int *) &objp->lanczos.lanczos_len, ~0,
+		sizeof (LanczosContainerArg), (vmlproc_t) vml_LanczosContainerArg))
+		 return FALSE;
 	 vml_class_end(vmls,"JobPropagatorArgs",name);
 	return TRUE;
 }
 void rpc_deepcopy<JobPropagatorArgs>::doit(JobPropagatorArgs &into, JobPropagatorArgs const &from){
 	  into.props.props_len = from.props.props_len;
 	  rpc_deepcopy<PropagatorArg *>::doit(into.props.props_val,from.props.props_val,from.props.props_len);
+	  into.lanczos.lanczos_len = from.lanczos.lanczos_len;
+	  rpc_deepcopy<LanczosContainerArg *>::doit(into.lanczos.lanczos_val,from.lanczos.lanczos_val,from.lanczos.lanczos_len);
 }
 void JobPropagatorArgs::deep_copy(JobPropagatorArgs const &rhs){
 	rpc_deepcopy<JobPropagatorArgs>::doit(*this,rhs);
@@ -697,6 +834,7 @@ void rpc_print<JobPropagatorArgs>::doit(JobPropagatorArgs const &what, const std
 	std::cout << prefix << "{\n";
 	std::string spaces(prefix.size(),' ');
 	rpc_print<PropagatorArg *>::doit(what.props.props_val,what.props.props_len,spaces+" props = ");
+	rpc_print<LanczosContainerArg *>::doit(what.lanczos.lanczos_val,what.lanczos.lanczos_len,spaces+" lanczos = ");
 	std::cout << spaces << "}\n";
 }
 void JobPropagatorArgs::print(const std::string &prefix){

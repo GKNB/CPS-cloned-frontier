@@ -10,22 +10,25 @@
 #include<util/defines.h>
 #include<alg/cg_arg.h>
 #include<alg/qpropw_arg.h>
+#include<alg/prop_attribute_arg.h>
 CPS_START_NAMESPACE
 
-class VML;
-class A2AArg{
-	public:
-		bool Encode(char *filename, char *instance);
-		bool Decode(char *filename, char *instance);
-		bool Vml(VML *vmls,char *instance);
-		int nl;
-		int nhits;
-		enum RandomType rand_type;
-		int src_width;
-		int dilute_flavor;		
-};
+typedef A2AAttrArg A2AArg;
 
-extern bool_t vml_A2AArg(VML *, char *instance, A2AArg *);
+/* class VML; */
+/* class A2AArg{ */
+/* 	public: */
+/* 		bool Encode(char *filename, char *instance); */
+/* 		bool Decode(char *filename, char *instance); */
+/* 		bool Vml(VML *vmls,char *instance); */
+/* 		int nl; */
+/* 		int nhits; */
+/* 		enum RandomType rand_type; */
+/* 		int src_width; */
+/* 		int dilute_flavor; */
+/* }; */
+
+/* extern bool_t vml_A2AArg(VML *, char *instance, A2AArg *); */
 
 CPS_END_NAMESPACE
 

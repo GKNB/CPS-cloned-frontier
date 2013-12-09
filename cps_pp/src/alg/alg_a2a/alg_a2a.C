@@ -1,3 +1,4 @@
+#include <alg/lanc_arg.h>
 #include <alg/a2a/alg_a2a.h>
 #include <alg/eigen/Krylov_5d.h>
 
@@ -62,7 +63,8 @@ A2APropbfm::A2APropbfm(Lattice &latt,
 
   gparity_1f_fftw_comm_flav_performed = false;
   fftw_computed = false;
-  do_gfix = true;
+
+  do_gfix = a2a.do_gauge_fix ? true: false;
 }
 
 A2APropbfm::~A2APropbfm()

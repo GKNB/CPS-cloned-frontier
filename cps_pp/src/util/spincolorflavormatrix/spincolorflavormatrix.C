@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <alg/lanc_arg.h>
 #include <util/spincolorflavormatrix.h>
 
 CPS_START_NAMESPACE

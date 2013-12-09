@@ -20,45 +20,75 @@
 #include<unistd.h>
 #include<config.h>
 
+#ifdef USE_BFM 
+
+//CK: these are redefined by BFM (to the same values)
+#undef ND
+#undef SPINOR_SIZE
+#undef HALF_SPINOR_SIZE
+#undef GAUGE_SIZE
+#endif
+
+#include <alg/lanc_arg.h>
+#include <alg/a2a/alg_a2a.h>
+#include <alg/eigen/Krylov_5d.h>
+
 #include <alg/propmanager.h>
 
 CPS_START_NAMESPACE
 
 
 PropVector PropManager::props;
+LanczosVector PropManager::eig; 
 
 PropagatorContainer & PropManager::getProp(const char *tag){
   for(int i=0;i<props.size();i++) if(props[i].tagEquals(tag)) return props[i];
-  ERR.General("PropManager","getProp(const char *tag, Lattice &latt)","Prop '%s' does not exist!\n",tag);
+  ERR.General("PropManager","getProp(const char *tag)","Prop '%s' does not exist!\n",tag);
 };
 
 PropagatorContainer & PropManager::addProp(PropagatorArg &arg){
   return props.addProp(arg);
 }
+LanczosContainer & PropManager::addLanczos(LanczosContainerArg &arg){
+  return eig.add(arg);
+}
 
 void PropManager::setup(JobPropagatorArgs &prop_args){
-  for(int i=0;i< prop_args.props.props_len; i++){
-    addProp(prop_args.props.props_val[i]);
-  }
+  for(int i=0;i< prop_args.lanczos.lanczos_len; i++) addLanczos(prop_args.lanczos.lanczos_val[i]);
+  for(int i=0;i< prop_args.props.props_len; i++) addProp(prop_args.props.props_val[i]);
+
   //after all props are loaded in, the attributes of props that combine other props are copied over
   for(int i=0;i<props.size();i++) if(props[i].type() == QPROPW_TYPE) props[i].convert<QPropWcontainer>().propCombSetupAttrib();
 }
 
 void PropManager::startNewTraj(){
-  for(int i=0;i<props.size();i++){
-    props[i].deleteProp();
+  for(int i=0;i<props.size();i++) props[i].deleteProp();
+  for(int i=0;i<eig.size();i++){
+    eig[i].deleteEig();
+    eig[i].reloadGauge(); //will re-import gauge into internal bfm object when calc is next called
   }
 }
 
 void PropManager::clear(){
   props.clear();
+  eig.clear();
 }
 
 void PropManager::calcProps(Lattice &latt){
+  for(int i=0;i<eig.size();i++) eig[i].calcEig(latt);
+
   for(int i=0;i<props.size();i++){
     props[i].readProp(latt);
     props[i].calcProp(latt); //will calculate if not read
   }
 }
 
+LanczosContainer& PropManager::getLanczos(const char *tag){
+  for(int i=0;i<eig.size();i++) if(eig[i].tagEquals(tag)) return eig[i];
+  ERR.General("PropManager","getLanczos(const char *tag)","Lanczos instance '%s' does not exist!\n",tag);
+}
+
+
 CPS_END_NAMESPACE
+
+

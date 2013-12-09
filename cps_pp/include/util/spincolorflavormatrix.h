@@ -423,6 +423,10 @@ public:
     return *this;
   }
 
+  void unit(){
+    *this = 0.0;
+    for(int f=0;f<2;f++) for(int s=0;s<4;s++) for(int c=0;c<3;c++) wmat[f][f](s,c,s,c) = 1.0;
+  }
 };
 
 Rcomplex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
