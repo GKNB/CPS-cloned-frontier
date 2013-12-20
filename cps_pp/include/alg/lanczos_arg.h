@@ -24,8 +24,8 @@ public:
 		u_int params_len;
 		Float *params_val;
 	} params;
-	Pointer tmp1;
-	Pointer tmp2;
+	Float *tmp1;
+	Float *tmp2;
 };
 
 class VML;

@@ -710,15 +710,41 @@ void AlgNuc3pt::run()
 	Nuc3pt_arg->mt[nt]=mt[nt];
 	Nuc3pt_arg->mt[nt]+=Nuc3pt_arg->source_inc;
       }
-
-/*
-      if(i_source==1){ // obsolete. commented out  --MFL
-	ts+=Nuc3pt_arg->mt[4];
-	for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
-	  Nuc3pt_arg->mt[nt]+=Nuc3pt_arg->mt[4];
+    
+      // do some disconnected traces
+      QPropWArg qp_arg ;
+      qp_arg.cg = (Nuc3pt_arg->cg);
+      qp_arg.cg.mass = qmass ;
+      qp_arg.t = ts ;
+      qp_arg.x = Nuc3pt_arg->x[0];
+      qp_arg.y = Nuc3pt_arg->x[1];
+      qp_arg.z = Nuc3pt_arg->x[2];
+      QPropWPointSrc pt_prop(AlgLattice(),&qp_arg,common_arg);
+      Site site(Nuc3pt_arg->x[0],Nuc3pt_arg->x[1],Nuc3pt_arg->x[2],ts);
+      int myIndex = site.Index();
+      WilsonMatrix temp = pt_prop[myIndex];
+      Rcomplex cc = temp.Trace();
+      OpenFile();
+      Fprintf(fp,"Disconnected trace scalar\n",cc.real(),cc.imag());
+      temp.gl(-5);
+      cc = temp.Trace();
+      Fprintf(fp,"Disconnected trace gamma 5\n",cc.real(),cc.imag());
+      for(int mu=0; mu < 4; mu++){
+	temp = pt_prop[myIndex];
+	temp.gl(mu);
+	Rcomplex cc = temp.Trace();
+	Fprintf(fp,"Disconnected trace gamma %d\n",mu,cc.real(),cc.imag());
+      }
+      for(int mu=0; mu < 4; mu++){
+	for(int nu=mu+1; nu < 4; nu++){
+	  temp = pt_prop[myIndex];
+	  temp.gl(mu).gl(nu);
+	  Rcomplex cc = temp.Trace();
+	  Fprintf(fp,"Disconnected trace sigma %d %d\n",mu,nu,cc.real(),cc.imag());
 	}
       }
-*/
+      CloseFile();
+
     } // end loop over source timeslices
 } // end run
 
@@ -837,8 +863,8 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			     Nuc3pt_arg->theta, mu);
 	  }
 	}
-	  q_prop[n] = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
-	  q_prop[n]->Run();
+	q_prop[n] = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
+	q_prop[n]->Run();
       }
     }
     break ;

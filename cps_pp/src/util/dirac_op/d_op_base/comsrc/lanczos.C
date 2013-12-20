@@ -47,10 +47,13 @@ void QRtrf(Float *d, Float *e, int nk, int n, Float **z, Float dsh, int kmin, in
 void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
 void lanczos_GramSchm_real(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
 void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
+void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float* alpha);
+void double_to_float(Float* vec, int f_size);
+void movefloattoFloat(Float* out, float* in, int f_size);
+void moveFloattofloat(float* out, Float* in, int f_size);
 
 
-
-//#define PROFILE_LANCZOS
+#define PROFILE_LANCZOS
 #ifdef  PROFILE_LANCZOS
 #undef PROFILE_LANCZOS
 #define PROFILE_LANCZOS(msg,a ...) do		\
@@ -64,7 +67,7 @@ void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, int f_size, Float*
 #endif
 
 
-//#define USE_BLAS
+#define USE_BLAS
 #ifndef USE_BLAS
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
@@ -121,9 +124,7 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   Float StopRes  = eig_arg-> stop_residual;// stop when residual is smaller than this
     
   //arguments for the filtering polynomial
-//  MatrixPolynomialArg *cheby_arg  = (MatrixPolynomialArg*) (eig_arg-> matpoly_arg);
   MatrixPolynomialArg *cheby_arg  = &(eig_arg-> matpoly_arg);
-
 
   // Set the node checkerboard size of the fermion field
   //------------------------------------------------------------------
@@ -145,11 +146,14 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   Float* tmp_Qi = (Float *) smalloc(cname,fname,"tmp_Qi", (m*m) * sizeof(Float));
   for(int i=0;i<m;i++)  Q[i] = tmp_Qi+i*m;
 
-  Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*2*sizeof(Float));
+  //Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*2*sizeof(Float));
+  Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*f_size*sizeof(Float));
 
   // setup temporaly vectors for the the matrix polynomial
-  cheby_arg->tmp1 = (Pointer) smalloc(cname,fname,"matrix_polynomial.tmp1", f_size *sizeof(Float));
-  cheby_arg->tmp2 = (Pointer) smalloc(cname,fname,"matrix_polynomial.tmp2", f_size *sizeof(Float));  
+  cheby_arg->tmp1 = (Float*) smalloc(cname,fname,"matrix_polynomial.tmp1", f_size *sizeof(Float));
+  cheby_arg->tmp2 = (Float*) smalloc(cname,fname,"matrix_polynomial.tmp2", f_size *sizeof(Float));  
+
+  cheby_arg->Encode("cheby_arg.dat","cheby_arg");
 
   // save the eigenvalues so we don't have to computed them after last iter.
   //Float *savelambda = (Float *) smalloc(cname,fname, "savelambda", m * sizeof(Float));
@@ -158,26 +162,34 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   // initialize starting residual
 
 #if 0
-
+  int nodes = GJP.Nodes(0)*GJP.Nodes(1)*GJP.Nodes(2)*GJP.Nodes(3)*GJP.Nodes(4);
   for(int n=0;n<f_size;n+=2){
     //LRG.AssignGenerator(site);
 #if 0
     *((Float*)r+n) = LRG.Grand();
     *((Float*)r+1+n) = LRG.Grand();
 #else
-    *((Float*)r+n) = 1.0;
+    *((Float*)r+n) = sqrt(2.0/(Float)(nodes*f_size));
     *((Float*)r+1+n) = 0.0;
 #endif
   }
   
 #else
-
-  printf("norm v[0] = %g\n", V[0]->NormSqGlbSum(f_size));
   
   // use V[0] as the initial vector
-  moveFloat( (Float*)r, (Float*)(V[0]), f_size);
-
+  movefloattoFloat( (Float*)r, (float*)V[0], f_size);
 #endif
+#if 0
+    if(!UniqueID()){printf("f_zise: %d\n",f_size);};
+    for(int n=0;n<f_size;n+=2){
+        printf("evec0 r %d %d %e %e %e %e\n",
+	UniqueID(),n,
+	*((float*)V[0]+n),*((float*)V[0]+n+1),
+	*((Float*)r+n),*((Float*)r+n+1));
+    }
+#endif
+  printf("norm V[0] = %g\n", r->NormSqGlbSum(f_size));
+
   
   
   
@@ -266,33 +278,30 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
     //   Q[j][k]==0  for  j>np , 0<= k < j-np
     // e.g. for  nk=10, np=12
     //      Q[13][0]=0, Q[14][0]=Q[14][1]=0
+#if 1
     // FIXME:  would be slow due to non-localized memory access
     for(int n=0;n<f_size;n+=2){ 
       vecZero( (IFloat*)scratch_2m, 2*m);
       
       for(int j=0; j<np;++j){
 	for(int k=0;k<m;++k){ 
-	  scratch_2m[2*k]   += *((Float*)V[j]+n)   * Q[j][k];
-	  scratch_2m[2*k+1] += *((Float*)V[j]+n+1) * Q[j][k];
+	  scratch_2m[2*k]   += *((float*)V[j]+n)   * Q[j][k];
+	  scratch_2m[2*k+1] += *((float*)V[j]+n+1) * Q[j][k];
 	}
       }
       for(int j=np; j<m;++j){
 	for(int k=j-np;k<m;++k){ 
-	  scratch_2m[2*k]   += *((Float*)V[j]+n)   * Q[j][k];
-	  scratch_2m[2*k+1] += *((Float*)V[j]+n+1) * Q[j][k];
+	  scratch_2m[2*k]   += *((float*)V[j]+n)   * Q[j][k];
+	  scratch_2m[2*k+1] += *((float*)V[j]+n+1) * Q[j][k];
 	}
       }
       for(int k=0;k<m;++k) {
-	*((Float*)V[k]+n) = scratch_2m[2*k];
-	*((Float*)V[k]+n+1) = scratch_2m[2*k+1];
+	*((float*)V[k]+n) = (float)scratch_2m[2*k];
+	*((float*)V[k]+n+1) = (float)scratch_2m[2*k+1];
       }
     }
-
-#if 0 
-    for(int k=0;k<m;++k)
-      for(int j=0;j<m;++j)
-	printf("Q %d %d = %g\n",k,j,Q[k][j]);
 #endif
+
     PROFILE_LANCZOS("diag Q %e\n",time_elapse());
     
     //
@@ -304,14 +313,14 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
       {Float* fp = (Float*)r;
 	VRB.Debug(cname,fname,"RESTVEC %e %e %e %e\n", fp[0],fp[1],fp[2],fp[3]);
       }
-      {Float* fp = (Float*)V[nk];
+      {float* fp = (float*)V[nk];
 	VRB.Debug(cname,fname,"RESTVEC %e %e %e %e\n", fp[0],fp[1],fp[2],fp[3]);
       }
     }
     
     r->VecTimesEquFloat(Q[m-1][nk-1],f_size);
     if(nk<m){
-      Apsi->CopyVec(V[nk],f_size);
+      movefloattoFloat((Float*)Apsi,(float*)V[nk],f_size);
       Apsi->VecTimesEquFloat(beta[nk-1], f_size);
       vecAddEquVec((Float*)r, (Float*)Apsi, f_size);
     }
@@ -352,6 +361,7 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
       VRB.Debug(cname,fname,  "tqri (convergence test) converges at iter=%d\n",tqri_iters);
       
       Vector* vtmp = (Vector*)(cheby_arg->tmp1); // reuse temp vector for polynomial here
+      Vector* vtmp2 = (Vector*)(cheby_arg->tmp2); // reuse temp vector for polynomial here
       
       
       PROFILE_LANCZOS("before residual comp. %e\n",time_elapse());
@@ -359,9 +369,10 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
       for(int k=0;k<nk;k++){
 	
 	vtmp->VecZero(f_size);
-	for(int j=0;j<exam_dim;j++)
-	  vtmp->FTimesV1PlusV2( Q[j][k], V[j], vtmp, f_size);  
-	//moveFloat((Float*)vtmp,(Float*)V[k],f_size);
+	for(int j=0;j<exam_dim;j++){
+	  movefloattoFloat((Float*)vtmp2, (float*)V[j], f_size);
+	  vtmp->FTimesV1PlusV2( Q[j][k], vtmp2, vtmp, f_size);
+	}
 	
 	// Monitor convergence for the original RitzMat (not the polynomial of it)
 	RitzMat(Apsi, vtmp);
@@ -380,7 +391,7 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
 	if(isnan(rnorm)) 
           ERR.General(cname,fname, "Residual is nan\n"); 
 	// save eigenvalues/vectors so don't have to recompute in final conv. check
-	if(it==MaxIters)alpha[k] = alp;
+	//if(it==MaxIters)alpha[k] = alp;
 	//if(it==MaxIters)moveFloat((Float*)V[k],(Float*)vtmp,f_size);
       }
       PROFILE_LANCZOS("after residual comp %e\n",time_elapse());
@@ -437,8 +448,9 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
       }
     }
 #endif
-  for(int n=0;n<f_size;n+=2){ 
-    vecZero( (IFloat*)scratch_2m, 2*m);
+
+    for(int n=0;n<f_size;n+=2){ 
+      vecZero( (IFloat*)scratch_2m, 2*m);
 #if 0
     for(int k=0;k<m;++k){ 
       for(int j=0;j<m;++j){
@@ -447,18 +459,20 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
       }
     }
 #endif
+#if 1
     for(int i=0;i<cnt;++i){
       int j = tab[i]%m;
       int k = (tab[i]-j)/m;
-      scratch_2m[2*k]   += *((Float*)V[j]+n)   * Q[j][k];
-      scratch_2m[2*k+1] += *((Float*)V[j]+n+1) * Q[j][k];      
+      scratch_2m[2*k]   += *((float*)V[j]+n)   * Q[j][k];
+      scratch_2m[2*k+1] += *((float*)V[j]+n+1) * Q[j][k];      
     }
+#endif
     for(int k=0;k<m;++k) {
-      *((Float*)V[k]+n) = scratch_2m[2*k];
-      *((Float*)V[k]+n+1) = scratch_2m[2*k+1];
+      *((float*)V[k]+n) = (float)scratch_2m[2*k];
+      *((float*)V[k]+n+1) = (float)scratch_2m[2*k+1];
     }
   }
-  
+
   PROFILE_LANCZOS("after new V %e\n",time_elapse());
   
   FILE* filep=0;
@@ -473,19 +487,27 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   PROFILE_LANCZOS("after final output %e\n",time_elapse());
   
   Complex *del = (Complex*)smalloc(cname,fname,"del", nk*nk*sizeof(Complex));
+
+  Vector* vtmp = (Vector*)(cheby_arg->tmp1); // reuse temp vector for polynomial here
+  Vector* vtmp2 = (Vector*)(cheby_arg->tmp2); // reuse temp vector for polynomial here
   
   for(int i=0;i<nk;++i){
-    RitzMat(Apsi, V[i]);
+
+    movefloattoFloat((Float*)vtmp,(float*)V[i],f_size);
+
+    RitzMat(Apsi, vtmp);
     
     for(int j=0;j<nk;++j){ // can cut into half in the exact arithmetic
-      del[i*nk+j] = Apsi->CompDotProductGlbSum(V[j],f_size);  // Apsi . V[i]
+      movefloattoFloat((Float*)vtmp2,(float*)V[j],f_size);
+      del[i*nk+j] = Apsi->CompDotProductGlbSum(vtmp2,f_size);  // Apsi . V[i]
     }
     //Float alp =  Apsi->ReDotProductGlbSum( V[i], f_size);
     Float alp =  del[i*nk+i].real();
     alpha[i]=alp;
-    Apsi->FTimesV1PlusV2(-alp, V[i], Apsi, f_size);  
+    Apsi->FTimesV1PlusV2(-alp, vtmp, Apsi, f_size);  
     Float rnorm = sqrt(Apsi->NormSqGlbSum(f_size));
-    Float norm = sqrt(V[i]->NormSqGlbSum(f_size));
+    //Float norm = sqrt(V[i]->NormSqGlbSum(f_size));
+    Float norm = sqrt(vtmp->NormSqGlbSum(f_size));
     if( filep )
       Fprintf(filep, "Final True Residual %d %d %e norm %e lambda %.16e\n",it,i,rnorm,norm,alp);
     VRB.Result(cname,fname, "Final True Residual %d %d %e norm %e lambda %.16e\n",it,i,rnorm,norm,alp);
@@ -531,8 +553,8 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   sfree(cname,fname, "beta",beta);
   sfree(cname,fname, "Apsi",Apsi);
   sfree(cname,fname, "r",r);
-  sfree(cname,fname,"matrix_polynomial.tmp1", (Float *)cheby_arg->tmp1);
-  sfree(cname,fname,"matrix_polynomial.tmp2", (Float *)cheby_arg->tmp2);
+  sfree(cname,fname,"matrix_polynomial.tmp1", cheby_arg->tmp1);
+  sfree(cname,fname,"matrix_polynomial.tmp2", cheby_arg->tmp2);
 
   // make sure we won't change the original RitMatOper.
   dirac_arg->RitzMatOper = save_RitzMatOper;
@@ -562,6 +584,11 @@ void DiracOp::lanczos(int k0, int m, int f_size,
 
   RitzMatType save_RitzMatOper =  dirac_arg->RitzMatOper;
   dirac_arg->RitzMatOper = RitzMat_lanczos;
+
+  //Vector* vtmp = (Vector*)(cheby_arg->tmp1); // reuse temp vector for polynomial here
+  //Vector* vtmp2 = (Vector*)(cheby_arg->tmp2); // reuse temp vector for polynomial here
+  Vector* vtmp = (Vector*) smalloc("","lanczos","tmp1", f_size *sizeof(Float));  
+  Vector* vtmp2 = (Vector*) smalloc("","lanczos","tmp2", f_size *sizeof(Float));  
   
   //  if(k0==0)  
   {
@@ -569,8 +596,10 @@ void DiracOp::lanczos(int k0, int m, int f_size,
     ff=sqrt(r->NormSqGlbSum(f_size));
     //V[k0]->CopyVec(r, f_size);
     //V[k0]->VecTimesEquFloat(1.0/ff, f_size);
-    MOVE_FLOAT( (Float*)(V[k0]), (Float*)r, f_size );
-    VEC_TIMESEQU_FLOAT((Float*)(V[k0]), 1.0/ff, f_size );
+    MOVE_FLOAT( (Float*)vtmp, (Float*)r, f_size );
+    //VEC_TIMESEQU_FLOAT((Float*)(V[k0]), 1.0/ff, f_size );
+    VEC_TIMESEQU_FLOAT((Float*)vtmp, 1.0/ff, f_size );
+    moveFloattofloat((float*)V[k0], (Float*)vtmp, f_size );
   }
   
   for(int k = k0; k < m; ++k){
@@ -580,25 +609,29 @@ void DiracOp::lanczos(int k0, int m, int f_size,
 
       double time_in=dclock();
       PROFILE_LANCZOS("before first mult %e\n",time_elapse());    
-      RitzMat(r, V[k], cheby_arg);
+      movefloattoFloat((Float*)vtmp, (float*)V[k], f_size );
+      RitzMat(r, vtmp, cheby_arg);
       PROFILE_LANCZOS("first mult %e\n",time_elapse());    
 
       //alpha[k] = V[k]->ReDotProductGlbSum(r, f_size);
-      glb_DDOT( f_size, (IFloat*)(V[k]), (IFloat*)r, alpha+k);
+      //glb_DDOT( f_size, (IFloat*)(V[k]), (IFloat*)r, alpha+k);
+      glb_DDOT( f_size, (IFloat*)vtmp, (IFloat*)r, alpha+k);
 
       //r->FTimesV1PlusV2(-alpha[k], V[k], r, f_size);
-      AXPY(f_size, -alpha[k], (Float*)(V[k]), (Float*)r );
+      //AXPY(f_size, -alpha[k], (Float*)(V[k]), (Float*)r );
+      AXPY(f_size, -alpha[k], (Float*)vtmp, (Float*)r );
       
       //beta[k]=sqrt(r->NormSqGlbSum(f_size));
       glb_DDOT(f_size, (Float*)r, (Float*)r, beta+k);
       beta[k]=sqrt(beta[k]);
 
       
-
       //V[k+1]->CopyVec(r, f_size);
-      MOVE_FLOAT((Float*)(V[k+1]), (Float*)r, f_size);
+      //MOVE_FLOAT((Float*)(V[k+1]), (Float*)r, f_size);
+      MOVE_FLOAT((Float*)vtmp, (Float*)r, f_size);
       //V[k+1]->VecTimesEquFloat(1.0/beta[k], f_size);
-      VEC_TIMESEQU_FLOAT( (Float*)(V[k+1]), 1.0/beta[k], f_size);
+      VEC_TIMESEQU_FLOAT( (Float*)vtmp, 1.0/beta[k], f_size);
+      moveFloattofloat((float*)(V[k+1]), (Float*)vtmp, f_size);
       PROFILE_LANCZOS("first other linalg %e\n",time_elapse());
 
       if(!UniqueID()) printf("First Lanczos iter: time(sec) %e\n", dclock()-time_in);
@@ -607,8 +640,10 @@ void DiracOp::lanczos(int k0, int m, int f_size,
    // --- iteration step ---
 
       double time_in=dclock();
-      PROFILE_LANCZOS("before mult %e\n",time_elapse());    
-      RitzMat(r, V[k], cheby_arg);
+      PROFILE_LANCZOS("before mult %e\n",time_elapse());
+      movefloattoFloat((Float*)vtmp, (float*)V[k], f_size );
+      //RitzMat(r, V[k], cheby_arg);
+      RitzMat(r, vtmp, cheby_arg);
       PROFILE_LANCZOS("mult %e\n",time_elapse());    
 
 #if 0
@@ -617,10 +652,14 @@ void DiracOp::lanczos(int k0, int m, int f_size,
       r->FTimesV1PlusV2(-alpha[k], V[k], r, f_size);      
       beta[k]=sqrt(r->NormSqGlbSum(f_size));
 #else
-      AXPY(f_size, -beta[k-1], (Float*)V[k-1], (Float*)r);
+      movefloattoFloat((Float*)vtmp2, (float*)V[k-1], f_size );
+      //AXPY(f_size, -beta[k-1], (Float*)V[k-1], (Float*)r);
+      AXPY(f_size, -beta[k-1], (Float*)vtmp2, (Float*)r);
       //alpha[k] = V[k]->ReDotProductGlbSum(r, f_size);
-      glb_DDOT( f_size, (Float*)(V[k]), (Float*)r,alpha+k );
-      AXPY(f_size, -alpha[k], (Float*)V[k], (Float*)r);
+      //glb_DDOT( f_size, (Float*)(V[k]), (Float*)r,alpha+k );
+      glb_DDOT( f_size, (Float*)vtmp, (Float*)r,alpha+k );
+      //AXPY(f_size, -alpha[k], (Float*)V[k], (Float*)r);
+      AXPY(f_size, -alpha[k], (Float*)vtmp, (Float*)r);
       //beta[k]=sqrt(r->NormSqGlbSum(f_size));
       glb_DDOT( f_size, (Float*)r, (Float*)r, beta+k);
       beta[k]=sqrt(beta[k]);
@@ -629,22 +668,50 @@ void DiracOp::lanczos(int k0, int m, int f_size,
       PROFILE_LANCZOS("other lin alg %e\n",time_elapse());    
 
       //lanczos_GramSchm_real((Float*)r, (Float**)V, k+1, f_size, 0);
-      lanczos_GramSchm_test((Float*)r, (Float**)V, k+1, f_size, 0);
+      //lanczos_GramSchm_test((Float*)r, (Float**)V, k+1, f_size, 0);
+      lanczos_GramSchm_test((Float*)r, (float**)V, k+1, f_size, 0);
       PROFILE_LANCZOS("gramschm %e\n",time_elapse());
       
       if( k+1 < m ){
 	//V[k+1]->CopyVec(r, f_size);
-	MOVE_FLOAT( (Float*) (V[k+1]), (Float*)r, f_size);
+	//MOVE_FLOAT( (Float*) (V[k+1]), (Float*)r, f_size);
+	MOVE_FLOAT( (Float*)vtmp, (Float*)r, f_size);
 	//V[k+1]->VecTimesEquFloat(1.0/beta[k], f_size);
-	VEC_TIMESEQU_FLOAT( (Float*)(V[k+1]), 1.0/beta[k], f_size);
+	VEC_TIMESEQU_FLOAT( (Float*)vtmp, 1.0/beta[k], f_size);
+	moveFloattofloat( (float*) (V[k+1]), (Float*)vtmp, f_size);
       }
+
       PROFILE_LANCZOS("last linalg %e\n",time_elapse());
       if(!UniqueID()) printf("# %d Lanczos iter: time(sec) %e\n",k, dclock()-time_in);
     }
   }
 
   dirac_arg->RitzMatOper = save_RitzMatOper;
+  sfree(vtmp);
+  sfree(vtmp2);
 }
 
+
+void moveFloattofloat(float* out, Float* in, int f_size)
+{
+#if 1
+  float flt;
+  for(int i=0;i<f_size;i++){
+    flt = (float)in[i];
+    out[i] = flt;
+  }
+#endif
+};
+
+#if 1
+void movefloattoFloat(Float* out, float* in, int f_size)
+{
+  float flt;
+  for(int i=0;i<f_size;i++){
+    flt = in[i];
+    out[i] = (Float)flt;
+  }
+};
+#endif
 
 CPS_END_NAMESPACE

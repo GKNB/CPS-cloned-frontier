@@ -13,8 +13,8 @@ class  MatrixPolynomialArg {
 
    Float params<>;
 
-   Pointer tmp1;
-   Pointer tmp2; // the pointer to the temporaly vectors
+   Float* tmp1;
+   Float* tmp2; // the pointer to the temporaly vectors
 };
 
 class LanczosArg {

@@ -32,9 +32,10 @@ void mult_vec_by_tridiag(Float* out, Float *in, Float *d, Float *e, int n);
 void eigsrt_low(Float *d, int n);
 void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
 void QRtrf(Float *d, Float *e,int nk, int n, Float **Q, Float dsh, int kmin, int kmax);
+void mvfloattoFloat(Float* out, float* in, int f_size);
+void mvFloattofloat(float* out, Float* in, int f_size);
 
 //int eigen_solver(Float **A, int n, Float *Eval, Float *aux)
-extern "C"
 int eigen_solver(Float *A, Float *Evec, Float *Eval, int n)
 //use the same call as the old version of eigen solver, so do not need to change the function that call it
 //Float A[n*(n+1)/2], EV[n*n], E[n];
@@ -1144,7 +1145,7 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
     }
 }
 
-//#define USE_BLAS
+#define USE_BLAS
 #ifndef USE_BLAS
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
@@ -1160,6 +1161,8 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot) = cblas_ddot(n,px,py); glb_sum((p_dot)); }
 #define ZDOT(n,px,py,p_dot) cblas_zdotc_sub( n/2, px,py, p_dot)
 #define ZAXPY(n, fact, px, py)  cblas_zaxpy(n/2, fact, px,1,py,1)
+#define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,py,p_dot)
+#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
 #endif
 
 // orthogonalize psi w/r to vec's only one vector
@@ -1229,6 +1232,92 @@ void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, int f_size, Float 
     }
   
 }
+
+
+// float version
+#if 0
+void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float *alpha) 
+{
+  Float xp[2]; //xp_r, xp_i;
+  Vector *vtmp = (Vector *) smalloc("","lanczos_GramSchm_test", "r", f_size * sizeof(Float));
+  
+  for(int i = 0; i<Nvec; ++i)
+    {
+      mvfloattoFloat((Float*)vtmp, (float*)vec[i], f_size );
+      //ZDOT(f_size, (Float*)(vec[i]), (Float*)psi, xp);
+      ZDOT(f_size, (Float*)vtmp, (Float*)psi, xp);
+      slice_sum(xp, 2, 1970);
+
+      if(!UniqueID() && fabs(xp[1])> 1e-13)
+	printf("[%d][%d] %e %e\n", UniqueID(),i, xp[0],xp[1]);
+      
+      /* psi = psi - <vec[i],psi> vec[i] */
+      xp[0] =-xp[0]; xp[1] = -xp[1];
+      //ZAXPY(f_size, xp, vec[i], psi);
+      ZAXPY(f_size, xp, (Float*)vtmp, psi);
+
+      if(i==Nvec-1 && alpha)  *alpha = xp[0];   //  Re ( vec[Nvec-1],  psi ) needed for Lanczos' alpha
+    }
+  sfree(vtmp);
+}
+#endif
+// another float version (dot prods. are floats, not Floats)
+void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float *alpha) 
+{
+
+  float xp[2]; //xp_r, xp_i;
+  Float xpd[2]; //xp_r, xp_i; glb sum in double
+  Vector *vtmp = (Vector *) smalloc("","lanczos_GramSchm_test", "r", f_size * sizeof(float));
+
+  mvFloattofloat((float*)vtmp, psi, f_size );
+  
+  for(int i = 0; i<Nvec; ++i)
+    {
+
+      //ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
+      cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
+      xpd[0] = (Float)xp[0];
+      xpd[1] = (Float)xp[1];
+      slice_sum((Float*)xpd, 2, 1970);
+      xp[0] = (float)xpd[0];
+      xp[1] = (float)xpd[1];
+
+      if(!UniqueID() && fabs(xp[1])> 1e-13)
+	printf("[%d][%d] %e %e\n", UniqueID(),i, xp[0],xp[1]);
+      
+      /* psi = psi - <vec[i],psi> vec[i] */
+      xp[0] =-xp[0]; xp[1] = -xp[1];
+      //ZAXPY(f_size, xp, vec[i], psi);
+      ZAXPYfloat(f_size, xp, vec[i], (float*)vtmp);
+
+      if(i==Nvec-1 && alpha)  *alpha = xp[0];   //  Re ( vec[Nvec-1],  psi ) needed for Lanczos' alpha
+    }
+
+  mvfloattoFloat(psi, (float*)vtmp, f_size );
+
+  sfree(vtmp);
+}
+
+void mvfloattoFloat(Float* out, float* in, int f_size)
+{
+#if 1
+  float flt;
+  for(int i=0;i<f_size;i++){
+    flt = in[i];
+    out[i] = (Float)flt;
+  }
+#endif
+};
+void mvFloattofloat(float* out, Float* in, int f_size)
+{
+#if 1
+  float flt;
+  for(int i=0;i<f_size;i++){
+    flt = (float)in[i];
+    out[i] = flt;
+  }
+#endif
+};
 
 
 
