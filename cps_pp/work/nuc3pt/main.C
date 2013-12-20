@@ -138,11 +138,8 @@ int main(int argc,char *argv[])
   
   do_arg.Encode("do_arg.dat","do_arg");
   eig_arg.Encode("lanczos_arg.dat","eig_arg");
-eig_arg.matpoly_arg.tmp1 = (Float*)smalloc(sizeof(Float));
-eig_arg.matpoly_arg.tmp1[0] = 0.5;
-printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
-
   meas_arg.Encode("meas_arg.dat","meas_arg");
+  nuc3pt_arg.Encode("nuc3pt_arg.dat","nuc3pt_arg");
 
   // loop over gauge field ensemble  
   for(meas_arg.TrajCur=meas_arg.TrajStart;
@@ -151,8 +148,6 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
     
     int traj = meas_arg.TrajCur;
     char fname[1024];
-    snprintf(fname, 1024,"nuc3pt-2.dat.%d", traj );
-    common_arg.set_filename(fname);
     char eigfname[1024];
     char fname2[1024];
     
@@ -255,8 +250,11 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
   }
 #endif 
     if(!UniqueID())printf("main using cache n=%d name=%s\n",ecache->Neig(),ecache->Name());
-  
-#if 0
+
+    // I'm using mt to set the source time slice
+    nuc3pt_arg.t_source = nuc3pt_arg. mt[0];
+
+#if 1
   {
     snprintf(fname, 1024,"nuc3pt-exact.dat.%d", traj );
     common_arg.set_filename(fname);
@@ -275,7 +273,7 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
     nuc3pt_arg. ensemble_id = traj; 
     nuc3pt_arg. calc_QProp = WRITE_QPROP;
     nuc3pt_arg. cg. max_num_iter = 100;
-    snprintf(fname, 1024,"nuc3pt-100iter.dat.%d", traj );
+    snprintf(fname, 1024,"nuc3pt-rest-approx.dat.%d", traj );
     common_arg.set_filename(fname);
     nuc3pt_arg. cg. fname_eigen = eig_arg.file;
     AlgNuc3pt nuc(lattice,&common_arg,&nuc3pt_arg); 
@@ -286,7 +284,7 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
   }
 #endif
 
-#if 0
+#if 1
     /*
      *  Now do the LMA(Low Mode Approximation)
      */
@@ -294,6 +292,8 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
     // set in vml instead
     //nuc3pt_arg. cg. Inverter = LOWMODEAPPROX;
     nuc3pt_arg. cg. stop_rsd = nuc3pt_arg. cg. ama_stop_rsd;
+    snprintf(fname, 1024,"nuc3pt-approx.dat.%d", traj );
+    common_arg.set_filename(fname);
     
     // number of shifts in each direction
     //int NUM_SHFT[4] = {2,2,2,4};
@@ -310,8 +310,6 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
     
     int sft[4];
     for(int isft_=StartShift; isft_< nshft;isft_++){
-      
-      //if(isft_ > nshft/2-1) break; //only do half the time slices because of doubled source
       
       // reset the source location
       nuc3pt_arg. x[0] =  orig_src[0];
@@ -340,11 +338,9 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
       nuc3pt_arg. x[2] %= GJP.Sites(2);
       for(int i=0;i<nuc3pt_arg.num_mult;i++)
     	nuc3pt_arg. mt[i] %= GJP.Sites(3);
+      // I'm using mt to set the source time slice
+      nuc3pt_arg.t_source = nuc3pt_arg. mt[0];
 
-//if((nuc3pt_arg. mt[0] + nuc3pt_arg. t_sink) % (GJP.TnodeSites()*GJP.Tnodes()) < nuc3pt_arg. mt[0] ) break;
-//fixed in alg_nuc3pt to handle this case. TB. Jan 17, 2013.
-//if(nuc3pt_arg. mt[0] > GJP.Sites(3)-1) break;
- 
       // root name of eigen value/vector to be read 
       nuc3pt_arg. cg. fname_eigen = eig_arg.file;
       AlgNuc3pt nuc(lattice,&common_arg,&nuc3pt_arg); 
@@ -358,7 +354,6 @@ printf("tmp1 = %e",eig_arg.matpoly_arg.tmp1[0]);
     
   }
   LatticeFactory::Destroy();
-  //for(int i=m-1;i>=0;i--)sfree(evec[i]);
   sfree(filename);
   
   EigenCacheListCleanup();
