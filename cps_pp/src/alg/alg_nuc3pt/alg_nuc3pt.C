@@ -708,35 +708,9 @@ void AlgNuc3pt::run()
       // do some disconnected traces
       if(Nuc3pt_arg->DoDisconnected){
 
-	QPropWArg qp_arg ;
-	qp_arg.cg = (Nuc3pt_arg->cg);
-	qp_arg.cg.mass = qmass ;
-	qp_arg.t = ts ;
-	qp_arg.x = Nuc3pt_arg->x[0];
-	qp_arg.y = Nuc3pt_arg->x[1];
-	qp_arg.z = Nuc3pt_arg->x[2];
-	char prop_name[1024];
-	char chartmp[200];
-	sprintf(chartmp,"Nuc3pt");
-	qp_arg.ensemble_id = chartmp;
-	qp_arg.ensemble_label = Nuc3pt_arg->ensemble_label;
-	qp_arg.seqNum=Nuc3pt_arg->ensemble_id;
-
-	sprintf(prop_name, "prop_ptsrc_m%g_tsrc%d_%s_%d",
-		qmass,ts,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);
-	if(Nuc3pt_arg->calc_QProp==WRITE_QPROP) {
-	  qp_arg.save_prop=1;
-	  qp_arg.file = prop_name;
-	}
-	QPropWPointSrc* pt_prop;
-
-	if(Nuc3pt_arg->calc_QProp != READ_QPROP){
-	  pt_prop = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
-	} else {
-	  pt_prop = new QPropWPointSrc(AlgLattice(),common_arg);
-	  pt_prop->Allocate(0); // only 4d prop
-	  pt_prop->ReLoad(qp_arg.file);
-	}
+	SourceType src_type = GAUSS_GAUGE_INV;
+	Nuc3pt_arg->src_type=POINT;
+	GetThePropagator(n, ts, qmass);
 
 	Site site;
 	while ( site.LoopsOverNode() ){
@@ -744,9 +718,9 @@ void AlgNuc3pt::run()
 	  int y = site.physY();
 	  int z = site.physZ();
 	  int t = site.physT();
-	  if(x==qp_arg.x && y==qp_arg.y && z==qp_arg.z && t==qp_arg.t){
+	  if(x==Nuc3pt_arg->x[0] && y==Nuc3pt_arg->x[1] && z==Nuc3pt_arg->x[2] && t==ts){
 	    int myIndex = site.Index();
-	    WilsonMatrix temp = (*pt_prop)[myIndex];
+	    WilsonMatrix temp = (*q_prop[n])[myIndex];
 	    Rcomplex cc = temp.Trace();
 	    FileIoType T=ADD_ID;
 	    if(common_arg->results != 0)
@@ -760,14 +734,14 @@ void AlgNuc3pt::run()
 	    cc = temp.Trace();
 	    Fprintf(fp,"Disconnected trace gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
 	    for(int mu=0; mu < 4; mu++){
-	      temp = (*pt_prop)[myIndex];
+	      temp = (*q_prop[n])[myIndex];
 	      temp.gl(mu);
 	      Rcomplex cc = temp.Trace();
 	      Fprintf(fp,"Disconnected trace gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
 	    }
 	    for(int mu=0; mu < 4; mu++){
 	      for(int nu=mu+1; nu < 4; nu++){
-		temp = (*pt_prop)[myIndex];
+		temp = (*q_prop[n])[myIndex];
 		temp.gl(mu).gl(nu);
 		Rcomplex cc = temp.Trace();
 		Fprintf(fp,"Disconnected trace sigma%d%d %d %d %d %d %0.14e %0.14e\n",mu,nu,x,y,z,ts,cc.real(),cc.imag());
@@ -777,7 +751,11 @@ void AlgNuc3pt::run()
 	    //CloseFile();
 	  }
 	}
+
+	Nuc3pt_arg->src_type=src_type;
+
       }// end disconnected
+
       ts+=Nuc3pt_arg->source_inc;
       for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
 	Nuc3pt_arg->mt[nt]=mt[nt];
@@ -808,11 +786,6 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
   qp_arg.EndSrcSpin = 4 ;
   qp_arg.StartSrcColor = 0 ;
   qp_arg.EndSrcColor = 3 ;
-
-//  qp_arg.StartSrcSpin  = (Nuc3pt_arg->StartSrcSpin);
-//  qp_arg.EndSrcSpin    = (Nuc3pt_arg->EndSrcSpin);
-//  qp_arg.StartSrcColor = (Nuc3pt_arg->StartSrcColor);
-//  qp_arg.EndSrcColor   = (Nuc3pt_arg->EndSrcColor);
 
   if (qp_arg.StartSrcSpin >= qp_arg.EndSrcSpin 
 	|| qp_arg.StartSrcColor >= qp_arg.EndSrcColor)   
@@ -902,8 +875,20 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			     Nuc3pt_arg->theta, mu);
 	  }
 	}
-	q_prop[n] = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
-	q_prop[n]->Run();
+
+	sprintf(out_prop, "prop_m%g_tsrc%d_%s_%d",mass,time,
+		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
+	qp_arg.file = out_prop;
+
+	Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
+	
+	if(Nuc3pt_arg->calc_QProp != READ_QPROP){
+	  q_prop[n] = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
+	} else {
+	  q_prop[n] = new QPropWPointSrc(AlgLattice(),common_arg);
+	  q_prop[n]->Allocate(0);
+	  q_prop[n]->RestoreQProp(out_prop,0);
+	}
       }
     }
     break ;
