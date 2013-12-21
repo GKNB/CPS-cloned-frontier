@@ -4,5 +4,5 @@ BGL_DIR = bgl
 BGL_QMP_DIR = bg_bagel
 BGQ_DIR = noarch
 QCDOC_DIR = qcdoc
-NOARCH_DIR = noarch
+NOARCH_DIR = sse
 include ../../../../Makefile.rules

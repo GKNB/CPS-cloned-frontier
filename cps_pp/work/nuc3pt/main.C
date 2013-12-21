@@ -291,7 +291,7 @@ int main(int argc,char *argv[])
     // set inverter to be  LMA
     // set in vml instead
     //nuc3pt_arg. cg. Inverter = LOWMODEAPPROX;
-    nuc3pt_arg. cg. stop_rsd = nuc3pt_arg. cg. ama_stop_rsd;
+    //nuc3pt_arg. cg. stop_rsd = nuc3pt_arg. cg. ama_stop_rsd;
     snprintf(fname, 1024,"nuc3pt-approx.dat.%d", traj );
     common_arg.set_filename(fname);
     
