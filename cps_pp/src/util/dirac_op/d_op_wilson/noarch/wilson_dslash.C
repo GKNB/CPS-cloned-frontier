@@ -1,6 +1,6 @@
 #include <config.h>
-//#ifdef USE_SSE
-#if 0
+#ifdef USE_SSE_WILSON_DSLASH
+//#if 0
 #include "../sse/sse-wilson_dslash.C"
 #else
 #include <stdio.h>
@@ -49,6 +49,7 @@
 /***************************************************************************/
 
 #include <util/data_types.h>
+#include <util/dirac_op.h>
 #include <util/vector.h>
 #include <util/wilson.h>
 #include <util/error.h>
@@ -584,8 +585,8 @@ void wilson_dslash(IFloat *chi_p_f,
   }
   
   
-
-
+//not correct because of non spin projection, but relevant for comparison
+	DiracOp::CGflops += 1320*vol;
 
 }
 CPS_END_NAMESPACE

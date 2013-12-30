@@ -49,12 +49,16 @@ CPS_START_NAMESPACE
 // ======================================================================
 
 
+//#define USE_SSE_MACRO
+#undef USE_SSE_MACRO
 
 
 CPS_END_NAMESPACE
 //#include <omp.h>
 //#include "fake_omp.h"
-#include <pmmintrin.h>
+#ifdef USE_SSE_MACRO
+//#include <pmmintrin.h>
+#endif
 #include <util/wilson.h>
 
 #include<config.h>
@@ -91,8 +95,8 @@ CPS_END_NAMESPACE
 //#define DEBUG_NOEDGE
 #define DEBUG_MFLOPS (1*1);
 
-// use macro version or inlines
-#define USE_MACROS
+// use macro version or inlines - not used  here?
+//#define USE_MACROS
 
 //boundary communication on or not
 #define BND_COMM

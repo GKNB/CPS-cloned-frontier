@@ -555,20 +555,6 @@
 
 #endif
 
-#if 0
-// Reading either of real/imaginary part of Psi rather than those of Link
-#define P_HERN(t0,t1,t2,C,MU)						\
-  _b = _mm_unpacklo_pd( _a, _a );					\
-  t0 = _mm_add_pd(t0,_mm_mul_pd(_b, *(__m128d*)(u + 0 + C * 6 + 18 * MU))); \
-  t1 = _mm_add_pd(t1,_mm_mul_pd(_b, *(__m128d*)(u + 2 + C * 6 + 18 * MU))); \
-  t2 = _mm_add_pd(t2,_mm_mul_pd(_b, *(__m128d*)(u + 4 + C * 6 + 18 * MU))); \
-  _c = _mm_unpackhi_pd( _a, _a );					\
-  t0 = _mm_addsub_pd(t0,_mm_mul_pd(_c, _mm_shuffle_pd(*(__m128d*)(u + 0 + C * 6 + 18 * MU), *(__m128d*)(u + 0 + C * 6 + 18 * MU),1))); \
-  t1 = _mm_addsub_pd(t1,_mm_mul_pd(_c, _mm_shuffle_pd(*(__m128d*)(u + 2 + C * 6 + 18 * MU), *(__m128d*)(u + 2 + C * 6 + 18 * MU),1))); \
-  t2 = _mm_addsub_pd(t2,_mm_mul_pd(_c, _mm_shuffle_pd(*(__m128d*)(u + 4 + C * 6 + 18 * MU), *(__m128d*)(u + 4 + C * 6 + 18 * MU),1))); \
-  
-#endif
-
 
 #define PH_B(A) _mm_unpacklo_pd( A, A )
 #define PH_C(A)  _mm_unpackhi_pd( A, A )

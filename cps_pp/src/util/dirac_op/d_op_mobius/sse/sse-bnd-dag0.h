@@ -106,7 +106,7 @@ void wilson_dslash_bnd_dag0(
 	    shft=  (SPINOR_SIZE>>2)*(y>>1) + _shft;
 
 	    
-#if 0
+#if 1
 	    *(send_buf0+shft)   = P_PROJ_X_03(0);
 	    *(send_buf0+shft+1) = P_PROJ_X_03(1);
 	    *(send_buf0+shft+2) = P_PROJ_X_03(2);
