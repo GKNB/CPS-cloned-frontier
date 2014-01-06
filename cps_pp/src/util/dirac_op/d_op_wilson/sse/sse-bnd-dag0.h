@@ -25,6 +25,7 @@ void wilson_dslash_bnd_dag0(
   Float* const recv_buf7 = wilson_p->recv_buf[6];
   Float* const recv_buf8 = wilson_p->recv_buf[7];
 
+#ifdef SSE_TO_C
   __m128d* send_buf0 = (__m128d*)(wilson_p->send_buf[0]);
   __m128d* send_buf1 = (__m128d*)(wilson_p->send_buf[1]);
   __m128d* send_buf2 = (__m128d*)(wilson_p->send_buf[2]);
@@ -33,6 +34,16 @@ void wilson_dslash_bnd_dag0(
   __m128d* send_buf5 = (__m128d*)(wilson_p->send_buf[5]);
   __m128d* send_buf6 = (__m128d*)(wilson_p->send_buf[6]);
   __m128d* send_buf7 = (__m128d*)(wilson_p->send_buf[7]);
+#else
+  __m128d* send_buf0 = (__m128d*)(wilson_p->send_buf[0]);
+  __m128d* send_buf1 = (__m128d*)(wilson_p->send_buf[1]);
+  __m128d* send_buf2 = (__m128d*)(wilson_p->send_buf[2]);
+  __m128d* send_buf3 = (__m128d*)(wilson_p->send_buf[3]);
+  __m128d* send_buf4 = (__m128d*)(wilson_p->send_buf[4]); 
+  __m128d* send_buf5 = (__m128d*)(wilson_p->send_buf[5]);
+  __m128d* send_buf6 = (__m128d*)(wilson_p->send_buf[6]);
+  __m128d* send_buf7 = (__m128d*)(wilson_p->send_buf[7]);
+#endif
 
   // fixme: do it in wilson_p later
   const int block0=HALF_SPINOR_SIZE*ly*lz*lt/2;

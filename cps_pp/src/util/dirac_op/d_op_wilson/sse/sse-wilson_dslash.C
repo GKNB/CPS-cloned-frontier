@@ -25,11 +25,24 @@
 //inline int omp_get_num_threads(void) {return 1;}
 #include <pmmintrin.h>
 
+//#define SSE_TO_C
+
+//#ifdef SSE_TO_C
+#if 0
+//#else
+inline static void TOUCH(const double*a, int n)
+{
+  int i;
+  for(i=0;i<n;i+=64/sizeof(double)){
+    __builtin_prefetch (((const char*)(a+i)), 0, (_MM_HINT_T0)) ;
+  }
+}
+#endif
 
 // TIZB, restore later !
 #pragma warning disable 592
 
-#include <pmmintrin.h>
+//#include <pmmintrin.h>
 
 #if defined(_OPENMP) && defined(__linux__)
 /*
@@ -73,15 +86,6 @@ void cpubind(void)
 }
 #endif
 
-
-
-inline static void TOUCH(const double*a, int n)
-{
-  int i;
-  for(i=0;i<n;i+=64/sizeof(double)){
-    __builtin_prefetch (((const char*)(a+i)), 0, (_MM_HINT_T0)) ;
-  }
-}
 
 
 #define __RESTRICT 
@@ -138,16 +142,6 @@ inline static void TOUCH(const double*a, int n)
 #endif
 
 CPS_START_NAMESPACE
-
-#if 0
-__declspec(align(16)) Float tmp1[SPINOR_SIZE];
-__declspec(align(16)) Float tmp2[SPINOR_SIZE];
-__declspec(align(16)) Float tmp3[SPINOR_SIZE];
-__declspec(align(16)) Float tmp4[SPINOR_SIZE];
-__declspec(align(16)) Float tmp5[SPINOR_SIZE];
-__declspec(align(16)) Float fbuf[SPINOR_SIZE];
-#endif
-
 
 #define U(r,row,col,d)  *(u+(r+2*(row+3*(col+3*d))))
 #define PSI(r,c,s)      *(psi +(r+2*(c+3*s)))
@@ -323,12 +317,19 @@ DiracOp::CGflops += 1320*vol;
 
 }//extern"C"
 
+#ifdef SSE_TO_C
+#define SSE_TO_C2
+#undef SSE_TO_C
+#endif
 
 #define BND_COMM
 
 #include "sse-subs.h"
 
+#ifndef SSE_TO_C2
 #include "sse-blk-dag0.h"
+#endif
+
 #include "sse-blk-dag1.h"
 
 #include "sse-bnd-dag0.h"

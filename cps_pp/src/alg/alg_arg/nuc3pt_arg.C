@@ -114,6 +114,8 @@ vml_Nuc3ptArg (VML *vmls, char *name,Nuc3ptArg *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "EndSrcColor", &objp->EndSrcColor))
 		 return FALSE;
+	 if (!vml_int (vmls, "DoDisconnected", &objp->DoDisconnected))
+		 return FALSE;
 	 vml_class_end(vmls,"Nuc3ptArg",name);
 	return TRUE;
 }

@@ -1,4 +1,7 @@
 #include <util/omp_wrapper.h>
+#undef DEBUG_PRINT_DAG0
+
+extern "C" 
 void wilson_dslash_blk_dag0(IFloat *chi_p_f, 
 			    IFloat *u_p_f, 
 			    IFloat *psi_p_f, 
@@ -13,6 +16,7 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
   Float *chi_p = (Float *) chi_p_f;
   Float *u_p = (Float *) u_p_f;
   Float *psi_p = (Float *) psi_p_f;
+//  printf("u psi = %e %e\n",*u_p,*psi_p);
 
 #if defined(_OPENMP) && defined(__linux__)
   static int init = 0;
@@ -77,7 +81,7 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
     // each bit is always zero when the direction is local
     int fedge = 0;
     
-    //printf("tt=%d\n",tt);
+//    printf("tt=%d\n",tt);
     
     if (omp_get_num_threads() == 4) {
       if (tt & 2)
@@ -150,7 +154,7 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 
 	    for (x = cbn ^ ((y + z + t) & 1); x < lx; x += 2) 
 	      {
-		//::printf("%d %d %d %d\n",x,y,z,t);
+//		::printf("%d %d %d %d\n",x,y,z,t);
 
 		if ( x==x_check )  fedge |= x_edge;
 
@@ -159,19 +163,19 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 		register __m128d t00, t01, t02, t03, t04, t05;	
 		register __m128d t06, t07, t08, t09, t10, t11; 
 #else
-		__m128d __RESTRICT wxp[6];
-		__m128d __RESTRICT wyp[6];
-		__m128d __RESTRICT wzp[6];
-		__m128d __RESTRICT wtp[6];
+		M128D __RESTRICT wxp[6];
+		M128D __RESTRICT wyp[6];
+		M128D __RESTRICT wzp[6];
+		M128D __RESTRICT wtp[6];
 
-		__m128d __RESTRICT wxm[6];
-		__m128d __RESTRICT wym[6];
-		__m128d __RESTRICT wzm[6];
-		__m128d __RESTRICT wtm[6];
+		M128D __RESTRICT wxm[6];
+		M128D __RESTRICT wym[6];
+		M128D __RESTRICT wzm[6];
+		M128D __RESTRICT wtm[6];
 #endif
 
 #ifndef USE_HERN
-		register __m128d _a, _b, _c, _d;		
+		register M128D _a, _b, _c, _d;		
 #endif
 
 		xyzt = (x >> 1) + _xyzt;
@@ -235,12 +239,16 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 		  psi = psi_p + SPINOR_SIZE * xmyzt;
 		  if( fedge & 1 ){// x == 0 && x_nloc
 		    const size_t shft  = (SPINOR_SIZE/2)* ((y+ly*(z+lz*t))/2);
+#if 1
+			LOAD(wxm,recv_buf5);
+#else
 		    wxm[0] = _mm_load_pd( recv_buf5+shft );
 		    wxm[1] = _mm_load_pd( recv_buf5+shft + 2);
 		    wxm[2] = _mm_load_pd( recv_buf5+shft + 4);
 		    wxm[3] = _mm_load_pd( recv_buf5+shft + 6);
 		    wxm[4] = _mm_load_pd( recv_buf5+shft + 8);
 		    wxm[5] = _mm_load_pd( recv_buf5+shft + 10);
+#endif
 		  } else   {P_KERN_XM;}
 		  PREFETCH_U0;
 		  PREFETCH_PSI;
@@ -250,12 +258,16 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 
 		  if( fedge & (1<<2)){// y_nloc && y==0
 		    const size_t shft  = (SPINOR_SIZE/2)* ((x+lx*(z+lz*t))/2);
+#if 1
+			LOAD(wym,recv_buf6);
+#else
 		    wym[0] = _mm_load_pd( recv_buf6+shft );
 		    wym[1] = _mm_load_pd( recv_buf6+shft + 2);
 		    wym[2] = _mm_load_pd( recv_buf6+shft + 4);
 		    wym[3] = _mm_load_pd( recv_buf6+shft + 6);
 		    wym[4] = _mm_load_pd( recv_buf6+shft + 8);
 		    wym[5] = _mm_load_pd( recv_buf6+shft + 10);
+#endif
 
 		  }
 		  else   {P_KERN_YM;}
@@ -267,12 +279,16 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 		  if ( fedge & (1<<4)){// z_nloc && z == 0
 		    const size_t shft  = (SPINOR_SIZE/2)* ((x+lx*(y+ly*t))/2);
 
+#if 1
+			LOAD(wzm,recv_buf7);
+#else
 		      wzm[0] = _mm_load_pd( recv_buf7+shft );
 		      wzm[1] = _mm_load_pd( recv_buf7+shft + 2);
 		      wzm[2] = _mm_load_pd( recv_buf7+shft + 4);
 		      wzm[3] = _mm_load_pd( recv_buf7+shft + 6);
 		      wzm[4] = _mm_load_pd( recv_buf7+shft + 8);
 		      wzm[5] = _mm_load_pd( recv_buf7+shft + 10);
+#endif
 
 		  } else   {P_KERN_ZM;}
 		  PREFETCH_U2;
@@ -283,12 +299,16 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 		  if ( fedge & (1<<6) ){// t_nloc && t == 0 
 		    const size_t shft  = (SPINOR_SIZE/2)* ((x+lx*(y+ly*z))/2);
 
+#if 1
+			LOAD(wtm,recv_buf8);
+#else
 		      wtm[0] = _mm_load_pd( recv_buf8+shft );
 		      wtm[1] = _mm_load_pd( recv_buf8+shft + 2);
 		      wtm[2] = _mm_load_pd( recv_buf8+shft + 4);
 		      wtm[3] = _mm_load_pd( recv_buf8+shft + 6);
 		      wtm[4] = _mm_load_pd( recv_buf8+shft + 8);
 		      wtm[5] = _mm_load_pd( recv_buf8+shft + 10);
+#endif
 		      
 		  }  else  {P_KERN_TM;}
 		  PREFETCH_U3;
@@ -303,7 +323,7 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 		    int gz=GJP.ZnodeCoor()*lz+z;
 		    int gt=GJP.TnodeCoor()*lt+t;
 
-		    if(gx==4&&gy==0&&gz==0&&gt==1)
+//		    if(gx==4&&gy==0&&gz==0&&gt==1)
 		      {
 			::printf("edge (%d %d %d %d) %4.3e %4.3e\n",
 			     gx,gy,gz,gt,
@@ -466,8 +486,8 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 			     GJP.ZnodeCoor()*lz+z,
 			     GJP.TnodeCoor()*lt+t);
 		    for(int i=0;i<24;++i)
-		      //::printf(" %4.3e", *(chi_p+idx+i));
-		      ::printf(" %e", *(chi_p+idx+i));
+		      ::printf(" %4.3e", *(chi_p+idx+i));
+//		      ::printf(" %e", *(chi_p+idx+i));
 		    ::printf("\n");
 		    idx +=24;
 		  }
@@ -478,8 +498,9 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
 
 	}
 
+//      sync();
       cps::sync();
-      //MPI_Barrier( MPI_COMM_WORLD);
+//      MPI_Barrier( MPI_COMM_WORLD);
     }
   
   //  exit(1);

@@ -704,22 +704,64 @@ void AlgNuc3pt::run()
 	}
 
       if(Nuc3pt_arg->DoConserved) q_prop[n]->DeleteQPropLs();
+    
+      // do some disconnected traces
+      if(Nuc3pt_arg->DoDisconnected){
+
+	SourceType src_type = GAUSS_GAUGE_INV;
+	Nuc3pt_arg->src_type=POINT;
+	GetThePropagator(n, ts, qmass);
+
+	Site site;
+	while ( site.LoopsOverNode() ){
+	  int x = site.physX();
+	  int y = site.physY();
+	  int z = site.physZ();
+	  int t = site.physT();
+	  if(x==Nuc3pt_arg->x[0] && y==Nuc3pt_arg->x[1] && z==Nuc3pt_arg->x[2] && t==ts){
+	    int myIndex = site.Index();
+	    WilsonMatrix temp = (*q_prop[n])[myIndex];
+	    Rcomplex cc = temp.Trace();
+	    FileIoType T=ADD_ID;
+	    if(common_arg->results != 0)
+	      {
+		if((fp = Fopen(T,(char *)common_arg->results, "a")) == NULL )
+		  ERR.FileA(cname,fname, (char *)common_arg->results);
+	      }
+	    //OpenFile();
+	    Fprintf(fp,"Disconnected trace scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	    temp.gl(-5);
+	    cc = temp.Trace();
+	    Fprintf(fp,"Disconnected trace gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	    for(int mu=0; mu < 4; mu++){
+	      temp = (*q_prop[n])[myIndex];
+	      temp.gl(mu);
+	      Rcomplex cc = temp.Trace();
+	      Fprintf(fp,"Disconnected trace gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
+	    }
+	    for(int mu=0; mu < 4; mu++){
+	      for(int nu=mu+1; nu < 4; nu++){
+		temp = (*q_prop[n])[myIndex];
+		temp.gl(mu).gl(nu);
+		Rcomplex cc = temp.Trace();
+		Fprintf(fp,"Disconnected trace sigma%d%d %d %d %d %d %0.14e %0.14e\n",mu,nu,x,y,z,ts,cc.real(),cc.imag());
+	      }
+	    }
+	    Fclose(T,fp);
+	    //CloseFile();
+	  }
+	}
+
+	Nuc3pt_arg->src_type=src_type;
+
+      }// end disconnected
 
       ts+=Nuc3pt_arg->source_inc;
       for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
 	Nuc3pt_arg->mt[nt]=mt[nt];
 	Nuc3pt_arg->mt[nt]+=Nuc3pt_arg->source_inc;
       }
-
-/*
-      if(i_source==1){ // obsolete. commented out  --MFL
-	ts+=Nuc3pt_arg->mt[4];
-	for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
-	  Nuc3pt_arg->mt[nt]+=Nuc3pt_arg->mt[4];
-	}
-      }
-*/
-    } // end loop over source timeslices
+    } // end loop over sources
 } // end run
 
 
@@ -744,11 +786,6 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
   qp_arg.EndSrcSpin = 4 ;
   qp_arg.StartSrcColor = 0 ;
   qp_arg.EndSrcColor = 3 ;
-
-//  qp_arg.StartSrcSpin  = (Nuc3pt_arg->StartSrcSpin);
-//  qp_arg.EndSrcSpin    = (Nuc3pt_arg->EndSrcSpin);
-//  qp_arg.StartSrcColor = (Nuc3pt_arg->StartSrcColor);
-//  qp_arg.EndSrcColor   = (Nuc3pt_arg->EndSrcColor);
 
   if (qp_arg.StartSrcSpin >= qp_arg.EndSrcSpin 
 	|| qp_arg.StartSrcColor >= qp_arg.EndSrcColor)   
@@ -781,6 +818,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
     qp_arg.ensemble_label = Nuc3pt_arg->ensemble_label;
     qp_arg.seqNum=Nuc3pt_arg->ensemble_id;
   }
+  char out_prop[1024];
 
   int mu;
 
@@ -837,8 +875,20 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			     Nuc3pt_arg->theta, mu);
 	  }
 	}
+
+	sprintf(out_prop, "prop_m%g_tsrc%d_%s_%d",mass,time,
+		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
+	qp_arg.file = out_prop;
+
+	Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
+	
+	if(Nuc3pt_arg->calc_QProp != READ_QPROP){
 	  q_prop[n] = new QPropWPointSrc(AlgLattice(),&qp_arg,common_arg);
-	  q_prop[n]->Run();
+	} else {
+	  q_prop[n] = new QPropWPointSrc(AlgLattice(),common_arg);
+	  q_prop[n]->Allocate(0);
+	  q_prop[n]->RestoreQProp(out_prop,0);
+	}
       }
     }
     break ;
@@ -879,22 +929,20 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  }
 	}
 
-	char out_prop[200];
-	
+	sprintf(out_prop, "prop_m%g_tsrc%d_GS_w%g_n%d_%s_%d",mass,time,
+		Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,
+		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
 	qp_arg.file = out_prop;
 
-	 sprintf(out_prop,"%s%i",Nuc3pt_arg->prop_file,time);
-	  
-	 Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
+	Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
 	
-	  if(Nuc3pt_arg->calc_QProp != READ_QPROP){
-	    q_prop[n] = new QPropWMultGaussSrc(AlgLattice(),&qp_arg,&gauss_arg,common_arg);
-	  } else {
-	    q_prop[n] = new QPropWGaussSrc(AlgLattice(),&qp_arg,&gauss_arg,common_arg,qp_arg.file);
-	    q_prop[n]->Allocate(0);
-//	    q_prop[n]->ReLoad(qp_arg.file); //TODO: need different filenames for different propagators (MFL)
-	    q_prop[n]->RestoreQProp(out_prop,0);
-	  }
+	if(Nuc3pt_arg->calc_QProp != READ_QPROP){
+	  q_prop[n] = new QPropWMultGaussSrc(AlgLattice(),&qp_arg,&gauss_arg,common_arg);
+	} else {
+	  q_prop[n] = new QPropWGaussSrc(AlgLattice(),&qp_arg,&gauss_arg,common_arg,qp_arg.file);
+	  q_prop[n]->Allocate(0);
+	  q_prop[n]->RestoreQProp(out_prop,0);
+	}
       }
     }
     break ;
