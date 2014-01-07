@@ -41,7 +41,6 @@
 #define P_KERN_XP						   \
   								   \
   P_HERN2(wxp[0],wxp[1],wxp[2],0,0, P_PROJ_X_03(0) );		   \
-printf("wxp[0]=%e %d\n",wxp[0].d[0],wxp[0].d[1]);	\
   P_HERN2(wxp[0],wxp[1],wxp[2],1,0, P_PROJ_X_03(1) );		   \
   P_HERN2(wxp[0],wxp[1],wxp[2],2,0, P_PROJ_X_03(2) );		   \
   								   \
@@ -55,7 +54,6 @@ printf("wxp[0]=%e %d\n",wxp[0].d[0],wxp[0].d[1]);	\
   _a.d[0] = *(Daddr03);						\
   _a.d[1] = *((Daddr03)+1);						\
   P_HERN(wxp[0],wxp[1],wxp[2],0,0);					\
-printf("wxp[0]=%e %d\n",wxp[0].d[0],wxp[0].d[1]);	\
   _a.d[0] = *((Daddr03)+2);						\
   _a.d[1] = *((Daddr03)+3);						\
   P_HERN(wxp[0],wxp[1],wxp[2],1,0);					\

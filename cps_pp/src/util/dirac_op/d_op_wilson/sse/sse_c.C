@@ -28,7 +28,7 @@ CPS_START_NAMESPACE
 #include "sse-subs.h"
 
 #include "sse-blk-dag0.h"
-//#include "sse-blk-dag1.h"
+#include "sse-blk-dag1.h"
 
 //#include "sse-bnd-dag0.h"
 //#include "sse-bnd-dag1.h"
