@@ -617,6 +617,7 @@ void AlgNuc3pt::run()
 	  
 	  calc_Axial(); //Axial-Vector current i Gamma_5 Gamma_z
 	  calc_Tensor() ;//Tensor current i Gamma_5 Gamma_z Gamma_t
+	  calc_TensorClover() ;//Tensor current i Gamma_5 Gamma_z Gamma_t
 	  calc_X_Dq_b() ; 
 	  calc_d1() ;
 	  
