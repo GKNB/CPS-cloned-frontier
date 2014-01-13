@@ -240,6 +240,26 @@ void AlgNuc3pt::run()
   CloseFile();
 
 
+
+
+#if 0
+  // start: ts=t_source, then increment by "source_inc"
+  //int ts=Nuc3pt_arg->t_source;
+  int mt[5];
+  int ts=Nuc3pt_arg->mt[0];
+  Float time;
+  for(int i_source=0; i_source < Nuc3pt_arg->num_src; i_source++)
+    {
+
+      //time=time_elapse();
+
+      // seq. source time slice
+      int t_sink = (ts + Nuc3pt_arg->t_sink)%(GJP.Tnodes()*GJP.TnodeSites());
+      if(t_sink>=GJP.Tnodes()*GJP.TnodeSites())
+	ERR.General(cname,fname,"Invalid sink time slice for nucleon threept function\n");
+#endif
+
+#if 1
   // start: ts=t_source, then increment by "source_inc"
   int ts=Nuc3pt_arg->t_source;
   int mt[5];
@@ -249,6 +269,9 @@ void AlgNuc3pt::run()
   for(int i_source=0; i_source < Nuc3pt_arg->num_src; i_source++)
     {
       int t_sink = (ts + Nuc3pt_arg->t_sink)%(GJP.Tnodes()*GJP.TnodeSites());
+
+#endif
+
       OpenFile();
       Fprintf(fp,"Doing source/sink time slices: %d %d\n", ts, t_sink);
       CloseFile();
@@ -461,7 +484,7 @@ void AlgNuc3pt::run()
           }
 	  
 	} //end smeared sink
-      }
+	}
 
 
       //Now do the 3pt functions
@@ -757,11 +780,13 @@ void AlgNuc3pt::run()
 
       }// end disconnected
 
+#if 0
       ts+=Nuc3pt_arg->source_inc;
       for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
 	Nuc3pt_arg->mt[nt]=mt[nt];
 	Nuc3pt_arg->mt[nt]+=Nuc3pt_arg->source_inc;
       }
+#endif
     } // end loop over sources
 } // end run
 

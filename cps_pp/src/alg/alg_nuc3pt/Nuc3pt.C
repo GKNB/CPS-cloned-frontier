@@ -485,9 +485,14 @@ void Nuc3ptClover::InsertOp(CorrFunc& corr,QPropW& seqQ, QPropW& Quark)
       x[3]=s.T();
       CloverLeaf(seqQ.AlgLattice(),Leaf,x,G[0],G[1]);
       Leaf.TrLessAntiHermMatrix();
-      sq.LeftTimesEqual(Leaf);
       Complex cc(mom.Fact(s)) ; // The momentum factor exp(-ipx)
+#if 0
+      sq.LeftTimesEqual(Leaf);
       cc *= Trace(Quark[s.Index()],sq);
+#endif
+      Matrix tmp;
+      tmp = SpinTrace(sq,Quark[s.Index()]);
+      cc *= Tr(Leaf,tmp);
       corr[t] += cc ;
     }
 }

@@ -433,10 +433,10 @@ int DiracOpMobius::MatInv(Vector *out,
   VRB.Smalloc(cname,fname, "temp2", temp2, temp_size * sizeof(Float));
 
   // points to the even part of fermion source 
-  Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
+  Vector *odd_in = (Vector *) ( (IFloat *) in + temp_size );
 
   // points to the even part of fermion solution
-  Vector *even_out = (Vector *) ( (IFloat *) out + temp_size );
+  Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
 
   // prepare source
   // mult by Dminus to compare with Hantao
@@ -450,7 +450,7 @@ int DiracOpMobius::MatInv(Vector *out,
   sfree(temp3);
 #endif
 
-  mobius_m5inv(temp, even_in, mass, DAG_NO, mobius_arg);  
+  mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
   mobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
   fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,
 		 (IFloat *)in, temp_size);
@@ -507,9 +507,9 @@ int DiracOpMobius::MatInv(Vector *out,
 
   //TIZB mobius_dslash_4(temp, gauge_field, out, CHKB_ODD, DAG_NO, mobius_arg);
   mobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  mobius_m5inv(even_out, temp, mass, DAG_NO, mobius_arg);
-  mobius_m5inv(temp, even_in, mass, DAG_NO, mobius_arg);
-  fTimesV1PlusV2((IFloat *)even_out, kappa_b, (IFloat *)even_out,
+  mobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg);
+  mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);
+  fTimesV1PlusV2((IFloat *)odd_out, kappa_b, (IFloat *)odd_out,
 		 (IFloat *)temp, temp_size);
   
   VRB.Sfree(cname, fname, "temp2", temp2);
@@ -578,15 +578,15 @@ void DiracOpMobius::Mat(Vector *out, Vector *in) {
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
   // points to the even part of fermion source 
-  Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
+  Vector *odd_in = (Vector *) ( (IFloat *) in + temp_size );
   // points to the even part of fermion solution
-  Vector *even_out = (Vector *) ( (IFloat *) out + temp_size );
+  Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
   // temp
   Vector *frm_tmp2 = (Vector *) mobius_arg->frm_tmp2;
 
   //odd part
-  //mobius_dslash_4(out, gauge_field, even_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  mobius_dslash_4(out, gauge_field, even_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
+  //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+  mobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
   out->VecTimesEquFloat(minus_kappa, temp_size); 
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
@@ -597,15 +597,15 @@ void DiracOpMobius::Mat(Vector *out, Vector *in) {
   out->VecAddEquVec(frm_tmp2, temp_size); 
 
   //even part
-  mobius_dslash_4(even_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  even_out->VecTimesEquFloat(minus_kappa, temp_size); 
+  mobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+  odd_out->VecTimesEquFloat(minus_kappa, temp_size); 
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, even_in, mass, 0, mobius_arg);
-  fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)even_in, temp_size);
-  even_out->VecAddEquVec(frm_tmp2, temp_size);
+  mobius_dslash_5_plus(frm_tmp2, odd_in, mass, 0, mobius_arg);
+  fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)odd_in, temp_size);
+  odd_out->VecAddEquVec(frm_tmp2, temp_size);
 
 }
 
@@ -667,15 +667,15 @@ void DiracOpMobius::MatDag(Vector *out, Vector *in) {
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
   // points to the even part of fermion source 
-  Vector *even_in = (Vector *) ( (IFloat *) in + temp_size );
+  Vector *odd_in = (Vector *) ( (IFloat *) in + temp_size );
   // points to the even part of fermion solution
-  Vector *even_out = (Vector *) ( (IFloat *) out + temp_size );
+  Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
   // temp
   Vector *frm_tmp2 = (Vector *) mobius_arg->frm_tmp2;
 
   //odd part
-  mobius_dslash_4(out, gauge_field, even_in, CHKB_ODD, DAG_YES, mobius_arg, mass);
-  //mobius_dslash_4(out, gauge_field, even_in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
+  mobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_YES, mobius_arg, mass);
+  //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
   out->VecTimesEquFloat(kappa, temp_size); 
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
@@ -686,16 +686,16 @@ void DiracOpMobius::MatDag(Vector *out, Vector *in) {
   out->VecAddEquVec(frm_tmp2, temp_size); 
 
   //even part
-  //mobius_dslash_4(even_out, gauge_field, in, CHKB_ODD, DAG_YES, mobius_arg, mass);
-  mobius_dslash_4(even_out, gauge_field, in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
-  even_out->VecTimesEquFloat(kappa, temp_size); 
+  //mobius_dslash_4(odd_out, gauge_field, in, CHKB_ODD, DAG_YES, mobius_arg, mass);
+  mobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
+  odd_out->VecTimesEquFloat(kappa, temp_size); 
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, even_in, mass, DAG_YES, mobius_arg);
-  fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)even_in, temp_size);
-  even_out->VecAddEquVec(frm_tmp2, temp_size); 
+  mobius_dslash_5_plus(frm_tmp2, odd_in, mass, DAG_YES, mobius_arg);
+  fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)odd_in, temp_size);
+  odd_out->VecAddEquVec(frm_tmp2, temp_size); 
 
 }
 
