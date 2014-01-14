@@ -1,4 +1,6 @@
 #include <util/omp_wrapper.h>
+
+extern "C"
 void wilson_dslash_bnd_dag0(
                    IFloat *chi_p_f, 
 		   IFloat *u_p_f, 
@@ -26,14 +28,14 @@ void wilson_dslash_bnd_dag0(
   Float* const recv_buf8 = wilson_p->recv_buf[7];
 
 #ifdef SSE_TO_C
-  __m128d* send_buf0 = (__m128d*)(wilson_p->send_buf[0]);
-  __m128d* send_buf1 = (__m128d*)(wilson_p->send_buf[1]);
-  __m128d* send_buf2 = (__m128d*)(wilson_p->send_buf[2]);
-  __m128d* send_buf3 = (__m128d*)(wilson_p->send_buf[3]);
-  __m128d* send_buf4 = (__m128d*)(wilson_p->send_buf[4]); 
-  __m128d* send_buf5 = (__m128d*)(wilson_p->send_buf[5]);
-  __m128d* send_buf6 = (__m128d*)(wilson_p->send_buf[6]);
-  __m128d* send_buf7 = (__m128d*)(wilson_p->send_buf[7]);
+  M128D* send_buf0 = (M128D*)(wilson_p->send_buf[0]);
+  M128D* send_buf1 = (M128D*)(wilson_p->send_buf[1]);
+  M128D* send_buf2 = (M128D*)(wilson_p->send_buf[2]);
+  M128D* send_buf3 = (M128D*)(wilson_p->send_buf[3]);
+  M128D* send_buf4 = (M128D*)(wilson_p->send_buf[4]); 
+  M128D* send_buf5 = (M128D*)(wilson_p->send_buf[5]);
+  M128D* send_buf6 = (M128D*)(wilson_p->send_buf[6]);
+  M128D* send_buf7 = (M128D*)(wilson_p->send_buf[7]);
 #else
   __m128d* send_buf0 = (__m128d*)(wilson_p->send_buf[0]);
   __m128d* send_buf1 = (__m128d*)(wilson_p->send_buf[1]);
@@ -102,7 +104,7 @@ void wilson_dslash_bnd_dag0(
 	const int parity= (cbn^((x+z+t)&1)); // by is even
 	for(y = parity; y < ly; y+=2){
 	  {
-	    register __m128d _a,_b,_c,_d;
+	    register M128D _a,_b,_c,_d;
 	    
 	    //		  xp = (x + 1) & ((x + 1 - lx) >> 31);
 	    //		  xm = x - 1 + (((x - 1) >> 31) & lx);
@@ -113,14 +115,17 @@ void wilson_dslash_bnd_dag0(
 	    shft=  (SPINOR_SIZE>>2)*(y>>1) + _shft;
 
 	    
-#if 0
-	    *(send_buf0+shft)   = P_PROJ_X_03(0);
-	    *(send_buf0+shft+1) = P_PROJ_X_03(1);
-	    *(send_buf0+shft+2) = P_PROJ_X_03(2);
+#ifdef SSE_TO_C
+#if 1
+	    STORE_P_PROJ_X_03(send_buf0+shft	,0);
+	    STORE_P_PROJ_X_03(send_buf0+shft+1	,1);
+	    STORE_P_PROJ_X_03(send_buf0+shft+2	,2);
+
+	    STORE_P_PROJ_X_12(send_buf0+shft+3	,0);
+	    STORE_P_PROJ_X_12(send_buf0+shft+4	,1);
+	    STORE_P_PROJ_X_12(send_buf0+shft+5	,2);
+#endif
 	    
-	    *(send_buf0+shft+3) = P_PROJ_X_12(0);
-	    *(send_buf0+shft+4) = P_PROJ_X_12(1);
-	    *(send_buf0+shft+5) = P_PROJ_X_12(2);
 #else
 	    _mm_store_pd((double*)(send_buf0+shft), P_PROJ_X_03(0));
 	    _mm_store_pd((double*)(send_buf0+shft+1) , P_PROJ_X_03(1));
@@ -145,17 +150,26 @@ void wilson_dslash_bnd_dag0(
 	    BND_PREFETCH_U0; 
 	    BND_PREFETCH_PSI;
 #else
-	    __m128d wxm[6];
+	    M128D wxm[6];
+#if 1
 	    P_KERN_XM_noadd;
+#endif
 	    BND_PREFETCH_U0; 
 	    BND_PREFETCH_PSI;
 	    
+#ifdef SSE_TO_C
+#if 1
+		STORE_XM(wxm,(double*)(send_buf4+shft));
+#else
+#endif
+#else
 	    _mm_store_pd( (double*)(send_buf4+shft), wxm[0]);
 	    _mm_store_pd( (double*)(send_buf4+shft+1), wxm[1]);
 	    _mm_store_pd( (double*)(send_buf4+shft+2), wxm[2]);
 	    _mm_store_pd( (double*)(send_buf4+shft+3), wxm[3]);
 	    _mm_store_pd( (double*)(send_buf4+shft+4), wxm[4]);
 	    _mm_store_pd( (double*)(send_buf4+shft+5), wxm[5]);
+#endif
 #endif
 	  }//
 
@@ -214,7 +228,7 @@ void wilson_dslash_bnd_dag0(
 	  _xymzt =(lx>>1)*(ym+ly*(z+lz*t));
 	  for(x = parity; x < lx; x+=2)
 	    {
-		  register __m128d _a,_b,_c,_d;
+		  register M128D _a,_b,_c,_d;
 
 		  //		  xp = (x + 1) & ((x + 1 - lx) >> 31);
 		  //		  xm = x - 1 + (((x - 1) >> 31) & lx);
@@ -224,6 +238,16 @@ void wilson_dslash_bnd_dag0(
 		  //shft = (SPINOR_SIZE/4)* ((x+lx*(z+lz*t))/2);
 		  shft= _shft +  (SPINOR_SIZE>>2)* (x>>1);
 		  
+#ifdef SSE_TO_C
+	    STORE_P_PROJ_Y_03(send_buf1+shft	,0);
+	    STORE_P_PROJ_Y_03(send_buf1+shft+1	,1);
+	    STORE_P_PROJ_Y_03(send_buf1+shft+2	,2);
+
+	    STORE_P_PROJ_Y_12(send_buf1+shft+3	,0);
+	    STORE_P_PROJ_Y_12(send_buf1+shft+4	,1);
+	    STORE_P_PROJ_Y_12(send_buf1+shft+5	,2);
+	    
+#else
 		  *(send_buf1+shft)   = P_PROJ_Y_03(0);
 		  *(send_buf1+shft+1) = P_PROJ_Y_03(1);
 		  *(send_buf1+shft+2) = P_PROJ_Y_03(2);
@@ -231,6 +255,7 @@ void wilson_dslash_bnd_dag0(
 		  *(send_buf1+shft+3) = P_PROJ_Y_12(0);
 		  *(send_buf1+shft+4) = P_PROJ_Y_12(1);
 		  *(send_buf1+shft+5) = P_PROJ_Y_12(2);
+#endif
 		  BND_PREFETCH_PSI;
 
 		  //int xD = x+1-(parity<<1) ;// x+1 or x-1; 
@@ -243,7 +268,7 @@ void wilson_dslash_bnd_dag0(
 		  //shft=  (SPINOR_SIZE/4)* ((xD+lx*(z+lz*t))/2);
 		  u   = u_p + GAUGE_SIZE * ( xymzt  + vol * cb);
 
-		  __m128d* wym = send_buf5+shft;
+		  M128D* wym = send_buf5+shft;
 		  P_KERN_YM_noadd;
 		  BND_PREFETCH_U1;
 		  BND_PREFETCH_PSI;
@@ -309,7 +334,7 @@ void wilson_dslash_bnd_dag0(
 	  int parity= (cbn^((y+z+t)&1)); 
 	  for(x = parity; x < lx; x+=2)
 	    {
-	      register __m128d _a,_b,_c,_d;
+	      register M128D _a,_b,_c,_d;
 	      
 	      //		  xp = (x + 1) & ((x + 1 - lx) >> 31);
 	      //		  xm = x - 1 + (((x - 1) >> 31) & lx);
@@ -321,6 +346,16 @@ void wilson_dslash_bnd_dag0(
 	      //shft=  (SPINOR_SIZE/4)* ((x+lx*(y+ly*t))/2);
 	      shft=(SPINOR_SIZE>>2)*(x>>1)+_shft;
 
+#ifdef SSE_TO_C
+	    STORE_P_PROJ_Z_02(send_buf2+shft	,0);
+	    STORE_P_PROJ_Z_02(send_buf2+shft+1	,1);
+	    STORE_P_PROJ_Z_02(send_buf2+shft+2	,2);
+
+	    STORE_P_PROJ_Z_13(send_buf2+shft+3	,0);
+	    STORE_P_PROJ_Z_13(send_buf2+shft+4	,1);
+	    STORE_P_PROJ_Z_13(send_buf2+shft+5	,2);
+	    
+#else
 	      *(send_buf2+shft)   = P_PROJ_Z_02(0);
 	      *(send_buf2+shft+1) = P_PROJ_Z_02(1);
 	      *(send_buf2+shft+2) = P_PROJ_Z_02(2);
@@ -328,6 +363,7 @@ void wilson_dslash_bnd_dag0(
 	      *(send_buf2+shft+3) = P_PROJ_Z_13(0);
 	      *(send_buf2+shft+4) = P_PROJ_Z_13(1);
 	      *(send_buf2+shft+5) = P_PROJ_Z_13(2);
+#endif
 	      
 	      //int xD = x+1-(parity<<1) ;// x+1 or x-1; 
 	      //xyzmt = (xD/2)+(lx/2)*(y+ly*(zm+lz*t));
@@ -338,7 +374,7 @@ void wilson_dslash_bnd_dag0(
 	      //shft=  (SPINOR_SIZE/4)* ((xD+lx*(y+ly*t))/2);
 	      u   = u_p + GAUGE_SIZE * ( xyzmt  + vol * cb);
 	      
-	      __m128d* wzm = send_buf6+shft;
+	      M128D* wzm = send_buf6+shft;
 	      P_KERN_ZM_noadd;
 
 		  
@@ -400,7 +436,7 @@ void wilson_dslash_bnd_dag0(
 	  int parity= (cbn^((y+z+t)&1)); 
 	  for(x = parity; x < lx; x+=2)
 	    {
-		  register __m128d _a,_b,_c,_d;
+		  register M128D _a,_b,_c,_d;
 
 		  //		  xp = (x + 1) & ((x + 1 - lx) >> 31);
 		  //		  xm = x - 1 + (((x - 1) >> 31) & lx);
@@ -412,6 +448,16 @@ void wilson_dslash_bnd_dag0(
 		  shft=  (SPINOR_SIZE>>2)* (x>>1)+_shft;
 		  
 
+#ifdef SSE_TO_C
+	    STORE_P_PROJ_T_02(send_buf3+shft	,0);
+	    STORE_P_PROJ_T_02(send_buf3+shft+1	,1);
+	    STORE_P_PROJ_T_02(send_buf3+shft+2	,2);
+
+	    STORE_P_PROJ_T_13(send_buf3+shft+3	,0);
+	    STORE_P_PROJ_T_13(send_buf3+shft+4	,1);
+	    STORE_P_PROJ_T_13(send_buf3+shft+5	,2);
+	    
+#else
 		  *(send_buf3+shft)   = P_PROJ_T_02(0);
 		  *(send_buf3+shft+1) = P_PROJ_T_02(1);
 		  *(send_buf3+shft+2) = P_PROJ_T_02(2);
@@ -419,6 +465,7 @@ void wilson_dslash_bnd_dag0(
 		  *(send_buf3+shft+3) = P_PROJ_T_13(0);
 		  *(send_buf3+shft+4) = P_PROJ_T_13(1);
 		  *(send_buf3+shft+5) = P_PROJ_T_13(2);
+#endif
 		  BND_PREFETCH_PSI;
 
 		  //printf("deb %d %d %d %d %d  %e %e %e\n",
@@ -427,22 +474,24 @@ void wilson_dslash_bnd_dag0(
 		  //int xD = x+1-(parity<<1) ;// x+1 or x-1; 
 		  //xyztm = (xD/2)+(lx/2)*(y+ly*(z+lz*tm));
 
-		  //int xD = x+1-(parity<<1) ;// x+1 or x-1; 
+		  int xD = x+1-(parity<<1) ;// x+1 or x-1; 
 		  xyztm = ((x+1-(parity<<1))>>1)+_xyztm;
 
 		  psi = psi_p + SPINOR_SIZE * xyztm;
 		  //shft=  (SPINOR_SIZE/4)* ((xD+lx*(y+ly*z))/2);
 		  u   = u_p + GAUGE_SIZE * ( xyztm  + vol * cb);
 
-		  __m128d* wtm = send_buf7+shft;
+		  M128D* wtm = send_buf7+shft;
 		  P_KERN_TM_noadd;
 		  BND_PREFETCH_U2;
 		  BND_PREFETCH_PSI;
 
 
 
-		  //		  printf("deb %d %d %d %d %d  %e %e %e\n",
-		  //			 xD,y,z,t,shft, *psi, *u, *(double*)&(wtm[0]));
+#if 0
+		  		  printf("deb %d %d %d %d %d  %e %e %e\n",
+		 			 xD,y,z,t,shft, *psi, *u, *(double*)&(wtm[2]));
+#endif
 
 	    }//loop(x)
 	}//loop(y)

@@ -265,7 +265,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPX0_A2(C) _mm_addsub_pd(PPX0_A1(C), PPX0_C0(C)) 
 #define PPX0_A3(C) _mm_shuffle_pd(PPX0_A2(C),PPX0_A2(C), 1) 
 
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_X_03(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 0 + C * 2) + *(psi + 18 + C * 2 + 1); \
+	(DADDR)->d[1] = *(psi + 0 + C * 2+1 ) - *(psi + 18 + C * 2  ); \
+
+#else
 #define P_PROJ_X_03(C) PPX0_A3(C)
+#endif
 
 
 /*  sdag = +1,  a = TMP(*,c,1), c = TMP(*,c,2)  */
@@ -292,11 +299,18 @@ inline static void TOUCH(const double*a, int n)
 #define PPX1_A1(C) _mm_shuffle_pd(PPX1_A0(C), PPX1_A0(C), 1)
 #define PPX1_A2(C) _mm_addsub_pd(PPX1_A1(C), PPX1_C0(C))
 #define PPX1_A3(C) _mm_shuffle_pd(PPX1_A2(C), PPX1_A2(C), 1)
-#define P_PROJ_X_12(C) PPX1_A3(C)
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_X_12(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 6 + C * 2) + *(psi + 12 + C * 2 +1 ); \
+	(DADDR)->d[1] = *(psi + 6 + C * 2+1 ) - *(psi + 12 + C * 2  ); \
 
+#else
+#define P_PROJ_X_12(C) PPX1_A3(C)
+#endif
 /*  sdag = -1,  a = TMP(*,c,0), c = TMP(*,c,3)  */
 //   c = -I a
 #ifdef SSE_TO_C
+#if 1
 #define N_KERN_XP_03(C)                                 \
   _a.d[0] = *(psi + 0 + C * 2);			\
   _a.d[1] = *(psi + 0 + C * 2 +1 );			\
@@ -304,6 +318,14 @@ inline static void TOUCH(const double*a, int n)
   _c.d[0] = *(psi + 18 + C * 2 +1 );			\
   _a.d[0] -= _c.d[0]; _a.d[1] += _c.d[1]; \
 
+#else
+#define N_KERN_XP_03(C)                                 \
+  _a.d[0] = 0.;\
+  _a.d[1] = 0.;\
+  _c.d[1] = 0.;\
+  _c.d[0] = 0.;\
+
+#endif
 #else
 #define N_KERN_XP_03(C)                                 \
    _a = _mm_load_pd(psi + 0 + C * 2);                   \
@@ -363,7 +385,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPY0_A0(C) _mm_load_pd(psi + 0 + C * 2)
 #define PPY0_C(C) _mm_load_pd(psi + 18 + C * 2)
 #define PPY0_A1(C) _mm_add_pd(PPY0_A0(C), PPY0_C(C))
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_Y_03(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 0 + C * 2) + *(psi + 18 + C * 2); \
+	(DADDR)->d[1] = *(psi + 0 + C * 2+1 ) + *(psi + 18 + C * 2 + 1 ); \
+
+#else
 #define P_PROJ_Y_03(C) PPY0_A1(C)
+#endif
 
 /*  sdag = +1, a = TMP(*,c,1), c = TMP(*,c,2)  */
 // c = -a
@@ -385,7 +414,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPY1_A0(C) _mm_load_pd(psi + 6 + C * 2)
 #define PPY1_C0(C) _mm_load_pd(psi + 12 + C * 2)
 #define PPY1_A1(C)  _mm_sub_pd(PPY1_A0(C),PPY1_C0(C))
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_Y_12(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 6 + C * 2) - *(psi + 12 + C * 2); \
+	(DADDR)->d[1] = *(psi + 6 + C * 2+1 ) - *(psi + 12 + C * 2 + 1 ); \
+
+#else
 #define P_PROJ_Y_12(C) PPY1_A1(C)
+#endif
 
 /*  sdag = -1, a = TMP(*,c,0), c = TMP(*,c,3)  */
 // c = -a
@@ -455,7 +491,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPZ0_A1(C) _mm_shuffle_pd(PPZ0_A0(C), PPZ0_A0(C), 1)
 #define PPZ0_A2(C) _mm_addsub_pd(PPZ0_A1(C), PPZ0_C0(C))
 #define PPZ0_A3(C) _mm_shuffle_pd(PPZ0_A2(C), PPZ0_A2(C), 1)
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_Z_02(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 0 + C * 2) + *(psi + 12 + C * 2 + 1 ); \
+	(DADDR)->d[1] = *(psi + 0 + C * 2+1 ) - *(psi + 12 + C * 2 ); \
+
+#else
 #define P_PROJ_Z_02(C) PPZ0_A3(C)
+#endif
 
 /*  sdag = +1,  a = TMP(*,c,1), c = TMP(*,c,3)  */
 // c = -I a
@@ -479,7 +522,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPZ1_C0(C) _mm_load_pd(psi + 18 + C * 2)
 #define PPZ1_C1(C) _mm_shuffle_pd(PPZ1_C0(C),PPZ1_C0(C), 1)
 #define PPZ1_A1(C) _mm_addsub_pd(PPZ1_A0(C),PPZ1_C1(C))
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_Z_13(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 6 + C * 2) + *(psi + 18 + C * 2 + 1 ); \
+	(DADDR)->d[1] = *(psi + 6 + C * 2+1 ) - *(psi + 18 + C * 2 ); \
+
+#else
 #define P_PROJ_Z_13(C) PPZ1_A1(C)
+#endif
 
 /*  sdag = -1,  a = TMP(*,c,0), c = TMP(*,c,2)  */
 // c = -I a
@@ -551,7 +601,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPT0_A0(C) _mm_load_pd(psi + 0 + C * 2)
 #define PPT0_C0(C) _mm_load_pd(psi + 12 + C * 2)
 #define PPT0_A1(C) _mm_sub_pd(PPT0_A0(C), PPT0_C0(C))
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_T_02(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 0 + C * 2) - *(psi + 12 + C * 2); \
+	(DADDR)->d[1] = *(psi + 0 + C * 2+1 ) - *(psi + 12 + C * 2 + 1 ); \
+
+#else
 #define P_PROJ_T_02(C) PPT0_A1(C)
+#endif
 
 /*  sdag = +1, a = TMP(*,c,1), c = TMP(*,c,3)  */
 // c = -a
@@ -573,7 +630,14 @@ inline static void TOUCH(const double*a, int n)
 #define PPT1_A0(C) _mm_load_pd(psi + 6 + C * 2)
 #define PPT1_C0(C) _mm_load_pd(psi + 18 + C * 2)
 #define PPT1_A1(C) _mm_sub_pd(PPT1_A0(C), PPT1_C0(C))
+#ifdef SSE_TO_C
+#define	STORE_P_PROJ_T_13(DADDR,C) \
+	(DADDR)->d[0] = *(psi + 6 + C * 2) - *(psi + 18 + C * 2); \
+	(DADDR)->d[1] = *(psi + 6 + C * 2+1 ) - *(psi + 18 + C * 2 + 1 ); \
+
+#else
 #define P_PROJ_T_13(C) PPT1_A1(C)
+#endif
 
 /*  sdag = -1, a = TMP(*,c,0), c = TMP(*,c,2)  */
 // c = a
@@ -1133,6 +1197,13 @@ inline static void TOUCH(const double*a, int n)
   _b.d[1] = *(u + 13 + C * 2 + 18 * MU) * _a.d[1];	\
   t2.d[0] -= _b.d[0]; t2.d[1] += _b.d[1];	\
 
+#if 0
+  t0.d[0] = 0; t0.d[1] = 0;	\
+  t1.d[0] = 0; t1.d[1] = 0;	\
+  t2.d[0] = 0; t2.d[1] = 0;	\
+
+#endif
+
 #else
 #define N_HERN(t0,t1,t2,C,MU)				\
   _b  = _mm_loaddup_pd(u + 0 + C * 2 + 18 * MU);	\
@@ -1159,6 +1230,29 @@ inline static void TOUCH(const double*a, int n)
   t2 = _mm_addsub_pd(t2, _b);				\
 
 #endif
+
+#ifdef SSE_TO_C
+#define N_HERN_noadd(t0,t1,t2,C,MU)				\
+	_b.d[0] = _b.d[1] = *(u + 0 + C * 2 + 18 * MU );	\
+	t0.d[0] = _b.d[0] * _a.d[0]; t0.d[1] = _b.d[1] * _a.d[1]; \
+	_c.d[0] = _c.d[1] = *(u + 6 + C * 2 + 18 * MU );	\
+	t1.d[0] = _c.d[0] * _a.d[0]; t1.d[1] = _c.d[1] * _a.d[1]; \
+	_d.d[0] = _d.d[1] = *(u + 12 + C * 2 + 18 * MU );	\
+	t2.d[0] = _d.d[0] * _a.d[0]; t2.d[1] = _d.d[1] * _a.d[1]; \
+					\
+	_b.d[0] = -_a.d[1]; _b.d[1] = -_a.d[0] ; 		\
+	_a.d[0] = _b.d[0]; _a.d[1] = _b.d[1] ; 		\
+	_c.d[0] = _c.d[1] = *(u + 1 + C * 2 + 18 * MU );	\
+	_c.d[0] *= _a.d[0]; _c.d[1] *= _a.d[1]; \
+	t0.d[0] -= _c.d[0]; t0.d[1] += _c.d[1]; \
+	_d.d[0] = _d.d[1] = *(u + 7 + C * 2 + 18 * MU );	\
+	_d.d[0] *= _a.d[0]; _d.d[1] *= _a.d[1]; \
+	t1.d[0] -= _d.d[0]; t1.d[1] += _d.d[1]; \
+	_b.d[0] = _b.d[1] = *(u + 13 + C * 2 + 18 * MU );	\
+	_b.d[0] *= _a.d[0]; _b.d[1] *= _a.d[1]; \
+	t2.d[0] -= _b.d[0]; t2.d[1] += _b.d[1]; \
+
+#else
 #define N_HERN_noadd(t0,t1,t2,C,MU)				\
   _b = _mm_loaddup_pd(u + 0 + C * 2 + 18 * MU);	\
   t0 = _mm_mul_pd(_b, _a);				\
@@ -1180,6 +1274,7 @@ inline static void TOUCH(const double*a, int n)
   _b = _mm_mul_pd(_b, _a);				\
   t2 = _mm_addsub_pd(t2, _b);				\
 
+#endif
 #endif
 
 

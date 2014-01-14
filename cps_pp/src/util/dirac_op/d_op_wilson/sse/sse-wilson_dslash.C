@@ -329,9 +329,9 @@ DiracOp::CGflops += 1320*vol;
 #ifndef SSE_TO_C2
 #include "sse-blk-dag0.h"
 #include "sse-blk-dag1.h"
+#include "sse-bnd-dag0.h"
 #endif
 
-#include "sse-bnd-dag0.h"
 #include "sse-bnd-dag1.h"
 
 CPS_END_NAMESPACE

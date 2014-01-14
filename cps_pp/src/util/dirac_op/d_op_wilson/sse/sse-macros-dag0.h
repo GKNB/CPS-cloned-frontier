@@ -605,7 +605,7 @@ _mm_store_pd(chi+10 ,  wxp[5]);					\
 #ifndef ADD2REG
 #ifndef USE_HERN2
 #define P_KERN_XM                              \
-  N_KERN_XP_03(0);			       \
+   N_KERN_XP_03(0);			       \
    N_HERN(wxm[0],wxm[1],wxm[2],0,0);	       \
    N_KERN_XP_03(1);                            \
    N_HERN(wxm[0],wxm[1],wxm[2],1,0);	       \
@@ -991,5 +991,22 @@ _mm_store_pd(chi+10 ,  wxp[5]);					\
   (WM)[3] = _mm_load_pd( (ADDR) +shft + 6);		\
   (WM)[4] = _mm_load_pd( (ADDR) +shft + 8);		\
   (WM)[5] = _mm_load_pd( (ADDR) +shft + 10);		\
+
+#endif
+
+#ifdef SSE_TO_C
+#define STORE_XM(WM,ADDR)	\
+  *( (ADDR) + 0 )= ((WM) + 0) -> d[0];		\
+  *( (ADDR) + 1 ) = ((WM) + 0) -> d[1];		\
+  *( (ADDR) + 2)=((WM) + 1) -> d[0];		\
+  *( (ADDR) + 3 )=((WM) + 1) -> d[1];		\
+  *( (ADDR) + 4 )=((WM) + 2) -> d[0];		\
+  *( (ADDR) + 5)=((WM) + 2) -> d[1];		\
+  *( (ADDR) + 6)=((WM) + 3) -> d[0];		\
+  *( (ADDR) + 7)=((WM) + 3) -> d[1];		\
+  *( (ADDR) + 8)=((WM) + 4) -> d[0];		\
+  *( (ADDR) + 9)=((WM) + 4) -> d[1];		\
+  *( (ADDR) + 10)=((WM) + 5) -> d[0];		\
+  *( (ADDR) + 11)=((WM) + 5) -> d[1];		\
 
 #endif
