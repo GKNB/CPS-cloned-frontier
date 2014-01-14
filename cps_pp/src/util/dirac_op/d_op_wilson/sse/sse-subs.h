@@ -1418,6 +1418,21 @@ inline static void TOUCH(const double*a, int n)
    t4 = _mm_add_pd(t4, _b);				\
    t5 = _mm_addsub_pd(t5, _d);                          \
 
+// From sse-wilson_dslash.C
+#define U(r,row,col,d)  *(u+(r+2*(row+3*(col+3*d))))
+#define PSI(r,c,s)      *(psi +(r+2*(c+3*s)))
+//! As above, but the vector is called chi
+#define CHI(r,c,s)      *(chi +(r+2*(c+3*s)))
+#define TMP(r,c,s)      *(tmp +(r+2*(c+3*s))) 
+#define TMP1(r,c,s)     *(tmp1+(r+2*(c+3*s))) 
+#define TMP2(r,c,s)     *(tmp2+(r+2*(c+3*s))) 
+#define TMP3(r,c,s)     *(tmp3+(r+2*(c+3*s))) 
+#define TMP4(r,c,s)     *(tmp4+(r+2*(c+3*s))) 
+#define TMP5(r,c,s)     *(tmp5+(r+2*(c+3*s))) 
+#define TMP6(r,c,s)     *(tmp6+(r+2*(c+3*s))) 
+#define TMP7(r,c,s)     *(tmp7+(r+2*(c+3*s))) 
+#define TMP8(r,c,s)     *(tmp8+(r+2*(c+3*s))) 
+#define FBUF(r,c,s)     *(fbuf+(r+2*(c+3*s))) 
 
 #ifdef USE_MACROS
 #include "sse-macros-dag1.h"

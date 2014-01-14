@@ -143,6 +143,7 @@ void cpubind(void)
 
 CPS_START_NAMESPACE
 
+#if 0
 #define U(r,row,col,d)  *(u+(r+2*(row+3*(col+3*d))))
 #define PSI(r,c,s)      *(psi +(r+2*(c+3*s)))
 //! As above, but the vector is called chi
@@ -157,6 +158,7 @@ CPS_START_NAMESPACE
 #define TMP7(r,c,s)     *(tmp7+(r+2*(c+3*s))) 
 #define TMP8(r,c,s)     *(tmp8+(r+2*(c+3*s))) 
 #define FBUF(r,c,s)     *(fbuf+(r+2*(c+3*s))) 
+#endif
 
 
 Float dclock(void);
@@ -330,9 +332,9 @@ DiracOp::CGflops += 1320*vol;
 #include "sse-blk-dag0.h"
 #include "sse-blk-dag1.h"
 #include "sse-bnd-dag0.h"
+#include "sse-bnd-dag1.h"
 #endif
 
-#include "sse-bnd-dag1.h"
 
 CPS_END_NAMESPACE
 
