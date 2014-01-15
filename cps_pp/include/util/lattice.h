@@ -39,6 +39,7 @@
 #include <alg/eig_arg.h>
 #include <alg/lanczos_arg.h>
 #include <alg/force_arg.h>
+#include <alg/mobius_arg.h>
 #ifdef PARALLEL
 #include <comms/sysfunc_cps.h>
 #endif

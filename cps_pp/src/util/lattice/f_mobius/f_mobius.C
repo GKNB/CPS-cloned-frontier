@@ -64,6 +64,208 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   return iter;
 }
 
+
+// FmatInvMobius: same as FmatInv, except that we use mobius DWF
+// formalism to speed up the CG inversion (via constructing initial guess).
+// n_restart: How many restarts we perform
+int Fmobius::FmatInv(Vector *f_out,
+		     Vector *f_in,
+		     MobiusArg *mob_l,
+		     MobiusArg *mob_s,
+		     Float *true_res,
+		     CnvFrmType cnv_frm,
+		     PreserveType prs_f_in,
+		     int n_restart, Float rsd_vec[])
+{
+  const char *fname = "FmatInv(V*, V*, mdwfArg, mdwfArg, F, Cnv, Preserv, int, F)";
+  // this implementation doesn't allow splitting in s direction(yet).
+  if(GJP.Snodes() != 1){
+    ERR.NotImplemented(cname, fname);
+  }
+  if(cnv_frm != CNV_FRM_YES){
+    ERR.NotImplemented(cname, fname);
+  }
+  if(n_restart < 2){
+    ERR.General(cname, fname, "Value %d is invalid for n_restart.\n", n_restart);
+  }
+
+  //----------------------------------------------------------------
+  // Initialize kappa and ls. This has already been done by the Fmobius
+  // call to mobius_init but is done here again in case the user
+  // has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
+  // GJP.SnodeSites() while in the scope of the Fmobius object.
+  //----------------------------------------------------------------
+
+  int ls = GJP.SnodeSites();
+  int mob_l_ls = mob_l->ls;
+  int mob_s_ls = mob_s->ls;
+  Float mobius_b_l = mob_l->mobius_b_coeff;
+  Float mobius_c_l = mob_l->mobius_c_coeff;
+  Float mobius_b_s = mob_s->mobius_b_coeff;
+  Float mobius_c_s = mob_s->mobius_c_coeff;
+  int size_4d = GJP.VolNodeSites() * 2 * Colors() * SpinComponents();
+  //int size_4d = GJP.VolNodeSites() * 24 ;
+  int mob_l_size_5d = size_4d * mob_l_ls;
+  int mob_s_size_5d = size_4d * mob_s_ls;
+
+  Vector *tmp_mob_l_5d = (Vector *) smalloc(cname, fname, "tmp_mob_l_5d", sizeof(Float) * mob_l_size_5d);
+  Vector *tmp2_mob_l_5d = (Vector *) smalloc(cname, fname, "tmp2_mob_l_5d", sizeof(Float) * mob_l_size_5d);
+  Vector *tmp_mob_s_5d = (Vector *) smalloc(cname, fname, "tmp_mob_s_5d", sizeof(Float) * mob_s_size_5d);
+
+  CgArg *cg_arg_l = &mob_l->cg;
+  CgArg *cg_arg_s = &mob_s->cg;
+
+  // the first time, we solve in Mobius to some degree of accuracy
+  {
+    Float rsd = cg_arg_l->stop_rsd;
+    cg_arg_l->stop_rsd = rsd_vec[0];
+    GJP.SnodeSites(mob_l_ls);
+    GJP.Mobius_b(mobius_b_l);
+    GJP.Mobius_c(mobius_c_l);
+    DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
+    int iter = dop.MatInv(PRESERVE_YES);
+    cg_arg_l->stop_rsd = rsd;
+  }
+  
+  int restart_cnt;
+  for(restart_cnt = 1; restart_cnt < n_restart; ++restart_cnt){
+    //constructing the new residue
+    tmp2_mob_l_5d->CopyVec(f_in, mob_l_size_5d);
+    {
+      GJP.SnodeSites(mob_l_ls);
+      GJP.Mobius_b(mobius_b_l);
+      GJP.Mobius_c(mobius_c_l);
+      DiracOpMobius dop(*this, tmp_mob_l_5d, f_out, cg_arg_l, cnv_frm);
+      dop.Mat(tmp_mob_l_5d, f_out);
+    }
+    tmp2_mob_l_5d->VecMinusEquVec(tmp_mob_l_5d, mob_l_size_5d);
+    //end constructing the new residue(new residue now in tmp2_mob_l_5d)
+
+    cg_arg_s->stop_rsd = rsd_vec[restart_cnt];
+    tmp_mob_l_5d->VecZero(mob_l_size_5d);
+    {
+      Float mass = cg_arg_l->mass;
+      Float stop_rsd = cg_arg_l->stop_rsd;
+      int max_num_iter = cg_arg_l->max_num_iter;
+
+      cg_arg_l->mass = 1.0;
+      cg_arg_l->stop_rsd = rsd_vec[restart_cnt];
+      cg_arg_l->max_num_iter = cg_arg_s->max_num_iter;
+
+      GJP.SnodeSites(mob_l_ls);
+      GJP.Mobius_b(mobius_b_l);
+      GJP.Mobius_c(mobius_c_l);
+      DiracOpMobius dop(*this, tmp_mob_l_5d, tmp2_mob_l_5d, cg_arg_l, cnv_frm);
+      int iter = dop.MatInv(tmp_mob_l_5d, tmp2_mob_l_5d, PRESERVE_YES);
+
+      cg_arg_l->mass = mass;
+      cg_arg_l->stop_rsd = stop_rsd;
+      cg_arg_l->max_num_iter = max_num_iter;
+    }
+    SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 1);
+    
+    // go to the small Mobius lattice
+    tmp_mob_s_5d->VecZero(mob_s_size_5d);
+    tmp_mob_s_5d->CopyVec(tmp2_mob_l_5d, size_4d);
+    
+    SpinProject(tmp_mob_l_5d, tmp_mob_s_5d, mob_s_ls, 0);
+    
+    {
+      Float mass= cg_arg_s->mass; 
+      cg_arg_s->mass = 1.0;
+      
+      GJP.SnodeSites(mob_s_ls);
+      GJP.Mobius_b(mobius_b_s);
+      GJP.Mobius_c(mobius_c_s);
+      DiracOpMobius dop(*this, tmp_mob_s_5d, tmp_mob_l_5d, cg_arg_s, cnv_frm);
+      dop.Mat(tmp_mob_s_5d, tmp_mob_l_5d);
+      
+      cg_arg_s->mass = mass;
+    }
+    
+    tmp_mob_l_5d->VecZero(mob_s_size_5d);
+    {
+      //DiracOpMobius mdwf(*this, mob_s);
+      GJP.SnodeSites(mob_s_ls);
+      GJP.Mobius_b(mobius_b_s);
+      GJP.Mobius_c(mobius_c_s);
+      DiracOpMobius dop(*this, tmp_mob_l_5d, tmp_mob_s_5d, cg_arg_s, cnv_frm);
+      dop.MatInv(tmp_mob_l_5d, tmp_mob_s_5d, true_res, PRESERVE_YES);
+    }
+    SpinProject(tmp_mob_s_5d, tmp_mob_l_5d, mob_s_ls, 1);
+    
+    //OV2DWF
+    tmp_mob_l_5d->VecNegative(tmp_mob_s_5d, size_4d);
+    {
+      Vector * tmp_2nd_plane = (Vector *)((Float *)tmp_mob_l_5d + size_4d);
+      Vector * src_2nd_plane = (Vector *)((Float *)tmp2_mob_l_5d + size_4d);
+      tmp_2nd_plane->CopyVec(src_2nd_plane, mob_l_size_5d - size_4d);
+    }
+    
+    SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 0);
+    
+    {
+      //DiracOpMobius mdwf(*this, mob_l);
+      GJP.SnodeSites(mob_l_ls);
+      GJP.Mobius_b(mobius_b_l);
+      GJP.Mobius_c(mobius_c_l);
+      DiracOpMobius dop(*this, tmp_mob_l_5d, tmp2_mob_l_5d, cg_arg_l, cnv_frm);
+      dop.Mat(tmp_mob_l_5d, tmp2_mob_l_5d);
+    }
+    
+    tmp2_mob_l_5d->VecZero(mob_l_size_5d);
+    {
+      Float mass = cg_arg_l->mass;
+      Float stop_rsd = cg_arg_l->stop_rsd;
+      int max_num_iter = cg_arg_l->max_num_iter;
+
+      cg_arg_l->mass = 1.0;
+      cg_arg_l->stop_rsd = cg_arg_s->stop_rsd;
+      cg_arg_l->max_num_iter = cg_arg_s->max_num_iter;
+
+      //DiracOpMobius mdwf(*this, mob_l);
+      GJP.SnodeSites(mob_l_ls);
+      GJP.Mobius_b(mobius_b_l);
+      GJP.Mobius_c(mobius_c_l);
+      DiracOpMobius dop(*this, tmp2_mob_l_5d, tmp_mob_l_5d, cg_arg_l, cnv_frm);
+      dop.MatInv(tmp2_mob_l_5d, tmp_mob_l_5d, PRESERVE_NO);
+
+      cg_arg_l->mass = mass;
+      cg_arg_l->stop_rsd = stop_rsd;
+      cg_arg_l->max_num_iter = max_num_iter;
+    }
+    SpinProject(tmp_mob_l_5d, tmp2_mob_l_5d, mob_l_ls, 1);
+    
+    tmp_mob_l_5d->CopyVec(tmp_mob_s_5d, size_4d);
+    
+    SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 0);
+
+    f_out->VecAddEquVec(tmp2_mob_l_5d, mob_l_size_5d);
+  }
+
+  // final solve
+  int iter;
+  {
+    //DiracOpMobius mdwf(*this, mob_l);
+    GJP.SnodeSites(mob_l_ls);
+    GJP.Mobius_b(mobius_b_l);
+    GJP.Mobius_c(mobius_c_l);
+    DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
+    iter = dop.MatInv(f_out, f_in, true_res, prs_f_in);
+  }
+
+  sfree(cname, fname,  "tmp_mob_l_5d",  tmp_mob_l_5d);
+  sfree(cname, fname, "tmp2_mob_l_5d", tmp2_mob_l_5d);
+  sfree(cname, fname,  "tmp_mob_s_5d",  tmp_mob_s_5d);
+
+  GJP.SnodeSites(ls);
+
+  return iter;
+}
+
+
+
+
 //Copied from base class since it uses Dwf explicitly. 
 
 //------------------------------------------------------------------
