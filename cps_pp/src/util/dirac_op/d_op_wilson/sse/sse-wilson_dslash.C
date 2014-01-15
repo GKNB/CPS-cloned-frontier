@@ -25,6 +25,11 @@
 //inline int omp_get_num_threads(void) {return 1;}
 #include <pmmintrin.h>
 
+#ifdef SSE_TO_C
+#include "sse-defs.h"
+#include "sse-subs.h"
+#endif
+
 //#define SSE_TO_C
 
 //#ifdef SSE_TO_C
@@ -88,32 +93,13 @@ void cpubind(void)
 
 
 
-#define __RESTRICT 
-#define __RESTRICT
-
 
 // #define AXG_WILSON
-
-
-#define X_DIR_ON
-// 2.95(inline), 3.02 (no-inline)
-#define Y_DIR_ON
-// 3.78(inline), 4.04 (no-inline)
-#define Z_DIR_ON
-// 3.17(inline), 3.24 (no-inline) 
-#define T_DIR_ON
-// 3.44(inline), 4.70 (no-inline)
-
-#define POS_DIR_ON
-#define NEG_DIR_ON
 
 //#define DEBUG_PRINT_DAG0
 //#define DEBUG_PRINT_DAG1
 //#define DEBUG_NOEDGE
 #define DEBUG_MFLOPS (1*1);
-
-// use macro version or inlines
-#define USE_MACROS
 
 
 #undef PROFILE
@@ -121,11 +107,6 @@ void cpubind(void)
 //#define PROF_printf(...)  if (!UniqueID()) printf(__VA_ARGS__);
 #define PROF_printf(...)  {}
 
-
-
-// The sizes of the block are assumed to be even numbers
-#define Y_BLOCK 16
-#define Z_BLOCK 16
 
 
 
@@ -209,14 +190,14 @@ void wilson_dslash(
   const int   vol = wilson_p->vol[0];
 
 
-  IFloat *send_buf[4] = 
+  SSE_C_FLOAT *send_buf[4] = 
     {wilson_p->send_buf[0],
      wilson_p->send_buf[1],
      wilson_p->send_buf[2],
      wilson_p->send_buf[3],
     };
 
-  IFloat *recv_buf[8] =
+  SSE_C_FLOAT *recv_buf[8] =
     {wilson_p->recv_buf[0],
      wilson_p->recv_buf[1],
      wilson_p->recv_buf[2],
@@ -326,7 +307,6 @@ DiracOp::CGflops += 1320*vol;
 
 #define BND_COMM
 
-#include "sse-subs.h"
 
 #ifndef SSE_TO_C2
 #include "sse-blk-dag0.h"

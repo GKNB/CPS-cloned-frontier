@@ -1,12 +1,12 @@
-#ifdef SSE_TO_C
 #include <config.h>
 #include <util/data_types.h>
 #include <util/gjp.h>
 #include <util/wilson.h>
-#include "sse-defs.h"
 #define BND_COMM
-//#define USE_MACROS
+// use macro version or inlines
+#define USE_MACROS
 #define __RESTRICT
+// The sizes of the block are assumed to be even numbers
 #define Z_BLOCK 16
 #define Y_BLOCK 16
 #define X_DIR_ON
@@ -21,18 +21,15 @@
 #define POS_DIR_ON
 #define NEG_DIR_ON
 
-
-//#define  SSE_C_FLOAT IFloat
-
 CPS_START_NAMESPACE
-
-#include "sse-subs.h"
-
-#include "sse-blk-dag0.h"
-#include "sse-blk-dag1.h"
-
-#include "sse-bnd-dag0.h"
-#include "sse-bnd-dag1.h"
+/* wilson dlash kernel pieces */
+#define  SSE_C_FLOAT IFloat
+#ifdef SSE_TO_C
+typedef struct{
+SSE_C_FLOAT d[2];
+} M128D;
+#else
+#define M128D __m128d 
+#endif
 
 CPS_END_NAMESPACE
-#endif

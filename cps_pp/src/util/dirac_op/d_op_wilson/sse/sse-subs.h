@@ -1,11 +1,3 @@
-/* wilson dlash kernel pieces */
-#ifdef SSE_TO_C
-typedef struct{
-FLOAT d[2]; 
-} M128D;
-#else
-#define M128D __m128d 
-#endif
 
 #if 1
 inline static void TOUCH(const double*a, int n){
@@ -822,7 +814,7 @@ inline static void TOUCH(const double*a, int n)
   _c.d[0] = *(u + 5 + C * 6 + 18 * MU) * _a.d[1];	\
   _c.d[1] = *(u + 5 + C * 6 + 18 * MU) * _a.d[0];	\
   t2.d[0] -= _c.d[0]; t2.d[1] += _c.d[1];	\
-  {FLOAT temp = _a.d[0]; _a.d[0]=_a.d[1]; _a.d[1]=temp;} \
+  {SSE_C_FLOAT temp = _a.d[0]; _a.d[0]=_a.d[1]; _a.d[1]=temp;} \
 
 #else
 #define P_HERN(t0,t1,t2,C,MU)				\
@@ -1186,7 +1178,7 @@ inline static void TOUCH(const double*a, int n)
   t2.d[0] += _d.d[0]; t2.d[1] += _d.d[1];	\
 											\
   _a.d[0] = - _a.d[0]; _a.d[1] = - _a.d[1]; \
-  {FLOAT temp = _a.d[0]; _a.d[0]=_a.d[1]; _a.d[1]=temp;} \
+  {SSE_C_FLOAT temp = _a.d[0]; _a.d[0]=_a.d[1]; _a.d[1]=temp;} \
   _c.d[0] = *(u + 1 + C * 2 + 18 * MU) * _a.d[0];	\
   _c.d[1] = *(u + 1 + C * 2 + 18 * MU) * _a.d[1];	\
   t0.d[0] -= _c.d[0]; t0.d[1] += _c.d[1];	\
