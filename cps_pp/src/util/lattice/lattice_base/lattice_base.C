@@ -3364,4 +3364,76 @@ void Lattice::BondCond()
     }
 }
 
+
+// compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
+void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) 
+{
+  const Matrix *p1;
+
+  int x[4];
+  for (int i=0; i<4; ++i) x[i] = link_site[i] ;
+ 
+  // Set the Lattice pointer
+  //------------------------
+  //Lattice& lat = AlgLattice();
+
+  //----------------------------------------
+  //  "g_offset" points to the links
+  //  at site "x"
+  //----------------------------------------
+  Matrix *g_offset = GaugeField()+GsiteOffset(x);
+ 
+  //----------------------------------------
+  //    mp3 = U_u(x) U_v(x+u)
+  //    p1 = &U_v(x+u) --> mp2
+  //----------------------------------------
+  p1 = GetLinkOld(g_offset, x, mu, nu);
+  moveMem((IFloat *)mp2, (const IFloat *)p1, MATRIX_SIZE * sizeof(IFloat));
+  mDotMEqual((IFloat *)mp3, (const IFloat *)(g_offset+mu), (const IFloat *)mp2);
+  
+  //----------------------------------------
+  //    mp1 = (U_v(x) U_u(x+v))~
+  //    p1 = &U_u(x+v) --> mp1
+  //    mp2 = U_v(x) U_u(x+v)
+  //    mp1 = mp2~
+  //----------------------------------------
+  p1 = GetLinkOld(g_offset, x, nu, mu);
+  moveMem((IFloat *)mp1, (const IFloat *)p1, MATRIX_SIZE * sizeof(IFloat));
+  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+nu),
+             (const IFloat *)mp1);
+  mp1->Dagger((IFloat *)mp2);
+ 
+  mDotMEqual((IFloat *)(&plaq), (const IFloat *)mp3, (const IFloat *)mp1);
+
+  // now add H.c. of plaq at x-nu (code from RectStaple in lattice_base.C)
+
+  //----------------------------------------------------------
+  // mp1 = U_v(x+mu-nu)~
+  // mp2 = U_mu(x) U_v(x+mu-nup)~
+  //----------------------------------------------------------
+  x[mu]++;x[nu]--;
+  mp1->Dagger((IFloat *)GetLink(x, nu)) ;
+  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+mu), (const IFloat *)mp1);
+
+  //----------------------------------------------------------
+  // mp4 = U_mu(x-nu)~
+  // mp3 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~
+  //----------------------------------------------------------
+  x[mu]--;
+  mp1->Dagger((IFloat *)GetLink(x, mu)) ;
+  mDotMEqual((IFloat *)mp3, (const IFloat *)mp2, (const IFloat *)mp1);
+
+  //----------------------------------------------------------
+  // p1 = U_nu(x-nu)
+  // mp2 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~U_nu(x-nu)
+  //----------------------------------------------------------
+  p1=GetLink(x, nu) ;
+  mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)p1);
+
+  plaq += *mp2;
+  plaq *= -1.0;
+
+}
+
+
 CPS_END_NAMESPACE

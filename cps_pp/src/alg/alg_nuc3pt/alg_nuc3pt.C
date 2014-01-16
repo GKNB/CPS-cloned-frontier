@@ -34,7 +34,7 @@
 CPS_START_NAMESPACE
 
 
-
+#if 0
 //-----------------------------------------------------------------
 //  Twisted B.C stuff (similar redundant stuff in U1.C, U1.h)
 //---------------------------------------------------------------
@@ -81,7 +81,7 @@ void twist_links(Lattice &lat, const Float Q, const int mu)
   }
 }
 
-
+#endif
 
 
 //------------------------------------------------------------------
@@ -732,52 +732,85 @@ void AlgNuc3pt::run()
       // do some disconnected traces
       if(Nuc3pt_arg->DoDisconnected){
 
-	SourceType src_type = GAUSS_GAUGE_INV;
-	Nuc3pt_arg->src_type=POINT;
-	GetThePropagator(n, ts, qmass);
-
-	Site site;
-	while ( site.LoopsOverNode() ){
-	  int x = site.physX();
-	  int y = site.physY();
-	  int z = site.physZ();
-	  int t = site.physT();
-	  if(x==Nuc3pt_arg->x[0] && y==Nuc3pt_arg->x[1] && z==Nuc3pt_arg->x[2] && t==ts){
-	    int myIndex = site.Index();
-	    WilsonMatrix temp = (*q_prop[n])[myIndex];
-	    Rcomplex cc = temp.Trace();
-	    FileIoType T=ADD_ID;
-	    if(common_arg->results != 0)
-	      {
-		if((fp = Fopen(T,(char *)common_arg->results, "a")) == NULL )
-		  ERR.FileA(cname,fname, (char *)common_arg->results);
-	      }
-	    //OpenFile();
-	    Fprintf(fp,"Disconnected trace scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
-	    temp.gl(-5);
-	    cc = temp.Trace();
-	    Fprintf(fp,"Disconnected trace gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
-	    for(int mu=0; mu < 4; mu++){
-	      temp = (*q_prop[n])[myIndex];
-	      temp.gl(mu);
-	      Rcomplex cc = temp.Trace();
-	      Fprintf(fp,"Disconnected trace gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
-	    }
-	    for(int mu=0; mu < 4; mu++){
-	      for(int nu=mu+1; nu < 4; nu++){
-		temp = (*q_prop[n])[myIndex];
-		temp.gl(mu).gl(nu);
-		Rcomplex cc = temp.Trace();
-		Fprintf(fp,"Disconnected trace sigma%d%d %d %d %d %d %0.14e %0.14e\n",mu,nu,x,y,z,ts,cc.real(),cc.imag());
-	      }
-	    }
-	    Fclose(T,fp);
-	    //CloseFile();
-	  }
+	SourceType save_src_type = Nuc3pt_arg->src_type;
+	if(save_src_type != POINT){
+	  SourceType save_src_type = Nuc3pt_arg->src_type;
+	  Nuc3pt_arg->src_type=POINT;
+	  GetThePropagator(n, ts, qmass);
 	}
 
-	Nuc3pt_arg->src_type=src_type;
+	// sink site = src site
+	// get src node coordinates
+	int procCoorX = Nuc3pt_arg->x[0] / GJP.XnodeSites();
+	int procCoorY = Nuc3pt_arg->x[1] / GJP.YnodeSites();
+	int procCoorZ = Nuc3pt_arg->x[2] / GJP.ZnodeSites();
+	int procCoorT = ts / GJP.TnodeSites();
+	// get my node coordinates
+	int coor_x = GJP.XnodeCoor();
+	int coor_y = GJP.YnodeCoor();
+	int coor_z = GJP.ZnodeCoor();
+	int coor_t = GJP.TnodeCoor();
+	
+	if (coor_x == procCoorX &&
+	    coor_y == procCoorY &&
+	    coor_z == procCoorZ &&
+	    coor_t == procCoorT){
+	  
+	  Site site(Nuc3pt_arg->x[0] % GJP.XnodeSites(),
+		    Nuc3pt_arg->x[1] % GJP.YnodeSites(), 
+		    Nuc3pt_arg->x[2] % GJP.ZnodeSites(), 
+		    ts % GJP.TnodeSites() );
 
+	  // disconnected to own file for each node
+	  FileIoType T=ADD_ID;
+	  if(common_arg->results != 0)
+	    {
+	      if((fp = Fopen(T,(char *)common_arg->results, "a")) == NULL )
+		ERR.FileA(cname,fname, (char *)common_arg->results);
+	    }
+
+	  int myIndex = site.Index();
+	  int x=site.physX();
+	  int y=site.physY();
+	  int z=site.physZ();
+
+	  //scalar
+	  WilsonMatrix temp = (*q_prop[n])[myIndex];
+	  Rcomplex cc = temp.Trace();
+	  Fprintf(fp,"Disc tr scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	  //pseudoscalar
+	  temp.gl(-5);
+	  cc = temp.Trace();
+	  Fprintf(fp,"Disc tr gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	  //vector
+	  for(int mu=0; mu < 4; mu++){
+	    temp = (*q_prop[n])[myIndex];
+	    temp.gl(mu);
+	    Rcomplex cc = temp.Trace();
+	    Fprintf(fp,"Disc tr gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
+	  }
+	  //tensor
+	  int my_x[4] = {x,y,z,ts}; 
+	  for(int mu=0; mu < 4; mu++){
+	    for(int nu=mu+1; nu < 4; nu++){
+	      temp = (*q_prop[n])[myIndex];
+	      temp.gl(mu).gl(nu);
+	      Matrix mat = SpinTrace(temp);
+	      Rcomplex cc = mat.Tr();
+	      Matrix Leaf;
+	      AlgLattice().CloverLeaf(Leaf,my_x,mu,nu);
+	      Leaf.TrLessAntiHermMatrix();
+	      Rcomplex cc2 = Tr(mat,Leaf);
+	      Fprintf(fp,"Disc tr sigma%d%d (x Field Str) %d %d %d %d %0.14e %0.14e  %0.14e %0.14e\n",
+		      mu,nu,x,y,z,ts,cc.real(),cc.imag(),cc2.real(),cc2.imag());
+	    }
+	  }
+	  Fclose(T,fp);
+	  //CloseFile();
+	}
+	
+	Nuc3pt_arg->src_type=save_src_type;
+	
       }// end disconnected
 
 #if 0
@@ -865,6 +898,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete aprop ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
+#if 0
 	// impose twisted b.c. if requested
 	if(Nuc3pt_arg->theta != 0){
 	  
@@ -873,6 +907,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			Nuc3pt_arg->theta, mu);
 	  }
 	}
+#endif
 	  q_prop[n] = new QPropWBoxSrc(AlgLattice(),&qp_arg, &box_arg, common_arg);
 	  q_prop[n]->Run();
       }
@@ -894,6 +929,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete apr ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
+#if 0
 	// impose twisted b.c. if requested
 	if(Nuc3pt_arg->theta != 0){
 	  for(mu=0;mu<3;mu++){
@@ -901,7 +937,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			     Nuc3pt_arg->theta, mu);
 	  }
 	}
-
+#endif
 	sprintf(out_prop, "prop_m%g_tsrc%d_%s_%d",mass,time,
 		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
 	qp_arg.file = out_prop;
@@ -946,6 +982,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete apr ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
+#if 0
 	// impose twisted b.c. if requested
 	if(Nuc3pt_arg->theta != 0){
 	  //printf("Made it here\n");
@@ -954,7 +991,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 			Nuc3pt_arg->theta, mu);
 	  }
 	}
-
+#endif
 	sprintf(out_prop, "prop_m%g_tsrc%d_GS_w%g_n%d_%s_%d",mass,time,
 		Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,
 		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
@@ -972,31 +1009,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
       }
     }
     break ;
-/*
-  case SUM_MOM:
-    {
-      qp_arg.gauge_fix_src=1;
-      // make sources with these momenta, and sum
-      int **mom;
-      int nsrc = 3;
-      mom = (int**) smalloc(nsrc * sizeof(int*) );
-      for(int i=0;i<nsrc;i++) mom[i] = (int*) smalloc(3*sizeof(int));
-            
-      mom[0][0]=1; mom[0][1]=0; mom[0][2]=0;
-      mom[1][0]=0; mom[1][1]=1; mom[1][2]=0;
-      mom[2][0]=0; mom[2][1]=0; mom[2][2]=1;
-   
-      // impose twisted b.c. if requested
-      if(Nuc3pt_arg->theta != 0){
-	//printf("Made it here\n");
-	for(mu=0;mu<3;mu++){
-	  twist_links(AlgLattice(), Nuc3pt_arg->theta, mu);
-	}
-      }
-      q_prop = new QPropWSumMomSrc(AlgLattice(),&qp_arg,nsrc,mom,common_arg);
-    }
-    break ;
- */
+
  default: // It should  never get here! 
     ERR.General(cname,fname,"Invalid source type\n");
     break ;

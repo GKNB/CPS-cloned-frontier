@@ -1215,6 +1215,10 @@ class Lattice
     //!< Note: Agent classes which needs to import gauge field to
     //!external libraries need to overwrite this function.
     virtual void BondCond();
+
+    // compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
+    void CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) ;
+
 };
 
 //------------------------------------------------------------------

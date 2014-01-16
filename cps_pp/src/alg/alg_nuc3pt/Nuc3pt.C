@@ -475,23 +475,29 @@ void Nuc3ptClover::InsertOp(CorrFunc& corr,QPropW& seqQ, QPropW& Quark)
   for(s.Begin();s.End();s.nextSite())
     {
       int t(s.physT()) ;
-      WilsonMatrix sq(seqQ[s.Index()]) ;
-      for(int mu(0);mu<G.N();mu++)
-	sq.gr(G[mu]) ; // Multiply by gamma_mu 
+      //WilsonMatrix sq(seqQ[s.Index()]) ;
+      //for(int mu(0);mu<G.N();mu++)
+      //sq.gr(G[mu]) ; // Multiply by gamma_mu 
+      WilsonMatrix q(Quark[s.Index()]) ;
+      for(int mu(G.N()-1);mu>=0;mu--)
+	q.gl(G[mu]) ; // Multiply by gamma_mu 
       Matrix Leaf;
       x[0]=s.X();
       x[1]=s.Y();
       x[2]=s.Z();
       x[3]=s.T();
-      CloverLeaf(seqQ.AlgLattice(),Leaf,x,G[0],G[1]);
+      //CloverLeaf(seqQ.AlgLattice(),Leaf,x,G[0],G[1]);
+      Quark.AlgLattice().CloverLeaf(Leaf,x,G[0],G[1]);
       Leaf.TrLessAntiHermMatrix();
       Complex cc(mom.Fact(s)) ; // The momentum factor exp(-ipx)
 #if 0
-      sq.LeftTimesEqual(Leaf);
-      cc *= Trace(Quark[s.Index()],sq);
+      q.LeftTimesEqual(Leaf);
+      //cc *= Trace(sq,Quark[s.Index()]);
+      cc *= Trace(q,seqQ[s.Index()]);
 #endif
       Matrix tmp;
-      tmp = SpinTrace(sq,Quark[s.Index()]);
+      //tmp = SpinTrace(sq,Quark[s.Index()]);
+      tmp = SpinTrace(q,seqQ[s.Index()]);
       cc *= Tr(Leaf,tmp);
       corr[t] += cc ;
     }
@@ -500,85 +506,6 @@ void Nuc3ptClover::InsertOp(CorrFunc& corr,QPropW& seqQ, QPropW& Quark)
 void Nuc3ptClover::InsertOp(CorrFunc* tmp,QPropW& seqQ, QPropW& Quark, int Nmom, ThreeMom* momo)
 {
   char *fname = "InsertOp()";
-}
-
-// copied from lattice_base.C for plaquette
-static Matrix mt1;
-static Matrix mt2;
-static Matrix mt3;
-static Matrix *mp1 = &mt1;
-static Matrix *mp2 = &mt2;
-static Matrix *mp3 = &mt3;
-
-void Nuc3ptClover::CloverLeaf(Lattice& lat, Matrix &plaq, int *link_site, int mu, int nu) 
-{
-  const Matrix *p1;
-
-  //#define MATRIX_SIZE 18
-
-  int x[4];
-  for (int i=0; i<4; ++i) x[i] = link_site[i] ;
- 
-  // Set the Lattice pointer
-  //------------------------
-  //Lattice& lat = AlgLattice();
-
-  //----------------------------------------
-  //  "g_offset" points to the links
-  //  at site "x"
-  //----------------------------------------
-  Matrix *g_offset = lat.GaugeField()+lat.GsiteOffset(x);
- 
-  //----------------------------------------
-  //    mp3 = U_u(x) U_v(x+u)
-  //    p1 = &U_v(x+u) --> mp2
-  //----------------------------------------
-  p1 = lat.GetLinkOld(g_offset, x, mu, nu);
-  moveMem((IFloat *)mp2, (const IFloat *)p1, 18 * sizeof(IFloat));
-  mDotMEqual((IFloat *)mp3, (const IFloat *)(g_offset+mu), (const IFloat *)mp2);
-  
-  //----------------------------------------
-  //    mp1 = (U_v(x) U_u(x+v))~
-  //    p1 = &U_u(x+v) --> mp1
-  //    mp2 = U_v(x) U_u(x+v)
-  //    mp1 = mp2~
-  //----------------------------------------
-  p1 = lat.GetLinkOld(g_offset, x, nu, mu);
-  moveMem((IFloat *)mp1, (const IFloat *)p1, 18 * sizeof(IFloat));
-  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+nu),
-             (const IFloat *)mp1);
-  mp1->Dagger((IFloat *)mp2);
- 
-  mDotMEqual((IFloat *)(&plaq), (const IFloat *)mp3, (const IFloat *)mp1);
-
-  // now add H.c. of plaq at x-nu (code from RectStaple in lattice_base.C)
-
-  //----------------------------------------------------------
-  // mp1 = U_v(x+mu-nu)~
-  // mp2 = U_mu(x) U_v(x+mu-nup)~
-  //----------------------------------------------------------
-  x[mu]++;x[nu]--;
-  mp1->Dagger((IFloat *)lat.GetLink(x, nu)) ;
-  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+mu), (const IFloat *)mp1);
-
-  //----------------------------------------------------------
-  // mp4 = U_mu(x-nu)~
-  // mp3 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~
-  //----------------------------------------------------------
-  x[mu]--;
-  mp1->Dagger((IFloat *)lat.GetLink(x, mu)) ;
-  mDotMEqual((IFloat *)mp3, (const IFloat *)mp2, (const IFloat *)mp1);
-
-  //----------------------------------------------------------
-  // p1 = U_nu(x-nu)
-  // mp2 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~U_nu(x-nu)
-  //----------------------------------------------------------
-  p1=lat.GetLink(x, nu) ;
-  mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)p1);
-
-  plaq += *mp2;
-  plaq *= -1.0;
-
 }
 
 Nuc3ptStru::Nuc3ptStru(Gamma gg, Derivative dd):Nuc3pt(),G(gg),D(dd)
