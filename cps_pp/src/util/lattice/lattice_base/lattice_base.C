@@ -3370,6 +3370,7 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 {
   const Matrix *p1;
 
+
   int x[4];
   for (int i=0; i<4; ++i) x[i] = link_site[i] ;
  
@@ -3411,7 +3412,8 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
   // mp1 = U_v(x+mu-nu)~
   // mp2 = U_mu(x) U_v(x+mu-nup)~
   //----------------------------------------------------------
-  x[mu]++;x[nu]--;
+  x[mu]++;
+  x[nu]--; // this is right! GetLink checks for negative x_i
   mp1->Dagger((IFloat *)GetLink(x, nu)) ;
   mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+mu), (const IFloat *)mp1);
 

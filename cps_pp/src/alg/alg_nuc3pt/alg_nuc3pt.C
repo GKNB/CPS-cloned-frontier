@@ -242,24 +242,6 @@ void AlgNuc3pt::run()
 
 
 
-#if 0
-  // start: ts=t_source, then increment by "source_inc"
-  //int ts=Nuc3pt_arg->t_source;
-  int mt[5];
-  int ts=Nuc3pt_arg->mt[0];
-  Float time;
-  for(int i_source=0; i_source < Nuc3pt_arg->num_src; i_source++)
-    {
-
-      //time=time_elapse();
-
-      // seq. source time slice
-      int t_sink = (ts + Nuc3pt_arg->t_sink)%(GJP.Tnodes()*GJP.TnodeSites());
-      if(t_sink>=GJP.Tnodes()*GJP.TnodeSites())
-	ERR.General(cname,fname,"Invalid sink time slice for nucleon threept function\n");
-#endif
-
-#if 1
   // start: ts=t_source, then increment by "source_inc"
   int ts=Nuc3pt_arg->t_source;
   int mt[5];
@@ -269,8 +251,6 @@ void AlgNuc3pt::run()
   for(int i_source=0; i_source < Nuc3pt_arg->num_src; i_source++)
     {
       int t_sink = (ts + Nuc3pt_arg->t_sink)%(GJP.Tnodes()*GJP.TnodeSites());
-
-#endif
 
       OpenFile();
       Fprintf(fp,"Doing source/sink time slices: %d %d\n", ts, t_sink);
@@ -750,70 +730,86 @@ void AlgNuc3pt::run()
 	int coor_y = GJP.YnodeCoor();
 	int coor_z = GJP.ZnodeCoor();
 	int coor_t = GJP.TnodeCoor();
+
+	int Node = UniqueID();
+	// write disconnected to own file for each node
+	int srcNode;
+	FileIoType T=ADD_ID;
+	if (coor_x == procCoorX && coor_y == procCoorY && coor_z == procCoorZ && coor_t == procCoorT)
+	  {
+	    srcNode = UniqueID();
+	    if(common_arg->results != 0)
+	      {
+		if((fp = Fopen(T,(char *)common_arg->results, "a")) == NULL )
+		  ERR.FileA(cname,fname, (char *)common_arg->results);
+	      }
+	  }
+
+	//src  site
+	Site srcSite(Nuc3pt_arg->x[0] % GJP.XnodeSites(),
+		     Nuc3pt_arg->x[1] % GJP.YnodeSites(), 
+		     Nuc3pt_arg->x[2] % GJP.ZnodeSites(), 
+		     ts % GJP.TnodeSites() );
+	int srcIndex = srcSite.Index();
 	
-	if (coor_x == procCoorX &&
-	    coor_y == procCoorY &&
-	    coor_z == procCoorZ &&
-	    coor_t == procCoorT){
+	// loop over sites since cloverleaf requires links to be sent from off node,
+	// even though we only want it at one site!
+	Site site;
+	while(site.LoopsOverNode()){
 	  
-	  Site site(Nuc3pt_arg->x[0] % GJP.XnodeSites(),
-		    Nuc3pt_arg->x[1] % GJP.YnodeSites(), 
-		    Nuc3pt_arg->x[2] % GJP.ZnodeSites(), 
-		    ts % GJP.TnodeSites() );
-
-	  // disconnected to own file for each node
-	  FileIoType T=ADD_ID;
-	  if(common_arg->results != 0)
-	    {
-	      if((fp = Fopen(T,(char *)common_arg->results, "a")) == NULL )
-		ERR.FileA(cname,fname, (char *)common_arg->results);
-	    }
-
-	  int myIndex = site.Index();
 	  int x=site.physX();
 	  int y=site.physY();
 	  int z=site.physZ();
 
+	  //prop at site
+	  int Index = site.Index();
+	  WilsonMatrix temp = (*q_prop[n])[Index];
+
 	  //scalar
-	  WilsonMatrix temp = (*q_prop[n])[myIndex];
 	  Rcomplex cc = temp.Trace();
-	  Fprintf(fp,"Disc tr scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	  if(Index==srcIndex && Node==srcNode)
+	    Fprintf(fp,"Disc tr scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
 	  //pseudoscalar
 	  temp.gl(-5);
 	  cc = temp.Trace();
-	  Fprintf(fp,"Disc tr gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	  if(Index==srcIndex && Node==srcNode)
+	    Fprintf(fp,"Disc tr gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
 	  //vector
 	  for(int mu=0; mu < 4; mu++){
-	    temp = (*q_prop[n])[myIndex];
+	    temp = (*q_prop[n])[Index];
 	    temp.gl(mu);
 	    Rcomplex cc = temp.Trace();
-	    Fprintf(fp,"Disc tr gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
+	    if(Index==srcIndex && Node==srcNode)
+	      Fprintf(fp,"Disc tr gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
 	  }
 	  //tensor
-	  int my_x[4] = {x,y,z,ts}; 
+	  int my_x[4];
+	  my_x[0]=site.X(); my_x[1]=site.Y(); my_x[2]=site.Z(); my_x[3]=site.T(); 
 	  for(int mu=0; mu < 4; mu++){
 	    for(int nu=mu+1; nu < 4; nu++){
-	      temp = (*q_prop[n])[myIndex];
+	      temp = (*q_prop[n])[Index];
 	      temp.gl(mu).gl(nu);
 	      Matrix mat = SpinTrace(temp);
 	      Rcomplex cc = mat.Tr();
 	      Matrix Leaf;
-	      AlgLattice().CloverLeaf(Leaf,my_x,mu,nu);
+	      q_prop[n]->AlgLattice().CloverLeaf(Leaf,my_x,mu,nu);
 	      Leaf.TrLessAntiHermMatrix();
 	      Rcomplex cc2 = Tr(mat,Leaf);
-	      Fprintf(fp,"Disc tr sigma%d%d (x Field Str) %d %d %d %d %0.14e %0.14e  %0.14e %0.14e\n",
-		      mu,nu,x,y,z,ts,cc.real(),cc.imag(),cc2.real(),cc2.imag());
+	      if(Index==srcIndex && Node==srcNode)
+		Fprintf(fp,"Disc tr sigma%d%d (x Field Str) %d %d %d %d %0.14e %0.14e  %0.14e %0.14e\n",
+			mu,nu,x,y,z,ts,cc.real(),cc.imag(),cc2.real(),cc2.imag());
 	    }
 	  }
-	  Fclose(T,fp);
-	  //CloseFile();
 	}
+
+	if (coor_x == procCoorX && coor_y == procCoorY && coor_z == procCoorZ && coor_t == procCoorT)
+	  Fclose(T,fp);
 	
 	Nuc3pt_arg->src_type=save_src_type;
 	
       }// end disconnected
 
-#if 0
+#if 1
       ts+=Nuc3pt_arg->source_inc;
       for(int nt=0; nt<Nuc3pt_arg->num_mult; nt++){
 	Nuc3pt_arg->mt[nt]=mt[nt];
