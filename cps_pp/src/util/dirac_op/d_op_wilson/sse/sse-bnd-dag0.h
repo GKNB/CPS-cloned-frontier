@@ -18,14 +18,16 @@ void wilson_dslash_bnd_dag0(
   lt = wilson_p->ptr[3];
   vol = wilson_p->vol[0];
   
-  Float* const recv_buf1 = wilson_p->recv_buf[0];
-  Float* const recv_buf2 = wilson_p->recv_buf[1];
-  Float* const recv_buf3 = wilson_p->recv_buf[2];
-  Float* const recv_buf4 = wilson_p->recv_buf[3];
-  Float* const recv_buf5 = wilson_p->recv_buf[4];
-  Float* const recv_buf6 = wilson_p->recv_buf[5];
-  Float* const recv_buf7 = wilson_p->recv_buf[6];
-  Float* const recv_buf8 = wilson_p->recv_buf[7];
+#if 0
+  SSE_C_FLOAT* const recv_buf1 = (SSE_C_FLOAT*)wilson_p->recv_buf[0];
+  SSE_C_FLOAT* const recv_buf2 = (SSE_C_FLOAT*)wilson_p->recv_buf[1];
+  SSE_C_FLOAT* const recv_buf3 = (SSE_C_FLOAT*)wilson_p->recv_buf[2];
+  SSE_C_FLOAT* const recv_buf4 = (SSE_C_FLOAT*)wilson_p->recv_buf[3];
+  SSE_C_FLOAT* const recv_buf5 = (SSE_C_FLOAT*)wilson_p->recv_buf[4];
+  SSE_C_FLOAT* const recv_buf6 = (SSE_C_FLOAT*)wilson_p->recv_buf[5];
+  SSE_C_FLOAT* const recv_buf7 = (SSE_C_FLOAT*)wilson_p->recv_buf[6];
+  SSE_C_FLOAT* const recv_buf8 = (SSE_C_FLOAT*)wilson_p->recv_buf[7];
+#endif
 
 #ifdef SSE_TO_C
   M128D* send_buf0 = (M128D*)(wilson_p->send_buf[0]);
@@ -159,7 +161,10 @@ void wilson_dslash_bnd_dag0(
 	    
 #ifdef SSE_TO_C
 #if 1
-		STORE_XM(wxm,(double*)(send_buf4+shft));
+{
+		SSE_C_FLOAT *sse_c_p = (SSE_C_FLOAT*)(send_buf4+shft);
+		STORE_XM(wxm,(sse_c_p));
+}
 #else
 #endif
 #else
@@ -468,8 +473,10 @@ void wilson_dslash_bnd_dag0(
 #endif
 		  BND_PREFETCH_PSI;
 
-		  //printf("deb %d %d %d %d %d  %e %e %e\n",
-		  //x,y,z,t,shft, *psi, *u, *(double*)(send_buf3+shft));
+#if 0
+		  printf("send_buf3 %d %d %d %d %d  %e %e %e\n",
+		  x,y,z,t,shft, *psi, *u, *((SSE_C_FLOAT*)(send_buf3+shft)));
+#endif
 
 		  //int xD = x+1-(parity<<1) ;// x+1 or x-1; 
 		  //xyztm = (xD/2)+(lx/2)*(y+ly*(z+lz*tm));
@@ -489,8 +496,12 @@ void wilson_dslash_bnd_dag0(
 
 
 #if 0
-		  		  printf("deb %d %d %d %d %d  %e %e %e\n",
-		 			 xD,y,z,t,shft, *psi, *u, *(double*)&(wtm[2]));
+{
+		SSE_C_FLOAT *tmp_p = (SSE_C_FLOAT*)wtm;
+		  printf("wtm=%p %e \n",tmp_p, *tmp_p);fflush(stdout);
+//		  		  printf("wtm %d %d %d %d %d  %e %e %e\n",
+//		 			 xD,y,z,t,shft, *psi, *u,*tmp_p);
+}
 #endif
 
 	    }//loop(x)

@@ -1,5 +1,8 @@
 #ifdef USE_SSE
 #include <config.h>
+#ifdef SSE_TO_C
+#include "sse-defs.h"
+#endif
 CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
@@ -95,7 +98,7 @@ void wilson_init_comm(int dir, int block, Wilson *wilson_p)
 
     int idx;
     int sflag=+1; //?check
-    size_t len = sizeof(IFloat)*block;
+    size_t len = sizeof(SSE_C_FLOAT)*block;
 
     idx=dir; 
     

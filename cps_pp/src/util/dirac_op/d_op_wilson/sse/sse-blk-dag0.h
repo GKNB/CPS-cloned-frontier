@@ -36,14 +36,14 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
   const int z_nloc =  GJP.Znodes() == 1 ? 0 : 0xff;
   const int t_nloc =  GJP.Tnodes() == 1 ? 0 : 0xff;
 
-  const Float* const recv_buf1 =  wilson_p->recv_buf[0];
-  const Float* const recv_buf2 =  wilson_p->recv_buf[1];
-  const Float* const recv_buf3 =  wilson_p->recv_buf[2];
-  const Float* const recv_buf4 =  wilson_p->recv_buf[3];
-  const Float* const recv_buf5 =  wilson_p->recv_buf[4];
-  const Float* const recv_buf6 =  wilson_p->recv_buf[5];
-  const Float* const recv_buf7 =  wilson_p->recv_buf[6];
-  const Float* const recv_buf8 =  wilson_p->recv_buf[7];
+  const SSE_C_FLOAT* const recv_buf1 =  (SSE_C_FLOAT*)wilson_p->recv_buf[0];
+  const SSE_C_FLOAT* const recv_buf2 =  (SSE_C_FLOAT*)wilson_p->recv_buf[1];
+  const SSE_C_FLOAT* const recv_buf3 =  (SSE_C_FLOAT*)wilson_p->recv_buf[2];
+  const SSE_C_FLOAT* const recv_buf4 =  (SSE_C_FLOAT*)wilson_p->recv_buf[3];
+  const SSE_C_FLOAT* const recv_buf5 =  (SSE_C_FLOAT*)wilson_p->recv_buf[4];
+  const SSE_C_FLOAT* const recv_buf6 =  (SSE_C_FLOAT*)wilson_p->recv_buf[5];
+  const SSE_C_FLOAT* const recv_buf7 =  (SSE_C_FLOAT*)wilson_p->recv_buf[6];
+  const SSE_C_FLOAT* const recv_buf8 =  (SSE_C_FLOAT*)wilson_p->recv_buf[7];
 
 
 

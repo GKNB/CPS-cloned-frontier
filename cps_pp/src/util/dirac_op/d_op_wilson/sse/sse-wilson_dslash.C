@@ -190,6 +190,7 @@ void wilson_dslash(
   const int   vol = wilson_p->vol[0];
 
 
+#if 0
   SSE_C_FLOAT *send_buf[4] = 
     {wilson_p->send_buf[0],
      wilson_p->send_buf[1],
@@ -207,6 +208,7 @@ void wilson_dslash(
      wilson_p->recv_buf[6],
      wilson_p->recv_buf[7]
     }; 
+#endif
 
 
 

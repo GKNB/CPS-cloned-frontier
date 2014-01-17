@@ -23,10 +23,13 @@
 
 CPS_START_NAMESPACE
 /* wilson dlash kernel pieces */
-#define  SSE_C_FLOAT IFloat
+#define  SSE_C_FLOAT float
+//#define  SSE_C_FLOAT IFloat
+#define SSE_ALIGNED 
+//__attribute__ ((aligned (64)))
 #ifdef SSE_TO_C
 typedef struct{
-SSE_C_FLOAT d[2];
+SSE_C_FLOAT d[2]  SSE_ALIGNED ;
 } M128D;
 #else
 #define M128D __m128d 
