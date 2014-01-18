@@ -101,9 +101,16 @@ void wilson_init_comm(int dir, int block, Wilson *wilson_p)
     size_t len = sizeof(SSE_C_FLOAT)*block;
 
     idx=dir; 
-    
+
+    wilson_p->send_buf[idx]=(Float *) smalloc("","wilson_init_comm()","send_buf",block*sizeof(Float));
+    wilson_p->recv_buf[idx]=(Float *) smalloc("","wilson_init_comm()","recv_buf",block*sizeof(Float));
+#if 0
     wilson_p->send_buf[idx]=(Float *) smalloc(block*sizeof(Float));
     wilson_p->recv_buf[idx]=(Float *) smalloc(block*sizeof(Float));
+	printf("send_buf[%d]=%p recv_buf[%d]=%p\n",
+		idx, wilson_p->send_buf[idx],
+		idx, wilson_p->recv_buf[idx]);
+#endif
 
     wilson_p->msgmem[idx][1] =
       QMP_declare_msgmem((void *)(wilson_p->send_buf[idx]), len);
