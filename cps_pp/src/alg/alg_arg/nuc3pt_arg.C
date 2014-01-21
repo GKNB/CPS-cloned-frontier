@@ -102,6 +102,12 @@ vml_Nuc3ptArg (VML *vmls, char *name,Nuc3ptArg *objp)
 		 return FALSE;
 	 if (!vml_string (vmls, "prop_file", &objp->prop_file, ~0))
 		 return FALSE;
+	 if (!vml_string (vmls, "u_seq_prop_file", &objp->u_seq_prop_file, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "d_seq_prop_file", &objp->d_seq_prop_file, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "ptsrc_prop_file", &objp->ptsrc_prop_file, ~0))
+		 return FALSE;
 	 if (!vml_string (vmls, "ensemble_label", &objp->ensemble_label, ~0))
 		 return FALSE;
 	 if (!vml_int (vmls, "ensemble_id", &objp->ensemble_id))

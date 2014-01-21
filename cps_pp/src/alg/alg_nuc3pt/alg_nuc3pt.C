@@ -832,10 +832,10 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
   qp_arg.cg.mass = mass ;
   qp_arg.t = time ;
 
-  qp_arg.StartSrcSpin = 0 ;
-  qp_arg.EndSrcSpin = 4 ;
-  qp_arg.StartSrcColor = 0 ;
-  qp_arg.EndSrcColor = 3 ;
+  qp_arg.StartSrcSpin  = (Nuc3pt_arg->StartSrcSpin);
+  qp_arg.EndSrcSpin    = (Nuc3pt_arg->EndSrcSpin);
+  qp_arg.StartSrcColor = (Nuc3pt_arg->StartSrcColor);
+  qp_arg.EndSrcColor   = (Nuc3pt_arg->EndSrcColor);
 
   if (qp_arg.StartSrcSpin >= qp_arg.EndSrcSpin 
 	|| qp_arg.StartSrcColor >= qp_arg.EndSrcColor)   
@@ -889,16 +889,6 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete aprop ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
-#if 0
-	// impose twisted b.c. if requested
-	if(Nuc3pt_arg->theta != 0){
-	  
-	  for(mu=0;mu<3;mu++){
-	    twist_links(AlgLattice(), 
-			Nuc3pt_arg->theta, mu);
-	  }
-	}
-#endif
 	  q_prop[n] = new QPropWBoxSrc(AlgLattice(),&qp_arg, &box_arg, common_arg);
 	  q_prop[n]->Run();
       }
@@ -920,19 +910,12 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete apr ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
-#if 0
-	// impose twisted b.c. if requested
-	if(Nuc3pt_arg->theta != 0){
-	  for(mu=0;mu<3;mu++){
-	    twist_links(AlgLattice(), 
-			     Nuc3pt_arg->theta, mu);
-	  }
-	}
-#endif
-	sprintf(out_prop, "prop_m%g_tsrc%d_%s_%d",mass,time,
-		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
-	qp_arg.file = out_prop;
 
+	//sprintf(out_prop, "prop_m%g_tsrc%d_%s_%d",mass,time,
+	//Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
+	//qp_arg.file = out_prop;
+	qp_arg.file = Nuc3pt_arg->ptsrc_prop_file;
+	
 	Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
 	
 	if(Nuc3pt_arg->calc_QProp != READ_QPROP){
@@ -940,7 +923,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	} else {
 	  q_prop[n] = new QPropWPointSrc(AlgLattice(),common_arg);
 	  q_prop[n]->Allocate(0);
-	  q_prop[n]->RestoreQProp(out_prop,0);
+	  q_prop[n]->RestoreQProp(qp_arg.file,0);
 	}
       }
     }
@@ -973,20 +956,12 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	  delete apr ;
 	  GJP.Tbc(save_bc); // Restore original BC
       }else{
-#if 0
-	// impose twisted b.c. if requested
-	if(Nuc3pt_arg->theta != 0){
-	  //printf("Made it here\n");
-	  for(mu=0;mu<3;mu++){
-	    twist_links(AlgLattice(), 
-			Nuc3pt_arg->theta, mu);
-	  }
-	}
-#endif
-	sprintf(out_prop, "prop_m%g_tsrc%d_GS_w%g_n%d_%s_%d",mass,time,
-		Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,
-		Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
-	qp_arg.file = out_prop;
+
+	//sprintf(out_prop, "prop_m%g_tsrc%d_GS_w%g_n%d_%s_%d",mass,time,
+	//Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,
+	//Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id);	  
+	//qp_arg.file = out_prop;
+	qp_arg.file = Nuc3pt_arg->prop_file;
 
 	Fprintf(stdout, "prop outfile = %s\n", qp_arg.file);
 	
@@ -995,7 +970,7 @@ void AlgNuc3pt::GetThePropagator(int n, int time, Float mass){
 	} else {
 	  q_prop[n] = new QPropWGaussSrc(AlgLattice(),&qp_arg,&gauss_arg,common_arg,qp_arg.file);
 	  q_prop[n]->Allocate(0);
-	  q_prop[n]->RestoreQProp(out_prop,0);
+	  q_prop[n]->RestoreQProp(qp_arg.file,0);
 	}
       }
     }
@@ -1029,15 +1004,10 @@ void  AlgNuc3pt::GetTheSeqPropagator(int time, Float mass, SourceType type,
   qp_arg.cg.mass = mass ;
   qp_arg.t = time ;
 
-  qp_arg.StartSrcSpin  = 0;
-  qp_arg.EndSrcSpin    = 4;
-  qp_arg.StartSrcColor = 0;
-  qp_arg.EndSrcColor   = 3;
-
-//  qp_arg.StartSrcSpin  = (Nuc3pt_arg->StartSrcSpin);
-//  qp_arg.EndSrcSpin    = (Nuc3pt_arg->EndSrcSpin);
-//  qp_arg.StartSrcColor = (Nuc3pt_arg->StartSrcColor);
-//  qp_arg.EndSrcColor   = (Nuc3pt_arg->EndSrcColor);
+  qp_arg.StartSrcSpin  = (Nuc3pt_arg->StartSrcSpin);
+  qp_arg.EndSrcSpin    = (Nuc3pt_arg->EndSrcSpin);
+  qp_arg.StartSrcColor = (Nuc3pt_arg->StartSrcColor);
+  qp_arg.EndSrcColor   = (Nuc3pt_arg->EndSrcColor);
 
   // for multi-sink calculations. -MFL
   int *t_sink=(int *) smalloc(cname,fname,"t_sink",num_qprop*sizeof(int));
@@ -1123,22 +1093,25 @@ void  AlgNuc3pt::GetTheSeqPropagator(int time, Float mass, SourceType type,
 	else{
 	  //Save 5d prop in memory
 	  if(Nuc3pt_arg->DoConserved) qp_arg.save_ls_prop = 2;
-          qp_arg.file=out_prop;
+
+          //qp_arg.file=out_prop;
 
 	  //Assuming we place the sources and sinks evenly on the lattice.
 	  //There is little reason why we don't want to do that. --MFL
-	  sprintf( out_prop, "prop_seq_u_m%g_tsrc%d_tsnk%d_GS_w%g_n%d_%s_%s_%d",mass,q_prop[0]->SourceTime(),time,Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
+	  //sprintf( out_prop, "prop_seq_u_m%g_tsrc%d_tsnk%d_GS_w%g_n%d_%s_%s_%d",
+	  //mass,q_prop[0]->SourceTime(),time,Nuc3pt_arg->gauss_W,
+	  //Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
 
-	 //commented out for the moment. --MFL 
-	 //if(Nuc3pt_arg->num_mult==2) sprintf( out_prop, "prop_seq_u_m%g_tsrc%d_%d_tsnk%d_%d_GS_w%g_n%d_%s_%s_%d",mass,q_prop->SourceTime(),Nuc3pt_arg->mt[1]-Nuc3pt_arg->t_sink,Nuc3pt_arg->mt[0],Nuc3pt_arg->mt[1],Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
+          qp_arg.file=Nuc3pt_arg->u_seq_prop_file;
+
 	  if(Nuc3pt_arg->calc_seqQ != READ_SEQ){
 	    u_s_prop = new QPropWMultSeqProtUSrc(AlgLattice(), num_qprop, q_prop, mom, P, 
 					     &qp_arg,&gauss_arg, common_arg,t_sink);
 	  } else {
 	    u_s_prop = new QPropWMultSeqProtUSrc(AlgLattice(), 1, q_prop, mom, P, &qp_arg, &gauss_arg, common_arg, out_prop);
 	    u_s_prop->Allocate(0);
-//	    u_s_prop->RestoreQProp(out_prop,0);
-	    u_s_prop->ReLoad(out_prop);	
+	    u_s_prop->RestoreQProp(qp_arg.file,0); // "0" no midpoint
+	    //u_s_prop->ReLoad(out_prop);	
 	  }
 	}
       }
@@ -1169,10 +1142,13 @@ void  AlgNuc3pt::GetTheSeqPropagator(int time, Float mass, SourceType type,
 	    sprintf(qp_arg.file,"prop_d");
 	  }
 	  if(Nuc3pt_arg->DoConserved == 2) qp_arg.save_ls_prop = 2;
-          qp_arg.file=out_prop;
+          //qp_arg.file=out_prop;
 
-	  sprintf( out_prop, "prop_seq_d_m%g_tsrc%d_tsnk%d_GS_w%g_n%d_%s_%s_%d",mass,q_prop[0]->SourceTime(),time,Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
-	  //	  if(Nuc3pt_arg->num_mult==2) sprintf( out_prop, "prop_seq_d_m%g_tsrc%d_%d_tsnk%d_%d_GS_w%g_n%d_%s_%s_%d",mass,q_prop->SourceTime(),Nuc3pt_arg->mt[1]-Nuc3pt_arg->t_sink,Nuc3pt_arg->mt[0],Nuc3pt_arg->mt[1],Nuc3pt_arg->gauss_W,Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
+	  //sprintf( out_prop, "prop_seq_d_m%g_tsrc%d_tsnk%d_GS_w%g_n%d_%s_%s_%d",
+	  //mass,q_prop[0]->SourceTime(),time,Nuc3pt_arg->gauss_W,
+	  //Nuc3pt_arg->gauss_N,prjct,Nuc3pt_arg->ensemble_label,Nuc3pt_arg->ensemble_id );
+
+          qp_arg.file=Nuc3pt_arg->d_seq_prop_file;
 
 	  if(Nuc3pt_arg->calc_seqQ != READ_SEQ){
 	    d_s_prop = new QPropWMultSeqProtDSrc(AlgLattice(),num_qprop, q_prop, mom, P, 
@@ -1180,7 +1156,8 @@ void  AlgNuc3pt::GetTheSeqPropagator(int time, Float mass, SourceType type,
 	  } else {
 	    d_s_prop = new QPropWMultSeqProtDSrc(AlgLattice(), 1, q_prop, mom, P, &qp_arg, &gauss_arg, common_arg, out_prop);
 	    d_s_prop->Allocate(0);
-	    d_s_prop->ReLoad(out_prop);
+	    //d_s_prop->ReLoad(out_prop);
+	    d_s_prop->RestoreQProp(qp_arg.file,0); // "0" no midpoint
 	  }
 	}
       }
