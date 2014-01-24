@@ -58,6 +58,8 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 #endif
   broadcastInt(&hd.recon_row_3);
   //  cout << "recon_row_3 = " << hd.recon_row_3 << endl;
+#endif
+
 
 
   // check all conditions between FILE and GJP

@@ -108,11 +108,6 @@ int main(int argc,char *argv[]){
     cg_arg.stop_rsd = 1e-8;
     cg_arg.max_num_iter = 5000;
 
-#if TARGET==cpsMPI
-    MPISCU::set_pe_grid(do_arg.x_nodes, do_arg.y_nodes, do_arg.z_nodes, do_arg.t_nodes);    
-    using MPISCU::fprintf;
-    using MPISCU::printf;
-#endif
 
     printf("total sites = %d %d %d %d\n",nx,ny,nz,nt);
     

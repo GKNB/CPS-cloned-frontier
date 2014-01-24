@@ -40,6 +40,7 @@ class Nuc3ptArg {
 	int EndSrcSpin;
 	int StartSrcColor;
 	int EndSrcColor;
+	int DoDisconnected;
 
 	memfun   Nuc3ptArg (  ) ;
 	memfun   void check_args (  ) ;

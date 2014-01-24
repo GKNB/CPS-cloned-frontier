@@ -60,6 +60,7 @@ public:
 	int EndSrcSpin;
 	int StartSrcColor;
 	int EndSrcColor;
+	int DoDisconnected;
 	   Nuc3ptArg (  ) ;
 	   void check_args (  ) ;
 	   int NumMasses (  ) ;
