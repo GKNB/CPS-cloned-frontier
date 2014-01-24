@@ -49,7 +49,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   log();
 
 #ifdef USE_QMP
-  QMP_broadcast(&hd.data_start, sizeof(long));
+  QMP_broadcast(&hd.data_start, sizeof(streamoff));
 #else
   assert(sizeof(int) == sizeof(streamoff));
   int temp_start = hd.data_start;
