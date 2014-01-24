@@ -99,6 +99,7 @@ AlgMuon::AlgMuon(Lattice& latt, CommonArg *c_arg, MuonArg *arg, QPropWArg *qarg)
                ext_mom[count] = ThreeMom(p1,p2,p3);
                count++ ;
              }
+  Nmom = count;
 
   prop=NULL ;
   // must initialize
@@ -151,6 +152,7 @@ AlgMuon::AlgMuon(Lattice& latt, CommonArg *c_arg, MuonArg *arg, QPropWArg *qarg,
                ext_mom[count] = ThreeMom(p1,p2,p3);
                count++ ;
              }
+  Nmom = count;
 
   prop=NULL ;
   // must initialize
