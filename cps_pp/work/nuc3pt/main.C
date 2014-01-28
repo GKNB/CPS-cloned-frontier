@@ -211,7 +211,7 @@ int main(int argc,char *argv[])
     etime = time_elapse();
     if(!UniqueID())printf("Time for Lanczos %g\n",etime);
     
-#if 1
+#if 0
   {
     if( GJP.Snodes() != 1) ERR.NotImplemented(cname,fname,"currently only doing I/O for local Ls\n");
 
