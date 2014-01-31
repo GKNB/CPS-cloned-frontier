@@ -29,8 +29,10 @@
 #include <alg/no_arg.h>
 #include <util/time_cps.h>
 #include <util/qcdio.h>
+#ifdef USE_QIO
 #include <util/qio_writeGenericFields.h>
 #include <util/qio_readGenericFields.h>
+#endif
 #include <util/dirac_op.h>
 #include <alg/cg_arg.h>
 #include <comms/sysfunc_cps.h>
@@ -487,6 +489,7 @@ class EigenContainer {
   Vector* nev_load( int index )
   {
 
+#ifdef USE_QIO
     VRB.Flow(cname,"nev_load(I)","ecache %x \n", ecache);
     if (ecache){ // cached, don't read in again
       VRB.Flow(cname,"nev_load(I)"," index %d ecache->index[index] %d \n",
@@ -528,6 +531,9 @@ class EigenContainer {
     }
     printf("returning eig-vec %d\n",index % save_stride);
     return evec+(index % save_stride)*stride;
+#else
+    ERR.General(cname,"nev_load(I)","Needs QIO. Aborted");
+#endif
   }
 
   // save to file with the specified "nev" index
@@ -537,6 +543,7 @@ class EigenContainer {
 		 char* ensemble_label="n/a",
 		 int seqNum=777 )
   {
+#ifdef USE_QIO
     double time=dclock();
     
     char file[1024];
@@ -558,6 +565,9 @@ class EigenContainer {
     //writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
 
     if(!UniqueID()) printf("nev_save, time to save :%e sec\n",time-dclock());
+#else
+    ERR.General(cname,"nev_save()","Needs QIO. Aborted");
+#endif
   }
 
 
