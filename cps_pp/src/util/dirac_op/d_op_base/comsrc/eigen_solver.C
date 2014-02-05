@@ -1,6 +1,4 @@
 #include <config.h>
-CPS_START_NAMESPACE
-CPS_END_NAMESPACE
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
@@ -1147,14 +1145,17 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 
 //#define USE_BLAS
 #include <util/qblas_extend.h>
-#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
 #ifndef USE_BLAS
+#include <util/vector_template_func.h>
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot)=dotProduct(px,py,n); glb_sum((p_dot)); }
 #define ZDOT(n,px,py,p_dot) compDotProduct( p_dot, p_dot+1, px, py, n)
-#define ZAXPY(n, fact, px, py)   cTimesV1PlusV2(psi, fact[0], fact[1], px, py, n);
+#define ZAXPY(n, fact, px, py)   cTimesV1PlusV2(py, fact[0], fact[1], px, py, n);
+//void  ZAXPYfloat( int n, float *fact,  float *px,  float *py)   
+//{ cTimesV1PlusV2<float,float,float>(py, fact[0], fact[1], px, py, n); }
+//#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
 #else
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
@@ -1276,7 +1277,10 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
     {
 
       //ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
+#if 0 
+//// has to be recoverd !!! - CJ
       cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
+#endif
       xpd[0] = (Float)xp[0];
       xpd[1] = (Float)xp[1];
       slice_sum((Float*)xpd, 2, 1970);
@@ -1289,8 +1293,11 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
       /* psi = psi - <vec[i],psi> vec[i] */
       xp[0] =-xp[0]; xp[1] = -xp[1];
       //ZAXPY(f_size, xp, vec[i], psi);
-      ZAXPYfloat(f_size, xp, vec[i], (float*)vtmp);
-
+//      ZAXPYfloat(f_size, xp, vec[i], (float*)vtmp);
+#if 0
+	float * vtmp_f = (float *)vtmp;
+	 template cTimesV1PlusV2<float,float,float>(vtmp_f, xp[0], xp[1], vec[i],vtmp_f, f_size);
+#endif
       if(i==Nvec-1 && alpha)  *alpha = xp[0];   //  Re ( vec[Nvec-1],  psi ) needed for Lanczos' alpha
     }
 

@@ -79,7 +79,7 @@ void dwf_dslash_4(Vector *out,
   size_cb[1] = 24*wilson_p->vol[1];
   
 //#ifndef USE_TEST
-#ifndef USE_QMP
+#ifndef USE_WILSON_DSLASH_VEC
   //----------------------------------------------------------------
   // Apply 4-dimensional Dslash
   //----------------------------------------------------------------
