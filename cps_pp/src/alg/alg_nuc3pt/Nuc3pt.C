@@ -486,7 +486,7 @@ void Nuc3ptClover::InsertOp(CorrFunc& corr,QPropW& seqQ, QPropW& Quark)
       x[1]=s.Y();
       x[2]=s.Z();
       x[3]=s.T();
-      //CloverLeaf(seqQ.AlgLattice(),Leaf,x,G[0],G[1]);
+      // declared in lattice.h, defined in alg_tcharge:
       Quark.AlgLattice().CloverLeaf(Leaf,x,G[0],G[1]);
       Leaf.TrLessAntiHermMatrix();
       Complex cc(mom.Fact(s)) ; // The momentum factor exp(-ipx)
