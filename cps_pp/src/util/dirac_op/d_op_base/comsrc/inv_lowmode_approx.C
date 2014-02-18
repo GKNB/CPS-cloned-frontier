@@ -1,6 +1,6 @@
 #include <config.h>
 
-#define USE_BLAS
+#undef USE_BLAS
 
 CPS_START_NAMESPACE
 /*! \file
@@ -160,6 +160,7 @@ int DiracOp::InvLowModeApprox(
   sol->VecZero( f_size_cb );
 
   Float* evecFloat = (Float*)smalloc(f_size_cb * sizeof(Float));
+  Vector *evecVec = (Vector *)evecFloat;
 
   for(int iev=0;iev<neig;++iev) {
     
@@ -169,7 +170,7 @@ int DiracOp::InvLowModeApprox(
     //print_time("inv_lowmode_approx","loading", time_elapse());
 
 #ifndef USE_BLAS
-    Complex z = evecFloat->CompDotProductGlbSum( src, f_size_cb );
+    Complex z = evecVec->CompDotProductGlbSum( src, f_size_cb );
 #else
     Complex z;
 
@@ -189,7 +190,7 @@ int DiracOp::InvLowModeApprox(
     z /= eval[ iev ];
 
 #ifndef USE_BLAS
-    sol -> CTimesV1PlusV2(z, evecFloat, sol, f_size_cb );
+    sol -> CTimesV1PlusV2(z, evecVec, sol, f_size_cb );
 #else
 #if TARGET == BGL
     cblas_zaxpy( f_size_cb / 2, *(complex<double>*)&z, (complex<double>*)evecFloat, 1, (complex<double>*)sol,1);
