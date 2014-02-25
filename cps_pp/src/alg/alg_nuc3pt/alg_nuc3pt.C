@@ -706,12 +706,14 @@ void AlgNuc3pt::run()
       
       // do some disconnected traces
       if(Nuc3pt_arg->DoDisconnected){
-	
+
+	//put disconnected loop time slice in the middle for now.	
+	int disc_ts = (ts + Nuc3pt_arg->t_sink/2)%(GJP.Tnodes()*GJP.TnodeSites());
 	SourceType save_src_type = Nuc3pt_arg->src_type;
 	if(save_src_type != POINT){
 	  SourceType save_src_type = Nuc3pt_arg->src_type;
 	  Nuc3pt_arg->src_type=POINT;
-	  GetThePropagator(n, ts, qmass);
+	  GetThePropagator(n, disc_ts, qmass);
 	}
 	
 	// sink site = src site
@@ -719,7 +721,7 @@ void AlgNuc3pt::run()
 	int procCoorX = Nuc3pt_arg->x[0] / GJP.XnodeSites();
 	int procCoorY = Nuc3pt_arg->x[1] / GJP.YnodeSites();
 	int procCoorZ = Nuc3pt_arg->x[2] / GJP.ZnodeSites();
-	int procCoorT = ts / GJP.TnodeSites();
+	int procCoorT = disc_ts / GJP.TnodeSites();
 	// get my node coordinates
 	int coor_x = GJP.XnodeCoor();
 	int coor_y = GJP.YnodeCoor();
@@ -744,7 +746,7 @@ void AlgNuc3pt::run()
 	Site srcSite(Nuc3pt_arg->x[0] % GJP.XnodeSites(),
 		     Nuc3pt_arg->x[1] % GJP.YnodeSites(), 
 		     Nuc3pt_arg->x[2] % GJP.ZnodeSites(), 
-		     ts % GJP.TnodeSites() );
+		     disc_ts % GJP.TnodeSites() );
 	int srcIndex = srcSite.Index();
 	
 	// loop over sites since cloverleaf requires links to be sent from off node,
@@ -763,19 +765,19 @@ void AlgNuc3pt::run()
 	  //scalar
 	  Rcomplex cc = temp.Trace();
 	  if(Index==srcIndex && Node==srcNode)
-	    Fprintf(fp,"Disc tr scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	    Fprintf(fp,"Disc tr scalar %d %d %d %d %0.14e %0.14e\n",x,y,z,disc_ts,cc.real(),cc.imag());
 	  //pseudoscalar
 	  temp.gl(-5);
 	  cc = temp.Trace();
 	  if(Index==srcIndex && Node==srcNode)
-	    Fprintf(fp,"Disc tr gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,ts,cc.real(),cc.imag());
+	    Fprintf(fp,"Disc tr gamma5 %d %d %d %d %0.14e %0.14e\n",x,y,z,disc_ts,cc.real(),cc.imag());
 	  //vector
 	  for(int mu=0; mu < 4; mu++){
 	    temp = (*q_prop[n])[Index];
 	    temp.gl(mu);
 	    Rcomplex cc = temp.Trace();
 	    if(Index==srcIndex && Node==srcNode)
-	      Fprintf(fp,"Disc tr gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,ts,cc.real(),cc.imag());
+	      Fprintf(fp,"Disc tr gamma%d %d %d %d %d %0.14e %0.14e\n",mu,x,y,z,disc_ts,cc.real(),cc.imag());
 	  }
 	  //tensor
 	  int my_x[4];
@@ -792,7 +794,7 @@ void AlgNuc3pt::run()
 	      Rcomplex cc2 = Tr(mat,Leaf);
 	      if(Index==srcIndex && Node==srcNode)
 		Fprintf(fp,"Disc tr sigma%d%d (x Field Str) %d %d %d %d %0.14e %0.14e  %0.14e %0.14e\n",
-			mu,nu,x,y,z,ts,cc.real(),cc.imag(),cc2.real(),cc2.imag());
+			mu,nu,x,y,z,disc_ts,cc.real(),cc.imag(),cc2.real(),cc2.imag());
 	    }
 	  }
 	}
