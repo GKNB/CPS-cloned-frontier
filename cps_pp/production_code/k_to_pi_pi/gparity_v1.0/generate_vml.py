@@ -116,6 +116,22 @@ class CGAttrArg:
         fhandle.write("double true_rsd = %f\n" % self.true_rsd)
         fhandle.write("}");  
 
+class StoreMidpropAttrArg:
+    def __init__(self):
+        pass
+    def write(self,fhandle):
+        fhandle.write("AttrType type = STORE_MIDPROP_ATTR\n")
+        fhandle.write("struct StoreMidpropAttrArg store_midprop_attr = {\n")
+        fhandle.write("}\n");
+
+class GparityOtherFlavPropAttrArg:
+    def __init__(self,other_flav_tag):
+        self.other_flav_tag = other_flav_tag
+    def write(self,fhandle):
+        fhandle.write("AttrType type = GPARITY_OTHER_FLAV_PROP_ATTR\n")
+        fhandle.write("struct GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr = {\n")
+        fhandle.write("string tag = \"%s\"\n" % self.other_flav_tag)
+        fhandle.write("}\n");
 
 
 class PropagatorArg:
@@ -128,6 +144,7 @@ class PropagatorArg:
     def write(self,fhandle, vname, array_idx):
         fhandle.write("class PropagatorArg %s[%d] = {\n" % (vname,array_idx) )
         fhandle.write("struct GenericPropAttrArg generics = {\n")
+        fhandle.write("PropagatorType type = QPROPW_TYPE\n")
         fhandle.write("string tag = \"%s\"\n" % self.tag)
         fhandle.write("double mass = %e\n" % self.mass)
         fhandle.write("Vector bc[4] = {\n")
@@ -160,7 +177,9 @@ class PropagatorArg:
             self.setGparityFlavor(flav)
     def setCombinationSource(self,prop_A,prop_B,comb):
         self.attr.append( PropCombinationAttrArg(prop_A,prop_B,comb))
-               
+
+    def storeMidPoint(self):
+        self.attr.append( StoreMidpropAttrArg() )
 
 class JobPropagatorArgs:
     def __init__(self):
@@ -172,6 +191,7 @@ class JobPropagatorArgs:
         for i in range(len(self.props)):
             self.props[i].write(fhandle,"props",i)
         fhandle.write("}\n")
+        fhandle.write("Array lanczos[0] = {\n}\n")
         fhandle.write("}\n")
         fhandle.close()
 
@@ -460,6 +480,33 @@ class ContractionTypeTopologicalCharge:
         fhandle.write("double ape_su3_proj_tolerance = %s\n" % self.ape_su3_proj_tolerance)
         fhandle.write("int ape_orthog = %s\n" % self.ape_orthog)
         fhandle.write("double ape_coef = %s\n" % self.ape_coef)
+        fhandle.write("string file = \"%s\"\n" % self.file)
+        fhandle.write("}\n")
+
+
+class ContractionTypeWilsonFlow:
+    def __init__(self,n_steps,time_step ,file):
+        self.n_steps = n_steps
+        self.time_step = time_step
+        self.file = file
+
+    def write(self,fhandle):
+        fhandle.write("ContractionType type = CONTRACTION_TYPE_WILSON_FLOW\n")
+        fhandle.write("struct ContractionTypeWilsonFlow contraction_type_wilson_flow = {\n")
+        fhandle.write("int n_steps = %d\n" % self.n_steps)
+        fhandle.write("double time_step = %f\n" % self.time_step)
+        fhandle.write("string file = \"%s\"\n" % self.file)
+        fhandle.write("}\n")
+
+class ContractionTypeMres:
+    def __init__(self,prop,file):
+        self.prop = prop
+        self.file = file
+
+    def write(self,fhandle):
+        fhandle.write("ContractionType type = CONTRACTION_TYPE_MRES\n")
+        fhandle.write("struct ContractionTypeMres contraction_type_mres = {\n")
+        fhandle.write("string prop = \"%s\"\n" % self.prop)
         fhandle.write("string file = \"%s\"\n" % self.file)
         fhandle.write("}\n")
 
