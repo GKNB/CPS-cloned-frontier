@@ -307,6 +307,9 @@ class Lattice
         //!< Calculates the gauge field square staple sum  around a link
         //Buffered version of staple
 
+    // compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
+    void CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) ;
+    
     void RectStaple(Matrix& stap, int *x, int mu) ;
         //!< Calculates the rectangle staple sum around a link.
         // The rectangle field is:
@@ -1215,9 +1218,6 @@ class Lattice
     //!< Note: Agent classes which needs to import gauge field to
     //!external libraries need to overwrite this function.
     virtual void BondCond();
-
-    // compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
-    void CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) ;
 
 };
 

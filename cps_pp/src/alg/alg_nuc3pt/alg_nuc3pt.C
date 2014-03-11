@@ -27,9 +27,7 @@
 #include <stdlib.h>	// exit()
 #include <stdio.h>
 #include <alg/alg_nuc3pt.h>
-#include <alg/nuc3pt.h>
 #include <alg/meson.h>
-//#include <util/u1.h>
 
 CPS_START_NAMESPACE
 
@@ -789,7 +787,7 @@ void AlgNuc3pt::run()
 	      Matrix mat = SpinTrace(temp);
 	      Rcomplex cc = mat.Tr();
 	      Matrix Leaf;
-	      q_prop[n]->AlgLattice().CloverLeaf(Leaf,my_x,mu,nu);
+	      AlgLattice().CloverLeaf(Leaf,my_x,mu,nu);
 	      Leaf.TrLessAntiHermMatrix();
 	      Rcomplex cc2 = Tr(mat,Leaf);
 	      if(Index==srcIndex && Node==srcNode)
