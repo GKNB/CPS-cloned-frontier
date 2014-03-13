@@ -247,16 +247,24 @@ class Lattice
     }
     //!< Returns the pointer to the gauge field configuration.
 
-    Matrix *SigmaField() const {
+    int *SigmaField() const {
         return sigma_field;
     }
     //!< Returns the pointer to the sigma field configuration.
 
     static Float delta_beta;
+    static Float deltaS_offset;
     int GetSigma(const int *site, int mu, int nu) const;
-    void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float plaq_multiplier, Float delta_plaq_multiplier);
-    Float SumSigmaEnergyNode(Float delta_plaq_multiplier);
-    virtual void SigmaHeatBath() { ERR.NotImplemented(cname, "SigmaHeatBath()"); }
+    void ScaleStaple(Matrix *stap, int x[4], int mu, int nu);
+    void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu);
+    Float SumSigmaEnergyNode();
+    virtual void SigmaHeatbath() { ERR.NotImplemented(cname, "SigmaHeatBath()"); }
+    Float ReTrPlaqNonlocal(int *x, int mu, int nu);
+    Float ReTrLoopReentrant(const int *x, const int *dir,  int length);
+
+    Float DeltaS(Float re_tr_plaq) const {
+      return deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
+    }
 
     void GaugeField(Matrix *u);
     //!< Copies an array into the gauge configuration.
@@ -1232,6 +1240,8 @@ class Gwilson : public virtual Lattice
 
     GclassType Gclass();
         // It returns the type of gauge class
+
+    void SigmaHeatbath();
 
     void GactionGradient(Matrix &grad, int *x, int mu) ;
         // Calculates the partial derivative of the gauge action

@@ -46,6 +46,7 @@
 #include <comms/scu.h>
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
+#include <cassert>
 
 #ifdef _TARTAN
 #include <math64.h>
@@ -85,6 +86,7 @@ enum { MATRIX_SIZE = 18 };
 Matrix* Lattice::gauge_field = 0;
 int* Lattice::sigma_field = 0;
 Float Lattice::delta_beta = 0.0;
+Float Lattice::deltaS_offset = 0.0;
 int Lattice::is_allocated = 0;
 int Lattice::is_initialized = 0;
 StrOrdType Lattice::str_ord = CANONICAL;
@@ -557,7 +559,7 @@ int Lattice::GetSigma(const int *site, int mu, int nu) const
   //------------------------------------------------------------------------
   int on_node_site[4];
   int on_node = 1;
-  const int on_node_sigma;
+  int on_node_sigma;
   {
     for (int i = 0; i < 4; ++i) {
       on_node_site[i] = site[i] ;
@@ -581,15 +583,21 @@ int Lattice::GetSigma(const int *site, int mu, int nu) const
   if (on_node) {
     return on_node_sigma;
   } else {
+    // send IFloats as a dirty hack since there isn't an int version of getPlus/MinusData
+    // and I'm too lazy to look up the right way to do it.
     IFloat send = (IFloat)on_node_sigma;
     IFloat recv = -1.0;
     for (int i = 0; i < 4; ++i) {
       while (site[i] != on_node_site[i]) {
         if (site[i] < 0) {
+          //printf("%d starting getMinusData...\n", UniqueID());
           getMinusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          //printf("%d finished getMinusData...\n", UniqueID());
           on_node_site[i] -= node_sites[i];
         } else {
+          //printf("%d starting getPlusData...\n", UniqueID());
           getPlusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          //printf("%d finished getPlusData...\n", UniqueID());
           on_node_site[i] += node_sites[i];
         }
         send = recv;
@@ -740,16 +748,32 @@ void Lattice::Staple(Matrix& stap, int *x, int mu)
 
 //Utility function for below
 //Scale this staple properly by multiplying mp3 by the appropriate sigma factor
-static void ScaleStaple(Matrix *stap, const int x[4], int mu, int nu, Float plaq_multiplier, Float delta_plaq_multiplier) {
+void Lattice::ScaleStaple(Matrix *stap, int x[4], int mu, int nu) 
+{
+
+  //need to get the plaquette regardless of the value of sigma to make sure all
+  //nodes send the same communication requests
+  Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
+  //printf("x = (%d, %d, %d, %d), mu,nu = %d,%d, re_tr_plaq = %e\n", x[0], x[1], x[2], x[3], mu, nu, re_tr_plaq);
+  assert(!(re_tr_plaq != re_tr_plaq));
+
+  Float multiplier;
+
   int sigma = GetSigma(x, mu, nu);
   if(sigma == 0) {
-    stap *= 1.0 + delta_plaq_multipler / plaq_multiplier;
+    multiplier = 1.0 + delta_beta / GJP.Beta();
   } else {
     assert(sigma == 1);
-    Float re_tr_plaq = ReTrPlaq(x, mu, nu);
-    Float exponent = delta_plaq_multiplier * re_tr_plaq;
-    stap *= 1.0 - delta_plaq_multiplier / (plaq_multiplier * (exp(exponent) - 1.0));
+    Float exponent = DeltaS(re_tr_plaq);
+    assert(!(exponent != exponent));
+    if(!(exponent > 0)) printf("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
+    assert(exponent > 0);
+    multiplier = 1.0 - delta_beta / (GJP.Beta() * (exp(exponent) - 1.0));
   }
+
+  assert(!(multiplier != multiplier));
+  
+  *stap *= multiplier;
 }      
 
 //------------------------------------------------------------------
@@ -765,7 +789,7 @@ static void ScaleStaple(Matrix *stap, const int x[4], int mu, int nu, Float plaq
   \param mu The link direction 
 */
 //------------------------------------------------------------------
-void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float plaq_multiplier, Float delta_plaq_multiplier)
+void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu)
 {
 //const char *fname = "Staple(M&,i*,i)";
 //VRB.Func(cname,fname);
@@ -787,6 +811,7 @@ void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float pla
       p1 = GetLinkOld(g_offset, x, nu, mu);
       mp3->Dagger((IFloat *)p1);
 
+      ScaleStaple(mp3, x, mu, nu);
 
       //----------------------------------------------------------
       // p1 = &U_v(x+u)
@@ -816,7 +841,6 @@ void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float pla
 	mDotMPlus((IFloat *)&stap, (const IFloat *)mp2,
 		  (const IFloat *)mp3);
       
-      ScaleStaple(&stap, x, mu, nu, plaq_multiplier, delta_plaq_multiplier);
 
 
 
@@ -873,14 +897,14 @@ void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float pla
 	getMinusData((IFloat *)&m_tmp2, (IFloat *)&m_tmp1,
 		     MATRIX_SIZE, nu);
 
-        ScaleStaple(&m_tmp2, x_minus_nuhat, mu, nu, plaq_multiplier, delta_plaq_multiplier);
+        ScaleStaple(&m_tmp2, x_minus_nuhat, mu, nu);
 	
 	//stap += m_tmp2;
 	vecAddEquVec((IFloat *)&stap, (IFloat *)&m_tmp2,
 		MATRIX_SIZE);
 	
       } else {
-        ScaleStaple(&mp3, x_minus_nuhat, mu, nu, plaq_multiplier, delta_plaq_multiplier);
+        ScaleStaple(mp3, x_minus_nuhat, mu, nu);
 
 	mDotMPlus((IFloat *)&stap, (const IFloat *)mp3,
 		  (const IFloat *)mp2);
@@ -1399,6 +1423,13 @@ Float Lattice::ReTrPlaq(int *x, int mu, int nu) const
   return mp2->ReTr();
 }
 
+Float Lattice::ReTrPlaqNonlocal(int *x, int mu, int nu)
+{
+  int dirs[] = {mu, nu, mu+4, nu+4}; 
+  int length = 4;
+  return ReTrLoopReentrant(x, dirs, length);
+}
+
 
 //------------------------------------------------------------------
 /*!
@@ -1442,7 +1473,7 @@ Float Lattice::SumReTrPlaqNode(void) const
   return sum;
 }
 
-Float Lattice::SumSigmaEnergyNode(Float delta_plaq_multiplier) {
+Float Lattice::SumSigmaEnergyNode() {
   Float sum = 0.0;
   int x[4];
   
@@ -1454,18 +1485,17 @@ Float Lattice::SumSigmaEnergyNode(Float delta_plaq_multiplier) {
 	    for(int nu = mu+1; nu < 4; ++nu) {
               int sigma = GetSigma(x, mu, nu);
 
-              Float re_tr_plaq = ReTrPlaq(x, mu, nu);
+              Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
 
               if(sigma == 0) {
-                sum += delta_plaq_multiplier * re_tr_plaq;
+                sum += DeltaS(re_tr_plaq);
               } else {
                 assert(sigma == 1);
-
-                Float exponent = -delta_plaq_multiplier * re_tr_plaq;
+                Float exponent = -DeltaS(re_tr_plaq);
                 assert(exponent < 0);
-
-                sum += log(1 - exp(exponent));
+                sum += -log(1 - exp(exponent));
               }
+              assert(!(sum != sum));
             }
           }
         }
@@ -1707,6 +1737,25 @@ Float Lattice::ReTrLoop(const int *x, const int *dir,  int length)
   return mp3->ReTr() ;
 }
 
+Float Lattice::ReTrLoopReentrant(const int *x, const int *dir,  int length)
+{
+  const char *fname = "ReTrLoop(i*,i,i)";
+  VRB.Func(cname, fname) ;
+
+  const unsigned CBUF_MODE4 = 0xcca52112;
+  const unsigned CBUF_MODE2 = 0xcca52112;
+
+  setCbufCntrlReg(2, CBUF_MODE2);
+  setCbufCntrlReg(4, CBUF_MODE4);
+
+  Matrix my_mp3;
+
+  my_mp3.ZeroMatrix();
+
+  PathOrdProdPlus(my_mp3, x, dir, length);
+
+  return my_mp3.ReTr() ;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -3248,9 +3297,11 @@ int Lattice::SigmaOffset(const int x[4], int mu, int nu) const {
   //now nu > mu
   
   int plaq_offset = sigma_offset_lookup[mu][nu];
-  assert(offset != -1);
+  assert(plaq_offset != -1);
 
-  int site_offset = 6 * node_sites[0]*(x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]))) 
+  int site_offset = 6 * (x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]*x[3])));
+  assert(site_offset >= 0);
+  assert(site_offset < 6 * GJP.VolNodeSites());
 
   return site_offset + plaq_offset;
 }

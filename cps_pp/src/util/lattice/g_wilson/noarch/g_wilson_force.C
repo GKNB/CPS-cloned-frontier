@@ -26,6 +26,7 @@ const unsigned CBUF_MODE4 = 0xcca52112;
 ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   char *fname = "EvolveMomGforce(M*,F)";
   VRB.Func(cname,fname);
+  VRB.Result(cname, fname, "Entering EvolveMomGforce()\n");
 
   Float L1=0.0;
   Float L2=0.0;
@@ -41,7 +42,9 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   int x[4];
   
   for(x[0] = 0; x[0] < GJP.XnodeSites(); ++x[0]) {
+    //printf("x[0] = %d\n", x[0]);
     for(x[1] = 0; x[1] < GJP.YnodeSites(); ++x[1]) {
+      //printf("x[1] = %d\n", x[1]);
       for(x[2] = 0; x[2] < GJP.ZnodeSites(); ++x[2]) {
 	for(x[3] = 0; x[3] < GJP.TnodeSites(); ++x[3]) {
 	  
@@ -75,6 +78,8 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 
   L1 /= 4.0*GJP.VolSites();
   L2 /= 4.0*GJP.VolSites();
+
+  VRB.Result(cname, fname, "Finished EvolveMomGforce()\n");
 
   return ForceArg(dt*L1, dt*sqrt(L2), dt*Linf);
 

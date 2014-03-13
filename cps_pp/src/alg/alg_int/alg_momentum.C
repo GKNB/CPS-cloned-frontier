@@ -42,6 +42,7 @@ void AlgMomentum::heatbath() {
 
   const char *fname = "heatbath()";
   Float dtime = -dclock();
+  VRB.Result(cname, fname, " called\n");
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   lat.RandGaussAntiHermMatrix(mom, 1.0);
@@ -60,7 +61,9 @@ void AlgMomentum::heatbath() {
 Float AlgMomentum::energy() {
   Float dtime = -dclock();
 
+
   const char *fname = "energy()";
+  VRB.Result(cname, fname, " called\n");
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
   LatticeFactory::Destroy();
@@ -76,6 +79,8 @@ void AlgMomentum::evolve(Float dt, int steps)
 {
   const char *fname = "evolve()";
   Float dtime = -dclock();
+
+  VRB.Result(cname, fname, " called\n");
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   for (int i=0; i<steps; i++) lat.EvolveGfield(mom, dt);

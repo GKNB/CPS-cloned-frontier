@@ -38,6 +38,7 @@ CPS_END_NAMESPACE
 #include <comms/nga_reg.h>
 #include <comms/glb.h>
 #include <comms/cbuf.h>
+#include <cassert>
 CPS_START_NAMESPACE
 
 
@@ -102,17 +103,17 @@ GclassType Gwilson::Gclass(void){
 
 const unsigned CBUF_MODE4 = 0xcca52112;
 
-void Gwilson::SigmaHeatBath() 
+void Gwilson::SigmaHeatbath() 
 {
   const char* fname = "SigmaHeatBath()";
   VRB.Result(cname, fname, "Entering SigmaHeatBath()\n");
 
   int x[4];
 
-  Float delta_plaq_multiplier = delta_beta * invs3;
+  //floats because glb_sum works on floats
+  Float n_zero = 0;
+  Float n_one = 0;
 
-  int n_zero = 0;
-  int n_one = 0;
   Float max_plaq = -999.0;
   Float min_plaq = +999.0;
   
@@ -122,23 +123,26 @@ void Gwilson::SigmaHeatBath()
 	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
 	  for (int mu = 0; mu < 3; ++mu) {
 	    for(int nu = mu+1; nu < 4; ++nu) {
-              Float re_tr_plaq = ReTrPlaq(x, mu, nu);
+              Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
+              //printf("sigmaheatbath re_tr_plaq = %e\n", re_tr_plaq);
               if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
               if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
               
-              Float exponent = -delta_plaq_multiplier * re_tr_plaq;
+              Float exponent = -DeltaS(re_tr_plaq);
+              if(exponent >= 0) printf("re_tr_plaq = %e\n", re_tr_plaq);
               assert(exponent < 0);
               Float probability_zero = exp(exponent);
 
               LRG.AssignGenerator(x);
-              IFloat rand = LRG.Urand();
-              assert(rand > 0 && rand < 1);
+              IFloat rand = LRG.Urand(0.0, 1.0);
+              if(!(rand >= 0 && rand <= 1)) printf("rand = %e\n", rand);
+              assert(rand >= 0 && rand <= 1);
               if(rand < probability_zero) {
-                sigma_field[SigmaOffset(x, mu, nu)] = 0;
-                n_zero++;
+                *(SigmaField() + SigmaOffset(x, mu, nu)) = 0;
+                n_zero += 1.0;
               } else {
-                sigma_field[SigmaOffset(x, mu, nu)] = 1;
-                n_one++;
+                *(SigmaField() + SigmaOffset(x, mu, nu)) = 1;
+                n_one += 1.0;
               }
             }
           }
@@ -150,7 +154,10 @@ void Gwilson::SigmaHeatBath()
   glb_sum(&n_zero);
   glb_sum(&n_one);
 
-  VRB.Result(cname, fname, "Finished: n_zero = %d, n_one = %d; max_plaq = %f, min_plaq = %f\n", n_zero, n_one, max_plaq, min_plaq);
+  glb_max(&max_plaq);
+  glb_min(&min_plaq);
+
+  VRB.Result(cname, fname, "Finished: n_zero = %f, n_one = %f; max_plaq = %f, min_plaq = %f\n", n_zero, n_one, max_plaq, min_plaq);
 }
 
 //------------------------------------------------------------------
@@ -171,14 +178,13 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
   Matrix *u_off = GaugeField()+GsiteOffset(x)+mu;
 
   Float plaq_multiplier = GJP.Beta()*invs3;
-  Float delta_plaq_multiplier = delta_beta * invs3;
 
   //----------------------------------------
   //  get staple
   //     mp1 = staple
   //----------------------------------------
   //Staple(*mp1, x, mu);	
-  StapleWithSigmaCorrections(*mp1, x, mu, plaq_multiplier, delta_plaq_multiplier)
+  StapleWithSigmaCorrections(*mp1, x, mu);
   ForceFlops += 198*3*3+12+216*3;
   
 
@@ -195,13 +201,18 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
   //----------------------------------------
   mDotMEqual((IFloat *)&force, (const IFloat *)mp2, (const IFloat *)mp1);
 
-  vecTimesEquFloat((IFloat *)&force, tmp, MATRIX_SIZE);
+  vecTimesEquFloat((IFloat *)&force, plaq_multiplier, MATRIX_SIZE);
 
   
   // mp1 and mp2 free
 
   mp1->Dagger((IFloat *)&force);
   force.TrLessAntiHermMatrix(*mp1);
+
+  for(int i = 0; i < 18; i++) {
+    Float a = *(((Float*)&force) + i);
+    assert(!(a != a));
+  }
   ForceFlops += 198+18+24;
 }
 
@@ -217,8 +228,19 @@ Float Gwilson::GhamiltonNode(void){
   Float sum = SumReTrPlaqNode();
   sum *= plaq_multiplier;
 
-  Float delta_plaq_multiplier = delta_beta * invs3;
-  Float sigma_energy = SumSigmaEnergyNode(delta_plaq_multiplier);
+  Float sigma_energy = SumSigmaEnergyNode();
+
+  Float glb_normal_energy = sum;
+  Float glb_sigma_energy = sigma_energy;
+  glb_sum(&glb_normal_energy);
+  glb_sum(&glb_sigma_energy);
+
+  sum += sigma_energy;
+
+  VRB.Result(cname, fname, "glb_normal_energy = %f, glb_sigma_energy = %f\n", glb_normal_energy, glb_sigma_energy);
+
+  int x[] = {0, -1, 0, 0};
+  VRB.Result(cname, fname, "after hamilton re_tr_plaq = %e\n", ReTrPlaqNonlocal(x, 0, 1));
 
   return sum;
 
@@ -233,6 +255,8 @@ void Gwilson::GactionGradient(Matrix &grad, int *x, int mu)
 {
   char *fname = "GactionGradient(M&,I*,I)" ;
   VRB.Func(cname, fname) ;
+
+  ERR.NotImplemented(cname, fname);
 
   //----------------------------------------------------------------------------
   // get staple
@@ -261,6 +285,7 @@ void Gwilson::GactionGradient(Matrix &grad, int *x, int mu)
 void Gwilson::AllStaple(Matrix & stap, const int *x, int mu){
   char * fname = "AllStaple()";
   VRB.Func(cname, fname);
+  ERR.NotImplemented(cname, fname);
   BufferedStaple(stap, x, mu); 
 }
 
