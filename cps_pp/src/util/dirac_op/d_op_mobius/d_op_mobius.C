@@ -445,9 +445,9 @@ int DiracOpMobius::MatInv(Vector *out,
   if (temp3 == 0) ERR.Pointer(cname, fname, "temp3");
   VRB.Smalloc(cname,fname, "temp3", temp3, temp_size * sizeof(Float)); 
   Dminus(temp3,in);
-  moveFloat((IFloat *)in, (IFloat *)temp3, 2*temp_size);
-  VRB.Sfree(cname, fname, "temp3", temp3);
-  sfree(temp3);
+  //moveFloat((IFloat *)in, (IFloat *)temp3, 2*temp_size);
+  //VRB.Sfree(cname, fname, "temp3", temp3);
+  //sfree(temp3);
 #endif
 
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
@@ -511,7 +511,9 @@ int DiracOpMobius::MatInv(Vector *out,
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);
   fTimesV1PlusV2((IFloat *)odd_out, kappa_b, (IFloat *)odd_out,
 		 (IFloat *)temp, temp_size);
-  
+
+  VRB.Sfree(cname, fname, "temp3", temp3);
+  sfree(temp3);  
   VRB.Sfree(cname, fname, "temp2", temp2);
   sfree(temp2);
   VRB.Sfree(cname, fname, "temp", temp);

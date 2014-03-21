@@ -122,11 +122,12 @@ int Fmobius::FmatInv(Vector *f_out,
     GJP.SnodeSites(mob_l_ls);
     GJP.Mobius_b(mobius_b_l);
     GJP.Mobius_c(mobius_c_l);
+
     DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
     int iter = dop.MatInv(PRESERVE_YES);
     cg_arg_l->stop_rsd = rsd;
   }
-  
+
   int restart_cnt;
   for(restart_cnt = 1; restart_cnt < n_restart; ++restart_cnt){
     //constructing the new residue
@@ -223,7 +224,6 @@ int Fmobius::FmatInv(Vector *f_out,
       cg_arg_l->stop_rsd = cg_arg_s->stop_rsd;
       cg_arg_l->max_num_iter = cg_arg_s->max_num_iter;
 
-      //DiracOpMobius mdwf(*this, mob_l);
       GJP.SnodeSites(mob_l_ls);
       GJP.Mobius_b(mobius_b_l);
       GJP.Mobius_c(mobius_c_l);
@@ -246,10 +246,10 @@ int Fmobius::FmatInv(Vector *f_out,
   // final solve
   int iter;
   {
-    //DiracOpMobius mdwf(*this, mob_l);
     GJP.SnodeSites(mob_l_ls);
     GJP.Mobius_b(mobius_b_l);
     GJP.Mobius_c(mobius_c_l);
+
     DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
     iter = dop.MatInv(f_out, f_in, true_res, prs_f_in);
   }
