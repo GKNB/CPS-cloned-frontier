@@ -101,11 +101,12 @@ class ParTrans
   static int bc[4];
 
  public:
+  enum {XP=0,XM=1,YP=2,YM=3,ZP=4,ZM=5,TP=6,TM=7};
 
   static int scope_lock;           // lock that forbids more than
                                    // one ParTrans object to be on
                                    // scope at any time.
-  static int PTflops;              //! Count the flops 
+  static double PTflops;              //! Count the flops 
 
   ParTrans(Lattice& latt);         
 

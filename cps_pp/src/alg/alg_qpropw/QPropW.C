@@ -1400,7 +1400,8 @@ QPropW::~QPropW() {
     delete[] lat_back;
 }
 
-#if 0
+//This #if 0 commented out by Greg to solve linker problems
+//#if 0
 void QPropW::SaveQProp(char* name, int mid) {
 
   char *fname = "SaveQProp()";
@@ -1440,8 +1441,305 @@ void QPropW::SaveQProp(char* name, int mid) {
   }
    -------------------- Quarantine ends ----------------------------*/
 }
+//#endif
+
+//Greg: Added RestoreQProp, RestoreQPropLs, RestoreQPropLs_ftom
+//from v5_0_18 to solve linker errors.
+// Restore prop
+void QPropW::RestoreQProp(char* name, int mid) {
+
+  char *fname = "RestoreQProp()";
+  VRB.Func(cname, fname);
+
+  if( prop == NULL ) Allocate(PROP);
+
+  // we need to store the source
+  Float *read_source = (Float*)smalloc(GJP.VolNodeSites()*288*sizeof(Float));
+  if (read_source == 0) ERR.Pointer(cname, fname, "read_source");
+  VRB.Smalloc(cname, fname, "read_source", read_source,
+	      GJP.VolNodeSites() * 288*sizeof(Float));
+
+#ifdef USE_QIO
+
+  //char tmp_filename[256];
+  // strcpy(tmp_filename, qp_arg.file);
+
+  qio_readPropagator readPropQio(qp_arg.file, QIO_FULL_SOURCE, &prop[0], read_source,
+				GJP.argc(), GJP.argv(), VOLFMT);
+#endif // USE_QIO
+  sfree(read_source);
+
+  // Flag set if sequential propagator 
+  int seq_src = ((SrcType()==PROT_U_SEQ)||
+		 (SrcType()==PROT_D_SEQ)||
+		 (SrcType()==MESSEQ));
+
+  if(seq_src) {
+    Site s;
+    for (s.Begin();s.End();s.nextSite()) {
+      QPropW::operator[](s.Index()).gl(-5);
+      QPropW::operator[](s.Index()).hconj();
+    }
+  }
+}
+
+  //-----------------------------------------------------------------
+  // TY Add Start
+// Save 5d prop at each ls
+ void QPropW::SaveQPropLs(Vector* sol_5d, char* name, int ls) {
+
+  char *fname = "SaveQPropLs()";
+  
+  VRB.Func(cname, fname);
+
+  VRB.Flow(cname,fname,"Saving propagator to pfs...\n");
+
+  int fv_size = GJP.Colors() * 4 * 2 * sizeof(Float) * GJP.VolNodeSites();
+  char sname[100];
+
+
+  if(qp_arg.save_ls_prop == 1){
+  int skip_buf = fv_size * ls / sizeof(Vector);
+
+#if TARGET == QCDOC
+  sprintf(sname,"/pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
+#else
+  sprintf(sname,"pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
 #endif
 
+  FILE *fp;
+  if ((fp=fopen(sname,"a"))!=NULL) {
+	fwrite(sol_5d+skip_buf,1,fv_size,fp);
+  } else {
+	ERR.FileA(cname, fname, sname);
+  }
+  fclose(fp);
+
+  }
+
+  if(qp_arg.save_ls_prop == 2){
+  // Flag set if sequential propagator 
+  int seq_src = ((SrcType()==PROT_U_SEQ)||
+		 (SrcType()==PROT_D_SEQ)||
+		 (SrcType()==MESSEQ));
+  int spn = spnclr_cnt / GJP.Colors();
+  int clr = spnclr_cnt - spn * GJP.Colors();
+  int shft_buf = GJP.VolNodeSites() * ls;
+  int skip_buf = shft_buf * SPINOR_SIZE * sizeof(Float) / sizeof(Vector) ;
+  int i;
+  for (int s=0; s<GJP.VolNodeSites(); s++) {
+    i = s*SPINOR_SIZE * sizeof(Float) / sizeof(Vector) ; // FermionVector index
+    propls[s+shft_buf].load_row(spn, clr, (wilson_vector &)sol_5d[i+skip_buf]);
+  }
+
+  if(DoHalfFermion()) {
+    int spn2 = spn + 2;
+    if(!seq_src) {
+      FermionVectorTp src;
+      src.ZeroSource();
+      for (int s=0; s<GJP.VolNodeSites(); s++) {
+	i = s*SPINOR_SIZE * sizeof(Float) / sizeof(Vector) ; // FermionVector index
+	propls[s+shft_buf].load_row(spn2, clr, (wilson_vector &)src[i]);
+      }
+    } else {
+      for (int s=0; s<GJP.VolNodeSites(); s++) {
+	i = s*SPINOR_SIZE * sizeof(Float) / sizeof(Vector) ; // FermionVector index
+	propls[s+shft_buf].load_row(spn2, clr, (wilson_vector &)sol_5d[i+skip_buf]);
+      }      
+    }
+
+  }
+
+  //printf("End propagator to pfs... spn=%d clr=%d\n",spn,clr);
+  }
+ 
+#ifdef PARALLEL
+  QioControl sync;
+  if( sync.synchronize(1)==1 ) ERR.General(cname, fname, "Synchronize Error\n");
+#endif
+}
+
+// Restore 5d prop at ls
+void QPropW::RestoreQPropLs(char* name, int ls) {
+
+  char *fname = "RestoreQPropLs()";
+  VRB.Func(cname, fname);
+
+  // Flag set if sequential propagator 
+  int seq_src = ((SrcType()==PROT_U_SEQ)||
+		 (SrcType()==PROT_D_SEQ)||
+		 (SrcType()==MESSEQ));
+
+  if(qp_arg.save_ls_prop == 1){
+  FermionVectorTp sol;
+  FermionVectorTp midsol;
+    
+  int fv_size = GJP.Colors() * 4 * 2 * sizeof(Float) * GJP.VolNodeSites();
+  char sname[100];
+
+#if TARGET == QCDOC
+  sprintf(sname,"/pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
+#else
+  sprintf(sname,"pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
+#endif
+
+  int Nspin = 4;
+  if (DoHalfFermion()) Nspin = 2;
+
+  FILE *fp;
+  if ((fp=fopen(sname,"r"))!=NULL) {
+    for (int spn=0; spn < Nspin; spn++)
+    for (int col=0; col < GJP.Colors(); col++) {
+      fread((Vector*)sol.data(),1,fv_size,fp);
+      LoadRow(spn,col,sol,midsol);
+
+      if ((DoHalfFermion())&&(!seq_src)) {
+	int spn2 = spn + 2;
+	sol.ZeroSource();
+	LoadRow(spn2,col,sol,midsol);
+      } else {
+	int spn2 = spn + 2;
+	LoadRow(spn2,col,sol,midsol);
+      }
+
+    }
+  } else {
+	ERR.FileA(cname, fname, name);
+  }
+
+  VRB.Flow(cname,fname,"Read prop from file %s\n", sname);
+  fclose(fp);
+  }
+
+  if(qp_arg.save_ls_prop == 2){
+    int f_size = sizeof(WilsonMatrix) * GJP.VolNodeSites() / sizeof(Float);
+
+    int s_local = ls % GJP.SnodeSites();
+    int s_node = ls / GJP.SnodeSites();
+    if( GJP.Snodes() > 1) for(int s=0; s<GJP.VolNodeSites(); s++) prop[s] = 0.0;
+
+    if( s_node == GJP.SnodeCoor() ){
+      int shft_buf = GJP.VolNodeSites() * s_local;
+      for (int s=0; s<GJP.VolNodeSites(); s++) {
+	prop[s] = propls[s+shft_buf];
+	//printf("%d %e %e\n",s,*((Float*)&prop[s]),*((Float*)&propls[s+shft_buf]));
+      }
+      VRB.Debug(cname,fname,"End read propagator from memory\n");
+    }
+    if( GJP.Snodes() > 1 && GJP.Snodes() != 2 )  {
+      VRB.Flow(cname,fname,"d gsum start restore\n",f_size);
+      Float sum;
+      Float* field_4D  = (Float *) prop;
+      for(int i=0; i<f_size; i++){
+	sum = field_4D[i];
+	glb_sum_dir(&sum, 4);
+	field_4D[i] = sum;    
+      }
+      VRB.Flow(cname,fname,"d gsum end restore\n",f_size);
+    }
+  }
+
+  // Rotate the source indices to Chiral basis if needed
+  if ((DoHalfFermion())&&(!seq_src)&&(DoHalfFermion()!=2)) {	
+    for (int s=0;s<GJP.VolNodeSites();s++)
+      prop[s].SinkChiralToDirac(); // multiply by V^\dagger
+  }
+
+#ifdef PARALLEL
+  QioControl sync;
+  if( sync.synchronize(1)==1 ) ERR.General(cname, fname, "Synchronize error\n");
+#endif
+}
+
+// Restore 5d prop from file to memory
+void QPropW::RestoreQPropLs_ftom(char* name) {
+
+  char *fname = "RestoreQPropLs()";
+  VRB.Func(cname, fname);
+
+  // Flag set if sequential propagator 
+  int seq_src = ((SrcType()==PROT_U_SEQ)||
+		 (SrcType()==PROT_D_SEQ)||
+		 (SrcType()==MESSEQ));
+
+  if(qp_arg.save_ls_prop == 1){
+  FermionVectorTp sol;
+  FermionVectorTp midsol;
+    
+  int fv_size = GJP.Colors() * 4 * 2 * sizeof(Float) * GJP.VolNodeSites();
+  char sname[100];
+
+  // Allocate 5d memory
+  if (propls == NULL) { 
+  propls = (WilsonMatrix*)smalloc(GJP.VolNodeSites()*GJP.SnodeSites()*sizeof(WilsonMatrix));
+  if (propls == 0) ERR.Pointer(cname, fname, "propls");
+  VRB.Smalloc(cname, fname, "propls", propls,
+	      GJP.VolNodeSites()*GJP.SnodeSites()*sizeof(WilsonMatrix));
+  VRB.Debug(cname,fname,"Allocate porpls\n");
+  }
+
+  FILE *fp;
+
+  int Nspin = 4;
+  if (DoHalfFermion()) Nspin = 2;
+
+  for(int ls(0); ls<GJP.SnodeSites(); ls++){
+  int shft_buf = GJP.VolNodeSites() * ls;
+
+#if TARGET == QCDOC
+  sprintf(sname,"/pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
+#else
+  sprintf(sname,"pfs/%s.m%0.3f.l%d.id%d.dat",
+	  qp_arg.file,qp_arg.cg.mass,ls,UniqueID());
+#endif
+  if (fp=fopen(sname,"r")) {
+    for (int spn=0; spn < Nspin; spn++)
+    for (int col=0; col < GJP.Colors(); col++) {
+      fread((Vector*)sol.data(),1,fv_size,fp);
+      int i;
+      for (int s=0; s<GJP.VolNodeSites(); s++) {
+	i = s*SPINOR_SIZE; // FermionVector index
+	propls[s+shft_buf].load_row(spn, col, (wilson_vector &)sol[i]);
+      }
+
+      if ((DoHalfFermion())&&(!seq_src)) {
+	int spn2 = spn + 2;
+	sol.ZeroSource();
+	for (int s=0; s<GJP.VolNodeSites(); s++) {
+	  i = s*SPINOR_SIZE; // FermionVector index
+	  propls[s+shft_buf].load_row(spn2, col, (wilson_vector &)sol[i]);
+	}
+      } else {
+	int spn2 = spn + 2;
+	for (int s=0; s<GJP.VolNodeSites(); s++) {
+	  i = s*SPINOR_SIZE; // FermionVector index
+	  propls[s+shft_buf].load_row(spn2, col, (wilson_vector &)sol[i]);
+	}
+      }
+
+    }
+  } else {
+	ERR.FileA(cname, fname, name);
+  }
+
+  VRB.Debug(cname,fname,"Read 5d prop from file to memory\n");
+  fclose(fp);
+  } // ls loop
+
+  // 5d prop in memory
+  qp_arg.save_ls_prop = 2;
+  }
+
+#ifdef PARALLEL
+  QioControl sync;
+  if( sync.synchronize(1)==1 ) ERR.General(cname, fname, "Synchronize error\n");
+#endif
+  }
 
 // Swap 5d prop at ls=0 to GJP.SnodeSites()-1
 void QPropW::SwapQPropLs() {

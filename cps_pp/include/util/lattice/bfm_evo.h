@@ -638,6 +638,10 @@ void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
     // Booee is the identity matrix in this case.
     this->copy(chi, psi);
     return;
+  } else if(this->solver == WilsonFermion || this->solver == WilsonTM) {
+    // This case added by Greg -- hopefully it is right?
+    this->copy(chi, psi);
+    return;
   } else {
     if ( this->isBoss() ) {
       printf("Booee: preconditioned unimplemented \n");

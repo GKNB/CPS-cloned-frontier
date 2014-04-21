@@ -1,4 +1,4 @@
-#ifdef USE_SSE
+#if (defined USE_SSE)||(defined SSE_TO_C)
 /*
  *  Wilson Dslahsh  2010/03/  Taku Izubuchi
  *

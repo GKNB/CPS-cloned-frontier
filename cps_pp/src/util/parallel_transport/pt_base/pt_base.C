@@ -37,7 +37,7 @@ CPS_START_NAMESPACE
 // Initialize static variables
 //------------------------------------------------------------------
 int ParTrans::scope_lock = 0;
-int ParTrans::PTflops = 0;
+double ParTrans::PTflops = 0;
 int ParTrans:: bc[4] = {0,0,0,0};	// boundary condition on this node
 int ParTrans::node_sites[5] = {0,0,0,0,0};
 

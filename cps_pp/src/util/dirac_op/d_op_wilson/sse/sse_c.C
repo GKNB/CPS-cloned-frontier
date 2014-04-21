@@ -1,4 +1,4 @@
-#ifdef SSE_TO_C
+#if (defined USE_SSE)||(defined SSE_TO_C)
 #include <config.h>
 #include <util/data_types.h>
 #include <util/gjp.h>

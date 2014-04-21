@@ -36,7 +36,9 @@ AlgActionGauge::~AlgActionGauge() {
 
 //!< Heat Bath for the gauge action (i.e., does nothing)
 void AlgActionGauge::heatbath() {
-
+  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
+  lat.SigmaHeatbath();
+  LatticeFactory::Destroy();
 }
 
 //!< Calculate gauge contribution to the Hamiltonian
@@ -59,6 +61,7 @@ void AlgActionGauge::prepare_fg(Matrix * force, Float dt_ratio)
 {
   Float dtime = -dclock();
   const char *fname = "prepare_fg(M*,F)";
+  VRB.Result(cname, fname, "Entering prepare_fg()\n");
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
   Fdt = lat.EvolveMomGforce(force, dt_ratio);
@@ -78,6 +81,8 @@ void AlgActionGauge::evolve(Float dt, int steps)
 {
   Float dtime = -dclock();
   const char *fname = "evolve()";
+  VRB.Result(cname, fname, "Entering evolve()\n");
+
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
 

@@ -1,8 +1,4 @@
 #include <config.h>
-#ifdef USE_SSE
-//#if 0
-#include "../sse/sse-wilson_dslash.C"
-#else
 #include <stdio.h>
 #include <math.h>
 /*! \file
@@ -10,18 +6,6 @@
 
   $Id: wilson_dslash.C,v 1.10 2013-04-24 21:16:13 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-24 21:16:13 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/wilson_dslash.C,v 1.10 2013-04-24 21:16:13 chulwoo Exp $
-//  $Id: wilson_dslash.C,v 1.10 2013-04-24 21:16:13 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.10 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/noarch/wilson_dslash.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 /***************************************************************************/
@@ -609,7 +593,6 @@ CPS_END_NAMESPACE
 #include "../qmp/wilson_dslash_qmp.C"
 #endif
 #endif //USE_QMP
-#endif
 
 CPS_START_NAMESPACE
 void wilson_dslash_two(Float *chi0, Float *chi1,

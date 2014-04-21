@@ -4462,7 +4462,7 @@ test -n "$CXX" || CXX="g++"
 
    elif test "$enable_qmp" != "no"; then
    CC=`$enable_qmp/bin/qmp-config --cc`
-   for ac_prog in mpic++ mpiCC mpCC
+   for ac_prog in mpicxx mpic++ mpiCC
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -4505,7 +4505,7 @@ fi
 done
 test -n "$CXX" || CXX="g++"
 
-     for ac_prog in mpicxx
+     for ac_prog in mpicxx mpic++ mpiCC
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -5212,8 +5212,8 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O2 -Wall"
      CXXFLAGS="${CXXFLAGS} -O2 -Wall"
    else
-     CFLAGS="${CFLAGS} -O3 -Wall"
-     CXXFLAGS="${CXXFLAGS} -O3 -Wall"
+     CFLAGS="${CFLAGS} -g -O3 -Wall"
+     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall"
    fi
 fi
 

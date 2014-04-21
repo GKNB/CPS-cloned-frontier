@@ -59,12 +59,16 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_p+nu);
 	for(int i = 0; i<N;i++)
-	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
+//	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
+	tmp2[i]->FTimesV1PlusV2(tmp,tmp1[i],tmp2[i],vol);
+//      vaxpy3_m(tmp2[i],&tmp_rect,tmp1[i],tmp2[i],vol*3);
+//	tmp2[i]->FTimesV1PlusV2(tmp_rect,tmp1[i],tmp2[i],vol);
 	pt.run(N,tmp1,Units,dirs_p+nu);
 	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_m+nu);
 	for(int i = 0; i<N;i++)
-	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
+	tmp2[i]->FTimesV1PlusV2(tmp,tmp1[i],tmp2[i],vol);
+//	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
         ForceFlops +=vol*12*N;
       }
       pt.run(N,result,tmp2,dirs_p);

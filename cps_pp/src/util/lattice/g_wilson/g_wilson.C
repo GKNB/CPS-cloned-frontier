@@ -5,20 +5,6 @@ CPS_START_NAMESPACE
 
   $Id: g_wilson.C,v 1.13 2013-04-05 17:51:14 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:51:14 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/g_wilson/g_wilson.C,v 1.13 2013-04-05 17:51:14 chulwoo Exp $
-//  $Id: g_wilson.C,v 1.13 2013-04-05 17:51:14 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.13 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/g_wilson/g_wilson.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // g_wilson.C
@@ -35,12 +21,24 @@ CPS_END_NAMESPACE
 #include <util/gjp.h>
 #include <util/gw_hb.h>
 #include <util/time_cps.h>
-//#include <comms/nga_reg.h>
 #include <comms/glb.h>
 #include <comms/cbuf.h>
+#include <cassert>
 CPS_START_NAMESPACE
 
 enum { MATRIX_SIZE = 18 };
+//------------------------------------------------------------------
+// static variables used only inside this file
+//------------------------------------------------------------------
+static IFloat invs3 = -1./3.;
+
+static Matrix mt0;
+static Matrix mt1;
+static Matrix mt2;
+static Matrix *mp0 = &mt0;            // ihdot
+static Matrix *mp1 = &mt1;
+static Matrix *mp2 = &mt2;
+
 
 //------------------------------------------------------------------
 // Constructor
@@ -71,8 +69,63 @@ GclassType Gwilson::Gclass(void){
   return G_CLASS_WILSON;
 }
 
-const unsigned CBUF_MODE4 = 0xcca52112;
 
+void Gwilson::SigmaHeatbath() 
+{
+  const char* fname = "SigmaHeatBath()";
+  VRB.Result(cname, fname, "Entering SigmaHeatBath()\n");
+
+  int x[4];
+
+  //floats because glb_sum works on floats
+  Float n_zero = 0;
+  Float n_one = 0;
+
+  Float max_plaq = -999.0;
+  Float min_plaq = +999.0;
+  
+  for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
+    for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
+      for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
+	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+	  for (int mu = 0; mu < 3; ++mu) {
+	    for(int nu = mu+1; nu < 4; ++nu) {
+              Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
+              //printf("sigmaheatbath re_tr_plaq = %e\n", re_tr_plaq);
+              if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
+              if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
+              
+              Float exponent = -DeltaS(re_tr_plaq);
+              if(exponent >= 0) printf("re_tr_plaq = %e\n", re_tr_plaq);
+              assert(exponent < 0);
+              Float probability_zero = exp(exponent);
+
+              LRG.AssignGenerator(x);
+              IFloat rand = LRG.Urand(0.0, 1.0);
+              if(!(rand >= 0 && rand <= 1)) printf("rand = %e\n", rand);
+              assert(rand >= 0 && rand <= 1);
+              if(rand < probability_zero) {
+                *(SigmaField() + SigmaOffset(x, mu, nu)) = 0;
+                n_zero += 1.0;
+              } else {
+                *(SigmaField() + SigmaOffset(x, mu, nu)) = 1;
+                n_one += 1.0;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  glb_sum(&n_zero);
+  glb_sum(&n_one);
+
+  glb_max(&max_plaq);
+  glb_min(&min_plaq);
+
+  VRB.Result(cname, fname, "Finished: n_zero = %f, n_one = %f; max_plaq = %f, min_plaq = %f\n", n_zero, n_one, max_plaq, min_plaq);
+}
 
 //------------------------------------------------------------------
 /*!
@@ -87,24 +140,25 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
   char *fname = "GforceSite(M&,i*,i)";
 //  VRB.Func(cname,fname);
 
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   Matrix *u_off = GaugeField()+GsiteOffset(x)+mu;
 
+  Float plaq_multiplier = GJP.Beta()*invs3;
 
   //----------------------------------------
   //  get staple
   //     mp1 = staple
   //----------------------------------------
-  Matrix mt1;
-  Staple(mt1, x, mu);	
+  //Staple(*mp1, x, mu);	
+  StapleWithSigmaCorrections(*mp1, x, mu);
   ForceFlops += 198*3*3+12+216*3;
   
 
   //----------------------------------------
   // mp2 = U_mu(x)
   //----------------------------------------
-  Matrix mt2(*u_off);
+//  Matrix mt2(*u_off);
+  mt2 =*u_off;
   // moveMem((IFloat *)mp2, (IFloat *)u_off, MATRIX_SIZE * sizeof(IFloat));
 
   
@@ -118,12 +172,18 @@ void Gwilson::GforceSite(Matrix& force, int *x, int mu)
   // vecTimesEquFloat((IFloat *)&force, tmp, MATRIX_SIZE);
   force *= -GJP.Beta() / 3.;
 
-  // mp1->Dagger((IFloat *)&force);
-  // force.TrLessAntiHermMatrix(*mp1);
+//  vecTimesEquFloat((IFloat *)&force, plaq_multiplier, MATRIX_SIZE);
 
   mt1.Dagger(force);
   force.TrLessAntiHermMatrix(mt1);
 
+//  mp1->Dagger((IFloat *)&force);
+//  force.TrLessAntiHermMatrix(*mp1);
+
+  for(int i = 0; i < 18; i++) {
+    Float a = *(((Float*)&force) + i);
+    assert(!(a != a));
+  }
   ForceFlops += 198+18+24;
 }
 
@@ -135,9 +195,24 @@ Float Gwilson::GhamiltonNode(void){
   char *fname = "GhamiltonNode()";
   VRB.Func(cname,fname);
 
-  Float tmp = GJP.Beta() * (-1./3.);
+  Float plaq_multiplier = GJP.Beta()*invs3;
   Float sum = SumReTrPlaqNode();
-  sum *= tmp;
+  sum *= plaq_multiplier;
+
+  Float sigma_energy = SumSigmaEnergyNode();
+
+  Float glb_normal_energy = sum;
+  Float glb_sigma_energy = sigma_energy;
+  glb_sum(&glb_normal_energy);
+  glb_sum(&glb_sigma_energy);
+
+  sum += sigma_energy;
+
+  VRB.Result(cname, fname, "glb_normal_energy = %f, glb_sigma_energy = %f\n", glb_normal_energy, glb_sigma_energy);
+
+  int x[] = {0, -1, 0, 0};
+  VRB.Result(cname, fname, "after hamilton re_tr_plaq = %e\n", ReTrPlaqNonlocal(x, 0, 1));
+
   return sum;
 
 }
@@ -151,6 +226,8 @@ void Gwilson::GactionGradient(Matrix &grad, int *x, int mu)
 {
   char *fname = "GactionGradient(M&,I*,I)" ;
   VRB.Func(cname, fname) ;
+
+  ERR.NotImplemented(cname, fname);
 
   //----------------------------------------------------------------------------
   // get staple
@@ -179,6 +256,7 @@ void Gwilson::GactionGradient(Matrix &grad, int *x, int mu)
 void Gwilson::AllStaple(Matrix & stap, const int *x, int mu){
   char * fname = "AllStaple()";
   VRB.Func(cname, fname);
+  ERR.NotImplemented(cname, fname);
   BufferedStaple(stap, x, mu); 
 }
 

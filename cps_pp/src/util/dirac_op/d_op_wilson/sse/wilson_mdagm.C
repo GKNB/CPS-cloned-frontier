@@ -1,4 +1,4 @@
-#ifdef USE_SSE
+#if (defined USE_SSE)||(defined SSE_TO_C)
 #include <config.h>
 CPS_START_NAMESPACE
 /*! \file

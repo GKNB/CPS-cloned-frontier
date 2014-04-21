@@ -42,6 +42,7 @@ class HDCGInstance{
 
 #include <util/lattice/hdcg_controller.h>
 
+<<<<<<< HEAD
 
 
 HDCGInstance hdcg_instance; // to invoke constructor with defaults
@@ -52,6 +53,8 @@ HDCG_wrapper  *HDCGInstance:: _instance=NULL;
 
 CPS_START_NAMESPACE
 
+=======
+>>>>>>> c7c354d904c3c04a15d46576b5962c77f7c2a21f
 bfmarg Fbfm::bfm_arg;
 bool Fbfm::use_mixed_solver = false;
 
@@ -70,8 +73,40 @@ Fbfm::Fbfm(void):cname("Fbfm")
     if(GJP.Snodes() != 1) {
         ERR.NotImplemented(cname, fname);
     }
+<<<<<<< HEAD
     if(sizeof(Float) == sizeof(float)) {
         ERR.NotImplemented(cname, fname);
+=======
+
+    bevo.init(bfm_arg);
+
+    Float *gauge = (Float *)(this->GaugeField());
+    BondCond();
+    bevo.cps_importGauge(gauge);
+    BondCond();
+
+    // Fill in the array of sproj_tr functions, used for evolution.
+    sproj_tr[SPROJ_XM] = sprojTrXm;
+    sproj_tr[SPROJ_YM] = sprojTrYm;
+    sproj_tr[SPROJ_ZM] = sprojTrZm;
+    sproj_tr[SPROJ_TM] = sprojTrTm;
+    sproj_tr[SPROJ_XP] = sprojTrXp;
+    sproj_tr[SPROJ_YP] = sprojTrYp;
+    sproj_tr[SPROJ_ZP] = sprojTrZp;
+    sproj_tr[SPROJ_TP] = sprojTrTp;
+
+    lclx[0] = GJP.XnodeSites();
+    lclx[1] = GJP.YnodeSites();
+    lclx[2] = GJP.ZnodeSites();
+    lclx[3] = GJP.TnodeSites();
+    lclx[4] = GJP.SnodeSites();
+
+    int vol_5d = lclx[0] * lclx[1] * lclx[2] * lclx[3] * lclx[4];
+    surf_size_all = 0;
+    for(int i = 0; i < 4; ++i) {
+        surf_size[i] = SPINOR_SIZE * (vol_5d / lclx[i]);
+        surf_size_all += surf_size[i];
+>>>>>>> c7c354d904c3c04a15d46576b5962c77f7c2a21f
     }
 
     bd.init(bfm_arg);
@@ -150,7 +185,12 @@ ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
 
     Fermion_t in[2] = {bd.allocFermion(), bd.allocFermion()};
 
+<<<<<<< HEAD
     SetMass(mass);
+=======
+    Float *gauge = (Float *)(this->GaugeField());
+    BondCond();
+>>>>>>> c7c354d904c3c04a15d46576b5962c77f7c2a21f
 
     bd.cps_impexcbFermion((Float *)phi1, in[0], 1, 1);
     bd.cps_impexcbFermion((Float *)phi2, in[1], 1, 1);
@@ -164,6 +204,10 @@ ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
     bd.freeFermion(in[0]);
     bd.freeFermion(in[1]);
 
+<<<<<<< HEAD
+=======
+    BondCond();
+>>>>>>> c7c354d904c3c04a15d46576b5962c77f7c2a21f
     dtime += dclock();
 
     VRB.Result(cname, fname, "takes %17.10e seconds\n", dtime);
@@ -276,11 +320,45 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     Fermion_t in  = bd.allocFermion();
     Fermion_t out = bd.allocFermion();
 
+<<<<<<< HEAD
     SetMass(cg_arg->mass);
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
     // FIXME: pass single precision rsd in a reasonable way.
     bf.residual = 1e-5;
+=======
+    int iter;
+#pragma omp parallel
+    {
+        iter = bevo.CGNE_prec_MdagM(out, in);
+    }
+
+    bevo.cps_impexcbFermion((Float *)f_out, out, 0, 1);
+
+    bevo.freeFermion(in);
+    bevo.freeFermion(out);
+
+    return iter;
+}
+
+int Fbfm::FmatEvlInvMixed(Vector *f_out, Vector *f_in, 
+                          CgArg *cg_arg,
+                          Float single_rsd,
+                          int max_iter,
+                          int max_cycle)
+{
+    bfm_arg.mass = cg_arg->mass;
+
+    bfm_evo<float> bfm_f;
+    bfm_f.init(bfm_arg);
+    bfm_f.residual = single_rsd;
+    bfm_f.max_iter = max_iter;
+
+    Float *gauge = (Float *)(this->GaugeField());
+    BondCond();
+    bfm_f.cps_importGauge(gauge);
+    BondCond();
+>>>>>>> c7c354d904c3c04a15d46576b5962c77f7c2a21f
 
     bd.cps_impexcbFermion((Float *)f_in , in,  1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);

@@ -66,8 +66,8 @@ dnl check if Intel compiler is available if running on 686
        AC_CHECK_PROGS(CXX, xlC, g++)
    elif test "$enable_qmp" != "no"; then
    CC=`$enable_qmp/bin/qmp-config --cc`
-   AC_CHECK_PROGS(CXX, mpic++ mpiCC mpCC, g++)
-     AC_PATH_PROGS(CXX, mpicxx,g++)
+   AC_CHECK_PROGS(CXX, mpicxx mpic++ mpiCC, g++)
+     AC_PATH_PROGS(CXX, mpicxx mpic++ mpiCC, g++)
    else
      AC_PROG_CXX
    fi
@@ -194,8 +194,8 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O2 -Wall"
      CXXFLAGS="${CXXFLAGS} -O2 -Wall"
    else
-     CFLAGS="${CFLAGS} -O3 -Wall"
-     CXXFLAGS="${CXXFLAGS} -O3 -Wall"
+     CFLAGS="${CFLAGS} -g -O3 -Wall"
+     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall"
    fi
 fi
 

@@ -1,8 +1,5 @@
 #include<config.h>
 #include<util/qcdio.h>
-#if TARGET == QCDOC
-#include<qalloc.h>
-#endif
 /*!\file
   \brief  Lattice class methods.
   
@@ -42,21 +39,15 @@
 #include <util/ReadU1LatticePar.h>
 #include <util/checksum.h>
 #include <util/data_shift.h>
-//#include <comms/nga_reg.h>
+#include <comms/sysfunc_cps.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
+#include <cassert>
 
-#ifdef _TARTAN
-#include <math64.h>
-#else
 #include <math.h>
-#endif
 
-#ifdef PARALLEL
-#include <comms/sysfunc_cps.h>
-#endif
 
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
@@ -85,6 +76,9 @@ enum { MATRIX_SIZE = 18 };
 //------------------------------------------------------------------
 Matrix* Lattice::gauge_field = 0;
 Float* Lattice::u1_gauge_field = 0;
+int* Lattice::sigma_field = 0;
+Float Lattice::delta_beta = 0.0;
+Float Lattice::deltaS_offset = 0.0;
 int Lattice::is_allocated = 0;
 int Lattice::is_initialized = 0;
 int Lattice::u1_is_initialized = 0;
@@ -108,13 +102,6 @@ static Matrix m_tmp2 CPS_FLOAT_ALIGN;
 // static variables used only inside this file
 //------------------------------------------------------------------
 //  CRAM temp buffer
-#ifdef _TARTAN
-static Matrix *mp0 = (Matrix *)CRAM_SCRATCH_ADDR;	// ihdot
-static Matrix *mp1 = mp0 + 1;
-static Matrix *mp2 = mp1 + 1;
-static Matrix *mp3 = mp2 + 1;
-static Matrix *mp4 = mp3 + 1;
-#else
 static Matrix mt0;
 static Matrix mt1;
 static Matrix mt2;
@@ -125,7 +112,6 @@ static Matrix *mp1 = &mt1;
 static Matrix *mp2 = &mt2;
 static Matrix *mp3 = &mt3;
 static Matrix *mp4 = &mt4;
-#endif 
 
 
 uint64_t Lattice::ForceFlops=0;
@@ -167,9 +153,12 @@ Lattice::Lattice()
     if(start_conf_kind != START_CONF_LOAD ){
 //       start_conf_kind!=START_CONF_FILE){
       gauge_field = (Matrix *) pmalloc(array_size);
+      sigma_field = (int*) pmalloc(GJP.VolNodeSites() * 6 * sizeof(int)); //six plaquettes per site.
 //     printf("gauge_field=%p\n",gauge_field);
       if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
+      if( sigma_field == 0) ERR.Pointer(cname,fname, "sigma_field");
       VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
+      VRB.Pmalloc(cname, fname, "sigma_field", sigma_field, array_size);
       GJP.StartConfLoadAddr(gauge_field);
     }
 
@@ -788,9 +777,64 @@ GetLinkOld(Float *g_offset, const int *x, int v, int mu) const
     }
 }
 
+int Lattice::GetSigma(const int *site, int mu, int nu) const
+{
+  const char *fname = "GetSigma()";
 
-const unsigned CBUF_MODE2 = 0xcca52112;
-const unsigned CBUF_MODE4 = 0xcca52112;
+  // offset out-of-range coordinates site[] into on_node_site[]
+  // in order to locate the link
+  //------------------------------------------------------------------------
+  int on_node_site[4];
+  int on_node = 1;
+  int on_node_sigma;
+  {
+    for (int i = 0; i < 4; ++i) {
+      on_node_site[i] = site[i] ;
+      while (on_node_site[i] < 0) {
+        on_node_site[i] += node_sites[i] ;
+      }
+      on_node_site[i] %= node_sites[i];
+      if (on_node_site[i] != site[i]) {
+        on_node = 0;
+      }
+    }
+    on_node_sigma = sigma_field[SigmaOffset(on_node_site, mu, nu)];
+  }
+
+#ifndef PARALLEL
+  return on_node_sigma;
+#endif
+
+  // send to the destination node if the site is off-node
+  //------------------------------------------------------------------------
+  if (on_node) {
+    return on_node_sigma;
+  } else {
+    // send IFloats as a dirty hack since there isn't an int version of getPlus/MinusData
+    // and I'm too lazy to look up the right way to do it.
+    IFloat send = (IFloat)on_node_sigma;
+    IFloat recv = -1.0;
+    for (int i = 0; i < 4; ++i) {
+      while (site[i] != on_node_site[i]) {
+        if (site[i] < 0) {
+          //printf("%d starting getMinusData...\n", UniqueID());
+          getMinusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          //printf("%d finished getMinusData...\n", UniqueID());
+          on_node_site[i] -= node_sites[i];
+        } else {
+          //printf("%d starting getPlusData...\n", UniqueID());
+          getPlusData((IFloat *)&recv, (IFloat *)&send, 1, i);
+          //printf("%d finished getPlusData...\n", UniqueID());
+          on_node_site[i] += node_sites[i];
+        }
+        send = recv;
+      }
+    }
+    assert(recv == 0.0 || recv == 1.0);
+    return (recv == 1.0 ? 1 : 0);
+  }
+}
+
 
 
 //------------------------------------------------------------------
@@ -811,9 +855,6 @@ void Lattice::Staple(Matrix& stap, int *x, int mu)
 //const char *fname = "Staple(M&,i*,i)";
 //VRB.Func(cname,fname);
 
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   const Matrix *p1;
   int offset_x = GsiteOffset(x);
@@ -931,9 +972,6 @@ Float Lattice::ReU1Plaq(int *x, int mu, int nu) const
 //char *fname = "Staple(C&,i*,i)";
 //VRB.Func(cname,fname);
 
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   int offset_x = GsiteOffset(x);
   Float *g_offset = U1GaugeField()+offset_x;
@@ -961,6 +999,173 @@ Float Lattice::ReU1Plaq(int *x, int mu, int nu) const
   return cos(p1);
 
 }
+
+//Utility function for below
+//Scale this staple properly by multiplying mp3 by the appropriate sigma factor
+void Lattice::ScaleStaple(Matrix *stap, int x[4], int mu, int nu) 
+{
+
+  //need to get the plaquette regardless of the value of sigma to make sure all
+  //nodes send the same communication requests
+  Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
+  //printf("x = (%d, %d, %d, %d), mu,nu = %d,%d, re_tr_plaq = %e\n", x[0], x[1], x[2], x[3], mu, nu, re_tr_plaq);
+  assert(!(re_tr_plaq != re_tr_plaq));
+
+  Float multiplier;
+
+  int sigma = GetSigma(x, mu, nu);
+  if(sigma == 0) {
+    multiplier = 1.0 + delta_beta / GJP.Beta();
+  } else {
+    assert(sigma == 1);
+    Float exponent = DeltaS(re_tr_plaq);
+    assert(!(exponent != exponent));
+    if(!(exponent > 0)) printf("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
+    assert(exponent > 0);
+    multiplier = 1.0 - delta_beta / (GJP.Beta() * (exp(exponent) - 1.0));
+  }
+
+  assert(!(multiplier != multiplier));
+  
+  *stap *= multiplier;
+}      
+
+//------------------------------------------------------------------
+/*!
+  The staple sum around the link \f$ U_mu(x) \f$ is
+\f[
+   \sum_{\nu \neq \mu}[
+              U_\nu(x+\mu) U^\dagger_\mu(x+\nu) U^\dagger_\nu(x)
+           +  U^\dagger_\nu(x+\mu-\nu) U^\dagger_\mu(x-\nu) U_\nu(x-\nu)]     
+\f]
+  \param stap The computed staple sum.
+  \param x The coordinates of the lattice site 
+  \param mu The link direction 
+*/
+//------------------------------------------------------------------
+void Lattice::StapleWithSigmaCorrections(Matrix& stap, int *x, int mu)
+{
+//const char *fname = "Staple(M&,i*,i)";
+//VRB.Func(cname,fname);
+
+
+  const Matrix *p1;
+  int offset_x = GsiteOffset(x);
+  Matrix *g_offset = GaugeField()+offset_x;
+
+  for(int nu = 0; nu < 4; ++nu) {
+    if(nu != mu) {
+
+      //----------------------------------------------------------
+      // mp3 = U_u(x+v)~
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offset, x, nu, mu);
+      mp3->Dagger((IFloat *)p1);
+
+      ScaleStaple(mp3, x, mu, nu);
+
+      //----------------------------------------------------------
+      // p1 = &U_v(x+u)
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offset, x, mu, nu);
+
+
+      //----------------------------------------------------------
+      // mp2 = U_v(x+u) U_u(x+v)~
+      //----------------------------------------------------------
+      mDotMEqual((IFloat *)mp2, (const IFloat *)p1,
+		 (const IFloat *)mp3);
+      
+
+      //----------------------------------------------------------
+      //  mp3 = U_v(x)~
+      //----------------------------------------------------------
+      mp3->Dagger((IFloat *)(g_offset+nu));
+
+      //----------------------------------------------------------
+      // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
+      //----------------------------------------------------------
+      if( nu == 0  ||  (mu==0 && nu==1) )
+	mDotMEqual((IFloat *)&stap, (const IFloat *)mp2,
+		   (const IFloat *)mp3);
+      else
+	mDotMPlus((IFloat *)&stap, (const IFloat *)mp2,
+		  (const IFloat *)mp3);
+      
+
+
+
+      
+      //----------------------------------------------------------
+      //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
+      //----------------------------------------------------------
+      int off_pv = (x[nu] == 0) ?
+              (node_sites[nu]-1)*g_dir_offset[nu]
+	    : -g_dir_offset[nu];
+
+      Matrix *g_offpv = g_offset+off_pv;
+
+
+      //----------------------------------------------------------
+      // p1 = U_v(x+u-v)
+      // mp3 = U_v(x+u-v)
+      //----------------------------------------------------------
+      p1 = GetLinkOld(g_offpv, x, mu, nu);
+      moveMem((IFloat *)mp3, (IFloat *)p1, 
+	      MATRIX_SIZE * sizeof(IFloat));
+
+
+      //----------------------------------------------------------
+      // mp2 = U_u(x-v) U_v(x+u-v)
+      //----------------------------------------------------------
+      mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offpv+mu),
+		 (const IFloat *)mp3);
+      
+
+      //----------------------------------------------------------
+      // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
+      //----------------------------------------------------------
+      mp3->Dagger((IFloat *)mp2);
+
+
+      //----------------------------------------------------------
+      // mp2 = U_v(x-v)
+      //----------------------------------------------------------
+      moveMem((IFloat *)mp2, (const IFloat *)(g_offpv+nu),
+	  MATRIX_SIZE * sizeof(IFloat));
+      
+      int x_minus_nuhat[] = {x[0], x[1], x[2], x[3]};
+      x_minus_nuhat[nu] -= 1;
+
+      //----------------------------------------------------------
+      // stap += mp3 * mp2
+      //----------------------------------------------------------
+      if(x[nu] == 0) {	// x-v off node
+	mDotMEqual((IFloat *)&m_tmp1, (const IFloat *)mp3,
+		   (const IFloat *)mp2);
+	
+	// m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
+	getMinusData((IFloat *)&m_tmp2, (IFloat *)&m_tmp1,
+		     MATRIX_SIZE, nu);
+
+        ScaleStaple(&m_tmp2, x_minus_nuhat, mu, nu);
+	
+	//stap += m_tmp2;
+	vecAddEquVec((IFloat *)&stap, (IFloat *)&m_tmp2,
+		MATRIX_SIZE);
+	
+      } else {
+        ScaleStaple(mp3, x_minus_nuhat, mu, nu);
+
+	mDotMPlus((IFloat *)&stap, (const IFloat *)mp3,
+		  (const IFloat *)mp2);
+        // dummy read
+	*((IFloat *)mp2) = *((IFloat *)g_offpv);
+      }
+    }
+  }
+}
+
 
 //------------------------------------------------------------------
 // RectStaple(Matrix& stap, int *x, int mu):
@@ -996,9 +1201,6 @@ void Lattice::RectStaple(Matrix& rect, int *x, int mu)
 //          x[0], x[1], x[2], x[3], mu) ;
 
   int link_site[4] ;
-
-  // set CBUF
-  setCbufCntrlReg(4, CBUF_MODE4) ;
 
   //----------------------------------------------------------------------------
   // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
@@ -1370,10 +1572,6 @@ void Lattice::RectStaple(Matrix& rect, int *x, int mu)
 */
 void Lattice::Plaq(Matrix &plaq, int *x, int mu, int nu) const 
 {
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
- 
   const Matrix *p1;
  
   //----------------------------------------
@@ -1426,10 +1624,6 @@ Float Lattice::ReTrPlaq(int *x, int mu, int nu) const
 //  const char *fname = "ReTrPlaq(i*,i,i) const";
 //  VRB.Func(cname,fname);
 
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
-
   const Matrix *p1;
 
   //----------------------------------------
@@ -1467,6 +1661,13 @@ Float Lattice::ReTrPlaq(int *x, int mu, int nu) const
   
   mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)mp1);
   return mp2->ReTr();
+}
+
+Float Lattice::ReTrPlaqNonlocal(int *x, int mu, int nu)
+{
+  int dirs[] = {mu, nu, mu+4, nu+4}; 
+  int length = 4;
+  return ReTrLoopReentrant(x, dirs, length);
 }
 
 
@@ -1536,7 +1737,40 @@ Float Lattice::SumReU1PlaqNode() const
       }
     }
   }
-  sync();
+  VRB.FuncEnd(cname,fname);
+  return sum;
+}
+Float Lattice::SumSigmaEnergyNode() {
+  char *fname = "SumSigmaEnergyNode()";
+  Float sum = 0.0;
+  int x[4];
+  
+  for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
+    for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
+      for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
+	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+	  for (int mu = 0; mu < 3; ++mu) {
+	    for(int nu = mu+1; nu < 4; ++nu) {
+              int sigma = GetSigma(x, mu, nu);
+
+              Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
+
+              if(sigma == 0) {
+                sum += DeltaS(re_tr_plaq);
+              } else {
+                assert(sigma == 1);
+                Float exponent = -DeltaS(re_tr_plaq);
+                assert(exponent < 0);
+                sum += -log(1 - exp(exponent));
+              }
+              assert(!(sum != sum));
+            }
+          }
+        }
+      }
+    }
+  }
+//  sync();
   VRB.FuncEnd(cname,fname);
   return sum;
 }
@@ -1597,9 +1831,6 @@ Float Lattice::ReTrRect(int *x, int mu, int nu) const
 //  VRB.Func(cname,fname);
 
   int link_site[4] ;
-
-  // set CBUF
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   //---------------------------------------------------------------------------
   // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
@@ -1768,11 +1999,6 @@ Float Lattice::ReTrLoop(const int *x, const int *dir,  int length)
   const char *fname = "ReTrLoop(i*,i,i)";
   VRB.Func(cname, fname) ;
 
-  const unsigned CBUF_MODE4 = 0xcca52112;
-  const unsigned CBUF_MODE2 = 0xcca52112;
-
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   mp3->ZeroMatrix();
 
@@ -1781,6 +2007,19 @@ Float Lattice::ReTrLoop(const int *x, const int *dir,  int length)
   return mp3->ReTr() ;
 }
 
+Float Lattice::ReTrLoopReentrant(const int *x, const int *dir,  int length)
+{
+  const char *fname = "ReTrLoop(i*,i,i)";
+  VRB.Func(cname, fname) ;
+
+  Matrix my_mp3;
+
+  my_mp3.ZeroMatrix();
+
+  PathOrdProdPlus(my_mp3, x, dir, length);
+
+  return my_mp3.ReTr() ;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -2327,8 +2566,6 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size)
 {
     const char *fname = "EvolveGfield(M*,F)";
     VRB.Func(cname,fname);
-
-    setCbufCntrlReg(4, CBUF_MODE4);
 
     int n_links = 4 * GJP.VolNodeSites();
 
@@ -3317,6 +3554,38 @@ unsigned long Lattice::GsiteOffset(const int *x, const int dir) const{
     ERR.NotImplemented(cname,fname);
   }
   return index;
+}
+
+static const int sigma_offset_lookup[4][4] = { {-1,  0,  1,  2},
+                                               {-1, -1,  3,  4},
+                                               {-1, -1, -1,  5},
+                                               {-1, -1, -1, -1} };
+
+// There is one sigma variable for each plaquette. This function gives the
+// index into the sigma_field array that corresponds to a given plaquette
+int Lattice::SigmaOffset(const int x[4], int mu, int nu) const { 
+  assert(mu != nu);
+  assert(mu >= 0);
+  assert(nu >= 0);
+  assert(mu < 4);
+  assert(nu < 4);
+
+  if(mu > nu) {
+    int tmp = mu;
+    mu = nu;
+    nu = tmp;
+  }
+  assert(nu > mu);
+  //now nu > mu
+  
+  int plaq_offset = sigma_offset_lookup[mu][nu];
+  assert(plaq_offset != -1);
+
+  int site_offset = 6 * (x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]*x[3])));
+  assert(site_offset >= 0);
+  assert(site_offset < 6 * GJP.VolNodeSites());
+
+  return site_offset + plaq_offset;
 }
 
 
