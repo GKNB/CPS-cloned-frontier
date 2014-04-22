@@ -79,6 +79,7 @@ Float* Lattice::u1_gauge_field = 0;
 int* Lattice::sigma_field = 0;
 Float Lattice::delta_beta = 0.0;
 Float Lattice::deltaS_offset = 0.0;
+int Lattice::sigma_blocks[]={1,1,1,1};
 int Lattice::is_allocated = 0;
 int Lattice::is_initialized = 0;
 int Lattice::u1_is_initialized = 0;
@@ -835,6 +836,13 @@ int Lattice::GetSigma(const int *site, int mu, int nu) const
   }
 }
 
+int Lattice::SigmaBlockSize()
+{
+  int size=1;
+  for(int i=0;i<4;i++) size*=sigma_blocks[i];
+  size *=6; //number of plaquettes 
+  return size;
+}
 
 
 //------------------------------------------------------------------
@@ -1744,11 +1752,30 @@ Float Lattice::SumSigmaEnergyNode() {
   char *fname = "SumSigmaEnergyNode()";
   Float sum = 0.0;
   int x[4];
+
+  int if_block = 0;
+  if (SigmaBlocks()>0) if_block=1;
   
   for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
     for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
       for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
 	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+if (if_block){
+      int sigma = GetSigma(x, 0, 1);
+      Float re_tr_plaq = 0.;
+      for (int mu = 0; mu < 3; ++mu)
+        for(int nu = mu+1; nu < 4; ++nu)
+          re_tr_plaq += ReTrPlaqNonlocal(x, mu, nu);
+      if(sigma == 0) {
+          sum += DeltaS(re_tr_plaq);
+      } else {
+         assert(sigma == 1);
+         Float exponent = -DeltaS(re_tr_plaq);
+          assert(exponent < 0);
+          sum += -log(1 - exp(exponent));
+      }
+              assert(!(sum != sum));
+}else{
 	  for (int mu = 0; mu < 3; ++mu) {
 	    for(int nu = mu+1; nu < 4; ++nu) {
               int sigma = GetSigma(x, mu, nu);
@@ -1766,6 +1793,7 @@ Float Lattice::SumSigmaEnergyNode() {
               assert(!(sum != sum));
             }
           }
+}
         }
       }
     }

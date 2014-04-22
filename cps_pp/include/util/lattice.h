@@ -270,7 +270,10 @@ class Lattice
 
     static Float delta_beta;
     static Float deltaS_offset;
+	//block noisy MC;
+    static int sigma_blocks[4]; 
     int GetSigma(const int *site, int mu, int nu) const;
+    virtual int SigmaBlockSize();
     void ScaleStaple(Matrix *stap, int x[4], int mu, int nu);
     void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu);
     Float SumSigmaEnergyNode();

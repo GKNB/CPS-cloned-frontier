@@ -69,6 +69,26 @@ GclassType Gwilson::Gclass(void){
   return G_CLASS_WILSON;
 }
 
+int Lattice::SigmaTest(int x[], Float re_tr_plaq){
+              if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
+              if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
+
+              Float exponent = -DeltaS(re_tr_plaq);
+              if(exponent >= 0) printf("re_tr_plaq = %e\n", re_tr_plaq);
+              assert(exponent < 0);
+              Float probability_zero = exp(exponent);
+
+              LRG.AssignGenerator(x);
+              IFloat rand = LRG.Urand(0.0, 1.0);
+              if(!(rand >= 0 && rand <= 1)) printf("rand = %e\n", rand);
+              assert(rand >= 0 && rand <= 1);
+              if(rand < probability_zero) {
+		return 0;
+              } else {
+		return 1;
+              }
+
+}
 
 void Gwilson::SigmaHeatbath() 
 {
@@ -83,11 +103,36 @@ void Gwilson::SigmaHeatbath()
 
   Float max_plaq = -999.0;
   Float min_plaq = +999.0;
+  int if_block = 0;
+  if (SigmaBlocks()>0) if_block=1;
   
   for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
     for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
       for(x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
 	for(x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+if (if_block){
+      Float re_tr_plaq=0.;
+	  for (int mu = 0; mu < 3; ++mu) 
+	    for(int nu = mu+1; nu < 4; ++nu) 
+              re_tr_plaq += ReTrPlaqNonlocal(x, mu, nu);
+              if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
+              if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
+      int acc = SigmaTest(x,re_tr_plaq);
+      if (acc==0){
+	  for (int mu = 0; mu < 3; ++mu) 
+	    for(int nu = mu+1; nu < 4; ++nu) 
+              *(SigmaField() + SigmaOffset(x, mu, nu)) = 0;
+           n_zero += 1.0;
+      } else {
+	  for (int mu = 0; mu < 3; ++mu) 
+	    for(int nu = mu+1; nu < 4; ++nu) 
+                *(SigmaField() + SigmaOffset(x, mu, nu)) = 1;
+                n_one += 1.0;
+      }
+
+}
+else
+{
 	  for (int mu = 0; mu < 3; ++mu) {
 	    for(int nu = mu+1; nu < 4; ++nu) {
               Float re_tr_plaq = ReTrPlaqNonlocal(x, mu, nu);
@@ -113,6 +158,7 @@ void Gwilson::SigmaHeatbath()
               }
             }
           }
+}
         }
       }
     }
