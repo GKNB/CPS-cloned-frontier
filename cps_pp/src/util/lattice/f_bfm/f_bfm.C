@@ -17,6 +17,7 @@
 #include <util/enum_func.h>
 #include <util/sproj_tr.h>
 #include <util/time_cps.h>
+#include <util/pt.h>
 #include <util/lattice/fforce_wilson_type.h>
 
 #include<omp.h>
@@ -867,8 +868,58 @@ void Fbfm::BondCond()
     ImportGauge();
 }
 
+#if 1
 void Fbfm::ImportGauge()
 {
+    const char *fname="ImportGauge()";
+    VRB.Result(cname,fname,"NEW VERSION with CPS parallel transport\n");
+    LatMatrix One;
+    LatMatrix LatDir[8];
+    Matrix *mout[8],*min[8];
+#if 1
+  for(int i=0;i<One.Vol();i++){
+    *(One.Mat(i))= 1.;
+  }
+#endif
+    int dirs[8]={0,2,4,6,1,3,5,7};
+  for(int i=0;i<8;i++){
+    min[i] = One.Mat();
+    mout[i] = LatDir[i].Mat();
+  }
+{
+    ParTransGauge pt_g(*this);
+//    pt_g.run(8,mout,min,dirs);
+    pt_g.run(4,mout,min,dirs); //positive Dirs
+    pt_g.run(4,mout+4,min+4,dirs+4); //positive Dirs
+}
+    bd.cps_importGauge_dir(LatDir[0].Field(),1); //Plus X
+    bd.cps_importGauge_dir(LatDir[1].Field(),3); //Plus Y
+    bd.cps_importGauge_dir(LatDir[2].Field(),5); //Plus Z
+    bd.cps_importGauge_dir(LatDir[3].Field(),7); //Plus T
+    bd.cps_importGauge_dir(LatDir[4].Field(),0); //Minus X
+    bd.cps_importGauge_dir(LatDir[5].Field(),2); //Minus Y
+    bd.cps_importGauge_dir(LatDir[6].Field(),4); //Minus Z
+    bd.cps_importGauge_dir(LatDir[7].Field(),6); //Minus T
+    if(use_mixed_solver) {
+        bd.comm_end();
+        bf.comm_init();
+    bf.cps_importGauge_dir(LatDir[0].Field(),1); //Plus X
+    bf.cps_importGauge_dir(LatDir[1].Field(),3); //Plus Y
+    bf.cps_importGauge_dir(LatDir[2].Field(),5); //Plus Z
+    bf.cps_importGauge_dir(LatDir[3].Field(),7); //Plus T
+    bf.cps_importGauge_dir(LatDir[4].Field(),0); //Minus X
+    bf.cps_importGauge_dir(LatDir[5].Field(),2); //Minus Y
+    bf.cps_importGauge_dir(LatDir[6].Field(),4); //Minus Z
+    bf.cps_importGauge_dir(LatDir[7].Field(),6); //Minus T
+        bf.comm_end();
+        bd.comm_init();
+    }
+}
+#else
+void Fbfm::ImportGauge()
+{
+    const char *fname="ImportGauge()";
+    VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport\n");
     Float *gauge = (Float *)(this->GaugeField());
     bd.cps_importGauge(gauge);
     if(use_mixed_solver) {
@@ -879,6 +930,7 @@ void Fbfm::ImportGauge()
         bd.comm_init();
     }
 }
+#endif
 
 CPS_END_NAMESPACE
 

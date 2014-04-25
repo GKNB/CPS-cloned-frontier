@@ -112,6 +112,7 @@ class Lattice
       // The last stopping condition used.
 
     static int scope_lock;
+    static int bc_applied;
 
  protected:
 
@@ -1214,6 +1215,7 @@ class Lattice
     //!< Note: Agent classes which needs to import gauge field to
     //!external libraries need to overwrite this function.
     virtual void BondCond();
+    int BcApplied(){return bc_applied;}
 };
 
 //------------------------------------------------------------------
