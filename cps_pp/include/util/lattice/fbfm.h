@@ -17,7 +17,13 @@ class Fbfm : public virtual Lattice {
 public:
     // have to do this since lattice factory does not accept any input
     // parameters.
-    static bfmarg bfm_arg;
+    //static bfmarg bfm_arg;
+      
+    //CK: Modified to allow for multiple sets of arguments for different fermion types
+    static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
+    static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
+    static int nthreads[2];
+      
 
     // set true to use single precision BFM object.
     static bool use_mixed_solver;
@@ -84,7 +90,8 @@ public:
     // note: this function does not exist in the base Lattice class.
 
     FclassType Fclass()const {
-        return F_CLASS_BFM;
+      if(current_arg_idx == 0) return F_CLASS_BFM;
+      else if(current_arg_idx == 1) return F_CLASS_BFM_TYPE2;
     }
     // It returns the type of fermion class
   
@@ -105,7 +112,7 @@ public:
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
     int FsiteSize() const {
-        return 24 * Fbfm::bfm_arg.Ls;
+        return 24 * Fbfm::bfm_args[current_arg_idx].Ls;
     }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a
@@ -246,15 +253,8 @@ public:
   
     void Fconvert(Vector *f_field,
                   StrOrdType to,
-                  StrOrdType from, int cb=2)
+                  StrOrdType from);
     // Convert fermion field f_field from -> to
-{
-    const char *fname = "Fconvert()";
-    VRB.Func(cname,fname);
-
-    // nothing needs to be done
-    // //    ERR.NotImplemented(cname, fname);
-}
   
     Float BhamiltonNode(Vector *boson, Float mass);
     // The boson Hamiltonian of the node sublattice

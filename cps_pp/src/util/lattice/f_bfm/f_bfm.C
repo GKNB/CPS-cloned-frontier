@@ -52,8 +52,10 @@ HDCG_wrapper  *HDCGInstance:: _instance=NULL;
 
 CPS_START_NAMESPACE
 
-bfmarg Fbfm::bfm_arg;
+int Fbfm::current_arg_idx(0);
+bfmarg Fbfm::bfm_args[2]={};
 bool Fbfm::use_mixed_solver = false;
+int Fbfm::nthreads[2]={0,0};
 
 // NOTE:
 //
@@ -74,12 +76,17 @@ Fbfm::Fbfm(void):cname("Fbfm")
         ERR.NotImplemented(cname, fname);
     }
 
-    bd.init(bfm_arg);
+if(nthreads[current_arg_idx]==0) nthreads[current_arg_idx]=bfm_args[current_arg_idx].threads;
+bfm_args[current_arg_idx].threads=nthreads[current_arg_idx];
+
+bd.init(bfm_args[Fbfm::current_arg_idx]);
+
+//    bd.init(bfm_arg);
 
     if(use_mixed_solver) {
 //    if(1) {
         bd.comm_end();
-        bf.init(bfm_arg);
+        bf.init(bfm_args[current_arg_idx]);
         bf.comm_end();
         bd.comm_init();
     }
@@ -194,14 +201,14 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
 #endif
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_arg.Ls;
+    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Float *v2 = (Float *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
     CalcHmdForceVecsBilinear(v1, v2, phi1, phi2, mass);
 
     FforceWilsonType cal_force(mom, this->GaugeField(),
-                               v1, v2, Fbfm::bfm_arg.Ls, coef);
+                               v1, v2, Fbfm::bfm_args[current_arg_idx].Ls, coef);
     ForceArg ret = cal_force.run();
 
     sfree(cname, fname, "v1", v1);
@@ -338,7 +345,7 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 
     if(type == SINGLE) {
         // FIXME
-        int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_arg.Ls / 2;
+        int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
         Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
 
         for(int i = 0; i < Nshift; ++i) {
@@ -369,7 +376,7 @@ void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old,
 {
     const char *fname = "FminResExt(V*, V*, V**, ...)";
 
-    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_arg.Ls / 2;
+    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
 
     // does nothing other than setting sol to zero
     sol->VecZero(f_size_cb);
@@ -411,16 +418,16 @@ if (cg_arg->Inverter == HDCG){
 	HDCG_wrapper *control = HDCGInstance::getInstance();
     if (!control){
 	bfmActionParams BAP_;
-	BAP_.M5 = bfm_arg.M5;
+	BAP_.M5 = bfm_args[current_arg_idx].M5;
 	BAP_.mass = cg_arg->mass;
 	BAP_.twistedmass=0;
 	BAP_.Csw=0;
-	BAP_.solver=bfm_arg.solver;
-	BAP_.mobius_scale=bfm_arg.mobius_scale;
-	BAP_.zolo_hi=bfm_arg.zolo_hi;
-	BAP_.zolo_lo=bfm_arg.zolo_lo;
-	BAP_.Ls=bfm_arg.Ls;
-	BAP_.precon_5d=bfm_arg.precon_5d;
+	BAP_.solver=bfm_args[current_arg_idx].solver;
+	BAP_.mobius_scale=bfm_args[current_arg_idx].mobius_scale;
+	BAP_.zolo_hi=bfm_args[current_arg_idx].zolo_hi;
+	BAP_.zolo_lo=bfm_args[current_arg_idx].zolo_lo;
+	BAP_.Ls=bfm_args[current_arg_idx].Ls;
+	BAP_.precon_5d=bfm_args[current_arg_idx].precon_5d;
 
 	BAP_.solveMobiusDminus=1;
 
@@ -562,7 +569,7 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
     Float *f4d = (Float *)four;
 
     const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
-    const int size_5d = size_4d * Fbfm::bfm_arg.Ls;
+    const int size_5d = size_4d * Fbfm::bfm_args[current_arg_idx].Ls;
 
     // zero 5D vector
 #pragma omp parallel for
@@ -726,7 +733,7 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
     const char *fname = "EvolveMomFforce()";
   
     const int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
-    const int f_size_cb = f_size_4d * Fbfm::bfm_arg.Ls / 2;
+    const int f_size_cb = f_size_4d * Fbfm::bfm_args[current_arg_idx].Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
     MatPc(tmp, frm, mass, DAG_NO);
