@@ -22,7 +22,9 @@
 
 #include<omp.h>
 #include<bfm_hdcg_wrapper.h>
+#ifdef BFM_OLD
 #include<BfmMultiGrid.h>
+#endif
 
 #if 0
 class HDCGInstance{
@@ -46,7 +48,9 @@ class HDCGInstance{
 
 
 HDCGInstance hdcg_instance; // to invoke constructor with defaults
+#ifdef BFM_OLD
 BfmMultiGridParams HDCGInstance::Params;
+#endif
 HDCG_wrapper  *HDCGInstance:: _instance=NULL;
 
 

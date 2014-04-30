@@ -1,5 +1,10 @@
 #include<config.h>
 #include<math.h>
+#include<string.h>
+#include<string>
+#include<sys/stat.h>
+#include<errno.h>
+#include<stdio.h>
 CPS_START_NAMESPACE 
 //------------------------------------------------------------------
 //
@@ -89,6 +94,47 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
 
   init();
   VRB.FuncEnd(cname,fname);
+}
+
+void AlgActionBilinear::SaveState(std::string name){
+  const char *fname = "SaveState()";
+  VRB.Func(cname,fname);
+  for (int i=0;i<n_masses;i++){
+    std::stringstream dirname;
+    dirname << name << "." << i;
+    CPS_NAMESPACE::sync();
+//    if(!UniqueID())
+    if(mkdir((dirname.str()).c_str(),0777)!=0 && errno != EEXIST)
+      ERR.General(cname,fname,"cannot create directory %s\n",(dirname.str()).c_str());
+    CPS_NAMESPACE::sync();
+    //ugly, but C++ file io is very slow on some systems
+    std::stringstream filename;
+    filename <<dirname.str()<<"/"<<dirname.str();
+    VRB.Result(cname,fname,"opening %s\n",(filename.str()).c_str());
+#if 1
+    FILE *fp = Fopen(ADD_ID,(filename.str()).c_str(),"w");
+    fwrite(phi[i],sizeof(Float),f_size,fp);
+    fclose(fp);
+#endif
+  }
+}
+
+void AlgActionBilinear::LoadState(std::string name){
+  const char *fname = "LoadState()";
+  VRB.Func(cname,fname);
+  for (int i=0;i<n_masses;i++){
+    std::stringstream dirname;
+    dirname << name << "." << i;
+    //ugly, but C++ file io is very slow on some systems
+    std::stringstream filename;
+    filename <<dirname.str()<<"/"<<dirname.str();
+    VRB.Result(cname,fname,"opening %s\n",(filename.str()).c_str());
+#if 1
+    FILE *fp = Fopen(ADD_ID,(filename.str()).c_str(),"r");
+    Fread(phi[i],sizeof(Float),f_size,fp);
+    Fclose(fp);
+#endif
+  }
 }
 
 void AlgActionBilinear::init() {

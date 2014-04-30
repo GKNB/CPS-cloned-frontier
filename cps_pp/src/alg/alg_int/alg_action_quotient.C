@@ -391,7 +391,7 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 //!< run method evolves the momentum due to the fermion force
 void AlgActionQuotient::evolve(Float dt, int nsteps) 
 {
-    char *fname = "evolve(Float, int)";
+    char *fname = "evolve(Float,int)";
     Float dtime = -dclock();
     Float dtime_cg = 0.;
     Float dtime_force = 0.;

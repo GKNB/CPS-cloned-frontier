@@ -300,6 +300,8 @@ public:
 
     //!< Dummy method
     void init();
+    void SaveState(std::string);
+    void LoadState(std::string);
 };
 
 /*!< 
@@ -383,6 +385,8 @@ public:
     virtual void evolve(Float dt, int steps) = 0;
 
     void init();
+    void SaveState(std::string);
+    void LoadState(std::string);
 
 };
 
