@@ -48,18 +48,27 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   int iter;
   char *fname = "FmatInv(CgArg*,V*,V*,F*,CnvFrmType)";
   VRB.Func(cname,fname);
+  Vector *temp;
+
+  int size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  if(prs_f_in==PRESERVE_YES){ 
+    temp = (Vector *) smalloc(size * sizeof(Float));
+    if (temp == 0) ERR.Pointer(cname, fname, "temp");
+    VRB.Smalloc(cname,fname, "temp", temp, size * sizeof(Float));
+    moveFloat((IFloat*)temp,(IFloat*)f_in, size);
+  }
+  
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
-  // mult be Dminus (to compare to Hantao)
-  // dop.Dminus(f_out,f_in);
+  // mult by Dminus
+  dop.Dminus(f_out,f_in);
   iter = dop.MatInv(true_res, prs_f_in);
 
-  //check: 
-  //dwf.Mat5doe(f_in,f_out);
-  //for(int i=0;i<GJP.VolNodeSites()*24*GJP.SnodeSites();i++){
-  //printf("in %d %g\n",i,*((Float*)f_in+i));
-  //}
-  //exit(0);
+  if(prs_f_in==PRESERVE_YES){
+    moveFloat((IFloat*)f_in,(IFloat*)temp, size);
+    sfree(cname, fname,  "temp",  temp);
+  }
+
   // Return the number of iterations
   return iter;
 }
@@ -108,6 +117,8 @@ int Fmobius::FmatInv(Vector *f_out,
   int mob_l_size_5d = size_4d * mob_l_ls;
   int mob_s_size_5d = size_4d * mob_s_ls;
 
+  // input times D_-
+  Vector *dminus_in = (Vector *) smalloc(cname, fname, "dminus_in", sizeof(Float) * mob_l_size_5d);
   Vector *tmp_mob_l_5d = (Vector *) smalloc(cname, fname, "tmp_mob_l_5d", sizeof(Float) * mob_l_size_5d);
   Vector *tmp2_mob_l_5d = (Vector *) smalloc(cname, fname, "tmp2_mob_l_5d", sizeof(Float) * mob_l_size_5d);
   Vector *tmp_mob_s_5d = (Vector *) smalloc(cname, fname, "tmp_mob_s_5d", sizeof(Float) * mob_s_size_5d);
@@ -124,14 +135,20 @@ int Fmobius::FmatInv(Vector *f_out,
     GJP.Mobius_c(mobius_c_l);
 
     DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
-    int iter = dop.MatInv(PRESERVE_YES);
+    dop.Dminus(dminus_in,f_in);
+    int iter = dop.MatInv(f_out, dminus_in, PRESERVE_YES);
+#if 0
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT1 %d %e %e\n",i,*((Float*)dminus_in+i),*((Float*)f_out+i) );
+#endif
     cg_arg_l->stop_rsd = rsd;
+    this->Convert(CANONICAL,dminus_in);
   }
 
   int restart_cnt;
   for(restart_cnt = 1; restart_cnt < n_restart; ++restart_cnt){
     //constructing the new residue
-    tmp2_mob_l_5d->CopyVec(f_in, mob_l_size_5d);
+    tmp2_mob_l_5d->CopyVec(dminus_in, mob_l_size_5d);
     {
       GJP.SnodeSites(mob_l_ls);
       GJP.Mobius_b(mobius_b_l);
@@ -194,7 +211,7 @@ int Fmobius::FmatInv(Vector *f_out,
       dop.MatInv(tmp_mob_l_5d, tmp_mob_s_5d, true_res, PRESERVE_YES);
     }
     SpinProject(tmp_mob_s_5d, tmp_mob_l_5d, mob_s_ls, 1);
-    
+
     //OV2DWF
     tmp_mob_l_5d->VecNegative(tmp_mob_s_5d, size_4d);
     {
@@ -206,7 +223,6 @@ int Fmobius::FmatInv(Vector *f_out,
     SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 0);
     
     {
-      //DiracOpMobius mdwf(*this, mob_l);
       GJP.SnodeSites(mob_l_ls);
       GJP.Mobius_b(mobius_b_l);
       GJP.Mobius_c(mobius_c_l);
@@ -250,13 +266,14 @@ int Fmobius::FmatInv(Vector *f_out,
     GJP.Mobius_b(mobius_b_l);
     GJP.Mobius_c(mobius_c_l);
 
-    DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
-    iter = dop.MatInv(f_out, f_in, true_res, prs_f_in);
+    DiracOpMobius dop(*this, f_out, dminus_in, cg_arg_l, cnv_frm);
+    iter = dop.MatInv(f_out, dminus_in, true_res, PRESERVE_YES);
   }
 
   sfree(cname, fname,  "tmp_mob_l_5d",  tmp_mob_l_5d);
   sfree(cname, fname, "tmp2_mob_l_5d", tmp2_mob_l_5d);
   sfree(cname, fname,  "tmp_mob_s_5d",  tmp_mob_s_5d);
+  sfree(cname, fname,  "dminus_in",  dminus_in);
 
   GJP.SnodeSites(ls);
 
@@ -420,3 +437,5 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   
   return iter;
 }
+
+//CPS_END_NAMESPACE

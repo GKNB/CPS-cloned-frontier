@@ -423,6 +423,8 @@ int DiracOpMobius::MatInv(Vector *out,
   //----------------------------------------------------------------
   Vector *temp2;
   Vector *temp3;
+  Vector *save_in;
+
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
   Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
   if (temp == 0) ERR.Pointer(cname, fname, "temp");
@@ -440,26 +442,27 @@ int DiracOpMobius::MatInv(Vector *out,
 
   // prepare source
   // mult by Dminus to compare with Hantao
-#if 1
-  temp3 = (Vector *) smalloc(2*temp_size * sizeof(Float));
-  if (temp3 == 0) ERR.Pointer(cname, fname, "temp3");
-  VRB.Smalloc(cname,fname, "temp3", temp3, temp_size * sizeof(Float)); 
+  // do outside in f_mobius class instead
+#if 0
   Dminus(temp3,in);
   //moveFloat((IFloat *)in, (IFloat *)temp3, 2*temp_size);
   //VRB.Sfree(cname, fname, "temp3", temp3);
   //sfree(temp3);
 #endif
 
+  // save source
+  if(prs_in == PRESERVE_YES){
+    temp3 = (Vector *) smalloc(2*temp_size * sizeof(Float));
+    if (temp3 == 0) ERR.Pointer(cname, fname, "temp2");
+    VRB.Smalloc(cname,fname, "temp3", temp3, 2*temp_size * sizeof(Float));
+    moveMem((IFloat *)temp3, (IFloat *)in, 2*temp_size * sizeof(IFloat));
+  }
+
+
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
   mobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
   fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,
 		 (IFloat *)in, temp_size);
-
-  // save source
-  if(prs_in == PRESERVE_YES){
-    moveMem((IFloat *)temp2, (IFloat *)in, 
-	    temp_size * sizeof(IFloat) / sizeof(char));
-  }
 
   int iter;
   switch (dirac_arg->Inverter) {
@@ -496,9 +499,10 @@ int DiracOpMobius::MatInv(Vector *out,
 
   // restore source
   if(prs_in == PRESERVE_YES){
-    moveMem((IFloat *)in, (IFloat *)temp2, 
-	    temp_size * sizeof(IFloat) / sizeof(char));
+    moveMem((IFloat *)in, (IFloat *)temp3,
+            2*temp_size * sizeof(IFloat) / sizeof(char));
   }
+
 
   // TIZB check below carefully !
 
@@ -512,8 +516,6 @@ int DiracOpMobius::MatInv(Vector *out,
   fTimesV1PlusV2((IFloat *)odd_out, kappa_b, (IFloat *)odd_out,
 		 (IFloat *)temp, temp_size);
 
-  VRB.Sfree(cname, fname, "temp3", temp3);
-  sfree(temp3);  
   VRB.Sfree(cname, fname, "temp2", temp2);
   sfree(temp2);
   VRB.Sfree(cname, fname, "temp", temp);
@@ -631,8 +633,9 @@ void DiracOpMobius::Dminus(Vector *out, Vector *in) {
 
   mobius_dminus(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg);
   mobius_dminus(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg);
-  // out = (c*D_W-1)*in
+  // out = -(c*D_W-1)*in (= 1 for DWF)
   fTimesV1PlusV2((IFloat*)out, kappa_c_inv_div2, (IFloat*)in, (IFloat *)out, 2*temp_size);
+  out->VecTimesEquFloat(-1.0, 2*temp_size); 
 
 }
 
