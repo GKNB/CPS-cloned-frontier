@@ -70,8 +70,8 @@ GclassType Gwilson::Gclass(void){
 }
 
 int Lattice::SigmaTest(int x[], Float re_tr_plaq){
-              if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
-              if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
+ //             if(re_tr_plaq > max_plaq) max_plaq = re_tr_plaq;
+ //             if(re_tr_plaq < min_plaq) min_plaq = re_tr_plaq;
 
               Float exponent = -DeltaS(re_tr_plaq);
               if(exponent >= 0) printf("re_tr_plaq = %e\n", re_tr_plaq);
@@ -104,7 +104,7 @@ void Gwilson::SigmaHeatbath()
   Float max_plaq = -999.0;
   Float min_plaq = +999.0;
   int if_block = 0;
-  if (SigmaBlocks()>0) if_block=1;
+  if (SigmaBlockSize()>0) if_block=1;
   
   for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
     for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {

@@ -1754,7 +1754,7 @@ Float Lattice::SumSigmaEnergyNode() {
   int x[4];
 
   int if_block = 0;
-  if (SigmaBlocks()>0) if_block=1;
+  if (SigmaBlockSize()>0) if_block=1;
   
   for(x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
     for(x[1] = 0; x[1] < node_sites[1]; ++x[1]) {

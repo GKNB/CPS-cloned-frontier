@@ -284,6 +284,7 @@ class Lattice
     Float DeltaS(Float re_tr_plaq) const {
       return deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
     }
+    int SigmaTest(int x[], Float re_tr_plaq);
 
     void GaugeField(Matrix *u);
     //!< Copies an array into the gauge configuration.
