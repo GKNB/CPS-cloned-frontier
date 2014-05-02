@@ -36,9 +36,11 @@ AlgActionGauge::~AlgActionGauge() {
 
 //!< Heat Bath for the gauge action (i.e., does nothing)
 void AlgActionGauge::heatbath() {
+#if 0
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
   lat.SigmaHeatbath();
   LatticeFactory::Destroy();
+#endif
 }
 
 //!< Calculate gauge contribution to the Hamiltonian
