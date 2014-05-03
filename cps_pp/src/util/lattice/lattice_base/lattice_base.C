@@ -161,6 +161,7 @@ Lattice::Lattice()
       VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
       VRB.Pmalloc(cname, fname, "sigma_field", sigma_field, array_size);
       GJP.StartConfLoadAddr(gauge_field);
+      memset(sigma_field,0,GJP.VolNodeSites() * 6 * sizeof(int));
     }
 
     //--------------------------------------------------------------
@@ -1768,12 +1769,13 @@ if (if_block){
           re_tr_plaq += ReTrPlaqNonlocal(x, mu, nu);
       if(sigma == 0) {
           sum += DeltaS(re_tr_plaq);
-      } else {
+      } else if (sigma==1){
          assert(sigma == 1);
          Float exponent = -DeltaS(re_tr_plaq);
           assert(exponent < 0);
           sum += -log(1 - exp(exponent));
-      }
+      } else
+        ERR.General(cname,fname,"sigma(%d) is neither 0 or 1!",sigma);
               assert(!(sum != sum));
 }else{
 	  for (int mu = 0; mu < 3; ++mu) {

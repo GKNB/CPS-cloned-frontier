@@ -7,15 +7,7 @@
 #include <comms/cbuf.h>
 CPS_START_NAMESPACE
 
-//  CRAM temp buffer
-#if TARGET == QCDSP
-static Matrix *mp0 = (Matrix *)CRAM_SCRATCH_ADDR;	// ihdot
-#else
-static Matrix mt0;
-static Matrix *mp0 = &mt0;		// ihdot
-#endif 
-
-const unsigned CBUF_MODE4 = 0xcca52112;
+//const unsigned CBUF_MODE4 = 0xcca52112;
 
 #define PROFILE
 //------------------------------------------------------------------
@@ -37,8 +29,6 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   ForceFlops=0;
 #endif
   
-  setCbufCntrlReg(4, CBUF_MODE4);
-
   int x[4];
   
   for(x[0] = 0; x[0] < GJP.XnodeSites(); ++x[0]) {
@@ -49,6 +39,8 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 	for(x[3] = 0; x[3] < GJP.TnodeSites(); ++x[3]) {
 	  
 	  int uoff = GsiteOffset(x);
+          Matrix mt0;
+          Matrix *mp0 = &mt0;
 	  
 	  for (int mu = 0; mu < 4; ++mu) {
 	    GforceSite(*mp0, x, mu);

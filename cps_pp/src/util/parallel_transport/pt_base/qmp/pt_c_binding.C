@@ -1,6 +1,7 @@
 #include <config.h>
 #ifdef USE_QMP
 #include <util/pt.h>
+#include <util/verbose.h>
 #include <util/gjp.h>
 #include <util/lattice.h>
 #include <util/error.h>
@@ -35,7 +36,7 @@ void pt_init(Lattice &Lat){
   pt_arg.gauge_field_addr = (IFloat *)Lat.GaugeField();
 
   StrOrdType str_ord = Lat.StrOrd();
-  printf("str_ord=%d\n",str_ord);
+  VRB.Debug("","pt_init()","str_ord=%d\n",str_ord);
 
   switch(str_ord){
     case CANONICAL:

@@ -23,7 +23,9 @@
 //#include <omp.h>
 #include <util/omp_wrapper.h>
 //inline int omp_get_num_threads(void) {return 1;}
+#ifdef USE_SSE
 #include <pmmintrin.h>
+#endif
 
 #ifdef SSE_TO_C
 #include "sse-defs.h"
@@ -47,7 +49,6 @@ inline static void TOUCH(const double*a, int n)
 // TIZB, restore later !
 #pragma warning disable 592
 
-//#include <pmmintrin.h>
 
 #if defined(_OPENMP) && defined(__linux__)
 /*
