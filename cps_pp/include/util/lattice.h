@@ -10,16 +10,6 @@
 
   $Id: lattice.h,v 1.69 2013-06-25 12:51:12 chulwoo Exp $
 */
-/*----------------------------------------------------------------------
-  $Author: chulwoo $
-  $Date: 2013-06-25 12:51:12 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.69 2013-06-25 12:51:12 chulwoo Exp $
-  $Id: lattice.h,v 1.69 2013-06-25 12:51:12 chulwoo Exp $
-  $Name: not supported by cvs2svn $
-  $Revision: 1.69 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v $
-  $State: Exp $
-*/  
 //------------------------------------------------------------------
 
 
@@ -165,7 +155,8 @@ class Lattice
     //!< The array of off-node links, accessed by methods in link_buffer.C
 
 
-
+	//block noisy MC;
+    static int sigma_blocks[4]; 
     
 
  public:
@@ -270,8 +261,9 @@ class Lattice
 
     static Float delta_beta;
     static Float deltaS_offset;
-	//block noisy MC;
-    static int sigma_blocks[4]; 
+    int SetSigmaBlock(int block[]){
+        for(int i=0;i<4;i++) sigma_blocks[i]=block[i];
+    }
     int GetSigma(const int *site, int mu, int nu) const;
     virtual int SigmaBlockSize();
     void ScaleStaple(Matrix *stap, int x[4], int mu, int nu);

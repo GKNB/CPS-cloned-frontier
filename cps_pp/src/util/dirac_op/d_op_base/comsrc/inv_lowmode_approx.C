@@ -1,6 +1,9 @@
 #include <config.h>
 
-#define USE_BLAS
+//#define USE_BLAS
+#define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
+#undef USE_BLAS
+//#undef EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 CPS_START_NAMESPACE
 /*! \file
@@ -53,6 +56,7 @@ int DiracOp::InvLowModeApprox(
 			int neig,
 			Float *true_res){
 
+
   time_elapse();
   
   int f_size_cb;     // Node checkerboard size of the fermion field
@@ -66,6 +70,9 @@ int DiracOp::InvLowModeApprox(
   Float d;
   int i, j;
   char *fname = "InvLowModeApprox(V*,V*,C,I,F*)";
+#ifndef USE_BLAS
+  ERR.General(cname,fname,"Broken without BLAS\n");
+#else
 
   Float mdagm_time=0.;
   Float gsum_time=0.;
@@ -117,7 +124,6 @@ int DiracOp::InvLowModeApprox(
   //------------------------------------------------------------------------------------------------//
   
 
-#define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 #ifdef EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
   // search for eigen cache
@@ -206,6 +212,7 @@ int DiracOp::InvLowModeApprox(
   sfree(evecFloat);
 
   *true_res = 0.0; // could compute the residue norm here, but saving a dirac operator for now
+#endif
   return neig;
 }
 
@@ -225,6 +232,9 @@ void DiracOp::InvLowModeProj( Vector *in,
   Float d;
   int i, j;
   char *fname = "InvLowModeApprox(V*,V*,C,I,F*)";
+#ifndef USE_BLAS
+  ERR.General(cname,fname,"Broken without BLAS\n");
+#else
 
 //------------------------------------------------------------------
 // Initializations
@@ -338,6 +348,7 @@ void DiracOp::InvLowModeProj( Vector *in,
 
   }
   fclose(fp);
+#endif
   return;
 
 }

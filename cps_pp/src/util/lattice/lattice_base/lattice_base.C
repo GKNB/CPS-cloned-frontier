@@ -79,7 +79,7 @@ Float* Lattice::u1_gauge_field = 0;
 int* Lattice::sigma_field = 0;
 Float Lattice::delta_beta = 0.0;
 Float Lattice::deltaS_offset = 0.0;
-int Lattice::sigma_blocks[]={1,1,1,1};
+int Lattice::sigma_blocks[]={0,0,0,0};
 int Lattice::is_allocated = 0;
 int Lattice::is_initialized = 0;
 int Lattice::u1_is_initialized = 0;
@@ -3611,7 +3611,10 @@ int Lattice::SigmaOffset(const int x[4], int mu, int nu) const {
   int plaq_offset = sigma_offset_lookup[mu][nu];
   assert(plaq_offset != -1);
 
-  int site_offset = 6 * (x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]*x[3])));
+//  int site_offset = 6 * (x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]*x[3])));
+  int site_offset = 6 * (GsiteOffset(x)/4);
+  if ((site_offset<0) || (site_offset>=6 * GJP.VolNodeSites()) )
+   ERR.General(cname,"SigmaOffset()","Sigma(%d %d %d %d)(%d %d) =%d!\n",x[0],x[1],x[2],x[3],mu,nu,site_offset);
   assert(site_offset >= 0);
   assert(site_offset < 6 * GJP.VolNodeSites());
 
