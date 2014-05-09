@@ -86,7 +86,7 @@ void decode_vml_all(void)
 //    decode_vml(ab2_arg);
     // decode_vml(ab3_arg);
 //    decode_vml(pbp_arg);
-    // decode_vml(ape_arg);
+	 decode_vml(ape_arg);
 }
 
 void truncate_it(CommonArg *common_arg, const char stem[], int traj);
@@ -154,11 +154,11 @@ int main(int argc, char *argv[])
         CommonArg common_arg_plaq;
         CommonArg common_arg_pbp;
         CommonArg common_arg_hmc;
-        // CommonArg common_arg_top;
+        CommonArg common_arg_top;
         CommonArg common_arg_wline;
 
         truncate_it(&common_arg_plaq , evo_arg.plaquette_stem      , traj);
-        // truncate_it(&common_arg_top  , "../results/alg_top/top"    , traj);
+        truncate_it(&common_arg_top  , "../results/alg_top/top"    , traj);
         truncate_it(&common_arg_wline, "../results/alg_wline/wline", traj);
         truncate_it(&common_arg_pbp  , evo_arg.pbp_stem            , traj);
         truncate_it(&common_arg_hmc  , evo_arg.evo_stem            , traj);
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 
             measure_plaq(common_arg_plaq);
 //            measure_wline(common_arg_wline);
-            // measure_tc(common_arg_top, 20);
+	    measure_tc(common_arg_top, 20);
 //            measure_pbp(common_arg_pbp, traj);
 
             run_hmc(common_arg_hmc, traj, ab1);

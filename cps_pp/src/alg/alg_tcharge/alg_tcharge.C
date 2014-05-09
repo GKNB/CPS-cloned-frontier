@@ -1234,7 +1234,7 @@ void AlgTcharge::smartrun()
   }
 
 
-  omp_set_num_threads(64);
+//  omp_set_num_threads(64);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {
