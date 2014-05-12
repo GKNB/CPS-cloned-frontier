@@ -370,7 +370,7 @@ Lattice::~Lattice ()
 // Float *U1GaugeField(void) const:
 // Returns the pointer to the u1 gauge field configuration.
 //------------------------------------------------------------------
-     Float *Lattice::U1GaugeField (void) const const const
+     Float *Lattice::U1GaugeField (void) const 
      {
        return u1_gauge_field;
      }
@@ -641,7 +641,7 @@ int Lattice::CompareGaugeField (Matrix * u)
 //------------------------------------------------------------------
 // StrOrd(): returns the value of the current storage order.
 //------------------------------------------------------------------
-     StrOrdType Lattice::StrOrd (void) const const const
+     StrOrdType Lattice::StrOrd (void) const
      {
        return str_ord;
      }
@@ -651,7 +651,7 @@ int Lattice::CompareGaugeField (Matrix * u)
 // int Colors();
 // Returns the number of colors.          
 //------------------------------------------------------------------
-     int Lattice::Colors (void) const const const
+     int Lattice::Colors (void) const
      {
        return GJP.Colors ();
      }
@@ -701,7 +701,7 @@ int Lattice::U1GsiteSize (void)
 //    is the same on each node in a given direction.  Otherwise, this
 //    won't work properly.
 //--------------------------------------------------------------------------
-     const Matrix *Lattice::GetLink (const int *site, int dir) const const const
+     const Matrix *Lattice::GetLink (const int *site, int dir) const
      {
        const char *fname = "GetLink()";
 //VRB.Func(cname,fname);
@@ -761,7 +761,7 @@ int Lattice::U1GsiteSize (void)
 // get U_mu(x+v)
 
      const Matrix *Lattice::GetLinkOld (Matrix * g_offset, const int *x, int v,
-				   int mu) const const const
+				   int mu) const
      {
        if (x[v] == node_sites[v] - 1)
 {				// off node
@@ -776,7 +776,7 @@ return &m_tmp1;
      }
 
 // U1 field
-     const Float *Lattice::GetLinkOld (Float * g_offset, const int *x, int v, int mu) const const const
+     const Float *Lattice::GetLinkOld (Float * g_offset, const int *x, int v, int mu) const
      {
        if (x[v] == node_sites[v] - 1)
 {				// off node
@@ -789,7 +789,7 @@ return (Float *) & m_tmp1;
        }
      }
 
-     int Lattice::GetSigma (const int *site, int mu, int nu) const const const
+     int Lattice::GetSigma (const int *site, int mu, int nu) const
      {
        const char *fname = "GetSigma()";
 
@@ -985,7 +985,7 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
 }
 
 // U1 plaquette
-     Float Lattice::ReU1Plaq (int *x, int mu, int nu) const const const
+     Float Lattice::ReU1Plaq (int *x, int mu, int nu) const
      {
 //char *fname = "Staple(C&,i*,i)";
 //VRB.Func(cname,fname);
@@ -1018,14 +1018,32 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
 
      }
 
+Float Lattice::GetReTrPlaq(const int x[4],Float *ReTrPlaq){
+	int x_local[4];
+
+	for(int i=0;i<4;i++){
+	if ( ( (x[i]<0) || (x[i] >=GJP.NodeSites(i)) ) && (GJP.Nodes(i)>1) )
+	ERR.General("","GetReTrPlaq()","Not implemented for multi node yet\n"
+);
+	x_local[i]=x[i];
+	int nodes = GJP.NodeSites(i);
+	while (x_local[i] <0){ x_local[i] += nodes; }
+	x_local[i] = x_local[i] % nodes ;
+	}
+	return  *(ReTrPlaq+GsiteOffset(x_local)/4);
+}
+
 //Utility function for below
 //Scale this staple properly by multiplying mp3 by the appropriate sigma factor
-     void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu)
+     void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,Float *ReTrPlaq)
 {
 
   //need to get the plaquette regardless of the value of sigma to make sure all
   //nodes send the same communication requests
-  Float re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
+  Float re_tr_plaq;
+  if (ReTrPlaq) re_tr_plaq = GetReTrPlaq(x,ReTrPlaq);
+  ///if (ReTrPlaq) re_tr_plaq = *(ReTrPlaq+GsiteOffset(x)/4);
+  else re_tr_plaq  = ReTrPlaqNonlocal (x, mu, nu);
   //printf("x = (%d, %d, %d, %d), mu,nu = %d,%d, re_tr_plaq = %e\n", x[0], x[1], x[2], x[3], mu, nu, re_tr_plaq);
   assert (!(re_tr_plaq != re_tr_plaq));
 
@@ -1062,7 +1080,7 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
   \param mu The link direction 
 */
 //------------------------------------------------------------------
-void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu)
+void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu, Float *ReTrPlaq)
 {
 //const char *fname = "Staple(M&,i*,i)";
 //VRB.Func(cname,fname);
@@ -1081,7 +1099,7 @@ void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu)
       p1 = GetLinkOld (g_offset, x, nu, mu);
       mp3->Dagger ((IFloat *) p1);
 
-      ScaleStaple (mp3, x, mu, nu);
+      ScaleStaple (mp3, x, mu, nu,ReTrPlaq);
 
       //----------------------------------------------------------
       // p1 = &U_v(x+u)
@@ -1164,13 +1182,14 @@ void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu)
 	getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
 		      MATRIX_SIZE, nu);
 
-	ScaleStaple (&m_tmp2, x_minus_nuhat, mu, nu);
+	ScaleStaple (&m_tmp2, x_minus_nuhat, mu, nu,ReTrPlaq);
+//      ScaleStaple (mp3, x, mu, nu,ReTrPlaq);
 
 	//stap += m_tmp2;
 	vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
 
       } else {
-	ScaleStaple (mp3, x_minus_nuhat, mu, nu);
+	ScaleStaple (mp3, x_minus_nuhat, mu, nu,ReTrPlaq);
 
 	mDotMPlus ((IFloat *) & stap, (const IFloat *) mp3,
 		   (const IFloat *) mp2);
@@ -1584,7 +1603,7 @@ void Lattice::RectStaple (Matrix & rect, int *x, int mu)
   \param mu The first plaquette direction.
   \param nu The second plaquette direction; should be different from \a mu.
 */
-     void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const const const
+     void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const
      {
        const Matrix *p1;
 
@@ -1634,7 +1653,7 @@ void Lattice::RectStaple (Matrix & rect, int *x, int mu)
   \param nu The second plaquette direction; should be different from \a mu.
   \return  The real part of the trace of the plaquette.
 */
-     Float Lattice::ReTrPlaq (int *x, int mu, int nu) const const const
+     Float Lattice::ReTrPlaq (int *x, int mu, int nu) const
      {
 //  const char *fname = "ReTrPlaq(i*,i,i) const";
 //  VRB.Func(cname,fname);
@@ -1699,7 +1718,7 @@ Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
   \return The summed real trace of the plaquette.
 */
 //------------------------------------------------------------------
-     Float Lattice::SumReTrPlaqNode (void) const const const
+     Float Lattice::SumReTrPlaqNode (void) const
      {
        const char *fname = "SumReTrPlaqNode() const";
        sync ();
@@ -1734,7 +1753,7 @@ Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
        return sum;
      }
 
-     Float Lattice::SumReU1PlaqNode () constconst const
+     Float Lattice::SumReU1PlaqNode () const
      {
        char *fname = "SumReU1PlaqNode() const";
        sync ();
@@ -1838,7 +1857,7 @@ Float Lattice::SumSigmaEnergyNode ()
   \return The globally summed real trace of the plaquette.
 */
 //------------------------------------------------------------------
-     Float Lattice::SumReTrPlaq (void) const const const
+     Float Lattice::SumReTrPlaq (void) const
      {
        const char *fname = "SumReTrPlaq() const";
        VRB.Func (cname, fname);
@@ -1850,7 +1869,7 @@ Float Lattice::SumSigmaEnergyNode ()
        return sum;
      }
 
-     Float Lattice::SumReU1Plaq (void) const const const
+     Float Lattice::SumReU1Plaq (void) const
      {
        char *fname = "SumReTrPlaq() const";
        VRB.Func (cname, fname);
@@ -1876,7 +1895,7 @@ Float Lattice::SumSigmaEnergyNode ()
 
 //
 //-----------------------------------------------------------------------------
-     Float Lattice::ReTrRect (int *x, int mu, int nu) const const const
+     Float Lattice::ReTrRect (int *x, int mu, int nu) const
      {
        const char *fname = "ReTrRect(i*,i,i) const";
 //  VRB.Func(cname,fname);
@@ -1985,7 +2004,7 @@ combinations.
   \return The summed real trace of the rectangle.
 */
 //-----------------------------------------------------------------------------
-     Float Lattice::SumReTrRectNode (void) const const const
+     Float Lattice::SumReTrRectNode (void) const
      {
 //const char *fname = "SumReTrRectNode() const";
 //VRB.Func(cname,fname);
@@ -2022,7 +2041,7 @@ combinations.
   \return The globally summed real trace of the rectangle.
 */
 //-----------------------------------------------------------------------------
-     Float Lattice::SumReTrRect (void) const const const
+     Float Lattice::SumReTrRect (void) const
      {
        const char *fname = "SumReTrRect() const";
        VRB.Func (cname, fname);
@@ -2193,7 +2212,7 @@ enum
 */
 
 //------------------------------------------------------------------
-     Float Lattice::AveReTrPlaqNodeNoXi () constconst const
+     Float Lattice::AveReTrPlaqNodeNoXi () const
      {
        const char *fname = "AveReTrPlaqNodeNoXi()";
        VRB.Func (cname, fname);
@@ -2244,7 +2263,7 @@ enum
   \return The real trace of the plaquette averaged over local sites, planes and colours.
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrPlaqNodeXi () constconst const
+     Float Lattice::AveReTrPlaqNodeXi () const
      {
        const char *fname = "AveReTrPlaqNodeXi()";
        VRB.Func (cname, fname);
@@ -2294,7 +2313,7 @@ enum
   \return The real trace of the plaquette averaged over sites, planes and colours.
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrPlaqNoXi () constconst const
+     Float Lattice::AveReTrPlaqNoXi () const
      {
        const char *fname = "AveReTrPlaqNoXi()";
        VRB.Func (cname, fname);
@@ -2322,7 +2341,7 @@ enum
   \return The real trace of the plaquette averaged over local sites, planes and colours.
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrPlaqXi () const const const
+     Float Lattice::AveReTrPlaqXi () const
      {
        const char *fname = "AveReTrPlaqXi()";
        VRB.Func (cname, fname);
@@ -2361,7 +2380,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectNodeNoXi () constconst const
+     Float Lattice::AveReTrRectNodeNoXi () const
      {
        const char *fname = "AveReTrRectNodeNoXi()";
        VRB.Func (cname, fname);
@@ -2415,7 +2434,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectNodeXi1 () constconst const
+     Float Lattice::AveReTrRectNodeXi1 () const
      {
        const char *fname = "AveReTrRectNodeXi1()";
        VRB.Func (cname, fname);
@@ -2468,7 +2487,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectNodeXi2 () constconst const
+     Float Lattice::AveReTrRectNodeXi2 () const
      {
        const char *fname = "AveReTrRectNodeXi2()";
        VRB.Func (cname, fname);
@@ -2523,7 +2542,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectNoXi () constconst const
+     Float Lattice::AveReTrRectNoXi () const
      {
        const char *fname = "AveReTrRectNoXi()";
        VRB.Func (cname, fname);
@@ -2553,7 +2572,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectXi1 () const const const
+     Float Lattice::AveReTrRectXi1 () const
      {
        const char *fname = "AveReTrRectXi1()";
        VRB.Func (cname, fname);
@@ -2583,7 +2602,7 @@ enum
 
 */
 //------------------------------------------------------------------
-     Float Lattice::AveReTrRectXi2 () const const const
+     Float Lattice::AveReTrRectXi2 () const
      {
        const char *fname = "AveReTrRectXi2()";
        VRB.Func (cname, fname);
@@ -3647,7 +3666,7 @@ int
 	       "Only have code for dwf class not others so this is not a pure virtual function\n");
 }
 
-     unsigned long Lattice::GsiteOffset (const int *x, const int dir) const const const
+     unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
      {
        const char *fname = "GsiteOffset(*i,i)";
        int parity = (x[0] + x[1] + x[2] + x[3]) % 2;
@@ -3677,7 +3696,7 @@ static const int sigma_offset_lookup[4][4] = { {-1, 0, 1, 2},
 
 // There is one sigma variable for each plaquette. This function gives the
 // index into the sigma_field array that corresponds to a given plaquette
-     int Lattice::SigmaOffset (const int x[4], int mu, int nu) const const const
+     int Lattice::SigmaOffset (const int x[4], int mu, int nu) const
      {
        assert (mu != nu);
        assert (mu >= 0);

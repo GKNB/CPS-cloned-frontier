@@ -1,6 +1,7 @@
 #include <config.h>
 #include <util/gjp.h>
 #include <util/lattice.h>
+#include <util/lat_data.h>
 #include <util/time_cps.h>
 //#include <comms/nga_reg.h>
 #include <comms/glb.h>
@@ -28,8 +29,29 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   Float time = -dclock();
   ForceFlops=0;
 #endif
+  int if_block = 0;
+  if (SigmaBlockSize () > 0) if_block = 1;
+
+  LatData Plaqs(1);
   
   int x[4];
+if (if_block){
+  for(x[0] = 0; x[0] < GJP.XnodeSites(); ++x[0]) {
+    for(x[1] = 0; x[1] < GJP.YnodeSites(); ++x[1]) {
+      for(x[2] = 0; x[2] < GJP.ZnodeSites(); ++x[2]) {
+	for(x[3] = 0; x[3] < GJP.TnodeSites(); ++x[3]) {
+	    Float re_tr_plaq = 0.;
+            for (int mu = 0; mu < 3; ++mu)
+              for (int nu = mu + 1; nu < 4; ++nu)
+                re_tr_plaq += ReTrPlaqNonlocal (x, mu, nu);
+                Float * tmp_f = (Plaqs.Field(GsiteOffset(x)/4));
+	         *tmp_f =  re_tr_plaq;
+	}
+      }
+    }
+  }
+}
+  
   
   for(x[0] = 0; x[0] < GJP.XnodeSites(); ++x[0]) {
     //printf("x[0] = %d\n", x[0]);
@@ -43,7 +65,8 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
           Matrix *mp0 = &mt0;
 	  
 	  for (int mu = 0; mu < 4; ++mu) {
-	    GforceSite(*mp0, x, mu);
+	    if (if_block) GforceSite(*mp0, x, mu,Plaqs.Field());
+	    else  GforceSite(*mp0, x, mu);
 	    
 	    IFloat *ihp = (IFloat *)(mom+uoff+mu);
 	    IFloat *dotp = (IFloat *)mp0;

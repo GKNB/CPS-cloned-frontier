@@ -266,8 +266,8 @@ class Lattice
     }
     int GetSigma(const int *site, int mu, int nu) const;
     virtual int SigmaBlockSize();
-    void ScaleStaple(Matrix *stap, int x[4], int mu, int nu);
-    void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu);
+    void ScaleStaple(Matrix *stap, int x[4], int mu, int nu, Float *ReTrPlaq);
+    void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float *ReTrPlaq=NULL);
     Float SumSigmaEnergyNode();
     virtual void SigmaHeatbath() { ERR.NotImplemented(cname, "SigmaHeatBath()"); }
     Float ReTrPlaqNonlocal(int *x, int mu, int nu);
@@ -1235,6 +1235,7 @@ class Lattice
     //!< Note: Agent classes which needs to import gauge field to
     //!external libraries need to overwrite this function.
     virtual void BondCond();
+    Float GetReTrPlaq(const int x[4],Float *ReTrPlaq);
 };
 
 //------------------------------------------------------------------
@@ -1315,7 +1316,7 @@ class Gwilson : public virtual Lattice
         // w.r.t. the link U_mu(x).  Typical implementation has this
         // func called with Matrix &grad = *mp0, so avoid using it.
 
-    void GforceSite(Matrix& force, int *x, int mu);
+    void GforceSite(Matrix& force, int *x, int mu, Float *ReTrPlaq=NULL);
     //!< Calculates the gauge force at site x and direction mu.
 
     ForceArg EvolveMomGforce(Matrix *mom, Float step_size);

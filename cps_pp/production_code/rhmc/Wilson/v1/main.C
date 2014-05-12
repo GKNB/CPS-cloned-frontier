@@ -162,13 +162,13 @@ int main(int argc, char *argv[])
         truncate_it(&common_arg_wline, "../results/alg_wline/wline", traj);
         truncate_it(&common_arg_pbp  , evo_arg.pbp_stem            , traj);
         truncate_it(&common_arg_hmc  , evo_arg.evo_stem            , traj);
+	measure_tc(common_arg_top, 20);
 
         // Inner trajectory loop
         for(int i = 0; i < evo_arg.gauge_unload_period; ++i, ++traj) {
 
             measure_plaq(common_arg_plaq);
 //            measure_wline(common_arg_wline);
-	    measure_tc(common_arg_top, 20);
 //            measure_pbp(common_arg_pbp, traj);
 
             run_hmc(common_arg_hmc, traj, ab1);
