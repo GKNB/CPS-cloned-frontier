@@ -7,6 +7,7 @@
 #include<util/lattice.h>
 #include<util/random.h>
 #include<util/time_cps.h>
+#include<util/command_line.h>
 
 #include<alg/alg_hmc.h>
 #include<alg/common_arg.h>
@@ -86,13 +87,13 @@ void decode_vml_all(void)
 //    decode_vml(ab2_arg);
     // decode_vml(ab3_arg);
 //    decode_vml(pbp_arg);
-	 decode_vml(ape_arg);
+      decode_vml(ape_arg);
 }
 
 void truncate_it(CommonArg *common_arg, const char stem[], int traj);
 void measure_plaq(CommonArg &common_arg);
 void measure_wline(CommonArg &common_arg);
-void measure_tc(CommonArg &common_arg, int cycle);
+void measure_tc(CommonArg &common_arg, int n_smear, int cycle);
 //void measure_pbp(CommonArg &common_arg, int traj);
 void run_hmc(CommonArg &common_arg, int traj, AlgIntAB &int_ab);
 
@@ -102,12 +103,13 @@ void setup(int argc, char *argv[])
     const char *fname = "setup()";
 
     Start(&argc, &argv);
+    CommandLine::is(argc,argv);
 
     if(argc < 2) {
         ERR.General(cname, fname, "Must provide VML directory.\n");
     }
 
-    if(chdir(argv[1]) != 0) {
+    if(chdir(CommandLine::arg()) != 0) {
         ERR.General(cname, fname, "Changing directory to %s failed.\n", argv[1]);
     }
 
@@ -131,8 +133,19 @@ void setup(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     const char *fname = "main()";
+    int if_noisy=0;
 
     setup(argc, argv);
+
+if (if_noisy)
+{   
+    GwilsonFnone lat;
+    lat.delta_beta = CommandLine::arg_as_Float();
+    lat.deltaS_offset = CommandLine::arg_as_Float();
+    int block[]={1,1,1,1};
+    lat.SetSigmaBlock(block);
+    VRB.Result("","main()","delta_beta=%g deltaS_offset=%g\n",lat.delta_beta ,  lat.deltaS_offset);
+}
 
     //////////////////////////////////////////////////////////////////////
     // creating actions and integrators
@@ -162,7 +175,13 @@ int main(int argc, char *argv[])
         truncate_it(&common_arg_wline, "../results/alg_wline/wline", traj);
         truncate_it(&common_arg_pbp  , evo_arg.pbp_stem            , traj);
         truncate_it(&common_arg_hmc  , evo_arg.evo_stem            , traj);
-	measure_tc(common_arg_top, 20);
+//	    measure_tc(common_arg_top ,30,2);
+if (if_noisy)
+{
+	    Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gauge_arg.gluon);
+	    lat.SigmaHeatbath();
+	    LatticeFactory::Destroy();
+}
 
         // Inner trajectory loop
         for(int i = 0; i < evo_arg.gauge_unload_period; ++i, ++traj) {
@@ -290,7 +309,7 @@ void measure_wline(CommonArg &common_arg)
     print_flops("AlgWline", "run()", 0, dtime);	
 }
 
-void measure_tc(CommonArg &common_arg, int cycle)
+void measure_tc(CommonArg &common_arg, int n_smear, int cycle)
 {
     const char *fname = "measure_tc()";
 
@@ -309,9 +328,9 @@ void measure_tc(CommonArg &common_arg, int cycle)
     for (int i = 0; i < cycle; ++i) {
         VRB.Result(cname,fname,"%i\n",i);
         VRB.Result(cname,fname,"   running tcharge\n"); tcharge.run();
+	for(int j=0; j<n_smear; j++){
         VRB.Result(cname,fname,"   running ape\n"); ape.run();
-        VRB.Result(cname,fname,"   running ape\n"); ape.run();
-        VRB.Result(cname,fname,"   running ape\n"); ape.run();
+        }
     }
     tcharge.run();
     // restore the lattice

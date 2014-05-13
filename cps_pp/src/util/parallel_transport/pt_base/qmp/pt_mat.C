@@ -221,7 +221,7 @@ parity, IFloat * gauge)
 //Parallel transport of a matrix. through one hop.
 //The matrix min is parallel transported and the result is placed in mout
 #if 1
-#undef PROFILE
+#define PROFILE
 void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
     
   int wire[MAX_DIR];
@@ -273,7 +273,7 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
   int if_print = 0;
   if ( (call_num%100==1) && (!QMP_get_node_number()) ) if_print=1;
 
-#define USE_TEST2
+#undef USE_TEST2
 #ifdef USE_TEST2
 //assume nt > n!
     static char *cname="mat()";
@@ -307,6 +307,11 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
   //Interleaving of local computation of matrix multiplication
 #pragma omp parallel for default(shared)
   for(i=0;i<n;i++){
+  int iam,nt;
+  iam = omp_get_thread_num();
+  nt = omp_get_num_threads();
+    if ( if_print )
+      printf("thread %d of %d i=%d\n",iam,nt,i);
     partrans_cmm_agg(uc_l[wire[i]],min[i],mout[i],local_chi[wire[i]]/2);
   }
 }
