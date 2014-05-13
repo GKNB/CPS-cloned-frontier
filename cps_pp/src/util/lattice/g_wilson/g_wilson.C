@@ -249,7 +249,7 @@ void Gwilson::GforceSite (Matrix & force, int *x, int mu, Float *RePlaq)
 Float Gwilson::GhamiltonNode (void)
 {
   char *fname = "GhamiltonNode()";
-  VRB.Func (cname, fname);
+  VRB.Result (cname, fname,"Entered\n");
 
   Float plaq_multiplier = GJP.Beta () * invs3;
   Float sum = SumReTrPlaqNode ();

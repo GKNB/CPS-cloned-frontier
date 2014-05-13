@@ -31,6 +31,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 #endif
   int if_block = 0;
   if (SigmaBlockSize () > 0) if_block = 1;
+  VRB.Result(cname,fname,"if_block=%d\n",if_block);
 
   LatData Plaqs(1);
   
@@ -42,8 +43,15 @@ if (if_block){
 	for(x[3] = 0; x[3] < GJP.TnodeSites(); ++x[3]) {
 	    Float re_tr_plaq = 0.;
             for (int mu = 0; mu < 3; ++mu)
-              for (int nu = mu + 1; nu < 4; ++nu)
-                re_tr_plaq += ReTrPlaqNonlocal (x, mu, nu);
+              for (int nu = mu + 1; nu < 4; ++nu){
+                Float re_tr = ReTrPlaqNonlocal (x, mu, nu);
+                re_tr_plaq += re_tr;
+if (x[0]==0)
+if (x[1]==0)
+if (x[2]==0)
+if (x[3]==0)
+  VRB.Result(cname,fname,"ReTr[%d][%d][0]=%g\n",mu,nu,re_tr);
+}
                 Float * tmp_f = (Plaqs.Field(GsiteOffset(x)/4));
 	         *tmp_f =  re_tr_plaq;
 	}

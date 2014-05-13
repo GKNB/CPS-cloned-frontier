@@ -29,6 +29,13 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   ParTrans::PTflops=0;
 #endif
   static int vol = GJP.VolNodeSites();
+  int mu,nu;
+    int dirs_p[] = {0,2,4,6,0,2,4};
+    int dirs_m[] = {1,3,5,7,1,3,5};
+
+    int if_block = 0;
+  if (SigmaBlockSize () > 0) if_block = 1;
+
   const int N = 4;
   Float tmp = GJP.Beta() *invs3;
   Matrix *Unit = (Matrix *) fmalloc(vol*sizeof(Matrix));
@@ -47,10 +54,26 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 	Unit[i]=1.;
   Matrix *Units[4];
   for(int i = 0;i<N;i++) Units[i] = Unit;
-  int mu,nu;
+
+  LatData Plaqs(1);
+{
+    ParTransGauge pt(*this);
+      for(mu = 0;mu<4;mu++)
+      for(nu = mu+1;nu<4;nu++){
+        pt.run(1,tmp1,Units,dirs_m+mu);
+  	pt.run(1,result,tmp1,dirs_m+nu);
+	pt.run(1,tmp1,result,dirs_p+mu);
+  	pt.run(1,result,tmp1,dirs_p+nu);
+  for(int i = 0;i<vol;i++){
+    Float *tmp_f = Plaqs.Field(i);
+    Float re_tr = (result[0]+i)->ReTr();
+    if (mu==0 && nu==1) *tmp_f = re_tr;
+    else *tmp_f += re_tr;
+    if (i==0) VRB.Result(cname,fname,"ReTr[%d][%d][0]=%g\n",mu,nu,re_tr);
+  } 
+      }
+}
   {
-    int dirs_p[] = {0,2,4,6,0,2,4};
-    int dirs_m[] = {1,3,5,7,1,3,5};
     ParTransGauge pt(*this);
 
   
@@ -58,22 +81,40 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
         pt.run(N,tmp1,Units,dirs_m+nu);
   	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_p+nu);
-	for(int i = 0; i<N;i++)
-//	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
+	for(int i = 0; i<N;i++){
 	tmp2[i]->FTimesV1PlusV2(tmp,tmp1[i],tmp2[i],vol);
-//      vaxpy3_m(tmp2[i],&tmp_rect,tmp1[i],tmp2[i],vol*3);
-//	tmp2[i]->FTimesV1PlusV2(tmp_rect,tmp1[i],tmp2[i],vol);
+	}
 	pt.run(N,tmp1,Units,dirs_p+nu);
 	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_m+nu);
-	for(int i = 0; i<N;i++)
+	for(int i = 0; i<N;i++){
 	tmp2[i]->FTimesV1PlusV2(tmp,tmp1[i],tmp2[i],vol);
-//	vaxpy3_m(tmp2[i],&tmp,tmp1[i],tmp2[i],vol*3);
+	}
         ForceFlops +=vol*12*N;
       }
       pt.run(N,result,tmp2,dirs_p);
   }
+#if 1
+#pragma omp parallel for default(shared) private(mu) reduction(+:L1,L2)
+  for(int index=0;index<4*vol;index++){
+    Matrix mp1;
+    int i = index%vol;
+    mu = index/vol;
+    Matrix *mtmp = (result[mu]+i);
+    mp1.Dagger((IFloat *)mtmp);
+    mtmp->TrLessAntiHermMatrix(mp1);
+    IFloat *ihp = (IFloat *)(mom+i*4+mu);  //The gauge momentum
+    IFloat *dotp = (IFloat *)mp0;
+    IFloat *dotp2 = (IFloat *) (result[mu]+(i));
+    fTimesV1PlusV2Single(ihp, dt, dotp2, ihp, 18);  //Update the gauge momentum
+    Float norm = ((Matrix*)dotp2)->norm();
+    Float tmp = sqrt(norm);
+    L1 += tmp;
+    L2 += norm;
+  }
 
+
+#else
     Matrix mp1;
     for(mu = 0;mu<4;mu++){
       Matrix *mtmp = result[mu];
@@ -82,7 +123,6 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
         mtmp++;
       }
     }
-  ForceFlops += vol*60;
   
   int x[4];
   
@@ -108,6 +148,8 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
       }
     }
   }
+#endif
+  ForceFlops += vol*60;
   ForceFlops += vol*144;
 
 #ifdef PROFILE

@@ -1790,6 +1790,7 @@ Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
 Float Lattice::SumSigmaEnergyNode ()
 {
   char *fname = "SumSigmaEnergyNode()";
+  VRB.Result (cname, fname,"Entered\n");
   Float sum = 0.0;
   int x[4];
 
