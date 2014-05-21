@@ -2,10 +2,14 @@
 #include <config.h>
 #include <util/qio_general.h>
 
+
 CPS_START_NAMESPACE
 using namespace std;
 
 
+static int qio_sparse_num=1;
+void setQioSparseNum(int n) { qio_sparse_num = n;}
+int getQioSparseNum() { return qio_sparse_num;}
 
 
 
@@ -330,6 +334,7 @@ int qio_sites_on_node()
 static int qio_get_node(int node)
 {
   //printf("qio_get_node: %d %d\n",node,QIO_SPARSE_PARTFILE_NODES);
+  int QIO_SPARSE_PARTFILE_NODES=getQioSparseNum();
   if (QIO_SPARSE_PARTFILE_NODES==0) return node;
   return (node / QIO_SPARSE_PARTFILE_NODES)*QIO_SPARSE_PARTFILE_NODES;
 }
@@ -373,7 +378,7 @@ void qio_init::qio_setFilesystem()
 {
 
 #ifdef QIO_SPARSE_PARTFILE
-  fs. number_io_nodes = NumNodes() / QIO_SPARSE_PARTFILE_NODES;
+  fs. number_io_nodes = NumNodes() / getQioSparseNum();
   fs. type = QIO_SINGLE_PATH;// or QIO_MULTIPLE_PATH
   fs. my_io_node =  qio_get_node;
   fs. master_io_node = qio_master_io_node;

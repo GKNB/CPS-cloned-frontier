@@ -678,7 +678,9 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
 #pragma omp parallel
     {
-        lambda[0] = bd.ritz(in, eig_arg->RitzMatOper == MATPCDAG_MATPC);
+         double tmp = bd.ritz(in, eig_arg->RitzMatOper == MATPCDAG_MATPC);
+         int me = bd.thread_barrier();
+         if (!me) lambda[0]=tmp;
     }
 
     bd.cps_impexcbFermion((Float *)f_eigenv[0], in, 0, 1);

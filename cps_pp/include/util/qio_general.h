@@ -130,7 +130,7 @@
 // The following three lines FORCE PARTFILE with io-node being smaller than
 // total nodes. For RICC and FNAL. 
 
-//#define USE_QIO_SPARSE_PARTFILE
+#define USE_QIO_SPARSE_PARTFILE
 
 #ifdef USE_QIO_SPARSE_PARTFILE
 #define QIO_VOLFMT QIO_PARTFILE
@@ -140,7 +140,7 @@
 // Set it to zero if you want all nodes to be io-node.
 
 // For FNAL DS
-#define QIO_SPARSE_PARTFILE_NODES 32
+//#define QIO_SPARSE_PARTFILE_NODES 32
 
 // For RICC
 //#define QIO_SPARSE_PARTFILE_NODES 8
@@ -180,6 +180,9 @@
 
 CPS_START_NAMESPACE
 using namespace std;
+
+void setQioSparseNum(int n);
+int getQioSparseNum();
 
 //! source types
 enum QIO_PROP_SOURCE_TYPES {QIO_UNKNOWN_SOURCE=0, QIO_SCALAR_SOURCE, QIO_FULL_SOURCE};
