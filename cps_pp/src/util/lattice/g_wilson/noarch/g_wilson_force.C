@@ -37,26 +37,38 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   
   int x[4];
 if (if_block){
-  for(x[0] = 0; x[0] < GJP.XnodeSites(); ++x[0]) {
-    for(x[1] = 0; x[1] < GJP.YnodeSites(); ++x[1]) {
-      for(x[2] = 0; x[2] < GJP.ZnodeSites(); ++x[2]) {
-	for(x[3] = 0; x[3] < GJP.TnodeSites(); ++x[3]) {
+
+	for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0]) 
+	for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1]) 
+	for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
+	    int sigma = GetSigma (x, 0, 1);
+	  int offset[4],x_tmp[4];
 	    Float re_tr_plaq = 0.;
-            for (int mu = 0; mu < 3; ++mu)
-              for (int nu = mu + 1; nu < 4; ++nu){
-                Float re_tr = ReTrPlaqNonlocal (x, mu, nu);
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
+	    for (int mu = 0; mu < 3; ++mu)
+	      for (int nu = mu + 1; nu < 4; ++nu){
+		Float re_tr = ReTrPlaqNonlocal (x_tmp, mu, nu);
                 re_tr_plaq += re_tr;
-if (x[0]==0)
-if (x[1]==0)
-if (x[2]==0)
-if (x[3]==0)
+if (x_tmp[0]==0)
+if (x_tmp[1]==0)
+if (x_tmp[2]==0)
+if (x_tmp[3]==0)
   VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%g\n",mu,nu,re_tr);
 }
-                Float * tmp_f = (Plaqs.Field(GsiteOffset(x)/4));
+}
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
+                Float * tmp_f = (Plaqs.Field(GsiteOffset(x_tmp)/4));
 	         *tmp_f =  re_tr_plaq;
 	}
-      }
-    }
   }
 }
   

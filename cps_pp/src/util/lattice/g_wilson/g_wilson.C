@@ -103,39 +103,58 @@ void Gwilson::SigmaHeatbath ()
   Float n_zero = 0;
   Float n_one = 0;
 
-  Float max_plaq = -999.0;
-  Float min_plaq = +999.0;
+  Float max_plaq = -1.0e10;
+  Float min_plaq = +1.0e10;
   int if_block = 0;
   if (SigmaBlockSize () > 0)
     if_block = 1;
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
 	  if (if_block) {
+	for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0]) 
+	for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1]) 
+	for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
+	  int offset[4],x_tmp[4];
 	    Float re_tr_plaq = 0.;
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
 	    for (int mu = 0; mu < 3; ++mu)
 	      for (int nu = mu + 1; nu < 4; ++nu)
-		re_tr_plaq += ReTrPlaqNonlocal (x, mu, nu);
+		re_tr_plaq += ReTrPlaqNonlocal (x_tmp, mu, nu);
+	}
+
 	    if (re_tr_plaq > max_plaq)
 	      max_plaq = re_tr_plaq;
 	    if (re_tr_plaq < min_plaq)
 	      min_plaq = re_tr_plaq;
 	    int acc = SigmaTest (x, re_tr_plaq);
+	    if (acc == 0) n_zero += 1.;
+		else n_one +=1.;
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
 	    if (acc == 0) {
 	      for (int mu = 0; mu < 3; ++mu)
 		for (int nu = mu + 1; nu < 4; ++nu)
-		  *(SigmaField () + SigmaOffset (x, mu, nu)) = 0;
-	      n_zero += 1.0;
+		  *(SigmaField () + SigmaOffset (x_tmp, mu, nu)) = 0;
 	    } else {
 	      for (int mu = 0; mu < 3; ++mu)
 		for (int nu = mu + 1; nu < 4; ++nu)
-		  *(SigmaField () + SigmaOffset (x, mu, nu)) = 1;
-	      n_one += 1.0;
+		  *(SigmaField () + SigmaOffset (x_tmp, mu, nu)) = 1;
 	    }
+	}
+	}
 
 	  } else {
+	for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) 
+	for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) 
+	for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
 	    for (int mu = 0; mu < 3; ++mu) {
 	      for (int nu = mu + 1; nu < 4; ++nu) {
 		Float re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
@@ -167,9 +186,6 @@ void Gwilson::SigmaHeatbath ()
 	    }
 	  }
 	}
-      }
-    }
-  }
 
   glb_sum (&n_zero);
   glb_sum (&n_one);

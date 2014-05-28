@@ -1779,6 +1779,11 @@ Float Lattice::SumReU1PlaqNode () const
   return sum;
 }
 
+#if 0
+void Lattice:SigmaOffset(int index, int x_block[], int offset[], int x[]){
+}
+#endif
+
 Float Lattice::SumSigmaEnergyNode ()
 {
   char *fname = "SumSigmaEnergyNode()";
@@ -1790,16 +1795,23 @@ Float Lattice::SumSigmaEnergyNode ()
   if (SigmaBlockSize () > 0)
     if_block = 1;
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
 	  if (if_block) {
+	for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0]) 
+	for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1]) 
+	for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
 	    int sigma = GetSigma (x, 0, 1);
+	  int offset[4],x_tmp[4];
 	    Float re_tr_plaq = 0.;
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
 	    for (int mu = 0; mu < 3; ++mu)
 	      for (int nu = mu + 1; nu < 4; ++nu)
-		re_tr_plaq += ReTrPlaqNonlocal (x, mu, nu);
+		re_tr_plaq += ReTrPlaqNonlocal (x_tmp, mu, nu);
+	}
 	    if (sigma == 0) {
 	      sum += DeltaS (re_tr_plaq);
 	    } else if (sigma == 1) {
@@ -1810,7 +1822,12 @@ Float Lattice::SumSigmaEnergyNode ()
 	    } else
 	      ERR.General (cname, fname, "sigma(%d) is neither 0 or 1!", sigma);
 	    assert (!(sum != sum));
+	}
 	  } else {
+  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) 
+    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) 
+      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
 	    for (int mu = 0; mu < 3; ++mu) {
 	      for (int nu = mu + 1; nu < 4; ++nu) {
 		int sigma = GetSigma (x, mu, nu);
@@ -1828,11 +1845,8 @@ Float Lattice::SumSigmaEnergyNode ()
 		assert (!(sum != sum));
 	      }
 	    }
-	  }
 	}
-      }
-    }
-  }
+	  }
 //  sync();
   VRB.FuncEnd (cname, fname);
   return sum;
