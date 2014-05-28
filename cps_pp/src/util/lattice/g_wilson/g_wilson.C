@@ -75,7 +75,7 @@ int Lattice::SigmaTest (int x[], Float re_tr_plaq)
 
   Float exponent = -DeltaS (re_tr_plaq);
   if (exponent >= 0)
-    printf ("re_tr_plaq  DeltaS= %e\n", re_tr_plaq,exponent);
+    printf ("re_tr_plaq  DeltaS= %g %e\n", re_tr_plaq,-exponent);
   assert (exponent < 0);
   Float probability_zero = exp (exponent);
 

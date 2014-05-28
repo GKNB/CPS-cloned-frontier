@@ -69,22 +69,51 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
     Float re_tr = (result[0]+i)->ReTr();
     if (mu==0 && nu==1) *tmp_f = re_tr;
     else *tmp_f += re_tr;
-    if (i==0) VRB.Result(cname,fname,"ReTr[%d][%d][0]=%g\n",mu,nu,re_tr);
+    if (i==0) VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%g\n",mu,nu,re_tr);
   } 
       }
 }
   {
     ParTransGauge pt(*this);
+    LatMatrix Scale[4];
+    Matrix *tmp3[4];
+  for(int i = 0;i<N;i++)
+	 tmp3[i] = Scale[i].Mat();
+	Float beta = GJP.Beta();
 
   
       for(nu = 1;nu<4;nu++){
-        pt.run(N,tmp1,Units,dirs_m+nu);
+  	for(int i = 0;i<N;i++){
+  	for(int j = 0;j<vol;j++){
+		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
+		if (sigma==0) *(tmp3[i]+j) = 1.0+delta_beta/beta;
+		else {
+			Float re_tr_plaq = *(Plaqs.Field(j));
+			Float exponent = DeltaS (re_tr_plaq);
+			*(tmp3[i]+j) = 1.0 - delta_beta / (beta * (exp (exponent) - 1.0));
+		}
+
+		}
+	}
+        pt.run(N,tmp1,tmp3,dirs_m+nu);
   	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_p+nu);
 	for(int i = 0; i<N;i++){
 	tmp2[i]->FTimesV1PlusV2(tmp,tmp1[i],tmp2[i],vol);
 	}
 	pt.run(N,tmp1,Units,dirs_p+nu);
+  	for(int i = 0;i<N;i++){
+  	for(int j = 0;j<vol;j++){
+		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
+		if (sigma==0) *(tmp1[i]+j) *= 1.0+delta_beta/beta;
+		else {
+			Float re_tr_plaq = *(Plaqs.Field(j));
+			Float exponent = DeltaS (re_tr_plaq);
+			*(tmp1[i]+j) *= 1.0 - delta_beta / (beta * (exp (exponent) - 1.0));
+		}
+
+		}
+	}
 	pt.run(N,result,tmp1,dirs_m);
 	pt.run(N,tmp1,result,dirs_m+nu);
 	for(int i = 0; i<N;i++){
@@ -104,8 +133,10 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
     mp1.Dagger((IFloat *)mtmp);
     mtmp->TrLessAntiHermMatrix(mp1);
     IFloat *ihp = (IFloat *)(mom+i*4+mu);  //The gauge momentum
-    IFloat *dotp = (IFloat *)mp0;
+//    IFloat *dotp = (IFloat *)mp0;
     IFloat *dotp2 = (IFloat *) (result[mu]+(i));
+          if(i==0)
+        VRB.Result(cname,fname,"Gforce[%d][%d][0]=%g\n",mu,mtmp->norm());
     fTimesV1PlusV2Single(ihp, dt, dotp2, ihp, 18);  //Update the gauge momentum
     Float norm = ((Matrix*)dotp2)->norm();
     Float tmp = sqrt(norm);

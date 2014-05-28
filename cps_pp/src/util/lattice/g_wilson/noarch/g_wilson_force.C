@@ -50,7 +50,7 @@ if (x[0]==0)
 if (x[1]==0)
 if (x[2]==0)
 if (x[3]==0)
-  VRB.Result(cname,fname,"ReTr[%d][%d][0]=%g\n",mu,nu,re_tr);
+  VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%g\n",mu,nu,re_tr);
 }
                 Float * tmp_f = (Plaqs.Field(GsiteOffset(x)/4));
 	         *tmp_f =  re_tr_plaq;
@@ -78,6 +78,11 @@ if (x[3]==0)
 	    
 	    IFloat *ihp = (IFloat *)(mom+uoff+mu);
 	    IFloat *dotp = (IFloat *)mp0;
+	  if(x[0]==0)
+	  if(x[1]==0)
+	  if(x[2]==0)
+	  if(x[3]==0)
+  	VRB.Result(cname,fname,"Gforce[%d][%d][0]=%g\n",mu,mp0->norm());
 	    fTimesV1PlusV2(ihp, dt, dotp, ihp, 18);
 	    Float norm = ((Matrix*)dotp)->norm();
 	    Float tmp = sqrt(norm);

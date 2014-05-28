@@ -261,11 +261,9 @@ class Lattice
 
     static Float delta_beta;
     static Float deltaS_offset;
-    int SetSigmaBlock(int block[]){
-        for(int i=0;i<4;i++) sigma_blocks[i]=block[i];
-    }
     int GetSigma(const int *site, int mu, int nu) const;
     virtual int SigmaBlockSize();
+    virtual int SetSigmaBlock(int []);
     void ScaleStaple(Matrix *stap, int x[4], int mu, int nu, Float *ReTrPlaq);
     void StapleWithSigmaCorrections(Matrix& stap, int *x, int mu, Float *ReTrPlaq=NULL);
     Float SumSigmaEnergyNode();
@@ -297,6 +295,7 @@ class Lattice
     virtual unsigned long GsiteOffset(const int *x, const int dir) const;
  
     int SigmaOffset(const int x[4], int mu, int nu) const;
+    int SigmaOffset(const int index, int mu, int nu) const;
 
 
     void CopyGaugeField(Matrix* u);
