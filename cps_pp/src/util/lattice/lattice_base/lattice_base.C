@@ -3691,6 +3691,13 @@ int Lattice::SigmaOffset (const int x[4], int mu, int nu) const
 		 x[3], mu, nu, site_offset);
   assert (site_offset >= 0);
   assert (site_offset < 6 * GJP.VolNodeSites ());
+#if 0
+  if(x[0]<4)
+  if(x[1]<1)
+  if(x[2]<1)
+  if(x[3]<1)
+  VRB.Result(cname,"SigmaOffset()","Sigma[%d][%d][%d]=%d\n",mu,nu,x[0],site_offset + plaq_offset);
+#endif
 
   return site_offset + plaq_offset;
 }
@@ -3702,6 +3709,17 @@ int Lattice::SigmaOffset (const int index, int mu, int nu) const
   assert (nu >= 0);
   assert (mu < 4);
   assert (nu < 4);
+  if (mu > nu) {
+    int tmp = mu;
+    mu = nu;
+    nu = tmp;
+  }
+  assert (nu > mu);
+#if 0
+  if(index<4)
+  VRB.Result(cname,"SigmaOffset()","Sigma[%d][%d][%d]=%d\n",mu,nu,index,index * 6 + sigma_offset_lookup[mu][nu]);
+#endif
+
   return index * 6 + sigma_offset_lookup[mu][nu];
 }
 

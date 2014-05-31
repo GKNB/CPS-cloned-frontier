@@ -52,7 +52,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   }
   for(int i = 0;i<vol;i++) 
 	Unit[i]=1.;
-  Matrix *Units[4];
+  Matrix *Units[N];
   for(int i = 0;i<N;i++) Units[i] = Unit;
 
   LatData Plaqs(1);
@@ -69,14 +69,14 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
     Float re_tr = (result[0]+i)->ReTr();
     if (mu==0 && nu==1) *tmp_f = re_tr;
     else *tmp_f += re_tr;
-    if (i==0) VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%g\n",mu,nu,re_tr);
+    if (i==0) VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%0.12e\n",mu,nu,re_tr);
   } 
       }
 }
   {
     ParTransGauge pt(*this);
-    LatMatrix Scale[4];
-    Matrix *tmp3[4];
+    LatMatrix Scale[N];
+    Matrix *tmp3[N];
   for(int i = 0;i<N;i++)
 	 tmp3[i] = Scale[i].Mat();
 	Float beta = GJP.Beta();
@@ -135,8 +135,8 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
     IFloat *ihp = (IFloat *)(mom+i*4+mu);  //The gauge momentum
 //    IFloat *dotp = (IFloat *)mp0;
     IFloat *dotp2 = (IFloat *) (result[mu]+(i));
-          if(i==0)
-        VRB.Result(cname,fname,"Gforce[%d][%d][0]=%g\n",mu,mtmp->norm());
+          if(i<4)
+        VRB.Result(cname,fname,"Gforce[%d][%d]=%0.12e\n",mu,i,mtmp->norm());
     fTimesV1PlusV2Single(ihp, dt, dotp2, ihp, 18);  //Update the gauge momentum
     Float norm = ((Matrix*)dotp2)->norm();
     Float tmp = sqrt(norm);

@@ -133,7 +133,7 @@ void setup(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     const char *fname = "main()";
-    int if_noisy=0;
+    int if_noisy=1;
 
     setup(argc, argv);
 
@@ -142,7 +142,7 @@ if (if_noisy)
     GwilsonFnone lat;
     lat.delta_beta = CommandLine::arg_as_Float();
     lat.deltaS_offset = CommandLine::arg_as_Float();
-    int block[]={1,1,1,1};
+    int block[]={2,2,2,2};
     lat.SetSigmaBlock(block);
     VRB.Result("","main()","delta_beta=%g deltaS_offset=%g\n",lat.delta_beta ,  lat.deltaS_offset);
 }
@@ -175,7 +175,7 @@ if (if_noisy)
         truncate_it(&common_arg_wline, "../results/alg_wline/wline", traj);
         truncate_it(&common_arg_pbp  , evo_arg.pbp_stem            , traj);
         truncate_it(&common_arg_hmc  , evo_arg.evo_stem            , traj);
-//        measure_tc(common_arg_top ,30,2);
+	    measure_tc(common_arg_top ,30,2);
 if (if_noisy)
 {
 	    Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gauge_arg.gluon);

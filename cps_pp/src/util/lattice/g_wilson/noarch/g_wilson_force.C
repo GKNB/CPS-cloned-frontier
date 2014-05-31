@@ -58,7 +58,7 @@ if (x_tmp[0]==0)
 if (x_tmp[1]==0)
 if (x_tmp[2]==0)
 if (x_tmp[3]==0)
-  VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%g\n",mu,nu,re_tr);
+  VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%0.12e\n",mu,nu,re_tr);
 }
 }
 	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
@@ -90,11 +90,11 @@ if (x_tmp[3]==0)
 	    
 	    IFloat *ihp = (IFloat *)(mom+uoff+mu);
 	    IFloat *dotp = (IFloat *)mp0;
-	  if(x[0]==0)
+	  if(x[0]<4)
 	  if(x[1]==0)
 	  if(x[2]==0)
 	  if(x[3]==0)
-  	VRB.Result(cname,fname,"Gforce[%d][%d][0]=%g\n",mu,mp0->norm());
+  	VRB.Result(cname,fname,"Gforce[%d][%d]=%0.12e\n",mu,x[0],mp0->norm());
 	    fTimesV1PlusV2(ihp, dt, dotp, ihp, 18);
 	    Float norm = ((Matrix*)dotp)->norm();
 	    Float tmp = sqrt(norm);
@@ -119,7 +119,7 @@ if (x_tmp[3]==0)
   L1 /= 4.0*GJP.VolSites();
   L2 /= 4.0*GJP.VolSites();
 
-  VRB.Result(cname, fname, "Finished EvolveMomGforce()\n");
+//  VRB.Result(cname, fname, "Finished EvolveMomGforce()\n");
 
   return ForceArg(dt*L1, dt*sqrt(L2), dt*Linf);
 
