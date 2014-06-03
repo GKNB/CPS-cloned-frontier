@@ -171,11 +171,10 @@ if (if_noisy)
         CommonArg common_arg_wline;
 
         truncate_it(&common_arg_plaq , evo_arg.plaquette_stem      , traj);
-        truncate_it(&common_arg_top  , "../results/alg_top/top"    , traj);
         truncate_it(&common_arg_wline, "../results/alg_wline/wline", traj);
         truncate_it(&common_arg_pbp  , evo_arg.pbp_stem            , traj);
         truncate_it(&common_arg_hmc  , evo_arg.evo_stem            , traj);
-	    measure_tc(common_arg_top ,30,2);
+//	    measure_tc(common_arg_top ,30,2);
 if (if_noisy)
 {
 	    Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gauge_arg.gluon);
@@ -192,6 +191,8 @@ if (if_noisy)
 
             run_hmc(common_arg_hmc, traj, ab1);
         }//End of inter-cfg sweep
+        truncate_it(&common_arg_top  , "../results/alg_top/top"    , traj);
+	measure_tc(common_arg_top ,30,2);
 
         checkpoint(traj);
 

@@ -54,6 +54,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 	Unit[i]=1.;
   Matrix *Units[N];
   for(int i = 0;i<N;i++) Units[i] = Unit;
+  if(!if_block && (fabs(delta_beta)>0)) ERR.General(cname,fname,"Not implemented for non-blocked noisy MC\n");
 
   LatData Plaqs(1);
 {
@@ -63,7 +64,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
         pt.run(1,tmp1,Units,dirs_m+mu);
   	pt.run(1,result,tmp1,dirs_m+nu);
 	pt.run(1,tmp1,result,dirs_p+mu);
-  	pt.run(1,result,tmp1,dirs_p+nu);
+  	pt.run(1,result,tmp1,dirs_p+nu) ;
   for(int i = 0;i<vol;i++){
     Float *tmp_f = Plaqs.Field(i);
     Float re_tr = (result[0]+i)->ReTr();
@@ -73,6 +74,37 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   } 
       }
 }
+
+
+	  if (if_block) {
+	int x[4];
+	for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0]) 
+	for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1]) 
+	for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2]) 
+	for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
+	  int offset[4],x_tmp[4];
+	    Float re_tr_plaq = 0.;
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
+		re_tr_plaq += *(Plaqs.Field(GsiteOffset(x_tmp)/4));
+	}
+
+	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
+	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
+	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
+	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
+	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
+		*(Plaqs.Field(GsiteOffset(x_tmp)/4)) = re_tr_plaq;
+	}
+	}
+
+	  }
+
+
+
   {
     ParTransGauge pt(*this);
     LatMatrix Scale[N];
