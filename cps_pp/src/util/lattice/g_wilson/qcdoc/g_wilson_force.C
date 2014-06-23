@@ -37,6 +37,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   if (SigmaBlockSize () > 0) if_block = 1;
 
   const int N = 4;
+//  const Float SMALL = 0.001;
   Float tmp = GJP.Beta() *invs3;
   Matrix *Unit = (Matrix *) fmalloc(vol*sizeof(Matrix));
   Matrix *tmp1[N];
@@ -118,11 +119,12 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   	for(int i = 0;i<N;i++){
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
-		if (sigma==0) *(tmp3[i]+j) = 1.0+delta_beta/beta;
+		Float re_tr_plaq = *(Plaqs.Field(j));
+		if (sigma==0) *(tmp3[i]+j) = 1.0+delta_beta/beta*DeltaSDer(re_tr_plaq);
 		else {
-			Float re_tr_plaq = *(Plaqs.Field(j));
 			Float exponent = DeltaS (re_tr_plaq);
-			*(tmp3[i]+j) = 1.0 - delta_beta / (beta * (exp (exponent) - 1.0));
+//			if (exponent< SMALL) exponent = SMALL;
+			*(tmp3[i]+j) = 1.0 - delta_beta / (beta * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
 		}
 
 		}
@@ -137,11 +139,12 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   	for(int i = 0;i<N;i++){
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
-		if (sigma==0) *(tmp1[i]+j) *= 1.0+delta_beta/beta;
+		Float re_tr_plaq = *(Plaqs.Field(j));
+		if (sigma==0) *(tmp1[i]+j) *= 1.0+delta_beta/beta*DeltaSDer(re_tr_plaq);
 		else {
-			Float re_tr_plaq = *(Plaqs.Field(j));
 			Float exponent = DeltaS (re_tr_plaq);
-			*(tmp1[i]+j) *= 1.0 - delta_beta / (beta * (exp (exponent) - 1.0));
+//			if (exponent< SMALL) exponent = SMALL;
+			*(tmp1[i]+j) *= 1.0 - delta_beta / (beta * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
 		}
 
 		}

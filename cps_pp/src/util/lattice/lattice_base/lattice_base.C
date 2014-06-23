@@ -77,6 +77,7 @@ Float *Lattice::u1_gauge_field = 0;
 int *Lattice::sigma_field = 0;
 Float Lattice::delta_beta = 0.0;
 Float Lattice::deltaS_offset = 0.0;
+Float Lattice::deltaS_cutoff = 0.001;
 int Lattice::sigma_blocks[] = { 0, 0, 0, 0 };
 
 int Lattice::is_allocated = 0;
@@ -116,6 +117,8 @@ static Matrix *mp4 = &mt4;
 
 uint64_t Lattice::ForceFlops = 0;
 int Lattice::scope_lock = 0;
+
+//static const Float SMALL = 0.001;
 //------------------------------------------------------------------
 // Constructor
 //------------------------------------------------------------------
@@ -1059,15 +1062,19 @@ void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
 
   int sigma = GetSigma (x, mu, nu);
   if (sigma == 0) {
-    multiplier = 1.0 + delta_beta / GJP.Beta ();
+    multiplier = 1.0 + (delta_beta / GJP.Beta ())*DeltaSDer(re_tr_plaq);
   } else {
     assert (sigma == 1);
     Float exponent = DeltaS (re_tr_plaq);
     assert (!(exponent != exponent));
     if (!(exponent > 0))
       printf ("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
+#if 1
     assert (exponent > 0);
-    multiplier = 1.0 - delta_beta / (GJP.Beta () * (exp (exponent) - 1.0));
+#else
+	     if (exponent < SMALL ) exponent = SMALL;
+#endif
+    multiplier = 1.0 - delta_beta / (GJP.Beta () * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
   }
 
   assert (!(multiplier != multiplier));
@@ -1817,11 +1824,18 @@ Float Lattice::SumSigmaEnergyNode ()
 	    } else if (sigma == 1) {
 	      assert (sigma == 1);
 	      Float exponent = -DeltaS (re_tr_plaq);
+#if 1
 	      assert (exponent < 0);
+#else
+	     if (exponent > -SMALL ) exponent = -SMALL;
+#endif
 	      sum += -log (1 - exp (exponent));
 	    } else
 	      ERR.General (cname, fname, "sigma(%d) is neither 0 or 1!", sigma);
-	    assert (!(sum != sum));
+//	    assert (!(sum != sum));
+	    if (sum != sum) {
+		printf("sum=%0.14e DeltaS=%0.14g\n",sum,DeltaS(re_tr_plaq));
+	    }
 	}
 	  } else {
   for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) 
@@ -1839,7 +1853,11 @@ Float Lattice::SumSigmaEnergyNode ()
 		} else {
 		  assert (sigma == 1);
 		  Float exponent = -DeltaS (re_tr_plaq);
-		  assert (exponent < 0);
+#if 1
+	      assert (exponent < 0);
+#else
+	     if (exponent > -SMALL ) exponent = -SMALL;
+#endif
 		  sum += -log (1 - exp (exponent));
 		}
 		assert (!(sum != sum));

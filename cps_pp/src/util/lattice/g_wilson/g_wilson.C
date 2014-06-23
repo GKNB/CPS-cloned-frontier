@@ -76,8 +76,10 @@ int Lattice::SigmaTest (int x[], Float re_tr_plaq)
   Float exponent = -DeltaS (re_tr_plaq);
   if (exponent >= 0)
     printf ("re_tr_plaq  DeltaS= %g %e\n", re_tr_plaq,-exponent);
-  assert (exponent < 0);
   Float probability_zero = exp (exponent);
+#if 0
+  assert (exponent < 0);
+#endif
 
   LRG.AssignGenerator (x);
   IFloat rand = LRG.Urand (0.0, 1.0);
@@ -167,7 +169,9 @@ void Gwilson::SigmaHeatbath ()
 		Float exponent = -DeltaS (re_tr_plaq);
 		if (exponent >= 0)
 		  printf ("re_tr_plaq = %e\n", re_tr_plaq);
+#if 0
 		assert (exponent < 0);
+#endif
 		Float probability_zero = exp (exponent);
 
 		LRG.AssignGenerator (x);

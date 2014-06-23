@@ -261,6 +261,7 @@ class Lattice
 
     static Float delta_beta;
     static Float deltaS_offset;
+    static Float deltaS_cutoff;
     int GetSigma(const int *site, int mu, int nu) const;
     virtual int SigmaBlockSize();
     virtual int SetSigmaBlock(int []);
@@ -272,7 +273,13 @@ class Lattice
     Float ReTrLoopReentrant(const int *x, const int *dir,  int length);
 
     Float DeltaS(Float re_tr_plaq) const {
-      return deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
+      double temp =  deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
+      return log (exp(temp)+1);
+    }
+
+    Float DeltaSDer(Float re_tr_plaq) const {
+      double temp =  deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
+      return 1./(exp(-temp)+1.);
     }
     int SigmaTest(int x[], Float re_tr_plaq);
 
