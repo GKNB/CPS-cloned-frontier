@@ -142,7 +142,7 @@ if (if_noisy)
     GwilsonFnone lat;
     lat.delta_beta = CommandLine::arg_as_Float();
     lat.deltaS_offset = CommandLine::arg_as_Float();
-    int block[]={1,1,1,1};
+    int block[]={2,2,2,2};
     lat.SetSigmaBlock(block);
     VRB.Result("","main()","delta_beta=%g deltaS_offset=%g\n",lat.delta_beta ,  lat.deltaS_offset);
 }
