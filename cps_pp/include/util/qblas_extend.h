@@ -35,5 +35,9 @@ inline double cblas_ddot(const int N,
 inline double cblas_ddot(const int N, const double *X)
 { return cblas_ddot(N,X,1,X,1); }
 
+inline void cblas_zdotc_sub(const int N, const double *X, const double *Y,
+			  double* dot)
+{ return cblas_zdotc_sub(N,X,1,Y,1, dot); }
+
 
 #endif 

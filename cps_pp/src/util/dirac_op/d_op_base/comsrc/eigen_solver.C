@@ -1158,8 +1158,8 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
 #define AXPY(n, fact, px, py)  cblas_daxpy(n, fact, px,1,py,1)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot) = cblas_ddot(n,px,py); glb_sum((p_dot)); }
-#define ZDOT(n,px,py,p_dot) cblas_zdotc_sub( n/2, px,py, p_dot)
-#define ZAXPY(n, fact, px, py)  cblas_zaxpy(n/2, fact, px,1,py,1)
+#define ZDOT(n,px,py,p_dot) cblas_zdotc_sub( n/2,px,1,py,1, p_dot)
+#define ZAXPY(n, fact, px, py)  cblas_zaxpy(n/2,fact,px,1,py,1)
 #endif
 
 // orthogonalize psi w/r to vec's only one vector

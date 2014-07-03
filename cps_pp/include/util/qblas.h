@@ -1,6 +1,5 @@
 #ifndef __QBLAS__CD
 #define __QBLAS__CD
-
 /*
 */
 extern "C"{
@@ -11,6 +10,14 @@ extern "C"{
                    const int incX, 
                    double *Y, 
                    const int incY);
+  
+  void cblas_zaxpy(const int N, 
+		   const double* alpha, 
+		   const double *X,
+		   const int incX, 
+		   double *Y, 
+		   const int incY);
+  
   
   double cblas_dnrm2(const int N, 
                      const double *X, 
@@ -32,6 +39,14 @@ extern "C"{
 		    const int incX ,
 		    const double *Y,
 		    const int incY  );
+
+  void cblas_zdotc_sub(const int N    , 
+		      const double *X, 
+		      const int incX ,
+		      const double *Y,
+		      const int incY,
+		      double* dot);
+  
   
 } /* extern "C" */
 
