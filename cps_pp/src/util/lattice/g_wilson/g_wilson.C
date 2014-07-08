@@ -213,7 +213,7 @@ void Gwilson::SigmaHeatbath ()
 void Gwilson::GforceSite (Matrix & force, int *x, int mu, Float *RePlaq)
 {
   char *fname = "GforceSite(M&,i*,i)";
-//  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
 
 
   Matrix *u_off = GaugeField () + GsiteOffset (x) + mu;
@@ -269,7 +269,7 @@ void Gwilson::GforceSite (Matrix & force, int *x, int mu, Float *RePlaq)
 Float Gwilson::GhamiltonNode (void)
 {
   char *fname = "GhamiltonNode()";
-  VRB.Result (cname, fname,"Entered\n");
+  VRB.Func (cname, fname);
 
   Float plaq_multiplier = GJP.Beta () * invs3;
   Float sum = SumReTrPlaqNode ();

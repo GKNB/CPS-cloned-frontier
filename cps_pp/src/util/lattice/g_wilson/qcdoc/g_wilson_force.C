@@ -66,6 +66,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   	pt.run(1,result,tmp1,dirs_m+nu);
 	pt.run(1,tmp1,result,dirs_p+mu);
   	pt.run(1,result,tmp1,dirs_p+nu) ;
+#pragma omp parallel for
   for(int i = 0;i<vol;i++){
     Float *tmp_f = Plaqs.Field(i);
     Float re_tr = (result[0]+i)->ReTr();
@@ -117,6 +118,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   
       for(nu = 1;nu<4;nu++){
   	for(int i = 0;i<N;i++){
+#pragma omp parallel for
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
 		Float re_tr_plaq = *(Plaqs.Field(j));
@@ -137,6 +139,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 	}
 	pt.run(N,tmp1,Units,dirs_p+nu);
   	for(int i = 0;i<N;i++){
+#pragma omp parallel for
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
 		Float re_tr_plaq = *(Plaqs.Field(j));
