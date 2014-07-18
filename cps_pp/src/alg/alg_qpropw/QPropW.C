@@ -3240,7 +3240,12 @@ QPropWZ3BWallSrc::QPropWZ3BWallSrc(Lattice& lat, QPropWArg* arg,
                rand_grid[0], rand_grid[1], rand_grid[2], rand_size);
 
     for(int i = 0; i < rand_size; ++i) {
+#ifndef C11
         unsigned rnd = drand48() * 3;
+#else
+	LRG.AssignGenerator(0);
+	unsigned rnd = LRG.Urand(3,0);
+#endif
         assert(rnd < 3);
         rand_num[i] = Z3consts[rnd];
     }

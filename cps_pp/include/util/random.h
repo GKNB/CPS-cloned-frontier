@@ -1,4 +1,8 @@
 #include<config.h>
+#include<vector>
+#ifdef USE_C11_RNG
+#include<random>
+#endif
 CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of RNG classes.
@@ -33,6 +37,9 @@ CPS_END_NAMESPACE
 #include <util/smalloc.h>
 #include <util/verbose.h>
 CPS_START_NAMESPACE
+#ifdef USE_C11_RNG
+typedef   std::mt19937  CPS_RNG;
+#endif
 //---------------------------------------------------------------
 //! A random number generator generating uniform random numbers in (0,1)
 /*!
@@ -273,22 +280,35 @@ public UniformRandomGenerator, public GaussianRandomGenerator
   ones defined in the classes from which this inherits.
 */
 //---------------------------------------------------------------
+typedef u_int32_t RNGSTATE ;
 class LatRanGen
 {
   private:
 
     static const int default_seed = 112319;
+
     
-    int n_rgen;  // Gives the number of generators (and hypercubes)
-    int rgen_pos;// ID of the generator being used
     int can[5];  // Needed for Canonical Assignment of Sites
     int hx[5];   // int (GJP.(X,Y,Z,T,S)nodeSites / 2)
     int is_initialized; // = 0 when LatRanGen is not initialized
                                 // = 1 when LatRanGen is initialized
-    UGrandomGenerator *ugran;
     int n_rgen_4d ;  // CJ: Gives the number of 4d generators (and hypercubes)
     int rgen_pos_4d;// CJ: ID of the 4D generator being used
+
+#ifdef USE_C11_RNG
+    std::vector<CPS_RNG>  mtran;
+//   CPS_RNG  *mtran;
+   std::uniform_real_distribution<Float> urand;
+   std::normal_distribution<Float> grand;
+   Float urand_lo=0,urand_hi=1.;
+   Float grand_mean=0,grand_sigma=1.;
+   static const int state_size = 625;
+#else
+    UGrandomGenerator *ugran;
+    int n_rgen;  // Gives the number of generators (and hypercubes)
+    int rgen_pos;// ID of the generator being used
     UGrandomGenerator *ugran_4d; // CJ: 4D RNG for gauge field
+#endif
 
     char *cname;
     
@@ -296,6 +316,10 @@ class LatRanGen
     LatRanGen();
     ~LatRanGen();
     void Initialize();  
+#if 0
+    int RngSize(){return state_size;}
+    int RngNum(){return n_rgen_4d;}
+#endif
 
     //! Get a uniform random number.
     IFloat Urand(FermionFieldDimension frm_dim=FOUR_D);
@@ -331,6 +355,13 @@ class LatRanGen
     //! Assign the  state of all RNGs.      
     void SetStates(unsigned int **, 
         FermionFieldDimension frm_dim =FIVE_D );
+#ifdef USE_C11_RNG
+    //! Assign the  state to a selected RNG.
+    void SetAllStates(RNGSTATE *) ;
+
+    void GetAllStates(RNGSTATE *);
+#endif
+
 
     //! Get the total number of states
     int NStates(FermionFieldDimension frm_dim =FIVE_D) const;

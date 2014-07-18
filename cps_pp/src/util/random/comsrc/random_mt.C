@@ -1,5 +1,8 @@
 #include<config.h>
-#ifndef USE_C11_RNG
+#ifdef USE_C11_RNG
+#include<iostream>
+#include<fstream>
+#include<sstream>
 CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
@@ -40,116 +43,25 @@ CPS_START_NAMESPACE
 
 
 static const int OFFSET = 23;
-static const int N_WARMUP = 1000;
 
 int  RandomGenerator::MBIG  = 1000000000;
 IFloat  RandomGenerator::FAC = 1.0E-09;			// 1.0/MBIG
 const int RandomGenerator::state_size;
-
-/*!
-  This method must be called before the RNG is used
-  \param idum The seed.	
- */
-void RandomGenerator::Reset(int idum)
-{
-    int i, k, ii;
-    int mk, mj;
-
-    const int MSEED = 161803398;
-    
-    //-----------------------------------------------------
-    //  Initialize ma[state_size] using the seed idum and the large
-    //  number MSEED.
-    //-----------------------------------------------------
-    mj = MSEED - (idum<0 ? -idum : idum);
-    mj %= MBIG;
-    if(mj < 0) mj = -mj; // Added by Roy and Pavlos to protect
-                          // for the case where idum > MSEED
-    ma[54] = mj;
-
-
-    //-----------------------------------------------------
-    //  Initialize the reset of the table in a slightly
-    //  random order, with numbers that are not especially
-    //  random.
-    //-----------------------------------------------------
-    mk = 1;
-    for( i = 1; i < state_size; i++) {
-        ii = (21*i)%state_size - 1;
-        ma[ii] = mk ;
-        mk = mj - mk ;
-        if ( mk < 0 ) mk += MBIG ;
-        mj = ma[ii] ;
-    }
-
-    // Randomize them by "warming up the generator"
-    for( k = 0; k < 4; k++) {
-        for( i = 0; i < state_size; i++) {
-	    ma[i] -= ma[(i+31)%state_size] ;
-	    if ( ma[i] < 0 ) ma[i] += MBIG ;
-        }
-    }
-
-    //-----------------------------------------------------
-    //  Prepare indices for our first generated number.
-    //  the constant 30 is special.
-    //-----------------------------------------------------
-    inext = -1 ;
-    inextp = 30 ;
-}
-
-
-
-
-//---------------------------------------------------------------
-
-/*!
-  \param to Pointer to a buffer of size at least 57*sizeof(int).
-*/
-
-void RandomGenerator::StoreSeeds(unsigned int *to) const
-{
-    *to++ = (unsigned int)inext;
-    *to++ = (unsigned int)inextp;
-    for(int i = 0; i < 55; ++i) *to++ = ma[i];
-}
-
-void UGrandomGenerator::StoreSeeds(unsigned int *to) const
-{
-    RandomGenerator::StoreSeeds(to);
-}
-
-/*!
-  \param from Pointer to a buffer of size at least 57*sizeof(int).
-*/
-
-void RandomGenerator::RestoreSeeds(const unsigned int *from)
-{
-    inext = *from++;
-    inextp = *from++;
-
-    for(int i = 0; i < 55; ++i) ma[i] = *from++;
-}
-
-/*!
-  \return The number of unsigned ints that comprise the RNG state vector.
-*/
-int RandomGenerator::StateSize() const {
-
-    return state_size+2;
-
-}
-
 IFloat UniformRandomGenerator::A = -0.5;
 IFloat UniformRandomGenerator::B = 0.5;
 IFloat GaussianRandomGenerator::sigma2 = 1.0;
 
+
+uint32_t BOOTSTRAP_MAX=1000000000;
+
+//---------------------------------------------------------------
 
 
 LatRanGen LRG;
 const int LatRanGen::default_seed;
 //---------------------------------------------------------
 LatRanGen::LatRanGen()
+:urand(0.,1.),grand(0.,1.)
 {
     cname = "LatRanGen";
     char *fname = "LatRanGen()";
@@ -163,8 +75,7 @@ LatRanGen::~LatRanGen() {
     char *fname = "~LatRanGen()";
 //  printf("%s::%s Entered\n",cname,fname);
   if(is_initialized){
-	delete[] ugran;
-	delete[] ugran_4d;
+//	mtran
   }
 }
 
@@ -178,15 +89,15 @@ void LatRanGen::Initialize()
   const char *fname = "Initialize";
   VRB.Func(cname, fname);
 
+//  stringstream mtran_dump;
+//  mtran_dump.open("mtran_dump");
+
   if(0!=GJP.VolNodeSites()%16)
       ERR.General(cname, fname,
 		  "Must have a multiple of 2^4 lattice sites per node.");
   
-  n_rgen = n_rgen_4d = GJP.VolNodeSites()/16;
+  n_rgen_4d = GJP.VolNodeSites()/16;
 
-  if (GJP.SnodeSites()>=2)
-    n_rgen = GJP.VolNodeSites()*GJP.SnodeSites() / 32;
-//  VRB.Flow(cname,fname,"n_rgen=%d\n",n_rgen);
 
   int default_concur=0;
 #if TARGET==BGQ
@@ -196,10 +107,9 @@ void LatRanGen::Initialize()
 
   is_initialized = 1;
 
-  ugran = new UGrandomGenerator[n_rgen];
-  if(!ugran) ERR.Pointer(cname, fname, "ugran"); 
-  ugran_4d = new UGrandomGenerator[n_rgen_4d];
-  if(!ugran) ERR.Pointer(cname, fname, "ugran_4d"); 
+//  mtran = new CPS_RNG[n_rgen_4d];
+ mtran.resize(n_rgen_4d);
+// if(!mtran) ERR.Pointer(cname, fname, "mtran"); 
 
   // Lower bounds of global lattice coordinates on this node
   int x_o[5];
@@ -249,17 +159,14 @@ void LatRanGen::Initialize()
     int x[5];
     int start_seed = default_seed;
 
-    for(x[4] = 0; x[4] < GJP.SnodeSites(); x[4]+=2) {
     for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]+=2) {
     for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]+=2) {
     for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
     for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
 
       start_seed += OFFSET;
-      ugran[index++].Reset(start_seed);
-      if ( x[4] == 0 ) ugran_4d[index_4d++].Reset(start_seed);
+      mtran[index_4d++].seed(start_seed);
 
-    }
     }
     }
     }
@@ -276,10 +183,14 @@ void LatRanGen::Initialize()
 
   switch(GJP.StartSeedKind()){
   case START_SEED_FILE:
+#if 0
 	if ( !LatRanGen::Read(GJP.StartSeedFilename(),default_concur) ) {
 	      ERR.General(cname, fname,
 		  "Reading file %s",GJP.StartSeedFilename());
 	} 
+#else
+	ERR.General(cname,fname,"START_SEED_FILE not implemented yet\n");
+#endif
 	return;
 	break;
   case START_SEED_INPUT_UNIFORM:
@@ -312,7 +223,6 @@ void LatRanGen::Initialize()
 //  int index, index_4d;
   index = index_4d = 0;
   
-for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
   for(x[3] = x_o[3]; x[3] <= x_f[3]; x[3]+=2) {
       for(x[2] = x_o[2]; x[2] <= x_f[2]; x[2]+=2) {
 	  for(x[1] = x_o[1]; x[1] <= x_f[1]; x[1]+=2) {
@@ -323,11 +233,6 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		  if(GJP.StartSeedKind()==START_SEED||
 		     GJP.StartSeedKind()==START_SEED_INPUT||
 		     GJP.StartSeedKind()==START_SEED_FIXED){
-		      start_seed = base_seed
-			  + OFFSET * (x[0]/2 + vx[0]*
-				 (x[1]/2 + vx[1]*
-				 (x[2]/2 + vx[2]*
-				 (x[3]/2 + vx[3]*(x[4]/2+1) ))));
 		      start_seed_4d = base_seed
 			  + OFFSET * (x[0]/2 + vx[0]*
 				 (x[1]/2 + vx[1]*
@@ -344,50 +249,52 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
 }
 #endif
-//		  Fprintf(stderr,"%d %d %d %d %d",x[0],x[1],x[2],x[3],x[4]);
-		  VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
-		  ugran[index].Reset(start_seed);
-#undef BOOTSTRAP
-#ifdef BOOTSTRAP
-{
-		int new_seed = ugran[index].Urand(1000000000,0);
-		printf("index=%d start_seed=%d new_seed=%d\n",index,start_seed,new_seed);
-		  ugran[index].Reset(new_seed);
-}
-#endif
+		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
+ 			mtran[index_4d].seed(start_seed_4d);
+//	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<endl;
+
 #undef RNG_WARMUP
 #ifdef RNG_WARMUP
 {
-		int n_warm = ugran[index].Urand(N_WARMUP,0);
-		printf("index=%d n_warm=%d\n",index,n_warm);
-		while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
-}
-#endif
-		  index++;
-		  if(x[4]==x_o[4]){
-		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
- 			ugran_4d[index_4d].Reset(start_seed_4d);
-#ifdef RNG_WARMUP
-{
-		int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
+		int n_warm = ugran_4d[index_4d].Urand(100,0);
 		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
 		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
 }
 #endif
+#undef BOOTSTRAP
 #ifdef BOOTSTRAP
 {
-		int new_seed = ugran[index_4d].Urand(1000000000,0);
+		std::uniform_int_distribution<> uniform_dist(0,BOOTSTRAP_MAX);
+		int new_seed = uniform_dist(mtran[index_4d]);
 		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
-		  ugran_4d[index_4d].Reset(new_seed);
+		  mtran[index_4d].seed(new_seed);
 }
 #endif
+		stringstream mtran_dump;
+		mtran_dump <<mtran[index_4d];
+		std::cout << "mtran["<<index_4d<<"]\n";
+#if 1
+		std::cout << mtran_dump.str();
+		mtran_dump.seekg(0);
+#endif
+		for (int i_dump=0;i_dump<1000 && !mtran_dump.eof(); i_dump++){
+			uint32_t dump,dump2;
+#if 1
+			mtran_dump >> dump;
+#else
+			char temp_num[50];
+			mtran_dump.get(temp_num,50,' ');
+			sscanf(temp_num,"%d",&dump);
+			mtran_dump.get(temp_num,50,' ');
+			sscanf(temp_num,"%d",&dump2);
+#endif
+			std::cout << i_dump <<" "<< dump<<" "<<dump2 << endl;
+		}
 			index_4d++;
-		  }
 	      }
 	  }
       }
   }
-}
 }
 
 //---------------------------------------------------------
@@ -399,19 +306,13 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 IFloat LatRanGen::Urand(FermionFieldDimension frm_dim)
 {
   char *fname = "Urand(FermionFieldDimension)";
-  if (frm_dim == FIVE_D)
-    return ugran[rgen_pos].Urand();
-  else
-    return ugran_4d[rgen_pos_4d].Urand();
+    return (urand_lo + (urand_hi-urand_lo) * urand(mtran[rgen_pos_4d]));
 }
 
 IFloat LatRanGen::Urand(Float hi, Float lo, FermionFieldDimension frm_dim)
 {
   char *fname = "Urand(FermionFieldDimension)";
-  if (frm_dim == FIVE_D)
-    return ugran[rgen_pos].Urand(hi,lo);
-  else
-    return ugran_4d[rgen_pos_4d].Urand(hi,lo);
+    return (lo + (hi-lo) * urand(mtran[rgen_pos_4d]));
 }
 
 //---------------------------------------------------------
@@ -424,10 +325,7 @@ IFloat LatRanGen::Grand(FermionFieldDimension frm_dim)
 {
   char *fname = "Grand(FermionFieldDimension)";
 //  printf("LatRanGen::Grand():%d\n",rgen_pos);
-  if (frm_dim == FIVE_D)
-    return ugran[rgen_pos].Grand();
-  else
-    return ugran_4d[rgen_pos_4d].Grand();
+    return grand_mean + grand_sigma*grand(mtran[rgen_pos_4d]);
 }
 
 
@@ -441,7 +339,8 @@ IFloat LatRanGen::Grand(FermionFieldDimension frm_dim)
 void LatRanGen::SetInterval(IFloat high, IFloat low)
 {
 //  ugran[0].SetInterval(high,low);
-    UniformRandomGenerator::SetInterval(high,low);
+//    UniformRandomGenerator::SetInterval(high,low);
+    urand_lo=low;urand_hi=high;
 }
 
 //---------------------------------------------------------
@@ -453,7 +352,8 @@ void LatRanGen::SetInterval(IFloat high, IFloat low)
 void LatRanGen::SetSigma(IFloat sigma)
 {
 //  ugran[0].SetSigma(sigma);
-    GaussianRandomGenerator::SetSigma(sigma);
+//    GaussianRandomGenerator::SetSigma(sigma);
+      grand_sigma=sigma;
 }
 
 //---------------------------------------------------------
@@ -485,7 +385,6 @@ void LatRanGen::AssignGenerator(int x, int y, int z, int t,int s)
   t/=2;
   s/=2;
 
-  rgen_pos = x + hx[0] * (y + hx[1] * (z + hx[2] * (t +hx[3] * s)));
   rgen_pos_4d = x + hx[0] * (y + hx[1] * (z + hx[2] * t ));
 }
 
@@ -522,10 +421,7 @@ void LatRanGen ::AssignGenerator(int i)
   int s;
   if (GJP.SnodeSites()<2) s = 0;
   else  s = (i/can[4]) % hx[4];
-  rgen_pos = x + hx[0] * (y + hx[1] * (z + hx[2] * (t + hx[3] * s)));
   rgen_pos_4d = x + hx[0] * (y + hx[1] * (z + hx[2] * t ));
-  if (rgen_pos >=  n_rgen)
-      ERR.General(cname, fname, "rgen_pos(%d)>=n_rgen(%d)",rgen_pos,n_rgen);
   if (rgen_pos_4d >=  n_rgen_4d)
       ERR.General(cname, fname, "rgen_pos_4d(%d)>=n_rgen_4d(%d)",rgen_pos_4d,n_rgen_4d);
 //  Fprintf(stdout,"i=%d x = %d %d %d %d %d rgen_pos=%d ",i,x,y,z,t,s,rgen_pos);
@@ -540,6 +436,7 @@ void LatRanGen ::AssignGenerator(int i)
 // performing a global sum over all 2^4 hypercubes, and taking the
 // average value
 //--------------------------------------------------------------
+#if 0
 IFloat LatRanGen::Lrand()
 {
   Float cntr = 0.0;
@@ -553,6 +450,7 @@ IFloat LatRanGen::Lrand()
   return  (IFloat) cntr;
 
 }
+#endif
 
 
 /*!
@@ -560,10 +458,18 @@ IFloat LatRanGen::Lrand()
 */
 int LatRanGen::StateSize() const{
 
-    return ugran[0].StateSize();    
+    return state_size;
     
 }
 
+/*!
+  \return The total number of RNG states on the local lattice.
+*/
+int LatRanGen::NStates(FermionFieldDimension frm_dim) const{
+  return n_rgen_4d;
+}
+
+#ifndef USE_C11_RNG
 /*!
   \pre A RNG must be assigned using ::AssignGenerator.
   \a state must point to an array of unsigned ints (at least) as long
@@ -573,11 +479,8 @@ int LatRanGen::StateSize() const{
   \param frm_dim If FIVE_D, the default, refers to the normal RNG. If FOUR_D
   then the special RNG four gauge fields with domain-wall fermions is used.  
 */
-void LatRanGen::GetState(unsigned int *state,
+void LatRanGen::GetState(RNGSTATE *state,
 			 FermionFieldDimension frm_dim) const{
-    if (frm_dim == FIVE_D)
-    ugran[rgen_pos].StoreSeeds(state);        
-    else
     ugran_4d[rgen_pos_4d].StoreSeeds(state);        
 }
 
@@ -586,23 +489,12 @@ void LatRanGen::GetState(unsigned int *state,
   \pre \a s must be an array with length given by ::StateSize.
   \param s The state to assigned to the RNG on an assigned site.
 */
-void LatRanGen::SetState(const unsigned int * s,
+void LatRanGen::SetState(const RNGSTATE * s,
 			 FermionFieldDimension frm_dim) {
 
    // ugran[rgen_pos].RestoreSeeds(s);
-    if (frm_dim == FIVE_D)
-    ugran[rgen_pos].RestoreSeeds(s);        
-    else
     ugran_4d[rgen_pos_4d].RestoreSeeds(s);        
 
-}
-
-/*!
-  \return The total number of RNG states on the local lattice.
-*/
-int LatRanGen::NStates(FermionFieldDimension frm_dim) const{
-  if (frm_dim == FOUR_D) return n_rgen_4d;
-  else return n_rgen;
 }
 
 /*!
@@ -637,15 +529,53 @@ void LatRanGen::GetStates(unsigned int **s,
 
 }
 
+void LatRanGen::Shift()
+{
+   GDS.Shift(ugran_4d, n_rgen_4d*sizeof(UGrandomGenerator));
+}
+#endif
+
+void LatRanGen::GetAllStates(RNGSTATE *dump) {
+    for(int h=0; h<NStates(); h++){
+	stringstream ss_dump;
+	ss_dump << mtran[h] ;
+if (h==0){
+	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str();
+	ss_dump.seekg(0);
+}
+       	for(int i=0; i<StateSize(); i++){
+		RNGSTATE temp;
+		ss_dump >>temp;
+		dump[h*StateSize()+i] = temp;
+        }
+    }
+}
+
+void LatRanGen::SetAllStates(RNGSTATE *dump) {
+    for(int h=0; h<NStates(); h++){
+	stringstream ss_dump;
+       	for(int i=0; i<StateSize(); i++){
+		ss_dump << dump[h*StateSize()+i];
+        }
+if (h==0){
+	std::cout <<"SetAllState::mtran[0]= "<< ss_dump.str();
+	ss_dump.seekg(0);
+}
+	ss_dump >> mtran[h] ;
+    }
+}
 
 bool LatRanGen::Read(const char * filename, int concur_io_number) {
   io_good = false;
   QioArg rd_arg(filename, concur_io_number);
   LatRngRead  rd;
+  RNGSTATE *mtran_dump = new RNGSTATE[StateSize()*NStates()];
   if(parIO()) rd.setParallel();
   else        rd.setSerial();
   if(do_log) rd.setLogDir(log_dir);
-  rd.read(ugran,ugran_4d,rd_arg);
+  rd.read(mtran_dump,rd_arg);
+  LRG.SetAllStates(mtran_dump);
+  delete[] mtran_dump;
   return (io_good = rd.good());
 }
 
@@ -654,18 +584,15 @@ bool LatRanGen::Write(const char * filename, int concur_io_number) {
   io_good = false;
   QioArg wt_arg(filename, concur_io_number);
   VRB.Result(cname,"Write()","concur_io_number=%d\n",concur_io_number);
+  RNGSTATE *mtran_dump = new RNGSTATE[StateSize()*NStates()];
+  LRG.GetAllStates(mtran_dump);
   LatRngWrite  wt;
   if(parIO()) wt.setParallel();
   else        wt.setSerial();
   if(do_log) wt.setLogDir(log_dir);
-  wt.write(ugran,ugran_4d,wt_arg);
+  wt.write(mtran_dump,wt_arg);
+  delete[] mtran_dump;
   return (io_good=wt.good());
-}
-
-void LatRanGen::Shift()
-{
-   GDS.Shift(ugran, n_rgen*sizeof(UGrandomGenerator));
-   GDS.Shift(ugran_4d, n_rgen_4d*sizeof(UGrandomGenerator));
 }
 CPS_END_NAMESPACE
 #endif

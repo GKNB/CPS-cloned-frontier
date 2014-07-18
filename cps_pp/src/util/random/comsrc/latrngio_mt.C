@@ -15,7 +15,7 @@
 #include <util/time_cps.h>
 #include <unistd.h>
 
-#ifndef USE_C11_RNG
+#ifdef USE_C11_RNG
 CPS_START_NAMESPACE
 using namespace std;
 
@@ -30,7 +30,7 @@ LatRngRead::LatRngRead()
 LatRngRead::~LatRngRead() 
 { }
 
-void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
+void LatRngRead::read(RNGSTATE *mtran_dump,
 		      const QioArg & rd_arg) { 
   const char * fname = "read()";
   VRB.Func(cname,fname);
@@ -66,7 +66,7 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
 
   if(isRoot()) {
-    if(hd.datatype != "LATTICE_RNG_5D_4D"){  // need both 5d & 4d
+    if(hd.datatype != "LATTICE_RNG_C11_MT19937"){  // need both 5d & 4d
       VRB.Flow(cname,fname,"Invalid RNG type: %s\n",hd.datatype.c_str());
       error = 1;
     }
@@ -109,7 +109,7 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
   // the UGrandomGenerator has multiple type members, need a universal
   // format to make it cross-platform
-  int size_rng_ints = ugran[0].RNGints();
+  int size_rng_ints = LRG.StateSize();
   int size_rng_chars = size_rng_ints * intconv.fileIntSize();
 
   QioArg rng_arg(rd_arg);
@@ -130,58 +130,27 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   VRB.Result(cname,fname,"parIO()=%d\n",parIO());
 
   if(parIO()) {
-//  if(0) {
-    VRB.Flow(cname,fname, "Start Loading 5-D RNGs\n");
-
     ParallelIO pario(rng_arg);
-    if(! pario.load((char*)ugran, size_rng_ints, sizeof(UGrandomGenerator),
-		    hd, intconv, 5,
-		    &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0])){
-//      ERR.General(cname, fname, "Loading failed\n");
-      VRB.Warn(cname, fname, "Loading failed\n");
-    }
-    
-    VRB.Flow(cname,fname,"Node %d - 5D: csum=%x, order_csum=%x\n",
-	       UniqueID(),csum[0],pos_dep_csum[0]);
-//    printf("Node %d - 5D: csum=%x, order_csum=%x\n",
-//	       UniqueID(),csum[0],pos_dep_csum[0]);
-
-	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
-                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
-    hd.data_start +=  total;
- 
-    VRB.Flow(cname,fname, "Start Loading 4-D RNGs\n");
-    if(! pario.load((char*)ugran_4d, size_rng_ints, sizeof(UGrandomGenerator),
+    VRB.Flow(cname,fname, "Start Loading  RNGs\n");
+    if(! pario.load((char*)mtran_dump, size_rng_ints, size_rng_chars,
 		    hd, intconv, 4,
-		    &csum[1], &pos_dep_csum[1], &RandSum[1], &Rand2Sum[1]))
+		    &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
       ERR.General(cname, fname, "Loading failed\n");
 
     VRB.Flow(cname,fname,"Node %d - 4D: csum=%x, order_csum=%x\n",
-	       UniqueID(),csum[1],pos_dep_csum[1]);
+	       UniqueID(),csum[0],pos_dep_csum[0]);
 //    printf("Node %d - 4D: csum=%x, order_csum=%x\n",
 //	       UniqueID(),csum[1],pos_dep_csum[1]);
 
   }
 #if 1
   else {
-    VRB.Result(cname,fname, "Start Loading 5-D RNGs\n");
-
     SerialIO serio(rng_arg);
-    if(! serio.load((char*)ugran, size_rng_ints, sizeof(UGrandomGenerator),
-		    hd, intconv, 5,
-		    &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
-      ERR.General(cname, fname, "Loading failed\n");
-
-	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
-                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
-    hd.data_start +=  total;
-
-    
     VRB.Result(cname,fname, "Start Loading 4-D RNGs\n");
 
-    if(! serio.load((char*)ugran_4d, size_rng_ints, sizeof(UGrandomGenerator),
+    if(! serio.load((char*)mtran_dump, size_rng_ints, size_rng_chars,
 		    hd, intconv, 4,
-		    &csum[1], &pos_dep_csum[1], &RandSum[1], &Rand2Sum[1]))
+		    &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
       ERR.General(cname, fname, "Loading failed\n");
   }
 #endif
@@ -195,7 +164,7 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   cout << "Starting globalSumUint()" << endl;
 
   // Step 2.1: verify checksum
-  csum[0] += csum[1];
+//  csum[0] += csum[1];
   csum[0] = globalSumUint(csum[0]);
 
   if (isRoot())
@@ -219,7 +188,7 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   }
 
   // Step 2.2: verify position-dep. Checksum
-  pos_dep_csum[0] += pos_dep_csum[1];
+//  pos_dep_csum[0] += pos_dep_csum[1];
   pos_dep_csum[0] = globalSumUint(pos_dep_csum[0]);
   if(isRoot()) {
     // pos_dep_csum could be absent
@@ -245,9 +214,8 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   RandSum[0] += RandSum[1];
   Rand2Sum[0] += Rand2Sum[1];
   uint64_t total_rngs_4d = rng_arg.VolSites();
-  uint64_t total_rngs_5d = total_rngs_4d * (uint64_t)(rng_arg.Snodes() * rng_arg.SnodeSites()); 
-  Float RandAvg = globalSumFloat(RandSum[0]) / (total_rngs_5d + total_rngs_4d);
-  Float RandVar = globalSumFloat(Rand2Sum[0]) / (total_rngs_5d + total_rngs_4d)
+  Float RandAvg = globalSumFloat(RandSum[0]) / (total_rngs_4d);
+  Float RandVar = globalSumFloat(Rand2Sum[0]) / (total_rngs_4d)
                   - RandAvg * RandAvg;
   if(isRoot()) {
   VRB.Flow(cname,fname, "Average::  calc: %lf  header: %lf  rel.dev.: %lf\n",
@@ -279,7 +247,7 @@ LatRngWrite::~LatRngWrite()
 
 
 #define PROFILE
-void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
+void LatRngWrite::write(RNGSTATE *mtran_dump,
 			const QioArg & wt_arg) {
   const char * fname = "write()";
   VRB.Func(cname,fname);
@@ -308,7 +276,7 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   //  cout << "Lattice size = " << nx <<"x"<<ny<<"x"<<nz<<"x"<<nt<<"x"<<ns<<endl;
 
   // num of integers per RNG (NOTE: not all data in RNG are saved)
-  int size_rng_ints = ugran[0].RNGints();
+  int size_rng_ints = LRG.StateSize();
   //  cout << "size_rng_ints = " << size_rng_ints << endl;
   int size_rng_chars = size_rng_ints * intconv.fileIntSize();
 
@@ -380,30 +348,13 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   QioArg rng_arg(wt_arg);
   rng_arg.cutHalf();
 
+    VRB.Flow(cname,fname,"Start Unloading MT19937 RNGs\n");
   if(parIO()) {
-    VRB.Flow(cname,fname,"Start Unloading 5-D RNGs\n");
-
     ParallelIO pario(rng_arg);
-    if(! pario.store(output, (char*)ugran, size_rng_ints,
-		     sizeof(UGrandomGenerator), hd, intconv, 5,
+    
+    if(! pario.store(output, (char*)mtran_dump, size_rng_ints, 
+		     size_rng_chars, hd, intconv, 4,
 		     &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
-        ERR.General(cname, fname, "Unloading failed\n");
-    
-    VRB.Flow(cname,fname,"Node %d - 5D: csum=%x, order_csum=%x\n",
-	       UniqueID(),csum[0],pos_dep_csum[0]);
-    //    printf("Node %d - 5D: csum=%x, order_csum=%x\n",
-    //	       UniqueID(),csum[0],pos_dep_csum[0]);
-
-
-	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
-                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
-    hd.data_start +=  total;
- 
-    VRB.Flow(cname,fname,"Start Unloading 4-D RNGs\n");
-    
-    if(! pario.store(output, (char*)ugran_4d, size_rng_ints, 
-		     sizeof(UGrandomGenerator), hd, intconv, 4,
-		     &csum[1], &pos_dep_csum[1], &RandSum[1], &Rand2Sum[1]))
         ERR.General(cname, fname, "Unloading Failed\n");
     
     VRB.Flow(cname,fname,"Node %d - 4D: csum=%x, order_csum=%x\n",
@@ -411,41 +362,28 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
     //    printf("Node %d - 4D: csum=%x, order_csum=%x\n",
     //	       UniqueID(),csum[1],pos_dep_csum[1]);
   } else {
-    VRB.Flow(cname,fname,"Start Unloading 5-D RNGs\n");
 
     SerialIO serio(rng_arg);
-//    printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
-    if(! serio.store(output, (char*)ugran, size_rng_ints, 
-		     sizeof(UGrandomGenerator), hd, intconv, 5,
+    if(! serio.store(output, (char*)mtran_dump, size_rng_ints, 
+		     size_rng_chars, hd, intconv, 4,
 		     &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
-      ERR.General(cname, fname, "Unloading Failed\n");
-
-//    hd.data_start += size_rng_chars * rng_arg.VolSites() * 
-//                    rng_arg.Snodes() * rng_arg.SnodeSites();
-	hd.data_start = -1;
-
-    VRB.Flow(cname,fname,"Start Unloading 4-D RNGs\n");
-
-    if(! serio.store(output, (char*)ugran_4d, size_rng_ints, 
-		     sizeof(UGrandomGenerator), hd, intconv, 4,
-		     &csum[1], &pos_dep_csum[1], &RandSum[1], &Rand2Sum[1]))
       ERR.General(cname, fname, "Unloading Failed\n");
   }
 
   log();
 
   // fill in verification information
-  csum[0] += csum[1];
+//  csum[0] += csum[1];
   csum[0] = globalSumUint(csum[0]);
-  pos_dep_csum[0] += pos_dep_csum[1];
+//  pos_dep_csum[0] += pos_dep_csum[1];
   pos_dep_csum[0] = globalSumUint(pos_dep_csum[0]);
 
-  RandSum[0] += RandSum[1];
-  Rand2Sum[0] += Rand2Sum[1];
+//  RandSum[0] += RandSum[1];
+//  Rand2Sum[0] += Rand2Sum[1];
   int total_rngs_4d = rng_arg.VolSites();
-  int total_rngs_5d = total_rngs_4d * rng_arg.Snodes() * rng_arg.SnodeSites(); 
-  Float RandAvg = globalSumFloat(RandSum[0]) / (total_rngs_5d + total_rngs_4d);
-  Float RandVar = globalSumFloat(Rand2Sum[0]) / (total_rngs_5d + total_rngs_4d)
+//  int total_rngs_5d = total_rngs_4d * rng_arg.Snodes() * rng_arg.SnodeSites(); 
+  Float RandAvg = globalSumFloat(RandSum[0]) / (total_rngs_4d);
+  Float RandVar = globalSumFloat(Rand2Sum[0]) / (total_rngs_4d)
                   - RandAvg * RandAvg;
 
   if(isRoot()) {

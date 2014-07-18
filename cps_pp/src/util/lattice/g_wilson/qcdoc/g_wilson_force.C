@@ -49,7 +49,11 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   for(int i = 0;i<N;i++){
   	tmp1[i] = (Matrix *) fmalloc(vol*sizeof(Matrix));
   	tmp2[i] = (Matrix *) fmalloc(vol*sizeof(Matrix));
+#ifdef C11
+        memset((char *)tmp2[i],0,vol*sizeof(Matrix));
+#else
         bzero((char *)tmp2[i],vol*sizeof(Matrix));
+#endif
   }
   for(int i = 0;i<vol;i++) 
 	Unit[i]=1.;

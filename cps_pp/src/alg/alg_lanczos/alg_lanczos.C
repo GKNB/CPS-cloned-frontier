@@ -50,7 +50,7 @@ CPS_START_NAMESPACE
 
 #include <iostream>
 #include <fstream>
-#include <iomanip>
+//#include <iomanip>
 using namespace std;
 
 extern void gamma_5(Float *v_out, Float *v_in, int num_sites);
