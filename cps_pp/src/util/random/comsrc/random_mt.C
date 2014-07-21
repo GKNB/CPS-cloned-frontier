@@ -272,8 +272,8 @@ void LatRanGen::Initialize()
 #endif
 		stringstream mtran_dump;
 		mtran_dump <<mtran[index_4d];
+#if 0
 		std::cout << "mtran["<<index_4d<<"]\n";
-#if 1
 		std::cout << mtran_dump.str();
 		mtran_dump.seekg(0);
 #endif
@@ -288,7 +288,7 @@ void LatRanGen::Initialize()
 			mtran_dump.get(temp_num,50,' ');
 			sscanf(temp_num,"%d",&dump2);
 #endif
-			std::cout << i_dump <<" "<< dump<<" "<<dump2 << endl;
+//			std::cout << i_dump <<" "<< dump<<" "<<dump2 << endl;
 		}
 			index_4d++;
 	      }
@@ -540,7 +540,7 @@ void LatRanGen::GetAllStates(RNGSTATE *dump) {
 	stringstream ss_dump;
 	ss_dump << mtran[h] ;
 if (h==0){
-	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str();
+	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str()<<endl;
 	ss_dump.seekg(0);
 }
        	for(int i=0; i<StateSize(); i++){
@@ -555,10 +555,10 @@ void LatRanGen::SetAllStates(RNGSTATE *dump) {
     for(int h=0; h<NStates(); h++){
 	stringstream ss_dump;
        	for(int i=0; i<StateSize(); i++){
-		ss_dump << dump[h*StateSize()+i];
+		ss_dump << dump[h*StateSize()+i]<<" ";
         }
 if (h==0){
-	std::cout <<"SetAllState::mtran[0]= "<< ss_dump.str();
+	std::cout <<"SetAllState::mtran[0]= "<< ss_dump.str()<<endl;
 	ss_dump.seekg(0);
 }
 	ss_dump >> mtran[h] ;

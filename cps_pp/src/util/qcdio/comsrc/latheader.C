@@ -295,7 +295,11 @@ void LatticeHeader::read(istream & fin) {
 /////////////////////////////////////////////////////////////////////
 void LatRngHeader::init(const QioArg & qio_arg, INT_FORMAT FileFormat) {
   hdr_version = "1.0";
+#ifdef USE_C11_RNG
+  datatype = "LATTICE_RNG_C11_MT19937";
+#else
   datatype = "LATTICE_RNG_5D_4D";
+#endif
   storage_format = "1.0";
 
   for(int i=0;i<5;i++)
