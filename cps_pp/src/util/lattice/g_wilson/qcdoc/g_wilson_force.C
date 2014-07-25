@@ -5,6 +5,7 @@
 #include <util/smalloc.h>
 #include <util/pt.h>
 #include <util/time_cps.h>
+#include <cassert>
 CPS_START_NAMESPACE
 #define PROFILE
 //------------------------------------------------------------------
@@ -70,9 +71,11 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   	pt.run(1,result,tmp1,dirs_m+nu);
 	pt.run(1,tmp1,result,dirs_p+mu);
   	pt.run(1,result,tmp1,dirs_p+nu) ;
+#pragma omp parallel for
   for(int i = 0;i<vol;i++){
     Float *tmp_f = Plaqs.Field(i);
     Float re_tr = (result[0]+i)->ReTr();
+    assert (re_tr >=0.);
     if (mu==0 && nu==1) *tmp_f = re_tr;
     else *tmp_f += re_tr;
     if (i==0) VRB.Result(cname,fname,"ReTr(Plaq)[%d][%d][0]=%0.12e\n",mu,nu,re_tr);
@@ -121,6 +124,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   
       for(nu = 1;nu<4;nu++){
   	for(int i = 0;i<N;i++){
+#pragma omp parallel for
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
 		Float re_tr_plaq = *(Plaqs.Field(j));
@@ -141,6 +145,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
 	}
 	pt.run(N,tmp1,Units,dirs_p+nu);
   	for(int i = 0;i<N;i++){
+#pragma omp parallel for
   	for(int j = 0;j<vol;j++){
 		int sigma = *(SigmaField()+SigmaOffset(j,i,(i+nu)%4));
 		Float re_tr_plaq = *(Plaqs.Field(j));
@@ -174,6 +179,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
     IFloat *ihp = (IFloat *)(mom+i*4+mu);  //The gauge momentum
 //    IFloat *dotp = (IFloat *)mp0;
     IFloat *dotp2 = (IFloat *) (result[mu]+(i));
+    assert (mtmp->norm() >=0.);
           if(i<4)
         VRB.Result(cname,fname,"Gforce[%d][%d]=%0.12e\n",mu,i,mtmp->norm());
     fTimesV1PlusV2Single(ihp, dt, dotp2, ihp, 18);  //Update the gauge momentum

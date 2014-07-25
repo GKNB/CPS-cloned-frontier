@@ -1067,17 +1067,19 @@ void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
     assert (sigma == 1);
     Float exponent = DeltaS (re_tr_plaq);
     assert (!(exponent != exponent));
-    if (!(exponent > 0))
+    if (!(exponent >= 0))
       printf ("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
 #if 1
-    assert (exponent > 0);
+    assert (exponent >= 0);
 #else
 	     if (exponent < SMALL ) exponent = SMALL;
 #endif
-    multiplier = 1.0 - delta_beta / (GJP.Beta () * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
-  }
+    Float multiplier2 = 1.0 - delta_beta / (GJP.Beta () * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
+    multiplier = 1.0 - delta_beta / (GJP.Beta () * (deltaS_offset - (delta_beta/3.0) * re_tr_plaq))*DeltaSDer(re_tr_plaq);
 
+//  if (multiplier != multiplier2) printf("multiplier %e != %e re_tr_plaq=%g \n",multiplier,multiplier2,re_tr_plaq);
   assert (!(multiplier != multiplier));
+  }
 
   *stap *= multiplier;
 }
@@ -1824,12 +1826,19 @@ Float Lattice::SumSigmaEnergyNode ()
 	    } else if (sigma == 1) {
 	      assert (sigma == 1);
 	      Float exponent = -DeltaS (re_tr_plaq);
+#if 0
 #if 1
 	      assert (exponent < 0);
 #else
 	     if (exponent > -SMALL ) exponent = -SMALL;
 #endif
 	      sum += -log (1 - exp (exponent));
+#else
+	      Float temp = -log (1 - exp (exponent));
+	      Float temp2 = DeltaS(re_tr_plaq)-DeltaSOrig(re_tr_plaq);
+	      if (fabs(temp-temp2)>0.001) printf("temp temp2 = %e %e\n",temp,temp2);
+	      sum += temp2;
+#endif
 	    } else
 	      ERR.General (cname, fname, "sigma(%d) is neither 0 or 1!", sigma);
 //	    assert (!(sum != sum));
