@@ -30,12 +30,14 @@ enum { MATRIX_SIZE = 18 };
 //------------------------------------------------------------------
 static IFloat invs3 = -1. / 3.;
 
+#if 0
 static Matrix mt0;
-static Matrix mt1;
-static Matrix mt2;
 static Matrix *mp0 = &mt0;	// ihdot
+static Matrix mt1;
 static Matrix *mp1 = &mt1;
+static Matrix mt2;
 static Matrix *mp2 = &mt2;
+#endif
 
 
 //------------------------------------------------------------------
@@ -214,6 +216,10 @@ void Gwilson::GforceSite (Matrix & force, int *x, int mu, Float *RePlaq)
 {
   char *fname = "GforceSite(M&,i*,i)";
   VRB.Func(cname,fname);
+Matrix mt1;
+Matrix *mp1 = &mt1;
+Matrix mt2;
+Matrix *mp2 = &mt2;
 
 
   Matrix *u_off = GaugeField () + GsiteOffset (x) + mu;
@@ -226,6 +232,10 @@ void Gwilson::GforceSite (Matrix & force, int *x, int mu, Float *RePlaq)
   //----------------------------------------
   //Staple(*mp1, x, mu);        
   StapleWithSigmaCorrections (*mp1, x, mu,RePlaq);
+  for (int i = 0; i < 18; i++) {
+    Float a = *(((Float *) mp1) + i);
+    assert (!(a != a));
+  }
   ForceFlops += 198 * 3 * 3 + 12 + 216 * 3;
 
 

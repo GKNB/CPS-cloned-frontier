@@ -272,14 +272,22 @@ class Lattice
     Float ReTrPlaqNonlocal(int *x, int mu, int nu);
     Float ReTrLoopReentrant(const int *x, const int *dir,  int length);
 
-    Float DeltaS(Float re_tr_plaq) const {
+    Float DeltaSOrig(Float re_tr_plaq) const {
       double temp =  deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
-      return log (exp(temp)+1);
+      return temp;
+    }
+
+    Float DeltaS(Float re_tr_plaq) const {
+//      double temp =  deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
+      double temp =  DeltaSOrig(re_tr_plaq);
+      if (temp < 0.) return log (exp(temp)+1);
+      else return (temp + log (1 + exp(-temp))) ;
     }
 
     Float DeltaSDer(Float re_tr_plaq) const {
       double temp =  deltaS_offset - (delta_beta/3.0) * re_tr_plaq; 
-      return 1./(exp(-temp)+1.);
+      if (temp >0.) return 1./(exp(-temp)+1.);
+      else return (exp(temp)/(1+exp(temp)));
     }
     int SigmaTest(int x[], Float re_tr_plaq);
 
