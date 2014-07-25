@@ -1,4 +1,5 @@
 #include<config.h>
+#include<cstdlib>
 #ifdef USE_C11_RNG
 #include<iostream>
 #include<fstream>
@@ -157,14 +158,17 @@ void LatRanGen::Initialize()
   if ( GJP.StartSeedKind() ==  START_SEED_FIXED_UNIFORM ) {
 #endif
     int x[5];
-    int start_seed = default_seed;
+    long int start_seed = default_seed;
+    std::ranlux48 ran_std(start_seed);
+    
 
     for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]+=2) {
     for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]+=2) {
     for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
     for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
 
-      start_seed += OFFSET;
+ //     start_seed += OFFSET;
+      start_seed = ran_std();
       mtran[index_4d++].seed(start_seed);
 
     }
@@ -179,7 +183,7 @@ void LatRanGen::Initialize()
   // Sort out what the seed should be depending on the GJP.StartSeedKind()
 
   int start_seed, base_seed;
-  int start_seed_4d, base_seed_4d;
+  uint32_t start_seed_4d, base_seed_4d;
 
   switch(GJP.StartSeedKind()){
   case START_SEED_FILE:
@@ -206,6 +210,10 @@ void LatRanGen::Initialize()
       base_seed = default_seed;
   }
     
+//  srand48(base_seed);
+    std::ranlux48 ran_std(base_seed);
+// warming up rand48 (maybe not necessary?)
+  for(int tmp_i=0;tmp_i<100;tmp_i++){ran_std();};
 #ifdef PARALLEL
   if(GJP.StartSeedKind()==START_SEED_INPUT_NODE){
       int node  = 
@@ -222,6 +230,7 @@ void LatRanGen::Initialize()
   int x[5];
 //  int index, index_4d;
   index = index_4d = 0;
+  uint32_t rng_offset=0,rng_count=0;
   
   for(x[3] = x_o[3]; x[3] <= x_f[3]; x[3]+=2) {
       for(x[2] = x_o[2]; x[2] <= x_f[2]; x[2]+=2) {
@@ -233,10 +242,21 @@ void LatRanGen::Initialize()
 		  if(GJP.StartSeedKind()==START_SEED||
 		     GJP.StartSeedKind()==START_SEED_INPUT||
 		     GJP.StartSeedKind()==START_SEED_FIXED){
+#if 0
 		      start_seed_4d = base_seed
 			  + OFFSET * (x[0]/2 + vx[0]*
 				 (x[1]/2 + vx[1]*
 				 (x[2]/2 + vx[2]*(x[3]/2) )));
+#else
+		      rng_offset = (x[0]/2 + vx[0]*
+				 (x[1]/2 + vx[1]*
+				 (x[2]/2 + vx[2]*(x[3]/2) )));
+                      while (rng_count <rng_offset){
+			ran_std();
+			rng_count++;
+                      }
+			start_seed_4d = ran_std();
+#endif
 		  }
 #if 0
 {
@@ -249,7 +269,8 @@ void LatRanGen::Initialize()
 		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
 }
 #endif
-		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
+//		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
+	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%d\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
  			mtran[index_4d].seed(start_seed_4d);
 //	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<endl;
 
