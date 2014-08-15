@@ -2089,7 +2089,7 @@ int qio_readPropagator::qio_readNextPropPairRecord(Float *rprop, int &readSpin, 
 int qio_readPropagator::qio_readTmpSourceRecord(const QIO_PROP_SOURCE_TYPES sType, Float *rsource)
 {
 
-  char * fname="qio_readTmpSourceRecord()";
+  char * fname="qio_readTmpSourceRecord(const QIO_PROP_SOURCE_TYPES sType, Float *rsource)";
   VRB.Func(cname,fname);
 
   int return_val(0), return_val_info(0), return_val_decode(0);

@@ -796,6 +796,10 @@ public:
     This is only relevant for Domain Wall Fermions.
     \param sites The dimension of the local lattice in the 5th direction.
   */
+  void Mobius_b(Float b)
+      {doext_int.mobius_b_coeff = b;}
+  void Mobius_c(Float c)
+      {doext_int.mobius_c_coeff = c;}
 
 
   //! Sets the global lattice boundary condition in the (dir) direction.

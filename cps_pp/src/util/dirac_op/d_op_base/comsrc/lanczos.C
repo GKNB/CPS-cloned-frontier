@@ -146,8 +146,8 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
   Float* tmp_Qi = (Float *) smalloc(cname,fname,"tmp_Qi", (m*m) * sizeof(Float));
   for(int i=0;i<m;i++)  Q[i] = tmp_Qi+i*m;
 
-  //Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*2*sizeof(Float));
-  Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*f_size*sizeof(Float));
+  Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*2*sizeof(Float));
+  //Float *scratch_2m = (Float*) smalloc(cname,fname,"scratch_m", m*f_size*sizeof(Float));
 
   // setup temporaly vectors for the the matrix polynomial
   cheby_arg->tmp1 = (Float*) smalloc(cname,fname,"matrix_polynomial.tmp1", f_size *sizeof(Float));
@@ -338,6 +338,7 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
     
     PROFILE_LANCZOS("prep new resvec Q %e\n",time_elapse());
 
+    if(eig_arg->conv_check==0)ERR.General(cname,fname, "eig_arg->conv_check must be non-zero\n");
     if(it%eig_arg->conv_check==0){
 
       PROFILE_LANCZOS("before conv check %e\n",time_elapse());

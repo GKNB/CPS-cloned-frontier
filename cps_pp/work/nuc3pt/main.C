@@ -29,6 +29,7 @@ using namespace std;
 DoArg do_arg;
 DoArgExt doext_arg;
 NoArg no_arg;
+CgArg cg_arg;
 CommonArg common_arg;
 LanczosArg eig_arg;
 MeasArg meas_arg;
@@ -210,7 +211,7 @@ int main(int argc,char *argv[])
     etime = time_elapse();
     if(!UniqueID())printf("Time for Lanczos %g\n",etime);
     
-#if 1
+#if 0
   {
     if( GJP.Snodes() != 1) ERR.NotImplemented(cname,fname,"currently only doing I/O for local Ls\n");
 
@@ -259,6 +260,8 @@ int main(int argc,char *argv[])
     snprintf(fname, 1024,"nuc3pt-exact.dat.%d", traj );
     common_arg.set_filename(fname);
     nuc3pt_arg. cg. fname_eigen = eig_arg.file;
+    if(!UniqueID())printf("befor Exact  %d %d %d %d\n",
+			   nuc3pt_arg. x[0], nuc3pt_arg. x[1], nuc3pt_arg. x[2], nuc3pt_arg. mt[0]);
     AlgNuc3pt nuc(lattice,&common_arg,&nuc3pt_arg); 
     nuc.run();
     etime = time_elapse();
@@ -266,7 +269,73 @@ int main(int argc,char *argv[])
 			   etime, nuc3pt_arg. x[0], nuc3pt_arg. x[1], nuc3pt_arg. x[2], nuc3pt_arg. mt[0]);
   }
 #endif
-#if 1 
+
+#if 0
+  QPropWArg qp_arg ;
+  qp_arg.cg = (nuc3pt_arg.cg);
+  qp_arg.t = nuc3pt_arg.mt[0] ;
+  qp_arg.StartSrcSpin = 0 ;
+  qp_arg.EndSrcSpin = 4 ;
+  qp_arg.StartSrcColor = 0 ;
+  qp_arg.EndSrcColor = 3 ;
+  QPropWGaussArg gauss_arg;
+  qp_arg.gauge_fix_src=0; // No Gauge fixing is needed for Point source
+  qp_arg.x = nuc3pt_arg.x[0];
+  qp_arg.y = nuc3pt_arg.x[1];
+  qp_arg.z = nuc3pt_arg.x[2];
+  gauss_arg.gauss_N  =   nuc3pt_arg.gauss_N ;
+  gauss_arg.gauss_W  =   nuc3pt_arg.gauss_W ;
+  // Multi Gauss
+  gauss_arg.nt = nuc3pt_arg.num_mult ;
+  for(int nt=0; nt<gauss_arg.nt; nt++) gauss_arg.mt[nt] = nuc3pt_arg.mt[nt] ;
+  //Ape Smearing
+  gauss_arg.gauss_link_smear_type = nuc3pt_arg.gauss_link_smear_type;
+  gauss_arg.gauss_link_smear_coeff = nuc3pt_arg.gauss_link_smear_coeff;
+  gauss_arg.gauss_link_smear_N = nuc3pt_arg.gauss_link_smear_N;
+  //QPropWGaussSrc prop(lattice,&qp_arg,&gauss_arg,&common_arg);
+  QPropWPointSrc prop(lattice,&qp_arg,&common_arg);
+#endif
+
+#if 0
+
+  cg_arg = nuc3pt_arg.cg;  
+  Vector* in;
+  Vector* out;
+  out = (Vector*)smalloc(GJP.VolNodeSites()*GJP.SnodeSites()*4*sizeof(Vector));
+  in = (Vector*)smalloc(GJP.VolNodeSites()*GJP.SnodeSites()*4*sizeof(Vector));
+  // zero the source, solution
+  for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++){
+    *((Float*)in+i) =0.0;
+    //*((Float*)in+i) =(Float)i/GJP.VolNodeSites()/GJP.SnodeSites();
+    *((Float*)out+i) =0.0;
+  }
+  //point source at origin and spin=color=0
+  if(!UniqueID()) *((Float*)in) = 1.0;
+  Float res = 0.0;
+  PreserveType pres =  PRESERVE_NO;
+  CnvFrmType cnv =  CNV_FRM_YES;
+  int iter = lattice.FmatInv(out, in, &cg_arg, &res, cnv, pres);
+ 
+  //cnv =  CNV_FRM_NO;
+  DiracOpMobius dop( lattice, out, in, &cg_arg, cnv );
+  //DiracOpDwf dop( lattice, out, in, &cg_arg, cnv );
+  //int iter = dop.MatInv(&res, pres);
+
+  for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+    printf("node %d OUT %d %e\n",UniqueID(),i,*((Float*)out+i) );
+
+  dop.Mat(in,out);
+
+  for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+    printf("node %d IN %d %e \n",UniqueID(),i,*((Float*)in+i) );
+
+  sfree(out);
+  sfree(in);
+  sfree(filename);
+  
+#endif
+
+#if 0
   {
     // save the props this time
     nuc3pt_arg. ensemble_label = "nuc3pt4c"; 
@@ -284,7 +353,7 @@ int main(int argc,char *argv[])
   }
 #endif
 
-#if 1
+#if 0
     /*
      *  Now do the LMA(Low Mode Approximation)
      */
