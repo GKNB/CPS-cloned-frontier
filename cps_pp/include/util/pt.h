@@ -99,6 +99,7 @@ class ParTrans
   Matrix *gauge_field;             //!< Pointer to the gauge field.
   static int node_sites[5];
   static int bc[4];
+  int bc_already_applied;
 
  public:
   enum {XP=0,XM=1,YP=2,YM=3,ZP=4,ZM=5,TP=6,TM=7};
@@ -399,6 +400,9 @@ class ParTransWilsonTypes : public ParTrans
   ParTransWilsonTypes(Lattice& latt);            // Lattice object.
 
   virtual ~ParTransWilsonTypes();
+
+  void run(int n, Matrix **mout, Matrix **min, const int *dir )
+    { pt_mat(n,(IFloat **)mout, (IFloat **)min, dir);}
 
 };
 

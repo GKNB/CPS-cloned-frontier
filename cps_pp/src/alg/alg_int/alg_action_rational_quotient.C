@@ -716,23 +716,7 @@ void PrintRemezArg(const char* name, const RemezArg& remez_arg)
 // return true if we successfully loaded from a file.
 bool AlgActionRationalQuotient::loadPoles(void)
 {
-  const char *fname = "loadPoles()";
-/*  if(rat_quo_arg->remez_generate) return false;
-  if(strlen(rat_quo_arg->rat_poles_file) == 0) return false;
-
-  FILE *fp = fopen(rat_quo_arg->rat_poles_file, "r");
-  if(fp == NULL) return false;
-  fclose(fp);
-
-
-  RationalQuotientRemezArg rq;
-  if(!rq.Decode(rat_quo_arg->rat_poles_file, "rq")) return false;
-
-  // a bunch of check
-  if(rq.bsn_md.bsn_md_len != n_masses) return false;
-  if(rq.bsn_mc.bsn_mc_len != n_masses) return false;
-  if(rq.frm_md.frm_md_len != n_masses) return false;
-  if(rq.frm_mc.frm_mc_len != n_masses) return false;*/
+  const char* fname = "loadPoles()";
 
   if(rat_quo_arg->remez_generate) { printf("AA\n"); return false; }
   if(strlen(rat_quo_arg->rat_poles_file) == 0) { printf("BB\n"); return false; }
@@ -781,7 +765,6 @@ bool AlgActionRationalQuotient::loadPoles(void)
 
 bool AlgActionRationalQuotient::savePoles(void)
 {
-  const char *fname = "savePoles()";
   if(strlen(rat_quo_arg->rat_poles_file) == 0) return false;
 
   RationalQuotientRemezArg rq;

@@ -189,7 +189,7 @@ bool_t TextEncoder::Array     ( VML *vmls, char *type, char *name,
     if (!vmls->Gets((char *)line,256)) return false;
     sprintf(tmp,"%s %s[%%d] = { \n",type,name);
     int ret = sscanf(line,tmp,&nvals);  
-    if (ret < 1 ) {DEB("Array mismatch! expecting ");DEB(name);DEB("\nline= "); DEB(line); return false;}
+    if (ret < 1 ) {DEB("Array mismatch! expecting ");DEB(tmp);DEB("\nline= "); DEB(line); return false;}
     
 
     if ( DoAlloc ) { 

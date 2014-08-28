@@ -7,7 +7,11 @@
 #include<stdlib.h>
 
 #include<bfm_qdp.h>
+#ifdef BFM_OLD
 #include<BfmMultiGrid.h>
+#else
+#include<BfmHDCG.h>
+#endif
 #include<util/time_cps.h>
 #include<comms/sysfunc_cps.h>
 //#include<comms/sysfunc_qmp.h>
@@ -15,7 +19,11 @@
 #include <bfm_hdcg_wrapper.h>
 class HDCGInstance{
 	public:
+#ifdef BFM_OLD
 	static BfmMultiGridParams  Params;
+#else
+	static BfmHDCGParams  Params;
+#endif
 	static HDCG_wrapper  * _instance ;
 	static HDCG_wrapper *getInstance(){return _instance;} 
 	static HDCG_wrapper *setInstance(HDCG_wrapper *_new){_instance = _new;} 

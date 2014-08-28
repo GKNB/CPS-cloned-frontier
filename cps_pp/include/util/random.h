@@ -397,7 +397,11 @@ class LatRanGen
 
     inline bool good() const { return io_good; }
 
+#ifdef USE_C11_RNG
+    void Shift(){}
+#else
     void Shift();
+#endif
 
  private:
     int do_log;
@@ -420,6 +424,13 @@ class LRGState {
   public:
 
   char *cname;
+#ifdef USE_C11_RNG
+  LRGState(){}
+  ~LRGState(){}
+  
+  void GetStates(){ERR.NotImplemented(cname,"GetStates()");}
+  void SetStates(){ERR.NotImplemented(cname,"SetStates()");}
+#else
   unsigned int ** rng4d;
   unsigned int ** rng5d;
 
@@ -428,6 +439,7 @@ class LRGState {
   
   void GetStates();
   void SetStates();
+#endif
 
 };
 

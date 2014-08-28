@@ -396,11 +396,11 @@ void AlgEig::run(Float **evalues, Vector **in_eigv)
 #endif
    
     //!< Copy over eigenvalues to return them
-    //if (evalues != 0) {
-    //  for (int eig=0; eig<eig_arg->N_eig; eig++) {
-//	evalues[eig][m] = lambda[eig];
- //     }
-  //  }
+    if (evalues != 0) {
+      for (int eig=0; eig<eig_arg->N_eig; eig++) {
+	evalues[eig][m] = lambda[eig];
+      }
+    }
 
     if ( iter < 0 )
     {

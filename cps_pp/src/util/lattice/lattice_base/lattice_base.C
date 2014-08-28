@@ -91,8 +91,9 @@ Float Lattice::fix_gauge_stpCond = 0.;
 int Lattice::node_sites[5];
 int Lattice::g_dir_offset[4];
 
-int *Lattice::g_upd_cnt = 0;
-Float Lattice::md_time = (Float) 0.0;
+int* Lattice::g_upd_cnt = 0 ;
+Float Lattice::md_time = (Float) 0.0 ;
+int Lattice::bc_applied = 0;
 
 
 static Matrix m_tmp1 CPS_FLOAT_ALIGN;
@@ -3770,11 +3771,9 @@ inline void compute_coord (int x[4], const int hl[4], const int low[4], int i)
 // ----------------------------------------------------------------
 void Lattice::BondCond ()
 {
-  Matrix *u_base = this->GaugeField ();
-
-  for (int mu = 0; mu < 4; ++mu) {
-    if (GJP.NodeBc (mu) != BND_CND_APRD)
-      continue;
+    Matrix *u_base = this->GaugeField();
+    for(int mu = 0; mu < 4; ++mu) {
+        if(GJP.NodeBc(mu) != BND_CND_APRD) continue;
 
     int low[4] = { 0, 0, 0, 0 };
     int high[4] = { GJP.XnodeSites (), GJP.YnodeSites (),
@@ -3798,6 +3797,8 @@ void Lattice::BondCond ()
       u_base[off] *= -1.;
     }
   }
+    bc_applied = 1 - bc_applied;
+    VRB.Result(cname,"BondCond()","bc=%d\n",bc_applied);
 }
 
 CPS_END_NAMESPACE

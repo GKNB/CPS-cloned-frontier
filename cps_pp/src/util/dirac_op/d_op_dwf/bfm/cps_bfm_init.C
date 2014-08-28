@@ -9,7 +9,9 @@
 #ifdef UNIFORM_SEED_TESTING
 #include "majority_vote.h"
 #endif
+#ifdef USE_CHROMA
 #include <chroma.h>
+#endif
 #include <util/gjp.h>
 #include <util/error.h>
 #include <util/verbose.h>
@@ -22,7 +24,10 @@
 //#define USE_OMP
 
 
+#ifdef USE_CHROMA
 using namespace Chroma;
+#endif
+
 USING_NAMESPACE_CPS
 
 static int qdp_initted = 0;
@@ -39,8 +44,10 @@ int cps_qdp_init(int *argc, char ***argv){
     qdp_initted = 1;
     return 1;
   }
+#ifdef USE_CHROMA
   Chroma::initialize( argc, argv);
   VRB.Result("","cps_qdp_init()","Chroma::initialize( argc, argv)");
+#endif
   int size[Nd];
   multi1d<int> nrow(Nd);  
   for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);

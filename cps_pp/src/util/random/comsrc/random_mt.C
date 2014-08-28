@@ -187,7 +187,7 @@ void LatRanGen::Initialize()
 
   switch(GJP.StartSeedKind()){
   case START_SEED_FILE:
-#if 0
+#if 1
 	if ( !LatRanGen::Read(GJP.StartSeedFilename(),default_concur) ) {
 	      ERR.General(cname, fname,
 		  "Reading file %s",GJP.StartSeedFilename());
@@ -346,7 +346,7 @@ IFloat LatRanGen::Grand(FermionFieldDimension frm_dim)
 {
   char *fname = "Grand(FermionFieldDimension)";
 //  printf("LatRanGen::Grand():%d\n",rgen_pos);
-    return grand_mean + grand_sigma*grand(mtran[rgen_pos_4d]);
+    return grand_mean + sqrt(grand_sigma)*grand(mtran[rgen_pos_4d]);
 }
 
 
@@ -560,7 +560,7 @@ void LatRanGen::GetAllStates(RNGSTATE *dump) {
     for(int h=0; h<NStates(); h++){
 	stringstream ss_dump;
 	ss_dump << mtran[h] ;
-if (h==0){
+if (!UniqueID()&& h==0){
 	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str()<<endl;
 	ss_dump.seekg(0);
 }
@@ -578,7 +578,7 @@ void LatRanGen::SetAllStates(RNGSTATE *dump) {
        	for(int i=0; i<StateSize(); i++){
 		ss_dump << dump[h*StateSize()+i]<<" ";
         }
-if (h==0){
+if (!UniqueID()&& h==0){
 	std::cout <<"SetAllState::mtran[0]= "<< ss_dump.str()<<endl;
 	ss_dump.seekg(0);
 }

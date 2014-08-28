@@ -106,6 +106,7 @@ class Lattice
       // The last stopping condition used.
 
     static int scope_lock;
+    static int bc_applied;
 
  protected:
 
@@ -1250,6 +1251,7 @@ class Lattice
     //!external libraries need to overwrite this function.
     virtual void BondCond();
     Float GetReTrPlaq(const int x[4],Float *ReTrPlaq);
+    int BcApplied(){return bc_applied;}
 };
 
 //------------------------------------------------------------------

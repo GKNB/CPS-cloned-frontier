@@ -737,7 +737,7 @@ void AlgWilsonFlow::smartrun()
 
     //Do each of the four steps of the RK4 integrator in turn:
 
-    omp_set_num_threads(64);
+//    omp_set_num_threads(64);
     #pragma omp parallel for
     for(int site = 0; site < GJP.VolNodeSites(); ++site)
     {
