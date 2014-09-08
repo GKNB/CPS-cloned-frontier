@@ -44,6 +44,7 @@ CPS_START_NAMESPACE
 //#define ND                 4      //!< Number of space-time dimensions.
 const int ND = 4;
 const int SPINOR_SIZE = 24;
+const int HALF_SPINOR_SIZE = 12;
 const int GAUGE_SIZE = 72;
 #if 0
 #define SPINOR_SIZE        24     //!< Number of floating-point numbers in a Dirac spinor.
