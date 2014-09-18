@@ -2,7 +2,7 @@
 /*!\file
   \brief  Definition of the Dirac operator classes: DiracOp, DiracOpStagTypes.
 
-  $Id: dirac_op.h,v 1.31.12.1 2012-07-25 20:07:40 yinnht Exp $
+  $Id: dirac_op.h,v 1.31.12.1 2012/07/25 20:07:40 yinnht Exp $
 */
 
 #ifndef INCLUDED_DIRAC_OP_H

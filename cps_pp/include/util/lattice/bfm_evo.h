@@ -76,9 +76,17 @@ private:
   void copySendFrmData(Float v3d[], Float v4d[], int mu, bool send_neg);
 
   // complex version of axpy()
+ #if 0
   void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp) {
     this->zaxpy(r, x, y, a);
   }
+#endif
+ #if 1
+void zaxpy(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a)
+{
+   this->caxpy(r,x,y,std::real(a),std::imag(a));
+}
+#endif
 public:
   void thread_work_partial_nobarrier(int nwork, int me, int nthreads,
                                      int &mywork, int &myoff)
@@ -147,6 +155,8 @@ public:
 
   template<typename FloatEXT>
   void cps_importGauge(FloatEXT *importme);
+  //template<typename FloatEXT>
+  //void cps_importGauge(FloatEXT *importme, int dir);
 
   //EigCG
   Fermion_t allocCompactFermion   (int mem_type=mem_slow);
@@ -464,6 +474,8 @@ static inline int idx_5d_surf(const int x[5], const int lx[5], int mu) {
   return ret;
 }
 
+
+#if 1
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
 {
@@ -510,6 +522,7 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   // to bfm
   this->importGauge(U);
 }
+#endif
 
 template <class Float>
 void bfm_evo<Float>::calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
@@ -586,6 +599,10 @@ void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
     }
   } else if(this->solver == DWF && this->precon_5d == 1) {
     // Booee is the identity matrix in this case.
+    this->copy(chi, psi);
+    return;
+  } else if(this->solver == WilsonFermion || this->solver == WilsonTM) {
+    // This case added by Greg -- hopefully it is right?
     this->copy(chi, psi);
     return;
   } else {

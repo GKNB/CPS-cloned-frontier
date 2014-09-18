@@ -4,20 +4,20 @@
 /*!\file
   \brief  The MPI communication direction and flag enumerations:
 
-  $Id: scu_enum.h,v 1.10 2004-08-18 11:57:36 zs Exp $
+  $Id: scu_enum.h,v 1.10 2004/08/18 11:57:36 zs Exp $
 */
 /*---------------------------------------------------------------
   CVS keywords
  
   $Author: zs $
-  $Date: 2004-08-18 11:57:36 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/scu_enum.h,v 1.10 2004-08-18 11:57:36 zs Exp $
-  $Id: scu_enum.h,v 1.10 2004-08-18 11:57:36 zs Exp $
-  $Name: not supported by cvs2svn $
+  $Date: 2004/08/18 11:57:36 $
+  $Header: /space/cvs/cps/cps++/include/comms/Attic/scu_enum.h,v 1.10 2004/08/18 11:57:36 zs Exp $
+  $Id: scu_enum.h,v 1.10 2004/08/18 11:57:36 zs Exp $
+  $Name: v5_0_16_hantao_io_test_v7 $
   $Locker:  $
   $RCSfile: scu_enum.h,v $
   $Revision: 1.10 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/scu_enum.h,v $
+  $Source: /space/cvs/cps/cps++/include/comms/Attic/scu_enum.h,v $
   $State: Exp $  */
 /*----------------------------------------------------------*/
 

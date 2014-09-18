@@ -3,20 +3,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgPbp class.
   
-  $Id: alg_pbp.C,v 1.13.226.2 2012-06-07 16:36:33 yinnht Exp $
+  $Id: alg_pbp.C,v 1.13.226.2 2012/06/07 16:36:33 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-06-07 16:36:33 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v 1.13.226.2 2012-06-07 16:36:33 yinnht Exp $
-//  $Id: alg_pbp.C,v 1.13.226.2 2012-06-07 16:36:33 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/06/07 16:36:33 $
+//  $Header: /space/cvs/cps/cps++/src/alg/alg_pbp/alg_pbp.C,v 1.13.226.2 2012/06/07 16:36:33 yinnht Exp $
+//  $Id: alg_pbp.C,v 1.13.226.2 2012/06/07 16:36:33 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: alg_pbp.C,v $
 //  $Revision: 1.13.226.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_pbp/alg_pbp.C,v $
+//  $Source: /space/cvs/cps/cps++/src/alg/alg_pbp/alg_pbp.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -167,7 +167,7 @@ void AlgPbp::run()
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
+  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 
@@ -635,7 +635,7 @@ void AlgPbp::runPointSource(int x, int y, int z, int t)
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
+  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 

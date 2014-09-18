@@ -3,20 +3,20 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of ParTransStagTypes class constructor and destructor.
 
-  $Id: pt_gauge.C,v 1.4 2011-02-26 00:19:27 chulwoo Exp $
+  $Id: pt_gauge.C,v 1.4 2011/02/26 00:19:27 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2011-02-26 00:19:27 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_gauge/pt_gauge.C,v 1.4 2011-02-26 00:19:27 chulwoo Exp $
-//  $Id: pt_gauge.C,v 1.4 2011-02-26 00:19:27 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2011/02/26 00:19:27 $
+//  $Header: /space/cvs/cps/cps++/src/util/parallel_transport/pt_gauge/pt_gauge.C,v 1.4 2011/02/26 00:19:27 chulwoo Exp $
+//  $Id: pt_gauge.C,v 1.4 2011/02/26 00:19:27 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: pt_gauge.C,v $
 //  $Revision: 1.4 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_gauge/pt_gauge.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/parallel_transport/pt_gauge/pt_gauge.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

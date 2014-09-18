@@ -5,12 +5,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of some Fasqtad class methods.
 
-  $Id: f_asqtad.C,v 1.27 2008-02-08 18:35:07 chulwoo Exp $
+  $Id: f_asqtad.C,v 1.27 2008/02/08 18:35:07 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_asqtad/comsrc/f_asqtad.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_asqtad/comsrc/f_asqtad.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

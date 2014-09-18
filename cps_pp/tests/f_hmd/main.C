@@ -4,14 +4,14 @@
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2008-02-08 18:35:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/tests/f_hmd/main.C,v 1.28 2008-02-08 18:35:08 chulwoo Exp $
-//  $Id: main.C,v 1.28 2008-02-08 18:35:08 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2008/02/08 18:35:08 $
+//  $Header: /space/cvs/cps/cps++/tests/f_hmd/main.C,v 1.28 2008/02/08 18:35:08 chulwoo Exp $
+//  $Id: main.C,v 1.28 2008/02/08 18:35:08 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: main.C,v $
 //  $Revision: 1.28 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/tests/f_hmd/main.C,v $
+//  $Source: /space/cvs/cps/cps++/tests/f_hmd/main.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

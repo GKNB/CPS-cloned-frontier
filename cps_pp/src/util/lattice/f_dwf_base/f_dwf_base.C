@@ -6,12 +6,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FdwfBase class.
 
-  $Id: f_dwf_base.C,v 1.39 2012-03-27 05:02:40 chulwoo Exp $
+  $Id: f_dwf_base.C,v 1.39 2012/03/27 05:02:40 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_dwf_base/f_dwf_base.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_dwf_base/f_dwf_base.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

@@ -1,0 +1,87 @@
+# $Id: Makefile_common.in,v 1.23 2008/05/16 04:26:35 chulwoo Exp $
+# tests/Makefile_common.  Generated from Makefile_common.in by configure.
+#   This is the makefile for all the commands
+#   that are common for all testing applications.
+#----------------------------------------------------------------------
+
+
+SRCDIR = /home/chulwoo/CPS/CPS_v5_0_16_hantao_io_test_v7_TR/V10.0/../cps++
+BUILDDIR = /home/chulwoo/CPS/CPS_v5_0_16_hantao_io_test_v7_TR/V10.0
+QOS = 
+QOSLIB = ${QOS}/quser/gcc-lib-user///
+CC = /bgsys/drivers/ppcfloor/comm/gcc/bin/mpicc
+CXX = /bgsys/drivers/ppcfloor/comm/gcc/bin/mpicxx
+AS  = /bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc64-bgq-linux-as
+LDFLAGS = -lqdp -lchroma -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib  -fopenmp -lgmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ//lib  -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lqmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lqmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ//lib -lqio -llime  -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lxml2 -lm -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm
+
+me = $(notdir $(PWD))
+BIN = BGQ.x
+
+VPATH :=$(SRCDIR)/tests/$(me)
+
+
+
+#
+# include list for the Columbia code
+#
+INCLIST = -I${BUILDDIR} -I${SRCDIR}/include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include  -I/gpfs/mira-home/chulwoo/V10.0//install_CJ//include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include    -I/gpfs/mira-home/chulwoo/V10.0//install_CJ//include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include/libxml2
+
+CFLAGS= -g -O2 -fopenmp -O2
+CXXFLAGS=  -fopenmp -O2
+ASFLAGS= 
+DFLAGS +=  -DUSE_OMP -DGMP -DUSE_QMP -DUSE_QIO -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM
+
+#
+# Libraries for the Columbia code
+#
+# (These are for the scalar version of the code)
+#
+#
+
+.PHONY: cps clean
+
+
+LIBLIST = $(BUILDDIR)/cps.a 
+#LIBLIST =  $(BUILDDIR)/cps.xla $(BUILDDIR)/cps.a 
+	 
+
+#
+#  targets
+#
+
+
+all:$(BIN)
+
+.SUFFIXES:
+.SUFFIXES:  .o .C .S .c
+
+CSRC := $(notdir $(wildcard $(VPATH)/*.c) )
+CCSRC := $(notdir $(wildcard $(VPATH)/*.C) )
+SSRC := $(notdir $(wildcard $(VPATH)/*.S) )
+
+COBJ=$(CSRC:.c=.o)
+CCOBJ=$(CCSRC:.C=.o)
+SOBJ=$(SSRC:.S=.o)
+
+OBJS_SRC = $(SOBJ) $(CCOBJ) $(COBJ)
+OBJS := $(notdir $(OBJS_SRC))
+
+$(BIN):  $(OBJS) $(LIBLIST)
+	$(CXX) $(OBJS) $(LIBLIST) $(LDFLAGS) -o $(BIN)
+
+.c.o:
+	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
+.C.o:
+	$(CXX) -o $@ $(CXXFLAGS) $(DFLAGS) -c $(INCLIST) $<
+.S.o:
+	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
+
+cps:
+	$(MAKE) -C $(BUILDDIR)
+
+clean:
+	rm -f *.dat *.o  $(BIN)
+	rm -f $(SRCDIR)/tests/$(me)/*.o
+	rm -f ../regressions/*$(me).dat
+	rm -f ../regressions/*$(me).checklog
+

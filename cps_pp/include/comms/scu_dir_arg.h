@@ -3,7 +3,7 @@
 /*!\file
   \brief  Declaration of the SCUDirArg class.
   
-  $Id: scu_dir_arg.h,v 1.6 2006-12-14 17:53:32 chulwoo Exp $
+  $Id: scu_dir_arg.h,v 1.6 2006/12/14 17:53:32 chulwoo Exp $
 */
 /*----------------------------------------------------------*/
 /* The SCUDirArg Class: scu_dir_arg.h
@@ -16,14 +16,14 @@
   CVS keywords
  
   $Author: chulwoo $
-  $Date: 2006-12-14 17:53:32 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/scu_dir_arg.h,v 1.6 2006-12-14 17:53:32 chulwoo Exp $
-  $Id: scu_dir_arg.h,v 1.6 2006-12-14 17:53:32 chulwoo Exp $
-  $Name: not supported by cvs2svn $
+  $Date: 2006/12/14 17:53:32 $
+  $Header: /space/cvs/cps/cps++/include/comms/Attic/scu_dir_arg.h,v 1.6 2006/12/14 17:53:32 chulwoo Exp $
+  $Id: scu_dir_arg.h,v 1.6 2006/12/14 17:53:32 chulwoo Exp $
+  $Name: v5_0_16_hantao_io_test_v7 $
   $Locker:  $
   $RCSfile: scu_dir_arg.h,v $
   $Revision: 1.6 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/scu_dir_arg.h,v $
+  $Source: /space/cvs/cps/cps++/include/comms/Attic/scu_dir_arg.h,v $
   $State: Exp $  */
 /*----------------------------------------------------------*/
 

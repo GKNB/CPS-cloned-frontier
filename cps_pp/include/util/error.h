@@ -8,20 +8,20 @@
 /*!\file
   \brief  Declaration and definition of Error class.
 
-  $Id: error.h,v 1.7.210.1 2012-05-06 18:32:11 yinnht Exp $
+  $Id: error.h,v 1.7.210.1 2012/05/06 18:32:11 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-05-06 18:32:11 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/error.h,v 1.7.210.1 2012-05-06 18:32:11 yinnht Exp $
-//  $Id: error.h,v 1.7.210.1 2012-05-06 18:32:11 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/05/06 18:32:11 $
+//  $Header: /space/cvs/cps/cps++/include/util/error.h,v 1.7.210.1 2012/05/06 18:32:11 yinnht Exp $
+//  $Id: error.h,v 1.7.210.1 2012/05/06 18:32:11 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: error.h,v $
 //  $Revision: 1.7.210.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/error.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/error.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

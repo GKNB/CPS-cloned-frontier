@@ -28,20 +28,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief PAB... Definitions of the AlgMeas class methods.
   
-  $Id: alg_meas.C,v 1.8.86.2 2012-07-30 21:22:09 yinnht Exp $
+  $Id: alg_meas.C,v 1.8.86.2 2012/07/30 21:22:09 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-30 21:22:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_meas/alg_meas.C,v 1.8.86.2 2012-07-30 21:22:09 yinnht Exp $
-//  $Id: alg_meas.C,v 1.8.86.2 2012-07-30 21:22:09 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/07/30 21:22:09 $
+//  $Header: /space/cvs/cps/cps++/src/alg/alg_meas/alg_meas.C,v 1.8.86.2 2012/07/30 21:22:09 yinnht Exp $
+//  $Id: alg_meas.C,v 1.8.86.2 2012/07/30 21:22:09 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: alg_meas.C,v $
 //  $Revision: 1.8.86.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_meas/alg_meas.C,v $
+//  $Source: /space/cvs/cps/cps++/src/alg/alg_meas/alg_meas.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -283,11 +283,14 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
 {
   /* BFM VALENCE ANALYSIS */
 #ifdef USE_BFM
-  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_NONE ) ) {
+  if(fermion == F_CLASS_BFM) Fbfm::current_arg_idx = 0;
+  else if(fermion == F_CLASS_BFM_TYPE2) Fbfm::current_arg_idx = 1;
+
+  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_NONE ) ) {
     lat_p = new GnoneFbfm;
     return *lat_p; 
   }
-  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_IMPR_RECT ) ) {
+  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_IMPR_RECT ) ) {
     lat_p = new GimprRectFbfm;
     return *lat_p;
   }

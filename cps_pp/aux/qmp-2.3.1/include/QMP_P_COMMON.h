@@ -16,7 +16,12 @@
  *      Jefferson Lab HPC Group
  *
  * Revision History:
- *   $Log: not supported by cvs2svn $
+ *   $Log: QMP_P_COMMON.h,v $
+ *   Revision 1.2  2011/02/26 00:33:23  chulwoo
+ *   Merging v5_0_8-RICC_3
+ *   i) SSE Wilson & DWF dslash by Taku
+ *   ii) Interface to CG-DWF by Andrew Pochinsky
+ *
  *   Revision 1.1.2.2  2010/12/03 15:02:23  chulwoo
  *   *** empty log message ***
  *

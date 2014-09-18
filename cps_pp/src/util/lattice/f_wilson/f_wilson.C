@@ -3,12 +3,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of Fwilson class.
 
-  $Id: f_wilson.C,v 1.22 2006-06-11 05:35:06 chulwoo Exp $
+  $Id: f_wilson.C,v 1.22 2006/06/11 05:35:06 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_wilson/f_wilson.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_wilson/f_wilson.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

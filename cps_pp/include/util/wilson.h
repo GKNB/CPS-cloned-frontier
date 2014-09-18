@@ -2,20 +2,20 @@
 /*! \file
   \brief Declarations of routine used internally in the DiracOpWilson class.
 
-  $Id: wilson.h,v 1.9.30.1 2012-05-06 18:32:11 yinnht Exp $
+  $Id: wilson.h,v 1.9.30.1 2012/05/06 18:32:11 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-05-06 18:32:11 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/wilson.h,v 1.9.30.1 2012-05-06 18:32:11 yinnht Exp $
-//  $Id: wilson.h,v 1.9.30.1 2012-05-06 18:32:11 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/05/06 18:32:11 $
+//  $Header: /space/cvs/cps/cps++/include/util/wilson.h,v 1.9.30.1 2012/05/06 18:32:11 yinnht Exp $
+//  $Id: wilson.h,v 1.9.30.1 2012/05/06 18:32:11 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: wilson.h,v $
 //  $Revision: 1.9.30.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/wilson.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/wilson.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

@@ -5,12 +5,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of Fstag class.
 
-  $Id: f_stag.C,v 1.23 2008-09-18 15:23:17 chulwoo Exp $
+  $Id: f_stag.C,v 1.23 2008/09/18 15:23:17 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_stag/f_stag.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_stag/f_stag.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

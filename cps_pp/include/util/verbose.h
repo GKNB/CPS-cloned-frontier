@@ -5,20 +5,20 @@
 /*!\file
   \brief  Definition of Verbose class.
 
-  $Id: verbose.h,v 1.4.450.2 2012-07-04 15:10:04 yinnht Exp $
+  $Id: verbose.h,v 1.4.450.2 2012/07/04 15:10:04 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-04 15:10:04 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/verbose.h,v 1.4.450.2 2012-07-04 15:10:04 yinnht Exp $
-//  $Id: verbose.h,v 1.4.450.2 2012-07-04 15:10:04 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/07/04 15:10:04 $
+//  $Header: /space/cvs/cps/cps++/include/util/verbose.h,v 1.4.450.2 2012/07/04 15:10:04 yinnht Exp $
+//  $Id: verbose.h,v 1.4.450.2 2012/07/04 15:10:04 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: verbose.h,v $
 //  $Revision: 1.4.450.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/verbose.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/verbose.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

@@ -28,6 +28,9 @@ CPS_END_NAMESPACE
 #include<util/time_cps.h>
 #include<alg/alg_int.h>
 #include<util/dirac_op.h>
+#include <util/timer.h>
+#include <vector>
+#include <util/lattice/fbfm.h>
 CPS_START_NAMESPACE
 
 AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
@@ -200,6 +203,8 @@ void AlgActionQuotient::reweight(Float *rw_fac, Float *norm) {
 void AlgActionQuotient::heatbath() {
 
     char *fname = "heatbath()";
+    static Timer timer(cname, fname);
+    timer.start(true);
     Float dtime = -dclock();
   
     if (n_masses > 0) {
@@ -209,6 +214,14 @@ void AlgActionQuotient::heatbath() {
 
         // tmp1, tmp2 < - random Gaussian vector (RGV)
         for(int i=0; i<n_masses; i++){
+	    static std::vector<Timer*> timers;
+	    if (i >= timers.size()) {
+		char timer_i_name[512];
+		sprintf(timer_i_name, "heatbath ratio %0.4f/%0.4f", frm_mass[i], bsn_mass[i]);
+		timers.push_back(new Timer(cname, timer_i_name));
+	    }
+	    timers[i]->start(true);
+
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
 
@@ -221,7 +234,8 @@ void AlgActionQuotient::heatbath() {
             // tmp2 <- (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
             tmp2 -> VecZero(f_size);
             cg_iter = lat.FmatEvlInv(tmp2, phi[i], &bsn_cg_arg[i], CNV_FRM_NO);
-      
+	    VRB.Result(cname, fname, "mass ratio %0.4f/(%0.4f) cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+
             //~~ changed for twisted mass Wilson fermions
             // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
             (lat.Fclass() == F_CLASS_WILSON_TM) ?
@@ -230,6 +244,8 @@ void AlgActionQuotient::heatbath() {
             updateCgStats(&bsn_cg_arg[i]);
 
             //      h_init2 += lat.FhamiltonNode(phi[i], phi[i]);
+
+	    timers[i]->stop(true);
         }
         //    h_init2 = h_init - h_init2;
         //    glb_sum(&h_init2);
@@ -242,12 +258,15 @@ void AlgActionQuotient::heatbath() {
 
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
+    timer.stop(true);
 }
 
 //!< Calculate fermion contribution to the Hamiltonian
 Float AlgActionQuotient::energy() {
 
     char *fname = "energy()";
+    static Timer timer(cname, fname);
+    timer.start(true);
     Float dtime = -dclock();
     Float h = 0.0;
 
@@ -258,7 +277,14 @@ Float AlgActionQuotient::energy() {
             Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
 
             for(int i=0; i<n_masses; i++) {
-   
+		static std::vector<Timer*> timers;
+		if (i >= timers.size()) {
+		    char timer_i_name[512];
+		    sprintf(timer_i_name, "energy ratio %0.4f/%0.4f", frm_mass[i], bsn_mass[i]);
+		    timers.push_back(new Timer(cname, timer_i_name));
+		}
+		timers[i]->start(true);
+
                 //~~ changed for twisted mass Wilson fermions
 		(lat.Fclass() == F_CLASS_WILSON_TM) ?
                     lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
@@ -267,10 +293,13 @@ Float AlgActionQuotient::energy() {
                 tmp2 -> VecZero(f_size);
                 cg_iter = 
                     lat.FmatEvlInv(tmp2, tmp1, &frm_cg_arg_mc[i], CNV_FRM_NO);
-	
+		VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+
                 updateCgStats(&frm_cg_arg_mc[i]);
 	  
                 h += lat.FhamiltonNode(tmp1, tmp2);
+
+		timers[i]->stop(true);
             }
       
             LatticeFactory::Destroy();
@@ -279,12 +308,15 @@ Float AlgActionQuotient::energy() {
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
 
+    timer.stop(true);
     return h;
 }
 
 void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 {
     char * fname = "prepare_fg(M*,F)";
+    static Timer timer(cname, fname);
+    timer.start(true);
     Float dtime = -dclock();
     Float dtime_cg = 0.;
     Float dtime_force = 0.;
@@ -294,7 +326,15 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     int chronoDeg;
     ForceArg Fdt;
     for(int i=0; i<n_masses; i++) {
-        //~~ changed for twisted mass Wilson fermions
+	static std::vector<Timer*> timers;
+	if (i >= timers.size()) {
+	    char timer_i_name[512];
+	    sprintf(timer_i_name, "prepare_fg ratio %0.4f/%0.4f", frm_mass[i], bsn_mass[i]);
+	    timers.push_back(new Timer(cname, timer_i_name));
+	}
+	timers[i]->start(true);
+
+	//~~ changed for twisted mass Wilson fermions
         // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
         (lat.Fclass() == F_CLASS_WILSON_TM) ?
             lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
@@ -320,7 +360,8 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
         // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
         cg_iter = 
             lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_fg[i], CNV_FRM_NO);
-        dtime_cg += dclock();
+	VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+	dtime_cg += dclock();
 
         updateCgStats(&frm_cg_arg_fg[i]);
 
@@ -375,6 +416,8 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 
             sfree(mom_tmp, "mom_tmp", fname, cname);
         }
+
+	timers[i]->stop(true);
     }
     // We now have a solution to forecast the next normal solve.
     fg_forecast = true;
@@ -382,16 +425,26 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     md_steps++;
     LatticeFactory::Destroy();
 
+    // prepare_fg only does a very small step. So HDCG can probably reuse the
+    // little Dirac operator in evolve():
+    if (Fbfm::hdcg_arg.Control == HdcgRecomputeLdop) {
+	Fbfm::hdcg_arg.Control = HdcgReuseLdop;
+	VRB.Result(cname, fname, "Will reuse little Dirac operator for next HDCG solve!\n");
+    }
+
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
     print_flops(cname, "prepare_fg::cg()", 0, dtime_cg);
     print_flops(cname, "prepare_fg::force()", 0, dtime_force);
+    timer.stop(true);
 }
 
 //!< run method evolves the momentum due to the fermion force
 void AlgActionQuotient::evolve(Float dt, int nsteps) 
 {
-    char *fname = "evolve(Float, int)";
+    char *fname = "evolve(Float,int)";
+    static Timer timer(cname, fname);
+    timer.start(true);
     Float dtime = -dclock();
     Float dtime_cg = 0.;
     Float dtime_force = 0.;
@@ -403,6 +456,14 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
 
     for (int steps=0; steps<nsteps; steps++) {
         for(int i=0; i<n_masses; i++) {
+	    static std::vector<Timer*> timers;
+	    if (i >= timers.size()) {
+		char timer_i_name[512];
+		sprintf(timer_i_name, "evolve ratio %0.4f/%0.4f", frm_mass[i], bsn_mass[i]);
+		timers.push_back(new Timer(cname, timer_i_name));
+	    }
+	    timers[i]->start(true);
+
 
             //~~ changed for twisted mass Wilson fermions
             // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
@@ -440,7 +501,8 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
             dtime_cg -= dclock();
             // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
             cg_iter = lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_md[i], CNV_FRM_NO);
-            dtime_cg += dclock();
+	    VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+	    dtime_cg += dclock();
 
             updateCgStats(&frm_cg_arg_md[i]);
 
@@ -493,6 +555,7 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
                 sfree(mom_tmp, "mom_tmp", fname, cname);
             }
 
+	    timers[i]->stop(true);
         }
         // Note that as long as the last solve in a trajectory is NOT a
         // force gradient solve (which should always be the case), we
@@ -510,6 +573,7 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
     print_flops(cname, fname, 0, dtime);
     print_flops(cname, "evolve::cg()", 0, dtime_cg);
     print_flops(cname, "evolve::force()", 0, dtime_force);
+    timer.stop(true);
 }
 
 CPS_END_NAMESPACE

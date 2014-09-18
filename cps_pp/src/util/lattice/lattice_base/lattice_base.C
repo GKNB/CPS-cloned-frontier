@@ -6,20 +6,20 @@
 /*!\file
   \brief  Lattice class methods.
   
-  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
+  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012/09/26 01:59:50 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-09-26 01:59:50 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
-//  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012-09-26 01:59:50 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/09/26 01:59:50 $
+//  $Header: /space/cvs/cps/cps++/src/util/lattice/lattice_base/lattice_base.C,v 1.60.12.7.2.1.2.1 2012/09/26 01:59:50 yinnht Exp $
+//  $Id: lattice_base.C,v 1.60.12.7.2.1.2.1 2012/09/26 01:59:50 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: lattice_base.C,v $
 //  $Revision: 1.60.12.7.2.1.2.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/lattice_base/lattice_base.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -46,6 +46,8 @@
 #include <comms/scu.h>
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
+
+#include <util/lattice/fbfm.h>
 
 #ifdef _TARTAN
 #include <math64.h>
@@ -162,12 +164,7 @@ Lattice::Lattice()
 
     if(start_conf_kind != START_CONF_LOAD ){
 //       start_conf_kind!=START_CONF_FILE){
-#if TARGET == QCDOC
-       gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
-    VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
-#else
       gauge_field = (Matrix *) pmalloc(array_size);
-#endif
 //     printf("gauge_field=%p\n",gauge_field);
       if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
       VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
@@ -300,6 +297,10 @@ Lattice::Lattice()
   if (GJP.XiBare() != 1.0)
     Reunitarize();  
 #endif
+  Float max_dev=1;
+  Float max_diff=1;
+  CheckUnitarity(max_dev,max_diff);
+  VRB.Result(cname,fname,"CheckUnitarity():dev=%g max_diff=%g\n",max_dev,max_diff);
 
   smeared = 0;
 }
@@ -2090,7 +2091,7 @@ Float Lattice::MomHamiltonNode(Matrix *momentum){
   // We remove the openmp directive since it may give different
   // answers even on an identical set of data.
 
-  //#pragma omp parallel for reduction(+:ham)
+//  #pragma omp parallel for reduction(+:ham)
   for(int i = 0; i < n_links; ++i) {
     ham += momentum[i].NegHalfTrSquare();
   }
@@ -2195,6 +2196,58 @@ void Lattice::Reunitarize(Float &dev, Float &max_diff)
   //----------------------------------------------------------------
   MltFloat(GJP.XiBare(), GJP.XiDir());    
   smeared = 0;
+}
+void Lattice::CheckUnitarity(Float &max_dev, Float &max_diff)
+{
+  const char *fname = "CheckUnitarity(F&,F&)";
+  VRB.Func(cname,fname);
+
+  // Modified here by Ping for anisotropic lattices
+  //----------------------------------------------------------------
+  MltFloat(1.0 / GJP.XiBare(), GJP.XiDir());    
+
+
+  int i,j;
+  int links;
+  Matrix *u;
+  Matrix tmp;
+  Float *tmp_p = (Float *)&tmp;
+
+  links = 4 * GJP.VolNodeSites();
+  u = GaugeField();
+
+  Float dev = 0.0;
+  Float diff = 0.0;
+
+  for(i=0; i<links; i++){
+    tmp = u[i];
+    tmp.Unitarize();
+    tmp -= u[i];
+    for(j=0; j<18; j++){
+      dev = dev + tmp_p[j] * tmp_p[j];
+      if(tmp_p[j]*tmp_p[j] > diff*diff){
+	diff = fabs(tmp_p[j]);
+  if (diff > max_diff){
+  Float *u_p = (Float *)u;
+  for(int j=0;j<18;j++)
+  printf("u[%d]=%g dev[%d]=%g\n",j,u_p[j],j,tmp_p[j]);
+  ERR.General(cname,fname,"diff(%g)>max_diff(%g)!\n",diff,max_diff);
+}
+      }
+    }
+  }
+  dev = dev / Float(18 * links);
+  dev = double(sqrt(double(dev)));
+
+  //----------------------------------------------------------------
+  // Modified here by Ping for anisotropic lattices
+  //----------------------------------------------------------------
+  MltFloat(GJP.XiBare(), GJP.XiDir());    
+  if (dev > max_dev)
+  ERR.General(cname,fname,"dev(%g)>max_dev(%g)!\n",dev,max_dev);
+  max_dev = dev;
+  max_diff = diff;
+//  smeared = 0;
 }
 
 
@@ -2399,7 +2452,11 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)) {
+     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2)
+#ifdef USE_BFM
+     || ( (Fclass() == F_CLASS_BFM || Fclass() == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM) //added by CK
+#endif
+     ) {
     s_node_sites = 1; frm_dim = FOUR_D;
   }
   LRG.SetSigma(sigma2);

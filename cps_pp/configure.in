@@ -2,14 +2,14 @@ dnl--------------------------------------------------------------------
 dnl  CVS keywords
 dnl
 dnl  $Author: yinnht $
-dnl  $Date: 2012-08-01 22:47:14 $
-dnl  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/configure.in,v 1.76.12.2 2012-08-01 22:47:14 yinnht Exp $
-dnl  $Id: configure.in,v 1.76.12.2 2012-08-01 22:47:14 yinnht Exp $
-dnl  $Name: not supported by cvs2svn $
+dnl  $Date: 2012/08/01 22:47:14 $
+dnl  $Header: /space/cvs/cps/cps++/configure.in,v 1.76.12.2 2012/08/01 22:47:14 yinnht Exp $
+dnl  $Id: configure.in,v 1.76.12.2 2012/08/01 22:47:14 yinnht Exp $
+dnl  $Name: v5_0_16_hantao_io_test_v7 $
 dnl  $Locker:  $
 dnl  $RCSfile: configure.in,v $
 dnl  $Revision: 1.76.12.2 $
-dnl  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/configure.in,v $
+dnl  $Source: /space/cvs/cps/cps++/configure.in,v $
 dnl  $State: Exp $
 dnl
 dnl--------------------------------------------------------------------

@@ -7,12 +7,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FdwfBase class.
 
-  $Id: f_dwf_base_force.C,v 1.9 2012-03-27 20:05:49 chulwoo Exp $
+  $Id: f_dwf_base_force.C,v 1.9 2012/03/27 20:05:49 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_dwf_base/qmp/f_dwf_base_force.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_dwf_base/qmp/f_dwf_base_force.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -360,7 +360,8 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
     L1[i]=L2[i]=Linf[i]=0.;
   }
 #ifdef USE_OMP
-omp_set_num_threads(MAX_THREADS);
+
+//omp_set_num_threads(MAX_THREADS);
 //reduction(+:L1,L2)
    	long i =0;
 #pragma omp parallel for default(shared) private(mu)
@@ -539,7 +540,8 @@ surf_initted=1;
 #pragma omp parallel for
 	for (long i=0;i<surf[mu];i++){
         Matrix *tmp_mat1,*tmp_mat2;
-#ifdef USE_OMP
+//#ifdef USE_OMP
+#if 0
 		int tnum = omp_get_thread_num();
 #else
 		int tnum = 0;

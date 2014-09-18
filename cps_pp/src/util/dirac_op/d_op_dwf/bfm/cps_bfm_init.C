@@ -9,7 +9,8 @@
 #ifdef UNIFORM_SEED_TESTING
 #include "majority_vote.h"
 #endif
-#include <chroma.h>
+//#include <chroma.h>
+#include <qdp.h>
 #include <util/gjp.h>
 #include <util/error.h>
 #include <util/verbose.h>
@@ -22,7 +23,7 @@
 //#define USE_OMP
 
 
-using namespace Chroma;
+//using namespace Chroma;
 USING_NAMESPACE_CPS
 
 static int qdp_initted = 0;
@@ -39,7 +40,8 @@ int cps_qdp_init(int *argc, char ***argv){
     qdp_initted = 1;
     return 1;
   }
-  Chroma::initialize( argc, argv);
+//  Chroma::initialize( argc, argv);
+  QDP::QDP_initialize( argc, argv);
   VRB.Result("","cps_qdp_init()","Chroma::initialize( argc, argv)");
   int size[Nd];
   multi1d<int> nrow(Nd);  

@@ -1,7 +1,7 @@
 /*!\file
   \brief Implementation of functions for timing and performance measurement.
 
-  $Id: time.C,v 1.14 2012-03-26 13:50:12 chulwoo Exp $
+  $Id: time.C,v 1.14 2012/03/26 13:50:12 chulwoo Exp $
 */
 
 #include <config.h>

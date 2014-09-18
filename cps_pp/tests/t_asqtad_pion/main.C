@@ -3,7 +3,7 @@
 ///
 
 /*!----------------------------------------------------------------------
-  $Id: main.C,v 1.10 2008-02-08 18:35:09 chulwoo Exp $
+  $Id: main.C,v 1.10 2008/02/08 18:35:09 chulwoo Exp $
   Test Asqtad dirac operator code.	
 
    This is a simple regression test of the Asqtad inverter.

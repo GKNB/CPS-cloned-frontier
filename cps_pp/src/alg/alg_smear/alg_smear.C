@@ -4,7 +4,7 @@
 
   AlgSmear, AlgApeSmear, AlgKineticSmear and AlgHypSmear classes.
   
-  $Id: alg_smear.C,v 1.7.156.1 2013-01-18 00:02:46 yinnht Exp $
+  $Id: alg_smear.C,v 1.7.156.1 2013/01/18 00:02:46 yinnht Exp $
 */
 //--------------------------------------------------------------------
 #include <config.h>
@@ -880,7 +880,7 @@ void AlgApeSmear::smartrun()
     xend[i] = l_node_sites[i];
   }
 
-  omp_set_num_threads(64);
+//  omp_set_num_threads(64);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {

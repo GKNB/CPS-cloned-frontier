@@ -4,13 +4,13 @@ CPS_START_NAMESPACE
 //  CVS keywords
 //
 //  $Author: zs $
-//  $Date: 2004-09-02 17:00:03 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/alg/quark_prop_s.h,v 1.5 2004-09-02 17:00:03 zs Exp $
-//  $Id: quark_prop_s.h,v 1.5 2004-09-02 17:00:03 zs Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2004/09/02 17:00:03 $
+//  $Header: /space/cvs/cps/cps++/include/alg/quark_prop_s.h,v 1.5 2004/09/02 17:00:03 zs Exp $
+//  $Id: quark_prop_s.h,v 1.5 2004/09/02 17:00:03 zs Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $Revision: 1.5 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/alg/quark_prop_s.h,v $
+//  $Source: /space/cvs/cps/cps++/include/alg/quark_prop_s.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

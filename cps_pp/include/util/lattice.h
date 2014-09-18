@@ -8,16 +8,16 @@
 /*!\file
   \brief  Definitions of the Lattice classes.
 
-  $Id: lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
+  $Id: lattice.h,v 1.59.24.4.4.2 2012/08/27 15:54:51 yinnht Exp $
 */
 /*----------------------------------------------------------------------
   $Author: yinnht $
-  $Date: 2012-08-27 15:54:51 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
-  $Id: lattice.h,v 1.59.24.4.4.2 2012-08-27 15:54:51 yinnht Exp $
-  $Name: not supported by cvs2svn $
+  $Date: 2012/08/27 15:54:51 $
+  $Header: /space/cvs/cps/cps++/include/util/lattice.h,v 1.59.24.4.4.2 2012/08/27 15:54:51 yinnht Exp $
+  $Id: lattice.h,v 1.59.24.4.4.2 2012/08/27 15:54:51 yinnht Exp $
+  $Name: v5_0_16_hantao_io_test_v7 $
   $Revision: 1.59.24.4.4.2 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/lattice.h,v $
+  $Source: /space/cvs/cps/cps++/include/util/lattice.h,v $
   $State: Exp $
 */  
 //------------------------------------------------------------------
@@ -460,6 +460,7 @@ class Lattice
         // where U(i), V(i) is the gauge field before and after 
         // reunitarization. The index i runs over all components of
         // the gauge field.
+    void CheckUnitarity(Float &max_dev, Float &max_diff);
 
     int MetropolisAccept(Float delta_h, Float *accept);
     //!< Metropolis algorithm decision.

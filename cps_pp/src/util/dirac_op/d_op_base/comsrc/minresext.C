@@ -1,7 +1,7 @@
 /*!\file
   \brief  Definition of the Dirac operator MinResExt method.
 
-  $Id: minresext.C,v 1.6 2008-08-28 14:19:30 chulwoo Exp $
+  $Id: minresext.C,v 1.6 2008/08/28 14:19:30 chulwoo Exp $
 */
 
 #include <config.h>

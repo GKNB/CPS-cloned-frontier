@@ -6,6 +6,7 @@
 
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_eigcg.h>
+//#include <util/lattice/bfm_hdcg.h>
 #include <util/lattice/fbfm.h>
 #include <util/wilson.h>
 #include <util/verbose.h>
@@ -17,13 +18,111 @@
 #include <util/sproj_tr.h>
 #include <util/time_cps.h>
 #include <util/lattice/fforce_wilson_type.h>
+#include <util/timer.h>
 
 #include<omp.h>
+#include<bfm_hdcg_wrapper.h>
+#include<BfmHDCG.h>
+#include <alg/hdcg_arg.h>
+#include <util/lattice/hdcg_controller.h>
+
+#include <util/qioarg.h>
+#include <util/WriteLatticePar.h>
+#include <util/ReadLatticePar.h>
+
+HDCGInstance hdcg_instance; // to invoke constructor with defaults
+BfmHDCGParams HDCGInstance::Params;
+HDCG_wrapper  *HDCGInstance:: _instance=NULL;
+
+static int ComputeApprox=1;
+static int ComputeFinal =0;
 
 CPS_START_NAMESPACE
 
-bfmarg Fbfm::bfm_arg;
-bool Fbfm::use_mixed_solver = false;
+static void PrintHdcgArg(const HdcgArg& hdcg_arg)
+{
+    const char* cname = "";
+    const char* fname = "PrintHdcgArg";
+    VRB.Result(cname, fname, "Control = %s\n", HDCGcontrol_map[hdcg_arg.Control].name);
+    VRB.Result(cname, fname, "NumberSubspace = %d\n", hdcg_arg.NumberSubspace);
+    VRB.Result(cname, fname, "Ls = %d\n", hdcg_arg.Ls);
+    VRB.Result(cname, fname, "Block = {%d, %d, %d, %d, %d}\n", hdcg_arg.Block[0], hdcg_arg.Block[1], hdcg_arg.Block[2], hdcg_arg.Block[3], hdcg_arg.Block[4]);
+    VRB.Result(cname, fname, "SubspaceRationalRefine = %d\n", hdcg_arg.SubspaceRationalRefine);
+    VRB.Result(cname, fname, "SubspaceRationalRefineLo = %e\n", hdcg_arg.SubspaceRationalRefineLo);
+    VRB.Result(cname, fname, "SubspaceRationalRefineResidual = %e\n", hdcg_arg.SubspaceRationalRefineResidual);
+    VRB.Result(cname, fname, "SubspaceRationalLs = %d\n", hdcg_arg.SubspaceRationalLs);
+    VRB.Result(cname, fname, "SubspaceRationalLo = %e\n", hdcg_arg.SubspaceRationalLo);
+    VRB.Result(cname, fname, "SubspaceRationalMass = %e\n", hdcg_arg.SubspaceRationalMass);
+    VRB.Result(cname, fname, "SubspaceRationalResidual = %e\n", hdcg_arg.SubspaceRationalResidual);
+    VRB.Result(cname, fname, "SubspaceSurfaceDepth = %d\n", hdcg_arg.SubspaceSurfaceDepth);
+    VRB.Result(cname, fname, "LittleDopSolverResidualInner = %e\n", hdcg_arg.LittleDopSolverResidualInner);
+    VRB.Result(cname, fname, "LittleDopSolverResidualVstart = %e\n", hdcg_arg.LittleDopSolverResidualVstart);
+    VRB.Result(cname, fname, "LittleDopSolverResidualSubspace = %e\n", hdcg_arg.LittleDopSolverResidualSubspace);
+    VRB.Result(cname, fname, "LittleDopSubspaceRational = %d\n", hdcg_arg.LittleDopSubspaceRational);
+    VRB.Result(cname, fname, "LittleDopSolverIterMax = %d\n", hdcg_arg.LittleDopSolverIterMax);
+    VRB.Result(cname, fname, "LdopDeflVecs = %d\n", hdcg_arg.LdopDeflVecs);
+    VRB.Result(cname, fname, "PreconditionerKrylovResidual = %e\n", hdcg_arg.PreconditionerKrylovResidual);
+    VRB.Result(cname, fname, "PreconditionerKrylovIterMax = %d\n", hdcg_arg.PreconditionerKrylovIterMax);
+    VRB.Result(cname, fname, "PreconditionerKrylovShift = %e\n", hdcg_arg.PreconditionerKrylovShift);
+    VRB.Result(cname, fname, "PcgSingleShift = %e\n", hdcg_arg.PcgSingleShift);
+    VRB.Result(cname, fname, "LittleDopSolver = %d\n", hdcg_arg.LittleDopSolver);
+    VRB.Result(cname, fname, "Flexible = %d\n", hdcg_arg.Flexible);
+}
+
+void Clone(BfmHDCGParams & clone, HdcgArg & orig );
+void Clone(BfmHDCGParams & clone, HdcgArg & orig )
+{
+  clone.Ls             = orig.Ls;
+  for (int i=0;i<5;i++){
+    clone.Block[i] = orig.Block[i];
+  }
+  clone.NumberSubspace = orig.NumberSubspace ;
+  clone.LdopDeflVecs= orig.LdopDeflVecs;
+  
+  clone.SubspaceSurfaceDepth= orig.SubspaceSurfaceDepth;
+  clone.SubspaceRationalRefine= orig.SubspaceRationalRefine;
+  clone.SubspaceRationalRefineLo= orig.SubspaceRationalRefineLo; 
+  clone.SubspaceRationalRefineResidual= orig.SubspaceRationalRefineResidual;
+  clone.SubspaceRationalLs= orig.SubspaceRationalLs;
+  clone.SubspaceRationalLo= orig.SubspaceRationalLo;
+  clone.SubspaceRationalMass= orig.SubspaceRationalMass;
+  clone.SubspaceRationalResidual= orig.SubspaceRationalResidual;
+  
+  clone.LittleDopSolverResidualInner= orig.LittleDopSolverResidualInner;
+  clone.LittleDopSolverResidualVstart= orig.LittleDopSolverResidualVstart;
+  clone.LittleDopSolverResidualSubspace= orig.LittleDopSolverResidualSubspace;
+  clone.LittleDopSolverIterMax= orig.LittleDopSolverIterMax;
+  clone.LittleDopSolver= orig.LittleDopSolver;
+  clone.LittleDopSubspaceRational= orig.LittleDopSubspaceRational;
+  
+  clone.PreconditionerKrylovResidual= orig.PreconditionerKrylovResidual;
+  clone.PreconditionerKrylovIterMax = orig.PreconditionerKrylovIterMax ;
+  clone.PreconditionerKrylovShift   = orig.PreconditionerKrylovShift;     
+  
+  clone.Flexible       = orig.Flexible;
+  
+  //Following not exposed to CPS
+  clone.PcgSingleShift = 0.0;
+  clone.PcgType        = PcgAdef2f;;
+  //  clone.ParamSmoother  = SmootherNone;
+  clone.ParamSmoother  = SmootherMirs;
+  //clone.ParamSmoother  = SmootherMirsPoly;
+  clone.LittleDopSolver= LittleDopSolverADef2;
+  clone.LdopM1control= LdopM1Chebyshev;
+  clone.LdopM1Lo   = 1.0;
+  clone.LdopM1Hi   = 45.0;
+  clone.LdopM1resid= 1.0e-2;
+  clone.LdopM1iter = 12;
+  clone.SloppyComms= 0;
+}
+
+
+int     Fbfm::current_arg_idx(0);
+bfmarg  Fbfm::bfm_args[2] = {};
+int     Fbfm::nthreads[2] = { 0, 16 };
+HdcgArg Fbfm::hdcg_arg;
+bool    Fbfm::use_mixed_solver = false;
+bool    Fbfm::use_hdcg_evl_solver = false;
 
 // NOTE:
 //
@@ -35,6 +134,7 @@ bool Fbfm::use_mixed_solver = false;
 Fbfm::Fbfm(void):cname("Fbfm")
 {
     const char *fname = "Fbfm()";
+    VRB.Func(cname,fname);
 
     if(GJP.Snodes() != 1) {
         ERR.NotImplemented(cname, fname);
@@ -42,12 +142,14 @@ Fbfm::Fbfm(void):cname("Fbfm")
     if(sizeof(Float) == sizeof(float)) {
         ERR.NotImplemented(cname, fname);
     }
+    if (nthreads[current_arg_idx] == 0) nthreads[current_arg_idx] = bfm_args[current_arg_idx].threads;
+    bfm_args[current_arg_idx].threads = nthreads[current_arg_idx];
 
-    bd.init(bfm_arg);
+    bd.init(bfm_args[current_arg_idx]);
 
     if(use_mixed_solver) {
         bd.comm_end();
-        bf.init(bfm_arg);
+	bf.init(bfm_args[current_arg_idx]);
         bf.comm_end();
         bd.comm_init();
     }
@@ -63,6 +165,8 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
 Fbfm::~Fbfm(void)
 {
+    const char *fname = "~Fbfm()";
+    VRB.Func(cname,fname);
     // we call base version just to revert the change, no need to
     // import to BFM in a destructor.
     Lattice::BondCond();
@@ -159,14 +263,14 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
 #endif
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_arg.Ls;
+    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Float *v2 = (Float *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
     CalcHmdForceVecsBilinear(v1, v2, phi1, phi2, mass);
 
     FforceWilsonType cal_force(mom, this->GaugeField(),
-                               v1, v2, Fbfm::bfm_arg.Ls, coef);
+	v1, v2, Fbfm::bfm_args[current_arg_idx].Ls, coef);
     ForceArg ret = cal_force.run();
 
     sfree(cname, fname, "v1", v1);
@@ -215,6 +319,115 @@ int Fbfm::FsiteOffset(const int *x) const
     ERR.NotImplemented(cname, fname);
 }
 
+static int testInversionCounter = 0;
+
+static bool save_problems = true; // a hack
+
+void Fbfm::SaveFmatEvlInvProblem(const char* path, Vector *f_in, CgArg *cg_arg)
+{
+    const char* fname = "SaveFmatEvlInvProblem";
+
+    static int save_number = 0;
+
+    VRB.Result(cname, fname, "Saving problem #%d\n", save_number);
+
+    VRB.Result(cname, fname, "storage order = %d\n", (int)StrOrd());
+
+    // Save the gauge field configuration
+    char lat_file[512];
+    int id = UniqueID();
+    sprintf(lat_file, "%s/hmc_lat_part.%d.%d", path, save_number, id);
+    int num_matrix = GJP.VolNodeSites() * 4;
+    printf("num_matrix = %d\n", num_matrix);
+    FILE* f = fopen(lat_file, "wb");
+    if (!f) ERR.General(cname, fname, "Couldn't open %s to write lattice.\n", lat_file);
+    int num_written = fwrite(GaugeField(), sizeof(Matrix), num_matrix, f);
+    if (ferror(f) != 0) ERR.General(cname, fname, "Write lattice: ferror(f) == %d\n", ferror(f));
+    if (num_written != num_matrix) ERR.General(cname, fname, "Write lattice: num_written = %d, num_matrix = %d\n", num_written, num_matrix);
+    fclose(f);
+    
+    printf("Write test: UniqueID() = %d, GaugeField()[0].ReTr() = %e\n", UniqueID(), GaugeField()[0].ReTr());
+
+    // Save the solve RHS
+    // Each node saves its own local portion
+    char vec_file[512];
+    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+    printf("f_size = %d\n", f_size);
+    sprintf(vec_file, "%s/hmc_checkpoint_rhs.%d.%d", path, save_number, id);
+    f = fopen(vec_file, "wb");
+    if (!f) ERR.General(cname, fname, "Couldn't open %s to write RHS.\n", vec_file);
+    num_written = fwrite(f_in, sizeof(Float), f_size, f);
+    if (ferror(f) != 0) ERR.General(cname, fname, "Write RHS: ferror(f) == %d\n", ferror(f));
+    if (num_written != f_size) ERR.General(cname, fname, "Write RHS: num_written = %d, f_size = %d\n", num_written, f_size);
+    fclose(f);
+
+    // Save the CgArg
+    char vml_file[512];                                                
+    sprintf(vml_file, "%s/hmc_cg_arg.vml.%d", path, save_number);                           
+    if (!cg_arg->Encode(vml_file, "cg_arg")) ERR.General(cname, fname, "Failed to encode CgArg.\n");
+
+    save_number++;
+
+    VRB.Result(cname, fname, "Done saving problem #%d.\n", save_number);
+}
+
+void Fbfm::LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in, CgArg *cg_arg)
+{
+    const char* fname = "LoadFmatEvlInvProblem";
+    VRB.Result(cname, fname, "Loading problem #%d\n", save_number);
+
+    save_problems = false;
+
+    printf("node %d: before first barrier\n", UniqueID()); fflush(stdout);
+    QMP_barrier();
+    printf("node %d: after first barrier\n", UniqueID()); fflush(stdout);
+
+    // Load the gauge field
+    char lat_file[512];
+    int id = UniqueID();
+    int num_matrix = GJP.VolNodeSites() * 4;
+    sprintf(lat_file, "%s/hmc_lat_part.%d.%d", path, save_number, id);
+    FILE* f = fopen(lat_file, "rb");
+    if (!f) ERR.General(cname, fname, "Couldn't open %s to read lattice.\n", lat_file);
+    int num_read = fread(GaugeField(), sizeof(Matrix), num_matrix, f);
+    if (ferror(f) != 0) ERR.General(cname, fname, "Read lattice: ferror(f) == %d\n", ferror(f));
+    if (num_read != num_matrix) ERR.General(cname, fname, "Read lattice: num_read = %d, num_matrix = %d\n", num_read, num_matrix);
+    fclose(f);
+
+    printf("node %d: before second barrier\n", UniqueID()); fflush(stdout);
+    QMP_barrier();
+    printf("node %d: after second barrier\n", UniqueID()); fflush(stdout);
+
+    printf("Read test: UniqueID() = %d, GaugeField()[0].ReTr() = %e\n", UniqueID(), GaugeField()[0].ReTr());
+
+    // Load the solve RHS
+    char vec_file[512];
+    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+    //printf("About to load rhs, f_size = %d\n", f_size);
+    sprintf(vec_file, "%s/hmc_checkpoint_rhs.%d.%d", path, save_number, id);
+    f = fopen(vec_file, "rb");
+    if (!f) ERR.General(cname, fname, "Couldn't open %s to read RHS.\n", vec_file);
+    num_read = fread(f_in, sizeof(Float), f_size, f);
+    if (ferror(f) != 0) ERR.General(cname, fname, "Read RHS: ferror(f) == %d\n", ferror(f));
+    if (num_read != f_size) ERR.General(cname, fname, "Read RHS: num_read = %d, f_size = %d\n", num_read, f_size);
+    fclose(f);
+
+    printf("node %d: before third barrier\n", UniqueID()); fflush(stdout);
+    QMP_barrier();
+    printf("node %d: after third barrier\n", UniqueID()); fflush(stdout);
+
+    // Load the CgArg
+    char vml_file[512];
+    sprintf(vml_file, "%s/hmc_cg_arg.vml.%d", path, save_number);
+    if (!cg_arg->Decode(vml_file, "cg_arg")) ERR.General(cname, fname, "Failed to decode CgArg.\n");
+
+    printf("node %d: before fourth barrier\n", UniqueID()); fflush(stdout);
+    QMP_barrier();
+    printf("node %d: after fourth barrier\n", UniqueID()); fflush(stdout);
+
+    VRB.Result(cname, fname, "Done loading problem #%d.\n", save_number);
+}
+
 // It calculates f_out where A * f_out = f_in and
 // A is the preconditioned fermion matrix that appears
 // in the HMC evolution (even/odd preconditioning 
@@ -228,41 +441,204 @@ int Fbfm::FsiteOffset(const int *x) const
 // in true_res.
 // *true_res = |src - MatPcDagMatPc * sol| / |src|
 // The function returns the total number of CG iterations.
-int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in, 
-                     CgArg *cg_arg, 
-                     Float *true_res,
-                     CnvFrmType cnv_frm)
+int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
+    CgArg *cg_arg,
+    Float *true_res,
+    CnvFrmType cnv_frm)
 {
     const char *fname = "FmatEvlInv()";
-
-    if(cg_arg == NULL)
-        ERR.Pointer(cname, fname, "cg_arg");
-
-    Fermion_t in  = bd.allocFermion();
-    Fermion_t out = bd.allocFermion();
-
-    SetMass(cg_arg->mass);
-    bd.residual = cg_arg->stop_rsd;
-    bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
-    // FIXME: pass single precision rsd in a reasonable way.
-    bf.residual = 1e-5;
-
-    bd.cps_impexcbFermion((Float *)f_in , in,  1, 1);
-    bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
-
     int iter = -1;
-#pragma omp parallel
-    {
-        iter =
-            use_mixed_solver 
-            ? mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5)
-            : bd.CGNE_prec_MdagM(out, in);
+
+    static Timer timer(cname, fname);
+    static std::map<Float, Timer*> timers;
+    if (timers.count(cg_arg->mass) == 0) {
+	char timer_mass_name[512];
+	sprintf(timer_mass_name, "FmatEvlInv(mass=%0.4f)", cg_arg->mass);
+	timers[cg_arg->mass] = new Timer(cname, timer_mass_name);
+    }
+    timer.start(true);
+    timers[cg_arg->mass]->start(true);
+
+    VRB.Result(cname, fname, "target residual = %e\n", cg_arg->stop_rsd);
+
+    if (cg_arg == NULL)
+	ERR.Pointer(cname, fname, "cg_arg");
+
+    // WARNING: hardcoded mass limit!!!!! :(((((
+    if (use_hdcg_evl_solver && cg_arg->mass <= 2e-4) {
+	cg_arg->Inverter = HDCG;
+	VRB.Result(cname, fname, "Will use HDCG for mass %e\n", cg_arg->mass);
+    } else {
+	VRB.Result(cname, fname, "Will NOT use HDCG for mass %e\n", cg_arg->mass);
     }
 
-    bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
+    if (cg_arg->Inverter == HDCG) {
+	//if(save_problems) SaveFmatEvlInvProblem("/bgusr/home/gmcglynn/qcdcq/2+1+1f/evo_DED_HDCG/hmc_confs", f_in, cg_arg);
 
-    bd.freeFermion(in);
-    bd.freeFermion(out);
+	HDCG_wrapper *control = HDCGInstance::getInstance();
+
+	if ((hdcg_arg.Control != HdcgGenerateSubspace) && (!control))
+	    ERR.General(cname, fname, "Fbfm:: must Generate Subspace on first call to HDCG\n");
+
+	// Possibly force complete reinit
+	if (hdcg_arg.Control == HdcgGenerateSubspace) {
+	    if (control)  HDCGInstance::free();
+	    control = (HDCG_wrapper *)NULL;
+	}
+
+	// Possibly generate new hdcg wrapper
+	if (!control) {
+	    bfmActionParams BAP_;
+	    BAP_.ScaledShamirCayleyTanh(cg_arg->mass, bfm_args[current_arg_idx].M5, bfm_args[current_arg_idx].Ls, bfm_args[current_arg_idx].mobius_scale);
+	    control = new HDCG_wrapper;
+	    HDCGInstance::setInstance(control);
+	    Clone(HDCGInstance::Params, hdcg_arg);
+	    VRB.Result(cname, fname, "Calling HDCG_init with parameters from the following HdcgArg:\n");
+	    PrintHdcgArg(hdcg_arg);
+	    control->HDCG_init(HDCGInstance::Params, BAP_);
+	}
+
+	// Always reimport the gauge field.
+	// In HMC this will change as we go along a trajectory.
+	Float *gauge = (Float *)(this->GaugeField());
+	control->HDCG_gauge_import_cps<Float>(gauge);
+
+	//Always reset the mass fields
+	SetMass(cg_arg->mass);
+	control->HDCG_set_mass(cg_arg->mass);
+	HDCGInstance::Params.SubspaceRationalMass = cg_arg->mass;
+	int threads = omp_get_max_threads();
+
+	const Float subspace_generation_mass = 0.0001;
+
+	switch (hdcg_arg.Control) {
+	    case  HdcgGenerateSubspace:
+		// Generate subspace
+		static Timer generate_timer(cname, "HdcgGenerateSubspace");
+		generate_timer.start(true);
+
+		control->HDCG_subspace_init();
+
+		// possibly refine
+		if (hdcg_arg.SubspaceRationalRefine) {
+		    VRB.Result(cname, fname, "HDCG refine two stage init\n", threads);
+		    control->HDCG_subspace_compute(ComputeApprox);
+		    control->HDCG_subspace_refine();
+		    control->HDCG_subspace_compute(ComputeApprox);
+		} else {
+		    VRB.Result(cname, fname, "HDCG single pass init\n", threads);
+		    control->HDCG_subspace_compute(ComputeApprox);
+		}
+		generate_timer.stop(true);
+		break;
+
+	    case  HdcgReuseLdop:
+		VRB.Result(cname, fname, "HDCG reusing Ldop\n");
+		break;
+	    case  HdcgRecomputeLdop:
+		VRB.Result(cname, fname, "HDCG recomputing Ldop\n");
+		static Timer recompute_timer(cname, "HdcgRecomputeLdop");
+		recompute_timer.start(true);
+		control->HDCG_subspace_compute(ComputeApprox);
+		recompute_timer.stop(true);
+		break;
+	    case  HdcgRefineSubspace:
+		VRB.Result(cname, fname, "HDCG evolution refining subspace with old HDCG_subspace_refine()\n");
+		static Timer evl_refine_old_timer(cname, "HdcgEvlRefineSubspaceOld");
+		evl_refine_old_timer.start(true);
+		control->HDCG_subspace_compute(ComputeApprox);
+		control->HDCG_subspace_refine();
+		control->HDCG_subspace_compute(ComputeApprox);
+		evl_refine_old_timer.stop(true);
+		break;
+	    case HdcgEvlRefineSubspace:
+		VRB.Result(cname, fname, "HDCG evolution refining subspace\n");
+
+		static Timer evl_refine_timer(cname, "HdcgEvlRefineSubspace");
+		evl_refine_timer.start(true);
+		control->HDCG_evl_subspace_refine();
+		control->HDCG_subspace_compute(ComputeApprox);
+		evl_refine_timer.stop(true);
+		break;
+	    default:
+		ERR.General(cname, fname, "Fbfm:: unkown HDCG control option\n");
+	}
+
+	Fermion_t in = bd.allocFermion();
+	Fermion_t out = bd.allocFermion();
+
+	SetMass(cg_arg->mass);
+	control->HDCG_set_mass(cg_arg->mass);
+
+	bd.residual = cg_arg->stop_rsd;
+	bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
+
+	// FIXME: pass single precision rsd in a reasonable way.
+	bf.residual = 1e-5;
+
+	bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
+	bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
+
+	static std::map<Float, Timer*> hdcg_invert_timers;
+	if (hdcg_invert_timers.count(cg_arg->mass) == 0) {
+	    char hdcg_invert_timer_mass_name[512];
+	    sprintf(hdcg_invert_timer_mass_name, "HDCG_evl_invert(mass=%0.4f)", cg_arg->mass);
+	    hdcg_invert_timers[cg_arg->mass] = new Timer(cname, hdcg_invert_timer_mass_name);
+	}
+	hdcg_invert_timers[cg_arg->mass]->start(true);
+	control->HDCG_evl_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
+	hdcg_invert_timers[cg_arg->mass]->stop(true);
+
+	bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
+
+	bd.freeFermion(in);
+	bd.freeFermion(out);
+	// No HDCG
+    } else {
+
+	Fermion_t in = bd.allocFermion();
+	Fermion_t out = bd.allocFermion();
+
+	SetMass(cg_arg->mass);
+	bd.residual = cg_arg->stop_rsd;
+	bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
+	// FIXME: pass single precision rsd in a reasonable way.
+	bf.residual = 1e-5;
+
+	bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
+	bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
+
+#pragma omp parallel
+	{
+	    iter = use_mixed_solver ?
+		mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5) :
+		bd.CGNE_prec_MdagM(out, in);
+	}
+
+	bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
+
+	bd.freeFermion(in);
+	bd.freeFermion(out);
+    }
+
+    timers[cg_arg->mass]->stop(true);
+    timer.stop(true);
+
+    if (cg_arg->Inverter == HDCG) {
+	testInversionCounter++;
+	VRB.Result(cname, fname, "testInversionCounter = %d\n", testInversionCounter);
+	//if (testInversionCounter == 8) {
+	//    ERR.General(cname, fname, "Exiting after HDCG inversion test!!!!\n");
+	//}
+	if ((testInversionCounter % 4) == 0) {
+	    hdcg_arg.Control = HdcgEvlRefineSubspace;
+	} else if ((testInversionCounter % 2) == 0) {
+	    hdcg_arg.Control = HdcgRecomputeLdop;
+	} else {
+	    hdcg_arg.Control = HdcgReuseLdop;
+	}
+	VRB.Result(cname, fname, "set hdcg_arg.Control = %s\n", HDCGcontrol_map[hdcg_arg.Control].name);
+    }
 
     return iter;
 }
@@ -278,66 +654,262 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
         ERR.General(cname, fname, "Non-zero isz is not implemented.\n");
     }
 
+    const bool use_double_prec = false;
+
     Fermion_t *sol_multi = new Fermion_t[Nshift];
     double *ones = new double[Nshift];
     double *mresidual = new double[Nshift];
-    for(int i = 0; i < Nshift; ++i) {
-        sol_multi[i] = bd.allocFermion();
-        ones[i] = 1.0;
-        mresidual[i] = cg_arg[i]->stop_rsd;
+
+    for (int i = 0; i < Nshift; ++i) {
+	ones[i] = 1.0;
+	mresidual[i] = cg_arg[i]->stop_rsd;
     }
-
-    // source
-    Fermion_t src = bd.allocFermion();
-    bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
-
-    SetMass(cg_arg[0]->mass);
-    bd.residual = cg_arg[0]->stop_rsd;
-    bd.max_iter = cg_arg[0]->max_num_iter;
 
     int iter;
+
+    if (use_double_prec) {
+	VRB.Result(cname, fname, "Using double precision!\n");
+	for (int i = 0; i < Nshift; ++i) {
+	    sol_multi[i] = bd.allocFermion();
+	}
+
+	// source
+	Fermion_t src = bd.allocFermion();
+	bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
+
+	SetMass(cg_arg[0]->mass);
+	bd.residual = cg_arg[0]->stop_rsd;
+	bd.max_iter = cg_arg[0]->max_num_iter;
+
 #pragma omp parallel
-    {
-        iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
-    }
+	{
+	    iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	}
 
-    if(type == SINGLE) {
-        // FIXME
-        int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_arg.Ls / 2;
-        Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
+	if (type == SINGLE) {
+	    // FIXME
+	    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+	    Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
 
-        for(int i = 0; i < Nshift; ++i) {
-            bd.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
-            f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
-        }
-        sfree(cname, fname, "t", t);
-    } else {
-        for(int i = 0; i < Nshift; ++i) {
-            bd.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
-        }
-    }
+	    for (int i = 0; i < Nshift; ++i) {
+		bd.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
+		f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
+	    }
+	    sfree(cname, fname, "t", t);
+	} else {
+	    for (int i = 0; i < Nshift; ++i) {
+		bd.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
+	    }
+	}
 
-    bd.freeFermion(src);
-    for(int i = 0; i < Nshift; ++i) {
-        bd.freeFermion(sol_multi[i]);
+	bd.freeFermion(src);
+	for (int i = 0; i < Nshift; ++i) {
+	    bd.freeFermion(sol_multi[i]);
+	}
+    } else { // use single precision
+	VRB.Result(cname, fname, "Using single precision!\n");
+	bd.comm_end();
+	bf.comm_init();
+	
+	for (int i = 0; i < Nshift; ++i) {
+	    sol_multi[i] = bf.allocFermion();
+	}
+
+	// source
+	Fermion_t src = bf.allocFermion();
+	bf.cps_impexcbFermion((Float *)f_in, src, 1, 1);
+
+	SetMass(cg_arg[0]->mass);
+	bf.residual = cg_arg[0]->stop_rsd;
+	bf.max_iter = cg_arg[0]->max_num_iter;
+
+#pragma omp parallel
+	{
+	    iter = bf.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	}
+
+	if (type == SINGLE) {
+	    // FIXME
+	    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+	    Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
+
+	    for (int i = 0; i < Nshift; ++i) {
+		bf.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
+		f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
+	    }
+	    sfree(cname, fname, "t", t);
+	} else {
+	    for (int i = 0; i < Nshift; ++i) {
+		bf.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
+	    }
+	}
+
+	bf.freeFermion(src);
+	for (int i = 0; i < Nshift; ++i) {
+	    bf.freeFermion(sol_multi[i]);
+	}
+
+	bf.comm_end();
+	bd.comm_init();
     }
 
     delete[] sol_multi;
     delete[] ones;
     delete[] mresidual;
 
+
     return iter;
 }
 
-void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old, 
-                      Vector **vm, int degree, CgArg *cg_arg, CnvFrmType cnv_frm)
+void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old,
+    Vector **vm, int degree, CgArg *cg_arg, CnvFrmType cnv_frm)
 {
     const char *fname = "FminResExt(V*, V*, V**, ...)";
 
-    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_arg.Ls / 2;
+    const int use_chronological_inverter = 0;
 
-    // does nothing other than setting sol to zero
-    sol->VecZero(f_size_cb);
+    if (use_chronological_inverter) {
+	VRB.Result(cname, fname, "Using chronological inverter!!!! degree = %d\n", degree);
+	MinResExt(sol, source, sol_old, vm, degree, cg_arg->mass);
+    } else {
+	VRB.Result(cname, fname, "Not using chronological inverter; just setting guess to zero.\n");
+
+	// does nothing other than setting sol to zero
+	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+	sol->VecZero(f_size_cb);
+    }
+}
+
+/*!
+copied from minrestext.C. Sorry for the code duplication :(
+
+This computes the starting guess for the solver for use in the HMD
+force calculations using a minimal residual chronological method.
+This computes the guess solution as a linear combination of a given
+number of previous solutions.  Following Brower et al, only the
+orthogonalised vector basis is stored to conserve memory.
+
+\param psi The chronological guess for the solution vector.
+\param phi The source vector in the equation to be solved.
+\param v The previous solutions (orthogonal basis).
+\param vm The previous solutions.multiplied by \f$  M^\dagger M \f$, computed
+as a necessary by-product.
+\param degree The number of previous solutions.
+\param mass The mass of the Dirac operator we are inverting
+*/
+void Fbfm::MinResExt(Vector *psi, Vector *phi, Vector **v,
+    Vector **vm, int degree, Float mass)
+{
+
+    /*
+    We want to find the best initial guess of the solution of
+    A x = b, and we have N previous solutions x_i.
+    The method goes something like this:
+
+    1. Orthonormalise the x_i
+    2. Form the matrix G_ij = x_i^dagger A x_j
+    3. Form the vector B_i = x_i^dagger b
+    4. solve A_ij a_j  = B_i
+    5. x = a_i x_i
+    */
+
+    char *fname = "MinResExt(V*, V*, V**, V**, int, Float)";
+    VRB.Func(cname, fname);
+
+    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+
+    //!< if no guess is required, then set initial guess = 0
+    if (degree == 0) {
+	psi->VecZero(f_size);
+	return;
+    }
+
+    Vector *r = (Vector*)smalloc(f_size *sizeof(Float));
+
+    Float dot;
+    Complex xp;
+
+    // Array to hold the matrix elements
+    Complex **G = (Complex**)smalloc(degree * sizeof(Complex*));
+    for (int i = 0; i<degree; i++)
+	G[i] = (Complex*)smalloc(degree *sizeof(Complex));
+
+    // Solution and source vectors
+    Complex *a = (Complex*)smalloc(degree * sizeof(Complex));
+    Complex *b = (Complex*)smalloc(degree * sizeof(Complex));
+
+    //!< Orthonormalise the vector basis
+    for (int i = 0; i<degree; i++) {
+	v[i]->VecTimesEquFloat(1 / sqrt(v[i]->NormSqGlbSum(f_size)), f_size);
+	for (int j = i + 1; j<degree; j++) {
+	    xp = v[i]->CompDotProductGlbSum(v[j], f_size);
+	    v[j]->CTimesV1PlusV2(-xp, v[i], v[j], f_size);
+	}
+    }
+
+    // Perform sparse matrix multiplication and construct rhs
+    for (int i = 0; i<degree; i++) {
+	b[i] = v[i]->CompDotProductGlbSum(phi, f_size);
+	MatPcDagMatPc(vm[i], v[i], mass, &dot);
+	G[i][i].real(dot);
+	G[i][i].imag(0.0);
+    }
+
+    // Construct the matrix
+    for (int j = 0; j<degree; j++) {
+	for (int k = j + 1; k<degree; k++) {
+	    G[j][k] = v[j]->CompDotProductGlbSum(vm[k], f_size);
+	    G[k][j] = conj(G[j][k]);
+	}
+    }
+
+    // Gauss-Jordan elimination with partial pivoting
+    for (int i = 0; i<degree; i++) {
+
+	// Perform partial pivoting
+	int k = i;
+	for (int j = i + 1; j<degree; j++) if (abs(G[j][j]) > abs(G[k][k])) k = j;
+	if (k != i) {
+	    xp = b[k];
+	    b[k] = b[i];
+	    b[i] = xp;
+	    for (int j = 0; j<degree; j++) {
+		xp = G[k][j];
+		G[k][j] = G[i][j];
+		G[i][j] = xp;
+	    }
+	}
+
+	// Convert matrix to upper triangular form
+	for (int j = i + 1; j<degree; j++) {
+	    xp = G[j][i] / G[i][i];
+	    b[j] -= xp * b[i];
+	    for (int k = 0; k<degree; k++) G[j][k] -= xp * G[i][k];
+	}
+    }
+
+    // Use Gaussian Elimination to solve equations and calculate initial guess
+    psi->VecZero(f_size);
+    r->CopyVec(phi, f_size);
+    for (int i = degree - 1; i >= 0; i--) {
+	a[i] = 0.0;
+	for (int j = i + 1; j<degree; j++) a[i] += G[i][j] * a[j];
+	a[i] = (b[i] - a[i]) / G[i][i];
+	psi->CTimesV1PlusV2(a[i], v[i], psi, f_size);
+	r->CTimesV1PlusV2(-a[i], vm[i], r, f_size);
+    }
+    Float error = sqrt(r->NormSqGlbSum(f_size) / phi->NormSqGlbSum(f_size));
+
+    VRB.Result(cname, fname, "Chrono = %d, True |res| / |src| = %e\n",
+	degree, error);
+
+    for (int j = 0; j<degree; j++) sfree(*(G + j));
+
+    sfree(r);
+    sfree(G);
+    sfree(a);
+    sfree(b);
+
 }
     
 // It calculates f_out where A * f_out = f_in and
@@ -364,9 +936,92 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
                   PreserveType prs_f_in)
 {
     const char *fname = "FmatInv()";
+    VRB.Func(cname,fname);
 
     if(cg_arg == NULL)
         ERR.Pointer(cname, fname, "cg_arg");
+    int threads =   omp_get_max_threads();
+
+
+    if (cg_arg->Inverter == HDCG){
+
+	VRB.Result(cname,fname,"HDCG init called with nthreads=%d. Initialzing Ldop\n",threads);
+
+	if(!use_mixed_solver)
+	    ERR.General(cname,fname,"Fbfm::use_mixed_solver should be set true to use HDCG\n");
+
+	HDCG_wrapper *control = HDCGInstance::getInstance();
+
+	if ( (hdcg_arg.Control != HdcgGenerateSubspace) && (!control) ) {
+	    ERR.General(cname,fname,"Fbfm:: must Generate Subspace on first call to HDCG\n");
+	}
+
+	// Possibly force complete reinit
+	if (hdcg_arg.Control == HdcgGenerateSubspace ) { 
+	    if ( control)  HDCGInstance::free();
+	    control =(HDCG_wrapper *) NULL;
+	} 
+
+	// Possibly generate new hdcg wrapper
+	if (!control ){
+	    bfmActionParams BAP_;
+	    BAP_.ScaledShamirCayleyTanh(cg_arg->mass, bfm_args[current_arg_idx].M5, bfm_args[current_arg_idx].Ls, bfm_args[current_arg_idx].mobius_scale);
+	    control = new HDCG_wrapper;
+	    HDCGInstance::setInstance(control);
+	    Clone(HDCGInstance::Params,hdcg_arg);
+	    control->HDCG_init( HDCGInstance::Params, BAP_); 
+	}
+
+	// Always reimport the gauge field.
+	// In HMC this will change as we go along a trajectory.
+	Float *gauge = (Float *)(this->GaugeField());
+	control->HDCG_gauge_import_cps<Float>(gauge);
+
+	//Always reset the mass fields
+	SetMass(cg_arg->mass);
+	control->HDCG_set_mass(cg_arg->mass);
+	HDCGInstance::Params.SubspaceRationalMass=cg_arg->mass;
+
+	switch ( hdcg_arg.Control ) { 
+
+	    case  HdcgGenerateSubspace:
+
+		// Generate subspace
+		control->HDCG_subspace_init(); 
+
+		// possibly refine
+		if ( hdcg_arg.SubspaceRationalRefine ) { 
+		    VRB.Result(cname,fname,"HDCG refine two stage init\n",threads);
+		    control->HDCG_subspace_compute(ComputeApprox);
+		    control->HDCG_subspace_refine();
+		    control->HDCG_subspace_compute(ComputeFinal);
+		} else { 
+		    VRB.Result(cname,fname,"HDCG single pass init\n",threads);
+		    control->HDCG_subspace_compute(ComputeFinal);
+		}
+		break;
+		
+	    case  HdcgReuseLdop:
+		VRB.Result(cname,fname,"HDCG reusing Ldop\n");
+		break;
+	    case  HdcgRecomputeLdop:
+		VRB.Result(cname,fname,"HDCG recomputing Ldop\n");
+		control->HDCG_subspace_compute(ComputeFinal);
+		break;
+	    case  HdcgRefineSubspace:
+		VRB.Result(cname,fname,"HDCG refining subspace\n");
+		control->HDCG_subspace_compute(ComputeApprox);
+		control->HDCG_subspace_refine();
+		control->HDCG_subspace_compute(ComputeFinal);
+		break;
+	    default: 
+		ERR.General(cname,fname,"Fbfm:: unkown HDCG control option\n");
+	}
+	// default to reuse from now on in valence sector
+        // For HMC use should rather recompute the matrix elements but keep subspace fixed 
+	hdcg_arg.Control = HdcgReuseLdop;
+    }
+
 
     Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
     Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
@@ -391,9 +1046,14 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
+    if((cg_arg->Inverter == HDCG)) {
+	HDCG_wrapper *control = HDCGInstance::getInstance();
+	control->HDCG_set_mass(cg_arg->mass);
+        control->HDCG_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
+    } else {
 #pragma omp parallel
     {
-        if(use_mixed_solver) {
+        if(use_mixed_solver && (cg_arg->Inverter != HDCG)) {
             iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
         } else {
             switch(cg_arg->Inverter) {
@@ -407,6 +1067,11 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
             case EIGCG:
                 iter = bd.EIG_CGNE_M(out, in);
                 break;
+            case HDCG:
+                if(bd.isBoss()) {
+                    printf("%s::%s: HDCG implemented outside threaded region. Shouldn't have reached this line!\n", cname, fname);
+                }
+                break;
             default:
                 if(bd.isBoss()) {
                     printf("%s::%s: Not implemented\n", cname, fname);
@@ -415,6 +1080,11 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
                 break;
             }
         }
+    }
+    }
+
+    if (cg_arg->Inverter == HDCG){
+	bd.InverterLoggingEnd();
     }
 
     bd.cps_impexFermion((Float *)f_out, out, 0);
@@ -454,7 +1124,7 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
     Float *f4d = (Float *)four;
 
     const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
-    const int size_5d = size_4d * Fbfm::bfm_arg.Ls;
+    const int size_5d = size_4d * Fbfm::bfm_args[current_arg_idx].Ls;
 
     // zero 5D vector
 #pragma omp parallel for
@@ -610,6 +1280,37 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
     bd.freeFermion(t);
 }
 
+void Fbfm::MatPcDagMatPc(Vector *out, Vector *in, Float mass, Float *dot_prd)
+{
+    const char *fname = "MatPcDagMatPc()";
+
+    Fermion_t bfm_in = bd.allocFermion();
+    Fermion_t bfm_out = bd.allocFermion();
+    Fermion_t bfm_Min = bd.allocFermion();
+    Fermion_t bfm_aux = bd.allocFermion();
+
+    SetMass(mass);
+
+    bd.cps_impexcbFermion((Float *)in, bfm_in, 1, 1);
+#pragma omp parallel
+    {
+	bd.Mprec(bfm_in, bfm_Min, bfm_aux, 0, 0);
+	bd.Mprec(bfm_Min, bfm_out, bfm_aux, 1, 0);
+    }
+    bd.cps_impexcbFermion((Float *)out, bfm_out, 0, 1);
+
+    bd.freeFermion(bfm_in);
+    bd.freeFermion(bfm_out);
+    bd.freeFermion(bfm_Min);
+    bd.freeFermion(bfm_aux);
+
+    if (dot_prd != NULL) {
+	// do this in BFM instead?
+	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+	*dot_prd = out->ReDotProductGlbSum(in, f_size_cb);
+    }
+}
+
 // It evolves the canonical momentum mom by step_size
 // using the fermion force.
 ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm, 
@@ -618,7 +1319,7 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
     const char *fname = "EvolveMomFforce()";
   
     const int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
-    const int f_size_cb = f_size_4d * Fbfm::bfm_arg.Ls / 2;
+    const int f_size_cb = f_size_4d * Fbfm::bfm_args[current_arg_idx].Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
     MatPc(tmp, frm, mass, DAG_NO);

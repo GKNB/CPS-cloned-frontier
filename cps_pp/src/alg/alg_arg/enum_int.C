@@ -64,6 +64,7 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_WILSON_TM",F_CLASS_WILSON_TM},
 	{"FclassType","F_CLASS_MDWF",F_CLASS_MDWF},
 	{"FclassType","F_CLASS_BFM",F_CLASS_BFM},
+	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
 	{NULL,NULL,0}
 };
 
@@ -960,17 +961,18 @@ struct vml_enum_map HmdLimits_map[] = {
 };
 
 bool_t
-vml_InverterType (VML *vmls, char *name,InverterType *objp)
+vml_InverterType(VML *vmls, char *name, InverterType *objp)
 {
-	if (!vml_enum (vmls,name,(enum_t *)objp,InverterType_map))
-		return FALSE;
-	return TRUE;
+    if (!vml_enum(vmls, name, (enum_t *)objp, InverterType_map))
+	return FALSE;
+    return TRUE;
 }
 struct vml_enum_map InverterType_map[] = {
-	{"InverterType","CG",CG},
-	{"InverterType","BICGSTAB",BICGSTAB},
-	{"InverterType","EIGCG",EIGCG},
-	{NULL,NULL,0}
+	{ "InverterType", "CG", CG },
+	{ "InverterType", "BICGSTAB", BICGSTAB },
+	{ "InverterType", "EIGCG", EIGCG },
+	{ "InverterType", "HDCG", HDCG },
+	{ NULL, NULL, 0 }
 };
 
 bool_t

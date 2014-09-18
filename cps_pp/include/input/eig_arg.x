@@ -2,7 +2,7 @@
 /*!\file
   \brief  Definitions of the EigArg structure.
   
-  $Id: eig_arg.x,v 1.7 2008-05-19 21:06:37 chulwoo Exp $
+  $Id: eig_arg.x,v 1.7 2008/05/19 21:06:37 chulwoo Exp $
 */
 /*------------------------------------------------------------------*/
 

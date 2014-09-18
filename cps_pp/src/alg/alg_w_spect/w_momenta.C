@@ -4,14 +4,14 @@ CPS_START_NAMESPACE
 //  CVS keywords
 //
 //  $Author: zs $
-//  $Date: 2004-09-02 17:00:02 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_w_spect/w_momenta.C,v 1.7 2004-09-02 17:00:02 zs Exp $
-//  $Id: w_momenta.C,v 1.7 2004-09-02 17:00:02 zs Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2004/09/02 17:00:02 $
+//  $Header: /space/cvs/cps/cps++/src/alg/alg_w_spect/w_momenta.C,v 1.7 2004/09/02 17:00:02 zs Exp $
+//  $Id: w_momenta.C,v 1.7 2004/09/02 17:00:02 zs Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: w_momenta.C,v $
 //  $Revision: 1.7 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_w_spect/w_momenta.C,v $
+//  $Source: /space/cvs/cps/cps++/src/alg/alg_w_spect/w_momenta.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

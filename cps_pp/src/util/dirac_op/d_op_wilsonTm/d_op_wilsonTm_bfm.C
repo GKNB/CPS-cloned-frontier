@@ -6,10 +6,10 @@
 #endif
 
 #ifdef USE_BFM_TM
-#include <chroma.h>
+//#include <chroma.h>
 #include <bfm.h>
 #include <bfm_qdp.h>
-#include <actions/ferm/invert/syssolver_linop_cg_array.h>
+//#include <actions/ferm/invert/syssolver_linop_cg_array.h>
 //#include <qdp.h>
 #include <util/gjp.h>
 #include <comms/sysfunc_cps.h>
@@ -24,7 +24,7 @@ static int  Printf(char *format,...){}
 //#define Printf printf
 
 
-using namespace Chroma;
+//using namespace Chroma;
 
 USING_NAMESPACE_CPS
 
@@ -159,8 +159,8 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.mass = toDouble(mass);
     wilsa.twistedmass = toDouble(epsilon);
     wilsa.Csw  = 0.0;
-    wilsa.list_engine=0;
-    wilsa.list_length=0;
+//    wilsa.list_engine=0;
+//    wilsa.list_length=0;
     wilsa.max_iter = max_iter;
     wilsa.residual = toDouble(residual);
   //OK

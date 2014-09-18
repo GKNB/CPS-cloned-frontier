@@ -6,20 +6,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definitions of complex floating point data type.
 
-  $Id: rcomplex.h,v 1.5.30.2 2012-07-07 20:03:31 yinnht Exp $
+  $Id: rcomplex.h,v 1.5.30.2 2012/07/07 20:03:31 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-07 20:03:31 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/rcomplex.h,v 1.5.30.2 2012-07-07 20:03:31 yinnht Exp $
-//  $Id: rcomplex.h,v 1.5.30.2 2012-07-07 20:03:31 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/07/07 20:03:31 $
+//  $Header: /space/cvs/cps/cps++/include/util/rcomplex.h,v 1.5.30.2 2012/07/07 20:03:31 yinnht Exp $
+//  $Id: rcomplex.h,v 1.5.30.2 2012/07/07 20:03:31 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: rcomplex.h,v $
 //  $Revision: 1.5.30.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/rcomplex.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/rcomplex.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

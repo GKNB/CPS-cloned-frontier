@@ -4,12 +4,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FwilsonTm class.
 
-  $Id: f_wilsonTm.C,v 1.3.20.4 2012-08-24 20:35:33 yinnht Exp $
+  $Id: f_wilsonTm.C,v 1.3.20.4 2012/08/24 20:35:33 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_wilsonTm/f_wilsonTm.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_wilsonTm/f_wilsonTm.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

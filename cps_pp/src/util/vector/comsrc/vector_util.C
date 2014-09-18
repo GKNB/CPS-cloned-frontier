@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
   \brief  Definitions of functions that perform operations on complex matrices
   and vectors.
 
-  $Id: vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
+  $Id: vector_util.C,v 1.3.12.3 2012/08/13 12:52:48 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-08-13 12:52:48 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
-//  $Id: vector_util.C,v 1.3.12.3 2012-08-13 12:52:48 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/08/13 12:52:48 $
+//  $Header: /space/cvs/cps/cps++/src/util/vector/comsrc/vector_util.C,v 1.3.12.3 2012/08/13 12:52:48 yinnht Exp $
+//  $Id: vector_util.C,v 1.3.12.3 2012/08/13 12:52:48 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $Revision: 1.3.12.3 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/vector/comsrc/vector_util.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

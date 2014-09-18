@@ -5,7 +5,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Declarations for the serial emulation of the QCDSP/QCDOC communications  layer.
   
-  $Id: sysfunc_noarch.h,v 1.9 2008-02-08 18:35:05 chulwoo Exp $
+  $Id: sysfunc_noarch.h,v 1.9 2008/02/08 18:35:05 chulwoo Exp $
 */
 /*----------------------------------------------------------------------
   The Sysfunc Comms Interface: sysfunc_cps.h
@@ -17,14 +17,14 @@ CPS_START_NAMESPACE
   CVS keywords
  
   $Author: chulwoo $
-  $Date: 2008-02-08 18:35:05 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/sysfunc_noarch.h,v 1.9 2008-02-08 18:35:05 chulwoo Exp $
-  $Id: sysfunc_noarch.h,v 1.9 2008-02-08 18:35:05 chulwoo Exp $
-  $Name: not supported by cvs2svn $
+  $Date: 2008/02/08 18:35:05 $
+  $Header: /space/cvs/cps/cps++/include/comms/sysfunc_noarch.h,v 1.9 2008/02/08 18:35:05 chulwoo Exp $
+  $Id: sysfunc_noarch.h,v 1.9 2008/02/08 18:35:05 chulwoo Exp $
+  $Name: v5_0_16_hantao_io_test_v7 $
   $Locker:  $
   $RCSfile: sysfunc_noarch.h,v $
   $Revision: 1.9 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/sysfunc_noarch.h,v $
+  $Source: /space/cvs/cps/cps++/include/comms/sysfunc_noarch.h,v $
   $State: Exp $  */
 /*----------------------------------------------------------*/
 

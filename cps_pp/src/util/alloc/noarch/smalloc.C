@@ -3,7 +3,7 @@
 /*!\file
   \brief  Implementation of dynamic memory management routines.	
 
-  $Id: smalloc.C,v 1.10 2012-03-26 13:50:11 chulwoo Exp $
+  $Id: smalloc.C,v 1.10 2012/03/26 13:50:11 chulwoo Exp $
 */
 
 #include <util/error.h>

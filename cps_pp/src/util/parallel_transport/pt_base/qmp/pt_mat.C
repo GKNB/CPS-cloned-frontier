@@ -5,20 +5,20 @@
 /*! \file
   \brief  Definition of parallel transport definitions for QCDOC.
   
-  $Id: pt_mat.C,v 1.6 2012-03-27 20:05:49 chulwoo Exp $
+  $Id: pt_mat.C,v 1.6 2012/03/27 20:05:49 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2012-03-27 20:05:49 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v 1.6 2012-03-27 20:05:49 chulwoo Exp $
-//  $Id: pt_mat.C,v 1.6 2012-03-27 20:05:49 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/03/27 20:05:49 $
+//  $Header: /space/cvs/cps/cps++/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v 1.6 2012/03/27 20:05:49 chulwoo Exp $
+//  $Id: pt_mat.C,v 1.6 2012/03/27 20:05:49 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: pt_mat.C,v $
 //  $Revision: 1.6 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -224,7 +224,7 @@ parity, IFloat * gauge)
 //The matrix min is parallel transported and the result is placed in mout
 #if 1
 #undef PROFILE
-void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
+void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
     
   int wire[MAX_DIR];
   int i;
@@ -275,7 +275,7 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 
 #ifdef USE_TEST2
 //assume nt > n!
-#pragma omp parallel default(shared)
+//#pragma omp parallel default(shared)
 {
   int iam,nt,ipoints,istart,offset;
   iam = omp_get_thread_num();
@@ -299,7 +299,7 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 #else
 {
   //Interleaving of local computation of matrix multiplication
-#pragma omp parallel for default(shared)
+//#pragma omp parallel for default(shared)
   for(i=0;i<n;i++){
     partrans_cmm_agg(uc_l[wire[i]],min[i],mout[i],local_chi[wire[i]]/2);
   }
@@ -330,14 +330,14 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
   //Do non-local computations
 //pragma omp parallel
 {
-#pragma omp parallel for
+//#pragma omp parallel for
   for(i=0;i<n;i++) 
   if (!local[wire[i]/2]) {
 #ifdef USE_OMP
     if (call_num%10000==1 && !QMP_get_node_number() ) 
       printf("thread %d of %d i=%d\n",omp_get_thread_num(),omp_get_num_threads(),i);
 #endif
-    partrans_cmm_agg(uc_nl[wire[i]],(matrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
+    partrans_cmm_agg(uc_nl[wire[i]],(PTmatrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
   }
 
 }//#pragma omp parallel

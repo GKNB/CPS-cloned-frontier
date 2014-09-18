@@ -4,20 +4,20 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpMdwf class methods.
 
-  $Id: d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
+  $Id: d_op_mdwf.C,v 1.5 2011/06/26 06:45:29 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2011-06-26 06:45:29 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
-//  $Id: d_op_mdwf.C,v 1.5 2011-06-26 06:45:29 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2011/06/26 06:45:29 $
+//  $Header: /space/cvs/cps/cps++/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v 1.5 2011/06/26 06:45:29 chulwoo Exp $
+//  $Id: d_op_mdwf.C,v 1.5 2011/06/26 06:45:29 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: d_op_mdwf.C,v $
 //  $Revision: 1.5 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/dirac_op/d_op_mdwf/d_op_mdwf.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

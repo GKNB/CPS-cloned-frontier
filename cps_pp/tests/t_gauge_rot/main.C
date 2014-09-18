@@ -1,4 +1,4 @@
-///  $Id: main.C,v 1.13 2008-02-08 18:35:09 chulwoo Exp $
+///  $Id: main.C,v 1.13 2008/02/08 18:35:09 chulwoo Exp $
 ///  Demonstrate the random gauge transformation code.
 ///
 

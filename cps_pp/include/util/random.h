@@ -3,20 +3,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of RNG classes.
 
-  $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
+  $Id: random.h,v 1.28 2008/04/21 14:19:17 chulwoo Exp $
  */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2008-04-21 14:19:17 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
-//  $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2008/04/21 14:19:17 $
+//  $Header: /space/cvs/cps/cps++/include/util/random.h,v 1.28 2008/04/21 14:19:17 chulwoo Exp $
+//  $Id: random.h,v 1.28 2008/04/21 14:19:17 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: random.h,v $
 //  $Revision: 1.28 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/random.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

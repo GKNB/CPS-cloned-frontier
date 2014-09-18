@@ -87,7 +87,7 @@ void init_qmp(int * argc, char ***argv) {
     QMP_thread_level_t prv;
 #ifndef UNIFORM_SEED_NO_COMMS
     QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_SINGLE, &prv);
-    if (init_status) printf("QMP_init_msg_passing returned %d\n",init_status);
+    if (init_status) printf("QMP_init_msg_passing returned %d \n",init_status);
     peRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
     if(!peRank)printf("QMP_init_msg_passing returned %d\n",init_status);
@@ -146,7 +146,7 @@ void init_qmp(int * argc, char ***argv) {
 	peNum *= peGrid[i];
     peRank = peRank % peNum;
   }
-  int if_print=1;
+  int if_print=0;
   for(int i = 0;i<NDIM;i++)
   if (pePos[i]>=2) if_print=0;
 
@@ -275,7 +275,6 @@ unsigned int SeedST(){return SERIAL_SEED;} //!< Gets a RNG seed.
   \return 0
 */
 //----------------------------------------------------------------
-#ifndef HAVE_SYNC
 #ifdef UNIFORM_SEED_NO_COMMS
 unsigned int sync(){return 1;}
 #else
@@ -287,7 +286,6 @@ if (sync_status != QMP_SUCCESS) {
 }
 return 1;
 }
-#endif
 #endif
 
 //----------------------------------------------------------------

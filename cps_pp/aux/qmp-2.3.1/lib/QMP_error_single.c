@@ -7,7 +7,12 @@
  *      James C. Osborn
  *
  * Revision History:
- *   $Log: not supported by cvs2svn $
+ *   $Log: QMP_error_single.c,v $
+ *   Revision 1.2  2011/02/26 00:33:23  chulwoo
+ *   Merging v5_0_8-RICC_3
+ *   i) SSE Wilson & DWF dslash by Taku
+ *   ii) Interface to CG-DWF by Andrew Pochinsky
+ *
  *   Revision 1.1.2.1  2010/07/30 21:20:12  chulwoo
  *   Checking in Taku's modified QMP
  *

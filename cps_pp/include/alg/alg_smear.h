@@ -6,7 +6,7 @@
   
   AlgOlegSmear added by Yasumichi 6/8/07.
 
-  $Id: alg_smear.h,v 1.7.156.1 2013-01-18 00:02:46 yinnht Exp $
+  $Id: alg_smear.h,v 1.7.156.1 2013/01/18 00:02:46 yinnht Exp $
 */
 //------------------------------------------------------------------
 #ifndef _ALG_SMEAR_CD_

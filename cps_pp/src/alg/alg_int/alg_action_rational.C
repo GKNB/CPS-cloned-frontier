@@ -153,6 +153,7 @@ void AlgActionRational::init(int traj_num) {
   heatbathEval = 0;
   energyEval = 0;
   traj = traj_num-1;  
+  VRB.FuncEnd(cname,fname);
 }
 
 AlgActionRational::~AlgActionRational() {

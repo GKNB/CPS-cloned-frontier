@@ -5,7 +5,7 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Declaration and definition of the MPIRequestManager class
 
-  $Id: mpi_requests.h,v 1.7 2008-02-08 18:35:05 chulwoo Exp $
+  $Id: mpi_requests.h,v 1.7 2008/02/08 18:35:05 chulwoo Exp $
 */
 /*----------------------------------------------------------*/
 /* The MPI comms request handle manager: mpi_requests.h
@@ -15,14 +15,14 @@ CPS_START_NAMESPACE
   CVS keywords
  
   $Author: chulwoo $
-  $Date: 2008-02-08 18:35:05 $
-  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/mpi_requests.h,v 1.7 2008-02-08 18:35:05 chulwoo Exp $
-  $Id: mpi_requests.h,v 1.7 2008-02-08 18:35:05 chulwoo Exp $
-  $Name: not supported by cvs2svn $
+  $Date: 2008/02/08 18:35:05 $
+  $Header: /space/cvs/cps/cps++/include/comms/Attic/mpi_requests.h,v 1.7 2008/02/08 18:35:05 chulwoo Exp $
+  $Id: mpi_requests.h,v 1.7 2008/02/08 18:35:05 chulwoo Exp $
+  $Name: v5_0_16_hantao_io_test_v7 $
   $Locker:  $
   $RCSfile: mpi_requests.h,v $
   $Revision: 1.7 $
-  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/mpi_requests.h,v $
+  $Source: /space/cvs/cps/cps++/include/comms/Attic/mpi_requests.h,v $
   $State: Exp $  */
 /*----------------------------------------------------------*/
 

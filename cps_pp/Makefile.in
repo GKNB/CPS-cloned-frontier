@@ -1,5 +1,5 @@
 # CPS makefile
-# $Id: Makefile.in,v 1.34.124.1.6.1 2013-01-07 18:45:51 yinnht Exp $
+# $Id: Makefile.in,v 1.34.124.1.6.1 2013/01/07 18:45:51 yinnht Exp $
 # @configure_input@
 
 SRCDIR = @abs_top_srcdir@

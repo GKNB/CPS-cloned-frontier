@@ -1,5 +1,10 @@
 #include<config.h>
 #include<math.h>
+#include<string.h>
+#include<string>
+#include<sys/stat.h>
+#include<errno.h>
+#include<stdio.h>
 CPS_START_NAMESPACE 
 //------------------------------------------------------------------
 //

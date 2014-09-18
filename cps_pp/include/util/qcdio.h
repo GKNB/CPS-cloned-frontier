@@ -3,21 +3,21 @@
 /*!\file
   \brief Prototypes of gauge configuration IO functions.
 
-  $Id: qcdio.h,v 1.10.110.1.8.1 2012-09-20 17:35:00 yinnht Exp $
+  $Id: qcdio.h,v 1.10.110.1.8.1 2012/09/20 17:35:00 yinnht Exp $
 */
 /*2  A.N.Jackson: ajackson@epcc.ed.ac.uk                      
   -----------------------------------------------------------
    CVS keywords
  
    $Author: yinnht $
-   $Date: 2012-09-20 17:35:00 $
-   $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/qcdio.h,v 1.10.110.1.8.1 2012-09-20 17:35:00 yinnht Exp $
-   $Id: qcdio.h,v 1.10.110.1.8.1 2012-09-20 17:35:00 yinnht Exp $
-   $Name: not supported by cvs2svn $
+   $Date: 2012/09/20 17:35:00 $
+   $Header: /space/cvs/cps/cps++/include/util/qcdio.h,v 1.10.110.1.8.1 2012/09/20 17:35:00 yinnht Exp $
+   $Id: qcdio.h,v 1.10.110.1.8.1 2012/09/20 17:35:00 yinnht Exp $
+   $Name: v5_0_16_hantao_io_test_v7 $
    $Locker:  $
    $RCSfile: qcdio.h,v $
    $Revision: 1.10.110.1.8.1 $
-   $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/qcdio.h,v $
+   $Source: /space/cvs/cps/cps++/include/util/qcdio.h,v $
    $State: Exp $  */
 /*----------------------------------------------------------*/
 

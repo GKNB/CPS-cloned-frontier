@@ -30,6 +30,7 @@ CPS_END_NAMESPACE
 #include<util/smalloc.h>
 #include<util/qcdio.h>
 #include<util/wilson.h>
+#include <util/timer.h>
 
 #ifdef HAVE_STRINGS_H
 #include <strings.h>
@@ -131,13 +132,10 @@ AlgHmc::~AlgHmc() {
   -# Maximum solver residue
 */
 //------------------------------------------------------------------
-Float AlgHmc::run(void)
+Float AlgHmc::run()
 {
   char *fname = "run()";
 
-#if TARGET==cpsMPI
-  using MPISCU::fprintf;
-#endif
 
   int accept;
 
@@ -181,18 +179,27 @@ Float AlgHmc::run(void)
       }
 
       //!< Evaluate the heatbath
+      static Timer heatbath_timer("HMC heatbath");
+      heatbath_timer.start(true);
       integrator->heatbath();
+      heatbath_timer.stop(true);
 
       //!< Calculate initial Hamiltonian
       wilson_set_sloppy( false);
+      static Timer ham1_timer("HMC start energy");
+      ham1_timer.start(true);
       h_init = integrator->energy();
+      ham1_timer.stop(true);
 //      Float total_h_init =h_init;
 //      glb_sum(&total_h_init);
 
       // Molecular Dynamics Trajectory
-      if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+      static Timer evo_timer("HMC evolve");
+      evo_timer.start(true);
+      if (hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
       integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
+      evo_timer.stop(true);
 
       // Reunitarize
       if(hmc_arg->reunitarize == REUNITARIZE_YES){
@@ -208,7 +215,10 @@ Float AlgHmc::run(void)
 #endif
 
       //!< Calculate final Hamiltonian
+      static Timer ham2_timer("HMC end energy");
+      ham2_timer.start(true);
       h_final = integrator->energy();
+      ham2_timer.stop(true);
 //      Float total_h_final =h_final;
 //      glb_sum(&total_h_final);
 
@@ -239,12 +249,6 @@ Float AlgHmc::run(void)
       if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
 	integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
-
-#ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
-  printf("SCU checksum test\n");
-  if ( ! ScuChecksum::CsumSwap() )
-    ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
-#endif
 
 	h_delta = h_final - integrator->energy();
 	glb_sum(&h_delta);

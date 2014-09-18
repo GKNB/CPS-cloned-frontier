@@ -28,20 +28,20 @@
 #include <qmp.h>
 #endif
 
-class matrix{
+class PTmatrix{
   private:
   Float u[18];
   public:
-    matrix(){};
-    ~matrix(){};
+    PTmatrix(){};
+    ~PTmatrix(){};
     void Dagger(const Float *a);
     void Negate(){
       for(int i =0;i<18;i++) u[i] = -u[i];
     }
-	void fTimesV1Plus(Float f,matrix &m){
+	void fTimesV1Plus(Float f,PTmatrix &m){
       for(int i =0;i<18;i++) u[i] += f*m.u[i];
 	}
-	matrix & operator= (Float x){
+	PTmatrix & operator= (Float x){
       for(int i =0;i<18;i++) u[i] =0.;
 	  u[0]=x;u[8]=x;u[16]=x;
 	  return *this;
@@ -72,19 +72,19 @@ class matrix{
 }
 };
 
-typedef Float vector;
+typedef Float PTvector;
 
-inline Float NormSqNode(vector *src,int size){
+inline Float NormSqNode(PTvector *src,int size){
   Float sum = 0.;
   for(int i = 0;i<size;i++) sum += src[i]*src[i];
   return sum;
 }
 
-inline void CopyVec(vector *dest,vector *src, int size){
+inline void CopyVec(PTvector *dest,PTvector *src, int size){
   for(int i = 0;i<size;i++) dest[i] = src[i];
 }
 
-inline void VecMinusEquVec(vector *dest,vector *src, int size){
+inline void VecMinusEquVec(PTvector *dest,PTvector *src, int size){
   for(int i = 0;i<size;i++) dest[i] -= src[i];
 }
 
@@ -122,9 +122,9 @@ class AsqD : public AsqDArg{
   private:
     char *cname;
     Float *frm_tmp;
-    matrix *fat[4];
-    matrix *naik[4];
-    matrix *naik_m[4];
+    PTmatrix *fat[4];
+    PTmatrix *naik[4];
+    PTmatrix *naik_m[4];
 
 #ifdef USE_SCU
     static SCUDir scudir[8];
@@ -150,7 +150,7 @@ N=4};
 //---------------------------------------------------------------------
 //  uc_l[0] points to a cluster of matrices per even site for local 
 //  computations , arranged so that all parallel transport of spinors 
-//  is accomplished by the same matrix times vector function.
+//  is accomplished by the same PTmatrix times PTvector function.
 //  The volume is devided by 2 areas: nn and 3rd nn part.
 //  uc_l[1] is the same for odd sites.
 //  uc_nl[0] is the same for even non-local sites.
@@ -179,14 +179,14 @@ N=4};
     int countP[3][2];
     int countM[3][2];
 //---------------------------------------------------------------------
-//  pointers to storage area for color vectors from tp, xp, yp, zp, tm,
+//  pointers to storage area for color PTvectors from tp, xp, yp, zp, tm,
 //  xm, ym, zm (p = plus, m = minus).  Indexed as 0-7
 //---------------------------------------------------------------------
     Float * chi_off_node_total;
     Float * chi_off_node[2][3][8];
     Float * chi_off_node_p[2][3][8];
 //------------------------------------------------------------------
-//  pointer to array of pointers telling where color vectors are
+//  pointer to array of pointers telling where color PTvectors are
 //  located for cluster arrangement of lattice (even and odd).
 //  chi_l[0] points to a list of local adresses for chi's needed 
 //  to get an even site result from application of D and
@@ -265,7 +265,7 @@ SCUDirArgMulti SCUmulti_2[2];
     int LexGauge( int * c );
 
 //---------------------------------------------------------------------
-//  Return lexical value for vectors from coordinates c
+//  Return lexical value for PTvectors from coordinates c
 //---------------------------------------------------------------------
 
     int LexVector( int * c );
@@ -291,17 +291,6 @@ SCUDirArgMulti SCUmulti_2[2];
   void comm_assert();
   void dirac(Float* b, Float* a, int a_odd, int add_flag);
 
-#if TARGET == QCDOC
-  void *Alloc(int request){
-    void *ptr = qalloc(QCOMMS,request);
-    if (!ptr) ptr = qalloc(0,request);
-    if (!ptr){ printf("AsqD::Alloc failed\n"); exit(-4);}
-    return ptr;
-  }
-  void Free(void *p){
-    qfree(p);
-  }
-#else
   void *Alloc(int request){
     void *ptr = malloc(request);
     if (!ptr){ printf("AsqD::Alloc failed\n"); exit(-4);}
@@ -310,7 +299,6 @@ SCUDirArgMulti SCUmulti_2[2];
   void Free(void *p){
     free(p);
   }
-#endif
 
   void PointerErr(char *cname, char *fname, char *vname){
     printf("%s::%s: %s not allocated\n",cname,fname,vname);

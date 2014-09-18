@@ -61,9 +61,9 @@ unsigned int SeedST(); //!< Gets a RNG seed.
 
 //! A barrier function.
 //inline void sync(){QMP_barrier();}
-#ifndef HAVE_SYNC
+//#ifndef HAVE_SYNC
 unsigned int sync();
-#endif
+//#endif
 
 //! Gets the direction used internally by the comms layer.
 //int SCURemap( SCUDir dir );

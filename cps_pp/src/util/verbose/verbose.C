@@ -9,14 +9,14 @@ CPS_START_NAMESPACE
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2011-05-14 06:12:35 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/verbose/verbose.C,v 1.20 2011-05-14 06:12:35 chulwoo Exp $
-//  $Id: verbose.C,v 1.20 2011-05-14 06:12:35 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2011/05/14 06:12:35 $
+//  $Header: /space/cvs/cps/cps++/src/util/verbose/verbose.C,v 1.20 2011/05/14 06:12:35 chulwoo Exp $
+//  $Id: verbose.C,v 1.20 2011/05/14 06:12:35 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: verbose.C,v $
 //  $Revision: 1.20 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/verbose/verbose.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/verbose/verbose.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -182,7 +182,7 @@ void Verbose::Func(const char *class_name, const char *func_name) {
     if(!active[VERBOSE_FUNC_LEVEL]) return;
 
 //    printf("%s::%s : Entered :", class_name, func_name);
-    vrb_printf(class_name,func_name,"Entered :");
+    vrb_printf(class_name,func_name,"Entered :\n");
     if(active[VERBOSE_FUNC_CLOCK_LEVEL]){
 #ifdef _TARTAN
 	printf("  Clock (12.5 MHz) = %d\n", (int)clock());
@@ -215,7 +215,7 @@ void Verbose::FuncEnd(const char *class_name, const char *func_name){
     if(!active[VERBOSE_FUNC_LEVEL]) return;
 
 //    printf("%s::%s : Exiting :", class_name, func_name);
-    vrb_printf(class_name,func_name,"Exiting :");
+    vrb_printf(class_name,func_name,"Exiting :\n");
     if(active[VERBOSE_FUNC_CLOCK_LEVEL]){
 #ifdef _TARTAN
 	printf("  Clock (12.5 MHz) = %d\n", (int)clock());

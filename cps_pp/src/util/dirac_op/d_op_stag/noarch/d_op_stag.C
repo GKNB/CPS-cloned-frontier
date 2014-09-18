@@ -4,19 +4,19 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpStag class methods.
 
-  $Id: d_op_stag.C,v 1.11 2010-07-26 18:07:23 chulwoo Exp $
+  $Id: d_op_stag.C,v 1.11 2010/07/26 18:07:23 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //  $Author: chulwoo $
-//  $Date: 2010-07-26 18:07:23 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_stag/noarch/d_op_stag.C,v 1.11 2010-07-26 18:07:23 chulwoo Exp $
-//  $Id: d_op_stag.C,v 1.11 2010-07-26 18:07:23 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2010/07/26 18:07:23 $
+//  $Header: /space/cvs/cps/cps++/src/util/dirac_op/d_op_stag/noarch/d_op_stag.C,v 1.11 2010/07/26 18:07:23 chulwoo Exp $
+//  $Id: d_op_stag.C,v 1.11 2010/07/26 18:07:23 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: d_op_stag.C,v $
 //  $Revision: 1.11 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_stag/noarch/d_op_stag.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/dirac_op/d_op_stag/noarch/d_op_stag.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

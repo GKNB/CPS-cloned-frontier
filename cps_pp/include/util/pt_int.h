@@ -14,7 +14,7 @@
 /*!\file
   \brief Declaration of functions used by the parallel transport classes.
 
-  $Id: pt_int.h,v 1.21 2009-05-06 04:10:41 chulwoo Exp $
+  $Id: pt_int.h,v 1.21 2009/05/06 04:10:41 chulwoo Exp $
   Why are (at least some of) these not class methods?
 */
 #ifdef USE_SCU
@@ -241,7 +241,7 @@ int conjugated;
 	void vec_cb_pad(int n, Float *vout, Float **vin, const int
 			*dir,int parity, Float * gauge);
 
-	void mat(int n, matrix **mout, matrix **min, const int *dir);
+	void mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir);
 	void vec(int n, Float **vout, Float **vin, const int *dir);
 	void vvpd(Float **vect, int n_vect, const int *dir,
 		  int n_dir, int hop, Float **sum);
@@ -252,7 +252,7 @@ int conjugated;
 	void shift_field_vec(Float **v, const int *dir, int n_dir,
 			 int hop, Float **u);
 	void shift_link(Float **u, const int *dir, int n_dir);
-	void asqtad_force(AsqDArg *asq_arg, matrix *mom, Float *X, Float dt);
+	void asqtad_force(AsqDArg *asq_arg, PTmatrix *mom, Float *X, Float dt);
 	void PointerErr(char *cname, char *fname, char *vname){
 	  printf("%s::%s: %s not allocated\n",cname,fname,vname);
   	  exit(-42);
@@ -294,9 +294,9 @@ int flag = 0);
         fname,(Float)nflops,time,(Float)nflops/(time*1.e6));
         return nflops/time;
   }
-  void force_product_sum(vector *v, vector *w, Float coeff, matrix *f);
-  void update_momenta(matrix **force, Float dt, matrix *mom);
-  void asqtad_fat(AsqDArg *asq_arg, matrix *fatlink);
-  void asqtad_long(AsqDArg *asq_arg, matrix *longlink, matrix *longlink_m = NULL);
+  void force_product_sum(PTvector *v, PTvector *w, Float coeff, PTmatrix *f);
+  void update_momenta(PTmatrix **force, Float dt, PTmatrix *mom);
+  void asqtad_fat(AsqDArg *asq_arg, PTmatrix *fatlink);
+  void asqtad_long(AsqDArg *asq_arg, PTmatrix *longlink, PTmatrix *longlink_m = NULL);
 };
 #endif

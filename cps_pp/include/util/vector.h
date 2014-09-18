@@ -6,20 +6,20 @@
 
   Also declarations of functions that perform operations on complex vectors.
 
-  $Id: vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
+  $Id: vector.h,v 1.29.12.6.6.1 2012/09/25 14:18:02 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-09-25 14:18:02 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
-//  $Id: vector.h,v 1.29.12.6.6.1 2012-09-25 14:18:02 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/09/25 14:18:02 $
+//  $Header: /space/cvs/cps/cps++/include/util/vector.h,v 1.29.12.6.6.1 2012/09/25 14:18:02 yinnht Exp $
+//  $Id: vector.h,v 1.29.12.6.6.1 2012/09/25 14:18:02 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: vector.h,v $
 //  $Revision: 1.29.12.6.6.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/vector.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

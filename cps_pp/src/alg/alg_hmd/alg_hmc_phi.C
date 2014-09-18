@@ -7,20 +7,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Definitions of the AlgHmcPhi methods.
 
-  $Id: alg_hmc_phi.C,v 1.24 2006-12-14 17:53:37 chulwoo Exp $
+  $Id: alg_hmc_phi.C,v 1.24 2006/12/14 17:53:37 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2006-12-14 17:53:37 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_hmd/alg_hmc_phi.C,v 1.24 2006-12-14 17:53:37 chulwoo Exp $
-//  $Id: alg_hmc_phi.C,v 1.24 2006-12-14 17:53:37 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2006/12/14 17:53:37 $
+//  $Header: /space/cvs/cps/cps++/src/alg/alg_hmd/alg_hmc_phi.C,v 1.24 2006/12/14 17:53:37 chulwoo Exp $
+//  $Id: alg_hmc_phi.C,v 1.24 2006/12/14 17:53:37 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: alg_hmc_phi.C,v $
 //  $Revision: 1.24 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_hmd/alg_hmc_phi.C,v $
+//  $Source: /space/cvs/cps/cps++/src/alg/alg_hmd/alg_hmc_phi.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

@@ -22,6 +22,7 @@ CPS_END_NAMESPACE
 #include<util/time_cps.h>
 #include<alg/alg_int.h>
 #include<alg/alg_remez.h>
+#include <util/timer.h>
 CPS_START_NAMESPACE
 
 //!< Dummy contructor - does nothing
@@ -226,6 +227,8 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 void AlgActionRationalQuotient::heatbath() {
 
   char *fname = "heatbath()";
+  static Timer timer(cname, fname);
+  timer.start(true);
 
   Float dtime = -dclock();
 
@@ -273,6 +276,7 @@ void AlgActionRationalQuotient::heatbath() {
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  timer.stop(true);
 }
 
 // Calculate rhmc fermion contribution to the Hamiltonian
@@ -286,7 +290,9 @@ Float AlgActionRationalQuotient::energy() {
     energyEval = 1;
     return h_init;
   } else {
-      Float dtime = -dclock();
+    static Timer timer(cname, fname);
+    timer.start(true);
+    Float dtime = -dclock();
 
     int shift = 0;
     Float h = 0.0;
@@ -333,6 +339,7 @@ Float AlgActionRationalQuotient::energy() {
 
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
+    timer.stop(true);
     return h;
   }
 }
@@ -340,6 +347,8 @@ Float AlgActionRationalQuotient::energy() {
 void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 {
   char * fname = "prepare_fg(M*,F)";
+  static Timer timer(cname, fname);
+  timer.start(true);
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
@@ -470,12 +479,15 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, "prepare_fg::cg()", 0, dtime_cg);
   print_flops(cname, "prepare_fg::force()", 0, dtime_force);
+  timer.stop(true);
 }
 
 //!< run method evolves the integrator
 void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
   char * fname = "evolve(Float, int)";
+  static Timer timer(cname, fname);
+  timer.start(true);
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;
@@ -617,6 +629,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, "evolve::cg()", 0, dtime_cg);
   print_flops(cname, "evolve::force()", 0, dtime_force);
+  timer.stop(true);
 }
 
 bool AlgActionRationalQuotient::checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r)
@@ -645,25 +658,53 @@ bool AlgActionRationalQuotient::checkPolesFile(const RemezArg &md, const RemezAr
   return true;
 }
 
+void PrintPFE(const char* name, Float norm, const Float* residue, const Float* pole, int degree)
+{
+  const char* cname = "AlgActionRationalQuotient";
+  const char* fname = "PrintPFE";
+
+  char pfe[10000];
+  sprintf(pfe, "%.15e", norm);
+
+  for(int i = 0; i < degree; i++) {
+    char term[1024];
+    sprintf(term, " + %.15e/(x + %.15e)", residue[i], pole[i]);
+    strcat(pfe, term);
+  }
+
+  if(!UniqueID()) printf("PFE of %s:    %s\n", name, pfe);
+}
+
+void PrintRemezArg(const char* name, const RemezArg& remez_arg)
+{
+  char pfe_name[1024];
+
+  sprintf(pfe_name, "%s normal", name);
+  PrintPFE(pfe_name, remez_arg.norm, remez_arg.residue, remez_arg.pole, remez_arg.degree);
+  sprintf(pfe_name, "%s inv", name);
+  PrintPFE(pfe_name, remez_arg.norm_inv, remez_arg.residue_inv, remez_arg.pole_inv, remez_arg.degree);
+}
+
 // return true if we successfully loaded from a file.
 bool AlgActionRationalQuotient::loadPoles(void)
 {
-  const char *fname = "loadPoles()";
-  if(rat_quo_arg->remez_generate) return false;
-  if(strlen(rat_quo_arg->rat_poles_file) == 0) return false;
+  const char* fname = "loadPoles()";
+
+  if(rat_quo_arg->remez_generate) { printf("AA\n"); return false; }
+  if(strlen(rat_quo_arg->rat_poles_file) == 0) { printf("BB\n"); return false; }
 
   FILE *fp = fopen(rat_quo_arg->rat_poles_file, "r");
-  if(fp == NULL) return false;
+  if(fp == NULL) { printf("CC\n"); return false; }
   fclose(fp);
 
   RationalQuotientRemezArg rq;
-  if(!rq.Decode(rat_quo_arg->rat_poles_file, "rq")) return false;
+  if(!rq.Decode(rat_quo_arg->rat_poles_file, "rq")) { printf("DD\n"); return false; }
 
   // a bunch of check
-  if(rq.bsn_md.bsn_md_len != n_masses) return false;
-  if(rq.bsn_mc.bsn_mc_len != n_masses) return false;
-  if(rq.frm_md.frm_md_len != n_masses) return false;
-  if(rq.frm_mc.frm_mc_len != n_masses) return false;
+  if(rq.bsn_md.bsn_md_len != n_masses) { printf("EE\n"); return false; }
+  if(rq.bsn_mc.bsn_mc_len != n_masses) { printf("FF\n"); return false; }
+  if(rq.frm_md.frm_md_len != n_masses) { printf("GG\n"); return false; }
+  if(rq.frm_mc.frm_mc_len != n_masses) { printf("HH\n"); return false; }
 
   frm_remez_arg_md = new RemezArg[n_masses];
   frm_remez_arg_mc = new RemezArg[n_masses];
@@ -682,7 +723,13 @@ bool AlgActionRationalQuotient::loadPoles(void)
                         rat_quo_arg->fermions.fermions_val[i])) return false;
     if(! checkPolesFile(bsn_remez_arg_md[i], bsn_remez_arg_mc[i],
                         rat_quo_arg->bosons.bosons_val[i])) return false;
+  
+    PrintRemezArg("frm_remez_arg_md", frm_remez_arg_md[i]);
+    PrintRemezArg("frm_remez_arg_mc", frm_remez_arg_mc[i]);
+    PrintRemezArg("bsn_remez_arg_md", bsn_remez_arg_md[i]);
+    PrintRemezArg("bsn_remez_arg_mc", bsn_remez_arg_mc[i]);
   }
+
 
   VRB.Result(cname, fname, "Successfully loaded poles file %s.\n", rat_quo_arg->rat_poles_file);
   return true;

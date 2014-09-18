@@ -2,7 +2,7 @@
 #define INCLUDED_FBFM_H__
 
 #include<config.h>
-
+#include <alg/hdcg_arg.h>
 #ifdef USE_BFM
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_mixed_solver.h>
@@ -17,10 +17,18 @@ class Fbfm : public virtual Lattice {
 public:
     // have to do this since lattice factory does not accept any input
     // parameters.
-    static bfmarg bfm_arg;
+    //static bfmarg bfm_arg;
+
+    //CK: Modified to allow for multiple sets of arguments for different fermion types
+    static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
+    static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
+    static int nthreads[2];
+
+    static HdcgArg hdcg_arg;
 
     // set true to use single precision BFM object.
     static bool use_mixed_solver;
+    static bool use_hdcg_evl_solver;
 
     bfm_evo<double> bd;
     bfm_evo<float> bf;
@@ -105,7 +113,7 @@ public:
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
     int FsiteSize() const {
-        return 24 * Fbfm::bfm_arg.Ls;
+	return 24 * Fbfm::bfm_args[current_arg_idx].Ls;
     }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a
@@ -149,6 +157,9 @@ public:
     void FminResExt(Vector *sol, Vector *source, Vector **sol_old, 
                     Vector **vm, int degree, CgArg *cg_arg, CnvFrmType cnv_frm);
   
+    void MinResExt(Vector *psi, Vector *phi, Vector **v,
+	Vector **vm, int degree, Float mass);
+
     int FmatInv(Vector *f_out, Vector *f_in, 
                 CgArg *cg_arg, 
                 Float *true_res,
@@ -219,6 +230,8 @@ public:
     // The function returns the total number of Ritz iterations.
   
     void MatPc(Vector *out, Vector *in, Float mass, DagType dag);
+
+    void MatPcDagMatPc(Vector *out, Vector *in, Float mass, Float *dot_prd);
 
     Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
                  Float mass, DagType dag);
@@ -295,12 +308,17 @@ public:
             bd.GeneralisedFiveDimEnd();
             bd.GeneralisedFiveDimInit();
         }
-        if(use_mixed_solver && bf.mass != mass) {
+//        if(use_mixed_solver && bf.mass != mass) {
+        if( bf.mass != mass) {
             bf.mass = mass;
             bf.GeneralisedFiveDimEnd();
             bf.GeneralisedFiveDimInit();
         }
     }
+
+
+    void SaveFmatEvlInvProblem(const char* path, Vector *f_in, CgArg *cg_arg);
+    void LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in, CgArg *cg_arg);
 };
 
 class GnoneFbfm

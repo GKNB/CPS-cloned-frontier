@@ -110,7 +110,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   unsigned int csum;
 
 
-#if TARGET != QCDOC
+#if TARGET == NOARCH
   setSerial();
 #endif
 

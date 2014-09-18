@@ -6,20 +6,20 @@
 /*! \file
   \brief  Generic parallel transport.
   
-  $Id: pt_mat.h,v 1.1.2.8 2012-08-21 14:26:28 yinnht Exp $
+  $Id: pt_mat.h,v 1.1.2.8 2012/08/21 14:26:28 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-08-21 14:26:28 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/pt_mat.h,v 1.1.2.8 2012-08-21 14:26:28 yinnht Exp $
-//  $Id: pt_mat.h,v 1.1.2.8 2012-08-21 14:26:28 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/08/21 14:26:28 $
+//  $Header: /space/cvs/cps/cps++/include/util/pt_mat.h,v 1.1.2.8 2012/08/21 14:26:28 yinnht Exp $
+//  $Id: pt_mat.h,v 1.1.2.8 2012/08/21 14:26:28 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: pt_mat.h,v $
 //  $Revision: 1.1.2.8 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/pt_mat.h,v $
+//  $Source: /space/cvs/cps/cps++/include/util/pt_mat.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -254,7 +254,7 @@ namespace pt_generic {
             for(int d = 0; d < N; ++d) {
                 compute_internal(out[d], gauge[d], in[d], dir[d], nthreads);
             }
-            //#pragma omp barrier
+//           #pragma omp barrier
 
             // 6. compute/collect surface sites 
             for(int d = 0; d < N; ++d) {

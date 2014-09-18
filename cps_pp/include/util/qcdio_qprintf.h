@@ -10,7 +10,7 @@
   Separated from the rest of qcdio.h to avoid troublesome
   header file interdependancies.
 
-  $Id: qcdio_qprintf.h,v 1.5.464.1 2012-07-09 16:29:19 yinnht Exp $  
+  $Id: qcdio_qprintf.h,v 1.5.464.1 2012/07/09 16:29:19 yinnht Exp $  
 */
 /*  A.N.Jackson: ajackson@epcc.ed.ac.uk                       */
 /*----------------------------------------------------------*/

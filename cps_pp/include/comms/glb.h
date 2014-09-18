@@ -6,19 +6,19 @@
 /*!\file
   \brief  Declarations of collective communications routines
 
-  $Id: glb.h,v 1.8.96.1 2012-07-09 16:29:19 yinnht Exp $
+  $Id: glb.h,v 1.8.96.1 2012/07/09 16:29:19 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-09 16:29:19 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/glb.h,v 1.8.96.1 2012-07-09 16:29:19 yinnht Exp $
-//  $Id: glb.h,v 1.8.96.1 2012-07-09 16:29:19 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/07/09 16:29:19 $
+//  $Header: /space/cvs/cps/cps++/include/comms/glb.h,v 1.8.96.1 2012/07/09 16:29:19 yinnht Exp $
+//  $Id: glb.h,v 1.8.96.1 2012/07/09 16:29:19 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $Revision: 1.8.96.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/comms/glb.h,v $
+//  $Source: /space/cvs/cps/cps++/include/comms/glb.h,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

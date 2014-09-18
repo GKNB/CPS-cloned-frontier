@@ -5,12 +5,12 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of Fp4 class.
 
-  $Id: f_p4.C,v 1.18 2008-04-21 14:19:18 chulwoo Exp $
+  $Id: f_p4.C,v 1.18 2008/04/21 14:19:18 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_p4/comsrc/f_p4.C,v $
+//  $Source: /space/cvs/cps/cps++/src/util/lattice/f_p4/comsrc/f_p4.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

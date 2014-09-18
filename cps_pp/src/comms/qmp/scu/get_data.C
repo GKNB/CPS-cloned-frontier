@@ -8,20 +8,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Definitions of communications routines
 
-  $Id: get_data.C,v 1.10.12.4 2012-07-30 14:44:54 yinnht Exp $
+  $Id: get_data.C,v 1.10.12.4 2012/07/30 14:44:54 yinnht Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: yinnht $
-//  $Date: 2012-07-30 14:44:54 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/comms/qmp/scu/get_data.C,v 1.10.12.4 2012-07-30 14:44:54 yinnht Exp $
-//  $Id: get_data.C,v 1.10.12.4 2012-07-30 14:44:54 yinnht Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2012/07/30 14:44:54 $
+//  $Header: /space/cvs/cps/cps++/src/comms/qmp/scu/get_data.C,v 1.10.12.4 2012/07/30 14:44:54 yinnht Exp $
+//  $Id: get_data.C,v 1.10.12.4 2012/07/30 14:44:54 yinnht Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: get_data.C,v $
 //  $Revision: 1.10.12.4 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/comms/qmp/scu/get_data.C,v $
+//  $Source: /space/cvs/cps/cps++/src/comms/qmp/scu/get_data.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
