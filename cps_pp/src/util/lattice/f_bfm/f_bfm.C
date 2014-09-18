@@ -378,7 +378,10 @@ void Fbfm::LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in
 
     save_problems = false;
 
-    printf("node %d: before first barrier\n", UniqueID()); fflush(stdout);
+    int num_nodes = GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes() * GJP.Tnodes();
+    //VRB.Result(cname, fname, "num_nodes = %d\n", num_nodes);
+
+    printf("node %d: before first barrier; num_nodes = %d\n", UniqueID(), num_nodes); fflush(stdout);
     QMP_barrier();
     printf("node %d: after first barrier\n", UniqueID()); fflush(stdout);
 
@@ -387,12 +390,18 @@ void Fbfm::LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in
     int id = UniqueID();
     int num_matrix = GJP.VolNodeSites() * 4;
     sprintf(lat_file, "%s/hmc_lat_part.%d.%d", path, save_number, id);
-    FILE* f = fopen(lat_file, "rb");
-    if (!f) ERR.General(cname, fname, "Couldn't open %s to read lattice.\n", lat_file);
-    int num_read = fread(GaugeField(), sizeof(Matrix), num_matrix, f);
-    if (ferror(f) != 0) ERR.General(cname, fname, "Read lattice: ferror(f) == %d\n", ferror(f));
-    if (num_read != num_matrix) ERR.General(cname, fname, "Read lattice: num_read = %d, num_matrix = %d\n", num_read, num_matrix);
-    fclose(f);
+    for (int n = 0; n < num_nodes; n++) {
+	QMP_barrier();
+	if (n == UniqueID()) {
+	    printf("node %d gets to load its gauge field!\n", n); fflush(stdout);
+	    FILE* f = fopen(lat_file, "rb");
+	    if (!f) ERR.General(cname, fname, "Couldn't open %s to read lattice.\n", lat_file);
+	    int num_read = fread(GaugeField(), sizeof(Matrix), num_matrix, f);
+	    if (ferror(f) != 0) ERR.General(cname, fname, "Read lattice: ferror(f) == %d\n", ferror(f));
+	    if (num_read != num_matrix) ERR.General(cname, fname, "Read lattice: num_read = %d, num_matrix = %d\n", num_read, num_matrix);
+	    fclose(f);
+	}
+    }
 
     printf("node %d: before second barrier\n", UniqueID()); fflush(stdout);
     QMP_barrier();
@@ -405,12 +414,18 @@ void Fbfm::LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in
     int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
     //printf("About to load rhs, f_size = %d\n", f_size);
     sprintf(vec_file, "%s/hmc_checkpoint_rhs.%d.%d", path, save_number, id);
-    f = fopen(vec_file, "rb");
-    if (!f) ERR.General(cname, fname, "Couldn't open %s to read RHS.\n", vec_file);
-    num_read = fread(f_in, sizeof(Float), f_size, f);
-    if (ferror(f) != 0) ERR.General(cname, fname, "Read RHS: ferror(f) == %d\n", ferror(f));
-    if (num_read != f_size) ERR.General(cname, fname, "Read RHS: num_read = %d, f_size = %d\n", num_read, f_size);
-    fclose(f);
+    for (int n = 0; n < num_nodes; n++) {
+	QMP_barrier();
+	if (n == UniqueID()) {
+	    printf("node %d gets to load its RHS!\n", n); fflush(stdout);
+	    FILE* f = fopen(vec_file, "rb");
+	    if (!f) ERR.General(cname, fname, "Couldn't open %s to read RHS.\n", vec_file);
+	    int num_read = fread(f_in, sizeof(Float), f_size, f);
+	    if (ferror(f) != 0) ERR.General(cname, fname, "Read RHS: ferror(f) == %d\n", ferror(f));
+	    if (num_read != f_size) ERR.General(cname, fname, "Read RHS: num_read = %d, f_size = %d\n", num_read, f_size);
+	    fclose(f);
+	}
+    }
 
     printf("node %d: before third barrier\n", UniqueID()); fflush(stdout);
     QMP_barrier();
