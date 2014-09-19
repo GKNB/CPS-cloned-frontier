@@ -1871,6 +1871,9 @@ class DiracOpMobius : public DiracOpWilsonTypes
   // Hantao's operator used to construct Hermitian mobius Dirac op
   void Dminus(Vector *out, Vector *in);
 
+#ifdef USE_QUDA
+  int QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type);
+#endif
 };
 
 

@@ -465,10 +465,28 @@ int DiracOpMobius::MatInv(Vector *out,
   switch (dirac_arg->Inverter) {
   case CG:
     MatPcDag(in, temp);
+#ifdef PROFILE
+    time += dclock();
+    printf("CPU preconditioning time = %1.4e sec\n",time);
+    time_CG = -dclock();
+#endif
+#ifdef USE_QUDA
+    iter = QudaInvert(out, in, true_res, 1);
+#else
     iter = InvCg(out,in,true_res);
+#endif
+#ifdef PROFILE
+    time_CG += dclock();
+    printf("CG running time = %1.4e sec\n",time_CG);
+#endif
     break;
   case BICGSTAB:
+#ifdef USE_QUDA
+    iter = QudaInvert(out, in, true_res, 0);
+#else
     iter = BiCGstab(out,temp,0.0,dirac_arg->bicgstab_n,true_res);
+#endif
+    break;
   case LOWMODEAPPROX :
     MatPcDag(in, temp);
     iter = InvLowModeApprox(out,in, dirac_arg->fname_eigen, dirac_arg->neig, true_res );
