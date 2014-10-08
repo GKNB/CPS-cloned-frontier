@@ -2,7 +2,6 @@
 #define INCLUDED_FBFM_H__
 
 #include<config.h>
-#include <alg/hdcg_arg.h>
 #ifdef USE_BFM
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_mixed_solver.h>
@@ -24,11 +23,8 @@ public:
     static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
     static int nthreads[2];
 
-    static HdcgArg hdcg_arg;
-
     // set true to use single precision BFM object.
     static bool use_mixed_solver;
-    static bool use_hdcg_evl_solver;
 
     bfm_evo<double> bd;
     bfm_evo<float> bf;

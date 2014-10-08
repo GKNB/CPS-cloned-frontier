@@ -425,13 +425,6 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     md_steps++;
     LatticeFactory::Destroy();
 
-    // prepare_fg only does a very small step. So HDCG can probably reuse the
-    // little Dirac operator in evolve():
-    if (Fbfm::hdcg_arg.Control == HdcgRecomputeLdop) {
-	Fbfm::hdcg_arg.Control = HdcgReuseLdop;
-	VRB.Result(cname, fname, "Will reuse little Dirac operator for next HDCG solve!\n");
-    }
-
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
     print_flops(cname, "prepare_fg::cg()", 0, dtime_cg);
