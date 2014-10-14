@@ -7,7 +7,7 @@
 #include<alg/alg_remez.h>
 #else
 
-#if 0
+#ifdef C11
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
