@@ -355,7 +355,7 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		  ugran[index].Reset(new_seed);
 }
 #endif
-#undef RNG_WARMUP
+#define RNG_WARMUP
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran[index].Urand(N_WARMUP,0);

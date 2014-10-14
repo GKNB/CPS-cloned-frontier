@@ -38,7 +38,13 @@ CPS_END_NAMESPACE
 #include <util/verbose.h>
 CPS_START_NAMESPACE
 #ifdef USE_C11_RNG
+#ifdef USE_C11_MT
 typedef   std::mt19937  CPS_RNG;
+typedef u_int32_t RNGSTATE ;
+#else
+typedef   std::ranlux48  CPS_RNG;
+typedef u_int64_t RNGSTATE ;
+#endif
 #endif
 //---------------------------------------------------------------
 //! A random number generator generating uniform random numbers in (0,1)
@@ -280,7 +286,6 @@ public UniformRandomGenerator, public GaussianRandomGenerator
   ones defined in the classes from which this inherits.
 */
 //---------------------------------------------------------------
-typedef u_int32_t RNGSTATE ;
 class LatRanGen
 {
   private:
@@ -302,7 +307,10 @@ class LatRanGen
    std::normal_distribution<Float> grand;
    Float urand_lo=0,urand_hi=1.;
    Float grand_mean=0,grand_sigma=1.;
-   static const int state_size = 625;
+#ifdef USE_C11_MT
+   static const int state_size = 15;
+#else
+#endif
 #else
     UGrandomGenerator *ugran;
     int n_rgen;  // Gives the number of generators (and hypercubes)

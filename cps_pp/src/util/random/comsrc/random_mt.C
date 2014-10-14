@@ -270,7 +270,7 @@ void LatRanGen::Initialize()
 }
 #endif
 //		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
-	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%d\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
+	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
  			mtran[index_4d].seed(start_seed_4d);
 //	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<endl;
 
@@ -291,15 +291,17 @@ void LatRanGen::Initialize()
 		  mtran[index_4d].seed(new_seed);
 }
 #endif
+if (index_4d==0){
 		stringstream mtran_dump;
 		mtran_dump <<mtran[index_4d];
-#if 0
-		std::cout << "mtran["<<index_4d<<"]\n";
-		std::cout << mtran_dump.str();
-		mtran_dump.seekg(0);
+#if 1
+		std::cout << "mtran["<<index_4d<<"]"<<endl;
+		std::cout << mtran_dump.str() << endl;
+		mtran_dump.seekg(0,mtran_dump.beg);
 #endif
+#if 1
 		for (int i_dump=0;i_dump<1000 && !mtran_dump.eof(); i_dump++){
-			uint32_t dump,dump2;
+			RNGSTATE dump,dump2;
 #if 1
 			mtran_dump >> dump;
 #else
@@ -309,8 +311,10 @@ void LatRanGen::Initialize()
 			mtran_dump.get(temp_num,50,' ');
 			sscanf(temp_num,"%d",&dump2);
 #endif
-//			std::cout << i_dump <<" "<< dump<<" "<<dump2 << endl;
+			std::cout << i_dump <<" "<< dump<< endl;
 		}
+#endif
+}
 			index_4d++;
 	      }
 	  }
