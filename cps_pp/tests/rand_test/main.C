@@ -51,6 +51,8 @@ sqr (double x)
   return x * x;
 }
 
+//static const int debug = 0;
+
 #define decode_vml(arg_name)  do{                                       \
         if ( ! arg_name.Decode(#arg_name".vml", #arg_name) )            \
             ERR.General(cname, fname, "Bad " #arg_name ".vml.\n");      \
@@ -71,13 +73,13 @@ main (int argc, char **argv)
   RAN_TYPE ran_type = U_ONE;
 
   if (ran_type == URAND)
-    printf ("Urand(1,-1)\n");
+    VRB.Result(cname,fname,"Urand(1,-1)\n");
   else if (ran_type == GRAND)
-    printf ("Grand()\n");
+    VRB.Result(cname,fname,"Grand()\n");
   else if (ran_type == Z_TWO)
-    printf ("Z2\n");
+    VRB.Result(cname,fname,"Z2\n");
   else if (ran_type == U_ONE)
-    printf ("polar(1.0, ran.Urand(PI,-PI)\n");
+    VRB.Result(cname,fname,"polar(1.0, ran.Urand(PI,-PI)\n");
 
 
   DoArg do_arg;
@@ -86,7 +88,7 @@ main (int argc, char **argv)
   LRG.setSerial ();
   LRG.Initialize ();
 #ifdef MOVE_RNG
-  printf ("Moving RNG via LRG.AssignGenerator()\n");
+  VRB.Result(cname,fname,"Moving RNG via LRG.AssignGenerator()\n");
 #endif
   LRG.Write("LRG_C11_test",1);
 
@@ -97,9 +99,9 @@ main (int argc, char **argv)
   const int Nn = 16;
   const int Ndrop = 1024;
   const int Ntake = 8;
-  printf ("Nt=%d Nn=%d Ndrop=%d Ntake=%d\n", Nt, Nn, Ndrop, Ntake);
-  int repeat=0;
-  while (repeat++ < 100)
+  VRB.Result(cname,fname,"Nt=%d Nn=%d Ndrop=%d Ntake=%d\n", Nt, Nn, Ndrop, Ntake);
+  int repeat=1;
+  while (repeat++ <= 100)
     {
   if (repeat%20==1) LRG.Read("LRG_C11_test",1);
       double sum = 0;
@@ -118,10 +120,11 @@ main (int argc, char **argv)
               if (pos[dir] >= GJP.NodeSites(dir)){
                  pos[dir]=0; pos[dir+1] += 2;
               }
+              if (pos[3] >= GJP.NodeSites(3)) pos[3]=0;
 #ifdef MOVE_RNG
 //	      LRG.AssignGenerator (traj * Nn + id);
 	      LRG.AssignGenerator (pos);
-	if (repeat==1) printf("LRG.AssignGenerator (%d %d %d %d)\n",pos[0],pos[1],pos[2],pos[3]);
+	VRB.Debug(cname,fname,"LRG.AssignGenerator (%d %d %d %d)\n",pos[0],pos[1],pos[2],pos[3]);
 #endif
 	      for (int i = 0; i < Ndrop; i++)
 		{
@@ -136,7 +139,7 @@ main (int argc, char **argv)
 		    {
 		      Complex temp = polar (1.0, LRG.Urand (PI, -PI));
 		      if (traj==0 && i == 0 && id == 0)
-			printf ("i=0 a=%g %g\n", real (temp), imag (temp));
+			VRB.Debug(cname,fname,"i=0 a=%g %g\n", real (temp), imag (temp));
 		      a += temp;
 		    }
 		  else if (ran_type == URAND)
@@ -152,7 +155,7 @@ main (int argc, char **argv)
 		  else
 		    a += LRG.Grand ();
 //		    a += Complex( LRG.Grand (), LRG.Grand() ) ;
-//      if (i==0) printf("traj=%d id=%d i=%d a = %f\n",traj,id,i,temp);
+//      if (i==0) VRB.Result(cname,fname,"traj=%d id=%d i=%d a = %f\n",traj,id,i,temp);
 //        a += temp;
 		}
 	    }
@@ -160,7 +163,7 @@ main (int argc, char **argv)
 	    {
 	      sum += norm (a);
 	      sigma += norm (a) * norm (a);
-	      if (traj==0) printf ("a=%g %g  sum=%g sigma=%g \n", real (a), imag (a),sum,sigma);
+	      if (traj==0) VRB.Debug(cname,fname,"a=%g %g  sum=%g sigma=%g \n", real (a), imag (a),sum,sigma);
               
 	    }
 	  else
