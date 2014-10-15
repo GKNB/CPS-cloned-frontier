@@ -202,8 +202,8 @@ fi
 dnl Are we compiling with SSE?
 AC_ARG_ENABLE(sse, 
 	AC_HELP_STRING([--enable-sse], 
-	[Compile with SSE. (default=yes)]), 
-	,[enable_sse="yes"])
+	[Compile with SSE. (default=no)]), 
+	,[enable_sse="no"])
 AC_MSG_CHECKING([if including SSE])
 AC_MSG_RESULT($enable_sse)
 if test "$enable_target" != "noarch"; then
@@ -223,8 +223,8 @@ dnl Are we compiling with C11?
 AC_ARG_ENABLE(c11, 
 	AC_HELP_STRING([--enable-c11], 
 	[Compile with C11 features. (default=no)]), 
-	,[enable_sse="yes"])
-AC_MSG_CHECKING([if including SSE])
+	,[enable_c11="no"])
+AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
 if test "$enable_c11" != "no"; then
    CFLAGS="${CFLAGS} -std=c++11"

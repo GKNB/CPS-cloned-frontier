@@ -1367,7 +1367,7 @@ Optional Features:
                           (default=no)
   --enable-target         What target are we compiling for? (default=noarch)
   --enable-optimise       Compile with maximum optimisation. (default=yes)
-  --enable-sse            Compile with SSE. (default=yes)
+  --enable-sse            Compile with SSE. (default=no)
   --enable-c11            Compile with C11 features. (default=no)
   --enable-debug          Compile with debug information. (default=yes)
   --enable-cg-dwf         Compile with cg-dwf (default=no)
@@ -4992,7 +4992,7 @@ fi
 if test "${enable_sse+set}" = set; then :
   enableval=$enable_sse;
 else
-  enable_sse="yes"
+  enable_sse="no"
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if including SSE" >&5
@@ -5016,11 +5016,11 @@ fi
 if test "${enable_c11+set}" = set; then :
   enableval=$enable_c11;
 else
-  enable_sse="yes"
+  enable_c11="no"
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if including SSE" >&5
-$as_echo_n "checking if including SSE... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 " >&5
+$as_echo_n "checking if compile with c++11 ... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11" >&5
 $as_echo "$enable_c11" >&6; }
 if test "$enable_c11" != "no"; then
