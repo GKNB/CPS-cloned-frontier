@@ -11,7 +11,10 @@
 // for fdopen, to be checked later and probably should be deprecated with VML
 #undef __STRICT_ANSI__
 #include <cstdio>
+//#include <stdio.h>
 #define __STRICT_ANSI__
+#else
+#include <stdio.h>
 #endif
 #include <limits.h>
 #include <string.h>

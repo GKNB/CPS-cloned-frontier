@@ -269,8 +269,8 @@ void LatRanGen::Initialize()
 		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
 }
 #endif
-//		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
-	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
+	  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
+//	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
  			mtran[index_4d].seed(start_seed_4d);
 //	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<endl;
 
@@ -278,7 +278,7 @@ void LatRanGen::Initialize()
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran_4d[index_4d].Urand(100,0);
-		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
+		VRB.Debug(cname,fname,"index_4d=%d n_warm=%d\n",index_4d,n_warm);
 		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
 }
 #endif
@@ -287,7 +287,7 @@ void LatRanGen::Initialize()
 {
 		std::uniform_int_distribution<> uniform_dist(0,BOOTSTRAP_MAX);
 		int new_seed = uniform_dist(mtran[index_4d]);
-		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
+		VRB.Debug(cname,fname,"index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
 		  mtran[index_4d].seed(new_seed);
 }
 #endif
@@ -483,7 +483,7 @@ IFloat LatRanGen::Lrand()
 */
 int LatRanGen::StateSize() const{
 
-    return state_size;
+    return state_size+2;
     
 }
 
@@ -583,7 +583,8 @@ void LatRanGen::SetAllStates(RNGSTATE *dump) {
 		ss_dump << dump[h*StateSize()+i]<<" ";
         }
 if (!UniqueID()&& h==0){
-	std::cout <<"SetAllState::mtran[0]= "<< ss_dump.str()<<endl;
+//if (!UniqueID()){
+	std::cout <<"SetAllState::mtran["<<h<<"]= "<< ss_dump.str()<<endl;
 	ss_dump.seekg(0);
 }
 	ss_dump >> mtran[h] ;

@@ -219,6 +219,19 @@ if test "$enable_sse" != "no"; then
    DFLAGS="${DFLAGS} -DUSE_SSE"
 fi
 
+dnl Are we compiling with C11?
+AC_ARG_ENABLE(c11, 
+	AC_HELP_STRING([--enable-c11], 
+	[Compile with C11 features. (default=no)]), 
+	,[enable_sse="yes"])
+AC_MSG_CHECKING([if including SSE])
+AC_MSG_RESULT($enable_c11)
+if test "$enable_c11" != "no"; then
+   CFLAGS="${CFLAGS} -std=c++11"
+   CXXFLAGS="${CXXFLAGS} -std=c++11"
+   DFLAGS="${DFLAGS} -DC11 -DUSE_C11_RNG -DUSE_C11_MT"
+fi
+
 
 dnl -Og flag should overide any previous optimisation declarations
 AC_ARG_ENABLE(debug, 

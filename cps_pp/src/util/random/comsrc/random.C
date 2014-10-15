@@ -38,6 +38,8 @@ CPS_END_NAMESPACE
 #include <comms/sysfunc_cps.h>
 CPS_START_NAMESPACE
 
+#undef BOOTSTRAP
+#define RNG_WARMUP
 
 static const int OFFSET = 23;
 static const int N_WARMUP = 1000;
@@ -347,7 +349,6 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 //		  Fprintf(stderr,"%d %d %d %d %d",x[0],x[1],x[2],x[3],x[4]);
 		  VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
 		  ugran[index].Reset(start_seed);
-#undef BOOTSTRAP
 #ifdef BOOTSTRAP
 {
 		int new_seed = ugran[index].Urand(1000000000,0);
@@ -355,7 +356,6 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		  ugran[index].Reset(new_seed);
 }
 #endif
-#define RNG_WARMUP
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran[index].Urand(N_WARMUP,0);

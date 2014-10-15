@@ -308,8 +308,9 @@ class LatRanGen
    Float urand_lo=0,urand_hi=1.;
    Float grand_mean=0,grand_sigma=1.;
 #ifdef USE_C11_MT
-   static const int state_size = 15;
+   static const int state_size = 625;
 #else
+   static const int state_size = 15;
 #endif
 #else
     UGrandomGenerator *ugran;
