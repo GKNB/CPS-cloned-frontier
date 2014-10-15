@@ -11,6 +11,7 @@
 #include <util/error.h>
 #include <math.h>
 #include <util/qcdio.h>
+#include <cmath>
 //#include <alg/matrixpolynomial_arg.h>
 #include <util/time_cps.h>
 
@@ -389,7 +390,7 @@ int DiracOp::ImpResLanczos(Vector **V, //Lanczos vectors, eigenvectors of RitzMa
 	if( rnorm < StopRes ) Ndone++;
 	VRB.Result(cname,fname, "Residual %d %d %e lambda %e %e %e\n",it, k, 
 		   rnorm, alp, shifts[k], alpha[k]);
-	if(::isnan(rnorm)) 
+	if(std::isnan(rnorm)) 
           ERR.General(cname,fname, "Residual is nan\n"); 
 	// save eigenvalues/vectors so don't have to recompute in final conv. check
 	//if(it==MaxIters)alpha[k] = alp;

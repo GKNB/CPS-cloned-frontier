@@ -66,7 +66,11 @@ void LatRngRead::read(RNGSTATE *mtran_dump,
 
 
   if(isRoot()) {
-    if(hd.datatype != "LATTICE_RNG_C11_MT19937"){  // need both 5d & 4d
+#ifdef USE_C11_MT
+    if(hd.datatype != "LATTICE_RNG_C11_MT19937"){ 
+#else
+    if(hd.datatype != "LATTICE_RNG_C11_RANLUX48"){
+#endif
       VRB.Flow(cname,fname,"Invalid RNG type: %s\n",hd.datatype.c_str());
       error = 1;
     }

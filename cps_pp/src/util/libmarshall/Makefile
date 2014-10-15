@@ -5,5 +5,5 @@ BGQ_DIR = noarch
 QCDOC_DIR = qcdoc
 QCDOC_SERIAL_DIR = qcdoc
 NOARCH_DIR = noarch
-#include ../../../Makefile.rules
-include ../../../Makefile.noc11
+include ../../../Makefile.rules
+#include ../../../Makefile.noc11
