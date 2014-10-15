@@ -4,20 +4,20 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgLanczos class.
   
-  $Id: alg_lanczos.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
+  $Id: alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_lanczos/alg_lanczos.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: alg_lanczos.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2009/03/23 19:13:32 $
+//  $Header: /space/cvs/cps/cps++/src/alg/alg_lanczos/alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
+//  $Id: alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
+//  $Name: v5_0_8_eigCG_Qi $
 //  $Locker:  $
 //  $RCSfile: alg_lanczos.C,v $
-//  $Revision: 1.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_lanczos/alg_lanczos.C,v $
+//  $Revision: 1.25 $
+//  $Source: /space/cvs/cps/cps++/src/alg/alg_lanczos/alg_lanczos.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -50,7 +50,7 @@ CPS_START_NAMESPACE
 
 #include <iostream>
 #include <fstream>
-#include <iomanip>
+//#include <iomanip>
 using namespace std;
 
 extern void gamma_5(Float *v_out, Float *v_in, int num_sites);
@@ -121,26 +121,11 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   int m = nk+np;
   int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
 
-#if 0
-  if( (ecache=EigenCacheListSearch(cachename))==0 ){
- 
-    lambda = (Float *) smalloc(cname,fname, "eval", m * sizeof(Float));
-    eigenv = (Vector **) smalloc(cname,fname, "evec", m * sizeof(Vector*));
-    // We have to use the sequencial area of memory to be consistent with the lanczos routine in the dirac operator.
-    int f_totsize=m* f_size; // m*GJP.VolNodeSites() * lattice.FsiteSize() / 2 ;
-    Float* tmpalloc= (Float*) smalloc(cname,fname,"evec[...]",
-  				    f_totsize* sizeof(Float));
-    for(int i=0;i<m;i++)
-      eigenv[i] = (Vector*)( tmpalloc + i* (f_totsize/m));
-  }else{
-    printf("AlgLanczos::run using cache n=%d name=%s\n",m,filename);
-    lambda = ecache->eval_address();
-    eigenv = ecache->evec_address();
-  }
-#endif
-
   lambda = ecache->eval_address();
-  eigenv = ecache->evec_address();
+  // eigenvectors are stored in cache. Pass along addresses.
+  eigenv = (Vector**)smalloc(m*sizeof(Vector*));
+  for(int i=0;i<m;++i) eigenv[i] = ecache->vec_ptr(i);
+
 
   if(!(  (lanczos_arg -> RitzMat_lanczos == MATPCDAG_MATPC 
 	  || lanczos_arg -> RitzMat_lanczos == MATPCDAG_MATPC_SHIFT )
@@ -169,9 +154,18 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
     // set the initial vector 
     int nodes = GJP.Nodes(0)*GJP.Nodes(1)*GJP.Nodes(2)*GJP.Nodes(3)*GJP.Nodes(4);
     for(int n=0;n<f_size;n+=2){
-      *((Float*)(eigenv[0])+n) = sqrt(2.0/(Float)(nodes*f_size));
-      *((Float*)(eigenv[0])+1+n) = 0.0;
+      *((float*)(eigenv[0])+n) = (float)(sqrt(2.0)/sqrt((float)nodes)/sqrt((float)f_size));
+      *((float*)(eigenv[0])+1+n) = 0.0;
+    }
+#if 0
+    if(!UniqueID()){printf("Nodes: %d %d %d %d %d %d\n",GJP.Nodes(0),GJP.Nodes(2),GJP.Nodes(2),GJP.Nodes(3),GJP.Nodes(4),nodes);};
+    if(!UniqueID()){printf("f_zise: %d\n",f_size);};
+    for(int n=0;n<f_size;n+=2){
+	printf("evec0 %d %d %e %e\n",
+	UniqueID(),n,
+	*((float*)(eigenv[0])+n),*((float*)(eigenv[0])+n+1));
     } 
+#endif
   }else
     // ----------- experiment ------------------------
     // try the linear conbination of eigenvector as an initial vector
@@ -248,7 +242,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   char* field_type_label = "n/a";
 
   const int n_fields =  GJP.SnodeSites();  //   *nk ; 
-  const int f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  * Ncb / 2;
+  const int f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  * Ncb / 2 / 2; // 2nd two is for float!
 
   // write to disk if desired, confirm save in cache
   char filename[1024];
@@ -278,6 +272,9 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
     sfree(cname,fname,"lambda", lambda);
   }
 #endif
+
+  // free temp pointer to evecs. Still stored in cache.
+  sfree(cname,fname, "eigenv", eigenv);
 
   VRB.Result(cname,fname,"Lanczos iterations %d\n",iter);
 }

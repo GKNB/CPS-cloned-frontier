@@ -131,13 +131,10 @@ AlgHmc::~AlgHmc() {
   -# Maximum solver residue
 */
 //------------------------------------------------------------------
-Float AlgHmc::run(void)
+Float AlgHmc::run(int if_met)
 {
   char *fname = "run()";
 
-#if TARGET==cpsMPI
-  using MPISCU::fprintf;
-#endif
 
   int accept;
 
@@ -185,7 +182,7 @@ Float AlgHmc::run(void)
 
       //!< Calculate initial Hamiltonian
       wilson_set_sloppy( false);
-      h_init = integrator->energy();
+      if (if_met) h_init = integrator->energy();
 //      Float total_h_init =h_init;
 //      glb_sum(&total_h_init);
 
@@ -208,7 +205,8 @@ Float AlgHmc::run(void)
 #endif
 
       //!< Calculate final Hamiltonian
-      h_final = integrator->energy();
+if (if_met){ 
+	h_final = integrator->energy();
 //      Float total_h_final =h_final;
 //      glb_sum(&total_h_final);
 
@@ -226,6 +224,7 @@ Float AlgHmc::run(void)
 	lat.SoCheck(delta_h);
 	LatticeFactory::Destroy();
       }
+}
 
       if ( !(test == 0 && attempt ==0) ){
         shiftStates(-SHIFT_X,-SHIFT_Y,-SHIFT_Z,0);
@@ -239,12 +238,6 @@ Float AlgHmc::run(void)
       if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
 	integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
-
-#ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
-  printf("SCU checksum test\n");
-  if ( ! ScuChecksum::CsumSwap() )
-    ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
-#endif
 
 	h_delta = h_final - integrator->energy();
 	glb_sum(&h_delta);

@@ -1,4 +1,5 @@
 #include<config.h>
+#ifndef USE_C11_RNG
 CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
@@ -32,9 +33,16 @@ CPS_END_NAMESPACE
 #include <util/error.h>
 #include <util/latrngio.h>
 #include <util/data_shift.h>
+#include <util/time_cps.h>
 #include <comms/glb.h>
 #include <comms/sysfunc_cps.h>
 CPS_START_NAMESPACE
+
+#undef BOOTSTRAP
+#define RNG_WARMUP
+
+static const int OFFSET = 23;
+static const int N_WARMUP = 1000;
 
 int  RandomGenerator::MBIG  = 1000000000;
 IFloat  RandomGenerator::FAC = 1.0E-09;			// 1.0/MBIG
@@ -249,7 +257,7 @@ void LatRanGen::Initialize()
     for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
     for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
 
-      start_seed += 23;
+      start_seed += OFFSET;
       ugran[index++].Reset(start_seed);
       if ( x[4] == 0 ) ugran_4d[index_4d++].Reset(start_seed);
 
@@ -296,7 +304,7 @@ void LatRanGen::Initialize()
 	GJP.YnodeCoor() + GJP.Ynodes()* (
 	GJP.ZnodeCoor() + GJP.Znodes()* (
 	GJP.TnodeCoor() + GJP.Tnodes()*  GJP.SnodeCoor() )));
-      base_seed = base_seed + 23 * node;
+      base_seed = base_seed + OFFSET * node;
   }
 #endif
 
@@ -318,21 +326,62 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		     GJP.StartSeedKind()==START_SEED_INPUT||
 		     GJP.StartSeedKind()==START_SEED_FIXED){
 		      start_seed = base_seed
-			  + 23 * (x[0]/2 + vx[0]*
+			  + OFFSET * (x[0]/2 + vx[0]*
 				 (x[1]/2 + vx[1]*
 				 (x[2]/2 + vx[2]*
 				 (x[3]/2 + vx[3]*(x[4]/2+1) ))));
 		      start_seed_4d = base_seed
-			  + 23 * (x[0]/2 + vx[0]*
+			  + OFFSET * (x[0]/2 + vx[0]*
 				 (x[1]/2 + vx[1]*
 				 (x[2]/2 + vx[2]*(x[3]/2) )));
 		  }
+#if 0
+{
+//	volatile int temp = ((int) (dclock()/1000.0))%1000;
+		volatile int temp = rand()%1000;
+		start_seed += temp;
+		printf("%g temp start_seed = %d %d" ,dclock(),temp,start_seed);
+		temp = rand()%1000;
+		start_seed_4d += temp;
+		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
+}
+#endif
 //		  Fprintf(stderr,"%d %d %d %d %d",x[0],x[1],x[2],x[3],x[4]);
 		  VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
-		  ugran[index++].Reset(start_seed);
+		  ugran[index].Reset(start_seed);
+#ifdef BOOTSTRAP
+{
+		int new_seed = ugran[index].Urand(1000000000,0);
+		printf("index=%d start_seed=%d new_seed=%d\n",index,start_seed,new_seed);
+		  ugran[index].Reset(new_seed);
+}
+#endif
+#ifdef RNG_WARMUP
+{
+		int n_warm = ugran[index].Urand(N_WARMUP,0);
+		printf("index=%d n_warm=%d\n",index,n_warm);
+		while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
+}
+#endif
+		  index++;
 		  if(x[4]==x_o[4]){
 		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
- 			ugran_4d[index_4d++].Reset(start_seed_4d);
+ 			ugran_4d[index_4d].Reset(start_seed_4d);
+#ifdef RNG_WARMUP
+{
+		int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
+		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
+		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
+}
+#endif
+#ifdef BOOTSTRAP
+{
+		int new_seed = ugran[index_4d].Urand(1000000000,0);
+		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
+		  ugran_4d[index_4d].Reset(new_seed);
+}
+#endif
+			index_4d++;
 		  }
 	      }
 	  }
@@ -619,3 +668,4 @@ void LatRanGen::Shift()
    GDS.Shift(ugran_4d, n_rgen_4d*sizeof(UGrandomGenerator));
 }
 CPS_END_NAMESPACE
+#endif

@@ -1,4 +1,5 @@
 #include<config.h>
+#ifndef C11
 CPS_START_NAMESPACE 
 //------------------------------------------------------------------
 /*!\file
@@ -1216,3 +1217,4 @@ void AlgHmcRHMC::dynamicalApprox()
 
 
 CPS_END_NAMESPACE
+#endif

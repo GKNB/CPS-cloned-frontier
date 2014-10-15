@@ -1,4 +1,9 @@
 #include<config.h>
+#include<string.h>
+#include<string>
+#include<sys/stat.h>
+#include<errno.h>
+#include<stdio.h>
 CPS_START_NAMESPACE 
 //------------------------------------------------------------------
 //
@@ -42,6 +47,7 @@ void AlgMomentum::heatbath() {
 
   const char *fname = "heatbath()";
   Float dtime = -dclock();
+  VRB.Result(cname, fname, " called\n");
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   lat.RandGaussAntiHermMatrix(mom, 1.0);
@@ -56,11 +62,51 @@ void AlgMomentum::heatbath() {
   print_flops(cname, fname, 0, dtime);
 }
 
+//mom = (Matrix*)smalloc(g_size*sizeof(Float),"mom",fname,cname);
+void AlgMomentum::SaveState(std::string name){
+  const char *fname = "SaveState()";
+  VRB.Func(cname,fname);
+    std::stringstream dirname;
+    dirname << name;
+    CPS_NAMESPACE::sync();
+//    if(!UniqueID())
+    if(mkdir((dirname.str()).c_str(),0777)!=0 && errno != EEXIST)
+      ERR.General(cname,fname,"cannot create directory %s\n",(dirname.str()).c_str());
+    CPS_NAMESPACE::sync();
+    //ugly, but C++ file io is very slow on some systems
+    std::stringstream filename;
+    filename <<dirname.str()<<"/"<<dirname.str();
+    VRB.Result(cname,fname,"opening %s\n",(filename.str()).c_str());
+#if 1
+    FILE *fp = Fopen(ADD_ID,(filename.str()).c_str(),"w");
+    Fwrite(mom,sizeof(Float),g_size,fp);
+    Fclose(fp);
+#endif
+}
+
+void AlgMomentum::LoadState(std::string name){
+  const char *fname = "LoadState()";
+  VRB.Func(cname,fname);
+    std::stringstream dirname;
+    dirname << name;
+    //ugly, but C++ file io is very slow on some systems
+    std::stringstream filename;
+    filename <<dirname.str()<<"/"<<dirname.str();
+    VRB.Result(cname,fname,"opening %s\n",(filename.str()).c_str());
+#if 1
+    FILE *fp = Fopen(ADD_ID,(filename.str()).c_str(),"r");
+    Fread(mom,sizeof(Float),g_size,fp);
+    Fclose(fp);
+#endif
+}
+
 //!< Calculate gauge contribution to the Hamiltonian
 Float AlgMomentum::energy() {
   Float dtime = -dclock();
 
+
   const char *fname = "energy()";
+  VRB.Result(cname, fname, " called\n");
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
   LatticeFactory::Destroy();
@@ -76,6 +122,8 @@ void AlgMomentum::evolve(Float dt, int steps)
 {
   const char *fname = "evolve()";
   Float dtime = -dclock();
+
+  VRB.Result(cname, fname, " called\n");
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   for (int i=0; i<steps; i++) lat.EvolveGfield(mom, dt);

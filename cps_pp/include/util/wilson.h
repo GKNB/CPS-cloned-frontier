@@ -41,7 +41,12 @@ CPS_START_NAMESPACE
 /*--------------------------------------------------------------------------*/
 /* Definitions                                                              */
 /*--------------------------------------------------------------------------*/
-#define ND                 4      //!< Number of space-time dimensions.
+//#define ND                 4      //!< Number of space-time dimensions.
+const int ND = 4;
+const int SPINOR_SIZE = 24;
+const int HALF_SPINOR_SIZE = 12;
+const int GAUGE_SIZE = 72;
+#if 0
 #define SPINOR_SIZE        24     //!< Number of floating-point numbers in a Dirac spinor.
 #define HALF_SPINOR_SIZE   12     //!< Number of floating-point numbers in half a Dirac spinor.
 #if TARGET != BGL && TARGET != BGP
@@ -50,6 +55,7 @@ CPS_START_NAMESPACE
 #define BLOCK   HALF_SPINOR_SIZE  //!< Number of floating-point numbers in a two-spinor.
 #define COLUMN_SPINOR_SIZE  6     //!< Number of floating-point numbers in a colour vector.
 #define GAUGE_SIZE         72     //!< Number of floating-point numbers in a colour matrix.
+#endif
 
 /*--------------------------------------------------------------------------*/
 /* External                                                                 */

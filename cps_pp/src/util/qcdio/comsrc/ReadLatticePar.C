@@ -2,6 +2,7 @@
 #include <math.h>
 #include <util/ReadLatticePar.h>
 #include <util/time_cps.h>
+#include <assert.h>
 
 #ifdef USE_QMP
 #include <qmp.h>
@@ -47,15 +48,16 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     ERR.FileR(cname, fname, rd_arg.FileName);
   log();
 
-#ifndef USE_QMP
-	int temp_start = hd.data_start;
-	broadcastInt(&temp_start);
-	hd.data_start = temp_start;
+#ifdef USE_QMP
+  QMP_broadcast(&hd.data_start, sizeof(streamoff));
 #else
-  QMP_broadcast(&hd.data_start, sizeof(long));
+  assert(sizeof(int) == sizeof(streamoff));
+  int temp_start = hd.data_start;
+  broadcastInt(&temp_start);
+  hd.data_start = temp_start;
+#endif
   broadcastInt(&hd.recon_row_3);
   //  cout << "recon_row_3 = " << hd.recon_row_3 << endl;
-#endif
 
 
 

@@ -71,7 +71,7 @@ int main(int argc,char *argv[]){
 
 
 
-  VRB.Deactivate_level(VERBOSE_RNGSEED_LEVEL);
+  VRB.DeactivateLevel(VERBOSE_RNGSEED_LEVEL);
 
   //----------------------------------------------------------------
   // Get all of the seeds:

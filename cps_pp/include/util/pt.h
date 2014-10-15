@@ -99,13 +99,15 @@ class ParTrans
   Matrix *gauge_field;             //!< Pointer to the gauge field.
   static int node_sites[5];
   static int bc[4];
+  int bc_already_applied;
 
  public:
+  enum {XP=0,XM=1,YP=2,YM=3,ZP=4,ZM=5,TP=6,TM=7};
 
   static int scope_lock;           // lock that forbids more than
                                    // one ParTrans object to be on
                                    // scope at any time.
-  static int PTflops;              //! Count the flops 
+  static double PTflops;              //! Count the flops 
 
   ParTrans(Lattice& latt);         
 
@@ -398,6 +400,9 @@ class ParTransWilsonTypes : public ParTrans
   ParTransWilsonTypes(Lattice& latt);            // Lattice object.
 
   virtual ~ParTransWilsonTypes();
+
+  void run(int n, Matrix **mout, Matrix **min, const int *dir )
+    { pt_mat(n,(IFloat **)mout, (IFloat **)min, dir);}
 
 };
 

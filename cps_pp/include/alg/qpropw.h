@@ -281,6 +281,24 @@ public:
 };
   
 
+// read in a prop with SrcType
+class QPropWRead : public QPropW {
+
+  SourceType src_type;
+
+public:
+  
+  // CONSTRUCTORS
+  QPropWRead(Lattice& lat, QPropWArg* arg, CommonArg* c_arg, SourceType src_type);
+
+  SourceType SrcType() { return src_type; }
+};
+
+
+
+
+
+
 
 class QPropWWallSrc : public QPropW {
 
@@ -451,6 +469,8 @@ public:
   // will be used. CHECK it!!!
   //    QPropWPointSrc(const QPropWPointSrc& rhs);
   QPropWPointSrc(Lattice& lat, QPropWArg* arg, CommonArg* c_arg);
+  // use for reading in prop:
+  QPropWPointSrc(Lattice& lat, QPropWArg* arg, CommonArg* c_arg, char* dummy);
   
   void SetSource(FermionVectorTp& src, int spin, int color);
   SourceType SrcType() { return POINT; }

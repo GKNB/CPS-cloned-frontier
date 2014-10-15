@@ -926,6 +926,7 @@ void FermionVectorTp::GaussianSmearVector(Lattice& lat,
 
   //multiply  fv by 1000. Makes the source a little larger to preven
   //numerical instabilities
+#if 0
   for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
     for(x[1] = 0; x[1] < nx[1]; ++x[1]) {
       for(x[2] = 0; x[2] < nx[2]; ++x[2]) {
@@ -938,6 +939,7 @@ void FermionVectorTp::GaussianSmearVector(Lattice& lat,
       }
     }
   }
+#endif
 
 #ifdef DEBUG_GAUSS_SMEAR
 Float nn = 0 ;
@@ -1186,6 +1188,7 @@ void FermionVectorTp::GaussianSmearVector(Lattice& lat,
 
   //multiply  fv by 1000. Makes the source a little larger to preven
   //numerical instabilities
+#if 0
   for(x[3]=0;x[3]<GJP.TnodeSites();x[3]++) {
   for(x[0] = 0; x[0] < nx[0]; ++x[0]) {
     for(x[1] = 0; x[1] < nx[1]; ++x[1]) {
@@ -1200,6 +1203,7 @@ void FermionVectorTp::GaussianSmearVector(Lattice& lat,
     }
   }
   }
+#endif 
 
 #ifdef DEBUG_GAUSS_SMEAR
 Float nn = 0 ;

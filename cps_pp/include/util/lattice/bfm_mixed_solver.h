@@ -5,7 +5,9 @@
 #include <util/lattice/bfm_evo.h>
 #include <alg/enum_int.h>
 
+#ifdef USE_CHROMA
 #include <chroma.h>
+#endif
 #include <omp.h>
 #include <pthread.h>
 

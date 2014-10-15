@@ -201,6 +201,9 @@ void convert2file(char *fsite, char *msite,
                             data_per_site / 4);
         }
     } else { // rng
+#ifdef USE_C11_RNG
+        dconv.host2file(fsite, msite, data_per_site);
+#else
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
         ugran->store(rng.IntPtr());
         dconv.host2file(fsite, rng, data_per_site);
@@ -210,6 +213,7 @@ void convert2file(char *fsite, char *msite,
         *Rand2Sum += rn*rn;
         // recover
         ugran->load(rng.IntPtr());
+#endif
     }
 }
 
@@ -230,6 +234,9 @@ void convert2mem(char *fsite, char *msite,
                             data_per_site / 4);
         }
     } else { // rng
+#ifdef USE_C11_RNG
+        dconv.file2host(msite, fsite, data_per_site);
+#else
         dconv.file2host(rng, fsite, data_per_site);
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
         ugran->load(rng.IntPtr());
@@ -239,6 +246,7 @@ void convert2mem(char *fsite, char *msite,
         *Rand2Sum += rn*rn;
         // recover
         ugran->load(rng.IntPtr());
+#endif
     }
 }
 

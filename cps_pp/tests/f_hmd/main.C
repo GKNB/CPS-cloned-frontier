@@ -37,11 +37,6 @@ int main(int argc,char *argv[])
   FILE *fp;
   Float temp;
 
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-    using MPISCU::printf;
-#endif
-
   Start();
 
 
@@ -90,9 +85,6 @@ int main(int argc,char *argv[])
   if(SAVE_DOARG)
   do_arg.Encode("do_arg.out", "do_arg");
 
-#if TARGET==cpsMPI
-    MPISCU::set_pe_grid(do_arg.x_nodes, do_arg.y_nodes, do_arg.z_nodes, do_arg.t_nodes);    
-#endif
   
   GJP.Initialize(do_arg);
 

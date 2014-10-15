@@ -13,12 +13,12 @@
 
 #include <stdio.h>
 #include <bfm.h>
+#include <bfm_linalg.h>
 #include <bfm_qdp.h>
 #include <omp.h>
 #include <math.h>
 #include <vector>
 #include "bfm_evo_aux.h"
-#include <BfmMultiGrid.h>
 
 // FIXME: it inherits from bfm_qdp for the sole reason of using its
 // importGauge() function. I'm too lazy to do any manual
@@ -76,17 +76,18 @@ private:
 
   void copySendFrmData(Float v3d[], Float v4d[], int mu, bool send_neg);
 
-#if 0
   // complex version of axpy()
+ #if 0
   void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp) {
     this->zaxpy(r, x, y, a);
   }
 #endif
-
+ #if 1
 void zaxpy(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a)
 {
    this->caxpy(r,x,y,std::real(a),std::imag(a));
 }
+#endif
 public:
   void thread_work_partial_nobarrier(int nwork, int me, int nthreads,
                                      int &mywork, int &myoff)
@@ -155,6 +156,8 @@ public:
 
   template<typename FloatEXT>
   void cps_importGauge(FloatEXT *importme);
+  //template<typename FloatEXT>
+  //void cps_importGauge(FloatEXT *importme, int dir);
 
   //EigCG
   Fermion_t allocCompactFermion   (int mem_type=mem_slow);
@@ -163,48 +166,6 @@ public:
   void threaded_free(void *handle);
   int EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2]);
   int Eig_CGNE_prec(Fermion_t psi, Fermion_t src);
-//template <class hdFloat>
-//  int HD_CGNE_M(BfmMultiGrid<hdFloat> &hdcg, Fermion_t solution[2], Fermion_t source[2])
-template<class Float_h>
-int HD_CGNE_M(BfmMultiGrid<Float_h> *hdcg, Fermion_t solution[2], Fermion_t source[2])
-{
-    int me = this->thread_barrier();
-    if ( this->isBoss()  && (me==0) ) {
-         printf("HD_CGME_M started\n");
-    }
-    Fermion_t src = this->threadedAllocFermion(); 
-    Fermion_t tmp = this->threadedAllocFermion(); 
-    Fermion_t Mtmp= this->threadedAllocFermion(); 
-
-    // src_o = Mdag * (source_o - Moe MeeInv source_e)
-#if 1
-    this->MooeeInv(source[Even],tmp,DaggerNo);
-    this->Meo(tmp,src,Odd,DaggerNo);
-    this->axpy(tmp,src,source[Odd],-1.0);
-    this->Mprec(tmp,src,Mtmp,DaggerYes);  
-#endif
-  
-    if (this->isBoss() && !me) printf("hdcg.Pcg(solution[%d](%p),src(%p),tmp(%p)\n",Odd,solution[Odd],src,tmp);
-    int iter = hdcg->Pcg(solution[Odd],src,tmp);
-//    int iter = this->HD_CGNE_prec(solution[Odd], src);
-
-    // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
-#if 1
-    this->Meo(solution[Odd],tmp,Even,DaggerNo);
-    this->axpy(src,tmp,source[Even],-1.0);
-    this->MooeeInv(src,solution[Even],DaggerNo);
-  
-    this->threadedFreeFermion(tmp);
-    this->threadedFreeFermion(src);
-    this->threadedFreeFermion(Mtmp);
-#endif
-    if ( this->isBoss()  && (me==0) ) {
-         printf("HD_CGME_M finished! iter=%d\n",iter);
-    }
-
-    return iter;
-}
-//  int HD_CGNE_prec(Fermion_t psi, Fermion_t src);
 
   // copied from Jianglei's bfm
   double CompactMprec(Fermion_t compact_psi,
@@ -514,6 +475,8 @@ static inline int idx_5d_surf(const int x[5], const int lx[5], int mu) {
   return ret;
 }
 
+
+#if 1
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
 {
@@ -560,6 +523,7 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   // to bfm
   this->importGauge(U);
 }
+#endif
 
 template <class Float>
 void bfm_evo<Float>::calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
@@ -605,14 +569,14 @@ void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
       // Assemble the 5d matrix
       for(int s=0;s<this->Ls;s++){
         if ( s==0 ) {
-          axpby_ssp_proj(chi,this->beo[s],psi,   -this->ceo[s+1]  ,psi,s,s+1,Pplus);
-          axpby_ssp_proj(chi,   1.0,chi,this->mass*this->ceo[this->Ls-1],psi,s,this->Ls-1,Pminus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,   -this->ceo[s+1]  ,psi,s,s+1,Pplus);
+          this->axpby_ssp_proj(chi,   1.0,chi,this->mass*this->ceo[this->Ls-1],psi,s,this->Ls-1,Pminus);
         } else if ( s==(this->Ls-1)) { 
-          axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[0],psi,s,0,Pplus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[0],psi,s,0,Pplus);
+          this->axpby_ssp_proj(chi,1.0,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
         } else {
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s+1],psi,s,s+1,Pplus);
-          axpby_ssp_proj(chi,1.0   ,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s+1],psi,s,s+1,Pplus);
+          this->axpby_ssp_proj(chi,1.0   ,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
         }
       }
 
@@ -623,19 +587,23 @@ void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
         if ( s==0 ) {
           //	chi = bs psi[s] + cs[s] psi[s+1}
           //    chi += -mass*cs[s] psi[s+1}
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi ,s, s+1,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,this->mass*this->ceo[s],psi,s,this->Ls-1,Pplus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi ,s, s+1,Pminus);
+          this->axpby_ssp_proj(chi,1.0,chi,this->mass*this->ceo[s],psi,s,this->Ls-1,Pplus);
         } else if ( s==(this->Ls-1)) { 
-          axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[s],psi,s,0,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[s],psi,s,0,Pminus);
+          this->axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
         } else {
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi,s,s+1,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
+          this->axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi,s,s+1,Pminus);
+          this->axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
         }
       }
     }
   } else if(this->solver == DWF && this->precon_5d == 1) {
     // Booee is the identity matrix in this case.
+    this->copy(chi, psi);
+    return;
+  } else if(this->solver == WilsonFermion || this->solver == WilsonTM) {
+    // This case added by Greg -- hopefully it is right?
     this->copy(chi, psi);
     return;
   } else {

@@ -1,5 +1,5 @@
 /*
-  $Id: main.C,v 1.12.30.1 2007/07/19 04:26:03 chulwoo Exp $
+$Id: main.C,v 1.12.30.1 2007/07/19 04:26:03 chulwoo Exp $
 */
 
 #include<omp.h>
@@ -99,9 +99,9 @@ for(int  i = 0;i<100;i++){
     do_arg.dwf_height = 1.8;
     do_arg.clover_coeff = 2.0171;
 #ifdef USE_CG_DWF
-    do_arg.verbose_level = -120205;
+    do_arg.verbose_level = -1202;
 #else
-    do_arg.verbose_level = -120205;
+    do_arg.verbose_level = -1202;
 #endif
 
     do_arg.asqtad_KS = (1.0/8.0)+(6.0/16.0)+(1.0/8.0);
@@ -118,6 +118,8 @@ for(int  i = 0;i<100;i++){
     cg_arg.max_num_iter++;
 #endif
     GJP.Initialize(do_arg);
+	for(int i =0; i<argc;i++)
+	VRB.Result("","main()","argv[%d]=%s\n",i,argv[i]);
 
    
     wilson_set_sloppy(false);
@@ -141,15 +143,15 @@ for(int  i = 0;i<100;i++){
     DiracOpDwf dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
 	run_inv(lat,dirac,WILSON,NULL,0);
 }
-#endif
 
     wilson_set_sloppy(true);
 for(int i = 0;i<1;i++)
 {
-    GwilsonFdwf lat;
-    DiracOpDwf dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
+    GwilsonFmobius lat;
+    DiracOpDmobius dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
 	run_inv(lat,dirac,WILSON,NULL,1);
 }
+#endif
 	
 	
 
@@ -181,9 +183,9 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 	memset(X_in,0,GJP.VolNodeSites()*lat.FsiteSize()*sizeof(IFloat));
 #if 1
 	lat.RandGaussVector(X_in,1.0);
-#else
+#endif
 
-//    lat.RandGaussVector(X_in,1.0);
+	if (0){
     Matrix *gf = lat.GaugeField();
     IFloat *gf_p = (IFloat *)lat.GaugeField();
     int fsize = lat.FsiteSize()/s_size;
@@ -198,7 +200,7 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 		    int n = lat.FsiteOffset(s)+s[4]*GJP.VolNodeSites();
 
 		int crd=1.;
-		  if(CoorX()==0 && CoorY()==0 && CoorZ()==0 && CoorT()==0) crd=1.0; else crd = 0.0;
+		  if(CoorX()==0 && CoorY()==0 && CoorZ()==0 && CoorT()==0) crd=1.0; else crd = 0.;
 		  if(s[0]!=0 ) crd = 0.;
 		  if(s[1]!=0 ) crd = 0.;
 		  if(s[2]!=0 ) crd = 0.;
@@ -207,12 +209,13 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 					
 			IFloat *X_f = (IFloat *)(X_in)+(n*fsize);
 		    for(int v=0; v<fsize ; v+=1){ 
-			if (v==0)  *(X_f+v) = crd;
+			if (v<2)  
+				*(X_f+v) *= crd;
 			else
-			*(X_f+v) = 0;
+				*(X_f+v) = 0;
 		    }
 		}
-#endif
+	}
 
     Vector *out;
     Float true_res;
@@ -233,8 +236,8 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
    		int iter = dirac.MatInv(result,X_in,&true_res,PRESERVE_YES);
 		dtime +=dclock();
 #else
-		dirac.Dslash(result,X_in+offset,CHKB_EVEN,DAG_NO);
-		dirac.Dslash(result+offset,X_in,CHKB_ODD,DAG_NO);
+		dirac.Dslash(result,X_in+offset,CHKB_EVEN,DAG_YES);
+		dirac.Dslash(result+offset,X_in,CHKB_ODD,DAG_YES);
 #endif
 
 //if (DO_CHECK){
@@ -281,7 +284,7 @@ if(DO_IO){
 			CoorS()*GJP.NodeSites(4)+s[4], 
 			i, n);
 		    if ( k==0 )
-				Fprintf(ADD_ID, fp," ( %0.7e %0.7e ) (%0.7e %0.7e)",
+				Fprintf(ADD_ID, fp," ( %0.3e %0.3e ) (%0.3e %0.3e)",
 				*((IFloat*)&result[n]+i*2), *((IFloat*)&result[n]+i*2+1),
 				*((IFloat*)&X_in[n]+i*2), *((IFloat*)&X_in[n]+i*2+1));
 #if 0

@@ -1,4 +1,5 @@
 #include<config.h>
+#ifndef C11
 #ifdef HAVE_STRINGS_H
 #include <strings.h>
 #endif
@@ -734,3 +735,4 @@ Float AlgHmcPhi::run(void)
 }
 
 CPS_END_NAMESPACE
+#endif
