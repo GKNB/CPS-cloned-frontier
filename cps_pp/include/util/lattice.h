@@ -29,6 +29,7 @@
 #include <alg/eig_arg.h>
 #include <alg/lanczos_arg.h>
 #include <alg/force_arg.h>
+#include <alg/mobius_arg.h>
 #ifdef PARALLEL
 #include <comms/sysfunc_cps.h>
 #endif
@@ -342,6 +343,9 @@ class Lattice
         //!< Calculates the gauge field square staple sum  around a link
         //Buffered version of staple
 
+    // compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
+    void CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) ;
+    
     void RectStaple(Matrix& stap, int *x, int mu) ;
         //!< Calculates the rectangle staple sum around a link.
         // The rectangle field is:

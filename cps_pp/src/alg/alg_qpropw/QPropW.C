@@ -182,6 +182,24 @@ QPropW::QPropW(Lattice& lat, QPropWArg* arg, CommonArg* c_arg)
   // TY Add End
   //-----------------------------------------------------------------
 }
+
+// read in a prop from a file
+QPropWRead::QPropWRead(Lattice& lat, QPropWArg* arg, CommonArg* c_arg, SourceType type)
+  : QPropW(lat, arg, c_arg)
+{
+  char *fname = "QPropWRead(L&, QPropWArg*, ComArg*, SourceType)";
+  cname = "QPropWRead";
+  VRB.Func(cname, fname);
+
+  src_type = type;
+  qp_arg = *arg;
+
+  Allocate(0); //space for 4d prop
+  RestoreQProp(qp_arg.file,0);
+}
+
+
+
 // copy constructor
 QPropW::QPropW(const QPropW& rhs):Alg(rhs),midprop(NULL),prop(NULL),prop5d(NULL) {
 
@@ -3101,6 +3119,16 @@ QPropWPointSrc::QPropWPointSrc(Lattice& lat,  QPropWArg* arg,
   VRB.Func(cname, fname);
 
   Run();
+}
+
+// used for reading in a prop
+QPropWPointSrc::QPropWPointSrc(Lattice& lat,  QPropWArg* arg,
+			       CommonArg* c_arg, char* dummy) : 
+  QPropW(lat, arg, c_arg) {
+ 
+  char *fname = "QPropWPointSrc(L&, qarg*, ComArg*, char*)";
+  cname = "QPropWPointSrc";
+  VRB.Func(cname, fname);
 }
 
 void QPropWPointSrc::SetSource(FermionVectorTp& src, int spin, int color) {
