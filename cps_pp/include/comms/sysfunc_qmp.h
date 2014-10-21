@@ -59,6 +59,7 @@ unsigned int SeedS();  //!< Gets a RNG seed.
 unsigned int SeedT();  //!< Gets a RNG seed.
 unsigned int SeedST(); //!< Gets a RNG seed.
 
+
 #ifndef HAVE_SYNC
 unsigned int sync();
 //! A barrier function.

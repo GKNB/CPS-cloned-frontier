@@ -649,7 +649,7 @@ VRB.Result(cname,fname,"Fclass()=%d\n",lat.Fclass());
      sprintf(sourceType,"%s-source at t=%i",SourceType_map[SrcType()].name ,SourceTime());
    
      if(!do_rerun)
-       sprintf(propOutfile,qp_arg.file);
+       sprintf(propOutfile,"%s",qp_arg.file);
      else
        sprintf(propOutfile,"%s.rewrite",qp_arg.file);
 

@@ -54,7 +54,7 @@
 #include <math.h>
 #endif
 
-#ifdef PARALLEL
+#ifdef PARALLEL 
 #include <comms/sysfunc_cps.h>
 #endif
 
