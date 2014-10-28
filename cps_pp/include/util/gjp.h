@@ -591,6 +591,13 @@ public:
   Float Mobius_c() const
       {return doext_p->mobius_c_coeff;}
   
+  Complex* ZMobius_b() const
+  {return (Complex*)( doext_p->zmobius_b_coeff.zmobius_b_coeff_val);}
+  Complex* ZMobius_c() const
+  {return (Complex*)( doext_p->zmobius_c_coeff.zmobius_c_coeff_val);}
+  
+
+  //------------------------------------------------------------------
 
   //------------------------------------------------------------------
   // Added in by Ping for anisotropic lattices and clover improvement

@@ -306,6 +306,7 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
     lat_p = new GimprRectFdwf ;
     return *lat_p;
   }
+
   if ( (fermion == F_CLASS_MOBIUS) && (gluon == G_CLASS_NONE ) ) {
     lat_p = new GnoneFmobius ;
     return *lat_p; 
@@ -316,6 +317,19 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
   }
   if ( (fermion == F_CLASS_MOBIUS) && (gluon == G_CLASS_IMPR_RECT ) ) {
     lat_p = new GimprRectFmobius ;
+    return *lat_p;
+  }
+
+  if ( (fermion == F_CLASS_ZMOBIUS) && (gluon == G_CLASS_NONE ) ) {
+    lat_p = new GnoneFzmobius ;
+    return *lat_p; 
+  }
+  if ( (fermion == F_CLASS_ZMOBIUS) && (gluon == G_CLASS_WILSON ) ) {
+    lat_p = new GwilsonFzmobius;
+    return *lat_p;
+  }
+  if ( (fermion == F_CLASS_ZMOBIUS) && (gluon == G_CLASS_IMPR_RECT ) ) {
+    lat_p = new GimprRectFzmobius ;
     return *lat_p;
   }
 

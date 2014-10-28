@@ -29,6 +29,8 @@ CPS_START_NAMESPACE
 CPS_END_NAMESPACE
 #include <util/wilson.h>
 #include <util/vector.h>
+#include <util/rcomplex.h>
+#include <comms/sysfunc_cps.h> //for UniqueID()
 CPS_START_NAMESPACE
 
 //------------------------------------------------------------------
@@ -39,6 +41,11 @@ extern int dwfso_wire_map[];
 // Set in dwf_int. For a given index 0-1 corresponding to
 // S+, S-  it gives the corresponding wire.
 
+inline void DEBTIZB(char* str, Vector* vp, int len)
+{
+  if(!UniqueID()) printf("DEBTIZB %s %.16e\n", str, vp->NormSqGlbSum(len));
+}
+
 
 //------------------------------------------------------------------
 // Type definitions
@@ -48,6 +55,9 @@ typedef struct{
   IFloat dwf_kappa;    // 1/[2*(5-dwf_height)]
   IFloat mobius_kappa_b;    // 1/[2*(b*(4-dwf_height)+1)]
   IFloat mobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]
+  Rcomplex *zmobius_kappa_b;    // 1/[2*(b*(4-dwf_height)+1)]
+  Rcomplex *zmobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]
+  Rcomplex *zmobius_kappa_ratio;//    kappa_b / kappa_c
   int vol_4d;         // The 4-dimensional volume   
   int ls;             // The extent of the 5th direction
   IFloat *frm_tmp1;    // Pointer to temorary fermion field 1

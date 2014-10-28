@@ -50,7 +50,8 @@ enum FclassType {
 	F_CLASS_MDWF = 8,
 	F_CLASS_BFM = 9,
 	F_CLASS_MOBIUS = 10,
-	F_CLASS_NAIVE = 11,
+	F_CLASS_ZMOBIUS = 11,
+	F_CLASS_NAIVE = 12,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];

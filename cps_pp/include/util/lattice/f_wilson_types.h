@@ -1139,6 +1139,44 @@ class Fmobius : public FdwfBase {
 		 CnvFrmType cnv_frm);
 };
 
+
+class Fzmobius : public FdwfBase {
+ private:
+    char *cname;    // Class name.
+    
+ public:
+
+    Fzmobius(void);
+    ~Fzmobius(void);
+
+    FclassType Fclass(void) const;
+
+    int FmatInv(Vector *f_out, Vector *f_in, 
+		CgArg *cg_arg, 
+		Float *true_res,
+		CnvFrmType cnv_frm,
+		PreserveType prs_f_in);
+
+    int FmatInv(Vector *f_out,
+                Vector *f_in,
+                MobiusArg *mob_l,
+                MobiusArg *mob_s,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in,
+                int n_restart, Float rsd_vec[]);
+
+    int FeigSolv(Vector **f_eigenv, Float *lambda,
+		 Float *chirality, int *valid_eig,
+		 Float **hsum,
+		 EigArg *eig_arg, 
+		 CnvFrmType cnv_frm);
+
+    int FeigSolv(Vector **f_eigenv, Float *lambda,
+		 LanczosArg *eig_arg, 
+		 CnvFrmType cnv_frm);
+};
+
 CPS_END_NAMESPACE
 #endif
 

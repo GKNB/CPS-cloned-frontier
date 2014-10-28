@@ -1,0 +1,27 @@
+class MobiusArg mdwf_arg = {
+double mobius_b_coeff = 1.5
+double mobius_c_coeff = 0.5
+int ls = 8
+double M5 = 1.8
+class CgArg cg = {
+double mass = 0.005
+double epsilon = 0.0
+int max_num_iter = 4000
+double stop_rsd = 1.0e-8
+double true_rsd = 1.0e-8
+RitzMatType RitzMatOper = MATPCDAG_MATPC
+InverterType Inverter = CG
+int bicgstab_n = 0
+string fname_eigen = "eigen"
+int neig = 0
+double eigen_shift = 0.0
+double ama_stop_rsd =   0.0
+}
+Vector rsd_vec[4] = {
+double rsd_vec[0] = 1.0e-2
+double rsd_vec[1] = 2.0e-5
+double rsd_vec[2] = 2.0e-5
+double rsd_vec[3] = 2.0e-5
+}
+int use_single_precision = 0
+}

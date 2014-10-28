@@ -1,0 +1,321 @@
+#include <conf.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <alg/alg_plaq.h>
+#include <alg/alg_lanczos.h>
+#include <alg/alg_meas.h>
+#include <alg/alg_fix_gauge.h>
+#include <util/lattice.h>
+#include <util/gjp.h>
+#include <util/verbose.h>
+#include <util/error.h>
+#include <util/command_line.h>
+#include <util/ReadLatticePar.h>
+#include <util/ReadU1LatticePar.h>
+#include <util/qio_readLattice.h>
+#include <util/qcdio.h>
+#include <util/site.h>
+#include <util/eigen_container.h>
+#include <util/random.h>
+
+using namespace std;
+USING_NAMESPACE_CPS
+
+
+
+
+void print_vec(char* str, Float* vec)
+{
+
+  int node_coor[4]= {
+    GJP.NodeCoor(0),
+    GJP.NodeCoor(1),
+    GJP.NodeCoor(2),
+    GJP.NodeCoor(3)} ;
+  
+  char fname[256];
+  sprintf(fname,"%s.%d.%d.%d.%d"
+	  ,str
+	      ,node_coor[0]
+	      ,node_coor[1]
+	      ,node_coor[2]
+	      ,node_coor[3]);
+  FILE* fp2=fopen(fname,"w");
+      
+
+  Site site;
+
+  while (site.LoopsOverNode()) {
+    // site offset 
+    const int s_off(site.Index());
+	
+    int Ls(GJP.Snodes());
+    for(int is=0;is<Ls;++is) {
+      fprintf(fp2,"%d %d %d %d  %d ",
+	      site.physX(),
+	      site.physY(),
+	      site.physZ(),
+	      site.physT(),
+	      is);
+      for(int i=0;i<24;++i)
+	fprintf(fp2,"%e ",  vec[24*s_off+i]);
+      fprintf(fp2, "\n");
+    }
+  }
+  fclose(fp2);
+}
+
+DoArg do_arg;
+DoArgExt doext_arg;
+MobiusArg mdwf_arg;
+MobiusArg mdwf_arg2;
+
+NoArg no_arg;
+CommonArg common_arg;
+LanczosArg lanczos_arg;
+
+
+MdwfArg real_mdwf_arg;
+
+
+void movefloattoFloat(Float* out, float* in, int f_size);
+
+// needed to declare globally
+std::vector<EigenCache*> cps::EigenCacheList(0);
+
+
+//Search contents that match to arguments, return 0 if not found
+EigenCache* cps::EigenCacheListSearch( char* fname_root_bc, int neig )
+{
+  EigenCache* ecache=0;
+
+  for(int i=0; i< EigenCacheList.size(); ++i  )
+    if( EigenCacheList[i]-> is_cached( fname_root_bc, neig ) )
+      ecache = EigenCacheList[i];
+
+  return ecache;
+}
+
+
+void do_CG(Lattice& lattice, Vector* out)
+{
+
+  Vector* in;
+  //Vector* out;
+  CgArg cg;
+  int ls = GJP.SnodeSites();
+
+  //out = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
+  in  = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
+
+  // zero the source, solution
+  for(int i=0;i<GJP.VolNodeSites()*ls*24;i++){
+    *((Float*)in+i) =i;
+    *((Float*)out+i) =0;
+  }
+  //point source at origin and spin=color=0
+  if(!UniqueID()) *((Float*)in) = 1.0;
+
+  Float res;
+  res = 0.0;
+  PreserveType pres =  PRESERVE_NO;
+  CnvFrmType cnv =  CNV_FRM_YES;
+  int nrestart =  3;
+  Float rsd_vec[4];
+  rsd_vec[0] = 1e-2;
+  rsd_vec[1] = 2e-5;
+  rsd_vec[2] = 2e-5;
+  rsd_vec[3] = 2e-5;
+
+
+  cg = mdwf_arg.cg;
+
+  //int iter = lattice.FmatInv(out, in, &mdwf_arg, &mdwf_arg2, &res, cnv, pres, nrestart, mdwf_arg.rsd_vec);
+
+  int iter = lattice.FmatInv(out, in, &cg, &res, cnv, pres);
+
+  print_vec("mob.sol", (Float*)out);
+
+  //  sfree(out);
+  sfree(in);
+
+}
+
+int main(int argc,char *argv[])
+{
+
+  char *cname = argv[0] ;
+  char *fname = "main()" ;
+  char* filename;
+  filename = (char*) smalloc( 128*sizeof(char) );
+  
+  Start(&argc, &argv);
+
+  if ( argc!=1) { 
+    if(!UniqueID())printf("(exe) do_arg doext_arg mdwf_arg mdwf_arg eig_arg work-directory\n");
+    exit(-1);
+  }
+  
+  chdir(argv[0]);
+
+  real_mdwf_arg.Encode("real_mdwf_arg.dat", "real_mdwf_arg");
+  doext_arg.Encode("doext_arg.dat","doext_arg");
+
+  
+  if ( !do_arg.Decode("do_arg.vml","do_arg") ) 
+    { 
+      ERR.General(fname,fname,"Decoding of do_arg failed\n");
+    }
+  if ( !doext_arg.Decode("doext_arg.vml","doext_arg") ) 
+    { 
+      ERR.General(fname,fname,"Decoding of doext_arg failed\n");
+    }
+#if 1
+  if ( !mdwf_arg.Decode("mobius_arg.vml","mdwf_arg") ) 
+    { 
+      mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
+      ERR.General(fname,fname,"Decoding of mdwf_arg failed\n");  
+    }
+  if ( !mdwf_arg2.Decode("mobius_arg2.vml","mdwf_arg2") ) 
+    { 
+      ERR.General(fname,fname,"Decoding of mdwf_arg2 failed\n");  
+    }
+#endif
+  if ( !lanczos_arg.Decode("lanczos_arg.vml","lanczos_arg") ) 
+    { 
+      lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
+      if(!UniqueID())printf("Decoding of lanczos_arg failed\n"); exit(-1);
+    }
+
+  // make a record of what was run
+  do_arg.Encode("do_arg.dat","do_arg");
+  doext_arg.Encode("doext_arg.dat","doext_arg");
+  lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
+  mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
+  mdwf_arg2.Encode("mdwf_arg2.dat","mdwf_arg2");
+
+
+  real_mdwf_arg.Decode("real_mdwf_arg.vml","real_mdwf_arg");
+  
+  GJP.Initialize(do_arg);
+  GJP.InitializeExt(doext_arg);
+  VRB.Level(do_arg.verbose_level);
+  
+  //Lattice &lattice = LatticeFactory::Create(F_CLASS_DWF, G_CLASS_WILSON);
+  
+  //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+  //Lattice &lattice = LatticeFactory::Create(F_CLASS_DWF, G_CLASS_NONE);
+
+
+  // mult su3 links by qed phase
+  //lattice.mult_su3_links_by_u1(1.0);  
+  //qio_readLattice rl(do_arg.start_conf_filename, lattice, argc, argv);
+ 
+
+  
+  //  LatticeFactory::Destroy();
+  //  lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+
+  int ls = GJP.SnodeSites();
+  Vector* out_zmob = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
+  {
+    Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
+    do_CG(lattice,out_zmob);
+    LatticeFactory::Destroy();
+  }
+
+
+  Vector* out_mob = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
+
+  int cmp_mdw=1;
+  if(cmp_mdw)
+  {
+    GJP.SetMdwfArg( &real_mdwf_arg );
+    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_NONE);
+    GnoneFmdwf lattice;
+    do_CG(lattice,out_mob);
+    //LatticeFactory::Destroy();
+  }
+  else
+  {
+    Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+    do_CG(lattice,out_mob);
+    LatticeFactory::Destroy();
+  }
+
+
+  Float max_diff = -100;
+  Float max_rel_diff = -100;
+
+  for(int s=0; s< ls;++s){
+    Complex kappa_b = 1.0 / ( 2 * (GJP.ZMobius_b()[s] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+    Site site;
+    int vol=GJP.VolNodeSites();
+    while (site.LoopsOverNode()) {
+      int i= site.Index()+s*vol;
+      for(int ic=0;ic<12;++ic){
+	int idx=ic+12*i;
+	Complex *z1 = (Complex*)out_mob+idx;
+	Complex *z2 = (Complex*)out_zmob+idx;
+
+	if(cmp_mdw)
+	  *z2 *= 2*kappa_b;
+	
+	//	printf("%d %e %e %e %e\n", i, z1->real(), z1->imag(), z2->real(), z2->imag());
+	Complex zdiff=*z1-*z2;
+
+	if(max_diff < norm(zdiff)){
+	  max_diff=norm(zdiff);
+	}
+	
+	if(max_rel_diff < norm(2*zdiff/(*z1+*z2))){
+	  max_rel_diff=norm(2*zdiff/(*z1+*z2));
+	}
+      }
+      
+    }
+  }
+
+  
+
+  glb_max(&max_diff);
+  glb_max(&max_rel_diff);  
+  if(!UniqueID()){
+    printf("max_difference_sol %e %e\n",max_diff, max_rel_diff);
+  }
+  
+
+  //  LatticeFactory::Destroy();
+
+  sfree(filename);
+
+
+  //  LatticeFactory::Destroy();
+  
+  //EigenCacheListCleanup();
+
+  End();
+  
+  return 0;
+} 
+
+
+// Cleanup list EigenCache, it also destroies contents pointed by the elements.
+void cps::EigenCacheListCleanup( )
+{
+  for(size_t i=0;i< EigenCacheList. size(); ++i){
+    EigenCacheList[i]-> dealloc();
+  }
+  EigenCacheList.clear() ;
+}
+
+void movefloattoFloat(Float* out, float* in, int f_size){
+
+  float flt;
+  for(int i=0;i<f_size;i++){
+    flt = in[i];
+    out[i] = (Float)flt;
+  }
+};
+

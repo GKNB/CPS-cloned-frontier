@@ -3,6 +3,7 @@
 #include <alg/no_arg.h>
 #include <alg/common_arg.h>
 #include <alg/alg_plaq.h>
+#include <util/data_types.h>
 
 CPS_START_NAMESPACE
 /*! \file
@@ -44,7 +45,7 @@ CPS_END_NAMESPACE
 #include <util/wilson.h>
 #include <util/time_cps.h>
 #include <util/dwf.h>
-#include <util/mobius.h>
+#include <util/zmobius.h>
 //#include <mem/p2v.h>
 #include <comms/glb.h>
 
@@ -55,7 +56,68 @@ CPS_END_NAMESPACE
 
 CPS_START_NAMESPACE
 
+void vecTimesEquComplex(Complex *a, Complex b, int len)
+{
+#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+    	a[i] *= b;
+    }
+}
 
+
+
+void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
+		    const Complex *d, int len)
+{
+#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+    	a[i] = b * c[i] + d[i];
+    }
+}
+
+void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
+{
+  for (int i=0; i<len/2; i++) {
+    *a++ = c * *b++;
+  }
+
+}
+
+//----------------------------------------------------------------
+// Initialize kappa and ls. This has already been done by the Fmobius
+// call to mobius_init but is done here again in case the user
+// has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
+// GJP.SnodeSites() while in the scope of the Fmobius object.
+//----------------------------------------------------------------
+
+void reset_mobius_arg(void* mobius_lib_arg){
+  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
+  mobius_arg->ls = GJP.SnodeSites();
+
+  if(! mobius_arg->zmobius_kappa_b){
+    delete [] mobius_arg->zmobius_kappa_b;
+  }
+  mobius_arg->zmobius_kappa_b = (Complex*) new  Complex [mobius_arg->ls];
+  if(! mobius_arg->zmobius_kappa_c){
+    delete [] mobius_arg->zmobius_kappa_c;
+  }
+  mobius_arg->zmobius_kappa_c = (Complex*) new  Complex [mobius_arg->ls];
+  if(! mobius_arg->zmobius_kappa_ratio){
+    delete [] mobius_arg->zmobius_kappa_ratio;
+  }
+  mobius_arg->zmobius_kappa_ratio = (Complex*) new  Complex [mobius_arg->ls];
+
+
+  for(int i=0;i<mobius_arg->ls;++i){
+    mobius_arg->zmobius_kappa_b[i] = 
+      1.0 / ( 2 * (GJP.ZMobius_b()[i] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+    mobius_arg->zmobius_kappa_c[i] = 
+      1.0 / ( 2 * (GJP.ZMobius_c()[i] *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+    mobius_arg->zmobius_kappa_ratio[i] =
+      mobius_arg->zmobius_kappa_b[i]  /      mobius_arg->zmobius_kappa_c[i];
+  }
+    
+}
 
 //------------------------------------------------------------------
 /*!
@@ -75,7 +137,7 @@ CPS_START_NAMESPACE
 //------------------------------------------------------------------
 static  Matrix *new_gauge_field;
 static  Matrix *old_gauge_field;
-DiracOpMobius::DiracOpMobius(Lattice & latt,
+DiracOpZMobius::DiracOpZMobius(Lattice & latt,
 			     Vector *f_field_out,
 			     Vector *f_field_in,
 			     CgArg *arg,
@@ -86,8 +148,8 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
 		     arg,
 		     cnv_frm_flg)
 {
-  cname = "DiracOpMobius";
-  char *fname = "DiracOpMobius(L&,V*,V*,CgArg*,CnvFrmType)";
+  cname = "DiracOpZMobius";
+  char *fname = "DiracOpZMobius(L&,V*,V*,CgArg*,CnvFrmType)";
   VRB.Func(cname,fname);
 
 
@@ -118,19 +180,15 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
   // constructor.
   //----------------------------------------------------------------
   mobius_lib_arg = lat.FdiracOpInitPtr();
-
+  
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // call to mobius_init but is done here again in case the user
   // has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
   // GJP.SnodeSites() while in the scope of the Fmobius object.
   //----------------------------------------------------------------
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
+
 
 }
 
@@ -141,8 +199,8 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
   then they are changed to the canonical order by the destructor.
 */
 //------------------------------------------------------------------
-DiracOpMobius::~DiracOpMobius() {
-  char *fname = "~DiracOpMobius()";
+DiracOpZMobius::~DiracOpZMobius() {
+  char *fname = "~DiracOpZMobius()";
   VRB.Func(cname,fname);
 
   //----------------------------------------------------------------
@@ -161,6 +219,7 @@ DiracOpMobius::~DiracOpMobius() {
   print_flops("lattice","Convert()",0,time);
 #endif
 
+
 }
 
 
@@ -169,7 +228,7 @@ DiracOpMobius::~DiracOpMobius() {
 // It sets the dirac_arg pointer to arg and initializes
 // mass.
 //------------------------------------------------------------------
-void DiracOpMobius::DiracArg(CgArg *arg){
+void DiracOpZMobius::DiracArg(CgArg *arg){
   dirac_arg = arg;
   mass = dirac_arg->mass;
 }
@@ -183,27 +242,22 @@ void DiracOpMobius::DiracArg(CgArg *arg){
 // If dot_prd is not 0 then the dot product (on node)
 // <out, in> = <MatPcDagMatPc*in, in> is returned in dot_prd.
 //------------------------------------------------------------------
-void DiracOpMobius::MatPcDagMatPc(Vector *out, 
+void DiracOpZMobius::MatPcDagMatPc(Vector *out, 
 				  Vector *in, 
 				  Float *dot_prd){
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  mobius_mdagm(out, 
+  zmobius_mdagm(out, 
 	       gauge_field, 
 	       in, 
 	       dot_prd,
@@ -226,24 +280,21 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 // For other fermions, one could also implement similar shifts.
 // For wilson, H = gamma_5 MatPC .
 //------------------------------------------------------------------
-void DiracOpMobius::MatPcDagMatPcShift(Vector *out, 
+void DiracOpZMobius::MatPcDagMatPcShift(Vector *out, 
 				       Vector *in, 
 				       Float *dot_prd){
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
 
   const Float shift = dirac_arg->eigen_shift;
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
+
+  
 
   //----------------------------------------------------------------
   // Implement routine
@@ -251,7 +302,7 @@ void DiracOpMobius::MatPcDagMatPcShift(Vector *out,
   
   // we still check if shift is really needed
   if( shift == 0.0 )  {
-    mobius_mdagm(out, 
+    zmobius_mdagm(out, 
 		 gauge_field, 
 		 in, 
 		 dot_prd,
@@ -261,7 +312,7 @@ void DiracOpMobius::MatPcDagMatPcShift(Vector *out,
     
     //mobius_arg->eigen_shift = dirac_arg->eigen_shift;
     
-    mobius_mdagm_shift(out, 
+    zmobius_mdagm_shift(out, 
 		       gauge_field, 
 		       in, 
 		       dot_prd,
@@ -280,28 +331,23 @@ void DiracOpMobius::MatPcDagMatPcShift(Vector *out,
 // dag = 0/1 <--> Dslash/Dslash^dagger is calculated.
 // cb is not used.
 //------------------------------------------------------------------
-void DiracOpMobius::Dslash(Vector *out, 
+void DiracOpZMobius::Dslash(Vector *out, 
 			   Vector *in, 
 			   ChkbType cb, 
 			   DagType dag) {
   
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  mobius_dslash(out, 
+  zmobius_dslash(out, 
 		gauge_field, 
 		in, 
 		mass,
@@ -317,25 +363,20 @@ void DiracOpMobius::Dslash(Vector *out,
   \param in The vector to be multiplied.
 */
 //------------------------------------------------------------------
-void DiracOpMobius::MatPc(Vector *out, Vector *in) {  
+void DiracOpZMobius::MatPc(Vector *out, Vector *in) {  
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  mobius_m(out, 
+  zmobius_m(out, 
 	   gauge_field, 
 	   in, 
 	   mass,
@@ -349,28 +390,23 @@ void DiracOpMobius::MatPc(Vector *out, Vector *in) {
   \param in The vector to be multiplied.
 */
 //------------------------------------------------------------------
-void DiracOpMobius::MatPcDag(Vector *out, Vector *in) {
+void DiracOpZMobius::MatPcDag(Vector *out, Vector *in) {
 
   char *fname = "MatPcDag(*V,*V)";
   VRB.Func(fname,cname);
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
   IFloat *tmp = (IFloat *)in;
-  mobius_mdag(out, 
+  zmobius_mdag(out, 
 	      gauge_field, 
 	      in, 
 	      mass,
@@ -392,29 +428,27 @@ void DiracOpMobius::MatPcDag(Vector *out, Vector *in) {
 // is less by half the size of a fermion vector.
 // The function returns the total number of CG iterations.
 //------------------------------------------------------------------
-int DiracOpMobius::MatInv(Vector *out, 
+int DiracOpZMobius::MatInv(Vector *out, 
 			  Vector *in, 
 			  Float *true_res,
 			  PreserveType prs_in) {
   char *fname = "MatInv(V*,V*,F*)";
   VRB.Func(cname,fname);
   
-
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
-  //printf("KAPPA_B %g\n",((Dwf*)mobius_lib_arg)->mobius_kappa_b); //exit(0);
+  //printf("KAPPA_B %g\n",((Dwf*)mobius_lib_arg)->mobius_kappa_b); exit(0);
+
+  reset_mobius_arg( mobius_lib_arg);
+  
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
-  Float minus_kappa_b = -mobius_arg->mobius_kappa_b;
-  Float kappa_b = - minus_kappa_b;
+
+  //Float minus_kappa_b = -mobius_arg->mobius_kappa_b;
+  //Float kappa_b = - minus_kappa_b;
   Float norm;
 
   //printf("KAPPA_B %g\n",kappa_b); exit(0);
@@ -426,8 +460,15 @@ int DiracOpMobius::MatInv(Vector *out,
   Vector *temp3;
   Vector *save_in;
 
+  const int local_ls = GJP.SnodeSites();
+  const int s_nodes = GJP.Snodes();
+  const int global_ls = local_ls * s_nodes;
+  const int s_node_coor = GJP.SnodeCoor();
+  const int vol_4d_cb = ((Dwf*)mobius_lib_arg)->vol_4d / 2;
+  const int ls_stride = 24 * vol_4d_cb;
+
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
-  Vector *temp  = (Vector *) smalloc(temp_size * sizeof(Float));
+  Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
   if (temp == 0) ERR.Pointer(cname, fname, "temp");
   VRB.Smalloc(cname,fname, "temp", temp, temp_size * sizeof(Float));
 
@@ -452,6 +493,8 @@ int DiracOpMobius::MatInv(Vector *out,
 #endif
 
   DEBTIZB("insrc", (Vector*) in, 2*temp_size);
+  
+    
   // save source
   if(prs_in == PRESERVE_YES){
     temp3 = (Vector *) smalloc(2*temp_size * sizeof(Float));
@@ -461,14 +504,26 @@ int DiracOpMobius::MatInv(Vector *out,
   }
 
 
-  mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
+  zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
   DEBTIZB("after m5inv", (Vector*) temp, temp_size);
-  mobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
+  
+  zmobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
   DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
+  
+#if 0
   fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,
 		 (IFloat *)in, temp_size);
-    DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
-
+#else
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    zTimesV1PlusV2((Complex*) temp+idx, kappa_b[glb_s], (Complex*) temp2+idx,
+		   (Complex*)in+idx, ls_stride);
+      }
+#endif
+  DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
+  
   int iter;
   switch (dirac_arg->Inverter) {
   case CG:
@@ -509,19 +564,36 @@ int DiracOpMobius::MatInv(Vector *out,
             2*temp_size * sizeof(IFloat) / sizeof(char));
   }
 
-
+  
   // TIZB check below carefully !
 
   // construct even site solution
   // psi_e = M5inv . in_e - kappa*M5inv*D_Weo*psi_o
 
+#if 0
   //TIZB mobius_dslash_4(temp, gauge_field, out, CHKB_ODD, DAG_NO, mobius_arg);
   mobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
   mobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg);
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);
+  //odd_out = kappa_b odd_out + temp
   fTimesV1PlusV2((IFloat *)odd_out, kappa_b, (IFloat *)odd_out,
 		 (IFloat *)temp, temp_size);
+#else
+  zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
 
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*)temp+idx,  kappa_b[glb_s], ls_stride);
+  }
+
+  zmobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg);
+  zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);
+  odd_out->VecAddEquVec(temp, temp_size); 
+  
+#endif
+  
   VRB.Sfree(cname, fname, "temp2", temp2);
   sfree(temp2);
   VRB.Sfree(cname, fname, "temp", temp);
@@ -536,7 +608,7 @@ int DiracOpMobius::MatInv(Vector *out,
 // Overloaded function is same as original 
 // but true_res=0.
 //------------------------------------------------------------------
-int DiracOpMobius::MatInv(Vector *out, Vector *in, PreserveType prs_in)
+int DiracOpZMobius::MatInv(Vector *out, Vector *in, PreserveType prs_in)
 { return MatInv(out, in, 0, prs_in); }
 
 
@@ -544,7 +616,7 @@ int DiracOpMobius::MatInv(Vector *out, Vector *in, PreserveType prs_in)
 // Overloaded function is same as original 
 // but in = f_in and out = f_out.
 //------------------------------------------------------------------
-int DiracOpMobius::MatInv(Float *true_res, PreserveType prs_in)
+int DiracOpZMobius::MatInv(Float *true_res, PreserveType prs_in)
 { return MatInv(f_out, f_in, true_res, prs_in); }
 
 
@@ -552,7 +624,7 @@ int DiracOpMobius::MatInv(Float *true_res, PreserveType prs_in)
 // Overloaded function is same as original 
 // but in = f_in, out = f_out, true_res=0.
 //------------------------------------------------------------------
-int DiracOpMobius::MatInv(PreserveType prs_in)
+int DiracOpZMobius::MatInv(PreserveType prs_in)
 { return MatInv(f_out, f_in, 0, prs_in); }
 
 
@@ -562,25 +634,30 @@ int DiracOpMobius::MatInv(PreserveType prs_in)
 // Mat works on the full lattice.
 // The in, out fields are defined on the full lattice.
 //------------------------------------------------------------------
-void DiracOpMobius::Mat(Vector *out, Vector *in) {  
+void DiracOpZMobius::Mat(Vector *out, Vector *in) {  
   char *fname = "Mat(V*,V*)";
   VRB.Func(cname,fname);
-
+  
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
+  reset_mobius_arg( mobius_lib_arg);
+  
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
-  Float kappa = mobius_arg->mobius_kappa_b;
-  Float minus_kappa = -kappa;
-  Float kappa_ratio = mobius_arg->mobius_kappa_b/ mobius_arg->mobius_kappa_c;
+  
+  //Float kappa = mobius_arg->mobius_kappa_b;
+  //Float minus_kappa = -kappa;
+  //Float kappa_ratio = mobius_arg->mobius_kappa_b/ mobius_arg->mobius_kappa_c;
+
+  const int local_ls = GJP.SnodeSites();
+  const int s_nodes = GJP.Snodes();
+  const int global_ls = local_ls * s_nodes;
+  const int s_node_coor = GJP.SnodeCoor();
+  const int vol_4d_cb = ((Dwf*)mobius_lib_arg)->vol_4d / 2;
+  const int ls_stride = 24 * vol_4d_cb;
 
   //----------------------------------------------------------------
   // Implement routine
@@ -596,37 +673,80 @@ void DiracOpMobius::Mat(Vector *out, Vector *in) {
 
   //odd part
   //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  mobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
+  zmobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
+#if 0
   out->VecTimesEquFloat(minus_kappa, temp_size); 
+#else
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*) out+idx, -kappa_b[glb_s], ls_stride);
+  }
+#endif
+
+#if 0
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, in, mass, 0, mobius_arg);
+  zmobius_dslash_5_plus(frm_tmp2, in, mass, 0, mobius_arg);
   fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)in, temp_size);
   out->VecAddEquVec(frm_tmp2, temp_size); 
+#else
+  {
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, 0, mobius_arg,
+				      kappa_ratio);
+  }
+#endif
 
   //even part
-  mobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+  zmobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+#if 0
   odd_out->VecTimesEquFloat(minus_kappa, temp_size); 
+#else
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*) odd_out+idx, -kappa_b[glb_s], ls_stride);
+  }
+#endif
+
+#if 0
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, odd_in, mass, 0, mobius_arg);
+  zmobius_dslash_5_plus(frm_tmp2, odd_in, mass, 0, mobius_arg);
   fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)odd_in, temp_size);
   odd_out->VecAddEquVec(frm_tmp2, temp_size);
+#else
+  {
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    zmobius_kappa_dslash_5_plus_cmplx(odd_out, odd_in, mass, 0, mobius_arg,
+				kappa_ratio);
+  }
+#endif
 
 }
 
 
-void DiracOpMobius::Dminus(Vector *out, Vector *in) {  
+void DiracOpZMobius::Dminus(Vector *out, Vector *in) {  
   char *fname = "Dminus(V*,V*)";
   VRB.Func(cname,fname);
 
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  Float kappa_c_inv_div2 = 0.5*( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  //Float kappa_c_inv_div2 = 0.5*( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  const int local_ls = GJP.SnodeSites();
+  const int s_nodes = GJP.Snodes();
+  const int global_ls = local_ls * s_nodes;
+  const int s_node_coor = GJP.SnodeCoor();
+  const int vol_4d_cb = ((Dwf*)mobius_lib_arg)->vol_4d / 2;
+  const int ls_stride = 24 * vol_4d_cb;
 
+  
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
@@ -637,10 +757,33 @@ void DiracOpMobius::Dminus(Vector *out, Vector *in) {
   // points to the odd part of fermion solution
   Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
 
-  mobius_dminus(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg);
-  mobius_dminus(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg);
+  zmobius_dminus(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg);
+  zmobius_dminus(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg);
   // out = -(c*D_W-1)*in (= 1 for DWF)
+
+#if 0
   fTimesV1PlusV2((IFloat*)out, kappa_c_inv_div2, (IFloat*)in, (IFloat *)out, 2*temp_size);
+#else
+  for(int s=0; s<local_ls;++s){
+    int glb_s = s + local_ls*s_node_coor;
+    Complex kappa_c_inv_div2 =
+      GJP.ZMobius_c()[glb_s] *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv();
+       
+    int idx = s*ls_stride/2;// "/2" is for complex
+    zTimesV1PlusV2((Complex*)out+idx, kappa_c_inv_div2, (Complex*)in+idx,
+		   (Complex*)out+idx, ls_stride);
+  }
+  for(int s=0; s<local_ls;++s){
+    int glb_s = s + local_ls*s_node_coor;
+    Complex kappa_c_inv_div2 =
+      GJP.ZMobius_c()[glb_s] *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv();
+       
+    int idx = s*ls_stride/2;// "/2" is for complex
+    zTimesV1PlusV2((Complex*)odd_out+idx, kappa_c_inv_div2, (Complex*)odd_in+idx,
+		   (Complex*)odd_out+idx, ls_stride);
+  }
+#endif
+
   out->VecTimesEquFloat(-1.0, 2*temp_size); 
 
 }
@@ -652,25 +795,31 @@ void DiracOpMobius::Dminus(Vector *out, Vector *in) {
 // MatDag works on the full lattice.
 // The in, out fields are defined on the full lattice.
 //------------------------------------------------------------------
-void DiracOpMobius::MatDag(Vector *out, Vector *in) {
+void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
   char *fname = "MatDag(V*,V*)";
   VRB.Func(cname,fname);
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.MobiusA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
-  Float kappa = mobius_arg->mobius_kappa_b;
-  Float minus_kappa = -kappa;
-  Float kappa_ratio = mobius_arg->mobius_kappa_b/mobius_arg->mobius_kappa_c;
+
+  reset_mobius_arg( mobius_lib_arg);
+
+  //  Float kappa = mobius_arg->mobius_kappa_b;
+  //Float minus_kappa = -kappa;
+  //Float kappa_ratio = mobius_arg->mobius_kappa_b/mobius_arg->mobius_kappa_c;
+
+
+  const int local_ls = GJP.SnodeSites();
+  const int s_nodes = GJP.Snodes();
+  const int global_ls = local_ls * s_nodes;
+  const int s_node_coor = GJP.SnodeCoor();
+  const int vol_4d_cb = ((Dwf*)mobius_lib_arg)->vol_4d / 2;
+  const int ls_stride = 24 * vol_4d_cb;
 
   //----------------------------------------------------------------
   // Implement routine
@@ -685,29 +834,70 @@ void DiracOpMobius::MatDag(Vector *out, Vector *in) {
   Vector *frm_tmp2 = (Vector *) mobius_arg->frm_tmp2;
 
   //odd part
-  mobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_YES, mobius_arg, mass);
-  //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
-  ERR.General(cname,fname,"TIZB I do not understand why kappa instead of minus_kappa here\n");
-  out->VecTimesEquFloat(kappa, temp_size); 
+
+#if 0
+  frm_tmp2->VecTimesEquFloat(kappa, temp_size); 
+#else
+  moveMem((IFloat*)frm_tmp2,(IFloat*)odd_in, temp_size);
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*) frm_tmp2+idx, -conj(kappa_b[glb_s]), ls_stride);
+  }
+#endif
+
+  zmobius_dslash_4(out, gauge_field, frm_tmp2, CHKB_ODD, DAG_YES, mobius_arg, mass);
+
+  
+#if 0
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, in, mass, DAG_YES, mobius_arg);
+  zmobius_dslash_5_plus(frm_tmp2, in, mass, DAG_YES, mobius_arg);
   fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)in, temp_size);
   out->VecAddEquVec(frm_tmp2, temp_size); 
-
+#else
+  {
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, DAG_YES, mobius_arg,
+				kappa_ratio);
+  }
+#endif
+  
   //even part
+#if 0
+  odd_out->VecTimesEquFloat(kappa, temp_size);
+#else
+  moveMem((IFloat*)frm_tmp2,(IFloat*)in, temp_size);
+  for(int s=0; s<local_ls;++s){
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*) frm_tmp2+idx, -conj(kappa_b[glb_s]), ls_stride);
+  }
+#endif
+
+  
   //mobius_dslash_4(odd_out, gauge_field, in, CHKB_ODD, DAG_YES, mobius_arg, mass);
-  mobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_YES, mobius_arg, mass);
-  odd_out->VecTimesEquFloat(kappa, temp_size); 
+  zmobius_dslash_4(odd_out, gauge_field, frm_tmp2, CHKB_EVEN, DAG_YES, mobius_arg, mass);
+
+#if 0
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
-  mobius_dslash_5_plus(frm_tmp2, odd_in, mass, DAG_YES, mobius_arg);
+  zmobius_dslash_5_plus(frm_tmp2, odd_in, mass, DAG_YES, mobius_arg);
   fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)odd_in, temp_size);
   odd_out->VecAddEquVec(frm_tmp2, temp_size); 
+#else
+    {
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    zmobius_kappa_dslash_5_plus_cmplx(odd_out, odd_in, mass, DAG_YES, mobius_arg,
+				kappa_ratio);
+  }
+#endif
 
 }
 
@@ -718,23 +908,20 @@ void DiracOpMobius::MatDag(Vector *out, Vector *in) {
 // MatHerm works on the full lattice.
 // The in, out fields are defined on the full lattice.
 //------------------------------------------------------------------
-void DiracOpMobius::MatHerm(Vector *out, Vector *in) {
+void DiracOpZMobius::MatHerm(Vector *out, Vector *in) {
   char *fname = "MatHerm(V*,V*)";
   VRB.Func(cname,fname);
 
+
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
-
+  reset_mobius_arg( mobius_lib_arg);  
+  
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
@@ -773,11 +960,12 @@ void DiracOpMobius::MatHerm(Vector *out, Vector *in) {
 */
 //------------------------------------------------------------------
 
-void DiracOpMobius::CalcHmdForceVecs(Vector *chi)
+void DiracOpZMobius::CalcHmdForceVecs(Vector *chi)
 {
   char *fname = "CalcHmdForceVecs(V*)" ;
   VRB.Func(cname,fname) ;
-
+  ERR.NotImplemented(cname,fname); // TIZB, didn't check for now
+  
   if (f_out == 0)
     ERR.Pointer(cname, fname, "f_out") ;
 
@@ -786,16 +974,12 @@ void DiracOpMobius::CalcHmdForceVecs(Vector *chi)
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
+  // and DiracOpZMobius constructors but is done again in case the
   // user has modified the GJP.MobiusA5Inv(), GJP.MobiusHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // GJP.SnodeSites() while in the scope of the DiracOpZMobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
-  mobius_arg->mobius_kappa_b = 
-    1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-  mobius_arg->mobius_kappa_c = 
-    1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  reset_mobius_arg( mobius_lib_arg);
 
   //----------------------------------------------------------------
   // Implement routine
@@ -843,7 +1027,7 @@ void DiracOpMobius::CalcHmdForceVecs(Vector *chi)
 // it is the usual global sum. If s_nodes > 1 it
 // is the 5-dimensional globals sum glb_sum_five.
 //------------------------------------------------------------------
-void DiracOpMobius::DiracOpGlbSum(Float *float_p) {
+void DiracOpZMobius::DiracOpGlbSum(Float *float_p) {
 //  if(GJP.Snodes() == 1) {
 //    glb_sum(float_p);
 //  }
@@ -871,7 +1055,7 @@ void DiracOpMobius::DiracOpGlbSum(Float *float_p) {
 // RitzMat works on the full or half lattice.
 // The in, out fields are defined on the full or half lattice.
 //------------------------------------------------------------------
-void DiracOpMobius::RitzMat(Vector *out, Vector *in) {
+void DiracOpZMobius::RitzMat(Vector *out, Vector *in) {
   char *fname = "RitzMat(V*,V*)";
   VRB.Func(cname,fname);
 
@@ -936,7 +1120,7 @@ void DiracOpMobius::RitzMat(Vector *out, Vector *in) {
 //   alpha = param[0]^2
 //   beta = ( param[1] + fabs(eigend_shift) )^2
 //
-void DiracOpMobius::RitzMat(Vector *out, Vector *in,
+void DiracOpZMobius::RitzMat(Vector *out, Vector *in,
 			 MatrixPolynomialArg* cheby_arg) {
   char *fname = "RitzMat(V*,V*,MatrixPolyArg*)";
   VRB.Func(cname,fname);
@@ -1041,7 +1225,7 @@ void DiracOpMobius::RitzMat(Vector *out, Vector *in,
 
 
 //!! N.B. This overwrites contents of  mobius_arg->frm_tmp2
-void DiracOpMobius::MatPcHerm(Vector *out, Vector *in) {
+void DiracOpZMobius::MatPcHerm(Vector *out, Vector *in) {
   char *fname = "MatPcHerm(V*,V*)";
   VRB.Func(cname,fname);
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
@@ -1051,7 +1235,7 @@ void DiracOpMobius::MatPcHerm(Vector *out, Vector *in) {
   ReflectAndMultGamma5( out, vtmp,  mobius_arg->vol_4d/2, mobius_arg->ls);
   
 }
-
+#if 0
 // specific to dwf 
 void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls)
 {
@@ -1084,5 +1268,6 @@ void HermicianDWF_ee( Vector* vtmp, Vector* evec, Float mass, Lattice* lattice, 
 	ReflectAndMultGamma5( vtmp, Apsi,  
 			      GJP.VolNodeSites()/2, GJP.SnodeSites() );
 }
+#endif
 
 CPS_END_NAMESPACE
