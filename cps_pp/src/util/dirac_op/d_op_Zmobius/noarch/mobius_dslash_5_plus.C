@@ -119,6 +119,8 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
+
+#if 0
 void zmobius_kappa_dslash_5_plus(Vector *out, 
 				Vector *in, 
 				Float mass,
@@ -275,7 +277,7 @@ void zmobius_kappa_dslash_5_plus(Vector *out,
   
 
 }
-
+#endif
 
 // 
 void zmobius_kappa_dslash_5_plus_cmplx(Vector *out, 
@@ -306,7 +308,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
   //  const IFloat neg_mass = -mass*fact;
   //const Complex neg_mass = -mass*fact;
 
-  Complex* fact = new Complex [global_ls*2];
+  Complex* fact = new Complex [global_ls];
   for(int i=0;i<global_ls;++i){
     if(!dag)
       fact[i] = fact_in[i];
@@ -513,6 +515,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
   
 }
 
+#if 0
 void zmobius_dslash_5_plus(Vector *out, 
 			  Vector *in, 
 			  Float mass,
@@ -522,7 +525,7 @@ void zmobius_dslash_5_plus(Vector *out,
   printf("sentinel at zmobius_dslash_5_plus\n"); exit(1);
   zmobius_kappa_dslash_5_plus(out, in, mass, dag, mobius_lib_arg, GJP.DwfA5Inv());
 }
-
+#endif
 
 
 CPS_END_NAMESPACE

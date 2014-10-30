@@ -44,8 +44,8 @@ void zmobius_dslash(Vector *out,
 //------------------------------------------------------------------
 // Apply 5th-direction Dslash
 //------------------------------------------------------------------
-  Float kappa_c_inv = 1.0/mobius_lib_arg->mobius_kappa_c;
-  zmobius_kappa_dslash_5_plus(out, in, mass, dag, mobius_lib_arg, kappa_c_inv);
+  Complex* kappa_ratio = mobius_lib_arg->zmobius_kappa_ratio;
+  zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, dag, mobius_lib_arg, kappa_ratio);
 
 }
 

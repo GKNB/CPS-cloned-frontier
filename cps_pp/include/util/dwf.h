@@ -43,7 +43,8 @@ extern int dwfso_wire_map[];
 
 inline void DEBTIZB(char* str, Vector* vp, int len)
 {
-  if(!UniqueID()) printf("DEBTIZB %s %.16e\n", str, vp->NormSqGlbSum(len));
+  Float norm = vp->NormSqGlbSum(len);
+  if(!UniqueID()) printf("DEBTIZB %s %.16e\n", str, norm);
 }
 
 

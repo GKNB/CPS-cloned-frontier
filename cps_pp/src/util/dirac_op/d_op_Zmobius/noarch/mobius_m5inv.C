@@ -112,7 +112,7 @@ void zmobius_m5inv_dag0(Vector *inout,
 		       const Float mass,
 		       const Dwf *mobius_lib_arg)
 {
-
+  
   int x;
   int s;
 
@@ -382,7 +382,6 @@ void zmobius_m5inv(Vector *inout,
 	       Dwf *mobius_lib_arg)
 {
   //! fixme most likely slow
-  
   IFloat* f_inout  = (IFloat *) inout;
   
   const int local_ls = GJP.SnodeSites();
@@ -396,45 +395,52 @@ void zmobius_m5inv(Vector *inout,
   Complex *kappa_ratio = new Complex[global_ls];
   Complex kapR=1.0;
   for(int s=0; s < global_ls; s++){
-    kappa_ratio[s] = mobius_lib_arg->zmobius_kappa_b[s]/mobius_lib_arg->zmobius_kappa_c[s];
+    kappa_ratio[s] =
+      mobius_lib_arg->zmobius_kappa_b[s]/mobius_lib_arg->zmobius_kappa_c[s];
     kapR *= kappa_ratio[s];
   }
   if( fabs(kapR.imag()/kapR.real()) > 1e-10 || kapR.real() <=0){
-    printf("assumption fail kapR %e %e\n", kapR.real(), kapR.imag());
+    ERR.General("","zmobius_m5inv(V*,F,I,Dwf*)",
+		"assumption fail kapR %e %e\n", kapR.real(), kapR.imag());
+
   }
   kapR = exp(log(kapR.real())/global_ls);
   
   {
-    Complex fact=1.0;
+    Complex factR=1.0;
+    Complex factL=1.0;
     Float* fio = f_inout + ls_stride;
     for(int s=1; s < local_ls; s++){
       int glb_s = s + local_ls*s_node_coor;
-      fact *= kappa_ratio[s]/kapR;
-      Complex inv_fact = 1.0/fact;
 
-      Complex f=fact;
-      Complex i_f=inv_fact;
-      if(dag){ f=conj(f); i_f=conj(i_f); }
+      factR *= kappa_ratio[s]/kapR;
+      factL *= kappa_ratio[s-1]/kapR;
+
+      Complex fR=factR;
+      Complex fL=factL;      
+      if(dag){ fR=conj(fR); fL=conj(fL);}
+      Complex i_fR=1.0/fR;
+      Complex i_fL=1.0/fL;
+
       
       for(int x=0; x<vol_4d_cb; x++){
 
 	//P_R
 	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);
+	  vecTimesEquComplex((Complex*)fio, i_fR, 12);
 	else
-	  vecTimesEquComplex((Complex*)fio, f, 12);
+	  vecTimesEquComplex((Complex*)fio, fR, 12);
 	fio  +=  12;
 
 	//P_L
 	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, f, 12);
+	  vecTimesEquComplex((Complex*)fio, fL, 12);
 	else
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);	  
+	  vecTimesEquComplex((Complex*)fio, i_fL, 12);	  
 	fio  +=  12;      
       }
     }
   }
-  
   Float kappa_b_save =   mobius_lib_arg->mobius_kappa_b;
   Float kappa_c_save =   mobius_lib_arg->mobius_kappa_c;
   mobius_lib_arg->mobius_kappa_b = kapR.real();
@@ -450,33 +456,36 @@ void zmobius_m5inv(Vector *inout,
   mobius_lib_arg->mobius_kappa_b = kappa_b_save;
   mobius_lib_arg->mobius_kappa_c = kappa_c_save;
 
-
   {
-    Complex fact=1.0;
+    Complex factR=1.0;
+    Complex factL=1.0;
     Float* fio = f_inout + ls_stride;
     for(int s=1; s < local_ls; s++){
       int glb_s = s + local_ls*s_node_coor;
-      fact *= kappa_ratio[s]/kapR;
-      Complex inv_fact = 1.0/fact;
 
-      Complex f=fact;
-      Complex i_f=inv_fact;
-      if(dag){ f=conj(f); i_f=conj(i_f); }
-      
+      factR *= kappa_ratio[s]/kapR;
+      factL *= kappa_ratio[s-1]/kapR;
+
+      Complex fR=factR;
+      Complex fL=factL;      
+      if(dag){ fR=conj(fR); fL=conj(fL);}
+      Complex i_fR=1.0/fR;
+      Complex i_fL=1.0/fL;
+
       for(int x=0; x<vol_4d_cb; x++){
 
 	//P_R
 	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, f, 12);
+	  vecTimesEquComplex((Complex*)fio, fR, 12);
 	else
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);
+	  vecTimesEquComplex((Complex*)fio, i_fR, 12);
 	fio  +=  12;
 
 	//P_L
 	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);
+	  vecTimesEquComplex((Complex*)fio, i_fL, 12);
 	else
-	  vecTimesEquComplex((Complex*)fio, f, 12);	  
+	  vecTimesEquComplex((Complex*)fio, fL, 12);	  
 	fio  +=  12;      
       }
     }
@@ -496,105 +505,8 @@ void zmobius_m5inv(Vector *out, Vector *in,
   const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
   moveFloat( (Float*)out, (Float*)in, f_size );
 
-  IFloat* f_inout  = (IFloat *) out;
   
-  const int local_ls = GJP.SnodeSites();
-  const int s_nodes = GJP.Snodes();
-  const int global_ls = local_ls * s_nodes;
-  const int s_node_coor = GJP.SnodeCoor();
-  const int ls_stride = 24 * vol_4d_cb;
-
-  // prepare kappa_ratio
-  Complex *kappa_ratio = new Complex[global_ls];
-  Complex kapR=1.0;
-  for(int s=0; s < global_ls; s++){
-    kappa_ratio[s] = mobius_lib_arg->zmobius_kappa_b[s]/mobius_lib_arg->zmobius_kappa_c[s];
-    kapR *= kappa_ratio[s];
-  }
-  if( fabs(kapR.imag()/kapR.real()) > 1e-10 || kapR.real() <=0){
-    printf("assumption fail kapR %e %e\n", kapR.real(), kapR.imag());
-  }
-  kapR = exp(log(kapR.real())/global_ls);
-  
-  {
-    Complex fact=1.0;
-    Float* fio = f_inout + ls_stride;
-    for(int s=1; s < local_ls; s++){
-      int glb_s = s + local_ls*s_node_coor;
-      fact *= kappa_ratio[s]/kapR;
-      Complex inv_fact = 1.0/fact;
-
-      Complex f=fact;
-      Complex i_f=inv_fact;
-      if(dag){ f=conj(f); i_f=conj(i_f); }
-      
-      for(int x=0; x<vol_4d_cb; x++){
-
-	//P_R
-	if(! dag)
-	  vecTimesEquComplex((Complex*) fio, i_f, 12);
-	else
-	  vecTimesEquComplex((Complex*) fio, f, 12);
-	fio  +=  12;
-
-	//P_L
-	if(! dag)
-	  vecTimesEquComplex((Complex*) fio, f, 12);
-	else
-	  vecTimesEquComplex((Complex*) fio, i_f, 12);	  
-	fio  +=  12;      
-      }
-    }
-  }
-  
-
-  Float kappa_b_save =   mobius_lib_arg->mobius_kappa_b;
-  Float kappa_c_save =   mobius_lib_arg->mobius_kappa_c;
-  mobius_lib_arg->mobius_kappa_b = kapR.real();
-  mobius_lib_arg->mobius_kappa_c = 1.0;
-  
-  if(dag==0)
-    zmobius_m5inv_dag0(out, mass, mobius_lib_arg);
-  else 
-    zmobius_m5inv_dag1(out, mass, mobius_lib_arg);  
-
-  mobius_lib_arg->mobius_kappa_b = kappa_b_save;
-  mobius_lib_arg->mobius_kappa_c = kappa_c_save;
-
-
-  
-  {
-    Complex fact=1.0;
-    Float* fio = f_inout + ls_stride;
-    for(int s=1; s < local_ls; s++){
-      int glb_s = s + local_ls*s_node_coor;
-      fact *= kappa_ratio[s]/kapR;
-      Complex inv_fact = 1.0/fact;
-
-      Complex f=fact;
-      Complex i_f=inv_fact;
-      if(dag){ f=conj(f); i_f=conj(i_f); }
-      
-      for(int x=0; x<vol_4d_cb; x++){
-
-	//P_R
-	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, f, 12);
-	else
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);
-	fio  +=  12;
-
-	//P_L
-	if(! dag)
-	  vecTimesEquComplex((Complex*)fio, i_f, 12);
-	else
-	  vecTimesEquComplex((Complex*)fio, f, 12);	  
-	fio  +=  12;      
-      }
-    }
-  }
-
-  delete [] kappa_ratio;
+  zmobius_m5inv(out, mass, dag, mobius_lib_arg);
 }
 
 

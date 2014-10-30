@@ -98,7 +98,7 @@ EigenCache* cps::EigenCacheListSearch( char* fname_root_bc, int neig )
 }
 
 
-void do_CG(Lattice& lattice, Vector* out)
+void do_CG(Lattice& lattice, Vector* out, int flag_src_kappa_b)
 {
 
   Vector* in;
@@ -110,16 +110,40 @@ void do_CG(Lattice& lattice, Vector* out)
   in  = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
 
   // zero the source, solution
-  for(int i=0;i<GJP.VolNodeSites()*ls*24;i++){
-    *((Float*)in+i) =i;
-    *((Float*)out+i) =0;
+  Site site;
+  while (site.LoopsOverNode()) {
+    int coord_idx = site.Index();
+    for(int s=0;s<ls;++s){
+      int coord_idx5 = coord_idx + GJP.VolNodeSites()*s;
+      for(int id=0;id<12;++id){
+	int idx = id + 12 * coord_idx5;
+	Float val =
+	  0.1* site.physX()+
+	  0.2* site.physY()+
+	  0.3* site.physZ()+	    
+	  0.4* site.physT()+
+	  0.5* s;
+	*((Complex*)in  + idx) =Complex(val,0.0);
+
+
+	if(flag_src_kappa_b){
+	  Complex kappa_b = 1.0 / ( 2 * (GJP.ZMobius_b()[s] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+
+	  *((Complex*)in  + idx) *= 2.0 * kappa_b;
+	}
+	
+	*((Complex*)out + idx) =0.0;
+      }
+    }
   }
+
+
   //point source at origin and spin=color=0
-  if(!UniqueID()) *((Float*)in) = 1.0;
+  //if(!UniqueID()) *((Float*)in) = 1.0;
 
   Float res;
   res = 0.0;
-  PreserveType pres =  PRESERVE_NO;
+  PreserveType pres =  PRESERVE_YES;
   CnvFrmType cnv =  CNV_FRM_YES;
   int nrestart =  3;
   Float rsd_vec[4];
@@ -152,12 +176,13 @@ int main(int argc,char *argv[])
   
   Start(&argc, &argv);
 
-  if ( argc!=1) { 
+  if ( argc!=3) { 
     if(!UniqueID())printf("(exe) do_arg doext_arg mdwf_arg mdwf_arg eig_arg work-directory\n");
     exit(-1);
   }
   
-  chdir(argv[0]);
+  int flag_test = atoi(argv[1]);
+  //chdir(argv[1]);
 
   real_mdwf_arg.Encode("real_mdwf_arg.dat", "real_mdwf_arg");
   doext_arg.Encode("doext_arg.dat","doext_arg");
@@ -195,9 +220,58 @@ int main(int argc,char *argv[])
   mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
   mdwf_arg2.Encode("mdwf_arg2.dat","mdwf_arg2");
 
-
   real_mdwf_arg.Decode("real_mdwf_arg.vml","real_mdwf_arg");
+
+
+  if(flag_test)
+  { // test case
+
+    if(doext_arg.zmobius_b_coeff.zmobius_b_coeff_len/2 != 8 ||
+       doext_arg.zmobius_c_coeff.zmobius_c_coeff_len/2 != 8 ||
+       real_mdwf_arg.b5.b5_len !=8 ||
+       real_mdwf_arg.c5.c5_len !=8    )
+      ERR.General("","main","Wrong Ls %d %d %d %d\n",
+		  doext_arg.zmobius_b_coeff.zmobius_b_coeff_len,
+		  doext_arg.zmobius_c_coeff.zmobius_c_coeff_len,
+		  real_mdwf_arg.b5.b5_len,
+		  real_mdwf_arg.c5.c5_len  );
+    
+    Complex omega[8];
+
+
+    omega[5] = -1.24321;
+    omega[7] = -0.905137;
+    omega[1] = -0.549597;
+    omega[6] = -0.310396;
+    omega[4] = -0.1698;
+    omega[2] = -0.0934561;
+    omega[3] = Complex(-0.0610379,   0.0357208);
+    omega[4] = Complex(-0.0610379, - 0.0357208);
+    
+    //omega[0] = -0.0610379;
+    //omega[4] = -0.0810379;
+
+
+    // b[s]=c[s]+1
+    // -1/omega[s] = b[s]+c[s]
+    // =>  b[s] = (1-omega[s])/2
+    //     c[s] = b[s]-1
+
+    for(int i=0;i<8;++i){
+      Complex b = (1.0 - omega[i])/2.0;
+      Complex c = b - 1.0;
+      
+      doext_arg.zmobius_b_coeff.zmobius_b_coeff_val[2*i] = b.real();
+      doext_arg.zmobius_b_coeff.zmobius_b_coeff_val[2*i+1] = b.imag();
+      doext_arg.zmobius_c_coeff.zmobius_c_coeff_val[2*i] = c.real();
+      doext_arg.zmobius_c_coeff.zmobius_c_coeff_val[2*i+1] = c.imag();
+
+      real_mdwf_arg.b5.b5_val[i] = b.real();
+      real_mdwf_arg.c5.c5_val[i] = c.real();
+    }
+  }
   
+
   GJP.Initialize(do_arg);
   GJP.InitializeExt(doext_arg);
   VRB.Level(do_arg.verbose_level);
@@ -213,43 +287,46 @@ int main(int argc,char *argv[])
   //qio_readLattice rl(do_arg.start_conf_filename, lattice, argc, argv);
  
 
+    int ls = GJP.SnodeSites();
   
-  //  LatticeFactory::Destroy();
-  //  lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
-
-  int ls = GJP.SnodeSites();
-  Vector* out_zmob = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
-  {
-    Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
-    do_CG(lattice,out_zmob);
-    LatticeFactory::Destroy();
-  }
-
-
   Vector* out_mob = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
 
-  int cmp_mdw=1;
+  int cmp_mdw=atoi(argv[2]);
   if(cmp_mdw)
   {
     GJP.SetMdwfArg( &real_mdwf_arg );
-    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_NONE);
+    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_WILSON);
     GnoneFmdwf lattice;
-    do_CG(lattice,out_mob);
+    do_CG(lattice,out_mob,0);
     //LatticeFactory::Destroy();
   }
   else
   {
-    Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
-    do_CG(lattice,out_mob);
-    LatticeFactory::Destroy();
+    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+    GnoneFmobius lattice;
+    do_CG(lattice,out_mob,1);
+    //LatticeFactory::Destroy();
   }
+
+  //  LatticeFactory::Destroy();
+  //  lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+
+
+  Vector* out_zmob = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
+  {
+    //Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
+    GnoneFzmobius lattice;
+    do_CG(lattice,out_zmob, 1);
+    //LatticeFactory::Destroy();
+  }
+
+
 
 
   Float max_diff = -100;
   Float max_rel_diff = -100;
 
   for(int s=0; s< ls;++s){
-    Complex kappa_b = 1.0 / ( 2 * (GJP.ZMobius_b()[s] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
     Site site;
     int vol=GJP.VolNodeSites();
     while (site.LoopsOverNode()) {
@@ -259,10 +336,8 @@ int main(int argc,char *argv[])
 	Complex *z1 = (Complex*)out_mob+idx;
 	Complex *z2 = (Complex*)out_zmob+idx;
 
-	if(cmp_mdw)
-	  *z2 *= 2*kappa_b;
 	
-	//	printf("%d %e %e %e %e\n", i, z1->real(), z1->imag(), z2->real(), z2->imag());
+	//printf("%d %e %e %e %e\n", i, z1->real(), z1->imag(), z2->real(), z2->imag());
 	Complex zdiff=*z1-*z2;
 
 	if(max_diff < norm(zdiff)){

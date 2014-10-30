@@ -88,7 +88,6 @@ void zmobius_dslash_4_dag0(Vector *out,
   Vector  *frm_tmp3 = (Vector *) mobius_lib_arg->frm_tmp3;
   frm_ = (IFloat*)frm_tmp3;
 
-  
   //----------------------------------------------------------------
   // Apply 4-dimensional Dslash
   //----------------------------------------------------------------
@@ -109,15 +108,13 @@ void zmobius_dslash_4_dag0(Vector *out,
       IFloat* _frm_in = frm_in + i* f_size;
       vecEqualsVecTimesEquComplex((Complex*)_frm_, (Complex*)_frm_in, b, f_size);
     }
-
+    
     // frm_ += c(s) * P_L * Psi(s+1) + c(s) * P_R * Psi(s-1)
     zmobius_kappa_dslash_5_plus_cmplx((Vector*)frm_, in, mass, dag, mobius_lib_arg, c_coeff);
 #endif
 
-
   // out = D_W * frm_
   for(i=0; i<ls; i++){
-
     // parity of 4-D checkerboard
     //------------------------------------------------------------
     parity = cb;//4d odd-even preconditioning

@@ -66,6 +66,17 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 
   if(prs_f_in==PRESERVE_YES){
     moveFloat((IFloat*)f_in,(IFloat*)temp, size);
+
+    // TIZB check
+    Float norm;
+    norm = f_out->NormSqGlbSum(size);
+    if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
+    norm = f_in->NormSqGlbSum(size);
+    if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
+    dop.Mat(temp,f_out);  
+    norm = temp->NormSqGlbSum(size);
+    if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
+
     sfree(cname, fname,  "temp",  temp);
   }
 

@@ -146,6 +146,7 @@ void zmobius_dslash_4(Vector *out,
 		     int dag,
 		     Dwf *mobius_lib_arg, Float mass);
 
+
 void zmobius_m5inv(Vector *out,
 	       Vector *in, 
 	       Float mass,
@@ -158,12 +159,14 @@ void zmobius_m5inv(Vector *inout,
 	       int dag,
 	       Dwf *mobius_lib_arg);
 
+#if 0
 void zmobius_kappa_dslash_5_plus(Vector *out, 
 				Vector *in, 
 				Float mass,
 				int dag, 
 				Dwf *mobius_lib_arg,
 				Float fact);
+#endif
 
 void zmobius_kappa_dslash_5_plus_cmplx(Vector *out, 
 				Vector *in, 
@@ -172,11 +175,14 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
 				Dwf *mobius_lib_arg,
 				Complex* fact);
 
+#if 0
 void zmobius_dslash_5_plus(Vector *out, 
 			  Vector *in, 
 			  Float mass,
 			  int dag, 
 			  Dwf *mobius_lib_arg);
+
+
 void zmobius_kappa_dslash_5_plus_dag0(Vector *out,
                        Vector *in,
                        Float mass,
@@ -187,6 +193,7 @@ void zmobius_kappa_dslash_5_plus_dag1(Vector *out,
                        Float mass,
                        Dwf *mobius_lib_arg,
                        Float a_five_inv );
+#endif
 
 #if 0
 void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls);

@@ -598,11 +598,13 @@ void DiracOpMobius::Mat(Vector *out, Vector *in) {
   //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
   mobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
   out->VecTimesEquFloat(minus_kappa, temp_size); 
+
   // intialize to zero since using the "plus-equal version"
   for(int i=0;i<temp_size;i++){
     *((IFloat*)frm_tmp2+i)=0.0;
   }
   mobius_dslash_5_plus(frm_tmp2, in, mass, 0, mobius_arg);
+
   fTimesV1PlusV2((IFloat*)frm_tmp2, kappa_ratio, (IFloat*)frm_tmp2, (IFloat *)in, temp_size);
   out->VecAddEquVec(frm_tmp2, temp_size); 
 
