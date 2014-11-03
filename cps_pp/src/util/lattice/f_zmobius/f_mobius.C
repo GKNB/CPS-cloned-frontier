@@ -27,6 +27,7 @@ CPS_END_NAMESPACE
 #include <util/time_cps.h>
 #include <util/enum_func.h>
 #include <util/dwf.h>
+#include <util/zmobius.h> 
 USING_NAMESPACE_CPS
 
 Fzmobius::Fzmobius() : FdwfBase(){
@@ -61,41 +62,80 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   VRB.Func(cname,fname);
   Vector *temp;
 
-  int size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  int local_ls = GJP.SnodeSites();
+  const int s_node_coor = GJP.SnodeCoor();
+  const int ls_stride = 24 * GJP.VolNodeSites()/2;
+    
+  int size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
   if(prs_f_in==PRESERVE_YES){ 
-    temp = (Vector *) smalloc(size * sizeof(Float));
-    if (temp == 0) ERR.Pointer(cname, fname, "temp");
-    VRB.Smalloc(cname,fname, "temp", temp, size * sizeof(Float));
+    temp = (Vector*) smalloc(cname,fname, "temp", size * sizeof(Float));
     moveFloat((IFloat*)temp,(IFloat*)f_in, size);
   }
   
+  Vector *dminus_in = (Vector *)
+    smalloc(cname, fname, "dminus_in", size* sizeof(Float) );
+
+    
   DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
-  // the next two lines are very very very vain
-  // mult by Dminus
-  dop.Dminus(f_out,f_in);
-  
-  iter = dop.MatInv(true_res, prs_f_in);
-
-  
-  if(prs_f_in==PRESERVE_YES){
-    moveFloat((IFloat*)f_in,(IFloat*)temp, size);
-
-    // TIZB check
-    Float norm;
-    norm = f_out->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
-    norm = f_in->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
-    dop.Mat(temp,f_out);  
-    norm = temp->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
-
-
-    sfree(cname, fname,  "temp",  temp);
+  // First multiply D_- to source
+#if 1
+  dop. Dminus(dminus_in, f_in);
+#else
+  moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
+#endif
+  {  Float norm;
+  norm = dminus_in->NormSqGlbSum(size);
+  if(!UniqueID()) printf("dminus_in Norm %.14e\n",norm);
   }
+#if 1  
+  // Next multiply 2*kappa, this make the normalization of
+  // propagator the "physical" one. This breaking of backward compatibility
+  // is needed for s-dependent kappa_b to be useful
+  // (otherwise this can't approximate larger Ls)
+
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+#endif
+  
+  // solve it
+  //    Because we use dminus_in keeping f_in, we don't have to preserve src
+  iter = dop.MatInv(f_out, dminus_in, true_res, PRESERVE_NO);
+
+  // TIZB check
+  Float norm;
+  norm = f_in->NormSqGlbSum(size);
+  if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
 
 
+
+  
+  if(prs_f_in==PRESERVE_YES)
+    moveFloat((IFloat*)f_in,(IFloat*)temp, size);
+    
+
+  norm = f_out->NormSqGlbSum(size);
+  if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
+
+  dop.Mat(temp,f_out);  
+  norm = temp->NormSqGlbSum(size);
+  if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
+  
+  
+  sfree(cname, fname,  "dminus_in",  dminus_in);
+  if(prs_f_in==PRESERVE_YES) 
+    sfree(cname, fname,  "temp",  temp);
 
   // Return the number of iterations
   return iter;
@@ -115,6 +155,7 @@ int Fzmobius::FmatInv(Vector *f_out,
 		     int n_restart, Float rsd_vec[])
 {
   const char *fname = "FmatInv(V*, V*, mdwfArg, mdwfArg, F, Cnv, Preserv, int, F)";
+  ERR.NotImplemented(cname,fname,"Not ready yet\n");
   // this implementation doesn't allow splitting in s direction(yet).
   if(GJP.Snodes() != 1){
     ERR.NotImplemented(cname, fname);

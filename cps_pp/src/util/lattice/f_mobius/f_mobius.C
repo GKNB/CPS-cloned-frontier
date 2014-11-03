@@ -60,12 +60,14 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
+  //TIZB: this is bug !  below Dminus multiplication is not in effect.
   // mult by Dminus
   dop.Dminus(f_out,f_in);
   iter = dop.MatInv(true_res, prs_f_in);
 
   if(prs_f_in==PRESERVE_YES){
     moveFloat((IFloat*)f_in,(IFloat*)temp, size);
+
 
     // TIZB check
     Float norm;

@@ -463,6 +463,37 @@ int DiracOpMobius::MatInv(Vector *out,
 
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
   DEBTIZB("after m5inv", (Vector*) temp, temp_size);
+
+#if 1
+  //----------------------------------
+  // check for m5inv
+  norm = odd_in->NormSqGlbSum(temp_size);
+  for(int i=0;i<24;++i) printf("%e ", *((IFloat*)odd_in+i)); printf("\n");
+  if(!UniqueID()) printf("TIZB M5 Norm odd_in %.14e\n",norm);
+  norm = temp->NormSqGlbSum(temp_size);
+  if(!UniqueID()) printf("M5 Norm temp  %.14e\n",norm);
+  for(int i=0;i<24;++i) printf("%e ", *((IFloat*)temp+i)); printf("\n");
+  {
+    moveFloat( (IFloat*)temp2, (IFloat*)temp, temp_size );
+
+    mobius_dslash_5_plus(temp2,
+			       temp,
+			       mass,
+			       DAG_NO,
+			       mobius_arg);
+
+    norm = temp2->NormSqGlbSum(temp_size);
+    if(!UniqueID()) printf("M5 Norm temp2  %.14e\n",norm);
+  }
+  for(int i=0;i<24;++i) printf("%e ", *((IFloat*)temp2+i)); printf("\n");
+  
+  exit(1);
+  //check end
+  //----------------------------------
+#endif
+
+
+
   mobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
   DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
   fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,

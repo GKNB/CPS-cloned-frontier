@@ -1100,6 +1100,17 @@ class Fmdwf : public virtual Lattice {
   //!< Method to ensure bosonic force works (does nothing for Wilson
   //!< theories.
   void BforceVector(Vector *in, CgArg *cg_arg);
+  // !< Special for Mobius fermions, applies the D_- 5D matrix to an
+  // !< unpreconditioned fermion vector.
+  //
+  // !< The following gives an example of D_- with Ls = 4:
+  //       [ -D_-^1 0      0      0      ]
+  //       [ 0      -D_-^2 0      0      ]
+  // D_- = [ 0      0      -D_-^3 0      ]
+  //       [ 0      0      0      -D_-^4 ]
+  //
+  // !< where D_-^s = c[s] D_W - 1, D_W is the 4D Wilson Dirac operator.
+  void Dminus(Vector *out, Vector *in);
 };
 
 class Fmobius : public FdwfBase {

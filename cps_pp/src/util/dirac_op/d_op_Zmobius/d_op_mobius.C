@@ -430,9 +430,10 @@ void DiracOpZMobius::MatPcDag(Vector *out, Vector *in) {
 
 
 
-  //----------------------------------
-void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass)
+ //----------------------------------
+void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
 {
+  
   const char* cname=""; const char* fname="";
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
 
@@ -469,8 +470,8 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass)
   
   if(!UniqueID())printf("TIZB mass=%e\n",mass);
   for(int TID=0; TID<=12; TID+=12){
-    Float mat_orig[8][8];
-    Float mat_inv[8][8];
+    Complex mat_orig[100][100];
+    Complex mat_inv[100][100];
     for(int iturn=0;iturn<2;++iturn){
       
       for (int s1=0;s1<local_ls;++s1){
@@ -487,7 +488,7 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass)
 	
 	if(iturn==0)
 	  {
-	    zmobius_m5inv(temp2, temp, mass, DAG_NO, mobius_arg);  	  
+	    zmobius_m5inv(temp2, temp, mass, dag, mobius_arg);  	  
 	  }
 	else { // this is the M5
 	  moveFloat( (IFloat*)temp2, (IFloat*)temp, temp_size );
@@ -495,7 +496,7 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass)
 	  zmobius_kappa_dslash_5_plus_cmplx(temp2,
 					    temp,
 					    mass,
-					    DAG_NO,
+					    dag,
 					    mobius_arg,
 					    kappa_ratio);
 	}
@@ -507,44 +508,140 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass)
 	  for(int s2=0;s2<local_ls;++s2){
 	    int idx=id+24*(i+vol_4d_cb*s2);
 	    if(iturn==0)
-	      mat_inv[s2][s1]=fp[idx];
+	      mat_inv[s2][s1]=Complex(fp[idx], fp[idx+1]);
 	    else
-	      mat_orig[s2][s1]=fp[idx];
+	      mat_orig[s2][s1]=Complex(fp[idx], fp[idx+1]);
 	  }
 	}
 	
       }
     }
     
-    Float mat_prod[8][8];
-    for(int s1=0;s1<8;++s1) for(int s2=0;s2<8;++s2)
+    Complex mat_prod[100][100];
+    for(int s1=0;s1<local_ls;++s1) for(int s2=0;s2<local_ls;++s2)
 			      mat_prod[s1][s2]=0.0;
     
-    for(int s1=0;s1<8;++s1)
-      for(int s2=0;s2<8;++s2)
-	for(int s=0;s<8;++s)
+    for(int s1=0;s1<local_ls;++s1)
+      for(int s2=0;s2<local_ls;++s2)
+	for(int s=0;s<local_ls;++s)
 	  mat_prod[s1][s2] += mat_orig[s1][s]*mat_inv[s][s2];
     
     printf("TID=\%d\n",TID);
+#if 0
     printf("===  mat_orig ===\n");
-    for(int s1=0;s1<8;++s1){
-      for(int s2=0;s2<8;++s2) printf("%+.2e ", mat_orig[s1][s2]);
+    for(int s1=0;s1<local_ls;++s1){
+      for(int s2=0;s2<local_ls;++s2) printf("%+.2e ", mat_orig[s1][s2].real());
       printf("\n");
     }
     printf("===  mat_inv ===\n");
-    for(int s1=0;s1<8;++s1){
-      for(int s2=0;s2<8;++s2) printf("%+.2e ", mat_inv[s1][s2]);
+    for(int s1=0;s1<local_ls;++s1){
+      for(int s2=0;s2<local_ls;++s2) printf("%+.2e ", mat_inv[s1][s2].real());
       printf("\n");
     }
-
+#endif
     printf("===  mat_prod ===\n");
-    for(int s1=0;s1<8;++s1){
-      for(int s2=0;s2<8;++s2) printf("%+.2e ", mat_prod[s1][s2]);
+    for(int s1=0;s1<local_ls;++s1){
+      for(int s2=0;s2<local_ls;++s2) 
+	printf("(%+.2e,%+.2e) ", mat_prod[s1][s2].real(),mat_prod[s1][s2].imag());
       printf("\n");
     }
-    }			     
-    exit(1);
+  }
+  
 }
+
+//----------------------------------
+void test_m5inv_norm(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
+{
+  
+  const char* cname=""; const char* fname="test_m5inv_norm";
+  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
+
+  //Float minus_kappa_b = -mobius_arg->mobius_kappa_b;
+  //Float kappa_b = - minus_kappa_b;
+  Float norm;
+
+  //printf("KAPPA_B %g\n",kappa_b); exit(0);
+
+  //----------------------------------------------------------------
+  // Implement routine
+  //----------------------------------------------------------------
+  Vector *temp2;
+  Vector *temp3;
+  Vector *save_in;
+
+  const int local_ls = GJP.SnodeSites();
+  const int s_nodes = GJP.Snodes();
+  const int global_ls = local_ls * s_nodes;
+  const int s_node_coor = GJP.SnodeCoor();
+  const int vol_4d_cb = ((Dwf*)mobius_lib_arg)->vol_4d / 2;
+  const int ls_stride = 24 * vol_4d_cb;
+
+  int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
+  if (temp == 0) ERR.Pointer(cname, fname, "temp");
+  VRB.Smalloc(cname,fname, "temp", temp, temp_size * sizeof(Float));
+
+  temp2 = (Vector *) smalloc(temp_size * sizeof(Float));
+  if (temp2 == 0) ERR.Pointer(cname, fname, "temp2");
+  VRB.Smalloc(cname,fname, "temp2", temp2, temp_size * sizeof(Float));
+
+  temp3 = (Vector *) smalloc(temp_size * sizeof(Float));
+  if (temp2 == 0) ERR.Pointer(cname, fname, "temp3");
+  VRB.Smalloc(cname,fname, "temp3", temp3, temp_size * sizeof(Float));
+
+  srand48(19700215);
+  
+  for(int s=0;s<local_ls;++s){
+    for(int i=0;i< vol_4d_cb;++i){
+      for(int id=0;id<24;++id){
+	int idx=id+24*(i+vol_4d_cb*s);
+	Float *fp=(Float*)temp;
+	fp[idx]=drand48();
+      }
+    }
+  }
+  moveFloat((IFloat*)temp3,(IFloat*)temp,temp_size);
+  
+  {
+    Float norm = temp-> NormSqGlbSum(temp_size);
+    if(!UniqueID()) printf("%s in Norm %.16e\n", fname, norm);
+  }
+
+  
+  zmobius_m5inv(temp2, temp, mass, dag, mobius_arg);  	  
+  {
+    moveFloat( (IFloat*)temp, (IFloat*)temp2, temp_size );
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    zmobius_kappa_dslash_5_plus_cmplx(temp,temp2,mass,dag,
+				      mobius_arg, kappa_ratio);
+  }
+
+  {
+    Float norm = temp-> NormSqGlbSum(temp_size);
+    if(!UniqueID()) printf("%s check Norm %.16e\n", fname, norm);
+  }
+
+  IFloat *fp=(IFloat*)temp;
+  IFloat *fp3=(IFloat*)temp3;
+  Float max=-100;
+  Float max_rel=-100;
+  for(int s=0;s<local_ls;++s){
+    for(int i=0;i< vol_4d_cb;++i){
+      for(int id=0;id<24;++id){
+	int idx=id+24*(i+vol_4d_cb*s);
+	Float diff = fabs( fp[idx]-fp3[idx] );
+	if(diff > max) max=diff;
+	Float diff_rel = 2.0*fabs( fp[idx]-fp3[idx] )/fabs( fp[idx]+fp3[idx] );
+	if(diff_rel > max_rel) max_rel=diff_rel;
+      }
+    }
+  }
+  glb_max(&max);
+  glb_max(&max_rel);
+  printf("max diff %e max rel diff %e\n", max, max_rel);
+  
+}  
+
 
 //------------------------------------------------------------------
 // int MatInv(Vector *out, Vector *in, 
@@ -637,6 +734,14 @@ int DiracOpZMobius::MatInv(Vector *out,
   DEBTIZB("after m5inv", (Vector*) temp, temp_size);
 
 
+#if 0
+  test_m5inv(mobius_lib_arg, lat,  mass,0);
+  test_m5inv(mobius_lib_arg, lat,  mass,1);
+  test_m5inv_norm(mobius_lib_arg, lat,  mass,0);
+  test_m5inv_norm(mobius_lib_arg, lat,  mass,1);
+  exit(1);
+#endif
+  
 #if 0
   //----------------------------------
   // check for m5inv

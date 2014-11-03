@@ -47,10 +47,15 @@ static double time_elapse(){
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
+#define VEC_TIMESEQU_COMPLEX(py, fact, n ) vecTimesEquComplex((Complex*) (py), fact, n)
+#define ZAXPY(n, fact, px, py)  zTimesV1PlusV2((Complex*)(py), fact, (Complex*)(px), (Complex*)(py), n)
+
 #else
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
 #define AXPY(n, fact, px, py)  cblas_daxpy(n, fact, px,1,py,1)
+#define VEC_TIMESEQU_FLOAT(py, fact, n ) NOT_YET_IMPLEMENTED_cblas_dscal( n,  fact, py,1 )
+#define AXPY(n, fact, px, py)  NOTE_YET_IMPLEMENTED_cblas_daxpy(n, fact, px,1,py,1)
 #endif
 
 #endif
