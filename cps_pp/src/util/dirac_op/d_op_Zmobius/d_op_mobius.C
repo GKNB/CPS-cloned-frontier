@@ -834,7 +834,7 @@ int DiracOpZMobius::MatInv(Vector *out,
   //VRB.Sfree(cname, fname, "temp3", temp3);
   //sfree(temp3);
 #endif
-  DEBTIZB("insrc", (Vector*) in, 2*temp_size);
+  //  DEBTIZB("insrc", (Vector*) in, 2*temp_size);
   
     
   // save source
@@ -847,7 +847,7 @@ int DiracOpZMobius::MatInv(Vector *out,
 
   zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
 		mobius_arg->zmobius_kappa_ratio);  
-  DEBTIZB("after m5inv", (Vector*) temp, temp_size);
+  //DEBTIZB("after m5inv", (Vector*) temp, temp_size);
 
 
 #if 0
@@ -885,12 +885,8 @@ int DiracOpZMobius::MatInv(Vector *out,
 #endif
   
   zmobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
-  DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
+  //DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
   
-#if 0
-  fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,
-		 (IFloat *)in, temp_size);
-#else
   for(int s=0; s<local_ls;++s){
     const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
     int glb_s = s + local_ls*s_node_coor;
@@ -898,14 +894,13 @@ int DiracOpZMobius::MatInv(Vector *out,
     zTimesV1PlusV2((Complex*) temp+idx, kappa_b[glb_s], (Complex*) temp2+idx,
 		   (Complex*)in+idx, ls_stride);
       }
-#endif
-  DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
+  //DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
   
   int iter;
   switch (dirac_arg->Inverter) {
   case CG:
     MatPcDag(in, temp);
-    DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
+    //DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
     iter = InvCg(out,in,true_res);
     break;
   case BICGSTAB:

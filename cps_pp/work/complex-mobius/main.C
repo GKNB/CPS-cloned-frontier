@@ -302,7 +302,7 @@ int main(int argc,char *argv[])
   }
 
 
-  if(!comp_flag){
+  if(comp_flag){
 
   Float max_diff = -100;
   Float max_rel_diff = -100;
