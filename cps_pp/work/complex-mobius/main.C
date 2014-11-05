@@ -23,9 +23,6 @@
 using namespace std;
 USING_NAMESPACE_CPS
 
-
-
-
 void print_vec(char* str, Float* vec)
 {
 
@@ -233,60 +230,11 @@ int main(int argc,char *argv[])
   lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
   mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
   mdwf_arg2.Encode("mdwf_arg2.dat","mdwf_arg2");
-
   real_mdwf_arg.Decode("real_mdwf_arg.vml","real_mdwf_arg");
 
 
   int long_ls=24;
-  int short_ls=10;
-  
-  if(flag_test)
-  { // test case
-
-#if 0
-    if(doext_arg.zmobius_b_coeff.zmobius_b_coeff_len/2 != 10 ||
-       doext_arg.zmobius_c_coeff.zmobius_c_coeff_len/2 != 10 ||
-       real_mdwf_arg.b5.b5_len !=10 ||
-       real_mdwf_arg.c5.c5_len !=10    )
-      ERR.General("","main","Wrong Ls %d %d %d %d\n",
-		  doext_arg.zmobius_b_coeff.zmobius_b_coeff_len,
-		  doext_arg.zmobius_c_coeff.zmobius_c_coeff_len,
-		  real_mdwf_arg.b5.b5_len,
-		  real_mdwf_arg.c5.c5_len  );
-#endif
-    
-    Complex omega[10];
-
-    omega[0]= -1.266183849368668;
-    omega[1]= -0.7460247270484864;
-    omega[2]= -0.3190376301726478;
-    omega[3]= -0.10505278210541939;
-    omega[4]= Complex(-0.06991467305678771, +0.0586052679577295);
-    omega[5]= Complex(-0.06991467305678771, -0.0586052679577295);
-    omega[6]= -0.2004366391110494;
-    omega[7]= -0.11837251728686456;
-    omega[8]= -0.4967387734575858;    
-    omega[9]= -1.0407930347576346;
-    
-
-    // b[s]=c[s]+1
-    // 1/omega[s] = b[s]+c[s]
-    // =>  b[s] = (1-1/omega[s])/2
-    //     c[s] = b[s]-1
-
-    for(int i=0;i<short_ls;++i){
-      Complex b = (1.0 - 1.0/omega[i])/2.0;
-      Complex c = b - 1.0;
-      
-      doext_arg.zmobius_b_coeff.zmobius_b_coeff_val[2*i] = b.real();
-      doext_arg.zmobius_b_coeff.zmobius_b_coeff_val[2*i+1] = b.imag();
-      doext_arg.zmobius_c_coeff.zmobius_c_coeff_val[2*i] = c.real();
-      doext_arg.zmobius_c_coeff.zmobius_c_coeff_val[2*i+1] = c.imag();
-
-      //real_mdwf_arg.b5.b5_val[i] = b.real();
-      //real_mdwf_arg.c5.c5_val[i] = c.real();
-    }
-  }
+  int short_ls=doext_arg.zmobius_b_coeff.zmobius_b_coeff_len/2;
 
   
 
@@ -312,23 +260,27 @@ int main(int argc,char *argv[])
 
   GJP.SnodeSites( long_ls );
     
-  int cmp_mdw=atoi(argv[2]);
-  if(cmp_mdw)
-  {
-    GJP.SetMdwfArg( &real_mdwf_arg );
-    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_WILSON);
-    GnoneFmdwf lattice;
-    do_CG(lattice,out_mob,0);
-    //LatticeFactory::Destroy();
-    lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
-  }
-  else
-  {
-    //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
-    GnoneFmobius lattice;
-    do_CG(lattice,out_mob,1);
-    //LatticeFactory::Destroy();
-    lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
+  int comp_flag=atoi(argv[2]);
+  switch( comp_flag ){
+  case 1 :
+    {
+      GJP.SetMdwfArg( &real_mdwf_arg );
+      //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_WILSON);
+      GnoneFmdwf lattice;
+      do_CG(lattice,out_mob,0);
+      //LatticeFactory::Destroy();
+      lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
+    }
+    break;
+  case 2:
+    {
+      //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+      GnoneFmobius lattice;
+      do_CG(lattice,out_mob,1);
+      //LatticeFactory::Destroy();
+      lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
+    }
+    break;
   }
 
 
@@ -350,7 +302,7 @@ int main(int argc,char *argv[])
   }
 
 
-
+  if(!comp_flag){
 
   Float max_diff = -100;
   Float max_rel_diff = -100;
@@ -367,7 +319,7 @@ int main(int argc,char *argv[])
 	Complex *z2 = (Complex*)out_zmob_4d+idx;
 
 	
-	 printf("%d %e %e %e %e\n", i, z1->real(), z1->imag(), z2->real(), z2->imag());
+	//printf("%d %e %e %e %e\n", i, z1->real(), z1->imag(), z2->real(), z2->imag());
 	Complex zdiff=*z1-*z2;
 
 	if(max_diff < norm(zdiff)){
@@ -382,15 +334,32 @@ int main(int argc,char *argv[])
     }
   }
 
-  
-
   glb_max(&max_diff);
   glb_max(&max_rel_diff);  
   if(!UniqueID()){
     printf("max_difference_sol %e %e\n",max_diff, max_rel_diff);
   }
-  
 
+  {
+    int f_size = GJP.VolNodeSites()*24;
+    
+    Float norm_zmob = out_zmob_4d->NormSqGlbSum(f_size);
+    Float norm_mob = out_mob_4d->NormSqGlbSum(f_size);
+    
+    IFloat* fp = (IFloat*) out_mob_4d;
+    IFloat* fpz = (IFloat*) out_zmob_4d;
+    for(int i=0;i<f_size;++i) fpz[i]-=fp[i];
+    Float norm_diff = out_zmob_4d->NormSqGlbSum(f_size);
+    
+    if(!UniqueID())
+      printf("difference L2 norm %e %e %e rel = %e\n",
+	     norm_mob, norm_zmob, norm_diff,
+	     norm_diff / norm_mob);
+    }
+  }
+
+
+  
   //  LatticeFactory::Destroy();
 
   sfree(filename);

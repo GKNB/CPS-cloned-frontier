@@ -244,7 +244,8 @@ void zmobius_m5inv_dag0(Vector *inout,
 //
 void zmobius_m5inv_cmplx_dag0(Vector *inout, 
 			      const Float mass,
-			      const Dwf *mobius_lib_arg)
+			      const Dwf *mobius_lib_arg,
+			      Complex* K)
 {
   
   int x;
@@ -264,7 +265,7 @@ void zmobius_m5inv_cmplx_dag0(Vector *inout,
   //const IFloat inv_two_kappa = 1.0 / two_kappa;
   //const Float  inv_d_last = 1.0 / ( 1.0 + pow(two_kappa, ls)*mass); // 1.0 / d_{ls-1}
 
-  const Complex* K = mobius_lib_arg->zmobius_kappa_ratio;
+  //const Complex* K = mobius_lib_arg->zmobius_kappa_ratio;
   Complex inv_d_last;
   {
     Complex prod=1.0;
@@ -394,7 +395,7 @@ void zmobius_m5inv_cmplx_dag0(Vector *inout,
 //
 void zmobius_m5inv_dag1(Vector *inout, 
 		    const Float mass,
-		    const Dwf *mobius_lib_arg)
+			const Dwf *mobius_lib_arg)
 {
 
   int x;
@@ -525,7 +526,8 @@ void zmobius_m5inv_dag1(Vector *inout,
 //
 void zmobius_m5inv_cmplx_dag1(Vector *inout, 
 			      const Float mass,
-			      const Dwf *mobius_lib_arg)
+			      const Dwf *mobius_lib_arg,
+			      Complex* K)
 {
 
   int x;
@@ -544,7 +546,7 @@ void zmobius_m5inv_cmplx_dag1(Vector *inout,
   //const IFloat inv_two_kappa = 1.0 / two_kappa;
   //const Float  inv_d_last = 1.0 / ( 1.0 + pow(two_kappa, ls)*mass); // 1.0 / d_{ls-1}
 
-  const Complex* K = mobius_lib_arg->zmobius_kappa_ratio;
+  //const Complex* K = mobius_lib_arg->zmobius_kappa_ratio;
   Complex factR, factL;
   
   Complex inv_d_last;
@@ -792,14 +794,15 @@ void zmobius_m5inv(Vector *inout,
 }
 #else
 void zmobius_m5inv(Vector *inout,
-	       Float mass,
-	       int dag,
-	       Dwf *mobius_lib_arg)
+		   Float mass,
+		   int dag,
+		   Dwf *mobius_lib_arg,
+		   Complex* K)
 {
   if(dag==0)
-    zmobius_m5inv_cmplx_dag0(inout, mass, mobius_lib_arg);
+    zmobius_m5inv_cmplx_dag0(inout, mass, mobius_lib_arg,K);
   else
-    zmobius_m5inv_cmplx_dag1(inout, mass, mobius_lib_arg);
+    zmobius_m5inv_cmplx_dag1(inout, mass, mobius_lib_arg,K);
 
 }
 #endif
@@ -808,7 +811,8 @@ void zmobius_m5inv(Vector *inout,
 void zmobius_m5inv(Vector *out, Vector *in,
 		  Float mass,
 		  int dag,
-		  Dwf *mobius_lib_arg)
+		   Dwf *mobius_lib_arg,
+		   Complex* K)
 {
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
   const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
@@ -819,9 +823,9 @@ void zmobius_m5inv(Vector *out, Vector *in,
   //return;
   
   if(dag==0)
-    zmobius_m5inv_cmplx_dag0(out, mass, mobius_lib_arg);
+    zmobius_m5inv_cmplx_dag0(out, mass, mobius_lib_arg,K);
   else
-    zmobius_m5inv_cmplx_dag1(out, mass, mobius_lib_arg);
+    zmobius_m5inv_cmplx_dag1(out, mass, mobius_lib_arg,K);
 
 }
 

@@ -41,6 +41,20 @@ extern int zmobiusso_wire_map[];
 // S+, S-  it gives the corresponding wire.
 
 
+
+
+//---------------------------------------------------------------------
+//  choose which preconditioning we gonna use
+//
+//  Note :  you need to modify mobius_m.C  and  mobius_mdag.C  by HAND
+//          below is only chaning d_op_mobius.C
+//---------------------------------------------------------------------
+//#define ZMOBIUS_PC_ORIG
+//#define ZMOBIUS_PC_SYM1
+#define ZMOBIUS_PC_SYM2
+//#define ZMOBIUS_PC_SYM1_MIT
+//#define ZMOBIUS_PC_SYM2_MIT
+
 //------------------------------------------------------------------
 // Type definitions
 //------------------------------------------------------------------
@@ -109,17 +123,20 @@ void zmobius_dslash(Vector *out,
 // mobius_m is the fermion matrix.  
 // The in, out fields are defined on the checkerboard lattice.
 //------------------------------------------------------------------
+
+
 void  zmobius_m(Vector *out, 
 	       Matrix *gauge_field, 
 	       Vector *in,
 	       Float mass,
 	       Dwf *mobius_lib_arg);
+#if 0
 void  zmobius_mdagm(Vector *out, 
 		   Matrix *gauge_field, 
 		   Vector *in,
 		   Float mass,
 		   Dwf *mobius_lib_arg);
-
+#endif
 
 //------------------------------------------------------------------
 // mobius_mdag is the dagger of the fermion matrix. 
@@ -147,17 +164,24 @@ void zmobius_dslash_4(Vector *out,
 		     Dwf *mobius_lib_arg, Float mass);
 
 
+
 void zmobius_m5inv(Vector *out,
-	       Vector *in, 
-	       Float mass,
-	       int dag,
-	       Dwf *mobius_lib_arg);
+		   Vector *in, 
+		   Float mass,
+		   int dag,
+		   Dwf *mobius_lib_arg,
+		   Complex* K);
 
 // in-place version
 void zmobius_m5inv(Vector *inout, 
-	       Float mass,
-	       int dag,
-	       Dwf *mobius_lib_arg);
+		   Float mass,
+		   int dag,
+		   Dwf *mobius_lib_arg,
+		   Complex* K);
+
+
+
+
 
 #if 0
 void zmobius_kappa_dslash_5_plus(Vector *out, 
