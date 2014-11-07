@@ -26,7 +26,11 @@ CPS_END_NAMESPACE
 #include <util/dirac_op.h>
 #include <util/time_cps.h>
 #include <util/enum_func.h>
+
+#include <util/zmobius.h> // for debug remove later 
+
 USING_NAMESPACE_CPS
+
 
 Fmobius::Fmobius() : FdwfBase(){
   cname = "Fmobius";
@@ -96,10 +100,15 @@ int Fmobius::FmatInv(Vector *f_out,
 		     MobiusArg *mob_s,
 		     Float *true_res,
 		     CnvFrmType cnv_frm,
-		     PreserveType prs_f_in,
-		     int n_restart, Float rsd_vec[])
+		     PreserveType prs_f_in)
+
 {
   const char *fname = "FmatInv(V*, V*, mdwfArg, mdwfArg, F, Cnv, Preserv, int, F)";
+
+  // n_restart and stop_rsd is taken from mob_l
+  int n_restart = mob_l->rsd_vec.rsd_vec_len;
+  Float *rsd_vec = mob_l->rsd_vec.rsd_vec_val;
+
   // this implementation doesn't allow splitting in s direction(yet).
   if(GJP.Snodes() != 1){
     ERR.NotImplemented(cname, fname);
@@ -118,6 +127,8 @@ int Fmobius::FmatInv(Vector *f_out,
   // GJP.SnodeSites() while in the scope of the Fmobius object.
   //----------------------------------------------------------------
 
+
+  
   int ls = GJP.SnodeSites();
   int mob_l_ls = mob_l->ls;
   int mob_s_ls = mob_s->ls;
@@ -139,6 +150,7 @@ int Fmobius::FmatInv(Vector *f_out,
   CgArg *cg_arg_l = &mob_l->cg;
   CgArg *cg_arg_s = &mob_s->cg;
 
+  
   // the first time, we solve in Mobius to some degree of accuracy
   {
     Float rsd = cg_arg_l->stop_rsd;
@@ -150,7 +162,7 @@ int Fmobius::FmatInv(Vector *f_out,
     DiracOpMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
     dop.Dminus(dminus_in,f_in);
     int iter = dop.MatInv(f_out, dminus_in, PRESERVE_YES);
-#if 0
+#if 1
       for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
 	printf("IN OUT1 %d %e %e\n",i,*((Float*)dminus_in+i),*((Float*)f_out+i) );
 #endif
@@ -172,8 +184,16 @@ int Fmobius::FmatInv(Vector *f_out,
     tmp2_mob_l_5d->VecMinusEquVec(tmp_mob_l_5d, mob_l_size_5d);
     //end constructing the new residue(new residue now in tmp2_mob_l_5d)
 
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT2 %d %e\n",i,*((Float*)tmp2_mob_l_5d+i));
+#endif
+
+    
     cg_arg_s->stop_rsd = rsd_vec[restart_cnt];
     tmp_mob_l_5d->VecZero(mob_l_size_5d);
+
+    // Large PV
     {
       Float mass = cg_arg_l->mass;
       Float stop_rsd = cg_arg_l->stop_rsd;
@@ -195,12 +215,19 @@ int Fmobius::FmatInv(Vector *f_out,
     }
     SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 1);
     
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT3 %d %e\n",i,*((Float*)tmp2_mob_l_5d+i));
+#endif
+
     // go to the small Mobius lattice
     tmp_mob_s_5d->VecZero(mob_s_size_5d);
     tmp_mob_s_5d->CopyVec(tmp2_mob_l_5d, size_4d);
     
     SpinProject(tmp_mob_l_5d, tmp_mob_s_5d, mob_s_ls, 0);
     
+
+    // SMALL PV
     {
       Float mass= cg_arg_s->mass; 
       cg_arg_s->mass = 1.0;
@@ -213,18 +240,33 @@ int Fmobius::FmatInv(Vector *f_out,
       
       cg_arg_s->mass = mass;
     }
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT4 %d %e\n",i,*((Float*)tmp_mob_s_5d+i));
+#endif
+
     
+    // SMALL SLOVE
     tmp_mob_l_5d->VecZero(mob_s_size_5d);
     {
       //DiracOpMobius mdwf(*this, mob_s);
       GJP.SnodeSites(mob_s_ls);
       GJP.Mobius_b(mobius_b_s);
       GJP.Mobius_c(mobius_c_s);
+
+      //if(!UniqueID())printf("TIZB stop_rsd=%e\n", cg_arg_s->stop_rsd);
+      
       DiracOpMobius dop(*this, tmp_mob_l_5d, tmp_mob_s_5d, cg_arg_s, cnv_frm);
       dop.MatInv(tmp_mob_l_5d, tmp_mob_s_5d, true_res, PRESERVE_YES);
     }
     SpinProject(tmp_mob_s_5d, tmp_mob_l_5d, mob_s_ls, 1);
 
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT5 %d %e\n",i,*((Float*)tmp_mob_s_5d+i));
+#endif
+
+    
     //OV2DWF
     tmp_mob_l_5d->VecNegative(tmp_mob_s_5d, size_4d);
     {
@@ -243,6 +285,7 @@ int Fmobius::FmatInv(Vector *f_out,
       dop.Mat(tmp_mob_l_5d, tmp2_mob_l_5d);
     }
     
+    // LARGE PV
     tmp2_mob_l_5d->VecZero(mob_l_size_5d);
     {
       Float mass = cg_arg_l->mass;
@@ -263,13 +306,23 @@ int Fmobius::FmatInv(Vector *f_out,
       cg_arg_l->stop_rsd = stop_rsd;
       cg_arg_l->max_num_iter = max_num_iter;
     }
-    SpinProject(tmp_mob_l_5d, tmp2_mob_l_5d, mob_l_ls, 1);
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT6 %d %e\n",i,*((Float*)tmp_mob_s_5d+i));
+#endif
+
+      SpinProject(tmp_mob_l_5d, tmp2_mob_l_5d, mob_l_ls, 1);
     
     tmp_mob_l_5d->CopyVec(tmp_mob_s_5d, size_4d);
     
     SpinProject(tmp2_mob_l_5d, tmp_mob_l_5d, mob_l_ls, 0);
 
     f_out->VecAddEquVec(tmp2_mob_l_5d, mob_l_size_5d);
+
+#if 1
+      for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+	printf("IN OUT7 %d %e\n",i,*((Float*)f_out+i));
+#endif
   }
 
   // final solve
@@ -280,7 +333,13 @@ int Fmobius::FmatInv(Vector *f_out,
     GJP.Mobius_c(mobius_c_l);
 
     DiracOpMobius dop(*this, f_out, dminus_in, cg_arg_l, cnv_frm);
+
+    for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
+      printf("IN OUT9 %d %e\n",i,*((Float*)f_out+i));
+
     iter = dop.MatInv(f_out, dminus_in, true_res, PRESERVE_YES);
+
+
   }
 
   sfree(cname, fname,  "tmp_mob_l_5d",  tmp_mob_l_5d);

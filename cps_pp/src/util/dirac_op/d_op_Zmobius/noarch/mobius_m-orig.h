@@ -1,6 +1,6 @@
 //4d precond. mobius Dirac op:
 // M_5 - kappa_b M4eo M_5^-1 kappa_b M4oe
-void  zmobius_m(Vector *out, 
+void  zmobius_m_orig(Vector *out, 
 	       Matrix *gauge_field, 
 	       Vector *in, 
 	       Float mass, 

@@ -896,6 +896,15 @@ int DiracOpZMobius::MatInv(Vector *out,
       }
   //DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
   
+  // !! Important part :  precondition the guess vector as well !!
+
+  if(global_zmobius_pc==2) {  
+    // Apply M5 to out for sym2 preconditioning
+    moveFloat((IFloat *)temp2, (IFloat *)out, temp_size );
+    zmobius_kappa_dslash_5_plus_cmplx(out, temp2, mass, DAG_NO, mobius_arg,
+    mobius_arg->zmobius_kappa_ratio);
+  }
+    
   int iter;
   switch (dirac_arg->Inverter) {
   case CG:
@@ -950,13 +959,15 @@ int DiracOpZMobius::MatInv(Vector *out,
   //           = M5inv kappa_b M4 out_final  + M5inv odd_in
 
 
-#ifdef ZMOBIUS_PC_SYM2
-  zmobius_m5inv(temp, out, mass, DAG_NO, mobius_arg,
-		mobius_arg->zmobius_kappa_ratio);
-  moveFloat((IFloat *)out, (IFloat *)temp, temp_size );
-#endif
+  //#ifdef ZMOBIUS_PC_SYM2
+  if(global_zmobius_pc==2) {
+    zmobius_m5inv(temp, out, mass, DAG_NO, mobius_arg,
+		  mobius_arg->zmobius_kappa_ratio);
+    moveFloat((IFloat *)out, (IFloat *)temp, temp_size );
+  }
+  //#endif
 
-// This is the standard preconditioning
+// Below is the standard postconditioning
   zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
 
   for(int s=0; s<local_ls;++s){

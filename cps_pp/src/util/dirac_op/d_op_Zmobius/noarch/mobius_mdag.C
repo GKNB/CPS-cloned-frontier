@@ -30,13 +30,33 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
-//#include "mobius_mdag.h"
+#include "mobius_mdag-orig.h"
 //#include "mobius_mdag-sym1.h"
 //#include "mobius_mdag-sym1-MIT.h"
 #include "mobius_mdag-sym2.h"
 //#include "mobius_mdag-sym2-MIT.h"
 
 
+void  zmobius_mdag(Vector *out, 
+		   Matrix *gauge_field, 
+		   Vector *in, 
+		   Float mass, 
+		   Dwf *mobius_lib_arg)
+{
+  if(global_zmobius_pc==0) 
+    zmobius_mdag_orig(out, 
+		 gauge_field, 
+		 in, 
+		 mass, 
+		 mobius_lib_arg);
+  if(global_zmobius_pc==2) 
+    zmobius_mdag_sym2(out, 
+		 gauge_field, 
+		 in, 
+		 mass, 
+		 mobius_lib_arg);
+
+}
 
 
 

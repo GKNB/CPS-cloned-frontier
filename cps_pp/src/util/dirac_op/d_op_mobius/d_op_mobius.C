@@ -451,7 +451,7 @@ int DiracOpMobius::MatInv(Vector *out,
   //sfree(temp3);
 #endif
 
-  DEBTIZB("insrc", (Vector*) in, 2*temp_size);
+  //DEBTIZB("insrc", (Vector*) in, 2*temp_size);
   // save source
   if(prs_in == PRESERVE_YES){
     temp3 = (Vector *) smalloc(2*temp_size * sizeof(Float));
@@ -462,9 +462,9 @@ int DiracOpMobius::MatInv(Vector *out,
 
 
   mobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg);  
-  DEBTIZB("after m5inv", (Vector*) temp, temp_size);
+  //DEBTIZB("after m5inv", (Vector*) temp, temp_size);
 
-#if 1
+#if 0
   //----------------------------------
   // check for m5inv
   norm = odd_in->NormSqGlbSum(temp_size);
@@ -495,10 +495,10 @@ int DiracOpMobius::MatInv(Vector *out,
 
 
   mobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg, mass);
-  DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
+  //DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
   fTimesV1PlusV2((IFloat *)temp, kappa_b, (IFloat *)temp2,
 		 (IFloat *)in, temp_size);
-    DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
+  //DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
 
   int iter;
   switch (dirac_arg->Inverter) {

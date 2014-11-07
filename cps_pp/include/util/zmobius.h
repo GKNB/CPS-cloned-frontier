@@ -49,9 +49,14 @@ extern int zmobiusso_wire_map[];
 //  Note :  you need to modify mobius_m.C  and  mobius_mdag.C  by HAND
 //          below is only chaning d_op_mobius.C
 //---------------------------------------------------------------------
+
+
+extern int global_zmobius_pc; // 0 ... original  2 .. sym2
+
+
 //#define ZMOBIUS_PC_ORIG
 //#define ZMOBIUS_PC_SYM1
-#define ZMOBIUS_PC_SYM2
+//#define ZMOBIUS_PC_SYM2
 //#define ZMOBIUS_PC_SYM1_MIT
 //#define ZMOBIUS_PC_SYM2_MIT
 

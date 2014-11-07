@@ -1136,9 +1136,8 @@ class Fmobius : public FdwfBase {
                 MobiusArg *mob_s,
                 Float *true_res,
                 CnvFrmType cnv_frm,
-                PreserveType prs_f_in,
-                int n_restart, Float rsd_vec[]);
-
+                PreserveType prs_f_in);
+  
     int FeigSolv(Vector **f_eigenv, Float *lambda,
 		 Float *chirality, int *valid_eig,
 		 Float **hsum,
@@ -1174,8 +1173,7 @@ class Fzmobius : public FdwfBase {
                 MobiusArg *mob_s,
                 Float *true_res,
                 CnvFrmType cnv_frm,
-                PreserveType prs_f_in,
-                int n_restart, Float rsd_vec[]);
+                PreserveType prs_f_in);
 
     int FeigSolv(Vector **f_eigenv, Float *lambda,
 		 Float *chirality, int *valid_eig,

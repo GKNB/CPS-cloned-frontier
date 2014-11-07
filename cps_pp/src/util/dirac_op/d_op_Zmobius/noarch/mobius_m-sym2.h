@@ -2,7 +2,7 @@
 // 1 - kappa_b M4eo M_5^-1 kappa_b M4oe M_5^{-1} 
 
 //void  zmobius_m_sym2 (Vector *out,
-void  zmobius_m (Vector *out, 
+void  zmobius_m_sym2 (Vector *out, 
 		 Matrix *gauge_field, 
 		 Vector *in, 
 		 Float mass, 

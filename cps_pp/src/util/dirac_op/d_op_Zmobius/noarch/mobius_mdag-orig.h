@@ -1,7 +1,7 @@
 //4d precond. mobius Dirac op:
 //  (M_5 - kappa_b M4eo M_5^-1 kappa_b M4oe)^dag
 //= M_5^dag - M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag
-void  zmobius_mdag(Vector *out, 
+void  zmobius_mdag_orig(Vector *out, 
 		   Matrix *gauge_field, 
 		   Vector *in, 
 		   Float mass, 

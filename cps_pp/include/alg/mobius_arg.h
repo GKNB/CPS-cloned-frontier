@@ -21,10 +21,21 @@ public:
 	 bool Vml(VML *vmls,char *instance);
 	Float mobius_b_coeff;
 	Float mobius_c_coeff;
+	struct {
+		u_int zmobius_b_coeff_len;
+		Float *zmobius_b_coeff_val;
+	} zmobius_b_coeff;
+	struct {
+		u_int zmobius_c_coeff_len;
+		Float *zmobius_c_coeff_val;
+	} zmobius_c_coeff;
 	int ls;
 	Float M5;
 	CgArg cg;
-	Float rsd_vec[4];
+	struct {
+		u_int rsd_vec_len;
+		Float *rsd_vec_val;
+	} rsd_vec;
 	int use_single_precision;
 	   MobiusArg (  ) ;
 };
