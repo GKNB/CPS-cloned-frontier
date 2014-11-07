@@ -153,8 +153,8 @@ class GlobalJobParameter
   char *mdwf_tuning_record_fn;
 
 
-  Complex* zmobius_b=0;
-  Complex* zmobius_c=0;
+  Complex* zmobius_b;
+  Complex* zmobius_c;
   
 public:
   GlobalJobParameter();
@@ -819,7 +819,7 @@ public:
   // FIXME: this is dangerous, assuming the contents of pointer b and c are foever
   void ZMobius_b(Float* b, int ls)
   {
-    if(!zmobius_b) sfree(zmobius_b, "zmobius_b", "Zmobius_b", "GJP");
+    if(zmobius_b) sfree(zmobius_b, "zmobius_b", "Zmobius_b", "GJP");
     zmobius_b=(Complex*)smalloc("GJP","Zmobius_b", "zmobius_b", sizeof(Complex)*ls );
     for(int s=0;s<ls;++s) zmobius_b[s]=Complex(b[2*s],b[2*s+1]);
   }
@@ -829,9 +829,14 @@ public:
   //{doext_int. zmobius_c_coeff.zmobius_c_coeff_val = b;}
   void ZMobius_c(Float* c, int ls)
   {
-    if(!zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
+    if(zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
     zmobius_c=(Complex*)smalloc("GJP","Zmobius_c", "zmobius_c", sizeof(Complex)*ls );
-    for(int s=0;s<ls;++s) zmobius_c[s]=Complex(c[2*s],c[2*s+1]);
+    for(int s=0;s<ls;++s) {
+      printf("HERE %d\n",s);
+      printf("HERE %e %e\n",c[2*s],c[2*s+1]);
+      printf("HERE %e %e\n",zmobius_c[s].real(), zmobius_c[s].imag());
+
+      zmobius_c[s]=Complex(c[2*s],c[2*s+1]);}
   }
   
 

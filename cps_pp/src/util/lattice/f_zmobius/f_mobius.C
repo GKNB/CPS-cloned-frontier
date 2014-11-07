@@ -239,6 +239,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     //constructing the new residue
     tmp2_mob_l_5d->CopyVec(dminus_in, mob_l_size_5d);
     {
+      if(!UniqueID())printf("TIZB 1st MAT\n");
       GJP.SnodeSites(mob_l_ls);
       GJP.ZMobius_b(mobius_b_l, mob_l_ls);
       GJP.ZMobius_c(mobius_c_l, mob_l_ls);
@@ -260,6 +261,7 @@ int Fzmobius::FmatInv(Vector *f_out,
 
     // Large PV
     {
+      if(!UniqueID())printf("TIZB Large PV\n");
       Float mass = cg_arg_l->mass;
       Float stop_rsd = cg_arg_l->stop_rsd;
       int max_num_iter = cg_arg_l->max_num_iter;
@@ -290,6 +292,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     
     // SMALL PV
     {
+      if(!UniqueID())printf("TIZB SMALL PV\n");
       Float mass= cg_arg_s->mass; 
       cg_arg_s->mass = 1.0;
       
@@ -308,10 +311,11 @@ int Fzmobius::FmatInv(Vector *f_out,
     // SMALL SLOVE
     tmp_mob_l_5d->VecZero(mob_s_size_5d);
     {
+      if(!UniqueID())printf("TIZB SMALL SOLVE ls=%d \n", mob_s_ls);
       GJP.SnodeSites(mob_s_ls);
       GJP.ZMobius_b(mobius_b_s,mob_s_ls);
       GJP.ZMobius_c(mobius_c_s,mob_s_ls);
-      printf("TIZB  fifth Small Solve %e\n", GJP.ZMobius_b()[0]);
+      //      printf("TIZB  fifth Small Solve %e\n", GJP.ZMobius_b()[0]);
 
       
       DiracOpZMobius dop(*this, tmp_mob_l_5d, tmp_mob_s_5d, cg_arg_s, cnv_frm);
