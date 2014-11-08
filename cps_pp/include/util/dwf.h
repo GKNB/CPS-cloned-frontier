@@ -51,6 +51,16 @@ inline void DEBTIZB(char* str, Vector* vp, int len)
 //------------------------------------------------------------------
 // Type definitions
 //------------------------------------------------------------------
+
+// pre/post-conditioning variations
+enum ZMobiusPCType {
+  ZMOB_PC_ORIG,
+  ZMOB_PC_SYM1,
+  ZMOB_PC_SYM2,
+  ZMOB_PC_SYM1_MIT,
+  ZMOB_PC_SYM2_MIT };
+
+
 // The Dwf structure typedef
 typedef struct{
   IFloat dwf_kappa;    // 1/[2*(5-dwf_height)]
@@ -59,6 +69,9 @@ typedef struct{
   Rcomplex *zmobius_kappa_b;    // 1/[2*(b*(4-dwf_height)+1)]
   Rcomplex *zmobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]
   Rcomplex *zmobius_kappa_ratio;//    kappa_b / kappa_c
+  // pre/post-conditioning for zmobius
+  ZMobiusPCType pc_type;
+
   int vol_4d;         // The 4-dimensional volume   
   int ls;             // The extent of the 5th direction
   IFloat *frm_tmp1;    // Pointer to temorary fermion field 1

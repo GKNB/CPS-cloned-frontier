@@ -117,7 +117,7 @@ inline
 void zmobius_kappa_dslash_5_plus_dag0(Vector *out, 
 			    Vector *in, 
 			    Float mass,
-			    Dwf *zmobius_lib_arg,
+			    Zmobus *zmobius_lib_arg,
 			    Float a_five_inv
 			    )
 {
@@ -259,7 +259,7 @@ inline
 void zmobius_kappa_dslash_5_plus_dag1(Vector *out, 
 		       Vector *in, 
 		       Float mass,
-    		       Dwf *mobius_lib_arg,
+    		       Zmobus *mobius_lib_arg,
 		       Float a_five_inv )
 {
   //const IFloat two_over_a5 = 2.0 * a_five_inv;
@@ -411,7 +411,7 @@ void zmobius_kappa_dslash_5_plus_a_five(Vector *out,
 			      Vector *in, 
 			      Float mass,
 			      int dag, 
-			      Dwf *mobius_lib_arg,
+			      Zmobus *mobius_lib_arg,
 			      Float a_five_inv )
 {
   if (dag == 0) 
@@ -424,7 +424,7 @@ void zmobius_kappa_dslash_5_plus(Vector *out,
 		       Vector *in, 
 		       Float mass,
 		       int dag, 
-		       Dwf *mobius_lib_arg, Float fact)
+		       Zmobus *mobius_lib_arg, Float fact)
 {
   if (dag == 0) 
     zmobius_kappa_dslash_5_plus_dag0(out, in, mass, mobius_lib_arg, fact);
@@ -436,12 +436,12 @@ void zmobius_dslash_5_plus(Vector *out,
 		       Vector *in, 
 		       Float mass,
 		       int dag, 
-		       Dwf *mobius_lib_arg)
+		       Zmobus *mobius_lib_arg)
 {
   if (dag == 0) 
-    zmobius_kappa_dslash_5_plus_dag0(out, in, mass, mobius_lib_arg, GJP.DwfA5Inv());
+    zmobius_kappa_dslash_5_plus_dag0(out, in, mass, mobius_lib_arg, GJP.ZmobusA5Inv());
   else
-    zmobius_kappa_dslash_5_plus_dag1(out, in, mass, mobius_lib_arg, GJP.DwfA5Inv());
+    zmobius_kappa_dslash_5_plus_dag1(out, in, mass, mobius_lib_arg, GJP.ZmobusA5Inv());
 }
 
 

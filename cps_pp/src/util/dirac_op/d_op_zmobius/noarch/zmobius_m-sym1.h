@@ -1,12 +1,13 @@
-//4d precond. mobius Dirac op of symmetric version 2nd kind :
-// 1 - kappa_b M4eo M_5^-1 kappa_b M4oe M_5^{-1} 
 
-//void  zmobius_m_sym2 (Vector *out,
-void  zmobius_m_sym2 (Vector *out, 
+
+//4d precond. mobius Dirac op of symmetric version 1st kind :
+// 1 - M_5^{-1} kappa_b M4eo M_5^-1 kappa_b M4oe
+
+void  zmobius_m_sym1 (Vector *out, 
 		 Matrix *gauge_field, 
 		 Vector *in, 
 		 Float mass, 
-		 Dwf *mobius_lib_arg)
+		 Zmobus *mobius_lib_arg)
 {
 
   //------------------------------------------------------------------
@@ -27,30 +28,20 @@ void  zmobius_m_sym2 (Vector *out,
   Float norm;
 
   
-  //  out = [ 1 - kappa_b Meo M5inv kappa_b Moe M5inv] in
+  //  out = [ 1 - M5inv kappa_b Meo M5inv kappa_b Moe] in
   // (dslash_5 uses (1+-g5), not P_R,L, i.e. no factor of 1/2 which is here out front)
-  //    1. ftmp2 = - kappa_b Meo M5inv kappa_b Moe  M5inv in
+  //    1. ftmp2 = - M5inv kappa_b Meo M5inv kappa_b Moe in
   //    2. out <-  in
   //    3. out +=  ftmp2
 
 
   //--------------------------------------------------------------
-  //    1. ftmp2 =  Meo M5inv Moe M5inv in
+  //    1. ftmp2 = M5inv Meo M5inv Moe in
   //--------------------------------------------------------------
-
-  moveFloat((IFloat*)frm_tmp2, (IFloat*)in, f_size);
-  
-  //------------------------------------------------------------------
-  // Apply M_5^-1 (hopping in 5th dir + diagonal)
-  //------------------------------------------------------------------
-  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
-  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
-
-
   // Apply Dslash O <- E
   //------------------------------------------------------------------
   time_elapse();
-  zmobius_dslash_4(out, gauge_field, frm_tmp2, 0, 0, mobius_lib_arg, mass);
+  zmobius_dslash_4(out, gauge_field, in, 0, 0, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
 
   //------------------------------------------------------------------
@@ -88,6 +79,11 @@ void  zmobius_m_sym2 (Vector *out,
   DEBUG_MOBIUS_DSLASH("-kappa_b(s)\n", time_elapse());
 
 
+  //------------------------------------------------------------------
+  // Apply M_5^-1 (hopping in 5th dir + diagonal)
+  //------------------------------------------------------------------
+  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
+  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
   
 
   //------------------------------------------------------------------
@@ -125,5 +121,3 @@ void  zmobius_m_sym2 (Vector *out,
 
   
 }
-
-

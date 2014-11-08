@@ -125,7 +125,7 @@ void zmobius_kappa_dslash_5_plus(Vector *out,
 				Vector *in, 
 				Float mass,
 				int dag, 
-				Dwf *mobius_lib_arg,
+				Zmobus *mobius_lib_arg,
 				Float fact)
 {
   int x;
@@ -284,7 +284,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
 				Vector *in, 
 				Float mass,
 				int dag, 
-				Dwf *mobius_lib_arg,
+				Zmobus *mobius_lib_arg,
 				Complex* fact_in)
 {
   int x;
@@ -520,10 +520,10 @@ void zmobius_dslash_5_plus(Vector *out,
 			  Vector *in, 
 			  Float mass,
 			  int dag, 
-			  Dwf *mobius_lib_arg)
+			  Zmobus *mobius_lib_arg)
 {
   printf("sentinel at zmobius_dslash_5_plus\n"); exit(1);
-  zmobius_kappa_dslash_5_plus(out, in, mass, dag, mobius_lib_arg, GJP.DwfA5Inv());
+  zmobius_kappa_dslash_5_plus(out, in, mass, dag, mobius_lib_arg, GJP.ZmobusA5Inv());
 }
 #endif
 

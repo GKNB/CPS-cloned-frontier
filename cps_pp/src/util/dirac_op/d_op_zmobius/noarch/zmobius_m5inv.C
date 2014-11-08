@@ -104,13 +104,14 @@ CPS_START_NAMESPACE
 
 
 
+#if 0
 //----------------------------------------
 //
 //  dag 0 two s-loop version, after loop unrolling
 //
 void zmobius_m5inv_dag0(Vector *inout, 
 		       const Float mass,
-		       const Dwf *mobius_lib_arg)
+		       const Zmobus *mobius_lib_arg)
 {
   
   int x;
@@ -238,13 +239,14 @@ void zmobius_m5inv_dag0(Vector *inout,
   DiracOp::CGflops+=vol_4d_cb*(ls*96-48);  
   //DiracOp::CGflops+=2*2*vol_4d_cb*local_ls*12;
 }
+#endif
 //----------------------------------------
 //
 //  dag 0 two s-loop version, after loop unrolling
 //
 void zmobius_m5inv_cmplx_dag0(Vector *inout, 
 			      const Float mass,
-			      const Dwf *mobius_lib_arg,
+			      const Zmobus *mobius_lib_arg,
 			      Complex* K)
 {
   
@@ -389,13 +391,14 @@ void zmobius_m5inv_cmplx_dag0(Vector *inout,
   //DiracOp::CGflops+=2*2*vol_4d_cb*local_ls*12;
 }
 
+#if 0
 //----------------------------------------
 //
 //  dag 1 two s-loop version, after loop unrolling
 //
 void zmobius_m5inv_dag1(Vector *inout, 
 		    const Float mass,
-			const Dwf *mobius_lib_arg)
+			const Zmobus *mobius_lib_arg)
 {
 
   int x;
@@ -518,7 +521,7 @@ void zmobius_m5inv_dag1(Vector *inout,
   //DiracOp::CGflops+=2*2*vol_4d_cb*local_ls*12;
   DiracOp::CGflops+=vol_4d_cb*(ls*96-48);
 }
-
+#endif
 
 //----------------------------------------
 //
@@ -526,7 +529,7 @@ void zmobius_m5inv_dag1(Vector *inout,
 //
 void zmobius_m5inv_cmplx_dag1(Vector *inout, 
 			      const Float mass,
-			      const Dwf *mobius_lib_arg,
+			      const Zmobus *mobius_lib_arg,
 			      Complex* K)
 {
 
@@ -677,7 +680,7 @@ void zmobius_m5inv_cmplx_dag1(Vector *inout,
 void zmobius_m5inv(Vector *inout,
 	       Float mass,
 	       int dag,
-	       Dwf *mobius_lib_arg)
+	       Zmobus *mobius_lib_arg)
 {
   //! fixme most likely slow
   IFloat* f_inout  = (IFloat *) inout;
@@ -699,7 +702,7 @@ void zmobius_m5inv(Vector *inout,
     kapR *= kappa_ratio[s];
   }
   if( fabs(kapR.imag()/kapR.real()) > 1e-10 || kapR.real() <=0){
-    ERR.General("","zmobius_m5inv(V*,F,I,Dwf*)",
+    ERR.General("","zmobius_m5inv(V*,F,I,Zmobus*)",
 		"assumption fail kapR %e %e\n", kapR.real(), kapR.imag());
 
   }
@@ -796,7 +799,7 @@ void zmobius_m5inv(Vector *inout,
 void zmobius_m5inv(Vector *inout,
 		   Float mass,
 		   int dag,
-		   Dwf *mobius_lib_arg,
+		   Zmobus *mobius_lib_arg,
 		   Complex* K)
 {
   if(dag==0)
@@ -811,7 +814,7 @@ void zmobius_m5inv(Vector *inout,
 void zmobius_m5inv(Vector *out, Vector *in,
 		  Float mass,
 		  int dag,
-		   Dwf *mobius_lib_arg,
+		   Zmobus *mobius_lib_arg,
 		   Complex* K)
 {
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;

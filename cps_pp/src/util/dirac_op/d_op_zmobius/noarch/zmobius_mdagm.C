@@ -31,7 +31,7 @@ void zmobius_mdagm(Vector *out,
 		  Vector *in, 
 		  Float *dot_prd,
 		  Float mass, 
-		  Dwf *mobius_lib_arg)
+		  Zmobus *mobius_lib_arg)
 {
   Vector *frm_tmp1 = (Vector *) mobius_lib_arg->frm_tmp1;
   
@@ -78,7 +78,7 @@ void zmobius_mdagm_shift(Vector *out,
 			Vector *in, 
 			Float *dot_prd,
 			Float mass, 
-			Dwf *mobius_lib_arg,
+			Zmobus *mobius_lib_arg,
 			Float mu)
 {
   Vector *frm_tmp1 = (Vector *) mobius_lib_arg->frm_tmp1;

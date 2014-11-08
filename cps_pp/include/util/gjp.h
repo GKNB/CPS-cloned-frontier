@@ -45,6 +45,7 @@
 #include <util/lattice.h>
 #include <util/vector.h>
 #include <util/smalloc.h>
+#include <util/zmobius.h>
 #include <comms/sysfunc_cps.h>
 #include <alg/do_arg.h>
 #include <alg/cg_arg.h>
@@ -155,6 +156,7 @@ class GlobalJobParameter
 
   Complex* zmobius_b;
   Complex* zmobius_c;
+  ZMobiusPCType zmobius_pc_type;
   
 public:
   GlobalJobParameter();
@@ -604,7 +606,9 @@ public:
   {return zmobius_c;}
   //{return (Complex*)( doext_p->zmobius_c_coeff.zmobius_c_coeff_val);}
   
-
+  ZMobiusPCType ZMobius_PC_Type() const
+  {return zmobius_pc_type; }
+  
   //------------------------------------------------------------------
 
   //------------------------------------------------------------------
@@ -831,13 +835,16 @@ public:
   {
     if(zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
     zmobius_c=(Complex*)smalloc("GJP","Zmobius_c", "zmobius_c", sizeof(Complex)*ls );
-    for(int s=0;s<ls;++s) {
-      printf("HERE %d\n",s);
-      printf("HERE %e %e\n",c[2*s],c[2*s+1]);
-      printf("HERE %e %e\n",zmobius_c[s].real(), zmobius_c[s].imag());
-
-      zmobius_c[s]=Complex(c[2*s],c[2*s+1]);}
+    for(int s=0;s<ls;++s) 
+      zmobius_c[s]=Complex(c[2*s],c[2*s+1]);
   }
+
+  void ZMobius_PC_Type(ZMobiusPCType zpc )
+  {
+    zmobius_pc_type = zpc;
+  }
+  
+
   
 
   //! Sets the global lattice boundary condition in the (dir) direction.

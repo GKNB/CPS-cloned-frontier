@@ -13,10 +13,10 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
-// f_dwf.C
+// f_zmobius.C
 //
-// Fdwf is derived from FwilsonTypes and is relevant to
-// domain wall fermions
+// Fzmobius is derived from FwilsonTypes and is relevant to
+// complexified mobius domain wall fermions
 //
 //------------------------------------------------------------------
 
@@ -33,14 +33,17 @@ USING_NAMESPACE_CPS
 Fzmobius::Fzmobius() : FdwfBase(){
   cname = "Fzmobius";
 
-  ((Dwf*)f_dirac_op_init_ptr)->zmobius_kappa_b=0;
-  ((Dwf*)f_dirac_op_init_ptr)->zmobius_kappa_c=0;
-  ((Dwf*)f_dirac_op_init_ptr)->zmobius_kappa_ratio=0;
+  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_b=0;
+  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_c=0;
+  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_ratio=0;
+
+  // default preconditioning
+  ((Zmobus*)f_dirac_op_init_ptr)->pc_type=ZMOB_PC_SYM2;
   
 }
  
 Fzmobius::~Fzmobius(){
-  Dwf* dwfarg=(Dwf*)f_dirac_op_init_ptr;
+  Zmobus* dwfarg=(Zmobus*)f_dirac_op_init_ptr;
   if(dwfarg->zmobius_kappa_b) delete [] dwfarg->zmobius_kappa_b;
   if(dwfarg->zmobius_kappa_c) delete [] dwfarg->zmobius_kappa_c;
   if(dwfarg->zmobius_kappa_ratio) delete [] dwfarg->zmobius_kappa_ratio;
@@ -48,7 +51,7 @@ Fzmobius::~Fzmobius(){
 }
 
 FclassType Fzmobius::Fclass(void) const {
-  return F_CLASS_MOBIUS;
+  return F_CLASS_ZMOBIUS;
 }
 
 int Fzmobius::FmatInv(Vector *f_out, Vector *f_in, 
@@ -84,15 +87,12 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 #else
   moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
 #endif
-  {  Float norm;
-  norm = dminus_in->NormSqGlbSum(size);
-  if(!UniqueID()) printf("dminus_in Norm %.14e\n",norm);
-  }
+
 #if 1  
-  // Next multiply 2*kappa, this make the normalization of
+  // Multiply 2*kappa, this make the normalization of
   // propagator the "physical" one. This breaking of backward compatibility
   // is needed for s-dependent kappa_b to be useful
-  // (otherwise this can't approximate larger Ls)
+  // (otherwise this can't approximate larger Ls, I think)
 
   // do even / odd 
   for(int ieo=0;ieo<2;++ieo){
@@ -114,9 +114,9 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   iter = dop.MatInv(f_out, dminus_in, true_res, PRESERVE_NO);
 
   // TIZB check
-  Float norm;
-  norm = f_in->NormSqGlbSum(size);
-  if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
+  //Float norm;
+  //norm = f_in->NormSqGlbSum(size);
+  //if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
 
 
 
@@ -125,12 +125,13 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
     moveFloat((IFloat*)f_in,(IFloat*)temp, size);
     
 
-  norm = f_out->NormSqGlbSum(size);
-  if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
+  //norm = f_out->NormSqGlbSum(size);
+  //if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
 
   dop.Mat(temp,f_out);  
-  norm = temp->NormSqGlbSum(size);
-  if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
+
+  //  norm = temp->NormSqGlbSum(size);
+  //if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
   
   
   sfree(cname, fname,  "dminus_in",  dminus_in);
@@ -239,7 +240,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     //constructing the new residue
     tmp2_mob_l_5d->CopyVec(dminus_in, mob_l_size_5d);
     {
-      if(!UniqueID())printf("TIZB 1st MAT\n");
+      //if(!UniqueID())printf("TIZB 1st MAT\n");
       GJP.SnodeSites(mob_l_ls);
       GJP.ZMobius_b(mobius_b_l, mob_l_ls);
       GJP.ZMobius_c(mobius_c_l, mob_l_ls);
@@ -261,7 +262,7 @@ int Fzmobius::FmatInv(Vector *f_out,
 
     // Large PV
     {
-      if(!UniqueID())printf("TIZB Large PV\n");
+      //if(!UniqueID())printf("TIZB Large PV\n");
       Float mass = cg_arg_l->mass;
       Float stop_rsd = cg_arg_l->stop_rsd;
       int max_num_iter = cg_arg_l->max_num_iter;
@@ -292,7 +293,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     
     // SMALL PV
     {
-      if(!UniqueID())printf("TIZB SMALL PV\n");
+      //if(!UniqueID())printf("TIZB SMALL PV\n");
       Float mass= cg_arg_s->mass; 
       cg_arg_s->mass = 1.0;
       
@@ -311,7 +312,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     // SMALL SLOVE
     tmp_mob_l_5d->VecZero(mob_s_size_5d);
     {
-      if(!UniqueID())printf("TIZB SMALL SOLVE ls=%d \n", mob_s_ls);
+      //if(!UniqueID())printf("TIZB SMALL SOLVE ls=%d \n", mob_s_ls);
       GJP.SnodeSites(mob_s_ls);
       GJP.ZMobius_b(mobius_b_s,mob_s_ls);
       GJP.ZMobius_c(mobius_c_s,mob_s_ls);

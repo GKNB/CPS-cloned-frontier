@@ -572,21 +572,31 @@ class EigenContainer {
     Vector* Apsi = (Vector*) smalloc(cname,fname, "Apsi", f_size* sizeof(Float));
     if(Apsi==0)ERR.General(cname,fname,"Apsi could not malloced\n");
 
-    if(lattice->Fclass()==F_CLASS_DWF){
-      cg_arg.RitzMatOper = MATPC_HERM; //could be  MATPCDAG_MATPC;
-      DiracOpDwf dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
-      dop.RitzMat(Apsi, vtmp );
-    }else if(lattice->Fclass()==F_CLASS_MOBIUS){
-      cg_arg.RitzMatOper = MATPCDAG_MATPC;
-      DiracOpMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
-      dop.RitzMat(Apsi, vtmp );
-    }else if(lattice->Fclass()==F_CLASS_P4){
+  switch (lattice->Fclass()){
+  case F_CLASS_DWF: {
+    cg_arg.RitzMatOper = MATPC_HERM; //could be  MATPCDAG_MATPC;
+    DiracOpDwf dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+    dop.RitzMat(Apsi, vtmp );
+    break;}
+  case F_CLASS_MOBIUS: {
+    cg_arg.RitzMatOper = MATPCDAG_MATPC;
+    DiracOpMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+    dop.RitzMat(Apsi, vtmp );
+    break;}
+  case F_CLASS_ZMOBIUS: {
+    cg_arg.RitzMatOper = MATPCDAG_MATPC;
+    DiracOpZMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+    dop.RitzMat(Apsi, vtmp );
+    break; }
+  case  F_CLASS_P4: {
       cg_arg.RitzMatOper = MATPCDAG_MATPC;
       DiracOpP4 dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
       dop.RitzMat(Apsi, vtmp );
-    }else{
-      ERR.General(cname,fname,"Error: valid class type is dwf, mobius or p4\n");
-    }
+      break;}
+  default:
+    ERR.General(cname,fname,"Error: valid class type is dwf, mobius, zmobius or p4 (%d)\n",lattice->Fclass());
+      break;
+  }
 
     Float alp =  Apsi->ReDotProductGlbSum( vtmp, f_size);
 
@@ -605,6 +615,10 @@ class EigenContainer {
     }
 #endif
 
+    //    printf("TIZB ls=%d b_coeff %e c_coeff %e\n",
+    //GJP.SnodeSites(),
+    //GJP.ZMobius_b()[0],
+    //GJP.ZMobius_c()[0]);
     
     Float rnorm = sqrt(Apsi->NormSqGlbSum(f_size ));
     Float norm = sqrt(vtmp->NormSqGlbSum(f_size));

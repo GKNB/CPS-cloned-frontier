@@ -17,10 +17,7 @@
 #include <util/qcdio.h>
 #include <util/eigen_container.h>
 
-// debugging purpose  remove later
-namespace cps{
-  int global_zmobius_pc=2;
-}
+
 
 USING_NAMESPACE_CPS
 using namespace std;
@@ -69,12 +66,12 @@ int main(int argc,char *argv[])
   
   Start(&argc, &argv);
 
-  if ( argc!=7) { 
-    if(!UniqueID())printf("(exe) do_arg doext_arg mobius_arg-l mobius_arg-s eig_arg work-directory\n");
+  if ( argc!=8) { 
+    if(!UniqueID())printf("(exe) do_arg doext_arg mobius_arg-l mobius_arg-s eig_arg pc_type work-directory\n");
     exit(-1);
   }
   
-  chdir(argv[6]);
+  chdir(argv[7]);
 
   if ( !do_arg.Decode(argv[1],"do_arg") ) 
     { 
@@ -101,6 +98,7 @@ int main(int argc,char *argv[])
       if(!UniqueID())printf("Decoding of lanczos_arg failed\n"); exit(-1);
     }
 
+  
   // make a record of what was run
   do_arg.Encode("do_arg.dat","do_arg");
   doext_arg.Encode("doext_argp.dat","doext_arg");
@@ -112,8 +110,16 @@ int main(int argc,char *argv[])
   GJP.Initialize(do_arg);
   GJP.InitializeExt(doext_arg);
   VRB.Level(do_arg.verbose_level);
+
+  // GJP.ZMobius_PC_Type(ZMOB_PC_SYM2 ); 
+  int zmob_pc_type = atoi(argv[6]);
+  GJP.ZMobius_PC_Type((ZMobiusPCType)zmob_pc_type );
+
+  
+
   
   //Lattice &lattice = LatticeFactory::Create(F_CLASS_DWF, G_CLASS_WILSON);
+  //Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
   //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
 
   GnoneFzmobius lattice;
@@ -123,7 +129,7 @@ int main(int argc,char *argv[])
   //lattice.mult_su3_links_by_u1(1.0);  
   //qio_readLattice rl(do_arg.start_conf_filename, lattice, argc, argv);
  
-
+  
     /*
      *  Compute eigen vectors and values
      *
@@ -134,14 +140,16 @@ int main(int argc,char *argv[])
   snprintf(cache_name,1024,"cache_0_mass%g", lanczos_arg.mass);
   ecache = new EigenCache(cache_name);
   char evecname[1024];
-  snprintf(evecname, 1024,"%s/eig4dee.mass%g",
-	   lanczos_arg.file, lanczos_arg.mass );
+  snprintf(evecname, 1024,"%s/eig4dee.pc%d.mass%g",
+	   lanczos_arg.file, GJP.ZMobius_PC_Type(),lanczos_arg.mass );
   lanczos_arg.file = evecname;
   
   AlgLanczos  eig(lattice, &common_arg, &lanczos_arg, ecache);
   int Ncb = eig.NumChkb(lanczos_arg.RitzMat_lanczos);
   int ls_save = GJP.SnodeSites();
   GJP.SnodeSites(mobius_arg2.ls);
+  GJP.ZMobius_b (mobius_arg2.zmobius_b_coeff.zmobius_b_coeff_val, mobius_arg2.ls);
+  GJP.ZMobius_c (mobius_arg2.zmobius_c_coeff.zmobius_c_coeff_val, mobius_arg2.ls);
   int fsize = GJP.VolNodeSites() * lattice.FsiteSize() * Ncb / 2 / 2; //last 2 for single prec.;
   EigenCacheList. push_back( ecache );
   int neig;
@@ -150,7 +158,7 @@ int main(int argc,char *argv[])
   
   snprintf(evecname_bc,1024, "%s.bc%d%d%d%d", lanczos_arg.file, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
 
-#if 0
+#if 1
   if( lanczos_arg.nk_lanczos_vectors > 0) {
             
     int init_flag = 0; // 0 : wall start, 1 :  compression, 2 : compress & decompress, 3: refinement using Ritz
@@ -183,7 +191,7 @@ int main(int argc,char *argv[])
   if(!UniqueID())printf("Time for Lanczos %g\n",etime);
 #endif
   
-#if 0
+#if 1
   {
     if( GJP.Snodes() != 1) ERR.NotImplemented(cname,fname,"currently only doing I/O for local Ls\n");
 
@@ -191,7 +199,7 @@ int main(int argc,char *argv[])
 
     const int n_fields =  GJP.SnodeSites();
     const int f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
-                                                              // the two is for checkerboard?
+    // the two is for checkerboard?
     EigenContainer eigcon( lattice, evecname_bc, neig, f_size_per_site, n_fields, ecache );
     Float* eval = eigcon.load_eval();
     Float* evecFloat = (Float*)smalloc(2 * fsize * sizeof(Float));
@@ -275,12 +283,11 @@ int main(int argc,char *argv[])
 
 #endif
 
-  LatticeFactory::Destroy();
+  //LatticeFactory::Destroy();
   
-  //EigenCacheListCleanup();
+  EigenCacheListCleanup();
 
-  End();
-  
+  //End();
   return 0;
 } 
 

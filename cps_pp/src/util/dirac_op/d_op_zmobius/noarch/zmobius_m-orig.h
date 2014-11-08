@@ -4,7 +4,7 @@ void  zmobius_m_orig(Vector *out,
 	       Matrix *gauge_field, 
 	       Vector *in, 
 	       Float mass, 
-	       Dwf *mobius_lib_arg)
+	       Zmobus *mobius_lib_arg)
 {
 
   //------------------------------------------------------------------

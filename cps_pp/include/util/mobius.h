@@ -45,7 +45,7 @@ extern int mobiusso_wire_map[];
 // Type definitions
 //------------------------------------------------------------------
 // The Mobius structure typedef
-#if 0 // use Dwf instead
+#if 0 // use Dwf instead  <-  TIZB Why ?
 typedef struct{
   IFloat mobius_kappa_b;    // 1/[2*(b*(4-dwf_height)+1)]
   IFloat mobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]

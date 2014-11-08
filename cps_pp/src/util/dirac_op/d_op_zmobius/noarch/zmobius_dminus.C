@@ -46,7 +46,7 @@ void zmobius_dminus(Vector *out,
 		   Vector *in, 
 		   int cb, 
 		   int dag, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
 
   int i;

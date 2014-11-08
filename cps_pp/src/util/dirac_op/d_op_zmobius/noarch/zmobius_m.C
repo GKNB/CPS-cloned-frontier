@@ -30,31 +30,37 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
-#include "mobius_m-orig.h"
-//#include "mobius_m-sym1.h"
-//#include "mobius_m-sym1-MIT.h"
-#include "mobius_m-sym2.h"
-//#include "mobius_m-sym2-MIT.h"
+#include "zmobius_m-orig.h"
+#include "zmobius_m-sym1.h"
+#include "zmobius_m-sym1-MIT.h"
+#include "zmobius_m-sym2.h"
+#include "zmobius_m-sym2-MIT.h"
 
 void  zmobius_m(Vector *out, 
-		   Matrix *gauge_field, 
-		   Vector *in, 
-		   Float mass, 
-		   Dwf *mobius_lib_arg)
+		Matrix *gauge_field, 
+		Vector *in, 
+		Float mass, 
+		Zmobus *mobius_lib_arg)
 {
-  if(global_zmobius_pc==0) 
-    zmobius_m_orig(out, 
-		 gauge_field, 
-		 in, 
-		 mass, 
-		 mobius_lib_arg);
-  if(global_zmobius_pc==2) 
-    zmobius_m_sym2(out, 
-		 gauge_field, 
-		 in, 
-		 mass, 
-		 mobius_lib_arg);
-
+  switch( mobius_lib_arg-> pc_type ){
+  case   ZMOB_PC_ORIG:
+    zmobius_m_orig(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  case   ZMOB_PC_SYM1:
+    zmobius_m_sym1(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  case   ZMOB_PC_SYM2:
+    zmobius_m_sym2(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  case   ZMOB_PC_SYM1_MIT:
+    zmobius_m_sym1_MIT(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  case   ZMOB_PC_SYM2_MIT:
+    zmobius_m_sym2_MIT(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  default:
+    ERR.NotImplemented("","zmobius_mdag(...)");
+  }    
 }
 
 

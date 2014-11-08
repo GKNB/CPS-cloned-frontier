@@ -33,7 +33,7 @@ void zmobius_dslash(Vector *out,
 		   Float mass,
 		   int cb, 
 		   int dag, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
 //------------------------------------------------------------------
 // Apply 4-dimensional Dslash

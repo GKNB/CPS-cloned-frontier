@@ -1,13 +1,12 @@
+//4d precond. mobius Dirac op of symmetric version 2nd kind :
+// 1 - kappa_b M4eo M_5^-1 kappa_b M4oe M_5^{-1} 
 
-//4d precond. mobius Dirac op of symmetric version 1st kind :
-// 1 - M_5^{-1} B kappa_b M4eo M_5^-1 kappa_b B^{-1}  M4oe
-
-//void  zmobius_m_sym1_MIT (Vector *out,
-void  zmobius_m (Vector *out, 
+//void  zmobius_m_sym2 (Vector *out,
+void  zmobius_m_sym2 (Vector *out, 
 		 Matrix *gauge_field, 
 		 Vector *in, 
 		 Float mass, 
-		 Dwf *mobius_lib_arg)
+		 Zmobus *mobius_lib_arg)
 {
 
   //------------------------------------------------------------------
@@ -28,23 +27,26 @@ void  zmobius_m (Vector *out,
   Float norm;
 
   
-  //  out = [ 1 - M5inv B kappa_b Meo M5inv kappa_b Binv Moe] in
+  //  out = [ 1 - kappa_b Meo M5inv kappa_b Moe M5inv] in
   // (dslash_5 uses (1+-g5), not P_R,L, i.e. no factor of 1/2 which is here out front)
-  //    1. ftmp2 = - M5inv B kappa_b Meo M5inv kappa_b  Moe Binv in
+  //    1. ftmp2 = - kappa_b Meo M5inv kappa_b Moe  M5inv in
   //    2. out <-  in
   //    3. out +=  ftmp2
 
 
   //--------------------------------------------------------------
-  //    1. ftmp2 = M5inv Meo M5inv Moe Binv in
+  //    1. ftmp2 =  Meo M5inv Moe M5inv in
+  //--------------------------------------------------------------
 
   moveFloat((IFloat*)frm_tmp2, (IFloat*)in, f_size);
-  //--------------------------------------------------------------
-  // Apply Binv
+  
   //------------------------------------------------------------------
-    zmobius_Binv_MIT( frm_tmp2, mass, 0, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
-    
-  //--------------------------------------------------------------
+  // Apply M_5^-1 (hopping in 5th dir + diagonal)
+  //------------------------------------------------------------------
+  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
+  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
+
+
   // Apply Dslash O <- E
   //------------------------------------------------------------------
   time_elapse();
@@ -86,24 +88,8 @@ void  zmobius_m (Vector *out,
   DEBUG_MOBIUS_DSLASH("-kappa_b(s)\n", time_elapse());
 
 
-
-
-  //------------------------------------------------------------------
-  // Apply M_5^-1 (hopping in 5th dir + diagonal)
-  //------------------------------------------------------------------
-  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
-  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
   
-  //--------------------------------------------------------------
-  // Apply B
-  //------------------------------------------------------------------
 
-  zmobius_B_MIT( frm_tmp2, mass, 0,  mobius_lib_arg,
-		    GJP.ZMobius_b(), GJP.ZMobius_c() );
-
-
-  
-  
   //------------------------------------------------------------------
   //    2. out <-  in
   //------------------------------------------------------------------
@@ -115,8 +101,6 @@ void  zmobius_m (Vector *out,
 #endif
   DEBUG_MOBIUS_DSLASH("out <- in %e\n", time_elapse());
   
-
-
   //------------------------------------------------------------------
   //    3. out +=  ftmp2
   //------------------------------------------------------------------
@@ -135,12 +119,11 @@ void  zmobius_m (Vector *out,
             (IFloat *)out,  1);
 #endif
   DEBUG_MOBIUS_DSLASH("zmobius out+= ftmp2 %e\n", time_elapse());
-
-
   
   // Flops count in this function is two AXPY = 4 flops per vector elements
   //DiracOp::CGflops +=  3*f_size; 
 
   
 }
+
 

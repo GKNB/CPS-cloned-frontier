@@ -1,12 +1,11 @@
 //4d precond. mobius Dirac op of symmetric version 1st kind :
 //  (1 - M_5^-1 kappa_b M4eo M_5^-1 kappa_b M4oe)^dag
 //= 1 - M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag  M_5^dag-1
-//void  zmobius_mdag_sym1(Vector *out,
-void  zmobius_mdag(Vector *out, 
+void  zmobius_mdag_sym1(Vector *out,
 		   Matrix *gauge_field, 
 		   Vector *in, 
 		   Float mass, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
   const int dag=1;
   //------------------------------------------------------------------

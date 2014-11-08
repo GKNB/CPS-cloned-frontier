@@ -43,26 +43,11 @@ extern int zmobiusso_wire_map[];
 
 
 
-//---------------------------------------------------------------------
-//  choose which preconditioning we gonna use
-//
-//  Note :  you need to modify mobius_m.C  and  mobius_mdag.C  by HAND
-//          below is only chaning d_op_mobius.C
-//---------------------------------------------------------------------
-
-
-extern int global_zmobius_pc; // 0 ... original  2 .. sym2
-
-
-//#define ZMOBIUS_PC_ORIG
-//#define ZMOBIUS_PC_SYM1
-//#define ZMOBIUS_PC_SYM2
-//#define ZMOBIUS_PC_SYM1_MIT
-//#define ZMOBIUS_PC_SYM2_MIT
-
 //------------------------------------------------------------------
 // Type definitions
 //------------------------------------------------------------------
+
+typedef Dwf Zmobus;
 
 
 //------------------------------------------------------------------
@@ -78,13 +63,13 @@ extern int global_zmobius_pc; // 0 ... original  2 .. sym2
 // (or after a mobius_end call)before any number of calls to mobius 
 // functions are made.
 //------------------------------------------------------------------
-//void mobius_init(Dwf *mobius_p);             // pointer to Dwf struct.
+//void mobius_init(Zmobus *mobius_p);             // pointer to Zmobus struct.
 
 
 //------------------------------------------------------------------
 // This routine frees any memory reserved by mobius_init
 //------------------------------------------------------------------
-//void mobius_end(Dwf *mobius_p);              // pointer to Dwf struct.
+//void mobius_end(Zmobus *mobius_p);              // pointer to Zmobus struct.
 
 
 //------------------------------------------------------------------
@@ -97,7 +82,7 @@ void  zmobius_mdagm(Vector *out,
 		   Vector *in, 
 		   Float *dot_prd,
 		   Float mass,
-		   Dwf *mobius_lib_arg);
+		   Zmobus *mobius_lib_arg);
 
 
 // spectrum shifted version : (H-mu)(H-mu)
@@ -106,7 +91,7 @@ void    zmobius_mdagm_shift(Vector *out,
 			   Vector *in, 
 			   Float *dot_prd,
 			   Float mass,
-			   Dwf *mobius_lib_arg,
+			   Zmobus *mobius_lib_arg,
 			   Float shift);
 
 //------------------------------------------------------------------
@@ -121,7 +106,7 @@ void zmobius_dslash(Vector *out,
 		   Float mass,
 		   int cb,
 		   int dag,
-		   Dwf *mobius_lib_arg);
+		   Zmobus *mobius_lib_arg);
 
 
 //------------------------------------------------------------------
@@ -134,13 +119,13 @@ void  zmobius_m(Vector *out,
 	       Matrix *gauge_field, 
 	       Vector *in,
 	       Float mass,
-	       Dwf *mobius_lib_arg);
+	       Zmobus *mobius_lib_arg);
 #if 0
 void  zmobius_mdagm(Vector *out, 
 		   Matrix *gauge_field, 
 		   Vector *in,
 		   Float mass,
-		   Dwf *mobius_lib_arg);
+		   Zmobus *mobius_lib_arg);
 #endif
 
 //------------------------------------------------------------------
@@ -151,7 +136,7 @@ void zmobius_mdag(Vector *out,
 		 Matrix *gauge_field, 
 		 Vector *in,
 		 Float mass,
-		 Dwf *mobius_lib_arg);
+		 Zmobus *mobius_lib_arg);
 
 
 //------------------------------------------------------------------
@@ -166,7 +151,7 @@ void zmobius_dslash_4(Vector *out,
 		     Vector *in,
 		     int cb,
 		     int dag,
-		     Dwf *mobius_lib_arg, Float mass);
+		     Zmobus *mobius_lib_arg, Float mass);
 
 
 
@@ -174,14 +159,14 @@ void zmobius_m5inv(Vector *out,
 		   Vector *in, 
 		   Float mass,
 		   int dag,
-		   Dwf *mobius_lib_arg,
+		   Zmobus *mobius_lib_arg,
 		   Complex* K);
 
 // in-place version
 void zmobius_m5inv(Vector *inout, 
 		   Float mass,
 		   int dag,
-		   Dwf *mobius_lib_arg,
+		   Zmobus *mobius_lib_arg,
 		   Complex* K);
 
 
@@ -193,7 +178,7 @@ void zmobius_kappa_dslash_5_plus(Vector *out,
 				Vector *in, 
 				Float mass,
 				int dag, 
-				Dwf *mobius_lib_arg,
+				Zmobus *mobius_lib_arg,
 				Float fact);
 #endif
 
@@ -201,7 +186,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
 				Vector *in, 
 				Float mass,
 				int dag, 
-				Dwf *mobius_lib_arg,
+				Zmobus *mobius_lib_arg,
 				Complex* fact);
 
 #if 0
@@ -209,25 +194,38 @@ void zmobius_dslash_5_plus(Vector *out,
 			  Vector *in, 
 			  Float mass,
 			  int dag, 
-			  Dwf *mobius_lib_arg);
+			  Zmobus *mobius_lib_arg);
 
 
 void zmobius_kappa_dslash_5_plus_dag0(Vector *out,
                        Vector *in,
                        Float mass,
-                       Dwf *mobius_lib_arg,
+                       Zmobus *mobius_lib_arg,
                        Float a_five_inv );
 void zmobius_kappa_dslash_5_plus_dag1(Vector *out,
                        Vector *in,
                        Float mass,
-                       Dwf *mobius_lib_arg,
+                       Zmobus *mobius_lib_arg,
                        Float a_five_inv );
 #endif
+
+//B matrix in Andrewes' note, MIT
+//  ( b + C dslash5 )  or its dagger
+// FIXME:  this is slow,  for experimental purpose only
+void zmobius_B_MIT( Vector* out, Float mass,
+		    int dag, Zmobus *mobius_lib_arg,
+		    Complex* b, Complex*c );
+//B matrix in Andrewes' note, MIT, slow
+//  ( b + C dslash5 )inverse  or its dagger
+void zmobius_Binv_MIT( Vector* out, Float mass,
+		    int dag, Zmobus *mobius_lib_arg,
+		       Complex* b, Complex*c );
+
 
 #if 0
 void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls);
 
-void cPRL_plus(Vector *out, Vector *in, int dag, Float mass, Dwf *mobius_lib_arg);
+void cPRL_plus(Vector *out, Vector *in, int dag, Float mass, Zmobus *mobius_lib_arg);
 #endif
 
 void zmobius_dminus(Vector *out, 
@@ -235,7 +233,7 @@ void zmobius_dminus(Vector *out,
 		   Vector *in, 
 		   int cb, 
 		   int dag, 
-		   Dwf *mobius_lib_arg);
+		   Zmobus *mobius_lib_arg);
 
 
 
@@ -249,6 +247,21 @@ void vecTimesEquComplex(Complex *a, Complex b, int len);
 void DebugPrintVec(Vector* vp, int len);
 
 
+// utility routine for zmobius
+void zmobius_zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
+			    const Complex *d, int len);
+
+//  temp[s]  <-  kappa_b[s] *temp2[s]  +  in[s]  s=0..ls-1,
+// ls_stride is the number of Floats stored in one s-slice
+// s_node_coor is the coordinate of the current node in s-direction 
+void zmobius_zvectTimesV1PlusV2 (Vector* temp, Complex* kappa_b,  Vector* temp2,
+				 Vector* in, int local_ls, int ls_stride, int s_node_coor );
+
+//  temp[s]  <-  kappa_b[s] *temp[s]  s=0..ls-1,
+// ls_stride is the number of Floats stored in one s-slice
+// s_node_coor is the coordinate of the current node in s-direction 
+  void zmobius_zvectTimesEquComplex(Vector* temp, Complex* kappa_b, 
+				    int local_ls, int ls_stride, int s_node_coor );
 
 
 #endif

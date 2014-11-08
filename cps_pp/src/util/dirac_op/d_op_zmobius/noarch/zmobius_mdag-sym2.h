@@ -1,12 +1,11 @@
-//4d precond. mobius Dirac op of symmetric version 1st kind with MIT precondition:
-//  (1 - M_5^-1 B kappa_b M4eo M_5^-1 kappa_b M4oe Binv )^dag
-//= 1 - Binv^dag M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag  B^dag M_5^dag-1
-//void  zmobius_mdag_sym1_MIT(Vector *out,
-void  zmobius_mdag(Vector *out, 
+//4d precond. mobius Dirac op of symmetric version 2nd kind :
+//  (1 -  kappa_b M4eo M_5^-1 kappa_b M4oe M_5^-1)^dag
+//= 1 - M_5^dag-1 M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag  
+void  zmobius_mdag_sym2(Vector *out, 
 		   Matrix *gauge_field, 
 		   Vector *in, 
 		   Float mass, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
   const int dag=1;
   //------------------------------------------------------------------
@@ -28,15 +27,15 @@ void  zmobius_mdag(Vector *out,
   Float norm;
 
   
-  //  out = [ 1 - Moo^dag M5inv^dag Moe^dag kappa_b^dag M5inv^dag ] in
+  //  out = [ 1 -  M5inv^dag Moo^dag M5inv^dag Moe^dag kappa_b^dag ] in
   // (dslash_5 uses (1+-g5), not P_R,L, i.e. no factor of 1/2 which is here out front)
   //
-  //    1. out = (-M5inv kappa_b Meo M5inv kappa_b Moe)^dag in
+  //    1. out = (- kappa_b Meo M5inv kappa_b Moe M5inv)^dag in
   //    2. out +=  in
   
 
   //--------------------------------------------------------------
-  //    1. ftmp2 = (-M5inv B kappa_b Meo M5inv kappa_b Moe Binv)^dag in
+  //    1. ftmp2 = (-kappa_b Meo M5inv kappa_b Moe M5inv)^dag in
   //--------------------------------------------------------------
   
   time_elapse();
@@ -44,17 +43,6 @@ void  zmobius_mdag(Vector *out,
   // out<- in
   moveFloat((IFloat*)out, (IFloat*)in, f_size);
 
-  //------------------------------------------------------------------
-  // Apply B^dag 
-  //------------------------------------------------------------------
-  zmobius_B_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
-
-
-  //------------------------------------------------------------------
-  // Apply [M_5^-1]^dag (hopping in 5th dir + diagonal)
-  //------------------------------------------------------------------
-  zmobius_m5inv(out, mass, dag, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
-  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
 
   //------------------------------------------------------------------
   // Apply - kappa_b(s)^*  : note the minus in font of kappa_b
@@ -96,10 +84,13 @@ void  zmobius_mdag(Vector *out,
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
   
   //------------------------------------------------------------------
-  // Apply Binv^dag 
+  // Apply [M_5^-1]^dag (hopping in 5th dir + diagonal)
   //------------------------------------------------------------------
-  zmobius_Binv_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
+  zmobius_m5inv(out, mass, dag, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
+  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
 
+
+  
   //------------------------------------------------------------------
   //    2. out +=  in
   //------------------------------------------------------------------
@@ -112,6 +103,5 @@ void  zmobius_mdag(Vector *out,
   DEBUG_MOBIUS_DSLASH("out <- in %e\n", time_elapse());
   
 
-
-  
 }
+

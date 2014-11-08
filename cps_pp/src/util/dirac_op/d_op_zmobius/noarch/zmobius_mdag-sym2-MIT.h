@@ -1,11 +1,8 @@
-//4d precond. mobius Dirac op of symmetric version 2nd kind :
-//  (1 -  kappa_b M4eo M_5^-1 kappa_b M4oe M_5^-1)^dag
-//= 1 - M_5^dag-1 M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag  
-void  zmobius_mdag_sym2(Vector *out, 
+void  zmobius_mdag_sym2_MIT(Vector *out,
 		   Matrix *gauge_field, 
 		   Vector *in, 
 		   Float mass, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
   const int dag=1;
   //------------------------------------------------------------------
@@ -43,6 +40,10 @@ void  zmobius_mdag_sym2(Vector *out,
   // out<- in
   moveFloat((IFloat*)out, (IFloat*)in, f_size);
 
+  //------------------------------------------------------------------
+  // Apply B^dag 
+  //------------------------------------------------------------------
+  zmobius_B_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
 
   //------------------------------------------------------------------
   // Apply - kappa_b(s)^*  : note the minus in font of kappa_b
@@ -89,6 +90,10 @@ void  zmobius_mdag_sym2(Vector *out,
   zmobius_m5inv(out, mass, dag, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
   DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
 
+  //------------------------------------------------------------------
+  // Apply Binv^dag 
+  //------------------------------------------------------------------
+  zmobius_Binv_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
 
   
   //------------------------------------------------------------------

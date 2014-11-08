@@ -50,7 +50,7 @@ void zmobius_dslash_4_dag0(Vector *out,
 		     Matrix *gauge_field, 
 		     Vector *in, 
 		     int cb, 
-		     Dwf *mobius_lib_arg,
+		     Zmobus *mobius_lib_arg,
 		     Float mass)
 {
   int i;
@@ -133,7 +133,7 @@ void zmobius_dslash_4_dag1(Vector *out,
 		     Matrix *gauge_field, 
 		     Vector *in, 
 		     int cb, 
-		     Dwf *mobius_lib_arg,
+		     Zmobus *mobius_lib_arg,
 		     Float mass)
 {
   int i;
@@ -216,7 +216,7 @@ void zmobius_dslash_4(Vector *out,
 		     Vector *in, 
 		     int cb, 
 		     int dag, 
-		     Dwf *mobius_lib_arg,
+		     Zmobus *mobius_lib_arg,
 		      Float mass)
 {
   if(!dag)

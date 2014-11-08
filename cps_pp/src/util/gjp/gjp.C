@@ -140,6 +140,7 @@ GlobalJobParameter::GlobalJobParameter()
 
   zmobius_b=NULL;
   zmobius_c=NULL;
+  zmobius_pc_type= ZMOB_PC_SYM2;
 }
 
 

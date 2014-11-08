@@ -1,9 +1,11 @@
-//void  zmobius_mdag_sym2_MIT(Vector *out,
-void  zmobius_mdag(Vector *out, 
+//4d precond. mobius Dirac op:
+//  (M_5 - kappa_b M4eo M_5^-1 kappa_b M4oe)^dag
+//= M_5^dag - M4oe^dag kappa_b^dag M_5^dag-1 M4oe^dag kappa_b^dag
+void  zmobius_mdag_orig(Vector *out, 
 		   Matrix *gauge_field, 
 		   Vector *in, 
 		   Float mass, 
-		   Dwf *mobius_lib_arg)
+		   Zmobus *mobius_lib_arg)
 {
   const int dag=1;
   //------------------------------------------------------------------
@@ -19,37 +21,38 @@ void  zmobius_mdag(Vector *out,
   const int s_node_coor = GJP.SnodeCoor();
 
   
+#if 0
+  const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
+  const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
+#endif
+  
+
 
   Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;
   //Vector *temp = (Vector *) smalloc(f_size * sizeof(Float));
   Float norm;
 
   
-  //  out = [ 1 -  M5inv^dag Moo^dag M5inv^dag Moe^dag kappa_b^dag ] in
+  //  out = [ 1 + (kap_ratio dslash_5)^dag  - Moo^dag M5inv^dag Moe^dag kappa_b^dag ] in
   // (dslash_5 uses (1+-g5), not P_R,L, i.e. no factor of 1/2 which is here out front)
   //
-  //    1. out = (- kappa_b Meo M5inv kappa_b Moe M5inv)^dag in
+  //    1. out = (-kappa_b Meo M5inv kappa_b Moe)^dag in
   //    2. out +=  in
+  //    3. out +=  kappa_b/kappa_c /2 dslash_5 in
   
 
   //--------------------------------------------------------------
-  //    1. ftmp2 = (-kappa_b Meo M5inv kappa_b Moe M5inv)^dag in
+  //    1. ftmp2 = (-kappa_b Meo M5inv kappa_b Moe)^dag in
   //--------------------------------------------------------------
   
   time_elapse();
-
-  // out<- in
-  moveFloat((IFloat*)out, (IFloat*)in, f_size);
-
-  //------------------------------------------------------------------
-  // Apply B^dag 
-  //------------------------------------------------------------------
-  zmobius_B_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
 
   //------------------------------------------------------------------
   // Apply - kappa_b(s)^*  : note the minus in font of kappa_b
   //------------------------------------------------------------------
   const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b;
+  // out<- in
+  moveFloat((IFloat*)out, (IFloat*)in, f_size);
   for(int s=0;s<local_ls;++s){
     int glb_s = s + local_ls*s_node_coor;
     Complex* cp = (Complex*)( (Float*)out +s*ls_stride);
@@ -85,17 +88,6 @@ void  zmobius_mdag(Vector *out,
   zmobius_dslash_4(out, gauge_field, frm_tmp2, 1, dag, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
   
-  //------------------------------------------------------------------
-  // Apply [M_5^-1]^dag (hopping in 5th dir + diagonal)
-  //------------------------------------------------------------------
-  zmobius_m5inv(out, mass, dag, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
-  DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
-
-  //------------------------------------------------------------------
-  // Apply Binv^dag 
-  //------------------------------------------------------------------
-  zmobius_Binv_MIT(out, mass, dag, mobius_lib_arg, GJP.ZMobius_b(), GJP.ZMobius_c());
-
   
   //------------------------------------------------------------------
   //    2. out +=  in
@@ -108,6 +100,15 @@ void  zmobius_mdag(Vector *out,
 #endif
   DEBUG_MOBIUS_DSLASH("out <- in %e\n", time_elapse());
   
+  
+  //------------------------------------------------------------------
+  //    3. out +=  kappa_ratio dslash_5 in
+  //------------------------------------------------------------------
+  zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, dag, mobius_lib_arg,
+    mobius_lib_arg->zmobius_kappa_ratio);
+  DEBUG_MOBIUS_DSLASH("zmobius_kappa_dslash_5_plus %e\n", time_elapse());
+
+  // Flops count in this function is two AXPY = 4 flops per vector elements
+  //DiracOp::CGflops +=  3*f_size; 
 
 }
-
