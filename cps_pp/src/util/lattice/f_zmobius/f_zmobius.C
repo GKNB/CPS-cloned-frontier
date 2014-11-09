@@ -260,7 +260,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     cg_arg_s->stop_rsd = rsd_vec[restart_cnt];
     tmp_mob_l_5d->VecZero(mob_l_size_5d);
 
-    // Large PV
+    // Large PV Solve
     {
       //if(!UniqueID())printf("TIZB Large PV\n");
       Float mass = cg_arg_l->mass;
@@ -268,7 +268,7 @@ int Fzmobius::FmatInv(Vector *f_out,
       int max_num_iter = cg_arg_l->max_num_iter;
 
       cg_arg_l->mass = 1.0;
-      cg_arg_l->stop_rsd = rsd_vec[restart_cnt];
+      cg_arg_l->stop_rsd = 1e-5; //rsd_vec[restart_cnt];
       cg_arg_l->max_num_iter = cg_arg_s->max_num_iter;
 
       GJP.SnodeSites(mob_l_ls);
@@ -291,7 +291,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     
     SpinProject(tmp_mob_l_5d, tmp_mob_s_5d, mob_s_ls, 0);
     
-    // SMALL PV
+
     {
       //if(!UniqueID())printf("TIZB SMALL PV\n");
       Float mass= cg_arg_s->mass; 
@@ -309,7 +309,7 @@ int Fzmobius::FmatInv(Vector *f_out,
     
 
 
-    // SMALL SLOVE
+    // SMALL SOLVE
     tmp_mob_l_5d->VecZero(mob_s_size_5d);
     {
       //if(!UniqueID())printf("TIZB SMALL SOLVE ls=%d \n", mob_s_ls);
@@ -344,7 +344,7 @@ int Fzmobius::FmatInv(Vector *f_out,
       dop.Mat(tmp_mob_l_5d, tmp2_mob_l_5d);
     }
     
-    // LARGE PV
+    // LARGE PV Solve
     tmp2_mob_l_5d->VecZero(mob_l_size_5d);
     {
       Float mass = cg_arg_l->mass;
@@ -352,7 +352,7 @@ int Fzmobius::FmatInv(Vector *f_out,
       int max_num_iter = cg_arg_l->max_num_iter;
 
       cg_arg_l->mass = 1.0;
-      cg_arg_l->stop_rsd = cg_arg_s->stop_rsd;
+      cg_arg_l->stop_rsd = 1e-5; //cg_arg_s->stop_rsd;
       cg_arg_l->max_num_iter = cg_arg_s->max_num_iter;
 
       GJP.SnodeSites(mob_l_ls);
