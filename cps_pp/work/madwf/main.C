@@ -140,8 +140,8 @@ int main(int argc,char *argv[])
   snprintf(cache_name,1024,"cache_0_mass%g", lanczos_arg.mass);
   ecache = new EigenCache(cache_name);
   char evecname[1024];
-  snprintf(evecname, 1024,"%s/eig4dee.pc%d.mass%g",
-	   lanczos_arg.file, GJP.ZMobius_PC_Type(),lanczos_arg.mass );
+  snprintf(evecname, 1024,"%s/eig4dee.ls%d.pc%d.mass%g",
+	   lanczos_arg.file, mobius_arg2.ls, GJP.ZMobius_PC_Type(),lanczos_arg.mass );
   lanczos_arg.file = evecname;
   
   AlgLanczos  eig(lattice, &common_arg, &lanczos_arg, ecache);
@@ -192,6 +192,7 @@ int main(int argc,char *argv[])
 #endif
   
 #if 1
+  if(mobius_arg2.cg.neig>0)
   {
     if( GJP.Snodes() != 1) ERR.NotImplemented(cname,fname,"currently only doing I/O for local Ls\n");
 
