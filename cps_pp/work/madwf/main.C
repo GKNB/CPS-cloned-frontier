@@ -173,16 +173,18 @@ int main(int argc,char *argv[])
     ecache->set_neig(neig);
   } else {
     neig  = mobius_arg2.cg.neig;
-    ecache->alloc( evecname_bc, neig, fsize );
-    {//read in only
-      const int n_fields =  GJP.SnodeSites();
-      const int f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
-      EigenContainer eigcon( lattice, evecname_bc, neig, f_size_per_site/2, n_fields, ecache );
+    if(neig>0){
+      ecache->alloc( evecname_bc, neig, fsize );
+      {//read in only
+	const int n_fields =  GJP.SnodeSites();
+	const int f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
+	EigenContainer eigcon( lattice, evecname_bc, neig, f_size_per_site/2, n_fields, ecache );
 	// factor of 2 for single-prec.
-       // have to do this if stride != 1 FIX!
-      for(int iev=0; iev < neig ; iev++){
-        Vector* evec= eigcon.nev_load( iev );
-        ecache->set_index(iev);
+	// have to do this if stride != 1 FIX!
+	for(int iev=0; iev < neig ; iev++){
+	  Vector* evec= eigcon.nev_load( iev );
+	  ecache->set_index(iev);
+	}
       }
     }
   }

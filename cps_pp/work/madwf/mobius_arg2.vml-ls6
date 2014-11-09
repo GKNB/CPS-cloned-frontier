@@ -41,7 +41,7 @@ RitzMatType RitzMatOper = MATPCDAG_MATPC
 InverterType Inverter = CG
 int bicgstab_n = 0
 string fname_eigen = "eigen"
-int neig = 40
+int neig = 0
 double eigen_shift = 0.0
 double ama_stop_rsd =   0.0
 }
