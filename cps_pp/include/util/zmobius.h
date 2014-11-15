@@ -47,6 +47,7 @@ extern int zmobiusso_wire_map[];
 // Type definitions
 //------------------------------------------------------------------
 
+// !  FIXME  : for now, I am renaming Dwf into Zmobus type, which may be neater to be actually different structure ?
 typedef Dwf Zmobus;
 
 

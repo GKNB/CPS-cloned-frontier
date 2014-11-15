@@ -1088,6 +1088,18 @@ class Lattice
 			 EigArg *eig_arg, 
 			 CnvFrmType cnv_frm = CNV_FRM_YES) = 0;
 
+
+
+  // MADWF solver
+  virtual int FmatInv(Vector *f_out,
+	      Vector *f_in,
+	      MobiusArg *mob_l,
+	      MobiusArg *mob_s,
+	      Float *true_res,
+	      CnvFrmType cnv_frm ,
+	      PreserveType prs_f_in)
+  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");} // for now
+
   
     virtual Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
 			 Float mass, DagType dag) = 0;
@@ -2111,6 +2123,8 @@ class Fp4 : public virtual FstagTypes, public virtual Fsmear
 		CnvFrmType cnv_frm = CNV_FRM_YES,
 		PreserveType prs_f_in = PRESERVE_YES);
 
+
+  
     int FeigSolv(Vector **f_eigenv, Float *lambda, 
 		 LanczosArg *eig_arg, 
 		 CnvFrmType cnv_frm = CNV_FRM_YES);

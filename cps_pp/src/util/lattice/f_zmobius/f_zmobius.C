@@ -70,10 +70,10 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   const int ls_stride = 24 * GJP.VolNodeSites()/2;
     
   int size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
-  if(prs_f_in==PRESERVE_YES){ 
+  //if(prs_f_in==PRESERVE_YES){ 
     temp = (Vector*) smalloc(cname,fname, "temp", size * sizeof(Float));
     moveFloat((IFloat*)temp,(IFloat*)f_in, size);
-  }
+    //  }
   
   Vector *dminus_in = (Vector *)
     smalloc(cname, fname, "dminus_in", size* sizeof(Float) );
@@ -89,11 +89,7 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 #endif
 
 #if 1  
-  // Multiply 2*kappa, this make the normalization of
-  // propagator the "physical" one. This breaking of backward compatibility
-  // is needed for s-dependent kappa_b to be useful
-  // (otherwise this can't approximate larger Ls, I think)
-
+  // Multiply 2*kappa
   // do even / odd 
   for(int ieo=0;ieo<2;++ieo){
     for(int s=0; s<local_ls;++s){
@@ -128,11 +124,28 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   //norm = f_out->NormSqGlbSum(size);
   //if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
 
-  dop.Mat(temp,f_out);  
-
+  //dop.Mat(temp,f_out);  
   //  norm = temp->NormSqGlbSum(size);
   //if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
   
+
+#if 0  
+  // divide by2*kappa
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
+			 (2.0*kappa_b), ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+#endif
+
   
   sfree(cname, fname,  "dminus_in",  dminus_in);
   if(prs_f_in==PRESERVE_YES) 
@@ -156,7 +169,7 @@ int Fzmobius::FmatInv(Vector *f_out,
 
 {
   const char *fname = "FmatInv(V*, V*, mdwfArg, mdwfArg, F, Cnv, Preserv, int, F)";
-
+  VRB.Func(fname,cname);
   // n_restart and stop_rsd is taken from mob_l
   int n_restart = mob_l->rsd_vec.rsd_vec_len;
   Float *rsd_vec = mob_l->rsd_vec.rsd_vec_val;
@@ -225,6 +238,31 @@ int Fzmobius::FmatInv(Vector *f_out,
     
     DiracOpZMobius dop(*this, f_out, f_in, cg_arg_l, cnv_frm);
     dop.Dminus(dminus_in,f_in);
+
+#if 1  
+  // Multiply 2*kappa
+    {
+
+    int local_ls = GJP.SnodeSites();
+    const int s_node_coor = GJP.SnodeCoor();
+    const int ls_stride = 24 * GJP.VolNodeSites()/2;
+    int size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
+    // do even / odd   
+    for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+    }
+#endif
+
 
     int iter = dop.MatInv(f_out, dminus_in, PRESERVE_YES);
 #if 0

@@ -66,8 +66,10 @@ void print_vec(char* str, Float* vec)
 
 DoArg do_arg;
 DoArgExt doext_arg;
-MobiusArg mdwf_arg;
-MobiusArg mdwf_arg2;
+
+MobiusArg mobius_arg;
+MobiusArg mobius_arg2;
+
 
 NoArg no_arg;
 CommonArg common_arg;
@@ -96,7 +98,7 @@ EigenCache* cps::EigenCacheListSearch( char* fname_root_bc, int neig )
 }
 
 
-void do_CG(Lattice& lattice, Vector* out, int flag_src_kappa_b)
+void do_CG(Lattice* lattice, Vector* out, int flag_src_kappa_b, int flag_madwf=0)
 {
 
   Vector* in;
@@ -104,6 +106,7 @@ void do_CG(Lattice& lattice, Vector* out, int flag_src_kappa_b)
   CgArg cg;
   int ls = GJP.SnodeSites();
 
+  printf("doCG(..):  Ls=%d\n",ls);
   //out = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
   in  = (Vector*)smalloc(GJP.VolNodeSites()*ls*4*sizeof(Vector));
   Vector* in_4d  = (Vector*)smalloc(GJP.VolNodeSites()*4*sizeof(Vector));
@@ -125,7 +128,7 @@ void do_CG(Lattice& lattice, Vector* out, int flag_src_kappa_b)
   }
 
   
-  lattice. Ffour2five(in, in_4d, 0, ls-1);
+  lattice-> Ffour2five(in, in_4d, 0, ls-1);
 
   for(int i=0;i<GJP.VolNodeSites()*ls*24;++i)
     *((IFloat*)out+i) = 0.0;
@@ -164,11 +167,17 @@ void do_CG(Lattice& lattice, Vector* out, int flag_src_kappa_b)
   rsd_vec[2] = 2e-5;
   rsd_vec[3] = 2e-5;
 
-  cg = mdwf_arg.cg;
+  cg = mobius_arg.cg;
 
   //int iter = lattice.FmatInv(out, in, &mdwf_arg, &mdwf_arg2, &res, cnv, pres, nrestart, mdwf_arg.rsd_vec);
 
-  int iter = lattice.FmatInv(out, in, &cg, &res, cnv, pres);
+  int iter;
+  if(flag_madwf)
+    iter = lattice->FmatInv(out, in,
+					       &mobius_arg,   &mobius_arg2,
+			  &res, cnv, pres);
+  else 
+    iter = lattice->FmatInv(out, in, &cg, &res, cnv, pres);
 
   print_vec("mob.sol", (Float*)out);
 
@@ -187,12 +196,12 @@ int main(int argc,char *argv[])
   
   Start(&argc, &argv);
 
-  if ( argc!=3) { 
-    if(!UniqueID())printf("(exe) do_arg doext_arg mdwf_arg mdwf_arg eig_arg work-directory\n");
-    exit(-1);
-  }
+  //if ( argc!=3) { 
+  //if(!UniqueID())printf("(exe) do_arg doext_arg mdwf_arg mdwf_arg eig_arg work-directory\n");
+  //exit(-1);
+  //}
   
-  int flag_test = atoi(argv[1]);
+  //int flag_test = atoi(argv[1]);
   //chdir(argv[1]);
 
   real_mdwf_arg.Encode("real_mdwf_arg.dat", "real_mdwf_arg");
@@ -208,14 +217,14 @@ int main(int argc,char *argv[])
       ERR.General(fname,fname,"Decoding of doext_arg failed\n");
     }
 #if 1
-  if ( !mdwf_arg.Decode("mobius_arg.vml","mdwf_arg") ) 
+  if ( !mobius_arg.Decode("mobius_arg.vml","mobius_arg") ) 
     { 
-      mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
-      ERR.General(fname,fname,"Decoding of mdwf_arg failed\n");  
+      mobius_arg.Encode("mobius_arg.dat","mobius_arg");
+      ERR.General(fname,fname,"Decoding of mobius_arg failed\n");  
     }
-  if ( !mdwf_arg2.Decode("mobius_arg2.vml","mdwf_arg2") ) 
+  if ( !mobius_arg2.Decode("mobius_arg2.vml","mobius_arg2") ) 
     { 
-      ERR.General(fname,fname,"Decoding of mdwf_arg2 failed\n");  
+      ERR.General(fname,fname,"Decoding of mobius_arg2 failed\n");  
     }
 #endif
   if ( !lanczos_arg.Decode("lanczos_arg.vml","lanczos_arg") ) 
@@ -228,19 +237,24 @@ int main(int argc,char *argv[])
   do_arg.Encode("do_arg.dat","do_arg");
   doext_arg.Encode("doext_arg.dat","doext_arg");
   lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
-  mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
-  mdwf_arg2.Encode("mdwf_arg2.dat","mdwf_arg2");
+  mobius_arg.Encode("mobius_arg.dat","mobius_arg");
+  mobius_arg2.Encode("mobius_arg2.dat","mobius_arg2");
   real_mdwf_arg.Decode("real_mdwf_arg.vml","real_mdwf_arg");
 
 
   int long_ls=24;
-  int short_ls=doext_arg.zmobius_b_coeff.zmobius_b_coeff_len/2;
+  int short_ls=mobius_arg2.zmobius_b_coeff.zmobius_b_coeff_len/2;
 
   
 
   GJP.Initialize(do_arg);
   GJP.InitializeExt(doext_arg);
   VRB.Level(do_arg.verbose_level);
+
+  GJP.SnodeSites(mobius_arg.ls);
+  GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val, mobius_arg.ls);
+  GJP.ZMobius_c (mobius_arg.zmobius_c_coeff.zmobius_c_coeff_val, mobius_arg.ls);
+
   
   //Lattice &lattice = LatticeFactory::Create(F_CLASS_DWF, G_CLASS_WILSON);
   
@@ -260,14 +274,14 @@ int main(int argc,char *argv[])
 
   GJP.SnodeSites( long_ls );
     
-  int comp_flag=atoi(argv[2]);
+  int comp_flag=atoi(argv[1]);
   switch( comp_flag ){
   case 1 :
     {
       GJP.SetMdwfArg( &real_mdwf_arg );
       //Lattice &lattice = LatticeFactory::Create(F_CLASS_MDWF, G_CLASS_WILSON);
       GnoneFmdwf lattice;
-      do_CG(lattice,out_mob,0);
+      do_CG(&lattice,out_mob,0);
       //LatticeFactory::Destroy();
       lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
     }
@@ -276,13 +290,12 @@ int main(int argc,char *argv[])
     {
       //Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
       GnoneFmobius lattice;
-      do_CG(lattice,out_mob,1);
+      do_CG(&lattice,out_mob,1);
       //LatticeFactory::Destroy();
       lattice.Ffive2four(out_mob_4d, out_mob, GJP.SnodeSites()-1, 0);
     }
     break;
   }
-
 
   
   //  LatticeFactory::Destroy();
@@ -296,7 +309,7 @@ int main(int argc,char *argv[])
     //Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GJP.SnodeSites( short_ls );
     GnoneFzmobius lattice;
-    do_CG(lattice,out_zmob, 0);
+    do_CG(&lattice,out_zmob, 0, 0);
     lattice.Ffive2four(out_zmob_4d, out_zmob, GJP.SnodeSites()-1, 0);
     //LatticeFactory::Destroy();
   }

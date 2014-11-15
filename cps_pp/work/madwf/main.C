@@ -149,7 +149,7 @@ int main(int argc,char *argv[])
   int ls_save = GJP.SnodeSites();
   GJP.SnodeSites(mobius_arg2.ls);
   GJP.ZMobius_b (mobius_arg2.zmobius_b_coeff.zmobius_b_coeff_val, mobius_arg2.ls);
-  GJP.ZMobius_c (mobius_arg2.zmobius_c_coeff.zmobius_c_coeff_val, mobius_arg2.ls);
+  GJP.ZMobius_c (mobius_arg2.zmobius_c_coeff.zmobius_c_coeff_val, mobius_arg2.ls  );
   int fsize = GJP.VolNodeSites() * lattice.FsiteSize() * Ncb / 2 / 2; //last 2 for single prec.;
   EigenCacheList. push_back( ecache );
   int neig;
@@ -267,18 +267,6 @@ int main(int argc,char *argv[])
 			     &res, cnv, pres);
   
   //int iter = lattice.FmatInv(out, in, &cg, &res, cnv, pres);
-
-#if 0  
-  for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
-    printf("OUT %d %e \n",i,*((Float*)out+i) );
-
-  DiracOpMobius dop( lattice, &mobius_arg );
-  dop.Mat(in,out);
-
-  for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
-    printf("IN %d %e\n",i,*((Float*)in+i));
-
-#endif
 
   sfree(out);
   sfree(in);

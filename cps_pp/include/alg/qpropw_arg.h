@@ -71,6 +71,8 @@ public:
 	int EndSrcSpin;
 	int StartSrcColor;
 	int EndSrcColor;
+	int *mob_arg_l;
+	int *mob_arg_s;
 	   QPropWArg (  ) ;
 };
 

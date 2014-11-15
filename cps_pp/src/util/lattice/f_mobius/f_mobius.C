@@ -104,7 +104,8 @@ int Fmobius::FmatInv(Vector *f_out,
 
 {
   const char *fname = "FmatInv(V*, V*, mdwfArg, mdwfArg, F, Cnv, Preserv, int, F)";
-
+  VRB.Func(cname,fname);
+  
   // n_restart and stop_rsd is taken from mob_l
   int n_restart = mob_l->rsd_vec.rsd_vec_len;
   Float *rsd_vec = mob_l->rsd_vec.rsd_vec_val;
