@@ -139,7 +139,7 @@ void comp_read_eigenvectors(Lattice& lattice)
 
   // Read eigenvectors for small Ls mobius in mobius_arg2
   //-------------------------------------------------------
-#if 1
+#if 0
   if(mobius_arg2.cg.neig>0)
   {
     if( GJP.Snodes() != 1) ERR.NotImplemented(cname,fname,"currently only doing I/O for local Ls\n");
@@ -303,14 +303,21 @@ int main(int argc,char *argv[])
     //LatticeFactory::Destroy(); 
   }
 
+  int flag_comp_read_eigv=0;
+
+
+  
   // Solve  Large Ls with Zmobius with MADWF
   //--------------------------------------------
 if(do_zmob_lg)  {  
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
-
-    comp_read_eigenvectors(lattice)  ; 
+    if(!flag_comp_read_eigv)
+      {
+	comp_read_eigenvectors(lattice)  ;
+	flag_comp_read_eigv=1;
+      }
     
     GJP.SnodeSites(mobius_arg.ls);
     GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
@@ -344,7 +351,10 @@ if(do_zmob_sm)  {
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
     
-    GJP.SnodeSites(mobius_arg2.ls);
+    if(!flag_comp_read_eigv)
+	comp_read_eigenvectors(lattice)  ;
+
+	GJP.SnodeSites(mobius_arg2.ls);
     GJP.ZMobius_b (mobius_arg2.zmobius_b_coeff.zmobius_b_coeff_val,
 		   mobius_arg2.ls);
     GJP.ZMobius_c (mobius_arg2.zmobius_c_coeff.zmobius_c_coeff_val,
