@@ -309,6 +309,8 @@ if(do_zmob_lg)  {
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
+
+    comp_read_eigenvectors(lattice)  ; 
     
     GJP.SnodeSites(mobius_arg.ls);
     GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
@@ -370,7 +372,7 @@ if(do_zmob_sm)  {
     qp_arg.cg=cg_save;
  }
 
-  //comp_read_eigenvectors(lattice)  ; 
+
 
   
   EigenCacheListCleanup();
