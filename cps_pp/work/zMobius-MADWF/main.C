@@ -197,37 +197,46 @@ int main(int argc,char *argv[])
   
   Start(&argc, &argv);
 
-  if ( argc!=9) { 
-    if(!UniqueID())printf("(exe) do_arg doext_arg mobius_arg-l mobius_arg-s qprop_arg eig_arg pc_type work-directory\n");
+  //  if ( argc!=9) { 
+  //    if(!UniqueID())printf("(exe) do_arg doext_arg mobius_arg-l mobius_arg-s qprop_arg eig_arg mdw_arg do_mdw d_mob do_zmob_lg do_zmob_sl work-directory\n");
+  //    exit(-1);
+  //  }
+
+  if ( argc!=6) { 
+    if(!UniqueID())printf("(exe) working_dir do_mdwf do_mob do_zmob_lg do_zmob_sm , but argc=%d\n", argc);
     exit(-1);
   }
-  
-  chdir(argv[8]);
 
+  chdir(argv[1]);
+  int do_mdwf=atoi(argv[2]);
+  int do_mob=atoi(argv[3]);  
+  int do_zmob_lg=atoi(argv[4]);
+  int do_zmob_sm=atoi(argv[5]);
+  
   //  qp_arg.Encode("qpropw_arg.dat","qpropw_arg");
   
-  if ( !do_arg.Decode(argv[1],"do_arg") ) 
+  if ( !do_arg.Decode("do_arg.vml","do_arg") ) 
     { 
       ERR.General(fname,fname,"Decoding of do_arg failed\n");
     }
-  if ( !doext_arg.Decode(argv[2],"doext_arg") ) 
+  if ( !doext_arg.Decode("doext_arg.vml","doext_arg") ) 
     { 
       ERR.General(fname,fname,"Decoding of doext_arg failed\n");
     }
-  if ( !mobius_arg.Decode(argv[3],"mobius_arg") ) 
+  if ( !mobius_arg.Decode("mobius_arg.vml","mobius_arg") ) 
     { 
       mobius_arg.Encode("mobius_arg.dat","mobius_arg");
       ERR.General(fname,fname,"Decoding of mobius_arg failed\n");  
     }
-  if ( !mobius_arg2.Decode(argv[4],"mobius_arg2") ) 
+  if ( !mobius_arg2.Decode("mobius_arg2.vml","mobius_arg2") ) 
     { 
       ERR.General(fname,fname,"Decoding of mobius_arg2 failed\n");  
     }
-  if ( !qp_arg.Decode(argv[5],"qpropw_arg") ) 
+  if ( !qp_arg.Decode("qpropw_arg.vml","qpropw_arg") ) 
     { 
       ERR.General(fname,fname,"Decoding of qpropw_arg failed\n");  
     }
-  if ( !lanczos_arg.Decode(argv[6],"lanczos_arg") ) 
+  if ( !lanczos_arg.Decode("lanczos_arg.vml","lanczos_arg") ) 
     { 
       lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
       if(!UniqueID())printf("Decoding of lanczos_arg failed\n"); exit(-1);
@@ -245,29 +254,23 @@ int main(int argc,char *argv[])
   lanczos_arg.Encode("lanczos_arg.dat","lanczos_arg");
   mobius_arg.Encode("mboius_arg.dat","mobius_arg");
   mobius_arg2.Encode("mobius_arg2.dat","mobius_arg2");
-
+  mdwf_arg.Encode("mdwf_arg.dat","mdwf_arg");
   
   GJP.Initialize(do_arg);
   GJP.InitializeExt(doext_arg);
   VRB.Level(do_arg.verbose_level);
 
   
-  // GJP.ZMobius_PC_Type(ZMOB_PC_SYM2 ); 
-  int zmob_pc_type = atoi(argv[7]);
-  GJP.ZMobius_PC_Type((ZMobiusPCType)zmob_pc_type );
-
-  
-
-
-
+   GJP.ZMobius_PC_Type(ZMOB_PC_SYM2 ); 
+  //int zmob_pc_type = atoi(argv[7]);
+   //GJP.ZMobius_PC_Type((ZMobiusPCType)zmob_pc_type );
 
   
 
 
   // Solve  Large Ls with naitive (slow) way
   //--------------------------------------------
-#if 0
-  if(0)  {  
+  if(do_mob)  {  
     Lattice& lattice=
       LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
 
@@ -280,11 +283,13 @@ int main(int argc,char *argv[])
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
 
-    CalMesons(qp, "mobius", 0, "point");
-    //void CalNucleons(QPropW &q, char *out_dir, int traj, char *src_str);
+    system("mkdir -p mob");
+    CalMesons(qp, "mob", 0, "point");
+    CalNucleons(qp, "mob", 0, "point");
     LatticeFactory::Destroy(); 
   }
-  if(0){
+
+  if(do_mdwf){
     GJP.SetMdwfArg( &mdwf_arg );
     GnoneFmdwf lattice;
 
@@ -292,14 +297,15 @@ int main(int argc,char *argv[])
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
 
+    system("mkdir -p mdwf");
     CalMesons(qp, "mdwf", 0, "point");
-    //void CalNucleons(QPropW &q, char *out_dir, int traj, char *src_str);
-    LatticeFactory::Destroy(); 
+    CalNucleons(qp, "mdwf", 0, "point");
+    //LatticeFactory::Destroy(); 
   }
-#endif  
+
   // Solve  Large Ls with Zmobius with MADWF
   //--------------------------------------------
-if(0)  {  
+if(do_zmob_lg)  {  
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
@@ -319,17 +325,19 @@ if(0)  {
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
 
-    CalMesons(qp, "zmobius", 0, "point");
+    system("mkdir -p zmob_lg");
+    CalMesons(qp, "zmob_lg", 0, "point");
+    CalNucleons(qp, "zmob_lg", 0, "point");
 
     qp_arg.mob_arg_l = 0;
     qp_arg.mob_arg_s = 0;
 
-    LatticeFactory::Destroy();
+    //LatticeFactory::Destroy();
   }
 
    // Solve  Small Ls with Zmobius
   //--------------------------------------------
-if(1)  {  
+if(do_zmob_sm)  {  
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
@@ -347,13 +355,15 @@ if(1)  {
    CommonArg carg;
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
-
-    CalMesons(qp, "s-zmobius", 0, "point");
-
+    // 
+    system("mkdir -p zmob_sm");
+    CalMesons(qp, "zmob_sm", 0, "point");
+    CalNucleons(qp, "zmob_sm", 0, "point");
+    
     //    qp_arg.mob_arg_l = 0;
     ///    qp_arg.mob_arg_s = 0;
 
-    LatticeFactory::Destroy();
+    //LatticeFactory::Destroy();
   }
 
   //comp_read_eigenvectors(lattice)  ; 
