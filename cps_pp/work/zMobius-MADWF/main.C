@@ -351,8 +351,11 @@ if(do_zmob_sm)  {
 
     //    *(MobiusArg**)&(qp_arg.mob_arg_l) = &mobius_arg;
     //    *(MobiusArg**)&(qp_arg.mob_arg_s) = &mobius_arg2;
+    CgArg cg_save = qp_arg.cg;
+    qp_arg.cg = mobius_arg2.cg;
     
-   CommonArg carg;
+    CommonArg carg;
+
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
     // 
@@ -364,7 +367,8 @@ if(do_zmob_sm)  {
     ///    qp_arg.mob_arg_s = 0;
 
     //LatticeFactory::Destroy();
-  }
+    qp_arg.cg=cg_save;
+ }
 
   //comp_read_eigenvectors(lattice)  ; 
 
