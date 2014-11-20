@@ -27,14 +27,14 @@
 
 CPS_START_NAMESPACE
 
-int     Fbfm::current_arg_idx(0);
-bfmarg  Fbfm::bfm_args[2] = {};
-int     Fbfm::nthreads[2] = { 0, 16 };
-bool    Fbfm::use_mixed_solver = false;
+std::map<Float, bfmarg> Fbfm::arg_map;
+Float Fbfm::current_key_mass = -1789.8;
+
+bool Fbfm::use_mixed_solver = false;
 
 // NOTE:
 //
-// 1. Initialize QDP++ and the static copy Fbfm::bfm_arg before
+// 1. Initialize QDP++ and the static Fbfm::arg_map before
 // using this class.
 //
 // 2. This class acts like a DiracOp class, while it is in scope the
@@ -50,20 +50,11 @@ Fbfm::Fbfm(void):cname("Fbfm")
     if(sizeof(Float) == sizeof(float)) {
         ERR.NotImplemented(cname, fname);
     }
-    if (nthreads[current_arg_idx] == 0) nthreads[current_arg_idx] = bfm_args[current_arg_idx].threads;
-    bfm_args[current_arg_idx].threads = nthreads[current_arg_idx];
 
-    bd.init(bfm_args[current_arg_idx]);
+    Lattice::BondCond();
 
-    if(use_mixed_solver) {
-        bd.comm_end();
-	bf.init(bfm_args[current_arg_idx]);
-        bf.comm_end();
-        bd.comm_init();
-    }
-
-    // call our own version to import gauge field.
-    Fbfm::BondCond();
+    bfm_inited = false;
+    Float current_key_mass = -1789.8;
 
     evec = NULL;
     evald = NULL;
@@ -74,14 +65,81 @@ Fbfm::Fbfm(void):cname("Fbfm")
 Fbfm::~Fbfm(void)
 {
     const char *fname = "~Fbfm()";
-    VRB.Func(cname,fname);
+    VRB.Func(cname, fname);
     // we call base version just to revert the change, no need to
     // import to BFM in a destructor.
     Lattice::BondCond();
-    bd.end();
-    if(use_mixed_solver) {
-        bf.end();
+
+    if (bfm_inited) {
+	bd.end();
+	if (use_mixed_solver) {
+	    bf.end();
+	}
     }
+}
+
+void Fbfm::SetBfmArg(Float key_mass)
+{
+    const char* fname = "SetBfmArg(F)";
+
+    if (arg_map.count(key_mass) == 0) {
+	ERR.General(cname, fname, "No entry for key mass %e in arg_map!\n", key_mass);
+    }
+
+    VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e (arg_map.count(key_mass) == %d)\n", key_mass, arg_map.count(key_mass));
+
+    bfmarg new_arg = arg_map[key_mass];
+
+    if (!bfm_inited) {
+	// Make sure some fields are filled in properly
+	multi1d<int> sub_latt_size = QDP::Layout::subgridLattSize();
+	new_arg.node_latt[0] = sub_latt_size[0];
+	new_arg.node_latt[1] = sub_latt_size[1];
+	new_arg.node_latt[2] = sub_latt_size[2];
+	new_arg.node_latt[3] = sub_latt_size[3];
+
+	multi1d<int> procs = QDP::Layout::logicalSize();
+	new_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
+	new_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
+	new_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
+	new_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
+
+	new_arg.ncoor[0] = 0;
+	new_arg.ncoor[1] = 0;
+	new_arg.ncoor[2] = 0;
+	new_arg.ncoor[3] = 0;
+
+	new_arg.max_iter = 100000;
+	new_arg.verbose = BfmMessage | BfmError;
+
+	bd.init(new_arg);
+	if (use_mixed_solver) {
+	    bd.comm_end();
+	    bf.init(new_arg);
+	    bf.comm_end();
+	    bd.comm_init();
+	}
+
+	ImportGauge();
+	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
+    } else {
+	if (key_mass == current_key_mass) {
+	    VRB.Result(cname, fname, "Already inited from desired key mass %e\n", key_mass);
+	    return; // already inited with desired params
+	}
+
+	if (bd.solver != new_arg.solver
+	    || bd.Ls != new_arg.Ls
+	    || bd.precon_5d != new_arg.precon_5d) {
+	    ERR.General(cname, fname, "Can't change Ls during lifetime of Fbfm object: must destroy and recreate lattice object (Old Ls = %d, new Ls = %d).\n", bd.Ls, new_arg.Ls);
+	}
+
+	SetMass(new_arg.mass);
+	VRB.Result(cname, fname, "Just set new mass %e for solver = %d, Ls = %d\n", bd.mass, bd.solver, bd.Ls);
+    }
+
+    bfm_inited = true;
+    current_key_mass = key_mass;
 }
 
 // This function differs from the original CalcHmdForceVecsBilinear()
@@ -93,11 +151,12 @@ void Fbfm::CalcHmdForceVecsBilinear(Float *v1,
                                     Vector *phi2,
                                     Float mass)
 {
-    Fermion_t pi[2] = {bd.allocFermion(), bd.allocFermion()};
+    SetBfmArg(mass);
+
+    Fermion_t pi[2] = { bd.allocFermion(), bd.allocFermion() };
     Fermion_t po[4] = {bd.allocFermion(), bd.allocFermion(),
                        bd.allocFermion(), bd.allocFermion()};
 
-    SetMass(mass);
     bd.cps_impexcbFermion((Float *)phi1, pi[0], 1, 1);
     bd.cps_impexcbFermion((Float *)phi2, pi[1], 1, 1);
 
@@ -125,9 +184,9 @@ ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
 
     Float dtime = -dclock();
 
-    Fermion_t in[2] = {bd.allocFermion(), bd.allocFermion()};
+    SetBfmArg(mass);
 
-    SetMass(mass);
+    Fermion_t in[2] = { bd.allocFermion(), bd.allocFermion() };
 
     bd.cps_impexcbFermion((Float *)phi1, in[0], 1, 1);
     bd.cps_impexcbFermion((Float *)phi2, in[1], 1, 1);
@@ -166,23 +225,29 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
                                    Float coef)
 {
     const char *fname = "EvolveMomFforceBase()";
+    static Timer time(cname, fname);
+    time.start(true);
+
+    SetBfmArg(mass);
 
 #if 0
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
 #endif
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
+    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Float *v2 = (Float *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
     CalcHmdForceVecsBilinear(v1, v2, phi1, phi2, mass);
 
     FforceWilsonType cal_force(mom, this->GaugeField(),
-	v1, v2, Fbfm::bfm_args[current_arg_idx].Ls, coef);
+	v1, v2, bd.Ls, coef);
     ForceArg ret = cal_force.run();
 
     sfree(cname, fname, "v1", v1);
     sfree(cname, fname, "v2", v2);
+
+    time.stop(true);
     return ret;
 }
 
@@ -227,130 +292,6 @@ int Fbfm::FsiteOffset(const int *x) const
     ERR.NotImplemented(cname, fname);
 }
 
-static int testInversionCounter = 0;
-
-static bool save_problems = true; // a hack
-
-void Fbfm::SaveFmatEvlInvProblem(const char* path, Vector *f_in, CgArg *cg_arg)
-{
-    const char* fname = "SaveFmatEvlInvProblem";
-
-    static int save_number = 0;
-
-    VRB.Result(cname, fname, "Saving problem #%d\n", save_number);
-
-    VRB.Result(cname, fname, "storage order = %d\n", (int)StrOrd());
-
-    // Save the gauge field configuration
-    char lat_file[512];
-    int id = UniqueID();
-    sprintf(lat_file, "%s/hmc_lat_part.%d.%d", path, save_number, id);
-    int num_matrix = GJP.VolNodeSites() * 4;
-    printf("num_matrix = %d\n", num_matrix);
-    FILE* f = fopen(lat_file, "wb");
-    if (!f) ERR.General(cname, fname, "Couldn't open %s to write lattice.\n", lat_file);
-    int num_written = fwrite(GaugeField(), sizeof(Matrix), num_matrix, f);
-    if (ferror(f) != 0) ERR.General(cname, fname, "Write lattice: ferror(f) == %d\n", ferror(f));
-    if (num_written != num_matrix) ERR.General(cname, fname, "Write lattice: num_written = %d, num_matrix = %d\n", num_written, num_matrix);
-    fclose(f);
-    
-    printf("Write test: UniqueID() = %d, GaugeField()[0].ReTr() = %e\n", UniqueID(), GaugeField()[0].ReTr());
-
-    // Save the solve RHS
-    // Each node saves its own local portion
-    char vec_file[512];
-    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-    printf("f_size = %d\n", f_size);
-    sprintf(vec_file, "%s/hmc_checkpoint_rhs.%d.%d", path, save_number, id);
-    f = fopen(vec_file, "wb");
-    if (!f) ERR.General(cname, fname, "Couldn't open %s to write RHS.\n", vec_file);
-    num_written = fwrite(f_in, sizeof(Float), f_size, f);
-    if (ferror(f) != 0) ERR.General(cname, fname, "Write RHS: ferror(f) == %d\n", ferror(f));
-    if (num_written != f_size) ERR.General(cname, fname, "Write RHS: num_written = %d, f_size = %d\n", num_written, f_size);
-    fclose(f);
-
-    // Save the CgArg
-    char vml_file[512];                                                
-    sprintf(vml_file, "%s/hmc_cg_arg.vml.%d", path, save_number);                           
-    if (!cg_arg->Encode(vml_file, "cg_arg")) ERR.General(cname, fname, "Failed to encode CgArg.\n");
-
-    save_number++;
-
-    VRB.Result(cname, fname, "Done saving problem #%d.\n", save_number);
-}
-
-void Fbfm::LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in, CgArg *cg_arg)
-{
-    const char* fname = "LoadFmatEvlInvProblem";
-    VRB.Result(cname, fname, "Loading problem #%d\n", save_number);
-
-    save_problems = false;
-
-    int num_nodes = GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes() * GJP.Tnodes();
-    //VRB.Result(cname, fname, "num_nodes = %d\n", num_nodes);
-
-    printf("node %d: before first barrier; num_nodes = %d\n", UniqueID(), num_nodes); fflush(stdout);
-    QMP_barrier();
-    printf("node %d: after first barrier\n", UniqueID()); fflush(stdout);
-
-    // Load the gauge field
-    char lat_file[512];
-    int id = UniqueID();
-    int num_matrix = GJP.VolNodeSites() * 4;
-    sprintf(lat_file, "%s/hmc_lat_part.%d.%d", path, save_number, id);
-    for (int n = 0; n < num_nodes; n++) {
-	QMP_barrier();
-	if (n == UniqueID()) {
-	    printf("node %d gets to load its gauge field!\n", n); fflush(stdout);
-	    FILE* f = fopen(lat_file, "rb");
-	    if (!f) ERR.General(cname, fname, "Couldn't open %s to read lattice.\n", lat_file);
-	    int num_read = fread(GaugeField(), sizeof(Matrix), num_matrix, f);
-	    if (ferror(f) != 0) ERR.General(cname, fname, "Read lattice: ferror(f) == %d\n", ferror(f));
-	    if (num_read != num_matrix) ERR.General(cname, fname, "Read lattice: num_read = %d, num_matrix = %d\n", num_read, num_matrix);
-	    fclose(f);
-	}
-    }
-
-    printf("node %d: before second barrier\n", UniqueID()); fflush(stdout);
-    QMP_barrier();
-    printf("node %d: after second barrier\n", UniqueID()); fflush(stdout);
-
-    printf("Read test: UniqueID() = %d, GaugeField()[0].ReTr() = %e\n", UniqueID(), GaugeField()[0].ReTr());
-
-    // Load the solve RHS
-    char vec_file[512];
-    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-    //printf("About to load rhs, f_size = %d\n", f_size);
-    sprintf(vec_file, "%s/hmc_checkpoint_rhs.%d.%d", path, save_number, id);
-    for (int n = 0; n < num_nodes; n++) {
-	QMP_barrier();
-	if (n == UniqueID()) {
-	    printf("node %d gets to load its RHS!\n", n); fflush(stdout);
-	    FILE* f = fopen(vec_file, "rb");
-	    if (!f) ERR.General(cname, fname, "Couldn't open %s to read RHS.\n", vec_file);
-	    int num_read = fread(f_in, sizeof(Float), f_size, f);
-	    if (ferror(f) != 0) ERR.General(cname, fname, "Read RHS: ferror(f) == %d\n", ferror(f));
-	    if (num_read != f_size) ERR.General(cname, fname, "Read RHS: num_read = %d, f_size = %d\n", num_read, f_size);
-	    fclose(f);
-	}
-    }
-
-    printf("node %d: before third barrier\n", UniqueID()); fflush(stdout);
-    QMP_barrier();
-    printf("node %d: after third barrier\n", UniqueID()); fflush(stdout);
-
-    // Load the CgArg
-    char vml_file[512];
-    sprintf(vml_file, "%s/hmc_cg_arg.vml.%d", path, save_number);
-    if (!cg_arg->Decode(vml_file, "cg_arg")) ERR.General(cname, fname, "Failed to decode CgArg.\n");
-
-    printf("node %d: before fourth barrier\n", UniqueID()); fflush(stdout);
-    QMP_barrier();
-    printf("node %d: after fourth barrier\n", UniqueID()); fflush(stdout);
-
-    VRB.Result(cname, fname, "Done loading problem #%d.\n", save_number);
-}
-
 // It calculates f_out where A * f_out = f_in and
 // A is the preconditioned fermion matrix that appears
 // in the HMC evolution (even/odd preconditioning 
@@ -382,6 +323,8 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     timer.start(true);
     timers[cg_arg->mass]->start(true);
 
+    SetBfmArg(cg_arg->mass);
+
     VRB.Result(cname, fname, "target residual = %e\n", cg_arg->stop_rsd);
 
     if (cg_arg == NULL)
@@ -390,7 +333,6 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     Fermion_t in = bd.allocFermion();
     Fermion_t out = bd.allocFermion();
 
-    SetMass(cg_arg->mass);
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
     // FIXME: pass single precision rsd in a reasonable way.
@@ -417,120 +359,66 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     return iter;
 }
 
-int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
-                      int Nshift, int isz, CgArg **cg_arg, 
-                      CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
-                      Vector **f_out_d)
+// TODO: proper single precision multishift inversion!
+int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
+    int Nshift, int isz, CgArg **cg_arg,
+    CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
+    Vector **f_out_d)
 {
     const char *fname = "FmatEvlMInv(V*,V*,F*, ...)";
-  
-    if(isz != 0) {
-        ERR.General(cname, fname, "Non-zero isz is not implemented.\n");
+
+    if (isz != 0) {
+	ERR.General(cname, fname, "Non-zero isz is not implemented.\n");
     }
 
-    const bool use_double_prec = false;
+    SetBfmArg(cg_arg[0]->mass);
 
     Fermion_t *sol_multi = new Fermion_t[Nshift];
     double *ones = new double[Nshift];
     double *mresidual = new double[Nshift];
-
     for (int i = 0; i < Nshift; ++i) {
+	sol_multi[i] = bd.allocFermion();
 	ones[i] = 1.0;
 	mresidual[i] = cg_arg[i]->stop_rsd;
     }
 
+    // source
+    Fermion_t src = bd.allocFermion();
+    bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
+
+    bd.residual = cg_arg[0]->stop_rsd;
+    bd.max_iter = cg_arg[0]->max_num_iter;
+
     int iter;
-
-    if (use_double_prec) {
-	VRB.Result(cname, fname, "Using double precision!\n");
-	for (int i = 0; i < Nshift; ++i) {
-	    sol_multi[i] = bd.allocFermion();
-	}
-
-	// source
-	Fermion_t src = bd.allocFermion();
-	bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
-
-	SetMass(cg_arg[0]->mass);
-	bd.residual = cg_arg[0]->stop_rsd;
-	bd.max_iter = cg_arg[0]->max_num_iter;
-
 #pragma omp parallel
-	{
-	    iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
-	}
+    {
+	iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+    }
 
-	if (type == SINGLE) {
-	    // FIXME
-	    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-	    Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
+    if (type == SINGLE) {
+	// FIXME
+	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
+	Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
 
-	    for (int i = 0; i < Nshift; ++i) {
-		bd.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
-		f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
-	    }
-	    sfree(cname, fname, "t", t);
-	} else {
-	    for (int i = 0; i < Nshift; ++i) {
-		bd.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
-	    }
-	}
-
-	bd.freeFermion(src);
 	for (int i = 0; i < Nshift; ++i) {
-	    bd.freeFermion(sol_multi[i]);
+	    bd.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
+	    f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
 	}
-    } else { // use single precision
-	VRB.Result(cname, fname, "Using single precision!\n");
-	bd.comm_end();
-	bf.comm_init();
-	
+	sfree(cname, fname, "t", t);
+    } else {
 	for (int i = 0; i < Nshift; ++i) {
-	    sol_multi[i] = bf.allocFermion();
+	    bd.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
 	}
+    }
 
-	// source
-	Fermion_t src = bf.allocFermion();
-	bf.cps_impexcbFermion((Float *)f_in, src, 1, 1);
-
-	SetMass(cg_arg[0]->mass);
-	bf.residual = cg_arg[0]->stop_rsd;
-	bf.max_iter = cg_arg[0]->max_num_iter;
-
-#pragma omp parallel
-	{
-	    iter = bf.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
-	}
-
-	if (type == SINGLE) {
-	    // FIXME
-	    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-	    Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
-
-	    for (int i = 0; i < Nshift; ++i) {
-		bf.cps_impexcbFermion((Float *)t, sol_multi[i], 0, 1);
-		f_out[0]->FTimesV1PlusV2(alpha[i], t, f_out[0], f_size_cb);
-	    }
-	    sfree(cname, fname, "t", t);
-	} else {
-	    for (int i = 0; i < Nshift; ++i) {
-		bf.cps_impexcbFermion((Float *)f_out[i], sol_multi[i], 0, 1);
-	    }
-	}
-
-	bf.freeFermion(src);
-	for (int i = 0; i < Nshift; ++i) {
-	    bf.freeFermion(sol_multi[i]);
-	}
-
-	bf.comm_end();
-	bd.comm_init();
+    bd.freeFermion(src);
+    for (int i = 0; i < Nshift; ++i) {
+	bd.freeFermion(sol_multi[i]);
     }
 
     delete[] sol_multi;
     delete[] ones;
     delete[] mresidual;
-
 
     return iter;
 }
@@ -540,150 +428,11 @@ void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old,
 {
     const char *fname = "FminResExt(V*, V*, V**, ...)";
 
-    const bool use_chronological_inverter = false;
+    SetBfmArg(cg_arg->mass);
 
-    if (use_chronological_inverter) {
-	VRB.Result(cname, fname, "Using chronological inverter!!!! degree = %d\n", degree);
-	MinResExt(sol, source, sol_old, vm, degree, cg_arg->mass);
-    } else {
-	VRB.Result(cname, fname, "Not using chronological inverter; just setting guess to zero.\n");
-
-	// does nothing other than setting sol to zero
-	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-	sol->VecZero(f_size_cb);
-    }
-}
-
-/*!
-copied from minrestext.C. Sorry for the code duplication :(
-
-This computes the starting guess for the solver for use in the HMD
-force calculations using a minimal residual chronological method.
-This computes the guess solution as a linear combination of a given
-number of previous solutions.  Following Brower et al, only the
-orthogonalised vector basis is stored to conserve memory.
-
-\param psi The chronological guess for the solution vector.
-\param phi The source vector in the equation to be solved.
-\param v The previous solutions (orthogonal basis).
-\param vm The previous solutions.multiplied by \f$  M^\dagger M \f$, computed
-as a necessary by-product.
-\param degree The number of previous solutions.
-\param mass The mass of the Dirac operator we are inverting
-*/
-void Fbfm::MinResExt(Vector *psi, Vector *phi, Vector **v,
-    Vector **vm, int degree, Float mass)
-{
-
-    /*
-    We want to find the best initial guess of the solution of
-    A x = b, and we have N previous solutions x_i.
-    The method goes something like this:
-
-    1. Orthonormalise the x_i
-    2. Form the matrix G_ij = x_i^dagger A x_j
-    3. Form the vector B_i = x_i^dagger b
-    4. solve A_ij a_j  = B_i
-    5. x = a_i x_i
-    */
-
-    char *fname = "MinResExt(V*, V*, V**, V**, int, Float)";
-    VRB.Func(cname, fname);
-
-    int f_size = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-
-    //!< if no guess is required, then set initial guess = 0
-    if (degree == 0) {
-	psi->VecZero(f_size);
-	return;
-    }
-
-    Vector *r = (Vector*)smalloc(f_size *sizeof(Float));
-
-    Float dot;
-    Complex xp;
-
-    // Array to hold the matrix elements
-    Complex **G = (Complex**)smalloc(degree * sizeof(Complex*));
-    for (int i = 0; i<degree; i++)
-	G[i] = (Complex*)smalloc(degree *sizeof(Complex));
-
-    // Solution and source vectors
-    Complex *a = (Complex*)smalloc(degree * sizeof(Complex));
-    Complex *b = (Complex*)smalloc(degree * sizeof(Complex));
-
-    //!< Orthonormalise the vector basis
-    for (int i = 0; i<degree; i++) {
-	v[i]->VecTimesEquFloat(1 / sqrt(v[i]->NormSqGlbSum(f_size)), f_size);
-	for (int j = i + 1; j<degree; j++) {
-	    xp = v[i]->CompDotProductGlbSum(v[j], f_size);
-	    v[j]->CTimesV1PlusV2(-xp, v[i], v[j], f_size);
-	}
-    }
-
-    // Perform sparse matrix multiplication and construct rhs
-    for (int i = 0; i<degree; i++) {
-	b[i] = v[i]->CompDotProductGlbSum(phi, f_size);
-	MatPcDagMatPc(vm[i], v[i], mass, &dot);
-	G[i][i].real(dot);
-	G[i][i].imag(0.0);
-    }
-
-    // Construct the matrix
-    for (int j = 0; j<degree; j++) {
-	for (int k = j + 1; k<degree; k++) {
-	    G[j][k] = v[j]->CompDotProductGlbSum(vm[k], f_size);
-	    G[k][j] = conj(G[j][k]);
-	}
-    }
-
-    // Gauss-Jordan elimination with partial pivoting
-    for (int i = 0; i<degree; i++) {
-
-	// Perform partial pivoting
-	int k = i;
-	for (int j = i + 1; j<degree; j++) if (abs(G[j][j]) > abs(G[k][k])) k = j;
-	if (k != i) {
-	    xp = b[k];
-	    b[k] = b[i];
-	    b[i] = xp;
-	    for (int j = 0; j<degree; j++) {
-		xp = G[k][j];
-		G[k][j] = G[i][j];
-		G[i][j] = xp;
-	    }
-	}
-
-	// Convert matrix to upper triangular form
-	for (int j = i + 1; j<degree; j++) {
-	    xp = G[j][i] / G[i][i];
-	    b[j] -= xp * b[i];
-	    for (int k = 0; k<degree; k++) G[j][k] -= xp * G[i][k];
-	}
-    }
-
-    // Use Gaussian Elimination to solve equations and calculate initial guess
-    psi->VecZero(f_size);
-    r->CopyVec(phi, f_size);
-    for (int i = degree - 1; i >= 0; i--) {
-	a[i] = 0.0;
-	for (int j = i + 1; j<degree; j++) a[i] += G[i][j] * a[j];
-	a[i] = (b[i] - a[i]) / G[i][i];
-	psi->CTimesV1PlusV2(a[i], v[i], psi, f_size);
-	r->CTimesV1PlusV2(-a[i], vm[i], r, f_size);
-    }
-    Float error = sqrt(r->NormSqGlbSum(f_size) / phi->NormSqGlbSum(f_size));
-
-    VRB.Result(cname, fname, "Chrono = %d, True |res| / |src| = %e\n",
-	degree, error);
-
-    for (int j = 0; j<degree; j++) sfree(*(G + j));
-
-    sfree(r);
-    sfree(G);
-    sfree(a);
-    sfree(b);
-
+    // does nothing other than setting sol to zero
+    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
+    sol->VecZero(f_size_cb);
 }
     
 // It calculates f_out where A * f_out = f_in and
@@ -716,11 +465,11 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
         ERR.Pointer(cname, fname, "cg_arg");
     int threads =   omp_get_max_threads();
 
+    SetBfmArg(cg_arg->mass);
 
     Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
     Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
 
-    SetMass(cg_arg->mass);
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
     // FIXME: pass single precision rsd in a reasonable way.
@@ -803,7 +552,8 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
     Float *f4d = (Float *)four;
 
     const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
-    const int size_5d = size_4d * Fbfm::bfm_args[current_arg_idx].Ls;
+    VRB.Result(cname, fname, "Taking Ls from current_key_mass = %d!\n", current_key_mass);
+    const int size_5d = size_4d * arg_map[current_key_mass].Ls; // current_key_mass must be set correctly!!!
 
     // zero 5D vector
 #pragma omp parallel for
@@ -811,8 +561,8 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
         f5d[i]  = 0.0;
     }
 
-    Float *f4du = f4d;
-    Float *f4dl = f4d + 12;
+    Float *f4du = f4d;                      
+    Float *f4dl = f4d + 12;                 
     Float *f5du = f5d + s_u * size_4d;
     Float *f5dl = f5d + s_l * size_4d + 12;
 
@@ -895,7 +645,7 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
         ERR.NotImplemented(cname, fname);
     }
     
-    SetMass(eig_arg->mass);
+    SetBfmArg(eig_arg->mass);
     bd.residual = eig_arg->Rsdlam;
     bd.max_iter = eig_arg->MaxCG;
 
@@ -933,19 +683,24 @@ Float Fbfm::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     if (frm1 == 0)
         ERR.Pointer(cname,fname,"frm1") ;
 
+    SetBfmArg(mass);
+
     MatPc(phi, frm1, mass, dag);
-    return FhamiltonNode(frm1, frm1);
+    Float ret = FhamiltonNode(frm1, frm1);
+    return ret;
 }
 
 void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
 {
     const char *fname = "MatPc()";
 
+    VRB.Result(cname, fname, "start MatPc: mass = %e\n", mass);
+
+    SetBfmArg(mass);
+
     Fermion_t i = bd.allocFermion();
     Fermion_t o = bd.allocFermion();
     Fermion_t t = bd.allocFermion();
-
-    SetMass(mass);
 
     bd.cps_impexcbFermion((Float *)in , i, 1, 1);
 #pragma omp parallel
@@ -957,37 +712,8 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
     bd.freeFermion(i);
     bd.freeFermion(o);
     bd.freeFermion(t);
-}
 
-void Fbfm::MatPcDagMatPc(Vector *out, Vector *in, Float mass, Float *dot_prd)
-{
-    const char *fname = "MatPcDagMatPc()";
-
-    Fermion_t bfm_in = bd.allocFermion();
-    Fermion_t bfm_out = bd.allocFermion();
-    Fermion_t bfm_Min = bd.allocFermion();
-    Fermion_t bfm_aux = bd.allocFermion();
-
-    SetMass(mass);
-
-    bd.cps_impexcbFermion((Float *)in, bfm_in, 1, 1);
-#pragma omp parallel
-    {
-	bd.Mprec(bfm_in, bfm_Min, bfm_aux, 0, 0);
-	bd.Mprec(bfm_Min, bfm_out, bfm_aux, 1, 0);
-    }
-    bd.cps_impexcbFermion((Float *)out, bfm_out, 0, 1);
-
-    bd.freeFermion(bfm_in);
-    bd.freeFermion(bfm_out);
-    bd.freeFermion(bfm_Min);
-    bd.freeFermion(bfm_aux);
-
-    if (dot_prd != NULL) {
-	// do this in BFM instead?
-	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-	*dot_prd = out->ReDotProductGlbSum(in, f_size_cb);
-    }
+    VRB.Result(cname, fname, "end MatPc: mass = %e\n", mass);
 }
 
 // It evolves the canonical momentum mom by step_size
@@ -997,8 +723,10 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
 {
     const char *fname = "EvolveMomFforce()";
   
+    SetBfmArg(mass);
+
     const int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
-    const int f_size_cb = f_size_4d * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+    const int f_size_cb = f_size_4d * bd.Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
     MatPc(tmp, frm, mass, DAG_NO);
@@ -1014,6 +742,9 @@ ForceArg Fbfm::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
                                     Vector **sol_d, ForceMeasure force_measure)
 {
     const char *fname = "RHMC_EvolveMomFforce()";
+    static Timer time(cname, fname);
+    time.start(true);
+
     char *force_label=NULL;
 
     int g_size = GJP.VolNodeSites() * GsiteSize();
@@ -1050,6 +781,7 @@ ForceArg Fbfm::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
         sfree(mom_tmp, cname, fname, "mom_tmp");
     }
 
+    time.stop(true);
     return ret;
 }
 

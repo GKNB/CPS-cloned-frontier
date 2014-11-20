@@ -19,9 +19,12 @@ public:
     //static bfmarg bfm_arg;
 
     //CK: Modified to allow for multiple sets of arguments for different fermion types
-    static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
-    static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
-    static int nthreads[2];
+//    static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
+//    static bfmarg bfm_args[2]; //currently setup to allow 2 different choices corresponding to F_CLASS_BFM and F_CLASS_BFM_TYPE2, can be extended in principle
+//    static int nthreads[2];
+
+    static std::map<Float, bfmarg> arg_map;
+    static Float current_key_mass;
 
     // set true to use single precision BFM object.
     static bool use_mixed_solver;
@@ -30,6 +33,8 @@ public:
     bfm_evo<float> bf;
 private:
     const char *cname;
+
+    bool bfm_inited;
 
     // These are eigenvectors/eigenvalues obtained from Rudy's Lanczos
     // code. Use them for deflation.
@@ -109,7 +114,16 @@ public:
     // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
     int FsiteSize() const {
-	return 24 * Fbfm::bfm_args[current_arg_idx].Ls;
+	const char* fname = "FsiteSize()";
+	if (arg_map.count(current_key_mass) == 0) {
+	    ERR.General(cname, fname, "No entry for current key mass %e in arg_map!\n", current_key_mass);
+	    return 0;
+	} else {
+	    int Ls = arg_map[current_key_mass].Ls;
+	    int ret = 24 * Ls;
+	    //printf("FsiteSize() using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
+	    return ret;
+	}
     }
     // Returns the number of fermion field 
     // components (including real/imaginary) on a
@@ -153,9 +167,6 @@ public:
     void FminResExt(Vector *sol, Vector *source, Vector **sol_old, 
                     Vector **vm, int degree, CgArg *cg_arg, CnvFrmType cnv_frm);
   
-    void MinResExt(Vector *psi, Vector *phi, Vector **v,
-	Vector **vm, int degree, Float mass);
-
     int FmatInv(Vector *f_out, Vector *f_in, 
                 CgArg *cg_arg, 
                 Float *true_res,
@@ -227,8 +238,6 @@ public:
   
     void MatPc(Vector *out, Vector *in, Float mass, DagType dag);
 
-    void MatPcDagMatPc(Vector *out, Vector *in, Float mass, Float *dot_prd);
-
     Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
                  Float mass, DagType dag);
     // It sets the pseudofermion field phi from frm1, frm2.
@@ -297,6 +306,8 @@ public:
     virtual void BondCond();
 
     void ImportGauge();
+
+    void SetBfmArg(Float key_mass);
 
     void SetMass(Float mass) {
         if(bd.mass != mass) {

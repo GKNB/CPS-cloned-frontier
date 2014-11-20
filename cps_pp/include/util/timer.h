@@ -16,7 +16,7 @@
 
 CPS_START_NAMESPACE
 
-inline double getStartTime() {
+inline double& getStartTime() {
   static double time = dclock();
   return time;
 }
@@ -106,6 +106,15 @@ class TimerInfo {
 
     void show(const char *info = NULL) {
       showAvg(info);
+    }
+
+    void clear()
+    {
+	dtime = 0;
+	dflops = 0;
+	accumulated_time = 0;
+	accumulated_flops = 0;
+	call_times = 0;
     }
 };
 
@@ -200,6 +209,15 @@ class Timer {
         info.showLast("stop ");
       }
       autodisplay();
+    }
+
+    static void clear_all()
+    {
+	std::vector<TimerInfo *> db(getTimerDatabase());
+	for (int i = 0; i < db.size(); i++) {
+	    db[i]->clear();
+	}
+	getStartTime() = dclock();
     }
 
     static void display(const std::string& str = "") {

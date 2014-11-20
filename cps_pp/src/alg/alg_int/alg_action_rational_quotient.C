@@ -23,6 +23,7 @@ CPS_END_NAMESPACE
 #include<alg/alg_int.h>
 #include<alg/alg_remez.h>
 #include <util/timer.h>
+#include <util/lattice/fbfm.h>
 CPS_START_NAMESPACE
 
 //!< Dummy contructor - does nothing
@@ -72,12 +73,43 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 
   //!< Allocate memory for the fermion CG arguments.
   if(n_masses > 0){
+      if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+	  // AlgActionBilinear does not set fermion field size correctly for Fbfm
+	  int Ls = Fbfm::arg_map[rat_quo_arg->bsn_mass.bsn_mass_val[0]].Ls;
+
+	  VRB.Result(cname, fname, "Recalculating fermion field size for Fbfm based on Ls = %d\n", Ls);
+
+	  //!< Number of Floats in a Vector array
+	  f_size = GJP.VolNodeSites() * Ls * (2 * 3 * 4) / 2; // (reim * color * spin) / Ncheckerboard
+	  //!< Number of Vectors in a Vector array
+	  f_vec_count = f_size / (2 * 3);
+	  //!< Number of lattice sites
+	  f_sites = f_size / (2 * 3 * 4);
+
+	  VRB.Result(cname, fname, "Allocating phi fields\n");
+	  for (int i = 0; i < n_masses; i++) {
+	      phi[i] = (Vector *)smalloc(f_size*sizeof(Float), "phi[i]", fname, cname);
+	  }
+      }
+
+
     bsn_mass = (Float*) smalloc(n_masses * sizeof(Float), "bsn_mass", fname, cname);
     frm_mass = (Float*) smalloc(n_masses * sizeof(Float), "frm_mass", fname, cname);
 
     for(int i=0; i<n_masses; i++) {
       bsn_mass[i] = rat_quo_arg->bsn_mass.bsn_mass_val[i];
       frm_mass[i] = rat_quo_arg->frm_mass.frm_mass_val[i];
+
+      if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+	  // Make sure all quotients have the same Ls
+	  int Ls = Fbfm::arg_map[bsn_mass[0]].Ls;
+	  if (Fbfm::arg_map[bsn_mass[i]].Ls != Ls) {
+	      ERR.General(cname, fname, "Boson mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+	  }
+	  if (Fbfm::arg_map[frm_mass[i]].Ls != Ls) {
+	      ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+	  }
+      }
     }
     
     //!< construct approximation if necessary
@@ -107,6 +139,8 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
     frmn[0] = (Vector*) smalloc(f_size*max_size*sizeof(Float), 
 				"frmn[0]", fname, cname);
     
+    VRB.Result(cname, fname, "allocating fermion fields of size %d Floats\n", f_size);
+
     for (int i=1; i<max_size; i++) frmn[i] = frmn[0] + i*f_vec_count;
     
     frmn_d = 0;
@@ -181,7 +215,11 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
     Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
     
     for(int i=0; i<n_masses; i++){
-
+	if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+	    // Fbfm needs current_key_mass set before calling RandGaussVector
+	    Fbfm::current_key_mass = bsn_mass[i];
+	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
+	}
       lat.RandGaussVector(phi[i], 0.5, Ncb);
       norm[i] = lat.FhamiltonNode(phi[i],phi[i]);
 
@@ -240,7 +278,11 @@ void AlgActionRationalQuotient::heatbath() {
     h_init = 0.0;
     
     for(int i=0; i<n_masses; i++){
-
+	if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+	    // Fbfm needs current_key_mass set before calling RandGaussVector
+	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
+	    Fbfm::current_key_mass = bsn_mass[i];
+	}
       lat.RandGaussVector(phi[i], 0.5, Ncb);
       h_init += lat.FhamiltonNode(phi[i],phi[i]);
 

@@ -167,7 +167,7 @@ void AlgPbp::run()
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
+  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 
@@ -635,7 +635,7 @@ void AlgPbp::runPointSource(int x, int y, int z, int t)
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
+  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 

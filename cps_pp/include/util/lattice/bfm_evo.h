@@ -19,6 +19,8 @@
 #include <vector>
 #include "bfm_evo_aux.h"
 
+enum { Export = 0, Import = 1 };
+
 // FIXME: it inherits from bfm_qdp for the sole reason of using its
 // importGauge() function. I'm too lazy to do any manual
 // shifts/conjugates ......
@@ -35,6 +37,9 @@ public:
 
   // s inner most (but outside color and spin)
   integer cps_idx_s(int x[4], int s, int reim, int i, int i_size);
+
+  // index for 4d fermion field
+  integer cps_idx_4d(int x[4], int reim, int i, int i_size);
 
   // compute the vector pair (v1, v2) needed to calculate fermion force.
   void calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
@@ -153,6 +158,13 @@ public:
   template<typename FloatEXT>
   void cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int doimport);
 
+  // Imports a 4D CPS fermion to a 5D BFM fermion, putting the left-handed
+  // part at s=0 and the right-handed part at s=Ls-1. (Or does the inverse,
+  // exporting a 5D BFM fermion to a 4D CPS fermion).
+  // psi assumes regular canonical order: (color, spin, x, y, z, t)
+  template<typename FloatEXT>
+  void cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport);
+
   template<typename FloatEXT>
   void cps_importGauge(FloatEXT *importme);
   //template<typename FloatEXT>
@@ -233,6 +245,18 @@ integer bfm_evo<Float>::cps_idx_s(int x[4], int s, int reim, int i, int i_size)
           *x[3])));
 
   return (csite*i_size + i)*2 + reim;
+}
+
+template<class Float>
+integer bfm_evo<Float>::cps_idx_4d(int x[4], int reim, int i, int i_size)
+{
+    int csite =
+	x[0] + this->node_latt[0]
+	* (x[1] + this->node_latt[1]
+	* (x[2] + this->node_latt[2]
+	* (x[3])));
+
+    return (csite*i_size + i) * 2 + reim;
 }
 
 template <class Float> template<typename FloatEXT>
@@ -369,6 +393,71 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
         else psi[cidx] = bagel[cb][bidx];
       }}//co, reim
   }//xyzts
+}
+
+// Imports a 4D CPS fermion to a 5d BFM fermion, putting the left-handed
+// part at s=0 and the right-handed part at s=Ls-1. (Or does the inverse,
+// exporting a 5D BFM fermion to a 4D CPS fermion).
+template <class Float> template<typename FloatEXT>
+void bfm_evo<Float>::cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport)
+{
+    if (doimport) {
+#pragma omp parallel
+	{
+	    // zero out 5d bulk since we only import to the walls
+	    this->set_zero(handle[Even]);
+	    this->set_zero(handle[Odd]);
+	}
+    }
+
+    int Nspinco = 12;
+    int i_inc = this->simd() * 2;
+    int vol4d =
+	this->node_latt[0] *
+	this->node_latt[1] *
+	this->node_latt[2] *
+	this->node_latt[3];
+
+    omp_set_num_threads(this->nthread);
+    Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
+
+#pragma omp parallel for 
+    for (int site = 0; site < vol4d; site++) {
+	int x[4];
+	int si = site;
+	x[0] = si%this->node_latt[0];    si = si / this->node_latt[0];
+	x[1] = si%this->node_latt[1];    si = si / this->node_latt[1];
+	x[2] = si%this->node_latt[2];    si = si / this->node_latt[2];
+	x[3] = si%this->node_latt[3];
+
+	int bidx_base_left = this->bagel_idx5d(x, 0, 0, 0, Nspinco, 1);
+	int bidx_base_right = this->bagel_idx5d(x, this->Ls-1, 0, 0, Nspinco, 1);
+	int cidx_base = this->cps_idx_4d(x, 0, 0, Nspinco);
+
+	for (int co = 0; co<Nspinco; co++) {
+	    // right-handed components are first six spin-color components
+	    // left-handed components are last six spin-color components
+	    int bidx_base;
+	    int s;
+	    if (co < 6) {
+		bidx_base = bidx_base_right;
+		s = this->Ls - 1;
+	    } else {
+		bidx_base = bidx_base_left;
+		s = 0;
+	    }
+	    int sp = this->precon_5d ? s : 0;
+	    int cb = (x[0] + x[1] + x[2] + x[3] + sp) & 0x1;
+
+	    for (int reim = 0; reim<2; reim++) {
+		int bidx = bidx_base + reim + co * i_inc;
+		int cidx = cidx_base + reim + co * 2;
+
+		if (doimport) bagel[cb][bidx] = psi[cidx];
+		else psi[cidx] = bagel[cb][bidx];
+	    }
+	}//co, reim
+    }//xyzts
 }
 
 template <class Float> template<typename FloatEXT>

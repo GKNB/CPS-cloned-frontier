@@ -400,5 +400,63 @@ namespace mixed_cg {
 
 	return iter;
     }
+
+    inline int threaded_cg_mixed_Mdag(Fermion_t sol[2], Fermion_t src[2],
+	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
+	int max_cycle, cps::InverterType itype = cps::CG,
+	// the following parameters are for deflation
+	multi1d<Fermion_t[2]> *evec = NULL,
+	multi1d<float> *eval = NULL,
+	int N = 0)
+    {
+	int me = bfm_d.thread_barrier();
+	Fermion_t be = bfm_d.threadedAllocFermion();
+	Fermion_t bo = bfm_d.threadedAllocFermion();
+	Fermion_t ta = bfm_d.threadedAllocFermion();
+	Fermion_t tb = bfm_d.threadedAllocFermion();
+
+	double nsrc = bfm_d.norm(src[0]) + bfm_d.norm(src[1]);
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_M: source norm is %17.10e\n", nsrc);
+	}
+
+	// eo preconditioning
+	bfm_d.MooeeInv(src[Even], ta, DaggerYes);
+	bfm_d.Meo(ta, tb, Odd, DaggerYes); // tb == Moe^\dag Mee^{\dag-1} src[e]
+	bfm_d.axpy(bo, tb, src[Odd], -1.0); // bo == src[o] - Moe^\dag Mee^{\dag-1} src[e]
+
+	// ta = (Mprec^\dag Mprec)^{-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+	int iter = threaded_cg_mixed_MdagM(ta, bo, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);
+
+	bfm_d.Mprec(ta, sol[Odd], tb, DaggerNo); // sol[o] = Mprec^{\dag-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+
+	bfm_d.Meo(sol[Odd], ta, Even, DaggerYes); // ta == Meo^\dag sol[o]
+	bfm_d.axpy(tb, ta, src[Even], -1.0); // tb == src[e] - Meo^\dag sol[o]
+	bfm_d.MooeeInv(tb, sol[Even], DaggerYes); // sol[e] = Mee^{\dag-1} (src[e] - Meo^\dag sol[o])
+
+	double nsol = bfm_d.norm(sol[0]) + bfm_d.norm(sol[1]);
+
+	// compute final residual
+	Fermion_t tmp[2] = { be, bo };
+	bfm_d.Munprec(sol, tmp, ta, DaggerYes);
+
+	double ndiff = 0.;
+	for (int i = 0; i < 2; ++i) {
+	    bfm_d.axpy(tb, tmp[i], src[i], -1.0);
+	    ndiff += bfm_d.norm(tb);
+	}
+
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_Mdag: unprec sol norm = %17.10e, residual = %17.10e\n",
+		nsol, sqrt(ndiff / nsrc));
+	}
+
+	bfm_d.threadedFreeFermion(be);
+	bfm_d.threadedFreeFermion(bo);
+	bfm_d.threadedFreeFermion(ta);
+	bfm_d.threadedFreeFermion(tb);
+
+	return iter;
+    }
 }
 #endif

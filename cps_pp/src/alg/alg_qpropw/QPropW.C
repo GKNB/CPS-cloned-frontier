@@ -811,7 +811,7 @@ void QPropW::CG(FermionVectorTp& source, FermionVectorTp& sol,
 
   // Do inversion
   //----------------------------------------------------------------
-  if (Lat.Fclass() == F_CLASS_DWF || Lat.Fclass() == F_CLASS_BFM || Lat.Fclass() == F_CLASS_BFM_TYPE2) {
+  if (Lat.Fclass() == F_CLASS_DWF || Lat.Fclass() == F_CLASS_BFM) {
     Vector *src_4d    = (Vector*)source.data();
     Vector *sol_4d    = (Vector*)sol.data();
     Vector *midsol_4d = (Vector*)midsol.data();

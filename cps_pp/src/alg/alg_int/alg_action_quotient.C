@@ -31,6 +31,7 @@ CPS_END_NAMESPACE
 #include <util/timer.h>
 #include <vector>
 #include <util/lattice/fbfm.h>
+#include <util/lattice/f_dwf4d.h>
 CPS_START_NAMESPACE
 
 AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
@@ -49,6 +50,25 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
                     "Inconsistency between QuotientArg and BilinearArg n_masses\n");
 
     if(n_masses > 0) {
+	if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+	    // AlgActionBilinear does not set fermion field size correctly for Fbfm
+	    int Ls = Fbfm::arg_map[quo_arg->quotients.quotients_val[0].bsn_mass].Ls;
+
+	    VRB.Result(cname, fname, "Recalculating fermion field size for Fbfm based on Ls = %d\n", Ls);
+
+	    //!< Number of Floats in a Vector array
+	    f_size = GJP.VolNodeSites() * Ls * (2 * 3 * 4) / 2; // (reim * color * spin) / Ncheckerboard
+	    //!< Number of Vectors in a Vector array
+	    f_vec_count = f_size / (2 * 3);
+	    //!< Number of lattice sites
+	    f_sites = f_size / (2 * 3 * 4);
+
+	    VRB.Result(cname, fname, "Allocating phi fields\n");
+	    for (int i = 0; i < n_masses; i++) {
+		phi[i] = (Vector *)smalloc(f_size*sizeof(Float), "phi[i]", fname, cname);
+	    }
+	}
+
         bsn_cg_arg.resize(n_masses);
         frm_cg_arg_fg.resize(n_masses);
         frm_cg_arg_md.resize(n_masses);
@@ -60,6 +80,17 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
 
             bsn_mass.push_back(qi.bsn_mass);
             frm_mass.push_back(qi.frm_mass);
+
+	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+		// Make sure all quotients have the same Ls
+		int Ls = Fbfm::arg_map[bsn_mass[0]].Ls;
+		if (Fbfm::arg_map[bsn_mass[i]].Ls != Ls) {
+		    ERR.General(cname, fname, "Boson mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+		}
+		if (Fbfm::arg_map[frm_mass[i]].Ls != Ls) {
+		    ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+		}
+	    }
 
             //~~ added for twisted mass Wilson fermions
             bsn_mass_epsilon.push_back(qi.bsn_mass_epsilon);
@@ -99,6 +130,8 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
         tmp1 = (Vector*)smalloc(f_size*sizeof(Float),"tmp1",fname,cname);
         tmp2 = (Vector*)smalloc(f_size*sizeof(Float),"tmp2",fname,cname);
     
+	VRB.Result(cname, fname, "allocating fermion fields of size %d Floats\n", f_size);
+
         for (int i=0; i<n_masses; i++) {
             int deg=0;
             if (chrono[i] > 0) deg = chrono[i];
@@ -171,6 +204,11 @@ void AlgActionQuotient::reweight(Float *rw_fac, Float *norm) {
 
         // tmp1, tmp2 < - random Gaussian vector (RGV)
         for(int i=0; i<n_masses; i++){
+	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+		// Fbfm needs current_key_mass set before calling RandGaussVector
+		Fbfm::current_key_mass = bsn_mass[i];
+		VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
+	    }
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
 
@@ -222,8 +260,15 @@ void AlgActionQuotient::heatbath() {
 	    }
 	    timers[i]->start(true);
 
+	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
+		// Fbfm needs current_key_mass set before calling RandGaussVector
+		Fbfm::current_key_mass = bsn_mass[i];
+		VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
+	    }
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
+
+	    Fdwf4d::pauli_villars_resid = 1e-12;
 
             //~~ changed for twisted mass Wilson fermions
             // phi <- M_f^\dag (RGV)
@@ -234,7 +279,7 @@ void AlgActionQuotient::heatbath() {
             // tmp2 <- (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
             tmp2 -> VecZero(f_size);
             cg_iter = lat.FmatEvlInv(tmp2, phi[i], &bsn_cg_arg[i], CNV_FRM_NO);
-	    VRB.Result(cname, fname, "mass ratio %0.4f/(%0.4f) cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+	    VRB.Result(cname, fname, "heatbath: mass ratio %0.4f/(%0.4f) cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
 
             //~~ changed for twisted mass Wilson fermions
             // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
@@ -285,6 +330,8 @@ Float AlgActionQuotient::energy() {
 		}
 		timers[i]->start(true);
 
+		Fdwf4d::pauli_villars_resid = 1e-12;
+
                 //~~ changed for twisted mass Wilson fermions
 		(lat.Fclass() == F_CLASS_WILSON_TM) ?
                     lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
@@ -293,7 +340,7 @@ Float AlgActionQuotient::energy() {
                 tmp2 -> VecZero(f_size);
                 cg_iter = 
                     lat.FmatEvlInv(tmp2, tmp1, &frm_cg_arg_mc[i], CNV_FRM_NO);
-		VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+		VRB.Result(cname, fname, "energy: mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
 
                 updateCgStats(&frm_cg_arg_mc[i]);
 	  
@@ -334,6 +381,8 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 	}
 	timers[i]->start(true);
 
+	Fdwf4d::pauli_villars_resid = 1e-8;
+
 	//~~ changed for twisted mass Wilson fermions
         // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
         (lat.Fclass() == F_CLASS_WILSON_TM) ?
@@ -360,7 +409,7 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
         // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
         cg_iter = 
             lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_fg[i], CNV_FRM_NO);
-	VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+	VRB.Result(cname, fname, "prepare_fg: mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
 	dtime_cg += dclock();
 
         updateCgStats(&frm_cg_arg_fg[i]);
@@ -457,6 +506,7 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
 	    }
 	    timers[i]->start(true);
 
+	    Fdwf4d::pauli_villars_resid = 1e-8;
 
             //~~ changed for twisted mass Wilson fermions
             // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
@@ -494,7 +544,7 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
             dtime_cg -= dclock();
             // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
             cg_iter = lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_md[i], CNV_FRM_NO);
-	    VRB.Result(cname, fname, "mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
+	    VRB.Result(cname, fname, "evolve: mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
 	    dtime_cg += dclock();
 
             updateCgStats(&frm_cg_arg_md[i]);

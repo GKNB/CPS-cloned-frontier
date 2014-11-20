@@ -60,13 +60,22 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
   if (n_masses > 0) {
     //!< Create an appropriate lattice
     Lattice &lat = LatticeFactory::Create(bi_arg->fermion, G_CLASS_NONE);
-    
-    //!< Number of lattice sites
-    f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1);
-    //!< Number of Vectors in a Vector array
-    f_vec_count = f_sites * lat.SpinComponents();
-    //!< Number of Floats in a Vector array
-    f_size = f_vec_count * lat.Colors() * 2;
+
+    // Ls for Fbfm can depend on input mass, so we can't choose the right
+    // sizes for Fbfm without knowing the masses.
+    if (bi_arg->fermion != F_CLASS_BFM) {
+	//!< Number of Floats in a Vector array
+	f_size = GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl() + 1);
+	//!< Number of Vectors in a Vector array
+	f_vec_count = f_size / (2 * lat.Colors());
+	//!< Number of lattice sites
+	f_sites = f_size / (2 * lat.Colors() * lat.SpinComponents());
+	VRB.Result(cname, fname, "f_sites = %d, f_vec_count = %d, f_size = %d (lat.FchkbEvl() = %d)\n", f_sites, f_vec_count, f_size, lat.FchkbEvl());
+    } else {
+	VRB.Result(cname, fname, "Skipping setting f_size etc. b/c fermion == Fbfm and I don't know the masses!\n");
+	VRB.Result(cname, fname, "Sizes should be set momentarily by AlgActionQuotient or AlgActionRationalQuotient.\n");
+    }
+
 
     if(lat.FchkbEvl() == 1) Ncb = 1;      //!< Half Checkerboard
     else if(lat.FchkbEvl() == 0) Ncb = 2; //!< Full Checkerboard
@@ -77,8 +86,12 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
     phi = (Vector **) smalloc(n_masses * sizeof(Vector*),
 			      "phi",fname,cname);
     
-    for(int i=0; i<n_masses; i++) {
-      phi[i] = (Vector *) smalloc(f_size*sizeof(Float),"phi[i]",fname,cname);
+    if (bi_arg->fermion != F_CLASS_BFM) {
+	for (int i = 0; i < n_masses; i++) {
+	    phi[i] = (Vector *)smalloc(f_size*sizeof(Float), "phi[i]", fname, cname);
+	}
+    } else {
+	VRB.Result(cname, fname, "Postponing allocation of phi; should be allocated momentarily by AlgActionQuotient or AlgActionRationalQuotient.\n");
     }
 
     //! Copy over mass and max iteration parameters

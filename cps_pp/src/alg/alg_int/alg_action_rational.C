@@ -20,6 +20,7 @@ CPS_END_NAMESPACE
 #include<util/error.h>
 #include<alg/alg_int.h>
 #include<alg/alg_remez.h>
+#include <util/lattice/fbfm.h>
 CPS_START_NAMESPACE
 
 //!< Dummy contructor - does nothing
@@ -779,6 +780,9 @@ void AlgActionRational::checkApprox(Float *mass, RemezArg *remez_arg,
 
   char *fname = "checkApprox()";
   
+  // Necessary so that functions called by AlgEig know what Ls Fbfm is using:
+  Fbfm::current_key_mass = mass[0];
+
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
   
   //!< First setup the masses

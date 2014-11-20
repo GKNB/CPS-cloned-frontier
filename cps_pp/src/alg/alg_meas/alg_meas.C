@@ -2,6 +2,8 @@
 
 #ifdef USE_BFM
 #include <util/lattice/fbfm.h>
+#include <util/lattice/f_dwf4d.h>
+#include <util/lattice/f_dwf4d_pair.h>
 #endif
 
 #include <alg/no_arg.h>
@@ -283,15 +285,21 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
 {
   /* BFM VALENCE ANALYSIS */
 #ifdef USE_BFM
-  if(fermion == F_CLASS_BFM) Fbfm::current_arg_idx = 0;
-  else if(fermion == F_CLASS_BFM_TYPE2) Fbfm::current_arg_idx = 1;
-
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_NONE ) ) {
+  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_NONE ) ) {
     lat_p = new GnoneFbfm;
     return *lat_p; 
   }
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_IMPR_RECT ) ) {
+  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_IMPR_RECT ) ) {
     lat_p = new GimprRectFbfm;
+    return *lat_p;
+  }
+
+  if ((fermion == F_CLASS_DWF4D) && (gluon == G_CLASS_NONE)) {
+    lat_p = new GnoneFdwf4d;
+    return *lat_p;
+  }
+  if ((fermion == F_CLASS_DWF4D_PAIR) && (gluon == G_CLASS_NONE)) {
+    lat_p = new GnoneFdwf4dPair;
     return *lat_p;
   }
 #endif
