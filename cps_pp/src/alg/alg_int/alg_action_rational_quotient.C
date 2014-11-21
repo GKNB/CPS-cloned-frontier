@@ -75,7 +75,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
   if(n_masses > 0){
       if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	  // AlgActionBilinear does not set fermion field size correctly for Fbfm
-	  int Ls = Fbfm::arg_map[rat_quo_arg->bsn_mass.bsn_mass_val[0]].Ls;
+	  int Ls = Fbfm::arg_map.at(rat_quo_arg->bsn_mass.bsn_mass_val[0]).Ls;
 
 	  VRB.Result(cname, fname, "Recalculating fermion field size for Fbfm based on Ls = %d\n", Ls);
 
@@ -102,11 +102,11 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 
       if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	  // Make sure all quotients have the same Ls
-	  int Ls = Fbfm::arg_map[bsn_mass[0]].Ls;
-	  if (Fbfm::arg_map[bsn_mass[i]].Ls != Ls) {
+	  int Ls = Fbfm::arg_map.at(bsn_mass[0]).Ls;
+	  if (Fbfm::arg_map.at(bsn_mass[i]).Ls != Ls) {
 	      ERR.General(cname, fname, "Boson mass #%d doesn't have the same Ls as boson mass #0!\n", i);
 	  }
-	  if (Fbfm::arg_map[frm_mass[i]].Ls != Ls) {
+	  if (Fbfm::arg_map.at(frm_mass[i]).Ls != Ls) {
 	      ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0!\n", i);
 	  }
       }
@@ -294,7 +294,8 @@ void AlgActionRationalQuotient::heatbath() {
 				frm_remez_arg_mc[i].degree, 0, 
 				frm_cg_arg_mc[i], CNV_FRM_NO, SINGLE,
 				frm_remez_arg_mc[i].residue_inv);
-      
+      VRB.Result(cname, fname, "fermion mass %e multishift inversion cg_iter = %d\n", frm_cg_arg_mc[i][0]->mass, cg_iter);
+
       //!< Now apply the boson rational
       phi[i] -> 
 	VecEqualsVecTimesEquFloat(frmn[0],bsn_remez_arg_mc[i].norm_inv,f_size);
@@ -303,7 +304,8 @@ void AlgActionRationalQuotient::heatbath() {
 				bsn_remez_arg_mc[i].degree, 0, 
 				bsn_cg_arg_mc[i], CNV_FRM_NO, SINGLE,
 				bsn_remez_arg_mc[i].residue_inv);
-      
+      VRB.Result(cname, fname, "boson mass %e multishift inversion cg_iter = %d\n", bsn_cg_arg_mc[i][0]->mass, cg_iter);
+
       updateCgStats(frm_cg_arg_mc[i][0]);
       updateCgStats(bsn_cg_arg_mc[i][0]);
     }
@@ -358,6 +360,7 @@ Float AlgActionRationalQuotient::energy() {
 				bsn_remez_arg_mc[i].degree, 0, 
 				bsn_cg_arg_mc[i], CNV_FRM_NO, SINGLE, 
 				bsn_remez_arg_mc[i].residue);
+      VRB.Result(cname, fname, "boson mass %e multishift inversion cg_iter = %d\n", bsn_cg_arg_mc[i][0]->mass, cg_iter);
       
       //!< Now apply fermion rational
       frmn[1] -> VecEqualsVecTimesEquFloat(frmn[0],frm_remez_arg_mc[i].norm,
@@ -367,7 +370,8 @@ Float AlgActionRationalQuotient::energy() {
 				frm_remez_arg_mc[i].degree, 0, 
 				frm_cg_arg_mc[i], CNV_FRM_NO, SINGLE, 
 				frm_remez_arg_mc[i].residue);
-      
+      VRB.Result(cname, fname, "fermion mass %e multishift inversion cg_iter = %d\n", frm_cg_arg_mc[i][0]->mass, cg_iter);
+
       updateCgStats(bsn_cg_arg_mc[i][0]);
       updateCgStats(frm_cg_arg_mc[i][0]);
 
@@ -410,6 +414,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
                               bsn_cg_arg_fg[i], CNV_FRM_NO,
                               frmn_d+shift);
     dtime_cg += dclock();
+    VRB.Result(cname, fname, "boson mass %e first multishift inversion cg_iter = %d\n", bsn_cg_arg_fg[i][0]->mass, cg_iter);
 
     updateCgStats(bsn_cg_arg_fg[i][0]);
 
@@ -429,6 +434,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
                               frm_cg_arg_fg[i], CNV_FRM_NO, 
                               frmn_d+shift);
     dtime_cg += dclock();
+    VRB.Result(cname, fname, "fermion mass %e multishift inversion cg_iter = %d\n", frm_cg_arg_fg[i][0]->mass, cg_iter);
 
     updateCgStats(frm_cg_arg_fg[i][0]);
 	
@@ -448,6 +454,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
                               bsn_cg_arg_fg[i], CNV_FRM_NO, 
                               frmn_d+shift);	
     dtime_cg += dclock();
+    VRB.Result(cname, fname, "boson mass %e second multishift inversion cg_iter = %d\n", bsn_cg_arg_fg[i][0]->mass, cg_iter);
 
     updateCgStats(bsn_cg_arg_fg[i][0]);
 
@@ -552,6 +559,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
       dtime_cg += dclock();
+      VRB.Result(cname, fname, "boson mass %e first multishift inversion cg_iter = %d\n", bsn_cg_arg_md[i][0]->mass, cg_iter);
 
       updateCgStats(bsn_cg_arg_md[i][0]);
 
@@ -571,6 +579,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
                                 frm_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);
       dtime_cg += dclock();
+      VRB.Result(cname, fname, "fermion mass %e multishift inversion cg_iter = %d\n", frm_cg_arg_md[i][0]->mass, cg_iter);
 
       updateCgStats(frm_cg_arg_md[i][0]);
 	
@@ -590,6 +599,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
                                 bsn_cg_arg_md[i], CNV_FRM_NO, 
                                 frmn_d+shift);	
       dtime_cg += dclock();
+      VRB.Result(cname, fname, "boson mass %e second multishift inversion cg_iter = %d\n", bsn_cg_arg_md[i][0]->mass, cg_iter);
 
       updateCgStats(bsn_cg_arg_md[i][0]);
 

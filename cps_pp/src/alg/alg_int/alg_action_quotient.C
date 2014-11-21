@@ -52,7 +52,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
     if(n_masses > 0) {
 	if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // AlgActionBilinear does not set fermion field size correctly for Fbfm
-	    int Ls = Fbfm::arg_map[quo_arg->quotients.quotients_val[0].bsn_mass].Ls;
+	    int Ls = Fbfm::arg_map.at(quo_arg->quotients.quotients_val[0].bsn_mass).Ls;
 
 	    VRB.Result(cname, fname, "Recalculating fermion field size for Fbfm based on Ls = %d\n", Ls);
 
@@ -83,12 +83,12 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
 
 	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 		// Make sure all quotients have the same Ls
-		int Ls = Fbfm::arg_map[bsn_mass[0]].Ls;
-		if (Fbfm::arg_map[bsn_mass[i]].Ls != Ls) {
-		    ERR.General(cname, fname, "Boson mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+		int Ls = Fbfm::arg_map.at(bsn_mass[0]).Ls;
+		if (Fbfm::arg_map.at(bsn_mass[i]).Ls != Ls) {
+		    ERR.General(cname, fname, "Boson mass #%d doesn't have the same Ls as boson mass #0 (%d != %d)!\n", i, Fbfm::arg_map.at(bsn_mass[i]).Ls, Ls);
 		}
-		if (Fbfm::arg_map[frm_mass[i]].Ls != Ls) {
-		    ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0!\n", i);
+		if (Fbfm::arg_map.at(frm_mass[i]).Ls != Ls) {
+		    ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0! (%d != %d)\n", i, Fbfm::arg_map.at(frm_mass[i]).Ls, Ls);
 		}
 	    }
 

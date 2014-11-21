@@ -10,7 +10,8 @@
 
 CPS_START_NAMESPACE
 
-std::map<Float, DWFParams> Fdwf4d::paramMap;
+//std::map<Float, DWFParams> Fdwf4d::paramMap;
+std::map<Float, bfmarg> Fdwf4d::arg_map;
 
 bool Fdwf4d::use_mixed_solver = true;
 
@@ -40,7 +41,7 @@ Fdwf4d::Fdwf4d(void)
     if (GJP.Snodes() != 1) ERR.NotImplemented(cname, fname);
     if (sizeof(Float) == sizeof(float)) ERR.NotImplemented(cname, fname);
 
-    dwfParams.mass = 1.0;
+/*    dwfParams.mass = 1.0;
     dwfParams.M5 = 1.8;
     dwfParams.Ls = 8;
     dwfParams.mobius_scale = 1.0;
@@ -50,7 +51,9 @@ Fdwf4d::Fdwf4d(void)
 	InitBfmFromDWFParams(bfm_f, dwfParams, this->GaugeField());
 	bfm_f.comm_end();
 	bfm_d.comm_init();
-    }
+    }*/
+
+    bfm_inited = false;
 }
 
 Fdwf4d::~Fdwf4d(void)
@@ -58,13 +61,15 @@ Fdwf4d::~Fdwf4d(void)
     const char *fname = "~Fdwf4d()";
     VRB.Func(cname,fname);
 
-    bfm_d.end();
-    if (use_mixed_solver) {
-	bfm_f.end();
+    if (bfm_inited) {
+	bfm_d.end();
+	if (use_mixed_solver) {
+	    bfm_f.end();
+	}
     }
 }
 
-void Fdwf4d::SetDWFParams(Float mass)
+/*void Fdwf4d::SetDWFParams(Float mass)
 {
     const char* fname = "SetDwfParams(F)";
 
@@ -83,6 +88,67 @@ void Fdwf4d::SetDWFParams(Float mass)
 	bfm_f.comm_end();
 	bfm_d.comm_init();
     }
+}*/
+
+void Fdwf4d::SetBfmArg(Float key_mass)
+{
+    const char* fname = "SetBfmArg(F)";
+
+    if (arg_map.count(key_mass) == 0) {
+	ERR.General(cname, fname, "No entry for key mass %e in arg_map!\n", key_mass);
+    }
+
+    if (bfm_inited && current_key_mass == key_mass) {
+	VRB.Result(cname, fname, "BFM already inited for key mass %e\n", key_mass);
+	return;
+    }
+
+    VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e (arg_map.count(key_mass) == %d)\n", key_mass, arg_map.count(key_mass));
+
+    if (bfm_inited) {
+	bfm_d.end();
+	if (use_mixed_solver) {
+	    bfm_f.end();
+	}
+    }
+
+    bfmarg new_arg = arg_map.at(key_mass);
+
+    // Make sure some fields are filled in properly
+    multi1d<int> sub_latt_size = QDP::Layout::subgridLattSize();
+    new_arg.node_latt[0] = sub_latt_size[0];
+    new_arg.node_latt[1] = sub_latt_size[1];
+    new_arg.node_latt[2] = sub_latt_size[2];
+    new_arg.node_latt[3] = sub_latt_size[3];
+
+    multi1d<int> procs = QDP::Layout::logicalSize();
+    new_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
+    new_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
+    new_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
+    new_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
+
+    new_arg.ncoor[0] = 0;
+    new_arg.ncoor[1] = 0;
+    new_arg.ncoor[2] = 0;
+    new_arg.ncoor[3] = 0;
+
+    new_arg.max_iter = 100000;
+    new_arg.verbose = BfmMessage | BfmError;
+
+    bfm_d.init(new_arg);
+    bfm_d.cps_importGauge((Float *)(this->GaugeField()));
+    if (use_mixed_solver) {
+	bfm_d.comm_end();
+	bfm_f.init(new_arg);
+	bfm_f.cps_importGauge((Float *)(this->GaugeField()));
+	bfm_f.comm_end();
+	bfm_d.comm_init();
+    }
+
+    VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bfm_d.solver, bfm_d.mass, bfm_d.Ls, bfm_d.mobius_scale);
+
+    bfm_inited = true;
+    current_key_mass = key_mass;
 }
 
 // Does phi = Dov * frm1  or  phi = Dov^dag * frm1
@@ -96,10 +162,11 @@ Float Fdwf4d::SetPhi(Vector *phi, Vector *frm1, Vector *frm2, Float mass, DagTyp
     if (phi == 0) ERR.Pointer(cname, fname, "phi");
     if (frm1 == 0) ERR.Pointer(cname, fname, "frm1");
 
-    SetDWFParams(mass);
+    SetBfmArg(mass);
+    Float quark_mass = arg_map.at(mass).mass;
 
-    if (dag == DAG_NO) ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, phi, frm1, dwfParams.mass, false, pauli_villars_resid); // Use tight stopping condition since we are only inverting D_DW(1)
-    else ApplyOverlapDag(bfm_d, bfm_f, use_mixed_solver, phi, frm1, dwfParams.mass, false, pauli_villars_resid);
+    if (dag == DAG_NO) ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, phi, frm1, quark_mass, false, pauli_villars_resid); // Use tight stopping condition since we are only inverting D_DW(1)
+    else ApplyOverlapDag(bfm_d, bfm_f, use_mixed_solver, phi, frm1, quark_mass, false, pauli_villars_resid);
 
     Float ret = FhamiltonNode(frm1, frm1);
     time.stop(true);
@@ -121,17 +188,18 @@ int Fdwf4d::FmatEvlInv(Vector *f_out, Vector *f_in, CgArg *cg_arg, Float *true_r
     timer.start(true);
     timers[cg_arg->mass]->start(true);
 
-    SetDWFParams(cg_arg->mass);
+    SetBfmArg(cg_arg->mass);
+    Float quark_mass = arg_map.at(cg_arg->mass).mass;
 
     Vector *tmp = (Vector*)smalloc(this->FvecSize() * sizeof(Float), "tmp", fname, cname);
 
     int iters = 0;
 
     //tmp = Dov^dag^-1 f_in
-    iters += ApplyOverlapDag(bfm_d, bfm_f, use_mixed_solver, tmp, f_in, dwfParams.mass, true, cg_arg->stop_rsd);
+    iters += ApplyOverlapDag(bfm_d, bfm_f, use_mixed_solver, tmp, f_in, quark_mass, true, cg_arg->stop_rsd);
 
     // f_out = Dov^-1 tmp = Dov^-1 Dov^dag^-1 f_in
-    iters += ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, f_out, tmp, dwfParams.mass, true, cg_arg->stop_rsd);
+    iters += ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, f_out, tmp, quark_mass, true, cg_arg->stop_rsd);
 
     sfree(tmp, "tmp", fname, cname);
 
@@ -330,9 +398,11 @@ ForceArg Fdwf4d::EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta, Float ma
     static Timer time(cname, fname);
     time.start(true);
 
-    SetDWFParams(mass);
+    SetBfmArg(mass);
+    Float quark_mass = arg_map.at(mass).mass;
+
     ForceArg ret = Dwf4d_EvolveMomFforceBase(bfm_d, bfm_f, use_mixed_solver, 
-	this->GaugeField(), mom, phi, eta, dwfParams.mass, -step_size, pauli_villars_resid); // note minus sign
+	this->GaugeField(), mom, phi, eta, quark_mass, -step_size, pauli_villars_resid); // note minus sign
 
     time.stop(true);
     return ret;
@@ -344,14 +414,15 @@ ForceArg Fdwf4d::EvolveMomFforce(Matrix *mom, Vector *frm, Float mass, Float ste
     static Timer time(cname, fname);
     time.start(true);
 
-    SetDWFParams(mass);
+    SetBfmArg(mass);
+    Float quark_mass = arg_map.at(mass).mass;
 
     // Compute Dfrm = Dov * frm
     Vector *Dfrm = (Vector*)smalloc(this->FvecSize() * sizeof(Float), "Dfrm", fname, cname);
-    ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, Dfrm, frm, dwfParams.mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
+    ApplyOverlap(bfm_d, bfm_f, use_mixed_solver, Dfrm, frm, quark_mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
 
     ForceArg force_arg = Dwf4d_EvolveMomFforceBase(bfm_d, bfm_f, use_mixed_solver, 
-	this->GaugeField(), mom, Dfrm, frm, dwfParams.mass, step_size, pauli_villars_resid);
+	this->GaugeField(), mom, Dfrm, frm, quark_mass, step_size, pauli_villars_resid);
 
     sfree(Dfrm, "Dfrm", fname, cname);
     time.stop(true);

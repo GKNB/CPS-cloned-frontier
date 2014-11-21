@@ -88,7 +88,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e (arg_map.count(key_mass) == %d)\n", key_mass, arg_map.count(key_mass));
 
-    bfmarg new_arg = arg_map[key_mass];
+    bfmarg new_arg = arg_map.at(key_mass);
 
     if (!bfm_inited) {
 	// Make sure some fields are filled in properly
@@ -553,7 +553,7 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
 
     const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
     VRB.Result(cname, fname, "Taking Ls from current_key_mass = %d!\n", current_key_mass);
-    const int size_5d = size_4d * arg_map[current_key_mass].Ls; // current_key_mass must be set correctly!!!
+    const int size_5d = size_4d * arg_map.at(current_key_mass).Ls; // current_key_mass must be set correctly!!!
 
     // zero 5D vector
 #pragma omp parallel for

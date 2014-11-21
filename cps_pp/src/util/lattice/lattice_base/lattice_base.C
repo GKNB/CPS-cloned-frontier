@@ -2454,14 +2454,14 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
      || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)
 #ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map[Fbfm::current_key_mass].solver == WilsonTM) //added by CK
+     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
 #endif
      ) {
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
-	s_node_sites = Fbfm::arg_map[Fbfm::current_key_mass].Ls;
+	s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
 	VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
     }
   }

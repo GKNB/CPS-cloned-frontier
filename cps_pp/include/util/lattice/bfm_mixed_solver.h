@@ -221,7 +221,7 @@ namespace mixed_cg {
 
 	double sol_norm = bfm_d.norm(sol);
 	if (bfm_d.isBoss() && !me) {
-	    printf("cg_mixed_MdagM: final sol norm = %17.10e\n", sol_norm);
+	    printf("cg_mixed_MdagM: final sol norm = %17.10e ; final iter count = %d\n", sol_norm, iter);
 	}
 
 	bfm_f.residual = frsd;

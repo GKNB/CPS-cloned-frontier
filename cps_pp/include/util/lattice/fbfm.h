@@ -119,7 +119,7 @@ public:
 	    ERR.General(cname, fname, "No entry for current key mass %e in arg_map!\n", current_key_mass);
 	    return 0;
 	} else {
-	    int Ls = arg_map[current_key_mass].Ls;
+	    int Ls = arg_map.at(current_key_mass).Ls;
 	    int ret = 24 * Ls;
 	    //printf("FsiteSize() using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
 	    return ret;

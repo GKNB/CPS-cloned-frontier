@@ -87,7 +87,8 @@ void Dwf4d_CalcHmdForceVecsBilinear(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_
 // corresponding to a 5D domain wall fermion operator.
 class Fdwf4d : public virtual Lattice {
 public:
-    static std::map<Float, DWFParams> paramMap;
+    //static std::map<Float, DWFParams> paramMap;
+    static std::map<Float, bfmarg> arg_map;
 
     static bool use_mixed_solver;
 
@@ -101,9 +102,12 @@ private:
 
     bfm_evo<double> bfm_d;
     bfm_evo<float> bfm_f;
-    DWFParams dwfParams;
+    //DWFParams dwfParams;
 
-    void SetDWFParams(Float mass);
+    //void SetDWFParams(Float mass);
+    void SetBfmArg(Float key_mass);
+    bool bfm_inited;
+    Float current_key_mass;
 
 public:
 
