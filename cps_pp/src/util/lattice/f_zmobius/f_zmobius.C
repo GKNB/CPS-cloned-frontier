@@ -222,8 +222,12 @@ int Fzmobius::FmatInv(Vector *f_out,
   Vector *tmp2_mob_l_5d = (Vector *) smalloc(cname, fname, "tmp2_mob_l_5d", sizeof(Float) * mob_l_size_5d);
   Vector *tmp_mob_s_5d = (Vector *) smalloc(cname, fname, "tmp_mob_s_5d", sizeof(Float) * mob_s_size_5d);
 
-  CgArg *cg_arg_l = &mob_l->cg;
-  CgArg *cg_arg_s = &mob_s->cg;
+
+  CgArg _cg_arg_l = mob_l->cg;
+  CgArg _cg_arg_s = mob_s->cg;
+
+  CgArg *cg_arg_l = &_cg_arg_l;
+  CgArg *cg_arg_s = &_cg_arg_s;
 
   
   // the first time, we solve in Mobius to some degree of accuracy
