@@ -38,10 +38,10 @@ int max_num_iter = 20000
 double stop_rsd = 1.0e-8
 double true_rsd = 1.0e-8
 RitzMatType RitzMatOper = MATPCDAG_MATPC
-InverterType Inverter = CG
+InverterType Inverter = CG_LOWMODE_DEFL
 int bicgstab_n = 0
-string fname_eigen = "eigen"
-int neig = 25
+string fname_eigen = "../eigen/eig4dee.ls6.pc2.mass0.005"
+int neig = 26
 double eigen_shift = 0.0
 double ama_stop_rsd =   0.0
 }

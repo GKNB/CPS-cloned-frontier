@@ -53,9 +53,10 @@ EigenCache* cps::EigenCacheListSearch( char* fname_root_bc, int neig )
 {
   EigenCache* ecache=0;
 
-  for(int i=0; i< EigenCacheList.size(); ++i  )
+  for(int i=0; i< EigenCacheList.size(); ++i  ){
     if( EigenCacheList[i]-> is_cached( fname_root_bc, neig ) )
       ecache = EigenCacheList[i];
+  }
 
   return ecache;
 }
@@ -67,6 +68,7 @@ char* cname;
 void CalMesons(QPropW &q, char *out_dir, int traj, char *src_str);
 void CalNucleons(QPropW &q, char *out_dir, int traj, char *src_str);
  
+  char evecname_bc[1024];
 void comp_read_eigenvectors(Lattice& lattice)
 {
   char* fname= "comp_read_eigenvectors()";
@@ -84,7 +86,6 @@ void comp_read_eigenvectors(Lattice& lattice)
 	   lanczos_arg.file, mobius_arg2.ls, GJP.ZMobius_PC_Type(),lanczos_arg.mass );
   lanczos_arg.file = evecname;
 
-  char evecname_bc[1024];
   
   snprintf(evecname_bc,1024, "%s.bc%d%d%d%d", lanczos_arg.file, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
 

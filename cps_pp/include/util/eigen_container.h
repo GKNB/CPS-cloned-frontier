@@ -157,6 +157,10 @@ class EigenCache {
   int is_cached( char* a_fname_root_bc, int a_neig )
   {
 
+    if(!UniqueID())
+      printf("is_cached: %s %d vs %s  %d\n",
+	     a_fname_root_bc, a_neig,
+	     fname_root_bc, neig);
     return 
       strcmp( fname_root_bc, a_fname_root_bc)==0  &&
       neig == a_neig ;
