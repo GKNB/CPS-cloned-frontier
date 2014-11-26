@@ -67,6 +67,8 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   //TIZB: this is bug !  below Dminus multiplication is not in effect.
   // mult by Dminus
   dop.Dminus(f_out,f_in);
+  // fixed. TB
+  f_in->CopyVec(f_out, size);
   iter = dop.MatInv(true_res, prs_f_in);
 
   if(prs_f_in==PRESERVE_YES){
