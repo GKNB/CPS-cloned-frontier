@@ -1,0 +1,67 @@
+class MobiusArg mdwf_arg = {
+double mobius_b_coeff = 0.
+double mobius_c_coeff = 0.
+Array zmobius_b_coeff[20] = {
+double zmobius_b_coeff[0] = 8.4292038368159705e-01
+double zmobius_b_coeff[1] = 0.0000000000000000e+00
+double zmobius_b_coeff[2] = 9.2289979238280184e-01
+double zmobius_b_coeff[3] = 0.0000000000000000e+00
+double zmobius_b_coeff[4] = 1.1017200769981794e+00
+double zmobius_b_coeff[5] = 0.0000000000000000e+00
+double zmobius_b_coeff[6] = 1.4219097980542994e+00
+double zmobius_b_coeff[7] = 0.0000000000000000e+00
+double zmobius_b_coeff[8] = 1.9620523417564424e+00
+double zmobius_b_coeff[9] = 0.0000000000000000e+00
+double zmobius_b_coeff[10] = 2.8654191667525488e+00
+double zmobius_b_coeff[11] = 0.0000000000000000e+00
+double zmobius_b_coeff[12] = 4.4659153528626341e+00
+double zmobius_b_coeff[13] = 0.0000000000000000e+00
+double zmobius_b_coeff[14] = 5.5498080139636414e+00
+double zmobius_b_coeff[15] = 0.0000000000000000e+00
+double zmobius_b_coeff[16] = 4.9320961582039766e+00
+double zmobius_b_coeff[17] = -3.5559998543638791e+00
+double zmobius_b_coeff[18] = 4.9320961582039766e+00
+double zmobius_b_coeff[19] = 3.5559998543638791e+00
+}
+Array zmobius_c_coeff[20] = {
+double zmobius_c_coeff[0] = -1.5707961631840295e-01
+double zmobius_c_coeff[1] = 0.0000000000000000e+00
+double zmobius_c_coeff[2] = -7.7100207617198158e-02
+double zmobius_c_coeff[3] = 0.0000000000000000e+00
+double zmobius_c_coeff[4] = 1.0172007699817942e-01
+double zmobius_c_coeff[5] = 0.0000000000000000e+00
+double zmobius_c_coeff[6] = 4.2190979805429940e-01
+double zmobius_c_coeff[7] = 0.0000000000000000e+00
+double zmobius_c_coeff[8] = 9.6205234175644239e-01
+double zmobius_c_coeff[9] = 0.0000000000000000e+00
+double zmobius_c_coeff[10] = 1.8654191667525488e+00
+double zmobius_c_coeff[11] = 0.0000000000000000e+00
+double zmobius_c_coeff[12] = 3.4659153528626341e+00
+double zmobius_c_coeff[13] = 0.0000000000000000e+00
+double zmobius_c_coeff[14] = 4.5498080139636414e+00
+double zmobius_c_coeff[15] = 0.0000000000000000e+00
+double zmobius_c_coeff[16] = 3.9320961582039766e+00
+double zmobius_c_coeff[17] = -3.5559998543638791e+00
+double zmobius_c_coeff[18] = 3.9320961582039766e+00
+double zmobius_c_coeff[19] = 3.5559998543638791e+00
+}
+int ls = 10
+double M5 = 1.8
+class CgArg cg = {
+double mass = 0.005
+double epsilon = 0.0
+int max_num_iter = 20000
+double stop_rsd = 1.0e-8
+double true_rsd = 1.0e-8
+RitzMatType RitzMatOper = MATPCDAG_MATPC
+InverterType Inverter = CG_LOWMODE_DEFL
+int bicgstab_n = 0
+string fname_eigen = "../eigen/eig4dee.ls10.pc2.mass0.005"
+int neig = 26
+double eigen_shift = 0.0
+double ama_stop_rsd =   0.0
+}
+Array rsd_vec[0] = {
+}
+int use_single_precision = 0
+}
