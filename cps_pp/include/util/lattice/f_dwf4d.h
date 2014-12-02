@@ -21,8 +21,7 @@ struct DWFParams
     Float mobius_scale;
 };
 
-// Some functions are defined outside Fdwf4d so that they can also be used
-// by Fdwf4dPair
+
 
 template<class T>
 void InitBfmFromDWFParams(bfm_evo<T> &bfm, DWFParams dwfParams, Matrix *gauge_field)
@@ -56,17 +55,8 @@ void InitBfmFromDWFParams(bfm_evo<T> &bfm, DWFParams dwfParams, Matrix *gauge_fi
     bfm.cps_importGauge((Float *)gauge_field);
 }
 
-// out = Dov * in
-//   or
-// out = Dov^-1 * in
-int ApplyOverlap(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
-    Vector *out, Vector *in, Float mass, bool invert, Float residual);
-
-// out = Dov^dag * in
-//   or
-// out = Dov^dag^-1 * in
-int ApplyOverlapDag(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
-    Vector *out, Vector *in, Float mass, bool invert, Float residual);
+// Some functions are defined outside Fdwf4d so that they can also be used
+// by Fdwf4dPair
 
 // For each link U_x,u
 //

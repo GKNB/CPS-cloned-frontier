@@ -2,6 +2,7 @@
 
 #include <util/lattice/f_dwf4d_pair.h>
 #include <util/lattice/f_dwf4d.h>
+#include <util/lattice/eff_overlap.h>
 #include <util/timer.h>
 
 #include <util/lattice/bfm_mixed_solver.h>
@@ -107,14 +108,14 @@ Float Fdwf4dPair::SetPhi(Vector *phi, Vector *frm1, Vector *frm2, Float mass, Da
 
     if (dag == DAG_NO) {
 	SetActiveBfm(1);
-	ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, tmp, frm1, dwfParams[1].mass, false, pauli_villars_resid);
+	ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, tmp, frm1, dwfParams[1].mass, pauli_villars_resid);
 	SetActiveBfm(0);
-	ApplyOverlap(bfm_d[0], bfm_f[0], use_mixed_solver, phi, tmp, dwfParams[0].mass, false, pauli_villars_resid);
+	ApplyOverlap(bfm_d[0], bfm_f[0], use_mixed_solver, phi, tmp, dwfParams[0].mass, pauli_villars_resid);
     } else {
 	SetActiveBfm(0);
-	ApplyOverlapDag(bfm_d[0], bfm_f[0], use_mixed_solver, tmp, frm1, dwfParams[0].mass, false, pauli_villars_resid);
+	ApplyOverlapDag(bfm_d[0], bfm_f[0], use_mixed_solver, tmp, frm1, dwfParams[0].mass, pauli_villars_resid);
 	SetActiveBfm(1);
-	ApplyOverlapDag(bfm_d[1], bfm_f[1], use_mixed_solver, phi, tmp, dwfParams[1].mass, false, pauli_villars_resid);
+	ApplyOverlapDag(bfm_d[1], bfm_f[1], use_mixed_solver, phi, tmp, dwfParams[1].mass, pauli_villars_resid);
     }
 
     sfree(tmp, "tmp", fname, cname);
@@ -144,18 +145,18 @@ int Fdwf4dPair::FmatEvlInv(Vector *f_out, Vector *f_in, CgArg *cg_arg, Float *tr
 
     // tmp1 = Dov[1]^dag^-1 f_in
     SetActiveBfm(1);
-    iters += ApplyOverlapDag(bfm_d[1], bfm_f[1], use_mixed_solver, tmp1, f_in, dwfParams[1].mass, true, cg_arg->stop_rsd);
+    iters += ApplyOverlapDagInverse(bfm_d[1], bfm_f[1], use_mixed_solver, tmp1, f_in, dwfParams[1].mass, cg_arg->stop_rsd);
 
     // tmp2 = Dov[0]^dag^-1 Dov[1]^dag^-1 f_in              
     //   then
     // tmp1 = Dov[0]^-1 Dov[0]^dag^-1 Dov[1]^dag^-1 f_in
     SetActiveBfm(0);
-    iters += ApplyOverlapDag(bfm_d[0], bfm_f[0], use_mixed_solver, tmp2, tmp1, dwfParams[0].mass, true, cg_arg->stop_rsd);
-    iters += ApplyOverlap(bfm_d[0], bfm_f[0], use_mixed_solver, tmp1, tmp2, dwfParams[0].mass, true, cg_arg->stop_rsd);
+    iters += ApplyOverlapDagInverse(bfm_d[0], bfm_f[0], use_mixed_solver, tmp2, tmp1, dwfParams[0].mass, cg_arg->stop_rsd);
+    iters += ApplyOverlapInverse(bfm_d[0], bfm_f[0], use_mixed_solver, tmp1, tmp2, dwfParams[0].mass, cg_arg->stop_rsd);
 
     // f_out = Dov[1]^-1 Dov[0]^-1 Dov[0]^dag^-1 Dov[1]^dag^-1 f_in 
     SetActiveBfm(1);
-    iters += ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, f_out, tmp1, dwfParams[1].mass, true, cg_arg->stop_rsd);
+    iters += ApplyOverlapInverse(bfm_d[1], bfm_f[1], use_mixed_solver, f_out, tmp1, dwfParams[1].mass, cg_arg->stop_rsd);
 
     sfree(tmp1, "tmp1", fname, cname);
     sfree(tmp2, "tmp2", fname, cname);
@@ -221,9 +222,9 @@ ForceArg Fdwf4dPair::EvolveMomFforce(Matrix *mom, Vector *frm, Float mass, Float
     Vector *tmp = (Vector*)smalloc(this->FvecSize() * sizeof(Float), "tmp", fname, cname);
     
     SetActiveBfm(1);
-    ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, tmp, frm, dwfParams[1].mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
+    ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, tmp, frm, dwfParams[1].mass, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
     SetActiveBfm(0);
-    ApplyOverlap(bfm_d[0], bfm_f[0], use_mixed_solver, Mfrm, tmp, dwfParams[0].mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
+    ApplyOverlap(bfm_d[0], bfm_f[0], use_mixed_solver, Mfrm, tmp, dwfParams[0].mass, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
 
     ForceArg force_stats = EvolveMomFforceBase(mom, Mfrm, frm, mass, step_size);
 
@@ -262,9 +263,9 @@ ForceArg Fdwf4dPair::EvolveMomFforceBase(Matrix *mom, Vector *phi1, Vector *phi2
     Vector *beta = (Vector*)smalloc(this->FvecSize() * sizeof(Float), "beta", fname, cname);
 
     SetActiveBfm(0);
-    ApplyOverlapDag(bfm_d[0], bfm_f[0], use_mixed_solver, alpha, phi1, dwfParams[0].mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
+    ApplyOverlapDag(bfm_d[0], bfm_f[0], use_mixed_solver, alpha, phi1, dwfParams[0].mass, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
     SetActiveBfm(1);
-    ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, beta, phi2, dwfParams[1].mass, false, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
+    ApplyOverlap(bfm_d[1], bfm_f[1], use_mixed_solver, beta, phi2, dwfParams[1].mass, pauli_villars_resid); // tight residual since we only have to invert D_DW(1)
 
     // We collect the total momentum update into delta_mom so that we can compute
     // force stats

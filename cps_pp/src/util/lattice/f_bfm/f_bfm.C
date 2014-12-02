@@ -129,9 +129,10 @@ void Fbfm::SetBfmArg(Float key_mass)
 	}
 
 	if (bd.solver != new_arg.solver
+	    || bd.mobius_scale != 
 	    || bd.Ls != new_arg.Ls
 	    || bd.precon_5d != new_arg.precon_5d) {
-	    ERR.General(cname, fname, "Can't change Ls during lifetime of Fbfm object: must destroy and recreate lattice object (Old Ls = %d, new Ls = %d).\n", bd.Ls, new_arg.Ls);
+	    ERR.General(cname, fname, "Can't change solver, mobius_scale, Ls, or precon_5d during lifetime of Fbfm object: must destroy and recreate lattice object (Old Ls = %d, new Ls = %d).\n", bd.Ls, new_arg.Ls);
 	}
 
 	SetMass(new_arg.mass);

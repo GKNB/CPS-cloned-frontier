@@ -421,9 +421,12 @@ namespace mixed_cg {
 	}
 
 	// eo preconditioning
-	bfm_d.MooeeInv(src[Even], ta, DaggerYes);
+	bfm_d.MooeeInv(src[Even], ta, DaggerYes); // ta == Mee^{\dag-1} src[e]
 	bfm_d.Meo(ta, tb, Odd, DaggerYes); // tb == Moe^\dag Mee^{\dag-1} src[e]
 	bfm_d.axpy(bo, tb, src[Odd], -1.0); // bo == src[o] - Moe^\dag Mee^{\dag-1} src[e]
+
+	// TODO: change to set initial guess to zero instead of whatever happens
+	// to be in the temporary variable ta?
 
 	// ta = (Mprec^\dag Mprec)^{-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
 	int iter = threaded_cg_mixed_MdagM(ta, bo, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);

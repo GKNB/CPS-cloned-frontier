@@ -163,7 +163,7 @@ public:
   // exporting a 5D BFM fermion to a 4D CPS fermion).
   // psi assumes regular canonical order: (color, spin, x, y, z, t)
   template<typename FloatEXT>
-  void cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport);
+  void cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport, bool prezero = true);
 
   template<typename FloatEXT>
   void cps_importGauge(FloatEXT *importme);
@@ -198,6 +198,9 @@ public:
   void deflate(Fermion_t out, Fermion_t in,
                const multi1d<Fermion_t [2]> *evec,
                const multi1d<Float> *eval, int N);
+
+  // Simple utility function to set the mass and reinit if necessary.
+  void set_mass(double mass);
 };
 
 template<class Float>
@@ -399,9 +402,9 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
 // part at s=0 and the right-handed part at s=Ls-1. (Or does the inverse,
 // exporting a 5D BFM fermion to a 4D CPS fermion).
 template <class Float> template<typename FloatEXT>
-void bfm_evo<Float>::cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport)
+void bfm_evo<Float>::cps_impexFermion_4d(FloatEXT *psi, Fermion_t handle[2], int doimport, bool prezero)
 {
-    if (doimport) {
+    if (doimport && prezero) {
 #pragma omp parallel
 	{
 	    // zero out 5d bulk since we only import to the walls
@@ -1638,6 +1641,17 @@ int bfm_evo<Float>::gmres_M(Fermion_t sol, Fermion_t src, const int m)
   }
 
   return j;
+}
+
+
+template<class Float>
+void bfm_evo<Float>::set_mass(double mass)
+{
+    if (this->mass != mass) {
+	this->mass = mass;
+	this->GeneralisedFiveDimEnd();
+	this->GeneralisedFiveDimInit();
+    }
 }
 
 #endif
