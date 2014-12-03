@@ -497,7 +497,7 @@ class EigenContainer {
 	       index,ecache->index[index]);
       
       if ( ecache-> index[index] >= 0) {
-	if(!UniqueID()) printf("Getting cached eig-vec %d\n",index);
+	//if(!UniqueID()) printf("Getting cached eig-vec %d\n",index);
 	// copy version
 	//ecache-> loadvec ( evec,  index );
 	//return evec;
