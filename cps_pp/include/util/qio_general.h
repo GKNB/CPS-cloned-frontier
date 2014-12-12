@@ -128,7 +128,7 @@
 // The following three lines FORCE PARTFILE with io-node being smaller than
 // total nodes. For RICC and FNAL. 
 
-//#define USE_QIO_SPARSE_PARTFILE
+#define USE_QIO_SPARSE_PARTFILE
 
 #ifdef USE_QIO_SPARSE_PARTFILE
 #define QIO_VOLFMT QIO_PARTFILE
@@ -137,8 +137,10 @@
 // Number of nodes, per which one io-node is designated.
 // Set it to zero if you want all nodes to be io-node.
 
-// For FNAL DS
-#define QIO_SPARSE_PARTFILE_NODES 32
+// For FNAL DS, BC (NODES = CORES/NODE)
+//#define QIO_SPARSE_PARTFILE_NODES 32
+// For FNAL PI0
+#define QIO_SPARSE_PARTFILE_NODES 16
 
 // For RICC
 //#define QIO_SPARSE_PARTFILE_NODES 8
