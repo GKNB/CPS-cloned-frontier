@@ -1,6 +1,7 @@
 #include <config.h>
 
 //#define USE_BLAS
+#define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 CPS_START_NAMESPACE
 /*! \file
@@ -115,7 +116,6 @@ int DiracOp::InvLowModeApprox(
   //------------------------------------------------------------------------------------------------//
   
 
-#define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 #ifdef EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
   // search for eigen cache
@@ -261,7 +261,6 @@ void DiracOp::InvLowModeProj( Vector *in,
   //------------------------------------------------------------------------------------------------//
   
 
-#define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 #ifdef EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
   // search for eigen cache

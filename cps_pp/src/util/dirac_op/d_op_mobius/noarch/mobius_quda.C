@@ -315,7 +315,8 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     //MatPcDag(r, in);
     //MatPcDag(r, in_tmp);
 //    MatPcDagMatPc(r, in);
-    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
+//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
+    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
     //inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
     //MatQuda(r_tmp, in_tmp, &inv_param);
     MatQuda(r_tmp, in, &inv_param);
