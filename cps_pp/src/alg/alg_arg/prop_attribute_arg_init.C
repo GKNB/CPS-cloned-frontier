@@ -32,6 +32,7 @@ AttrType GparityOtherFlavPropAttrArg::getType ( ){ return GPARITY_OTHER_FLAV_PRO
 AttrType TwistedBcAttrArg::getType( ){ return TWISTED_BC_ATTR; }
 AttrType StoreMidpropAttrArg::getType( ){ return STORE_MIDPROP_ATTR; }
 AttrType A2AAttrArg::getType( ){ return A2A_ATTR; }
+AttrType DeflatedCGAttrArg::getType( ){ return DEFLATED_CG_ATTR; }
 //As AttrArg types are used in a union, we cannot write copy constructors. Instead write a clone function to perform a deep copy,
 //and the automatically generated trivial copy constructor is shallow.
 
@@ -130,6 +131,12 @@ StoreMidpropAttrArg StoreMidpropAttrArg::clone(){
 }
 A2AAttrArg A2AAttrArg::clone(){
   A2AAttrArg out;
+  out.deep_copy(*this);
+  return out;
+}
+
+DeflatedCGAttrArg DeflatedCGAttrArg::clone(){
+  DeflatedCGAttrArg out;
   out.deep_copy(*this);
   return out;
 }

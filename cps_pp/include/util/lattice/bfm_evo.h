@@ -110,7 +110,13 @@ public:
   //
   // For BFM M is M = M_oo - M_oe M^{-1}_ee M_eo
   void compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fermion_t phiR, double coef);
-  
+
+#if 0
+  //CHECK CODE
+  template<typename FloatEXT>
+  void thread_impexFermion_s_test(FloatEXT *psi, Fermion_t handle[2], int doimport);
+#endif  
+
   // psi assumes the following order: (color, spin, s, x, y, z, t),
   // mainly used to import/export the "v1" and "v2" vectors in evolution.
   template<typename FloatEXT>
@@ -486,6 +492,77 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
   }//xyzts
 }
 
+
+#if 0
+//This is check code
+
+template <class Float> template<typename FloatEXT>
+void bfm_evo<Float>::thread_impexFermion_s_test(FloatEXT *psi, Fermion_t handle[2], int doimport)
+{
+  int Nspinco=12;
+  int i_inc = this->simd() * 2;
+  int vol5d =
+    this->node_latt[0] *
+    this->node_latt[1] *
+    this->node_latt[2] *
+    this->node_latt[3] *
+    this->Ls;
+
+  int me, thrlen, throff;
+
+  int work = vol5d;
+  if(cps::GJP.Gparity()) work*=2;
+  this->thread_work(work, me, thrlen, throff);
+
+  Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
+
+  for (int site = 0; site < thrlen; ++site) {
+    int flav = site + throff;
+    int site = flav % vol5d; flav /= vol5d;
+
+    int x[4], s;
+    int si=site;
+    s   =si%this->Ls;              si=si/this->Ls;
+    x[0]=si%this->node_latt[0];    si=si/this->node_latt[0];
+    x[1]=si%this->node_latt[1];    si=si/this->node_latt[1];
+    x[2]=si%this->node_latt[2];
+    x[3]=si/this->node_latt[2];
+
+    int sp = this->precon_5d ? s : 0;
+    int cb = x[0]+x[1]+x[2]+x[3]+sp & 0x1;
+
+    int bidx_base;
+    int cidx_base;
+    if(cps::GJP.Gparity()){
+      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
+      cidx_base = this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav);
+    }else{
+      bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
+      cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
+    }
+
+    for ( int co=0;co<Nspinco;co++ ) {
+      for ( int reim=0;reim<2;reim++ ) {
+        // int bidx = this->bagel_idx5d(x, s, reim, co, Nspinco, 1);
+        // int cidx = cps_idx_s(x, s, reim, co, Nspinco);
+        int bidx = bidx_base + reim + co * i_inc;
+        int cidx = cidx_base + reim + co * 2;
+
+        if ( doimport ) bagel[cb][bidx] = psi[cidx];
+        else psi[cidx] = bagel[cb][bidx];
+      }}//co, reim
+  }//xyzts
+}
+
+#endif
+
+
+
+
+
+
+
+
 //Convert a bfm style Fermion_t pair (left,right) to a 's-ordered' fermion
 //if doimport == 0 the input is handle and the output psi
 //if doimport == 1 the input is psi and the output handle
@@ -509,8 +586,8 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
 
   Float *bagel[2] = { (Float *)handle[0], (Float *)handle[1] };
 
-  for (int site = 0; site < thrlen; ++site) {
-    int flav = site + throff;
+  for (int sf = 0; sf < thrlen; ++sf) {
+    int flav = sf + throff;
     int site = flav % vol5d; flav /= vol5d;
 
     int x[4], s;
@@ -1736,10 +1813,11 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
                              const multi1d<Float> *eval,
                              int N)
 {
-  printf("void bfm_evo<Float>::deflate temporarily disabled\n");
-  exit(-1);
+  
+  //CK: Why was this code disabled?? I have re-enabled it!
+  //printf("void bfm_evo<Float>::deflate temporarily disabled\n");
+  //exit(-1);
 
-#if 0
   if(N == 0 || evec == NULL || eval == NULL) {
     if(this->isBoss()) {
       printf("bfm_evo::deflate() must provide eigenvectors.\n");
@@ -1752,7 +1830,6 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
     std::complex<double> dot = this->inner((*evec)[i][1], in);
     this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));
   }
-#endif
 }
 
 // GCR, the matrix is preconditioned M.

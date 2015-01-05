@@ -26,6 +26,8 @@ struct vml_enum_map ContractionType_map[] = {
 	{"ContractionType","CONTRACTION_TYPE_TOPOLOGICAL_CHARGE",CONTRACTION_TYPE_TOPOLOGICAL_CHARGE},
 	{"ContractionType","CONTRACTION_TYPE_MRES",CONTRACTION_TYPE_MRES},
 	{"ContractionType","CONTRACTION_TYPE_A2A_BILINEAR",CONTRACTION_TYPE_A2A_BILINEAR},
+	{"ContractionType","CONTRACTION_TYPE_WILSON_FLOW",CONTRACTION_TYPE_WILSON_FLOW},
+	{"ContractionType","CONTRACTION_TYPE_K_TO_PIPI",CONTRACTION_TYPE_K_TO_PIPI},
 	{NULL,NULL,0}
 };
 
@@ -592,6 +594,39 @@ void ContractionTypeMres::deep_copy(ContractionTypeMres const &rhs){
 }
 
 bool_t
+vml_ContractionTypeWilsonFlow (VML *vmls, char *name,ContractionTypeWilsonFlow *objp)
+{
+	 vml_struct_begin(vmls,"ContractionTypeWilsonFlow",name);
+	 if (!vml_int (vmls, "n_steps", &objp->n_steps))
+		 return FALSE;
+	 if (!vml_Float (vmls, "time_step", &objp->time_step))
+		 return FALSE;
+	 if (!vml_string (vmls, "file", &objp->file, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"ContractionTypeWilsonFlow",name);
+	return TRUE;
+}
+void rpc_print<ContractionTypeWilsonFlow>::doit(ContractionTypeWilsonFlow const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<int>::doit(what.n_steps,spaces+" n_steps = ");
+	rpc_print<Float>::doit(what.time_step,spaces+" time_step = ");
+	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
+	std::cout << spaces << "}\n";
+}
+void ContractionTypeWilsonFlow::print(const std::string &prefix){
+	rpc_print<ContractionTypeWilsonFlow>::doit(*this,prefix);
+}
+void rpc_deepcopy<ContractionTypeWilsonFlow>::doit(ContractionTypeWilsonFlow &into, ContractionTypeWilsonFlow const &from){
+	  rpc_deepcopy<int>::doit(into.n_steps,from.n_steps);
+	  rpc_deepcopy<Float>::doit(into.time_step,from.time_step);
+	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
+}
+void ContractionTypeWilsonFlow::deep_copy(ContractionTypeWilsonFlow const &rhs){
+	rpc_deepcopy<ContractionTypeWilsonFlow>::doit(*this,rhs);
+}
+
+bool_t
 vml_A2ASmearingType (VML *vmls, char *name,A2ASmearingType *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,A2ASmearingType_map))
@@ -782,6 +817,79 @@ void ContractionTypeA2ABilinear::deep_copy(ContractionTypeA2ABilinear const &rhs
 }
 
 bool_t
+vml_ContractionTypeKtoPiPi (VML *vmls, char *name,ContractionTypeKtoPiPi *objp)
+{
+	 vml_struct_begin(vmls,"ContractionTypeKtoPiPi",name);
+	int i;
+	 if (!vml_string (vmls, "prop_L", &objp->prop_L, ~0))
+		 return FALSE;
+	 if (!vml_string (vmls, "prop_H", &objp->prop_H, ~0))
+		 return FALSE;
+	 if (!vml_MomPairArg (vmls, "p_qpi1", &objp->p_qpi1))
+		 return FALSE;
+	 if (!vml_MomPairArg (vmls, "p_qpi2", &objp->p_qpi2))
+		 return FALSE;
+	 if (!vml_vector (vmls, "p_qK", (char *)objp->p_qK, 3,
+		sizeof (Float), (vmlproc_t) vml_Float))
+		 return FALSE;
+	 if (!vml_int (vmls, "gparity_use_transconv_props", &objp->gparity_use_transconv_props))
+		 return FALSE;
+	 if (!vml_A2ASmearing (vmls, "pion_source", &objp->pion_source))
+		 return FALSE;
+	 if (!vml_A2ASmearing (vmls, "kaon_source", &objp->kaon_source))
+		 return FALSE;
+	 if (!vml_int (vmls, "t_sep_pi_k", &objp->t_sep_pi_k))
+		 return FALSE;
+	 if (!vml_int (vmls, "t_sep_pion", &objp->t_sep_pion))
+		 return FALSE;
+	 if (!vml_string (vmls, "file", &objp->file, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"ContractionTypeKtoPiPi",name);
+	return TRUE;
+}
+void rpc_print<ContractionTypeKtoPiPi>::doit(ContractionTypeKtoPiPi const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.prop_L,strlen(what.prop_L)+1,spaces+" prop_L = ");
+	rpc_print<char *>::doit(what.prop_H,strlen(what.prop_H)+1,spaces+" prop_H = ");
+	rpc_print<MomPairArg>::doit(what.p_qpi1,spaces+" p_qpi1 = ");
+	rpc_print<MomPairArg>::doit(what.p_qpi2,spaces+" p_qpi2 = ");
+	{
+	  std::ostringstream os; os << spaces << " p_qK[3] = { ";
+	  std::string newprefix = os.str(); std::string newspaces(newprefix.size(),' ');
+	  std::cout << newprefix << std::endl;
+	  for(int i=0;i<3;i++){ std::ostringstream tos; tos << newspaces << " p_qK["<<i<<"] = "; rpc_print<Float>::doit(what.p_qK[i],tos.str()); }
+	  newspaces[newspaces.size()-1] = '}'; std::cout << newspaces << std::endl;
+	}
+	rpc_print<int>::doit(what.gparity_use_transconv_props,spaces+" gparity_use_transconv_props = ");
+	rpc_print<A2ASmearing>::doit(what.pion_source,spaces+" pion_source = ");
+	rpc_print<A2ASmearing>::doit(what.kaon_source,spaces+" kaon_source = ");
+	rpc_print<int>::doit(what.t_sep_pi_k,spaces+" t_sep_pi_k = ");
+	rpc_print<int>::doit(what.t_sep_pion,spaces+" t_sep_pion = ");
+	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
+	std::cout << spaces << "}\n";
+}
+void ContractionTypeKtoPiPi::print(const std::string &prefix){
+	rpc_print<ContractionTypeKtoPiPi>::doit(*this,prefix);
+}
+void rpc_deepcopy<ContractionTypeKtoPiPi>::doit(ContractionTypeKtoPiPi &into, ContractionTypeKtoPiPi const &from){
+	  rpc_deepcopy<char *>::doit(into.prop_L,from.prop_L,strlen(from.prop_L)+1);
+	  rpc_deepcopy<char *>::doit(into.prop_H,from.prop_H,strlen(from.prop_H)+1);
+	  rpc_deepcopy<MomPairArg>::doit(into.p_qpi1,from.p_qpi1);
+	  rpc_deepcopy<MomPairArg>::doit(into.p_qpi2,from.p_qpi2);
+	  for(int i=0;i<3;i++) rpc_deepcopy<Float>::doit(into.p_qK[i],from.p_qK[i]);
+	  rpc_deepcopy<int>::doit(into.gparity_use_transconv_props,from.gparity_use_transconv_props);
+	  rpc_deepcopy<A2ASmearing>::doit(into.pion_source,from.pion_source);
+	  rpc_deepcopy<A2ASmearing>::doit(into.kaon_source,from.kaon_source);
+	  rpc_deepcopy<int>::doit(into.t_sep_pi_k,from.t_sep_pi_k);
+	  rpc_deepcopy<int>::doit(into.t_sep_pion,from.t_sep_pion);
+	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
+}
+void ContractionTypeKtoPiPi::deep_copy(ContractionTypeKtoPiPi const &rhs){
+	rpc_deepcopy<ContractionTypeKtoPiPi>::doit(*this,rhs);
+}
+
+bool_t
 vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 {
 	 if (!vml_ContractionType (vmls, "type", &objp->type))
@@ -835,6 +943,14 @@ vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 		 if (!vml_ContractionTypeA2ABilinear (vmls, "contraction_type_a2a_bilinear", &objp->GparityMeasurement_u.contraction_type_a2a_bilinear))
 			 return FALSE;
 		break;
+	case CONTRACTION_TYPE_WILSON_FLOW:
+		 if (!vml_ContractionTypeWilsonFlow (vmls, "contraction_type_wilson_flow", &objp->GparityMeasurement_u.contraction_type_wilson_flow))
+			 return FALSE;
+		break;
+	case CONTRACTION_TYPE_K_TO_PIPI:
+		 if (!vml_ContractionTypeKtoPiPi (vmls, "contraction_type_k_to_pipi", &objp->GparityMeasurement_u.contraction_type_k_to_pipi))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -876,6 +992,12 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>(){
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeA2ABilinear>(){
 	 return CONTRACTION_TYPE_A2A_BILINEAR;
 }
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeWilsonFlow>(){
+	 return CONTRACTION_TYPE_WILSON_FLOW;
+}
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeKtoPiPi>(){
+	 return CONTRACTION_TYPE_K_TO_PIPI;
+}
 void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMeasurement const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -903,6 +1025,10 @@ void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMea
 	      rpc_deepcopy<ContractionTypeMres>::doit(into.GparityMeasurement_u.contraction_type_mres,from.GparityMeasurement_u.contraction_type_mres); break;
 	    case CONTRACTION_TYPE_A2A_BILINEAR:
 	      rpc_deepcopy<ContractionTypeA2ABilinear>::doit(into.GparityMeasurement_u.contraction_type_a2a_bilinear,from.GparityMeasurement_u.contraction_type_a2a_bilinear); break;
+	    case CONTRACTION_TYPE_WILSON_FLOW:
+	      rpc_deepcopy<ContractionTypeWilsonFlow>::doit(into.GparityMeasurement_u.contraction_type_wilson_flow,from.GparityMeasurement_u.contraction_type_wilson_flow); break;
+	    case CONTRACTION_TYPE_K_TO_PIPI:
+	      rpc_deepcopy<ContractionTypeKtoPiPi>::doit(into.GparityMeasurement_u.contraction_type_k_to_pipi,from.GparityMeasurement_u.contraction_type_k_to_pipi); break;
 	  };
 }
 void GparityMeasurement::deep_copy(GparityMeasurement const &rhs){
@@ -936,6 +1062,10 @@ void rpc_print<GparityMeasurement>::doit(GparityMeasurement const &what, const s
 	      rpc_print<ContractionTypeMres>::doit(what.GparityMeasurement_u.contraction_type_mres,spaces+" union GparityMeasurement_u.contraction_type_mres = "); break;
 	    case CONTRACTION_TYPE_A2A_BILINEAR:
 	      rpc_print<ContractionTypeA2ABilinear>::doit(what.GparityMeasurement_u.contraction_type_a2a_bilinear,spaces+" union GparityMeasurement_u.contraction_type_a2a_bilinear = "); break;
+	    case CONTRACTION_TYPE_WILSON_FLOW:
+	      rpc_print<ContractionTypeWilsonFlow>::doit(what.GparityMeasurement_u.contraction_type_wilson_flow,spaces+" union GparityMeasurement_u.contraction_type_wilson_flow = "); break;
+	    case CONTRACTION_TYPE_K_TO_PIPI:
+	      rpc_print<ContractionTypeKtoPiPi>::doit(what.GparityMeasurement_u.contraction_type_k_to_pipi,spaces+" union GparityMeasurement_u.contraction_type_k_to_pipi = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }
@@ -992,5 +1122,67 @@ void rpc_deepcopy<GparityContractArg>::doit(GparityContractArg &into, GparityCon
 }
 void GparityContractArg::deep_copy(GparityContractArg const &rhs){
 	rpc_deepcopy<GparityContractArg>::doit(*this,rhs);
+}
+	 bool GparityAMAarg::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool GparityAMAarg::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool GparityAMAarg::Vml(VML *vmls,char *instance){
+		 if(!vml_GparityAMAarg(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_GparityAMAarg (VML *vmls, char *name,GparityAMAarg *objp)
+{
+	 vml_class_begin(vmls,"GparityAMAarg",name);
+	 if (!vml_array (vmls, "bilinear_args", (char **)&objp->bilinear_args.bilinear_args_val, (u_int *) &objp->bilinear_args.bilinear_args_len, ~0,
+		sizeof (ContractionTypeAllBilinears), (vmlproc_t) vml_ContractionTypeAllBilinears))
+		 return FALSE;
+	 if (!vml_array (vmls, "exact_solve_timeslices", (char **)&objp->exact_solve_timeslices.exact_solve_timeslices_val, (u_int *) &objp->exact_solve_timeslices.exact_solve_timeslices_len, ~0,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 if (!vml_Float (vmls, "exact_precision", &objp->exact_precision))
+		 return FALSE;
+	 if (!vml_Float (vmls, "sloppy_precision", &objp->sloppy_precision))
+		 return FALSE;
+	 if (!vml_string (vmls, "config_fmt", &objp->config_fmt, ~0))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_start", &objp->conf_start))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_incr", &objp->conf_incr))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_lessthan", &objp->conf_lessthan))
+		 return FALSE;
+	 if (!vml_FixGaugeArg (vmls, "fix_gauge", &objp->fix_gauge))
+		 return FALSE;
+	 vml_class_end(vmls,"GparityAMAarg",name);
+	return TRUE;
+}
+void rpc_deepcopy<GparityAMAarg>::doit(GparityAMAarg &into, GparityAMAarg const &from){
+	  into.bilinear_args.bilinear_args_len = from.bilinear_args.bilinear_args_len;
+	  rpc_deepcopy<ContractionTypeAllBilinears *>::doit(into.bilinear_args.bilinear_args_val,from.bilinear_args.bilinear_args_val,from.bilinear_args.bilinear_args_len);
+	  into.exact_solve_timeslices.exact_solve_timeslices_len = from.exact_solve_timeslices.exact_solve_timeslices_len;
+	  rpc_deepcopy<int *>::doit(into.exact_solve_timeslices.exact_solve_timeslices_val,from.exact_solve_timeslices.exact_solve_timeslices_val,from.exact_solve_timeslices.exact_solve_timeslices_len);
+	  rpc_deepcopy<Float>::doit(into.exact_precision,from.exact_precision);
+	  rpc_deepcopy<Float>::doit(into.sloppy_precision,from.sloppy_precision);
+	  rpc_deepcopy<char *>::doit(into.config_fmt,from.config_fmt,strlen(from.config_fmt)+1);
+	  rpc_deepcopy<int>::doit(into.conf_start,from.conf_start);
+	  rpc_deepcopy<int>::doit(into.conf_incr,from.conf_incr);
+	  rpc_deepcopy<int>::doit(into.conf_lessthan,from.conf_lessthan);
+	  rpc_deepcopy<FixGaugeArg>::doit(into.fix_gauge,from.fix_gauge);
+}
+void GparityAMAarg::deep_copy(GparityAMAarg const &rhs){
+	rpc_deepcopy<GparityAMAarg>::doit(*this,rhs);
 }
 CPS_END_NAMESPACE

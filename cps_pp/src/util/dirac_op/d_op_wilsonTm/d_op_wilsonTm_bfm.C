@@ -115,11 +115,8 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.node_latt[3]  = lt;
     wilsa.verbose=0;
     wilsa.reproduce=0;
-#if TARGET == BGQ
-    bfmarg::Threads(64);
-#else
-    bfmarg::Threads(1);
-#endif
+
+    bfmarg::Threads(GJP.Nthreads());
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -164,11 +161,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
       Printf("\n");
     }
   
-#if TARGET == BGQ
-    omp_set_num_threads(64);
-#else
-    omp_set_num_threads(1);
-#endif
+    omp_set_num_threads(GJP.Nthreads());
     
     Float *gauge = (Float*) lat.GaugeField();
     wilsa.precon_5d = 0;
@@ -333,11 +326,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
      ********************************************************
      */
     bfmarg wilsa;
-#if TARGET == BGQ
-    omp_set_num_threads(64);
-#else 
-    omp_set_num_threads(1);
-#endif
+    omp_set_num_threads(GJP.Nthreads());
 
     wilsa.solver = WilsonTM;
     wilsa.node_latt[0]  = lx;
@@ -347,12 +336,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
     wilsa.verbose=1;
     wilsa.reproduce=0;
 
-#if TARGET == BGQ
-    bfmarg::Threads(64);
-#else
-    bfmarg::Threads(1);
-#endif
-
+    bfmarg::Threads(GJP.Nthreads());
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -639,23 +623,14 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
 
   //Start BFM engines!
   bfmarg wilsa;
-#if TARGET == BGQ
-  omp_set_num_threads(64);
-#else 
-  omp_set_num_threads(1);
-#endif
+  omp_set_num_threads(GJP.Nthreads());
 
   wilsa.solver = WilsonTM;
   for(int i=0;i<4;i++) wilsa.node_latt[i] = QDP::Layout::subgridLattSize()[i];
   wilsa.verbose=1;
   wilsa.reproduce=0;
 
-#if TARGET == BGQ
-  bfmarg::Threads(64);
-#else
-  bfmarg::Threads(1);
-#endif
-
+  bfmarg::Threads(GJP.Nthreads());
   bfmarg::Reproduce(0);
   bfmarg::ReproduceChecksum(0);
   bfmarg::ReproduceMasterCheck(0);

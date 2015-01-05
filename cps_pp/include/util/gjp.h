@@ -177,8 +177,14 @@ class GlobalJobParameter
   MdwfTuning *mdwf_tuning;
   char *mdwf_tuning_fn;
   char *mdwf_tuning_record_fn;
+
+  int threads;
+
 public:
   GlobalJobParameter();
+
+  inline const int & Nthreads() const{ return threads; }
+  void SetNthreads(const int &n);
 
   ~GlobalJobParameter();
 

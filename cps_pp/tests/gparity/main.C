@@ -45,6 +45,7 @@
 
 #include <util/data_shift.h>
 
+#include <alg/a2a/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -122,7 +123,7 @@ Rcomplex sink_phasefac(int *momphase,const int &site){
   return sink_phasefac(momphase,pos);
 }
 void sum_momphase(int *into, PropagatorContainer &prop, const bool &is_cconj){
-  int propmom[3]; prop.momentum(propmom);
+  int propmom[3]; prop.convert<QPropWcontainer>().momentum(propmom);
   if(is_cconj){
     for(int i=0;i<3;i++) into[i]-=propmom[i];
   }else{
@@ -137,8 +138,8 @@ void test_props(const JobPropagatorArgs &prop_args, Lattice &latt){
   PropagatorContainer &q_f0_pc = PropManager::getProp(prop_args.props.props_val[0].generics.tag);
   PropagatorContainer &q_f1_pc = PropManager::getProp(prop_args.props.props_val[1].generics.tag);
   
-  QPropW &q_f0_qpw = q_f0_pc.getProp(latt);
-  QPropW &q_f1_qpw = q_f1_pc.getProp(latt);
+  QPropW &q_f0_qpw = q_f0_pc.convert<QPropWcontainer>().getProp(latt);
+  QPropW &q_f1_qpw = q_f1_pc.convert<QPropWcontainer>().getProp(latt);
   
   int momphase[3] = {0,0,0};
   sum_momphase(momphase,q_f0_pc,true);

@@ -12,7 +12,7 @@ CPS_END_NAMESPACE
 #include <alg/wilson_matrix.h>
 #include <alg/correlationfunction.h>
 #include <util/spincolorflavormatrix.h>
-
+#include <alg/gparity_contract_arg.h>
 #include <vector>
 #include <fftw3.h>
 
@@ -155,7 +155,7 @@ private:
 
 public:  
   MFBasicSource(): MFsource(){}
-  MFBasicSource(const SourceType &type, const double &radius): MFsource(), basic_src_type(type), basic_src_radius(radius){ this->fft_src(); }  
+  MFBasicSource(const SourceType &type, const double &radius): MFsource(), basic_src_type(type), basic_src_radius(radius){ this->fft_src();  }  
 
   inline void set_source_type_and_radius(const SourceType &type, const double &radius){ basic_src_type = type; basic_src_radius = radius; }
 
@@ -165,6 +165,13 @@ public:
     else if(basic_src_type == ExponentialSource) return set_expsrc(src_3d,basic_src_radius);
     else ERR.General("MFBasicsource","set_source(..)","Invalid source type\n");
   }
+
+  static void set_smearing(MFBasicSource &smearing, const A2ASmearing &from){
+    if(from.type == BOX_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::BoxSource, (Float)from.A2ASmearing_u.box_3d_smearing.side_length);
+    else if(from.type == EXPONENTIAL_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::ExponentialSource, from.A2ASmearing_u.exponential_3d_smearing.radius);
+    else ERR.General("","set_smearing(MFBasicSource &smearing, const A2ASmearing &from)","Unknown smearing type\n");
+  }
+
 };
 
 
@@ -213,22 +220,68 @@ public:
   MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right, const int &qdp_spin_idx, const FlavorMatrixType &flav_mat = sigma0): MFstructure(){
     set_form(leftv,rightv,_conj_left,_conj_right); set_matrix(qdp_spin_idx,flav_mat);
   }
+  MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right, const Float gamma_matrix_linear_comb[16], const Float pauli_matrix_linear_comb[4]): MFstructure(){
+    set_form(leftv,rightv,_conj_left,_conj_right); set_matrix(gamma_matrix_linear_comb,pauli_matrix_linear_comb);
+  }
+  MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right,const SpinColorFlavorMatrix &to): MFstructure(), scf(to){
+    set_form(leftv,rightv,_conj_left,_conj_right);
+  }
+
   //Matrix form must be manually specified in the version below
   MFqdpMatrix(const VorW &leftv, const VorW &rightv, const bool &_conj_left, const bool &_conj_right): MFstructure(){
     set_form(leftv,rightv,_conj_left,_conj_right);
   }
+
   void set_matrix(const int &qdp_spin_idx, const FlavorMatrixType &flav_mat = sigma0);
   
   //Any 4x4 complex matrix can be represented as a linear combination of the 16 Gamma matrices (here in QDP order cf. below), and likewise any 2x2 complex matrix is a linear combination of Pauli matrices and the unit matrix (index 0)
   void set_matrix(const Float gamma_matrix_linear_comb[16], const Float pauli_matrix_linear_comb[4]);
+  void set_matrix(const std::complex<Float> gamma_matrix_linear_comb[16], const std::complex<Float> pauli_matrix_linear_comb[4]);
+
+  void set_matrix(const SpinColorFlavorMatrix &to){ scf = to; }
 
   //\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
   cnum contract_internal_indices(const cnum* left[2], const cnum* right[2]) const;
   cnum contract_internal_indices(const cnum* left, const cnum* right) const;
 };
 
-//CK: A class that represents a single meson field, with convenience functions for contraction and element access. Based off Daiqian's code
+//range is a generic function the returns true if a particular value of t2 lies within the chosen range given a value of t1 and t3
+struct RangeFunc{
+  virtual bool allow(const int &t1, const int &t2, const int &t3) const = 0;
+};
+struct RangeAll: public RangeFunc{ //full range sum
+  bool allow(const int &t1, const int &t2, const int &t3) const{ return true; }
+};
+struct RangeSpecificT: public RangeFunc{ //just one t value
+  int t;
+  RangeSpecificT(const int &_t): t(_t){}
+  bool allow(const int &t1, const int &t2, const int &t3) const{ return t2 == t; }
+};
+
+struct RangeT1plusDelta: public RangeFunc{ //for sums over pion timeslices separated by delta
+  int delta;
+  RangeT1plusDelta(const int &d): delta(d){}
+
+  bool allow(const int &t1, const int &t2, const int &t3) const{ 
+    const int T = GJP.Tnodes()*GJP.TnodeSites();
+    return t2 == (t1 + delta + T) % T; 
+  }
+};
+
+
+//CK: A class that represents a single meson field, with convenience functions for contraction and element access. Based off Daiqian's code above.
+//    In Daiqian's implementation, the meson field can be a non-square matrix. This is because when we are time-slice diluting, the vector V requires the
+//    diluted source timeslice to be specified. In order to save memory space, the field W is not broken up into Lt/width different fields with zeroes
+//    on all but one timeslice. There is therefore only one W field instance for Lt/width V instances. As a result, when the contraction is performed,
+//    it does not look like a correct matrix multiplication, and you have to be very careful coverting the mode indices for the appropriate field.
+
+//    Here I set up the meson field to look like a square matrix, and treat the time-slice dilution as a separate index that must be specified when
+//    accessing the data.
+
 class MesonField2{
+public:
+  enum LeftOrRight { Left=0, Right=1 };
+private:
   Float *mf;
   int nvec[2];
   int nl[2];
@@ -238,25 +291,15 @@ class MesonField2{
 
   bool dilute_flavor;
 
-  int dilute_size; //span of diluted indices. This is 3 color * 4 spin, and with an extra factor of 2 if using flavor dilution
+  int dilute_size; //span of diluted indices (not including the time dilution, which is handled separately). This is 3 color * 4 spin, and with an extra factor of 2 if using flavor dilution
 
-  enum LeftOrRight { Left=0, Right=1 };
   MFstructure::VorW form[2]; //Gives the types (V or W) of the left and right fields of the meson field comprises
 
   bool conj[2];
 
-  int size[2]; //size of each vector: for V is it nvec, for W nl+nhits*dilute_size
+  int size[2]; //actual size of each vector: for V is it nvec = nl+nhits*Lt*dilute_size/width, for W nl+nhits*dilute_size
 
   int n_flav; //Number of flavours - 1 or 2 with G-parity
-
-  //Convert from 0 <= i <  nl[0]+nhits[0]*dilute_size to mode index of left or right field vector given a timeslice t: if field is v:  0 <= i' < nl[0] + nhits[0] * Lt * dilute_size / width[0]   else if field is w: i' = i  
-  //Note: nbase = Lt * dilute_size / width
-  inline int idx(const int &i, const int &t, const LeftOrRight &field) const{
-    return (form[(int)field] == MFstructure::W || i < nl[(int)field]) ?   i  :  nl[(int)field] + (i-nl[(int)field])/dilute_size*nbase[(int)field] + t/src_width[(int)field]*dilute_size + (i-nl[(int)field])%dilute_size ; //hit_idx, t, sc_idx
-    //Note: for high mode indices of v, the mapping for a mode index j (j>nl) is : (no flavor dilution)   j-nl = (sc_idx + 12/src_width * t_idx +  12/src_width*Lt * hit_idx),
-    //                                                                             (with flavor dilution)      = (sc_idx + 12*flav_idx + 24/src_width * t_idx +  24/src_width*Lt * hit_idx),
-    //hence (i-nl)/dilute_size*nbase = hit_idx * (dilute_size/src_width*Lt)  (RECALL i IS NOT A MODE INDEX!)
-  }
 
   //Check a2a propagator parameters for the fields V and W match between 2 MesonField2 instances
   inline static bool parameter_match(const MesonField2 &left, const MesonField2 &right, const LeftOrRight &field_left, const LeftOrRight &field_right){
@@ -265,11 +308,6 @@ class MesonField2{
   }
 
   typedef std::complex<Float> cnum;
-
-  //Get the pointer at index i,j where i,j run over the range 0...size[0] and 0..size[1] respectively (unlike operator() where the indices are modified to have equal sizes with an intermediate mapping)
-  inline cnum* mf_val(const int &i, const int &j, const int &t){ 
-    return (cnum*)mf + t + GJP.TnodeSites()*GJP.Tnodes()* (j + size[1] * i ); 
-  }
   
   //return 1 if W*V form, -1 if VW* form or 0 otherwise
   static int con_form(const MesonField2 &mf){
@@ -282,6 +320,52 @@ public:
  MesonField2(): mf(NULL), dilute_flavor(false), dilute_size(12){}
  MesonField2(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source): mf(NULL), dilute_flavor(false), dilute_size(12){ construct(left,right,structure,source); }
 
+  int rows() const { return nl[0] + nhits[0]*dilute_size; }
+  int cols() const { return nl[1] + nhits[1]*dilute_size; }
+  
+  int get_size(const LeftOrRight &f) const{ return size[(int)f]; }
+  
+  const MFstructure::VorW & field_type(const LeftOrRight &f) const{ return form[(int)f]; }
+  
+
+  //Convert from 0 <= i <  nl[0]+nhits[0]*dilute_size to mode index I of left or right field vector given a timeslice t: if field is v:  0 <= I < nl[0] + nhits[0] * Lt * dilute_size / width[0]   else if field is w: I = i 
+
+  //Daiqian's 'Mode index' for the high modes of V contains a spin, color (flavor) and source-timeslice index: Mapping (index I > nl)
+  //I-nl = (sc_id + 3*4/src_width * t_id +  3*4/src_width*Lt * wh_id)  or for G-parity with flavor dilution  (sc_id + 3*4*flav_id + 2*3*4* t_id/src_width +  2*3*4*Lt/src_width * wh_id)
+
+  //My reduced mapping keeps (index i > nl) the timeslice index separate
+  //i-nl = (sc_id + 3*4*wh_id) or for G-parity with flavor dilution (sc_id + 3*4*flav_id + 3*4*2*wh_id)
+
+  //Thus   (i-nl) % dilute_size =  sc_id  or   sc_id + 3*4*flav_id  with flav dilution
+  //       (i-nl) / dilute_size =  wh_id
+
+  //Hence I-nl = (i-nl) % dilute_size + dilute_size/src_width * t_id + (i-nl)/dilute_size*nbase
+  //where  nbase = Lt * dilute_size / width  and dilute_size = 3*4 or 3*4*2 with flavor dilution
+  inline int idx(const int &i, const int &t, const LeftOrRight &field) const{
+    return (form[(int)field] == MFstructure::W || i < nl[(int)field]) ?   i  :  nl[(int)field] + (i-nl[(int)field])/dilute_size*nbase[(int)field] + t/src_width[(int)field]*dilute_size + (i-nl[(int)field])%dilute_size ; //hit_idx, t, sc_idx
+  }
+
+  //Note, for non-unit src_width the above mapping is not invertible. We cannot fully recover t as the index is identical for all t within the source width
+  inline void inv_idx(const int &I, int &i, int &t, const LeftOrRight &field){
+    const static int NA(-1);
+    if(form[(int)field] == MFstructure::W || I < nl[(int)field]){ i = I; t = NA; }
+    else{
+      int r = I-nl[(int)field];
+      int hit = r / nbase[(int)field];  r %= nbase[(int)field];
+      int scf = r % dilute_size;
+      t = r / dilute_size;
+      i = nl[(int)field] + scf +  dilute_size * hit;
+    }
+  }
+
+
+  //Get the pointer at index I,J where I,J run over the range 0...size[0] and 0..size[1] respectively (unlike operator() where the indices are modified to have equal sizes with an intermediate mapping)
+  inline cnum* mf_val(const int &I, const int &J, const int &t){ 
+    return (cnum*)mf + t + GJP.TnodeSites()*GJP.Tnodes()* (J + size[1] * I ); 
+  }
+  inline const cnum* mf_val(const int &I, const int &J, const int &t) const{ 
+    return (const cnum*)mf + t + GJP.TnodeSites()*GJP.Tnodes()* (J + size[1] * I ); 
+  }
   //Get the value of the real part of the meson field for left/right mode indices i and j (where  0 <= i,j < nl + nhits*dilute_size)  where dilute_size = 3*4*(2) where the final 2 is for when flavor dilution is active
   //The meson field is formed as M_ij(t) = \sum_{\vec p} V_i(\vec p,t) S(\vec p,t) W_j*(\vec p,t)
   //hence we need only specify the mode indices i and j and the timeslice.
@@ -296,16 +380,98 @@ public:
   inline const cnum& operator()(const int &i, const int &j, const int &t_mf, const int &t_left, const int &t_right) const{ 
     return *( (const cnum*)mf + t_mf + GJP.TnodeSites()*GJP.Tnodes()*( idx(j,t_right,Right) + size[1]* idx(i,t_left,Left) ) );  //column index is fastest-changing
   }
+  inline cnum& operator()(const int &i, const int &j, const int &t_mf, const int &t_left, const int &t_right){ 
+    return *( (cnum*)mf + t_mf + GJP.TnodeSites()*GJP.Tnodes()*( idx(j,t_right,Right) + size[1]* idx(i,t_left,Left) ) );  //column index is fastest-changing
+  }
+
+  bool diluting_flavor() const{ return dilute_flavor; }
+
+  //Build the meson field from the A2APropbfm instances
   void construct(A2APropbfm &left, A2APropbfm &right, const MFstructure &structure, const MFsource &source);
 
+  friend class MesonFieldTesting;
+  //--------------- Contraction Routines -------------------------------
+
+  //Calculate   \sum_i M_iI(t1)  where I=(i,t2)
+  std::complex<double> trace_wv(const int &t1, const int &t2);
+
+  //Two-point function contractions:
   //Form the contraction of two mesonfields, summing over mode indices:   left_ij right_ji.  For G-parity we do  left_ij,fg right_ji,gf
   static void contract(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, CorrelationFunction &into);
   static void contract(const MesonField2 &left, const MesonField2 &right, CorrelationFunction &into){ return contract(left,right,0,into); }
   //Same as above but the user specifies a particular source and time-slice rather than summing over all. Useful for testing
+
+  // into[t] = [ left(t)_iJ ][ right(tsrc)_jI ]
+  //where J=(j,tsrc) and I=(i,t)
   static void contract_specify_tsrc(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, const int &tsrc, CorrelationFunction &into);
 
-  friend class MesonFieldTesting;
+  // into[t1] = \sum_{t2 in 't2range'} [ left(t1)_iJ ][ right(t2)_jI ]
+  //where J=(j,t2) and I=(i,t).  Assumes both mesonfields of  w^dag v form
+  static void contract_specify_t2range(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, const RangeFunc &t2range, CorrelationFunction &into);
+
+  //Assumes both meson fields have w^dag v form
+  // result = [ left(t1)_iJ ][ right(t2)_jI ]
+  //where J=(j,t2) and I=(i,t1)
+  static std::complex<double> contract_fixedt1t2(const MesonField2 &left, const MesonField2 &right, const int &t1, const int &t2, const bool &threaded);
+
+  //Combining meson fields in other ways:
+  //Note we use lower-case Roman letters for w-vector indices and upper-case for v-vector indices. 
+  //A v-vector index contains a source timeslice. To make this specific we can write  I=(i,t)
+  
+  
+  //Take the outer product of a meson field of the form  w^dag v  with v and w 
+  //result_{a,b} = \sum_{i,j} v_{aI}(x) M_{iJ}(t) w^dag_{bj}(z)
+  //where I=(i,t)  and J=(j,z_4)
+
+  static void contract_vleft_wright(SpinColorFlavorMatrix &result, 
+				    A2APropbfm &prop_left,  const int &x,
+				    A2APropbfm &prop_right, const int &z,
+				    MesonField2 & mf,  const int &t);
+
+  //Take the outer product of a meson field of the form  w^dag w  with v and v^dag 
+  //result_{a,b} = \sum_{i,j} v_{aI}(x) M_{ij}(t) v^dag_{bJ}(z)
+  //where I=(i,t)  and J=(j,t_vright)
+
+  static void contract_vleft_vright(SpinColorFlavorMatrix &result, 
+				    A2APropbfm &prop_left,  const int &x,
+				    A2APropbfm &prop_right, const int &z,
+				    MesonField2 & mf,  const int &t, const int &t_vright);
+
+  //result_{ab} = \sum_i v_{aI}(x) w^dag_{bi}(z)
+  //where I = (i,z_4)
+
+  static void contract_vw(SpinColorFlavorMatrix &result, 
+			  A2APropbfm &prop_left,  const int &x,
+			  A2APropbfm &prop_right, const int &z);
+
+  //Do the following:
+  //into_iK(t1) =  \sum_{ t2 in 'range' }   [[\sum_{\vec x} w_i^dag(\vec x,t1) v_J(\vec x,t1)]] [[\sum_\vec y} w_j^dag(\vec y,t2) v_K(\vec y,t2) ]]
+  //where J=(j,t2)
+  //Where  double-square brackets indicate meson fields
+ 
+  static void combine_mf_wv_wv(MesonField2 &into, const MesonField2 &mf_wv_l, const MesonField2 &mf_wv_r, const RangeFunc &range);
+
+  //Do the following:
+  //into_ik(t1) = \sum_{ t2 in 'range' } [[\sum_{\vec x} w_i^dag(\vec x,t1) v_J(\vec x, t1)]] [[\sum_\vec y} w_j^dag(\vec y, t2) w_k(\vec y, t2) ]]
+  //where J=(j,t2)
+
+  static void combine_mf_wv_ww(MesonField2 &into, const MesonField2 &mf_wv_l, const MesonField2 &mf_ww_r, const RangeFunc &range);
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif
 

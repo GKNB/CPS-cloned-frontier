@@ -287,12 +287,8 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   //  non-local send
   //
   //
-  //omp_set_num_threads(8);
-#if TARGET == BGQ
-  omp_set_num_threads(64);
-#endif
+  omp_set_num_threads(GJP.Nthreads());
 
-  //omp_set_num_threads(1);
 #pragma omp parallel for default(shared) private(mu)
   for (int dir=0;dir<8;dir++){
     int x, y, z, t;
@@ -466,9 +462,8 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   setup += time;
 
   time = -dclock();
-#if TARGET == BGQ
-  omp_set_num_threads(64);
-#endif
+  omp_set_num_threads(GJP.Nthreads());
+
   /*--------------------------------------------------------------------------*/
   /* Loop over sites                                                          */
   /*--------------------------------------------------------------------------*/

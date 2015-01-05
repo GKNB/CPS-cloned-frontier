@@ -29,6 +29,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","TWISTED_BC_ATTR",TWISTED_BC_ATTR},
 	{"AttrType","STORE_MIDPROP_ATTR",STORE_MIDPROP_ATTR},
 	{"AttrType","A2A_ATTR",A2A_ATTR},
+	{"AttrType","DEFLATED_CG_ATTR",DEFLATED_CG_ATTR},
 	{NULL,NULL,0}
 };
 
@@ -430,6 +431,31 @@ void A2AAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_DeflatedCGAttrArg (VML *vmls, char *name,DeflatedCGAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"DeflatedCGAttrArg",name);
+	 if (!vml_string (vmls, "lanczos_tag", &objp->lanczos_tag, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"DeflatedCGAttrArg",name);
+	return TRUE;
+}
+void rpc_print<DeflatedCGAttrArg>::doit(DeflatedCGAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.lanczos_tag,strlen(what.lanczos_tag)+1,spaces+" lanczos_tag = ");
+	std::cout << spaces << "}\n";
+}
+void DeflatedCGAttrArg::print(const std::string &prefix){
+	rpc_print<DeflatedCGAttrArg>::doit(*this,prefix);
+}
+void rpc_deepcopy<DeflatedCGAttrArg>::doit(DeflatedCGAttrArg &into, DeflatedCGAttrArg const &from){
+	  rpc_deepcopy<char *>::doit(into.lanczos_tag,from.lanczos_tag,strlen(from.lanczos_tag)+1);
+}
+void DeflatedCGAttrArg::deep_copy(DeflatedCGAttrArg const &rhs){
+	rpc_deepcopy<DeflatedCGAttrArg>::doit(*this,rhs);
+}
+
+bool_t
 vml_PropCombination (VML *vmls, char *name,PropCombination *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,PropCombination_map))
@@ -541,6 +567,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_A2AAttrArg (vmls, "a2a_attr", &objp->AttributeContainer_u.a2a_attr))
 			 return FALSE;
 		break;
+	case DEFLATED_CG_ATTR:
+		 if (!vml_DeflatedCGAttrArg (vmls, "deflated_cg_attr", &objp->AttributeContainer_u.deflated_cg_attr))
+			 return FALSE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -591,6 +621,9 @@ template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>(){
 template <> AttrType AttributeContainer::type_map<A2AAttrArg>(){
 	 return A2A_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<DeflatedCGAttrArg>(){
+	 return DEFLATED_CG_ATTR;
+}
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;
 	  switch(from.type){
@@ -624,6 +657,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<StoreMidpropAttrArg>::doit(into.AttributeContainer_u.store_midprop_attr,from.AttributeContainer_u.store_midprop_attr); break;
 	    case A2A_ATTR:
 	      rpc_deepcopy<A2AAttrArg>::doit(into.AttributeContainer_u.a2a_attr,from.AttributeContainer_u.a2a_attr); break;
+	    case DEFLATED_CG_ATTR:
+	      rpc_deepcopy<DeflatedCGAttrArg>::doit(into.AttributeContainer_u.deflated_cg_attr,from.AttributeContainer_u.deflated_cg_attr); break;
 	  };
 }
 void AttributeContainer::deep_copy(AttributeContainer const &rhs){
@@ -663,6 +698,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<StoreMidpropAttrArg>::doit(what.AttributeContainer_u.store_midprop_attr,spaces+" union AttributeContainer_u.store_midprop_attr = "); break;
 	    case A2A_ATTR:
 	      rpc_print<A2AAttrArg>::doit(what.AttributeContainer_u.a2a_attr,spaces+" union AttributeContainer_u.a2a_attr = "); break;
+	    case DEFLATED_CG_ATTR:
+	      rpc_print<DeflatedCGAttrArg>::doit(what.AttributeContainer_u.deflated_cg_attr,spaces+" union AttributeContainer_u.deflated_cg_attr = "); break;
 	  };
 	std::cout << spaces << "}\n";
 }

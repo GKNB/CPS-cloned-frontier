@@ -42,6 +42,7 @@
 #include <alg/a2a/alg_a2a.h>
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_eigcg.h>
+#include <util/lattice/fbfm.h>
 #include <alg/eigen/Krylov_5d.h>
 CPS_START_NAMESPACE
 
@@ -211,10 +212,19 @@ void QPropWcontainer::calcProp(Lattice &latt){
   qpropw_arg.StartSrcColor = 0;
   qpropw_arg.EndSrcColor = 3;
 
-  //boundary conditions
+  //Set the boundary conditions
+  //For regular lattice classes it is sufficient to modify the boundary condition in GJP, as the boundary condition
+  //is applied when the DiracOp class is instantiated within the inverter, and the lattice is restored afterwards.
+  //However for Fbfm we must manually apply the BC and re-import the gauge field into the internal bfm objects
+
   BndCndType init_bc[4];
   TwistedBcAttrArg *tbcarg;
+  bool bcs_changed = false;
+  bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 );
+
   for(int i=0;i<4;i++){
+    if(generics->bc[i]!=GJP.Bc(i)) bcs_changed = true;
+
     if(i<3 && generics->bc[i] != GJP.Bc(i) && !(generics->bc[i] == BND_CND_TWISTED || generics->bc[i] == BND_CND_GPARITY_TWISTED) )
       ERR.General(cname,fname,"Propagator %s: valence and sea spatial boundary conditions do not match (partially-twisted BCs are allowed)\n",generics->tag);
     if( GJP.Bc(i) != BND_CND_GPARITY && generics->bc[i] == BND_CND_GPARITY_TWISTED ) ERR.General(cname,fname,"Propagator %s: Cannot use twisted G-parity valence BCs in a non-Gparity direction");
@@ -226,6 +236,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
     init_bc[i] = GJP.Bc(i);
     GJP.Bc(i,generics->bc[i]);
   }
+  if(bcs_changed && is_fbfm ) latt.BondCond(); //applies the new BCs and imports the gauge field into the bfm instances
 
   //fill out qpropw_arg arguments
   GparityFlavorAttrArg *flav;
@@ -251,6 +262,28 @@ void QPropWcontainer::calcProp(Lattice &latt){
     
     qpropw_arg.gauge_fix_src = gfix->gauge_fix_src; 
     qpropw_arg.gauge_fix_snk = gfix->gauge_fix_snk;
+  }
+
+  //Deal with deflated CG
+  DeflatedCGAttrArg *defl_cg;
+  if(getAttr(defl_cg)){
+    if(!is_fbfm) ERR.General(cname,fname,"Currently, deflated CG only available via Fbfm\n");
+    LanczosContainer &lanczos = PropManager::getLanczos(defl_cg->lanczos_tag);
+    const LanczosContainerArg &lanc_args = lanczos.getArgs();
+    int N_use = lanc_args.lanc_arg.N_true_get;
+
+    if(Fbfm::use_mixed_solver){
+      //Pass single-precision eigenvectors to Fbfm 
+      //(note, this will fail if you haven't manually changed the precision of the eigenvectors in the LanczosContainer. I didn't want to do this
+      // automatically as the change of precision introduces numerical errors. Better that it fails if you didn't explicitly want this!)
+      Lanczos_5d<float> &eigs = lanczos.getEigSinglePrec(latt);
+      dynamic_cast<Fbfm&>(latt).set_deflation(&eigs.bq,&eigs.bl,N_use);
+    }else{
+      //Use double-precision eigenvectors
+      lanczos.setPrecision(2);
+      Lanczos_5d<double> &eigs = lanczos.getEig(latt);
+      dynamic_cast<Fbfm&>(latt).set_deflation(&eigs.bq,&eigs.bl,N_use);
+    }
   }
 
   PointSourceAttrArg *pt;
@@ -341,6 +374,8 @@ void QPropWcontainer::calcProp(Lattice &latt){
     io->prop_on_disk = true; //QPropW saves the prop
   }
   
+  if(bcs_changed && is_fbfm ) latt.BondCond(); //un-apply the new BCs and reimport the gauge field into the bfm instances
+
   //restore boundary conditions to original
   for(int i=0;i<4;i++) GJP.Bc(i,init_bc[i]);
   for(int j=0;j<3;j++) GJP.TwistAngle(j,0);
@@ -419,7 +454,36 @@ std::vector<std::vector<int> > QPropWcontainer::get_allowed_momenta() const{
 }
 
 
+int QPropWcontainer::getSourceTimeslice(){
+  PointSourceAttrArg *pt;
+  if(getAttr(pt)) return pt->pos[3];
+  WallSourceAttrArg *wl;
+  if(getAttr(wl)) return wl->t;
 
+  ERR.General("QPropWcontainer","getSourceTimeslice with prop %s: Could not determine source timeslice",tag());
+}
+
+void QPropWcontainer::setSourceTimeslice(const int &t){
+  PointSourceAttrArg *pt;
+  if(getAttr(pt)){
+    pt->pos[3] = t;
+    return;
+  }
+  WallSourceAttrArg *wl;
+  if(getAttr(wl)){
+    wl->t = t;
+    return;
+  }
+  ERR.General("QPropWcontainer","setSourceTimeslice with prop %s: Could not determine source timeslice",tag());
+}
+
+
+
+
+
+
+
+A2ApropContainer::~A2ApropContainer(){ if(prop!=NULL) delete prop; }
 
 
 void A2ApropContainer::readProp(Lattice &latt){
@@ -443,14 +507,25 @@ void A2ApropContainer::calcProp(Lattice &latt){
   //Get eigenvectors
   LanczosContainer &lanczos = PropManager::getLanczos(a2a_arg->lanczos_tag);
   Lanczos_5d<double> &eig = lanczos.getEig(latt);
-  if(eig.dop.mass != generics->mass) ERR.General(cname,fname,"Eigenvalues provided were calculated with a different mass than that specified in propagator arguments\n");
+  if(a2a_arg->nl !=0 && eig.dop.mass != generics->mass) ERR.General(cname,fname,"Eigenvalues provided were calculated with a different mass than that specified in propagator arguments\n");
 
   CommonArg c_arg("label","/dev/null");//find out what this does!
 
   prop = new A2APropbfm(latt,*a2a_arg,c_arg,&eig);
 
   bfm_evo<double> &dwf = eig.dop;
-    
+
+  //If the Lanczos mass is different from the prop mass (only allowed if we are not using any low-modes from the Lanczos)
+  //then we must change the mass used in the Dirac operator
+  double restore_mass; bool do_restore(false);
+  if(dwf.mass != generics->mass){
+    restore_mass = dwf.mass;
+    dwf.mass = generics->mass;
+    dwf.GeneralisedFiveDimEnd();
+    dwf.GeneralisedFiveDimInit();
+    do_restore=true;
+  }
+
   //Calculate the vectors and FFT vectors
   prop->allocate_vw();
   if(!UniqueID()) printf("%s::%s computing A2A low modes component for prop %s\n",cname,fname,generics->tag); 
@@ -460,6 +535,12 @@ void A2ApropContainer::calcProp(Lattice &latt){
   if(!UniqueID()) printf("%s::%s computing FFT of V and W for A2A prop %s\n",cname,fname,generics->tag); 
   prop->fft_vw();
   if(!UniqueID()) printf("%s::%s Finished computing A2A prop %s\n",cname,fname,generics->tag); 
+
+  if(do_restore){
+    dwf.mass = restore_mass;
+    dwf.GeneralisedFiveDimEnd();
+    dwf.GeneralisedFiveDimInit();
+  }
 }
 
 
@@ -489,50 +570,63 @@ void A2ApropContainer::deleteProp(){
 
 
 void LanczosContainer::deleteEig(){
-  if(lanczos!=NULL){ delete lanczos; lanczos=NULL; }
+  if(lanczos!=NULL){ delete lanczos; lanczos=NULL;}
+  if(lanczos_f!=NULL){ delete lanczos_f; lanczos_f=NULL;}
 }
 
+void LanczosContainer::setupBfm(const int &prec){
+  //Setup bfmarg
+  bfmarg dwfa;
+  
+  for(int d=0;d<4;d++){
+    dwfa.nodes[d] = GJP.Nodes(d);
+    dwfa.ncoor[d] = GJP.NodeCoor(d);
+    dwfa.node_latt[d] = GJP.NodeSites(d);
+  }
+
+  if(GJP.Gparity()){
+    dwfa.gparity = 1;
+    for(int d=0;d<3;d++) dwfa.gparity_dir[d] = (GJP.Bc(d) == BND_CND_GPARITY ? 1 : 0);
+  }
+  dwfa.verbose=1;
+  dwfa.reproduce=0;
+
+  for(int mu=0;mu<4;mu++)
+    if ( GJP.Nodes(mu)>1 ) dwfa.local_comm[mu] = 0;
+    else dwfa.local_comm[mu] = 1;
+
+  dwfa.Ls   = GJP.SnodeSites();
+  dwfa.M5   = toDouble(GJP.DwfHeight());
+
+  //Now for user specified arguments
+  dwfa.mass = args.lanc_arg.mass;
+  dwfa.max_iter = args.cg_max_iter;
+  dwfa.residual = args.cg_residual;
+  dwfa.precon_5d = args.cg_precon_5d;
+  dwfa.mobius_scale = args.mobius_scale;
+
+  if(args.solver == BFM_DWF) dwfa.solver = DWF;
+  else if(args.solver == BFM_HmCayleyTanh) dwfa.solver = HmCayleyTanh;
+  else ERR.General("LanczosContainer","setupBfm","Enum for chosen solver not in factory, add it!\n");
+
+  //Create and initialise bfm object
+  if(prec == 2){
+    dwf = new bfm_evo<double>();
+    dwf->init(dwfa);
+  }else if(prec == 1){
+    dwf_f = new bfm_evo<float>();
+    dwf_f->init(dwfa);
+  }else ERR.General("LanczosContainer","setupBfm","Invalid precision, %d\n",prec);
+}
+
+//Calculate in double precision always
 void LanczosContainer::calcEig(Lattice &latt){
   if(lanczos!=NULL) return; //no need to calculate twice
   
+  if(lanczos_f != NULL) delete lanczos_f;
+
   if(dwf==NULL){
-    //Setup bfmarg
-    bfmarg dwfa;
-  
-    for(int d=0;d<4;d++){
-      dwfa.nodes[d] = GJP.Nodes(d);
-      dwfa.ncoor[d] = GJP.NodeCoor(d);
-      dwfa.node_latt[d] = GJP.NodeSites(d);
-    }
-
-    if(GJP.Gparity()){
-      dwfa.gparity = 1;
-      for(int d=0;d<3;d++) dwfa.gparity_dir[d] = (GJP.Bc(d) == BND_CND_GPARITY ? 1 : 0);
-    }
-    dwfa.verbose=1;
-    dwfa.reproduce=0;
-
-    for(int mu=0;mu<4;mu++)
-      if ( GJP.Nodes(mu)>1 ) dwfa.local_comm[mu] = 0;
-      else dwfa.local_comm[mu] = 1;
-
-    dwfa.Ls   = GJP.SnodeSites();
-    dwfa.M5   = toDouble(GJP.DwfHeight());
-
-    //Now for user specified arguments
-    dwfa.mass = args.lanc_arg.mass;
-    dwfa.max_iter = args.cg_max_iter;
-    dwfa.residual = args.cg_residual;
-    dwfa.precon_5d = args.cg_precon_5d;
-    dwfa.mobius_scale = args.mobius_scale;
-
-    if(args.solver == BFM_DWF) dwfa.solver = DWF;
-    else if(args.solver == BFM_HmCayleyTanh) dwfa.solver = HmCayleyTanh;
-    else ERR.General("LanczosContainer","calcEig(Lattice &latt)","Enum for chosen solver not in factory, add it!\n");
-
-    //Create and initialise bfm object
-    dwf = new bfm_evo<double>();
-    dwf->init(dwfa);
+    setupBfm(2);
     reload_gauge=true;
   }
 
@@ -547,25 +641,109 @@ void LanczosContainer::calcEig(Lattice &latt){
   }  
   
   lanczos = new Lanczos_5d<double>(*dwf,args.lanc_arg);
+
   lanczos->Run();
 
   if(reload_gauge){
     latt.BondCond(); //Don't forget to un-apply the boundary conditions!
     GJP.Bc(3,init_tbc);
   }
+  precision = 2;
 }
 
 Lanczos_5d<double> & LanczosContainer::getEig(Lattice &latt){
+  if(precision != 2) ERR.General("LanczosContainer","getEig","Current precision is not double\n");
   if(lanczos == NULL) calcEig(latt);
   return *lanczos;
 }
+Lanczos_5d<float> & LanczosContainer::getEigSinglePrec(Lattice &latt){
+  if(precision != 1) ERR.General("LanczosContainer","getEigSinglePrec","Current precision is not single\n");
+  if(lanczos_f == NULL){
+    calcEig(latt);
+    setPrecision(1);
+  }
+  return *lanczos_f;
+}
+
 
 void LanczosContainer::set_lanczos(Lanczos_5d<double> *to){
   lanczos = to;
   if(to!=NULL) dwf = &lanczos->dop;
   else dwf = NULL;
+  
+  precision = 2;
+  if(lanczos_f) delete lanczos_f;
 }
 
+template<typename FloatType>
+void setupLanczosNoAlloc(Lanczos_5d<FloatType> &lanc){ //just resize the vectors for the Lanczos output
+  lanc.bq.resize(lanc.get);
+  lanc.bl.resize(lanc.get);
+}
+
+//ASSUMED TO BE EXECUTED IN PARALLEL REGION!
+template<typename FloatOut, typename FloatIn>
+void moveAndChangePrecision(Fermion_t &out, Fermion_t &in, bfm_evo<FloatOut> &bfm_out,  bfm_evo<FloatIn> &bfm_in){
+  //Allocate memory on receiving end
+  out = bfm_out.threadedAllocCompactFermion();
+  //Copy and change precision
+  mixed_cg::threaded_convFermion_fast(out,in,bfm_out,bfm_in);
+  //Deallocate input fermion
+  bfm_in.threadedFreeFermion(in); in = NULL;
+}
+
+
+void LanczosContainer::setPrecision(const int &prec){ //convert from float to double or double to float
+  if(precision == prec) return;
+  const char *cname = "LanczosContainer";
+
+  if(!UniqueID()){ printf("LanczosContainer with tag %s converting from precision %d to %d\n", tag(), precision, prec); fflush(stdout); }
+
+  if(lanczos_f == NULL && lanczos == NULL){
+    precision = prec; return;
+  }
+
+  if(dwf_f == NULL) setupBfm(1);
+  if(dwf == NULL) setupBfm(2);
+  
+  if(precision == 2 && prec == 1){
+  
+    if(lanczos_f != NULL) ERR.General("LanczosContainer","setPrecision(1) [currently 2]","Expect lanczos_f pointer to be NULL!");
+    lanczos_f = new Lanczos_5d<float>(*dwf_f,args.lanc_arg);
+    setupLanczosNoAlloc<float>(*lanczos_f);
+    
+    for(int i=0;i<lanczos_f->get;i++){
+#pragma omp parallel
+      {
+	if(!lanczos->prec) moveAndChangePrecision<float,double>(lanczos_f->bq[i][0], lanczos->bq[i][0], *dwf_f, *dwf);
+	moveAndChangePrecision<float,double>(lanczos_f->bq[i][1], lanczos->bq[i][1], *dwf_f, *dwf);
+      }
+      lanczos_f->bl[i] = lanczos->bl[i];
+    }
+    if(!UniqueID()){ printf("Deleting lanczos\n"); fflush(stdout); }
+
+    delete lanczos; //because we nulled the pointers we deallocated, the lanczos destructor should not attempt to destroy them
+
+  }else if(precision == 1 && prec == 2){
+
+    if(lanczos != NULL) ERR.General("LanczosContainer","setPrecision(2) [currently 1]","Expect lanczos pointer to be NULL!");
+    lanczos = new Lanczos_5d<double>(*dwf,args.lanc_arg);
+    setupLanczosNoAlloc<double>(*lanczos);
+
+    for(int i=0;i<lanczos->get;i++){
+#pragma omp parallel
+      {
+	if(!lanczos_f->prec) moveAndChangePrecision<double,float>(lanczos->bq[i][0], lanczos_f->bq[i][0], *dwf, *dwf_f);
+	moveAndChangePrecision<double,float>(lanczos->bq[i][1], lanczos_f->bq[i][1], *dwf, *dwf_f);
+      }
+      lanczos->bl[i] = lanczos_f->bl[i];
+    }
+    delete lanczos_f;
+
+  }else ERR.General("LanczosContainer","setPrecision","Invalid precision, %d",prec);
+
+  precision = prec;
+}
 
 CPS_END_NAMESPACE
 

@@ -226,7 +226,7 @@ void wilson_dslash(IFloat *chi_p_f,
 //
 //
 //#ifdef USE_TEST
-//omp_set_num_threads(8);
+	omp_set_num_threads(GJP.Nthreads());
 #pragma omp parallel for default(shared) private(mu)
 	for (int dir=0;dir<8;dir++){
 	if ((called%10000==0) &&(!UniqueID())){
@@ -566,11 +566,7 @@ Printf("getMinusData((IFloat *)fbuf, (IFloat *)tmp6, SPINOR_SIZE, 1);\n");
 /* Loop over sites                                                          */
 /*--------------------------------------------------------------------------*/
 	for(int i=0;i<SPINOR_SIZE;i++) fbuf[i]=0.;
-#if TARGET == BGQ
-	omp_set_num_threads(64);
-#else
-	omp_set_num_threads(1);
-#endif
+	omp_set_num_threads(GJP.Nthreads());
 
 	int index=0;
 #pragma omp parallel for default(shared) private(mu)

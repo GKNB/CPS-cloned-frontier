@@ -1,5 +1,5 @@
-SRCDIR = /home/ckelly/CPS/git/cps/build/../cps_pp
-BUILDDIR = /home/ckelly/CPS/git/cps/build
+SRCDIR = /home/ckelly/CPS/build/cps_newbfm_test/../../src/cps/cps_pp
+BUILDDIR = /home/ckelly/CPS/build/cps_newbfm_test
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/

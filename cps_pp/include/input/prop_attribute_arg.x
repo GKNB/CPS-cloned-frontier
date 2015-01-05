@@ -18,7 +18,8 @@ enum AttrType {
   GPARITY_OTHER_FLAV_PROP_ATTR,
   TWISTED_BC_ATTR,
   STORE_MIDPROP_ATTR,
-  A2A_ATTR
+  A2A_ATTR,
+  DEFLATED_CG_ATTR
 };
 
 enum PropagatorType { 
@@ -132,6 +133,15 @@ struct A2AAttrArg{
   rpccommand GENERATE_PRINT_METHOD;
 };
 
+struct DeflatedCGAttrArg{
+  string lanczos_tag<>;
+
+  memfun static AttrType getType();
+  memfun DeflatedCGAttrArg clone();
+  rpccommand GENERATE_PRINT_METHOD;
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
 enum PropCombination {
   A_PLUS_B,
   A_MINUS_B };
@@ -179,6 +189,8 @@ switch(AttrType type){
    StoreMidpropAttrArg store_midprop_attr;
  case A2A_ATTR:
    A2AAttrArg a2a_attr;
+ case DEFLATED_CG_ATTR:
+   DeflatedCGAttrArg deflated_cg_attr;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;

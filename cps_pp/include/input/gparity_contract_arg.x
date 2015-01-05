@@ -10,7 +10,9 @@ enum ContractionType {
   CONTRACTION_TYPE_QUADRILINEAR_VERTEX,
   CONTRACTION_TYPE_TOPOLOGICAL_CHARGE,
   CONTRACTION_TYPE_MRES,
-  CONTRACTION_TYPE_A2A_BILINEAR
+  CONTRACTION_TYPE_A2A_BILINEAR,
+  CONTRACTION_TYPE_WILSON_FLOW,
+  CONTRACTION_TYPE_K_TO_PIPI
 };
 struct ContractionTypeLLMesons{
  string prop_L<>;
@@ -183,7 +185,17 @@ struct ContractionTypeMres{
  rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
+struct ContractionTypeWilsonFlow{
+ /*Number of Wilson flow steps to perform*/
+ int n_steps; 
+ /*Wilson flow time increment*/
+ Float time_step;
 
+ string file<>;
+                                          
+ rpccommand GENERATE_PRINT_METHOD;
+ rpccommand GENERATE_DEEPCOPY_METHOD;
+};
 
 enum A2ASmearingType {
   BOX_3D_SMEARING,
@@ -239,6 +251,35 @@ struct ContractionTypeA2ABilinear{
  rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
+struct ContractionTypeKtoPiPi{
+  string prop_L<>; /*The light quark A2A propagator*/
+  string prop_H<>; /*The heavy quark A2A propagator*/
+
+  /*We wish to allow for multiple combinations of quark momentum for a given pion energy
+  Thus for each pion, the user must specify the momenta for each quark in the form of a MomPairArg 'mom', 
+  where mom.p1 is the momentum assigned to the 'v' field and mom.p2 to the 'w^\dagger' fields that form the A2A propagator
+  The sum mom.p1 + mom.p2 is the total momentum of the pion*/
+
+  MomPairArg p_qpi1;
+  MomPairArg p_qpi2;	
+  
+  Float p_qK[3]; /*The momentum applied to the *strange* quark of the second pion. Minus this value is applied to the down quark such that their sum is 0*/
+  /*NOTE: For G-parity the momentum components should all have the same sign and be odd-integer multiples of pi/2L*/
+
+  int gparity_use_transconv_props; /*G-parity only: Transform the A2A propagators such that their Fourier transforms are translationally covariant*/
+
+  A2ASmearing pion_source;
+  A2ASmearing kaon_source;
+
+  int t_sep_pi_k; /*Fixed separation between kaon and (closest) pion*/
+  int t_sep_pion; /*Time separation between the two pions*/
+
+  string file<>; /*Will have config idx appended*/
+
+ rpccommand GENERATE_PRINT_METHOD;
+ rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
 
 union GparityMeasurement{
 switch(ContractionType type){
@@ -266,6 +307,10 @@ switch(ContractionType type){
    ContractionTypeMres contraction_type_mres;
  case CONTRACTION_TYPE_A2A_BILINEAR:
    ContractionTypeA2ABilinear contraction_type_a2a_bilinear;
+ case CONTRACTION_TYPE_WILSON_FLOW:
+   ContractionTypeWilsonFlow contraction_type_wilson_flow;
+ case CONTRACTION_TYPE_K_TO_PIPI:
+   ContractionTypeKtoPiPi contraction_type_k_to_pipi;
 }
   rpccommand GENERATE_UNION_TYPEMAP;
   rpccommand GENERATE_DEEPCOPY_METHOD;
@@ -283,4 +328,20 @@ class GparityContractArg{
   memfun GparityContractArg();
 
  rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
+
+class GparityAMAarg{
+  ContractionTypeAllBilinears bilinear_args<>;
+
+  int exact_solve_timeslices<>; /* Specify the timeslices on which the 'rest' part is calculated */
+  Float exact_precision;
+  Float sloppy_precision;
+
+  string config_fmt<>; /* Should contain a %d which is replaced by a config index */
+  int conf_start;
+  int conf_incr;
+  int conf_lessthan;
+  FixGaugeArg fix_gauge; /* Gauge fixing - Defaults to FIX_GAUGE_NONE */
+  rpccommand GENERATE_DEEPCOPY_METHOD;
 };

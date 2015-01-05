@@ -204,23 +204,15 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   bfmarg bfm_arg;
 
-#if TARGET == BGQ
-  omp_set_num_threads(64);
-#else 
-  omp_set_num_threads(1);
-#endif
+  int nthread = GJP.Nthreads();
+  omp_set_num_threads(nthread);
 
   bfm_arg.solver = WilsonTM;
   for(int i=0;i<4;i++) bfm_arg.node_latt[i] = GJP.NodeSites(i);
   bfm_arg.verbose=1;
   bfm_arg.reproduce=0;
 
-#if TARGET == BGQ
-  bfmarg::Threads(64);
-#else
-  bfmarg::Threads(1);
-#endif
-
+  bfmarg::Threads(nthread);
   bfmarg::Reproduce(0);
   bfmarg::ReproduceChecksum(0);
   bfmarg::ReproduceMasterCheck(0);

@@ -694,6 +694,12 @@ inline void TrLessAntiHermMatrix()
 };
 
 
+inline static Matrix Transpose(const Matrix &m){
+  Matrix out;
+  out.Trans(m);
+  return out;
+}
+
 
 //------------------------------------------------------------------
 //! A class implementing a general 3 component complex vector.

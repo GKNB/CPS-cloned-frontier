@@ -29,6 +29,7 @@ enum AttrType {
 	TWISTED_BC_ATTR = 12,
 	STORE_MIDPROP_ATTR = 13,
 	A2A_ATTR = 14,
+	DEFLATED_CG_ATTR = 15,
 };
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
@@ -324,6 +325,28 @@ template<> struct rpc_print<A2AAttrArg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+struct DeflatedCGAttrArg {
+	char *lanczos_tag;
+	   static AttrType getType (  ) ;
+	   DeflatedCGAttrArg clone (  ) ;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const DeflatedCGAttrArg &rhs);
+};
+typedef struct DeflatedCGAttrArg DeflatedCGAttrArg;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<DeflatedCGAttrArg>{
+	static void doit(DeflatedCGAttrArg const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<DeflatedCGAttrArg>{
+	static void doit(DeflatedCGAttrArg &into, DeflatedCGAttrArg const &from);
+};
+
+
 enum PropCombination {
 	A_PLUS_B = 0,
 	A_MINUS_B = 1,
@@ -375,6 +398,7 @@ struct AttributeContainer {
 		TwistedBcAttrArg twisted_bc_attr;
 		StoreMidpropAttrArg store_midprop_attr;
 		A2AAttrArg a2a_attr;
+		DeflatedCGAttrArg deflated_cg_attr;
 	} AttributeContainer_u;
 	   template <typename T> static AttrType type_map();
 	   void deep_copy(const AttributeContainer &rhs);
@@ -399,6 +423,7 @@ template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>()
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>();
 template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>();
 template <> AttrType AttributeContainer::type_map<A2AAttrArg>();
+template <> AttrType AttributeContainer::type_map<DeflatedCGAttrArg>();
 template<> struct rpc_deepcopy<AttributeContainer>{
 	static void doit(AttributeContainer &into, AttributeContainer const &from);
 };
@@ -527,6 +552,7 @@ extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOt
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
 extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);
+extern  bool_t vml_DeflatedCGAttrArg (VML *, char *instance, DeflatedCGAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);
@@ -551,6 +577,7 @@ extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOt
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
 extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);
+extern  bool_t vml_DeflatedCGAttrArg (VML *, char *instance, DeflatedCGAttrArg*);
 extern  bool_t vml_PropCombination (VML *, char *instance, PropCombination*);
 extern  bool_t vml_PropCombinationAttrArg (VML *, char *instance, PropCombinationAttrArg*);
 extern  bool_t vml_AttributeContainer (VML *, char *instance, AttributeContainer*);

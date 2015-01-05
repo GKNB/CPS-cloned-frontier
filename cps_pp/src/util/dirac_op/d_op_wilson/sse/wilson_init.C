@@ -205,10 +205,8 @@ void wilson_init(Wilson *wilson_p)  /* pointer to Wilson type structure    */
   const int   lt = wilson_p->ptr[3];
   const int   vol = wilson_p->vol[0];
 
+  omp_set_num_threads(GJP.Nthreads());
 #pragma omp parallel
-  //CK: uses openmp's default number of threads, but this is not always a good idea
-  //as it defaults to the number of cores. When running on a cluster some of those cores
-  //might be running as different nodes
 
   wilson_p->num_threads= omp_get_num_threads();
 

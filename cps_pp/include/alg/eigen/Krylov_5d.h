@@ -22,6 +22,7 @@ class Krylov_5d : public Krylov<S>
 
   protected:
     void init();
+
     virtual void dwf_multiply(bfm_fermion input, bfm_fermion &result);
     void dwf_multiply(bfm_fermion input, bfm_fermion &result, bool dag);
     virtual void herm_mult(bfm_fermion input, bfm_fermion &result);
@@ -34,7 +35,6 @@ void Krylov_5d<S>::init()
     return;
 
   QDPIO::cout << "initializing" << endl;
-
   this->Krylov_init();
   if(this->D == G5D && this->dop.solver == DWF && this->prec == 1)
   {
@@ -47,17 +47,19 @@ void Krylov_5d<S>::init()
 
 #pragma omp parallel 
   {
-		this->tmp = this->dop.threadedAllocFermion();
-		for(int cb = this->prec; cb < 2; cb++)
-		{			
-			this->invec[cb] = this->dop.threadedAllocFermion();
-			this->outvec[cb] = this->dop.threadedAllocFermion();
-		}
+    this->tmp = this->dop.threadedAllocFermion();
+    for(int cb = this->prec; cb < 2; cb++)
+      {			
+	this->invec[cb] = this->dop.threadedAllocFermion();
+	this->outvec[cb] = this->dop.threadedAllocFermion();
+      }
   }
+  
 
   this->bq.resize(this->M); 
   for(int i = 0; i < this->M; ++i)
     this->init_fermion(this->bq[i]);
+
   int sizebf;
   if(this->kr == lan)
     sizebf = 1;
@@ -70,13 +72,11 @@ void Krylov_5d<S>::init()
 
   if(this->dop.gparity) QDPIO::cout << "Krylov init for 2f G-parity\n";
   else QDPIO::cout << "Krylov init for standard fermions\n";
-  
-  for(int i = 0; i < sizebf; ++i)
-  {
+
+  for(int i = 0; i < sizebf; ++i){
     this->init_fermion(this->bf[i]);
     this->zero_fermion(this->bf[i]);
   }
-
   Fermion of = zero;
   SpinVector tspin = zero;
   
@@ -84,7 +84,9 @@ void Krylov_5d<S>::init()
   Complex cno = cmplx(Real(1), Real(0));
   for(int spn = 0; spn < Nd; spn++) 
     pokeSpin(tspin, cno, spn);
-  for(int col = 0; col < Nd; col++)  //shouldn't this be 3, not 4??
+  //  for(int col = 0; col < Nd; col++)  //shouldn't this be 3, not 4??
+  //  pokeColor(of, tspin, col);
+  for(int col = 0; col < 3; col++)
     pokeColor(of, tspin, col);
 
   if(!this->dop.gparity){
@@ -108,7 +110,6 @@ void Krylov_5d<S>::init()
       st[k] = zero;
     this->qdp_to_bfm(st, this->bq[0]);
   }
-
   double hnorm = this->norm(this->bq[0]);
   this->axpby(this->bq[0], 0, this->bq[0], 1.0/hnorm, this->bq[0]);
   this->initialized = true;

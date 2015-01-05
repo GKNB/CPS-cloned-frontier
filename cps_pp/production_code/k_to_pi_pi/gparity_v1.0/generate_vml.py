@@ -133,6 +133,15 @@ class GparityOtherFlavPropAttrArg:
         fhandle.write("string tag = \"%s\"\n" % self.other_flav_tag)
         fhandle.write("}\n");
 
+class DeflatedCGAttrArg:
+    def __init__(self,tag):
+        self.lanczos_tag = tag
+    def write(self,fhandle):
+        fhandle.write("AttrType type = DEFLATED_CG_ATTR\n")
+        fhandle.write("struct DeflatedCGAttrArg deflated_cg_attr = {\n")
+        fhandle.write("string lanczos_tag = \"%s\"\n" % self.lanczos_tag)
+        fhandle.write("}\n");   
+
 
 class PropagatorArg:
     def __init__(self,tag, mass, time_bc = "BND_CND_APRD"):
@@ -158,32 +167,120 @@ class PropagatorArg:
         fhandle.write("}\n")
         fhandle.write("}\n")
 
+    def gaugeFixSource(self):
+        self.attr.append( GaugeFixAttrArg(1) )
     def setGparityFlavor(self,f):
         self.attr.append( GparityFlavorAttrArg(f))
     def setWallSource(self,t,flav=None):
         self.attr.append( WallSourceAttrArg(t))
         if(flav != None): 
             self.setGparityFlavor(flav)
-    def setMomentumSource(self,t,p, flav=None):
+    def setMomentumSource(self,t,p, flav=None, gauge_fix=True):
         self.attr.append( WallSourceAttrArg(t))
         self.attr.append( MomentumAttrArg(p))
         if(flav != None): 
             self.setGparityFlavor(flav)
-    def setMomCosSource(self,t,p, flav=None):
+        if(gauge_fix == True):
+            self.gaugeFixSource()
+    def setMomCosSource(self,t,p, flav=None, gauge_fix=True):
         self.attr.append( WallSourceAttrArg(t))
         self.attr.append( MomentumAttrArg(p))
         self.attr.append( MomCosAttrArg())
         if(flav != None): 
             self.setGparityFlavor(flav)
+        if(gauge_fix == True):
+            self.gaugeFixSource()
+
     def setCombinationSource(self,prop_A,prop_B,comb):
         self.attr.append( PropCombinationAttrArg(prop_A,prop_B,comb))
 
     def storeMidPoint(self):
         self.attr.append( StoreMidpropAttrArg() )
 
+    def specifyFlavorPartner(self,tag):
+        self.attr.append( GparityOtherFlavPropAttrArg(tag) )
+
+    def deflateUsing(self,lanczos_tag):
+        self.attr.append( DeflatedCGAttrArg(lanczos_tag) )
+
+
+
+class LancArg:
+    def __init__(self, mass=0.01, stop_rsd=1e-06, qr_rsd = 1e-14, EigenOper = "DDAGD", precon = 1, 
+                 N_get = 100, N_use = 150, N_true_get = 100, 
+                 ch_ord = 40, ch_alpha = 1.0, ch_beta = 14.0, ch_sh = 0,ch_mu = 0.0,
+                 lock = 1, maxits = 10000, fname = "Lanczos"
+    ):
+        self.mass = mass
+        self.stop_rsd = stop_rsd
+        self.qr_rsd = qr_rsd
+        self.EigenOper = EigenOper
+        self.precon = precon
+        self.N_get = N_get
+        self.N_use = N_use
+        self.N_true_get = N_true_get
+        self.ch_ord = ch_ord
+        self.ch_alpha = ch_alpha
+        self.ch_beta = ch_beta
+        self.ch_sh = ch_sh
+        self.ch_mu = ch_mu
+        self.lock = lock
+        self.maxits = maxits 
+        self.fname = fname
+
+    def write(self,fhandle,vname):
+        fhandle.write("struct LancArg %s = {\n" % vname)
+        fhandle.write("double mass = %g\n" % self.mass)
+        fhandle.write("double stop_rsd = %g\n" % self.stop_rsd)
+        fhandle.write("double qr_rsd = %g\n" % self.qr_rsd)
+        fhandle.write("EigenType EigenOper = %s\n" % self.EigenOper)
+        fhandle.write("bool precon = %d\n" % self.precon)
+        fhandle.write("int N_get = %d\n" % self.N_get)
+        fhandle.write("int N_use = %d\n" % self.N_use)
+        fhandle.write("int N_true_get = %d\n" % self.N_true_get)
+        fhandle.write("int ch_ord = %d\n" % self.ch_ord)
+        fhandle.write("double ch_alpha = %g\n" % self.ch_alpha)
+        fhandle.write("double ch_beta = %g\n" % self.ch_beta)
+        fhandle.write("bool ch_sh = %d\n" % self.ch_sh)
+        fhandle.write("double ch_mu = %g\n" % self.ch_mu)
+        fhandle.write("bool lock = %d\n" % self.lock)
+        fhandle.write("int maxits = %d\n" % self.maxits)
+        fhandle.write("string fname = \"%s\"\n" % self.fname)
+        fhandle.write("}\n")
+
+
+
+
+class LanczosContainerArg:
+    def __init__(self,tag = "lanczos", lanc_arg = LancArg(), cg_max_iter = 10000, cg_residual = 1e-08, cg_precon_5d = 1, solver = "BFM_DWF", mobius_scale = 2.0, tbc = "BND_CND_APRD"):
+        self.tag = tag
+        self.lanc_arg = lanc_arg
+        self.cg_max_iter = cg_max_iter
+        self.cg_residual = cg_residual 
+        self.cg_precon_5d = cg_precon_5d
+        self.solver = solver
+        self.mobius_scale = mobius_scale
+        self.tbc = tbc
+
+    def write(self,fhandle, vname, array_idx):
+        fhandle.write("class LanczosContainerArg %s[%d] = {\n" % (vname,array_idx) )
+        fhandle.write("string tag = \"%s\"\n" % self.tag)
+        self.lanc_arg.write(fhandle,"lanc_arg")
+        fhandle.write("int cg_max_iter = %d\n" % self.cg_max_iter)
+        fhandle.write("double cg_residual = %g\n" % self.cg_residual)
+        fhandle.write("int cg_precon_5d = %d\n" % self.cg_precon_5d)
+        fhandle.write("BfmSolverType solver = %s\n" % self.solver)
+        fhandle.write("double mobius_scale = %g\n" % self.mobius_scale)
+        fhandle.write("BndCndType tbc = %s\n" % self.tbc)
+        fhandle.write("}\n")
+
+
+
+
 class JobPropagatorArgs:
     def __init__(self):
-        self.props = []        
+        self.props = []
+        self.lanczos = []
     def write(self,filename):
         fhandle = open(filename, "w")
         fhandle.write("class JobPropagatorArgs prop_arg = {\n")
@@ -191,13 +288,17 @@ class JobPropagatorArgs:
         for i in range(len(self.props)):
             self.props[i].write(fhandle,"props",i)
         fhandle.write("}\n")
-        fhandle.write("Array lanczos[0] = {\n}\n")
+        fhandle.write("Array lanczos[%d] = {\n" % len(self.lanczos))
+        for i in range(len(self.lanczos)):
+            self.lanczos[i].write(fhandle,"lanczos",i)
+        fhandle.write("}\n")
         fhandle.write("}\n")
         fhandle.close()
 
     def addPropagator(self,prop):
         self.props.append(prop)
-
+    def addLanczos(self,lanc):
+        self.lanczos.append(lanc)
 
 
 
@@ -294,9 +395,7 @@ class ContractionTypeAllBilinears:
             self.momenta.append( MomArg(momenta[i]) )
         self.file = file
 
-    def write(self,fhandle):
-        fhandle.write("ContractionType type = CONTRACTION_TYPE_ALL_BILINEARS\n")
-        fhandle.write("struct ContractionTypeAllBilinears contraction_type_all_bilinears = {\n")
+    def writecontents(self,fhandle):
         fhandle.write("string prop_1 = \"%s\"\n" % self.prop_1)
         fhandle.write("string prop_2 = \"%s\"\n" % self.prop_2)
         fhandle.write("Array momenta[%d] = {\n" % len(self.momenta) )
@@ -304,7 +403,20 @@ class ContractionTypeAllBilinears:
             self.momenta[i].write(fhandle,"momenta",i)
         fhandle.write("}\n"); 
         fhandle.write("string file = \"%s\"\n" % self.file)
+
+    #Write as element of union
+    def write(self,fhandle):
+        fhandle.write("ContractionType type = CONTRACTION_TYPE_ALL_BILINEARS\n")
+        fhandle.write("struct ContractionTypeAllBilinears contraction_type_all_bilinears = {\n")
+        self.writecontents(fhandle)
         fhandle.write("}\n"); 
+    #Write as element of array
+    def write_array(self,fhandle,array_name,idx):
+        fhandle.write("struct ContractionTypeAllBilinears %s[%d] = {\n" % (array_name,idx) )
+        self.writecontents(fhandle)
+        fhandle.write("}\n"); 
+
+
 
 class ContractionTypeAllWallSinkBilinears:
     def __init__(self,prop_1,prop_2,momenta, file): #momenta elements should be 3-component lists
@@ -565,4 +677,107 @@ class GparityContractArg:
 
 
 
+class BfmArg:
+    def __init__(self, solver = "BFM_HmCayleyTanh", precon_5d = 1, solveMobiusDminus = 0, zolo_delta = 0, zolo_lo = 0, zolo_hi = 0, 
+                 max_iter = 10000, residual = 1e-08, threads = 64, verbose = 0, mobius_scale = 2):
+        self.solver = solver
+        self.precon_5d = precon_5d  #int
+        self.Ls = 0  #is set automatically in CPS
+        self.solveMobiusDminus = solveMobiusDminus #defaults to zero
+        self.M5 = 1.8 #automatically set by CPS
+        self.mass = 0.1 #automatically set by CPS
+        self.twistedmass = 0.1 #automatically set by CPS
+        self.Csw = 0.0 #unimplemented clover parameter
+
+        self.zolo_delta = zolo_delta
+        self.zolo_lo = zolo_lo
+        self.zolo_hi = zolo_hi
+        
+        self.list_engine = 0
+        self.list_length = 0
+        self.powerloop = 0
+        self.time_report_iter = 10000000
+        self.max_iter = max_iter 
+        self.residual = residual
+        
+        self.reproduce = 0
+        self.reproduce_checksum = 0
+        self.reproduce_master_check = 0
+        
+        self.threads = threads
+        self.verbose = verbose
+        self.onepluskappanorm = 0
+        
+        self.mobius_scale = mobius_scale
+
+    def write(self,filename):
+        fhandle = open(filename, "w")
+        fhandle.write("class BfmArg bfm_arg = {\n");
+        fhandle.write("BfmSolverType solver = %s\n" % self.solver)
+        fhandle.write("int solveMobiusDminus = %d\n" % self.solveMobiusDminus)
+        fhandle.write("int Ls = %d\n" % self.Ls)
+        fhandle.write("double M5 = %s\n" % self.M5)
+        fhandle.write("double mass = %s\n" % self.mass)
+        fhandle.write("double twistedmass = %s\n" % self.twistedmass)
+        fhandle.write("double Csw = %s\n" % self.Csw)
+        fhandle.write("double zolo_delta = %s\n" % self.zolo_delta)
+        fhandle.write("double zolo_lo = %s\n" % self.zolo_lo)
+        fhandle.write("double zolo_hi = %s\n" % self.zolo_hi)
+        fhandle.write("int list_engine = %d\n" % self.list_engine)
+        fhandle.write("int list_length = %d\n" % self.list_length)
+        fhandle.write("int powerloop = %d\n" % self.powerloop)
+        fhandle.write("int time_report_iter = %d\n" % self.time_report_iter)
+        fhandle.write("int max_iter = %d\n" % self.max_iter)
+        fhandle.write("double residual = %s\n" % self.residual)
+        fhandle.write("int precon_5d = %d\n" % self.precon_5d)
+        fhandle.write("int reproduce = %d\n" % self.reproduce)
+        fhandle.write("int reproduce_checksum = %d\n" % self.reproduce_checksum)
+        fhandle.write("int reproduce_master_check = %d\n" % self.reproduce_master_check)
+        fhandle.write("int threads = %d\n" % self.threads)
+        fhandle.write("int verbose = %d\n" % self.verbose)
+        fhandle.write("int onepluskappanorm = %d\n" % self.onepluskappanorm)
+        fhandle.write("double mobius_scale = %s\n" % self.mobius_scale)
+        fhandle.write("}\n")
+        fhandle.close()
+
+
+
+class GparityAMAarg:
+    def __init__(self, bilinear_args = [], exact_solve_timeslices = [], exact_precision=1e-8, sloppy_precision = 1e-6, 
+                 config_fmt = "ckpoint_lat.%d", conf_start = 0, conf_incr = 1, conf_lessthan = 10, 
+                 fix_gauge = FixGaugeArg("FIX_GAUGE_NONE",0,0,0,1e-8,10000) ):
+
+        self.bilinear_args = bilinear_args #ContractionTypeAllBilinears array
+        self.exact_solve_timeslices = exact_solve_timeslices
+        self.exact_precision = exact_precision
+        self.sloppy_precision = sloppy_precision
+        self.config_fmt = config_fmt
+        self.conf_start = conf_start
+        self.conf_incr = conf_incr
+        self.conf_lessthan = conf_lessthan
+        self.fix_gauge = fix_gauge
+        
+    def write(self,filename):
+        fhandle = open(filename, "w")
+        fhandle.write("class GparityAMAarg ama_arg = {\n");
+        fhandle.write("Array bilinear_args[%d] = {\n" % len(self.bilinear_args))
+        for i in range(len(self.bilinear_args)):
+            self.bilinear_args[i].write_array(fhandle,"bilinear_args",i)
+        fhandle.write("}\n")
+        
+        fhandle.write("Array exact_solve_timeslices[%d] = {\n" % len(self.exact_solve_timeslices) )
+        for i in range(len(self.exact_solve_timeslices)):
+            fhandle.write("int exact_solve_timeslices[%d] = %d\n" % (i,self.exact_solve_timeslices[i]))
+        fhandle.write("}\n")
+
+        fhandle.write("double exact_precision = %g\n" % self.exact_precision)
+        fhandle.write("double sloppy_precision = %g\n" % self.sloppy_precision)
+
+        fhandle.write("string config_fmt = \"%s\"\n" % self.config_fmt)
+        fhandle.write("int conf_start = %s\n" % self.conf_start)
+        fhandle.write("int conf_incr = %s\n" % self.conf_incr)
+        fhandle.write("int conf_lessthan = %s\n" % self.conf_lessthan)
+        self.fix_gauge.write(fhandle,"fix_gauge")
+        fhandle.write("}\n")
+        fhandle.close()
 

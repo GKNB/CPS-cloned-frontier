@@ -375,7 +375,7 @@ Krylov<S>::~Krylov()
 {
     //release memory for eigenvectors
     for(int i = 0; i < get; i++)
-        this->free_fermion(bq[i]);
+      if(bq[i][1]!=NULL) this->free_fermion(bq[i]);
 }
 
 ///Run the Eigensolver
@@ -383,7 +383,11 @@ template <class S>
 void Krylov<S>::Run()
 {
     tot_time -= dclock();
+    printf("THIS pointer pre-init %p\n",this);
     init();
+
+    printf("THIS pointer %p\n",this);
+    printf("con %d\n",this->con);
     int ff = this->con;
 
     QDPIO::cout << "Krylov: Run()"<<endl;
@@ -732,8 +736,7 @@ void Krylov<S>::TestConv(int SS, vector<S> &tevals, vector<vector<S> > &tevecs)
         {
             double diff = 0;
             diff = abs(tevecs[i][this->M - 1 - lock_num]) * toDouble(resid_nrm); 
-
-            QDPIO::cout << "residual estimate " << SS-1-i << " " << diff << " of (" << real(tevals[i]) 
+            QDPIO::cout << "residual estimate " << SS-1-i << " " << diff << " (target " << this->conv << ") of (" << real(tevals[i]) 
                         << " , " << imag(tevals[i]) << ")" << endl;
 
             if(diff < this->conv)

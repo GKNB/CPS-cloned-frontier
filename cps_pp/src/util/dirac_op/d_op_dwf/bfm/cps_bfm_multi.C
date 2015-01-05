@@ -141,9 +141,6 @@ int DiracOpDwf::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
      ********************************************************
      */
     bfmarg dwfa;
-#if TARGET == BGQ
-    omp_set_num_threads(64);
-#endif
 
 #ifdef UNIFORM_SEED_TESTING
     majorityVote  dwf;
@@ -158,11 +155,7 @@ int DiracOpDwf::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
     dwfa.verbose=1;
     dwfa.reproduce=0;
 
-#if TARGET == BGQ
-    bfmarg::Threads(64);
-#else
-    bfmarg::Threads(1);
-#endif
+    bfmarg::Threads(GJP.Nthreads());
 
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);

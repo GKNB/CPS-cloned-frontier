@@ -38,6 +38,7 @@
 #include<util/WriteLatticePar.h>
 #include<util/ReadLatticePar.h>
 #include<util/qioarg.h>
+#include<util/lattice/bfm_mixed_solver.h>
 
 #include <util/lat_cont.h>
 
@@ -131,7 +132,22 @@ void init_bfm(int *argc, char **argv[])
     Fbfm::use_mixed_solver = true;
     if ( use_mixed_solver_env && strcmp( use_mixed_solver_env, "false" ) == 0 )
       Fbfm::use_mixed_solver = false;
-    VRB.Result( "cps", "init_bfm", "Fbfm::use_mixed_solver: %d\n", Fbfm::use_mixed_solver );
+    if(!UniqueID()) printf( "cps::init_bfm : Fbfm::use_mixed_solver: %d\n", Fbfm::use_mixed_solver );
+
+    //Use mixed precision multi-shift
+    char* mixed_prec_multishift_env = getenv( "use_mixedprec_multishift" );
+    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::MolecularDynamics, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::EnergyCalculation, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::Heatbath, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+ 
+    MultiShiftController.setReliableUpdateFreq(200);
+    MultiShiftController.setMaximumDefectCorrectionCycles(20);
+
+    if ( mixed_prec_multishift_env && strcmp( mixed_prec_multishift_env, "false" ) == 0 ){
+      MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::MolecularDynamics,MultiShiftCGcontroller::DOUBLE_PREC);
+      MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::EnergyCalculation,MultiShiftCGcontroller::DOUBLE_PREC); 
+      MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::Heatbath,MultiShiftCGcontroller::DOUBLE_PREC);
+    } 
 
     Fbfm::bfm_args[0].Ls = GJP.SnodeSites();
     Fbfm::bfm_args[0].M5 = GJP.DwfHeight();
@@ -172,11 +188,7 @@ void init_bfm(int *argc, char **argv[])
 
     Fbfm::current_arg_idx = 0;
 
-#if TARGET == BGQ  
-    bfmarg::Threads(64); //32
-#else
-    bfmarg::Threads(1);
-#endif
+    bfmarg::Threads(GJP.Nthreads());
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -256,6 +268,10 @@ void setup(int *argc, char ***argv)
 
     GJP.Initialize(do_arg);
     LRG.Initialize();
+
+    int threads = 32;
+    if ( getenv ("BFM_NUM_THREADS") ) threads = atoi(getenv("BFM_NUM_THREADS")); 
+    GJP.SetNthreads(threads);
 
     VRB.Result(cname, fname, "VRB.Level(%d)\n", do_arg.verbose_level);
     VRB.Level(do_arg.verbose_level);

@@ -30,15 +30,40 @@
 #include <alg/gparity_contract_arg.h>
 #include <alg/alg_gparitycontract.h>
 
+#include <sstream>
 USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
 {
   Start(&argc,&argv);
   
-  if(argc!=4){
+  if(argc<4){
     ERR.General("","main()","Not enough arguments. Require DoArg, JobPropagatorArgs and GparityContractArg");
   }
+  bool latt_big_endian = false;
+  bool dbl_latt_storemode = false;
+  int nthread = -1;
+
+  int i=4;
+  while(i<argc){
+    char* cmd = argv[i];  
+    if( strncmp(cmd,"-latt_big_endian",25) == 0){
+      latt_big_endian = true;
+      i++;
+    }else if( strncmp(cmd,"-load_dbl_latt",25) == 0){
+      if(!UniqueID()) printf("Loading double latt\n");
+      dbl_latt_storemode = true;
+      i++;
+    }else if( strncmp(cmd,"-nthread",25) == 0){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> nthread;
+      i+=2;
+    }else{
+      if(!UniqueID()) printf("Unknown argument: %s\n",cmd);
+      exit(-1);
+    }
+  }
+
 
   DoArg do_arg;
   if(!do_arg.Decode(argv[1],"do_arg")){
@@ -69,9 +94,11 @@ int main(int argc,char *argv[])
     if(*c=='\%' && *(c+1)=='d'){ found=true; break; }
     c++;
   }
-  if(!found) ERR.General("","main()","GparityContractArg config format '%s' does not contain a %%d",contract_args.config_fmt);
+  if(!found) ERR.General("","main()","GparityContractArg config format '%s' does not contain a (percentage)d\n",contract_args.config_fmt);
 
   GJP.Initialize(do_arg);
+  if(nthread != -1) GJP.SetNthreads(nthread);
+
   GJP.StartConfKind(START_CONF_MEM); //we will handle the gauge field read/write thankyou!
   LRG.Initialize();
 
@@ -97,7 +124,15 @@ int main(int argc,char *argv[])
       //load the configuration
       ReadLatticeParallel readLat;
       if(UniqueID()==0) printf("Reading: %s (NERSC-format)\n",load_config_file);
-      readLat.read(lattice,load_config_file);
+
+      if(dbl_latt_storemode){
+	if(!UniqueID()) printf("Disabling U* field reconstruction\n");
+	readLat.disableGparityReconstructUstarField();
+      }
+
+      QioArg rd_arg(load_config_file,0.01);
+      if( latt_big_endian ) rd_arg.FileFpFormat = FP_IEEE64BIG;
+      readLat.read(lattice,rd_arg);
       if(UniqueID()==0) printf("Config read.\n");
     }else if(do_arg.start_conf_kind == START_CONF_ORD){
       if(!UniqueID()) printf("Using unit gauge links\n");

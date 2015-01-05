@@ -372,8 +372,93 @@ void lanczos_test_compare(Float** &_2f_eigenvectors, Float** &_1f_eigenvectors, 
   }
 }
 
+void test_eigenvectors_unprec(Float** &eigenvectors, const int &n_evecs, GwilsonFdwf* lattice){
+  printf("Testing eigenvectors with Gparity = %d\n",GJP.Gparity());
+  bfm_evo<double> dwf;
+  bfmarg dwfa;
+  setup_bfmargs(dwfa);
 
+  dwf.init(dwfa);
 
+  lattice->BondCond(); //Don't forget to apply the boundary conditions!
+  Float* gauge = (Float*) lattice->GaugeField();
+  dwf.cps_importGauge(gauge); 
+  lattice->BondCond(); //Don't forget to un-apply the boundary conditions!
+
+  long f_size = (long)24 * GJP.VolNodeSites() * GJP.SnodeSites() * (GJP.Gparity()?2:1);
+  Float* cps_tmp = (Float *)pmalloc(sizeof(Float) * f_size);
+
+  for(int i=0;i<n_evecs;i++){
+    Fermion_t bfm_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    dwf.cps_impexFermion(eigenvectors[i],bfm_ev,1);
+    Fermion_t Ddag_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    Fermion_t DDdag_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    Fermion_t tmp = dwf.allocFermion();
+
+    dwf.Munprec(bfm_ev,Ddag_ev,tmp,1);
+    dwf.Munprec(Ddag_ev,DDdag_ev,tmp,0);
+
+    dwf.cps_impexFermion(cps_tmp,DDdag_ev,0);
+
+    for(int s=0;s<f_size;s++){
+      Float ratio = cps_tmp[s] / eigenvectors[i][s];
+      
+      printf("Eigenvector %d, offset %d: ratio %.12le\n",i,s,ratio);
+    }
+
+    dwf.freeFermion(bfm_ev[0]);    dwf.freeFermion(bfm_ev[1]);
+    dwf.freeFermion(Ddag_ev[0]);    dwf.freeFermion(Ddag_ev[1]);
+    dwf.freeFermion(DDdag_ev[0]);    dwf.freeFermion(DDdag_ev[1]);
+    dwf.freeFermion(tmp);
+  }
+}
+
+void test_eigenvectors_prec(Float** &eigenvectors, const int &n_evecs, GwilsonFdwf* lattice){
+  printf("Testing eigenvectors with Gparity = %d\n",GJP.Gparity());
+  bfm_evo<double> dwf;
+  bfmarg dwfa;
+  setup_bfmargs(dwfa);
+
+  dwf.init(dwfa);
+
+  lattice->BondCond(); //Don't forget to apply the boundary conditions!
+  Float* gauge = (Float*) lattice->GaugeField();
+  dwf.cps_importGauge(gauge); 
+  lattice->BondCond(); //Don't forget to un-apply the boundary conditions!
+
+  long f_size = (long)24 * GJP.VolNodeSites() * GJP.SnodeSites() * (GJP.Gparity()?2:1);
+  Float* cps_tmp = (Float *)pmalloc(sizeof(Float) * f_size);
+
+  for(int i=0;i<n_evecs;i++){
+    Fermion_t bfm_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    dwf.cps_impexFermion(eigenvectors[i],bfm_ev,1);
+    Fermion_t Ddag_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    Fermion_t DDdag_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
+    Fermion_t tmp = dwf.allocFermion();
+
+    dwf.Mprec(bfm_ev[1],Ddag_ev[1],tmp,1);
+    dwf.Mprec(Ddag_ev[1],DDdag_ev[1],tmp,0);
+
+    dwf.copy(DDdag_ev[0],bfm_ev[0]);
+
+    dwf.cps_impexFermion(cps_tmp,DDdag_ev,0);
+
+    for(int s=0;s<f_size;s++){
+      if(cps_tmp[s] == 0 && eigenvectors[i][s]){ printf("Eigenvector %d, offset %d: both zero\n",i,s); continue; }
+      else if(cps_tmp[s] == 0){ printf("!!Eigenvector %d, offset %d: result is zero, eigenvector is not: %.12le\n",i,s,eigenvectors[i][s]); continue; }
+      else if(eigenvectors[i][s] == 0){ printf("!!Eigenvector %d, offset %d: eigenvector component zero, result is not: %.12le\n",i,s,cps_tmp[s]); continue; }
+
+      Float ratio = cps_tmp[s] / eigenvectors[i][s];
+      
+      printf("Eigenvector %d, offset %d: ratio %.12le\n",i,s,ratio);
+    }
+
+    dwf.freeFermion(bfm_ev[0]);    dwf.freeFermion(bfm_ev[1]);
+    dwf.freeFermion(Ddag_ev[0]);    dwf.freeFermion(Ddag_ev[1]);
+    dwf.freeFermion(DDdag_ev[0]);    dwf.freeFermion(DDdag_ev[1]);
+    dwf.freeFermion(tmp);
+  }
+}
 
 using namespace Chroma;
 using namespace cps;
@@ -609,10 +694,11 @@ int main (int argc,char **argv )
   int n_evec_unprec = lanczos_test_2f(lattice, _2f_evecs_unprec,false);
 #endif
 
-  //#define PREC_TEST
+  #define PREC_TEST
 #ifdef PREC_TEST
   Float** _2f_evecs_prec;
   int n_evec_prec = lanczos_test_2f(lattice, _2f_evecs_prec,true); //cf comment at test stage
+  test_eigenvectors_prec(_2f_evecs_prec, n_evec_prec, lattice);
 #endif
 
   if(UniqueID()==0) printf("Starting double lattice section\n");

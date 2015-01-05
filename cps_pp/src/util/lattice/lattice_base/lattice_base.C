@@ -606,15 +606,6 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
     Matrix *U = field;
     Matrix *Ustar = field + nmat_per_site*GJP.VolNodeSites();
 
-#ifdef USE_OMP
-#if TARGET == BGQ
-  omp_set_dynamic(false);
-  omp_set_num_threads(64);
-#else
-  omp_set_num_threads(1);
-#endif
-#endif
-
 #pragma omp parallel for
     for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
       Ustar[m].Conj(U[m]);
@@ -3206,15 +3197,6 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparit
   CSM.SaveCsum(CSUM_EVL_MOM,loc_sum);
 
   Matrix *curU_p = GaugeField();
-
-#ifdef USE_OMP
-#if TARGET == BGQ
-  omp_set_dynamic(false);
-  omp_set_num_threads(64);
-#else
-  omp_set_num_threads(1);
-#endif
-#endif
 
     // Hantao: no problem with this since there are no thread reductions.
 #pragma omp parallel for

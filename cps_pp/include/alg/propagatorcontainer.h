@@ -97,6 +97,9 @@ class QPropWcontainer: public PropagatorContainer{
   
   std::vector<std::vector<int> > get_allowed_momenta() const;
 
+  int getSourceTimeslice();
+  void setSourceTimeslice(const int &t);
+  
   ~QPropWcontainer(){ if(prop!=NULL) delete prop; }
 };
 
@@ -119,7 +122,7 @@ class A2ApropContainer: public PropagatorContainer{
 
   A2APropbfm & getProp(Lattice &latt); //get the prop, calculate or load if necessary
 
-  ~A2ApropContainer(){ if(prop!=NULL) delete prop; }
+  ~A2ApropContainer();
 };
 
 
@@ -128,17 +131,30 @@ class A2ApropContainer: public PropagatorContainer{
 class LanczosContainer{
   Lanczos_5d<double> *lanczos;
   bfm_evo<double> *dwf;
-  
+
+  int precision; //1=float, 2=double (default)
+
+  Lanczos_5d<float> *lanczos_f;
+  bfm_evo<float> *dwf_f;
+
   bool reload_gauge;
 
   LanczosContainerArg args;
  public:
-  LanczosContainer(LanczosContainerArg &_args): reload_gauge(false), dwf(NULL), lanczos(NULL){ args.deep_copy(_args); } 
+ LanczosContainer(LanczosContainerArg &_args): reload_gauge(false), 
+    dwf(NULL), lanczos(NULL), 
+    dwf_f(NULL), lanczos_f(NULL), 
+    precision(2){ args.deep_copy(_args); } 
 
-  void calcEig(Lattice &latt);
+  void calcEig(Lattice &latt); //calculate double precision eigenvectors
   void deleteEig();
 
-  Lanczos_5d<double> & getEig(Lattice &latt);
+  void setupBfm(const int &prec); //setup either bfm instance
+
+  Lanczos_5d<double> & getEig(Lattice &latt); 
+  Lanczos_5d<float> & getEigSinglePrec(Lattice &latt);
+
+  const LanczosContainerArg &getArgs() const{ return args; }
 
   inline bool tagEquals(const char* what){ //check if tag is equal to input
     return (strcmp(args.tag,what)==0);
@@ -149,6 +165,12 @@ class LanczosContainer{
   void reloadGauge(){ reload_gauge = true; }
 
   void set_lanczos(Lanczos_5d<double> *to); //Does not check arguments match those in args, so use only if you know what you are doing!
+  
+  void set_bfm(bfm_evo<double> *_dwf){ dwf = _dwf; } //Also does not check arguments, so be careful
+  void set_bfm(bfm_evo<float> *_dwf){ dwf_f = _dwf; }
+
+  const int &getPrecision() const{ return precision; }
+  void setPrecision(const int &prec); //convert from float to double or double to float
 };
 
 

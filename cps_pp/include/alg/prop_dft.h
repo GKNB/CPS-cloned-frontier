@@ -62,6 +62,11 @@ protected:
 public:
   PropDFT(): nmom(0){}
 
+  void copy_momenta(const PropDFT &r){
+    nmom = r.nmom;
+    mom_idx_map = r.mom_idx_map;
+  }
+
   void clear(){
     mom_idx_map.clear();
     nmom=0;
@@ -390,7 +395,64 @@ public:
 
 
 
+//Calculate  tr{  A G_1 B G_2  }
+//where A, B are spin/flavour matrices and G_1 and G_2 are propagators with an arbitrary superscript (transpose, hermition conj, conj or nothing)
+//This is a simpler version of the above which just computes and stores the results for one pair of propagators. 
+template<typename MatrixType>
+class ContractedBilinearSimple: public PropDFT{
+private:
+  typedef PropDFT::mom_idx_map_type mom_idx_map_type;
 
+  const int nmat; //number of matrices:  for spin matrices there are 16, for G-parity spin-flavor matrices there are 16*4
+  int array_size;
+  Rcomplex * results; //elements of the Rcomplex* indexed by mapping from [mat1][mat2][mom][t]
+
+  inline int idx_map(const int &mat1, const int &mat2, const int & mom_idx, const int &t) const{ return mat1 + nmat * (mat2 + nmat*(mom_idx + nmom*t)); }
+  inline void idx_unmap(const int &idx, int &mat1, int &mat2, int & mom_idx, int &t) const{
+    int rem = idx;
+    mat1 = rem % nmat;  rem /= nmat;
+    mat2 = rem % nmat;  rem /= nmat;
+    mom_idx = rem % nmom; rem /= nmom;
+    t = rem;
+  };
+
+public:
+ ContractedBilinearSimple(): array_size(-1), nmat(_PropagatorBilinear_helper<MatrixType>::nidx), PropDFT(){}
+
+  void calculateBilinears(Lattice &lat,
+			  char const* tag_A, const Superscript &ss_A,  
+			  char const* tag_B, const Superscript &ss_B);
+
+  //Get a Fourier transformed bilinear correlation function as a function of time
+  //Sigma is ignored if MatrixType is WilsonMatrix
+  std::vector<Rcomplex> getBilinear(const std::vector<Float> &sink_momentum, 
+				    const int &Gamma1, const int &Sigma1,
+				    const int &Gamma2, const int &Sigma2);
+
+  //for use with WilsonMatrix where sigma (flavour matrix idx) does not play a role
+  std::vector<Rcomplex> getBilinear(const std::vector<Float> &sink_momentum, 
+				    const int &Gamma1, const int &Gamma2);
+    
+  //Can only be added before calculation has been performed
+  void add_momentum(const std::vector<Float> &sink_mom);
+
+  void clear();
+
+  ~ContractedBilinearSimple(){ clear(); }
+  
+  //write all combinations
+  void write(const std::string &file);
+  void write(FILE *fp);
+
+  //Contents become the sum of the contents of this object and r
+  ContractedBilinearSimple<MatrixType> & operator+=(const ContractedBilinearSimple<MatrixType> &r);
+  ContractedBilinearSimple<MatrixType> & operator-=(const ContractedBilinearSimple<MatrixType> &r);
+  //Contents are divided by a float
+  ContractedBilinearSimple<MatrixType> & operator/=(const Float &r); 
+
+  //Shift the data:   data[t] -> data[t+dt]  (modulo lattice size)
+  void Tshift(const int &dt);
+};
 
 
 //24^4 tensor in spin,color and flavor

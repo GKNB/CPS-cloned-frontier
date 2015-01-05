@@ -253,7 +253,6 @@ void AlgActionRationalQuotient::heatbath() {
   char fname[20+strlen(force_label)];
   sprintf(fname, "heatbath() [%s]",force_label);
     
-
   //const char *fname = "heatbath()";
   Float dtime = -dclock();
 
@@ -344,7 +343,6 @@ void AlgActionRationalQuotient::heatbath() {
     energyEval = 0;
     traj++;
   }
-
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
 }
@@ -368,7 +366,6 @@ Float AlgActionRationalQuotient::energy() {
     return h_init;
   } else {
     Float dtime = -dclock();
-
     int shift = 0;
     Float h = 0.0;
 
@@ -434,11 +431,10 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   char fname[30+strlen(force_label)];
   sprintf(fname, "prepare_fg(M*,F) [%s]",force_label);
 
-
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
-
+  
   if(!UniqueID()){    
     Float pvals[4];
     for(int ii=0;ii<4;ii++){

@@ -40,6 +40,9 @@ void QioArg::init(const char * file, const int concur_io_number, const Float chk
   // user set params
   ConcurIONumber = concur_io_number;
   strcpy(FileName, file);
+  if(!UniqueID()){ printf("QioArg::init copied filename string '%s' from %p to %p\n",file,file,FileName); fflush(stdout); }
+  if(!UniqueID()){ printf("QioArg::init FileName = '%s'\n",FileName); fflush(stdout); }
+
   CheckPrecision = chk_prec;
   FileFpFormat = file_format;
   FileIntFormat = file_int_format;

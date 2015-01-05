@@ -26,6 +26,8 @@ enum ContractionType {
 	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 9,
 	CONTRACTION_TYPE_MRES = 10,
 	CONTRACTION_TYPE_A2A_BILINEAR = 11,
+	CONTRACTION_TYPE_WILSON_FLOW = 12,
+	CONTRACTION_TYPE_K_TO_PIPI = 13,
 };
 typedef enum ContractionType ContractionType;
 extern struct vml_enum_map ContractionType_map[];
@@ -379,6 +381,28 @@ template<> struct rpc_deepcopy<ContractionTypeMres>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+struct ContractionTypeWilsonFlow {
+	int n_steps;
+	Float time_step;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeWilsonFlow &rhs);
+};
+typedef struct ContractionTypeWilsonFlow ContractionTypeWilsonFlow;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeWilsonFlow>{
+	static void doit(ContractionTypeWilsonFlow const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeWilsonFlow>{
+	static void doit(ContractionTypeWilsonFlow &into, ContractionTypeWilsonFlow const &from);
+};
+
+
 enum A2ASmearingType {
 	BOX_3D_SMEARING = 0,
 	EXPONENTIAL_3D_SMEARING = 1,
@@ -504,6 +528,36 @@ template<> struct rpc_deepcopy<ContractionTypeA2ABilinear>{
 
 
 #include <util/vml/vml_templates.h>
+struct ContractionTypeKtoPiPi {
+	char *prop_L;
+	char *prop_H;
+	MomPairArg p_qpi1;
+	MomPairArg p_qpi2;
+	Float p_qK[3];
+	int gparity_use_transconv_props;
+	A2ASmearing pion_source;
+	A2ASmearing kaon_source;
+	int t_sep_pi_k;
+	int t_sep_pion;
+	char *file;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const ContractionTypeKtoPiPi &rhs);
+};
+typedef struct ContractionTypeKtoPiPi ContractionTypeKtoPiPi;
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<ContractionTypeKtoPiPi>{
+	static void doit(ContractionTypeKtoPiPi const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<ContractionTypeKtoPiPi>{
+	static void doit(ContractionTypeKtoPiPi &into, ContractionTypeKtoPiPi const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
 struct GparityMeasurement {
 	ContractionType type;
 	union {
@@ -519,6 +573,8 @@ struct GparityMeasurement {
 		ContractionTypeTopologicalCharge contraction_type_topological_charge;
 		ContractionTypeMres contraction_type_mres;
 		ContractionTypeA2ABilinear contraction_type_a2a_bilinear;
+		ContractionTypeWilsonFlow contraction_type_wilson_flow;
+		ContractionTypeKtoPiPi contraction_type_k_to_pipi;
 	} GparityMeasurement_u;
 	   template <typename T> static ContractionType type_map();
 	   void deep_copy(const GparityMeasurement &rhs);
@@ -540,6 +596,8 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrili
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeA2ABilinear>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeWilsonFlow>();
+template <> ContractionType GparityMeasurement::type_map<ContractionTypeKtoPiPi>();
 template<> struct rpc_deepcopy<GparityMeasurement>{
 	static void doit(GparityMeasurement &into, GparityMeasurement const &from);
 };
@@ -577,6 +635,36 @@ template<> struct rpc_deepcopy<GparityContractArg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+class VML;
+class GparityAMAarg {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	struct {
+		u_int bilinear_args_len;
+		ContractionTypeAllBilinears *bilinear_args_val;
+	} bilinear_args;
+	struct {
+		u_int exact_solve_timeslices_len;
+		int *exact_solve_timeslices_val;
+	} exact_solve_timeslices;
+	Float exact_precision;
+	Float sloppy_precision;
+	char *config_fmt;
+	int conf_start;
+	int conf_incr;
+	int conf_lessthan;
+	FixGaugeArg fix_gauge;
+	   void deep_copy(const GparityAMAarg &rhs);
+};
+template<> struct rpc_deepcopy<GparityAMAarg>{
+	static void doit(GparityAMAarg &into, GparityAMAarg const &from);
+};
+
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -599,14 +687,17 @@ extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, Quadrilinea
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
+extern  bool_t vml_ContractionTypeWilsonFlow (VML *, char *instance, ContractionTypeWilsonFlow*);
 extern  bool_t vml_A2ASmearingType (VML *, char *instance, A2ASmearingType*);
 extern  bool_t vml_Box3dSmearing (VML *, char *instance, Box3dSmearing*);
 extern  bool_t vml_Exponential3dSmearing (VML *, char *instance, Exponential3dSmearing*);
 extern  bool_t vml_A2ASmearing (VML *, char *instance, A2ASmearing*);
 extern  bool_t vml_MatIdxAndCoeff (VML *, char *instance, MatIdxAndCoeff*);
 extern  bool_t vml_ContractionTypeA2ABilinear (VML *, char *instance, ContractionTypeA2ABilinear*);
+extern  bool_t vml_ContractionTypeKtoPiPi (VML *, char *instance, ContractionTypeKtoPiPi*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
+extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
 
 #else /* K&R C */
 extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
@@ -624,14 +715,17 @@ extern  bool_t vml_QuadrilinearSpinStructure (VML *, char *instance, Quadrilinea
 extern  bool_t vml_ContractionTypeQuadrilinearVertex (VML *, char *instance, ContractionTypeQuadrilinearVertex*);
 extern  bool_t vml_ContractionTypeTopologicalCharge (VML *, char *instance, ContractionTypeTopologicalCharge*);
 extern  bool_t vml_ContractionTypeMres (VML *, char *instance, ContractionTypeMres*);
+extern  bool_t vml_ContractionTypeWilsonFlow (VML *, char *instance, ContractionTypeWilsonFlow*);
 extern  bool_t vml_A2ASmearingType (VML *, char *instance, A2ASmearingType*);
 extern  bool_t vml_Box3dSmearing (VML *, char *instance, Box3dSmearing*);
 extern  bool_t vml_Exponential3dSmearing (VML *, char *instance, Exponential3dSmearing*);
 extern  bool_t vml_A2ASmearing (VML *, char *instance, A2ASmearing*);
 extern  bool_t vml_MatIdxAndCoeff (VML *, char *instance, MatIdxAndCoeff*);
 extern  bool_t vml_ContractionTypeA2ABilinear (VML *, char *instance, ContractionTypeA2ABilinear*);
+extern  bool_t vml_ContractionTypeKtoPiPi (VML *, char *instance, ContractionTypeKtoPiPi*);
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
+extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
 
 #endif /* K&R C */
 

@@ -166,15 +166,14 @@ Float AlgHmc::run(void)
     ScuChecksum::Initialise(true,true);
 #endif
  
-  // Set the microcanonical time step
-  //  Float dt = hmc_arg->step_size;
-
   //!< Save initial lattice and rngs (if necessary)
-  int Ntests = saveInitialState();
+  //1) If we are reproducing, set Ntests=2 and set hmc_arg->reproduce_attempt_limit to a number between 1 and 5 (default 3)
+  //2) If we are not reproducing, set Ntests=1 and hmc_arg->reproduce_attempt_limit = 1
+  int Ntests = saveInitialState(); //is 1 normally, 2 when reproducing
+
   VRB.Result(cname,fname,"shifts=%d %d %d\n",SHIFT_X,SHIFT_Y,SHIFT_Z);
 
-  // Try attempt_limit times to generate the same final gauge config 
-  // consecutively
+  // Try attempt_limit times to generate the same final gauge config consecutively
   for (int attempt = 0; attempt < hmc_arg->reproduce_attempt_limit; attempt++) {
 
     for (int test = 0; test < Ntests; test++) {
@@ -192,14 +191,15 @@ Float AlgHmc::run(void)
       }
 
       //!< Evaluate the heatbath
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Heatbath);
       integrator->heatbath();
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 
       //!< Calculate initial Hamiltonian
       wilson_set_sloppy( false);
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
       h_init = integrator->energy();
-      //      Float total_h_init =h_init;
-      //      glb_sum(&total_h_init);
-
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
       {
 	Float gsum_h(h_init);
 	glb_sum(&gsum_h);
@@ -207,19 +207,12 @@ Float AlgHmc::run(void)
       }
 
       // Molecular Dynamics Trajectory
-      if(hmc_arg->wfm_md_sloppy){
-	wilson_set_sloppy(true);
-	#ifdef USE_BFM
-	Fbfm::single_prec_multi_shift = true; //reuse this handy and likely unused hmc_arg variable for enabling sloppy RHMC during MD
-	#endif
-      }
-
+      if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::MolecularDynamics);
       integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 
       wilson_set_sloppy(false);
-#ifdef USE_BFM
-      Fbfm::single_prec_multi_shift = false;
-#endif
 
       // Reunitarize
       if(hmc_arg->reunitarize == REUNITARIZE_YES){
@@ -235,20 +228,18 @@ Float AlgHmc::run(void)
 #endif
 
       //!< Calculate final Hamiltonian
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
       h_final = integrator->energy();
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
       {
 	Float gsum_h = h_final;
 	glb_sum(&gsum_h);
 	if(UniqueID()==0) printf("Final Hamiltonian %.9e\n",gsum_h);
       }
-      //      Float total_h_final =h_final;
-      //      glb_sum(&total_h_final);
 
       // Calculate Final-Initial Hamiltonian 
       delta_h = h_final - h_init;
       glb_sum(&delta_h);
-      //      VRB.Result(cname,fname,"h_init=%0.14e h_final=%0.14e delta_h=%0.14e \n",
-      //        total_h_init,total_h_final,delta_h);
 
       // Check that delta_h is the same across all s-slices 
       // (relevant only if GJP.Snodes() != 1)
@@ -269,7 +260,9 @@ Float AlgHmc::run(void)
 
 	integrator->reverse();
 	if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+	MultiShiftController.setEnvironment(MultiShiftCGcontroller::MolecularDynamics);
 	integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
+	MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 	wilson_set_sloppy(false);
 
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
@@ -277,8 +270,9 @@ Float AlgHmc::run(void)
 	if ( ! ScuChecksum::CsumSwap() )
 	  ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
 #endif
-
+	MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
 	h_delta = h_final - integrator->energy();
+	MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 	glb_sum(&h_delta);
 
 	reverseTest();
@@ -295,7 +289,7 @@ Float AlgHmc::run(void)
 
   } // end attempt loop
 
-  {
+  {//Metropolis step
     Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
     
     VRB.Result(cname,fname,"hmc_arg->metropolis=%d\n",hmc_arg->metropolis);
@@ -334,7 +328,7 @@ Float AlgHmc::run(void)
     config_no = lat.GupdCnt();
 
     LatticeFactory::Destroy();
-  }
+  }//end of Metropolis step
 
   CgStats cg_stats;
   integrator->cost(&cg_stats);

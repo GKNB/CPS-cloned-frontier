@@ -62,6 +62,7 @@ void moveFloat(Float *b, const Float *a, int len) {
 #endif
 
 #ifdef USE_OMP
+    //#if 0
 #pragma omp parallel for
     for(int i =0;i<len;i++) b[i] = a[i];
 #else

@@ -269,14 +269,6 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 //  VRB.Func("",fname);
 //  if (call_num%100==1) printf("PT:mat()\n");
 
-#if TARGET == BGQ
-  //  printf("BGQ setting thread num to 64\n"); fflush(stdout);
-  omp_set_dynamic(false);
-  omp_set_num_threads(64);
-#else
-  omp_set_num_threads(1);
-#endif
-
   if (!QMP_get_node_number() ) printf("PT::mat with omp_get_max_threads() = %d\n", omp_get_max_threads() );
 
   for(i=0;i<n;i++) wire[i] = dir[i]; 

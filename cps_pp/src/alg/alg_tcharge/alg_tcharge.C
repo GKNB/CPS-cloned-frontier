@@ -1237,9 +1237,14 @@ void AlgTcharge::smartrun()
 
   Float tmat[nfunc][nfunc] = {0};
 
-  Float tmp[64][nfunc][nfunc] = {0};
+  const int nthread = GJP.Nthreads();
+  Float tmp[nthread][nfunc][nfunc];
+  for(int i=0;i<nthread;i++)
+    for(int j=0;j<nfunc;j++)
+      for(int k=0;k<nfunc;k++)
+	tmp[i][j][k] = 0;
 
-  omp_set_num_threads(64);
+  omp_set_num_threads(nthread);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {
@@ -1276,7 +1281,7 @@ void AlgTcharge::smartrun()
   for(int f1(0); f1 < nfunc; ++f1)
     for(int f2(f1); f2 < nfunc; ++f2)
     {
-      for(int i = 0; i < 64; ++i)
+      for(int i = 0; i < nthread; ++i)
         tmat[f1][f2] += tmp[i][f1][f2];
       glb_sum( &tmat[f1][f2] );
 //      VRB.Result(cname, fname, "tmat f1, f2 = %.6e\n", tmat[f1][f2]);

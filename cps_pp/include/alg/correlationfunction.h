@@ -4,7 +4,7 @@ CPS_START_NAMESPACE
 CPS_END_NAMESPACE
 
 #include<config.h>
-
+#include<string>
 
 CPS_START_NAMESPACE
 
@@ -13,7 +13,7 @@ class CorrelationFunction{
 public:
   enum ThreadType { THREADED, UNTHREADED };
 private:
-  char *label;
+  std::string label;
   int ncontract;
   int time_size;
   Rcomplex** wick; //unthreaded wick contractions [contraction][t]
@@ -21,8 +21,11 @@ private:
 
   ThreadType threadtype;
   int max_threads; //the max amount of threads when the array of Rcomplex was created
-  bool global_sum_on_write; //do a global summation before writing. Defaults to true.
+  bool global_sum_on_write; //do a global summation (lattice sum + thread sum) before writing. Defaults to true.
 public:
+  inline void setLabel(const char* _label){ label = _label; }
+  const std::string & getLabel() const{ return label; }
+
   void setNcontractions(const int &n);
   const int & nContractions() const{ return ncontract; }
   void write(const char *file);
@@ -38,10 +41,13 @@ public:
 
   void setGlobalSumOnWrite(const bool &b){ global_sum_on_write = b; } //Global sum on write is disabled automatically if sumLattice() is called manually
 
+  //Set the thread type. Cannot be changed once memory has been allocated
+  void setThreadType(const ThreadType &thread);
   const ThreadType & threadType() const{ return threadtype; }
 
   CorrelationFunction(const char *_label, const ThreadType &thread = UNTHREADED);
   CorrelationFunction(const char *_label, const int &n_contractions, const ThreadType &thread = UNTHREADED);
+  CorrelationFunction();
 
   ~CorrelationFunction();
 };

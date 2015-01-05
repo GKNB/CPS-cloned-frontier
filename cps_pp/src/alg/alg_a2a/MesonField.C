@@ -11,7 +11,11 @@
 #ifdef USE_QMP
 #include <qmp.h>
 #endif
-
+#include<vector>
+#include<string>
+#include<sstream>
+#include<set>
+#include<map>
 using namespace std;
 
 CPS_START_NAMESPACE
@@ -3214,9 +3218,6 @@ void MesonField::show_wilson(const WilsonMatrix &a)
 }
 
 
-
-
-
 void MFBasicSource::set_expsrc(fftw_complex *tmpsrc, const Float &radius)
 {
   int x_size = GJP.Xnodes()*GJP.XnodeSites();
@@ -3235,8 +3236,11 @@ void MFBasicSource::set_expsrc(fftw_complex *tmpsrc, const Float &radius)
 	int yr = (y + Y / 2) % Y - Y / 2;
 	int zr = (z + Z / 2) % Z - Z / 2;
 	Float v = sqrt(xr * xr + yr * yr + zr * zr) / radius;
-	tmpsrc[off][0] = exp(-v) / (X * Y * Z);
-	tmpsrc[off][1] = 0.;
+	
+	Float site_mag = exp(-v) / (X * Y * Z);
+
+	tmpsrc[off][0] = site_mag;
+	tmpsrc[off][1] = 0.0;
       }
     }
   }
@@ -3253,7 +3257,6 @@ void MFBasicSource::set_boxsrc(fftw_complex *tmpsrc, const int &size)
   if(GJP.Gparity1fX()) glb_dim[0]/=2;
   if(GJP.Gparity1fY()) glb_dim[1]/=2;
 
-
   const int bound1[3] = { size / 2,
 			  size / 2,
 			  size / 2 };
@@ -3268,17 +3271,18 @@ void MFBasicSource::set_boxsrc(fftw_complex *tmpsrc, const int &size)
     for(x[1] = 0; x[1] < glb_dim[1]; ++x[1]) {
       for(x[2] = 0; x[2] < glb_dim[2]; ++x[2]) {
 	int offset = x[0] + glb_dim[0] * (x[1] + glb_dim[1] * x[2]     );
+	Float site_mag = 0.;
 
 	if(
 	   (x[0] <= bound1[0] || x[0] >= bound2[0])
 	   && (x[1] <= bound1[1] || x[1] >= bound2[1])
 	   && (x[2] <= bound1[2] || x[2] >= bound2[2])
 	   ) {
-	  tmpsrc[offset][0] = 1. / glb_size_3d;
-	}else {
-	  tmpsrc[offset][0] = 0.;
+	  site_mag = 1. / glb_size_3d;
 	}
-	tmpsrc[offset][1] = 0.;
+
+	tmpsrc[offset][0] = site_mag;
+	tmpsrc[offset][1] = 0.0;
       }
     }
   }
@@ -3419,6 +3423,36 @@ void MFqdpMatrix::set_matrix(const Float gamma_matrix_linear_comb[16], const Flo
     scf *= pcomb;
   }
 }
+void MFqdpMatrix::set_matrix(const std::complex<Float> gamma_matrix_linear_comb[16], const std::complex<Float> pauli_matrix_linear_comb[4]){
+  scf = 0.0;
+  for(int g=0;g<16;g++){
+    if(gamma_matrix_linear_comb[g].real()==0.0 && gamma_matrix_linear_comb[g].imag() ) continue;
+    SpinColorFlavorMatrix gamma; 
+    gamma.unit();
+    gamma *= gamma_matrix_linear_comb[g];
+    int rem = g; 
+    for(int i=0;i<4;i++){ 
+      int n = rem % 2; rem /= 2; 
+      if(n) gamma.gr(i);
+    }
+    scf += gamma;
+  }
+  if(GJP.Gparity() || GJP.Gparity1fX()){
+    SpinColorFlavorMatrix pcomb = 0.0;
+    const static FlavorMatrixType pmats[4] = {sigma0, sigma1, sigma2, sigma3};
+    
+    for(int p=0;p<4;p++){
+      if(pauli_matrix_linear_comb[p].real()==0.0 && pauli_matrix_linear_comb[p].imag()==0.0) continue;
+      SpinColorFlavorMatrix pauli; 
+      pauli.unit();
+      pauli *= pauli_matrix_linear_comb[p];
+      if(p>0) pauli.pr(pmats[p]);
+      pcomb += pauli;
+    }
+    scf *= pcomb;
+  }
+}
+
 
 
 //\Gamma(n) = \gamma_1^n1 \gamma_2^n2  \gamma_3^n3 \gamma_4^n4    where ni are bit fields: n4 n3 n2 n1 
@@ -3537,7 +3571,7 @@ void MesonField2::construct(A2APropbfm &left, A2APropbfm &right, const MFstructu
 	  complex<double> incr = source(x_3d)*structure.contract_internal_indices(flvec,frvec);
 	  *mf_to += incr;
 
-	  if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf2 = %f %f\n",i,j,x,incr.real(),incr.imag(),mf_to->real(),mf_to->imag());
+	  //if(incr.real()!=0.0 || incr.imag()!=0.0) printf("i %d j %d x %d incr %f %f,  mf2 = %f %f\n",i,j,x,incr.real(),incr.imag(),mf_to->real(),mf_to->imag());
 
 	}else *mf_to += source(x_3d)*structure.contract_internal_indices(left_vec,right_vec);
       }
@@ -3622,10 +3656,11 @@ void MesonField2::contract_specify_tsrc(const MesonField2 &left, const MesonFiel
     for(int tsnk=0;tsnk<t_size;++tsnk)
       for(int i=0;i<left.nl[0]+left.nhits[0]*left.dilute_size;++i)
 	for(int j=0;j<left.nl[1]+left.nhits[1]*left.dilute_size;++j){
-	  int t_dis = (tsnk-tsrc+t_size)% t_size;
 	  const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
 	  const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
-	  into(contraction_idx,t_dis) += l*r;
+	  cnum delta = l*r;
+	  into(contraction_idx,tsnk) += delta;
+	  //if(!UniqueID()) printf("Expect: tsrc %d tsnk %d contrib %d,%d,%d incr %.12le %.12le\n",tsrc,tsnk,i,j,i,delta.real(),delta.imag());
 	}
   }else{
     int n_threads = bfmarg::threads;
@@ -3640,18 +3675,575 @@ void MesonField2::contract_specify_tsrc(const MesonField2 &left, const MesonFiel
       int i=rem % nmodes[0]; rem/=nmodes[0];
       int tsnk = rem;
 
-      int t_dis = (tsnk-tsrc+t_size)% t_size;
-
       const cnum &l = (cform == 1) ? left(i,j,tsrc,NA,tsnk) : left(i,j,tsrc,tsnk,NA);
       const cnum &r = (cform == 1) ? right(j,i,tsnk,NA,tsrc) : right(j,i,tsnk,tsrc,NA);
-      into(omp_get_thread_num(),contraction_idx,t_dis) += l*r;
+      into(omp_get_thread_num(),contraction_idx,tsnk) += l*r;
     }
     into.sumThreads();
   }
 }
 
+// into[t1] = \sum_{t2 in 't2range'} [ left(t1)_iJ ][ right(t2)_jI ]
+//where J=(j,t2) and I=(i,t)
+void MesonField2::contract_specify_t2range(const MesonField2 &left, const MesonField2 &right, const int &contraction_idx, const RangeFunc &t2range, CorrelationFunction &into){
+  if( !parameter_match(left,right,Right,Left) || !parameter_match(left,right,Left,Right) )
+    ERR.General("MesonField2","contract_specify_t2range(..)","Field parameters do not match\n");
+  int cform_l = con_form(left),  cform_r = con_form(right);
+  if(cform_l != cform_r || cform_l != 1){ //w^dag v form
+    ERR.General("MesonField2","contract_specify_t2range(..)","MesonFields must be both of w^dag v form\n");
+  }
+   
+  into.setGlobalSumOnWrite(false);
+
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  static const int NA = -1; //non-applicable!
+
+  if(into.threadType() == CorrelationFunction::UNTHREADED){
+    for(int t1=0;t1<t_size;++t1){
+      for(int i=0;i<left.get_size(Left);i++){
+	for(int j=0;j<right.get_size(Left);j++){
+	  int I = right.idx(i,t1,Right);
+	  for(int t2=0;t2<t_size;t2++){
+	    if(!t2range.allow(t1,t2,-1)) continue;
+
+	    int J = left.idx(j,t2,Right);
+
+	    into(contraction_idx,t1) += (*left.mf_val(i,J,t1)) * (*right.mf_val(j,I,t2));
+	  }
+	}
+      }
+    }
+
+  }else{
+    int n_threads = bfmarg::threads;
+    omp_set_num_threads(n_threads);
+    int n_wmodes[2] = { left.get_size(Left), right.get_size(Left) };
+
+#pragma omp parallel for 
+    for(int r=0;r<n_wmodes[0]*n_wmodes[1]*t_size;++r){
+      //r = j + n_wmodes[1]*(i+n_wmodes[0]*t1)
+      int rem = r;
+      int j=rem % n_wmodes[1]; rem/=n_wmodes[1];
+      int i=rem % n_wmodes[0]; rem/=n_wmodes[0];
+      int t1 = rem;
+
+      int I = right.idx(i,t1,Right);
+
+      for(int t2=0;t2<t_size;t2++){
+	if(!t2range.allow(t1,t2,-1)) continue;
+
+	int J = left.idx(j,t2,Right);
+
+	into(omp_get_thread_num(),contraction_idx,t1) += (*left.mf_val(i,J,t1)) * (*right.mf_val(j,I,t2));
+      }
+    }
+    into.sumThreads();
+  }
+}
+
+//Assumes both meson fields have w^dag v form
+// result = [ left(t1)_iJ ][ right(t2)_jI ]
+//where J=(j,t2) and I=(i,t1)
+std::complex<double> MesonField2::contract_fixedt1t2(const MesonField2 &left, const MesonField2 &right, const int &t1, const int &t2, const bool &threaded){
+  if( !parameter_match(left,right,Right,Left) || !parameter_match(left,right,Left,Right) )
+    ERR.General("MesonField2","contract_specify_t2range(..)","Field parameters do not match\n");
+  int cform_l = con_form(left),  cform_r = con_form(right);
+  if(cform_l != cform_r || cform_l != 1){ //w^dag v form
+    ERR.General("MesonField2","contract_specify_t2range(..)","MesonFields must be both of w^dag v form\n");
+  }
+
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  if(!threaded){
+    std::complex<double> result(0.0);
+
+    for(int i=0;i<left.get_size(Left);i++){
+      for(int j=0;j<right.get_size(Left);j++){
+	int I = right.idx(i,t1,Right);
+	int J = left.idx(j,t2,Right);
+	
+	result += (*left.mf_val(i,J,t1)) * (*right.mf_val(j,I,t2));
+      }
+    }
+    return result;
+  }else{
+    int n_threads = bfmarg::threads;
+    omp_set_num_threads(n_threads);
+    int n_wmodes[2] = { left.get_size(Left), right.get_size(Left) };
+
+    std::vector<std::complex<double> > result_t(omp_get_num_threads(), 0.0);
+
+#pragma omp parallel for 
+    for(int r=0;r<n_wmodes[0]*n_wmodes[1];++r){
+      //r = j + n_wmodes[1]*i
+      int rem = r;
+      int j=rem % n_wmodes[1]; rem/=n_wmodes[1];
+      int i=rem;
+
+      int I = right.idx(i,t1,Right);
+      int J = left.idx(j,t2,Right);
+
+      result_t[omp_get_thread_num()] += (*left.mf_val(i,J,t1)) * (*right.mf_val(j,I,t2));
+    }
+    std::complex<double> result(0.0);
+    for(int i=0;i<result_t.size();i++) result += result_t[i];
+    return result;
+  }
+}
+
+//Calculate   \sum_i M_iI(t1)  where I=i,t2
+std::complex<double> MesonField2::trace_wv(const int &t1, const int &t2){
+  std::complex<double> result(0.0);
+  if(form[0]!=MFstructure::W || form[1]!=MFstructure::V){
+    if(!UniqueID()) printf("MesonField2::trace_wv(..) assumes mesonfield has form  (w^dag v)\n");
+    exit(-1);
+  }
+  for(int i=0;i<get_size(Left);i++){
+    int I=idx(i,t2,Right);
+    result += *mf_val(i,I,t1);
+  }
+  return result;
+}
+
+//Contract the meson field with the specified vector component of an A2APropbfm at a given site over the mode indices to the left and right, leaving a SpinColorFlavorMatrix
+//In terms of mode indices that include the time-slice dilution in the mode index, this is
+//  result_{a,b} = \sum_{I,J} v_{aI}(x) M_{IJ}(t) w^dag_{bJ}(z)
+//where M is this MesonField, assumed to be of the form w^dag \otimes v
+//In terms of explicit source time-slice indices for v (to right of semicolon) [implicit spin-color sum in square brackets]
+//  result_{a,b} = \sum_{i,j} v_{ai}(\vec x,x_4 ; t) [\sum_{\vec y} w_i^dag(\vec y , t) v_j(\vec y,t ; z_4)] w^dag_{bj}(\vec z,z_4)
+//Note, x,z are local coordinates,  t is a *global* coordinate
+void MesonField2::contract_vleft_wright(SpinColorFlavorMatrix &result, 
+					A2APropbfm &prop_left,  const int &x,
+					A2APropbfm &prop_right, const int &z,
+					MesonField2 & mf,const int &t){
+  if(!GJP.Gparity() || !mf.diluting_flavor() ){
+    if(!UniqueID()) printf("MesonField2::contract_vleft_wright(..) only valid for G-parity BCs with flavor dilution\n");
+    exit(-1);
+  }
+  if(mf.form[0]!=MFstructure::W || mf.form[1]!=MFstructure::V){
+    if(!UniqueID()) printf("MesonField2::contract_vleft_wright(..) assumes mesonfield has form  (w^dag v)\n");
+    exit(-1);
+  }
+
+  int x_4_loc = x / (GJP.VolNodeSites()/GJP.TnodeSites());
+  int z_4_loc = z / (GJP.VolNodeSites()/GJP.TnodeSites());
+
+  int x_4_glb = x_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  int z_4_glb = z_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  
+  const static int NA = -1; //non-applicable
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  //printf("contract_vleft_wright with meson field with %d rows and %d cols\n",mf.rows(),mf.cols());
+  
+  result *= 0.0;
+  for(int j=0;j<mf.cols();j++){
+    for(int i=0;i<mf.rows();i++){
+      std::complex<double> & M = mf(i,j,t,NA,z_4_glb);
+
+      int I = prop_left.idx_v(i,t); //Extended mode indices which include the timeslice dilution, used in A2APropbfm
+
+      //Note, we use the same random complex numbers for all spin/color indices (If flavor diluting, this is also true of the flavor indices but that is taken account of in get_w)
+      //w should be a delta function with the spin/color/flavor indices hidden in the mode index
+      //With flavor dilution the range is  [0, nl + sc_size * nhits * 2)   (i.e.   (vec_idx - nl) = sc + sc_size * f + 2*sc_size * h    where f is a flavor index)
+      int rem = (j - prop_right.get_nl()) % 24;
+
+      int j_f = rem / 12; 
+      int j_sc = rem % 12;
+
+      for(int fr = 0; fr<2; fr++){
+	if(j>=prop_right.get_nl() && fr != j_f) continue;
+	std::complex<double>* right_w = prop_right.get_w(j,z,fr);
+	
+	for(int fl = 0; fl<2; fl++){
+	  //spin-color vector at site
+	  std::complex<double>* left_v =  prop_left.get_v(I, x,fl);
+
+	  for(int cr=0;cr<3;cr++){
+	    for(int sr=0;sr<4;sr++){
+	      int sc_off_R = cr+3*sr;
+	      if(j>=prop_right.get_nl() && sc_off_R != j_sc) continue;
+	      for(int cl=0;cl<3;cl++){
+		for(int sl=0;sl<4;sl++){
+		  int sc_off_L = cl+3*sl;		  
+		  int woff = (j<prop_right.get_nl() ? sc_off_R : 0);
+		  result(sl,cl,fl,sr,cr,fr) += left_v[sc_off_L] * M * std::conj(right_w[woff]);
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+
+//Contract the meson field with the specified vector component of an A2APropbfm at a given site over the mode indices to the left and right, leaving a SpinColorFlavorMatrix
+//In terms of mode indices that include the time-slice dilution in the mode index, this is
+//  result_{a,b} = \sum_{I,J} v_{aI}(x) M_{ij}(t) v^dag_{bJ}(z)
+//where M is this MesonField, assumed to be of the form w^dag \otimes w
+//I and J are v-indices that contain a source timeslice for the high modes. For the left v the source timeslice is t, for the right it needs to be manually specified (t_vright)
+
+void MesonField2::contract_vleft_vright(SpinColorFlavorMatrix &result, 
+					A2APropbfm &prop_left,  const int &x,
+					A2APropbfm &prop_right, const int &z,
+					MesonField2 & mf,  const int &t, const int &t_vright){
+
+  
+  if(!GJP.Gparity() || !mf.diluting_flavor() ){
+    if(!UniqueID()) printf("MesonField2::contract_vleft_vright(..) only valid for G-parity BCs with flavor dilution\n");
+    exit(-1);
+  }
+  if(mf.form[0]!=MFstructure::W || mf.form[1]!=MFstructure::W){
+    if(!UniqueID()) printf("MesonField2::contract_vleft_vright(..) assumes mesonfield has form  (w^dag w)\n");
+    exit(-1);
+  }
+
+  int x_4_loc = x / (GJP.VolNodeSites()/GJP.TnodeSites());
+  int z_4_loc = z / (GJP.VolNodeSites()/GJP.TnodeSites());
+
+  int x_4_glb = x_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  int z_4_glb = z_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  result *= 0.0;
+  for(int j=0;j<mf.get_size(Right);j++){
+    for(int i=0;i<mf.get_size(Left);i++){
+      int I = prop_left.idx_v(i,t);
+      int J = prop_right.idx_v(j,t_vright);
+
+      std::complex<double>* M = mf.mf_val(i,j,t);
+      
+      for(int fl = 0; fl<2; fl++){
+	std::complex<double>* left_v =  prop_left.get_v(I, x,fl);
+	for(int fr = 0; fr<2; fr++){
+	  std::complex<double>* right_v =  prop_right.get_v(J, z,fr);
+
+	  for(int cr=0;cr<3;cr++){
+	    for(int sr=0;sr<4;sr++){
+	      int sc_off_R = cr+3*sr;
+
+	      for(int cl=0;cl<3;cl++){
+		for(int sl=0;sl<4;sl++){
+		  int sc_off_L = cl+3*sl;
+		  
+		  result(sl,cl,fl,sr,cr,fr) += left_v[sc_off_L] * (*M) * std::conj(right_v[sc_off_R]);
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
 
 
+void MesonField2::contract_vw(SpinColorFlavorMatrix &result, 
+			      A2APropbfm &prop_left,  const int &x,
+			      A2APropbfm &prop_right, const int &z){
+
+  if(!prop_left.get_args().dilute_flavor || !prop_right.get_args().dilute_flavor){
+    if(!UniqueID()) printf("MesonField2::contract_vw not designed for propagators without flavour dilution\n");
+    exit(-1);
+  }
+  
+  int x_4_loc = x / (GJP.VolNodeSites()/GJP.TnodeSites());
+  int z_4_loc = z / (GJP.VolNodeSites()/GJP.TnodeSites());
+
+  int x_4_glb = x_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  int z_4_glb = z_4_loc + GJP.TnodeSites()*GJP.TnodeCoor();
+  
+  const static int NA = -1; //non-applicable
+  int t_size = GJP.Tnodes()*GJP.TnodeSites();
+
+  result *= 0.0;
+
+  for(int j=0;j<prop_right.w_modes();j++){
+    int I = prop_left.idx_v(j,z_4_glb);
+    
+    //Find the flavour and spin-colour index embedded in j so we can manually implement the delta function in spin/colour/flavour
+    int rem = (j - prop_right.get_nl()) % 24;
+    int j_f = rem / 12; 
+    int j_sc = rem % 12;
+
+    for(int fr = 0; fr<2; fr++){
+      if(j>=prop_right.get_nl() && fr != j_f) continue;
+      std::complex<double>* right_w = prop_right.get_w(j,z,fr);
+
+      for(int fl = 0; fl<2; fl++){
+	std::complex<double>* left_v =  prop_left.get_v(I, x,fl);
+
+	for(int cr=0;cr<3;cr++){
+	  for(int sr=0;sr<4;sr++){
+	    int sc_off_R = cr+3*sr;
+	    if(j>=prop_right.get_nl() && sc_off_R != j_sc) continue;
+
+	    for(int cl=0;cl<3;cl++){
+	      for(int sl=0;sl<4;sl++){
+		int sc_off_L = cl+3*sl;		  
+		int woff = (j<prop_right.get_nl() ? sc_off_R : 0);
+		result(sl,cl,fl,sr,cr,fr) += left_v[sc_off_L] * std::conj(right_w[woff]);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+
+
+
+//Do the following:
+//\sum_{ t2 in 'range' }   [\sum_{\vec x} w_i^dag(\vec x,t1) v_j(\vec x, t1; t2)] [\sum_\vec y} w_j^dag(\vec y, t2) v_k(\vec y, t2; t3) ]
+//Where the stuff in square brackets are meson fields
+
+void MesonField2::combine_mf_wv_wv(MesonField2 &into, const MesonField2 &mf_wv_l, const MesonField2 &mf_wv_r, const RangeFunc &range){
+  if(mf_wv_l.form[0]!=MFstructure::W || mf_wv_l.form[1]!=MFstructure::V ||
+     mf_wv_r.form[0]!=MFstructure::W || mf_wv_r.form[1]!=MFstructure::V){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_wv(..) mesonfield forms must both be w*v\n"); }
+    exit(-1);
+  }
+  if(mf_wv_l.cols() != mf_wv_r.rows()){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_wv(..) Row/column size mismatch\n"); } 
+    exit(-1);
+  }
+  if(mf_wv_l.dilute_flavor != mf_wv_r.dilute_flavor){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_wv(..) Flavor dilution mismatch\n"); } 
+    exit(-1);
+  }
+  into.nvec[0] = mf_wv_l.nvec[0];
+  into.nvec[1] = mf_wv_r.nvec[1];
+
+  into.nl[0] = mf_wv_l.nl[0];
+  into.nl[1] = mf_wv_r.nl[1];
+
+  into.nhits[0] = mf_wv_l.nhits[0];
+  into.nhits[1] = mf_wv_r.nhits[1];
+
+  into.src_width[0] = mf_wv_l.src_width[0];
+  into.src_width[1] = mf_wv_r.src_width[1];
+
+  into.nbase[0] = mf_wv_l.nbase[0];
+  into.nbase[1] = mf_wv_r.nbase[1];
+
+  into.conj[0] = mf_wv_l.conj[0];
+  into.conj[1] = mf_wv_r.conj[1];
+
+  into.dilute_flavor = mf_wv_l.dilute_flavor;
+  into.dilute_size = mf_wv_l.dilute_size;
+  into.n_flav = mf_wv_l.n_flav;
+
+  into.size[0] = mf_wv_l.size[0];
+  into.size[1] = mf_wv_r.size[1];
+
+  into.form[0] = MFstructure::W;
+  into.form[1] = MFstructure::V;
+  
+  const int t_size = GJP.Tnodes()*GJP.TnodeSites();
+  const int mf_size = into.size[0] * into.size[1] * t_size * 2;
+  const int NA = -1;
+
+  into.mf = (Float*)pmalloc( mf_size * sizeof(Float) );
+  for(int i=0;i< mf_size;i++) into.mf[i] = 0.0;
+
+  //\sum_{ t2 in 'range' }   [\sum_{\vec x} w_i^dag(t1) v_j(t1; t2)] [\sum_\vec y} w_j^dag(t2) v_k(t2; t3) ]
+  //We use capital Roman letters to denote indices for v-vectors (which are on a larger set including the timeslice index)
+  //and lower-case letters to denote indices for w-vectors
+
+  for(int iK = 0; iK < into.size[0]*into.size[1]; iK++){
+    int i = iK % into.size[0];
+    int K = iK / into.size[0];
+
+    int t3, k;
+    into.inv_idx(K,k,t3,Right);
+
+    for(int t1=0;t1<t_size;t1++){
+      std::complex<double>* into_iKt1 = into.mf_val(i,K,t1); 
+
+      for(int t2=0;t2<t_size;t2++){
+	if(!range.allow(t1,t2,t3)) continue;
+
+	for(int j=0;j<mf_wv_r.size[0];j++){
+	  int J = mf_wv_l.idx(j,t2,Right);
+
+	  std::complex<double> delta = (*mf_wv_l.mf_val(i,J,t1)) * (*mf_wv_r.mf_val(j,K,t2));
+	  *into_iKt1 += delta;
+	}
+      }
+    }
+  }
+}
+
+//Do the following:
+//\sum_{ t2 in 'range' }   [[\sum_{\vec x} w_i^dag(\vec x,t1) v_j(\vec x, t1; t2)]] [[\sum_\vec y} w_j^dag(\vec y, t2) w_k(\vec y, t2) ]]
+//Where the stuff in [[ ]] are meson fields
+
+void MesonField2::combine_mf_wv_ww(MesonField2 &into, const MesonField2 &mf_wv_l, const MesonField2 &mf_ww_r, const RangeFunc &range){
+  if(mf_wv_l.form[0]!=MFstructure::W || mf_wv_l.form[1]!=MFstructure::V ||
+     mf_ww_r.form[0]!=MFstructure::W || mf_ww_r.form[1]!=MFstructure::W){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_ww(..) mesonfield forms must be w*v and w*w\n"); }
+    exit(-1);
+  }
+  if(mf_wv_l.cols() != mf_ww_r.rows()){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_ww(..) Row/column size mismatch\n"); } 
+    exit(-1);
+  }
+  if(mf_wv_l.dilute_flavor != mf_ww_r.dilute_flavor){
+    if(!UniqueID()){ printf("MesonField2::combine_mf_wv_ww(..) Flavor dilution mismatch\n"); } 
+    exit(-1);
+  }
+  into.nvec[0] = mf_wv_l.nvec[0];
+  into.nvec[1] = mf_ww_r.nvec[1];
+
+  into.nl[0] = mf_wv_l.nl[0];
+  into.nl[1] = mf_ww_r.nl[1];
+
+  into.nhits[0] = mf_wv_l.nhits[0];
+  into.nhits[1] = mf_ww_r.nhits[1];
+
+  into.src_width[0] = mf_wv_l.src_width[0];
+  into.src_width[1] = mf_ww_r.src_width[1];
+
+  into.nbase[0] = mf_wv_l.nbase[0];
+  into.nbase[1] = mf_ww_r.nbase[1];
+
+  into.conj[0] = mf_wv_l.conj[0];
+  into.conj[1] = mf_ww_r.conj[1];
+
+  into.dilute_flavor = mf_wv_l.dilute_flavor;
+  into.dilute_size = mf_wv_l.dilute_size;
+  into.n_flav = mf_wv_l.n_flav;
+
+  into.size[0] = mf_wv_l.size[0];
+  into.size[1] = mf_ww_r.size[1];
+
+  into.form[0] = MFstructure::W;
+  into.form[1] = MFstructure::W;
+  
+  const int t_size = GJP.Tnodes()*GJP.TnodeSites();
+  const int mf_size = into.size[0] * into.size[1] * t_size * 2;
+  const int NA = -1;
+
+  into.mf = (Float*)pmalloc( mf_size * sizeof(Float) );
+  for(int i=0;i< mf_size;i++) into.mf[i] = 0.0;
+
+  //\sum_{ t2 in 'range' }   [[\sum_{\vec x} w_i^dag(\vec x,t1) v_j(\vec x, t1; t2)]] [[\sum_\vec y} w_j^dag(\vec y, t2) w_k(\vec y, t2) ]]
+  //We use capital Roman letters to denote indices for v-vectors (which are on a larger set including the timeslice index)
+  //and lower-case letters to denote indices for w-vectors
+
+  for(int ik = 0; ik < into.size[0]*into.size[1]; ik++){
+    int i = ik % into.size[0];
+    int k = ik / into.size[0];
+
+    for(int t1=0;t1<t_size;t1++){
+      std::complex<double>* into_ikt1 = into.mf_val(i,k,t1); 
+
+      for(int t2=0;t2<t_size;t2++){
+	if(!range.allow(t1,t2,-1)) continue; //no t3 here
+
+	for(int j=0;j<mf_ww_r.size[0];j++){
+	  int J = mf_wv_l.idx(j,t2,Right);
+
+	  std::complex<double> delta = (*mf_wv_l.mf_val(i,J,t1)) * (*mf_ww_r.mf_val(j,k,t2));
+	  *into_ikt1 += delta;
+	}
+      }
+    }
+  }
+}
+
+
+
+
+
+// class ModeTimesliceMatrix{
+// private:
+//   std::complex<Float>* m;
+
+//   //Number of row and column timeslices 
+//   int nt_row; 
+//   int nt_col;
+  
+//   //Number of row and column modes
+//   int nmode_row;
+//   int nmode_col;
+
+//   //Mode indices change the most quickly
+//   inline int map(const int &trow, const int &tcol, const int &mode_row, const int &mode_col){
+//     return mode_col + nmode_col*( mode_row + nmode_row*( tcol + nt_col*trow ));
+//   }
+//   inline void inverse_map(const int &i, int &trow, int &tcol, int &mode_row, int &mode_col){
+//     int rem = i;
+//     mode_col = rem % nmode_col; rem /= nmode_col;
+//     mode_row = rem % nmode_row; rem /= nmode_row;
+//     tcol = rem % nt_col; rem /= nt_col;
+//     trow = rem;
+//   }
+
+//   void alloc(){
+//     if(m) delete[] m;
+//     m = new std::complex<Float>[nmode_col*nmode_row*nt_col*nt_row];
+//   }
+
+// public:
+//   ModeTimesliceMatrix(): m(NULL){}
+//   ~ModeTimesliceMatrix(){ if(m) delete[] m; }
+
+//   inline const std::complex<Float>& operator()(const int &trow, const int &tcol, const int &mode_row, const int &mode_col) const{
+//     return m[map(trow,tcol,mode_row,mode_col)];
+//   }
+//   inline std::complex<Float>& operator()(const int &trow, const int &tcol, const int &mode_row, const int &mode_col){
+//     return m[map(trow,tcol,mode_row,mode_col)];
+//   }
+
+//   // [M_1(t_1,t_v)]_{ij} [M_2(t_v,t_2)]_{jk}   where M_1 and M_2 are meson fields of the form w^dagger v. t_v is the source timeslice of the left v and the sink timeslice of the right v
+//   void contract(const MesonField2 &left, const MesonField2 &right){
+//     int t_size = GJP.Tnodes()*GJP.TnodeSites();    
+//     static const int NA = -1; //non-applicable!
+
+//     int n_threads = bfmarg::threads;
+//     omp_set_num_threads(n_threads);
+
+//     if(left.cols() != right.rows()){
+//       if(!UniqueID()) printf("ModeTimesliceMatrix::contract(..)  number of right/left mode indices do not match\n");
+//       exit(-1);
+//     }else if(left.field_type(MesonField2::Left) != W || left.field_type(MesonField2::Right) != V ||
+// 	     right.field_type(MesonField2::Left) != W || right.field_type(MesonField2::Right) != V){
+//       if(!UniqueID()) printf("ModeTimesliceMatrix::contract(..)  both left and right meson fields must be of the form w^dag v\n");
+//       exit(-1);
+//     }
+ 
+//     nmode_row = left.rows();
+//     nmode_col = right.cols();
+
+//     nt_row = t_size;
+//     nt_col = t_size;
+    
+//     alloc();
+
+//     int work = nmode_col*nmode_row*nt_col*nt_row;
+    
+// #pragma omp parallel for 
+//     for(int i=0;i<work;++i){
+//       int trow,tcol,mode_row,mode_col;
+//       inverse_map(i,trow,tcol,mode_row,mode_col);
+
+//       m[i] = std::complex(0,0);
+//       for(int mode_mid = 0; mode_mid < left.cols(); ++mode_mid){
+//         for(int tmid = 0; tmid < t_size; ++tmid){
+// 	  m[i] += left(mode_row,mode_mid,trow,NA,tmid)*right(mode_mid,mode_col,tmid,NA,tcol);
+// 	}
+//       }
+//     }
+//   }
+
+
+
+// };
 
 
 CPS_END_NAMESPACE

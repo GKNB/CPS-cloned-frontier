@@ -4,9 +4,9 @@
 
 #ifdef USE_BFM
 
-#include <util/lattice/bfm_evo.h>
-#include <util/lattice/bfm_eigcg.h> //Is included in BFM
 #include <util/lattice/fbfm.h>
+#include <util/lattice/bfm_eigcg.h> //Is included in BFM
+
 #include <util/wilson.h>
 #include <util/verbose.h>
 #include <util/gjp.h>
@@ -21,11 +21,10 @@
 #include<omp.h>
 
 CPS_START_NAMESPACE
-
+MultiShiftCGcontroller MultiShiftController;
 int Fbfm::current_arg_idx(0);
 bfmarg Fbfm::bfm_args[2] = {};
 bool Fbfm::use_mixed_solver = false;
-bool Fbfm::single_prec_multi_shift = false;
 
 // NOTE:
 //
@@ -300,45 +299,22 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     Fermion_t src = bd.allocFermion();
     bd.cps_impexcbFermion((Float *)f_in, src, 1, 1);
 
-    if(single_prec_multi_shift && !use_mixed_solver){ //hack to get SetMass to set parameters in bf
-	use_mixed_solver = true;
-	SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
-	use_mixed_solver = false;
-    }else 
-	SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
+    SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
 
     int iter;
-
-    if(single_prec_multi_shift){
-	bf.residual = cg_arg[0]->stop_rsd;
-	bf.max_iter = cg_arg[0]->max_num_iter;
-	
-#pragma omp parallel
-	{
-	    Fermion_t src_f = bf.threadedAllocFermion();
-	    Fermion_t sol_f[Nshift];
-	    for(int i=0;i<Nshift;i++) sol_f[i] = bf.threadedAllocFermion();
-
-	    mixed_cg::threaded_convFermion(src_f,src,bf,bd);
-	    mixed_cg::switch_comm(bf,bd);
-	    iter = bf.CGNE_prec_MdagM_multi_shift(sol_f, src_f, shift, ones, Nshift, mresidual, 0);
-	    mixed_cg::switch_comm(bd,bf);
-	    for(int i=0;i<Nshift;i++){
-		mixed_cg::threaded_convFermion(sol_multi[i],sol_f[i],bd,bf);
-		bf.threadedFreeFermion(sol_f[i]);
-	    }
-	    bf.threadedFreeFermion(src_f);
-	}       
-    }else{
+    //If use_mixed_solver we use the MultiShiftController instance, otherwise just do it in double precision
+    if(use_mixed_solver) iter = MultiShiftController.MInv(sol_multi, src, shift, Nshift, mresidual, ones, 0, bd, bf);
+    else{
 	bd.residual = cg_arg[0]->stop_rsd;
 	bd.max_iter = cg_arg[0]->max_num_iter;
-	
+	    
 #pragma omp parallel
 	{
 	    iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
 	}
     }
 
+    //Combine solutions if in SINGLE mode
     if(type == SINGLE) {
         // FIXME
         int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;

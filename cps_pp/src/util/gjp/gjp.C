@@ -1,5 +1,6 @@
 #include<config.h>
 #include<math.h>
+#include<util/omp_wrapper.h>
 CPS_START_NAMESPACE
 /*!\file
   \brief  Definition of GlobalJobParameter class methods.
@@ -423,9 +424,21 @@ if (!UniqueID())
  if(doarg_int.gparity_1f_X && Bc(0) == BND_CND_TWISTED) twist_angle[0] = Nodes(0)*NodeSites(0);
  if(doarg_int.gparity_1f_Y && Bc(1) == BND_CND_TWISTED) twist_angle[1] = Nodes(1)*NodeSites(1);
 
+ threads = 1;
+#if TARGET == BGQ
+ threads = 64;
+#endif
+
+ omp_set_dynamic(false);
+ omp_set_num_threads(threads);
+
   VRB.FuncEnd(cname,fname);
 }
 
+void GlobalJobParameter::SetNthreads(const int &n){ 
+  threads = n; 
+  omp_set_num_threads(threads);
+}
 
   //!< Get the twist phase in the 'dir'-direction
   /*!< 

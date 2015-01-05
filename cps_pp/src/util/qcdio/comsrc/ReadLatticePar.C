@@ -13,7 +13,7 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   const char * fname = "read()";
   VRB.Func(cname,fname);
   
-  char loginfo[strlen(rd_arg.FileName + 10)];
+  char loginfo[strlen(rd_arg.FileName) + 10];
   sprintf(loginfo,"Load %s",rd_arg.FileName);
   startLogging(loginfo);
 
@@ -30,8 +30,8 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
     ifstream input(rd_arg.FileName);
     if ( !input.good() )
       {
-	//	VRB.Flow(cname,fname,"Could not open file [%s] for input.\n",rd_arg.FileName);
-	//	VRB.Flow(cname,fname,"USER: maybe you should kill the process!!\n");
+	if(!UniqueID()){ printf("%s:%s Could not open file ptr %p for input.\n",cname,fname,rd_arg.FileName); fflush(stdout); }
+	if(!UniqueID()){ printf("%s:%s Filename %s\n",cname,fname,rd_arg.FileName); fflush(stdout); }
 	error = 1;
       }
 

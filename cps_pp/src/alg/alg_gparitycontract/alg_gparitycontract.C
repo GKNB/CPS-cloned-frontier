@@ -29,6 +29,8 @@
 
 #include <alg/alg_smear.h>
 #include <alg/alg_tcharge.h>
+#include <alg/alg_wilsonflow.h>
+#include <alg/alg_actiondensity.h>
 
 #include <string>
 #include <sstream>
@@ -244,6 +246,20 @@ void AlgGparityContract::global_coord(const int &site, int *into_vec){
     rem /= GJP.NodeSites(i);
   }
 }
+
+//Momentum phase. Momenta are in units of 2pi/L
+Rcomplex AlgGparityContract::phase_factor(const Float *p, const int* global_pos){
+  const static Float pi = 3.1415926535897932384626433832795;
+  Float pdotx = 0.0;
+  for(int d=0;d<3;d++) pdotx += global_pos[d]*p[d]*2*pi/(GJP.NodeSites(d)*GJP.Nodes(d));
+  return Rcomplex(cos(pdotx),sin(pdotx));
+}
+
+Rcomplex AlgGparityContract::phase_factor(const Float *p, const int &site){
+  int pos[4]; global_coord(site,pos);
+  return phase_factor(p,pos);
+}
+
 
 void AlgGparityContract::run(const int &conf_idx){
   if(args == NULL) ERR.General(cname,"run(const int)","args pointer has not been set\n");
@@ -1759,6 +1775,41 @@ void AlgGparityContract::measure_topological_charge(const ContractionTypeTopolog
   common_arg.filename = NULL; //OH MY GOD I HATE C-STRINGS!
 }
 
+void AlgGparityContract::measure_wilson_flow(const ContractionTypeWilsonFlow &args, const int &conf_idx){
+  const char *fname = "measure_wilson_flow";
+  
+  std::ostringstream file; file << args.file << "." << conf_idx;
+  std::string filename = file.str();
+
+  LatticeContainer lat_cont;
+  lat_cont.Get(AlgLattice()); //backup the lattice
+
+  CommonArg carg_null; //write no output using the nasty CommonArg system. Instead write in a more sensible format below
+
+  for(int i=0;i<=args.n_steps;++i){
+    AlgActionDensity ad(AlgLattice(),&carg_null);
+    Float action_density;
+    ad.smartrun(&action_density);
+
+    Float t = i*args.time_step;
+    
+    FILE *fp;
+    if( (fp = Fopen(filename.c_str(), "a")) == NULL ) ERR.FileA(cname,fname,filename.c_str());
+    //Prints mean value of (1/2)tr(F_mu_nu F_mu_nu), in units of a^4
+    Fprintf(fp, "%e %15e\n", t, action_density);
+    Fclose(fp);
+
+    if(i!=args.n_steps){
+      AlgWilsonFlow wf(AlgLattice(),&carg_null, args.time_step);
+      wf.smartrun();
+    }
+  }
+
+  //Restore the lattice
+  lat_cont.Set(AlgLattice());
+}
+
+
 void AlgGparityContract::measure_mres(const ContractionTypeMres &args, const int &conf_idx){
   std::ostringstream file; file << args.file << "." << conf_idx;
 
@@ -1769,7 +1820,10 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, const int
   CorrelationFunction pion("pion",1,CorrelationFunction::THREADED);
   CorrelationFunction j5_q("j5q",1,CorrelationFunction::THREADED);
 
-  measure_mres(args,pion,j5_q);
+  if(GJP.Gparity())
+    measure_mres_gparity(args,pion,j5_q);
+  else
+    measure_mres(args,pion,j5_q);
 
   pion.write(fp);
   j5_q.write(fp);
@@ -1779,7 +1833,7 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, const int
 
 
 void AlgGparityContract::measure_mres(const ContractionTypeMres &args, CorrelationFunction &pion, CorrelationFunction &j5_q){
-  if(GJP.Gparity()) ERR.General(cname,"measure_mres(...)","G-parity measurement not yet implemented\n");
+  if(GJP.Gparity()) ERR.General(cname,"measure_mres(...)","This is not a G-parity measurement\n");
   if(GJP.Snodes()!=1) ERR.General(cname,"measure_mres(...)","Assumes only 1 node in s-direction\n");
   if(pion.threadType() != CorrelationFunction::THREADED || j5_q.threadType() != CorrelationFunction::THREADED) ERR.General(cname,"measure_mres(...)","Assumes multi-thread CorrelationFunctions\n");
   if(pion.nContractions() !=1 || j5_q.nContractions() != 1) ERR.General(cname,"measure_mres(...)","CorrelationFunctions must have space for only one contraction\n");
@@ -1805,11 +1859,6 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, Correlati
     
     Rcomplex pion_incr = Trace(p[0], p[1]);
     Rcomplex j5q_incr = Trace(q[0], q[1]);
-
-    printf("Thread %d, pos %i, global coord %d %d %d %d,  pion += %f %f   j5q += %f %f\n", omp_get_thread_num(), i, x[0],x[1],x[2],x[3], pion_incr.real(), pion_incr.imag(), j5q_incr.real(), j5q_incr.imag());
-    printf("QP: ");
-    for(int ii=0;ii<18;ii++) printf("%f ",((Float*)qp[i].ptr())[ii]);
-    printf("\n");
     
     pion(omp_get_thread_num(),0,x[3]) += pion_incr;
     j5_q(omp_get_thread_num(),0,x[3]) += j5q_incr;
@@ -1819,14 +1868,100 @@ void AlgGparityContract::measure_mres(const ContractionTypeMres &args, Correlati
   j5_q.sumLattice();
 }
 
+void AlgGparityContract::measure_mres_gparity(const ContractionTypeMres &args, CorrelationFunction &pion, CorrelationFunction &j5_q){
+  if(!GJP.Gparity()) ERR.General(cname,"measure_mres_gparity(...)","This is a G-parity measurement\n");
+  if(GJP.Snodes()!=1) ERR.General(cname,"measure_mres_gparity(...)","Assumes only 1 node in s-direction\n");
+  if(pion.threadType() != CorrelationFunction::THREADED || j5_q.threadType() != CorrelationFunction::THREADED) ERR.General(cname,"measure_mres_gparity(...)","Assumes multi-thread CorrelationFunctions\n");
+  if(pion.nContractions() !=1 || j5_q.nContractions() != 1) ERR.General(cname,"measure_mres_gparity(...)","CorrelationFunctions must have space for only one contraction\n");
+
+  PropagatorContainer *pc = &PropManager::getProp(args.prop);
+  if(pc->type()!=QPROPW_TYPE) ERR.General(cname,"measure_mres_gparity(...)","Propagator must be QPropW type\n");
+  QPropWcontainer &prop_pcon = pc->convert<QPropWcontainer>();
+  if(!prop_pcon.hasAttr<StoreMidpropAttrArg>()) ERR.General(cname,"measure_mres_gparity(...)","Propagator must have midprop stored to form mres\n");
+
+#define DEFINITION_ONE
+
+#ifdef DEFINITION_ONE
+  //In this version we explicitly create pion operators with the appropriate G-parity momentum projection.
+
+  Float p[3] = {0,0,0};
+  for(int d=0;d<3;d++) if(GJP.Bc(d) == BND_CND_GPARITY) p[d] = 0.5; //units of 2pi/L
+
+#pragma omp parallel for default(shared)
+  for(int i = 0; i < GJP.VolNodeSites(); ++i) {
+    int x[4];
+    global_coord(i,x);
+    Rcomplex phase = phase_factor(p,x);
+    
+    // J5 contraction (pion)  (factor of 1/2 not included)
+    SpinColorFlavorMatrix p[2];
+    p[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_BOUNDARY);
+    p[1] = p[0];
+    p[1].hconj();
+    // J5q contraction (midplane)  (factor of 1/2 not included)
+    SpinColorFlavorMatrix q[2];
+    q[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_MIDPOINT);
+    q[1] = q[0];
+    q[1].hconj();
+
+    p[0].pr(sigma3);
+    p[1].pr(sigma3);
+    Rcomplex pion_incr = Trace(p[0], p[1]);
+
+    q[0].pr(sigma3);
+    q[1].pr(sigma3);
+    Rcomplex j5q_incr = Trace(q[0], q[1]);
+
+    pion(omp_get_thread_num(),0,x[3]) += phase*pion_incr;
+    j5_q(omp_get_thread_num(),0,x[3]) += phase*j5q_incr;
+  }
+#else  
+  //A more naive definition is just to do exactly what we normally do; take    \bar\psi \gamma^5 \psi  as the source and sink operators and forget about G-parity
+  //just summing over the sink flavour index as if it was part of the spatial position index, just like we would in the single flavour approach
+
+  //Testing suggests both definitions agree very precisely. For a calculation of mres on its own, this method is probably better because you can use a naive wall
+  //source. Using a cosine source in the above gives ~40% larger errors, whereas using wall sources gives errors that are almost exactly the same as with this method.
+  //However with the above method you need to generate 2 wall sources, one of each flavour, in order to construct the SCF matrix. Might be able to get away without
+  //the momentum projection and using one wall source - not yet tested.
+
+#pragma omp parallel for default(shared)
+  for(int i = 0; i < GJP.VolNodeSites(); ++i) {
+    int x[4];
+    global_coord(i,x);
+
+    for(int f=0;f<2;++f){
+      // J5 contraction (pion)
+      WilsonMatrix p[2];
+      p[0] = prop_pcon.getProp(AlgLattice()).SiteMatrix(i,f);
+      p[1] = p[0];
+      p[1].hconj();
+      // J5q contraction (midplane)
+      WilsonMatrix q[2];
+      q[0] = prop_pcon.getProp(AlgLattice()).MidPlaneSiteMatrix(i,f);
+      q[1] = q[0];
+      q[1].hconj();
+    
+      Rcomplex pion_incr = Trace(p[0], p[1]);
+      Rcomplex j5q_incr = Trace(q[0], q[1]);
+    
+      pion(omp_get_thread_num(),0,x[3]) += pion_incr;
+      j5_q(omp_get_thread_num(),0,x[3]) += j5q_incr;
+    }
+  }
+
+
+#endif
+
+
+  pion.sumLattice();
+  j5_q.sumLattice();
+}
+
+
 inline static void set_matrix(Float into[], const MatIdxAndCoeff * from, const int &size){
   for(int i=0;i<size;i++) into[ from[i].idx ] = from[i].coeff;
 }
-static void set_smearing(MFBasicSource &smearing, const A2ASmearing &from){
-  if(from.type == BOX_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::BoxSource, (Float)from.A2ASmearing_u.box_3d_smearing.side_length);
-  else if(from.type == EXPONENTIAL_3D_SMEARING) smearing.set_source_type_and_radius(MFBasicSource::ExponentialSource, from.A2ASmearing_u.exponential_3d_smearing.radius);
-  else ERR.General("","set_smearing(MFBasicSource &smearing, const A2ASmearing &from)","Unknown smearing type\n");
-}
+
 void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, const int &conf){
   CorrelationFunction corr_a2a("A2A Bilinear",1, CorrelationFunction::THREADED);
   contract_a2a_bilinear(args,corr_a2a);
@@ -1860,11 +1995,11 @@ void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear 
   sink_wdagv.set_matrix(snk_gamma_matrix_linear_comb, snk_flav_matrix_linear_comb);
   
   MFBasicSource src_smearing;
-  set_smearing(src_smearing, args.source_smearing);
+  MFBasicSource::set_smearing(src_smearing, args.source_smearing);
   src_smearing.fft_src();
   
   MFBasicSource snk_smearing;
-  set_smearing(snk_smearing, args.sink_smearing);
+  MFBasicSource::set_smearing(snk_smearing, args.sink_smearing);
   snk_smearing.fft_src();
   
   A2APropbfm & prop_snk_src = PropManager::getProp(args.prop_snk_src).convert<A2ApropContainer>().getProp(AlgLattice()); //prop from snk -> src
@@ -1893,35 +2028,10 @@ void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &
 
   else if(measargs.type == CONTRACTION_TYPE_A2A_BILINEAR) contract_a2a_bilinear(measargs.GparityMeasurement_u.contraction_type_a2a_bilinear, conf_idx);
 
+  else if(measargs.type == CONTRACTION_TYPE_WILSON_FLOW) measure_wilson_flow(measargs.GparityMeasurement_u.contraction_type_wilson_flow, conf_idx);
+
   else ERR.General("AlgGparityContract","spectrum(...)","Invalid contraction type");
 }
-
-template <typename T>
-struct _multimom_helper{
-  static void add_momenta(T &to, MomArg *momenta, const int &sz){
-    const static Float pi_const = 3.141592654;
-    std::vector<Float> mom(3);
-    for(int i=0; i<sz; i++){
-      mom[0] = momenta[i].p[0] * pi_const;
-      mom[1] = momenta[i].p[1] * pi_const;
-      mom[2] = momenta[i].p[2] * pi_const;
-      to.add_momentum(mom);
-    }
-  }
-  static void add_momenta(T &to, MomPairArg *momenta, const int &sz){
-    const static Float pi_const = 3.141592654;
-    std::pair< std::vector<Float>,std::vector<Float> > mom; mom.first.resize(3); mom.second.resize(3);
-    std::vector<Float> mom2(3);
-    for(int i=0; i<sz; i++){
-      for(int j=0;j<3;j++){
-	mom.first[j] = momenta[i].p1[j] * pi_const;
-	mom.second[j] = momenta[i].p2[j] * pi_const;
-      }
-      to.add_momentum(mom);
-    }
-  }
-};
-
 
 void AlgGparityContract::contract_all_bilinears(const ContractionTypeAllBilinears &args, const int &conf_idx){
   std::ostringstream filestr; filestr << args.file << "." << conf_idx;
@@ -2044,6 +2154,7 @@ void AlgGparityContract::contract_quadrilinear_vertex(const ContractionTypeQuadr
 	       file, AlgLattice());   
   }
 }
+
 
 
 

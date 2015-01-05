@@ -643,6 +643,9 @@ void ContractedBilinear<MatrixType>::idx_unmap(const int &idx, int &mat1, int &m
   t = rem;
 }
 
+//We calculate \sum_x tr( M1 A(x) M2 B(x) )  where M1 and M2 are spin(-flavor) matrices and A,B are propagors with the superscript (dagger,conj,etc) specified in the prop_info_pair
+//In this version we first determine   \sum_x A(x) M2 B(x) in a threaded loop over the sites, then afterwards loop over M1 and form the trace.
+
 template<typename MatrixType>
 void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat){
   if(array_size==-1) array_size = nmat*nmat*nmom*GJP.Tnodes()*GJP.TnodeSites(); //also acts as a lock to prevent further momenta from being added
@@ -751,6 +754,9 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
   //lattice sum
   slice_sum( (Float*)into, 2*array_size, 99); //2 for re/im, 99 is a *magic* number (we are abusing slice_sum here)
 }
+
+//We calculate \sum_x tr( M1 A(x) M2 B(x) )  where M1 and M2 are spin(-flavor) matrices and A,B are propagors with the superscript (dagger,conj,etc) specified in the prop_info_pair
+//In this version we calculate the full trace within the loop over sites. This version is slower than version 1
 
 template<typename MatrixType>
 void ContractedBilinear<MatrixType>::calcAllContractedBilinears2(const prop_info_pair &props, Lattice &lat){
@@ -1104,6 +1110,256 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 
 
 
+
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::add_momentum(const std::vector<Float> &sink_mom){
+  //If array_size is set we cannot add any more momenta without having to do lots of extra work to fill in gaps for existing bilinears
+  if(array_size!=-1) ERR.General("ContractedBilinearSimple","add_momentum","Cannot add momentum after bilinears have begun being calculated"); 
+  return PropDFT::add_momentum(sink_mom);
+}
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::clear(){
+  if(array_size != -1) delete[] results;
+  array_size = -1;
+  PropDFT::clear();
+}
+//We calculate \sum_x tr( M1 A(x) M2 B(x) )  where M1 and M2 are spin(-flavor) matrices and A,B are propagors with the superscript (dagger,conj,etc) specified in the prop_info_pair
+//In this version we first determine   \sum_x A(x) M2 B(x) in a threaded loop over the sites, then afterwards loop over M1 and form the trace.
+
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::calculateBilinears(Lattice &lat,
+							      char const* tag_A, const Superscript &ss_A,  
+							      char const* tag_B, const Superscript &ss_B){
+  if(array_size==-1){
+    array_size = nmat*nmat*nmom*GJP.Tnodes()*GJP.TnodeSites(); //also acts as a lock to prevent further momenta from being added
+    results = new Rcomplex[array_size];
+  }
+  Rcomplex *into = results;
+  for(int i=0;i<array_size;i++) into[i] = 0.0;
+
+  int local_T = GJP.TnodeSites();
+  int global_T = local_T*GJP.Tnodes();
+  int local_toff = GJP.TnodeCoor() * local_T;
+
+  //This version uses more memory but has a reduced number of flops/site, so should run faster
+  int mat_per_thread = nmat*nmom*local_T;
+  MatrixType* bil = new MatrixType[mat_per_thread]; //idx = mat2 + nmat*(p + nmom*t))
+  MatrixType* thread_bil = new MatrixType[mat_per_thread*omp_get_max_threads()]; //idx = mat2 + nmat*(p + nmom*(t + local_T*thread))
+    
+  for(int i=0;i<mat_per_thread*omp_get_max_threads();i++){
+    if(i<mat_per_thread) bil[i] = 0.0;
+    thread_bil[i] = 0.0;
+  }
+  QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(tag_A), "ContractedBilinearSimple<MatrixType>","calculateBilinears(..)");
+  QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(tag_B),"ContractedBilinearSimple<MatrixType>","calculateBilinears(..)");
+
+#pragma omp parallel for default(shared)
+  for(int x=0;x<GJP.VolNodeSites();x++){
+    int x_pos_vec[4];
+    global_coord(x,x_pos_vec);
+    int local_t = x_pos_vec[3] - local_toff;
+
+    //Get phases
+    Rcomplex phases[nmom];
+    for(mom_idx_map_type::iterator mom_it = mom_idx_map.begin(); mom_it != mom_idx_map.end(); ++mom_it){
+      const std::vector<Float> & mom = mom_it->first;
+      const int &vec_pos = mom_it->second;
+
+      Float pdotx = 0.0;
+      for(int i=0;i<3;i++) pdotx += mom[i]*x_pos_vec[i];
+      phases[vec_pos].real() = cos(pdotx);
+      phases[vec_pos].imag() = sin(pdotx);	
+    }
+    //Get propagators and act with superscripts
+    MatrixType mat_A; _PropagatorBilinear_helper<MatrixType>::site_matrix(mat_A, prop_A, lat, x);
+    do_superscript<MatrixType>(mat_A, ss_A);
+  
+    MatrixType mat_B; _PropagatorBilinear_helper<MatrixType>::site_matrix(mat_B, prop_B, lat, x);
+    do_superscript<MatrixType>(mat_B, ss_B);
+      
+    //Loop over gamma matrix
+    MatrixType tmp;
+    for(int mat2=0;mat2<nmat;mat2++){  //spin + 16*flav
+      tmp = mat_A;
+
+      std::pair<int,int> spin_flav = _PropagatorBilinear_helper<MatrixType>::unmap(mat2);
+      //right-multiply with spin and flavour matrices
+      _PropagatorBilinear_helper<MatrixType>::rmult_matrix(tmp, spin_flav);
+
+      tmp*=mat_B;
+      for(int mom=0;mom<nmom;mom++){
+	int off = mat2 + nmat*(mom + nmom*(local_t + local_T*omp_get_thread_num() ));
+	thread_bil[off] += tmp * phases[mom];
+      }
+    }
+  }//end of position loop
+  
+
+  //thread the accumulate too, sum over data from all threads on each thread to prevent multiple writes to same location
+#pragma omp parallel for default(shared)
+  for(int i=0; i< mat_per_thread; i++){
+    //idx_into = mat2 + nmat*(p + nmom*t))
+    int mat2, p, t, rem(i);
+    mat2 = rem%nmat; rem/=nmat;
+    p = rem%nmom; rem/=nmom;
+    t = rem;
+
+    for(int thr=0;thr<omp_get_max_threads();thr++){
+      //idx_from = mat2 + nmat*(p + nmom*(t + T*thread)) = idx_into + nmat*nmom*T*thread
+      int idx_from = mat2 + nmat*(p + nmom*(t + local_T*thr));
+      bil[i] += thread_bil[idx_from];
+    }
+  }
+    
+  delete[] thread_bil;
+  
+  //now we have the bilinear for each inner mat, loop over outer (gamma1,sigma1) and inner (gamma2,sigma2) mats, p and t (threaded) and do trace
+  int ntrace = nmat*nmat*nmom*GJP.TnodeSites(); //do traces local to this node and poke onto required array element
+
+#pragma omp parallel for default(shared)
+  for(int i=0;i<ntrace;i++){
+    int mat1,mat2,p,t; //t is *local* here
+    idx_unmap(i,mat1,mat2,p,t);
+
+    int global_t = t + local_toff;
+
+    std::pair<int,int> spin_flav = _PropagatorBilinear_helper<MatrixType>::unmap(mat1);
+    MatrixType outer; _PropagatorBilinear_helper<MatrixType>::unit_matrix(outer);
+    _PropagatorBilinear_helper<MatrixType>::rmult_matrix(outer, spin_flav);
+      
+    int tr_off = idx_map(mat1,mat2,p,global_t);
+    int bil_off = mat2 + nmat*(p + nmom*t);
+    into[tr_off] = Trace(outer, bil[bil_off]);
+  }
+
+  delete[] bil;
+
+  //lattice sum
+  slice_sum( (Float*)into, 2*array_size, 99); //2 for re/im, 99 is a *magic* number (we are abusing slice_sum here)
+}
+
+//Get a Fourier transformed bilinear correlation function as a function of time
+//Sigma is ignored if MatrixType is WilsonMatrix
+template<typename MatrixType>
+std::vector<Rcomplex> ContractedBilinearSimple<MatrixType>::getBilinear(const std::vector<Float> &sink_momentum, 
+									const int &Gamma1, const int &Sigma1,
+									const int &Gamma2, const int &Sigma2){
+  if(!mom_idx_map.count( sink_momentum )) ERR.General("ContractedBilinearSimple","getBilinear","Desired sink momentum is not in the list of those momentum components generated");
+  if(array_size==-1) ERR.General("ContractedBilinearSimple","getBilinear","Must calculate the bilinears before trying to retrieve them");
+
+  int momentum_idx = mom_idx_map[sink_momentum];     
+
+  int scf_idx1 = _PropagatorBilinear_helper<MatrixType>::scf_map(Gamma1,Sigma1);
+  int scf_idx2 = _PropagatorBilinear_helper<MatrixType>::scf_map(Gamma2,Sigma2);
+
+  std::vector<Rcomplex> out(GJP.TnodeSites()*GJP.Tnodes());
+  for(int t=0;t<out.size();t++){
+    out[t] = results[ idx_map(scf_idx1,scf_idx2,momentum_idx,t) ];
+  }
+  return out;
+}
+
+//for use with WilsonMatrix where sigma (flavour matrix idx) does not play a role
+template<typename MatrixType>
+std::vector<Rcomplex> ContractedBilinearSimple<MatrixType>::getBilinear(const std::vector<Float> &sink_momentum, 
+									const int &Gamma1, const int &Gamma2){
+  return getBilinear(sink_momentum,Gamma1,0,Gamma2,0);
+}
+
+//write all combinations
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::write(FILE *fp){
+  if(array_size==-1) ERR.General("ContractedBilinearSimple","write","Must calculate the bilinears before trying to retrieve them");
+
+  //Find all p^2 and sort
+  std::vector< std::pair<Float,int> > p2list;
+  std::map<int,std::vector<Float> > p2map;
+  find_p2sorted(p2list,p2map);
+
+  for(int scf_idx1 = 0; scf_idx1 < nmat; scf_idx1++){
+    for(int scf_idx2 = 0; scf_idx2 < nmat; scf_idx2++){
+      for(int p=0;p<p2list.size();p++){
+	int pidx = p2list[p].second;
+	const std::vector<Float> &mom = p2map[pidx];
+	const Float &p2 = p2list[p].first;
+	  
+	for(int t=0;t<GJP.TnodeSites()*GJP.Tnodes();t++){
+	  int off = idx_map(scf_idx1,scf_idx2,pidx,t);
+	  const Rcomplex &val = results[ off ];
+	  _ContractedBilinear_helper<MatrixType>::write(fp,val,scf_idx1,scf_idx2,p2, mom, t);
+	}
+      }
+    }
+  }
+    
+}
+
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::write(const std::string &file){
+  if(array_size==-1) ERR.General("ContractedBilinearSimple","write","Must calculate the bilinears before trying to retrieve them");
+  if(!UniqueID()) printf("ContractedBilinearSimple writing to file \"%s\"\n",file.c_str());
+  FILE *fp;
+  if ((fp = Fopen(file.c_str(), "w")) == NULL) {
+    ERR.FileW("ContractedBilinear","write(...)",file.c_str());
+  }
+  write(fp);
+  Fclose(fp);
+}
+
+//Contents become the sum of the contents of this object and r
+template<typename MatrixType>
+ContractedBilinearSimple<MatrixType> & ContractedBilinearSimple<MatrixType>::operator+=(const ContractedBilinearSimple<MatrixType> &r){
+  //If this object is empty, we simply copy the contents of r
+  if(array_size == -1){
+    copy_momenta(r);
+    array_size = r.array_size;
+    results = new Rcomplex[array_size];
+    for(int i=0;i<array_size;i++) results[i] = r.results[i];
+  }else{
+    if(r.array_size != array_size) ERR.General("ContractedBilinearSimple","operator+=","Cannot combine two objects with different results sizes");
+    for(int i=0;i<array_size;i++) results[i] += r.results[i];
+  }
+  return *this;
+}
+template<typename MatrixType>
+ContractedBilinearSimple<MatrixType> & ContractedBilinearSimple<MatrixType>::operator-=(const ContractedBilinearSimple<MatrixType> &r){
+  //If this object is empty, we simply copy the contents of r with a minus sign
+  if(array_size == -1){
+    copy_momenta(r);
+    array_size = r.array_size;
+    results = new Rcomplex[array_size];
+    for(int i=0;i<array_size;i++) results[i] = -r.results[i];
+  }else{
+    if(r.array_size != array_size) ERR.General("ContractedBilinearSimple","operator-=","Cannot combine two objects with different results sizes");
+    for(int i=0;i<array_size;i++) results[i] -= r.results[i];
+  }
+  return *this;
+}
+
+//Contents are divided by a float
+template<typename MatrixType>
+ContractedBilinearSimple<MatrixType> & ContractedBilinearSimple<MatrixType>::operator/=(const Float &r){
+  if(array_size==-1) return *this;
+  for(int i=0;i<array_size;i++) results[i] /= r;
+  return *this;
+}
+
+//Shift the data:   data[t] -> data[t+dt]  (modulo lattice size)
+template<typename MatrixType>
+void ContractedBilinearSimple<MatrixType>::Tshift(const int &dt){
+  if(array_size == -1) return;
+  Rcomplex *tmp = new Rcomplex[array_size];
+  int global_T = GJP.Tnodes()*GJP.TnodeSites();
+
+#pragma omp parallel for
+  for(int i=0;i<array_size;i++){
+    int mat1,mat2,mom_idx,t;
+    idx_unmap(i,mat1,mat2,mom_idx,t);
+    int tnew = (t+dt+global_T) % global_T;
+    tmp[ idx_map(mat1,mat2,mom_idx,tnew) ] = results[i];
+  }
+  results = tmp;
+}
 
 
 

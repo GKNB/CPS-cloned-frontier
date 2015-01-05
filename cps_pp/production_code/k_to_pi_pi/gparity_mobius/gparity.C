@@ -201,7 +201,6 @@ int main(int argc,char *argv[])
     }else{
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
     }
-    lattice.BondCond(); //reimport gauge field into internal bfm objects!
 
     //Gauge fix lattice if required
     if(contract_args.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){

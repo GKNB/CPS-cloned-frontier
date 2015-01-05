@@ -149,10 +149,7 @@ void dwf_dslash_5_plus(Vector *out,
   }
   f_out = f_out + ls_stride; 
 
-  int nthreads = 1;
-#if TARGET == BGQ
-  nthreads = 64;
-#endif
+  int nthreads = GJP.Nthreads();
 
   omp_set_num_threads(nthreads);
   int thread_work = vol_4d_cb*(local_ls-1);

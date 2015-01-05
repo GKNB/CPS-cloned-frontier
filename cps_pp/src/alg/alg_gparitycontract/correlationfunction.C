@@ -25,16 +25,24 @@
 #include <omp.h>
 CPS_START_NAMESPACE
 
-CorrelationFunction::CorrelationFunction(const char *_label, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true){
+CorrelationFunction::CorrelationFunction(const char *_label, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true), label(_label){
   time_size=GJP.Tnodes()*GJP.TnodeSites();
-  label = new char[strlen(_label)+1];
-  strcpy(label,_label);
 }
-CorrelationFunction::CorrelationFunction(const char *_label, const int &n_contractions, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true){
+CorrelationFunction::CorrelationFunction(const char *_label, const int &n_contractions, const ThreadType &thread): wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(thread),global_sum_on_write(true), label(_label){
   time_size=GJP.Tnodes()*GJP.TnodeSites();
-  label = new char[strlen(_label)+1];
-  strcpy(label,_label);
   setNcontractions(n_contractions);
+}
+CorrelationFunction::CorrelationFunction(): label("NoLabel"), wick(NULL),wick_threaded(NULL),ncontract(0),threadtype(UNTHREADED),global_sum_on_write(true){
+  time_size=GJP.Tnodes()*GJP.TnodeSites();
+}
+
+//Set the thread type. Cannot be changed once memory has been allocated
+void CorrelationFunction::setThreadType(const ThreadType &thread){
+  if(wick!=NULL || wick_threaded!=NULL){
+    if(!UniqueID()) printf("CorrelationFunction::setThreadType(const ThreadType &thread) : Thread type cannot be changed once internal memory has been allocated\n");
+    exit(-1);
+  }
+  threadtype = thread;
 }
 
 
@@ -71,14 +79,12 @@ void CorrelationFunction::setNcontractions(const int &n){
 }
 CorrelationFunction::~CorrelationFunction(){
   clear();
-  delete[] label;
 }
 
 void CorrelationFunction::clear(){
   if(ncontract!=0){
     sfree(wick[0]); //wick array was created as contiguous mem block
-    sfree(wick);
-    
+    sfree(wick);    
     if(threadtype == THREADED){
       for(int s=0;s<max_threads;s++){
 	sfree(wick_threaded[s][0]);
@@ -87,6 +93,8 @@ void CorrelationFunction::clear(){
       sfree(wick_threaded);
     }
   }
+  wick = NULL;
+  wick_threaded = NULL;
   global_sum_on_write = true;
 }
 
@@ -139,7 +147,7 @@ void CorrelationFunction::write(const char *file){
 void CorrelationFunction::write(FILE *fp){
   if(global_sum_on_write) sumLattice(); //sum the correlation function over all nodes
 
-  Fprintf(fp,"%s\n",label);
+  Fprintf(fp,"%s\n",label.c_str());
   Fprintf(fp,"%d contractions\n",ncontract);
 
   for(int c=0;c<ncontract;c++){

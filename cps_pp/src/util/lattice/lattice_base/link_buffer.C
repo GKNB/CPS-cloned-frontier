@@ -678,7 +678,7 @@ BufferedCubeStaple(Matrix &stap, const int *x, int u){
 }
 
 //Given a coordinate relative to the origin of this node, determine how many G-parity boundaries are crossed to reach it
-static int nGparityBoundariesCrossed(const int * x){
+int nGparityBoundariesCrossed(const int * x){
   if(!GJP.Gparity()) return 0;
   int n_crossed = 0;
   for(int i=0;i<4;i++){

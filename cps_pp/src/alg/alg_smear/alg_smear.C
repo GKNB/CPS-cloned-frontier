@@ -890,7 +890,7 @@ void AlgApeSmear::smartrun()
     xend[i] = l_node_sites[i];
   }
 
-  omp_set_num_threads(64);
+  omp_set_num_threads(GJP.Nthreads());
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {

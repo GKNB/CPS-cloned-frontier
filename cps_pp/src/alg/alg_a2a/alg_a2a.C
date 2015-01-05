@@ -23,7 +23,7 @@ using namespace std;
 A2APropbfm::A2APropbfm(Lattice &latt,
 		       const A2AArg &_a2a,
 		       CommonArg &common_arg,
-		       Lanczos_5d<double> *_eig) : Alg(latt, &common_arg)
+		       Lanczos_5d<double> *_eig) : Alg(latt, &common_arg), gparity_transconv_fields(false)
 {
   cname = "A2APropbfm";
   const char *fname = "A2AProp()";
@@ -56,7 +56,10 @@ A2APropbfm::A2APropbfm(Lattice &latt,
 
   nh_site = a2a.nhits;
   nh_base = GJP.Tnodes() * GJP.TnodeSites() * latt.Colors() * latt.SpinComponents() / a2a.src_width; //'dilution' in spin, color and timeslice (allowing for multi-timeslice sources)
-  if( (GJP.Gparity1fX()||GJP.Gparity()) && a2a.dilute_flavor) nh_base *= 2; //activate flavor dilution
+
+  fdilute_fac = ((GJP.Gparity1fX()||GJP.Gparity()) && a2a.dilute_flavor) ? 2 : 1;
+
+  if( (GJP.Gparity1fX()||GJP.Gparity()) && a2a.dilute_flavor) nh_base *= fdilute_fac; //activate flavor dilution
 
   nh = nh_site * nh_base;
   nvec = a2a.nl + nh;
@@ -65,6 +68,13 @@ A2APropbfm::A2APropbfm(Lattice &latt,
   fftw_computed = false;
 
   do_gfix = a2a.do_gauge_fix ? true: false;
+
+  gparity_fac = GJP.Gparity() ? 2 : 1;
+
+  for(int i=0;i<3;++i){
+    w_momentum[i] = 0.0;
+    v_momentum[i] = 0.0;
+  }
 }
 
 A2APropbfm::~A2APropbfm()
@@ -362,7 +372,13 @@ bool A2APropbfm::compute_vw_low(bfm_evo<double> &dwf)
 
   for(int i=0;i<a2a.nl;i++)
     {
+#define NEW_BFM
+#ifdef NEW_BFM
+      omp_set_num_threads(bfmarg::default_threads);
+#else
       omp_set_num_threads(bfmarg::threads);
+#endif
+
 #pragma omp parallel
       {
 	dwf.Meo(eig->bq[i][1],tmp[0],Even,0);
@@ -374,8 +390,13 @@ bool A2APropbfm::compute_vw_low(bfm_evo<double> &dwf)
       lat.Ffive2four(v[i],b,glb_ls-1,0,2);
       v[i]->VecTimesEquFloat(1.0 / eig->evals[i],f_size_4d);
       // above is for v_low
-
+#define NEW_BFM
+#ifdef NEW_BFM
+      omp_set_num_threads(bfmarg::default_threads);
+#else
       omp_set_num_threads(bfmarg::threads);
+#endif
+
 #pragma omp parallel
       {
 	dwf.Mprec(eig->bq[i][1],tmp[1],Mtmp,DaggerNo);
@@ -847,16 +868,104 @@ static void Gparity_1f_FFT(fftw_complex *fft_mem, const int &sc, const int &sc_s
   fftw_free(fft_flavs[1]);
 }
 
+
+int sign_p_gparity(const Float p[3]){
+  int sgn = 99;
+  int ngpdirs = 0;
+  for(int i=0;i<3;i++){
+    if(GJP.Bc(i) == BND_CND_GPARITY){
+      ++ngpdirs;
+      int sgn_i = sign( p[i] );
+      if(sgn!=99 && sgn_i != sgn){ //It is a requirement of G-parity that the momentum signs are all identical.
+	if(!UniqueID()) printf("A2APropbfm::gparity_make_fields_transconv() Momentum signs must all be the same\n");
+	exit(-1);
+      }else sgn = sgn_i;
+    }
+  }
+  if(sgn==0 && ngpdirs!=0){
+    if(!UniqueID()) printf("A2APropbfm::gparity_make_fields_transconv() Quarks cannot have zero momentum in a G-parity direction\n");
+    exit(-1);
+  }
+  return sgn;
+}
+
+//Multiplies field by the appropriate flavor matrices such that the propagator is translationally covariant
+//Same sign in the 1 +/- sigma_2 projector because:
+
+//v transformation. It transforms as  v ->  ( 1+ sgn(p)\sigma_2 )v
+
+//w^dag transformation. It transforms as  w^dag ->  w^dag( 1- sgn( p_wdag )\sigma_2 )
+//                      thus  w -> ( 1- sgn( p_wdag )\sigma_2 ) w
+//but p_wdag = -p_w
+//hence w -> ( 1 + sgn( p_w )\sigma_2 ) w
+
+//NOTE: We also include a factor of 1/2 to preserve the normalization of the fields
+
+void A2APropbfm::gparity_make_field_transconv(Vector *v, const Float p[3]){
+  static const std::complex<double> _1(1.0,0.0);
+  static const std::complex<double> _I(0.0,1.0);
+  static const std::complex<double> _mI(0.0,-1.0);
+  
+  int vp_sign = sign_p_gparity(p);
+
+  //Momenta are in units of pi/L. G-parity quark momenta must be odd integer multiples of pi/2L
+  static const std::complex<double> fp[2][2] = { {_1, _mI}, {_I, _1} };
+  static const std::complex<double> fm[2][2] = { {_1, _I}, {_mI, _1} };
+  const std::complex<double> (*fv)[2] = (vp_sign == +1) ? fp : fm;    
+
+  std::complex<double>* vc = (std::complex<double>*)v;
+  const int f_off = 4*3*GJP.VolNodeSites();
+  
+#pragma omp parallel for
+  for(int scx=0;scx< 4*3*GJP.VolNodeSites();++scx){
+    std::complex<double>* orig[2] = { vc + scx, vc + scx + f_off };
+    std::complex<double> repl[2];
+    repl[0] = fv[0][0] * (*orig[0]) + fv[0][1] * (*orig[1]);
+    repl[1] = fv[1][0] * (*orig[0]) + fv[1][1] * (*orig[1]);
+    *orig[0] = repl[0]*0.5; *orig[1] = repl[1]*0.5;
+  }
+}
+
 //Perform the FFT of the vector 'vec'. fft_mem should be pre-allocated and is used as temporary memory for the FFT. 
 //fft_dim are the dimensions in the z,y and x directions respectively
 //Output into result
-void A2APropbfm::fft_vector(Vector* result, Vector* vec, const int fft_dim[3], fftw_complex* fft_mem){
+//add_momentum is the momentum projection you wish to impose on the quark source/sink in units of pi/L
+//this must be applied before taking the FFT if the momenta are not integer multiples of 2pi/L, as is the case with G-parity BCs.
+
+void A2APropbfm::fft_vector(Vector* result, Vector* vec, const int fft_dim[3], const Float add_momentum[3], fftw_complex* fft_mem){
   const static int sc_size = SPINOR_SIZE/2;
   const int size_3d_glb = fft_dim[0]*fft_dim[1]*fft_dim[2];
   const int t_size = GJP.Tnodes()*GJP.TnodeSites();
 
   gf_vec(result, vec);   
+  if(GJP.Gparity() && gparity_transconv_fields)
+    gparity_make_field_transconv(result,add_momentum);
+
   cnv_lcl_glb(fft_mem, reinterpret_cast<fftw_complex *>(result), true); //convert local gauge fixed field to global 'fft_mem'
+
+  if(add_momentum[0]!=0.0 || add_momentum[1]!=0.0 || add_momentum[2]!=0.0){
+    static const Float _mpi = -3.141592654; //Use the conventions  \sum_x e^{-ipx} f(x) for a forwards Fourier transform with momentum p 
+    const int nflav = GJP.Gparity() ? 2:1;
+
+#pragma omp parallel for    
+    for(int i=0;i<size_3d_glb*t_size;i++){
+      Float pdotx = 0.0;
+      int rem(i);
+      for(int d=0;d<3;d++){ 
+	int pos_d = rem % fft_dim[d]; rem /= fft_dim[d];
+	pdotx += add_momentum[d] * pos_d * _mpi / fft_dim[d];
+      }
+      fftw_complex phase = { cos(pdotx), sin(pdotx) };
+      for(int f=0;f<nflav;f++){
+	fftw_complex* site = fft_mem + i*sc_size + f*size_3d_glb*t_size*sc_size;
+	for(int sc=0;sc<sc_size;sc++,site++){
+	  fftw_complex tmp = { (*site)[0], (*site)[1]};
+	  (*site)[0] = tmp[0]*phase[0] - tmp[1]*phase[1];
+	  (*site)[1] = tmp[0]*phase[1] + tmp[1]*phase[0];
+	}
+      }
+    }
+  }
 
   for(int sc = 0; sc < sc_size; sc++){ //loop over the 12 spin-colour indices
     //CK: DFT on each timeslice. Arguments are 
@@ -910,10 +1019,10 @@ void A2APropbfm::fft_vw(){
   fftw_complex *fft_mem = fftw_alloc_complex(fftw_alloc_sz);
 
   // load and process v
-  for(int j = 0; j < nvec; ++j) fft_vector(v_fftw[j],get_v(j),fft_dim,fft_mem);
+  for(int j = 0; j < nvec; ++j) fft_vector(v_fftw[j],get_v(j),fft_dim,v_momentum,fft_mem);
 
   // load and process wl
-  for(int j = 0; j < a2a.nl; ++j) fft_vector(wl_fftw[j],get_wl(j),fft_dim,fft_mem);
+  for(int j = 0; j < a2a.nl; ++j) fft_vector(wl_fftw[j],get_wl(j),fft_dim,w_momentum,fft_mem);
 
   // load and process wh  
   //wh is 'nhits' field of c-numbers, and we generate independent v for each timeslice, spin-color and hit index
@@ -936,12 +1045,12 @@ void A2APropbfm::fft_vw(){
 	  if(GJP.Gparity()) wh2w((Vector *)wh_fftw_offset, get_wh(), j, w_sc, w_f);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc and flavor index w_f, where it is set to the value from hit j of wh	  
 	  else wh2w_GP1f_flavor_dilute((Vector *)wh_fftw_offset, get_wh(), j, w_sc, w_f);
 
-	  fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,fft_mem);
+	  fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,w_momentum,fft_mem);
 	}
       }else{
 	Float *wh_fftw_offset = (Float *)(wh_fftw) + ferm_stride * (j * sc_size + w_sc);
 	wh2w((Vector *)wh_fftw_offset, get_wh(), j, w_sc);  //wh_fftw_offset is set to zero apart from on spin-color index w_sc, where it is set to the value from hit j of wh
-	fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,fft_mem);
+	fft_vector((Vector *)wh_fftw_offset,(Vector *)wh_fftw_offset,fft_dim,w_momentum,fft_mem);
       }
     }
 
@@ -1022,6 +1131,7 @@ void A2APropbfm::gparity_1f_fftw_comm_flav(){
 
   gparity_1f_fftw_comm_flav_performed = true;
 }
+
 
 
 

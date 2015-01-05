@@ -46,7 +46,7 @@
 #include <alg/fix_gauge_arg.h>
 
 #include <util/data_shift.h>
-
+#include <alg/a2a/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -389,7 +389,7 @@ int main(int argc,char *argv[])
 
   if(gauge_fix) lattice->FixGaugeFree();
   IFloat gparity_prop_norm;
-  if(!skip_gparity_inversion) gparity_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).getProp(*lattice).norm();
+  if(!skip_gparity_inversion) gparity_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice).norm();
   else gparity_prop_norm = 0.0;
   PropManager::clear();
 
@@ -557,7 +557,7 @@ int main(int argc,char *argv[])
 
   if(gauge_fix) doubled_lattice.FixGaugeFree();
 
-  IFloat dbl_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).getProp(doubled_lattice).norm();
+  IFloat dbl_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(doubled_lattice).norm();
   if(gparity_X && gparity_Y) dbl_prop_norm/=2; //quad volume but only 2 independent flavors
 
   //IFloat dbl_prop_norm = 0.0;
