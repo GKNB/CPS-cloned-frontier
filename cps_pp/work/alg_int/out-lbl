@@ -1,0 +1,19 @@
+QMP_init_msg_passing returned 0
+argv[0]=cpsMPI.x
+argv[1]=do_arg.vml
+argv[2]=muon_arg.vml
+argv[3]=qpropw_arg.vml
+argv[4]=lanczos_arg.vml
+argv[5]=cheby_arg.vml
+argv[6]=.
+argv[7]=0
+argv[8]=4
+Rank=0 Num=1 NDIM=4
+dim: 1 1 1 1
+pos: 0 0 0 0
+Args:	 do_arg.vml hmc_arg.vml evo_arg.vml 
+	 gauge_arg.vml bsn_arg.vml frm_arg.vml 
+	 quo_tm_arg.vml quo_arg.vml rat_quo_arg.vml 
+	 ab1_arg.vml ab2_arg.vml ab3_arg.vml ab4_arg.vml 
+	 w_spect_arg.vml w_spect_cg_arg.vml w_spect_mass_list.vml 
+	 pbp_arg.vml current_dir 

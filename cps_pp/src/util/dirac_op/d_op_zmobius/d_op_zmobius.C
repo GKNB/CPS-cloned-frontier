@@ -922,6 +922,7 @@ int DiracOpZMobius::MatInv(Vector *out,
   switch (mobius_arg->pc_type){
   case ZMOB_PC_ORIG:
   case ZMOB_PC_SYM2:
+  case ZMOB_PC_SYM3:
     zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
 		  mobius_arg->zmobius_kappa_ratio);  
 
@@ -940,6 +941,7 @@ int DiracOpZMobius::MatInv(Vector *out,
     // need nothing
     break;
   case ZMOB_PC_SYM2:
+  case ZMOB_PC_SYM3:
     // Apply M5 to out for sym2 preconditioning
     moveFloat((IFloat *)temp2, (IFloat *)out, temp_size );
     zmobius_kappa_dslash_5_plus_cmplx(out, temp2, mass, DAG_NO, mobius_arg,
@@ -1006,6 +1008,7 @@ int DiracOpZMobius::MatInv(Vector *out,
   
   
   switch(mobius_arg->pc_type){
+  case   ZMOB_PC_SYM3:
   case   ZMOB_PC_SYM2: {
     zmobius_m5inv(temp, out, mass, DAG_NO, mobius_arg,
 		  mobius_arg->zmobius_kappa_ratio);

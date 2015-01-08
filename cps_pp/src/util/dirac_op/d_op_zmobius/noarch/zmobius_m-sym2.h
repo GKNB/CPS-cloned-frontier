@@ -62,7 +62,7 @@ void  zmobius_m_sym2 (Vector *out,
     Complex* cp = (Complex*)( (Float*)out + s * ls_stride);
     vecTimesEquComplex(cp, kappa_b[glb_s], ls_stride);
   }
-  DEBUG_MOBIUS_DSLASH("kappa_b(s)\n", time_elapse());
+  DEBUG_MOBIUS_DSLASH("kappa_b(s) %e\n", time_elapse());
 
   //------------------------------------------------------------------
   // Apply M_5^-1 (hopping in 5th dir + diagonal)
@@ -85,7 +85,7 @@ void  zmobius_m_sym2 (Vector *out,
     Complex* cp = (Complex*)( (Float*)frm_tmp2 +s*ls_stride);
     vecTimesEquComplex((Complex*) cp, - kappa_b[glb_s], ls_stride);
   }
-  DEBUG_MOBIUS_DSLASH("-kappa_b(s)\n", time_elapse());
+  DEBUG_MOBIUS_DSLASH("-kappa_b(s) %e\n", time_elapse());
 
 
   

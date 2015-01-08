@@ -41,7 +41,9 @@ void  zmobius_mdag_sym2(Vector *out,
   time_elapse();
 
   // out<- in
+  DEBUG_MOBIUS_DSLASH("mdag start\n", time_elapse());
   moveFloat((IFloat*)out, (IFloat*)in, f_size);
+  DEBUG_MOBIUS_DSLASH("out<- in %e\n", time_elapse());
 
 
   //------------------------------------------------------------------
@@ -53,7 +55,7 @@ void  zmobius_mdag_sym2(Vector *out,
     Complex* cp = (Complex*)( (Float*)out +s*ls_stride);
     vecTimesEquComplex((Complex*) cp, - conj(kappa_b[glb_s]), ls_stride);
   }
-  DEBUG_MOBIUS_DSLASH("-kappa_b(s)\n", time_elapse());
+  DEBUG_MOBIUS_DSLASH("-kappa_b(s) %e\n", time_elapse());
 
   
   // Apply Dslash^dag O <- E
@@ -75,7 +77,7 @@ void  zmobius_mdag_sym2(Vector *out,
     Complex* cp = (Complex*)( (Float*)frm_tmp2 + s * ls_stride);
     vecTimesEquComplex(cp, conj( kappa_b[glb_s] ), ls_stride);
   }
-  DEBUG_MOBIUS_DSLASH("kappa_b(s)\n", time_elapse());
+  DEBUG_MOBIUS_DSLASH("kappa_b(s) %e\n", time_elapse());
   
   //------------------------------------------------------------------
   // Apply Dslash E <- O dag

@@ -35,6 +35,7 @@ CPS_START_NAMESPACE
 #include "zmobius_m-sym1-MIT.h"
 #include "zmobius_m-sym2.h"
 #include "zmobius_m-sym2-MIT.h"
+#include "zmobius_m-sym3.h"
 
 void  zmobius_m(Vector *out, 
 		Matrix *gauge_field, 
@@ -57,6 +58,9 @@ void  zmobius_m(Vector *out,
     break;
   case   ZMOB_PC_SYM2_MIT:
     zmobius_m_sym2_MIT(out, gauge_field, in, mass, mobius_lib_arg);
+    break;
+  case   ZMOB_PC_SYM3:
+    zmobius_m_sym3(out, gauge_field, in, mass, mobius_lib_arg);
     break;
   default:
     ERR.NotImplemented("","zmobius_mdag(...)");

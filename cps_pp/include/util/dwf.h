@@ -58,7 +58,8 @@ enum ZMobiusPCType {
   ZMOB_PC_SYM1,
   ZMOB_PC_SYM2,
   ZMOB_PC_SYM1_MIT,
-  ZMOB_PC_SYM2_MIT };
+  ZMOB_PC_SYM2_MIT,
+  ZMOB_PC_SYM3};
 
 
 // The Dwf structure typedef

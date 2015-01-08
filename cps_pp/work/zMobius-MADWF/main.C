@@ -198,11 +198,6 @@ int main(int argc,char *argv[])
   
   Start(&argc, &argv);
 
-  //  if ( argc!=9) { 
-  //    if(!UniqueID())printf("(exe) do_arg doext_arg mobius_arg-l mobius_arg-s qprop_arg eig_arg mdw_arg do_mdw d_mob do_zmob_lg do_zmob_sl work-directory\n");
-  //    exit(-1);
-  //  }
-
   if ( argc!=6) { 
     if(!UniqueID())printf("(exe) working_dir do_mdwf do_mob do_zmob_lg do_zmob_sm , but argc=%d\n", argc);
     exit(-1);
@@ -290,6 +285,7 @@ int main(int argc,char *argv[])
     LatticeFactory::Destroy(); 
   }
 
+  // Hantao's mobius using AP's solver
   if(do_mdwf){
     GJP.SetMdwfArg( &mdwf_arg );
     GnoneFmdwf lattice;
@@ -310,7 +306,7 @@ int main(int argc,char *argv[])
   
   // Solve  Large Ls with Zmobius with MADWF
   //--------------------------------------------
-if(do_zmob_lg)  {  
+  if(do_zmob_lg)  {
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
@@ -327,11 +323,10 @@ if(do_zmob_lg)  {
 		   mobius_arg.ls);
     
 
-       *(MobiusArg**)&(qp_arg.mob_arg_l) = &mobius_arg;
-       *(MobiusArg**)&(qp_arg.mob_arg_s) = &mobius_arg2;
-    
+    *(MobiusArg**)&(qp_arg.mob_arg_l) = &mobius_arg;
+    *(MobiusArg**)&(qp_arg.mob_arg_s) = &mobius_arg2;
       
-   CommonArg carg;
+    CommonArg carg;
     QPropWPointSrc qp(lattice, &qp_arg, &carg);
     //qp.Run();
 
@@ -347,7 +342,7 @@ if(do_zmob_lg)  {
 
    // Solve  Small Ls with Zmobius
   //--------------------------------------------
-if(do_zmob_sm)  {  
+  if(do_zmob_sm)  {  
     //    Lattice& lattice=
     //      LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     GnoneFzmobius lattice;
@@ -355,7 +350,7 @@ if(do_zmob_sm)  {
     if(!flag_comp_read_eigv)
 	comp_read_eigenvectors(lattice)  ;
 
-	GJP.SnodeSites(mobius_arg2.ls);
+    GJP.SnodeSites(mobius_arg2.ls);
     GJP.ZMobius_b (mobius_arg2.zmobius_b_coeff.zmobius_b_coeff_val,
 		   mobius_arg2.ls);
     GJP.ZMobius_c (mobius_arg2.zmobius_c_coeff.zmobius_c_coeff_val,
