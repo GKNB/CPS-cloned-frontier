@@ -237,15 +237,15 @@ void reset_mobius_arg(void* mobius_lib_arg){
 
   mobius_arg->pc_type = GJP.ZMobius_PC_Type();
 
-  if(! mobius_arg->zmobius_kappa_b){
+  if(mobius_arg->zmobius_kappa_b){
     delete [] mobius_arg->zmobius_kappa_b;
   }
   mobius_arg->zmobius_kappa_b = (Complex*) new  Complex [mobius_arg->ls];
-  if(! mobius_arg->zmobius_kappa_c){
+  if(mobius_arg->zmobius_kappa_c){
     delete [] mobius_arg->zmobius_kappa_c;
   }
   mobius_arg->zmobius_kappa_c = (Complex*) new  Complex [mobius_arg->ls];
-  if(! mobius_arg->zmobius_kappa_ratio){
+  if(mobius_arg->zmobius_kappa_ratio){
     delete [] mobius_arg->zmobius_kappa_ratio;
   }
   mobius_arg->zmobius_kappa_ratio = (Complex*) new  Complex [mobius_arg->ls];
