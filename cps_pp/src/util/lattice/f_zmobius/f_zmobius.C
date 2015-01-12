@@ -148,7 +148,7 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 
   
   sfree(cname, fname,  "dminus_in",  dminus_in);
-  if(prs_f_in==PRESERVE_YES) 
+  // commented out above, so do here too. TB if(prs_f_in==PRESERVE_YES) 
     sfree(cname, fname,  "temp",  temp);
 
   // Return the number of iterations
