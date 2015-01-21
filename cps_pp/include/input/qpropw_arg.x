@@ -66,6 +66,13 @@ class QPropWArg {
   int EndSrcSpin;
   int StartSrcColor;
   int EndSrcColor;
+
+  // MADWF support
+  //  MobiusArg* mob_arg_l;
+  //MobiusArg* mob_arg_s;
+  int* mob_arg_l;
+  int* mob_arg_s;
+
   memfun QPropWArg();
 };
 

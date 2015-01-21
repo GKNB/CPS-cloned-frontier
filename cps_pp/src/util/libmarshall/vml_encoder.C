@@ -18,7 +18,7 @@ USING_NAMESPACE_CPS
   /* Peter Boyle 2004
    * Interface to represent the basic types in XDR routines
    */
-#define DEB(A) fprintf(stderr,A);
+#define DEB(A) fprintf(stderr,"%s",A);
 bool_t TextEncoder::Void(void)
 {
   return true;

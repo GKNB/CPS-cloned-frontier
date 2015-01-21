@@ -1108,6 +1108,17 @@ class Fmdwf : public virtual Lattice {
   //!< Method to ensure bosonic force works (does nothing for Wilson
   //!< theories.
   void BforceVector(Vector *in, CgArg *cg_arg);
+  // !< Special for Mobius fermions, applies the D_- 5D matrix to an
+  // !< unpreconditioned fermion vector.
+  //
+  // !< The following gives an example of D_- with Ls = 4:
+  //       [ -D_-^1 0      0      0      ]
+  //       [ 0      -D_-^2 0      0      ]
+  // D_- = [ 0      0      -D_-^3 0      ]
+  //       [ 0      0      0      -D_-^4 ]
+  //
+  // !< where D_-^s = c[s] D_W - 1, D_W is the 4D Wilson Dirac operator.
+  void Dminus(Vector *out, Vector *in);
 };
 
 class Fmobius : public FdwfBase {
@@ -1133,8 +1144,44 @@ class Fmobius : public FdwfBase {
                 MobiusArg *mob_s,
                 Float *true_res,
                 CnvFrmType cnv_frm,
-                PreserveType prs_f_in,
-                int n_restart, Float rsd_vec[]);
+                PreserveType prs_f_in);
+  
+    int FeigSolv(Vector **f_eigenv, Float *lambda,
+		 Float *chirality, int *valid_eig,
+		 Float **hsum,
+		 EigArg *eig_arg, 
+		 CnvFrmType cnv_frm);
+
+    int FeigSolv(Vector **f_eigenv, Float *lambda,
+		 LanczosArg *eig_arg, 
+		 CnvFrmType cnv_frm);
+};
+
+
+class Fzmobius : public FdwfBase {
+ private:
+    char *cname;    // Class name.
+    
+ public:
+
+    Fzmobius(void);
+    ~Fzmobius(void);
+
+    FclassType Fclass(void) const;
+
+    int FmatInv(Vector *f_out, Vector *f_in, 
+		CgArg *cg_arg, 
+		Float *true_res,
+		CnvFrmType cnv_frm,
+		PreserveType prs_f_in);
+
+    int FmatInv(Vector *f_out,
+                Vector *f_in,
+                MobiusArg *mob_l,
+                MobiusArg *mob_s,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in);
 
     int FeigSolv(Vector **f_eigenv, Float *lambda,
 		 Float *chirality, int *valid_eig,

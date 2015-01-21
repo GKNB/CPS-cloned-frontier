@@ -48,7 +48,6 @@
 
 #include <math.h>
 
-
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
 #endif
@@ -210,16 +209,16 @@ Lattice::Lattice ()
 
   // QED (angles)
   //----------------------------------------------------------------
-  if (GJP.ExtInitialized ()) {
-    StartConfType start_u1_conf_kind = GJP.StartU1ConfKind ();
-    if (start_u1_conf_kind != START_CONF_LOAD) {
-      u1_gauge_field = (Float *) pmalloc (array_size / 18);
-      if (u1_gauge_field == 0)
-	ERR.Pointer (cname, fname, "u1_gauge_field");
-      VRB.Pmalloc (cname, fname, "u1_gauge_field", u1_gauge_field,
-		   array_size / 9);
-      GJP.StartU1ConfLoadAddr (u1_gauge_field);
-    }
+if ( GJP.ExtInitialized()){
+  StartConfType start_u1_conf_kind = GJP.StartU1ConfKind();
+  // TIZB: It banged for sencond lattice creation. I am not sure.
+  //if(start_u1_conf_kind != START_CONF_LOAD ){  
+  if(!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD ){
+      u1_gauge_field = (Float *) pmalloc(array_size/18);
+      if( u1_gauge_field == 0) ERR.Pointer(cname,fname, "u1_gauge_field");
+      VRB.Pmalloc(cname, fname, "u1_gauge_field", u1_gauge_field, array_size/9);
+      GJP.StartU1ConfLoadAddr(u1_gauge_field);
+  }
     if (start_u1_conf_kind == START_CONF_ORD) {
       SetU1GfieldOrd ();
       u1_is_initialized = 1;

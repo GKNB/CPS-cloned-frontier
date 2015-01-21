@@ -137,6 +137,10 @@ GlobalJobParameter::GlobalJobParameter()
 //  VRB.Func(cname,fname);
   doext_p = NULL;
   arg_set=0;
+
+  zmobius_b=NULL;
+  zmobius_c=NULL;
+  zmobius_pc_type= ZMOB_PC_SYM2;
 }
 
 

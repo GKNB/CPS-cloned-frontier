@@ -57,6 +57,7 @@ enum FclassType {
     F_CLASS_BFM,
     F_CLASS_BFM_TYPE2,
     F_CLASS_MOBIUS,
+    F_CLASS_ZMOBIUS,
     F_CLASS_NAIVE
 };
 

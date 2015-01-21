@@ -1,0 +1,28 @@
+class EigArg eig_arg = {
+PatternType pattern_kind = LIN
+double Mass_init =   5.e-03
+double Mass_final =   5.e-03
+double Mass_step =   1.01
+Array Mass[0] = {
+}
+int n_masses = 1
+int N_eig = 8
+int N_eigacc = 0
+int Kalk_Sim = 1
+int MaxCG = 50000
+double RsdR_a =   1e-10
+double RsdR_r =   1e-10
+double Rsdlam =   1e-10
+double Cv_fact =  0.25
+int N_min = 10
+int N_max = 50000
+int N_KS_max = 200
+int n_renorm = 15
+int ProjApsiP = 0
+RitzMatType RitzMatOper = MATPCDAG_MATPC
+int print_hsum = 0
+int hsum_dir = 4
+double mass =   5.e-03
+string fname = "eig.dat"
+int ncorr = 0
+}

@@ -796,7 +796,8 @@ class Lattice
     //~~ added F_CLASS_WILSON_TM for twisted mass fermions
     int FwilsonType(){
       if (Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_CLOVER || 
-	  Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS 
+	  Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
+	  || Fclass()==F_CLASS_ZMOBIUS 
         || Fclass() ==F_CLASS_WILSON_TM || Fclass() ==F_CLASS_NAIVE
         || Fclass() ==F_CLASS_BFM ) return 1;
       else return 0;
@@ -805,7 +806,8 @@ class Lattice
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
     int F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS 
-        || Fclass() ==F_CLASS_MDWF || Fclass() == F_CLASS_BFM ) return 1;
+	   || Fclass()==F_CLASS_ZMOBIUS 
+	   || Fclass() ==F_CLASS_MDWF || Fclass() == F_CLASS_BFM ) return 1;
       else return 0;
     }
 
@@ -1121,6 +1123,18 @@ class Lattice
 			 Float **hsum,
 			 EigArg *eig_arg, 
 			 CnvFrmType cnv_frm = CNV_FRM_YES) = 0;
+
+
+
+  // MADWF solver
+  virtual int FmatInv(Vector *f_out,
+	      Vector *f_in,
+	      MobiusArg *mob_l,
+	      MobiusArg *mob_s,
+	      Float *true_res,
+	      CnvFrmType cnv_frm ,
+	      PreserveType prs_f_in)
+  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");} // for now
 
   
     virtual Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
@@ -2148,6 +2162,8 @@ class Fp4 : public virtual FstagTypes, public virtual Fsmear
 		CnvFrmType cnv_frm = CNV_FRM_YES,
 		PreserveType prs_f_in = PRESERVE_YES);
 
+
+  
     int FeigSolv(Vector **f_eigenv, Float *lambda, 
 		 LanczosArg *eig_arg, 
 		 CnvFrmType cnv_frm = CNV_FRM_YES);

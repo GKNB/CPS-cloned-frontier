@@ -73,7 +73,7 @@ protected:
   WilsonMatrix* prop5d;
   
   QPropWArg qp_arg; 
-  
+
   //! The class name
   char *cname; 
 
@@ -114,6 +114,7 @@ public:
 
   QPropW(Lattice& lat, QPropWArg* arg, CommonArg* c_arg);
 
+  
   //! copy constructor
   QPropW(const QPropW& rhs); 
 
