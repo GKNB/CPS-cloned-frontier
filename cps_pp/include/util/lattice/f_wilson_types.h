@@ -1173,7 +1173,7 @@ class Fzmobius : public FdwfBase {
 		CgArg *cg_arg, 
 		Float *true_res,
 		CnvFrmType cnv_frm,
-		PreserveType prs_f_in);
+		PreserveType prs_f_in, int dminus=1);
 
     int FmatInv(Vector *f_out,
                 Vector *f_in,
@@ -1192,6 +1192,9 @@ class Fzmobius : public FdwfBase {
     int FeigSolv(Vector **f_eigenv, Float *lambda,
 		 LanczosArg *eig_arg, 
 		 CnvFrmType cnv_frm);
+
+    void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag);
 };
 
 CPS_END_NAMESPACE

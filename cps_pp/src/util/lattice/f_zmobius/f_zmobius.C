@@ -58,7 +58,7 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 		     CgArg *cg_arg, 
 		     Float *true_res,
 		     CnvFrmType cnv_frm,
-		     PreserveType prs_f_in)
+		     PreserveType prs_f_in, int dminus)
 {
   int iter;
   char *fname = "FmatInv(CgArg*,V*,V*,F*,CnvFrmType)";
@@ -82,11 +82,11 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   // First multiply D_- to source
-#if 1
-  dop. Dminus(dminus_in, f_in);
-#else
-  moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
-#endif
+//#if 1
+  if(dminus) dop. Dminus(dminus_in, f_in);
+//#else
+  else moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
+//#endif
 
 #if 1  
   // Multiply 2*kappa
@@ -593,6 +593,14 @@ int Fzmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
       Fconvert(f_eigenv[i], CANONICAL, StrOrd());
   
   return iter;
+}
+
+void Fzmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag){
+  DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
+  unsigned long offset = GJP.VolNodeSites()*FsiteSize()/ (2*6);
+  dop.Dslash(f_out,f_in+offset,CHKB_ODD,DAG_NO);
+  dop.Dslash(f_out+offset,f_in,CHKB_EVEN,DAG_NO);
 }
 
 //CPS_END_NAMESPACE
