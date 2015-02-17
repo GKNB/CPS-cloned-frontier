@@ -58,7 +58,7 @@ CPS_START_NAMESPACE
 
 void vecTimesEquComplex(Complex *a, Complex b, int len)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
     	a[i] *= b;
     }
@@ -69,7 +69,7 @@ void vecTimesEquComplex(Complex *a, Complex b, int len)
 void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 		    const Complex *d, int len)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
     	a[i] = b * c[i] + d[i];
     }
@@ -77,6 +77,7 @@ void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
 {
+//  VRB.Result("", "vecEqualsVecTimesEquComplex()", "(%p %p %g %g %d)\n", a, b, c.real(),c.imag(),len);
   for (int i=0; i<len/2; i++) {
     *a++ = c * *b++;
   }
@@ -127,9 +128,7 @@ void zmobius_B_MIT( Vector* out, Float mass,
   const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
   const int ls_stride = 24 * vol_4d_cb;
   
-  Vector *temp = (Vector *) smalloc(f_size * sizeof(Float));
-  if (temp == 0) ERR.Pointer(cname, fname, "temp");
-  VRB.Smalloc(cname,fname, "temp", temp, f_size * sizeof(Float));
+  Vector *temp = (Vector *) smalloc( cname,fname, "temp", f_size * sizeof(Float));
 
   Complex* fact = new Complex [ls]; 
 

@@ -117,8 +117,8 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 
 
   
-  if(prs_f_in==PRESERVE_YES)
-    moveFloat((IFloat*)f_in,(IFloat*)temp, size);
+//  if(prs_f_in==PRESERVE_YES)
+	//moveFloat((IFloat*)f_in,(IFloat*)temp, size);
     
 
   //norm = f_out->NormSqGlbSum(size);
@@ -601,6 +601,49 @@ void Fzmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   unsigned long offset = GJP.VolNodeSites()*FsiteSize()/ (2*6);
   dop.Dslash(f_out,f_in+offset,CHKB_ODD,DAG_NO);
   dop.Dslash(f_out+offset,f_in,CHKB_EVEN,DAG_NO);
+
+#if 1  
+  // Multiply 2*kappa
+  // do even / odd 
+{
+  int local_ls = GJP.SnodeSites();
+  const int s_node_coor = GJP.SnodeCoor();
+  const int ls_stride = 24 * GJP.VolNodeSites()/2;
+  int size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+//      const Complex kappa_b =
+//	2.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+//		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      const Complex kappa_b =
+	 1 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) ;
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
+			 kappa_b, ls_stride);
+    }
+  }
+}
+#endif
+
+#if 0
+  // Multiply 2*kappa
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+#endif
+
 }
 
 //CPS_END_NAMESPACE

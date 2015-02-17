@@ -84,12 +84,6 @@ typedef struct{
   
   IFloat *comm_buf;    // Communications buffer (12 words for dwfso)
   Wilson *wilson_p;   // Pointer to the wilson structure
-#if TARGET == QCDOC
-  SCUDirArgIR *PlusArg[2];
-  SCUDirArgIR *MinusArg[2];
-  SCUDirArgMulti *Plus;
-  SCUDirArgMulti *Minus;
-#endif
 } Dwf;
 
 

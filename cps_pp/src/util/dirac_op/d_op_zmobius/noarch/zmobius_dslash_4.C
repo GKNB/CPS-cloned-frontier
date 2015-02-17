@@ -106,6 +106,8 @@ void zmobius_dslash_4_dag0(Vector *out,
       else   b = b_coeff[i]; 
       IFloat* _frm_ = frm_ + i* f_size;
       IFloat* _frm_in = frm_in + i* f_size;
+//      printf("vecEqualsVecTimesEquComplex(%p %p (%g %g) %d)\n",
+//	(Complex*)_frm_, (Complex*)_frm_in, b.real(), b.imag(), f_size);
       vecEqualsVecTimesEquComplex((Complex*)_frm_, (Complex*)_frm_in, b, f_size);
     }
     
