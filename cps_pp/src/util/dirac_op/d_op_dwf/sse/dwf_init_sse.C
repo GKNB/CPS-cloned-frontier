@@ -55,17 +55,15 @@ void dwf_init(Dwf *dwf_p)
 //------------------------------------------------------------------
   int f_size = 24 * GJP.VolNodeSites() * GJP.SnodeSites() / 2; 
 
-  dwf_p->frm_tmp1 = (IFloat *) smalloc(f_size*sizeof(IFloat));
-  if(dwf_p->frm_tmp1 == 0)
-    ERR.Pointer(cname,fname, "frm_tmp1");
-  VRB.Smalloc(cname,fname,
-	      "frm_tmp1", dwf_p->frm_tmp1, f_size*sizeof(IFloat));
+//  dwf_p->frm_tmp1 = (IFloat *) smalloc(f_size*sizeof(IFloat));
+  dwf_p->frm_tmp1 = (IFloat *) smalloc(cname,fname, "frm_tmp1", f_size*sizeof(IFloat));
 
-  dwf_p->frm_tmp2 = (IFloat *) smalloc(f_size*sizeof(IFloat));
-  if(dwf_p->frm_tmp2 == 0)
-    ERR.Pointer(cname,fname, "frm_tmp2");
-  VRB.Smalloc(cname,fname,
-	      "frm_tmp2", dwf_p->frm_tmp2, f_size*sizeof(IFloat));
+  dwf_p->frm_tmp2 = (IFloat *) smalloc(cname,fname, "frm_tmp2", f_size*sizeof(IFloat));
+  dwf_p->frm_tmp3 = (IFloat *) smalloc(cname,fname, "frm_tmp3", f_size*sizeof(IFloat));
+//  if(dwf_p->frm_tmp2 == 0)
+//    ERR.Pointer(cname,fname, "frm_tmp2");
+//  VRB.Smalloc(cname,fname,
+//	      "frm_tmp2", dwf_p->frm_tmp2, f_size*sizeof(IFloat));
 
 //------------------------------------------------------------------
 // Allocate memory for a 12 word communications buffer needed

@@ -69,6 +69,8 @@ void dwf_init(Dwf *dwf_p)
 //  VRB.Smalloc(cname,fname,
 //	      "frm_tmp2", dwf_p->frm_tmp2, f_size*sizeof(IFloat));
   dwf_p->frm_tmp3 = (IFloat *) smalloc(cname,fname,"frm_tmp3",f_size*sizeof(IFloat));
+  VRB.Result(cname,fname,"frm_tmp1 frm_tmp2 frm_tmp3= %p %p %p\n",
+	frm_tmp1, frm_tmp2, frm_tmp3);
 
 //------------------------------------------------------------------
 // Allocate memory for a 12 word communications buffer needed

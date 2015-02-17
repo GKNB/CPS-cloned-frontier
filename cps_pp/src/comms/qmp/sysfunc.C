@@ -60,7 +60,11 @@ namespace QMPSCU {
 
   //Clean up resources used by QMP
   void destroy_qmp() {
-    QMP_finalize_msg_passing();
+QMP_status_t sync_status = QMP_barrier(); 
+if (sync_status != QMP_SUCCESS) {
+      QMP_error("Error in destrot_qmp QMP_barrier():%s\n", QMP_error_string(sync_status));
+}
+QMP_finalize_msg_passing();
   }
 
   //Initialize QMP with null command line
