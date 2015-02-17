@@ -3043,23 +3043,20 @@ void
   at random from a gaussian distribution with mean 0 and variance \a sigma2. 
  */
 //--------------------------------------------------------------------------
-void
-  Lattice::RandGaussVector (Vector * frm, Float sigma2, int num_chkbds,
-			    StrOrdType str,
-			    FermionFieldDimension frm_dim /* = FIVE_D */ )
+void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
+             StrOrdType str, FermionFieldDimension frm_dim /* = FIVE_D */ )
 {
-  const char *fname =
-    "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
-  VRB.Func (cname, fname);
+  const char *fname = "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
+  VRB.Func(cname, fname);
 
-  int vec_size = 2 * Colors () * SpinComponents ();
+  int vec_size = 2 * Colors() * SpinComponents();
 
-  int s_node_sites = GJP.SnodeSites ();
-  if (frm_dim == FOUR_D || s_node_sites == 0
-      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-      || (Fclass () != F_CLASS_DWF && Fclass () != F_CLASS_BFM)) {
-    s_node_sites = 1;
-    frm_dim = FOUR_D;
+  int s_node_sites = GJP.SnodeSites();
+  if(frm_dim == FOUR_D
+     || s_node_sites == 0
+     // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
+     || (!F5D() )) {
+    s_node_sites = 1; frm_dim = FOUR_D;
   }
   LRG.SetSigma (sigma2);
 

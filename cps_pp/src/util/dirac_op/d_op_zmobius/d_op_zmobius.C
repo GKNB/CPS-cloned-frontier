@@ -75,6 +75,7 @@ void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
     }
 }
 
+
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
 {
 //  VRB.Result("", "vecEqualsVecTimesEquComplex()", "(%p %p %g %g %d)\n", a, b, c.real(),c.imag(),len);
@@ -504,11 +505,11 @@ void DiracOpZMobius::Dslash(Vector *out,
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  zmobius_dslash(out, 
+  zmobius_unprec(out, 
 		gauge_field, 
 		in, 
 		mass,
-		cb,
+//		cb,
 		dag,
 		(Zmobus *) mobius_lib_arg);
 }
@@ -975,7 +976,7 @@ int DiracOpZMobius::MatInv(Vector *out,
   }
 
 
-#if 0
+#if 1
   // check solution
   norm = out->NormSqGlbSum(temp_size);
   if(!UniqueID()) printf("Norm out %.14e\n",norm);

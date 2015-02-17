@@ -109,6 +109,13 @@ void zmobius_dslash(Vector *out,
 		   int dag,
 		   Zmobus *mobius_lib_arg);
 
+void zmobius_unprec(Vector *out, 
+		   Matrix *gauge_field, 
+		   Vector *in,
+		   Float mass,
+		   int dag,
+		   Zmobus *mobius_lib_arg);
+
 
 //------------------------------------------------------------------
 // mobius_m is the fermion matrix.  
