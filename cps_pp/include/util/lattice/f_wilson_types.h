@@ -1184,6 +1184,8 @@ class Fzmobius : public FdwfBase {
     int FeigSolv(Vector **f_eigenv, Float *lambda,
 		 LanczosArg *eig_arg, 
 		 CnvFrmType cnv_frm);
+    void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag);
 };
 
 CPS_END_NAMESPACE

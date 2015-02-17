@@ -348,6 +348,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
 	zTimesV1PlusV2((Complex*)f_out, fact[glb_s-1], 
 		       (Complex*)f_in, (Complex*)f_out, 12);
       
+//for(int ii=0;ii<12;ii++) if (fabs(f_out[ii])>1e-8) printf("f_out[%d][%d][%d]=%g %g\n",x,s,ii,f_out[ii],f_in[ii]);
       f_in  =  f_in + 24;
       f_out = f_out + 24;
     }
@@ -413,6 +414,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
       }
     }
     
+//for(int ii=0;ii<12;ii++) if (fabs(f_out[ii])>1e-8) printf("f_out[%d][%d][%d]=%g %g\n",x,s,ii,f_out[ii],f_in[ii]);
     f_in  =  f_in + 24;
     f_out = f_out + 24;
   }
@@ -443,6 +445,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
 	zTimesV1PlusV2((Complex*)f_out, fact[glb_s+1],
 		       (Complex*)f_in, (Complex*)f_out, 12);
 
+//for(int ii=0;ii<12;ii++) if (fabs(f_out[ii])>1e-8) printf("f_out[%d][%d][%d]=%g %g\n",x,s,ii,f_out[ii],f_in[ii]);
       f_in  =  f_in + 24;
       f_out = f_out + 24;
     }
@@ -506,6 +509,7 @@ void zmobius_kappa_dslash_5_plus_cmplx(Vector *out,
       }
     }
     
+//for(int ii=0;ii<12;ii++) if (fabs(f_out[ii])>1e-8) printf("f_out[%d][%d][%d]=%g %g\n",x,s,ii,f_out[ii],f_in[ii],f_in[ii]);
     f_in  =  f_in + 24;
     f_out = f_out + 24;
   }

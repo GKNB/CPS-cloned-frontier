@@ -58,7 +58,7 @@ CPS_START_NAMESPACE
 
 void vecTimesEquComplex(Complex *a, Complex b, int len)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
     	a[i] *= b;
     }
@@ -69,11 +69,12 @@ void vecTimesEquComplex(Complex *a, Complex b, int len)
 void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 		    const Complex *d, int len)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
     	a[i] = b * c[i] + d[i];
     }
 }
+
 
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
 {
@@ -505,11 +506,11 @@ void DiracOpZMobius::Dslash(Vector *out,
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  zmobius_dslash(out, 
+  zmobius_unprec(out, 
 		gauge_field, 
 		in, 
 		mass,
-		cb,
+//		cb,
 		dag,
 		(Zmobus *) mobius_lib_arg);
 }
@@ -976,7 +977,7 @@ int DiracOpZMobius::MatInv(Vector *out,
   }
 
 
-#if 0
+#if 1
   // check solution
   norm = out->NormSqGlbSum(temp_size);
   if(!UniqueID()) printf("Norm out %.14e\n",norm);

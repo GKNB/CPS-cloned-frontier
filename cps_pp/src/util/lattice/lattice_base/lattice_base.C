@@ -2719,7 +2719,7 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)) {
+     || (!F5D() )) {
     s_node_sites = 1; frm_dim = FOUR_D;
   }
   LRG.SetSigma(sigma2);

@@ -82,7 +82,8 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   // First multiply D_- to source
-#if 1
+  // CJ: Hacked for testing for now
+#if 0
   dop. Dminus(dminus_in, f_in);
 #else
   moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
@@ -97,6 +98,8 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
       const Complex kappa_b =
 	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
 		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+ 	VRB.Result(cname,fname,"s=%d Zmobius_b=%e %e kappa_b=%e %e\n",
+	glb_s,GJP.ZMobius_b()[glb_s].real(),GJP.ZMobius_b()[glb_s].imag(),kappa_b.real(),kappa_b.imag());
       int idx = s*ls_stride/2;// "/2" is for complex
       vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
 			 2.0*kappa_b, ls_stride);
@@ -593,6 +596,73 @@ int Fzmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
       Fconvert(f_eigenv[i], CANONICAL, StrOrd());
   
   return iter;
+}
+
+
+void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
+		    Complex d, const Complex *e, int len)
+{
+//#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+    	a[i] = b * c[i] + d*e[i];
+    }
+}
+
+void Fzmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag){
+  DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
+  unsigned long offset = GJP.VolNodeSites()*FsiteSize()/ (2*6);
+//  dop.Dslash(f_out,f_in,CHKB_ODD,DAG_NO);
+  dop.Dslash(f_out,f_in,CHKB_EVEN,DAG_NO);
+
+#if 0 
+  // Multiply 2*kappa
+  // do even / odd 
+{
+  int local_ls = GJP.SnodeSites();
+  const int s_node_coor = GJP.SnodeCoor();
+  const int ls_stride = 24 * GJP.VolNodeSites()/2;
+  const Complex half=-0.5;
+  int size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+//      const Complex kappa_b =
+//	2.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+//		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      const Complex kappa_b =
+	 1 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) ;
+      int idx = s*ls_stride/2;// "/2" is for complex
+//      vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
+//			 kappa_b, ls_stride);
+//void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
+//                    Complex d, const Complex *e, int len)
+      zTimesV1PluszTimesV2( (Complex*)f_out+idx+ieo*size/4,
+			 kappa_b, (Complex*)f_in+idx+ieo*size/4,
+			 half, (Complex*)f_out+idx+ieo*size/4, ls_stride);
+    }
+  }
+}
+#endif
+
+#if 0
+  // Multiply 2*kappa
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+#endif
+
 }
 
 //CPS_END_NAMESPACE
