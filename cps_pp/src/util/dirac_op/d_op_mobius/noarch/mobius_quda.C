@@ -6,9 +6,9 @@
 CPS_START_NAMESPACE
 //----------------------------------------------------------------
 //
-// dwf_quda.C
+// mobius_quda.C
 //
-// Interface to QUDA Domain Wall inverter
+// Interface to QUDA mobius Domain Wall inverter
 // 
 //------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ CPS_END_NAMESPACE
 
 CPS_START_NAMESPACE
 
-QudaPrecision setPrecision_dwf(CudaPrecision prec) {
+QudaPrecision setPrecision_mdwf(CudaPrecision prec) {
   switch (prec) {
   case CUDA_HALF_PRECISION:
     return QUDA_HALF_PRECISION;
@@ -44,7 +44,7 @@ QudaPrecision setPrecision_dwf(CudaPrecision prec) {
   }
 }
 
-QudaReconstructType setReconstruct_dwf(CudaReconstructType recon) {
+QudaReconstructType setReconstruct_mdwf(CudaReconstructType recon) {
   switch (recon) {
   case CUDA_RECONSTRUCT_8:
     return QUDA_RECONSTRUCT_8;
@@ -55,7 +55,7 @@ QudaReconstructType setReconstruct_dwf(CudaReconstructType recon) {
   }
 }
 
-int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type) {
+int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type) {
 
   char *fname = "QudaInvert(V*, V*, F*, int)";
 
@@ -74,12 +74,12 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   //--------------------------------------
 
   // set the CUDA precisions
-  gauge_param.reconstruct = setReconstruct_dwf(QudaParam.reconstruct);
-  gauge_param.cuda_prec = setPrecision_dwf(QudaParam.gauge_prec);
+  gauge_param.reconstruct = setReconstruct_mdwf(QudaParam.reconstruct);
+  gauge_param.cuda_prec = setPrecision_mdwf(QudaParam.gauge_prec);
 
   // set the CUDA sloppy precisions
-  gauge_param.reconstruct_sloppy = setReconstruct_dwf(QudaParam.reconstruct_sloppy);
-  gauge_param.cuda_prec_sloppy = setPrecision_dwf(QudaParam.gauge_prec_sloppy);
+  gauge_param.reconstruct_sloppy = setReconstruct_mdwf(QudaParam.reconstruct_sloppy);
+  gauge_param.cuda_prec_sloppy = setPrecision_mdwf(QudaParam.gauge_prec_sloppy);
 
   if (sizeof(Float) == sizeof(double)) {
     gauge_param.cpu_prec = QUDA_DOUBLE_PRECISION;
@@ -95,7 +95,7 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   gauge_param.X[3] = GJP.TnodeSites();
   gauge_param.anisotropy = GJP.XiBare();
   gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
-  gauge_param.reconstruct_precondition = setReconstruct_dwf(QudaParam.reconstruct_sloppy);
+  gauge_param.reconstruct_precondition = setReconstruct_mdwf(QudaParam.reconstruct_sloppy);
 
   if (GJP.XiDir() != 3) ERR.General(cname, fname, "Anisotropy direction not supported\n");
  
@@ -128,8 +128,8 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   //------------------------------------------
   //  Parameter setting for Matrix invertion
   //------------------------------------------
-  inv_param.cuda_prec = setPrecision_dwf(QudaParam.spinor_prec);
-  inv_param.cuda_prec_sloppy = setPrecision_dwf(QudaParam.spinor_prec_sloppy);
+  inv_param.cuda_prec = setPrecision_mdwf(QudaParam.spinor_prec);
+  inv_param.cuda_prec_sloppy = setPrecision_mdwf(QudaParam.spinor_prec_sloppy);
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.reliable_delta = QudaParam.reliable_delta;
@@ -143,10 +143,12 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   // QUDA_WILSON_DSLASH
   // QUDA_CLOVER_WILSON_DSLASH
   // QUDA_DOMAIN_WALL_DSLASH
+  // QUDA_DOMAIN_WALL4D__DSLASH
+  // QUDA_MOBIUS_DWF_DSLASH
   // QUDA_ASQTAD_DSLASH
   // QUDA_TWISTED_MASS_DSLASH
   //--------------------------
-  inv_param.dslash_type = QUDA_DOMAIN_WALL_DSLASH;
+  inv_param.dslash_type = QUDA_MOBIUS_DWF_DSLASH;
   
   
   //--------------------------------
@@ -167,8 +169,17 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   //  Domain wall parameters
   //----------------------------------------------------------
   inv_param.m5 = -GJP.DwfHeight();
-  //----------------------------------------------------------
 
+  //----------------------------------------------------------
+  //  Build MDWF coefficients b_5 & c_5
+  //----------------------------------------------------------
+  // Currently, CPS program uses constant value for b_5, c_5 
+  // coefficients not array type data.
+  for(int xs = 0; xs < GJP.SnodeSites(); xs++)
+  {
+    inv_param.b_5[xs] = GJP.Mobius_b();
+    inv_param.c_5[xs] = GJP.Mobius_c();
+  }
 
   switch (mat_type) {
   case 0:
@@ -181,18 +192,17 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
     ERR.General(cname, fname, "Matrix solution type not defined\n");
   }
 
-  inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
+  inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
   //inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
   inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
   inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
-  //inv_param.gamma_basis = QUDA_UKQCD_GAMMA_BASIS;
   
   inv_param.dirac_order = QUDA_CPS_WILSON_DIRAC_ORDER;
   //inv_param.dirac_order = QUDA_DIRAC_ORDER;
 
   inv_param.input_location = QUDA_CPU_FIELD_LOCATION;
   inv_param.output_location = QUDA_CPU_FIELD_LOCATION;
-  inv_param.tune = QUDA_TUNE_NO;
+  inv_param.tune = QUDA_TUNE_YES;
   inv_param.use_init_guess = QUDA_USE_INIT_GUESS_YES;
 
   //--------------------------
@@ -203,9 +213,13 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   // QUDA_VERBOSE
   // QUDA_DEBUG_VERBOSE
   //--------------------------
+  //inv_param.verbosity = QUDA_DEBUG_VERBOSE;
   inv_param.verbosity = QUDA_VERBOSE;
+ // inv_param.verbosity = QUDA_SUMMARIZE;
   //inv_param.verbosity = QUDA_SILENT;
+  //inv_param.verbosity_precondition = QUDA_DEBUG_VERBOSE;
   inv_param.verbosity_precondition = QUDA_VERBOSE;
+  //inv_param.verbosity_precondition = QUDA_SUMMARIZE;
   //inv_param.verbosity_precondition = QUDA_SILENT;
 
   switch (dirac_arg->Inverter) {
@@ -278,94 +292,172 @@ int DiracOpDwf::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_typ
   Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
   
   int total_iter = 0, k = 0;
-  
-  // Initial residual
-  if (mat_type == 0)
+  int MatDMat_test = 0;
+  int cg_test = 1;
+//----------------------Debug code------------------------
+  if(MatDMat_test == 1)
   {
-    //MatPc(r, out); // CPU version of Dslash operator
-    MatQuda(r, out, &inv_param); // GPU version of Dslash operator
-  }
-  else
-  {
-    //MatPcDagMatPc(r, out); // CPU version of Dslash operator
-    MatDagMatQuda(r, out, &inv_param); // GPU version of Dslash operator
-  }
-  r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
-  Float r2 = r->NormSqGlbSum(f_size_cb);
+    Vector *in_tmp = (Vector*)smalloc(f_size_cb * sizeof(Float));
+    in_tmp->VecZero(f_size_cb);
+    Vector *r_tmp = (Vector*)smalloc(f_size_cb * sizeof(Float));
+    r_tmp->VecZero(f_size_cb);
+    Float *in_vec = (Float*)in_tmp;
+    for(int tmp=0;tmp<f_size_cb;tmp++)
+      in_vec[tmp] = 0.0;
+    in_vec[24] = 1.0; in_vec[1560] = 1.0; in_vec[3048] = 1.0; in_vec[3072] = 1.0;
+    in_vec[4584] = 1.0; in_vec[4608] = 1.0; in_vec[6144] = 1.0;
+    // in_vec[96] = 1.0; in_vec[384] = 1.0; in_vec[1536] = 1.0; in_vec[1512] = 1.0; 
+    Float r2 = in_tmp->NormSqGlbSum(f_size_cb);
+    VRB.Flow(cname, fname, "CPU input res^2 = %1.15e\n", r2);
 
-  flops += 4*f_size_cb + matvec_flops;
+    //MatPc(r, in_tmp);
+      MatPc(r, in);
+    //MatPcDag(r, in);
+    //MatPcDag(r, in_tmp);
+//    MatPcDagMatPc(r, in);
+//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
+    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+    //inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
+    //MatQuda(r_tmp, in_tmp, &inv_param);
+    MatQuda(r_tmp, in, &inv_param);
+    //MatDagMatQuda(r_tmp, in, &inv_param);
+    Float *cpu_vec = (Float*)r;
+    Float *gpu_vec = (Float*)r_tmp;
 
-  VRB.Flow(cname, fname, "0 iterations, res^2 = %1.15e, restart = 0 stop=%e max_restart=%d\n", r2,stop,QudaParam.max_restart );
+    int err_count = 0;
+    int xid,yid,zid,tid,sid, spin, clr, idx;
 
-  while (r2 > stop && k < QudaParam.max_restart) {
-    inv_param.tol = dirac_arg->stop_rsd;
-    if(sqrt(stop/r2)>inv_param.tol) 
+    for(sid = 0; sid < GJP.SnodeSites(); sid++)
+    for(tid = 0; tid < GJP.TnodeSites(); tid++)
+    for(zid = 0; zid < GJP.ZnodeSites(); zid++)
+    for(yid = 0; yid < GJP.YnodeSites(); yid++)
+    for(xid = 0; xid < GJP.XnodeSites(); xid++)
     {
-      inv_param.tol = sqrt(stop/r2);
+      if((tid+zid+yid+xid)%2 == 0){
+        for(spin = 0 ; spin < 4; spin++)
+        for(clr = 0 ; clr < 3; clr++)
+        {
+          idx = sid*GJP.TnodeSites()*GJP.ZnodeSites()*GJP.YnodeSites()*GJP.XnodeSites()*12 
+              + ((tid*GJP.ZnodeSites()*GJP.YnodeSites()*GJP.XnodeSites() 
+              + zid*GJP.YnodeSites()*GJP.XnodeSites()
+              + yid*GJP.XnodeSites() + xid)/2)*24 + 6*spin + 2*clr;
+          Float diff1 = fabs(gpu_vec[idx]-cpu_vec[idx]);
+          printf("(%d,%d,%d,%d,%d,s %d,c %d) real: GPU : %e\t CPU : %e\t GPU-CPU = %e\n",
+                 sid,tid,zid,yid,xid,spin,clr,gpu_vec[idx], cpu_vec[idx], diff1);
+          if(diff1 > 10e-12){ err_count++; printf("error!!!!!\n"); }
+          Float diff2 = fabs(gpu_vec[idx+1]-cpu_vec[idx+1]);
+          printf("(%d,%d,%d,%d,%d,s %d,c %d) img: GPU : %e\t CPU : %e\t GPU-CPU = %e\n",
+                 sid,tid,zid,yid,xid,spin,clr, gpu_vec[idx+1], cpu_vec[idx+1], diff2);
+          if(diff2 > 10e-12){ err_count++; printf("error!!!!!\n"); }
+        }
+      }
+      printf("\n");
     }
+//    for(idx = 0; idx < f_size_cb; idx++)
+//    {
+//      Float diff1 = fabs(gpu_vec[idx]-cpu_vec[idx]);
+//      printf("%d : GPU : %e\t CPU : %e\t GPU-CPU = %e\n",idx,gpu_vec[idx], cpu_vec[idx], diff1);
+//      if(diff1 > 10e-12)
+//        printf("error!!!!!\n");
+//    }
+    printf("error count = %d\n",err_count);
+    r2 = r_tmp->NormSqGlbSum(f_size_cb);
+    VRB.Flow(cname, fname, "GPU out res^2 = %1.15e\n", r2);
+    r2 = r->NormSqGlbSum(f_size_cb);
+    VRB.Flow(cname, fname, "CPU out res^2 = %1.15e\n", r2);
+    if(r_tmp != NULL)
+    {
+      sfree(r_tmp);
+      r_tmp = NULL;
+    }
+    if(in_tmp != NULL)
+    {
+      sfree(in_tmp);
+      in_tmp = NULL;
+    }
+  }
+  //-----------------------------------temp-------------------------------------------
 
-    x->VecZero(f_size_cb);
-    //---------------------------------
-    //  Inversion sequence start
-    //---------------------------------
-    invertQuda(x, r, &inv_param);
-    
-    // Update solution
-    out->VecAddEquVec(x, f_size_cb);
-    
-    //------------------------------------
-    // Calculate new residual
+  if(cg_test==1)
+  {
+    // Initial residual
     if (mat_type == 0)
     {
-      //MatPc(r, out); // CPU version of Dslash operator
-      MatQuda(r, out, &inv_param); // GPU version of Dslash operator
+      MatQuda(r, out, &inv_param);
     }
     else
     {
-      //MatPcDagMatPc(r, out); // CPU version of Dslash operator
-      MatDagMatQuda(r, out, &inv_param); // GPU version of Dslash operator
+      MatDagMatQuda(r, out, &inv_param);
+    }
+    r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
+    Float r2 = r->NormSqGlbSum(f_size_cb);
+
+    flops += 4*f_size_cb + matvec_flops;
+
+    VRB.Flow(cname, fname, "0 iterations, res^2 = %1.15e, restart = 0\n", r2);
+
+    while (r2 > stop && k < QudaParam.max_restart) {
+      inv_param.tol = dirac_arg->stop_rsd;
+      if(sqrt(stop/r2)>inv_param.tol) 
+      {
+        inv_param.tol = sqrt(stop/r2);
+      }
+
+      x->VecZero(f_size_cb);
+      //---------------------------------
+      //  Inversion sequence start
+      //---------------------------------
+      invertQuda(x, r, &inv_param);
+
+      // Update solution
+      out->VecAddEquVec(x, f_size_cb);
+
+      //------------------------------------
+      // Calculate new residual
+      if (mat_type == 0)
+        MatQuda(r, out, &inv_param);
+      else
+        MatDagMatQuda(r, out, &inv_param);
+
+      r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
+      r2 = r->NormSqGlbSum(f_size_cb);
+      //------------------------------------
+      k++;
+      total_iter += inv_param.iter + 1;
+      flops += 1e9*inv_param.gflops + 8*f_size_cb + matvec_flops;
+
+      VRB.Flow(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
+          inv_param.gflops, inv_param.secs, inv_param.gflops / inv_param.secs);
+      VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
+          sqrt(r2)/sqrt(in_norm2), total_iter, k);
     }
 
-    r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
-    r2 = r->NormSqGlbSum(f_size_cb);
-    //------------------------------------
-
-    k++;
-    total_iter += inv_param.iter + 1;
-    flops += 1e9*inv_param.gflops + 8*f_size_cb + matvec_flops;
-
-    VRB.Flow(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
-             inv_param.gflops, inv_param.secs, inv_param.gflops / inv_param.secs);
-
-    VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
-             sqrt(r2)/sqrt(in_norm2), total_iter, k);
+    gettimeofday(&end,NULL);
+    print_flops(cname,fname,flops,&start,&end);
+    VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
+        inv_param.spinorGiB, gauge_param.gaugeGiB);
+    VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
+        sqrt(r2)/sqrt(in_norm2), total_iter, k);
+    // if (true_res) *true_res = sqrt(r2);
   }
-  
-  gettimeofday(&end,NULL);
-  print_flops(cname,fname,flops,&start,&end);
-  CGflops += flops;
-    
-  VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
-	   inv_param.spinorGiB, gauge_param.gaugeGiB);
-
-  VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
-	     sqrt(r2)/sqrt(in_norm2), total_iter, k);
-
-  if (true_res) *true_res = sqrt(r2);
-
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
   freeGaugeQuda();
   //----------------------------------------
-
-  sfree(x);
-  sfree(r);
+  if(x != NULL)
+  {
+    sfree(x);
+    x = NULL;
+  }
+  if(r != NULL)
+  {
+    sfree(r);
+    r = NULL;
+  }
 
   return total_iter;
 }
-
 CPS_END_NAMESPACE
-
 #endif
 

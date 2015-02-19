@@ -45,5 +45,4 @@ inline void cblas_zdotc_sub(const int N, const double *X, const double *Y,
 
 
 
-
 #endif 

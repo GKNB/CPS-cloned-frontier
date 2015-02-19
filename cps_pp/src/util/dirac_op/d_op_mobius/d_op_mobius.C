@@ -505,11 +505,29 @@ int DiracOpMobius::MatInv(Vector *out,
   switch (dirac_arg->Inverter) {
   case CG:
     MatPcDag(in, temp);
-    DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
+//    DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
+#ifdef PROFILE
+    time += dclock();
+    printf("CPU preconditioning time = %1.4e sec\n",time);
+    time_CG = -dclock();
+#endif
+#ifdef USE_QUDA
+    iter = QudaInvert(out, in, true_res, 1);
+#else
     iter = InvCg(out,in,true_res);
+#endif
+#ifdef PROFILE
+    time_CG += dclock();
+    printf("CG running time = %1.4e sec\n",time_CG);
+#endif
     break;
   case BICGSTAB:
+#ifdef USE_QUDA
+    iter = QudaInvert(out, in, true_res, 0);
+#else
     iter = BiCGstab(out,temp,0.0,dirac_arg->bicgstab_n,true_res);
+#endif
+    break;
   case LOWMODEAPPROX :
     MatPcDag(in, temp);
     iter = InvLowModeApprox(out,in, dirac_arg->fname_eigen, dirac_arg->neig, true_res );
@@ -526,13 +544,16 @@ int DiracOpMobius::MatInv(Vector *out,
 
 
   // check solution
-  //norm = out->NormSqGlbSum(temp_size);
-  //printf("Norm out %.14e\n",norm);
-  //norm = in->NormSqGlbSum(temp_size);
-  //printf("Norm in %.14e\n",norm);
-  //MatPcDagMatPc(temp,out);  
-  //norm = temp->NormSqGlbSum(temp_size);
-  //printf("Norm MatPcDagMatPc*out %.14e\n",norm);
+//  norm = out->NormSqGlbSum(temp_size);
+//  VRB.Result(cname,fname,"Norm out %.14e\n",norm);
+  norm = in->NormSqGlbSum(temp_size);
+  VRB.Result(cname,fname,"Norm in %.14e\n",norm);
+  MatPcDagMatPc(temp,out);  
+  fTimesV1PlusV2((IFloat *)temp, -1., (IFloat *)temp,
+		 (IFloat *)in, temp_size);
+  
+  norm = temp->NormSqGlbSum(temp_size);
+  VRB.Result(cname,fname,"Norm (in-MatPcDagMatPc*out) %.14e\n",norm);
   //exit(0);
 
   // restore source
@@ -657,9 +678,18 @@ void DiracOpMobius::Mat(Vector *out, Vector *in) {
 void DiracOpMobius::Dminus(Vector *out, Vector *in) {  
   char *fname = "Dminus(V*,V*)";
   VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
+  VRB.Func(cname,fname);
 
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
+  VRB.Result(cname,fname,"in=%p out=%p mobius_arg=%p\n",in,out,mobius_arg);
   Float kappa_c_inv_div2 = 0.5*( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+  VRB.Result(cname,fname,"kappa_c_inv_div2=%e\n",kappa_c_inv_div2);
 
   //----------------------------------------------------------------
   // Implement routine
@@ -671,11 +701,15 @@ void DiracOpMobius::Dminus(Vector *out, Vector *in) {
   // points to the odd part of fermion solution
   Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
 
+  VRB.Flow(cname,fname,"odd_in=%p odd_out=%p mobius_arg=%p\n",odd_in,odd_out,mobius_arg);
   mobius_dminus(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg);
+  VRB.Flow(cname,fname,"mobius_dminus()\n");
   mobius_dminus(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg);
   // out = -(c*D_W-1)*in (= 1 for DWF)
+  // CJ: Was there a sign change?? 
   fTimesV1PlusV2((IFloat*)out, kappa_c_inv_div2, (IFloat*)in, (IFloat *)out, 2*temp_size);
   out->VecTimesEquFloat(-1.0, 2*temp_size); 
+  VRB.FuncEnd(cname,fname);
 
 }
 

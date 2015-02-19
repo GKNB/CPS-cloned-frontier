@@ -1,6 +1,8 @@
 #ifndef INCLUDED_F_WILSON_TYPES_H
 #define INCLUDED_F_WILSON_TYPES_H           //!< Prevent multiple inclusion
 
+#include<util/dwf.h>
+
 CPS_START_NAMESPACE
 
 //------------------------------------------------------------------
@@ -640,6 +642,8 @@ class FdwfBase : public virtual FwilsonTypes
 {
  private:
     const char *cname;    // Class name.
+ protected:
+    static Dwf dwf_struct;
     
  public:
 
