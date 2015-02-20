@@ -301,11 +301,11 @@ void DiracOpMobius::Dslash(Vector *out,
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  mobius_dslash(out, 
+  mobius_unprec(out, 
 		gauge_field, 
 		in, 
 		mass,
-		cb,
+//		cb,
 		dag,
 		(Dwf *) mobius_lib_arg);
 }

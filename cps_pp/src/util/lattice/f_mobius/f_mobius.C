@@ -513,4 +513,11 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   return iter;
 }
 
+void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag){
+  DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
+  dop.Dslash(f_out,f_in,CHKB_EVEN,DAG_NO);
+}
+
+
 //CPS_END_NAMESPACE

@@ -598,7 +598,7 @@ int Fzmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
 }
 
 
-void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
+static void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
 		    Complex d, const Complex *e, int len)
 {
 //#pragma omp parallel for

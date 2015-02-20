@@ -126,6 +126,13 @@ void mobius_dslash(Vector *out,
 		   int dag,
 		   Dwf *mobius_lib_arg);
 
+void mobius_unprec(Vector *out, 
+		   Matrix *gauge_field, 
+		   Vector *in,
+		   Float mass,
+		   int dag,
+		   Dwf *mobius_lib_arg);
+
 
 //------------------------------------------------------------------
 // mobius_m is the fermion matrix.  
