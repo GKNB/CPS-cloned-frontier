@@ -68,10 +68,12 @@ const unsigned CBUF_MODE4 = 0xcb18c1ff;
 static int f_size_cb;     // Node checkerboard size of the fermion field
 
 static inline void print_vec( Vector *vec, char *name){
+#if 0
   Float temp_f = vec->NormSqNode(f_size_cb);
   Float *temp_p = (Float *)vec;
   glb_sum(&temp_f);
   VRB.Flow("","print_vec()", "%s = %e %e \n", name,IFloat(temp_f),*temp_p);
+#endif
 }
 
 //------------------------------------------------------------------

@@ -575,6 +575,9 @@ void wilson_dslash(IFloat *chi_p_f,
 }
 CPS_END_NAMESPACE
 #else //USE_QMP
+#ifdef USE_SSE
+#include "../sse/sse-wilson_dslash.C"
+#else
 #if 1 
 #include "../qmp/wilson_dslash_vec.C"
 CPS_START_NAMESPACE
@@ -592,6 +595,7 @@ CPS_END_NAMESPACE
 // older version
 #include "../qmp/wilson_dslash_qmp.C"
 #endif
+#endif //USE_SSE
 #endif //USE_QMP
 
 CPS_START_NAMESPACE

@@ -1,7 +1,4 @@
 #include<config.h>
-#ifdef USE_BLAS
-#include<util/qblas_extend.h>
-#endif
 CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords

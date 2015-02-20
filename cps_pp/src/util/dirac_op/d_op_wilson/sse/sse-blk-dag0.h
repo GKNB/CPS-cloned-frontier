@@ -1,6 +1,10 @@
 #include <util/omp_wrapper.h>
 #undef DEBUG_PRINT_DAG0
 
+#ifndef SSE_TO_C
+#define SSE_C_FLOAT Float
+#endif
+
 extern "C" 
 void wilson_dslash_blk_dag0(IFloat *chi_p_f, 
 			    IFloat *u_p_f, 
@@ -71,9 +75,12 @@ void wilson_dslash_blk_dag0(IFloat *chi_p_f,
     int xmyzt, xymzt, xyzmt, xyztm;
     int _xpyzt, _xypzt, _xyzpt, _xyztp;
     int _xmyzt, _xymzt, _xyzmt, _xyztm;
-    Float __RESTRICT *u;
-    Float __RESTRICT *chi;
-    Float __RESTRICT *psi;
+//    Float __RESTRICT *u;
+//    Float __RESTRICT *chi;
+//    Float __RESTRICT *psi;
+    Float *u;
+    Float *chi;
+    Float *psi;
     
 
     // fedg is a binary number for edges: 

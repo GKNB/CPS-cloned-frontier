@@ -359,7 +359,7 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran[index].Urand(N_WARMUP,0);
-		printf("index=%d n_warm=%d\n",index,n_warm);
+		if(!index)printf("index=%d n_warm=%d\n",index,n_warm);
 		while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
 }
 #endif
@@ -370,7 +370,7 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
-		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
+		if(!index_4d)printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
 		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
 }
 #endif

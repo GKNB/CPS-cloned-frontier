@@ -27,10 +27,13 @@
 #include <pmmintrin.h>
 #endif
 
-#ifdef SSE_TO_C
 #include "sse-defs.h"
 #include "sse-subs.h"
+#ifdef SSE_TO_C
+#else
+#define SSE_C_FLOAT Float
 #endif
+
 
 //#define SSE_TO_C
 
@@ -312,6 +315,7 @@ DiracOp::CGflops += 1320*vol;
 
 
 #ifndef SSE_TO_C2
+#define SSE_C_FLOAT Float
 #include "sse-blk-dag0.h"
 #include "sse-blk-dag1.h"
 #include "sse-bnd-dag0.h"

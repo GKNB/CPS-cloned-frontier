@@ -1,5 +1,5 @@
 #include<config.h>
-#ifdef USE_SSE
+#ifdef USE_SSE_5D
 #include "../sse/dwf_dslash.C"
 #else
 CPS_START_NAMESPACE
