@@ -396,6 +396,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
     VRB.Flow(cname, fname, "0 iterations, res^2 = %1.15e, restart = 0\n", r2);
 
+    VRB.Flow(cname, fname, " stop = %1.15e, k = %d max_restart=%d \n", r2,k, QudaParam.max_restart);
     while (r2 > stop && k < QudaParam.max_restart) {
       inv_param.tol = dirac_arg->stop_rsd;
       if(sqrt(stop/r2)>inv_param.tol) 

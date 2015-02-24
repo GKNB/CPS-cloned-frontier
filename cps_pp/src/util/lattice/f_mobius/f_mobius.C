@@ -47,28 +47,56 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 		     CgArg *cg_arg, 
 		     Float *true_res,
 		     CnvFrmType cnv_frm,
-		     PreserveType prs_f_in)
+		     PreserveType prs_f_in, int dminus)
 {
   int iter;
   char *fname = "FmatInv(CgArg*,V*,V*,F*,CnvFrmType)";
   VRB.Func(cname,fname);
-  Vector *temp;
+  Vector *temp, *dminus_in;
 
-  int size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  unsigned long size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
   if(prs_f_in==PRESERVE_YES){ 
-    temp = (Vector *) smalloc(size * sizeof(Float));
-    if (temp == 0) ERR.Pointer(cname, fname, "temp");
-    VRB.Smalloc(cname,fname, "temp", temp, size * sizeof(Float));
+    temp = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
     moveFloat((IFloat*)temp,(IFloat*)f_in, size);
   }
-  
+
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
+  if (dminus){
+    dminus_in = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
   //TIZB: this is bug !  below Dminus multiplication is not in effect.
   // mult by Dminus
-  dop.Dminus(f_out,f_in);
+    dop.Dminus(dminus_in,f_in);
   // fixed. TB
-  f_in->CopyVec(f_out, size);
+//    f_in->CopyVec(f_out, size);
+    moveFloat((IFloat*)f_in, (IFloat*)dminus_in, size);
+    sfree(cname, fname,  "dminus_in",  dminus_in);
+  }
+
+#if 0
+if (!dminus){
+  int local_ls = GJP.SnodeSites();
+  const int s_node_coor = GJP.SnodeCoor();
+  const int ls_stride = 24 * GJP.VolNodeSites()/2;
+  // Multiply 2*kappa
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.Mobius_b()
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+ 	VRB.Flow(cname,fname,"s=%d Mobius_b=%e kappa_b=%e %e\n",
+	glb_s,GJP.Mobius_b(),kappa_b.real(),kappa_b.imag());
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)f_in+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+}
+#endif
+
   iter = dop.MatInv(true_res, prs_f_in);
 
   if(prs_f_in==PRESERVE_YES){
@@ -187,7 +215,7 @@ int Fmobius::FmatInv(Vector *f_out,
     tmp2_mob_l_5d->VecMinusEquVec(tmp_mob_l_5d, mob_l_size_5d);
     //end constructing the new residue(new residue now in tmp2_mob_l_5d)
 
-#if 1
+#if 0
       for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites()*24;i++)
 	printf("IN OUT2 %d %e\n",i,*((Float*)tmp2_mob_l_5d+i));
 #endif
@@ -515,8 +543,33 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
 
 void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag){
+  char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,i)";
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
   dop.Dslash(f_out,f_in,CHKB_EVEN,DAG_NO);
+#if 1
+{
+  unsigned long size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  int local_ls = GJP.SnodeSites();
+  const int s_node_coor = GJP.SnodeCoor();
+  const int ls_stride = 24 * GJP.VolNodeSites()/2;
+  // Multiply 2*kappa
+  // do even / odd 
+  for(int ieo=0;ieo<2;++ieo){
+    for(int s=0; s<local_ls;++s){
+      int glb_s = s + local_ls*s_node_coor;
+      const Complex kappa_b =
+	1.0 / ( 2 * (GJP.Mobius_b()
+		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+ 	VRB.Flow(cname,fname,"s=%d Mobius_b=%e kappa_b=%e %e\n",
+	glb_s,GJP.Mobius_b(),kappa_b.real(),kappa_b.imag());
+      int idx = s*ls_stride/2;// "/2" is for complex
+      vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
+			 2.0*kappa_b, ls_stride);
+    }
+  }
+  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
+}
+#endif
 }
 
 

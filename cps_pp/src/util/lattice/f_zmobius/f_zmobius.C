@@ -97,7 +97,7 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
       const Complex kappa_b =
 	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
 		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
- 	VRB.Result(cname,fname,"s=%d Zmobius_b=%e %e kappa_b=%e %e\n",
+ 	VRB.Flow(cname,fname,"s=%d Zmobius_b=%e %e kappa_b=%e %e\n",
 	glb_s,GJP.ZMobius_b()[glb_s].real(),GJP.ZMobius_b()[glb_s].imag(),kappa_b.real(),kappa_b.imag());
       int idx = s*ls_stride/2;// "/2" is for complex
       vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,

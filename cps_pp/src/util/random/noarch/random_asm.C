@@ -103,7 +103,7 @@ IFloat GaussianRandomGenerator::Rand(int noexit)
 	IFloat fac = sqrt(-2.0 * sigma2 * log(rsq)/rsq);
 
 	gset = v1 * fac;   iset = 1;
-	if (called<100) VRB.Result(cname,fname," num=%g\n",v2*fac);
+	if (called<100) VRB.Flow(cname,fname," num=%g\n",v2*fac);
 	called++;
 	return v2 * fac;
 

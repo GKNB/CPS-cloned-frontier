@@ -1136,11 +1136,17 @@ class Fmobius : public FdwfBase {
 
     FclassType Fclass(void) const;
 
-    int FmatInv(Vector *f_out, Vector *f_in, 
-		CgArg *cg_arg, 
-		Float *true_res,
-		CnvFrmType cnv_frm,
-		PreserveType prs_f_in);
+    int FmatInv(Vector *f_out, Vector *f_in,
+                CgArg *cg_arg,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in, int dminus=1);
+    int FmatInvTest(Vector *f_out, Vector *f_in,
+                CgArg *cg_arg,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in)
+    { FmatInv(f_out,f_in,cg_arg,true_res,cnv_frm, prs_f_in,0);}
 
     int FmatInv(Vector *f_out,
                 Vector *f_in,
@@ -1180,8 +1186,8 @@ class Fzmobius : public FdwfBase {
 		CgArg *cg_arg, 
 		Float *true_res,
 		CnvFrmType cnv_frm,
-		PreserveType prs_f_in, int dminus);
-    int FmatInv(Vector *f_out, Vector *f_in, 
+		PreserveType prs_f_in, int dminus=1);
+    int FmatInvTest(Vector *f_out, Vector *f_in, 
 		CgArg *cg_arg, 
 		Float *true_res,
 		CnvFrmType cnv_frm,

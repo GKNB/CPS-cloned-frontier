@@ -417,7 +417,7 @@ int DiracOpMobius::MatInv(Vector *out,
   Float kappa_b = - minus_kappa_b;
   Float norm;
 
-  printf("LS %d B %f C %f\n", GJP.SnodeSites(), GJP.Mobius_b(), GJP.Mobius_c());
+  VRB.Flow(cname,fname,"LS %d B %f C %f\n", GJP.SnodeSites(), GJP.Mobius_b(), GJP.Mobius_c());
   //printf("KAPPA_B %g\n",kappa_b); exit(0);
 
   //----------------------------------------------------------------

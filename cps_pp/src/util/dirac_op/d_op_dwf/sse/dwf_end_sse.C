@@ -45,7 +45,7 @@ void dwf_end( Dwf *dwf_p)
   //----------------------------------------------------------------
   // Free temporary femrion fields 2 and 1
   //----------------------------------------------------------------
-  sfree(cname,fname, "frm_tmp3", dwf_p->frm_tmp2);
+  sfree(cname,fname, "frm_tmp3", dwf_p->frm_tmp3);
   sfree(cname,fname, "frm_tmp2", dwf_p->frm_tmp2);
 //  sfree(dwf_p->frm_tmp2);
 
