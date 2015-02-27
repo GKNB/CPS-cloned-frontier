@@ -53,6 +53,10 @@ Float AlgActionGauge::energy() {
   Float h = lat.GhamiltonNode();
   LatticeFactory::Destroy();
 
+  Float total_h = h;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
+
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
   time.stop(true);

@@ -189,6 +189,7 @@ Float AlgHmc::run()
       static Timer ham1_timer("HMC start energy");
       ham1_timer.start(true);
       h_init = integrator->energy();
+      VRB.Result(cname, fname, "h_init = %0.16e\n", h_init);
       ham1_timer.stop(true);
 //      Float total_h_init =h_init;
 //      glb_sum(&total_h_init);

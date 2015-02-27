@@ -41,7 +41,7 @@ enum FclassType {
 	F_CLASS_MDWF = 8,
 	F_CLASS_BFM = 9,
 	F_CLASS_DWF4D = 10,
-	F_CLASS_DWF4D_PAIR = 11
+	F_CLASS_DWF4D_PAIR = 11,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];
@@ -669,10 +669,9 @@ typedef enum HmdLimits HmdLimits;
 extern struct vml_enum_map HmdLimits_map[];
 
 enum InverterType {
-    CG = 0,
-    BICGSTAB = 1,
-    EIGCG = 2,
-    HDCG = 3,
+	CG = 0,
+	BICGSTAB = 1,
+	EIGCG = 2,
 };
 typedef enum InverterType InverterType;
 extern struct vml_enum_map InverterType_map[];

@@ -3,7 +3,6 @@
 #ifdef USE_BFM
 #include <util/lattice/fbfm.h>
 #include <util/lattice/f_dwf4d.h>
-#include <util/lattice/f_dwf4d_pair.h>
 #endif
 
 #include <alg/no_arg.h>
@@ -296,10 +295,6 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
 
   if ((fermion == F_CLASS_DWF4D) && (gluon == G_CLASS_NONE)) {
     lat_p = new GnoneFdwf4d;
-    return *lat_p;
-  }
-  if ((fermion == F_CLASS_DWF4D_PAIR) && (gluon == G_CLASS_NONE)) {
-    lat_p = new GnoneFdwf4dPair;
     return *lat_p;
   }
 #endif

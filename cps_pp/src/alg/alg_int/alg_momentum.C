@@ -23,6 +23,7 @@ CPS_END_NAMESPACE
 #include<util/verbose.h>
 #include<util/error.h>
 #include<util/time_cps.h>
+#include<util/timer.h>
 #include<alg/alg_int.h>
 CPS_START_NAMESPACE
 
@@ -66,12 +67,20 @@ Float AlgMomentum::energy() {
   Float dtime = -dclock();
 
   const char *fname = "energy()";
+  static Timer time(cname, fname);
+  time.start(true);
+
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
   LatticeFactory::Destroy();
 
+  Float total_h = h;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
+
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  time.stop(true);
 
   return h;
 }

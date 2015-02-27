@@ -694,6 +694,8 @@ private:
     // !< Status variable controls if we can use the CG solution from a
     // !< previous force gradient solve to forecast the next normal solve.
     bool fg_forecast;
+
+    bool skip_force;
 public:
 
     AlgActionQuotient(AlgMomentum &mom, ActionQuotientArg &frm_arg);
@@ -710,6 +712,8 @@ public:
     void evolve(Float dt, int steps);
 
     void init();
+
+    void set_skip_force(bool skip_force) { this->skip_force = skip_force; }
 };
 
 /*!< 
@@ -751,6 +755,7 @@ protected:
 
     Vector **eta; //!< Use to accumulate solver results
 
+    bool skip_force;
 public:
 
     AlgActionRationalQuotient();
@@ -772,6 +777,8 @@ public:
     bool loadPoles(void);
     bool savePoles(void);
     bool checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r);
+
+    void set_skip_force(bool skip_force) { this->skip_force = skip_force; }
 };
 
 /*!< 

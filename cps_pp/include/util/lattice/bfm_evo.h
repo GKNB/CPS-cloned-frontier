@@ -47,6 +47,10 @@ public:
 
   void Booee(Fermion_t psi, Fermion_t chi, int dag);
 
+  void Booee(Fermion_t psi, Fermion_t chi, int dag,
+      const std::vector<double> &b_coefs,
+      const std::vector<double> &c_coefs);
+
   // Ritz method used to compute the maximum/minimum eigenvalue of M^\dag M.
   // Use algorithm presented in arXiv: hep-lat/9507023.
   //
@@ -641,68 +645,106 @@ void bfm_evo<Float>::calcMDForceVecs(Fermion_t v1[2], Fermion_t v2[2],
   this->copy(v1[Odd], phi1);
 }
 
+// just copied the relevant part in G5D_Meo() over.
+template <class Float>
+void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag,
+    const std::vector<double> &b_coefs,
+    const std::vector<double> &c_coefs)
+{
+    int Pminus = -1;
+    int Pplus = 1;
+
+    if (dag) {
+	// Assemble the 5d matrix
+	for (int s = 0; s < this->Ls; s++) {
+	    if (s == 0) {
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, -c_coefs[s + 1], psi, s, s + 1, Pplus);
+		this->axpby_ssp_proj(chi, 1.0, chi, this->mass*c_coefs[this->Ls - 1], psi, s, this->Ls - 1, Pminus);
+	    } else if (s == (this->Ls - 1)) {
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, this->mass*c_coefs[0], psi, s, 0, Pplus);
+		this->axpby_ssp_proj(chi, 1.0, chi, -c_coefs[s - 1], psi, s, s - 1, Pminus);
+	    } else {
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, -c_coefs[s + 1], psi, s, s + 1, Pplus);
+		this->axpby_ssp_proj(chi, 1.0, chi, -c_coefs[s - 1], psi, s, s - 1, Pminus);
+	    }
+	}
+
+    } else {
+
+	// Assemble the 5d matrix
+	for (int s = 0; s < this->Ls; s++) {
+	    if (s == 0) {
+		//	chi = bs psi[s] + cs[s] psi[s+1}
+		//    chi += -mass*cs[s] psi[s+1}
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, -c_coefs[s], psi, s, s + 1, Pminus);
+		this->axpby_ssp_proj(chi, 1.0, chi, this->mass*c_coefs[s], psi, s, this->Ls - 1, Pplus);
+	    } else if (s == (this->Ls - 1)) {
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, this->mass*c_coefs[s], psi, s, 0, Pminus);
+		this->axpby_ssp_proj(chi, 1.0, chi, -c_coefs[s], psi, s, s - 1, Pplus);
+	    } else {
+		this->axpby_ssp_proj(chi, b_coefs[s], psi, -c_coefs[s], psi, s, s + 1, Pminus);
+		this->axpby_ssp_proj(chi, 1.0, chi, -c_coefs[s], psi, s, s - 1, Pplus);
+	    }
+	}
+    }
+}
+
 template <class Float>
 void bfm_evo<Float>::Booee(Fermion_t psi, Fermion_t chi, int dag)
 {
-  int Pminus=-1;
-  int Pplus=1;
+    int me = this->thread_barrier();
 
-  // just copied the relevant part in G5D_Meo() over.
-  if ( (this->solver == HmCayleyTanh)
-       || (this->solver == HtCayleyTanh)
-       || (this->solver == HwCayleyTanh)
-       || (this->solver == HwCayleyZolo)
-       || (this->solver == HtCayleyZolo)
-       ) {
+    if ((this->solver == HmCayleyTanh)
+	|| (this->solver == HtCayleyTanh)
+	|| (this->solver == HwCayleyTanh)
+	|| (this->solver == HwCayleyZolo)
+	|| (this->solver == HtCayleyZolo)) {
+	std::vector<double> beo_real(this->Ls);
+	std::vector<double> ceo_real(this->Ls);
 
-    if ( dag ) { 
+	for (int s = 0; s < this->Ls; s++) {
+	    beo_real[s] = this->beo[s].real();
+	    ceo_real[s] = this->ceo[s].real();
+	}
 
-      // Assemble the 5d matrix
-      for(int s=0;s<this->Ls;s++){
-        if ( s==0 ) {
-          axpby_ssp_proj(chi,this->beo[s],psi,   -this->ceo[s+1]  ,psi,s,s+1,Pplus);
-          axpby_ssp_proj(chi,   1.0,chi,this->mass*this->ceo[this->Ls-1],psi,s,this->Ls-1,Pminus);
-        } else if ( s==(this->Ls-1)) { 
-          axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[0],psi,s,0,Pplus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
-        } else {
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s+1],psi,s,s+1,Pplus);
-          axpby_ssp_proj(chi,1.0   ,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
-        }
-      }
+	Booee(psi, chi, dag, beo_real, ceo_real);
+    } else if (this->solver == HmCayleyComplex) {
+	Fermion_t chi_real = this->threadedAllocFermion();
+	Fermion_t chi_imag = this->threadedAllocFermion();
 
-    } else { 
+	std::vector<double> beo_real(this->Ls);
+	std::vector<double> ceo_real(this->Ls);
+	std::vector<double> beo_imag(this->Ls);
+	std::vector<double> ceo_imag(this->Ls);
 
-      // Assemble the 5d matrix
-      for(int s=0;s<this->Ls;s++){
-        if ( s==0 ) {
-          //	chi = bs psi[s] + cs[s] psi[s+1}
-          //    chi += -mass*cs[s] psi[s+1}
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi ,s, s+1,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,this->mass*this->ceo[s],psi,s,this->Ls-1,Pplus);
-        } else if ( s==(this->Ls-1)) { 
-          axpby_ssp_proj(chi,this->beo[s],psi,this->mass*this->ceo[s],psi,s,0,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
-        } else {
-          axpby_ssp_proj(chi,this->beo[s],psi,-this->ceo[s],psi,s,s+1,Pminus);
-          axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
-        }
-      }
+	for (int s = 0; s < this->Ls; s++) {
+	    beo_real[s] = this->beo[s].real();
+	    ceo_real[s] = this->ceo[s].real();
+	    beo_imag[s] = (dag ? -1 : 1) * this->beo[s].imag();
+	    ceo_imag[s] = (dag ? -1 : 1) * this->ceo[s].imag();
+	}
+
+	Booee(psi, chi_real, dag, beo_real, ceo_real);
+	Booee(psi, chi_imag, dag, beo_imag, ceo_imag);
+
+	this->caxpy(chi, chi_imag, chi_real, 0, 1); // chi = i*chi_imag + chi_real
+
+	this->threadedFreeFermion(chi_real);
+	this->threadedFreeFermion(chi_imag);
+    } else if (this->solver == DWF && this->precon_5d == 1) {
+	// Booee is the identity matrix in this case.
+	this->copy(chi, psi);
+	return;
+    } else if (this->solver == WilsonFermion || this->solver == WilsonTM) {
+	// This case added by Greg
+	this->copy(chi, psi);
+	return;
+    } else {
+	if (this->isBoss()) {
+	    printf("Booee: preconditioned unimplemented \n");
+	}
+	exit(-1);
     }
-  } else if(this->solver == DWF && this->precon_5d == 1) {
-    // Booee is the identity matrix in this case.
-    this->copy(chi, psi);
-    return;
-  } else if(this->solver == WilsonFermion || this->solver == WilsonTM) {
-    // This case added by Greg -- hopefully it is right?
-    this->copy(chi, psi);
-    return;
-  } else {
-    if ( this->isBoss() ) {
-      printf("Booee: preconditioned unimplemented \n");
-    }
-    exit(-1);
-  }
 }
 
 static inline double quad_solve(double *ct, double *st,

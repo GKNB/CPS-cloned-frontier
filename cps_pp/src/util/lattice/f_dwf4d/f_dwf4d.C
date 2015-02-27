@@ -10,15 +10,13 @@
 
 CPS_START_NAMESPACE
 
-//std::map<Float, DWFParams> Fdwf4d::paramMap;
 std::map<Float, bfmarg> Fdwf4d::arg_map;
 
 bool Fdwf4d::use_mixed_solver = true;
 
 Float Fdwf4d::pauli_villars_resid = 1e-12;
-
-Timer Fdwf4d::inv_m_timer("mass=m inversions");
-Timer Fdwf4d::inv_pv_timer("mass=pv inversions");
+Float Fdwf4d::pauli_villars_resid_mc = 1e-12; 
+Float Fdwf4d::pauli_villars_resid_md = 1e-8;
 
 // Initialize QDP++ before using this class.
 Fdwf4d::Fdwf4d(void)
@@ -29,18 +27,6 @@ Fdwf4d::Fdwf4d(void)
 
     if (GJP.Snodes() != 1) ERR.NotImplemented(cname, fname);
     if (sizeof(Float) == sizeof(float)) ERR.NotImplemented(cname, fname);
-
-/*    dwfParams.mass = 1.0;
-    dwfParams.M5 = 1.8;
-    dwfParams.Ls = 8;
-    dwfParams.mobius_scale = 1.0;
-    InitBfmFromDWFParams(bfm_d, dwfParams, this->GaugeField());
-    if (use_mixed_solver) {
-	bfm_d.comm_end();
-	InitBfmFromDWFParams(bfm_f, dwfParams, this->GaugeField());
-	bfm_f.comm_end();
-	bfm_d.comm_init();
-    }*/
 
     bfm_inited = false;
 }
@@ -57,27 +43,6 @@ Fdwf4d::~Fdwf4d(void)
 	}
     }
 }
-
-/*void Fdwf4d::SetDWFParams(Float mass)
-{
-    const char* fname = "SetDwfParams(F)";
-
-    if (paramMap.count(mass) == 0) ERR.General(cname, fname, "No DWFParams mapped for mass = %e\n", mass);
-    dwfParams = paramMap[mass];
-
-    VRB.Result(cname, fname, "Set DWF params from key mass = %e: dwfParams: mass = %e, M5 = %e, Ls = %d, mobius_scale = %e\n",
-	mass, dwfParams.mass, dwfParams.M5, dwfParams.Ls, dwfParams.mobius_scale);
-
-    bfm_d.end();
-    InitBfmFromDWFParams(bfm_d, dwfParams, this->GaugeField());
-    if (use_mixed_solver) {
-	bfm_d.comm_end();
-	bfm_f.end();
-	InitBfmFromDWFParams(bfm_f, dwfParams, this->GaugeField());
-	bfm_f.comm_end();
-	bfm_d.comm_init();
-    }
-}*/
 
 void Fdwf4d::SetBfmArg(Float key_mass)
 {
@@ -135,6 +100,14 @@ void Fdwf4d::SetBfmArg(Float key_mass)
     }
 
     VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bfm_d.solver, bfm_d.mass, bfm_d.Ls, bfm_d.mobius_scale);
+
+    //for(int i = 0; i < bfm_d.Ls; i++) {
+    //  VRB.Result(cname, fname, "bs_[%d] = %0.15e, bsi_[%d] = %0.15e, cs_[%d] = %0.15e, csi_[%d] = %0.15e\n", i, bfm_d.bs_[i], i, bfm_d.bsi_[i], i, bfm_d.cs_[i], i, bfm_d.csi_[i]);
+    //}
+
+    //for(int i = 0; i < bfm_d.Ls; i++) {
+    //  VRB.Result(cname, fname, "bs[%d] = %0.15e, bsi[%d] = %0.15e, cs[%d] = %0.15e, csi[%d] = %0.15e\n", i, bfm_d.bs[i], i, bfm_d.bsi[i], i, bfm_d.cs[i], i, bfm_d.csi[i]);
+    //}
 
     bfm_inited = true;
     current_key_mass = key_mass;
@@ -205,6 +178,27 @@ int Fdwf4d::FmatEvlInv(Vector *f_out, Vector *f_in, CgArg *cg_arg, CnvFrmType cn
     FmatEvlInv(f_out, f_in, cg_arg, NULL, cnv_frm);
 }
 
+int Fdwf4d::FmatEvlInvUnsquared(Vector *f_out, Vector *f_in, CgArg *cg_arg, DagType dag)
+{
+    const char* fname = "FmatEvlInvUnsquared()";
+    static Timer timer(cname, fname);
+    timer.start(true);
+
+    SetBfmArg(cg_arg->mass);
+    Float quark_mass = arg_map.at(cg_arg->mass).mass;
+
+    int iters;
+    if (dag == DAG_NO) {
+	iters = ApplyOverlapInverse(bfm_d, bfm_f, use_mixed_solver, f_out, f_in, quark_mass, cg_arg->stop_rsd);
+    } else {
+	iters = ApplyOverlapDagInverse(bfm_d, bfm_f, use_mixed_solver, f_out, f_in, quark_mass, cg_arg->stop_rsd);
+    }
+
+    timer.stop(true);
+    return iters;
+}
+
+
 int Fdwf4d::FeigSolv(Vector **f_eigenv, Float *lambda, Float *chirality, int *valid_eig,
     Float **hsum, EigArg *eig_arg, CnvFrmType cnv_frm)
 {
@@ -249,6 +243,8 @@ ForceArg Fdwf4d::EvolveMomFforce(Matrix *mom, Vector *frm, Float mass, Float ste
     static Timer time(cname, fname);
     time.start(true);
 
+    VRB.Result(cname, fname, "WARNING!!!!!!! SKIPPING Fdwf4d::EvolveMomFforce()!!!!!!!\n");
+
     SetBfmArg(mass);
     Float quark_mass = arg_map.at(mass).mass;
 
@@ -260,6 +256,7 @@ ForceArg Fdwf4d::EvolveMomFforce(Matrix *mom, Vector *frm, Float mass, Float ste
 	this->GaugeField(), mom, Dfrm, frm, quark_mass, step_size, pauli_villars_resid);
 
     sfree(Dfrm, "Dfrm", fname, cname);
+
     time.stop(true);
     return force_arg;
 }
@@ -334,18 +331,15 @@ void Dwf4d_CalcHmdForceVecsBilinear(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_
     if (use_mixed_solver) bfm_f.set_mass(1.0);
     bfm_d.residual = pauli_villars_resid; 
     if (use_mixed_solver) bfm_f.residual = 1e-5; 
-    int iters = 0;
+    int iters1, iters2;
 #pragma omp parallel
     {
 	// D1inv_Dm_Pphi2 = D_DW(1)^-1 D_DW(m) P phi2
 	bfm_d.set_zero(D1inv_Dm_Pphi2[Even]);
 	bfm_d.set_zero(D1inv_Dm_Pphi2[Odd]);
-	if (!omp_get_thread_num()) Fdwf4d::inv_pv_timer.start(true);
-	//bfm.CGNE_M(D1inv_Dm_Pphi2, Dm_Pphi2);
-	iters += use_mixed_solver ?
+	iters1 = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_M(D1inv_Dm_Pphi2, Dm_Pphi2, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_M(D1inv_Dm_Pphi2, Dm_Pphi2);
-	if (!omp_get_thread_num()) Fdwf4d::inv_pv_timer.stop(true);
 
 	// B1_D1inv_Dm_Pphi2 = B(1) D_DW(1)^-1 D_DW(M) P phi
 	bfm_d.Booee(D1inv_Dm_Pphi2[Even], B1_D1inv_Dm_Pphi2[Even], DaggerNo);
@@ -356,12 +350,9 @@ void Dwf4d_CalcHmdForceVecsBilinear(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_
 
 	bfm_d.set_zero(v1_bfm[Even]);
 	bfm_d.set_zero(v1_bfm[Odd]);
-	if (!omp_get_thread_num()) Fdwf4d::inv_pv_timer.start(true);
-	//bfm.CGNE_Mdag(v1_bfm, phi1_5d); // v1_bfm = D_DW(1)^dag^-1 P phi1
-	iters += use_mixed_solver ?
+	iters2 = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_Mdag(v1_bfm, phi1_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(v1_bfm, phi1_5d);
-	if (!omp_get_thread_num()) Fdwf4d::inv_pv_timer.stop(true);
     }
 
     bfm_d.cps_impexFermion_s(v1, v1_bfm, Export);
@@ -384,7 +375,8 @@ void Dwf4d_CalcHmdForceVecsBilinear(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_
     bfm_d.freeFermion(Bm_Pphi2[Even]);
     bfm_d.freeFermion(Bm_Pphi2[Odd]);
 
-    VRB.Result("", fname, "mass = %e, Ls = %d, two PV inversions totaled %d iterations\n", mass, bfm_d.Ls, iters);
+    int total_iters = iters1 + iters2;
+    VRB.Result("", fname, "mass = %e, Ls = %d, two PV inversions totaled %d iterations\n", mass, bfm_d.Ls, total_iters);
 
     time.stop(true);
 }

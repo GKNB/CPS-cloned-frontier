@@ -39,7 +39,8 @@ AlgActionRationalQuotient::AlgActionRationalQuotient()
 AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 				     ActionRationalQuotientArg &r_arg, int traj_num)
 				     
-  : AlgActionRational(mom, r_arg.bi_arg)
+  : AlgActionRational(mom, r_arg.bi_arg),
+    skip_force(false)
 {
 
   cname = "AlgActionRationalQuotient";
@@ -280,11 +281,15 @@ void AlgActionRationalQuotient::heatbath() {
     for(int i=0; i<n_masses; i++){
 	if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // Fbfm needs current_key_mass set before calling RandGaussVector
-	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	    Fbfm::current_key_mass = bsn_mass[i];
+	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	}
       lat.RandGaussVector(phi[i], 0.5, Ncb);
-      h_init += lat.FhamiltonNode(phi[i],phi[i]);
+      Float h_i = lat.FhamiltonNode(phi[i],phi[i]);
+      h_init += h_i;
+      Float total_h_i = h_i;
+      glb_sum(&total_h_i);
+      VRB.Result(cname, fname, "heatbath: mass ratio %0.4f/%0.4f initial ham = %0.16e\n", frm_cg_arg_mc[i][0]->mass, bsn_cg_arg_mc[i][0]->mass, total_h_i);
 
       //!< First apply the fermion rational
       frmn[0] -> 
@@ -376,7 +381,11 @@ Float AlgActionRationalQuotient::energy() {
       updateCgStats(frm_cg_arg_mc[i][0]);
 
       // shift this evaluation into minvcg?
-      h += lat.FhamiltonNode(frmn[1], frmn[1]);
+      Float h_i = lat.FhamiltonNode(frmn[1], frmn[1]);
+      h += h_i;
+      Float total_h_i = h_i;
+      glb_sum(&total_h_i);
+      VRB.Result(cname, fname, "energy: mass ratio %0.4f/%0.4f final ham = %0.16e\n", frm_cg_arg_mc[i][0]->mass, bsn_cg_arg_mc[i][0]->mass, total_h_i);
     }
 
     LatticeFactory::Destroy();
@@ -398,6 +407,13 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
+
+  if (skip_force) {
+    VRB.Result(cname, fname, "WARNING! skipping prepare_fg() because AlgActionRationalQuotient::skip_force is true!\n");
+    evolved = 1;
+    timer.stop(true);
+    return;
+  }
 
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
 
@@ -541,6 +557,13 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   Float dtime = -dclock();
   Float dtime_cg = 0.;
   Float dtime_force = 0.;
+
+  if (skip_force) {
+    VRB.Result(cname, fname, "WARNING! skipping evolve() because AlgActionRationalQuotient::skip_force is true!\n");
+    evolved = 1;
+    timer.stop(true);
+    return;
+  }
 
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  

@@ -128,11 +128,22 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    return; // already inited with desired params
 	}
 
-	if (bd.solver != new_arg.solver
-	    || bd.mobius_scale != 
-	    || bd.Ls != new_arg.Ls
-	    || bd.precon_5d != new_arg.precon_5d) {
-	    ERR.General(cname, fname, "Can't change solver, mobius_scale, Ls, or precon_5d during lifetime of Fbfm object: must destroy and recreate lattice object (Old Ls = %d, new Ls = %d).\n", bd.Ls, new_arg.Ls);
+        bool bad_change = false;
+	if (bd.solver != new_arg.solver || bd.CGdiagonalMee != new_arg.CGdiagonalMee) {
+          bad_change = true;
+        } else if (bd.solver != WilsonTM) {
+          if (bd.mobius_scale != new_arg.mobius_scale
+	      || bd.Ls != new_arg.Ls
+	      || bd.precon_5d != new_arg.precon_5d) {
+            bad_change = true;
+          }
+        }
+        if (bad_change) {
+	    ERR.General(cname, fname, "Can't change solver, mobius_scale, Ls, precon_5d, or CGdiagonalMee "
+                "during lifetime of Fbfm object: must destroy and recreate lattice object "
+                "(solver=%d->%d, mobius_scale=%e->%e, Ls=%d->%d, precon_5d=%d->%d, CGdiagonalMee=%d->%d).\n", 
+                bd.solver, new_arg.solver, bd.mobius_scale, new_arg.mobius_scale, bd.Ls, new_arg.Ls, 
+                bd.precon_5d, new_arg.precon_5d, bd.CGdiagonalMee, new_arg.CGdiagonalMee);
 	}
 
 	SetMass(new_arg.mass);
@@ -154,15 +165,32 @@ void Fbfm::CalcHmdForceVecsBilinear(Float *v1,
 {
     SetBfmArg(mass);
 
+    VRB.Result(cname, "CalcHmdForceVecsBilinear()", "bd.CGdiagonalMee = %d\n", bd.CGdiagonalMee);
+
     Fermion_t pi[2] = { bd.allocFermion(), bd.allocFermion() };
     Fermion_t po[4] = {bd.allocFermion(), bd.allocFermion(),
                        bd.allocFermion(), bd.allocFermion()};
+    Fermion_t tmp = bd.allocFermion();
 
     bd.cps_impexcbFermion((Float *)phi1, pi[0], 1, 1);
     bd.cps_impexcbFermion((Float *)phi2, pi[1], 1, 1);
 
 #pragma omp parallel
     {
+	// For CGdiagonalMee == 2 there is an extra factor of
+	// Moo^{-1} in front of phi2_o
+	if (bd.CGdiagonalMee == 2) {
+	    bd.MooeeInv(pi[1], tmp, DaggerNo);
+	    bd.copy(pi[1], tmp);
+	}
+
+	// For CGdiagonalMee == 1 there is an extra factor of
+	// Moo^{\dag-1} in front of phi1_o
+	if (bd.CGdiagonalMee == 1) {
+	    bd.MooeeInv(pi[0], tmp, DaggerYes);
+	    bd.copy(pi[0], tmp);
+	}
+
         bd.calcMDForceVecs(po + 0, po + 2, pi[0], pi[1]);
     }
 
@@ -175,6 +203,7 @@ void Fbfm::CalcHmdForceVecsBilinear(Float *v1,
     bd.freeFermion(po[1]);
     bd.freeFermion(po[2]);
     bd.freeFermion(po[3]);
+    bd.freeFermion(tmp);
 }
 
 ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
@@ -333,6 +362,10 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
 
     Fermion_t in = bd.allocFermion();
     Fermion_t out = bd.allocFermion();
+    /*Fermion_t tmp = bd.allocFermion();
+    Fermion_t tmp2 = bd.allocFermion();
+    Fermion_t tmp3 = bd.allocFermion();
+    Fermion_t in_save = bd.allocFermion();*/
 
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
@@ -342,17 +375,84 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
 
+    // FIXMEEEEEEEEE: New attempt to speed things up with modified preconditioning:
+    /*if (bd.CGdiagonalMee != 0) {
+      ERR.General(cname, fname, "With current code bd.CGdiagonalMee must be zero, actually is %d\n", bd.CGdiagonalMee);
+    }*/
+
+    /*const bool use_sym2 = true;
+
+    if (use_sym2) {
+	bd.CGdiagonalMee = 2;
+	bf.CGdiagonalMee = 2;
+    }
+    
+    Float norm2_in_sym2;
+    Float norm2_residual_sym2;*/
+
 #pragma omp parallel
     {
+	/*if (use_sym2) {
+	    bd.copy(in_save, in);
+	    
+	    bd.MooeeInv(in, tmp, DaggerYes);
+	    bd.copy(in, tmp);
+	    norm2_in_sym2 = bd.norm(in);
+
+	    // guess needs to be multiplied by Moo when using sym2 scheme
+	    bd.Mooee(out, tmp, DaggerNo);
+	    bd.copy(out, tmp);
+	}*/
+
 	iter = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5) :
 	    bd.CGNE_prec_MdagM(out, in);
+
+	/*if (use_sym2) {
+	    // tmp2 = Mprec^d Mprec out
+	    // norm2_residual = ||b - Mprec^d Mprec out||
+	    bd.Mprec(out, tmp, tmp2, DaggerNo);
+	    bd.Mprec(tmp, tmp2, tmp3, DaggerYes);
+	    norm2_residual_sym2 = bd.axpy_norm(tmp, tmp2, in, -1.0);
+
+	    bd.MooeeInv(out, tmp, DaggerNo);
+	    bd.copy(out, tmp);
+	}*/
     }
 
     bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
 
+    /*if (use_sym2) {
+	bd.CGdiagonalMee = 0;
+	bf.CGdiagonalMee = 0;
+
+	Float norm2_in;
+	Float norm2_residual;
+
+	// FIXME: unneccesary
+	// Measure actual residual ||b - MdM x|| / ||b||
+#pragma omp parallel
+	{
+	    norm2_in = bd.norm(in_save);
+
+	    // tmp2 = Mprec^d Mprec out
+	    bd.Mprec(out, tmp, tmp2, DaggerNo);
+	    bd.Mprec(tmp, tmp2, tmp3, DaggerYes);
+
+	    // norm2_residual = ||b - Mprec^d Mprec out||
+	    norm2_residual = bd.axpy_norm(tmp, tmp2, in_save, -1.0);
+	}
+
+	VRB.Result(cname, fname, "Residual with sym2     preconditioning: ||in - Mprec^d Mprec out|| / ||in|| = %e\n", sqrt(norm2_residual_sym2 / norm2_in_sym2));
+	VRB.Result(cname, fname, "Residual with original preconditioning: ||in - Mprec^d Mprec out|| / ||in|| = %e\n", sqrt(norm2_residual / norm2_in));
+    }*/
+
     bd.freeFermion(in);
     bd.freeFermion(out);
+    /*bd.freeFermion(tmp);
+    bd.freeFermion(tmp2);
+    bd.freeFermion(tmp3);
+    bd.freeFermion(in_save);*/
 
     timers[cg_arg->mass]->stop(true);
     timer.stop(true);

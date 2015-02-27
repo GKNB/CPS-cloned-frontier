@@ -8,7 +8,10 @@
 
 CPS_START_NAMESPACE
 
-// Applies either Dov or Dov^-1
+
+static const char* cname = "";
+
+// Applies Dov
 //
 // How to apply the 4D overlap operator:
 //
@@ -175,7 +178,7 @@ int ApplyOverlapDag(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixe
 	bfm_d.set_zero(tmp_5d[Even]);
 	bfm_d.set_zero(tmp_5d[Odd]);
 	iters = use_mixed_solver ?
-	    mixed_cg::threaded_cg_mixed_Mdag(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
+	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, vec_5d);
     }
 
@@ -234,7 +237,7 @@ int ApplyOverlapDagInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool u
 	bfm_d.set_zero(tmp_5d[Even]);
 	bfm_d.set_zero(tmp_5d[Odd]);
 	iters = use_mixed_solver ?
-	    mixed_cg::threaded_cg_mixed_Mdag(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
+	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, vec_5d);
     }
 
@@ -258,23 +261,20 @@ int ApplyOverlapDagInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool u
     return iters;
 }
 
-
 // Like ApplyOverlapInverse, but uses the initial value of out
 // as a guess. This requires an extra inversion of D_DW(1)
 int ApplyOverlapInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
     Vector *out, Vector *in, Float mass, Float stop_rsd)
 {
-    int iters = 0;
+    const char* fname = "ApplyOverlapInverseGuess";
 
     Fermion_t out_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
     Fermion_t Dm_Pout[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
     Fermion_t in_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
     Fermion_t rhs_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
 
-    out->VecTimesEquFloat()
-
     // out_5d = P out
-    bfm_d.cps_impexFermion_5d((Float *)out, out_5d, Import);
+    bfm_d.cps_impexFermion_4d((Float *)out, out_5d, Import);
 
     // in_5d = P in
     bfm_d.cps_impexFermion_4d((Float *)in, in_5d, Import);
@@ -290,16 +290,20 @@ int ApplyOverlapInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool
 	bfm_d.G5D_Munprec(out_5d, Dm_Pout, DaggerNo);
     }
     
+    VRB.Result(cname, fname, "going to do Pauli-Villars solve to get 5D guess\n");
     bfm_d.set_mass(1.0);
     if (use_mixed_solver) bfm_f.set_mass(1.0);
+    bfm_d.residual = stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+    int iters_PV;
 #pragma omp parallel 
     {
 	// out_5d = -D_DW(1)^{-1} D_DW(m) P out
 	bfm_d.set_zero(out_5d[Even]);
 	bfm_d.set_zero(out_5d[Odd]);
-	iters += use_mixed_solver ?
-	    mixed_cg::threaded_cg_mixed_M(Dm_Pout, out_5d, bfm_d, bfm_f, 5) :
-	    bfm_d.CGNE_M(Dm_Pout, out_5d);
+	iters_PV = use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_M(out_5d, Dm_Pout, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_M(out_5d, Dm_Pout);
 
 	// Construct RHS for 5D solve
 	// rhs_5d = D_DW(1) P in
@@ -313,11 +317,15 @@ int ApplyOverlapInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool
     bfm_d.cps_impexFermion_4d((Float *)out, out_5d, Import, false); 
 
     // Do the main 5D solve
+    VRB.Result(cname, fname, "Now doing main solve\n");
     bfm_d.set_mass(mass);
     if (use_mixed_solver) bfm_f.set_mass(mass);
+    bfm_d.residual = stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+    int iters_main;
 #pragma omp parallel
     {
-	iters += use_mixed_solver ?
+	iters_main = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_M(out_5d, rhs_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_M(out_5d, rhs_5d);
     }
@@ -333,13 +341,93 @@ int ApplyOverlapInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool
     bfm_d.freeFermion(rhs_5d[Even]);
     bfm_d.freeFermion(rhs_5d[Odd]);
 
+    int iters = iters_PV + iters_main;
+    VRB.Result(cname, fname, "iters_PV   = %d\n", iters_PV);
+    VRB.Result(cname, fname, "iters_main = %d\n", iters_main);
+    VRB.Result(cname, fname, "final total iters = %d at Ls = %d\n", iters, bfm_d.Ls);
+    VRB.Result(cname, fname, "Done.\n");
     return iters;
 }
 
 
+// Like ApplyOverlapDagInverse, but uses the initial value of out
+// as a guess. This requires an extra inversion of D_DW(1)^\dag
+int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
+    Vector *out, Vector *in, Float mass, Float stop_rsd)
+{
+    const char* fname = "ApplyOverlapDagInverseGuess";
+
+    Fermion_t out_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    Fermion_t in_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    Fermion_t tmp_5d[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+
+    // out_5d = P out
+    bfm_d.cps_impexFermion_4d((Float *)out, out_5d, Import);
+
+    // in_5d = P in
+    bfm_d.cps_impexFermion_4d((Float *)in, in_5d, Import);
+
+    // Contruct initial guess for 5D solve
+    // tmp_5d = D_DW(1)^{\dag-1} P out
+    bfm_d.set_mass(1.0);
+    if (use_mixed_solver) bfm_f.set_mass(1.0);
+    bfm_d.residual = stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+    int iters_PV;
+    VRB.Result(cname, fname, "Doing Pauli-Villars solve to get 5D guess\n");
+#pragma omp parallel
+    {
+        bfm_d.set_zero(tmp_5d[Even]);
+        bfm_d.set_zero(tmp_5d[Odd]);
+	iters_PV = use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, out_5d, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_Mdag(tmp_5d, out_5d);
+    }
+
+    // tmp_5d = D_DW(m)^{\dag-1} P in
+    // Above we constructed the initial guess for the inversion.
+    bfm_d.set_mass(mass);
+    if (use_mixed_solver) bfm_f.set_mass(mass);
+    bfm_d.residual = stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+    int iters_main;
+    VRB.Result(cname, fname, "Doing main solve.\n");
+#pragma omp parallel 
+    {
+	iters_main = use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, in_5d, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_Mdag(tmp_5d, in_5d);
+    }
+
+    // Finally, out_5d = D_DW(1)^\dag D_DW(m)^{\dag-1} P in
+    bfm_d.set_mass(1.0);
+    if (use_mixed_solver) bfm_f.set_mass(1.0);
+#pragma omp parallel
+    {
+        bfm_d.G5D_Munprec(tmp_5d, out_5d, DaggerYes);
+    }
+
+    // Extract the 4D part of the 5D result
+    bfm_d.cps_impexFermion_4d((Float *)out, out_5d, Export);
+
+    bfm_d.freeFermion(out_5d[Even]);
+    bfm_d.freeFermion(out_5d[Odd]);
+    bfm_d.freeFermion(in_5d[Even]);
+    bfm_d.freeFermion(in_5d[Odd]);
+    bfm_d.freeFermion(tmp_5d[Even]);
+    bfm_d.freeFermion(tmp_5d[Odd]);
+
+    int iters = iters_PV + iters_main;
+    VRB.Result(cname, fname, "iters_PV   = %d\n", iters_PV);
+    VRB.Result(cname, fname, "iters_main = %d\n", iters_main);
+    VRB.Result(cname, fname, "final total iters = %d at Ls = %d\n", iters, bfm_d.Ls);
+    VRB.Result(cname, fname, "Done.\n");
+    return iters;
+}
+
 
 int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
-    Vector *out, Vector *in, Float mass, bfmarg cheap_approx, Matrix *gauge_field, int num_iters,
+    Vector *out, Vector *in, Float mass, DagType dag, bfmarg cheap_approx, Matrix *gauge_field, int num_dc_steps,
     Float cheap_solve_stop_rsd, Float exact_solve_stop_rsd)
 {
     const char* fname = "InvertOverlapDefectCorrection()";
@@ -361,46 +449,66 @@ int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
 	bfm_cheap_d.comm_init();
     }
 
-    int iters = 0;
+    int iters;
+    int total_iters = 0;
+    int total_iters_times_Ls = 0;
 
     int f_size = 24 * GJP.VolNodeSites();
     Vector *approx_sol = (Vector*)smalloc(f_size * sizeof(Float), "approx_sol", fname, "");
     Vector *residual = (Vector*)smalloc(f_size * sizeof(Float), "residual", fname, "");
     Vector *tmp = (Vector*)smalloc(f_size * sizeof(Float), "tmp", fname, "");
 
-    // TODO: try to use initial guess
+    // TODO: try to use initial guess?
     out->VecZero(f_size);
     residual->CopyVec(in, f_size);
     Float norm2_residual = residual->NormSqGlbSum(f_size);
 
     VRB.Result("", fname, "Starting norm2_residual = %e\n", norm2_residual);
 
-    for (int iter = 0; iter < num_iters; iter++) {
+    for (int dc_step = 0; dc_step < num_dc_steps; dc_step++) {
 	// Approximately invert Dov on residual
 	// approx_sol = Dov'^{-1} res
-	VRB.Result("", fname, "Doing cheap solve (iter = %d of %d)\n", iter, num_iters);
-	iters += ApplyOverlapInverse(bfm_cheap_d, bfm_cheap_f, use_mixed_solver,
-	    approx_sol, residual, cheap_approx.mass, cheap_solve_stop_rsd);
-
-	bfm_cheap_d.comm_end();
-	bfm_d.comm_init();
+	VRB.Result("", fname, "Doing cheap solve (dc_step = %d of %d)\n", dc_step, num_dc_steps);
+        if (dag == DAG_NO) {
+	    iters = ApplyOverlapInverse(bfm_cheap_d, bfm_cheap_f, use_mixed_solver,
+	        approx_sol, residual, cheap_approx.mass, cheap_solve_stop_rsd);
+        } else {
+	    iters = ApplyOverlapDagInverse(bfm_cheap_d, bfm_cheap_f, use_mixed_solver,
+	        approx_sol, residual, cheap_approx.mass, cheap_solve_stop_rsd);
+        }
+        VRB.Result(cname, fname, "cheap inverse took %d iters at Ls = %d\n", iters, bfm_cheap_d.Ls);
+        total_iters += iters;
+        total_iters_times_Ls += iters * bfm_cheap_d.Ls;
 
 	out->VecAddEquVec(approx_sol, f_size);
 
-	// compute new true residual
+        if (dc_step < num_dc_steps - 1) {
+	    // compute new true residual for use in next defect correction step
 
-	// tmp = Dov out
-	iters += ApplyOverlap(bfm_d, bfm_f, use_mixed_solver,
-	    tmp, out, mass, exact_solve_stop_rsd);
+	    bfm_cheap_d.comm_end();
+	    bfm_d.comm_init();
 
-	bfm_d.comm_end();
-	bfm_cheap_d.comm_init();
+	    // tmp = Dov out
+            if (dag == DAG_NO) {
+	        iters = ApplyOverlap(bfm_d, bfm_f, use_mixed_solver,
+	            tmp, out, mass, exact_solve_stop_rsd);
+            } else {
+	        iters = ApplyOverlapDag(bfm_d, bfm_f, use_mixed_solver,
+	            tmp, out, mass, exact_solve_stop_rsd);
+            }
+            VRB.Result(cname, fname, "ApplyOverlap took %d iters at Ls = %d\n", iters, bfm_d.Ls);
+            total_iters += iters;
+            total_iters_times_Ls += iters * bfm_d.Ls;
 
-	// residual = in - Dov out
-	residual->FTimesV1MinusV2(1.0, in, tmp, f_size);
+	    bfm_d.comm_end();
+	    bfm_cheap_d.comm_init();
 
-	norm2_residual = residual->NormSqGlbSum(f_size);
-	VRB.Result("", fname, "After iter #%d, norm2_residual = %e\n", iter, norm2_residual);
+	    // residual = in - Dov out
+	    residual->FTimesV1MinusV2(1.0, in, tmp, f_size);
+
+	    norm2_residual = residual->NormSqGlbSum(f_size);
+	    VRB.Result("", fname, "After defect correction step #%d, norm2_residual = %e\n", dc_step, norm2_residual);
+        }
     }
 
     bfm_cheap_d.end();
@@ -412,15 +520,28 @@ int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
     // Final cleanup solve. We use the approximate solution
     // we have computed as the initial guess.
     VRB.Result("", fname, "Doing final cleanup solve\n");
-    iters += ApplyOverlapInverseGuess(bfm_d, bfm_f, use_mixed_solver,
-	out, in, mass, exact_solve_stop_rsd);
+    if (dag == DAG_NO) {
+        iters = ApplyOverlapInverseGuess(bfm_d, bfm_f, use_mixed_solver,
+	    out, in, mass, exact_solve_stop_rsd);
+    } else {
+        iters = ApplyOverlapDagInverseGuess(bfm_d, bfm_f, use_mixed_solver,
+	    out, in, mass, exact_solve_stop_rsd);
+    }
+    total_iters += iters;
+    total_iters_times_Ls += iters * bfm_d.Ls;
+    VRB.Result("", fname, "Final cleanup solve took %d iters at Ls = %d\n", iters, bfm_d.Ls);
+
+    int total_normalized_iters = total_iters_times_Ls / bfm_d.Ls;
+    VRB.Result(cname, fname, "total iters = %d\n", total_iters);
+    VRB.Result(cname, fname, "total iters*Ls = %d\n", total_iters_times_Ls);
+    VRB.Result(cname, fname, "total iters normalized to Ls of %d = %d\n", bfm_d.Ls, total_normalized_iters);
 
     sfree(approx_sol, "approx_sol", fname, "");
     sfree(residual, "residual", fname, "");
     sfree(tmp, "tmp", fname, "");
 
     VRB.Result("", fname, "Done!\n");
-    return iters;
+    return total_iters;
 }
 
 

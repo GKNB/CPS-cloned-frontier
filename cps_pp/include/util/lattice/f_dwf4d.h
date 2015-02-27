@@ -12,49 +12,6 @@
 
 CPS_START_NAMESPACE
 
-// A DWFParams instance specifies a 5D domain wall operator.
-struct DWFParams
-{
-    Float mass;
-    Float M5;
-    int Ls;
-    Float mobius_scale;
-};
-
-
-
-template<class T>
-void InitBfmFromDWFParams(bfm_evo<T> &bfm, DWFParams dwfParams, Matrix *gauge_field)
-{
-    bfmarg ba;
-    ba.ScaledShamirCayleyTanh(dwfParams.mass, dwfParams.M5, dwfParams.Ls, dwfParams.mobius_scale);
-
-    ba.max_iter = 1000000;
-    ba.residual = 1e-12; // default, should always be overwritten before a solve
-
-    multi1d<int> lattSize = QDP::Layout::subgridLattSize();
-    ba.node_latt[0] = lattSize[0];
-    ba.node_latt[1] = lattSize[1];
-    ba.node_latt[2] = lattSize[2];
-    ba.node_latt[3] = lattSize[3];
-
-    multi1d<int> procs = QDP::Layout::logicalSize();
-    ba.local_comm[0] = procs[0] > 1 ? 0 : 1;
-    ba.local_comm[1] = procs[1] > 1 ? 0 : 1;
-    ba.local_comm[2] = procs[2] > 1 ? 0 : 1;
-    ba.local_comm[3] = procs[3] > 1 ? 0 : 1;
-
-    ba.ncoor[0] = 0;
-    ba.ncoor[1] = 0;
-    ba.ncoor[2] = 0;
-    ba.ncoor[3] = 0;
-
-    ba.verbose = BfmMessage | BfmError;
-
-    bfm.init(ba);
-    bfm.cps_importGauge((Float *)gauge_field);
-}
-
 // Some functions are defined outside Fdwf4d so that they can also be used
 // by Fdwf4dPair
 
@@ -77,24 +34,22 @@ void Dwf4d_CalcHmdForceVecsBilinear(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_
 // corresponding to a 5D domain wall fermion operator.
 class Fdwf4d : public virtual Lattice {
 public:
-    //static std::map<Float, DWFParams> paramMap;
     static std::map<Float, bfmarg> arg_map;
+    static std::map<Float, std::vector<double> > omega_map;
+    static std::map<Float, int> CGdiagonalMee_map;
 
     static bool use_mixed_solver;
 
     static Float pauli_villars_resid;
-
-    static Timer inv_m_timer;
-    static Timer inv_pv_timer;
+    static Float pauli_villars_resid_mc; // PV residual used in Metropolis step
+    static Float pauli_villars_resid_md; // PV residual used in force
 
 private:
     const char *cname;
 
     bfm_evo<double> bfm_d;
     bfm_evo<float> bfm_f;
-    //DWFParams dwfParams;
 
-    //void SetDWFParams(Float mass);
     void SetBfmArg(Float key_mass);
     bool bfm_inited;
     Float current_key_mass;
@@ -115,6 +70,8 @@ public:
     // Does f_out = (M^dag M)^-1 f_in. Returns iteration count.
     int FmatEvlInv(Vector *f_out, Vector *f_in, CgArg *cg_arg, Float *true_res, CnvFrmType cnv_frm = CNV_FRM_YES);
     int FmatEvlInv(Vector *f_out, Vector *f_in, CgArg *cg_arg, CnvFrmType cnv_frm = CNV_FRM_YES);
+
+    int FmatEvlInvUnsquared(Vector *f_out, Vector *f_in, CgArg *cg_arg, DagType dag);
 
     int FeigSolv(Vector **f_eigenv, Float *lambda, Float *chirality, int *valid_eig,
 	Float **hsum, EigArg *eig_arg, CnvFrmType cnv_frm = CNV_FRM_YES);
