@@ -104,6 +104,7 @@ if (!dminus){
 
 
     // TIZB check
+if (0){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
@@ -112,6 +113,7 @@ if (!dminus){
     dop.Mat(temp,f_out);  
     norm = temp->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
+}
 
     sfree(cname, fname,  "temp",  temp);
   }
@@ -560,8 +562,8 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
       const Complex kappa_b =
 	1.0 / ( 2 * (GJP.Mobius_b()
 		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
- 	VRB.Flow(cname,fname,"s=%d Mobius_b=%e kappa_b=%e %e\n",
-	glb_s,GJP.Mobius_b(),kappa_b.real(),kappa_b.imag());
+// 	VRB.Flow(cname,fname,"s=%d Mobius_b=%e kappa_b=%e %e\n",
+//	glb_s,GJP.Mobius_b(),kappa_b.real(),kappa_b.imag());
       int idx = s*ls_stride/2;// "/2" is for complex
       vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
 			 2.0*kappa_b, ls_stride);

@@ -122,6 +122,9 @@ int  qio_node_index( const int x[])
   if( tmp >= GJP.VolNodeSites() )
     { 
       printf("ERROR QIO: qio_node_index got index >= local volume");
+  printf("UID: %i, called qio_node_index with x: [%i, %i, %i, %i] \n",UniqueID(),x[0],x[1],x[2],x[3]);
+  printf("UID: %i, called qio_node_index with NodeCoor: [%i, %i, %i, %i] \n",UniqueID(), GJP.NodeCoor(0), GJP.NodeCoor(1), GJP.NodeCoor(2), GJP.NodeCoor(3));
+  printf("UID: %i, called qio_node_index with NodeSites: [%i, %i, %i, %i] \n",UniqueID(), GJP.NodeSites(0), GJP.NodeSites(1), GJP.NodeSites(2), GJP.NodeSites(3));
       exit(-1);
     }
 

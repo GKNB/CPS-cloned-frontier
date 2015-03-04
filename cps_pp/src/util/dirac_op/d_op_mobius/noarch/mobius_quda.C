@@ -59,7 +59,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
   char *fname = "QudaInvert(V*, V*, F*, int)";
 
-  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
+//  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
 
   struct timeval start, end;
   gettimeofday(&start,NULL);
@@ -378,8 +378,12 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   }
   //-----------------------------------temp-------------------------------------------
 
+  Float total_time=-dclock();
+  Float inv_time=0.;
+  Float qudamat_time=0.;
   if(cg_test==1)
   {
+    qudamat_time -=dclock();
     // Initial residual
     if (mat_type == 0)
     {
@@ -389,6 +393,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     {
       MatDagMatQuda(r, out, &inv_param);
     }
+    qudamat_time +=dclock();
     r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
     Float r2 = r->NormSqGlbSum(f_size_cb);
 
@@ -408,17 +413,21 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       //---------------------------------
       //  Inversion sequence start
       //---------------------------------
+      inv_time -=dclock();
       invertQuda(x, r, &inv_param);
+      inv_time +=dclock();
 
       // Update solution
       out->VecAddEquVec(x, f_size_cb);
 
+    qudamat_time -=dclock();
       //------------------------------------
       // Calculate new residual
       if (mat_type == 0)
         MatQuda(r, out, &inv_param);
       else
         MatDagMatQuda(r, out, &inv_param);
+    qudamat_time +=dclock();
 
       r->FTimesV1MinusV2(1.0,in,r,f_size_cb);
       r2 = r->NormSqGlbSum(f_size_cb);
@@ -427,9 +436,9 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       total_iter += inv_param.iter + 1;
       flops += 1e9*inv_param.gflops + 8*f_size_cb + matvec_flops;
 
-      VRB.Flow(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
+      VRB.Result(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
           inv_param.gflops, inv_param.secs, inv_param.gflops / inv_param.secs);
-      VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
+      VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
     }
 
@@ -441,6 +450,8 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
         sqrt(r2)/sqrt(in_norm2), total_iter, k);
     // if (true_res) *true_res = sqrt(r2);
   }
+  total_time +=dclock();
+   VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
