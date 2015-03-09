@@ -26,6 +26,7 @@ CPS_END_NAMESPACE
 #include <util/dirac_op.h>
 #include <util/time_cps.h>
 #include <util/enum_func.h>
+#include <util/time_cps.h>
 
 #include <util/zmobius.h> // for debug remove later 
 
@@ -97,8 +98,10 @@ if (!dminus){
 }
 #endif
 
+  Float inv_time =-dclock();
   iter = dop.MatInv(true_res, prs_f_in);
-
+  inv_time +=dclock();
+  print_time(fname,"MatInv()",inv_time);
   if(prs_f_in==PRESERVE_YES){
     moveFloat((IFloat*)f_in,(IFloat*)temp, size);
 

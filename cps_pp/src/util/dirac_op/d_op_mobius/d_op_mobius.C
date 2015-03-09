@@ -543,6 +543,7 @@ int DiracOpMobius::MatInv(Vector *out,
   }
 
 
+#if 1
   // check solution
 //  norm = out->NormSqGlbSum(temp_size);
 //  VRB.Result(cname,fname,"Norm out %.14e\n",norm);
@@ -555,6 +556,7 @@ int DiracOpMobius::MatInv(Vector *out,
   norm = temp->NormSqGlbSum(temp_size);
   VRB.Result(cname,fname,"Norm (in-MatPcDagMatPc*out) %.14e\n",norm);
   //exit(0);
+#endif
 
   // restore source
   if(prs_in == PRESERVE_YES){
