@@ -174,13 +174,13 @@ int main(int argc,char *argv[])
         for(int i =0; i<3; i++) bytes *= GJP.Sites(i);
         bytes *= (GJP.Sites(3)+1);
         bytes *= 12*12*2*sizeof(Float);
-        cps::sync();
+//        cps::sync();
         Float time = -dclock();
     writePropQIO.setSourceTslice(0);
     writePropQIO.write_12pairs(out_prop_b, QIO_FULL_SOURCE, &propagator[0], fSourcePairs_write, VOLFMT);
         time += dclock();
         print_flops("write_12pairs","double",bytes,time);
-        cps::sync();
+//        cps::sync();
 
     
 #if 0
@@ -223,6 +223,7 @@ int main(int argc,char *argv[])
         cps::sync();
         Float time = -dclock();
     readPropQio.read_12pairs(out_prop_b, &propagator_read[0], fSourcePairs_read, QIO_FULL_SOURCE);
+        cps::sync();
         time += dclock();
         print_flops("read_12pairs","double",bytes,time);
     
@@ -289,8 +290,5 @@ int main(int argc,char *argv[])
 
 
   }
+  End();
 }
-
-
-
-

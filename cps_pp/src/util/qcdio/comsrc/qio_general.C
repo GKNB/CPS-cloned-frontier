@@ -1,6 +1,7 @@
 #ifdef USE_QIO
 #include <config.h>
 #include <util/qio_general.h>
+#include <util/time_cps.h>
 
 
 CPS_START_NAMESPACE
@@ -175,6 +176,8 @@ void qio_get_coords( int x[], int node, int index)
   else
     localIndex_t = GJP.NodeSites(3);
 
+#undef USE_SLOW_INDEX
+#ifdef USE_SLOW_INDEX
   int xLoc[4]={0,0,0,0};
 
   for( int ii(0); ii < index; ++ii)
@@ -198,10 +201,25 @@ void qio_get_coords( int x[], int node, int index)
 	   }
 	}
     }
-      
+#endif
+  int xLoc2[4]={0,0,0,0};
+  int rest = index;
+  for(int ii=0;ii<4;ii++){
+	xLoc2[ii] = rest % GJP.NodeSites(ii);
+	rest = rest/GJP.NodeSites(ii);
+#ifdef USE_SLOW_INDEX
+	if (xLoc2[ii] != xLoc[ii])
+	ERR.General("",fname,"index=%d xLoc2[%d](%d) != xLoc[%d](%d)\n",
+        index,ii,xLoc2[ii],ii,xLoc[ii]);
+#endif
+  }
+  if( xLoc2[3] >= localIndex_t ) {
+     printf("ERROR in QIO: with index/global-coor-conver\n");
+     exit(-1);
+   }
 	
   for(int ii(0); ii < 4; ++ii)
-    x[ii] += xLoc[ii];
+    x[ii] += xLoc2[ii];
           
   //#define DEBUG_GetCorrds
   
@@ -214,7 +232,7 @@ void qio_get_coords( int x[], int node, int index)
 // To supporthe QIO_PARTFILE format for totnode != num io node
 void qio_get_coords( int x[], int node, int index)
 {
-
+  const char *fname="qio_get_coords(i[],i,i)";
   #ifdef DEBUG_GetCoords
   printf("UID: %i, called qio_get_coords with node: %i, index %i; calc...\n", UniqueID(), node, index);
   #endif // DEBUG_GetCoords
@@ -267,6 +285,8 @@ void qio_get_coords( int x[], int node, int index)
   else
     localIndex_t = GJP.NodeSites(3);
 
+#undef USE_SLOW_INDEX
+#ifdef USE_SLOW_INDEX
   int xLoc[4]={0,0,0,0};
 
   for( int ii(0); ii < index; ++ii)
@@ -290,10 +310,25 @@ void qio_get_coords( int x[], int node, int index)
 	   }
 	}
     }
-      
+#endif
+  int xLoc2[4]={0,0,0,0};
+  int rest = index;
+  for(int ii=0;ii<4;ii++){
+	xLoc2[ii] = rest % GJP.NodeSites(ii);
+	rest = rest/GJP.NodeSites(ii);
+#ifdef USE_SLOW_INDEX
+	if (xLoc2[ii] != xLoc[ii])
+	ERR.General("",fname,"index=%d xLoc2[%d](%d) != xLoc[%d](%d)\n",
+        index,ii,xLoc2[ii],ii,xLoc[ii]);
+#endif
+  }
+  if( xLoc2[3] >= localIndex_t ) {
+     printf("ERROR in QIO: with index/global-coor-conver\n");
+     exit(-1);
+   }
 	
   for(int ii(0); ii < 4; ++ii)
-    x[ii] += xLoc[ii];
+    x[ii] += xLoc2[ii];
           
   //#define DEBUG_GetCorrds
   
@@ -350,6 +385,7 @@ static int qio_master_io_node(){ return 0; }
 //void qio_init::qio_setLayout( QIO_Layout *layout)
 void qio_init::qio_setLayout()
 {
+  Float time = -dclock();
   static int lattice_size[QIO_RW_DIMENSION];
 
   
