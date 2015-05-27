@@ -5,6 +5,8 @@
 #ifdef USE_BFM
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_mixed_solver.h>
+#include <util/lattice/bfm_mixed_solver_multi.h>
+#include <util/lattice/eff_overlap.h>
 #endif
 
 #include <util/lattice.h>
@@ -25,6 +27,10 @@ public:
 
     static std::map<Float, bfmarg> arg_map;
     static Float current_key_mass;
+
+    // Lets the user specify what MADWF parameters should be used for each key mass during measurements.
+    // Leave empty to use regular CG.
+    static std::map<Float, MADWFParams> madwf_arg_map;
 
     // set true to use single precision BFM object.
     static bool use_mixed_solver;

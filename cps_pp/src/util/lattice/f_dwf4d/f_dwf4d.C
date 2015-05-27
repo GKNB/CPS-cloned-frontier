@@ -44,6 +44,8 @@ Fdwf4d::~Fdwf4d(void)
     }
 }
 
+void AutofillBfmarg(bfmarg &arg); // defined in f_bfm.C
+
 void Fdwf4d::SetBfmArg(Float key_mass)
 {
     const char* fname = "SetBfmArg(F)";
@@ -67,27 +69,7 @@ void Fdwf4d::SetBfmArg(Float key_mass)
     }
 
     bfmarg new_arg = arg_map.at(key_mass);
-
-    // Make sure some fields are filled in properly
-    multi1d<int> sub_latt_size = QDP::Layout::subgridLattSize();
-    new_arg.node_latt[0] = sub_latt_size[0];
-    new_arg.node_latt[1] = sub_latt_size[1];
-    new_arg.node_latt[2] = sub_latt_size[2];
-    new_arg.node_latt[3] = sub_latt_size[3];
-
-    multi1d<int> procs = QDP::Layout::logicalSize();
-    new_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
-    new_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
-    new_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
-    new_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
-
-    new_arg.ncoor[0] = 0;
-    new_arg.ncoor[1] = 0;
-    new_arg.ncoor[2] = 0;
-    new_arg.ncoor[3] = 0;
-
-    new_arg.max_iter = 100000;
-    new_arg.verbose = BfmMessage | BfmError;
+    AutofillBfmarg(new_arg); // Make sure some fields are filled in properly
 
     bfm_d.init(new_arg);
     bfm_d.cps_importGauge((Float *)(this->GaugeField()));
@@ -100,14 +82,6 @@ void Fdwf4d::SetBfmArg(Float key_mass)
     }
 
     VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bfm_d.solver, bfm_d.mass, bfm_d.Ls, bfm_d.mobius_scale);
-
-    //for(int i = 0; i < bfm_d.Ls; i++) {
-    //  VRB.Result(cname, fname, "bs_[%d] = %0.15e, bsi_[%d] = %0.15e, cs_[%d] = %0.15e, csi_[%d] = %0.15e\n", i, bfm_d.bs_[i], i, bfm_d.bsi_[i], i, bfm_d.cs_[i], i, bfm_d.csi_[i]);
-    //}
-
-    //for(int i = 0; i < bfm_d.Ls; i++) {
-    //  VRB.Result(cname, fname, "bs[%d] = %0.15e, bsi[%d] = %0.15e, cs[%d] = %0.15e, csi[%d] = %0.15e\n", i, bfm_d.bs[i], i, bfm_d.bsi[i], i, bfm_d.cs[i], i, bfm_d.csi[i]);
-    //}
 
     bfm_inited = true;
     current_key_mass = key_mass;
