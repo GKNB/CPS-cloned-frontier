@@ -20,6 +20,7 @@
 #include <stdlib.h>     // exit()
 #include <stdio.h>
 #include <string.h>
+#include <cassert>
 #include <alg/common_arg.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
@@ -41,6 +42,7 @@
 #include <alg/no_arg.h>
 
 #include <omp.h>
+#include <qmp.h>
 
 #define VOLFMT QIO_VOLFMT
 
@@ -357,7 +359,7 @@ void QPropW::Run(const int do_rerun, const Float precision)
 
      // End M. Lightman
      //-----------------------------------------------------------------
-     
+
      for (int spn=StartSpin; spn < EndSpin; spn++)
        for (int col=StartColor; col < EndColor; col++) {
 		 
@@ -2454,7 +2456,6 @@ QPropWWallSrc::QPropWWallSrc(Lattice& lat,  QPropWArg* arg, CommonArg* c_arg):
   char *fname = "QPropWWallSrc(L&, QPropWArg*, ComArg*)";
   cname = "QPropWWallSrc";
   VRB.Func(cname, fname);
-
   // get the propagator
   Run();
 }
@@ -3021,6 +3022,77 @@ void QPropW4DBoxSrc::SetSource(FermionVectorTp& src, int spin, int color)
     }
 }
 
+// ------------------------------------------------------------------
+// Quark Propagator, wall source filled with Z3 boxes
+//
+// Added by Hantao
+// ------------------------------------------------------------------
+QPropWZ3BWallSrc::QPropWZ3BWallSrc(Lattice& lat, QPropWArg* arg,
+                                   QPropW4DBoxArg *b_arg, CommonArg* c_arg)
+    : QPropW(lat, arg, c_arg)
+{
+    cname = "QPropWZ3BWallSrc";
+    const char *fname = "QPropWZ3BWallSrc()";
+
+    for(int mu = 0; mu < 4; ++mu) {
+        box_arg.box_start[mu] = b_arg->box_start[mu];
+        box_arg.box_size[mu] = b_arg->box_size[mu];
+        box_arg.mom[mu] = b_arg->mom[mu];
+        if(box_arg.box_size[mu] <= 0) {
+          ERR.General(cname, fname, "Invalid size in %d direction: %d.\n",
+                      mu, box_arg.box_size[mu]);
+        }
+    }
+    if(box_arg.box_size[3] != 1) {
+      ERR.NotImplemented(cname, fname);
+    }
+    if(box_arg.box_start[3] != arg->t) {
+      ERR.General(cname, fname, "BoxArg and QPropWArg starting time does not match.\n");
+    }
+
+    const int glb[4] = {
+        GJP.XnodeSites() * GJP.Xnodes(), GJP.YnodeSites() * GJP.Ynodes(),
+        GJP.ZnodeSites() * GJP.Znodes(), GJP.TnodeSites() * GJP.Tnodes(),
+    };
+
+    for(int i = 0; i < 3; ++i) {
+      rand_grid[i] = (glb[i] + box_arg.box_size[i] - 1) / box_arg.box_size[i];
+    }
+    rand_size = rand_grid[0] * rand_grid[1] * rand_grid[2];
+    rand_num.assign(rand_size, 0);
+
+    const Rcomplex Z3consts[3] = {1,
+                                  Rcomplex(-0.5, 0.5*sqrt(3.0)),
+                                  Rcomplex(-0.5, -0.5*sqrt(3.0)),};
+
+    VRB.Result(cname, fname, "rand_size = %d %d %d = %d\n",
+               rand_grid[0], rand_grid[1], rand_grid[2], rand_size);
+
+    for(int i = 0; i < rand_size; ++i) {
+        unsigned rnd = drand48() * 3;
+        assert(rnd < 3);
+        rand_num[i] = Z3consts[rnd];
+    }
+    QMP_broadcast(rand_num.data(), sizeof(Rcomplex) * rand_size);
+
+    Run();
+}
+
+void QPropWZ3BWallSrc::SetSource(FermionVectorTp& src, int spin, int color)
+{
+    const char *fname = "SetSource()";
+    VRB.Func(cname, fname);
+
+    VRB.Result(cname, fname, "Set Z3 boxed wall source at t=%d.\n", qp_arg.t);
+    src.SetZ3BWall(color, spin, qp_arg.t, box_arg.box_size, rand_num);
+
+    if (GFixedSrc()) {
+      src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t);
+    } else {
+        VRB.Warn(cname,fname,"Warning: 4D box src not gauge fixed");
+    }
+}
+
 //------------------------------------------------------------------
 // Quark Propagator (Wilson type) with Random Source
 //------------------------------------------------------------------
@@ -3082,14 +3154,15 @@ CommonArg* c_arg) : QPropW(lat, arg, c_arg),rand_arg(*r_arg)
 
   }
   if (rand_arg.rng == UONE) {
-    // MGE 06/10/2008
-        LRG.SetInterval(6.283185307179586,0);
-    for (int i=0; i<rsrc_size/2; i++) {
-      LRG.AssignGenerator(i);
-      Float theta(LRG.Urand(FOUR_D));
-      rsrc[2*i  ] = cos(theta); // real part
-      rsrc[2*i+1] = sin(theta); // imaginary part
-    }
+      // MGE 06/10/2008
+      LRG.SetInterval(6.283185307179586,0);
+	for (int i = 0; i<rsrc_size / 2; i++) {
+	    LRG.AssignGenerator(i);
+	    Float theta(LRG.Urand(FOUR_D));
+	    rsrc[2 * i] = cos(theta); // real part
+	    rsrc[2 * i + 1] = sin(theta); // imaginary part
+	}
+	
     // END MGE 06/10/2008
   } 
   if (rand_arg.rng == ZTWO) {
@@ -3105,6 +3178,15 @@ CommonArg* c_arg) : QPropW(lat, arg, c_arg),rand_arg(*r_arg)
       rsrc[2*i+1] = 0.0; // source is purely real
     }
     // END MGE 06/10/2008
+  }
+  if (rand_arg.rng == TEST) { // deterministic source for testing
+      for (int i = 0; i<rsrc_size / 2; i++) {
+	  Site s(i);
+	  int x = s.physX(), y = s.physY(), z = s.physZ(), t = s.physT();
+	  int rnum = ((937 * x*x + 3826 * x*y + 7034 * z*t*t) & 0x0100) ? 1 : -1;
+	  rsrc[2 * i] = rnum;
+	  rsrc[2 * i + 1] = 0.0;
+      }
   }
 }
 
@@ -3308,7 +3390,7 @@ QPropWRandVolSrc::QPropWRandVolSrc(Lattice& lat,  QPropWArg* arg,
 }
 
 //set the random source
-void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
+/*void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
 
   char *fname = "SetSource()"; 
   VRB.Func(cname, fname);
@@ -3321,7 +3403,32 @@ void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   if (GFixedSrc()) 
     for (int t=0;t<GJP.Tnodes()*GJP.TnodeSites(); t++)
       src.GFWallSource(AlgLattice(), spin, 3, t);
+}*/
+
+//set the random source
+void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color)
+{
+
+    char *fname = "SetSource()";
+    VRB.Func(cname, fname);
+
+    if (rsrc == NULL) {//need random numbers may implemented later
+	ERR.General(cname, fname, "No randrom numbers found!\n");
+    }
+
+    Lattice & lat = AlgLattice();
+    src.SetVolSource(color, spin, rsrc);
+    if (GFixedSrc()) {
+	if (lat.FixGaugeKind() == FIX_GAUGE_COULOMB_T)
+	    for (int t = 0; t<GJP.Tnodes()*GJP.TnodeSites(); t++)
+		src.GFWallSource(lat, spin, 3, t);
+	else if (lat.FixGaugeKind() == FIX_GAUGE_LANDAU)
+	    src.LandauGaugeFixSrc(lat, spin);
+	else
+	    ERR.General(cname, fname, "gauge fixing method does not work for qpropwrandvolSrc\n");
+    }
 }
+
 
 
 //------------------------------------------------------------------

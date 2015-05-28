@@ -15,9 +15,13 @@
 #include <alg/fermion_vector.h>
 
 #include <cmath>
+#include <cassert>
+#include <vector>
 #include <omp.h>
+#include <qmp.h>
 
 CPS_START_NAMESPACE
+using namespace std;
 
 const Float& FermionVectorTp::operator[](int i) {
   return fv[i];
@@ -303,6 +307,77 @@ void FermionVectorTp::Set4DBoxSource(int color,
     VRB.Result(cname, fname, "src_vol = %f\n", src_vol);
 }
 
+// Note: The following code sets a Z3 boxed wall source.
+void FermionVectorTp::SetZ3BWall(int color, int spin, int t, const int size[3],
+                                 const vector<Rcomplex> &rand_num)
+{
+    const char *fname = "SetZ3BWall()";
+
+    if (color < 0 || color >= GJP.Colors())
+        ERR.General(cname, fname, "Color index out of range: color = %d\n", color);
+  
+    if (spin < 0 || spin > 3)
+        ERR.General(cname, fname, "Spin index out of range: spin = %d\n", spin);
+
+    for(int mu = 0; mu < 3; ++mu) {
+        if(size[mu] > 0) continue;
+        ERR.General(cname, fname, "Invalid box size in %d direction: %d\n", mu, size[mu]);
+    }
+  
+    ZeroSource();
+
+    const int lcl[4] = {
+        GJP.XnodeSites(), GJP.YnodeSites(),
+        GJP.ZnodeSites(), GJP.TnodeSites(),
+    };
+
+    const int shift[4] = {
+        GJP.XnodeSites() * GJP.XnodeCoor(), GJP.YnodeSites() * GJP.YnodeCoor(),
+        GJP.ZnodeSites() * GJP.ZnodeCoor(), GJP.TnodeSites() * GJP.TnodeCoor(),
+    };
+
+    const int glb[4] = {
+        GJP.XnodeSites() * GJP.Xnodes(), GJP.YnodeSites() * GJP.Ynodes(),
+        GJP.ZnodeSites() * GJP.Znodes(), GJP.TnodeSites() * GJP.Tnodes(),
+    };
+
+    const int rand_grid[3] = {
+        (glb[0] + size[0] - 1) / size[0], 
+        (glb[1] + size[1] - 1) / size[1], 
+        (glb[2] + size[2] - 1) / size[2], 
+    };
+
+    const int sites = lcl[0] * lcl[1] * lcl[2] * lcl[3];
+
+#pragma omp parallel for
+    for(int i = 0; i < sites; ++i) {
+        int glb_x[4];
+        compute_coord(glb_x, lcl, shift, i);
+
+        if(glb_x[3] != t) continue;
+
+        int id = 0;
+        for(int k = 0; k < 3; ++k) {
+            id = id * rand_grid[k] + glb_x[k] / size[k];
+        }
+
+        fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)    ] = std::real(rand_num[id]);
+        fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin) + 1] = std::imag(rand_num[id]);
+    }
+
+    // debug code, check the source by printing it.
+    // for(int i = 0; i < sites; ++i) {
+    //     int glb_x[4];
+    //     compute_coord(glb_x, lcl, shift, i);
+    //     if(glb_x[3] != t) continue;
+
+    //     printf("Z3B Source: %d %d %d %d = %17.10e %17.10e\n",
+    //            glb_x[0], glb_x[1], glb_x[2], glb_x[3],
+    //            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)    ],
+    //            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin) + 1]);
+    // }
+}
+
 // Set source from previously defined source
 // Does not zero the rest of the  time slices
 void FermionVectorTp::SetWallSource(int color, int spin, int source_time, 
@@ -412,6 +487,29 @@ void FermionVectorTp::GaugeFixSink(Lattice &lat, int dir)
                            (const IFloat*)&vt);
             }
         }
+    }
+}
+
+void FermionVectorTp::LandauGaugeFixSrc(Lattice& lat, int spin)
+{
+    //Landau gauge fixing the source added by Qi
+    char *fname = "LandauGaugeFixSrc()";
+    VRB.Func(cname, fname);
+
+    if (lat.FixGaugeKind() != FIX_GAUGE_LANDAU)
+	ERR.General(cname, fname, "lattice not in Landau gauge\n");
+
+    Matrix *pM(lat.FixGaugePtr()[0]);
+
+#pragma omp parallel for
+    for (int site = 0; site < GJP.VolNodeSites(); site++) {
+	// site offset
+	Matrix Adj;
+	Adj.Dagger(pM[site]);
+	const int f_off(2 * GJP.Colors() * (spin + 4 * site));
+	Vector *v = (Vector*)(fv + f_off);
+	Vector vt(*v);
+	uDotXEqual((IFloat*)&fv[f_off], (const IFloat*)&Adj, (const IFloat*)&vt);
     }
 }
 

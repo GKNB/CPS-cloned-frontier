@@ -765,21 +765,18 @@ bool AlgActionRationalQuotient::loadPoles(void)
 {
   const char* fname = "loadPoles()";
 
-  if(rat_quo_arg->remez_generate) { printf("AA\n"); return false; }
-  if(strlen(rat_quo_arg->rat_poles_file) == 0) { printf("BB\n"); return false; }
-
   FILE *fp = fopen(rat_quo_arg->rat_poles_file, "r");
-  if(fp == NULL) { printf("CC\n"); return false; }
+  if(fp == NULL) return false;
   fclose(fp);
 
   RationalQuotientRemezArg rq;
-  if(!rq.Decode(rat_quo_arg->rat_poles_file, "rq")) { printf("DD\n"); return false; }
+  if(!rq.Decode(rat_quo_arg->rat_poles_file, "rq")) return false;
 
   // a bunch of check
-  if(rq.bsn_md.bsn_md_len != n_masses) { printf("EE\n"); return false; }
-  if(rq.bsn_mc.bsn_mc_len != n_masses) { printf("FF\n"); return false; }
-  if(rq.frm_md.frm_md_len != n_masses) { printf("GG\n"); return false; }
-  if(rq.frm_mc.frm_mc_len != n_masses) { printf("HH\n"); return false; }
+  if(rq.bsn_md.bsn_md_len != n_masses) return false;
+  if(rq.bsn_mc.bsn_mc_len != n_masses) return false;
+  if(rq.frm_md.frm_md_len != n_masses) return false;
+  if(rq.frm_mc.frm_mc_len != n_masses) return false;
 
   frm_remez_arg_md = new RemezArg[n_masses];
   frm_remez_arg_mc = new RemezArg[n_masses];

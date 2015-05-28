@@ -30,7 +30,11 @@ CPS_START_NAMESPACE
 std::map<Float, bfmarg> Fbfm::arg_map;
 Float Fbfm::current_key_mass = -1789.8;
 
+std::map<Float, MADWFParams> Fbfm::madwf_arg_map;
+
 bool Fbfm::use_mixed_solver = false;
+
+MultiShiftCGcontroller MultiShiftController;
 
 // NOTE:
 //
@@ -78,6 +82,31 @@ Fbfm::~Fbfm(void)
     }
 }
 
+// automatically fills in some bfmarg fields
+void AutofillBfmarg(bfmarg &arg)
+{
+    // Make sure some fields are filled in properly
+    multi1d<int> sub_latt_size = QDP::Layout::subgridLattSize();
+    arg.node_latt[0] = sub_latt_size[0];
+    arg.node_latt[1] = sub_latt_size[1];
+    arg.node_latt[2] = sub_latt_size[2];
+    arg.node_latt[3] = sub_latt_size[3];
+
+    multi1d<int> procs = QDP::Layout::logicalSize();
+    arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
+    arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
+    arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
+    arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
+
+    arg.ncoor[0] = 0;
+    arg.ncoor[1] = 0;
+    arg.ncoor[2] = 0;
+    arg.ncoor[3] = 0;
+
+    arg.max_iter = 100000;
+    arg.verbose = BfmMessage | BfmError;
+}
+
 void Fbfm::SetBfmArg(Float key_mass)
 {
     const char* fname = "SetBfmArg(F)";
@@ -86,31 +115,12 @@ void Fbfm::SetBfmArg(Float key_mass)
 	ERR.General(cname, fname, "No entry for key mass %e in arg_map!\n", key_mass);
     }
 
-    VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e (arg_map.count(key_mass) == %d)\n", key_mass, arg_map.count(key_mass));
+    VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e)\n", key_mass);
 
     bfmarg new_arg = arg_map.at(key_mass);
 
     if (!bfm_inited) {
-	// Make sure some fields are filled in properly
-	multi1d<int> sub_latt_size = QDP::Layout::subgridLattSize();
-	new_arg.node_latt[0] = sub_latt_size[0];
-	new_arg.node_latt[1] = sub_latt_size[1];
-	new_arg.node_latt[2] = sub_latt_size[2];
-	new_arg.node_latt[3] = sub_latt_size[3];
-
-	multi1d<int> procs = QDP::Layout::logicalSize();
-	new_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
-	new_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
-	new_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
-	new_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
-
-	new_arg.ncoor[0] = 0;
-	new_arg.ncoor[1] = 0;
-	new_arg.ncoor[2] = 0;
-	new_arg.ncoor[3] = 0;
-
-	new_arg.max_iter = 100000;
-	new_arg.verbose = BfmMessage | BfmError;
+	AutofillBfmarg(new_arg);
 
 	bd.init(new_arg);
 	if (use_mixed_solver) {
@@ -362,10 +372,6 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
 
     Fermion_t in = bd.allocFermion();
     Fermion_t out = bd.allocFermion();
-    /*Fermion_t tmp = bd.allocFermion();
-    Fermion_t tmp2 = bd.allocFermion();
-    Fermion_t tmp3 = bd.allocFermion();
-    Fermion_t in_save = bd.allocFermion();*/
 
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
@@ -375,84 +381,17 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
 
-    // FIXMEEEEEEEEE: New attempt to speed things up with modified preconditioning:
-    /*if (bd.CGdiagonalMee != 0) {
-      ERR.General(cname, fname, "With current code bd.CGdiagonalMee must be zero, actually is %d\n", bd.CGdiagonalMee);
-    }*/
-
-    /*const bool use_sym2 = true;
-
-    if (use_sym2) {
-	bd.CGdiagonalMee = 2;
-	bf.CGdiagonalMee = 2;
-    }
-    
-    Float norm2_in_sym2;
-    Float norm2_residual_sym2;*/
-
 #pragma omp parallel
     {
-	/*if (use_sym2) {
-	    bd.copy(in_save, in);
-	    
-	    bd.MooeeInv(in, tmp, DaggerYes);
-	    bd.copy(in, tmp);
-	    norm2_in_sym2 = bd.norm(in);
-
-	    // guess needs to be multiplied by Moo when using sym2 scheme
-	    bd.Mooee(out, tmp, DaggerNo);
-	    bd.copy(out, tmp);
-	}*/
-
 	iter = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5) :
 	    bd.CGNE_prec_MdagM(out, in);
-
-	/*if (use_sym2) {
-	    // tmp2 = Mprec^d Mprec out
-	    // norm2_residual = ||b - Mprec^d Mprec out||
-	    bd.Mprec(out, tmp, tmp2, DaggerNo);
-	    bd.Mprec(tmp, tmp2, tmp3, DaggerYes);
-	    norm2_residual_sym2 = bd.axpy_norm(tmp, tmp2, in, -1.0);
-
-	    bd.MooeeInv(out, tmp, DaggerNo);
-	    bd.copy(out, tmp);
-	}*/
     }
 
     bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
 
-    /*if (use_sym2) {
-	bd.CGdiagonalMee = 0;
-	bf.CGdiagonalMee = 0;
-
-	Float norm2_in;
-	Float norm2_residual;
-
-	// FIXME: unneccesary
-	// Measure actual residual ||b - MdM x|| / ||b||
-#pragma omp parallel
-	{
-	    norm2_in = bd.norm(in_save);
-
-	    // tmp2 = Mprec^d Mprec out
-	    bd.Mprec(out, tmp, tmp2, DaggerNo);
-	    bd.Mprec(tmp, tmp2, tmp3, DaggerYes);
-
-	    // norm2_residual = ||b - Mprec^d Mprec out||
-	    norm2_residual = bd.axpy_norm(tmp, tmp2, in_save, -1.0);
-	}
-
-	VRB.Result(cname, fname, "Residual with sym2     preconditioning: ||in - Mprec^d Mprec out|| / ||in|| = %e\n", sqrt(norm2_residual_sym2 / norm2_in_sym2));
-	VRB.Result(cname, fname, "Residual with original preconditioning: ||in - Mprec^d Mprec out|| / ||in|| = %e\n", sqrt(norm2_residual / norm2_in));
-    }*/
-
     bd.freeFermion(in);
     bd.freeFermion(out);
-    /*bd.freeFermion(tmp);
-    bd.freeFermion(tmp2);
-    bd.freeFermion(tmp3);
-    bd.freeFermion(in_save);*/
 
     timers[cg_arg->mass]->stop(true);
     timer.stop(true);
@@ -460,7 +399,6 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     return iter;
 }
 
-// TODO: proper single precision multishift inversion!
 int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     int Nshift, int isz, CgArg **cg_arg,
     CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
@@ -491,9 +429,13 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     bd.max_iter = cg_arg[0]->max_num_iter;
 
     int iter;
+    if (use_mixed_solver && bd.solver != WilsonTM) {
+	MultiShiftController.MInv(sol_multi, src, shift, Nshift, mresidual, ones, 0, bd, bf);
+    } else {
 #pragma omp parallel
-    {
-	iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	{
+	    iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, ones, Nshift, mresidual, 0);
+	}
     }
 
     if (type == SINGLE) {
@@ -577,7 +519,7 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bf.residual = 1e-5;
 
     // deal with Mobius Dminus
-    if(bd.solver == HmCayleyTanh) {
+    if (bd.solver == HmCayleyTanh) {
         bd.cps_impexFermion((Float *)f_in , out,  1);
 #pragma omp parallel
         {
@@ -590,31 +532,42 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
+
+    if (madwf_arg_map.count(cg_arg->mass) > 0) {
+	// MADWF inversion
+	VRB.Result(cname, fname, "Using MADWF: Main Ls = %d, cheap approx Ls = %d.\n", bd.Ls, madwf_arg_map[cg_arg->mass].cheap_approx.Ls);
+
+	iter = MADWF_CG_M(bd, bf, use_mixed_solver,
+	    out, in, bd.mass, this->GaugeField(), cg_arg->stop_rsd, madwf_arg_map[cg_arg->mass], cg_arg->Inverter);
+    } else {
+	// no MADWF:
 #pragma omp parallel
-    {
-        if(use_mixed_solver) {
-            iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
-        } else {
-            switch(cg_arg->Inverter) {
-            case CG:
-                if(evec && evald && ecnt) {
-                    iter = bd.CGNE_M(out, in, *evec, *evald);
-                } else {
-                    iter = bd.CGNE_M(out, in);
-                }
-                break;
-            case EIGCG:
-                iter = bd.EIG_CGNE_M(out, in);
-                break;
-            default:
-                if(bd.isBoss()) {
-                    printf("%s::%s: Not implemented\n", cname, fname);
-                }
-                exit(-1);
-                break;
-            }
-        }
+	{
+	    if (use_mixed_solver) {
+		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
+	    } else {
+		switch (cg_arg->Inverter) {
+		    case CG:
+			if (evec && evald && ecnt) {
+			    iter = bd.CGNE_M(out, in, *evec, *evald);
+			} else {
+			    iter = bd.CGNE_M(out, in);
+			}
+			break;
+		    case EIGCG:
+			iter = bd.EIG_CGNE_M(out, in);
+			break;
+		    default:
+			if (bd.isBoss()) {
+			    printf("%s::%s: Not implemented\n", cname, fname);
+			}
+			exit(-1);
+			break;
+		}
+	    }
+	}
     }
+
 
     bd.cps_impexFermion((Float *)f_out, out, 0);
 
@@ -653,7 +606,7 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
     Float *f4d = (Float *)four;
 
     const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
-    VRB.Result(cname, fname, "Taking Ls from current_key_mass = %d!\n", current_key_mass);
+    VRB.Result(cname, fname, "Taking Ls from current_key_mass = %e!\n", current_key_mass);
     const int size_5d = size_4d * arg_map.at(current_key_mass).Ls; // current_key_mass must be set correctly!!!
 
     // zero 5D vector

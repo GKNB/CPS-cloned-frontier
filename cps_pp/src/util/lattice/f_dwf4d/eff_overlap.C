@@ -52,7 +52,6 @@ int ApplyOverlap(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_s
     bfm_d.cps_impexFermion_4d((Float *)in, vec_5d, Import);
 
     bfm_d.set_mass(mass);
-    if (use_mixed_solver) bfm_f.set_mass(mass);
 #pragma omp parallel
     {
 	// tmp_5d = D_DW(m) vec_5d
@@ -90,8 +89,10 @@ int ApplyOverlap(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_s
     return iters;
 }
 
+// Invert the 4D effective overlap operator. 
+// Can use EigCG for the inner 5D solve if itype is set to EIGCG
 int ApplyOverlapInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
-    Vector *out, Vector *in, Float mass, Float stop_rsd)
+    Vector *out, Vector *in, Float mass, Float stop_rsd, InverterType itype)
 {
     const char* fname = "ApplyOverlapInverse()";
 
@@ -110,13 +111,16 @@ int ApplyOverlapInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_
 
     bfm_d.cps_impexFermion_4d((Float *)in, vec_5d, Import);
 
+    // Do
+    //   tmp_5d = D_DW(1) vec_5d = D_DW(1) P in
     bfm_d.set_mass(1.0);
-    if (use_mixed_solver) bfm_f.set_mass(1.0);
 #pragma omp parallel
     {
 	bfm_d.G5D_Munprec(vec_5d, tmp_5d, DaggerNo);
     }
 
+    // Now do
+    //   vec_5d = D_DW(m)^{-1} tmp_5d = D_DW(m)^{-1} D_DW(1) P in
     int iters;
     bfm_d.set_mass(mass);
     if (use_mixed_solver) bfm_f.set_mass(mass);
@@ -124,14 +128,30 @@ int ApplyOverlapInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_
     if (use_mixed_solver) bfm_f.residual = 1e-5;
 #pragma omp parallel
     {
-	// TODO: optionally make use of initial guess
 	bfm_d.set_zero(vec_5d[Even]);
 	bfm_d.set_zero(vec_5d[Odd]);
-	iters = use_mixed_solver ?
-	    mixed_cg::threaded_cg_mixed_M(vec_5d, tmp_5d, bfm_d, bfm_f, 5) :
-	    bfm_d.CGNE_M(vec_5d, tmp_5d);
+
+	if (use_mixed_solver) {
+	    iters = mixed_cg::threaded_cg_mixed_M(vec_5d, tmp_5d, bfm_d, bfm_f, 5, itype);
+	} else {
+	    switch (itype) {
+		case CG:
+		    iters = bfm_d.CGNE_M(vec_5d, tmp_5d);
+		    break;
+		case EIGCG:
+		    iters = bfm_d.EIG_CGNE_M(vec_5d, tmp_5d);
+		    break;
+		default:
+		    if (bfm_d.isBoss()) {
+			printf("%s::%s: Inverter type %d not implemented\n", cname, fname, itype);
+		    }
+		    exit(-1);
+		    break;
+	    }
+	}
     }
 
+    // out = [P^{-1} vec_5d]_0 = [P^{-1} D_DW(m)^{-1} D_DW(1) P]_00 in
     bfm_d.cps_impexFermion_4d((Float *)out, vec_5d, Export);
 
     bfm_d.freeFermion(vec_5d[Even]);
@@ -183,7 +203,6 @@ int ApplyOverlapDag(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixe
     }
 
     bfm_d.set_mass(mass);
-    if (use_mixed_solver) bfm_f.set_mass(mass);
 #pragma omp parallel
     {
 	// vec_5d = D_DW(m)^-1^dag tmp_5d = D_DW(m)^-1^dag D_DW(1)^dag in
@@ -242,7 +261,6 @@ int ApplyOverlapDagInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool u
     }
 
     bfm_d.set_mass(1.0);
-    if (use_mixed_solver) bfm_f.set_mass(1.0);
 #pragma omp parallel
     {
 	bfm_d.G5D_Munprec(tmp_5d, vec_5d, DaggerYes);
@@ -283,7 +301,6 @@ int ApplyOverlapInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool
 
     // Dm_Pout = -D_DW(m) P out
     bfm_d.set_mass(mass);
-    if (use_mixed_solver) bfm_f.set_mass(mass);
 #pragma omp parallel
     {
 	bfm_d.scale(out_5d, -1.0);
@@ -401,7 +418,6 @@ int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, b
 
     // Finally, out_5d = D_DW(1)^\dag D_DW(m)^{\dag-1} P in
     bfm_d.set_mass(1.0);
-    if (use_mixed_solver) bfm_f.set_mass(1.0);
 #pragma omp parallel
     {
         bfm_d.G5D_Munprec(tmp_5d, out_5d, DaggerYes);
@@ -425,6 +441,7 @@ int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, b
     return iters;
 }
 
+void AutofillBfmarg(bfmarg &arg); // defined in f_bfm.C
 
 int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
     Vector *out, Vector *in, Float mass, DagType dag, bfmarg cheap_approx, Matrix *gauge_field, int num_dc_steps,
@@ -438,7 +455,7 @@ int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
 
     bfm_evo<double> bfm_cheap_d;
     bfm_evo<float> bfm_cheap_f;
-
+    AutofillBfmarg(cheap_approx); // make sure various fields are filled in
     bfm_cheap_d.init(cheap_approx);
     bfm_cheap_d.cps_importGauge((Float *)gauge_field);
     if (use_mixed_solver) {
@@ -543,6 +560,264 @@ int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
     VRB.Result("", fname, "Done!\n");
     return total_iters;
 }
+
+// For use in MADWF
+//
+// Does 
+//   Pc = D_DW(1)^{-1} b
+//   c0 = [P^{-1} Pc]_0 = [P^{-1} D_DW(1)^{-1} b]_0
+static void Convert5dRhsTo4dRhs(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
+    Vector *c0, Fermion_t Pc[2], Fermion_t b[2], Float pv_stop_rsd)
+{
+    bfm_d.set_mass(1.0);
+    if (use_mixed_solver) bfm_f.set_mass(1.0);
+    bfm_d.residual = pv_stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+#pragma omp parallel
+    {
+        // D1inv_in = D_DW(1)^{-1} rhs_5d
+	bfm_d.set_zero(Pc[Even]);
+	bfm_d.set_zero(Pc[Odd]);
+	use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_M(Pc, b, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_M(Pc, b);
+
+    }
+
+    // rhs_4d = [P^{-1} D_DW(1)^{-1} in]_0
+    bfm_d.cps_impexFermion_4d((Float *)c0, Pc, Export);
+}
+
+
+// For use in MADWF.
+// From the approximate 4D solution, derive the full approximate 5D solution.
+// Computes 
+//     ( -Dov(m) y0 )                          ( -y0 )
+//   P (     y1     ) = D_DW(1)^{-1} D_DW(m) P (  c1 )
+//     (     y2     )                          (  c2 )
+//     (     ...    )                          ( ... )
+// and then sets
+//         ( y0 )
+//   x = P ( y1 )
+//         ( y2 )
+//         ( y3 )
+static void Reconstruct5dSol(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
+    Fermion_t x[2], Vector *y0, Fermion_t Pc[2], 
+    Float mass, Float pv_stop_rsd)
+{
+    Fermion_t tmp[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    Fermion_t Dm_tmp[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    
+    // Construct tmp = P transpose(-y0, c1, c2, c3, ...)
+#pragma omp parallel 
+    {
+	bfm_d.copy(tmp[Even], Pc[Even]);
+	bfm_d.copy(tmp[Odd], Pc[Odd]); // now tmp = c
+	bfm_d.scale(tmp[Even], -1.0); 
+	bfm_d.scale(tmp[Odd], -1.0); // now tmp = -c
+    }
+    bfm_d.cps_impexFermion_4d((Float *)y0, tmp, Import, false); // now tmp = P transpose(y0, -c1, -c2, ...)
+#pragma omp parallel 
+    {
+	bfm_d.scale(tmp[Even], -1.0); 
+	bfm_d.scale(tmp[Odd], -1.0); // now tmp = P transpose(-y0, c1, c2, ... )
+    }
+
+    // Compute Dm_tmp = D_DW(m) tmp
+    bfm_d.set_mass(mass);
+    if (use_mixed_solver) bfm_f.set_mass(mass);
+#pragma omp parallel
+    {
+        bfm_d.G5D_Munprec(tmp, Dm_tmp, DaggerNo);
+    }
+
+    // Compute D1inv_Dm_tmp = D_DW(1)^{-1} Dm_tmp = D_DW(1)^{-1} D_DW(m) tmp
+    bfm_d.set_mass(1.0);
+    if (use_mixed_solver) bfm_f.set_mass(1.0);
+    bfm_d.residual = pv_stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+#pragma omp parallel
+    {
+        bfm_d.set_zero(x[Even]);
+        bfm_d.set_zero(x[Odd]);
+	use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_M(x, Dm_tmp, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_M(x, Dm_tmp);
+    }
+
+    // Now x is equal to P y except that the part corresponding to 
+    // y0 is wrong. Fix that by overwriting the y0 part of x:
+    bfm_d.cps_impexFermion_4d((Float *)y0, x, Import, false);
+    // Now x = P y
+
+    bfm_d.freeFermion(tmp[Even]);
+    bfm_d.freeFermion(tmp[Odd]);
+    bfm_d.freeFermion(Dm_tmp[Even]);
+    bfm_d.freeFermion(Dm_tmp[Odd]);
+}
+    
+
+// See Hantao's thesis
+// 
+// If we need to solve
+//     D_DW(m) x = b
+// We construct the equivalent problem
+//     P^{-1} D_DW(1)^{-1} D_DW(m) P [P^{-1} x] x = P^{-1} D_DW(1)^{-1} b
+// Then we solve the first row of this 5d equation, which is
+//     Dov(m) y_0 = c_0
+// where
+//     y = P^{-1} x
+//     c = P^{-1} D_DW(1)^{-1} b
+// This 4D problem can be solved with InvertOverlap. To speed things up we can
+// use a cheap approximate version of Dov(m) in InvertOverlap. Then we need to recover
+// y from y_0 and x from y. 
+int MADWF_CG_M(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_solver,
+    Fermion_t x[2],
+    Fermion_t b[2],
+    Float mass,
+    Matrix *gauge_field,
+    Float exact_solve_stop_rsd,
+    MADWFParams madwf_params,
+    InverterType itype)
+{
+    const char* fname = "MADWF_CG_M()";
+
+    int iters = 0;
+
+    VRB.Result("", fname, "Start!\n");
+
+    // Make bfm objects for the cheap operator
+    bfm_d.comm_end();
+    bfm_evo<double> bfm_cheap_d;
+    bfm_evo<float> bfm_cheap_f;
+    AutofillBfmarg(madwf_params.cheap_approx); // make sure various fields are filled in
+    bfm_cheap_d.init(madwf_params.cheap_approx);
+    bfm_cheap_d.cps_importGauge((Float *)gauge_field);
+    if (use_mixed_solver) {
+	bfm_cheap_d.comm_end();
+	bfm_cheap_f.init(madwf_params.cheap_approx);
+	bfm_cheap_f.cps_importGauge((Float *)gauge_field);
+	bfm_cheap_f.comm_end();
+	bfm_cheap_d.comm_init();
+    }
+    bfm_cheap_d.comm_end();
+    bfm_d.comm_init();
+
+    Fermion_t Pc[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    Fermion_t residual[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+    Fermion_t z[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
+
+    int f_size_4d = 24 * GJP.VolNodeSites();
+    Vector *c0 = (Vector*)smalloc(f_size_4d * sizeof(Float), "c0", fname, ""); 
+    Vector *guess_y0 = (Vector*)smalloc(f_size_4d * sizeof(Float), "guess_y0", fname, ""); 
+
+    // Compute the initial 5D residual
+    bfm_d.set_mass(mass);
+#pragma omp parallel
+    {
+	bfm_d.G5D_Munprec(x, z, DaggerNo); // z = D_DW(m) * x
+	bfm_d.axpy(residual, z, b, -1.0); // residual = b - D_DW(m) * x
+    }
+    
+    // make sure certain residuals aren't pointlessly strict
+    if (madwf_params.cheap_solve_stop_rsd < exact_solve_stop_rsd) madwf_params.cheap_solve_stop_rsd = exact_solve_stop_rsd;
+    if (madwf_params.exact_pv_stop_rsd < exact_solve_stop_rsd) madwf_params.exact_pv_stop_rsd = exact_solve_stop_rsd;
+
+    // Now we will use the cheap operator to iteratively compute an approximation to 
+    //   D_DW(m)^{-1} residual
+    for (int dc_step = 0; dc_step < madwf_params.num_dc_steps; dc_step++) {
+	VRB.Result(cname, fname, "Starting defect correction step #%d of %d\n", dc_step + 1, madwf_params.num_dc_steps);
+
+	Float norm2_residual;
+#pragma omp parallel
+	{
+	    norm2_residual = bfm_d.norm(residual);
+	}
+	VRB.Result(cname, fname, "Current norm2 of residual is %0.16e\n", norm2_residual);
+
+	// Translate the 5D problem
+	//    D_DW(m) z = residual
+	// into a 4D problem.
+	// First construct the RHS of the 4D problem.
+	//   Pc = D_DW(1)^{-1} residual
+	//   c0 = [P^{-1} Pc]_0 = [P^{-1} D_DW(1)^{-1} residual]_0
+	VRB.Result(cname, fname, "Converting 5D RHS to 4D RHS.\n");
+	Convert5dRhsTo4dRhs(bfm_d, bfm_f, use_mixed_solver, c0, Pc, residual, madwf_params.exact_pv_stop_rsd);
+
+	// now invert the cheap overlap approximation
+	VRB.Result(cname, fname, "Doing cheap overlap inversion.\n");
+	bfm_d.comm_end();
+	bfm_cheap_d.comm_init();
+	// guess_y0 = Dov'(m)^{-1} c0
+	iters += ApplyOverlapInverse(bfm_cheap_d, bfm_cheap_f, use_mixed_solver, 
+	    guess_y0, c0, madwf_params.cheap_approx.mass, madwf_params.cheap_solve_stop_rsd, itype);
+	bfm_cheap_d.comm_end();
+	bfm_d.comm_init();
+	
+	// Now reconstruct the guess for z, the solution to the 5D problem
+	VRB.Result(cname, fname, "Reconstructing 5D guess.\n");
+	Reconstruct5dSol(bfm_d, bfm_f, use_mixed_solver, z, guess_y0, Pc, mass, madwf_params.exact_pv_stop_rsd);
+
+	// z is approximately the vector we need to add to x to get the full solution
+	// to the overall 5D problem. So update x with
+	//   x = x + z
+#pragma omp parallel
+	{
+	    bfm_d.axpy(x, x, z, 1.0);
+	}	
+
+	// If we are going to do more steps of defect correction, compute the new residual
+	if (dc_step < madwf_params.num_dc_steps - 1) {
+	    bfm_d.set_mass(mass);
+#pragma omp parallel
+	    {
+		bfm_d.G5D_Munprec(x, z, DaggerNo); // z = D_DW(m) * x
+		bfm_d.axpy(residual, z, b, -1.0); // residual = b - D_DW(m) * x
+	    }
+	} 
+    }
+
+    sfree(c0, "c0", fname, cname);
+    sfree(guess_y0, "guess_y0", fname, cname);
+
+    bfm_d.freeFermion(Pc[Even]);
+    bfm_d.freeFermion(Pc[Odd]);
+    bfm_d.freeFermion(residual[Even]);
+    bfm_d.freeFermion(residual[Odd]);
+    bfm_d.freeFermion(z[Even]);
+    bfm_d.freeFermion(z[Odd]);
+
+    bfm_cheap_d.end();
+    if (use_mixed_solver) {
+	bfm_cheap_f.end();
+    }
+
+    // Now we clean up our approximate solution x. The approximate solution serves
+    // as a guess for a regular 5D inversion. 
+    VRB.Result(cname, fname, "Doing final 5D solve.\n");
+    bfm_d.set_mass(mass);
+    if (use_mixed_solver) bfm_f.set_mass(mass);
+    bfm_d.residual = exact_solve_stop_rsd;
+    if (use_mixed_solver) bfm_f.residual = 1e-5;
+    Float final_solve_iters;
+#pragma omp parallel
+    {
+	final_solve_iters = use_mixed_solver ?
+	    mixed_cg::threaded_cg_mixed_M(x, b, bfm_d, bfm_f, 5) :
+	    bfm_d.CGNE_M(x, b);
+    }
+    iters += final_solve_iters;
+
+    return iters;
+}
+
+
+
+    
+
+
+
+    
 
 
 CPS_END_NAMESPACE
