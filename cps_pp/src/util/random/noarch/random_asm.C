@@ -1,4 +1,5 @@
 #include<config.h>
+#ifndef USE_C11_RNG
 CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
@@ -136,3 +137,4 @@ IFloat UniformRandomGenerator::Rand(Float high, Float low)
 
 
 CPS_END_NAMESPACE
+#endif

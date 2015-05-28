@@ -1,4 +1,5 @@
 #include <config.h>
+#ifndef USE_C11_RNG
 #include <stdlib.h>
 #include <math.h>
 #include <util/qcdio.h>
@@ -8,13 +9,12 @@
 #include <util/intconv.h>
 #include <util/random.h>
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <util/time_cps.h>
 #include <unistd.h>
-
-#include <qmp.h>
 
 CPS_START_NAMESPACE
 using namespace std;
@@ -60,8 +60,9 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   if(synchronize(error) != 0)   
     ERR.FileR(cname, fname, rd_arg.FileName);
   log();
-
-  QMP_broadcast(&hd.data_start, sizeof(long));
+  int temp_start=(int)hd.data_start;
+  broadcastInt(&temp_start);
+  hd.data_start=temp_start;
 
 
   if(isRoot()) {
@@ -121,11 +122,11 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
 
 //#if TARGET == QCDOC  // when on QCDOC, only Parallel (direct IO) mode is used
-// #if 1
-//   setParallel();
-// #else
-//   setSerial();
-// #endif
+#if 0
+  setParallel();
+#else
+  setSerial();
+#endif
   VRB.Result(cname,fname,"parIO()=%d\n",parIO());
 
   if(parIO()) {
@@ -145,8 +146,9 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 //    printf("Node %d - 5D: csum=%x, order_csum=%x\n",
 //	       UniqueID(),csum[0],pos_dep_csum[0]);
 
-    hd.data_start += (long)size_rng_chars * (long)rng_arg.VolSites() * 
-                     (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
+	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
+                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
+    hd.data_start +=  total;
  
     VRB.Flow(cname,fname, "Start Loading 4-D RNGs\n");
     if(! pario.load((char*)ugran_4d, size_rng_ints, sizeof(UGrandomGenerator),
@@ -162,7 +164,7 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   }
 #if 1
   else {
-    VRB.Flow(cname,fname, "Start Loading 5-D RNGs\n");
+    VRB.Result(cname,fname, "Start Loading 5-D RNGs\n");
 
     SerialIO serio(rng_arg);
     if(! serio.load((char*)ugran, size_rng_ints, sizeof(UGrandomGenerator),
@@ -170,10 +172,12 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 		    &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
       ERR.General(cname, fname, "Loading failed\n");
 
-    hd.data_start += (long)size_rng_chars * (long)rng_arg.VolSites() * 
-        (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
+	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
+                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
+    hd.data_start +=  total;
+
     
-    VRB.Flow(cname,fname, "Start Loading 4-D RNGs\n");
+    VRB.Result(cname,fname, "Start Loading 4-D RNGs\n");
 
     if(! serio.load((char*)ugran_4d, size_rng_ints, sizeof(UGrandomGenerator),
 		    hd, intconv, 4,
@@ -240,8 +244,8 @@ void LatRngRead::read(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   // STEP 3: Verify Rand Average and Variance
   RandSum[0] += RandSum[1];
   Rand2Sum[0] += Rand2Sum[1];
-  int total_rngs_4d = rng_arg.VolSites();
-  int total_rngs_5d = total_rngs_4d * rng_arg.Snodes() * rng_arg.SnodeSites(); 
+  uint64_t total_rngs_4d = rng_arg.VolSites();
+  uint64_t total_rngs_5d = total_rngs_4d * (uint64_t)(rng_arg.Snodes() * rng_arg.SnodeSites()); 
   Float RandAvg = globalSumFloat(RandSum[0]) / (total_rngs_5d + total_rngs_4d);
   Float RandVar = globalSumFloat(Rand2Sum[0]) / (total_rngs_5d + total_rngs_4d)
                   - RandAvg * RandAvg;
@@ -308,7 +312,7 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   //  cout << "size_rng_ints = " << size_rng_ints << endl;
   int size_rng_chars = size_rng_ints * intconv.fileIntSize();
 
-#if TARGET == QCDOC
+#if 0
   setParallel();
 #else
   setSerial();
@@ -319,6 +323,8 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
   // start writing file
   fstream output;
+//  string name_4d(wt_arg.FileName);
+//  name_4d += ".4d";
 
   if(parIO()) {
     FILE *fp = Fopen(wt_arg.FileName,"w");
@@ -335,8 +341,11 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
     if(isRoot()) {
       FILE *fp = Fopen(wt_arg.FileName,"w");
       Fclose(fp);
+//      fp = Fopen(name_4d.c_str(),"w");
+//      Fclose(fp);
 	  
       output.open(wt_arg.FileName);
+//    output_4d.open(name_4d.c_str());
       if(!output.good()) {
 	//	VRB.Flow(cname,fname,"Could not open file: [%s] for output.\n",wt_arg.FileName);
       printf("Node %d:Could not open file: [%s] for output.\n",UniqueID(),wt_arg.FileName);
@@ -354,9 +363,15 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
   // write header
   if(isRoot()) {
     hd.init(wt_arg, intconv.fileFormat);
+	VRB.Result(cname,fname,"Writing header for %s\n",wt_arg.FileName);
     hd.write(output);
+//	VRB.Result(cname,fname,"Writing header for %s\n",name_4d.c_str());
+//    hd.write(output_4d);
+	VRB.Result(cname,fname,"Done\n");
   }
-  QMP_broadcast(&hd.data_start, sizeof(long));
+  int temp_start=(int)hd.data_start;
+  broadcastInt(&temp_start); // from 0 to all
+  hd.data_start=temp_start;
   log();
 
   unsigned int csum[2]={0}, pos_dep_csum[2] = {0};
@@ -380,8 +395,9 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
     //	       UniqueID(),csum[0],pos_dep_csum[0]);
 
 
-    hd.data_start += (long)size_rng_chars * (long)rng_arg.VolSites() * 
-        (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
+	streamoff total = (streamoff) size_rng_chars * (streamoff) rng_arg.VolSites() * 
+                     (streamoff) rng_arg.Snodes() * (streamoff) rng_arg.SnodeSites();
+    hd.data_start +=  total;
  
     VRB.Flow(cname,fname,"Start Unloading 4-D RNGs\n");
     
@@ -404,8 +420,9 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 		     &csum[0], &pos_dep_csum[0], &RandSum[0], &Rand2Sum[0]))
       ERR.General(cname, fname, "Unloading Failed\n");
 
-    hd.data_start += (long)size_rng_chars * (long)rng_arg.VolSites() * 
-                     (long)rng_arg.Snodes() * (long)rng_arg.SnodeSites();
+//    hd.data_start += size_rng_chars * rng_arg.VolSites() * 
+//                    rng_arg.Snodes() * rng_arg.SnodeSites();
+	hd.data_start = -1;
 
     VRB.Flow(cname,fname,"Start Unloading 4-D RNGs\n");
 
@@ -440,10 +457,14 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
     ERR.General(cname, fname, "Writing checksum and other info failed\n");
   log();
 
-  if(parIO()) 
+  if(parIO()) {
     output.close();
-  else
-    if(isRoot())  output.close();
+//	output_4d.close();
+  } else
+    if(isRoot()){
+	  output.close();
+//	  output_4d.close();
+	}
   
   io_good = true;
 
@@ -459,4 +480,4 @@ void LatRngWrite::write(UGrandomGenerator * ugran, UGrandomGenerator * ugran_4d,
 
 
 CPS_END_NAMESPACE
- 
+#endif 

@@ -201,6 +201,9 @@ void convert2file(char *fsite, char *msite,
                             data_per_site / 4);
         }
     } else { // rng
+#ifdef USE_C11_RNG
+        dconv.host2file(fsite, msite, data_per_site);
+#else
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
         ugran->store(rng.IntPtr());
         dconv.host2file(fsite, rng, data_per_site);
@@ -210,8 +213,10 @@ void convert2file(char *fsite, char *msite,
         *Rand2Sum += rn*rn;
         // recover
         ugran->load(rng.IntPtr());
+#endif
     }
 }
+
 
 // convert to memory format, csum and pdcsum are computed outside.
 //
@@ -229,6 +234,9 @@ void convert2mem(char *fsite, char *msite,
                             data_per_site / 4);
         }
     } else { // rng
+#ifdef USE_C11_RNG
+        dconv.file2host(msite, fsite, data_per_site);
+#else
         dconv.file2host(rng, fsite, data_per_site);
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
         ugran->load(rng.IntPtr());
@@ -238,6 +246,7 @@ void convert2mem(char *fsite, char *msite,
         *Rand2Sum += rn*rn;
         // recover
         ugran->load(rng.IntPtr());
+#endif
     }
 }
 
@@ -699,7 +708,8 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
     delete[] rdata;
     delete[] temp;
 
-    return 1;
+  VRB.FuncEnd(cname,fname);
+  return 1;
 }
 
 // data_per_site : how many numbers (floating point numbers for gauge

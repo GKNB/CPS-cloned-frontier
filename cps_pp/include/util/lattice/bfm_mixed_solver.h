@@ -178,19 +178,22 @@ namespace mixed_cg {
 	    double norm = bfm_d.axpy_norm(src_d, tv2_d, src, -1.);
 
 	    if (bfm_f.isBoss() && !me) {
-		printf("cg_mixed_MdagM: iter = %d rsd = %17.10e(d) stop = %17.10e(d)\n",
+		printf("CPS cg_mixed_MdagM: iter = %d rsd = %17.10e(d) stop = %17.10e(d)\n",
 		    i, norm, stop);
 	    }
 
 	    // my ad hoc stopping condition
-	    if (norm < 100. * stop) break;
+	    if ( (i<(max_cycle-1)) && (norm < 100. * stop) ) break;
 
 	    // will this cause a deadlock when combined with the
 	    // condition above?  i.e., will we lose a factor of huge
 	    // factor in the accuracy of rsd when converting from
 	    // single to double?
+	    if (!me){
 	    while (norm * bfm_f.residual * bfm_f.residual < stop) bfm_f.residual *= 2;
+	    }
 
+//		bfm_f.residual = sqrt(stop/norm);
 	    threaded_convFermion(src_f, src_d, bfm_f, bfm_d);
 	    switch_comm(bfm_f, bfm_d);
 
