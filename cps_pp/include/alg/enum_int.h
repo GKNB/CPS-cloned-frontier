@@ -19,6 +19,8 @@ typedef double Float;
 
 typedef double IFloat;
 
+typedef uint32_t Pointer;
+
 enum DirType {
 	DIR_X = 0,
 	DIR_Y = 1,
@@ -761,6 +763,7 @@ extern "C" {
 extern  bool_t vml_pooh (VML *, char *instance, pooh*);
 extern  bool_t vml_Float (VML *, char *instance, Float*);
 extern  bool_t vml_IFloat (VML *, char *instance, IFloat*);
+extern  bool_t vml_Pointer (VML *, char *instance, Pointer*);
 extern  bool_t vml_DirType (VML *, char *instance, DirType*);
 extern  bool_t vml_FclassType (VML *, char *instance, FclassType*);
 extern  bool_t vml_GclassType (VML *, char *instance, GclassType*);
@@ -821,6 +824,7 @@ extern  bool_t vml_BfmSolverType (VML *, char *instance, BfmSolverType*);
 extern  bool_t vml_pooh (VML *, char *instance, pooh*);
 extern  bool_t vml_Float (VML *, char *instance, Float*);
 extern  bool_t vml_IFloat (VML *, char *instance, IFloat*);
+extern  bool_t vml_Pointer (VML *, char *instance, Pointer*);
 extern  bool_t vml_DirType (VML *, char *instance, DirType*);
 extern  bool_t vml_FclassType (VML *, char *instance, FclassType*);
 extern  bool_t vml_GclassType (VML *, char *instance, GclassType*);

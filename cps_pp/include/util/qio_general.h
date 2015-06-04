@@ -103,7 +103,7 @@
 
 /* default OUTPUT-format (default input is QIO_UNKNOWN) */
 /* one of QIO_UNKNOWN, QIO_SINGLEFILE, QIO_PARTFILE, QIO_MULTIFILE */ 
-#if ( TARGET == QCDOC ) || (TARGET == BGP)
+#if ( TARGET == BGQ ) || (TARGET == BGP)
  #define QIO_VOLFMT QIO_PARTFILE
 #else
  #define QIO_VOLFMT QIO_SINGLEFILE
@@ -112,7 +112,7 @@
 /* one of QIO_SERIAL, QIO_PARALLEL */
 /* for safety added for QCDOC */
 
-#if (TARGET == QCDOC) || (TARGET == BGP)
+#if (TARGET == BGQ) || (TARGET == BGP)
   #define QIO_SERPAR QIO_PARALLEL
 #else
   #define QIO_SERPAR QIO_SERIAL

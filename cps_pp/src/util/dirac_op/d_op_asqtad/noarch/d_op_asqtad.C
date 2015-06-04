@@ -9,6 +9,7 @@
 //------------------------------------------------------------------
 
 #include <config.h>
+#include <precision.h>
 #include <stdio.h>
 #include <util/dirac_op.h>
 #include <util/lattice.h>
