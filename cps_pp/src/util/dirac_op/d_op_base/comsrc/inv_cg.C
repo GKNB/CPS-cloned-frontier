@@ -1,4 +1,5 @@
 #include <config.h>
+#ifndef USE_BLAS
 #include <stdio.h>
 #include <stdlib.h>
 CPS_START_NAMESPACE
@@ -636,3 +637,4 @@ int DiracOp::InvCg(void)
 
 
 CPS_END_NAMESPACE
+#endif
