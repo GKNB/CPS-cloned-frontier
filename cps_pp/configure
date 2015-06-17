@@ -5702,17 +5702,7 @@ _ACEOF
 
 fi
 
-for ac_func in sync
-do :
-  ac_fn_c_check_func "$LINENO" "sync" "ac_cv_func_sync"
-if test "x$ac_cv_func_sync" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_SYNC 1
-_ACEOF
-
-fi
-done
-
+#AC_CHECK_FUNCS(sync)
 for ac_func in posix_memalign
 do :
   ac_fn_c_check_func "$LINENO" "posix_memalign" "ac_cv_func_posix_memalign"
