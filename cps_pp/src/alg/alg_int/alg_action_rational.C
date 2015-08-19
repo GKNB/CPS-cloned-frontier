@@ -800,6 +800,7 @@ void AlgActionRational::checkApprox(Float *mass, RemezArg *remez_arg,
     eig.run(lambda_low);
 
     for (int i=0; i<n_masses; i++) {
+//      if (0){
       if (lambda_low[0][i] < remez_arg[i].lambda_low) {
 	ERR.General(cname, fname, 
 		    "Lower bound exceeded: mass[%d] = %f, %e < %e\n", 
@@ -823,6 +824,7 @@ void AlgActionRational::checkApprox(Float *mass, RemezArg *remez_arg,
     
     for (int i=0; i<n_masses; i++) {
       lambda_high[0][i] *= -1.0;
+//      if (0){
       if (lambda_high[0][i] > remez_arg[i].lambda_high) {
 	ERR.General(cname, fname, 
 		    "Upper bound exceeded: mass[%d] = %f, %e > %e\n", 

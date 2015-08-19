@@ -394,7 +394,9 @@ Float AlgActionQuotient::energy() {
     dtime += dclock();
     print_flops(cname, fname, 0, dtime);
 
-    VRB.Result(cname, fname, "total delta-h from this set of quotients = %0.16e\n", h - h_init);
+    Float total_dh = h - h_init;
+    glb_sum(&total_dh);
+    VRB.Result(cname, fname, "total delta-h from this set of quotients = %0.16e\n", total_dh);
 
     timer.stop(true);
     return h;
