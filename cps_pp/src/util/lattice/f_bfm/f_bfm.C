@@ -69,15 +69,22 @@ Fbfm::Fbfm(void):cname("Fbfm")
 Fbfm::~Fbfm(void)
 {
     const char *fname = "~Fbfm()";
-    VRB.Func(cname, fname);
+    VRB.Result(cname, fname,"start");
     // we call base version just to revert the change, no need to
     // import to BFM in a destructor.
     Lattice::BondCond();
+    VRB.Result(cname, fname,"BondCond");
 
     if (bfm_inited) {
 	bd.end();
+    VRB.Result(cname, fname,"bd.end()");
+#if 0
+	kernel.end();
+    VRB.Result(cname, fname,"kernel.end()");
+#endif
 	if (use_mixed_solver) {
 	    bf.end();
+    VRB.Result(cname, fname,"bf.end()");
 	}
     }
 }
@@ -118,10 +125,14 @@ void Fbfm::SetBfmArg(Float key_mass)
     VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e)\n", key_mass);
 
     bfmarg new_arg = arg_map.at(key_mass);
+    bfmarg kernel_arg = new_arg;
+    kernel_arg.solver=DWFKernel;
+    kernel_arg.Ls=1;
 
     if (!bfm_inited) {
 	AutofillBfmarg(new_arg);
-
+//	AutofillBfmarg(kernel_arg);
+ 
 	bd.init(new_arg);
 	if (use_mixed_solver) {
 	    bd.comm_end();
@@ -129,6 +140,12 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bf.comm_end();
 	    bd.comm_init();
 	}
+#if 0
+	bd.comm_end();
+	kernel.init(kernel_arg);
+	kernel.comm_end();
+	bd.comm_init();
+#endif
 
 	ImportGauge();
 	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
@@ -705,6 +722,29 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
     VRB.Result(cname, fname, "residual = %17.10e max_iter = %d mass = %17.10e\n",
                bd.residual, bd.max_iter, bd.mass);
+#if 0
+{
+    bd.comm_end();
+//    kernel.comm_init();
+    Fermion_t x[2];
+//    x[0] = kernel.allocFermion();
+//    x[1] = kernel.allocFermion();
+    Float * f_tmp = (Float *)f_eigenv[0];
+//    kernel.cps_impexcbFermion(f_tmp, x[0], 1, 1);
+    f_tmp += (GJP.VolNodeSites()/2)*(4*3*2);// checkerboarded 4D volume
+//    kernel.cps_impexcbFermion(f_tmp, x[1], 1, 1);
+
+#pragma omp parallel
+    {
+//        lambda[0] = kernel.simple_lanczos(x);
+    }
+
+//    kernel.freeFermion(x[0]);
+//    kernel.freeFermion(x[1]);
+//    kernel.comm_end();
+    bd.comm_init();
+}
+#endif
 
     Fermion_t in = bd.allocFermion();
     bd.cps_impexcbFermion((Float *)f_eigenv[0], in, 1, 1);
@@ -713,6 +753,7 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
     {
         lambda[0] = bd.ritz(in, eig_arg->RitzMatOper == MATPCDAG_MATPC);
     }
+
 
     bd.cps_impexcbFermion((Float *)f_eigenv[0], in, 0, 1);
 
@@ -918,6 +959,15 @@ void Fbfm::ImportGauge()
 {
     Float *gauge = (Float *)(this->GaugeField());
     bd.cps_importGauge(gauge);
+#if 0
+if (0){
+        bd.comm_end();
+        kernel.comm_init();
+        kernel.cps_importGauge(gauge);
+        kernel.comm_end();
+        bd.comm_init();
+}
+#endif
     if(use_mixed_solver) {
         bd.comm_end();
         bf.comm_init();

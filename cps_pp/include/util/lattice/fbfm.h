@@ -37,6 +37,7 @@ public:
 
     bfm_evo<double> bd;
     bfm_evo<float> bf;
+//    bfm_evo<double> kernel;
 private:
     const char *cname;
 
@@ -327,6 +328,11 @@ public:
             bf.GeneralisedFiveDimEnd();
             bf.GeneralisedFiveDimInit();
         }
+//        if( kernel.mass != mass) {
+//            kernel.mass = mass;
+//            kernel.GeneralisedFiveDimEnd();
+//            kernel.GeneralisedFiveDimInit();
+//        }
     }
 
 

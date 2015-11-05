@@ -18,7 +18,7 @@
 #include <math.h>
 #include <vector>
 #include "bfm_evo_aux.h"
-
+void bisec(std::vector<double>  alpha ,std::vector<double> beta,int n,int m1,int m2,double eps1,double relfeh,std::vector<double> &x,int *z,double *eps2);
 enum { Export = 0, Import = 1 };
 
 // FIXME: it inherits from bfm_qdp for the sole reason of using its
@@ -58,6 +58,7 @@ public:
   // M^\dag M, otherwise we compute the maximum eigenvalue, i.e. the
   // negative of the minimum eigenvalue of -M^\dag M.
   double ritz(Fermion_t x, int compute_min);
+  double simple_lanczos(Fermion_t x[2]);
 
   // solve a propagator, for HtCayleyTanh this is just unpreconditioned CG
   // for HmCayleyTanh this is D^{-1} Dminus acting on in[2].
@@ -790,6 +791,65 @@ static inline double quad_solve(double *ct, double *st,
     *ct = ct2; *st = st2;
     return v2;
   }
+}
+
+template <class Float>
+double bfm_evo<Float>::simple_lanczos(Fermion_t x[2])
+{
+  int me = this->thread_barrier();
+  Fermion_t tmp0[2];
+  tmp0[0] = this->threadedAllocFermion();
+  tmp0[1] = this->threadedAllocFermion();
+
+  // normalize x
+  double fact = this->norm(x[0])+this->norm(x[1]);
+  fact = sqrt(1./ fact);
+  this->scale(x[0], fact);
+  this->scale(x[1], fact);
+  fact = this->norm(x[0])+this->norm(x[1]);
+
+  if(this->isBoss() && !me) {
+    printf("bfm_evo::simple_laczos <x, x> = %17.10e\n", 1. / (fact * fact));
+  }
+//  CJ FIXME: add one to index to conform with bisec(), Change later!!
+  std::vector<double> alpha(this->max_iter+1),beta(this->max_iter+1);
+  std::vector<double> eigs(this->max_iter+1);
+  int i;
+  for(i = 0; i < this->max_iter; ++i) {
+    this->G5D_Kernel(x,tmp0);
+    std::complex<Float> inner0 = this->dot(x[0],tmp0[0])+this->dot(x[1],tmp0[1]);
+    std::complex<Float> inner1 = this->inner(x[0],tmp0[0])+this->inner(x[1],tmp0[1]);
+
+//  if (i==0)
+  if(this->isBoss() && !me) {
+    printf("bfm_evo::simple_laczos alpha[%d] = %e %e %e %e\n",i,inner0.real(),inner0.imag(),inner1.real(),inner1.imag() );
+  }
+    alpha[i+1] = inner0.real();
+    fact = this->axpby_norm(x[0],tmp0[0],x[0],1.,-alpha[i+1]);
+    fact += this->axpby_norm(x[1],tmp0[1],x[1],1.,-alpha[i+1]);
+    beta[i+2] = sqrt(fact); 
+    fact = sqrt(1./ fact);
+    this->scale(x[0], fact);
+    this->scale(x[1], fact);
+    fact = this->norm(x[0])+this->norm(x[1]);
+    if (i%10==0)
+  if(this->isBoss() && !me) {
+    printf("bfm_evo::simple_laczos %d: alpha beta norm= %17.10e %17.10e %17.10e\n",i,alpha[i+1] ,beta[i+2],fact );
+//void bisec(std::vector<double>  alpha ,std::vector<double> beta,int n,int m1,int m2,double eps1,double relfeh,std::vector<double> &x,int *z,double *eps2);
+    if(i>0){
+    int z; double eps;
+    bisec(alpha,beta,i,1,1,1e-10,1e-10,eigs,&z,&eps);
+    printf("bfm_evo::simple_laczos %d: lowest(1e-10)= %17.10e\n",i,eigs[1] );
+    bisec(alpha,beta,i,1,1,1e-16,1e-16,eigs,&z,&eps);
+    printf("bfm_evo::simple_laczos %d: lowest(1e-16)= %17.10e\n",i,eigs[1] );
+    bisec(alpha,beta,i,i+1,i+1,1e-10,1e-10,eigs,&z,&eps);
+    printf("bfm_evo::simple_laczos %d: highest(1e-10)= %17.10e\n",i,eigs[i+1] );
+    bisec(alpha,beta,i,i+1,i+1,1e-16,1e-16,eigs,&z,&eps);
+    printf("bfm_evo::simple_laczos %d: highest(1e-16)= %17.10e\n",i,eigs[i+1] );
+    }
+  }
+  }
+  return eigs[1];
 }
 
 // Ritz method used to compute the maximum/minimum eigenvalue of M^\dag M.
