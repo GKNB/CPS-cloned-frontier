@@ -164,7 +164,7 @@ void AlgActionDensity::run()
 
   if(common_arg->filename != 0)
     {
-      char *fname = "run()";
+      const char *fname = "run()";
       FILE *fp;
       if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
         ERR.FileA(cname,fname,common_arg->filename);
@@ -297,7 +297,7 @@ void AlgActionDensity::CloverLeaf(Matrix& pl, int* pos, int mu, int nu,
 }
 
 
-// A communication efficient way of calculating the t-charge
+// A communication efficient way of calculating the t-const char *ge
 // Pass the surface slab to adjacent nodes once
 // Do all the calculation locally.
 // Issues:
@@ -310,7 +310,7 @@ void AlgActionDensity::CloverLeaf(Matrix& pl, int* pos, int mu, int nu,
 // Twice as large on each dimension will suffice.
 void AlgActionDensity::smartrun()
 {
-  const char fname[] = "smartrun()";
+  const char *fname[] = "smartrun()";
   Lattice& lat( AlgLattice() );  
 
   const int Slab = 1; //Expansion in each direction
@@ -825,7 +825,7 @@ void AlgActionDensity::smartrun()
   //----------------------------------------------------------------
 
   if(common_arg->filename != 0) {
-    char *fname = "run()";
+    const char *fname = "run()";
     FILE *fp;
     if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
       ERR.FileA(cname,fname,common_arg->filename);

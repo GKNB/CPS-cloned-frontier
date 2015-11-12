@@ -55,7 +55,7 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------------
 // Static data members
 //--------------------------------------------------------------------------
-char * AlgWspect::d_class_name = "AlgWspect";
+const char * AlgWspect::d_class_name = "AlgWspect";
 int    AlgWspect::d_counter    = 1;
 int    AlgWspect::d_count_step = 1;
 
@@ -166,7 +166,7 @@ void AlgWspect::run()
   int total_e;  
 #endif
 	  CgArg cg = *cg_arg_p;
-	  char *fname = "run()";
+	  const char *fname = "run()";
 	  VRB.Func(d_class_name,fname);
 
 	  // printf("in AlgWspect::run \n");

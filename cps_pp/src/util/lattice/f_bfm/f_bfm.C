@@ -722,27 +722,28 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
     VRB.Result(cname, fname, "residual = %17.10e max_iter = %d mass = %17.10e\n",
                bd.residual, bd.max_iter, bd.mass);
-#if 0
+#if 1
+    if( eig_arg->RitzMatOper == NEG_MATPCDAG_MATPC) 
 {
-    bd.comm_end();
-//    kernel.comm_init();
     Fermion_t x[2];
-//    x[0] = kernel.allocFermion();
-//    x[1] = kernel.allocFermion();
-    Float * f_tmp = (Float *)f_eigenv[0];
-//    kernel.cps_impexcbFermion(f_tmp, x[0], 1, 1);
-    f_tmp += (GJP.VolNodeSites()/2)*(4*3*2);// checkerboarded 4D volume
-//    kernel.cps_impexcbFermion(f_tmp, x[1], 1, 1);
+    x[0] = bd.allocFermion();
+    x[1] = bd.allocFermion();
+    LatVector random0(4*GJP.SnodeSites());
+    LatVector random1(4*GJP.SnodeSites());
+    RandGaussVector(random0.Vec(),0.5,1);
+    RandGaussVector(random1.Vec(),0.5,1);
+//    Float * f_tmp = (Float *)f_eigenv[0];
+    bd.cps_impexcbFermion(random0.Field(), x[0], 1, 1);
+//    f_tmp += (GJP.VolNodeSites()/2)*(4*3*2);// checkerboarded 4D volume
+    bd.cps_impexcbFermion(random1.Field(), x[1], 1, 1);
 
 #pragma omp parallel
     {
-//        lambda[0] = kernel.simple_lanczos(x);
+        lambda[0] = bd.simple_lanczos(x);
     }
 
-//    kernel.freeFermion(x[0]);
-//    kernel.freeFermion(x[1]);
-//    kernel.comm_end();
-    bd.comm_init();
+    bd.freeFermion(x[0]);
+    bd.freeFermion(x[1]);
 }
 #endif
 

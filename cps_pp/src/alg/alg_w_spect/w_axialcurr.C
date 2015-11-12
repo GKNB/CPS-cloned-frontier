@@ -38,7 +38,7 @@ CPS_START_NAMESPACE
 //---------------------------------------------------------------------------
 // static data members
 //---------------------------------------------------------------------------
-char *      WspectAxialCurrent::d_class_name = "WspectAxialCurrent";
+const char *      WspectAxialCurrent::d_class_name = "WspectAxialCurrent";
 
 //---------------------------------------------------------------------------
 // WspectAxialCurrent::WspectAxialCurrent(...)
@@ -413,7 +413,7 @@ void WspectAxialCurrent::measureConserved(Vector * data_5d_p) {
 //---------------------------------------------------------------------------
 
 void WspectAxialCurrent::measureLocalWall(Vector * data_5d_p) { 
-  char *fname = "measureLocalWall(Vector *)";
+  const char *fname = "measureLocalWall(Vector *)";
   VRB.Func(d_class_name,fname);
   
   int box_b[LORENTZs];
@@ -579,7 +579,7 @@ void WspectAxialCurrent::measureLocal(const Float *ferm_vec_4d, Float *out) {
 //--------------------------------------------------------------------------- 
 void WspectAxialCurrent::doSum() 
 {
-  char *fname = "doSum";
+  const char *fname = "doSum";
   VRB.Func(d_class_name, fname);
 
   // Global sum over all data
@@ -615,7 +615,7 @@ void WspectAxialCurrent::print() const
 #if TARGET==cpsMPI
     using MPISCU::fprintf;
 #endif
-  char *fname = "print";
+  const char *fname = "print";
   VRB.Func(d_class_name, fname);
 
   // Print out correlator data 
