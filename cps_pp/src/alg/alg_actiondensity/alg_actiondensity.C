@@ -310,7 +310,7 @@ void AlgActionDensity::CloverLeaf(Matrix& pl, int* pos, int mu, int nu,
 // Twice as large on each dimension will suffice.
 void AlgActionDensity::smartrun()
 {
-  const char *fname[] = "smartrun()";
+  const char *fname = "smartrun()";
   Lattice& lat( AlgLattice() );  
 
   const int Slab = 1; //Expansion in each direction
