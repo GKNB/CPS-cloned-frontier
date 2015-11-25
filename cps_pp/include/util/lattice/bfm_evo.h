@@ -1037,8 +1037,6 @@ template < class Float >
 		printf
 		  ("bfm_evo::simple_lanczos %d: alpha beta norm= %17.10e %17.10e %17.10e\n",
 		   iter, alpha[iter + 1], beta[iter + 2], fact);
-//   double old_low = old_high = 0; // being lazy. maybe ok?
-//   double rel_low =0.,rel_hi=0.;
 	      int z;
 	      double eps;
 	      bisec (alpha, beta, iter, 1, 3, 1e-14, 1e-14, eigs, &z, &eps);
@@ -1055,10 +1053,6 @@ template < class Float >
 	      rel_low = fabs (2. * (eigs[1] - old_low) / (eigs[1] + old_low));
 	      rel_hi =
 		fabs (2. * (eigs[iter] - old_hi) / (eigs[iter] + old_hi));
-	      if (this->isBoss () && (!me))
-		printf
-		  ("bfm_evo::simple_lanczos %d: old_low old_hi rel_low rel_hi= %17.10e  %17.10e %17.10e  %17.10e \n",
-		   iter, old_low, old_hi, rel_low, rel_hi);
 	      old_low = eigs[1];
 	      old_hi = eigs[iter];
 	    }
@@ -1081,13 +1075,16 @@ template < class Float >
 	    break;
 	}
     }
+	  if (this->isBoss () & (!me))
+	    printf ("bfm_evo::simple_lanczos final: lowest highest= %17.10e  %17.10e \n",
+	       old_low, old_hi);
   this->threadedFreeFermion (tmp0[0]);
   this->threadedFreeFermion (tmp0[1]);
   this->threadedFreeFermion (tmp1[0]);
   this->threadedFreeFermion (tmp1[1]);
   this->threadedFreeFermion (old_x[0]);
   this->threadedFreeFermion (old_x[1]);
-  return eigs[1];
+  return old_low;
 }
 
 // Ritz method used to compute the maximum/minimum eigenvalue of M^\dag M.
