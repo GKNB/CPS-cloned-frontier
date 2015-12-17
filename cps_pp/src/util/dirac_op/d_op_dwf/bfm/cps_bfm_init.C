@@ -35,14 +35,14 @@ int cps_qdp_init(int *argc, char ***argv){
   VRB.Result("","cps_qdp_init()","started");
   if (qdp_initted) return 1;
 //  if (Chroma::isInitialized()) {
-  if ( qdp_already_initted ) {
+  if ( qdp_already_initted || QDP::QDP_isInitialized()) {
     VRB.Result("","cps_qdp_init()","Already started!");
     qdp_initted = 1;
     return 1;
   }
 //  Chroma::initialize( argc, argv);
   QDP::QDP_initialize( argc, argv);
-  VRB.Result("","cps_qdp_init()","Chroma::initialize( argc, argv)");
+  VRB.Result("","cps_qdp_init()","QDP::initialize( argc, argv)");
   int size[Nd];
   multi1d<int> nrow(Nd);  
   for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);

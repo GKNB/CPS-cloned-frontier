@@ -1071,7 +1071,7 @@ template < class Float >
 	    printf
 	      ("bfm_evo::simple_lanczos %d: old_low old_hi rel_low rel_hi= %17.10e  %17.10e %17.10e  %17.10e \n",
 	       iter, old_low, old_hi, rel_low, rel_hi);
-	  if (rel_low < 1e-6 && rel_hi < 1e-6)
+	  if (rel_low < this->residual && rel_hi < this->residual)
 	    break;
 	}
     }

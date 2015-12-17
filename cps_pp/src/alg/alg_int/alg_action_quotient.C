@@ -53,6 +53,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
     if(n_masses > 0) {
 	if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // AlgActionBilinear does not set fermion field size correctly for Fbfm
+	    VRB.Result(cname,fname,"mass=%g\n",cname,fname,quo_arg->quotients.quotients_val[0].bsn_mass);
 	    int Ls = Fbfm::arg_map.at(quo_arg->quotients.quotients_val[0].bsn_mass).Ls;
 
 	    VRB.Result(cname, fname, "Recalculating fermion field size for Fbfm based on Ls = %d\n", Ls);
