@@ -494,7 +494,7 @@ void QPropW::eig_Run(Vector **V, const int vec_len, Float *M, Float max_eig, con
      sprintf(sourceType,"%s-source at t=%i",SourceType_map[SrcType()].name ,SourceTime());
    
      if(!do_rerun)
-       sprintf(propOutfile,qp_arg.file);
+       sprintf(propOutfile,"%s",qp_arg.file);
      else
        sprintf(propOutfile,"%s.rewrite",qp_arg.file);
 
