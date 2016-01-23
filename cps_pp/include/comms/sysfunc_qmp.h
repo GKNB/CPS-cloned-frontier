@@ -60,7 +60,7 @@ unsigned int SeedT();  //!< Gets a RNG seed.
 unsigned int SeedST(); //!< Gets a RNG seed.
 
 //#ifndef HAVE_SYNC
-//unsigned int sync();
+unsigned int sync();
 //! A barrier function.
 //inline void sync(){QMP_barrier();}
 //#endif

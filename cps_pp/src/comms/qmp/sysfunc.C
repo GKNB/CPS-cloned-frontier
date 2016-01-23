@@ -16,7 +16,6 @@
 ----------------------------------------------------------*/
 
 #include <comms/sysfunc_qmp.h>
-//#include <comms/scu_dir_arg.h>
 #include <util/qcdio.h>
 #include <util/error.h>
 #include <stdlib.h>
@@ -276,7 +275,6 @@ unsigned int SeedST(){return SERIAL_SEED;} //!< Gets a RNG seed.
   \return 0
 */
 //----------------------------------------------------------------
-#ifndef HAVE_SYNC
 #ifdef UNIFORM_SEED_NO_COMMS
 unsigned int sync(){return 1;}
 #else
@@ -288,7 +286,6 @@ if (sync_status != QMP_SUCCESS) {
 }
 return 1;
 }
-#endif
 #endif
 
 //----------------------------------------------------------------
