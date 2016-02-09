@@ -35,7 +35,9 @@ int cps_qdp_init(int *argc, char ***argv){
   VRB.Result("","cps_qdp_init()","started");
   if (qdp_initted) return 1;
 //  if (Chroma::isInitialized()) {
-  if ( qdp_already_initted || QDP::QDP_isInitialized()) {
+  if ( qdp_already_initted ) {
+//|| QDP::QDP_isInitialized()) {
+
     VRB.Result("","cps_qdp_init()","Already started!");
     qdp_initted = 1;
     return 1;
@@ -310,7 +312,7 @@ int max_iter
    * Setup DWF operator
    ********************************************************
    */
-  omp_set_num_threads(64);
+//  omp_set_num_threads(64);
   bfmarg dwfa;
 #ifdef UNIFORM_SEED_TESTING
   majorityVote  dwf;
