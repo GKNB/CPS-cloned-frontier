@@ -9,22 +9,7 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpWilson class methods.
 
-  $Id: d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2011/03/04 11:25:28 $
-//  $Header: /space/cvs/cps/cps++/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
-//  $Id: d_op_wilson.C,v 1.9 2011/03/04 11:25:28 chulwoo Exp $
-//  $Name: v5_0_19 $
-//  $Locker:  $
-//  $Revision: 1.9 $
-//  $Source: /space/cvs/cps/cps++/src/util/dirac_op/d_op_wilson/noarch/d_op_wilson.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // d_op_wilson.C

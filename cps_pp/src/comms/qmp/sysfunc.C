@@ -145,7 +145,7 @@ void init_qmp(int * argc, char ***argv) {
 	peNum *= peGrid[i];
     peRank = peRank % peNum;
   }
-  int if_print=1;
+  int if_print=0;
   for(int i = 0;i<NDIM;i++)
   if (pePos[i]>=2) if_print=0;
 

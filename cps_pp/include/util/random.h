@@ -9,21 +9,6 @@ CPS_START_NAMESPACE
 
   $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
  */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2008-04-21 14:19:17 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
-//  $Id: random.h,v 1.28 2008-04-21 14:19:17 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: random.h,v $
-//  $Revision: 1.28 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/random.h,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 
 
 #ifndef INCLUDED_RANDOM_H
@@ -111,6 +96,7 @@ class RandomGenerator {
 
 
 
+#ifndef USE_C11_RNG
 //---------------------------------------------------------------
 //! A random number generator generating uniform random numbers.
 /*!
@@ -274,7 +260,7 @@ public UniformRandomGenerator, public GaussianRandomGenerator
     void StoreSeeds(unsigned int *to) const;
 
 };
-
+#endif
   
 
 //---------------------------------------------------------------

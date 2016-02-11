@@ -3,7 +3,6 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of Gwilson class.
 
-  $Id: g_wilson.C,v 1.13 2013-04-05 17:51:14 chulwoo Exp $
 */
 //------------------------------------------------------------------
 //
@@ -29,15 +28,6 @@ enum { MATRIX_SIZE = 18 };
 // static variables used only inside this file
 //------------------------------------------------------------------
 static IFloat invs3 = -1. / 3.;
-
-#if 0
-static Matrix mt0;
-static Matrix *mp0 = &mt0;	// ihdot
-static Matrix mt1;
-static Matrix *mp1 = &mt1;
-static Matrix mt2;
-static Matrix *mp2 = &mt2;
-#endif
 
 
 //------------------------------------------------------------------

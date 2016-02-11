@@ -20,6 +20,7 @@
 #include <stdlib.h>     // exit()
 #include <stdio.h>
 #include <string.h>
+#include <cassert>
 #include <alg/common_arg.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
@@ -42,6 +43,9 @@
 #include <alg/alg_plaq.h>
 #include <alg/alg_smear.h>
 #include <alg/no_arg.h>
+
+#include <omp.h>
+#include <qmp.h>
 
 #define VOLFMT QIO_VOLFMT
 
@@ -424,7 +428,7 @@ VRB.Result(cname,fname,"Fclass()=%d\n",lat.Fclass());
      }
      // End M. Lightman
      //-----------------------------------------------------------------
-     
+
      for (int spn=StartSpin; spn < EndSpin; spn++)
        for (int col=StartColor; col < EndColor; col++) {
 		 
@@ -530,7 +534,7 @@ VRB.Result(cname,fname,"Fclass()=%d\n",lat.Fclass());
        }
        Fclose(fp);
      }
-     sfree(conserved);
+     sfree(cname, fname, "conserved", conserved);
    }
    // TY Add End
    //-----------------------------------------------------------------
@@ -1088,7 +1092,10 @@ void QPropW::SaveRow(int spin, int color, FermionVectorTp& sol,
     i = s*SPINOR_SIZE; // FermionVector index
     prop[s].save_row(spin, color, (wilson_vector &)sol[i]);
   }
-  if (StoreMidprop()) { // Collect solutions in midpoint propagator.
+
+  // Collect solutions in midpoint propagator.
+  if (StoreMidprop()) {
+#pragma omp parallel for
     for (int s=0; s<GJP.VolNodeSites(); s++) {
       i = s*SPINOR_SIZE; // lattice site
       midprop[s].save_row(spin, color, (wilson_vector &)midsol[i]);
@@ -2636,7 +2643,6 @@ QPropWWallSrc::QPropWWallSrc(Lattice& lat,  QPropWArg* arg, CommonArg* c_arg):
   char *fname = "QPropWWallSrc(L&, QPropWArg*, ComArg*)";
   cname = "QPropWWallSrc";
   VRB.Func(cname, fname);
-
   // get the propagator
   Run();
 }
@@ -3288,7 +3294,6 @@ void QPropWZ3BWallSrc::SetSource(FermionVectorTp& src, int spin, int color)
 {
     const char *fname = "SetSource()";
     VRB.Func(cname, fname);
-  
     VRB.Result(cname, fname, "Set Z3 boxed wall source at t=%d.\n", qp_arg.t);
     src.SetZ3BWall(color, spin, qp_arg.t, box_arg.box_size, rand_num);
 
@@ -3298,7 +3303,6 @@ void QPropWZ3BWallSrc::SetSource(FermionVectorTp& src, int spin, int color)
         VRB.Warn(cname,fname,"Warning: 4D box src not gauge fixed");
     }
 }
-
 
 //------------------------------------------------------------------
 // Quark Propagator (Wilson type) with Random Source
@@ -3361,14 +3365,15 @@ CommonArg* c_arg) : QPropW(lat, arg, c_arg),rand_arg(*r_arg)
 
   }
   if (rand_arg.rng == UONE) {
-    // MGE 06/10/2008
-        LRG.SetInterval(6.283185307179586,0);
-    for (int i=0; i<rsrc_size/2; i++) {
-      LRG.AssignGenerator(i);
-      Float theta(LRG.Urand(FOUR_D));
-      rsrc[2*i  ] = cos(theta); // real part
-      rsrc[2*i+1] = sin(theta); // imaginary part
-    }
+      // MGE 06/10/2008
+      LRG.SetInterval(6.283185307179586,0);
+	for (int i = 0; i<rsrc_size / 2; i++) {
+	    LRG.AssignGenerator(i);
+	    Float theta(LRG.Urand(FOUR_D));
+	    rsrc[2 * i] = cos(theta); // real part
+	    rsrc[2 * i + 1] = sin(theta); // imaginary part
+	}
+	
     // END MGE 06/10/2008
   } 
   if (rand_arg.rng == ZTWO) {
@@ -3384,6 +3389,15 @@ CommonArg* c_arg) : QPropW(lat, arg, c_arg),rand_arg(*r_arg)
       rsrc[2*i+1] = 0.0; // source is purely real
     }
     // END MGE 06/10/2008
+  }
+  if (rand_arg.rng == TEST) { // deterministic source for testing
+      for (int i = 0; i<rsrc_size / 2; i++) {
+	  Site s(i);
+	  int x = s.physX(), y = s.physY(), z = s.physZ(), t = s.physT();
+	  int rnum = ((937 * x*x + 3826 * x*y + 7034 * z*t*t) & 0x0100) ? 1 : -1;
+	  rsrc[2 * i] = rnum;
+	  rsrc[2 * i + 1] = 0.0;
+      }
   }
 }
 
@@ -3587,7 +3601,7 @@ QPropWRandVolSrc::QPropWRandVolSrc(Lattice& lat,  QPropWArg* arg,
 }
 
 //set the random source
-void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
+/*void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
 
   char *fname = "SetSource()"; 
   VRB.Func(cname, fname);
@@ -3600,7 +3614,32 @@ void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   if (GFixedSrc()) 
     for (int t=0;t<GJP.Tnodes()*GJP.TnodeSites(); t++)
       src.GFWallSource(AlgLattice(), spin, 3, t);
+}*/
+
+//set the random source
+void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color)
+{
+
+    char *fname = "SetSource()";
+    VRB.Func(cname, fname);
+
+    if (rsrc == NULL) {//need random numbers may implemented later
+	ERR.General(cname, fname, "No randrom numbers found!\n");
+    }
+
+    Lattice & lat = AlgLattice();
+    src.SetVolSource(color, spin, rsrc);
+    if (GFixedSrc()) {
+	if (lat.FixGaugeKind() == FIX_GAUGE_COULOMB_T)
+	    for (int t = 0; t<GJP.Tnodes()*GJP.TnodeSites(); t++)
+		src.GFWallSource(lat, spin, 3, t);
+	else if (lat.FixGaugeKind() == FIX_GAUGE_LANDAU)
+	    src.LandauGaugeFixSrc(lat, spin);
+	else
+	    ERR.General(cname, fname, "gauge fixing method does not work for qpropwrandvolSrc\n");
+    }
 }
+
 
 
 //------------------------------------------------------------------

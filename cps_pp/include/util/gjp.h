@@ -5,21 +5,7 @@
 /*!\file
   \brief  Definitions of global job parameters.
 
-  $Id: gjp.h,v 1.47 2013-06-25 12:51:12 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-06-25 12:51:12 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v 1.47 2013-06-25 12:51:12 chulwoo Exp $
-//  $Id: gjp.h,v 1.47 2013-06-25 12:51:12 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: gjp.h,v $
-//  $Revision: 1.47 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/gjp.h,v $
-//  $State: Exp $
 //--------------------------------------------------------------------
 //
 // gjp.h

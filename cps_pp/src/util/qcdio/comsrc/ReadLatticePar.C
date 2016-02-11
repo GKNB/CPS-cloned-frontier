@@ -8,6 +8,8 @@
 #include <qmp.h>
 #endif
 
+#include <qmp.h>
+
 CPS_START_NAMESPACE
 using namespace std;
 
@@ -121,8 +123,8 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
   unsigned int csum;
 
 
-#if TARGET != QCDOC
-//  setSerial();
+#if TARGET == NOARCH
+  setSerial();
 #endif
 
   log();

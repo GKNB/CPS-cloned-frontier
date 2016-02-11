@@ -1,7 +1,6 @@
 #include<config.h>
 CPS_START_NAMESPACE
 /*!\file
-  $Id: fix_gauge.C,v 1.9 2011-03-06 03:13:12 chulwoo Exp $
 */
 
 /*--------------------------------------------------------------------
@@ -18,6 +17,7 @@ CPS_END_NAMESPACE
 #include <util/error.h>
 #include <util/smalloc.h>
 #include <util/rcomplex.h>
+#include <util/time_cps.h>
 #include <comms/scu.h>
 #include <comms/glb.h>
 #include <util/omp_wrapper.h>
@@ -47,13 +47,12 @@ typedef unsigned uword;  // DSP word is 32 bits
 //! A container class for global parameters used in the gauge fixing routines.
 class XXX
 {
-public:
+	public:
 
     static const int CheckFreq;
     static const int Dimension;
-    static const int SiteSize;
 
-public:
+	public:
 
     static int  Coor4d(int dir);
 
@@ -98,19 +97,22 @@ int XXX::Num_Nodes_in_Dir(int dir)
 
 class HyperPlane
 {
-private:
+	private:
 
     char *cname;
 
-protected:
+		//Add by Jianglei
+	public:
+		double commu_time;
 
+	protected:
     HyperPlane(const Matrix *L0, int Ind2Dir[], 
                int HplDim, Matrix *Gauge, Float SmallFloat);
     virtual ~HyperPlane();
 
     IFloat HyperPlane_Sum(IFloat sum_1);
 
-protected:
+		IFloat HyperPlane_Sum(IFloat sum_1);
 
     // L_loc(int ind_link) returns the specified link if it is local 
     // (not in a buffer).
@@ -128,11 +130,13 @@ protected:
     Matrix& G_loc();
     Matrix& G(int ind_link); // uses g_buf!
 
-private:
+		Matrix& G_loc(int * index);
+		Matrix& G(int ind_link, int * index);
 
     Matrix g_buf;         // used in G() to store received matrix
+		inline int cal_idx(int site, int * index);
 
-protected:
+	protected:
 
     int  hplane_dim;    // dimension of the hyperplane
     int *ind2dir;       // index field - physical direction correspondence
@@ -162,7 +166,6 @@ private:
     // neighbor nodes into the local buffers neighbor_link[]
     void copy_nbr_links(int nbr_num, int recurse = 0);
 };
-
 
 
 //-------------------------------------------------------------------------
@@ -363,7 +366,17 @@ HyperPlane::~HyperPlane()
     sfree(index);
 }
 
-
+inline int HyperPlane::cal_idx(int site, int * index)
+{
+	int idx_sum = 0;
+	for(int i = 0; i < hplane_dim; i++)
+	{
+		index[i] = site % node_size[i];
+		site /= node_size[i];
+		idx_sum += index[i];
+	}
+	return idx_sum;
+}
 
 //-------------------------------------------------------------------------
 //
@@ -421,9 +434,9 @@ IFloat HyperPlane::HyperPlane_Sum(IFloat sum_1)
 //
 //-------------------------------------------------------------------------
 
-void HyperPlane::copy_nbr_links(int nbr_num, int recurse)
+void HyperPlane::copy_nbr_links(int nbr_num, int recurse, int * index)
 {
-    char *fname = "copy_nbr_links(i,i)";
+    const char *fname = "copy_nbr_links(i,i)";
 
     VRB.Func(cname, fname);
 
@@ -507,7 +520,7 @@ void HyperPlane::copy_nbr_gauge()
 //
 //-------------------------------------------------------------------------
 
-const Matrix& HyperPlane::L_loc(int ind_link) const
+const Matrix& HyperPlane::L_loc(int ind_link, int * index) const
 {
     int idx = ind2dir[ind_link];
     for(int i=0; i<hplane_dim; i++)
@@ -525,7 +538,7 @@ const Matrix& HyperPlane::L_loc(int ind_link) const
 //
 //-------------------------------------------------------------------------
 
-const Matrix& HyperPlane::L(int ind_link) const
+const Matrix& HyperPlane::L(int ind_link, int * index) const
 {
     if(index[ind_link] == -1) // link not on the node - redirect to a link buffer
         {
@@ -551,7 +564,7 @@ const Matrix& HyperPlane::L(int ind_link) const
 //
 //-------------------------------------------------------------------------
 
-Matrix& HyperPlane::G_loc()
+Matrix& HyperPlane::G_loc(int * index)
 {
     int idx = index[hplane_dim-1];
     for(int i=hplane_dim-1; i-- > 0 ; )
@@ -572,7 +585,7 @@ Matrix& HyperPlane::G_loc()
 //
 //-------------------------------------------------------------------------
 
-Matrix& HyperPlane::G(int ind_link)
+Matrix& HyperPlane::G(int ind_link, int * index)
 {
 #ifdef NEW_GFIX
     if(index[ind_link] == -1)
@@ -649,8 +662,9 @@ class FixHPlane: public HyperPlane
 private:
 
     char *cname;
+	private:
 
-protected:
+		char *cname;
 
     FixHPlane(const Matrix *L0, int Ind2Dir[], 
               int HplDim, Matrix *Gauge, Float SmallFloat);
@@ -660,18 +674,32 @@ protected:
     IFloat delta() { return delta(0); }
     void unitarize(int recurse = 0);
 
-protected:
+		FixHPlane(const Matrix *L0, int Ind2Dir[], 
+				int HplDim, Matrix *Gauge, Float SmallFloat);
+		~FixHPlane();
 
+#if 0
     void iter(int recurse, int dist);
     IFloat delta(int recurse);
+#else
+		void iter();
+		void iter(int recurse, int dist, int * index);
+		IFloat delta(double&);
+		void unitarize();
+#endif
 
-private:
+	private:
 
+#if 0
     Matrix A_buf;        // used in findA()
     Matrix& findA();     // stores result in A_buf;
     void fix_g(Matrix&);
+#else
+		void findA(Matrix&, int * index);
+		void fix_g(Matrix&, int * index);
+#endif
 
-protected:
+		int * dist_max;
 
     Matrix tmp_m, tmp_m1; // for temporary local scope usage
 
@@ -798,10 +826,9 @@ void FixHPlane::iter()
 
 }
 
-
 //-------------------------------------------------------------------------
-//                                                        *) sets index[] !
-//  recursive iteration routine
+//
+//  upper level iteration routine
 //
 //-------------------------------------------------------------------------
 
@@ -859,7 +886,7 @@ void FixHPlane::iter(int recurse, int dist)
 //
 //-------------------------------------------------------------------------
 
-Matrix& FixHPlane::findA()
+void FixHPlane::findA(Matrix & Abuf, int * index)
 {
     char *fname = "findA()";
 
@@ -901,6 +928,9 @@ Matrix& FixHPlane::findA()
     return A_buf;
 }
 
+	tmp_m1.Dagger(G_loc(index));  // local G
+	Abuf.DotMEqual(tmp_m, tmp_m1);
+}
 
 //-------------------------------------------------------------------------
 //
@@ -911,8 +941,7 @@ Matrix& FixHPlane::findA()
 // See also description of findA() for important changes
 //
 //-------------------------------------------------------------------------
-
-void FixHPlane::fix_g(Matrix& g)
+void FixHPlane::fix_g(Matrix& g, int * index)
 {
     char *fname = "fix_g(M&)";
 
@@ -1023,11 +1052,11 @@ void FixHPlane::fix_g(Matrix& g)
 
 //-------------------------------------------------------------------------
 //                                                        *) sets index[] !
-//  recursively calculates discrepancy from gauge condition
+//  calculates discrepancy from gauge condition
 //  
 //-------------------------------------------------------------------------
 
-IFloat FixHPlane::delta(int recurse)
+IFloat FixHPlane::delta(double & delta)
 {
     char *fname = "delta(f)";
 
@@ -1056,11 +1085,11 @@ IFloat FixHPlane::delta(int recurse)
 
 //-------------------------------------------------------------------------
 //
-//  recursively corrects unitarity of gauge fixing matreces
+//  corrects unitarity of gauge fixing matreces
 //
 //-------------------------------------------------------------------------
 
-void FixHPlane::unitarize(int recurse)
+void FixHPlane::unitarize()
 {
     char *fname = "unitarize(i)";
 
@@ -1309,26 +1338,26 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
 
 //-------------------------------------------------------------------------//
 /*!
-  If Landau gauge fixing is requested, memory is allocated for a gauge fixing
-  matrix at each lattice site. If Coulomb gauge fixing is requested, memory is
-  allocated for a gauge fixing matrix at each lattice site on the hyperplanes
-  requested, if that hyperplane intersects the local lattice on this node.
-  The matrices are initialised to unity.
+	If Landau gauge fixing is requested, memory is allocated for a gauge fixing
+	matrix at each lattice site. If Coulomb gauge fixing is requested, memory is
+	allocated for a gauge fixing matrix at each lattice site on the hyperplanes
+	requested, if that hyperplane intersects the local lattice on this node.
+	The matrices are initialised to unity.
 
-  \param GaugeKind The  type of gauge fixing.
-  \param NHplanes The total number of the hyperplanes on which to fix the 
-  gauge. If set to zero when Coulomb gauge is requested, then treated as
-  a request to fix all hyperplanes in the global lattice.
-  This is ignored for Landau gauge fixing.
-  \param Hplanes A list of the positions of the hyperplanes on which to fix
-  the gauge.along the direction orthogonal to them. This list should be in
-  increasing order.  This is ignored for Landau gauge fixing and when \a
-  NHplanes is zero.
-*/
+	\param GaugeKind The  type of gauge fixing.
+	\param NHplanes The total number of the hyperplanes on which to fix the 
+	gauge. If set to zero when Coulomb gauge is requested, then treated as
+	a request to fix all hyperplanes in the global lattice.
+	This is ignored for Landau gauge fixing.
+	\param Hplanes A list of the positions of the hyperplanes on which to fix
+	the gauge.along the direction orthogonal to them. This list should be in
+	increasing order.  This is ignored for Landau gauge fixing and when \a
+	NHplanes is zero.
+	*/
 //-------------------------------------------------------------------------//
 
 void Lattice::FixGaugeAllocate(FixGaugeType GaugeKind,
-			       int NHplanes, int *Hplanes)
+		int NHplanes, int *Hplanes)
 {
     char *fname = "FixGaugeAllocate(FixGaugeType,i,i*)";
 
@@ -1473,9 +1502,9 @@ void Lattice::FixGaugeAllocate(FixGaugeType GaugeKind,
 //                                                                         //
 //-------------------------------------------------------------------------//
 /*!
-  \post Lattice::Lattice::FixGaugeKind will now return FIX_GAUGE_NONE.
-*/
-  
+	\post Lattice::Lattice::FixGaugeKind will now return FIX_GAUGE_NONE.
+	*/
+
 void Lattice::FixGaugeFree()
 {
     char *fname = "FixGaugeFree()";

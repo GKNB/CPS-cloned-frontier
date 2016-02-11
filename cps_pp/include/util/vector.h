@@ -6,23 +6,7 @@
 
   Also declarations of functions that perform operations on complex vectors.
 
-  $Id: vector.h,v 1.40 2013-05-09 04:38:03 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-05-09 04:38:03 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v 1.40 2013-05-09 04:38:03 chulwoo Exp $
-//  $Id: vector.h,v 1.40 2013-05-09 04:38:03 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: vector.h,v $
-//  $Revision: 1.40 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/vector.h,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 #include <string.h>
 #include <util/data_types.h>
 #include <util/vector_asm.h>
@@ -44,6 +28,7 @@ extern "C"
     void moveFloat(Float *b, const Float *a, int len); 
 
     //! 3x3 complex matrix multiplication; c = ab 
+<<<<<<< HEAD
 #ifndef VEC_INLINE
 void mDotMEqual(IFloat* c, const IFloat* a, const IFloat* b);
 #else
@@ -113,6 +98,9 @@ inline void mDotMEqual(IFloat* c, const IFloat* a, const IFloat* b)
     	      *(a+16) * *(b+17) + *(a+17) * *(b+16);
 }
 #endif
+=======
+    void mDotMEqual(IFloat* c, const IFloat* a, const IFloat* b);
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
     //! 3x3 complex matrix multiplication and sum; c += ab
     void mDotMPlus(IFloat* c, const IFloat* a, const IFloat* b); 
@@ -124,6 +112,7 @@ inline void mDotMEqual(IFloat* c, const IFloat* a, const IFloat* b)
     IFloat dotProduct(const IFloat *a, const IFloat *b, int);
 
     //! vector addition; a += b
+<<<<<<< HEAD
 #ifndef VEC_INLINE
 void vecAddEquVec(IFloat *a, const IFloat *b, int); 	
 #else 
@@ -144,6 +133,12 @@ inline void vecMinusEquVecSingle(IFloat *a, const IFloat *b, int len)
         *a++ -= *b++;
     }
 }
+=======
+    void vecAddEquVec(IFloat *a, const IFloat *b, int); 	
+
+    //! vector subtraction; a -= b
+    void vecMinusEquVec(IFloat *a, const IFloat *b, int);  
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
     //! vector negation; a = -b
     void vecNegative(IFloat *a, const IFloat *b, int); 	
@@ -153,6 +148,7 @@ inline void vecMinusEquVecSingle(IFloat *a, const IFloat *b, int len)
 
     //! real scalar times vector multiplication; a *= b
     void vecTimesEquFloat(IFloat *a, IFloat b, int); // 
+<<<<<<< HEAD
     void vecAddEquFloat(IFloat *a, IFloat b, int); // 
 
 inline void vecTimesEquFloatSingle(IFloat *a, IFloat b, int len)
@@ -167,6 +163,8 @@ void vecTimesComplex(IFloat *a,
                      IFloat im,
                      const IFloat *c,
                      int len);
+=======
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
     //! real scalar times vector multiplication; a = c*b
     void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, IFloat c, int); // 
@@ -343,9 +341,17 @@ class Matrix
       \param m The matrix to be subtracted.
       \return The matrix difference.
     */
+<<<<<<< HEAD
     Matrix& operator-=(const Matrix& m)
     { vecMinusEquVecSingle((IFloat *)u, (IFloat *)m.u, COLORS*COLORS*2);
       return *this; }
+=======
+    Matrix& operator-=(const Matrix& m) {
+        for(int i = 0; i < COLORS * COLORS * 2; ++i)
+            u[i] -= m.u[i];
+        return *this;
+    }
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
     //! Subtracts a real scalar multiple of the unit matrix from this one.
     /*!
@@ -448,6 +454,7 @@ class Matrix
 
     //! Not what you might think.
     void TrLessAntiHermMatrix(const Matrix& this_dag);
+<<<<<<< HEAD
 //    void TrLessAntiHermMatrix();
     void TrLessAntiHermMatrix(){
        Matrix dag;
@@ -521,6 +528,33 @@ inline void TrLessAntiHermMatrix()
     p[17] -= c;
 }
 #endif
+=======
+
+    //! Assignment to its trace less anti hermitian
+    // M <= (M - M^\dag) / 2 - Tr(M - M^\dag)/6
+    void TrLessAntiHermMatrix()
+    {
+        u[0] = u[8] = u[16] = 0.;
+
+        Float tmp = 0.5*(u[2] - u[6]);
+        u[2]=tmp; u[6] = -tmp;
+        tmp = 0.5*(u[3] + u[7]);
+        u[3]=tmp; u[7] = tmp;
+        tmp = 0.5*(u[4] - u[12]);
+        u[4]=tmp; u[12] = -tmp;
+        tmp = 0.5*(u[5] + u[13]);
+        u[5]=tmp; u[13] = tmp;
+        tmp = 0.5*(u[10] - u[14]);
+        u[10]=tmp; u[14] = -tmp;
+        tmp = 0.5*(u[11] + u[15]);
+        u[11]=tmp; u[15] = tmp;
+        
+        Float c = 1./3. * (u[1] + u[9] + u[17]);
+        u[1] -= c;
+        u[9] -= c;
+        u[17] -= c;
+    }
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
     //! Assignment to tensor product of vectors.
     void Cross2(const Vector& v1, const Vector& v2);

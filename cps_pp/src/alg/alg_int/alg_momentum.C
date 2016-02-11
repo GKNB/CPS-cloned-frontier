@@ -23,6 +23,7 @@ CPS_END_NAMESPACE
 #include<util/verbose.h>
 #include<util/error.h>
 #include<util/time_cps.h>
+#include<util/timer.h>
 #include<alg/alg_int.h>
 CPS_START_NAMESPACE
 
@@ -47,7 +48,7 @@ void AlgMomentum::heatbath() {
 
   const char *fname = "heatbath()";
   Float dtime = -dclock();
-  VRB.Result(cname, fname, " called\n");
+  VRB.Func(cname, fname);
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   lat.RandGaussAntiHermMatrix(mom, 1.0);
@@ -104,15 +105,22 @@ void AlgMomentum::LoadState(std::string name){
 Float AlgMomentum::energy() {
   Float dtime = -dclock();
 
-
+  VRB.Func(cname, fname);
   const char *fname = "energy()";
-  VRB.Result(cname, fname, " called\n");
+  static Timer time(cname, fname);
+  time.start(true);
+
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
   LatticeFactory::Destroy();
 
+  Float total_h = h;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
+
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
+  time.stop(true);
 
   return h;
 }
@@ -123,7 +131,7 @@ void AlgMomentum::evolve(Float dt, int steps)
   const char *fname = "evolve()";
   Float dtime = -dclock();
 
-  VRB.Result(cname, fname, " called\n");
+  VRB.Func(cname, fname);
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   for (int i=0; i<steps; i++) lat.EvolveGfield(mom, dt);

@@ -88,6 +88,8 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
 	{"FclassType","F_CLASS_MOBIUS",F_CLASS_MOBIUS},
 	{"FclassType","F_CLASS_NAIVE",F_CLASS_NAIVE},
+	{"FclassType","F_CLASS_DWF4D",F_CLASS_DWF4D},
+	{"FclassType","F_CLASS_DWF4D_PAIR",F_CLASS_DWF4D_PAIR},
 	{NULL,NULL,0}
 };
 
@@ -1093,6 +1095,35 @@ struct vml_enum_map CalcSeqType_map[] = {
 	{"CalcSeqType","MULT_SEQ",MULT_SEQ},
 	{"CalcSeqType","READ_MULT_SEQ",READ_MULT_SEQ},
 	{"CalcSeqType","WRITE_MULT_SEQ",WRITE_MULT_SEQ},
+	{NULL,NULL,0}
+};
+
+bool_t
+vml_BfmSolverType (VML *vmls, char *name,BfmSolverType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,BfmSolverType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map BfmSolverType_map[] = {
+	{"BfmSolverType","BFM_DWF",BFM_DWF},
+	{"BfmSolverType","BFM_DWFrb4d",BFM_DWFrb4d},
+	{"BfmSolverType","BFM_WilsonFermion",BFM_WilsonFermion},
+	{"BfmSolverType","BFM_WilsonTM",BFM_WilsonTM},
+	{"BfmSolverType","BFM_WilsonNN",BFM_WilsonNN},
+	{"BfmSolverType","BFM_HwPartFracZolo",BFM_HwPartFracZolo},
+	{"BfmSolverType","BFM_HwContFracZolo",BFM_HwContFracZolo},
+	{"BfmSolverType","BFM_HwPartFracTanh",BFM_HwPartFracTanh},
+	{"BfmSolverType","BFM_HwContFracTanh",BFM_HwContFracTanh},
+	{"BfmSolverType","BFM_HwCayleyZolo",BFM_HwCayleyZolo},
+	{"BfmSolverType","BFM_HtCayleyZolo",BFM_HtCayleyZolo},
+	{"BfmSolverType","BFM_HwCayleyTanh",BFM_HwCayleyTanh},
+	{"BfmSolverType","BFM_HmCayleyTanh",BFM_HmCayleyTanh},
+	{"BfmSolverType","BFM_HtCayleyTanh",BFM_HtCayleyTanh},
+	{"BfmSolverType","BFM_DWFTransfer",BFM_DWFTransfer},
+	{"BfmSolverType","BFM_DWFTransferInv",BFM_DWFTransferInv},
+	{"BfmSolverType","BFM_HtContFracTanh",BFM_HtContFracTanh},
+	{"BfmSolverType","BFM_HtContFracZolo",BFM_HtContFracZolo},
 	{NULL,NULL,0}
 };
 

@@ -2,23 +2,7 @@
 /*! \file
   \brief  Functions used by the ParTransAsqtad class.
   
-  $Id: pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2012-08-02 21:20:01 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/noarch/pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
-//  $Id: pt.C,v 1.12 2012-08-02 21:20:01 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: pt.C,v $
-//  $Revision: 1.12 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/noarch/pt.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 #include <util/gjp.h>
 #include <util/pt.h>
 #include <comms/scu.h>

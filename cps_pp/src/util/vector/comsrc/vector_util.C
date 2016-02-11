@@ -4,20 +4,9 @@ CPS_START_NAMESPACE
   \brief  Definitions of functions that perform operations on complex matrices
   and vectors.
 
-  $Id: vector_util.C,v 1.10 2013-04-19 20:25:52 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2013-04-19 20:25:52 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v 1.10 2013-04-19 20:25:52 chulwoo Exp $
-//  $Id: vector_util.C,v 1.10 2013-04-19 20:25:52 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.10 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/vector/comsrc/vector_util.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 /*------------------------------------------------------------------*/
@@ -31,7 +20,7 @@ CPS_END_NAMESPACE
 #include <string.h>		/* memcpy */
 #include <util/vector.h>
 #include <util/time_cps.h>
-//#include<omp.h>
+#include<util/omp_wrapper.h>
 CPS_START_NAMESPACE
 
 
@@ -302,6 +291,7 @@ IFloat dotProduct(const IFloat *a, const IFloat *b, int len)
 void vecTimesEquFloat(IFloat *a, IFloat b, int len)
 {
 #pragma omp parallel for
+<<<<<<< HEAD
     for(int i = 0; i < len; ++i) {
     	a[i] *= b;
     }
@@ -324,6 +314,10 @@ void vecTimesComplex(IFloat *a,
     {
       *a++ = re * *c     - im * *(c+1);   // real part
       *a++ = re * *(c+1) + im * *c;       // imag part
+=======
+    for(int i = 0; i < len; ++i) {
+    	a[i] *= b;
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
     }
 }
 
@@ -395,7 +389,11 @@ void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
 void fTimesV1MinusV2(IFloat *a, IFloat b, const IFloat *c,
 	const IFloat *d, int len)
 {
+<<<<<<< HEAD
 #pragma omp parallel for default(shared)
+=======
+#pragma omp parallel for
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
     for(int i = 0; i < len; ++i) {
     	a[i] = b * c[i] - d[i];
     }
@@ -491,8 +489,11 @@ void cTimesV1MinusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
   \post This vector has the value 0.
 */
 void vecZero(IFloat *a, int len) {
+<<<<<<< HEAD
 
 #pragma omp parallel for default(shared)
+=======
+>>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
     for (int i=0; i<len; i++) {
         a[i] = 0.0;
     }

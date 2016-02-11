@@ -8,8 +8,7 @@
 /*!\file
   \brief  Definitions of the Lattice classes.
 
-  $Id: lattice.h,v 1.69 2013-06-25 12:51:12 chulwoo Exp $
-*/
+*/  
 //------------------------------------------------------------------
 
 
@@ -525,6 +524,7 @@ class Lattice
         // where U(i), V(i) is the gauge field before and after 
         // reunitarization. The index i runs over all components of
         // the gauge field.
+    void CheckUnitarity(Float &max_dev, Float &max_diff);
 
     int MetropolisAccept(Float delta_h, Float *accept);
     //!< Metropolis algorithm decision.
@@ -2218,7 +2218,5 @@ CPS_END_NAMESPACE
 
 #include <util/lattice/f_wilson_types.h>
 #include <util/lattice/lattice_types.h>
-
-
 
 #endif

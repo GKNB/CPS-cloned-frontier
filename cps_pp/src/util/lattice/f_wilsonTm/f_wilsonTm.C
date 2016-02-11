@@ -4,7 +4,6 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of FwilsonTm class.
 
-  $Id: f_wilsonTm.C,v 1.4 2013-03-18 19:33:14 chulwoo Exp $
 */
 //------------------------------------------------------------------
 //

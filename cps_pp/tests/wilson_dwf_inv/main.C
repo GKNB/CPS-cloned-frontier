@@ -1,5 +1,4 @@
 /*
-$Id: main.C,v 1.12.30.1 2007/07/19 04:26:03 chulwoo Exp $
 */
 
 #include<omp.h>

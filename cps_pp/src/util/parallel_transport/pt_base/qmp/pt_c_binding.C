@@ -82,7 +82,7 @@ void pt_1vec(int n, IFloat **mout, IFloat **min, int const *dir){
 }
 
 void pt_mat(int n, IFloat **mout, IFloat **min, int const *dir){
-  StaticPT.mat(n,(matrix**)mout,(matrix**)min,dir);
+  StaticPT.mat(n,(PTmatrix**)mout,(PTmatrix**)min,dir);
   ParTrans::PTflops +=198*n*PT::vol;
 }
 

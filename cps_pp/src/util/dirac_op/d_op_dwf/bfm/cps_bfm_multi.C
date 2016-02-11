@@ -13,7 +13,7 @@
 #ifdef UNIFORM_SEED_TESTING
 #include "majority_vote.h"
 #endif
-//#include <qdp.h>
+#include <qdp.h>
 #include <util/gjp.h>
 #include <comms/sysfunc_cps.h>
 #include <util/error.h>

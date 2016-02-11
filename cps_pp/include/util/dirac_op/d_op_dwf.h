@@ -2,7 +2,6 @@
 /*!\file
   \brief  Definition of the Dirac operator classes: DiracOp, DiracOpStagTypes.
 
-  $Id: d_op_dwf.h,v 1.3 2012-12-05 16:39:19 chulwoo Exp $
 */
 
 #ifndef INCLUDED_D_OP_DWF_H

@@ -56,10 +56,18 @@ WilsonMatrix::WilsonMatrix(int sink_spin, int sink_color, const wilson_vector& z
 WilsonMatrix::WilsonMatrix(const Float& rhs)
 {
 
+#if 1
 	for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
 	  for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2){
 	    p.d[s1].c[c1].d[s2].c[c2]=Complex(rhs,0.0);
         }
+#else
+    for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
+                                for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2){
+                                        p.d[s1].c[c1].d[s2].c[c2].real(rhs);
+                                        p.d[s1].c[c1].d[s2].c[c2].imag(0.0);
+                                    }
+#endi
 }
 
 WilsonMatrix::WilsonMatrix(const Rcomplex& rhs)
@@ -144,8 +152,8 @@ void WilsonMatrix::dump()
         int s1, s2;
 	wilson_matrix mat=p;
 
-	for(s1=0;s1<4;s1++)
-	  for(c1=0;c1<3;c1++)
+    for(s1=0;s1<4;s1++)
+        for(c1=0;c1<3;c1++)
 	    for(s2=0;s2<4;s2++)
 	      for(c2=0;c2<3;c2++)
 		printf("%d %d %d %d %e %e\n",
@@ -354,9 +362,16 @@ WilsonMatrix& WilsonMatrix::operator=(const Float& rhs)
     for(int s1=0;s1<4;++s1){
         for(int c1=0;c1<3;++c1){
 	    for(int s2=0;s2<4;++s2){
+#if 1
 	      for(int c2=0;c2<3;++c2){
 		    p.d[s1].c[c1].d[s2].c[c2]=Complex(rhs,0.0);
 	      }
+#else
+                for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2].real(rhs);
+		    p.d[s1].c[c1].d[s2].c[c2].imag(0.0);
+                }
+#endif
 	    }
         }
     }
@@ -627,6 +642,377 @@ WilsonMatrix& WilsonMatrix::gl(int dir)
 	break;
     }
     return *this;
+}
+
+WilsonMatrix WilsonMatrix::glR(int dir)const
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    wilson_matrix result;
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    result.d[0].c[i].d[s2].c[c2]=0.0;
+                    result.d[1].c[i].d[s2].c[c2]=0.0;
+                    TIMESMINUSI( 2*p.d[1].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( 2*p.d[0].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    result.d[0].c[i].d[s2].c[c2]=0.0;
+                    result.d[1].c[i].d[s2].c[c2]=0.0;
+                    TIMESPLUSONE(  2*p.d[1].c[i].d[s2].c[c2],
+                                   result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( 2*p.d[0].c[i].d[s2].c[c2],
+                                   result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    result.d[0].c[i].d[s2].c[c2]=0.0;
+                    result.d[1].c[i].d[s2].c[c2]=0.0;
+                    TIMESMINUSI( 2*p.d[0].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  2*p.d[1].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    result.d[0].c[i].d[s2].c[c2]=0.0;
+                    result.d[1].c[i].d[s2].c[c2]=0.0;
+                    TIMESPLUSONE( 2*p.d[0].c[i].d[s2].c[c2],
+                                  result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( 2*p.d[1].c[i].d[s2].c[c2],
+                                  result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    default:
+	ERR.General(cname, "glR()", "BAD CALL TO glR()\n");
+	break;
+    }
+    return WilsonMatrix(result);
+}
+
+WilsonMatrix WilsonMatrix::glL(int dir)const
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    wilson_matrix result;
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  2*p.d[3].c[i].d[s2].c[c2],
+                                 result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  2*p.d[2].c[i].d[s2].c[c2],
+                                 result.d[1].c[i].d[s2].c[c2] );
+                    result.d[2].c[i].d[s2].c[c2]=0.0;
+                    result.d[3].c[i].d[s2].c[c2]=0.0;
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSONE( 2*p.d[3].c[i].d[s2].c[c2],
+                                   result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  2*p.d[2].c[i].d[s2].c[c2],
+                                   result.d[1].c[i].d[s2].c[c2] );
+                    result.d[2].c[i].d[s2].c[c2]=0.0;
+                    result.d[3].c[i].d[s2].c[c2]=0.0;
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  2*p.d[2].c[i].d[s2].c[c2],
+                                 result.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( 2*p.d[3].c[i].d[s2].c[c2],
+                                 result.d[1].c[i].d[s2].c[c2] );
+                    result.d[2].c[i].d[s2].c[c2]=0.0;
+                    result.d[3].c[i].d[s2].c[c2]=0.0;
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE( 2*p.d[2].c[i].d[s2].c[c2],
+                                  result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( 2*p.d[3].c[i].d[s2].c[c2],
+                                  result.d[1].c[i].d[s2].c[c2] );
+                    result.d[2].c[i].d[s2].c[c2]=0.0;
+                    result.d[3].c[i].d[s2].c[c2]=0.0;
+                }
+        break;
+    default:
+	ERR.General(cname, "glL()", "BAD CALL TO glL()\n");
+	break;
+    }
+    return WilsonMatrix(result);
+}
+
+//multiply gamma(i) on the left: result = gamma(i)*from
+WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    const wilson_matrix & from_mat=from.wmat();
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  from_mat.d[3].c[i].d[s2].c[c2],
+                                 p.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                                 p.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[1].c[i].d[s2].c[c2],
+                                 p.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                                 p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                                   p.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  from_mat.d[2].c[i].d[s2].c[c2],
+                                   p.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  from_mat.d[1].c[i].d[s2].c[c2],
+                                   p.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                                   p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                                 p.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[3].c[i].d[s2].c[c2],
+                                 p.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                                 p.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  from_mat.d[1].c[i].d[s2].c[c2],
+                                 p.d[3].c[i].d[s2].c[c2] );
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE( from_mat.d[2].c[i].d[s2].c[c2],
+                                  p.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                                  p.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                                  p.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( from_mat.d[1].c[i].d[s2].c[c2],
+                                  p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case -5:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE(  from_mat.d[0].c[i].d[s2].c[c2],
+                                   p.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  from_mat.d[1].c[i].d[s2].c[c2],
+                                   p.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( from_mat.d[2].c[i].d[s2].c[c2],
+                                   p.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                                   p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    default:
+        ERR.General(cname, "glV", "BAD CALL TO glV(), dir = %d\n", dir);
+	break;
+    }
+    return *this;
+}
+
+//multiply gamma(i) on the left and return a new one
+WilsonMatrix WilsonMatrix::glV(int dir)const
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    wilson_matrix result;
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  p.d[3].c[i].d[s2].c[c2],
+                                 result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  p.d[2].c[i].d[s2].c[c2],
+                                 result.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[1].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSONE( p.d[3].c[i].d[s2].c[c2],
+                                   result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  p.d[2].c[i].d[s2].c[c2],
+                                   result.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  p.d[1].c[i].d[s2].c[c2],
+                                   result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( p.d[0].c[i].d[s2].c[c2],
+                                   result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSI(  p.d[2].c[i].d[s2].c[c2],
+                                 result.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[3].c[i].d[s2].c[c2],
+                                 result.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  p.d[1].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE( p.d[2].c[i].d[s2].c[c2],
+                                  result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( p.d[3].c[i].d[s2].c[c2],
+                                  result.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( p.d[0].c[i].d[s2].c[c2],
+                                  result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( p.d[1].c[i].d[s2].c[c2],
+                                  result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    default:
+        ERR.General(cname, "glV", "BAD CALL TO glV(), dir = %d\n", dir);
+	break;
+    }
+    return WilsonMatrix(result);
+}
+
+//multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*from
+WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    const wilson_matrix & from_mat=from.wmat();
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSI(  from_mat.d[3].c[i].d[s2].c[c2],
+                                  p.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                                  p.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[1].c[i].d[s2].c[c2],
+                                 p.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                                 p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                                  p.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE(  from_mat.d[2].c[i].d[s2].c[c2],
+                                    p.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  from_mat.d[1].c[i].d[s2].c[c2],
+                                   p.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                                   p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                                  p.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSI( from_mat.d[3].c[i].d[s2].c[c2],
+                                p.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                                 p.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  from_mat.d[1].c[i].d[s2].c[c2],
+                                 p.d[3].c[i].d[s2].c[c2] );
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSONE( from_mat.d[2].c[i].d[s2].c[c2],
+                                   p.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                                   p.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                                  p.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( from_mat.d[1].c[i].d[s2].c[c2],
+                                  p.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    default:
+        ERR.General(cname, "glA", "BAD CALL TO glA(), dir = %d\n", dir);
+	break;
+    }
+    return *this;
+}
+//multiply gamma(i)gamma(5) on the left and return a new one
+WilsonMatrix WilsonMatrix::glA(int dir)const
+{
+    int i; /*color*/
+    int c2,s2;    /* column indices, color and spin */
+    wilson_matrix result;
+
+    switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSI(  p.d[3].c[i].d[s2].c[c2],
+                                  result.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSI(  p.d[2].c[i].d[s2].c[c2],
+                                  result.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[1].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESPLUSONE( p.d[3].c[i].d[s2].c[c2],
+                                  result.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE(  p.d[2].c[i].d[s2].c[c2],
+                                    result.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE(  p.d[1].c[i].d[s2].c[c2],
+                                   result.d[2].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( p.d[0].c[i].d[s2].c[c2],
+                                   result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSI(  p.d[2].c[i].d[s2].c[c2],
+                                  result.d[0].c[i].d[s2].c[c2] );
+                    TIMESPLUSI( p.d[3].c[i].d[s2].c[c2],
+                                result.d[1].c[i].d[s2].c[c2] );
+                    TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                                 result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSI(  p.d[1].c[i].d[s2].c[c2],
+                                 result.d[3].c[i].d[s2].c[c2] );
+                }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+                    TIMESMINUSONE( p.d[2].c[i].d[s2].c[c2],
+                                   result.d[0].c[i].d[s2].c[c2] );
+                    TIMESMINUSONE( p.d[3].c[i].d[s2].c[c2],
+                                   result.d[1].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( p.d[0].c[i].d[s2].c[c2],
+                                  result.d[2].c[i].d[s2].c[c2] );
+                    TIMESPLUSONE( p.d[1].c[i].d[s2].c[c2],
+                                  result.d[3].c[i].d[s2].c[c2] );
+                }
+        break;
+    default:
+        ERR.General(cname, "glA", "BAD CALL TO glA(), dir = %d\n", dir);
+	break;
+    }
+    return WilsonMatrix(result);
 }
 
 WilsonMatrix WilsonMatrix::glR(int dir)const
