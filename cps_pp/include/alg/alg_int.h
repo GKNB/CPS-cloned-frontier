@@ -369,6 +369,7 @@ protected:
     Vector **phi;
 
     int md_steps;
+    bool skip_force;
 
 public:
     AlgActionBilinear();
@@ -661,7 +662,6 @@ class AlgActionQuotient : public AlgActionBilinear {
 
 private:
     const char *cname;
-<<<<<<< HEAD
 
     ActionQuotientArg *quo_arg;
 
@@ -703,51 +703,6 @@ private:
     bool fg_forecast;
 public:
 
-=======
-
-    ActionQuotientArg *quo_arg;
-
-    std::vector<CgArg> bsn_cg_arg;   //!< Pointer to an array of solver parameters.
-
-    //!< Pointer to an array of solver parameters, for force gradient
-    //!< step, irrevelant if using other integrators.
-    std::vector<CgArg> frm_cg_arg_fg;
-
-    std::vector<CgArg> frm_cg_arg_md;   //!< Pointer to an array of solver parameters.
-    std::vector<CgArg> frm_cg_arg_mc;   //!< Pointer to an array of solver parameters.
-
-    std::vector<Float> bsn_mass; //!< The boson mass parameter that appears in the quotient
-    std::vector<Float> frm_mass; //!< The fermion mass parameter that appears in the quotient
-
-    // ~~added for twisted mass Wilson fermions
-    std::vector<Float> bsn_mass_epsilon; //!< The boson mass parameter that appears in the quotient
-    std::vector<Float> frm_mass_epsilon; //!< The fermion mass parameter that appears in the quotient
-
-    int evolved;
-    Float h_init;
-
-    //!< Stores the history of cg solutions - used by chronological inversion
-    Vector ***v;
-    Vector ***cg_sol_old;
-    Vector *cg_sol;
-    Vector *tmp1;
-    Vector *tmp2;
-
-    //!< Stores the orthogonalised vectors multiplied by MatPcDagMatPc
-    //!< These currently live in AlgActionQuotient for a future
-    //!< optimisation (chronological preconditioner)
-    Vector ***vm;
-
-    std::vector<int> chrono;
-
-    // !< Status variable controls if we can use the CG solution from a
-    // !< previous force gradient solve to forecast the next normal solve.
-    bool fg_forecast;
-
-    bool skip_force;
-public:
-
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
     AlgActionQuotient(AlgMomentum &mom, ActionQuotientArg &frm_arg);
     virtual ~AlgActionQuotient();
   
@@ -762,11 +717,8 @@ public:
     void evolve(Float dt, int steps);
 
     void init();
-<<<<<<< HEAD
-=======
 
-    void set_skip_force(bool skip_force) { this->skip_force = skip_force; }
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
+    void set_skip_force(bool _skip_force) { skip_force = _skip_force; }
 };
 
 /*!< 
@@ -808,10 +760,6 @@ protected:
 
     Vector **eta; //!< Use to accumulate solver results
 
-<<<<<<< HEAD
-=======
-    bool skip_force;
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 public:
 
     AlgActionRationalQuotient();
@@ -833,11 +781,8 @@ public:
     bool loadPoles(void);
     bool savePoles(void);
     bool checkPolesFile(const RemezArg &md, const RemezArg &mc, const RationalDescr &r);
-<<<<<<< HEAD
-=======
 
-    void set_skip_force(bool skip_force) { this->skip_force = skip_force; }
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
+    void set_skip_force(bool _skip_force) { skip_force = _skip_force; }
 };
 
 /*!< 

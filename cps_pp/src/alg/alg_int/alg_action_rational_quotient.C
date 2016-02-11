@@ -39,8 +39,8 @@ AlgActionRationalQuotient::AlgActionRationalQuotient()
 AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 				     ActionRationalQuotientArg &r_arg, int traj_num)
 				     
-  : AlgActionRational(mom, r_arg.bi_arg),
-    skip_force(false)
+  : AlgActionRational(mom, r_arg.bi_arg)
+//    skip_force(false)
 {
 
   cname = "AlgActionRationalQuotient";
@@ -268,8 +268,6 @@ void AlgActionRationalQuotient::heatbath() {
   char *fname = "heatbath()";
   static Timer timer(cname, fname);
   timer.start(true);
-
-  Float dtime = -dclock();
 
   Float dtime = -dclock();
 

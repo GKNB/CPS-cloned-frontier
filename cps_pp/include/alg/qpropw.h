@@ -264,9 +264,6 @@ public:
   /*! Returns the prop */
   const WilsonMatrix& operator[](int i)const{ return prop[i]; }
 
-  /*! Returns the prop */
-  const WilsonMatrix& operator[](int i)const{ return prop[i]; }
-
   /*! Returns the midpoint prop */
   WilsonMatrix& operator()(int i){ return midprop[i]; }
   
@@ -541,54 +538,6 @@ public:
     QPropWZ3BWallSrc(Lattice& lat, QPropWArg* arg,
                      QPropW4DBoxArg *b_arg, CommonArg* c_arg);
   
-    void SetSource(FermionVectorTp& src, int spin, int color);
-
-    SourceType SrcType(){ return BOX_4D; }
-
-    int BoxSrcSize(int mu)const {
-        return box_arg.box_size[mu];
-    }
-};
-
-// Added by Hantao to handle 4D boxes (in fact it handles all uniform
-// point/wall/box sources as special cases).
-class QPropW4DBoxSrc : public QPropW
-{
-protected:
-    QPropW4DBoxArg box_arg;
-public:
-  
-    QPropW4DBoxSrc(Lattice& lat, QPropWArg* arg,
-                   QPropW4DBoxArg *b_arg, CommonArg* c_arg);
-  
-    void SetSource(FermionVectorTp& src, int spin, int color);
-
-    SourceType SrcType(){ return BOX_4D; }
-
-    int BoxSrcStart(int mu)const {
-        return box_arg.box_start[mu];
-    }
-
-    int BoxSrcSize(int mu)const {
-        return box_arg.box_size[mu];
-    }
-};
-
-// Added by Hantao
-//
-// wall filled with random Z3 box
-class QPropWZ3BWallSrc : public QPropW
-{
-private:
-    int rand_grid[3];
-    int rand_size;
-    std::vector<Rcomplex> rand_num;
-    QPropW4DBoxArg box_arg;
-public:
-
-    QPropWZ3BWallSrc(Lattice& lat, QPropWArg* arg,
-                     QPropW4DBoxArg *b_arg, CommonArg* c_arg);
-
     void SetSource(FermionVectorTp& src, int spin, int color);
 
     SourceType SrcType(){ return BOX_4D; }

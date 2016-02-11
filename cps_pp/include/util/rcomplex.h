@@ -1,7 +1,7 @@
 #ifndef INCLUDED_RCOMPLEX_H
 #define INCLUDED_RCOMPLEX_H
 
-#if 0
+#if 1
 #include<config.h>
 CPS_START_NAMESPACE
 /*!\file

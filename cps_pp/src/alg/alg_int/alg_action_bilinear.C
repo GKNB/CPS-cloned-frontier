@@ -29,14 +29,14 @@ CPS_START_NAMESPACE
 
 //!< Dummy constructor - does nothing
 AlgActionBilinear::AlgActionBilinear() 
-  : AlgAction() 
+  : AlgAction() ,skip_force(false)
 {
 }
 
 AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
 				     ActionBilinearArg &b_arg)
 				     
-  : AlgAction(mom, b_arg.action_arg) {
+  : AlgAction(mom, b_arg.action_arg) ,skip_force(false){
 
   cname = "AlgActionBiliniear";
   char *fname="AlgActionBilinear(FclassType, int, HmdArg*, Matrix*)";

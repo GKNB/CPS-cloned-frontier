@@ -291,16 +291,9 @@ int flag = 0, int if_alloc=1 );
         fname,(Float)nflops,time,(Float)nflops/(time*1.e6));
         return nflops/time;
   }
-<<<<<<< HEAD
-  void force_product_sum(PTvector *v, PTvector *w, Float coeff, matrix *f);
-  void update_momenta(matrix **force, Float dt, matrix *mom);
-  void asqtad_fat(AsqDArg *asq_arg, matrix *fatlink);
-  void asqtad_long(AsqDArg *asq_arg, matrix *longlink, matrix *longlink_m = NULL);
-=======
   void force_product_sum(PTvector *v, PTvector *w, Float coeff, PTmatrix *f);
   void update_momenta(PTmatrix **force, Float dt, PTmatrix *mom);
   void asqtad_fat(AsqDArg *asq_arg, PTmatrix *fatlink);
   void asqtad_long(AsqDArg *asq_arg, PTmatrix *longlink, PTmatrix *longlink_m = NULL);
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 };
 #endif

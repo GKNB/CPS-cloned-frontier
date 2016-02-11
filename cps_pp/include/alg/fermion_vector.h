@@ -74,20 +74,6 @@ public:
   void SetZ3BWall(int color, int spin, int t, const int size[3],
                   const std::vector<Rcomplex> &rand_num);
 
-  // Sets a 4D box source. If you want to set a 3D xyz box, set
-  // size[3] == 1 and glb_x[3] to the global time slice you want.
-  //
-  // With this function in disposal, why do we need separate functions
-  // for point/wall/box sources?
-  void Set4DBoxSource(int color,
-                      int spin,
-                      const int start[4], // global starting location in x, y, z and t directions
-                      const int size[4], // global size in x, y, z and t directions
-                      const Float mom[4]); // momentum
-
-  void SetZ3BWall(int color, int spin, int t, const int size[3],
-                  const std::vector<Rcomplex> &rand_num);
-
   /*! Gauge fix sink - Coulomb gauge only */
   void GaugeFixSink       ( Lattice& lat, int dir, int unfix=0);
 

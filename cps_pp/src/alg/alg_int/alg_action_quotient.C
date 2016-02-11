@@ -37,8 +37,8 @@ CPS_START_NAMESPACE
 AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
                                      ActionQuotientArg &q_arg)
     : AlgActionBilinear(mom, q_arg.bi_arg),
-      cname("AlgActionQuotient"),
-      skip_force(false)
+      cname("AlgActionQuotient")
+//      skip_force(false)
 {
     const char *fname = "AlgActionQuotient()";
 
