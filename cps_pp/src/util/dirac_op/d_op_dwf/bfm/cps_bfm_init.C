@@ -25,14 +25,10 @@
 //#define USE_OMP
 
 
-<<<<<<< HEAD
 #ifdef USE_CHROMA
 using namespace Chroma;
 #endif
 
-=======
-//using namespace Chroma;
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 USING_NAMESPACE_CPS
 
 static int qdp_initted = 0;
@@ -51,16 +47,12 @@ int cps_qdp_init(int *argc, char ***argv){
     qdp_initted = 1;
     return 1;
   }
-<<<<<<< HEAD
 #ifdef USE_CHROMA
   Chroma::initialize( argc, argv);
   VRB.Result("","cps_qdp_init()","Chroma::initialize( argc, argv)");
 #endif
-=======
-//  Chroma::initialize( argc, argv);
   QDP::QDP_initialize( argc, argv);
   VRB.Result("","cps_qdp_init()","QDP::initialize( argc, argv)");
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
   int size[Nd];
   multi1d<int> nrow(Nd);  
   for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
@@ -223,13 +215,8 @@ int even, int odd, int Ls=0, double fac_t=1.){
 //        QDPdouble *qdp_p = (QDPdouble *) &(qdp[x[4]].elem(0).elem(0).elem(0).real());
 	QDPdouble *qdp_p = q_p[x[4]];        
 	const int tnum = omp_get_thread_num();
-<<<<<<< HEAD
 //	if ((called%10000)==0)
 //	Printf("impex %d: %d %d %d %d %d:%d\n",i,x[0],x[1],x[2],x[3],x[4],tnum);
-=======
-	// if ((called%10000)==0)
-	// Printf("impex %d: %d %d %d %d %d:%d\n",i,x[0],x[1],x[2],x[3],x[4],tnum);
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 #endif
       
       for ( int coco=0;coco<12;coco++ ) {

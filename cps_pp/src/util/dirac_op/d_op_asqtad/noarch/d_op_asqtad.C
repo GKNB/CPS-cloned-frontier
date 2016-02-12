@@ -9,6 +9,7 @@
 //------------------------------------------------------------------
 
 #include <config.h>
+#include <stdint.h>
 #include <precision.h>
 #include <stdio.h>
 #include <util/dirac_op.h>

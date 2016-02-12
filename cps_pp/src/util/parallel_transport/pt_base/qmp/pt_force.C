@@ -11,9 +11,9 @@
 #include "pt_int.h"
 
 extern "C"{
-void asq_force_cross2dag(PTvector *chi, PTvector *phi, matrix *result,
+void asq_force_cross2dag(PTvector *chi, PTvector *phi, PTmatrix *result,
                       int counter, double *fac);
-void asq_force_cross2dag_s(PTvector *chi, PTvector *phi, matrix *result,
+void asq_force_cross2dag_s(PTvector *chi, PTvector *phi, PTmatrix *result,
                       int counter, float *fac);
 void asq_vaxpy3(PTvector *res,Float *scale,PTvector *mult,PTvector *add, int ncvec);
 void asq_vaxpy3_s(PTvector *res,Float *scale,PTvector *mult,PTvector *add, int ncvec);
@@ -660,11 +660,7 @@ void PT::asqtad_force(AsqDArg *asq_arg, PTmatrix *mom, Float *X, Float dt){
 
 #undef PROFILE
 void PT::force_product_sum(PTvector *v, PTvector *w,
-<<<<<<< HEAD
-				    Float coeff, matrix *f){
-=======
 				    Float coeff, PTmatrix *f){
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 
 //  char *fname = "force_product_sum(*V,*V,F,*M)";
   Flops +=78*vol;

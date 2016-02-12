@@ -103,13 +103,13 @@ void AlgMomentum::LoadState(std::string name){
 
 //!< Calculate gauge contribution to the Hamiltonian
 Float AlgMomentum::energy() {
-  Float dtime = -dclock();
 
-  VRB.Func(cname, fname);
   const char *fname = "energy()";
+  VRB.Func(cname, fname);
   static Timer time(cname, fname);
   time.start(true);
 
+  Float dtime = -dclock();
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
   LatticeFactory::Destroy();

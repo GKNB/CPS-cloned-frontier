@@ -12,6 +12,7 @@
 #include <util/verbose.h>
 #include <util/gjp.h>
 #include <util/error.h>
+#include <util/pt.h>
 #include <comms/scu.h>
 #include <comms/glb.h>
 #include <util/enum_func.h>

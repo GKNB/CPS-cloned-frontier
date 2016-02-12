@@ -449,7 +449,7 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where)
 {
     char *fname = "GFWallSource()";
     VRB.Func(cname, fname);
-    VRB.Debg(cname,fname,"lat=%p spin=%d dir=%d  where=%d\n",&lat,spin,dir,where);
+    VRB.Debug(cname,fname,"lat=%p spin=%d dir=%d  where=%d\n",&lat,spin,dir,where);
 
     if(dir != 3) {
         ERR.NotImplemented(cname, fname);

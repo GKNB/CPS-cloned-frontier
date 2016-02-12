@@ -5,7 +5,7 @@
 
 extern "C" {
 void vaxpy3(PTvector *res,Float *scale,PTvector *mult,PTvector *add, int ncvec);
-  inline void vaxpy3_m(matrix *res,Float *scale,matrix *mult,matrix *add, 
+  inline void vaxpy3_m(PTmatrix *res,Float *scale,PTmatrix *mult,PTmatrix *add, 
   int ncvec){
     vaxpy3((PTvector *)res, scale, (PTvector *)mult,(PTvector *)add,ncvec);
   }

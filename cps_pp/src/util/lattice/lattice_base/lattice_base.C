@@ -3163,6 +3163,7 @@ void
           ptr++;
         }
       }
+#if 0
   } else if (num_chkbds == 1) {
     if (str == STAG) {
       for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)	// z
@@ -3177,6 +3178,7 @@ void
 		ptr++;
 	      }
 	    }
+#endif
     } else {
       for (i = 0; i < GJP.VolNodeSites () * s_node_sites; i += 2) {
 	LRG.AssignGenerator (i);
@@ -3991,14 +3993,8 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 }
 #endif
 
-inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
-{
-    x[0] = i % hl[0] + low[0]; i /= hl[0];
-    x[1] = i % hl[1] + low[1]; i /= hl[1];
-    x[2] = i % hl[2] + low[2]; i /= hl[2];
-    x[3] = i % hl[3] + low[3];
-}
 
+#if 0
 // ----------------------------------------------------------------
 // BondCond: toggle boundary condition on/off for gauge field. Based
 // on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
@@ -4034,5 +4030,6 @@ void Lattice::BondCond()
         }
     }
 }
+#endif
 
 CPS_END_NAMESPACE

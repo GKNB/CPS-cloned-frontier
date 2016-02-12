@@ -210,7 +210,7 @@ parity, IFloat * gauge)
 //The matrix min is parallel transported and the result is placed in mout
 #if 1
 #define PROFILE
-void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
+void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
     
   int wire[MAX_DIR];
   int i;

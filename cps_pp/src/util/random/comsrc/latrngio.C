@@ -1,5 +1,4 @@
 #include <config.h>
-#ifndef USE_C11_RNG
 #include <stdlib.h>
 #include <math.h>
 #include <util/qcdio.h>

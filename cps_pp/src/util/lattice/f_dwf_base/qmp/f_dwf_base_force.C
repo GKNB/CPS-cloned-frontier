@@ -340,12 +340,6 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
   for(int i =0;i<MAX_THREADS;i++){
     L1[i]=L2[i]=Linf[i]=0.;
   }
-<<<<<<< HEAD
-=======
-#ifdef USE_OMP
-
-//omp_set_num_threads(MAX_THREADS);
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 //reduction(+:L1,L2)
    	long i =0;
 #pragma omp parallel for default(shared) private(mu)
@@ -522,11 +516,6 @@ if (!surf_initted){
 #pragma omp parallel for
 	for (long i=0;i<surf[mu];i++){
         Matrix *tmp_mat1,*tmp_mat2;
-<<<<<<< HEAD
-=======
-//#ifdef USE_OMP
-#if 0
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 		int tnum = omp_get_thread_num();
   		tmp_mat1 = tmp_mat + 2*tnum;
   		tmp_mat2 = tmp_mat1+1;
