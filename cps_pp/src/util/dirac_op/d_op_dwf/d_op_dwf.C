@@ -4,20 +4,20 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpDwf class methods.
 
-  $Id: d_op_dwf.C,v 1.5 2011/04/13 19:05:04 chulwoo Exp $
+  $Id: d_op_dwf.C,v 1.7 2013-04-05 17:51:13 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2011/04/13 19:05:04 $
-//  $Header: /space/cvs/cps/cps++/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.5 2011/04/13 19:05:04 chulwoo Exp $
-//  $Id: d_op_dwf.C,v 1.5 2011/04/13 19:05:04 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
+//  $Date: 2013-04-05 17:51:13 $
+//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v 1.7 2013-04-05 17:51:13 chulwoo Exp $
+//  $Id: d_op_dwf.C,v 1.7 2013-04-05 17:51:13 chulwoo Exp $
+//  $Name: not supported by cvs2svn $
 //  $Locker:  $
 //  $RCSfile: d_op_dwf.C,v $
-//  $Revision: 1.5 $
-//  $Source: /space/cvs/cps/cps++/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v $
+//  $Revision: 1.7 $
+//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/d_op_dwf.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------
@@ -40,7 +40,7 @@ CPS_END_NAMESPACE
 #include <util/wilson.h>
 #include <util/time_cps.h>
 #include <util/dwf.h>
-#include <mem/p2v.h>
+//#include <mem/p2v.h>
 #include <comms/glb.h>
 
 #ifdef USE_CG_DWF_WRAPPER
@@ -92,7 +92,7 @@ DiracOpDwf::DiracOpDwf(Lattice & latt,
   //----------------------------------------------------------------
   // Do the necessary conversions
   //----------------------------------------------------------------
-#undef PROFILE
+#define PROFILE
 #ifdef PROFILE
   Float time = -dclock();
 #endif
@@ -145,7 +145,7 @@ DiracOpDwf::~DiracOpDwf() {
   //----------------------------------------------------------------
   // Do the necessary conversions
   //----------------------------------------------------------------
-#undef PROFILE
+#define PROFILE
 #ifdef PROFILE
   Float time = -dclock();
 #endif
@@ -330,6 +330,10 @@ int DiracOpDwf::MatInv(Vector *out,
   VRB.Func(cname,fname);
 //  VRB.Result(cname,fname,"Not using cg-dwf");
 
+#define PROFILE
+#ifdef PROFILE
+  Float time = -dclock();
+#endif
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fdwf
   // and DiracOpDwf constructors but is done again in case the
@@ -347,18 +351,6 @@ int DiracOpDwf::MatInv(Vector *out,
   Vector *temp2;
   unsigned long long temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
-//  printf("temp_size:%d\n",temp_size);
-//  printf("MatInv : %e %e\n",in->NormSqNode(temp_size),out->NormSqNode(temp_size));
-
-
-
-  // check out if converted
-  //for (int ii = 0; ii < 2 * temp_size; ii++) {
-  //  VRB.Result(cname, fname, "in[%d] = %e\n", ii, 
-  //  *((IFloat *)in + ii));
-  //  VRB.Result(cname, fname, "out[%d] = %e\n", ii, 
-  //  *((IFloat *)out + ii));
-  //}
 
   Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
   if (temp == 0) ERR.Pointer(cname, fname, "temp");
@@ -387,15 +379,15 @@ int DiracOpDwf::MatInv(Vector *out,
 
 //  printf("MatInv : even : Dslash : temp:%e \n",temp->NormSqNode(temp_size));
 
+  int iter;
+
+
   // save source
   if(prs_in == PRESERVE_YES){
     moveMem((IFloat *)temp2, (IFloat *)in, 
 		temp_size * sizeof(IFloat) / sizeof(char));
   }
 
-
-
-  int iter;
   switch (dirac_arg->Inverter) {
   case CG:
 #ifdef USE_CG_DWF_WRAPPER
@@ -407,10 +399,28 @@ int DiracOpDwf::MatInv(Vector *out,
 	}
 #endif
     MatPcDag(in, temp);
+#ifdef PROFILE
+  time += dclock();
+  print_flops(fname,"Before InvCg()",0,time);
+  time = -dclock();
+#endif
+#ifdef USE_QUDA
+    iter = QudaInvert(out, in, true_res, 1);
+#else
     iter = InvCg(out,in,true_res);
+#endif
+#ifdef PROFILE
+  time += dclock();
+  print_flops(fname,"MatPcDat+InvCg()",0,time);
+  time = -dclock();
+#endif
     break;
   case BICGSTAB:
+#ifdef USE_QUDA
+    iter = QudaInvert(out, temp, true_res, 0);
+#else
     iter = BiCGstab(out,temp,0.0,dirac_arg->bicgstab_n,true_res);
+#endif
     break;
   default:
     ERR.General(cname,fname,"InverterType %d not implemented\n",
@@ -435,6 +445,10 @@ int DiracOpDwf::MatInv(Vector *out,
     VRB.Sfree(cname, fname, "temp2", temp2);
     sfree(temp2);
   }
+#ifdef PROFILE
+  time += dclock();
+  print_flops(fname,"After InvCg()",0,time);
+#endif
 
   return iter;
 }
