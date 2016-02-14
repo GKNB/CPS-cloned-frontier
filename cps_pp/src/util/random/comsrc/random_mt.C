@@ -284,12 +284,12 @@ void LatRanGen::Initialize()
 if (index_4d==0){
 		std::stringstream mtran_dump;
 		mtran_dump <<mtran[index_4d];
-#if 1
+	if (!UniqueID()){
 		std::cout << "mtran["<<index_4d<<"]"<<std::endl;
 		std::cout << mtran_dump.str() << std::endl;
 		mtran_dump.seekg(0,mtran_dump.beg);
-#endif
-#if 1
+	}
+#if 0
 		for (int i_dump=0;i_dump<1000 && !mtran_dump.eof(); i_dump++){
 			RNGSTATE dump,dump2;
 #if 1
