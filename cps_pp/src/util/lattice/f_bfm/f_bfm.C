@@ -2,6 +2,10 @@
 #include<config.h>
 #include<math.h>
 
+#include<util/multi_cg_controller.h>
+CPS_START_NAMESPACE
+MultiShiftCGcontroller MultiShiftController;
+CPS_END_NAMESPACE
 #ifdef USE_BFM
 
 #include <util/lattice/bfm_evo.h>
@@ -36,7 +40,6 @@ std::map<Float, MADWFParams> Fbfm::madwf_arg_map;
 
 bool Fbfm::use_mixed_solver = false;
 
-MultiShiftCGcontroller MultiShiftController;
 
 // NOTE:
 //

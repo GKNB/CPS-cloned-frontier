@@ -17,7 +17,10 @@ CPS_START_NAMESPACE
 
 CPS_END_NAMESPACE
 #include<math.h>
+#ifdef USE_BFM
 #include <util/lattice/bfm_mixed_solver_multi.h>
+#endif
+#include <util/multi_cg_controller.h>
 #include<alg/alg_hmc.h>
 #include<alg/alg_meas.h>
 #include<comms/glb.h>

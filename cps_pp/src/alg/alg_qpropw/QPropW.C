@@ -44,7 +44,7 @@
 #include <alg/alg_smear.h>
 #include <alg/no_arg.h>
 
-#include <omp.h>
+//#include <omp.h>
 #include <qmp.h>
 
 #define VOLFMT QIO_VOLFMT

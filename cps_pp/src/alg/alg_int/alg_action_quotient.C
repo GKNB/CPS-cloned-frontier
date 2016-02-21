@@ -30,8 +30,10 @@ CPS_END_NAMESPACE
 #include<util/dirac_op.h>
 #include <util/timer.h>
 #include <vector>
+#ifdef USE_BFM
 #include <util/lattice/fbfm.h>
 #include <util/lattice/f_dwf4d.h>
+#endif
 CPS_START_NAMESPACE
 
 AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
@@ -51,6 +53,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
                     "Inconsistency between QuotientArg and BilinearArg n_masses\n");
 
     if(n_masses > 0) {
+#ifdef USE_BFM
 	if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // AlgActionBilinear does not set fermion field size correctly for Fbfm
 	    VRB.Result(cname,fname,"mass=%g\n",cname,fname,quo_arg->quotients.quotients_val[0].bsn_mass);
@@ -70,6 +73,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
 		phi[i] = (Vector *)smalloc(f_size*sizeof(Float), "phi[i]", fname, cname);
 	    }
 	}
+#endif
 
         bsn_cg_arg.resize(n_masses);
         frm_cg_arg_fg.resize(n_masses);
@@ -83,6 +87,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
             bsn_mass.push_back(qi.bsn_mass);
             frm_mass.push_back(qi.frm_mass);
 
+#ifdef USE_BFM
 	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 		// Make sure all quotients have the same Ls
 		int Ls = Fbfm::arg_map.at(bsn_mass[0]).Ls;
@@ -93,6 +98,7 @@ AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
 		    ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0! (%d != %d)\n", i, Fbfm::arg_map.at(frm_mass[i]).Ls, Ls);
 		}
 	    }
+#endif
 
             //~~ added for twisted mass Wilson fermions
             bsn_mass_epsilon.push_back(qi.bsn_mass_epsilon);
@@ -206,14 +212,18 @@ void AlgActionQuotient::reweight(Float *rw_fac, Float *norm) {
 
         // tmp1, tmp2 < - random Gaussian vector (RGV)
         for(int i=0; i<n_masses; i++){
+#ifdef USE_BFM
 	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 		// Fbfm needs current_key_mass set before calling RandGaussVector
 		Fbfm::current_key_mass = bsn_mass[i];
 		VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	    }
+#endif
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
 
+
+#ifdef USE_BFM
 	    if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
 		// DWF with 4D pseudofermions needs separate treatment for efficiency reasons
                 // phi <- M_f^\dag (RGV)
@@ -229,7 +239,9 @@ void AlgActionQuotient::reweight(Float *rw_fac, Float *norm) {
 
                 rw_fac[i] = lat.FhamiltonNode(tmp2, tmp2);
                 rw_fac[i] -= norm[i];
-            } else {
+            } else 
+#endif
+		{
 		// everything besides Fdwf4d:
 
                 //~~ changed for twisted mass Wilson fermions
@@ -274,16 +286,19 @@ void AlgActionQuotient::heatbath() {
 
         // tmp1, tmp2 < - random Gaussian vector (RGV)
         for(int i=0; i<n_masses; i++){
+#ifdef USE_BFM
 	    if (quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 		// Fbfm needs current_key_mass set before calling RandGaussVector
 		Fbfm::current_key_mass = bsn_mass[i];
 		VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	    }
+#endif
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
 
 
             Float h_i;
+#ifdef USE_BFM
 	    if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
 		// DWF with 4D pseudofermions needs separate treatment for efficiency reasons
 		// tmp1 = M_f^\dag (RGV)
@@ -298,7 +313,9 @@ void AlgActionQuotient::heatbath() {
 		phi[i]->VecZero(f_size);
 		cg_iter = lat_fdwf4d->FmatEvlInvUnsquared(phi[i], tmp2, &bsn_cg_arg[i], DAG_YES);
 
-	    } else {
+	    } else 
+#endif
+		{
 		// everything besides Fdwf4d:
 
 		//~~ changed for twisted mass Wilson fermions
@@ -352,6 +369,7 @@ Float AlgActionQuotient::energy() {
             for(int i=0; i<n_masses; i++) {
 
                 Float h_i;
+#ifdef USE_BFM
 		if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
 		    // DWF with 4D pseudofermions needs separate treatment for efficiency reasons
 
@@ -368,7 +386,9 @@ Float AlgActionQuotient::energy() {
 		    // h <- h + ||tmp2||^2
 		    h_i = lat.FhamiltonNode(tmp2, tmp2);
                     h += h_i;
-		} else {
+		} else 
+#endif
+{
 		    // everything besides Fdwf4d:
 
 		    //~~ changed for twisted mass Wilson fermions
@@ -425,7 +445,9 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
     ForceArg Fdt;
     for(int i=0; i<n_masses; i++) {
 
+#ifdef USE_BFM
 	Fdwf4d::pauli_villars_resid = Fdwf4d::pauli_villars_resid_md;
+#endif
 
 	//~~ changed for twisted mass Wilson fermions
         // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
@@ -548,7 +570,9 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
     for (int steps=0; steps<nsteps; steps++) {
         for(int i=0; i<n_masses; i++) {
 
+#ifdef USE_BFM
 	    Fdwf4d::pauli_villars_resid = Fdwf4d::pauli_villars_resid_md;
+#endif
 
             //~~ changed for twisted mass Wilson fermions
             // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)

@@ -781,7 +781,9 @@ void AlgActionRational::checkApprox(Float *mass, RemezArg *remez_arg,
   char *fname = "checkApprox()";
   
   // Necessary so that functions called by AlgEig know what Ls Fbfm is using:
+#ifdef USE_BFM
   Fbfm::current_key_mass = mass[0];
+#endif
 
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
   

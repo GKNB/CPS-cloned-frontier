@@ -22,7 +22,7 @@
 #include <cmath>
 #include <cassert>
 #include <vector>
-#include <omp.h>
+//#include <omp.h>
 #include <qmp.h>
 
 CPS_START_NAMESPACE

@@ -74,6 +74,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 
   //!< Allocate memory for the fermion CG arguments.
   if(n_masses > 0){
+#ifdef USE_BFM
       if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	  // AlgActionBilinear does not set fermion field size correctly for Fbfm
 	  int Ls = Fbfm::arg_map.at(rat_quo_arg->bsn_mass.bsn_mass_val[0]).Ls;
@@ -92,6 +93,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 	      phi[i] = (Vector *)smalloc(f_size*sizeof(Float), "phi[i]", fname, cname);
 	  }
       }
+#endif
 
 
     bsn_mass = (Float*) smalloc(n_masses * sizeof(Float), "bsn_mass", fname, cname);
@@ -101,6 +103,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
       bsn_mass[i] = rat_quo_arg->bsn_mass.bsn_mass_val[i];
       frm_mass[i] = rat_quo_arg->frm_mass.frm_mass_val[i];
 
+#ifdef USE_BFM
       if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	  // Make sure all quotients have the same Ls
 	  int Ls = Fbfm::arg_map.at(bsn_mass[0]).Ls;
@@ -111,6 +114,7 @@ AlgActionRationalQuotient::AlgActionRationalQuotient(AlgMomentum &mom,
 	      ERR.General(cname, fname, "Fermion mass #%d doesn't have the same Ls as boson mass #0!\n", i);
 	  }
       }
+#endif
     }
     
     //!< construct approximation if necessary
@@ -216,11 +220,13 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
     Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
     
     for(int i=0; i<n_masses; i++){
+#ifdef USE_BFM
 	if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // Fbfm needs current_key_mass set before calling RandGaussVector
 	    Fbfm::current_key_mass = bsn_mass[i];
 	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	}
+#endif
       lat.RandGaussVector(phi[i], 0.5, Ncb);
       norm[i] = lat.FhamiltonNode(phi[i],phi[i]);
 
@@ -279,11 +285,13 @@ void AlgActionRationalQuotient::heatbath() {
     h_init = 0.0;
     
     for(int i=0; i<n_masses; i++){
+#ifdef USE_BFM
 	if (rat_quo_arg->bi_arg.fermion == F_CLASS_BFM) {
 	    // Fbfm needs current_key_mass set before calling RandGaussVector
 	    Fbfm::current_key_mass = bsn_mass[i];
 	    VRB.Result(cname, fname, "Setting Fbfm::current_key_mass = %e before calling RandGaussVector\n", Fbfm::current_key_mass);
 	}
+#endif
       lat.RandGaussVector(phi[i], 0.5, Ncb);
       Float h_i = lat.FhamiltonNode(phi[i],phi[i]);
       h_init += h_i;

@@ -3115,6 +3115,7 @@ void
      ) {
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
+#ifdef USE_BFM
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
       s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
@@ -3123,6 +3124,8 @@ void
         ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
       }*/
     }
+#endif
+
   }
   LRG.SetSigma (sigma2);
 

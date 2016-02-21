@@ -185,6 +185,7 @@ void remap(char *out, char *in, char *tmp,
     VRB.Result(cname, fname, "End remapping.\n");
 }
 
+#ifdef USE_C11_RNG
 static void CalcRand(char *msite,int data_per_site, Float *RandSum, Float *Rand2Sum){
        static int called=0;
        RNGSTATE *dump = (RNGSTATE*) msite;
@@ -200,6 +201,7 @@ static void CalcRand(char *msite,int data_per_site, Float *RandSum, Float *Rand2
        *RandSum += rn;
        *Rand2Sum += rn*rn;
 }
+#endif
 
 
 // convert to file format, csum and pdcsum are computed outside.
