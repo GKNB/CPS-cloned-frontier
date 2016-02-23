@@ -1,5 +1,12 @@
 #include<config.h>
 
+#ifdef USE_BFM
+#include <util/lattice/bfm_evo.h>
+#include <util/lattice/bfm_eigcg.h>
+#include <util/lattice/fbfm.h>
+#endif
+
+
 CPS_START_NAMESPACE
 //Controls the version of the multi-shift algorithm used. The user can define different versions to use in different environments, for example if you
 //want to use an approximate method within the molecular dynamics evolution.
