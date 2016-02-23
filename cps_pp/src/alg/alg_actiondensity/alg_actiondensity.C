@@ -164,7 +164,7 @@ void AlgActionDensity::run()
 
   if(common_arg->filename != 0)
     {
-      char *fname = "run()";
+      const char *fname = "run()";
       FILE *fp;
       if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
         ERR.FileA(cname,fname,common_arg->filename);
@@ -825,7 +825,7 @@ void AlgActionDensity::smartrun()
   //----------------------------------------------------------------
 
   if(common_arg->filename != 0) {
-    char *fname = "run()";
+    const char *fname = "run()";
     FILE *fp;
     if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
       ERR.FileA(cname,fname,common_arg->filename);

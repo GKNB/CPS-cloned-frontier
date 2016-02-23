@@ -14,22 +14,7 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
 
-  $Id: wilson_dslash_vec.C,v 1.5 2013-05-14 16:56:34 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-05-14 16:56:34 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v 1.5 2013-05-14 16:56:34 chulwoo Exp $
-//  $Id: wilson_dslash_vec.C,v 1.5 2013-05-14 16:56:34 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.5 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 /***************************************************************************/
 /*                                                                         */
 /* wilson_dslash: It calculates chi = Dslash * psi, or                     */

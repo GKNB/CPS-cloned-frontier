@@ -33,7 +33,7 @@ vml_IFloat (VML *vmls, char *name,IFloat *objp)
 bool_t
 vml_Pointer (VML *vmls, char *name,Pointer *objp)
 {
-	if (!vml_uint64_t (vmls,name,objp))
+	if (!vml_uint32_t (vmls,name,objp))
 		return FALSE;
 	return TRUE;
 }
@@ -88,6 +88,8 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
 	{"FclassType","F_CLASS_MOBIUS",F_CLASS_MOBIUS},
 	{"FclassType","F_CLASS_NAIVE",F_CLASS_NAIVE},
+	{"FclassType","F_CLASS_DWF4D",F_CLASS_DWF4D},
+	{"FclassType","F_CLASS_DWF4D_PAIR",F_CLASS_DWF4D_PAIR},
 	{NULL,NULL,0}
 };
 

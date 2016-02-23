@@ -4,21 +4,9 @@ CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
 
-  $Id: random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-05-15 05:50:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
-//  $Id: random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: random.C,v $
-//  $Revision: 1.34 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 
@@ -38,7 +26,7 @@ CPS_END_NAMESPACE
 #include <comms/sysfunc_cps.h>
 CPS_START_NAMESPACE
 
-#undef BOOTSTRAP
+#define BOOTSTRAP
 #define RNG_WARMUP
 
 static const int OFFSET = 23;
@@ -351,7 +339,7 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		  ugran[index].Reset(start_seed);
 #ifdef BOOTSTRAP
 {
-		int new_seed = ugran[index].Urand(1000000000,0);
+		int new_seed = ugran[index].Urand(RandomGenerator::MBIG,0);
 		printf("index=%d start_seed=%d new_seed=%d\n",index,start_seed,new_seed);
 		  ugran[index].Reset(new_seed);
 }
@@ -359,7 +347,7 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran[index].Urand(N_WARMUP,0);
-		printf("index=%d n_warm=%d\n",index,n_warm);
+//		printf("index=%d n_warm=%d\n",index,n_warm);
 		while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
 }
 #endif
@@ -367,18 +355,18 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 		  if(x[4]==x_o[4]){
 		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
  			ugran_4d[index_4d].Reset(start_seed_4d);
+#ifdef BOOTSTRAP
+{
+		int new_seed = ugran[index_4d].Urand(RandomGenerator::MBIG,0);
+		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
+		  ugran_4d[index_4d].Reset(new_seed);
+}
+#endif
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
-		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
+//		printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
 		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
-}
-#endif
-#ifdef BOOTSTRAP
-{
-		int new_seed = ugran[index_4d].Urand(1000000000,0);
-		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
-		  ugran_4d[index_4d].Reset(new_seed);
 }
 #endif
 			index_4d++;

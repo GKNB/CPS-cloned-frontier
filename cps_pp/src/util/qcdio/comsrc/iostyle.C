@@ -185,6 +185,25 @@ void remap(char *out, char *in, char *tmp,
     VRB.Result(cname, fname, "End remapping.\n");
 }
 
+#ifdef USE_C11_RNG
+static void CalcRand(char *msite,int data_per_site, Float *RandSum, Float *Rand2Sum){
+       static int called=0;
+       RNGSTATE *dump = (RNGSTATE*) msite;
+       stringstream ss_dump;
+       for(int i =0;i<data_per_site;i++){
+               ss_dump << dump[i]<< " ";
+       }
+      CPS_RNG temp_rng;
+       ss_dump >>  temp_rng;
+       std::normal_distribution<Float> grand;
+       Float rn = grand(temp_rng);
+//     VRB.Result("","CalcRand","data_per_site=%d dump[0]=%u rn=%g\n",data_per_site,dump[0],rn);
+       *RandSum += rn;
+       *Rand2Sum += rn*rn;
+}
+#endif
+
+
 // convert to file format, csum and pdcsum are computed outside.
 //
 // we have data in msite, need to fill fsite.
@@ -203,6 +222,7 @@ void convert2file(char *fsite, char *msite,
     } else { // rng
 #ifdef USE_C11_RNG
         dconv.host2file(fsite, msite, data_per_site);
+	CalcRand(msite,data_per_site,RandSum, Rand2Sum);
 #else
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;
         ugran->store(rng.IntPtr());
@@ -236,6 +256,7 @@ void convert2mem(char *fsite, char *msite,
     } else { // rng
 #ifdef USE_C11_RNG
         dconv.file2host(msite, fsite, data_per_site);
+	CalcRand(msite,data_per_site,RandSum, Rand2Sum);
 #else
         dconv.file2host(rng, fsite, data_per_site);
         UGrandomGenerator *ugran = (UGrandomGenerator*)msite;

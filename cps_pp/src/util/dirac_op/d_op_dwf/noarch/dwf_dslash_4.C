@@ -3,21 +3,6 @@
 #if 0
 #include "../sse/sse-dwf_dslash_4.C"
 #else
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-01-08 21:15:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/noarch/dwf_dslash_4.C,v 1.13 2013-01-08 21:15:08 chulwoo Exp $
-//  $Id: dwf_dslash_4.C,v 1.13 2013-01-08 21:15:08 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: dwf_dslash_4.C,v $
-//  $Revision: 1.13 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_dwf/noarch/dwf_dslash_4.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // dwf_dslash_4.C

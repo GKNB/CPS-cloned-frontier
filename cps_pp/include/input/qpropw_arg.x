@@ -27,7 +27,8 @@ enum RandomType {
   GAUSS  = 0, 
   UONE   = 1, 
   ZTWO   = 2, 
-  NORAND = 3 } ;
+  NORAND = 3,
+  TEST = 4 };
 
 class QPropWArg {
 
@@ -66,6 +67,7 @@ class QPropWArg {
   int EndSrcSpin;
   int StartSrcColor;
   int EndSrcColor;
+
   memfun QPropWArg();
 };
 

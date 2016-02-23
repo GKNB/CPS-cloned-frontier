@@ -45,8 +45,7 @@ const double PI = 3.14159265359;
 using namespace std;
 using namespace cps;
 
-double
-sqr (double x)
+double sqr (double x)
 {
   return x * x;
 }
@@ -58,8 +57,7 @@ sqr (double x)
             ERR.General(cname, fname, "Bad " #arg_name ".vml.\n");      \
     } while(0)
 
-int
-main (int argc, char **argv)
+int main (int argc, char **argv)
 {
 
   const char *cname = "";
@@ -73,13 +71,13 @@ main (int argc, char **argv)
   RAN_TYPE ran_type = U_ONE;
 
   if (ran_type == URAND)
-    VRB.Result(cname,fname,"Urand(1,-1)\n");
+    VRB.Result (cname, fname, "Urand(1,-1)\n");
   else if (ran_type == GRAND)
-    VRB.Result(cname,fname,"Grand()\n");
+    VRB.Result (cname, fname, "Grand()\n");
   else if (ran_type == Z_TWO)
-    VRB.Result(cname,fname,"Z2\n");
+    VRB.Result (cname, fname, "Z2\n");
   else if (ran_type == U_ONE)
-    VRB.Result(cname,fname,"polar(1.0, ran.Urand(PI,-PI)\n");
+    VRB.Result (cname, fname, "polar(1.0, ran.Urand(PI,-PI)\n");
 
 
   DoArg do_arg;
@@ -87,94 +85,100 @@ main (int argc, char **argv)
   GJP.Initialize (do_arg);
   LRG.setSerial ();
   LRG.Initialize ();
+  UGrandomGenerator ran;
 #ifdef MOVE_RNG
-  VRB.Result(cname,fname,"Moving RNG via LRG.AssignGenerator()\n");
+  VRB.Result (cname, fname, "Moving RNG via LRG.AssignGenerator()\n");
 #endif
-  LRG.Write("LRG_C11_test",1);
+  LRG.Write ("LRG_C11_test", 1);
 
 
-//  UGrandomGenerator ran;
-//  ran.Reset (1231);
   const int Nt = 256;
+  const int Nrepeat = 100;
   const int Nn = 16;
   const int Ndrop = 1024;
   const int Ntake = 8;
-  VRB.Result(cname,fname,"Nt=%d Nn=%d Ndrop=%d Ntake=%d\n", Nt, Nn, Ndrop, Ntake);
-  int repeat=1;
-  while (repeat++ <= 100)
-    {
-  if (repeat%20==1) LRG.Read("LRG_C11_test",1);
-      double sum = 0;
-      double sigma = 0;
-    int pos[4]={0,0,0,0};
-      for (int traj = 0; traj < Nt; traj++)
-	{
-	  Complex a = 0;
-	  for (int id = 0; id < Nn; id++)
-	    {
-	      int seed = 123132 + 23 * Nn * traj + 23 * id;
-	      // Comment out the line below to see the correct result
-//	      ran.Reset (seed);
-              pos [0] +=2;
-	      for(int dir=0;dir<3;dir++)
-              if (pos[dir] >= GJP.NodeSites(dir)){
-                 pos[dir]=0; pos[dir+1] += 2;
-              }
-              if (pos[3] >= GJP.NodeSites(3)) pos[3]=0;
+  VRB.Result (cname, fname, "Nt=%d Nn=%d Ndrop=%d Ntake=%d\n", Nt, Nn, Ndrop,
+	      Ntake);
+  int repeat = 0;
+  double total_sum = 0;
+  double total_sigma = 0;
+  while (repeat++ < Nrepeat*2) {
+    if (repeat % Nrepeat == 1)
+      LRG.Read ("LRG_C11_test", 1);
+    double sum = 0;
+    double sigma = 0;
+    int pos[4] = { 0, 0, 0, 0 };
+    for (int traj = 0; traj < Nt; traj++) {
+      Complex a = 0;
+      for (int id = 0; id < Nn; id++) {
+#if 0 // Luchang's original test 
+            uint32_t seed = 123132 + 23 * Nn * traj + 23 * id;
+	ran.Reset(seed);
+#else
+	pos[0] += 2;
+	for (int dir = 0; dir < 3; dir++)
+	  if (pos[dir] >= GJP.NodeSites (dir)) {
+	    pos[dir] = 0;
+	    pos[dir + 1] += 2;
+	  }
+	if (pos[3] >= GJP.NodeSites (3))
+	  pos[3] = 0;
 #ifdef MOVE_RNG
-//	      LRG.AssignGenerator (traj * Nn + id);
-	      LRG.AssignGenerator (pos);
-	VRB.Debug(cname,fname,"LRG.AssignGenerator (%d %d %d %d)\n",pos[0],pos[1],pos[2],pos[3]);
+	LRG.AssignGenerator (pos);
+	VRB.Debug (cname, fname, "LRG.AssignGenerator (%d %d %d %d)\n", pos[0],
+		   pos[1], pos[2], pos[3]);
 #endif
-	      for (int i = 0; i < Ndrop; i++)
-		{
-//        ran.Urand();
-		  LRG.Urand ();
-//		  LRG.Grand ();
-		}
-	      for (int i = 0; i < Ntake; i++)
-		{
+#endif
+	for (int i = 0; i < Ndrop; i++) {
+	  LRG.Urand ();
+//                LRG.Grand ();
+	}
+	for (int i = 0; i < Ntake; i++) {
 //        a += polar(1.0, ran.Urand(PI,-PI));
-		  if (ran_type == U_ONE)
-		    {
-		      Complex temp = polar (1.0, LRG.Urand (PI, -PI));
-		      if (traj==0 && i == 0 && id == 0)
-			VRB.Debug(cname,fname,"i=0 a=%g %g\n", real (temp), imag (temp));
-		      a += temp;
-		    }
-		  else if (ran_type == URAND)
-		    a += LRG.Urand (1, -1);
-		  else if (ran_type == Z_TWO)
-		    {
-		      double temp = LRG.Urand (1, -1);
-		      if (temp > 0)
-			a += 1;
-		      else
-			a -= 1;
-		    }
-		  else
-		    a += LRG.Grand ();
-//		    a += Complex( LRG.Grand (), LRG.Grand() ) ;
+	  if (ran_type == U_ONE) {
+	    Complex temp = polar (1.0, LRG.Urand (PI, -PI));
+	    if (traj == 0 && i == 0 && id == 0)
+	      VRB.Debug (cname, fname, "i=0 a=%g %g\n", real (temp),
+			 imag (temp));
+	    a += temp;
+	  } else if (ran_type == URAND)
+	    a += LRG.Urand (1, -1);
+	  else if (ran_type == Z_TWO) {
+	    double temp = LRG.Urand (1, -1);
+	    if (temp > 0)
+	      a += 1;
+	    else
+	      a -= 1;
+	  } else
+	    a += LRG.Grand ();
+//                  a += Complex( LRG.Grand (), LRG.Grand() ) ;
 //      if (i==0) VRB.Result(cname,fname,"traj=%d id=%d i=%d a = %f\n",traj,id,i,temp);
 //        a += temp;
-		}
-	    }
-	  if (ran_type == U_ONE || ran_type == GRAND)
-	    {
-	      sum += norm (a);
-	      sigma += norm (a) * norm (a);
-	      if (traj==0) VRB.Debug(cname,fname,"a=%g %g  sum=%g sigma=%g \n", real (a), imag (a),sum,sigma);
-              
-	    }
-	  else
-	    {
-	      sum += real (a);
-	      sigma += real (a) * real (a);
-	    }
 	}
-      if (ran_type == U_ONE) cout << " Expected: " << Nn * Ntake ;
-      cout << " Mean: " << sum / Nt << " Var: " << sqrt (sigma / Nt -
-				sqr (sum / Nt)) / sqrt (Nt) << endl;
+      }
+      if (ran_type == U_ONE || ran_type == GRAND) {
+	sum += norm (a);
+	sigma += norm (a) * norm (a);
+	if (traj == 0)
+	  VRB.Debug (cname, fname, "a=%g %g  sum=%g sigma=%g \n", real (a),
+		     imag (a), sum, sigma);
+
+      } else {
+	sum += real (a);
+	sigma += real (a) * real (a);
+      }
     }
+    if (ran_type == U_ONE || ran_type == GRAND)
+      cout << " Expected: " << Nn * Ntake;
+    cout << " Mean: " << sum / Nt << " Var: " << sqrt (sigma / Nt -
+						       sqr (sum / Nt)) /
+      sqrt (Nt) << endl;
+    total_sigma += sigma;
+    total_sum += sum;
+    if (repeat % Nrepeat == 0){
+  cout << " Total Mean: " << total_sum / (Nt*Nrepeat) << " Var: " << sqrt (total_sigma / (Nt*Nrepeat) - sqr (total_sum / (Nt*Nrepeat))) / sqrt ((Nt*Nrepeat)) << endl;
+	total_sum=total_sigma=0.;
+    }
+  }
   return 0;
 }

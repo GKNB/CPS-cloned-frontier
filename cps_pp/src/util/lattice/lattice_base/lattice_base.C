@@ -3,23 +3,7 @@
 /*!\file
   \brief  Lattice class methods.
   
-  $Id: lattice_base.C,v 1.73 2013-06-25 12:51:12 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-06-25 12:51:12 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.73 2013-06-25 12:51:12 chulwoo Exp $
-//  $Id: lattice_base.C,v 1.73 2013-06-25 12:51:12 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.73 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // lattice_base.C
@@ -45,6 +29,7 @@
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
 #include <cassert>
+#include <util/lattice/fbfm.h>
 
 #include <math.h>
 
@@ -53,7 +38,7 @@
 #include <sys/bgl/bgl_sys_all.h>
 #endif
 
-//#include <util/omp_wrapper.h>
+#include <util/omp_wrapper.h>
 
 CPS_START_NAMESPACE
 //------------------------------------------------------------------
@@ -321,6 +306,10 @@ Lattice::Lattice ()
   if (GJP.XiBare () != 1.0)
     Reunitarize ();
 #endif
+  Float max_dev=1;
+  Float max_diff=1;
+  CheckUnitarity(max_dev,max_diff);
+  VRB.Result(cname,fname,"CheckUnitarity():dev=%g max_diff=%g\n",max_dev,max_diff);
 
   smeared = 0;
 }
@@ -337,8 +326,8 @@ Lattice::~Lattice ()
 {
 #if 1
   const char *fname = "~Lattice()";
-  VRB.Func (cname, fname);
-
+  VRB.Func(cname,fname);
+  
   // if GJP.Snodes() != 1 check that the gauge field is identical
   // on all s-slices.
   //----------------------------------------------------------------
@@ -603,8 +592,8 @@ void Lattice::CopyGaugeField (Matrix * u)
 
 void Lattice::CopyU1GaugeField (Float * u)
 {
-  char *fname = "CopyU1GaugeField(f*)";
-  VRB.Func (cname, fname);
+  const char *fname = "CopyGaugeField(M*)";
+  VRB.Func(cname,fname);
   int size;
 
   size = U1GsiteSize () * GJP.VolNodeSites () * sizeof (IFloat);
@@ -998,8 +987,22 @@ Float Lattice::ReU1Plaq (int *x, int mu, int nu) const
 //VRB.Func(cname,fname);
 
 
+#if 1
   int offset_x = GsiteOffset (x);
   Float *g_offset = U1GaugeField () + offset_x;
+#else
+  \param x The coordinates of the lattice site 
+  \param mu The link direction
+  \param rect The computed staple sum.
+*/
+//------------------------------------------------------------------
+void Lattice::RectStaple(Matrix& rect, int *x, int mu)
+{
+//const char *fname = "RectStaple(M&,i*,i)" ;
+//VRB.Func(cname, fname) ;
+//VRB.Debug(cname,fname, "rect %3i %3i %3i %3i ; %i\n",
+//          x[0], x[1], x[2], x[3], mu) ;
+#endif
 
   //----------------------------------------------------------
   // U_u(x)
@@ -1895,7 +1898,7 @@ Float Lattice::SumSigmaEnergyNode ()
 Float Lattice::SumReTrPlaq (void) const
 {
   const char *fname = "SumReTrPlaq() const";
-  VRB.Func (cname, fname);
+  VRB.Func(cname,fname);
 
   Float sum = SumReTrPlaqNode ();
   glb_sum (&sum);
@@ -2291,7 +2294,6 @@ Float Lattice::AveReTrPlaqNodeXi () const
 {
   const char *fname = "AveReTrPlaqNodeXi()";
   VRB.Func (cname, fname);
-
   Float sum = 0.0;
   int x[4];
 
@@ -2449,8 +2451,8 @@ Float Lattice::AveReTrRectNodeNoXi () const
 Float Lattice::AveReTrRectNodeXi1 () const
 {
   const char *fname = "AveReTrRectNodeXi1()";
-  VRB.Func (cname, fname);
-
+  VRB.Func(cname,fname);
+  
   Float sum = 0.0;
   int x[4];
 
@@ -2496,8 +2498,8 @@ Float Lattice::AveReTrRectNodeXi1 () const
 Float Lattice::AveReTrRectNodeXi2 () const
 {
   const char *fname = "AveReTrRectNodeXi2()";
-  VRB.Func (cname, fname);
-
+  VRB.Func(cname,fname);
+  
   Float sum = 0.0;
   int x[4];
 
@@ -2855,6 +2857,58 @@ void Lattice::Reunitarize (Float & dev, Float & max_diff)
   MltFloat (GJP.XiBare (), GJP.XiDir ());
   smeared = 0;
 }
+void Lattice::CheckUnitarity(Float &max_dev, Float &max_diff)
+{
+  const char *fname = "CheckUnitarity(F&,F&)";
+  VRB.Func(cname,fname);
+
+  // Modified here by Ping for anisotropic lattices
+  //----------------------------------------------------------------
+  MltFloat(1.0 / GJP.XiBare(), GJP.XiDir());    
+
+
+  int i,j;
+  int links;
+  Matrix *u;
+  Matrix tmp;
+  Float *tmp_p = (Float *)&tmp;
+
+  links = 4 * GJP.VolNodeSites();
+  u = GaugeField();
+
+  Float dev = 0.0;
+  Float diff = 0.0;
+
+  for(i=0; i<links; i++){
+    tmp = u[i];
+    tmp.Unitarize();
+    tmp -= u[i];
+    for(j=0; j<18; j++){
+      dev = dev + tmp_p[j] * tmp_p[j];
+      if(tmp_p[j]*tmp_p[j] > diff*diff){
+	diff = fabs(tmp_p[j]);
+  if (diff > max_diff){
+  Float *u_p = (Float *)u;
+  for(int j=0;j<18;j++)
+  printf("u[%d]=%g dev[%d]=%g\n",j,u_p[j],j,tmp_p[j]);
+  ERR.General(cname,fname,"diff(%g)>max_diff(%g)!\n",diff,max_diff);
+}
+      }
+    }
+  }
+  dev = dev / Float(18 * links);
+  dev = double(sqrt(double(dev)));
+
+  //----------------------------------------------------------------
+  // Modified here by Ping for anisotropic lattices
+  //----------------------------------------------------------------
+  MltFloat(GJP.XiBare(), GJP.XiDir());    
+  if (dev > max_dev)
+  ERR.General(cname,fname,"dev(%g)>max_dev(%g)!\n",dev,max_dev);
+  max_dev = dev;
+  max_diff = diff;
+//  smeared = 0;
+}
 
 
 //------------------------------------------------------------------
@@ -2961,11 +3015,7 @@ void Lattice::RandGaussAntiHermMatrix (Matrix * mat, Float sigma2)
   const char *fname = "RandGaussAntiHermMatrix(M*,F)";
   VRB.Func (cname, fname);
 
-#if TARGET == QCDSP
-  IFloat *a = (IFloat *) CRAM_SCRATCH_ADDR;
-#else
   IFloat a[8];
-#endif
 
   LRG.SetSigma (0.5 * sigma2);
 
@@ -3049,43 +3099,74 @@ void
 			    StrOrdType str,
 			    FermionFieldDimension frm_dim /* = FIVE_D */ )
 {
-  const char *fname =
-    "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
-  VRB.Func (cname, fname);
+  const char *fname = "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
+  VRB.Func(cname, fname);
 
-  int vec_size = 2 * Colors () * SpinComponents ();
+  int vec_size = 2 * Colors() * SpinComponents();
 
-  int s_node_sites = GJP.SnodeSites ();
-  if (frm_dim == FOUR_D || s_node_sites == 0
-      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-      || (Fclass () != F_CLASS_DWF && Fclass () != F_CLASS_BFM)) {
-    s_node_sites = 1;
-    frm_dim = FOUR_D;
+  int s_node_sites = GJP.SnodeSites();
+  if(frm_dim == FOUR_D
+     || s_node_sites == 0
+     // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
+     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)
+#ifdef USE_BFM
+     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
+#endif
+     ) {
+    s_node_sites = 1; frm_dim = FOUR_D;
+  } else {
+#ifdef USE_BFM
+    // Fbfm can use an Ls that is different from GJP.SnodeSites()
+    if (Fclass() == F_CLASS_BFM) {
+      s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
+      VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
+      /*if (s_node_sites > GJP.SnodeSites()) {
+        ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
+      }*/
+    }
+#endif
+
   }
   LRG.SetSigma (sigma2);
 
   IFloat *ptr = (IFloat *) frm;
   int checker, i, k, s, x[4];
-  IFloat sum = 0.0, square = 0.0;
+  IFloat sum=0.0,square=0.0;
 
 
-  if (num_chkbds == 2) {
-    for (checker = 0; checker < 2; checker++)
-      for (s = 0; s < s_node_sites; s++) {
-	if ((s % 2) == checker) {
-	  for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++)
-	    for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)
-	      for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++)
-		for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
-//      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
-		  LRG.AssignGenerator (x[0], x[1], x[2], x[3], s);
-//      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
-		  for (k = 0; k < vec_size; k++) {
-		    *(ptr++) = LRG.Grand (frm_dim);
-		  }
-		}
-	}
+  if(num_chkbds == 2) {
+    for(checker = 0; checker < 2; checker++)
+    for(s = 0; s < s_node_sites; s++) {
+      if( (s % 2) == checker) {
+        for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]++)
+        for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]++)
+        for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]++)
+        for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]++) {
+//	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
+          LRG.AssignGenerator(x[0],x[1],x[2],x[3],s);
+//	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
+          for(k = 0; k < vec_size; k++) {
+            *(ptr++) = LRG.Grand(frm_dim);
+          }
+        }
       }
+    }
+  }
+  else if(num_chkbds == 1) {
+    if (str == STAG){           
+      for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]++)     // z
+      for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]++)     // y
+      for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]++)     // x
+      for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3] += 2) {   // t
+        LRG.AssignGenerator(x);
+        for(k = 0; k < FsiteSize(); k++) {
+          *(ptr) = LRG.Grand(frm_dim);
+          sum += *ptr;
+          square += (*ptr)*(*ptr);
+          ptr++;
+        }
+      }
+#if 0
   } else if (num_chkbds == 1) {
     if (str == STAG) {
       for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)	// z
@@ -3100,6 +3181,7 @@ void
 		ptr++;
 	      }
 	    }
+#endif
     } else {
       for (i = 0; i < GJP.VolNodeSites () * s_node_sites; i += 2) {
 	LRG.AssignGenerator (i);
@@ -3172,7 +3254,7 @@ void Lattice::SetGfieldDisOrd (void)
 {
 #if 1
   const char *fname = "SetGfieldDisOrd()";
-  VRB.Func (cname, fname);
+  VRB.Func(cname,fname);
 
   int site_size = GsiteSize ();
   LRG.SetInterval (1, -1);
@@ -3911,6 +3993,45 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
   plaq += *mp2;
   plaq *= -1.0;
 
+}
+#endif
+
+
+#if 0
+// ----------------------------------------------------------------
+// BondCond: toggle boundary condition on/off for gauge field. Based
+// on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
+//
+// The gauge field must be in CANONICAL order.
+// ----------------------------------------------------------------
+void Lattice::BondCond()
+{
+    Matrix *u_base = this->GaugeField();
+
+    for(int mu = 0; mu < 4; ++mu) {
+        if(GJP.NodeBc(mu) != BND_CND_APRD) continue;
+
+        int low[4] = { 0, 0, 0, 0 };
+        int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
+                        GJP.ZnodeSites(), GJP.TnodeSites() };
+        low[mu] = high[mu] - 1;
+
+        int hl[4] = { high[0] - low[0], high[1] - low[1],
+                      high[2] - low[2], high[3] - low[3] };
+
+        const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
+
+#pragma omp parallel for
+        for(int i = 0; i < hl_sites; ++i) {
+            int x[4];
+            compute_coord(x, hl, low, i);
+
+            int off = mu + 4 * (x[0] + high[0] *
+                                (x[1] + high[1] *
+                                 (x[2] + high[2] * x[3])));
+            u_base[off] *= -1.;
+        }
+    }
 }
 #endif
 

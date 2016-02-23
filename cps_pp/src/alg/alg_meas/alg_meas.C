@@ -2,6 +2,7 @@
 
 #ifdef USE_BFM
 #include <util/lattice/fbfm.h>
+#include <util/lattice/f_dwf4d.h>
 #endif
 
 #include <alg/no_arg.h>
@@ -28,21 +29,9 @@ CPS_START_NAMESPACE
 /*!\file
   \brief PAB... Definitions of the AlgMeas class methods.
   
-  $Id: alg_meas.C,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_meas/alg_meas.C,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: alg_meas.C,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: alg_meas.C,v $
-//  $Revision: 1.11 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_meas/alg_meas.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -283,15 +272,17 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
 {
   /* BFM VALENCE ANALYSIS */
 #ifdef USE_BFM
-  if(fermion == F_CLASS_BFM) Fbfm::current_arg_idx = 0;
-  else if(fermion == F_CLASS_BFM_TYPE2) Fbfm::current_arg_idx = 1;
-
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_NONE ) ) {
+  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_NONE ) ) {
     lat_p = new GnoneFbfm;
+    return *lat_p; 
+  }
+  if ( (fermion == F_CLASS_BFM) && (gluon == G_CLASS_IMPR_RECT ) ) {
+    lat_p = new GimprRectFbfm;
     return *lat_p;
   }
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_IMPR_RECT ) ) {
-    lat_p = new GimprRectFbfm;
+
+  if ((fermion == F_CLASS_DWF4D) && (gluon == G_CLASS_NONE)) {
+    lat_p = new GnoneFdwf4d;
     return *lat_p;
   }
 #endif

@@ -12,6 +12,7 @@
 #ifdef USE_CHROMA
 #include <chroma.h>
 #endif
+#include <qdp.h>
 #include <util/gjp.h>
 #include <util/error.h>
 #include <util/verbose.h>
@@ -40,6 +41,8 @@ int cps_qdp_init(int *argc, char ***argv){
   if (qdp_initted) return 1;
 //  if (Chroma::isInitialized()) {
   if ( qdp_already_initted ) {
+//|| QDP::QDP_isInitialized()) {
+
     VRB.Result("","cps_qdp_init()","Already started!");
     qdp_initted = 1;
     return 1;
@@ -48,6 +51,8 @@ int cps_qdp_init(int *argc, char ***argv){
   Chroma::initialize( argc, argv);
   VRB.Result("","cps_qdp_init()","Chroma::initialize( argc, argv)");
 #endif
+  QDP::QDP_initialize( argc, argv);
+  VRB.Result("","cps_qdp_init()","QDP::initialize( argc, argv)");
   int size[Nd];
   multi1d<int> nrow(Nd);  
   for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
@@ -315,7 +320,7 @@ int max_iter
    * Setup DWF operator
    ********************************************************
    */
-  omp_set_num_threads(64);
+//  omp_set_num_threads(64);
   bfmarg dwfa;
 #ifdef UNIFORM_SEED_TESTING
   majorityVote  dwf;

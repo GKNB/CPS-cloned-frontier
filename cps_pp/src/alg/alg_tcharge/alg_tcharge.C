@@ -1287,6 +1287,13 @@ void AlgTcharge::smartrun()
       }
       glb_sum(&slice_sums[f][t]);
     }
+#if 0
+    j = omp_get_thread_num();
+    for(int f1(0); f1 < nfunc; ++f1)
+      for(int f2(f1); f2 < nfunc; ++f2)
+        tmp[j][f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+       // tmat[f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+#endif
   }
 
   for(int f1(0); f1 < nfunc; ++f1)

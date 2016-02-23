@@ -2,23 +2,7 @@
 /*! \file
   \brief Declarations of routine used internally in the DiracOpWilson class.
 
-  $Id: wilson.h,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/wilson.h,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: wilson.h,v 1.11 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: wilson.h,v $
-//  $Revision: 1.11 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/wilson.h,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 /****************************************************************************/
 /* 10/16/97                                                                 */
 /*                                                                          */
@@ -34,6 +18,7 @@
 #ifdef USE_QMP
 #include <qmp.h>
 #endif
+
 #include <util/data_types.h>
 
 CPS_START_NAMESPACE

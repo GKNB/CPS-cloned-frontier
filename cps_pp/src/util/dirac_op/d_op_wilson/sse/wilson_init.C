@@ -7,22 +7,7 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
   
-  $Id: wilson_init.C,v 1.4 2013-01-08 21:09:25 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-01-08 21:09:25 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/sse/wilson_init.C,v 1.4 2013-01-08 21:09:25 chulwoo Exp $
-//  $Id: wilson_init.C,v 1.4 2013-01-08 21:09:25 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.4 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/sse/wilson_init.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 /****************************************************************************/
 /* 10/16/97                                                                 */
 /*                                                                          */

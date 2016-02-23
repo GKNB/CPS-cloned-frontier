@@ -4,8 +4,9 @@
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
 
-  $Id: wilson_dslash.C,v 1.10 2013-04-24 21:16:13 chulwoo Exp $
 */
+//--------------------------------------------------------------------
+//
 //
 //--------------------------------------------------------------------
 /***************************************************************************/
@@ -72,7 +73,7 @@ CPS_START_NAMESPACE
 
 
 
-void wilson_dslash(IFloat *chi_p_f, 
+	void wilson_dslash(IFloat *chi_p_f, 
 		   IFloat *u_p_f, 
 		   IFloat *psi_p_f, 
 		   int cb,

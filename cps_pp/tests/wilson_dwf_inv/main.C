@@ -1,5 +1,4 @@
 /*
-$Id: main.C,v 1.12.30.1 2007/07/19 04:26:03 chulwoo Exp $
 */
 
 #include<omp.h>
@@ -43,6 +42,7 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 int main(int argc,char *argv[]){
 
     Start(&argc, &argv);
+    char *fname = "main()";
 //omp_set_num_threads(16);
 #pragma omp parallel default(shared)
 {
@@ -60,6 +60,20 @@ for(int  i = 0;i<100;i++){
     // Initializes all Global Job Parameters
     //----------------------------------------------------------------
     DoArg do_arg;
+    char *out_file=NULL;
+#if 1
+    if(argc>1) out_file=argv[1];
+  if ( !do_arg.Decode("do_arg.vml","do_arg") )
+    {
+      do_arg.Encode("do_arg.dat","do_arg");
+      ERR.General("",fname,"Decoding of do_arg failed\n");
+    }
+  if ( !cg_arg.Decode("cg_arg.vml","cg_arg") )
+    {
+      ERR.General("",fname,"Decoding of cg_arg failed\n");
+    }
+#else
+
 
     if (argc < 6){
         ERR.General("f_wilson_test","main()","usage: %s nx ny nz nt ns (filename) \n",argv[0]);
@@ -69,7 +83,6 @@ for(int  i = 0;i<100;i++){
     sscanf(argv[3],"%d",&nz);
     sscanf(argv[4],"%d",&nt);
     sscanf(argv[5],"%d",&ns);  
-    char *out_file=NULL;
     if(argc>6) out_file=argv[6];
     VRB.Result("","main()","sites = %d %d %d %d %d\n",nx,ny,nz,nt,ns);
     do_arg.x_sites = nx;
@@ -117,33 +130,26 @@ for(int  i = 0;i<100;i++){
 #ifndef USE_CG_DWF
     cg_arg.max_num_iter++;
 #endif
+#endif
+
     GJP.Initialize(do_arg);
 	for(int i =0; i<argc;i++)
 	VRB.Result("","main()","argv[%d]=%s\n",i,argv[i]);
 
-   
-    wilson_set_sloppy(false);
+if(0)  
 {
     GwilsonFwilson lat;
     DiracOpWilson dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
 	run_inv(lat,dirac,WILSON,out_file,1);
 }
-#if 0
    
-    wilson_set_sloppy(true);
-{
-    GwilsonFwilson lat;
-    DiracOpWilson dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,dirac,WILSON,NULL,1);
-}
-
-    wilson_set_sloppy(false);
 {
     GwilsonFdwf lat;
     DiracOpDwf dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,dirac,WILSON,NULL,0);
+	run_inv(lat,dirac,WILSON,out_file,0);
 }
 
+#if 0
     wilson_set_sloppy(true);
 for(int i = 0;i<1;i++)
 {
@@ -287,7 +293,7 @@ if(DO_IO){
 				Fprintf(ADD_ID, fp," ( %0.3e %0.3e ) (%0.3e %0.3e)",
 				*((IFloat*)&result[n]+i*2), *((IFloat*)&result[n]+i*2+1),
 				*((IFloat*)&X_in[n]+i*2), *((IFloat*)&X_in[n]+i*2+1));
-#if 0
+#if 1
 				Fprintf(ADD_ID, fp," ( %0.2e %0.2e )\n",
 	#if 1
 		*((IFloat*)&X_out2[n]+i*2)-*((IFloat*)&X_in[n]+i*2), 

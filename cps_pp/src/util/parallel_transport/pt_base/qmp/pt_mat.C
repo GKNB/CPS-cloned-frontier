@@ -4,21 +4,9 @@
 /*! \file
   \brief  Definition of parallel transport definitions for QCDOC.
   
-  $Id: pt_mat.C,v 1.9 2013-01-08 21:09:25 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2013-01-08 21:09:25 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v 1.9 2013-01-08 21:09:25 chulwoo Exp $
-//  $Id: pt_mat.C,v 1.9 2013-01-08 21:09:25 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: pt_mat.C,v $
-//  $Revision: 1.9 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/parallel_transport/pt_base/qmp/pt_mat.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 #include <string.h>
@@ -222,7 +210,7 @@ parity, IFloat * gauge)
 //The matrix min is parallel transported and the result is placed in mout
 #if 1
 #define PROFILE
-void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
+void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
     
   int wire[MAX_DIR];
   int i;
@@ -305,7 +293,7 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 #else
 {
   //Interleaving of local computation of matrix multiplication
-#pragma omp parallel for default(shared)
+//#pragma omp parallel for default(shared)
   for(i=0;i<n;i++){
   int iam,nt;
   iam = omp_get_thread_num();
@@ -368,14 +356,14 @@ void PT::mat(int n, matrix **mout, matrix **min, const int *dir){
 }
 #else
 {
-#pragma omp parallel for
+//#pragma omp parallel for
   for(i=0;i<n;i++) 
   if (!local[wire[i]/2]) {
 #ifdef USE_OMP
     if (call_num%10000==1 && !QMP_get_node_number() ) 
       printf("thread %d of %d i=%d\n",omp_get_thread_num(),omp_get_num_threads(),i);
 #endif
-    partrans_cmm_agg(uc_nl[wire[i]],(matrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
+    partrans_cmm_agg(uc_nl[wire[i]],(PTmatrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
   }
 
 }//#pragma omp parallel

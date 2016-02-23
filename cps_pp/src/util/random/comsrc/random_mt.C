@@ -8,21 +8,9 @@ CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
 
-  $Id: random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2012-05-15 05:50:09 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
-//  $Id: random.C,v 1.34 2012-05-15 05:50:09 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: random.C,v $
-//  $Revision: 1.34 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/random/comsrc/random.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 
@@ -48,9 +36,6 @@ static const int OFFSET = 23;
 int  RandomGenerator::MBIG  = 1000000000;
 IFloat  RandomGenerator::FAC = 1.0E-09;			// 1.0/MBIG
 const int RandomGenerator::state_size;
-IFloat UniformRandomGenerator::A = -0.5;
-IFloat UniformRandomGenerator::B = 0.5;
-IFloat GaussianRandomGenerator::sigma2 = 1.0;
 
 
 uint32_t BOOTSTRAP_MAX=1000000000;
@@ -256,6 +241,7 @@ void LatRanGen::Initialize()
 			rng_count++;
                       }
 			start_seed_4d = ran_std();
+			rng_count++;
 #endif
 		  }
 #if 0
@@ -269,10 +255,10 @@ void LatRanGen::Initialize()
 		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
 }
 #endif
-	  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
-//	printf("(%d %d %d %d): rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],rng_count,start_seed_4d);
+//	  	VRB.Result(cname,fname,"index_4d=%d rng_count=%d start_seed= %d\n",index_4d,rng_count,start_seed_4d);
+	printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
  			mtran[index_4d].seed(start_seed_4d);
-//	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<endl;
+//	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<std::endl;
 
 #undef RNG_WARMUP
 #ifdef RNG_WARMUP
@@ -291,15 +277,16 @@ void LatRanGen::Initialize()
 		  mtran[index_4d].seed(new_seed);
 }
 #endif
-if (index_4d==0){
-		stringstream mtran_dump;
+//if (index_4d==0){
+if (0){
+		std::stringstream mtran_dump;
 		mtran_dump <<mtran[index_4d];
-#if 1
-		std::cout << "mtran["<<index_4d<<"]"<<endl;
-		std::cout << mtran_dump.str() << endl;
+	if (!UniqueID()){
+		std::cout << "mtran["<<index_4d<<"]"<<std::endl;
+		std::cout << mtran_dump.str() << std::endl;
 		mtran_dump.seekg(0,mtran_dump.beg);
-#endif
-#if 1
+	}
+#if 0
 		for (int i_dump=0;i_dump<1000 && !mtran_dump.eof(); i_dump++){
 			RNGSTATE dump,dump2;
 #if 1
@@ -311,7 +298,7 @@ if (index_4d==0){
 			mtran_dump.get(temp_num,50,' ');
 			sscanf(temp_num,"%d",&dump2);
 #endif
-			std::cout << i_dump <<" "<< dump<< endl;
+			std::cout << i_dump <<" "<< dump<< std::endl;
 		}
 #endif
 }
@@ -562,10 +549,10 @@ void LatRanGen::Shift()
 
 void LatRanGen::GetAllStates(RNGSTATE *dump) {
     for(int h=0; h<NStates(); h++){
-	stringstream ss_dump;
+	std::stringstream ss_dump;
 	ss_dump << mtran[h] ;
 if (!UniqueID()&& h==0){
-	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str()<<endl;
+	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str()<<std::endl;
 	ss_dump.seekg(0);
 }
        	for(int i=0; i<StateSize(); i++){
@@ -578,13 +565,13 @@ if (!UniqueID()&& h==0){
 
 void LatRanGen::SetAllStates(RNGSTATE *dump) {
     for(int h=0; h<NStates(); h++){
-	stringstream ss_dump;
+	std::stringstream ss_dump;
        	for(int i=0; i<StateSize(); i++){
 		ss_dump << dump[h*StateSize()+i]<<" ";
         }
 if (!UniqueID()&& h==0){
 //if (!UniqueID()){
-	std::cout <<"SetAllState::mtran["<<h<<"]= "<< ss_dump.str()<<endl;
+	std::cout <<"SetAllState::mtran["<<h<<"]= "<< ss_dump.str()<<std::endl;
 	ss_dump.seekg(0);
 }
 	ss_dump >> mtran[h] ;

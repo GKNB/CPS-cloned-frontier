@@ -21,6 +21,7 @@
 #include <vector>
 #include <math.h>
 #include <string.h>
+#include <vector>
 #include <util/gjp.h>
 #include <util/lattice.h>
 #include <util/random.h>

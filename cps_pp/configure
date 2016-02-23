@@ -5026,7 +5026,7 @@ $as_echo "$enable_c11" >&6; }
 if test "$enable_c11" != "no"; then
    CFLAGS="${CFLAGS} -std=c++11"
    CXXFLAGS="${CXXFLAGS} -std=c++11"
-   DFLAGS="${DFLAGS} -DC11 -DUSE_C11_RNG -DUSE_C11_MT"
+   DFLAGS="${DFLAGS} -DUSE_C11 -DUSE_C11_RNG -DUSE_C11_MT"
 fi
 
 
@@ -5217,6 +5217,20 @@ $as_echo_n "checking if including XML... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_xml" >&5
 $as_echo "$enable_xml" >&6; }
 
+if test "$enable_xml" != "no"; then
+   if test "$enable_xml" != "yes"; then
+     XML_DIR=${enable_xml}
+   elif test "X${XML_DIR}X" = "XX"; then
+     echo "XML_DIR environment variable not set"
+     exit 1
+   fi
+
+   XML_CFLAGS=`${XML_DIR}/bin/xml2-config --cflags`
+   XML_LDFLAGS=`${XML_DIR}/bin/xml2-config --libs`
+
+   LDFLAGS="${LDFLAGS} ${XML_LDFLAGS}"
+   INCLUDE_FLAGS="${INCLUDE_FLAGS} ${XML_CFLAGS}"
+fi
 
 # Check whether --enable-bfm was given.
 if test "${enable_bfm+set}" = set; then :
@@ -5230,7 +5244,6 @@ $as_echo_n "checking if including BFM... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_bfm" >&5
 $as_echo "$enable_bfm" >&6; }
 
-
 if test "$enable_bfm" != "no"; then
    if test "X${BFM_DIR}X" = "XX"; then
      BFM_DIR=${enable_bfm}
@@ -5242,9 +5255,11 @@ if test "$enable_bfm" != "no"; then
       INCLUDE_FLAGS="-I${BFM_DIR}/include ${INCLUDE_FLAGS} "
    else
       BFM_DIR=${QMP_DIR}
+      LDFLAGS="${LDFLAGS} -L${QMP_DIR}/lib "
+      INCLUDE_FLAGS="-I${QMP_DIR}/include ${INCLUDE_FLAGS} "
    fi
       DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM -DUSE_HDCG"
-      LDFLAGS="-lqdp -lchroma ${LDFLAGS} -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm -L/soft/libraries/essl/current/lib64 -lesslbg -L/soft/compilers/ibmcmp-nov2012/xlf/bg/14.1/lib64 -lxlf90_r -lxlfmath -lxl -ldl"
+      LDFLAGS="${LDFLAGS} -lqdp -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm -L/soft/libraries/essl/current/lib64 -lesslbg -L/soft/compilers/ibmcmp-nov2012/xlf/bg/14.1/lib64 -lxlf90_r -lxlfmath -lxl -ldl -lgsl -lgslblas -lqmp"
    if test "X{$enable_xml}X" = "XX"; then
    	enable_xml="yes"
    fi

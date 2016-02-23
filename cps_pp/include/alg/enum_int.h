@@ -19,7 +19,7 @@ typedef double Float;
 
 typedef double IFloat;
 
-typedef uint64_t Pointer;
+typedef uint32_t Pointer;
 
 enum DirType {
 	DIR_X = 0,
@@ -52,6 +52,8 @@ enum FclassType {
 	F_CLASS_BFM_TYPE2 = 10,
 	F_CLASS_MOBIUS = 11,
 	F_CLASS_NAIVE = 12,
+	F_CLASS_DWF4D = 13,
+	F_CLASS_DWF4D_PAIR = 14,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];

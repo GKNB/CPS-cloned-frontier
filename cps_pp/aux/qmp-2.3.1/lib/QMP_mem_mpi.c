@@ -16,7 +16,6 @@
  *      Jefferson Lab HPC Group
  *
  * Revision History:
- *   $Log: not supported by cvs2svn $
  *   Revision 1.2  2011/02/26 00:33:23  chulwoo
  *   Merging v5_0_8-RICC_3
  *   i) SSE Wilson & DWF dslash by Taku

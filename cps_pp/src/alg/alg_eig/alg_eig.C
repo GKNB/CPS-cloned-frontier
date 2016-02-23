@@ -4,21 +4,10 @@ CPS_START_NAMESPACE
 /*!\file
   \brief Methods of the AlgEig class.
   
-  $Id: alg_eig.C,v 1.27 2013-04-05 17:46:30 chulwoo Exp $
 */
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v 1.27 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: alg_eig.C,v 1.27 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: alg_eig.C,v $
-//  $Revision: 1.27 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/alg/alg_eig/alg_eig.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 

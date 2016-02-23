@@ -5,13 +5,9 @@ CPS_START_NAMESPACE
 /*!\file
   \brief  Implementation of Fstag class.
 
-  $Id: f_stag.C,v 1.26 2013-06-07 19:26:34 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
 //
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_stag/f_stag.C,v $
-//  $State: Exp $
 //
 //--------------------------------------------------------------------
 //------------------------------------------------------------------

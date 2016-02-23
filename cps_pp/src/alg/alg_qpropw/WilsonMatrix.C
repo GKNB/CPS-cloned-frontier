@@ -56,10 +56,18 @@ WilsonMatrix::WilsonMatrix(int sink_spin, int sink_color, const wilson_vector& z
 WilsonMatrix::WilsonMatrix(const Float& rhs)
 {
 
+#if 1
 	for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
 	  for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2){
 	    p.d[s1].c[c1].d[s2].c[c2]=Complex(rhs,0.0);
         }
+#else
+    for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
+                                for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2){
+                                        p.d[s1].c[c1].d[s2].c[c2].real(rhs);
+                                        p.d[s1].c[c1].d[s2].c[c2].imag(0.0);
+                                    }
+#endif
 }
 
 WilsonMatrix::WilsonMatrix(const Rcomplex& rhs)
@@ -144,8 +152,8 @@ void WilsonMatrix::dump()
         int s1, s2;
 	wilson_matrix mat=p;
 
-	for(s1=0;s1<4;s1++)
-	  for(c1=0;c1<3;c1++)
+    for(s1=0;s1<4;s1++)
+        for(c1=0;c1<3;c1++)
 	    for(s2=0;s2<4;s2++)
 	      for(c2=0;c2<3;c2++)
 		printf("%d %d %d %d %e %e\n",
@@ -354,9 +362,16 @@ WilsonMatrix& WilsonMatrix::operator=(const Float& rhs)
     for(int s1=0;s1<4;++s1){
         for(int c1=0;c1<3;++c1){
 	    for(int s2=0;s2<4;++s2){
+#if 1
 	      for(int c2=0;c2<3;++c2){
 		    p.d[s1].c[c1].d[s2].c[c2]=Complex(rhs,0.0);
 	      }
+#else
+                for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2].real(rhs);
+		    p.d[s1].c[c1].d[s2].c[c2].imag(0.0);
+                }
+#endif
 	    }
         }
     }
@@ -999,6 +1014,12 @@ WilsonMatrix WilsonMatrix::glA(int dir)const
     }
     return WilsonMatrix(result);
 }
+
+
+
+
+
+//multiply gamma(i)gamma(5) on the left and return a new one
 /*!
   Right Multiplication by Dirac gamma's
 

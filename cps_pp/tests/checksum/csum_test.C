@@ -4,14 +4,14 @@
 //  CVS keywords
 //
 //  $Author: chulwoo $
-//  $Date: 2005-04-25 07:09:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/tests/checksum/csum_test.C,v 1.2 2005-04-25 07:09:30 chulwoo Exp $
-//  $Id: csum_test.C,v 1.2 2005-04-25 07:09:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
+//  $Date: 2005/04/25 07:09:30 $
+//  $Header: /space/cvs/cps/cps++/tests/checksum/csum_test.C,v 1.2 2005/04/25 07:09:30 chulwoo Exp $
+//  $Id: csum_test.C,v 1.2 2005/04/25 07:09:30 chulwoo Exp $
+//  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: csum_test.C,v $
 //  $Revision: 1.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/tests/checksum/csum_test.C,v $
+//  $Source: /space/cvs/cps/cps++/tests/checksum/csum_test.C,v $
 //  $State: Exp $
 //
 //--------------------------------------------------------------------

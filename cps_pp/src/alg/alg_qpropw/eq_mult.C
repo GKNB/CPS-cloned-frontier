@@ -4,7 +4,7 @@
 
 CPS_START_NAMESPACE
 
-#ifndef C11
+#ifndef USE_C11
 inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
   x.real()+=y.real()*z.real();
