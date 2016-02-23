@@ -3108,18 +3108,21 @@ void
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)
+//     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)
+     || (!F5D())
 #ifdef USE_BFM
      || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
 #endif
      ) {
+    VRB.Debug(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
+    VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
 #ifdef USE_BFM
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
       s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
-      VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
+      VRB.Debug(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
       /*if (s_node_sites > GJP.SnodeSites()) {
         ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
       }*/
