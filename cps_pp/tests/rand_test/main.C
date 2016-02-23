@@ -67,8 +67,8 @@ int main (int argc, char **argv)
 #define MOVE_RNG
 
   enum RAN_TYPE
-  { URAND, GRAND, U_ONE, Z_TWO };
-  RAN_TYPE ran_type = U_ONE;
+  { URAND, GRAND, U_ONE, Z_TWO, Z_FOUR };
+  RAN_TYPE ran_type = URAND;
 
   if (ran_type == URAND)
     VRB.Result (cname, fname, "Urand(1,-1)\n");
@@ -76,6 +76,8 @@ int main (int argc, char **argv)
     VRB.Result (cname, fname, "Grand()\n");
   else if (ran_type == Z_TWO)
     VRB.Result (cname, fname, "Z2\n");
+  else if (ran_type == Z_FOUR)
+    VRB.Result (cname, fname, "Z4(+- i, +- 1)\n");
   else if (ran_type == U_ONE)
     VRB.Result (cname, fname, "polar(1.0, ran.Urand(PI,-PI)\n");
 
@@ -85,7 +87,9 @@ int main (int argc, char **argv)
   GJP.Initialize (do_arg);
   LRG.setSerial ();
   LRG.Initialize ();
+#ifndef USE_C11
   UGrandomGenerator ran;
+#endif
 #ifdef MOVE_RNG
   VRB.Result (cname, fname, "Moving RNG via LRG.AssignGenerator()\n");
 #endif
@@ -149,6 +153,16 @@ int main (int argc, char **argv)
 	      a += 1;
 	    else
 	      a -= 1;
+	  } else if (ran_type == Z_FOUR) {
+	    double temp = LRG.Urand (2, -2);
+	    if (temp > 1.)
+	      a += polar(1.0, PI);
+	    else if (temp > 0.)
+	      a += polar(1.0, PI/2.);
+	    else if (temp > -1.)
+	      a += polar(1.0, 0.);
+	    else 
+	      a += polar(1.0, -PI/2.);
 	  } else
 	    a += LRG.Grand ();
 //                  a += Complex( LRG.Grand (), LRG.Grand() ) ;
@@ -156,7 +170,7 @@ int main (int argc, char **argv)
 //        a += temp;
 	}
       }
-      if (ran_type == U_ONE || ran_type == GRAND) {
+      if (ran_type == U_ONE || ran_type == GRAND || ran_type == Z_FOUR) {
 	sum += norm (a);
 	sigma += norm (a) * norm (a);
 	if (traj == 0)
@@ -170,13 +184,13 @@ int main (int argc, char **argv)
     }
     if (ran_type == U_ONE || ran_type == GRAND)
       cout << " Expected: " << Nn * Ntake;
-    cout << " Mean: " << sum / Nt << " Var: " << sqrt (sigma / Nt -
+    cout << " Mean: " << sum / Nt << " Error: " << sqrt (sigma / Nt -
 						       sqr (sum / Nt)) /
       sqrt (Nt) << endl;
     total_sigma += sigma;
     total_sum += sum;
     if (repeat % Nrepeat == 0){
-  cout << " Total Mean: " << total_sum / (Nt*Nrepeat) << " Var: " << sqrt (total_sigma / (Nt*Nrepeat) - sqr (total_sum / (Nt*Nrepeat))) / sqrt ((Nt*Nrepeat)) << endl;
+  cout << " Total Mean: " << total_sum / (Nt*Nrepeat) << " Error: " << sqrt (total_sigma / (Nt*Nrepeat) - sqr (total_sum / (Nt*Nrepeat))) / sqrt ((Nt*Nrepeat)) << endl;
 	total_sum=total_sigma=0.;
     }
   }
