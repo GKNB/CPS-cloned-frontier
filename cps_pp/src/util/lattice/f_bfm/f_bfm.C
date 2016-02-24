@@ -727,7 +727,7 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
     VRB.Result(cname, fname, "residual = %17.10e max_iter = %d mass = %17.10e\n",
                bd.residual, bd.max_iter, bd.mass);
-#if 1
+#if 0
     if( eig_arg->RitzMatOper == MATPCDAG_MATPC) 
 {
     Fermion_t x[2];
