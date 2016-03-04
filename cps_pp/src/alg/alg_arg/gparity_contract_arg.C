@@ -1185,4 +1185,67 @@ void rpc_deepcopy<GparityAMAarg>::doit(GparityAMAarg &into, GparityAMAarg const 
 void GparityAMAarg::deep_copy(GparityAMAarg const &rhs){
 	rpc_deepcopy<GparityAMAarg>::doit(*this,rhs);
 }
+	 bool GparityAMAbilBKarg::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool GparityAMAbilBKarg::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool GparityAMAbilBKarg::Vml(VML *vmls,char *instance){
+		 if(!vml_GparityAMAbilBKarg(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_GparityAMAbilBKarg (VML *vmls, char *name,GparityAMAbilBKarg *objp)
+{
+	 vml_class_begin(vmls,"GparityAMAbilBKarg",name);
+	 if (!vml_array (vmls, "exact_solve_timeslices", (char **)&objp->exact_solve_timeslices.exact_solve_timeslices_val, (u_int *) &objp->exact_solve_timeslices.exact_solve_timeslices_len, ~0,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 if (!vml_Float (vmls, "exact_precision", &objp->exact_precision))
+		 return FALSE;
+	 if (!vml_Float (vmls, "sloppy_precision", &objp->sloppy_precision))
+		 return FALSE;
+	 if (!vml_Float (vmls, "ml", &objp->ml))
+		 return FALSE;
+	 if (!vml_Float (vmls, "mh", &objp->mh))
+		 return FALSE;
+	 if (!vml_string (vmls, "config_fmt", &objp->config_fmt, ~0))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_start", &objp->conf_start))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_incr", &objp->conf_incr))
+		 return FALSE;
+	 if (!vml_int (vmls, "conf_lessthan", &objp->conf_lessthan))
+		 return FALSE;
+	 if (!vml_FixGaugeArg (vmls, "fix_gauge", &objp->fix_gauge))
+		 return FALSE;
+	 vml_class_end(vmls,"GparityAMAbilBKarg",name);
+	return TRUE;
+}
+void rpc_deepcopy<GparityAMAbilBKarg>::doit(GparityAMAbilBKarg &into, GparityAMAbilBKarg const &from){
+	  into.exact_solve_timeslices.exact_solve_timeslices_len = from.exact_solve_timeslices.exact_solve_timeslices_len;
+	  rpc_deepcopy<int *>::doit(into.exact_solve_timeslices.exact_solve_timeslices_val,from.exact_solve_timeslices.exact_solve_timeslices_val,from.exact_solve_timeslices.exact_solve_timeslices_len);
+	  rpc_deepcopy<Float>::doit(into.exact_precision,from.exact_precision);
+	  rpc_deepcopy<Float>::doit(into.sloppy_precision,from.sloppy_precision);
+	  rpc_deepcopy<Float>::doit(into.ml,from.ml);
+	  rpc_deepcopy<Float>::doit(into.mh,from.mh);
+	  rpc_deepcopy<char *>::doit(into.config_fmt,from.config_fmt,strlen(from.config_fmt)+1);
+	  rpc_deepcopy<int>::doit(into.conf_start,from.conf_start);
+	  rpc_deepcopy<int>::doit(into.conf_incr,from.conf_incr);
+	  rpc_deepcopy<int>::doit(into.conf_lessthan,from.conf_lessthan);
+	  rpc_deepcopy<FixGaugeArg>::doit(into.fix_gauge,from.fix_gauge);
+}
+void GparityAMAbilBKarg::deep_copy(GparityAMAbilBKarg const &rhs){
+	rpc_deepcopy<GparityAMAbilBKarg>::doit(*this,rhs);
+}
 CPS_END_NAMESPACE

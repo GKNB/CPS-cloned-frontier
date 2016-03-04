@@ -718,6 +718,8 @@ class FdwfBase : public virtual FwilsonTypes
     //!< Does something really cool.
        // Reflexion in s operator, needed for the hermitian version 
        // of the dirac operator in the Ritz solver.
+    void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag);
 };
 
 //------------------------------------------------------------------

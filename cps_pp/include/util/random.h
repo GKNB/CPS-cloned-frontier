@@ -77,6 +77,7 @@ class RandomGenerator {
     //! Size of the RNG state.
     int StateSize() const;
 
+    int const* getState() const{ return ma; }
 #if 1
     //! Number of Integers in RNG, that should be stored to record status
     virtual int RNGints() const { return state_size + 2; } // ma & inext & inextp
@@ -120,7 +121,7 @@ class UniformRandomGenerator: public virtual RandomGenerator
   upper bound.
 */
     UniformRandomGenerator(IFloat high_limit = 0.5, IFloat low_limit = -0.5):
-//	RandomGenerator(), A(low_limit), B(high_limit) {} //what's wrong with this?
+//	RandomGenerator(), A(low_limit), B(high_limit) {} //what's wrong with this? CK: THEY'RE STATIC MEMBERS!
 	RandomGenerator() {}
 	~UniformRandomGenerator() {}
 
@@ -136,6 +137,9 @@ class UniformRandomGenerator: public virtual RandomGenerator
     static void SetInterval(IFloat high_limit, IFloat low_limit){
 	A = low_limit;
 	B = high_limit;
+    }
+    static void GetInterval(IFloat &hi, IFloat &lo){
+      lo = A; hi = B;
     }
 
     IFloat Rand();

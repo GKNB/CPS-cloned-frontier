@@ -4,8 +4,129 @@
 
 CPS_START_NAMESPACE
 
-Rcomplex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b){
-  Rcomplex trace(0.0,0.0);
+//We can use the G-parity prop-conj relation to flip the source momentum a posteriori providing the source has the form  e^{-ipx} \eta    where \eta obeys  \sigma_2 C\gamma^5 \eta^* = \eta\sigma_2 C\gamma^5
+//This applies to pretty much all standard source types. However *this code cannot check this is true, it just assumes it!!*
+void SpinColorFlavorMatrix::flipSourceMomentum(){
+  //Note   A.ccl(-1) = C A
+  this->cconj();
+  this->ccl(-1).gl(-5).pl(sigma2);
+  this->ccr(-1).gr(-5).pr(sigma2);
+}
+
+void SpinColorFlavorMatrix::generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane){
+  //Generate from a pair of propagators with different source flavor but otherwise identical    
+  wmat[0][0] = getSite(site,0,from_f0,lattice,splane);
+  wmat[1][0] = getSite(site,1,from_f0,lattice,splane);
+  wmat[0][1] = getSite(site,0,from_f1,lattice,splane);
+  wmat[1][1] = getSite(site,1,from_f1,lattice,splane);
+}
+void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int &site, const PropSplane &splane){
+  //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first    
+  int flav = from.flavor();
+  if(from_conj.flavor()!=flav){
+    ERR.General(cname,"generate_from_cconj_pair","Requires partner 'from_conj' to have same flavor");
+  }
+
+  if(flav == 0){
+    wmat[0][0] = getSite(site,0,from,lattice,splane);
+    wmat[1][0] = getSite(site,1,from,lattice,splane);
+
+    wmat[0][1] = getSite(site,1,from_conj,lattice,splane);
+    wmat[1][1] = getSite(site,0,from_conj,lattice,splane);
+      
+    wmat[0][1].cconj();
+    wmat[1][1].cconj();
+      
+    wmat[0][1].ccl(-1).gl(-5).ccr(1).gr(-5); //ccl(-1) mults by C from left, ccr(1) mults by C=-C^dag from right
+    wmat[1][1].ccl(-1).gl(-5).ccr(-1).gr(-5); //has opposite sign to the above 
+  }else{
+    wmat[0][1] = getSite(site,0,from,lattice,splane);
+    wmat[1][1] = getSite(site,1,from,lattice,splane);
+
+    wmat[1][0] = getSite(site,0,from_conj,lattice,splane);
+    wmat[0][0] = getSite(site,1,from_conj,lattice,splane);
+
+    wmat[1][0].cconj();
+    wmat[0][0].cconj();
+
+    wmat[1][0].ccl(-1).gl(-5).ccr(1).gr(-5); 
+    wmat[0][0].ccl(-1).gl(-5).ccr(-1).gr(-5);
+  }
+
+}
+  
+void SpinColorFlavorMatrix::generate_from_real_source(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane){
+  //Use the prop conj relation for a real source to compute the full 2x2 propagator
+
+  int flav = from.flavor();
+  if(flav == 0){
+    wmat[0][0] = getSite(site,0,from,lattice,splane);
+    wmat[1][0] = getSite(site,1,from,lattice,splane);
+    wmat[0][1] = wmat[1][0];
+    wmat[1][1] = wmat[0][0];
+
+    wmat[0][1].cconj();
+    wmat[1][1].cconj();
+
+    wmat[0][1].ccl(-1).gl(-5).ccr(1).gr(-5); //ccl(-1) mults by C from left, ccr(1) mults by C=-C^dag from right
+    wmat[1][1].ccl(-1).gl(-5).ccr(-1).gr(-5); //has opposite sign to the above 
+  }else{ //flavour 1 source
+    wmat[0][1] = getSite(site,0,from,lattice,splane);
+    wmat[1][1] = getSite(site,1,from,lattice,splane);
+    wmat[1][0] = wmat[0][1];
+    wmat[0][0] = wmat[1][1];
+
+    wmat[1][0].cconj();
+    wmat[0][0].cconj();
+
+    wmat[1][0].ccl(-1).gl(-5).ccr(1).gr(-5); 
+    wmat[0][0].ccl(-1).gl(-5).ccr(-1).gr(-5);
+  }
+}
+
+void SpinColorFlavorMatrix::generate(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane){
+  const char* fname = "generate(PropagatorContainer &from, const int &site)";
+    
+  if(!GJP.Gparity()){
+    ERR.General(cname,fname,"Require 2f G-parity BCs to be active");
+  }
+  //Test to see if we have a propagator with the other flavor
+  GparityOtherFlavPropAttrArg* otherfarg; //if a propagator with the same properties but the other flavor exists then use both to generate the matrix
+  if(from.getAttr(otherfarg)){
+    QPropWcontainer &otherfprop = PropManager::getProp(otherfarg->tag).convert<QPropWcontainer>();
+    if(otherfprop.flavor() == from.flavor()) ERR.General(cname,fname,"Found a propagator %s with supposedly the other flavor to propagator %s, but in fact the flavors are identical!",otherfarg->tag,from.tag());
+    QPropWcontainer *f0prop; QPropWcontainer *f1prop;
+    if(from.flavor() == 0){ f0prop = &from; f1prop = &otherfprop; }
+    else { f1prop = &from; f0prop = &otherfprop; }
+      
+    return generate(*f0prop,*f1prop,lattice,site,splane);
+  }
+
+  //Test to see if we have a propagator that has the complex conjugate of the source
+  GparityComplexConjSourcePartnerPropAttrArg *cconjsrcarg;
+  if(from.getAttr(cconjsrcarg)){
+    QPropWcontainer &cconjsrcprop = PropManager::getProp(cconjsrcarg->tag).convert<QPropWcontainer>();
+    if(cconjsrcprop.flavor() != from.flavor()) ERR.General(cname,fname,"Found a propagator %s with supposedly the complex conjugate source to propagator %s, but in fact they have different flavors!",cconjsrcarg->tag,from.tag());
+    return generate_from_cconj_pair(from, cconjsrcprop, lattice, site, splane);
+  }
+
+  //Test for real sources: cos source (point or wall) or zero momentum point source
+  PointSourceAttrArg *pt;
+  MomentumAttrArg *mom;
+  MomCosAttrArg *cos;
+  WallSourceAttrArg *wall;
+  if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) || ( from.getAttr(wall) && !from.getAttr(mom) ) ){
+    return generate_from_real_source(from,lattice,site,splane);
+  }
+
+  ERR.General(cname,fname,"Cannot generate prop elements with source %s",from.tag());
+}
+
+
+
+
+Complex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b){
+  Complex trace(0.0,0.0);
   for(int f2=0;f2<2;f2++){
     for(int f1=0;f1<2;f1++){
       for(int s2=0;s2<4;++s2){
@@ -66,7 +187,28 @@ SpinFlavorMatrix ColorTrace(const SpinColorFlavorMatrix& a, const SpinColorFlavo
   return trace;
 }
 
+FlavorSpinMatrix ColorTraceFS(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b){
+  FlavorSpinMatrix trace(0.0);
 
+  for(int s1=0;s1<4;++s1){
+    for(int c1=0;c1<3;++c1){
+      for(int f1=0;f1<2;f1++){
+	for(int f3=0;f3<2;f3++){
+	  for(int s3=0;s3<4;++s3){
+	    for(int s2=0;s2<4;++s2){
+	      for(int c2=0;c2<3;++c2){
+		for(int f2=0;f2<2;f2++){
+		  trace(f1,f3)(s1,s3) += a(s1,c1,f1,s2,c2,f2) * b(s2,c2,f2,s3,c1,f3);
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return trace;
+}
 
 
 

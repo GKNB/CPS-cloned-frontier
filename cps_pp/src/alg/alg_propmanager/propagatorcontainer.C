@@ -39,11 +39,13 @@
 #undef GAUGE_SIZE
 #endif
 
-#include <alg/a2a/alg_a2a.h>
+#ifdef USE_BFM
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_eigcg.h>
 #include <util/lattice/fbfm.h>
 #include <alg/eigen/Krylov_5d.h>
+#endif
+
 CPS_START_NAMESPACE
 
 
@@ -114,7 +116,7 @@ PropagatorContainer* PropagatorContainer::create(const PropagatorType &ctype){
   if(ctype == QPROPW_TYPE){
     return new QPropWcontainer;
   }else if(ctype == A2A_PROP_TYPE){
-    return new A2ApropContainer;
+    //return new A2ApropContainer;
   }else{
     ERR.General("PropagatorContainer","create(...)","Unknown type\n");
   }
@@ -211,16 +213,23 @@ void QPropWcontainer::calcProp(Lattice &latt){
   qpropw_arg.EndSrcSpin = 4;
   qpropw_arg.StartSrcColor = 0;
   qpropw_arg.EndSrcColor = 3;
+  qpropw_arg.gauge_fix_src = 0;
+  qpropw_arg.gauge_fix_snk = 0;
+
 
   //Set the boundary conditions
   //For regular lattice classes it is sufficient to modify the boundary condition in GJP, as the boundary condition
   //is applied when the DiracOp class is instantiated within the inverter, and the lattice is restored afterwards.
   //However for Fbfm we must manually apply the BC and re-import the gauge field into the internal bfm objects
+  bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 );
+  bool bcs_changed = false;
+  for(int i=0;i<4;i++)
+    if(generics->bc[i]!=GJP.Bc(i)) bcs_changed = true;
+  if(bcs_changed && is_fbfm )
+    latt.BondCond(); //un-applies the existing BCs, reverting to periodic BCs and imports the gauge field into the bfm instances
 
   BndCndType init_bc[4];
   TwistedBcAttrArg *tbcarg;
-  bool bcs_changed = false;
-  bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 );
 
   for(int i=0;i<4;i++){
     if(generics->bc[i]!=GJP.Bc(i)) bcs_changed = true;
@@ -268,6 +277,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   DeflatedCGAttrArg *defl_cg;
   if(getAttr(defl_cg)){
     if(!is_fbfm) ERR.General(cname,fname,"Currently, deflated CG only available via Fbfm\n");
+#ifdef USE_BFM
     LanczosContainer &lanczos = PropManager::getLanczos(defl_cg->lanczos_tag);
     const LanczosContainerArg &lanc_args = lanczos.getArgs();
     int N_use = lanc_args.lanc_arg.N_true_get;
@@ -276,14 +286,17 @@ void QPropWcontainer::calcProp(Lattice &latt){
       //Pass single-precision eigenvectors to Fbfm 
       //(note, this will fail if you haven't manually changed the precision of the eigenvectors in the LanczosContainer. I didn't want to do this
       // automatically as the change of precision introduces numerical errors. Better that it fails if you didn't explicitly want this!)
-      Lanczos_5d<float> &eigs = lanczos.getEigSinglePrec(latt);
+      BFM_Krylov::Lanczos_5d<float> &eigs = lanczos.getEigSinglePrec(latt);
       dynamic_cast<Fbfm&>(latt).set_deflation(&eigs.bq,&eigs.bl,N_use);
     }else{
       //Use double-precision eigenvectors
       lanczos.setPrecision(2);
-      Lanczos_5d<double> &eigs = lanczos.getEig(latt);
+      BFM_Krylov::Lanczos_5d<double> &eigs = lanczos.getEig(latt);
       dynamic_cast<Fbfm&>(latt).set_deflation(&eigs.bq,&eigs.bl,N_use);
     }
+#else
+    ERR.General(cname,fname,"Currently, deflated CG only available with Bfm/Fbfm\n");
+#endif
   }
 
   PointSourceAttrArg *pt;
@@ -299,6 +312,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   //In G-parity directions, the propagators are antiperiodic in 2L
 
   if(getAttr(pt)){
+    if(!UniqueID()){ printf("Doing a point source propagator\n"); }
     qpropw_arg.x = pt->pos[0];
     qpropw_arg.y = pt->pos[1];
     qpropw_arg.z = pt->pos[2];
@@ -309,30 +323,32 @@ void QPropWcontainer::calcProp(Lattice &latt){
 
     MomentumAttrArg *mom;
     if(getAttr(mom)){
+      if(!UniqueID()){ printf("Adding momentum to point source\n"); }
       //for a point source with momentum, apply the e^-ipx factor at the source location 
       //such that it can be treated in the same way as a momentum source
 
-      ThreeMom tmom(mom->p);
-      Site s(pt->pos[0],pt->pos[1],pt->pos[2],pt->pos[3]);
-
-      Complex phase;
-
-      MomCosAttrArg *cos;
-      if(getAttr(cos)){ //a cosine point source
-	phase = tmom.FactCos(s);
-      }else{
-	phase = tmom.Fact(s);
+      int local_site[4];
+      bool on_node = true;
+      for(int i=0;i<4;i++){ 
+	local_site[i] = pt->pos[i] - GJP.NodeSites(i)*GJP.NodeCoor(i);
+	if(local_site[i] < 0 || local_site[i] >= GJP.NodeSites(i)) on_node=false;
       }
+      if(on_node){
+	ThreeMom tmom(mom->p);
+	Site s(local_site[0],local_site[1],local_site[2],local_site[3]);
+	Complex phase;
 
-      (*prop)[s.Index()] *= phase; 
-      if(GJP.Gparity()){
-	int wmat_shift = GJP.VolNodeSites();
+	MomCosAttrArg *cos;
+	if(getAttr(cos)) //a cosine point source
+	  phase = tmom.FactCos(s);
+	else
+	  phase = tmom.Fact(s);
+	
+	int wmat_shift = GJP.Gparity() ? qpropw_arg.flavor * GJP.VolNodeSites() : 0;
 	(*prop)[s.Index()+wmat_shift] *= phase; 
-      }
-
-      if(!UniqueID()) printf("Propagator %s has 3-momentum (%d,%d,%d) and position (%d,%d,%d,%d), source phase factor is (%e,%e)\n",
+	printf("Propagator %s has 3-momentum (%d,%d,%d) and position (%d,%d,%d,%d), source phase factor is (%e,%e)\n",
 			     generics->tag,mom->p[0],mom->p[1],mom->p[2],pt->pos[0],pt->pos[1],pt->pos[2],pt->pos[3],phase.real(),phase.imag());
-
+      }
     }
   }else if(getAttr(wl)){
     qpropw_arg.t = wl->t;
@@ -374,11 +390,15 @@ void QPropWcontainer::calcProp(Lattice &latt){
     io->prop_on_disk = true; //QPropW saves the prop
   }
   
-  if(bcs_changed && is_fbfm ) latt.BondCond(); //un-apply the new BCs and reimport the gauge field into the bfm instances
+  if(bcs_changed && is_fbfm )    
+    latt.BondCond(); //un-apply the new BCs and reimport the gauge field into the bfm instances
+  
 
   //restore boundary conditions to original
   for(int i=0;i<4;i++) GJP.Bc(i,init_bc[i]);
   for(int j=0;j<3;j++) GJP.TwistAngle(j,0);
+
+  if(bcs_changed && is_fbfm ) latt.BondCond(); //restore original BCs
 }
 
 
@@ -483,91 +503,93 @@ void QPropWcontainer::setSourceTimeslice(const int &t){
 
 
 
-A2ApropContainer::~A2ApropContainer(){ if(prop!=NULL) delete prop; }
+// A2ApropContainer::~A2ApropContainer(){ if(prop!=NULL) delete prop; }
 
 
-void A2ApropContainer::readProp(Lattice &latt){
-  //Is there a way to read back in the eigenvectors?
+// void A2ApropContainer::readProp(Lattice &latt){
+//   //Is there a way to read back in the eigenvectors?
 
-  return;
-}
+//   return;
+// }
 
-void A2ApropContainer::calcProp(Lattice &latt){
-  if(prop!=NULL) return; //don't calculate twice
+// void A2ApropContainer::calcProp(Lattice &latt){
+//   if(prop!=NULL) return; //don't calculate twice
 
-  const char *cname = "A2ApropContainer";
-  const char *fname = "calcProp()";
+//   const char *cname = "A2ApropContainer";
+//   const char *fname = "calcProp()";
 
-  GenericPropAttrArg *generics;
-  if(!getAttr(generics)) ERR.General(cname,fname,"Propagator attribute list does not contain a GenericPropAttr\n");
+//   GenericPropAttrArg *generics;
+//   if(!getAttr(generics)) ERR.General(cname,fname,"Propagator attribute list does not contain a GenericPropAttr\n");
 
-  A2AAttrArg *a2a_arg;
-  if(!getAttr(a2a_arg)) ERR.General(cname,fname,"Propagator attribute list does not contain a A2AAttr\n");
+//   A2AAttrArg *a2a_arg;
+//   if(!getAttr(a2a_arg)) ERR.General(cname,fname,"Propagator attribute list does not contain a A2AAttr\n");
 
-  //Get eigenvectors
-  LanczosContainer &lanczos = PropManager::getLanczos(a2a_arg->lanczos_tag);
-  Lanczos_5d<double> &eig = lanczos.getEig(latt);
-  if(a2a_arg->nl !=0 && eig.dop.mass != generics->mass) ERR.General(cname,fname,"Eigenvalues provided were calculated with a different mass than that specified in propagator arguments\n");
+//   //Get eigenvectors
+//   LanczosContainer &lanczos = PropManager::getLanczos(a2a_arg->lanczos_tag);
+//   Lanczos_5d<double> &eig = lanczos.getEig(latt);
+//   if(a2a_arg->nl !=0 && eig.dop.mass != generics->mass) ERR.General(cname,fname,"Eigenvalues provided were calculated with a different mass than that specified in propagator arguments\n");
 
-  CommonArg c_arg("label","/dev/null");//find out what this does!
+//   CommonArg c_arg("label","/dev/null");//find out what this does!
 
-  prop = new A2APropbfm(latt,*a2a_arg,c_arg,&eig);
+//   prop = new A2APropbfm(latt,*a2a_arg,c_arg,&eig);
 
-  bfm_evo<double> &dwf = eig.dop;
+//   bfm_evo<double> &dwf = eig.dop;
 
-  //If the Lanczos mass is different from the prop mass (only allowed if we are not using any low-modes from the Lanczos)
-  //then we must change the mass used in the Dirac operator
-  double restore_mass; bool do_restore(false);
-  if(dwf.mass != generics->mass){
-    restore_mass = dwf.mass;
-    dwf.mass = generics->mass;
-    dwf.GeneralisedFiveDimEnd();
-    dwf.GeneralisedFiveDimInit();
-    do_restore=true;
-  }
+//   //If the Lanczos mass is different from the prop mass (only allowed if we are not using any low-modes from the Lanczos)
+//   //then we must change the mass used in the Dirac operator
+//   double restore_mass; bool do_restore(false);
+//   if(dwf.mass != generics->mass){
+//     restore_mass = dwf.mass;
+//     dwf.mass = generics->mass;
+//     dwf.GeneralisedFiveDimEnd();
+//     dwf.GeneralisedFiveDimInit();
+//     do_restore=true;
+//   }
 
-  //Calculate the vectors and FFT vectors
-  prop->allocate_vw();
-  if(!UniqueID()) printf("%s::%s computing A2A low modes component for prop %s\n",cname,fname,generics->tag); 
-  prop->compute_vw_low(dwf);
-  if(!UniqueID()) printf("%s::%s computing A2A high modes component for prop %s\n",cname,fname,generics->tag); 
-  prop->compute_vw_high(dwf);
-  if(!UniqueID()) printf("%s::%s computing FFT of V and W for A2A prop %s\n",cname,fname,generics->tag); 
-  prop->fft_vw();
-  if(!UniqueID()) printf("%s::%s Finished computing A2A prop %s\n",cname,fname,generics->tag); 
+//   //Calculate the vectors and FFT vectors
+//   prop->allocate_vw();
+//   if(!UniqueID()) printf("%s::%s computing A2A low modes component for prop %s\n",cname,fname,generics->tag); 
+//   prop->compute_vw_low(dwf);
+//   if(!UniqueID()) printf("%s::%s computing A2A high modes component for prop %s\n",cname,fname,generics->tag); 
+//   prop->compute_vw_high(dwf);
+//   if(!UniqueID()) printf("%s::%s computing FFT of V and W for A2A prop %s\n",cname,fname,generics->tag); 
+//   prop->fft_vw();
+//   if(!UniqueID()) printf("%s::%s Finished computing A2A prop %s\n",cname,fname,generics->tag); 
 
-  if(do_restore){
-    dwf.mass = restore_mass;
-    dwf.GeneralisedFiveDimEnd();
-    dwf.GeneralisedFiveDimInit();
-  }
-}
-
-
-
-A2APropbfm & A2ApropContainer::getProp(Lattice &latt){
-  if(prop==NULL){
-    readProp(latt);
-    calcProp(latt); //will calculate if prop was not read
-  }
-  return *prop;
-}
+//   if(do_restore){
+//     dwf.mass = restore_mass;
+//     dwf.GeneralisedFiveDimEnd();
+//     dwf.GeneralisedFiveDimInit();
+//   }
+// }
 
 
-A2ApropContainer & A2ApropContainer::verify_convert(PropagatorContainer &pc, const char* cname, const char* fname){
-  if(pc.type()!=A2A_PROP_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be A2A type\n",pc.tag());
-  return pc.convert<A2ApropContainer>();
-}
-const A2ApropContainer & A2ApropContainer::verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname){
-  if(pc.type()!=A2A_PROP_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be A2A type\n",pc.tag());
-  return pc.convert<A2ApropContainer>();
-}
+// A2APropbfm & A2ApropContainer::getProp(Lattice &latt){
+//   if(prop==NULL){
+//     readProp(latt);
+//     calcProp(latt); //will calculate if prop was not read
+//   }
+//   return *prop;
+// }
 
 
-void A2ApropContainer::deleteProp(){
-  if(prop!=NULL){ delete prop; prop=NULL; }
-}
+// A2ApropContainer & A2ApropContainer::verify_convert(PropagatorContainer &pc, const char* cname, const char* fname){
+//   if(pc.type()!=A2A_PROP_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be A2A type\n",pc.tag());
+//   return pc.convert<A2ApropContainer>();
+// }
+// const A2ApropContainer & A2ApropContainer::verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname){
+//   if(pc.type()!=A2A_PROP_TYPE) ERR.General(cname,fname,"Expect propagator \"%s\" to be A2A type\n",pc.tag());
+//   return pc.convert<A2ApropContainer>();
+// }
 
+
+// void A2ApropContainer::deleteProp(){
+//   if(prop!=NULL){ delete prop; prop=NULL; }
+// }
+
+
+
+#ifdef USE_BFM
 
 void LanczosContainer::deleteEig(){
   if(lanczos!=NULL){ delete lanczos; lanczos=NULL;}
@@ -640,7 +662,7 @@ void LanczosContainer::calcEig(Lattice &latt){
     dwf->cps_importGauge(gauge); 
   }  
   
-  lanczos = new Lanczos_5d<double>(*dwf,args.lanc_arg);
+  lanczos = new BFM_Krylov::Lanczos_5d<double>(*dwf,args.lanc_arg);
 
   lanczos->Run();
 
@@ -651,12 +673,12 @@ void LanczosContainer::calcEig(Lattice &latt){
   precision = 2;
 }
 
-Lanczos_5d<double> & LanczosContainer::getEig(Lattice &latt){
+BFM_Krylov::Lanczos_5d<double> & LanczosContainer::getEig(Lattice &latt){
   if(precision != 2) ERR.General("LanczosContainer","getEig","Current precision is not double\n");
   if(lanczos == NULL) calcEig(latt);
   return *lanczos;
 }
-Lanczos_5d<float> & LanczosContainer::getEigSinglePrec(Lattice &latt){
+BFM_Krylov::Lanczos_5d<float> & LanczosContainer::getEigSinglePrec(Lattice &latt){
   if(precision != 1) ERR.General("LanczosContainer","getEigSinglePrec","Current precision is not single\n");
   if(lanczos_f == NULL){
     calcEig(latt);
@@ -666,7 +688,7 @@ Lanczos_5d<float> & LanczosContainer::getEigSinglePrec(Lattice &latt){
 }
 
 
-void LanczosContainer::set_lanczos(Lanczos_5d<double> *to){
+void LanczosContainer::set_lanczos(BFM_Krylov::Lanczos_5d<double> *to){
   lanczos = to;
   if(to!=NULL) dwf = &lanczos->dop;
   else dwf = NULL;
@@ -676,7 +698,7 @@ void LanczosContainer::set_lanczos(Lanczos_5d<double> *to){
 }
 
 template<typename FloatType>
-void setupLanczosNoAlloc(Lanczos_5d<FloatType> &lanc){ //just resize the vectors for the Lanczos output
+void setupLanczosNoAlloc(BFM_Krylov::Lanczos_5d<FloatType> &lanc){ //just resize the vectors for the Lanczos output
   lanc.bq.resize(lanc.get);
   lanc.bl.resize(lanc.get);
 }
@@ -709,7 +731,7 @@ void LanczosContainer::setPrecision(const int &prec){ //convert from float to do
   if(precision == 2 && prec == 1){
   
     if(lanczos_f != NULL) ERR.General("LanczosContainer","setPrecision(1) [currently 2]","Expect lanczos_f pointer to be NULL!");
-    lanczos_f = new Lanczos_5d<float>(*dwf_f,args.lanc_arg);
+    lanczos_f = new BFM_Krylov::Lanczos_5d<float>(*dwf_f,args.lanc_arg);
     setupLanczosNoAlloc<float>(*lanczos_f);
     
     for(int i=0;i<lanczos_f->get;i++){
@@ -727,7 +749,7 @@ void LanczosContainer::setPrecision(const int &prec){ //convert from float to do
   }else if(precision == 1 && prec == 2){
 
     if(lanczos != NULL) ERR.General("LanczosContainer","setPrecision(2) [currently 1]","Expect lanczos pointer to be NULL!");
-    lanczos = new Lanczos_5d<double>(*dwf,args.lanc_arg);
+    lanczos = new BFM_Krylov::Lanczos_5d<double>(*dwf,args.lanc_arg);
     setupLanczosNoAlloc<double>(*lanczos);
 
     for(int i=0;i<lanczos->get;i++){
@@ -744,6 +766,8 @@ void LanczosContainer::setPrecision(const int &prec){ //convert from float to do
 
   precision = prec;
 }
+
+#endif
 
 CPS_END_NAMESPACE
 

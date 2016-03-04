@@ -5,7 +5,7 @@
 #include <util/lattice/bfm_evo.h>
 #include <alg/enum_int.h>
 
-#include <chroma.h>
+//#include <chroma.h>
 #include <omp.h>
 #include <pthread.h>
 
@@ -191,12 +191,17 @@ namespace mixed_cg {
     // precisions).
     //
     // max_cycle: the maximum number of restarts will be performed.
+    // N is the number of low modes removed (subtracted) from the final solution. All evecs will be used for the deflated solve, this just makes the solution a 'high-mode' solution for use in A2A propagators.
+    //
+    //EIGENVECTORS SHOULD BE SINGLE PRECISION!
+
     inline int threaded_cg_mixed_MdagM(Fermion_t sol, Fermion_t src,
                                        bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
                                        int max_cycle, cps::InverterType itype = cps::CG,
                                        // the following parameters are for deflation
                                        multi1d<Fermion_t[2]> *evec = NULL,
                                        multi1d<float> *eval = NULL,
+
                                        int N = 0)
     {
         int me = bfm_d.thread_barrier();
@@ -241,9 +246,10 @@ namespace mixed_cg {
             bfm_f.set_zero(sol_f);
             switch(itype) {
             case cps::CG:
-                if(evec && eval && N){
-		    if(bfm_f.isBoss() && !me) printf("cg_mixed_MdagM: deflating with %d evals\n",N);
-                    bfm_f.deflate(sol_f, src_f, evec, eval, N);
+                if(evec && eval && (*eval).size() > 0) {
+		    //CK: NOTE it is the single-precision bfm instance doing the deflation. All of its linalg assumes then single precision fermions, *including the eigenvectors*
+		    if(bfm_f.isBoss() && !me) printf("bfm_evo::deflating with %d eigen vectors.\n", (*eval).size());
+		    bfm_f.deflate(sol_f, src_f, evec, eval, (*eval).size());
                 }
                 iter += bfm_f.CGNE_prec_MdagM(sol_f, src_f);
                 break;
@@ -263,14 +269,22 @@ namespace mixed_cg {
             bfm_d.axpy(sol, tv1_d, sol, 1.);
         }
 
+        iter += bfm_d.CGNE_prec_MdagM(sol, src);
+
+				if(N > 0) { // Subtract N low modes from final sol, usually for all to all propagators. 
+					// TODO is it legal to only use the single precision eval?
+					threaded_convFermion(src_f, src, bfm_f, bfm_d);
+					bfm_f.deflate(sol_f, src_f, evec, eval, N);
+					threaded_convFermion(tv1_d, sol_f, bfm_d, bfm_f);
+					bfm_d.axpy(sol, tv1_d, sol, -1.);
+				}
+
         bfm_d.threadedFreeFermion(src_d);
         bfm_d.threadedFreeFermion(tv1_d);
         bfm_d.threadedFreeFermion(tv2_d);
 
         bfm_f.threadedFreeFermion(sol_f);
         bfm_f.threadedFreeFermion(src_f);
-
-        iter += bfm_d.CGNE_prec_MdagM(sol, src);
 
         double sol_norm = bfm_d.norm(sol);
         if(bfm_d.isBoss() && !me) {
@@ -1729,7 +1743,11 @@ namespace mixed_cg {
 	    bfm_d.thread_barrier(); //ensure all threads have the same value
 	    bfm_d.residual = mresidual[shift];
 
-	    iter += threaded_CGNE_MdagM_plus_shift<double>(psi[shift],src,mass[shift],bfm_d);
+	    int final_iter = threaded_CGNE_MdagM_plus_shift<double>(psi[shift],src,mass[shift],bfm_d);
+	    if(final_iter == -1){
+		cps::ERR.General("mixed_cg","threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp_defect_correction","final inversion for pole %d failed to converge!",shift);
+	    }	    
+	    iter += final_iter;
 	    bfm_d.residual = restore_resid;
 	}
 

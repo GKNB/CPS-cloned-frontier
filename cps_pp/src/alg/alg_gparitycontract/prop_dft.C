@@ -284,6 +284,51 @@ void _ContractedBilinear_helper<WilsonMatrix>::write(FILE *fp, const Rcomplex &v
 }
 
 
+void _ContractedBilinear_helper<SpinColorFlavorMatrix>::binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t){
+  std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
+  std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
+
+  if(!UniqueID()){
+    int ibuf[5] = { gamma_sigma1.first, gamma_sigma1.second, gamma_sigma2.first, gamma_sigma2.second, t };
+    fwrite(ibuf, sizeof(int), 5, fp);
+    double dbuf[6] = { p2,mom[0],mom[1],mom[2],val.real(),val.imag() };
+    fwrite(dbuf, sizeof(double), 6 ,fp);
+  }
+}
+
+void _ContractedBilinear_helper<WilsonMatrix>::binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t){
+  if(!UniqueID()){
+    int ibuf[3] = { idx1,idx2, t };
+    fwrite(ibuf, sizeof(int), 3, fp);
+    double dbuf[6] = { p2,mom[0],mom[1],mom[2],val.real(),val.imag() };
+    fwrite(dbuf, sizeof(double), 6 ,fp);
+  }
+}
+
+
+
+
+
+void _ContractedBilinear_helper<SpinColorFlavorMatrix>::write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t){
+  std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
+  std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
+
+  //format is gamma1 sigma1 gamma2 sigma2 p^2 px py pz t val.re val.im
+  if(!UniqueID())
+    fp << gamma_sigma1.first<< " " << gamma_sigma1.second<< " " << gamma_sigma2.first<< " " << gamma_sigma2.second<< " " 
+       << p2<< " " << mom[0]<< " " << mom[1]<< " " << mom[2]<< " " << t<< " " << val.real()<< " " << val.imag() << std::endl;
+}
+
+
+void _ContractedBilinear_helper<WilsonMatrix>::write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t){
+  //format is gamma1 gamma2 p^2 px py pz t val.re val.im
+  if(!UniqueID())
+    fp << idx1<< " " << idx2<< " " << p2<< " " << mom[0]<< " " << mom[1]<< " " << mom[2]<< " " << t<< " " << val.real()<< " " << val.imag() << std::endl;
+}
+
+
+
+
 //24^4 tensor in spin,color and flavor
 int QuadrilinearSCFVertex::map(const int &s1,const int &c1, const int &f1,
 			       const int &s2,const int &c2, const int &f2,
@@ -542,4 +587,53 @@ void _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>::write(FILE *f
 }
 
 
+
+void _ContractedWallSinkBilinearSpecMomentum_helper<SpinColorFlavorMatrix>::binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, 
+										  const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t){
+  std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
+  std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
+
+  if(!UniqueID()){
+    int ibuf[5] = { gamma_sigma1.first, gamma_sigma1.second, gamma_sigma2.first, gamma_sigma2.second, t };
+    fwrite(ibuf, sizeof(int), 5, fp);
+    double dbuf[9] = { p2,mom1[0],mom1[1],mom1[2],mom2[0],mom2[1],mom2[2],val.real(),val.imag() };
+    fwrite(dbuf, sizeof(double), 9 ,fp);
+  }
+}
+
+
+void _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>::binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, 
+									 const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t){
+  if(!UniqueID()){
+    int ibuf[3] = { idx1,idx2,t };
+    fwrite(ibuf, sizeof(int), 3, fp);
+    double dbuf[9] = { p2,mom1[0],mom1[1],mom1[2],mom2[0],mom2[1],mom2[2],val.real(),val.imag() };
+    fwrite(dbuf, sizeof(double), 9 ,fp);
+  }
+}
+
+
+void _ContractedWallSinkBilinearSpecMomentum_helper<SpinColorFlavorMatrix>::write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, 
+										  const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t){
+  std::pair<int,int> gamma_sigma1 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx1);
+  std::pair<int,int> gamma_sigma2 = _PropagatorBilinear_helper<SpinColorFlavorMatrix>::unmap(idx2);
+
+  //format is gamma1 sigma1 gamma2 sigma2 p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
+  if(!UniqueID()) 
+    fp << gamma_sigma1.first << " " << gamma_sigma1.second << " " 
+       << gamma_sigma2.first << " " << gamma_sigma2.second << " "
+       << p2 << " " << mom1[0] << " " << mom1[1] << " " << mom1[2] << " " << mom2[0] << " " << mom2[1] << " " << mom2[2] << " " << t << " " << val.real() << " " << val.imag() << std::endl;
+}
+
+
+void _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>::write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, 
+									 const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t){
+  //format is gamma1 gamma2 p^2 p1x p1y p1z p2x p2y p2z t val.re val.im
+  if(!UniqueID())
+    fp << idx1 << " " << idx2 << " " << p2 << " " << mom1[0] << " " << mom1[1] << " " << mom1[2] << " " << mom2[0] << " " << mom2[1] << " " << mom2[2] << " " << t << " " << val.real() << " " << val.imag() << std::endl;
+}
+
+
+
 CPS_END_NAMESPACE
+

@@ -297,6 +297,16 @@ public:
   Complex  operator()(int s1, int c1, int s2, int c2) const
 	{ return p.d[s1].c[c1].d[s2].c[c2]; }
   
+  //CK: Set to unit matrix
+  void Unit(){ 
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int c2=0;c2<3;c2++)
+	    p.d[s1].c[c1].d[s2].c[c2] = (s1 == s2 && c1 == c2) ? Complex(1.0,0.0) : Complex(0.0,0.0);
+  }
+
+
   //! hermitean conjugate the WilsonMatrix
   //WilsonMatrix& hconj();
   void hconj();
@@ -308,6 +318,18 @@ public:
   //! transpose the WilsonMatrix
   void transpose();
   
+  // added by Daiqian
+  //! transpose the color index of WilsonMatrix
+  void transpose_color() {
+    wilson_matrix mat=p;
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int s1=0;s1<4;s1++)
+	  for(int c2=0;c2<3;c2++)
+	    p.d[s2].c[c2].d[s1].c[c1] = mat.d[s2].c[c1].d[s1].c[c2];
+  }
+
+
   // added by CK
   //! norm^2 of the WilsonMatrix
   IFloat norm() const{
@@ -329,6 +351,14 @@ public:
   WilsonMatrix glA(int dir);
   //! glA another version. result = gamma_dir*gamma_5*from
   WilsonMatrix& glA(const WilsonMatrix & from, int dir);
+
+  //! glA another version. this -> gamma_dir*gamma_5*this
+  inline WilsonMatrix& glAx(int dir){
+    WilsonMatrix tmp(*this);
+    glA(tmp,dir);
+    return *this;
+  }
+
   //! mult the prop by gamma_dir on the left, and return the new matrix
   WilsonMatrix glV(int dir);
   //! glV another version. result = gamma_dir*from
@@ -359,7 +389,7 @@ public:
   void load_vec(int sink_spin, int sink_color, const wilson_vector&);
   void load_row(int source_spin, int source_color, const wilson_vector&);
   void save_row(int source_spin, int source_color, wilson_vector&);
-  Rcomplex Trace();
+  Rcomplex Trace() const;
   const wilson_matrix& wmat() const; // get p 
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
   WilsonMatrix& LeftTimesEqual(const Matrix& lhs);
@@ -397,6 +427,9 @@ public:
   WilsonMatrix& AddMult( const Rcomplex& fact, const WilsonMatrix& x );
   
   // Baryon things
+  //CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
+  //                      A.ccr(1) = A C     A.ccr(-1) = C^-1 A
+  //Poor conventions I know
   WilsonMatrix& ccl(int dir);
   WilsonMatrix& ccr(int dir);
   WilsonMatrix& diq(const WilsonMatrix& rhs);
@@ -404,6 +437,31 @@ public:
   
   friend Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);
   
+  //Added by CK
+  void ColorTrace(SpinMatrix &into) const{
+    //SpinMatrix mapping is i*4+j
+    into[0] = p.d[0].c[0].d[0].c[0] + p.d[0].c[1].d[0].c[1] + p.d[0].c[2].d[0].c[2]; //0,0
+    into[1] = p.d[0].c[0].d[1].c[0] + p.d[0].c[1].d[1].c[1] + p.d[0].c[2].d[1].c[2]; //0,1
+    into[2] = p.d[0].c[0].d[2].c[0] + p.d[0].c[1].d[2].c[1] + p.d[0].c[2].d[2].c[2]; //0,2
+    into[3] = p.d[0].c[0].d[3].c[0] + p.d[0].c[1].d[3].c[1] + p.d[0].c[2].d[3].c[2]; //0,3
+
+    into[4] = p.d[1].c[0].d[0].c[0] + p.d[1].c[1].d[0].c[1] + p.d[1].c[2].d[0].c[2]; //1,0
+    into[5] = p.d[1].c[0].d[1].c[0] + p.d[1].c[1].d[1].c[1] + p.d[1].c[2].d[1].c[2]; //1,1
+    into[6] = p.d[1].c[0].d[2].c[0] + p.d[1].c[1].d[2].c[1] + p.d[1].c[2].d[2].c[2]; //1,2
+    into[7] = p.d[1].c[0].d[3].c[0] + p.d[1].c[1].d[3].c[1] + p.d[1].c[2].d[3].c[2]; //1,3
+
+    into[8] = p.d[2].c[0].d[0].c[0] + p.d[2].c[1].d[0].c[1] + p.d[2].c[2].d[0].c[2]; //2,0
+    into[9] = p.d[2].c[0].d[1].c[0] + p.d[2].c[1].d[1].c[1] + p.d[2].c[2].d[1].c[2]; //2,1
+    into[10] = p.d[2].c[0].d[2].c[0] + p.d[2].c[1].d[2].c[1] + p.d[2].c[2].d[2].c[2]; //2,2
+    into[11] = p.d[2].c[0].d[3].c[0] + p.d[2].c[1].d[3].c[1] + p.d[2].c[2].d[3].c[2]; //2,3
+
+    into[12] = p.d[3].c[0].d[0].c[0] + p.d[3].c[1].d[0].c[1] + p.d[3].c[2].d[0].c[2]; //3,0
+    into[13] = p.d[3].c[0].d[1].c[0] + p.d[3].c[1].d[1].c[1] + p.d[3].c[2].d[1].c[2]; //3,1
+    into[14] = p.d[3].c[0].d[2].c[0] + p.d[3].c[1].d[2].c[1] + p.d[3].c[2].d[2].c[2]; //3,2
+    into[15] = p.d[3].c[0].d[3].c[0] + p.d[3].c[1].d[3].c[1] + p.d[3].c[2].d[3].c[2]; //3,3   
+  }
+
+
 };
 
 WilsonMatrix& eq_mult( WilsonMatrix& xmat,

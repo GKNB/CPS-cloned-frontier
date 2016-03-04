@@ -461,8 +461,8 @@ Complex GlobalJobParameter::TwistPhase(const int &dir) const{
     // thus e^{-ipL} = e^{-i*theta},  i.e.  e^{-i(pL-theta)} = 1
     // p = n*2*pi/L + theta/L
  
-    twist_phase.real() = cos(TwistAngle(dir)*pi);
-    twist_phase.imag() = -sin(TwistAngle(dir)*pi);
+    twist_phase.real(cos(TwistAngle(dir)*pi));
+    twist_phase.imag(-sin(TwistAngle(dir)*pi));
   }
   return twist_phase;
 }
@@ -532,6 +532,7 @@ char*** GlobalJobParameter::argv_p(void){
 }
 
 void GlobalJobParameter::setArg(int* argc, char*** argv){
+  VRB.Result(cname,"setArg()","argc=%p argv=%p\n",argc,argv);
 
   argc_int = argc;
   argv_int = argv;

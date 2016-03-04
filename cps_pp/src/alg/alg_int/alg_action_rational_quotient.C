@@ -404,7 +404,13 @@ Float AlgActionRationalQuotient::energy() {
       updateCgStats(frm_cg_arg_mc[i][0]);
 
       // shift this evaluation into minvcg?
-      h += lat.FhamiltonNode(frmn[1], frmn[1]);
+
+      Float h_i = lat.FhamiltonNode(frmn[1], frmn[1]);
+      h += h_i;
+
+      Float total_h_i = h_i;
+      glb_sum(&total_h_i);
+      VRB.Result(cname, fname, "energy: mass ratio %0.4f/%0.4f final ham = %.16e\n", frm_cg_arg_mc[i][0]->mass, bsn_cg_arg_mc[i][0]->mass, total_h_i); 
     }
 
     LatticeFactory::Destroy();
@@ -417,7 +423,7 @@ Float AlgActionRationalQuotient::energy() {
     {
       Float gsum_h(h);
       glb_sum(&gsum_h);
-      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.9e\n",force_label,gsum_h);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.16e\n",force_label,gsum_h);
     }
 
     return h;
@@ -530,10 +536,12 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 							       all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
 							       force_measure);
+#ifdef USE_BFM
     else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
       Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 							  all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
 							  force_measure);
+#endif
     else
       Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 				     all_res, bsn_mass[i], dt_ratio, frmn_d, 
@@ -552,10 +560,12 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 							       frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 							       dt_ratio, frmn_d, force_measure);
+#ifdef USE_BFM
     else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
       Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 							  frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 							  dt_ratio, frmn_d, force_measure);
+#endif
     else
       Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 				     frm_remez_arg_md[i].residue, frm_mass[i], 
@@ -729,10 +739,12 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 								 all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
 								 force_measure);
+#ifdef USE_BFM
       else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
 	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 							    all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
 							    force_measure);
+#endif
       else
 	Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 				       all_res, bsn_mass[i], dt, frmn_d, 
@@ -750,10 +762,12 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 								 frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 								 dt, frmn_d, force_measure);
+#ifdef USE_BFM
       else if(fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
 	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 							    frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 							    dt, frmn_d, force_measure);
+#endif
       else
 	Fdt = lat.RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 								 frm_remez_arg_md[i].residue, frm_mass[i], 

@@ -10,8 +10,12 @@ CPS_END_NAMESPACE
 #include <alg/prop_attribute_arg.h>
 //#include <alg/eigen/Krylov_5d.h>
 
+#ifdef USE_BFM
+namespace BFM_Krylov{
 template<class T> class Lanczos_5d;
+}
 template<class T> class bfm_evo;
+#endif
 
 CPS_START_NAMESPACE
 
@@ -33,6 +37,9 @@ public:
   template<typename T>
   bool hasAttr() const{ return findAttr(T::getType())!=NULL; }
   
+  template<typename T>
+  void removeAttr();
+
   virtual void readProp(Lattice &latt) = 0; //loads prop if on disk (or if possible), does nothing otherwise
   virtual void calcProp(Lattice &latt) = 0; //perform prop inversion
   virtual void deleteProp() = 0; //deletes the prop from memory, used to save space. Will be automatically recalculated if getProp is called again
@@ -71,6 +78,16 @@ T* PropagatorContainer::getAttr() const{
   return reinterpret_cast<T*>(&(c->AttributeContainer_u));
 }
 
+template<typename T>
+void PropagatorContainer::removeAttr(){
+  AttributeContainer *c = findAttr(T::getType());
+  if(c!=NULL){
+    int idx = (int)c->type;
+    delete c;
+    attributes[idx] = NULL;
+  }
+}
+
 
 class QPropWcontainer: public PropagatorContainer{
  protected:
@@ -103,38 +120,40 @@ class QPropWcontainer: public PropagatorContainer{
   ~QPropWcontainer(){ if(prop!=NULL) delete prop; }
 };
 
-class A2APropbfm;
 
-class A2ApropContainer: public PropagatorContainer{
- protected:
-  A2APropbfm *prop;
+// class A2APropbfm;
 
- public:
-  A2ApropContainer(): PropagatorContainer(), prop(NULL){}
+// class A2ApropContainer: public PropagatorContainer{
+//  protected:
+//   A2APropbfm *prop;
 
-  void readProp(Lattice &latt); //loads prop if on disk (or if possible), does nothing otherwise
-  void calcProp(Lattice &latt); //perform prop inversion
-  void deleteProp(); //deletes the prop from memory, used to save space. Will be automatically recalculated if getProp is called again
+//  public:
+//   A2ApropContainer(): PropagatorContainer(), prop(NULL){}
 
-  //Convenience function to check and then convert a base class reference. Pass in cname and fname
-  static A2ApropContainer & verify_convert(PropagatorContainer &pc, const char* cname, const char* fname);
-  static const A2ApropContainer & verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname);
+//   void readProp(Lattice &latt); //loads prop if on disk (or if possible), does nothing otherwise
+//   void calcProp(Lattice &latt); //perform prop inversion
+//   void deleteProp(); //deletes the prop from memory, used to save space. Will be automatically recalculated if getProp is called again
 
-  A2APropbfm & getProp(Lattice &latt); //get the prop, calculate or load if necessary
+//   //Convenience function to check and then convert a base class reference. Pass in cname and fname
+//   static A2ApropContainer & verify_convert(PropagatorContainer &pc, const char* cname, const char* fname);
+//   static const A2ApropContainer & verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname);
 
-  ~A2ApropContainer();
-};
+//   A2APropbfm & getProp(Lattice &latt); //get the prop, calculate or load if necessary
+
+//   ~A2ApropContainer();
+// };
 
 
 
+#ifdef USE_BFM
 
 class LanczosContainer{
-  Lanczos_5d<double> *lanczos;
+  BFM_Krylov::Lanczos_5d<double> *lanczos;
   bfm_evo<double> *dwf;
 
   int precision; //1=float, 2=double (default)
 
-  Lanczos_5d<float> *lanczos_f;
+  BFM_Krylov::Lanczos_5d<float> *lanczos_f;
   bfm_evo<float> *dwf_f;
 
   bool reload_gauge;
@@ -151,8 +170,8 @@ class LanczosContainer{
 
   void setupBfm(const int &prec); //setup either bfm instance
 
-  Lanczos_5d<double> & getEig(Lattice &latt); 
-  Lanczos_5d<float> & getEigSinglePrec(Lattice &latt);
+  BFM_Krylov::Lanczos_5d<double> & getEig(Lattice &latt); 
+  BFM_Krylov::Lanczos_5d<float> & getEigSinglePrec(Lattice &latt);
 
   const LanczosContainerArg &getArgs() const{ return args; }
 
@@ -164,7 +183,7 @@ class LanczosContainer{
 
   void reloadGauge(){ reload_gauge = true; }
 
-  void set_lanczos(Lanczos_5d<double> *to); //Does not check arguments match those in args, so use only if you know what you are doing!
+  void set_lanczos(BFM_Krylov::Lanczos_5d<double> *to); //Does not check arguments match those in args, so use only if you know what you are doing!
   
   void set_bfm(bfm_evo<double> *_dwf){ dwf = _dwf; } //Also does not check arguments, so be careful
   void set_bfm(bfm_evo<float> *_dwf){ dwf_f = _dwf; }
@@ -173,7 +192,7 @@ class LanczosContainer{
   void setPrecision(const int &prec); //convert from float to double or double to float
 };
 
-
+#endif
 
 
 #endif

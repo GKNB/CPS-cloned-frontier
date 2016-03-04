@@ -18,7 +18,7 @@ void* smalloc(size_t request,
 	      const char vname[], const char fname[], const char cname[]){
 
 #ifdef HAVE_POSIX_MEMALIGN
-#define ALLOC_MEMALIGN_NUM 4096
+#define ALLOC_MEMALIGN_NUM 512
   void *p;
   if( posix_memalign((void**)&p, ALLOC_MEMALIGN_NUM, request) ) ERR.Pointer(cname, fname, vname);
     VRB.Smalloc(cname, fname, vname, p, request);

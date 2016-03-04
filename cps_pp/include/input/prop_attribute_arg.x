@@ -16,6 +16,7 @@ enum AttrType {
   MOM_COS_ATTR,
   PROP_COMBINATION_ATTR,
   GPARITY_OTHER_FLAV_PROP_ATTR,
+  GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR,
   TWISTED_BC_ATTR,
   STORE_MIDPROP_ATTR,
   A2A_ATTR,
@@ -106,6 +107,16 @@ struct GparityOtherFlavPropAttrArg{ /*Give the tag of a propagator with the same
   rpccommand GENERATE_DEEPCOPY_METHOD;
   rpccommand GENERATE_PRINT_METHOD;
 };
+struct GparityComplexConjSourcePartnerPropAttrArg{ /*Give the tag of a propagator whose source is the complex conjugate of the source used for this prop. These can also be combined to compute a full 2x2 flavor propagator*/
+  string tag<>;
+
+  memfun static AttrType getType();
+  memfun GparityComplexConjSourcePartnerPropAttrArg clone();
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+  rpccommand GENERATE_PRINT_METHOD;
+};
+
+
 struct  TwistedBcAttrArg {
   int theta[3];
   memfun static AttrType getType();
@@ -183,6 +194,8 @@ switch(AttrType type){
    PropCombinationAttrArg prop_combination_attr;
  case GPARITY_OTHER_FLAV_PROP_ATTR:
    GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
+ case GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR:
+   GparityComplexConjSourcePartnerPropAttrArg gparity_complex_conj_source_partner_prop_attr;
  case TWISTED_BC_ATTR:
    TwistedBcAttrArg twisted_bc_attr;
  case STORE_MIDPROP_ATTR:

@@ -29,6 +29,7 @@ AttrType GaugeFixAttrArg::getType (  ){ return GAUGE_FIX_ATTR; }
 AttrType MomCosAttrArg::getType (  ){ return MOM_COS_ATTR; }
 AttrType PropCombinationAttrArg::getType (  ){ return PROP_COMBINATION_ATTR; }
 AttrType GparityOtherFlavPropAttrArg::getType ( ){ return GPARITY_OTHER_FLAV_PROP_ATTR; }
+AttrType GparityComplexConjSourcePartnerPropAttrArg::getType ( ){ return GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR; }
 AttrType TwistedBcAttrArg::getType( ){ return TWISTED_BC_ATTR; }
 AttrType StoreMidpropAttrArg::getType( ){ return STORE_MIDPROP_ATTR; }
 AttrType A2AAttrArg::getType( ){ return A2A_ATTR; }

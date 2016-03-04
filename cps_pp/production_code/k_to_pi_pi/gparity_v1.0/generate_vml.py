@@ -83,6 +83,15 @@ class GparityOtherFlavPropAttrArg:
         fhandle.write("string tag = \"%s\"\n" % self.tag)
         fhandle.write("}\n");  
 
+class GparityComplexConjSourcePartnerPropAttrArg:
+    def __init__(self, tag):
+        self.tag = tag
+    def write(self,fhandle):
+        fhandle.write("AttrType type = GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR\n")
+        fhandle.write("struct GparityComplexConjSourcePartnerPropAttrArg gparity_complex_conj_source_partner_prop_attr = {\n")
+        fhandle.write("string tag = \"%s\"\n" % self.tag)
+        fhandle.write("}\n");  
+
 class PropCombinationAttrArg:
     def __init__(self,prop_A,prop_B, comb):
         self.prop_A = prop_A
@@ -171,10 +180,18 @@ class PropagatorArg:
         self.attr.append( GaugeFixAttrArg(1) )
     def setGparityFlavor(self,f):
         self.attr.append( GparityFlavorAttrArg(f))
-    def setWallSource(self,t,flav=None):
+
+    def setPointSource(self,x,flav=None):
+        self.attr.append( PointSourceAttrArg(x))
+        if(flav != None): 
+            self.setGparityFlavor(flav)
+
+    def setWallSource(self,t,flav=None, gauge_fix=True):
         self.attr.append( WallSourceAttrArg(t))
         if(flav != None): 
             self.setGparityFlavor(flav)
+        if(gauge_fix == True):
+            self.gaugeFixSource()
     def setMomentumSource(self,t,p, flav=None, gauge_fix=True):
         self.attr.append( WallSourceAttrArg(t))
         self.attr.append( MomentumAttrArg(p))
@@ -199,6 +216,9 @@ class PropagatorArg:
 
     def specifyFlavorPartner(self,tag):
         self.attr.append( GparityOtherFlavPropAttrArg(tag) )
+
+    def specifyComplexConjPartner(self,tag):
+        self.attr.append( GparityComplexConjSourcePartnerPropAttrArg(tag) )
 
     def deflateUsing(self,lanczos_tag):
         self.attr.append( DeflatedCGAttrArg(lanczos_tag) )

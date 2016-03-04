@@ -176,7 +176,10 @@ struct ContractionTypeTopologicalCharge{
  rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
-
+/*This is somewhat tricky for G-parity. We sink project to pi/L \vec{G}, which requires the propagator momentum to sum rather than cancel.  G^dag(-p) G(p)   so we need both G(-p) and G(p). 
+  For cosine sources this is always true, but for other sources we must use the prop conj relation. This *requires* the source structure \eta (not including the phase factor) to obey    \sigma_2 C\gamma^5\eta^* = \eta\sigma_2 C\gamma^5
+  which applies for all sources containing gauge links or the unit matrix.*/
+       
 struct ContractionTypeMres{
   string prop<>;  
   string file<>;
@@ -337,6 +340,21 @@ class GparityAMAarg{
   int exact_solve_timeslices<>; /* Specify the timeslices on which the 'rest' part is calculated */
   Float exact_precision;
   Float sloppy_precision;
+
+  string config_fmt<>; /* Should contain a %d which is replaced by a config index */
+  int conf_start;
+  int conf_incr;
+  int conf_lessthan;
+  FixGaugeArg fix_gauge; /* Gauge fixing - Defaults to FIX_GAUGE_NONE */
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+};
+
+class GparityAMAbilBKarg{
+  int exact_solve_timeslices<>; /* Specify the timeslices on which the 'rest' part is calculated */
+  Float exact_precision;
+  Float sloppy_precision;
+  Float ml;
+  Float mh;
 
   string config_fmt<>; /* Should contain a %d which is replaced by a config index */
   int conf_start;

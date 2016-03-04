@@ -9,7 +9,9 @@
 
 #include <config.h>
 #include <util/data_types.h>
+#include <comms/sysfunc_cps.h>
 #include <sys/time.h>
+#include <string>
 
 CPS_START_NAMESPACE
 /*! \defgroup profiling Timing and performance functions
@@ -70,6 +72,11 @@ struct Elapsed{
 
   Elapsed():hours(0),mins(0),secs(0){}
   Elapsed(const Float &delta);
+  inline void print(const std::string &stamp = "Elapsed", FILE *to = stdout){
+    if(!UniqueID()){
+      fprintf(stdout,"%s %dh %dm %fs\n",stamp.c_str(),hours,mins,secs); fflush(stdout);
+    }
+  }
 };
 
 class Timer{

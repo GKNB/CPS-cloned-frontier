@@ -1,5 +1,5 @@
-#ifndef KRY5D_H
-#define KRY5D_H
+#ifndef BFM_KRY5D_H
+#define BFM_KRY5D_H
 
 #include "Krylov.h"
 #include <cstdlib>
@@ -11,6 +11,8 @@
 #include <fstream>
 #include <complex>
 
+namespace BFM_Krylov{
+
 template <class S> 
 class Krylov_5d : public Krylov<S>
 {
@@ -18,8 +20,10 @@ class Krylov_5d : public Krylov<S>
     Krylov_5d(bfm_evo<S> &dwf) : Krylov<S>(dwf){}
     Krylov_5d(bfm_evo<S> &dwf, cps::LancArg &lanc_arg) : Krylov<S>(dwf, lanc_arg) {}
     virtual ~Krylov_5d() {}
-    void eigs_to_qdp(multi1d<multi1d<LatticeFermion> > &con_vecs, multi1d<Complex> &con_vals);
+    void eigs_to_qdp(QDP::multi1d<QDP::multi1d<QDP::LatticeFermion> > &con_vecs, QDP::multi1d<QDP::Complex> &con_vals);
 
+    //Copied from Daiqian. Change stored eigenvectors 'bq' to single precision
+    void toSingle();
   protected:
     void init();
 
@@ -29,16 +33,39 @@ class Krylov_5d : public Krylov<S>
 };
 
 template <class S> 
+void Krylov_5d<S>::toSingle() // Change bq to single precision
+{
+	int words = 24 * this->dop.node_cbvol * this->dop.cbLs * (1 + this->dop.gparity);
+
+	for(int i = 0; i < this->get; i++) {
+		bfm_fermion bq_tmp;
+		for(int cb = this->prec; cb < 2; cb++) {
+			bq_tmp[cb] = (float *)bfm_alloc(words * sizeof(float),mem_slow);
+			if(bq_tmp[cb] == 0){ printf("bfmbase::allocFermion\n"); fflush(stdout); exit(-1);}
+			for(int j = 0; j < words; j++) {
+				((float*)bq_tmp[cb])[j] = ((S*)(this->bq[i][cb]))[j];
+				//QDPIO::cout<<"i="<<i<<" "<<"j="<<j<<" "<<((float*)bq_tmp[cb])[j]<<" "<<((S*)this->bq[i][cb])[j]<<endl; // test passed
+			}
+		}
+		this->free_fermion(this->bq[i]);
+		for(int cb = this->prec; cb < 2; cb++) {
+			this->bq[i][cb] = bq_tmp[cb];
+		}
+	}
+}
+
+
+template <class S> 
 void Krylov_5d<S>::init()
 {
   if(this->initialized)
     return;
 
-  QDPIO::cout << "initializing" << endl;
+  QDPIO::cout << "initializing" << std::endl;
   this->Krylov_init();
   if(this->D == G5D && this->dop.solver == DWF && this->prec == 1)
   {
-    QDPIO::cerr << "5d preconditioned gamma5 D operator is not Hermitian. " << endl;
+    QDPIO::cerr << "5d preconditioned gamma5 D operator is not Hermitian. " << std::endl;
     exit(0);
   }
 
@@ -81,7 +108,7 @@ void Krylov_5d<S>::init()
   SpinVector tspin = zero;
   
   //CK: seems to generate a source vector with 1.0 on every spin-color index
-  Complex cno = cmplx(Real(1), Real(0));
+  QDP::Complex cno = cmplx(Real(1), Real(0));
   for(int spn = 0; spn < Nd; spn++) 
     pokeSpin(tspin, cno, spn);
   //  for(int col = 0; col < Nd; col++)  //shouldn't this be 3, not 4??
@@ -111,12 +138,14 @@ void Krylov_5d<S>::init()
     this->qdp_to_bfm(st, this->bq[0]);
   }
   double hnorm = this->norm(this->bq[0]);
+  printf("Starting vector norm %g\n",hnorm);
+  
   this->axpby(this->bq[0], 0, this->bq[0], 1.0/hnorm, this->bq[0]);
   this->initialized = true;
 }
 
 template <class S> 
-void Krylov_5d<S>::eigs_to_qdp(multi1d<multi1d<LatticeFermion> > &con_vecs, multi1d<Complex> &con_vals)
+void Krylov_5d<S>::eigs_to_qdp(QDP::multi1d<QDP::multi1d<QDP::LatticeFermion> > &con_vecs, QDP::multi1d<QDP::Complex> &con_vals)
 {
 	int Nev = this->evals.size();
 	con_vecs.resize(Nev); for(int i = 0; i<Nev; i++){con_vecs[i].resize(this->dop.Ls);}
@@ -173,7 +202,7 @@ void Krylov_5d<S>::herm_mult(bfm_fermion input, bfm_fermion &result)
     this->mvprod += 2;
   }
   else{
-    QDPIO::cerr << "Krylov_5d<S>::herm_mult : Don't know what to do with that operator" << endl;
+    QDPIO::cerr << "Krylov_5d<S>::herm_mult : Don't know what to do with that operator" << std::endl;
     exit(-1); //Added by CK: why would we continue??
   }
 
@@ -229,5 +258,8 @@ class Lanczos_5d : public Krylov_5d<T>
     //  }
     //}
 };
+
+}
+
 #endif
 

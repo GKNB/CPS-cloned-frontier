@@ -665,6 +665,34 @@ template<> struct rpc_deepcopy<GparityAMAarg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+class VML;
+class GparityAMAbilBKarg {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	struct {
+		u_int exact_solve_timeslices_len;
+		int *exact_solve_timeslices_val;
+	} exact_solve_timeslices;
+	Float exact_precision;
+	Float sloppy_precision;
+	Float ml;
+	Float mh;
+	char *config_fmt;
+	int conf_start;
+	int conf_incr;
+	int conf_lessthan;
+	FixGaugeArg fix_gauge;
+	   void deep_copy(const GparityAMAbilBKarg &rhs);
+};
+template<> struct rpc_deepcopy<GparityAMAbilBKarg>{
+	static void doit(GparityAMAbilBKarg &into, GparityAMAbilBKarg const &from);
+};
+
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -698,6 +726,7 @@ extern  bool_t vml_ContractionTypeKtoPiPi (VML *, char *instance, ContractionTyp
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
+extern  bool_t vml_GparityAMAbilBKarg (VML *, char *instance, GparityAMAbilBKarg*);
 
 #else /* K&R C */
 extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
@@ -726,6 +755,7 @@ extern  bool_t vml_ContractionTypeKtoPiPi (VML *, char *instance, ContractionTyp
 extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement*);
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
+extern  bool_t vml_GparityAMAbilBKarg (VML *, char *instance, GparityAMAbilBKarg*);
 
 #endif /* K&R C */
 

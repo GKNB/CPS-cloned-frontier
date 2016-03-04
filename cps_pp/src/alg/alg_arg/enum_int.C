@@ -65,6 +65,7 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_MDWF",F_CLASS_MDWF},
 	{"FclassType","F_CLASS_BFM",F_CLASS_BFM},
 	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
+	{"FclassType","F_CLASS_GRID",F_CLASS_GRID},
 	{NULL,NULL,0}
 };
 

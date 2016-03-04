@@ -39,6 +39,9 @@
 
 USING_NAMESPACE_CPS
 
+//NOTE: Peter's BFM Shamir domain wall propagators are a factor of (5-m5) smaller than the CPS propagators
+
+
 void init_bfm(int *argc, char **argv[], const BfmArg &args)
 {
   // /*! IMPORTANT: BfmSolverType is not the same as the BfmSolver in the bfm package. BfmSolverType is defined in enum.x. Basically it adds a BFM_ prefix to the corresponding names in the BfmSolver enum. */
@@ -54,6 +57,8 @@ void init_bfm(int *argc, char **argv[], const BfmArg &args)
 
   if(args.solver == BFM_HmCayleyTanh){
     Fbfm::bfm_args[0].solver = HmCayleyTanh;
+  }else if(args.solver == BFM_DWF){
+    Fbfm::bfm_args[0].solver = DWF;
   }else ERR.General("","init_bfm","CPS solver enum correspondance to bfm enum has not been added for input solver type\n");
 
   Fbfm::bfm_args[0].precon_5d = args.precon_5d;
@@ -116,9 +121,25 @@ int main(int argc,char *argv[])
 {
   Start(&argc,&argv);
   
-  if(argc!=5){
+  if(argc < 5){
     ERR.General("","main()","Not enough arguments. Require DoArg, JobPropagatorArgs, BfmArg and GparityContractArg");
   }
+
+  bool binary_write = false; //enable output in binary where implemented
+
+  int i=5;
+  while(i<argc){
+    char* cmd = argv[i];  
+    if( strncmp(cmd,"-binary_write",25) == 0){
+      if(!UniqueID()) printf("Enabled binary write\n");
+      binary_write = true;
+      i++;
+    }else{
+      if(!UniqueID()) printf("Unknown argument: %s\n",cmd);
+      exit(-1);
+    }
+  }
+
 
   DoArg do_arg;
   if(!do_arg.Decode(argv[1],"do_arg")){
@@ -157,6 +178,8 @@ int main(int argc,char *argv[])
   if(!found) ERR.General("","main()","GparityContractArg config format '%s' does not contain a %%d",contract_args.config_fmt);
 
   GJP.Initialize(do_arg);
+  GJP.SetNthreads(bfm_args.threads);
+
   GJP.StartConfKind(START_CONF_MEM); //we will handle the gauge field read/write thankyou!
 
 #if TARGET == BGQ
@@ -201,6 +224,7 @@ int main(int argc,char *argv[])
     }else{
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
     }
+    lattice.BondCond(); //apply BCs and import gauge field from CPS container
 
     //Gauge fix lattice if required
     if(contract_args.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
@@ -210,6 +234,7 @@ int main(int argc,char *argv[])
 
     //Perform the inversions/contractions
     AlgGparityContract contract(lattice,carg,contract_args);
+    if(binary_write) contract.enable_binary_write();
     contract.run(conf);
 
     //Free the gauge fixing matrices and reset for next config

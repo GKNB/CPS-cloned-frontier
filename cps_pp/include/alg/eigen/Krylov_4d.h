@@ -1,5 +1,5 @@
-#ifndef KRY4D_H
-#define KRY4D_H
+#ifndef BFM_KRY4D_H
+#define BFM_KRY4D_H
 
 #include "Krylov.h"
 #include <cstdlib>
@@ -11,6 +11,10 @@
 #include <fstream>
 #include <complex>
 #include <bfm_qdp_g5d.h>
+
+namespace BFM_Krylov{
+
+
 //#include "dwf_4d.h"
 /**
 A 4d eigensolver.
@@ -358,5 +362,7 @@ multi1d<Complex> val) : Krylov_4d<complex<T>, T, complex<double> >(dwf, Ed, c, U
 
 
 };*/
+
+}
 
 #endif

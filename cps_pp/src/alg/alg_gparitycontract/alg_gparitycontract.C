@@ -46,7 +46,6 @@
 #undef HALF_SPINOR_SIZE
 #undef GAUGE_SIZE
 #endif
-#include <alg/a2a/MesonField.h>
 
 #ifdef USE_OMP
 #include <omp.h>
@@ -232,10 +231,10 @@ std::vector<Float> ContractionQuarkMomCombination::get_p(const int &contraction)
 }
 
 
-AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg, GparityContractArg& arg): Alg(latt,&c_arg), args(&arg){ 
+AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg, GparityContractArg& arg): Alg(latt,&c_arg), args(&arg), binary_write(false){ 
   cname = "AlgGparityContract"; 
 }
-AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg): Alg(latt,&c_arg), args(NULL){
+AlgGparityContract::AlgGparityContract(Lattice & latt, CommonArg& c_arg): Alg(latt,&c_arg), args(NULL), binary_write(false){
   cname = "AlgGparityContract"; 
 }
 
@@ -1882,26 +1881,32 @@ void AlgGparityContract::measure_mres_gparity(const ContractionTypeMres &args, C
 #define DEFINITION_ONE
 
 #ifdef DEFINITION_ONE
-  //In this version we explicitly create pion operators with the appropriate G-parity momentum projection.
+  int src_p[3];
+  prop_pcon.momentum(src_p); //in units of pi/2L
 
-  Float p[3] = {0,0,0};
-  for(int d=0;d<3;d++) if(GJP.Bc(d) == BND_CND_GPARITY) p[d] = 0.5; //units of 2pi/L
+  //In this version we explicitly create pion operators with the appropriate G-parity momentum projection.
+  Float mom[3] = {0,0,0};
+  for(int d=0;d<3;d++) mom[d] = Float(2*src_p[d]) / 4.0; //units of 2pi/L
 
 #pragma omp parallel for default(shared)
   for(int i = 0; i < GJP.VolNodeSites(); ++i) {
     int x[4];
     global_coord(i,x);
-    Rcomplex phase = phase_factor(p,x);
+    Rcomplex phase = phase_factor(mom,x);
     
     // J5 contraction (pion)  (factor of 1/2 not included)
     SpinColorFlavorMatrix p[2];
     p[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_BOUNDARY);
     p[1] = p[0];
+    p[1].flipSourceMomentum(); //NOTE: This assumes the source matrix structure \eta (not including the phase factor) obeys  C\gamma^5 \sigma_2 \eta^* = \eta C\gamma^5 \sigma_2
+                               //      which is a property of pretty much all standard source types (wall, cosine wall, point, etc, also with gauge fixing matrix)
+
     p[1].hconj();
     // J5q contraction (midplane)  (factor of 1/2 not included)
     SpinColorFlavorMatrix q[2];
     q[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_MIDPOINT);
     q[1] = q[0];
+    q[1].flipSourceMomentum();
     q[1].hconj();
 
     p[0].pr(sigma3);
@@ -1970,6 +1975,7 @@ void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear 
 }
 
 void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear &args, CorrelationFunction &corr_a2a){
+#if 0
   Float src_gamma_matrix_linear_comb[16];
   Float snk_gamma_matrix_linear_comb[16];
   for(int i=0;i<16;i++){
@@ -2010,6 +2016,7 @@ void AlgGparityContract::contract_a2a_bilinear(const ContractionTypeA2ABilinear 
   
   //Calculate correlation function
   MesonField2::contract(mf_src,mf_snk,0,corr_a2a);
+#endif
 }
 
 void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &conf_idx){
@@ -2033,6 +2040,14 @@ void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &
   else ERR.General("AlgGparityContract","spectrum(...)","Invalid contraction type");
 }
 
+//NOTE: This code computes  \sum_x tr( M1 G_1^dag(x) M2 G_2(x) ) for all M1, M2  (spin without GPBC and spin/flavor otherwise)
+//      Which is the contraction for the usual 2pt function    \sum_xy < \bar\psi_1(x) MSNK \psi_2(x) \bar\psi_2(y) MSRC \psi_1(y) > 
+//                                                           = \sum_xy tr( P_1(y,x) MSNK P_2(x,y) MSRC ) =  \sum_xy tr( g5 P_1^dag(x,y) g5 MSNK P_2(x,y) MSRC )
+//                                                           = \sum_xy tr( MSRC g5 P_1^dag(x,y) g5 MSNK P_2(x,y) )
+//                                                           = \sum_x tr( MSRC g5 G_1^dag(x,y) g5 MSNK G_2(x,y) )
+//      THUS  M1 = MSRC g5   and  M2 = g5 MSNK    (note the ordering).
+//These same conventions apply to the wallsink bilinears below
+
 void AlgGparityContract::contract_all_bilinears(const ContractionTypeAllBilinears &args, const int &conf_idx){
   std::ostringstream filestr; filestr << args.file << "." << conf_idx;
   std::string file = filestr.str();
@@ -2041,11 +2056,11 @@ void AlgGparityContract::contract_all_bilinears(const ContractionTypeAllBilinear
   if(GJP.Gparity()){
     ContractedBilinear<SpinColorFlavorMatrix> conbil;
     _multimom_helper<ContractedBilinear<SpinColorFlavorMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
+    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
   }else{
     ContractedBilinear<WilsonMatrix> conbil;
     _multimom_helper<ContractedBilinear<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());   
+    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);   
   }
 }
 
@@ -2074,12 +2089,12 @@ void AlgGparityContract::contract_all_wallsink_bilinears_specific_momentum(const
     ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> conbil;
     if(args.cosine_sink==1) conbil.enableCosineSink();
     _multimom_helper<ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
+    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
   }else{
     ContractedWallSinkBilinearSpecMomentum<WilsonMatrix> conbil;
     if(args.cosine_sink==1) conbil.enableCosineSink();
     _multimom_helper<ContractedWallSinkBilinearSpecMomentum<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
+    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
   }
 }
 

@@ -1,6 +1,6 @@
 //Test the Lanczos-5d code with G-parity BCs
 
-#include <alg/a2a/lanc_arg.h>
+#include <alg/lanc_arg.h>
 #include <alg/eigen/Krylov_5d.h>
 
 
@@ -117,6 +117,9 @@
 
 using namespace std;
 USING_NAMESPACE_CPS
+
+int nget = 4;
+int nuse = 11;
 
 void setup_double_latt(Lattice &double_latt, cps::Matrix* orig_gfield, bool gparity_X, bool gparity_Y){
   //orig latt ( U_0 U_1 ) ( U_2 U_3 ) ( U_4 U_5 ) ( U_6 U_7 )
@@ -267,12 +270,12 @@ void lanczos_arg(LancArg &into, const bool &precon){
   into.qr_rsd = 1e-14; ///convergence of intermediate QR solves, defaults to 1e-14
   into.EigenOper = DDAGD;
   into.precon = precon; //also try this with true
-  into.N_get = 10;///Want K converged vectors
-  into.N_use = 11;///Dimension M Krylov space
-  into.N_true_get = 10;//Actually number of eigen vectors you will get
-  into.ch_ord = 3;///Order of Chebyshev polynomial
-  into.ch_alpha = 5.5;///Spectral radius
-  into.ch_beta = 0.5;///Spectral offset (ie. find eigenvalues of magnitude less than this)
+  into.N_get = nget;///Want K converged vectors
+  into.N_use = nuse;///Dimension M Krylov space
+  into.N_true_get = nget;//Actually number of eigen vectors you will get
+  into.ch_ord = 50;///Order of Chebyshev polynomial
+  into.ch_alpha = 7;///Spectral radius
+  into.ch_beta = 2;///Spectral offset (ie. find eigenvalues of magnitude less than this)
   into.ch_sh = false;///Shifting or not
   into.ch_mu = 0;///Shift the peak
   into.lock = false;///Use locking transofrmation or not
@@ -281,29 +284,31 @@ void lanczos_arg(LancArg &into, const bool &precon){
 }
 
 //Returns the number of eigenvectors calculated
-int lanczos_test_2f(GwilsonFdwf* lattice, Float** &eigenvectors,const bool &precon){ //assumes GJP and LRG have already been set up appropriately
+int lanczos_test_2f(GwilsonFdwf* lattice, Float** &eigenvectors, std::vector<Float> &evals, const bool &precon){ //assumes GJP and LRG have already been set up appropriately
   bfm_evo<double> dwf;
   bfmarg dwfa;
   setup_bfmargs(dwfa);
 
   dwf.init(dwfa);
-  
+  assert(dwf.gparity == 1);
+
   lattice->BondCond(); //Don't forget to apply the boundary conditions!
   Float* gauge = (Float*) lattice->GaugeField();
   dwf.cps_importGauge(gauge); 
+  lattice->BondCond(); //Don't forget to un-apply the boundary conditions!
 
   //Setup and run the lancsoz algorithm
   LancArg lanc_arg; lanczos_arg(lanc_arg,precon);
-  Lanczos_5d<double> eig(dwf,lanc_arg);
+  BFM_Krylov::Lanczos_5d<double> eig(dwf,lanc_arg);
   eig.Run();
-  lattice->BondCond(); //Don't forget to un-apply the boundary conditions!
 
   multi1d<bfm_fermion> &eigenvecs = eig.bq;
-
+  
   long f_size = (long)2*24 * GJP.VolNodeSites() * GJP.SnodeSites();
 
-  eigenvectors = (Float**)pmalloc(sizeof(Float*)*eigenvecs.size());
-  for(int i=0;i<eigenvecs.size();i++){
+  evals.resize(nget);
+  eigenvectors = (Float**)pmalloc(sizeof(Float*)*nget);
+  for(int i=0;i<nget;i++){
   //bfm_fermion is an array of 2 Fermion_t
   //For preconditioned solve the memory for the first checkerboard is not allocated
   //which causes the export to unpreconditioned format to SEGV
@@ -313,10 +318,11 @@ int lanczos_test_2f(GwilsonFdwf* lattice, Float** &eigenvectors,const bool &prec
 
     eigenvectors[i] = (Float *)pmalloc(sizeof(Float) * f_size);
     dwf.cps_impexFermion(eigenvectors[i],eigenvecs[i],0);
+    evals[i] = eig.evals[i];
   }
-  return eigenvecs.size();
+  return nget;
 }
-int lanczos_test_1f(GwilsonFdwf* lattice, Float** &eigenvectors,const bool &precon ){ //assumes GJP and LRG have already been set up appropriately
+int lanczos_test_1f(GwilsonFdwf* lattice, Float** &eigenvectors,std::vector<Float> &evals,const bool &precon ){ //assumes GJP and LRG have already been set up appropriately
   bfm_evo<double> dwf;
   bfmarg dwfa;
   setup_bfmargs(dwfa);
@@ -329,22 +335,24 @@ int lanczos_test_1f(GwilsonFdwf* lattice, Float** &eigenvectors,const bool &prec
 
   //Setup and run the lancsoz algorithm
   LancArg lanc_arg; lanczos_arg(lanc_arg,precon);
-  Lanczos_5d<double> eig(dwf,lanc_arg);
+  BFM_Krylov::Lanczos_5d<double> eig(dwf,lanc_arg);
   eig.Run();
   lattice->BondCond(); //Don't forget to un-apply the boundary conditions!
 
   multi1d<bfm_fermion> &eigenvecs = eig.bq;
 
   long f_size = (long)24 * GJP.VolNodeSites() * GJP.SnodeSites();
+  evals.resize(nget);
 
-  eigenvectors = (Float**)pmalloc(sizeof(Float*)*eigenvecs.size());
-  for(int i=0;i<eigenvecs.size();i++){
+  eigenvectors = (Float**)pmalloc(sizeof(Float*)*nget);
+  for(int i=0;i<nget;i++){
     if(precon){ eigenvecs[i][0] = dwf.allocCompactFermion();  dwf.set_zero(eigenvecs[i][0]); } //cf above for explanation
 
     eigenvectors[i] = (Float *)pmalloc(sizeof(Float) * f_size);
     dwf.cps_impexFermion(eigenvectors[i],eigenvecs[i],0);
+    evals[i] = eig.evals[i];
   }
-  return eigenvecs.size();
+  return nget;
 }  
 void lanczos_test_compare(Float** &_2f_eigenvectors, Float** &_1f_eigenvectors, const bool &gparity_X, const bool &gparity_Y, const int &n_evecs){
   //Convert the 2f eigenvectors onto the 1f lattice format
@@ -369,6 +377,8 @@ void lanczos_test_compare(Float** &_2f_eigenvectors, Float** &_1f_eigenvectors, 
   if(fail){
     printf("Lanczos test failed\n");
     exit(-1);
+  }else{
+    printf("Lanczos test passed\n");
   }
 }
 
@@ -413,13 +423,17 @@ void test_eigenvectors_unprec(Float** &eigenvectors, const int &n_evecs, Gwilson
   }
 }
 
-void test_eigenvectors_prec(Float** &eigenvectors, const int &n_evecs, GwilsonFdwf* lattice){
-  printf("Testing eigenvectors with Gparity = %d\n",GJP.Gparity());
+void test_eigenvectors_prec(Float** &eigenvectors, const std::vector<Float> &evals, const int &n_evecs, GwilsonFdwf* lattice){
+  if(!UniqueID()){ printf("Testing eigenvectors with Gparity = %d\n",GJP.Gparity()); fflush(stdout); }
   bfm_evo<double> dwf;
   bfmarg dwfa;
   setup_bfmargs(dwfa);
 
+  LancArg lanc_arg; lanczos_arg(lanc_arg,1); //get mass from lanc_arg!
+  dwfa.mass = lanc_arg.mass;
+
   dwf.init(dwfa);
+  assert(dwf.gparity == GJP.Gparity());
 
   lattice->BondCond(); //Don't forget to apply the boundary conditions!
   Float* gauge = (Float*) lattice->GaugeField();
@@ -436,21 +450,29 @@ void test_eigenvectors_prec(Float** &eigenvectors, const int &n_evecs, GwilsonFd
     Fermion_t DDdag_ev[2] = { dwf.allocFermion(), dwf.allocFermion() };
     Fermion_t tmp = dwf.allocFermion();
 
-    dwf.Mprec(bfm_ev[1],Ddag_ev[1],tmp,1);
-    dwf.Mprec(Ddag_ev[1],DDdag_ev[1],tmp,0);
+    dwf.Mprec(bfm_ev[1],Ddag_ev[1],tmp,0);
+    dwf.Mprec(Ddag_ev[1],DDdag_ev[1],tmp,1);
 
     dwf.copy(DDdag_ev[0],bfm_ev[0]);
 
     dwf.cps_impexFermion(cps_tmp,DDdag_ev,0);
 
+    double fail = 0;
+
     for(int s=0;s<f_size;s++){
-      if(cps_tmp[s] == 0 && eigenvectors[i][s]){ printf("Eigenvector %d, offset %d: both zero\n",i,s); continue; }
-      else if(cps_tmp[s] == 0){ printf("!!Eigenvector %d, offset %d: result is zero, eigenvector is not: %.12le\n",i,s,eigenvectors[i][s]); continue; }
-      else if(eigenvectors[i][s] == 0){ printf("!!Eigenvector %d, offset %d: eigenvector component zero, result is not: %.12le\n",i,s,cps_tmp[s]); continue; }
+      if(cps_tmp[s] == 0 && eigenvectors[i][s] == 0){ printf("Eigenvector %d, offset %d: both zero\n",i,s); continue; }
+      else if(cps_tmp[s] == 0){ printf("!!Eigenvector %d, offset %d: result is zero, eigenvector is not: %.12le\n",i,s,eigenvectors[i][s]); fail=1.0; continue; }
+      else if(eigenvectors[i][s] == 0){ printf("!!Eigenvector %d, offset %d: eigenvector component zero, result is not: %.12le\n",i,s,cps_tmp[s]); fail=1.0; continue; }
 
       Float ratio = cps_tmp[s] / eigenvectors[i][s];
       
-      printf("Eigenvector %d, offset %d: ratio %.12le\n",i,s,ratio);
+      printf("Eigenvector %d, offset %d: ratio %.12le, eigenvalue is %.12le\n",i,s,ratio,evals[i]);
+      if(fabs(ratio - evals[i]) > 1e-05) fail = 1.;
+    }
+    glb_sum(&fail);
+    if(fail > 0.0){ 
+      printf("Eigenvector %d does not appear to be an eigenvector!\n",i); fflush(stdout); 
+      //exit(-1);
     }
 
     dwf.freeFermion(bfm_ev[0]);    dwf.freeFermion(bfm_ev[1]);
@@ -474,11 +496,6 @@ void bfm_init(bfm_evo<double> &dwf,double mq);
 int main (int argc,char **argv )
 {
   Start(&argc, &argv);
-
-#ifdef HAVE_BFM
-  Chroma::initialize(&argc,&argv);
-#endif
-
   CommandLine::is(argc,argv);
 
   bool gparity_X(false);
@@ -642,15 +659,6 @@ int main (int argc,char **argv )
   GJP.Initialize(do_arg);
 
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
-
-  if(load_lrg){
-    if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
-    LRG.Read(load_lrg_file,32);
-  }
-  if(save_lrg){
-    if(UniqueID()==0) printf("Writing RNG state to %s\n",save_lrg_file);
-    LRG.Write(save_lrg_file,32);
-  }
   
   GwilsonFdwf* lattice = new GwilsonFdwf;
 					       
@@ -680,13 +688,26 @@ int main (int argc,char **argv )
     if(UniqueID()==0) printf("Config written.\n");
   }
 
+  if(load_lrg){
+    if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
+    LRG.Read(load_lrg_file,32);
+  }
+  if(save_lrg){
+    if(UniqueID()==0) printf("Writing RNG state to %s\n",save_lrg_file);
+    LRG.Write(save_lrg_file,32);
+  }
+
+
   if(gauge_fix){
     lattice->FixGaugeAllocate(FIX_GAUGE_COULOMB_T);
     lattice->FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
   cps_qdp_init(&argc,&argv);
-  
+#ifdef HAVE_BFM
+  Chroma::initialize(&argc,&argv);
+#endif  
+
   omp_set_num_threads(1);
   //#define UNPREC_TEST
 #ifdef UNPREC_TEST
@@ -696,13 +717,14 @@ int main (int argc,char **argv )
 
   #define PREC_TEST
 #ifdef PREC_TEST
+  std::vector<Float> _2f_evals_prec;
   Float** _2f_evecs_prec;
-  int n_evec_prec = lanczos_test_2f(lattice, _2f_evecs_prec,true); //cf comment at test stage
-  test_eigenvectors_prec(_2f_evecs_prec, n_evec_prec, lattice);
+  int n_evec_prec = lanczos_test_2f(lattice, _2f_evecs_prec,_2f_evals_prec,true); //cf comment at test stage
+  test_eigenvectors_prec(_2f_evecs_prec, _2f_evals_prec, n_evec_prec, lattice);
 #endif
 
-  if(UniqueID()==0) printf("Starting double lattice section\n");
-  
+  if(UniqueID()==0){ printf("Starting double lattice section\n"); fflush(stdout); }
+   
   int array_size = 2*lattice->GsiteSize() * GJP.VolNodeSites() * sizeof(Float);
   cps::Matrix *orig_lattice = (cps::Matrix *) pmalloc(array_size);
   memcpy((void*)orig_lattice, (void*)lattice->GaugeField(), array_size);
@@ -746,22 +768,19 @@ int main (int argc,char **argv )
   lanczos_test_1f(lattice, _1f_evecs_unprec,false);
 #endif
 #ifdef PREC_TEST
-  Float** _1f_evecs_prec;
-  lanczos_test_1f(lattice, _1f_evecs_prec,true);
+  Float** _1f_evecs_prec; std::vector<Float> _1f_evals_prec;
+  lanczos_test_1f(lattice, _1f_evecs_prec, _1f_evals_prec, true);
+  test_eigenvectors_prec(_1f_evecs_prec, _1f_evals_prec, n_evec_prec, lattice);
 #endif 
 
 #ifdef UNPREC_TEST
-  //Note: with the parameters hardcoded as above, only the first 8 of the 10 eigenvectors actually converge. We only include these in the
-  //comparison test
-  n_evec_unprec = 8;
   QDPIO::cout << "Comparing un-preconditioned Lanczos\n";
-  lanczos_test_compare(_2f_evecs_unprec,_1f_evecs_unprec,gparity_X,gparity_Y, n_evec_unprec);
+  lanczos_test_compare(_2f_evecs_unprec,_1f_evecs_unprec,gparity_X,gparity_Y, 4);
 #endif  
 
 #ifdef PREC_TEST
   QDPIO::cout << "Comparing preconditioned Lanczos\n";
-  //Many of these don't converge, but for those that do I am satisfied that they give the same answer within tolerances
-  lanczos_test_compare(_2f_evecs_prec,_1f_evecs_prec,gparity_X,gparity_Y, n_evec_prec);
+  lanczos_test_compare(_2f_evecs_prec,_1f_evecs_prec,gparity_X,gparity_Y, 4);
 #endif
 
 #ifdef HAVE_BFM

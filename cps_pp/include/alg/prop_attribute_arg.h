@@ -26,10 +26,11 @@ enum AttrType {
 	MOM_COS_ATTR = 9,
 	PROP_COMBINATION_ATTR = 10,
 	GPARITY_OTHER_FLAV_PROP_ATTR = 11,
-	TWISTED_BC_ATTR = 12,
-	STORE_MIDPROP_ATTR = 13,
-	A2A_ATTR = 14,
-	DEFLATED_CG_ATTR = 15,
+	GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR = 12,
+	TWISTED_BC_ATTR = 13,
+	STORE_MIDPROP_ATTR = 14,
+	A2A_ATTR = 15,
+	DEFLATED_CG_ATTR = 16,
 };
 typedef enum AttrType AttrType;
 extern struct vml_enum_map AttrType_map[];
@@ -261,6 +262,28 @@ template<> struct rpc_print<GparityOtherFlavPropAttrArg>{
 
 
 #include <util/vml/vml_templates.h>
+struct GparityComplexConjSourcePartnerPropAttrArg {
+	char *tag;
+	   static AttrType getType (  ) ;
+	   GparityComplexConjSourcePartnerPropAttrArg clone (  ) ;
+	   void deep_copy(const GparityComplexConjSourcePartnerPropAttrArg &rhs);
+	   void print(const std::string &prefix ="");
+};
+typedef struct GparityComplexConjSourcePartnerPropAttrArg GparityComplexConjSourcePartnerPropAttrArg;
+template<> struct rpc_deepcopy<GparityComplexConjSourcePartnerPropAttrArg>{
+	static void doit(GparityComplexConjSourcePartnerPropAttrArg &into, GparityComplexConjSourcePartnerPropAttrArg const &from);
+};
+
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<GparityComplexConjSourcePartnerPropAttrArg>{
+	static void doit(GparityComplexConjSourcePartnerPropAttrArg const &what, const std::string &prefix="" );
+};
+
+
+
+#include <util/vml/vml_templates.h>
 struct TwistedBcAttrArg {
 	int theta[3];
 	   static AttrType getType (  ) ;
@@ -395,6 +418,7 @@ struct AttributeContainer {
 		MomCosAttrArg mom_cos_attr;
 		PropCombinationAttrArg prop_combination_attr;
 		GparityOtherFlavPropAttrArg gparity_other_flav_prop_attr;
+		GparityComplexConjSourcePartnerPropAttrArg gparity_complex_conj_source_partner_prop_attr;
 		TwistedBcAttrArg twisted_bc_attr;
 		StoreMidpropAttrArg store_midprop_attr;
 		A2AAttrArg a2a_attr;
@@ -420,6 +444,7 @@ template <> AttrType AttributeContainer::type_map<GaugeFixAttrArg>();
 template <> AttrType AttributeContainer::type_map<MomCosAttrArg>();
 template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>();
 template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>();
+template <> AttrType AttributeContainer::type_map<GparityComplexConjSourcePartnerPropAttrArg>();
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>();
 template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>();
 template <> AttrType AttributeContainer::type_map<A2AAttrArg>();
@@ -549,6 +574,7 @@ extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
 extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
+extern  bool_t vml_GparityComplexConjSourcePartnerPropAttrArg (VML *, char *instance, GparityComplexConjSourcePartnerPropAttrArg*);
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
 extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);
@@ -574,6 +600,7 @@ extern  bool_t vml_CGAttrArg (VML *, char *instance, CGAttrArg*);
 extern  bool_t vml_GaugeFixAttrArg (VML *, char *instance, GaugeFixAttrArg*);
 extern  bool_t vml_MomCosAttrArg (VML *, char *instance, MomCosAttrArg*);
 extern  bool_t vml_GparityOtherFlavPropAttrArg (VML *, char *instance, GparityOtherFlavPropAttrArg*);
+extern  bool_t vml_GparityComplexConjSourcePartnerPropAttrArg (VML *, char *instance, GparityComplexConjSourcePartnerPropAttrArg*);
 extern  bool_t vml_TwistedBcAttrArg (VML *, char *instance, TwistedBcAttrArg*);
 extern  bool_t vml_StoreMidpropAttrArg (VML *, char *instance, StoreMidpropAttrArg*);
 extern  bool_t vml_A2AAttrArg (VML *, char *instance, A2AAttrArg*);

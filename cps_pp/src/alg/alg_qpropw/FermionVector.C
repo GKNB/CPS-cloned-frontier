@@ -389,6 +389,8 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where, i
               z + GJP.ZnodeSites() * local))));
       if(GJP.Gparity() && flavor == 1) i+=GJP.VolNodeSites() * GJP.Colors() * 8; //CK: skip on field
 
+      if(pM == NULL) ERR.General(cname,fname,"Non-zero fermion vector at site %d but no gauge fixing matrix available");
+
       temp.CopyVec((Vector*)&fv[i], 6);
       tempmat.Dagger((IFloat*)&pM[j]);
       uDotXEqual((IFloat*)&fv[i], (const IFloat*)&tempmat, (const IFloat*)&temp);
@@ -1175,7 +1177,7 @@ static void SetVolMomSource1fGparity(Float *fv,int color, int spin, ThreeMom& mo
     }
     if(!doquad[quad]) continue;
 
-    ((Complex *)fv)[color + COLORS*(spin + 4*s.Index())] = mom.Fact(s) * quadsgn[quad];
+    ((Complex *)fv)[color + COLORS*(spin + 4*s.Index())] = mom.Fact(s) * (double)quadsgn[quad];
   }
 }
 

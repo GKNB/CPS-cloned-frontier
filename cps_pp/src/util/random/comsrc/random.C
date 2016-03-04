@@ -25,6 +25,10 @@ CPS_START_NAMESPACE
 //  This is the routine ran3 from Numerical Recipes in C 
 //---------------------------------------------------------------
 
+#define FIX_GPBC_RNG_BUG  //CK 2015 fix for GPBC seeding bug
+#define RNG_WARMUP
+
+
 CPS_END_NAMESPACE
 #include <util/qcdio.h>
 #include <util/random.h>
@@ -37,6 +41,9 @@ CPS_END_NAMESPACE
 #include <stdio.h>
 #include <string.h>
 CPS_START_NAMESPACE
+
+static const int OFFSET = 23;
+static const int N_WARMUP = 1000;
 
 int  RandomGenerator::MBIG  = 1000000000;
 IFloat  RandomGenerator::FAC = 1.0E-09;			// 1.0/MBIG
@@ -370,6 +377,12 @@ void LatRanGen::Initialize()
   default_concur=1;
 #endif
   
+  //For GPBC
+  int nodes_4d = 1;
+  for(int i=0;i<4;i++) nodes_4d *= GJP.Nodes(i);
+  
+  int n_rgen_glb = n_rgen * nodes_4d * GJP.Snodes(); //global number of 5D generators
+  int n_rgen_4d_glb = n_rgen_4d * nodes_4d;  
 
   is_initialized = 1;
 
@@ -536,15 +549,40 @@ void LatRanGen::Initialize()
 	      VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
 
 	      if(GJP.Gparity()){
+#ifdef FIX_GPBC_RNG_BUG
+		start_seed_stacked = start_seed + n_rgen_glb/2*23; //offset seed by 23* global number of flavor 0 RNGs
+		start_seed_stacked_4d = start_seed_4d + n_rgen_4d_glb/2*23;
+#else
 		start_seed_stacked = start_seed + n_rgen/2*23;
 		start_seed_stacked_4d = start_seed_4d + n_rgen_4d/2*23;
+#endif
 
 		if(x[4]==x_o[4]){
-		  ugran_4d[index_4d++].Reset(start_seed_4d);
-		  ugran_4d[stk_index_4d++].Reset(start_seed_stacked_4d);
+		  ugran_4d[index_4d].Reset(start_seed_4d);
+		  ugran_4d[stk_index_4d].Reset(start_seed_stacked_4d);
+#ifdef RNG_WARMUP
+{
+                int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
+                if(!index_4d)printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
+                while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
+                n_warm = ugran_4d[stk_index_4d].Urand(N_WARMUP,0);
+                while (n_warm>0) {int temp = ugran_4d[stk_index_4d].Urand(100,0); n_warm--; }
+}
+#endif
+		  index_4d++;stk_index_4d++;
 		}
-		ugran[index++].Reset(start_seed);
-		ugran[stk_index++].Reset(start_seed_stacked);
+		ugran[index].Reset(start_seed);
+		ugran[stk_index].Reset(start_seed_stacked);
+#ifdef RNG_WARMUP
+{
+                int n_warm = ugran[index].Urand(N_WARMUP,0);
+                if(!index)printf("index=%d n_warm=%d\n",index,n_warm);
+                while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
+                n_warm = ugran[stk_index].Urand(N_WARMUP,0);
+                while (n_warm>0) {int temp = ugran[stk_index].Urand(100,0); n_warm--; }
+}
+#endif
+		index++;stk_index++;
 	      }else{
 		ugran[index++].Reset(start_seed);
 		if(x[4]==x_o[4]) ugran_4d[index_4d++].Reset(start_seed_4d);
@@ -563,7 +601,7 @@ void LatRanGen::Initialize()
 
     }
   }
-//---------------------------------------------------------
+  //---------------------------------------------------------
 /*!
   \pre A RNG must be assigned using ::AssignGenerator.
   \return A uniform random number for this  hypercube.

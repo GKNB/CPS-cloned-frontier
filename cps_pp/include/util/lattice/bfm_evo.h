@@ -309,7 +309,8 @@ integer bfm_evo<Float>::cps_idx_s_gparity(int x[4], int s, int reim, int i, int 
   return (csite*i_size + i)*2 + reim;
 }
 
-
+//CK: Note if the BFM preconditioning is 4D then the 4D checkerboard of the imported field will be the opposite of the 5D checkerboard of the CPS field! cb is the output checkerboard.
+//The set of all sites with  x+y+z+t+s odd is the same as the set of sites with x+y+z+t even, and vice versa.
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doimport, int cb)
 {
@@ -1824,8 +1825,8 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
     }
     exit(-1);
   }
-
-  this->set_zero(out);
+  this->axpby(out, in, in, 0., 0.);
+  //this->set_zero(out);
   for(int i = 0; i < N; ++i) {
     std::complex<double> dot = this->inner((*evec)[i][1], in);
     this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));

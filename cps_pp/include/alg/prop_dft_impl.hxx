@@ -648,6 +648,9 @@ void ContractedBilinear<MatrixType>::idx_unmap(const int &idx, int &mat1, int &m
 
 template<typename MatrixType>
 void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat){
+  Timer::reset(); Elapsed time;
+  if(!UniqueID()){ printf("ContractedBilinear::calcAllContractedBilinears1 starting with %d threads\n",omp_get_max_threads()); }
+
   if(array_size==-1) array_size = nmat*nmat*nmom*GJP.Tnodes()*GJP.TnodeSites(); //also acts as a lock to prevent further momenta from being added
 
   if(!results.count(props)) results[props] = new Rcomplex[array_size];
@@ -669,9 +672,12 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
   }
   QPropWcontainer &prop_A = QPropWcontainer::verify_convert(PropManager::getProp(props.first.first.c_str()), "ContractedBilinear<MatrixType>","calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat)");
   QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"ContractedBilinear<MatrixType>","calcAllContractedBilinears1(const prop_info_pair &props, Lattice &lat)");
+  time = Timer::relative_time(); time.print("Starting site loop at time ");
 
 #pragma omp parallel for default(shared)
   for(int x=0;x<GJP.VolNodeSites();x++){
+    int me = omp_get_thread_num();
+
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -684,8 +690,8 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
 
       Float pdotx = 0.0;
       for(int i=0;i<3;i++) pdotx += mom[i]*x_pos_vec[i];
-      phases[vec_pos].real() = cos(pdotx);
-      phases[vec_pos].imag() = sin(pdotx);	
+      phases[vec_pos].real(cos(pdotx));
+      phases[vec_pos].imag(sin(pdotx));	
     }
     //Get propagators and act with superscripts
     MatrixType mat_A; _PropagatorBilinear_helper<MatrixType>::site_matrix(mat_A, prop_A, lat, x);
@@ -709,9 +715,14 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
 	thread_bil[off] += tmp * phases[mom];
       }
     }
+
+    if(me == 0 && x==0){
+      time = Timer::relative_time(); time.print("First site time ");
+    }
   }//end of position loop
   
-
+  time = Timer::relative_time(); time.print("Finished site loop and starting thread accumulation ");
+  
   //thread the accumulate too, sum over data from all threads on each thread to prevent multiple writes to same location
 #pragma omp parallel for default(shared)
   for(int i=0; i< mat_per_thread; i++){
@@ -730,6 +741,8 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
     
   delete[] thread_bil;
   
+  time = Timer::relative_time(); time.print("Finished thread accumulation and starting outer matrix mult ");
+
   //now we have the bilinear for each inner mat, loop over outer (gamma1,sigma1) and inner (gamma2,sigma2) mats, p and t (threaded) and do trace
   int ntrace = nmat*nmat*nmom*GJP.TnodeSites(); //do traces local to this node and poke onto required array element
 
@@ -751,8 +764,12 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
 
   delete[] bil;
 
+  time = Timer::relative_time(); time.print("Finished outer matrix mult and performing global sum ");
+
   //lattice sum
   slice_sum( (Float*)into, 2*array_size, 99); //2 for re/im, 99 is a *magic* number (we are abusing slice_sum here)
+
+  time = Timer::relative_time(); time.print("Finished contraction");
 }
 
 //We calculate \sum_x tr( M1 A(x) M2 B(x) )  where M1 and M2 are spin(-flavor) matrices and A,B are propagors with the superscript (dagger,conj,etc) specified in the prop_info_pair
@@ -789,8 +806,8 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears2(const prop_info
 
       Float pdotx = 0.0;
       for(int i=0;i<3;i++) pdotx += mom[i]*x_pos_vec[i];
-      phases[vec_pos].real() = cos(pdotx);
-      phases[vec_pos].imag() = sin(pdotx);
+      phases[vec_pos].real(cos(pdotx));
+      phases[vec_pos].imag(sin(pdotx));
     }
 
     //Get propagators and act with superscripts
@@ -1020,20 +1037,29 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 					   const int &Gamma1, const int &Sigma1,
 					   const int &Gamma2, const int &Sigma2,
 					   const char *file, Lattice &lat){
+#ifndef USE_OFSTREAM
   FILE *fp;
   if ((fp = Fopen(file, "w")) == NULL) {
     ERR.FileW("ContractedBilinear","write(...)",file);
   }
   write(tag_A,ss_A,tag_B,ss_B, Gamma1, Sigma1, Gamma2, Sigma2, fp, lat);
   Fclose(fp);
+#else
+  if(!UniqueID()) printf("ContractedBilinear File write using stream version\n");
+  std::ostream *str = _DFTutils::open_ofstream(file);
+  write(tag_A,ss_A,tag_B,ss_B, Gamma1, Sigma1, Gamma2, Sigma2, *str, lat);
+  _DFTutils::close_ofstream(str);
+#endif
+
 }
 
 template<typename MatrixType>
+template<typename OutputType>
 void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
 					   char const* tag_B, const Superscript &ss_B, 
 					   const int &Gamma1, const int &Sigma1,
 					   const int &Gamma2, const int &Sigma2,
-					   FILE *fp, Lattice &lat){
+					   OutputType fp, Lattice &lat){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
   calculateBilinears(lat,props,0); //only calculates if not yet done
@@ -1059,30 +1085,51 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
       _ContractedBilinear_helper<MatrixType>::write(fp,val,scf_idx1,scf_idx2,p2, mom, t);
     }
   }
-    
 }
   
 //write all combinations
 template<typename MatrixType>
 void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
 					   char const* tag_B, const Superscript &ss_B,
-					   const std::string &file, Lattice &lat){
+					   const std::string &file, Lattice &lat, const bool &binary){
   if(!UniqueID()) printf("ContractedBilinear writing to file \"%s\"\n",file.c_str());
+  if(!UniqueID() && binary) printf("ContractedBilinear binary mode enabled\n");
+#ifndef USE_OFSTREAM
   FILE *fp;
-  if ((fp = Fopen(file.c_str(), "w")) == NULL) {
+  if ((fp = Fopen(file.c_str(), binary ? "wb" : "w")) == NULL) {
     ERR.FileW("ContractedBilinear","write(...)",file.c_str());
   }
-  write(tag_A,ss_A,tag_B,ss_B,fp, lat);
+
+  if(binary && !UniqueID()){
+    //To make sure that the file is read correctly later (correct endedness, etc), write a known number at the beginning which can be checked
+    const static double test = 3.141592654;
+    fwrite(&test, sizeof(double), 1, fp);
+  }
+  write(tag_A,ss_A,tag_B,ss_B,fp, lat, binary);
   Fclose(fp);
+#else
+  if(binary){
+    ERR.General("ContractedBilinear","write(...)","Binary write not implemented for stream version");
+  }
+  if(!UniqueID()) printf("ContractedBilinear File write using stream version\n");
+  std::ostream *str = _DFTutils::open_ofstream(file.c_str());
+  write(tag_A,ss_A,tag_B,ss_B,*str, lat);
+   _DFTutils::close_ofstream(str);
+#endif
 }
 
 template<typename MatrixType>
+template<typename OutputType>
 void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
 					   char const* tag_B, const Superscript &ss_B, 
-					   FILE *fp, Lattice &lat){
+					   OutputType fp, Lattice &lat, const bool &binary){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
   calculateBilinears(lat,props,0); //only calculates if not yet done
+
+  Timer::reset(); Elapsed time;
+  time = Timer::relative_time(); time.print("Starting file write setup");
+
   Rcomplex *con = results[props];
 
   //Find all p^2 and sort
@@ -1090,22 +1137,29 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
   std::map<int,std::vector<Float> > p2map;
   find_p2sorted(p2list,p2map);
 
+  std::vector< std::vector<Float> > mom_list;
+  for(int p=0;p<p2list.size();p++){
+    int pidx = p2list[p].second;
+    mom_list.push_back(p2map[pidx]);
+  }
+  time = Timer::relative_time(); time.print("Starting write");
   for(int scf_idx1 = 0; scf_idx1 < nmat; scf_idx1++){
     for(int scf_idx2 = 0; scf_idx2 < nmat; scf_idx2++){
       for(int p=0;p<p2list.size();p++){
 	int pidx = p2list[p].second;
-	const std::vector<Float> &mom = p2map[pidx];
+	const std::vector<Float> &mom = mom_list[p];  //p2map[pidx];
 	const Float &p2 = p2list[p].first;
-	  
 	for(int t=0;t<GJP.TnodeSites()*GJP.Tnodes();t++){
 	  int off = idx_map(scf_idx1,scf_idx2,pidx,t);
 	  const Rcomplex &val = con[ off ];
-	  _ContractedBilinear_helper<MatrixType>::write(fp,val,scf_idx1,scf_idx2,p2, mom, t);
+	  binary ? 
+	    _ContractedBilinear_helper<MatrixType>::binary_write(fp,val,scf_idx1,scf_idx2,p2, mom, t) : 
+	    _ContractedBilinear_helper<MatrixType>::write(fp,val,scf_idx1,scf_idx2,p2, mom, t);
 	}
       }
     }
   }
-    
+  time = Timer::relative_time(); time.print("Finished write");   
 }
 
 
@@ -1167,8 +1221,8 @@ void ContractedBilinearSimple<MatrixType>::calculateBilinears(Lattice &lat,
 
       Float pdotx = 0.0;
       for(int i=0;i<3;i++) pdotx += mom[i]*x_pos_vec[i];
-      phases[vec_pos].real() = cos(pdotx);
-      phases[vec_pos].imag() = sin(pdotx);	
+      phases[vec_pos].real(cos(pdotx));
+      phases[vec_pos].imag(sin(pdotx));	
     }
     //Get propagators and act with superscripts
     MatrixType mat_A; _PropagatorBilinear_helper<MatrixType>::site_matrix(mat_A, prop_A, lat, x);
@@ -2148,12 +2202,17 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::enableCosineSink(){
 
 template<typename MatrixType>
 void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calcAllContractedBilinears(const prop_info_pair &props, Lattice &lat){
+  Timer::reset(); Elapsed time;
+  time = Timer::relative_time(); time.print("ContractedWallSinkBilinearSpecMomentum::calcAllContractedBilinears starting");
+
   int global_T = GJP.Tnodes()*GJP.TnodeSites();
   if(array_size==-1) array_size = nmat*nmat*nmompairs*global_T; //also acts as a lock to prevent further momenta from being added
 
   if(!results.count(props)) results[props] = new Rcomplex[array_size];
   Rcomplex *into = results[props];
   for(int i=0;i<array_size;i++) into[i] = 0.0;
+
+  time = Timer::relative_time(); time.print("Starting outer mom loop");
 
   for(mom_pair_idx_map_type::iterator mom_it = mom_pair_idx_map.begin(); mom_it != mom_pair_idx_map.end(); ++mom_it){
     const std::vector<Float> & mom1 = mom_it->first.first;
@@ -2165,6 +2224,7 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calcAllContractedBiline
     std::vector<MatrixType> prop_1;
     std::vector<MatrixType> prop_2;
 
+    time = Timer::relative_time(); time.print("Starting computation of FT props");
     if(cosine_sink){ //fprop is put in cosine sink mode when enableCosineSink() is called
       prop_1 = fprop.getFTProp(lat,mom1,props.first.first.c_str());
       prop_2 = fprop.getFTProp(lat,mom2,props.second.first.c_str());
@@ -2181,6 +2241,7 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calcAllContractedBiline
       do_superscript(prop_1[t], props.first.second);
       do_superscript(prop_2[t], props.second.second);
     }
+    time = Timer::relative_time(); time.print("Starting contraction loop");
 	
     //loop over outer (gamma1,sigma1) and inner (gamma2,sigma2) mats, t and do trace
     int ntrace = nmat*nmat*global_T; 
@@ -2202,8 +2263,9 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calcAllContractedBiline
       int tr_off = idx_map(mat1,mat2,p_vec_pos,t);
       into[tr_off] = Trace(tmp1,tmp2);
     }
-
+    time = Timer::relative_time(); time.print("Finished mom comb");
   }
+  time = Timer::relative_time(); time.print("Finished contraction");
 }
 
 template<typename MatrixType>
@@ -2314,16 +2376,24 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A
 							       const int &Gamma1, const int &Sigma1,
 							       const int &Gamma2, const int &Sigma2,
 							       const char *file, Lattice &lat){
+#ifndef USE_OFSTREAM
   FILE *fp;
   if ((fp = Fopen(file, "w")) == NULL) {
     ERR.FileW("ContractedWallSinkBilinearSpecMomentum","write(...)",file);
   }
   write(tag_A,ss_A,tag_B,ss_B, Gamma1, Sigma1, Gamma2, Sigma2, fp, lat);
   Fclose(fp);
+#else
+  std::ostream *str = _DFTutils::open_ofstream(file);
+  write(tag_A,ss_A,tag_B,ss_B, Gamma1, Sigma1, Gamma2, Sigma2, *str, lat);
+  _DFTutils::close_ofstream(str);
+#endif
 }
 
 template<typename MatrixType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::_writeit(FILE *fp,Rcomplex *con,const int &scf_idx1, const int &scf_idx2, const std::vector< std::pair<Float,int> > &p2list, const std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > &p2map){
+template<typename OutputType>
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::_writeit(OutputType into,Rcomplex *con,const int &scf_idx1, const int &scf_idx2, 
+								  const std::vector< std::pair<Float,int> > &p2list, const std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > &p2map, const bool &binary){
   for(int p=0;p<p2list.size();p++){
     const Float &p2 = p2list[p].first;
     int pidx = p2list[p].second;
@@ -2336,17 +2406,20 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::_writeit(FILE *fp,Rcomp
     for(int t=0;t<GJP.TnodeSites()*GJP.Tnodes();t++){
       int off = idx_map(scf_idx1,scf_idx2,pidx,t);
       const Rcomplex &val = con[ off ];
-      _ContractedWallSinkBilinearSpecMomentum_helper<MatrixType>::write(fp,val,scf_idx1,scf_idx2,p2, mom1, mom2, t);
+      binary ?
+	_ContractedWallSinkBilinearSpecMomentum_helper<MatrixType>::binary_write(into,val,scf_idx1,scf_idx2,p2, mom1, mom2, t) :
+	_ContractedWallSinkBilinearSpecMomentum_helper<MatrixType>::write(into,val,scf_idx1,scf_idx2,p2, mom1, mom2, t);
     }
   }
 }
 
 template<typename MatrixType>
+template<typename OutputType>
 void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 							       char const* tag_B, const PropDFT::Superscript &ss_B, 
 							       const int &Gamma1, const int &Sigma1,
 							       const int &Gamma2, const int &Sigma2,
-							       FILE *fp, Lattice &lat){
+							       OutputType into, Lattice &lat){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
   calculateBilinears(lat,props); //only calculates if not yet done
@@ -2360,30 +2433,52 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A
   std::vector< std::pair<Float,int> > p2list;
   std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > p2map;
   find_p2sorted(p2list,p2map);
-  _writeit(fp,con,scf_idx1,scf_idx2,p2list,p2map);
+  _writeit(into,con,scf_idx1,scf_idx2,p2list,p2map);
 }
   
 //write all combinations
 template<typename MatrixType>
 void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 							       char const* tag_B, const PropDFT::Superscript &ss_B,
-							       const std::string &file, Lattice &lat){
+							       const std::string &file, Lattice &lat, const bool &binary){
   if(!UniqueID()) printf("ContractedWallSinkBilinearSpecMomentum writing to file \"%s\"\n",file.c_str());
+  if(!UniqueID() && binary) printf("ContractedWallSinkBilinearSpecMomentum binary mode enabled\n");
+#ifndef USE_OFSTREAM
   FILE *fp;
-  if ((fp = Fopen(file.c_str(), "w")) == NULL) {
+  if ((fp = Fopen(file.c_str(), binary ? "wb" : "w")) == NULL) {
     ERR.FileW("ContractedWallSinkBilinearSpecMomentum","write(...)",file.c_str());
   }
-  write(tag_A,ss_A,tag_B,ss_B,fp, lat);
+  if(binary && !UniqueID()){
+    //To make sure that the file is read correctly later (correct endedness, etc), write a known number at the beginning which can be checked
+    const static double test = 3.141592654;
+    fwrite(&test, sizeof(double), 1, fp);
+  }
+  write(tag_A,ss_A,tag_B,ss_B,fp, lat, binary);
   Fclose(fp);
+#else
+  if(!UniqueID()) printf("ContractedWallSinkBilinearSpecMomentum File write using stream version\n");
+  if(binary){
+    ERR.General("ContractedWallSinkBilinearSpecMomentum","write(...)","Binary write not implemented for stream version");
+  }
+  std::ostream *str = _DFTutils::open_ofstream(file.c_str());
+  write(tag_A,ss_A,tag_B,ss_B,*str, lat);
+  _DFTutils::close_ofstream(str);
+#endif
+
 }
 
 template<typename MatrixType>
+template<typename OutputType>
 void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 							       char const* tag_B, const PropDFT::Superscript &ss_B, 
-							       FILE *fp, Lattice &lat){
+							       OutputType into, Lattice &lat, const bool &binary){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
   calculateBilinears(lat,props); //only calculates if not yet done
+
+  Timer::reset(); Elapsed time;
+  time = Timer::relative_time(); time.print("Starting file write ");
+
   Rcomplex *con = results[props];
 
   //Find all p^2 and sort
@@ -2393,8 +2488,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A
 
   for(int scf_idx1 = 0; scf_idx1 < nmat; scf_idx1++){
     for(int scf_idx2 = 0; scf_idx2 < nmat; scf_idx2++){
-      _writeit(fp,con,scf_idx1,scf_idx2,p2list,p2map);
+      _writeit(into,con,scf_idx1,scf_idx2,p2list,p2map,binary);
     }
   }
-    
+  time = Timer::relative_time(); time.print("Finished file write ");
 }

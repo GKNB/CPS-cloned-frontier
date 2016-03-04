@@ -5,6 +5,7 @@ CPS_END_NAMESPACE
 
 #include<config.h>
 #include <alg/propagatorcontainer.h>
+#include<vector>
 
 CPS_START_NAMESPACE
 
@@ -12,8 +13,6 @@ CPS_START_NAMESPACE
 template<typename T>
 class PointerArray{
 public:
-  const static int MAX_SIZE = 100;  
-
   T & operator[](const int &idx);
 
   void set(const int &idx, T* to);
@@ -21,57 +20,54 @@ public:
   T& append(T* v);
 
   void clear();
-  const int &size() const;
+  int size() const;
   
   PointerArray();
   virtual ~PointerArray();
 
 private:
-  T *ptrs[MAX_SIZE];
-  int sz;
+  std::vector<T*> ptrs;
 };
+
 
 class PropVector: public PointerArray<PropagatorContainer>{
 public:
   PropagatorContainer & addProp(PropagatorArg &arg);
   PropVector();
 };
+
+#ifdef USE_BFM
 class LanczosVector: public PointerArray<LanczosContainer>{
 public:
   LanczosContainer & add(LanczosContainerArg &arg);
   LanczosVector();
 };
+#endif
 
 template<typename T>
-PointerArray<T>::PointerArray(): sz(0){ for(int i=0;i<MAX_SIZE;i++) ptrs[i] = NULL; }
+PointerArray<T>::PointerArray(){ }
 template<typename T>
-PointerArray<T>::~PointerArray(){ for(int i=0;i<MAX_SIZE;i++) if(ptrs[i]!=NULL) delete ptrs[i]; }
+PointerArray<T>::~PointerArray(){ for(int i=0;i<ptrs.size();i++) delete ptrs[i]; }
 
 template<typename T>
 T & PointerArray<T>::operator[](const int &idx){ return *ptrs[idx]; }
 
 template<typename T>
 void PointerArray<T>::clear(){
-  for(int i=0;i<MAX_SIZE;i++)
-    if(ptrs[i]!=NULL){
-      delete ptrs[i];
-      ptrs[i]=NULL;
-    }
-  sz = 0;
+  for(int i=0;i<ptrs.size();i++) delete ptrs[i];
+  ptrs.resize(0);
 }
 template<typename T>
-const int &PointerArray<T>::size() const{ return sz; }
+int PointerArray<T>::size() const{ return ptrs.size(); }
 
 template<typename T>
 void PointerArray<T>::set(const int &idx, T* to){
-  if(ptrs[idx]==NULL) ERR.General("PointerArray","set(..)","Element out of bounds\n");
   delete ptrs[idx]; ptrs[idx] = to;
 }
 
 template<typename T>
 T& PointerArray<T>::append(T* v){
-  if(sz==MAX_SIZE){ ERR.General("PointerArray","append(..)","Reached maximum number of allowed pointers: %d\n",MAX_SIZE); }
-  ptrs[sz++] = v;
+  ptrs.push_back(v);
   return *v;
 }
 

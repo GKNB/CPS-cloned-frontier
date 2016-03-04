@@ -204,7 +204,7 @@ WilsonMatrix& WilsonMatrix::operator=(const wilson_matrix& rhs)
 }
 
 // trace of WilsonMatrix
-Rcomplex WilsonMatrix::Trace()
+Rcomplex WilsonMatrix::Trace() const
 {
         int c1;
         int s1;
@@ -674,9 +674,9 @@ WilsonMatrix WilsonMatrix::glR(int dir)
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
 			result.d[0].c[i].d[s2].c[c2]=0.0;
 			result.d[1].c[i].d[s2].c[c2]=0.0;
-            TIMESMINUSI( 2*p.d[1].c[i].d[s2].c[c2],
+            TIMESMINUSI( 2.*p.d[1].c[i].d[s2].c[c2],
                 result.d[2].c[i].d[s2].c[c2] );
-            TIMESMINUSI( 2*p.d[0].c[i].d[s2].c[c2],
+            TIMESMINUSI( 2.*p.d[0].c[i].d[s2].c[c2],
                 result.d[3].c[i].d[s2].c[c2] );
         }
         break;
@@ -684,9 +684,9 @@ WilsonMatrix WilsonMatrix::glR(int dir)
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
 			result.d[0].c[i].d[s2].c[c2]=0.0;
 			result.d[1].c[i].d[s2].c[c2]=0.0;
-            TIMESPLUSONE(  2*p.d[1].c[i].d[s2].c[c2],
+            TIMESPLUSONE(  2.*p.d[1].c[i].d[s2].c[c2],
                 result.d[2].c[i].d[s2].c[c2] );
-            TIMESMINUSONE( 2*p.d[0].c[i].d[s2].c[c2],
+            TIMESMINUSONE( 2.*p.d[0].c[i].d[s2].c[c2],
                 result.d[3].c[i].d[s2].c[c2] );
         }
         break;
@@ -694,9 +694,9 @@ WilsonMatrix WilsonMatrix::glR(int dir)
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
 			result.d[0].c[i].d[s2].c[c2]=0.0;
 			result.d[1].c[i].d[s2].c[c2]=0.0;
-            TIMESMINUSI( 2*p.d[0].c[i].d[s2].c[c2],
+            TIMESMINUSI( 2.*p.d[0].c[i].d[s2].c[c2],
                 result.d[2].c[i].d[s2].c[c2] );
-            TIMESPLUSI(  2*p.d[1].c[i].d[s2].c[c2],
+            TIMESPLUSI(  2.*p.d[1].c[i].d[s2].c[c2],
                 result.d[3].c[i].d[s2].c[c2] );
         }
 	break;
@@ -704,9 +704,9 @@ WilsonMatrix WilsonMatrix::glR(int dir)
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
 			result.d[0].c[i].d[s2].c[c2]=0.0;
 			result.d[1].c[i].d[s2].c[c2]=0.0;
-            TIMESPLUSONE( 2*p.d[0].c[i].d[s2].c[c2],
+            TIMESPLUSONE( 2.*p.d[0].c[i].d[s2].c[c2],
                 result.d[2].c[i].d[s2].c[c2] );
-            TIMESPLUSONE( 2*p.d[1].c[i].d[s2].c[c2],
+            TIMESPLUSONE( 2.*p.d[1].c[i].d[s2].c[c2],
                 result.d[3].c[i].d[s2].c[c2] );
         }
         break;
@@ -725,9 +725,9 @@ WilsonMatrix WilsonMatrix::glL(int dir)
   switch(dir){
     case 0:
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
-            TIMESPLUSI(  2*p.d[3].c[i].d[s2].c[c2],
+            TIMESPLUSI(  2.*p.d[3].c[i].d[s2].c[c2],
                 result.d[0].c[i].d[s2].c[c2] );
-            TIMESPLUSI(  2*p.d[2].c[i].d[s2].c[c2],
+            TIMESPLUSI(  2.*p.d[2].c[i].d[s2].c[c2],
                 result.d[1].c[i].d[s2].c[c2] );
 			result.d[2].c[i].d[s2].c[c2]=0.0;
 			result.d[3].c[i].d[s2].c[c2]=0.0;
@@ -735,9 +735,9 @@ WilsonMatrix WilsonMatrix::glL(int dir)
         break;
     case 1:
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
-            TIMESMINUSONE( 2*p.d[3].c[i].d[s2].c[c2],
+            TIMESMINUSONE( 2.*p.d[3].c[i].d[s2].c[c2],
                 result.d[0].c[i].d[s2].c[c2] );
-            TIMESPLUSONE(  2*p.d[2].c[i].d[s2].c[c2],
+            TIMESPLUSONE(  2.*p.d[2].c[i].d[s2].c[c2],
                 result.d[1].c[i].d[s2].c[c2] );
 			result.d[2].c[i].d[s2].c[c2]=0.0;
 			result.d[3].c[i].d[s2].c[c2]=0.0;
@@ -745,9 +745,9 @@ WilsonMatrix WilsonMatrix::glL(int dir)
         break;
     case 2:
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
-            TIMESPLUSI(  2*p.d[2].c[i].d[s2].c[c2],
+            TIMESPLUSI(  2.*p.d[2].c[i].d[s2].c[c2],
                 result.d[0].c[i].d[s2].c[c2] );
-            TIMESMINUSI( 2*p.d[3].c[i].d[s2].c[c2],
+            TIMESMINUSI( 2.*p.d[3].c[i].d[s2].c[c2],
                 result.d[1].c[i].d[s2].c[c2] );
 			result.d[2].c[i].d[s2].c[c2]=0.0;
 			result.d[3].c[i].d[s2].c[c2]=0.0;
@@ -755,9 +755,9 @@ WilsonMatrix WilsonMatrix::glL(int dir)
 	break;
     case 3:
         for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
-            TIMESPLUSONE( 2*p.d[2].c[i].d[s2].c[c2],
+            TIMESPLUSONE( 2.*p.d[2].c[i].d[s2].c[c2],
                 result.d[0].c[i].d[s2].c[c2] );
-            TIMESPLUSONE( 2*p.d[3].c[i].d[s2].c[c2],
+            TIMESPLUSONE( 2.*p.d[3].c[i].d[s2].c[c2],
                 result.d[1].c[i].d[s2].c[c2] );
 			result.d[2].c[i].d[s2].c[c2]=0.0;
 			result.d[3].c[i].d[s2].c[c2]=0.0;
@@ -1255,6 +1255,9 @@ Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 
 // Left mult by Charge conjugation matrix C or gamma5*C
 // NOTE : There is a wrong minus sign here! M.ccl(1) should be CM and M.ccl(-1) C^{-1}M but they're opposite here (not for ccr)
+
+//CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
+//                      A.ccr(1) = A C     A.ccr(-1) = C^-1 A
 WilsonMatrix& WilsonMatrix::ccl(int dir)
 {
   int i; /*color*/

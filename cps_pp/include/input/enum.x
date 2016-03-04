@@ -52,7 +52,8 @@ enum FclassType {
     F_CLASS_WILSON_TM,
     F_CLASS_MDWF,
     F_CLASS_BFM,
-    F_CLASS_BFM_TYPE2
+    F_CLASS_BFM_TYPE2,
+    F_CLASS_GRID
 };
 
 

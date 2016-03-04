@@ -620,14 +620,14 @@ inline void TrLessAntiHermMatrix()
 
       Should this method not be private?
     */
-    Complex& operator[](int i) { return ((Complex*)u)[i]; }
+    inline Complex& operator[](int i) { return ((Complex*)u)[i]; }
     //! Read access.
     /*!
       \param i A number between 0 and 8
       \return The ([i - i mod 3]/3, i mod 3) matrix element
     */
-    const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
-    IFloat elem(int i) { return u[i]; }
+    inline const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
+    inline IFloat elem(int i) { return u[i]; }
     //! Read access.
     /*!
       \param i A number between 0 and 17
@@ -660,9 +660,10 @@ inline void TrLessAntiHermMatrix()
         Matrix x2;
         x2.DotMEqual(*this, *this);
         return -2.0*x2.ReTr();
-
-        //IFloat *m = (IFloat*)&u[0];
-        //return dotProduct(m, m, 18);
+    }
+    IFloat norm2() const {
+        IFloat *m = (IFloat*)&u[0];
+        return dotProduct(m, m, 18);
     }
     // SU(3) Characters
 
@@ -699,6 +700,21 @@ inline static Matrix Transpose(const Matrix &m){
   out.Trans(m);
   return out;
 }
+
+//Added by CK
+inline static Complex Trace(const Matrix &a, const Matrix &b){
+  //Mapping is i*3 + j  
+  Complex out(0.0);
+  //a(0,0)*b(0,0) + a(0,1)*b(1,0) + a(0,2)*b(2,0)
+  out += a[0]*b[0] + a[1]*b[3] + a[2]*b[6]; 
+  //a(1,0)*b(0,1) + a(1,1)*b(1,1) + a(1,2)*b(2,1)
+  out += a[3]*b[1] + a[4]*b[4] + a[5]*b[7];
+  //a(2,0)*b(0,2) + a(2,1)*b(1,2) + a(2,2)*b(2,2)
+  out += a[6]*b[2] + a[7]*b[5] + a[8]*b[8];
+  return out;
+}
+
+
 
 
 //------------------------------------------------------------------

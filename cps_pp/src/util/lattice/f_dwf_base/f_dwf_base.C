@@ -2083,5 +2083,17 @@ void FdwfBase::Freflex(Vector *out, Vector *in)
   VRB.FuncEnd (cname,fname);
 }
 
+void FdwfBase::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                    CnvFrmType cnv_frm, int dir_flag)
+{
+  const char *fname = "Fdslash(*V,*V,*Cg,Cvm,i)";
+  VRB.Func(cname,fname);
+  DiracOpDwf dwf(*this, f_out, f_in, cg_arg, cnv_frm);
+  int offset = GJP.VolNodeSites()*this->FsiteSize()/ (2*6); 
+  
+  dwf.Dslash(f_out,f_in+offset,CHKB_EVEN,DAG_NO);
+  dwf.Dslash(f_out+offset,f_in,CHKB_ODD,DAG_NO);
+}
+
 
 CPS_END_NAMESPACE

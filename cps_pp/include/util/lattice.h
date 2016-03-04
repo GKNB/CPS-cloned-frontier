@@ -994,6 +994,13 @@ class Lattice
                         Float *true_res,
 			CnvFrmType cnv_frm = CNV_FRM_YES,
 			PreserveType prs_f_in = PRESERVE_YES) = 0;
+  virtual int FmatInvTest(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
+	      CnvFrmType cnv_frm = CNV_FRM_YES,
+	      PreserveType prs_f_in = PRESERVE_YES){
+  ERR.NotImplemented(cname,"FmtaInvTest");
+}
     //!< Fermion matrix inversion.
     /*!<
       Solves <em> A f_out = f_in </em> for \a f_out, where \a A is the

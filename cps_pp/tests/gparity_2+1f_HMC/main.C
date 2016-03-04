@@ -57,6 +57,7 @@
 
 #include <util/data_shift.h>
 
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -681,6 +682,19 @@ void setupRatQuoArg(ActionRationalQuotientArg &into, const int &ndet, Float* bsn
   for(int i=0;i<ndet;i++){
     into.frm_mass.frm_mass_val[i] = frm_masses[i];
   }
+  //bsn_mass_epsilon
+  into.bsn_mass_epsilon.bsn_mass_epsilon_len = ndet;
+  into.bsn_mass_epsilon.bsn_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.bsn_mass_epsilon.bsn_mass_epsilon_val[i] = 0;
+  }
+  //frm_mass_epsilon
+  into.frm_mass_epsilon.frm_mass_epsilon_len = ndet;
+  into.frm_mass_epsilon.frm_mass_epsilon_val = new Float[ndet];
+  for(int i=0;i<ndet;i++){
+    into.frm_mass_epsilon.frm_mass_epsilon_val[i] = 0;
+  }
+
   //bosons
   into.bosons.bosons_len = ndet;
   into.bosons.bosons_val = new RationalDescr[ndet];

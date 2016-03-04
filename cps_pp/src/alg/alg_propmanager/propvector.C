@@ -33,11 +33,12 @@ PropagatorContainer & PropVector::addProp(PropagatorArg &arg){
   return append(p);
 }
 
+#ifdef USE_BFM
 LanczosVector::LanczosVector(): PointerArray<LanczosContainer>(){}
 
 LanczosContainer & LanczosVector::add(LanczosContainerArg &arg){
   return append(new LanczosContainer(arg));
 }
-
+#endif
 
 CPS_END_NAMESPACE

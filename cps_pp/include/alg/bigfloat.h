@@ -6,6 +6,7 @@
 */
 //------------------------------------------------------------------
 #include<config.h>
+#include<cstddef>
 #include <gmp.h>
 
 #ifdef USE_MPFR

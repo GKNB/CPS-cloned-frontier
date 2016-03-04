@@ -42,6 +42,7 @@ int main(int argc,char *argv[])
   }
   bool latt_big_endian = false;
   bool dbl_latt_storemode = false;
+  bool binary_write = false; //enable output in binary where implemented
   int nthread = -1;
 
   int i=4;
@@ -58,6 +59,10 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       ss >> nthread;
       i+=2;
+    }else if( strncmp(cmd,"-binary_write",25) == 0){
+      if(!UniqueID()) printf("Enabled binary write\n");
+      binary_write = true;
+      i++;
     }else{
       if(!UniqueID()) printf("Unknown argument: %s\n",cmd);
       exit(-1);
@@ -161,6 +166,7 @@ int main(int argc,char *argv[])
 
     //Perform the inversions/contractions
     AlgGparityContract contract(lattice,carg,contract_args);
+    if(binary_write) contract.enable_binary_write();
     contract.run(conf);
 
     //Free the gauge fixing matrices and reset for next config

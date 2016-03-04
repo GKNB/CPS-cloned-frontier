@@ -29,9 +29,10 @@
 #undef GAUGE_SIZE
 #endif
 
+#ifdef USE_BFM
 #include <alg/lanc_arg.h>
-#include <alg/a2a/alg_a2a.h>
 #include <alg/eigen/Krylov_5d.h>
+#endif
 
 #include <alg/propmanager.h>
 
@@ -39,7 +40,9 @@ CPS_START_NAMESPACE
 
 
 PropVector PropManager::props;
+#ifdef USE_BFM
 LanczosVector PropManager::eig; 
+#endif
 
 PropagatorContainer & PropManager::getProp(const char *tag){
   for(int i=0;i<props.size();i++) if(props[i].tagEquals(tag)) return props[i];
@@ -49,12 +52,17 @@ PropagatorContainer & PropManager::getProp(const char *tag){
 PropagatorContainer & PropManager::addProp(PropagatorArg &arg){
   return props.addProp(arg);
 }
+
+#ifdef USE_BFM
 LanczosContainer & PropManager::addLanczos(LanczosContainerArg &arg){
   return eig.add(arg);
 }
+#endif
 
 void PropManager::setup(JobPropagatorArgs &prop_args){
+#ifdef USE_BFM
   for(int i=0;i< prop_args.lanczos.lanczos_len; i++) addLanczos(prop_args.lanczos.lanczos_val[i]);
+#endif
   for(int i=0;i< prop_args.props.props_len; i++) addProp(prop_args.props.props_val[i]);
 
   //after all props are loaded in, the attributes of props that combine other props are copied over
@@ -63,19 +71,25 @@ void PropManager::setup(JobPropagatorArgs &prop_args){
 
 void PropManager::startNewTraj(){
   for(int i=0;i<props.size();i++) props[i].deleteProp();
+#ifdef USE_BFM
   for(int i=0;i<eig.size();i++){
     eig[i].deleteEig();
     eig[i].reloadGauge(); //will re-import gauge into internal bfm object when calc is next called
   }
+#endif
 }
 
 void PropManager::clear(){
   props.clear();
+#ifdef USE_BFM
   eig.clear();
+#endif
 }
 
 void PropManager::calcProps(Lattice &latt){
+#ifdef USE_BFM
   for(int i=0;i<eig.size();i++) eig[i].calcEig(latt);
+#endif
 
   for(int i=0;i<props.size();i++){
     props[i].readProp(latt);
@@ -83,11 +97,12 @@ void PropManager::calcProps(Lattice &latt){
   }
 }
 
+#ifdef USE_BFM
 LanczosContainer& PropManager::getLanczos(const char *tag){
   for(int i=0;i<eig.size();i++) if(eig[i].tagEquals(tag)) return eig[i];
   ERR.General("PropManager","getLanczos(const char *tag)","Lanczos instance '%s' does not exist!\n",tag);
 }
-
+#endif
 
 CPS_END_NAMESPACE
 

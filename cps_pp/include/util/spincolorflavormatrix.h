@@ -7,127 +7,62 @@
 #include <alg/prop_attribute_arg.h>
 #include <alg/propagatorcontainer.h>
 #include <alg/propmanager.h>
+#include <alg/wilson_matrix.h>
 #include <util/spinflavormatrix.h>
+#include <util/flavormatrix.h>
+
 CPS_START_NAMESPACE
 
-enum FlavorMatrixType {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
 enum SpinMatrixType { gamma1, gamma2, gamma3, gamma4, gamma5, spin_unit };
 
 class SpinColorFlavorMatrix{
 public:
   enum PropSplane { SPLANE_BOUNDARY, SPLANE_MIDPOINT }; //Usual boundary 5d propagator or the midpoint propagator
 protected:
-  WilsonMatrix** wmat;
+  WilsonMatrix wmat[2][2];
   const char *cname;
 
   inline static WilsonMatrix & getSite(const int &site, const int &flav, QPropWcontainer &from,  Lattice &lattice, const PropSplane &splane){
     return splane == SPLANE_BOUNDARY ? from.getProp(lattice).SiteMatrix(site,flav) : from.getProp(lattice).MidPlaneSiteMatrix(site,flav);
   }
 public:
-  inline void allocate(){
-    wmat = new WilsonMatrix* [2];
-    wmat[0] = new WilsonMatrix[2];
-    wmat[1] = new WilsonMatrix[2];
-  }
-  inline void free(){
-    if(wmat!=NULL){
-      delete[] wmat[0];
-      delete[] wmat[1];
-      delete[] wmat;
-      wmat=NULL;
-    }
-  }
 
-  SpinColorFlavorMatrix(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY): wmat(NULL), cname("SpinColorFlavorMatrix"){
+  SpinColorFlavorMatrix(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY): cname("SpinColorFlavorMatrix"){
     generate(from,lattice,site,splane);
   }
-  SpinColorFlavorMatrix(const SpinColorFlavorMatrix &from): wmat(NULL), cname("SpinColorFlavorMatrix"){
-    allocate();
+  SpinColorFlavorMatrix():cname("SpinColorFlavorMatrix"){
+  }
+  SpinColorFlavorMatrix(const SpinColorFlavorMatrix &from): cname("SpinColorFlavorMatrix"){
     wmat[0][0] = from.wmat[0][0];
     wmat[0][1] = from.wmat[0][1];
     wmat[1][0] = from.wmat[1][0];
     wmat[1][1] = from.wmat[1][1];
   }
   SpinColorFlavorMatrix(const Float &rhs): cname("SpinColorFlavorMatrix"){
-    allocate();
     for(int i=0;i<2;i++)
       for(int j=0;j<2;j++)
 	wmat[i][j] = rhs;
   }
 
-  SpinColorFlavorMatrix(const SpinMatrixType &g = spin_unit, const FlavorMatrixType &f = sigma0): cname("SpinColorFlavorMatrix"){
-    allocate();
+  SpinColorFlavorMatrix(const SpinMatrixType &g, const FlavorMatrixType &f): cname("SpinColorFlavorMatrix"){
     static const int spin_map[] = { 0,1,2,3,-5 };
-    unit();
+    Unit();
     if(g != spin_unit) gr(spin_map[ (int)g - (int)gamma1 ]);
     if(f != sigma0) pr(f);
   }
 
-  void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY){
-    if(wmat!=NULL) free();
-    allocate();
-    
-    wmat[0][0] = getSite(site,0,from_f0,lattice,splane);
-    wmat[1][0] = getSite(site,1,from_f0,lattice,splane);
-    wmat[0][1] = getSite(site,0,from_f1,lattice,splane);
-    wmat[1][1] = getSite(site,1,from_f1,lattice,splane);
-  }
+  void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
+  //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first
+  void generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
+    //Use the prop conj relation for a real source to compute the full 2x2 propagator  
+  void generate_from_real_source(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
 
-  void generate(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY){
-    const char* fname = "generate(PropagatorContainer &from, const int &site)";
-    
-    if(!GJP.Gparity()){
-      ERR.General(cname,fname,"Require 2f G-parity BCs to be active");
-    }
-    PointSourceAttrArg *pt;
-    MomentumAttrArg *mom;
-    MomCosAttrArg *cos;
-    WallSourceAttrArg *wall;
-    if( ( from.getAttr(mom) && from.getAttr(cos) ) || ( from.getAttr(pt) && !from.getAttr(mom) ) || ( from.getAttr(wall) && !from.getAttr(mom) ) ){
-      //cos source (point or wall) or zero momentum point source
-    }else{
-      GparityOtherFlavPropAttrArg* otherfarg; //if a propagator with the same properties but the other flavor exists then use both to generate the matrix
-      if(from.getAttr(otherfarg)){
-	QPropWcontainer &otherfprop = PropManager::getProp(otherfarg->tag).convert<QPropWcontainer>();
-	if(otherfprop.flavor() == from.flavor()) ERR.General(cname,fname,"Found a propagator %s with supposedly the other flavor to propagator %s, but in fact the flavors are identical!",otherfarg->tag,from.tag());
-	QPropWcontainer *f0prop; QPropWcontainer *f1prop;
-	if(from.flavor() == 0){ f0prop = &from; f1prop = &otherfprop; }
-	else { f1prop = &from; f0prop = &otherfprop; }
-	
-	return generate(*f0prop,*f1prop,lattice,site,splane);
-      }else ERR.General(cname,fname,"Cannot generate prop elements without a real source, e.g. a Cos (Point or Wall) or Zero-Momentum Point or Wall source, or else two props with the same attributes but different flavors and a GparityOtherFlavPropAttrArg given");
-    }
-    
-    if(wmat!=NULL) free();
-    allocate();
+  void generate(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
 
-    int flav = from.flavor();
-    if(flav == 0){
-      wmat[0][0] = getSite(site,0,from,lattice,splane);
-      wmat[1][0] = getSite(site,1,from,lattice,splane);
-      wmat[0][1] = wmat[1][0];
-      wmat[1][1] = wmat[0][0];
+  //We can use the G-parity prop-conj relation to flip the source momentum a posteriori providing the source has the form  e^{-ipx} \eta    where \eta obeys  \sigma_2 C\gamma^5 \eta^* = \eta\sigma_2 C\gamma^5
+  //This applies to pretty much all standard source types
+  void flipSourceMomentum();
 
-      wmat[0][1].cconj();
-      wmat[1][1].cconj();
-
-      wmat[0][1].ccl(-1).gl(-5).ccr(1).gr(-5); //ccl(-1) mults by C from left, ccr(1) mults by C=-C^dag from right
-      wmat[1][1].ccl(-1).gl(-5).ccr(-1).gr(-5); //has opposite sign to the above 
-    }else{ //flavour 1 source
-      wmat[0][1] = getSite(site,0,from,lattice,splane);
-      wmat[1][1] = getSite(site,1,from,lattice,splane);
-      wmat[1][0] = wmat[0][1];
-      wmat[0][0] = wmat[1][1];
-
-      wmat[1][0].cconj();
-      wmat[0][0].cconj();
-
-      wmat[1][0].ccl(-1).gl(-5).ccr(1).gr(-5); 
-      wmat[0][0].ccl(-1).gl(-5).ccr(-1).gr(-5);
-    }
-  }
-
-  ~SpinColorFlavorMatrix(){ free(); }
   
   //multiply on left by a flavor matrix
   SpinColorFlavorMatrix & pl(const FlavorMatrixType &type){
@@ -203,19 +138,32 @@ public:
     }
     ERR.General(cname,"pr(const FlavorMatrixType &type)","Unknown FlavorMatrixType");
   }
-  WilsonMatrix FlavourTrace() const{
+  WilsonMatrix FlavorTrace() const{
     WilsonMatrix out(wmat[0][0]);
     out+=wmat[1][1];
     return out;
   }
-  Rcomplex Trace() const{
-    Rcomplex out(0);
+  Complex Trace() const{
+    Complex out(0);
     for(int f=0;f<2;f++) out += wmat[f][f].Trace();
     return out;
   }
-  
+  Matrix SpinFlavorTrace() const{
+    return SpinTrace(FlavorTrace());
+  }
+  inline FlavorSpinMatrix ColorTrace() const{ 
+    FlavorSpinMatrix out;
+    for(int f1 = 0; f1 < 2; f1++) 
+      for(int f2 = 0; f2 < 2; f2++) 
+	wmat[f1][f2].ColorTrace(out(f1,f2));
+
+	//out(f2,f1) = cps::ColorTrace(wmat[f2][f1]);
+    return out;
+  }  
+
+
   SpinColorFlavorMatrix operator*(const SpinColorFlavorMatrix& rhs) const{
-    SpinColorFlavorMatrix out(*this);
+    SpinColorFlavorMatrix out;
     out.wmat[0][0] = wmat[0][0]*rhs.wmat[0][0] + wmat[0][1]*rhs.wmat[1][0];
     out.wmat[1][0] = wmat[1][0]*rhs.wmat[0][0] + wmat[1][1]*rhs.wmat[1][0];
     out.wmat[0][1] = wmat[0][0]*rhs.wmat[0][1] + wmat[0][1]*rhs.wmat[1][1];
@@ -231,6 +179,14 @@ public:
     wmat[1][1] = cp.wmat[1][0]*rhs.wmat[0][1] + cp.wmat[1][1]*rhs.wmat[1][1];
     return *this;
   }
+  SpinColorFlavorMatrix& operator*=(const FlavorMatrix& rhs){
+    SpinColorFlavorMatrix cp(*this);
+    wmat[0][0] = cp.wmat[0][0]*rhs(0,0) + cp.wmat[0][1]*rhs(1,0);
+    wmat[1][0] = cp.wmat[1][0]*rhs(0,0) + cp.wmat[1][1]*rhs(1,0);
+    wmat[0][1] = cp.wmat[0][0]*rhs(0,1) + cp.wmat[0][1]*rhs(1,1);
+    wmat[1][1] = cp.wmat[1][0]*rhs(0,1) + cp.wmat[1][1]*rhs(1,1);
+    return *this;
+  }
 
   SpinColorFlavorMatrix& operator*=(const Float& rhs){
     for(int i=0;i<2;i++)
@@ -243,13 +199,13 @@ public:
     out*=rhs;
     return out;
   }
-  SpinColorFlavorMatrix& operator*=(const Rcomplex& rhs){
+  SpinColorFlavorMatrix& operator*=(const Complex& rhs){
     for(int i=0;i<2;i++)
       for(int j=0;j<2;j++)
 	wmat[i][j]*=rhs;
     return *this;
   }
-  SpinColorFlavorMatrix operator*(const Rcomplex& rhs) const{
+  SpinColorFlavorMatrix operator*(const Complex& rhs) const{
     SpinColorFlavorMatrix out(*this);
     out*=rhs;
     return out;
@@ -297,10 +253,10 @@ public:
 	wmat[i][j] = rhs;
     return *this;
   }
-  SpinColorFlavorMatrix& operator= (const Rcomplex& rhs){
+  SpinColorFlavorMatrix& operator= (const Complex& rhs){
     for(int i=0;i<2;i++)
       for(int j=0;j<2;j++)
-	wmat[i][j] = rhs;
+	wmat[i][j] = WilsonMatrix(rhs);
     return *this;
   }
   SpinColorFlavorMatrix& operator=(const SpinColorFlavorMatrix &from){
@@ -322,6 +278,30 @@ public:
       for(int j=0;j<2;j++)
 	wmat[i][j].gr(dir);
     return *this;
+  }
+
+  //Left-multiply this by \gamma^5\gamma^\mu
+  inline SpinColorFlavorMatrix& glAx(int mu){
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+	wmat[i][j].glAx(mu);
+    return *this;
+  }
+
+
+  SpinColorFlavorMatrix glL(int dir){
+		SpinColorFlavorMatrix out;
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+				out(i,j) = this->wmat[i][j].glL(dir);
+    return out;
+  }
+  SpinColorFlavorMatrix glR(int dir){
+		SpinColorFlavorMatrix out;
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+				out(i,j) = this->wmat[i][j].glR(dir);
+    return out;
   }
 
   SpinColorFlavorMatrix& ccl(int dir){
@@ -407,11 +387,19 @@ public:
     wmat[1][0] = _01;
     return *this;
   }
+  SpinColorFlavorMatrix & transpose_color(){
+    wmat[0][0].transpose_color();
+    wmat[0][1].transpose_color();
+    wmat[1][0].transpose_color();
+    wmat[1][1].transpose_color();
+	return *this;
+  }
 
-  Complex& operator()(int s1, int c1, int f1, int s2, int c2, int f2){
+
+  inline Complex& operator()(int s1, int c1, int f1, int s2, int c2, int f2){
     return wmat[f1][f2](s1,c1,s2,c2);
   }  
-  const Complex& operator()(int s1, int c1, int f1, int s2, int c2, int f2) const{
+  inline const Complex operator()(int s1, int c1, int f1, int s2, int c2, int f2) const{
     return wmat[f1][f2](s1,c1,s2,c2);
   }
   WilsonMatrix &operator()(int f1,int f2){
@@ -437,15 +425,20 @@ public:
     return *this;
   }
 
-  void unit(){
-    *this = 0.0;
-    for(int f=0;f<2;f++) for(int s=0;s<4;s++) for(int c=0;c<3;c++) wmat[f][f](s,c,s,c) = 1.0;
+  void Unit(){
+    wmat[0][0].Unit();
+    wmat[0][1] = 0;
+    wmat[1][0] = 0;
+    wmat[1][1].Unit();	
   }
 };
 
-Rcomplex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
+Complex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
 Matrix SpinFlavorTrace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
 SpinFlavorMatrix ColorTrace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
+FlavorSpinMatrix ColorTraceFS(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
+
+
 
 typedef struct { wilson_vector f[2]; } flav_spin_color_vector;
 typedef struct { flav_spin_color_vector c[3]; } color_flav_spin_color_vector;
@@ -670,8 +663,7 @@ public:
     FlavorSpinColorMatrix tmp(*this);   
     for(int f1=0;f1<2;++f1) for(int s1=0;s1<4;++s1) for(int c1=0;c1<3;++c1)
     for(int f2=0;f2<2;++f2) for(int s2=0;s2<4;++s2) for(int c2=0;c2<3;++c2){
-      p.f[f1].d[s1].c[c1].f[f2].d[s2].c[c2].real() = tmp.p.f[f2].d[s2].c[c2].f[f1].d[s1].c[c1].real();
-      p.f[f1].d[s1].c[c1].f[f2].d[s2].c[c2].imag() = -tmp.p.f[f2].d[s2].c[c2].f[f1].d[s1].c[c1].imag();
+	  p.f[f1].d[s1].c[c1].f[f2].d[s2].c[c2] = Complex(tmp.p.f[f2].d[s2].c[c2].f[f1].d[s1].c[c1].real(), -tmp.p.f[f2].d[s2].c[c2].f[f1].d[s1].c[c1].imag());
     }
   }
  

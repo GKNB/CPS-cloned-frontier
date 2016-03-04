@@ -64,7 +64,6 @@ void checkpoint(int traj);
 
 int main(int argc, char *argv[])
 { 
-
   char plaq_file[256];
   char pbp_file[256];
   char wline_file[256];
@@ -122,6 +121,11 @@ int main(int argc, char *argv[])
 
   GJP.Initialize(do_arg);
   LRG.Initialize();
+
+// #if TARGET != BGQ
+//   GJP.SetNthreads(8);
+//   if(!UniqueID()) printf("Set number of threads to %d\n", GJP.Nthreads());
+// #endif
 
   // Outer config loop
   int traj = evo_arg.traj_start;

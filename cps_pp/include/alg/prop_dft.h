@@ -12,12 +12,15 @@
 #include <utility>
 #include <map>
 #include <string>
+#include <iomanip>
 #include <alg/alg_gparitycontract.h>
 #include <algorithm>
 
 #ifdef USE_OMP
 #include <omp.h>
 #endif
+
+//#define USE_OFSTREAM
 
 CPS_START_NAMESPACE
 
@@ -100,7 +103,27 @@ struct _FourierProp_helper<WilsonMatrix>{
   static void write(FILE *fp, const WilsonMatrix &mat, const Float &p2, const std::vector<Float> &mom, const int &t);
 };
 
-
+struct _DFTutils{
+  static std::ostream* open_ofstream(const char* file){
+    std::ostream *str = &std::cout;
+    if(!UniqueID()){
+      std::ofstream* tmp = new std::ofstream(file);
+      (*tmp) << std::scientific << std::setprecision(16);
+      if(!tmp->is_open()){
+	ERR.FileW("_DFTutils","open_ofstream",file);
+      }
+      str = static_cast<std::ostream*>(tmp);
+    }
+    return str;
+  }
+  static void close_ofstream(std::ostream* str){
+    if(!UniqueID()){
+      std::ofstream* tmp = static_cast<std::ofstream*>(str);
+      tmp->close();
+      delete tmp;
+    }
+  }
+};
 
 
 template<typename MatrixType>
@@ -292,10 +315,14 @@ struct _ContractedBilinear_helper{};
 template<>
 struct _ContractedBilinear_helper<SpinColorFlavorMatrix>{
   static void write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
+  static void binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
+  static void write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
 };
 template<>
 struct _ContractedBilinear_helper<WilsonMatrix>{
   static void write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
+  static void binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
+  static void write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom, const int &t);
 };
 
 
@@ -335,6 +362,13 @@ private:
 
 
 public:
+/* #ifdef USE_OFSTREAM */
+/*   typedef std::ostream& OutputType; */
+/* #else */
+/*   typedef FILE* OutputType; */
+/* #endif */
+
+
  ContractedBilinear(): array_size(-1), nmat(_PropagatorBilinear_helper<MatrixType>::nidx), PropDFT(){}
 
   void calculateBilinears(Lattice &lat,
@@ -377,20 +411,22 @@ public:
 	     const int &Gamma2, const int &Sigma2,
 	     const char *file, Lattice &lat);
 
+  template<typename OutputType>
   void write(char const* tag_A, const Superscript &ss_A,  
 	     char const* tag_B, const Superscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
-	     FILE *fp, Lattice &lat);
+	     OutputType fp, Lattice &lat);
   
   //write all combinations
   void write(char const* tag_A, const Superscript &ss_A,  
 	     char const* tag_B, const Superscript &ss_B,
-	     const std::string &file, Lattice &lat);
-
+	     const std::string &file, Lattice &lat, const bool &binary = false);
+  
+  template<typename OutputType>
   void write(char const* tag_A, const Superscript &ss_A,  
 	     char const* tag_B, const Superscript &ss_B, 
-	     FILE *fp, Lattice &lat);
+	     OutputType fp, Lattice &lat, const bool &binary = false);
 };
 
 
@@ -738,10 +774,14 @@ struct _ContractedWallSinkBilinearSpecMomentum_helper{};
 template<>
 struct _ContractedWallSinkBilinearSpecMomentum_helper<SpinColorFlavorMatrix>{
   static void write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
+  static void binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
+  static void write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
 };
 template<>
 struct _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>{
   static void write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
+  static void binary_write(FILE *fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
+  static void write(std::ostream &fp, const Rcomplex &val, const int &idx1, const int &idx2, const Float &p2, const std::vector<Float> &mom1, const std::vector<Float> &mom2, const int &t);
 };
 
 
@@ -816,9 +856,15 @@ public:
   void clear();
   ~ContractedWallSinkBilinearSpecMomentum(){ clear(); }
 
+// #ifdef USE_OFSTREAM
+//   typedef std::ostream& OutputType;
+// #else
+//   typedef FILE* OutputType;
+// #endif
 
 private:
-  void _writeit(FILE *fp,Rcomplex *con,const int &scf_idx1, const int &scf_idx2, const std::vector< std::pair<Float,int> > &p2list, const std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > &p2map);
+  template<typename OutputType>
+  void _writeit(OutputType into,Rcomplex *con,const int &scf_idx1, const int &scf_idx2, const std::vector< std::pair<Float,int> > &p2list, const std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > &p2map, const bool &binary=false);
 public:
 
   void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
@@ -827,20 +873,22 @@ public:
 	     const int &Gamma2, const int &Sigma2,
 	     const char *file, Lattice &lat);
 
+  template<typename OutputType>
   void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 	     char const* tag_B, const PropDFT::Superscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
-	     FILE *fp, Lattice &lat);
+	     OutputType into, Lattice &lat);
   
   //write all combinations
   void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 	     char const* tag_B, const PropDFT::Superscript &ss_B,
-	     const std::string &file, Lattice &lat);
+	     const std::string &file, Lattice &lat, const bool &binary = false);
 
+  template<typename OutputType>
   void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
 	     char const* tag_B, const PropDFT::Superscript &ss_B, 
-	     FILE *fp, Lattice &lat);
+	     OutputType into, Lattice &lat, const bool &binary = false);
 };
 
 

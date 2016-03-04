@@ -33,7 +33,7 @@ void eigen_solver(double *A, double *EV, double *E, int n);
 template<class Float> void matrix_dgemm (const int M,const int N, const int K, Float **A, const double *B, double *C);
 void min_eig_index(int *INDEX, int nev,double *EIG, int n);
 void invert_H_zpotri(std::complex<double> *data, int N);
-void invert_H_matrix(complex<double> *data, int N); //if n is large enough, must be parallerized!!!
+void invert_H_matrix(std::complex<double> *data, int N); //if n is large enough, must be parallerized!!!
 template<class Float> void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_size_cb, const int nthread, const int me);
 
 static double time_diff(const struct timeval &end_time, const struct timeval &start_time)

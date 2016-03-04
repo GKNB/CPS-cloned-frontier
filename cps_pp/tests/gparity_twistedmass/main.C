@@ -43,6 +43,7 @@
 
 #include <util/data_shift.h>
 
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -2140,14 +2141,14 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
 
     Float* v2 = rand_4d_canonical_fermion(*lattice);
     delete lattice;
-  
-    Fbfm::bfm_arg.solver = WilsonTM;
-    Fbfm::bfm_arg.node_latt[0]  = QDP::Layout::subgridLattSize()[0];
-    Fbfm::bfm_arg.node_latt[1]  = QDP::Layout::subgridLattSize()[1];
-    Fbfm::bfm_arg.node_latt[2]  = QDP::Layout::subgridLattSize()[2];
-    Fbfm::bfm_arg.node_latt[3]  = QDP::Layout::subgridLattSize()[3];
-    Fbfm::bfm_arg.verbose=1;
-    Fbfm::bfm_arg.reproduce=0;
+    Fbfm::current_arg_idx = 0;
+    Fbfm::bfm_args[0].solver = WilsonTM;
+    Fbfm::bfm_args[0].node_latt[0]  = QDP::Layout::subgridLattSize()[0];
+    Fbfm::bfm_args[0].node_latt[1]  = QDP::Layout::subgridLattSize()[1];
+    Fbfm::bfm_args[0].node_latt[2]  = QDP::Layout::subgridLattSize()[2];
+    Fbfm::bfm_args[0].node_latt[3]  = QDP::Layout::subgridLattSize()[3];
+    Fbfm::bfm_args[0].verbose=1;
+    Fbfm::bfm_args[0].reproduce=0;
 
 #if TARGET == BGQ
     omp_set_num_threads(64);
@@ -2172,23 +2173,23 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
     printf("%d dim machine\n\t", procs.size());
     for(int mu=0;mu<4;mu++){
       printf("%d ", procs[mu]);
-      if ( procs[mu]>1 ) Fbfm::bfm_arg.local_comm[mu] = 0;
-      else Fbfm::bfm_arg.local_comm[mu] = 1;
+      if ( procs[mu]>1 ) Fbfm::bfm_args[0].local_comm[mu] = 0;
+      else Fbfm::bfm_args[0].local_comm[mu] = 1;
     }
     printf("\nLocal comm = ");
     for(int mu=0;mu<4;mu++){
-      printf("%d ", Fbfm::bfm_arg.local_comm[mu]);
+      printf("%d ", Fbfm::bfm_args[0].local_comm[mu]);
     }
     printf("\n");
 
-    Fbfm::bfm_arg.precon_5d = 0;
-    Fbfm::bfm_arg.Ls   = 1;
-    Fbfm::bfm_arg.M5   = 0.0;
-    Fbfm::bfm_arg.mass = toDouble(mass);
-    Fbfm::bfm_arg.twistedmass = toDouble(epsilon);
-    Fbfm::bfm_arg.Csw  = 0.0;
-    Fbfm::bfm_arg.max_iter = 10000;
-    Fbfm::bfm_arg.residual = 1e-08;
+    Fbfm::bfm_args[0].precon_5d = 0;
+    Fbfm::bfm_args[0].Ls   = 1;
+    Fbfm::bfm_args[0].M5   = 0.0;
+    Fbfm::bfm_args[0].mass = toDouble(mass);
+    Fbfm::bfm_args[0].twistedmass = toDouble(epsilon);
+    Fbfm::bfm_args[0].Csw  = 0.0;
+    Fbfm::bfm_args[0].max_iter = 10000;
+    Fbfm::bfm_args[0].residual = 1e-08;
 
     int f_size = 24*GJP.VolNodeSites();
     
@@ -2474,7 +2475,7 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
       GnoneFbfm *latt_fbfm = new GnoneFbfm;
       //argument order reversed as above
       FforceWilsonType cal_force((Matrix*)mom_bfm_tm, latt_fbfm->GaugeField(),
-				 v2, v1, Fbfm::bfm_arg.Ls, 0.1);
+				 v2, v1, Fbfm::bfm_args[0].Ls, 0.1);
       ForceArg ret = cal_force.run();
 
       delete latt_fbfm;

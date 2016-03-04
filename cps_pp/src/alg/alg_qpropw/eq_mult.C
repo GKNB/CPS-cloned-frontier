@@ -6,18 +6,26 @@ CPS_START_NAMESPACE
 
 inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
+#if 1
+  x += y*z;
+#else
   x.real()+=y.real()*z.real();
   x.real()-=y.imag()*z.imag();
   x.imag()+=y.imag()*z.real();
   x.imag()+=y.real()*z.imag();
+#endif
 }
 
 inline void cmeq( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
+#if 1
+  x = y*z;
+#else
   x.real() =y.real()*z.real();
   x.real()-=y.imag()*z.imag();
   x.imag() =y.imag()*z.real();
   x.imag()+=y.real()*z.imag();
+#endif
 }
 
 WilsonMatrix& eq_mult( WilsonMatrix& xmat,

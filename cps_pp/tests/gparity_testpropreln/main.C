@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 
 #include <util/qcdio.h>
 #ifdef PARALLEL
@@ -48,6 +49,7 @@
 
 #include <util/data_shift.h>
 
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -66,6 +68,40 @@ void print(const WilsonMatrix &w){
   }
   printf("\n");
 }
+void print(const SpinColorFlavorMatrix &w){
+  for(int i=0;i<4;i++){
+    for(int j=0;j<4;j++){
+      for(int aa=0;aa<3;aa++){
+	for(int bb=0;bb<3;bb++){
+	  for(int f0=0;f0<2;f0++){
+	    for(int f1=0;f1<2;f1++){
+	      Complex ca = w(i,aa,f0,j,bb,f1);
+	      printf("%d %d %d %d %d %d (%.4f %.4f)\n",i,aa,f0,j,bb,f1,ca.real(),ca.imag());
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+void print2(const SpinColorFlavorMatrix &a,const SpinColorFlavorMatrix &b){
+  for(int i=0;i<4;i++){
+    for(int j=0;j<4;j++){
+      for(int aa=0;aa<3;aa++){
+	for(int bb=0;bb<3;bb++){
+	  for(int f0=0;f0<2;f0++){
+	    for(int f1=0;f1<2;f1++){
+	      Complex ca = a(i,aa,f0,j,bb,f1);
+	      Complex cb = b(i,aa,f0,j,bb,f1);
+	      printf("%d %d %d %d %d %d (%.4f %.4f) (%.4f %.4f)\n",i,aa,f0,j,bb,f1,ca.real(),ca.imag(),cb.real(),cb.imag());
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+
 
 bool test_equals(const WilsonMatrix &a, const WilsonMatrix &b, const double &eps){
   for(int i=0;i<4;i++){
@@ -81,7 +117,25 @@ bool test_equals(const WilsonMatrix &a, const WilsonMatrix &b, const double &eps
   }
   return true;
 }
-
+bool test_equals(const SpinColorFlavorMatrix &a, const SpinColorFlavorMatrix &b, const double &eps){
+  for(int i=0;i<4;i++){
+    for(int j=0;j<4;j++){
+      for(int aa=0;aa<3;aa++){
+	for(int bb=0;bb<3;bb++){
+	  for(int f0=0;f0<2;f0++){
+	    for(int f1=0;f1<2;f1++){
+	    
+	      Complex ca = a(i,aa,f0,j,bb,f1);
+	      Complex cb = b(i,aa,f0,j,bb,f1);
+	      if( fabs(ca.real()-cb.real()) > eps || fabs(ca.imag()-cb.imag()) > eps ) return false;
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return true;
+}
 
 
 void global_coord(const int &site, int *into_vec){
@@ -124,7 +178,7 @@ Rcomplex sink_phasefac(int *momphase,const int &site){
   int pos[4]; global_coord(site,pos);
   return sink_phasefac(momphase,pos);
 }
-void sum_momphase(int *into, PropagatorContainer &prop, const bool &is_cconj){
+void sum_momphase(int *into, QPropWcontainer &prop, const bool &is_cconj){
   int propmom[3]; prop.momentum(propmom);
   if(is_cconj){
     for(int i=0;i<3;i++) into[i]-=propmom[i];
@@ -134,13 +188,13 @@ void sum_momphase(int *into, PropagatorContainer &prop, const bool &is_cconj){
 }
 
 void test_comb(const JobPropagatorArgs &prop_args, const int &Pidx, const int &Aidx, const int &Combidx, const PropCombination &comb, Lattice &latt){
-  PropagatorContainer &q_comb_pc = PropManager::getProp(prop_args.props.props_val[Combidx].generics.tag);
+  QPropWcontainer &q_comb_pc = PropManager::getProp(prop_args.props.props_val[Combidx].generics.tag).convert<QPropWcontainer>();
   QPropW &q_comb_qpw = q_comb_pc.getProp(latt);
 
-  PropagatorContainer &q_P_pc = PropManager::getProp(prop_args.props.props_val[Pidx].generics.tag);
+  QPropWcontainer &q_P_pc = PropManager::getProp(prop_args.props.props_val[Pidx].generics.tag).convert<QPropWcontainer>();
   QPropW &q_P_qpw = q_P_pc.getProp(latt);
 
-  PropagatorContainer &q_A_pc = PropManager::getProp(prop_args.props.props_val[Aidx].generics.tag);
+  QPropWcontainer &q_A_pc = PropManager::getProp(prop_args.props.props_val[Aidx].generics.tag).convert<QPropWcontainer>();
   QPropW &q_A_qpw = q_A_pc.getProp(latt);
 
   QPropW cmb(q_P_qpw);
@@ -179,8 +233,8 @@ void test_comb(const JobPropagatorArgs &prop_args, const int &Pidx, const int &A
 
 
 void test_props(const JobPropagatorArgs &prop_args, const int &f0idx, const int &f1idx, Lattice &latt){
-  PropagatorContainer &q_f0_pc = PropManager::getProp(prop_args.props.props_val[f0idx].generics.tag);
-  PropagatorContainer &q_f1_pc = PropManager::getProp(prop_args.props.props_val[f1idx].generics.tag);
+  QPropWcontainer &q_f0_pc = PropManager::getProp(prop_args.props.props_val[f0idx].generics.tag).convert<QPropWcontainer>();
+  QPropWcontainer &q_f1_pc = PropManager::getProp(prop_args.props.props_val[f1idx].generics.tag).convert<QPropWcontainer>();
   
   QPropW &q_f0_qpw = q_f0_pc.getProp(latt);
   QPropW &q_f1_qpw = q_f1_pc.getProp(latt);
@@ -269,7 +323,8 @@ void test_props(const JobPropagatorArgs &prop_args, const int &f0idx, const int 
     }
 
 
-    
+#if 0
+    //CK: 2015  - not sure what this does. These relations are not correct.
     {
       printf("Testing new 1,1 = f'(0,0):");
       WilsonMatrix f_0_0 = g_0_0;
@@ -322,9 +377,10 @@ void test_props(const JobPropagatorArgs &prop_args, const int &f0idx, const int 
 	exit(-1);
       }else printf(" true\n");
     }
+#endif
 
   }
-    
+
 }
 
 
@@ -498,6 +554,48 @@ int main(int argc,char *argv[])
     LRG.Write(save_lrg_file,32);
   }
 
+  {
+    //CK 2015
+    //Prove the faulty charge conjugation matrix in CPS WilsonMatrix behaves as I claim above
+    //i.e. 
+    
+    //A.ccl(1) = C^-1 A  A.ccl(-1) = C A
+    //A.ccr(1) = A C     A.ccr(-1) = C^-1 A
+    
+    WilsonMatrix one(0.0);
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int c2=0;c2<3;c2++)
+	    one(s1,c1,s2,c2) = (s1 == s2 && c1 == c2 ? 1.0 : 0.0 );
+
+    //Test C^2 = -1
+    WilsonMatrix c2(one);
+    c2.ccl(-1).ccr(1);
+    cout << "Testing C^2 = -1\n";
+    print(c2);
+    
+    //Test (C^{-1})^2 = -1
+    WilsonMatrix cm2(one);
+    cm2.ccl(1).ccr(-1);
+    cout << "Testing (C^-1)^2 = -1\n";
+    print(cm2);
+    
+    //Test C * C^{-1} = 1 
+    WilsonMatrix ccm(one);
+    ccm.ccl(-1).ccr(-1);
+    cout << "Testing C*C^-1 = 1\n";
+    print(ccm);
+    
+    //Test C^{-1} * C = 1 
+    WilsonMatrix cmc(one);
+    cmc.ccl(1).ccr(1);
+    cout << "Testing C^-1*C = 1\n";
+    print(cmc);
+  }
+
+
+
 
   GwilsonFdwf lattice;
 					       
@@ -538,6 +636,8 @@ int main(int argc,char *argv[])
 
 #define ELEM(OBJ,ARRAYNAME,IDX) OBJ . ARRAYNAME . ARRAYNAME##_val[IDX]
 
+
+#if 1
   //generate propagators with PRD, APRD, P+A and P-A temporal BCs
   JobPropagatorArgs prop_args;
   SETUP_ARRAY(prop_args,props,PropagatorArg,8);
@@ -548,15 +648,16 @@ int main(int argc,char *argv[])
 
   for(int i=0;i<4;i++){
     PropagatorArg &parg = prop_args.props.props_val[i];
-    
-    parg.generics.tag = names[i];
+
+    parg.generics.type = QPROPW_TYPE;
+    parg.generics.tag = strdup(names[i]);
     parg.generics.mass = 0.1;
     parg.generics.bc[0] = GJP.Xbc();
     parg.generics.bc[1] = GJP.Ybc();
     parg.generics.bc[2] = GJP.Zbc();
     parg.generics.bc[3] = bndcnd[i];
 
-    SETUP_ARRAY(parg,attributes,AttributeContainer,2);
+    SETUP_ARRAY(parg,attributes,AttributeContainer,2 );
     
     ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
     PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
@@ -568,12 +669,13 @@ int main(int argc,char *argv[])
   }
 
   PropCombination comb[4] = {A_PLUS_B,A_PLUS_B,A_MINUS_B,A_MINUS_B};
-  char* pcom[4][2] = { {"prop_f0_P","prop_f0_A"}, {"prop_f1_P","prop_f1_A"}, {"prop_f0_P","prop_f0_A"}, {"prop_f1_P","prop_f1_A"} };
+  const char* pcom[4][2] = { {"prop_f0_P","prop_f0_A"}, {"prop_f1_P","prop_f1_A"}, {"prop_f0_P","prop_f0_A"}, {"prop_f1_P","prop_f1_A"} };
 
   for(int i=4;i<8;i++){
     PropagatorArg &parg = prop_args.props.props_val[i];
     
-    parg.generics.tag = names[i];
+    parg.generics.type = QPROPW_TYPE;
+    parg.generics.tag = strdup(names[i]);
     parg.generics.mass = 0.1;
     parg.generics.bc[0] = GJP.Xbc();
     parg.generics.bc[1] = GJP.Ybc();
@@ -593,6 +695,7 @@ int main(int argc,char *argv[])
   PropManager::setup(prop_args);
   PropManager::calcProps(lattice);
 
+#if 1
   printf("Testing tbc PRD\n");
   test_props(prop_args,0,1,lattice);
   printf("Passed test tbc PRD\n");
@@ -625,6 +728,440 @@ int main(int argc,char *argv[])
   printf("Testing tbc P-A\n");
   test_props(prop_args,6,7,lattice);
   printf("Passed test tbc P-A\n");
+#endif
+
+#endif
+
+  if(gauge_fix){
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    Matrix *f0 = lattice.FixGaugeMatrix(i,0);
+    Matrix *f1 = lattice.FixGaugeMatrix(i,1);
+
+    for(int c=0;c<18;c++)
+      if(
+	 (c % 2 == 0 && fabs( f0->elem(c) - f1->elem(c) ) > 1e-08)
+	 ||
+	 (c % 2 == 1 && fabs( f0->elem(c) + f1->elem(c) ) > 1e-08) ){
+	cout << "GFmat error site " << i << ", cpt " << c << " vals " << f0->elem(c) << " " << f1->elem(c) << endl;
+	cout.flush();
+	exit(-1);
+      }
+  }
+  }
+
+
+  //06/15
+  //Test the SpinColorFlavorMatrix use of the propagator conjugate relation
+
+  //Test the prop conj reln for a real (cosine wall) source
+  cout << "Clearing\n"; cout.flush();
+
+  PropManager::clear();
+
+  {
+    PropagatorArg prop_f0, prop_f1;
+    {
+      const char* names2[2] = { "prop_f0", "prop_f1" };
+      for(int i=0;i<2;i++){
+	PropagatorArg &parg = (i == 0 ? prop_f0 : prop_f1);
+	
+	parg.generics.type = QPROPW_TYPE;    
+	parg.generics.tag = strdup(names2[i]);
+	parg.generics.mass = 0.1;
+	parg.generics.bc[0] = GJP.Xbc();
+	parg.generics.bc[1] = GJP.Ybc();
+	parg.generics.bc[2] = GJP.Zbc();
+	parg.generics.bc[3] = GJP.Tbc();
+
+	SETUP_ARRAY(parg,attributes,AttributeContainer,4 + (gauge_fix ? 1:0) );
+    
+	ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+	WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+	srcarg.t = 0;
+
+	// ELEM(parg,attributes,0).type = POINT_SOURCE_ATTR;
+	// PointSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.point_source_attr;
+	// for(int jj=0;jj<4;jj++) srcarg.pos[jj] = 0;
+
+	ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+	GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+	gparg.flavor = i;
+
+	ELEM(parg,attributes,2).type = MOMENTUM_ATTR;
+	MomentumAttrArg & momarg = ELEM(parg,attributes,2).AttributeContainer_u.momentum_attr;
+	for(int pp=0;pp<3;pp++) momarg.p[pp] =  (GJP.Bc(pp) == BND_CND_GPARITY ? 1 : 0);
+
+	ELEM(parg,attributes,3).type = MOM_COS_ATTR;
+
+	if(gauge_fix){
+	  ELEM(parg,attributes,4).type = GAUGE_FIX_ATTR;
+	  GaugeFixAttrArg &gfarg = ELEM(parg,attributes,4).AttributeContainer_u.gauge_fix_attr;
+	  gfarg.gauge_fix_src = 1;
+	  gfarg.gauge_fix_snk = 0;
+	}
+
+      }
+    }
+    PropManager::addProp(prop_f0);
+    PropManager::addProp(prop_f1);
+
+    QPropWcontainer &prop_f0_p = PropManager::getProp("prop_f0").convert<QPropWcontainer>();
+    QPropWcontainer &prop_f1_p = PropManager::getProp("prop_f1").convert<QPropWcontainer>();
+
+    for(int i=0;i<GJP.VolNodeSites();i++){
+      SpinColorFlavorMatrix test1;
+      test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+      SpinColorFlavorMatrix test2;
+      test2.generate_from_real_source(prop_f0_p, lattice, i);
+
+      if(!test_equals(test1,test2,1e-08)){
+	cout << "SpinColorFlavorMatrix generate test 0 fail on site " << i << ":\n";
+	print2(test1,test2);
+	cout.flush();
+	exit(-1);
+      }
+    }
+    cout << "SpinColorFlavorMatrix generate test 0 passed\n"; cout.flush();
+  }
+  PropManager::clear();
+
+  //Generate the full propagator from separate flavor propagators
+  //Use a momentum wall source with +1 in every GP direction
+  
+  PropagatorArg prop_f0, prop_f1;
+  {
+    const char* names2[2] = { "prop_f0", "prop_f1" };
+    for(int i=0;i<2;i++){
+      PropagatorArg &parg = (i == 0 ? prop_f0 : prop_f1);
+
+      parg.generics.type = QPROPW_TYPE;    
+      parg.generics.tag = strdup(names2[i]);
+      parg.generics.mass = 0.1;
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+
+      SETUP_ARRAY(parg,attributes,AttributeContainer,4 + (gauge_fix ? 1:0) );
+    
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = 0;
+
+      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+      gparg.flavor = i;
+
+      ELEM(parg,attributes,2).type = MOMENTUM_ATTR;
+      MomentumAttrArg & momarg = ELEM(parg,attributes,2).AttributeContainer_u.momentum_attr;
+      for(int pp=0;pp<3;pp++) momarg.p[pp] = (GJP.Bc(pp) == BND_CND_GPARITY ? 1 : 0);
+
+      ELEM(parg,attributes,3).type = GPARITY_OTHER_FLAV_PROP_ATTR;
+      GparityOtherFlavPropAttrArg &oarg = ELEM(parg,attributes,3).AttributeContainer_u.gparity_other_flav_prop_attr;
+      oarg.tag = strdup(names2[(i+1) % 2]);
+
+      if(gauge_fix){
+	ELEM(parg,attributes,4).type = GAUGE_FIX_ATTR;
+	GaugeFixAttrArg &gfarg = ELEM(parg,attributes,4).AttributeContainer_u.gauge_fix_attr;
+	gfarg.gauge_fix_src = 1;
+	gfarg.gauge_fix_snk = 0;
+      }
+
+    }
+  }
+  PropManager::addProp(prop_f0);
+  PropManager::addProp(prop_f1);
+
+  QPropWcontainer &prop_f0_p = PropManager::getProp("prop_f0").convert<QPropWcontainer>();
+  QPropWcontainer &prop_f1_p = PropManager::getProp("prop_f1").convert<QPropWcontainer>();
+
+  //Test that explicitly using 'generate' with the two flavored matrices gives the same result as the automatic one
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    SpinColorFlavorMatrix test1;
+    test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+    SpinColorFlavorMatrix test2;
+    test2.generate(prop_f0_p, lattice, i);
+
+    if(!test_equals(test1,test2,1e-08)){
+      cout << "SpinColorFlavorMatrix generate test 1 fail on site " << i << ":\n";
+      print2(test1,test2);
+      cout.flush();
+      exit(-1);
+    }
+  }
+  cout << "SpinColorFlavorMatrix generate test 1 passed\n"; cout.flush();
+
+  //Generate a propagator from a source S and another from the source S*
+  PropagatorArg prop_f0_cc, prop_f1_cc;
+  {
+    const char* names2[2] = { "prop_f0_cc", "prop_f1_cc" };
+    const char* ccpartner[2] = { "prop_f0", "prop_f1" };
+
+    for(int i=0;i<2;i++){
+      PropagatorArg &parg = (i == 0 ? prop_f0_cc : prop_f1_cc);
+      
+      parg.generics.type = QPROPW_TYPE;    
+      parg.generics.tag = strdup(names2[i]);
+      parg.generics.mass = 0.1;
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+    
+      SETUP_ARRAY(parg,attributes,AttributeContainer,4+ (gauge_fix ? 1:0)  );
+    
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = 0;
+    
+      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+      gparg.flavor = i;
+
+      ELEM(parg,attributes,2).type = MOMENTUM_ATTR;
+      MomentumAttrArg & momarg = ELEM(parg,attributes,2).AttributeContainer_u.momentum_attr;
+      for(int pp=0;pp<3;pp++) momarg.p[pp] = (GJP.Bc(pp) == BND_CND_GPARITY ? -1 : 0);
+
+      ELEM(parg,attributes,3).type = GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR;
+      GparityComplexConjSourcePartnerPropAttrArg &oarg = ELEM(parg,attributes,3).AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr;
+      oarg.tag = strdup(ccpartner[i]);
+
+      if(gauge_fix){
+	ELEM(parg,attributes,4).type = GAUGE_FIX_ATTR;
+	GaugeFixAttrArg &gfarg = ELEM(parg,attributes,4).AttributeContainer_u.gauge_fix_attr;
+	gfarg.gauge_fix_src = 1;
+	gfarg.gauge_fix_snk = 0;
+      }
+
+    }
+  }
+  PropManager::addProp(prop_f0_cc);
+  PropManager::addProp(prop_f1_cc);
+
+  QPropWcontainer &prop_f0_cc_p = PropManager::getProp("prop_f0_cc").convert<QPropWcontainer>();
+  QPropWcontainer &prop_f1_cc_p = PropManager::getProp("prop_f1_cc").convert<QPropWcontainer>();
+
+  //Test the explicit generation
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    SpinColorFlavorMatrix test1;
+    test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+    SpinColorFlavorMatrix test2;
+    test2.generate_from_cconj_pair(prop_f0_p, prop_f0_cc_p, lattice, i);
+
+    if(!test_equals(test1,test2,1e-08)){
+      cout << "SpinColorFlavorMatrix generate test 2 fail on site " << i << ":\n";
+      print2(test1,test2);
+      cout.flush();
+      exit(-1);
+    }
+  }
+  cout << "SpinColorFlavorMatrix generate test 2 passed\n"; cout.flush();
+
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    SpinColorFlavorMatrix test1;
+    test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+    SpinColorFlavorMatrix test2;
+    test2.generate_from_cconj_pair(prop_f1_p, prop_f1_cc_p, lattice, i);
+
+    if(!test_equals(test1,test2,1e-08)){
+      cout << "SpinColorFlavorMatrix generate test 2.5 fail on site " << i << ":\n";
+      print2(test1,test2);
+      cout.flush();
+      exit(-1);
+    }
+  }
+  cout << "SpinColorFlavorMatrix generate test 2.5 passed\n"; cout.flush();
+
+
+  //Test automatic generation
+  AttributeContainer tmp;
+  tmp.type = GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR;
+  tmp.AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr.tag = strdup("prop_f0_cc");
+
+  prop_f0_p.removeAttr<GparityOtherFlavPropAttrArg>(); //remove association with other flav prop
+  prop_f0_p.add(tmp);
+
+  assert( prop_f0_p.hasAttr<GparityOtherFlavPropAttrArg>() == false );
+
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    SpinColorFlavorMatrix test1;
+    test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+    SpinColorFlavorMatrix test2;
+    test2.generate(prop_f0_p, lattice, i);
+
+    if(!test_equals(test1,test2,1e-08)){
+      cout << "SpinColorFlavorMatrix generate test 3 fail on site " << i << ":\n";
+      print2(test1,test2);
+      cout.flush();
+      exit(-1);
+    }
+
+  }
+  cout << "SpinColorFlavorMatrix generate test 3 passed\n"; cout.flush();
+
+  //Test it for the other flavor
+  tmp.AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr.tag = strdup("prop_f1_cc");
+
+  prop_f1_p.removeAttr<GparityOtherFlavPropAttrArg>(); //remove association with other flav prop
+  prop_f1_p.add(tmp);
+
+  assert( prop_f1_p.hasAttr<GparityOtherFlavPropAttrArg>() == false );
+
+  for(int i=0;i<GJP.VolNodeSites();i++){
+    SpinColorFlavorMatrix test1;
+    test1.generate(prop_f0_p, prop_f1_p, lattice, i);
+
+    SpinColorFlavorMatrix test2;
+    test2.generate(prop_f1_p, lattice, i);
+
+    if(!test_equals(test1,test2,1e-08)){
+      cout << "SpinColorFlavorMatrix generate test 4 fail on site " << i << ":\n";
+      print2(test1,test2);
+      cout.flush();
+      exit(-1);
+    }
+
+  }
+  cout << "SpinColorFlavorMatrix generate test 4 passed\n"; cout.flush();
+
+
+
+  PropManager::clear();
+
+  //For standard source types, check we can flip the source momentum using the G-parity prop-conj relationship
+  {
+    PropagatorArg prop_cos, prop_wall, prop_wall_conj;
+    {
+      PropagatorArg &parg = prop_cos;
+      
+      parg.generics.type = QPROPW_TYPE;    
+      parg.generics.tag = strdup("prop_cos");
+      parg.generics.mass = 0.1;
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+    
+      SETUP_ARRAY(parg,attributes,AttributeContainer,4+ (gauge_fix ? 1:0)  );
+    
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = 0;
+    
+      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+      gparg.flavor = 0;
+
+      ELEM(parg,attributes,2).type = MOMENTUM_ATTR;
+      MomentumAttrArg & momarg = ELEM(parg,attributes,2).AttributeContainer_u.momentum_attr;
+      for(int pp=0;pp<3;pp++) momarg.p[pp] = (GJP.Bc(pp) == BND_CND_GPARITY ? 1 : 0);
+
+      ELEM(parg,attributes,3).type = MOM_COS_ATTR;
+
+      if(gauge_fix){
+	ELEM(parg,attributes,4).type = GAUGE_FIX_ATTR;
+	GaugeFixAttrArg &gfarg = ELEM(parg,attributes,4).AttributeContainer_u.gauge_fix_attr;
+	gfarg.gauge_fix_src = 1;
+	gfarg.gauge_fix_snk = 0;
+      }
+
+    }
+
+    const char* names2[2] = { "prop_wall", "prop_wall_conj" };
+    const char* ccpartner[2] = { "prop_wall_conj", "prop_wall" };
+    Float pcoeff[2] = {1.0,-1.0};
+
+    for(int i=0;i<2;i++){
+      PropagatorArg &parg = (i == 0 ? prop_wall : prop_wall_conj);
+      
+      parg.generics.type = QPROPW_TYPE;    
+      parg.generics.tag = strdup(names2[i]);
+      parg.generics.mass = 0.1;
+      parg.generics.bc[0] = GJP.Xbc();
+      parg.generics.bc[1] = GJP.Ybc();
+      parg.generics.bc[2] = GJP.Zbc();
+      parg.generics.bc[3] = GJP.Tbc();
+    
+      SETUP_ARRAY(parg,attributes,AttributeContainer,4+ (gauge_fix ? 1:0)  );
+    
+      ELEM(parg,attributes,0).type = WALL_SOURCE_ATTR;
+      WallSourceAttrArg &srcarg = ELEM(parg,attributes,0).AttributeContainer_u.wall_source_attr;
+      srcarg.t = 0;
+    
+      ELEM(parg,attributes,1).type = GPARITY_FLAVOR_ATTR;
+      GparityFlavorAttrArg &gparg = ELEM(parg,attributes,1).AttributeContainer_u.gparity_flavor_attr;
+      gparg.flavor = 0;
+
+      ELEM(parg,attributes,2).type = MOMENTUM_ATTR;
+      MomentumAttrArg & momarg = ELEM(parg,attributes,2).AttributeContainer_u.momentum_attr;
+      for(int pp=0;pp<3;pp++) momarg.p[pp] = (GJP.Bc(pp) == BND_CND_GPARITY ? 1 : 0) * pcoeff[i];
+
+      ELEM(parg,attributes,3).type = GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR;
+      GparityComplexConjSourcePartnerPropAttrArg &oarg = ELEM(parg,attributes,3).AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr;
+      oarg.tag = strdup(ccpartner[i]);
+
+      if(gauge_fix){
+	ELEM(parg,attributes,4).type = GAUGE_FIX_ATTR;
+	GaugeFixAttrArg &gfarg = ELEM(parg,attributes,4).AttributeContainer_u.gauge_fix_attr;
+	gfarg.gauge_fix_src = 1;
+	gfarg.gauge_fix_snk = 0;
+      }
+
+    }
+
+    PropManager::addProp(prop_cos);
+    PropManager::addProp(prop_wall);
+    PropManager::addProp(prop_wall_conj);
+    
+    QPropWcontainer &prop_cos_p = PropManager::getProp("prop_cos").convert<QPropWcontainer>();
+
+    //First test that flipSourceMomentum does not change the cosine source propagator
+    for(int i=0;i<GJP.VolNodeSites();i++){
+      SpinColorFlavorMatrix test1;
+      test1.generate(prop_cos_p, lattice, i);
+      
+      SpinColorFlavorMatrix test2(test1);
+      test2.flipSourceMomentum();
+      
+      if(!test_equals(test1,test2,1e-08)){
+	cout << "SpinColorFlavorMatrix generate test 5 fail on site " << i << ":\n";
+	print2(test1,test2);
+	cout.flush();
+	exit(-1);
+      }
+
+    }
+    cout << "SpinColorFlavorMatrix generate test 5 passed\n"; cout.flush();
+
+    //Now test the mom flip
+    QPropWcontainer &prop_wall_plusp = PropManager::getProp("prop_wall").convert<QPropWcontainer>();
+    QPropWcontainer &prop_wall_minusp = PropManager::getProp("prop_wall_conj").convert<QPropWcontainer>();
+
+    for(int i=0;i<GJP.VolNodeSites();i++){
+      SpinColorFlavorMatrix test1;
+      test1.generate(prop_wall_plusp, lattice, i);
+      
+      SpinColorFlavorMatrix test2;
+      test2.generate(prop_wall_minusp, lattice, i);
+      test2.flipSourceMomentum();
+      
+      if(!test_equals(test1,test2,1e-08)){
+	cout << "SpinColorFlavorMatrix generate test 6 fail on site " << i << ":\n";
+	print2(test1,test2);
+	cout.flush();
+	exit(-1);
+      }
+    }
+    cout << "SpinColorFlavorMatrix generate test 6 passed\n"; cout.flush();
+
+  }
+
+
 
 
   if(gauge_fix) lattice.FixGaugeFree();

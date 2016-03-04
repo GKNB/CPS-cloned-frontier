@@ -191,15 +191,18 @@ Float AlgHmc::run(void)
       }
 
       //!< Evaluate the heatbath
+#ifdef USE_BFM
       MultiShiftController.setEnvironment(MultiShiftCGcontroller::Heatbath);
+#endif
       integrator->heatbath();
-      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 
       //!< Calculate initial Hamiltonian
       wilson_set_sloppy( false);
+
+#ifdef USE_BFM
       MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
+#endif
       h_init = integrator->energy();
-      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
       {
 	Float gsum_h(h_init);
 	glb_sum(&gsum_h);
@@ -208,10 +211,11 @@ Float AlgHmc::run(void)
 
       // Molecular Dynamics Trajectory
       if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
-      MultiShiftController.setEnvironment(MultiShiftCGcontroller::MolecularDynamics);
-      integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
-      MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 
+#ifdef USE_BFM
+      MultiShiftController.setEnvironment(MultiShiftCGcontroller::MolecularDynamics);
+#endif
+      integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
       wilson_set_sloppy(false);
 
       // Reunitarize
@@ -228,9 +232,14 @@ Float AlgHmc::run(void)
 #endif
 
       //!< Calculate final Hamiltonian
+#ifdef USE_BFM
       MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
+#endif
       h_final = integrator->energy();
+
+#ifdef USE_BFM
       MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
+#endif
       {
 	Float gsum_h = h_final;
 	glb_sum(&gsum_h);
@@ -260,9 +269,11 @@ Float AlgHmc::run(void)
 
 	integrator->reverse();
 	if(hmc_arg->wfm_md_sloppy) wilson_set_sloppy(true);
+
+#ifdef USE_BFM
 	MultiShiftController.setEnvironment(MultiShiftCGcontroller::MolecularDynamics);
+#endif
 	integrator->evolve(hmc_arg->step_size, hmc_arg->steps_per_traj);
-	MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
 	wilson_set_sloppy(false);
 
 #ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
@@ -270,9 +281,15 @@ Float AlgHmc::run(void)
 	if ( ! ScuChecksum::CsumSwap() )
 	  ERR.Hardware(cname,fname, "SCU Checksum mismatch\n");
 #endif
+
+#ifdef USE_BFM
 	MultiShiftController.setEnvironment(MultiShiftCGcontroller::EnergyCalculation);
+#endif
 	h_delta = h_final - integrator->energy();
+
+#ifdef USE_BFM
 	MultiShiftController.setEnvironment(MultiShiftCGcontroller::Generic);
+#endif
 	glb_sum(&h_delta);
 
 	reverseTest();

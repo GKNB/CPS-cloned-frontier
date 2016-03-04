@@ -57,7 +57,7 @@ void CorrelationFunction::setNcontractions(const int &n){
     
   for(int i=0;i<n;i++){
     wick[i] = stack+i*time_size;
-    for(int t=0;t<time_size;t++){ wick[i][t].real()=0.0; wick[i][t].imag()=0.0; }
+    for(int t=0;t<time_size;t++){ wick[i][t].real(0.0); wick[i][t].imag(0.0); }
   }
   
   if(threadtype == THREADED){
@@ -71,7 +71,7 @@ void CorrelationFunction::setNcontractions(const int &n){
     
       for(int i=0;i<n;i++){
 	wick_threaded[s][i] = stack+i*time_size;
-	for(int t=0;t<time_size;t++){ wick_threaded[s][i][t].real()=0.0; wick_threaded[s][i][t].imag()=0.0; }
+	for(int t=0;t<time_size;t++){ wick_threaded[s][i][t].real(0.0); wick_threaded[s][i][t].imag(0.0); }
       } 
     }
   }

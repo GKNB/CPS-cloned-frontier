@@ -23,6 +23,7 @@
 #include <string.h>
 #include <math.h>
 #include <qmp.h>
+#include <mpi.h>
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
 #endif
@@ -48,6 +49,7 @@ namespace QMPSCU {
   //! Number of grid dimensions.
   static int NDIM = 5;
  
+  static int qmpRank;        /*!< QMP Rank/identify of this  process */
   static int peRank;        /*!< Rank/identify of this  process */
   static int peNum;          /*!< Total number of processors */
 #ifdef UNIFORM_SEED_NO_COMMS
@@ -88,9 +90,10 @@ void init_qmp(int * argc, char ***argv) {
 #ifndef UNIFORM_SEED_NO_COMMS
     QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_SINGLE, &prv);
     if (init_status) printf("QMP_init_msg_passing returned %d\n",init_status);
-    peRank = QMP_get_node_number();
+    qmpRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
-    if(!peRank)printf("QMP_init_msg_passing returned %d\n",init_status);
+    if(!qmpRank)printf("QMP_init_msg_passing returned %d\n",init_status);
+    if(!qmpRank)printf("MPI_Initialized() returned %d\n",MPI_Initialized);
 
     if (init_status != QMP_SUCCESS) {
       QMP_error("%s\n",QMP_error_string(init_status));
@@ -148,7 +151,7 @@ void init_qmp(int * argc, char ***argv) {
   }
   int if_print=0;
   for(int i = 0;i<NDIM;i++)
-  if (pePos[i]>=2) if_print=0;
+  if (pePos[i]>=0) if_print=0;
 
   if (if_print){
       printf("Rank=%d Num=%d NDIM=%d\n",peRank,peNum,NDIM);
@@ -159,24 +162,9 @@ void init_qmp(int * argc, char ***argv) {
       printf("pos:");
       for(int i = 0;i<NDIM;i++)
         printf(" %d",pePos[i]);
-      printf("\n");
+        printf("\n");
+  } 
 
-#if 0
-    int rc;
-    BGLPersonality pers;
-    rts_get_personality(&pers, sizeof(pers));
-    printf("from personality: %d %d %d %d\n",pers.xCoord,pers.yCoord,pers.zCoord,rts_get_processor_id());
-#endif
-  }
-
-
-//     printf("from personality:\n");
-
-#if 0
-    if ( (qmp_type!= QMP_GRID) && (qmp_type !=QMP_MESH)  ) {
-      QMP_error("CPS on QMP only implemented for GRID or MESH, not (%d) machines\n",qmp_type);
-    }
-#endif
 
 //     printf("QMP_declare_logical_topology(peGrid, NDIM)\n");
 #ifndef UNIFORM_SEED_NO_COMMS
@@ -184,6 +172,16 @@ void init_qmp(int * argc, char ***argv) {
     if (QMP_declare_logical_topology(peGrid, NDIM) != QMP_SUCCESS) {
       QMP_error("Node %d: Failed to declare logical topology\n",peRank);
       exit(-4);
+    }
+    pePos = QMP_get_logical_coordinates();
+    peRank = pePos[NDIM-1];
+    if(NDIM>1)
+    for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos[i];
+ //debugging
+    if (peRank != qmpRank){
+	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
+	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);
+	printf("\n");
     }
 #endif
     initialized = true;

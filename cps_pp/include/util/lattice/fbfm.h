@@ -13,7 +13,7 @@
 CPS_START_NAMESPACE
 
 #ifdef USE_BFM
-class Fbfm : public virtual Lattice {
+class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
  public:
   //CK: Modified to allow for multiple sets of arguments for different fermion types
   static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
@@ -110,11 +110,13 @@ class Fbfm : public virtual Lattice {
   // to the Dwf fermion type. x[i] is the 
   // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
   
+#if 0
   int FsiteOffset(const int *x) const;
   // Sets the offsets for the fermion fields on a 
   // checkerboard. The fermion field storage order
   // is the canonical one. X[I] is the
   // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
+#endif
   
   int FsiteSize() const {
     return 24 * Fbfm::bfm_args[current_arg_idx].Ls;
@@ -164,8 +166,24 @@ class Fbfm : public virtual Lattice {
   int FmatInv(Vector *f_out, Vector *f_in, 
 	      CgArg *cg_arg, 
 	      Float *true_res,
+	      CnvFrmType cnv_frm ,
+	      PreserveType prs_f_in ,int if_dminus);
+  int FmatInv(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
 	      CnvFrmType cnv_frm = CNV_FRM_YES,
-	      PreserveType prs_f_in = PRESERVE_YES);
+	      PreserveType prs_f_in = PRESERVE_YES){
+	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,1);
+}
+
+  int FmatInvTest(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
+	      CnvFrmType cnv_frm = CNV_FRM_YES,
+	      PreserveType prs_f_in = PRESERVE_YES){
+	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,0);
+}
+
   // It calculates f_out where A * f_out = f_in and
   // A is the fermion matrix (Dirac operator). The inversion
   // is done with the conjugate gradient. cg_arg is the 
@@ -345,6 +363,8 @@ class Fbfm : public virtual Lattice {
       bf.GeneralisedFiveDimInit();
     }
   }
+        void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                    CnvFrmType cnv_frm, int dir_flag);
 };
 
 class GnoneFbfm

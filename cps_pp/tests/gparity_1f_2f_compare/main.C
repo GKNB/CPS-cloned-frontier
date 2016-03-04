@@ -46,7 +46,7 @@
 #include <alg/fix_gauge_arg.h>
 
 #include <util/data_shift.h>
-#include <alg/a2a/lanc_arg.h>
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -96,9 +96,9 @@ int main(int argc,char *argv[])
 {
   Start(&argc,&argv); //initialises QMP
 
-#ifdef HAVE_BFM
-  Chroma::initialize(&argc,&argv);
-#endif
+// #ifdef HAVE_BFM
+//   Chroma::initialize(&argc,&argv);
+// #endif
 
   CommandLine::is(argc,argv);
 
@@ -369,9 +369,34 @@ int main(int argc,char *argv[])
 #endif
 
   JobPropagatorArgs prop_args;
-  if(!prop_args.Decode("parg.vml","prop_arg")){
-    printf("Failed to decode parg.vml\n"); exit(-1);
-  }
+  
+#define RESIZE(ARGS,A,TYPE,SIZE)		\
+  ARGS.A.A##_len = SIZE;				\
+    ARGS.A.A##_val = new TYPE[SIZE]
+
+#define GET(ARGS,A,IDX) ARGS.A.A##_val[IDX]
+
+  RESIZE(prop_args,props,PropagatorArg,1);
+  PropagatorArg &prop = GET(prop_args,props,0);
+  GenericPropAttrArg &gen = prop.generics;
+  gen.type = QPROPW_TYPE;
+  gen.tag = strdup("PROP");
+  gen.mass = 0.04;
+  for(int i=0;i<4;i++) gen.bc[i] = GJP.Bc(i);
+
+  RESIZE(prop,attributes,AttributeContainer,2);
+  AttributeContainer &a0 = GET(prop,attributes,0);
+  a0.type = WALL_SOURCE_ATTR;
+  a0.AttributeContainer_u.wall_source_attr.t = 0;
+
+  AttributeContainer &a1 = GET(prop,attributes,1);
+  a1.type = GPARITY_FLAVOR_ATTR;
+  a1.AttributeContainer_u.gparity_flavor_attr.flavor = 0;
+
+
+  // if(!prop_args.Decode("parg.vml","prop_arg")){
+  //   printf("Failed to decode parg.vml\n"); exit(-1);
+  // }
 
   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args.props.props_len);
   if(gparity_X){

@@ -6,10 +6,9 @@
 #endif
 
 #ifdef USE_BFM_TM
-#include <chroma.h>
+//#include <chroma.h>
 #include <bfm.h>
 #include <bfm_qdp.h>
-#include <actions/ferm/invert/syssolver_linop_cg_array.h>
 //#include <qdp.h>
 #include <util/gjp.h>
 #include <comms/sysfunc_cps.h>
@@ -26,7 +25,7 @@
 //#define Printf printf
 
 
-using namespace Chroma;
+//using namespace Chroma;
 
 USING_NAMESPACE_CPS
 
@@ -216,14 +215,17 @@ int DiracOpWilsonTm::InvCg(Vector *out,
 	}else{
 	  //CK: src_qdp contains more than 2 entries corresponding to the 2 flavour fields
 	  impexFermion(0,lat,src_qdp,sol_cps,0,1,1,1./fac);
+	  //Printf("QDP Norms psi %g, %g\n", toDouble(norm2(src_qdp[0])), toDouble(norm2(src_qdp[1])) );
 	  wils.importFermion(src_qdp,psi[0],1);
+
 	  impexFermion(0,lat,src_qdp,src_cps,0,1,1);
+	  //Printf("QDP Norms src %g, %g\n", toDouble(norm2(src_qdp[0])), toDouble(norm2(src_qdp[1])) );
 	  wils.importFermion(src_qdp,src_bfm,1);
 	}
 
-        Float *tmp_p = (Float *)src_bfm;
-        Printf("src_bfm[0]=%g\n",*tmp_p);
-      
+        Float *tmp_p = (Float *)src_bfm;        
+	Printf("src_bfm[0]=%g, norm %g\n",*tmp_p, wils.norm(src_bfm));
+
         Printf("Calling half cb inverter\n"); fflush(stdout);
         wils.inv_type=CG_PREC_MDAGM;
         wils.qdp_chi_h[0]=psi[0];

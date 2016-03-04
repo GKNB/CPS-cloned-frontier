@@ -137,8 +137,12 @@ void init_bfm(int *argc, char **argv[])
     //Use mixed precision multi-shift
     char* mixed_prec_multishift_env = getenv( "use_mixedprec_multishift" );
     MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::MolecularDynamics, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
-    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::EnergyCalculation, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
-    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::Heatbath, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+    //MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::EnergyCalculation, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+    //MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::Heatbath, MultiShiftCGcontroller::SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP);
+
+    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::EnergyCalculation,MultiShiftCGcontroller::DOUBLE_PREC); 
+    MultiShiftController.setEnvironmentMode(MultiShiftCGcontroller::Heatbath,MultiShiftCGcontroller::DOUBLE_PREC);
+
  
     MultiShiftController.setReliableUpdateFreq(200);
     MultiShiftController.setMaximumDefectCorrectionCycles(20);
@@ -153,7 +157,7 @@ void init_bfm(int *argc, char **argv[])
     Fbfm::bfm_args[0].M5 = GJP.DwfHeight();
     Fbfm::bfm_args[0].mass = 0.1;
     Fbfm::bfm_args[0].residual = 1e-8;
-    Fbfm::bfm_args[0].max_iter = 10000;
+    Fbfm::bfm_args[0].max_iter = 100000;
     Fbfm::bfm_args[0].Csw = 0.0;
 
     Fbfm::bfm_args[0].node_latt[0] = QDP::Layout::subgridLattSize()[0];
@@ -209,7 +213,7 @@ void init_bfm_wilsontm(){
   Fbfm::bfm_args[1].mass = 0.1; //These are overwriten with the correct values within the evolution code
   Fbfm::bfm_args[1].twistedmass = 0.1;
   Fbfm::bfm_args[1].residual = 1e-8;
-  Fbfm::bfm_args[1].max_iter = 10000;
+  Fbfm::bfm_args[1].max_iter = 100000;
   Fbfm::bfm_args[1].Csw = 0.0;
   Fbfm::bfm_args[1].time_report_iter = -16;
 

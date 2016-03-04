@@ -26,6 +26,7 @@ struct vml_enum_map AttrType_map[] = {
 	{"AttrType","MOM_COS_ATTR",MOM_COS_ATTR},
 	{"AttrType","PROP_COMBINATION_ATTR",PROP_COMBINATION_ATTR},
 	{"AttrType","GPARITY_OTHER_FLAV_PROP_ATTR",GPARITY_OTHER_FLAV_PROP_ATTR},
+	{"AttrType","GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR",GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR},
 	{"AttrType","TWISTED_BC_ATTR",TWISTED_BC_ATTR},
 	{"AttrType","STORE_MIDPROP_ATTR",STORE_MIDPROP_ATTR},
 	{"AttrType","A2A_ATTR",A2A_ATTR},
@@ -333,6 +334,31 @@ void GparityOtherFlavPropAttrArg::print(const std::string &prefix){
 }
 
 bool_t
+vml_GparityComplexConjSourcePartnerPropAttrArg (VML *vmls, char *name,GparityComplexConjSourcePartnerPropAttrArg *objp)
+{
+	 vml_struct_begin(vmls,"GparityComplexConjSourcePartnerPropAttrArg",name);
+	 if (!vml_string (vmls, "tag", &objp->tag, ~0))
+		 return FALSE;
+	 vml_struct_end(vmls,"GparityComplexConjSourcePartnerPropAttrArg",name);
+	return TRUE;
+}
+void rpc_deepcopy<GparityComplexConjSourcePartnerPropAttrArg>::doit(GparityComplexConjSourcePartnerPropAttrArg &into, GparityComplexConjSourcePartnerPropAttrArg const &from){
+	  rpc_deepcopy<char *>::doit(into.tag,from.tag,strlen(from.tag)+1);
+}
+void GparityComplexConjSourcePartnerPropAttrArg::deep_copy(GparityComplexConjSourcePartnerPropAttrArg const &rhs){
+	rpc_deepcopy<GparityComplexConjSourcePartnerPropAttrArg>::doit(*this,rhs);
+}
+void rpc_print<GparityComplexConjSourcePartnerPropAttrArg>::doit(GparityComplexConjSourcePartnerPropAttrArg const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<char *>::doit(what.tag,strlen(what.tag)+1,spaces+" tag = ");
+	std::cout << spaces << "}\n";
+}
+void GparityComplexConjSourcePartnerPropAttrArg::print(const std::string &prefix){
+	rpc_print<GparityComplexConjSourcePartnerPropAttrArg>::doit(*this,prefix);
+}
+
+bool_t
 vml_TwistedBcAttrArg (VML *vmls, char *name,TwistedBcAttrArg *objp)
 {
 	 vml_struct_begin(vmls,"TwistedBcAttrArg",name);
@@ -555,6 +581,10 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 		 if (!vml_GparityOtherFlavPropAttrArg (vmls, "gparity_other_flav_prop_attr", &objp->AttributeContainer_u.gparity_other_flav_prop_attr))
 			 return FALSE;
 		break;
+	case GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR:
+		 if (!vml_GparityComplexConjSourcePartnerPropAttrArg (vmls, "gparity_complex_conj_source_partner_prop_attr", &objp->AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr))
+			 return FALSE;
+		break;
 	case TWISTED_BC_ATTR:
 		 if (!vml_TwistedBcAttrArg (vmls, "twisted_bc_attr", &objp->AttributeContainer_u.twisted_bc_attr))
 			 return FALSE;
@@ -612,6 +642,9 @@ template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>(){
 template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>(){
 	 return GPARITY_OTHER_FLAV_PROP_ATTR;
 }
+template <> AttrType AttributeContainer::type_map<GparityComplexConjSourcePartnerPropAttrArg>(){
+	 return GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR;
+}
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>(){
 	 return TWISTED_BC_ATTR;
 }
@@ -651,6 +684,8 @@ void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeC
 	      rpc_deepcopy<PropCombinationAttrArg>::doit(into.AttributeContainer_u.prop_combination_attr,from.AttributeContainer_u.prop_combination_attr); break;
 	    case GPARITY_OTHER_FLAV_PROP_ATTR:
 	      rpc_deepcopy<GparityOtherFlavPropAttrArg>::doit(into.AttributeContainer_u.gparity_other_flav_prop_attr,from.AttributeContainer_u.gparity_other_flav_prop_attr); break;
+	    case GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR:
+	      rpc_deepcopy<GparityComplexConjSourcePartnerPropAttrArg>::doit(into.AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr,from.AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr); break;
 	    case TWISTED_BC_ATTR:
 	      rpc_deepcopy<TwistedBcAttrArg>::doit(into.AttributeContainer_u.twisted_bc_attr,from.AttributeContainer_u.twisted_bc_attr); break;
 	    case STORE_MIDPROP_ATTR:
@@ -692,6 +727,8 @@ void rpc_print<AttributeContainer>::doit(AttributeContainer const &what, const s
 	      rpc_print<PropCombinationAttrArg>::doit(what.AttributeContainer_u.prop_combination_attr,spaces+" union AttributeContainer_u.prop_combination_attr = "); break;
 	    case GPARITY_OTHER_FLAV_PROP_ATTR:
 	      rpc_print<GparityOtherFlavPropAttrArg>::doit(what.AttributeContainer_u.gparity_other_flav_prop_attr,spaces+" union AttributeContainer_u.gparity_other_flav_prop_attr = "); break;
+	    case GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR:
+	      rpc_print<GparityComplexConjSourcePartnerPropAttrArg>::doit(what.AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr,spaces+" union AttributeContainer_u.gparity_complex_conj_source_partner_prop_attr = "); break;
 	    case TWISTED_BC_ATTR:
 	      rpc_print<TwistedBcAttrArg>::doit(what.AttributeContainer_u.twisted_bc_attr,spaces+" union AttributeContainer_u.twisted_bc_attr = "); break;
 	    case STORE_MIDPROP_ATTR:

@@ -160,6 +160,7 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
                                    Float coef)
 {
     const char *fname = "EvolveMomFforceBase()";
+    VRB.Result(cname,fname,"started\n");
 
 #if 0
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
@@ -217,11 +218,13 @@ int Fbfm::FsiteOffsetChkb(const int *x) const
 // checkerboard. The fermion field storage order
 // is the canonical one. X[I] is the
 // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
+#if 0
 int Fbfm::FsiteOffset(const int *x) const
 {
     const char *fname = "FsiteOffset()";
     ERR.NotImplemented(cname, fname);
 }
+#endif
 
 // It calculates f_out where A * f_out = f_in and
 // A is the preconditioned fermion matrix that appears
@@ -303,7 +306,11 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 
     int iter;
     //If use_mixed_solver we use the MultiShiftController instance, otherwise just do it in double precision
-    if(use_mixed_solver) iter = MultiShiftController.MInv(sol_multi, src, shift, Nshift, mresidual, ones, 0, bd, bf);
+    if(use_mixed_solver){
+	bd.max_iter = cg_arg[0]->max_num_iter;
+	bf.max_iter = cg_arg[0]->max_num_iter;
+	iter = MultiShiftController.MInv(sol_multi, src, shift, Nshift, mresidual, ones, 0, bd, bf);
+    }
     else{
 	bd.residual = cg_arg[0]->stop_rsd;
 	bd.max_iter = cg_arg[0]->max_num_iter;
@@ -377,7 +384,7 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
                   CgArg *cg_arg,
                   Float *true_res,
                   CnvFrmType cnv_frm,
-                  PreserveType prs_f_in)
+                  PreserveType prs_f_in, int if_dminus)
 {
     const char *fname = "FmatInv()";
 
@@ -394,7 +401,7 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bf.residual = 1e-5;
 
     // deal with Mobius Dminus
-    if(bd.solver == HmCayleyTanh) {
+    if(if_dminus && bd.solver == HmCayleyTanh) {
         bd.cps_impexFermion((Float *)f_in , out,  1);
 #pragma omp parallel
         {
@@ -799,6 +806,43 @@ void Fbfm::ImportGauge()
         bf.comm_end();
         bd.comm_init();
     }
+}
+
+//------------------------------------------------------------------
+// Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg, CnvFrmType cnv_frm,
+//                    int dir_flag) :
+// dir_flag is deprecated for Fbfm
+// Fdslash calculates both odd-->even and even-->odd sites.
+//------------------------------------------------------------------
+void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg, 
+		    CnvFrmType cnv_frm, int dir_flag)
+{
+  int offset;
+  char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,int)";
+  VRB.Func(cname,fname);
+  VRB.Result(cname,fname,"current_arg_idx=%d mobius_scale=%g\n",current_arg_idx,bfmarg::mobius_scale);
+  if (dir_flag!=0) 
+  ERR.General(cname,fname,"only implemented for dir_flag(%d)=0\n",dir_flag);
+
+    Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
+    Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
+
+    SetMass(cg_arg->mass,0.);
+
+    bd.cps_impexFermion((Float *)f_in , in,  1);
+#pragma omp parallel
+    {
+	bd.G5D_Munprec(in,out,DaggerNo);
+    }
+
+    bd.cps_impexFermion((Float *)f_out, out, 0);
+
+    bd.freeFermion(in[0]);
+    bd.freeFermion(in[1]);
+    bd.freeFermion(out[0]);
+    bd.freeFermion(out[1]);
+  
+
 }
 
 CPS_END_NAMESPACE

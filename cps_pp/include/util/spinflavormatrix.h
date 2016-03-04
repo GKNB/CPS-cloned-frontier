@@ -3,7 +3,7 @@
 
 #include<config.h>
 #include <alg/alg_base.h>
-
+#include <alg/wilson_matrix.h>
 CPS_START_NAMESPACE
 
 class SpinFlavorMatrix
@@ -95,6 +95,71 @@ static inline Rcomplex Trace(const SpinFlavorMatrix &a, const SpinFlavorMatrix &
 
 
 
+
+
+
+//CK: Ported and renamed from Daiqian's A2A code 'SpinFlavorMatrix'. I also replaced the heap-allocated SpinMatrix with stack-allocated
+class FlavorSpinMatrix{
+protected:
+  SpinMatrix smat[2][2];
+  const char *cname;
+public:
+  FlavorSpinMatrix(): cname("FlavorSpinMatrix"){
+  }
+
+  FlavorSpinMatrix(const Float &val): cname("FlavorSpinMatrix"){
+    for(int i=0;i<2;i++){
+      smat[0][i] = val;
+      smat[1][i] = val;
+    }
+  }
+
+  FlavorSpinMatrix(const FlavorSpinMatrix &from): cname("FlavorSpinMatrix"){
+    smat[0][0] = from.smat[0][0];
+    smat[0][1] = from.smat[0][1];
+    smat[1][0] = from.smat[1][0];
+    smat[1][1] = from.smat[1][1];
+  }
+
+  FlavorSpinMatrix& operator=(const FlavorSpinMatrix &from){
+    smat[0][0] = from.smat[0][0];
+    smat[0][1] = from.smat[0][1];
+    smat[1][0] = from.smat[1][0];
+    smat[1][1] = from.smat[1][1];
+    return *this;
+  }
+
+  inline SpinMatrix &operator()(int f1,int f2){
+    return smat[f1][f2];
+  }
+
+  inline const SpinMatrix &operator()(int f1,int f2) const{
+    return smat[f1][f2];
+  }
+
+  FlavorSpinMatrix operator*(const FlavorSpinMatrix& rhs){
+    FlavorSpinMatrix out;
+    out.smat[0][0] = smat[0][0]*rhs.smat[0][0] + smat[0][1]*rhs.smat[1][0];
+    out.smat[1][0] = smat[1][0]*rhs.smat[0][0] + smat[1][1]*rhs.smat[1][0];
+    out.smat[0][1] = smat[0][0]*rhs.smat[0][1] + smat[0][1]*rhs.smat[1][1];
+    out.smat[1][1] = smat[1][0]*rhs.smat[0][1] + smat[1][1]*rhs.smat[1][1];
+    return out;
+  }
+
+  inline Complex Trace(){
+    return smat[0][0].Tr() + smat[1][1].Tr();
+  }
+};
+
+static inline Rcomplex Trace(const FlavorSpinMatrix &a, const FlavorSpinMatrix &b) {
+    Rcomplex ret = 0;
+    for(int s1=0;s1<4;s1++)
+      for(int f1=0;f1<2;f1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int f2=0;f2<2;f2++)
+	    ret += a(f1,f2)(s1,s2) * b(f2,f1)(s2,s1);
+    return ret;
+}
 
 
 

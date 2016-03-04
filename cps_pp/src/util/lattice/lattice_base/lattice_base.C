@@ -3578,7 +3578,7 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      // FIXME: check Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2)
+     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2 && Fclass() != F_CLASS_GRID )
 #ifdef USE_BFM
      || ( (Fclass() == F_CLASS_BFM || Fclass() == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM) //added by CK
 #endif
@@ -4211,46 +4211,51 @@ inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
 //
 // The gauge field must be in CANONICAL order.
 // ----------------------------------------------------------------
-void Lattice::BondCond()
-{
-    Matrix *u_base = this->GaugeField();
-    Complex twist_phase;
-    const int uconj_offset = 4*GJP.VolNodeSites();
+void Lattice::BondCond(){
+  static int calls = 0; //CK: if calls %2 == 1 this operation reverses the BC. For PRD or APRD this makes no difference, but for Twisted BCs we need to reverse the twist angle
 
-    for(int mu = 0; mu < 4; ++mu) {
-        if(GJP.NodeBc(mu) == BND_CND_PRD) continue;
+  Matrix *u_base = this->GaugeField();
+  Complex twist_phase;
+  const int uconj_offset = 4*GJP.VolNodeSites();
 
-	if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED) twist_phase = GJP.TwistPhase(mu);
+  for(int mu = 0; mu < 4; ++mu) {
+    if(GJP.NodeBc(mu) == BND_CND_PRD) continue;
 
-        int low[4] = { 0, 0, 0, 0 };
-        int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
-                        GJP.ZnodeSites(), GJP.TnodeSites() };
-        low[mu] = high[mu] - 1;
+    if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED){
+      twist_phase = GJP.TwistPhase(mu);
+      if(calls %2 == 1) twist_phase = conj(twist_phase);
+    }
 
-        int hl[4] = { high[0] - low[0], high[1] - low[1],
-                      high[2] - low[2], high[3] - low[3] };
+    int low[4] = { 0, 0, 0, 0 };
+    int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
+		    GJP.ZnodeSites(), GJP.TnodeSites() };
+    low[mu] = high[mu] - 1;
 
-        const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
+    int hl[4] = { high[0] - low[0], high[1] - low[1],
+		  high[2] - low[2], high[3] - low[3] };
+
+    const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
 
 #pragma omp parallel for
-        for(int i = 0; i < hl_sites; ++i) {
-            int x[4];
-            compute_coord(x, hl, low, i);
+    for(int i = 0; i < hl_sites; ++i) {
+      int x[4];
+      compute_coord(x, hl, low, i);
 
-            int off = mu + 4 * (x[0] + high[0] *
-                                (x[1] + high[1] *
-                                 (x[2] + high[2] * x[3])));
-	    if(GJP.Bc(mu) == BND_CND_APRD)        u_base[off] *= -1;
-	    else if(GJP.Bc(mu) == BND_CND_TWISTED) u_base[off] *= twist_phase;
+      int off = mu + 4 * (x[0] + high[0] *
+			  (x[1] + high[1] *
+			   (x[2] + high[2] * x[3])));
+      if(GJP.Bc(mu) == BND_CND_APRD)        u_base[off] *= -1;
+      else if(GJP.Bc(mu) == BND_CND_TWISTED) u_base[off] *= twist_phase;
 
-	    if(GJP.Gparity()){ //do BC on second quark flavour
-	      //for example, APBC in time direction
-	      off += uconj_offset;
-	      if(GJP.Bc(mu) == BND_CND_APRD || GJP.Bc(mu) == BND_CND_GPARITY)                  u_base[off] *= -1;
-	      else if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED)  u_base[off] *= twist_phase;	  
-	    }	    
-        }
+      if(GJP.Gparity()){ //do BC on second quark flavour
+	//for example, APBC in time direction
+	off += uconj_offset;
+	if(GJP.Bc(mu) == BND_CND_APRD || GJP.Bc(mu) == BND_CND_GPARITY)                  u_base[off] *= -1;
+	else if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED)  u_base[off] *= twist_phase;	  
+      }	    
     }
+  }
+  ++calls;
 }
 
 CPS_END_NAMESPACE
