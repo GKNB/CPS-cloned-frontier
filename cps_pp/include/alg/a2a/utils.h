@@ -1,0 +1,367 @@
+#ifndef CK_A2A_UTILS
+#define CK_A2A_UTILS
+
+#include<alg/a2a/gsl_wrapper.h>
+#include <util/spincolorflavormatrix.h>
+CPS_START_NAMESPACE
+
+//3x3 complex vector multiplication with different precision matrices and vectors
+template<typename VecFloat, typename MatFloat>
+void colorMatrixMultiplyVector(VecFloat* y, const MatFloat* u, const VecFloat* x){
+	*y     =  *u      * *x     - *(u+1)  * *(x+1) + *(u+2)  * *(x+2)
+		- *(u+3)  * *(x+3) + *(u+4)  * *(x+4) - *(u+5)  * *(x+5);
+	*(y+1) =  *u      * *(x+1) + *(u+1)  * *x     + *(u+2)  * *(x+3)
+		+ *(u+3)  * *(x+2) + *(u+4)  * *(x+5) + *(u+5)  * *(x+4);
+	*(y+2) =  *(u+6)  * *x     - *(u+7)  * *(x+1) + *(u+8)  * *(x+2)
+		- *(u+9)  * *(x+3) + *(u+10) * *(x+4) - *(u+11) * *(x+5);
+	*(y+3) =  *(u+6)  * *(x+1) + *(u+7)  * *x     + *(u+8)  * *(x+3)
+		+ *(u+9)  * *(x+2) + *(u+10) * *(x+5) + *(u+11) * *(x+4);
+	*(y+4) =  *(u+12) * *x     - *(u+13) * *(x+1) + *(u+14) * *(x+2)
+		- *(u+15) * *(x+3) + *(u+16) * *(x+4) - *(u+17) * *(x+5);
+	*(y+5) =  *(u+12) * *(x+1) + *(u+13) * *x     + *(u+14) * *(x+3)
+		+ *(u+15) * *(x+2) + *(u+16) * *(x+5) + *(u+17) * *(x+4);
+}
+
+//Array *= with cps::Float(=double) input and arbitrary precision output
+template<typename FloatOut,typename FloatIn>
+void VecTimesEquFloat(FloatOut *out, FloatIn *in, const Float fac, const int len) 
+{
+#pragma omp parallel for
+	for(int i = 0; i < len; i++) out[i] = in[i] * fac;
+}
+
+inline void getNodeWork(const int work, int &node_work, int &node_off, bool &do_work, const bool node_local = false){
+  if(node_local){ node_work = work; node_off = 0; do_work = true; return; } //node does all the work
+
+  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+  int me = UniqueID();
+
+  //Stolen from BFM :)
+  int basework = work/nodes;
+  int backfill = nodes-(work % nodes);
+  node_work = (work+me)/nodes;
+  node_off  = basework * me;
+  if ( me > backfill ) 
+    node_off+= (me-backfill);
+  if(node_work > 0) do_work = true;
+}
+
+
+  // do_work = true;
+  // if(nodes > work){
+  //   nodes = work; if(UniqueID() >= work) do_work = false; //too many nodes, at least for this parallelization. Might want to consider parallelizing in a different way!
+  // }
+
+  // node_work = work/nodes;
+  // if(node_work * nodes < work){
+  //   int remaining_work = work - node_work * nodes;
+  //   if(UniqueID()<remaining_work) node_work++;
+
+
+  //   node_work += work - node_work * nodes; //node 0 mops up remainder
+
+  //   node_off = UniqueID()*node_work;
+
+
+inline void compute_overlap(std::vector<bool> &out, const std::vector<bool> &a, const std::vector<bool> &b){
+  assert(a.size()==b.size());
+  out.resize(a.size());
+  for(int i=0;i<a.size();i++) out[i] = a[i] && b[i];
+}
+
+template <int LorR, typename T, typename U>
+struct _selectLR{};
+template <typename T, typename U>
+struct _selectLR<0,T,U>{
+  typedef T Type;
+};
+template <typename T, typename U>
+struct _selectLR<1,T,U>{
+  typedef U Type;
+};
+
+template<typename T,typename U>
+struct _equal{
+  enum { value = 0 };
+};
+template<typename T>
+struct _equal<T,T>{
+  enum { value = 1 };
+};
+
+
+template<int i,int j>
+struct intEq{ static const bool val = false; };
+template<int i>
+struct intEq<i,i>{ static const bool val = true; };
+
+template<bool v, typename T>
+struct my_enable_if{};
+
+template<typename T>
+struct my_enable_if<true,T>{ typedef T type; };
+
+
+//CK: Functions for performing global and timeslice sums of single or double precision quantities. Daiqian had to implement these himself as CPS can only do this with the Float=double type
+
+// My global sum
+template <typename T>
+void QMP_sum_array(T *result, int len){
+#ifdef USE_QMP
+  if(sizeof(T) == sizeof(double)) {
+    QMP_sum_double_array((double*)result, len);
+  } else if(sizeof(T) == sizeof(float)) {
+    QMP_sum_float_array((float*)result, len);
+  } else {
+    QMP_error("QMP_sum_array::data type not supported!\n");
+  }
+#else
+  //CK: This only works for single-node code
+  int nodes = 1; for(int i=0;i<4;i++) nodes *= cps::GJP.Nodes(i);
+  if(nodes != 1){
+    cps::ERR.General("","QMP_sum_array(T *result, int len)","Only implemented for QMP on parallel machines");
+  }
+  //do nothing!
+#endif
+}
+
+#ifndef USE_QMP
+  inline void QMP_sum_double_array(double *result, int len){
+    //CK: This only works for single-node code
+    int nodes = 1; for(int i=0;i<4;i++) nodes *= cps::GJP.Nodes(i);
+    if(nodes != 1){
+      cps::ERR.General("","QMP_sum_double_array fake definition","Not implemented on parallel machines: use QMP!");
+    }
+  }
+  inline void QMP_sum_float_array(float *result, int len){
+    //CK: This only works for single-node code
+    int nodes = 1; for(int i=0;i<4;i++) nodes *= cps::GJP.Nodes(i);
+    if(nodes != 1){
+      cps::ERR.General("","QMP_sum_float_array fake definition","Not implemented on parallel machines: use QMP!");
+    }
+  }
+#endif
+
+//Look for contiguous blocks of indices in the idx_map, output a list of start,size pairs
+inline void find_contiguous_blocks(std::vector<std::pair<int,int> > &blocks, const int idx_map[], int map_size){
+  std::pair<int,int> block(0,1); //start, size
+  int prev = idx_map[0];
+  for(int j_packed=1;j_packed<map_size;j_packed++){
+    int j_unpacked = idx_map[j_packed];
+    if(j_unpacked == prev+1){
+      ++block.second;
+    }else{
+      blocks.push_back(block);
+      block.first = j_packed;
+      block.second = 1;      
+    }
+    prev = j_unpacked;
+  }
+  blocks.push_back(block);
+}
+
+template<typename T>
+inline void resize_2d(std::vector<std::vector<T> > &v, const size_t i, const size_t j){
+  v.resize(i);
+  for(int a=0;a<i;a++) v[a].resize(j);
+}
+template<typename T>
+inline void resize_3d(std::vector<std::vector<std::vector<T> > > &v, const size_t i, const size_t j, const size_t k){
+  v.resize(i);
+  for(int a=0;a<i;a++){
+    v[a].resize(j);
+    for(int b=0;b<j;b++)
+      v[a][b].resize(k);
+  }
+}
+
+inline std::complex<double> GSLtrace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b){
+
+  const int scf_size = 24;
+  std::complex<double> _a[scf_size][scf_size];
+  std::complex<double> _bT[scf_size][scf_size];   //In-place transpose of b so rows are contiguous
+  for(int i=0;i<scf_size;i++){
+    int rem = i;
+    int ci = rem % 3; rem /= 3;
+    int si = rem % 4; rem /= 4;
+    int fi = rem;
+    
+    for(int j=0;j<scf_size;j++){
+      rem = j;
+      int cj = rem % 3; rem /= 3;
+      int sj = rem % 4; rem /= 4;
+      int fj = rem;
+      
+      _bT[i][j] = b(sj,cj,fj, si,ci,fi);
+      _a[i][j] = a(si,ci,fi, sj,cj,fj);
+    }
+  }
+
+  double* ad = (double*)&_a[0][0];
+  double* bd = (double*)&_bT[0][0];
+
+  gsl_block_complex_struct ablock;
+  ablock.size = 24*24;
+  ablock.data = ad;
+
+  gsl_vector_complex arow; //single row of a
+  arow.block = &ablock;
+  arow.owner = 0;
+  arow.size = 24;
+  arow.stride = 1;
+  
+  gsl_block_complex_struct bblock;
+  bblock.size = 24*24;
+  bblock.data = bd;
+
+  gsl_vector_complex bcol; //single col of b
+  bcol.block = &bblock;
+  bcol.owner = 0;
+  bcol.size = 24;
+  bcol.stride = 1;
+
+  //gsl_blas_zdotu (const gsl_vector_complex * x, const gsl_vector_complex * y, gsl_complex * dotu)
+  //   //  a[0][0]*b[0][0] + a[0][1]*b[1][0] + a[0][2]*b[2][0] + ...
+  //   //+ a[1][0]*b[0][1] + a[1][1]*b[1][1] + a[1][2]*b[2][1] + ....
+  //   //...
+
+  std::complex<double> out(0.0);
+  gsl_complex tmp;
+  for(int i=0;i<24;i++){
+    arow.data = ad + 24*2*i; //i'th row offset
+    bcol.data = bd + 24*2*i; //i'th col offset (remember we transposed it)
+
+    gsl_blas_zdotu(&arow, &bcol, &tmp);
+    reinterpret_cast<double(&)[2]>(out)[0] += GSL_REAL(tmp);
+    reinterpret_cast<double(&)[2]>(out)[1] += GSL_IMAG(tmp);
+  }
+  return out;
+}
+
+
+//For a Nrows*Ncols matrix 'to' with elements in the standard order  idx=(Ncols*i + j), poke a submatrix into it with origin (i0,j0) and size (ni,nj)
+template<typename mf_Float>
+void pokeSubmatrix(mf_Float* to, const mf_Float* sub, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
+  #define DOIT \
+    for(int row = i0; row < i0+ni; row++){ \
+      mf_Float* to_block = to + row*Ncols + j0;	  \
+      const mf_Float* from_block = sub + (row-i0)*nj;	\
+      memcpy(to_block,from_block,nj*sizeof(mf_Float));	\
+    }
+  if(threaded){
+#pragma omp parallel for
+    DOIT;
+  }else{
+    DOIT;
+  }
+  #undef DOIT
+}
+//For a Nrows*Ncols matrix 'from' with elements in the standard order  idx=(Ncols*i + j), get a submatrix with origin (i0,j0) and size (ni,nj) and store in sub
+template<typename mf_Float>
+void getSubmatrix(mf_Float* sub, const mf_Float* from, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
+  #define DOIT \
+    for(int row = i0; row < i0+ni; row++){		\
+      const mf_Float* from_block = from + row*Ncols + j0;	\
+      mf_Float* to_block = sub + (row-i0)*nj;			\
+      memcpy(to_block,from_block,nj*sizeof(mf_Float));		\
+    }
+  if(threaded){
+#pragma omp parallel for
+    DOIT;
+  }else{
+    DOIT;
+  }
+  #undef DOIT
+}
+
+
+//Simple test allocator to find out when memory is allocated
+template <typename T>
+class mmap_allocator: public std::allocator<T>{
+public:
+  typedef size_t size_type;
+  typedef T* pointer;
+  typedef const T* const_pointer;
+
+  template<typename _Tp1>
+  struct rebind{
+    typedef mmap_allocator<_Tp1> other;
+  };
+
+  pointer allocate(size_type n, const void *hint=0){
+    fprintf(stderr, "Alloc %d bytes.\n", n*sizeof(T));
+    return std::allocator<T>::allocate(n, hint);
+  }
+
+  void deallocate(pointer p, size_type n){
+    fprintf(stderr, "Dealloc %d bytes (%p).\n", n*sizeof(T), p);
+    return std::allocator<T>::deallocate(p, n);
+  }
+
+  mmap_allocator() throw(): std::allocator<T>() { fprintf(stderr, "Hello allocator!\n"); }
+  mmap_allocator(const mmap_allocator &a) throw(): std::allocator<T>(a) { }
+  template <class U>                    
+  mmap_allocator(const mmap_allocator<U> &a) throw(): std::allocator<T>(a) { }
+  ~mmap_allocator() throw() { }
+};
+
+
+CPS_END_NAMESPACE
+#ifdef ARCH_BGQ
+#include <spi/include/kernel/memory.h>
+#else
+#include <sys/sysinfo.h>
+#endif
+CPS_START_NAMESPACE
+
+inline void printMem(){
+#ifdef ARCH_BGQ
+  #warning "printMem using ARCH_BGQ"
+  uint64_t shared, persist, heapavail, stackavail, stack, heap, guard, mmap;
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_SHARED, &shared);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_PERSIST, &persist);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_HEAPAVAIL, &heapavail);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_STACKAVAIL, &stackavail);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_STACK, &stack);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_HEAP, &heap);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_GUARD, &guard);
+  Kernel_GetMemorySize(KERNEL_MEMSIZE_MMAP, &mmap);
+
+  if(!UniqueID()){
+    printf("printMem: Allocated heap: %.2f MB, avail. heap: %.2f MB\n", (double)heap/(1024*1024),(double)heapavail/(1024*1024));
+    printf("printMem: Allocated stack: %.2f MB, avail. stack: %.2f MB\n", (double)stack/(1024*1024), (double)stackavail/(1024*1024));
+    printf("printMem: Memory: shared: %.2f MB, persist: %.2f MB, guard: %.2f MB, mmap: %.2f MB\n", (double)shared/(1024*1024), (double)persist/(1024*1024), (double)guard/(1024*1024), (double)mmap/(1024*1024));
+  }
+#else
+#warning "printMem using NOARCH"
+  /* unsigned long totalram;  /\* Total usable main memory size *\/ */
+  /* unsigned long freeram;   /\* Available memory size *\/ */
+  /* unsigned long sharedram; /\* Amount of shared memory *\/ */
+  /* unsigned long bufferram; /\* Memory used by buffers *\/ */
+  /* unsigned long totalswap; /\* Total swap space size *\/ */
+  /* unsigned long freeswap;  /\* swap space still available *\/ */
+  /* unsigned short procs;    /\* Number of current processes *\/ */
+  /* unsigned long totalhigh; /\* Total high memory size *\/ */
+  /* unsigned long freehigh;  /\* Available high memory size *\/ */
+  /* unsigned int mem_unit;   /\* Memory unit size in bytes *\/ */
+
+  struct sysinfo myinfo;
+  sysinfo(&myinfo);
+  double total_mem = myinfo.mem_unit * myinfo.totalram;
+  total_mem /= (1024.*1024.);
+  double free_mem = myinfo.mem_unit * myinfo.freeram;
+  free_mem /= (1024.*1024.);
+  
+  if(!UniqueID()){
+    printf("printMem: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",total_mem, free_mem, total_mem-free_mem);
+  }
+#endif
+}
+
+
+
+
+
+CPS_END_NAMESPACE
+
+#endif
