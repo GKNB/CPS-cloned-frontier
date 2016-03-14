@@ -22,7 +22,11 @@ protected:
   WilsonMatrix wmat[2][2];
   const char *cname;
 
-  inline static WilsonMatrix & getSite(const int &site, const int &flav, QPropWcontainer &from,  Lattice &lattice, const PropSplane &splane){
+  inline static WilsonMatrix & getSite(const int site, const int flav, QPropW &from, const PropSplane splane){
+    return splane == SPLANE_BOUNDARY ? from.SiteMatrix(site,flav) : from.MidPlaneSiteMatrix(site,flav);
+  }
+
+  inline static WilsonMatrix & getSite(const int site, const int flav, QPropWcontainer &from,  Lattice &lattice, const PropSplane splane){
     return splane == SPLANE_BOUNDARY ? from.getProp(lattice).SiteMatrix(site,flav) : from.getProp(lattice).MidPlaneSiteMatrix(site,flav);
   }
 public:
@@ -51,10 +55,15 @@ public:
     if(f != sigma0) pr(f);
   }
 
-  void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
+  void generate(QPropW &from_f0, QPropW &from_f1, const int site, const PropSplane splane = SPLANE_BOUNDARY);
+  void generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int site, const PropSplane splane = SPLANE_BOUNDARY);
+
+
   //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first
-  void generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
-    //Use the prop conj relation for a real source to compute the full 2x2 propagator  
+  void generate_from_cconj_pair(QPropW &from, QPropW &from_conj, const int from_flav, const int site, const PropSplane splane = SPLANE_BOUNDARY);
+  void generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int site, const PropSplane splane = SPLANE_BOUNDARY);
+
+  //Use the prop conj relation for a real source to compute the full 2x2 propagator  
   void generate_from_real_source(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
 
   void generate(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane = SPLANE_BOUNDARY);
@@ -354,20 +363,22 @@ public:
     return out;
   }
   //! hermitean conjugate
-  void hconj(){
+  SpinColorFlavorMatrix & hconj(){
     WilsonMatrix hc01 = wmat[0][1]; hc01.hconj();
     wmat[0][0].hconj();
     wmat[1][1].hconj();
     wmat[0][1] = wmat[1][0];
     wmat[0][1].hconj();
     wmat[1][0] = hc01;
+    return *this;
   }
  
   //! complex conjugate
-  void cconj(){
+  SpinColorFlavorMatrix & cconj(){
     for(int i=0;i<2;i++)
       for(int j=0;j<2;j++)
 	wmat[i][j].cconj();
+    return *this;
   }
 
   //spin color and flavor transpose

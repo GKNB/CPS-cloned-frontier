@@ -10,8 +10,8 @@ public:
   ThreeMomentum(const int &all){ p[0]=p[1]=p[2]=all; }
   ThreeMomentum(const int &px, const int &py, const int &pz){ p[0]=px; p[1]=py; p[2]=pz; }
   
-  int & operator()(const int &i){ return p[i]; }
-  const int & operator()(const int &i) const{ return p[i]; }
+  int &operator()(const int i){ return p[i]; }
+  const int operator()(const int i) const{ return p[i]; }
 
   bool operator<(const ThreeMomentum &r) const{
     for(int i=0;i<3;i++){
@@ -71,7 +71,44 @@ public:
   ThreeMomentum &operator+=(const ThreeMomentum &r){ for(int i=0;i<3;i++) p[i] += r.p[i]; return *this; }
   ThreeMomentum operator+(const ThreeMomentum &r) const{ ThreeMomentum out(*this); out += r; return out; }
 
+  ThreeMomentum &operator-=(const ThreeMomentum &r){ for(int i=0;i<3;i++) p[i] -= r.p[i]; return *this; }
+  ThreeMomentum operator-(const ThreeMomentum &r) const{ ThreeMomentum out(*this); out -= r; return out; }
+
+  //Convert the momenta into lattice units
+  void latticeUnits(Float p_latt[3]) const{
+    for(int i=0;i<3;i++){
+      double L = GJP.NodeSites(i)*GJP.Nodes(i);
+      double unit;
+      switch(GJP.Bc(i)){
+      case BND_CND_PRD:
+	unit = 2.*M_PI/L; break;
+      case BND_CND_APRD:
+	unit = M_PI/L; break;
+      case BND_CND_GPARITY:
+	unit = M_PI/2./L; break;
+      default:
+	ERR.General("ThreeMomentum","latticeUnits","Unknown BC\n");
+      }
+      p_latt[i] = p[i] * unit;
+    }
+  }
+
 };
+
+//exp(-i p.x)
+//if xlocal == false, it assumes the coordinate is global rather than node-local
+inline std::complex<double> mom_phase(const ThreeMomentum &p, const int x[3], const bool xlocal = true){
+  Float p_latt[3];
+  p.latticeUnits(p_latt);
+
+  double pdx = 0.;
+  for(int i=0;i<3;i++){
+    int xi = x[i];
+    if(xlocal) xi += GJP.NodeCoor(i)*GJP.NodeSites(i);
+    pdx += p_latt[i] * xi;
+  }
+  return std::complex<double>( cos(pdx), -sin(pdx) );
+}
 
 
 CPS_END_NAMESPACE

@@ -222,8 +222,11 @@ public:
   ~basicComplexArray(){
     free_mem();
   }
-  inline const std::complex<mf_Float> & operator[](const int &i) const{ return con[i]; }
-  inline std::complex<mf_Float> & operator[](const int &i){ return con[i]; }
+  inline const std::complex<mf_Float> & operator[](const int i) const{ return con[i]; }
+  inline std::complex<mf_Float> & operator[](const int i){ return con[i]; }
+
+  inline std::complex<mf_Float> & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
+
 
   //Sum (reduce) over all threads
   void threadSum(){

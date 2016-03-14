@@ -1,6 +1,8 @@
 #ifndef _MAIN_CK_H
 #define _MAIN_CK_H
 
+#include <alg/a2a/grid_lanczos.h>
+
 //Useful functions for main programs
 CPS_START_NAMESPACE
 
@@ -104,39 +106,6 @@ void setup_bfmargs(bfmarg &dwfa, int nthread, const BfmSolver &solver = HmCayley
   if(!UniqueID()) printf("Finished setting up bfmargs\n");
 }
  
-template<typename mf_Float>
-void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W){
-  int nl = V.getNl();
-  int nh = V.getNh(); //number of fully diluted high-mode indices
-  int nhit = V.getNhits();
-  assert(nl == W.getNl());
-  assert(nh == W.getNh());
-  assert(nhit == W.getNhits());
-  
-
-  std::vector<CPSfermion4D<mf_Float> > wl(nl);
-  for(int i=0;i<nl;i++) wl[i].setUniformRandom();
-  
-  std::vector<CPSfermion4D<mf_Float> > vl(nl);
-  for(int i=0;i<nl;i++) vl[i].setUniformRandom();
-  
-  std::vector<CPScomplex4D<mf_Float> > wh(nhit);
-  for(int i=0;i<nhit;i++) wh[i].setUniformRandom();
-  
-  std::vector<CPSfermion4D<mf_Float> > vh(nh);
-  for(int i=0;i<nh;i++) vh[i].setUniformRandom();
-    
-  for(int i=0;i<nl;i++){
-    V.importVl(vl[i],i);
-    W.importWl(wl[i],i);
-  }
-
-  for(int i=0;i<nh;i++)
-    V.importVh(vh[i],i);
-  
-  for(int i=0;i<nhit;i++)
-    W.importWh(wh[i],i);
-}
  
 //Skip gauge fixing and set all gauge fixing matrices to unity
 void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
@@ -253,7 +222,9 @@ void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vect
 struct LatticeSolvers{
 #if !defined(USE_BFM_LANCZOS) && !defined(USE_BFM_A2A)
 
-  LatticeSolvers(const JobParams &jp){}
+  LatticeSolvers(const JobParams &jp, const int nthreads){
+    omp_set_num_threads(nthreads);
+  }
 
 #else
   bfm_evo<double> dwf_d;
@@ -287,7 +258,7 @@ struct LatticeSolvers{
 
 
 struct LatticeSetup{
-#ifdef USE_BFM
+# if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
   static void importBFMlattice(Lattice *lat, LatticeSolvers &solvers){
     lat->BondCond(); //Apply the boundary conditions!
     Float* gauge = (Float*) lat->GaugeField();
@@ -299,6 +270,8 @@ struct LatticeSetup{
   }
 #endif
 
+
+  //Grid or Grid/BFM mixed
 #if defined(USE_GRID_LANCZOS) || defined(USE_GRID_A2A)
 
   typedef GnoneFgrid LatticeType;
@@ -318,7 +291,7 @@ struct LatticeSetup{
   }
 
 #else
-
+  //BFM only
   typedef GwilsonFdwf LatticeType;
   GwilsonFdwf *lat;
 
@@ -342,12 +315,15 @@ struct Lanczos{
 #if defined(USE_GRID_LANCZOS)
   std::vector<Grid::RealD> eval; 
   std::vector<LATTICE_FERMION> evec;
-  
+  double mass;
+  double resid;
+
   void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, GnoneFgrid &lat){
+    mass = lanc_arg.mass;
+    resid = lanc_arg.stop_rsd;
     gridLanczos(eval,evec,lanc_arg,lat);
     test_eigenvectors(evec,eval,lanc_arg.mass,lat);
   }
-  
   void toSingle(){
     ERR.General("","main","Single prec conversion of eigenvectors not supported for Grid\n");
   }
@@ -385,6 +361,18 @@ struct Lanczos{
   }
 #endif
 
+};
+
+
+template<typename mf_Float>
+struct computeA2Avectors{
+  static compute(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
+#ifdef USE_BFM_LANCZOS
+    W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
+#else
+    W.computeVW(V, lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
+#endif
+  }
 };
 
 

@@ -139,7 +139,13 @@ public:
 
 
 
-
+//Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
+class EvecInterface{
+ public:
+  //Get an eigenvector and eigenvalue
+  virtual Float getEvec(LATTICE_FERMION &into, const int idx) = 0;
+  virtual int nEvecs() const = 0;
+};
 
 
 template< typename mf_Float>
@@ -153,20 +159,6 @@ class A2AvectorW: public FullyPackedIndexDilution{
   //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
   void setWhRandom(const RandomType &type);
   
-  //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
-  //Set 'singleprec_evecs' if this has been done
-#if defined(USE_BFM_LANCZOS)
-  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
-#endif
-
-  //Compute the high mode parts of V and W. 
-  //singleprec_evecs specifies whether the input eigenvectors are stored in single precision
-  //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
-  //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-#if defined(USE_BFM_LANCZOS)
-  void computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
-#endif
-
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
@@ -184,10 +176,37 @@ public:
     wh[hit] = whin;
   }
 
+  //Compute the low mode part of the W and V vectors.
+  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass);
+
+  //Compute the high mode parts of V and W. 
+  void computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter);
+
 #if defined(USE_BFM_LANCZOS)
+  //In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
+  //Set 'singleprec_evecs' if this has been done
+  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
+
+  //singleprec_evecs specifies whether the input eigenvectors are stored in single precision
+  //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
+  //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
+  void computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
+
   void computeVW(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
     computeVWlow(V,lat,eig,dwf_d,singleprec_evecs);
     computeVWhigh(V,eig,singleprec_evecs,lat,dwf_d,dwf_fp);
+  }
+#endif
+
+
+#if defined(USE_GRID_LANCZOS)
+  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass);
+
+  void computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+
+  void computeVW(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+    computeVWlow(V,lat,evec,eval,mass);
+    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
   }
 #endif
 
@@ -352,6 +371,12 @@ public:
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
   const CPSfermion4D<mf_Float> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
 };
+
+//Generate uniform random V and W vectors for testing
+template<typename mf_Float>
+void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W);
+
+
 
 
 #include <alg/a2a/a2a_impl.h>

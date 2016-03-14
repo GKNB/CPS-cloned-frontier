@@ -1257,7 +1257,7 @@ Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 // NOTE : There is a wrong minus sign here! M.ccl(1) should be CM and M.ccl(-1) C^{-1}M but they're opposite here (not for ccr)
 
 //CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
-//                      A.ccr(1) = A C     A.ccr(-1) = C^-1 A
+//                      A.ccr(1) = A C     A.ccr(-1) = A C^-1
 WilsonMatrix& WilsonMatrix::ccl(int dir)
 {
   int i; /*color*/

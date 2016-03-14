@@ -126,6 +126,10 @@ int main (int argc,char **argv )
       mixed_solve = false;
       if(!UniqueID()){ printf("Disabling single precision conversion of evecs\n"); fflush(stdout); }
       arg++;
+    }else if( strncmp(cmd,"-disable_mixed_prec_CG",30) == 0){
+      mixed_solve = false;
+      if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
+      arg++;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
       exit(-1);
@@ -223,7 +227,7 @@ int main (int argc,char **argv )
     LatticeSetup::LatticeType &lat = lattice_setup.getLattice();
 
     if(tune_lanczos_light || tune_lanczos_heavy){
-      if(!UniqueID()) printf("Tuning lanczos %s with mass %f\n", tune_lanczos_light ? "light": "heavy", solvers.dwf_d.mass);
+      if(!UniqueID()) printf("Tuning lanczos %s with mass %f\n", tune_lanczos_light ? "light": "heavy", tune_lanczos_light ? lanc_arg.mass : lanc_arg_s.mass);
       time = -dclock();
       Lanczos eig;
       eig.compute(tune_lanczos_light ? lanc_arg : lanc_arg_s, solvers, lat);
@@ -261,7 +265,8 @@ int main (int argc,char **argv )
     A2AvectorW<mf_Float> W(a2a_arg);
 
     if(!randomize_vw){
-      W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
+      computeA2Avectors<mf_Float>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
+      //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
     }else randomizeVW<mf_Float>(V,W);    
 
     if(!UniqueID()) printf("Memory after light A2A vector computation:\n");
@@ -303,7 +308,8 @@ int main (int argc,char **argv )
     A2AvectorW<mf_Float> W_s(a2a_arg_s);
 
     if(!randomize_vw){
-      W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
+      computeA2Avectors<mf_Float>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
+      //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
     }else randomizeVW<mf_Float>(V_s,W_s);      
 
     if(!UniqueID()) printf("Memory after heavy A2A vector computation:\n");

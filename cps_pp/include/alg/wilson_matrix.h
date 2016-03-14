@@ -428,7 +428,7 @@ public:
   
   // Baryon things
   //CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
-  //                      A.ccr(1) = A C     A.ccr(-1) = C^-1 A
+  //                      A.ccr(1) = A C     A.ccr(-1) = A C^-1
   //Poor conventions I know
   WilsonMatrix& ccl(int dir);
   WilsonMatrix& ccr(int dir);

@@ -1,5 +1,6 @@
-#ifdef _GRID_LANCZOS_H
-#define _GRID_LANCZOS_H
+#ifndef _A2A_GRID_LANCZOS_H
+#define _A2A_GRID_LANCZOS_H
+
 #ifdef USE_GRID
 #include<util/lattice/fgrid.h>
 

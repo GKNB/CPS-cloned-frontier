@@ -13,26 +13,45 @@ void SpinColorFlavorMatrix::flipSourceMomentum(){
   this->ccr(-1).gr(-5).pr(sigma2);
 }
 
-void SpinColorFlavorMatrix::generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane){
-  //Generate from a pair of propagators with different source flavor but otherwise identical    
-  wmat[0][0] = getSite(site,0,from_f0,lattice,splane);
-  wmat[1][0] = getSite(site,1,from_f0,lattice,splane);
-  wmat[0][1] = getSite(site,0,from_f1,lattice,splane);
-  wmat[1][1] = getSite(site,1,from_f1,lattice,splane);
+// void SpinColorFlavorMatrix::generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int &site, const PropSplane &splane){
+//   //Generate from a pair of propagators with different source flavor but otherwise identical    
+//   wmat[0][0] = getSite(site,0,from_f0,lattice,splane);
+//   wmat[1][0] = getSite(site,1,from_f0,lattice,splane);
+//   wmat[0][1] = getSite(site,0,from_f1,lattice,splane);
+//   wmat[1][1] = getSite(site,1,from_f1,lattice,splane);
+// }
+
+void SpinColorFlavorMatrix::generate(QPropWcontainer &from_f0, QPropWcontainer &from_f1, Lattice &lattice, const int site, const PropSplane splane){
+  generate(from_f0.getProp(lattice), from_f1.getProp(lattice), site, splane);
 }
-void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int &site, const PropSplane &splane){
-  //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first    
+
+void SpinColorFlavorMatrix::generate(QPropW &from_f0, QPropW &from_f1, const int site, const PropSplane splane){
+  //Generate from a pair of propagators with different source flavor but otherwise identical    
+  wmat[0][0] = getSite(site,0,from_f0,splane);
+  wmat[1][0] = getSite(site,1,from_f0,splane);
+  wmat[0][1] = getSite(site,0,from_f1,splane);
+  wmat[1][1] = getSite(site,1,from_f1,splane);
+}
+
+
+
+void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int site, const PropSplane splane){
   int flav = from.flavor();
   if(from_conj.flavor()!=flav){
     ERR.General(cname,"generate_from_cconj_pair","Requires partner 'from_conj' to have same flavor");
   }
+  generate_from_cconj_pair(from.getProp(lattice), from_conj.getProp(lattice), flav, site, splane);
+}
 
-  if(flav == 0){
-    wmat[0][0] = getSite(site,0,from,lattice,splane);
-    wmat[1][0] = getSite(site,1,from,lattice,splane);
+void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropW &from, QPropW &from_conj, const int from_flav, const int site, const PropSplane splane){
+  //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first    
 
-    wmat[0][1] = getSite(site,1,from_conj,lattice,splane);
-    wmat[1][1] = getSite(site,0,from_conj,lattice,splane);
+  if(from_flav == 0){
+    wmat[0][0] = getSite(site,0,from,splane);
+    wmat[1][0] = getSite(site,1,from,splane);
+
+    wmat[0][1] = getSite(site,1,from_conj,splane);
+    wmat[1][1] = getSite(site,0,from_conj,splane);
       
     wmat[0][1].cconj();
     wmat[1][1].cconj();
@@ -40,11 +59,11 @@ void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPro
     wmat[0][1].ccl(-1).gl(-5).ccr(1).gr(-5); //ccl(-1) mults by C from left, ccr(1) mults by C=-C^dag from right
     wmat[1][1].ccl(-1).gl(-5).ccr(-1).gr(-5); //has opposite sign to the above 
   }else{
-    wmat[0][1] = getSite(site,0,from,lattice,splane);
-    wmat[1][1] = getSite(site,1,from,lattice,splane);
+    wmat[0][1] = getSite(site,0,from,splane);
+    wmat[1][1] = getSite(site,1,from,splane);
 
-    wmat[1][0] = getSite(site,0,from_conj,lattice,splane);
-    wmat[0][0] = getSite(site,1,from_conj,lattice,splane);
+    wmat[1][0] = getSite(site,0,from_conj,splane);
+    wmat[0][0] = getSite(site,1,from_conj,splane);
 
     wmat[1][0].cconj();
     wmat[0][0].cconj();
@@ -54,6 +73,46 @@ void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPro
   }
 
 }
+
+
+
+
+
+
+// void SpinColorFlavorMatrix::generate_from_cconj_pair(QPropWcontainer &from, QPropWcontainer &from_conj, Lattice &lattice, const int &site, const PropSplane &splane){
+//   //Use the propagator conjugate relation to compute the 2x2 flavor matrix propagator using a  propagator from a single flavor and one with the complex conjugate of the source used for the first    
+//   int flav = from.flavor();
+//   if(from_conj.flavor()!=flav){
+//     ERR.General(cname,"generate_from_cconj_pair","Requires partner 'from_conj' to have same flavor");
+//   }
+
+//   if(flav == 0){
+//     wmat[0][0] = getSite(site,0,from,lattice,splane);
+//     wmat[1][0] = getSite(site,1,from,lattice,splane);
+
+//     wmat[0][1] = getSite(site,1,from_conj,lattice,splane);
+//     wmat[1][1] = getSite(site,0,from_conj,lattice,splane);
+      
+//     wmat[0][1].cconj();
+//     wmat[1][1].cconj();
+      
+//     wmat[0][1].ccl(-1).gl(-5).ccr(1).gr(-5); //ccl(-1) mults by C from left, ccr(1) mults by C=-C^dag from right
+//     wmat[1][1].ccl(-1).gl(-5).ccr(-1).gr(-5); //has opposite sign to the above 
+//   }else{
+//     wmat[0][1] = getSite(site,0,from,lattice,splane);
+//     wmat[1][1] = getSite(site,1,from,lattice,splane);
+
+//     wmat[1][0] = getSite(site,0,from_conj,lattice,splane);
+//     wmat[0][0] = getSite(site,1,from_conj,lattice,splane);
+
+//     wmat[1][0].cconj();
+//     wmat[0][0].cconj();
+
+//     wmat[1][0].ccl(-1).gl(-5).ccr(1).gr(-5); 
+//     wmat[0][0].ccl(-1).gl(-5).ccr(-1).gr(-5);
+//   }
+
+// }
   
 void SpinColorFlavorMatrix::generate_from_real_source(QPropWcontainer &from, Lattice &lattice, const int &site, const PropSplane &splane){
   //Use the prop conj relation for a real source to compute the full 2x2 propagator

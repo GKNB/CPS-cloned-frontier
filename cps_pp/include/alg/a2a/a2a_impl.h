@@ -162,3 +162,36 @@ void A2AvectorW<mf_Float>::getSpinColorDilutedSource(CPSfermion4D<mf_Float> &int
   }
 }
 
+template<typename mf_Float>
+void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W){
+  int nl = V.getNl();
+  int nh = V.getNh(); //number of fully diluted high-mode indices
+  int nhit = V.getNhits();
+  assert(nl == W.getNl());
+  assert(nh == W.getNh());
+  assert(nhit == W.getNhits());
+  
+
+  std::vector<CPSfermion4D<mf_Float> > wl(nl);
+  for(int i=0;i<nl;i++) wl[i].setUniformRandom();
+  
+  std::vector<CPSfermion4D<mf_Float> > vl(nl);
+  for(int i=0;i<nl;i++) vl[i].setUniformRandom();
+  
+  std::vector<CPScomplex4D<mf_Float> > wh(nhit);
+  for(int i=0;i<nhit;i++) wh[i].setUniformRandom();
+  
+  std::vector<CPSfermion4D<mf_Float> > vh(nh);
+  for(int i=0;i<nh;i++) vh[i].setUniformRandom();
+    
+  for(int i=0;i<nl;i++){
+    V.importVl(vl[i],i);
+    W.importWl(wl[i],i);
+  }
+
+  for(int i=0;i<nh;i++)
+    V.importVh(vh[i],i);
+  
+  for(int i=0;i<nhit;i++)
+    W.importWh(wh[i],i);
+}

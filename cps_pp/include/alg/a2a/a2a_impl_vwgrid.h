@@ -67,27 +67,135 @@ inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, Fgri
   latg.ImportFermion((Vector*)into.ptr(), tmp_g);
 }
 
-// //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
-// class EvecInterface{
-//  public:
-//   virtual 
 
+//BFM evecs
+#ifdef USE_BFM_LANCZOS
 
+class EvecInterfaceBFM: public EvecInterface{
+  BFM_Krylov::Lanczos_5d<double> &eig;
+  bfm_evo<double> &dwf;
+  Fgrid *latg;
+  double *cps_tmp_d;
+  Fermion_t bq_tmp_bfm;
+  bool singleprec_evecs;
+  int len;
+  LATTICE_FERMION *tmp_full;
+public:
+  EvecInterfaceBFM(BFM_Krylov::Lanczos_5d<double> &_eig, bfm_evo<double> &_dwf, Lattice &lat, const bool _singleprec_evecs): eig(_eig), dwf(_dwf), singleprec_evecs(_singleprec_evecs){
+    len = 24 * eig.dop.node_cbvol * (1 + dwf.gparity) * eig.dop.cbLs;
+    cps_tmp_d = (double*)malloc(len * sizeof(double));
+    bq_tmp_bfm = dwf.allocCompactFermion(); 
 
-// };
+    assert(lat.Fclass() == F_CLASS_GRID);
+    assert(dwf.precon_5d == 0);
+    latg = dynamic_cast<Fgrid*>(&lat);
 
-// class EvecInterfaceBFM: public EvecInterface{
+    Grid::GridCartesian *FGrid = latg->getFGrid();
+    tmp_full = new LATTICE_FERMION(FGrid);
 
+    const int gparity = GJP.Gparity();
+    if(eig.dop.gparity != gparity){ ERR.General("EvecInterfaceBFM","EvecInterfaceBFM","Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
+  }
+  Float getEvec(LATTICE_FERMION &into, const int idx){
+    omp_set_num_threads(bfmarg::threads);
+    
+    //Copy bq[i][1] into bq_tmp
+    if(singleprec_evecs){ // eig->bq is in single precision
+      //Upcast the float type to double
+#pragma omp parallel for 
+      for(int j = 0; j < len; j++) {
+	((double*)bq_tmp_bfm)[j] = ((float*)(eig.bq[idx][1]))[j];
+      }
+      //Use bfm_evo to convert to a CPS field
+      dwf.cps_impexcbFermion<double>(cps_tmp_d, bq_tmp_bfm, 0, Odd);
 
-// };
+    }else{ // eig.bq is in double precision
+      //Use bfm_evo to convert to a CPS field
+      dwf.cps_impexcbFermion<double>(cps_tmp_d, eig.bq[idx][1], 0, Odd);     
+    }
+    //Use Fgrid to convert to a Grid field
+    *tmp_full = Grid::zero;
+    latg->ImportFermion(*tmp_full, (Vector*)cps_tmp_d, Fgrid::Odd);
+    pickCheckerboard(Odd,into,*tmp_full);
 
+    return eig.evals[idx];
+  }
+  int nEvecs() const{
+    return eig.get;
+  }
 
+  ~EvecInterfaceBFM(){
+    free(cps_tmp_d);
+    dwf.freeFermion(bq_tmp_bfm);
+    delete tmp_full;
+  }
+
+};
 
 
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
 template< typename mf_Float>
 void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+  EvecInterfaceBFM ev(eig,dwf,lat,singleprec_evecs);
+  return computeVWlow(V,lat,ev,dwf.mass);
+}
+
+template< typename mf_Float>
+void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+  bool mixed_prec_cg = dwf_fp != NULL; 
+  if(mixed_prec_cg){
+    //NOT IMPLEMENTED YET
+    ERR.General(cname.c_str(),"computeVWhigh","No grid implementation of mixed precision CG\n");
+  }
+
+  if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),"computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
+
+  EvecInterfaceBFM ev(eig,dwf_d,lat,singleprec_evecs);
+  return computeVWhigh(V,lat,ev,dwf_d.mass,dwf_d.residual,dwf_d.max_iter);
+}
+
+#endif
+
+
+
+//Grid evecs
+#ifdef USE_GRID_LANCZOS
+
+class EvecInterfaceGrid: public EvecInterface{
+  const std::vector<Grid::RealD> &eval; 
+  const std::vector<LATTICE_FERMION> &evec;
+
+public:
+  EvecInterfaceGrid(const std::vector<LATTICE_FERMION> &_evec, const std::vector<Grid::RealD> &_eval): evec(_evec), eval(_eval){}
+
+  Float getEvec(LATTICE_FERMION &into, const int idx){
+    into = evec[idx];
+    return eval[idx];
+  }
+  int nEvecs() const{
+    return eval.size();
+  }
+};
+
+template< typename mf_Float>
+void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
+  EvecInterfaceGrid ev(evec,eval);
+  return computeVWlow(V,lat,ev,mass);
+}
+
+template< typename mf_Float>
+void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+  EvecInterfaceGrid ev(evec,eval);
+  return computeVWhigh(V,lat,ev,mass,residual,max_iter);
+}
+#endif
+
+
+
+
+template< typename mf_Float>
+void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
   
   const char *fname = "computeVQlow(....)";
@@ -102,7 +210,6 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
 #endif
 
   assert(lat.Fclass() == F_CLASS_GRID);
-  assert(dwf.precon_5d == 0);
   Fgrid &latg = dynamic_cast<Fgrid&>(lat);
 
   //Grids and gauge field
@@ -116,20 +223,15 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
   const double mob_b = latg.get_mob_b();
   const double mob_c = mob_b - 1.;   //b-c = 1
   const double M5 = GJP.DwfHeight();
-  const double mass = dwf.mass;
   printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
 
   const int gparity = GJP.Gparity();
-  if(eig.dop.gparity != gparity){ ERR.General(cname.c_str(),fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
   //Double precision temp fields
   CPSfermion4D<Float> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
   CPSfermion5D<Float> bfield;  Vector* b = (Vector*)bfield.ptr();
 
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
-
-  //A temporary BFM field
-  Fermion_t bq_tmp_bfm = dwf.allocCompactFermion(); 
 
   //Setup Grid Dirac operator
   DIRAC ::ImplParams params;
@@ -147,35 +249,12 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
   LATTICE_FERMION tmp_full(FGrid);
   LATTICE_FERMION tmp_full2(FGrid);
 
-  const int len = 24 * eig.dop.node_cbvol * (1 + gparity) * eig.dop.cbLs;
-  double *cps_tmp_d = (double*)malloc(len * sizeof(double));
-
-  omp_set_num_threads(bfmarg::threads);
-
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
     mf_Float* vi = V.getVl(i).ptr();
-
-    //Copy bq[i][1] into bq_tmp
-    if(singleprec_evecs){ // eig->bq is in single precision
-      //Upcast the float type to double
-#pragma omp parallel for 
-      for(int j = 0; j < len; j++) {
-	((double*)bq_tmp_bfm)[j] = ((float*)(eig.bq[i][1]))[j];
-      }
-      //Use bfm_evo to convert to a CPS field
-      dwf.cps_impexcbFermion<double>(cps_tmp_d, bq_tmp_bfm, 0, Odd);
-
-    }else{ // eig.bq is in double precision
-      //Use bfm_evo to convert to a CPS field
-      dwf.cps_impexcbFermion<double>(cps_tmp_d, eig.bq[i][1], 0, Odd);     
-    }
-    //Use Fgrid to convert to a Grid field
-    tmp_full = Grid::zero;
-    latg.ImportFermion(tmp_full, (Vector*)cps_tmp_d, Fgrid::Odd);
-    pickCheckerboard(Odd,bq_tmp,tmp_full);
-
+    
+    Float eval = evecs.getEvec(bq_tmp,i);
     assert(bq_tmp.checkerboard == Grid::Odd);
 
     //Compute  [ -(Mee)^-1 Meo bq_tmp, bg_tmp ]
@@ -192,7 +271,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
     latg.ImportFermion(b,tmp_full,Fgrid::All);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
     //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eig.evals[i], afield.size());
+    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, afield.size());
 
     //Step 2) Compute Wl
 
@@ -218,19 +297,18 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
     VecTimesEquFloat<mf_Float,Float>(wl[i].ptr(), (Float*)a, 1.0, afield.size());
   }
-
-  dwf.freeFermion(bq_tmp_bfm);
-  free(cps_tmp_d);
 }
 
 
 
+
+
+
+
+
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.
-inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &source, multi1d<bfm_fermion> &evecs, multi1d<double> &evals, int nLowMode, bool singleprec_evecs, 
-		      Fgrid &latg, DIRAC &Ddwf,   Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid,
-		      bfm_evo<double> &dwf_d){
-  assert(!dwf_d.CGdiagonalMee);
-  
+inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &source, double resid, int max_iters, EvecInterface &evecs, int nLowMode, 
+			     Fgrid &latg, DIRAC &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
   double f = norm2(source);
   if (!UniqueID()) printf("Grid_CGNE_M_high: Source norm is %le\n",f);
   f = norm2(solution);
@@ -245,8 +323,6 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 
   LATTICE_FERMION tmp_full(FGrid);
 
-  Fermion_t bq_tmp_bfm = dwf_d.allocCompactFermion(); 
-
   // src_o = Mprecdag * (source_o - Moe MeeInv source_e)  , cf Daiqian's thesis page 60
   LATTICE_FERMION src_o(FrbGrid);
 
@@ -259,7 +335,7 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   linop.MpcDag(tmp_cb3, src_o); //src_o = Mprecdag * (source_o - Moe MeeInv source_e)    (tmp_cb3, tmp_cb4 free)
 
   //Compute low-mode projection and CG guess
-  int Nev = evals.size();
+  int Nev = evecs.nEvecs();
 
   LATTICE_FERMION lsol_full(FrbGrid); //full low-mode part (all evecs)
   lsol_full = Grid::zero;
@@ -275,35 +351,18 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   if(Nev > 0){
     if (!UniqueID()) printf("Grid_CGNE_M_High: deflating with %d evecs\n",Nev);
 
-    const int len = 24 * dwf_d.node_cbvol * (1 + dwf_d.gparity) * dwf_d.cbLs;
-    double *cps_tmp_d = (double*)malloc(len * sizeof(double));
-  
     for(int n = 0; n < Nev; n++){
-      if(!singleprec_evecs) { //eigenvectors are in double precision
-	dwf_d.cps_impexcbFermion<double>(cps_tmp_d, evecs[n][1], 0, Odd);     
-      }else{
-#pragma omp parallel for 
-	for(int j = 0; j < len; j++) {
-	  ((double*)bq_tmp_bfm)[j] = ((float*)(evecs[n][1]))[j];
-	}
-	dwf_d.cps_impexcbFermion<double>(cps_tmp_d, bq_tmp_bfm, 0, Odd);
-      }
-	
-      tmp_full = Grid::zero;
-      latg.ImportFermion(tmp_full, (Vector*)cps_tmp_d, Fgrid::Odd);
-      pickCheckerboard(Odd,tmp_cb1,tmp_full); //tmp_cb1 = eigenvector
-
+      double eval = evecs.getEvec(tmp_cb1,n);
       Grid::ComplexD cn = innerProduct(tmp_cb1, src_o);	
-      axpy(lsol_full, cn / double(evals[n]), tmp_cb1, lsol_full);
+      axpy(lsol_full, cn / eval, tmp_cb1, lsol_full);
 
       if(n == nLowMode - 1) lsol_defl = lsol_full;
     }
     sol_o = lsol_full; //sol_o = lsol   Set guess equal to low mode projection 
-    free(cps_tmp_d);
   }
   
   //Do CG
-  Grid::ConjugateGradient<LATTICE_FERMION> CG(dwf_d.residual, dwf_d.max_iter);
+  Grid::ConjugateGradient<LATTICE_FERMION> CG(resid, max_iters);
 
 
   f = norm2(src_o);
@@ -332,14 +391,7 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 
   f = norm2(solution);
   if (!UniqueID()) printf("Grid_CGNE_M_high: unprec sol norm is %le\n",f);
-  
-  dwf_d.freeFermion(bq_tmp_bfm);
 }
-
-
-
-
-
 
 
 //Compute the high mode parts of V and W. 
@@ -347,7 +399,7 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
 template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
   const char *fname = "computeVWhigh(....)";
 
   int ngp = 0;
@@ -360,7 +412,6 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
 #endif
 
   assert(lat.Fclass() == F_CLASS_GRID);
-  assert(dwf_d.precon_5d == 0);
   Fgrid &latg = dynamic_cast<Fgrid&>(lat);
 
   //Grids and gauge field
@@ -374,11 +425,9 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
   const double mob_b = latg.get_mob_b();
   const double mob_c = mob_b - 1.;   //b-c = 1
   const double M5 = GJP.DwfHeight();
-  const double mass = dwf_d.mass;
   printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
 
   const int gparity = GJP.Gparity();
-  if(eig.dop.gparity != gparity){ ERR.General(cname.c_str(),fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
   //Setup Grid Dirac operator
   DIRAC ::ImplParams params;
@@ -386,9 +435,6 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
 
   DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
   Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> linop(Ddwf);
-
-  bool mixed_prec_cg = dwf_fp != NULL; 
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
   VRB.Result(cname.c_str(), fname, "Start computing high modes using Grid.\n");
     
@@ -412,18 +458,6 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
   LATTICE_FERMION gtmp_full2(FGrid);
 
   //Details of this process can be found in Daiqian's thesis, page 60
-
-  //Copy evals into multi1d
-  multi1d<float> eval;
-  multi1d<double> eval_d;
-  if(mixed_prec_cg){
-    eval.resize(eig.evals.size());
-    for(int i = 0; i < eig.evals.size(); i++) eval[i] = eig.evals[i]; 
-  }else{
-    eval_d.resize(eig.evals.size());
-    for(int i = 0; i < eig.evals.size(); i++) eval_d[i] = eig.evals[i]; 
-  }
-
   for(int i=0; i<nh; i++){
     //Step 1) Get the diluted W vector to invert upon
     getDilutedSource(v4dfield, i);
@@ -447,13 +481,8 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG
-    if(mixed_prec_cg){
-      //NOT IMPLEMENTED YET
-      ERR.General(cname.c_str(),fname,"No grid implementation of mixed precision CG\n");
-    }else{
-      Grid_CGNE_M_high(gtmp_full, gsrc, eig.bq, eval_d, nl, singleprec_evecs, latg, Ddwf, FGrid, FrbGrid, dwf_d);
-    }
-
+    Grid_CGNE_M_high(gtmp_full, gsrc, residual, max_iter, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
+ 
     //CPSify the solution, including 1/nhit for the hit average
     latg.ImportFermion((Vector*)b, gtmp_full);
     lat.Ffive2four(v4d, b, glb_ls-1, 0, 2);
