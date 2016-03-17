@@ -2,15 +2,12 @@
 #define _FLAVOR_MATRIX_H
 CPS_START_NAMESPACE
 
+//Note: F0 = 1/2(1+sigma3)  and  F1 = 1/2(1-sigma3). These are called F11 and F22 in the paper, respectively
 enum FlavorMatrixType {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
+
 
 //Added by CK, optimized from Daiqian's equivalent
 class FlavorMatrix{
-	// The matrix is like:
-	//
-	//  fmat[0]  fmat[1]
-	//
-	//  fmat[2]  fmat[3]
 protected:
   Complex fmat[2][2];
 public:

@@ -114,7 +114,9 @@ public:
 
   void contract_LL_mesons(const ContractionTypeLLMesons &args, const int &conf_idx);
   void contract_HL_mesons(const ContractionTypeHLMesons &args, const int &conf_idx);
+
   void contract_OVVpAA(const ContractionTypeOVVpAA &args, const int &conf_idx);
+  void contract_OVVpAA_gparity(CorrelationFunction &corrfunc, const ContractionTypeOVVpAA &args);
 
   //Calculate \sum_x tr( M1 A^dag(x) M2 B(x) ) for all M1,M2, where M1 and M2 are spin(-flavor) matrices and A,B are propagors specified in the arguments
   void contract_all_bilinears(const ContractionTypeAllBilinears &args, const int &conf_idx);

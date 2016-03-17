@@ -2,6 +2,8 @@
 #define _MEAS_GP_H  
 
 #include "pion_twopoint.h"
+#include "kaon_twopoint.h"
+#include "compute_bk.h"
 #include <alg/eigen/Krylov_5d.h>
 
 CPS_START_NAMESPACE
@@ -59,31 +61,44 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
 
 
 //Light-quark inversions
-void lightQuarkInvert(PropMomContainer &props, const PropPrecision pp, const double prec, const double ml,
-		      const std::vector<int> &tslices, const QuarkMomenta &light_quark_momenta,
-		      Lattice &lattice, BFM_Krylov::Lanczos_5d<double> &lanc_l){
+void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const double prec, const double mass,
+		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta,
+		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> &lanc){
   for(int s=0;s<tslices.size();s++){
     const int tsrc = tslices[s];
     
-    for(int pidx=0;pidx<light_quark_momenta.nMom();pidx++){
-      const ThreeMomentum &p = light_quark_momenta.getMom(pidx);
+    for(int pidx=0;pidx<quark_momenta.nMom();pidx++){
+      const ThreeMomentum &p = quark_momenta.getMom(pidx);
 	  
-      QPropWMomSrc* prop_f0 = computePropagator(ml,prec,tsrc,0,p.ptr(),lattice,&lanc_l);
-      QPropWMomSrc* prop_f1 = computePropagator(ml,prec,tsrc,1,p.ptr(),lattice,&lanc_l);
-
-      //Add both + and - source momentum  (PropMomContainer manages prop memory)
-      PropWrapper prop_pplus(prop_f0,prop_f1,false);
-      props.insert(prop_pplus, propTag(Light,pp,tsrc,p));
-      
-      PropWrapper prop_pminus(prop_f0,prop_f1,true);
-      props.insert(prop_pminus, propTag(Light,pp,tsrc,-p));
+      if(GJP.Gparity()){
+	QPropWMomSrc* prop_f0 = computePropagator(mass,prec,tsrc,0,p.ptr(),lattice,&lanc);
+	QPropWMomSrc* prop_f1 = computePropagator(mass,prec,tsrc,1,p.ptr(),lattice,&lanc);
+	
+	//Add both + and - source momentum  (PropMomContainer manages prop memory)
+	PropWrapper prop_pplus(prop_f0,prop_f1,false);
+	props.insert(prop_pplus, propTag(qtype,pp,tsrc,p));
+	
+	PropWrapper prop_pminus(prop_f0,prop_f1,true);
+	props.insert(prop_pminus, propTag(qtype,pp,tsrc,-p));
+      }else{
+	QPropWMomSrc* prop = computePropagator(mass,prec,tsrc,0,p.ptr(),lattice,&lanc);
+	PropWrapper propw(prop);
+	props.insert(propw, propTag(qtype,pp,tsrc,p));
+      }
     }
   }
 }
 
-//Pion 2pt LW functions pseudoscalar and axial sinks	     
-void measurePion2ptLW(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
-		      const std::string results_dir, const int conf){
+
+void writePion2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p1, const ThreeMomentum &p2, const PropPrecision status, const int conf, const std::string &extra_descr){
+  std::ostringstream os; 
+  os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << extra_descr << '.' << conf;
+  results.write(os.str());
+}
+
+//Pion 2pt LW functions pseudoscalar and axial sinks
+void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
+		      const std::string &results_dir, const int conf){
   //Loop over light-light meson momenta
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -97,30 +112,69 @@ void measurePion2ptLW(const PropMomContainer &props, const PropPrecision status,
     for(int op=0;op<5;op++){
 
       fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
-      fMatrix<double> results_wrongproj(Lt,Lt); //[tsrc][tsnk-tsrc]  opposite projection op (optional, used for paper)
-	  
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
 	    
 	PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1));
 	PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2));
 
-	pionTwoPointLWGparity(results,tsrc,sink_ops[op],p1,p2,prop1,prop2);
-	pionTwoPointLWGparity(results_wrongproj,tsrc,sink_ops[op],p1,p2,prop1,prop2,true); //wrong proj op
+	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p1,p2,prop1,prop2);
       }
-      {
-	std::ostringstream os; //pmeson.file_str(2) in units of pi/L
-	os << results_dir << "/pion_" << sink_op_stub[op] << "_P_LW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << '.' << conf;
-	results.write(os.str());
+      writePion2ptLW(results, results_dir, sink_op_stub[op], p1, p2, status, conf, "");
+    }
+  }
+}
+
+void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
+		      const std::string &results_dir, const int conf){
+  //Loop over light-light meson momenta
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  for(int pidx=0;pidx<ll_meson_momenta.nMom();pidx++){
+    ThreeMomentum p1 = ll_meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
+    ThreeMomentum p2 = ll_meson_momenta.getQuarkMom(1,pidx);
+	  
+    Pion2PtSinkOp sink_ops[5] = { AX, AY, AZ, AT, P };//Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
+    std::string sink_op_stub[5] = { "AX", "AY", "AZ", "AT", "P" };
+	
+    for(int op=0;op<5;op++){
+
+      fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
+      fMatrix<double> results_wrongsinkmom(Lt,Lt); //[tsrc][tsnk-tsrc]  wrong sink momentum (should give zero within statistics)
+      fMatrix<double> results_wrongproj(Lt,Lt); //[tsrc][tsnk-tsrc]  opposite projection op (optional, used for paper)
+      fMatrix<double> results_wrongproj_wrongsinkmom(Lt,Lt); //wrong sink mom and wrong projector - non-zero within statistics as discussed in paper
+
+      for(int s=0;s<tslices.size();s++){
+	const int tsrc = tslices[s];
+	    
+	PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1));
+	PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2));
+
+	pionTwoPointLWGparity(results,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,false,false); //right proj op, right sink mom
+
+	if(op == 4){ //only pseudoscalar sink op
+	  pionTwoPointLWGparity(results_wrongsinkmom,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,false,true); //right proj op, right sink mom
+	  
+	  pionTwoPointLWGparity(results_wrongproj,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,true,false); //wrong proj op, right sink mom
+	  pionTwoPointLWGparity(results_wrongproj_wrongsinkmom,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,true,true); //wrong proj op, wrong sink mom
+	}
       }
-      {
-	std::ostringstream os; //pmeson.file_str(2) in units of pi/L
-	os << results_dir << "/pion_" << sink_op_stub[op] << "_P_LW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_wrongproj." << conf;
-	results_wrongproj.write(os.str());
+      writePion2ptLW(results, results_dir, sink_op_stub[op], p1, p2, status, conf, "");
+      if(op == 4){
+	writePion2ptLW(results_wrongsinkmom, results_dir, sink_op_stub[op], p1, p2, status, conf, "_wrongsinkmom");
+	writePion2ptLW(results_wrongproj, results_dir, sink_op_stub[op], p1, p2, status, conf, "_wrongproj");
+	writePion2ptLW(results_wrongproj_wrongsinkmom, results_dir, sink_op_stub[op], p1, p2, status, conf, "_wrongproj_wrongsinkmom");
       }
     }
   }
 }
+
+void measurePion2ptLW(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
+		      const std::string &results_dir, const int conf){
+  if(GJP.Gparity()) return measurePion2ptLWGparity(props,status,tslices,ll_meson_momenta,results_dir, conf);
+  else return measurePion2ptLWStandard(props,status,tslices,ll_meson_momenta,results_dir, conf);
+}
+
 
 
 //Pion 2pt LW functions pseudoscalar sink
@@ -175,12 +229,12 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       pionTwoPointPPWWGparity(results_momexch, tsrc, p1, p2_snk_exch, prop1_FT_exch, prop2_FT_exch);
     }
     {
-      std::ostringstream os; //pmeson.file_str(2) in units of pi/L
+      std::ostringstream os; 
       os << results_dir << "/pion_P_P_WW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << "_keep_" << (status == Sloppy ? "sloppy" : "exact") << '.' << conf;
       results_momkeep.write(os.str());
     }
     {
-      std::ostringstream os; //pmeson.file_str(2) in units of pi/L
+      std::ostringstream os; 
       os << results_dir << "/pion_P_P_LW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << "_exch_" << (status == Sloppy ? "sloppy" : "exact") << '.' << conf;
       results_momexch.write(os.str());
     }
@@ -217,8 +271,53 @@ void measureLightFlavorSingletLW(const PropMomContainer &props, const PropPrecis
   }
 }
 
+//Measure BK with source kaons on each of the timeslices t0 in t0_vals and K->K time separations tseps
+void measureBK(const PropMomContainer &props, const PropPrecision pp, const std::vector<int> &t0_vals, const std::vector<int> &tseps, const MesonMomenta &meson_momenta,
+	       const std::string results_dir, const PropPrecision status, const int conf, const bool do_flavor_project = true){
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  
+  //Do all combinations of source and sink kaon momenta that have the same total momentum. This allows us to look at alternate quark momentum combinations
+  //In the meson_momenta, prop index 0 is the strange quark (as in the standard 2pt function case), and is the propagator that is daggered. Prop index 1 is the light quark.
+  for(int p0idx=0;p0idx<meson_momenta.nMom();p0idx++){
+    ThreeMomentum prop_h_t0_srcmom = meson_momenta.getQuarkMom(0,p0idx);
+    ThreeMomentum prop_l_t0_srcmom = meson_momenta.getQuarkMom(1,p0idx);
 
+    for(int p1idx=p0idx;p1idx<meson_momenta.nMom();p1idx++){
+      if(meson_momenta.getMesonMom(p1idx) != meson_momenta.getMesonMom(p0idx)) continue;
 
+      ThreeMomentum prop_h_t1_srcmom = meson_momenta.getQuarkMom(0,p1idx);
+      ThreeMomentum prop_l_t1_srcmom = meson_momenta.getQuarkMom(1,p1idx);
+      
+      for(int tspi=0;tspi<tseps.size();tspi++){
+	fMatrix<double> results(Lt,Lt);
+
+	for(int t0i=0;t0i<t0_vals.size();t0i++){
+	  int t0 = t0_vals[t0i];
+	  int t1 = (t0 + tseps[tspi]) % Lt;
+
+	  PropWrapper &prop_h_t0 = props.get(propTag(Heavy,pp,t0,prop_h_t0_srcmom));
+	  PropWrapper &prop_l_t0 = props.get(propTag(Light,pp,t0,prop_l_t0_srcmom));
+
+	  PropWrapper &prop_h_t1 = props.get(propTag(Heavy,pp,t1,prop_h_t1_srcmom));
+	  PropWrapper &prop_l_t1 = props.get(propTag(Light,pp,t1,prop_l_t1_srcmom));
+
+	  GparityBK(results, t0, 
+		    prop_h_t0, prop_l_t0, prop_h_t0_srcmom,
+		    prop_h_t1, prop_l_t1, prop_h_t1_srcmom,
+		    do_flavor_project);
+	}
+	{
+	  std::ostringstream os;
+	  os << results_dir << "/BK_srcK_mom" << (-prop_h_t0_srcmom).file_str() << "_plus" << prop_l_t0_srcmom.file_str() 
+	     << "snkK_mom" << (-prop_h_t1_srcmom).file_str() << "_plus" << prop_l_t1_srcmom.file_str()
+	     << "_tsep" << tseps[tspi]
+	     << (status == Sloppy ? "_sloppy" : "_exact") << '.' << conf;
+	  results.write(os.str());
+	}
+      }
+    }
+  }
+}
 
 
 CPS_END_NAMESPACE

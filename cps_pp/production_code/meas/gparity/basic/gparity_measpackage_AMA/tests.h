@@ -147,7 +147,7 @@ PropagatorContainer & computePropagatorOld(const std::string &tag, const double 
   for(int i=0;i<4;i++)
     parg.generics.bc[i] = GJP.Bc(i);
   
-  int len = 5 + (tag_otherflav != "" ? 1 : 0);
+  int len = 6 + (tag_otherflav != "" ? 1 : 0);
   parg.attributes.attributes_len = len;
   parg.attributes.attributes_val = new AttributeContainer[len];
 
@@ -174,9 +174,15 @@ PropagatorContainer & computePropagatorOld(const std::string &tag, const double 
   MomentumAttrArg &ma = parg.attributes.attributes_val[4].AttributeContainer_u.momentum_attr;
   memcpy(ma.p,p,3*sizeof(int));
 
+  parg.attributes.attributes_val[5].type = STORE_MIDPROP_ATTR;
+  
+  //STORE_MIDPROP_ATTR
+  //store_midprop_attr
+  //StoreMidpropAttrArg
+
   if(tag_otherflav != ""){
-    parg.attributes.attributes_val[5].type = GPARITY_OTHER_FLAV_PROP_ATTR;
-    GparityOtherFlavPropAttrArg &gofa = parg.attributes.attributes_val[5].AttributeContainer_u.gparity_other_flav_prop_attr;
+    parg.attributes.attributes_val[6].type = GPARITY_OTHER_FLAV_PROP_ATTR;
+    GparityOtherFlavPropAttrArg &gofa = parg.attributes.attributes_val[6].AttributeContainer_u.gparity_other_flav_prop_attr;
     gofa.tag = strdup(tag_otherflav.c_str());
   }
   return PropManager::addProp(parg);
@@ -224,6 +230,9 @@ void print2(const SpinColorFlavorMatrix &a,const SpinColorFlavorMatrix &b){
   }
 }
 
+bool test_equals(const std::complex<double> &a, const std::complex<double> &b, const double eps){
+  return ( fabs(std::real(a-b)) < eps && fabs(std::imag(a-b)) < eps );
+}
 
 int run_tests(int argc,char *argv[])
 {
@@ -433,8 +442,12 @@ int run_tests(int argc,char *argv[])
   std::vector<Float> p_pi_plus(3,0); //sink phase exp(i p.x)
   for(int i=0;i<ngp;i++) p_pi_plus[i] = M_PI/double(L[i]);
 
+  std::vector<Float> p_zero(3,0);
+
   conbil.add_momentum(p_pi_plus);
+  conbil.add_momentum(p_zero);
   conbil.calculateBilinears(lattice, "prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
+  conbil.calculateBilinears(lattice, "prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
 
   Pion2PtSinkOp snk_op_new[] = { AX, AY, AZ, AT, P };
   int snk_spn_old[] = {1,2,4,8,0};
@@ -445,25 +458,133 @@ int run_tests(int argc,char *argv[])
   PropWrapper pw_prop_pminus(&QPropWcontainer::verify_convert(prop_f0_pminus,"","").getProp(lattice),
 			     &QPropWcontainer::verify_convert(prop_f1_pminus,"","").getProp(lattice));
 
-
+  //Test axial, pseudo sink pion LW 2pt funtions
   for(int oo=0;oo<5;oo++){
     //sigma3(1+sigma2) = sigma3 -i sigma1
     //Note, ordering of operators in ContractedBilinear is source, sink
-    const std::vector<Rcomplex> &pps3 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
-							    0, 3, snk_spn_old[oo], 3);
-    const std::vector<Rcomplex> &pps1 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
-							    0, 1, snk_spn_old[oo], 3);
+    const std::vector<Rcomplex> pps3 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 3, snk_spn_old[oo], 3);
+    const std::vector<Rcomplex> pps1 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 1, snk_spn_old[oo], 3);
     std::vector<Rcomplex> ppconbil(pps3);
-    for(int i=0;i<pps3.size();i++) ppconbil[i] = (snk_op_new[oo] == P ? -1. : 1.)*0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
+    for(int i=0;i<pps3.size();i++) ppconbil[i] = (snk_op_new[oo] == P ? 1. : -1.)*0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
     
     fMatrix<double> ppnew(1,L[3]);
     pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],mp,p,pw_prop_pminus,pw_prop_pplus);
     
+    double fail = 0;
     if(!UniqueID()) printf("Operator %d\n",oo);
     for(int t=0;t<L[3];t++){
-      if(!UniqueID()) printf("t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
+      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
+  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+  			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
+  			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
+  			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+  	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of operator %d\n",oo);
+      exit(-1);
     }
   }
+
+  //Test pion WW 2pt function
+  {
+    ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> conwsbil;
+    std::vector<Float> p_pi_over_2L(3,0); //sink phase exp(i p.x)
+    for(int i=0;i<ngp;i++) p_pi_over_2L[i] = M_PI/double(2*L[i]);
+    
+    std::vector<Float> p_mpi_over_2L(3,0); //sink phase exp(i p.x)
+    for(int i=0;i<ngp;i++) p_mpi_over_2L[i] = -M_PI/double(2*L[i]);
+    
+    //Note, old code sink momenta are for prop1^dag and prop2, and hence should have the same sign for pion
+    std::pair< std::vector<Float>,std::vector<Float> > mompair( p_pi_over_2L, p_pi_over_2L );
+    conwsbil.add_momentum(mompair);
+    conwsbil.calculateBilinears(lattice, "prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
+    
+    //Compute gauge-fixed wall sink propagators with new code
+    //Phases are always exp(-ip.x)    so  \sum_x,y exp(ip.x) exp(-ip.y)\prop(x,t; y,0), sink momentum is opposite source momentum
+    WallSinkProp<SpinColorFlavorMatrix> ws_pminus;
+    ws_pminus.setProp(pw_prop_pminus);
+    ws_pminus.compute(lattice, &p_pi_over_2L[0]);
+    
+    WallSinkProp<SpinColorFlavorMatrix> ws_pplus;
+    ws_pplus.setProp(pw_prop_pplus);
+    ws_pplus.compute(lattice, &p_mpi_over_2L[0]);
+    
+    fMatrix<double> ppnew(1,L[3]);
+    pionTwoPointPPWWGparity(ppnew, 0, mp, mp, ws_pminus, ws_pplus);
+
+    const std::vector<Rcomplex> pps3s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 3, 0, 3);
+    const std::vector<Rcomplex> pps1s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 1, 0, 3);
+    const std::vector<Rcomplex> pps3s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 3, 0, 1);
+    const std::vector<Rcomplex> pps1s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+  							    0, 1, 0, 1);
+
+    //s3(1+s2) = s3 - is1  at source
+    //s3(1-s2) = s3 + is1  at sink
+    
+    //[s3-is1)]o[s3+is1] = [s3 o s3] + [s1 o s1] -i [s1 o s3] +i [s3 o s1]
+    std::vector<Rcomplex> ppconbil(L[3]);
+    for(int i=0;i<L[3];i++) ppconbil[i] = 0.5*0.5*0.5*( pps3s3[i] + pps1s1[i] + Complex(0,-1)*pps1s3[i] + Complex(0,1)*pps3s1[i] );
+        
+    double fail = 0;
+    if(!UniqueID()) printf("PPWW\n");
+    for(int t=0;t<L[3];t++){
+      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
+  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+  			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
+  			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
+  			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+  	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of PPWW\n");
+      exit(-1);
+    }
+  }
+
+
+
+  //Test pseudoscalar flavor singlet against old code. It's stationary. We use momentum assignment    \bar\psi(p) \gamma^5 \psi(-p)  . The psi will be daggered as part of g5-hermiticity op, swapping its momentum.
+  //Need projector (1-\sigma_2) because of negative \psi momentum
+  {
+    const std::vector<Rcomplex> pp1 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+							  0, 0, 0, 0);
+    const std::vector<Rcomplex> pps2 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+     							    0, 2, 0, 0);
+    std::vector<Rcomplex> ppconbil(L[3]);
+    for(int i=0;i<L[3];i++) ppconbil[i] = 0.5*(pp1[i] - pps2[i]);
+
+    fMatrix<double> ppnew(1,L[3]);
+    lightFlavorSingletLWGparity(ppnew,0,p,p,pw_prop_pplus,pw_prop_pplus);
+    
+    double fail = 0;
+    if(!UniqueID()) printf("Pseudoscalar flavor singlet\n");
+    for(int t=0;t<L[3];t++){
+      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
+			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
+			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of pseudoscalar flavor singlet\n");
+      exit(-1);
+    }
+  }
+
+
 
 
 
@@ -537,98 +658,128 @@ int run_tests(int argc,char *argv[])
   if(!UniqueID()) printf("Passed mom flip test\n");
 
 
-// void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p1, const ThreeMomentum &p2,
-// 			   const PropWrapper &prop1, const PropWrapper &prop2,
-// 			   const bool use_wrong_proj_sign = false){
+  int Lt = L[3];
 
-  
+  //Kaon stuff
+  //Assign momentum -p to the strange quark. This is the one that is daggered so we need +p for the propagator
+  PropagatorContainer &propH_f0_pplus = computePropagatorOld("propH_f0_pplus",0.04,prec,tsrc,0,p.ptr(),lattice, "propH_f1_pplus");
+  PropagatorContainer &propH_f1_pplus = computePropagatorOld("propH_f1_pplus",0.04,prec,tsrc,1,p.ptr(),lattice, "propH_f0_pplus");
+
+  PropWrapper pw_propH_pplus(&QPropWcontainer::verify_convert(propH_f0_pplus,"","").getProp(lattice),
+			     &QPropWcontainer::verify_convert(propH_f1_pplus,"","").getProp(lattice));
+
+  //Test BK against old code
+  //Generate props for sink kaon
+  int tsnk = Lt-1;
+  PropagatorContainer &propH_f0_pplus_tsnk = computePropagatorOld("propH_f0_pplus_tsnk",0.04,prec,tsnk,0,p.ptr(),lattice, "propH_f1_pplus_tsnk");
+  PropagatorContainer &propH_f1_pplus_tsnk = computePropagatorOld("propH_f1_pplus_tsnk",0.04,prec,tsnk,1,p.ptr(),lattice, "propH_f0_pplus_tsnk");
+
+  PropWrapper pw_propH_pplus_tsnk(&QPropWcontainer::verify_convert(propH_f0_pplus_tsnk,"","").getProp(lattice),
+				  &QPropWcontainer::verify_convert(propH_f1_pplus_tsnk,"","").getProp(lattice));
 
 
+  PropagatorContainer &prop_f0_pplus_tsnk = computePropagatorOld("prop_f0_pplus_tsnk",0.01,prec,tsnk,0,p.ptr(),lattice, "prop_f1_pplus_tsnk");
+  PropagatorContainer &prop_f1_pplus_tsnk = computePropagatorOld("prop_f1_pplus_tsnk",0.01,prec,tsnk,1,p.ptr(),lattice, "prop_f0_pplus_tsnk");
 
+  PropWrapper pw_prop_pplus_tsnk(&QPropWcontainer::verify_convert(prop_f0_pplus_tsnk,"","").getProp(lattice),
+				 &QPropWcontainer::verify_convert(prop_f1_pplus_tsnk,"","").getProp(lattice));
 
-
-
-
-
-
-
-  //   //Gauge fix lattice if required
-  //   if(ama_arg.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
-  //     AlgFixGauge fix_gauge(lattice,&carg,&ama_arg.fix_gauge);
-  //     fix_gauge.run();
-  //   }
-
-  //   //Generate eigenvectors
-  //   Float time = -dclock();
-  //   BFM_Krylov::Lanczos_5d lanc_l(dwf_d, lanc_arg_l);
-  //   lanc_l.Run();
-  //   if(Fbfm::use_mixed_solver){
-  //     //Convert eigenvectors to single precision
-  //     lanc_l.toSingle();
-  //   }
-  //   time += dclock();    
-  //   print_time("main","Light quark Lanczos",time);
-
-  //   time = -dclock();
-  //   BFM_Krylov::Lanczos_5d lanc_h(dwf_d, lanc_arg_h);
-  //   lanc_h.Run();
-  //   if(Fbfm::use_mixed_solver){
-  //     //Convert eigenvectors to single precision
-  //     lanc_h.toSingle();
-  //   }
-  //   time += dclock();    
-  //   print_time("main","Heavy quark Lanczos",time);
- 
-  //   //We want stationary mesons and moving mesons. For GPBC there are two inequivalent directions: along the G-parity axis and perpendicular to it. 
-  //   PropMomContainer props; //stores generated propagators by tag
-
-  //   bool do_alternative_mom = true;
-
-  //   //Decide on the meson momenta we wish to compute
-  //   MesonMomenta pion_momenta;
-  //   PionMomenta::setup(pion_momenta,do_alternative_mom);
+  {
+    fMatrix<double> bk_new(1,Lt);
+    bool do_flavor_project = false;
+    GparityBK(bk_new, tsrc, 
+	      pw_propH_pplus, pw_prop_pplus, p,
+	      pw_propH_pplus_tsnk, pw_prop_pplus_tsnk, p,
+	      do_flavor_project);
     
-  //   MesonMomenta su2_singlet_momenta;
-  //   LightFlavorSingletMomenta::setup(su2_singlet_momenta);
+    ContractionTypeOVVpAA old_args;
+    old_args.prop_H_t0 = strdup("propH_f0_pplus");
+    old_args.prop_L_t0 = strdup("prop_f0_pplus");
+    old_args.prop_H_t1 = strdup("propH_f0_pplus_tsnk");
+    old_args.prop_L_t1 = strdup("prop_f0_pplus_tsnk");
+    AlgGparityContract gpcon(lattice, common_arg);
 
-  //   MesonMomenta kaon_momenta;
-  //   KaonMomenta::setup(kaon_momenta,do_alternative_mom);
+    CorrelationFunction bk_old("BK",CorrelationFunction::THREADED);
+    gpcon.contract_OVVpAA_gparity(bk_old, old_args);
 
-  //   //Determine the quark momenta we will need
-  //   QuarkMomenta light_quark_momenta;
-  //   QuarkMomenta heavy_quark_momenta;
+    std::vector<Rcomplex> bk_old2(Lt); //sum contractions and fix normalization (old contractions had coeff of 1/2 when it should have been 2)
+    for(int t=0;t<Lt;t++){
+      bk_old2[t] = 4.*bk_old(0,t);
+      for(int i=1;i<4;i++) bk_old2[t] += 4.*bk_old(i,t);
+    }
+
+    double fail = 0;
+    if(!UniqueID()) printf("BK\n");
+    for(int t=0;t<L[3];t++){
+      if(!test_equals(bk_old2[t],bk_new(0,t),1e-10)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+			       std::real(bk_old2[t]),std::imag(bk_old2[t]),
+			       std::real(bk_new(0,t)),std::imag(bk_new(0,t)),
+			       std::real(bk_new(0,t))/std::real(bk_old2[t]), std::imag(bk_new(0,t))/std::imag(bk_old2[t]));
+	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(bk_old2[t]),std::imag(bk_old2[t]),std::real(bk_new(0,t)),std::imag(bk_new(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of BK\n");
+      exit(-1);
+    }
+  }
+
+  //Check J5 and J5q contractions
+  {
+    ContractionTypeMres old_args;
+    old_args.prop = strdup("prop_f0_pplus");
     
-  //   pion_momenta.appendQuarkMomenta(Light, light_quark_momenta); //adds the quark momenta it needs
-  //   su2_singlet_momenta.appendQuarkMomenta(Light, light_quark_momenta);
-  //   kaon_momenta.appendQuarkMomenta(Light, light_quark_momenta); //each momentum is unique
-  //   kaon_momenta.appendQuarkMomenta(Heavy, heavy_quark_momenta);
+    CorrelationFunction pion_old("J5",1,CorrelationFunction::THREADED), j5_q_old("J5q",1,CorrelationFunction::THREADED);
+    AlgGparityContract gpcon(lattice, common_arg);
+    gpcon.measure_mres_gparity(old_args, pion_old, j5_q_old);
+    
+    std::vector<Rcomplex> pion_old2(Lt), j5_q_old2(Lt);
+    for(int t=0;t<Lt;t++){
+      pion_old2[t] = 0.5*pion_old(0,t); //new normalization
+      j5_q_old2[t] = 0.5*j5_q_old(0,t);
+    }
 
-  //   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    fMatrix<double> pion_new(1,Lt), j5_q_new(1,Lt);
 
-  //   double sloppy_prec, exact_prec;
-  //   double ml, mh;
-  //   std::string results_dir;
+    J5Gparity(pion_new,tsrc,mp,p,pw_prop_pminus,pw_prop_pplus,SPLANE_BOUNDARY,false); //disable flavor project to compare with old code
+    J5Gparity(j5_q_new,tsrc,mp,p,pw_prop_pminus,pw_prop_pplus,SPLANE_MIDPOINT,false);
 
-  //   std::vector<int> tslice_sloppy;
-  //   std::vector<int> tslice_exact;
+    double fail = 0;
+    if(!UniqueID()) printf("J5\n");
+    for(int t=0;t<L[3];t++){
+      if(!test_equals(pion_old2[t],pion_new(0,t),1e-10)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+			       std::real(pion_old2[t]),std::imag(pion_old2[t]),
+			       std::real(pion_new(0,t)),std::imag(pion_new(0,t)),
+			       std::real(pion_new(0,t))/std::real(pion_old2[t]), std::imag(pion_new(0,t))/std::imag(pion_old2[t]));
+	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(pion_old2[t]),std::imag(pion_old2[t]),std::real(pion_new(0,t)),std::imag(pion_new(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of J5\n");
+      exit(-1);
+    }
 
-  //   for(int status = 0; status < 2; status++){ //sloppy, exact
-  //     PropPrecision pp = status == 0 ? Sloppy : Exact;
-  //     const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
-  //     double prec = status == 0 ? sloppy_prec : exact_prec;
-      
-  //     //Light-quark inversions
-  //     lightQuarkInvert(props, pp, prec,ml,tslices,light_quark_momenta,lattice,lanc_l);
+    if(!UniqueID()) printf("J5q\n");
+    for(int t=0;t<L[3];t++){
+      if(!test_equals(j5_q_old2[t],j5_q_new(0,t),1e-10)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+			       std::real(j5_q_old2[t]),std::imag(j5_q_old2[t]),
+			       std::real(j5_q_new(0,t)),std::imag(j5_q_new(0,t)),
+			       std::real(j5_q_new(0,t))/std::real(j5_q_old2[t]), std::imag(j5_q_new(0,t))/std::imag(j5_q_old2[t]));
+	fail = 1.;
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(j5_q_old2[t]),std::imag(j5_q_old2[t]),std::real(j5_q_new(0,t)),std::imag(j5_q_new(0,t)) );
+    }
+    glb_sum(&fail);
+    if(fail){
+      if(!UniqueID()) printf("Failed comparison of J5q\n");
+      exit(-1);
+    }
+  }
 
-  //     //Pion 2pt LW functions pseudoscalar and axial sinks	     
-  //     measurePion2ptLW(props,pp,tslices,ll_meson_momenta);
-
-  //     //Pion 2pt WW function pseudoscalar sink
-  //     measurePion2ptPPWW(props,pp,tslices,ll_meson_momenta,lattice);
-
-  //     props.clear(); //delete all propagators thus far computed
-  //   }
-  // }//end of conf loop
 
   if(UniqueID()==0){
     printf("Main job complete\n"); 

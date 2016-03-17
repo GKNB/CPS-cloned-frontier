@@ -508,6 +508,8 @@ extern void mult_by_gamma_left( int dir, const wilson_matrix& src,
 extern void mult_by_gamma_right(int dir, const wilson_matrix& src, 
 				wilson_matrix& dest );
 
+inline Rcomplex Trace(const WilsonMatrix& p1){ return p1.Trace(); }
+
 //! Spin and Color trace of a 2 WilsonMatrices
 extern Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);
 

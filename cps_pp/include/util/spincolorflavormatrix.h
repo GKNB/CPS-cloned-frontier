@@ -14,10 +14,9 @@
 CPS_START_NAMESPACE
 
 enum SpinMatrixType { gamma1, gamma2, gamma3, gamma4, gamma5, spin_unit };
+enum PropSplane { SPLANE_BOUNDARY, SPLANE_MIDPOINT }; //Usual boundary 5d propagator or the midpoint propagator
 
 class SpinColorFlavorMatrix{
-public:
-  enum PropSplane { SPLANE_BOUNDARY, SPLANE_MIDPOINT }; //Usual boundary 5d propagator or the midpoint propagator
 protected:
   WilsonMatrix wmat[2][2];
   const char *cname;
@@ -444,6 +443,7 @@ public:
   }
 };
 
+inline Complex Trace(const SpinColorFlavorMatrix& a){ return a.Trace(); }
 Complex Trace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
 Matrix SpinFlavorTrace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);
 SpinFlavorMatrix ColorTrace(const SpinColorFlavorMatrix& a, const SpinColorFlavorMatrix& b);

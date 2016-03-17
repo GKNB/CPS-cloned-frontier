@@ -1308,16 +1308,24 @@ void AlgGparityContract::contract_HL_mesons(const ContractionTypeHLMesons &args,
 }
 
 void AlgGparityContract::contract_OVVpAA_gparity(const ContractionTypeOVVpAA &args, const int &conf_idx){
+  std::ostringstream os; os << "O_VV_P_AA";
+  CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
+
+  contract_OVVpAA_gparity(corrfunc,args);
+
+  std::ostringstream file; file << args.file << "." << conf_idx;
+  corrfunc.write(file.str().c_str());
+}  
+
+void AlgGparityContract::contract_OVVpAA_gparity(CorrelationFunction &corrfunc, const ContractionTypeOVVpAA &args){
   /*Require a "CorrelationFunction &corrfunc"*/
   /*Require propagator "QPropWcontainer &prop_src_z_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
   /*Require propagator "QPropWcontainer &prop_src_z_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,z} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
   /*Require propagator "QPropWcontainer &prop_src_x_u_d_eitherflav_pcon corresponding to \mathcal{G}^{[u/d] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
   /*Require propagator "QPropWcontainer &prop_src_x_sprime_s_eitherflav_pcon corresponding to \mathcal{G}^{[s^\prime/s] }_{y,x} with source of either flavour (full prop matrix is generated using single flavour source). Source must be real.*/
-  std::ostringstream os; os << "O_VV_P_AA";
-  CorrelationFunction corrfunc(os.str().c_str(),CorrelationFunction::THREADED);
 
   if(UniqueID()==0) printf("Doing OVVpAA contractions with G-parity BCs\n");
-  const char* fname = "contract_OVVpAA_gparity(const ContractionTypeOVVpAA &args, const int &conf_idx)";
+  const char* fname = "contract_OVVpAA_gparity(CorrelationFunction &corrfunc, const ContractionTypeOVVpAA &args)";
 
   QPropWcontainer &prop_src_z_u_d_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_L_t1),cname,fname);
   QPropWcontainer &prop_src_z_sprime_s_eitherflav_pcon = QPropWcontainer::verify_convert(PropManager::getProp(args.prop_H_t1),cname,fname);
@@ -1518,9 +1526,7 @@ void AlgGparityContract::contract_OVVpAA_gparity(const ContractionTypeOVVpAA &ar
       corrfunc(omp_get_thread_num(),3,y_pos_vec[3]) += contraction;
     }
   }
-
-  std::ostringstream file; file << args.file << "." << conf_idx;
-  corrfunc.write(file.str().c_str());
+  corrfunc.sumLattice();
 }
 
 void AlgGparityContract::contract_OVVpAA_std(const ContractionTypeOVVpAA &args, const int &conf_idx){
@@ -1896,7 +1902,7 @@ void AlgGparityContract::measure_mres_gparity(const ContractionTypeMres &args, C
     
     // J5 contraction (pion)  (factor of 1/2 not included)
     SpinColorFlavorMatrix p[2];
-    p[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_BOUNDARY);
+    p[0].generate(prop_pcon,AlgLattice(),i,SPLANE_BOUNDARY);
     p[1] = p[0];
     p[1].flipSourceMomentum(); //NOTE: This assumes the source matrix structure \eta (not including the phase factor) obeys  C\gamma^5 \sigma_2 \eta^* = \eta C\gamma^5 \sigma_2
                                //      which is a property of pretty much all standard source types (wall, cosine wall, point, etc, also with gauge fixing matrix)
@@ -1904,7 +1910,7 @@ void AlgGparityContract::measure_mres_gparity(const ContractionTypeMres &args, C
     p[1].hconj();
     // J5q contraction (midplane)  (factor of 1/2 not included)
     SpinColorFlavorMatrix q[2];
-    q[0].generate(prop_pcon,AlgLattice(),i,SpinColorFlavorMatrix::SPLANE_MIDPOINT);
+    q[0].generate(prop_pcon,AlgLattice(),i,SPLANE_MIDPOINT);
     q[1] = q[0];
     q[1].flipSourceMomentum();
     q[1].hconj();

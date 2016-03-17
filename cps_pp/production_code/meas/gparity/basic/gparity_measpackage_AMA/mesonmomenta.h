@@ -47,6 +47,7 @@ public:
     prop2_mom   .push_back(Mtype(qtype2,p2.second));
   }
 
+  //Add to QuarkMomenta all the required propagator source momenta of a particular quark species (heavy/light)
   void appendQuarkMomenta(const QuarkType qtype,QuarkMomenta &qmom) const{
     for(int i=0;i<prop1dag_mom.size();i++)
       if(prop1dag_mom[i].first == qtype) 

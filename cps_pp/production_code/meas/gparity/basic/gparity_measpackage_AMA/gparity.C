@@ -221,7 +221,7 @@ int main(int argc,char *argv[])
       double prec = status == 0 ? sloppy_prec : exact_prec;
       
       //Light-quark inversions
-      lightQuarkInvert(props, pp, prec,ml,tslices,light_quark_momenta,lattice,lanc_l);
+      quarkInvert(props, Light, pp, prec,ml,tslices,light_quark_momenta,lattice,lanc_l);
 
       //Pion 2pt LW functions pseudoscalar and axial sinks	     
       measurePion2ptLW(props,pp,tslices,pion_momenta,results_dir,conf);
