@@ -43,7 +43,7 @@
 #define VERSION_STR "CPS_V5.0.19"
 
 #define TARGET NOARCH
-#undef PARALLEL
+#define PARALLEL 1
 
 #define HAVE_BFM 1
 
