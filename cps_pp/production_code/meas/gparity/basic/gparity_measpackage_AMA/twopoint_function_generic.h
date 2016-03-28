@@ -19,7 +19,7 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
   ThreeMomentum p_tot_snk = -p_tot_src; //mom_phase computes exp(-p.x)
   if(use_opposite_sink_mom) p_tot_snk = -p_tot_snk;
   
-  if(!UniqueID()) printf("Computing 2pt LW with src momentum %s and snk momentum %s\n",p_tot_src.str().c_str(),p_tot_snk.str().c_str());
+  //if(!UniqueID()) printf("Computing 2pt LW with src momentum %s and snk momentum %s\n",p_tot_src.str().c_str(),p_tot_snk.str().c_str());
 
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
 

@@ -10,11 +10,11 @@ class PropMomContainer{
   std::map<std::string, PropWrapper> props;
 public:
   void insert(const PropWrapper &prop, const std::string tag){
-    if(props.count(tag) != 0) ERR.General("PropMomContainer","insert","Attempting to insert duplicate of prop with tag %s", tag.c_str());
+    if(props.count(tag) != 0) ERR.General("PropMomContainer","insert","Attempting to insert duplicate of prop with tag '%s'\n", tag.c_str());
     props[tag] = prop;
   }
   PropWrapper & get(const std::string &tag){
-    if(props.count(tag) == 0) ERR.General("PropMomContainer","get","Could not find prop with tag %s", tag.c_str());
+    if(props.count(tag) == 0) ERR.General("PropMomContainer","get","Could not find prop with tag '%s'\n", tag.c_str());
     return props[tag];
   } 
   void clear(){
@@ -32,6 +32,14 @@ public:
     }
     props.clear();
   }
+  void printAllTags() const{
+    if(!UniqueID()){
+      printf("Propagators stored:\n");
+      for(std::map<std::string, PropWrapper>::const_iterator it = props.begin(); it != props.end(); it++)
+	std::cout << it->first << '\n';
+    }
+  }
+
 
   //Takes ownership and deletes props when destroyed
   ~PropMomContainer(){

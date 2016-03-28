@@ -12,9 +12,12 @@ class QuarkMomenta{
   std::vector<ThreeMomentum> mom;
 public:
   inline void add(const ThreeMomentum &val){
+    //if(!UniqueID()) std::cout << "QuarkMomenta adding mom " << val.str() << '\n';
     for(int i=0;i<mom.size();i++) 
-      if(mom[i] == val || mom[i] == -val)
+      if(mom[i] == val || mom[i] == -val){
+	//if(!UniqueID()) std::cout << "Skipping as it (or its negative) already exists: " << mom[i].str() << '\n';
 	return;
+      }
 
     mom.push_back(val);
   }
@@ -33,16 +36,32 @@ class MesonMomenta{
   std::vector<Mtype> prop2_mom;
   
 public:
-  int nMom() const{ return prop2_mom.size(); }
+  inline int nMom() const{ return prop2_mom.size(); }
   
-  ThreeMomentum getQuarkMom(const int quark_idx, const int mom_idx) const{
+  inline ThreeMomentum getQuarkMom(const int quark_idx, const int mom_idx) const{
     return quark_idx == 0 ? -prop1dag_mom[mom_idx].second : prop2_mom[mom_idx].second; //note the - sign for prop1 due to the dagger swapping the momentum
   }
-  ThreeMomentum getMesonMom(const int mom_idx) const{ return prop1dag_mom[mom_idx].second + prop2_mom[mom_idx].second; }
+  inline ThreeMomentum getMesonMom(const int mom_idx) const{ return prop1dag_mom[mom_idx].second + prop2_mom[mom_idx].second; }
+
+  inline QuarkType getQuarkType(const int quark_idx, const int mom_idx) const{
+    return quark_idx == 0 ? prop1dag_mom[mom_idx].first : prop2_mom[mom_idx].first; 
+  }
+
+  void printAllCombs(const std::string & descr = "") const{
+    if(!UniqueID()){
+      printf("Momentum combinations %s:\n",descr.c_str());
+      for(int i=0;i<nMom();i++){
+	std::cout << "(" << (prop1dag_mom[i].first == Light ? "light" : "heavy") << ") " << prop1dag_mom[i].second.str() << " + ";
+	std::cout << "(" << (prop2_mom[i].first == Light ? "light" : "heavy") << ") " << prop2_mom[i].second.str() << '\n';
+      }
+    }
+  }
+    
 
   //Add a (prop1)^dag and (prop2) momentum (respectively) from a string in the form "(%d,%d,%d) + (%d%d,%d)"
   void addP(const std::string &p, const QuarkType qtype1,  const QuarkType qtype2){
     std::pair<ThreeMomentum,ThreeMomentum> p2 = ThreeMomentum::parse_str_two_mom(p);
+    //if(!UniqueID()) std::cout << "MesonMomenta::addP got mompair '" << p << "' and parsed as " << p2.first.str() << " and " << p2.second.str() << '\n';
     prop1dag_mom.push_back(Mtype(qtype1,p2.first ));
     prop2_mom   .push_back(Mtype(qtype2,p2.second));
   }
@@ -54,7 +73,7 @@ public:
 	qmom.add(-prop1dag_mom[i].second); //note minus sign again
     for(int i=0;i<prop2_mom.size();i++)
       if(prop2_mom[i].first == qtype) 
-	qmom.add(prop1dag_mom[i].second); //note no minus sign
+	qmom.add(prop2_mom[i].second); //note no minus sign
   }
 
 };

@@ -52,7 +52,7 @@
 
 USING_NAMESPACE_CPS
 
-#define TESTING
+//#define TESTING
 
 int main(int argc,char *argv[])
 {
@@ -67,26 +67,48 @@ int main(int argc,char *argv[])
   DoArg do_arg;
   LancArg lanc_arg_l;
   LancArg lanc_arg_h;
-  GparityAMAarg ama_arg;
+  GparityAMAarg2 ama_arg;
 
   decode_vml_all(do_arg, bfm_arg, lanc_arg_l, lanc_arg_h, ama_arg, argv[argc-1]);
   if(ama_arg.conf_start >= ama_arg.conf_lessthan || ama_arg.conf_incr == 0) ERR.General("","main()","Invalid configuration args");
+  if(lanc_arg_l.mass != ama_arg.ml) ERR.General("","main()","Light lanczos mass differs from value in AMA args");
+  if(lanc_arg_h.mass != ama_arg.mh) ERR.General("","main()","Heavy lanczos mass differs from value in AMA args");
 
-  bool lanczos_tune = false;
+  bool lanczos_tune_l = false;
+  bool lanczos_tune_h = false;
   bool dbl_latt_storemode = false;
-  Fbfm::use_mixed_solver = false;
+  Fbfm::use_mixed_solver = true;
+  bool mres_do_flavor_project = true;
+  bool bk_do_flavor_project = true;
+  bool do_alternative_mom = true;
   {
     int i = 1;
     while(i<argc-1){
-      if( std::string(argv[i]) == "-lanczos_tune" ){
-	lanczos_tune = true;
+      if( std::string(argv[i]) == "-lanczos_tune_l" ){
+	lanczos_tune_l = true;
+	i++;
+      }else if( std::string(argv[i]) == "-lanczos_tune_h" ){
+	lanczos_tune_h = true;
 	i++;
       }else if( std::string(argv[i]) == "-load_dbl_latt" ){
 	if(!UniqueID()) printf("Loading double latt\n");
 	dbl_latt_storemode = true;
 	i++;
-      }else if( std::string(argv[i]) == "-use_mixed_solver" ){
-	Fbfm::use_mixed_solver = true;
+      }else if( std::string(argv[i]) == "-disable_mixed_solver" ){
+	if(!UniqueID()) printf("Disabling mixed solver\n");
+	Fbfm::use_mixed_solver = false;
+	i++;
+      }else if( std::string(argv[i]) == "-disable_mres_flavor_project" ){ //for comparison with old code
+	if(!UniqueID()) printf("Disabling mres flavor project\n");
+	mres_do_flavor_project = false;
+	i++;
+      }else if( std::string(argv[i]) == "-disable_bk_flavor_project" ){ //for comparison with old code
+	if(!UniqueID()) printf("Disabling BK flavor project\n");
+	bk_do_flavor_project = false;
+	i++;
+      }else if( std::string(argv[i]) == "-disable_use_alternate_mom" ){ 
+	if(!UniqueID()) printf("Disabling use of alternative momentum combinations\n");
+	do_alternative_mom = false;
 	i++;
       }else{
 	ERR.General("","main","Unknown argument: %s",argv[i]);
@@ -118,6 +140,10 @@ int main(int argc,char *argv[])
     if(Fbfm::use_mixed_solver) printf("Using Fbfm mixed precision solver\n");
     else printf("Using Fbfm double precision solver\n");
 
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  check_bk_tsources(ama_arg); //Check the time seps for BK before we have to do any work
+
   GnoneFbfm lattice;
   CommonArg carg("label","filename");
   char load_config_file[1000];
@@ -125,6 +151,37 @@ int main(int argc,char *argv[])
   //Double and single precision bfm instances
   bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
   bfm_evo<float> &dwf_f = static_cast<Fbfm&>(lattice).bf;
+
+  //Decide on the meson and quark momenta we wish to compute
+  MesonMomenta pion_momenta;
+  PionMomenta::setup(pion_momenta,do_alternative_mom);
+  pion_momenta.printAllCombs("pion_momenta");
+    
+  MesonMomenta su2_singlet_momenta;
+  LightFlavorSingletMomenta::setup(su2_singlet_momenta);
+  su2_singlet_momenta.printAllCombs("su2_singlet_momenta");
+
+  MesonMomenta kaon_momenta;
+  KaonMomenta::setup(kaon_momenta);
+  kaon_momenta.printAllCombs("kaon_momenta");
+
+  //Determine the quark momenta we will need
+  QuarkMomenta light_quark_momenta;
+  QuarkMomenta heavy_quark_momenta;
+    
+  pion_momenta.appendQuarkMomenta(Light, light_quark_momenta); //adds the quark momenta it needs
+  su2_singlet_momenta.appendQuarkMomenta(Light, light_quark_momenta);
+  kaon_momenta.appendQuarkMomenta(Light, light_quark_momenta); //each momentum is unique
+  kaon_momenta.appendQuarkMomenta(Heavy, heavy_quark_momenta);
+
+  if(!UniqueID()){
+    printf("Light quark momenta to be computed:\n");
+    for(int i=0;i<light_quark_momenta.nMom();i++)
+      std::cout << light_quark_momenta.getMom(i).str() << '\n';
+    printf("Heavy quark momenta to be computed:\n");
+    for(int i=0;i<heavy_quark_momenta.nMom();i++)
+      std::cout << heavy_quark_momenta.getMom(i).str() << '\n';
+  }
 
   for(int conf=ama_arg.conf_start; conf < ama_arg.conf_lessthan; conf += ama_arg.conf_incr){
 
@@ -154,6 +211,19 @@ int main(int argc,char *argv[])
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
     }
     lattice.BondCond(); //apply BC and import to internal bfm instances
+
+    if(lanczos_tune_l || lanczos_tune_h){
+      BFM_Krylov::Lanczos_5d<double> lanc(dwf_d, lanczos_tune_l ? lanc_arg_l : lanc_arg_h);
+      Float time = -dclock();
+      lanc.Run();     
+      print_time("main","Lanczos tune",time + dclock());
+      if(UniqueID()==0){
+	printf("Main job complete\n"); 
+	fflush(stdout);
+      }
+      return 0;
+    }
+
 
     //Gauge fix lattice if required
     if(ama_arg.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
@@ -185,49 +255,52 @@ int main(int argc,char *argv[])
     //We want stationary mesons and moving mesons. For GPBC there are two inequivalent directions: along the G-parity axis and perpendicular to it. 
     PropMomContainer props; //stores generated propagators by tag
 
-    bool do_alternative_mom = true;
+    std::string results_dir(ama_arg.results_dir);
 
-    //Decide on the meson momenta we wish to compute
-    MesonMomenta pion_momenta;
-    PionMomenta::setup(pion_momenta,do_alternative_mom);
+    std::vector<int> tslice_sloppy(ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_val, 
+				   ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_val + ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_len);
+    std::vector<int> tslice_exact(ama_arg.exact_solve_timeslices.exact_solve_timeslices_val, 
+				  ama_arg.exact_solve_timeslices.exact_solve_timeslices_val + ama_arg.exact_solve_timeslices.exact_solve_timeslices_len);
     
-    MesonMomenta su2_singlet_momenta;
-    LightFlavorSingletMomenta::setup(su2_singlet_momenta);
-
-    MesonMomenta kaon_momenta;
-    KaonMomenta::setup(kaon_momenta);
-
-    //Determine the quark momenta we will need
-    QuarkMomenta light_quark_momenta;
-    QuarkMomenta heavy_quark_momenta;
-    
-    pion_momenta.appendQuarkMomenta(Light, light_quark_momenta); //adds the quark momenta it needs
-    su2_singlet_momenta.appendQuarkMomenta(Light, light_quark_momenta);
-    kaon_momenta.appendQuarkMomenta(Light, light_quark_momenta); //each momentum is unique
-    kaon_momenta.appendQuarkMomenta(Heavy, heavy_quark_momenta);
-
-    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    double sloppy_prec, exact_prec;
-    double ml, mh;
-    std::string results_dir;
-
-    std::vector<int> tslice_sloppy;
-    std::vector<int> tslice_exact;
+    std::vector<int> bk_tseps(ama_arg.bk_tseps.bk_tseps_val, ama_arg.bk_tseps.bk_tseps_val + ama_arg.bk_tseps.bk_tseps_len);
 
     for(int status = 0; status < 2; status++){ //sloppy, exact
       PropPrecision pp = status == 0 ? Sloppy : Exact;
       const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
-      double prec = status == 0 ? sloppy_prec : exact_prec;
+      double prec = status == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision;
       
-      //Light-quark inversions
-      quarkInvert(props, Light, pp, prec,ml,tslices,light_quark_momenta,lattice,lanc_l);
+      if(tslices.size() == 0){
+	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",status == 0 ? "sloppy" : "exact");
+	continue;
+      }
+      if(!UniqueID()) printf("Starting %s contractions\n",status == 0 ? "sloppy" : "exact");
+
+      //Quark inversions
+      quarkInvert(props, Light, pp, prec, ama_arg.ml,tslices,light_quark_momenta,lattice,lanc_l);
+      quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tslices,heavy_quark_momenta,lattice,lanc_h);
+      props.printAllTags();
 
       //Pion 2pt LW functions pseudoscalar and axial sinks	     
       measurePion2ptLW(props,pp,tslices,pion_momenta,results_dir,conf);
 
       //Pion 2pt WW function pseudoscalar sink
       measurePion2ptPPWW(props,pp,tslices,pion_momenta,lattice,results_dir,conf);
+
+      //SU(2) flavor singlet
+      measureLightFlavorSingletLW(props,pp,tslices,su2_singlet_momenta,results_dir,conf);
+      
+      //J5 and J5q for mres
+      measureMres(props,pp,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);
+      
+      //Kaon 2pt LW functions pseudoscalar and axial sinks
+      measureKaon2ptLW(props,pp,tslices,kaon_momenta,results_dir,conf);
+      
+      //Kaon 2pt WW function pseudoscalar sink
+      measureKaon2ptPPWW(props,pp,tslices,kaon_momenta,lattice,results_dir,conf);
+
+      //BK O_{VV+AA} 3pt contractions
+      //Need to ensure that props exist on t0 and t0+tsep for all tseps
+      measureBK(props,pp,tslices,bk_tseps,kaon_momenta,results_dir,conf,bk_do_flavor_project);
 
       props.clear(); //delete all propagators thus far computed
     }

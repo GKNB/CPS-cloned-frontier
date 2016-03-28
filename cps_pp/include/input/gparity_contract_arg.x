@@ -363,3 +363,21 @@ class GparityAMAbilBKarg{
   FixGaugeArg fix_gauge; /* Gauge fixing - Defaults to FIX_GAUGE_NONE */
   rpccommand GENERATE_DEEPCOPY_METHOD;
 };
+
+class GparityAMAarg2{
+  int exact_solve_timeslices<>;
+  int sloppy_solve_timeslices<>;
+  int bk_tseps<>; /*K->K separations for BK. Note that you need to put sources on all t and t+tsep specified above*/
+  Float exact_precision;
+  Float sloppy_precision;
+  Float ml;
+  Float mh;
+
+  string results_dir<>;
+  string config_fmt<>; /* Should contain a %d which is replaced by a config index */
+  int conf_start;
+  int conf_incr;
+  int conf_lessthan;
+  FixGaugeArg fix_gauge; /* Gauge fixing - Defaults to FIX_GAUGE_NONE */
+  rpccommand GENERATE_DEEPCOPY_METHOD;
+};

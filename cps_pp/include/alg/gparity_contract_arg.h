@@ -693,6 +693,43 @@ template<> struct rpc_deepcopy<GparityAMAbilBKarg>{
 };
 
 
+
+#include <util/vml/vml_templates.h>
+class VML;
+class GparityAMAarg2 {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	struct {
+		u_int exact_solve_timeslices_len;
+		int *exact_solve_timeslices_val;
+	} exact_solve_timeslices;
+	struct {
+		u_int sloppy_solve_timeslices_len;
+		int *sloppy_solve_timeslices_val;
+	} sloppy_solve_timeslices;
+	struct {
+		u_int bk_tseps_len;
+		int *bk_tseps_val;
+	} bk_tseps;
+	Float exact_precision;
+	Float sloppy_precision;
+	Float ml;
+	Float mh;
+	char *results_dir;
+	char *config_fmt;
+	int conf_start;
+	int conf_incr;
+	int conf_lessthan;
+	FixGaugeArg fix_gauge;
+	   void deep_copy(const GparityAMAarg2 &rhs);
+};
+template<> struct rpc_deepcopy<GparityAMAarg2>{
+	static void doit(GparityAMAarg2 &into, GparityAMAarg2 const &from);
+};
+
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -727,6 +764,7 @@ extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
 extern  bool_t vml_GparityAMAbilBKarg (VML *, char *instance, GparityAMAbilBKarg*);
+extern  bool_t vml_GparityAMAarg2 (VML *, char *instance, GparityAMAarg2*);
 
 #else /* K&R C */
 extern  bool_t vml_ContractionType (VML *, char *instance, ContractionType*);
@@ -756,6 +794,7 @@ extern  bool_t vml_GparityMeasurement (VML *, char *instance, GparityMeasurement
 extern  bool_t vml_GparityContractArg (VML *, char *instance, GparityContractArg*);
 extern  bool_t vml_GparityAMAarg (VML *, char *instance, GparityAMAarg*);
 extern  bool_t vml_GparityAMAbilBKarg (VML *, char *instance, GparityAMAbilBKarg*);
+extern  bool_t vml_GparityAMAarg2 (VML *, char *instance, GparityAMAarg2*);
 
 #endif /* K&R C */
 
