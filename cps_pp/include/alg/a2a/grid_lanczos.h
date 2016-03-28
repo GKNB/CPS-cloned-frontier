@@ -6,7 +6,7 @@
 
 CPS_START_NAMESPACE
 
-inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERMION> &evec, const LancArg &lanc_arg, GnoneFgrid &lattice){
+inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERMION> &evec, const LancArg &lanc_arg, GFGRID &lattice){
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();

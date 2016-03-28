@@ -4,6 +4,15 @@
 #include<util/lattice.h>
 #include<util/lattice/bfm_mixed_solver.h>
 #include <util/lattice/bfm_evo.h>
+#ifdef USE_GRID
+#include <util/lattice/fgrid.h>
+#define FGRID FgridGparityMobius
+#define GFGRID GnoneFgridGparityMobius
+#define DIRAC Grid::QCD::GparityMobiusFermionD
+#define LATTICE_FERMION DIRAC ::FermionField
+#define FGRID_CLASS_NAME F_CLASS_GRID_MOBIUS
+#define GRID_GPARITY
+#endif
 #include <alg/eigen/Krylov_5d.h>
 
 #include<alg/a2a/CPSfield.h>

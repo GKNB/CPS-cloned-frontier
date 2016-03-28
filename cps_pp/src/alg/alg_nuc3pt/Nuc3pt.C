@@ -983,7 +983,7 @@ void Nuc3ptCons::InsertOp(CorrFunc& tmp,QPropW& seqQ, QPropW& Quark)
       glb_sum_dir(&isum, 4);
       tmp[t] = Complex( rsum, isum );
     }
-    tmp[t]=tmp[t]/2;
+    tmp[t]=tmp[t]/2.;
   }
 }
 
@@ -1187,7 +1187,7 @@ void Nuc3ptCons::InsertOp(CorrFunc* tmp,QPropW& seqQ, QPropW& Quark, int Nmom, T
 	glb_sum_dir(&isum, 4);
 	tmp[ip][t] = Complex( rsum, isum );
       }
-      tmp[ip][t]=tmp[ip][t]/2;
+      tmp[ip][t]=tmp[ip][t]/2.;
     }
   }
 

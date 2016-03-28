@@ -286,7 +286,7 @@ void AlgPot::run()
       
       for (r2=0; r2 < max_r2; r2++){
 	if (number[r2]!=0) {
-	  Complex W =  Wts[r2]/number[r2];
+	  Complex W =  Wts[r2]/(double)number[r2];
 	  pot_real = real(W);
 	  pot_imag = imag(W);
 	  // printf("before global sum %d %d %d %e %e \n",

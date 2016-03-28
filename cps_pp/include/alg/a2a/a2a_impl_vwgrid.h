@@ -58,7 +58,7 @@ inline void exportBFMcb(CPSfermion5D<double> &into, Fermion_t from, bfm_evo<doub
   dwf.freeFermion(zero_a);
   dwf.freeFermion(etmp);
 }
-inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, Fgrid &latg){
+inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, FGRID &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   LATTICE_FERMION tmp_g(FGrid);
   tmp_g = Grid::zero;
@@ -74,7 +74,7 @@ inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, Fgri
 class EvecInterfaceBFM: public EvecInterface{
   BFM_Krylov::Lanczos_5d<double> &eig;
   bfm_evo<double> &dwf;
-  Fgrid *latg;
+  FGRID *latg;
   double *cps_tmp_d;
   Fermion_t bq_tmp_bfm;
   bool singleprec_evecs;
@@ -88,7 +88,7 @@ public:
 
     assert(lat.Fclass() == F_CLASS_GRID);
     assert(dwf.precon_5d == 0);
-    latg = dynamic_cast<Fgrid*>(&lat);
+    latg = dynamic_cast<FGRID*>(&lat);
 
     Grid::GridCartesian *FGrid = latg->getFGrid();
     tmp_full = new LATTICE_FERMION(FGrid);
@@ -115,7 +115,7 @@ public:
     }
     //Use Fgrid to convert to a Grid field
     *tmp_full = Grid::zero;
-    latg->ImportFermion(*tmp_full, (Vector*)cps_tmp_d, Fgrid::Odd);
+    latg->ImportFermion(*tmp_full, (Vector*)cps_tmp_d, FgridBase::Odd);
     pickCheckerboard(Odd,into,*tmp_full);
 
     return eig.evals[idx];
@@ -209,8 +209,8 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
   if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
 #endif
 
-  assert(lat.Fclass() == F_CLASS_GRID);
-  Fgrid &latg = dynamic_cast<Fgrid&>(lat);
+  assert(lat.Fclass() == FGRID_CLASS_NAME);
+  FGRID &latg = dynamic_cast<FGRID&>(lat);
 
   //Grids and gauge field
   Grid::GridCartesian *UGrid = latg.getUGrid();
@@ -268,7 +268,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     setCheckerboard(tmp_full, bq_tmp); //odd checkerboard
 
     //Get 4D part and poke into a
-    latg.ImportFermion(b,tmp_full,Fgrid::All);
+    latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
     //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
     VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, afield.size());
@@ -293,7 +293,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     axpy(tmp_full, -mob_c, tmp_full2, tmp_full); 
 
     //Get 4D part, poke onto a then copy into wl
-    latg.ImportFermion(b,tmp_full,Fgrid::All);
+    latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
     VecTimesEquFloat<mf_Float,Float>(wl[i].ptr(), (Float*)a, 1.0, afield.size());
   }
@@ -308,7 +308,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
 
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.
 inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &source, double resid, int max_iters, EvecInterface &evecs, int nLowMode, 
-			     Fgrid &latg, DIRAC &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
+			     FGRID &latg, DIRAC &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
   double f = norm2(source);
   if (!UniqueID()) printf("Grid_CGNE_M_high: Source norm is %le\n",f);
   f = norm2(solution);
@@ -412,7 +412,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
 #endif
 
   assert(lat.Fclass() == F_CLASS_GRID);
-  Fgrid &latg = dynamic_cast<Fgrid&>(lat);
+  FGRID &latg = dynamic_cast<FGRID&>(lat);
 
   //Grids and gauge field
   Grid::GridCartesian *UGrid = latg.getUGrid();

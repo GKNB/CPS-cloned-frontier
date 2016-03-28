@@ -131,7 +131,7 @@ class Nuc2pt
 	default:
 	  ERR.General(cname,"calc_nuc_","Unknown Operator\n") ;
 	}	          
-      plus_parity[t]  += Trace(Q5,Uq)/2;
+      plus_parity[t]  += Trace(Q5,Uq)/2.;
       minus_parity[t] += Trace(Q5,Dq);
     }
 
