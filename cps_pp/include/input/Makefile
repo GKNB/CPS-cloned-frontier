@@ -1,11 +1,11 @@
-SRCDIR = /home/ckelly/CPS/build/cps_0112/../../src/cps/cps_pp
-BUILDDIR = /home/ckelly/CPS/build/cps_0112
+SRCDIR = /project/projectdirs/m2078/chulwoo/Gparity//src//ckelly/cps_pp
+BUILDDIR = /project/projectdirs/m2078/chulwoo/Gparity/build/ckelly
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/
 RCFLAGS=-c -C -x -u util/vml/ -v alg/
 
-all: vml.done enum_int.stmp2 cg_arg.stmp do_arg.stmp w_spect_arg.stmp hmc_arg.stmp hmd_arg.stmp pbp_arg.stmp eig_arg.stmp pot_arg.stmp fix_gauge_arg.stmp meas_arg.stmp int_arg.stmp dens_arg.stmp array_arg.stmp ghb_arg.stmp noise_arg.stmp mom_arg.stmp hyp_smear_arg.stmp kinetic_smear_arg.stmp s_spect_arg.stmp bfm_arg.stmp
+all: vml.done enum_int.stmp2 cg_arg.stmp do_arg.stmp w_spect_arg.stmp hmc_arg.stmp hmd_arg.stmp pbp_arg.stmp eig_arg.stmp pot_arg.stmp fix_gauge_arg.stmp meas_arg.stmp int_arg.stmp dens_arg.stmp array_arg.stmp ghb_arg.stmp noise_arg.stmp mom_arg.stmp hyp_smear_arg.stmp kinetic_smear_arg.stmp s_spect_arg.stmp bfm_arg.stmp a2a_arg.stmp
 
 all: qpropw_arg.stmp nuc3pt_arg.stmp ape_smear_arg.stmp eigcg_arg.stmp
 

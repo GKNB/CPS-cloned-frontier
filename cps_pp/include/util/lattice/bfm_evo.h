@@ -12,6 +12,7 @@
 #define INCLUDED_BFM_EVO_HT_H
 
 #include <stdio.h>
+#include <bagel_int.h>
 #include <bfm.h>
 #include <bfm_qdp.h>
 #include <omp.h>

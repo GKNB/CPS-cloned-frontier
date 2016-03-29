@@ -34,7 +34,8 @@ CPS_START_NAMESPACE
 // We use standard library for Rcomplex
 typedef std::complex<IFloat> Rcomplex;
 
-#if __cplusplus <= 201103L
+//#if __cplusplus <= 201103L
+#if 0
 static inline Rcomplex operator/(const Rcomplex &a, IFloat b)
 {
     Rcomplex tmp = a;

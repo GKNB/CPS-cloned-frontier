@@ -183,7 +183,7 @@ void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dw
 }
 
 #if defined(USE_GRID_LANCZOS)
-void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, GnoneFgrid &lattice){
+void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, GFGRID &lattice){
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();
@@ -274,14 +274,14 @@ struct LatticeSetup{
   //Grid or Grid/BFM mixed
 #if defined(USE_GRID_LANCZOS) || defined(USE_GRID_A2A)
 
-  typedef GnoneFgrid LatticeType;
-  GnoneFgrid *lat;
+  typedef GFGRID LatticeType;
+  LatticeType *lat;
   
   LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
     assert(jp.solver == HmCayleyTanh);
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
-    lat = new GnoneFgrid(grid_params); //applies BondCond in constructor
+    lat = new LatticeType(grid_params); //applies BondCond in constructor
     lat->ImportGauge(); //lattice -> Grid  
     lat->BondCond(); //unapply BondCond
 
@@ -318,7 +318,7 @@ struct Lanczos{
   double mass;
   double resid;
 
-  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, GnoneFgrid &lat){
+  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, GFGRID &lat){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
     gridLanczos(eval,evec,lanc_arg,lat);

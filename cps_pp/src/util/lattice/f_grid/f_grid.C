@@ -5,7 +5,7 @@
 
 CPS_START_NAMESPACE
 
-bool Fgrid::grid_initted=0;
+bool FgridBase::grid_initted=0;
 
 
 //------------------------------------------------------------------
@@ -23,7 +23,7 @@ bool Fgrid::grid_initted=0;
   explained above.
 */
 //------------------------------------------------------------------
-void Fgrid::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
+void FgridBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
 {
   int x;
   int i;
@@ -130,7 +130,7 @@ void Fgrid::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
   direction.
 */
 //------------------------------------------------------------------
-void Fgrid::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
+void FgridBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
 {
   int x;
   int i;

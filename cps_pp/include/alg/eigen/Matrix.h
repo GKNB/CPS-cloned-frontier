@@ -4,8 +4,8 @@
 #include <qdp.h>
 #include <qdp_util.h>
 
-#include <chroma.h>
-#include <actions/ferm/invert/syssolver_linop_cg_array.h>
+//#include <chroma.h>
+//#include <actions/ferm/invert/syssolver_linop_cg_array.h>
 
 #include <bfm.h>
 #include <bfm_qdp.h>

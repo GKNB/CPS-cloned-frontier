@@ -42,6 +42,10 @@ enum FclassType {
 	F_CLASS_BFM = 9,
 	F_CLASS_BFM_TYPE2 = 10,
 	F_CLASS_GRID = 11,
+	F_CLASS_GRID_GPARITY_MOBIUS = 12,
+	F_CLASS_GRID_MOBIUS = 13,
+	F_CLASS_GRID_GPARITY_WILSON_TM = 14,
+	F_CLASS_GRID_WILSON_TM = 15,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];
