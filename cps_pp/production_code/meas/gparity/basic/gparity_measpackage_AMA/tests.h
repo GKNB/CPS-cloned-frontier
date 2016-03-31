@@ -137,15 +137,16 @@ void compareProps(QPropW &A, QPropW &B, const std::string label, Float tol = 1e-
 
 
 
-PropagatorContainer & computePropagatorOld(const std::string &tag, const double mass, const double stop_prec, const int t, const int flav, const int p[3], Lattice &latt, const std::string tag_otherflav = "", BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+PropagatorContainer & computePropagatorOld(const std::string &tag, const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, Lattice &latt, const std::string tag_otherflav = "", BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
   if(deflate != NULL) ERR.General("","computePropagatorOld","Deflation not yet implemented\n");
 
   PropagatorArg parg;
   parg.generics.type = QPROPW_TYPE;
   parg.generics.tag = strdup(tag.c_str());
   parg.generics.mass = mass;
-  for(int i=0;i<4;i++)
+  for(int i=0;i<3;i++)
     parg.generics.bc[i] = GJP.Bc(i);
+  parg.generics.bc[3] = time_bc;
   
   int len = 6 + (tag_otherflav != "" ? 1 : 0);
   parg.attributes.attributes_len = len;
@@ -400,11 +401,11 @@ int run_tests(int argc,char *argv[])
   ThreeMomentum mp(-p);
 
   int tsrc = 0;
-  PropagatorContainer &prop_f0_pplus = computePropagatorOld("prop_f0_pplus",0.01,prec,tsrc,0,p.ptr(),lattice, "prop_f1_pplus");
-  PropagatorContainer &prop_f1_pplus = computePropagatorOld("prop_f1_pplus",0.01,prec,tsrc,1,p.ptr(),lattice, "prop_f0_pplus");
+  PropagatorContainer &prop_f0_pplus = computePropagatorOld("prop_f0_pplus",0.01,prec,tsrc,0,p.ptr(),BND_CND_APRD,lattice, "prop_f1_pplus");
+  PropagatorContainer &prop_f1_pplus = computePropagatorOld("prop_f1_pplus",0.01,prec,tsrc,1,p.ptr(),BND_CND_APRD,lattice, "prop_f0_pplus");
 
-  PropagatorContainer &prop_f0_pminus = computePropagatorOld("prop_f0_pminus",0.01,prec,tsrc,0,mp.ptr(),lattice, "prop_f1_pminus");
-  PropagatorContainer &prop_f1_pminus = computePropagatorOld("prop_f1_pminus",0.01,prec,tsrc,1,mp.ptr(),lattice, "prop_f0_pminus");
+  PropagatorContainer &prop_f0_pminus = computePropagatorOld("prop_f0_pminus",0.01,prec,tsrc,0,mp.ptr(),BND_CND_APRD,lattice, "prop_f1_pminus");
+  PropagatorContainer &prop_f1_pminus = computePropagatorOld("prop_f1_pminus",0.01,prec,tsrc,1,mp.ptr(),BND_CND_APRD,lattice, "prop_f0_pminus");
 
   PropManager::calcProps(lattice);
 
@@ -430,7 +431,7 @@ int run_tests(int argc,char *argv[])
   if(!UniqueID()) printf("cconj reln test plus passed\n");
 
 
-  QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, lattice);
+  QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, lattice);
   
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice), *prop_f0_pplus_test, "f0 p+ test", 1e-12);
 
@@ -662,8 +663,8 @@ int run_tests(int argc,char *argv[])
 
   //Kaon stuff
   //Assign momentum -p to the strange quark. This is the one that is daggered so we need +p for the propagator
-  PropagatorContainer &propH_f0_pplus = computePropagatorOld("propH_f0_pplus",0.04,prec,tsrc,0,p.ptr(),lattice, "propH_f1_pplus");
-  PropagatorContainer &propH_f1_pplus = computePropagatorOld("propH_f1_pplus",0.04,prec,tsrc,1,p.ptr(),lattice, "propH_f0_pplus");
+  PropagatorContainer &propH_f0_pplus = computePropagatorOld("propH_f0_pplus",0.04,prec,tsrc,0,p.ptr(),BND_CND_APRD,lattice, "propH_f1_pplus");
+  PropagatorContainer &propH_f1_pplus = computePropagatorOld("propH_f1_pplus",0.04,prec,tsrc,1,p.ptr(),BND_CND_APRD,lattice, "propH_f0_pplus");
 
   PropWrapper pw_propH_pplus(&QPropWcontainer::verify_convert(propH_f0_pplus,"","").getProp(lattice),
 			     &QPropWcontainer::verify_convert(propH_f1_pplus,"","").getProp(lattice));
@@ -671,15 +672,15 @@ int run_tests(int argc,char *argv[])
   //Test BK against old code
   //Generate props for sink kaon
   int tsnk = Lt-1;
-  PropagatorContainer &propH_f0_pplus_tsnk = computePropagatorOld("propH_f0_pplus_tsnk",0.04,prec,tsnk,0,p.ptr(),lattice, "propH_f1_pplus_tsnk");
-  PropagatorContainer &propH_f1_pplus_tsnk = computePropagatorOld("propH_f1_pplus_tsnk",0.04,prec,tsnk,1,p.ptr(),lattice, "propH_f0_pplus_tsnk");
+  PropagatorContainer &propH_f0_pplus_tsnk = computePropagatorOld("propH_f0_pplus_tsnk",0.04,prec,tsnk,0,p.ptr(),BND_CND_APRD,lattice, "propH_f1_pplus_tsnk");
+  PropagatorContainer &propH_f1_pplus_tsnk = computePropagatorOld("propH_f1_pplus_tsnk",0.04,prec,tsnk,1,p.ptr(),BND_CND_APRD,lattice, "propH_f0_pplus_tsnk");
 
   PropWrapper pw_propH_pplus_tsnk(&QPropWcontainer::verify_convert(propH_f0_pplus_tsnk,"","").getProp(lattice),
 				  &QPropWcontainer::verify_convert(propH_f1_pplus_tsnk,"","").getProp(lattice));
 
 
-  PropagatorContainer &prop_f0_pplus_tsnk = computePropagatorOld("prop_f0_pplus_tsnk",0.01,prec,tsnk,0,p.ptr(),lattice, "prop_f1_pplus_tsnk");
-  PropagatorContainer &prop_f1_pplus_tsnk = computePropagatorOld("prop_f1_pplus_tsnk",0.01,prec,tsnk,1,p.ptr(),lattice, "prop_f0_pplus_tsnk");
+  PropagatorContainer &prop_f0_pplus_tsnk = computePropagatorOld("prop_f0_pplus_tsnk",0.01,prec,tsnk,0,p.ptr(),BND_CND_APRD,lattice, "prop_f1_pplus_tsnk");
+  PropagatorContainer &prop_f1_pplus_tsnk = computePropagatorOld("prop_f1_pplus_tsnk",0.01,prec,tsnk,1,p.ptr(),BND_CND_APRD,lattice, "prop_f0_pplus_tsnk");
 
   PropWrapper pw_prop_pplus_tsnk(&QPropWcontainer::verify_convert(prop_f0_pplus_tsnk,"","").getProp(lattice),
 				 &QPropWcontainer::verify_convert(prop_f1_pplus_tsnk,"","").getProp(lattice));
