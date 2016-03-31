@@ -103,7 +103,7 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
   bool change_bc = (init_tbc != target_tbc);
 
   if(change_bc){
-    //if(is_wrapper_type) latt.BondCond();  //Fbfm currently has the BC applied to its internal gauge fields. We first un-apply it before changing things (do I need this?)
+    if(is_wrapper_type) latt.BondCond();  //CPS Lattice currently has the BC applied. We first un-apply it before changing things
     GJP.Bc(3,target_tbc);
     if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
   }
@@ -111,7 +111,7 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
 
   if(change_bc){
     //Restore the BCs
-    //if(is_wrapper_type) latt.BondCond();  //unapply existing BC
+    if(is_wrapper_type) latt.BondCond();  //unapply existing BC
     GJP.Bc(3,init_tbc);
     if(is_wrapper_type) latt.BondCond();  //Reapply original BC to internal gauge fields
   }
@@ -196,7 +196,7 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
   bool change_bc = (init_tbc != target_tbc);
 
   if(change_bc){
-    //latt.BondCond();  //Fbfm currently has the BC applied to its internal gauge fields. We first un-apply it before changing things (do I need this?)
+    lattice.BondCond();
     GJP.Bc(3,target_tbc);
     lattice.BondCond();  //Apply new BC to internal gauge fields
   }
@@ -213,7 +213,7 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
     //Restore the BCs
     lattice.BondCond();  //unapply existing BC
     GJP.Bc(3,init_tbc);
-    //latt.BondCond();  //Reapply original BC to internal gauge fields
+    lattice.BondCond();  //Reapply original BC to internal gauge fields
   }
   return ret;
 }

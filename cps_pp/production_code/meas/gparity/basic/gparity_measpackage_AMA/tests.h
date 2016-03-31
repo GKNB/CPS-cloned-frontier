@@ -189,6 +189,38 @@ PropagatorContainer & computePropagatorOld(const std::string &tag, const double 
   return PropManager::addProp(parg);
 }
 
+PropagatorContainer & computeCombinedPropagatorOld(const std::string &tag, const double mass, const PropCombination comb, const std::string &tag_A, const std::string &tag_B,  const std::string tag_otherflav = ""){
+  PropagatorArg parg;
+  parg.generics.type = QPROPW_TYPE;
+  parg.generics.tag = strdup(tag.c_str());
+  parg.generics.mass = mass;
+  for(int i=0;i<4;i++)
+    parg.generics.bc[i] = GJP.Bc(i);
+
+  int len = 1 + (tag_otherflav != "" ? 1 : 0);
+  parg.attributes.attributes_len = len;
+  parg.attributes.attributes_val = new AttributeContainer[len];
+
+  parg.attributes.attributes_val[0].type = PROP_COMBINATION_ATTR;
+  PropCombinationAttrArg &pc = parg.attributes.attributes_val[0].AttributeContainer_u.prop_combination_attr;
+  pc.prop_A = strdup(tag_A.c_str());
+  pc.prop_B = strdup(tag_B.c_str());
+  pc.combination = comb;
+
+  //Other necessary attributes will be copied over if not specified here
+
+  if(tag_otherflav != ""){
+    parg.attributes.attributes_val[1].type = GPARITY_OTHER_FLAV_PROP_ATTR;
+    GparityOtherFlavPropAttrArg &gofa = parg.attributes.attributes_val[1].AttributeContainer_u.gparity_other_flav_prop_attr;
+    gofa.tag = strdup(tag_otherflav.c_str());
+  }
+  return PropManager::addProp(parg);
+}
+
+
+
+
+
 
 bool test_equals(const SpinColorFlavorMatrix &a, const SpinColorFlavorMatrix &b, const double &eps){
   for(int i=0;i<4;i++){
@@ -430,10 +462,47 @@ int run_tests(int argc,char *argv[])
   }
   if(!UniqueID()) printf("cconj reln test plus passed\n");
 
-
+  //Check we can reproduce the propagator using the new code
   QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, lattice);
   
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice), *prop_f0_pplus_test, "f0 p+ test", 1e-12);
+
+  PropagatorContainer &prop_f0_pplus_P = computePropagatorOld("prop_f0_pplus_P",0.01,prec,tsrc,0,p.ptr(),BND_CND_PRD,lattice, "prop_f1_pplus_P");
+  QPropWMomSrc* prop_f0_pplus_P_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_PRD, lattice);
+
+  compareProps(QPropWcontainer::verify_convert(prop_f0_pplus_P,"","").getProp(lattice), *prop_f0_pplus_P_test, "f0 p+ P test", 1e-12);
+
+  //Made propwrappers
+  PropWrapper pw_prop_pplus(&QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice),
+			    &QPropWcontainer::verify_convert(prop_f1_pplus,"","").getProp(lattice));
+  
+  PropWrapper pw_prop_pminus(&QPropWcontainer::verify_convert(prop_f0_pminus,"","").getProp(lattice),
+			     &QPropWcontainer::verify_convert(prop_f1_pminus,"","").getProp(lattice));
+
+
+  //Check that the propagator Tbc combinations are computed properly
+  {
+    PropagatorContainer &prop_f1_pplus_P = computePropagatorOld("prop_f1_pplus_P",0.01,prec,tsrc,1,p.ptr(),BND_CND_PRD,lattice, "prop_f0_pplus_P");
+    
+    PropagatorContainer & prop_f0_pplus_F = computeCombinedPropagatorOld("prop_f0_pplus_F",0.01,A_PLUS_B,"prop_f0_pplus_P","prop_f0_pplus",  "prop_f1_pplus_F");
+    PropagatorContainer & prop_f1_pplus_F = computeCombinedPropagatorOld("prop_f1_pplus_F",0.01,A_PLUS_B,"prop_f1_pplus_P","prop_f1_pplus",  "prop_f0_pplus_F");
+
+    PropagatorContainer & prop_f0_pplus_B = computeCombinedPropagatorOld("prop_f0_pplus_F",0.01,A_MINUS_B,"prop_f0_pplus_P","prop_f0_pplus",  "prop_f1_pplus_B");
+    PropagatorContainer & prop_f1_pplus_B = computeCombinedPropagatorOld("prop_f1_pplus_F",0.01,A_MINUS_B,"prop_f1_pplus_P","prop_f1_pplus",  "prop_f0_pplus_B");
+
+  
+    PropWrapper pw_prop_pplus_P(&QPropWcontainer::verify_convert(prop_f0_pplus_P,"","").getProp(lattice),
+				&QPropWcontainer::verify_convert(prop_f1_pplus_P,"","").getProp(lattice));
+    PropWrapper pw_prop_pplus_F = PropWrapper::combinePA(pw_prop_pplus_P,pw_prop_pplus,CombinationF);
+    PropWrapper pw_prop_pplus_B = PropWrapper::combinePA(pw_prop_pplus_P,pw_prop_pplus,CombinationB);
+
+    compareProps(QPropWcontainer::verify_convert(prop_f0_pplus_F,"","").getProp(lattice), *pw_prop_pplus_F.getPtr(0), "f0 F test", 1e-12);
+    compareProps(QPropWcontainer::verify_convert(prop_f1_pplus_F,"","").getProp(lattice), *pw_prop_pplus_F.getPtr(1), "f1 F test", 1e-12);
+    compareProps(QPropWcontainer::verify_convert(prop_f0_pplus_B,"","").getProp(lattice), *pw_prop_pplus_B.getPtr(0), "f0 B test", 1e-12);
+    compareProps(QPropWcontainer::verify_convert(prop_f1_pplus_B,"","").getProp(lattice), *pw_prop_pplus_B.getPtr(1), "f1 B test", 1e-12);
+    if(!UniqueID()) printf("Passed prop comb test\n");
+  }
+  
 
   //Test pion 2pt against old code
   int L[4] = {GJP.XnodeSites()*GJP.Xnodes(), GJP.YnodeSites()*GJP.Ynodes(), GJP.ZnodeSites()*GJP.Znodes(), GJP.TnodeSites()*GJP.Tnodes()};
@@ -452,12 +521,6 @@ int run_tests(int argc,char *argv[])
 
   Pion2PtSinkOp snk_op_new[] = { AX, AY, AZ, AT, P };
   int snk_spn_old[] = {1,2,4,8,0};
-
-  PropWrapper pw_prop_pplus(&QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice),
-			    &QPropWcontainer::verify_convert(prop_f1_pplus,"","").getProp(lattice));
-  
-  PropWrapper pw_prop_pminus(&QPropWcontainer::verify_convert(prop_f0_pminus,"","").getProp(lattice),
-			     &QPropWcontainer::verify_convert(prop_f1_pminus,"","").getProp(lattice));
 
   //Test axial, pseudo sink pion LW 2pt funtions
   for(int oo=0;oo<5;oo++){

@@ -139,29 +139,6 @@ void init_fbfm(int *argc, char **argv[], const BfmArg &args)
 }
 
 
-
-
-
-
-
-
-
-// static std::string momTag(const int p[3]){
-//   std::ostringstream os;
-//   os << 'p';
-//   for(int i=0;i<3;i++){
-//     if(p[i] < 0) os << '_';
-//     os << p[i];
-//   }
-//   return os.str();
-// }
-
-
-
-
-
-
-
 CPS_END_NAMESPACE
 
 
