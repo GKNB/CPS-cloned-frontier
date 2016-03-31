@@ -22,10 +22,10 @@ public:
     if(bc_comb == Single){
       switch(basic_bc){
       case BND_CND_PRD:
-	return std::string('P');
+	return std::string("P");
 	break;
       case BND_CND_APRD:
-	return std::string('A');
+	return std::string("A");
 	break;
       default:
 	ERR.General("TbcStatus","getTag","Unknown TBC\n");
@@ -306,6 +306,17 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
 	writePion2ptLW(results_wrongproj_wrongsinkmom, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "_wrongproj_wrongsinkmom");
       }
     }
+
+    //Also do A4 A4 
+    fMatrix<double> results(Lt,Lt);
+    for(int s=0;s<tslices.size();s++){
+      const int tsrc = tslices[s];
+      
+      PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
+      PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+      pionTwoPointA4A4LWGparity(results,tsrc,p1,p2,prop1,prop2);
+    }
+    writeBasic2ptLW(results,results_dir,"pion_AT_AT_LW",p1,p2,status,time_bc,conf);
   }
 }
 
