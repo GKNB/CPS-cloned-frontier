@@ -1,9 +1,16 @@
 #ifndef FFTW_WRAPPER
 #define FFTW_WRAPPER
 
+//#ifdef USE_FFTW
 #include <fftw3.h>
+//#endif
 
 CPS_START_NAMESPACE 
+
+//Basic, slow implementation if FFTW not available
+
+
+
 
 //Wrap fftw library for multiple templated float types
 template<typename mf_Float>

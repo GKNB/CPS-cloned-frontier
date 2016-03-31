@@ -411,7 +411,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
   if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
 #endif
 
-  assert(lat.Fclass() == F_CLASS_GRID);
+  assert(lat.Fclass() == FGRID_CLASS_NAME);
   FGRID &latg = dynamic_cast<FGRID&>(lat);
 
   //Grids and gauge field

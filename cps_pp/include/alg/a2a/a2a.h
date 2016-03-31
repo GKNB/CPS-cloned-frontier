@@ -10,7 +10,7 @@
 #define GFGRID GnoneFgridGparityMobius
 #define DIRAC Grid::QCD::GparityMobiusFermionD
 #define LATTICE_FERMION DIRAC ::FermionField
-#define FGRID_CLASS_NAME F_CLASS_GRID_MOBIUS
+#define FGRID_CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
 #define GRID_GPARITY
 #endif
 #include <alg/eigen/Krylov_5d.h>
