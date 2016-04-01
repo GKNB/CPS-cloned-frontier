@@ -531,7 +531,7 @@ int run_tests(int argc,char *argv[])
     const std::vector<Rcomplex> pps1 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
   							    0, 1, snk_spn_old[oo], 3);
     std::vector<Rcomplex> ppconbil(pps3);
-    for(int i=0;i<pps3.size();i++) ppconbil[i] = (snk_op_new[oo] == P ? 1. : -1.)*0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
+    for(int i=0;i<pps3.size();i++) ppconbil[i] = 0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
     
     fMatrix<double> ppnew(1,L[3]);
     pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],mp,p,pw_prop_pminus,pw_prop_pplus);
@@ -625,7 +625,7 @@ int run_tests(int argc,char *argv[])
     const std::vector<Rcomplex> pps2 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
      							    0, 2, 0, 0);
     std::vector<Rcomplex> ppconbil(L[3]);
-    for(int i=0;i<L[3];i++) ppconbil[i] = 0.5*(pp1[i] - pps2[i]);
+    for(int i=0;i<L[3];i++) ppconbil[i] = 0.25*(pp1[i] - pps2[i]);
 
     fMatrix<double> ppnew(1,L[3]);
     lightFlavorSingletLWGparity(ppnew,0,p,p,pw_prop_pplus,pw_prop_pplus);

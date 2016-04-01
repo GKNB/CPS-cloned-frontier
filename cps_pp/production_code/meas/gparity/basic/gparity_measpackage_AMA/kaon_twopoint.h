@@ -18,24 +18,24 @@ void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
 }
 
-//*Physical* time-component axial operator sink   \sqrt(2) F0 g4 g5    (g5 is removed by g5-hermiticity)
+//*Physical* time-component axial operator sink   -i F0 g4 g5    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
 			      const PropWrapper &prop_h, const PropWrapper &prop_l){
   ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^5 proj(-p1) psi_h(-p1)
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
   BasicGparityOp snk_op(gamma4,F0);
 
-  Complex coeff(-1.0,0);
+  Complex coeff(1.0,0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
 }
-//*Unphysical* time-component axial operator sink   \sqrt(2) F1 g4 g5, connects to unphysical kaon component    (g5 is removed by g5-hermiticity)
+//*Unphysical* time-component axial operator sink   -i F1 g4 g5, connects to unphysical kaon component    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
 			      const PropWrapper &prop_h, const PropWrapper &prop_l){
   ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^5 proj(-p1) psi_h(-p1)
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
   BasicGparityOp snk_op(gamma4,F1);
 
-  Complex coeff(-1.0,0);
+  Complex coeff(1.0,0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
 }
 //Time-component axial source and sink that connects to both the physical and unphysical components
@@ -45,7 +45,7 @@ void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, co
   GparityOpWithFlavorProject src_op(gamma4,sigma0,p_psi_src);
   BasicGparityOp snk_op(gamma4,sigma0);
 
-  Complex coeff(-0.5,0);
+  Complex coeff(0.5,0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
 }
 

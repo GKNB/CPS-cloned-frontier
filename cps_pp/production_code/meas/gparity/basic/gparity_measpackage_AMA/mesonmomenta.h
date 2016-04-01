@@ -28,8 +28,15 @@ public:
 
 
 
-//For 2pt functions of the form  Tr[ (prop1)^dag A prop2 B ]
+//For 2pt functions of the form  Tr[ [(prop1)^dag](p1) A [prop2](p2) B ]
 //store the momenta of the propagators and compute the total meson momentum
+//User provides the momenta p1 (associated with the daggered propagator) and p2 (with the undaggered)
+
+//These function are associated with contractions of the form:
+// < \bar\psi_1(-p1) g5 A g5 \psi_2(p2) \bar\psi_2(p2) g5 B g5 \psi_1(-p1) >
+//NOTE the - sign of the momentum associated with p1 in the underlying quark fields - it is swapped because we apply g5-hermiticity
+
+
 class MesonMomenta{
   typedef std::pair<QuarkType,ThreeMomentum> Mtype;
   std::vector<Mtype> prop1dag_mom;
@@ -38,6 +45,7 @@ class MesonMomenta{
 public:
   inline int nMom() const{ return prop2_mom.size(); }
   
+  //Get the momentum associated with the quark FIELD operator psi1 or psi2
   inline ThreeMomentum getQuarkMom(const int quark_idx, const int mom_idx) const{
     return quark_idx == 0 ? -prop1dag_mom[mom_idx].second : prop2_mom[mom_idx].second; //note the - sign for prop1 due to the dagger swapping the momentum
   }

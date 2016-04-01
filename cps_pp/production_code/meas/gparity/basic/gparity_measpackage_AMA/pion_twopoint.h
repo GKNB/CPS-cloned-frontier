@@ -35,8 +35,6 @@ void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2Pt
   BasicOp snk_op(snkOpMap(sink_op));
 
   Complex coeff(1.0);
-  if(sink_op != P) coeff = -coeff; //Sink operator is \gamma^\mu \gamma^5, additional - sign for commuting
-
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p1,p2,prop1,prop2);
 }
 
@@ -53,8 +51,6 @@ void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtS
   BasicGparityOp snk_op(snkOpMap(sink_op),sigma3);
 
   Complex coeff(0.5);
-  if(sink_op != P) coeff = -coeff; //Sink operator is \gamma^\mu \gamma^5, additional - sign for commuting
-
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p1,p2,prop1,prop2,splane,use_wrong_sink_mom);
 }
 
@@ -66,7 +62,7 @@ void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const Thre
   GparityOpWithFlavorProject src_op(gamma4,sigma3,p_psi_src);
   BasicGparityOp snk_op(gamma4,sigma3);
 
-  Complex coeff(-0.5);
+  Complex coeff(0.5); //Hermitian conjugate of A_4 at source
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p1,p2,prop1,prop2);
 }
 
@@ -98,7 +94,7 @@ void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const Th
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
   BasicGparityOp snk_op(spin_unit,sigma0);
 
-  Complex coeff(1,0);
+  Complex coeff(0.5,0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p1,p2,prop1,prop2);
 }
 
