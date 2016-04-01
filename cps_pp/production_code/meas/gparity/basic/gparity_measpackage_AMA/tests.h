@@ -533,8 +533,11 @@ int run_tests(int argc,char *argv[])
     std::vector<Rcomplex> ppconbil(pps3);
     for(int i=0;i<pps3.size();i++) ppconbil[i] = 0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
     
+    ThreeMomentum p_psibar = p;
+    ThreeMomentum p_psi = p;
+
     fMatrix<double> ppnew(1,L[3]);
-    pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],mp,p,pw_prop_pminus,pw_prop_pplus);
+    pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],p_psibar,p,pw_prop_pminus,pw_prop_pplus);
     
     double fail = 0;
     if(!UniqueID()) printf("Operator %d\n",oo);
@@ -556,30 +559,65 @@ int run_tests(int argc,char *argv[])
 
   //Test pion WW 2pt function
   {
+    //In this test we consider the following contraction
+    //The quarks each have the same sink momenta as they do at the source (up to the necessary - sign in the phase)
+    // \sum_{x1,x2,y1,y2} 
+    //<
+    //  [[ exp(-i[-p2].x1)\bar\psi(x1,t) A exp(-i[-p1].x2)\psi(x2,t) ]]
+    //  *
+    //  [[ exp(-i p1.y1)\bar\psi(y1,0) B exp(-i p2.y2)\psi(y2,0) ]]
+    //>
+    // = 
+    //Tr( 
+    //   [\sum_{x1,y2} exp(-i[-p2].x1) exp(-i p2.y2) G(y2,0;x1,t)] A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p1].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+    // = 
+    //Tr( 
+    //   g5 [\sum_{x1,y2} exp(-ip2.x1) exp(-i[-p2].y2) G(x1,t;y2,0)]^\dagger g5 A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p1].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+
+    //We use p1=p2=p
+
+    std::vector<Float> p_phys_units(3);
+    p.latticeUnits(&p_phys_units[0]);
+
+    std::vector<Float> mp_phys_units(3);
+    mp.latticeUnits(&mp_phys_units[0]);
+
     ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> conwsbil;
-    std::vector<Float> p_pi_over_2L(3,0); //sink phase exp(i p.x)
-    for(int i=0;i<ngp;i++) p_pi_over_2L[i] = M_PI/double(2*L[i]);
-    
-    std::vector<Float> p_mpi_over_2L(3,0); //sink phase exp(i p.x)
-    for(int i=0;i<ngp;i++) p_mpi_over_2L[i] = -M_PI/double(2*L[i]);
-    
-    //Note, old code sink momenta are for prop1^dag and prop2, and hence should have the same sign for pion
-    std::pair< std::vector<Float>,std::vector<Float> > mompair( p_pi_over_2L, p_pi_over_2L );
+
+    //Old code applies phases exp(+p.x) at sink whereas new code applies exp(-ip.x) everywhere
+    //thus we need to swap out momentum conventions
+    //Old code sink momenta are the phases applied outside the g5-hermiticity parentheses
+    //Tr( 
+    //   \sum_x1 exp(-i[-p2].x1) g5 [\sum_y2 exp(-i[-p2].y2) G(x1,t;y2,0)]^\dagger g5 A
+    //   *
+    //   \sum_x2 exp(-i[-p1].x2) [\sum_{x2,y1}  exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+
+    std::pair< std::vector<Float>,std::vector<Float> > mompair( p_phys_units, p_phys_units );
     conwsbil.add_momentum(mompair);
     conwsbil.calculateBilinears(lattice, "prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
     
     //Compute gauge-fixed wall sink propagators with new code
-    //Phases are always exp(-ip.x)    so  \sum_x,y exp(ip.x) exp(-ip.y)\prop(x,t; y,0), sink momentum is opposite source momentum
-    WallSinkProp<SpinColorFlavorMatrix> ws_pminus;
-    ws_pminus.setProp(pw_prop_pminus);
-    ws_pminus.compute(lattice, &p_pi_over_2L[0]);
+    WallSinkProp<SpinColorFlavorMatrix> ws_prop_dag;
+    ws_prop_dag.setProp(pw_prop_pminus);
+    ws_prop_dag.compute(lattice, &p_phys_units[0]); //daggered prop is given phase +p2=p inside g5-herm parentheses
     
-    WallSinkProp<SpinColorFlavorMatrix> ws_pplus;
-    ws_pplus.setProp(pw_prop_pplus);
-    ws_pplus.compute(lattice, &p_mpi_over_2L[0]);
+    WallSinkProp<SpinColorFlavorMatrix> ws_prop_undag;
+    ws_prop_undag.setProp(pw_prop_pplus);
+    ws_prop_undag.compute(lattice, &mp_phys_units[0]);
     
     fMatrix<double> ppnew(1,L[3]);
-    pionTwoPointPPWWGparity(ppnew, 0, mp, mp, ws_pminus, ws_pplus);
+
+    ThreeMomentum p_psi_src = p;
+    ThreeMomentum p_psi_snk = mp;
+
+    pionTwoPointPPWWGparity(ppnew, 0, p_psi_snk, p_psi_src, ws_prop_dag, ws_prop_undag);
 
     const std::vector<Rcomplex> pps3s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
   							    0, 3, 0, 3);
@@ -627,8 +665,11 @@ int run_tests(int argc,char *argv[])
     std::vector<Rcomplex> ppconbil(L[3]);
     for(int i=0;i<L[3];i++) ppconbil[i] = 0.25*(pp1[i] - pps2[i]);
 
+    ThreeMomentum p_psibar = p;
+    ThreeMomentum p_psi = mp;
+
     fMatrix<double> ppnew(1,L[3]);
-    lightFlavorSingletLWGparity(ppnew,0,p,p,pw_prop_pplus,pw_prop_pplus);
+    lightFlavorSingletLWGparity(ppnew,0,p_psibar,p_psi,pw_prop_pplus,pw_prop_pplus);
     
     double fail = 0;
     if(!UniqueID()) printf("Pseudoscalar flavor singlet\n");
@@ -751,9 +792,13 @@ int run_tests(int argc,char *argv[])
   {
     fMatrix<double> bk_new(1,Lt);
     bool do_flavor_project = false;
+
+    ThreeMomentum p_psi_h_t0 = mp; //- the momentum of the daggered prop
+    ThreeMomentum p_psi_h_t1 = mp; //- the momentum of the daggered prop
+
     GparityBK(bk_new, tsrc, 
-	      pw_propH_pplus, pw_prop_pplus, p,
-	      pw_propH_pplus_tsnk, pw_prop_pplus_tsnk, p,
+	      pw_propH_pplus, pw_prop_pplus, p_psi_h_t0,
+	      pw_propH_pplus_tsnk, pw_prop_pplus_tsnk, p_psi_h_t1,
 	      do_flavor_project);
     
     ContractionTypeOVVpAA old_args;
@@ -807,8 +852,11 @@ int run_tests(int argc,char *argv[])
 
     fMatrix<double> pion_new(1,Lt), j5_q_new(1,Lt);
 
-    J5Gparity(pion_new,tsrc,mp,p,pw_prop_pminus,pw_prop_pplus,SPLANE_BOUNDARY,false); //disable flavor project to compare with old code
-    J5Gparity(j5_q_new,tsrc,mp,p,pw_prop_pminus,pw_prop_pplus,SPLANE_MIDPOINT,false);
+    ThreeMomentum p_psibar = p;
+    ThreeMomentum p_psi = p;
+
+    J5Gparity(pion_new,tsrc,p_psibar,p_psi,pw_prop_pminus,pw_prop_pplus,SPLANE_BOUNDARY,false); //disable flavor project to compare with old code
+    J5Gparity(j5_q_new,tsrc,p_psibar,p_psi,pw_prop_pminus,pw_prop_pplus,SPLANE_MIDPOINT,false);
 
     double fail = 0;
     if(!UniqueID()) printf("J5\n");

@@ -8,8 +8,8 @@ CPS_START_NAMESPACE
 //Source momenta of the strange quark props are needed for the flavor projection.
 //It is assumed that the total kaon momentum is zero, and we project onto zero momentum at the operator insertion
 void GparityBK(fMatrix<double> &into, const int t0, 
-	       const PropWrapper &prop_h_t0, const PropWrapper &prop_l_t0, const ThreeMomentum &prop_h_t0_srcmom,
-	       const PropWrapper &prop_h_t1, const PropWrapper &prop_l_t1, const ThreeMomentum &prop_h_t1_srcmom,
+	       const PropWrapper &prop_h_t0, const PropWrapper &prop_l_t0, const ThreeMomentum &p_psi_h_t0,
+	       const PropWrapper &prop_h_t1, const PropWrapper &prop_l_t1, const ThreeMomentum &p_psi_h_t1,
 	       const bool do_flav_project = true
 	       ){
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
@@ -17,8 +17,8 @@ void GparityBK(fMatrix<double> &into, const int t0,
   const int nthread = omp_get_max_threads();
   basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
 
-  FlavorMatrix kaon_proj_t0 = getProjector(-prop_h_t0_srcmom); //- sign because of g5-herm
-  FlavorMatrix kaon_proj_t1 = getProjector(-prop_h_t1_srcmom);
+  FlavorMatrix kaon_proj_t0 = getProjector(p_psi_h_t0); //- sign because of g5-herm
+  FlavorMatrix kaon_proj_t1 = getProjector(p_psi_h_t1);
 
 #pragma omp_parallel for
   for(int x=0;x<GJP.VolNodeSites();x++){

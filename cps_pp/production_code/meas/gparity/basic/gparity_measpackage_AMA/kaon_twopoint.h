@@ -6,61 +6,54 @@
 CPS_START_NAMESPACE
 
 
-//Kaon two-point. prop_h is the heavy quark propagator (the one to which g5-hermiticity is applied), and prop_l the light-quark prop
+//Kaon two-point. prop_dag_h is the heavy quark propagator (the one to which g5-hermiticity is applied), and prop_undag_l the light-quark prop
 //tsrc is used as the row index of the fmatrix. col index is (tsnk - tsrc + Lt) % Lt
-void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
-			      const PropWrapper &prop_h, const PropWrapper &prop_l){
-  ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^5 proj(-p1) psi_h(-p1)
-  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
+void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(spin_unit,sigma0);
 
   Complex coeff(0.5,0); //note positive sign because we define the creation/annihilation operator with a factor of i
-  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
 
 //*Physical* time-component axial operator sink   -i F0 g4 g5    (g5 is removed by g5-hermiticity)
-void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
-			      const PropWrapper &prop_h, const PropWrapper &prop_l){
-  ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^5 proj(-p1) psi_h(-p1)
-  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
+void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,F0);
 
   Complex coeff(1.0,0);
-  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
 //*Unphysical* time-component axial operator sink   -i F1 g4 g5, connects to unphysical kaon component    (g5 is removed by g5-hermiticity)
-void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
-			      const PropWrapper &prop_h, const PropWrapper &prop_l){
-  ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^5 proj(-p1) psi_h(-p1)
-  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
+void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,F1);
 
   Complex coeff(1.0,0);
-  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
 //Time-component axial source and sink that connects to both the physical and unphysical components
-void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_h, const ThreeMomentum &p_l,
-			      const PropWrapper &prop_h, const PropWrapper &prop_l){
-  ThreeMomentum p_psi_src = -p_h; //The source operator is \bar\psi_l(p2) \gamma^4\gamma^5 proj(-p1) psi_h(-p1)
-  GparityOpWithFlavorProject src_op(gamma4,sigma0,p_psi_src);
+void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  GparityOpWithFlavorProject src_op(gamma4,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,sigma0);
 
   Complex coeff(0.5,0);
-  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_h,p_l,prop_h,prop_l);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
 
-void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &prop_h_srcmom, const ThreeMomentum &prop_l_snkmom,
-			     const WallSinkProp<SpinColorFlavorMatrix> &prop_h_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_l_W){
-  ThreeMomentum p_psi_src = -prop_h_srcmom; //momentum of psi field at source is opposite the source momentum of prop_h (cf Eq. 162)
-  ThreeMomentum p_psi_snk = prop_l_snkmom; //momentum of psi field at sink is the same as the momentum sink phase of prop_l
-
-  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_src);
-  GparityOpWithFlavorProject snk_op(spin_unit,sigma0,p_psi_snk);
+void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_l_snk, const ThreeMomentum &p_psi_h_src,
+			     const WallSinkProp<SpinColorFlavorMatrix> &prop_dag_h_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_undag_l_W){
+  GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h_src);
+  GparityOpWithFlavorProject snk_op(spin_unit,sigma0,p_psi_l_snk);
 
   if(!UniqueID()) std::cout << "Kaon PPWW with source proj " << src_op.printProj() << " and sink proj " << snk_op.printProj() << '\n';
 
   Complex coeff(0.5,0);
-  twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_h_W, prop_l_W);
+  twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_h_W, prop_undag_l_W);
 }
 
 

@@ -5,8 +5,6 @@
 
 CPS_START_NAMESPACE
 
-enum QuarkType { Light, Heavy };
-
 //Storage for unique quark momenta needed (for pairs +p and -p, we can trivially reconstruct the flipped momentum using the G-parity conjugate relation without having to do extra inversions)
 class QuarkMomenta{
   std::vector<ThreeMomentum> mom;
@@ -25,63 +23,84 @@ public:
   inline const ThreeMomentum & getMom(const int pidx) const{ return mom[pidx]; }
 };
 
+//Two-point functions of the form 
+//< \bar\psi_2(-p_psi,t) g5 A g5 \psi_1(-p_psibar,t) \bar\psi_1(p_psibar,0) g5 B g5 \psi_2(p_psi,0) >
+//where momenta are associated with the quark field operators in the *source*
 
+//These form correlators
+//< [prop2(t,0;-p_psi)]^dag A prop1(t,0;p_psibar) B>
 
+//There are 5 momenta values we might be interested in: cf MomentumOf enum
 
-//For 2pt functions of the form  Tr[ [(prop1)^dag](p1) A [prop2](p2) B ]
-//store the momenta of the propagators and compute the total meson momentum
-//User provides the momenta p1 (associated with the daggered propagator) and p2 (with the undaggered)
-
-//These function are associated with contractions of the form:
-// < \bar\psi_1(-p1) g5 A g5 \psi_2(p2) \bar\psi_2(p2) g5 B g5 \psi_1(-p1) >
-//NOTE the - sign of the momentum associated with p1 in the underlying quark fields - it is swapped because we apply g5-hermiticity
-
+//DaggeredProp is the momentum of the propagator that will be daggered (prop2 above)
 
 class MesonMomenta{
   typedef std::pair<QuarkType,ThreeMomentum> Mtype;
-  std::vector<Mtype> prop1dag_mom;
-  std::vector<Mtype> prop2_mom;
+  std::vector<Mtype> p_psi;
+  std::vector<Mtype> p_psibar;
   
 public:
-  inline int nMom() const{ return prop2_mom.size(); }
+  inline int nMom() const{ return p_psi.size(); }
   
-  //Get the momentum associated with the quark FIELD operator psi1 or psi2
-  inline ThreeMomentum getQuarkMom(const int quark_idx, const int mom_idx) const{
-    return quark_idx == 0 ? -prop1dag_mom[mom_idx].second : prop2_mom[mom_idx].second; //note the - sign for prop1 due to the dagger swapping the momentum
+  inline ThreeMomentum getMomentum(const MomentumOf what, const int mom_idx) const{
+    switch(what){
+    case SrcPsi:
+      return p_psi[mom_idx].second;
+    case DaggeredProp:
+      return -p_psi[mom_idx].second; //we require a propagator of the opposite momentum, to which we apply g5-hermiticity
+    case SrcPsiBar:
+    case UndaggeredProp:
+      return p_psibar[mom_idx].second;
+      break;
+    case Total: 
+      return p_psi[mom_idx].second + p_psibar[mom_idx].second;
+    default:
+      ERR.General("MesonMomenta","getMomentum","Unknown momentum label\n");
+      break;
+    }
   }
-  inline ThreeMomentum getMesonMom(const int mom_idx) const{ return prop1dag_mom[mom_idx].second + prop2_mom[mom_idx].second; }
 
-  inline QuarkType getQuarkType(const int quark_idx, const int mom_idx) const{
-    return quark_idx == 0 ? prop1dag_mom[mom_idx].first : prop2_mom[mom_idx].first; 
+  inline QuarkType getQuarkType(const MomentumOf what, const int mom_idx) const{
+    switch(what){
+    case SrcPsi:
+    case DaggeredProp:
+      return p_psi[mom_idx].first;
+      break;
+    case SrcPsiBar:
+    case UndaggeredProp:
+      return p_psibar[mom_idx].first;
+      break;
+    default:
+      ERR.General("MesonMomenta","getMomentum","Invalid choice\n");
+      break;
+    }
   }
 
   void printAllCombs(const std::string & descr = "") const{
     if(!UniqueID()){
-      printf("Momentum combinations %s:\n",descr.c_str());
+      printf("(psibar,psi) Momentum combinations %s:\n",descr.c_str());
       for(int i=0;i<nMom();i++){
-	std::cout << "(" << (prop1dag_mom[i].first == Light ? "light" : "heavy") << ") " << prop1dag_mom[i].second.str() << " + ";
-	std::cout << "(" << (prop2_mom[i].first == Light ? "light" : "heavy") << ") " << prop2_mom[i].second.str() << '\n';
+	std::cout << "(" << (p_psibar[i].first == Light ? "light" : "heavy") << ") " << p_psibar[i].second.str() << " + ";
+	std::cout << "(" << (p_psi[i].first == Light ? "light" : "heavy") << ") " << p_psi[i].second.str() << '\n';
       }
     }
   }
     
 
-  //Add a (prop1)^dag and (prop2) momentum (respectively) from a string in the form "(%d,%d,%d) + (%d%d,%d)"
+  //Add a p(\bar\psi) and p(\psi) from a string in the form "(%d,%d,%d) + (%d%d,%d)"
   void addP(const std::string &p, const QuarkType qtype1,  const QuarkType qtype2){
     std::pair<ThreeMomentum,ThreeMomentum> p2 = ThreeMomentum::parse_str_two_mom(p);
-    //if(!UniqueID()) std::cout << "MesonMomenta::addP got mompair '" << p << "' and parsed as " << p2.first.str() << " and " << p2.second.str() << '\n';
-    prop1dag_mom.push_back(Mtype(qtype1,p2.first ));
-    prop2_mom   .push_back(Mtype(qtype2,p2.second));
+    p_psibar.push_back(Mtype(qtype1,p2.first ));
+    p_psi   .push_back(Mtype(qtype2,p2.second));
   }
 
   //Add to QuarkMomenta all the required propagator source momenta of a particular quark species (heavy/light)
   void appendQuarkMomenta(const QuarkType qtype,QuarkMomenta &qmom) const{
-    for(int i=0;i<prop1dag_mom.size();i++)
-      if(prop1dag_mom[i].first == qtype) 
-	qmom.add(-prop1dag_mom[i].second); //note minus sign again
-    for(int i=0;i<prop2_mom.size();i++)
-      if(prop2_mom[i].first == qtype) 
-	qmom.add(prop2_mom[i].second); //note no minus sign
+    for(int i=0;i<p_psi.size();i++) //this is associated with the daggered prop
+      if(p_psi[i].first == qtype) qmom.add(-p_psi[i].second);
+
+    for(int i=0;i<p_psibar.size();i++) //this is associated with the undaggered prop
+      if(p_psibar[i].first == qtype) qmom.add(p_psibar[i].second);
   }
 
 };
@@ -115,20 +134,20 @@ public:
       //Along G-parity direction:
       //p_pi = (2,2,0)     (units of pi/2L)  
       into.addP("(1,1,0) + (1,1,0)",Light,Light);
-      if(include_alternative_mom) into.addP("(-1,-1,0) + (3,3,0)",Light,Light);
+      if(include_alternative_mom) into.addP("(3,3,0) + (-1,-1,0)",Light,Light);
 
       //Along off-diagonal direction:      
       //p_pi = (-2,2,0)
-      into.addP("(1,1,0) + (-3,1,0)",Light,Light); 
-      if(include_alternative_mom) into.addP("(-1,-1,0) + (-1,3,0)",Light,Light);
+      into.addP("(-3,1,0) + (1,1,0)",Light,Light); 
+      if(include_alternative_mom) into.addP("(-1,3,0) + (-1,-1,0)",Light,Light);
     }else if(ngp == 3){
       //p_pi = (2,2,2)     (units of pi/2L)  
       into.addP("(1,1,1) + (1,1,1)",Light,Light); 
-      if(include_alternative_mom) into.addP("(-1,-1,-1) + (3,3,3)",Light,Light);
+      if(include_alternative_mom) into.addP("(3,3,3) + (-1,-1,-1)",Light,Light);
 
       //p_pi = (-2,2,2) //only do one off-diagonal as we have symmetry around that axis
-      into.addP("(1,1,1) + (-3,1,1)",Light,Light);
-      if(include_alternative_mom) into.addP("(-1,-1,-1) + (-1,3,3)",Light,Light);
+      into.addP("(-3,1,1) + (1,1,1)",Light,Light);
+      if(include_alternative_mom) into.addP("(-1,3,3) + (-1,-1,-1)",Light,Light);
     }else{
       ERR.General("PionMomenta","setup","ngp cannot be >3\n");
     }
@@ -147,14 +166,14 @@ public:
       into.addP("(0,0,0) + (0,0,0)",Light,Light);
     }else if(ngp == 1){
       //p_pi = (0,0,0)     (units of pi/2L)    
-      into.addP("(-1,0,0) + (1,0,0)",Light,Light); 
+      into.addP("(1,0,0) + (-1,0,0)",Light,Light); 
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (0,0,0)     (units of pi/2L)  
-      into.addP("(-1,-1,0) + (1,1,0)",Light,Light);
+      into.addP("(1,1,0) + (-1,-1,0)",Light,Light);
     }else if(ngp == 3){
       //p_pi = (0,0,0)     (units of pi/2L)  
-      into.addP("(-1,-1,-1) + (1,1,1)",Light,Light); 
+      into.addP("(1,1,1) + (-1,-1,-1)",Light,Light); 
     }else{
       ERR.General("LightFlavorSingletMomenta","setup","ngp cannot be >3\n");
     }
@@ -169,17 +188,17 @@ public:
     
     if(ngp == 0){
       //p_pi = (0,0,0)
-      into.addP("(0,0,0) + (0,0,0)",Heavy,Light);
+      into.addP("(0,0,0) + (0,0,0)",Light,Heavy);
     }else if(ngp == 1){
       //p_pi = (0,0,0)     (units of pi/2L)    
-      into.addP("(-1,0,0) + (1,0,0)",Heavy,Light); 
+      into.addP("(1,0,0) + (-1,0,0)",Light,Heavy); 
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (0,0,0)     (units of pi/2L)  
-      into.addP("(-1,-1,0) + (1,1,0)",Heavy,Light);
+      into.addP("(1,1,0) + (-1,-1,0)",Light,Heavy);
     }else if(ngp == 3){
       //p_pi = (0,0,0)     (units of pi/2L)  
-      into.addP("(-1,-1,-1) + (1,1,1)",Heavy,Light); 
+      into.addP("(1,1,1) + (-1,-1,-1)",Light,Heavy); 
     }else{
       ERR.General("KaonMomenta","setup","ngp cannot be >3\n");
     }

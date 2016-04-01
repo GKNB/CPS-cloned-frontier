@@ -221,18 +221,18 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
 
 
 
-void writeBasic2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &descr, const ThreeMomentum &p1, const ThreeMomentum &p2, 
+void writeBasic2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &descr, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
 		     const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr = ""){
   std::ostringstream os; 
-  os << results_dir << '/' << descr << "_mom" << (-p1).file_str() << "_plus" << p2.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
+  os << results_dir << '/' << descr << "_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
   results.write(os.str());
 }
 
 
-void writePion2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p1, const ThreeMomentum &p2, 
+void writePion2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
 		    const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr){
   std::ostringstream os; 
-  os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << (-p1).file_str() << "_plus" << p2.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
+  os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
   results.write(os.str());
 }
 
@@ -243,8 +243,11 @@ void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
   for(int pidx=0;pidx<ll_meson_momenta.nMom();pidx++){
-    ThreeMomentum p1 = ll_meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p2 = ll_meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p_psibar = ll_meson_momenta.getMomentum(SrcPsiBar,pidx);
+    ThreeMomentum p_psi = ll_meson_momenta.getMomentum(SrcPsi,pidx);
+
+    ThreeMomentum p_prop_dag = ll_meson_momenta.getMomentum(DaggeredProp,pidx);
+    ThreeMomentum p_prop_undag = ll_meson_momenta.getMomentum(UndaggeredProp,pidx);
 	  
     Pion2PtSinkOp sink_ops[5] = { AX, AY, AZ, AT, P };//Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
     std::string sink_op_stub[5] = { "AX", "AY", "AZ", "AT", "P" };
@@ -255,12 +258,12 @@ void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
 	    
-	PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
-	PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+	PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
+	PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p1,p2,prop1,prop2);
+	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag);
       }
-      writePion2ptLW(results, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "");
+      writePion2ptLW(results, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "");
     }
   }
 }
@@ -271,9 +274,12 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
   for(int pidx=0;pidx<ll_meson_momenta.nMom();pidx++){
-    ThreeMomentum p1 = ll_meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p2 = ll_meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p_psibar = ll_meson_momenta.getMomentum(SrcPsiBar,pidx);
+    ThreeMomentum p_psi = ll_meson_momenta.getMomentum(SrcPsi,pidx);
 	  
+    ThreeMomentum p_prop_dag = ll_meson_momenta.getMomentum(DaggeredProp,pidx);
+    ThreeMomentum p_prop_undag = ll_meson_momenta.getMomentum(UndaggeredProp,pidx);
+
     Pion2PtSinkOp sink_ops[5] = { AX, AY, AZ, AT, P };//Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
     std::string sink_op_stub[5] = { "AX", "AY", "AZ", "AT", "P" };
 	
@@ -287,23 +293,23 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
 	    
-	PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
-	PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+	PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+	PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-	pionTwoPointLWGparity(results,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,false,false); //right proj op, right sink mom
+	pionTwoPointLWGparity(results,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,false,false); //right proj op, right sink mom
 
 	if(op == 4){ //only pseudoscalar sink op
-	  pionTwoPointLWGparity(results_wrongsinkmom,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,false,true); //right proj op, right sink mom
+	  pionTwoPointLWGparity(results_wrongsinkmom,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,false,true); //right proj op, wrong sink mom
 	  
-	  pionTwoPointLWGparity(results_wrongproj,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,true,false); //wrong proj op, right sink mom
-	  pionTwoPointLWGparity(results_wrongproj_wrongsinkmom,tsrc,sink_ops[op],p1,p2,prop1,prop2,SPLANE_BOUNDARY,true,true); //wrong proj op, wrong sink mom
+	  pionTwoPointLWGparity(results_wrongproj,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,true,false); //wrong proj op, right sink mom
+	  pionTwoPointLWGparity(results_wrongproj_wrongsinkmom,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,true,true); //wrong proj op, wrong sink mom
 	}
       }
-      writePion2ptLW(results, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "");
+      writePion2ptLW(results, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "");
       if(op == 4){
-	writePion2ptLW(results_wrongsinkmom, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "_wrongsinkmom");
-	writePion2ptLW(results_wrongproj, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "_wrongproj");
-	writePion2ptLW(results_wrongproj_wrongsinkmom, results_dir, sink_op_stub[op], p1, p2, status, time_bc, conf, "_wrongproj_wrongsinkmom");
+	writePion2ptLW(results_wrongsinkmom, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "_wrongsinkmom");
+	writePion2ptLW(results_wrongproj, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "_wrongproj");
+	writePion2ptLW(results_wrongproj_wrongsinkmom, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "_wrongproj_wrongsinkmom");
       }
     }
 
@@ -312,11 +318,11 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
       
-      PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
-      PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
-      pionTwoPointA4A4LWGparity(results,tsrc,p1,p2,prop1,prop2);
+      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      pionTwoPointA4A4LWGparity(results,tsrc,p_psibar,p_psi,prop_dag,prop_undag);
     }
-    writeBasic2ptLW(results,results_dir,"pion_AT_AT_LW",p1,p2,status,time_bc,conf);
+    writeBasic2ptLW(results,results_dir,"pion_AT_AT_LW",p_psibar,p_psi,status,time_bc,conf);
   }
 }
 
@@ -343,19 +349,65 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
 
   //Loop over light-light meson momenta
   for(int pidx=0;pidx<ll_meson_momenta.nMom();pidx++){
-    ThreeMomentum p1 = ll_meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p2 = ll_meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p1 = ll_meson_momenta.getMomentum(SrcPsiBar,pidx); //label momentum of psibar at source as p1
+    ThreeMomentum p2 = ll_meson_momenta.getMomentum(SrcPsi,pidx);    //label momentum of psi at source as p2
 	  
+    ThreeMomentum p_prop_dag = -p2; //cf below
+    ThreeMomentum p_prop_undag = p1; 
+	  
+    const ThreeMomentum &p_psibar_src = p1;
+    const ThreeMomentum &p_psi_src = p2; //always the same
+
     //Consider two scenarios with the same total sink momentum
-    //1) The quarks each have the same sink momenta as they do at the source
+
+    //1) The quarks each have the same sink momenta as they do at the source (up to the necessary - sign in the phase)
+    // \sum_{x1,x2,y1,y2} 
+    //<
+    //  [[ exp(-i[-p2].x1)\bar\psi(x1,t) A exp(-i[-p1].x2)\psi(x2,t) ]]
+    //  *
+    //  [[ exp(-i p1.y1)\bar\psi(y1,0) B exp(-i p2.y2)\psi(y2,0) ]]
+    //>
+    // = 
+    //Tr( 
+    //   [\sum_{x1,y2} exp(-i[-p2].x1) exp(-i p2.y2) G(y2,0;x1,t)] A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p1].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+    // = 
+    //Tr( 
+    //   g5 [\sum_{x1,y2} exp(-ip2.x1) exp(-i[-p2].y2) G(x1,t;y2,0)]^\dagger g5 A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p1].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+
+    ThreeMomentum p_prop_dag_snk_keep = p2; 
+    ThreeMomentum p_prop_undag_snk_keep = -p1;
+    ThreeMomentum p_psi_snk_keep = -p1;
+
     //2) The quarks have their sink momenta exchanged
+    // \sum_{x1,x2,y1,y2} 
+    //<
+    //  [[ exp(-i[-p1].x1)\bar\psi(x1,t) A exp(-i[-p2].x2)\psi(x2,t) ]]
+    //  *
+    //  [[ exp(-i p1.y1)\bar\psi(y1,0) B exp(-i p2.y2)\psi(y2,0) ]]
+    //>
+    // = 
+    //Tr( 
+    //   [\sum_{x1,y2} exp(-i[-p1].x1) exp(-i p2.y2) G(y2,0;x1,t)] A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p2].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
+    // = 
+    //Tr( 
+    //   g5 [\sum_{x1,y2} exp(-ip1.x1) exp(-i[-p2].y2) G(x1,t;y2,0)]^\dagger g5 A
+    //   *
+    //   [\sum_{x2,y1} exp(-i[-p2].x2) exp(-i p1.y1) G(x2,t;y1,0)] B
+    //  )
 
-    ThreeMomentum p1_snk_keep = -p1; //exp(+ip.x)
-    ThreeMomentum p2_snk_keep = -p2;
+    ThreeMomentum p_prop_dag_snk_exch = p1; 
+    ThreeMomentum p_prop_undag_snk_exch = -p2;
+    ThreeMomentum p_psi_snk_exch = -p2;
 
-    ThreeMomentum p1_snk_exch = -p2; //exp(+ip.x)
-    ThreeMomentum p2_snk_exch = -p1;
-    
     fMatrix<double> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
     fMatrix<double> results_momexch(Lt,Lt);
 
@@ -363,32 +415,32 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       const int tsrc = tslices[s];
       
       //Prop1
-      PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
+      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
      
-      WallSinkProp<SpinColorFlavorMatrix> prop1_FT_keep; 
-      prop1_FT_keep.setProp(prop1);
-      prop1_FT_keep.compute(lat, p1_snk_keep.ptr());
+      WallSinkProp<SpinColorFlavorMatrix> prop_dag_FT_keep; 
+      prop_dag_FT_keep.setProp(prop_dag);
+      prop_dag_FT_keep.compute(lat, p_prop_dag_snk_keep.ptr());
 
-      WallSinkProp<SpinColorFlavorMatrix> prop1_FT_exch; 
-      prop1_FT_exch.setProp(prop1);
-      prop1_FT_exch.compute(lat, p1_snk_exch.ptr());      
+      WallSinkProp<SpinColorFlavorMatrix> prop_dag_FT_exch; 
+      prop_dag_FT_exch.setProp(prop_dag);
+      prop_dag_FT_exch.compute(lat, p_prop_dag_snk_exch.ptr());      
 
       //Prop2
-      PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-      WallSinkProp<SpinColorFlavorMatrix> prop2_FT_keep; 
-      prop2_FT_keep.setProp(prop2);
-      prop2_FT_keep.compute(lat, p2_snk_keep.ptr());
+      WallSinkProp<SpinColorFlavorMatrix> prop_undag_FT_keep; 
+      prop_undag_FT_keep.setProp(prop_undag);
+      prop_undag_FT_keep.compute(lat, p_prop_undag_snk_keep.ptr());
 
-      WallSinkProp<SpinColorFlavorMatrix> prop2_FT_exch; 
-      prop2_FT_exch.setProp(prop2);
-      prop2_FT_exch.compute(lat, p2_snk_exch.ptr());   
+      WallSinkProp<SpinColorFlavorMatrix> prop_undag_FT_exch; 
+      prop_undag_FT_exch.setProp(prop_undag);
+      prop_undag_FT_exch.compute(lat, p_prop_undag_snk_exch.ptr());   
  
-      pionTwoPointPPWWGparity(results_momkeep, tsrc, p1, p2_snk_keep, prop1_FT_keep, prop2_FT_keep);
-      pionTwoPointPPWWGparity(results_momexch, tsrc, p1, p2_snk_exch, prop1_FT_exch, prop2_FT_exch);
+      pionTwoPointPPWWGparity(results_momkeep, tsrc, p_psi_snk_keep, p_psi_src, prop_dag_FT_keep, prop_undag_FT_keep);
+      pionTwoPointPPWWGparity(results_momexch, tsrc, p_psi_snk_exch, p_psi_src, prop_dag_FT_exch, prop_undag_FT_exch);
     }
-    writeBasic2ptLW(results_momkeep,results_dir,"pion_P_P_WW_momkeep",p1,p2,status,time_bc,conf);
-    writeBasic2ptLW(results_momexch,results_dir,"pion_P_P_WW_momexch",p1,p2,status,time_bc,conf);
+    writeBasic2ptLW(results_momkeep,results_dir,"pion_P_P_WW_momkeep",p_psibar_src,p_psi_src,status,time_bc,conf);
+    writeBasic2ptLW(results_momexch,results_dir,"pion_P_P_WW_momexch",p_psibar_src,p_psi_src,status,time_bc,conf);
   }
   print_time("main","Pion 2pt WW",time + dclock());
 }
@@ -402,19 +454,22 @@ void measureLightFlavorSingletLW(const PropMomContainer &props, const PropPrecis
 
   //Loop over light-light meson momenta
   for(int pidx=0;pidx<meson_momenta.nMom();pidx++){
-    ThreeMomentum p1 = meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p2 = meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p_psibar = meson_momenta.getMomentum(SrcPsiBar,pidx);
+    ThreeMomentum p_psi = meson_momenta.getMomentum(SrcPsi,pidx);
+	  
+    ThreeMomentum p_prop_dag = meson_momenta.getMomentum(DaggeredProp,pidx);
+    ThreeMomentum p_prop_undag = meson_momenta.getMomentum(UndaggeredProp,pidx);
 	  
     fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
-      PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-      lightFlavorSingletLWGparity(results,tsrc,p1,p2,prop1,prop2);
+      lightFlavorSingletLWGparity(results,tsrc,p_psibar,p_psi,prop_dag,prop_undag);
     }
-    writeBasic2ptLW(results,results_dir,"light_pseudo_flav_singlet_LW",p1,p2,status,time_bc,conf);
+    writeBasic2ptLW(results,results_dir,"light_pseudo_flav_singlet_LW",p_psibar,p_psi,status,time_bc,conf);
   }
 }
 
@@ -425,12 +480,15 @@ void measureKaon2ptLW(const PropMomContainer &props, const PropPrecision status,
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
   for(int pidx=0;pidx<meson_momenta.nMom();pidx++){
-    assert(meson_momenta.getQuarkType(0,pidx) == Heavy);   //The strange quark should be on index 0 of the meson_momenta
-    assert(meson_momenta.getQuarkType(1,pidx) == Light);
+    assert(meson_momenta.getQuarkType(SrcPsi,pidx) == Heavy); 
+    assert(meson_momenta.getQuarkType(SrcPsiBar,pidx) == Light);
 
-    ThreeMomentum p_h = meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p_l = meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p_psibar_l = meson_momenta.getMomentum(SrcPsiBar,pidx);
+    ThreeMomentum p_psi_h = meson_momenta.getMomentum(SrcPsi,pidx);
 	  
+    ThreeMomentum p_prop_dag_h = meson_momenta.getMomentum(DaggeredProp,pidx); //daggered prop is heavy here
+    ThreeMomentum p_prop_undag_l = meson_momenta.getMomentum(UndaggeredProp,pidx);
+
     fMatrix<double> results_PP(Lt,Lt); //[tsrc][tsnk-tsrc]
     fMatrix<double> results_A4physP(Lt,Lt);
     fMatrix<double> results_A4unphysP(Lt,Lt);
@@ -439,78 +497,86 @@ void measureKaon2ptLW(const PropMomContainer &props, const PropPrecision status,
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop_h = props.get(propTag(Heavy,status,tsrc,p_h,time_bc));
-      PropWrapper &prop_l = props.get(propTag(Light,status,tsrc,p_l,time_bc));
+      PropWrapper &prop_dag_h = props.get(propTag(Heavy,status,tsrc,p_prop_dag_h,time_bc));
+      PropWrapper &prop_undag_l = props.get(propTag(Light,status,tsrc,p_prop_undag_l,time_bc));
 
-      kaonTwoPointPPLWGparity(results_PP, tsrc, p_h, p_l, prop_h, prop_l);
-      kaonTwoPointA4PhysPLWGparity(results_A4physP, tsrc, p_h, p_l, prop_h, prop_l);
-      kaonTwoPointA4UnphysPLWGparity(results_A4unphysP, tsrc, p_h, p_l, prop_h, prop_l);
-      kaonTwoPointA4combA4combLWGparity(results_A4combA4comb, tsrc, p_h, p_l, prop_h, prop_l);
+      kaonTwoPointPPLWGparity(results_PP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
+      kaonTwoPointA4PhysPLWGparity(results_A4physP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
+      kaonTwoPointA4UnphysPLWGparity(results_A4unphysP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
+      kaonTwoPointA4combA4combLWGparity(results_A4combA4comb, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
     }
-    writeBasic2ptLW(results_PP,results_dir,"kaon_P_P_LW",p_h,p_l,status,time_bc,conf);
-    writeBasic2ptLW(results_A4physP,results_dir,"kaon_ATphys_P_LW",p_h,p_l,status,time_bc,conf);
-    writeBasic2ptLW(results_A4unphysP,results_dir,"kaon_ATunphys_P_LW",p_h,p_l,status,time_bc,conf);
-    writeBasic2ptLW(results_A4combA4comb,results_dir,"kaon_ATcomb_ATcomb_LW",p_h,p_l,status,time_bc,conf);
+    writeBasic2ptLW(results_PP,results_dir,"kaon_P_P_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
+    writeBasic2ptLW(results_A4physP,results_dir,"kaon_ATphys_P_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
+    writeBasic2ptLW(results_A4unphysP,results_dir,"kaon_ATunphys_P_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
+    writeBasic2ptLW(results_A4combA4comb,results_dir,"kaon_ATcomb_ATcomb_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
   }
 }
 
 
-//Kaon 2pt LW functions pseudoscalar sink
+//Kaon 2pt LW functions pseudoscalar sink (cf pion version for comments)
 void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta, Lattice &lat,
 			const std::string results_dir, const int conf){
+
+  if(!UniqueID()) printf("Computing pion 2pt WW with %s props\n", status == Sloppy ? "sloppy" : "exact");
+  double time = -dclock();
+
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
   //Loop over light-light meson momenta
   for(int pidx=0;pidx<meson_momenta.nMom();pidx++){
-    assert(meson_momenta.getQuarkType(0,pidx) == Heavy);   //The strange quark should be on index 0 of the meson_momenta
-    assert(meson_momenta.getQuarkType(1,pidx) == Light);
+    assert(meson_momenta.getQuarkType(SrcPsi,pidx) == Heavy); 
+    assert(meson_momenta.getQuarkType(SrcPsiBar,pidx) == Light);
 
-    ThreeMomentum ph = meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is pl - ph because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum pl = meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p1 = meson_momenta.getMomentum(SrcPsiBar,pidx); //label momentum of psibar_l at source as p1
+    ThreeMomentum p2 = meson_momenta.getMomentum(SrcPsi,pidx);    //label momentum of psi_h at source as p2
 	  
-    //Consider two scenarios with the same total sink momentum
-    //1) The quarks each have the same sink momenta as they do at the source
-    //2) The quarks have their sink momenta exchanged
+    ThreeMomentum p_prop_h_dag = -p2; //cf below
+    ThreeMomentum p_prop_l_undag = p1; 
+	  
+    const ThreeMomentum &p_psibar_l_src = p1;
+    const ThreeMomentum &p_psi_h_src = p2; //always the same
 
-    ThreeMomentum ph_snk_keep = -ph; //exp(+ip.x)
-    ThreeMomentum pl_snk_keep = -pl;
+    ThreeMomentum p_prop_h_dag_snk_keep = p2; 
+    ThreeMomentum p_prop_l_undag_snk_keep = -p1;
+    ThreeMomentum p_psi_l_snk_keep = -p1;
 
-    ThreeMomentum ph_snk_exch = -pl; //exp(+ip.x)
-    ThreeMomentum pl_snk_exch = -ph;
-    
+    ThreeMomentum p_prop_h_dag_snk_exch = p1; 
+    ThreeMomentum p_prop_l_undag_snk_exch = -p2;
+    ThreeMomentum p_psi_l_snk_exch = -p2;
+
     fMatrix<double> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
     fMatrix<double> results_momexch(Lt,Lt);
 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
       
-      //Strange prop
-      PropWrapper &proph = props.get(propTag(Heavy,status,tsrc,ph,time_bc));
+      //Heavy prop
+      PropWrapper &prop_h_dag = props.get(propTag(Heavy,status,tsrc,p_prop_h_dag,time_bc));
      
-      WallSinkProp<SpinColorFlavorMatrix> proph_FT_keep; 
-      proph_FT_keep.setProp(proph);
-      proph_FT_keep.compute(lat, ph_snk_keep.ptr());
+      WallSinkProp<SpinColorFlavorMatrix> prop_h_dag_FT_keep; 
+      prop_h_dag_FT_keep.setProp(prop_h_dag);
+      prop_h_dag_FT_keep.compute(lat, p_prop_h_dag_snk_keep.ptr());
 
-      WallSinkProp<SpinColorFlavorMatrix> proph_FT_exch; 
-      proph_FT_exch.setProp(proph);
-      proph_FT_exch.compute(lat, ph_snk_exch.ptr());      
+      WallSinkProp<SpinColorFlavorMatrix> prop_h_dag_FT_exch; 
+      prop_h_dag_FT_exch.setProp(prop_h_dag);
+      prop_h_dag_FT_exch.compute(lat, p_prop_h_dag_snk_exch.ptr());      
 
       //Light prop
-      PropWrapper &propl = props.get(propTag(Light,status,tsrc,pl,time_bc));
+      PropWrapper &prop_l_undag = props.get(propTag(Light,status,tsrc,p_prop_l_undag,time_bc));
 
-      WallSinkProp<SpinColorFlavorMatrix> propl_FT_keep; 
-      propl_FT_keep.setProp(propl);
-      propl_FT_keep.compute(lat, pl_snk_keep.ptr());
+      WallSinkProp<SpinColorFlavorMatrix> prop_l_undag_FT_keep; 
+      prop_l_undag_FT_keep.setProp(prop_l_undag);
+      prop_l_undag_FT_keep.compute(lat, p_prop_l_undag_snk_keep.ptr());
 
-      WallSinkProp<SpinColorFlavorMatrix> propl_FT_exch; 
-      propl_FT_exch.setProp(propl);
-      propl_FT_exch.compute(lat, pl_snk_exch.ptr());   
+      WallSinkProp<SpinColorFlavorMatrix> prop_l_undag_FT_exch; 
+      prop_l_undag_FT_exch.setProp(prop_l_undag);
+      prop_l_undag_FT_exch.compute(lat, p_prop_l_undag_snk_exch.ptr());   
  
-      kaonTwoPointPPWWGparity(results_momkeep, tsrc, ph, pl_snk_keep, proph_FT_keep, propl_FT_keep);
-      kaonTwoPointPPWWGparity(results_momexch, tsrc, ph, pl_snk_exch, proph_FT_exch, propl_FT_exch);
+      kaonTwoPointPPWWGparity(results_momkeep, tsrc, p_psi_l_snk_keep, p_psi_h_src, prop_h_dag_FT_keep, prop_l_undag_FT_keep);
+      kaonTwoPointPPWWGparity(results_momexch, tsrc, p_psi_l_snk_exch, p_psi_h_src, prop_h_dag_FT_exch, prop_l_undag_FT_exch);
     }
-    writeBasic2ptLW(results_momkeep,results_dir,"kaon_P_P_WW_momkeep",ph,pl,status,time_bc,conf);
-    writeBasic2ptLW(results_momexch,results_dir,"kaon_P_P_WW_momexch",ph,pl,status,time_bc,conf);
+    writeBasic2ptLW(results_momkeep,results_dir,"kaon_P_P_WW_momkeep",p_psibar_l_src,p_psi_h_src,status,time_bc,conf);
+    writeBasic2ptLW(results_momexch,results_dir,"kaon_P_P_WW_momexch",p_psibar_l_src,p_psi_h_src,status,time_bc,conf);
   }
 }
 
@@ -524,21 +590,29 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 	       const std::string results_dir, const int conf, const bool do_flavor_project = true){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   
+  //<  \bar\psi_l s3 \psi_h   O_VV+AA   \bar\psi_l s3 \psi_h >
+
   //Do all combinations of source and sink kaon momenta that have the same total momentum. This allows us to look at alternate quark momentum combinations
   //In the meson_momenta, prop index 0 is the strange quark (as in the standard 2pt function case), and is the propagator that is daggered. Prop index 1 is the light quark.
   for(int p0idx=0;p0idx<meson_momenta.nMom();p0idx++){
-    assert(meson_momenta.getQuarkType(0,p0idx) == Heavy);   //The strange quark should be on index 0 of the meson_momenta
-    assert(meson_momenta.getQuarkType(1,p0idx) == Light);
+    assert(meson_momenta.getQuarkType(SrcPsi,p0idx) == Heavy);
+    assert(meson_momenta.getQuarkType(SrcPsiBar,p0idx) == Light);
 
-    ThreeMomentum prop_h_t0_srcmom = meson_momenta.getQuarkMom(0,p0idx);
-    ThreeMomentum prop_l_t0_srcmom = meson_momenta.getQuarkMom(1,p0idx);
+    ThreeMomentum p_psibar_l_t0 = meson_momenta.getMomentum(SrcPsiBar,p0idx);
+    ThreeMomentum p_psi_h_t0 = meson_momenta.getMomentum(SrcPsi,p0idx);
+
+    ThreeMomentum p_prop_h_t0 = meson_momenta.getMomentum(DaggeredProp,p0idx);
+    ThreeMomentum p_prop_l_t0 = meson_momenta.getMomentum(UndaggeredProp,p0idx);
 
     for(int p1idx=p0idx;p1idx<meson_momenta.nMom();p1idx++){
-      if(meson_momenta.getMesonMom(p1idx) != meson_momenta.getMesonMom(p0idx)) continue;
+      if(meson_momenta.getMomentum(Total,p1idx) != meson_momenta.getMomentum(Total,p0idx)) continue;
 
-      ThreeMomentum prop_h_t1_srcmom = meson_momenta.getQuarkMom(0,p1idx);
-      ThreeMomentum prop_l_t1_srcmom = meson_momenta.getQuarkMom(1,p1idx);
+      ThreeMomentum p_psibar_l_t1 = meson_momenta.getMomentum(SrcPsiBar,p1idx);
+      ThreeMomentum p_psi_h_t1 = meson_momenta.getMomentum(SrcPsi,p1idx);
       
+      ThreeMomentum p_prop_h_t1 = meson_momenta.getMomentum(DaggeredProp,p1idx);
+      ThreeMomentum p_prop_l_t1 = meson_momenta.getMomentum(UndaggeredProp,p1idx);
+
       for(int tspi=0;tspi<tseps.size();tspi++){
 	fMatrix<double> results(Lt,Lt);
 
@@ -549,21 +623,21 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 	  //check t1 is in the vector, if not skip
 	  if(std::find(prop_tsources.begin(), prop_tsources.end(), t1) == prop_tsources.end()) continue;
 
-	  PropWrapper &prop_h_t0 = props.get(propTag(Heavy,status,t0,prop_h_t0_srcmom,time_bc_t0));
-	  PropWrapper &prop_l_t0 = props.get(propTag(Light,status,t0,prop_l_t0_srcmom,time_bc_t0));
+	  PropWrapper &prop_h_t0 = props.get(propTag(Heavy,status,t0,p_prop_h_t0,time_bc_t0));
+	  PropWrapper &prop_l_t0 = props.get(propTag(Light,status,t0,p_prop_l_t0,time_bc_t0));
 
-	  PropWrapper &prop_h_t1 = props.get(propTag(Heavy,status,t1,prop_h_t1_srcmom,time_bc_t1));
-	  PropWrapper &prop_l_t1 = props.get(propTag(Light,status,t1,prop_l_t1_srcmom,time_bc_t1));
+	  PropWrapper &prop_h_t1 = props.get(propTag(Heavy,status,t1,p_prop_h_t1,time_bc_t1));
+	  PropWrapper &prop_l_t1 = props.get(propTag(Light,status,t1,p_prop_l_t1,time_bc_t1));
 
 	  GparityBK(results, t0, 
-		    prop_h_t0, prop_l_t0, prop_h_t0_srcmom,
-		    prop_h_t1, prop_l_t1, prop_h_t1_srcmom,
+		    prop_h_t0, prop_l_t0, p_psi_h_t0,
+		    prop_h_t1, prop_l_t1, p_psi_h_t1,
 		    do_flavor_project);
 	}
 	{
 	  std::ostringstream os;
-	  os << results_dir << "/BK_srcMom" << (-prop_h_t0_srcmom).file_str() << "_plus" << prop_l_t0_srcmom.file_str() 
-	     << "snkMom" << (-prop_h_t1_srcmom).file_str() << "_plus" << prop_l_t1_srcmom.file_str()
+	  os << results_dir << "/BK_srcMom" << p_psibar_l_t0.file_str() << "_plus" << p_psi_h_t0.file_str() 
+	     << "snkMom" << p_psibar_l_t1.file_str() << "_plus" << p_psi_h_t1.file_str()
 	     << "_srcTbc" << time_bc_t0.getTag()
 	     << "_snkTbc" << time_bc_t1.getTag()
 	     << "_tsep" << tseps[tspi]
@@ -580,12 +654,14 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 //Note: Mres is only properly defined with APRD time BCs. A runtime check is performed
 void measureMres(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
 		 const std::string results_dir, const int conf, const bool do_flavor_project = true){
-
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
   for(int pidx=0;pidx<meson_momenta.nMom();pidx++){
-    ThreeMomentum p1 = meson_momenta.getQuarkMom(0,pidx); //note the total meson momentum is p2 - p1 because the Hermitian conjugate of the first propagator swaps the momentum
-    ThreeMomentum p2 = meson_momenta.getQuarkMom(1,pidx);
+    ThreeMomentum p_psibar = meson_momenta.getMomentum(SrcPsiBar,pidx);
+    ThreeMomentum p_psi = meson_momenta.getMomentum(SrcPsi,pidx);
+	  
+    ThreeMomentum p_prop_dag = meson_momenta.getMomentum(DaggeredProp,pidx);
+    ThreeMomentum p_prop_undag = meson_momenta.getMomentum(UndaggeredProp,pidx);
 	  
     fMatrix<double> pion(Lt,Lt); //[tsrc][tsnk-tsrc]
     fMatrix<double> j5q(Lt,Lt);
@@ -593,14 +669,14 @@ void measureMres(const PropMomContainer &props, const PropPrecision status, cons
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop1 = props.get(propTag(Light,status,tsrc,p1,time_bc));
-      PropWrapper &prop2 = props.get(propTag(Light,status,tsrc,p2,time_bc));
+      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-      J5Gparity(pion,tsrc,p1,p2,prop1,prop2,SPLANE_BOUNDARY,do_flavor_project); 
-      J5Gparity(j5q,tsrc,p1,p2,prop1,prop2,SPLANE_MIDPOINT,do_flavor_project);
+      J5Gparity(pion,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,do_flavor_project); 
+      J5Gparity(j5q,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_MIDPOINT,do_flavor_project);
     }
-    writeBasic2ptLW(pion,results_dir,"J5_LW",p1,p2,status,time_bc,conf);
-    writeBasic2ptLW(j5q,results_dir,"J5q_LW",p1,p2,status,time_bc,conf);
+    writeBasic2ptLW(pion,results_dir,"J5_LW",p_psibar,p_psi,status,time_bc,conf);
+    writeBasic2ptLW(j5q,results_dir,"J5q_LW",p_psibar,p_psi,status,time_bc,conf);
   }
 }
 

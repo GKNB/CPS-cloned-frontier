@@ -6,16 +6,17 @@
 CPS_START_NAMESPACE
 
 //Assume form
-// coeff * \sum_y e^{i(-p1 + p2)y} Tr{  ( prop1(y,p1;tsrc) )^dag SinkOp prop2(y,p2;tsrc) SrcOp }
+// coeff * \sum_y e^{i(p_psibar + p_psi)y} Tr{  ( prop1(y,-p_psi;tsrc) )^dag SinkOp prop2(y,p_psibar;tsrc) SrcOp }
 //use_opposite_sink_mom optionally flips the sign of the sink momentum to the 'wrong' value - used in testing the flavor projection in the paper
+//User is required to provide the propagators with the right momentum
 template<typename MatrixType>
 void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Complex &coeff,
 			     const SrcSnkOp<MatrixType> &sink_op, const SrcSnkOp<MatrixType> &src_op,
-			     const ThreeMomentum &p1, const ThreeMomentum &p2,
-			     const PropWrapper &prop1, const PropWrapper &prop2,
+			     const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+			     const PropWrapper &prop_dag, const PropWrapper &prop_undag,
 			     const PropSplane splane = SPLANE_BOUNDARY,
 			     bool use_opposite_sink_mom = false){
-  ThreeMomentum p_tot_src = p2 - p1;
+  ThreeMomentum p_tot_src = p_psibar + p_psi;
   ThreeMomentum p_tot_snk = -p_tot_src; //mom_phase computes exp(-p.x)
   if(use_opposite_sink_mom) p_tot_snk = -p_tot_snk;
   
@@ -37,12 +38,12 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
     int tdis_glb = (t_glb - tsrc + Lt) % Lt;
     
     MatrixType prop1_site;
-    prop1.siteMatrix(prop1_site,x,splane);
+    prop_dag.siteMatrix(prop1_site,x,splane);
     prop1_site.hconj();
     sink_op.rightMultiply(prop1_site);
     
     MatrixType prop2_site;
-    prop2.siteMatrix(prop2_site,x,splane);
+    prop_undag.siteMatrix(prop2_site,x,splane);
     src_op.rightMultiply(prop2_site);
 
     std::complex<double> phase = coeff * mom_phase(p_tot_snk, pos);
