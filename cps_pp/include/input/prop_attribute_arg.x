@@ -2,6 +2,7 @@
 
 /*include <alg/pooh.h>;
 include "alg/test.h";*/
+include <alg/lanc_arg.h>;
 
 enum AttrType {
   GENERIC_PROP_ATTR,

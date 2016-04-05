@@ -8,10 +8,14 @@
 
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
-//bfm headers
 #include<chroma.h>
+
+//bfm headers
+#ifdef USE_BFM
 #include<bfm.h>
 #include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
+#include<util/lattice/bfm_evo.h>
+#endif
 
 //cps headers
 #include<alg/common_arg.h>
@@ -23,7 +27,6 @@
 #include<alg/ktopipi_jobparams.h>
 #include<util/qioarg.h>
 #include<util/ReadLatticePar.h>
-#include<util/lattice/bfm_evo.h>
 #include<alg/alg_fix_gauge.h>
 #include<util/flavormatrix.h>
 #include<alg/wilson_matrix.h>
@@ -193,8 +196,10 @@ int main (int argc,char **argv )
     assert(a2a_arg.nl <= lanc_arg.N_true_get);
     assert(a2a_arg_s.nl <= lanc_arg_s.N_true_get);
   }
+#ifdef USE_BFM
   cps_qdp_init(&argc,&argv);
   Chroma::initialize(&argc,&argv);
+#endif
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   

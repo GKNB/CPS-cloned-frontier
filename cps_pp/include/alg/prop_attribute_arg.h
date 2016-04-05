@@ -13,6 +13,10 @@
 #include <util/defines.h>
 CPS_START_NAMESPACE
 
+CPS_END_NAMESPACE
+#include <alg/lanc_arg.h>
+CPS_START_NAMESPACE
+
 enum AttrType {
 	GENERIC_PROP_ATTR = 0,
 	POINT_SOURCE_ATTR = 1,

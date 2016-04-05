@@ -36,6 +36,7 @@ inline void compareFermion(const CPSfermion5D<double> &A, const CPSfermion5D<dou
   }
 }
 
+#ifdef USE_BFM
 inline void exportBFMcb(CPSfermion5D<double> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
   Fermion_t zero_a = dwf.allocFermion();
 #pragma omp parallel
@@ -58,6 +59,9 @@ inline void exportBFMcb(CPSfermion5D<double> &into, Fermion_t from, bfm_evo<doub
   dwf.freeFermion(zero_a);
   dwf.freeFermion(etmp);
 }
+#endif
+
+#ifdef USE_GRID
 inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, FGRID &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   LATTICE_FERMION tmp_g(FGrid);
@@ -66,7 +70,7 @@ inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, FGRI
   setCheckerboard(tmp_g, from);
   latg.ImportFermion((Vector*)into.ptr(), tmp_g);
 }
-
+#endif
 
 //BFM evecs
 #ifdef USE_BFM_LANCZOS
@@ -326,8 +330,8 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   // src_o = Mprecdag * (source_o - Moe MeeInv source_e)  , cf Daiqian's thesis page 60
   LATTICE_FERMION src_o(FrbGrid);
 
-  pickCheckerboard(Even,tmp_cb1,source);  //tmp_cb1 = source_e
-  pickCheckerboard(Odd,tmp_cb2,source);   //tmp_cb2 = source_o
+  pickCheckerboard(Grid::Even,tmp_cb1,source);  //tmp_cb1 = source_e
+  pickCheckerboard(Grid::Odd,tmp_cb2,source);   //tmp_cb2 = source_o
 
   Ddwf.MooeeInv(tmp_cb1,tmp_cb3);
   Ddwf.Meooe     (tmp_cb3,tmp_cb4); //tmp_cb4 = Moe MeeInv source_e       (tmp_cb3 free)
@@ -381,7 +385,7 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   setCheckerboard(solution, sol_o);
 
   // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
-  pickCheckerboard(Even,tmp_cb1,source);  //tmp_cb1 = src_e
+  pickCheckerboard(Grid::Even,tmp_cb1,source);  //tmp_cb1 = src_e
 
   Ddwf.Meooe(sol_o,tmp_cb2); //tmp_cb2 = Meo sol_o
   axpy(tmp_cb1, -1.0, tmp_cb2, tmp_cb1); //tmp_cb1 = (-Meo sol_o + src_e)   (tmp_cb2 free)
@@ -467,7 +471,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
     latg.ImportFermion(gsrc, (Vector*)a);
 
     //Left-multiply by D-.  D- = (1-c*DW)
-    Ddwf.DW(gsrc, gtmp_full, DaggerNo);
+    Ddwf.DW(gsrc, gtmp_full, Grid::DaggerNo);
     axpy(gsrc, -mob_c, gtmp_full, gsrc); 
 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
@@ -477,7 +481,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
     lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // to 5d
 
     latg.ImportFermion(gtmp_full, (Vector*)a);
-    Ddwf.DW(gtmp_full, gtmp_full2, DaggerNo);
+    Ddwf.DW(gtmp_full, gtmp_full2, Grid::DaggerNo);
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG

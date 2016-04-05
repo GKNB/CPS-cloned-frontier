@@ -47,14 +47,14 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERM
 
   eval.resize(Nm);
   evec.resize(Nm, FrbGrid);
-  for(int i=0;i<Nm;i++) evec[i].checkerboard = Odd;
+  for(int i=0;i<Nm;i++) evec[i].checkerboard = Grid::Odd;
 
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
 
   LATTICE_FERMION src(FrbGrid);
   gaussian(RNG5rb,src);
-  src.checkerboard = Odd;
+  src.checkerboard = Grid::Odd;
 
   int Nconv;
   IRL.calc(eval,evec,

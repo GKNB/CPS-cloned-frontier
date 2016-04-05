@@ -4,7 +4,6 @@
 #include<mpi.h>
 #endif
 
-#include<util/lattice/bfm_evo.h>
 #include <util/verbose.h>
 #include <util/vector.h>
 #include <util/lattice.h>
@@ -12,7 +11,10 @@
 #include <alg/a2a_arg.h>
 #include <vector>
 #include <fftw3.h>
+
+#ifdef USE_BFM
 #include <alg/eigen/Krylov_5d.h>
+#endif
 
 #include <alg/a2a/a2a_params.h>
 

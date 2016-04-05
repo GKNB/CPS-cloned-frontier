@@ -2,8 +2,7 @@
 #define CK_A2A
 
 #include<util/lattice.h>
-#include<util/lattice/bfm_mixed_solver.h>
-#include <util/lattice/bfm_evo.h>
+
 #ifdef USE_GRID
 #include <util/lattice/fgrid.h>
 #define FGRID FgridGparityMobius
@@ -13,7 +12,12 @@
 #define FGRID_CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
 #define GRID_GPARITY
 #endif
+
+#ifdef USE_BFM
+#include<util/lattice/bfm_mixed_solver.h>
+#include <util/lattice/bfm_evo.h>
 #include <alg/eigen/Krylov_5d.h>
+#endif
 
 #include<alg/a2a/CPSfield.h>
 #include<alg/a2a/scfvectorptr.h>
@@ -411,7 +415,7 @@ void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W);
 #  error "Require Grid for USE_GRID_A2A"
 # endif
 
-# if defined(USE_GRID_LANCZOS) && !defined(USE_BFM)
+# if defined(USE_BFM_LANCZOS) && !defined(USE_BFM)
 #  error "BFM Lanczos -> Grid A2A interface requires BFM!"
 # endif
 

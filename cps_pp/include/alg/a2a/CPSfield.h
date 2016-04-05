@@ -2,6 +2,7 @@
 #define CPS_FIELD_H
 
 #include<algorithm>
+#include<comms/scu.h>
 #include<alg/a2a/fftw_wrapper.h>
 #include<alg/a2a/utils.h>
 #include<alg/a2a/CPSfield_policies.h>

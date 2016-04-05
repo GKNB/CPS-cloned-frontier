@@ -1,17 +1,11 @@
 #ifndef _MAIN_CK_H
 #define _MAIN_CK_H
 
+#include <util/time_cps.h>
 #include <alg/a2a/grid_lanczos.h>
 
 //Useful functions for main programs
 CPS_START_NAMESPACE
-
-template<typename mf_Float>
-void setMass(bfm_evo<mf_Float> &dwf, const double &mass){
-  dwf.mass = mass;
-  dwf.GeneralisedFiveDimEnd(); // reinitialising since using a new mass
-  dwf.GeneralisedFiveDimInit();
-}
 
 void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
   double time = -dclock();
@@ -45,6 +39,14 @@ void ReadRngFile(const MeasArg &meas_arg, bool double_latt = false){
   if(!LRG.Read(rng_file.c_str())) ERR.General(cname,fname,"Failed read rng file %s",rng_file.c_str());
   time += dclock();
   print_time(cname,fname,time);
+}
+
+#ifdef USE_BFM
+template<typename mf_Float>
+void setMass(bfm_evo<mf_Float> &dwf, const double &mass){
+  dwf.mass = mass;
+  dwf.GeneralisedFiveDimEnd(); // reinitialising since using a new mass
+  dwf.GeneralisedFiveDimInit();
 }
 
 void setup_bfmargs(bfmarg &dwfa, int nthread, const BfmSolver &solver = HmCayleyTanh, const double mobius_scale = 1.){
@@ -105,37 +107,8 @@ void setup_bfmargs(bfmarg &dwfa, int nthread, const BfmSolver &solver = HmCayley
   dwfa.residual = 1e-08;
   if(!UniqueID()) printf("Finished setting up bfmargs\n");
 }
+
  
- 
-//Skip gauge fixing and set all gauge fixing matrices to unity
-void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
-  FixGaugeType fix = fix_gauge_arg.fix_gauge_kind;
-  int start = fix_gauge_arg.hyperplane_start;
-  int step = fix_gauge_arg.hyperplane_step;
-  int num = fix_gauge_arg.hyperplane_num;
-
-  int h_planes[num];
-  for(int i=0; i<num; i++) h_planes[i] = start + step * i;
-
-  lat.FixGaugeAllocate(fix, num, h_planes);
-  
-#pragma omp parallel for
-  for(int sf=0;sf<(GJP.Gparity()+1)*GJP.VolNodeSites();sf++){
-    //s + vol*f
-    int s = sf % GJP.VolNodeSites();
-    int f = sf / GJP.VolNodeSites();
-    
-    const Matrix* mat = lat.FixGaugeMatrix(s,f);
-    if(mat == NULL) continue;
-    else{
-      Matrix* mm = const_cast<Matrix*>(mat); //evil, I know, but it saves duplicating the accessor (which is overly complicated)
-      mm->UnitMatrix();
-    }
-  }
-}
-
-
-
 void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dwf, bool singleprec_evecs){
   const int len = 24 * dwf.node_cbvol * (1 + dwf.gparity) * dwf.cbLs;
   omp_set_num_threads(bfmarg::threads);	
@@ -181,6 +154,35 @@ void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dw
   dwf.freeFermion(tmp2);
   dwf.freeFermion(tmp3);
 }
+#endif
+
+//Skip gauge fixing and set all gauge fixing matrices to unity
+void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
+  FixGaugeType fix = fix_gauge_arg.fix_gauge_kind;
+  int start = fix_gauge_arg.hyperplane_start;
+  int step = fix_gauge_arg.hyperplane_step;
+  int num = fix_gauge_arg.hyperplane_num;
+
+  int h_planes[num];
+  for(int i=0; i<num; i++) h_planes[i] = start + step * i;
+
+  lat.FixGaugeAllocate(fix, num, h_planes);
+  
+#pragma omp parallel for
+  for(int sf=0;sf<(GJP.Gparity()+1)*GJP.VolNodeSites();sf++){
+    //s + vol*f
+    int s = sf % GJP.VolNodeSites();
+    int f = sf / GJP.VolNodeSites();
+    
+    const Matrix* mat = lat.FixGaugeMatrix(s,f);
+    if(mat == NULL) continue;
+    else{
+      Matrix* mm = const_cast<Matrix*>(mat); //evil, I know, but it saves duplicating the accessor (which is overly complicated)
+      mm->UnitMatrix();
+    }
+  }
+}
+
 
 #if defined(USE_GRID_LANCZOS)
 void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, GFGRID &lattice){
@@ -278,7 +280,7 @@ struct LatticeSetup{
   LatticeType *lat;
   
   LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
-    assert(jp.solver == HmCayleyTanh);
+    assert(jp.solver == BFM_HmCayleyTanh);
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
     lat = new LatticeType(grid_params); //applies BondCond in constructor

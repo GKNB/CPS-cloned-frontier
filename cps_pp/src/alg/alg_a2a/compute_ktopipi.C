@@ -7,7 +7,6 @@
 #include <vector>
 #include <fftw3.h>
 
-#include <alg/eigen/Krylov_5d.h>
 #include <util/spincolorflavormatrix.h>
 #include <util/vector.h>
 #include <alg/a2a/compute_ktopipi_base.h>
