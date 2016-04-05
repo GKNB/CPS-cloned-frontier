@@ -1,5 +1,5 @@
-SRCDIR = /project/projectdirs/m2078/chulwoo/Gparity//src//ckelly/cps_pp
-BUILDDIR = /project/projectdirs/m2078/chulwoo/Gparity/build/ckelly
+SRCDIR = /home/ckelly/CPS/build/cps_nobfm/../../src/cps/cps_pp
+BUILDDIR = /home/ckelly/CPS/build/cps_nobfm
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/

@@ -17,7 +17,7 @@ void GparityBK(fMatrix<double> &into, const int t0,
   const int nthread = omp_get_max_threads();
   basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
 
-  FlavorMatrix kaon_proj_t0 = getProjector(p_psi_h_t0); //- sign because of g5-herm
+  FlavorMatrix kaon_proj_t0 = getProjector(p_psi_h_t0);
   FlavorMatrix kaon_proj_t1 = getProjector(p_psi_h_t1);
 
 #pragma omp_parallel for

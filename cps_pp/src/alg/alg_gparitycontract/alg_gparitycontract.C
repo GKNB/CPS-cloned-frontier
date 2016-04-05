@@ -47,9 +47,7 @@
 #undef GAUGE_SIZE
 #endif
 
-#ifdef USE_OMP
-#include <omp.h>
-#endif
+#include <util/omp_wrapper.h>
 
 CPS_START_NAMESPACE
 
