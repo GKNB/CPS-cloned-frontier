@@ -419,22 +419,22 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
      
       WallSinkProp<SpinColorFlavorMatrix> prop_dag_FT_keep; 
       prop_dag_FT_keep.setProp(prop_dag);
-      prop_dag_FT_keep.compute(lat, p_prop_dag_snk_keep.ptr());
+      prop_dag_FT_keep.compute(lat, p_prop_dag_snk_keep);
 
       WallSinkProp<SpinColorFlavorMatrix> prop_dag_FT_exch; 
       prop_dag_FT_exch.setProp(prop_dag);
-      prop_dag_FT_exch.compute(lat, p_prop_dag_snk_exch.ptr());      
+      prop_dag_FT_exch.compute(lat, p_prop_dag_snk_exch);      
 
       //Prop2
       PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
       WallSinkProp<SpinColorFlavorMatrix> prop_undag_FT_keep; 
       prop_undag_FT_keep.setProp(prop_undag);
-      prop_undag_FT_keep.compute(lat, p_prop_undag_snk_keep.ptr());
+      prop_undag_FT_keep.compute(lat, p_prop_undag_snk_keep);
 
       WallSinkProp<SpinColorFlavorMatrix> prop_undag_FT_exch; 
       prop_undag_FT_exch.setProp(prop_undag);
-      prop_undag_FT_exch.compute(lat, p_prop_undag_snk_exch.ptr());   
+      prop_undag_FT_exch.compute(lat, p_prop_undag_snk_exch);   
  
       pionTwoPointPPWWGparity(results_momkeep, tsrc, p_psi_snk_keep, p_psi_src, prop_dag_FT_keep, prop_undag_FT_keep);
       pionTwoPointPPWWGparity(results_momexch, tsrc, p_psi_snk_exch, p_psi_src, prop_dag_FT_exch, prop_undag_FT_exch);
@@ -555,22 +555,22 @@ void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision statu
      
       WallSinkProp<SpinColorFlavorMatrix> prop_h_dag_FT_keep; 
       prop_h_dag_FT_keep.setProp(prop_h_dag);
-      prop_h_dag_FT_keep.compute(lat, p_prop_h_dag_snk_keep.ptr());
+      prop_h_dag_FT_keep.compute(lat, p_prop_h_dag_snk_keep);
 
       WallSinkProp<SpinColorFlavorMatrix> prop_h_dag_FT_exch; 
       prop_h_dag_FT_exch.setProp(prop_h_dag);
-      prop_h_dag_FT_exch.compute(lat, p_prop_h_dag_snk_exch.ptr());      
+      prop_h_dag_FT_exch.compute(lat, p_prop_h_dag_snk_exch);      
 
       //Light prop
       PropWrapper &prop_l_undag = props.get(propTag(Light,status,tsrc,p_prop_l_undag,time_bc));
 
       WallSinkProp<SpinColorFlavorMatrix> prop_l_undag_FT_keep; 
       prop_l_undag_FT_keep.setProp(prop_l_undag);
-      prop_l_undag_FT_keep.compute(lat, p_prop_l_undag_snk_keep.ptr());
+      prop_l_undag_FT_keep.compute(lat, p_prop_l_undag_snk_keep);
 
       WallSinkProp<SpinColorFlavorMatrix> prop_l_undag_FT_exch; 
       prop_l_undag_FT_exch.setProp(prop_l_undag);
-      prop_l_undag_FT_exch.compute(lat, p_prop_l_undag_snk_exch.ptr());   
+      prop_l_undag_FT_exch.compute(lat, p_prop_l_undag_snk_exch);   
  
       kaonTwoPointPPWWGparity(results_momkeep, tsrc, p_psi_l_snk_keep, p_psi_h_src, prop_h_dag_FT_keep, prop_l_undag_FT_keep);
       kaonTwoPointPPWWGparity(results_momexch, tsrc, p_psi_l_snk_exch, p_psi_h_src, prop_h_dag_FT_exch, prop_l_undag_FT_exch);

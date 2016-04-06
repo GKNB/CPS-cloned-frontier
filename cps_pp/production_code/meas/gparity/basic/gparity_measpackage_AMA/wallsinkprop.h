@@ -138,7 +138,7 @@ public:
     
     //Lattice sum
     for(int t=0;t<global_T;t++)
-      latticeSum(result[t]);
+      this->latticeSum(result[t]);
   }
 
   void compute(Lattice &lat, const ThreeMomentum &p){

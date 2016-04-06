@@ -193,7 +193,7 @@ void Krylov_5d<S>::herm_mult(bfm_fermion input, bfm_fermion &result)
     dwf_multiply(input, result, false);  
     this->mvprod++;  //D
     this->axpy(this->tmp1 , 0.0, result, result);
-    G5R(result, this->tmp1);
+    this->G5R(result, this->tmp1);
   } 
   else if(this->D == DDAGD)
   {

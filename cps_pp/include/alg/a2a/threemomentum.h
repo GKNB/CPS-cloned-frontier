@@ -7,8 +7,8 @@ class ThreeMomentum{
   int p[3];
 public:
   ThreeMomentum(){ p[0]=p[1]=p[2]=0; }
-  ThreeMomentum(const int &all){ p[0]=p[1]=p[2]=all; }
-  ThreeMomentum(const int &px, const int &py, const int &pz){ p[0]=px; p[1]=py; p[2]=pz; }
+  explicit ThreeMomentum(const int all){ p[0]=p[1]=p[2]=all; }
+  ThreeMomentum(const int px, const int py, const int pz){ p[0]=px; p[1]=py; p[2]=pz; }
   
   int &operator()(const int i){ return p[i]; }
   const int operator()(const int i) const{ return p[i]; }
