@@ -303,7 +303,8 @@ CPS_END_NAMESPACE
 #undef GP 
 
 #else  
-#error Does not compile without Grid for now. Needs fake implementations 
+//#error Does not compile without Grid for now. Needs fake implementations 
+#warning "FGrid without Grid!"
 #endif //#ifdef USE_GRID
 
 
