@@ -246,7 +246,7 @@ public:
     tmp.con = NULL;
   }
   void nodeSum(){
-    QMP_sum_array( (Float*)con,2*size);
+    QMP_sum_array( (mf_Float*)con,2*size);
   }
 };
 
