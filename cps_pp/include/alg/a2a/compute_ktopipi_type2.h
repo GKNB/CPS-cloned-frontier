@@ -257,7 +257,7 @@ void ComputeKtoPiPiGparity<mf_Float>::type2(KtoPiPiGparityResultsContainer resul
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
-#ifndef DISABLE_TYPE1_SPLIT_VMV
+#ifndef DISABLE_TYPE2_SPLIT_VMV
     //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
     std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[t_K_all.size()];
 

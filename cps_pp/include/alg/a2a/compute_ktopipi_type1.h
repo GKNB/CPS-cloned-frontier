@@ -364,33 +364,33 @@ void ComputeKtoPiPiGparity<mf_Float>::type1(KtoPiPiGparityResultsContainer resul
 
 	//if(!UniqueID()){ printf("top_loc=%d, xop3d_loc_base=%d, dx=%d, xop3d_loc=%d\n",top_loc,xop3d_loc_base,dx,xop3d_loc); fflush(stdout); }
 
+	//Construct part 1:
+	//\Gamma_1 vL_i(x_op; x_4) [[\sum_{\vec x} wL_i^dag(x) S_2 vL_j(x;top)]] wL_j^dag(x_op)
+	SpinColorFlavorMatrix part1[2]; //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
+	  
+#if defined(DISABLE_TYPE1_SPLIT_VMV)
+	mult(part1[0], vL, mf_pi1[t_pi1], wL, xop3d_loc, top_loc, false, true);
+	mult(part1[1], vL, mf_pi2[t_pi2], wL, xop3d_loc, top_loc, false, true);
+#elif defined(DISABLE_TYPE1_PRECOMPUTE)
+	mult_vMv_split_part1_pi1.contract(part1[0],xop3d_loc,false, true);
+	mult_vMv_split_part1_pi2.contract(part1[1],xop3d_loc,false, true);
+#else
+	part1[0] = mult_vMv_contracted_part1_pi1[xop3d_loc];
+	part1[1] = mult_vMv_contracted_part1_pi2[xop3d_loc];
+#endif
+
 	for(int tkidx =0; tkidx< ntsep_k_pi; tkidx++){
 	  int t_K = t_K_all[tkidx];
 	  int t_dis = modLt(top_glb - t_K, Lt); //distance between kaon and operator is the output time coordinate
 	  if(t_dis >= tsep_k_pi[tkidx] || t_dis == 0) continue; //don't bother computing operator insertion locations outside of the region between the kaon and first pion or on top of either operator
-	  
-	  //Construct part 1:
-	  //\Gamma_1 vL_i(x_op; x_4) [[\sum_{\vec x} wL_i^dag(x) S_2 vL_j(x;top)]] wL_j^dag(x_op)
-	  SpinColorFlavorMatrix part1[2]; //part1 goes from insertion to pi1, pi2 (x_4 = t_pi1, t_pi2)
-	  
-#if defined(DISABLE_TYPE1_SPLIT_VMV)
-	  mult(part1[0], vL, mf_pi1[t_pi1], wL, xop3d_loc, top_loc, false, true);
-	  mult(part1[1], vL, mf_pi2[t_pi2], wL, xop3d_loc, top_loc, false, true);
-#elif defined(DISABLE_TYPE1_PRECOMPUTE)
-	  mult_vMv_split_part1_pi1.contract(part1[0],xop3d_loc,false, true);
-	  mult_vMv_split_part1_pi2.contract(part1[1],xop3d_loc,false, true);
-#else
-	  part1[0] = mult_vMv_contracted_part1_pi1[xop3d_loc];
-	  part1[1] = mult_vMv_contracted_part1_pi2[xop3d_loc];
-#endif
-	
+	  	
 	  //Construct part 2:
 	  //\Gamma_2 vL_i(x_op;y_4) [[ wL_i^dag(y) S_2 vL_j(y;t_K) ]] [[ wL_j^dag(x_K)\gamma^5 \gamma^5 wH_k(x_K) ) ]] vH_k^\dagger(x_op;t_K)\gamma^5
 	  SpinColorFlavorMatrix part2[2]; //part2 has pi1, pi2 at y_4 = t_pi1, t_pi2
 
 #if defined(DISABLE_TYPE1_SPLIT_VMV)
-	  mult(part2[0], vL, con_pi1_K[t_pi1], vH, xop3d_loc, top_loc, false, true);
-	  mult(part2[1], vL, con_pi2_K[t_pi2], vH, xop3d_loc, top_loc, false, true);
+	  mult(part2[0], vL, con_pi1_K[t_pi1][tkidx], vH, xop3d_loc, top_loc, false, true);
+	  mult(part2[1], vL, con_pi2_K[t_pi2][tkidx], vH, xop3d_loc, top_loc, false, true);
 #elif defined(DISABLE_TYPE1_PRECOMPUTE)
 	  mult_vMv_split_part2_pi1[tkidx].contract(part2[0],xop3d_loc,false, true);
 	  mult_vMv_split_part2_pi2[tkidx].contract(part2[1],xop3d_loc,false, true);
