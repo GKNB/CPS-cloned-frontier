@@ -45,7 +45,7 @@ public:
 
 template<>
 class siteMatrixCompute<WilsonMatrix>{
-  QPropW *prop;
+  const QPropW *prop;
   bool setup;
 public:
   siteMatrixCompute():setup(false){}
@@ -91,7 +91,7 @@ public:
   
   //Can provide an optional sink momentum in lattice units, for which the phase exp(-ip.x) is then applied
   void compute(Lattice &lat, const double *p = NULL){
-    if(!isSetup()) ERR.General("WallSinkProp","compute","Class has not been set up\n");
+    if(!this->isSetup()) ERR.General("WallSinkProp","compute","Class has not been set up\n");
     const int global_T = GJP.TnodeSites()*GJP.Tnodes();
     const int local_T = GJP.TnodeSites();
     const int local_toff = GJP.TnodeCoor()*local_T;

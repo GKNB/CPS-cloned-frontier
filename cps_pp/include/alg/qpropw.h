@@ -267,6 +267,10 @@ public:
   WilsonMatrix & SiteMatrix(const int &site_idx, const int &flavor=0){ return prop[site_idx+flavor*GJP.VolNodeSites()]; }
   WilsonMatrix & MidPlaneSiteMatrix(const int &site_idx, const int &flavor=0){ return midprop[site_idx+flavor*GJP.VolNodeSites()]; }
 
+  const WilsonMatrix & SiteMatrix(const int &site_idx, const int &flavor=0) const{ return prop[site_idx+flavor*GJP.VolNodeSites()]; }
+  const WilsonMatrix & MidPlaneSiteMatrix(const int &site_idx, const int &flavor=0) const{ return midprop[site_idx+flavor*GJP.VolNodeSites()]; }
+
+
   /*! Returns the prop */
   WilsonMatrix& operator[](int i){ return prop[i]; }
 

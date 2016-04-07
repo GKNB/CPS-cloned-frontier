@@ -267,6 +267,11 @@ bool test_equals(const std::complex<double> &a, const std::complex<double> &b, c
   return ( fabs(std::real(a-b)) < eps && fabs(std::imag(a-b)) < eps );
 }
 
+inline int toInt(const char* a){
+  std::stringstream ss; ss << a; int o; ss >> o;
+  return o;
+}
+
 int run_tests(int argc,char *argv[])
 {
   Start(&argc, &argv);

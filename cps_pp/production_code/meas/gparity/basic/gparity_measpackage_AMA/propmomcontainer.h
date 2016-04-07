@@ -17,6 +17,12 @@ public:
     if(props.count(tag) == 0) ERR.General("PropMomContainer","get","Could not find prop with tag '%s'\n", tag.c_str());
     return props[tag];
   } 
+  const PropWrapper & get(const std::string &tag) const{
+    std::map<std::string, PropWrapper>::const_iterator it = props.find(tag);
+    if(it == props.end()) ERR.General("PropMomContainer","get","Could not find prop with tag '%s'\n", tag.c_str());
+    return it->second;
+  } 
+
   void clear(){
     //This container takes ownership of the memory associated with the propagators.
     //As a propagator may appear in multiple entries we must avoid double deletion

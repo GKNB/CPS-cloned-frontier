@@ -107,7 +107,7 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
     GJP.Bc(3,target_tbc);
     if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
   }
-  QPropW* ret = new QPropWMomSrc(latt,&qpropw_arg,p,&c_arg);
+  QPropWMomSrc* ret = new QPropWMomSrc(latt,&qpropw_arg,const_cast<int*>(p),&c_arg);
 
   if(change_bc){
     //Restore the BCs
@@ -258,8 +258,8 @@ void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
 	    
-	PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
-	PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+	const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
+	const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
 	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag);
       }
@@ -293,8 +293,8 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
 	    
-	PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-	PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+	const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+	const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
 	pionTwoPointLWGparity(results,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,false,false); //right proj op, right sink mom
 
@@ -318,8 +318,8 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
       
-      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
       pionTwoPointA4A4LWGparity(results,tsrc,p_psibar,p_psi,prop_dag,prop_undag);
     }
     writeBasic2ptLW(results,results_dir,"pion_AT_AT_LW",p_psibar,p_psi,status,time_bc,conf);
@@ -415,7 +415,7 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       const int tsrc = tslices[s];
       
       //Prop1
-      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
      
       WallSinkProp<SpinColorFlavorMatrix> prop_dag_FT_keep; 
       prop_dag_FT_keep.setProp(prop_dag);
@@ -426,7 +426,7 @@ void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       prop_dag_FT_exch.compute(lat, p_prop_dag_snk_exch);      
 
       //Prop2
-      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
       WallSinkProp<SpinColorFlavorMatrix> prop_undag_FT_keep; 
       prop_undag_FT_keep.setProp(prop_undag);
@@ -464,8 +464,8 @@ void measureLightFlavorSingletLW(const PropMomContainer &props, const PropPrecis
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
       lightFlavorSingletLWGparity(results,tsrc,p_psibar,p_psi,prop_dag,prop_undag);
     }
@@ -497,8 +497,8 @@ void measureKaon2ptLW(const PropMomContainer &props, const PropPrecision status,
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop_dag_h = props.get(propTag(Heavy,status,tsrc,p_prop_dag_h,time_bc));
-      PropWrapper &prop_undag_l = props.get(propTag(Light,status,tsrc,p_prop_undag_l,time_bc));
+      const PropWrapper &prop_dag_h = props.get(propTag(Heavy,status,tsrc,p_prop_dag_h,time_bc));
+      const PropWrapper &prop_undag_l = props.get(propTag(Light,status,tsrc,p_prop_undag_l,time_bc));
 
       kaonTwoPointPPLWGparity(results_PP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
       kaonTwoPointA4PhysPLWGparity(results_A4physP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
@@ -551,7 +551,7 @@ void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       const int tsrc = tslices[s];
       
       //Heavy prop
-      PropWrapper &prop_h_dag = props.get(propTag(Heavy,status,tsrc,p_prop_h_dag,time_bc));
+      const PropWrapper &prop_h_dag = props.get(propTag(Heavy,status,tsrc,p_prop_h_dag,time_bc));
      
       WallSinkProp<SpinColorFlavorMatrix> prop_h_dag_FT_keep; 
       prop_h_dag_FT_keep.setProp(prop_h_dag);
@@ -562,7 +562,7 @@ void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision statu
       prop_h_dag_FT_exch.compute(lat, p_prop_h_dag_snk_exch);      
 
       //Light prop
-      PropWrapper &prop_l_undag = props.get(propTag(Light,status,tsrc,p_prop_l_undag,time_bc));
+      const PropWrapper &prop_l_undag = props.get(propTag(Light,status,tsrc,p_prop_l_undag,time_bc));
 
       WallSinkProp<SpinColorFlavorMatrix> prop_l_undag_FT_keep; 
       prop_l_undag_FT_keep.setProp(prop_l_undag);
@@ -623,11 +623,11 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 	  //check t1 is in the vector, if not skip
 	  if(std::find(prop_tsources.begin(), prop_tsources.end(), t1) == prop_tsources.end()) continue;
 
-	  PropWrapper &prop_h_t0 = props.get(propTag(Heavy,status,t0,p_prop_h_t0,time_bc_t0));
-	  PropWrapper &prop_l_t0 = props.get(propTag(Light,status,t0,p_prop_l_t0,time_bc_t0));
+	  const PropWrapper &prop_h_t0 = props.get(propTag(Heavy,status,t0,p_prop_h_t0,time_bc_t0));
+	  const PropWrapper &prop_l_t0 = props.get(propTag(Light,status,t0,p_prop_l_t0,time_bc_t0));
 
-	  PropWrapper &prop_h_t1 = props.get(propTag(Heavy,status,t1,p_prop_h_t1,time_bc_t1));
-	  PropWrapper &prop_l_t1 = props.get(propTag(Light,status,t1,p_prop_l_t1,time_bc_t1));
+	  const PropWrapper &prop_h_t1 = props.get(propTag(Heavy,status,t1,p_prop_h_t1,time_bc_t1));
+	  const PropWrapper &prop_l_t1 = props.get(propTag(Light,status,t1,p_prop_l_t1,time_bc_t1));
 
 	  GparityBK(results, t0, 
 		    prop_h_t0, prop_l_t0, p_psi_h_t0,
@@ -669,8 +669,8 @@ void measureMres(const PropMomContainer &props, const PropPrecision status, cons
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-      PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
+      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
       J5Gparity(pion,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY,do_flavor_project); 
       J5Gparity(j5q,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_MIDPOINT,do_flavor_project);

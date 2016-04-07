@@ -41,14 +41,14 @@ inline FlavorMatrix getProjector(const ThreeMomentum &p){
 template<typename MatrixType>
 class SrcSnkOp{
 public:
-  virtual void rightMultiply(MatrixType &prop) = 0;
+  virtual void rightMultiply(MatrixType &prop) const = 0;
 };
 
 class BasicOp : public SrcSnkOp<WilsonMatrix>{
   SpinMatrixType smat;
 public:
   BasicOp(const SpinMatrixType _smat): smat(_smat){}
-  void rightMultiply(WilsonMatrix &prop){
+  void rightMultiply(WilsonMatrix &prop) const{
     switch(smat){
     case(gamma1):
       prop.gr(0); break;
@@ -74,7 +74,7 @@ class BasicGparityOp : public SrcSnkOp<SpinColorFlavorMatrix>{
   FlavorMatrixType fmat;
 public:
   BasicGparityOp(const SpinMatrixType _smat, const FlavorMatrixType _fmat): smat(_smat), fmat(_fmat){}
-  void rightMultiply(SpinColorFlavorMatrix &prop){
+  void rightMultiply(SpinColorFlavorMatrix &prop) const{
     switch(smat){
     case(gamma1):
       prop.gr(0); break;
@@ -105,7 +105,7 @@ public:
     return os.str();
   }
 
-  void rightMultiply(SpinColorFlavorMatrix &prop){
+  void rightMultiply(SpinColorFlavorMatrix &prop) const{
     this->BasicGparityOp::rightMultiply(prop);
     FlavorMatrix proj = getProjector(p_psi);    
     prop *= proj;
