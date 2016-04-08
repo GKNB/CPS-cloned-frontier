@@ -62,8 +62,15 @@ inline static std::string propTag(const QuarkType lh, const PropPrecision prec, 
 //Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
 //Eigenvectors must be those appropriate to the choice of temporal BC, 'time_bc'
 QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+  multi1d<float> *eval_conv = NULL;
+
   if(deflate != NULL)
-    dynamic_cast<Fbfm&>(latt).set_deflation(&deflate->bq,&deflate->bl,0); //last argument is really obscure - it's the number of eigenvectors subtracted from the solution to produce a high-mode inverse - we want zero here
+    if(Fbfm::use_mixed_solver){
+      //Have to convert evals to single prec
+      eval_conv = new multi1d<float>(deflate->bl.size());
+      for(int i=0;i<eval_conv->size();i++) eval_conv->operator[](i) = deflate->bl[i];
+      dynamic_cast<Fbfm&>(latt).set_deflation<float>(&deflate->bq,eval_conv,0); //last argument is really obscure - it's the number of eigenvectors subtracted from the solution to produce a high-mode inverse - we want zero here
+    }else dynamic_cast<Fbfm&>(latt).set_deflation(&deflate->bq,&deflate->bl,0);
 
   CommonArg c_arg;
   
@@ -115,6 +122,9 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
     GJP.Bc(3,init_tbc);
     if(is_wrapper_type) latt.BondCond();  //Reapply original BC to internal gauge fields
   }
+
+  if(deflate != NULL) dynamic_cast<Fbfm&>(latt).unset_deflation();
+  if(eval_conv !=NULL) delete eval_conv;
 
   return ret;
 }
@@ -191,6 +201,8 @@ static void quarkCombine(PropMomContainer &props, const QuarkType qtype, const P
 }
 
 inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &lattice, const LancArg lanc_arg, const BndCndType time_bc){
+  if(lanc_arg.N_get == 0) return std::auto_ptr<BFM_Krylov::Lanczos_5d<double> >(NULL);
+
   BndCndType init_tbc = GJP.Tbc();
   BndCndType target_tbc = time_bc;
   bool change_bc = (init_tbc != target_tbc);
