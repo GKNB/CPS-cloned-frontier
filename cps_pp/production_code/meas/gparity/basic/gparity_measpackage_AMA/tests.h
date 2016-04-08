@@ -3,6 +3,8 @@
 
 CPS_START_NAMESPACE
 
+bool exit_on_error = true;
+
 void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   do_arg.x_sites = size[0];
   do_arg.y_sites = size[1];
@@ -129,7 +131,7 @@ void compareProps(QPropW &A, QPropW &B, const std::string label, Float tol = 1e-
   glb_sum(&fail);
   if(fail!=0.0){
     if(!UniqueID()) printf("Prop comparison '%s' failed\n",label.c_str());
-    exit(-1);
+    if(exit_on_error) exit(-1);
   }else{
     if(!UniqueID()) printf("Prop comparison '%s' passed\n",label.c_str());
   }
@@ -217,9 +219,18 @@ PropagatorContainer & computeCombinedPropagatorOld(const std::string &tag, const
   return PropManager::addProp(parg);
 }
 
+inline double reldiff(const double a, const double b){
+  double reldiff = fabs( 2.*(a-b)/(a+b) );
+  if(a==0.0 && b==0.0) reldiff =  0.;
+  return reldiff;
+}
 
 
-
+inline double largest_rel_diff_reim(const Complex &ca, const Complex &cb){
+  double reldiffre = reldiff(ca.real(),cb.real());
+  double reldiffim = reldiff(ca.imag(),cb.imag());
+  return reldiffre > reldiffim ? reldiffre : reldiffim;
+}
 
 
 bool test_equals(const SpinColorFlavorMatrix &a, const SpinColorFlavorMatrix &b, const double &eps){
@@ -232,8 +243,8 @@ bool test_equals(const SpinColorFlavorMatrix &a, const SpinColorFlavorMatrix &b,
 	    
 	      Complex ca = a(i,aa,f0,j,bb,f1);
 	      Complex cb = b(i,aa,f0,j,bb,f1);
-	      if( fabs(ca.real()-cb.real()) > eps || fabs(ca.imag()-cb.imag()) > eps ){		
-		printf("FAIL %d %d %d %d %d %d (%.4f %.4f) (%.4f %.4f), diff (%g, %g)\n",i,aa,f0,j,bb,f1,ca.real(),ca.imag(),cb.real(),cb.imag(), std::real(ca-cb), std::imag(ca-cb));
+	      if(largest_rel_diff_reim(ca,cb) > eps){		
+		printf("FAIL %d %d %d %d %d %d (%g %g) (%g %g), reldiff (%g, %g)\n",i,aa,f0,j,bb,f1,ca.real(),ca.imag(),cb.real(),cb.imag(), reldiff(ca.real(),cb.real()),reldiff(ca.imag(),cb.imag()) );
 		return false;
 	      }
 	    }
@@ -264,7 +275,10 @@ void print2(const SpinColorFlavorMatrix &a,const SpinColorFlavorMatrix &b){
 }
 
 bool test_equals(const std::complex<double> &a, const std::complex<double> &b, const double eps){
-  return ( fabs(std::real(a-b)) < eps && fabs(std::imag(a-b)) < eps );
+  return largest_rel_diff_reim(a,b) < eps;
+}
+bool test_equals(const double a, const double b, const double eps){
+  return reldiff(a,b) < eps;
 }
 
 inline int toInt(const char* a){
@@ -301,6 +315,7 @@ int run_tests(int argc,char *argv[])
 
   bool lanc_args_setup = false;
   Fbfm::use_mixed_solver = false;
+  double tol = 1e-8;
 
   int i=2;
   while(i<argc){
@@ -335,6 +350,9 @@ int run_tests(int argc,char *argv[])
     }else if( strncmp(cmd,"-verbose",15) == 0){
       verbose=true;
       i++;
+    }else if( strncmp(cmd,"-disable_exit_on_error",15) == 0){
+      exit_on_error = false;
+      i++;
     }else if( strncmp(cmd,"-nthread",15) == 0){
       nthreads = toInt(argv[i+1]);
       i+=2;
@@ -344,9 +362,14 @@ int run_tests(int argc,char *argv[])
     }else if( strncmp(cmd,"-mobius",15) == 0){
       solver = BFM_HmCayleyTanh;
       i++;
+    }else if( strncmp(cmd,"-tolerance",15) == 0){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> tol;
+      if(!UniqueID()) printf("Set tolerance to %g\n",tol);
+      i+=2;
     }else if( strncmp(cmd,"-mobius_scale",15) == 0){
-      std::stringstream ss; ss >> argv[i+1];
-      ss << mobius_scale;
+      std::stringstream ss; ss << argv[i+1];
+      ss >> mobius_scale;
       if(!UniqueID()) printf("Set Mobius scale to %g\n",mobius_scale);
       i+=2;
     /* }else if( strncmp(cmd,"-load_lanc_arg",20) == 0){ */
@@ -454,7 +477,7 @@ int run_tests(int argc,char *argv[])
     pm_calc.generate(prop_f0_pplus.convert<QPropWcontainer>(), prop_f1_pplus.convert<QPropWcontainer>(), lattice,i);
     pm_flip.generate_from_cconj_pair(prop_f0_pplus.convert<QPropWcontainer>(), prop_f0_pminus.convert<QPropWcontainer>(), lattice,i);
     
-    bool eq = test_equals(pm_calc,pm_flip,1e-6);
+    bool eq = test_equals(pm_calc,pm_flip,tol);
     double fail = eq ? 0. : 1.;
     glb_sum(&fail);
     if(fail != 0.0){
@@ -462,7 +485,7 @@ int run_tests(int argc,char *argv[])
 	print2(pm_calc,pm_flip);	
       }
       if(!UniqueID()) printf("cconj reln test plus failed\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
   if(!UniqueID()) printf("cconj reln test plus passed\n");
@@ -547,18 +570,18 @@ int run_tests(int argc,char *argv[])
     double fail = 0;
     if(!UniqueID()) printf("Operator %d\n",oo);
     for(int t=0;t<L[3];t++){
-      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
-  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+      if(!test_equals(ppconbil[t],ppnew(0,t),tol)){
+  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
   			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
   			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
-  			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+  			       reldiff(ppconbil[t].real(),ppnew(0,t).real()), reldiff(ppconbil[t].imag(),ppnew(0,t).imag()) );
   	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of operator %d\n",oo);
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
 
@@ -643,18 +666,18 @@ int run_tests(int argc,char *argv[])
     double fail = 0;
     if(!UniqueID()) printf("PPWW\n");
     for(int t=0;t<L[3];t++){
-      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
-  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+      if(!test_equals(ppconbil[t],ppnew(0,t),tol)){
+  	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
   			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
   			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
-  			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+  			       reldiff(ppconbil[t].real(),ppnew(0,t).real()), reldiff(ppconbil[t].imag(),ppnew(0,t).imag()));
   	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of PPWW\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
 
@@ -679,18 +702,23 @@ int run_tests(int argc,char *argv[])
     double fail = 0;
     if(!UniqueID()) printf("Pseudoscalar flavor singlet\n");
     for(int t=0;t<L[3];t++){
-      if(!test_equals(ppconbil[t],ppnew(0,t),1e-10)){
-	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), diff=(%g,%g)\n",t,
+      if(ppconbil[t].imag() > tol || ppnew(0,t).imag() > tol){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), imag parts should be zero within tol\n",t,
+			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
+			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)));
+	fail = 1.;
+      }else if(!test_equals(ppconbil[t].real(),ppnew(0,t).real(),tol)){ 
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
 			       std::real(ppconbil[t]),std::imag(ppconbil[t]),
 			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
-			       std::real(ppnew(0,t)-ppconbil[t]), std::imag(ppnew(0,t)-ppconbil[t]));
+			       reldiff(ppconbil[t].real(),ppnew(0,t).real()), reldiff(ppconbil[t].imag(),ppnew(0,t).imag()));
 	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of pseudoscalar flavor singlet\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
 
@@ -726,7 +754,7 @@ int run_tests(int argc,char *argv[])
     glb_sum(&fail);
     if(fail != 0.0){
       if(!UniqueID()) printf("cconj reln test failed\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
   if(!UniqueID()) printf("Passed cconj reln test 2 (-p)\n");
@@ -762,7 +790,7 @@ int run_tests(int argc,char *argv[])
     glb_sum(&fail);
     if(fail != 0.0){
       if(!UniqueID()) printf("Flip test failed\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
   if(!UniqueID()) printf("Passed mom flip test\n");
@@ -825,18 +853,18 @@ int run_tests(int argc,char *argv[])
     double fail = 0;
     if(!UniqueID()) printf("BK\n");
     for(int t=0;t<L[3];t++){
-      if(!test_equals(bk_old2[t],bk_new(0,t),1e-10)){
-	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+      if(!test_equals(bk_old2[t],bk_new(0,t),tol)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
 			       std::real(bk_old2[t]),std::imag(bk_old2[t]),
 			       std::real(bk_new(0,t)),std::imag(bk_new(0,t)),
-			       std::real(bk_new(0,t))/std::real(bk_old2[t]), std::imag(bk_new(0,t))/std::imag(bk_old2[t]));
+			       reldiff(bk_old2[t].real(),bk_new(0,t).real()), reldiff(bk_old2[t].imag(),bk_new(0,t).imag()) );
 	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(bk_old2[t]),std::imag(bk_old2[t]),std::real(bk_new(0,t)),std::imag(bk_new(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of BK\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
 
@@ -866,34 +894,34 @@ int run_tests(int argc,char *argv[])
     double fail = 0;
     if(!UniqueID()) printf("J5\n");
     for(int t=0;t<L[3];t++){
-      if(!test_equals(pion_old2[t],pion_new(0,t),1e-10)){
-	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+      if(!test_equals(pion_old2[t],pion_new(0,t),tol)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
 			       std::real(pion_old2[t]),std::imag(pion_old2[t]),
 			       std::real(pion_new(0,t)),std::imag(pion_new(0,t)),
-			       std::real(pion_new(0,t))/std::real(pion_old2[t]), std::imag(pion_new(0,t))/std::imag(pion_old2[t]));
+			       reldiff(pion_old2[t].real(),pion_new(0,t).real()), reldiff(pion_old2[t].imag(),pion_new(0,t).imag()));
 	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(pion_old2[t]),std::imag(pion_old2[t]),std::real(pion_new(0,t)),std::imag(pion_new(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of J5\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
 
     if(!UniqueID()) printf("J5q\n");
     for(int t=0;t<L[3];t++){
-      if(!test_equals(j5_q_old2[t],j5_q_new(0,t),1e-10)){
-	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), ratio=(%g,%g)\n",t,
+      if(!test_equals(j5_q_old2[t],j5_q_new(0,t),tol)){
+	if(!UniqueID()) printf("FAIL t=%d, old=(%g,%g) new=(%g,%g), reldiff=(%g,%g)\n",t,
 			       std::real(j5_q_old2[t]),std::imag(j5_q_old2[t]),
 			       std::real(j5_q_new(0,t)),std::imag(j5_q_new(0,t)),
-			       std::real(j5_q_new(0,t))/std::real(j5_q_old2[t]), std::imag(j5_q_new(0,t))/std::imag(j5_q_old2[t]));
+			       reldiff(j5_q_old2[t].real(),j5_q_new(0,t).real()), reldiff(j5_q_old2[t].imag(),j5_q_new(0,t).imag()) );
 	fail = 1.;
       }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(j5_q_old2[t]),std::imag(j5_q_old2[t]),std::real(j5_q_new(0,t)),std::imag(j5_q_new(0,t)) );
     }
     glb_sum(&fail);
     if(fail){
       if(!UniqueID()) printf("Failed comparison of J5q\n");
-      exit(-1);
+      if(exit_on_error) exit(-1);
     }
   }
 
