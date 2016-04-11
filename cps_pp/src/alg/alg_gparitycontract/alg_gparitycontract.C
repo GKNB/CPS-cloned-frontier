@@ -135,7 +135,7 @@ void QuarkMomCombination::set_desired_momentum(const int *what){
 std::vector<Float> QuarkMomCombination::get_p() const{
   if(chosen_momcomb == -1) ERR.General(cname,"get_p","Must set the desired momentum combination before calling this function");
   
-  const static Float Pi_const = 3.1415926535897932384626433832795;
+  const static Float Pi_const = M_PI;
   const std::vector<int> &momphase = allowed_combinations[chosen_momcomb];
 
   std::vector<Float> out(3);
@@ -246,7 +246,7 @@ void AlgGparityContract::global_coord(const int &site, int *into_vec){
 
 //Momentum phase. Momenta are in units of 2pi/L
 Rcomplex AlgGparityContract::phase_factor(const Float *p, const int* global_pos){
-  const static Float pi = 3.1415926535897932384626433832795;
+  const static Float pi = M_PI;
   Float pdotx = 0.0;
   for(int d=0;d<3;d++) pdotx += global_pos[d]*p[d]*2*pi/(GJP.NodeSites(d)*GJP.Nodes(d));
   return Rcomplex(cos(pdotx),sin(pdotx));

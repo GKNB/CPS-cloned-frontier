@@ -256,7 +256,7 @@ public:
 template <typename T>
 struct _multimom_helper{
   static void add_momenta(T &to, MomArg *momenta, const int &sz){
-    const static Float pi_const = 3.141592654;
+    const static Float pi_const = M_PI;
     std::vector<Float> mom(3);
     for(int i=0; i<sz; i++){
       mom[0] = momenta[i].p[0] * pi_const;
@@ -266,7 +266,7 @@ struct _multimom_helper{
     }
   }
   static void add_momenta(T &to, MomPairArg *momenta, const int &sz){
-    const static Float pi_const = 3.141592654;
+    const static Float pi_const = M_PI;
     std::pair< std::vector<Float>,std::vector<Float> > mom; mom.first.resize(3); mom.second.resize(3);
     std::vector<Float> mom2(3);
     for(int i=0; i<sz; i++){

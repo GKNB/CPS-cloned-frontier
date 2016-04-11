@@ -121,9 +121,9 @@ class CGAttrArg:
         fhandle.write("AttrType type = CG_ATTR\n")
         fhandle.write("struct CGAttrArg cg_attr = {\n")
         fhandle.write("int max_num_iter = %d\n" % self.max_num_iter)
-        fhandle.write("double stop_rsd = %f\n" % self.stop_rsd)
-        fhandle.write("double true_rsd = %f\n" % self.true_rsd)
-        fhandle.write("}");  
+        fhandle.write("double stop_rsd = %e\n" % self.stop_rsd)
+        fhandle.write("double true_rsd = %e\n" % self.true_rsd)
+        fhandle.write("}\n");  
 
 class StoreMidpropAttrArg:
     def __init__(self):
@@ -175,6 +175,9 @@ class PropagatorArg:
             self.attr[i].write(fhandle)
         fhandle.write("}\n")
         fhandle.write("}\n")
+
+    def setCGattr(self,resid,iters=10000):
+        self.attr.append( CGAttrArg(max_num_iter=iters,stop_rsd=resid,true_rsd=resid) )
 
     def gaugeFixSource(self):
         self.attr.append( GaugeFixAttrArg(1) )
