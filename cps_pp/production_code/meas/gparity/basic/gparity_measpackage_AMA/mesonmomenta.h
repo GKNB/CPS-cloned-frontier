@@ -12,7 +12,7 @@ public:
   inline void add(const ThreeMomentum &val){
     //if(!UniqueID()) std::cout << "QuarkMomenta adding mom " << val.str() << '\n';
     for(int i=0;i<mom.size();i++) 
-      if(mom[i] == val || mom[i] == -val){
+      if(mom[i] == val || (GJP.Gparity() && mom[i] == -val)){
 	//if(!UniqueID()) std::cout << "Skipping as it (or its negative) already exists: " << mom[i].str() << '\n';
 	return;
       }
@@ -94,13 +94,21 @@ public:
     p_psi   .push_back(Mtype(qtype2,p2.second));
   }
 
-  //Add to QuarkMomenta all the required propagator source momenta of a particular quark species (heavy/light)
+  //Add to QuarkMomenta all the required *propagator* source momenta of a particular quark species (heavy/light)
+  //Assumes gamma5-hermiticity is used for the backwards propagator (cf below)
   void appendQuarkMomenta(const QuarkType qtype,QuarkMomenta &qmom) const{
-    for(int i=0;i<p_psi.size();i++) //this is associated with the daggered prop
-      if(p_psi[i].first == qtype) qmom.add(-p_psi[i].second);
-
-    for(int i=0;i<p_psibar.size();i++) //this is associated with the undaggered prop
+    //Psibar is associated with the undaggered prop
+    //For the propagator   \sum_{x_src} e^{-ip_psibar x_src}<\psi(x_snk,t)\bar\psi(x_src,0)> 
+    //the prop momentum is the same as the psibar momentum
+    for(int i=0;i<p_psibar.size();i++)   
       if(p_psibar[i].first == qtype) qmom.add(p_psibar[i].second);
+
+    //Psi is associated with the daggered prop. 
+    //To get      \sum_{x_src} e^{-ip_psi x_src}<\psi(x_src,0)\bar\psi(x_snk,t)> 
+    //we compute  \sum_{x_src} \gamma^5 [ e^{-i [-p_psi] x_snk}<\psi(x_snk,0)\bar\psi(x_src,0)> ]^\dagger \gamma^5
+    //Where the prop computed has the *opposite* momentum, -p_psi
+    for(int i=0;i<p_psi.size();i++) 
+      if(p_psi[i].first == qtype) qmom.add(-p_psi[i].second);
   }
 
 };

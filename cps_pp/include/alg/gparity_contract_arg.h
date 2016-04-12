@@ -141,11 +141,26 @@ template<> struct rpc_deepcopy<MomPairArg>{
 };
 
 
+enum PropSuperscript {
+	OpNone = 0,
+	OpTranspose = 1,
+	OpConj = 2,
+	OpDagger = 3,
+	OpFlipMomentum = 4,
+	OpTransposeFlipMomentum = 5,
+	OpConjFlipMomentum = 6,
+	OpDaggerFlipMomentum = 7,
+};
+typedef enum PropSuperscript PropSuperscript;
+extern struct vml_enum_map PropSuperscript_map[];
+
 
 #include <util/vml/vml_templates.h>
 struct ContractionTypeAllBilinears {
 	char *prop_1;
 	char *prop_2;
+	PropSuperscript op1;
+	PropSuperscript op2;
 	struct {
 		u_int momenta_len;
 		MomArg *momenta_val;
@@ -172,6 +187,8 @@ template<> struct rpc_deepcopy<ContractionTypeAllBilinears>{
 struct ContractionTypeAllWallSinkBilinearsSpecificMomentum {
 	char *prop_1;
 	char *prop_2;
+	PropSuperscript op1;
+	PropSuperscript op2;
 	struct {
 		u_int momenta_len;
 		MomPairArg *momenta_val;
@@ -714,6 +731,7 @@ extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTy
 extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
 extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
 extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
+extern  bool_t vml_PropSuperscript (VML *, char *instance, PropSuperscript*);
 extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
 extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
 extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);
@@ -743,6 +761,7 @@ extern  bool_t vml_ContractionTypeHLMesons (VML *, char *instance, ContractionTy
 extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionTypeOVVpAA*);
 extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
 extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
+extern  bool_t vml_PropSuperscript (VML *, char *instance, PropSuperscript*);
 extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
 extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
 extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);

@@ -42,8 +42,6 @@ protected:
 
 
 class PropDFT{
-public:
-  enum Superscript { None, Transpose, Conj, Dagger }; 
 protected:
   typedef std::map<std::vector<Float>, int> mom_idx_map_type;
   mom_idx_map_type mom_idx_map;
@@ -55,15 +53,15 @@ protected:
   void conjugateMomReorder(std::vector<std::vector<MatrixType> > &to, const std::vector<std::vector<MatrixType> > &from);
 
   void global_coord(const int &site, int *into_vec);
-
-  template<typename MatrixType>
-  void do_superscript(MatrixType &mat, const Superscript &ss);
   
   //bool mom_sort_pred(const std::pair<Float,int> &i, const std::pair<Float,int> &j);
 
   void find_p2sorted(std::vector< std::pair<Float,int> > &p2list, std::map<int,std::vector<Float> > &p2map);
 public:
   PropDFT(): nmom(0){}
+
+  template<typename MatrixType>
+  static void do_superscript(MatrixType &mat, const PropSuperscript &ss);
 
   void copy_momenta(const PropDFT &r){
     nmom = r.nmom;
@@ -165,7 +163,7 @@ public:
 
 struct _PropagatorBilinear_generics{
   //internal vector<vector<MatrixType> > indexed by momentum index then time
-  typedef std::pair<std::string,PropDFT::Superscript> prop_info;
+  typedef std::pair<std::string,PropSuperscript> prop_info;
   typedef std::pair<prop_info,prop_info> prop_info_pair;
   typedef std::map<prop_info_pair, std::vector<std::vector<SpinColorFlavorMatrix> > > map_info_scfmat;
   typedef std::map<prop_info_pair, std::vector<std::vector<WilsonMatrix> > > map_info_scmat;
@@ -252,37 +250,37 @@ public:
   //Sigma is ignored if MatrixType is WilsonMatrix
   const std::vector<MatrixType> & getBilinear(Lattice &lat,
 					      const std::vector<Float> &sink_momentum, 
-					      char const* tag_A, const Superscript &ss_A,  
-					      char const* tag_B, const Superscript &ss_B, 
+					      char const* tag_A, const PropSuperscript &ss_A,  
+					      char const* tag_B, const PropSuperscript &ss_B, 
 					      const int &Gamma, const int &Sigma = 0
 					      );
 
   void calcAllBilinears(Lattice &lat,
-			char const* tag_A, const Superscript &ss_A,  
-			char const* tag_B, const Superscript &ss_B);
+			char const* tag_A, const PropSuperscript &ss_A,  
+			char const* tag_B, const PropSuperscript &ss_B);
   
   void clear();
 
   void add_momentum(std::vector<Float> sink_mom);
 
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     const int &Gamma, const int &Sigma,
 	     const char *file, Lattice &lat);
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     const int &Gamma, const int &Sigma,
 	     FILE *fp, Lattice &lat);
     
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     const char *file, Lattice &lat);
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     FILE *fp, Lattice &lat);
 
 };
@@ -338,8 +336,8 @@ public:
  ContractedBilinear(): array_size(-1), nmat(_PropagatorBilinear_helper<MatrixType>::nidx), PropDFT(){}
 
   void calculateBilinears(Lattice &lat,
-			  char const* tag_A, const Superscript &ss_A,  
-			  char const* tag_B, const Superscript &ss_B, 
+			  char const* tag_A, const PropSuperscript &ss_A,  
+			  char const* tag_B, const PropSuperscript &ss_B, 
 			  const int &version = 0
 			  );
 
@@ -348,8 +346,8 @@ public:
   //Sigma is ignored if MatrixType is WilsonMatrix
   std::vector<Rcomplex> getBilinear(Lattice &lat,
 				    const std::vector<Float> &sink_momentum, 
-				    char const* tag_A, const Superscript &ss_A,  
-				    char const* tag_B, const Superscript &ss_B, 
+				    char const* tag_A, const PropSuperscript &ss_A,  
+				    char const* tag_B, const PropSuperscript &ss_B, 
 				    const int &Gamma1, const int &Sigma1,
 				    const int &Gamma2, const int &Sigma2,
 				    const int &version = 0
@@ -358,8 +356,8 @@ public:
   //for use with WilsonMatrix where sigma (flavour matrix idx) does not play a role
   std::vector<Rcomplex> getBilinear(Lattice &lat,
 				    const std::vector<Float> &sink_momentum, 
-				    char const* tag_A, const Superscript &ss_A,  
-				    char const* tag_B, const Superscript &ss_B, 
+				    char const* tag_A, const PropSuperscript &ss_A,  
+				    char const* tag_B, const PropSuperscript &ss_B, 
 				    const int &Gamma1, const int &Gamma2, const int &version = 0
 				    );
     
@@ -371,27 +369,27 @@ public:
   ~ContractedBilinear(){ clear(); }
 
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     const char *file, Lattice &lat);
 
   template<typename OutputType>
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     OutputType fp, Lattice &lat);
   
   //write all combinations
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     const std::string &file, Lattice &lat, const bool &binary = false);
   
   template<typename OutputType>
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     OutputType fp, Lattice &lat, const bool &binary = false);
 };
 
@@ -422,8 +420,8 @@ public:
  ContractedBilinearSimple(): array_size(-1), nmat(_PropagatorBilinear_helper<MatrixType>::nidx), PropDFT(){}
 
   void calculateBilinears(Lattice &lat,
-			  char const* tag_A, const Superscript &ss_A,  
-			  char const* tag_B, const Superscript &ss_B);
+			  char const* tag_A, const PropSuperscript &ss_A,  
+			  char const* tag_B, const PropSuperscript &ss_B);
 
   //Get a Fourier transformed bilinear correlation function as a function of time
   //Sigma is ignored if MatrixType is WilsonMatrix
@@ -594,20 +592,20 @@ public:
   //quadrilinear form is    A Gamma1 Sigma1 B  \otimes  C Gamma2 Sigma2 D        where \otimes is an outer product and A,B,C,D are propagators
   const std::vector<TensorType> &getQuadrilinear(Lattice &lat,
 						 const std::vector<Float> &sink_momentum, 
-						 char const* tag_A, const Superscript &ss_A,  
-						 char const* tag_B, const Superscript &ss_B, 
-						 char const* tag_C, const Superscript &ss_C,  
-						 char const* tag_D, const Superscript &ss_D, 
+						 char const* tag_A, const PropSuperscript &ss_A,  
+						 char const* tag_B, const PropSuperscript &ss_B, 
+						 char const* tag_C, const PropSuperscript &ss_C,  
+						 char const* tag_D, const PropSuperscript &ss_D, 
 						 const int &Gamma1, const int &Sigma1,
 						 const int &Gamma2, const int &Sigma2);
 
   //for use with WilsonMatrix where sigma (flavour matrix idx) does not play a role
   const std::vector<TensorType> & getQuadrilinear(Lattice &lat,
 				    const std::vector<Float> &sink_momentum, 
-				    char const* tag_A, const Superscript &ss_A,  
-				    char const* tag_B, const Superscript &ss_B, 
-				    char const* tag_C, const Superscript &ss_C,  
-				    char const* tag_D, const Superscript &ss_D, 
+				    char const* tag_A, const PropSuperscript &ss_A,  
+				    char const* tag_B, const PropSuperscript &ss_B, 
+				    char const* tag_C, const PropSuperscript &ss_C,  
+				    char const* tag_D, const PropSuperscript &ss_D, 
 				    const int &Gamma1, const int &Gamma2
 						  );
     
@@ -615,32 +613,32 @@ public:
   void add_momentum(std::vector<Float> sink_mom);
   void clear();
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
-	     char const* tag_C, const Superscript &ss_C,  
-	     char const* tag_D, const Superscript &ss_D, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
+	     char const* tag_C, const PropSuperscript &ss_C,  
+	     char const* tag_D, const PropSuperscript &ss_D, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     const char *file, Lattice &lat);
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
-	     char const* tag_C, const Superscript &ss_C,  
-	     char const* tag_D, const Superscript &ss_D,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
+	     char const* tag_C, const PropSuperscript &ss_C,  
+	     char const* tag_D, const PropSuperscript &ss_D,
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     FILE *fp, Lattice &lat);
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
-	     char const* tag_C, const Superscript &ss_C,  
-	     char const* tag_D, const Superscript &ss_D, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
+	     char const* tag_C, const PropSuperscript &ss_C,  
+	     char const* tag_D, const PropSuperscript &ss_D, 
 	     const char *file, Lattice &lat);
 
-  void write(char const* tag_A, const Superscript &ss_A,  
-	     char const* tag_B, const Superscript &ss_B,
-	     char const* tag_C, const Superscript &ss_C,  
-	     char const* tag_D, const Superscript &ss_D,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
+	     char const* tag_C, const PropSuperscript &ss_C,  
+	     char const* tag_D, const PropSuperscript &ss_D,
 	     FILE *fp, Lattice &lat);
 };
 
@@ -688,7 +686,7 @@ private:
 
   int idx_map(const int &mat1, const int &mat2, const int & mom_idx, const int &t) const;
   void idx_unmap(const int &idx, int &mat1, int &mat2, int & mom_idx, int &t) const;
-  void do_superscript(MatrixType &mat, const PropDFT::Superscript &ss);
+  void do_superscript(MatrixType &mat, const PropSuperscript &ss);
 
   void calcAllContractedBilinears(const prop_info_pair &props, Lattice &lat);
 
@@ -704,16 +702,16 @@ public:
   void enableCosineSink();
 
   void calculateBilinears(Lattice &lat,
-			  char const* tag_A, const PropDFT::Superscript &ss_A,  
-			  char const* tag_B, const PropDFT::Superscript &ss_B
+			  char const* tag_A, const PropSuperscript &ss_A,  
+			  char const* tag_B, const PropSuperscript &ss_B
 			  );
 
   //Get a Fourier transformed wall sink bilinear correlation function as a function of time
   //Sigma is ignored if MatrixType is WilsonMatrix
   std::vector<Rcomplex> getBilinear(Lattice &lat,
 				    const std::pair<std::vector<Float>,std::vector<Float> > &sink_momenta, 
-				    char const* tag_A, const PropDFT::Superscript &ss_A,  
-				    char const* tag_B, const PropDFT::Superscript &ss_B, 
+				    char const* tag_A, const PropSuperscript &ss_A,  
+				    char const* tag_B, const PropSuperscript &ss_B, 
 				    const int &Gamma1, const int &Sigma1,
 				    const int &Gamma2, const int &Sigma2
 				    );
@@ -721,8 +719,8 @@ public:
   //for use with WilsonMatrix where sigma (flavour matrix idx) does not play a role
   std::vector<Rcomplex> getBilinear(Lattice &lat,
 				    const std::pair<std::vector<Float>,std::vector<Float> > &sink_momenta,
-				    char const* tag_A, const PropDFT::Superscript &ss_A,  
-				    char const* tag_B, const PropDFT::Superscript &ss_B, 
+				    char const* tag_A, const PropSuperscript &ss_A,  
+				    char const* tag_B, const PropSuperscript &ss_B, 
 				    const int &Gamma1, const int &Gamma2
 				    );
     
@@ -743,27 +741,27 @@ private:
   void _writeit(OutputType into,Rcomplex *con,const int &scf_idx1, const int &scf_idx2, const std::vector< std::pair<Float,int> > &p2list, const std::map<int,std::pair<std::vector<Float>,std::vector<Float> > > &p2map, const bool &binary=false);
 public:
 
-  void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-	     char const* tag_B, const PropDFT::Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     const char *file, Lattice &lat);
 
   template<typename OutputType>
-  void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-	     char const* tag_B, const PropDFT::Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     const int &Gamma1, const int &Sigma1,
 	     const int &Gamma2, const int &Sigma2,
 	     OutputType into, Lattice &lat);
   
   //write all combinations
-  void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-	     char const* tag_B, const PropDFT::Superscript &ss_B,
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B,
 	     const std::string &file, Lattice &lat, const bool &binary = false);
 
   template<typename OutputType>
-  void write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-	     char const* tag_B, const PropDFT::Superscript &ss_B, 
+  void write(char const* tag_A, const PropSuperscript &ss_A,  
+	     char const* tag_B, const PropSuperscript &ss_B, 
 	     OutputType into, Lattice &lat, const bool &binary = false);
 };
 

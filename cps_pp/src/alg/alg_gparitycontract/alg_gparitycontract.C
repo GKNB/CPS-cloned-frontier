@@ -2059,11 +2059,11 @@ void AlgGparityContract::contract_all_bilinears(const ContractionTypeAllBilinear
   if(GJP.Gparity()){
     ContractedBilinear<SpinColorFlavorMatrix> conbil;
     _multimom_helper<ContractedBilinear<SpinColorFlavorMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
+    conbil.write(args.prop_1, args.op1, args.prop_2, args.op2, file, AlgLattice(), binary_write);
   }else{
     ContractedBilinear<WilsonMatrix> conbil;
     _multimom_helper<ContractedBilinear<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);   
+    conbil.write(args.prop_1, args.op1, args.prop_2, args.op2, file, AlgLattice(), binary_write);   
   }
 }
 
@@ -2076,12 +2076,12 @@ void AlgGparityContract::contract_all_wallsink_bilinears_specific_momentum(const
     ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> conbil;
     if(args.cosine_sink==1) conbil.enableCosineSink();
     _multimom_helper<ContractedWallSinkBilinearSpecMomentum<SpinColorFlavorMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
+    conbil.write(args.prop_1, args.op1, args.prop_2, args.op2, file, AlgLattice(), binary_write);
   }else{
     ContractedWallSinkBilinearSpecMomentum<WilsonMatrix> conbil;
     if(args.cosine_sink==1) conbil.enableCosineSink();
     _multimom_helper<ContractedWallSinkBilinearSpecMomentum<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);
+    conbil.write(args.prop_1, args.op1, args.prop_2, args.op2, file, AlgLattice(), binary_write);
   }
 }
 
@@ -2113,11 +2113,11 @@ void AlgGparityContract::contract_bilinear_vertex(const ContractionTypeBilinearV
   if(GJP.Gparity()){
     PropagatorBilinear<SpinColorFlavorMatrix> bil;
     _multimom_helper<PropagatorBilinear<SpinColorFlavorMatrix> >::add_momenta(bil,args.momenta.momenta_val, args.momenta.momenta_len);
-    bil.write(args.prop_1,PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
+    bil.write(args.prop_1,OpDagger, args.prop_2, OpNone, file, AlgLattice());
   }else{
     PropagatorBilinear<WilsonMatrix> bil;
     _multimom_helper<PropagatorBilinear<WilsonMatrix> >::add_momenta(bil,args.momenta.momenta_val, args.momenta.momenta_len);
-    bil.write(args.prop_1,PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());   
+    bil.write(args.prop_1,OpDagger, args.prop_2, OpNone, file, AlgLattice());   
   }
 }
 
@@ -2129,8 +2129,8 @@ void AlgGparityContract::contract_quadrilinear_vertex(const ContractionTypeQuadr
     PropagatorQuadrilinear<SpinColorFlavorMatrix> quad;
     _multimom_helper<PropagatorQuadrilinear<SpinColorFlavorMatrix> >::add_momenta(quad,args.momenta.momenta_val, args.momenta.momenta_len);
     if(args.spin_structs.spin_structs_len == 0)
-      quad.write(args.prop_1,PropDFT::Dagger, args.prop_2, PropDFT::None, 
-		 args.prop_3,PropDFT::Dagger, args.prop_4, PropDFT::None,
+      quad.write(args.prop_1,OpDagger, args.prop_2, OpNone, 
+		 args.prop_3,OpDagger, args.prop_4, OpNone,
 		 file, AlgLattice());
     else{
       FILE *fp;
@@ -2140,8 +2140,8 @@ void AlgGparityContract::contract_quadrilinear_vertex(const ContractionTypeQuadr
 	const QuadrilinearSpinStructure & s = args.spin_structs.spin_structs_val[i];
 	for(int g1=0;g1< s.Gamma1.Gamma1_len; g1++) for(int s1=0;s1< s.Sigma1.Sigma1_len; s1++)
 	for(int g2=0;g2< s.Gamma2.Gamma2_len; g2++) for(int s2=0;s2< s.Sigma2.Sigma2_len; s2++)
-	   quad.write(args.prop_1,PropDFT::Dagger, args.prop_2, PropDFT::None, 
-		      args.prop_3,PropDFT::Dagger, args.prop_4, PropDFT::None,
+	   quad.write(args.prop_1,OpDagger, args.prop_2, OpNone, 
+		      args.prop_3,OpDagger, args.prop_4, OpNone,
 		      s.Gamma1.Gamma1_val[g1], s.Sigma1.Sigma1_val[s1],
 		      s.Gamma2.Gamma2_val[g2], s.Sigma2.Sigma2_val[s2],
 		      fp, AlgLattice());	  
@@ -2151,8 +2151,8 @@ void AlgGparityContract::contract_quadrilinear_vertex(const ContractionTypeQuadr
   }else{
     PropagatorQuadrilinear<WilsonMatrix> quad;
     _multimom_helper<PropagatorQuadrilinear<WilsonMatrix> >::add_momenta(quad,args.momenta.momenta_val, args.momenta.momenta_len);
-    quad.write(args.prop_1,PropDFT::Dagger, args.prop_2, PropDFT::None, 
-	       args.prop_3,PropDFT::Dagger, args.prop_4, PropDFT::None,
+    quad.write(args.prop_1,OpDagger, args.prop_2, OpNone, 
+	       args.prop_3,OpDagger, args.prop_4, OpNone,
 	       file, AlgLattice());   
   }
 }

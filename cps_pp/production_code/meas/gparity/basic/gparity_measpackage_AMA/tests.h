@@ -539,8 +539,8 @@ int run_tests(int argc,char *argv[])
 
   conbil.add_momentum(p_pi_plus);
   conbil.add_momentum(p_zero);
-  conbil.calculateBilinears(lattice, "prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
-  conbil.calculateBilinears(lattice, "prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
+  conbil.calculateBilinears(lattice, "prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone);
+  conbil.calculateBilinears(lattice, "prop_f0_pplus", OpDagger, "prop_f0_pplus", OpNone);
 
   Pion2PtSinkOp snk_op_new[] = { AX, AY, AZ, AT, P };
   int snk_spn_old[] = {1,2,4,8,0};
@@ -549,9 +549,9 @@ int run_tests(int argc,char *argv[])
   for(int oo=0;oo<5;oo++){
     //sigma3(1+sigma2) = sigma3 -i sigma1
     //Note, ordering of operators in ContractedBilinear is source, sink
-    const std::vector<Rcomplex> pps3 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps3 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 3, snk_spn_old[oo], 3);
-    const std::vector<Rcomplex> pps1 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps1 =  conbil.getBilinear(lattice,p_pi_plus,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 1, snk_spn_old[oo], 3);
     std::vector<Rcomplex> ppconbil(pps3);
     for(int i=0;i<pps3.size();i++) ppconbil[i] = 0.25*(pps3[i] + Complex(0,-1)*pps1[i]);
@@ -625,7 +625,7 @@ int run_tests(int argc,char *argv[])
 
     std::pair< std::vector<Float>,std::vector<Float> > mompair( p_phys_units, p_phys_units );
     conwsbil.add_momentum(mompair);
-    conwsbil.calculateBilinears(lattice, "prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None);
+    conwsbil.calculateBilinears(lattice, "prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone);
     
     //Compute gauge-fixed wall sink propagators with new code
     WallSinkProp<SpinColorFlavorMatrix> ws_prop_dag;
@@ -643,13 +643,13 @@ int run_tests(int argc,char *argv[])
 
     pionTwoPointPPWWGparity(ppnew, 0, p_psi_snk, p_psi_src, ws_prop_dag, ws_prop_undag);
 
-    const std::vector<Rcomplex> pps3s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps3s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 3, 0, 3);
-    const std::vector<Rcomplex> pps1s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps1s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 1, 0, 3);
-    const std::vector<Rcomplex> pps3s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps3s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 3, 0, 1);
-    const std::vector<Rcomplex> pps1s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps1s1 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 1, 0, 1);
 
     //s3(1+s2) = s3 - is1  at source
@@ -682,9 +682,9 @@ int run_tests(int argc,char *argv[])
   //Test pseudoscalar flavor singlet against old code. It's stationary. We use momentum assignment    \bar\psi(p) \gamma^5 \psi(-p)  . The psi will be daggered as part of g5-hermiticity op, swapping its momentum.
   //Need projector (1-\sigma_2) because of negative \psi momentum
   {
-    const std::vector<Rcomplex> pp1 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pp1 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", OpDagger, "prop_f0_pplus", OpNone,
 							  0, 0, 0, 0);
-    const std::vector<Rcomplex> pps2 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", PropDFT::Dagger, "prop_f0_pplus", PropDFT::None,
+    const std::vector<Rcomplex> pps2 =  conbil.getBilinear(lattice,p_zero,"prop_f0_pplus", OpDagger, "prop_f0_pplus", OpNone,
      							    0, 2, 0, 0);
     std::vector<Rcomplex> ppconbil(L[3]);
     for(int i=0;i<L[3];i++) ppconbil[i] = 0.25*(pp1[i] - pps2[i]);

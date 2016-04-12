@@ -610,6 +610,12 @@ void _ContractedWallSinkBilinearSpecMomentum_helper<WilsonMatrix>::write(std::os
 }
 
 
+void doFlipMomentum<WilsonMatrix>::flip(WilsonMatrix &mat){
+  ERR.General("doFlipMomentum<WilsonMatrix>","flip","Only valid for G-parity BCs\n");
+}
+void doFlipMomentum<SpinColorFlavorMatrix>::flip(SpinColorFlavorMatrix &mat){
+  mat.flipSourceMomentum();
+}
 
 CPS_END_NAMESPACE
 

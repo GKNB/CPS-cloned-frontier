@@ -77,11 +77,28 @@ void PropDFT::conjugateMomReorder(std::vector<std::vector<MatrixType> > &to, con
 }
 
 template<typename MatrixType>
-void PropDFT::do_superscript(MatrixType &mat, const Superscript &ss){
-  if(ss == None) return;
-  else if(ss == Transpose) mat.transpose();
-  else if(ss == Conj) mat.cconj();
-  else if(ss == Dagger) mat.hconj();
+struct doFlipMomentum{};
+
+template<>
+struct doFlipMomentum<WilsonMatrix>{
+  static void flip(WilsonMatrix &mat);
+};
+template<>
+struct doFlipMomentum<SpinColorFlavorMatrix>{
+  static void flip(SpinColorFlavorMatrix &mat);
+};
+
+
+template<typename MatrixType>
+void PropDFT::do_superscript(MatrixType &mat, const PropSuperscript &ss){
+  if(ss == OpNone) return;
+  else if(ss == OpTranspose) mat.transpose();
+  else if(ss == OpConj) mat.cconj();
+  else if(ss == OpDagger) mat.hconj();
+  else if(ss == OpTransposeFlipMomentum){ doFlipMomentum<MatrixType>::flip(mat); mat.transpose(); }
+  else if(ss == OpConjFlipMomentum){ doFlipMomentum<MatrixType>::flip(mat); mat.cconj(); }
+  else if(ss == OpDaggerFlipMomentum){ doFlipMomentum<MatrixType>::flip(mat); mat.hconj(); }
+  else if(ss == OpFlipMomentum){ doFlipMomentum<MatrixType>::flip(mat); }
   else ERR.General("PropDFT","do_superscript","Unknown superscript\n");
 }
 
@@ -452,8 +469,8 @@ void PropagatorBilinear<MatrixType>::calcBilinear(const int &idx, const prop_inf
 template<typename MatrixType>
 const std::vector<MatrixType> & PropagatorBilinear<MatrixType>::getBilinear(Lattice &lat,
 									    const std::vector<Float> &sink_momentum, 
-									    char const* tag_A, const Superscript &ss_A,  
-									    char const* tag_B, const Superscript &ss_B, 
+									    char const* tag_A, const PropSuperscript &ss_A,  
+									    char const* tag_B, const PropSuperscript &ss_B, 
 									    const int &Gamma, const int &Sigma
 									    ){
   if(!mom_idx_map.count( sink_momentum )) ERR.General("PropagatorBilinear","getBilinear","Desired sink momentum is not in the list of those momentum components generated");
@@ -476,8 +493,8 @@ const std::vector<MatrixType> & PropagatorBilinear<MatrixType>::getBilinear(Latt
 
 template<typename MatrixType>
 void PropagatorBilinear<MatrixType>::calcAllBilinears(Lattice &lat,
-						      char const* tag_A, const Superscript &ss_A,  
-						      char const* tag_B, const Superscript &ss_B){
+						      char const* tag_A, const PropSuperscript &ss_A,  
+						      char const* tag_B, const PropSuperscript &ss_B){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
   calcAllBilinears(props,lat);
 }
@@ -501,8 +518,8 @@ void PropagatorBilinear<MatrixType>::add_momentum(std::vector<Float> sink_mom){
 }
 
 template<typename MatrixType>
-void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B,
+void PropagatorBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B,
 					   const int &Gamma, const int &Sigma,
 					   const char *file, Lattice &lat){
   FILE *fp;
@@ -514,8 +531,8 @@ void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 }
 
 template<typename MatrixType>
-void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B,
+void PropagatorBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B,
 					   const int &Gamma, const int &Sigma,
 					   FILE *fp, Lattice &lat){
   static const char* fname = "write(...)";
@@ -543,8 +560,8 @@ void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 }
     
 template<typename MatrixType>
-void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B,
+void PropagatorBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B,
 					   const char *file, Lattice &lat){
   FILE *fp;
   if ((fp = Fopen(file, "w")) == NULL) {
@@ -555,8 +572,8 @@ void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 }
 
 template<typename MatrixType>
-void PropagatorBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B,
+void PropagatorBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B,
 					   FILE *fp, Lattice &lat){
   static const char* fname = "write(...)";
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
@@ -830,8 +847,8 @@ void ContractedBilinear<MatrixType>::calculateBilinears(Lattice &lat,
 
 template<typename MatrixType>
 void ContractedBilinear<MatrixType>::calculateBilinears(Lattice &lat,
-							char const* tag_A, const Superscript &ss_A,  
-							char const* tag_B, const Superscript &ss_B, 
+							char const* tag_A, const PropSuperscript &ss_A,  
+							char const* tag_B, const PropSuperscript &ss_B, 
 							const int &version
 							){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
@@ -845,8 +862,8 @@ void ContractedBilinear<MatrixType>::calculateBilinears(Lattice &lat,
 template<typename MatrixType>
 std::vector<Rcomplex> ContractedBilinear<MatrixType>::getBilinear(Lattice &lat,
 								  const std::vector<Float> &sink_momentum, 
-								  char const* tag_A, const Superscript &ss_A,  
-								  char const* tag_B, const Superscript &ss_B, 
+								  char const* tag_A, const PropSuperscript &ss_A,  
+								  char const* tag_B, const PropSuperscript &ss_B, 
 								  const int &Gamma1, const int &Sigma1,
 								  const int &Gamma2, const int &Sigma2,
 								  const int &version
@@ -871,8 +888,8 @@ std::vector<Rcomplex> ContractedBilinear<MatrixType>::getBilinear(Lattice &lat,
 template<typename MatrixType>
 std::vector<Rcomplex> ContractedBilinear<MatrixType>::getBilinear(Lattice &lat,
 								  const std::vector<Float> &sink_momentum, 
-								  char const* tag_A, const Superscript &ss_A,  
-								  char const* tag_B, const Superscript &ss_B, 
+								  char const* tag_A, const PropSuperscript &ss_A,  
+								  char const* tag_B, const PropSuperscript &ss_B, 
 								  const int &Gamma1, const int &Gamma2, const int &version
 								  ){
   return getBilinear(lat,sink_momentum,tag_A,ss_A,tag_B,ss_B,Gamma1,0,Gamma2,0,version);
@@ -896,8 +913,8 @@ void ContractedBilinear<MatrixType>::clear(){
 }
 
 template<typename MatrixType>
-void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B, 
+void ContractedBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B, 
 					   const int &Gamma1, const int &Sigma1,
 					   const int &Gamma2, const int &Sigma2,
 					   const char *file, Lattice &lat){
@@ -919,8 +936,8 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 
 template<typename MatrixType>
 template<typename OutputType>
-void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B, 
+void ContractedBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B, 
 					   const int &Gamma1, const int &Sigma1,
 					   const int &Gamma2, const int &Sigma2,
 					   OutputType fp, Lattice &lat){
@@ -953,8 +970,8 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
   
 //write all combinations
 template<typename MatrixType>
-void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B,
+void ContractedBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B,
 					   const std::string &file, Lattice &lat, const bool &binary){
   if(!UniqueID()) printf("ContractedBilinear writing to file \"%s\"\n",file.c_str());
   if(!UniqueID() && binary) printf("ContractedBilinear binary mode enabled\n");
@@ -984,8 +1001,8 @@ void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript 
 
 template<typename MatrixType>
 template<typename OutputType>
-void ContractedBilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					   char const* tag_B, const Superscript &ss_B, 
+void ContractedBilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					   char const* tag_B, const PropSuperscript &ss_B, 
 					   OutputType fp, Lattice &lat, const bool &binary){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
@@ -1046,8 +1063,8 @@ void ContractedBilinearSimple<MatrixType>::clear(){
 
 template<typename MatrixType>
 void ContractedBilinearSimple<MatrixType>::calculateBilinears(Lattice &lat,
-							      char const* tag_A, const Superscript &ss_A,  
-							      char const* tag_B, const Superscript &ss_B){
+							      char const* tag_A, const PropSuperscript &ss_A,  
+							      char const* tag_B, const PropSuperscript &ss_B){
   if(array_size==-1){
     array_size = nmat*nmat*nmom*GJP.Tnodes()*GJP.TnodeSites(); //also acts as a lock to prevent further momenta from being added
     results = new Rcomplex[array_size];
@@ -1535,10 +1552,10 @@ void PropagatorQuadrilinear<MatrixType>::calcAllQuadrilinears(const prop_info_qu
 template<typename MatrixType>
 const std::vector<typename _PropagatorQuadrilinear_helper<MatrixType>::TensorType> &PropagatorQuadrilinear<MatrixType>::getQuadrilinear(Lattice &lat,
 										   const std::vector<Float> &sink_momentum, 
-										   char const* tag_A, const Superscript &ss_A,  
-										   char const* tag_B, const Superscript &ss_B, 
-										   char const* tag_C, const Superscript &ss_C,  
-										   char const* tag_D, const Superscript &ss_D, 
+										   char const* tag_A, const PropSuperscript &ss_A,  
+										   char const* tag_B, const PropSuperscript &ss_B, 
+										   char const* tag_C, const PropSuperscript &ss_C,  
+										   char const* tag_D, const PropSuperscript &ss_D, 
 										   const int &Gamma1, const int &Sigma1,
 										   const int &Gamma2, const int &Sigma2){				   
   if(!mom_idx_map.count( sink_momentum )) ERR.General("PropagatorQuadrilinear","getQuadrilinear","Desired sink momentum is not in the list of those momentum components generated");
@@ -1560,10 +1577,10 @@ const std::vector<typename _PropagatorQuadrilinear_helper<MatrixType>::TensorTyp
 template<typename MatrixType>
 const std::vector<typename _PropagatorQuadrilinear_helper<MatrixType>::TensorType> & PropagatorQuadrilinear<MatrixType>::getQuadrilinear(Lattice &lat,
 										    const std::vector<Float> &sink_momentum, 
-										    char const* tag_A, const Superscript &ss_A,  
-										    char const* tag_B, const Superscript &ss_B, 
-										    char const* tag_C, const Superscript &ss_C,  
-										    char const* tag_D, const Superscript &ss_D, 
+										    char const* tag_A, const PropSuperscript &ss_A,  
+										    char const* tag_B, const PropSuperscript &ss_B, 
+										    char const* tag_C, const PropSuperscript &ss_C,  
+										    char const* tag_D, const PropSuperscript &ss_D, 
 										    const int &Gamma1, const int &Gamma2
 										    ){
   return getQuadrilinear(lat,sink_momentum,tag_A,ss_A,tag_B,ss_B,tag_C,ss_C,tag_D,ss_D,Gamma1,0,Gamma2,0);
@@ -1584,10 +1601,10 @@ void PropagatorQuadrilinear<MatrixType>::clear(){
 }
 
 template<typename MatrixType>
-void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					       char const* tag_B, const Superscript &ss_B,
-					       char const* tag_C, const Superscript &ss_C,  
-					       char const* tag_D, const Superscript &ss_D, 
+void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					       char const* tag_B, const PropSuperscript &ss_B,
+					       char const* tag_C, const PropSuperscript &ss_C,  
+					       char const* tag_D, const PropSuperscript &ss_D, 
 					       const int &Gamma1, const int &Sigma1,
 					       const int &Gamma2, const int &Sigma2,
 					       const char *file, Lattice &lat){
@@ -1600,10 +1617,10 @@ void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscr
 }
 
 template<typename MatrixType>
-void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					       char const* tag_B, const Superscript &ss_B,
-					       char const* tag_C, const Superscript &ss_C,  
-					       char const* tag_D, const Superscript &ss_D,
+void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					       char const* tag_B, const PropSuperscript &ss_B,
+					       char const* tag_C, const PropSuperscript &ss_C,  
+					       char const* tag_D, const PropSuperscript &ss_D,
 					       const int &Gamma1, const int &Sigma1,
 					       const int &Gamma2, const int &Sigma2,
 					       FILE *fp, Lattice &lat){
@@ -1638,10 +1655,10 @@ void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscr
 }
 
 template<typename MatrixType>
-void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					       char const* tag_B, const Superscript &ss_B,
-					       char const* tag_C, const Superscript &ss_C,  
-					       char const* tag_D, const Superscript &ss_D, 
+void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					       char const* tag_B, const PropSuperscript &ss_B,
+					       char const* tag_C, const PropSuperscript &ss_C,  
+					       char const* tag_D, const PropSuperscript &ss_D, 
 					       const char *file, Lattice &lat){
   FILE *fp;
   if ((fp = Fopen(file, "w")) == NULL) {
@@ -1652,10 +1669,10 @@ void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscr
 }
 
 template<typename MatrixType>
-void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const Superscript &ss_A,  
-					       char const* tag_B, const Superscript &ss_B,
-					       char const* tag_C, const Superscript &ss_C,  
-					       char const* tag_D, const Superscript &ss_D,
+void PropagatorQuadrilinear<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+					       char const* tag_B, const PropSuperscript &ss_B,
+					       char const* tag_C, const PropSuperscript &ss_C,  
+					       char const* tag_D, const PropSuperscript &ss_D,
 					       FILE *fp, Lattice &lat){
   static const char* fname = "write(....)";
   prop_info_pair props_1( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
@@ -1708,12 +1725,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::idx_unmap(const int &id
 }
 
 template<typename MatrixType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::do_superscript(MatrixType &mat, const PropDFT::Superscript &ss){
-  if(ss == PropDFT::None) return;
-  else if(ss == PropDFT::Transpose) mat.transpose();
-  else if(ss == PropDFT::Conj) mat.cconj();
-  else if(ss == PropDFT::Dagger) mat.hconj();
-  else ERR.General("ContractedWallSinkBilinearSpecMomentum","do_superscript","Unknown superscript\n");
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::do_superscript(MatrixType &mat, const PropSuperscript &ss){
+  return PropDFT::do_superscript<MatrixType>(mat,ss);
 }
 
 
@@ -1723,6 +1736,23 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::enableCosineSink(){
   if(nmompairs!=0) ERR.General("ContractedWallSinkBilinearSpecMomentum","enableCosineSink","Must enable momentum sink prior to adding momentum"); 
   cosine_sink = true;
   fprop.enableCosineSink();
+}
+
+inline bool OpFlipsMomentumPhase(const PropSuperscript ss){
+  switch(ss){
+  case OpNone:
+  case OpTranspose:
+  case OpConjFlipMomentum:
+  case OpDaggerFlipMomentum:
+    return false;
+  case OpConj:
+  case OpFlipMomentum:
+  case OpDagger:
+  case OpTransposeFlipMomentum:
+    return true;
+  default:
+    ERR.General("","OpFlipsMomentumPhase","Unknown operation\n");
+  }
 }
 
 template<typename MatrixType>
@@ -1754,11 +1784,12 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calcAllContractedBiline
       prop_1 = fprop.getFTProp(lat,mom1,props.first.first.c_str());
       prop_2 = fprop.getFTProp(lat,mom2,props.second.first.c_str());
     }else{
-      //if dagger or conj prop, get FTprop with -mom so that it has +mom when conj performed
-      if(props.first.second == PropDFT::Dagger || props.first.second == PropDFT::Conj) prop_1 = fprop.getFTProp(lat,minus_mom1,props.first.first.c_str());
+      //We choose a convention that the momentum supplied for the propagators is applied after the PropSuperscript operation.
+      //As the Fourier transform is applied prior to the operation being performed, and some of the operations flip the momentum, we need to choose the opposite phase for the FT
+      if(OpFlipsMomentumPhase(props.first.second)) prop_1 = fprop.getFTProp(lat,minus_mom1,props.first.first.c_str());
       else prop_1 = fprop.getFTProp(lat,mom1,props.first.first.c_str());
-      
-      if(props.second.second == PropDFT::Dagger || props.second.second == PropDFT::Conj) prop_2 = fprop.getFTProp(lat,minus_mom2,props.second.first.c_str());
+
+      if(OpFlipsMomentumPhase(props.second.second)) prop_2 = fprop.getFTProp(lat,minus_mom2,props.second.first.c_str());
       else prop_2 = fprop.getFTProp(lat,mom2,props.second.first.c_str());
     }
 	
@@ -1827,8 +1858,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::find_p2sorted(std::vect
 
 template<typename MatrixType>
 void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calculateBilinears(Lattice &lat,
-									    char const* tag_A, const PropDFT::Superscript &ss_A,  
-									    char const* tag_B, const PropDFT::Superscript &ss_B
+									    char const* tag_A, const PropSuperscript &ss_A,  
+									    char const* tag_B, const PropSuperscript &ss_B
 									    ){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 
@@ -1841,8 +1872,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::calculateBilinears(Latt
 template<typename MatrixType>
 std::vector<Rcomplex> ContractedWallSinkBilinearSpecMomentum<MatrixType>::getBilinear(Lattice &lat,
 										      const std::pair<std::vector<Float>,std::vector<Float> > &sink_momenta, 
-										      char const* tag_A, const PropDFT::Superscript &ss_A,  
-										      char const* tag_B, const PropDFT::Superscript &ss_B, 
+										      char const* tag_A, const PropSuperscript &ss_A,  
+										      char const* tag_B, const PropSuperscript &ss_B, 
 										      const int &Gamma1, const int &Sigma1,
 										      const int &Gamma2, const int &Sigma2
 										      ){
@@ -1866,8 +1897,8 @@ std::vector<Rcomplex> ContractedWallSinkBilinearSpecMomentum<MatrixType>::getBil
 template<typename MatrixType>
 std::vector<Rcomplex> ContractedWallSinkBilinearSpecMomentum<MatrixType>::getBilinear(Lattice &lat,
 										      const std::pair<std::vector<Float>,std::vector<Float> > &sink_momenta,
-										      char const* tag_A, const PropDFT::Superscript &ss_A,  
-										      char const* tag_B, const PropDFT::Superscript &ss_B, 
+										      char const* tag_A, const PropSuperscript &ss_A,  
+										      char const* tag_B, const PropSuperscript &ss_B, 
 										      const int &Gamma1, const int &Gamma2
 										      ){
   return getBilinear(lat,sink_momenta,tag_A,ss_A,tag_B,ss_B,Gamma1,0,Gamma2,0);
@@ -1896,8 +1927,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::clear(){
 }
 
 template<typename MatrixType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-							       char const* tag_B, const PropDFT::Superscript &ss_B, 
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+							       char const* tag_B, const PropSuperscript &ss_B, 
 							       const int &Gamma1, const int &Sigma1,
 							       const int &Gamma2, const int &Sigma2,
 							       const char *file, Lattice &lat){
@@ -1940,8 +1971,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::_writeit(OutputType int
 
 template<typename MatrixType>
 template<typename OutputType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-							       char const* tag_B, const PropDFT::Superscript &ss_B, 
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+							       char const* tag_B, const PropSuperscript &ss_B, 
 							       const int &Gamma1, const int &Sigma1,
 							       const int &Gamma2, const int &Sigma2,
 							       OutputType into, Lattice &lat){
@@ -1963,8 +1994,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A
   
 //write all combinations
 template<typename MatrixType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-							       char const* tag_B, const PropDFT::Superscript &ss_B,
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+							       char const* tag_B, const PropSuperscript &ss_B,
 							       const std::string &file, Lattice &lat, const bool &binary){
   if(!UniqueID()) printf("ContractedWallSinkBilinearSpecMomentum writing to file \"%s\"\n",file.c_str());
   if(!UniqueID() && binary) printf("ContractedWallSinkBilinearSpecMomentum binary mode enabled\n");
@@ -1994,8 +2025,8 @@ void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A
 
 template<typename MatrixType>
 template<typename OutputType>
-void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropDFT::Superscript &ss_A,  
-							       char const* tag_B, const PropDFT::Superscript &ss_B, 
+void ContractedWallSinkBilinearSpecMomentum<MatrixType>::write(char const* tag_A, const PropSuperscript &ss_A,  
+							       char const* tag_B, const PropSuperscript &ss_B, 
 							       OutputType into, Lattice &lat, const bool &binary){
   prop_info_pair props( prop_info(tag_A,ss_A), prop_info(tag_B,ss_B) );
 

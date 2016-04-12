@@ -56,12 +56,28 @@ struct MomPairArg{
  rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
-/* tr(A prop_1^dag B prop_2) for all A and B. 
+/*DaggerFlipMomentum is a dagger followed by a G-parity CC reln to swap the source momentum (only works for G-parity)*/
+enum PropSuperscript {
+  OpNone, 
+  OpTranspose, 
+  OpConj, 
+  OpDagger, 
+  OpFlipMomentum,
+  OpTransposeFlipMomentum,
+  OpConjFlipMomentum,
+  OpDaggerFlipMomentum
+};
+
+/* tr(A op1(prop_1) B op2(prop_2)) for all A and B. 
    The total sink momentum is specified by the 'momenta' arg. The code loops over each given choice
-   of sink momentum in the 'momenta' array. */
+   of sink momentum in the 'momenta' array.
+   Operations applied to propagators chosen from the above.
+*/
 struct ContractionTypeAllBilinears{
   string prop_1<>;
   string prop_2<>;
+  PropSuperscript op1;
+  PropSuperscript op2;
   MomArg momenta<>;
   string file<>;
 
@@ -82,6 +98,8 @@ struct ContractionTypeAllBilinears{
 struct ContractionTypeAllWallSinkBilinearsSpecificMomentum{
   string prop_1<>;
   string prop_2<>;
+  PropSuperscript op1;
+  PropSuperscript op2;
   MomPairArg momenta<>;
   int cosine_sink;
   string file<>;

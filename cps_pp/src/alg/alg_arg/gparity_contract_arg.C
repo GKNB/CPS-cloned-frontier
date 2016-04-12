@@ -235,12 +235,35 @@ void MomPairArg::deep_copy(MomPairArg const &rhs){
 }
 
 bool_t
+vml_PropSuperscript (VML *vmls, char *name,PropSuperscript *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,PropSuperscript_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map PropSuperscript_map[] = {
+	{"PropSuperscript","OpNone",OpNone},
+	{"PropSuperscript","OpTranspose",OpTranspose},
+	{"PropSuperscript","OpConj",OpConj},
+	{"PropSuperscript","OpDagger",OpDagger},
+	{"PropSuperscript","OpFlipMomentum",OpFlipMomentum},
+	{"PropSuperscript","OpTransposeFlipMomentum",OpTransposeFlipMomentum},
+	{"PropSuperscript","OpConjFlipMomentum",OpConjFlipMomentum},
+	{"PropSuperscript","OpDaggerFlipMomentum",OpDaggerFlipMomentum},
+	{NULL,NULL,0}
+};
+
+bool_t
 vml_ContractionTypeAllBilinears (VML *vmls, char *name,ContractionTypeAllBilinears *objp)
 {
 	 vml_struct_begin(vmls,"ContractionTypeAllBilinears",name);
 	 if (!vml_string (vmls, "prop_1", &objp->prop_1, ~0))
 		 return FALSE;
 	 if (!vml_string (vmls, "prop_2", &objp->prop_2, ~0))
+		 return FALSE;
+	 if (!vml_PropSuperscript (vmls, "op1", &objp->op1))
+		 return FALSE;
+	 if (!vml_PropSuperscript (vmls, "op2", &objp->op2))
 		 return FALSE;
 	 if (!vml_array (vmls, "momenta", (char **)&objp->momenta.momenta_val, (u_int *) &objp->momenta.momenta_len, ~0,
 		sizeof (MomArg), (vmlproc_t) vml_MomArg))
@@ -255,6 +278,8 @@ void rpc_print<ContractionTypeAllBilinears>::doit(ContractionTypeAllBilinears co
 	std::string spaces(prefix.size(),' ');
 	rpc_print<char *>::doit(what.prop_1,strlen(what.prop_1)+1,spaces+" prop_1 = ");
 	rpc_print<char *>::doit(what.prop_2,strlen(what.prop_2)+1,spaces+" prop_2 = ");
+	rpc_print<PropSuperscript>::doit(what.op1,spaces+" op1 = ");
+	rpc_print<PropSuperscript>::doit(what.op2,spaces+" op2 = ");
 	rpc_print<MomArg *>::doit(what.momenta.momenta_val,what.momenta.momenta_len,spaces+" momenta = ");
 	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
 	std::cout << spaces << "}\n";
@@ -265,6 +290,8 @@ void ContractionTypeAllBilinears::print(const std::string &prefix){
 void rpc_deepcopy<ContractionTypeAllBilinears>::doit(ContractionTypeAllBilinears &into, ContractionTypeAllBilinears const &from){
 	  rpc_deepcopy<char *>::doit(into.prop_1,from.prop_1,strlen(from.prop_1)+1);
 	  rpc_deepcopy<char *>::doit(into.prop_2,from.prop_2,strlen(from.prop_2)+1);
+	  rpc_deepcopy<PropSuperscript>::doit(into.op1,from.op1);
+	  rpc_deepcopy<PropSuperscript>::doit(into.op2,from.op2);
 	  into.momenta.momenta_len = from.momenta.momenta_len;
 	  rpc_deepcopy<MomArg *>::doit(into.momenta.momenta_val,from.momenta.momenta_val,from.momenta.momenta_len);
 	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
@@ -281,6 +308,10 @@ vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *vmls, char *name,C
 		 return FALSE;
 	 if (!vml_string (vmls, "prop_2", &objp->prop_2, ~0))
 		 return FALSE;
+	 if (!vml_PropSuperscript (vmls, "op1", &objp->op1))
+		 return FALSE;
+	 if (!vml_PropSuperscript (vmls, "op2", &objp->op2))
+		 return FALSE;
 	 if (!vml_array (vmls, "momenta", (char **)&objp->momenta.momenta_val, (u_int *) &objp->momenta.momenta_len, ~0,
 		sizeof (MomPairArg), (vmlproc_t) vml_MomPairArg))
 		 return FALSE;
@@ -296,6 +327,8 @@ void rpc_print<ContractionTypeAllWallSinkBilinearsSpecificMomentum>::doit(Contra
 	std::string spaces(prefix.size(),' ');
 	rpc_print<char *>::doit(what.prop_1,strlen(what.prop_1)+1,spaces+" prop_1 = ");
 	rpc_print<char *>::doit(what.prop_2,strlen(what.prop_2)+1,spaces+" prop_2 = ");
+	rpc_print<PropSuperscript>::doit(what.op1,spaces+" op1 = ");
+	rpc_print<PropSuperscript>::doit(what.op2,spaces+" op2 = ");
 	rpc_print<MomPairArg *>::doit(what.momenta.momenta_val,what.momenta.momenta_len,spaces+" momenta = ");
 	rpc_print<int>::doit(what.cosine_sink,spaces+" cosine_sink = ");
 	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
@@ -307,6 +340,8 @@ void ContractionTypeAllWallSinkBilinearsSpecificMomentum::print(const std::strin
 void rpc_deepcopy<ContractionTypeAllWallSinkBilinearsSpecificMomentum>::doit(ContractionTypeAllWallSinkBilinearsSpecificMomentum &into, ContractionTypeAllWallSinkBilinearsSpecificMomentum const &from){
 	  rpc_deepcopy<char *>::doit(into.prop_1,from.prop_1,strlen(from.prop_1)+1);
 	  rpc_deepcopy<char *>::doit(into.prop_2,from.prop_2,strlen(from.prop_2)+1);
+	  rpc_deepcopy<PropSuperscript>::doit(into.op1,from.op1);
+	  rpc_deepcopy<PropSuperscript>::doit(into.op2,from.op2);
 	  into.momenta.momenta_len = from.momenta.momenta_len;
 	  rpc_deepcopy<MomPairArg *>::doit(into.momenta.momenta_val,from.momenta.momenta_val,from.momenta.momenta_len);
 	  rpc_deepcopy<int>::doit(into.cosine_sink,from.cosine_sink);

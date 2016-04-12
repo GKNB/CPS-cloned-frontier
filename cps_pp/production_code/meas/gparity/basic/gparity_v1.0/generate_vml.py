@@ -409,9 +409,11 @@ class MomPairArg:
 
 
 class ContractionTypeAllBilinears:
-    def __init__(self,prop_1,prop_2,momenta, file): #momenta elements should be 3-component lists
+    def __init__(self,prop_1,prop_2,momenta, file, op1 = "OpDagger", op2 = "OpNone"): #momenta elements should be 3-component lists
         self.prop_1 = prop_1
         self.prop_2 = prop_2
+        self.op1 = op1
+        self.op2 = op2
 
         self.momenta = []
         for i in range(len(momenta)):
@@ -421,6 +423,8 @@ class ContractionTypeAllBilinears:
     def writecontents(self,fhandle):
         fhandle.write("string prop_1 = \"%s\"\n" % self.prop_1)
         fhandle.write("string prop_2 = \"%s\"\n" % self.prop_2)
+        fhandle.write("PropSuperscript op1 = %s\n" % self.op1)
+        fhandle.write("PropSuperscript op2 = %s\n" % self.op2)
         fhandle.write("Array momenta[%d] = {\n" % len(self.momenta) )
         for i in range(len(self.momenta)):
             self.momenta[i].write(fhandle,"momenta",i)
@@ -439,34 +443,12 @@ class ContractionTypeAllBilinears:
         self.writecontents(fhandle)
         fhandle.write("}\n"); 
 
-
-
-class ContractionTypeAllWallSinkBilinears:
-    def __init__(self,prop_1,prop_2,momenta, file): #momenta elements should be 3-component lists
-        self.prop_1 = prop_1
-        self.prop_2 = prop_2
-        self.momenta = []
-        for i in range(len(momenta)):
-            self.momenta.append( MomArg(momenta[i]) )
-        self.file = file
-
-    def write(self,fhandle):
-        fhandle.write("ContractionType type = CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS\n")
-        fhandle.write("struct ContractionTypeAllWallSinkBilinears contraction_type_all_wallsink_bilinears = {\n")
-        fhandle.write("string prop_1 = \"%s\"\n" % self.prop_1)
-        fhandle.write("string prop_2 = \"%s\"\n" % self.prop_2)
-        fhandle.write("Array momenta[%d] = {\n" % len(self.momenta) )
-        for i in range(len(self.momenta)):
-            self.momenta[i].write(fhandle,"momenta",i)
-        fhandle.write("}\n"); 
-        fhandle.write("string file = \"%s\"\n" % self.file)
-        fhandle.write("}\n"); 
-
-
 class ContractionTypeAllWallSinkBilinearsSpecificMomentum:
-    def __init__(self,prop_1,prop_2,momenta, cosine_sink, file): #momenta elements should each be a 2 component containing a 3-component list
+    def __init__(self,prop_1,prop_2,momenta, cosine_sink, file, op1 = "OpDagger", op2 = "OpNone"): #momenta elements should each be a 2 component containing a 3-component list
         self.prop_1 = prop_1
         self.prop_2 = prop_2
+        self.op1 = op1
+        self.op2 = op2
         self.momenta = []
         for i in range(len(momenta)):
             self.momenta.append( MomPairArg(momenta[i][0],momenta[i][1]) )
@@ -478,6 +460,8 @@ class ContractionTypeAllWallSinkBilinearsSpecificMomentum:
         fhandle.write("struct ContractionTypeAllWallSinkBilinearsSpecificMomentum contraction_type_all_wallsink_bilinears_specific_momentum = {\n")
         fhandle.write("string prop_1 = \"%s\"\n" % self.prop_1)
         fhandle.write("string prop_2 = \"%s\"\n" % self.prop_2)
+        fhandle.write("PropSuperscript op1 = %s\n" % self.op1)
+        fhandle.write("PropSuperscript op2 = %s\n" % self.op2)
         fhandle.write("Array momenta[%d] = {\n" % len(self.momenta) )
         for i in range(len(self.momenta)):
             self.momenta[i].write(fhandle,"momenta",i)
