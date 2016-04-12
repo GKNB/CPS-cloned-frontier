@@ -135,7 +135,7 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
 
 void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const double stop_prec, const double mass, const BndCndType time_bc,
 		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta,
-		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> &lanc){
+		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> *lanc = NULL){
   if(!UniqueID()) printf("Computing %s %s quark propagators\n", pp == Sloppy ? "sloppy":"exact", qtype==Light ? "light" : "heavy");
   double time = -dclock();
   
@@ -147,8 +147,8 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
       if(!UniqueID()) std::cout << "Starting inversion for prop on timeslice " << tsrc << " with momentum phase " << p.str() << '\n';  
 
       if(GJP.Gparity()){
-	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,&lanc);
-	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,lattice,&lanc);
+	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,lanc);
+	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,lattice,lanc);
 	
 	//Add both + and - source momentum  (PropMomContainer manages prop memory)
 	PropWrapper prop_pplus(prop_f0,prop_f1,false);
@@ -157,7 +157,7 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
 	PropWrapper prop_pminus(prop_f0,prop_f1,true);
 	props.insert(prop_pminus, propTag(qtype,pp,tsrc,-p,time_bc));
       }else{
-	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,&lanc);
+	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,lanc);
 	PropWrapper propw(prop);
 	props.insert(propw, propTag(qtype,pp,tsrc,p,time_bc));
       }

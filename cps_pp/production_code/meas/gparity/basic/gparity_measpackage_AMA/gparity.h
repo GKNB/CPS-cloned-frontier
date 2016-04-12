@@ -139,6 +139,11 @@ void init_fbfm(int *argc, char **argv[], const BfmArg &args)
 }
 
 
+inline int toInt(const char* a){
+  std::stringstream ss; ss << a; int o; ss >> o;
+  return o;
+}
+
 CPS_END_NAMESPACE
 
 

@@ -20,7 +20,7 @@ void GparityBK(fMatrix<double> &into, const int t0,
   FlavorMatrix kaon_proj_t0 = getProjector(p_psi_h_t0);
   FlavorMatrix kaon_proj_t1 = getProjector(p_psi_h_t1);
 
-#pragma omp_parallel for
+#pragma omp parallel for
   for(int x=0;x<GJP.VolNodeSites();x++){
     int pos[4];
     int rem = x;

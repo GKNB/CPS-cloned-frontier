@@ -23,12 +23,16 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
   //if(!UniqueID()) printf("Computing 2pt LW with src momentum %s and snk momentum %s\n",p_tot_src.str().c_str(),p_tot_snk.str().c_str());
 
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
+  //#define TWOPT_TEST
 
+#ifndef TWOPT_TEST
   const int nthread = omp_get_max_threads();
   basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
+#else
+  basicComplexArray<double> tmp(Lt,1); 
+#endif
 
-  //Coefficient
-#pragma omp_parallel for
+#pragma omp parallel for
   for(int x=0;x<GJP.VolNodeSites();x++){
     int pos[4];
     int rem = x;
@@ -48,9 +52,18 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
 
     std::complex<double> phase = coeff * mom_phase(p_tot_snk, pos);
 
+#ifdef TWOPT_TEST
+# pragma omp critical
+    {
+      tmp[tdis_glb] += phase * Trace(prop1_site, prop2_site);
+    }
+#else
     tmp(tdis_glb, omp_get_thread_num()) += phase * Trace(prop1_site, prop2_site);
+#endif
   }
+#ifndef TWOPT_TEST
   tmp.threadSum();
+#endif
   tmp.nodeSum();
 
   for(int tdis=0;tdis<Lt;tdis++)

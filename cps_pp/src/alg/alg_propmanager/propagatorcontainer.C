@@ -416,6 +416,12 @@ void QPropWcontainer::momentum(int *into) const{
     }
 }
 
+void QPropWcontainer::setProp(QPropW *to, bool _own){
+  if(own && prop != NULL) delete prop;
+  prop = to;
+  own = _own;
+}
+
 QPropW & QPropWcontainer::getProp(Lattice &latt){
   if(prop==NULL){
     readProp(latt);
@@ -436,6 +442,7 @@ const QPropWcontainer & QPropWcontainer::verify_convert(const PropagatorContaine
 
 
 void QPropWcontainer::deleteProp(){
+  if(!own) ERR.General("QPropWcontainer","deleteProp","Cannot delete prop that is not owned by this container\n");
   if(prop!=NULL){ delete prop; prop=NULL; }
 }
 

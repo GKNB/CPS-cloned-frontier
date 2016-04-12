@@ -61,6 +61,7 @@
 USING_NAMESPACE_CPS
 
 //#define TESTING
+//#define GEN_OLD_OUTPUT  //On the first exact timeslice use the old code to generate 2pt functions
 
 int main(int argc,char *argv[])
 {
@@ -89,6 +90,7 @@ int main(int argc,char *argv[])
   bool mres_do_flavor_project = true;
   bool bk_do_flavor_project = true;
   bool do_alternative_mom = true;
+  bool disable_lanczos = false;
   {
     int i = 1;
     while(i<argc-1){
@@ -105,6 +107,10 @@ int main(int argc,char *argv[])
       }else if( std::string(argv[i]) == "-disable_mixed_solver" ){
 	if(!UniqueID()) printf("Disabling mixed solver\n");
 	Fbfm::use_mixed_solver = false;
+	i++;
+      }else if( std::string(argv[i]) == "-disable_lanczos" ){
+	if(!UniqueID()) printf("Not computing or using low-modes\n");
+	disable_lanczos = true;
 	i++;
       }else if( std::string(argv[i]) == "-disable_mres_flavor_project" ){ //for comparison with old code
 	if(!UniqueID()) printf("Disabling mres flavor project\n");
@@ -237,33 +243,36 @@ int main(int argc,char *argv[])
 
     //Generate eigenvectors
 #ifdef USE_TBC_INPUT
+    LanczosPtrType lanc_l(NULL), lanc_h(NULL);
     Float time = -dclock();
-    LanczosPtrType lanc_l = doLanczos(lattice,lanc_arg_l,GJP.Tbc());
+    if(!disable_lanczos) lanc_l = doLanczos(lattice,lanc_arg_l,GJP.Tbc());
     time += dclock();    
     print_time("main","Light quark Lanczos",time);
 
     time = -dclock();
-    LanczosPtrType lanc_h = doLanczos(lattice,lanc_arg_h,GJP.Tbc());
+    if(!disable_lanczos) lanc_h = doLanczos(lattice,lanc_arg_h,GJP.Tbc());
     time += dclock();    
     print_time("main","Heavy quark Lanczos",time);
 #else  //USE_TBC_FB
+    LanczosPtrType lanc_l_P(NULL), lanc_l_A(NULL), lanc_h_P(NULL), lanc_h_A(NULL);
+
     Float time = -dclock();
-    LanczosPtrType lanc_l_P = doLanczos(lattice,lanc_arg_l,BND_CND_PRD);
+    if(!disable_lanczos) lanc_l_P = doLanczos(lattice,lanc_arg_l,BND_CND_PRD);
     time += dclock();    
     print_time("main","Light quark Lanczos PRD",time);
 
     time = -dclock();
-    LanczosPtrType lanc_l_A = doLanczos(lattice,lanc_arg_l,BND_CND_APRD);
+    if(!disable_lanczos) lanc_l_A = doLanczos(lattice,lanc_arg_l,BND_CND_APRD);
     time += dclock();    
     print_time("main","Light quark Lanczos APRD",time);
 
     time = -dclock();
-    LanczosPtrType lanc_h_P = doLanczos(lattice,lanc_arg_h,BND_CND_PRD);
+    if(!disable_lanczos) lanc_h_P = doLanczos(lattice,lanc_arg_h,BND_CND_PRD);
     time += dclock();    
     print_time("main","Heavy quark Lanczos PRD",time);
 
     time = -dclock();
-    LanczosPtrType lanc_h_A = doLanczos(lattice,lanc_arg_h,BND_CND_APRD);
+    if(!disable_lanczos) lanc_h_A = doLanczos(lattice,lanc_arg_h,BND_CND_APRD);
     time += dclock();    
     print_time("main","Heavy quark Lanczos APRD",time);
 #endif
@@ -315,8 +324,8 @@ int main(int argc,char *argv[])
 
       //Quark inversions
       for(int bci=0;bci<ntbc;bci++){
-	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,lattice,*lanc_l_bcs[bci]);
-	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,lattice,*lanc_h_bcs[bci]);
+	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,lattice,lanc_l_bcs[bci].get());
+	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,lattice,lanc_h_bcs[bci].get());
       }
 #ifdef USE_TBC_FB  //Make F and B combinations from P and A computed above
       quarkCombine(props,Light,pp,tslices,light_quark_momenta);
@@ -324,6 +333,15 @@ int main(int argc,char *argv[])
 #endif
 
       props.printAllTags();
+
+#ifdef GEN_OLD_OUTPUT
+      if(status == 1){
+	int t = tslices[0];
+	
+
+      }
+#endif
+
 
       for(int piktbci = 0; piktbci < npiktbc; piktbci++){
 	const TbcStatus & tbs = pi_k_tbcuse[piktbci];

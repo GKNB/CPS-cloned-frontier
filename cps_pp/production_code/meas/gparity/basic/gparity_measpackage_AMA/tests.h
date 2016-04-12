@@ -281,11 +281,6 @@ bool test_equals(const double a, const double b, const double eps){
   return reldiff(a,b) < eps;
 }
 
-inline int toInt(const char* a){
-  std::stringstream ss; ss << a; int o; ss >> o;
-  return o;
-}
-
 int run_tests(int argc,char *argv[])
 {
   Start(&argc, &argv);
@@ -576,7 +571,8 @@ int run_tests(int argc,char *argv[])
   			       std::real(ppnew(0,t)),std::imag(ppnew(0,t)),
   			       reldiff(ppconbil[t].real(),ppnew(0,t).real()), reldiff(ppconbil[t].imag(),ppnew(0,t).imag()) );
   	fail = 1.;
-      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g)\n",t,std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)) );
+      }else if(!UniqueID()) printf("PASS t=%d, old=(%g,%g) new=(%g,%g) reldiff=(%g %g)\n",t,
+				   std::real(ppconbil[t]),std::imag(ppconbil[t]),std::real(ppnew(0,t)),std::imag(ppnew(0,t)),reldiff(ppconbil[t].real(),ppnew(0,t).real()), reldiff(ppconbil[t].imag(),ppnew(0,t).imag()));
     }
     glb_sum(&fail);
     if(fail){

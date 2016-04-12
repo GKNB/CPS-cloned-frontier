@@ -92,9 +92,9 @@ void PropagatorContainer::removeAttr(){
 class QPropWcontainer: public PropagatorContainer{
  protected:
   QPropW *prop;
-
+  bool own; //Does this container own the memory for the prop? i.e. should it delete the prop when it is destroyed?
  public:
-  QPropWcontainer(): PropagatorContainer(), prop(NULL){}
+ QPropWcontainer(): PropagatorContainer(), prop(NULL), own(true){}
 
   void readProp(Lattice &latt); //loads prop if on disk (or if possible), does nothing otherwise
   void calcProp(Lattice &latt); //perform prop inversion
@@ -107,6 +107,7 @@ class QPropWcontainer: public PropagatorContainer{
   static QPropWcontainer & verify_convert(PropagatorContainer &pc, const char* cname, const char* fname);
   static const QPropWcontainer & verify_convert(const PropagatorContainer &pc, const char* cname, const char* fname);
 
+  void setProp(QPropW *to, bool _own = true); //set the prop pointer, deleting existing prop if owned by this container
   QPropW & getProp(Lattice &latt); //get the prop, calculate or load if necessary
 
   void momentum(int *into) const; //get the quark 3-momentum
@@ -117,7 +118,7 @@ class QPropWcontainer: public PropagatorContainer{
   int getSourceTimeslice();
   void setSourceTimeslice(const int &t);
   
-  ~QPropWcontainer(){ if(prop!=NULL) delete prop; }
+  ~QPropWcontainer(){ if(own && prop!=NULL) delete prop; }
 };
 
 
