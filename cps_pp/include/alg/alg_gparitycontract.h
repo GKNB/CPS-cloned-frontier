@@ -120,7 +120,6 @@ public:
 
   //Calculate \sum_x tr( M1 A^dag(x) M2 B(x) ) for all M1,M2, where M1 and M2 are spin(-flavor) matrices and A,B are propagors specified in the arguments
   void contract_all_bilinears(const ContractionTypeAllBilinears &args, const int &conf_idx);
-  void contract_all_wallsink_bilinears(const ContractionTypeAllWallSinkBilinears &args, const int &conf_idx);
   void contract_all_wallsink_bilinears_specific_momentum(const ContractionTypeAllWallSinkBilinearsSpecificMomentum &args, const int &conf_idx);
 
   void contract_fourier_prop(const ContractionTypeFourierProp &args, const int &conf_idx);

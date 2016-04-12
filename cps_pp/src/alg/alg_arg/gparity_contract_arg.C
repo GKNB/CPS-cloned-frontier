@@ -18,7 +18,6 @@ struct vml_enum_map ContractionType_map[] = {
 	{"ContractionType","CONTRACTION_TYPE_HL_MESONS",CONTRACTION_TYPE_HL_MESONS},
 	{"ContractionType","CONTRACTION_TYPE_O_VV_P_AA",CONTRACTION_TYPE_O_VV_P_AA},
 	{"ContractionType","CONTRACTION_TYPE_ALL_BILINEARS",CONTRACTION_TYPE_ALL_BILINEARS},
-	{"ContractionType","CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS",CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS},
 	{"ContractionType","CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM",CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM},
 	{"ContractionType","CONTRACTION_TYPE_FOURIER_PROP",CONTRACTION_TYPE_FOURIER_PROP},
 	{"ContractionType","CONTRACTION_TYPE_BILINEAR_VERTEX",CONTRACTION_TYPE_BILINEAR_VERTEX},
@@ -272,45 +271,6 @@ void rpc_deepcopy<ContractionTypeAllBilinears>::doit(ContractionTypeAllBilinears
 }
 void ContractionTypeAllBilinears::deep_copy(ContractionTypeAllBilinears const &rhs){
 	rpc_deepcopy<ContractionTypeAllBilinears>::doit(*this,rhs);
-}
-
-bool_t
-vml_ContractionTypeAllWallSinkBilinears (VML *vmls, char *name,ContractionTypeAllWallSinkBilinears *objp)
-{
-	 vml_struct_begin(vmls,"ContractionTypeAllWallSinkBilinears",name);
-	 if (!vml_string (vmls, "prop_1", &objp->prop_1, ~0))
-		 return FALSE;
-	 if (!vml_string (vmls, "prop_2", &objp->prop_2, ~0))
-		 return FALSE;
-	 if (!vml_array (vmls, "momenta", (char **)&objp->momenta.momenta_val, (u_int *) &objp->momenta.momenta_len, ~0,
-		sizeof (MomArg), (vmlproc_t) vml_MomArg))
-		 return FALSE;
-	 if (!vml_string (vmls, "file", &objp->file, ~0))
-		 return FALSE;
-	 vml_struct_end(vmls,"ContractionTypeAllWallSinkBilinears",name);
-	return TRUE;
-}
-void rpc_print<ContractionTypeAllWallSinkBilinears>::doit(ContractionTypeAllWallSinkBilinears const &what, const std::string &prefix){
-	std::cout << prefix << "{\n";
-	std::string spaces(prefix.size(),' ');
-	rpc_print<char *>::doit(what.prop_1,strlen(what.prop_1)+1,spaces+" prop_1 = ");
-	rpc_print<char *>::doit(what.prop_2,strlen(what.prop_2)+1,spaces+" prop_2 = ");
-	rpc_print<MomArg *>::doit(what.momenta.momenta_val,what.momenta.momenta_len,spaces+" momenta = ");
-	rpc_print<char *>::doit(what.file,strlen(what.file)+1,spaces+" file = ");
-	std::cout << spaces << "}\n";
-}
-void ContractionTypeAllWallSinkBilinears::print(const std::string &prefix){
-	rpc_print<ContractionTypeAllWallSinkBilinears>::doit(*this,prefix);
-}
-void rpc_deepcopy<ContractionTypeAllWallSinkBilinears>::doit(ContractionTypeAllWallSinkBilinears &into, ContractionTypeAllWallSinkBilinears const &from){
-	  rpc_deepcopy<char *>::doit(into.prop_1,from.prop_1,strlen(from.prop_1)+1);
-	  rpc_deepcopy<char *>::doit(into.prop_2,from.prop_2,strlen(from.prop_2)+1);
-	  into.momenta.momenta_len = from.momenta.momenta_len;
-	  rpc_deepcopy<MomArg *>::doit(into.momenta.momenta_val,from.momenta.momenta_val,from.momenta.momenta_len);
-	  rpc_deepcopy<char *>::doit(into.file,from.file,strlen(from.file)+1);
-}
-void ContractionTypeAllWallSinkBilinears::deep_copy(ContractionTypeAllWallSinkBilinears const &rhs){
-	rpc_deepcopy<ContractionTypeAllWallSinkBilinears>::doit(*this,rhs);
 }
 
 bool_t
@@ -911,10 +871,6 @@ vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 		 if (!vml_ContractionTypeAllBilinears (vmls, "contraction_type_all_bilinears", &objp->GparityMeasurement_u.contraction_type_all_bilinears))
 			 return FALSE;
 		break;
-	case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS:
-		 if (!vml_ContractionTypeAllWallSinkBilinears (vmls, "contraction_type_all_wallsink_bilinears", &objp->GparityMeasurement_u.contraction_type_all_wallsink_bilinears))
-			 return FALSE;
-		break;
 	case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM:
 		 if (!vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (vmls, "contraction_type_all_wallsink_bilinears_specific_momentum", &objp->GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum))
 			 return FALSE;
@@ -968,9 +924,6 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeOVVpAA>(
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllBilinears>(){
 	 return CONTRACTION_TYPE_ALL_BILINEARS;
 }
-template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinears>(){
-	 return CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS;
-}
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinearsSpecificMomentum>(){
 	 return CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM;
 }
@@ -1009,8 +962,6 @@ void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMea
 	      rpc_deepcopy<ContractionTypeOVVpAA>::doit(into.GparityMeasurement_u.contraction_type_o_vv_p_aa,from.GparityMeasurement_u.contraction_type_o_vv_p_aa); break;
 	    case CONTRACTION_TYPE_ALL_BILINEARS:
 	      rpc_deepcopy<ContractionTypeAllBilinears>::doit(into.GparityMeasurement_u.contraction_type_all_bilinears,from.GparityMeasurement_u.contraction_type_all_bilinears); break;
-	    case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS:
-	      rpc_deepcopy<ContractionTypeAllWallSinkBilinears>::doit(into.GparityMeasurement_u.contraction_type_all_wallsink_bilinears,from.GparityMeasurement_u.contraction_type_all_wallsink_bilinears); break;
 	    case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM:
 	      rpc_deepcopy<ContractionTypeAllWallSinkBilinearsSpecificMomentum>::doit(into.GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum,from.GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum); break;
 	    case CONTRACTION_TYPE_FOURIER_PROP:
@@ -1046,8 +997,6 @@ void rpc_print<GparityMeasurement>::doit(GparityMeasurement const &what, const s
 	      rpc_print<ContractionTypeOVVpAA>::doit(what.GparityMeasurement_u.contraction_type_o_vv_p_aa,spaces+" union GparityMeasurement_u.contraction_type_o_vv_p_aa = "); break;
 	    case CONTRACTION_TYPE_ALL_BILINEARS:
 	      rpc_print<ContractionTypeAllBilinears>::doit(what.GparityMeasurement_u.contraction_type_all_bilinears,spaces+" union GparityMeasurement_u.contraction_type_all_bilinears = "); break;
-	    case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS:
-	      rpc_print<ContractionTypeAllWallSinkBilinears>::doit(what.GparityMeasurement_u.contraction_type_all_wallsink_bilinears,spaces+" union GparityMeasurement_u.contraction_type_all_wallsink_bilinears = "); break;
 	    case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM:
 	      rpc_print<ContractionTypeAllWallSinkBilinearsSpecificMomentum>::doit(what.GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum,spaces+" union GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum = "); break;
 	    case CONTRACTION_TYPE_FOURIER_PROP:

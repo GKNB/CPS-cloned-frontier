@@ -18,16 +18,15 @@ enum ContractionType {
 	CONTRACTION_TYPE_HL_MESONS = 1,
 	CONTRACTION_TYPE_O_VV_P_AA = 2,
 	CONTRACTION_TYPE_ALL_BILINEARS = 3,
-	CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS = 4,
-	CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM = 5,
-	CONTRACTION_TYPE_FOURIER_PROP = 6,
-	CONTRACTION_TYPE_BILINEAR_VERTEX = 7,
-	CONTRACTION_TYPE_QUADRILINEAR_VERTEX = 8,
-	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 9,
-	CONTRACTION_TYPE_MRES = 10,
-	CONTRACTION_TYPE_A2A_BILINEAR = 11,
-	CONTRACTION_TYPE_WILSON_FLOW = 12,
-	CONTRACTION_TYPE_K_TO_PIPI = 13,
+	CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM = 4,
+	CONTRACTION_TYPE_FOURIER_PROP = 5,
+	CONTRACTION_TYPE_BILINEAR_VERTEX = 6,
+	CONTRACTION_TYPE_QUADRILINEAR_VERTEX = 7,
+	CONTRACTION_TYPE_TOPOLOGICAL_CHARGE = 8,
+	CONTRACTION_TYPE_MRES = 9,
+	CONTRACTION_TYPE_A2A_BILINEAR = 10,
+	CONTRACTION_TYPE_WILSON_FLOW = 11,
+	CONTRACTION_TYPE_K_TO_PIPI = 12,
 };
 typedef enum ContractionType ContractionType;
 extern struct vml_enum_map ContractionType_map[];
@@ -165,32 +164,6 @@ template<> struct rpc_print<ContractionTypeAllBilinears>{
 
 template<> struct rpc_deepcopy<ContractionTypeAllBilinears>{
 	static void doit(ContractionTypeAllBilinears &into, ContractionTypeAllBilinears const &from);
-};
-
-
-
-#include <util/vml/vml_templates.h>
-struct ContractionTypeAllWallSinkBilinears {
-	char *prop_1;
-	char *prop_2;
-	struct {
-		u_int momenta_len;
-		MomArg *momenta_val;
-	} momenta;
-	char *file;
-	   void print(const std::string &prefix ="");
-	   void deep_copy(const ContractionTypeAllWallSinkBilinears &rhs);
-};
-typedef struct ContractionTypeAllWallSinkBilinears ContractionTypeAllWallSinkBilinears;
-#ifndef _USE_STDLIB
-#error "Cannot generate rpc_print commands without the standard library"
-#endif
-template<> struct rpc_print<ContractionTypeAllWallSinkBilinears>{
-	static void doit(ContractionTypeAllWallSinkBilinears const &what, const std::string &prefix="" );
-};
-
-template<> struct rpc_deepcopy<ContractionTypeAllWallSinkBilinears>{
-	static void doit(ContractionTypeAllWallSinkBilinears &into, ContractionTypeAllWallSinkBilinears const &from);
 };
 
 
@@ -565,7 +538,6 @@ struct GparityMeasurement {
 		ContractionTypeHLMesons contraction_type_hl_mesons;
 		ContractionTypeOVVpAA contraction_type_o_vv_p_aa;
 		ContractionTypeAllBilinears contraction_type_all_bilinears;
-		ContractionTypeAllWallSinkBilinears contraction_type_all_wallsink_bilinears;
 		ContractionTypeAllWallSinkBilinearsSpecificMomentum contraction_type_all_wallsink_bilinears_specific_momentum;
 		ContractionTypeFourierProp contraction_type_fourier_prop;
 		ContractionTypeBilinearVertex contraction_type_bilinear_vertex;
@@ -588,7 +560,6 @@ template <> ContractionType GparityMeasurement::type_map<ContractionTypeLLMesons
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeHLMesons>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeOVVpAA>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllBilinears>();
-template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinears>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinearsSpecificMomentum>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeFourierProp>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeBilinearVertex>();
@@ -744,7 +715,6 @@ extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionType
 extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
 extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
 extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
-extern  bool_t vml_ContractionTypeAllWallSinkBilinears (VML *, char *instance, ContractionTypeAllWallSinkBilinears*);
 extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
 extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);
 extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, ContractionTypeBilinearVertex*);
@@ -774,7 +744,6 @@ extern  bool_t vml_ContractionTypeOVVpAA (VML *, char *instance, ContractionType
 extern  bool_t vml_MomArg (VML *, char *instance, MomArg*);
 extern  bool_t vml_MomPairArg (VML *, char *instance, MomPairArg*);
 extern  bool_t vml_ContractionTypeAllBilinears (VML *, char *instance, ContractionTypeAllBilinears*);
-extern  bool_t vml_ContractionTypeAllWallSinkBilinears (VML *, char *instance, ContractionTypeAllWallSinkBilinears*);
 extern  bool_t vml_ContractionTypeAllWallSinkBilinearsSpecificMomentum (VML *, char *instance, ContractionTypeAllWallSinkBilinearsSpecificMomentum*);
 extern  bool_t vml_ContractionTypeFourierProp (VML *, char *instance, ContractionTypeFourierProp*);
 extern  bool_t vml_ContractionTypeBilinearVertex (VML *, char *instance, ContractionTypeBilinearVertex*);

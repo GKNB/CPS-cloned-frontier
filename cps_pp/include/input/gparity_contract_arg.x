@@ -3,7 +3,6 @@ enum ContractionType {
   CONTRACTION_TYPE_HL_MESONS,
   CONTRACTION_TYPE_O_VV_P_AA,
   CONTRACTION_TYPE_ALL_BILINEARS,
-  CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS,
   CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM,
   CONTRACTION_TYPE_FOURIER_PROP,
   CONTRACTION_TYPE_BILINEAR_VERTEX,
@@ -70,20 +69,7 @@ struct ContractionTypeAllBilinears{
  rpccommand GENERATE_DEEPCOPY_METHOD;
 };
 
-/* Same as above but using Fourier transformed gauge fixed propagators. Half of the momentum is given to the first quark
-   (actually -mom/2 because we take the hermitian conjugate of the first propagator) and half to the second. The total momentum
-   at the sink timeslice is chosen by the elements of the 'momenta' argument. */
-struct ContractionTypeAllWallSinkBilinears{
-  string prop_1<>;
-  string prop_2<>;
-  MomArg momenta<>;
-  string file<>;
-
- rpccommand GENERATE_PRINT_METHOD;
- rpccommand GENERATE_DEEPCOPY_METHOD;
-};
-
-/* Same as above but the user can choose exactly what momentum is applied to each of the two quarks. The total momentum is the sum of the 
+/* Same as above but using Fourier transformed gauge fixed propagators. User specified sink momentum applied to each of the two quarks. The total momentum is the sum of the 
    two specified.
    Note: As above, in practise the actual sink phase used when taking the Fourier transform of the first propagator is e^{-i p1 . x}. As the Hermitian
    conjugate of the resulting FT quark is taken, this ensures that the total momenta will be p1+p2.
@@ -294,8 +280,6 @@ switch(ContractionType type){
    ContractionTypeOVVpAA contraction_type_o_vv_p_aa;
  case CONTRACTION_TYPE_ALL_BILINEARS:
    ContractionTypeAllBilinears contraction_type_all_bilinears;
- case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS:
-   ContractionTypeAllWallSinkBilinears contraction_type_all_wallsink_bilinears;
  case CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM:
    ContractionTypeAllWallSinkBilinearsSpecificMomentum contraction_type_all_wallsink_bilinears_specific_momentum;
  case CONTRACTION_TYPE_FOURIER_PROP:

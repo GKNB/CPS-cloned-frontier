@@ -2028,7 +2028,6 @@ void AlgGparityContract::spectrum(const GparityMeasurement &measargs,const int &
   else if(measargs.type == CONTRACTION_TYPE_HL_MESONS) contract_HL_mesons(measargs.GparityMeasurement_u.contraction_type_hl_mesons, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_O_VV_P_AA) contract_OVVpAA(measargs.GparityMeasurement_u.contraction_type_o_vv_p_aa, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_ALL_BILINEARS) contract_all_bilinears(measargs.GparityMeasurement_u.contraction_type_all_bilinears, conf_idx);
-  else if(measargs.type == CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS) contract_all_wallsink_bilinears(measargs.GparityMeasurement_u.contraction_type_all_wallsink_bilinears, conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM) contract_all_wallsink_bilinears_specific_momentum(measargs.GparityMeasurement_u.contraction_type_all_wallsink_bilinears_specific_momentum,
 																	conf_idx);
   else if(measargs.type == CONTRACTION_TYPE_FOURIER_PROP) contract_fourier_prop(measargs.GparityMeasurement_u.contraction_type_fourier_prop, conf_idx);
@@ -2065,22 +2064,6 @@ void AlgGparityContract::contract_all_bilinears(const ContractionTypeAllBilinear
     ContractedBilinear<WilsonMatrix> conbil;
     _multimom_helper<ContractedBilinear<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
     conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice(), binary_write);   
-  }
-}
-
-void AlgGparityContract::contract_all_wallsink_bilinears(const ContractionTypeAllWallSinkBilinears &args, const int &conf_idx){
-  std::ostringstream filestr; filestr << args.file << "." << conf_idx;
-  std::string file = filestr.str();
-  if(!UniqueID()) printf("Contracting all wallsink bilinears comprising propagators %s and %s and saving to file %s\n",args.prop_1, args.prop_2, file.c_str());
-  
-  if(GJP.Gparity()){
-    ContractedWallSinkBilinear<SpinColorFlavorMatrix> conbil;
-    _multimom_helper<ContractedWallSinkBilinear<SpinColorFlavorMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
-  }else{
-    ContractedWallSinkBilinear<WilsonMatrix> conbil;
-    _multimom_helper<ContractedWallSinkBilinear<WilsonMatrix> >::add_momenta(conbil,args.momenta.momenta_val, args.momenta.momenta_len);
-    conbil.write(args.prop_1, PropDFT::Dagger, args.prop_2, PropDFT::None, file, AlgLattice());
   }
 }
 

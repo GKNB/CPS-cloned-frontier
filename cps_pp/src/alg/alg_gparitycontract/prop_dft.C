@@ -39,30 +39,6 @@
 
 CPS_START_NAMESPACE
 
-PropDFT::Superscript PropDFT::trans_conj(const Superscript &what, const bool &trans, const bool &conj){
-  if(what == None){
-    if(trans && conj) return Dagger;
-    if(trans) return Transpose;
-    if(conj) return Conj;
-    return what;
-  }else if(what == Transpose){
-    if(trans && conj) return Conj;
-    if(trans) return None;
-    if(conj) return Dagger;
-    return what;
-  }else if(what == Conj){
-    if(trans && conj) return Transpose;
-    if(trans) return Dagger;
-    if(conj) return None;
-    return what;  
-  }else{
-    if(trans && conj) return None;
-    if(trans) return Conj;
-    if(conj) return Transpose;
-    return what;  
-  }
-}
-
 void PropDFT::global_coord(const int &site, int *into_vec){    
   int rem = site;
   for(int i=0;i<4;i++){
