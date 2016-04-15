@@ -21,6 +21,7 @@ public:
   }
     
   inline QPropW* getPtr(const int f = 0){ return f==0 ? prop_f0 : prop_f1; }
+  inline QPropW const* getPtr(const int f = 0) const{ return f==0 ? prop_f0 : prop_f1; }
 
   inline void setFlip(const bool to){ flip = to; }
   

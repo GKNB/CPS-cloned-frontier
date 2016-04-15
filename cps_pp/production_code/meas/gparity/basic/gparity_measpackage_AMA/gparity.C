@@ -61,7 +61,6 @@
 USING_NAMESPACE_CPS
 
 //#define TESTING
-//#define GEN_OLD_OUTPUT  //On the first exact timeslice use the old code to generate 2pt functions
 
 int main(int argc,char *argv[])
 {
@@ -333,15 +332,6 @@ int main(int argc,char *argv[])
 #endif
 
       props.printAllTags();
-
-#ifdef GEN_OLD_OUTPUT
-      if(status == 1){
-	int t = tslices[0];
-	
-
-      }
-#endif
-
 
       for(int piktbci = 0; piktbci < npiktbc; piktbci++){
 	const TbcStatus & tbs = pi_k_tbcuse[piktbci];
