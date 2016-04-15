@@ -68,6 +68,14 @@ void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const Thre
 
 
 //WW 2pt function
+void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
+			     const WallSinkProp<WilsonMatrix> &prop_dag_W, const WallSinkProp<WilsonMatrix> &prop_undag_W){
+  BasicOp src_op(spin_unit);
+  BasicOp snk_op(spin_unit);
+
+  Complex coeff(1.0);
+  twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_W, prop_undag_W);
+}
 //cf Eq 162 of GP paper. prop1 is the one that is daggered
 void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_snk, const ThreeMomentum &p_psi_src,
 			     const WallSinkProp<SpinColorFlavorMatrix> &prop_dag_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_undag_W){
@@ -79,6 +87,10 @@ void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
   Complex coeff(0.5);
   twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_W, prop_undag_W);
 }
+
+
+
+
 
 //Pseudoscalar flavor singlet \bar\psi \gamma^5 \psi
 //tsrc is used as the row index of the fmatrix. col index is (tsnk - tsrc + Lt) % Lt
@@ -106,7 +118,14 @@ void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi
   delete src_op;
 }
 
+void J5Standard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+		const PropWrapper &prop_dag, const PropWrapper &prop_undag, const PropSplane splane = SPLANE_BOUNDARY){
+  BasicOp src_op(spin_unit);
+  BasicOp snk_op(spin_unit);
 
+  Complex coeff(1.0);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag,splane);
+}
 
 
 

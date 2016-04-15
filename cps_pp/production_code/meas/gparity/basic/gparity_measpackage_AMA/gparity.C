@@ -353,7 +353,7 @@ int main(int argc,char *argv[])
 	measurePion2ptPPWW(props,pp,tbs,tslices,pion_momenta,lattice,results_dir,conf);
 	
 	//SU(2) flavor singlet
-	measureLightFlavorSingletLW(props,pp,tbs,tslices,su2_singlet_momenta,results_dir,conf);
+	if(GJP.Gparity()) measureLightFlavorSingletLW(props,pp,tbs,tslices,su2_singlet_momenta,results_dir,conf);
 	
 	//Kaon 2pt LW functions pseudoscalar and axial sinks
 	measureKaon2ptLW(props,pp,tbs,tslices,kaon_momenta,results_dir,conf);
@@ -377,6 +377,5 @@ int main(int argc,char *argv[])
     printf("Main job complete\n"); 
     fflush(stdout);
   }
-  
   return 0;
 }

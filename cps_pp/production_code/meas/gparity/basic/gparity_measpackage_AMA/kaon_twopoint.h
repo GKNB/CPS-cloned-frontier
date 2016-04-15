@@ -16,6 +16,16 @@ void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
   Complex coeff(0.5,0); //note positive sign because we define the creation/annihilation operator with a factor of i
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
+//Kaon two-point with no Gparity
+void kaonTwoPointPPLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  BasicOp src_op(spin_unit);
+  BasicOp snk_op(spin_unit);
+
+  Complex coeff(1.0,0); //note positive sign because we define the creation/annihilation operator with a factor of i
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
+}
+
 
 //*Physical* time-component axial operator sink   -i F0 g4 g5    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
@@ -26,6 +36,17 @@ void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const T
   Complex coeff(1.0,0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
+//Physical time-component axial operator sink with no Gparity
+void kaonTwoPointA4PhysPLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  BasicOp src_op(spin_unit);
+  BasicOp snk_op(gamma4);
+
+  Complex coeff(1.0,0);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
+}
+
+
 //*Unphysical* time-component axial operator sink   -i F1 g4 g5, connects to unphysical kaon component    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
 			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
@@ -45,6 +66,17 @@ void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, co
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
 }
 
+//Time-component axial source and sink with no Gparity
+void kaonTwoPointA4PhysA4PhysLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
+					const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+  BasicOp src_op(gamma4);
+  BasicOp snk_op(gamma4);
+
+  Complex coeff(1.0,0);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar_l,p_psi_h,prop_dag_h,prop_undag_l);
+}
+
+
 void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_l_snk, const ThreeMomentum &p_psi_h_src,
 			     const WallSinkProp<SpinColorFlavorMatrix> &prop_dag_h_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_undag_l_W){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h_src);
@@ -56,7 +88,14 @@ void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
   twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_h_W, prop_undag_l_W);
 }
 
+void kaonTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
+			     const WallSinkProp<WilsonMatrix> &prop_dag_h_W, const WallSinkProp<WilsonMatrix> &prop_undag_l_W){
+  BasicOp src_op(spin_unit);
+  BasicOp snk_op(spin_unit);
 
+  Complex coeff(1.0,0);
+  twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_h_W, prop_undag_l_W);
+}
 
 
 CPS_END_NAMESPACE

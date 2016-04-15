@@ -55,6 +55,10 @@ public:
   void setProp(const QPropW &_prop){
     prop = &_prop; setup = true;
   }
+  void setProp(const PropWrapper &_prop){
+    prop = _prop.getPtr(0); setup = true;
+  }
+
   void siteMatrix(WilsonMatrix &into, const int site){
     into = prop->SiteMatrix(site);
   }
