@@ -198,6 +198,7 @@ int main(int argc,char *argv[])
   }
 
   for(int conf=ama_arg.conf_start; conf < ama_arg.conf_lessthan; conf += ama_arg.conf_incr){
+    Float conf_start_time = dclock();
 
     //Read/generate the gauge configuration 
     if(do_arg.start_conf_kind == START_CONF_FILE){
@@ -304,6 +305,7 @@ int main(int argc,char *argv[])
     int npiktbc = 1;
     TbcStatus bk_tbcuse[2] = { TbcStatus(GJP.Tbc()), TbcStatus(GJP.Tbc()) };
     TbcStatus mres_tbcuse(GJP.Tbc());
+    bool store_midprop_l[1] = { true };
 #else //USE_TBC_FB
     BndCndType tbcs[2] = { BND_CND_PRD, BND_CND_APRD };
     LanczosPtrType lanc_l_bcs[2] = { lanc_l_P, lanc_l_A };
@@ -313,23 +315,35 @@ int main(int argc,char *argv[])
     int npiktbc = 2;
     TbcStatus bk_tbcuse[2] = { TbcStatus(CombinationF), TbcStatus(CombinationB) };
     TbcStatus mres_tbcuse(BND_CND_APRD);
+    bool store_midprop_l[2] = { false, true };
 #endif
 
     for(int status = 0; status < 2; status++){ //sloppy, exact
+      Float status_start_time = dclock();
       PropPrecision pp = status == 0 ? Sloppy : Exact;
+      std::string status_str = status == 0 ? "sloppy" : "exact";
+
       const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
       double prec = status == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision;
       
       if(tslices.size() == 0){
-	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",status == 0 ? "sloppy" : "exact");
+	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",status_str.c_str());
 	continue;
       }
-      if(!UniqueID()) printf("Starting %s contractions\n",status == 0 ? "sloppy" : "exact");
+      if(!UniqueID()) printf("Starting %s contractions\n",status_str.c_str());
 
       //Quark inversions
       for(int bci=0;bci<ntbc;bci++){
-	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,lattice,lanc_l_bcs[bci].get());
-	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,lattice,lanc_h_bcs[bci].get());
+	std::string bc_name(BndCndType_map[(int)tbcs[bci]].name);
+	std::string bc_info = std::string("Propagators Light ") + status_str + std::string(" ") + bc_name;
+	time = -dclock();
+	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,store_midprop_l[bci],lattice,lanc_l_bcs[bci].get());
+	print_time("main",bc_info.c_str(),time+dclock());
+	
+	bc_info = std::string("Propagators Heavy ") + status_str + std::string(" ") + bc_name;
+	time = -dclock();
+	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,false,lattice,lanc_h_bcs[bci].get()); //no need to store the midpoint prop for the heavy quarks
+	print_time("main",bc_info.c_str(),time+dclock());
       }
 #ifdef USE_TBC_FB  //Make F and B combinations from P and A computed above
       quarkCombine(props,Light,pp,tslices,light_quark_momenta);
@@ -365,7 +379,10 @@ int main(int argc,char *argv[])
       measureMres(props,pp,mres_tbcuse,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);
 
       props.clear(); //delete all propagators thus far computed
+      print_time("main",status_str.c_str(),dclock()-status_start_time);
     }
+    lattice.FixGaugeFree();
+    print_time("main","Configuration time",dclock()-conf_start_time);
   }//end of conf loop
 
   if(UniqueID()==0){

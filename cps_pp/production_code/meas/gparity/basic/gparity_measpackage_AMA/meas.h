@@ -61,7 +61,7 @@ inline static std::string propTag(const QuarkType lh, const PropPrecision prec, 
 
 //Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
 //Eigenvectors must be those appropriate to the choice of temporal BC, 'time_bc'
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
   multi1d<float> *eval_conv = NULL;
 
   if(deflate != NULL)
@@ -98,7 +98,7 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
   qpropw_arg.EndSrcColor = 3;
   qpropw_arg.gauge_fix_src = 1;
   qpropw_arg.gauge_fix_snk = 0;
-  qpropw_arg.store_midprop = 1; //for mres
+  qpropw_arg.store_midprop = store_midprop ? 1 : 0; //for mres
 
   //Switching boundary conditions is poorly implemented in Fbfm (and probably FGrid)
   //For traditional lattice types the BC is applied by modififying the gauge field when the Dirac operator is created and reverting when destroyed. This only ever happens internally - no global instance of the Dirac operator exists
@@ -129,12 +129,12 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
   return ret;
 }
 
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &p, const BndCndType time_bc, Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
-  return computePropagator(mass,stop_prec,t,flav,p.ptr(),time_bc,latt,deflate);
+QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &p, const BndCndType time_bc, const bool store_midprop, Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+  return computePropagator(mass,stop_prec,t,flav,p.ptr(),time_bc,store_midprop,latt,deflate);
 }
 
 void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const double stop_prec, const double mass, const BndCndType time_bc,
-		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta,
+		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta, const bool store_midprop, 
 		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> *lanc = NULL){
   if(!UniqueID()) printf("Computing %s %s quark propagators\n", pp == Sloppy ? "sloppy":"exact", qtype==Light ? "light" : "heavy");
   double time = -dclock();
@@ -147,8 +147,8 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
       if(!UniqueID()) std::cout << "Starting inversion for prop on timeslice " << tsrc << " with momentum phase " << p.str() << '\n';  
 
       if(GJP.Gparity()){
-	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,lanc);
-	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,lattice,lanc);
+	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc);
+	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,store_midprop,lattice,lanc);
 	
 	//Add both + and - source momentum  (PropMomContainer manages prop memory)
 	PropWrapper prop_pplus(prop_f0,prop_f1,false);
@@ -157,7 +157,7 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
 	PropWrapper prop_pminus(prop_f0,prop_f1,true);
 	props.insert(prop_pminus, propTag(qtype,pp,tsrc,-p,time_bc));
       }else{
-	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,lattice,lanc);
+	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc);
 	PropWrapper propw(prop);
 	props.insert(propw, propTag(qtype,pp,tsrc,p,time_bc));
       }
@@ -318,7 +318,7 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 }
 
 
-//Note: Mres is only properly defined with APRD time BCs. A runtime check is performed
+//Note: Mres is only properly defined with APRD time BCs. A runtime check is *not* performed
 //For G-parity can optionally choose to disable the source/sink flavor projection (ignored for standard BCs)
 void measureMres(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
 		 const std::string &results_dir, const int conf, const bool do_flavor_project = true){

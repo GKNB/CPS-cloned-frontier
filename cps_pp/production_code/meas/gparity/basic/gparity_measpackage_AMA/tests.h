@@ -486,12 +486,12 @@ int run_tests(int argc,char *argv[])
   if(!UniqueID()) printf("cconj reln test plus passed\n");
 
   //Check we can reproduce the propagator using the new code
-  QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, lattice);
+  QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, false,lattice);
   
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice), *prop_f0_pplus_test, "f0 p+ test", 1e-12);
 
   PropagatorContainer &prop_f0_pplus_P = computePropagatorOld("prop_f0_pplus_P",0.01,prec,tsrc,0,p.ptr(),BND_CND_PRD,lattice, "prop_f1_pplus_P");
-  QPropWMomSrc* prop_f0_pplus_P_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_PRD, lattice);
+  QPropWMomSrc* prop_f0_pplus_P_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_PRD, false, lattice);
 
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus_P,"","").getProp(lattice), *prop_f0_pplus_P_test, "f0 p+ P test", 1e-12);
 
