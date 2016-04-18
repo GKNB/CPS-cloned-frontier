@@ -12,12 +12,15 @@
 #include <algorithm>
 #include "UTSolve.h"
 #include "Householder.h"
+#include <util/time_cps.h>
 
 //#define USE_LAPACK
 //#define USE_EIGEN
 
 #ifdef USE_LAPACK
 #warning "Using LAPACK in Lanczos"
+#define lapack_complex_float std::complex<float>
+#define lapack_complex_double std::complex<double>
 #include <lapacke.h>
 #endif
 #ifdef USE_EIGEN
@@ -492,7 +495,7 @@ namespace BFM_Krylov{
 #ifdef USE_LAPACK
   template <class T>
   int lapackcj_Wilkinson(Matrix<T> &AH, vector<T> &tevals, vector<vector<T> > &tevecs, double small) {
-    TIMER("eigen/lapackcj_Wilkinson");
+    double time = -cps::dclock();
     const int size = AH.dim;
     tevals.resize(size);
     tevecs.resize(size);
@@ -617,6 +620,8 @@ namespace BFM_Krylov{
 	tevecs[i][j]=evec_tmp[i][j];
       tevals[i]=evals_tmp[i];
     }
+
+    cps::print_time("lapackcj_Wilkinson","run time",time+cps::dclock());
   }
 #endif
 
@@ -626,7 +631,7 @@ namespace BFM_Krylov{
   int Wilkinson(Matrix<T> &Ain, std::vector<T> &evals, std::vector<std::vector<T> > &evecs, double small){
 #ifdef USE_LAPACK
     return lapackcj_Wilkinson(Ain, evals, evecs, small);
-#elsif USE_EIGEN
+#elif USE_EIGEN
     return eigen_Wilkinson(Ain, evals, evecs, small);
 #else
     return basic_Wilkinson(Ain, evals, evecs, small);

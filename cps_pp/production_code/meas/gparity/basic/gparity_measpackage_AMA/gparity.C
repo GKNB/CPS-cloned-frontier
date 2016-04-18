@@ -41,7 +41,12 @@
 #include <alg/prop_dft.h>
 #include <alg/eigen/Krylov_5d.h>
 
+#ifdef USE_EIGEN
+//Stupid header guard conflict between eigen and chroma
+#undef EIGEN_IO_H
+#endif
 #include <chroma.h>
+
 #include <omp.h>
 #include <pthread.h>
 
