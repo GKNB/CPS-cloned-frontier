@@ -256,7 +256,7 @@ void LatRanGen::Initialize()
 }
 #endif
 //	  	VRB.Result(cname,fname,"index_4d=%d rng_count=%d start_seed= %d\n",index_4d,rng_count,start_seed_4d);
-	printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
+//	printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
  			mtran[index_4d].seed(start_seed_4d);
 //	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<std::endl;
 

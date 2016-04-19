@@ -293,7 +293,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 #else
 {
   //Interleaving of local computation of matrix multiplication
-//#pragma omp parallel for default(shared)
+#pragma omp parallel for default(shared)
   for(i=0;i<n;i++){
   int iam,nt;
   iam = omp_get_thread_num();
@@ -350,13 +350,13 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
       printf("thread %d of %d local_chi/2 nt_dir n_t i_t ipoints offset= %d %d %d %d %d %d\n",iam,nt,non_local_chi[w_t]/2,nt_dir,n_t,i_t,ipoints,offset);
   //Non-local computation
   if (ipoints>0)
-  partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
+  partrans_cmm_agg((uc_nl[w_t]+offset*2),(PTmatrix *)rcv_buf[w_t],mout[n_t],ipoints);
     if ( if_print )
       printf("thread %d of %d done\n",iam,nt);
 }
 #else
 {
-//#pragma omp parallel for
+#pragma omp parallel for
   for(i=0;i<n;i++) 
   if (!local[wire[i]/2]) {
 #ifdef USE_OMP
@@ -384,7 +384,8 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
   }
 
 
-#ifdef PROFILE
+//#ifdef PROFILE
+#if 0
   if (call_num%100==0){
   dtime2 +=dclock();
   print_flops(fname,198*vol*n,dtime2);
