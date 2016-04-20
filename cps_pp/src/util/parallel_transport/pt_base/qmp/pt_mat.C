@@ -259,7 +259,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
   setup +=dtime;
   dtime = -dclock();
   int if_print = 0;
-  if ( (call_num%100==1) && (!QMP_get_node_number()) ) if_print=1;
+  if ( (call_num%10000==1) && (!QMP_get_node_number()) ) if_print=1;
 
 #define USE_TEST2
 #ifdef USE_TEST2
@@ -392,6 +392,8 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
   }
 #endif
 //  ParTrans::PTflops +=198*n*vol;
+//
+  if(call_num>=10000) call_num=0;
 }
 #endif
 #undef PROFILE
