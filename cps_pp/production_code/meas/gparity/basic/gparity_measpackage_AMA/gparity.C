@@ -373,7 +373,7 @@ int main(int argc,char *argv[])
 
       //BK O_{VV+AA} 3pt contractions
       //Need to ensure that props exist on t0 and t0+tsep for all tseps
-      measureBK(props,pp,tslices,bk_tseps,kaon_momenta,bk_tbcuse[0],bk_tbcuse[1],results_dir,conf,bk_do_flavor_project);
+      measureBK(props,pp,tslices,bk_tseps,kaon_momenta,bk_tbcuse[0],results_dir,conf,bk_do_flavor_project);
 
       //J5 and J5q for mres
       measureMres(props,pp,mres_tbcuse,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);

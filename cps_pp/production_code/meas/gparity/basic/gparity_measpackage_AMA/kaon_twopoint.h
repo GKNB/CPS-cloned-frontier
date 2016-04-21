@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 //Kaon two-point. prop_dag_h is the heavy quark propagator (the one to which g5-hermiticity is applied), and prop_undag_l the light-quark prop
 //tsrc is used as the row index of the fmatrix. col index is (tsnk - tsrc + Lt) % Lt
 void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(spin_unit,sigma0);
 
@@ -18,7 +18,7 @@ void kaonTwoPointPPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
 }
 //Kaon two-point with no Gparity
 void kaonTwoPointPPLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);
 
@@ -29,7 +29,7 @@ void kaonTwoPointPPLWStandard(fMatrix<double> &into, const int tsrc, const Three
 
 //*Physical* time-component axial operator sink   -i F0 g4 g5    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,F0);
 
@@ -38,7 +38,7 @@ void kaonTwoPointA4PhysPLWGparity(fMatrix<double> &into, const int tsrc, const T
 }
 //Physical time-component axial operator sink with no Gparity
 void kaonTwoPointA4PhysPLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(gamma4);
 
@@ -49,7 +49,7 @@ void kaonTwoPointA4PhysPLWStandard(fMatrix<double> &into, const int tsrc, const 
 
 //*Unphysical* time-component axial operator sink   -i F1 g4 g5, connects to unphysical kaon component    (g5 is removed by g5-hermiticity)
 void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,F1);
 
@@ -58,7 +58,7 @@ void kaonTwoPointA4UnphysPLWGparity(fMatrix<double> &into, const int tsrc, const
 }
 //Time-component axial source and sink that connects to both the physical and unphysical components
 void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-			      const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+			      const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   GparityOpWithFlavorProject src_op(gamma4,sigma0,p_psi_h);
   BasicGparityOp snk_op(gamma4,sigma0);
 
@@ -68,7 +68,7 @@ void kaonTwoPointA4combA4combLWGparity(fMatrix<double> &into, const int tsrc, co
 
 //Time-component axial source and sink with no Gparity
 void kaonTwoPointA4PhysA4PhysLWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar_l, const ThreeMomentum &p_psi_h,
-					const PropWrapper &prop_dag_h, const PropWrapper &prop_undag_l){
+					const PropSiteMatrixGetter &prop_dag_h, const PropSiteMatrixGetter &prop_undag_l){
   BasicOp src_op(gamma4);
   BasicOp snk_op(gamma4);
 
@@ -78,7 +78,7 @@ void kaonTwoPointA4PhysA4PhysLWStandard(fMatrix<double> &into, const int tsrc, c
 
 
 void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_l_snk, const ThreeMomentum &p_psi_h_src,
-			     const WallSinkProp<SpinColorFlavorMatrix> &prop_dag_h_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_undag_l_W){
+			     const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_dag_h_W, const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_undag_l_W){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi_h_src);
   GparityOpWithFlavorProject snk_op(spin_unit,sigma0,p_psi_l_snk);
 
@@ -89,7 +89,7 @@ void kaonTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
 }
 
 void kaonTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
-			     const WallSinkProp<WilsonMatrix> &prop_dag_h_W, const WallSinkProp<WilsonMatrix> &prop_undag_l_W){
+			     const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_dag_h_W, const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_undag_l_W){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);
 

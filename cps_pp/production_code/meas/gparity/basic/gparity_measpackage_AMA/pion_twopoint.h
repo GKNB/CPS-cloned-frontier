@@ -29,7 +29,7 @@ inline SpinMatrixType snkOpMap(const Pion2PtSinkOp sink_op){
 }
 
 void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-			    const PropWrapper &prop_dag, const PropWrapper &prop_undag){
+			    const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
   BasicOp src_op(spin_unit);
   BasicOp snk_op(snkOpMap(sink_op));
@@ -40,7 +40,7 @@ void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2Pt
 
 
 void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-			   const PropWrapper &prop_dag, const PropWrapper &prop_undag,
+			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag,
 			   const PropSplane splane = SPLANE_BOUNDARY,
 			   const bool use_wrong_proj_sign = false, const bool use_wrong_sink_mom = false){
 
@@ -55,7 +55,7 @@ void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtS
 }
 
 void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-			   const PropWrapper &prop_dag, const PropWrapper &prop_undag){
+			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
   GparityOpWithFlavorProject src_op(gamma4,sigma3,p_psi);
   BasicGparityOp snk_op(gamma4,sigma3);
@@ -69,7 +69,7 @@ void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const Thre
 
 //WW 2pt function
 void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
-			     const WallSinkProp<WilsonMatrix> &prop_dag_W, const WallSinkProp<WilsonMatrix> &prop_undag_W){
+			     const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_dag_W, const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_undag_W){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);
 
@@ -78,7 +78,7 @@ void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
 }
 //cf Eq 162 of GP paper. prop1 is the one that is daggered
 void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_snk, const ThreeMomentum &p_psi_src,
-			     const WallSinkProp<SpinColorFlavorMatrix> &prop_dag_W, const WallSinkProp<SpinColorFlavorMatrix> &prop_undag_W){
+			     const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_dag_W, const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_undag_W){
   GparityOpWithFlavorProject src_op(spin_unit,sigma3,p_psi_src);
   GparityOpWithFlavorProject snk_op(spin_unit,sigma3,p_psi_snk);
 
@@ -95,7 +95,7 @@ void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
 //Pseudoscalar flavor singlet \bar\psi \gamma^5 \psi
 //tsrc is used as the row index of the fmatrix. col index is (tsnk - tsrc + Lt) % Lt
 void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-				 const PropWrapper &prop_dag, const PropWrapper &prop_undag){
+				 const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi);
   BasicGparityOp snk_op(spin_unit,sigma0);
 
@@ -105,7 +105,7 @@ void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const Th
 
 //J5 or J5q
 void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-	       const PropWrapper &prop_dag, const PropWrapper &prop_undag, const PropSplane splane = SPLANE_BOUNDARY, bool do_source_project = true){
+	       const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag, const PropSplane splane = SPLANE_BOUNDARY, bool do_source_project = true){
   SrcSnkOp<SpinColorFlavorMatrix>* src_op;
   if(do_source_project) src_op = new GparityOpWithFlavorProject(spin_unit,sigma3,p_psi);
   else src_op = new BasicGparityOp(spin_unit,sigma3);
@@ -119,7 +119,7 @@ void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi
 }
 
 void J5Standard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-		const PropWrapper &prop_dag, const PropWrapper &prop_undag, const PropSplane splane = SPLANE_BOUNDARY){
+		const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag, const PropSplane splane = SPLANE_BOUNDARY){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);
 

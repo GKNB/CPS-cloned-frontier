@@ -50,12 +50,7 @@ public:
     }
     return PropWrapper(comb_prop_f0,comb_prop_f1,P.flip);
   }
-
-
 };
-
-
-
 
 CPS_END_NAMESPACE
 #endif

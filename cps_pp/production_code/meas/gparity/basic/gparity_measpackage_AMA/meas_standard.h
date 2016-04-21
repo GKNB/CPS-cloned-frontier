@@ -19,11 +19,11 @@ void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision
       fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
-	    
-	const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
-	const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
 
-	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p_psibar,p_psi,prop_dag,prop_undag);
+	std::auto_ptr<PropSiteMatrixGetter> prop_dag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
+	std::auto_ptr<PropSiteMatrixGetter> prop_undag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_undag,time_bc));
+
+	pionTwoPointLWStandard(results,tsrc,sink_ops[op],p_psibar,p_psi,*prop_dag,*prop_undag);
       }
       writePion2ptLW(results, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "");
     }
@@ -101,29 +101,15 @@ void measurePion2ptPPWWStandard(const PropMomContainer &props, const PropPrecisi
       const int tsrc = tslices[s];
       
       //Prop1
-      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-     
-      WallSinkProp<WilsonMatrix> prop_dag_FT_keep; 
-      prop_dag_FT_keep.setProp(prop_dag);
-      prop_dag_FT_keep.compute(lat, p_prop_dag_snk_keep);
-
-      WallSinkProp<WilsonMatrix> prop_dag_FT_exch; 
-      prop_dag_FT_exch.setProp(prop_dag);
-      prop_dag_FT_exch.compute(lat, p_prop_dag_snk_exch);      
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_dag_FT_keep(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_dag,p_prop_dag_snk_keep,time_bc,lat));
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_dag_FT_exch(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_dag,p_prop_dag_snk_exch,time_bc,lat));
 
       //Prop2
-      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
-
-      WallSinkProp<WilsonMatrix> prop_undag_FT_keep; 
-      prop_undag_FT_keep.setProp(prop_undag);
-      prop_undag_FT_keep.compute(lat, p_prop_undag_snk_keep);
-
-      WallSinkProp<WilsonMatrix> prop_undag_FT_exch; 
-      prop_undag_FT_exch.setProp(prop_undag);
-      prop_undag_FT_exch.compute(lat, p_prop_undag_snk_exch);   
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_undag_FT_keep(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_undag,p_prop_undag_snk_keep,time_bc,lat));
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_undag_FT_exch(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_undag,p_prop_undag_snk_exch,time_bc,lat));
  
-      pionTwoPointPPWWStandard(results_momkeep, tsrc, prop_dag_FT_keep, prop_undag_FT_keep);
-      pionTwoPointPPWWStandard(results_momexch, tsrc, prop_dag_FT_exch, prop_undag_FT_exch);
+      pionTwoPointPPWWStandard(results_momkeep, tsrc, *prop_dag_FT_keep, *prop_undag_FT_keep);
+      pionTwoPointPPWWStandard(results_momexch, tsrc, *prop_dag_FT_exch, *prop_undag_FT_exch);
     }
     writeBasic2ptLW(results_momkeep,results_dir,"pion_P_P_WW_momkeep",p_psibar_src,p_psi_src,status,time_bc,conf);
     writeBasic2ptLW(results_momexch,results_dir,"pion_P_P_WW_momexch",p_psibar_src,p_psi_src,status,time_bc,conf);
@@ -153,12 +139,12 @@ void measureKaon2ptLWStandard(const PropMomContainer &props, const PropPrecision
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      const PropWrapper &prop_dag_h = props.get(propTag(Heavy,status,tsrc,p_prop_dag_h,time_bc));
-      const PropWrapper &prop_undag_l = props.get(propTag(Light,status,tsrc,p_prop_undag_l,time_bc));
+      std::auto_ptr<PropSiteMatrixGetter> prop_dag_h(PropSiteMatrixGetterFactory::get(props,Heavy,status,tsrc,p_prop_dag_h,time_bc)); //prop that is daggered
+      std::auto_ptr<PropSiteMatrixGetter> prop_undag_l(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_undag_l,time_bc));
 
-      kaonTwoPointPPLWStandard(results_PP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
-      kaonTwoPointA4PhysPLWStandard(results_A4physP, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
-      kaonTwoPointA4PhysA4PhysLWStandard(results_A4physA4phys, tsrc, p_psibar_l, p_psi_h, prop_dag_h, prop_undag_l);
+      kaonTwoPointPPLWStandard(results_PP, tsrc, p_psibar_l, p_psi_h, *prop_dag_h, *prop_undag_l);
+      kaonTwoPointA4PhysPLWStandard(results_A4physP, tsrc, p_psibar_l, p_psi_h, *prop_dag_h, *prop_undag_l);
+      kaonTwoPointA4PhysA4PhysLWStandard(results_A4physA4phys, tsrc, p_psibar_l, p_psi_h, *prop_dag_h, *prop_undag_l);
     }
     writeBasic2ptLW(results_PP,results_dir,"kaon_P_P_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
     writeBasic2ptLW(results_A4physP,results_dir,"kaon_AT_P_LW",p_psibar_l,p_psi_h,status,time_bc,conf);
@@ -198,41 +184,28 @@ void measureKaon2ptPPWWStandard(const PropMomContainer &props, const PropPrecisi
       const int tsrc = tslices[s];
       
       //Heavy prop
-      const PropWrapper &prop_h_dag = props.get(propTag(Heavy,status,tsrc,p_prop_h_dag,time_bc));
-     
-      WallSinkProp<WilsonMatrix> prop_h_dag_FT_keep; 
-      prop_h_dag_FT_keep.setProp(prop_h_dag);
-      prop_h_dag_FT_keep.compute(lat, p_prop_h_dag_snk_keep);
-
-      WallSinkProp<WilsonMatrix> prop_h_dag_FT_exch; 
-      prop_h_dag_FT_exch.setProp(prop_h_dag);
-      prop_h_dag_FT_exch.compute(lat, p_prop_h_dag_snk_exch);      
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_h_dag_FT_keep(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Heavy,status,tsrc,p_prop_h_dag,p_prop_h_dag_snk_keep,time_bc,lat));
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_h_dag_FT_exch(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Heavy,status,tsrc,p_prop_h_dag,p_prop_h_dag_snk_exch,time_bc,lat));
 
       //Light prop
-      const PropWrapper &prop_l_undag = props.get(propTag(Light,status,tsrc,p_prop_l_undag,time_bc));
-
-      WallSinkProp<WilsonMatrix> prop_l_undag_FT_keep; 
-      prop_l_undag_FT_keep.setProp(prop_l_undag);
-      prop_l_undag_FT_keep.compute(lat, p_prop_l_undag_snk_keep);
-
-      WallSinkProp<WilsonMatrix> prop_l_undag_FT_exch; 
-      prop_l_undag_FT_exch.setProp(prop_l_undag);
-      prop_l_undag_FT_exch.compute(lat, p_prop_l_undag_snk_exch);   
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_l_undag_FT_keep(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_l_undag,p_prop_l_undag_snk_keep,time_bc,lat));
+      std::auto_ptr<WallSinkPropSiteMatrixGetter<WilsonMatrix> > prop_l_undag_FT_exch(WallSinkPropSiteMatrixGetterFactory<WilsonMatrix>::get(props,Light,status,tsrc,p_prop_l_undag,p_prop_l_undag_snk_exch,time_bc,lat));
  
-      kaonTwoPointPPWWStandard(results_momkeep, tsrc, prop_h_dag_FT_keep, prop_l_undag_FT_keep);
-      kaonTwoPointPPWWStandard(results_momexch, tsrc, prop_h_dag_FT_exch, prop_l_undag_FT_exch);
+      kaonTwoPointPPWWStandard(results_momkeep, tsrc, *prop_h_dag_FT_keep, *prop_l_undag_FT_keep);
+      kaonTwoPointPPWWStandard(results_momexch, tsrc, *prop_h_dag_FT_exch, *prop_l_undag_FT_exch);
     }
     writeBasic2ptLW(results_momkeep,results_dir,"kaon_P_P_WW_momkeep",p_psibar_l_src,p_psi_h_src,status,time_bc,conf);
     writeBasic2ptLW(results_momexch,results_dir,"kaon_P_P_WW_momexch",p_psibar_l_src,p_psi_h_src,status,time_bc,conf);
   }
 }
 
+
+
 //Measure BK with source kaons on each of the timeslices t0 in prop_tsources and K->K time separations tseps
 //Can use standard P or A time BCs but you will need to use closer-together kaon sources to avoid round-the-world effects. These can be eliminated by using the F=P+A and B=P-A combinations
 //Either can be specified using the appropriate time_bc parameter below
 void measureBKStandard(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &prop_tsources, const std::vector<int> &tseps, const MesonMomenta &meson_momenta,
-	       const TbcStatus &time_bc_t0, const TbcStatus &time_bc_t1,
-	       const std::string &results_dir, const int conf){
+	       const TbcStatus &time_bc_t0, const std::string &results_dir, const int conf){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   
   //<  \bar\psi_l g5 \psi_h   O_VV+AA   \bar\psi_l g5 \psi_h >
@@ -263,27 +236,27 @@ void measureBKStandard(const PropMomContainer &props, const PropPrecision status
 
 	for(int t0i=0;t0i<prop_tsources.size();t0i++){
 	  int t0 = prop_tsources[t0i];
-	  int t1 = (t0 + tseps[tspi]) % Lt;
+	  int t1; TbcStatus time_bc_t1(time_bc_t0);
+	  getBKsnkPropBcAndWrapperTsnk(time_bc_t1,t1, time_bc_t0, t0, tseps[tspi]);
 	  
 	  //check t1 is in the vector, if not skip
 	  if(std::find(prop_tsources.begin(), prop_tsources.end(), t1) == prop_tsources.end()) continue;
 
-	  const PropWrapper &prop_h_t0 = props.get(propTag(Heavy,status,t0,p_prop_h_t0,time_bc_t0));
-	  const PropWrapper &prop_l_t0 = props.get(propTag(Light,status,t0,p_prop_l_t0,time_bc_t0));
+	  std::auto_ptr<PropSiteMatrixGetter> prop_h_t0(PropSiteMatrixGetterFactory::get(props,Heavy,status,t0,p_prop_h_t0,time_bc_t0));
+	  std::auto_ptr<PropSiteMatrixGetter> prop_l_t0(PropSiteMatrixGetterFactory::get(props,Light,status,t0,p_prop_l_t0,time_bc_t0));
 
-	  const PropWrapper &prop_h_t1 = props.get(propTag(Heavy,status,t1,p_prop_h_t1,time_bc_t1));
-	  const PropWrapper &prop_l_t1 = props.get(propTag(Light,status,t1,p_prop_l_t1,time_bc_t1));
+	  std::auto_ptr<PropSiteMatrixGetter> prop_h_t1(PropSiteMatrixGetterFactory::get(props,Heavy,status,t1,p_prop_h_t1,time_bc_t1));
+	  std::auto_ptr<PropSiteMatrixGetter> prop_l_t1(PropSiteMatrixGetterFactory::get(props,Light,status,t1,p_prop_l_t1,time_bc_t1));
 
-	  StandardBK(results, t0, 
-		     prop_h_t0, prop_l_t0,
-		     prop_h_t1, prop_l_t1);
+	  StandardBK(results, t0, t1,
+		     *prop_h_t0, *prop_l_t0,
+		     *prop_h_t1, *prop_l_t1);
 	}
 	{
 	  std::ostringstream os;
 	  os << results_dir << "/BK_srcMom" << p_psibar_l_t0.file_str() << "_plus" << p_psi_h_t0.file_str() 
 	     << "snkMom" << p_psibar_l_t1.file_str() << "_plus" << p_psi_h_t1.file_str()
 	     << "_srcTbc" << time_bc_t0.getTag()
-	     << "_snkTbc" << time_bc_t1.getTag()
 	     << "_tsep" << tseps[tspi]
 	     << (status == Sloppy ? "_sloppy" : "_exact") 	    
 	     << '.' << conf;
@@ -312,11 +285,11 @@ void measureMresStandard(const PropMomContainer &props, const PropPrecision stat
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
-      const PropWrapper &prop_dag = props.get(propTag(Light,status,tsrc,p_prop_dag,time_bc));
-      const PropWrapper &prop_undag = props.get(propTag(Light,status,tsrc,p_prop_undag,time_bc));
+      std::auto_ptr<PropSiteMatrixGetter> prop_dag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
+      std::auto_ptr<PropSiteMatrixGetter> prop_undag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_undag,time_bc));
 
-      J5Standard(pion,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_BOUNDARY); 
-      J5Standard(j5q,tsrc,p_psibar,p_psi,prop_dag,prop_undag,SPLANE_MIDPOINT);
+      J5Standard(pion,tsrc,p_psibar,p_psi,*prop_dag,*prop_undag,SPLANE_BOUNDARY); 
+      J5Standard(j5q,tsrc,p_psibar,p_psi,*prop_dag,*prop_undag,SPLANE_MIDPOINT);
     }
     writeBasic2ptLW(pion,results_dir,"J5_LW",p_psibar,p_psi,status,time_bc,conf);
     writeBasic2ptLW(j5q,results_dir,"J5q_LW",p_psibar,p_psi,status,time_bc,conf);

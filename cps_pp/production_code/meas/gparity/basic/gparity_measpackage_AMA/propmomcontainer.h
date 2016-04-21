@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 class PropMomContainer{
   std::map<std::string, PropWrapper> props;
 public:
-  void insert(const PropWrapper &prop, const std::string tag){
+  void insert(const PropWrapper &prop, const std::string &tag){
     if(props.count(tag) != 0) ERR.General("PropMomContainer","insert","Attempting to insert duplicate of prop with tag '%s'\n", tag.c_str());
     props[tag] = prop;
   }

@@ -502,6 +502,8 @@ int run_tests(int argc,char *argv[])
   PropWrapper pw_prop_pminus(&QPropWcontainer::verify_convert(prop_f0_pminus,"","").getProp(lattice),
 			     &QPropWcontainer::verify_convert(prop_f1_pminus,"","").getProp(lattice));
 
+  PropSiteMatrixStandard pw_prop_pplus_getter(pw_prop_pplus, BND_CND_APRD, tsrc);
+  PropSiteMatrixStandard pw_prop_pminus_getter(pw_prop_pminus, BND_CND_APRD, tsrc);
 
   //Check that the propagator Tbc combinations are computed properly
   {
@@ -560,7 +562,7 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psi = p;
 
     fMatrix<double> ppnew(1,L[3]);
-    pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],p_psibar,p,pw_prop_pminus,pw_prop_pplus);
+    pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],p_psibar,p,pw_prop_pminus_getter,pw_prop_pplus_getter);
     
     double fail = 0;
     if(!UniqueID()) printf("Operator %d\n",oo);
@@ -628,20 +630,18 @@ int run_tests(int argc,char *argv[])
     conwsbil.calculateBilinears(lattice, "prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone);
     
     //Compute gauge-fixed wall sink propagators with new code
-    WallSinkProp<SpinColorFlavorMatrix> ws_prop_dag;
-    ws_prop_dag.setProp(pw_prop_pminus);
-    ws_prop_dag.compute(lattice, &p_phys_units[0]); //daggered prop is given phase +p2=p inside g5-herm parentheses
-    
-    WallSinkProp<SpinColorFlavorMatrix> ws_prop_undag;
-    ws_prop_undag.setProp(pw_prop_pplus);
-    ws_prop_undag.compute(lattice, &mp_phys_units[0]);
+    WallSinkPropSiteMatrixStandard<SpinColorFlavorMatrix> ws_prop_dag_getter(pw_prop_pminus, BND_CND_APRD, tsrc, &p_phys_units[0], lattice); //daggered prop is given phase +p2=p inside g5-herm parentheses
+    WallSinkProp<SpinColorFlavorMatrix> &ws_prop_dag = ws_prop_dag_getter.getWallSinkProp();
+
+    WallSinkPropSiteMatrixStandard<SpinColorFlavorMatrix> ws_prop_undag_getter(pw_prop_pplus, BND_CND_APRD, tsrc, &mp_phys_units[0], lattice);
+    WallSinkProp<SpinColorFlavorMatrix> &ws_prop_undag = ws_prop_undag_getter.getWallSinkProp();
     
     fMatrix<double> ppnew(1,L[3]);
 
     ThreeMomentum p_psi_src = p;
     ThreeMomentum p_psi_snk = mp;
 
-    pionTwoPointPPWWGparity(ppnew, 0, p_psi_snk, p_psi_src, ws_prop_dag, ws_prop_undag);
+    pionTwoPointPPWWGparity(ppnew, 0, p_psi_snk, p_psi_src, ws_prop_dag_getter, ws_prop_undag_getter);
 
     const std::vector<Rcomplex> pps3s3 =  conwsbil.getBilinear(lattice,mompair,"prop_f0_pminus", OpDagger, "prop_f0_pplus", OpNone,
   							    0, 3, 0, 3);
@@ -693,7 +693,7 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psi = mp;
 
     fMatrix<double> ppnew(1,L[3]);
-    lightFlavorSingletLWGparity(ppnew,0,p_psibar,p_psi,pw_prop_pplus,pw_prop_pplus);
+    lightFlavorSingletLWGparity(ppnew,0,p_psibar,p_psi,pw_prop_pplus_getter,pw_prop_pplus_getter);
     
     double fail = 0;
     if(!UniqueID()) printf("Pseudoscalar flavor singlet\n");
@@ -801,6 +801,7 @@ int run_tests(int argc,char *argv[])
 
   PropWrapper pw_propH_pplus(&QPropWcontainer::verify_convert(propH_f0_pplus,"","").getProp(lattice),
 			     &QPropWcontainer::verify_convert(propH_f1_pplus,"","").getProp(lattice));
+  PropSiteMatrixStandard pw_propH_pplus_getter(pw_propH_pplus, BND_CND_APRD, tsrc);
 
   //Test BK against old code
   //Generate props for sink kaon
@@ -810,13 +811,14 @@ int run_tests(int argc,char *argv[])
 
   PropWrapper pw_propH_pplus_tsnk(&QPropWcontainer::verify_convert(propH_f0_pplus_tsnk,"","").getProp(lattice),
 				  &QPropWcontainer::verify_convert(propH_f1_pplus_tsnk,"","").getProp(lattice));
-
+  PropSiteMatrixStandard pw_propH_pplus_tsnk_getter(pw_propH_pplus_tsnk, BND_CND_APRD, tsnk);
 
   PropagatorContainer &prop_f0_pplus_tsnk = computePropagatorOld("prop_f0_pplus_tsnk",0.01,prec,tsnk,0,p.ptr(),BND_CND_APRD,lattice, "prop_f1_pplus_tsnk");
   PropagatorContainer &prop_f1_pplus_tsnk = computePropagatorOld("prop_f1_pplus_tsnk",0.01,prec,tsnk,1,p.ptr(),BND_CND_APRD,lattice, "prop_f0_pplus_tsnk");
 
   PropWrapper pw_prop_pplus_tsnk(&QPropWcontainer::verify_convert(prop_f0_pplus_tsnk,"","").getProp(lattice),
 				 &QPropWcontainer::verify_convert(prop_f1_pplus_tsnk,"","").getProp(lattice));
+  PropSiteMatrixStandard pw_prop_pplus_tsnk_getter(pw_prop_pplus_tsnk, BND_CND_APRD, tsnk);
 
   {
     fMatrix<double> bk_new(1,Lt);
@@ -825,9 +827,9 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psi_h_t0 = mp; //- the momentum of the daggered prop
     ThreeMomentum p_psi_h_t1 = mp; //- the momentum of the daggered prop
 
-    GparityBK(bk_new, tsrc, 
-	      pw_propH_pplus, pw_prop_pplus, p_psi_h_t0,
-	      pw_propH_pplus_tsnk, pw_prop_pplus_tsnk, p_psi_h_t1,
+    GparityBK(bk_new, tsrc, tsnk,
+	      pw_propH_pplus_getter, pw_prop_pplus_getter, p_psi_h_t0,
+	      pw_propH_pplus_tsnk_getter, pw_prop_pplus_tsnk_getter, p_psi_h_t1,
 	      do_flavor_project);
     
     ContractionTypeOVVpAA old_args;
@@ -884,8 +886,8 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psibar = p;
     ThreeMomentum p_psi = p;
 
-    J5Gparity(pion_new,tsrc,p_psibar,p_psi,pw_prop_pminus,pw_prop_pplus,SPLANE_BOUNDARY,false); //disable flavor project to compare with old code
-    J5Gparity(j5_q_new,tsrc,p_psibar,p_psi,pw_prop_pminus,pw_prop_pplus,SPLANE_MIDPOINT,false);
+    J5Gparity(pion_new,tsrc,p_psibar,p_psi,pw_prop_pminus_getter,pw_prop_pplus_getter,SPLANE_BOUNDARY,false); //disable flavor project to compare with old code
+    J5Gparity(j5_q_new,tsrc,p_psibar,p_psi,pw_prop_pminus_getter,pw_prop_pplus_getter,SPLANE_MIDPOINT,false);
 
     double fail = 0;
     if(!UniqueID()) printf("J5\n");

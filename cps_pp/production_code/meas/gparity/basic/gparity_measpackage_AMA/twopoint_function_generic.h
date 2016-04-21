@@ -1,6 +1,7 @@
 #ifndef _TWOPOINT_FUNCTION_GENERIC_H
 #define _TWOPOINT_FUNCTION_GENERIC_H
 
+#include "prop_sitematrix_getter.h"
 #include "spin_flav_op.h"
 
 CPS_START_NAMESPACE
@@ -13,7 +14,7 @@ template<typename MatrixType>
 void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Complex &coeff,
 			     const SrcSnkOp<MatrixType> &sink_op, const SrcSnkOp<MatrixType> &src_op,
 			     const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
-			     const PropWrapper &prop_dag, const PropWrapper &prop_undag,
+			     const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag,
 			     const PropSplane splane = SPLANE_BOUNDARY,
 			     bool use_opposite_sink_mom = false){
   ThreeMomentum p_tot_src = p_psibar + p_psi;
@@ -32,22 +33,26 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
   basicComplexArray<double> tmp(Lt,1); 
 #endif
 
+  int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
+
 #pragma omp parallel for
   for(int x=0;x<GJP.VolNodeSites();x++){
     int pos[4];
     int rem = x;
     for(int i=0;i<4;i++){ pos[i] = rem % GJP.NodeSites(i); rem /= GJP.NodeSites(i); }
 
+    int x3d_lcl = x % vol3d;
     int t_glb = pos[3] + GJP.TnodeCoor() * GJP.TnodeSites();
-    int tdis_glb = (t_glb - tsrc + Lt) % Lt;
-    
+    int tdis_glb = (t_glb - tsrc + Lt) % Lt; //t_glb = 0 .. Lt-1 -> tdis_glb = Lt-tsrc .. Lt-1, 0 .. Lt-tsrc-1
+
+    //Actually getting the prop with the chosen tdis_glb depends on the periodicity of the propagator in question: cf propwrapper.h
     MatrixType prop1_site;
-    prop_dag.siteMatrix(prop1_site,x,splane);
+    prop_dag.siteMatrix(prop1_site,x3d_lcl,tdis_glb,splane);
     prop1_site.hconj();
     sink_op.rightMultiply(prop1_site);
     
     MatrixType prop2_site;
-    prop_undag.siteMatrix(prop2_site,x,splane);
+    prop_undag.siteMatrix(prop2_site,x3d_lcl,tdis_glb,splane);
     src_op.rightMultiply(prop2_site);
 
     std::complex<double> phase = coeff * mom_phase(p_tot_snk, pos);
@@ -73,7 +78,7 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
 template<typename MatrixType>
 void twoPointFunctionWallSinkGeneric(fMatrix<double> &into, const int tsrc, const Complex &coeff,
 				     const SrcSnkOp<MatrixType> &sink_op, const SrcSnkOp<MatrixType> &src_op,
-				     const WallSinkProp<MatrixType> &prop1W, const WallSinkProp<MatrixType> &prop2W){
+				     const WallSinkPropSiteMatrixGetter<MatrixType> &prop1W, const WallSinkPropSiteMatrixGetter<MatrixType> &prop2W){
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
   basicComplexArray<double> tmp(Lt,1); 
 
@@ -81,13 +86,13 @@ void twoPointFunctionWallSinkGeneric(fMatrix<double> &into, const int tsrc, cons
 
 #pragma omp_parallel for
   for(int t_dis=0;t_dis<Lt;t_dis++){
-    int tsnk = (tsrc + t_dis) % Lt;
-
-    MatrixType prop1_t = prop1W(tsnk);
+    MatrixType prop1_t;
+    prop1W.siteMatrix(prop1_t,t_dis);
     prop1_t.hconj();
     sink_op.rightMultiply(prop1_t);
 
-    MatrixType prop2_t = prop2W(tsnk);
+    MatrixType prop2_t;
+    prop2W.siteMatrix(prop2_t,t_dis);
     src_op.rightMultiply(prop2_t);
 
     tmp[t_dis] = coeff * Trace(prop1_t, prop2_t);

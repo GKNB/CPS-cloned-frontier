@@ -7,57 +7,10 @@
 #include "kaon_twopoint.h"
 #include "compute_bk.h"
 #include "enums.h"
+#include "prop_tag.h"
 #include <alg/eigen/Krylov_5d.h>
 
 CPS_START_NAMESPACE
-
-class TbcStatus{
-  BndCndType basic_bc;
-  TbcCombination bc_comb;
-public:
-  TbcStatus(const BndCndType bbc): basic_bc(bbc), bc_comb(Single){}
-  TbcStatus(const TbcCombination bcomb): bc_comb(bcomb){}
-  
-  inline std::string getTag() const{
-    if(bc_comb == Single){
-      switch(basic_bc){
-      case BND_CND_PRD:
-	return std::string("P");
-	break;
-      case BND_CND_APRD:
-	return std::string("A");
-	break;
-      default:
-	ERR.General("TbcStatus","getTag","Unknown TBC\n");
-	break;
-      }
-    }else return std::string(bc_comb == CombinationF ? "F" : "B");
-  }
-  inline bool isCombinedType() const{
-    return bc_comb != Single;
-  }
-  inline BndCndType getSingleBc() const{
-    assert(!isCombinedType());
-    return basic_bc;
-  }
-
-};
-
-inline static std::string propTag(const QuarkType lh, const PropPrecision prec, const int tsrc, const ThreeMomentum &p, const TbcStatus &tbc){
-  std::ostringstream tag;
-  tag << (lh == Light ? "light" : "heavy");
-  tag << (prec == Sloppy ? "_sloppy" : "_exact");
-  tag << "_t" << tsrc;
-  tag << "_mom" << p.file_str();
-  tag << "_tbc_" << tbc.getTag();
-  return tag.str();
-}
-inline static std::string propTag(const QuarkType lh, const PropPrecision prec, const int tsrc, const ThreeMomentum &p, const BndCndType tbc){
-  return propTag(lh,prec,tsrc,p,TbcStatus(tbc));
-}
-inline static std::string propTag(const QuarkType lh, const PropPrecision prec, const int tsrc, const ThreeMomentum &p, const TbcCombination bc_comb){
-  return propTag(lh,prec,tsrc,p,TbcStatus(bc_comb));
-}
 
 //Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
 //Eigenvectors must be those appropriate to the choice of temporal BC, 'time_bc'
@@ -298,21 +251,18 @@ void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision statu
   print_time("main","Kaon 2pt WW",time + dclock());
 }
 
-
-
-
 //Measure BK with source kaons on each of the timeslices t0 in prop_tsources and K->K time separations tseps
 //Can use standard P or A time BCs but you will need to use closer-together kaon sources to avoid round-the-world effects. These can be eliminated by using the F=P+A and B=P-A combinations
 //Either can be specified using the appropriate time_bc parameter below
 //For G-parity can optionally choose to disable the source/sink flavor projection (ignored for standard BCs)
 void measureBK(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &prop_tsources, const std::vector<int> &tseps, const MesonMomenta &meson_momenta,
-	       const TbcStatus &time_bc_t0, const TbcStatus &time_bc_t1,
+	       const TbcStatus &time_bc_t0,
 	       const std::string &results_dir, const int conf, const bool do_flavor_project = true){
   if(!UniqueID()) printf("Computing BK with %s props\n", status == Sloppy ? "sloppy" : "exact");
   double time = -dclock();
 
-  if(GJP.Gparity()) measureBKGparity(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,time_bc_t1,results_dir,conf,do_flavor_project);
-  else measureBKStandard(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,time_bc_t1,results_dir,conf);
+  if(GJP.Gparity()) measureBKGparity(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,results_dir,conf,do_flavor_project);
+  else measureBKStandard(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,results_dir,conf);
 
   print_time("main","BK",time + dclock());
 }
