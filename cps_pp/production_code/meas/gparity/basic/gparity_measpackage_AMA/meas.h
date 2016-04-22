@@ -12,9 +12,39 @@
 
 CPS_START_NAMESPACE
 
+QPropWMomSrc* randomSolutionPropagator(const bool store_midprop, Lattice &latt){
+  if(!UniqueID()) printf("Generating random propagator solution vector\n");
+  CommonArg c_arg;
+  QPropWMomSrc* ret = new QPropWMomSrc(latt,&c_arg); //this constructor does nothing
+  const int msize = 12*12*2;
+  ret->Allocate(PROP);
+  for(int f=0;f<GJP.Gparity()+1;f++){
+    for(int x=0;x<GJP.VolNodeSites();x++){
+      LRG.AssignGenerator(x,f);
+      Float* off = (Float*)&(ret->SiteMatrix(x,f));
+      for(int i=0;i<msize;i++) off[i] = LRG.Urand(0.5,-0.5,FOUR_D);
+    }
+  }
+  if(store_midprop){
+    ret->Allocate(MIDPROP);
+    for(int f=0;f<GJP.Gparity()+1;f++){
+      for(int x=0;x<GJP.VolNodeSites();x++){
+	LRG.AssignGenerator(x,f);
+	Float* off = (Float*)&(ret->MidPlaneSiteMatrix(x,f));
+	for(int i=0;i<msize;i++) off[i] = LRG.Urand(0.5,-0.5,FOUR_D);
+      }
+    }
+  }
+  return ret;
+}
+
+
 //Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
 //Eigenvectors must be those appropriate to the choice of temporal BC, 'time_bc'
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
+				Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+  if(random_solution) return randomSolutionPropagator(store_midprop,latt);
+
   multi1d<float> *eval_conv = NULL;
 
   if(deflate != NULL)
@@ -82,13 +112,14 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
   return ret;
 }
 
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &p, const BndCndType time_bc, const bool store_midprop, Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
-  return computePropagator(mass,stop_prec,t,flav,p.ptr(),time_bc,store_midprop,latt,deflate);
+QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &p, const BndCndType time_bc, const bool store_midprop, 
+				Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+  return computePropagator(mass,stop_prec,t,flav,p.ptr(),time_bc,store_midprop,latt,deflate,random_solution);
 }
 
 void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const double stop_prec, const double mass, const BndCndType time_bc,
 		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta, const bool store_midprop, 
-		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> *lanc = NULL){
+		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> *lanc = NULL, const bool random_solution = false){
   if(!UniqueID()) printf("Computing %s %s quark propagators\n", pp == Sloppy ? "sloppy":"exact", qtype==Light ? "light" : "heavy");
   double time = -dclock();
   
@@ -100,8 +131,8 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
       if(!UniqueID()) std::cout << "Starting inversion for prop on timeslice " << tsrc << " with momentum phase " << p.str() << '\n';  
 
       if(GJP.Gparity()){
-	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc);
-	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,store_midprop,lattice,lanc);
+	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
+	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
 	
 	//Add both + and - source momentum  (PropMomContainer manages prop memory)
 	PropWrapper prop_pplus(prop_f0,prop_f1,false);
@@ -110,7 +141,7 @@ void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPreci
 	PropWrapper prop_pminus(prop_f0,prop_f1,true);
 	props.insert(prop_pminus, propTag(qtype,pp,tsrc,-p,time_bc));
       }else{
-	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc);
+	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
 	PropWrapper propw(prop);
 	props.insert(propw, propTag(qtype,pp,tsrc,p,time_bc));
       }

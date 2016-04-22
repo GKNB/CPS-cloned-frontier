@@ -95,6 +95,8 @@ int main(int argc,char *argv[])
   bool bk_do_flavor_project = true;
   bool do_alternative_mom = true;
   bool disable_lanczos = false;
+  bool random_prop_solns = false; //don't invert, just make the solutions random spin-color-flavor matrices
+  bool skip_gauge_fix = false;
   {
     int i = 1;
     while(i<argc-1){
@@ -127,6 +129,14 @@ int main(int argc,char *argv[])
       }else if( std::string(argv[i]) == "-disable_use_alternate_mom" ){ 
 	if(!UniqueID()) printf("Disabling use of alternative momentum combinations\n");
 	do_alternative_mom = false;
+	i++;
+      }else if( std::string(argv[i]) == "-random_prop_solns"){
+	if(!UniqueID()) printf("Not inverting, just using random propagator solutions\n");
+	random_prop_solns = true;
+	i++;
+    }else if( std::string(argv[i]) == "-skip_gauge_fix"){
+	skip_gauge_fix = true;
+	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
 	i++;
       }else{
 	ERR.General("","main","Unknown argument: %s",argv[i]);
@@ -240,8 +250,15 @@ int main(int argc,char *argv[])
 
     //Gauge fix lattice if required
     if(ama_arg.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
+      Float time = -dclock();
       AlgFixGauge fix_gauge(lattice,&carg,&ama_arg.fix_gauge);
-      fix_gauge.run();
+      if(skip_gauge_fix){
+	if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
+	gaugeFixUnity(lattice,ama_arg.fix_gauge);      
+      }else{
+	fix_gauge.run();
+      }
+      print_time("main","Gauge fix",time);
     }
 
     typedef std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > LanczosPtrType;
@@ -337,12 +354,12 @@ int main(int argc,char *argv[])
 	std::string bc_name(BndCndType_map[(int)tbcs[bci]].name);
 	std::string bc_info = std::string("Propagators Light ") + status_str + std::string(" ") + bc_name;
 	time = -dclock();
-	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,store_midprop_l[bci],lattice,lanc_l_bcs[bci].get());
+	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,store_midprop_l[bci],lattice,lanc_l_bcs[bci].get(),random_prop_solns);
 	print_time("main",bc_info.c_str(),time+dclock());
 	
 	bc_info = std::string("Propagators Heavy ") + status_str + std::string(" ") + bc_name;
 	time = -dclock();
-	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,false,lattice,lanc_h_bcs[bci].get()); //no need to store the midpoint prop for the heavy quarks
+	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,false,lattice,lanc_h_bcs[bci].get(),random_prop_solns); //no need to store the midpoint prop for the heavy quarks
 	print_time("main",bc_info.c_str(),time+dclock());
       }
 #ifdef USE_TBC_FB  //Make F and B combinations from P and A computed above

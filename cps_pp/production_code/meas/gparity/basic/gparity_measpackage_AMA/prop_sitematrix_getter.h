@@ -14,6 +14,7 @@ class PropSiteMatrixGetter{
 public:
   virtual void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const = 0;
   virtual void siteMatrix(SpinColorFlavorMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const = 0;
+  virtual ~PropSiteMatrixGetter(){}
 };
 
 //For propagators with modulo-Lt periodicity or antiperiodicity
@@ -130,6 +131,7 @@ template<typename MatrixType>
 class WallSinkPropSiteMatrixGetter{
 public:
   virtual void siteMatrix(MatrixType &into, const int tdis_glb) const = 0;
+  virtual ~WallSinkPropSiteMatrixGetter(){}
 };
 
 template<typename MatrixType>
