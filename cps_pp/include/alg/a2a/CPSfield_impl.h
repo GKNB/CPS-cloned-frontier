@@ -160,7 +160,7 @@ void CPSfermion4D<mf_Float,FlavorPolicy>::fft(const CPSfermion4D<mf_Float,Flavor
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
 template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+void CPSfermion4D<mf_Float,FlavorPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -315,7 +315,7 @@ void CPScomplex4D<mf_Float>::setRandom(const RandomType &type){
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
 template< typename mf_Float>
-void CPScomplex4D<mf_Float>::setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+void CPScomplex4D<mf_Float>::setUniformRandom(const Float &hi, const Float &lo){
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;

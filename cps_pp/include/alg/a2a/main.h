@@ -156,33 +156,6 @@ void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dw
 }
 #endif
 
-//Skip gauge fixing and set all gauge fixing matrices to unity
-void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
-  FixGaugeType fix = fix_gauge_arg.fix_gauge_kind;
-  int start = fix_gauge_arg.hyperplane_start;
-  int step = fix_gauge_arg.hyperplane_step;
-  int num = fix_gauge_arg.hyperplane_num;
-
-  int h_planes[num];
-  for(int i=0; i<num; i++) h_planes[i] = start + step * i;
-
-  lat.FixGaugeAllocate(fix, num, h_planes);
-  
-#pragma omp parallel for
-  for(int sf=0;sf<(GJP.Gparity()+1)*GJP.VolNodeSites();sf++){
-    //s + vol*f
-    int s = sf % GJP.VolNodeSites();
-    int f = sf / GJP.VolNodeSites();
-    
-    const Matrix* mat = lat.FixGaugeMatrix(s,f);
-    if(mat == NULL) continue;
-    else{
-      Matrix* mm = const_cast<Matrix*>(mat); //evil, I know, but it saves duplicating the accessor (which is overly complicated)
-      mm->UnitMatrix();
-    }
-  }
-}
-
 
 #if defined(USE_GRID_LANCZOS)
 void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, GFGRID &lattice){
@@ -368,7 +341,7 @@ struct Lanczos{
 
 template<typename mf_Float>
 struct computeA2Avectors{
-  static compute(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
+  static void compute(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
 #ifdef USE_BFM_LANCZOS
     W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
 #else

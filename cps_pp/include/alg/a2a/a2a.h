@@ -151,7 +151,7 @@ public:
 };
 
 
-
+#ifdef USE_GRID
 //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
 class EvecInterface{
  public:
@@ -159,7 +159,7 @@ class EvecInterface{
   virtual Float getEvec(LATTICE_FERMION &into, const int idx) = 0;
   virtual int nEvecs() const = 0;
 };
-
+#endif
 
 template< typename mf_Float>
 class A2AvectorW: public FullyPackedIndexDilution{
@@ -189,11 +189,15 @@ public:
     wh[hit] = whin;
   }
 
+#ifdef USE_GRID
+  //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
+
   //Compute the low mode part of the W and V vectors.
   void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass);
 
   //Compute the high mode parts of V and W. 
   void computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter);
+#endif
 
 #if defined(USE_BFM_LANCZOS)
   //In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
