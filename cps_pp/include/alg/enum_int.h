@@ -672,6 +672,7 @@ enum InverterType {
 	CG = 0,
 	BICGSTAB = 1,
 	EIGCG = 2,
+	HDCG = 3,
 };
 typedef enum InverterType InverterType;
 extern struct vml_enum_map InverterType_map[];

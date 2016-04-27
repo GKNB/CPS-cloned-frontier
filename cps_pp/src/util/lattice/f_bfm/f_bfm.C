@@ -18,12 +18,17 @@
 #include <util/time_cps.h>
 #include <util/lattice/fforce_wilson_type.h>
 #include <util/timer.h>
+#include <util/lattice/hdcg_controller.h>
 
 #include<omp.h>
 
 #include <util/qioarg.h>
 #include <util/WriteLatticePar.h>
 #include <util/ReadLatticePar.h>
+
+// These have to be defined somewhere. Why not here?
+BfmHDCGParams HDCGInstance::Params;
+HDCG_wrapper  *HDCGInstance::_instance = NULL;
 
 CPS_START_NAMESPACE
 
@@ -156,7 +161,14 @@ void Fbfm::SetBfmArg(Float key_mass)
                 bd.precon_5d, new_arg.precon_5d, bd.CGdiagonalMee, new_arg.CGdiagonalMee);
 	}
 
-	SetMass(new_arg.mass);
+	if (new_arg.solver == WilsonTM) {
+	    bd.mass = new_arg.mass;
+	    bf.mass = new_arg.mass;
+	    bd.twistedmass = new_arg.twistedmass;
+	    bf.twistedmass = new_arg.twistedmass;
+	} else {
+	    SetMass(new_arg.mass);
+	}
 	VRB.Result(cname, fname, "Just set new mass %e for solver = %d, Ls = %d\n", bd.mass, bd.solver, bd.Ls);
     }
 
@@ -496,22 +508,22 @@ void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old,
 // is less by half the size of a fermion vector.
 // The function returns the total number of CG iterations.
 int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
-                  CgArg *cg_arg,
-                  Float *true_res,
-                  CnvFrmType cnv_frm,
-                  PreserveType prs_f_in)
+    CgArg *cg_arg,
+    Float *true_res,
+    CnvFrmType cnv_frm,
+    PreserveType prs_f_in)
 {
     const char *fname = "FmatInv()";
-    VRB.Func(cname,fname);
+    VRB.Func(cname, fname);
 
-    if(cg_arg == NULL)
-        ERR.Pointer(cname, fname, "cg_arg");
-    int threads =   omp_get_max_threads();
+    if (cg_arg == NULL)
+	ERR.Pointer(cname, fname, "cg_arg");
+    int threads = omp_get_max_threads();
 
     SetBfmArg(cg_arg->mass);
 
-    Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
-    Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
+    Fermion_t in[2] = { bd.allocFermion(), bd.allocFermion() };
+    Fermion_t out[2] = { bd.allocFermion(), bd.allocFermion() };
 
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
@@ -520,13 +532,13 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 
     // deal with Mobius Dminus
     if (bd.solver == HmCayleyTanh) {
-        bd.cps_impexFermion((Float *)f_in , out,  1);
+	bd.cps_impexFermion((Float *)f_in, out, 1);
 #pragma omp parallel
-        {
-            bd.G5D_Dminus(out, in, 0);
-        }
+	{
+	    bd.G5D_Dminus(out, in, 0);
+	}
     } else {
-        bd.cps_impexFermion((Float *)f_in , in,  1);
+	bd.cps_impexFermion((Float *)f_in, in, 1);
     }
 
     bd.cps_impexFermion((Float *)f_out, out, 1);
@@ -539,6 +551,11 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 
 	iter = MADWF_CG_M(bd, bf, use_mixed_solver,
 	    out, in, bd.mass, this->GaugeField(), cg_arg->stop_rsd, madwf_arg_map[cg_arg->mass], cg_arg->Inverter);
+    } else if (cg_arg->Inverter == HDCG) {
+	HDCG_wrapper *control = HDCGInstance::getInstance();
+	assert(control != NULL);
+	control->HDCG_set_mass(cg_arg->mass);
+	control->HDCG_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
     } else {
 	// no MADWF:
 #pragma omp parallel

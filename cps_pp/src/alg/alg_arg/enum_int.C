@@ -972,6 +972,7 @@ struct vml_enum_map InverterType_map[] = {
 	{"InverterType","CG",CG},
 	{"InverterType","BICGSTAB",BICGSTAB},
 	{"InverterType","EIGCG",EIGCG},
+	{"InverterType","HDCG",HDCG},
 	{NULL,NULL,0}
 };
 
