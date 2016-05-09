@@ -2,6 +2,7 @@
 
 #include <util/lattice/eff_overlap.h>
 #include <util/lattice/bfm_mixed_solver.h>
+#include <util/lattice/hdcg_controller.h>
 #include <util/timer.h>
 #include <util/gjp.h>
 #include <util/smalloc.h>
@@ -130,23 +131,33 @@ int ApplyOverlapInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_
     {
 	bfm_d.set_zero(vec_5d[Even]);
 	bfm_d.set_zero(vec_5d[Odd]);
+    }
 
-	if (use_mixed_solver) {
-	    iters = mixed_cg::threaded_cg_mixed_M(vec_5d, tmp_5d, bfm_d, bfm_f, 5, itype);
-	} else {
-	    switch (itype) {
-		case CG:
-		    iters = bfm_d.CGNE_M(vec_5d, tmp_5d);
-		    break;
-		case EIGCG:
-		    iters = bfm_d.EIG_CGNE_M(vec_5d, tmp_5d);
-		    break;
-		default:
-		    if (bfm_d.isBoss()) {
-			printf("%s::%s: Inverter type %d not implemented\n", cname, fname, itype);
-		    }
-		    exit(-1);
-		    break;
+    if (itype == HDCG) {
+	HDCG_wrapper *control = HDCGInstance::getInstance();
+	assert(control != NULL);
+	control->HDCG_set_mass(mass);
+	control->HDCG_invert(vec_5d, tmp_5d, stop_rsd, bfm_d.max_iter);
+    } else {
+#pragma omp parallel
+	{
+	    if (use_mixed_solver) {
+		iters = mixed_cg::threaded_cg_mixed_M(vec_5d, tmp_5d, bfm_d, bfm_f, 5, itype);
+	    } else {
+		switch (itype) {
+		    case CG:
+			iters = bfm_d.CGNE_M(vec_5d, tmp_5d);
+			break;
+		    case EIGCG:
+			iters = bfm_d.EIG_CGNE_M(vec_5d, tmp_5d);
+			break;
+		    default:
+			if (bfm_d.isBoss()) {
+			    printf("%s::%s: Inverter type %d not implemented\n", cname, fname, itype);
+			}
+			exit(-1);
+			break;
+		}
 	    }
 	}
     }
@@ -720,8 +731,8 @@ int MADWF_CG_M(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_sol
     }
     
     // make sure certain residuals aren't pointlessly strict
-    if (madwf_params.cheap_solve_stop_rsd < exact_solve_stop_rsd) madwf_params.cheap_solve_stop_rsd = exact_solve_stop_rsd;
-    if (madwf_params.exact_pv_stop_rsd < exact_solve_stop_rsd) madwf_params.exact_pv_stop_rsd = exact_solve_stop_rsd;
+    // if (madwf_params.cheap_solve_stop_rsd < exact_solve_stop_rsd) madwf_params.cheap_solve_stop_rsd = exact_solve_stop_rsd;
+    // if (madwf_params.exact_pv_stop_rsd < exact_solve_stop_rsd) madwf_params.exact_pv_stop_rsd = exact_solve_stop_rsd;
 
     // Now we will use the cheap operator to iteratively compute an approximation to 
     //   D_DW(m)^{-1} residual

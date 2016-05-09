@@ -548,6 +548,8 @@ public:
     
     \return The coefficient of the rectangle term in the pure gauge action.
    */  
+  void C1(Float new_c1)
+      { doarg_int.c_1 = new_c1; }
 
   Float u0() const
       {return doarg_int.u0;}

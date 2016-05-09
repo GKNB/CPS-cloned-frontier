@@ -430,6 +430,74 @@ WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num)
     return result *= num;
 }
 
+WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm)
+{
+    WilsonMatrix ret(0.0);
+    for (int s1 = 0; s1 < 4; ++s1) {
+	for (int c1 = 0; c1 < 3; ++c1) {
+	    for (int s2 = 0; s2 < 4; ++s2) {
+		for (int c2 = 0; c2 < 3; ++c2) {
+		    for (int x = 0; x < 4; ++x) {
+			ret.p.d[s1].c[c1].d[s2].c[c2] += wm.p.d[s1].c[c1].d[x].c[c2] * sm(x, s2);
+		    }
+		}
+	    }
+	}
+    }
+    return ret;
+}
+
+WilsonMatrix operator*(const SpinMatrix &sm, const WilsonMatrix &wm)
+{
+    WilsonMatrix ret(0.0);
+    for (int s1 = 0; s1 < 4; ++s1) {
+	for (int c1 = 0; c1 < 3; ++c1) {
+	    for (int s2 = 0; s2 < 4; ++s2) {
+		for (int c2 = 0; c2 < 3; ++c2) {
+		    for (int x = 0; x < 4; ++x) {
+			ret.p.d[s1].c[c1].d[s2].c[c2] += sm(s1, x) * wm.p.d[x].c[c1].d[s2].c[c2];
+		    }
+		}
+	    }
+	}
+    }
+    return ret;
+}
+
+WilsonMatrix operator*(const WilsonMatrix &wm, const Matrix &cm)
+{
+    WilsonMatrix ret(0.0);
+    for (int s1 = 0; s1 < 4; ++s1) {
+	for (int c1 = 0; c1 < 3; ++c1) {
+	    for (int s2 = 0; s2 < 4; ++s2) {
+		for (int c2 = 0; c2 < 3; ++c2) {
+		    for (int x = 0; x < 3; ++x) {
+			ret.p.d[s1].c[c1].d[s2].c[c2] += wm.p.d[s1].c[c1].d[s2].c[x] * cm(x, c2);
+		    }
+		}
+	    }
+	}
+    }
+    return ret;
+}
+
+WilsonMatrix operator*(const Matrix &cm, const WilsonMatrix &wm)
+{
+    WilsonMatrix ret(0.0);
+    for (int s1 = 0; s1 < 4; ++s1) {
+	for (int c1 = 0; c1 < 3; ++c1) {
+	    for (int s2 = 0; s2 < 4; ++s2) {
+		for (int c2 = 0; c2 < 3; ++c2) {
+		    for (int x = 0; x < 3; ++x) {
+			ret.p.d[s1].c[c1].d[s2].c[c2] += cm(c1, x) * wm.p.d[s1].c[x].d[s2].c[c2];
+		    }
+		}
+	    }
+	}
+    }
+    return ret;
+}
+
 WilsonMatrix operator+(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
 {
     WilsonMatrix result(lhs);

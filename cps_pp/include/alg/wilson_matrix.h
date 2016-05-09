@@ -530,13 +530,18 @@ public:
         return *this;
     }
 
-  WilsonMatrix& operator= (const Float& rhs);
-  WilsonMatrix& operator+=(const WilsonMatrix& rhs);
-  WilsonMatrix& operator-=(const WilsonMatrix& rhs);
-  WilsonMatrix& operator*=(const WilsonMatrix& rhs);
-  WilsonMatrix& operator*=(const Float& rhs);
-  WilsonMatrix& operator*=(const Rcomplex& rhs);
-  
+    WilsonMatrix& operator= (const Float& rhs);
+    WilsonMatrix& operator+=(const WilsonMatrix& rhs);
+    WilsonMatrix& operator-=(const WilsonMatrix& rhs);
+    WilsonMatrix& operator*=(const WilsonMatrix& rhs);
+    WilsonMatrix& operator*=(const Float& rhs);
+    WilsonMatrix& operator*=(const Rcomplex& rhs);
+
+    friend WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm);
+    friend WilsonMatrix operator*(const SpinMatrix &sm, const WilsonMatrix &wm);
+    friend WilsonMatrix operator*(const WilsonMatrix &wm, const Matrix &cm);
+    friend WilsonMatrix operator*(const Matrix &cm, const WilsonMatrix &wm);
+
     WilsonMatrix& UMultSource   ( Matrix& U, WilsonMatrix& W);
     WilsonMatrix& UdagMultSource( Matrix& U, WilsonMatrix& W);
   
@@ -634,6 +639,11 @@ extern WilsonMatrix operator*(const Rcomplex& num, const WilsonMatrix& mat);
 
 //! times operator
 extern WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num);
+
+extern WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm);
+extern WilsonMatrix operator*(const SpinMatrix &sm, const WilsonMatrix &wm);
+extern WilsonMatrix operator*(const WilsonMatrix &wm, const Matrix &cm);
+extern WilsonMatrix operator*(const Matrix &cm, const WilsonMatrix &wm);
 
 //! plus operator
 extern WilsonMatrix operator+(const WilsonMatrix& lhs, const WilsonMatrix& rhs);
