@@ -106,16 +106,16 @@ void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const Th
 //J5 or J5q
 void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 	       const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag, const PropSplane splane = SPLANE_BOUNDARY, bool do_source_project = true){
-  SrcSnkOp<SpinColorFlavorMatrix>* src_op;
-  if(do_source_project) src_op = new GparityOpWithFlavorProject(spin_unit,sigma3,p_psi);
-  else src_op = new BasicGparityOp(spin_unit,sigma3);
-
   BasicGparityOp snk_op(spin_unit,sigma3);
-
   Complex coeff(0.5);
-  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,*src_op,p_psibar,p_psi,prop_dag,prop_undag,splane);
 
-  delete src_op;
+  if(do_source_project){
+    GparityOpWithFlavorProject src_op(spin_unit,sigma3,p_psi);
+    twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag,splane);
+  }else{
+    BasicGparityOp src_op(spin_unit,sigma3);
+    twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag,splane);
+  }
 }
 
 void J5Standard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,

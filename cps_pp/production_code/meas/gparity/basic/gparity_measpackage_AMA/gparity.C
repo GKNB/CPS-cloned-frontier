@@ -62,6 +62,7 @@
 #include "meas.h"
 #include "gparity.h"
 #include "tests.h"
+#include "cshift.h"
 
 USING_NAMESPACE_CPS
 
@@ -97,6 +98,7 @@ int main(int argc,char *argv[])
   bool disable_lanczos = false;
   bool random_prop_solns = false; //don't invert, just make the solutions random spin-color-flavor matrices
   bool skip_gauge_fix = false;
+  int tshift = 0;
   {
     int i = 1;
     while(i<argc-1){
@@ -134,10 +136,14 @@ int main(int argc,char *argv[])
 	if(!UniqueID()) printf("Not inverting, just using random propagator solutions\n");
 	random_prop_solns = true;
 	i++;
-    }else if( std::string(argv[i]) == "-skip_gauge_fix"){
+      }else if( std::string(argv[i]) == "-skip_gauge_fix"){
 	skip_gauge_fix = true;
 	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
 	i++;
+      }else if( std::string(argv[i]) == "-tshift_gauge"){
+	std::stringstream ss; ss << argv[i+1]; ss >> tshift;
+	if(!UniqueID()){ printf("Shifting gauge field by %d in time direction\n",tshift); fflush(stdout); }
+	i+=2;
       }else{
 	ERR.General("","main","Unknown argument: %s",argv[i]);
       }
@@ -235,6 +241,10 @@ int main(int argc,char *argv[])
     }else{
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
     }
+
+    if(tshift != 0)
+      Tshift4D( (Float*)lattice.GaugeField(), 4*3*3*2, tshift); //do optional temporal shift
+
     lattice.BondCond(); //apply BC and import to internal bfm instances
 
     if(lanczos_tune_l || lanczos_tune_h){

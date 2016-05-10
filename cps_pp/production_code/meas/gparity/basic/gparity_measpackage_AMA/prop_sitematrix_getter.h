@@ -77,12 +77,17 @@ class PropSiteMatrixFB: public PropSiteMatrixGetter{
     int t_lcl = t - GJP.TnodeCoor() * GJP.TnodeSites();
     if(t_lcl < 0 || t_lcl >= GJP.TnodeSites()){
       printf("PropSiteMatrixFB::get4dcoordAndProp for Node %d with t range %d to %d, tdis_glb=%d and tsrc=%d, got lattice t=%d and prop %d. Lattice t is not on node!\n",
+	     UniqueID(),
 	     GJP.TnodeCoor()*GJP.TnodeSites(), (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1,
-	     UniqueID(),tdis_glb,tsrc,t,use); 
+	     tdis_glb,tsrc,t,use); 
       fflush(stdout);
       exit(-1);
     }
     x4d_lcl = x3d_lcl + GJP.VolNodeSites()/GJP.TnodeSites()*t_lcl;
+    // if(!UniqueID()){ printf("PropSiteMatrixFB::get4dcoordAndProp for Node %d with t range %d to %d, tdis_glb=%d and tsrc=%d, got lattice t=%d and prop %d.\n",
+    // 			    UniqueID(),
+    // 			    GJP.TnodeCoor()*GJP.TnodeSites(), (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1,
+    // 			    tdis_glb,tsrc,t,use); fflush(stdout); }
     return props[use];
   }
 

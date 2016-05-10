@@ -42,7 +42,6 @@ template<typename MatrixType>
 class SrcSnkOp{
 public:
   virtual void rightMultiply(MatrixType &prop) const = 0;
-  virtual ~SrcSnkOp(){}
 };
 
 class BasicOp : public SrcSnkOp<WilsonMatrix>{

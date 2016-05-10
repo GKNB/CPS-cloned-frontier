@@ -31,7 +31,6 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
 
 	if(op == 4){ //only pseudoscalar sink op
 	  pionTwoPointLWGparity(results_wrongsinkmom,tsrc,sink_ops[op],p_psibar,p_psi,*prop_dag,*prop_undag,SPLANE_BOUNDARY,false,true); //right proj op, wrong sink mom
-	  
 	  pionTwoPointLWGparity(results_wrongproj,tsrc,sink_ops[op],p_psibar,p_psi,*prop_dag,*prop_undag,SPLANE_BOUNDARY,true,false); //wrong proj op, right sink mom
 	  pionTwoPointLWGparity(results_wrongproj_wrongsinkmom,tsrc,sink_ops[op],p_psibar,p_psi,*prop_dag,*prop_undag,SPLANE_BOUNDARY,true,true); //wrong proj op, wrong sink mom
 	}
