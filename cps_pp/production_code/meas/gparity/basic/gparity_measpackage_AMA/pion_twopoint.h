@@ -28,6 +28,7 @@ inline SpinMatrixType snkOpMap(const Pion2PtSinkOp sink_op){
   return snk_spn;
 }
 
+//Pseudoscalar source and general sink
 void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			    const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
@@ -37,8 +38,6 @@ void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2Pt
   Complex coeff(1.0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag);
 }
-
-
 void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag,
 			   const PropSplane splane = SPLANE_BOUNDARY,
@@ -54,18 +53,25 @@ void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtS
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag,splane,use_wrong_sink_mom);
 }
 
+//Time-component axial source and sink
 void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
   GparityOpWithFlavorProject src_op(gamma4,sigma3,p_psi);
   BasicGparityOp snk_op(gamma4,sigma3);
 
-  Complex coeff(0.5); //Hermitian conjugate of A_4 at source
+  Complex coeff(0.5);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag);
 }
+void pionTwoPointA4A4LWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
+  BasicOp src_op(gamma4);
+  BasicOp snk_op(gamma4);
 
-
-
+  Complex coeff(1.0);
+  twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag);
+}
+ 
 
 //WW 2pt function
 void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,

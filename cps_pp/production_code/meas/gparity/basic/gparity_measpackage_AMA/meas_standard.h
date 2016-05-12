@@ -27,6 +27,18 @@ void measurePion2ptLWStandard(const PropMomContainer &props, const PropPrecision
       }
       writePion2ptLW(results, results_dir, sink_op_stub[op], p_psibar, p_psi, status, time_bc, conf, "");
     }
+
+    //Also do A4 A4 
+    fMatrix<double> results(Lt,Lt);
+    for(int s=0;s<tslices.size();s++){
+      const int tsrc = tslices[s];
+      
+      std::auto_ptr<PropSiteMatrixGetter> prop_dag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_dag,time_bc)); //prop that is daggered
+      std::auto_ptr<PropSiteMatrixGetter> prop_undag(PropSiteMatrixGetterFactory::get(props,Light,status,tsrc,p_prop_undag,time_bc));
+
+      pionTwoPointA4A4LWStandard(results,tsrc,p_psibar,p_psi,*prop_dag,*prop_undag);
+    }
+    writeBasic2ptLW(results,results_dir,"pion_AT_AT_LW",p_psibar,p_psi,status,time_bc,conf);
   }
 }
 
