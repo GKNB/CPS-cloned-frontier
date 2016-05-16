@@ -114,6 +114,7 @@ void config_repro(const char* repro_config, const Float &tolerance);
 
 void init_bfm(int *argc, char **argv[])
 {
+    cps_qdp_init(argc,argv);
     Chroma::initialize(argc, argv);
     multi1d<int> nrow(Nd);
 
