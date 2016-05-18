@@ -1276,6 +1276,8 @@ vml_GparityAMAarg2 (VML *vmls, char *name,GparityAMAarg2 *objp)
 		 return FALSE;
 	 if (!vml_string (vmls, "config_fmt", &objp->config_fmt, ~0))
 		 return FALSE;
+	 if (!vml_string (vmls, "rng_fmt", &objp->rng_fmt, ~0))
+		 return FALSE;
 	 if (!vml_int (vmls, "conf_start", &objp->conf_start))
 		 return FALSE;
 	 if (!vml_int (vmls, "conf_incr", &objp->conf_incr))
@@ -1300,6 +1302,7 @@ void rpc_deepcopy<GparityAMAarg2>::doit(GparityAMAarg2 &into, GparityAMAarg2 con
 	  rpc_deepcopy<Float>::doit(into.mh,from.mh);
 	  rpc_deepcopy<char *>::doit(into.results_dir,from.results_dir,strlen(from.results_dir)+1);
 	  rpc_deepcopy<char *>::doit(into.config_fmt,from.config_fmt,strlen(from.config_fmt)+1);
+	  rpc_deepcopy<char *>::doit(into.rng_fmt,from.rng_fmt,strlen(from.rng_fmt)+1);
 	  rpc_deepcopy<int>::doit(into.conf_start,from.conf_start);
 	  rpc_deepcopy<int>::doit(into.conf_incr,from.conf_incr);
 	  rpc_deepcopy<int>::doit(into.conf_lessthan,from.conf_lessthan);

@@ -377,6 +377,7 @@ class GparityAMAarg2{
 
   string results_dir<>;
   string config_fmt<>; /* Should contain a %d which is replaced by a config index */
+  string rng_fmt<>; /* Should contain a %d which is replaced by a config index */
   int conf_start;
   int conf_incr;
   int conf_lessthan;

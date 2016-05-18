@@ -98,6 +98,7 @@ int main(int argc,char *argv[])
   bool disable_lanczos = false;
   bool random_prop_solns = false; //don't invert, just make the solutions random spin-color-flavor matrices
   bool skip_gauge_fix = false;
+  bool random_exact_tsrc_offset = true; //randomly shift the full set of exact src timeslices
   int tshift = 0;
   {
     int i = 1;
@@ -111,6 +112,10 @@ int main(int argc,char *argv[])
       }else if( std::string(argv[i]) == "-load_dbl_latt" ){
 	if(!UniqueID()) printf("Loading double latt\n");
 	dbl_latt_storemode = true;
+	i++;
+      }else if( std::string(argv[i]) == "-disable_random_exact_tsrc_offset" ){
+	if(!UniqueID()) printf("Disabling random offset of exact tsrc\n");
+	random_exact_tsrc_offset = false;
 	i++;
       }else if( std::string(argv[i]) == "-disable_mixed_solver" ){
 	if(!UniqueID()) printf("Disabling mixed solver\n");
@@ -150,17 +155,17 @@ int main(int argc,char *argv[])
     }
   }
 
-  const char *c = ama_arg.config_fmt;
   if(UniqueID()==0) printf("Configuration format is '%s'\n",ama_arg.config_fmt);
-  bool found(false);
-  while(*c!='\0'){
-    if(*c=='\%' && *(c+1)=='d'){ found=true; break; }
-    c++;
-  }
-  if(!found) ERR.General("","main()","GparityAMAarg config format '%s' does not contain a %%d",ama_arg.config_fmt);
+  if(!contains_pctd(ama_arg.config_fmt)) ERR.General("","main()","GparityAMAarg config format '%s' does not contain a %%d",ama_arg.config_fmt);
 
+  if(UniqueID()==0) printf("RNG format is '%s'\n",ama_arg.rng_fmt);
+  if(!contains_pctd(ama_arg.rng_fmt)) ERR.General("","main()","GparityAMAarg rng format '%s' does not contain a %%d",ama_arg.rng_fmt);
+  
   GJP.Initialize(do_arg);
   GJP.StartConfKind(START_CONF_MEM); //we will handle the gauge field read/write thankyou!
+  GJP.StartSeedKind(START_SEED_INPUT); //and the LRG load!
+
+  if(do_arg.start_seed_kind != START_SEED_FILE) printf("WARNING: Using fixed input start seed. You might want to use START_SEED_FILE to aid reproducibility!\n");
 
 #if TARGET == BGQ
   LRG.setSerial();
@@ -181,6 +186,7 @@ int main(int argc,char *argv[])
   GnoneFbfm lattice;
   CommonArg carg("label","filename");
   char load_config_file[1000];
+  char load_rng_file[1000];
 
   //Decide on the meson and quark momenta we wish to compute
   MesonMomenta pion_momenta;
@@ -217,10 +223,9 @@ int main(int argc,char *argv[])
     Float conf_start_time = dclock();
 
     //Read/generate the gauge configuration 
-    if(do_arg.start_conf_kind == START_CONF_FILE){
-    
+    if(do_arg.start_conf_kind == START_CONF_FILE){    
       if(sprintf(load_config_file,ama_arg.config_fmt,conf) < 0){
-	ERR.General("","main()","Congfiguration filename creation problem : %s | %s",load_config_file,ama_arg.config_fmt);
+	ERR.General("","main()","Configuration filename creation problem : %s | %s",load_config_file,ama_arg.config_fmt);
       }
       //load the configuration
       ReadLatticeParallel readLat;
@@ -240,6 +245,19 @@ int main(int argc,char *argv[])
       printf("Gauge checksum = %d\n", lattice.CheckSum());
     }else{
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
+    }
+
+    if(do_arg.start_seed_kind == START_SEED_FILE){   
+      if(sprintf(load_rng_file,ama_arg.rng_fmt,conf) < 0){
+	ERR.General("","main()","RNG filename creation problem : %s | %s",load_rng_file,ama_arg.rng_fmt);
+      }
+      if(UniqueID()==0) printf("Loading RNG state from %s\n",load_rng_file);
+      int default_concur=0;
+#if TARGET==BGQ
+      default_concur=1;
+#endif
+      LRG.Read(load_rng_file,default_concur);
+      if(UniqueID()==0) printf("RNG read.\n");
     }
 
     if(tshift != 0)
@@ -322,6 +340,17 @@ int main(int argc,char *argv[])
 				  ama_arg.exact_solve_timeslices.exact_solve_timeslices_val + ama_arg.exact_solve_timeslices.exact_solve_timeslices_len);
     
     std::vector<int> bk_tseps(ama_arg.bk_tseps.bk_tseps_val, ama_arg.bk_tseps.bk_tseps_val + ama_arg.bk_tseps.bk_tseps_len);
+
+    if(random_exact_tsrc_offset){
+      LRG.AssignGenerator(0,0); LRG.SetInterval(Lt,0);
+      int offset = int(floor( LRG.Lrand() )) % Lt;
+      if(!UniqueID()) printf("Shifting exact src timeslices by offset %d\n",offset);
+      for(int i=0;i<tslice_exact.size();i++){
+	int nval = (tslice_exact[i]+offset) % Lt;
+	if(!UniqueID()) printf("Exact src timeslice %d -> %d\n",tslice_exact[i], nval);
+	tslice_exact[i] = nval;
+      }
+    }
 
 #ifdef USE_TBC_INPUT
     BndCndType tbcs[1] = { GJP.Tbc() };

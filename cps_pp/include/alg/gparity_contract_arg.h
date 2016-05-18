@@ -707,6 +707,7 @@ public:
 	Float mh;
 	char *results_dir;
 	char *config_fmt;
+	char *rng_fmt;
 	int conf_start;
 	int conf_incr;
 	int conf_lessthan;

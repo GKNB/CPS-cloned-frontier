@@ -144,6 +144,11 @@ inline int toInt(const char* a){
   return o;
 }
 
+inline bool contains_pctd(const std::string &c){
+  return c.find("%d") != std::string::npos;
+}
+
+
 CPS_END_NAMESPACE
 
 
