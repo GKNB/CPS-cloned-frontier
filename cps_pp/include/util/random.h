@@ -328,6 +328,7 @@ class LatRanGen
 
     //! Get a uniform random number which is the same on all nodes.
     IFloat Lrand(); 
+    IFloat Lrand(Float high, Float low);
 
     //! Sets the variance of the distribution.
     void SetSigma(IFloat sigma);

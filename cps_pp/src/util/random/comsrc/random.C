@@ -757,32 +757,29 @@ void LatRanGen::SetSigma(IFloat sigma)
 /*!
   \return A uniform random number; one per node, the same on each node.
 */
-// Lrand will return the same random number on every node by
-// performing a global sum over all 2^4 hypercubes, and taking the
-// average value
 //--------------------------------------------------------------
-IFloat LatRanGen::Lrand()
+IFloat LatRanGen::Lrand(Float hi, Float lo)
 {
   Float cntr = 0.0;
-  for(int i = 0; i < n_rgen; i++) cntr += (Float) ugran[i].Urand();
-  
-  Float divisor = (Float) (n_rgen*GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()
-			   *GJP.Tnodes());
-  if(GJP.Snodes()>1) divisor *= (Float) GJP.Snodes();
-  cntr/=divisor;
+
+  //Get one non-zero float from global RNG coordinate zero
+  if(!CoorX()&&!CoorY()&&!CoorZ()&&!CoorT()&&!CoorS())
+    cntr = (Float) ugran[0].Urand(hi,lo); //5d RNG, local coord 0
+
   glb_sum_five(&cntr);
   return  (IFloat) cntr;
-
 }
-
+IFloat LatRanGen::Lrand(){
+  IFloat hi, lo;
+  UniformRandomGenerator::GetInterval(hi,lo);
+  return Lrand(hi,lo);
+}
 
 /*!
   \return The number of unsigned ints that comprise the RNG state vector.
 */
 int LatRanGen::StateSize() const{
-
-    return ugran[0].StateSize();    
-    
+    return ugran[0].StateSize();
 }
 
 /*!

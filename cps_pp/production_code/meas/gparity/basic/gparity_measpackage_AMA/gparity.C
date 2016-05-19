@@ -99,6 +99,7 @@ int main(int argc,char *argv[])
   bool random_prop_solns = false; //don't invert, just make the solutions random spin-color-flavor matrices
   bool skip_gauge_fix = false;
   bool random_exact_tsrc_offset = true; //randomly shift the full set of exact src timeslices
+  bool rng_test = false; //just load config, generate some uniform random numbers then move onto next config
   int tshift = 0;
   {
     int i = 1;
@@ -144,6 +145,10 @@ int main(int argc,char *argv[])
       }else if( std::string(argv[i]) == "-skip_gauge_fix"){
 	skip_gauge_fix = true;
 	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
+	i++;
+      }else if( std::string(argv[i]) == "-rng_test"){
+	rng_test = true;
+	if(!UniqueID()){ printf("Doing RNG test\n"); fflush(stdout); }
 	i++;
       }else if( std::string(argv[i]) == "-tshift_gauge"){
 	std::stringstream ss; ss << argv[i+1]; ss >> tshift;
@@ -223,7 +228,14 @@ int main(int argc,char *argv[])
     Float conf_start_time = dclock();
 
     //Read/generate the gauge configuration 
-    if(do_arg.start_conf_kind == START_CONF_FILE){    
+    if(do_arg.start_conf_kind == START_CONF_ORD || rng_test){
+      if(!UniqueID()) printf("Using unit gauge links\n");
+      lattice.SetGfieldOrd();
+    }else if(do_arg.start_conf_kind == START_CONF_DISORD){
+      if(!UniqueID()) printf("Using random gauge links\n");
+      lattice.SetGfieldDisOrd();
+      printf("Gauge checksum = %d\n", lattice.CheckSum());
+    }else if(do_arg.start_conf_kind == START_CONF_FILE){    
       if(sprintf(load_config_file,ama_arg.config_fmt,conf) < 0){
 	ERR.General("","main()","Configuration filename creation problem : %s | %s",load_config_file,ama_arg.config_fmt);
       }
@@ -235,14 +247,6 @@ int main(int argc,char *argv[])
 	readLat.disableGparityReconstructUstarField();
       }
       readLat.read(lattice,load_config_file);
-      if(UniqueID()==0) printf("Config read.\n");
-    }else if(do_arg.start_conf_kind == START_CONF_ORD){
-      if(!UniqueID()) printf("Using unit gauge links\n");
-      lattice.SetGfieldOrd();
-    }else if(do_arg.start_conf_kind == START_CONF_DISORD){
-      if(!UniqueID()) printf("Using random gauge links\n");
-      lattice.SetGfieldDisOrd();
-      printf("Gauge checksum = %d\n", lattice.CheckSum());
     }else{
       ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
     }
@@ -259,6 +263,16 @@ int main(int argc,char *argv[])
       LRG.Read(load_rng_file,default_concur);
       if(UniqueID()==0) printf("RNG read.\n");
     }
+
+    if(rng_test){ //just load config, generate some uniform random numbers then move onto next config
+      if(!UniqueID()) printf("Random offsets in range 0..Lt\n");
+      for(int i=0;i<50;i++){
+	int offset = int(floor( LRG.Lrand(Lt,0) )) % Lt;
+	if(!UniqueID()) printf("%d\n",offset);
+      }
+      continue;
+    }
+
 
     if(tshift != 0)
       Tshift4D( (Float*)lattice.GaugeField(), 4*3*3*2, tshift); //do optional temporal shift
@@ -342,8 +356,7 @@ int main(int argc,char *argv[])
     std::vector<int> bk_tseps(ama_arg.bk_tseps.bk_tseps_val, ama_arg.bk_tseps.bk_tseps_val + ama_arg.bk_tseps.bk_tseps_len);
 
     if(random_exact_tsrc_offset){
-      LRG.AssignGenerator(0,0); LRG.SetInterval(Lt,0);
-      int offset = int(floor( LRG.Lrand() )) % Lt;
+      int offset = int(floor( LRG.Lrand(Lt,0) )) % Lt;
       if(!UniqueID()) printf("Shifting exact src timeslices by offset %d\n",offset);
       for(int i=0;i<tslice_exact.size();i++){
 	int nval = (tslice_exact[i]+offset) % Lt;

@@ -48,6 +48,33 @@ using namespace std;
 
 DoArg do_arg;
 
+void testLrand(){
+  int ntest = 20;
+  int nrand = 1000;
+  int nbin = 10; //0->0.1 0.1->0.2 0.2->0.3 0.3->0.4 0.4->0.5 0.5->0.6 0.6->0.7 0.7->0.8 0.8->0.9 0.9->1.0
+  Float binsize = 1.0/nbin;
+  assert(nrand % nbin == 0);
+  
+  int dof = nbin - 1;
+
+  for(int test=0;test<ntest;test++){
+    //std::vector<Float> r(nrand);
+
+    std::vector<int> binned(nbin,0);
+    for(int i=0;i<nrand;i++){
+      Float r = LRG.Lrand(1,0);
+      int bin = (int)floor(r/binsize);
+      ++binned[bin];
+    }
+    int expect = nrand/nbin;
+    
+    Float chisq = 0.;
+    for(int b=0;b<nbin;b++)
+      chisq += pow( binned[b] - expect , 2)/expect;
+  }
+}
+
+
 void LRGcheck(FermionFieldDimension frm_dim = FIVE_D){
   if(frm_dim == FIVE_D)
     printf("Doing 5d LRG check\n");
