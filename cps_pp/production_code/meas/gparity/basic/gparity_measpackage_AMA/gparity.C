@@ -2,8 +2,15 @@
 #warning "Using TBC specified in do_arg"
 #elif defined(USE_TBC_FB)
 #warning "Using F=P+A and B=P-A temporal boundary condition combinations"
+#elif defined(DOUBLE_TLATT)
+#warning "Doubling time direction and using specified in do_arg"
+#define USE_TBC_INPUT
 #else
 #error "Must specify TBC flag USE_TBC_INPUT or USE_TBC_FB"
+#endif
+
+#ifdef TESTING
+#warning "Compiling for TEST mode"
 #endif
 
 #include <config.h>
@@ -61,8 +68,10 @@
 #include "wallsinkprop.h"
 #include "meas.h"
 #include "gparity.h"
-#include "tests.h"
+#include "lattice_doubleT.h"
 #include "cshift.h"
+#include "tests.h"
+
 
 USING_NAMESPACE_CPS
 
@@ -264,6 +273,13 @@ int main(int argc,char *argv[])
       if(UniqueID()==0) printf("RNG read.\n");
     }
 
+#ifdef DOUBLE_TLATT
+    if(!UniqueID()) printf("Doubling lattice temporal size\n");
+    LatticeTimeDoubler doubler;
+    doubler.doubleLattice(lattice,do_arg);
+#endif
+
+
     if(rng_test){ //just load config, generate some uniform random numbers then move onto next config
       if(!UniqueID()) printf("Random offsets in range 0..Lt\n");
       for(int i=0;i<50;i++){
@@ -277,6 +293,19 @@ int main(int argc,char *argv[])
     if(tshift != 0)
       Tshift4D( (Float*)lattice.GaugeField(), 4*3*3*2, tshift); //do optional temporal shift
 
+    //Gauge fix lattice if required. Do this before the fermion time BCs are applied to the gauge field
+    if(ama_arg.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
+      Float time = -dclock();
+      AlgFixGauge fix_gauge(lattice,&carg,&ama_arg.fix_gauge);
+      if(skip_gauge_fix){
+	if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
+	gaugeFixUnity(lattice,ama_arg.fix_gauge);      
+      }else{
+	fix_gauge.run();
+      }
+      print_time("main","Gauge fix",time);
+    }
+
     lattice.BondCond(); //apply BC and import to internal bfm instances
 
     if(lanczos_tune_l || lanczos_tune_h){
@@ -288,19 +317,6 @@ int main(int argc,char *argv[])
 	fflush(stdout);
       }
       return 0;
-    }
-
-    //Gauge fix lattice if required
-    if(ama_arg.fix_gauge.fix_gauge_kind != FIX_GAUGE_NONE){
-      Float time = -dclock();
-      AlgFixGauge fix_gauge(lattice,&carg,&ama_arg.fix_gauge);
-      if(skip_gauge_fix){
-	if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
-	gaugeFixUnity(lattice,ama_arg.fix_gauge);      
-      }else{
-	fix_gauge.run();
-      }
-      print_time("main","Gauge fix",time);
     }
 
     typedef std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > LanczosPtrType;

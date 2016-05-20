@@ -1,4 +1,5 @@
 #include <config.h>
+#include <unistd.h>
 #include <util/WriteLatticePar.h>
 #include <util/iostyle.h>
 #include <util/qcdio.h>
@@ -21,7 +22,7 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   struct timeval start,end;
   gettimeofday(&start,NULL);
 #endif
-   sync();
+  sync();
 
   // init
   int error = 0;

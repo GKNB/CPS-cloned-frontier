@@ -312,6 +312,8 @@ int run_tests(int argc,char *argv[])
   Fbfm::use_mixed_solver = false;
   double tol = 1e-8;
 
+  bool test_t_doubler = false;
+
   int i=2;
   while(i<argc){
     char* cmd = argv[i];  
@@ -344,6 +346,10 @@ int run_tests(int argc,char *argv[])
       i+=2;  
     }else if( strncmp(cmd,"-verbose",15) == 0){
       verbose=true;
+      i++;
+    }else if( strncmp(cmd,"-test_t_doubler",15) == 0){
+      test_t_doubler = true;
+      if(!UniqueID()) printf("Testing t doubler\n");
       i++;
     }else if( strncmp(cmd,"-disable_exit_on_error",15) == 0){
       exit_on_error = false;
@@ -385,6 +391,7 @@ int run_tests(int argc,char *argv[])
 
   CommonArg common_arg;
   DoArg do_arg;  setupDoArg(do_arg,size,ngp,verbose);
+  if(test_t_doubler) do_arg.t_bc = BND_CND_PRD;
 
   GJP.Initialize(do_arg);
 
@@ -439,6 +446,112 @@ int run_tests(int argc,char *argv[])
 
     if(UniqueID()==0) printf("Config written.\n");
   }
+
+  if(test_t_doubler){
+    if(!UniqueID()) printf("Testing lattice doubler\n");
+    LatticeTimeDoubler doubler;
+    doubler.doubleLattice(lattice,do_arg);
+    
+    if(!UniqueID()){ printf("Lattice double complete, testing\n"); fflush(stdout); }
+    int lat_size = 18*4*GJP.VolNodeSites()*(GJP.Gparity()+1);
+    int Lt = GJP.TnodeSites()*GJP.Tnodes();
+
+    for(int f=0;f<GJP.Gparity()+1;f++){
+      Float zerothelems[Lt/2];
+      for(int i=0;i<Lt/2;i++) zerothelems[i] = 0.;
+
+      if(!GJP.XnodeCoor() && !GJP.YnodeCoor() && !GJP.ZnodeCoor() && !GJP.SnodeCoor()){
+	for(int t=0;t<GJP.TnodeSites()/2;t++){
+	  int off = 18*4*GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites()*(t + GJP.TnodeSites()/2*f);
+	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()/2+t] = ((Float const*)doubler.OrigGaugeField())[off];
+	}
+      }
+      if(!UniqueID()) printf("Original elements with (x,y,z)=(0,0,0) along t direction with flavor %d\n",f);
+      for(int t=0;t<Lt/2;t++){
+	glb_sum_five(&zerothelems[t]);
+	if(!UniqueID()){
+	  if(t % (GJP.TnodeSites()/2) == 0) printf("------\n");
+	  printf("%d %g\n",t,zerothelems[t]);
+	}
+      }
+    }
+
+    for(int f=0;f<GJP.Gparity()+1;f++){
+      Float zerothelems[Lt];
+      for(int i=0;i<Lt;i++) zerothelems[i] = 0.;
+
+      if(!GJP.XnodeCoor() && !GJP.YnodeCoor() && !GJP.ZnodeCoor() && !GJP.SnodeCoor()){
+	for(int t=0;t<GJP.TnodeSites();t++){
+	  int off = 18*4*GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites()*(t + GJP.TnodeSites()*f);
+	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()+t] = ((Float*)lattice.GaugeField())[off];
+	}
+      }
+      if(!UniqueID()) printf("Elements with (x,y,z)=(0,0,0) along t direction (first half second half) with flavor %d\n",f);
+      for(int t=0;t<Lt/2;t++){
+	glb_sum_five(&zerothelems[t]);
+	glb_sum_five(&zerothelems[t+Lt/2]);
+	if(!UniqueID()){ 
+	  if(t % GJP.TnodeSites() == 0) printf("------\n");
+	  printf("%d %g | %d %g\n",t,zerothelems[t],t+Lt/2,zerothelems[t+Lt/2]);
+	}
+      }
+    }
+
+
+    //Test by shifting the doubled lattice by Lt/2 and making sure the fields match
+    LatticeContainer bak;
+    bak.Get(lattice);
+    
+    Float fail = 0.0;
+
+
+    if(GJP.Tnodes() > 1){
+      if(!UniqueID()) printf("Multi Tnode test\n");
+      Float* buf1 = (Float*)malloc(lat_size * sizeof(Float));
+      Float* buf2 = (Float*)malloc(lat_size * sizeof(Float));
+      memcpy((void*)buf1, (void*)lattice.GaugeField(), lat_size*sizeof(Float));
+
+      Float *send = buf2;
+      Float *recv = buf1;    
+      for(int i=0;i<GJP.Tnodes()/2;i++){
+	Float* tmp = send;
+	send = recv;
+	recv = tmp;
+	getPlusData(recv, send, lat_size, 3);
+      }
+
+      Float* orig_p = (Float*)bak.GaugeField();
+      for(int i=0;i<lat_size;i++){
+	if(orig_p[i] != recv[i]){
+	  printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],recv[i]); fflush(stdout); fail = 1.0;;
+	}
+      }
+      glb_sum_five(&fail);
+      free(buf1);
+      free(buf2);
+    }else{
+      if(!UniqueID()) printf("Single Tnode test\n");
+      Tshift4D((Float*)lattice.GaugeField(), 18*4, GJP.TnodeSites()/2);
+      Float* orig_p = (Float*)bak.GaugeField();
+      Float* lat_p = (Float*)lattice.GaugeField();
+      for(int i=0;i<lat_size;i++){
+	if(orig_p[i] != lat_p[i]){
+	  printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],lat_p[i]); fflush(stdout); fail = 1.0;;
+	}
+      }
+      glb_sum_five(&fail);
+    }
+
+
+    if(fail != 0.0){
+      if(!UniqueID()){ printf("Lattice double test fail\n"); exit(-1); }
+    }else{
+      if(!UniqueID()){ printf("Lattice double test pass\n"); }
+    }
+
+    exit(0);
+  }
+
 
   bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
   bfm_evo<float> &dwf_f = static_cast<Fbfm&>(lattice).bf;

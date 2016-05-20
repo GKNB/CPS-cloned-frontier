@@ -238,6 +238,9 @@ class Lattice
     Lattice();
 
     virtual ~Lattice();
+    
+    //!<Allocates memory for gauge field if not already done so
+    void AllocGauge();
 
     //!< Frees memory associated with gauge field and sets is_allocated = 0 and is_initialized = 0.
     //Does not take off the scope lock (destructor does this).

@@ -140,7 +140,6 @@ Lattice::Lattice()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-  int array_size;  // On-node size of the gauge field array.
 
   VRB.Func(cname,fname);
 
@@ -156,56 +155,7 @@ Lattice::Lattice()
   }
   scope_lock = 1;
 
-
-  if(!(is_allocated)){
-    // Allocate memory for the gauge field.
-    //--------------------------------------------------------------
-    array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
-    if(GJP.Gparity()) array_size*=2;
-
-    if(start_conf_kind != START_CONF_LOAD ){
-//       start_conf_kind!=START_CONF_FILE){
-#if TARGET == QCDOC
-       gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
-    VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
-#else
-      gauge_field = (Matrix *) pmalloc(array_size);
-#endif
-//     printf("gauge_field=%p\n",gauge_field);
-      if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
-      VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
-      GJP.StartConfLoadAddr(gauge_field); //store the location of the gauge field
-    }
-
-    //--------------------------------------------------------------
-    //   Pmalloc space for the gauge update counter and initialize 
-    //   the counter to zero.
-    //--------------------------------------------------------------
-    char *g_upd_cnt_str = "g_upd_cnt" ;
-    g_upd_cnt = (int *) pmalloc(sizeof(int));
-    if (g_upd_cnt == 0)
-      ERR.Pointer(cname, fname, g_upd_cnt_str);
-    VRB.Pmalloc(cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof(int));
-
-    *g_upd_cnt = 0 ;	// will this respect checkpoints with pmalloc???
-
-
-    // initialize node_sites[] and g_dir_offset[]
-    //--------------------------------------------------------------
-    node_sites[0] = GJP.XnodeSites();
-    node_sites[1] = GJP.YnodeSites();
-    node_sites[2] = GJP.ZnodeSites();
-    node_sites[3] = GJP.TnodeSites();
-    node_sites[4] = GJP.SnodeSites();
-    g_dir_offset[0] = 4;
-    g_dir_offset[1] = g_dir_offset[0]*GJP.XnodeSites();
-    g_dir_offset[2] = g_dir_offset[1]*GJP.YnodeSites();
-    g_dir_offset[3] = g_dir_offset[2]*GJP.ZnodeSites();
-
-    // Set is_allocated flag to 1
-    //--------------------------------------------------------------
-    is_allocated = 1;
-  }
+  AllocGauge();
 
   // Initialize the random number generator
   //--------------------------------------------------------------
@@ -344,6 +294,64 @@ Lattice::~Lattice()
 #endif
 
 }
+
+
+//!<Allocates memory for gauge field if not already done so
+void Lattice::AllocGauge(){
+  if(!(is_allocated)){
+    const char *fname = "Lattice()";
+    StartConfType start_conf_kind = GJP.StartConfKind();
+
+    // Allocate memory for the gauge field.
+    //--------------------------------------------------------------
+    int array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
+    if(GJP.Gparity()) array_size*=2;
+
+    if(start_conf_kind != START_CONF_LOAD ){
+      //       start_conf_kind!=START_CONF_FILE){
+#if TARGET == QCDOC
+      gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
+      VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
+#else
+      gauge_field = (Matrix *) pmalloc(array_size);
+#endif
+      //     printf("gauge_field=%p\n",gauge_field);
+      if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
+      VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
+      GJP.StartConfLoadAddr(gauge_field); //store the location of the gauge field
+    }
+
+    //--------------------------------------------------------------
+    //   Pmalloc space for the gauge update counter and initialize 
+    //   the counter to zero.
+    //--------------------------------------------------------------
+    char *g_upd_cnt_str = "g_upd_cnt" ;
+    g_upd_cnt = (int *) pmalloc(sizeof(int));
+    if (g_upd_cnt == 0)
+      ERR.Pointer(cname, fname, g_upd_cnt_str);
+    VRB.Pmalloc(cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof(int));
+
+    *g_upd_cnt = 0 ;	// will this respect checkpoints with pmalloc???
+
+
+    // initialize node_sites[] and g_dir_offset[]
+    //--------------------------------------------------------------
+    node_sites[0] = GJP.XnodeSites();
+    node_sites[1] = GJP.YnodeSites();
+    node_sites[2] = GJP.ZnodeSites();
+    node_sites[3] = GJP.TnodeSites();
+    node_sites[4] = GJP.SnodeSites();
+    g_dir_offset[0] = 4;
+    g_dir_offset[1] = g_dir_offset[0]*GJP.XnodeSites();
+    g_dir_offset[2] = g_dir_offset[1]*GJP.YnodeSites();
+    g_dir_offset[3] = g_dir_offset[2]*GJP.ZnodeSites();
+
+    // Set is_allocated flag to 1
+    //--------------------------------------------------------------
+    is_allocated = 1;
+  }
+}
+
 
 //!< Frees memory associated with gauge field and sets is_allocated = 0 and is_initialized = 0.
 //Does not take off the scope lock (destructor does this).
