@@ -46,6 +46,46 @@ public:
     }
   }
 
+  //For debugging purposes print the time dependence of the 3d volume sum of the matrix norm2 of the prop, for each prop
+  void writePropNormTdep(const std::string &results_dir){
+    SpinColorFlavorMatrix tmp_scf;
+    WilsonMatrix tmp_sc;
+    int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
+
+    std::string filename = results_dir + "/prop_norms.dat";
+
+    FILE *p;
+    if((p = Fopen(filename.c_str(),"w")) == NULL)
+      ERR.FileA("PropMomContainer","writePropNormTdep",filename.c_str());
+
+    for(std::map<std::string, PropWrapper>::const_iterator it = props.begin(); it != props.end(); it++){
+      basicComplexArray<double> pnorms(GJP.TnodeSites()*GJP.Tnodes(), omp_get_max_threads());
+      const std::string &tag = it->first;
+      const PropWrapper &prop = it->second;
+      
+      for(int t=0;t<GJP.TnodeSites();t++){
+	int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
+#pragma omp parallel for
+	for(int x=0;x<vol3d;x++){
+	  if(GJP.Gparity()){
+	    prop.siteMatrix(tmp_scf,x + vol3d*t);
+	    pnorms(t_glb,omp_get_thread_num()) += tmp_scf.norm();
+	  }else{
+	    prop.siteMatrix(tmp_sc,x + vol3d*t);
+	    pnorms(t_glb,omp_get_thread_num()) += tmp_sc.norm();
+	  }
+	}      
+      }
+      pnorms.threadSum();
+      pnorms.nodeSum();
+
+      Fprintf(p,"%s",tag.c_str());
+      for(int t=0;t<GJP.TnodeSites()*GJP.Tnodes();t++)
+	Fprintf(p," %.16e",pnorms[t].real());
+      Fprintf(p,"\n");
+    }
+    Fclose(p);
+  }
 
   //Takes ownership and deletes props when destroyed
   ~PropMomContainer(){

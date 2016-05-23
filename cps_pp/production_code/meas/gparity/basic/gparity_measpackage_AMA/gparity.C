@@ -436,6 +436,7 @@ int main(int argc,char *argv[])
 #endif
 
       props.printAllTags();
+      props.writePropNormTdep(results_dir);
 
       for(int piktbci = 0; piktbci < npiktbc; piktbci++){
 	const TbcStatus & tbs = pi_k_tbcuse[piktbci];
