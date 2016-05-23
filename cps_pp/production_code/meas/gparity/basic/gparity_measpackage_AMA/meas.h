@@ -41,19 +41,25 @@ QPropWMomSrc* randomSolutionPropagator(const bool store_midprop, Lattice &latt){
 
 //Generate a flavor 'f' gauge fixed wall momentum propagator from given timeslice. Momenta are in units of pi/2L
 //Eigenvectors must be those appropriate to the choice of temporal BC, 'time_bc'
+
+//Note: If using Fbfm or FGrid, the current temporal BC listed in GJP.Tbc() must be applied to the bfm/Grid internal gauge field (i.e. minuses on t-links at boundard for APRD) prior to using this method. Internally
+//it changes the bc to 'time_bc' but it changes it back at the end.
 QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
 				Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
   if(random_solution) return randomSolutionPropagator(store_midprop,latt);
 
   multi1d<float> *eval_conv = NULL;
 
-  if(deflate != NULL)
+  if(deflate != NULL){
+    if(latt.Fclass() != F_CLASS_BFM && latt.Fclass() != F_CLASS_BFM_TYPE2)
+      ERR.General("","computePropagator","Deflation only implemented for Fbfm\n");
     if(Fbfm::use_mixed_solver){
       //Have to convert evals to single prec
       eval_conv = new multi1d<float>(deflate->bl.size());
       for(int i=0;i<eval_conv->size();i++) eval_conv->operator[](i) = deflate->bl[i];
       dynamic_cast<Fbfm&>(latt).set_deflation<float>(&deflate->bq,eval_conv,0); //last argument is really obscure - it's the number of eigenvectors subtracted from the solution to produce a high-mode inverse - we want zero here
     }else dynamic_cast<Fbfm&>(latt).set_deflation(&deflate->bq,&deflate->bl,0);
+  }
 
   CommonArg c_arg;
   

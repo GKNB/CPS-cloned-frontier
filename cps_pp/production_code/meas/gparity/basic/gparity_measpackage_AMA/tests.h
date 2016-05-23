@@ -281,6 +281,323 @@ bool test_equals(const double a, const double b, const double eps){
   return reldiff(a,b) < eps;
 }
 
+bool test_equals(const Matrix &a, const Matrix &b, const double &eps){
+  for(int aa=0;aa<3;aa++){
+    for(int bb=0;bb<3;bb++){
+      Complex ca = a(aa,bb);
+      Complex cb = b(aa,bb);
+      if(largest_rel_diff_reim(ca,cb) > eps){		
+	printf("FAIL %d %d (%g %g) (%g %g), reldiff (%g, %g)\n",aa,bb,ca.real(),ca.imag(),cb.real(),cb.imag(), reldiff(ca.real(),cb.real()),reldiff(ca.imag(),cb.imag()) );
+	return false;
+      }
+    }
+  }
+  return true;
+}
+
+
+QPropWPointSrc* computePointPropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
+				Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+  if(!UniqueID()) printf("Computing point propagator\n");
+  LatticeContainer lat_bak; lat_bak.Get(latt);
+
+  multi1d<float> *eval_conv = NULL;
+
+  if(deflate != NULL){
+    if(latt.Fclass() != F_CLASS_BFM && latt.Fclass() != F_CLASS_BFM_TYPE2)
+      ERR.General("","computePropagator","Deflation only implemented for Fbfm\n");
+    if(Fbfm::use_mixed_solver){
+      //Have to convert evals to single prec
+      eval_conv = new multi1d<float>(deflate->bl.size());
+      for(int i=0;i<eval_conv->size();i++) eval_conv->operator[](i) = deflate->bl[i];
+      dynamic_cast<Fbfm&>(latt).set_deflation<float>(&deflate->bq,eval_conv,0); //last argument is really obscure - it's the number of eigenvectors subtracted from the solution to produce a high-mode inverse - we want zero here
+    }else dynamic_cast<Fbfm&>(latt).set_deflation(&deflate->bq,&deflate->bl,0);
+  }
+
+  CommonArg c_arg;
+  
+  CgArg cg;
+  cg.mass = mass;
+  cg.max_num_iter = 10000;
+  cg.stop_rsd = stop_prec;
+  cg.true_rsd = stop_prec;
+  cg.RitzMatOper = NONE;
+  cg.Inverter = CG;
+  cg.bicgstab_n = 0;
+
+  QPropWArg qpropw_arg;
+  qpropw_arg.cg = cg;
+  qpropw_arg.x = 0;
+  qpropw_arg.y = 0;
+  qpropw_arg.z = 0;
+  qpropw_arg.t = t;
+  qpropw_arg.flavor = flav; 
+  qpropw_arg.ensemble_label = "ens";
+  qpropw_arg.ensemble_id = "ens_id";
+  qpropw_arg.StartSrcSpin = 0;
+  qpropw_arg.EndSrcSpin = 4;
+  qpropw_arg.StartSrcColor = 0;
+  qpropw_arg.EndSrcColor = 3;
+  qpropw_arg.gauge_fix_src = 1;
+  qpropw_arg.gauge_fix_snk = 0;
+  qpropw_arg.store_midprop = store_midprop ? 1 : 0; //for mres
+
+  //Switching boundary conditions is poorly implemented in Fbfm (and probably FGrid)
+  //For traditional lattice types the BC is applied by modififying the gauge field when the Dirac operator is created and reverting when destroyed. This only ever happens internally - no global instance of the Dirac operator exists
+  //On the other hand, Fbfm does all its inversion internally and doesn't instantiate a CPS Dirac operator. We therefore have to manually force Fbfm to change its internal gauge field by applying BondCond
+  bool is_wrapper_type = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 ); //I hate this!
+
+  BndCndType init_tbc = GJP.Tbc();
+  BndCndType target_tbc = time_bc;
+  bool change_bc = (init_tbc != target_tbc);
+
+  if(change_bc){
+    if(is_wrapper_type) latt.BondCond();  //CPS Lattice currently has the BC applied. We first un-apply it before changing things
+    GJP.Bc(3,target_tbc);
+    if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
+  }
+  QPropWPointSrc* ret = new QPropWPointSrc(latt,&qpropw_arg,&c_arg);
+
+  if(change_bc){
+    //Restore the BCs
+    if(is_wrapper_type) latt.BondCond();  //unapply existing BC
+    GJP.Bc(3,init_tbc);
+    if(is_wrapper_type) latt.BondCond();  //Reapply original BC to internal gauge fields
+  }
+
+  if(deflate != NULL) dynamic_cast<Fbfm&>(latt).unset_deflation();
+  if(eval_conv !=NULL) delete eval_conv;
+
+  //Check to make sure the lattice has not been somehow changed by this function
+  Float fail = 0.;
+  for(int i=0;i<(GJP.Gparity()+1)*4*GJP.VolNodeSites();i++)
+    if(!test_equals(latt.GaugeField()[i], lat_bak.GaugeField()[i],1e-12))
+      fail = 1.0;
+  glb_sum_five(&fail);
+  if(fail != 0.)
+    ERR.General("","computePointPropagator","Lattice checksum fail\n");
+
+  return ret;
+}
+
+QPropW* computePropagator(const SourceType src_type, const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
+			  Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
+  if(src_type == WALL) return (QPropW*)computePropagator(mass,stop_prec,t,flav,p,time_bc,store_midprop,latt,deflate);
+  else if(src_type == POINT) return (QPropW*)computePointPropagator(mass,stop_prec,t,flav,p,time_bc,store_midprop,latt,deflate);
+  else{
+    ERR.General("","computePropagator","Unknown type\n");
+  }
+}
+
+void test_lattice_doubler(Lattice &lattice, const DoArg &do_arg, const bool fix_gauge_unity){
+  if(!UniqueID()) printf("Testing lattice doubler\n");
+
+  SourceType src_type = POINT; //WALL;
+
+  //Generate P+A propagator
+  int p[3] = {0,0,0}; for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) p[i] = 1;
+  int tsrc = 0;
+
+  QPropW* prop_f0_P = computePropagator(src_type,0.04,1e-10,tsrc,0, p, BND_CND_PRD, false, lattice);
+  QPropW* prop_f0_A = computePropagator(src_type,0.04,1e-10,tsrc,0, p, BND_CND_APRD, false, lattice);
+  QPropW* prop_f1_P = NULL;
+  QPropW* prop_f1_A = NULL;
+  if(GJP.Gparity()){
+    prop_f1_P = computePropagator(src_type,0.04,1e-10,tsrc,1, p, BND_CND_PRD, false, lattice);
+    prop_f1_A = computePropagator(src_type,0.04,1e-10,tsrc,1, p, BND_CND_APRD, false, lattice);
+  }
+  PropWrapper prop_P(prop_f0_P,prop_f1_P);
+  PropWrapper prop_A(prop_f0_A,prop_f1_A);
+
+  PropWrapper prop_F = PropWrapper::combinePA(prop_P,prop_A,CombinationF);
+  PropWrapper prop_B = PropWrapper::combinePA(prop_P,prop_A,CombinationB);
+
+  // //Compute tr(G^dag G) at each time for comparison
+  // fVector<double> Fcor(2*Lt); //Put F and B together using F(t+Lt) = B(t)
+  // for(int t=0;t<GJP.TnodeSites();t++){
+  //   int t_glb_F = t + GJP.TnodeCoor()*GJP.TnodeSites();
+  //   int t_glb_B = t_glb_F + Lt;
+  //   for(int x=0;x<GJP.VolNodeSites()/GJP.TnodeSites();x++){
+  int Lt = GJP.TnodeSites()*GJP.Tnodes(); //pre-doubling
+  fVector<double> Fnorms(2*Lt); //Put F and B together using F(t+Lt) = B(t)
+  fVector<double> Fnorms_f00(2*Lt);
+  {
+    SpinColorFlavorMatrix tmp_scf;
+    WilsonMatrix tmp_sc;
+    int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
+
+    QPropW* prop_F_f0 = prop_F.getPtr(0);
+    QPropW* prop_B_f0 = prop_B.getPtr(0);
+
+    for(int t=0;t<GJP.TnodeSites();t++){
+      int t_glb_F = t + GJP.TnodeCoor()*GJP.TnodeSites();
+      int t_glb_B = t_glb_F + Lt;
+      for(int x=0;x<vol3d;x++){
+	if(GJP.Gparity()){
+	  prop_F.siteMatrix(tmp_scf,x + vol3d*t);
+	  Fnorms(t_glb_F) += tmp_scf.norm();
+	  
+	  prop_B.siteMatrix(tmp_scf,x + vol3d*t);
+	  Fnorms(t_glb_B) += tmp_scf.norm();
+	}else{
+	  prop_F.siteMatrix(tmp_sc,x + vol3d*t);
+	  Fnorms(t_glb_F) += tmp_sc.norm();
+	  
+	  prop_B.siteMatrix(tmp_sc,x + vol3d*t);
+	  Fnorms(t_glb_B) += tmp_sc.norm();
+	}
+
+	tmp_sc = prop_F_f0->SiteMatrix(x + vol3d*t,0);
+	Fnorms_f00(t_glb_F) += tmp_sc.norm();
+
+	tmp_sc = prop_B_f0->SiteMatrix(x + vol3d*t,0);
+	Fnorms_f00(t_glb_B) += tmp_sc.norm();
+      }
+    }
+    Fnorms.nodeSum();
+    Fnorms_f00.nodeSum();
+  }
+
+
+  //Double the lattice T extent
+  lattice.BondCond(); //BCs (including GPBC on 2nd flavor) are initially applied. Must unapply (will get automatically reapplied by the doubler)
+  lattice.FixGaugeFree();
+  LatticeTimeDoubler doubler;
+  doubler.doubleLattice(lattice,do_arg);
+    
+  if(!UniqueID()){ printf("Lattice double complete, testing\n"); fflush(stdout); }
+
+  //Test by shifting the doubled lattice by Lt/2 and making sure the fields match
+  int lat_size = 18*4*GJP.VolNodeSites()*(GJP.Gparity()+1);
+  Lt = GJP.TnodeSites()*GJP.Tnodes(); //after doubling
+  LatticeContainer bak;
+  bak.Get(lattice);
+    
+  Float fail = 0.0;
+
+  if(GJP.Tnodes() > 1){
+    if(!UniqueID()) printf("Multi Tnode test\n");
+    Float* buf1 = (Float*)malloc(lat_size * sizeof(Float));
+    Float* buf2 = (Float*)malloc(lat_size * sizeof(Float));
+    memcpy((void*)buf1, (void*)lattice.GaugeField(), lat_size*sizeof(Float));
+
+    Float *send = buf2;
+    Float *recv = buf1;    
+    for(int i=0;i<GJP.Tnodes()/2;i++){
+      Float* tmp = send;
+      send = recv;
+      recv = tmp;
+      getPlusData(recv, send, lat_size, 3);
+    }
+
+    Float* orig_p = (Float*)bak.GaugeField();
+    for(int i=0;i<lat_size;i++){
+      if(orig_p[i] != recv[i]){
+	printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],recv[i]); fflush(stdout); fail = 1.0;;
+      }
+    }
+    glb_sum_five(&fail);
+    free(buf1);
+    free(buf2);
+  }else{
+    if(!UniqueID()) printf("Single Tnode test\n");
+    Tshift4D((Float*)lattice.GaugeField(), 18*4, GJP.TnodeSites()/2);
+    Float* orig_p = (Float*)bak.GaugeField();
+    Float* lat_p = (Float*)lattice.GaugeField();
+    for(int i=0;i<lat_size;i++){
+      if(orig_p[i] != lat_p[i]){
+	printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],lat_p[i]); fflush(stdout); fail = 1.0;;
+      }
+    }
+    glb_sum_five(&fail);
+  }
+  if(fail != 0.0){
+    if(!UniqueID()){ printf("Lattice double test fail\n"); exit(-1); }
+  }else{
+    if(!UniqueID()){ printf("Lattice double test pass\n"); }
+  }
+  //Regenerate gauge fixing matrix
+  FixGaugeArg fix_gauge_arg; setupFixGaugeArg(fix_gauge_arg);
+  CommonArg common_arg;
+  AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
+  if(fix_gauge_unity){
+    gaugeFixUnity(lattice,fix_gauge_arg);
+  }else{
+    fix_gauge.run();
+  }
+
+  //Examine P propagators and compare to P+A
+  QPropW* prop_f0_P_dbl = computePropagator(src_type,0.04,1e-10,tsrc,0, p, BND_CND_PRD, false, lattice);
+  QPropW* prop_f1_P_dbl = GJP.Gparity() ? computePropagator(src_type,0.04,1e-10,tsrc,1, p, BND_CND_PRD, false, lattice) : NULL;
+  PropWrapper prop_P_dbl(prop_f0_P_dbl,prop_f1_P_dbl);
+
+  //Simple start, just compare matrix norms over the lattice
+  fVector<double> Pnorms(Lt);
+  fVector<double> Pnorms_f00(Lt);
+  {
+    SpinColorFlavorMatrix tmp_scf;
+    WilsonMatrix tmp_sc;
+    int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
+    
+    QPropW* prop_P_f0 = prop_P_dbl.getPtr(0);
+
+    for(int t=0;t<GJP.TnodeSites();t++){
+      int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
+
+      for(int x=0;x<vol3d;x++){
+	if(GJP.Gparity()){
+	  prop_P_dbl.siteMatrix(tmp_scf,x + vol3d*t);
+	  Pnorms(t_glb) += tmp_scf.norm();
+	}else{
+	  prop_P_dbl.siteMatrix(tmp_sc,x + vol3d*t);
+	  Pnorms(t_glb) += tmp_sc.norm();
+	}	
+	tmp_sc = prop_P_f0->SiteMatrix(x + vol3d*t,0);
+	Pnorms_f00(t_glb) += tmp_sc.norm();
+      }
+    }
+    Pnorms.nodeSum();
+    Pnorms_f00.nodeSum();
+  }
+
+  if(!UniqueID()){
+    printf("Prop norms\n");
+    for(int t=0;t<Lt;t++){      
+      Float f = Fnorms(t).real();
+      Float p = Pnorms(t).real();
+      Float reldiff = 2.*(f-p)/(f+p);
+      if(f==0. && p==0.) reldiff = 0.;
+      printf("%d %g %g  diff %g\n", f, p, reldiff);
+    }
+
+    printf("Prop_00 norms\n");
+    for(int t=0;t<Lt;t++){      
+      Float f = Fnorms_f00(t).real();
+      Float p = Pnorms_f00(t).real();
+      Float reldiff = 2.*(f-p)/(f+p);
+      if(f==0. && p==0.) reldiff = 0.;
+      printf("%d %g %g  diff %g\n", f, p, reldiff);
+    }
+
+  }
+
+
+  // //Compare tr( G^dag G )
+  // fVector<double> Fcor(Lt);
+  // fVector<double> Pcor(Lt);
+  // for(int t=0;t<GJP.TnodeSites();t++){
+  //   int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
+  //   PropWrapper &FBuse = t_glb < Lt/2
+
+  //   for(int x=0;x<GJP.VolNodeSites()/GJP.TnodeSites();x++){
+      
+
+
+
+  exit(0);
+}
+
+
 int run_tests(int argc,char *argv[])
 {
   Start(&argc, &argv);
@@ -288,8 +605,6 @@ int run_tests(int argc,char *argv[])
   { std::stringstream ss; ss << argv[1]; ss >> ngp; }
 
   if(!UniqueID()) printf("Doing G-parity in %d directions\n",ngp);
-  assert(ngp > 0);
-
 
   bool save_config(false);
   bool load_config(false);
@@ -313,6 +628,7 @@ int run_tests(int argc,char *argv[])
   double tol = 1e-8;
 
   bool test_t_doubler = false;
+  bool fix_gauge_unity = false;
 
   int i=2;
   while(i<argc){
@@ -350,6 +666,10 @@ int run_tests(int argc,char *argv[])
     }else if( strncmp(cmd,"-test_t_doubler",15) == 0){
       test_t_doubler = true;
       if(!UniqueID()) printf("Testing t doubler\n");
+      i++;
+    }else if( strncmp(cmd,"-fix_gauge_unity",15) == 0){
+      fix_gauge_unity = true;
+      if(!UniqueID()) printf("Setting gauge fixing matrices to unity\n");
       i++;
     }else if( strncmp(cmd,"-disable_exit_on_error",15) == 0){
       exit_on_error = false;
@@ -447,120 +767,26 @@ int run_tests(int argc,char *argv[])
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  if(test_t_doubler){
-    if(!UniqueID()) printf("Testing lattice doubler\n");
-    LatticeTimeDoubler doubler;
-    doubler.doubleLattice(lattice,do_arg);
-    
-    if(!UniqueID()){ printf("Lattice double complete, testing\n"); fflush(stdout); }
-    int lat_size = 18*4*GJP.VolNodeSites()*(GJP.Gparity()+1);
-    int Lt = GJP.TnodeSites()*GJP.Tnodes();
-
-    for(int f=0;f<GJP.Gparity()+1;f++){
-      Float zerothelems[Lt/2];
-      for(int i=0;i<Lt/2;i++) zerothelems[i] = 0.;
-
-      if(!GJP.XnodeCoor() && !GJP.YnodeCoor() && !GJP.ZnodeCoor() && !GJP.SnodeCoor()){
-	for(int t=0;t<GJP.TnodeSites()/2;t++){
-	  int off = 18*4*GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites()*(t + GJP.TnodeSites()/2*f);
-	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()/2+t] = ((Float const*)doubler.OrigGaugeField())[off];
-	}
-      }
-      if(!UniqueID()) printf("Original elements with (x,y,z)=(0,0,0) along t direction with flavor %d\n",f);
-      for(int t=0;t<Lt/2;t++){
-	glb_sum_five(&zerothelems[t]);
-	if(!UniqueID()){
-	  if(t % (GJP.TnodeSites()/2) == 0) printf("------\n");
-	  printf("%d %g\n",t,zerothelems[t]);
-	}
-      }
-    }
-
-    for(int f=0;f<GJP.Gparity()+1;f++){
-      Float zerothelems[Lt];
-      for(int i=0;i<Lt;i++) zerothelems[i] = 0.;
-
-      if(!GJP.XnodeCoor() && !GJP.YnodeCoor() && !GJP.ZnodeCoor() && !GJP.SnodeCoor()){
-	for(int t=0;t<GJP.TnodeSites();t++){
-	  int off = 18*4*GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites()*(t + GJP.TnodeSites()*f);
-	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()+t] = ((Float*)lattice.GaugeField())[off];
-	}
-      }
-      if(!UniqueID()) printf("Elements with (x,y,z)=(0,0,0) along t direction (first half second half) with flavor %d\n",f);
-      for(int t=0;t<Lt/2;t++){
-	glb_sum_five(&zerothelems[t]);
-	glb_sum_five(&zerothelems[t+Lt/2]);
-	if(!UniqueID()){ 
-	  if(t % GJP.TnodeSites() == 0) printf("------\n");
-	  printf("%d %g | %d %g\n",t,zerothelems[t],t+Lt/2,zerothelems[t+Lt/2]);
-	}
-      }
-    }
-
-
-    //Test by shifting the doubled lattice by Lt/2 and making sure the fields match
-    LatticeContainer bak;
-    bak.Get(lattice);
-    
-    Float fail = 0.0;
-
-
-    if(GJP.Tnodes() > 1){
-      if(!UniqueID()) printf("Multi Tnode test\n");
-      Float* buf1 = (Float*)malloc(lat_size * sizeof(Float));
-      Float* buf2 = (Float*)malloc(lat_size * sizeof(Float));
-      memcpy((void*)buf1, (void*)lattice.GaugeField(), lat_size*sizeof(Float));
-
-      Float *send = buf2;
-      Float *recv = buf1;    
-      for(int i=0;i<GJP.Tnodes()/2;i++){
-	Float* tmp = send;
-	send = recv;
-	recv = tmp;
-	getPlusData(recv, send, lat_size, 3);
-      }
-
-      Float* orig_p = (Float*)bak.GaugeField();
-      for(int i=0;i<lat_size;i++){
-	if(orig_p[i] != recv[i]){
-	  printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],recv[i]); fflush(stdout); fail = 1.0;;
-	}
-      }
-      glb_sum_five(&fail);
-      free(buf1);
-      free(buf2);
-    }else{
-      if(!UniqueID()) printf("Single Tnode test\n");
-      Tshift4D((Float*)lattice.GaugeField(), 18*4, GJP.TnodeSites()/2);
-      Float* orig_p = (Float*)bak.GaugeField();
-      Float* lat_p = (Float*)lattice.GaugeField();
-      for(int i=0;i<lat_size;i++){
-	if(orig_p[i] != lat_p[i]){
-	  printf("Node %d index %d expected %g got %g\n",UniqueID(),i,orig_p[i],lat_p[i]); fflush(stdout); fail = 1.0;;
-	}
-      }
-      glb_sum_five(&fail);
-    }
-
-
-    if(fail != 0.0){
-      if(!UniqueID()){ printf("Lattice double test fail\n"); exit(-1); }
-    }else{
-      if(!UniqueID()){ printf("Lattice double test pass\n"); }
-    }
-
-    exit(0);
-  }
-
-
-  bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
-  bfm_evo<float> &dwf_f = static_cast<Fbfm&>(lattice).bf;
-  lattice.BondCond(); //this applies the BC to the loaded field then imports it to the internal bfm instances. If you don't have the BC right the cconj relation actually fails - cute
+  //bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
+  //bfm_evo<float> &dwf_f = static_cast<Fbfm&>(lattice).bf;
+  if(lattice.Fclass() == F_CLASS_BFM || lattice.Fclass() == F_CLASS_BFM_TYPE2) lattice.BondCond(); //this applies the BC to the loaded field then imports it to the internal bfm instances. If you don't have the BC right the cconj relation actually fails - cute
 
   FixGaugeArg fix_gauge_arg; setupFixGaugeArg(fix_gauge_arg);
 
   AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
-  fix_gauge.run();
+  if(fix_gauge_unity){
+    gaugeFixUnity(lattice,fix_gauge_arg);
+  }else{
+    fix_gauge.run();
+  }
+
+
+  if(test_t_doubler){
+    test_lattice_doubler(lattice,do_arg,fix_gauge_unity);
+  }
+
+  //Here on is Gparity only
+  assert(ngp > 0);
 
   //Generate props
   double prec = 1e-6;

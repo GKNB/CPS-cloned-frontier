@@ -526,7 +526,7 @@ void impexFermion(
 			  Vector *in,
 			  Float *true_res){
 
-    char *fname="InvCg(V*,V*,F*) [bfm version]";
+    const char *fname="InvCg(V*,V*,F*) [bfm version]";
     double cg_time = -dclock();
     Float *sol_cps = (Float*) out;
     Float *src_cps = (Float*) in;
@@ -535,7 +535,7 @@ void impexFermion(
 
     Float src_norm_sq = in->NormSqNode(f_size_cb);
     DiracOpGlbSum(&src_norm_sq);
-    VRB.Flow(cname,fname,"src_norm_sq=%e\n",src_norm_sq);
+    VRB.Result(cname,fname,"src_norm_sq=%e\n",src_norm_sq);
 
     // Calculate stopping condition
     //------------------------------------------------------------------

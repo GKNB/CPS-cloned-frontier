@@ -2,7 +2,7 @@
 #define LATTICE_DOUBLE_T_H
 
 #include<util/lat_cont.h>
-
+#include<util/dwf.h>
 CPS_START_NAMESPACE
 
 //Take a lattice resident in memory and double the temporal length by duplication
@@ -30,20 +30,32 @@ class LatticeTimeDoubler{
     }
   }
 
-  static void fixup_fbfm(Lattice &lat){
-    if(lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
+  static void fixup_bfm(Lattice &lat){
 #ifdef USE_BFM
-      if(!UniqueID()){ printf("Fixing up Fbfm\n"); fflush(stdout); }
+    bool is_fbfm = (lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2);
+    
+    //End fbfm bfm instances
+    if(is_fbfm){
+      if(!UniqueID()){ printf("LatticeTimeDoubler : Fixing up Fbfm\n"); fflush(stdout); }
       Fbfm &fb = dynamic_cast<Fbfm&>(lat);
       fb.bd.end();
       if(Fbfm::use_mixed_solver){
 	fb.bf.comm_init();
-        fb.bf.end();
+	fb.bf.end();
       }
-      QDP::multi1d<int> nrow(Nd);  
-      for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
-      QDP::Layout::setLattSize(nrow);
-      QDP::Layout::create();
+    }
+
+    //Fixup QDP
+    QDP::multi1d<int> nrow(Nd);  
+    for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
+    QDP::Layout::setLattSize(nrow);
+    QDP::Layout::create();
+    if(!UniqueID()) printf("LatticeTimeDoubler: QDP reinitialized with latt size (%d,%d,%d,%d) and node size (%d,%d,%d,%d)\n",QDP::Layout::lattSize()[0],QDP::Layout::lattSize()[1],QDP::Layout::lattSize()[2],QDP::Layout::lattSize()[3],
+			   QDP::Layout::subgridLattSize()[0],QDP::Layout::subgridLattSize()[1],QDP::Layout::subgridLattSize()[2],QDP::Layout::subgridLattSize()[3]);
+
+    //Reinitialize fbfm bfm instances
+    if(is_fbfm){
+      Fbfm &fb = dynamic_cast<Fbfm&>(lat);
 
       for(int i=0;i<2;i++){
 	Fbfm::bfm_args[i].node_latt[0] = QDP::Layout::subgridLattSize()[0];
@@ -54,14 +66,23 @@ class LatticeTimeDoubler{
 
       fb.bd.init(Fbfm::bfm_args[Fbfm::current_arg_idx]);
       if(Fbfm::use_mixed_solver) {
-        fb.bd.comm_end();
-        fb.bf.init(Fbfm::bfm_args[Fbfm::current_arg_idx]);
-        fb.bf.comm_end();
-        fb.bd.comm_init();
+	fb.bd.comm_end();
+	fb.bf.init(Fbfm::bfm_args[Fbfm::current_arg_idx]);
+	fb.bf.comm_end();
+	fb.bd.comm_init();
       }
       fb.BondCond(); //import new gauge field
-#endif
     }
+
+    //Reinitialize FDwf
+    if(lat.Fclass() == F_CLASS_DWF){
+      void* ptr = lat.FdiracOpInitPtr();
+      dwf_end((Dwf *)ptr);
+      dwf_init((Dwf *)ptr);
+    }
+
+
+#endif
   }
 
   void doDoublingSingleNode(Lattice &lat){    //one node in t direction
@@ -160,7 +181,7 @@ class LatticeTimeDoubler{
 	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()/2+t] = ((Float const*)OrigGaugeField())[off];
 	}
       }
-      if(!UniqueID()) printf("Original elements with (x,y,z)=(0,0,0) along t direction with flavor %d\n",f);
+      if(!UniqueID()) printf("LatticeTimeDoubler : Original elements with (x,y,z)=(0,0,0) along t direction with flavor %d\n",f);
       for(int t=0;t<Lt/2;t++){
 	glb_sum_five(&zerothelems[t]);
 	if(!UniqueID()){
@@ -180,7 +201,7 @@ class LatticeTimeDoubler{
 	  zerothelems[GJP.TnodeSites()*GJP.TnodeCoor()+t] = ((Float*)lattice.GaugeField())[off];
 	}
       }
-      if(!UniqueID()) printf("Elements with (x,y,z)=(0,0,0) along t direction (first half second half) with flavor %d\n",f);
+      if(!UniqueID()) printf("LatticeTimeDoubler : Elements with (x,y,z)=(0,0,0) along t direction (first half second half) with flavor %d\n",f);
       for(int t=0;t<Lt/2;t++){
 	glb_sum_five(&zerothelems[t]);
 	glb_sum_five(&zerothelems[t+Lt/2]);
@@ -225,7 +246,7 @@ class LatticeTimeDoubler{
     if(GJP.Tnodes()>1) doDoublingMultiNode(lat);
     else doDoublingSingleNode(lat);
 
-    fixup_fbfm(lat);
+    fixup_bfm(lat);
     printSanityCheck(lat);
   }
 

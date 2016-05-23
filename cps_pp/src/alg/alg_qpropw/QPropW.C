@@ -431,7 +431,8 @@ void QPropW::Run(const int do_rerun, const Float precision) {
      
     for (int spn=StartSpin; spn < EndSpin; spn++)
       for (int col=StartColor; col < EndColor; col++) {
-		 
+	VRB.Result(cname,fname,"Starting inversion for spin %d color %d\n",spn,col);
+
 	// initial guess (Zero)
 	sol.ZeroSource();
 
