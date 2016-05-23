@@ -289,7 +289,6 @@ int main(int argc,char *argv[])
       continue;
     }
 
-
     if(tshift != 0)
       Tshift4D( (Float*)lattice.GaugeField(), 4*3*3*2, tshift); //do optional temporal shift
 
@@ -305,8 +304,6 @@ int main(int argc,char *argv[])
       }
       print_time("main","Gauge fix",time);
     }
-
-    lattice.BondCond(); //apply BC and import to internal bfm instances
 
     if(lanczos_tune_l || lanczos_tune_h){
       Float time = -dclock();

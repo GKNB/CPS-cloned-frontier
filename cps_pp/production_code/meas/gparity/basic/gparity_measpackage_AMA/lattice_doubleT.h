@@ -71,7 +71,7 @@ class LatticeTimeDoubler{
 	fb.bf.comm_end();
 	fb.bd.comm_init();
       }
-      fb.BondCond(); //import new gauge field
+      fb.ImportGauge(); //import new gauge field (doesn't apply time BC)
     }
 
     //Reinitialize FDwf

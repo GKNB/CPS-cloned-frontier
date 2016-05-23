@@ -23,6 +23,8 @@ class PropagatorContainer{
 protected:
   AttributeContainer* attributes[50]; //positions are mapped by the integer values of the enum  AttrType with no duplicate entries
 public:
+  static bool fbfm_assume_bc_applied; //assume that the present fermion temporal BC (indicated by GJP.Tbc) has been applied to the lattice already. Defaults true
+
   void add(const AttributeContainer &p);
   void setup(PropagatorArg &arg);
 

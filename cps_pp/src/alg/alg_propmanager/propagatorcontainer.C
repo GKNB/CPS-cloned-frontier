@@ -48,6 +48,7 @@
 
 CPS_START_NAMESPACE
 
+bool PropagatorContainer::fbfm_assume_bc_applied(true);
 
 PropagatorContainer::PropagatorContainer(){ for(int i=0;i<50;i++) attributes[i]=NULL;}
 
@@ -222,20 +223,16 @@ void QPropWcontainer::calcProp(Lattice &latt){
   //is applied when the DiracOp class is instantiated within the inverter, and the lattice is restored afterwards.
   //However for Fbfm we must manually apply the BC and re-import the gauge field into the internal bfm objects
   bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 );
-  bool bcs_changed = false;
-  for(int i=0;i<4;i++)
-    if(generics->bc[i]!=GJP.Bc(i)) bcs_changed = true;
-  if(bcs_changed && is_fbfm )
+  if(is_fbfm && PropagatorContainer::fbfm_assume_bc_applied)
     latt.BondCond(); //un-applies the existing BCs, reverting to periodic BCs and imports the gauge field into the bfm instances
 
   BndCndType init_bc[4];
   TwistedBcAttrArg *tbcarg;
 
   for(int i=0;i<4;i++){
-    if(generics->bc[i]!=GJP.Bc(i)) bcs_changed = true;
-
     if(i<3 && generics->bc[i] != GJP.Bc(i) && !(generics->bc[i] == BND_CND_TWISTED || generics->bc[i] == BND_CND_GPARITY_TWISTED) )
       ERR.General(cname,fname,"Propagator %s: valence and sea spatial boundary conditions do not match (partially-twisted BCs are allowed)\n",generics->tag);
+
     if( GJP.Bc(i) != BND_CND_GPARITY && generics->bc[i] == BND_CND_GPARITY_TWISTED ) ERR.General(cname,fname,"Propagator %s: Cannot use twisted G-parity valence BCs in a non-Gparity direction");
 
     if(generics->bc[i] == BND_CND_TWISTED || generics->bc[i] == BND_CND_GPARITY_TWISTED){
@@ -245,7 +242,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
     init_bc[i] = GJP.Bc(i);
     GJP.Bc(i,generics->bc[i]);
   }
-  if(bcs_changed && is_fbfm ) latt.BondCond(); //applies the new BCs and imports the gauge field into the bfm instances
+  if(is_fbfm) latt.BondCond(); //applies the new BCs and imports the gauge field into the bfm instances
 
   //fill out qpropw_arg arguments
   GparityFlavorAttrArg *flav;
@@ -390,7 +387,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
     io->prop_on_disk = true; //QPropW saves the prop
   }
   
-  if(bcs_changed && is_fbfm )    
+  if(is_fbfm)    
     latt.BondCond(); //un-apply the new BCs and reimport the gauge field into the bfm instances
   
 
@@ -398,7 +395,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   for(int i=0;i<4;i++) GJP.Bc(i,init_bc[i]);
   for(int j=0;j<3;j++) GJP.TwistAngle(j,0);
 
-  if(bcs_changed && is_fbfm ) latt.BondCond(); //restore original BCs
+  if(is_fbfm && PropagatorContainer::fbfm_assume_bc_applied) latt.BondCond(); //restore original BCs
 }
 
 

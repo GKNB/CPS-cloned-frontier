@@ -96,22 +96,16 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
 
   BndCndType init_tbc = GJP.Tbc();
   BndCndType target_tbc = time_bc;
-  bool change_bc = (init_tbc != target_tbc);
 
-  if(change_bc){
-    if(is_wrapper_type) latt.BondCond();  //CPS Lattice currently has the BC applied. We first un-apply it before changing things
-    GJP.Bc(3,target_tbc);
-    if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
-  }
+  GJP.Bc(3,target_tbc);
+  if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
+
   QPropWMomSrc* ret = new QPropWMomSrc(latt,&qpropw_arg,const_cast<int*>(p),&c_arg);
 
-  if(change_bc){
-    //Restore the BCs
-    if(is_wrapper_type) latt.BondCond();  //unapply existing BC
-    GJP.Bc(3,init_tbc);
-    if(is_wrapper_type) latt.BondCond();  //Reapply original BC to internal gauge fields
-  }
-
+  //Restore the BCs
+  if(is_wrapper_type) latt.BondCond();  //unapply existing BC
+  GJP.Bc(3,init_tbc);
+  
   if(deflate != NULL) dynamic_cast<Fbfm&>(latt).unset_deflation();
   if(eval_conv !=NULL) delete eval_conv;
 
@@ -195,13 +189,9 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
 
   BndCndType init_tbc = GJP.Tbc();
   BndCndType target_tbc = time_bc;
-  bool change_bc = (init_tbc != target_tbc);
 
-  if(change_bc){
-    lattice.BondCond();
-    GJP.Bc(3,target_tbc);
-    lattice.BondCond();  //Apply new BC to internal gauge fields
-  }
+  GJP.Bc(3,target_tbc);
+  lattice.BondCond();  //Apply BC to internal gauge fields
 
   bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
   std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > ret(new BFM_Krylov::Lanczos_5d<double>(dwf_d, const_cast<LancArg&>(lanc_arg)));
@@ -211,12 +201,10 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
     ret->toSingle();
   }
 
-  if(change_bc){
-    //Restore the BCs
-    lattice.BondCond();  //unapply existing BC
-    GJP.Bc(3,init_tbc);
-    lattice.BondCond();  //Reapply original BC to internal gauge fields
-  }
+  //Restore the BCs
+  lattice.BondCond();  //unapply BC
+  GJP.Bc(3,init_tbc);
+
   return ret;
 }
 

@@ -188,6 +188,7 @@ PropagatorContainer & computePropagatorOld(const std::string &tag, const double 
     GparityOtherFlavPropAttrArg &gofa = parg.attributes.attributes_val[6].AttributeContainer_u.gparity_other_flav_prop_attr;
     gofa.tag = strdup(tag_otherflav.c_str());
   }
+  PropagatorContainer::fbfm_assume_bc_applied = false; //for AMA code the lattice by default does not have the BC applied.
   return PropManager::addProp(parg);
 }
 
@@ -349,21 +350,15 @@ QPropWPointSrc* computePointPropagator(const double mass, const double stop_prec
 
   BndCndType init_tbc = GJP.Tbc();
   BndCndType target_tbc = time_bc;
-  bool change_bc = (init_tbc != target_tbc);
 
-  if(change_bc){
-    if(is_wrapper_type) latt.BondCond();  //CPS Lattice currently has the BC applied. We first un-apply it before changing things
-    GJP.Bc(3,target_tbc);
-    if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
-  }
+  GJP.Bc(3,target_tbc);
+  if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
+
   QPropWPointSrc* ret = new QPropWPointSrc(latt,&qpropw_arg,&c_arg);
 
-  if(change_bc){
-    //Restore the BCs
-    if(is_wrapper_type) latt.BondCond();  //unapply existing BC
-    GJP.Bc(3,init_tbc);
-    if(is_wrapper_type) latt.BondCond();  //Reapply original BC to internal gauge fields
-  }
+  //Restore the BCs
+  if(is_wrapper_type) latt.BondCond();  //unapply existing BC
+  GJP.Bc(3,init_tbc);
 
   if(deflate != NULL) dynamic_cast<Fbfm&>(latt).unset_deflation();
   if(eval_conv !=NULL) delete eval_conv;
@@ -460,7 +455,6 @@ void test_lattice_doubler(Lattice &lattice, const DoArg &do_arg, const bool fix_
 
 
   //Double the lattice T extent
-  lattice.BondCond(); //BCs (including GPBC on 2nd flavor) are initially applied. Must unapply (will get automatically reapplied by the doubler)
   lattice.FixGaugeFree();
   LatticeTimeDoubler doubler;
   doubler.doubleLattice(lattice,do_arg);
@@ -767,10 +761,6 @@ int run_tests(int argc,char *argv[])
     if(UniqueID()==0) printf("Config written.\n");
   }
 
-  //bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
-  //bfm_evo<float> &dwf_f = static_cast<Fbfm&>(lattice).bf;
-  if(lattice.Fclass() == F_CLASS_BFM || lattice.Fclass() == F_CLASS_BFM_TYPE2) lattice.BondCond(); //this applies the BC to the loaded field then imports it to the internal bfm instances. If you don't have the BC right the cconj relation actually fails - cute
-
   FixGaugeArg fix_gauge_arg; setupFixGaugeArg(fix_gauge_arg);
 
   AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
@@ -800,6 +790,9 @@ int run_tests(int argc,char *argv[])
 
   PropagatorContainer &prop_f0_pminus = computePropagatorOld("prop_f0_pminus",0.01,prec,tsrc,0,mp.ptr(),BND_CND_APRD,lattice, "prop_f1_pminus");
   PropagatorContainer &prop_f1_pminus = computePropagatorOld("prop_f1_pminus",0.01,prec,tsrc,1,mp.ptr(),BND_CND_APRD,lattice, "prop_f0_pminus");
+
+  // lattice.BondCond();
+  // PropagatorContainer::fbfm_assume_bc_applied = true;
 
   PropManager::calcProps(lattice);
 
