@@ -48,8 +48,8 @@ public:
 
   //For debugging purposes print the time dependence of the 3d volume sum of the matrix norm2 of the prop, for each prop
   void writePropNormTdep(const std::string &results_dir){
-    SpinColorFlavorMatrix tmp_scf;
-    WilsonMatrix tmp_sc;
+    SpinColorFlavorMatrix tmp_scf[omp_get_max_threads()];
+    WilsonMatrix tmp_sc[omp_get_max_threads()];
     int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
 
     std::string filename = results_dir + "/prop_norms.dat";
@@ -67,12 +67,13 @@ public:
 	int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
 #pragma omp parallel for
 	for(int x=0;x<vol3d;x++){
+	  int me = omp_get_thread_num();
 	  if(GJP.Gparity()){
-	    prop.siteMatrix(tmp_scf,x + vol3d*t);
-	    pnorms(t_glb,omp_get_thread_num()) += tmp_scf.norm();
+	    prop.siteMatrix(tmp_scf[me],x + vol3d*t);
+	    pnorms(t_glb,me) += tmp_scf[me].norm();
 	  }else{
-	    prop.siteMatrix(tmp_sc,x + vol3d*t);
-	    pnorms(t_glb,omp_get_thread_num()) += tmp_sc.norm();
+	    prop.siteMatrix(tmp_sc[me],x + vol3d*t);
+	    pnorms(t_glb,me) += tmp_sc[me].norm();
 	  }
 	}      
       }
