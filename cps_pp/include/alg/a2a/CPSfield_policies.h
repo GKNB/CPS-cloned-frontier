@@ -10,6 +10,26 @@ class NullObject
 template<typename polA, typename polB>
 struct sameDim{ static const bool val = intEq<polA::EuclideanDimension, polB::EuclideanDimension>::val; };
 
+//AllocPolicy controls mem alloc
+class StandardAllocPolicy{
+ protected:
+  inline static void* _alloc(const size_t byte_size){
+    return smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
+  }
+  inline static _free(void* p){
+    sfree("CPSfield","CPSfield","free",p);
+  }
+};
+class Aligned128AllocPolicy{
+ protected:
+  inline static void* _alloc(const size_t byte_size){
+    return memalign(128,byte_size);
+  }
+  inline static _free(void* p){
+    free(p);
+  }
+};
+
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 
 template<int Nf>
 class FixedFlavorPolicy{

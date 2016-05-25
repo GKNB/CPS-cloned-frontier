@@ -5,8 +5,8 @@
 
 
 //Set the complex number at pointer p to a random value of a chosen type
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::rand(mf_Float *p, const RandomType &type, const FermionFieldDimension &frm_dim){
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+  void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::rand(mf_Float *p, const RandomType &type, const FermionFieldDimension &frm_dim){
   static const Float PI = 3.14159265358979323846;
   Float theta = LRG.Urand(frm_dim);
   
@@ -41,13 +41,13 @@ void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::rand(mf_Float *p,
 
 //Set each float to a uniform random number in the specified range.
 //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::testRandom(const Float &hi, const Float &lo){
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::testRandom(const Float &hi, const Float &lo){
   for(int i=0;i<this->fsize;i++) f[i] = LRG.Urand(hi,lo,FOUR_D);
 }
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 //Set this field to the average of this and a second field, r
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::average(const CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy> &r, const bool &parallel){
+void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::average(const CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r, const bool &parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
   if(parallel){
 #pragma omp parallel for
@@ -58,8 +58,8 @@ void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::average(const CPS
 }
 
 //Apply gauge fixing matrices to the field
-template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
+template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
   int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
 
   mf_Float tmp[6];
@@ -71,8 +71,8 @@ void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::gauge_fix_site_op(const 
   }
 }
 
-template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::getMomentumUnits(double punits[3]){
+template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){
   for(int i=0;i<3;i++){
     int fac;
     if(GJP.Bc(i) == BND_CND_PRD) fac = 1;
@@ -87,8 +87,8 @@ void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::getMomentumUnits(double 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
 //x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
-template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
+template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
   assert(this->EuclideanDimension >= 3);
 
   int x_glb[this->EuclideanDimension]; for(int i=0;i<this->EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
@@ -104,13 +104,13 @@ void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy>::apply_phase_site_op(cons
 
 
 //Apply gauge fixing matrices to the field
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
   int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy>::gauge_fix_site_op(x4d,f,lat);
+  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat);
 }
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
   if(parallel){
 #pragma omp parallel for
     for(int fi=0;fi<this->nfsites();fi++)
@@ -124,18 +124,18 @@ void CPSfermion4D<mf_Float,FlavorPolicy>::gaugeFix(Lattice &lat, const bool &par
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
   int x[this->EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy>::apply_phase_site_op(x,f,p,punits);
+  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::applyPhase(const int p[], const bool &parallel){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
   const char *fname = "apply_phase(int p[])";
 
   double punits[3];
-  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy>::getMomentumUnits(punits);
+  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(punits);
   
   if(parallel){
 #pragma omp parallel for
@@ -148,10 +148,10 @@ void CPSfermion4D<mf_Float,FlavorPolicy>::applyPhase(const int p[], const bool &
 }
 
 //Set this field to be the FFT of 'r'
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::fft(const CPSfermion4D<mf_Float,FlavorPolicy> &r){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy> &r){
   for(int mu=0;mu<3;mu++){
-    CPSfermion4DglobalInOneDir<mf_Float,FlavorPolicy> tmp_dbl(mu);
+    CPSfermion4DglobalInOneDir<mf_Float,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
     tmp_dbl.gather( mu==0 ? r : *this );
     tmp_dbl.fft();
     tmp_dbl.scatter(*this);
@@ -159,8 +159,8 @@ void CPSfermion4D<mf_Float,FlavorPolicy>::fft(const CPSfermion4D<mf_Float,Flavor
 }
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -177,10 +177,10 @@ void CPSfermion4D<mf_Float,FlavorPolicy>::setUniformRandom(const Float &hi, cons
 
 
 //Gauge fix 3D fermion field with dynamic info type
-template< typename mf_Float, typename FlavorPolicy>
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
 struct _ferm3d_gfix_impl{
 
-  static void gaugeFix(CPSfermion3D<mf_Float,FlavorPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
+  static void gaugeFix(CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
     if(GJP.Gparity() && field.nflavors() == 1) ERR.General("CPSfermion3D","gaugeFix(Lattice &, const int &, const bool &)","For one flavor fields with G-parity enabled, to gauge fix we need to know the flavor of this field\n");
 
 #define LOOP								\
@@ -201,9 +201,9 @@ struct _ferm3d_gfix_impl{
 
 };
 //Partial specialization for one flavor. We must provide the flavor index for the gauge fixing matrix, i.e. the flavor that this field represents
-template< typename mf_Float>
-struct _ferm3d_gfix_impl<mf_Float,FixedFlavorPolicy<1> >{
-  static void gaugeFix(CPSfermion3D<mf_Float,FixedFlavorPolicy<1> > &field, Lattice &lat, const typename GaugeFix3DInfo<FixedFlavorPolicy<1> >::InfoType &time_flav, const bool &parallel){
+template< typename mf_Float, typename AllocPolicy>
+struct _ferm3d_gfix_impl<mf_Float,FixedFlavorPolicy<1>,AllocPolicy>{
+  static void gaugeFix(CPSfermion3D<mf_Float,FixedFlavorPolicy<1>,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FixedFlavorPolicy<1> >::InfoType &time_flav, const bool &parallel){
     printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
 
 
@@ -237,22 +237,22 @@ struct _ferm3d_gfix_impl<mf_Float,FixedFlavorPolicy<1> >{
 };
 
 
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion3D<mf_Float,FlavorPolicy>::gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
-    _ferm3d_gfix_impl<mf_Float,FlavorPolicy>::gaugeFix(*this,lat,t,parallel);
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
+    _ferm3d_gfix_impl<mf_Float,FlavorPolicy,AllocPolicy>::gaugeFix(*this,lat,t,parallel);
 }
 
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion3D<mf_Float,FlavorPolicy>::apply_phase_site_op(const int &sf,const int p[],double punits[]){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int &sf,const int p[],double punits[]){
   int x[this->Dimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Float,SpatialPolicy,FlavorPolicy>::apply_phase_site_op(x,f,p,punits);
+  CPSfermion<mf_Float,SpatialPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion3D<mf_Float,FlavorPolicy>::applyPhase(const int p[], const bool &parallel){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
   const char *fname = "apply_phase(int p[])";
 
   double punits[3];
@@ -269,10 +269,10 @@ void CPSfermion3D<mf_Float,FlavorPolicy>::applyPhase(const int p[], const bool &
 }
 
 //Set this field to be the FFT of 'r'
-template< typename mf_Float, typename FlavorPolicy>
-void CPSfermion3D<mf_Float,FlavorPolicy>::fft(const CPSfermion3D<mf_Float,FlavorPolicy> &r){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy>::fft(const CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy> &r){
   for(int mu=0;mu<3;mu++){
-    CPSfermion3DglobalInOneDir<mf_Float,FlavorPolicy> tmp_dbl(mu);
+    CPSfermion3DglobalInOneDir<mf_Float,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
     tmp_dbl.gather( mu==0 ? r : *this );
     tmp_dbl.fft();
     tmp_dbl.scatter(*this);
@@ -298,8 +298,8 @@ void CPSfermion3D<mf_Float,FlavorPolicy>::fft(const CPSfermion3D<mf_Float,Flavor
 
 
 //Make a random complex scalar field of type
-template< typename mf_Float>
-void CPScomplex4D<mf_Float>::setRandom(const RandomType &type){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Float,FlavorPolicy,AllocPolicy>::setRandom(const RandomType &type){
   LRG.SetInterval(1, 0);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -314,8 +314,8 @@ void CPScomplex4D<mf_Float>::setRandom(const RandomType &type){
 }
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Float>
-void CPScomplex4D<mf_Float>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Float,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -331,8 +331,8 @@ void CPScomplex4D<mf_Float>::setUniformRandom(const Float &hi, const Float &lo){
 
  
 //Perform the FFT
-template< typename mf_Float, typename FlavorPolicy>
-void CPSglobalComplexSpatial<mf_Float,FlavorPolicy>::fft(){  
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::fft(){  
   const int fft_dim[3] = {this->glb_size[2], this->glb_size[1], this->glb_size[0]};
   const int size_3d_glb = fft_dim[0] * fft_dim[1] * fft_dim[2];
 
@@ -366,8 +366,8 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy>::fft(){
 
 
 //Scatter to a local field
-template< typename mf_Float, typename FlavorPolicy>
-void CPSglobalComplexSpatial<mf_Float,FlavorPolicy>::scatter(CPScomplexSpatial<mf_Float,FlavorPolicy> &to) const{
+template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
+void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::scatter(CPScomplexSpatial<mf_Float,FlavorPolicy,AllocPolicy> &to) const{
   const char *fname = "scatter(...)";
   int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
 
@@ -392,18 +392,18 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy>::scatter(CPScomplexSpatial<m
 
 
 //Gather up the row. Involves internode communication
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::gather(const CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy> &from){
+void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
   assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
   const int &dir = this->getDir();
 
   const char *fname = "gather(...)";
   NullObject nullobj;
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy> tmp1(nullobj);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy> tmp2(nullobj);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy>* send = const_cast<CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy>* >(&from);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy>* recv = &tmp2;
+  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
+  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
+  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
+  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
 
   int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
   int size_in_Float = from.size() * sizeof(mf_Float) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
@@ -436,9 +436,9 @@ void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::gat
 }
 
 //Scatter back out. Involves no communication
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::scatter(CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy> &to) const{
+void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to) const{
   assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
 
   const int &dir = this->getDir();
@@ -460,8 +460,8 @@ void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::sca
 
 //Perform a fast Fourier transform along the principal direction
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy>::fft(){
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
   const int &dir = this->getDir();
   const char* fname = "fft()";
 
