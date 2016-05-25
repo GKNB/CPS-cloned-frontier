@@ -70,6 +70,11 @@ public:
     omit_000 = _omit_000;
     set(radius);
   }
+
+  inline void siteFmat(FlavorMatrix &out, const int site) const{
+    out(0,0) = out(1,1) = Complex(1.0,0.0);
+    out(0,1) = out(1,0) = Complex(0.0,0.0);    
+  }
 };
 
 //Box source. Unflavored so ignore second flav
@@ -106,6 +111,11 @@ public:
       ss[i] = box_size[i];
     }
     set(ss);
+  }
+
+  inline void siteFmat(FlavorMatrix &out, const int site) const{
+    out(0,0) = out(1,1) = Complex(1.0,0.0);
+    out(0,1) = out(1,0) = Complex(0.0,0.0);    
   }
 };
 
