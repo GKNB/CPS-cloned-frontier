@@ -136,46 +136,19 @@ public:
   }
 
   //Import an export field with arbitrary DimensionPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
+  template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
+  void importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r);
 
-private:
-  template<typename extFloat, typename extDimPol, typename extAllocPol>
-  void importFieldInternal(const typename my_enable_if< sameDim<extDimPol,DimensionPolicy>::val, CPSfield<extFloat, SiteSize,extDimPol, FlavorPolicy, extAllocPol> >::type &r){
-#pragma omp parallel for
-    for(int fs=0;fs<this->fsites;fs++){
-      int x[5], f; this->fsiteUnmap(fs,x,f);
-      mf_Float* to = this->fsite_ptr(fs);
-      mf_Float const* from = r.site_ptr(x,f);
-      for(int i=0;i<SiteSize;i++) to[i] = from[i];
-    }
-  }
+  template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
+  void exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
 
-  template<typename extFloat, typename extDimPol, typename extAllocPol>
-  void exportFieldInternal(typename my_enable_if< sameDim<extDimPol,DimensionPolicy>::val, CPSfield<extFloat, SiteSize,extDimPol, FlavorPolicy, extAllocPol> >::type &r){
-#pragma omp parallel for
-    for(int fs=0;fs<this->fsites;fs++){
-      int x[5], f; this->fsiteUnmap(fs,x,f);
-      mf_Float const* from = this->fsite_ptr(fs);
-      mf_Float* to = r.site_ptr(x,f);
-      for(int i=0;i<SiteSize;i++) to[i] = from[i];
-    }
+  bool equals(const CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r) const{
+    for(int i=0;i<fsize;i++)
+      if(f[i] != r.f[i]) return false;
+    return true;
   }
-public:
-  
-  template<typename extField>
-  void importField(const extField &r){
-    importFieldInternal<typename extField::FieldFloatType,typename extField::FieldDimensionPolicy, typename extField::FieldAllocPolicy>(r);
-  }
-  template<typename extField>
-  void exportField(extField &r){
-    exportFieldInternal<typename extField::FieldFloatType,typename extField::FieldDimensionPolicy, typename extField::FieldAllocPolicy>(r);
-  }
-
+    
 };
-
-
-
-
-
 
 
 template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
@@ -191,7 +164,10 @@ protected:
   void apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]);
 
 public:
-  CPSfermion(): CPSfield<mf_Float,SPINOR_SIZE,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  typedef typename CPSfield<mf_Float,SPINOR_SIZE,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+  
+  CPSfermion(): CPSfield<mf_Float,SPINOR_SIZE,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
+  CPSfermion(const InputParamType &params): CPSfield<mf_Float,SPINOR_SIZE,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
   CPSfermion(const CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Float,SPINOR_SIZE,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 };
 

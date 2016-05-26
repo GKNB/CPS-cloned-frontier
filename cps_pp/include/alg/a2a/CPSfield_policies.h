@@ -346,7 +346,61 @@ public:
 };
 
 
+class FourDSIMDPolicy{ //4D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
+  int simd_dims[4]; //number of SIMD logical nodes in each direction
+  int logical_dim[4]; //dimension of logical nodes
+  int logical_vol;
+protected:
+  void setSites(int &sites, int &fsites, const int nf) const{ sites = logical_vol; fsites = nf*sites; }
 
+public:
+  //Coordinate of SIMD block containing full 4D site x
+  inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(
+											    (x[1] % logical_dim[1]) + logical_dim[1]*(
+																      (x[2] % logical_dim[2]) + logical_dim[2]*(
+																						(x[3] % logical_dim[3]))));
+  }
+  //Returns coordinate in logical volume. Other coordinates within SIMD vector can be found by adding logical_dim[i] up to simd_dims[i] times for each direction i
+  inline void siteUnmap(int site, int x[]){
+    for(int i=0;i<4;i++){ 
+      x[i] = site % logical_dim[i]; site /= logical_dim[i];
+    }
+  }
+
+  //Offset in units of complex of the site x within the SIMD block
+  inline int internalSiteMap(const int x[]) const{
+    return (x[0] / logical_dim[0]) + simd_dims[0] * (
+						 (x[1] / logical_dim[1]) + simd_dims[1]*(
+										     (x[2] / logical_dim[2]) + simd_dims[2]*(
+															 (x[3] / logical_dim[3]))));
+  }
+  
+  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
+
+  inline void fsiteUnmap(int fsite, int x[], int &f){
+    siteUnmap(fsite,x);
+    f = fsite / logical_vol;
+  }
+
+  inline int fsiteFlavorOffset() const{ return logical_vol; }
+
+  inline int siteFsiteConvert(const int site, const int f) const{ 
+    return site + logical_vol * f;
+  }
+
+  typedef int* ParamType;
+
+  FourDSIMDPolicy(const int* _simd_dims){
+    logical_vol = 1;
+    for(int i=0;i<4;i++){
+      simd_dims[i] = _simd_dims[i];
+      assert(GJP.NodeSites(i) % simd_dims[i] == 0);
+      logical_dim[i] = GJP.NodeSites(i)/simd_dims[i];
+      logical_vol *= logical_dim[i];
+    }
+  }
+  const static int EuclideanDimension = 4;
+};
 
 
 CPS_END_NAMESPACE

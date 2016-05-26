@@ -3,6 +3,37 @@
 
 //Implementations of CPSfield.h
 
+//Generic copy. SiteSize and number of Euclidean dimensions must be the same
+template<int SiteSize,
+	 typename FloatA, typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename FloatB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+class CPSfieldCopy{
+public:
+  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,CPSfield<FloatA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+	    const CPSfield<FloatB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+    assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed
+    
+    #pragma omp parallel for
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
+      FloatA* toptr = into.fsite_ptr(fs);
+      FloatB const* fromptr = from.site_ptr(x,f);
+      for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
+    }
+  }
+};
+
+#ifdef USE_GRID
+
+
+
+
+
+
+#endif
+
+
+
 
 //Set the complex number at pointer p to a random value of a chosen type
 template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -56,6 +87,23 @@ void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
     for(int i=0;i<fsize;i++) f[i] = (f[i] + r.f[i])/2.0;
   }
 }
+
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
+  CPSfieldCopy<SiteSize,
+	       mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy,
+	       extFloat, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
+}
+template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+  CPSfieldCopy<SiteSize,
+	       extFloat, extDimPol, extFlavPol, extAllocPol,
+	       mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
+}
+
+
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
