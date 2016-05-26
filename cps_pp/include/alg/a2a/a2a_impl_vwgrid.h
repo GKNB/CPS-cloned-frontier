@@ -4,6 +4,7 @@ CPS_START_NAMESPACE
 
 
 inline void compareFermion(const CPSfermion5D<double> &A, const CPSfermion5D<double> &B, const std::string &descr = "Ferms", const double tol = 1e-9){
+  assert(sizeof(std::complex<double>) == 2*sizeof(double));
   double fail = 0.;
   for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites();i++){
     int x[5]; int rem = i;
@@ -11,8 +12,8 @@ inline void compareFermion(const CPSfermion5D<double> &A, const CPSfermion5D<dou
     
     for(int f=0;f<GJP.Gparity()+1;f++){
       for(int sc=0;sc<24;sc++){
-	double vbfm = *(A.site_ptr(i,f) + sc);
-	double vgrid = *(B.site_ptr(i,f) + sc);
+	double vbfm = *((double*)A.site_ptr(i,f) + sc);
+	double vgrid = *((double*)B.site_ptr(i,f) + sc);
 	    
 	double diff_rat = fabs( 2.0 * ( vbfm - vgrid )/( vbfm + vgrid ) );
 	double rat_grid_bfm = vbfm/vgrid;
@@ -214,6 +215,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
 #endif
 
   assert(lat.Fclass() == FGRID_CLASS_NAME);
+  assert(sizeof(std::complex<mf_Float>) == 2*sizeof(mf_Float));
   FGRID &latg = dynamic_cast<FGRID&>(lat);
 
   //Grids and gauge field
@@ -256,7 +258,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
-    mf_Float* vi = V.getVl(i).ptr();
+    mf_Float* vi = (mf_Float*)V.getVl(i).ptr();
     
     Float eval = evecs.getEvec(bq_tmp,i);
     assert(bq_tmp.checkerboard == Grid::Odd);
@@ -275,7 +277,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
     //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, afield.size());
+    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, 2*afield.size());
 
     //Step 2) Compute Wl
 
@@ -299,7 +301,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     //Get 4D part, poke onto a then copy into wl
     latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    VecTimesEquFloat<mf_Float,Float>(wl[i].ptr(), (Float*)a, 1.0, afield.size());
+    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, 2*afield.size());
   }
 }
 

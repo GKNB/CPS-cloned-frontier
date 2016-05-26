@@ -385,6 +385,60 @@ void gaugeFixUnity(Lattice &lat, const FixGaugeArg &fix_gauge_arg){
   }
 }
 
+//Set the complex number at pointer p to a random value of a chosen type
+//Uses the current LRG for the given FermionFieldDimension. User should choose the range and the particular site-RNG themselves beforehand
+template<typename mf_Float>
+class RandomComplex{};
+
+//Only for float and double, hence I have to control its access
+template<typename mf_Float>
+class RandomComplexBase{
+ protected:
+  template<typename T> friend class RandomComplex;
+  
+  static void rand(mf_Float *p, const RandomType type, const FermionFieldDimension frm_dim){
+    static const Float PI = 3.14159265358979323846;
+    Float theta = LRG.Urand(frm_dim);
+  
+    switch(type) {
+    case UONE:
+      p[0] = cos(2. * PI * theta);
+      p[1] = sin(2. * PI * theta);
+      break;
+    case ZTWO:
+      p[0] = theta > 0.5 ? 1 : -1;
+      p[1] = 0;
+      break;
+    case ZFOUR:
+      if(theta > 0.75) {
+	p[0] = 1;
+	p[1] = 0;
+      }else if(theta > 0.5) {
+	p[0] = -1;
+	p[1] = 0;
+      }else if(theta > 0.25) {
+	p[0] = 0;
+	p[1] = 1;
+      }else {
+	p[0] = 0;
+	p[1] = -1;
+      }
+      break;
+    default:
+      ERR.NotImplemented("RandomComplexBase", "rand(...)");
+    }
+  }
+};
+
+
+
+template<typename T>
+class RandomComplex<std::complex<T> > : public RandomComplexBase<T>{
+public:
+  static void rand(std::complex<T> *p, const RandomType &type, const FermionFieldDimension &frm_dim){
+    RandomComplexBase<T>::rand( (T*)p, type, frm_dim);
+  }
+};
 
 
 CPS_END_NAMESPACE

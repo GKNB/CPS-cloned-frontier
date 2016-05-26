@@ -5,19 +5,19 @@
 
 //Generic copy. SiteSize and number of Euclidean dimensions must be the same
 template<int SiteSize,
-	 typename FloatA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename FloatB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
 class CPSfieldCopy{
 public:
-  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,CPSfield<FloatA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
-	    const CPSfield<FloatB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+	    const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
     assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed
     
     #pragma omp parallel for
     for(int fs=0;fs<into.nfsites();fs++){
       int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
-      FloatA* toptr = into.fsite_ptr(fs);
-      FloatB const* fromptr = from.site_ptr(x,f);
+      TypeA* toptr = into.fsite_ptr(fs);
+      TypeB const* fromptr = from.site_ptr(x,f);
       for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
     }
   }
@@ -33,52 +33,31 @@ public:
 #endif
 
 
-
-
-//Set the complex number at pointer p to a random value of a chosen type
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-  void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::rand(mf_Float *p, const RandomType &type, const FermionFieldDimension &frm_dim){
-  static const Float PI = 3.14159265358979323846;
-  Float theta = LRG.Urand(frm_dim);
-  
-  switch(type) {
-  case UONE:
-    p[0] = cos(2. * PI * theta);
-    p[1] = sin(2. * PI * theta);
-    break;
-  case ZTWO:
-    p[0] = theta > 0.5 ? 1 : -1;
-    p[1] = 0;
-    break;
-  case ZFOUR:
-    if(theta > 0.75) {
-      p[0] = 1;
-      p[1] = 0;
-    }else if(theta > 0.5) {
-      p[0] = -1;
-      p[1] = 0;
-    }else if(theta > 0.25) {
-      p[0] = 0;
-      p[1] = 1;
-    }else {
-      p[0] = 0;
-      p[1] = -1;
-    }
-    break;
-  default:
-    ERR.NotImplemented("CPSfield", "rand(...)");
+template<typename SiteType>
+class _testRandom{
+  static void rand(SiteType* f, int fsize, const Float hi, const Float lo){
+    for(int i=0;i<fsize;i++) f[i] = LRG.Urand(hi,lo,FOUR_D);
   }
-}
+};
+template<typename T>
+class _testRandom<std::complex<T> >{
+  static void rand(std::complex<T>* f, int fsize, const Float hi, const Float lo){
+    assert(sizeof(std::complex<T>) == 2*sizeof(T));
+    T* ff = (T*)f;
+    for(int i=0;i<2*fsize;i++) ff[i] = LRG.Urand(hi,lo,FOUR_D);
+  }
+};
+
 
 //Set each float to a uniform random number in the specified range.
 //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::testRandom(const Float &hi, const Float &lo){
-  for(int i=0;i<this->fsize;i++) f[i] = LRG.Urand(hi,lo,FOUR_D);
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::testRandom(const Float hi, const Float lo){
+  _testRandom<SiteType>::rand(this->f,this->fsize,hi,lo);
 }
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 //Set this field to the average of this and a second field, r
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::average(const CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r, const bool &parallel){
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r, const bool &parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
   if(parallel){
 #pragma omp parallel for
@@ -88,19 +67,19 @@ void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
   }
 }
 
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
   CPSfieldCopy<SiteSize,
-	       mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy,
+	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy,
 	       extFloat, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
 }
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
   CPSfieldCopy<SiteSize,
 	       extFloat, extDimPol, extFlavPol, extAllocPol,
-	       mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
+	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
 }
 
 
@@ -109,10 +88,10 @@ void CPSfield<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::expor
 template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
   int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
-
+  assert(sizeof(std::complex<mf_Float>) == 2*sizeof(mf_Float));
   mf_Float tmp[6];
   const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
-  mf_Float* sc_base = this->site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
+  mf_Float* sc_base = (mf_Float*)this->site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
   for(int s=0;s<4;s++){
     memcpy(tmp, sc_base + 6 * s, 6 * sizeof(mf_Float));
     colorMatrixMultiplyVector<mf_Float,Float>(sc_base + 6*s, (Float*)gfmat, tmp);
@@ -147,7 +126,7 @@ void CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_
   std::complex<mf_Float> phase_prec(phase);
 
   for(int sc=0;sc<12;sc++)
-    *reinterpret_cast<std::complex<mf_Float>*>(this->site_ptr(x_lcl,flav)+2*sc) *= phase_prec;
+    *(this->site_ptr(x_lcl,flav)+sc) *= phase_prec;
 }  
 
 
@@ -215,9 +194,9 @@ void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::setUniformRandom(const Flo
     int st = i % this->sites;
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
 
-    for(int site_lcl_off=0;site_lcl_off<this->site_size;site_lcl_off++)
+    for(int site_lcl_off=0;site_lcl_off<2*this->site_size;site_lcl_off++)
       *(p++) = LRG.Urand(FOUR_D);
   }
 }
@@ -261,7 +240,7 @@ struct _ferm3d_gfix_impl<mf_Float,FixedFlavorPolicy<1>,AllocPolicy>{
     int gfmat_site = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] )); \
     mf_Float tmp[6];							\
     const Matrix* gfmat = lat.FixGaugeMatrix(gfmat_site,time_flav.second);	\
-    mf_Float* sc_base = field.site_ptr(x4d); \
+    mf_Float* sc_base = (mf_Float*)field.site_ptr(x4d);			\
     for(int s=0;s<4;s++){						\
       memcpy(tmp, sc_base + 6 * s, 6 * sizeof(mf_Float));		\
       colorMatrixMultiplyVector<mf_Float,Float>(sc_base + 6*s, (Float*)gfmat, tmp); \
@@ -354,10 +333,8 @@ void CPScomplex4D<mf_Float,FlavorPolicy,AllocPolicy>::setRandom(const RandomType
     int st = i % this->sites;
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = this->site_ptr(st,flav);
-
-    for(int site_lcl_off=0;site_lcl_off<this->site_size;site_lcl_off+=2)
-      rand(p+site_lcl_off,type,FOUR_D);
+    std::complex<mf_Float> *p = this->site_ptr(st,flav);
+    RandomComplex<std::complex<mf_Float> >::rand(p,type,FOUR_D);
   }
 }
 
@@ -370,9 +347,9 @@ void CPScomplex4D<mf_Float,FlavorPolicy,AllocPolicy>::setUniformRandom(const Flo
     int st = i % this->sites;
 
     LRG.AssignGenerator(st,flav);
-    mf_Float *p = this->site_ptr(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
 
-    for(int site_lcl_off=0;site_lcl_off<this->site_size;site_lcl_off++)
+    for(int i=0;i<2;i++)
       *(p++) = LRG.Urand(FOUR_D);
   }
 }
@@ -386,7 +363,7 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::fft(){
 
   typename FFTWwrapper<mf_Float>::complexType* fft_mem = FFTWwrapper<mf_Float>::alloc_complex(this->size());
   
-  memcpy((void *)fft_mem, this->ptr(), this->size()*sizeof(mf_Float));
+  memcpy((void *)fft_mem, this->ptr(), 2*this->size()*sizeof(mf_Float));
 
   //Plan creation is expensive, so make it static
   static typename FFTWwrapper<mf_Float>::planType plan_src;
@@ -404,7 +381,7 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::fft(){
     FFTWwrapper<mf_Float>::execute_dft(plan_src, fft_mem + off, fft_mem + off);
   }
 
-  memcpy((void *)this->ptr(), (void*)fft_mem, this->size()*sizeof(mf_Float));
+  memcpy((void *)this->ptr(), (void*)fft_mem, 2*this->size()*sizeof(mf_Float));
   FFTWwrapper<mf_Float>::free(fft_mem);
 
   //FFTWwrapper<mf_Float>::cleanup(); //Don't need to cleanup, it doesn't have the function I initially thought
@@ -424,11 +401,10 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::scatter(CPScomp
     int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate
     for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
 
-    mf_Float* tosite = to.fsite_ptr(i);
-    mf_Float const* fromsite = this->site_ptr(x,flavor);
+    std::complex<mf_Float>* tosite = to.fsite_ptr(i);
+    std::complex<mf_Float> const* fromsite = this->site_ptr(x,flavor);
 
-    tosite[0] = fromsite[0];
-    tosite[1] = fromsite[1];    
+    *tosite = *fromsite;
   }	
 }
 
@@ -440,21 +416,21 @@ void CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy>::scatter(CPScomp
 
 
 //Gather up the row. Involves internode communication
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
   assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
   const int &dir = this->getDir();
 
   const char *fname = "gather(...)";
   NullObject nullobj;
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
-  CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
+  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
+  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
+  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
+  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
 
   int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
-  int size_in_Float = from.size() * sizeof(mf_Float) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
+  int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
 
   int nshift = GJP.Nodes(dir);
 
@@ -464,10 +440,10 @@ void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
       int x[this->EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
       x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
 
-      mf_Float* tosite = this->site_ptr(x,flavor);
-      mf_Float* fromsite = send->fsite_ptr(i);
+      SiteType* tosite = this->site_ptr(x,flavor);
+      SiteType* fromsite = send->fsite_ptr(i);
 
-      memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(mf_Float));
+      memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(SiteType));
     }	
 
     if(shift != nshift-1){
@@ -484,9 +460,9 @@ void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 }
 
 //Scatter back out. Involves no communication
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<mf_Float,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to) const{
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to) const{
   assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
 
   const int &dir = this->getDir();
@@ -499,60 +475,61 @@ void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     int x[this->EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
     x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
 
-    mf_Float* tosite = to.fsite_ptr(i);
-    mf_Float const* fromsite = this->site_ptr(x,flavor);
+    SiteType* tosite = to.fsite_ptr(i);
+    SiteType const* fromsite = this->site_ptr(x,flavor);
 
-    memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(mf_Float));
+    memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(SiteType));
   }	
 }
 
 //Perform a fast Fourier transform along the principal direction
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
-template< typename mf_Float, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<mf_Float,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
+//Assumes SiteType is a std::complex type
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
   const int &dir = this->getDir();
   const char* fname = "fft()";
 
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
-  int sc_size = this->siteSize()/2; //we have to assume the sites comprise complex numbers
+  int sc_size = this->siteSize(); //we have to assume the sites comprise complex numbers
   int size_1d_glb = GJP.NodeSites(dir) * GJP.Nodes(dir);
   const int n_fft = this->nsites() / GJP.NodeSites(dir) * sc_size * this->nflavors();
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<mf_Float>::planType plan_f[4];
+  static typename FFTWwrapper<SiteType::value_type>::planType plan_f[4];
   static int plan_sc_size = -1;
   if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
-    typename FFTWwrapper<mf_Float>::complexType *tmp_f; //I don't think it actually does anything with this
+    typename FFTWwrapper<SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<mf_Float>::destroy_plan(plan_f[i]);    
+      if(plan_sc_size != -1) FFTWwrapper<SiteType::value_type>::destroy_plan(plan_f[i]);    
       
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<mf_Float>::plan_many_dft(1, &size_i, 1, 
-						       tmp_f, NULL, sc_size, size_i * sc_size,
-						       tmp_f, NULL, sc_size, size_i * sc_size,
-						       FFTW_FORWARD, FFTW_ESTIMATE);  
+      plan_f[i] = FFTWwrapper<SiteType::value_type>::plan_many_dft(1, &size_i, 1, 
+								   tmp_f, NULL, sc_size, size_i * sc_size,
+								   tmp_f, NULL, sc_size, size_i * sc_size,
+								   FFTW_FORWARD, FFTW_ESTIMATE);  
     }
     plan_sc_size = sc_size;
   }
     
-  typename FFTWwrapper<mf_Float>::complexType *fftw_mem = FFTWwrapper<mf_Float>::alloc_complex(size_1d_glb * n_fft);
+  typename FFTWwrapper<SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
     
-  memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(mf_Float));
+  memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(SiteType));
 #pragma omp parallel for
   for(int n = 0; n < n_fft; n++) {
     int sc_id = n % sc_size;
     int chunk_id = n / sc_size; //3d block index
     int off = size_1d_glb * sc_size * chunk_id + sc_id;
-    FFTWwrapper<mf_Float>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
   }
 
-  //FFTWwrapper<mf_Float>::cleanup(); //I think this actually destroys existing plans!
+  //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
 
-  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(mf_Float));
-  FFTWwrapper<mf_Float>::free(fftw_mem);
+  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  FFTWwrapper<SiteType::value_type>::free(fftw_mem);
 }
 
 

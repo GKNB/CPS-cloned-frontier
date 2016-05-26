@@ -99,8 +99,8 @@ void A2AvectorW<mf_Float>::setWhRandom(const RandomType &type){
 
     LRG.AssignGenerator(st,flav);
     for(int j = 0; j < nhits; ++j) {
-      mf_Float* p = wh[j].site_ptr(st,flav);
-      CPScomplex4D<mf_Float>::rand(p,type,FOUR_D);
+      std::complex<mf_Float>* p = wh[j].site_ptr(st,flav);
+      RandomComplex<std::complex<mf_Float> >::rand(p,type,FOUR_D);
     }
   }
 }
@@ -111,6 +111,7 @@ void A2AvectorW<mf_Float>::setWhRandom(const RandomType &type){
 template< typename mf_Float>
 template<typename TargetFloat>
 void A2AvectorW<mf_Float>::getDilutedSource(CPSfermion4D<TargetFloat> &into, const int dil_id) const{
+  assert(sizeof(std::complex<TargetFloat>) == 2*sizeof(TargetFloat) && sizeof(std::complex<mf_Float>) == 2*sizeof(mf_Float));
   const char* fname = "getDilutedSource(...)";
   int hit, tblock, spin_color, flavor;
   StandardIndexDilution stdidx(getArgs());  
@@ -138,8 +139,8 @@ void A2AvectorW<mf_Float>::getDilutedSource(CPSfermion4D<TargetFloat> &into, con
     x[2] = rem % GJP.ZnodeSites(); rem /= GJP.ZnodeSites();
     x[3] = tblock_origt_lcl + rem;
 
-    TargetFloat* into_site = into.site_ptr(x,flavor) + 2*spin_color;
-    mf_Float const* from_site = wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
+    TargetFloat *into_site = (TargetFloat*)(into.site_ptr(x,flavor) + spin_color);
+    mf_Float const* from_site = (mf_Float*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
     into_site[0] = from_site[0];
     into_site[1] = from_site[1];
   }
@@ -155,10 +156,9 @@ void A2AvectorW<mf_Float>::getSpinColorDilutedSource(CPSfermion4D<mf_Float> &int
 
 #pragma omp parallel for
   for(int i=0;i<wh[hit].nfsites();i++){ //same mapping, different site_size
-    mf_Float* into_site = into.fsite_ptr(i) + 2*sc_id;
-    mf_Float const* from_site = wh[hit].fsite_ptr(i);
-    into_site[0] = from_site[0];
-    into_site[1] = from_site[1];
+    std::complex<mf_Float> &into_site = *(into.fsite_ptr(i) + sc_id);
+    const std::complex<mf_Float> &from_site = *(wh[hit].fsite_ptr(i));
+    into_site = from_site;
   }
 }
 

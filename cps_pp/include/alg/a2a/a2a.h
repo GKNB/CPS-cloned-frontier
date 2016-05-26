@@ -64,12 +64,11 @@ public:
   //Get a particular site/spin/color element of a given mode 
   const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int x4d = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
-    mf_Float const* p = v[mode].site_ptr(x4d,flavor) + 2*spin_color;
-    return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+    return  *(v[mode].site_ptr(x4d,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
   inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return reinterpret_cast<std::complex<mf_Float> const& >(*(v[i].site_ptr(site,flavor)+2*spin_color));
+    return *(v[i].site_ptr(site,flavor)+spin_color);
   }
 
   void importVl(const CPSfermion4D<mf_Float> &vv, const int il){
@@ -107,12 +106,11 @@ public:
 
   const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int site = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
-    mf_Float const* p = v[mode].site_ptr(site,flavor) + 2*spin_color;
-    return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+    return *(v[mode].site_ptr(site,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
   inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
-    return reinterpret_cast<std::complex<mf_Float> const& >(*(v[i].site_ptr(site,flavor)+2*spin_color));
+    return *(v[i].site_ptr(site,flavor)+spin_color);
   }
 
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
@@ -123,15 +121,15 @@ public:
   }
   inline SCFvectorPtr<mf_Float> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
     const CPSfermion4D<mf_Float> &field = getMode(i);
-    mf_Float const* f0_ptr = field.ptr() + site_offset;
+    mf_Float const* f0_ptr = (mf_Float const*)(field.ptr() + site_offset);
     return SCFvectorPtr<mf_Float>(f0_ptr, f0_ptr+flav_offset);  //( field.site_ptr(site,0) , field.site_ptr(site,1) );
   }
 
   inline SCFvectorPtr<mf_Float> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const CPSfermion4D<mf_Float> &field = getMode(i);
     const int x4d = field.threeToFour(p3d,t);
-    mf_Float const* f0_ptr = field.site_ptr(x4d,0);
-    mf_Float const* f1_ptr = field.site_ptr(x4d,1);
+    mf_Float const* f0_ptr = (mf_Float const*)field.site_ptr(x4d,0);
+    mf_Float const* f1_ptr = (mf_Float const*)field.site_ptr(x4d,1);
     return SCFvectorPtr<mf_Float>(f0_ptr, f1_ptr);
   }
 
@@ -244,8 +242,7 @@ public:
     static std::complex<mf_Float> zero(0.0,0.0);
     int site = x3d + GJP.VolNodeSites()/GJP.Tnodes()*t;
     if(mode < nl){
-      mf_Float const* p = getWl(mode).site_ptr(site,flavor) + 2*spin_color;
-      return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
     }else{
       int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
       const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
@@ -254,15 +251,14 @@ public:
       int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
       if(spin_color != mode_spin_color || flavor != mode_flavor || tblock != mode_tblock) return zero;
 
-      mf_Float const* p = getWh(mode_hit).site_ptr(site,flavor); //we use different random fields for each time and flavor, although we didn't have to
-      return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+      return *(getWh(mode_hit).site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
     }
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode 
   inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return i < nl ? 
-	       reinterpret_cast<std::complex<mf_Float> const& >(*(wl[i].site_ptr(site,flavor)+2*spin_color)) :
-      reinterpret_cast<std::complex<mf_Float> const& >(*(wh[i-nl].site_ptr(site,flavor))); //we use different random fields for each time and flavor, although we didn't have to
+      *(wl[i].site_ptr(site,flavor)+spin_color) :
+      *(wh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
   }
 
 
@@ -305,8 +301,7 @@ public:
     static std::complex<mf_Float> zero(0.0,0.0);
     int site = x3d + GJP.VolNodeSites()/GJP.Tnodes()*t;
     if(mode < nl){
-      mf_Float const* p = getWl(mode).site_ptr(site,flavor) + 2*spin_color;
-      return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+      return *(getWl(mode).site_ptr(site,flavor) + spin_color);
     }else{
       int mode_hit, mode_tblock, mode_spin_color,mode_flavor;
       const StandardIndexDilution &dilfull = static_cast<StandardIndexDilution const&>(*this);
@@ -315,15 +310,14 @@ public:
       int tblock = (t+GJP.TnodeSites()*GJP.TnodeCoor())/args.src_width;
       if(flavor != mode_flavor || tblock != mode_tblock) return zero;
 
-      mf_Float const* p = getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +2*spin_color; //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
-      return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+      return *(getWh(mode_hit,mode_spin_color).site_ptr(site,flavor) +spin_color); //because we multiplied by an SU(3) matrix, the field is not just a delta function in spin/color
     }
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode 
   inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return i < nl ? 
-	       reinterpret_cast<std::complex<mf_Float> const& >(*(wl[i].site_ptr(site,flavor)+2*spin_color)) :
-      reinterpret_cast<std::complex<mf_Float> const& >(*(wh[i-nl].site_ptr(site,flavor)+2*spin_color)); //spin_color index diluted out.
+      *(wl[i].site_ptr(site,flavor)+spin_color) :
+      *(wh[i-nl].site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
   }
 
 
@@ -362,9 +356,9 @@ public:
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
-    mf_Float const* f0_ptr = field.ptr() + site_offset;
+    mf_Float const* f0_ptr = (mf_Float const*)(field.ptr() + site_offset);
     mf_Float const* lp[2] = { zero_hint[0] ? &zerosc[0] : f0_ptr,
-  			      zero_hint[1] ? &zerosc[0] : f0_ptr + flav_offset };
+  			      zero_hint[1] ? &zerosc[0] : f0_ptr + 2*flav_offset };
 
     return SCFvectorPtr<mf_Float>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
@@ -378,8 +372,8 @@ public:
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     const int x4d = field.threeToFour(p3d,t);
-    mf_Float const* lp[2] = { zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0),
-  			      zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1) };
+    mf_Float const* lp[2] = { zero_hint[0] ? &zerosc[0] : (mf_Float const*)field.site_ptr(x4d,0),
+  			      zero_hint[1] ? &zerosc[0] : (mf_Float const*)field.site_ptr(x4d,1) };
 
     return SCFvectorPtr<mf_Float>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
