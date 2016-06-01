@@ -2,11 +2,6 @@
 #define CPS_FIELD_POLICIES
 CPS_START_NAMESPACE
 
-class NullObject
-{
- public:
-  NullObject(){}
-};
 template<typename polA, typename polB>
 struct sameDim{ static const bool val = intEq<polA::EuclideanDimension, polB::EuclideanDimension>::val; };
 

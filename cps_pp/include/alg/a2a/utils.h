@@ -69,6 +69,12 @@ inline void compute_overlap(std::vector<bool> &out, const std::vector<bool> &a, 
   for(int i=0;i<a.size();i++) out[i] = a[i] && b[i];
 }
 
+class NullObject
+{
+ public:
+  NullObject(){}
+};
+
 template <int LorR, typename T, typename U>
 struct _selectLR{};
 template <typename T, typename U>
@@ -101,6 +107,18 @@ struct my_enable_if{};
 template<typename T>
 struct my_enable_if<true,T>{ typedef T type; };
 
+
+template<typename T>
+struct is_double_or_float{ enum {value = 0}; };
+
+template<>
+struct is_double_or_float<double>{ enum {value = 1}; };
+
+template<>
+struct is_double_or_float<float>{ enum {value = 1}; };
+
+//A class inheriting from this type must have template parameter T as a double or float
+#define EXISTS_IF_DOUBLE_OR_FLOAT(T) public my_enable_if<is_double_or_float<mf_Float>::value,NullObject>::type
 
 //CK: Functions for performing global and timeslice sums of single or double precision quantities. Daiqian had to implement these himself as CPS can only do this with the Float=double type
 
