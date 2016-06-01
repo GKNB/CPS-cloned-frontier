@@ -5,12 +5,12 @@ CPS_START_NAMESPACE
 
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
 
-//3D single-precision complex field. Defined for a *single flavor* if GPBC
+//3D complex field. Defined for a *single flavor* if GPBC
 class A2Asource{
 protected:
   CPScomplexSpatial<Float,OneFlavorPolicy> src;
 public:
-  inline const std::complex<Float> & siteComplex(const int &site) const{ return reinterpret_cast<std::complex<Float> const&>(*src.site_ptr(site)); }
+  inline const std::complex<Float> & siteComplex(const int &site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 };
 
