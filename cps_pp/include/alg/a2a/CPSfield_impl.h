@@ -9,7 +9,13 @@ template<int SiteSize,
 	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
 class CPSfieldCopy{
 public:
-  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+#ifdef USE_GRID
+#define CONDITION sameDim<DimPolA,DimPolB>::val && !Grid::is_simd<TypeA>::value && !Grid::is_simd<TypeB>::value
+#else
+#define CONDITION sameDim<DimPolA,DimPolB>::val
+#endif
+  
+  static void copy(const typename my_enable_if<CONDITION,CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
 	    const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
     assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed
     
@@ -21,13 +27,92 @@ public:
       for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
     }
   }
+#undef CONDITION
 };
 
 #ifdef USE_GRID
 
+//TypeA is Grid_simd type
+template<int SiteSize,
+	 typename GridSIMDTypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename DimPolB, typename FlavPolB, typename AllocPolB>
+class CPSfieldCopy<SiteSize,
+		   GridSIMDTypeA, DimPolA, FlavPolA, AllocPolA,
+		   typename GridSIMDTypeA::scalar_type, DimPolB, FlavPolB, AllocPolB>
+{
+public:
+  typedef typename GridSIMDTypeA::scalar_type TypeB;
+  
+  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,
+		   CPSfield<GridSIMDTypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+		   const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+    const int nsimd = GridSIMDTypeA::Nsimd();
+    const int ndim = DimPolA::EuclideanDimension;
+    assert(into.nfsites() == from.nfsites() / nsimd);
 
+    std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
+    for(int i=0;i<nsimd;i++) into.SIMDunmap(i,&packed_offsets[i][0]);
+    
+#pragma omp parallel for
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[ndim], f; into.fsiteUnmap(fs,x,f);
+      GridSIMDTypeA* toptr = into.fsite_ptr(fs);
 
+      //x is the root coordinate corresponding to SIMD packed index 0      
+      std::vector<TypeB const*> ptrs(nsimd);
+      ptrs[0] = from.site_ptr(x,f);
+      
+      int xx[ndim];
+      for(int i=1;i<nsimd;i++){
+	for(int d=0;d<ndim;d++)
+	  xx[d] = x[d] + packed_offsets[i][d];  //xx = x + offset
+	ptrs[i] = from.site_ptr(xx,f);
+      }
+      into.SIMDpack(toptr, ptrs, SiteSize);
+    }
+  }
+};
 
+//TypeB is Grid_simd type
+template<int SiteSize,
+	 typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename GridSIMDTypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+class CPSfieldCopy<SiteSize,
+		   typename GridSIMDTypeB::scalar_type, DimPolA, FlavPolA, AllocPolA,
+		   GridSIMDTypeB, DimPolB, FlavPolB, AllocPolB>
+{
+public:
+  typedef typename GridSIMDTypeB::scalar_type TypeA;
+  
+  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,
+		   CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+		   const CPSfield<GridSIMDTypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+    const int nsimd = GridSIMDTypeB::Nsimd();
+    const int ndim = DimPolA::EuclideanDimension;
+    assert(into.nfsites() / nsimd == from.nfsites());
+
+    std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
+    for(int i=0;i<nsimd;i++) from.SIMDunmap(i,&packed_offsets[i][0]);
+
+    std::vector<TypeA const*> ptrs(nsimd);
+    
+#pragma omp parallel for private(ptrs)
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[ndim], f; from.fsiteUnmap(fs,x,f);
+      GridSIMDTypeB* fromptr = from.fsite_ptr(fs);
+
+      //x is the root coordinate corresponding to SIMD packed index 0
+      ptrs[0] = into.site_ptr(x,f);
+      int xx[ndim];
+      for(int i=1;i<nsimd;i++){
+	for(int d=0;d<ndim;d++)
+	  xx[d] = x[d] + packed_offsets[i][d];  //xx = x + offset
+	ptrs[i] = into.site_ptr(xx,f);
+      }
+      into.SIMDunpack(ptrs, fromptr, SiteSize);
+    }
+  }
+};
 
 
 #endif
@@ -35,12 +120,14 @@ public:
 
 template<typename SiteType>
 class _testRandom{
+public:
   static void rand(SiteType* f, int fsize, const Float hi, const Float lo){
     for(int i=0;i<fsize;i++) f[i] = LRG.Urand(hi,lo,FOUR_D);
   }
 };
 template<typename T>
 class _testRandom<std::complex<T> >{
+public:
   static void rand(std::complex<T>* f, int fsize, const Float hi, const Float lo){
     assert(sizeof(std::complex<T>) == 2*sizeof(T));
     T* ff = (T*)f;

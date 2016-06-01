@@ -350,10 +350,37 @@ class FourDSIMDPolicy{ //4D field with the dimensions blocked into logical nodes
   int simd_dims[4]; //number of SIMD logical nodes in each direction
   int logical_dim[4]; //dimension of logical nodes
   int logical_vol;
+  int nsimd;
 protected:
   void setSites(int &sites, int &fsites, const int nf) const{ sites = logical_vol; fsites = nf*sites; }
 
 public:
+  inline int Nsimd() const{ return nsimd; }
+  inline int SIMDpackedSites(const int dir) const{ return simd_dims[dir]; } //number of sites in given direction packed into SIMD vector
+
+  //Given the list of base site pointers to be packed, apply the packing for n site elements
+  template<typename Vtype, typename Stype>
+  inline void SIMDpack(Vtype *into, const std::vector<Stype const*> &from, const int n = 1){
+    assert(Vtype::Nsimd() == nsimd);
+    Stype tmp[nsimd];
+    for(int idx=0;idx<n;idx++){ //offset of elements on site
+      for(int s=0;s<nsimd;s++)
+	tmp[s] = *(from[s] + idx); //gather from the different sites with fixed element offset
+      vset(*(into+idx),tmp);
+    }
+  }
+    
+  template<typename Vtype, typename Stype>
+  inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1) const{
+    assert(Vtype::Nsimd() == nsimd);
+    Stype tmp[nsimd];
+    for(int idx=0;idx<n;idx++){ //offset of elements on site
+      vstore(*(from+idx),tmp);      
+      for(int s=0;s<nsimd;s++)
+	*(into[s] + idx) = tmp[s];
+    }
+  }
+  
   //Coordinate of SIMD block containing full 4D site x
   inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(
 											    (x[1] % logical_dim[1]) + logical_dim[1]*(
@@ -368,13 +395,21 @@ public:
   }
 
   //Offset in units of complex of the site x within the SIMD block
-  inline int internalSiteMap(const int x[]) const{
+  inline int SIMDmap(const int x[]) const{
     return (x[0] / logical_dim[0]) + simd_dims[0] * (
 						 (x[1] / logical_dim[1]) + simd_dims[1]*(
 										     (x[2] / logical_dim[2]) + simd_dims[2]*(
 															 (x[3] / logical_dim[3]))));
   }
-  
+  //Returns an offset from the root site coordinate returned by siteUnmap for the site packed into SIMD index idx
+  inline void SIMDunmap(int idx, int x[]) const{
+    int rem = idx;
+    x[0] = (idx % simd_dims[0]) * logical_dim[0]; rem /= simd_dims[0];
+    x[1] = (idx % simd_dims[1]) * logical_dim[1]; rem /= simd_dims[1];
+    x[2] = (idx % simd_dims[2]) * logical_dim[1]; rem /= simd_dims[1];	
+    x[3] = (idx % simd_dims[3]) * logical_dim[3];
+  }
+    
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
 
   inline void fsiteUnmap(int fsite, int x[], int &f){
@@ -398,8 +433,23 @@ public:
       logical_dim[i] = GJP.NodeSites(i)/simd_dims[i];
       logical_vol *= logical_dim[i];
     }
+    nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2]*simd_dims[3];
   }
   const static int EuclideanDimension = 4;
+
+  //Iteratively divide the dimensions over the SIMD lanes up to a chosen maximum dimension (so we can exclude the time dimension for example, by setting max_dim_idx = 2)
+  inline static void SIMDdefaultLayout(int simd_dims[4], const int nsimd, const int max_dim_idx = 3){
+    simd_dims[0] = 1; simd_dims[1] = 1; simd_dims[2] = 1; simd_dims[3] = 1;
+    assert(nsimd % 2 == 0);
+    int rem = nsimd;
+    int i=0;
+    while(rem != 1){
+      simd_dims[i] *= 2;
+      rem /= 2;
+      i = (i+1) % (max_dim_idx+1);
+    }
+    assert(simd_dims[0]*simd_dims[1]*simd_dims[2]*simd_dims[3] == nsimd);
+  }  
 };
 
 

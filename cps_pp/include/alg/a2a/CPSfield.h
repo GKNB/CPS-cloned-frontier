@@ -74,7 +74,7 @@ public:
     return *this;
   }
 
-  //Set each float to a uniform random number in the specified range.
+  //Set each element to a uniform random number in the specified range.
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);
 
