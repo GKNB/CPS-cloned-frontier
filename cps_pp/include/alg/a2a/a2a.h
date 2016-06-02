@@ -359,7 +359,7 @@ public:
     mf_Complex const* lp[2] = { zero_hint[0] ? (mf_Complex const*)&zerosc[0] : f0_ptr,
 				 zero_hint[1] ? (mf_Complex const*)&zerosc[0] : f0_ptr + flav_offset };
 
-    return SCFvectorPtr<mf_Float>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
+    return SCFvectorPtr<mf_Complex>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
 
   inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
