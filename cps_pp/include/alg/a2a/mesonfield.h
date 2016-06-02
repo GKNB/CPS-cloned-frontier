@@ -40,6 +40,7 @@ public:
   typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
   typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
 
+  typedef std::complex<mf_Float> mf_Complex;
 private:
   mf_Float* mf;
   int nmodes_l, nmodes_r;
@@ -52,7 +53,7 @@ private:
 
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
 
-  inline std::complex<mf_Float> & operator()(const int &i, const int &j){
+  inline mf_Complex & operator()(const int &i, const int &j){
     mf_Float* p = mf + 2*( j + nmodes_r*i ); //right mode index changes most quickly
     return reinterpret_cast<std::complex<mf_Float>&>(*p);
   }
@@ -92,7 +93,7 @@ public:
   }
 
   //Just setup memory (setup is automatically called when 'compute' is called, so this is not necessary. However if you disable the setup at compute time you should setup the memory beforehand)
-  A2AmesonField(const A2AfieldL<mf_Float> &l, const A2AfieldR<mf_Float> &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
+  A2AmesonField(const A2AfieldL<mf_Complex> &l, const A2AfieldR<mf_Complex> &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
     setup(l,r,-1,-1);
   }
 
@@ -152,7 +153,7 @@ public:
   inline const int size() const{ return fsize; }
 
   //Access elements with compressed mode index
-  inline const std::complex<mf_Float> & operator()(const int &i, const int &j) const{
+  inline const mf_Complex & operator()(const int &i, const int &j) const{
     mf_Float const* p = mf + 2*( j + nmodes_r*i );
     return reinterpret_cast<std::complex<mf_Float> const&>(*p);
   }
@@ -161,7 +162,7 @@ public:
   inline const int & getColTimeslice() const{ return tr; }
   
   //A slow implementation to access elements from full unpacked indices
-  inline const std::complex<mf_Float> & elem(const int &full_i, const int &full_j) const{
+  inline const mf_Complex & elem(const int full_i, const int full_j) const{
     static std::complex<mf_Float> zero(0.0,0.0);
 
     int nll = lindexdilution.getNl();
@@ -194,11 +195,11 @@ public:
   //M(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice
   //do_setup allows you to disable the reassignment of the memory (it will still reset to zero). Use wisely!
   template<typename InnerProduct>
-  void compute(const A2AfieldL<mf_Float> &l, const InnerProduct &M, const A2AfieldR<mf_Float> &r,const int &t, bool do_setup = true);
+  void compute(const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r,const int &t, bool do_setup = true);
 
   //This version is more efficient on multi-nodes
   template<typename InnerProduct, typename Allocator>
-  static void compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Float> &l, const InnerProduct &M, const A2AfieldR<mf_Float> &r, bool do_setup = true);
+  static void compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup = true);
 
   inline const int &getNrows() const{ return nmodes_l; }
   inline const int &getNcols() const{ return nmodes_r; }
@@ -255,7 +256,7 @@ template<typename mf_Float,
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Float> &l,  const A2AmesonField<mf_Float,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Float> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l,  const A2AmesonField<mf_Float,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
 
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
@@ -264,7 +265,7 @@ template<typename mf_Float,
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Float> &l, const rA2Afield<mf_Float> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
 
 
 

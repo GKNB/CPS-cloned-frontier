@@ -8,6 +8,9 @@
 #include<alg/a2a/CPSfield_policies.h>
 CPS_START_NAMESPACE 
 
+typedef std::complex<float> ComplexF;
+typedef std::complex<double> ComplexD;
+
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfield: public DimensionPolicy, public FlavorPolicy, public AllocPolicy{
@@ -148,8 +151,8 @@ public:
 
 
 
-template< typename mf_Float, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion: public CPSfield<std::complex<mf_Float>,12,DimensionPolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion: public CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>{
 protected:
   void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat);
 
@@ -161,11 +164,11 @@ protected:
   void apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]);
 
 public:
-  typedef typename CPSfield<std::complex<mf_Float>,12,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+  typedef typename CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
   
-  CPSfermion(): CPSfield<std::complex<mf_Float>,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
-  CPSfermion(const InputParamType &params): CPSfield<std::complex<mf_Float>,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
-  CPSfermion(const CPSfermion<mf_Float,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<std::complex<mf_Float>,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion(): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
+  CPSfermion(const InputParamType &params): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
+  CPSfermion(const CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 };
 
 template<typename FlavorPolicy>
@@ -184,15 +187,15 @@ struct GaugeFix3DInfo<FixedFlavorPolicy<1> >{
   typedef std::pair<int,int> InfoType; //time, flavor (latter ignored if no GPBC)
 };
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion3D: public CPSfermion<mf_Float,SpatialPolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion3D: public CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>{
   void apply_phase_site_op(const int &sf,const int p[],double punits[]);
 
-  template< typename mf_Float2, typename FlavorPolicy2>
+  template< typename mf_Complex2, typename FlavorPolicy2>
   friend struct _ferm3d_gfix_impl;
 public:
-  CPSfermion3D(): CPSfermion<mf_Float,SpatialPolicy,FlavorPolicy>(){}
-  CPSfermion3D(const CPSfermion3D<mf_Float> &r): CPSfermion<mf_Float,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion3D(): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy>(){}
+  CPSfermion3D(const CPSfermion3D<mf_Complex> &r): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field
   //Because this is a 3d field we must also provide a time coordinate.
@@ -205,19 +208,19 @@ public:
   void applyPhase(const int p[], const bool &parallel);
 
   //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion3D<mf_Float,FlavorPolicy,AllocPolicy> &r);
+  void fft(const CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy> &r);
 
   //Set this field to be the FFT of itself
   void fft(){ fft(*this); }
 };
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion4D: public CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion4D: public CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>{
   void gauge_fix_site_op(int fi, Lattice &lat);
   void apply_phase_site_op(int sf,const int p[],double punits[]);
 public:
-  CPSfermion4D(): CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion4D(const CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion4D(): CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>(){}
+  CPSfermion4D(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field. 
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
@@ -229,7 +232,7 @@ public:
   void applyPhase(const int p[], const bool &parallel);
 
   //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy> &r);
+  void fft(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r);
 
   //Set this field to be the FFT of itself
   void fft(){ fft(*this); }
@@ -238,11 +241,11 @@ public:
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
 };
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5D: public CPSfield<std::complex<mf_Float>,12,FiveDpolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion5D: public CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>{
 public:
-  CPSfermion5D(): CPSfield<std::complex<mf_Float>,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPSfermion5D(const CPSfermion5D<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfield<std::complex<mf_Float>,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion5D(): CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPSfermion5D(const CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(r){}
   
 #ifdef USE_BFM
 private:
@@ -253,6 +256,8 @@ private:
     const int sc_incr = dwf.nsimd() * 2; //stride between spin-color indices
     FloatExt * bb = (FloatExt*)bfm_field;
 
+    typedef typename mf_Complex::value_type mf_Float;
+    
 #pragma omp parallel for
     for(int fs=0;fs<this->fsites;fs++){
       int x[5], f; this->fsiteUnmap(fs);
@@ -281,7 +286,7 @@ public:
   }
   template<typename FloatExt>
   void exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const{
-    const_cast<CPSfermion5D<mf_Float,FlavorPolicy,AllocPolicy>*>(this)->impexFermion<FloatExt>(bfm_field, cb, 0, dwf);
+    const_cast<CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>*>(this)->impexFermion<FloatExt>(bfm_field, cb, 0, dwf);
   }
 #endif
 
@@ -292,12 +297,12 @@ public:
 };
 
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPScomplex4D: public CPSfield<std::complex<mf_Float>,1,FourDpolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPScomplex4D: public CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>{
 
 public:
-  CPScomplex4D(): CPSfield<std::complex<mf_Float>,1,FourDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPScomplex4D(const CPScomplex4D<mf_Float> &r): CPSfield<std::complex<mf_Float>,1,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPScomplex4D(): CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPScomplex4D(const CPScomplex4D<mf_Complex> &r): CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Make a random complex scalar field of type
   void setRandom(const RandomType &type);
@@ -307,27 +312,27 @@ public:
 };
 
 //3d complex number field
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPScomplexSpatial: public CPSfield<std::complex<mf_Float>,1,SpatialPolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>{
 
 public:
-  CPScomplexSpatial(): CPSfield<std::complex<mf_Float>,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPScomplexSpatial(const CPScomplexSpatial<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfield<std::complex<mf_Float>,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPScomplexSpatial(): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPScomplexSpatial(const CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
 };
 
 //Lattice-spanning 'global' 3d complex field
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSglobalComplexSpatial: public CPSfield<std::complex<mf_Float>,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>{
 
 public:
-  CPSglobalComplexSpatial(): CPSfield<std::complex<mf_Float>,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPSglobalComplexSpatial(const CPSglobalComplexSpatial<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfield<std::complex<mf_Float>,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSglobalComplexSpatial(): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPSglobalComplexSpatial(const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
   
   //Perform the FFT
   void fft();
 
   //Scatter to a local field
-  void scatter(CPScomplexSpatial<mf_Float,FlavorPolicy,AllocPolicy> &to) const;
+  void scatter(CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &to) const;
 };
 
 
@@ -351,42 +356,42 @@ public:
   void fft();
 };
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>{
   std::string cname;
 public:
-  CPSfermion4DglobalInOneDir(const int &dir): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Float,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion4DglobalInOneDir(const int &dir): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>{
   std::string cname;
 public:
-  CPSfermion3DglobalInOneDir(const int &dir): cname("CPSfermion3DglobalInOneDir"), CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Float,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<std::complex<mf_Float>,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion3DglobalInOneDir(const int &dir): cname("CPSfermion3DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
 
 
 ////////Checkerboarded types/////////////
-template< typename mf_Float, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5Dprec: public CPSfield<std::complex<mf_Float>,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion5Dprec: public CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>{
 public:
-  CPSfermion5Dprec(): CPSfield<std::complex<mf_Float>,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPSfermion5Dprec(const CPSfermion5Dprec<mf_Float,CBpolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<std::complex<mf_Float>,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion5Dprec(): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPSfermion5Dprec(const CPSfermion5Dprec<mf_Complex,CBpolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(r){}
 };
 
 
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Float,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
-  CPSfermion5Dcb4Deven(): CPSfermion5Dprec<mf_Float,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion5Dcb4Deven(const CPSfermion5Dcb4Deven<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Float,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion5Dcb4Deven(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(){}
+  CPSfermion5Dcb4Deven(const CPSfermion5Dcb4Deven<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(r){}
 };
-template< typename mf_Float, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Float,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
-  CPSfermion5Dcb4Dodd(): CPSfermion5Dprec<mf_Float,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion5Dcb4Dodd(const CPSfermion5Dcb4Dodd<mf_Float,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Float,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion5Dcb4Dodd(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(){}
+  CPSfermion5Dcb4Dodd(const CPSfermion5Dcb4Dodd<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(r){}
 };
 
 

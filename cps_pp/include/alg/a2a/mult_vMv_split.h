@@ -17,12 +17,13 @@ class mult_vMv_split{
   //ir is the row index of M, 
   //jl is the column index of M and 
   //jr is the index of r
-
-  typedef typename lA2AfieldL<mf_Float>::DilutionType iLeftDilutionType;
+  typedef std::complex<mf_Float> mf_Complex;
+  
+  typedef typename lA2AfieldL<mf_Complex>::DilutionType iLeftDilutionType;
   typedef typename A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
   
   typedef typename A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
-  typedef typename rA2AfieldR<mf_Float>::DilutionType jRightDilutionType;
+  typedef typename rA2AfieldR<mf_Complex>::DilutionType jRightDilutionType;
 
   const static int nscf = 2*3*4;
 
@@ -50,9 +51,9 @@ class mult_vMv_split{
   int nrows_used; //number of packed rows in the output
   std::vector<int> i_packed_unmap_all[nscf];
 
-  const lA2AfieldL<mf_Float> *lptr;
+  const lA2AfieldL<mf_Complex> *lptr;
   const A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL> *Mptr;
-  const rA2AfieldR<mf_Float> *rptr;
+  const rA2AfieldR<mf_Complex> *rptr;
   int top_glb;
 
   int Mrows, Mcols;
@@ -95,7 +96,7 @@ class mult_vMv_split{
 
 	rreord[scf].resize(nj_this);
 	for(int j = 0; j < nj_this; j++){
-	  const std::complex<mf_Float> &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+	  const mf_Complex &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
 	  rreord[scf][j] = conj_r ? std::conj(rval_tmp) : rval_tmp;
 	}
 
@@ -128,9 +129,9 @@ class mult_vMv_split{
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
 
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+      pokeSubmatrix<mf_Complex>( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+      pokeSubmatrix<mf_Complex>( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+      pokeSubmatrix<mf_Complex>( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
 #else
       typename gw::matrix_complex* M_packed = mf_reord[scf]; //scope for reuse here
 #endif
@@ -192,7 +193,7 @@ class mult_vMv_split{
 
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
   //M_packed is the Mesonfield in packed format.
-  void multiply_M_r_singlescf(std::vector<std::vector<std::complex<mf_Float> > >* Mr, const std::vector<std::vector<std::complex<mf_Float> > >* rreord, 
+  void multiply_M_r_singlescf(std::vector<std::vector<mf_Complex> >* Mr, const std::vector<std::vector<mf_Complex> >* rreord, 
 			      typename gw::matrix_complex* M_packed,
 			      const int off, const int work, const int scf) const{
     typename gw::vector_complex* Mr_packed = gw::vector_complex_alloc(nrows_used);
@@ -261,8 +262,8 @@ class mult_vMv_split{
 
 
   void site_multiply_l_Mr(SpinColorFlavorMatrix &out, 
-			  const std::vector<std::vector<std::complex<mf_Float> > > &lreord,
-			  const std::vector<std::vector<std::complex<mf_Float> > > &Mr,
+			  const std::vector<std::vector<mf_Complex> > &lreord,
+			  const std::vector<std::vector<mf_Complex> > &Mr,
 			  typename gw::vector_complex* Mr_gsl_buffer) const{
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
@@ -354,14 +355,14 @@ public:
 
   //This should be called outside the site loop (and outside any parallel region)
   //top_glb is the time in global lattice coordinates.
-  void setup(const lA2AfieldL<mf_Float> &l,  const A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Float> &r, const int &_top_glb){
+  void setup(const lA2AfieldL<mf_Complex> &l,  const A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Complex> &r, const int &_top_glb){
     //Precompute index mappings
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
     setup(l,M,r,_top_glb,i_ind,j_ind);
   }
 
-  void setup(const lA2AfieldL<mf_Float> &l,  const A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Float> &r, const int &_top_glb, 
+  void setup(const lA2AfieldL<mf_Complex> &l,  const A2AmesonField<mf_Float,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Complex> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
     lptr = &l; rptr = &r; Mptr = &M; top_glb = _top_glb;
 
@@ -446,16 +447,16 @@ public:
       int nh_col = nj_this - nl_col;
       if(scf == 0){
 	mf_reord_lo_lo = (mf_Float*)malloc(2*nl_row*nl_col*sizeof(mf_Float));
-	getSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)mf_reord_lo_lo, (const std::complex<mf_Float>*)mf_scf_reord->data, nrows_used, nj_this, 0, 0, nl_row, nl_col);
+	getSubmatrix<mf_Complex >( (mf_Complex*)mf_reord_lo_lo, (const mf_Complex*)mf_scf_reord->data, nrows_used, nj_this, 0, 0, nl_row, nl_col);
       }
       mf_reord_lo_hi[scf] = (mf_Float*)malloc(2*nl_row*nh_col*sizeof(mf_Float));
-      getSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)mf_reord_lo_hi[scf], (const std::complex<mf_Float>*)mf_scf_reord->data, nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+      getSubmatrix<mf_Complex >( (mf_Complex*)mf_reord_lo_hi[scf], (const mf_Complex*)mf_scf_reord->data, nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
 
       mf_reord_hi_lo[scf] = (mf_Float*)malloc(2*nh_row*nl_col*sizeof(mf_Float));
-      getSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)mf_reord_hi_lo[scf], (const std::complex<mf_Float>*)mf_scf_reord->data, nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+      getSubmatrix<mf_Complex >( (mf_Complex*)mf_reord_hi_lo[scf], (const mf_Complex*)mf_scf_reord->data, nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
 
       mf_reord_hi_hi[scf] = (mf_Float*)malloc(2*nh_row*nh_col*sizeof(mf_Float));
-      getSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)mf_reord_hi_hi[scf], (const std::complex<mf_Float>*)mf_scf_reord->data, nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+      getSubmatrix<mf_Complex >( (mf_Complex*)mf_reord_hi_hi[scf], (const mf_Complex*)mf_scf_reord->data, nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
 
       gw::matrix_complex_free(mf_scf_reord);
 #else
@@ -482,13 +483,13 @@ public:
 
     out.resize(sites_3d);
 
-    std::vector< std::vector<std::vector<std::complex<mf_Float> > > > lreord(sites_3d); //[3d site][scf][reordered mode]
-    std::vector< std::vector<std::vector<std::complex<mf_Float> > > > rreord(sites_3d);
+    std::vector< std::vector<std::vector<mf_Complex> > > lreord(sites_3d); //[3d site][scf][reordered mode]
+    std::vector< std::vector<std::vector<mf_Complex> > > rreord(sites_3d);
 
     assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>) ); 
     typedef gsl_wrapper<mf_Float> gw;
     
-    std::vector<  std::vector<std::vector<std::complex<mf_Float> > > > Mr(sites_3d); //[3d site][scf][M row]
+    std::vector<  std::vector<std::vector<mf_Complex> > > Mr(sites_3d); //[3d site][scf][M row]
 
     //Run everything in parallel environment to avoid thread creation overheads
     int work[omp_get_max_threads()], off[omp_get_max_threads()];
@@ -524,7 +525,7 @@ public:
     for(int scf=0;scf<nscf;scf++) if(nj[scf] > nj_max) nj_max = nj[scf];
 
     typename gw::matrix_complex* M_packed = gw::matrix_complex_alloc(nrows_used,nj_max);
-    pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col,true);
+    pokeSubmatrix<mf_Complex >( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col,true);
 #endif
 
     for(int scf=0; scf<nscf; scf++){
@@ -534,9 +535,9 @@ public:
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
       
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col, true);
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col,true);
-      pokeSubmatrix<std::complex<mf_Float> >( (std::complex<mf_Float>*)M_packed->data, (const std::complex<mf_Float>*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col, true);
+      pokeSubmatrix<mf_Complex >( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col, true);
+      pokeSubmatrix<mf_Complex >( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col,true);
+      pokeSubmatrix<mf_Complex >( (mf_Complex*)M_packed->data, (const mf_Complex*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col, true);
 #else
       typename gw::matrix_complex* M_packed = mf_reord[scf]; //scope for reuse here
 #endif
@@ -578,13 +579,13 @@ public:
     int top = top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
-    std::vector<std::vector<std::complex<mf_Float> > > lreord; //[scf][reordered mode]
-    std::vector<std::vector<std::complex<mf_Float> > > rreord;
+    std::vector<std::vector<mf_Complex > > lreord; //[scf][reordered mode]
+    std::vector<std::vector<mf_Complex > > rreord;
 
-    assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>) ); 
+    assert(sizeof(typename gw::complex) == sizeof(mf_Complex) ); 
     typedef gsl_wrapper<mf_Float> gw;
     
-    std::vector<std::vector<std::complex<mf_Float> > > Mr(nscf); //[scf][M row]
+    std::vector<std::vector<mf_Complex > > Mr(nscf); //[scf][M row]
     for(int scf=0;scf<nscf;scf++){
       Mr[scf].resize(Mrows);
       for(int i=0;i<Mrows;i++)

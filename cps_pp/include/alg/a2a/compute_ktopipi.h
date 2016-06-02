@@ -95,7 +95,7 @@ public:
 
   //ls_WW meson fields
   template< typename Allocator >
-  static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww, const A2AvectorW<mf_Float> &W, const A2AvectorW<mf_Float> &W_s, const int kaon_rad, Lattice &lat){
+  static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww, const A2AvectorW<mf_Complex> &W, const A2AvectorW<mf_Complex> &W_s, const int kaon_rad, Lattice &lat){
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
     double time = -dclock();
 
@@ -106,10 +106,10 @@ public:
     int p[3];
     for(int i=0;i<3;i++) p[i] = (GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0);
     
-    A2AvectorWfftw<mf_Float> fftw_Wl_p(W.getArgs());
+    A2AvectorWfftw<mf_Complex> fftw_Wl_p(W.getArgs());
     fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
 
-    A2AvectorWfftw<mf_Float> fftw_Ws_p(W_s.getArgs());
+    A2AvectorWfftw<mf_Complex> fftw_Ws_p(W_s.getArgs());
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
 
     A2AflavorProjectedExpSource fpexp(kaon_rad, p);
@@ -148,8 +148,8 @@ private:
 				   const std::vector<std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
 				   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
 				   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
-				   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-				   const A2AvectorW<mf_Float> & wL,
+				   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+				   const A2AvectorW<mf_Complex> & wL,
 				   const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
 				   const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
 				   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
@@ -173,14 +173,14 @@ public:
   static void type1(KtoPiPiGparityResultsContainer result[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH);
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH);
 
   static void type1(KtoPiPiGparityResultsContainer &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     std::vector<int> tt(1,tsep_k_pi);
     return type1(&result,tt, tsep_pion,tstep,xyzStep,p_pi_1,
 		 mf_kaon, mf_pions,
@@ -190,8 +190,8 @@ public:
   static void type1(std::vector<KtoPiPiGparityResultsContainer> &result,
 		    const std::vector<int> tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     result.resize(tsep_k_pi.size());
     return type1(&result[0],tsep_k_pi, tsep_pion,tstep,xyzStep,p_pi_1,
 		 mf_kaon, mf_pions,
@@ -218,7 +218,7 @@ private:
 				   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
 				   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
-				   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, const A2AvectorW<mf_Float> & wL,
+				   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, const A2AvectorW<mf_Complex> & wL,
 				   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 				   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 				   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
@@ -238,14 +238,14 @@ public:
   static void type2(KtoPiPiGparityResultsContainer result[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH);
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH);
 
   static void type2(KtoPiPiGparityResultsContainer &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(1, p_pi_1); 
     return type2(&result,tkp,tsep_pion,tstep,p,
@@ -257,8 +257,8 @@ public:
   static void type2(KtoPiPiGparityResultsContainer &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -272,8 +272,8 @@ public:
   static void type2(std::vector<KtoPiPiGparityResultsContainer> &result,
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     result.resize(tsep_k_pi.size());
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -302,7 +302,7 @@ private:
 				       const int Lt, const int tpi_sampled, const int ntsep_k_pi);
   static void type3_mult_vMv_setup(mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
 				   mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
-				   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH,
+				   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH,
 				   const std::vector<std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
 				   const std::vector<std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
 				   const int top_loc, const int t_pi1_idx, const int tkp);
@@ -319,14 +319,14 @@ public:
   static void type3(KtoPiPiGparityResultsContainer result[], KtoPiPiGparityMixDiagResultsContainer mix3[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH);
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH);
 
   static void type3(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(1, p_pi_1); 
     return type3(&result,&mix3,tkp,tsep_pion,tstep,p,
@@ -338,8 +338,8 @@ public:
   static void type3(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -353,8 +353,8 @@ public:
   static void type3(std::vector<KtoPiPiGparityResultsContainer> &result, std::vector<KtoPiPiGparityMixDiagResultsContainer> &mix3,
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
     result.resize(tsep_k_pi.size()); mix3.resize(tsep_k_pi.size());
     std::vector<ThreeMomentum> p(p_pi_1_all.nMom());
     for(int i=0;i<p_pi_1_all.nMom();i++)
@@ -379,7 +379,7 @@ private:
 
   static void type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 				   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-				   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH,
+				   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
   static void type4_precompute_part1(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
@@ -390,8 +390,8 @@ public:
   static void type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
 		    const int &tstep,
 		    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-		    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH);
+		    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH);
 
 
 

@@ -34,8 +34,8 @@ class ComputeKaon{
   //Compute the two-point function using a hydrogen-wavefunction source of radius 'rad'
   //result is indexed by (tsrc, tsep)  where tsep is the source-sink separation
   static void compute(fMatrix<mf_Float> &into,
-		      const A2AvectorW<mf_Float> &W, const A2AvectorV<mf_Float> &V, 
-		      const A2AvectorW<mf_Float> &W_s, const A2AvectorV<mf_Float> &V_s,
+		      const A2AvectorW<mf_Complex> &W, const A2AvectorV<mf_Complex> &V, 
+		      const A2AvectorW<mf_Complex> &W_s, const A2AvectorV<mf_Complex> &V_s,
 		      const Float &rad, Lattice &lattice){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
@@ -51,11 +51,11 @@ class ComputeKaon{
     std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > mf_ls(Lt);
     std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > mf_sl(Lt);
 
-    A2AvectorVfftw<mf_Float> fftw_V(V.getArgs());
-    A2AvectorWfftw<mf_Float> fftw_W(W.getArgs());
+    A2AvectorVfftw<mf_Complex> fftw_V(V.getArgs());
+    A2AvectorWfftw<mf_Complex> fftw_W(W.getArgs());
 
-    A2AvectorVfftw<mf_Float> fftw_V_s(V_s.getArgs());
-    A2AvectorWfftw<mf_Float> fftw_W_s(W_s.getArgs());
+    A2AvectorVfftw<mf_Complex> fftw_V_s(V_s.getArgs());
+    A2AvectorWfftw<mf_Complex> fftw_W_s(W_s.getArgs());
 
     
     if(!GJP.Gparity()){

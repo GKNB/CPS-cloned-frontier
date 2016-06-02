@@ -3,8 +3,7 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
-inline void compareFermion(const CPSfermion5D<double> &A, const CPSfermion5D<double> &B, const std::string &descr = "Ferms", const double tol = 1e-9){
-  assert(sizeof(std::complex<double>) == 2*sizeof(double));
+inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<ComplexD> &B, const std::string &descr = "Ferms", const double tol = 1e-9){
   double fail = 0.;
   for(int i=0;i<GJP.VolNodeSites()*GJP.SnodeSites();i++){
     int x[5]; int rem = i;
@@ -38,7 +37,7 @@ inline void compareFermion(const CPSfermion5D<double> &A, const CPSfermion5D<dou
 }
 
 #ifdef USE_BFM
-inline void exportBFMcb(CPSfermion5D<double> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
+inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
   Fermion_t zero_a = dwf.allocFermion();
 #pragma omp parallel
   {   
@@ -63,7 +62,7 @@ inline void exportBFMcb(CPSfermion5D<double> &into, Fermion_t from, bfm_evo<doub
 #endif
 
 #ifdef USE_GRID
-inline void exportGridcb(CPSfermion5D<double> &into, LATTICE_FERMION &from, FGRID &latg){
+inline void exportGridcb(CPSfermion5D<ComplexD> &into, LATTICE_FERMION &from, FGRID &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   LATTICE_FERMION tmp_g(FGrid);
   tmp_g = Grid::zero;
@@ -140,14 +139,14 @@ public:
 
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   EvecInterfaceBFM ev(eig,dwf,lat,singleprec_evecs);
   return computeVWlow(V,lat,ev,dwf.mass);
 }
 
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg){
     //NOT IMPLEMENTED YET
@@ -183,14 +182,14 @@ public:
   }
 };
 
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
   EvecInterfaceGrid ev(evec,eval);
   return computeVWlow(V,lat,ev,mass);
 }
 
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
   EvecInterfaceGrid ev(evec,eval);
   return computeVWhigh(V,lat,ev,mass,residual,max_iter);
 }
@@ -199,10 +198,10 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
 
 
 
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
-  
+  typedef typename mf_Complex::value_type mf_Float;
   const char *fname = "computeVQlow(....)";
 
   int ngp = 0;
@@ -215,7 +214,6 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
 #endif
 
   assert(lat.Fclass() == FGRID_CLASS_NAME);
-  assert(sizeof(std::complex<mf_Float>) == 2*sizeof(mf_Float));
   FGRID &latg = dynamic_cast<FGRID&>(lat);
 
   //Grids and gauge field
@@ -234,10 +232,10 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
   const int gparity = GJP.Gparity();
 
   //Double precision temp fields
-  CPSfermion4D<Float> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
-  CPSfermion5D<Float> bfield;  Vector* b = (Vector*)bfield.ptr();
+  CPSfermion4D<ComplexD> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
+  CPSfermion5D<ComplexD> bfield;  Vector* b = (Vector*)bfield.ptr();
 
-  int afield_fsize = afield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  int afield_fsize = afield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
   
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
@@ -406,8 +404,9 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 //singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
+  typedef typename mf_Complex::value_type mf_Float;
   const char *fname = "computeVWhigh(....)";
 
   int ngp = 0;
@@ -450,10 +449,10 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion5D<Float> afield,bfield;
-  CPSfermion4D<Float> v4dfield;
+  CPSfermion5D<ComplexD> afield,bfield;
+  CPSfermion4D<ComplexD> v4dfield;
   
-  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
   
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 

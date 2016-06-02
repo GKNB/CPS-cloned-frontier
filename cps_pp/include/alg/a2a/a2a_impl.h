@@ -2,10 +2,10 @@
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
-template< typename mf_Float>
-void A2AvectorVfftw<mf_Float>::fft(const A2AvectorV<mf_Float> &from, fieldOperation<mf_Float>* mode_preop){
+template< typename mf_Complex>
+void A2AvectorVfftw<mf_Complex>::fft(const A2AvectorV<mf_Complex> &from, fieldOperation<mf_Complex>* mode_preop){
   if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
-  CPSfermion4D<mf_Float> tmp;
+  CPSfermion4D<mf_Complex> tmp;
   
   Float preop_time = 0;
   Float gather_time = 0;
@@ -13,7 +13,7 @@ void A2AvectorVfftw<mf_Float>::fft(const A2AvectorV<mf_Float> &from, fieldOperat
   Float scatter_time = 0;
 
   for(int mode=0;mode<nv;mode++){
-    CPSfermion4D<mf_Float> const* init_gather_from = &from.getMode(mode);
+    CPSfermion4D<mf_Complex> const* init_gather_from = &from.getMode(mode);
     if(mode_preop != NULL){
       Float dtime = dclock();
       (*mode_preop)(from.getMode(mode),tmp);
@@ -24,7 +24,7 @@ void A2AvectorVfftw<mf_Float>::fft(const A2AvectorV<mf_Float> &from, fieldOperat
       Float dtime = dclock();
 
       //Gather
-      CPSfermion4DglobalInOneDir<mf_Float> tmp_dbl(mu);
+      CPSfermion4DglobalInOneDir<mf_Complex> tmp_dbl(mu);
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
       gather_time += dclock()-dtime;
 
@@ -48,19 +48,19 @@ void A2AvectorVfftw<mf_Float>::fft(const A2AvectorV<mf_Float> &from, fieldOperat
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
-template< typename mf_Float>
-void A2AvectorWfftw<mf_Float>::fft(const A2AvectorW<mf_Float> &from, fieldOperation<mf_Float>* mode_preop){
-  CPSfermion4D<mf_Float> tmp, tmp2;
+template< typename mf_Complex>
+void A2AvectorWfftw<mf_Complex>::fft(const A2AvectorW<mf_Complex> &from, fieldOperation<mf_Complex>* mode_preop){
+  CPSfermion4D<mf_Complex> tmp, tmp2;
 
   //Do wl
   for(int mode=0;mode<nl;mode++){
-    CPSfermion4D<mf_Float> const* init_gather_from = &from.getWl(mode);
+    CPSfermion4D<mf_Complex> const* init_gather_from = &from.getWl(mode);
     if(mode_preop != NULL){
       (*mode_preop)(from.getWl(mode),tmp);
       init_gather_from = &tmp;
     }
     for(int mu=0;mu<3;mu++){
-      CPSfermion4DglobalInOneDir<mf_Float> tmp_dbl(mu);
+      CPSfermion4DglobalInOneDir<mf_Complex> tmp_dbl(mu);
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
       tmp_dbl.fft();
       tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
@@ -70,13 +70,13 @@ void A2AvectorWfftw<mf_Float>::fft(const A2AvectorW<mf_Float> &from, fieldOperat
   for(int hit=0;hit<nhits;hit++){
     for(int sc=0;sc<12;sc++){ //spin/color dilution index
       from.getSpinColorDilutedSource(tmp2,hit,sc);
-      CPSfermion4D<mf_Float>* init_gather_from = &tmp2;
+      CPSfermion4D<mf_Complex>* init_gather_from = &tmp2;
       if(mode_preop != NULL){
 	(*mode_preop)(tmp2,tmp);
 	init_gather_from = &tmp;
       }    
       for(int mu=0;mu<3;mu++){
-	CPSfermion4DglobalInOneDir<mf_Float> tmp_dbl(mu);
+	CPSfermion4DglobalInOneDir<mf_Complex> tmp_dbl(mu);
 	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
 	tmp_dbl.fft();
 	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );
@@ -88,8 +88,8 @@ void A2AvectorWfftw<mf_Float>::fft(const A2AvectorW<mf_Float> &from, fieldOperat
 
 //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
 //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::setWhRandom(const RandomType &type){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::setWhRandom(const RandomType &type){
   LRG.SetInterval(1, 0);
   int sites = wh[0].nsites(), flavors = wh[0].nflavors();
 
@@ -99,8 +99,8 @@ void A2AvectorW<mf_Float>::setWhRandom(const RandomType &type){
 
     LRG.AssignGenerator(st,flav);
     for(int j = 0; j < nhits; ++j) {
-      std::complex<mf_Float>* p = wh[j].site_ptr(st,flav);
-      RandomComplex<std::complex<mf_Float> >::rand(p,type,FOUR_D);
+      mf_Complex* p = wh[j].site_ptr(st,flav);
+      RandomComplex<mf_Complex>::rand(p,type,FOUR_D);
     }
   }
 }
@@ -108,10 +108,11 @@ void A2AvectorW<mf_Float>::setWhRandom(const RandomType &type){
 //Get the diluted source with index id.
 //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
 //For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
-template< typename mf_Float>
-template<typename TargetFloat>
-void A2AvectorW<mf_Float>::getDilutedSource(CPSfermion4D<TargetFloat> &into, const int dil_id) const{
-  assert(sizeof(std::complex<TargetFloat>) == 2*sizeof(TargetFloat) && sizeof(std::complex<mf_Float>) == 2*sizeof(mf_Float));
+template< typename mf_Complex>
+template<typename TargetComplex>
+void A2AvectorW<mf_Complex>::getDilutedSource(CPSfermion4D<TargetComplex> &into, const int dil_id) const{
+  typedef typename mf_Complex::value_type mf_Float;
+  typedef typename TargetComplex::value_type TargetFloat;
   const char* fname = "getDilutedSource(...)";
   int hit, tblock, spin_color, flavor;
   StandardIndexDilution stdidx(getArgs());  
@@ -148,22 +149,22 @@ void A2AvectorW<mf_Float>::getDilutedSource(CPSfermion4D<TargetFloat> &into, con
 
 //When gauge fixing prior to taking the FFT it is necessary to uncompact the wh field in the spin-color index, as these indices are acted upon by the gauge fixing
 //(I suppose technically only the color indices need uncompacting; this might be considered as a future improvement)
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::getSpinColorDilutedSource(CPSfermion4D<mf_Float> &into, const int hit, const int sc_id) const{
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::getSpinColorDilutedSource(CPSfermion4D<mf_Complex> &into, const int hit, const int sc_id) const{
   const char* fname = "getSpinColorDilutedSource(...)";
   
   into.zero();
 
 #pragma omp parallel for
   for(int i=0;i<wh[hit].nfsites();i++){ //same mapping, different site_size
-    std::complex<mf_Float> &into_site = *(into.fsite_ptr(i) + sc_id);
-    const std::complex<mf_Float> &from_site = *(wh[hit].fsite_ptr(i));
+    mf_Complex &into_site = *(into.fsite_ptr(i) + sc_id);
+    const mf_Complex &from_site = *(wh[hit].fsite_ptr(i));
     into_site = from_site;
   }
 }
 
-template<typename mf_Float>
-void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W){
+template<typename mf_Complex>
+void randomizeVW(A2AvectorV<mf_Complex> &V, A2AvectorW<mf_Complex> &W){
   int nl = V.getNl();
   int nh = V.getNh(); //number of fully diluted high-mode indices
   int nhit = V.getNhits();
@@ -172,16 +173,16 @@ void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W){
   assert(nhit == W.getNhits());
   
 
-  std::vector<CPSfermion4D<mf_Float> > wl(nl);
+  std::vector<CPSfermion4D<mf_Complex> > wl(nl);
   for(int i=0;i<nl;i++) wl[i].setUniformRandom();
   
-  std::vector<CPSfermion4D<mf_Float> > vl(nl);
+  std::vector<CPSfermion4D<mf_Complex> > vl(nl);
   for(int i=0;i<nl;i++) vl[i].setUniformRandom();
   
-  std::vector<CPScomplex4D<mf_Float> > wh(nhit);
+  std::vector<CPScomplex4D<mf_Complex> > wh(nhit);
   for(int i=0;i<nhit;i++) wh[i].setUniformRandom();
   
-  std::vector<CPSfermion4D<mf_Float> > vh(nh);
+  std::vector<CPSfermion4D<mf_Complex> > vh(nh);
   for(int i=0;i<nh;i++) vh[i].setUniformRandom();
     
   for(int i=0;i<nl;i++){

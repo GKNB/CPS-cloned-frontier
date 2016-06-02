@@ -29,80 +29,79 @@
 
 CPS_START_NAMESPACE 
 
-template< typename mf_Float>
+template< typename mf_Complex>
 class A2AvectorVfftw;
 
-template< typename mf_Float>
+template< typename mf_Complex>
 class A2AvectorV: public StandardIndexDilution{
-  std::vector<CPSfermion4D<mf_Float> > v;
+  std::vector<CPSfermion4D<mf_Complex> > v;
   const std::string cname;
 
 public:
   typedef StandardIndexDilution DilutionType;
 
   A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorV"){
-    v.resize(nv,CPSfermion4D<mf_Float>());
+    v.resize(nv,CPSfermion4D<mf_Complex>());
 
     //When computing V and W we can re-use previous V solutions as guesses. Set default to zero here so we have zero guess when no 
     //previously computed solutions
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
 
-  inline CPSfermion4D<mf_Float> & getMode(const int i){ return v[i]; }
-  inline const CPSfermion4D<mf_Float> & getMode(const int i) const{ return v[i]; }
+  inline CPSfermion4D<mf_Complex> & getMode(const int i){ return v[i]; }
+  inline const CPSfermion4D<mf_Complex> & getMode(const int i) const{ return v[i]; }
   
 
   //Get a mode from the low mode part
-  CPSfermion4D<mf_Float> & getVl(const int il){ return v[il]; }
+  CPSfermion4D<mf_Complex> & getVl(const int il){ return v[il]; }
 
   //Get a mode from the high-mode part
-  CPSfermion4D<mf_Float> & getVh(const int ih){ return v[nl+ih]; }
+  CPSfermion4D<mf_Complex> & getVh(const int ih){ return v[nl+ih]; }
 
   //Generate the Fourier transformed V fields. This includes gauge fixing and applying the momentum twist
-  void computeVfftw(A2AvectorVfftw<mf_Float> &into);
+  void computeVfftw(A2AvectorVfftw<mf_Complex> &into);
 
   //Get a particular site/spin/color element of a given mode 
-  const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+  const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int x4d = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
     return  *(v[mode].site_ptr(x4d,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode. For V this does the same as the above
-  inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+  inline const mf_Complex & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return *(v[i].site_ptr(site,flavor)+spin_color);
   }
 
-  void importVl(const CPSfermion4D<mf_Float> &vv, const int il){
+  void importVl(const CPSfermion4D<mf_Complex> &vv, const int il){
     v[il] = vv;
   }
-  void importVh(const CPSfermion4D<mf_Float> &vv, const int ih){
+  void importVh(const CPSfermion4D<mf_Complex> &vv, const int ih){
     v[nl+ih] = vv;
   }
 
 };
 
 
-template< typename mf_Float>
+template< typename mf_Complex>
 class A2AvectorVfftw: public StandardIndexDilution{  
-  std::vector<CPSfermion4D<mf_Float> > v;
+  std::vector<CPSfermion4D<mf_Complex> > v;
   const std::string cname;
 
 public:
-  typedef std::complex<mf_Float> mf_Complex;
   typedef StandardIndexDilution DilutionType;
 
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
-    v.resize(nv,CPSfermion4D<mf_Float>());
+    v.resize(nv,CPSfermion4D<mf_Complex>());
   }
-  inline const CPSfermion4D<mf_Float> & getMode(const int i) const{ return v[i]; }
+  inline const CPSfermion4D<mf_Complex> & getMode(const int i) const{ return v[i]; }
 
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
-  void fft(const A2AvectorV<mf_Float> &from, fieldOperation<mf_Float>* mode_preop = NULL);
+  void fft(const A2AvectorV<mf_Complex> &from, fieldOperation<mf_Complex>* mode_preop = NULL);
 
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
-  void gaugeFixTwistFFT(const A2AvectorV<mf_Float> &from, const int _p[3], Lattice &_lat){
-    gaugeFixAndTwist<mf_Float> op(_p,_lat); fft(from, &op);
+  void gaugeFixTwistFFT(const A2AvectorV<mf_Complex> &from, const int _p[3], Lattice &_lat){
+    gaugeFixAndTwist<mf_Complex> op(_p,_lat); fft(from, &op);
   }
 
   const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
@@ -121,22 +120,22 @@ public:
     return getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset);
   }
   inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
-    const CPSfermion4D<mf_Float> &field = getMode(i);
+    const CPSfermion4D<mf_Complex> &field = getMode(i);
     mf_Complex const* f0_ptr = field.ptr() + site_offset;
-    return SCFvectorPtr<std::complex<mf_Float> >(f0_ptr, f0_ptr+flav_offset);
+    return SCFvectorPtr<mf_Complex>(f0_ptr, f0_ptr+flav_offset);
   }
 
   inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    const CPSfermion4D<mf_Float> &field = getMode(i);
+    const CPSfermion4D<mf_Complex> &field = getMode(i);
     const int x4d = field.threeToFour(p3d,t);
     return SCFvectorPtr<mf_Complex>(field.site_ptr(x4d,0),field.site_ptr(x4d,1));
   }
 
 
-  const CPSfermion4D<mf_Float> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
+  const CPSfermion4D<mf_Complex> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
   //Replace this vector with the average of this another vector, 'with'
-  void average(const A2AvectorVfftw<mf_Float> &with, const bool &parallel = true){
+  void average(const A2AvectorVfftw<mf_Complex> &with, const bool &parallel = true){
     if( !paramsEqual(with) ) ERR.General("A2AvectorVfftw","average","Second field must share the same underlying parameters\n");
     for(int i=0;i<nv;i++) v[i].average(with.v[i]);
   }
@@ -158,10 +157,10 @@ class EvecInterface{
 };
 #endif
 
-template< typename mf_Float>
+template< typename mf_Complex>
 class A2AvectorW: public FullyPackedIndexDilution{
-  std::vector<CPSfermion4D<mf_Float> > wl; //The low mode part of the W field, comprised of nl fermion fields
-  std::vector<CPScomplex4D<mf_Float> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
+  std::vector<CPSfermion4D<mf_Complex> > wl; //The low mode part of the W field, comprised of nl fermion fields
+  std::vector<CPScomplex4D<mf_Complex> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
   const std::string cname;
 
@@ -173,16 +172,16 @@ public:
   typedef FullyPackedIndexDilution DilutionType;
 
   A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
-    wl.resize(nl,CPSfermion4D<mf_Float>());
-    wh.resize(nhits, CPScomplex4D<mf_Float>()); 
+    wl.resize(nl,CPSfermion4D<mf_Complex>());
+    wh.resize(nhits, CPScomplex4D<mf_Complex>()); 
   }
-  const CPSfermion4D<mf_Float> & getWl(const int i) const{ return wl[i]; }
-  const CPScomplex4D<mf_Float> & getWh(const int hit) const{ return wh[hit]; }
+  const CPSfermion4D<mf_Complex> & getWl(const int i) const{ return wl[i]; }
+  const CPScomplex4D<mf_Complex> & getWh(const int hit) const{ return wh[hit]; }
 
-  void importWl(const CPSfermion4D<mf_Float> &wlin, const int i){
+  void importWl(const CPSfermion4D<mf_Complex> &wlin, const int i){
     wl[i] = wlin;
   }
-  void importWh(const CPScomplex4D<mf_Float> &whin, const int hit){
+  void importWh(const CPScomplex4D<mf_Complex> &whin, const int hit){
     wh[hit] = whin;
   }
 
@@ -190,23 +189,23 @@ public:
   //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
 
   //Compute the low mode part of the W and V vectors.
-  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass);
+  void computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass);
 
   //Compute the high mode parts of V and W. 
-  void computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter);
 #endif
 
 #if defined(USE_BFM_LANCZOS)
   //In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
   //Set 'singleprec_evecs' if this has been done
-  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
+  void computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
 
   //singleprec_evecs specifies whether the input eigenvectors are stored in single precision
   //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
   //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-  void computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
+  void computeVWhigh(A2AvectorV<mf_Complex> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
 
-  void computeVW(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
+  void computeVW(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
     computeVWlow(V,lat,eig,dwf_d,singleprec_evecs);
     computeVWhigh(V,eig,singleprec_evecs,lat,dwf_d,dwf_fp);
   }
@@ -214,11 +213,11 @@ public:
 
 
 #if defined(USE_GRID_LANCZOS)
-  void computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass);
+  void computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
 
-  void computeVW(A2AvectorV<mf_Float> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
     computeVWlow(V,lat,evec,eval,mass);
     computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
   }
@@ -228,17 +227,17 @@ public:
   //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
   //For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
   //Here dil_id is the combined spin-color/flavor/hit/tblock index
-  template<typename TargetFloat>
-  void getDilutedSource(CPSfermion4D<TargetFloat> &into, const int dil_id) const;
+  template<typename TargetComplex>
+  void getDilutedSource(CPSfermion4D<TargetComplex> &into, const int dil_id) const;
 
   //When gauge fixing prior to taking the FFT it is necessary to uncompact the wh field in the spin-color index, as these indices are acted upon by the gauge fixing
   //(I suppose technically only the color indices need uncompacting; this might be considered as a future improvement)
-  void getSpinColorDilutedSource(CPSfermion4D<mf_Float> &into, const int hit, const int sc_id) const;
+  void getSpinColorDilutedSource(CPSfermion4D<mf_Complex> &into, const int hit, const int sc_id) const;
 
   //The spincolor, flavor and timeslice dilutions are packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
-  const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static std::complex<mf_Float> zero(0.0,0.0);
+  const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+    static mf_Complex zero(0.0,0.0);
     int site = x3d + GJP.VolNodeSites()/GJP.Tnodes()*t;
     if(mode < nl){
       return *(getWl(mode).site_ptr(site,flavor) + spin_color);
@@ -254,7 +253,7 @@ public:
     }
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode 
-  inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+  inline const mf_Complex & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return i < nl ? 
       *(wl[i].site_ptr(site,flavor)+spin_color) :
       *(wh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
@@ -265,40 +264,39 @@ public:
 };
 
 
-template< typename mf_Float>
+template< typename mf_Complex>
 class A2AvectorWfftw: public TimeFlavorPackedIndexDilution{
-  std::vector<CPSfermion4D<mf_Float> > wl;
-  std::vector<CPSfermion4D<mf_Float> > wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
+  std::vector<CPSfermion4D<mf_Complex> > wl;
+  std::vector<CPSfermion4D<mf_Complex> > wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
   const std::string cname;
 
 public:
-  typedef std::complex<mf_Float> mf_Complex;
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
   A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
-    wl.resize(nl,CPSfermion4D<mf_Float>());
-    wh.resize(12*nhits, CPSfermion4D<mf_Float>()); 
+    wl.resize(nl,CPSfermion4D<mf_Complex>());
+    wh.resize(12*nhits, CPSfermion4D<mf_Complex>()); 
   }
-  inline const CPSfermion4D<mf_Float> & getWl(const int i) const{ return wl[i]; }
-  inline const CPSfermion4D<mf_Float> & getWh(const int hit, const int spin_color) const{ return wh[spin_color + 12*hit]; }
+  inline const CPSfermion4D<mf_Complex> & getWl(const int i) const{ return wl[i]; }
+  inline const CPSfermion4D<mf_Complex> & getWh(const int hit, const int spin_color) const{ return wh[spin_color + 12*hit]; }
 
-  inline const CPSfermion4D<mf_Float> & getMode(const int i) const{ return i < nl ? wl[i] : wh[i-nl]; }
+  inline const CPSfermion4D<mf_Complex> & getMode(const int i) const{ return i < nl ? wl[i] : wh[i-nl]; }
 
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
-  void fft(const A2AvectorW<mf_Float> &from, fieldOperation<mf_Float>* mode_preop = NULL);
+  void fft(const A2AvectorW<mf_Complex> &from, fieldOperation<mf_Complex>* mode_preop = NULL);
 
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
-  void gaugeFixTwistFFT(const A2AvectorW<mf_Float> &from, const int _p[3], Lattice &_lat){
-    gaugeFixAndTwist<mf_Float> op(_p,_lat); fft(from, &op);
+  void gaugeFixTwistFFT(const A2AvectorW<mf_Complex> &from, const int _p[3], Lattice &_lat){
+    gaugeFixAndTwist<mf_Complex> op(_p,_lat); fft(from, &op);
   }
 
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
   const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
-    static std::complex<mf_Float> zero(0.0,0.0);
+    static mf_Complex zero(0.0,0.0);
     int site = x3d + GJP.VolNodeSites()/GJP.Tnodes()*t;
     if(mode < nl){
       return *(getWl(mode).site_ptr(site,flavor) + spin_color);
@@ -323,7 +321,7 @@ public:
 
 
   //Replace this vector with the average of this another vector, 'with'
-  void average(const A2AvectorWfftw<mf_Float> &with, const bool &parallel = true){
+  void average(const A2AvectorWfftw<mf_Complex> &with, const bool &parallel = true){
     if( !paramsEqual(with) ) ERR.General("A2AvectorWfftw","average","Second field must share the same underlying parameters\n");
     for(int i=0;i<nl;i++) wl[i].average(with.wl[i]);
     for(int i=0;i<12*nhits;i++) wh[i].average(with.wh[i]);
@@ -349,7 +347,8 @@ public:
   }
 
   inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
-    const CPSfermion4D<mf_Float> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
+    typedef typename mf_Complex::value_type mf_Float;
+    const CPSfermion4D<mf_Complex> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
     const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0};
@@ -364,7 +363,8 @@ public:
   }
 
   inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    const CPSfermion4D<mf_Float> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
+    typedef typename mf_Complex::value_type mf_Float;
+    const CPSfermion4D<mf_Complex> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
     const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0};
@@ -380,12 +380,12 @@ public:
 
 
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
-  const CPSfermion4D<mf_Float> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+  const CPSfermion4D<mf_Complex> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
 };
 
 //Generate uniform random V and W vectors for testing
-template<typename mf_Float>
-void randomizeVW(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W);
+template<typename mf_Complex>
+void randomizeVW(A2AvectorV<mf_Complex> &V, A2AvectorW<mf_Complex> &W);
 
 
 

@@ -154,7 +154,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_Flo
 
 template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Float> &l, const InnerProduct &M, const A2AfieldR<mf_Float> &r, const int &t, bool do_setup){
+void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, const int &t, bool do_setup){
   if(do_setup) setup(l,r,t,t); //both vectors have same timeslice
   else zero();
   
@@ -170,7 +170,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Flo
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
     const int size_4d = GJP.VolNodeSites();
-    const int flav_offset = size_4d * SPINOR_SIZE;
+    const int flav_offset = size_4d * 12;
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
@@ -185,10 +185,10 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Flo
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 
-	  int site_offset = SPINOR_SIZE*(p_3d + size_3d*t_lcl);
+	  int site_offset = 12*(p_3d + size_3d*t_lcl);
 
-	  SCFvectorPtr<mf_Float> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<mf_Float> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,site_offset,flav_offset);
+	  SCFvectorPtr<mf_Complex> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<mf_Complex> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,site_offset,flav_offset);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}
@@ -208,7 +208,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Flo
 //This version is more efficient on multi-nodes
 template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Float> &l, const InnerProduct &M, const A2AfieldR<mf_Float> &r, bool do_setup){
+void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 
@@ -243,8 +243,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonFi
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<std::complex<mf_Float> > lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<std::complex<mf_Float> > rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<mf_Complex> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<mf_Complex> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}

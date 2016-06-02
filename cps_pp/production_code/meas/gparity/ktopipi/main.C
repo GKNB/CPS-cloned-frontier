@@ -268,13 +268,13 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
     
-    A2AvectorV<mf_Float> V(a2a_arg);
-    A2AvectorW<mf_Float> W(a2a_arg);
+    A2AvectorV<mf_Complex> V(a2a_arg);
+    A2AvectorW<mf_Complex> W(a2a_arg);
 
     if(!randomize_vw){
-      computeA2Avectors<mf_Float>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
+      computeA2Avectors<mf_Complex>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
       //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
-    }else randomizeVW<mf_Float>(V,W);    
+    }else randomizeVW<mf_Complex>(V,W);    
 
     if(!UniqueID()) printf("Memory after light A2A vector computation:\n");
     printMem();
@@ -311,13 +311,13 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
 
-    A2AvectorV<mf_Float> V_s(a2a_arg_s);
-    A2AvectorW<mf_Float> W_s(a2a_arg_s);
+    A2AvectorV<mf_Complex> V_s(a2a_arg_s);
+    A2AvectorW<mf_Complex> W_s(a2a_arg_s);
 
     if(!randomize_vw){
-      computeA2Avectors<mf_Float>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
+      computeA2Avectors<mf_Complex>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
       //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
-    }else randomizeVW<mf_Float>(V_s,W_s);      
+    }else randomizeVW<mf_Complex>(V_s,W_s);      
 
     if(!UniqueID()) printf("Memory after heavy A2A vector computation:\n");
     printMem();

@@ -8,9 +8,9 @@ CPS_START_NAMESPACE
 //3D complex field. Defined for a *single flavor* if GPBC
 class A2Asource{
 protected:
-  CPScomplexSpatial<Float,OneFlavorPolicy> src;
+  CPScomplexSpatial<ComplexD,OneFlavorPolicy> src;
 public:
-  inline const std::complex<Float> & siteComplex(const int &site) const{ return *src.site_ptr(site); }
+  inline const ComplexD & siteComplex(const int &site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 };
 
@@ -22,7 +22,7 @@ public:
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
     //Generate a global 4d exponential source
-    CPSglobalComplexSpatial<Float,OneFlavorPolicy> glb;
+    CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> glb;
     glb.zero();
          
 #pragma omp_parallel for
@@ -43,7 +43,7 @@ class A2AexpSource: public A2AsourceBase<Float, A2AexpSource>{
   bool omit_000; //set source to zero at spatial site 0,0,0
 
 private:
-  void setSite(CPSglobalComplexSpatial<Float,OneFlavorPolicy> &glb, const int ss, const Float &radius, const int glb_size[3]) const{
+  void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const Float &radius, const int glb_size[3]) const{
     int site[3]; glb.siteUnmap(ss,site); //global site
 
     Float ssq = 0.0;
@@ -56,7 +56,7 @@ private:
 
     if(omit_000 && ss==0) v = 0;
 
-    glb.site_ptr(ss,0)[0] = v; //real part only
+    ((double*)glb.site_ptr(ss,0))[0] = v; //real part only
   }
 
 public:
@@ -83,7 +83,7 @@ class A2AboxSource: public A2AsourceBase<std::vector<int>, A2AboxSource>{
   friend class A2AsourceBase<std::vector<int>, A2AboxSource>;
 
 private:
-  void setSite(CPSglobalComplexSpatial<Float,OneFlavorPolicy> &glb, const int ss, const std::vector<int> &box_size, const int glb_size[3]) const{
+  void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const std::vector<int> &box_size, const int glb_size[3]) const{
     int site[3]; glb.siteUnmap(ss,site); //global site
 
     bool inbox = true;
@@ -97,7 +97,7 @@ private:
       }
     }
     if(inbox)
-      glb.site_ptr(ss,0)[0] = 1./glb.nsites(); //real part only    
+      ((double*)glb.site_ptr(ss,0))[0] = 1./glb.nsites(); //real part only    
   }
 
 public:

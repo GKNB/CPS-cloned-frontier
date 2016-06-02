@@ -143,7 +143,7 @@ void ComputeKtoPiPiGparity<mf_Float>::type2_mult_vMv_setup(std::vector<mult_vMv_
 							   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
 							   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 							   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
-							   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, const A2AvectorW<mf_Float> & wL,
+							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, const A2AvectorW<mf_Complex> & wL,
 							   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 							   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 							   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
@@ -217,8 +217,8 @@ template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type2(KtoPiPiGparityResultsContainer result[],
 		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		  const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-		  const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-		  const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+		  const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+		  const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
       
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   assert(Lt % tstep == 0);

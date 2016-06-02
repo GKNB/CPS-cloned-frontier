@@ -175,8 +175,8 @@ void ComputeKtoPiPiGparity<mf_Float>::type1_mult_vMv_setup(mult_vMv_split<mf_Flo
 							   const std::vector<std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
 							   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
 							   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
-							   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-							   const A2AvectorW<mf_Float> & wL,
+							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+							   const A2AvectorW<mf_Complex> & wL,
 							   const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
 							   const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
 							   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
@@ -255,8 +255,8 @@ template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type1(KtoPiPiGparityResultsContainer result[],
 					    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 					    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-					    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-					    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+					    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+					    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
 
   //Precompute mode mappings
   ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> i_ind_vw(vL);

@@ -86,7 +86,7 @@ void ComputeKtoPiPiGparity<mf_Float>::type4_contract(KtoPiPiGparityResultsContai
 template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 							   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-							   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH,
+							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH,
 							   const int top_loc, const int tstep, const int Lt){
   mult_vMv_split_part1.resize(Lt/tstep); //[tKidx]
   int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
@@ -116,8 +116,8 @@ template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
 					    const int &tstep,
 					    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-					    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-					    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+					    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+					    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
   static const SpinColorFlavorMatrix mix4_Gamma[2] = { _F0*g5, _F1*g5*Float(-1) };
 
   //CK: the loop term could be re-used from type3

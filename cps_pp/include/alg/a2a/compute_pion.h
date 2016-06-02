@@ -100,7 +100,7 @@ class ComputePion{
   static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
 				 MesonFieldMomentumContainer<mf_Float> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
-				 const A2AvectorW<mf_Float> &W, const A2AvectorV<mf_Float> &V,
+				 const A2AvectorW<mf_Complex> &W, const A2AvectorV<mf_Complex> &V,
 				 const Float &rad, //exponential wavefunction radius
 				 Lattice &lattice){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -110,8 +110,8 @@ class ComputePion{
 
     mf_ll.resize(nmom);
 
-    A2AvectorWfftw<mf_Float> fftw_W(W.getArgs());
-    A2AvectorVfftw<mf_Float> fftw_V(V.getArgs());
+    A2AvectorWfftw<mf_Complex> fftw_W(W.getArgs());
+    A2AvectorVfftw<mf_Complex> fftw_V(V.getArgs());
 
     //For useful info to user, compute required memory size of all light-light meson fields
     {

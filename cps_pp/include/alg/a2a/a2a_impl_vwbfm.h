@@ -1,17 +1,17 @@
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   const char *fname = "computeVQlow(....)";
-
+  typedef typename mf_Complex::value_type mf_Float;
   int gparity = GJP.Gparity();
   if(eig.dop.gparity != gparity){ ERR.General(cname.c_str(),fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
   //Double precision temp fields
-  CPSfermion4D<Float> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
-  CPSfermion5D<Float> bfield;  Vector* b = (Vector*)bfield.ptr();
+  CPSfermion4D<ComplexD> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
+  CPSfermion5D<ComplexD> bfield;  Vector* b = (Vector*)bfield.ptr();
 
-  int afield_fsize = afield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  int afield_fsize = afield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
   
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
     
@@ -90,10 +90,10 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
 //singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-template< typename mf_Float>
-void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+template< typename mf_Complex>
+void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   const char *fname = "computeVWhigh(....)";
-
+  typedef typename mf_Complex::value_type mf_Float;
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
@@ -103,10 +103,10 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion5D<Float> afield,bfield;
-  CPSfermion4D<Float> v4dfield;
+  CPSfermion5D<ComplexD> afield,bfield;
+  CPSfermion4D<ComplexD> v4dfield;
 
-  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
   
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 

@@ -162,7 +162,7 @@ void ComputeKtoPiPiGparity<mf_Float>::type3_compute_mfproducts(std::vector<std::
 template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type3_mult_vMv_setup(mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
 							   mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
-							   const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH,
+							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH,
 							   const std::vector<std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
 							   const std::vector<std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
 							   const int top_loc, const int t_pi1_idx, const int tkp){
@@ -199,8 +199,8 @@ template<typename mf_Float>
 void ComputeKtoPiPiGparity<mf_Float>::type3(KtoPiPiGparityResultsContainer result[], KtoPiPiGparityMixDiagResultsContainer mix3[],
 					    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 					    const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
-					    const A2AvectorV<mf_Float> & vL, const A2AvectorV<mf_Float> & vH, 
-					    const A2AvectorW<mf_Float> & wL, const A2AvectorW<mf_Float> & wH){
+					    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
+					    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
 
   static const SpinColorFlavorMatrix mix3_Gamma[2] = { _F0*g5, _F1*g5*Float(-1) };
   
