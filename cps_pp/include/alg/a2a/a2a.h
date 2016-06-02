@@ -82,11 +82,12 @@ public:
 
 
 template< typename mf_Float>
-class A2AvectorVfftw: public StandardIndexDilution{
+class A2AvectorVfftw: public StandardIndexDilution{  
   std::vector<CPSfermion4D<mf_Float> > v;
   const std::string cname;
 
 public:
+  typedef std::complex<mf_Float> mf_Complex;
   typedef StandardIndexDilution DilutionType;
 
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
@@ -104,33 +105,31 @@ public:
     gaugeFixAndTwist<mf_Float> op(_p,_lat); fft(from, &op);
   }
 
-  const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+  const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int site = x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t;
     return *(v[mode].site_ptr(site,flavor) + spin_color);
   }
   //Get a particular site/spin/color element of a given 'native' (packed) mode. For V this does the same thing as the above
-  inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+  inline const mf_Complex & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return *(v[i].site_ptr(site,flavor)+spin_color);
   }
 
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
     const int flav_offset = v[0].flav_offset();
     const int site_offset = v[0].site_offset(site);
     return getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset);
   }
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
     const CPSfermion4D<mf_Float> &field = getMode(i);
-    mf_Float const* f0_ptr = (mf_Float const*)(field.ptr() + site_offset);
-    return SCFvectorPtr<mf_Float>(f0_ptr, f0_ptr+flav_offset);  //( field.site_ptr(site,0) , field.site_ptr(site,1) );
+    mf_Complex const* f0_ptr = field.ptr() + site_offset;
+    return SCFvectorPtr<std::complex<mf_Float> >(f0_ptr, f0_ptr+flav_offset);
   }
 
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const CPSfermion4D<mf_Float> &field = getMode(i);
     const int x4d = field.threeToFour(p3d,t);
-    mf_Float const* f0_ptr = (mf_Float const*)field.site_ptr(x4d,0);
-    mf_Float const* f1_ptr = (mf_Float const*)field.site_ptr(x4d,1);
-    return SCFvectorPtr<mf_Float>(f0_ptr, f1_ptr);
+    return SCFvectorPtr<mf_Complex>(field.site_ptr(x4d,0),field.site_ptr(x4d,1));
   }
 
 
@@ -274,6 +273,7 @@ class A2AvectorWfftw: public TimeFlavorPackedIndexDilution{
   const std::string cname;
 
 public:
+  typedef std::complex<mf_Float> mf_Complex;
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
   A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
@@ -297,7 +297,7 @@ public:
 
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
-  const std::complex<mf_Float> & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
+  const mf_Complex & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     static std::complex<mf_Float> zero(0.0,0.0);
     int site = x3d + GJP.VolNodeSites()/GJP.Tnodes()*t;
     if(mode < nl){
@@ -314,7 +314,7 @@ public:
     }
   }
   //Get a particular site/spin/color element of a given *native* (packed) mode 
-  inline const std::complex<mf_Float> & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
+  inline const mf_Complex & nativeElem(const int i, const int site, const int spin_color, const int flavor) const{
     return i < nl ? 
       *(wl[i].site_ptr(site,flavor)+spin_color) :
       *(wh[i-nl].site_ptr(site,flavor)+spin_color); //spin_color index diluted out.
@@ -342,13 +342,13 @@ public:
   //'site' is a local canonical-ordered, packed four-vector
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
 
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
     const int site_offset = i >= nl ? wh[0].site_offset(site) : wl[0].site_offset(site);
     const int flav_offset = i >= nl ? wh[0].flav_offset() : wl[0].flav_offset();
     return getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset);
   }
 
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
     const CPSfermion4D<mf_Float> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
     const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0,0,0,0,0,0,0,
@@ -356,14 +356,14 @@ public:
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
-    mf_Float const* f0_ptr = (mf_Float const*)(field.ptr() + site_offset);
-    mf_Float const* lp[2] = { zero_hint[0] ? &zerosc[0] : f0_ptr,
-  			      zero_hint[1] ? &zerosc[0] : f0_ptr + 2*flav_offset };
+    mf_Complex const* f0_ptr = field.ptr() + site_offset;
+    mf_Complex const* lp[2] = { zero_hint[0] ? (mf_Complex const*)&zerosc[0] : f0_ptr,
+				 zero_hint[1] ? (mf_Complex const*)&zerosc[0] : f0_ptr + flav_offset };
 
     return SCFvectorPtr<mf_Float>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
 
-  inline SCFvectorPtr<mf_Float> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+  inline SCFvectorPtr<mf_Complex> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const CPSfermion4D<mf_Float> &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
     const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
   					0,0,0,0,0,0,0,0,0,0,
@@ -372,10 +372,10 @@ public:
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     const int x4d = field.threeToFour(p3d,t);
-    mf_Float const* lp[2] = { zero_hint[0] ? &zerosc[0] : (mf_Float const*)field.site_ptr(x4d,0),
-  			      zero_hint[1] ? &zerosc[0] : (mf_Float const*)field.site_ptr(x4d,1) };
+    mf_Complex const* lp[2] = { zero_hint[0] ? (mf_Complex const*)&zerosc[0] : field.site_ptr(x4d,0),
+				 zero_hint[1] ? (mf_Complex const*)&zerosc[0] : field.site_ptr(x4d,1) };
 
-    return SCFvectorPtr<mf_Float>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
+    return SCFvectorPtr<mf_Complex>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
 
 

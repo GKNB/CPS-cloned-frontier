@@ -93,6 +93,8 @@ public:
 template<typename mf_Float>
 class ComputePion{
  public:
+  typedef std::complex<mf_Float> mf_Complex;
+  
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
   static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
@@ -120,10 +122,10 @@ class ComputePion{
 
     //For non-Gparity
     std::auto_ptr<A2AexpSource> expsrc_nogp; 
-    std::auto_ptr<SCspinInnerProduct<mf_Float> > mf_struct_nogp;
+    std::auto_ptr<SCspinInnerProduct<mf_Complex> > mf_struct_nogp;
     if(!GJP.Gparity()){
       expsrc_nogp.reset(new A2AexpSource(rad));
-      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Float>(15,*expsrc_nogp));
+      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex>(15,*expsrc_nogp));
     }
 
     for(int pidx=0;pidx<nmom;pidx++){
@@ -146,7 +148,7 @@ class ComputePion{
 	//   mf_ll[pidx][t].compute(fftw_W, *mf_struct_nogp, fftw_V, t);
       }else{
 	A2AflavorProjectedExpSource fpexp(rad, p_v.ptr()); //flavor projection is adjacent to right-hand field
-	SCFspinflavorInnerProduct<mf_Float,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
 
 	A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
 
@@ -165,7 +167,7 @@ class ComputePion{
 	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
     
 	A2AflavorProjectedExpSource fpexp(rad, p_v_alt.ptr()); 
-	SCFspinflavorInnerProduct<mf_Float,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
 
 	//A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> mf_ll_alt;
 	// for(int t=0;t<Lt;t++){

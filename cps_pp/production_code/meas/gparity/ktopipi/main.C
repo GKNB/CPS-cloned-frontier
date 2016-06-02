@@ -65,6 +65,8 @@ typedef float mf_Float;
 #error "Must provide an A2A precision"
 #endif
 
+typedef std::complex<mf_Float> mf_Complex;
+
 int main (int argc,char **argv )
 {
   Start(&argc, &argv);

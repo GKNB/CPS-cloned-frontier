@@ -24,28 +24,28 @@ template<typename mf_Float, bool conj_left, bool conj_right>
 struct Mconj{};
 
 // (re*re - im*im, re*im + im*re )
-template<typename mf_Float>
-struct Mconj<mf_Float,false,false>{
-  static inline std::complex<double> doit(const mf_Float *const l, const mf_Float *const r){
-    return std::complex<double>(l[0]*r[0] - l[1]*r[1], l[0]*r[1] + l[1]*r[0]);
+template<typename mf_Complex>
+struct Mconj<mf_Complex,false,false>{
+  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
+    return std::complex<double>(l->real()*r->real() - l->imag()*r->imag(), l->real()*r->imag() + l->imag()*r->real());
   }
 };
-template<typename mf_Float>
-struct Mconj<mf_Float,false,true>{
-  static inline std::complex<double> doit(const mf_Float *const l, const mf_Float *const r){
-    return std::complex<double>(l[0]*r[0] + l[1]*r[1], l[1]*r[0] - l[0]*r[1]);
+template<typename mf_Complex>
+struct Mconj<mf_Complex,false,true>{
+  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
+    return std::complex<double>(l->real()*r->real() + l->imag()*r->imag(), l->imag()*r->real() - l->real()*r->imag());
   }
 };
-template<typename mf_Float>
-struct Mconj<mf_Float,true,false>{
-  static inline std::complex<double> doit(const mf_Float *const l, const mf_Float *const r){
-    return std::complex<double>(l[0]*r[0] + l[1]*r[1], l[0]*r[1] - l[1]*r[0]);
+template<typename mf_Complex>
+struct Mconj<mf_Complex,true,false>{
+  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
+    return std::complex<double>(l->real()*r->real() + l->imag()*r->imag(), l->real()*r->imag() - l->imag()*r->real());
   }
 };
-template<typename mf_Float>
-struct Mconj<mf_Float,true,true>{
-  static inline std::complex<double> doit(const mf_Float *const l, const mf_Float *const r){
-    return std::complex<double>(l[0]*r[0] - l[1]*r[1], -l[0]*r[1] - l[1]*r[0]);
+template<typename mf_Complex>
+struct Mconj<mf_Complex,true,true>{
+  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
+    return std::complex<double>(l->real()*r->real() - l->imag()*r->imag(), -l->real()*r->imag() - l->imag()*r->real());
   }
 };
 
@@ -53,7 +53,7 @@ struct Mconj<mf_Float,true,true>{
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
 //Assumed diagonal matrix in flavor space if G-parity
-template<typename mf_Float, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
 class SCmatrixInnerProduct{
   const WilsonMatrix &sc;
   const A2Asource &src;
@@ -61,7 +61,7 @@ class SCmatrixInnerProduct{
 public:
   SCmatrixInnerProduct(const WilsonMatrix &_sc, const A2Asource &_src): sc(_sc), src(_src){ }
     
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++){
       // Mr
@@ -90,36 +90,36 @@ public:
 //If a,b have flavor structure the indices must be provided
 //Option to complex conjugate left/right vector components
 
-template<typename mf_Float, bool conj_left, bool conj_right>
+template<typename mf_Complex, bool conj_left, bool conj_right>
 class OptimizedSpinColorContract{
 public:
-  inline static std::complex<double> g5(const mf_Float *const l, const mf_Float *const r){
+  inline static std::complex<double> g5(const mf_Complex *const l, const mf_Complex *const r){
     const static int sc_size =12;
     const static int half_sc = 6;
     
     std::complex<double> v3(0,0);
 
 #if defined(USE_GRID_SCCON)
-    grid_g5contract<mf_Float,conj_left,conj_right>::doit(v3,l,r);
+    grid_g5contract<mf_Complex,conj_left,conj_right>::doit(v3,l,r);
 #else
     for(int i = half_sc; i < sc_size; i++){ 
-      v3 += Mconj<mf_Float,conj_left,conj_right>::doit(l+2*i,r+2*i);
+      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
     }
     v3 *= -1;
       
     for(int i = 0; i < half_sc; i ++){ 
-      v3 += Mconj<mf_Float,conj_left,conj_right>::doit(l+2*i,r+2*i);
+      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
     }
 #endif
 
     return v3;
   }
-  inline static std::complex<double> unit(const mf_Float *const l, const mf_Float *const r){
+  inline static std::complex<double> unit(const mf_Complex *const l, const mf_Complex *const r){
     const static int sc_size =12;
     std::complex<double> v3(0,0);
 
 #ifdef USE_GSL_SCCON    
-    typedef gsl_wrapper<mf_Float> gw;
+    typedef gsl_wrapper<typename mf_Complex::value_type> gw;
     
     typename gw::block_complex_struct lblock;
     typename gw::vector_complex lgsl;
@@ -142,14 +142,14 @@ public:
     lblock.data = lgsl.data = l;
     rblock.data = rgsl.data = r;
 
-    gsl_dotproduct<mf_Float,conj_left,conj_right>::doit(&lgsl,&rgsl,&result);
+    gsl_dotproduct<typename mf_Complex::value_type,conj_left,conj_right>::doit(&lgsl,&rgsl,&result);
     double(&v3_a)[2] = reinterpret_cast<double(&)[2]>(v3);
     v3_a[0] = GSL_REAL(result);
     v3_a[1] = GSL_IMAG(result);
  
 #else
     for(int i = 0; i < sc_size; i ++){
-      v3 += Mconj<mf_Float,conj_left,conj_right>::doit(l+2*i,r+2*i);
+      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
     }
 #endif
 
@@ -160,16 +160,16 @@ public:
 
 
 //Optimized gamma^5 inner product with unit flavor matrix
-template<typename mf_Float, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
 class SCg5InnerProduct{
   const A2Asource &src;
 public:
   SCg5InnerProduct(const A2Asource &_src): src(_src){ }
     
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++)
-      out += OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::g5(l.getPtr(f),r.getPtr(f));    
+      out += OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f),r.getPtr(f));    
     return out * src.siteComplex(p);
   }
 };
@@ -193,20 +193,20 @@ public:
   //       13     gamma1 gamma3 gamma4        =  gamma5 gamma2
   //       14     gamma2 gamma3 gamma4        = -gamma5 gamma1
   //       15     gamma1 gamma2 gamma3 gamma4 =  gamma5
-template<typename mf_Float, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
 class SCspinInnerProduct{
   const A2Asource &src;
   int smatidx;
-
-  inline std::complex<double> do_op(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r,const int &f1, const int &f3) const{
-    if(smatidx == 15) return OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
-    else if(smatidx == 0) return OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
+  
+  inline std::complex<double> do_op(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r,const int &f1, const int &f3) const{
+    if(smatidx == 15) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+    else if(smatidx == 0) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
     else{ ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx); }
   }
 public:
   SCspinInnerProduct(const int &_smatidx, const A2Asource &_src): smatidx(_smatidx), src(_src){ }
     
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int &p, const int &t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++)
       out += do_op(l,r,f,f);
@@ -225,7 +225,7 @@ public:
 //Constant spin-color-flavor matrix source structure with position-dependent flavor matrix from source
 // l M N r    where l,r are the vectors, M is the constant matrix and N the position-dependent
 //For use with GPBC
-template<typename mf_Float, typename SourceType, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCFfmatSrcInnerProduct{
   const SourceType &src;
   const SpinColorFlavorMatrix &scf;
@@ -235,7 +235,7 @@ public:
     if(!GJP.Gparity()) ERR.General("SCFfmatSrcInnerProduct","SCFfmatSrcInnerProduct","Only for G-parity BCs");
   }
 
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     //Get source flavor matrix structure for this momentum site
     FlavorMatrix N = src.siteFmat(p);
     
@@ -276,7 +276,7 @@ public:
 
 
 //Optimized gamma^5*sigma_i inner product with flavor projection
-template<typename mf_Float, typename SourceType, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCg5sigmaInnerProduct{
   const SourceType &src;
   FlavorMatrixType sigma;
@@ -285,12 +285,12 @@ public:
     
   // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
   //where phi has flavor structure
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T g5[sc1,sc2] r[sc2,f3]
     FlavorMatrix lg5r;
     for(int f1=0;f1<2;f1++)
       for(int f3=0;f3<2;f3++)
-	lg5r(f1,f3) = OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3)); 
+	lg5r(f1,f3) = OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3)); 
 
     //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrix phi;
@@ -305,20 +305,20 @@ public:
 //Optimized inner product for general spin and flavor matrix
 //Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
 //SourceType needs a FlavorMatrix2 siteFmat(const int site) const
-template<typename mf_Float, typename SourceType, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCFspinflavorInnerProduct{
   const SourceType &src;
   FlavorMatrixType sigma;
   int smatidx;
-  
 public:
+
   SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, const int &_smatidx, const SourceType &_src): 
   sigma(_sigma), smatidx(_smatidx), src(_src){}
 
   // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
   //where phi has flavor structure
   //p is the momentum 'site' index 
-  std::complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const{
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const static std::complex<double> zero(0.,0.);
     FlavorMatrix lMr;
@@ -327,20 +327,20 @@ public:
     switch(smatidx){
     case 15:
 #ifdef USE_GRID_SCCON
-      grid_scf_contract<mf_Float,conj_left,conj_right>::grid_g5con(lMr,l,r);
+      grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_g5con(lMr,l,r);
 #else
       for(int f1=0;f1<2;f1++)
 	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
 #endif
     break;
     case 0: 
 #ifdef USE_GRID_SCCON
-      grid_scf_contract<mf_Float,conj_left,conj_right>::grid_unitcon(lMr,l,r);
-#else  
+      grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_unitcon(lMr,l,r);
+#else
       for(int f1=0;f1<2;f1++)
 	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Float,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
+	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
 #endif
     break;
     default:

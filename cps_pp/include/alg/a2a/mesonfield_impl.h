@@ -221,8 +221,6 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonFi
   //For W vectors we dilute out the flavor index in-place while performing this contraction
   const int size_3d = GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites();
   const int size_4d = GJP.VolNodeSites();
-  //const int flav_offset_l = l.getMode(0).fsiteFlavorOffset() * l.getMode(0).siteSize();
-  //const int flav_offset_r = r.getMode(0).fsiteFlavorOffset() * r.getMode(0).siteSize();
 
   //Each node only works on its time block
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
@@ -245,14 +243,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonFi
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-
-	  //int site_offset = SPINOR_SIZE*(p_3d + size_3d*t_lcl);
-
-	  //SCFvectorPtr<mf_Float> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset_l); //dilute flavor in-place if it hasn't been already
-	  //SCFvectorPtr<mf_Float> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,site_offset,flav_offset_r);
-
-	  SCFvectorPtr<mf_Float> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<mf_Float> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<std::complex<mf_Float> > lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<std::complex<mf_Float> > rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}

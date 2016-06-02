@@ -6,44 +6,45 @@
 #include<alg/a2a/grid_simdlinalg.h>
 CPS_START_NAMESPACE
 
-template<typename mf_Float, bool conj_left, bool conj_right>
+template<typename mf_Complex, bool conj_left, bool conj_right>
 struct grid_mul{};
 
-template<typename mf_Float>
-struct grid_mul<mf_Float,true,false>{
-  typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
+template<typename mf_Complex>
+struct grid_mul<mf_Complex,true,false>{
+  typedef typename Grid_A2A::SIMDvtype< mf_Complex >::Vtype Vtype;
   inline static void doit(Vtype &into, const Vtype &l, const Vtype &r){
     into += Grid::conjugate(l) * r; 
   }
 };
-template<typename mf_Float>
-struct grid_mul<mf_Float,false,true>{
-  typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
+template<typename mf_Complex>
+struct grid_mul<mf_Complex,false,true>{
+  typedef typename Grid_A2A::SIMDvtype< mf_Complex >::Vtype Vtype;
   inline static void doit(Vtype &into, const Vtype &l, const Vtype &r){
     into += l * Grid::conjugate(r); 
   }
 };
-template<typename mf_Float>
-struct grid_mul<mf_Float,true,true>{
-  typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
+template<typename mf_Complex>
+struct grid_mul<mf_Complex,true,true>{
+  typedef typename Grid_A2A::SIMDvtype< mf_Complex >::Vtype Vtype;
   inline static void doit(Vtype &into, const Vtype &l, const Vtype &r){
     into += Grid::conjugate(l * r); 
   }
 };
-template<typename mf_Float>
-struct grid_mul<mf_Float,false,false>{
-  typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
+template<typename mf_Complex>
+struct grid_mul<mf_Complex,false,false>{
+  typedef typename Grid_A2A::SIMDvtype< mf_Complex >::Vtype Vtype;
   inline static void doit(Vtype &into, const Vtype &l, const Vtype &r){
     into += l * r; 
   }
 };
 
-template<typename mf_Float, bool conj_left, bool conj_right>
+template<typename mf_Complex, bool conj_left, bool conj_right>
 struct grid_g5contract{
-  inline static void doit(std::complex<double> &v3, const mf_Float *const l, const mf_Float *const r){
+
+  inline static void doit(std::complex<double> &v3, const mf_Complex *const l, const mf_Complex *const r){
     const static int sc_size =12;
     const static int half_sc = 6;
-    typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
+    typedef typename Grid_A2A::SIMDvtype<mf_Complex>::Vtype Vtype;
     const int nsimd = Vtype::Nsimd();
     const int overspill_amnt = sc_size % nsimd; //how many elements don't fit in nice SIMD blocks
     const int mid_block = sc_size / 2 / nsimd; //index of block corresponding to middle of the 12 elements
@@ -52,8 +53,8 @@ struct grid_g5contract{
 
     Vtype vl, vr, sol;
     zeroit(sol);
-    std::complex<mf_Float> *il = reinterpret_cast< std::complex<mf_Float> * >( const_cast<mf_Float *>(l) );
-    std::complex<mf_Float> *ir = reinterpret_cast< std::complex<mf_Float> * >( const_cast<mf_Float *>(r) );
+    mf_Complex *il = const_cast<mf_Complex *>(l);
+    mf_Complex *ir = const_cast<mf_Complex *>(r);
 
     //First set of blocks
     for(int i=0;i<mid_block;i++){
@@ -61,11 +62,11 @@ struct grid_g5contract{
       vset(vr,ir);
       il += nsimd;
       ir += nsimd;
-      grid_mul<mf_Float,conj_left,conj_right>::doit(sol,vl,vr);
+      grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,vl,vr);
     }
 
     //Middle block
-    std::complex<mf_Float> block[nsimd];
+    mf_Complex block[nsimd];
     {
       for(int i=0;i<mid_subidx;i++)
 	block[i] = *(il++);
@@ -74,7 +75,7 @@ struct grid_g5contract{
       vset(vl,block);
       vset(vr,ir);
       ir += nsimd;
-      grid_mul<mf_Float,conj_left,conj_right>::doit(sol,vl,vr);
+      grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,vl,vr);
     }
 
     //Remaining packed blocks
@@ -84,7 +85,7 @@ struct grid_g5contract{
       vset(vr,ir);
       il += nsimd;
       ir += nsimd;
-      grid_mul<mf_Float,conj_left,conj_right>::doit(sol,vl,vr);
+      grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,vl,vr);
     }
 
     //Overspill
@@ -98,7 +99,7 @@ struct grid_g5contract{
       for(int i=0;i<overspill_amnt;i++) 
 	block[i] = ir[i];      
       vset(vr,block);
-      grid_mul<mf_Float,conj_left,conj_right>::doit(sol,vl,vr);
+      grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,vl,vr);
     }
     v3 = Reduce(sol);
   }
@@ -108,13 +109,13 @@ struct grid_g5contract{
 
 
 //Version of the above for G-parity that produces a flavor matrix reusing vectors where possible
-template<typename mf_Float, bool conj_left, bool conj_right>
+template<typename mf_Complex, bool conj_left, bool conj_right>
 struct grid_scf_contract{
-  typedef typename Grid_A2A::SIMDvtype< std::complex<mf_Float> >::Vtype Vtype;
-
-  inline static void grid_g5_forml(Vtype l_f[], const int f, const SCFvectorPtr<mf_Float> &l, 
-			    std::complex<mf_Float> block[], const int nsimd, const int overspill_amnt, const int mid_block, const int mid_subidx, const int nblocks ){
-    std::complex<mf_Float> *il = reinterpret_cast< std::complex<mf_Float> * >( const_cast<mf_Float *>(l.getPtr(f)) );
+  typedef typename Grid_A2A::SIMDvtype<mf_Complex>::Vtype Vtype;
+  
+  inline static void grid_g5_forml(Vtype l_f[], const int f, const SCFvectorPtr<mf_Complex> &l, 
+				   mf_Complex block[], const int nsimd, const int overspill_amnt, const int mid_block, const int mid_subidx, const int nblocks ){
+    mf_Complex *il = const_cast<mf_Complex*>(l.getPtr(f));
     if(nsimd == 4){ //avx256 with complex<float> or avx512 with complex<double>
       vset(l_f[0],il); //first 4 complexes
       block[0] = il[4]; //second 4
@@ -153,9 +154,9 @@ struct grid_scf_contract{
       }
     }
   }
-  inline static void grid_g5_formr(Vtype r_f[], const int f, const SCFvectorPtr<mf_Float> &r, 
-			    std::complex<mf_Float> block[], const int nsimd, const int overspill_amnt, const int nblocks ){
-    std::complex<mf_Float> *ir = reinterpret_cast< std::complex<mf_Float> * >( const_cast<mf_Float *>(r.getPtr(f)) );
+  inline static void grid_g5_formr(Vtype r_f[], const int f, const SCFvectorPtr<mf_Complex> &r, 
+				   mf_Complex block[], const int nsimd, const int overspill_amnt, const int nblocks ){
+    mf_Complex *ir = const_cast<mf_Complex*>(r.getPtr(f));
       
     //Packed blocks
     for(int i=0;i<nblocks;i++){
@@ -171,7 +172,7 @@ struct grid_scf_contract{
     }
   }
 
-  static void grid_g5con(FlavorMatrix &lMr, const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r){
+  static void grid_g5con(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
     const int sc_size = 12;
     const int nsimd = Vtype::Nsimd();
     const int overspill_amnt = sc_size % nsimd; //how many elements don't fit in nice SIMD blocks
@@ -185,7 +186,7 @@ struct grid_scf_contract{
     Vtype r_0[nblocks_inc_overspill];
     Vtype r_1[nblocks_inc_overspill];
 
-    std::complex<mf_Float> block[nsimd];
+    mf_Complex block[nsimd];
 
     if(!l.isZero(0))
       grid_g5_forml(l_0,0,l, block, nsimd, overspill_amnt, mid_block, mid_subidx, nblocks );
@@ -201,34 +202,34 @@ struct grid_scf_contract{
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
       lMr(0,0) = Reduce(sol);
     }
     //0,1
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
       lMr(0,1) = Reduce(sol);
     }
     //1,0
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
       lMr(1,0) = Reduce(sol);
     }
     //1,1
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
       lMr(1,1) = Reduce(sol);
     }
   }
 
 
-  static void grid_unitcon(FlavorMatrix &lMr, const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r){
+  static void grid_unitcon(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
     const int sc_size = 12;
     const int nsimd = Vtype::Nsimd();
     const int overspill_amnt = sc_size % nsimd; //how many elements don't fit in nice SIMD blocks
@@ -242,7 +243,7 @@ struct grid_scf_contract{
     Vtype r_0[nblocks_inc_overspill];
     Vtype r_1[nblocks_inc_overspill];
 
-    std::complex<mf_Float> block[nsimd];
+    mf_Complex block[nsimd];
 
     if(!l.isZero(0))
       grid_g5_formr(l_0,0,l, block, nsimd, overspill_amnt, nblocks );
@@ -258,28 +259,28 @@ struct grid_scf_contract{
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
       lMr(0,0) = Reduce(sol);
     }
     //0,1
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
       lMr(0,1) = Reduce(sol);
     }
     //1,0
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
       lMr(1,0) = Reduce(sol);
     }
     //1,1
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Float,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
+	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
       lMr(1,1) = Reduce(sol);
     }
   }

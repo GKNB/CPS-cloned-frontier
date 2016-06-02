@@ -80,30 +80,9 @@ private:
     }
   }
 
-//   inline static void nodeGetPionMf(std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1, std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2){
-// #ifdef NODE_DISTRIBUTE_MESONFIELDS
-//     //Make sure the meson fields are on-node
-//     if(!UniqueID()) printf("ComputeKtoPiPiGparity::nodeGetPionMf Gathering distributed meson fields\n");
-//     double time = -dclock();
-//     for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();t++){
-//       mf_pi1[t].nodeGet(); mf_pi2[t].nodeGet();
-//     }
-//     print_time("ComputeKtoPiPiGparity","nodeGetPionMf: Meson field gather",time+dclock());
-// #endif
-//   }
-
-//   inline static void nodeDistributePionMf(std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1, std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2){
-// #ifdef NODE_DISTRIBUTE_MESONFIELDS
-//     if(!UniqueID()) printf("ComputeKtoPiPiGparity::nodeGetPionMf Re-distributing meson fields\n");
-//     double time = -dclock();
-//     for(int t=0;t<GJP.Tnodes()*GJP.TnodeSites();t++){
-//       mf_pi1[t].nodeDistribute(); mf_pi2[t].nodeDistribute();
-//     }
-//     print_time("ComputeKtoPiPiGparity","nodeGetPionMf Meson field distribute",time+dclock());
-// #endif
-//   }
-
 public:
+  typedef std::complex<mf_Float> mf_Complex;
+  
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -134,7 +113,7 @@ public:
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
 
     A2AflavorProjectedExpSource fpexp(kaon_rad, p);
-    SCFspinflavorInnerProduct<mf_Float,A2AflavorProjectedExpSource> mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
+    SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
