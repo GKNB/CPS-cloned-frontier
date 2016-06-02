@@ -8,19 +8,17 @@
 #include<alg/a2a/CPSfield_policies.h>
 CPS_START_NAMESPACE 
 
-//A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things. Automatically doubles size for G-parity if using DynamicFlavorPolicy
-
-//SiteSize is measured in units of floats, not complex
+//A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfield: public DimensionPolicy, public FlavorPolicy, public AllocPolicy{
   SiteType* f;
 protected:
-  int site_size; //number of floats per spatial (not including the dynamical flavor index)
+  int site_size; //number of SiteType per spatial (not including the dynamical flavor index)
   int sites; //number of Euclidean sites
   int flavors; //number of flavors
   int fsites; //number of generalized sites (including flavor)
 
-  int fsize; //number of floats in the array = site_size * fsites
+  int fsize; //number of SiteType in the array = site_size * fsites
   
   void alloc(){
     f = (SiteType*)this->_alloc(fsize*sizeof(SiteType));
@@ -52,8 +50,6 @@ public:
   void zero(){
     memset(f, 0, sizeof(SiteType) * fsize);      
   }
-
-  
 
   CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r){
     static_cast<DimensionPolicy&>(*this) = r; //copy policy info

@@ -237,6 +237,8 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
   CPSfermion4D<Float> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
   CPSfermion5D<Float> bfield;  Vector* b = (Vector*)bfield.ptr();
 
+  int afield_fsize = afield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
   //Setup Grid Dirac operator
@@ -277,7 +279,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
     //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, 2*afield.size());
+    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, afield_fsize);
 
     //Step 2) Compute Wl
 
@@ -301,7 +303,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, E
     //Get 4D part, poke onto a then copy into wl
     latg.ImportFermion(b,tmp_full,FgridBase::All);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, 2*afield.size());
+    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, afield_fsize);
   }
 }
 
@@ -450,7 +452,9 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
   //Allocate temp *double precision* storage for fermions
   CPSfermion5D<Float> afield,bfield;
   CPSfermion4D<Float> v4dfield;
-
+  
+  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
@@ -479,7 +483,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
     //If no previously computed solutions this wastes a few flops, but not enough to care about
     //V vectors default to zero, so this is a zero guess if not reusing existing solutions
-    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield.size()); // v[i]->v4d to double precision
+    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield_fsize); // v[i]->v4d to double precision
     lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // to 5d
 
     latg.ImportFermion(gtmp_full, (Vector*)a);
@@ -492,6 +496,6 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, Lattice &lat, 
     //CPSify the solution, including 1/nhit for the hit average
     latg.ImportFermion((Vector*)b, gtmp_full);
     lat.Ffive2four(v4d, b, glb_ls-1, 0, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield.size());
+    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield_fsize);
   }
 }
