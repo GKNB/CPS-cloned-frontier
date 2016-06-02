@@ -5,21 +5,22 @@ CPS_START_NAMESPACE
 //Note: F0 = 1/2(1+sigma3)  and  F1 = 1/2(1-sigma3). These are called F11 and F22 in the paper, respectively
 enum FlavorMatrixType {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
 
-
 //Added by CK, optimized from Daiqian's equivalent
-class FlavorMatrix{
+template<typename T = Complex>
+class FlavorMatrixGeneral{
 protected:
-  Complex fmat[2][2];
+  T fmat[2][2];
 public:
-  FlavorMatrix(){
+  FlavorMatrixGeneral(){
   }
-  FlavorMatrix(const FlavorMatrix &from){
+  FlavorMatrixGeneral(const FlavorMatrixGeneral<T> &from){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = from.fmat[i][j];
   }
 
-  FlavorMatrix(Float rhs){
+  template<typename U>
+  FlavorMatrixGeneral(const U rhs){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = rhs;
@@ -31,36 +32,36 @@ public:
 	fmat[i][j] = 0.0;
   }
 
-  FlavorMatrix& operator=(const FlavorMatrix &from){
+  FlavorMatrixGeneral<T>& operator=(const FlavorMatrixGeneral<T> &from){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = from.fmat[i][j];
     return *this;
   }
 
-  inline Complex &operator()(int f_row,int f_col){
+  inline T &operator()(int f_row,int f_col){
     return fmat[f_row][f_col];
   }
-  inline const Complex &operator()(int f_row,int f_col) const{
+  inline const T &operator()(int f_row,int f_col) const{
     return fmat[f_row][f_col];
   }
 
-  FlavorMatrix & operator+=(const FlavorMatrix &r){
+  FlavorMatrixGeneral<T> & operator+=(const FlavorMatrixGeneral<T> &r){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] += r.fmat[i][j];
     return *this;
   }
-
-  FlavorMatrix & operator*=(const Float &rhs){ 
+  template<typename U>
+  FlavorMatrixGeneral<T> & operator*=(const U rhs){ 
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] *= rhs;
     return *this;
   }
 
-  FlavorMatrix operator*(const FlavorMatrix& rhs) const{
-    FlavorMatrix out;
+  FlavorMatrixGeneral<T> operator*(const FlavorMatrixGeneral<T>& rhs) const{
+    FlavorMatrixGeneral<T> out;
     out.fmat[0][0] = fmat[0][0]*rhs.fmat[0][0] + fmat[0][1]*rhs.fmat[1][0];
     out.fmat[0][1] = fmat[0][0]*rhs.fmat[0][1] + fmat[0][1]*rhs.fmat[1][1];
     out.fmat[1][0] = fmat[1][0]*rhs.fmat[0][0] + fmat[1][1]*rhs.fmat[1][0];
@@ -68,8 +69,8 @@ public:
     return out;
   }
 
-  FlavorMatrix transpose() const{
-    FlavorMatrix out;
+  FlavorMatrixGeneral<T> transpose() const{
+    FlavorMatrixGeneral<T> out;
     out.fmat[0][0] = fmat[0][0];
     out.fmat[0][1] = fmat[1][0];
     out.fmat[1][0] = fmat[0][1];
@@ -77,14 +78,14 @@ public:
     return out;
   }
 
-  Complex Trace() const{
+  T Trace() const{
     return fmat[0][0] + fmat[1][1];
   }
 
   //Added by CK
   //multiply on left by a flavor matrix
-  FlavorMatrix & pl(const FlavorMatrixType &type){
-    Complex tmp1, tmp2;
+  FlavorMatrixGeneral<T> & pl(const FlavorMatrixType &type){
+    T tmp1, tmp2;
 
     switch( type ){
     case F0:
@@ -114,10 +115,10 @@ public:
       (*this)(1,1) = tmp2;
       break;      
     case sigma2:
-      tmp1 = (*this)(0,0)*Complex(0.0,1.0);
-      tmp2 = (*this)(0,1)*Complex(0.0,1.0);
-      (*this)(0,0) = (*this)(1,0)*Complex(0.0,-1.0);
-      (*this)(0,1) = (*this)(1,1)*Complex(0.0,-1.0);
+      tmp1 = (*this)(0,0)*T(0.0,1.0);
+      tmp2 = (*this)(0,1)*T(0.0,1.0);
+      (*this)(0,0) = (*this)(1,0)*T(0.0,-1.0);
+      (*this)(0,1) = (*this)(1,1)*T(0.0,-1.0);
       (*this)(1,0) = tmp1;
       (*this)(1,1) = tmp2;
       break;
@@ -126,7 +127,7 @@ public:
       (*this)(1,1)*=-1.0;
       break;
     default:
-      ERR.General("FlavorMatrix","pl(const FlavorMatrixType &type)","Unknown FlavorMatrixType");
+      ERR.General("FlavorMatrixGeneral","pl(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
       break;
     }
     return *this;
@@ -134,8 +135,8 @@ public:
   }
 
   //multiply on right by a flavor matrix
-  FlavorMatrix & pr(const FlavorMatrixType &type){
-    Complex tmp1, tmp2;
+  FlavorMatrixGeneral<T> & pr(const FlavorMatrixType &type){
+    T tmp1, tmp2;
 
     switch(type){
     case F0:
@@ -165,10 +166,10 @@ public:
       (*this)(1,1) = tmp2;
       break;      
     case sigma2:
-      tmp1 = (*this)(0,0) *  Complex(0.0,-1.0);
-      tmp2 = (*this)(1,0) *  Complex(0.0,-1.0);
-      (*this)(0,0) = (*this)(0,1)* Complex(0.0,1.0); 
-      (*this)(1,0) = (*this)(1,1)* Complex(0.0,1.0);
+      tmp1 = (*this)(0,0) *  T(0.0,-1.0);
+      tmp2 = (*this)(1,0) *  T(0.0,-1.0);
+      (*this)(0,0) = (*this)(0,1)* T(0.0,1.0); 
+      (*this)(1,0) = (*this)(1,1)* T(0.0,1.0);
       (*this)(0,1) = tmp1;
       (*this)(1,1) = tmp2;
       break;
@@ -177,21 +178,24 @@ public:
       (*this)(1,1)*=-1.0;
       break;
     default:
-      ERR.General("FlavorMatrix","pr(const FlavorMatrixType &type)","Unknown FlavorMatrixType");
+      ERR.General("FlavorMatrixGeneral","pr(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
       break;
     }
     return *this;
   }
 };
 //Trace(A * B);
-inline static Complex Trace(const FlavorMatrix &a, const FlavorMatrix &b){
+template<typename T>
+inline static T Trace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
   return a(0,0)*b(0,0) + a(0,1)*b(1,0) + a(1,0)*b(0,1) + a(1,1)*b(1,1);
 }
 //Trace(A^T * B)
-inline static Complex TransLeftTrace(const FlavorMatrix &a, const FlavorMatrix &b){
+template<typename T>
+inline static T TransLeftTrace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
   return a(0,0)*b(0,0) + a(1,0)*b(1,0) + a(0,1)*b(0,1) + a(1,1)*b(1,1);
 }
 
+typedef FlavorMatrixGeneral<Complex> FlavorMatrix;
 
 CPS_END_NAMESPACE
 #endif
