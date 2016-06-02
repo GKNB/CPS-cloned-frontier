@@ -30,7 +30,7 @@ protected:
   }
 
 public:
-  typedef SiteType FieldFloatType;
+  typedef SiteType FieldSiteType;
   typedef DimensionPolicy FieldDimensionPolicy;
   typedef FlavorPolicy FieldFlavorPolicy;
   typedef AllocPolicy FieldAllocPolicy;
