@@ -11,6 +11,8 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
   CPSfermion4D<Float> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
   CPSfermion5D<Float> bfield;  Vector* b = (Vector*)bfield.ptr();
 
+  int afield_fsize = afield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
     
   Fermion_t tmp[2] = { dwf.allocFermion(), dwf.allocFermion() };
@@ -21,7 +23,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
-    mf_Float* vi = V.getVl(i).ptr();
+    mf_Float* vi = (mf_Float*)V.getVl(i).ptr();
 
     //Copy bq[i][1] into bq_tmp
     const int len = 24 * eig.dop.node_cbvol * (1 + gparity) * eig.dop.cbLs;
@@ -47,7 +49,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
     //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eig.evals[i], afield.size());
+    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eig.evals[i], afield_fsize);
 
     //Step 2) Compute Wl
 
@@ -71,7 +73,7 @@ void A2AvectorW<mf_Float>::computeVWlow(A2AvectorV<mf_Float> &V, Lattice &lat, B
     //Get 4D part, poke onto a then copy into wl
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    VecTimesEquFloat<mf_Float,Float>(wl[i].ptr(), (Float*)a, 1.0, afield.size());
+    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, afield_fsize);
   }
 
   dwf.freeFermion(tmp[0]);
@@ -104,6 +106,8 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
   CPSfermion5D<Float> afield,bfield;
   CPSfermion4D<Float> v4dfield;
 
+  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<Float>::FieldSiteType)/sizeof(Float); //number of floats in field
+  
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
@@ -147,7 +151,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
     //If no previously computed solutions this wastes a few flops, but not enough to care about
     //V vectors default to zero, so this is a zero guess if not reusing existing solutions
-    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield.size()); // v[i]->v4d to double precision
+    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield_fsize); // v[i]->v4d to double precision
     lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // to 5d
     if(dwf_d.solver == HmCayleyTanh) {
       dwf_d.cps_impexFermion((Float*)a, V_tmp, 1); // to bfm
@@ -176,7 +180,7 @@ void A2AvectorW<mf_Float>::computeVWhigh(A2AvectorV<mf_Float> &V, BFM_Krylov::La
     //CPSify the solution, including 1/nhit for the hit average
     dwf_d.cps_impexFermion((Float *)b,V_tmp2,0);
     lat.Ffive2four(v4d, b, glb_ls-1, 0, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield.size());
+    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield_fsize);
   }
   dwf_d.freeFermion(src[0]); 
   dwf_d.freeFermion(src[1]);

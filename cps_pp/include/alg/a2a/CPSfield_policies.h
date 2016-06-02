@@ -1,5 +1,8 @@
 #ifndef CPS_FIELD_POLICIES
 #define CPS_FIELD_POLICIES
+
+#include <malloc.h>
+
 CPS_START_NAMESPACE
 
 template<typename polA, typename polB>
