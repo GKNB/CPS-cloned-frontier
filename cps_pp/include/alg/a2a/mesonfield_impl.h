@@ -6,8 +6,8 @@
 #include<alg/a2a/mult_vMv_impl.h>
 #include<alg/a2a/mult_vv_impl.h>
 
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &with, const bool &parallel){
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &with, const bool parallel){
   if(nmodes_l != with.nmodes_l || nmodes_r != with.nmodes_r || 
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","plus_equals(..)","Second meson field must have the same underlying parameters\n");
@@ -20,8 +20,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonFiel
   }
 }
 
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::times_equals(const mf_Float f,const bool &parallel){
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::times_equals(const mf_Complex f,const bool parallel){
   if(parallel){
 #pragma omp_parallel for
     for(int i=0;i<fsize;i++) mf[i] *= f;			       
@@ -33,8 +33,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::times_equals(const mf_Float f,
 
 
 //Replace this meson field with the average of this and a second field, 'with'
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::average(const A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &with, const bool &parallel){
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::average(const A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &with, const bool parallel){
   if(nmodes_l != with.nmodes_l || nmodes_r != with.nmodes_r || 
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){
     ERR.General("A2AmesonField","average(..)","Second meson field must have the same underlying parameters\n");
@@ -48,8 +48,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::average(const A2AmesonField<mf
 }
 
 //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map are ignored. Use at your own risk
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
   into.setup(lindexdilution, rindexdilution, tl, tr);
 
 #define DOIT \
@@ -57,7 +57,6 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf_Fl
     for(int j=0;j<nmodes_r;j++) \
       into(i,j) = (*this)(irow,j);
 
-    //mf_Float const* p = mf + 2*( j + nmodes_r*i );
   if(parallel){
 #pragma omp parallel for
     for(int i=0;i<map_size;i++){
@@ -71,8 +70,8 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::rowReorder(A2AmesonField<mf_Fl
 #undef DOIT
 
 }
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel) const{
   into.setup(lindexdilution, rindexdilution, tl, tr);
 
 #define DOIT \
@@ -97,10 +96,10 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::colReorder(A2AmesonField<mf_Fl
 
 //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
 //Output as a GSL matrix
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-typename gsl_wrapper<mf_Float>::matrix_complex * A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<mf_Float>::matrix_complex *reuse ) const{
-  typedef gsl_wrapper<mf_Float> gw;
-  assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>));
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+typename gsl_wrapper<typename mf_Complex::value_type>::matrix_complex * A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename mf_Complex::value_type>::matrix_complex *reuse ) const{
+  typedef gsl_wrapper<typename mf_Complex::value_type> gw;
+  assert(sizeof(typename gw::complex) == sizeof(mf_Complex));
   int rows = nmodes_l;
   int cols = nmodes_r;
 
@@ -122,11 +121,11 @@ typename gsl_wrapper<mf_Float>::matrix_complex * A2AmesonField<mf_Float,A2Afield
 
   for(int i_full=0;i_full<rows;i_full++){
     if(rowidx_used[i_full]){
-      mf_Float const* mf_row_base = mf + 2*nmodes_r*i_full; //meson field are row major so columns are contiguous
+      mf_Complex const* mf_row_base = mf + nmodes_r*i_full; //meson field are row major so columns are contiguous
       typename gw::complex* row_base = gw::matrix_complex_ptr(M_packed,i_packed,0); //GSL matrix are also row major
       for(int b=0;b<blocks.size();b++){
-	mf_Float const* block_ptr = mf_row_base + 2*idx_map[blocks[b].first];
-	memcpy((void*)row_base,(void*)block_ptr,2*blocks[b].second*sizeof(mf_Float));
+	mf_Complex const* block_ptr = mf_row_base + idx_map[blocks[b].first];
+	memcpy((void*)row_base,(void*)block_ptr,blocks[b].second*sizeof(mf_Complex));
 	row_base += blocks[b].second;
       }
       i_packed++;
@@ -138,8 +137,8 @@ typename gsl_wrapper<mf_Float>::matrix_complex * A2AmesonField<mf_Float,A2Afield
 
 
 
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_Float,A2AfieldR,A2AfieldL> &into) const{
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_Complex,A2AfieldR,A2AfieldL> &into) const{
   assert( (void*)this != (void*)&into );
   into.setup(rindexdilution, lindexdilution, tr, tl);
 #pragma omp parallel for
@@ -152,9 +151,9 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_Flo
 //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
 //M(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice
 
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, const int &t, bool do_setup){
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, const int &t, bool do_setup){
   if(do_setup) setup(l,r,t,t); //both vectors have same timeslice
   else zero();
   
@@ -174,7 +173,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Com
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      std::complex<double> mf_accum;
+      ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -206,9 +205,9 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Com
 }
 
 //This version is more efficient on multi-nodes
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup){
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 
@@ -233,7 +232,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonFi
 
 #pragma omp parallel for
     for(int i = 0; i < mf_t[t].nmodes_l; i++){
-      std::complex<double> mf_accum;
+      ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -272,21 +271,21 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonFi
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4)
 //Threaded but *node local*
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-std::complex<mf_Float> trace(const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r){
+mf_Complex trace(const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r){
   //Check the indices match
   if(! l.getRowParams().paramsEqual( r.getColParams() ) || ! l.getColParams().paramsEqual( r.getRowParams() ) )
-    ERR.General("","trace(mf_Float &into, const int &, const int &, const A2AmesonField &, const A2AmesonField &)","Illegal matrix product: underlying vector parameters must match\n");
+    ERR.General("","trace(const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &)","Illegal matrix product: underlying vector parameters must match\n");
 
-  std::complex<mf_Float> into = std::complex<mf_Float>(0.,0.);
+  mf_Complex into(0,0);
 
-  typedef typename A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>::LeftDilutionType DilType0;
-  typedef typename A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>::RightDilutionType DilType1;
-  typedef typename A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR>::LeftDilutionType DilType2;
-  typedef typename A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR>::RightDilutionType DilType3;
+  typedef typename A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR>::LeftDilutionType DilType0;
+  typedef typename A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR>::RightDilutionType DilType1;
+  typedef typename A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR>::LeftDilutionType DilType2;
+  typedef typename A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR>::RightDilutionType DilType3;
 
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
@@ -295,7 +294,7 @@ std::complex<mf_Float> trace(const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   const int n_threads = omp_get_max_threads();
-  std::vector< std::complex<mf_Float> > ret_vec(n_threads,(0.,0.));
+  std::vector<mf_Complex> ret_vec(n_threads,(0.,0.));
     
   modeIndexSet lip; lip.time = times[0];
   modeIndexSet rip; rip.time = times[3];
@@ -329,11 +328,11 @@ std::complex<mf_Float> trace(const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4) for all t1, t4  and place into matrix element t1,t4
 //This is both threaded and distributed over nodes
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-void trace(fMatrix<mf_Float> &into, const std::vector<A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> > &l, const std::vector<A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> > &r){
+void trace(fMatrix<mf_Complex> &into, const std::vector<A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> > &l, const std::vector<A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> > &r){
   //Distribute load over all nodes
   int lsize = l.size();
   int rsize = r.size();
@@ -382,8 +381,8 @@ struct nodeDistributeCounter{
 
 
 //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uniqueid){
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uniqueid){
   if(node_uniqueid == -1) node_uniqueid = nodeDistributeCounter::getNext(); //draw the next node index from the pool
 
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
@@ -440,10 +439,10 @@ struct getMPIdataType<float>{
 
 
 //Get back the data. After the call, all nodes will have a complete copy
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::nodeGet(){
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::nodeGet(){
   if(node_mpi_rank == -1) return; //already on all nodes
-
+  typedef typename mf_Complex::value_type mf_Float;
 #ifndef USE_MPI
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1) ERR.General("A2AmesonField","nodeGet","Implementation requires MPI\n");
@@ -454,7 +453,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::nodeGet(){
 
   if(mpi_rank != node_mpi_rank){
     //if(mf != NULL) printf("rank %d pointer should be NULL but it isn't!\n",mpi_rank); fflush(stdout);
-    mf = (mf_Float*)malloc(fsize * sizeof(mf_Float));  
+    mf = (mf_Float*)malloc(fsize * sizeof(mf_Complex));  
     if(mf == NULL){ printf("rank %d failed to allocate memory!\n",mpi_rank); fflush(stdout); exit(-1); }
     //printf("rank %d allocated memory\n",mpi_rank); fflush(stdout);
   }//else{ printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); }
@@ -469,7 +468,7 @@ void A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>::nodeGet(){
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-  ret = MPI_Bcast((void*)mf, fsize, dtype, node_mpi_rank, MPI_COMM_WORLD);
+  ret = MPI_Bcast((void*)mf, 2*fsize, dtype, node_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS){
     printf("rank %d Bcast fail\n",mpi_rank,mf[0]); fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);

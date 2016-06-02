@@ -2,7 +2,7 @@
 #define _MULT_IMPL_BLOCK_BASIC_H
 
 //Implementations for meson field contractions
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
@@ -10,7 +10,7 @@ class _mult_impl{ //necessary to avoid an annoying ambigous overload when mesonf
 public:
   //Matrix product of meson field pairs
   //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
-  static void mult(A2AmesonField<mf_Float,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+  static void mult(A2AmesonField<mf_Complex,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
@@ -28,8 +28,8 @@ public:
     int ni = l.getNrows();
     int nk = r.getNcols();
 
-    typedef typename A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
-    typedef typename A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
+    typedef typename A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
+    typedef typename A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
     
@@ -72,9 +72,9 @@ public:
 
       Float flops_total = Float(ni)*Float(nk)*Float(nj)*8.;
 
-      A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> lreord;
+      A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> lreord;
       l.colReorder(lreord,jlmap,nj);
-      A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> rreord;
+      A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> rreord;
       r.rowReorder(rreord,jrmap,nj);
       
       static const int lcol_stride = 1;      
@@ -88,13 +88,13 @@ public:
 	int i0 = rem;
 	i0 *= bi; j0 *= bj; k0 *= bk;
 
-	std::complex<mf_Float> ijblock[bi][bj];
+	mf_Complex ijblock[bi][bj];
 	for(int i=0;i<bi;i++) for(int j=0;j<bj;j++) ijblock[i][j] = lreord(i0+i, j0+j);
 	
 	//std::complex<mf_Float> jkblock[bj][bk];
 	//for(int j=0;j<bj;j++) for(int k=0;k<bk;k++) jkblock[j][k] = rreord(j0+j, k0+k);
 
-	std::complex<mf_Float> kjblock[bk][bj];
+	mf_Complex kjblock[bk][bj];
 	for(int j=0;j<bj;j++) for(int k=0;k<bk;k++) kjblock[k][j] = rreord(j0+j, k0+k); //inplace transpose to speed things up
 
 	for(int i=i0; i<i0+bi; ++i){

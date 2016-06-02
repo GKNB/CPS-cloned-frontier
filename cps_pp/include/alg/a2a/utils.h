@@ -258,13 +258,13 @@ inline std::complex<double> GSLtrace(const SpinColorFlavorMatrix& a, const SpinC
 
 
 //For a Nrows*Ncols matrix 'to' with elements in the standard order  idx=(Ncols*i + j), poke a submatrix into it with origin (i0,j0) and size (ni,nj)
-template<typename mf_Float>
-void pokeSubmatrix(mf_Float* to, const mf_Float* sub, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
+template<typename T>
+void pokeSubmatrix(T* to, const T* sub, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
   #define DOIT \
     for(int row = i0; row < i0+ni; row++){ \
-      mf_Float* to_block = to + row*Ncols + j0;	  \
-      const mf_Float* from_block = sub + (row-i0)*nj;	\
-      memcpy(to_block,from_block,nj*sizeof(mf_Float));	\
+      T* to_block = to + row*Ncols + j0;	  \
+      const T* from_block = sub + (row-i0)*nj;	\
+      memcpy(to_block,from_block,nj*sizeof(T));	\
     }
   if(threaded){
 #pragma omp parallel for
@@ -275,13 +275,13 @@ void pokeSubmatrix(mf_Float* to, const mf_Float* sub, const int Nrows, const int
   #undef DOIT
 }
 //For a Nrows*Ncols matrix 'from' with elements in the standard order  idx=(Ncols*i + j), get a submatrix with origin (i0,j0) and size (ni,nj) and store in sub
-template<typename mf_Float>
-void getSubmatrix(mf_Float* sub, const mf_Float* from, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
+template<typename T>
+void getSubmatrix(T* sub, const T* from, const int Nrows, const int Ncols, const int i0, const int j0, const int ni, const int nj, const bool threaded = false){
   #define DOIT \
     for(int row = i0; row < i0+ni; row++){		\
-      const mf_Float* from_block = from + row*Ncols + j0;	\
-      mf_Float* to_block = sub + (row-i0)*nj;			\
-      memcpy(to_block,from_block,nj*sizeof(mf_Float));		\
+      const T* from_block = from + row*Ncols + j0;	\
+      T* to_block = sub + (row-i0)*nj;			\
+      memcpy(to_block,from_block,nj*sizeof(T));		\
     }
   if(threaded){
 #pragma omp parallel for

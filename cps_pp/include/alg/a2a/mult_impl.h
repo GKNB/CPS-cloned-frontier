@@ -26,12 +26,12 @@
 
 //Matrix product of meson field pairs
 //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-void mult(A2AmesonField<mf_Float,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
-  _mult_impl<mf_Float,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>::mult(out,l,r, node_local);
+void mult(A2AmesonField<mf_Complex,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+  _mult_impl<mf_Complex,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>::mult(out,l,r, node_local);
 }
 
 

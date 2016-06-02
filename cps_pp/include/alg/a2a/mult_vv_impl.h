@@ -5,12 +5,11 @@
 #define MULT_LR_GSL
 
 
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2Afield,  template <typename> class rA2Afield
 	 >
 class _mult_lr_impl{ 
 public:
-  typedef std::complex<mf_Float> mf_Complex;
 #if defined(MULT_LR_BASIC)
 
   static void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
@@ -86,14 +85,14 @@ public:
     const static int nscf = 2*3*4;
 
     //Pull out the components we need into packed GSL vectors
-    typedef gsl_wrapper<mf_Float> gw;
+    typedef gsl_wrapper<typename mf_Complex::value_type> gw;
 
     typename gw::matrix_complex *lgsl = gw::matrix_complex_alloc(nscf, nv);
     typename gw::matrix_complex *rgsl = gw::matrix_complex_alloc(nv,nscf);
     gw::matrix_complex_set_zero(lgsl);
     gw::matrix_complex_set_zero(rgsl);
 
-    assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>) ); 
+    assert(sizeof(typename gw::complex) == sizeof(mf_Complex) ); 
 
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
@@ -226,20 +225,20 @@ public:
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-  _mult_lr_impl<mf_Float,lA2Afield,rA2Afield>::mult(out,l,r,xop,top,conj_l,conj_r);
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  _mult_lr_impl<mf_Complex,lA2Afield,rA2Afield>::mult(out,l,r,xop,top,conj_l,conj_r);
 }
 
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult_slow(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-  _mult_lr_impl<mf_Float,lA2Afield,rA2Afield>::mult_slow(out,l,r,xop,top,conj_l,conj_r);
+void mult_slow(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  _mult_lr_impl<mf_Complex,lA2Afield,rA2Afield>::mult_slow(out,l,r,xop,top,conj_l,conj_r);
 }
 
 #endif

@@ -20,8 +20,8 @@ CPS_START_NAMESPACE
 // \sum_{ \vec y, \vec z  }  \Gamma_2 vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
 
 //Run inside threaded environment
-template<typename mf_Float>
-void ComputeKtoPiPiGparity<mf_Float>::type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix part2[2]){
+template<typename mf_Complex>
+void ComputeKtoPiPiGparity<mf_Complex>::type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix part2[2]){
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -67,29 +67,29 @@ void ComputeKtoPiPiGparity<mf_Float>::type2_contract(KtoPiPiGparityResultsContai
 }
 
 
-template<typename mf_Float>
-void ComputeKtoPiPiGparity<mf_Float>::type2_compute_mfproducts(std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-							       std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
+template<typename mf_Complex>
+void ComputeKtoPiPiGparity<mf_Complex>::type2_compute_mfproducts(std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
+							       std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
 							       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
-							       MesonFieldMomentumContainer<mf_Float> &mf_pions,
+							       MesonFieldMomentumContainer<mf_Complex> &mf_pions,
 							       const int Lt, const int tpi_sampled){
   con_pi1_pi2.resize(tpi_sampled); //y is associated with pi1, z with pi2
   con_pi2_pi1.resize(tpi_sampled); //y is associated with pi2, z with pi1
 
-  A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> tmp;
+  A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> tmp;
     
   if(!UniqueID()){ printf("Computing con_*_*\n"); fflush(stdout); }
 
   //Some of these mults are quite likely duplicates, so use the product store to maximize reuse
-  MesonFieldProductStore<mf_Float> products;
+  MesonFieldProductStore<mf_Complex> products;
 
   int nmom = p_pi_1_all.size();
   for(int pidx=0;pidx<nmom;pidx++){
     const ThreeMomentum &p_pi_1 = p_pi_1_all[pidx];
     ThreeMomentum p_pi_2 = -p_pi_1;
     
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1);
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeGetMany(2,&mf_pi1,&mf_pi2);
 #endif
@@ -137,14 +137,14 @@ void ComputeKtoPiPiGparity<mf_Float>::type2_compute_mfproducts(std::vector<A2Ame
 
 
 
-template<typename mf_Float>
-void ComputeKtoPiPiGparity<mf_Float>::type2_mult_vMv_setup(std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-							   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-							   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
-							   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-							   const std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
+template<typename mf_Complex>
+void ComputeKtoPiPiGparity<mf_Complex>::type2_mult_vMv_setup(std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+							   std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
+							   std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
+							   const std::vector< A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
+							   const std::vector< A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
 							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, const A2AvectorW<mf_Complex> & wL,
-							   const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+							   const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 							   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 							   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
 
@@ -176,13 +176,13 @@ void ComputeKtoPiPiGparity<mf_Float>::type2_mult_vMv_setup(std::vector<mult_vMv_
   
 }
 
-template<typename mf_Float>
-void ComputeKtoPiPiGparity<mf_Float>::type2_precompute_part1_part2(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
+template<typename mf_Complex>
+void ComputeKtoPiPiGparity<mf_Complex>::type2_precompute_part1_part2(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
 								   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi1_pi2,
 								   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi2_pi1,
-								   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-								   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-								   std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
+								   std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+								   std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
+								   std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
 								   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 								   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
 
@@ -213,10 +213,10 @@ void ComputeKtoPiPiGparity<mf_Float>::type2_precompute_part1_part2(std::vector<s
 
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
 //This version also overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
-template<typename mf_Float>
-void ComputeKtoPiPiGparity<mf_Float>::type2(KtoPiPiGparityResultsContainer result[],
+template<typename mf_Complex>
+void ComputeKtoPiPiGparity<mf_Complex>::type2(KtoPiPiGparityResultsContainer result[],
 		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		  const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Float> &mf_pions,
+		  const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Complex> &mf_pions,
 		  const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
 		  const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
       
@@ -250,8 +250,8 @@ void ComputeKtoPiPiGparity<mf_Float>::type2(KtoPiPiGparityResultsContainer resul
 
   //Form the product of the two meson fields
   //con_*_* = \sum_{\vec y,\vec z} [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]]
-  std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > con_pi1_pi2;//(tpi_sampled); //y is associated with pi1, z with pi2
-  std::vector< A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> > con_pi2_pi1; //(tpi_sampled); //y is associated with pi2, z with pi1
+  std::vector< A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > con_pi1_pi2;//(tpi_sampled); //y is associated with pi1, z with pi2
+  std::vector< A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > con_pi2_pi1; //(tpi_sampled); //y is associated with pi2, z with pi1
   type2_compute_mfproducts(con_pi1_pi2,con_pi2_pi1,tsep_pion,tstep,p_pi_1_all,mf_pions, Lt, tpi_sampled);
 
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
@@ -259,10 +259,10 @@ void ComputeKtoPiPiGparity<mf_Float>::type2(KtoPiPiGparityResultsContainer resul
 
 #ifndef DISABLE_TYPE2_SPLIT_VMV
     //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
-    std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[t_K_all.size()];
+    std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[t_K_all.size()];
 
-    std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi1_pi2; //[tpi_sampled];
-    std::vector<mult_vMv_split<mf_Float,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi2_pi1; //[tpi_sampled];
+    std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi1_pi2; //[tpi_sampled];
+    std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi2_pi1; //[tpi_sampled];
     type2_mult_vMv_setup(mult_vMv_split_part1,mult_vMv_split_part2_pi1_pi2,mult_vMv_split_part2_pi2_pi1,con_pi1_pi2,con_pi2_pi1,vL,vH,wL,mf_kaon,t_K_all,top_loc,tstep, Lt,tpi_sampled,node_top_used,node_top_used_kaon);
 
 # ifndef DISABLE_TYPE2_PRECOMPUTE

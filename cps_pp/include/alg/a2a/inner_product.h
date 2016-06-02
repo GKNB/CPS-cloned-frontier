@@ -14,13 +14,13 @@ CPS_START_NAMESPACE
 
 //Classes that perform the inner product of two spin-color-flavor vectors on a given (momentum-space) site
 //Class must have an 
-//complex<double> operator()(const SCFvectorPtr<mf_Float> &l, const SCFvectorPtr<mf_Float> &r, const int &p, const int &t) const
+//complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int &p, const int &t) const
 //p is the *local* 3-momentum coordinate in canonical ordering 
 //t is the local time coordinate
-//mf_Float is the storage precision for the vectors
+//mf_Complex is the base complex type for the vectors
 //Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
 
-template<typename mf_Float, bool conj_left, bool conj_right>
+template<typename mf_Complex, bool conj_left, bool conj_right>
 struct Mconj{};
 
 // (re*re - im*im, re*im + im*re )

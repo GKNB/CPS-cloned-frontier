@@ -30,19 +30,17 @@ struct FlavorUnpacked<StandardIndexDilution>{
 //In the majority of cases the timeslice of the right-hand vector is equal to that of the left-hand, but in some cases we might desire it to be different,
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
 
-template<typename mf_Float, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+template<typename mf_Complex, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 class A2AmesonField{
 public:
   //Deduce the dilution types for the meson field. We unpack the flavor index in W fields
-  typedef typename A2AfieldL<mf_Float>::DilutionType LeftInputDilutionType;
-  typedef typename A2AfieldR<mf_Float>::DilutionType RightInputDilutionType;
+  typedef typename A2AfieldL<mf_Complex>::DilutionType LeftInputDilutionType;
+  typedef typename A2AfieldR<mf_Complex>::DilutionType RightInputDilutionType;
 
   typedef typename FlavorUnpacked<LeftInputDilutionType>::UnpackedType LeftDilutionType;
   typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
-
-  typedef std::complex<mf_Float> mf_Complex;
 private:
-  mf_Float* mf;
+  mf_Complex* mf;
   int nmodes_l, nmodes_r;
   int fsize; //in floats
 
@@ -54,36 +52,35 @@ private:
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
 
   inline mf_Complex & operator()(const int &i, const int &j){
-    mf_Float* p = mf + 2*( j + nmodes_r*i ); //right mode index changes most quickly
-    return reinterpret_cast<std::complex<mf_Float>&>(*p);
+    return mf[j + nmodes_r*i]; //right mode index changes most quickly
   }
 
   void nodeSum(){
-    QMP_sum_array(mf,fsize);
+    QMP_sum_array( (typename mf_Complex::value_type*)mf,2*fsize);
   }
 
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
-  template<typename mf_Float2, 
+  template<typename mf_Complex2, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	   >
   friend class _mult_impl; //can't friend 'mult' directly as it gives an ambiguous overload
 
-  template<typename mf_Float2, 
+  template<typename mf_Complex2, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	   >
   friend class _mult_vMv_impl;
   
-  template<typename mf_Float2, 
+  template<typename mf_Complex2, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	   >
   friend class mult_vMv_split;
   
-  template<typename mf_Float2, 
+  template<typename mf_Complex2, 
 	 template <typename> class lA2Afield,  template <typename> class rA2Afield
 	 >
   friend class _mult_lr_impl;
@@ -110,19 +107,19 @@ public:
     nmodes_r = rindexdilution.getNmodes();
 
     int old_fsize = fsize;
-    fsize = nmodes_l*nmodes_r*2;
+    fsize = nmodes_l*nmodes_r;
 
     if(mf!=NULL && old_fsize != fsize ){ 
       free(mf); 
-      mf = (mf_Float*)malloc(fsize * sizeof(mf_Float));   
+      mf = (mf_Complex*)malloc(fsize * sizeof(mf_Complex));   
     }else if(mf == NULL){
-      mf = (mf_Float*)malloc(fsize * sizeof(mf_Float));   
+      mf = (mf_Complex*)malloc(fsize * sizeof(mf_Complex));   
     }
     zero();
   }
 
   //Return size in bytes
-  size_t byte_size() const{ return fsize * sizeof(mf_Float); }
+  size_t byte_size() const{ return fsize * sizeof(mf_Complex); }
 
   //Can compute the byte size without an instance as long as we know the params
   static size_t byte_size(const A2Aparams &lp, const A2Aparams &rp){
@@ -130,8 +127,8 @@ public:
     RightDilutionType rindexdilution = rp;
     int nmodes_l = lindexdilution.getNmodes();
     int nmodes_r = rindexdilution.getNmodes();
-    size_t fsize = nmodes_l*nmodes_r*2;
-    return fsize * sizeof(mf_Float);
+    size_t fsize = nmodes_l*nmodes_r;
+    return fsize * sizeof(mf_Complex);
   }
 
 
@@ -141,29 +138,28 @@ public:
 
   A2AmesonField &operator=(const A2AmesonField &r){
     setup(r.lindexdilution, r.rindexdilution, r.tl, r.tr);
-    memcpy(mf, r.mf, fsize*sizeof(mf_Float));
+    memcpy(mf, r.mf, fsize*sizeof(mf_Complex));
     node_mpi_rank = r.node_mpi_rank;
     return *this;
   }
 
 
-  mf_Float* ptr(){ return mf; } //Use at your own risk
+  mf_Complex* ptr(){ return mf; } //Use at your own risk
   
-  //Size in floats
+  //Size in complex
   inline const int size() const{ return fsize; }
 
   //Access elements with compressed mode index
   inline const mf_Complex & operator()(const int &i, const int &j) const{
-    mf_Float const* p = mf + 2*( j + nmodes_r*i );
-    return reinterpret_cast<std::complex<mf_Float> const&>(*p);
+    return mf[j + nmodes_r*i];
   }
   
-  inline const int & getRowTimeslice() const{ return tl; }
-  inline const int & getColTimeslice() const{ return tr; }
+  inline const int getRowTimeslice() const{ return tl; }
+  inline const int getColTimeslice() const{ return tr; }
   
   //A slow implementation to access elements from full unpacked indices
   inline const mf_Complex & elem(const int full_i, const int full_j) const{
-    static std::complex<mf_Float> zero(0.0,0.0);
+    static mf_Complex zero(0.0,0.0);
 
     int nll = lindexdilution.getNl();
     int nlr = rindexdilution.getNl();
@@ -187,8 +183,8 @@ public:
     return this->operator()(packed_i,packed_j);
   }
 
-  inline void zero(const bool &parallel = true){
-    memset(mf, 0, sizeof(mf_Float) * fsize);      
+  inline void zero(const bool parallel = true){
+    memset(mf, 0, sizeof(mf_Complex) * fsize);      
   }
   //For all mode indices l_i and r_j, compute the meson field  V^-1 \sum_p l_i^\dagger(p,t) M(p,t) r_j(p,t)
   //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
@@ -199,36 +195,36 @@ public:
 
   //This version is more efficient on multi-nodes
   template<typename InnerProduct, typename Allocator>
-  static void compute(std::vector<A2AmesonField<mf_Float,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup = true);
+  static void compute(std::vector<A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Complex> &l, const InnerProduct &M, const A2AfieldR<mf_Complex> &r, bool do_setup = true);
 
-  inline const int &getNrows() const{ return nmodes_l; }
-  inline const int &getNcols() const{ return nmodes_r; }
+  inline const int getNrows() const{ return nmodes_l; }
+  inline const int getNcols() const{ return nmodes_r; }
 
   inline const LeftDilutionType & getRowParams() const{ return lindexdilution; }
   inline const RightDilutionType & getColParams() const{ return rindexdilution; }
   
-  void plus_equals(const A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &with, const bool &parallel = true);
-  void times_equals(const mf_Float f, const bool &parallel = true);
+  void plus_equals(const A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &with, const bool parallel = true);
+  void times_equals(const mf_Complex f, const bool parallel = true);
 
   //Replace this meson field with the average of this and a second field, 'with'
-  void average(const A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &with, const bool &parallel = true);
+  void average(const A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &with, const bool parallel = true);
 
   //Set each float to a uniform random number in the specified range
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-  void testRandom(const Float &hi=0.5, const Float &lo=-0.5){
+  void testRandom(const Float hi=0.5, const Float lo=-0.5){
     for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
-  void rowReorder(A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
-  void colReorder(A2AmesonField<mf_Float,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
+  void rowReorder(A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
+  void colReorder(A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;
 
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
   //Output as a GSL matrix. Can reuse previously allocated matrix providing its big enough
-  typename gsl_wrapper<mf_Float>::matrix_complex * GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<mf_Float>::matrix_complex *reuse = NULL) const;
+  typename gsl_wrapper<typename mf_Complex::value_type>::matrix_complex * GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename mf_Complex::value_type>::matrix_complex *reuse = NULL) const;
 
   //Transpose the meson field! (parallel)
-  void transpose(A2AmesonField<mf_Float,A2AfieldR,A2AfieldL> &into) const;
+  void transpose(A2AmesonField<mf_Complex,A2AfieldR,A2AfieldL> &into) const;
 
   //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
   //If no node idx is suppled (default) the memory will be distributed according to a global index that cycles between 0... nodes-1 (with looping) to ensure even distribution
@@ -241,49 +237,49 @@ public:
 //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
 //Threaded and node distributed. 
 //Node-locality can be enabled with 'node_local = true'
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-void mult(A2AmesonField<mf_Float,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r, const bool node_local = false);
+void mult(A2AmesonField<mf_Complex,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r, const bool node_local = false);
 
 
 // l^i(xop,top) M^ij r^j(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l,  const A2AmesonField<mf_Float,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l,  const A2AmesonField<mf_Complex,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
 
 // l^i(xop,top) r^i(xop,top)
 //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
 // Node local and unthreaded
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<std::complex<mf_Float> > &l, const rA2Afield<std::complex<mf_Float> > &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r);
 
 
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4)
 //Threaded but *node local*
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-std::complex<mf_Float> trace(const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r);
+mf_Complex trace(const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r);
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4) for all t1, t4  and place into matrix element t1,t4
 //This is both threaded and distributed over nodes
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-void trace(fMatrix<mf_Float> &into, const std::vector<A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> > &l, const std::vector<A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> > &r);
+void trace(fMatrix<mf_Complex> &into, const std::vector<A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> > &l, const std::vector<A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> > &r);
 
 
 //Handy helpers for gather and distribute of length Lt vectors of meson fields

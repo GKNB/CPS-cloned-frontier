@@ -49,21 +49,21 @@ public:
 
 
 //A matrix of complex numbers and some useful associated methods
-template<typename mf_Float>
+template<typename mf_Complex>
 class fMatrix{
-  std::complex<mf_Float>* tt;
+  mf_Complex* tt;
   int rows, cols;
   int fsize; //number of elements
   
   void free_matrix(){
-    if(tt!=NULL) sfree("fMatrix","~fMatrix","free",(mf_Float*)tt);
+    if(tt!=NULL) sfree("fMatrix","~fMatrix","free",tt);
   }
 
-  void alloc_matrix(const int &_rows, const int &_cols, std::complex<mf_Float> const* cp = NULL){
+  void alloc_matrix(const int _rows, const int _cols, mf_Complex const* cp = NULL){
     if(_rows != rows || _cols != cols){
       free_matrix();
       rows = _rows; cols = _cols; fsize = rows*cols;
-      tt = (std::complex<mf_Float>*)smalloc("fMatrix", "fMatrix", "alloc" , 2*sizeof(mf_Float) * fsize);
+      tt = (mf_Complex*)smalloc("fMatrix", "fMatrix", "alloc" , sizeof(mf_Complex) * fsize);
     }
     if(cp == NULL) zero();
     else for(int i=0;i<fsize;i++) tt[i] = cp[i];
@@ -75,29 +75,29 @@ public:
   fMatrix(const int &_rows, const int &_cols): rows(0), cols(0), fsize(0),tt(NULL){ 
     alloc_matrix(_rows,_cols);
   }
-  fMatrix(const fMatrix<mf_Float> &r): rows(0), cols(0), fsize(0),tt(NULL){
+  fMatrix(const fMatrix<mf_Complex> &r): rows(0), cols(0), fsize(0),tt(NULL){
     alloc_matrix(r.rows,r.cols,r.tt);
   }
   
-  std::complex<mf_Float> *ptr(){ return tt;}
+  mf_Complex *ptr(){ return tt;}
 
-  void resize(const int &_rows, const int &_cols){ alloc_matrix(_rows,_cols); }
+  void resize(const int _rows, const int _cols){ alloc_matrix(_rows,_cols); }
 
   void zero(){ for(int i=0;i<fsize;i++) tt[i] = 0.0; }
 
-  fMatrix & operator*=(const std::complex<mf_Float> &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
-  fMatrix & operator*=(const mf_Float &r){ for(int i=0;i<fsize*2;i++) ((mf_Float*)tt)[i] *= r;  return *this; }
+  fMatrix & operator*=(const mf_Complex &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
+  fMatrix & operator*=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] *= r;  return *this; }
 
-  fMatrix & operator+=(const fMatrix<mf_Float> &r){ for(int i=0;i<fsize;i++) tt[i] += r.tt[i];  return *this; }
+  fMatrix & operator+=(const fMatrix<mf_Complex> &r){ for(int i=0;i<fsize;i++) tt[i] += r.tt[i];  return *this; }
   
-  inline const std::complex<mf_Float> & operator()(const int &i, const int &j) const{ return tt[j + cols*i]; }
-  inline std::complex<mf_Float> & operator()(const int &i, const int &j){ return tt[j + cols*i]; }
+  inline const mf_Complex & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
+  inline mf_Complex & operator()(const int i, const int j){ return tt[j + cols*i]; }
 
-  inline const int &nRows() const{ return rows; }
-  inline const int &nCols() const{ return cols; }
+  inline const int nRows() const{ return rows; }
+  inline const int nCols() const{ return cols; }
 
   void nodeSum(){
-    QMP_sum_array( (mf_Float*)tt,2*fsize);
+    QMP_sum_array( (typename mf_Complex::value_type*)tt,2*fsize);
   }
 
   ~fMatrix(){
@@ -116,12 +116,12 @@ public:
 };
 
 //Rearrange an Lt*Lt matrix from ordering  tsnk, tsrc  to   tsrc,  tsep=tsnk-tsrc
-template<typename mf_Float>
-void rearrangeTsrcTsep(fMatrix<mf_Float> &m){
+template<typename mf_Complex>
+void rearrangeTsrcTsep(fMatrix<mf_Complex> &m){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   if(m.nRows()!=Lt || m.nCols()!=Lt) ERR.General("","rearrangeTsrcTsep(fMatrix<mf_Float> &)","Expect an Lt*Lt matrix\n");
 
-  fMatrix<mf_Float> tmp(m);
+  fMatrix<mf_Complex> tmp(m);
   for(int tsnk=0;tsnk<Lt;tsnk++){
     for(int tsrc=0;tsrc<Lt;tsrc++){
       int tsep = (tsnk-tsrc+Lt) % Lt;
@@ -133,20 +133,20 @@ void rearrangeTsrcTsep(fMatrix<mf_Float> &m){
 
 
 //A vector of complex numbers and some useful associated methods
-template<typename mf_Float>
+template<typename mf_Complex>
 class fVector{
-  std::complex<mf_Float>* tt;
+  mf_Complex* tt;
   int fsize;
   
   void free_mem(){
-    if(tt!=NULL) sfree("fVector","~fVector","free",(mf_Float*)tt);
+    if(tt!=NULL) sfree("fVector","~fVector","free",tt);
   }
 
-  void alloc_mem(const int &_elems, std::complex<mf_Float> const* cp = NULL){
+  void alloc_mem(const int _elems, mf_Complex const* cp = NULL){
     if(_elems != fsize){
       free_mem();
       fsize = _elems;
-      tt = (std::complex<mf_Float>*)smalloc("fVector", "fVector", "alloc" , 2*sizeof(mf_Float) * fsize);
+      tt = (mf_Complex*)smalloc("fVector", "fVector", "alloc" , sizeof(mf_Complex) * fsize);
     }
     if(cp == NULL) zero();
     else for(int i=0;i<fsize;i++) tt[i] = cp[i];
@@ -155,29 +155,29 @@ class fVector{
 public:
   fVector(): fsize(0),tt(NULL){ }
 
-  fVector(const int &_elems): fsize(0),tt(NULL){ 
+  fVector(const int _elems): fsize(0),tt(NULL){ 
     alloc_mem(_elems);
   }
-  fVector(const fVector<mf_Float> &r): fsize(0),tt(NULL){
+  fVector(const fVector<mf_Complex> &r): fsize(0),tt(NULL){
     alloc_mem(r.fsize,r.tt);
   }
   
-  std::complex<mf_Float> *ptr(){ return tt;}
+  mf_Complex *ptr(){ return tt;}
 
-  void resize(const int &_elems){ alloc_mem(_elems); }
+  void resize(const int _elems){ alloc_mem(_elems); }
 
-  void zero(){ for(int i=0;i<fsize;i++) tt[i] = 0.0; }
+  void zero(){ for(int i=0;i<fsize;i++) tt[i] = mf_Complex(0,0); }
 
-  fVector & operator*=(const std::complex<mf_Float> &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
-  fVector & operator*=(const mf_Float &r){ for(int i=0;i<fsize*2;i++) ((mf_Float*)tt)[i] *= r;  return *this; }
+  fVector & operator*=(const mf_Complex &r){ for(int i=0;i<fsize;i++) tt[i] *= r;  return *this; }
+  fVector & operator*=(const typename mf_Complex::value_type &r){ for(int i=0;i<fsize*2;i++) ((typename mf_Complex::value_type*)tt)[i] *= r;  return *this; }
 
-  inline const std::complex<mf_Float> & operator()(const int &i) const{ return tt[i]; }
-  inline std::complex<mf_Float> & operator()(const int &i){ return tt[i]; }
+  inline const mf_Complex & operator()(const int &i) const{ return tt[i]; }
+  inline mf_Complex & operator()(const int &i){ return tt[i]; }
 
   inline const int &size() const{ return fsize; }
 
   void nodeSum(){
-    QMP_sum_array( (mf_Float*)tt,2*fsize);
+    QMP_sum_array( (typename mf_Complex::value_type*)tt,2*fsize);
   }
 
   ~fVector(){

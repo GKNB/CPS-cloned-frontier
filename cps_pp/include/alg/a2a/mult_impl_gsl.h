@@ -6,13 +6,13 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 //Implementations for meson field contractions
-template<typename mf_Float, 
+template<typename mf_Complex, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
 class _mult_impl{ //necessary to avoid an annoying ambigous overload when mesonfield friends mult
 public:
-  typedef gsl_wrapper<mf_Float> gw;
+  typedef gsl_wrapper<typename mf_Complex::value_type> gw;
 
   //Matrix product of meson field pairs
   //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
@@ -43,7 +43,9 @@ public:
     return sep_above < sep_below ? nearest_above : nearest_below;
   }
   
-  static void mult(A2AmesonField<mf_Float,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+  static void mult(A2AmesonField<mf_Complex,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+    typedef typename mf_Complex::value_type mf_Float;
+    
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
@@ -61,8 +63,8 @@ public:
     int ni = l.getNrows();
     int nk = r.getNcols();
 
-    typedef typename A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
-    typedef typename A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
+    typedef typename A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
+    typedef typename A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
     
@@ -123,16 +125,16 @@ public:
 
       Float flops_total = Float(ni)*Float(nk)*Float(nj)*8.;
 
-      A2AmesonField<mf_Float,lA2AfieldL,lA2AfieldR> lreord;
+      A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> lreord;
       l.colReorder(lreord,jlmap,nj);
-      A2AmesonField<mf_Float,rA2AfieldL,rA2AfieldR> rreord;
+      A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> rreord;
       r.rowReorder(rreord,jrmap,nj);
       
       typename gw::matrix_complex *lreord_gsl = gw::matrix_complex_alloc(ni,nj);
 #pragma omp parallel for
       for(int i=0;i<ni;i++)
 	for(int j=0;j<nj;j++){
-	  const std::complex<mf_Float> & el = lreord(i, j);
+	  const mf_Complex & el = lreord(i, j);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(lreord_gsl,i,j);
 	  *(el_gsl++) = std::real(el);
 	  *(el_gsl) = std::imag(el);
@@ -141,7 +143,7 @@ public:
 #pragma omp parallel for
       for(int j=0;j<nj;j++)
 	for(int k=0;k<nk;k++){
-	  const std::complex<mf_Float> & el = rreord(j, k);
+	  const mf_Complex & el = rreord(j, k);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(rreord_gsl,j,k);
 	  *(el_gsl++) = std::real(el);
 	  *(el_gsl) = std::imag(el);

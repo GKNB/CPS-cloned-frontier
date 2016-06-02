@@ -238,10 +238,10 @@ void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, c
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
   int x[this->EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Float,FourDpolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
+  CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
@@ -262,10 +262,10 @@ void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[]
 }
 
 //Set this field to be the FFT of 'r'
-template< typename mf_Float, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Float,FlavorPolicy,AllocPolicy> &r){
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r){
   for(int mu=0;mu<3;mu++){
-    CPSfermion4DglobalInOneDir<mf_Float,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
+    CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
     tmp_dbl.gather( mu==0 ? r : *this );
     tmp_dbl.fft();
     tmp_dbl.scatter(*this);

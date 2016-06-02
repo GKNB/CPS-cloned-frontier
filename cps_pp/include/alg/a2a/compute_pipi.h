@@ -25,17 +25,17 @@ CPS_START_NAMESPACE
 
 #define NODE_LOCAL true
 
-template<typename mf_Float>
+template<typename mf_Complex>
 class ComputePiPiGparity{
   
   //C = \sum_{x,y,r,s}  \sum_{  0.5 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(r) S_2 * v(r)]] [[w^dag(s) S_2 v(s)]] [[w^dag(x) S_2 v(x)]] )
   //  = 0.5 Tr(  mf(p_pi1_snk) mf(p_pi2_src) mf(p_pi2_snk) mf(p_pi1_src) )
-  inline static void figureC(fMatrix<mf_Float> &into,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Float> &products,
+  inline static void figureC(fMatrix<mf_Complex> &into,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     MesonFieldProductStore<mf_Complex> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     int tsrc2 = (tsrc-tsep+Lt) % Lt;
     int tsnk2 = (tsnk+tsep) % Lt;
@@ -43,10 +43,10 @@ class ComputePiPiGparity{
     int tdis = (tsnk - tsrc + Lt) % Lt;
 
     //Topology 1  x4=tsrc (pi1)  y4=tsnk (pi1)  r4=tsrc2 (pi2)  s4=tsnk2 (pi2)
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 
-    into(tsrc, tdis) += mf_Float(0.5) * trace(prod_l, prod_r);
+    into(tsrc, tdis) += mf_Complex(0.5) * trace(prod_l, prod_r);
 
     //Topology 2  x4=tsrc (pi1) y4=tsnk2 (pi2)  r4=tsrc2 (pi2) s4=tsnk (pi1)
     //This topology is identical to the first in this case due to g5-hermiticity and the G-parity complex conjugate relation
@@ -54,18 +54,18 @@ class ComputePiPiGparity{
   //D = 0.25 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] ) * Tr( [[w^dag(s) S_2 v(s)]] [[w^dag(r) S_2 v(r)]] )
   //where x,y are the source and sink coords of the first pion and r,s the second pion
   //2 different topologies to average over
-  inline static void figureD(fMatrix<mf_Float> &into,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Float> &products,
+  inline static void figureD(fMatrix<mf_Complex> &into,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     MesonFieldProductStore<mf_Complex> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     int tdis = (tsnk - tsrc + Lt) % Lt;
     int tsrc2 = (tsrc-tsep+Lt) % Lt; //source position of pi2 by convention
     int tsnk2 = (tsnk+tsep) % Lt;
 
-    std::complex<mf_Float> tr1(0,0), tr2(0,0), incr(0,0);
+    mf_Complex tr1(0,0), tr2(0,0), incr(0,0);
 
     //Topology 1  x4=tsrc (pi1)  y4=tsnk (pi1)  r4=tsrc2 (pi2)  s4=tsnk2 (pi2)
     incr += trace(mf_pi1_snk[tsnk] , mf_pi1_src[tsrc])   *    trace(mf_pi2_snk[tsnk2], mf_pi2_src[tsrc2]);
@@ -73,38 +73,38 @@ class ComputePiPiGparity{
     //Topology 2  x4=tsrc (pi1) y4=tsnk2 (pi2)  r4=tsrc2 (pi2) s4=tsnk (pi1)
     incr += trace(mf_pi2_snk[tsnk2] , mf_pi1_src[tsrc])   *   trace(mf_pi1_snk[tsnk] , mf_pi2_src[tsrc2]);
 
-    incr *= mf_Float(0.5*0.25); //extra factor of 0.5 from average over 2 distinct topologies
+    incr *= mf_Complex(0.5*0.25); //extra factor of 0.5 from average over 2 distinct topologies
     into(tsrc, tdis) += incr;
   }
 
   //R = 0.5 Tr( [[w^dag(r) S_2 v(r)]] [[w^dag(s) S_2 * v(s)]][[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] )
   //2 different topologies to average over
-  inline static void figureR(fMatrix<mf_Float> &into,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Float> &products,
+  inline static void figureR(fMatrix<mf_Complex> &into,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
+			     const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     MesonFieldProductStore<mf_Complex> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     int tdis = (tsnk - tsrc + Lt) % Lt;
     int tsrc2 = (tsrc-tsep+Lt) % Lt; //source position of pi2 by convention
     int tsnk2 = (tsnk+tsep) % Lt;
 
-    std::complex<mf_Float> incr(0,0);
+    mf_Complex incr(0,0);
 
     //Topology 1    x4=tsrc (pi1) y4=tsnk (pi1)   r4=tsrc2 (pi2) s4=tsnk2 (pi2)
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
 
     incr += trace( prod_l_top1, prod_r_top1 );
 
     //Topology 2    x4=tsrc (pi1)  y4=tsnk_outer (pi2)  r4=tsrc_outer (pi2) s4=tsnk (pi1)
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
-    const A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
+    const A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 
     incr += trace( prod_l_top2, prod_r_top2 );
 
-    incr *= mf_Float(0.5*0.5); //extra factor of 0.5 from average over 2 distinct topologies
+    incr *= mf_Complex(0.5*0.5); //extra factor of 0.5 from average over 2 distinct topologies
 
     into(tsrc, tdis) += incr;
   }
@@ -119,9 +119,9 @@ public:
   //Output matrix ordering (tsrc, tdis)  where tdis = tsnk-tsrc
   //Note, 'products' is used as a storage for products of meson fields that might potentially be re-used later
 
-  static void compute(fMatrix<mf_Float> &into, const char diag, 
+  static void compute(fMatrix<mf_Complex> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Float> &mesonfields, MesonFieldProductStore<mf_Float> &products){
+		      MesonFieldMomentumContainer<mf_Complex> &mesonfields, MesonFieldProductStore<mf_Complex> &products){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     ThreeMomentum p_pi2_src = -p_pi1_src;
@@ -131,10 +131,10 @@ public:
       if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
     
     //Get the meson fields we require
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src = mesonfields.get(p_pi1_src);
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src = mesonfields.get(p_pi2_src);
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src = mesonfields.get(p_pi1_src);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src = mesonfields.get(p_pi2_src);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeGetMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
 #endif
@@ -172,7 +172,7 @@ public:
 
   //Compute the pion 'bubble'  0.5 tr( mf(t, p_pi) mf(t-tsep, -p_pi) )
   //output into vector element  [t]
-  static void computeFigureVdis(fVector<mf_Float> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<mf_Float> &mesonfields){
+  static void computeFigureVdis(fVector<mf_Complex> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<mf_Complex> &mesonfields){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","computeFigureVdis(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     ThreeMomentum p_pi2 = -p_pi;
@@ -182,8 +182,8 @@ public:
       if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","computeFigureVdis(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
     
     //Get the meson fields we require
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi = mesonfields.get(p_pi);
-    std::vector<A2AmesonField<mf_Float,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2 = mesonfields.get(p_pi2);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi = mesonfields.get(p_pi);
+    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2 = mesonfields.get(p_pi2);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeGetMany(2,&mf_pi,&mf_pi2);
@@ -199,7 +199,7 @@ public:
     if(do_work){
       for(int t=node_off; t<node_off + node_work; t++){
 	int t2 = (t-tsep+Lt) % Lt;
-	into(t) = mf_Float(0.5)* trace(mf_pi[t], mf_pi2[t2]);
+	into(t) = mf_Complex(0.5)* trace(mf_pi[t], mf_pi2[t2]);
       }
     }
     into.nodeSum();
