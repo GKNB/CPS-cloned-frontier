@@ -131,11 +131,11 @@ public:
   }
 
   //Import an export field with arbitrary DimensionPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
-  template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-  void importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r);
+  template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+  void importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r);
 
-  template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-  void exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
+  template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+  void exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
 
   bool equals(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r) const{
     for(int i=0;i<fsize;i++)
@@ -332,7 +332,8 @@ public:
   void fft();
 
   //Scatter to a local field
-  void scatter(CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &to) const;
+  template<typename extDimPolicy, typename extAllocPolicy>
+  void scatter(CPSfield<mf_Complex,1,typename my_enable_if<extDimPolicy::EuclideanDimension==3,extDimPolicy>::type,FlavorPolicy,extAllocPolicy> &to) const;
 };
 
 

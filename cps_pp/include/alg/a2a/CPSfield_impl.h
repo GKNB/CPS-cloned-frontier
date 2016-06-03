@@ -155,17 +155,17 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 }
 
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
+template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
   CPSfieldCopy<SiteSize,
 	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy,
-	       extFloat, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
+	       extSiteType, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
 }
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extFloat, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extFloat,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
   CPSfieldCopy<SiteSize,
-	       extFloat, extDimPol, extFlavPol, extAllocPol,
+	       extSiteType, extDimPol, extFlavPol, extAllocPol,
 	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
 }
 
@@ -483,8 +483,11 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::fft(){
 
 
 //Scatter to a local field
+
+
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &to) const{
+template<typename extDimPolicy, typename extAllocPolicy>
+void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfield<mf_Complex,1,typename my_enable_if<extDimPolicy::EuclideanDimension==3,extDimPolicy>::type,FlavorPolicy,extAllocPolicy> &to) const{
   const char *fname = "scatter(...)";
   int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
 

@@ -6,18 +6,19 @@ CPS_START_NAMESPACE
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
 
 //3D complex field. Defined for a *single flavor* if GPBC
-template<typename mf_Complex,typename FieldAllocPolicy = StandardAllocPolicy>
+template<typename mf_Complex,typename DimensionPolicy = SpatialPolicy, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<DimensionPolicy::EuclideanDimension == 3, int>::type = 0>
 class A2Asource{
 protected:
-  CPScomplexSpatial<mf_Complex,OneFlavorPolicy,FieldAllocPolicy> src;
+  CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> src;
 public:
+  A2Asource(): src(NullObject()){}
   inline const mf_Complex & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 };
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
 template<typename SrcParams, typename Child>
-class A2AsourceBase: public A2Asource<cps::ComplexD>{
+class A2AsourceBase: public A2Asource<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>{
 public:
   void set(const SrcParams &srcp){
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
@@ -32,7 +33,7 @@ public:
 
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
-    glb.scatter(src);
+    glb.scatter<SpatialPolicy,StandardAllocPolicy>(src);
   }
 };
 
