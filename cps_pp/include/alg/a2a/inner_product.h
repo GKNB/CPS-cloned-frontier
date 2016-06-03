@@ -317,8 +317,18 @@ public:
 
   // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
   //where phi has flavor structure
-  //p is the momentum 'site' index 
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  //p is the momentum 'site' index
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const;
+};
+
+
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
+struct _SCFspinflavorInnerProduct_impl{};
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  complex_double_or_float_mark>{
+  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const static std::complex<double> zero(0.,0.);
     FlavorMatrix lMr;
@@ -333,7 +343,7 @@ public:
 	for(int f3=0;f3<2;f3++)
 	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
 #endif
-    break;
+      break;
     case 0: 
 #ifdef USE_GRID_SCCON
       grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_unitcon(lMr,l,r);
@@ -342,7 +352,7 @@ public:
 	for(int f3=0;f3<2;f3++)
 	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
 #endif
-    break;
+      break;
     default:
       ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx);
     }
@@ -356,6 +366,128 @@ public:
     return TransLeftTrace(lMr, phi);
   }
 };
+
+
+
+
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct MconjGrid{};
+
+template<typename vComplexType>
+struct MconjGrid<vComplexType,false,false>{
+  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+    return (*l) * (*r);
+  }
+};
+template<typename vComplexType>
+struct MconjGrid<vComplexType,false,true>{
+  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+    return (*l) * conjugate(*r);
+  }
+};
+template<typename vComplexType>
+struct MconjGrid<vComplexType,true,false>{
+  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+    return conjugate(*l) * (*r);
+  }
+};
+template<typename vComplexType>
+struct MconjGrid<vComplexType,true,true>{
+  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+    return conjugate(*l)*conjugate(*r);
+  }
+};
+
+
+template<typename vComplexType, bool conj_left, bool conj_right>
+class GridVectorizedSpinColorContract{
+public:
+  inline static vComplexType g5(const vComplexType *const l, const vComplexType *const r){
+    const static int sc_size =12;
+    const static int half_sc = 6;
+
+    vComplexType v3; zeroit(v3);
+
+    for(int i = half_sc; i < sc_size; i++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+    }
+    v3 *= -1;
+      
+    for(int i = 0; i < half_sc; i ++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+    }
+    return v3;
+  }
+  inline static vComplexType unit(const vComplexType *const l, const vComplexType *const r){
+    const static int sc_size =12;
+    vComplexType v3; zeroit(v3);
+
+    for(int i = 0; i < sc_size; i ++){
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+    }
+    return v3;
+  }
+
+};
+
+
+
+
+
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
+  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
+    //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
+    const static std::complex<double> zero(0.,0.);
+    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
+
+    //Not all are yet supported!
+    switch(smatidx){
+    case 15:
+      for(int f1=0;f1<2;f1++)
+	for(int f3=0;f3<2;f3++)
+	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+      break;
+    case 0: 
+      for(int f1=0;f1<2;f1++)
+	for(int f3=0;f3<2;f3++)
+	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
+      break;
+    default:
+      ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx);
+    }
+    
+    //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    // FlavorMatrix phi;
+    // src.siteFmat(phi,p);
+    // phi.pl(sigma);
+
+    // //return Trace(lMr.transpose(), phi);
+    // return TransLeftTrace(lMr, phi);
+
+
+
+
+
+
+
+
+    
+    printf("Using Grid inner product!\n");
+    return std::complex<double>(0,0);
+  }
+};
+
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+std::complex<double> SCFspinflavorInnerProduct<mf_Complex,SourceType,conj_left,conj_right>::operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  return _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(src,sigma,smatidx,  l,r,p,t);
+}
+
+
+
+
 
 
 

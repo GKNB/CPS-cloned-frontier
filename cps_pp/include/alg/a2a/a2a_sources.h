@@ -10,7 +10,7 @@ class A2Asource{
 protected:
   CPScomplexSpatial<ComplexD,OneFlavorPolicy> src;
 public:
-  inline const ComplexD & siteComplex(const int &site) const{ return *src.site_ptr(site); }
+  inline const ComplexD & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 };
 
