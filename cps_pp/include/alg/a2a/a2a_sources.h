@@ -14,6 +14,11 @@ public:
   A2Asource(): src(NullObject()){}
   inline const mf_Complex & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
+
+  template< typename extComplexType, typename extDimPol, typename extAllocPol>
+  void importSource(const A2Asource<extComplexType,extDimPol,extAllocPol> &from){
+    src.importField(from.src);
+  }
 };
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
