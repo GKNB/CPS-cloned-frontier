@@ -120,10 +120,10 @@ class ComputePion{
 
     //For non-Gparity
     std::auto_ptr<A2AexpSource> expsrc_nogp; 
-    std::auto_ptr<SCspinInnerProduct<mf_Complex> > mf_struct_nogp;
+    std::auto_ptr<SCspinInnerProduct<mf_Complex,A2AexpSource> > mf_struct_nogp;
     if(!GJP.Gparity()){
       expsrc_nogp.reset(new A2AexpSource(rad));
-      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex>(15,*expsrc_nogp));
+      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex,A2AexpSource>(15,*expsrc_nogp));
     }
 
     for(int pidx=0;pidx<nmom;pidx++){

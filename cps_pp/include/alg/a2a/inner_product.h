@@ -53,13 +53,13 @@ struct Mconj<mf_Complex,true,true>{
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
 //Assumed diagonal matrix in flavor space if G-parity
-template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCmatrixInnerProduct{
   const WilsonMatrix &sc;
-  const A2Asource &src;
+  const SourceType &src;
   bool conj[2];
 public:
-  SCmatrixInnerProduct(const WilsonMatrix &_sc, const A2Asource &_src): sc(_sc), src(_src){ }
+  SCmatrixInnerProduct(const WilsonMatrix &_sc, const SourceType &_src): sc(_sc), src(_src){ }
     
   std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
@@ -160,11 +160,11 @@ public:
 
 
 //Optimized gamma^5 inner product with unit flavor matrix
-template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCg5InnerProduct{
-  const A2Asource &src;
+  const SourceType &src;
 public:
-  SCg5InnerProduct(const A2Asource &_src): src(_src){ }
+  SCg5InnerProduct(const SourceType &_src): src(_src){ }
     
   std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
@@ -193,9 +193,9 @@ public:
   //       13     gamma1 gamma3 gamma4        =  gamma5 gamma2
   //       14     gamma2 gamma3 gamma4        = -gamma5 gamma1
   //       15     gamma1 gamma2 gamma3 gamma4 =  gamma5
-template<typename mf_Complex, bool conj_left = true, bool conj_right=false>
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCspinInnerProduct{
-  const A2Asource &src;
+  const SourceType &src;
   int smatidx;
   
   inline std::complex<double> do_op(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r,const int &f1, const int &f3) const{
@@ -204,7 +204,7 @@ class SCspinInnerProduct{
     else{ ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx); }
   }
 public:
-  SCspinInnerProduct(const int &_smatidx, const A2Asource &_src): smatidx(_smatidx), src(_src){ }
+  SCspinInnerProduct(const int &_smatidx, const SourceType &_src): smatidx(_smatidx), src(_src){ }
     
   std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int &p, const int &t) const{
     std::complex<double> out(0.0,0.0);

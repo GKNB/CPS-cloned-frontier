@@ -6,28 +6,29 @@ CPS_START_NAMESPACE
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
 
 //3D complex field. Defined for a *single flavor* if GPBC
+template<typename mf_Complex,typename FieldAllocPolicy = StandardAllocPolicy>
 class A2Asource{
 protected:
-  CPScomplexSpatial<ComplexD,OneFlavorPolicy> src;
+  CPScomplexSpatial<mf_Complex,OneFlavorPolicy,FieldAllocPolicy> src;
 public:
-  inline const ComplexD & siteComplex(const int site) const{ return *src.site_ptr(site); }
+  inline const mf_Complex & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 };
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
 template<typename SrcParams, typename Child>
-class A2AsourceBase: public A2Asource{
+class A2AsourceBase: public A2Asource<cps::ComplexD>{
 public:
   void set(const SrcParams &srcp){
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
-    //Generate a global 4d exponential source
-    CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> glb;
+    //Generate a global 4d source
+    CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb;
     glb.zero();
          
 #pragma omp_parallel for
     for(int i=0;i<glb.nsites();i++)
-      static_cast<Child const*>(this)->setSite(glb,i,srcp,glb_size);
+      static_cast<Child const*>(this)->setSite(glb,i,srcp,glb_size); //child must have method to setSite of source
 
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();

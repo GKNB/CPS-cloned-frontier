@@ -59,7 +59,7 @@ class ComputeKaon{
     
     if(!GJP.Gparity()){
       A2AexpSource expsrc(rad);
-      SCspinInnerProduct<mf_Complex> mf_struct(15,expsrc);
+      SCspinInnerProduct<mf_Complex, A2AexpSource> mf_struct(15,expsrc);
 
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
