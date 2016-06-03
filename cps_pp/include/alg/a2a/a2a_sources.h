@@ -11,7 +11,7 @@ class A2Asource{
 protected:
   CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> src;
 public:
-  A2Asource(): src(NullObject()){}
+  A2Asource(const typename CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy>::InputParamType &params): src(params){}
   inline const mf_Complex & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 
@@ -25,6 +25,8 @@ public:
 template<typename SrcParams, typename Child>
 class A2AsourceBase: public A2Asource<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>{
 public:
+  A2AsourceBase(): A2Asource<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>(NullObject()){};
+  
   void set(const SrcParams &srcp){
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
@@ -190,6 +192,17 @@ public:
 
 };
 
+
+
+#ifdef USE_GRID
+
+class A2ASIMDsource: public A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>{
+public:
+  A2ASIMDsource(const int *simd_dims): A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>(simd_dims){};
+  
+};
+
+#endif
 
 
 CPS_END_NAMESPACE
