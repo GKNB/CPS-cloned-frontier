@@ -361,12 +361,13 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    Stype tmp[nsimd];
+    Stype* tmp = memalign(128,nsimd*sizeof(Stype));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)
 	*(into[s] + idx) = tmp[s];
     }
+    free(tmp);
   }
 
   

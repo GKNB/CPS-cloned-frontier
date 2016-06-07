@@ -94,22 +94,23 @@ public:
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
     for(int i=0;i<nsimd;i++) from.SIMDunmap(i,&packed_offsets[i][0]);
 
-    std::vector<TypeA const*> ptrs(nsimd);
-    
-#pragma omp parallel for private(ptrs)
-    for(int fs=0;fs<into.nfsites();fs++){
+#pragma omp parallel for
+    for(int fs=0;fs<from.nfsites();fs++){
       int x[ndim], f; from.fsiteUnmap(fs,x,f);
       GridSIMDTypeB* fromptr = from.fsite_ptr(fs);
 
       //x is the root coordinate corresponding to SIMD packed index 0
+      std::vector<TypeA const*> ptrs(nsimd);
       ptrs[0] = into.site_ptr(x,f);
+      
       int xx[ndim];
       for(int i=1;i<nsimd;i++){
 	for(int d=0;d<ndim;d++)
 	  xx[d] = x[d] + packed_offsets[i][d];  //xx = x + offset
+
 	ptrs[i] = into.site_ptr(xx,f);
       }
-      into.SIMDunpack(ptrs, fromptr, SiteSize);
+      from.SIMDunpack(ptrs, fromptr, SiteSize);
     }
   }
 };

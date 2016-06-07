@@ -25,6 +25,8 @@ public:
 template<typename SrcParams, typename Child>
 class A2AsourceBase: public A2Asource<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>{
 public:
+  typedef cps::ComplexD ComplexType;
+  
   A2AsourceBase(): A2Asource<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>(NullObject()){};
   
   void set(const SrcParams &srcp){
@@ -43,6 +45,20 @@ public:
     glb.scatter<SpatialPolicy,StandardAllocPolicy>(src);
   }
 };
+
+#ifdef USE_GRID
+
+template<typename SrcParams, typename Child>
+class A2ASIMDsourceBase: public A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>{
+public:
+  typedef Grid::vComplexD ComplexType;
+  
+  A2ASIMDsourceBase(const int *simd_dims): A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>(simd_dims){};
+  
+};
+
+#endif
+
 
 
 //Exponential (hydrogen wavefunction) source
@@ -69,7 +85,8 @@ private:
   }
 
 public:
-
+  typedef typename A2AsourceBase<Float, A2AexpSource>::ComplexType ComplexType;
+    
   A2AexpSource(const Float &radius, bool _omit_000 = false): omit_000(_omit_000){
     set(radius);
   }
@@ -110,7 +127,8 @@ private:
   }
 
 public:
-
+  typedef typename A2AsourceBase<std::vector<int>, A2AboxSource>::ComplexType ComplexType;
+  
   A2AboxSource(const int box_size[3]){
     std::vector<int> ss(3);
     for(int i=0;i<3;i++){
@@ -141,6 +159,8 @@ protected:
   SourceType src_omit000; //same source structure, only the site 0,0,0 has been set to zero during the FFT
 
 public:
+  typedef typename SourceType::ComplexType ComplexType;
+  
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
     if(!GJP.Gparity()){ ERR.General("A2AflavorProjectedSource","getProjSign","Requires GPBC in at least one direction\n"); }
@@ -185,6 +205,8 @@ public:
 
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource>{
 public:
+  typedef typename A2AflavorProjectedSource<A2AexpSource>::ComplexType ComplexType;
+  
   A2AflavorProjectedExpSource(const Float &radius, const int p[3]): A2AflavorProjectedSource<A2AexpSource>(p){
     src_allsites.setup(radius,false);
     src_omit000.setup(radius,true);
@@ -194,15 +216,7 @@ public:
 
 
 
-#ifdef USE_GRID
 
-class A2ASIMDsource: public A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>{
-public:
-  A2ASIMDsource(const int *simd_dims): A2Asource<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>(simd_dims){};
-  
-};
-
-#endif
 
 
 CPS_END_NAMESPACE
