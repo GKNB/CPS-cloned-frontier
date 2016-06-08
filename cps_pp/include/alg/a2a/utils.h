@@ -418,6 +418,17 @@ public:
   }
 };
 
+template<typename T, typename my_enable_if<is_complex_double_or_float<T>::value,int>::type = 0> //for standard complex types
+inline T multiplySignTimesI(const int sgn, const T &val){
+  return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
+}
+
+#ifdef USE_GRID
+template<typename T, typename my_enable_if<is_grid_vector_complex<T>::value,int>::type = 0> //for Grid complex types
+inline T multiplySignTimesI(const int sgn, const T &val){
+  return sgn == -1 ? timesMinusI(val) : timesI(val);
+}
+#endif
 
 CPS_END_NAMESPACE
 

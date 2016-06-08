@@ -102,7 +102,7 @@ public:
 
   inline void siteFmat(FlavorMatrix &out, const int site) const{
     out(0,0) = out(1,1) = siteComplex(site);
-    out(0,1) = out(1,0) = Complex(0.0,0.0);    
+    out(0,1) = out(1,0) = ComplexType(0);    
   }
 };
 
@@ -145,10 +145,9 @@ public:
 
   inline void siteFmat(FlavorMatrix &out, const int site) const{
     out(0,0) = out(1,1) = siteComplex(site);
-    out(0,1) = out(1,0) = Complex(0.0,0.0);    
+    out(0,1) = out(1,0) = ComplexType(0);    
   }
 };
-
 
 //Daiqian's original implementation sets the (1 +/- sigma_2) flavor projection on G-parity fields to unity when the two fermion fields coincide.
 //I'm not sure this is actually necessary, but I need to be able to reproduce his numbers
@@ -192,14 +191,14 @@ public:
 
   int nsites() const{ return src_allsites.nsites(); }
   
-  inline void siteFmat(FlavorMatrix &out, const int site) const{
+  inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const int site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
     out(0,0) = out(1,1) = src_allsites.siteComplex(site);
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    const std::complex<Float> &val = src_omit000.siteComplex(site);
+    const ComplexType &val = src_omit000.siteComplex(site);
 
-    out(1,0) = std::complex<Float>( -sign * std::imag(val), sign * std::real(val) ); // sign * i * val
+    out(1,0) = multiplySignTimesI(sign,val);   //std::complex<Float>( -sign * std::imag(val), sign * std::real(val) ); // sign * i * val
     out(0,1) = -out(1,0); //-1 from sigma2
   }
 };
