@@ -173,7 +173,7 @@ void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_C
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      ComplexD mf_accum;
+      cps::ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -232,7 +232,7 @@ void A2AmesonField<mf_Complex,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameson
 
 #pragma omp parallel for
     for(int i = 0; i < mf_t[t].nmodes_l; i++){
-      ComplexD mf_accum;
+      cps::ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 

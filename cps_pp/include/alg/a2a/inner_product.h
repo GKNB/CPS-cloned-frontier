@@ -304,7 +304,6 @@ public:
 
 //Optimized inner product for general spin and flavor matrix
 //Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
-//SourceType needs a FlavorMatrix2 siteFmat(const int site) const
 template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCFspinflavorInnerProduct{
   const SourceType &src;
@@ -368,7 +367,7 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
 };
 
 
-
+#ifdef USE_GRID
 
 template<typename vComplexType, bool conj_left, bool conj_right>
 struct MconjGrid{};
@@ -430,16 +429,12 @@ public:
 
 };
 
-
-
-
-
-
 template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
   static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
+    printf("Using Grid inner product!\n");
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
-    const static std::complex<double> zero(0.,0.);
+    const mf_Complex zero(0.);
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
 
     //Not all are yet supported!
@@ -459,25 +454,18 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
     }
     
     //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    // FlavorMatrix phi;
-    // src.siteFmat(phi,p);
-    // phi.pl(sigma);
+    FlavorMatrixGeneral<mf_Complex> phi;
+    src.siteFmat(phi,p);
+    phi.pl(sigma);
 
-    // //return Trace(lMr.transpose(), phi);
-    // return TransLeftTrace(lMr, phi);
+    mf_Complex tlt = TransLeftTrace(lMr, phi);
 
-
-
-
-
-
-
-
-    
-    printf("Using Grid inner product!\n");
-    return std::complex<double>(0,0);
+    //Do the sum over the SIMD vectorized sites
+    return Reduce(tlt);
   }
 };
+
+#endif
 
 
 template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
