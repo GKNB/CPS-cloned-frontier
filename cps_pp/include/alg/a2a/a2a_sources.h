@@ -8,10 +8,12 @@ CPS_START_NAMESPACE
 //3D complex field. Defined for a *single flavor* if GPBC
 template<typename mf_Complex,typename DimensionPolicy = SpatialPolicy, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<DimensionPolicy::EuclideanDimension == 3, int>::type = 0>
 class A2Asource{
-protected:
-  CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> src;
 public:
-  A2Asource(const typename CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy>::InputParamType &params): src(params){}
+  typedef CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> FieldType;  
+protected:
+  FieldType src;
+public:
+  A2Asource(const typename FieldType::InputParamType &params): src(params){}
   inline const mf_Complex & siteComplex(const int site) const{ return *src.site_ptr(site); }
   inline const int nsites() const{ return src.nsites(); }
 
@@ -19,6 +21,7 @@ public:
   void importSource(const A2Asource<extComplexType,extDimPol,extAllocPol> &from){
     src.importField(from.src);
   }
+  FieldType & getSource(){ return src; } //For testing
 };
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
@@ -98,7 +101,7 @@ public:
   }
 
   inline void siteFmat(FlavorMatrix &out, const int site) const{
-    out(0,0) = out(1,1) = Complex(1.0,0.0);
+    out(0,0) = out(1,1) = siteComplex(site);
     out(0,1) = out(1,0) = Complex(0.0,0.0);    
   }
 };
@@ -141,7 +144,7 @@ public:
   }
 
   inline void siteFmat(FlavorMatrix &out, const int site) const{
-    out(0,0) = out(1,1) = Complex(1.0,0.0);
+    out(0,0) = out(1,1) = siteComplex(site);
     out(0,1) = out(1,0) = Complex(0.0,0.0);    
   }
 };
