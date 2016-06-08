@@ -45,7 +45,7 @@ public:
 
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
-    glb.scatter<SpatialPolicy,StandardAllocPolicy>(src);
+    glb.scatter<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>(src);
   }
 };
 

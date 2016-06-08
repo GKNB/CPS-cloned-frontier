@@ -482,26 +482,81 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::fft(){
   
   
 
-
 //Scatter to a local field
+
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
+	  typename extComplex, typename extDimPolicy, typename extAllocPolicy,
+	  typename complex_class, int extEuclDim>
+struct _CPSglobalComplexSpatial_scatter_impl{};
+
+//Standard implementation for std::complex
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
+	  typename extComplex, typename extDimPolicy, typename extAllocPolicy>
+struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extDimPolicy, extAllocPolicy, complex_double_or_float_mark, 3>{
+  static void doit(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
+    const char *fname = "scatter(...)";
+    int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
+
+#pragma omp parallel for
+    for(int i=0;i<to.nfsites();i++){
+      int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate
+      for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
+
+      extComplex* tosite = to.fsite_ptr(i);
+      mf_Complex const* fromsite = from.site_ptr(x,flavor);
+
+      *tosite = *fromsite;
+    }	
+  }
+};
+
+#ifdef USE_GRID
+
+//Implementation for Grid vector complex types
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
+	  typename extComplex, typename extDimPolicy, typename extAllocPolicy>
+struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extDimPolicy, extAllocPolicy, grid_vector_complex_mark, 3>{
+  static void doit(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
+    const char *fname = "scatter(...)";
+    int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
+
+    const int ndim = 3;
+    int nsimd = extComplex::Nsimd();
+    std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim)); //get the vector offsets for the different SIMD packed sites
+    for(int i=0;i<nsimd;i++) to.SIMDunmap(i,&packed_offsets[i][0]);
+    
+#pragma omp parallel for
+    for(int i=0;i<to.nfsites();i++){
+      int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate. This is a root coordinate, we need to construct the other offsets
+      for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
+
+      extComplex* toptr = to.fsite_ptr(i); 
+
+      //x is the root coordinate corresponding to SIMD packed index 0      
+      std::vector<mf_Complex const*> ptrs(nsimd);
+      ptrs[0] = from.site_ptr(x,flavor);
+      
+      int xx[ndim];
+      for(int i=1;i<nsimd;i++){
+	for(int d=0;d<ndim;d++)
+	  xx[d] = x[d] + packed_offsets[i][d];  //xx = x + offset
+	ptrs[i] = from.site_ptr(xx,flavor);
+      }
+      to.SIMDpack(toptr, ptrs, 1);
+    }	
+  }
+};
+
+#endif
 
 
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-template<typename extDimPolicy, typename extAllocPolicy>
-void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfield<mf_Complex,1,typename my_enable_if<extDimPolicy::EuclideanDimension==3,extDimPolicy>::type,FlavorPolicy,extAllocPolicy> &to) const{
-  const char *fname = "scatter(...)";
-  int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
-
-#pragma omp parallel for
-  for(int i=0;i<to.nfsites();i++){
-    int x[3]; int flavor;  to.fsiteUnmap(i,x,flavor); //unmap the target coordinate
-    for(int j=0;j<3;j++) x[j] += orig[j]; //global coord
-
-    mf_Complex* tosite = to.fsite_ptr(i);
-    mf_Complex const* fromsite = this->site_ptr(x,flavor);
-
-    *tosite = *fromsite;
-  }	
+template<typename extComplex, typename extDimPolicy, typename extAllocPolicy>
+void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to) const{
+  _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,
+					extComplex,extDimPolicy,extAllocPolicy,
+					typename ComplexClassify<extComplex>::type,
+					extDimPolicy::EuclideanDimension>::doit(to,*this);
 }
 
 

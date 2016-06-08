@@ -323,7 +323,11 @@ public:
 //Lattice-spanning 'global' 3d complex field
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>{
-
+  
+  template< typename _mf_Complex, typename _FlavorPolicy, typename _AllocPolicy,
+	    typename extComplex, typename extDimPolicy, typename extAllocPolicy,
+	    typename complex_class, int extEuclDim>
+  friend struct _CPSglobalComplexSpatial_scatter_impl;
 public:
   CPSglobalComplexSpatial(): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSglobalComplexSpatial(const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
@@ -332,8 +336,8 @@ public:
   void fft();
 
   //Scatter to a local field
-  template<typename extDimPolicy, typename extAllocPolicy>
-  void scatter(CPSfield<mf_Complex,1,typename my_enable_if<extDimPolicy::EuclideanDimension==3,extDimPolicy>::type,FlavorPolicy,extAllocPolicy> &to) const;
+  template<typename extComplex, typename extDimPolicy, typename extAllocPolicy>
+  void scatter(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to) const;
 };
 
 
