@@ -58,8 +58,8 @@ class ComputeKaon{
 
     
     if(!GJP.Gparity()){
-      A2AexpSource expsrc(rad);
-      SCspinInnerProduct<mf_Complex, A2AexpSource> mf_struct(15,expsrc);
+      A2AexpSource<> expsrc(rad);
+      SCspinInnerProduct<mf_Complex, A2AexpSource<> > mf_struct(15,expsrc);
 
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
@@ -71,16 +71,16 @@ class ComputeKaon{
 
       A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct, fftw_V);
     }else{ //For GPBC we need a different smearing function for source and sink because the flavor structure depends on the momentum of the V field, which is opposite between source and sink
-      A2AflavorProjectedExpSource fpexp_src(rad, p_v_src.ptr());
-      SCFspinflavorInnerProduct<mf_Complex, A2AflavorProjectedExpSource> mf_struct_src(sigma0,15,fpexp_src);
+      A2AflavorProjectedExpSource<> fpexp_src(rad, p_v_src.ptr());
+      SCFspinflavorInnerProduct<mf_Complex, A2AflavorProjectedExpSource<> > mf_struct_src(sigma0,15,fpexp_src);
 
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
 
       A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct_src, fftw_V_s);
 
-      A2AflavorProjectedExpSource fpexp_snk(rad, p_v_snk.ptr());
-      SCFspinflavorInnerProduct<mf_Complex, A2AflavorProjectedExpSource> mf_struct_snk(sigma0,15,fpexp_snk);
+      A2AflavorProjectedExpSource<> fpexp_snk(rad, p_v_snk.ptr());
+      SCFspinflavorInnerProduct<mf_Complex, A2AflavorProjectedExpSource<> > mf_struct_snk(sigma0,15,fpexp_snk);
 
       fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);

@@ -110,8 +110,8 @@ public:
     A2AvectorWfftw<mf_Complex> fftw_Ws_p(W_s.getArgs());
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
 
-    A2AflavorProjectedExpSource fpexp(kaon_rad, p);
-    SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
+    A2AflavorProjectedExpSource<> fpexp(kaon_rad, p);
+    SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource<> > mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 

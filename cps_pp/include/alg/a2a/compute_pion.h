@@ -119,11 +119,11 @@ class ComputePion{
     }
 
     //For non-Gparity
-    std::auto_ptr<A2AexpSource> expsrc_nogp; 
-    std::auto_ptr<SCspinInnerProduct<mf_Complex,A2AexpSource> > mf_struct_nogp;
+    std::auto_ptr<A2AexpSource<> > expsrc_nogp; 
+    std::auto_ptr<SCspinInnerProduct<mf_Complex,A2AexpSource<> > > mf_struct_nogp;
     if(!GJP.Gparity()){
-      expsrc_nogp.reset(new A2AexpSource(rad));
-      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex,A2AexpSource>(15,*expsrc_nogp));
+      expsrc_nogp.reset(new A2AexpSource<>(rad));
+      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex,A2AexpSource<> >(15,*expsrc_nogp));
     }
 
     for(int pidx=0;pidx<nmom;pidx++){
@@ -145,8 +145,8 @@ class ComputePion{
 	// for(int t=0;t<Lt;t++)
 	//   mf_ll[pidx][t].compute(fftw_W, *mf_struct_nogp, fftw_V, t);
       }else{
-	A2AflavorProjectedExpSource fpexp(rad, p_v.ptr()); //flavor projection is adjacent to right-hand field
-	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
+	A2AflavorProjectedExpSource<> fpexp(rad, p_v.ptr()); //flavor projection is adjacent to right-hand field
+	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
 
 	A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
 
@@ -164,8 +164,8 @@ class ComputePion{
 	fftw_W.gaugeFixTwistFFT(W,p_w_alt.ptr(),lattice);
 	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
     
-	A2AflavorProjectedExpSource fpexp(rad, p_v_alt.ptr()); 
-	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource> mf_struct(sigma3,15,fpexp);
+	A2AflavorProjectedExpSource<> fpexp(rad, p_v_alt.ptr()); 
+	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
 
 	//A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> mf_ll_alt;
 	// for(int t=0;t<Lt;t++){
