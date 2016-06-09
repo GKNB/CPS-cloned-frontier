@@ -13,8 +13,8 @@ CPS_START_NAMESPACE
 //   = vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
 
 //This disconnected 'bubble' is computed during the pipi calculation and therefore there is no need to recompute
-template<typename mf_Complex>
-void ComputeKtoPiPiGparity<mf_Complex>::type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
+template<typename mf_Policies>
+void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix &part2_L, const SpinColorFlavorMatrix &part2_H){
   static const int con_off = 23; //index of first contraction in set
 
@@ -83,10 +83,10 @@ void ComputeKtoPiPiGparity<mf_Complex>::type4_contract(KtoPiPiGparityResultsCont
   }
 }
 
-template<typename mf_Complex>
-void ComputeKtoPiPiGparity<mf_Complex>::type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-							   const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-							   const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH,
+template<typename mf_Policies>
+void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 							   const int top_loc, const int tstep, const int Lt){
   mult_vMv_split_part1.resize(Lt/tstep); //[tKidx]
   int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
@@ -95,9 +95,9 @@ void ComputeKtoPiPiGparity<mf_Complex>::type4_mult_vMv_setup(std::vector<mult_vM
     mult_vMv_split_part1[tkidx].setup(vL,mf_kaon[tkidx*tstep],vH,top_glb);
 }
 
-template<typename mf_Complex>
-void ComputeKtoPiPiGparity<mf_Complex>::type4_precompute_part1(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
-							     std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+template<typename mf_Policies>
+void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
+							     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
 
   mult_vMv_contracted_part1.resize(Lt/tstep); //[tKidx]
@@ -112,12 +112,12 @@ void ComputeKtoPiPiGparity<mf_Complex>::type4_precompute_part1(std::vector<std::
 
 
 
-template<typename mf_Complex>
-void ComputeKtoPiPiGparity<mf_Complex>::type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
+template<typename mf_Policies>
+void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
 					    const int &tstep,
-					    const std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-					    const A2AvectorV<mf_Complex> & vL, const A2AvectorV<mf_Complex> & vH, 
-					    const A2AvectorW<mf_Complex> & wL, const A2AvectorW<mf_Complex> & wH){
+					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   static const SpinColorFlavorMatrix mix4_Gamma[2] = { _F0*g5, _F1*g5*Float(-1) };
 
   //CK: the loop term could be re-used from type3
@@ -137,7 +137,7 @@ void ComputeKtoPiPiGparity<mf_Complex>::type4(KtoPiPiGparityResultsContainer &re
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_TYPE4_SPLIT_VMV
-    std::vector<mult_vMv_split<mf_Complex,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[tkidx in Lt/tstep]
+    std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[tkidx in Lt/tstep]
     type4_mult_vMv_setup(mult_vMv_split_part1,mf_kaon,vL,vH,top_loc,tstep,Lt);
 
 # ifndef DISABLE_TYPE4_PRECOMPUTE

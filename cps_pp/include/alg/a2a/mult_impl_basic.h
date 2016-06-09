@@ -4,7 +4,7 @@
 #define DO_REORDER  //Testing on my laptop indicated its better to reorder the matrices to improve cache usage
 
 //Implementations for meson field contractions
-template<typename mf_Complex, 
+template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
@@ -13,7 +13,8 @@ public:
 
   //Matrix product of meson field pairs
   //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
-  static void mult(A2AmesonField<mf_Complex,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+  static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     assert( (void*)&out != (void*)&l || (void*)&out != (void*)&r );
 
     if(! l.getColParams().paramsEqual( r.getRowParams() ) ){
@@ -35,8 +36,8 @@ public:
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work,node_local);
 
-    typedef typename A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
-    typedef typename A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
+    typedef typename A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR>::RightDilutionType LeftDilutionType;
+    typedef typename A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR>::LeftDilutionType RightDilutionType;
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams());
     
@@ -70,12 +71,12 @@ public:
 
 #  else
 
-      A2AmesonField<mf_Complex,lA2AfieldL,lA2AfieldR> lreord;
+      A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> lreord;
       l.colReorder(lreord,jlmap,nj);
-      A2AmesonField<mf_Complex,rA2AfieldL,rA2AfieldR> rreord;
+      A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> rreord;
       r.rowReorder(rreord,jrmap,nj);
 
-      //A2AmesonField<mf_Complex,rA2AfieldR,rA2AfieldL> rreord_T;
+      //A2AmesonField<mf_Policies,rA2AfieldR,rA2AfieldL> rreord_T;
       //rreord.transpose(rreord_T); //more efficient memory access
 
       static const int lcol_stride = 1;      
@@ -85,8 +86,8 @@ public:
       for(int ik = node_off; ik < node_off + node_work; ++ik){
 	int i = ik % ni;
 	int k = ik / ni;
-	mf_Complex const* lbase = &lreord(i,0);
-	mf_Complex const* rbase = &rreord(0,k);
+	ScalarComplexType const* lbase = &lreord(i,0);
+	ScalarComplexType const* rbase = &rreord(0,k);
 	//std::complex<mf_Complex> const* rbase = &rreord_T(k,0);
 
 	for(int j = 0; j < nj; ++j){

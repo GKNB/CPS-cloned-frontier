@@ -1,9 +1,9 @@
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   const char *fname = "computeVQlow(....)";
-  typedef typename mf_Complex::value_type mf_Float;
+  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   int gparity = GJP.Gparity();
   if(eig.dop.gparity != gparity){ ERR.General(cname.c_str(),fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
@@ -90,10 +90,10 @@ void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &la
 //singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   const char *fname = "computeVWhigh(....)";
-  typedef typename mf_Complex::value_type mf_Float;
+  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 

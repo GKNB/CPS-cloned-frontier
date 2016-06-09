@@ -418,18 +418,41 @@ public:
   }
 };
 
-template<typename T, typename my_enable_if<is_complex_double_or_float<T>::value,int>::type = 0> //for standard complex types
-inline T multiplySignTimesI(const int sgn, const T &val){
-  return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
-}
+template<typename T, typename T_class>
+struct _mult_sgn_times_i_impl{};
+
+template<typename T>
+struct _mult_sgn_times_i_impl<T,complex_double_or_float_mark>{
+  inline static T doit(const int sgn, const T &val){
+    return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
+  }
+};
 
 #ifdef USE_GRID
-template<typename T, typename my_enable_if<is_grid_vector_complex<T>::value,int>::type = 0> //for Grid complex types
-inline T multiplySignTimesI(const int sgn, const T &val){
-  return sgn == -1 ? timesMinusI(val) : timesI(val);
-}
+template<typename T>
+struct _mult_sgn_times_i_impl<T,grid_vector_complex_mark>{
+  inline static T doit(const int sgn, const T &val){
+    return sgn == -1 ? timesMinusI(val) : timesI(val);
+  }
+};
 #endif
 
+// template<typename T, typename my_enable_if<is_complex_double_or_float<T>::value,int>::type = 0> //for standard complex types
+// inline T multiplySignTimesI(const int sgn, const T &val){
+//   return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
+// }
+
+// #ifdef USE_GRID
+// template<typename T, typename my_enable_if<is_grid_vector_complex<T>::value,int>::type = 0> //for Grid complex types
+// inline T multiplySignTimesI(const int sgn, const T &val){
+//   return sgn == -1 ? timesMinusI(val) : timesI(val);
+// }
+// #endif
+
+template<typename T>
+inline T multiplySignTimesI(const int sgn, const T &val){
+  return _mult_sgn_times_i_impl<T,typename ComplexClassify<T>::type>::doit(sgn,val);
+}
 CPS_END_NAMESPACE
 
 #endif

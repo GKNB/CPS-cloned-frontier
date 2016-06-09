@@ -90,17 +90,19 @@ public:
 
 
 
-template<typename mf_Complex>
+template<typename mf_Policies>
 class ComputePion{
  public:
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
-  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
-				 MesonFieldMomentumContainer<mf_Complex> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
+  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
+				 MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
-				 const A2AvectorW<mf_Complex> &W, const A2AvectorV<mf_Complex> &V,
+				 const A2AvectorW<mf_Policies> &W, const A2AvectorV<mf_Policies> &V,
 				 const Float &rad, //exponential wavefunction radius
 				 Lattice &lattice){
+    typedef typename mf_Policies::ComplexType ComplexType;
+
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     int nmom = pion_mom.nMom();
     if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
@@ -108,22 +110,22 @@ class ComputePion{
 
     mf_ll.resize(nmom);
 
-    A2AvectorWfftw<mf_Complex> fftw_W(W.getArgs());
-    A2AvectorVfftw<mf_Complex> fftw_V(V.getArgs());
+    A2AvectorWfftw<mf_Policies> fftw_W(W.getArgs());
+    A2AvectorVfftw<mf_Policies> fftw_V(V.getArgs());
 
     //For useful info to user, compute required memory size of all light-light meson fields
     {
-      double mf_size = A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::byte_size(W.getArgs(),V.getArgs()) / (1024.0*1024.0); //in MB
+      double mf_size = A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::byte_size(W.getArgs(),V.getArgs()) / (1024.0*1024.0); //in MB
       double all_mf_size = Lt * nmom * mf_size;
       if(!UniqueID()) printf("Memory requirement for light-light meson fields: %f MB (each %f MB)\n",all_mf_size,mf_size);
     }
 
     //For non-Gparity
     std::auto_ptr<A2AexpSource<> > expsrc_nogp; 
-    std::auto_ptr<SCspinInnerProduct<mf_Complex,A2AexpSource<> > > mf_struct_nogp;
+    std::auto_ptr<SCspinInnerProduct<ComplexType,A2AexpSource<> > > mf_struct_nogp;
     if(!GJP.Gparity()){
       expsrc_nogp.reset(new A2AexpSource<>(rad));
-      mf_struct_nogp.reset(new SCspinInnerProduct<mf_Complex,A2AexpSource<> >(15,*expsrc_nogp));
+      mf_struct_nogp.reset(new SCspinInnerProduct<ComplexType,A2AexpSource<> >(15,*expsrc_nogp));
     }
 
     for(int pidx=0;pidx<nmom;pidx++){
@@ -140,15 +142,15 @@ class ComputePion{
 
       //Meson fields with standard momentum configuration
       if(!GJP.Gparity()){
-	A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx], fftw_W, *mf_struct_nogp, fftw_V);
+	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx], fftw_W, *mf_struct_nogp, fftw_V);
 
 	// for(int t=0;t<Lt;t++)
 	//   mf_ll[pidx][t].compute(fftw_W, *mf_struct_nogp, fftw_V, t);
       }else{
 	A2AflavorProjectedExpSource<> fpexp(rad, p_v.ptr()); //flavor projection is adjacent to right-hand field
-	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
 
-	A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
+	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
 
 	//for(int t=0;t<Lt;t++)
 	//mf_ll[pidx][t].compute(fftw_W, mf_struct, fftw_V, t);
@@ -165,16 +167,16 @@ class ComputePion{
 	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
     
 	A2AflavorProjectedExpSource<> fpexp(rad, p_v_alt.ptr()); 
-	SCFspinflavorInnerProduct<mf_Complex,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,fpexp);
 
-	//A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> mf_ll_alt;
+	//A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_ll_alt;
 	// for(int t=0;t<Lt;t++){
 	//   mf_ll_alt.compute(fftw_W, mf_struct, fftw_V, t);
 	//   mf_ll[pidx][t].average(mf_ll_alt);
 	// } 
 
-	std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > mf_ll_alt(Lt);
-	A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll_alt,fftw_W, mf_struct, fftw_V);
+	std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_ll_alt(Lt);
+	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll_alt,fftw_W, mf_struct, fftw_V);
 	for(int t=0;t<Lt;t++){
 	  mf_ll[pidx][t].average(mf_ll_alt[t]);
 	}
@@ -200,7 +202,10 @@ class ComputePion{
   //The pion is given the momentum associated with index 'pidx' in the RequiredMomentum
   //result is indexed by (tsrc, tsep)  where tsep is the source-sink separation
   template<typename PionMomentumPolicy>
-  static void compute(fMatrix<mf_Complex> &into, MesonFieldMomentumContainer<mf_Complex> &mf_ll_con, const RequiredMomentum<PionMomentumPolicy> &pion_mom, const int pidx){
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, const RequiredMomentum<PionMomentumPolicy> &pion_mom, const int pidx){
+    typedef typename mf_Policies::ComplexType ComplexType;
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+    
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
 
@@ -211,8 +216,8 @@ class ComputePion{
     assert(mf_ll_con.contains(p_pi_snk));
 	   
     //Construct the meson fields
-    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_src = mf_ll_con.get(p_pi_src);
-    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_snk = mf_ll_con.get(p_pi_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_src = mf_ll_con.get(p_pi_src);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ll_snk = mf_ll_con.get(p_pi_snk);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
     nodeGetMany(2,&mf_ll_src,&mf_ll_snk);
@@ -226,7 +231,7 @@ class ComputePion{
     //= tr( [[\sum_{xsnk} exp(ip xsnk) w^dag(xsnk,tsnk) S v(xsnk,tsnk)]] [[\sum_{xsrc} exp(-ip xsrc) w^dag(xsrc,tsrc) S v(xsrc,tsrc) ]] ) 
     if(!UniqueID()){ printf("Starting trace\n");  fflush(stdout); }
     trace(into,mf_ll_snk,mf_ll_src);
-    into *= mf_Complex(0.5,0);
+    into *= ScalarComplexType(0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
     
     sync();

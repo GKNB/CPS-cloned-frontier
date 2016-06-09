@@ -4,10 +4,10 @@
 CPS_START_NAMESPACE
 
 //Try to avoid recomputing products of meson fields by re-using wherever possible
-template<typename mf_Complex>
+template<typename mf_Policies>
 class MesonFieldProductStore{
-  typedef A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> MfType;
-  typedef A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> const* MfPtr;
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> const* MfPtr;
   typedef std::pair<MfPtr,MfPtr> KeyType;
   typedef std::map<KeyType,MfType> MapType;
 

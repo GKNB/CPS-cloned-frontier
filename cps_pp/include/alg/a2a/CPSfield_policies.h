@@ -455,6 +455,9 @@ public:
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2]*simd_dims[3];
   }
   const static int EuclideanDimension = 4;
+
+  //Convert space-time indices on logical volume
+  inline int threeToFour(const int x3d, const int t) const{ return x3d + logical_vol/logical_dim[3]*t; } //convert 3d index to 4d index
 };
 
 

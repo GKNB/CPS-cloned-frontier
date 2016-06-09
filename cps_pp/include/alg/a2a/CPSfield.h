@@ -214,13 +214,14 @@ public:
   void fft(){ fft(*this); }
 };
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion4D: public CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>{
+template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion4D: public CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>{
+  typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
   void gauge_fix_site_op(int fi, Lattice &lat);
   void apply_phase_site_op(int sf,const int p[],double punits[]);
 public:
-  CPSfermion4D(): CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>(){}
-  CPSfermion4D(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion4D(): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(){}
+  CPSfermion4D(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field. 
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
@@ -232,7 +233,7 @@ public:
   void applyPhase(const int p[], const bool &parallel);
 
   //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r);
+  void fft(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r);
 
   //Set this field to be the FFT of itself
   void fft(){ fft(*this); }
@@ -297,12 +298,12 @@ public:
 };
 
 
-template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
-class CPScomplex4D: public CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>{
-
+template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPScomplex4D: public CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>{
+  typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
 public:
-  CPScomplex4D(): CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
-  CPScomplex4D(const CPScomplex4D<mf_Complex> &r): CPSfield<mf_Complex,1,FourDpolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPScomplex4D(): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPScomplex4D(const CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Make a random complex scalar field of type
   void setRandom(const RandomType &type);

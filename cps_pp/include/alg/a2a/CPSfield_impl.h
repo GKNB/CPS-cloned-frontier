@@ -219,13 +219,13 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phas
 
 
 //Apply gauge fixing matrices to the field
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
   int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat);
+  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat);
 }
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
   if(parallel){
 #pragma omp parallel for
     for(int fi=0;fi<this->nfsites();fi++)
@@ -239,18 +239,18 @@ void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, c
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
   int x[this->EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
+  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
   const char *fname = "apply_phase(int p[])";
 
   double punits[3];
-  CPSfermion<mf_Complex,FourDpolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(punits);
+  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(punits);
   
   if(parallel){
 #pragma omp parallel for
@@ -263,8 +263,8 @@ void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[]
 }
 
 //Set this field to be the FFT of 'r'
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy> &r){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r){
   for(int mu=0;mu<3;mu++){
     CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
     tmp_dbl.gather( mu==0 ? r : *this );
@@ -274,8 +274,8 @@ void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<m
 }
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
@@ -414,8 +414,8 @@ void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::fft(const CPSfermion3D<m
 
 
 //Make a random complex scalar field of type
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPScomplex4D<mf_Complex,FlavorPolicy,AllocPolicy>::setRandom(const RandomType &type){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setRandom(const RandomType &type){
   LRG.SetInterval(1, 0);
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -428,8 +428,8 @@ void CPScomplex4D<mf_Complex,FlavorPolicy,AllocPolicy>::setRandom(const RandomTy
 }
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPScomplex4D<mf_Complex,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
   for(int i = 0; i < this->sites*this->flavors; ++i) {

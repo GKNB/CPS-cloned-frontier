@@ -267,14 +267,16 @@ int main (int argc,char **argv )
 
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
+
+    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
     
-    A2AvectorV<mf_Complex> V(a2a_arg);
-    A2AvectorW<mf_Complex> W(a2a_arg);
+    A2AvectorV<A2Apolicies> V(a2a_arg);
+    A2AvectorW<A2Apolicies> W(a2a_arg);
 
     if(!randomize_vw){
-      computeA2Avectors<mf_Complex>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
+      computeA2Avectors<A2Apolicies>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
       //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
-    }else randomizeVW<mf_Complex>(V,W);    
+    }else randomizeVW<A2Apolicies>(V,W);    
 
     if(!UniqueID()) printf("Memory after light A2A vector computation:\n");
     printMem();
@@ -311,13 +313,13 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
 
-    A2AvectorV<mf_Complex> V_s(a2a_arg_s);
-    A2AvectorW<mf_Complex> W_s(a2a_arg_s);
+    A2AvectorV<A2Apolicies> V_s(a2a_arg_s);
+    A2AvectorW<A2Apolicies> W_s(a2a_arg_s);
 
     if(!randomize_vw){
-      computeA2Avectors<mf_Complex>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
+      computeA2Avectors<A2Apolicies>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
       //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
-    }else randomizeVW<mf_Complex>(V_s,W_s);      
+    }else randomizeVW<A2Apolicies>(V_s,W_s);      
 
     if(!UniqueID()) printf("Memory after heavy A2A vector computation:\n");
     printMem();
@@ -351,7 +353,7 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Computing kaon 2pt function\n");
       time = -dclock();
       fMatrix<mf_Complex> kaon(Lt,Lt);
-      ComputeKaon<mf_Complex>::compute(kaon,
+      ComputeKaon<A2Apolicies>::compute(kaon,
 				     W, V, W_s, V_s,
 				     jp.kaon_rad, lat);
       std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
@@ -367,12 +369,12 @@ int main (int argc,char **argv )
     //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
     RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
 
-    std::vector< std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll; //[pidx][t]   stores the meson fields
-    MesonFieldMomentumContainer<mf_Complex> mf_ll_con; //manager for pointers to the above
+    std::vector< std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll; //[pidx][t]   stores the meson fields
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //manager for pointers to the above
     
     if(!UniqueID()) printf("Computing light-light meson fields\n");
     time = -dclock();
-    ComputePion<mf_Complex>::computeMesonFields(mf_ll, mf_ll_con, pion_mom, W, V, jp.pion_rad, lat);
+    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, pion_mom, W, V, jp.pion_rad, lat);
     time += dclock();
     print_time("main","Light-light meson fields",time);
 
@@ -387,7 +389,7 @@ int main (int argc,char **argv )
     for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
       if(!UniqueID()) printf("Starting pidx %d\n",p);
       fMatrix<mf_Complex> pion(Lt,Lt);
-      ComputePion<mf_Complex>::compute(pion, mf_ll_con, pion_mom, p);
+      ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
       //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
       //f'(p) = \sum_{x,y}e^{ip(x-y)}f(x,y)  [conventional]
       //f'(p) = \sum_{x,y}e^{-ip(x-y)}f(x,y) [Daiqian]
@@ -423,14 +425,14 @@ int main (int argc,char **argv )
 	fMatrix<mf_Complex> pipi(Lt,Lt);
 	ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
 	
-	MesonFieldProductStore<mf_Complex> products; //try to reuse products of meson fields wherever possible
+	MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
 
 	char diag[3] = {'C','D','R'};
 	for(int d = 0; d < 3; d++){
 	  if(!UniqueID()){ printf("Doing pipi figure %c, psrcidx=%d psnkidx=%d\n",diag[d],psrcidx,psnkidx); fflush(stdout); }
 
 	  time = -dclock();
-	  ComputePiPiGparity<mf_Complex>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, jp.pipi_separation, jp.tstep_pipi, mf_ll_con, products);
+	  ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, jp.pipi_separation, jp.tstep_pipi, mf_ll_con, products);
 	  std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
 	  os << "_mom" << p_pi1_src.file_str(2) << "_mom" << p_pi1_snk.file_str(2);
@@ -447,7 +449,7 @@ int main (int argc,char **argv )
 	if(!UniqueID()){ printf("Doing pipi figure V, pidx=%d\n",psrcidx); fflush(stdout); }
 	time = -dclock();
 	fVector<mf_Complex> figVdis(Lt);
-	ComputePiPiGparity<mf_Complex>::computeFigureVdis(figVdis,p_pi1_src,jp.pipi_separation,mf_ll_con);
+	ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,jp.pipi_separation,mf_ll_con);
 	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_FigureVdis_sep" << jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
 	os << "_mom" << p_pi1_src.file_str(2);
@@ -470,8 +472,8 @@ int main (int argc,char **argv )
 
     //--------------------------------------K->pipi contractions--------------------------------------------------------
     //We first need to generate the light-strange W*W contraction
-    std::vector<A2AmesonField<mf_Complex,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
-    ComputeKtoPiPiGparity<mf_Complex>::generatelsWWmesonfields(mf_ls_ww,W,W_s,jp.kaon_rad,lat);
+    std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
+    ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,jp.kaon_rad,lat);
 
     std::vector<int> k_pi_separation(jp.k_pi_separation.k_pi_separation_len);
     for(int i=0;i<jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = jp.k_pi_separation.k_pi_separation_val[i];
@@ -495,7 +497,7 @@ int main (int argc,char **argv )
 
       ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
       std::vector<KtoPiPiGparityResultsContainer> type1;
-      ComputeKtoPiPiGparity<mf_Complex>::type1(type1,
+      ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
 					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, jp.xyzstep_type1, p_pi1,
 					     mf_ls_ww, mf_ll_con,
 					     V, V_s,
@@ -524,7 +526,7 @@ int main (int argc,char **argv )
       time = -dclock();
       if(!UniqueID()) printf("Starting type 2 contractions\n");
       std::vector<KtoPiPiGparityResultsContainer> type2;
-      ComputeKtoPiPiGparity<mf_Complex>::type2(type2,
+      ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
 					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, pion_mom,
 					     mf_ls_ww, mf_ll_con,
 					     V, V_s,
@@ -545,7 +547,7 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Starting type 3 contractions\n");
       std::vector<KtoPiPiGparityResultsContainer> type3;
       std::vector<KtoPiPiGparityMixDiagResultsContainer> mix3;
-      ComputeKtoPiPiGparity<mf_Complex>::type3(type3,mix3,
+      ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
 					     k_pi_separation, jp.pipi_separation, 1, pion_mom,
 					     mf_ls_ww, mf_ll_con,
 					     V, V_s,
@@ -568,7 +570,7 @@ int main (int argc,char **argv )
       KtoPiPiGparityResultsContainer type4;
       KtoPiPiGparityMixDiagResultsContainer mix4;
       
-      ComputeKtoPiPiGparity<mf_Complex>::type4(type4, mix4,
+      ComputeKtoPiPiGparity<A2Apolicies>::type4(type4, mix4,
 					     1,
 					     mf_ls_ww,
 					     V, V_s,

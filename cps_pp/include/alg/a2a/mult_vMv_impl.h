@@ -3,23 +3,24 @@
 
 //Vector mesonfield outer product implementation
 
-template<typename mf_Complex, 
+template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
 class _mult_vMv_impl{ //necessary to avoid an annoying ambigous overload when mesonfield friends mult
 public:
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   //Form SpinColorFlavorMatrix prod1 = vL_i(\vec xop, top ; tpi2) [\sum_{\vec xpi2} wL_i^dag(\vec xpi2, tpi2) S2 vL_j(\vec xpi2, tpi2; top)] wL_j^dag(\vec xop,top)
 
   // l^i(xop,top) M^ij(tl,tr) r^j(xop,top)
   //argument xop is the *local* 3d site index in canonical ordering, top is the *local* time coordinate
   // Node local and unthreaded
-  static void mult(SpinColorFlavorMatrix &out, const lA2AfieldL<mf_Complex> &l,  const A2AmesonField<mf_Complex,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-    typedef typename lA2AfieldL<mf_Complex>::DilutionType iLeftDilutionType;
-    typedef typename A2AmesonField<mf_Complex,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
+  static void mult(SpinColorFlavorMatrix &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+    typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
+    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
 
-    typedef typename A2AmesonField<mf_Complex,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
-    typedef typename rA2AfieldR<mf_Complex>::DilutionType jRightDilutionType;
+    typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
+    typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
 
     out = 0.0;
 
@@ -45,8 +46,8 @@ public:
     std::vector<int> ilmap[nscf], irmap[nscf], jlmap[nscf], jrmap[nscf];
 
     //Reorder rows and columns such that they can be accessed sequentially
-    std::vector<mf_Complex> lreord[nscf];
-    std::vector<mf_Complex> rreord[nscf];
+    std::vector<ScalarComplexType> lreord[nscf];
+    std::vector<ScalarComplexType> rreord[nscf];
 
     int Mrows = M.getNrows();
     int Mcols = M.getNcols();
@@ -85,7 +86,7 @@ public:
 	  //M.rowReorder(rowreord[scf], &irmap_this.front(), ni_this);
 	  lreord[scf].resize(ni_this);
 	  for(int i = 0; i < ni_this; i++){
-	    const mf_Complex &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
+	    const ScalarComplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
 	    lreord[scf][i] = conj_l ? std::conj(lval_tmp) : lval_tmp;
 	  }
 
@@ -104,7 +105,7 @@ public:
 	  //M.colReorder(colreord[scf], &jlmap_this.front(), nj_this);
 	  rreord[scf].resize(nj_this);
 	  for(int j = 0; j < nj_this; j++){
-	    const mf_Complex &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
+	    const ScalarComplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
 	    rreord[scf][j] = conj_r ? std::conj(rval_tmp) : rval_tmp;
 	  }
 
@@ -114,12 +115,12 @@ public:
 
 
     //Matrix vector multiplication  M*r
-    mf_Complex Mr[Mrows][nscf];
+    ScalarComplexType Mr[Mrows][nscf];
 
     //Use GSL BLAS
-    typedef gsl_wrapper<typename mf_Complex::value_type> gw;
+    typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
 
-    assert(sizeof(typename gw::complex) == sizeof(mf_Complex) );
+    assert(sizeof(typename gw::complex) == sizeof(ScalarComplexType) );
 
     typename gw::complex tmp;
 
@@ -145,7 +146,7 @@ public:
       for(int i_full=0;i_full<Mrows;i_full++)
     	if(rowidx_used[i_full]) i_packed_unmap[i_packed++] = i_full;
       
-      mf_Complex* base = (mf_Complex*)&rreord[scf][0];
+      ScalarComplexType* base = (ScalarComplexType*)&rreord[scf][0];
       typename gw::block_complex_struct block;
       block.data = base;
       block.size = nj_this;
@@ -161,7 +162,7 @@ public:
 
       for(int i_packed=0;i_packed < nrows_used; i_packed++){
     	tmp = gw::vector_complex_get(Mr_packed,i_packed);
-    	Mr[ i_packed_unmap[i_packed] ][scf] = mf_Complex( GSL_REAL(tmp), GSL_IMAG(tmp) );
+    	Mr[ i_packed_unmap[i_packed] ][scf] = ScalarComplexType( GSL_REAL(tmp), GSL_IMAG(tmp) );
       }
     }
     gw::vector_complex_free(Mr_packed);
@@ -194,7 +195,7 @@ public:
 
   }
 
-  static void mult_slow(SpinColorFlavorMatrix &out, const lA2AfieldL<mf_Complex> &l,  const A2AmesonField<mf_Complex,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult_slow(SpinColorFlavorMatrix &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
 
     int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
 
@@ -216,15 +217,15 @@ public:
 
 		for(int i=0;i<ni;i++){
 
-		  const mf_Complex &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
-		  mf_Complex lval = conj_l ? std::conj(lval_tmp) : lval_tmp;
+		  const ScalarComplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
+		  ScalarComplexType lval = conj_l ? std::conj(lval_tmp) : lval_tmp;
 		  
   		  for(int j=0;j<nj;j++){
-  		    const mf_Complex &rval_tmp = r.elem(j,xop,top,cr+3*sr,fr);
-  		    mf_Complex rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
+  		    const ScalarComplexType &rval_tmp = r.elem(j,xop,top,cr+3*sr,fr);
+  		    ScalarComplexType rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
 
-		    const mf_Complex &Mval = M.elem(i,j);
-		    mf_Complex delta = lval * Mval * rval;
+		    const ScalarComplexType &Mval = M.elem(i,j);
+		    ScalarComplexType delta = lval * Mval * rval;
   		    out(sl,cl,fl, sr,cr,fr) += delta;
   		  }
   		}
@@ -244,13 +245,13 @@ public:
 
 
 // l^i(xop,top) M^ij r^j(xop,top)
-template<typename mf_Complex, 
+template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l,  const A2AmesonField<mf_Complex,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-  _mult_vMv_impl<mf_Complex,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield>::mult(out,l,M,r,xop,top,conj_l,conj_r); //this version uses less memory
+void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  _mult_vMv_impl<mf_Policies,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield>::mult(out,l,M,r,xop,top,conj_l,conj_r); //this version uses less memory
 
   //This version is faster
   //mult_vMv_split<mf_Float,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield> doit;
@@ -258,13 +259,13 @@ void mult(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l,  const A2A
   //doit.contract(out,xop,conj_l,conj_r);
 }
 //Slow implementation for testing
-template<typename mf_Complex, 
+template<typename mf_Policies, 
 	 template <typename> class lA2Afield,  
 	 template <typename> class MA2AfieldL,  template <typename> class MA2AfieldR,
 	 template <typename> class rA2Afield  
 	 >
-void mult_slow(SpinColorFlavorMatrix &out, const lA2Afield<mf_Complex> &l,  const A2AmesonField<mf_Complex,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Complex> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-  _mult_vMv_impl<mf_Complex,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield>::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
+void mult_slow(SpinColorFlavorMatrix &out, const lA2Afield<mf_Policies> &l,  const A2AmesonField<mf_Policies,MA2AfieldL,MA2AfieldR> &M, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  _mult_vMv_impl<mf_Policies,lA2Afield,MA2AfieldL,MA2AfieldR,rA2Afield>::mult_slow(out,l,M,r,xop,top,conj_l,conj_r);
 }
 
 

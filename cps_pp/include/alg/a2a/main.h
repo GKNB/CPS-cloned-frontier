@@ -339,9 +339,9 @@ struct Lanczos{
 };
 
 
-template<typename mf_Float>
+template<typename mf_Policies>
 struct computeA2Avectors{
-  static void compute(A2AvectorV<mf_Float> &V, A2AvectorW<mf_Float> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
+  static void compute(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
 #ifdef USE_BFM_LANCZOS
     W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
 #else

@@ -139,14 +139,14 @@ public:
 
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   EvecInterfaceBFM ev(eig,dwf,lat,singleprec_evecs);
   return computeVWlow(V,lat,ev,dwf.mass);
 }
 
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg){
     //NOT IMPLEMENTED YET
@@ -182,14 +182,14 @@ public:
   }
 };
 
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
   EvecInterfaceGrid ev(evec,eval);
   return computeVWlow(V,lat,ev,mass);
 }
 
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
   EvecInterfaceGrid ev(evec,eval);
   return computeVWhigh(V,lat,ev,mass,residual,max_iter);
 }
@@ -198,10 +198,10 @@ void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &l
 
 
 
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWlow(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
-  typedef typename mf_Complex::value_type mf_Float;
+  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   const char *fname = "computeVQlow(....)";
 
   int ngp = 0;
@@ -404,9 +404,9 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 //singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-template< typename mf_Complex>
-void A2AvectorW<mf_Complex>::computeVWhigh(A2AvectorV<mf_Complex> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
-  typedef typename mf_Complex::value_type mf_Float;
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
+  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   const char *fname = "computeVWhigh(....)";
 
   int ngp = 0;

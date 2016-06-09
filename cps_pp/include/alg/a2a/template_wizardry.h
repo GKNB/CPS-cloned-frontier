@@ -78,7 +78,7 @@ struct is_grid_vector_complex{
 
 template<typename T>
 struct is_grid_vector_complex{
-  enum {value = 0;};
+  enum {value = 0};
 };
 
 #endif
