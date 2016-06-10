@@ -408,10 +408,8 @@ public:
     vComplexType v3; zeroit(v3);
 
     for(int i = half_sc; i < sc_size; i++){ 
-      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
-    v3 *= -1;
-      
     for(int i = 0; i < half_sc; i ++){ 
       v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
@@ -432,7 +430,6 @@ public:
 template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
   static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    printf("Using Grid inner product!\n");
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const mf_Complex zero(0.);
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 

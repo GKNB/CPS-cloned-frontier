@@ -220,7 +220,10 @@ class CPSfermion4D: public CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,Al
   void gauge_fix_site_op(int fi, Lattice &lat);
   void apply_phase_site_op(int sf,const int p[],double punits[]);
 public:
+  typedef typename CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+  
   CPSfermion4D(): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(){}
+  CPSfermion4D(const InputParamType &params): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
   CPSfermion4D(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field. 
@@ -302,7 +305,9 @@ template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename 
 class CPScomplex4D: public CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>{
   typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
 public:
+  typedef typename CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
   CPScomplex4D(): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
+  CPScomplex4D(const InputParamType &params): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
   CPScomplex4D(const CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Make a random complex scalar field of type

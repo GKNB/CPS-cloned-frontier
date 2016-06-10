@@ -141,7 +141,8 @@ public:
   typedef mf_Policies Policies;
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
-  
+
+  typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
   const std::string cname;
@@ -152,6 +153,10 @@ public:
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
     v.resize(nv,FermionFieldType());
   }
+  A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+    v.resize(nv,FermionFieldType(field_setup_params));
+  }
+  
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
 
   //Set this object to be the threaded fast Fourier transform of the input field
@@ -191,7 +196,6 @@ public:
     return SCFvectorPtr<FieldSiteType>(field.site_ptr(x4d,0),field.site_ptr(x4d,1));
   }
 
-
   const CPSfermion4D<FieldSiteType> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
   //Replace this vector with the average of this another vector, 'with'
@@ -204,6 +208,13 @@ public:
   void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
     for(int i=0;i<nv;i++) v[i].testRandom(hi,lo);
   }
+
+  template<typename extPolicies>
+  void importFields(const A2AvectorVfftw<extPolicies> &r){
+    if( !paramsEqual(r) ) ERR.General("A2AvectorVfftw","importFields","External field-vector must share the same underlying parameters\n");
+    for(int i=0;i<nv;i++) v[i].importField(r.getMode(i));
+  }  
+
 };
 
 
@@ -339,6 +350,7 @@ public:
   typedef typename Policies::ComplexFieldType ComplexFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
 
+  typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
 
   std::vector<FermionFieldType> wl;
@@ -353,6 +365,12 @@ public:
     wl.resize(nl,FermionFieldType());
     wh.resize(12*nhits, FermionFieldType()); 
   }
+  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+    wl.resize(nl,FermionFieldType(field_setup_params));
+    wh.resize(12*nhits, FermionFieldType(field_setup_params)); 
+  }
+
+  
   inline const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return wh[spin_color + 12*hit]; }
 
@@ -423,33 +441,29 @@ public:
   }
 
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
-    typedef typename FieldSiteType::value_type mf_Float;
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
-  					0,0,0,0,0,0,0,0,0,0,
-  					0,0,0,0};
+    const static FieldSiteType zerosc[12] = { 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     FieldSiteType const* f0_ptr = field.ptr() + site_offset;
-    FieldSiteType const* lp[2] = { zero_hint[0] ? (FieldSiteType const*)&zerosc[0] : f0_ptr,
-				 zero_hint[1] ? (FieldSiteType const*)&zerosc[0] : f0_ptr + flav_offset };
+    FieldSiteType const* lp[2] = { zero_hint[0] ? &zerosc[0] : f0_ptr,
+				 zero_hint[1] ? &zerosc[0] : f0_ptr + flav_offset };
 
     return SCFvectorPtr<FieldSiteType>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
 
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    typedef typename FieldSiteType::value_type mf_Float; //this will need to be changed for Grid
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    const static mf_Float zerosc[24] = {0,0,0,0,0,0,0,0,0,0,
-  					0,0,0,0,0,0,0,0,0,0,
-  					0,0,0,0};
+    const static FieldSiteType zerosc[12] = { 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     const int x4d = field.threeToFour(p3d,t);
-    FieldSiteType const* lp[2] = { zero_hint[0] ? (FieldSiteType const*)&zerosc[0] : field.site_ptr(x4d,0),
-				   zero_hint[1] ? (FieldSiteType const*)&zerosc[0] : field.site_ptr(x4d,1) };
+    FieldSiteType const* lp[2] = { zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0),
+				   zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1) };
 
     return SCFvectorPtr<FieldSiteType>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
   }
@@ -457,6 +471,14 @@ public:
 
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
   const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+
+  template<typename extPolicies>
+  void importFields(const A2AvectorWfftw<extPolicies> &r){
+    if( !paramsEqual(r) ) ERR.General("A2AvectorWfftw","importFields","External field-vector must share the same underlying parameters\n");
+    for(int i=0;i<nl;i++) wl[i].importField(r.getWl(i));
+    for(int i=0;i<12*nhits;i++) wh[i].importField(r.getWh(i/12,i%12));
+  }  
+
 };
 
 //Generate uniform random V and W vectors for testing

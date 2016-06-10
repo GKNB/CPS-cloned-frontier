@@ -162,14 +162,15 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
   double time = -dclock();
 
   //For W vectors we dilute out the flavor index in-place while performing this contraction
-  int size_3d = GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites();
+  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+
   int nl_l = lindexdilution.getNl();
   int nl_r = rindexdilution.getNl();
 
   int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
   if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
-    const int size_4d = GJP.VolNodeSites();
-    const int flav_offset = size_4d * 12;
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
@@ -183,11 +184,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-
-	  int site_offset = 12*(p_3d + size_3d*t_lcl);
-
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,site_offset,flav_offset);
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}
@@ -218,8 +216,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
     else mf_t[t].zero();
 
   //For W vectors we dilute out the flavor index in-place while performing this contraction
-  const int size_3d = GJP.XnodeSites()*GJP.YnodeSites()*GJP.ZnodeSites();
-  const int size_4d = GJP.VolNodeSites();
+  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
 
   //Each node only works on its time block
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){

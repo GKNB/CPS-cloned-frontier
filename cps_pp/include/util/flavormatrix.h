@@ -2,6 +2,38 @@
 #define _FLAVOR_MATRIX_H
 CPS_START_NAMESPACE
 
+template<typename T>
+inline T timesI(const T &v){
+  return T( -v.imag(), v.real() );
+}
+template<typename T>
+inline T timesMinusI(const T &v){
+  return T( v.imag(), -v.real() );
+}
+
+#ifdef USE_GRID
+CPS_END_NAMESPACE
+#include<Grid.h>
+CPS_START_NAMESPACE
+
+template<>
+inline Grid::vComplexD timesI(const Grid::vComplexD &v){
+  return Grid::timesI(v);
+}
+template<>
+inline Grid::vComplexD timesMinusI(const Grid::vComplexD &v){
+  return Grid::timesMinusI(v);
+}
+template<>
+inline Grid::vComplexF timesI(const Grid::vComplexF &v){
+  return Grid::timesI(v);
+}
+template<>
+inline Grid::vComplexF timesMinusI(const Grid::vComplexF &v){
+  return Grid::timesMinusI(v);
+}
+#endif
+
 //Note: F0 = 1/2(1+sigma3)  and  F1 = 1/2(1-sigma3). These are called F11 and F22 in the paper, respectively
 enum FlavorMatrixType {F0, F1, Fud, sigma0, sigma1, sigma2, sigma3};
 
@@ -115,10 +147,10 @@ public:
       (*this)(1,1) = tmp2;
       break;      
     case sigma2:
-      tmp1 = (*this)(0,0)*T(0.0,1.0);
-      tmp2 = (*this)(0,1)*T(0.0,1.0);
-      (*this)(0,0) = (*this)(1,0)*T(0.0,-1.0);
-      (*this)(0,1) = (*this)(1,1)*T(0.0,-1.0);
+      tmp1 = timesI( this->operator()(0,0) ); //(*this)(0,0)*T(0.0,1.0);
+      tmp2 = timesI( this->operator()(0,1) ); //(*this)(0,1)*T(0.0,1.0);
+      (*this)(0,0) = timesMinusI( this->operator()(1,0) );   //(*this)(1,0)*T(0.0,-1.0);
+      (*this)(0,1) = timesMinusI( this->operator()(1,1) );   //(*this)(1,1)*T(0.0,-1.0);
       (*this)(1,0) = tmp1;
       (*this)(1,1) = tmp2;
       break;
@@ -166,10 +198,10 @@ public:
       (*this)(1,1) = tmp2;
       break;      
     case sigma2:
-      tmp1 = (*this)(0,0) *  T(0.0,-1.0);
-      tmp2 = (*this)(1,0) *  T(0.0,-1.0);
-      (*this)(0,0) = (*this)(0,1)* T(0.0,1.0); 
-      (*this)(1,0) = (*this)(1,1)* T(0.0,1.0);
+      tmp1 = timesMinusI(this->operator()(0,0)); //(*this)(0,0) *  T(0.0,-1.0);
+      tmp2 = timesMinusI(this->operator()(1,0)); //(*this)(1,0) *  T(0.0,-1.0);
+      (*this)(0,0) = timesI(this->operator()(0,1)); //(*this)(0,1)* T(0.0,1.0); 
+      (*this)(1,0) = timesI(this->operator()(1,1)); //(*this)(1,1)* T(0.0,1.0);
       (*this)(0,1) = tmp1;
       (*this)(1,1) = tmp2;
       break;

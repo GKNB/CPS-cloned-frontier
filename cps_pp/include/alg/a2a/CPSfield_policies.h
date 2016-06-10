@@ -69,6 +69,8 @@ public:
 
   inline int siteFsiteConvert(const int site, const int f) const{ return site + GJP.VolNodeSites()*f; } //convert a site-flavor pair to an fsite
 
+  inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
+  
   typedef NullObject ParamType;
   FourDpolicy(const ParamType &p){}
   FourDpolicy(){}
@@ -108,6 +110,8 @@ public:
     return x4d + GJP.VolNodeSites()*(f + nf*s);
   }
 
+  inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
+  
   typedef NullObject ParamType;
   FiveDpolicy(const ParamType &p){}
 
@@ -189,6 +193,8 @@ public:
     return site + threevol * f;
   }
 
+  inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
+  
   typedef NullObject ParamType;
   SpatialPolicy(const ParamType &p): threevol(GJP.VolNodeSites()/GJP.TnodeSites()){}
 
@@ -222,6 +228,8 @@ public:
   }
 
   inline int fsiteFlavorOffset() const{ return glb_vol; }
+
+  inline int nodeSites(const int dir) const{ return glb_size[dir]; }
 
   typedef NullObject ParamType;
   GlobalSpatialPolicy(const ParamType &p){
@@ -442,6 +450,8 @@ public:
     return site + logical_vol * f;
   }
 
+  inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
+  
   typedef int* ParamType;
 
   FourDSIMDPolicy(const int* _simd_dims){
@@ -514,6 +524,8 @@ public:
     return site + logical_vol * f;
   }
 
+  inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
+  
   typedef int* ParamType;
 
   ThreeDSIMDPolicy(const int* _simd_dims){
