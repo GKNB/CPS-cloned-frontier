@@ -169,7 +169,6 @@ void pt_1vec(int N, IFloat **fout, IFloat **fin, const int *dir){
     }
     ParTrans::PTflops += 66*N*vol;
 }
-#endif
 
 /*! 
   Computes sum[x] = vect2[x] vect[x +/- hop dir]^dagger
@@ -267,7 +266,6 @@ void pt_vvpd(IFloat **vect2_v, IFloat ***vect_v, int n_vect, const int *dir, int
   
   ParTrans::PTflops += 90*n_vect*n_dir*vol;
 }
-
 /*! 
   Computes sum[x] = vect[x] vect[x + hop dir]^dagger
   where the sum is over n_vect vectors and the hop is in a forward direction.
@@ -321,6 +319,7 @@ void pt_vvpd(IFloat **vect_v, int n_vect,
 
   ParTrans::PTflops += 90*n_vect*n_dir*vol;
 }
+#endif // USE_QMP
 
 
 #ifndef USE_QMP

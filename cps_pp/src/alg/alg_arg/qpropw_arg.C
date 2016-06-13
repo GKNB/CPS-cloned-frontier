@@ -113,6 +113,10 @@ vml_QPropWArg (VML *vmls, char *name,QPropWArg *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "EndSrcColor", &objp->EndSrcColor))
 		 return FALSE;
+	 if (!vml_pointer (vmls, "mob_arg_l", (char **)&objp->mob_arg_l, sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 if (!vml_pointer (vmls, "mob_arg_s", (char **)&objp->mob_arg_s, sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
 	 vml_class_end(vmls,"QPropWArg",name);
 	return TRUE;
 }

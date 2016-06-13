@@ -256,14 +256,15 @@ AC_ARG_ENABLE(blas,
 AC_MSG_CHECKING([if including blas])
 AC_MSG_RESULT($enable_blas)
 if test "$enable_blas" != "no"; then
-	if test "$enable_blas" != "yes"; then
-   		LDFLAGS="${LDFLAGS} -L${enable_blas}/lib -lgoto2"
-   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_blas}/include"
-	else
-   		LDFLAGS="${LDFLAGS} -L\${SRCDIR}/aux/GotoBLAS2 -lgoto2"
-   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I\${SRCDIR}/aux/GotoBLAS2"
-	fi
-   	DFLAGS="${DFLAGS} -DUSE_BLAS"
+	echo "USE_BLAS disabled temporarily, until reconciled with zMobius"
+dnl	if test "$enable_blas" != "yes"; then
+dnl   		LDFLAGS="${LDFLAGS} -L${enable_blas}/lib -lgoto2"
+dnl   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_blas}/include"
+dnl	else
+dnl   		LDFLAGS="${LDFLAGS} -L\${SRCDIR}/aux/GotoBLAS2 -lgoto2"
+dnl   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I\${SRCDIR}/aux/GotoBLAS2"
+dnl	fi
+dnl   	DFLAGS="${DFLAGS} -DUSE_BLAS"
 fi
 
 

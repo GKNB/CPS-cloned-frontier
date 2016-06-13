@@ -44,8 +44,11 @@
 #include <alg/alg_smear.h>
 #include <alg/no_arg.h>
 
+#ifdef USE_QMP
 //#include <omp.h>
 #include <qmp.h>
+#endif
+#include <alg/mobius_arg.h>
 
 #define VOLFMT QIO_VOLFMT
 
@@ -150,6 +153,7 @@ QPropW::QPropW(Lattice& lat, QPropWArg* arg, CommonArg* c_arg)
   propls = NULL;
   prop5d = NULL;
 
+  
   // YA
   lat_back = NULL;
   link_status_smeared = false;
@@ -186,6 +190,7 @@ QPropW::QPropW(Lattice& lat, QPropWArg* arg, CommonArg* c_arg)
   // TY Add End
   //-----------------------------------------------------------------
 }
+
 
 // read in a prop from a file
 QPropWRead::QPropWRead(Lattice& lat, QPropWArg* arg, CommonArg* c_arg, SourceType type)
@@ -929,8 +934,17 @@ void QPropW::CG(int spn, int col,
     Lat.Ffour2five(src_5d, src_4d, 0, ls_glb-1);
     Lat.Ffour2five(sol_5d, sol_4d, ls_glb-1, 0);
 
-	iter = Lat.FmatInv(sol_5d, src_5d, &(qp_arg.cg), &true_res,
-					   CNV_FRM_YES, PRESERVE_NO);
+  // do the MADWF or not
+  if(! qp_arg.mob_arg_s )
+    iter = Lat.FmatInv(sol_5d, src_5d, &(qp_arg.cg), &true_res,
+		       CNV_FRM_YES, PRESERVE_NO);
+  else{
+    MobiusArg* mob_arg_l = (MobiusArg*) (qp_arg.mob_arg_l);
+    MobiusArg* mob_arg_s = (MobiusArg*) (qp_arg.mob_arg_s);
+    //printf("TIZB entering MADWF\n");
+    iter = Lat.FmatInv(sol_5d, src_5d, mob_arg_l, mob_arg_s, &true_res,
+		      CNV_FRM_YES, PRESERVE_NO);
+  }
 
 #define STORE5DPROP
 #ifdef STORE5DPROP
@@ -981,6 +995,9 @@ void QPropW::CG(int spn, int col,
     sfree(cname,fname, "sol_5d", sol_5d);
     sfree(cname,fname, "src_5d", src_5d);
   } else {
+    //
+    //! FIXME !  Don't we need zero clear for solution for AMA here ?
+    //  may be none will use sloppy CG except DWF-type
     iter = Lat.FmatInv((Vector*)sol.data(),(Vector*)source.data(),
 		       &(qp_arg.cg), &true_res, CNV_FRM_YES, PRESERVE_NO);
   }

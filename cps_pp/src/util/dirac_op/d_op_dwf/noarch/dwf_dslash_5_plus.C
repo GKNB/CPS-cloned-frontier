@@ -3,7 +3,7 @@
 #define USE_OMP_DWF_FORCE
 #include "dwf_dslash_5_plus_omp.C"
 #else
-#ifdef USE_SSE
+#ifdef USE_SSE_
 #include "../sse/dwf_dslash_5_plus.C"
 #else
 CPS_START_NAMESPACE

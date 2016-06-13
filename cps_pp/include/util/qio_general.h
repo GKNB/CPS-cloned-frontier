@@ -87,6 +87,8 @@
  #undef DEBUG_PAIRRECORD_STD
 #endif
 
+#define HAVE_QIO_GET_HYPER_SPACETIME
+
 #ifdef RUN_PAIRRECORD_STD_CHECK
  #define DEBUG_PAIRRECORD
  #define DEBUG_PAIRRECORD_STD
@@ -138,8 +140,10 @@
 // Number of nodes, per which one io-node is designated.
 // Set it to zero if you want all nodes to be io-node.
 
-// For FNAL DS
+// For FNAL DS, BC (NODES = CORES/NODE)
 //#define QIO_SPARSE_PARTFILE_NODES 32
+// For FNAL PI0
+//#define QIO_SPARSE_PARTFILE_NODES 16
 
 // For RICC
 //#define QIO_SPARSE_PARTFILE_NODES 8

@@ -155,6 +155,7 @@ void vecTimesComplex(IFloat *a,
     //! real scalar times vector multiplication; a = c*b
     void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, IFloat c, int); // 
 
+
     //! vector linear combination; a = bc+d
     void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
 			const IFloat *d, int size); 	

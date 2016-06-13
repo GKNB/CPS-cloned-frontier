@@ -33,7 +33,7 @@ vml_IFloat (VML *vmls, char *name,IFloat *objp)
 bool_t
 vml_Pointer (VML *vmls, char *name,Pointer *objp)
 {
-	if (!vml_uint32_t (vmls,name,objp))
+	if (!vml_uint64_t (vmls,name,objp))
 		return FALSE;
 	return TRUE;
 }
@@ -87,9 +87,10 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_BFM",F_CLASS_BFM},
 	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
 	{"FclassType","F_CLASS_MOBIUS",F_CLASS_MOBIUS},
-	{"FclassType","F_CLASS_NAIVE",F_CLASS_NAIVE},
 	{"FclassType","F_CLASS_DWF4D",F_CLASS_DWF4D},
 	{"FclassType","F_CLASS_DWF4D_PAIR",F_CLASS_DWF4D_PAIR},
+	{"FclassType","F_CLASS_ZMOBIUS",F_CLASS_ZMOBIUS},
+	{"FclassType","F_CLASS_NAIVE",F_CLASS_NAIVE},
 	{NULL,NULL,0}
 };
 
@@ -1001,11 +1002,8 @@ struct vml_enum_map InverterType_map[] = {
 	{"InverterType","CG",CG},
 	{"InverterType","BICGSTAB",BICGSTAB},
 	{"InverterType","EIGCG",EIGCG},
-<<<<<<< HEAD
 	{"InverterType","LOWMODEAPPROX",LOWMODEAPPROX},
 	{"InverterType","CG_LOWMODE_DEFL",CG_LOWMODE_DEFL},
-=======
->>>>>>> a9a6a3595c1042a16fbd6f607400de8bc401bf17
 	{"InverterType","HDCG",HDCG},
 	{NULL,NULL,0}
 };

@@ -250,6 +250,7 @@ void qio_readPropagator::qio_openInput(char *filename, QIO_String *xml_file_in, 
   #endif // DEBUG_openInput
 
   const int serpar(QIO_SERPAR);
+   VRB.Result(cname,fname,"volfmt=%d serpar=%d",volFormat,serpar);
 
   QIO_Reader *infile;
   QIO_Iflag iflag;

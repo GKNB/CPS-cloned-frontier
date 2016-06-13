@@ -4,8 +4,6 @@
 #include <util/qcdio.h>
 #include <util/time_cps.h>
 
-#include <qmp.h>
-
 using namespace std;
 CPS_START_NAMESPACE
 

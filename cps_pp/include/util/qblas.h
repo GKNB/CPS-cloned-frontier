@@ -1,6 +1,5 @@
 #ifndef __QBLAS__CD
 #define __QBLAS__CD
-
 /*
 */
 extern "C"{

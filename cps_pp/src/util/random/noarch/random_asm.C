@@ -73,6 +73,7 @@ IFloat GaussianRandomGenerator::Rand(int noexit)
 {
     char *cname = "GaussianRandomGenerator";
     char *fname = "Rand()";
+    static int called=0;
 //    VRB.Result(cname,fname,"noexit=%d iset=%d\n",noexit,iset);
     if(iset == 0) {	// We don't have an extra deviate handy
         int num_try = 1;
@@ -103,6 +104,8 @@ IFloat GaussianRandomGenerator::Rand(int noexit)
 	IFloat fac = sqrt(-2.0 * sigma2 * log(rsq)/rsq);
 
 	gset = v1 * fac;   iset = 1;
+	if (called<100) VRB.Flow(cname,fname," num=%g\n",v2*fac);
+	called++;
 	return v2 * fac;
 
     } else {

@@ -1,6 +1,3 @@
-/*
-*/
-
 #include<omp.h>
 #include<config.h>
 #include <util/qcdio.h>
@@ -21,6 +18,9 @@
 
 USING_NAMESPACE_CPS
 
+DoArg do_arg;
+DoArgExt doext_arg;
+MobiusArg mobius_arg;
 
 
 //const char *f_wilson_test_filename = CWDPREFIX("f_wilson_test");
@@ -37,7 +37,8 @@ inline int omp_get_num_threads(){return 1;}
 inline int omp_get_thread_num(){return 0;}
 #endif
 
-void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK);
+//void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK);
+void run_inv(Lattice &lat, StrOrdType str_ord, char *out_name, int DO_CHECK);
 
 int main(int argc,char *argv[]){
 
@@ -75,6 +76,37 @@ for(int  i = 0;i<100;i++){
 #else
 
 
+    char *out_file=NULL;
+    char *fname = "main()";
+#if 1
+    if(argc>1) out_file=argv[1];
+  if ( !do_arg.Decode("do_arg.vml","do_arg") )
+    {
+      ERR.General("",fname,"Decoding of do_arg failed\n");
+    }
+  if ( !doext_arg.Decode("doext_arg.vml","doext_arg") )
+    {
+      ERR.General("",fname,"Decoding of doext_arg failed\n");
+    }
+  if ( !mobius_arg.Decode("mobius_arg.vml","mobius_arg") )
+    {
+      mobius_arg.Encode("mobius_arg.dat","mobius_arg");
+      ERR.General("",fname,"Decoding of mobius_arg failed\n");
+    }
+
+  do_arg.Encode("do_arg.dat","do_arg");
+  doext_arg.Encode("doext_arg.dat","doext_arg");
+  mobius_arg.Encode("mobius_arg.dat","mobius_arg");
+      GJP.SnodeSites(mobius_arg.ls);
+    GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
+                   mobius_arg.ls);
+    GJP.ZMobius_c (mobius_arg.zmobius_c_coeff.zmobius_c_coeff_val,
+                   mobius_arg.ls);
+
+//HACK!! Needs to be fixed, as cg_arg has dynamical allocation now.
+    cg_arg = mobius_arg.cg; 
+
+#else
     if (argc < 6){
         ERR.General("f_wilson_test","main()","usage: %s nx ny nz nt ns (filename) \n",argv[0]);
     }
@@ -112,9 +144,9 @@ for(int  i = 0;i<100;i++){
     do_arg.dwf_height = 1.8;
     do_arg.clover_coeff = 2.0171;
 #ifdef USE_CG_DWF
-    do_arg.verbose_level = -1202;
+    do_arg.verbose_level = -120205;
 #else
-    do_arg.verbose_level = -1202;
+    do_arg.verbose_level = -120205;
 #endif
 
     do_arg.asqtad_KS = (1.0/8.0)+(6.0/16.0)+(1.0/8.0);
@@ -133,10 +165,9 @@ for(int  i = 0;i<100;i++){
 #endif
 
     GJP.Initialize(do_arg);
-	for(int i =0; i<argc;i++)
-	VRB.Result("","main()","argv[%d]=%s\n",i,argv[i]);
 
-if(0)  
+#if 0
+    wilson_set_sloppy(false);
 {
     GwilsonFwilson lat;
     DiracOpWilson dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
@@ -148,16 +179,16 @@ if(0)
     DiracOpDwf dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
 	run_inv(lat,dirac,WILSON,out_file,0);
 }
+#endif
 
 #if 0
     wilson_set_sloppy(true);
 for(int i = 0;i<1;i++)
 {
-    GwilsonFmobius lat;
-    DiracOpDmobius dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,dirac,WILSON,NULL,1);
+    GnoneFzmobius lat;
+//    DiracOpZMobius dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
+	run_inv(lat,DWF_4D_EOPREC_EE,NULL,1);
 }
-#endif
 	
 	
 
@@ -165,7 +196,8 @@ for(int i = 0;i<1;i++)
     return 0; 
 }
 
-void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK){
+//void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK){
+void run_inv(Lattice &lat,  StrOrdType str_ord, char *out_name, int DO_CHECK){
     FILE *fp;
     double dtime;
 	int DO_IO =1;
@@ -189,9 +221,9 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 	memset(X_in,0,GJP.VolNodeSites()*lat.FsiteSize()*sizeof(IFloat));
 #if 1
 	lat.RandGaussVector(X_in,1.0);
-#endif
+#else
 
-	if (0){
+//    lat.RandGaussVector(X_in,1.0);
     Matrix *gf = lat.GaugeField();
     IFloat *gf_p = (IFloat *)lat.GaugeField();
     int fsize = lat.FsiteSize()/s_size;
@@ -206,7 +238,7 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 		    int n = lat.FsiteOffset(s)+s[4]*GJP.VolNodeSites();
 
 		int crd=1.;
-		  if(CoorX()==0 && CoorY()==0 && CoorZ()==0 && CoorT()==0) crd=1.0; else crd = 0.;
+		  if(CoorX()==0 && CoorY()==0 && CoorZ()==0 && CoorT()==0) crd=1.0; else crd = 0.0;
 		  if(s[0]!=0 ) crd = 0.;
 		  if(s[1]!=0 ) crd = 0.;
 		  if(s[2]!=0 ) crd = 0.;
@@ -215,13 +247,12 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 					
 			IFloat *X_f = (IFloat *)(X_in)+(n*fsize);
 		    for(int v=0; v<fsize ; v+=1){ 
-			if (v<2)  
-				*(X_f+v) *= crd;
+			if (v==0)  *(X_f+v) = crd;
 			else
-				*(X_f+v) = 0;
+			*(X_f+v) = 0;
 		    }
 		}
-	}
+#endif
 
     Vector *out;
     Float true_res;
@@ -239,28 +270,31 @@ void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, i
 		int offset = GJP.VolNodeSites()*lat.FsiteSize()/ (2*6);
 #if 1
 		dtime = -dclock();
-   		int iter = dirac.MatInv(result,X_in,&true_res,PRESERVE_YES);
+//   		int iter = dirac.MatInv(result,X_in,&true_res,PRESERVE_YES);
+   		int iter = lat.FmatInv(result,X_in,&cg_arg,&true_res,CNV_FRM_NO,PRESERVE_YES);
 		dtime +=dclock();
 #else
-		dirac.Dslash(result,X_in+offset,CHKB_EVEN,DAG_YES);
-		dirac.Dslash(result+offset,X_in,CHKB_ODD,DAG_YES);
+		lat.Fdslash(result,X_in,&cg_arg,CNV_FRM_NO,0);
+//		dirac.Dslash(result,X_in+offset,CHKB_EVEN,DAG_NO);
+//		dirac.Dslash(result+offset,X_in,CHKB_ODD,DAG_NO);
 #endif
 
 //if (DO_CHECK){
 if (1){
 		if (k == 0){
 			memset((char *)X_out2, 0,GJP.VolNodeSites()*lat.FsiteSize()*sizeof(IFloat));
-			dirac.Dslash(X_out2,result+offset,CHKB_EVEN,DAG_NO);
-			dirac.Dslash(X_out2+offset,result,CHKB_ODD,DAG_NO);
+			lat.Fdslash(X_out2,result,&cg_arg,CNV_FRM_NO,0);
+//			dirac.Dslash(X_out2,result+offset,CHKB_EVEN,DAG_NO);
+//			dirac.Dslash(X_out2+offset,result,CHKB_ODD,DAG_NO);
 		}
 }
 		lat.Fconvert(result,CANONICAL,str_ord);
 		lat.Fconvert(X_in,CANONICAL,str_ord);
 		lat.Fconvert(X_out2,CANONICAL,str_ord);
-	if (lat.F5D())
+//	if (lat.F5D())
+	if (lat.Fclass()== F_CLASS_DWF)
 		X_out2->FTimesV1PlusV2(-0.5/(5.0-GJP.DwfHeight()),X_out2,out,GJP.VolNodeSites()*lat.FsiteSize());
-//		X_out2->FTimesV1PlusV2(-2.*(5.0-GJP.DwfHeight()),out,X_out2,GJP.VolNodeSites()*lat.FsiteSize());
-	else
+	else if (lat.Fclass()== F_CLASS_WILSON)
 		X_out2->FTimesV1PlusV2(-0.5/(cg_arg.mass+4.0),X_out2,out,GJP.VolNodeSites()*lat.FsiteSize()); 
     
     Float dummy;
@@ -290,12 +324,12 @@ if(DO_IO){
 			CoorS()*GJP.NodeSites(4)+s[4], 
 			i, n);
 		    if ( k==0 )
-				Fprintf(ADD_ID, fp," ( %0.3e %0.3e ) (%0.3e %0.3e)",
+				Fprintf(ADD_ID, fp," ( %0.7e %0.7e ) (%0.7e %0.7e)",
 				*((IFloat*)&result[n]+i*2), *((IFloat*)&result[n]+i*2+1),
 				*((IFloat*)&X_in[n]+i*2), *((IFloat*)&X_in[n]+i*2+1));
 #if 1
 				Fprintf(ADD_ID, fp," ( %0.2e %0.2e )\n",
-	#if 1
+	#if 0
 		*((IFloat*)&X_out2[n]+i*2)-*((IFloat*)&X_in[n]+i*2), 
 	*((IFloat*)&X_out2[n]+i*2+1)-*((IFloat*)&X_in[n]+i* 2+1));
 	#else

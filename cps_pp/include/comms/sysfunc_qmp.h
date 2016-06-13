@@ -64,6 +64,10 @@ unsigned int sync();
 //! A barrier function.
 //inline void sync(){QMP_barrier();}
 //#endif
+inline void broadcast( void *data, size_t size){
+   QMP_status_t status = QMP_broadcast(data, size);
+   if(status) QMP_abort_string( status, "failed inside CPS::broadcast\n");
+}
 
 //! Gets the direction used internally by the comms layer.
 //int SCURemap( SCUDir dir );

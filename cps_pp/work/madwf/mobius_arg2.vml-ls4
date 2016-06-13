@@ -1,0 +1,43 @@
+class MobiusArg mdwf_arg = {
+double mobius_b_coeff = 0.
+double mobius_c_coeff = 0.
+Array zmobius_b_coeff[8] = {
+double zmobius_b_coeff[0] = 9.4660670299847116e-01
+double zmobius_b_coeff[1] = 0.0000000000000000e+00
+double zmobius_b_coeff[2] = 1.8359104564355926e+00
+double zmobius_b_coeff[3] = 0.0000000000000000e+00
+double zmobius_b_coeff[4] = 5.7555741580073860e+00
+double zmobius_b_coeff[5] = 0.0000000000000000e+00
+double zmobius_b_coeff[6] = 1.5025886669988074e+01
+double zmobius_b_coeff[7] = 0.0000000000000000e+00
+}
+Array zmobius_c_coeff[8] = {
+double zmobius_c_coeff[0] = -5.3393297001528839e-02
+double zmobius_c_coeff[1] = 0.0000000000000000e+00
+double zmobius_c_coeff[2] = 8.3591045643559259e-01
+double zmobius_c_coeff[3] = 0.0000000000000000e+00
+double zmobius_c_coeff[4] = 4.7555741580073860e+00
+double zmobius_c_coeff[5] = 0.0000000000000000e+00
+double zmobius_c_coeff[6] = 1.4025886669988074e+01
+double zmobius_c_coeff[7] = 0.0000000000000000e+00
+}
+int ls = 4
+double M5 = 1.8
+class CgArg cg = {
+double mass = 0.005
+double epsilon = 0.0
+int max_num_iter = 20000
+double stop_rsd = 1.0e-8
+double true_rsd = 1.0e-8
+RitzMatType RitzMatOper = MATPCDAG_MATPC
+InverterType Inverter = CG
+int bicgstab_n = 0
+string fname_eigen = "eigen"
+int neig = 40
+double eigen_shift = 0.0
+double ama_stop_rsd =   0.0
+}
+Array rsd_vec[0] = {
+}
+int use_single_precision = 0
+}

@@ -49,6 +49,9 @@ CPS_START_NAMESPACE
 // Hack to measure the time for constructor/destructors
 static unsigned long called=1;
 Float ctor_time=0.;
+
+Dwf FdwfBase::dwf_struct;
+
 FdwfBase::FdwfBase()
 {
   ctor_time -= dclock();
@@ -71,9 +74,10 @@ FdwfBase::FdwfBase()
   //----------------------------------------------------------------
   // Do initializations before the dwf library can be used
   //----------------------------------------------------------------
-  static Dwf dwf_struct;
+//  static Dwf dwf_struct;
   f_dirac_op_init_ptr = &dwf_struct;
   dwf_init((Dwf *) f_dirac_op_init_ptr);
+  VRB.Result(cname,fname,"f_dirac_op_init_ptr=%p\n",f_dirac_op_init_ptr);
   ctor_time += dclock();
 }
 

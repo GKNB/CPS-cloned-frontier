@@ -30,6 +30,8 @@
 
 #include <util/lattice.h>
 #include <util/vector.h>
+#include <util/smalloc.h>
+#include <util/zmobius.h>
 #include <comms/sysfunc_cps.h>
 #include <alg/do_arg.h>
 #include <alg/cg_arg.h>
@@ -136,6 +138,12 @@ class GlobalJobParameter
   MdwfTuning *mdwf_tuning;
   char *mdwf_tuning_fn;
   char *mdwf_tuning_record_fn;
+
+
+  Complex* zmobius_b;
+  Complex* zmobius_c;
+  ZMobiusPCType zmobius_pc_type;
+  
 public:
   GlobalJobParameter();
 
@@ -183,7 +191,7 @@ public:
    
   int NodeSites(int dir) const { return node_sites[dir]; }
   //!< Gets the dimension of the local lattice in a given direction.
-  /*!<
+ /*!<
     \param dir The direction in which to obtain the local lattice
     size; 0, 1, 2, 3 or 4 corresponding to X, Y, Z, T or S (the latter
     is only relevant for Domain Wall Fermions).
@@ -579,6 +587,17 @@ public:
   Float Mobius_c() const
       {return doext_p->mobius_c_coeff;}
   
+  Complex* ZMobius_b() const
+  {return zmobius_b;}
+  //{return (Complex*)( doext_p->zmobius_b_coeff.zmobius_b_coeff_val);}
+  Complex* ZMobius_c() const
+  {return zmobius_c;}
+  //{return (Complex*)( doext_p->zmobius_c_coeff.zmobius_c_coeff_val);}
+  
+  ZMobiusPCType ZMobius_PC_Type() const
+  {return zmobius_pc_type; }
+  
+  //------------------------------------------------------------------
 
   //------------------------------------------------------------------
   // Added in by Ping for anisotropic lattices and clover improvement
@@ -789,6 +808,32 @@ public:
   void Mobius_c(Float c)
       {doext_int.mobius_c_coeff = c;}
 
+  // FIXME: this is dangerous, assuming the contents of pointer b and c are foever
+  void ZMobius_b(Float* b, int ls)
+  {
+    if(zmobius_b) sfree(zmobius_b, "zmobius_b", "Zmobius_b", "GJP");
+    zmobius_b=(Complex*)smalloc("GJP","Zmobius_b", "zmobius_b", sizeof(Complex)*ls );
+    for(int s=0;s<ls;++s) zmobius_b[s]=Complex(b[2*s],b[2*s+1]);
+  }
+  
+      
+    
+  //{doext_int. zmobius_c_coeff.zmobius_c_coeff_val = b;}
+  void ZMobius_c(Float* c, int ls)
+  {
+    if(zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
+    zmobius_c=(Complex*)smalloc("GJP","Zmobius_c", "zmobius_c", sizeof(Complex)*ls );
+    for(int s=0;s<ls;++s) 
+      zmobius_c[s]=Complex(c[2*s],c[2*s+1]);
+  }
+
+  void ZMobius_PC_Type(ZMobiusPCType zpc )
+  {
+    zmobius_pc_type = zpc;
+  }
+  
+
+  
 
   //! Sets the global lattice boundary condition in the (dir) direction.
   void Bc(int dir, BndCndType cond);

@@ -23,7 +23,7 @@
 #include <cassert>
 #include <vector>
 //#include <omp.h>
-#include <qmp.h>
+//#include <qmp.h>
 
 CPS_START_NAMESPACE
 using namespace std;

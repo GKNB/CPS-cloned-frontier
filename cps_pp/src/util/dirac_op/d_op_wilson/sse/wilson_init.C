@@ -2,6 +2,8 @@
 #include <config.h>
 #ifdef SSE_TO_C
 #include "sse-defs.h"
+#else
+#define SSE_C_FLOAT Float
 #endif
 CPS_START_NAMESPACE
 /*! \file

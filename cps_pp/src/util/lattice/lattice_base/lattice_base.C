@@ -33,7 +33,6 @@
 
 #include <math.h>
 
-
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
 #endif
@@ -195,16 +194,16 @@ Lattice::Lattice ()
 
   // QED (angles)
   //----------------------------------------------------------------
-  if (GJP.ExtInitialized ()) {
-    StartConfType start_u1_conf_kind = GJP.StartU1ConfKind ();
-    if (start_u1_conf_kind != START_CONF_LOAD) {
-      u1_gauge_field = (Float *) pmalloc (array_size / 18);
-      if (u1_gauge_field == 0)
-	ERR.Pointer (cname, fname, "u1_gauge_field");
-      VRB.Pmalloc (cname, fname, "u1_gauge_field", u1_gauge_field,
-		   array_size / 9);
-      GJP.StartU1ConfLoadAddr (u1_gauge_field);
-    }
+if ( GJP.ExtInitialized()){
+  StartConfType start_u1_conf_kind = GJP.StartU1ConfKind();
+  // TIZB: It banged for sencond lattice creation. I am not sure.
+  //if(start_u1_conf_kind != START_CONF_LOAD ){  
+  if(!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD ){
+      u1_gauge_field = (Float *) pmalloc(array_size/18);
+      if( u1_gauge_field == 0) ERR.Pointer(cname,fname, "u1_gauge_field");
+      VRB.Pmalloc(cname, fname, "u1_gauge_field", u1_gauge_field, array_size/9);
+      GJP.StartU1ConfLoadAddr(u1_gauge_field);
+  }
     if (start_u1_conf_kind == START_CONF_ORD) {
       SetU1GfieldOrd ();
       u1_is_initialized = 1;
@@ -3094,10 +3093,8 @@ void
   at random from a gaussian distribution with mean 0 and variance \a sigma2. 
  */
 //--------------------------------------------------------------------------
-void
-  Lattice::RandGaussVector (Vector * frm, Float sigma2, int num_chkbds,
-			    StrOrdType str,
-			    FermionFieldDimension frm_dim /* = FIVE_D */ )
+void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
+             StrOrdType str, FermionFieldDimension frm_dim /* = FIVE_D */ )
 {
   const char *fname = "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
   VRB.Func(cname, fname);
@@ -3107,12 +3104,10 @@ void
   int s_node_sites = GJP.SnodeSites();
   if(frm_dim == FOUR_D
      || s_node_sites == 0
-     // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-//     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)
      || (!F5D())
-#ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
-#endif
+//#ifdef USE_BFM
+//     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
+//#endif
      ) {
     VRB.Debug(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
