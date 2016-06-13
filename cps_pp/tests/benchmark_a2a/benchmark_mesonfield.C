@@ -46,9 +46,17 @@ using namespace cps;
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 
-typedef double mf_Float;
+// typedef double mf_Float;
+// typedef Grid::vComplexD grid_Complex;
+// typedef GridSIMDSourcePolicies GridSrcPolicy;
+
+typedef float mf_Float;
+typedef Grid::vComplexF grid_Complex;
+typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
+
+
 typedef std::complex<mf_Float> mf_Complex;
-typedef Grid::vComplexD grid_Complex;
+
 
 inline int toInt(const char* a){
   std::stringstream ss; ss << a; int o; ss >> o;
@@ -288,7 +296,7 @@ int main(int argc,char *argv[])
     printf("Avg time %d iters: %g secs\n",ntests,total_time/ntests);
   }
     
-  int nsimd = Grid::vComplexD::Nsimd();
+  int nsimd = grid_Complex::Nsimd();
   int simd_dims[4];
   FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
 
@@ -297,39 +305,31 @@ int main(int argc,char *argv[])
     printf("%d ", simd_dims[i]);
   printf("\n");
 
-  if(0){
-    CPSfermion<Grid::vComplexD,FourDSIMDPolicy,DynamicFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
-    CPSfermion4D<cps::ComplexD> b;
-    b.testRandom();
-    
-    a.importField(b);
-  }
-
   NullObject n;
-  if(0){
-    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
+  if(1){
+    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
+    CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
     b.testRandom();
     a.importField(b);
 
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> c(n);
+    CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> c(n);
     c.importField(a);
 
     assert(b.equals(c));
     printf("Test success\n");
   }
 
-  if(0){
-    CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb;
+  if(1){
+    CPSglobalComplexSpatial<mf_Complex,OneFlavorPolicy> glb;
     glb.testRandom();
 
-    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
+    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
+    CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
 
-    glb.scatter<Grid::vComplexD,ThreeDSIMDPolicy,Aligned128AllocPolicy>(a);
-    glb.scatter<cps::ComplexD,SpatialPolicy,StandardAllocPolicy>(b);
+    glb.scatter<grid_Complex,ThreeDSIMDPolicy,Aligned128AllocPolicy>(a);
+    glb.scatter<mf_Complex,SpatialPolicy,StandardAllocPolicy>(b);
 
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> c(n);
+    CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> c(n);
     c.importField(a);
 
     assert(b.equals(c));
@@ -367,8 +367,8 @@ int main(int argc,char *argv[])
     A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
     A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
     
-    A2AexpSource<GridSIMDSourcePolicies> src_grid(2.0, simd_dims);
-    SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSIMDSourcePolicies> > mf_struct_grid(sigma3,15,src_grid);
+    A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims);
+    SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
 
     A2AexpSource<> src(2.0);
     SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
@@ -376,6 +376,7 @@ int main(int argc,char *argv[])
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
     Float total_time = 0.;
+    Float total_time_orig = 0.;
     for(int iter=0;iter<ntests;iter++){
       W.testRandom();
       V.testRandom();
@@ -386,22 +387,25 @@ int main(int argc,char *argv[])
       mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
       total_time += dclock();
 
+      total_time_orig -= dclock();
       mf.compute(W,mf_struct,V,0);
-
+      total_time_orig += dclock();
+      
       bool fail = false;
       for(int i=0;i<mf.size();i++){
 	const Ctype& gd = mf_grid.ptr()[i];
 	const Ctype& cp = mf.ptr()[i];
 	Ftype rdiff = fabs(gd.real()-cp.real());
 	Ftype idiff = fabs(gd.imag()-cp.imag());
-	if(rdiff > 1e-10 || idiff > 1e-10){
+	if(rdiff > tol|| idiff > tol){
 	  printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
 	  fail = true;
 	}
       }
       if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");	
     }
-    printf("Avg time %d iters: %g secs\n",ntests,total_time/ntests);
+    printf("Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+    printf("Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
   }
 
   

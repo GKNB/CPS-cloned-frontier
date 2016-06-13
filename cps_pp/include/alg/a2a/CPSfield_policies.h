@@ -358,7 +358,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDpack(Vtype *into, const std::vector<Stype const*> &from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    Stype tmp[nsimd];
+    typename Vtype::scalar_type tmp[nsimd];
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       for(int s=0;s<nsimd;s++)
 	tmp[s] = *(from[s] + idx); //gather from the different sites with fixed element offset
@@ -369,7 +369,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    Stype* tmp = memalign(128,nsimd*sizeof(Stype));
+    typename Vtype::scalar_type* tmp = memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)
@@ -430,10 +430,9 @@ public:
   }
   //Returns an offset from the root site coordinate returned by siteUnmap for the site packed into SIMD index idx
   inline void SIMDunmap(int idx, int x[]) const{
-    int rem = idx;
-    x[0] = (idx % simd_dims[0]) * logical_dim[0]; rem /= simd_dims[0];
-    x[1] = (idx % simd_dims[1]) * logical_dim[1]; rem /= simd_dims[1];
-    x[2] = (idx % simd_dims[2]) * logical_dim[2]; rem /= simd_dims[2];	
+    x[0] = (idx % simd_dims[0]) * logical_dim[0]; idx /= simd_dims[0];
+    x[1] = (idx % simd_dims[1]) * logical_dim[1]; idx /= simd_dims[1];
+    x[2] = (idx % simd_dims[2]) * logical_dim[2]; idx /= simd_dims[2];	
     x[3] = (idx % simd_dims[3]) * logical_dim[3];
   }
     
@@ -505,9 +504,8 @@ public:
   }
   //Returns an offset from the root site coordinate returned by siteUnmap for the site packed into SIMD index idx
   inline void SIMDunmap(int idx, int x[]) const{
-    int rem = idx;
-    x[0] = (idx % simd_dims[0]) * logical_dim[0]; rem /= simd_dims[0];
-    x[1] = (idx % simd_dims[1]) * logical_dim[1]; rem /= simd_dims[1];
+    x[0] = (idx % simd_dims[0]) * logical_dim[0]; idx /= simd_dims[0];
+    x[1] = (idx % simd_dims[1]) * logical_dim[1]; idx /= simd_dims[1];
     x[2] = (idx % simd_dims[2]) * logical_dim[2];
   }
     

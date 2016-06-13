@@ -32,6 +32,14 @@ public:
 
 #ifdef USE_GRID
 
+std::string vtostring(const int* v, const int ndim){
+  std::ostringstream os;
+  os << '(';
+  for(int i=0;i<ndim-1;i++) os << v[i] << ", ";
+  os << v[ndim-1] << ')';
+  return os.str();
+}
+
 //TypeA is Grid_simd type
 template<int SiteSize,
 	 typename GridSIMDTypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
@@ -50,8 +58,21 @@ public:
     const int ndim = DimPolA::EuclideanDimension;
     assert(into.nfsites() == from.nfsites() / nsimd);
 
+    // int vns[5] = {GJP.NodeSites(0), GJP.NodeSites(1), GJP.NodeSites(2), GJP.NodeSites(3), GJP.NodeSites(4) };
+    // int lgs[5] = {0,0,0,0,0}; for(int i=0;i<ndim;i++) lgs[i] = into.nodeSites(i);
+    // int sps[5] = {0,0,0,0,0}; for(int i=0;i<ndim;i++) sps[i] = into.SIMDpackedSites(i);
+    // std::string sz_str = vtostring(vns, ndim);
+    // std::string lg_sz_str = vtostring(lgs, ndim);
+    // std::string p_sz_str = vtostring(sps, ndim);
+    
+    //printf("CPSfieldCopy to grid field with Nsimd=%d.  Local size is %s and logical size %s with simd packing ratio %s\n", nsimd, sz_str.c_str(), lg_sz_str.c_str(), p_sz_str.c_str());
+    
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
-    for(int i=0;i<nsimd;i++) into.SIMDunmap(i,&packed_offsets[i][0]);
+    for(int i=0;i<nsimd;i++){
+      into.SIMDunmap(i,&packed_offsets[i][0]);
+      //std::string pstr = vtostring(&packed_offsets[i][0], ndim);
+      //printf("SIMD index %d maps to offset %s\n",i, pstr.c_str());
+    }
     
 #pragma omp parallel for
     for(int fs=0;fs<into.nfsites();fs++){

@@ -45,6 +45,11 @@ struct GridSIMDSourcePolicies{
   typedef ThreeDSIMDPolicy DimensionPolicy;
   typedef Aligned128AllocPolicy AllocPolicy;
 };
+struct GridSIMDSourcePoliciesSingle{
+  typedef Grid::vComplexF ComplexType;
+  typedef ThreeDSIMDPolicy DimensionPolicy;
+  typedef Aligned128AllocPolicy AllocPolicy;
+};
 #endif
 
 struct StandardSourcePolicies{
@@ -93,6 +98,7 @@ public:
 public:
   typedef FieldPolicies Policies;
   typedef typename A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename Policies::ComplexType ComplexType;
   
   void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const Float &radius, const int glb_size[3]) const{
     int site[3]; glb.siteUnmap(ss,site); //global site
@@ -151,7 +157,8 @@ class A2AboxSource: public A2AsourceBase<FieldPolicies, std::vector<int>, A2Abox
 public:
   typedef FieldPolicies Policies;
   typedef typename A2AsourceBase<FieldPolicies, std::vector<int>, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
-
+  typedef typename Policies::ComplexType ComplexType;
+  
   void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const std::vector<int> &box_size, const int glb_size[3]) const{
     int site[3]; glb.siteUnmap(ss,site); //global site
 
