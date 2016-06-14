@@ -119,7 +119,7 @@ public:
 template<typename mf_Complex>
 void rearrangeTsrcTsep(fMatrix<mf_Complex> &m){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  if(m.nRows()!=Lt || m.nCols()!=Lt) ERR.General("","rearrangeTsrcTsep(fMatrix<mf_Float> &)","Expect an Lt*Lt matrix\n");
+  if(m.nRows()!=Lt || m.nCols()!=Lt) ERR.General("","rearrangeTsrcTsep(fMatrix<mf_Complex> &)","Expect an Lt*Lt matrix\n");
 
   fMatrix<mf_Complex> tmp(m);
   for(int tsnk=0;tsnk<Lt;tsnk++){
@@ -197,13 +197,13 @@ public:
 
 
 //Array of complex with optional threading
-template<typename mf_Float>
+template<typename mf_Complex>
 class basicComplexArray{
 protected:
   int thread_size; //size of each thread unit
   int nthread;
   int size; //total size
-  std::complex<mf_Float> *con;
+  mf_Complex *con;
 public:
   basicComplexArray(): size(0), con(NULL){}
   basicComplexArray(const int &_thread_size, const int &_nthread = 1): size(0), con(NULL){
@@ -216,22 +216,22 @@ public:
     free_mem();
     thread_size = _thread_size; nthread = _nthread;
     size = _thread_size * _nthread;
-    con = (std::complex<mf_Float>*)malloc( 2 * size * sizeof(mf_Float) );
-    memset((void*)con, 0, 2 * size * sizeof(mf_Float));
+    con = (mf_Complex*)malloc( size * sizeof(mf_Complex) );
+    memset((void*)con, 0, size * sizeof(mf_Complex));
   }
   ~basicComplexArray(){
     free_mem();
   }
-  inline const std::complex<mf_Float> & operator[](const int i) const{ return con[i]; }
-  inline std::complex<mf_Float> & operator[](const int i){ return con[i]; }
+  inline const mf_Complex & operator[](const int i) const{ return con[i]; }
+  inline mf_Complex & operator[](const int i){ return con[i]; }
 
-  inline std::complex<mf_Float> & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
+  inline mf_Complex & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
 
 
   //Sum (reduce) over all threads
   void threadSum(){
     if(nthread == 1) return;
-    basicComplexArray<mf_Float> tmp(thread_size,1);
+    basicComplexArray<mf_Complex> tmp(thread_size,1);
     
 #pragma omp parallel for
     for(int i=0;i<thread_size;i++){
@@ -246,7 +246,7 @@ public:
     tmp.con = NULL;
   }
   void nodeSum(){
-    QMP_sum_array( (mf_Float*)con,2*size);
+    QMP_sum_array( (typename mf_Complex::value_type*)con,2*size);
   }
 };
 

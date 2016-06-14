@@ -11,7 +11,7 @@ CPS_START_NAMESPACE
 //use_opposite_sink_mom optionally flips the sign of the sink momentum to the 'wrong' value - used in testing the flavor projection in the paper
 //User is required to provide the propagators with the right momentum
 template<typename MatrixType>
-void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Complex &coeff,
+void twoPointFunctionGeneric(fMatrix<Rcomplex> &into, const int tsrc, const Complex &coeff,
 			     const SrcSnkOp<MatrixType> &sink_op, const SrcSnkOp<MatrixType> &src_op,
 			     const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			     const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag,
@@ -28,9 +28,9 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
 
 #ifndef TWOPT_TEST
   const int nthread = omp_get_max_threads();
-  basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
+  basicComplexArray<Rcomplex> tmp(Lt,nthread); //defaults to zero for all elements
 #else
-  basicComplexArray<double> tmp(Lt,1); 
+  basicComplexArray<Rcomplex> tmp(Lt,1); 
 #endif
 
   int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
@@ -76,11 +76,11 @@ void twoPointFunctionGeneric(fMatrix<double> &into, const int tsrc, const Comple
 }
 
 template<typename MatrixType>
-void twoPointFunctionWallSinkGeneric(fMatrix<double> &into, const int tsrc, const Complex &coeff,
+void twoPointFunctionWallSinkGeneric(fMatrix<Rcomplex> &into, const int tsrc, const Complex &coeff,
 				     const SrcSnkOp<MatrixType> &sink_op, const SrcSnkOp<MatrixType> &src_op,
 				     const WallSinkPropSiteMatrixGetter<MatrixType> &prop1W, const WallSinkPropSiteMatrixGetter<MatrixType> &prop2W){
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
-  basicComplexArray<double> tmp(Lt,1); 
+  basicComplexArray<Rcomplex> tmp(Lt,1); 
 
   //WallSinkProp are available for all times on every node, so no need to nodeSum
 

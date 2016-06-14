@@ -408,14 +408,14 @@ void test_lattice_doubler(Lattice &lattice, const DoArg &do_arg, const bool fix_
   PropWrapper prop_B = PropWrapper::combinePA(prop_P,prop_A,CombinationB);
 
   // //Compute tr(G^dag G) at each time for comparison
-  // fVector<double> Fcor(2*Lt); //Put F and B together using F(t+Lt) = B(t)
+  // fVector<Rcomplex> Fcor(2*Lt); //Put F and B together using F(t+Lt) = B(t)
   // for(int t=0;t<GJP.TnodeSites();t++){
   //   int t_glb_F = t + GJP.TnodeCoor()*GJP.TnodeSites();
   //   int t_glb_B = t_glb_F + Lt;
   //   for(int x=0;x<GJP.VolNodeSites()/GJP.TnodeSites();x++){
   int Lt = GJP.TnodeSites()*GJP.Tnodes(); //pre-doubling
-  fVector<double> Fnorms(2*Lt); //Put F and B together using F(t+Lt) = B(t)
-  fVector<double> Fnorms_f00(2*Lt);
+  fVector<Rcomplex> Fnorms(2*Lt); //Put F and B together using F(t+Lt) = B(t)
+  fVector<Rcomplex> Fnorms_f00(2*Lt);
   {
     SpinColorFlavorMatrix tmp_scf;
     WilsonMatrix tmp_sc;
@@ -526,8 +526,8 @@ void test_lattice_doubler(Lattice &lattice, const DoArg &do_arg, const bool fix_
   PropWrapper prop_P_dbl(prop_f0_P_dbl,prop_f1_P_dbl);
 
   //Simple start, just compare matrix norms over the lattice
-  fVector<double> Pnorms(Lt);
-  fVector<double> Pnorms_f00(Lt);
+  fVector<Rcomplex> Pnorms(Lt);
+  fVector<Rcomplex> Pnorms_f00(Lt);
   {
     SpinColorFlavorMatrix tmp_scf;
     WilsonMatrix tmp_sc;
@@ -577,8 +577,8 @@ void test_lattice_doubler(Lattice &lattice, const DoArg &do_arg, const bool fix_
 
 
   // //Compare tr( G^dag G )
-  // fVector<double> Fcor(Lt);
-  // fVector<double> Pcor(Lt);
+  // fVector<Rcomplex> Fcor(Lt);
+  // fVector<Rcomplex> Pcor(Lt);
   // for(int t=0;t<GJP.TnodeSites();t++){
   //   int t_glb = t + GJP.TnodeCoor()*GJP.TnodeSites();
   //   PropWrapper &FBuse = t_glb < Lt/2
@@ -893,7 +893,7 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psibar = p;
     ThreeMomentum p_psi = p;
 
-    fMatrix<double> ppnew(1,L[3]);
+    fMatrix<Rcomplex> ppnew(1,L[3]);
     pionTwoPointLWGparity(ppnew,0,snk_op_new[oo],p_psibar,p,pw_prop_pminus_getter,pw_prop_pplus_getter);
     
     double fail = 0;
@@ -968,7 +968,7 @@ int run_tests(int argc,char *argv[])
     WallSinkPropSiteMatrixStandard<SpinColorFlavorMatrix> ws_prop_undag_getter(pw_prop_pplus, BND_CND_APRD, tsrc, &mp_phys_units[0], lattice);
     WallSinkProp<SpinColorFlavorMatrix> &ws_prop_undag = ws_prop_undag_getter.getWallSinkProp();
     
-    fMatrix<double> ppnew(1,L[3]);
+    fMatrix<Rcomplex> ppnew(1,L[3]);
 
     ThreeMomentum p_psi_src = p;
     ThreeMomentum p_psi_snk = mp;
@@ -1024,7 +1024,7 @@ int run_tests(int argc,char *argv[])
     ThreeMomentum p_psibar = p;
     ThreeMomentum p_psi = mp;
 
-    fMatrix<double> ppnew(1,L[3]);
+    fMatrix<Rcomplex> ppnew(1,L[3]);
     lightFlavorSingletLWGparity(ppnew,0,p_psibar,p_psi,pw_prop_pplus_getter,pw_prop_pplus_getter);
     
     double fail = 0;
@@ -1153,7 +1153,7 @@ int run_tests(int argc,char *argv[])
   PropSiteMatrixStandard pw_prop_pplus_tsnk_getter(pw_prop_pplus_tsnk, BND_CND_APRD, tsnk);
 
   {
-    fMatrix<double> bk_new(1,Lt);
+    fMatrix<Rcomplex> bk_new(1,Lt);
     bool do_flavor_project = false;
 
     ThreeMomentum p_psi_h_t0 = mp; //- the momentum of the daggered prop
@@ -1213,7 +1213,7 @@ int run_tests(int argc,char *argv[])
       j5_q_old2[t] = 0.5*j5_q_old(0,t);
     }
 
-    fMatrix<double> pion_new(1,Lt), j5_q_new(1,Lt);
+    fMatrix<Rcomplex> pion_new(1,Lt), j5_q_new(1,Lt);
 
     ThreeMomentum p_psibar = p;
     ThreeMomentum p_psi = p;

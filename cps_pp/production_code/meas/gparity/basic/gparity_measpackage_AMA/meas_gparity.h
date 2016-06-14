@@ -16,10 +16,10 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
 	
     for(int op=0;op<5;op++){
 
-      fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
-      fMatrix<double> results_wrongsinkmom(Lt,Lt); //[tsrc][tsnk-tsrc]  wrong sink momentum (should give zero within statistics)
-      fMatrix<double> results_wrongproj(Lt,Lt); //[tsrc][tsnk-tsrc]  opposite projection op (optional, used for paper)
-      fMatrix<double> results_wrongproj_wrongsinkmom(Lt,Lt); //wrong sink mom and wrong projector - non-zero within statistics as discussed in paper
+      fMatrix<Rcomplex> results(Lt,Lt); //[tsrc][tsnk-tsrc]
+      fMatrix<Rcomplex> results_wrongsinkmom(Lt,Lt); //[tsrc][tsnk-tsrc]  wrong sink momentum (should give zero within statistics)
+      fMatrix<Rcomplex> results_wrongproj(Lt,Lt); //[tsrc][tsnk-tsrc]  opposite projection op (optional, used for paper)
+      fMatrix<Rcomplex> results_wrongproj_wrongsinkmom(Lt,Lt); //wrong sink mom and wrong projector - non-zero within statistics as discussed in paper
 
       for(int s=0;s<tslices.size();s++){
 	const int tsrc = tslices[s];
@@ -44,7 +44,7 @@ void measurePion2ptLWGparity(const PropMomContainer &props, const PropPrecision 
     }
 
     //Also do A4 A4 
-    fMatrix<double> results(Lt,Lt);
+    fMatrix<Rcomplex> results(Lt,Lt);
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
       
@@ -123,8 +123,8 @@ void measurePion2ptPPWWGparity(const PropMomContainer &props, const PropPrecisio
     ThreeMomentum p_prop_undag_snk_exch = -p2;
     ThreeMomentum p_psi_snk_exch = -p2;
 
-    fMatrix<double> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
-    fMatrix<double> results_momexch(Lt,Lt);
+    fMatrix<Rcomplex> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
+    fMatrix<Rcomplex> results_momexch(Lt,Lt);
 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
@@ -160,7 +160,7 @@ void measureLightFlavorSingletLW(const PropMomContainer &props, const PropPrecis
     ThreeMomentum p_prop_dag = meson_momenta.getMomentum(DaggeredProp,pidx);
     ThreeMomentum p_prop_undag = meson_momenta.getMomentum(UndaggeredProp,pidx);
 	  
-    fMatrix<double> results(Lt,Lt); //[tsrc][tsnk-tsrc]
+    fMatrix<Rcomplex> results(Lt,Lt); //[tsrc][tsnk-tsrc]
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
 	    
@@ -190,10 +190,10 @@ void measureKaon2ptLWGparity(const PropMomContainer &props, const PropPrecision 
     ThreeMomentum p_prop_dag_h = meson_momenta.getMomentum(DaggeredProp,pidx); //daggered prop is heavy here
     ThreeMomentum p_prop_undag_l = meson_momenta.getMomentum(UndaggeredProp,pidx);
 
-    fMatrix<double> results_PP(Lt,Lt); //[tsrc][tsnk-tsrc]
-    fMatrix<double> results_A4physP(Lt,Lt);
-    fMatrix<double> results_A4unphysP(Lt,Lt);
-    fMatrix<double> results_A4combA4comb(Lt,Lt);
+    fMatrix<Rcomplex> results_PP(Lt,Lt); //[tsrc][tsnk-tsrc]
+    fMatrix<Rcomplex> results_A4physP(Lt,Lt);
+    fMatrix<Rcomplex> results_A4unphysP(Lt,Lt);
+    fMatrix<Rcomplex> results_A4combA4comb(Lt,Lt);
 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
@@ -240,8 +240,8 @@ void measureKaon2ptPPWWGparity(const PropMomContainer &props, const PropPrecisio
     ThreeMomentum p_prop_l_undag_snk_exch = -p2;
     ThreeMomentum p_psi_l_snk_exch = -p2;
 
-    fMatrix<double> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
-    fMatrix<double> results_momexch(Lt,Lt);
+    fMatrix<Rcomplex> results_momkeep(Lt,Lt); //[tsrc][tsnk-tsrc]
+    fMatrix<Rcomplex> results_momexch(Lt,Lt);
 
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];
@@ -295,7 +295,7 @@ void measureBKGparity(const PropMomContainer &props, const PropPrecision status,
       ThreeMomentum p_prop_l_t1 = meson_momenta.getMomentum(UndaggeredProp,p1idx);
 
       for(int tspi=0;tspi<tseps.size();tspi++){
-	fMatrix<double> results(Lt,Lt);
+	fMatrix<Rcomplex> results(Lt,Lt);
 
 	for(int t0i=0;t0i<prop_tsources.size();t0i++){
 	  int t0 = prop_tsources[t0i];
@@ -344,8 +344,8 @@ void measureMresGparity(const PropMomContainer &props, const PropPrecision statu
     ThreeMomentum p_prop_dag = meson_momenta.getMomentum(DaggeredProp,pidx);
     ThreeMomentum p_prop_undag = meson_momenta.getMomentum(UndaggeredProp,pidx);
 	  
-    fMatrix<double> pion(Lt,Lt); //[tsrc][tsnk-tsrc]
-    fMatrix<double> j5q(Lt,Lt);
+    fMatrix<Rcomplex> pion(Lt,Lt); //[tsrc][tsnk-tsrc]
+    fMatrix<Rcomplex> j5q(Lt,Lt);
     
     for(int s=0;s<tslices.size();s++){
       const int tsrc = tslices[s];

@@ -7,7 +7,7 @@ CPS_START_NAMESPACE
 //The matrix is indexed as [t0][(top-t0+Lt)%Lt]
 //Source momenta of the strange quark props are needed for the flavor projection.
 //It is assumed that the total kaon momentum is zero, and we project onto zero momentum at the operator insertion
-void GparityBK(fMatrix<double> &into, const int t0, const int t1,
+void GparityBK(fMatrix<Rcomplex> &into, const int t0, const int t1,
 	       const PropSiteMatrixGetter &prop_h_t0, const PropSiteMatrixGetter &prop_l_t0, const ThreeMomentum &p_psi_h_t0,
 	       const PropSiteMatrixGetter &prop_h_t1, const PropSiteMatrixGetter &prop_l_t1, const ThreeMomentum &p_psi_h_t1,
 	       const bool do_flav_project = true
@@ -15,7 +15,7 @@ void GparityBK(fMatrix<double> &into, const int t0, const int t1,
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
 
   const int nthread = omp_get_max_threads();
-  basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
+  basicComplexArray<Rcomplex> tmp(Lt,nthread); //defaults to zero for all elements
 
   FlavorMatrix kaon_proj_t0 = getProjector(p_psi_h_t0);
   FlavorMatrix kaon_proj_t1 = getProjector(p_psi_h_t1);
@@ -82,13 +82,13 @@ void GparityBK(fMatrix<double> &into, const int t0, const int t1,
 
 
 
-void StandardBK(fMatrix<double> &into, const int t0, const int t1,
+void StandardBK(fMatrix<Rcomplex> &into, const int t0, const int t1,
 	       const PropSiteMatrixGetter &prop_h_t0, const PropSiteMatrixGetter &prop_l_t0,
 	       const PropSiteMatrixGetter &prop_h_t1, const PropSiteMatrixGetter &prop_l_t1){
   const int Lt = GJP.TnodeSites()*GJP.Tnodes();
 
   const int nthread = omp_get_max_threads();
-  basicComplexArray<double> tmp(Lt,nthread); //defaults to zero for all elements
+  basicComplexArray<Rcomplex> tmp(Lt,nthread); //defaults to zero for all elements
 
   int vol3d = GJP.VolNodeSites()/GJP.TnodeSites();
 

@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 
 //Lt * Lt * 8 * ncontract tensor  (option for multiple independent threads)
 //Here 8 is the number of combinations of spin-color-flavor matrix pairs (see below for indexing)
-class KtoPiPiGparityResultsContainer: public basicComplexArray<Float>{
+class KtoPiPiGparityResultsContainer: public basicComplexArray<std::complex<Float> >{
   int Lt;
   int ncontract;
   
@@ -23,12 +23,12 @@ public:
     ncontract = _ncontract;
 
     int thread_size = ncontract * 8 * Lt * Lt;
-    this->basicComplexArray<Float>::resize(thread_size, _nthread);
+    this->basicComplexArray<std::complex<Float> >::resize(thread_size, _nthread);
   }
   int getNcontract() const{ return ncontract; }
 
-  KtoPiPiGparityResultsContainer(): basicComplexArray<Float>(){}
-  KtoPiPiGparityResultsContainer(const int &_ncontract, const int &_nthread): basicComplexArray<Float>(){
+  KtoPiPiGparityResultsContainer(): basicComplexArray<std::complex<Float> >(){}
+  KtoPiPiGparityResultsContainer(const int &_ncontract, const int &_nthread): basicComplexArray<std::complex<Float> >(){
     resize(_ncontract,_nthread);
   }
 
@@ -70,7 +70,7 @@ public:
 
 //Lt * Lt * 2 tensor  (option for multiple independent threads)
 //Here 2 is the number of differen spin-color-flavor matrix insertions (F_0 g5  and  -F_1 g5)
-class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<Float>{
+class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<std::complex<Float> >{
   int Lt;
   
   //fidx \in {0..1}, as above
@@ -81,11 +81,11 @@ public:
   void resize(const int &_nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     int thread_size = 2 * Lt * Lt;
-    this->basicComplexArray<Float>::resize(thread_size, _nthread);
+    this->basicComplexArray<std::complex<Float> >::resize(thread_size, _nthread);
   }
 
-  KtoPiPiGparityMixDiagResultsContainer(): basicComplexArray<Float>(){}
-  KtoPiPiGparityMixDiagResultsContainer(const int &_nthread): basicComplexArray<Float>(){
+  KtoPiPiGparityMixDiagResultsContainer(): basicComplexArray<std::complex<Float> >(){}
+  KtoPiPiGparityMixDiagResultsContainer(const int &_nthread): basicComplexArray<std::complex<Float> >(){
     resize(_nthread);
   }
 

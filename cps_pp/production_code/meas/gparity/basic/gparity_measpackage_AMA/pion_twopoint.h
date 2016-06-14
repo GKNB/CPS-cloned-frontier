@@ -29,7 +29,7 @@ inline SpinMatrixType snkOpMap(const Pion2PtSinkOp sink_op){
 }
 
 //Pseudoscalar source and general sink
-void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void pionTwoPointLWStandard(fMatrix<Rcomplex> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			    const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
   BasicOp src_op(spin_unit);
@@ -38,7 +38,7 @@ void pionTwoPointLWStandard(fMatrix<double> &into, const int tsrc, const Pion2Pt
   Complex coeff(1.0);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag);
 }
-void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void pionTwoPointLWGparity(fMatrix<Rcomplex> &into, const int tsrc, const Pion2PtSinkOp sink_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag,
 			   const PropSplane splane = SPLANE_BOUNDARY,
 			   const bool use_wrong_proj_sign = false, const bool use_wrong_sink_mom = false){
@@ -54,7 +54,7 @@ void pionTwoPointLWGparity(fMatrix<double> &into, const int tsrc, const Pion2PtS
 }
 
 //Time-component axial source and sink
-void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void pionTwoPointA4A4LWGparity(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
 
   GparityOpWithFlavorProject src_op(gamma4,sigma3,p_psi);
@@ -63,7 +63,7 @@ void pionTwoPointA4A4LWGparity(fMatrix<double> &into, const int tsrc, const Thre
   Complex coeff(0.5);
   twoPointFunctionGeneric(into,tsrc,coeff,snk_op,src_op,p_psibar,p_psi,prop_dag,prop_undag);
 }
-void pionTwoPointA4A4LWStandard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void pionTwoPointA4A4LWStandard(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 			   const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
   BasicOp src_op(gamma4);
   BasicOp snk_op(gamma4);
@@ -74,7 +74,7 @@ void pionTwoPointA4A4LWStandard(fMatrix<double> &into, const int tsrc, const Thr
  
 
 //WW 2pt function
-void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
+void pionTwoPointPPWWStandard(fMatrix<Rcomplex> &into, const int tsrc,
 			     const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_dag_W, const WallSinkPropSiteMatrixGetter<WilsonMatrix> &prop_undag_W){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);
@@ -83,7 +83,7 @@ void pionTwoPointPPWWStandard(fMatrix<double> &into, const int tsrc,
   twoPointFunctionWallSinkGeneric(into, tsrc, coeff, snk_op, src_op, prop_dag_W, prop_undag_W);
 }
 //cf Eq 162 of GP paper. prop1 is the one that is daggered
-void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi_snk, const ThreeMomentum &p_psi_src,
+void pionTwoPointPPWWGparity(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psi_snk, const ThreeMomentum &p_psi_src,
 			     const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_dag_W, const WallSinkPropSiteMatrixGetter<SpinColorFlavorMatrix> &prop_undag_W){
   GparityOpWithFlavorProject src_op(spin_unit,sigma3,p_psi_src);
   GparityOpWithFlavorProject snk_op(spin_unit,sigma3,p_psi_snk);
@@ -100,7 +100,7 @@ void pionTwoPointPPWWGparity(fMatrix<double> &into, const int tsrc, const ThreeM
 
 //Pseudoscalar flavor singlet \bar\psi \gamma^5 \psi
 //tsrc is used as the row index of the fmatrix. col index is (tsnk - tsrc + Lt) % Lt
-void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void lightFlavorSingletLWGparity(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 				 const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag){
   GparityOpWithFlavorProject src_op(spin_unit,sigma0,p_psi);
   BasicGparityOp snk_op(spin_unit,sigma0);
@@ -110,7 +110,7 @@ void lightFlavorSingletLWGparity(fMatrix<double> &into, const int tsrc, const Th
 }
 
 //J5 or J5q
-void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void J5Gparity(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 	       const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag, const PropSplane splane = SPLANE_BOUNDARY, bool do_source_project = true){
   BasicGparityOp snk_op(spin_unit,sigma3);
   Complex coeff(0.5);
@@ -124,7 +124,7 @@ void J5Gparity(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psi
   }
 }
 
-void J5Standard(fMatrix<double> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
+void J5Standard(fMatrix<Rcomplex> &into, const int tsrc, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi,
 		const PropSiteMatrixGetter &prop_dag, const PropSiteMatrixGetter &prop_undag, const PropSplane splane = SPLANE_BOUNDARY){
   BasicOp src_op(spin_unit);
   BasicOp snk_op(spin_unit);

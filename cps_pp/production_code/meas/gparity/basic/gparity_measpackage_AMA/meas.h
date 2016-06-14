@@ -211,7 +211,7 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
 
 
 
-void writeBasic2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &descr, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
+void writeBasic2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, const std::string &descr, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
 		     const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr = ""){
   std::ostringstream os; 
   os << results_dir << '/' << descr << "_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
@@ -219,7 +219,7 @@ void writeBasic2ptLW(fMatrix<double> &results, const std::string &results_dir, c
 }
 
 
-void writePion2ptLW(fMatrix<double> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
+void writePion2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
 		    const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr){
   std::ostringstream os; 
   os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;

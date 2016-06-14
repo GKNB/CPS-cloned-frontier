@@ -59,7 +59,7 @@ public:
       ERR.FileA("PropMomContainer","writePropNormTdep",filename.c_str());
 
     for(std::map<std::string, PropWrapper>::const_iterator it = props.begin(); it != props.end(); it++){
-      basicComplexArray<double> pnorms(GJP.TnodeSites()*GJP.Tnodes(), omp_get_max_threads());
+      basicComplexArray<Rcomplex> pnorms(GJP.TnodeSites()*GJP.Tnodes(), omp_get_max_threads());
       const std::string &tag = it->first;
       const PropWrapper &prop = it->second;
       
