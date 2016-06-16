@@ -302,7 +302,7 @@ int main(int argc,char *argv[])
       }else{
 	fix_gauge.run();
       }
-      print_time("main","Gauge fix",time);
+      print_time("main","Gauge fix",time + dclock());
     }
 
     if(lanczos_tune_l || lanczos_tune_h){
