@@ -45,6 +45,11 @@
 #include <chroma.h>
 #include <omp.h>
 #include <pthread.h>
+
+#include <sys/types.h>
+#include <dirent.h>
+#include <sstream>
+#include <fstream>
 //-------------------------------------------------------------
 
 USING_NAMESPACE_CPS
@@ -246,17 +251,171 @@ void init_bfm_wilsontm(){
   }
 }
 
-void setup(int *argc, char ***argv)
-{
-    const char *fname = "setup()";
+//A string to int that ensures the string contains no starting or trailing characters
+int str_to_int(const std::string &str, bool &fail){
+  int idx;
+  std::stringstream ss; ss << str; ss >> std::noskipws >> idx;
+  fail = (ss.bad() || ss.fail() || !ss.eof());
+  return idx;
+}
 
-    Start(argc, argv);
+bool copy_file(const std::string &to, const std::string &from){
+  std::ifstream  src(from.c_str(), std::ios::binary);
+  std::ofstream  dst(to.c_str(), std::ios::binary);
 
-    if(*argc < 2) {
-        ERR.General(cname, fname, "Must provide VML directory.\n");
+  dst << src.rdbuf();
+  return !(src.fail() || src.bad() || dst.fail() || dst.bad());
+}
+
+//On KEKSC we cannot execute a bash script to sort out the vml files at the start, hence we have to do it internally. This comprises the following stages:
+//1) Identify most recently-generated configuration
+//2) Copy the associated vml files to the scripts directory
+//It assumes the standard setup with a root directory containing 'scripts', 'configurations', and 'work' subdirectories. argv[1] should be the 'scripts' directory
+void setup_vml(int argc, char **argv){
+  std::string scripts_dir = argv[1];
+  std::string root_dir = scripts_dir + "/..";
+  std::string conf_dir = root_dir + "/configurations";
+  std::string work_dir = root_dir + "/work";
+  
+  bool fail;
+  
+  //Find the most recent config
+  DIR *conf_dir_p = opendir(conf_dir.c_str());
+  if(conf_dir_p == NULL)
+    ERR.General("","setup_vml","Could not open configurations directory '%s'\n", conf_dir.c_str());
+
+  struct dirent *dptr;
+
+  int largest_idx = -1;
+    
+  if(!UniqueID()) printf("setup_vml: Contents of configurations directory:\n");
+  while(NULL != (dptr = readdir(conf_dir_p)) ){
+    std::string file = dptr->d_name;
+    if(!UniqueID()) printf("File %s\n",dptr->d_name);
+    
+    size_t s = file.find("ckpoint_lat.");
+    if(s == std::string::npos) continue;
+
+    std::string idx_str = file.substr(s+12);
+    int idx = str_to_int(idx_str, fail);
+    if(fail){
+      if(!UniqueID()) printf("Warning setup_vml : Could not convert index string '%s' to int\n",idx_str.c_str());
+      continue;
     }
 
-    if(chdir( (*argv)[1]) != 0) {
+    if(!UniqueID()) printf("setup_vml : Found config '%s' with index %d\n",file.c_str(),idx);
+
+    if(idx > largest_idx) largest_idx = idx;    
+  }
+
+  if(largest_idx == -1)
+    ERR.General("","setup_vml", "Could not find any configurations in directory %s\n",conf_dir.c_str());
+
+  if(!UniqueID()) printf("setup_vml : Found most recent config with index %d\n",largest_idx);
+
+  closedir(conf_dir_p);
+
+  //Find all files ending with .<idx> in the work directory and copy them to the scripts dir with ending .vml
+  DIR *work_dir_p = opendir(work_dir.c_str());
+  if(work_dir_p == NULL)
+    ERR.General("","setup_vml","Could not open work directory '%s'\n", work_dir.c_str());
+
+  if(!UniqueID()) printf("setup_vml: Copying files ending '.%d' from work directory %s\n",largest_idx,work_dir.c_str());
+  std::string find_end;
+  { std::ostringstream os; os << '.' << largest_idx; find_end = os.str(); }
+  
+  while(NULL != (dptr = readdir(work_dir_p)) ){
+    std::string file = dptr->d_name;
+    if(!UniqueID()) printf("File %s\n",dptr->d_name);
+
+    size_t end_pos;
+    if( (end_pos = file.find(find_end)) == std::string::npos)
+      continue;
+
+    if(!UniqueID()) printf("This file '%s' has the correct ending\n",dptr->d_name);
+
+    std::string file_from = work_dir + '/' + file;
+    std::string file_to = scripts_dir + '/' + file.substr(0,end_pos) + ".vml";
+    if(!UniqueID()) printf("Copying '%s' to '%s'\n",file_from.c_str(),file_to.c_str());
+    
+    if(!copy_file(file_to,file_from))
+      ERR.General("","setup_vml","File copy failed!\n");
+    
+  }
+  closedir(work_dir_p);
+}
+
+
+bool fexists(const std::string &filename){
+  std::ifstream ifile(filename.c_str());
+  return ifile;
+}
+
+//If no lock file exists in work directory, add a lock file. If it exists, exit the job.
+//Assumes argv[1] is the scripts directory
+//Returns a pair where the first entry indicates if the lock file was created and the second its filename
+std::pair<bool, std::string> check_lock(int argc, char **argv){
+  std::pair<bool, std::string> ret(false,"");
+  bool do_lock = false;
+  for(int i=1;i<argc;i++)
+    if(std::string(argv[i]) == "-lock")
+      do_lock = true;
+
+  if(!do_lock) return ret;
+
+  std::string scripts_dir = argv[1];
+  std::string root_dir = scripts_dir + "/..";
+  std::string work_dir = root_dir + "/work"; 
+  
+  //Check the directory exists
+  DIR *work_dir_p = opendir(work_dir.c_str());
+  if(work_dir_p == NULL)
+    ERR.General("","check_lock","Could not open work directory '%s'\n", work_dir.c_str());
+  closedir(work_dir_p);
+
+  //Check if the lock file exists; if so, exit
+  std::string &lock_file = ret.second;
+  lock_file = work_dir + "/lock";
+  
+  if(fexists(lock_file))
+    ERR.General("","check_lock","Lock file exists; some job is presently running evolution. Exiting\n");
+
+  //Create the lock file
+  std::ofstream of(lock_file.c_str());
+  if(!of)
+    ERR.General("","check_lock","Failed to create new lock file\n");
+  
+  of << "Locked!\n";
+  of.close();
+
+  ret.first = true;
+
+  if(!UniqueID()) printf("LOCK: Applied lock '%s'\n",lock_file.c_str());
+}
+
+void remove_lock(const std::pair<bool, std::string> &lock_info){
+  if(lock_info.first){
+    if(remove(lock_info.second.c_str()) != 0)
+      ERR.General("","remove_lock","Failed to remove lock file\n");
+    if(!UniqueID()) printf("LOCK: Removed lock '%s'\n",lock_info.second.c_str());
+  }
+}
+  
+
+void setup(int argc, char **argv)
+{
+    const char *fname = "setup()";
+    
+    if(argc < 2) {
+        ERR.General(cname, fname, "Must provide VML directory.\n");
+    }
+    
+    //Check for -setup_vml option
+    for(int i=1;i<argc;i++)
+      if(std::string(argv[i]) == "-setup_vml")
+	setup_vml(argc,argv);
+    
+    if(chdir( argv[1]) != 0) {
       ERR.General(cname, fname, "Changing directory to %s failed.\n", (*argv)[1]);
     }
 
@@ -281,7 +440,7 @@ void setup(int *argc, char ***argv)
     VRB.Result(cname, fname, "VRB.Level(%d)\n", do_arg.verbose_level);
     VRB.Level(do_arg.verbose_level);
 
-    init_bfm(argc, argv);
+    init_bfm(&argc, &argv);
     VRB.Result(cname, fname, "Mobius scale (2c+1) = %.10f\n", bfmarg::mobius_scale);
 
     //Use Fbfm to do the Twisted Mass Wilson part also
@@ -292,8 +451,11 @@ void setup(int *argc, char ***argv)
 int main(int argc, char *argv[])
 {
     const char *fname = "main()";
-
-    setup(&argc, &argv);
+    Start(&argc, &argv);
+    
+    std::pair<bool, std::string> lock_info = check_lock(argc, argv);
+    
+    setup(argc, argv);
 
     //CK: Option to run through 'gauge_unload_period' trajectories then compare the resulting gauge field
     //    with some other loaded field. Job will continue after comparison returns true
@@ -431,6 +593,7 @@ int main(int argc, char *argv[])
 
     End();
 
+    remove_lock(lock_info);
     VRB.Result(cname, fname, "Program ended normally.\n");
     
     return 0;
