@@ -267,6 +267,30 @@ bool copy_file(const std::string &to, const std::string &from){
   return !(src.fail() || src.bad() || dst.fail() || dst.bad());
 }
 
+//Check a directory exists and open it on node 0
+DIR* check_open_dir(const std::string &dir, const std::string &descr = ""){
+  DIR* ret;
+  Float fail = 0.;
+  if(!UniqueID()){
+    ret = opendir(dir.c_str());
+    fail = (ret == NULL) ? 1. : 0.;
+  }
+  glb_sum_five(&fail);
+  if(fail > 0.)
+    ERR.General("","check_open_dir","Could not open %s directory '%s'\n", descr.c_str(), dir.c_str());
+  return ret;
+}
+
+//Returns non-zero float on all nodes if the condition 'fail_node0' is not satisfied on node 0
+Float node0_fail_check(const bool fail_node0){
+  Float fail = 0.;
+  if(!UniqueID() && fail_node0)
+    fail = 1.;
+  glb_sum_five(&fail);
+  return fail;
+}
+
+
 //On KEKSC we cannot execute a bash script to sort out the vml files at the start, hence we have to do it internally. This comprises the following stages:
 //1) Identify most recently-generated configuration
 //2) Copy the associated vml files to the scripts directory
@@ -280,69 +304,75 @@ void setup_vml(int argc, char **argv){
   bool fail;
   
   //Find the most recent config
-  DIR *conf_dir_p = opendir(conf_dir.c_str());
-  if(conf_dir_p == NULL)
-    ERR.General("","setup_vml","Could not open configurations directory '%s'\n", conf_dir.c_str());
-
-  struct dirent *dptr;
-
+  Float conf_dir_fail = 0.;
+  
+  DIR *conf_dir_p = check_open_dir(conf_dir, "configurations"); //opens on node 0
+  
   int largest_idx = -1;
+  if(!UniqueID()){
+    printf("setup_vml: Contents of configurations directory:\n");
     
-  if(!UniqueID()) printf("setup_vml: Contents of configurations directory:\n");
-  while(NULL != (dptr = readdir(conf_dir_p)) ){
-    std::string file = dptr->d_name;
-    if(!UniqueID()) printf("File %s\n",dptr->d_name);
-    
-    size_t s = file.find("ckpoint_lat.");
-    if(s == std::string::npos) continue;
+    struct dirent *dptr;
+    while(NULL != (dptr = readdir(conf_dir_p)) ){
+      std::string file = dptr->d_name;
+      printf("File %s\n",dptr->d_name);
+      
+      size_t s = file.find("ckpoint_lat.");
+      if(s == std::string::npos) continue;
 
-    std::string idx_str = file.substr(s+12);
-    int idx = str_to_int(idx_str, fail);
-    if(fail){
-      if(!UniqueID()) printf("Warning setup_vml : Could not convert index string '%s' to int\n",idx_str.c_str());
-      continue;
+      std::string idx_str = file.substr(s+12);
+      int idx = str_to_int(idx_str, fail);
+      if(fail){
+	printf("Warning setup_vml : Could not convert index string '%s' to int\n",idx_str.c_str());
+	continue;
+      }
+      
+      printf("setup_vml : Found config '%s' with index %d\n",file.c_str(),idx);
+      
+      if(idx > largest_idx) largest_idx = idx;    
     }
-
-    if(!UniqueID()) printf("setup_vml : Found config '%s' with index %d\n",file.c_str(),idx);
-
-    if(idx > largest_idx) largest_idx = idx;    
   }
 
-  if(largest_idx == -1)
+  if(node0_fail_check(largest_idx == -1) >0.)
     ERR.General("","setup_vml", "Could not find any configurations in directory %s\n",conf_dir.c_str());
 
-  if(!UniqueID()) printf("setup_vml : Found most recent config with index %d\n",largest_idx);
-
-  closedir(conf_dir_p);
-
-  //Find all files ending with .<idx> in the work directory and copy them to the scripts dir with ending .vml
-  DIR *work_dir_p = opendir(work_dir.c_str());
-  if(work_dir_p == NULL)
-    ERR.General("","setup_vml","Could not open work directory '%s'\n", work_dir.c_str());
-
-  if(!UniqueID()) printf("setup_vml: Copying files ending '.%d' from work directory %s\n",largest_idx,work_dir.c_str());
-  std::string find_end;
-  { std::ostringstream os; os << '.' << largest_idx; find_end = os.str(); }
-  
-  while(NULL != (dptr = readdir(work_dir_p)) ){
-    std::string file = dptr->d_name;
-    if(!UniqueID()) printf("File %s\n",dptr->d_name);
-
-    size_t end_pos;
-    if( (end_pos = file.find(find_end)) == std::string::npos)
-      continue;
-
-    if(!UniqueID()) printf("This file '%s' has the correct ending\n",dptr->d_name);
-
-    std::string file_from = work_dir + '/' + file;
-    std::string file_to = scripts_dir + '/' + file.substr(0,end_pos) + ".vml";
-    if(!UniqueID()) printf("Copying '%s' to '%s'\n",file_from.c_str(),file_to.c_str());
-    
-    if(!copy_file(file_to,file_from))
-      ERR.General("","setup_vml","File copy failed!\n");
-    
+  if(!UniqueID()){
+    printf("setup_vml : Found most recent config with index %d\n",largest_idx);
+    closedir(conf_dir_p);
   }
-  closedir(work_dir_p);
+    
+  //Find all files ending with .<idx> in the work directory and copy them to the scripts dir with ending .vml
+  DIR *work_dir_p = check_open_dir(work_dir,"work");
+
+  bool copy_fail = false;
+  if(!UniqueID()){
+    printf("setup_vml: Copying files ending '.%d' from work directory %s\n",largest_idx,work_dir.c_str());
+    std::string find_end;  { std::ostringstream os; os << '.' << largest_idx; find_end = os.str(); }
+    struct dirent *dptr;
+    while(NULL != (dptr = readdir(work_dir_p)) ){
+      std::string file = dptr->d_name;
+      printf("File %s\n",dptr->d_name);
+      
+      size_t end_pos;
+      if( (end_pos = file.find(find_end)) == std::string::npos)
+	continue;
+
+      printf("This file '%s' has the correct ending\n",dptr->d_name);
+      
+      std::string file_from = work_dir + '/' + file;
+      std::string file_to = scripts_dir + '/' + file.substr(0,end_pos) + ".vml";
+      printf("Copying '%s' to '%s'\n",file_from.c_str(),file_to.c_str());
+    
+      if(!copy_file(file_to,file_from)){
+	copy_fail = true;
+	break;
+      }
+    }
+    closedir(work_dir_p);
+  }
+  
+  if(node0_fail_check(copy_fail) > 0.) //this should also sync the nodes
+    ERR.General("","setup_vml","File copy failed!\n");  
 }
 
 
@@ -366,37 +396,60 @@ std::pair<bool, std::string> check_lock(int argc, char **argv){
   std::string scripts_dir = argv[1];
   std::string root_dir = scripts_dir + "/..";
   std::string work_dir = root_dir + "/work"; 
-  
-  //Check the directory exists
-  DIR *work_dir_p = opendir(work_dir.c_str());
-  if(work_dir_p == NULL)
-    ERR.General("","check_lock","Could not open work directory '%s'\n", work_dir.c_str());
-  closedir(work_dir_p);
 
-  //Check if the lock file exists; if so, exit
   std::string &lock_file = ret.second;
   lock_file = work_dir + "/lock";
-  
-  if(fexists(lock_file))
+
+  //Check if directory exists  
+  bool dir_fail = false;
+  if(!UniqueID()){
+    DIR* work_dir_p = opendir(work_dir.c_str());
+    if(work_dir_p == NULL)
+      dir_fail = true;
+    else
+      closedir(work_dir_p);
+  }
+
+  if(node0_fail_check(dir_fail) > 0.)
+    ERR.General("","check_lock","Could not open work directory '%s'\n", work_dir.c_str());
+
+  bool lock_exists = false;  
+  if(!UniqueID()){
+    //Check if the lock file exists; if so, exit    
+    if(fexists(lock_file))
+      lock_exists = true;
+  }
+  if(node0_fail_check(lock_exists) > 0.)
     ERR.General("","check_lock","Lock file exists; some job is presently running evolution. Exiting\n");
 
   //Create the lock file
-  std::ofstream of(lock_file.c_str());
-  if(!of)
+  bool lock_write_fail = false;
+  if(!UniqueID()){
+    std::ofstream of(lock_file.c_str());
+    if(!of)
+      lock_write_fail = true;
+    else{    
+      of << "Locked!\n";
+      of.close();
+      printf("LOCK: Applied lock '%s'\n",lock_file.c_str());
+    }
+  }  
+  if(node0_fail_check(lock_write_fail) > 0.)
     ERR.General("","check_lock","Failed to create new lock file\n");
   
-  of << "Locked!\n";
-  of.close();
-
   ret.first = true;
-
-  if(!UniqueID()) printf("LOCK: Applied lock '%s'\n",lock_file.c_str());
 }
 
 void remove_lock(const std::pair<bool, std::string> &lock_info){
   if(lock_info.first){
-    if(remove(lock_info.second.c_str()) != 0)
+    bool lock_remove_fail = false;
+    if(!UniqueID()){
+      if(remove(lock_info.second.c_str()) != 0)
+	lock_remove_fail = true;
+    }
+    if(node0_fail_check(lock_remove_fail) > 0.)
       ERR.General("","remove_lock","Failed to remove lock file\n");
+    
     if(!UniqueID()) printf("LOCK: Removed lock '%s'\n",lock_info.second.c_str());
   }
 }
