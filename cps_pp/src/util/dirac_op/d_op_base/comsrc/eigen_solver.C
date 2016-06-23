@@ -1146,7 +1146,9 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 //#define USE_BLAS
 #include <util/qblas_extend.h>
 #ifndef USE_BLAS
+CPS_END_NAMESPACE
 #include <util/vector_template_func.h>
+CPS_START_NAMESPACE
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
@@ -1156,6 +1158,11 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 //void  ZAXPYfloat( int n, float *fact,  float *px,  float *py)   
 //{ cTimesV1PlusV2<float,float,float>(py, fact[0], fact[1], px, py, n); }
 //#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
+inline void ZDOTfloat(int n,const float *px,const float *py,float *p_dot) 
+{ IFloat c_r, c_i;
+compDotProduct<float,float>( &c_r,&c_i, px, py, n);
+*p_dot = c_r; *(p_dot+1)=c_i;
+}
 #else
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
@@ -1276,7 +1283,7 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
   for(int i = 0; i<Nvec; ++i)
     {
 
-      //ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
+      ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
 #if 0 
 //// has to be recoverd !!! - CJ
       cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
@@ -1287,8 +1294,9 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
       xp[0] = (float)xpd[0];
       xp[1] = (float)xpd[1];
 
-      if(!UniqueID() && fabs(xp[1])> 1e-13)
-	printf("[%d][%d] %e %e\n", UniqueID(),i, xp[0],xp[1]);
+      if(!UniqueID())
+// && fabs(xp[1])> 1e-13)
+	printf("lanczos_GramSchm_test:[%d][%d] %e %e\n", UniqueID(),i, xp[0],xp[1]);
       
       /* psi = psi - <vec[i],psi> vec[i] */
       xp[0] =-xp[0]; xp[1] = -xp[1];

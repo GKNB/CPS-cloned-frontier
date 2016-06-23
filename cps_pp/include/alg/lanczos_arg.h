@@ -38,6 +38,7 @@ public:
 	enum RitzMatType RitzMat_convcheck;
 	Float mass;
 	int nk_lanczos_vectors;
+	int nt_lanczos_vectors;
 	int np_lanczos_vectors;
 	Float eigen_shift;
 	Float stop_residual;

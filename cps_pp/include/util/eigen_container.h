@@ -29,10 +29,8 @@
 #include <alg/no_arg.h>
 #include <util/time_cps.h>
 #include <util/qcdio.h>
-#ifdef USE_QIO
 #include <util/qio_writeGenericFields.h>
 #include <util/qio_readGenericFields.h>
-#endif
 #include <util/dirac_op.h>
 #include <alg/cg_arg.h>
 #include <comms/sysfunc_cps.h>
@@ -42,6 +40,7 @@
 #include <util/vector.h>
 
 #include <stdlib.h>
+#include <cstdlib>
 
 
 CPS_START_NAMESPACE
@@ -60,7 +59,7 @@ void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float* alph
 
 #if 0
 // specific to dwf 
-void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls)
+static void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls)
 {
   char *fname = "MultGamma5(V*,V*,i)";
   VRB.Func("",fname);
@@ -80,7 +79,7 @@ void ReflectAndMultGamma5( Vector *out, const Vector *in,  int nodevol, int ls)
 
 }
 
-void HermicianDWF_ee( Vector* vtmp, Vector* evec, Float mass, Lattice* lattice, Vector* Apsi )
+static void HermicianDWF_ee( Vector* vtmp, Vector* evec, Float mass, Lattice* lattice, Vector* Apsi )
 {
 	CgArg cg_arg;
 	cg_arg.mass = mass;
@@ -92,6 +91,7 @@ void HermicianDWF_ee( Vector* vtmp, Vector* evec, Float mass, Lattice* lattice, 
 			      GJP.VolNodeSites()/2, GJP.SnodeSites() );
 }
 #endif
+
 //----------------------------------------------------------------------------
 class EigenContainer;  // forward declaration
 
@@ -159,10 +159,6 @@ class EigenCache {
   int is_cached( char* a_fname_root_bc, int a_neig )
   {
 
-    if(!UniqueID())
-      printf("is_cached: %s %d vs %s  %d\n",
-	     a_fname_root_bc, a_neig,
-	     fname_root_bc, neig);
     return 
       strcmp( fname_root_bc, a_fname_root_bc)==0  &&
       neig == a_neig ;
@@ -249,6 +245,7 @@ class EigenCache {
       int c_idx = index[idx]; // for future extention, like circular buffer 
       //moveFloat((Float*)(evec[c_idx]), (Float*)v, f_size);
       moveFloat((Float*)evec + c_idx*f_size, (Float*)v, f_size);
+      //moveMem((Float*)evec + c_idx*f_size, (float*)v, f_size);
     }
   }
 
@@ -399,8 +396,10 @@ class EigenContainer {
       n_fields = n_fields_;
       f_size = f_size_per_site*n_fields*GJP.VolNodeSites();
       neig = neig_;
-      f_stride_size = f_size_per_site*n_fields*GJP.SaveStride()*GJP.VolNodeSites();
-      stride = (f_size_per_site / 3) * n_fields * GJP.VolNodeSites() / 2;
+      f_stride_size = f_size_per_site*n_fields*GJP.SaveStride()*GJP.VolNodeSites() ;
+      // number of Vectors in one eigenvector
+      //stride = (f_size_per_site / 3) * n_fields * GJP.VolNodeSites() / 2 ;
+      stride = lattice->SpinComponents() * n_fields * GJP.VolNodeSites() / 2 /2 ; //last two for single prec.
 
       strcpy(fname_root_bc, a_fname_root_bc);
 
@@ -417,7 +416,7 @@ class EigenContainer {
 	}
       eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
       if(eval==0)ERR.General(cname,fname,"eval could not malloced\n");
-      evec = (Vector*) smalloc(cname,fname, "evec", f_stride_size* sizeof(Float));
+      evec = (Vector*) smalloc(cname,fname, "evec", f_stride_size* sizeof(float));
       if(evec==0)ERR.General(cname,fname,"evec could not be malloced\n");
     }
 
@@ -493,7 +492,6 @@ class EigenContainer {
   Vector* nev_load( int index )
   {
 
-#ifdef USE_QIO
     VRB.Flow(cname,"nev_load(I)","ecache %x \n", ecache);
     if (ecache){ // cached, don't read in again
       VRB.Flow(cname,"nev_load(I)"," index %d ecache->index[index] %d \n",
@@ -516,15 +514,21 @@ class EigenContainer {
     snprintf(file,1024, "%s.nev%03d", fname_root_bc, num);
     
     qio_readGenericFields readGenField;
-    readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN);
-    //readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN, FP_IEEE32LITTLE);
+    //readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN);
+    readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN, FP_IEEE32LITTLE);
+    //printf("EVEC %e %e\n",*((float*)evec),*((float*)evec+1));
+    //for(int i=0;i<f_size;i++)
+    //printf("EVEC after qio read %d %e\n", i, *((float*)evec+i));
+
     // convert *to* stag ordering
+#if 0
     if(lattice->Fclass()==F_CLASS_P4){
       ERR.General("nev_load","EigenContainer","SINGLE Prec probably doesn't work for P4 conversion!\n");
       for(int i=0;i<save_stride;i++){
 	lattice->Fconvert(evec+i*stride,STAG,CANONICAL,1);
       }
     }
+#endif
 
     // evec is type Vector, with at least one 3-complex vector at each site and working on checkerboard
     if( ecache ){
@@ -533,11 +537,10 @@ class EigenContainer {
 	if(!UniqueID()) printf("Cached eig-vec %d (size=%d)\n",num+i,stride);
       }
     }
-    printf("returning eig-vec %d\n",index % save_stride);
+    //printf("returning eig-vec %d\n",index % save_stride);
+    //for(int i=0;i<f_size;i++)
+    //printf("EVEC after cache %d %e\n", i, *((float*)evec+i));
     return evec+(index % save_stride)*stride;
-#else
-    ERR.General(cname,"nev_load(I)","Needs QIO. Aborted");
-#endif
   }
 
   // save to file with the specified "nev" index
@@ -547,7 +550,6 @@ class EigenContainer {
 		 char* ensemble_label="n/a",
 		 int seqNum=777 )
   {
-#ifdef USE_QIO
     double time=dclock();
     
     char file[1024];
@@ -557,21 +559,23 @@ class EigenContainer {
     qio_writeGenericFields writeGenField;
 
     int save_stride = GJP.SaveStride();
+#if 0
     if(lattice->Fclass()==F_CLASS_P4){
       ERR.General("nev_save","EigenContainer","SINGLE Prec probably doesn't work for P4 conversion!\n");
       for(int i=0;i<save_stride;i++){
 	lattice->Fconvert(evec_+i*stride,CANONICAL,STAG,1);
       }
     }
+#endif
     writeGenField.setHeader( ensemble_id, ensemble_label, seqNum, field_type_label );
-    writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT);
+    //writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT);
     // save in single
-    //writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
+    VRB.Result("writeGenField", "write_genericfields","(%s,%d x %d,%d,%p,%d,%d)\n",
+ file, save_stride,n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
+
+    writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
 
     if(!UniqueID()) printf("nev_save, time to save :%e sec\n",time-dclock());
-#else
-    ERR.General(cname,"nev_save()","Needs QIO. Aborted");
-#endif
   }
 
 
@@ -583,34 +587,32 @@ class EigenContainer {
     cg_arg.mass = mass;
     cg_arg.eigen_shift = 0.0;
 
+    //printf("VTMP %e %e\n",*((Float*)vtmp),*((Float*)vtmp+1));exit(0);
+
     Vector* Apsi = (Vector*) smalloc(cname,fname, "Apsi", f_size* sizeof(Float));
     if(Apsi==0)ERR.General(cname,fname,"Apsi could not malloced\n");
 
-  switch (lattice->Fclass()){
-  case F_CLASS_DWF: {
-    cg_arg.RitzMatOper = MATPC_HERM; //could be  MATPCDAG_MATPC;
-    DiracOpDwf dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
-    dop.RitzMat(Apsi, vtmp );
-    break;}
-  case F_CLASS_MOBIUS: {
-    cg_arg.RitzMatOper = MATPCDAG_MATPC;
-    DiracOpMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
-    dop.RitzMat(Apsi, vtmp );
-    break;}
-  case F_CLASS_ZMOBIUS: {
-    cg_arg.RitzMatOper = MATPCDAG_MATPC;
-    DiracOpZMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
-    dop.RitzMat(Apsi, vtmp );
-    break; }
-  case  F_CLASS_P4: {
+    if(lattice->Fclass()==F_CLASS_DWF){
+      cg_arg.RitzMatOper = MATPC_HERM; //could be  MATPCDAG_MATPC;
+      DiracOpDwf dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+      dop.RitzMat(Apsi, vtmp );
+    }else if(lattice->Fclass()==F_CLASS_MOBIUS){
+      cg_arg.RitzMatOper = MATPCDAG_MATPC;
+      DiracOpMobius dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+      dop.RitzMat(Apsi, vtmp );
+    }else if(lattice->Fclass()==F_CLASS_P4){
       cg_arg.RitzMatOper = MATPCDAG_MATPC;
       DiracOpP4 dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
       dop.RitzMat(Apsi, vtmp );
-      break;}
-  default:
-    ERR.General(cname,fname,"Error: valid class type is dwf, mobius, zmobius or p4 (%d)\n",lattice->Fclass());
-      break;
-  }
+#if 0 //temporarily commented out until Fhisq is merged
+    }else if(lattice->Fclass()==F_CLASS_HISQ){
+      cg_arg.RitzMatOper = MATPCDAG_MATPC;
+      DiracOpHisq dop( *lattice, 0, 0, &cg_arg, CNV_FRM_NO );
+      dop.RitzMat(Apsi, vtmp );
+#endif
+    }else{
+      ERR.General(cname,fname,"Error: valid class type is dwf, mobius or p4\n");
+    }
 
     Float alp =  Apsi->ReDotProductGlbSum( vtmp, f_size);
 
@@ -629,10 +631,6 @@ class EigenContainer {
     }
 #endif
 
-    //    printf("TIZB ls=%d b_coeff %e c_coeff %e\n",
-    //GJP.SnodeSites(),
-    //GJP.ZMobius_b()[0],
-    //GJP.ZMobius_c()[0]);
     
     Float rnorm = sqrt(Apsi->NormSqGlbSum(f_size ));
     Float norm = sqrt(vtmp->NormSqGlbSum(f_size));
@@ -761,6 +759,8 @@ class EigenContainer {
 
 
 };
+
+extern std::vector<EigenCache*> EigenCacheList;
 
 CPS_END_NAMESPACE
 #endif

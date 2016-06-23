@@ -4,9 +4,6 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOp class methods.
   
-<<<<<<< HEAD
-=======
->>>>>>> 23ac05e5c207bc26081fd5b07fe4d1353d7fd549
 */
 
 

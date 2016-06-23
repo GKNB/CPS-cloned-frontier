@@ -71,6 +71,8 @@ vml_LanczosArg (VML *vmls, char *name,LanczosArg *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "nk_lanczos_vectors", &objp->nk_lanczos_vectors))
 		 return FALSE;
+	 if (!vml_int (vmls, "nt_lanczos_vectors", &objp->nt_lanczos_vectors))
+		 return FALSE;
 	 if (!vml_int (vmls, "np_lanczos_vectors", &objp->np_lanczos_vectors))
 		 return FALSE;
 	 if (!vml_Float (vmls, "eigen_shift", &objp->eigen_shift))

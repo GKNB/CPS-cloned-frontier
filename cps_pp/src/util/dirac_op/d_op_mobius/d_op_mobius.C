@@ -8,23 +8,7 @@ CPS_START_NAMESPACE
 /*! \file
   \brief  Definition of DiracOpMobius class methods.
 
-  $Id: d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-06-07 19:26:34 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
-//  $Id: d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: d_op_mobius.C,v $
-//  $Revision: 1.6 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/d_op_mobius.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // d_op_mobius.C
@@ -45,10 +29,8 @@ CPS_END_NAMESPACE
 #include <util/time_cps.h>
 #include <util/dwf.h>
 #include <util/mobius.h>
-//#include <mem/p2v.h>
 #include <comms/glb.h>
 
-//#define USE_BLAS
 #ifdef USE_BLAS
 #include "noarch/blas-subs.h"
 #endif
