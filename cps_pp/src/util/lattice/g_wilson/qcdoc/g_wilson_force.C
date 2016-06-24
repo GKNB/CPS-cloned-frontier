@@ -63,6 +63,7 @@ ForceArg Gwilson::EvolveMomGforce(Matrix *mom, Float dt){
   if(!if_block && (fabs(delta_beta)>0)) ERR.General(cname,fname,"Not implemented for non-blocked noisy MC\n");
 
   LatData Plaqs(1);
+if(if_block)
 {
     ParTransGauge pt(*this);
       for(mu = 0;mu<4;mu++)
