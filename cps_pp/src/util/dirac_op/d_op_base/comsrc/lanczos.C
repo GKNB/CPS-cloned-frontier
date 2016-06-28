@@ -138,7 +138,7 @@ void tqri_LAPACK (double *shifts, double *ttbeta, int NN, int m, double *Q)
 }
 #endif
 
-#undef PROFILE_LANCZOS
+#define PROFILE_LANCZOS
 #ifdef  PROFILE_LANCZOS
 #undef PROFILE_LANCZOS
 #define PROFILE_LANCZOS(msg,a ...) do		\

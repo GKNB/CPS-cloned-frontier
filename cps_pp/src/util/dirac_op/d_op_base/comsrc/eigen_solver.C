@@ -6,6 +6,7 @@
 #include <util/dirac_op.h>
 #include<math.h>
 #include <util/smalloc.h>
+#include <util/vector_template_func.h>
 CPS_START_NAMESPACE
 
 Float pythag(Float a, Float b);
@@ -1144,11 +1145,8 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 }
 
 //#define USE_BLAS
-#include <util/qblas_extend.h>
+//#include <util/qblas_extend.h>
 #ifndef USE_BLAS
-CPS_END_NAMESPACE
-#include <util/vector_template_func.h>
-CPS_START_NAMESPACE
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
