@@ -347,7 +347,9 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   lsol_full = Grid::zero;
 
   LATTICE_FERMION lsol_defl(FrbGrid); //low-mode part for subset of evecs with index < nLowMode
-
+  lsol_defl = Grid::zero;
+  lsol_defl.checkerboard = Grid::Odd;
+  
   LATTICE_FERMION sol_o(FrbGrid); //CG solution
   sol_o = Grid::zero;
 
@@ -384,15 +386,27 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 
   //Pull low-mode part out of solution
   axpy(sol_o, -1.0, lsol_defl, sol_o);
-  setCheckerboard(solution, sol_o);
 
+  f = norm2(sol_o);
+  if (!UniqueID()) printf("Grid_CGNE_M_high: sol norm after subtracting low-mode part %le\n",f);
+
+  assert(sol_o.checkerboard == Grid::Odd);
+  setCheckerboard(solution, sol_o);
+  
   // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
   pickCheckerboard(Grid::Even,tmp_cb1,source);  //tmp_cb1 = src_e
-
-  Ddwf.Meooe(sol_o,tmp_cb2); //tmp_cb2 = Meo sol_o
-  axpy(tmp_cb1, -1.0, tmp_cb2, tmp_cb1); //tmp_cb1 = (-Meo sol_o + src_e)   (tmp_cb2 free)
-  Ddwf.MooeeInv(tmp_cb1,tmp_cb2);  //tmp_cb2 = Mee^-1(-Meo sol_o + src_e)   (tmp_cb1 free)
   
+  Ddwf.Meooe(sol_o,tmp_cb2); //tmp_cb2 = Meo sol_o
+  assert(tmp_cb2.checkerboard == Grid::Even);
+
+  axpy(tmp_cb1, -1.0, tmp_cb2, tmp_cb1); //tmp_cb1 = (-Meo sol_o + src_e)   (tmp_cb2 free)
+  
+  Ddwf.MooeeInv(tmp_cb1,tmp_cb2);  //tmp_cb2 = Mee^-1(-Meo sol_o + src_e)   (tmp_cb1 free)
+
+  f = norm2(tmp_cb2);
+  if (!UniqueID()) printf("Grid_CGNE_M_high: even checkerboard of sol %le\n",f);
+
+  assert(tmp_cb2.checkerboard == Grid::Even);
   setCheckerboard(solution, tmp_cb2);
 
   f = norm2(solution);

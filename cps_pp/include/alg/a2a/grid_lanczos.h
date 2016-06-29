@@ -7,6 +7,12 @@
 CPS_START_NAMESPACE
 
 inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERMION> &evec, const LancArg &lanc_arg, GFGRID &lattice){
+  if(lanc_arg.N_true_get == 0){
+    eval.clear(); evec.clear();
+    if(!UniqueID()) printf("gridLanczos skipping because N_true_get = 0\n");
+    return;
+  }
+  
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();
@@ -15,7 +21,7 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERM
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
-  printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+  if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
 
   DIRAC ::ImplParams params;
   lattice.SetParams(params);

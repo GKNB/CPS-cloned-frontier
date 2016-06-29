@@ -588,7 +588,7 @@ int main (int argc,char **argv )
     print_time("main","Configuration total",conf_time);
   }//end of config loop
 
-  QDPIO::cout<<"Done!"<<std::endl;
+  if(!UniqueID()) printf("Done\n");
   End();
 }
 
