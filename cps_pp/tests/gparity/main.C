@@ -45,7 +45,7 @@
 
 #include <util/data_shift.h>
 
-#include <alg/a2a/lanc_arg.h>
+#include <alg/lanc_arg.h>
 #include <alg/prop_attribute_arg.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/propmanager.h>
@@ -268,6 +268,7 @@ int main(int argc,char *argv[])
 
   bool gparity_X(false);
   bool gparity_Y(false);
+  bool gparity_Z(false);
 
   int arg0 = CommandLine::arg_as_int(0);
   printf("Arg0 is %d\n",arg0);
@@ -276,10 +277,15 @@ int main(int argc,char *argv[])
     printf("Doing G-parity HMC test in X direction\n");
   }else if(arg0==1){
     printf("Doing standard HMC test\n");
-  }else{
+  }else if(arg0==2){
     printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
+  }else if(arg0==3){
+    printf("Doing G-parity HMC test in X, Y, Z directions\n");
+    gparity_X = true;
+    gparity_Y = true;
+    gparity_Z = true;
   }
 
   bool dbl_latt_storemode(false);
@@ -417,6 +423,7 @@ int main(int argc,char *argv[])
 
   if(gparity_X) do_arg.x_bc = BND_CND_GPARITY;
   if(gparity_Y) do_arg.y_bc = BND_CND_GPARITY;
+  if(gparity_Z) do_arg.z_bc = BND_CND_GPARITY;
 
   GJP.Initialize(do_arg);
 
@@ -461,6 +468,11 @@ int main(int argc,char *argv[])
     if(UniqueID()==0) printf("Config written.\n");
   }
 
+  if(gparity_Z){
+    ERR.General("main","()","GPBC in 3-dirs double-lattice comparison not implemented\n");
+  }
+
+  
   if(gauge_fix){
     lattice.FixGaugeAllocate(FIX_GAUGE_COULOMB_T);
     lattice.FixGauge(1e-06,2000);
