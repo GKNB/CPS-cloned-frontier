@@ -308,8 +308,11 @@ struct Lanczos{
   }
 
 #else
+  
   BFM_Krylov::Lanczos_5d<double> *eig;
 
+  Lanczos(): eig(NULL){}
+  
   void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, Lattice &lat){
     eig = new BFM_Krylov::Lanczos_5d<double>(solvers.dwf_d,const_cast<LancArg&>(lanc_arg)); //sets up the mass of dwf_d correctly
     eig->Run();
@@ -332,7 +335,8 @@ struct Lanczos{
   }
 
   ~Lanczos(){
-    delete eig;
+    if(eig != NULL)
+      delete eig;
   }
 #endif
 

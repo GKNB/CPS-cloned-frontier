@@ -247,16 +247,14 @@ int main (int argc,char **argv )
     Lanczos eig;
 
     if(!randomize_vw){
-      if(lanc_arg.N_true_get > 0){
-	if(!UniqueID()) printf("Running light quark Lanczos\n");
-	time = -dclock();
-	eig.compute(lanc_arg, solvers, lat);
-	time += dclock();
-	print_time("main","Light quark Lanczos",time);
+      if(!UniqueID()) printf("Running light quark Lanczos\n");
+      time = -dclock();
+      eig.compute(lanc_arg, solvers, lat);
+      time += dclock();
+      print_time("main","Light quark Lanczos",time);
 
-	if(!UniqueID()) printf("Memory after light quark Lanczos:\n");
-	printMem();
-      }
+      if(!UniqueID()) printf("Memory after light quark Lanczos:\n");
+      printMem();      
 
       if(evecs_single_prec){
 	eig.toSingle();
@@ -293,16 +291,15 @@ int main (int argc,char **argv )
     Lanczos eig_s;
 
     if(!randomize_vw){
-      if(lanc_arg_s.N_true_get > 0){
-	if(!UniqueID()) printf("Running strange quark Lanczos\n");
-	time = -dclock();
-	eig_s.compute(lanc_arg_s,solvers,lat);
-	time += dclock();
-	print_time("main","Strange quark Lanczos",time);
+      if(!UniqueID()) printf("Running strange quark Lanczos\n");
+      time = -dclock();
+      eig_s.compute(lanc_arg_s,solvers,lat);
+      time += dclock();
+      print_time("main","Strange quark Lanczos",time);
 
-	if(!UniqueID()) printf("Memory after heavy quark Lanczos:\n");
-	printMem();
-      }
+      if(!UniqueID()) printf("Memory after heavy quark Lanczos:\n");
+      printMem();
+      
       if(evecs_single_prec){
 	eig_s.toSingle();
 	if(!UniqueID()) printf("Memory after single-prec conversion of heavy quark evecs:\n");
