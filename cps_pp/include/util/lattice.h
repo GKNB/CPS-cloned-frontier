@@ -804,15 +804,18 @@ class Lattice
     }
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
-    int F5D(){
+    int F5D();
+#if 0
+{
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS 
 	   || Fclass()==F_CLASS_ZMOBIUS 
 #ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK, moved her  by CJ
+     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK, moved here  by CJ
 #endif
 	   || Fclass() ==F_CLASS_MDWF ) return 1;
       else return 0;
     }
+#endif
 
     virtual int FsiteOffsetChkb(const int *x) const = 0;
     //!< Gets the lattice site index for the odd-even (checkerboard) order.

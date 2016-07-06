@@ -30,6 +30,19 @@ CPS_END_NAMESPACE
 #include <util/zmobius.h> 
 USING_NAMESPACE_CPS
 
+using cps::Complex;
+
+#if 0
+void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
+		    cps::Complex d, const cps::Complex *e, int len)
+{
+//#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+    	a[i] = b * c[i] + d*e[i];
+    }
+}
+#endif
+
 Fzmobius::Fzmobius() : FdwfBase(){
   cname = "Fzmobius";
 
@@ -597,15 +610,6 @@ int Fzmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   return iter;
 }
 
-
-static void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
-		    Complex d, const Complex *e, int len)
-{
-//#pragma omp parallel for
-    for(int i = 0; i < len/2; ++i) {
-    	a[i] = b * c[i] + d*e[i];
-    }
-}
 
 void Fzmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag){

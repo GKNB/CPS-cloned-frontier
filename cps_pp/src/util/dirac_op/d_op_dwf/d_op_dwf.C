@@ -26,7 +26,9 @@ CPS_END_NAMESPACE
 #include <util/dwf.h>
 //#include <mem/p2v.h>
 #include <comms/glb.h>
+#ifdef USE_BLAS
 #include <util/qblas_extend.h>
+#endif
 
 #ifdef USE_CG_DWF_WRAPPER
 #include "cps_cg_dwf.h"

@@ -10,9 +10,9 @@
 #include <util/verbose.h>
 #include <util/error.h>
 #include <math.h>
+#ifdef USE_LAPACK
 #include <lapacke.h>
-#include <util/qblas_extend.h>
-#include <cblas.h>
+#endif
 #include <util/qcdio.h>
 //#include <alg/matrixpolynomial_arg.h>
 #include <util/time_cps.h>
@@ -162,6 +162,7 @@ void tqri_LAPACK (double *shifts, double *ttbeta, int NN, int m, double *Q)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot)=dotProduct(px,py,n); glb_sum((p_dot)); }
 #else
+#include <util/qblas_extend.h>
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
 #define AXPY(n, fact, px, py)  cblas_daxpy(n, fact, px,1,py,1)

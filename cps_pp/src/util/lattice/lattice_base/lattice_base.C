@@ -3711,6 +3711,16 @@ void
 }
 #endif
 
+int Lattice::F5D(){
+      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
+           || Fclass()==F_CLASS_ZMOBIUS
+#ifdef USE_BFM
+     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK, moved here  by CJ
+#endif
+           || Fclass() ==F_CLASS_MDWF ) return 1;
+      else return 0;
+}
+
 int
   Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
 			int Nshift, int isz, CgArg * cg_arg,
