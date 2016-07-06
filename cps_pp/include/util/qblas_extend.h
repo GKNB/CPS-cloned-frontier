@@ -1,6 +1,6 @@
 #ifndef __QBLAS_EXTEND__CD
 #define __QBLAS_EXTEND__CD
-#include "qblas.h"
+#include <cblas.h>
 
 /*
   some convenience functions for 

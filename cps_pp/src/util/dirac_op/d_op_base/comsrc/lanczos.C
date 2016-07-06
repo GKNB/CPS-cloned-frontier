@@ -11,6 +11,8 @@
 #include <util/error.h>
 #include <math.h>
 #include <lapacke.h>
+#include <util/qblas_extend.h>
+#include <cblas.h>
 #include <util/qcdio.h>
 //#include <alg/matrixpolynomial_arg.h>
 #include <util/time_cps.h>
@@ -103,14 +105,15 @@ void tqri_LAPACK (double *shifts, double *ttbeta, int NN, int m, double *Q)
   if (iu > NN)
     iu = NN;
   double tol = 0.0;
+  int if_print= VRB.IsActivated(VERBOSE_DEBUG_LEVEL);
   if (il <= NN) {
-    printf ("total=%d node=%d il=%d iu=%d\n", total, node, il, iu);
+    if (if_print) printf ("total=%d node=%d il=%d iu=%d\n", total, node, il, iu);
     LAPACK_dstegr (&jobz, &range, &NN, (double *) DD, (double *) EE, &vl, &vu, &il, &iu,	// these four are ignored if second parameteris 'A'
 		   &tol,	// tolerance
 		   &evals_found, evals_tmp, evec_tmp, &NN,
 		   isuppz, work, &lwork, iwork, &liwork, &info);
     for (int i = iu - 1; i >= il - 1; i--) {
-      printf ("node=%d evals_found=%d evals_tmp[%d]  =%g evec_tmp[0][%d]= %g %g\n", node,
+     if (if_print)  printf ("node=%d evals_found=%d evals_tmp[%d]  =%g evec_tmp[0][%d]= %g %g\n", node,
 	      evals_found, i - (il - 1), evals_tmp[i - (il - 1)],
 	       i - (il - 1), evec_tmp[(i - (il - 1))],evec_tmp[i-(il-1)+1]);
       evals_tmp[i] = evals_tmp[i - (il - 1)];
@@ -138,7 +141,7 @@ void tqri_LAPACK (double *shifts, double *ttbeta, int NN, int m, double *Q)
 }
 #endif
 
-#define PROFILE_LANCZOS
+#undef PROFILE_LANCZOS
 #ifdef  PROFILE_LANCZOS
 #undef PROFILE_LANCZOS
 #define PROFILE_LANCZOS(msg,a ...) do		\
@@ -159,7 +162,6 @@ void tqri_LAPACK (double *shifts, double *ttbeta, int NN, int m, double *Q)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot)=dotProduct(px,py,n); glb_sum((p_dot)); }
 #else
-#include <util/qblas_extend.h>
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
 #define AXPY(n, fact, px, py)  cblas_daxpy(n, fact, px,1,py,1)
@@ -756,6 +758,7 @@ void DiracOp::lanczos (int k0, int m, int f_size,
 		       RitzMatType RitzMat_lanczos)
 {
 
+  const char *fname = "lanczos(i,i,i.....)";
   RitzMatType save_RitzMatOper = dirac_arg->RitzMatOper;
   dirac_arg->RitzMatOper = RitzMat_lanczos;
 
@@ -810,8 +813,8 @@ void DiracOp::lanczos (int k0, int m, int f_size,
       moveFloattofloat ((float *) (V[k + 1]), (Float *) vtmp, f_size);
       PROFILE_LANCZOS ("first other linalg %e\n", time_elapse ());
 
-      if (!UniqueID ())
-	printf ("First Lanczos iter: time(sec) %e\n", dclock () - time_in);
+//      if (!UniqueID ())
+	VRB.Result (cname,fname,"First Lanczos iter: time(sec) %e\n", dclock () - time_in);
 
     } else {
       // --- iteration step ---
@@ -859,8 +862,8 @@ void DiracOp::lanczos (int k0, int m, int f_size,
       }
 
 //      PROFILE_LANCZOS ("last linalg %e\n", time_elapse ());
-      if (!UniqueID ())
-	printf ("# %d Lanczos iter: time(sec) %e\n", k, dclock () - time_in);
+//      if (!UniqueID ())
+	VRB.Result (cname,fname,"# %d Lanczos iter: time(sec) %e\n", k, dclock () - time_in);
     }
   }
 

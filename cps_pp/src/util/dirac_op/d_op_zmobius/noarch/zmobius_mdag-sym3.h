@@ -88,7 +88,8 @@ void  zmobius_mdag_sym3(Vector *out,
   //------------------------------------------------------------------
   //    2. 
   //------------------------------------------------------------------
-#ifndef USE_BLAS
+//#ifndef USE_BLAS
+#if 1
   vecAddEquVec((IFloat*)out, (IFloat*)in, f_size);
   DEBUG_MOBIUS_DSLASH("out+=in %e\n", time_elapse());
 #else

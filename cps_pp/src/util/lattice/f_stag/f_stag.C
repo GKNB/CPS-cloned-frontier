@@ -345,7 +345,7 @@ int Fstag::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   DiracOpStag stag(*this, v1, v2, &cg_arg, CNV_FRM_NO);
  
-  stag.RitzMat(f_eigenv[0],f_eigenv[1]);
+//  stag.RitzMat(f_eigenv[0],f_eigenv[1]);
   //for(int i=0;i<GJP.VolNodeSites()*3;i++){
    //  printf("VEC %d %g\n",i,*((Float*)f_eigenv[0]+i));
   //} 

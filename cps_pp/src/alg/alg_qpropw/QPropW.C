@@ -346,7 +346,7 @@ void QPropW::Run(const int do_rerun, const Float precision)
      for(int i=0;i<GJP.VolNodeSites();i++){
        prop[i] =0.0;
      }
-VRB.Result(cname,fname,"Fclass()=%d\n",lat.Fclass());
+     VRB.Result(cname,fname,"Fclass()=%d\n",lat.Fclass());
      if (lat.F5D() || lat.Fclass() == F_CLASS_BFM ) {
        Allocate(PROP5D);
        if (StoreMidprop()) Allocate(MIDPROP);
@@ -935,10 +935,11 @@ void QPropW::CG(int spn, int col,
     Lat.Ffour2five(sol_5d, sol_4d, ls_glb-1, 0);
 
   // do the MADWF or not
-  if(! qp_arg.mob_arg_s )
+  if(! qp_arg.mob_arg_s ){
+  VRB.Result(cname,fname,"Fclass()=%d\n",Lat.Fclass());
     iter = Lat.FmatInv(sol_5d, src_5d, &(qp_arg.cg), &true_res,
 		       CNV_FRM_YES, PRESERVE_NO);
-  else{
+  }else{
     MobiusArg* mob_arg_l = (MobiusArg*) (qp_arg.mob_arg_l);
     MobiusArg* mob_arg_s = (MobiusArg*) (qp_arg.mob_arg_s);
     //printf("TIZB entering MADWF\n");

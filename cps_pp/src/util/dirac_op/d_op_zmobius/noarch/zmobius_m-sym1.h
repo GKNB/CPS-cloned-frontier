@@ -89,7 +89,7 @@ void  zmobius_m_sym1 (Vector *out,
   //------------------------------------------------------------------
   //    2. out <-  in
   //------------------------------------------------------------------
-#ifndef USE_BLAS
+#if 1
   moveFloat((IFloat*)out, (IFloat*)in, f_size);
 #else
  !  SENTINEL !  USE_BLAS is not supported YET for complexified mobius
@@ -100,7 +100,7 @@ void  zmobius_m_sym1 (Vector *out,
   //------------------------------------------------------------------
   //    3. out +=  ftmp2
   //------------------------------------------------------------------
-#ifndef USE_BLAS
+#if 1
 #if 0
   fTimesV1PlusV2((IFloat*)out, minus_kappa_b_sq, (IFloat*)frm_tmp2,
 		 (IFloat *)out, f_size);

@@ -559,14 +559,6 @@ class EigenContainer {
     qio_writeGenericFields writeGenField;
 
     int save_stride = GJP.SaveStride();
-#if 0
-    if(lattice->Fclass()==F_CLASS_P4){
-      ERR.General("nev_save","EigenContainer","SINGLE Prec probably doesn't work for P4 conversion!\n");
-      for(int i=0;i<save_stride;i++){
-	lattice->Fconvert(evec_+i*stride,CANONICAL,STAG,1);
-      }
-    }
-#endif
     writeGenField.setHeader( ensemble_id, ensemble_label, seqNum, field_type_label );
     //writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT);
     // save in single

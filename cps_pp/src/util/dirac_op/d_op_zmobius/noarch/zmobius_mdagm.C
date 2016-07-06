@@ -23,6 +23,9 @@ CPS_END_NAMESPACE
 #include<util/vector.h>
 #include<util/verbose.h>
 #include<util/error.h>
+#ifdef USE_BLAS
+#include<util/qblas_extend.h>
+#endif
 CPS_START_NAMESPACE
 
 
@@ -105,7 +108,7 @@ void zmobius_mdagm_shift(Vector *out,
   ReflectAndMultGamma5( frm_tmp2, frm_tmp1, vol_4d_cb, ls);
     
   //  4. out += -2 mu tmp2
-#ifndef USE_BLAS
+#if 1
   fTimesV1PlusV2( (IFloat*)out, -2*mu, (IFloat*)frm_tmp2, (IFloat*)out, f_size);
 #else
   cblas_daxpy(  (IFloat*)out, -2*mu, (IFloat*)frm_tmp2, (IFloat*)out, f_size);
@@ -113,7 +116,7 @@ void zmobius_mdagm_shift(Vector *out,
   
 //  5. out += mu^2 in
 
-#ifndef USE_BLAS
+#if 1
   fTimesV1PlusV2( (IFloat*)out, mu*mu, (IFloat*)in, (IFloat*)out, f_size);
 #else
   cblas_daxpy(  (IFloat*)out, mu*mu, (IFloat*)in, (IFloat*)out, f_size);

@@ -136,7 +136,7 @@ int Verbose::Active(int test_level, int level){
 	    y = x % base;
 	    if( int(test_level) == y){
              if (!UniqueID())
-             printf("Verbose::Acitve(%d,%d)=1\n",test_level,level);
+             printf("Verbose::Active(%d,%d)=1\n",test_level,level);
              return 1;
              }
 	    x = (x - y) / base;
@@ -711,6 +711,7 @@ void Verbose::RNGSeed(const char *class_name, const char *func_name,
  */
 void Verbose::ActivateLevel(VerboseLevelType value){
 
+  if (!UniqueID()) printf("Node %d: %s::ActiveLevel(): %d activated ",UniqueID(),cname,(int)value);
     active[value] = 1;
 
 }

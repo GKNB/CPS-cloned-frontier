@@ -1,4 +1,6 @@
 #include <config.h>
+CPS_START_NAMESPACE
+CPS_END_NAMESPACE
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
@@ -1145,31 +1147,98 @@ void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size)
 }
 
 //#define USE_BLAS
-//#include <util/qblas_extend.h>
 #ifndef USE_BLAS
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
 #define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot)=dotProduct(px,py,n); glb_sum((p_dot)); }
 #define ZDOT(n,px,py,p_dot) compDotProduct( p_dot, p_dot+1, px, py, n)
-#define ZAXPY(n, fact, px, py)   cTimesV1PlusV2(py, fact[0], fact[1], px, py, n);
-//void  ZAXPYfloat( int n, float *fact,  float *px,  float *py)   
-//{ cTimesV1PlusV2<float,float,float>(py, fact[0], fact[1], px, py, n); }
-//#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
-inline void ZDOTfloat(int n,const float *px,const float *py,float *p_dot) 
-{ IFloat c_r, c_i;
-compDotProduct<float,float>( &c_r,&c_i, px, py, n);
-*p_dot = c_r; *(p_dot+1)=c_i;
+
+#define BASE float
+#define CONJ_SIGN (-1.0)
+#define INDEX int
+#define CONST_REAL(a,i) (((const BASE *) a)[2*(i)])
+#define CONST_IMAG(a,i) (((const BASE *) a)[2*(i)+1])
+#define REAL(a,i) (((BASE *) a)[2*(i)])
+#define IMAG(a,i) (((BASE *) a)[2*(i)+1])
+//#define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,1, py,1, p_dot)
+#if 1
+inline void
+ZDOTfloat (const int N, const float *X,  const float *Y,
+             float *result)
+{
+IFloat c_r,c_i;
+compDotProduct<float,float>(&c_r,&c_i,X,Y,N);
+*result = c_r;
+*(result+1) = c_i;
 }
 #else
+inline void
+ZDOTfloat (const int N, const float *X,  const float *Y,
+             float *result)
+{
+  BASE r_real = 0.0;
+  BASE  r_imag = 0.0;
+  INDEX i;
+  INDEX ix = 0;
+  INDEX iy = 0;
+  for (i = 0; i < (N/2); i++) {
+    const BASE x_real = CONST_REAL(X, ix);
+    const BASE x_imag = CONST_IMAG(X, ix);
+    const BASE y_real = CONST_REAL(Y, iy);
+    const BASE y_imag = CONST_IMAG(Y, iy);
+    r_real += x_real * y_real - CONJ_SIGN * x_imag * y_imag;
+    r_imag += x_real * y_imag + CONJ_SIGN * x_imag * y_real;
+    ix += 1;
+    iy += 1;
+  }
+  result[0] = (float) r_real;
+  result[1] = (float) r_imag;
+}
+#endif
+//#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
+inline void
+ZAXPYfloat (const int N, const float *alpha, const float *X,  float *Y)
+{
+  INDEX i;
+  INDEX ix = 0;
+  INDEX iy = 0;
+
+  const BASE alpha_real = alpha[0];
+  const BASE alpha_imag = alpha[1];
+
+  if (fabs(alpha_real) == 0 && fabs(alpha_imag) == 0) {
+    return;
+  }
+
+  for (i = 0; i < (N/2); i++) {
+    const BASE x_real = CONST_REAL(X, ix);
+    const BASE x_imag = CONST_IMAG(X, ix);
+    REAL(Y, iy) += (alpha_real * x_real - alpha_imag * x_imag);
+    IMAG(Y, iy) += (alpha_real * x_imag + alpha_imag * x_real);
+    ix += 1;
+    iy += 1;
+  }
+}
+#undef CONJ_SIGN
+#undef BASE
+#undef INDEX
+#undef CONST_REAL
+#undef CONST_IMAG
+
+#define ZAXPY(n, fact, px, py)   cTimesV1PlusV2(py, fact[0], fact[1], px, py, n);
+#else
+#include <util/qblas_extend.h>
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )
 #define AXPY(n, fact, px, py)  cblas_daxpy(n, fact, px,1,py,1)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot) = cblas_ddot(n,px,py); glb_sum((p_dot)); }
 #define ZDOT(n,px,py,p_dot) cblas_zdotc_sub( n/2, px,py, p_dot)
 #define ZAXPY(n, fact, px, py)  cblas_zaxpy(n/2, fact, px,1,py,1)
-#define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,py,p_dot)
-//#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
+#define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,1, py,1, p_dot)
+//      ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
+//      cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
+#define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
 #endif
 
 // orthogonalize psi w/r to vec's only one vector
@@ -1274,36 +1343,44 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
 
   float xp[2]; //xp_r, xp_i;
   Float xpd[2]; //xp_r, xp_i; glb sum in double
+  for(int i=0;i<2;i++) xp[i]=xpd[i]=0.;
   Vector *vtmp = (Vector *) smalloc("","lanczos_GramSchm_test", "r", f_size * sizeof(float));
 
   mvFloattofloat((float*)vtmp, psi, f_size );
   
   for(int i = 0; i<Nvec; ++i)
     {
+	float * ftmp1 = (float*)(vec[i]);
+	float *ftmp2 = (float*)vtmp;
+	VRB.Debug("","lanczos_GramSchm_test(before)","vec[%d]=%0.14e %0.14e vtmp=%0.14e %0.14e\n",i,
+	*ftmp1,*(ftmp1+1), *ftmp2,*(ftmp2+1));
 
       ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
-#if 0 
-//// has to be recoverd !!! - CJ
-      cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
-#endif
+//      cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
+
+      if(fabs(xp[1])> 1e-13)
+	VRB.Debug("","lanczos_GramSchm_test()","[%d][%d] %0.14e %0.14e\n", 0, i, xp[0],xp[1]);
+
       xpd[0] = (Float)xp[0];
       xpd[1] = (Float)xp[1];
       slice_sum((Float*)xpd, 2, 1970);
       xp[0] = (float)xpd[0];
       xp[1] = (float)xpd[1];
-
-      if(!UniqueID())
-// && fabs(xp[1])> 1e-13)
-	printf("lanczos_GramSchm_test:[%d][%d] %e %e\n", UniqueID(),i, xp[0],xp[1]);
       
       /* psi = psi - <vec[i],psi> vec[i] */
       xp[0] =-xp[0]; xp[1] = -xp[1];
       //ZAXPY(f_size, xp, vec[i], psi);
-//      ZAXPYfloat(f_size, xp, vec[i], (float*)vtmp);
-#if 0
-	float * vtmp_f = (float *)vtmp;
-	 template cTimesV1PlusV2<float,float,float>(vtmp_f, xp[0], xp[1], vec[i],vtmp_f, f_size);
-#endif
+      ZAXPYfloat(f_size, xp, vec[i], (float*)vtmp);
+	VRB.Debug("","lanczos_GramSchm_test(after)","vec[%d]=%0.14e %0.14e vtmp=%0.14e %0.14e\n",i,
+	*ftmp1,*(ftmp1+1), *ftmp2,*(ftmp2+1));
+
+
+     if (VRB.IsActivated(VERBOSE_DEBUG_LEVEL))
+     {
+      ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
+	VRB.Debug("","lanczos_GramSchm_test(after)","[%d][%d] %0.14e %0.14e\n", 0, i, xp[0],xp[1]);
+     }
+
       if(i==Nvec-1 && alpha)  *alpha = xp[0];   //  Re ( vec[Nvec-1],  psi ) needed for Lanczos' alpha
     }
 
@@ -1368,9 +1445,9 @@ void eigsrt(Float *d, Float **v, int n)
   Float p;
   
   for (i=0;i<n-1;i++) {
-    p=d[k=i];
+    p=d[i];k=i;
     for (j=i+1;j<n;j++)
-      if (d[j] >= p) p=d[k=j];
+      if (d[j] > p){ p=d[j];k=j;}
     if (k != i) {
       d[k]=d[i];
       d[i]=p;

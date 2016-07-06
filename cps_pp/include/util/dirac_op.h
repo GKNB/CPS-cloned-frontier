@@ -451,14 +451,14 @@ class DiracOpStagTypes : public DiracOp
      // Can also use non KS algorithm to return eigenvalues only of 
      // RitzEigMat = RitzMat.
 
-  virtual void RitzMat(Vector *out, Vector *in)
-  {ERR.NotImplemented(cname,"RitzMat(V*,V*)");}
+  virtual void RitzMat(Vector *out, Vector *in);
+//  {ERR.NotImplemented(cname,"RitzMat(V*,V*)");}
      // RitzMat is the fermion matrix used in Ritz
      // RitzMat works on the full lattice or half lattice
      // The in, out fields are defined on the full or half lattice.
 
-//  virtual void RitzMat(Vector *out, Vector *in,
- //                      MatrixPolynomialArg* cheby_arg);
+  virtual void RitzMat(Vector *out, Vector *in,
+                      MatrixPolynomialArg* cheby_arg);
     // TIZB
 
 

@@ -101,10 +101,6 @@ AlgLanczos::~AlgLanczos() {
 
 void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
 
-#if TARGET==cpsMPI
-  using MPISCU::fprintf;
-#endif
-  
   Float time = -dclock();
   int iter=0;
   LanczosArg *lanczos_arg;
@@ -117,7 +113,10 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   lanczos_arg = alg_lanczos_arg;
 
   int nk= lanczos_arg-> nk_lanczos_vectors;
+  int nt= lanczos_arg-> nt_lanczos_vectors;
   int np= lanczos_arg-> np_lanczos_vectors;
+  if (nt>nk)
+  ERR.General(cname,fname,"nk(%d) cannot be smaller than nt(%d)\n",nk,nt);
   int m = nk+np;
   int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
 

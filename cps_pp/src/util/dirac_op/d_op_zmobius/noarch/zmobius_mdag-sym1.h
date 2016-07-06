@@ -92,7 +92,8 @@ void  zmobius_mdag_sym1(Vector *out,
   //------------------------------------------------------------------
   //    2. out +=  in
   //------------------------------------------------------------------
-#ifndef USE_BLAS
+//#ifndef USE_BLAS
+#if 1
   vecAddEquVec((IFloat*)out, (IFloat*)in, f_size);
 #else
  !  SENTINEL !  USE_BLAS is not supported YET for complexified mobius
