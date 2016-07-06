@@ -158,7 +158,12 @@ void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dw
 
 
 #if defined(USE_GRID_LANCZOS)
-void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, GFGRID &lattice){
+template<typename GridPolicies>
+void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, typename GridPolicies::FgridGFclass &lattice){
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDirac GridDirac;
+  
   Grid::GridCartesian *UGrid = lattice.getUGrid();
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();
@@ -168,15 +173,15 @@ void test_eigenvectors(const std::vector<LATTICE_FERMION> &evec, const std::vect
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
 
-  DIRAC ::ImplParams params;
+  typename GridDirac::ImplParams params;
   lattice.SetParams(params);
 
-  DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
-  Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> HermOp(Ddwf);
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
   
-  LATTICE_FERMION tmp1(FrbGrid);
-  LATTICE_FERMION tmp2(FrbGrid);
-  LATTICE_FERMION tmp3(FrbGrid);
+  GridFermionField tmp1(FrbGrid);
+  GridFermionField tmp2(FrbGrid);
+  GridFermionField tmp3(FrbGrid);
   
   for(int i=0;i<evec.size();i++){
     HermOp.Mpc(evec[i], tmp1);
@@ -231,7 +236,7 @@ struct LatticeSolvers{
 
 };
 
-
+template<typename LattType>
 struct LatticeSetup{
 # if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
   static void importBFMlattice(Lattice *lat, LatticeSolvers &solvers){
@@ -245,13 +250,12 @@ struct LatticeSetup{
   }
 #endif
 
-
+  typedef LattType LatticeType;
+  LatticeType *lat;
+  
   //Grid or Grid/BFM mixed
 #if defined(USE_GRID_LANCZOS) || defined(USE_GRID_A2A)
 
-  typedef GFGRID LatticeType;
-  LatticeType *lat;
-  
   LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
     assert(jp.solver == BFM_HmCayleyTanh);
     FgridParams grid_params; 
@@ -267,11 +271,10 @@ struct LatticeSetup{
 
 #else
   //BFM only
-  typedef GwilsonFdwf LatticeType;
-  GwilsonFdwf *lat;
+
 
   LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
-    lat = new GwilsonFdwf; //doesn't actually matter
+    lat = new LatticeType; //doesn't actually matter
     importBFMlattice(lat,solvers);
   }
 
@@ -286,18 +289,19 @@ struct LatticeSetup{
 };
 
 //Generates and stores evecs and evals
+template<typename GridPolicies = void>
 struct Lanczos{
 #if defined(USE_GRID_LANCZOS)
   std::vector<Grid::RealD> eval; 
-  std::vector<LATTICE_FERMION> evec;
+  std::vector<typename GridPolicies::GridFermionField> evec;
   double mass;
   double resid;
 
-  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, GFGRID &lat){
+  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, typename GridPolicies::FgridGFclass &lat){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
-    gridLanczos(eval,evec,lanc_arg,lat);
-    test_eigenvectors(evec,eval,lanc_arg.mass,lat);
+    gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
+    test_eigenvectors<GridPolicies>(evec,eval,lanc_arg.mass,lat);
   }
   void toSingle(){
     ERR.General("","main","Single prec conversion of eigenvectors not supported for Grid\n");
@@ -343,9 +347,9 @@ struct Lanczos{
 };
 
 
-template<typename mf_Policies>
+template<typename mf_Policies, typename LanczosPolicies>
 struct computeA2Avectors{
-  static void compute(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos &eig, LatticeSolvers &solvers){
+  static void compute(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos<LanczosPolicies> &eig, LatticeSolvers &solvers){
 #ifdef USE_BFM_LANCZOS
     W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
 #else

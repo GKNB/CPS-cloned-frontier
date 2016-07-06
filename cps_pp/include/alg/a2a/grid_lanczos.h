@@ -6,7 +6,12 @@
 
 CPS_START_NAMESPACE
 
-inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERMION> &evec, const LancArg &lanc_arg, GFGRID &lattice){
+template<typename GridPolicies>
+inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolicies::GridFermionField> &evec, const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice){
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDirac GridDirac;
+  
   if(lanc_arg.N_true_get == 0){
     eval.clear(); evec.clear();
     if(!UniqueID()) printf("gridLanczos skipping because N_true_get = 0\n");
@@ -23,12 +28,12 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERM
   double M5 = GJP.DwfHeight();
   if(!UniqueID()) printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
 
-  DIRAC ::ImplParams params;
+  typename GridDirac::ImplParams params;
   lattice.SetParams(params);
 
-  DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
   assert(lanc_arg.precon);
-  Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> HermOp(Ddwf);
+  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
 
     // int Nstop;   // Number of evecs checked for convergence
     // int Nk;      // Number of converged sought
@@ -46,8 +51,8 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERM
   double hi = lanc_arg.ch_alpha * lanc_arg.ch_alpha;
   int ord = lanc_arg.ch_ord + 1; //different conventions
 
-  Grid::Chebyshev<LATTICE_FERMION> Cheb(lo,hi,ord);
-  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
+  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 
   if(lanc_arg.lock) IRL.lock = 1;
 
@@ -58,7 +63,7 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<LATTICE_FERM
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
 
-  LATTICE_FERMION src(FrbGrid);
+  GridFermionField src(FrbGrid);
   gaussian(RNG5rb,src);
   src.checkerboard = Grid::Odd;
 

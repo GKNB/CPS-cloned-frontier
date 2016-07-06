@@ -5,12 +5,6 @@
 
 #ifdef USE_GRID
 #include <util/lattice/fgrid.h>
-#define FGRID FgridGparityMobius
-#define GFGRID GnoneFgridGparityMobius
-#define DIRAC Grid::QCD::GparityMobiusFermionD
-#define LATTICE_FERMION DIRAC ::FermionField
-#define FGRID_CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
-#define GRID_GPARITY
 #endif
 
 #ifdef USE_BFM
@@ -220,10 +214,11 @@ public:
 
 #ifdef USE_GRID
 //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
+template<typename GridPolicies>
 class EvecInterface{
  public:
   //Get an eigenvector and eigenvalue
-  virtual Float getEvec(LATTICE_FERMION &into, const int idx) = 0;
+  virtual Float getEvec(typename GridPolicies::GridFermionField &into, const int idx) = 0;
   virtual int nEvecs() const = 0;
 };
 #endif
@@ -267,10 +262,10 @@ public:
   //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
 
   //Compute the low mode part of the W and V vectors.
-  void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass);
+  void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass);
 
   //Compute the high mode parts of V and W. 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const Float residual, const int max_iter);
 #endif
 
 #if defined(USE_BFM_LANCZOS)
@@ -291,11 +286,11 @@ public:
 
 
 #if defined(USE_GRID_LANCZOS)
-  void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass);
+  void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
     computeVWlow(V,lat,evec,eval,mass);
     computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
   }

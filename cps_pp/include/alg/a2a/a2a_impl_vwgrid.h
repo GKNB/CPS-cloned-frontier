@@ -2,6 +2,37 @@ CPS_END_NAMESPACE
 #include<util/lattice/fgrid.h>
 CPS_START_NAMESPACE
 
+struct GridA2APoliciesBase{
+  //Extra policies needed internally by Grid implementations
+#ifdef USE_GRID_GPARITY
+  typedef FgridGparityMobius FgridFclass;
+  typedef GnoneFgridGparityMobius FgridGFclass;
+  typedef Grid::QCD::GparityMobiusFermionD GridDirac;
+  enum { FGRID_CLASS_NAME=F_CLASS_GRID_GPARITY_MOBIUS };
+#else
+  typedef FgridMobius FgridFclass;
+  typedef GnoneFgridMobius FgridGFclass;
+  typedef Grid::QCD::MobiusFermionD GridDirac;
+  enum { FGRID_CLASS_NAME=F_CLASS_GRID_MOBIUS };
+#endif
+
+  typedef typename GridDirac::FermionField GridFermionField;
+};
+
+template<typename BaseA2Apolicies>
+struct GridA2APolicies{
+  //Inherit the base's generic A2A policies
+  typedef typename BaseA2Apolicies::ComplexType ComplexType;
+  typedef typename BaseA2Apolicies::ScalarComplexType ScalarComplexType;
+  typedef typename BaseA2Apolicies::FermionFieldType FermionFieldType;
+  typedef typename BaseA2Apolicies::ComplexFieldType ComplexFieldType;
+
+  typedef typename GridA2APoliciesBase::FgridFclass FgridFclass;
+  typedef typename GridA2APoliciesBase::FgridGFclass FgridGFclass;
+  typedef typename GridA2APoliciesBase::GridDirac GridDirac;
+  typedef typename GridA2APoliciesBase::GridFermionField GridFermionField;
+  enum { FGRID_CLASS_NAME=GridA2APoliciesBase::FGRID_CLASS_NAME };
+};
 
 inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<ComplexD> &B, const std::string &descr = "Ferms", const double tol = 1e-9){
   double fail = 0.;
@@ -62,9 +93,10 @@ inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<do
 #endif
 
 #ifdef USE_GRID
-inline void exportGridcb(CPSfermion5D<ComplexD> &into, LATTICE_FERMION &from, FGRID &latg){
+template<typename GridPolicies>
+inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
-  LATTICE_FERMION tmp_g(FGrid);
+  typename GridPolicies::GridFermionField tmp_g(FGrid);
   tmp_g = Grid::zero;
 
   setCheckerboard(tmp_g, from);
@@ -75,32 +107,36 @@ inline void exportGridcb(CPSfermion5D<ComplexD> &into, LATTICE_FERMION &from, FG
 //BFM evecs
 #ifdef USE_BFM_LANCZOS
 
-class EvecInterfaceBFM: public EvecInterface{
+template<typename GridPolicies>
+class EvecInterfaceBFM: public EvecInterface<GridPolicies>{
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typename GridPolicies::FgridFclass FgridFclass;
+  
   BFM_Krylov::Lanczos_5d<double> &eig;
   bfm_evo<double> &dwf;
-  FGRID *latg;
+  FgridFclass *latg;
   double *cps_tmp_d;
   Fermion_t bq_tmp_bfm;
   bool singleprec_evecs;
   int len;
-  LATTICE_FERMION *tmp_full;
+  GridFermionField *tmp_full;
 public:
   EvecInterfaceBFM(BFM_Krylov::Lanczos_5d<double> &_eig, bfm_evo<double> &_dwf, Lattice &lat, const bool _singleprec_evecs): eig(_eig), dwf(_dwf), singleprec_evecs(_singleprec_evecs){
     len = 24 * eig.dop.node_cbvol * (1 + dwf.gparity) * eig.dop.cbLs;
     cps_tmp_d = (double*)malloc(len * sizeof(double));
     bq_tmp_bfm = dwf.allocCompactFermion(); 
 
-    assert(lat.Fclass() == F_CLASS_GRID);
+    assert(lat.Fclass() == GridPolicies::FGRID_CLASS_NAME);
     assert(dwf.precon_5d == 0);
-    latg = dynamic_cast<FGRID*>(&lat);
+    latg = dynamic_cast<FgridFclass*>(&lat);
 
     Grid::GridCartesian *FGrid = latg->getFGrid();
-    tmp_full = new LATTICE_FERMION(FGrid);
+    tmp_full = new GridFermionField(FGrid);
 
     const int gparity = GJP.Gparity();
     if(eig.dop.gparity != gparity){ ERR.General("EvecInterfaceBFM","EvecInterfaceBFM","Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
   }
-  Float getEvec(LATTICE_FERMION &into, const int idx){
+  Float getEvec(GridFermionField &into, const int idx){
     omp_set_num_threads(bfmarg::threads);
     
     //Copy bq[i][1] into bq_tmp
@@ -141,7 +177,7 @@ public:
 //Set 'singleprec_evecs' if this has been done
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
-  EvecInterfaceBFM ev(eig,dwf,lat,singleprec_evecs);
+  EvecInterfaceBFM<mf_Policies> ev(eig,dwf,lat,singleprec_evecs);
   return computeVWlow(V,lat,ev,dwf.mass);
 }
 
@@ -155,7 +191,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
 
   if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),"computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
-  EvecInterfaceBFM ev(eig,dwf_d,lat,singleprec_evecs);
+  EvecInterfaceBFM<mf_Policies> ev(eig,dwf_d,lat,singleprec_evecs);
   return computeVWhigh(V,lat,ev,dwf_d.mass,dwf_d.residual,dwf_d.max_iter);
 }
 
@@ -166,14 +202,18 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
 //Grid evecs
 #ifdef USE_GRID_LANCZOS
 
-class EvecInterfaceGrid: public EvecInterface{
+template<typename GridPolicies>
+class EvecInterfaceGrid: public EvecInterface<GridPolicies>{
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  
   const std::vector<Grid::RealD> &eval; 
-  const std::vector<LATTICE_FERMION> &evec;
+  const std::vector<GridFermionField> &evec;
 
 public:
-  EvecInterfaceGrid(const std::vector<LATTICE_FERMION> &_evec, const std::vector<Grid::RealD> &_eval): evec(_evec), eval(_eval){}
+  EvecInterfaceGrid(const std::vector<GridFermionField> &_evec, const std::vector<Grid::RealD> &_eval): evec(_evec), eval(_eval){}
 
-  Float getEvec(LATTICE_FERMION &into, const int idx){
+  Float getEvec(GridFermionField &into, const int idx){
     into = evec[idx];
     return eval[idx];
   }
@@ -183,14 +223,14 @@ public:
 };
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass){
-  EvecInterfaceGrid ev(evec,eval);
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass){
+  EvecInterfaceGrid<mf_Policies> ev(evec,eval);
   return computeVWlow(V,lat,ev,mass);
 }
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<LATTICE_FERMION> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
-  EvecInterfaceGrid ev(evec,eval);
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+  EvecInterfaceGrid<mf_Policies> ev(evec,eval);
   return computeVWhigh(V,lat,ev,mass,residual,max_iter);
 }
 #endif
@@ -199,22 +239,26 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
 
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass){
+void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass){
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
   typedef typename mf_Policies::ComplexType::value_type mf_Float;
+  typedef typename mf_Policies::GridFermionField GridFermionField;
+  typedef typename mf_Policies::FgridFclass FgridFclass;
+  typedef typename mf_Policies::GridDirac GridDirac;
+  
   const char *fname = "computeVQlow(....)";
 
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
-#ifdef GRID_GPARITY
+#ifdef USE_GRID_GPARITY
   if(ngp == 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is currently compiled for G-parity\n");
 #else
   if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
 #endif
 
-  assert(lat.Fclass() == FGRID_CLASS_NAME);
-  FGRID &latg = dynamic_cast<FGRID&>(lat);
+  assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
+  FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
 
   //Grids and gauge field
   Grid::GridCartesian *UGrid = latg.getUGrid();
@@ -240,20 +284,20 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
   //Setup Grid Dirac operator
-  DIRAC ::ImplParams params;
+  typename GridDirac::ImplParams params;
   latg.SetParams(params);
 
-  DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
-  Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> linop(Ddwf);
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+  Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> linop(Ddwf);
 
   //Eigenvectors exist on odd checkerboard
-  LATTICE_FERMION bq_tmp(FrbGrid);
-  LATTICE_FERMION tmp(FrbGrid);
-  LATTICE_FERMION tmp2(FrbGrid);
-  LATTICE_FERMION tmp3(FrbGrid);
+  GridFermionField bq_tmp(FrbGrid);
+  GridFermionField tmp(FrbGrid);
+  GridFermionField tmp2(FrbGrid);
+  GridFermionField tmp3(FrbGrid);
 
-  LATTICE_FERMION tmp_full(FGrid);
-  LATTICE_FERMION tmp_full2(FGrid);
+  GridFermionField tmp_full(FGrid);
+  GridFermionField tmp_full2(FGrid);
 
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
@@ -313,24 +357,29 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 
 
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.
-inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &source, double resid, int max_iters, EvecInterface &evecs, int nLowMode, 
-			     FGRID &latg, DIRAC &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
+template<typename GridPolicies>
+inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, const typename GridPolicies::GridFermionField &source, double resid, int max_iters, EvecInterface<GridPolicies> &evecs, int nLowMode, 
+			     typename GridPolicies::FgridFclass &latg, typename GridPolicies::GridDirac &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDirac GridDirac;
+  
   double f = norm2(source);
   if (!UniqueID()) printf("Grid_CGNE_M_high: Source norm is %le\n",f);
   f = norm2(solution);
   if (!UniqueID()) printf("Grid_CGNE_M_high: Guess norm is %le\n",f);
 
-  Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> linop(Ddwf);
+  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
 
-  LATTICE_FERMION tmp_cb1(FrbGrid);
-  LATTICE_FERMION tmp_cb2(FrbGrid);
-  LATTICE_FERMION tmp_cb3(FrbGrid);
-  LATTICE_FERMION tmp_cb4(FrbGrid);
+  GridFermionField tmp_cb1(FrbGrid);
+  GridFermionField tmp_cb2(FrbGrid);
+  GridFermionField tmp_cb3(FrbGrid);
+  GridFermionField tmp_cb4(FrbGrid);
 
-  LATTICE_FERMION tmp_full(FGrid);
+  GridFermionField tmp_full(FGrid);
 
   // src_o = Mprecdag * (source_o - Moe MeeInv source_e)  , cf Daiqian's thesis page 60
-  LATTICE_FERMION src_o(FrbGrid);
+  GridFermionField src_o(FrbGrid);
 
   pickCheckerboard(Grid::Even,tmp_cb1,source);  //tmp_cb1 = source_e
   pickCheckerboard(Grid::Odd,tmp_cb2,source);   //tmp_cb2 = source_o
@@ -343,14 +392,14 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   //Compute low-mode projection and CG guess
   int Nev = evecs.nEvecs();
 
-  LATTICE_FERMION lsol_full(FrbGrid); //full low-mode part (all evecs)
+  GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)
   lsol_full = Grid::zero;
 
-  LATTICE_FERMION lsol_defl(FrbGrid); //low-mode part for subset of evecs with index < nLowMode
+  GridFermionField lsol_defl(FrbGrid); //low-mode part for subset of evecs with index < nLowMode
   lsol_defl = Grid::zero;
   lsol_defl.checkerboard = Grid::Odd;
   
-  LATTICE_FERMION sol_o(FrbGrid); //CG solution
+  GridFermionField sol_o(FrbGrid); //CG solution
   sol_o = Grid::zero;
 
   if(Nev < nLowMode)
@@ -370,7 +419,7 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
   }
   
   //Do CG
-  Grid::ConjugateGradient<LATTICE_FERMION> CG(resid, max_iters);
+  Grid::ConjugateGradient<GridFermionField> CG(resid, max_iters);
 
 
   f = norm2(src_o);
@@ -419,21 +468,25 @@ inline void Grid_CGNE_M_high(LATTICE_FERMION &solution, const LATTICE_FERMION &s
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface &evecs, const Float mass, const Float residual, const int max_iter){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const Float residual, const int max_iter){
   typedef typename mf_Policies::ComplexType::value_type mf_Float;
+  typedef typename mf_Policies::GridFermionField GridFermionField;
+  typedef typename mf_Policies::FgridFclass FgridFclass;
+  typedef typename mf_Policies::GridDirac GridDirac;
+  
   const char *fname = "computeVWhigh(....)";
 
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
-#ifdef GRID_GPARITY
+#ifdef USE_GRID_GPARITY
   if(ngp == 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is currently compiled for G-parity\n");
 #else
   if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
 #endif
 
-  assert(lat.Fclass() == FGRID_CLASS_NAME);
-  FGRID &latg = dynamic_cast<FGRID&>(lat);
+  assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
+  FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
 
   //Grids and gauge field
   Grid::GridCartesian *UGrid = latg.getUGrid();
@@ -451,11 +504,11 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   const int gparity = GJP.Gparity();
 
   //Setup Grid Dirac operator
-  DIRAC ::ImplParams params;
+  typename GridDirac::ImplParams params;
   latg.SetParams(params);
 
-  DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
-  Grid::SchurDiagMooeeOperator<DIRAC, LATTICE_FERMION> linop(Ddwf);
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
 
   VRB.Result(cname.c_str(), fname, "Start computing high modes using Grid.\n");
     
@@ -472,13 +525,13 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
 
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
-  LATTICE_FERMION gtmp(FrbGrid);
-  LATTICE_FERMION gtmp2(FrbGrid);
-  LATTICE_FERMION gtmp3(FrbGrid);
+  GridFermionField gtmp(FrbGrid);
+  GridFermionField gtmp2(FrbGrid);
+  GridFermionField gtmp3(FrbGrid);
 
-  LATTICE_FERMION gsrc(FGrid);
-  LATTICE_FERMION gtmp_full(FGrid);
-  LATTICE_FERMION gtmp_full2(FGrid);
+  GridFermionField gsrc(FGrid);
+  GridFermionField gtmp_full(FGrid);
+  GridFermionField gtmp_full2(FGrid);
 
   //Details of this process can be found in Daiqian's thesis, page 60
   for(int i=0; i<nh; i++){
