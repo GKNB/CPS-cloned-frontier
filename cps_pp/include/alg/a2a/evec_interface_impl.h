@@ -151,7 +151,7 @@ public:
     }
     Grid::GridCartesian *UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
     Grid::GridCartesian *FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-    Grid::GridRedBlackCartesian *FrbGrid_f = _evec[0]._grid;
+    FrbGrid_f = _evec[0]._grid;
     Grid::GridRedBlackCartesian *UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
     
     Umu_f = new GridGaugeFieldF(UGrid_f);
@@ -161,11 +161,11 @@ public:
     const double mob_c = mob_b - 1.;   //b-c = 1
     const double M5 = GJP.DwfHeight();
 
-    GridDiracF params;
+    typename GridDiracF::ImplParams params;
     latg.SetParams(params);
     
     Ddwf_f = new GridDiracF(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
-    Linop_f = new Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField>(*Ddwf_f);
+    Linop_f = new Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF>(*Ddwf_f);
   }
   ~EvecInterfaceGridSinglePrec(){
     delete Umu_f;
@@ -186,12 +186,11 @@ public:
   const std::vector<GridFermionFieldF> getEvecs() const{ return evec; }
   
   //Overload high-mode solve to call mixed precision CG with single prec evecs
-  virtual void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
+  void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
 			  GridFermionField &solution, const GridFermionField &source,
 			  double resid, int max_iters){    
     deflateGuess<GridFermionFieldF> guesser(evec,eval);
-    
-    Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, Linop_f, linop);
+    Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
     mCG.useGuesser(guesser);
     mCG(source,solution);
   }

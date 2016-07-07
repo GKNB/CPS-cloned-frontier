@@ -294,9 +294,16 @@ struct Lanczos{
 #if defined(USE_GRID_LANCZOS)
   std::vector<Grid::RealD> eval; 
   std::vector<typename GridPolicies::GridFermionField> evec;
+  std::vector<typename GridPolicies::GridFermionFieldF> evec_f;
   double mass;
   double resid;
 
+  //For precision change
+  Grid::GridCartesian *UGrid_f;
+  Grid::GridRedBlackCartesian *FrbGrid_f;
+  
+  Lanczos(): UGrid_f(NULL),FrbGrid_f(NULL){}
+  
   void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, typename GridPolicies::FgridGFclass &lat){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
@@ -304,11 +311,34 @@ struct Lanczos{
     test_eigenvectors<GridPolicies>(evec,eval,lanc_arg.mass,lat);
   }
   void toSingle(){
-    ERR.General("","main","Single prec conversion of eigenvectors not supported for Grid\n");
+    typedef typename GridPolicies::GridFermionField GridFermionField;
+    typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
+    
+    //Make a single precision 5D checkerboarded Grid
+    std::vector<int> nodes(4);
+    std::vector<int> vol(4);
+    for(int i=0;i<4;i++){
+      vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
+      nodes[i]= GJP.Nodes(i);
+    }
+    UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
+    FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+
+    int nev = evec.size();
+    for(int i=0;i<nev;i++){      
+      GridFermionFieldF tmp_f(FrbGrid_f);
+      precisionChange(tmp_f, evec.back());      
+      evec.pop_back();
+      evec_f.push_back(std::move(tmp_f));
+    }
+    //These are in reverse order!
+    std::reverse(evec_f.begin(), evec_f.end());
   }
 
   void freeEvecs(){
     evec.clear();
+    if(UGrid_f != NULL) delete UGrid_f;
+    if(FrbGrid_f != NULL) delete FrbGrid_f;
   }
 
 #else
@@ -353,7 +383,10 @@ struct computeA2Avectors{
 #ifdef USE_BFM_LANCZOS
     W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
 #else
-    W.computeVW(V, lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
+    if(evecs_single_prec)
+      W.computeVW(V, lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000);
+    else
+      W.computeVW(V, lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
 #endif
   }
 };

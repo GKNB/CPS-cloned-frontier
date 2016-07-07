@@ -57,7 +57,9 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename Gri
   if(lanc_arg.lock) IRL.lock = 1;
 
   eval.resize(Nm);
+  evec.reserve(Nm);
   evec.resize(Nm, FrbGrid);
+  
   for(int i=0;i<Nm;i++) evec[i].checkerboard = Grid::Odd;
 
   std::vector<int> seeds5({5,6,7,8});
