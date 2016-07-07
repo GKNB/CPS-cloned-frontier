@@ -453,6 +453,7 @@ template<typename T>
 inline T multiplySignTimesI(const int sgn, const T &val){
   return _mult_sgn_times_i_impl<T,typename ComplexClassify<T>::type>::doit(sgn,val);
 }
+
 CPS_END_NAMESPACE
 
 #endif

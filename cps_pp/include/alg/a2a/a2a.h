@@ -14,62 +14,17 @@
 #endif
 
 #include<alg/a2a/CPSfield.h>
+#include<alg/a2a/CPSfield_utils.h>
 #include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/utils.h>
 
 #include<alg/a2a/a2a_params.h>
 #include<alg/a2a/a2a_dilutions.h>
 #include<alg/a2a/field_operation.h>
-
+#include<alg/a2a/a2a_policies.h>
+#include<alg/a2a/evec_interface.h>
+#include<alg/a2a/grid_cgne_m_high.h>
 CPS_START_NAMESPACE 
-
-//Deduction of fermion field properties given a complex type class. Don't have to use them but it can be useful
-template<typename mf_Complex_class>
-struct _deduce_a2a_dim_alloc_policies{};
-
-template<>
-struct _deduce_a2a_dim_alloc_policies<complex_double_or_float_mark>{
-  typedef FourDpolicy DimensionPolicy;
-  typedef StandardAllocPolicy AllocPolicy;
-};
-
-template<>
-struct _deduce_a2a_dim_alloc_policies<grid_vector_complex_mark>{
-  typedef FourDSIMDPolicy DimensionPolicy;
-  typedef Aligned128AllocPolicy AllocPolicy;
-};
-
-template<typename mf_Complex, typename mf_Complex_class>
-struct _deduce_scalar_complex_type{};
-
-template<typename mf_Complex>
-struct _deduce_scalar_complex_type<mf_Complex, complex_double_or_float_mark>{
-  typedef mf_Complex ScalarComplexType;
-};
-
-template<typename mf_Complex>
-struct _deduce_scalar_complex_type<mf_Complex, grid_vector_complex_mark>{
-  typedef typename mf_Complex::scalar_type ScalarComplexType;
-};
-
-
-
-template<typename mf_Complex>
-class _deduce_a2a_field_policies{
-public:
-  typedef mf_Complex ComplexType;
-private:
-  typedef typename ComplexClassify<mf_Complex>::type ComplexClass;
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
-public:
-  typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType;
-  typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
-};
-
-
-
 
 template< typename mf_Policies>
 class A2AvectorVfftw;
@@ -210,26 +165,6 @@ public:
   }  
 
 };
-
-
-#ifdef USE_GRID
-//Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
-template<typename GridPolicies>
-class EvecInterface{
-  typedef typename GridPolicies::GridFermionField GridFermionField;
-  typedef typename GridPolicies::FgridFclass FgridFclass;
-  typedef typename GridPolicies::GridDirac GridDirac;
- public:
-  //Get an eigenvector and eigenvalue
-  virtual Float getEvec(GridFermionField &into, const int idx) = 0;
-  virtual int nEvecs() const = 0;
-
-  //Allow the interface to choose which function computes the preconditioned M^dag M matrix inverse. Default is CG
-  virtual void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
-			  GridFermionField &solution, const GridFermionField &source,
-			  double resid, int max_iters);
-};
-#endif
 
 
 template< typename mf_Policies>
@@ -503,6 +438,11 @@ void randomizeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W);
 
 
 #include <alg/a2a/a2a_impl.h>
+
+#ifdef USE_GRID
+#include<alg/a2a/evec_interface_impl.h>
+#endif
+
 //Can do Lanczos in BFM or Grid, and A2A in BFM or Grid. I have a BFM Lanczos -> Grid interface
 
 #if defined(USE_BFM_A2A)
