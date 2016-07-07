@@ -216,12 +216,21 @@ public:
 //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
 template<typename GridPolicies>
 class EvecInterface{
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDirac GridDirac;
  public:
   //Get an eigenvector and eigenvalue
-  virtual Float getEvec(typename GridPolicies::GridFermionField &into, const int idx) = 0;
+  virtual Float getEvec(GridFermionField &into, const int idx) = 0;
   virtual int nEvecs() const = 0;
+
+  //Allow the interface to choose which function computes the preconditioned M^dag M matrix inverse. Default is CG
+  virtual void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
+			  GridFermionField &solution, const GridFermionField &source,
+			  double resid, int max_iters);
 };
 #endif
+
 
 template< typename mf_Policies>
 class A2AvectorW: public FullyPackedIndexDilution{
@@ -291,6 +300,16 @@ public:
   void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
 
   void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+    computeVWlow(V,lat,evec,eval,mass);
+    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
+  }
+
+  //Single-precision variants (use mixed_CG internally)
+  void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass);
+
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
     computeVWlow(V,lat,evec,eval,mass);
     computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
   }
