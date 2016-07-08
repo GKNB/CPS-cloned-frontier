@@ -37,13 +37,13 @@ struct _deduce_scalar_complex_type<mf_Complex, grid_vector_complex_mark>{
 template<typename mf_Complex>
 class _deduce_a2a_field_policies{
 public:
-  typedef mf_Complex ComplexType;
+  typedef mf_Complex ComplexType; //Can be SIMD-vectorized or scalar complex. Used internally.
 private:
   typedef typename ComplexClassify<mf_Complex>::type ComplexClass;
   typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
   typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
 public:
-  typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType;
+  typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
   typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
 };

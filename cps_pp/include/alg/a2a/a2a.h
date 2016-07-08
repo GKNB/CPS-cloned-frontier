@@ -35,7 +35,7 @@ public:
   typedef mf_Policies Policies;
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
-
+  typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
   const std::string cname;
@@ -50,7 +50,12 @@ public:
     //previously computed solutions
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
+  A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorV"){
+    v.resize(nv,FermionFieldType(field_setup_params));
+    for(int i=0;i<nv;i++) v[i].zero(); 
+  }
 
+  
   inline FermionFieldType & getMode(const int i){ return v[i]; }
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
   
@@ -90,7 +95,6 @@ public:
   typedef mf_Policies Policies;
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
-
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
@@ -174,7 +178,7 @@ public:
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename Policies::ComplexFieldType ComplexFieldType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
-
+  typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
   std::vector<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
   std::vector<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
@@ -192,6 +196,11 @@ public:
     wl.resize(nl,FermionFieldType());
     wh.resize(nhits, ComplexFieldType()); 
   }
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_input_params): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+    wl.resize(nl,FermionFieldType(field_input_params));
+    wh.resize(nhits, ComplexFieldType(field_input_params)); 
+  }
+  
   const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return wh[hit]; }
 
@@ -298,7 +307,6 @@ public:
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename Policies::ComplexFieldType ComplexFieldType;
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
-
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
 
