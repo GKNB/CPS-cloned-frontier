@@ -294,16 +294,29 @@ public:
 
 //////////////////////////
 //Checkerboarding
-template<int CBdim, int CB>   //CBdim is the amount of elements of the coordinate vector (starting at 0) included in the computation,  CB is the checkerboard
+template<int CBdim, int _CB>   //CBdim is the amount of elements of the coordinate vector (starting at 0) included in the computation (i.e. 4d or 5d even-odd),  CB is the checkerboard
 class CheckerBoard{
 public:
-  inline int cb() const{ return CB; }
+  enum { CB = _CB };
+  inline int cb() const{ return _CB; }
   inline bool cbDim() const{ return CBdim; }
   inline bool onCb(const int x[]) const{ 
     int c = 0; for(int i=0;i<CBdim;i++) c += x[i];
-    return c % 2 == CB;
+    return c % 2 == _CB;
   }
 };
+
+template<typename T>
+class CPSfieldIsCheckerboarded
+{
+  template <typename U, U> struct Check;
+  template <typename U> static char func(Check<int, U::CB> *);
+  template <typename U> static int func(...);
+public:
+  enum { value = sizeof(func<T>(0)) == sizeof(char) };
+};
+
+
 
 //Checkerboarded 5D field. The fsite second flavor is stacked inside the s-loop. The checkerboard dimension and which checkerboard it is are handled by the policy CheckerBoard
 //Note, the mappings do not check that the site is on the checkerboard; you should do that using onCb(x[])
