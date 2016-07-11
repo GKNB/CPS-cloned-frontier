@@ -31,6 +31,7 @@ protected:
   }
 
 public:
+  enum { FieldSiteSize = SiteSize };
   typedef SiteType FieldSiteType;
   typedef DimensionPolicy FieldDimensionPolicy;
   typedef FlavorPolicy FieldFlavorPolicy;
@@ -142,6 +143,17 @@ public:
       if(f[i] != r.f[i]) return false;
     return true;
   }
+
+  double norm2() const;
+  
+#ifdef USE_GRID
+
+  template<typename GridField>
+  void importGridField(const GridField &grid);
+  
+  template<typename GridField>
+  void exportGridField(GridField &grid) const;
+#endif
     
 };
 

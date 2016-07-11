@@ -294,14 +294,15 @@ public:
 
 //////////////////////////
 //Checkerboarding
-template<int CBdim, int _CB>   //CBdim is the amount of elements of the coordinate vector (starting at 0) included in the computation (i.e. 4d or 5d even-odd),  CB is the checkerboard
+template<int _CBdim, int _CB>   //CBdim is the amount of elements of the coordinate vector (starting at 0) included in the computation (i.e. 4d or 5d even-odd),  CB is the checkerboard
 class CheckerBoard{
 public:
-  enum { CB = _CB };
+  enum { CB = _CB, CBdim = _CBdim };
+
   inline int cb() const{ return _CB; }
-  inline bool cbDim() const{ return CBdim; }
+  inline int cbDim() const{ return _CBdim; }
   inline bool onCb(const int x[]) const{ 
-    int c = 0; for(int i=0;i<CBdim;i++) c += x[i];
+    int c = 0; for(int i=0;i<_CBdim;i++) c += x[i];
     return c % 2 == _CB;
   }
 };
@@ -335,7 +336,7 @@ public:
     for(int i=0;i<5;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
     }
-    if(!this->onCb(x)) x[0] += this->cb(); //deal with int convert x[0]/2 giving same number for 0,1 etc
+    if(!this->onCb(x)) x[0] += 1; //deal with int convert x[0]/2 giving same number for 0,1 etc
   }
 
   inline int fsiteMap(const int x[], const int f) const{ return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))))/2; }
@@ -347,7 +348,7 @@ public:
     }
     f = fsite % nf; fsite /= nf;
     x[4] = fsite;
-    if(!this->onCb(x)) x[0] += this->cb(); //deal with int convert x[0]/2 giving same number for 0,1 etc
+    if(!this->onCb(x)) x[0] += 1; //deal with int convert x[0]/2 giving same number for 0,1 etc
   }
 
   inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites()/2; }

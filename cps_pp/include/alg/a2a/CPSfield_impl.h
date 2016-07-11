@@ -3,6 +3,197 @@
 
 //Implementations of CPSfield.h
 
+
+//Real-reduce for norm2
+template<typename T>
+struct normdefs{};
+
+template<>
+struct normdefs<double>{
+  inline static double real_reduce(const double in){ return in; }
+  inline static double conjugate(const double in){ return in; }
+};
+template<>
+struct normdefs<float>{
+  inline static double real_reduce(const float in){ return in; }
+  inline static float conjugate(const float in){ return in; }
+};
+template<typename T>
+struct normdefs<std::complex<T> >{
+  inline static double real_reduce(const std::complex<T> in){ return in.real(); }
+  inline static std::complex<T> conjugate(const std::complex<T> in){ return std::conj(in); }
+};
+#ifdef USE_GRID
+template<>
+struct normdefs<Grid::vRealD>{
+  inline static double real_reduce(const Grid::vRealD in){ return Reduce(in); }
+  inline static Grid::vRealD conjugate(const Grid::vRealD in){ return in; }
+};
+template<>
+struct normdefs<Grid::vRealF>{
+  inline static double real_reduce(const Grid::vRealF in){ return Reduce(in); }
+  inline static Grid::vRealF conjugate(const Grid::vRealF in){ return in; }
+};
+template<>
+struct normdefs<Grid::vComplexD>{
+  inline static double real_reduce(const Grid::vComplexD in){ return std::real(Reduce(in)); }
+  inline static Grid::vComplexD conjugate(const Grid::vComplexD in){ return conjugate(in); }
+};
+template<>
+struct normdefs<Grid::vComplexF>{
+  inline static double real_reduce(const Grid::vComplexF in){ return std::real(Reduce(in)); }
+  inline static Grid::vComplexF conjugate(const Grid::vComplexF in){ return conjugate(in); }
+};
+#endif
+
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::norm2() const{
+  SiteType accum[omp_get_max_threads()];
+  memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
+#pragma omp parallel for  
+  for(int i=0;i<this->nfsites();i++){
+    SiteType const *site = this->fsite_ptr(i);
+    for(int s=0;s<SiteSize;s++)
+      accum[omp_get_thread_num()] = accum[omp_get_thread_num()] + normdefs<SiteType>::conjugate(site[s])*site[s];
+  }
+  SiteType total;
+  memset(&total, 0, sizeof(SiteType));
+
+  for(int i=0;i<omp_get_max_threads();i++)
+    total = total + accum[i];
+
+  double final = normdefs<SiteType>::real_reduce(total);
+  glb_sum_five(&final);
+  return final;
+}
+
+
+
+
+#ifdef USE_GRID
+
+template<typename T,typename std::enable_if< !Grid::isSIMDvectorized<typename T::vector_type>::value && Grid::isComplex<typename T::vector_type>::value, int>::type = 0 >
+struct GridTensorConvert{};
+
+template<typename complex_scalar>
+struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>,0 >{
+  //12-component complex spin-color vector
+  //We have assured the input is not SIMD vectorized so the output type is the same
+  inline static void doit(complex_scalar* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
+    for(int s=0;s<Ns;s++)
+      for(int c=0;c<Nc;c++)
+	*cps++ = grid()(s)(c);
+  }
+  inline static void doit(Grid::QCD::iSpinColourVector<complex_scalar> &grid, complex_scalar const* cps, const int f){
+    for(int s=0;s<Ns;s++)
+      for(int c=0;c<Nc;c++)
+	grid()(s)(c) = *cps++;
+  }
+};
+template<typename complex_scalar>
+struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>,0 >{
+  //12-component complex spin-color vector
+  //We have assured the input is not SIMD vectorized so the output type is the same
+  inline static void doit(complex_scalar* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
+    for(int s=0;s<Ns;s++)
+      for(int c=0;c<Nc;c++)
+	*cps++ = grid(f)(s)(c);
+  }
+  inline static void doit(Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, complex_scalar const* cps, const int f){
+    for(int s=0;s<Ns;s++)
+      for(int c=0;c<Nc;c++)
+  	grid(f)(s)(c) = *cps++;
+  }
+};
+				    
+template<int Ndim>
+struct dimensionMap{};
+
+template<>
+struct dimensionMap<5>{
+  const int cps_to_grid[5] = {1,2,3,4,0};
+  const int grid_to_cps[5] = {4,0,1,2,3};
+};
+template<>
+struct dimensionMap<4>{
+  const int cps_to_grid[4] = {0,1,2,3};
+  const int grid_to_cps[4] = {0,1,2,3};
+};
+
+template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+	 typename GridField>
+class CPSfieldGridImpex{
+  typedef CPSfield<Type,SiteSize,DimPol,FlavPol,AllocPol> CPSfieldType;
+
+public:
+
+  static void import(CPSfieldType &into, const GridField &from){
+    const int Nd = DimPol::EuclideanDimension;
+    assert(Nd == from._grid->Nd());
+    dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
+
+    typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
+#pragma omp parallel for
+    for(int site=0;site<into.nsites();site++){
+      std::vector<int> x(Nd);
+      into.siteUnmap(site, &x[0]);
+
+      std::vector<int> grid_x(Nd);
+      for(int i=0;i<Nd;i++)
+	grid_x[ dim_map.cps_to_grid[i] ] = x[i];
+
+      sobj siteGrid; //contains both flavors if Gparity
+      peekLocalSite(siteGrid,from,grid_x);
+
+      for(int f=0;f<into.nflavors();f++){
+	typename CPSfieldType::FieldSiteType *cps = into.site_ptr(site,f);
+	GridTensorConvert<sobj>::doit(cps, siteGrid, f);
+      }      
+    }
+  }
+  
+  static void exportit(GridField &into, const CPSfieldType &from){
+    const int Nd = DimPol::EuclideanDimension;
+    assert(Nd == into._grid->Nd());
+    dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
+  
+    typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
+#pragma omp parallel for
+    for(int site=0;site<from.nsites();site++){
+      std::vector<int> x(Nd);
+      from.siteUnmap(site, &x[0]);
+
+      std::vector<int> grid_x(Nd);
+      for(int i=0;i<Nd;i++)
+	grid_x[ dim_map.cps_to_grid[i] ] = x[i];
+
+      sobj siteGrid; //contains both flavors if Gparity
+      for(int f=0;f<from.nflavors();f++){
+	typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(site,f);
+	GridTensorConvert<sobj>::doit(siteGrid, cps, f);
+	pokeLocalSite(siteGrid, into, grid_x);
+      }
+    }
+  }
+  
+};
+
+
+
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template<typename GridField>
+void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importGridField(const GridField &grid){
+  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField>::import(*this, grid);
+}
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template<typename GridField>
+void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportGridField(GridField &grid) const{
+  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField>::exportit(grid,*this);
+}
+#endif
+
+
+
 //Generic copy. SiteSize and number of Euclidean dimensions must be the same
 template<int SiteSize,
 	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
@@ -139,6 +330,23 @@ public:
 
 #endif
 
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
+  CPSfieldCopy<SiteSize,
+	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy,
+	       extSiteType, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
+}
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+  CPSfieldCopy<SiteSize,
+	       extSiteType, extDimPol, extFlavPol, extAllocPol,
+	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
+}
+
+
+
 
 template<typename SiteType>
 class _testRandom{
@@ -175,22 +383,6 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
     for(int i=0;i<fsize;i++) f[i] = (f[i] + r.f[i])/2.0;
   }
 }
-
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
-  CPSfieldCopy<SiteSize,
-	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy,
-	       extSiteType, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
-}
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
-  CPSfieldCopy<SiteSize,
-	       extSiteType, extDimPol, extFlavPol, extAllocPol,
-	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
-}
-
 
 
 //Apply gauge fixing matrices to the field
