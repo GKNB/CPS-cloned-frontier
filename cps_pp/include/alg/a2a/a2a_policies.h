@@ -32,6 +32,19 @@ struct _deduce_scalar_complex_type<mf_Complex, grid_vector_complex_mark>{
   typedef typename mf_Complex::scalar_type ScalarComplexType;
 };
 
+template<typename mf_Complex_class>
+struct _deduce_double_single_variants{};
+
+template<>
+struct _deduce_double_single_variants<complex_double_or_float_mark>{
+  typedef std::complex<double> ComplexTypeD;
+  typedef std::complex<float> ComplexTypeF;
+};
+template<>
+struct _deduce_double_single_variants<grid_vector_complex_mark>{
+  typedef Grid::vComplexD ComplexTypeD;
+  typedef Grid::vComplexF ComplexTypeF;
+};
 
 
 template<typename mf_Complex>
@@ -43,6 +56,8 @@ private:
   typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
   typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
 public:
+  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeD ComplexTypeD;
+  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeF ComplexTypeF;
   typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
   typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
@@ -77,6 +92,8 @@ template<typename BaseA2Apolicies>
 struct GridA2APolicies{
   //Inherit the base's generic A2A policies
   typedef typename BaseA2Apolicies::ComplexType ComplexType;
+  typedef typename BaseA2Apolicies::ComplexTypeD ComplexTypeD;
+  typedef typename BaseA2Apolicies::ComplexTypeF ComplexTypeF;
   typedef typename BaseA2Apolicies::ScalarComplexType ScalarComplexType;
   typedef typename BaseA2Apolicies::FermionFieldType FermionFieldType;
   typedef typename BaseA2Apolicies::ComplexFieldType ComplexFieldType;

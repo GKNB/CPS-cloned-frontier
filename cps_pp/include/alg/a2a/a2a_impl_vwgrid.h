@@ -217,10 +217,10 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion5D<ComplexD> afield,bfield;
-  CPSfermion4D<ComplexD> v4dfield;
+  CPSfermion5D<typename mf_Policies::ComplexTypeD> afield,bfield;
+  CPSfermion4D<typename mf_Policies::ComplexTypeD> v4dfield;
   
-  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
+  int v4dfield_fsize = v4dfield.size()*sizeof(typename CPSfermion4D<typename mf_Policies::ComplexTypeD>::FieldSiteType)/sizeof(Float); //number of floats in field
   
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 
