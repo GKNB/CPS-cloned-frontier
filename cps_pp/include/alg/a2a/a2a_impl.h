@@ -111,8 +111,8 @@ void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
 template< typename mf_Policies>
 template<typename TargetFermionFieldType>
 void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, const int dil_id) const{
-  typedef typename FieldSiteType::value_type mf_Float;
-  typedef typename TargetFermionFieldType::FieldSiteType::value_type TargetFloat;
+  typedef FieldSiteType mf_Complex;
+  typedef typename TargetFermionFieldType::FieldSiteType TargetComplex;
   const char* fname = "getDilutedSource(...)";
   int hit, tblock, spin_color, flavor;
   StandardIndexDilution stdidx(getArgs());  
@@ -140,10 +140,9 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[2] = rem % GJP.ZnodeSites(); rem /= GJP.ZnodeSites();
     x[3] = tblock_origt_lcl + rem;
 
-    TargetFloat *into_site = (TargetFloat*)(into.site_ptr(x,flavor) + spin_color);
-    mf_Float const* from_site = (mf_Float*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
-    into_site[0] = from_site[0];
-    into_site[1] = from_site[1];
+    TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
+    mf_Complex const* from_site = (mf_Complex*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
+    *into_site = *from_site;
   }
 }
 
