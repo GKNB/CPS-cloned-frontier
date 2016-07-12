@@ -1,3 +1,51 @@
+//Apply 1/2(1+-g5) to field. In Grid conventions this just zeroes the lower/upper spin components
+template<typename FermionField>
+void chiralProject(FermionField &out, const FermionField &in, const char sgn){
+  int base; //where to start zeroing
+  switch(sgn){
+  case '+':
+    base = 2;
+    break;
+  case '-':
+    base = 0;
+    break;
+  default:
+    assert(0);
+  }
+  
+  out.checkerboard = in.checkerboard;
+  conformable(in,out);
+
+  const int Ns = 4;
+  Grid::GridBase *grid=in._grid;
+
+  decltype(Grid::QCD::peekSpin(in,0)) zero_spn(in._grid);
+  zeroit(zero_spn);
+
+  out = in;
+  Grid::QCD::pokeSpin(out, zero_spn, base);
+  Grid::QCD::pokeSpin(out, zero_spn, base+1);
+}
+
+//Convert a 5D field to a 4D field, with the upper 2 spin components taken from s-slice 's_u' and the lower 2 from 's_l'
+template<typename FermionField>
+void DomainWallFiveToFour(FermionField &out, const FermionField &in, int s_u, int s_l){
+  assert(out._grid->Nd() == 4 && in._grid->Nd() == 5);
+
+  FermionField tmp1_4d(out._grid);
+  FermionField tmp2_4d(out._grid);
+  FermionField tmp3_4d(out._grid);
+  ExtractSlice(tmp1_4d,const_cast<FermionField&>(in),s_u, 0); //Note Grid conventions, s-dimension is index 0!
+  chiralProject(tmp2_4d, tmp1_4d, '+'); // 1/2(1+g5)  zeroes lower spin components
+  
+  ExtractSlice(tmp1_4d,const_cast<FermionField&>(in),s_l, 0); 
+  chiralProject(tmp3_4d, tmp1_4d, '-'); // 1/2(1-g5)  zeroes upper spin components
+
+  out = tmp2_4d + tmp3_4d;
+}
+
+
+
 //Main implementations with generic interface
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass){
@@ -60,6 +108,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   GridFermionField tmp_full(FGrid);
   GridFermionField tmp_full2(FGrid);
 
+  GridFermionField tmp_full_4d(UGrid);
+  
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
@@ -79,11 +129,13 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     setCheckerboard(tmp_full, bq_tmp); //odd checkerboard
 
     //Get 4D part and poke into a
-    latg.ImportFermion(b,tmp_full,FgridBase::All);
-    lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
-    //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eval, afield_fsize);
+    //Recall that D^{-1} = <w^\dagger v> = <q \bar q>.  v therefore transforms like a conjugate spinor. For conjugate spinors \bar\psi(x) = P_R \bar\psi(x,Ls-1) + P_L \bar\psi(x,0),  i.e. s_u=Ls-1 and s_l=0 for CPS gamma5
 
+    DomainWallFiveToFour(tmp_full_4d, tmp_full, glb_ls-1,0);
+    tmp_full_4d = Grid::RealD(1./eval) * tmp_full_4d;
+    V.getVl(i).importGridField(tmp_full_4d); //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
+    
+    
     //Step 2) Compute Wl
 
     //Do tmp = [ -[Mee^-1]^dag [Meo]^dag Doo bq_tmp,  Doo bq_tmp ]    (Note that for the Moe^dag in Daiqian's thesis, the dagger also implies a transpose of the spatial indices, hence the Meo^dag in the code)
@@ -104,9 +156,9 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     axpy(tmp_full, -mob_c, tmp_full2, tmp_full); 
 
     //Get 4D part, poke onto a then copy into wl
-    latg.ImportFermion(b,tmp_full,FgridBase::All);
-    lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, afield_fsize);
+    //Recall that D^{-1} = <w^\dagger v> = <q \bar q>.  w (and w^\dagger) therefore transforms like a spinor. For spinors \psi(x) = P_R \bar\psi(x,0) + P_L \bar\psi(x,Ls-1),  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
+    DomainWallFiveToFour(tmp_full_4d, tmp_full, 0, glb_ls-1);
+    wl[i].importGridField(tmp_full_4d);
   }
 }
 
@@ -181,6 +233,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   GridFermionField gsrc(FGrid);
   GridFermionField gtmp_full(FGrid);
   GridFermionField gtmp_full2(FGrid);
+
+  GridFermionField tmp_full_4d(UGrid);
 
   //Details of this process can be found in Daiqian's thesis, page 60
   for(int i=0; i<nh; i++){
