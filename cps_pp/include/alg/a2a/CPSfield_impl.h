@@ -159,21 +159,41 @@ public:
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
   
     typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
+    int nthread = omp_get_max_threads();
+    
+    int nsimd = into._grid->Nsimd();
+    std::vector<std::vector<sobj> > tstore(nthread,std::vector<sobj>(nsimd)); //thread-individual temp storage for Grid-converted tensors
+    std::vector<std::vector<sobj*> > tstore_ptrs(nthread,std::vector<sobj*>(nsimd));
+    for(int i=0;i<nthread;i++)
+      for(int j=0;j<nsimd;j++)
+	tstore_ptrs[i][j] = &tstore[i][j];
+
+    std::vector<std::vector<int> > out_icoor(nsimd); //store inner coordinate offsets
+    for(int i=0;i<nsimd;i++){
+      out_icoor[i].resize(Nd);
+      into._grid->iCoorFromIindex(out_icoor[i], i);
+    }
 #pragma omp parallel for
-    for(int site=0;site<from.nsites();site++){
-      std::vector<int> x(Nd);
-      from.siteUnmap(site, &x[0]);
+    for(int out_oidx=0;out_oidx<into._grid->oSites();out_oidx++){
+      int me = omp_get_thread_num();
+      std::vector<int> out_ocoor(Nd);
+      into._grid->oCoorFromOindex(out_ocoor, out_oidx);
 
-      std::vector<int> grid_x(Nd);
-      for(int i=0;i<Nd;i++)
-	grid_x[ dim_map.cps_to_grid[i] ] = x[i];
-
-      sobj siteGrid; //contains both flavors if Gparity
-      for(int f=0;f<from.nflavors();f++){
-	typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(site,f);
-	GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(siteGrid, cps, f);
-	pokeLocalSite(siteGrid, into, grid_x);
+      std::vector<int> lcoor(Nd);
+      std::vector<int> lcoor_cps(Nd);
+      
+      for(int lane=0; lane < nsimd; lane++){
+	for(int mu=0;mu<Nd;mu++){
+	  lcoor[mu] = out_ocoor[mu] + into._grid->_rdimensions[mu]*out_icoor[lane][mu];
+	  lcoor_cps[ dim_map.grid_to_cps[mu] ] = lcoor[mu];
+	}
+	int cps_site = from.siteMap(&lcoor_cps[0]);
+	for(int f=0;f<from.nflavors();f++){
+	  typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(cps_site,f);
+	  GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(tstore[me][lane], cps, f);
+	}
       }
+      merge(into._odata[out_oidx], tstore_ptrs[me], 0);
     }
   }
   
