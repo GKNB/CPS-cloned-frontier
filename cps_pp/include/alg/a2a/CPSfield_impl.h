@@ -72,34 +72,35 @@ double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::nor
 
 #ifdef USE_GRID
 
-template<typename T,typename std::enable_if< !Grid::isSIMDvectorized<typename T::vector_type>::value && Grid::isComplex<typename T::vector_type>::value, int>::type = 0 >
+template<typename T,typename CPScomplex,
+	 typename std::enable_if< !Grid::isSIMDvectorized<typename T::vector_type>::value && Grid::isComplex<typename T::vector_type>::value, int>::type = 0 >
 struct GridTensorConvert{};
 
-template<typename complex_scalar>
-struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>,0 >{
+template<typename complex_scalar, typename CPScomplex>
+struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomplex, 0 >{
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
-  inline static void doit(complex_scalar* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
+  inline static void doit(CPScomplex* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
     for(int s=0;s<Ns;s++)
       for(int c=0;c<Nc;c++)
 	*cps++ = grid()(s)(c);
   }
-  inline static void doit(Grid::QCD::iSpinColourVector<complex_scalar> &grid, complex_scalar const* cps, const int f){
+  inline static void doit(Grid::QCD::iSpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
     for(int s=0;s<Ns;s++)
       for(int c=0;c<Nc;c++)
 	grid()(s)(c) = *cps++;
   }
 };
-template<typename complex_scalar>
-struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>,0 >{
+template<typename complex_scalar, typename CPScomplex>
+struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CPScomplex, 0 >{
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
-  inline static void doit(complex_scalar* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
+  inline static void doit(CPScomplex* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
     for(int s=0;s<Ns;s++)
       for(int c=0;c<Nc;c++)
 	*cps++ = grid(f)(s)(c);
   }
-  inline static void doit(Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, complex_scalar const* cps, const int f){
+  inline static void doit(Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
     for(int s=0;s<Ns;s++)
       for(int c=0;c<Nc;c++)
   	grid(f)(s)(c) = *cps++;
@@ -147,7 +148,7 @@ public:
 
       for(int f=0;f<into.nflavors();f++){
 	typename CPSfieldType::FieldSiteType *cps = into.site_ptr(site,f);
-	GridTensorConvert<sobj>::doit(cps, siteGrid, f);
+	GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(cps, siteGrid, f);
       }      
     }
   }
@@ -170,7 +171,7 @@ public:
       sobj siteGrid; //contains both flavors if Gparity
       for(int f=0;f<from.nflavors();f++){
 	typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(site,f);
-	GridTensorConvert<sobj>::doit(siteGrid, cps, f);
+	GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(siteGrid, cps, f);
 	pokeLocalSite(siteGrid, into, grid_x);
       }
     }

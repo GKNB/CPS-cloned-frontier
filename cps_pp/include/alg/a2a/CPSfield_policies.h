@@ -299,9 +299,14 @@ class CheckerBoard{
 public:
   enum { CB = _CB, CBdim = _CBdim };
 
+  CheckerBoard(){
+    //Currently require even-sized sublattices- This needs to be generalized
+    assert(GJP.NodeSites(0)%2==0 && GJP.NodeSites(1)%2==0 && GJP.NodeSites(2)%2==0 && GJP.NodeSites(3)%2==0 && CBdim > 4 ? GJP.NodeSites(4)%2==0 : true);
+  }
+  
   inline int cb() const{ return _CB; }
   inline int cbDim() const{ return _CBdim; }
-  inline bool onCb(const int x[]) const{ 
+  inline bool onCb(const int x[]) const{
     int c = 0; for(int i=0;i<_CBdim;i++) c += x[i];
     return c % 2 == _CB;
   }
