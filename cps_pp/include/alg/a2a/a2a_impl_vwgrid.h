@@ -43,14 +43,24 @@ void DomainWallFiveToFour(FermionField &out, const FermionField &in, int s_u, in
 
   out = tmp2_4d + tmp3_4d;
 }
+template<typename FermionField>
+void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, int s_l){
+  assert(out._grid->Nd() == 5 && in._grid->Nd() == 4);
 
+  zeroit(out);
+  FermionField tmp1_4d(in._grid);
+  chiralProject(tmp1_4d, in, '+'); // 1/2(1+g5)  zeroes lower spin components
+  InsertSlice(tmp1_4d, out,s_u, 0);
+
+  chiralProject(tmp1_4d, in, '-'); // 1/2(1-g5)  zeroes upper spin components
+  InsertSlice(tmp1_4d, out,s_l, 0);
+}
 
 
 //Main implementations with generic interface
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass){
   if(!UniqueID()) printf("Computing VWlow using Grid\n");
-  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
@@ -85,11 +95,9 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   const int gparity = GJP.Gparity();
 
   //Double precision temp fields
-  CPSfermion4D<ComplexD> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
-  CPSfermion5D<ComplexD> bfield;  Vector* b = (Vector*)bfield.ptr();
+  CPSfermion4D<ComplexD> afield;
+  CPSfermion5D<ComplexD> bfield;
 
-  int afield_fsize = afield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
-  
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
   //Setup Grid Dirac operator
@@ -113,8 +121,6 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
-    mf_Float* vi = (mf_Float*)V.getVl(i).ptr();
-    
     Float eval = evecs.getEvec(bq_tmp,i);
     assert(bq_tmp.checkerboard == Grid::Odd);
 
@@ -217,13 +223,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion5D<typename mf_Policies::ComplexTypeD> afield,bfield;
   CPSfermion4D<typename mf_Policies::ComplexTypeD> v4dfield;
   
-  int v4dfield_fsize = v4dfield.size()*sizeof(typename CPSfermion4D<typename mf_Policies::ComplexTypeD>::FieldSiteType)/sizeof(Float); //number of floats in field
-  
-  Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
-
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
   GridFermionField gtmp(FrbGrid);
@@ -242,8 +243,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     getDilutedSource(v4dfield, i);
 
     //Step 2) Solve V
-    lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // poke the diluted 4D source onto a 5D source    
-    latg.ImportFermion(gsrc, (Vector*)a);
+    v4dfield.exportGridField(tmp_full_4d);
+    DomainWallFourToFive(gsrc, tmp_full_4d, 0, glb_ls-1);
 
     //Left-multiply by D-.  D- = (1-c*DW)
     Ddwf.DW(gsrc, gtmp_full, Grid::DaggerNo);
@@ -252,10 +253,9 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
     //If no previously computed solutions this wastes a few flops, but not enough to care about
     //V vectors default to zero, so this is a zero guess if not reusing existing solutions
-    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield_fsize); // v[i]->v4d to double precision
-    lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // to 5d
+    V.getVh(i).exportGridField(tmp_full_4d);
+    DomainWallFourToFive(gtmp_full, tmp_full_4d, 0, glb_ls-1);
 
-    latg.ImportFermion(gtmp_full, (Vector*)a);
     Ddwf.DW(gtmp_full, gtmp_full2, Grid::DaggerNo);
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
@@ -263,9 +263,9 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, residual, max_iter, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
  
     //CPSify the solution, including 1/nhit for the hit average
-    latg.ImportFermion((Vector*)b, gtmp_full);
-    lat.Ffive2four(v4d, b, glb_ls-1, 0, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield_fsize);
+    DomainWallFiveToFour(tmp_full_4d, gtmp_full, glb_ls-1,0);
+    tmp_full_4d = Grid::RealD(1. / nhits) * tmp_full_4d;
+    V.getVh(i).importGridField(tmp_full_4d);
   }
 }
 
