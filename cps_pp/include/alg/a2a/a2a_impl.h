@@ -88,21 +88,33 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
 
 //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
 //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
-  LRG.SetInterval(1, 0);
-  int sites = wh[0].nsites(), flavors = wh[0].nflavors();
+template<typename complexFieldType, typename mf_Policies, typename complex_class>
+struct _set_wh_random_impl{};
 
-  for(int i = 0; i < sites*flavors; ++i) {
-    int flav = i / sites;
-    int st = i % sites;
-
-    LRG.AssignGenerator(st,flav);
-    for(int j = 0; j < nhits; ++j) {
-      FieldSiteType* p = wh[j].site_ptr(st,flav);
-      RandomComplex<FieldSiteType>::rand(p,type,FOUR_D);
+template<typename complexFieldType, typename mf_Policies>
+struct _set_wh_random_impl<complexFieldType, mf_Policies, complex_double_or_float_mark>{
+  static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
+    typedef typename complexFieldType::FieldSiteType FieldSiteType;
+    LRG.SetInterval(1, 0);
+    int sites = wh[0].nsites(), flavors = wh[0].nflavors();
+    
+    for(int i = 0; i < sites*flavors; ++i) {
+      int flav = i / sites;
+      int st = i % sites;
+      
+      LRG.AssignGenerator(st,flav);
+      for(int j = 0; j < nhits; ++j) {
+	FieldSiteType* p = wh[j].site_ptr(st,flav);
+	RandomComplex<FieldSiteType>::rand(p,type,FOUR_D);
+      }
     }
   }
+};
+
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
+  _set_wh_random_impl<ComplexFieldType, mf_Policies, typename ComplexClassify<typename ComplexFieldType::FieldSiteType>::type>::doit(wh,type,nhits);
 }
 
 //Get the diluted source with index id.

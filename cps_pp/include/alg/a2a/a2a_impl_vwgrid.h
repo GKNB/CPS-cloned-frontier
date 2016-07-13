@@ -56,6 +56,20 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
   InsertSlice(tmp1_4d, out,s_l, 0);
 }
 
+//Randomization of wh fields must have handled with care to ensure order preservation
+template<typename complexFieldType, typename mf_Policies>
+struct _set_wh_random_impl<complexFieldType, mf_Policies, grid_vector_complex_mark>{
+  static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
+    typedef _deduce_a2a_field_policies<typename mf_Policies::ScalarComplexType> scalar_a2a_policies;
+    typedef typename scalar_a2a_policies::ComplexFieldType scalarComplexFieldType;
+
+    //Use scalar generation code and import
+    std::vector<scalarComplexFieldType> wh_scalar(nhits);
+    _set_wh_random_impl<scalarComplexFieldType, scalar_a2a_policies, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
+    for(int i=0;i<nhits;i++)
+      wh[i].importField(wh_scalar[i]);
+  }
+};
 
 //Main implementations with generic interface
 template< typename mf_Policies>
@@ -176,7 +190,6 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const Float residual, const int max_iter){
-  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
@@ -223,7 +236,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion4D<typename mf_Policies::ComplexTypeD> v4dfield;
+  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldDimensionPolicy, typename mf_Policies::FermionFieldType::FieldFlavorPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(wh[0].getDimPolParams());
   
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 

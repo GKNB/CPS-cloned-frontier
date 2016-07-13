@@ -122,8 +122,12 @@ struct dimensionMap<4>{
 };
 
 template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+	 typename GridField, typename ComplexClass>
+class CPSfieldGridImpex{};
+
+template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
 	 typename GridField>
-class CPSfieldGridImpex{
+class CPSfieldGridImpex<Type,SiteSize,DimPol,FlavPol,AllocPol,GridField,complex_double_or_float_mark>{
   typedef CPSfield<Type,SiteSize,DimPol,FlavPol,AllocPol> CPSfieldType;
 
 public:
@@ -199,17 +203,60 @@ public:
   
 };
 
+#ifdef USE_GRID
+template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+	 typename GridField>
+class CPSfieldGridImpex<Type,SiteSize,DimPol,FlavPol,AllocPol,GridField,grid_vector_complex_mark>{
+  typedef CPSfield<Type,SiteSize,DimPol,FlavPol,AllocPol> CPSfieldType;
+
+public:
+
+  static void import(CPSfieldType &into, const GridField &from){
+    const int Nd = DimPol::EuclideanDimension;
+    assert(Nd == from._grid->Nd());
+    typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
+    typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
+    
+    //Create temp CPS unvectorized field
+    typedef typename StandardDimensionPolicy<DimPol::EuclideanDimension>::type CPSscalarDimPol;
+    NullObject n;
+    CPSfield<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy> cps_unpacked(n);
+
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from);
+    into.importField(cps_unpacked);
+  }
+  
+  static void exportit(GridField &into, const CPSfieldType &from){
+    const int Nd = DimPol::EuclideanDimension;
+    assert(Nd == into._grid->Nd());
+    typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
+    typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
+
+    //Create temp CPS unvectorized field
+    typedef typename StandardDimensionPolicy<DimPol::EuclideanDimension>::type CPSscalarDimPol;
+    NullObject n;
+    CPSfield<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy> cps_unpacked(n);
+    cps_unpacked.importField(from);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked);
+  }
+};
+#endif
+
+
+
 
 
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename GridField>
 void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importGridField(const GridField &grid){
-  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField>::import(*this, grid);
+  typedef typename ComplexClassify<SiteType>::type ComplexClass;
+  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField,ComplexClass>::import(*this, grid);
 }
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template<typename GridField>
 void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportGridField(GridField &grid) const{
-  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField>::exportit(grid,*this);
+  typedef typename ComplexClassify<SiteType>::type ComplexClass;
+  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField,ComplexClass>::exportit(grid,*this);
 }
 #endif
 

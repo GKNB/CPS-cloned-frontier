@@ -77,6 +77,8 @@ public:
   const static int EuclideanDimension = 4;
 
   inline int threeToFour(const int x3d, const int t) const{ return x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t; } //convert 3d index to 4d index
+
+  ParamType getDimPolParams() const{ return ParamType(); }
 };
 //Canonical layout 5D field. The fsite second flavor is stacked inside the s-loop. The site is just linearized in the canonical format
 class FiveDpolicy{ 
@@ -116,6 +118,8 @@ public:
   FiveDpolicy(const ParamType &p){}
 
   const static int EuclideanDimension = 5;
+
+  ParamType getDimPolParams() const{ return ParamType(); }
 };
 class FourDglobalInOneDir{ //4D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
   int lmap[4]; //map of local dimension to physical X,Y,Z,T dimension. e.g.  [1,0,2,3] means local dimension 0 is the Y dimension, local dimension 1 is the X-direction and so on
@@ -166,6 +170,8 @@ public:
     setDir(_dir);
   }
   const static int EuclideanDimension = 4;
+
+  ParamType getDimPolParams() const{ return dir; }
 };
 
 class SpatialPolicy{ //Canonical layout 3D field
@@ -199,8 +205,9 @@ public:
   SpatialPolicy(const ParamType &p): threevol(GJP.VolNodeSites()/GJP.TnodeSites()){}
 
   const static int EuclideanDimension = 3;
-};
 
+  ParamType getDimPolParams() const{ return ParamType(); }
+};
 
 class GlobalSpatialPolicy{ //Global canonical 3D field
 protected:
@@ -238,6 +245,8 @@ public:
   }
 
   const static int EuclideanDimension = 3;
+
+  ParamType getDimPolParams() const{ return ParamType(); }
 };
 
 class ThreeDglobalInOneDir{ //3D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
@@ -288,6 +297,8 @@ public:
     setDir(_dir);
   }
   const static int EuclideanDimension = 3;
+
+  ParamType getDimPolParams() const{ return dir; }
 };
 
 
@@ -368,11 +379,28 @@ public:
   FiveDevenOddpolicy(const ParamType &p){}
 
   const static int EuclideanDimension = 5;
+
+  ParamType getDimPolParams() const{ return ParamType(); }
+};
+
+template<int N>
+class SIMDdims{
+  int v[N];
+public:
+  inline int & operator[](const int i){ return v[i]; }
+  inline int operator[](const int i) const{ return v[i]; }
+  inline int* ptr(){ return &v[0]; }
+  inline int const* ptr() const{ return &v[0]; }
+  inline void set(const int* f){ for(int i=0;i<N;i++) v[i] = f[i]; }
+  SIMDdims(){}
+  SIMDdims(const int* f){ set(f); }
 };
 
 template<int Dimension>
 class SIMDpolicyBase{
  public:
+  typedef SIMDdims<Dimension> ParamType;
+  
   //Given the list of base site pointers to be packed, apply the packing for n site elements
   template<typename Vtype, typename Stype>
   static inline void SIMDpack(Vtype *into, const std::vector<Stype const*> &from, const int n = 1){
@@ -398,7 +426,7 @@ class SIMDpolicyBase{
   }
   
   //Iteratively divide the dimensions over the SIMD lanes up to a chosen maximum dimension (so we can exclude the time dimension for example, by setting max_dim_idx = 2)
-  inline static void SIMDdefaultLayout(int simd_dims[Dimension], const int nsimd, const int max_dim_idx = 3){
+  inline static void SIMDdefaultLayout(ParamType &simd_dims, const int nsimd, const int max_dim_idx = 3){
     for(int i=0;i<Dimension;i++) simd_dims[i] = 1;
     assert(nsimd % 2 == 0);
     int rem = nsimd;
@@ -414,6 +442,8 @@ class SIMDpolicyBase{
   }
 };
 
+
+  
 
 class FourDSIMDPolicy: public SIMDpolicyBase<4>{ //4D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
   int simd_dims[4]; //number of SIMD logical nodes in each direction
@@ -470,9 +500,9 @@ public:
 
   inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
   
-  typedef int* ParamType;
+  typedef SIMDpolicyBase<4>::ParamType ParamType;
 
-  FourDSIMDPolicy(const int* _simd_dims){
+  FourDSIMDPolicy(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<4;i++){
       simd_dims[i] = _simd_dims[i];
@@ -486,6 +516,11 @@ public:
 
   //Convert space-time indices on logical volume
   inline int threeToFour(const int x3d, const int t) const{ return x3d + logical_vol/logical_dim[3]*t; } //convert 3d index to 4d index
+
+  ParamType getDimPolParams() const{
+    return ParamType(simd_dims);
+  }
+    
 };
 
 
@@ -542,10 +577,10 @@ public:
   }
 
   inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
-  
-  typedef int* ParamType;
 
-  ThreeDSIMDPolicy(const int* _simd_dims){
+  typedef SIMDpolicyBase<3>::ParamType ParamType;
+  
+  ThreeDSIMDPolicy(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<3;i++){
       simd_dims[i] = _simd_dims[i];
@@ -556,11 +591,32 @@ public:
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2];
   }
   const static int EuclideanDimension = 3;
+
+  ParamType getDimPolParams() const{
+    return ParamType(simd_dims);
+  }
 };
 
 
 
 
+
+//Some helper structs to get policies for common field types
+template<int Nd>
+struct StandardDimensionPolicy{};
+
+template<>
+struct StandardDimensionPolicy<3>{
+  typedef SpatialPolicy type;
+};
+template<>
+struct StandardDimensionPolicy<4>{
+  typedef FourDpolicy type;
+};
+template<>
+struct StandardDimensionPolicy<5>{
+  typedef FiveDpolicy type;
+};
 
 
 CPS_END_NAMESPACE
