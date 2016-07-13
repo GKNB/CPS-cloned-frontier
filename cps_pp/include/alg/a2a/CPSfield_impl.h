@@ -37,12 +37,12 @@ struct normdefs<Grid::vRealF>{
 template<>
 struct normdefs<Grid::vComplexD>{
   inline static double real_reduce(const Grid::vComplexD in){ return std::real(Reduce(in)); }
-  inline static Grid::vComplexD conjugate(const Grid::vComplexD in){ return conjugate(in); }
+  inline static Grid::vComplexD conjugate(const Grid::vComplexD in){ return Grid::conjugate(in); }
 };
 template<>
 struct normdefs<Grid::vComplexF>{
   inline static double real_reduce(const Grid::vComplexF in){ return std::real(Reduce(in)); }
-  inline static Grid::vComplexF conjugate(const Grid::vComplexF in){ return conjugate(in); }
+  inline static Grid::vComplexF conjugate(const Grid::vComplexF in){ return Grid::conjugate(in); }
 };
 #endif
 
