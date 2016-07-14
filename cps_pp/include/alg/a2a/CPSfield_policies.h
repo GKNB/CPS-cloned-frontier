@@ -172,6 +172,8 @@ public:
   const static int EuclideanDimension = 4;
 
   ParamType getDimPolParams() const{ return dir; }
+
+  typedef FourDpolicy EquivalentLocalPolicy;
 };
 
 class SpatialPolicy{ //Canonical layout 3D field
@@ -299,6 +301,8 @@ public:
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{ return dir; }
+
+  typedef SpatialPolicy EquivalentLocalPolicy;
 };
 
 

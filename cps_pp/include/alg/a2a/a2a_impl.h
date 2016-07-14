@@ -24,7 +24,7 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
       Float dtime = dclock();
 
       //Gather
-      CPSfermion4DglobalInOneDir<FieldSiteType> tmp_dbl(mu);
+      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
       gather_time += dclock()-dtime;
 

@@ -954,76 +954,114 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfi
 
 
 
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy,
+	  typename extSiteType, typename extDimPol, typename extAllocPol,
+	  typename my_enable_if<intEq<DimensionPolicy::EuclideanDimension,extDimPol::EuclideanDimension>::val, int>::type = 0>
+struct _gather_scatter_impl{
+  typedef typename DimensionPolicy::EquivalentLocalPolicy EquivalentLocalPolicy;
+  
+  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &into, const CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &from){
+    NullObject n;
+    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,FlavorPolicy,AllocPolicy> tmp(n);
+    tmp.importField(from);
+    _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+			 SiteType, EquivalentLocalPolicy, AllocPolicy>::gather(into, tmp);    
+  }
+  static void scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from){
+    NullObject n;
+    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,FlavorPolicy,AllocPolicy> tmp(n);
+    _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+			 SiteType, EquivalentLocalPolicy, AllocPolicy>::scatter(tmp, from);
+    to.importField(tmp);
+  }
+    
+};
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy >
+struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+		    SiteType, typename DimensionPolicy::EquivalentLocalPolicy, AllocPolicy, 0>{
+  typedef typename DimensionPolicy::EquivalentLocalPolicy LocalDimensionPolicy;
 
+  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
+    assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
+    const int &dir = into.getDir();
+
+    const char *fname = "gather(...)";
+    NullObject nullobj;
+    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
+    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
+    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
+    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
+
+    int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
+    int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
+
+    int nshift = GJP.Nodes(dir);
+
+    for(int shift = 0; shift < nshift; shift++){
+#pragma omp parallel for
+      for(int i=0;i<send->nfsites();i++){
+	int x[DimensionPolicy::EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
+	x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
+
+	SiteType* tosite = into.site_ptr(x,flavor);
+	SiteType* fromsite = send->fsite_ptr(i);
+
+	memcpy((void*)tosite, (void*)fromsite, into.siteSize()*sizeof(SiteType));
+      }	
+
+      if(shift != nshift-1){
+	getPlusData((IFloat*)recv->ptr(), (IFloat*)send->ptr(), size_in_Float, dir);
+	cur_dir_origin += GJP.NodeSites(dir);
+	cur_dir_origin %= (GJP.NodeSites(dir)*GJP.Nodes(dir));
+
+	if(shift == 0){
+	  recv = &tmp1;
+	  send = &tmp2;
+	}else std::swap(send,recv);
+      }
+    }    
+  }
+
+  static void scatter(CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from){
+    assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
+    
+    const int &dir = from.getDir();
+    
+    const char *fname = "scatter(...)";
+    int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);
+
+#pragma omp parallel for
+    for(int i=0;i<to.nfsites();i++){
+      int x[DimensionPolicy::EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
+      x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
+      
+      SiteType* tosite = to.fsite_ptr(i);
+      SiteType const* fromsite = from.site_ptr(x,flavor);
+      
+      memcpy((void*)tosite, (void*)fromsite, from.siteSize()*sizeof(SiteType));
+    }
+  }
+  
+};
 
 
 
 
 //Gather up the row. Involves internode communication
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
-  assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
-  const int &dir = this->getDir();
-
-  const char *fname = "gather(...)";
-  NullObject nullobj;
-  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
-  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
-  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
-  CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
-
-  int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
-  int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
-
-  int nshift = GJP.Nodes(dir);
-
-  for(int shift = 0; shift < nshift; shift++){
-#pragma omp parallel for
-    for(int i=0;i<send->nfsites();i++){
-      int x[this->EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
-      x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
-
-      SiteType* tosite = this->site_ptr(x,flavor);
-      SiteType* fromsite = send->fsite_ptr(i);
-
-      memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(SiteType));
-    }	
-
-    if(shift != nshift-1){
-      getPlusData((IFloat*)recv->ptr(), (IFloat*)send->ptr(), size_in_Float, dir);
-      cur_dir_origin += GJP.NodeSites(dir);
-      cur_dir_origin %= (GJP.NodeSites(dir)*GJP.Nodes(dir));
-
-      if(shift == 0){
-	recv = &tmp1;
-	send = &tmp2;
-      }else std::swap(send,recv);
-    }
-  }
+template<typename extSiteType, typename extDimPol, typename extAllocPol>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &from){
+  _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+	       extSiteType, extDimPol, extAllocPol>::gather(*this, from);  
 }
+
 
 //Scatter back out. Involves no communication
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template<typename LocalDimensionPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to) const{
-  assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
-
-  const int &dir = this->getDir();
-
-  const char *fname = "scatter(...)";
-  int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);
-
-#pragma omp parallel for
-  for(int i=0;i<to.nfsites();i++){
-    int x[this->EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
-    x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
-
-    SiteType* tosite = to.fsite_ptr(i);
-    SiteType const* fromsite = this->site_ptr(x,flavor);
-
-    memcpy((void*)tosite, (void*)fromsite, this->siteSize()*sizeof(SiteType));
-  }	
+template<typename extSiteType, typename extDimPol, typename extAllocPol>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to) const{
+  _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+		       extSiteType, extDimPol, extAllocPol>::scatter(to, *this);
 }
 
 //Perform a fast Fourier transform along the principal direction

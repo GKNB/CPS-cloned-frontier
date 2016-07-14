@@ -368,12 +368,12 @@ public:
   CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): cname("CPSfieldGlobalInOneDir"), CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Gather up the row. Involves internode communication
-  template<typename LocalDimensionPolicy>
-  void gather(const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from);
+  template<typename extSiteType, typename extDimPol, typename extAllocPol>
+  void gather(const CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &from);
 
   //Scatter back out. Involves no communication
-  template<typename LocalDimensionPolicy>
-  void scatter(CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to) const;
+  template<typename extSiteType, typename extDimPol, typename extAllocPol>
+  void scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to) const;
 
   //Perform a fast Fourier transform along the principal direction. It currently assumes the DimensionPolicy has the sites mapped in canonical ordering
   void fft();
