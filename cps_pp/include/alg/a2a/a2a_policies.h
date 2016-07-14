@@ -3,6 +3,46 @@
 
 CPS_START_NAMESPACE
 
+//Type policies needed for sources
+
+#ifdef USE_GRID
+struct GridSIMDSourcePolicies{
+  typedef Grid::vComplexD ComplexType;
+  typedef ThreeDSIMDPolicy DimensionPolicy;
+  typedef Aligned128AllocPolicy AllocPolicy;
+};
+struct GridSIMDSourcePoliciesSingle{
+  typedef Grid::vComplexF ComplexType;
+  typedef ThreeDSIMDPolicy DimensionPolicy;
+  typedef Aligned128AllocPolicy AllocPolicy;
+};
+#endif
+
+struct StandardSourcePolicies{
+  typedef cps::ComplexD ComplexType;
+  typedef SpatialPolicy DimensionPolicy;
+  typedef StandardAllocPolicy AllocPolicy;
+};
+
+template<typename mf_Complex, typename mf_Complex_class>
+struct _deduce_source_policies{};
+
+template<typename T>
+struct _deduce_source_policies<std::complex<T>, complex_double_or_float_mark>{
+  typedef StandardSourcePolicies SourcePolicies;
+};
+#ifdef USE_GRID
+template<>
+struct _deduce_source_policies<Grid::vComplexD, grid_vector_complex_mark>{
+  typedef GridSIMDSourcePolicies SourcePolicies;
+};
+template<>
+struct _deduce_source_policies<Grid::vComplexF, grid_vector_complex_mark>{
+  typedef GridSIMDSourcePoliciesSingle SourcePolicies;
+};
+#endif
+
+
 //Deduction of fermion field properties given a complex type class. Don't have to use them but it can be useful
 template<typename mf_Complex_class>
 struct _deduce_a2a_dim_alloc_policies{};
@@ -61,8 +101,10 @@ public:
   typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
   typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
+  typedef typename _deduce_source_policies<ComplexType,ComplexClass>::SourcePolicies SourcePolicies;
 };
 
+  
 #ifdef USE_GRID
 CPS_END_NAMESPACE
 #include<util/lattice/fgrid.h>
@@ -97,7 +139,8 @@ struct GridA2APolicies{
   typedef typename BaseA2Apolicies::ScalarComplexType ScalarComplexType;
   typedef typename BaseA2Apolicies::FermionFieldType FermionFieldType;
   typedef typename BaseA2Apolicies::ComplexFieldType ComplexFieldType;
-
+  typedef typename BaseA2Apolicies::SourcePolicies SourcePolicies;
+  
   typedef typename GridA2APoliciesBase::FgridFclass FgridFclass;
   typedef typename GridA2APoliciesBase::FgridGFclass FgridGFclass;
   typedef typename GridA2APoliciesBase::GridDirac GridDirac;

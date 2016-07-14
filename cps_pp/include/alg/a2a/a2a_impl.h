@@ -5,7 +5,9 @@
 template< typename mf_Policies>
 void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop){
   if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
-  FermionFieldType tmp;
+  typedef typename FermionFieldType::InputParamType FieldParamType;
+  FieldParamType field_setup = from.getMode(0).getDimPolParams();  
+  FermionFieldType tmp(field_setup);
   
   Float preop_time = 0;
   Float gather_time = 0;
@@ -50,7 +52,9 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
 template< typename mf_Policies>
 void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop){
-  FermionFieldType tmp, tmp2;
+  typedef typename FermionFieldType::InputParamType FieldParamType;
+  FieldParamType field_setup = from.getWh(0).getDimPolParams();  
+  FermionFieldType tmp(field_setup), tmp2(field_setup);
 
   //Do wl
   for(int mode=0;mode<nl;mode++){
@@ -60,7 +64,7 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       init_gather_from = &tmp;
     }
     for(int mu=0;mu<3;mu++){
-      CPSfermion4DglobalInOneDir<FieldSiteType> tmp_dbl(mu);
+      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
       tmp_dbl.fft();
       tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
@@ -76,7 +80,7 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
 	init_gather_from = &tmp;
       }    
       for(int mu=0;mu<3;mu++){
-	CPSfermion4DglobalInOneDir<FieldSiteType> tmp_dbl(mu);
+	CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
 	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
 	tmp_dbl.fft();
 	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );

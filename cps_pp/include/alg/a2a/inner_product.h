@@ -198,27 +198,52 @@ class SCspinInnerProduct{
   const SourceType &src;
   int smatidx;
   
-  inline std::complex<double> do_op(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r,const int &f1, const int &f3) const{
+  // inline std::complex<double> do_op(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r,const int &f1, const int &f3) const{
+  //   if(smatidx == 15) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+  //   else if(smatidx == 0) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
+  //   else{ ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx); }
+  // }
+public:
+  SCspinInnerProduct(const int _smatidx, const SourceType &_src): smatidx(_smatidx), src(_src){ }
+    
+  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const;
+
+  // {
+  //   std::complex<double> out(0.0,0.0);
+  //   for(int f=0;f<1+GJP.Gparity();f++)
+  //     out += do_op(l,r,f,f);
+  //   return out * src.siteComplex(p);
+  // }
+};
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename ComplexClass>
+struct _SCspinInnerProduct_impl{};
+
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCspinInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, complex_double_or_float_mark>{
+  inline static std::complex<double> do_op(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r,const int f1, const int f3, const int smatidx){
     if(smatidx == 15) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
     else if(smatidx == 0) return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
     else{ ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx); }
   }
-public:
-  SCspinInnerProduct(const int &_smatidx, const SourceType &_src): smatidx(_smatidx), src(_src){ }
-    
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int &p, const int &t) const{
+  static std::complex<double> doit(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t, const int smatidx,const SourceType &src){
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++)
-      out += do_op(l,r,f,f);
+      out += do_op(l,r,f,f,smatidx);
     return out * src.siteComplex(p);
   }
 };
-
-
-
-
-
-
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCspinInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, grid_vector_complex_mark>{
+  static std::complex<double> doit(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t, const int smatidx,const SourceType &src){
+    assert(0); //NOT YET IMPLEMENTED
+  }
+};
+  
+template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+std::complex<double> SCspinInnerProduct<mf_Complex,SourceType,conj_left,conj_right>::operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  _SCspinInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l,r,p,t,smatidx,src);
+}
 
 
 

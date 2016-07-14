@@ -37,27 +37,6 @@ public:
   FieldType & getSource(){ return *src; } //For testing
 };
 
-//Some standard setups
-
-#ifdef USE_GRID
-struct GridSIMDSourcePolicies{
-  typedef Grid::vComplexD ComplexType;
-  typedef ThreeDSIMDPolicy DimensionPolicy;
-  typedef Aligned128AllocPolicy AllocPolicy;
-};
-struct GridSIMDSourcePoliciesSingle{
-  typedef Grid::vComplexF ComplexType;
-  typedef ThreeDSIMDPolicy DimensionPolicy;
-  typedef Aligned128AllocPolicy AllocPolicy;
-};
-#endif
-
-struct StandardSourcePolicies{
-  typedef cps::ComplexD ComplexType;
-  typedef SpatialPolicy DimensionPolicy;
-  typedef StandardAllocPolicy AllocPolicy;
-};
-
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
 template<typename FieldPolicies, typename SrcParams, typename Child>
@@ -202,6 +181,7 @@ protected:
   SourceType src_omit000; //same source structure, only the site 0,0,0 has been set to zero during the FFT
 
 public:
+  typedef typename SourceType::FieldParamType FieldParamType;
   typedef typename SourceType::Policies::ComplexType ComplexType;
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
@@ -248,11 +228,12 @@ public:
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >{
 public:
+  typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::ComplexType ComplexType;
   
-  A2AflavorProjectedExpSource(const Float &radius, const int p[3]): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
-    this->src_allsites.setup(radius,false);
-    this->src_omit000.setup(radius,true);
+  A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_setup_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
+    this->src_allsites.setup(radius,src_setup_params,false);
+    this->src_omit000.setup(radius,src_setup_params,true);
   }
 
 };
