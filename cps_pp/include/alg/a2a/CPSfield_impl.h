@@ -453,18 +453,79 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 }
 
 
+
+struct _gauge_fix_site_op_impl{
+  
+  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+    typedef typename mf_Complex::value_type mf_Float;
+    int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
+    mf_Complex tmp[3];
+    const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
+    mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
+    for(int s=0;s<4;s++){
+      memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
+      colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+    }
+  }
+#ifdef USE_GRID
+  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+    //x4d is an outer site index
+    int nsimd = field.Nsimd();
+    int ndim = DimensionPolicy::EuclideanDimension;
+    assert(ndim == 4);
+
+    //Assemble pointers to the GF matrices for each lane
+    std::vector<cps::Complex*> gf_base_ptrs(nsimd);
+    int x4d_lane[4];
+    int lane_off[4];
+    
+    for(int lane=0;lane<nsimd;lane++){
+      field.SIMDunmap(lane, lane_off);		      
+      for(int xx=0;xx<4;xx++) x4d_lane[xx] = x4d[xx] + lane_off[xx];
+      int gf_off = x4d_lane[0] + GJP.XnodeSites()*( x4d_lane[1] + GJP.YnodeSites()* ( x4d_lane[2] + GJP.ZnodeSites()*x4d_lane[3] ) );
+      gf_base_ptrs[lane] = (cps::Complex*)lat.FixGaugeMatrix(gf_off,f);
+    }
+
+
+    //Poke the GFmatrix elements into SIMD vector objects
+    typedef typename mf_Complex::scalar_type stype;
+    stype* buf = (stype*)memalign(128, nsimd*sizeof(stype));
+
+    mf_Complex gfmat[3][3];
+    for(int i=0;i<3;i++){
+      for(int j=0;j<3;j++){
+
+	for(int lane=0;lane<nsimd;lane++)
+	  buf[lane] = *(gf_base_ptrs[lane] + j + 3*i);
+	vset(gfmat[i][j], buf);
+      }
+    }
+
+    free(buf);
+
+    //Do the matrix multiplication
+    mf_Complex* tmp = (mf_Complex*)memalign(128, 3*sizeof(mf_Complex));
+    mf_Complex* sc_base = field.site_ptr(x4d,f); 
+    for(int s=0;s<4;s++){
+      mf_Complex* s_base = sc_base + 3 * s;
+      memcpy(tmp, s_base, 3 * sizeof(mf_Complex));
+      for(int i=0;i<3;i++)
+	s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+    }
+    free(tmp);
+  }
+#endif
+  
+};
+
+
+
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
-  typedef typename mf_Complex::value_type mf_Float;
-  int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
-  mf_Complex tmp[3];
-  const Matrix* gfmat = lat.FixGaugeMatrix(i,f);
-  mf_Complex* sc_base = (mf_Complex*)this->site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
-  for(int s=0;s<4;s++){
-    memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
-    colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
-  }
+  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat);
 }
 
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -483,19 +544,70 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentu
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
 //x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
+
+struct _apply_phase_site_op_impl{
+  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
+  inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+    assert(DimensionPolicy::EuclideanDimension >= 3);
+    
+    int x_glb[DimensionPolicy::EuclideanDimension]; for(int i=0;i<DimensionPolicy::EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
+    
+    double phi = 0;
+    for(int i=0;i<3;i++) phi += p[i]*punits[i]*x_glb[i];
+    std::complex<double> phase( cos(phi), -sin(phi) );
+    mf_Complex phase_prec(phase);
+
+    mf_Complex *base = field.site_ptr(x_lcl,flav);
+    for(int sc=0;sc<12;sc++){
+      mf_Complex* v = base + sc;
+      (*v) *= phase_prec;
+    }
+  }
+
+#ifdef USE_GRID
+  
+  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
+  inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+    assert(DimensionPolicy::EuclideanDimension >= 3);
+
+    int nsimd = field.Nsimd();
+
+    typedef typename mf_Complex::scalar_type stype;
+    stype* buf = (stype*)memalign(128, nsimd*sizeof(stype));
+
+    int lane_off[DimensionPolicy::EuclideanDimension];
+    int x_gbl_lane[DimensionPolicy::EuclideanDimension];
+    
+    for(int lane = 0; lane < nsimd; lane++){
+      field.SIMDunmap(lane, lane_off);
+      for(int xx=0;xx<DimensionPolicy::EuclideanDimension;xx++) x_gbl_lane[xx] = x_lcl[xx] + lane_off[xx] + GJP.NodeCoor(xx)*GJP.NodeSites(xx);
+      
+      double phi = 0;
+      for(int i=0;i<3;i++) phi += p[i]*punits[i]*x_gbl_lane[i];
+
+      buf[lane] = stype( cos(phi), -sin(phi) );
+    }
+
+    mf_Complex vphase;
+    vset(vphase, buf);
+    free(buf);
+
+    mf_Complex* base = field.site_ptr(x_lcl,flav);
+    for(int sc=0;sc<12;sc++){
+      mf_Complex* v = base + sc;
+      *v = vphase * (*v);
+    }
+  }
+
+#endif
+};
+
+
+
+
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
-  assert(this->EuclideanDimension >= 3);
-
-  int x_glb[this->EuclideanDimension]; for(int i=0;i<this->EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
-
-  double phi = 0;
-  for(int i=0;i<3;i++) phi += p[i]*punits[i]*x_glb[i];
-  std::complex<double> phase( cos(phi), -sin(phi) );
-  mf_Complex phase_prec(phase);
-
-  for(int sc=0;sc<12;sc++)
-    *(this->site_ptr(x_lcl,flav)+sc) *= phase_prec;
+  _apply_phase_site_op_impl::apply_phase_site_op(*this, x_lcl, flav, p, punits);
 }  
 
 

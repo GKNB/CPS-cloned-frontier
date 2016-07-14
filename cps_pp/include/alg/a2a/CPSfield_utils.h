@@ -36,6 +36,51 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
+template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
+inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
+  typedef typename FieldType::FieldSiteType::value_type value_type;
+  
+  double fail = 0.;
+  for(int xf=0;xf<A.nfsites();xf++){
+    int f; int x[FieldType::FieldDimensionPolicy::EuclideanDimension];
+    A.fsiteUnmap(xf, x,f);
+
+    for(int i=0;i<FieldType::FieldSiteSize;i++){
+      value_type const* av = (value_type const*)(A.fsite_ptr(xf)+i);
+      value_type const* bv = (value_type const*)(B.fsite_ptr(xf)+i);
+      for(int reim=0;reim<2;reim++){
+	value_type diff_rat = (av[reim] == 0.0 && bv[reim] == 0.0) ? 0.0 : fabs( 2.*(av[reim]-bv[reim])/(av[reim]+bv[reim]) );
+	if(diff_rat > tol || print_all){
+	  if(!print_all) std::cout << "Fail: (";
+	  else std::cout << "Pass: (";
+	  
+	  for(int xx=0;xx<FieldType::FieldDimensionPolicy::EuclideanDimension-1;xx++)
+	    std::cout << x[xx] << ", ";
+	  std::cout << x[FieldType::FieldDimensionPolicy::EuclideanDimension-1];
+
+	  std::cout << ") f=" << f << " reim " << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
+	  if(!print_all) fail = 1.;
+	}
+      }
+    }
+  }
+  glb_max(&fail);
+  
+  if(fail!=0.0){
+    if(!UniqueID()){ printf("Failed %s check\n", descr.c_str()); fflush(stdout); } 
+    exit(-1);
+  }else{
+    if(!UniqueID()){ printf("Passed %s check\n", descr.c_str()); fflush(stdout); }
+  }
+}
+
+
+
+
+
+
+
+
 #ifdef USE_BFM
 inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
   Fermion_t zero_a = dwf.allocFermion();
