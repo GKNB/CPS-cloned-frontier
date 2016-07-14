@@ -115,11 +115,11 @@ public:
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
-  void fft(const A2AvectorV<Policies> &from, fieldOperation<FieldSiteType>* mode_preop = NULL);
+  void fft(const A2AvectorV<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
 
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat){
-    gaugeFixAndTwist<FieldSiteType> op(_p,_lat); fft(from, &op);
+    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
@@ -336,11 +336,11 @@ public:
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
-  void fft(const A2AvectorW<Policies> &from, fieldOperation<FieldSiteType>* mode_preop = NULL);
+  void fft(const A2AvectorW<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
 
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat){
-    gaugeFixAndTwist<FieldSiteType> op(_p,_lat); fft(from, &op);
+    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
   //The flavor and timeslice dilutions are still packed so we must treat them differently

@@ -4,20 +4,20 @@
 CPS_START_NAMESPACE
 
 //Perform some operation on a field
-template <typename mf_Complex>
+template <typename FieldType>
 class fieldOperation{
 public:
-  virtual void operator()(const CPSfermion4D<mf_Complex> &in, CPSfermion4D<mf_Complex> &out) = 0;
+  virtual void operator()(const FieldType &in, FieldType &out) = 0;
 };
 
-template <typename mf_Complex>
-class gaugeFixAndTwist: public fieldOperation<mf_Complex>{
+template <typename FieldType>
+class gaugeFixAndTwist: public fieldOperation<FieldType>{
   int p[3];
   Lattice *lat;
 public:
   gaugeFixAndTwist(const int _p[3], Lattice &_lat): lat(&_lat){ for(int i=0;i<3;i++) p[i] = _p[i]; }
 
-  void operator()(const CPSfermion4D<mf_Complex> &in, CPSfermion4D<mf_Complex> &out){
+  void operator()(const FieldType &in, FieldType &out){
     //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
     out = in;
     out.gaugeFix(*lat,true);
