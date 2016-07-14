@@ -447,8 +447,6 @@ class SIMDpolicyBase{
 };
 
 
-  
-
 class FourDSIMDPolicy: public SIMDpolicyBase<4>{ //4D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
   int simd_dims[4]; //number of SIMD logical nodes in each direction
   int logical_dim[4]; //dimension of logical nodes
@@ -524,7 +522,8 @@ public:
   ParamType getDimPolParams() const{
     return ParamType(simd_dims);
   }
-    
+
+  typedef FourDpolicy EquivalentScalarPolicy;
 };
 
 
@@ -599,8 +598,19 @@ public:
   ParamType getDimPolParams() const{
     return ParamType(simd_dims);
   }
+
+  typedef SpatialPolicy EquivalentScalarPolicy;
 };
 
+
+template<typename T>
+class isSIMDdimensionPolicy{
+  template<typename U, int (U::*)() const> struct SFINAE {};
+  template<typename U> static char Test(SFINAE<U, &U::Nsimd>*);
+  template<typename U> static std::pair<char,char> Test(...);
+public:
+  enum { value = sizeof(Test<T>(0)) == sizeof(char) };
+};
 
 
 

@@ -178,7 +178,8 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
   }
 }
 
-template<typename mf_Policies>
+
+template<typename mf_Policies, typename my_enable_if<_equal<typename ComplexClassify<typename mf_Policies::ComplexType>::type, complex_double_or_float_mark>::value, int>::type = 0>
 void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
   typedef typename mf_Policies::FermionFieldType FermionFieldType;
   typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
@@ -213,4 +214,40 @@ void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
   
   for(int i=0;i<nhit;i++)
     W.importWh(wh[i],i);
+}
+
+//Ensure this generates randoms in the same order as the scalar version
+template<typename mf_Policies, typename my_enable_if<_equal<typename ComplexClassify<typename mf_Policies::ComplexType>::type, grid_vector_complex_mark>::value, int>::type = 0>
+void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+  typedef typename mf_Policies::FermionFieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimensionPolicy;
+  
+  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarFermionFieldType;
+  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarComplexFieldType;
+  
+  int nl = V.getNl();
+  int nh = V.getNh(); //number of fully diluted high-mode indices
+  int nhit = V.getNhits();
+  assert(nl == W.getNl());
+  assert(nh == W.getNh());
+  assert(nhit == W.getNhits());
+
+  ScalarFermionFieldType tmp;
+  ScalarComplexFieldType tmp_cmplx;
+  
+  for(int i=0;i<nl;i++){
+    tmp.setUniformRandom();
+    W.getWl(i).importField(tmp);
+  }
+  for(int i=0;i<nl;i++){
+    tmp.setUniformRandom();
+    V.getVl(i).importField(tmp);
+  }
+  for(int i=0;i<nhit;i++){
+    tmp_cmplx.setUniformRandom();
+    W.getWh(i).importField(tmp_cmplx);
+  }
+  for(int i=0;i<nh;i++){
+    tmp.setUniformRandom();
+    V.getVh(i).importField(tmp);
+  }
 }

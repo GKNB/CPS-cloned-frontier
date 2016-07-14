@@ -26,6 +26,20 @@
 #include<alg/a2a/grid_cgne_m_high.h>
 CPS_START_NAMESPACE 
 
+//If using SIMD, we don't want to vectorize across the time direction
+template<typename FieldInputParamType>
+struct checkSIMDparams{
+  inline static void check(const FieldInputParamType &p){}
+};
+#ifdef USE_GRID
+template<int Dimension>
+struct checkSIMDparams<SIMDdims<Dimension> >{
+  inline static void check(const SIMDdims<Dimension> &p){
+    assert(p[3] == 1);
+  }
+};
+#endif
+
 template< typename mf_Policies>
 class A2AvectorVfftw;
 
@@ -39,7 +53,7 @@ public:
 private:
   std::vector<FermionFieldType> v;
   const std::string cname;
-
+  
 public:
   typedef StandardIndexDilution DilutionType;
 
@@ -51,6 +65,7 @@ public:
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
   A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorV"){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
@@ -107,6 +122,7 @@ public:
     v.resize(nv,FermionFieldType());
   }
   A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
   }
   
@@ -196,14 +212,18 @@ public:
     wl.resize(nl,FermionFieldType());
     wh.resize(nhits, ComplexFieldType()); 
   }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_input_params): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
-    wl.resize(nl,FermionFieldType(field_input_params));
-    wh.resize(nhits, ComplexFieldType(field_input_params)); 
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
+    wl.resize(nl,FermionFieldType(field_setup_params));
+    wh.resize(nhits, ComplexFieldType(field_setup_params)); 
   }
   
   const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return wh[hit]; }
 
+  FermionFieldType & getWl(const int i){ return wl[i]; }
+  ComplexFieldType & getWh(const int hit){ return wh[hit]; }
+  
   void importWl(const FermionFieldType &wlin, const int i){
     wl[i] = wlin;
   }
@@ -323,6 +343,7 @@ public:
     wh.resize(12*nhits, FermionFieldType()); 
   }
   A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+    checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
     wh.resize(12*nhits, FermionFieldType(field_setup_params)); 
   }
@@ -438,9 +459,7 @@ public:
 
 };
 
-//Generate uniform random V and W vectors for testing
-template<typename Policies>
-void randomizeVW(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W);
+
 
 
 
