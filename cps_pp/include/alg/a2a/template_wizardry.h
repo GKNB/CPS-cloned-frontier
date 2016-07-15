@@ -118,4 +118,26 @@ struct ComplexClassify{
 };
 
 
+
+//A version of is_base_of (copied from the internet!  https://stackoverflow.com/questions/2910979/how-does-is-base-of-work)
+
+template <typename B, typename D>
+struct _is_base_of_host
+{
+  operator B*() const;
+  operator D*();
+};
+
+template <typename B, typename D>
+struct my_is_base_of
+{
+  template <typename T> 
+  static char check(D*, T);
+  static std::pair<char,char> check(B*, int);
+
+  static const bool value = sizeof(check(_is_base_of_host<B,D>(), int())) == sizeof(char);
+};
+
+
+
 #endif
