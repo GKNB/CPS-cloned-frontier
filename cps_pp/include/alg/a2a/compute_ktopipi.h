@@ -91,9 +91,14 @@ public:
 
   //The kaon meson field is expected to be constructed in the W*W form
 
+  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
+  
   //ls_WW meson fields
   template< typename Allocator >
-  static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww, const A2AvectorW<mf_Policies> &W, const A2AvectorW<mf_Policies> &W_s, const int kaon_rad, Lattice &lat){
+  static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww,
+				      const A2AvectorW<mf_Policies> &W, const A2AvectorW<mf_Policies> &W_s, const int kaon_rad, Lattice &lat,
+				      const SourceParamType &src_params = NullObject()){
+    typedef typename mf_Policies::SourcePolicies SourcePolicies;
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
     double time = -dclock();
 
@@ -103,15 +108,18 @@ public:
     //0 momentum kaon constructed from (-1,-1,-1) + (1,1,1)  in units of pi/2L
     int p[3];
     for(int i=0;i<3;i++) p[i] = (GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0);
+
+    typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
+    VWfieldInputParams fld_params = W.getWh(0).getDimPolParams();
     
-    A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs());
+    A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
     fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
 
-    A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs());
+    A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
 
-    A2AflavorProjectedExpSource<> fpexp(kaon_rad, p);
-    SCFspinflavorInnerProduct<typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
+    A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
+    SCFspinflavorInnerProduct<typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 

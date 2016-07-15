@@ -28,7 +28,7 @@ public:
     ilp.time = top_glb;
     irp.time = top_glb;
     
-    int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;
+    int site4dop = l.getMode(0).threeToFour(xop, top);
 
     for(int sl=0;sl<4;sl++){
       for(int cl=0;cl<3;cl++){
@@ -82,7 +82,7 @@ public:
     irp.time = top_glb;
     
     //We want to treat this as a matrix mult of a 24 * nv  matrix with an nv * 24 matrix, where nv is the number of fully undiluted indices. First implementation uses regular GSL, but could perhaps be done better with sparse matrices
-    int site4dop = xop + GJP.VolNodeSites()/GJP.TnodeSites()*top;    
+    int site4dop = l.getMode(0).threeToFour(xop,top);
     const static int nscf = 2*3*4;
 
     //Pull out the components we need into packed GSL vectors
