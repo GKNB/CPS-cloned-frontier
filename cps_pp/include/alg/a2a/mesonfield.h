@@ -52,10 +52,6 @@ public:
 
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
 
-  inline ScalarComplexType & operator()(const int &i, const int &j){
-    return mf[j + nmodes_r*i]; //right mode index changes most quickly
-  }
-
   void nodeSum(){
     QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
   }
@@ -151,7 +147,11 @@ public:
   inline const int size() const{ return fsize; }
 
   //Access elements with compressed mode index
-  inline const ScalarComplexType & operator()(const int &i, const int &j) const{
+  inline ScalarComplexType & operator()(const int i, const int j){ //Use at your own risk
+    return mf[j + nmodes_r*i]; //right mode index changes most quickly
+  }
+  
+  inline const ScalarComplexType & operator()(const int i, const int j) const{
     return mf[j + nmodes_r*i];
   }
   

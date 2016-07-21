@@ -26,6 +26,7 @@
 #include<alg/wilson_matrix.h>
 #include<util/spincolorflavormatrix.h>
 
+
 #if defined(USE_GRID) && !defined(DISABLE_GRID_A2A)
 #include<util/lattice/fgrid.h>
 #endif
@@ -43,6 +44,8 @@
 //using namespace Chroma;
 using namespace cps;
 
+#include <alg/a2a/template_wizardry.h>
+#include <alg/a2a/spin_color_matrices.h>
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 
@@ -269,7 +272,7 @@ int main(int argc,char *argv[])
   }
 
   A2AArg a2a_args;
-  a2a_args.nl = 900;
+  a2a_args.nl = 100;
   a2a_args.nhits = 1;
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
@@ -297,17 +300,22 @@ int main(int argc,char *argv[])
   }
     
   int nsimd = grid_Complex::Nsimd();
-  int simd_dims[4];
+  
+  FourDSIMDPolicy::ParamType simd_dims;
   FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
 
+  ThreeDSIMDPolicy::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  
   printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
   for(int i=0;i<4;i++)
     printf("%d ", simd_dims[i]);
   printf("\n");
 
   NullObject n;
-  if(1){
-    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
+  if(0){
+    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims_3d);
     CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
     b.testRandom();
     a.importField(b);
@@ -319,11 +327,11 @@ int main(int argc,char *argv[])
     printf("Test success\n");
   }
 
-  if(1){
+  if(0){
     CPSglobalComplexSpatial<mf_Complex,OneFlavorPolicy> glb;
     glb.testRandom();
 
-    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims);
+    CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims_3d);
     CPSfield<mf_Complex,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
 
     glb.scatter<grid_Complex,ThreeDSIMDPolicy,Aligned128AllocPolicy>(a);
@@ -338,7 +346,7 @@ int main(int argc,char *argv[])
   
   if(0){
     A2AexpSource<StandardSourcePolicies> std_exp(2.0);
-    A2AexpSource<GridSIMDSourcePolicies> grid_exp(2.0, simd_dims);
+    A2AexpSource<GridSIMDSourcePolicies> grid_exp(2.0, simd_dims_3d);
 
     CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
     b.importField(grid_exp.getSource());
@@ -350,7 +358,6 @@ int main(int argc,char *argv[])
   CPSfermion4D<cps::ComplexD> tmp;
   int ns = tmp.nodeSites(0);
 
-  
   {
     typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
     typedef _deduce_a2a_field_policies<grid_Complex> GridA2Apolicies;
@@ -367,7 +374,7 @@ int main(int argc,char *argv[])
     A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
     A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
     
-    A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims);
+    A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims_3d);
     SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
 
     A2AexpSource<> src(2.0);
@@ -375,37 +382,127 @@ int main(int argc,char *argv[])
 
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    Float total_time = 0.;
-    Float total_time_orig = 0.;
-    for(int iter=0;iter<ntests;iter++){
+    if(0){ //test mesonfield contract
+      Float total_time = 0.;
+      Float total_time_orig = 0.;
+      for(int iter=0;iter<ntests;iter++){
+	W.testRandom();
+	V.testRandom();
+	Wgrid.importFields(W);
+	Vgrid.importFields(V);
+      
+	total_time -= dclock();
+	mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
+	total_time += dclock();
+
+	total_time_orig -= dclock();
+	mf.compute(W,mf_struct,V,0);
+	total_time_orig += dclock();
+      
+	bool fail = false;
+	for(int i=0;i<mf.size();i++){
+	  const Ctype& gd = mf_grid.ptr()[i];
+	  const Ctype& cp = mf.ptr()[i];
+	  Ftype rdiff = fabs(gd.real()-cp.real());
+	  Ftype idiff = fabs(gd.imag()-cp.imag());
+	  if(rdiff > tol|| idiff > tol){
+	    printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+	    fail = true;
+	  }
+	}
+	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");	
+      }
+      printf("MF contract: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+      printf("MF contract: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+    }else{
       W.testRandom();
       V.testRandom();
       Wgrid.importFields(W);
       Vgrid.importFields(V);
-      
-      total_time -= dclock();
-      mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
-      total_time += dclock();
 
-      total_time_orig -= dclock();
-      mf.compute(W,mf_struct,V,0);
-      total_time_orig += dclock();
-      
-      bool fail = false;
-      for(int i=0;i<mf.size();i++){
-	const Ctype& gd = mf_grid.ptr()[i];
-	const Ctype& cp = mf.ptr()[i];
-	Ftype rdiff = fabs(gd.real()-cp.real());
-	Ftype idiff = fabs(gd.imag()-cp.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-	  fail = true;
-	}
-      }
-      if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");	
+      mf.setup(W,V,0,0);
+      mf_grid.setup(Wgrid,Vgrid,0,0);     
+      mf.testRandom();
+      for(int i=0;i<mf.getNrows();i++)
+	for(int j=0;j<mf.getNcols();j++)
+	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
-    printf("Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-    printf("Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+
+    if(1){ //test vMv implementation
+      
+      Float total_time = 0.;
+      Float total_time_orig = 0.;
+      SpinColorFlavorMatrix orig_sum[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
+
+      SpinColorFlavorMatrix orig_tmp[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
+
+      int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
+      int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+      
+      for(int iter=0;iter<ntests;iter++){
+	for(int i=0;i<nthreads;i++){
+	  orig_sum[i] = 0.; grid_sum[i].zero();
+	}
+	
+	for(int top = 0; top < GJP.TnodeSites(); top++){
+	  std::cout << "top " << top << std::endl;
+	  std::cout << "Starting orig\n";
+	  total_time_orig -= dclock();	  
+#pragma omp parallel for
+	  for(int xop=0;xop<orig_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    mult(orig_tmp[me], V, mf, W, xop, top, false, true);
+	    orig_sum[me] += orig_tmp[me];
+	  }
+	  total_time_orig += dclock();
+	  std::cout << "Starting Grid\n";
+	  total_time -= dclock();
+#pragma omp parallel for
+	  for(int xop=0;xop<grid_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
+	    grid_sum[me] += grid_tmp[me];
+	  }
+	  total_time += dclock();	  
+	}
+	for(int i=1;i<nthreads;i++){
+	  orig_sum[0] += orig_sum[i];
+	  grid_sum[0] += grid_sum[i];
+	}
+
+	
+	bool fail = false;
+	
+	Ctype gd;
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+
+		    double rdiff = fabs(gd.real()-cp.real());
+		    double idiff = fabs(gd.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		      fail = true;
+		    }
+		  }
+
+	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+      }
+
+      printf("vMv basic: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+      printf("vMv basic: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+    }
+    
+
+
+    
   }
 
   

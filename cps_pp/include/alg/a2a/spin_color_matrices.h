@@ -582,6 +582,7 @@ public:
   typedef typename SCFmat::value_type value_type;
   typedef typename SCFmat::scalar_type scalar_type;
 
+  CPSspinColorFlavorMatrix(): SCFmat(){}
   CPSspinColorFlavorMatrix(const SCFmat &r): SCFmat(r){}
   inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
   
