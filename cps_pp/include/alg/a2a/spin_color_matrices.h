@@ -575,7 +575,23 @@ public:
   };
 };
 
+template<typename ComplexType>
+class CPSspinColorFlavorMatrix: public CPSspinMatrix<CPScolorMatrix<CPSflavorMatrix<ComplexType> > >{
+public:
+  typedef CPSspinMatrix<CPScolorMatrix<CPSflavorMatrix<ComplexType> > > SCFmat;
+  typedef typename SCFmat::value_type value_type;
+  typedef typename SCFmat::scalar_type scalar_type;
 
+  CPSspinColorFlavorMatrix(const SCFmat &r): SCFmat(r){}
+  inline operator SCFmat(){ return static_cast<SCFmat&>(*this); }
+  
+  template<typename U>
+  struct Rebase{
+    typedef CPSspinMatrix<U> type;
+  };
+  
+
+};
 
 
 
