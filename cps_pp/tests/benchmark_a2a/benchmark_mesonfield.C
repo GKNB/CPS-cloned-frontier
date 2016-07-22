@@ -428,7 +428,7 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(1){ //test vMv implementation
+    if(0){ //test vMv implementation
       
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -501,6 +501,77 @@ int main(int argc,char *argv[])
     }
     
 
+    if(1){ //test vvv implementation
+      
+      Float total_time = 0.;
+      Float total_time_orig = 0.;
+      SpinColorFlavorMatrix orig_sum[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
+
+      SpinColorFlavorMatrix orig_tmp[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
+
+      int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
+      int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+      
+      for(int iter=0;iter<ntests;iter++){
+	for(int i=0;i<nthreads;i++){
+	  orig_sum[i] = 0.; grid_sum[i].zero();
+	}
+	
+	for(int top = 0; top < GJP.TnodeSites(); top++){
+	  std::cout << "top " << top << std::endl;
+	  std::cout << "Starting orig\n";
+	  total_time_orig -= dclock();	  
+#pragma omp parallel for
+	  for(int xop=0;xop<orig_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    mult(orig_tmp[me], V, W, xop, top, false, true);
+	    orig_sum[me] += orig_tmp[me];
+	  }
+	  total_time_orig += dclock();
+	  std::cout << "Starting Grid\n";
+	  total_time -= dclock();
+#pragma omp parallel for
+	  for(int xop=0;xop<grid_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    mult(grid_tmp[me], Vgrid, Wgrid, xop, top, false, true);
+	    grid_sum[me] += grid_tmp[me];
+	  }
+	  total_time += dclock();	  
+	}
+	for(int i=1;i<nthreads;i++){
+	  orig_sum[0] += orig_sum[i];
+	  grid_sum[0] += grid_sum[i];
+	}
+
+	
+	bool fail = false;
+	
+	Ctype gd;
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+
+		    double rdiff = fabs(gd.real()-cp.real());
+		    double idiff = fabs(gd.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		      fail = true;
+		    }
+		  }
+
+	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+      }
+
+      printf("vv basic: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+      printf("vv basic: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+    }
 
     
   }
