@@ -336,10 +336,16 @@ public:
     int nv = std_idx.getNmodes();
     const static int nscf = 2*3*4;
 
-    VectorComplexType zro; zeroit(zro);
-    std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
-    std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
+    //VectorComplexType zro; zeroit(zro);
+    //std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
+    //std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
 
+    VectorComplexType lcp[nscf][nv];
+    VectorComplexType rcp[nv][nscf];
+    for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
+    for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
+    
+    
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
     	ilp.spin_color = irp.spin_color = c + 3*s;

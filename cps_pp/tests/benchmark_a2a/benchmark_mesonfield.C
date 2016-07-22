@@ -49,13 +49,13 @@ using namespace cps;
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 
-// typedef double mf_Float;
-// typedef Grid::vComplexD grid_Complex;
-// typedef GridSIMDSourcePolicies GridSrcPolicy;
+typedef double mf_Float;
+typedef Grid::vComplexD grid_Complex;
+typedef GridSIMDSourcePolicies GridSrcPolicy;
 
-typedef float mf_Float;
-typedef Grid::vComplexF grid_Complex;
-typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
+// typedef float mf_Float;
+// typedef Grid::vComplexF grid_Complex;
+// typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
 
 
 typedef std::complex<mf_Float> mf_Complex;
@@ -382,7 +382,8 @@ int main(int argc,char *argv[])
 
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(0){ //test mesonfield contract
+    if(1){ //test mesonfield contract
+      std::cout << "Starting mesonfield contract benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
       for(int iter=0;iter<ntests;iter++){
@@ -428,8 +429,8 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(0){ //test vMv implementation
-      
+    if(1){ //test vMv implementation
+      std::cout << "Starting vMv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
       SpinColorFlavorMatrix orig_sum[nthreads];
@@ -501,8 +502,8 @@ int main(int argc,char *argv[])
     }
     
 
-    if(1){ //test vvv implementation
-      
+    if(1){ //test vv implementation
+      std::cout << "Starting vv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
       SpinColorFlavorMatrix orig_sum[nthreads];
