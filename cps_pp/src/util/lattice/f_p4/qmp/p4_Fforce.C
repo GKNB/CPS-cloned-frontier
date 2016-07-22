@@ -10,6 +10,7 @@
 
 #include <util/lattice.h>
 #include <util/pt.h>
+#include <util/vector.h>
 #include <util/gjp.h>
 #include <util/time_cps.h>
 #include <util/amalloc.h>
@@ -46,9 +47,6 @@ static void v_free(void *ptr){
 }
 
 
-#if 0
-extern "C" void vaxpy3(Vector *a, Float *b, Vector *c,Vector *d, int nvec);
-#endif
 const int VAXPY_UNROLL =6;
 
 
