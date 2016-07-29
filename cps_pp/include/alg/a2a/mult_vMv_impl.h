@@ -326,6 +326,10 @@ public:
 
     //Are particular row indices of M actually used?
     bool rowidx_used[Mrows]; for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
+
+    //Reorder rows and columns such that they can be accessed sequentially
+    Grid::Vector<VectorComplexType> lreord[nscf];
+    Grid::Vector<VectorComplexType> rreord[nscf];
     
     //Note:
     //il is the index of l, 
@@ -349,9 +353,13 @@ public:
     	  std::vector<int> &ilmap_this = ilmap[scf]; ilmap_this.resize(ni_this);
     	  std::vector<int> &irmap_this = irmap[scf]; irmap_this.resize(ni_this);
 
+	  lreord[scf].resize(ni_this);
     	  for(int i = 0; i < ni_this; i++){
     	    i_ind.getBothIndices(ilmap_this[i],irmap_this[i],i,ilp,irp);
-	    rowidx_used[ irmap_this[i] ] = true; //this row index is used
+	    rowidx_used[ irmap_this[i] ] = true; //this row index of Mr is used
+	    
+	    const VectorComplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
+	    lreord[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
     	  }
 
     	  //j index
@@ -361,8 +369,12 @@ public:
     	  std::vector<int> &jlmap_this = jlmap[scf]; jlmap_this.resize(nj_this);
     	  std::vector<int> &jrmap_this = jrmap[scf]; jrmap_this.resize(nj_this);
 
+	  rreord[scf].resize(nj_this);
     	  for(int j = 0; j < nj_this; j++){
     	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
+
+	    const VectorComplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
+	    rreord[scf][j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
     	  }
 
      	}
@@ -383,30 +395,33 @@ public:
 	
 	for(int j=0;j<nj_this;j++){
 	  Grid::vsplat(tmp_v, M(i, jlmap[scf][j]) );
-	  const VectorComplexType &relem = r.nativeElem(jrmap[scf][j], site4dop, sc, f);
+	  //const VectorComplexType &relem = r.nativeElem(jrmap[scf][j], site4dop, sc, f);
+	  //Mr[i][scf] = Mr[i][scf] + tmp_v * (conj_r ? Grid::conjugate(relem) : relem);
 	  
-	  Mr[i][scf] = Mr[i][scf] + tmp_v * (conj_r ? Grid::conjugate(relem) : relem);
+	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord[scf][j];
 	}
       }
     }
 
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
-      for(int cl=0;cl<3;cl++){
-	int scl = cl + 3*sl;
-    	for(int fl=0;fl<2;fl++){
-	  int scfl = fl + 2*scl;
-
-	  int ni_this = ni[scfl];
-	  for(int sr=0;sr<4;sr++){
-	    for(int cr=0;cr<3;cr++){
+      for(int sr=0;sr<4;sr++){
+	for(int cl=0;cl<3;cl++){
+	  int scl = cl + 3*sl;
+	  for(int cr=0;cr<3;cr++){
+	    for(int fl=0;fl<2;fl++){
+	      int scfl = fl + 2*scl;
+	      int ni_this = ni[scfl];
 	      for(int fr=0;fr<2;fr++){
+		int scfr = fr + 2*(cr + 3*sr);		
+
 		VectorComplexType &into = out(sl,sr)(cl,cr)(fl,fr);
-		int scfr = fr + 2*(cr + 3*sr);
 
 		for(int i=0;i<ni_this;i++){
-		  const VectorComplexType lelem = l.nativeElem(ilmap[scfl][i], site4dop, scl, fl);
-		  into = into + (conj_l ? Grid::conjugate(lelem) : lelem) * Mr[irmap[scfl][i]][scfr];
+		  //const VectorComplexType lelem = l.nativeElem(ilmap[scfl][i], site4dop, scl, fl);
+		  //into = into + (conj_l ? Grid::conjugate(lelem) : lelem) * Mr[irmap[scfl][i]][scfr];
+		  
+		  into = into + lreord[scfl][i]*Mr[irmap[scfl][i]][scfr];
 		}
 	      }
 	    }

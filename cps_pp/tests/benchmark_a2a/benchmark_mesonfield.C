@@ -271,6 +271,28 @@ int main(int argc,char *argv[])
     if(UniqueID()==0) printf("Config written.\n");
   }
 
+  int nscf = 10;
+  int nv = 10;
+
+  // {
+  //   typedef grid_Complex VectorComplexType;
+    
+  //   VectorComplexType zro; zeroit(zro);
+  //   std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
+  //   std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
+    
+  //   VectorComplexType lcp[nscf][nv];
+  //   VectorComplexType rcp[nv][nscf];
+  //   for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
+  //   for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
+
+    
+
+    
+  
+
+
+  
   A2AArg a2a_args;
   a2a_args.nl = 100;
   a2a_args.nhits = 1;
@@ -448,8 +470,8 @@ int main(int argc,char *argv[])
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
-	  std::cout << "top " << top << std::endl;
-	  std::cout << "Starting orig\n";
+	  //std::cout << "top " << top << std::endl;
+	  //std::cout << "Starting orig\n";
 	  total_time_orig -= dclock();	  
 #pragma omp parallel for
 	  for(int xop=0;xop<orig_3vol;xop++){
@@ -458,7 +480,7 @@ int main(int argc,char *argv[])
 	    orig_sum[me] += orig_tmp[me];
 	  }
 	  total_time_orig += dclock();
-	  std::cout << "Starting Grid\n";
+	  //std::cout << "Starting Grid\n";
 	  total_time -= dclock();
 #pragma omp parallel for
 	  for(int xop=0;xop<grid_3vol;xop++){
@@ -497,8 +519,8 @@ int main(int argc,char *argv[])
 	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
       }
 
-      printf("vMv basic: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-      printf("vMv basic: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+      printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+      printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
     }
     
 
@@ -521,8 +543,8 @@ int main(int argc,char *argv[])
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
-	  std::cout << "top " << top << std::endl;
-	  std::cout << "Starting orig\n";
+	  //std::cout << "top " << top << std::endl;
+	  //std::cout << "Starting orig\n";
 	  total_time_orig -= dclock();	  
 #pragma omp parallel for
 	  for(int xop=0;xop<orig_3vol;xop++){
@@ -531,7 +553,7 @@ int main(int argc,char *argv[])
 	    orig_sum[me] += orig_tmp[me];
 	  }
 	  total_time_orig += dclock();
-	  std::cout << "Starting Grid\n";
+	  //std::cout << "Starting Grid\n";
 	  total_time -= dclock();
 #pragma omp parallel for
 	  for(int xop=0;xop<grid_3vol;xop++){
@@ -570,8 +592,8 @@ int main(int argc,char *argv[])
 	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
       }
 
-      printf("vv basic: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-      printf("vv basic: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+      printf("vv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+      printf("vv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
     }
 
     

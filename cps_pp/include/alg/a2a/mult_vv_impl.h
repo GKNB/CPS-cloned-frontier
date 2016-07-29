@@ -336,15 +336,16 @@ public:
     int nv = std_idx.getNmodes();
     const static int nscf = 2*3*4;
 
-    //VectorComplexType zro; zeroit(zro);
-    //std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
-    //std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
+    //Why doesn't this work?
+    // VectorComplexType zro; zeroit(zro);
+    // std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
+    // std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
 
-    VectorComplexType lcp[nscf][nv];
-    VectorComplexType rcp[nv][nscf];
+        
+    std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv) );    
+    std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf) );    
     for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
     for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
-    
     
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
@@ -357,7 +358,7 @@ public:
 	  std::vector<bool> lnon_zeroes;
 	  l.getIndexMapping(lmap,lnon_zeroes,ilp);
 
-	  for(int i=0;i<nv;i++) //Could probably speed this up using the contiguous block finder and memcpy
+	  for(int i=0;i<nv;i++) 
 	    if(lnon_zeroes[i]){
 	      const VectorComplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
 	      lcp[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
