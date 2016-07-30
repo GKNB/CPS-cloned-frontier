@@ -404,7 +404,7 @@ int main(int argc,char *argv[])
 
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(1){ //test mesonfield contract
+    if(0){ //test mesonfield contract
       std::cout << "Starting mesonfield contract benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -455,23 +455,39 @@ int main(int argc,char *argv[])
       std::cout << "Starting vMv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
+      Float total_time_split_orig = 0.;
+      Float total_time_split_orig_xall = 0.;
+      
       SpinColorFlavorMatrix orig_sum[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
       SpinColorFlavorMatrix orig_tmp[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
 
+      SpinColorFlavorMatrix orig_sum_split[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split[nthreads];
+
+      SpinColorFlavorMatrix orig_sum_split_xall[nthreads];
+      CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_xall[nthreads];
+
+      
       int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
       int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+
+      mult_vMv_split<A2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
+
+      std::vector<SpinColorFlavorMatrix> orig_split_xall_tmp(orig_3vol);
       
       for(int iter=0;iter<ntests;iter++){
 	for(int i=0;i<nthreads;i++){
 	  orig_sum[i] = 0.; grid_sum[i].zero();
+	  orig_sum_split[i] = 0.; grid_sum_split[i].zero();
+	  orig_sum_split_xall[i] = 0.; grid_sum_split_xall[i].zero();
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
-	  //std::cout << "top " << top << std::endl;
-	  //std::cout << "Starting orig\n";
+
+	  //ORIG VMV
 	  total_time_orig -= dclock();	  
 #pragma omp parallel for
 	  for(int xop=0;xop<orig_3vol;xop++){
@@ -480,7 +496,8 @@ int main(int argc,char *argv[])
 	    orig_sum[me] += orig_tmp[me];
 	  }
 	  total_time_orig += dclock();
-	  //std::cout << "Starting Grid\n";
+
+	  //GRID VMV
 	  total_time -= dclock();
 #pragma omp parallel for
 	  for(int xop=0;xop<grid_3vol;xop++){
@@ -488,11 +505,38 @@ int main(int argc,char *argv[])
 	    mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
 	    grid_sum[me] += grid_tmp[me];
 	  }
-	  total_time += dclock();	  
-	}
+	  total_time += dclock();
+
+	  //SPLIT VMV
+	  total_time_split_orig -= dclock();	  
+	  vmv_split_orig.setup(V, mf, W, top);
+
+#pragma omp parallel for
+	  for(int xop=0;xop<orig_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    vmv_split_orig.contract(orig_tmp[me], xop, false, true);
+	    orig_sum_split[me] += orig_tmp[me];
+	  }
+	  total_time_split_orig += dclock();
+
+	  
+	  //SPLIT VMV THAT DOES IT FOR ALL SITES
+	  total_time_split_orig_xall -= dclock();	  
+	  vmv_split_orig.setup(V, mf, W, top);
+	  vmv_split_orig.contract(orig_split_xall_tmp, false, true);
+#pragma omp parallel for
+	  for(int xop=0;xop<orig_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
+	  }
+	  total_time_split_orig_xall += dclock();
+	  
+	}//end top loop
 	for(int i=1;i<nthreads;i++){
 	  orig_sum[0] += orig_sum[i];
 	  grid_sum[0] += grid_sum[i];
+	  orig_sum_split[0] += orig_sum_split[i];
+	  orig_sum_split_xall[0] += orig_sum_split_xall[i];	  
 	}
 
 	
@@ -507,7 +551,7 @@ int main(int argc,char *argv[])
 		  for(int fr=0;fr<2;fr++){
 		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
 		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
-
+		    
 		    double rdiff = fabs(gd.real()-cp.real());
 		    double idiff = fabs(gd.imag()-cp.imag());
 		    if(rdiff > tol|| idiff > tol){
@@ -517,14 +561,60 @@ int main(int argc,char *argv[])
 		  }
 
 	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    const std::complex<double> &split = orig_sum_split[0](sl,cl,fl,sr,cr,fr);
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    
+		    double rdiff = fabs(split.real()-cp.real());
+		    double idiff = fabs(split.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Split (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, split.real(),split.imag(), cp.real(),cp.imag(), cp.real()-split.real(), cp.imag()-split.imag());
+		      fail = true;
+		    }
+		  }
+
+	if(fail) ERR.General("","","Standard vs Split implementation 1 test failed\n");
+
+
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    const std::complex<double> &split = orig_sum_split_xall[0](sl,cl,fl,sr,cr,fr);
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    
+		    double rdiff = fabs(split.real()-cp.real());
+		    double idiff = fabs(split.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Split xall (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, split.real(),split.imag(), cp.real(),cp.imag(), cp.real()-split.real(), cp.imag()-split.imag());
+		      fail = true;
+		    }
+		  }
+
+	if(fail) ERR.General("","","Standard vs Split xall implementation 2 test failed\n");
+
+	
+	
       }
 
       printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
       printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+      
+      printf("vMv: Avg time old code split %d iters: %g secs\n",ntests,total_time_split_orig/ntests);
+      printf("vMv: Avg time old code split xall %d iters: %g secs\n",ntests,total_time_split_orig_xall/ntests);
+
     }
     
 
-    if(1){ //test vv implementation
+    if(0){ //test vv implementation
       std::cout << "Starting vv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
