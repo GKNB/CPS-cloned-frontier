@@ -272,6 +272,10 @@ void mult_slow(SpinColorFlavorMatrix &out, const lA2Afield<mf_Policies> &l,  con
 
 #ifdef USE_GRID
 
+CPS_END_NAMESPACE
+#include<alg/a2a/spin_color_matrices.h>
+CPS_START_NAMESPACE
+
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,

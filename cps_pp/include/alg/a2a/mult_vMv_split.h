@@ -116,10 +116,14 @@ class mult_vMv_split{
     int nl_row = Mptr->getRowParams().getNl();
     int nl_col = Mptr->getColParams().getNl();
     int nj_max = 0;
-    for(int scf=0;scf<nscf;scf++) if(nj[scf] > nj_max) nj_max = nj[scf];
-
+    bool nj_all_same = true;
+    for(int scf=0;scf<nscf;scf++){
+      if(nj[scf] > nj_max) nj_max = nj[scf];
+      if(nj[scf] != nj[0]) nj_all_same = false;
+    }
+    
     typename gw::matrix_complex* M_packed = gw::matrix_complex_alloc(nrows_used,nj_max);
-    pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col);
+    if(nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col);
 #endif
 
     //M * r
@@ -130,7 +134,8 @@ class mult_vMv_split{
       int nh_row = nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
-
+      
+      if(!nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, nrows_used, nj_this, 0, 0, nl_row, nl_col);
       pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
       pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
       pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
@@ -524,10 +529,14 @@ public:
     int nl_row = Mptr->getRowParams().getNl();
     int nl_col = Mptr->getColParams().getNl();
     int nj_max = 0;
-    for(int scf=0;scf<nscf;scf++) if(nj[scf] > nj_max) nj_max = nj[scf];
+    bool nj_all_same = true;
+    for(int scf=0;scf<nscf;scf++){
+      if(nj[scf] > nj_max) nj_max = nj[scf];
+      if(nj[scf] != nj[0]) nj_all_same = false;
+    }
 
     typename gw::matrix_complex* M_packed = gw::matrix_complex_alloc(nrows_used,nj_max);
-    pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col,true);
+    if(nj_all_same) pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col,true); //if nj is same for all scf, ncols doesm't change and we don't need to keep poking the nl*nl part
 #endif
 
     for(int scf=0; scf<nscf; scf++){
@@ -536,7 +545,8 @@ public:
       int nh_row = nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
-      
+
+      if(!nj_all_same) pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_lo_lo, nrows_used, nj_this, 0, 0, nl_row, nl_col,true);
       pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col, true);
       pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col,true);
       pokeSubmatrix<ScalarComplexType >( (ScalarComplexType*)M_packed->data,mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col, true);
