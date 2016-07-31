@@ -315,6 +315,14 @@ class Matrix
         return *this;
     }
 
+    Matrix& operator*=(const Matrix& m) {
+      Matrix tmp(*this);
+      mDotMEqual((IFloat *)u, (IFloat *) tmp.u, (IFloat *) m.u);
+      //this->DotMEqual(tmp,m);
+      return *this;
+    }
+
+
     //! Adds a real scalar multiple of the unit matrix to this one.
     /*!
       \param c The real scalar multiple
@@ -418,6 +426,11 @@ class Matrix
     //! Hermitian conjugate.
     void Dagger(const Matrix& m)
     	{ Dagger((const IFloat *)&m); }
+    void Dagger(){
+       Matrix dag;
+       dag.Dagger(*this);
+       *this = dag;
+    }
     void Transpose(const IFloat* m);
     void Transpose();
 

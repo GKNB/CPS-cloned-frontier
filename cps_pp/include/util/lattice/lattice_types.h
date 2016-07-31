@@ -323,6 +323,20 @@ class GwilsonFp4
     virtual ~GwilsonFp4();
 };
 
+class GwilsonFhisq
+    : public virtual Lattice,
+    public virtual FstagTypes,
+    public Gwilson,
+    public Fhisq
+{
+ private:
+    char *cname;    // Class name.
+
+ public:
+    GwilsonFhisq();
+    virtual ~GwilsonFhisq();
+};
+
 //------------------------------------------------------------------
 //! Wilson gauge action with wilson fermion action
 /*! \ingroup latactions */
