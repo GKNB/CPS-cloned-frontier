@@ -7,25 +7,26 @@
 template<typename ComplexMatrixType>
 class SCFoperation{
 public:
-  virtual void operator()(ComplexMatrixType* M, const int scf, const int rows, const int cols) = 0;
+  virtual void operator()(const ComplexMatrixType& M, const int scf, const int rows, const int cols) = 0;
 };
 template<typename ScalarComplexType>
 class multiply_M_r_op: public SCFoperation<typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex>{
   typedef typename ScalarComplexType::value_type mf_Float;
   typedef gsl_wrapper<mf_Float> gw;
   
-  std::vector<std::vector<ScalarComplexType> >* Mr;
-  const std::vector<std::vector<ScalarComplexType> >* rreord;
-  const int off;
-  const int work;
-  std::vector<int> const* i_packed_unmap_all;
+  std::vector<std::vector<ScalarComplexType> >& Mr;
+  const std::vector<std::vector<ScalarComplexType> >& rreord;
+  std::vector<int> const* i_packed_unmap_all; //array of vectors, one for each scf
+  int nrows_used;
+  
+  //Internal
   typename gw::vector_complex* Mr_packed;
   typename gw::complex one;
   typename gw::complex zero;
-  int nrows_used;
+
 public:
-  multiply_M_r_op(std::vector<std::vector<ScalarComplexType> >* _Mr, const std::vector<std::vector<ScalarComplexType> >* _rreord, const int _off, const int _work,
-		  std::vector<int> const* _i_packed_unmap_all, const int _nrows_used): Mr(_Mr), rreord(_rreord), off(_off), work(_work),i_packed_unmap_all(_i_packed_unmap_all), nrows_used(_nrows_used){
+  multiply_M_r_op(std::vector<std::vector<ScalarComplexType> >& _Mr, const std::vector<std::vector<ScalarComplexType> >& _rreord,
+		  std::vector<int> const* _i_packed_unmap_all, const int _nrows_used): Mr(_Mr), rreord(_rreord),i_packed_unmap_all(_i_packed_unmap_all), nrows_used(_nrows_used){
     Mr_packed = gw::vector_complex_alloc(nrows_used);
     GSL_SET_COMPLEX(&one,1.0,0.0);
     GSL_SET_COMPLEX(&zero,0.0,0.0);
@@ -34,7 +35,7 @@ public:
     gw::vector_complex_free(Mr_packed);
   }
   
-  void operator()(typename gw::matrix_complex* M_packed, const int scf, const int rows, const int cols){
+  void operator()(const typename gw::matrix_complex& M_packed, const int scf, const int rows, const int cols){
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
     
     int block_width_max =  cols;
@@ -45,34 +46,32 @@ public:
       for(int j0=0; j0<cols; j0+=block_width_max){
 	int jblock_size = std::min(cols - j0, block_width_max);
 	
-	typename gw::matrix_complex_const_view submatrix = gw::matrix_complex_const_submatrix(M_packed, i0, j0, iblock_size, jblock_size);
+	typename gw::matrix_complex_const_view submatrix = gw::matrix_complex_const_submatrix(&M_packed, i0, j0, iblock_size, jblock_size);
 	
-	for(int s=off;s<off+work;s++){
-	  mf_Float* base = (mf_Float*)&rreord[s][scf][j0];
-	  typename gw::block_complex_struct block;
-	  block.data = base;
-	  block.size = jblock_size;
+	mf_Float const* base = (mf_Float const*)&rreord[scf][j0];
+	typename gw::block_complex_struct block;
+	block.data = base;
+	block.size = jblock_size;
 	  
-	  typename gw::vector_complex rgsl;
-	  rgsl.block = &block;
-	  rgsl.data = base;
-	  rgsl.stride = 1;
-	  rgsl.owner = 1;
-	  rgsl.size = jblock_size;
+	typename gw::vector_complex rgsl;
+	rgsl.block = &block;
+	rgsl.data = base;
+	rgsl.stride = 1;
+	rgsl.owner = 1;
+	rgsl.size = jblock_size;
 	  
-	  Mr_packed->size = iblock_size;
-	  Mr_packed->block->size = iblock_size;
+	Mr_packed->size = iblock_size;
+	Mr_packed->block->size = iblock_size;
 	  
-	  gw::blas_gemv(CblasNoTrans, one, &submatrix.matrix, &rgsl, zero, Mr_packed);
+	gw::blas_gemv(CblasNoTrans, one, &submatrix.matrix, &rgsl, zero, Mr_packed);
 	  
-	  typename gw::complex tmp;
+	typename gw::complex tmp;
 	  
-	  for(int i_packed=0;i_packed < iblock_size; i_packed++){
-	    mf_Float(&tmp)[2] = reinterpret_cast<mf_Float(&)[2]>(Mr[s][scf][ i_packed_unmap[i0+i_packed] ]);
-	    mf_Float *t = Mr_packed->data + 2*i_packed*Mr_packed->stride;
-	    tmp[0] += *t++; tmp[1] += *t;	       
-	  }
-	}	    
+	for(int i_packed=0;i_packed < iblock_size; i_packed++){
+	  mf_Float(&tmp)[2] = reinterpret_cast<mf_Float(&)[2]>(Mr[scf][ i_packed_unmap[i0+i_packed] ]);
+	  mf_Float *t = Mr_packed->data + 2*i_packed*Mr_packed->stride;
+	  tmp[0] += *t++; tmp[1] += *t;	       
+	}		    
       }
     }
   }
@@ -99,8 +98,8 @@ template<typename mf_Policies,
 class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matrix_complex>{
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef gsl_wrapper<typename ScalarComplexType::value_type> gw;
-  const int* work;
-  const int* off;
+  const int* work; //one for each thread
+  const int* off; //one for each thread
   std::vector<  std::vector<std::vector<ScalarComplexType> > > &Mr;
   std::vector< std::vector<std::vector<ScalarComplexType> > > &rreord;
   
@@ -108,14 +107,15 @@ class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typena
 public:
   multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
-  void operator()(typename gw::matrix_complex* M_packed, const int scf, const int rows, const int cols){
+  void operator()(const typename gw::matrix_complex& M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel
     {
       int me = omp_get_thread_num();
-      split_obj->multiply_M_r_singlescf(&Mr[0],&rreord[0],M_packed,off[me], work[me],scf);
+      split_obj->multiply_M_r_singlescf(Mr,rreord,M_packed,off[me], work[me],scf);
     }
   }
 };
+
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
@@ -344,7 +344,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
       typename gw::matrix_complex* M_packed = mf_reord[scf]; //scope for reuse here
 #endif
 
-      op(M_packed, scf, this->nrows_used, nj_this);
+      op(*M_packed, scf, this->nrows_used, nj_this);
     }
       
 #ifdef VMV_SPLIT_MEM_SAVE
@@ -353,16 +353,15 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
   }
 
   
-  //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
-  void multiply_M_r(std::vector<std::vector<ScalarComplexType> >* Mr, const std::vector<std::vector<ScalarComplexType> >* rreord, const int off, const int work) const{
-    multiply_M_r_op<ScalarComplexType> op(Mr, rreord, off, work, this->i_packed_unmap_all, this->nrows_used);
+  void multiply_M_r(std::vector<std::vector<ScalarComplexType> >& Mr, const std::vector<std::vector<ScalarComplexType> >& rreord) const{
+    multiply_M_r_op<ScalarComplexType> op(Mr, rreord, this->i_packed_unmap_all, this->nrows_used);
     constructPackedMloopSCF(op);
   }
 
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
   //M_packed is the Mesonfield in packed format.
-  void multiply_M_r_singlescf(std::vector<std::vector<ScalarComplexType> >* Mr, const std::vector<std::vector<ScalarComplexType> >* rreord, 
-			      typename gw::matrix_complex* M_packed,
+  void multiply_M_r_singlescf(std::vector<std::vector<std::vector<ScalarComplexType> > >& Mr, const std::vector<std::vector<std::vector<ScalarComplexType> > >& rreord, 
+			      const typename gw::matrix_complex & M_packed,
 			      const int off, const int work, const int scf) const{
     typename gw::vector_complex* Mr_packed = gw::vector_complex_alloc(this->nrows_used);
     typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
@@ -372,17 +371,17 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
     int nj_this = this->nj[scf]; //vector size
     const std::vector<int> &i_packed_unmap = this->i_packed_unmap_all[scf];
     
-    size_t block_width_max =  M_packed->size2;
+    size_t block_width_max =  M_packed.size2;
     size_t block_height_max = 8; //4;
     
-    for(int j0=0; j0<M_packed->size2; j0+=block_width_max){ //columns on outer loop as GSL matrices are row major
-      int jblock_size = std::min(M_packed->size2 - j0, block_width_max);
+    for(int j0=0; j0<M_packed.size2; j0+=block_width_max){ //columns on outer loop as GSL matrices are row major
+      int jblock_size = std::min(M_packed.size2 - j0, block_width_max);
       
-      for(int i0=0; i0<M_packed->size1; i0+=block_height_max){
-	int iblock_size = std::min(M_packed->size1 - i0, block_height_max);
+      for(int i0=0; i0<M_packed.size1; i0+=block_height_max){
+	int iblock_size = std::min(M_packed.size1 - i0, block_height_max);
 	
 	//if(!me) printf("i0=%d j0=%d  iblock_size=%d jblock_size=%d total rows=%d cols=%d\n",i0,j0,iblock_size,jblock_size,M_packed->size1,M_packed->size2);
-	typename gw::matrix_complex_const_view submatrix = gw::matrix_complex_const_submatrix(M_packed, i0, j0, iblock_size, jblock_size);
+	typename gw::matrix_complex_const_view submatrix = gw::matrix_complex_const_submatrix(&M_packed, i0, j0, iblock_size, jblock_size);
 	
 	for(int s=off;s<off+work;s++){
 	  mf_Float* base = (mf_Float*)&rreord[s][scf][j0];
@@ -663,7 +662,7 @@ public:
     site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
 
     //M * r
-    multiply_M_r(&Mr,&rreord,0,1);
+    multiply_M_r(Mr,rreord);
 
     //Vector vector multiplication l*(M*r)
     typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(this->Mrows);
