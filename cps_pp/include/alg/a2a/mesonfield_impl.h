@@ -3,6 +3,7 @@
 
 #include<alg/a2a/mult_impl.h>
 #include<alg/a2a/mult_vMv_split.h>
+#include<alg/a2a/mult_vMv_split_grid.h>
 #include<alg/a2a/mult_vMv_impl.h>
 #include<alg/a2a/mult_vv_impl.h>
 
@@ -134,6 +135,76 @@ typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matri
 
   return M_packed;
 }
+
+#ifdef USE_GRID
+  //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
+  //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
+  //Does not set the size of the output vector, allowing reuse of a previously allocated vector providing it's large enough
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+  typedef typename mf_Policies::ComplexType VectorComplexType;
+  int full_rows = nmodes_l;
+  int full_cols = nmodes_r;
+
+  int nrows_used = 0;
+  for(int i_full=0;i_full<full_rows;i_full++) if(rowidx_used[i_full]) nrows_used++;
+
+  if(do_resize) into.resize(nrows_used*map_size);
+
+  //Look for contiguous blocks in the idx_map we can take advantage of
+  std::vector<std::pair<int,int> > blocks;
+  find_contiguous_blocks(blocks,idx_map,map_size);
+
+  int i_packed = 0;
+
+  for(int i_full=0;i_full<full_rows;i_full++){
+    if(rowidx_used[i_full]){
+      ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full;
+      VectorComplexType* row_base = &into[map_size*i_packed];
+
+      for(int b=0;b<blocks.size();b++){
+	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
+	for(int bb=0;bb<blocks[b].second;bb++)
+	  vsplat(row_base[bb],block_ptr[bb]);
+	row_base += blocks[b].second;
+      }
+      i_packed++;
+    }
+  }
+}
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+  int full_rows = nmodes_l;
+  int full_cols = nmodes_r;
+
+  int nrows_used = 0;
+  for(int i_full=0;i_full<full_rows;i_full++) if(rowidx_used[i_full]) nrows_used++;
+
+  if(do_resize) into.resize(nrows_used*map_size);
+
+  //Look for contiguous blocks in the idx_map we can take advantage of
+  std::vector<std::pair<int,int> > blocks;
+  find_contiguous_blocks(blocks,idx_map,map_size);
+
+  int i_packed = 0;
+
+  for(int i_full=0;i_full<full_rows;i_full++){
+    if(rowidx_used[i_full]){
+      ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full;
+      ScalarComplexType* row_base = &into[map_size*i_packed];
+
+      for(int b=0;b<blocks.size();b++){
+	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
+	for(int bb=0;bb<blocks[b].second;bb++)
+	  row_base[bb] = block_ptr[bb];
+	row_base += blocks[b].second;
+      }
+      i_packed++;
+    }
+  }
+}
+#endif
+
 
 
 

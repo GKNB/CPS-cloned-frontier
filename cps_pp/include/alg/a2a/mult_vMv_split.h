@@ -17,7 +17,6 @@ class multiply_M_r_op: public SCFoperation<typename gsl_wrapper<typename ScalarC
   std::vector<std::vector<ScalarComplexType> >& Mr;
   const std::vector<std::vector<ScalarComplexType> >& rreord;
   std::vector<int> const* i_packed_unmap_all; //array of vectors, one for each scf
-  int nrows_used;
   
   //Internal
   typename gw::vector_complex* Mr_packed;
@@ -26,8 +25,8 @@ class multiply_M_r_op: public SCFoperation<typename gsl_wrapper<typename ScalarC
 
 public:
   multiply_M_r_op(std::vector<std::vector<ScalarComplexType> >& _Mr, const std::vector<std::vector<ScalarComplexType> >& _rreord,
-		  std::vector<int> const* _i_packed_unmap_all, const int _nrows_used): Mr(_Mr), rreord(_rreord),i_packed_unmap_all(_i_packed_unmap_all), nrows_used(_nrows_used){
-    Mr_packed = gw::vector_complex_alloc(nrows_used);
+		  std::vector<int> const* _i_packed_unmap_all, const int _nrows_used): Mr(_Mr), rreord(_rreord),i_packed_unmap_all(_i_packed_unmap_all){
+    Mr_packed = gw::vector_complex_alloc(_nrows_used);
     GSL_SET_COMPLEX(&one,1.0,0.0);
     GSL_SET_COMPLEX(&zero,0.0,0.0);
   }
@@ -157,7 +156,7 @@ protected:
   void setup_base(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
     lptr = &l; rptr = &r; Mptr = &M; top_glb = _top_glb;
-
+  
     modeIndexSet ilp, irp, jlp, jrp;
     ilp.time = top_glb;
     irp.time = M.getRowTimeslice();
@@ -168,6 +167,7 @@ protected:
     Mrows = M.getNrows();
     Mcols = M.getNcols();
 
+    if(rowidx_used != NULL) free(rowidx_used);
     rowidx_used = (bool*)malloc(Mrows*sizeof(bool)); //Is a particular row of M actually used?
     for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
 

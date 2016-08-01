@@ -2,6 +2,7 @@
 #define _SPIN_COLOR_MATRICES_H
 
 //These are alternatives to Matrix, WilsonMatrix, SpinColorFlavorMatrix
+#include<util/flavormatrix.h>
 
 CPS_START_NAMESPACE
 

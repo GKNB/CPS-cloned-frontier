@@ -117,6 +117,7 @@ void QMP_sum_array(T *result, int len){
 
 //Look for contiguous blocks of indices in the idx_map, output a list of start,size pairs
 inline void find_contiguous_blocks(std::vector<std::pair<int,int> > &blocks, const int idx_map[], int map_size){
+  blocks.resize(0);
   std::pair<int,int> block(0,1); //start, size
   int prev = idx_map[0];
   for(int j_packed=1;j_packed<map_size;j_packed++){
@@ -131,6 +132,14 @@ inline void find_contiguous_blocks(std::vector<std::pair<int,int> > &blocks, con
     prev = j_unpacked;
   }
   blocks.push_back(block);
+
+  int sum = 0;
+  for(int b=0;b<blocks.size();b++){
+    //printf("Block %d, start %d, size %d\n",b,blocks[b].first,blocks[b].second);
+    sum += blocks[b].second;
+  }
+  if(sum != map_size)
+    ERR.General("find_contiguous_blocks","","Sum of block sizes %d, expect %d\n",sum,map_size);
 }
 
 template<typename T>

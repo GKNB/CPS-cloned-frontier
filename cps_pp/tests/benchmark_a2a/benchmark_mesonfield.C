@@ -49,13 +49,13 @@ using namespace cps;
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 
-typedef double mf_Float;
-typedef Grid::vComplexD grid_Complex;
-typedef GridSIMDSourcePolicies GridSrcPolicy;
+// typedef double mf_Float;
+// typedef Grid::vComplexD grid_Complex;
+// typedef GridSIMDSourcePolicies GridSrcPolicy;
 
-// typedef float mf_Float;
-// typedef Grid::vComplexF grid_Complex;
-// typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
+typedef float mf_Float;
+typedef Grid::vComplexF grid_Complex;
+typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
 
 
 typedef std::complex<mf_Float> mf_Complex;
@@ -456,8 +456,10 @@ int main(int argc,char *argv[])
       Float total_time = 0.;
       Float total_time_orig = 0.;
       Float total_time_split_orig = 0.;
+      Float total_time_split_grid = 0.;
       Float total_time_split_orig_xall = 0.;
-      
+      Float total_time_split_grid_xall = 0.;
+       
       SpinColorFlavorMatrix orig_sum[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
@@ -475,8 +477,10 @@ int main(int argc,char *argv[])
       int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
 
       mult_vMv_split<A2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
+      mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
 
       std::vector<SpinColorFlavorMatrix> orig_split_xall_tmp(orig_3vol);
+      Grid::Vector<CPSspinColorFlavorMatrix<grid_Complex> > grid_split_xall_tmp(grid_3vol);
       
       for(int iter=0;iter<ntests;iter++){
 	for(int i=0;i<nthreads;i++){
@@ -519,6 +523,18 @@ int main(int argc,char *argv[])
 	  }
 	  total_time_split_orig += dclock();
 
+	  //SPLIT VMV GRID
+	  total_time_split_grid -= dclock();	  
+	  vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+	  for(int xop=0;xop<grid_3vol;xop++){
+	    int me = omp_get_thread_num();
+	    vmv_split_grid.contract(grid_tmp[me], xop, false, true);
+	    grid_sum_split[me] += grid_tmp[me];
+	  }
+	  total_time_split_grid += dclock();
+	  
 	  
 	  //SPLIT VMV THAT DOES IT FOR ALL SITES
 	  total_time_split_orig_xall -= dclock();	  
@@ -530,13 +546,27 @@ int main(int argc,char *argv[])
 	    orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
 	  }
 	  total_time_split_orig_xall += dclock();
+
+	  //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
+	  total_time_split_grid_xall -= dclock();	  
+	  vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+	  vmv_split_grid.contract(grid_split_xall_tmp, false, true);
+#pragma omp parallel for
+	  for(int xop=0;xop<grid_3vol;xop++){
+	    int me = omp_get_thread_num();	    
+	    grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
+	  }
+	  total_time_split_grid_xall += dclock();
+
 	  
 	}//end top loop
 	for(int i=1;i<nthreads;i++){
 	  orig_sum[0] += orig_sum[i];
 	  grid_sum[0] += grid_sum[i];
 	  orig_sum_split[0] += orig_sum_split[i];
-	  orig_sum_split_xall[0] += orig_sum_split_xall[i];	  
+	  grid_sum_split[0] += grid_sum_split[i];
+	  orig_sum_split_xall[0] += orig_sum_split_xall[i];
+	  grid_sum_split_xall[0] += grid_sum_split_xall[i];  
 	}
 
 	
@@ -581,7 +611,27 @@ int main(int argc,char *argv[])
 
 	if(fail) ERR.General("","","Standard vs Split implementation 1 test failed\n");
 
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    gd = Reduce( grid_sum_split[0](sl,sr)(cl,cr)(fl,fr) );
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    
+		    double rdiff = fabs(gd.real()-cp.real());
+		    double idiff = fabs(gd.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Grid split (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		      fail = true;
+		    }
+		  }
 
+	if(fail) ERR.General("","","Standard vs Grid split implementation 1 test failed\n");
+
+
+	
 	for(int sl=0;sl<4;sl++)
 	  for(int cl=0;cl<3;cl++)
 	    for(int fl=0;fl<2;fl++)
@@ -601,15 +651,35 @@ int main(int argc,char *argv[])
 
 	if(fail) ERR.General("","","Standard vs Split xall implementation 2 test failed\n");
 
-	
+	for(int sl=0;sl<4;sl++)
+	  for(int cl=0;cl<3;cl++)
+	    for(int fl=0;fl<2;fl++)
+	      for(int sr=0;sr<4;sr++)
+		for(int cr=0;cr<3;cr++)
+		  for(int fr=0;fr<2;fr++){
+		    gd = Reduce( grid_sum_split_xall[0](sl,sr)(cl,cr)(fl,fr) );
+		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    
+		    double rdiff = fabs(gd.real()-cp.real());
+		    double idiff = fabs(gd.imag()-cp.imag());
+		    if(rdiff > tol|| idiff > tol){
+		      printf("Fail: Iter %d Grid split xall (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		      fail = true;
+		    }
+		  }
+
+	if(fail) ERR.General("","","Standard vs Grid split xall implementation 2 test failed\n");
 	
       }
 
-      printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
       printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+      printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
       
       printf("vMv: Avg time old code split %d iters: %g secs\n",ntests,total_time_split_orig/ntests);
+      printf("vMv: Avg time new code split %d iters: %g secs\n",ntests,total_time_split_grid/ntests);
+      
       printf("vMv: Avg time old code split xall %d iters: %g secs\n",ntests,total_time_split_orig_xall/ntests);
+      printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
 
     }
     

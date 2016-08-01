@@ -4,7 +4,7 @@
 #include<alg/a2a/inner_product.h>
 #include<alg/a2a/fmatrix.h>
 #include<alg/a2a/mode_contraction_indices.h>
-
+#include<alg/a2a/spin_color_matrices.h>
 #include<gsl/gsl_blas.h>
 #include<alg/a2a/gsl_wrapper.h>
 #include<set>
@@ -224,6 +224,14 @@ public:
   //Output as a GSL matrix. Can reuse previously allocated matrix providing its big enough
   typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex * GSLpackedColReorder(const int idx_map[], int map_size, bool rowidx_used[], typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex *reuse = NULL) const;
 
+#ifdef USE_GRID
+  //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
+  //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
+  //Option not to resize the output vector, allowing reuse of a previously allocated vector providing it's large enough
+  void splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
+  void scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
+#endif
+  
   //Transpose the meson field! (parallel)
   void transpose(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const;
 
