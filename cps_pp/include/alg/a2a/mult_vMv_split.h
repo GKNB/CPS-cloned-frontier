@@ -7,7 +7,7 @@
 template<typename ComplexMatrixType>
 class SCFoperation{
 public:
-  virtual void operator()(ComplexMatrixType* M, const int scf) = 0;
+  virtual void operator()(ComplexMatrixType* M, const int scf, const int rows, const int cols) = 0;
 };
 template<typename ScalarComplexType>
 class multiply_M_r_op: public SCFoperation<typename gsl_wrapper<typename ScalarComplexType::value_type>::matrix_complex>{
@@ -34,21 +34,17 @@ public:
     gw::vector_complex_free(Mr_packed);
   }
   
-  void operator()(typename gw::matrix_complex* M_packed, const int scf){
+  void operator()(typename gw::matrix_complex* M_packed, const int scf, const int rows, const int cols){
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
     
-    //if(!me) printf("M_packed total rows=%d cols=%d\n",M_packed->size1,M_packed->size2);
-    
-    size_t block_width_max =  M_packed->size2;
-    size_t block_height_max = 8; //4;
-    
-    for(int j0=0; j0<M_packed->size2; j0+=block_width_max){ //columns on outer loop as GSL matrices are row major
-      int jblock_size = std::min(M_packed->size2 - j0, block_width_max);
-      
-      for(int i0=0; i0<M_packed->size1; i0+=block_height_max){
-	int iblock_size = std::min(M_packed->size1 - i0, block_height_max);
+    int block_width_max =  cols;
+    int block_height_max = 8; //4;
+          
+    for(int i0=0; i0<rows; i0+=block_height_max){
+      int iblock_size = std::min(rows - i0, block_height_max);
+      for(int j0=0; j0<cols; j0+=block_width_max){
+	int jblock_size = std::min(cols - j0, block_width_max);
 	
-	//if(!me) printf("i0=%d j0=%d  iblock_size=%d jblock_size=%d total rows=%d cols=%d\n",i0,j0,iblock_size,jblock_size,M_packed->size1,M_packed->size2);
 	typename gw::matrix_complex_const_view submatrix = gw::matrix_complex_const_submatrix(M_packed, i0, j0, iblock_size, jblock_size);
 	
 	for(int s=off;s<off+work;s++){
@@ -105,13 +101,159 @@ class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typena
 public:
   multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
-  void operator()(typename gw::matrix_complex* M_packed, const int scf){
+  void operator()(typename gw::matrix_complex* M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel
     {
       int me = omp_get_thread_num();
       split_obj->multiply_M_r_singlescf(&Mr[0],&rreord[0],M_packed,off[me], work[me],scf);
     }
   }
+};
+
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
+	 >
+class mult_vMv_split_base{
+protected:
+  typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
+  typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
+  
+  typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
+  typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
+
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename mf_Policies::ComplexType ComplexType;
+  
+  const static int nscf = 2*3*4;
+
+  //Mapping information
+  int ni[nscf], nj[nscf]; //mapping f+2*(c+3*s)
+  std::vector<int> ilmap[nscf], irmap[nscf];
+  std::vector<int> jlmap[nscf], jrmap[nscf];
+    
+  std::vector< std::vector<std::pair<int,int> > > blocks_scf; //[scf]  contiguous blocks of 'i' indices
+
+  //Info of the row packing
+  bool* rowidx_used;
+  int nrows_used; //number of packed rows in the output
+
+  const lA2AfieldL<mf_Policies> *lptr;
+  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> *Mptr;
+  const rA2AfieldR<mf_Policies> *rptr;
+  int top_glb;
+
+  int Mrows, Mcols;  
+
+  mult_vMv_split_base():rowidx_used(NULL){}
+  
+  void setup_base(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
+	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
+    lptr = &l; rptr = &r; Mptr = &M; top_glb = _top_glb;
+
+    modeIndexSet ilp, irp, jlp, jrp;
+    ilp.time = top_glb;
+    irp.time = M.getRowTimeslice();
+    
+    jlp.time = M.getColTimeslice();
+    jrp.time = top_glb;
+
+    Mrows = M.getNrows();
+    Mcols = M.getNcols();
+
+    rowidx_used = (bool*)malloc(Mrows*sizeof(bool)); //Is a particular row of M actually used?
+    for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
+
+    //Store maps
+    for(int s=0;s<4;s++){
+      for(int c=0;c<3;c++){
+	int sc = c + 3*s;
+	ilp.spin_color = jrp.spin_color = sc;
+    	for(int f=0;f<2;f++){
+	  ilp.flavor = jrp.flavor = f;
+
+	  int scf = f + 2*ilp.spin_color;
+
+	  //i index
+	  int ni_this = i_ind.getNindices(ilp,irp);
+	  ni[scf] = ni_this;
+	  
+	  std::vector<int> &ilmap_this = ilmap[scf]; ilmap_this.resize(ni_this);
+	  std::vector<int> &irmap_this = irmap[scf]; irmap_this.resize(ni_this);
+
+	  for(int i = 0; i < ni_this; i++){
+	    i_ind.getBothIndices(ilmap_this[i],irmap_this[i],i,ilp,irp);
+	    rowidx_used[ irmap_this[i] ] = true; //this row index is used
+	  }
+
+	  //j index
+	  int nj_this = j_ind.getNindices(jlp,jrp);
+	  nj[scf] = nj_this;
+	  
+	  std::vector<int> &jlmap_this = jlmap[scf]; jlmap_this.resize(nj_this);
+	  std::vector<int> &jrmap_this = jrmap[scf]; jrmap_this.resize(nj_this);
+
+	  for(int j = 0; j < nj_this; j++)
+	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
+	}
+      }
+    }
+    
+    nrows_used = 0;
+    for(int i=0;i<Mrows;i++)
+      if(rowidx_used[i]) ++nrows_used;
+    
+    //Get contiguous blocks of i indices
+    blocks_scf.resize(nscf);
+    for(int scfl=0;scfl<nscf;scfl++){
+      int ni_this = ni[scfl];
+      find_contiguous_blocks(blocks_scf[scfl],&irmap[scfl][0],ni_this);
+    }
+  }
+
+  template<typename MatrixVectorComplex>
+  void site_reorder_lr(MatrixVectorComplex &lreord,   //[scf][reordered mode]
+		       MatrixVectorComplex &rreord,
+		       const bool conj_l, const bool conj_r, const int site4dop) const{    
+    lreord.resize(nscf); rreord.resize(nscf);
+
+    for(int sc=0;sc<12;sc++){
+      for(int f=0;f<2;f++){
+	int scf = f + 2*sc;
+
+	//i index
+	int ni_this = this->ni[scf];
+	const std::vector<int> &ilmap_this = this->ilmap[scf];
+	lreord[scf].resize(ni_this);
+
+	for(int i = 0; i < ni_this; i++){
+	  const ComplexType &lval_tmp = this->lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
+	  lreord[scf][i] = conj_l ? cconj(lval_tmp) : lval_tmp;
+	}
+
+	//j index
+	int nj_this = this->nj[scf];
+	const std::vector<int> &jrmap_this = this->jrmap[scf]; //jrmap_this.resize(nj_this);
+
+	rreord[scf].resize(nj_this);
+	for(int j = 0; j < nj_this; j++){
+	  const ComplexType &rval_tmp = this->rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+	  rreord[scf][j] = conj_r ? cconj(rval_tmp) : rval_tmp;
+	}
+
+      }
+    }
+  }
+
+#define FREEIT(A) if(A != NULL){ free(A); A=NULL; }
+  
+  void free_mem_base(){
+    FREEIT(rowidx_used);
+  }
+  ~mult_vMv_split_base(){
+    FREEIT(rowidx_used);
+  }
+  
 };
 
 
@@ -122,34 +264,29 @@ template<typename mf_Policies,
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-class mult_vMv_split{
+class mult_vMv_split: public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>{
+  typedef mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> Base;
+  
   //Note:
   //il is the index of l, 
   //ir is the row index of M, 
   //jl is the column index of M and 
   //jr is the index of r
-  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename Base::ScalarComplexType ScalarComplexType;
   
-  typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
-  typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
+  typedef typename Base::iLeftDilutionType iLeftDilutionType;
+  typedef typename Base::iRightDilutionType iRightDilutionType;
   
-  typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
-  typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
+  typedef typename Base::jLeftDilutionType jLeftDilutionType;    
+  typedef typename Base::jRightDilutionType jRightDilutionType;
 
   typedef typename ScalarComplexType::value_type mf_Float;
   
-  const static int nscf = 2*3*4;
-
-  //Mapping information
-  int ni[nscf], nj[nscf]; //mapping f+2*(c+3*s)
-  std::vector<int> ilmap[nscf], irmap[nscf];
-  std::vector<int> jlmap[nscf], jrmap[nscf];
-    
-  std::vector< std::vector<std::pair<int,int> > > blocks_scf; //[scf]  contiguous blocks of 'i' indices 
-
   //Packed matrices
   typedef gsl_wrapper<mf_Float> gw;
 
+  const static int nscf = 2*3*4;
+  
 #ifdef VMV_SPLIT_MEM_SAVE
   ScalarComplexType *mf_reord_lo_lo; //shared nl*nl submatrix
   ScalarComplexType *mf_reord_lo_hi[nscf]; //the nl * nh[scf] submatrix
@@ -159,104 +296,48 @@ class mult_vMv_split{
   std::vector<typename gw::matrix_complex*> mf_reord; //vector of gsl matrices in packed format where only the rows used are stored. One matrix for each spin/color/flavor combination of the vector r
 #endif
 
-  //Info of the row packing
-  bool* rowidx_used;
-  int nrows_used; //number of packed rows in the output
   std::vector<int> i_packed_unmap_all[nscf];
-
-  const lA2AfieldL<mf_Policies> *lptr;
-  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> *Mptr;
-  const rA2AfieldR<mf_Policies> *rptr;
-  int top_glb;
-
-  int Mrows, Mcols;
-
+  
   bool setup_called;
-
 
   template<typename , 
 	   template <typename> class,  template <typename> class,
 	   template <typename> class,  template <typename> class>
   friend class multiply_M_r_singlescf_op;
-  
-  
-  void thread_work(int &my_work, int &my_offset, const int total_work, const int me, const int team) const{
-    my_work = total_work/team;
-    my_offset = me * my_work;
-
-    int rem = total_work - my_work * team;
-    if(me < rem){
-      ++my_work; //first rem threads mop up the remaining work
-      my_offset += me; //each thread before me has gained one extra unit of work
-    }else my_offset += rem; //after the first rem threads, the offset shift is uniform
-  }
-
-  void site_reorder_lr(std::vector<std::vector<ScalarComplexType> > &lreord,   //[scf][reordered mode]
-		       std::vector<std::vector<ScalarComplexType> > &rreord,
-		       const bool conj_l, const bool conj_r, const int site4dop) const{    
-    lreord.resize(nscf); rreord.resize(nscf);
-
-    for(int sc=0;sc<12;sc++){
-      for(int f=0;f<2;f++){
-	int scf = f + 2*sc;
-
-	//i index
-	int ni_this = ni[scf];
-	const std::vector<int> &ilmap_this = ilmap[scf];
-	lreord[scf].resize(ni_this);
-
-	for(int i = 0; i < ni_this; i++){
-	  const ScalarComplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
-	  lreord[scf][i] = conj_l ? std::conj(lval_tmp) : lval_tmp;
-	}
-
-	//j index
-	int nj_this = nj[scf];
-	const std::vector<int> &jrmap_this = jrmap[scf]; //jrmap_this.resize(nj_this);
-
-	rreord[scf].resize(nj_this);
-	for(int j = 0; j < nj_this; j++){
-	  const ScalarComplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
-	  rreord[scf][j] = conj_r ? std::conj(rval_tmp) : rval_tmp;
-	}
-
-      }
-    }
-  }
 
   void constructPackedMloopSCF(SCFoperation<typename gw::matrix_complex> &op){
 #ifdef VMV_SPLIT_MEM_SAVE
-    int nl_row = Mptr->getRowParams().getNl();
-    int nl_col = Mptr->getColParams().getNl();
+    int nl_row = this->Mptr->getRowParams().getNl();
+    int nl_col = this->Mptr->getColParams().getNl();
     int nj_max = 0;
     bool nj_all_same = true;
     for(int scf=0;scf<nscf;scf++){
-      if(nj[scf] > nj_max) nj_max = nj[scf];
-      if(nj[scf] != nj[0]) nj_all_same = false;
+      if(this->nj[scf] > nj_max) nj_max = this->nj[scf];
+      if(this->nj[scf] != this->nj[0]) nj_all_same = false;
     }
     
-    typename gw::matrix_complex* M_packed = gw::matrix_complex_alloc(nrows_used,nj_max);
-    if(nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, nrows_used, nj_max, 0, 0, nl_row, nl_col);
+    typename gw::matrix_complex* M_packed = gw::matrix_complex_alloc(this->nrows_used,nj_max); //use as buffer
+    if(nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, this->nrows_used, nj_max, 0, 0, nl_row, nl_col);
 #endif
     
     //M * r
     for(int scf=0;scf<nscf;scf++){
-      int nj_this = nj[scf]; //vector size
+      int nj_this = this->nj[scf]; //vector size
       
 #ifdef VMV_SPLIT_MEM_SAVE
-      int nh_row = nrows_used - nl_row;
+      int nh_row = this->nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
       M_packed->size2 = nj_this;
       
-      if(!nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, nrows_used, nj_this, 0, 0, nl_row, nl_col);
-      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_hi[scf], nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
-      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_lo[scf], nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
-      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_hi[scf], nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+      if(!nj_all_same) pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_lo, this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
+      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_lo_hi[scf], this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_lo[scf], this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+      pokeSubmatrix<ScalarComplexType>( (ScalarComplexType*)M_packed->data, (const ScalarComplexType*)mf_reord_hi_hi[scf], this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
 #else
       typename gw::matrix_complex* M_packed = mf_reord[scf]; //scope for reuse here
 #endif
 
-      op(M_packed, scf);
+      op(M_packed, scf, this->nrows_used, nj_this);
     }
       
 #ifdef VMV_SPLIT_MEM_SAVE
@@ -267,7 +348,7 @@ class mult_vMv_split{
   
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
   void multiply_M_r(std::vector<std::vector<ScalarComplexType> >* Mr, const std::vector<std::vector<ScalarComplexType> >* rreord, const int off, const int work) const{
-    multiply_M_r_op<ScalarComplexType> op(Mr, rreord, off, work, i_packed_unmap_all, nrows_used);
+    multiply_M_r_op<ScalarComplexType> op(Mr, rreord, off, work, this->i_packed_unmap_all, this->nrows_used);
     constructPackedMloopSCF(op);
   }
 
@@ -276,13 +357,13 @@ class mult_vMv_split{
   void multiply_M_r_singlescf(std::vector<std::vector<ScalarComplexType> >* Mr, const std::vector<std::vector<ScalarComplexType> >* rreord, 
 			      typename gw::matrix_complex* M_packed,
 			      const int off, const int work, const int scf) const{
-    typename gw::vector_complex* Mr_packed = gw::vector_complex_alloc(nrows_used);
+    typename gw::vector_complex* Mr_packed = gw::vector_complex_alloc(this->nrows_used);
     typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
     typename gw::complex zero; GSL_SET_COMPLEX(&zero,0.0,0.0);
 
     //M * r
-    int nj_this = nj[scf]; //vector size
-    const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
+    int nj_this = this->nj[scf]; //vector size
+    const std::vector<int> &i_packed_unmap = this->i_packed_unmap_all[scf];
     
     size_t block_width_max =  M_packed->size2;
     size_t block_height_max = 8; //4;
@@ -337,7 +418,7 @@ class mult_vMv_split{
       for(int cl=0;cl<3;cl++){
 	for(int fl=0;fl<2;fl++){
 	  int scfl = fl + 2*(cl + 3*sl);
-	  int ni_this = ni[scfl];
+	  int ni_this = this->ni[scfl];
 
 	  mf_Float* base = (mf_Float*)&lreord[scfl][0];
 
@@ -352,7 +433,7 @@ class mult_vMv_split{
 	  lreord_gsl.owner = 1;
 	  lreord_gsl.size = ni_this;
 
-	  const std::vector<std::pair<int,int> > &blocks = blocks_scf[scfl];
+	  const std::vector<std::pair<int,int> > &blocks = this->blocks_scf[scfl];
 
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
@@ -368,7 +449,7 @@ class mult_vMv_split{
 		ScalarComplexType const* Mr_base = &Mr[scfr][0];
 
 		for(int b=0;b<blocks.size();b++){
-		  ScalarComplexType const* block_ptr = Mr_base + irmap[scfl][blocks[b].first];
+		  ScalarComplexType const* block_ptr = Mr_base + this->irmap[scfl][blocks[b].first];
 		  mf_Float *t = Mr_gsl->data + 2*blocks[b].first*Mr_gsl->stride;
 		  memcpy((void*)t, (void*)block_ptr, 2*blocks[b].second*sizeof(mf_Float));
 		}
@@ -388,7 +469,7 @@ class mult_vMv_split{
 
 public:
 
-  mult_vMv_split(): rowidx_used(NULL), setup_called(false){
+  mult_vMv_split(): setup_called(false){
 #ifdef VMV_SPLIT_MEM_SAVE
     mf_reord_lo_lo = NULL;
     for(int scf=0;scf<nscf;scf++){
@@ -399,9 +480,8 @@ public:
 #endif
   }
 
-#define FREEIT(A) if(A != NULL){ free(A); A=NULL; }
-
   void free_mem(){
+    free_mem_base();
 #ifdef VMV_SPLIT_MEM_SAVE
     FREEIT(mf_reord_lo_lo);
 
@@ -413,13 +493,22 @@ public:
 #else
     for(int i=0;i<mf_reord.size();i++) gw::matrix_complex_free(mf_reord[i]);
 #endif
-    FREEIT(rowidx_used);
+
   }
 
   ~mult_vMv_split(){
-    free_mem();
-  }
+#ifdef VMV_SPLIT_MEM_SAVE
+    FREEIT(mf_reord_lo_lo);
 
+    for(int scf=0;scf<nscf;scf++){
+    FREEIT(mf_reord_lo_hi[scf]);
+    FREEIT(mf_reord_hi_lo[scf]);
+    FREEIT(mf_reord_hi_hi[scf]);
+    }
+#else
+    for(int i=0;i<mf_reord.size();i++) gw::matrix_complex_free(mf_reord[i]);
+#endif
+  }
   //This should be called outside the site loop (and outside any parallel region)
   //top_glb is the time in global lattice coordinates.
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb){
@@ -428,102 +517,40 @@ public:
     ModeContractionIndices<jLeftDilutionType,jRightDilutionType> j_ind(r);
     setup(l,M,r,_top_glb,i_ind,j_ind);
   }
-
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
-    lptr = &l; rptr = &r; Mptr = &M; top_glb = _top_glb;
-
-    modeIndexSet ilp, irp, jlp, jrp;
-    ilp.time = top_glb;
-    irp.time = M.tl;
-    
-    jlp.time = M.tr;
-    jrp.time = top_glb;
-
-    Mrows = M.getNrows();
-    Mcols = M.getNcols();
-
-    rowidx_used = (bool*)malloc(Mrows*sizeof(bool)); //Is a particular row of M actually used?
-    for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
-
-    const static int nscf = 2*3*4;
-#ifndef VMV_SPLIT_MEM_SAVE
-    mf_reord.resize(nscf);
-#endif
-
-    //Store maps
-    for(int s=0;s<4;s++){
-      for(int c=0;c<3;c++){
-	int sc = c + 3*s;
-	ilp.spin_color = jrp.spin_color = sc;
-    	for(int f=0;f<2;f++){
-	  ilp.flavor = jrp.flavor = f;
-
-	  int scf = f + 2*ilp.spin_color;
-
-	  //i index
-	  int ni_this = i_ind.getNindices(ilp,irp);
-	  ni[scf] = ni_this;
-	  
-	  std::vector<int> &ilmap_this = ilmap[scf]; ilmap_this.resize(ni_this);
-	  std::vector<int> &irmap_this = irmap[scf]; irmap_this.resize(ni_this);
-
-	  for(int i = 0; i < ni_this; i++){
-	    i_ind.getBothIndices(ilmap_this[i],irmap_this[i],i,ilp,irp);
-	    rowidx_used[ irmap_this[i] ] = true; //this row index is used
-	  }
-
-	  //j index
-	  int nj_this = j_ind.getNindices(jlp,jrp);
-	  nj[scf] = nj_this;
-	  
-	  std::vector<int> &jlmap_this = jlmap[scf]; jlmap_this.resize(nj_this);
-	  std::vector<int> &jrmap_this = jrmap[scf]; jrmap_this.resize(nj_this);
-
-	  for(int j = 0; j < nj_this; j++)
-	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
-	}
-      }
-    }	  
-
-    //Get contiguous blocks of i indices
-    blocks_scf.resize(nscf);
-    for(int scfl=0;scfl<nscf;scfl++){
-      int ni_this = ni[scfl];
-      find_contiguous_blocks(blocks_scf[scfl],&irmap[scfl][0],ni_this);
-    }
-
+    setup_base(l,M,r,_top_glb,i_ind,j_ind);
 
     //Use GSL BLAS
-    
+#ifndef VMV_SPLIT_MEM_SAVE
+    mf_reord.resize(nscf);
+#endif    
     assert(sizeof(typename gw::complex) == sizeof(std::complex<mf_Float>) ); 
 
     //Not all rows or columns of M are used, so lets use a packed matrix
-    nrows_used = 0;
-    for(int i_full=0;i_full<Mrows;i_full++) if(rowidx_used[i_full]) nrows_used++;
-
     for(int scf=0;scf<nscf;scf++){
-      int nj_this = nj[scf];
-      std::vector<int> &jlmap_this = jlmap[scf];
+      int nj_this = this->nj[scf];
+      std::vector<int> &jlmap_this = this->jlmap[scf];
       
-      typename gw::matrix_complex* mf_scf_reord = M.GSLpackedColReorder(&jlmap_this.front(), nj_this, rowidx_used); //packs the GSL matrix
+      typename gw::matrix_complex* mf_scf_reord = M.GSLpackedColReorder(&jlmap_this.front(), nj_this, this->rowidx_used); //packs the GSL matrix
 #ifdef VMV_SPLIT_MEM_SAVE
       int nl_row = M.getRowParams().getNl();
       int nl_col = M.getColParams().getNl();
-      int nh_row = nrows_used - nl_row;
+      int nh_row = this->nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
+
       if(scf == 0){
 	mf_reord_lo_lo = (ScalarComplexType*)malloc(nl_row*nl_col*sizeof(ScalarComplexType));
-	getSubmatrix<ScalarComplexType >(mf_reord_lo_lo, (const ScalarComplexType*)mf_scf_reord->data, nrows_used, nj_this, 0, 0, nl_row, nl_col);
+	getSubmatrix<ScalarComplexType >(mf_reord_lo_lo, (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
       }
       mf_reord_lo_hi[scf] = (ScalarComplexType*)malloc(nl_row*nh_col*sizeof(ScalarComplexType));
-      getSubmatrix<ScalarComplexType >(mf_reord_lo_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+      getSubmatrix<ScalarComplexType >(mf_reord_lo_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
 
       mf_reord_hi_lo[scf] = (ScalarComplexType*)malloc(nh_row*nl_col*sizeof(ScalarComplexType));
-      getSubmatrix<ScalarComplexType >(mf_reord_hi_lo[scf], (const ScalarComplexType*)mf_scf_reord->data, nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+      getSubmatrix<ScalarComplexType >(mf_reord_hi_lo[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
 
       mf_reord_hi_hi[scf] = (ScalarComplexType*)malloc(nh_row*nh_col*sizeof(ScalarComplexType));
-      getSubmatrix<ScalarComplexType >(mf_reord_hi_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+      getSubmatrix<ScalarComplexType >(mf_reord_hi_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
 
       gw::matrix_complex_free(mf_scf_reord);
 #else
@@ -532,9 +559,9 @@ public:
              
       //Store the map between packed and full indices
       int i_packed = 0;
-      i_packed_unmap_all[scf].resize(nrows_used);
-      for(int i_full=0;i_full<Mrows;i_full++) 
-	if(rowidx_used[i_full]) i_packed_unmap_all[scf][i_packed++] = i_full;
+      i_packed_unmap_all[scf].resize(this->nrows_used);
+      for(int i_full=0;i_full<this->Mrows;i_full++) 
+	if(this->rowidx_used[i_full]) i_packed_unmap_all[scf][i_packed++] = i_full;
     }
 
     setup_called = true;
@@ -543,7 +570,7 @@ public:
 public:
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
   void contract(std::vector<SpinColorFlavorMatrix> &out, const bool conj_l, const bool conj_r) const{
-    int top = top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
+    int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
     int sites_3d = GJP.VolNodeSites()/GJP.TnodeSites();
@@ -577,8 +604,8 @@ public:
       for(int s=off[me];s<off[me]+work[me];s++){
 	Mr[s].resize(nscf); 
 	for(int scf=0;scf<nscf;scf++){
-	  Mr[s][scf].resize(Mrows);
-	  for(int i=0;i<Mrows;i++)
+	  Mr[s][scf].resize(this->Mrows);
+	  for(int i=0;i<this->Mrows;i++)
 	    Mr[s][scf][i] = 0.0;
 	}
       }
@@ -594,7 +621,7 @@ public:
       //multiply_M_r(&Mr[0],&rreord[0],off,work);
       
       //Vector vector multiplication l*(M*r)
-      typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(Mrows);
+      typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(this->Mrows);
       for(int x3d=off[me];x3d<off[me]+work[me];x3d++)
 	site_multiply_l_Mr(out[x3d], lreord[x3d], Mr[x3d], Mr_gsl_buffer);
 
@@ -609,7 +636,7 @@ public:
 
   //Run inside a threaded/parallelized loop over 3d sites. xop is a 3d coordinate!
   void contract(SpinColorFlavorMatrix &out, const int &xop, const bool &conj_l, const bool &conj_r) const{
-    int top = top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
+    int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
     std::vector<std::vector<ScalarComplexType > > lreord; //[scf][reordered mode]
@@ -620,8 +647,8 @@ public:
     
     std::vector<std::vector<ScalarComplexType > > Mr(nscf); //[scf][M row]
     for(int scf=0;scf<nscf;scf++){
-      Mr[scf].resize(Mrows);
-      for(int i=0;i<Mrows;i++)
+      Mr[scf].resize(this->Mrows);
+      for(int i=0;i<this->Mrows;i++)
 	Mr[scf][i] = 0.0;
     }
     int sites_3d = GJP.VolNodeSites()/GJP.TnodeSites();
@@ -632,7 +659,7 @@ public:
     multiply_M_r(&Mr,&rreord,0,1);
 
     //Vector vector multiplication l*(M*r)
-    typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(Mrows);
+    typename gw::vector_complex* Mr_gsl_buffer = gw::vector_complex_alloc(this->Mrows);
     site_multiply_l_Mr(out, lreord, Mr, Mr_gsl_buffer);
 
     gw::vector_complex_free(Mr_gsl_buffer);

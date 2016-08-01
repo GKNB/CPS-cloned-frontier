@@ -48,21 +48,16 @@ inline void getNodeWork(const int work, int &node_work, int &node_off, bool &do_
   if(node_work > 0) do_work = true;
 }
 
-
-  // do_work = true;
-  // if(nodes > work){
-  //   nodes = work; if(UniqueID() >= work) do_work = false; //too many nodes, at least for this parallelization. Might want to consider parallelizing in a different way!
-  // }
-
-  // node_work = work/nodes;
-  // if(node_work * nodes < work){
-  //   int remaining_work = work - node_work * nodes;
-  //   if(UniqueID()<remaining_work) node_work++;
-
-
-  //   node_work += work - node_work * nodes; //node 0 mops up remainder
-
-  //   node_off = UniqueID()*node_work;
+inline void thread_work(int &my_work, int &my_offset, const int total_work, const int me, const int team){
+  my_work = total_work/team;
+  my_offset = me * my_work;
+  
+  int rem = total_work - my_work * team;
+  if(me < rem){
+    ++my_work; //first rem threads mop up the remaining work
+    my_offset += me; //each thread before me has gained one extra unit of work
+  }else my_offset += rem; //after the first rem threads, the offset shift is uniform
+}
 
 
 inline void compute_overlap(std::vector<bool> &out, const std::vector<bool> &a, const std::vector<bool> &b){
@@ -453,6 +448,26 @@ template<typename T>
 inline T multiplySignTimesI(const int sgn, const T &val){
   return _mult_sgn_times_i_impl<T,typename ComplexClassify<T>::type>::doit(sgn,val);
 }
+
+template<typename T, typename ComplexClass>
+struct _cconj{};
+
+template<typename T>
+struct _cconj<T,complex_double_or_float_mark>{
+  static inline T doit(const T &in){ return std::conj(in); }
+};
+#ifdef USE_GRID
+template<typename T>
+struct _cconj<T,grid_vector_complex_mark>{
+  static inline T doit(const T &in){ return Grid::conjugate(in); }
+};
+#endif
+
+template<typename T>
+inline T cconj(const T& in){
+  return _cconj<T,typename ComplexClassify<T>::type>::doit(in);
+}
+  
 
 CPS_END_NAMESPACE
 
