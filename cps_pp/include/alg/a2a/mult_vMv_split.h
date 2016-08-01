@@ -81,9 +81,16 @@ public:
 
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename ComplexClass
 	 >
-class mult_vMv_split;
+class mult_vMv_split_v{};
+
+template<typename mf_Policies, 
+	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR	
+	 >
+class mult_vMv_split: public mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,typename ComplexClassify<typename mf_Policies::ComplexType>::type>{};
 
 
 template<typename mf_Policies, 
@@ -97,9 +104,9 @@ class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typena
   std::vector<  std::vector<std::vector<ScalarComplexType> > > &Mr;
   std::vector< std::vector<std::vector<ScalarComplexType> > > &rreord;
   
-  mult_vMv_split<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> *split_obj;
+  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> *split_obj;
 public:
-  multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(typename gw::matrix_complex* M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel
@@ -264,7 +271,7 @@ template<typename mf_Policies,
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
-class mult_vMv_split: public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>{
+class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, complex_double_or_float_mark>: public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>{
   typedef mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> Base;
   
   //Note:
@@ -469,7 +476,7 @@ class mult_vMv_split: public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2Afiel
 
 public:
 
-  mult_vMv_split(): setup_called(false){
+  mult_vMv_split_v(): setup_called(false){
 #ifdef VMV_SPLIT_MEM_SAVE
     mf_reord_lo_lo = NULL;
     for(int scf=0;scf<nscf;scf++){
@@ -496,7 +503,7 @@ public:
 
   }
 
-  ~mult_vMv_split(){
+  ~mult_vMv_split_v(){
 #ifdef VMV_SPLIT_MEM_SAVE
     FREEIT(mf_reord_lo_lo);
 
