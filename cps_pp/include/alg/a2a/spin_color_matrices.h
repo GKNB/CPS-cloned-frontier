@@ -177,7 +177,38 @@ struct _PartialTraceImpl<U,T,0>{
       into += from(i,i);
   }
 };
-	
+
+
+
+template<typename T, int RemoveDepth1, int RemoveDepth2, typename my_enable_if<RemoveDepth1 < RemoveDepth2,int>::type = 0 >
+struct _PartialDoubleTraceFindReducedType{
+  typedef typename T::template Rebase< typename _PartialDoubleTraceFindReducedType<typename T::value_type,RemoveDepth1-1,RemoveDepth2-1>::type >::type type;
+};
+template<typename T,int RemoveDepth2>
+struct _PartialDoubleTraceFindReducedType<T,0,RemoveDepth2, 0>{
+  typedef typename _PartialTraceFindReducedType<typename T::value_type,RemoveDepth2-1>::type type;
+};
+
+
+
+template<typename U,typename T, int RemoveDepth1,int RemoveDepth2>
+struct _PartialDoubleTraceImpl{
+  static inline void doit(U &into, const T&from){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_PartialDoubleTraceImpl<typename U::value_type, typename T::value_type, RemoveDepth1-1,RemoveDepth2-1>::doit(into(i,j), from(i,j));
+  }
+};
+template<typename U, typename T, int RemoveDepth2>
+struct _PartialDoubleTraceImpl<U,T,0,RemoveDepth2>{
+  static inline void doit(U &into, const T&from){
+    for(int i=0;i<T::Size;i++)
+      _PartialTraceImpl<U,typename T::value_type, RemoveDepth2-1>::doit(into, from(i,i));
+  }
+};
+
+
+
 
 
 template<typename T, int N>
@@ -231,7 +262,14 @@ public:
     _PartialTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth>::doit(into, *this);
     return into;
   }
-  
+
+  template<int RemoveDepth1, int RemoveDepth2>
+  typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type TraceTwoIndices() const{
+    typedef typename _PartialDoubleTraceFindReducedType<CPSsquareMatrix<T,N>,RemoveDepth1,RemoveDepth2>::type ReducedType;
+    ReducedType into; _CPSsetZeroOne<ReducedType, typename _MatrixClassify<ReducedType>::type>::setzero(into);//  into.zero();
+    _PartialDoubleTraceImpl<ReducedType, CPSsquareMatrix<T,N>, RemoveDepth1,RemoveDepth2>::doit(into, *this);
+    return into;
+  }
 
   void zero(){
     for(int i=0;i<N;i++)
@@ -317,6 +355,11 @@ public:
   typedef typename CPSsquareMatrix<T,2>::value_type value_type;
   typedef typename CPSsquareMatrix<T,2>::scalar_type scalar_type;
 
+  inline operator CPSsquareMatrix<T,2>(){ return static_cast<CPSsquareMatrix<T,2> &>(*this); }
+
+  CPSflavorMatrix(const CPSsquareMatrix<T,2> &r): CPSsquareMatrix<T,2>(r){}
+  CPSflavorMatrix(): CPSsquareMatrix<T,2>(){}  
+  
   template<typename U>
   struct Rebase{
     typedef CPSflavorMatrix<U> type;
@@ -443,6 +486,12 @@ public:
   typedef typename CPSsquareMatrix<T,4>::value_type value_type;
   typedef typename CPSsquareMatrix<T,4>::scalar_type scalar_type;
 
+  inline operator CPSsquareMatrix<T,4>(){ return static_cast<CPSsquareMatrix<T,4> &>(*this); }
+
+  CPSspinMatrix(const CPSsquareMatrix<T,4> &r): CPSsquareMatrix<T,4>(r){}
+  CPSspinMatrix(): CPSsquareMatrix<T,4>(){}  
+
+  
   template<typename U>
   struct Rebase{
     typedef CPSspinMatrix<U> type;
@@ -574,6 +623,10 @@ public:
   struct Rebase{
     typedef CPScolorMatrix<U> type;
   };
+  inline operator CPSsquareMatrix<T,3>(){ return static_cast<CPSsquareMatrix<T,3> &>(*this); }
+
+  CPScolorMatrix(const CPSsquareMatrix<T,3> &r): CPSsquareMatrix<T,3>(r){}
+  CPScolorMatrix(): CPSsquareMatrix<T,3>(){}  
 };
 
 template<typename ComplexType>
