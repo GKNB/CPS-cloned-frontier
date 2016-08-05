@@ -751,6 +751,19 @@ public:
     return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::timesMinusOne());
   }
 
+  inline CPScolorMatrix<ComplexType> SpinFlavorTrace() const{
+    return this->CPSsquareMatrix<value_type,4>::template TraceTwoIndices<0,2>();
+  }
+  inline CPSspinMatrix<CPSflavorMatrix<ComplexType> > ColorTrace() const{
+    return this->CPSsquareMatrix<value_type,4>::template TraceIndex<1>();
+  }
+  inline CPSspinColorFlavorMatrix<ComplexType>& TransposeColor(){
+    return static_cast<CPSspinColorFlavorMatrix<ComplexType> &>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
+  }
+  inline void equalsColorTranspose(const CPSspinColorFlavorMatrix<ComplexType> &r){
+    this->CPSsquareMatrix<value_type,4>::template equalsTransposeOnIndex<1>(r);
+  }
+  
   //multiply on left by a flavor matrix
   inline SCFmat & pl(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)

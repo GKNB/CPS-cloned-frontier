@@ -32,6 +32,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::times_equals(const ScalarCo
 }
 
 
+template<typename T>
+inline std::complex<T> complexAvg(const std::complex<T>&a, const std::complex<T> &b){
+  return (a+b)/T(2.0);
+}
 
 //Replace this meson field with the average of this and a second field, 'with'
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -42,9 +46,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::average(const A2AmesonField
   }
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) mf[i] = (mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) mf[i] = complexAvg(mf[i],with.mf[i]);//(mf[i] + with.mf[i])/2.0;
   }else{
-    for(int i=0;i<fsize;i++) mf[i] = (mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) mf[i] = complexAvg(mf[i],with.mf[i]);//(mf[i] + with.mf[i])/2.0;
   }
 }
 

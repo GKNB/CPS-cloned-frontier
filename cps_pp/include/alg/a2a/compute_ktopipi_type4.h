@@ -15,67 +15,52 @@ CPS_START_NAMESPACE
 //This disconnected 'bubble' is computed during the pipi calculation and therefore there is no need to recompute
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
-						     const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix &part2_L, const SpinColorFlavorMatrix &part2_H){
+						     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
   static const int con_off = 23; //index of first contraction in set
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      const SpinColorFlavorMatrix &G1 = Gamma1(gcombidx,mu);
-      const SpinColorFlavorMatrix &G2 = Gamma2(gcombidx,mu);
+      const SCFmat &G1 = Gamma1<ComplexType>(gcombidx,mu);
+      const SCFmat &G2 = Gamma2<ComplexType>(gcombidx,mu);
 
-      //SpinColorFlavorMatrix G1_pt1 = G1*part1;
-      SpinColorFlavorMatrix G1_pt1 = part1;
+      //SCFmat G1_pt1 = G1*part1;
+      SCFmat G1_pt1 = part1;
       multGammaLeft(G1_pt1,1,gcombidx,mu);
 
-      Matrix tr_sf_G1_pt1 = G1_pt1.SpinFlavorTrace();
+      CPScolorMatrix<ComplexType> tr_sf_G1_pt1 = G1_pt1.SpinFlavorTrace();
 
-      //SpinColorFlavorMatrix G2_pt2_L = G2*part2_L;
-      SpinColorFlavorMatrix G2_pt2_L = part2_L;
+      //SCFmat G2_pt2_L = G2*part2_L;
+      SCFmat G2_pt2_L = part2_L;
       multGammaLeft(G2_pt2_L,2,gcombidx,mu);
 
-      Matrix tr_sf_G2_pt2_L = G2_pt2_L.SpinFlavorTrace();
+      CPScolorMatrix<ComplexType> tr_sf_G2_pt2_L = G2_pt2_L.SpinFlavorTrace();
 
-      //SpinColorFlavorMatrix G2_pt2_H = G2*part2_H;
-      SpinColorFlavorMatrix G2_pt2_H = part2_H;
+      //SCFmat G2_pt2_H = G2*part2_H;
+      SCFmat G2_pt2_H = part2_H;
       multGammaLeft(G2_pt2_H,2,gcombidx,mu);
 
-      Matrix tr_sf_G2_pt2_H = G2_pt2_H.SpinFlavorTrace();
+      CPScolorMatrix<ComplexType> tr_sf_G2_pt2_H = G2_pt2_H.SpinFlavorTrace();
 	    
-      SpinColorFlavorMatrix ctrans_G2_pt2_L(G2_pt2_L); //speedup by transposing part 1
-      ctrans_G2_pt2_L.transpose_color();
+      SCFmat ctrans_G2_pt2_L(G2_pt2_L); //speedup by transposing part 1
+      ctrans_G2_pt2_L.TransposeColor();
 	
-      FlavorSpinMatrix tr_c_G1_pt1 = G1_pt1.ColorTrace();
+      CPSspinMatrix<CPSflavorMatrix<ComplexType> > tr_c_G1_pt1 = G1_pt1.ColorTrace();
 	
 #define C(IDX) result(t_K,t_dis,IDX-con_off,gcombidx,thread_id)	      
 
       //First 6 have a light-quark loop
       C(23) += G1_pt1.Trace() * G2_pt2_L.Trace();
 
-      //C(24) += ( tr_sf_G1_pt1 * Transpose(tr_sf_G2_pt2_L) ).Tr();
       C(24) += Trace( tr_sf_G1_pt1 , Transpose(tr_sf_G2_pt2_L) );
-
-      //C(25) += ( tr_sf_G1_pt1 * tr_sf_G2_pt2_L ).Tr();
       C(25) += Trace( tr_sf_G1_pt1 , tr_sf_G2_pt2_L );
-
-      //C(26) += ( G1_pt1 * G2_pt2_L ).Trace();
       C(26) += Trace( G1_pt1 , G2_pt2_L );
-
-      //C(27) += ( G1_pt1 * ctrans_G2_pt2_L ).Trace();
       C(27) += Trace( G1_pt1 , ctrans_G2_pt2_L );
-
-      //C(28) += ( G1_pt1.ColorTrace() * G2_pt2_L.ColorTrace() ).Trace();
       C(28) += Trace( tr_c_G1_pt1 , G2_pt2_L.ColorTrace() );
 	      
       //Second 4 have strange loop
       C(29) += G1_pt1.Trace() * G2_pt2_H.Trace();	      
-
-      //C(30) += ( tr_sf_G1_pt1 * tr_sf_G2_pt2_H ).Tr();
       C(30) += Trace( tr_sf_G1_pt1 , tr_sf_G2_pt2_H );
-
-      //C(31) += ( G1_pt1 * G2_pt2_H ).Trace();
       C(31) += Trace( G1_pt1 , G2_pt2_H );
-
-      //C(32) += ( G1_pt1.ColorTrace() * G2_pt2_H.ColorTrace() ).Trace();
       C(32) += Trace( tr_c_G1_pt1 , G2_pt2_H.ColorTrace() );
 
 #undef C	     	    
@@ -96,7 +81,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_v
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
+void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
 							     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
 
@@ -118,8 +103,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
 					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-  static const SpinColorFlavorMatrix mix4_Gamma[2] = { _F0*g5, _F1*g5*Float(-1) };
-
+  
+  
+  SCFmat mix4_Gamma[2];
+  mix4_Gamma[0].unit().pr(F0).gr(-5);
+  mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
+  
   //CK: the loop term could be re-used from type3
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   assert(Lt % tstep == 0);
@@ -141,7 +130,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
     type4_mult_vMv_setup(mult_vMv_split_part1,mf_kaon,vL,vH,top_loc,tstep,Lt);
 
 # ifndef DISABLE_TYPE4_PRECOMPUTE
-    std::vector<std::vector<SpinColorFlavorMatrix> > mult_vMv_contracted_part1; //[tkidx in Lt/tstep][x3d]
+    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part1; //[tkidx in Lt/tstep][x3d]
     type4_precompute_part1(mult_vMv_contracted_part1,mult_vMv_split_part1,top_loc,tstep,Lt);
 # endif
 #endif
@@ -156,7 +145,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
 
 	//Construct part 1:
 	// = vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] vH^dag(x_op) \gamma_5
-	SpinColorFlavorMatrix part1;
+	SCFmat part1;
 
 #if defined(DISABLE_TYPE4_SPLIT_VMV)
 	mult(part1, vL, mf_kaon[t_K], vH, xop3d_loc, top_loc, false, true);
@@ -170,7 +159,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
 		
 	//Construct part 2:
 	//vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
-	SpinColorFlavorMatrix part2_L, part2_H;
+	SCFmat part2_L, part2_H;
 	mult(part2_L, vL, wL, xop3d_loc, top_loc, false, true);
 	mult(part2_H, vH, wH, xop3d_loc, top_loc, false, true);
 

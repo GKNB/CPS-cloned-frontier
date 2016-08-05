@@ -2,6 +2,7 @@
 #define _COMPUTE_KTOPIPI_BASE
 
 #include<alg/a2a/fmatrix.h>
+#include<alg/a2a/spin_color_matrices.h>
 #include<cassert>
 CPS_START_NAMESPACE
 
@@ -159,23 +160,25 @@ public:
   //2 M_{1,V} = -F_1 \gamma_\mu
   //3 M_{1,A} = -F_1 \gamma_\mu\gamma^5
 
-  //First index is the Gidx, second is mu  
-  static const SpinColorFlavorMatrix & Gamma(const int &gidx, const int &mu){
-    static SpinColorFlavorMatrix _Gamma[4][4];
+  //First index is the Gidx, second is mu
+  template<typename ComplexType>
+  static const CPSspinColorFlavorMatrix<ComplexType> & Gamma(const int gidx, const int mu){
+    static CPSspinColorFlavorMatrix<ComplexType> _Gamma[4][4];
     static bool setup = false;
     if(!setup){
       for(int mu=0;mu<4;mu++){
-	_Gamma[0][mu] = _F0 * gmu[mu];
-	_Gamma[1][mu] = _F0 * gmu[mu]*g5;
-	_Gamma[2][mu] = _F1 * gmu[mu]* -1.0;
-	_Gamma[3][mu] = _F1 * gmu[mu]*g5* -1.0;
+	for(int nu=0;nu<4;nu++) _Gamma[nu][mu].unit();
+  	_Gamma[0][mu].unit().pr(F0).gr(mu);
+  	_Gamma[1][mu].unit().pr(F0).gr(mu).gr(-5);
+  	_Gamma[2][mu].unit().pr(F1).gr(mu).timesMinusOne();
+  	_Gamma[3][mu].unit().pr(F1).gr(mu).gr(-5).timesMinusOne();
       }
       setup = true;
     }
     return _Gamma[gidx][mu];
   }
 
-  //In practise we need only 8 combinations of gidx that are needed:
+  //In practise we need only 8 combinations of gidx:
   // 0V,0A  -> 0,1
   // 0A,0V  -> 1,0
   // 0V,1A  -> 0,3
@@ -186,42 +189,18 @@ public:
   // 1A,1V  -> 3,2
 
   //This method maps the index i \in {0..7} to the Gamma1 matrix
-  static const SpinColorFlavorMatrix & Gamma1(const int &i, const int &mu){
+  template<typename ComplexType>
+  inline static const CPSspinColorFlavorMatrix<ComplexType> & Gamma1(const int i, const int mu){
     static int g1[8] = {0,1,0,1,2,3,2,3};
-    return Gamma(g1[i],mu);
+    return Gamma<ComplexType>(g1[i],mu);
   }
   //Same for Gamma2
-  static const SpinColorFlavorMatrix & Gamma2(const int &i, const int &mu){
+  template<typename ComplexType>
+  inline static const CPSspinColorFlavorMatrix<ComplexType> & Gamma2(const int i, const int mu){
     static int g2[8] = {1,0,3,2,1,0,3,2};
-    return Gamma(g2[i],mu);
+    return Gamma<ComplexType>(g2[i],mu);
   }
 
-  static void multGammaLeft(SpinColorFlavorMatrix &M, const int whichGamma, const int i, const int mu){
-    assert(whichGamma == 1 || whichGamma==2);
-    static int g1[8] = {0,1,0,1,2,3,2,3};
-    static int g2[8] = {1,0,3,2,1,0,3,2};
-
-    int gg = whichGamma == 1 ? g1[i] : g2[i];
-    switch(gg){
-    case 0:
-      M.pl(F0).gl(mu);
-      break;
-    case 1:
-      //M.pl(F0).gl(-5).gl(mu);
-      M.pl(F0).glAx(mu);
-      break;
-    case 2:
-      M.pl(F1).gl(mu); M *= -1.0;
-      break;
-    case 3:
-      //M.pl(F1).gl(-5).gl(mu); M *= -1.0;
-      M.pl(F1).glAx(mu); M *= -1.0;
-      break;
-    default:
-      ERR.General("ComputeKtoPiPiGparityBase","multGamma1Left","Invalid idx\n");
-      break;
-    }
-  }
   template<typename ComplexType>
   static void multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){
     assert(whichGamma == 1 || whichGamma==2);
@@ -237,26 +216,16 @@ public:
       M.pl(F0).glAx(mu);
       break;
     case 2:
-      M.pl(F1).gl(mu); M.timesMinusOne();
+      M.pl(F1).gl(mu).timesMinusOne();
       break;
     case 3:
-      M.pl(F1).glAx(mu); M.timesMinusOne();
+      M.pl(F1).glAx(mu).timesMinusOne();
       break;
     default:
-      ERR.General("ComputeKtoPiPiGparityBase","multGamma1Left","Invalid idx\n");
+      ERR.General("ComputeKtoPiPiGparityBase","multGammaLeft","Invalid idx\n");
       break;
     }
   }
-
-  
-
-
-  static SpinColorFlavorMatrix _F0;
-  static SpinColorFlavorMatrix _F1;
-  static SpinColorFlavorMatrix g5;
-  static SpinColorFlavorMatrix S2;
-  static SpinColorFlavorMatrix unit;
-  static SpinColorFlavorMatrix gmu[4];
 };
 
 CPS_END_NAMESPACE

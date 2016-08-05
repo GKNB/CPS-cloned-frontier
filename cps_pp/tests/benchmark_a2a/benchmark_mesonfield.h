@@ -105,7 +105,7 @@ void benchmarkSpinFlavorTrace(const int ntests, const double tol){
     randomMatrix(old_mat,new_mat);
 
     Matrix tmp_mat_old =  old_mat.SpinFlavorTrace();
-    Cmat tmp_mat_new = new_mat.TraceTwoIndices<0,2>();
+    Cmat tmp_mat_new = new_mat.SpinFlavorTrace();//TraceTwoIndices<0,2>();
       
     bool fail = false;
     for(int c1=0;c1<3;c1++)

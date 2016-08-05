@@ -338,10 +338,10 @@ int main(int argc,char *argv[])
   printf("\n");
 
   if(0) benchmarkTrace(ntests,tol);
-  if(0) benchmarkSpinFlavorTrace(ntests,tol);
+  if(1) benchmarkSpinFlavorTrace(ntests,tol);
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
-  benchmarkmultGammaLeft(ntests, tol);
+  if(0) benchmarkmultGammaLeft(ntests, tol);
   
   NullObject n;
   if(0){
@@ -459,7 +459,7 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(1){ //test vMv implementation
+    if(0){ //test vMv implementation
       std::cout << "Starting vMv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -691,7 +691,7 @@ int main(int argc,char *argv[])
     }
     
 
-    if(1){ //test vv implementation
+    if(0){ //test vv implementation
       std::cout << "Starting vv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;

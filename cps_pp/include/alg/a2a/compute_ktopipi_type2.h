@@ -21,44 +21,34 @@ CPS_START_NAMESPACE
 
 //Run inside threaded environment
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix part2[2]){
+void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
     for(int gcombidx=0;gcombidx<8;gcombidx++){
-      const SpinColorFlavorMatrix &G1 = Gamma1(gcombidx,mu);
-      const SpinColorFlavorMatrix &G2 = Gamma2(gcombidx,mu);
+      const SCFmat &G1 = Gamma1<ComplexType>(gcombidx,mu);
+      const SCFmat &G2 = Gamma2<ComplexType>(gcombidx,mu);
 
-      SpinColorFlavorMatrix G1_pt1 = part1; //= G1*part1;
+      SCFmat G1_pt1 = part1; //= G1*part1;
       multGammaLeft(G1_pt1,1,gcombidx,mu);
 
-      Matrix tr_sf_G1_pt1 = G1_pt1.SpinFlavorTrace();
-
+      CPScolorMatrix<ComplexType> tr_sf_G1_pt1 = G1_pt1.SpinFlavorTrace();
+      
       for(int pt2_pion=0; pt2_pion<2; pt2_pion++){ //which pion comes first in part 2?
-	SpinColorFlavorMatrix G2_pt2 = part2[pt2_pion]; //= G2*part2[pt2_pion];
+	SCFmat G2_pt2 = part2[pt2_pion]; //= G2*part2[pt2_pion];
 	multGammaLeft(G2_pt2,2,gcombidx,mu);
 
-	Matrix tr_sf_G2_pt2 = G2_pt2.SpinFlavorTrace();
+	CPScolorMatrix<ComplexType> tr_sf_G2_pt2 = G2_pt2.SpinFlavorTrace();
 		
-	SpinColorFlavorMatrix ctrans_G2_pt2(G2_pt2); //speedup by transposing part 1
-	ctrans_G2_pt2.transpose_color();
+	SCFmat ctrans_G2_pt2(G2_pt2); //speedup by transposing part 1
+	ctrans_G2_pt2.TransposeColor();
 		
 #define C(IDX) result(t_K,t_dis,IDX-con_off,gcombidx,thread_id)	      
 	C(7) += G1_pt1.Trace() * G2_pt2.Trace();
-	    
-	//C(8) += (tr_sf_G1_pt1 * Transpose(tr_sf_G2_pt2) ).Tr();
 	C(8) += Trace( tr_sf_G1_pt1 , Transpose(tr_sf_G2_pt2) );
-	      
-	//C(9) += ( tr_sf_G1_pt1 * tr_sf_G2_pt2 ).Tr();
 	C(9) += Trace( tr_sf_G1_pt1 , tr_sf_G2_pt2 );
-	      
-	//C(10) += ( G1_pt1 * G2_pt2 ).Trace();
 	C(10) += Trace( G1_pt1 , G2_pt2 );
-	      
-	//C(11) += ( G1_pt1 * ctrans_G2_pt2 ).Trace();
 	C(11) += Trace( G1_pt1, ctrans_G2_pt2 );
-	      
-	//C(12) += ( G1_pt1.ColorTrace() * G2_pt2.ColorTrace() ).Trace();
 	C(12) += Trace( G1_pt1.ColorTrace() , G2_pt2.ColorTrace() );
 #undef C	     
       }
@@ -177,9 +167,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_v
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
-								   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi1_pi2,
-								   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi2_pi1,
+void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
+								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1_pi2,
+								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2_pi1,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
@@ -267,10 +257,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
 
 # ifndef DISABLE_TYPE2_PRECOMPUTE
     //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-    std::vector<std::vector<SpinColorFlavorMatrix> > mult_vMv_contracted_part1; //[t_K_all.size()][x3d];
+    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part1; //[t_K_all.size()][x3d];
     
-    std::vector<std::vector<SpinColorFlavorMatrix> > mult_vMv_contracted_part2_pi1_pi2; //[tpi_sampled][x3d];
-    std::vector<std::vector<SpinColorFlavorMatrix> > mult_vMv_contracted_part2_pi2_pi1; //[tpi_sampled][x3d];
+    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi1_pi2; //[tpi_sampled][x3d];
+    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi2_pi1; //[tpi_sampled][x3d];
     
     type2_precompute_part1_part2(mult_vMv_contracted_part1,mult_vMv_contracted_part2_pi1_pi2,mult_vMv_contracted_part2_pi2_pi1,
 				 mult_vMv_split_part1,mult_vMv_split_part2_pi1_pi2,mult_vMv_split_part2_pi2_pi1,
@@ -284,14 +274,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
       int thread_id = omp_get_thread_num();
 
       //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately.
-      std::vector<SpinColorFlavorMatrix> part1_storage(t_K_all.size());
+      std::vector<SCFmat> part1_storage(t_K_all.size());
       for(int tkidx=0; tkidx < t_K_all.size(); tkidx++){
 	if(!node_top_used_kaon[tkidx][top_loc]) continue;
 	int t_K = t_K_all[tkidx];
 
 	//Compute part 1	  
 	//    = \sum_{ \vec x_K  }  \Gamma_1 vL(x_op) [[ wL^dag(x_K) wH(x_K) ]] [vH(x_op)]^dag \gamma^5 
-	SpinColorFlavorMatrix &part1 = part1_storage[tkidx];
+	SCFmat &part1 = part1_storage[tkidx];
 #if defined(DISABLE_TYPE2_SPLIT_VMV)
 	mult(part1, vL, mf_kaon[t_K], vH, xop3d_loc, top_loc, false, true);
 #elif defined(DISABLE_TYPE2_PRECOMPUTE)
@@ -313,7 +303,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
       
 	//Construct part 2 (this doesn't involve the kaon):
 	// \sum_{ \vec y, \vec z  }  \Gamma_2 vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
-	SpinColorFlavorMatrix part2[2]; 
+	SCFmat part2[2]; 
 
 #if defined(DISABLE_TYPE2_SPLIT_VMV)
 	mult(part2[0], vL, con_pi1_pi2[t_pi1_idx], wL, xop3d_loc, top_loc, false, true); //part2 goes from insertion to pi1 to pi2 and back to insertion
@@ -332,7 +322,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
 
 	  if(t_dis >= tsep_k_pi[tkpi_idx] || t_dis == 0) continue; //don't bother computing operator insertion locations outside of the region between the kaon and first pion or on top of either operator
 	  
-	  const SpinColorFlavorMatrix &part1 = part1_storage[tkidx_map[t_K]];
+	  const SCFmat &part1 = part1_storage[tkidx_map[t_K]];
 	  type2_contract(result[tkpi_idx],t_K,t_dis,thread_id,part1,part2);
 	}
 

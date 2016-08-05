@@ -81,6 +81,9 @@ private:
   }
 
 public:
+  typedef typename mf_Policies::ComplexType ComplexType;
+  typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat;
+  
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -135,7 +138,7 @@ public:
 
 private:
   //Run inside threaded environment
-  static void type1_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SpinColorFlavorMatrix part1[2], const SpinColorFlavorMatrix part2[2]);
+  static void type1_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]);
 
   static void generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep);
 
@@ -161,10 +164,10 @@ private:
 				   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
 				   const int top_loc, const int t_pi1, const int t_pi2, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used);
 
-  static void type1_precompute_part1_part2(std::vector<SpinColorFlavorMatrix> &mult_vMv_contracted_part1_pi1,
-					   std::vector<SpinColorFlavorMatrix> &mult_vMv_contracted_part1_pi2,
-					   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi1,
-					   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi2,
+  static void type1_precompute_part1_part2(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1,
+					   std::vector<SCFmat> &mult_vMv_contracted_part1_pi2,
+					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1,
+					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2,
 					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
 					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
@@ -211,7 +214,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix part2[2]);
+  static void type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
  
   static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
@@ -229,9 +232,9 @@ private:
 				   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 				   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
 
-  static void type2_precompute_part1_part2(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
-					   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi1_pi2,
-					   std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part2_pi2_pi1,
+  static void type2_precompute_part1_part2(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
+					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1_pi2,
+					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2_pi1,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
@@ -299,7 +302,7 @@ public:
 private:
   //Run inside threaded environment
   static void type3_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
-			     const SpinColorFlavorMatrix part1[2], const SpinColorFlavorMatrix &part2_L, const SpinColorFlavorMatrix &part2_H);
+			     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H);
 
   static void type3_compute_mfproducts(std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
 				       std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,							     
@@ -313,8 +316,8 @@ private:
 				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
 				   const int top_loc, const int t_pi1_idx, const int tkp);
 
-  static void type3_precompute_part1(std::vector<SpinColorFlavorMatrix> &mult_vMv_contracted_part1_pi1_pi2,
-				     std::vector<SpinColorFlavorMatrix> &mult_vMv_contracted_part1_pi2_pi1,
+  static void type3_precompute_part1(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1_pi2,
+				     std::vector<SCFmat> &mult_vMv_contracted_part1_pi2_pi1,
 				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
 				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
 				     const int top_loc, const int t_pi1_idx, const int tkp);
@@ -379,7 +382,7 @@ public:
 private:
 
   static void type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
-			     const SpinColorFlavorMatrix &part1, const SpinColorFlavorMatrix &part2_L, const SpinColorFlavorMatrix &part2_H);
+			     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
   
 
 
@@ -388,7 +391,7 @@ private:
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
-  static void type4_precompute_part1(std::vector<std::vector<SpinColorFlavorMatrix> > &mult_vMv_contracted_part1,
+  static void type4_precompute_part1(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
 				     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 				     const int top_loc, const int tstep, const int Lt);
 public:
