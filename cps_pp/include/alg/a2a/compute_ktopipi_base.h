@@ -151,7 +151,7 @@ inline static void write(const std::string &filename, const KtoPiPiGparityResult
 
 
 class ComputeKtoPiPiGparityBase{
-protected:
+public:
 
   //Gidx are indices with the following mapping
   //0 M_{0,V} = F_0 \gamma_\mu
@@ -222,7 +222,33 @@ protected:
       break;
     }
   }
+  template<typename ComplexType>
+  static void multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){
+    assert(whichGamma == 1 || whichGamma==2);
+    static int g1[8] = {0,1,0,1,2,3,2,3};
+    static int g2[8] = {1,0,3,2,1,0,3,2};
 
+    int gg = whichGamma == 1 ? g1[i] : g2[i];
+    switch(gg){
+    case 0:
+      M.pl(F0).gl(mu);
+      break;
+    case 1:
+      M.pl(F0).glAx(mu);
+      break;
+    case 2:
+      M.pl(F1).gl(mu); M.timesMinusOne();
+      break;
+    case 3:
+      M.pl(F1).glAx(mu); M.timesMinusOne();
+      break;
+    default:
+      ERR.General("ComputeKtoPiPiGparityBase","multGamma1Left","Invalid idx\n");
+      break;
+    }
+  }
+
+  
 
 
   static SpinColorFlavorMatrix _F0;

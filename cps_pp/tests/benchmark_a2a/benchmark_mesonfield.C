@@ -48,7 +48,9 @@ using namespace cps;
 #include <alg/a2a/spin_color_matrices.h>
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
+#include <alg/a2a/compute_ktopipi_base.h>
 
+#include "benchmark_mesonfield.h"
 // typedef double mf_Float;
 // typedef Grid::vComplexD grid_Complex;
 // typedef GridSIMDSourcePolicies GridSrcPolicy;
@@ -335,71 +337,11 @@ int main(int argc,char *argv[])
     printf("%d ", simd_dims[i]);
   printf("\n");
 
-  typedef CPSsquareMatrix<CPSsquareMatrix<CPSsquareMatrix<cps::ComplexD,2>,3>,4> SCFmat;
-  typedef CPSsquareMatrix<cps::ComplexD,3> Cmat;
-  
-  typedef typename _PartialDoubleTraceFindReducedType<SCFmat,0,2>::type trType;
-  static_assert( _equal<trType,Cmat>::value, "SCFmat spin flavor trace type\n");
-
-  
-  {//Benchmark new matrix code
-    SpinColorFlavorMatrix old_mats[ntests];
-    CPSspinColorFlavorMatrix<cps::ComplexD> new_mats[ntests];
-    for(int iter=0;iter<ntests;iter++){
-      for(int s1=0;s1<4;s1++)
-  	for(int s2=0;s2<4;s2++)
-  	  for(int c1=0;c1<3;c1++)
-  	    for(int c2=0;c2<3;c2++)
-  	      for(int f1=0;f1<2;f1++)
-  		for(int f2=0;f2<2;f2++){
-  		  cps::ComplexD tmp;
-  		  _testRandom<cps::ComplexD>::rand(&tmp,1, 3.0, -3.0);
-  		  old_mats[iter](s1,c1,f1,s2,c2,f2) = tmp;
-  		  new_mats[iter](s1,s2)(c1,c2)(f1,f2) = tmp;
-  		}
-    }
-	
-  
-    //SpinFlavorTrace of SpinColorFlavorMatrix
-    Float total_time_old = 0.;
-    Matrix tmp_mat_old;
-    for(int iter=0;iter<ntests;iter++){
-      total_time_old -= dclock();
-      tmp_mat_old = old_mats[iter].SpinFlavorTrace();
-      total_time_old += dclock();
-    }
-    Float total_time_new = 0.;
-    Cmat tmp_mat_new;
-    for(int iter=0;iter<ntests;iter++){
-      total_time_new -= dclock();
-      //tmp_mat_new.zero();
-      //_PartialDoubleTraceImpl<Cmat,CPSspinColorFlavorMatrix<cps::ComplexD>,0,2>::doit(tmp_mat_new,new_mats[iter]);
-      tmp_mat_new = new_mats[iter].TraceTwoIndices<0,2>();
-      total_time_new += dclock();
-    }
-
-    bool fail = false;
-    for(int c1=0;c1<3;c1++)
-      for(int c2=0;c2<3;c2++){
-	cps::ComplexD gd = tmp_mat_old(c1,c2);
-	cps::ComplexD cp = tmp_mat_new(c1,c2);
-						 
-	double rdiff = fabs(gd.real()-cp.real());
-	double idiff = fabs(gd.imag()-cp.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: SFtrace Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-	  fail = true;
-	}
-      }
-    if(fail) ERR.General("","","SFtrace test failed\n");
-    else printf("SFtrace pass\n");
-    
-    printf("SFtrace: Avg time new code %d iters: %g secs\n",ntests,total_time_new/ntests);
-    printf("SFtrace: Avg time old code %d iters: %g secs\n",ntests,total_time_old/ntests);
-
-  }
-
-
+  if(0) benchmarkTrace(ntests,tol);
+  if(0) benchmarkSpinFlavorTrace(ntests,tol);
+  if(0) benchmarkTraceProd(ntests,tol);
+  if(0) benchmarkColorTranspose(ntests,tol);
+  benchmarkmultGammaLeft(ntests, tol);
   
   NullObject n;
   if(0){

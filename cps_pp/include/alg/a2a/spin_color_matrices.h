@@ -207,6 +207,22 @@ struct _PartialDoubleTraceImpl<U,T,0,RemoveDepth2>{
   }
 };
 
+template<typename T, int TransposeDepth>
+struct _IndexTransposeImpl{
+  static inline void doit(T &into, const T&from){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	_IndexTransposeImpl<typename T::value_type, TransposeDepth-1>::doit(into(i,j), from(i,j));
+  }
+};
+template<typename T>
+struct _IndexTransposeImpl<T,0>{
+  static inline void doit(T &into, const T&from){
+    for(int i=0;i<T::Size;i++)
+      for(int j=0;j<T::Size;j++)
+	into(i,j) = from(j,i);
+  }
+};
 
 
 
@@ -237,11 +253,16 @@ public:
   T & operator()(const int i, const int j){ return v[i][j]; }
   const T & operator()(const int i, const int j) const{ return v[i][j]; }
 
-  void equalsTranspose(const CPSsquareMatrix<T,N> &r){
+  inline void equalsTranspose(const CPSsquareMatrix<T,N> &r){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	v[i][j] = r.v[j][i];
   }
+  inline CPSsquareMatrix<T,N> Transpose() const{
+    CPSsquareMatrix<T,N> out; out.equalsTranspose(*this);
+    return out;
+  }				
+  
   //Trace on just the index associated with this matrix
   // T traceIndex() const{
   //   T out; CPSsetZero(out);
@@ -271,6 +292,19 @@ public:
     return into;
   }
 
+  //Set this matrix equal to the transpose of r on its compound tensor index TransposeDepth. If it is not a compound matrix then TranposeDepth=0 does the same thing as equalsTranspose above
+  template<int TransposeDepth>
+  inline void equalsTransposeOnIndex(const CPSsquareMatrix<T,N> &r){
+    assert(&r != this);
+    _IndexTransposeImpl<CPSsquareMatrix<T,N>, TransposeDepth>::doit(*this,r);
+  }
+  template<int TransposeDepth>
+  inline CPSsquareMatrix<T,N> & TransposeOnIndex(){
+    CPSsquareMatrix<T,N> cp(*this);
+    this->equalsTransposeOnIndex<TransposeDepth>(cp);
+    return *this;
+  }
+  
   void zero(){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
@@ -280,6 +314,10 @@ public:
     zero();
     for(int i=0;i<N;i++)
       _CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setone(v[i][i]);
+  }
+  //this = -this
+  void timesMinusOne(){
+    _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusOne(*this,*this);
   }
     
   CPSsquareMatrix<T,N> & operator+=(const CPSsquareMatrix<T,N> &r){
@@ -339,6 +377,12 @@ typename my_enable_if<isCPSsquareMatrix<U>::value, typename U::scalar_type>::typ
   return out;
 }
 
+template<typename T>
+T Transpose(const T& r){
+  T out;
+  out.equalsTranspose(r);
+  return out;
+}
 
 
 
@@ -609,6 +653,55 @@ public:
     }
     return *this;
   }
+
+  //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*from
+  CPSspinMatrix<T>& glAx(const int dir){
+    int s2;
+    CPSspinMatrix<T> cp(*this);
+    const T (&from_mat)[4][4] = cp.v;
+    T (&p)[4][4] = this->v;
+    
+    switch(dir){
+    case 0:
+      for(s2=0;s2<4;s2++){
+            TIMESMINUSI( from_mat[3][s2], p[0][s2] );
+            TIMESMINUSI( from_mat[2][s2], p[1][s2] );
+            TIMESMINUSI( from_mat[1][s2], p[2][s2] );
+            TIMESMINUSI( from_mat[0][s2], p[3][s2] );
+        }
+        break;
+    case 1:
+        for(s2=0;s2<4;s2++){
+            TIMESPLUSONE(  from_mat[3][s2], p[0][s2] );
+            TIMESMINUSONE( from_mat[2][s2], p[1][s2] );
+            TIMESPLUSONE(  from_mat[1][s2], p[2][s2] );
+            TIMESMINUSONE( from_mat[0][s2], p[3][s2] );
+        }
+        break;
+    case 2:
+        for(s2=0;s2<4;s2++){
+            TIMESMINUSI( from_mat[2][s2], p[0][s2] );
+            TIMESPLUSI(  from_mat[3][s2], p[1][s2] );
+            TIMESMINUSI( from_mat[0][s2], p[2][s2] );
+            TIMESPLUSI(  from_mat[1][s2], p[3][s2] );
+        }
+	break;
+    case 3:
+        for(s2=0;s2<4;s2++){
+            TIMESMINUSONE( from_mat[2][s2], p[0][s2] );
+            TIMESMINUSONE( from_mat[3][s2], p[1][s2] );
+            TIMESPLUSONE(  from_mat[0][s2], p[2][s2] );
+            TIMESPLUSONE(  from_mat[1][s2], p[3][s2] );
+        }
+        break;
+    default:
+      assert(0);
+      break;
+    }
+    return *this;
+  }
+
+  
 };
 
 
@@ -644,7 +737,16 @@ public:
   struct Rebase{
     typedef CPSspinMatrix<U> type;
   };
-  
+
+  //multiply on left by a flavor matrix
+  inline SCFmat & pl(const FlavorMatrixType type){
+    for(int s1=0;s1<4;s1++)
+      for(int s2=0;s2<4;s2++)
+	for(int c1=0;c1<3;c1++)
+	  for(int c2=0;c2<3;c2++)
+	    this->operator()(s1,s2)(c1,c2).pl(type);
+    return *this;
+  }
 
 };
 
