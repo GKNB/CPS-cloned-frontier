@@ -322,8 +322,7 @@ void asq_vaxpy3_s(PTvector *res,Float *scale,PTvector *mult,PTvector *add, int n
 
 }
 
-void *pt_alloc(size_t request, const char *cname, const
-char *fname, const char *vname){
+inline void *pt_alloc(size_t request, const char *cname, const char *fname, const char *vname){
     return malloc(request);
 }
 
