@@ -459,7 +459,7 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(0){ //test vMv implementation
+    if(1){ //test vMv implementation
       std::cout << "Starting vMv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -468,16 +468,16 @@ int main(int argc,char *argv[])
       Float total_time_split_orig_xall = 0.;
       Float total_time_split_grid_xall = 0.;
        
-      SpinColorFlavorMatrix orig_sum[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
-      SpinColorFlavorMatrix orig_tmp[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_tmp[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
 
-      SpinColorFlavorMatrix orig_sum_split[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_sum_split[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split[nthreads];
 
-      SpinColorFlavorMatrix orig_sum_split_xall[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_sum_split_xall[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_xall[nthreads];
 
       
@@ -487,14 +487,14 @@ int main(int argc,char *argv[])
       mult_vMv_split<A2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
       mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
 
-      std::vector<SpinColorFlavorMatrix> orig_split_xall_tmp(orig_3vol);
+      std::vector<CPSspinColorFlavorMatrix<mf_Complex>> orig_split_xall_tmp(orig_3vol);
       Grid::Vector<CPSspinColorFlavorMatrix<grid_Complex> > grid_split_xall_tmp(grid_3vol);
       
       for(int iter=0;iter<ntests;iter++){
 	for(int i=0;i<nthreads;i++){
-	  orig_sum[i] = 0.; grid_sum[i].zero();
-	  orig_sum_split[i] = 0.; grid_sum_split[i].zero();
-	  orig_sum_split_xall[i] = 0.; grid_sum_split_xall[i].zero();
+	  orig_sum[i].zero(); grid_sum[i].zero();
+	  orig_sum_split[i].zero(); grid_sum_split[i].zero();
+	  orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
@@ -588,7 +588,7 @@ int main(int argc,char *argv[])
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
 		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 		    
 		    double rdiff = fabs(gd.real()-cp.real());
 		    double idiff = fabs(gd.imag()-cp.imag());
@@ -606,9 +606,8 @@ int main(int argc,char *argv[])
 	      for(int sr=0;sr<4;sr++)
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
-		    const std::complex<double> &split = orig_sum_split[0](sl,cl,fl,sr,cr,fr);
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
-		    
+		    const mf_Complex &split = orig_sum_split[0](sl,sr)(cl,cr)(fl,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 		    double rdiff = fabs(split.real()-cp.real());
 		    double idiff = fabs(split.imag()-cp.imag());
 		    if(rdiff > tol|| idiff > tol){
@@ -626,7 +625,7 @@ int main(int argc,char *argv[])
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
 		    gd = Reduce( grid_sum_split[0](sl,sr)(cl,cr)(fl,fr) );
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 		    
 		    double rdiff = fabs(gd.real()-cp.real());
 		    double idiff = fabs(gd.imag()-cp.imag());
@@ -646,8 +645,8 @@ int main(int argc,char *argv[])
 	      for(int sr=0;sr<4;sr++)
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
-		    const std::complex<double> &split = orig_sum_split_xall[0](sl,cl,fl,sr,cr,fr);
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    const mf_Complex &split = orig_sum_split_xall[0](sl,sr)(cl,cr)(fl,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 		    
 		    double rdiff = fabs(split.real()-cp.real());
 		    double idiff = fabs(split.imag()-cp.imag());
@@ -666,7 +665,7 @@ int main(int argc,char *argv[])
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
 		    gd = Reduce( grid_sum_split_xall[0](sl,sr)(cl,cr)(fl,fr) );
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 		    
 		    double rdiff = fabs(gd.real()-cp.real());
 		    double idiff = fabs(gd.imag()-cp.imag());
@@ -692,14 +691,14 @@ int main(int argc,char *argv[])
     }
     
 
-    if(0){ //test vv implementation
+    if(1){ //test vv implementation
       std::cout << "Starting vv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
-      SpinColorFlavorMatrix orig_sum[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
-      SpinColorFlavorMatrix orig_tmp[nthreads];
+      CPSspinColorFlavorMatrix<mf_Complex> orig_tmp[nthreads];
       CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
 
       int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
@@ -707,7 +706,7 @@ int main(int argc,char *argv[])
       
       for(int iter=0;iter<ntests;iter++){
 	for(int i=0;i<nthreads;i++){
-	  orig_sum[i] = 0.; grid_sum[i].zero();
+	  orig_sum[i].zero(); grid_sum[i].zero();
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
@@ -747,7 +746,7 @@ int main(int argc,char *argv[])
 		for(int cr=0;cr<3;cr++)
 		  for(int fr=0;fr<2;fr++){
 		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
-		    const std::complex<double> &cp = orig_sum[0](sl,cl,fl,sr,cr,fr);
+		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
 
 		    double rdiff = fabs(gd.real()-cp.real());
 		    double idiff = fabs(gd.imag()-cp.imag());

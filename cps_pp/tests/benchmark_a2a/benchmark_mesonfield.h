@@ -269,7 +269,30 @@ void benchmarkColorTranspose(const int ntests, const double tol){
   }
 }
 
+void multGammaLeftOld(SpinColorFlavorMatrix &M, const int whichGamma, const int i, const int mu){
+  assert(whichGamma == 1 || whichGamma==2);
+  static int g1[8] = {0,1,0,1,2,3,2,3};
+  static int g2[8] = {1,0,3,2,1,0,3,2};
 
+  int gg = whichGamma == 1 ? g1[i] : g2[i];
+  switch(gg){
+  case 0:
+    M.pl(F0).gl(mu);
+    break;
+  case 1:
+    M.pl(F0).glAx(mu);
+    break;
+  case 2:
+    M.pl(F1).gl(mu); M *= -1.0;
+    break;
+  case 3:
+    M.pl(F1).glAx(mu); M *= -1.0;
+    break;
+  default:
+    ERR.General("ComputeKtoPiPiGparityBase","multGammaLeft","Invalid idx\n");
+    break;
+  }
+}
 
 void benchmarkmultGammaLeft(const int ntests, const double tol){
   typedef CPSsquareMatrix<CPSsquareMatrix<CPSsquareMatrix<cps::ComplexD,2>,3>,4> SCFmat;
@@ -282,7 +305,7 @@ void benchmarkmultGammaLeft(const int ntests, const double tol){
 	CPSspinColorFlavorMatrix<cps::ComplexD> new_mat;
 	randomMatrix(old_mat,new_mat);
 
-	ComputeKtoPiPiGparityBase::multGammaLeft(old_mat,gamma,i,mu);
+	multGammaLeftOld(old_mat,gamma,i,mu);
 	ComputeKtoPiPiGparityBase::multGammaLeft(new_mat,gamma,i,mu);
       
 	bool fail = false;
@@ -318,7 +341,7 @@ void benchmarkmultGammaLeft(const int ntests, const double tol){
 	for(int iter=0;iter<ntests;iter++){
 	  randomMatrix(old_mat);      
 	  total_time_old -= dclock();
-	  ComputeKtoPiPiGparityBase::multGammaLeft(old_mat,gamma,i,mu);
+	  multGammaLeftOld(old_mat,gamma,i,mu);
 	  total_time_old += dclock();
 	}
 	Float total_time_new = 0.;

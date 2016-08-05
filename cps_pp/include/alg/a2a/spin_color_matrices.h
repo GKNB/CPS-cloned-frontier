@@ -304,20 +304,23 @@ public:
     this->equalsTransposeOnIndex<TransposeDepth>(cp);
     return *this;
   }
-  
-  void zero(){
+
+  CPSsquareMatrix<T,N> & zero(){
     for(int i=0;i<N;i++)
       for(int j=0;j<N;j++)
 	_CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setzero(v[i][j]);
+    return *this;    
   }
-  void unit(){
+  CPSsquareMatrix<T,N>& unit(){
     zero();
     for(int i=0;i<N;i++)
       _CPSsetZeroOne<T,  typename _MatrixClassify<T>::type>::setone(v[i][i]);
+    return *this;
   }
   //this = -this
-  void timesMinusOne(){
+  CPSsquareMatrix<T,N> & timesMinusOne(){
     _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusOne(*this,*this);
+    return *this;
   }
     
   CPSsquareMatrix<T,N> & operator+=(const CPSsquareMatrix<T,N> &r){
@@ -738,6 +741,16 @@ public:
     typedef CPSspinMatrix<U> type;
   };
 
+  inline CPSspinColorFlavorMatrix<ComplexType>& unit(){
+    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::unit());
+  }
+  inline CPSspinColorFlavorMatrix<ComplexType>& zero(){
+    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::zero());
+  }
+  inline CPSspinColorFlavorMatrix<ComplexType>& timesMinusOne(){
+    return static_cast<CPSspinColorFlavorMatrix<ComplexType>& >(this->CPSsquareMatrix<value_type,4>::timesMinusOne());
+  }
+
   //multiply on left by a flavor matrix
   inline SCFmat & pl(const FlavorMatrixType type){
     for(int s1=0;s1<4;s1++)
@@ -747,7 +760,17 @@ public:
 	    this->operator()(s1,s2)(c1,c2).pl(type);
     return *this;
   }
+  //multiply on left by a flavor matrix
+  inline SCFmat & pr(const FlavorMatrixType type){
+    for(int s1=0;s1<4;s1++)
+      for(int s2=0;s2<4;s2++)
+	for(int c1=0;c1<3;c1++)
+	  for(int c2=0;c2<3;c2++)
+	    this->operator()(s1,s2)(c1,c2).pr(type);
+    return *this;
+  }
 
+  
 };
 
 

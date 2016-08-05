@@ -415,7 +415,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
     gw::vector_complex_free(Mr_packed);
   }
   
-  void site_multiply_l_Mr(SpinColorFlavorMatrix &out, 
+  void site_multiply_l_Mr(CPSspinColorFlavorMatrix<ScalarComplexType> &out, 
 			  const std::vector<std::vector<ScalarComplexType> > &lreord,
 			  const std::vector<std::vector<ScalarComplexType> > &Mr,
 			  typename gw::vector_complex* Mr_gsl_buffer) const{
@@ -444,7 +444,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
 	  for(int sr=0;sr<4;sr++){
 	    for(int cr=0;cr<3;cr++){
 	      for(int fr=0;fr<2;fr++){
-		std::complex<Float> &into = out(sl,cl,fl, sr,cr,fr);
+		ScalarComplexType &into = out(sl,sr)(cl,cr)(fl,fr);
 
 		int scfr = fr + 2*(cr + 3*sr);
 
@@ -462,8 +462,8 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
 		typename gw::complex dot;
 		gw::blas_dotu(&lreord_gsl, Mr_gsl, &dot);
 		    
-		reinterpret_cast<Float(&)[2]>(into)[0] = GSL_REAL(dot);
-		reinterpret_cast<Float(&)[2]>(into)[1] = GSL_IMAG(dot);
+		reinterpret_cast<typename ScalarComplexType::value_type(&)[2]>(into)[0] = GSL_REAL(dot);
+		reinterpret_cast<typename ScalarComplexType::value_type(&)[2]>(into)[1] = GSL_IMAG(dot);
 	      }
 	    }
 	  }
@@ -575,7 +575,7 @@ public:
 
 public:
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-  void contract(std::vector<SpinColorFlavorMatrix> &out, const bool conj_l, const bool conj_r) const{
+  void contract(std::vector<CPSspinColorFlavorMatrix<ScalarComplexType>> &out, const bool conj_l, const bool conj_r) const{
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
@@ -641,7 +641,7 @@ public:
 
 
   //Run inside a threaded/parallelized loop over 3d sites. xop is a 3d coordinate!
-  void contract(SpinColorFlavorMatrix &out, const int &xop, const bool &conj_l, const bool &conj_r) const{
+  void contract(CPSspinColorFlavorMatrix<ScalarComplexType> &out, const int &xop, const bool &conj_l, const bool &conj_r) const{
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
