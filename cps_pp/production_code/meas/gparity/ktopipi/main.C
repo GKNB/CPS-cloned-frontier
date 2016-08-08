@@ -58,14 +58,17 @@ using namespace cps;
 #include <alg/a2a/main.h>
 
 #ifdef A2A_PREC_DOUBLE
-typedef double mf_Float;
+typedef std::complex<double> mf_Complex;
 #elif defined(A2A_PREC_SINGLE)
-typedef float mf_Float;
+typedef std::complex<float> mf_Complex;
+#elif defined(A2A_PREC_SIMD_DOUBLE)
+typedef Grid::vComplexD mf_Complex;
+#elif defined(A2A_PREC_SIMD_SINGLE)
+typedef Grid::vComplexF mf_Complex;
 #else
 #error "Must provide an A2A precision"
 #endif
 
-typedef std::complex<mf_Float> mf_Complex;
 
 int main (int argc,char **argv )
 {
@@ -213,6 +216,34 @@ int main (int argc,char **argv )
   if(!UniqueID()) printf("Memory prior to config loop:\n");
   printMem();
 
+  //Grab the A2A policies
+  typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase;
+#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
+  typedef GridA2APoliciesBase LanczosPolicies;
+  typedef GridA2APoliciesBase::FgridGFclass LatticeType;
+  typedef GridA2APolicies<A2ApoliciesBase> A2Apolicies; //combines A2ApoliciesBase and GridPoliciesBase
+  if(GJP.Gparity()){
+#ifndef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
+#endif
+  }else{
+#ifdef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
+#endif
+  }      
+#else
+  typedef void LanczosPolicies;
+  typedef GwilsonFdwf LatticeType;
+  typedef A2ApoliciesBase A2Apolicies;
+#endif
+
+  //Setup parameters of fields
+  
+  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType Field3DparamType;
+  typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
+  Field4DparamType field4dparams; setupFieldParams<mf_Complex>(field4dparams);
+  Field3DparamType field3dparams; setupFieldParams<mf_Complex>(field3dparams);
+  
   //-------------------- Main Loop Begin! -------------------- //
   for(int conf = TrajStart; conf < LessThanLimit; conf += meas_arg.TrajIncrement) {
     double conf_time = -dclock();
@@ -230,25 +261,7 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
     printMem();
 
-    typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase;
-#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
-    typedef GridA2APoliciesBase LanczosPolicies;
-    typedef GridA2APoliciesBase::FgridGFclass LatticeType;
-    typedef GridA2APolicies<A2ApoliciesBase> A2Apolicies; //combines A2ApoliciesBase and GridPoliciesBase
-    if(GJP.Gparity()){
-#ifndef USE_GRID_GPARITY
-      ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
-#endif
-    }else{
-#ifdef USE_GRID_GPARITY
-      ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
-#endif
-    }      
-#else
-    typedef void LanczosPolicies;
-    typedef GwilsonFdwf LatticeType;
-    typedef A2ApoliciesBase A2Apolicies;
-#endif
+
     
     LatticeSetup<LatticeType> lattice_setup(jp,solvers); //for BFM this creates a lattice object and imports the gauge field into the bfm instances, for Grid a lattice object and import of the gauge field
     LatticeType &lat = lattice_setup.getLattice();
@@ -286,8 +299,8 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
     
-    A2AvectorV<A2Apolicies> V(a2a_arg);
-    A2AvectorW<A2Apolicies> W(a2a_arg);
+    A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
+    A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
 
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
@@ -328,8 +341,8 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
 
-    A2AvectorV<A2Apolicies> V_s(a2a_arg_s);
-    A2AvectorW<A2Apolicies> W_s(a2a_arg_s);
+    A2AvectorV<A2Apolicies> V_s(a2a_arg_s,field4dparams);
+    A2AvectorW<A2Apolicies> W_s(a2a_arg_s,field4dparams);
 
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
@@ -367,10 +380,10 @@ int main (int argc,char **argv )
     {
       if(!UniqueID()) printf("Computing kaon 2pt function\n");
       time = -dclock();
-      fMatrix<mf_Complex> kaon(Lt,Lt);
+      fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
       ComputeKaon<A2Apolicies>::compute(kaon,
 				     W, V, W_s, V_s,
-				     jp.kaon_rad, lat);
+					jp.kaon_rad, lat, field3dparams);
       std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
       kaon.write(os.str());
       time += dclock();
@@ -389,7 +402,7 @@ int main (int argc,char **argv )
     
     if(!UniqueID()) printf("Computing light-light meson fields\n");
     time = -dclock();
-    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, pion_mom, W, V, jp.pion_rad, lat);
+    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
     time += dclock();
     print_time("main","Light-light meson fields",time);
 
@@ -403,7 +416,7 @@ int main (int argc,char **argv )
     time = -dclock();
     for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
       if(!UniqueID()) printf("Starting pidx %d\n",p);
-      fMatrix<mf_Complex> pion(Lt,Lt);
+      fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
       ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
       //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
       //f'(p) = \sum_{x,y}e^{ip(x-y)}f(x,y)  [conventional]
@@ -437,7 +450,7 @@ int main (int argc,char **argv )
       ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(psrcidx);
 
       for(int psnkidx=0; psnkidx < nmom; psnkidx++){	
-	fMatrix<mf_Complex> pipi(Lt,Lt);
+	fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
 	ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
 	
 	MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
@@ -463,7 +476,7 @@ int main (int argc,char **argv )
       { //V diagram
 	if(!UniqueID()){ printf("Doing pipi figure V, pidx=%d\n",psrcidx); fflush(stdout); }
 	time = -dclock();
-	fVector<mf_Complex> figVdis(Lt);
+	fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
 	ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,jp.pipi_separation,mf_ll_con);
 	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_FigureVdis_sep" << jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
@@ -488,7 +501,7 @@ int main (int argc,char **argv )
     //--------------------------------------K->pipi contractions--------------------------------------------------------
     //We first need to generate the light-strange W*W contraction
     std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
-    ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,jp.kaon_rad,lat);
+    ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,jp.kaon_rad,lat, field3dparams);
 
     std::vector<int> k_pi_separation(jp.k_pi_separation.k_pi_separation_len);
     for(int i=0;i<jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = jp.k_pi_separation.k_pi_separation_val[i];
