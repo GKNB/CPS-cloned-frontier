@@ -496,6 +496,9 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after computing W*W meson fields:\n");
     printMem();
 
+    typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+    typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+    
     //For type1 loop over momentum of pi1 (conventionally the pion closest to the kaon)
     int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
 #define TYPE1_DO_ASSUME_ROTINVAR_GP3  //For GPBC in 3 directions we can assume rotational invariance around the G-parity diagonal vector (1,1,1) and therefore calculate only one off-diagonal momentum
@@ -511,7 +514,7 @@ int main (int argc,char **argv )
       printMem();
 
       ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
-      std::vector<KtoPiPiGparityResultsContainer> type1;
+      std::vector<ResultsContainerType> type1;
       ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
 					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, jp.xyzstep_type1, p_pi1,
 					     mf_ls_ww, mf_ll_con,
@@ -540,7 +543,7 @@ int main (int argc,char **argv )
     {
       time = -dclock();
       if(!UniqueID()) printf("Starting type 2 contractions\n");
-      std::vector<KtoPiPiGparityResultsContainer> type2;
+      std::vector<ResultsContainerType> type2;
       ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
 					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, pion_mom,
 					     mf_ls_ww, mf_ll_con,
@@ -560,8 +563,8 @@ int main (int argc,char **argv )
     {
       time = -dclock();
       if(!UniqueID()) printf("Starting type 3 contractions\n");
-      std::vector<KtoPiPiGparityResultsContainer> type3;
-      std::vector<KtoPiPiGparityMixDiagResultsContainer> mix3;
+      std::vector<ResultsContainerType> type3;
+      std::vector<MixDiagResultsContainerType> mix3;
       ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
 					     k_pi_separation, jp.pipi_separation, 1, pion_mom,
 					     mf_ls_ww, mf_ll_con,
@@ -582,8 +585,8 @@ int main (int argc,char **argv )
       //Type 4 has no momentum loop as the pion disconnected part is computed as part of the pipi 2pt function calculation
       time = -dclock();
       if(!UniqueID()) printf("Starting type 4 contractions\n");
-      KtoPiPiGparityResultsContainer type4;
-      KtoPiPiGparityMixDiagResultsContainer mix4;
+      ResultsContainerType type4;
+      MixDiagResultsContainerType mix4;
       
       ComputeKtoPiPiGparity<A2Apolicies>::type4(type4, mix4,
 					     1,
