@@ -24,7 +24,7 @@ CPS_START_NAMESPACE
 
 //Run inside threaded environment
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]){
+void ComputeKtoPiPiGparity<mf_Policies>::type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]){
   static const int n_contract = 6; //six type1 diagrams
   static const int con_off = 1; //index of first contraction in set
   for(int pt1_pion=0; pt1_pion<2; pt1_pion++){ //which pion is associated with part 1?
@@ -91,16 +91,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
     for(int t_lcl = 0; t_lcl < GJP.TnodeSites(); t_lcl++) {
       int t_op = t_lcl + GJP.TnodeSites() * GJP.TnodeCoor();
       if(t_op >= t_pi_1_start + shift || t_op <= t_pi_1_start + shift - maxDeltaT) continue; //you see why it gives me a headache? These coordinates are not modulo the lattice size
-      //if(!UniqueID()){ printf("Doing random field for tpi1=%d with t_lcl=%d, generator index %d, range hi=%g lo=%g, a random number = %12e\n",tpi1,t_lcl,LRG.GetGeneratorIndex(FOUR_D),hi,lo,LRG.Urand(FOUR_D)); fflush(stdout); }
+
       for(int i = 0; i < size_3d / xyzStep; i++){
 	int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t_lcl; //Generate in same order as Daiqian. He doesn't set the hypercube RNG so it uses whichever one was used last! I know this sucks.
 	*(random_fields[tpi1]->site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
       }
     }
-
-    //int xx[4] = {0,0,0,0};
-    //for(xx[3]=0;xx[3]<Lt;xx[3]++)
-      //if(!UniqueID()) printf("Using random field for t_pi_1=%d and t_lcl=%d, val0 = %d\n",tpi1,xx[3],*random_fields[tpi1]->site_ptr(xx));
   }
 #else
   //for(int t_pi1 = 0; t_pi1 < Lt; t_pi1 += tstep){ //my sensible ordering
@@ -198,10 +194,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(mult_vMv_split<mf_
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1,
-								   std::vector<SCFmat> &mult_vMv_contracted_part1_pi2,
-								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1,
-								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2,
+void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
+								   SCFmatVector &mult_vMv_contracted_part1_pi2,
+								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1,
+								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2,
 								   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
 								   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
@@ -240,9 +236,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(std::vecto
 //xyzStep is the 3d spatial sampling frequency. If set to anything other than one it will compute the diagram
 //for a random site within the block (site, site+xyzStep) in canonical ordering. Daiqian's original implementation is machine-size dependent, but for repro I had to add an option to do it his way 
 
-//This version overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
+//This version overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1(KtoPiPiGparityResultsContainer result[],
+void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 					    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -265,7 +261,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(KtoPiPiGparityResultsContainer re
   for(int i=0;i<ntsep_k_pi;i++)
     result[i].resize(n_contract,nthread); //it will be thread-reduced before this method ends. Resize also zeroes 'result'
     
-  const int size_3d = GJP.VolNodeSites()/GJP.TnodeSites();    
+  const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
 
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
@@ -328,11 +324,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(KtoPiPiGparityResultsContainer re
 
 # ifndef DISABLE_TYPE1_PRECOMPUTE
       //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-      std::vector<SCFmat> mult_vMv_contracted_part1_pi1; //[x3d];
-      std::vector<SCFmat> mult_vMv_contracted_part1_pi2; //[x3d];
+      SCFmatVector mult_vMv_contracted_part1_pi1; //[x3d];
+      SCFmatVector mult_vMv_contracted_part1_pi2; //[x3d];
       
-      std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi1; //[ntsep_k_pi][x3d];
-      std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi2; //[ntsep_k_pi][x3d];
+      std::vector<SCFmatVector> mult_vMv_contracted_part2_pi1; //[ntsep_k_pi][x3d];
+      std::vector<SCFmatVector> mult_vMv_contracted_part2_pi2; //[ntsep_k_pi][x3d];
 
     
       type1_precompute_part1_part2(mult_vMv_contracted_part1_pi1,mult_vMv_contracted_part1_pi2,mult_vMv_contracted_part2_pi1,mult_vMv_contracted_part2_pi2,mult_vMv_split_part1_pi1,mult_vMv_split_part1_pi2,

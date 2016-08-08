@@ -14,7 +14,7 @@ CPS_START_NAMESPACE
 
 //This disconnected 'bubble' is computed during the pipi calculation and therefore there is no need to recompute
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
+void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
   static const int con_off = 23; //index of first contraction in set
 
@@ -81,7 +81,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_v
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
+void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFmatVector> &mult_vMv_contracted_part1,
 							     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
 
@@ -98,7 +98,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<std:
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
+void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 					    const int &tstep,
 					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -120,7 +120,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
   result.resize(n_contract,nthread); //it will be thread-reduced before this method ends
   mix4.resize(nthread);
 
-  int size_3d = GJP.VolNodeSites()/GJP.TnodeSites();
+  int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
 
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
@@ -130,7 +130,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
     type4_mult_vMv_setup(mult_vMv_split_part1,mf_kaon,vL,vH,top_loc,tstep,Lt);
 
 # ifndef DISABLE_TYPE4_PRECOMPUTE
-    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part1; //[tkidx in Lt/tstep][x3d]
+    std::vector<SCFmatVector > mult_vMv_contracted_part1; //[tkidx in Lt/tstep][x3d]
     type4_precompute_part1(mult_vMv_contracted_part1,mult_vMv_split_part1,top_loc,tstep,Lt);
 # endif
 #endif
@@ -178,8 +178,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(KtoPiPiGparityResultsContainer &r
 
     }//xop3d loop
   }//top_loc loop
-
-  if(!UniqueID()){ printf("Type 4 finalizing\n"); fflush(stdout); }
 
   result.threadSum();
   result.nodeSum();

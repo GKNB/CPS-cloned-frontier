@@ -17,6 +17,18 @@ CPS_START_NAMESPACE
 #define DAIQIAN_COMPATIBILITY_MODE  //do not divide by 2, to match Daiqian's files
 #define DAIQIAN_EVIL_RANDOM_SITE_OFFSET //use Daiqian's machine-size dependent random spatial sampling (cf below)
 
+//For arrays of SIMD vectorized types we must use an aligned allocator in the std::vector. This wrapper gets the aligned vector type in that case, otherwise gives a std::vector
+template<typename T, typename ComplexClass>
+struct getInnerVectorType{
+  typedef std::vector<T> type;
+};
+
+#ifdef USE_GRID
+template<typename T>
+struct getInnerVectorType<T,grid_vector_complex_mark>{
+  typedef Grid::Vector<T> type;
+};
+#endif
 
 template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
@@ -83,7 +95,9 @@ private:
 public:
   typedef typename mf_Policies::ComplexType ComplexType;
   typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat;
-  
+  typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
+  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -138,7 +152,7 @@ public:
 
 private:
   //Run inside threaded environment
-  static void type1_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]);
+  static void type1_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat part1[2], const SCFmat part2[2]);
 
   static void generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep);
 
@@ -164,10 +178,10 @@ private:
 				   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
 				   const int top_loc, const int t_pi1, const int t_pi2, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used);
 
-  static void type1_precompute_part1_part2(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1,
-					   std::vector<SCFmat> &mult_vMv_contracted_part1_pi2,
-					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1,
-					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2,
+  static void type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
+					   SCFmatVector &mult_vMv_contracted_part1_pi2,
+					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi1,
+					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi2,
 					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
 					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
@@ -179,13 +193,13 @@ public:
   //for a random site within the block (site, site+xyzStep) in canonical ordering. Daiqian's original implementation is machine-size dependent, but for repro I had to add an option to do it his way 
 
   //This version overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
-  static void type1(KtoPiPiGparityResultsContainer result[],
+  static void type1(ResultsContainerType result[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
-  static void type1(KtoPiPiGparityResultsContainer &result,
+  static void type1(ResultsContainerType &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -196,7 +210,7 @@ public:
 		 vL,vH,
 		 wL,wH);
   }
-  static void type1(std::vector<KtoPiPiGparityResultsContainer> &result,
+  static void type1(std::vector<ResultsContainerType> &result,
 		    const std::vector<int> tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -214,7 +228,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
  
   static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
@@ -232,9 +246,9 @@ private:
 				   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 				   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
 
-  static void type2_precompute_part1_part2(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
-					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1_pi2,
-					   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2_pi1,
+  static void type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
+					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
+					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
 					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
@@ -243,14 +257,14 @@ private:
 
 public: 
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
-  //This version also overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
-  static void type2(KtoPiPiGparityResultsContainer result[],
+  //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
+  static void type2(ResultsContainerType result[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
-  static void type2(KtoPiPiGparityResultsContainer &result,
+  static void type2(ResultsContainerType &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -263,7 +277,7 @@ public:
 		 wL, wH);
   }
   template<typename MomComputePolicy>
-  static void type2(KtoPiPiGparityResultsContainer &result,
+  static void type2(ResultsContainerType &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -278,7 +292,7 @@ public:
 		 wL, wH);
   }
   template<typename MomComputePolicy>
-  static void type2(std::vector<KtoPiPiGparityResultsContainer> &result,
+  static void type2(std::vector<ResultsContainerType> &result,
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -301,7 +315,7 @@ public:
   //TYPE 3 and MIX 3
 private:
   //Run inside threaded environment
-  static void type3_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
+  static void type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 			     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H);
 
   static void type3_compute_mfproducts(std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
@@ -316,22 +330,22 @@ private:
 				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
 				   const int top_loc, const int t_pi1_idx, const int tkp);
 
-  static void type3_precompute_part1(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1_pi2,
-				     std::vector<SCFmat> &mult_vMv_contracted_part1_pi2_pi1,
+  static void type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
+				     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
 				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
 				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
 				     const int top_loc, const int t_pi1_idx, const int tkp);
     
 public:
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
-  //This version also overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
-  static void type3(KtoPiPiGparityResultsContainer result[], KtoPiPiGparityMixDiagResultsContainer mix3[],
+  //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
+  static void type3(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
-  static void type3(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix3,
+  static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -344,7 +358,7 @@ public:
 		 wL, wH);
   }
   template<typename MomComputePolicy>
-  static void type3(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix3,
+  static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -359,7 +373,7 @@ public:
 		 wL, wH);
   }
   template<typename MomComputePolicy>
-  static void type3(std::vector<KtoPiPiGparityResultsContainer> &result, std::vector<KtoPiPiGparityMixDiagResultsContainer> &mix3,
+  static void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -381,7 +395,7 @@ public:
   //TYPE 4 and MIX 4
 private:
 
-  static void type4_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
+  static void type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 			     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H);
   
 
@@ -391,12 +405,12 @@ private:
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
-  static void type4_precompute_part1(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
+  static void type4_precompute_part1(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
 				     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 				     const int top_loc, const int tstep, const int Lt);
 public:
 
-  static void type4(KtoPiPiGparityResultsContainer &result, KtoPiPiGparityMixDiagResultsContainer &mix4,
+  static void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		    const int &tstep,
 		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 

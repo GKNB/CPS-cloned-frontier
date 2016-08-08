@@ -10,38 +10,40 @@ CPS_START_NAMESPACE
 
 //Lt * Lt * 8 * ncontract tensor  (option for multiple independent threads)
 //Here 8 is the number of combinations of spin-color-flavor matrix pairs (see below for indexing)
-class KtoPiPiGparityResultsContainer: public basicComplexArray<std::complex<Float> >{
+
+template<typename ComplexType, typename AllocPolicy>
+class KtoPiPiGparityResultsContainer: public basicComplexArray<ComplexType,AllocPolicy>{
   int Lt;
   int ncontract;
   
   //gcombidx \in {0..7}, cf. below
-  inline int map(const int &tk, const int &t_dis, const int &con_idx, const int &gcombidx, const int &thread) const{
+  inline int map(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread) const{
     return con_idx + ncontract*( gcombidx + 8*( t_dis + Lt*( tk + Lt*thread) ) );
   }
 public:
-  void resize(const int &_ncontract, const int &_nthread){
+  void resize(const int _ncontract, const int _nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     ncontract = _ncontract;
 
     int thread_size = ncontract * 8 * Lt * Lt;
-    this->basicComplexArray<std::complex<Float> >::resize(thread_size, _nthread);
+    this->basicComplexArray<ComplexType,AllocPolicy>::resize(thread_size, _nthread);
   }
   int getNcontract() const{ return ncontract; }
 
-  KtoPiPiGparityResultsContainer(): basicComplexArray<std::complex<Float> >(){}
-  KtoPiPiGparityResultsContainer(const int &_ncontract, const int &_nthread): basicComplexArray<std::complex<Float> >(){
+  KtoPiPiGparityResultsContainer(): basicComplexArray<ComplexType,AllocPolicy>(){}
+  KtoPiPiGparityResultsContainer(const int _ncontract, const int _nthread): basicComplexArray<ComplexType,AllocPolicy>(){
     resize(_ncontract,_nthread);
   }
 
-  inline std::complex<Float> & operator()(const int &tk, const int &t_dis, const int &con_idx, const int &gcombidx, const int &thread = 0){
-    return con[map(tk,t_dis,con_idx,gcombidx,thread)];
+  inline ComplexType & operator()(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread = 0){
+    return this->con[map(tk,t_dis,con_idx,gcombidx,thread)];
   }
-  inline const std::complex<Float> & operator()(const int &tk, const int &t_dis, const int &con_idx, const int &gcombidx, const int &thread = 0) const{
-    return con[map(tk,t_dis,con_idx,gcombidx,thread)];
+  inline const ComplexType & operator()(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread = 0) const{
+    return this->con[map(tk,t_dis,con_idx,gcombidx,thread)];
   }
 
   KtoPiPiGparityResultsContainer & operator*=(const Float f){
-    for(int i=0;i<size;i++) con[i] *= f;
+    for(int i=0;i<this->size;i++) this->con[i] = this->con[i] * f;
     return *this;
   }
 	  // //Daiqian's loops are in the following order (outer->inner): tk, tdis, mu, con_idx, gcombidx
@@ -56,7 +58,7 @@ public:
 	Fprintf(p,"%d %d ", tk, tdis);
 	for(int cidx=0; cidx<ncontract; cidx++){
 	  for(int gcombidx=0;gcombidx<8;gcombidx++){
-	    const std::complex<Float> &dp = (*this)(tk,tdis,cidx,gcombidx);
+	    std::complex<Float> dp = convertComplexD((*this)(tk,tdis,cidx,gcombidx));
 	    Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
 	  }
 	}
@@ -71,34 +73,35 @@ public:
 
 //Lt * Lt * 2 tensor  (option for multiple independent threads)
 //Here 2 is the number of differen spin-color-flavor matrix insertions (F_0 g5  and  -F_1 g5)
-class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<std::complex<Float> >{
+template<typename ComplexType, typename AllocPolicy>
+class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<ComplexType,AllocPolicy>{
   int Lt;
   
   //fidx \in {0..1}, as above
-  inline int map(const int &tk, const int &t_dis, const int &fidx, const int &thread) const{
+  inline int map(const int tk, const int t_dis, const int fidx, const int thread) const{
     return fidx + 2*( t_dis + Lt*( tk + Lt*thread) );
   }
 public:
-  void resize(const int &_nthread){
+  void resize(const int _nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     int thread_size = 2 * Lt * Lt;
-    this->basicComplexArray<std::complex<Float> >::resize(thread_size, _nthread);
+    this->basicComplexArray<ComplexType,AllocPolicy>::resize(thread_size, _nthread);
   }
 
-  KtoPiPiGparityMixDiagResultsContainer(): basicComplexArray<std::complex<Float> >(){}
-  KtoPiPiGparityMixDiagResultsContainer(const int &_nthread): basicComplexArray<std::complex<Float> >(){
+  KtoPiPiGparityMixDiagResultsContainer(): basicComplexArray<ComplexType,AllocPolicy>(){}
+  KtoPiPiGparityMixDiagResultsContainer(const int _nthread): basicComplexArray<ComplexType,AllocPolicy>(){
     resize(_nthread);
   }
 
-  inline std::complex<Float> & operator()(const int &tk, const int &t_dis, const int &fidx, const int &thread = 0){
-    return con[map(tk,t_dis,fidx,thread)];
+  inline ComplexType & operator()(const int tk, const int t_dis, const int fidx, const int thread = 0){
+    return this->con[map(tk,t_dis,fidx,thread)];
   }
-  inline const std::complex<Float> & operator()(const int &tk, const int &t_dis, const int &fidx, const int &thread = 0) const{
-    return con[map(tk,t_dis,fidx,thread)];
+  inline const ComplexType & operator()(const int tk, const int t_dis, const int fidx, const int thread = 0) const{
+    return this->con[map(tk,t_dis,fidx,thread)];
   }
 
-  KtoPiPiGparityMixDiagResultsContainer & operator*=(const Float &f){
-    for(int i=0;i<size;i++) con[i] *= f;
+  KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> & operator*=(const Float &f){
+    for(int i=0;i<this->size;i++) this->con[i] = this->con[i] * f;
     return *this;
   }
 
@@ -110,7 +113,7 @@ public:
       for(int tdis=0;tdis<Lt;tdis++){
 	Fprintf(p,"%d %d ", tk, tdis);
 	for(int fidx=0;fidx<2;fidx++){
-	  const std::complex<Float> &dp = (*this)(tk,tdis,fidx);
+	  std::complex<Float> dp = convertComplexD((*this)(tk,tdis,fidx));
 	  Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
 	}
 	Fprintf(p,"\n");
@@ -123,7 +126,8 @@ public:
 };
 
 //Daiqian places both type3 and mix3 as well as type4 and mix4 diagrams into combined files
-inline static void write(const std::string &filename, const KtoPiPiGparityResultsContainer &con, const KtoPiPiGparityMixDiagResultsContainer &mix){
+template<typename ComplexType, typename AllocPolicy>
+inline static void write(const std::string &filename, const KtoPiPiGparityResultsContainer<ComplexType,AllocPolicy> &con, const KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> &mix){
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   int n_contract = con.getNcontract();
   FILE *p;
@@ -134,12 +138,12 @@ inline static void write(const std::string &filename, const KtoPiPiGparityResult
       Fprintf(p,"%d %d ", tk, tdis);
       for(int cidx=0; cidx<n_contract; cidx++){
 	for(int gcombidx=0;gcombidx<8;gcombidx++){
-	  const std::complex<Float> &dp = con(tk,tdis,cidx,gcombidx);
+	  std::complex<Float> dp = convertComplexD(con(tk,tdis,cidx,gcombidx));
 	  Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
 	}
       }
       for(int fidx=0;fidx<2;fidx++){
-	const std::complex<Float> &dp = mix(tk,tdis,fidx);
+	std::complex<Float> dp = convertComplexD(mix(tk,tdis,fidx));
 	Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
       }
       Fprintf(p,"\n");

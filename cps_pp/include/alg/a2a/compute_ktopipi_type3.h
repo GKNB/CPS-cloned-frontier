@@ -20,7 +20,7 @@ CPS_START_NAMESPACE
 //Run inside threaded environment
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, 
+void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H){
   static const int con_off = 13; //index of first contraction in set
 
@@ -160,8 +160,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(mult_vMv_split<mf_
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(std::vector<SCFmat> &mult_vMv_contracted_part1_pi1_pi2,
-							     std::vector<SCFmat> &mult_vMv_contracted_part1_pi2_pi1,
+void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
+							     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
 							     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
 							     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
 							     const int top_loc, const int t_pi1_idx, const int tkp){
@@ -178,9 +178,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(std::vector<SCFm
 
 
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
-//This version also overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
+//This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3(KtoPiPiGparityResultsContainer result[], KtoPiPiGparityMixDiagResultsContainer mix3[],
+void ComputeKtoPiPiGparity<mf_Policies>::type3(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 					    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -203,7 +203,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(KtoPiPiGparityResultsContainer re
     mix3[tkp].resize(nthread);
   }
   
-  const int size_3d = GJP.VolNodeSites()/GJP.TnodeSites();
+  const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
   
   //Form the product of the three meson fields
   //con_*_*_k = [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] [[ wL^dag(x_K) wH(x_K) ]]
@@ -224,8 +224,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(KtoPiPiGparityResultsContainer re
     //Construct part 2 (independent of kaon position):
     //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
     //Loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
-    std::vector<SCFmat> part2_L(size_3d); //[x3d]
-    std::vector<SCFmat> part2_H(size_3d); //[x3d]
+    SCFmatVector part2_L(size_3d); //[x3d]
+    SCFmatVector part2_H(size_3d); //[x3d]
 
 #pragma omp parallel for
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
@@ -260,8 +260,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(KtoPiPiGparityResultsContainer re
 	
 # ifndef DISABLE_TYPE3_PRECOMPUTE
 	//Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-	std::vector<SCFmat> mult_vMv_contracted_part1_pi1_pi2;  //[x3d];
-	std::vector<SCFmat> mult_vMv_contracted_part1_pi2_pi1;  //[x3d];
+	SCFmatVector mult_vMv_contracted_part1_pi1_pi2;  //[x3d];
+	SCFmatVector mult_vMv_contracted_part1_pi2_pi1;  //[x3d];
 	type3_precompute_part1(mult_vMv_contracted_part1_pi1_pi2, mult_vMv_contracted_part1_pi2_pi1, mult_vMv_split_part1_pi1_pi2, mult_vMv_split_part1_pi2_pi1, top_loc,t_pi1_idx,tkp);
 # endif
 #endif	

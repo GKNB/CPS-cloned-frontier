@@ -20,15 +20,25 @@ public:
   }
   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p) const{
     typename MapType::const_iterator it = mf.find(p);
-    if(it == mf.end()) ERR.General("MesonFieldMomentumContainer","get","Cannot find meson field with ThreeMomentum %s",p.str().c_str());
+    if(it == mf.end()){
+      std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomentum " << p.str() << std::endl; std::cout.flush();
+      exit(-1);
+    }      
     else return *it->second;
   }
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p){
     typename MapType::iterator it = mf.find(p);
-    if(it == mf.end()) ERR.General("MesonFieldMomentumContainer","get","Cannot find meson field with ThreeMomentum %s",p.str().c_str());
+    if(it == mf.end()){
+      std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomentum " << p.str() << std::endl; std::cout.flush();
+      exit(-1);
+    }
     else return *it->second;
   }
 
+  void printMomenta(std::ostream &os) const{
+    for(typename MapType::const_iterator it = mf.begin(); it != mf.end(); it++)
+      os << it->first.str() << "\n";
+  }
 
   void add(const ThreeMomentum &p, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
     mf[p] = &mfield;

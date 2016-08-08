@@ -196,9 +196,10 @@ public:
 
 
 
+
 //Array of complex with optional threading
-template<typename mf_Complex>
-class basicComplexArray{
+template<typename mf_Complex, typename AllocPolicy = StandardAllocPolicy>
+class basicComplexArray: public AllocPolicy{
 protected:
   int thread_size; //size of each thread unit
   int nthread;
@@ -210,13 +211,13 @@ public:
     resize(_thread_size,_nthread);
   }
   void free_mem(){
-    if(con != NULL){ free(con); con = NULL; }
+    if(con != NULL){ AllocPolicy::_free(con); con = NULL; }
   }
   void resize(const int &_thread_size, const int &_nthread = 1){
     free_mem();
     thread_size = _thread_size; nthread = _nthread;
     size = _thread_size * _nthread;
-    con = (mf_Complex*)malloc( size * sizeof(mf_Complex) );
+    con = (mf_Complex*)AllocPolicy::_alloc(size*sizeof(mf_Complex));
     memset((void*)con, 0, size * sizeof(mf_Complex));
   }
   ~basicComplexArray(){
@@ -227,18 +228,27 @@ public:
 
   inline mf_Complex & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
 
-
+  int nElementsTotal() const{
+    return size;
+  }
+  int nElementsPerThread() const{
+    return thread_size;
+  }
+  int nThreads() const{
+    return nthread;
+  }
+    
   //Sum (reduce) over all threads
   void threadSum(){
     if(nthread == 1) return;
-    basicComplexArray<mf_Complex> tmp(thread_size,1);
+    basicComplexArray<mf_Complex,AllocPolicy> tmp(thread_size,1);
     
 #pragma omp parallel for
     for(int i=0;i<thread_size;i++){
       for(int t=0;t<nthread;t++)
 	tmp.con[i] += con[i + t*thread_size];
     }
-    free(con);
+    AllocPolicy::_free(con);
     con = tmp.con;
     nthread = 1;
     size = tmp.size;
@@ -246,7 +256,8 @@ public:
     tmp.con = NULL;
   }
   void nodeSum(){
-    QMP_sum_array( (typename mf_Complex::value_type*)con,2*size);
+    globalSumComplex(this->con,size);
+    //QMP_sum_array( (typename mf_Complex::value_type*)con,2*size);
   }
 };
 

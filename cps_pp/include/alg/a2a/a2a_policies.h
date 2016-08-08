@@ -94,8 +94,8 @@ public:
 private:
   typedef typename ComplexClassify<mf_Complex>::type ComplexClass;
   typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
 public:
+  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
   typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeD ComplexTypeD;
   typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeF ComplexTypeF;
   typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
@@ -140,6 +140,7 @@ struct GridA2APolicies{
   typedef typename BaseA2Apolicies::FermionFieldType FermionFieldType;
   typedef typename BaseA2Apolicies::ComplexFieldType ComplexFieldType;
   typedef typename BaseA2Apolicies::SourcePolicies SourcePolicies;
+  typedef typename BaseA2Apolicies::AllocPolicy AllocPolicy;
   
   typedef typename GridA2APoliciesBase::FgridFclass FgridFclass;
   typedef typename GridA2APoliciesBase::FgridGFclass FgridGFclass;

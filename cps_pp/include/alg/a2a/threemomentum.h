@@ -74,6 +74,9 @@ public:
   ThreeMomentum &operator-=(const ThreeMomentum &r){ for(int i=0;i<3;i++) p[i] -= r.p[i]; return *this; }
   ThreeMomentum operator-(const ThreeMomentum &r) const{ ThreeMomentum out(*this); out -= r; return out; }
 
+  ThreeMomentum &operator*=(const int r){ for(int i=0;i<3;i++) p[i] *= r; return *this; }
+  ThreeMomentum operator*(const int r) const{ ThreeMomentum out(*this); out *= r; return out; }
+  
   //Convert the momenta into lattice units
   void latticeUnits(Float p_latt[3]) const{
     for(int i=0;i<3;i++){

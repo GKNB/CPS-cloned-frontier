@@ -476,7 +476,45 @@ template<typename T>
 inline T cconj(const T& in){
   return _cconj<T,typename ComplexClassify<T>::type>::doit(in);
 }
-  
+
+template<typename T>
+std::complex<double> convertComplexD(const std::complex<T> &what){
+  return what;
+}
+#ifdef USE_GRID
+std::complex<double> convertComplexD(const Grid::vComplexD &what){  
+  return Reduce(what);
+}
+std::complex<double> convertComplexD(const Grid::vComplexF &what){  
+  return Reduce(what);
+}
+#endif
+
+
+template<typename T>
+void globalSumComplex(std::complex<T>* v, const int n){
+  QMP_sum_array( (T*)v,2*n);
+}
+#ifdef USE_GRID
+template<typename T>
+struct _globalSumComplexGrid{
+  static inline void doit(T *v, const int n){
+    typedef typename T::scalar_type scalar_type; //an std::complex type
+    typedef typename scalar_type::value_type floatType;    
+    int vmult = sizeof(T)/sizeof(scalar_type);
+    floatType * ptr = (floatType *)v; 
+    QMP_sum_array(ptr,2*n*vmult);
+  }
+};
+
+void globalSumComplex(Grid::vComplexD* v, const int n){
+  _globalSumComplexGrid<Grid::vComplexD>::doit(v,n);
+}
+void globalSumComplex(Grid::vComplexF* v, const int n){
+  _globalSumComplexGrid<Grid::vComplexF>::doit(v,n);
+}
+#endif
+
 
 CPS_END_NAMESPACE
 

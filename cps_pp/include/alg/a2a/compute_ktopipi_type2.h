@@ -21,7 +21,7 @@ CPS_START_NAMESPACE
 
 //Run inside threaded environment
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(KtoPiPiGparityResultsContainer &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
+void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -167,9 +167,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_v
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part1,
-								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi1_pi2,
-								   std::vector<std::vector<SCFmat> > &mult_vMv_contracted_part2_pi2_pi1,
+void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
+								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
+								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
@@ -202,9 +202,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 
 
 //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
-//This version also overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
+//This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer result[],
+void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 		  const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
@@ -221,7 +221,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++)
     result[tkp].resize(n_contract,nthread); //Resize zeroes output. Result will be thread-reduced before this method ends 
     
-  const int size_3d = GJP.VolNodeSites()/GJP.TnodeSites();
+  const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
 
   //Compile some information about which timeslices are involved in the calculation such that we can minimize work by skipping unused timeslices
   std::vector< std::vector<bool> > node_top_used(tpi_sampled); //Which local operator timeslices are used for a given pi1 index
@@ -257,10 +257,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
 
 # ifndef DISABLE_TYPE2_PRECOMPUTE
     //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part1; //[t_K_all.size()][x3d];
+    std::vector<SCFmatVector > mult_vMv_contracted_part1; //[t_K_all.size()][x3d];
     
-    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi1_pi2; //[tpi_sampled][x3d];
-    std::vector<std::vector<SCFmat> > mult_vMv_contracted_part2_pi2_pi1; //[tpi_sampled][x3d];
+    std::vector<SCFmatVector > mult_vMv_contracted_part2_pi1_pi2; //[tpi_sampled][x3d];
+    std::vector<SCFmatVector > mult_vMv_contracted_part2_pi2_pi1; //[tpi_sampled][x3d];
     
     type2_precompute_part1_part2(mult_vMv_contracted_part1,mult_vMv_contracted_part2_pi1_pi2,mult_vMv_contracted_part2_pi2_pi1,
 				 mult_vMv_split_part1,mult_vMv_split_part2_pi1_pi2,mult_vMv_split_part2_pi2_pi1,
@@ -274,7 +274,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(KtoPiPiGparityResultsContainer re
       int thread_id = omp_get_thread_num();
 
       //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately.
-      std::vector<SCFmat> part1_storage(t_K_all.size());
+      SCFmatVector part1_storage(t_K_all.size());
       for(int tkidx=0; tkidx < t_K_all.size(); tkidx++){
 	if(!node_top_used_kaon[tkidx][top_loc]) continue;
 	int t_K = t_K_all[tkidx];
