@@ -336,6 +336,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 # endif
 #endif
 
+      if(is_grid_vector_complex<typename mf_Policies::ComplexType>::value && xyzStep > 1) ERR.General("ComputeKtoPiPiGparity<mf_Policies>","type1","Random offset not implemented for Grid-vectorized fields\n");
       if(xyzStep > 1 && random_fields[t_pi1] == NULL) ERR.General("ComputeKtoPiPiGparity<mf_Policies>","type1","Random field not initialized for t_pi1=%d (got %p) on node %d\n",t_pi1,random_fields[t_pi1],UniqueID());
       OneFlavorIntegerField const* randoff = random_fields[t_pi1];
 
