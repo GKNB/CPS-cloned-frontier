@@ -728,6 +728,7 @@ enable_c11
 enable_debug
 enable_cg_dwf
 enable_blas
+enable_lapack
 enable_gmp
 enable_mpfr
 enable_qio
@@ -1384,6 +1385,7 @@ Optional Features:
   --enable-debug          Compile with debug information. (default=yes)
   --enable-cg-dwf         Compile with cg-dwf (default=no)
   --enable-blas           Compile with BLAS (default=no)
+  --enable-lapack         Compile with lapack (default=no)
   --enable-gmp            Compile with GNU Multiprecision lib. (default=no)
   --enable-mpfr           Compile with GMP mpfr routines. (default=no)
   --enable-qio            Compile with SciDAC I/O (QIO) lib. (default=no)
@@ -5092,7 +5094,22 @@ $as_echo_n "checking if including blas... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_blas" >&5
 $as_echo "$enable_blas" >&6; }
 if test "$enable_blas" != "no"; then
-	echo "USE_BLAS disabled temporarily, until reconciled with zMobius"
+   	DFLAGS="${DFLAGS} -DUSE_BLAS"
+fi
+
+# Check whether --enable-lapack was given.
+if test "${enable_lapack+set}" = set; then :
+  enableval=$enable_lapack;
+else
+  enable_lapack="no"
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if including lapack" >&5
+$as_echo_n "checking if including lapack... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_lapack" >&5
+$as_echo "$enable_lapack" >&6; }
+if test "$enable_lapack" != "no"; then
+   	DFLAGS="${DFLAGS} -DUSE_BLAS -DUSE_LAPACK"
 fi
 
 

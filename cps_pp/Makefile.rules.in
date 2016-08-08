@@ -151,7 +151,7 @@ else
 # use these lines if you don't have makedepend (is a bit slower)
 ######################################################################
 	cd $(SRCDIR2) ; \
-	$(CXX) -M $(INCLUDE_FLAGS) $(DFLAGS) $(notdir $(CSRC)) $(notdir $(CCSRC)) \
+	$(CXX) -M $(libcps_CXXFLAGS) $(notdir $(CSRC)) $(notdir $(CCSRC)) \
 	| sed -e 's/:.*\.[cC]/\:/g' > $(PWD)/Makefile_depend
 endif
 
