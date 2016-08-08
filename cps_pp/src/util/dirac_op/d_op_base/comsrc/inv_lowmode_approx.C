@@ -1,9 +1,6 @@
 #include <config.h>
 
-//#define USE_BLAS
-//#undef USE_BLAS
 #define EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
-//#undef EIGEN_CACHE_IN_INV_LOWMODE_APPROX_YES
 
 CPS_START_NAMESPACE
 /*! \file
@@ -70,9 +67,7 @@ int DiracOp::InvLowModeApprox(
   Float d;
   int i, j;
   const char *fname = "InvLowModeApprox(V*,V*,C,I,F*)";
-#ifndef USE_BLAS
-  ERR.General(cname,fname,"Broken without BLAS\n");
-#else
+//  ERR.General(cname,fname,"Broken without BLAS\n");
 
   Float mdagm_time=0.;
   Float gsum_time=0.;
@@ -214,7 +209,6 @@ int DiracOp::InvLowModeApprox(
   sfree(evecFloat);
 
   *true_res = 0.0; // could compute the residue norm here, but saving a dirac operator for now
-#endif
   return neig;
 }
 
@@ -234,9 +228,7 @@ void DiracOp::InvLowModeProj( Vector *in,
   Float d;
   int i, j;
   char *fname = "InvLowModeApprox(V*,V*,C,I,F*)";
-#ifndef USE_BLAS
-  ERR.General(cname,fname,"Broken without BLAS\n");
-#else
+//  ERR.General(cname,fname,"Broken without BLAS\n");
 
 //------------------------------------------------------------------
 // Initializations
@@ -349,7 +341,6 @@ void DiracOp::InvLowModeProj( Vector *in,
 
   }
   fclose(fp);
-#endif
   return;
 
 }
