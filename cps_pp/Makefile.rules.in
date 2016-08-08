@@ -112,7 +112,7 @@ ifneq ($(CONCUR),yes)
 endif
 
 %.o:%.C
-#	$(CXX) -E $(libcps_CXXFLAGS) $< > $(BUILDDIR2)/$*.i
+	$(CXX) -E $(libcps_CXXFLAGS) $< > $(BUILDDIR2)/$*.i
 	${CXX} -c $< -o $(BUILDDIR2)/$@ ${libcps_CXXFLAGS}
 ifneq ($(CONCUR),yes)
 	cd $(BUILDDIR2) ; ${AR} rcs ${BUILDDIR}/$(LIBNAME).a $@
