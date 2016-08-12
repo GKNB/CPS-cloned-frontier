@@ -5370,8 +5370,8 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if including fftw" >&5
 $as_echo_n "checking if including fftw... " >&6; }
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_blas" >&5
-$as_echo "$enable_blas" >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_fftw" >&5
+$as_echo "$enable_fftw" >&6; }
 if test "$enable_fftw" != "no"; then
 #	if test "$enable_blas" != "yes"; then
    		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib -lfftw3"
