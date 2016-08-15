@@ -5,7 +5,7 @@
 #define INCLUDED_FGRID_H
 
 #ifdef USE_GRID
-#include<Grid.h>
+#include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 
@@ -87,6 +87,8 @@ public:
 		FGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid);
 		VRB.Result(cname,fname,"FGrid.lSites()=%d\n",FGrid->lSites());
 		FrbGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGrid);
+		for(int i=0;i<5;i++)
+		  VRB.Result(cname,fname,"FGrid.gdimensions[%d]=%d\n",i,FGrid->_gdimensions[i]);
 		Umu = new Grid::QCD::LatticeGaugeFieldD(UGrid);
 		grid_initted=true;
 		VRB.FuncEnd(cname,fname);

@@ -260,7 +260,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     DomainWallFourToFive(gsrc, tmp_full_4d, 0, glb_ls-1);
 
     //Left-multiply by D-.  D- = (1-c*DW)
-    Ddwf.DW(gsrc, gtmp_full, Grid::DaggerNo);
+    Ddwf.DW(gsrc, gtmp_full, Grid::QCD::DaggerNo);
     axpy(gsrc, -mob_c, gtmp_full, gsrc); 
 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
@@ -269,7 +269,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     V.getVh(i).exportGridField(tmp_full_4d);
     DomainWallFourToFive(gtmp_full, tmp_full_4d, 0, glb_ls-1);
 
-    Ddwf.DW(gtmp_full, gtmp_full2, Grid::DaggerNo);
+    Ddwf.DW(gtmp_full, gtmp_full2, Grid::QCD::DaggerNo);
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG

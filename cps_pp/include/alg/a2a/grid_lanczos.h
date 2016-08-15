@@ -31,6 +31,25 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename Gri
   typename GridDirac::ImplParams params;
   lattice.SetParams(params);
 
+  for(int i=0;i<4;i++)
+    VRB.Result("","gridLanczos","UGrid.gdimensions[%d]=%d\n",i,UGrid->_gdimensions[i]);
+  for(int i=0;i<4;i++)
+    VRB.Result("","gridLanczos","UrbGrid.gdimensions[%d]=%d\n",i,UrbGrid->_gdimensions[i]);
+  for(int i=0;i<5;i++)
+    VRB.Result("","gridLanczos","FGrid.gdimensions[%d]=%d\n",i,FGrid->_gdimensions[i]);
+   for(int i=0;i<5;i++)
+    VRB.Result("","gridLanczos","FrbGrid.gdimensions[%d]=%d\n",i,FrbGrid->_gdimensions[i]);
+
+   for(int i=0;i<4;i++)
+    VRB.Result("","gridLanczos","UGrid.fdimensions[%d]=%d\n",i,UGrid->_fdimensions[i]);
+  for(int i=0;i<4;i++)
+    VRB.Result("","gridLanczos","UrbGrid.fdimensions[%d]=%d\n",i,UrbGrid->_fdimensions[i]);
+  for(int i=0;i<5;i++)
+    VRB.Result("","gridLanczos","FGrid.fdimensions[%d]=%d\n",i,FGrid->_fdimensions[i]);
+   for(int i=0;i<5;i++)
+    VRB.Result("","gridLanczos","FrbGrid.fdimensions[%d]=%d\n",i,FrbGrid->_fdimensions[i]);
+
+   
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
   assert(lanc_arg.precon);
   Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
