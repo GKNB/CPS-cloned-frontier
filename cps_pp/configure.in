@@ -621,6 +621,9 @@ AC_CHECK_TYPES(netobj)
 AC_CHECK_FUNCS(posix_memalign)
 dnl AC_CHECK_HEADERS([qcdocos/scu_checksum.h])
 AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([cblas.h])
+AC_CHECK_HEADERS([mkl_cblas.h])
+AC_CHECK_HEADERS([gsl_cblas.h])
 AC_CONFIG_HEADERS([conf.h])
 
 
