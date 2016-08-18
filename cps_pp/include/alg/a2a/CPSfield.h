@@ -144,10 +144,39 @@ public:
     return true;
   }
 
+#define CONDITION is_double_or_float<typename extField::FieldSiteType>::value \
+  && is_double_or_float<SiteType>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+  
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
+    for(int i=0;i<fsize;i++){
+      if( fabs(f[i] - r.f[i]) > tolerance) return false;
+    }
+    return true;
+  }
+#undef CONDITION
+  
+#define CONDITION is_complex_double_or_float<typename extField::FieldSiteType>::value \
+  && is_complex_double_or_float<SiteType>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+  
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
+    for(int i=0;i<fsize;i++){
+      if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ) return false;
+    }
+    return true;
+  }
+#undef CONDITION
+  
+  
   double norm2() const;
   
 #ifdef USE_GRID
-
+  //Import for Grid Lattice<blah> types
   template<typename GridField>
   void importGridField(const GridField &grid);
   

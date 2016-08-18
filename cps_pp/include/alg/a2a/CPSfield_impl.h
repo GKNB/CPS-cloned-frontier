@@ -263,22 +263,26 @@ void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::expo
 }
 #endif
 
-
-
-//Generic copy. SiteSize and number of Euclidean dimensions must be the same
 template<int SiteSize,
 	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
-class CPSfieldCopy{
-public:
+	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB,
+	 typename Enable = void>
+class CPSfieldCopy;
+
+//Generic copy. SiteSize and number of Euclidean dimensions must be the same
 #ifdef USE_GRID
 #define CONDITION sameDim<DimPolA,DimPolB>::val && !Grid::is_simd<TypeA>::value && !Grid::is_simd<TypeB>::value
 #else
 #define CONDITION sameDim<DimPolA,DimPolB>::val
 #endif
-  
-  static void copy(const typename my_enable_if<CONDITION,CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
-	    const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+
+template<int SiteSize,
+	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+class CPSfieldCopy<SiteSize,TypeA,DimPolA,FlavPolA,AllocPolA, TypeB,DimPolB,FlavPolB,AllocPolB, typename my_enable_if<CONDITION,void>::type>{
+public: 
+  static void copy(CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
+		   const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
     assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed
     
     #pragma omp parallel for
@@ -289,8 +293,8 @@ public:
       for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
     }
   }
-#undef CONDITION
 };
+#undef CONDITION
 
 #ifdef USE_GRID
 
@@ -303,37 +307,25 @@ std::string vtostring(const int* v, const int ndim){
 }
 
 //TypeA is Grid_simd type
+#define CONDITION sameDim<DimPolA,DimPolB>::val && Grid::is_simd<GridSIMDTypeA>::value && !Grid::is_simd<TypeB>::value
+
 template<int SiteSize,
 	 typename GridSIMDTypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename DimPolB, typename FlavPolB, typename AllocPolB>
+	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
 class CPSfieldCopy<SiteSize,
 		   GridSIMDTypeA, DimPolA, FlavPolA, AllocPolA,
-		   typename GridSIMDTypeA::scalar_type, DimPolB, FlavPolB, AllocPolB>
+		   TypeB, DimPolB, FlavPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
 {
 public:
-  typedef typename GridSIMDTypeA::scalar_type TypeB;
-  
-  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,
-		   CPSfield<GridSIMDTypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+  static void copy(CPSfield<GridSIMDTypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
 		   const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
     const int nsimd = GridSIMDTypeA::Nsimd();
     const int ndim = DimPolA::EuclideanDimension;
-    assert(into.nfsites() == from.nfsites() / nsimd);
-
-    // int vns[5] = {GJP.NodeSites(0), GJP.NodeSites(1), GJP.NodeSites(2), GJP.NodeSites(3), GJP.NodeSites(4) };
-    // int lgs[5] = {0,0,0,0,0}; for(int i=0;i<ndim;i++) lgs[i] = into.nodeSites(i);
-    // int sps[5] = {0,0,0,0,0}; for(int i=0;i<ndim;i++) sps[i] = into.SIMDpackedSites(i);
-    // std::string sz_str = vtostring(vns, ndim);
-    // std::string lg_sz_str = vtostring(lgs, ndim);
-    // std::string p_sz_str = vtostring(sps, ndim);
-    
-    //printf("CPSfieldCopy to grid field with Nsimd=%d.  Local size is %s and logical size %s with simd packing ratio %s\n", nsimd, sz_str.c_str(), lg_sz_str.c_str(), p_sz_str.c_str());
+    if(from.nfsites()/nsimd != into.nfsites()) ERR.General("CPSfieldCopy","copy(<SIMD field> &into, const <non-SIMD field> &from)","Expected from.nfsites/nsimd = into.nfsites, got %d/%d (=%d) != %d\n",from.nfsites(),nsimd, from.nfsites()/nsimd, into.nfsites());
     
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
     for(int i=0;i<nsimd;i++){
       into.SIMDunmap(i,&packed_offsets[i][0]);
-      //std::string pstr = vtostring(&packed_offsets[i][0], ndim);
-      //printf("SIMD index %d maps to offset %s\n",i, pstr.c_str());
     }
     
 #pragma omp parallel for
@@ -355,24 +347,24 @@ public:
     }
   }
 };
+#undef CONDITION
 
 //TypeB is Grid_simd type
+#define CONDITION sameDim<DimPolA,DimPolB>::val && !Grid::is_simd<TypeA>::value && Grid::is_simd<GridSIMDTypeB>::value
+
 template<int SiteSize,
-	 typename DimPolA, typename FlavPolA, typename AllocPolA,
+	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
 	 typename GridSIMDTypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
 class CPSfieldCopy<SiteSize,
-		   typename GridSIMDTypeB::scalar_type, DimPolA, FlavPolA, AllocPolA,
-		   GridSIMDTypeB, DimPolB, FlavPolB, AllocPolB>
+		   TypeA, DimPolA, FlavPolA, AllocPolA,
+		   GridSIMDTypeB, DimPolB, FlavPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
 {
 public:
-  typedef typename GridSIMDTypeB::scalar_type TypeA;
-  
-  static void copy(const typename my_enable_if< sameDim<DimPolA,DimPolB>::val,
-		   CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> >::type &into,
+  static void copy(CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
 		   const CPSfield<GridSIMDTypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
     const int nsimd = GridSIMDTypeB::Nsimd();
     const int ndim = DimPolA::EuclideanDimension;
-    assert(into.nfsites() / nsimd == from.nfsites());
+    if(into.nfsites()/nsimd != from.nfsites()) ERR.General("CPSfieldCopy","copy(<non-SIMD field> &into, const <SIMD-field> &from)","Expected into.nfsites/nsimd = from.nfsites, got %d/%d (=%d) != %d\n",into.nfsites(),nsimd, into.nfsites()/nsimd, from.nfsites());
 
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
     for(int i=0;i<nsimd;i++) from.SIMDunmap(i,&packed_offsets[i][0]);
@@ -397,7 +389,7 @@ public:
     }
   }
 };
-
+#undef CONDITION
 
 #endif
 

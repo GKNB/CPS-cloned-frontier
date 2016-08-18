@@ -276,25 +276,7 @@ int main(int argc,char *argv[])
   int nscf = 10;
   int nv = 10;
 
-  // {
-  //   typedef grid_Complex VectorComplexType;
-    
-  //   VectorComplexType zro; zeroit(zro);
-  //   std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
-  //   std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
-    
-  //   VectorComplexType lcp[nscf][nv];
-  //   VectorComplexType rcp[nv][nscf];
-  //   for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
-  //   for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
 
-    
-
-    
-  
-
-
-  
   A2AArg a2a_args;
   a2a_args.nl = 100;
   a2a_args.nhits = 1;
@@ -374,14 +356,17 @@ int main(int argc,char *argv[])
     printf("Test2 success\n");       
   }
   
-  if(0){
-    A2AexpSource<StandardSourcePolicies> std_exp(2.0);
-    A2AexpSource<GridSIMDSourcePolicies> grid_exp(2.0, simd_dims_3d);
+  if(1){
+    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+    typedef _deduce_a2a_field_policies<grid_Complex> GridA2Apolicies;
+    
+    A2AexpSource<typename A2Apolicies::SourcePolicies> std_exp(2.0);
+    A2AexpSource<typename GridA2Apolicies::SourcePolicies> grid_exp(2.0, simd_dims_3d);
 
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
+    CPSfield<typename A2Apolicies::SourcePolicies::ComplexType,1,typename A2Apolicies::SourcePolicies::DimensionPolicy,OneFlavorPolicy,typename A2Apolicies::SourcePolicies::AllocPolicy> b(n);
     b.importField(grid_exp.getSource());
 
-    assert( b.equals(std_exp.getSource()) );
+    assert( b.equals(std_exp.getSource(),tol));
     printf("Test3 success\n");  
   }
 
@@ -766,36 +751,7 @@ int main(int argc,char *argv[])
     
   }
 
-
-
-    
-
-
-  
-
-  
-    
-  //A2Asource<Grid::vComplexD,FourDSIMDPolicy,Aligned128AllocPolicy> gsrc;
-
-  
-
-  //OptimizedSpinColorContract<double,true,true> M;
-  // {
-  //   A2AexpSource<> src(2.0);
-  //   A2AexpSource<GridSIMDSourcePolicies> grid_src(2.0, simd_dims);
-    
-  //   FlavorMatrixGeneral<Grid::vComplexD> vf;
-  //   vf.zero();
-    
-  //   SCFspinflavorInnerProduct<cps::ComplexD,A2AexpSource<> ,true,true> ip(sigma3,0,src);
-  //   SCFspinflavorInnerProduct<Grid::vComplexD,A2AexpSource<> ,true,true> ip2(sigma3,0,src);
-    
-  //   SCFvectorPtr<Grid::vComplexD> aa(NULL,NULL);
-  //   ip2(aa,aa,0,0);
-  // }
-  
-
-
+  printf("Finished\n"); fflush(stdout);
   
   return 0;
 }
