@@ -111,9 +111,9 @@ class multiply_M_r_singlescf_op_grid: public SCFoperation<Grid::Vector<
   std::vector< std::vector<Grid::Vector<VectorComplexType> > > &Mr;
   std::vector< std::vector<Grid::Vector<VectorComplexType> > > &rreord;
   
-  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> *split_obj;
+  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* split_obj;
 public:
-  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<Grid::Vector<VectorComplexType> > > &_Mr, std::vector< std::vector<Grid::Vector<VectorComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<Grid::Vector<VectorComplexType> > > &_Mr, std::vector< std::vector<Grid::Vector<VectorComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(const Grid::Vector<MComplexType>& M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel

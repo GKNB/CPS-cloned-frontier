@@ -72,12 +72,13 @@ double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::nor
 
 #ifdef USE_GRID
 
-template<typename T,typename CPScomplex,
-	 typename std::enable_if< !Grid::isSIMDvectorized<typename T::vector_type>::value && Grid::isComplex<typename T::vector_type>::value, int>::type = 0 >
+template<typename T,typename CPScomplex>
 struct GridTensorConvert{};
 
 template<typename complex_scalar, typename CPScomplex>
-struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomplex, 0 >{
+struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomplex>{
+  static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
+
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
   inline static void doit(CPScomplex* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
@@ -92,7 +93,9 @@ struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomple
   }
 };
 template<typename complex_scalar, typename CPScomplex>
-struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CPScomplex, 0 >{
+struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CPScomplex>{
+  static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
+
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
   inline static void doit(CPScomplex* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
@@ -976,9 +979,10 @@ struct _gather_scatter_impl{
   }
     
 };
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy >
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy,
+	  typename my_enable_if<intEq<DimensionPolicy::EuclideanDimension,DimensionPolicy::EquivalentLocalPolicy::EuclideanDimension>::val, int>::type test>
 struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
-		    SiteType, typename DimensionPolicy::EquivalentLocalPolicy, AllocPolicy, 0>{
+		    SiteType, typename DimensionPolicy::EquivalentLocalPolicy, AllocPolicy, test>{
   typedef typename DimensionPolicy::EquivalentLocalPolicy LocalDimensionPolicy;
 
   static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
@@ -1079,17 +1083,17 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<SiteType::value_type>::planType plan_f[4];
+  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
   static int plan_sc_size = -1;
   if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
-    typename FFTWwrapper<SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
+    typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<SiteType::value_type>::destroy_plan(plan_f[i]);    
+      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
       
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<SiteType::value_type>::plan_many_dft(1, &size_i, 1, 
+      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, 1, 
 								   tmp_f, NULL, sc_size, size_i * sc_size,
 								   tmp_f, NULL, sc_size, size_i * sc_size,
 								   FFTW_FORWARD, FFTW_ESTIMATE);  
@@ -1097,7 +1101,7 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     plan_sc_size = sc_size;
   }
     
-  typename FFTWwrapper<SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
+  typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
     
   memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(SiteType));
 #pragma omp parallel for
@@ -1105,13 +1109,13 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     int sc_id = n % sc_size;
     int chunk_id = n / sc_size; //3d block index
     int off = size_1d_glb * sc_size * chunk_id + sc_id;
-    FFTWwrapper<SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
   }
 
   //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
 
   memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
-  FFTWwrapper<SiteType::value_type>::free(fftw_mem);
+  FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 
 

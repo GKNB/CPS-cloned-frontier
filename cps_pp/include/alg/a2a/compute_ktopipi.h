@@ -228,7 +228,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2);
  
   static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     

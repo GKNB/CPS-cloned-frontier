@@ -61,9 +61,9 @@ unsigned int SeedST(); //!< Gets a RNG seed.
 
 //! A barrier function.
 //inline void sync(){QMP_barrier();}
-#ifndef HAVE_SYNC
+//#ifndef HAVE_SYNC   CK: The 'sync' found by configure that sets HAVE_SYNC 1 is from unistd.h and refers to disk caching, not network. If there is an ambiguity disambiguate with cps::sync
 unsigned int sync();
-#endif
+//#endif
 
 //! Gets the direction used internally by the comms layer.
 //int SCURemap( SCUDir dir );

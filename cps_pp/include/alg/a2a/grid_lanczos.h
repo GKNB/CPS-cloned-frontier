@@ -23,6 +23,7 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename Gri
   Grid::GridCartesian *FGrid = lattice.getFGrid();
   Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
   Grid::QCD::LatticeGaugeFieldD *Umu = lattice.getUmu();
+
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
   double M5 = GJP.DwfHeight();
@@ -78,8 +79,10 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename Gri
   eval.resize(Nm);
   evec.reserve(Nm);
   evec.resize(Nm, FrbGrid);
-  
-  for(int i=0;i<Nm;i++) evec[i].checkerboard = Grid::Odd;
+ 
+  for(int i=0;i<Nm;i++){
+    evec[i].checkerboard = Grid::Odd;
+  }
 
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);

@@ -766,7 +766,7 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
 	databuf_last = data_buf;
 	otherbuf_last = recv_buf; //next buffer that we can write to
       }
-      sync();
+      cps::sync();
       //LR quadrant databuf_last contains LL quadrant data
       //on LL quadrant we need to refill databuf_last with LL quadrant data
       if(npos[0] < nL[0]/2 && npos[1] < nL[1]/2)

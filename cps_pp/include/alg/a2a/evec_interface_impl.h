@@ -151,7 +151,7 @@ public:
     }
     Grid::GridCartesian *UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
     Grid::GridCartesian *FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-    FrbGrid_f = _evec[0]._grid;
+    FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0]._grid);
     Grid::GridRedBlackCartesian *UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
     
     Umu_f = new GridGaugeFieldF(UGrid_f);
