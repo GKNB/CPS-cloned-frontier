@@ -136,13 +136,14 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
   GridGaugeFieldF *Umu_f;
   GridDiracF* Ddwf_f;
   Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF> *Linop_f;
+
+  bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
 public:
-  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval){
-    if(_evec.size() == 0) return;
+  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false){
     FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
-    const GridGaugeField & Umu = *latg.getUmu();
+    const GridGaugeField & Umu = *latg.getUmu();    
     
-    //Make a single precision Grid
+    //Make a single precision Grid (used by the Mixed prec solver also even if no evecs)
     std::vector<int> nodes(4);
     std::vector<int> vol(4);
     for(int i=0;i<4;i++){
@@ -151,8 +152,13 @@ public:
     }
     Grid::GridCartesian *UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
     Grid::GridCartesian *FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-    FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0]._grid);
     Grid::GridRedBlackCartesian *UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
+
+    if(_evec.size() > 0) FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0]._grid);
+    else{
+      FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+      delete_FrbGrid_f = true;
+    }
     
     Umu_f = new GridGaugeFieldF(UGrid_f);
     precisionChange(*Umu_f, Umu);
@@ -171,6 +177,7 @@ public:
     delete Umu_f;
     delete Ddwf_f;
     delete Linop_f;
+    if(delete_FrbGrid_f) delete FrbGrid_f;
   }
 
   Float getEvec(GridFermionField &into, const int idx){ //get *double precision* eigenvector
