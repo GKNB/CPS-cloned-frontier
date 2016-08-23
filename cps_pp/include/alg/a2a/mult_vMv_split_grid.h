@@ -5,7 +5,7 @@
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_GRID_MEM_SAVE
 //Don't splat-vectorize packed mesonfield at beginning, instead do it at the point of use
-#define VMV_SPLIT_GRID_STREAMING_SPLAT
+//#define VMV_SPLIT_GRID_STREAMING_SPLAT
 //Do blocked matrix multiplication
 #define VMV_BLOCKED_MATRIX_MULT
 
@@ -43,8 +43,11 @@ public:
 #endif
 
 #ifdef VMV_BLOCKED_MATRIX_MULT
+    //int block_width_max = cols;
+    //int block_height_max = 8; //4;
+
     int block_width_max = cols;
-    int block_height_max = 8; //4;
+    int block_height_max = 32; //4;
 
     //Blocked matrix multiply
     for(int i0=0; i0<rows; i0+=block_height_max){
@@ -242,6 +245,9 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 #ifdef VMV_BLOCKED_MATRIX_MULT
     int block_width_max =  cols;
     int block_height_max = 8; //4;
+
+    //int block_width_max = 20;
+    //int block_height_max = 50;
           
     for(int i0=0; i0<rows; i0+=block_height_max){
       int iblock_size = std::min(rows - i0, block_height_max);

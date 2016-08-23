@@ -43,7 +43,7 @@ public:
  private:
   ScalarComplexType* mf;
   int nmodes_l, nmodes_r;
-  int fsize; //in floats
+  int fsize; //in units of ScalarComplexType
 
   LeftDilutionType lindexdilution;
   RightDilutionType rindexdilution;

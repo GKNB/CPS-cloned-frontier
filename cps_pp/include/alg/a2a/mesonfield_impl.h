@@ -515,8 +515,8 @@ struct getMPIdataType<float>{
 //Get back the data. After the call, all nodes will have a complete copy
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
-  if(node_mpi_rank == -1) return; //already on all nodes
   typedef typename ScalarComplexType::value_type mf_Float;
+  if(node_mpi_rank == -1) return; //already on all nodes
 #ifndef USE_MPI
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1) ERR.General("A2AmesonField","nodeGet","Implementation requires MPI\n");
@@ -527,7 +527,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
 
   if(mpi_rank != node_mpi_rank){
     //if(mf != NULL) printf("rank %d pointer should be NULL but it isn't!\n",mpi_rank); fflush(stdout);
-    mf = (mf_Float*)malloc(fsize * sizeof(ScalarComplexType));  
+    mf = (ScalarComplexType*)malloc(byte_size());  
     if(mf == NULL){ printf("rank %d failed to allocate memory!\n",mpi_rank); fflush(stdout); exit(-1); }
     //printf("rank %d allocated memory\n",mpi_rank); fflush(stdout);
   }//else{ printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); }
