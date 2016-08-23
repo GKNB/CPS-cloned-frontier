@@ -22,6 +22,7 @@ CPS_START_NAMESPACE
 //Run inside threaded environment
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2){
+#ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -54,6 +55,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
       }
     }
   }
+#endif
 }
 
 

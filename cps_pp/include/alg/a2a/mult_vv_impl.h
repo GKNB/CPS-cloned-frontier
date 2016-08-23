@@ -149,7 +149,9 @@ public:
     typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
     typename gw::complex zero; GSL_SET_COMPLEX(&zero,0.0,0.0);
 
+#ifndef MEMTEST_MODE
     gw::blas_gemm(CblasNoTrans, CblasNoTrans, one, lgsl, rgsl, zero, ogsl);
+#endif
     
     for(int sl=0;sl<4;sl++){
       for(int sr=0;sr<4;sr++){
@@ -331,8 +333,10 @@ public:
 
 	  for(int i=0;i<nv;i++) 
 	    if(lnon_zeroes[i]){
+#ifndef MEMTEST_MODE
 	      const VectorComplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
 	      lcp[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+#endif
 	    }
 	  
 	  std::vector<int> rmap;
@@ -341,8 +345,10 @@ public:
 
 	  for(int i=0;i<nv;i++)
 	    if(rnon_zeroes[i]){
+#ifndef MEMTEST_MODE
 	      const VectorComplexType &rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
 	      rcp[i][scf] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+#endif
 	    }
 	}
       }
@@ -356,8 +362,10 @@ public:
 	      for(int fr=0;fr<2;fr++){
 		int scfl = fl+2*(cl+3*sl);
 		int scfr = fr+2*(cr+3*sr);
-		for(int v=0;v<nv;v++)
+#ifndef MEMTEST_MODE
+		for(int v=0;v<nv;v++)		  
 		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lcp[scfl][v]*rcp[v][scfr];
+#endif
 	      }
 	    }
 	  }

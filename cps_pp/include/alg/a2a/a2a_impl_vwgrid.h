@@ -134,6 +134,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   GridFermionField tmp_full_4d(UGrid);
   
   //The general method is described by page 60 of Daiqian's thesis
+#ifndef MEMTEST_MODE
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
     Float eval = evecs.getEvec(bq_tmp,i);
@@ -181,6 +182,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     DomainWallFiveToFour(tmp_full_4d, tmp_full, 0, glb_ls-1);
     wl[i].importGridField(tmp_full_4d);
   }
+#endif
 }
 
 
@@ -234,8 +236,10 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   VRB.Result(cname.c_str(), fname, "Start computing high modes using Grid.\n");
     
   //Generate the compact random sources for the high modes
+#ifndef MEMTEST_MODE
   setWhRandom(args.rand_type);
-
+#endif
+  
   //Allocate temp *double precision* storage for fermions
   CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldDimensionPolicy, typename mf_Policies::FermionFieldType::FieldFlavorPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(wh[0].getDimPolParams());
   
@@ -252,6 +256,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   GridFermionField tmp_full_4d(UGrid);
 
   //Details of this process can be found in Daiqian's thesis, page 60
+#ifndef MEMTEST_MODE
   for(int i=0; i<nh; i++){
     //Step 1) Get the diluted W vector to invert upon
     getDilutedSource(v4dfield, i);
@@ -275,12 +280,13 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
 
     //Do the CG
     Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, residual, max_iter, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
- 
+    
     //CPSify the solution, including 1/nhit for the hit average
     DomainWallFiveToFour(tmp_full_4d, gtmp_full, glb_ls-1,0);
     tmp_full_4d = Grid::RealD(1. / nhits) * tmp_full_4d;
     V.getVh(i).importGridField(tmp_full_4d);
   }
+#endif
 }
 
 

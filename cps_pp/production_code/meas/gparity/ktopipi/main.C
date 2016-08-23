@@ -6,6 +6,9 @@
 //#define DISABLE_TYPE3_SPLIT_VMV //also disables precompute
 //#define DISABLE_TYPE4_PRECOMPUTE
 
+//This option disables the majority of the compute but keeps everything else intact allowing you to test the memory usage without doing a full run
+//#define MEMTEST_MODE
+
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
 #include<chroma.h>
@@ -366,9 +369,13 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
       gaugeFixUnity(lat,fix_gauge_arg);      
     }else{
-      if(!UniqueID()) printf("Gauge fixing\n");
+      if(!UniqueID()){ printf("Gauge fixing\n"); fflush(stdout); }
       time = -dclock();
+#ifndef MEMTEST_MODE
       fix_gauge.run();
+#else
+      gaugeFixUnity(lat,fix_gauge_arg);
+#endif      
       time += dclock();
       print_time("main","Gauge fix",time);
     }

@@ -308,7 +308,9 @@ struct Lanczos{
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
+#ifndef MEMTEST_MODE
     test_eigenvectors<GridPolicies>(evec,eval,lanc_arg.mass,lat);
+#endif
   }
   void toSingle(){
     typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -327,7 +329,9 @@ struct Lanczos{
     int nev = evec.size();
     for(int i=0;i<nev;i++){      
       GridFermionFieldF tmp_f(FrbGrid_f);
-      precisionChange(tmp_f, evec.back());      
+#ifndef MEMTEST_MODE
+      precisionChange(tmp_f, evec.back());
+#endif
       evec.pop_back();
       evec_f.push_back(std::move(tmp_f));
     }

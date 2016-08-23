@@ -235,7 +235,9 @@ protected:
 
 	for(int i = 0; i < ni_this; i++){
 	  const ComplexType &lval_tmp = this->lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	  lreord[scf][i] = conj_l ? cconj(lval_tmp) : lval_tmp;
+#endif
 	}
 
 	//j index
@@ -245,7 +247,9 @@ protected:
 	rreord[scf].resize(nj_this);
 	for(int j = 0; j < nj_this; j++){
 	  const ComplexType &rval_tmp = this->rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	  rreord[scf][j] = conj_r ? cconj(rval_tmp) : rval_tmp;
+#endif
 	}
 
       }

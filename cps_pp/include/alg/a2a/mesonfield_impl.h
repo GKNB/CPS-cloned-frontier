@@ -379,6 +379,8 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   const int &ni = i_ind.getNindices(lip,rip); //how many indices to loop over
   const int &nj = j_ind.getNindices(ljp,rjp);
 
+#ifndef MEMTEST_MODE
+  
 #pragma omp parallel for
   for(int i = 0; i < ni; i++){
     int id = omp_get_thread_num();
@@ -393,7 +395,9 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
     }
   }
   for(int i=0;i<n_threads;i++) into += ret_vec[i];
-
+  
+#endif
+  
   return into;
 }
 
@@ -426,6 +430,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
   int node_off = UniqueID()*node_work;
 
+#ifndef MEMTEST_MODE
   if(do_work){
     for(int tt=node_off; tt<node_off + node_work; tt++){
       int rem = tt;
@@ -436,6 +441,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
     }
   }
   into.nodeSum(); //give all nodes a copy
+#endif
 }
 
 

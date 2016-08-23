@@ -479,7 +479,11 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
 
 template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 std::complex<double> SCFspinflavorInnerProduct<mf_Complex,SourceType,conj_left,conj_right>::operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
   return _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(src,sigma,smatidx,  l,r,p,t);
+#else
+  return std::complex<double>(0,0);
+#endif
 }
 
 

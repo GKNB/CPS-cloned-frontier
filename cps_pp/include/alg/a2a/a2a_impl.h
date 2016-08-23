@@ -27,17 +27,23 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
 
       //Gather
       CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
+#ifndef MEMTEST_MODE
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
+#endif
       gather_time += dclock()-dtime;
 
       //FFT
-      dtime = dclock();      
+      dtime = dclock();
+#ifndef MEMTEST_MODE
       tmp_dbl.fft();
+#endif
       fft_time += dclock()-dtime;      
 
       //Scatter
       dtime = dclock();
+#ifndef MEMTEST_MODE
       tmp_dbl.scatter( mu==2 ? v[mode]: tmp );
+#endif
       scatter_time += dclock()-dtime;
     }
   }
@@ -65,9 +71,11 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
     }
     for(int mu=0;mu<3;mu++){
       CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
+#ifndef MEMTEST_MODE
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
       tmp_dbl.fft();
       tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
+#endif
     }
   }
   //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
@@ -81,9 +89,11 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       }    
       for(int mu=0;mu<3;mu++){
 	CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
+#ifndef MEMTEST_MODE
 	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
 	tmp_dbl.fft();
 	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );
+#endif
       }
     }
   }

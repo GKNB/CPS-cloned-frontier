@@ -20,8 +20,10 @@ public:
   void operator()(const FieldType &in, FieldType &out){
     //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
     out = in;
+#ifndef MEMTEST_MODE
     out.gaugeFix(*lat,true);
     out.applyPhase(p,true);
+#endif
   }
 };
 

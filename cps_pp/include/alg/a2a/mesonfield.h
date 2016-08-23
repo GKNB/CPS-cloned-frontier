@@ -301,7 +301,7 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   for(int t=0;t<Lt;t++){
-    if(!UniqueID()){ printf("Get element 0 time %d\n",t); fflush(stdout); }
+    //if(!UniqueID()){ printf("Get element 0 time %d\n",t); fflush(stdout); }
     sync();
     a->operator[](t).nodeGet();
   }
@@ -312,12 +312,12 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   for(int i=1; i<n; i++){
     std::vector<T>* val=va_arg(vl,std::vector<T>*);
     if(done_ptrs.count(val)){
-      if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
+      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
       continue;
     }
 
     for(int t=0;t<Lt;t++){
-      if(!UniqueID()){ printf("Get element %d time %d\n",i,t); fflush(stdout); }
+      //if(!UniqueID()){ printf("Get element %d time %d\n",i,t); fflush(stdout); }
       sync();
       val->operator[](t).nodeGet();
     }
@@ -336,7 +336,7 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   for(int t=0;t<Lt;t++){
-    if(!UniqueID()){ printf("Distributing element 0 time %d first elem %f\n",t,a->operator[](t).ptr()[0]); fflush(stdout); }
+    //if(!UniqueID()){ printf("Distributing element 0 time %d first elem %f\n",t,a->operator[](t).ptr()[0]); fflush(stdout); }
     sync();
     a->operator[](t).nodeDistribute();
   }
@@ -347,12 +347,12 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
   for(int i=1; i<n; i++){
     std::vector<T>* val=va_arg(vl,std::vector<T>*);
     if(done_ptrs.count(val)){
-      if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
+      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
       continue;
     }
 
     for(int t=0;t<Lt;t++){
-      if(!UniqueID()){ printf("Distributing element %d time %d first elem %f\n",i,t,val->operator[](t).ptr()[0]); fflush(stdout); }
+      //if(!UniqueID()){ printf("Distributing element %d time %d first elem %f\n",i,t,val->operator[](t).ptr()[0]); fflush(stdout); }
       sync();
       val->operator[](t).nodeDistribute();
     }

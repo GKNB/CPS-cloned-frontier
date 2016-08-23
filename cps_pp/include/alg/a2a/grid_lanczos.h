@@ -92,9 +92,11 @@ inline void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename Gri
   src.checkerboard = Grid::Odd;
 
   int Nconv;
+#ifndef MEMTEST_MODE
   IRL.calc(eval,evec,
 	   src,
 	   Nconv);
+#endif
 }
 
 
