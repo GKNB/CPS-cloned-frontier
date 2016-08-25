@@ -260,10 +260,8 @@ struct LatticeSetup{
     assert(jp.solver == BFM_HmCayleyTanh);
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
-    lat = new LatticeType(grid_params); //applies BondCond in constructor
-    lat->ImportGauge(); //lattice -> Grid  
-    lat->BondCond(); //unapply BondCond
-
+    lat = new LatticeType(grid_params);
+    lat->ImportGauge(); //lattice -> Grid  (applied APRD - signs internally then reverses)
 # if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
     importBFMlattice(lat,solvers);
 # endif
