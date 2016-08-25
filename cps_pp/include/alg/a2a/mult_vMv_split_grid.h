@@ -5,7 +5,7 @@
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_GRID_MEM_SAVE
 //Don't splat-vectorize packed mesonfield at beginning, instead do it at the point of use
-#define VMV_SPLIT_GRID_STREAMING_SPLAT
+//#define VMV_SPLIT_GRID_STREAMING_SPLAT
 //Do blocked matrix multiplication
 #define VMV_BLOCKED_MATRIX_MULT
 
@@ -45,7 +45,7 @@ public:
 
 # ifdef VMV_BLOCKED_MATRIX_MULT
     int block_width_max = cols;
-    int block_height_max = 8; //4;
+    int block_height_max = 32; //4;
 
     //Blocked matrix multiply
     for(int i0=0; i0<rows; i0+=block_height_max){
@@ -86,6 +86,7 @@ public:
 # endif
     
 #endif
+    
   }
 };
 
@@ -260,7 +261,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
     	    VectorComplexType &into = Mr[s][scf][ i_packed_unmap[i0+i_packed] ];
     	    zeroit(into);
 	    
-    	    for(int j_packed=0;j_packed<jblock_size;j_packed++){	      
+    	    for(int j_packed=0;j_packed<jblock_size;j_packed++){
 #  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	      vsplat(tmp, M_packed[cols*(i0+i_packed)+j0+j_packed]);
 	      into = into + tmp*base[j_packed];
@@ -280,7 +281,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 
       for(int s=off;s<off+work;s++){
 # ifndef MEMTEST_MODE
-	VectorComplexType &into = Mr[s][scf][i_full];	
+	VectorComplexType &into = Mr[s][scf][i_full];
 	zeroit(into);
 	
 	for(int j=0;j<cols;j++){
@@ -290,7 +291,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 #  else
 	  into = into + M_packed[cols*i+j] * rreord[s][scf][j];
 #  endif
-	}	  
+	}
 # endif
       }
     }
@@ -327,7 +328,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 		  VectorComplexType const* Mr_block_ptr = Mr_base + this->irmap[scfl][blocks[b].first]; //Mr is not packed, lreord is. Cycle over blocks of consecutive elements
 #ifndef MEMTEST_MODE
 		  for(int i=0;i<blocks[b].second;i++)
-		    into = into + lbase[loff++] * Mr_block_ptr[i];
+		    into = into + lbase[loff++] * Mr_block_ptr[i];		  
 #endif
 		}
 	      }

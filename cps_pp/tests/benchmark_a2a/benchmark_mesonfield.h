@@ -356,6 +356,55 @@ void benchmarkmultGammaLeft(const int ntests, const double tol){
 	printf("multGammaLeft %d %d %d: Avg time old code %d iters: %g secs\n\n",gamma,i,mu,ntests,total_time_old/ntests);
       }  
 }
+
+template<typename mf_Complex, typename grid_Complex>
+bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColorFlavorMatrix<grid_Complex> &grid, const double tol){
+  bool fail = false;
+  
+  mf_Complex gd;
+  for(int sl=0;sl<4;sl++)
+    for(int cl=0;cl<3;cl++)
+      for(int fl=0;fl<2;fl++)
+	for(int sr=0;sr<4;sr++)
+	  for(int cr=0;cr<3;cr++)
+	    for(int fr=0;fr<2;fr++){
+	      gd = Reduce( grid(sl,sr)(cl,cr)(fl,fr) );
+	      const mf_Complex &cp = orig(sl,sr)(cl,cr)(fl,fr);
+	      
+	      double rdiff = fabs(gd.real()-cp.real());
+	      double idiff = fabs(gd.imag()-cp.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		fail = true;
+	      }
+	    }
+  return !fail;
+}
+
+template<typename mf_Complex>
+bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColorFlavorMatrix<mf_Complex> &newimpl, const double tol){
+  bool fail = false;
+  
+  for(int sl=0;sl<4;sl++)
+    for(int cl=0;cl<3;cl++)
+      for(int fl=0;fl<2;fl++)
+	for(int sr=0;sr<4;sr++)
+	  for(int cr=0;cr<3;cr++)
+	    for(int fr=0;fr<2;fr++){
+	      const mf_Complex &gd = newimpl(sl,sr)(cl,cr)(fl,fr);
+	      const mf_Complex &cp = orig(sl,sr)(cl,cr)(fl,fr);
+	      
+	      double rdiff = fabs(gd.real()-cp.real());
+	      double idiff = fabs(gd.imag()-cp.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: Newimpl (%g,%g) Orig (%g,%g) Diff (%g,%g)\n",gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		fail = true;
+	      }
+	    }
+  return !fail;
+}
+
+
   
 //  static void ComputeKtoPiPiGparityBase::multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){
 
