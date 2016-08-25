@@ -181,7 +181,7 @@ public:
 			}
 		} 
 		BondCond(); //Unapply - sign for APRD directions.
-		if(cps2grid) std::cout << "Imported gauge field:\n" << *grid_lat << std::endl;
+		//if(cps2grid) std::cout << "Imported gauge field:\n" << *grid_lat << std::endl;
 			    
 	}
 	std::vector<int> SetTwist(){
