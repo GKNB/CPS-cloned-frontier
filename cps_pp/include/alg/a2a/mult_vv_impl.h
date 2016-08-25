@@ -297,8 +297,6 @@ public:
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
     //Precompute index mappings
-    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
-
     modeIndexSet ilp, irp;
     ilp.time = top_glb;
     irp.time = top_glb;
