@@ -93,6 +93,7 @@ public:
 		VRB.FuncEnd(cname,fname);
 //		BondCond();
 
+#ifdef USE_QMP
 		bool fail = false;
 		for(int t=0;t<GJP.Tnodes();t++)
 		  for(int z=0;z<GJP.Znodes();z++)
@@ -120,7 +121,8 @@ public:
 			}
 		      }
 		if(fail)
-		  exit(0);	
+		  exit(0);
+#endif
 	}
 	virtual ~FgridBase(void){
 		if(Umu) delete Umu;
