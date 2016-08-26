@@ -188,6 +188,7 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 {
 	unsigned offset,x,y,z,t,r,row,col,mu ;
 	unsigned *site_sort_tbl, *link_sort_tbl ;
+	int cb_off, nstacked, table_size; //CK: for G-parity
 
 	char *fname = "CanonToAnything(CAP,StrOrdType)" ;
 
@@ -282,19 +283,28 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 				"Converting gauge field order: %s",
 				"CANONICAL -> G_WILSON_HB\n");
 
+			table_size = cap->vol*sizeof(unsigned);
+			if(GJP.Gparity()) table_size *=2;
+
 			site_sort_tbl = (unsigned *)
 			fmalloc(cname_none,fname,
 				    "site_sort_tbl" , 
-				    cap->vol*sizeof(unsigned)) ;
-
-
+				    table_size) ;
 
 			offset = 0 ;
 
 //-------------------------------------------------------------------------
 // Loop over current (CANONICAL) equation for site sequence number
 //-------------------------------------------------------------------------
+			cb_off = cap->vol; //why is this not vol/2?? Is it because GConverter does >> 1 on all sites (equiv to /=2)?
+			nstacked = 1;
+			if(GJP.Gparity()){
+			  if (new_str_ord == G_WILSON_HB) ERR.General(cname_none,fname,"G-parity code not written for G_WILSON_HB\n");
+			  cb_off*=2;
+			  nstacked =2;
+			}
 
+			for(int stk=0;stk<nstacked;stk++)
 			for (t=0; t<cap->lt; t++)
 			for (z=0; z<cap->lz; z++)
 			for (y=0; y<cap->ly; y++)
@@ -305,11 +315,16 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 // actual WILSON formula is (x-x%2+lx*(y+ly*(z+lz*t))+vol*((x+y+z+t)%2))/2
 // LSB = 1 indicates site needs converting
 //-------------------------------------------------------------------------
-
+			  //CK: bitwise operation r | 1 is equiv to if(r%2 == 0) r++;,  i.e. add one if even number 
+			  //                      r << 1 is equiv to r*=2
+			  //I think the extra factor of 2 in the offset to the second cb and also the | 1 operation is
+			  //because these are pointer offsets for the Floats and not the Complex
+			  
 				if (new_str_ord == WILSON || new_str_ord == DWF_4D_EOPREC || new_str_ord == DWF_4D_EOPREC_EE )
 					*(site_sort_tbl+offset) = (x - x%2
 					+ cap->lx*(y+cap->ly*(z+cap->lz*t))
-					+ cap->vol*((x+y+z+t)%2)) | 1 ;
+					+ stk*cb_off/2			   
+					+ cb_off*((x+y+z+t)%2)) | 1 ;
 				else		// G_WILSON_HB
 					*(site_sort_tbl+offset) = 
 					z+cap->lz*(y+cap->ly*(x+cap->lx*t))
@@ -348,6 +363,7 @@ void CanonToAnything(CAP cap, StrOrdType new_str_ord)
 				offset++ ;
 			}
 
+			if(GJP.Gparity()) cap->vol *=2; //hack to get GConverter to expect correct number of sites for gauge field if gparity
 			RunGConverter(cap, site_sort_tbl, link_sort_tbl) ;
 
 			sfree(cname_none,fname, "link_sort_tbl", link_sort_tbl);

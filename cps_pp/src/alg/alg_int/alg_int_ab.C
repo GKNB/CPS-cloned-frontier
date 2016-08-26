@@ -18,6 +18,7 @@ CPS_END_NAMESPACE
 #include<util/smalloc.h>
 #include<util/verbose.h>
 #include<util/error.h>
+#include<util/time_cps.h>
 #include<alg/alg_int.h>
 CPS_START_NAMESPACE
 
@@ -48,7 +49,8 @@ void AlgIntAB::heatbath() {
 }
 
 Float AlgIntAB::energy() {
-  return A->energy() + B->energy();
+  Float out = A->energy() + B->energy();
+  return out;
 }
 
 void AlgIntAB::cost(CgStats *cg_stats) {
@@ -96,9 +98,7 @@ AlgIntAB& AlgIntAB::Create(AlgInt &A, AlgInt &B, IntABArg &ab_arg) {
 }
 
 void AlgIntAB::Destroy(AlgIntAB &ab) {
-
   delete &ab;
-
 }
 
 CPS_END_NAMESPACE

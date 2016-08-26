@@ -55,6 +55,13 @@ Float AlgActionGauge::energy() {
   Lattice &lat =
     LatticeFactory::Create(F_CLASS_NONE, gluon);
   Float h = lat.GhamiltonNode();
+
+  {
+    Float gsum_h(h);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0)   printf("AlgActionGauge::energy() %e\n",gsum_h);
+  }
+
   LatticeFactory::Destroy();
 
   Float total_h = h;
@@ -64,7 +71,6 @@ Float AlgActionGauge::energy() {
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
   time.stop(true);
-
   return h;
 }
 
@@ -100,6 +106,16 @@ void AlgActionGauge::evolve(Float dt, int steps)
   //!< Create an appropriate lattice
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
 
+  if(!UniqueID()){
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+
+    printf("AlgActionGauge::evolve() start dt = %f, nsteps = %d, conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",dt,steps,pvals[0],pvals[1],pvals[2],pvals[3]);
+  }
+
   for (int i=0; i<steps; i++) {
     Fdt = lat.EvolveMomGforce(mom, dt);
 
@@ -114,6 +130,16 @@ void AlgActionGauge::evolve(Float dt, int steps)
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
   time.stop(true);
+  if(!UniqueID()){
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+
+    printf("AlgActionGauge::evolve() end conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+  }
+
 }
 
 //!< Dummy methods
@@ -124,5 +150,12 @@ void AlgActionGauge::cost(CgStats *cg_stats_global) {
 void AlgActionGauge::init() {
 
 }
+
+void AlgActionGauge::copyConjLattice(){
+  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
+  lat.CopyConjGaugeField();
+  LatticeFactory::Destroy();
+}
+
 
 CPS_END_NAMESPACE

@@ -1,4 +1,5 @@
 #include <config.h>
+#include <unistd.h>
 #include <util/WriteLatticePar.h>
 #include <util/iostyle.h>
 #include <util/qcdio.h>
@@ -21,7 +22,7 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   struct timeval start,end;
   gettimeofday(&start,NULL);
 #endif
-   sync();
+  sync();
 
   // init
   int error = 0;
@@ -41,12 +42,16 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   VRB.Flow(cname,fname, "Writing Gauge Field at Lattice::GaugeField() = %p\n", lpoint);
 
   Float plaq = lat.SumReTrPlaq()/(18*wt_arg.VolSites()) ;
+  if(GJP.Gparity()) plaq/=2;
+  
   Float ltrace(0.0);
   if(wt_arg.Scoor() == 0) {
     for(int i=0;i<size_matrices;i++){
       ltrace += (lpoint+i)->ReTr();
     }
     ltrace = globalSumFloat(ltrace) / (4*3*wt_arg.VolSites());
+    //CK: would give same result for G-parity as ReTr(U*) = ReTr(U) hence a factor of 2 in the volume sum, 
+    //but we take volume avg, which is twice as big for G-parity, cancelling the aforementioned factor
   }
   else
     globalSumFloat(0.0);  // everyone has to participate in global ops
@@ -60,6 +65,7 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
 
   unsigned int csum = 0;
 
+// #endif
   
   fstream output;
 

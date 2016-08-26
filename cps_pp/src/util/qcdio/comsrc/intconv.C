@@ -224,16 +224,29 @@ unsigned int IntConv::posDepCsum(char * data, const int data_len,
   int sid = siteid;
   int gid = global_id;
 
+  int stk =0; //CK: for G-parity
+
   if(sid >= 0) { // calculate global_id via siteid
     int loc[5];
     for(int i=0;i<5;i++) {
       loc[i] = sid % qio_arg.NodeSites(i);
       sid /= qio_arg.NodeSites(i);
       loc[i] += qio_arg.NodeSites(i) * qio_arg.Coor(i);
+      if(GJP.Gparity() && i==3){
+	stk = sid % 2;
+	sid /= 2;
+      }
     }
     
+    int nstacked = 1;
+    if(GJP.Gparity()) nstacked =2;
+
+    //CK: x + nx*y + nx*ny*z + nx*ny*nz*t + nx*ny*nz*nt*stk + nx*ny*nz*nt*nstacked*s
     gid = 0;
     if(dimension==5) gid = loc[4];
+
+    gid = gid * nstacked + stk;
+
     for(int i=3;i>=0;i--) 
       gid = gid * qio_arg.Nodes(i) * qio_arg.NodeSites(i) + loc[i];
   }

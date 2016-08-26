@@ -46,6 +46,11 @@ enum FclassType {
     F_CLASS_DWF4D_PAIR,
     F_CLASS_ZMOBIUS,
     F_CLASS_NAIVE
+    F_CLASS_GRID,
+    F_CLASS_GRID_GPARITY_MOBIUS,
+    F_CLASS_GRID_MOBIUS,
+    F_CLASS_GRID_GPARITY_WILSON_TM,
+    F_CLASS_GRID_WILSON_TM
 };
 
 
@@ -260,7 +265,10 @@ enum DagType {
 /*------------------------------------------------------------------*/
 enum BndCndType {
     BND_CND_PRD,    /*!< Periodic */
-    BND_CND_APRD    /*!< Antiperiodic */
+    BND_CND_APRD,    /*!< Antiperiodic */
+    BND_CND_TWISTED,  /*!< Twisted BCs */
+    BND_CND_GPARITY,    /*!< G-parity */
+    BND_CND_GPARITY_TWISTED /*!< G-parity + Twisted BCs*/
 };
 
 

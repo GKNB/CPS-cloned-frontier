@@ -113,12 +113,9 @@ class LatticeHeader : public LatHeaderBase {
     fillInChecksum(fout, cs);
   }
 
-
  private:
   int csum_pos;
 };
-
-
 
   /* Lattice Header e.g:
 BEGIN_HEADER

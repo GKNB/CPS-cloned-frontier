@@ -1351,7 +1351,11 @@ class DiracOpWilsonTm : public DiracOpWilson
   Float epsilon;	 // fractional imaginary mass 
   Float ctheta, stheta;	 // gamma_5(theta) parameters
  
- public:
+public:
+  const Float& get_epsilon() const{ return epsilon; }
+  const Float& get_ctheta() const{ return ctheta; }
+  const Float& get_stheta() const{ return stheta; }
+  const Float& get_kappa() const{ return kappa; }
 
 //
 // Functions DiracOpWilson to CalcHmdForceVecs are as in DiracOpWilson 
@@ -1398,10 +1402,15 @@ class DiracOpWilsonTm : public DiracOpWilson
 #ifdef USE_BFM_TM
   int InvCg(Vector *out, Vector *in,
 	    Float src_norm_sq, Float *true_res);
-//  int InvCg(Vector *out, Vector *in, Float *true_res);
+
   int InvCg(Float *true_res){
- InvCg(f_out,f_in,0,true_res);
- }
+    InvCg(f_out,f_in,0,true_res);
+  }
+
+  //BFM multi-shift inverter for twisted Wilson, added by CK
+  int MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift, 
+	     int Nshift, int isz, Float *RsdCG, 
+	     MultiShiftSolveType type, Float *alpha);
 #endif
 //
 

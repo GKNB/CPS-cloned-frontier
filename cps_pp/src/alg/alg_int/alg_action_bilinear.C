@@ -39,7 +39,7 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
   : AlgAction(mom, b_arg.action_arg) ,skip_force(false){
 
   cname = "AlgActionBiliniear";
-  char *fname="AlgActionBilinear(FclassType, int, HmdArg*, Matrix*)";
+  const char *fname="AlgActionBilinear(FclassType, int, HmdArg*, Matrix*)";
   VRB.Func(cname,fname);
 
   //!< First copy required instance parameters
@@ -64,6 +64,8 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
     // Ls for Fbfm can depend on input mass, so we can't choose the right
     // sizes for Fbfm without knowing the masses.
     if (bi_arg->fermion != F_CLASS_BFM) {
+    if(GJP.Gparity()) f_vec_count *= 2; //2 stacked G-parity flavors
+
 	//!< Number of Floats in a Vector array
 	f_size = GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl() + 1);
 	//!< Number of Vectors in a Vector array
@@ -79,9 +81,9 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
 
     if(lat.FchkbEvl() == 1) Ncb = 1;      //!< Half Checkerboard
     else if(lat.FchkbEvl() == 0) Ncb = 2; //!< Full Checkerboard
-    
+
     LatticeFactory::Destroy();
-    
+
     //!< Allocate memory for the phi field array
     phi = (Vector **) smalloc(n_masses * sizeof(Vector*),
 			      "phi",fname,cname);
@@ -102,7 +104,6 @@ AlgActionBilinear::AlgActionBilinear(AlgMomentum &mom,
       mass[i] = bi_arg->bilinears.bilinears_val[i].mass;
       max_num_iter[i] = bi_arg->bilinears.bilinears_val[i].max_num_iter;
     }
-
   }
 
   init();

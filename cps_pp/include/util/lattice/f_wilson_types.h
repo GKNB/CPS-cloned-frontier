@@ -434,6 +434,12 @@ class FwilsonTm : public virtual Fwilson
                  Float **hsum,
                  EigArg *eig_arg,
                  CnvFrmType cnv_frm);
+    //CK: modified in f_wilsonTm to create wilsonTm fermions 
+    int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
+		    int Nshift, int isz, CgArg **cg_arg, 
+		    CnvFrmType cnv_frm, MultiShiftSolveType type, 
+		    Float *alpha, Vector **f_out_d);
+
 
 
    //
@@ -453,6 +459,23 @@ class FwilsonTm : public virtual Fwilson
 
     Float BhamiltonNode(Vector *boson, Float mass, Float epsilon);
 
+    //Implementations of the above for G-parity boundary conditions (note, the standard versions will redirect to these functions when G-parity is active)
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *frm, 
+				 Float mass, Float epsilon, Float step_size);
+
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *phi, Vector *eta,
+				    Float mass, Float epsilon, Float step_size);
+
+    //Added by CK:
+    ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
+				  int isz, Float *alpha, Float mass, Float epsilon, Float dt,
+				  Vector **sol_d, ForceMeasure measure);
+    int FeigSolv(Vector **f_eigenv, Float *lambda, 
+		 Float *chirality, int *valid_eig,
+		 Float **hsum,
+		 EigArg *eig_arg, 
+		 CnvFrmType cnv_frm = CNV_FRM_YES);
+
     //
     //~~ the following functions are "normal" versions without the
     //~~ epsilon parameter; should never be called by wilsonTm fermions
@@ -463,8 +486,10 @@ class FwilsonTm : public virtual Fwilson
  
     ForceArg EvolveMomFforce(Matrix *mom, Vector *frm, 
 				 Float mass, Float step_size);
+    
     ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 				  Float mass, Float step_size);
+
     Float BhamiltonNode(Vector *boson, Float mass);
 };
 
@@ -816,6 +841,12 @@ class FdwfBase : public virtual FwilsonTypes
         // It evolves the canonical momentum mom by step_size
         // using the fermion force.
 
+    ForceArg EvolveMomFforceGparity(Matrix *mom, Vector *frm, 
+				    Float mass, Float step_size);
+        // It evolve the canonical momentum mom  by step_size in G-parity scenario
+        // using the bosonic quotient force.
+        // It is automatically called by EvolveMomFforce when appropriate
+
     ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 			  Float mass, Float step_size);
         // It evolve the canonical momentum mom  by step_size
@@ -874,6 +905,8 @@ class FdwfBase : public virtual FwilsonTypes
     //!< Does something really cool.
        // Reflexion in s operator, needed for the hermitian version 
        // of the dirac operator in the Ritz solver.
+    void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
+                 CnvFrmType cnv_frm, int dir_flag);
 };
 
 //------------------------------------------------------------------

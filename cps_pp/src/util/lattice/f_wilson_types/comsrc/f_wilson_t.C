@@ -8,14 +8,14 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //  CVS keywords
 //
-//  $Author: chulwoo $
+//  $Author: ckelly $
 //  $Date: 2005/10/04 05:35:47 $
 //  $Header: /space/cvs/cps/cps++/src/util/lattice/f_wilson_types/comsrc/f_wilson_t.C,v 1.7 2005/10/04 05:35:47 chulwoo Exp $
 //  $Id: f_wilson_t.C,v 1.7 2005/10/04 05:35:47 chulwoo Exp $
 //  $Name: v5_0_16_hantao_io_test_v7 $
 //  $Locker:  $
 //  $RCSfile: f_wilson_t.C,v $
-//  $Revision: 1.7 $
+//  $Revision: 1.7.284.1 $
 //  $Source: /space/cvs/cps/cps++/src/util/lattice/f_wilson_types/comsrc/f_wilson_t.C,v $
 //  $State: Exp $
 //
@@ -154,7 +154,10 @@ Float FwilsonTypes::FhamiltonNode( Vector *phi,  Vector *chi) {
   if (chi == 0)
     ERR.Pointer(cname,fname,"chi") ;
 
-  return phi->ReDotProductNode(chi,((GJP.VolNodeSites()*FsiteSize())>>1)*(2-FchkbEvl())) ;
+  int f_size = ((GJP.VolNodeSites()*FsiteSize())>>1)*(2-FchkbEvl());
+  if(GJP.Gparity()) f_size*=2;
+
+  return phi->ReDotProductNode(chi,f_size);
 }
 
 //------------------------------------------------------------------

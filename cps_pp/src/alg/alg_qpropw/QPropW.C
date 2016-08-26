@@ -49,6 +49,20 @@
 #include <qmp.h>
 #endif
 #include <alg/mobius_arg.h>
+//CK
+#include <util/fpconv.h>
+#include <util/checksum.h>
+
+#ifdef USE_BFM 
+
+//CK: these are redefined by BFM (to the same values)
+#undef ND
+#undef SPINOR_SIZE
+#undef HALF_SPINOR_SIZE
+#undef GAUGE_SIZE
+
+#include <util/lattice/fbfm.h>
+#endif
 
 #define VOLFMT QIO_VOLFMT
 
@@ -56,21 +70,22 @@ CPS_START_NAMESPACE
 
 // Allocate space for propagators
 void QPropW::Allocate(int mid) {
-
-  char *fname = "Allocate(int)";
+  const char *fname = "Allocate(int)";
   VRB.Func(cname, fname);
+
+  int sz = (GJP.Gparity()?2:1) * GJP.VolNodeSites()*sizeof(WilsonMatrix);
 
     switch (mid){
     case 0:
       if (prop == NULL) { // Allocate only if needed
-	prop = (WilsonMatrix*)smalloc(cname, fname, "prop", GJP.VolNodeSites()*sizeof(WilsonMatrix));
-      }
+      prop = (WilsonMatrix*)smalloc(cname, fname, "prop", sz);
+    }
       break;
     case 1:
       if (midprop == NULL) { // Allocate only if needed
-        midprop = (WilsonMatrix*)smalloc(cname, fname, "midprop", GJP.VolNodeSites()*sizeof(WilsonMatrix));
+      midprop = (WilsonMatrix*)smalloc(cname, fname, "midprop", sz);
 	VRB.Result(cname,fname,"midprop=%p\n",midprop);
-      }
+    }
       break;
     case 2:
       if (prop5d == NULL) { // Allocate only if needed
@@ -87,7 +102,7 @@ void QPropW::Allocate(int mid) {
 // Free space for propagators
 void QPropW::Delete(int mid) {
 
-  char *fname = "Delete(int)";
+  const char *fname = "Delete(int)";
   VRB.Func(cname, fname);
   switch (mid){
 
@@ -217,12 +232,16 @@ QPropW::QPropW(const QPropW& rhs):Alg(rhs),midprop(NULL),prop(NULL),prop5d(NULL)
   VRB.Func(cname, fname);
    
   Allocate(PROP);
-  for (int i=0;i<GJP.VolNodeSites();i++)
+
+  int sz = GJP.VolNodeSites();
+  if(GJP.Gparity()) sz*=2;
+
+  for (int i=0;i<sz;i++)
     prop[i] = rhs.prop[i];
   
   if (rhs.StoreMidprop()) {
 	Allocate(MIDPROP);
-	for (int i=0;i<GJP.VolNodeSites();i++)
+	for (int i=0;i<sz;i++)
 	  midprop[i] = rhs.midprop[i];
   }
 
@@ -249,12 +268,15 @@ QPropW& QPropW::operator=(const QPropW& rhs) {
 
     Allocate(PROP);
     
-    for (int i=0;i<GJP.VolNodeSites();i++)
+    int sz = GJP.VolNodeSites();
+    if(GJP.Gparity()) sz*=2;
+
+    for (int i=0;i<sz;i++)
       prop[i] = rhs.prop[i];
 
     if (rhs.StoreMidprop()) {
 	  Allocate(MIDPROP);
-	  for (int i=0;i<GJP.VolNodeSites();i++)
+	  for (int i=0;i<sz;i++)
 	  midprop[i]=rhs.midprop[i];
 	}
   
@@ -287,8 +309,11 @@ QPropW::QPropW(QPropW& prop1, QPropW& prop2):Alg(prop1)
    sink_type = prop1.sink_type;
 
    Allocate(PROP);
-#pragma omp parallel for
-   for (int i=0; i<GJP.VolNodeSites(); i++) {
+
+   int sz = GJP.VolNodeSites();
+   if(GJP.Gparity()) sz*=2;
+
+   for (int i=0; i<sz; i++)
      prop[i] = ((Float)0.5)*(prop1.prop[i]+prop2.prop[i]);
    }
 
@@ -296,52 +321,123 @@ QPropW::QPropW(QPropW& prop1, QPropW& prop2):Alg(prop1)
 }
 
 
+void QPropW::MultiplyProp(WilsonMatrix* to, WilsonMatrix *from, const Float &renFac){
+  int sz = GJP.VolNodeSites();
+  if(GJP.Gparity()) sz*=2;
+
+  for(int i=0;i<sz;i++) to[i] = renFac * from[i];
+}
+
+
+void QPropW::GetGaugeFixInfo(char *gfixInfo){
+  switch ( AlgLattice().FixGaugeKind() ){
+
+  case FIX_GAUGE_NONE:
+    sprintf(gfixInfo,"no GF");
+    break;
+
+  case FIX_GAUGE_LANDAU:
+    sprintf(gfixInfo,"Landau GF, StpCnd=%0.0E", AlgLattice().FixGaugeStopCond());
+    break;
+
+  case FIX_GAUGE_COULOMB_T:
+    sprintf(gfixInfo,"Coulomb(T) GF, StpCnd=%0.0E", AlgLattice().FixGaugeStopCond());
+    break;
+
+  default:
+    sprintf(gfixInfo,"UNKNOWN GF");
+
+  }
+}
+
+void QPropW::GetFermionInfo(char *fermionInfo){
+  switch (AlgLattice().Fclass() ){
+
+  case F_CLASS_DWF:
+    sprintf(fermionInfo,"DWF, Ls=%i, M5=%0.2f",GJP.Sites(4),GJP.DwfHeight());
+    break;
+	 
+  case F_CLASS_NONE:
+    sprintf(fermionInfo,"NO FERMION TYPE");
+    break;
+
+  case F_CLASS_STAG:
+    sprintf(fermionInfo,"staggered fermion");
+    break;
+
+  case F_CLASS_WILSON:
+    sprintf(fermionInfo,"Wilson fermion");
+    break;
+
+  case F_CLASS_CLOVER:
+    sprintf(fermionInfo,"Clover fermion");
+    break;
+ 	
+  case F_CLASS_ASQTAD:
+    sprintf(fermionInfo,"aSqTad fermion");
+    break;
+
+  case F_CLASS_P4: 
+    sprintf(fermionInfo,"P4 fermion");
+    break;
+
+  default:
+    sprintf(fermionInfo,"UNKNOWN FERMION TYPE");
+      
+  }
+}
+
 // EES merged with ReRun()
 void QPropW::Run(const int do_rerun, const Float precision)
 {
-   char *fname = "Run()";
-   VRB.Func(cname, fname);
+  char *fname = "Run()";
+  VRB.Func(cname, fname);
+  //CJ: make it skip running CG when EigCG is intended
+  if (qp_arg.cg.Inverter==EIGCG) return;
 
    Float dtime0 = dclock();
 
-   // Set the node size of the full (non-checkerboarded) fermion field
-   //----------------------------------------------------------------
-   //int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
-   int iter;
-   Float true_res;
+  // Set the node size of the full (non-checkerboarded) fermion field
+  //----------------------------------------------------------------
+  //int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
+  int iter;
+  Float true_res;
 
-   // Flag set if sequential propagator 
-   int seq_src = SrcType()==PROT_U_SEQ || SrcType()==PROT_D_SEQ || SrcType()==MESSEQ;
+  int Nspins = 4; // Number of spin components to be done
+  // Flag set if sequential propagator 
+  int seq_src = ((SrcType()==PROT_U_SEQ)||
+		 (SrcType()==PROT_D_SEQ)||
+		 (SrcType()==MESSEQ)      );
+  if (DoHalfFermion()) Nspins = 2;
 
-   // does prop exist? Assume it does not.
-   int do_cg = 1;
+  // does prop exist? Assume it does not.
+  int do_cg = 1;
 
-   int StartSpin = 0;
-   int EndSpin = 4;
-   int StartColor = 0;
-   int EndColor = 3;
+  int StartSpin = 0;
+  int EndSpin = 4;
+  int StartColor = 0;
+  int EndColor = 3;
   Lattice& lat = AlgLattice();
 
    if(qp_arg.save_prop==2) {
-	StartSpin = qp_arg.StartSrcSpin;
-	EndSpin = qp_arg.EndSrcSpin;
-	StartColor = qp_arg.StartSrcColor;
-	EndColor = qp_arg.EndSrcColor;
-   }
-
+    StartSpin = qp_arg.StartSrcSpin;
+    EndSpin = qp_arg.EndSrcSpin;
+    StartColor = qp_arg.StartSrcColor;
+    EndColor = qp_arg.EndSrcColor;
+  }
 
   //-----------------------------------------------------------------
   // TY Add Start
-   // we need to store the source
-   Float *save_source=NULL;
+  // we need to store the source
+  Float *save_source=NULL;
   // TY Add End
   //-----------------------------------------------------------------
-   WilsonMatrix *read_prop=NULL;
-   WilsonMatrix *save_prop=NULL;
+  WilsonMatrix *read_prop=NULL;
+  WilsonMatrix *save_prop=NULL;
 
-   if (do_cg) {
+  if (do_cg) {
 
-     Allocate(PROP); 
+    Allocate(PROP); 
      // zero the prop (in case we are doing QED)
      for(int i=0;i<GJP.VolNodeSites();i++){
        prop[i] =0.0;
@@ -367,15 +463,15 @@ void QPropW::Run(const int do_rerun, const Float precision)
        }
      }
      
-     FermionVectorTp src;
-     FermionVectorTp sol;
+    FermionVectorTp src;
+    FermionVectorTp sol;
      //if(AlgLattice().Fclass() == F_CLASS_DWF || AlgLattice().Fclass() == F_CLASS_MOBIUS )
-     FermionVectorTp midsol;
+    FermionVectorTp midsol;
      
      //-----------------------------------------------------------------
      // TY Add Start
      // For conserved axial current
-     int glb_walls = GJP.TnodeSites()*GJP.Tnodes();
+    int glb_walls = GJP.TnodeSites()*GJP.Tnodes();
      if(AlgLattice().F5D()) {
        conserved = (Float *) smalloc(cname, fname, "d_conserved_p",
                                      glb_walls * sizeof(Float));
@@ -384,30 +480,29 @@ void QPropW::Run(const int do_rerun, const Float precision)
        conserved = NULL;
      }
 
-     spnclr_cnt = 0;
+    spnclr_cnt = 0;
 
-     // we need to store the source
+    // we need to store the source
      if (qp_arg.save_prop || do_rerun ) {
-       save_source = (Float*)smalloc(cname, fname, "save_source",GJP.VolNodeSites()*288*sizeof(Float));
-     }
-     // TY Add End
-     //-----------------------------------------------------------------
+      int sz = GJP.VolNodeSites()*288*sizeof(Float);
+      if(GJP.Gparity()) sz*=2;
+      save_source = (Float*)smalloc(cname, fname, "save_source",sz);
+    }
+    // TY Add End
+    //-----------------------------------------------------------------
 
-     // in case we do a rerun, we also need to store a propagator
-     if(do_rerun){
-       read_prop = (WilsonMatrix*)smalloc(cname, fname, "read_prop",GJP.VolNodeSites()*sizeof(WilsonMatrix));
+    // in case we do a rerun, we also need to store a propagator
+    if(do_rerun){
+      int sz = GJP.VolNodeSites()*sizeof(WilsonMatrix);
+      if(GJP.Gparity()) sz*=2;
+      read_prop = (WilsonMatrix*)smalloc(cname, fname, "read_prop",sz);
        
 #ifdef USE_QIO
-       qio_readPropagator readPropQio(qp_arg.file, QIO_FULL_SOURCE, read_prop, save_source,
-				      GJP.argc(), GJP.argv(), VOLFMT);
+      qio_readPropagator readPropQio(qp_arg.file, QIO_FULL_SOURCE, read_prop, save_source,
+				     GJP.argc(), GJP.argv(), VOLFMT);
 #endif //USE_QIO
-
-       if(AlgLattice().Fclass() == F_CLASS_DWF){
-	 
-	 Float renFac = 5. - GJP.DwfHeight();
-	 
-	 for(int ii(0); ii <  GJP.VolNodeSites(); ++ii)
-	   *(read_prop +ii) *= renFac;
+      
+      if(AlgLattice().Fclass() == F_CLASS_DWF) MultiplyProp(read_prop,read_prop, 5.0 - GJP.DwfHeight());
 
        }else if(AlgLattice().Fclass() == F_CLASS_MOBIUS){
 	 
@@ -419,9 +514,9 @@ void QPropW::Run(const int do_rerun, const Float precision)
        }
      }
      
-     //-----------------------------------------------------------------
-     // M. Lightman
-     // For m_res
+    //-----------------------------------------------------------------
+    // M. Lightman
+    // For m_res
      if(AlgLattice().F5D()) {
        j5q_pion = (Float *) smalloc(cname, fname, "d_j5q_pion_p", glb_walls * sizeof(Float));
 //       j5q_pion = (Float *) smalloc(fsize);
@@ -431,99 +526,103 @@ void QPropW::Run(const int do_rerun, const Float precision)
      } else {
             j5q_pion = NULL;
      }
-     // End M. Lightman
-     //-----------------------------------------------------------------
+    // End M. Lightman
+    //-----------------------------------------------------------------
 
-     for (int spn=StartSpin; spn < EndSpin; spn++)
-       for (int col=StartColor; col < EndColor; col++) {
-		 
+    for (int spn=StartSpin; spn < EndSpin; spn++)
+      for (int col=StartColor; col < EndColor; col++) {
+	VRB.Result(cname,fname,"Starting inversion for spin %d color %d\n",spn,col);
+
    Float dt_src = -dclock();
-	 // initial guess (Zero)
-	 sol.ZeroSource();
+	// initial guess (Zero)
+	sol.ZeroSource();
 
 	 if(!do_rerun) {
-	   SetSource(src,spn,col);
+	  SetSource(src,spn,col);
 	   
-	   // store the source
-	   if (qp_arg.save_prop) {
-	     for(int index(0); index < GJP.VolNodeSites(); ++index)
-	       for(int mm(0); mm < 4; ++ mm)
-		 for(int cc(0); cc < GJP.Colors(); ++cc){
-		   // now same ordering as propagator [volume][spin][color][solution_spin][solution_color][ReIm]
-		   *(save_source + 288*index + 72*mm + 24*cc + 6*spn + 2*col)       = src[24*index + 6*mm + 2*cc];
-		   *(save_source + 288*index + 72*mm + 24*cc + 6*spn + 2*col + 1)   = src[24*index + 6*mm + 2*cc+1];
-		 }
-	   }
-	 }
-	 else{ // rerun
-	   for(int index(0); index < GJP.VolNodeSites(); ++index){
-	   
-	     WilsonMatrix *tmp_mat= (WilsonMatrix *) save_source+index;
-	     
-	     src.CopyWilsonMatSink(index, spn, col,*tmp_mat);
-	   }
-	 }
+	  // store the source
+	  if (qp_arg.save_prop) {
+	    int nmat = GJP.VolNodeSites(); if(GJP.Gparity()) nmat*=2;
+	    for(int index(0); index < nmat; ++index)
+	      for(int mm(0); mm < 4; ++ mm)
+		for(int cc(0); cc < GJP.Colors(); ++cc){
+		  // now same ordering as propagator [volume][spin][color][solution_spin][solution_color][ReIm]
+		  *(save_source + 288*index + 72*mm + 24*cc + 6*spn + 2*col)       = src[24*index + 6*mm + 2*cc];
+		  *(save_source + 288*index + 72*mm + 24*cc + 6*spn + 2*col + 1)   = src[24*index + 6*mm + 2*cc+1];
+		}
+	  }
+	}
+	else{ // rerun
+	  int nmat = GJP.VolNodeSites(); if(GJP.Gparity()) nmat*=2;
+	  for(int index(0); index < nmat; ++index){
+	    WilsonMatrix *tmp_mat= (WilsonMatrix *) save_source+index;
+	    src.CopyWilsonMatSink(index, spn, col,*tmp_mat);
+	  }
+	}
 
-	 if ((DoHalfFermion())&&(!seq_src)) // Rotate to chiral basis
-	   src.DiracToChiral();
+	if ((DoHalfFermion())&&(!seq_src)) // Rotate to chiral basis
+	  src.DiracToChiral();
    dt_src += dclock();
    VRB.Result(cname, fname, "Time taken to fix source,etc: %17.10e seconds.\n",dt_src);
 
    dt_src = -dclock();
-	 // Get the prop
-	 VRB.Debug(cname,fname,"Before CG in QpropW.Run() \n");
+	// Get the prop
+	VRB.Debug(cname,fname,"Before CG in QpropW.Run() \n");
 	 //CG(src, sol, midsol, iter, true_res);
 	 CG(spn, col, src, sol, midsol, iter, true_res);
 
-	 //gauge fix solution
+	//gauge fix solution
    dt_src += dclock();
    VRB.Result(cname, fname, "Time taken to CG: %17.10e seconds.\n",dt_src);
    dt_src = -dclock();
-	 FixSol(sol);
-	 if (StoreMidprop()) FixSol(midsol);
+	FixSol(sol);
+	if (StoreMidprop()) FixSol(midsol);
 	 
-	 // Collect solutions in propagator.
-	 LoadRow(spn,col,sol,midsol);
+	// Collect solutions in propagator.
+	LoadRow(spn,col,sol,midsol);
 	 
-	 if (DoHalfFermion()) {// copy spin 0 to spin 1 and spin 2 to spin 3
-	   int spn2 = spn + 2;
-	   if (seq_src) {
-	     LoadRow(spn2,col,sol,midsol);
-	   } else { // Regular propagator zero the extra components
-	     src.ZeroSource();
-	     LoadRow(spn2,col,src,src);
-	   }
-	 }
+	if (DoHalfFermion()) {// copy spin 0 to spin 1 and spin 2 to spin 3
+	  int spn2 = spn + 2;
+	  if (seq_src) {
+	    LoadRow(spn2,col,sol,midsol);
+	  } else { // Regular propagator zero the extra components
+	    src.ZeroSource();
+	    LoadRow(spn2,col,src,src);
+	  }
+	}
    dt_src += dclock();
    VRB.Result(cname, fname, "Time taken to fix sink,etc: %17.10e seconds.\n",dt_src);
 		 
-	 if (common_arg->results != 0) {
-	   FILE *fp = Fopen((char *)common_arg->results, "a");
-	   Fprintf(fp, "Cg iters = %d true residual = %e\n",
-		   iter, (Float)true_res);
-	   Fclose(fp);
-	 }
-       } // End spin-color loop
+	if (common_arg->results != 0) {
+	  FILE *fp;
+	  if ((fp = Fopen((char *)common_arg->results, "a")) == NULL) {
+	    ERR.FileA(cname,fname, (char *)common_arg->results);
+	  }
+	  Fprintf(fp, "Cg iters = %d true residual = %e\n",
+		  iter, (Float)true_res);
+	  Fclose(fp);
+	}
+      } // End spin-color loop
      
-     // Rotate the source indices to Chiral basis if needed
+    // Rotate the source indices to Chiral basis if needed
      if ((DoHalfFermion())&&(!seq_src)) {
-       for (int s=0;s<GJP.VolNodeSites();s++)
-	 prop[s].SinkChiralToDirac(); // multiply by V^\dagger
+      for (int s=0;s<GJP.VolNodeSites();s++)
+	prop[s].SinkChiralToDirac(); // multiply by V^\dagger
        
-       if (StoreMidprop())
-	 for (int s=0;s<GJP.VolNodeSites();s++)
-	   midprop[s].SinkChiralToDirac(); // multiply by V^\dagger
-     }
-   }
+      if (StoreMidprop())
+	for (int s=0;s<GJP.VolNodeSites();s++)
+	  midprop[s].SinkChiralToDirac(); // multiply by V^\dagger
+    }
+  }
 
-   //Print out time taken to invert
+  //Print out time taken to invert
    Float dtime1 = dclock();
    VRB.Result(cname, fname, "Time taken to invert: %17.10e seconds.\n",
               dtime1 - dtime0);
 
-   //-----------------------------------------------------------------
-   // TY Add Start
-   // Print out conserved axial results
+  //-----------------------------------------------------------------
+  // TY Add Start
+  // Print out conserved axial results
    if(AlgLattice().Fclass() == F_CLASS_DWF || AlgLattice().Fclass() == F_CLASS_MOBIUS){
      int time_size = GJP.TnodeSites()*GJP.Tnodes();
      for(int t(0);t<time_size;t++)
@@ -541,12 +640,12 @@ void QPropW::Run(const int do_rerun, const Float precision)
      }
      sfree(cname, fname, "conserved", conserved);
    }
-   // TY Add End
-   //-----------------------------------------------------------------
+  // TY Add End
+  //-----------------------------------------------------------------
 
-   //-----------------------------------------------------------------
-   // M. Lightman
-   // Print out J5q Pion contraction
+  //-----------------------------------------------------------------
+  // M. Lightman
+  // Print out J5q Pion contraction
    if(AlgLattice().Fclass() == F_CLASS_DWF || AlgLattice().Fclass() == F_CLASS_MOBIUS){
      int time_size = GJP.TnodeSites()*GJP.Tnodes();
      for(int t(0);t<time_size;t++)
@@ -564,114 +663,45 @@ void QPropW::Run(const int do_rerun, const Float precision)
      }
      sfree(cname, fname, "j5q_pion", j5q_pion);
    }
-   // End M. Lightman
-   //-----------------------------------------------------------------
+  // End M. Lightman
+  //-----------------------------------------------------------------
 
-   //Print out time taken for midpoint calculations.
+  //Print out time taken for midpoint calculations.
    Float dtime2 = dclock();
    VRB.Result(cname, fname,
               "Time spent calculating midpoint and conserved axial current: %17.10e seconds.\n",
               dtime2 - dtime1);
 
-   // save prop
-   if (do_cg && qp_arg.save_prop) {
-
-     char propType[256], sourceType[256], propOutfile[256];
-     char gfixInfo[256];
-
-     switch ( AlgLattice().FixGaugeKind() ){
-
-     case FIX_GAUGE_NONE:
-       sprintf(gfixInfo,"no GF");
-       break;
-
-     case FIX_GAUGE_LANDAU:
-       sprintf(gfixInfo,"Landau GF, StpCnd=%0.0E", AlgLattice().FixGaugeStopCond());
-       break;
-
-     case FIX_GAUGE_COULOMB_T:
-       sprintf(gfixInfo,"Coulomb(T) GF, StpCnd=%0.0E", AlgLattice().FixGaugeStopCond());
-       break;
-
-     default:
-       sprintf(gfixInfo,"UNKNOWN GF");
-
-     }
-
-
-     char fermionInfo[256];
-     
-     switch (AlgLattice().Fclass() ){
-
-     case F_CLASS_DWF:
-       sprintf(fermionInfo,"DWF, Ls=%i, M5=%0.2f",GJP.Sites(4),GJP.DwfHeight());
-       break;
+  // save prop
+  if (do_cg && qp_arg.save_prop) {
+    char propOutfile[256];
 
      case F_CLASS_MOBIUS:
        sprintf(fermionInfo,"MOBIUS, Ls=%i, M5=%0.2f, B=%0.2f, C=%0.2f",
 	       GJP.Sites(4),GJP.DwfHeight(),GJP.Mobius_b(),GJP.Mobius_c());
        break;
 	 
-     case F_CLASS_NONE:
-       sprintf(fermionInfo,"NO FERMION TYPE");
-       break;
-
-     case F_CLASS_STAG:
-       sprintf(fermionInfo,"staggered fermion");
-       break;
-
-     case F_CLASS_WILSON:
-       sprintf(fermionInfo,"Wilson fermion");
-       break;
-
-     case F_CLASS_CLOVER:
-       sprintf(fermionInfo,"Clover fermion");
-       break;
- 	
-     case F_CLASS_ASQTAD:
-       sprintf(fermionInfo,"aSqTad fermion");
-       break;
-
-     case F_CLASS_P4: 
-       sprintf(fermionInfo,"P4 fermion");
-       break;
-
      case F_CLASS_NAIVE: 
        sprintf(fermionInfo,"naive fermion");
        break;
 
-     default:
-       sprintf(fermionInfo,"UNKNOWN FERMION TYPE");
-      
-     }
-
-     sprintf(propType,"4D propagator, mass=%0.4f, StpCond=%0.0E,\nBC=%s%s%s%s,\n%s,\n%s", 
-	     qp_arg.cg.mass, qp_arg.cg.stop_rsd,
-	     ((GJP.Xbc()==BND_CND_PRD) ? "P" : "A"),
-	     ((GJP.Ybc()==BND_CND_PRD) ? "P" : "A"),
-	     ((GJP.Zbc()==BND_CND_PRD) ? "P" : "A"),
-	     ((GJP.Tbc()==BND_CND_PRD) ? "P" : "A"),   
-	     gfixInfo, fermionInfo
-	     );
-    
-     // be a bit more sophisticated
-     sprintf(sourceType,"%s-source at t=%i",SourceType_map[SrcType()].name ,SourceTime());
-   
-     if(!do_rerun)
+    if(!do_rerun)
        sprintf(propOutfile,"%s",qp_arg.file);
-     else
-       sprintf(propOutfile,"%s.rewrite",qp_arg.file);
+    else
+      sprintf(propOutfile,"%s.rewrite",qp_arg.file);
+    SaveQProp(&propOutfile[0], (WilsonMatrix*)save_source, !do_rerun);
+    delta_t = Timer::relative_time();
+    VRB.Result(cname,fname,"Time taken to save: %d hours %d minutes %f seconds.\n",delta_t.hours,delta_t.mins,delta_t.secs);     
+  }
 
-     //in case of DWF, renormalize first
-     if(AlgLattice().Fclass() == F_CLASS_DWF){
-       
-       Float renFac = 1./(5. - GJP.DwfHeight());
-       
-       save_prop = (WilsonMatrix*)smalloc(cname, fname, "save_prop",GJP.VolNodeSites()*sizeof(WilsonMatrix));
-       
-       for(int ii(0); ii <  GJP.VolNodeSites(); ++ii)
-	 *(save_prop + ii) = renFac * prop[ii];
+   
+  if (qp_arg.save_prop || do_rerun ) sfree(save_source);
 
+  //Compare prop and read_prop if doing rerun
+  if(do_rerun){
+    CompareProps(prop,read_prop,precision);
+    sfree(read_prop);
+  }
        
      }else if(AlgLattice().Fclass() == F_CLASS_MOBIUS){
        
@@ -685,118 +715,112 @@ void QPropW::Run(const int do_rerun, const Float precision)
        for(int ii(0); ii <  GJP.VolNodeSites(); ++ii)
 	 *(save_prop + ii) = renFac * prop[ii];       
      }else save_prop = &prop[0];
-     
-#ifdef USE_QIO
-     Float qio_time = -dclock();
-     
-     // always writes the full 4D source
-     //qio_writePropagator writePropQio(propOutfile, QIO_FULL_SOURCE, save_prop, save_source,
-     //			      qp_arg.ensemble_id, qp_arg.ensemble_label, qp_arg.seqNum, propType, sourceType,
-     //			      GJP.argc(), GJP.argv(), VOLFMT);
-     
-     // write a t-slice/slices or hypercube in some cases for the source
-     qio_writePropagator writePropQio;
-
-     writePropQio.setHeader(qp_arg.ensemble_id, qp_arg.ensemble_label, qp_arg.seqNum, propType, sourceType);
-     
-     // just writing one time-slice?
-     if(  (!do_rerun) &&
-       ( (SrcType() == POINT) || (SrcType() == VOLUME) || (SrcType() == BOX) || (SrcType() == WALL) ) ){
-       VRB.Flow(cname,fname," source-type: %s only write t-slice %i to file\n",SourceType_map[SrcType()].name ,SourceTime());
-       writePropQio.setSourceTslice(SourceTime());
-     }
-
-     switch(qp_arg.save_prop){
-     case 1:
-	writePropQio.write_12pairs(propOutfile, QIO_FULL_SOURCE, save_prop, save_source, VOLFMT);
-        break;
-     case 2:
-        for (int spn=StartSpin; spn < EndSpin; spn++){
-          for (int col=StartColor; col < EndColor; col++) {
-	    char file[256];
-	    sprintf(file,"%ss%dc%d",propOutfile,spn,col);
-	    writePropQio.write_pair(file, QIO_FULL_SOURCE, save_prop, save_source, spn, col, VOLFMT);
-          }
-        }
-	break;
-     default: ERR.General(cname,fname,"invalid save_prop in qp arge\n");
-     }
-     qio_time +=dclock();
-     print_time("QPropW::Run","qio_writePropagator",qio_time);
 
 
-#endif // USE_QIO
-     
+void QPropW::ReLoad( char *infile){
+
+  char *fname = "ReLoad( char *)";
+  int float_size = sizeof(WilsonMatrix)*GJP.VolNodeSites()/sizeof(Float);
+  if(GJP.Gparity()) float_size*=2;
+
+  if (!prop) Allocate(0); // Allocate only if needed
+
+
+// if the propagator file of source with spin/color divided exists or not
+  int sc_part_file_exist =  CheckSCfile(infile);
+  //TIZB, we only read the propagator file with divided spin/color source if they exists,
+  // if not, we will read the propagator with all spin/color source.
+  if(qp_arg.save_prop==2 && sc_part_file_exist ){
+    //        for(int spin=qpropw_arg.StartSrcSpin;spin<qpropw_arg.EndSrcSpin;spin++){
+    //          for(int color=qpropw_arg.StartSrcColor;color<qpropw_arg.EndSrcColor;color++){
+    for(int spin=0;spin<4;spin++){
+      for(int color=0;color<3;color++){
+	char file[256];
+	sprintf(file,"%ss%dc%d",infile,spin,color);
+	ReLoadSC(file,spin,color);
+      }
+    }
+  } else {
+    Float *dummy_source = (Float*)smalloc(cname, fname, "dummy_source", 
+					  float_size * sizeof(Float));
      if(AlgLattice().Fclass() == F_CLASS_DWF || AlgLattice().Fclass() == F_CLASS_MOBIUS )
-       sfree(save_prop);
-     //Print out time taken to save
+#ifdef USE_QIO
+    qio_readPropagator readPropQio(infile, &prop[0], dummy_source, float_size, float_size, VOLFMT);
+#endif
+    sfree(dummy_source);
+  }
      Float dtime3 = dclock();
      VRB.Result(cname, fname,
                 "Time taken to save: %17.10e seconds.\n",
                 dtime3 - dtime2);
-   }
+  if(AlgLattice().Fclass() == F_CLASS_DWF) MultiplyProp(prop,prop,5.-GJP.DwfHeight());
+}
 
-   
-   if (qp_arg.save_prop || do_rerun ) sfree(save_source);
-   
-   if(do_rerun){
+
+
+
+//Compare two propagators and write out differences
+void QPropW::CompareProps(WilsonMatrix* prop_A, WilsonMatrix* prop_B, const Float& precision){
+  //now compare prop and read_prop
+  const char* fname = "CompareProps(WilsonMatrix*, WilsonMatrix*, const Float&)";
+
+  Float errCnt(0.);
+  Float sumerr(0.);
      
-     //now compare prop and read_prop
+  int nstacked = 1;
+  if(GJP.Gparity()) nstacked = 2;
+  int stkoff = GJP.VolNodeSites();
      
-     Float errCnt(0.);
-     Float sumerr(0.);
-     
-     for(int index(0); index < GJP.VolNodeSites(); ++index){
+  for(int stk=0;stk<nstacked;stk++){
+    for(int index(0); index < GJP.VolNodeSites(); ++index){
        
-       WilsonMatrix mat_read, mat_calc;
+      WilsonMatrix mat_read, mat_calc;
        
-       mat_calc = prop[index];
-       mat_read = *(read_prop + index);
+      mat_calc = prop_A[index + stk*stkoff];
+      mat_read = *(prop_B + index + stk*stkoff);
        
-       for(int s_src(0); s_src < 4; ++s_src)
-	 for(int c_src(0); c_src < 3; ++c_src)
-	   for(int s_snk(0); s_snk < 4; ++s_snk)
-	     for(int c_snk(0); c_snk < 3; ++c_snk){
+      for(int s_src(0); s_src < 4; ++s_src)
+	for(int c_src(0); c_src < 3; ++c_src)
+	  for(int s_snk(0); s_snk < 4; ++s_snk)
+	    for(int c_snk(0); c_snk < 3; ++c_snk){
 	       
-	       Complex tmp_calc = mat_calc(s_snk,c_snk,s_src,c_src);
-	       Complex tmp_read = mat_read(s_snk,c_snk,s_src,c_src);
+	      Complex tmp_calc = mat_calc(s_snk,c_snk,s_src,c_src);
+	      Complex tmp_read = mat_read(s_snk,c_snk,s_src,c_src);
 	       
-	       Float diff;
-	       diff = ( fabs(tmp_calc.real()-tmp_read.real()) + fabs(tmp_calc.imag()-tmp_read.imag()) )/ sqrt((tmp_calc.real()*tmp_calc.real() + tmp_calc.imag()*tmp_calc.imag()));
+	      Float diff;
+	      diff = ( fabs(tmp_calc.real()-tmp_read.real()) + fabs(tmp_calc.imag()-tmp_read.imag()) )/ sqrt((tmp_calc.real()*tmp_calc.real() + tmp_calc.imag()*tmp_calc.imag()));
 	       
-	       if( diff > precision){
+	      if( diff > precision){
 		 
-		 errCnt += 1.0;
-		 sumerr+=diff;
-		 VRB.Result(cname,fname,"mismatch propagator: index %i snk %i %i src %i %i\n %f: (%f,%f) <-> (%f,%f)\n",
-			index, s_snk,c_snk,s_src,c_src,
-			diff, tmp_calc.real(), tmp_calc.imag(), tmp_read.real(), tmp_read.imag() );
-	       }
+		errCnt += 1.0;
+		sumerr+=diff;
+		if(GJP.Gparity()){
+		  VRB.Result(cname,fname,"mismatch propagator: stacked flavor idx %d index %i snk %i %i src %i %i\n %f: (%f,%f) <-> (%f,%f)\n",
+			     stk,index, s_snk,c_snk,s_src,c_src,
+			     diff, tmp_calc.real(), tmp_calc.imag(), tmp_read.real(), tmp_read.imag() );
+		}else{
+		  VRB.Result(cname,fname,"mismatch propagator: index %i snk %i %i src %i %i\n %f: (%f,%f) <-> (%f,%f)\n",
+			     index, s_snk,c_snk,s_src,c_src,
+			     diff, tmp_calc.real(), tmp_calc.imag(), tmp_read.real(), tmp_read.imag() );
+		}
+	      }
 	       
-	     }
-     }
-     
-     
-     glb_sum_five(&errCnt);
-     glb_sum_five(&sumerr);
-     Float averr=sumerr/errCnt;
-     
-     if( fabs(errCnt) > 0.){
-       VRB.Result(cname,fname," ReRun prop. with TOTAL NUMBER OF ERRORS: %f\n",errCnt);
-       VRB.Result(cname,fname," Average error: %e\n",averr);
-       VRB.Result(cname,fname," The precision is set at: %e\n",precision);
-     } else {
-       VRB.Result(cname,fname," ReRun prop. successfully!\n");
-       VRB.Result(cname,fname," The precision is set at: %e\n",precision);
-     }
-     
-   }
-   
-//   if (qp_arg.save_prop || do_rerun )   
-   if(do_rerun)
-     sfree(read_prop);
+	    }
+    }
+  }
 
-   //Print out total time spent in Run function
+  glb_sum_five(&errCnt);
+  glb_sum_five(&sumerr);
+  Float averr=sumerr/errCnt;
+     
+  if( fabs(errCnt) > 0.){
+    VRB.Result(cname,fname," ReRun prop. with TOTAL NUMBER OF ERRORS: %f\n",errCnt);
+    VRB.Result(cname,fname," Average error: %e\n",averr);
+    VRB.Result(cname,fname," The precision is set at: %e\n",precision);
+  } else {
+    VRB.Result(cname,fname," ReRun prop. successfully!\n");
+    VRB.Result(cname,fname," The precision is set at: %e\n",precision);
+  }
    Float dtime4 = dclock();
    VRB.Result(cname, fname,
               "Total time spent: %17.10e seconds.\n",
@@ -804,53 +828,12 @@ void QPropW::Run(const int do_rerun, const Float precision)
 }
 
 
-void QPropW::ReLoad( char *infile){
-
-  char *fname = "ReLoad( char *)";
-  int float_size = sizeof(WilsonMatrix)*GJP.VolNodeSites()/sizeof(Float);
-
-  if (!prop) Allocate(0); // Allocate only if needed
-
-
-// if the propagator file of source with spin/color divided exists or not
-  int sc_part_file_exist =  CheckSCfile(infile);
-
-  
-  //TIZB, we only read the propagator file with divided spin/color source if they exists,
-  // if not, we will read the propagator with all spin/color source.
-  if(qp_arg.save_prop==2 && sc_part_file_exist ){
-    //        for(int spin=qpropw_arg.StartSrcSpin;spin<qpropw_arg.EndSrcSpin;spin++){
-    //          for(int color=qpropw_arg.StartSrcColor;color<qpropw_arg.EndSrcColor;color++){
-    for(int spin=0;spin<4;spin++){
-	for(int color=0;color<3;color++){
-	  char file[256];
-	  sprintf(file,"%ss%dc%d",infile,spin,color);
-	  ReLoadSC(file,spin,color);
-	}
-      }
-  } else {
-    Float *dummy_source = (Float*)smalloc(cname, fname, "dummy_source", 
-					  float_size * sizeof(Float));
-    
-#ifdef USE_QIO
   Float qio_read_time = -dclock();
   qio_readPropagator readPropQio(infile, &prop[0], dummy_source, float_size, float_size, VOLFMT);
   qio_read_time +=dclock();
   print_time("QPropW::Run","qio_readPropagator",qio_read_time);
 
 
-#endif
-    sfree(dummy_source);
-    
-  }
-  
-  if(AlgLattice().Fclass() == F_CLASS_DWF){
-    
-    Float renFac = 5.-GJP.DwfHeight();
-    
-    for(int ii(0); ii < GJP.VolNodeSites(); ++ii)
-      prop[ii] *= renFac;
-    
   }else if(AlgLattice().Fclass() == F_CLASS_MOBIUS){
     
     Float renFac = (GJP.Mobius_b()*( 4 - GJP.DwfHeight() ) + GJP.DwfA5Inv());
@@ -858,9 +841,6 @@ void QPropW::ReLoad( char *infile){
     for(int ii(0); ii < GJP.VolNodeSites(); ++ii)
       prop[ii] *= renFac;
     
-  }
-  
-}
 
 // reload spin-color source(s)
 void QPropW::ReLoadSC(char *infile, int spin, int color){
@@ -915,12 +895,23 @@ void QPropW::CG(int spn, int col,
   int ls = GJP.SnodeSites();
   int ls_glb = GJP.SnodeSites()*GJP.Snodes();
   int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
+  if(GJP.Gparity()) f_size*=2;
+
   int f_size_5d = f_size * ls;
 
   // Do inversion
   
   //----------------------------------------------------------------
   if (Lat.F5D() || Lat.Fclass() == F_CLASS_BFM ) {
+  if(Lat.Fclass() == F_CLASS_DWF) do_5d = true;
+#ifdef USE_BFM 
+  else if(Lat.Fclass() == F_CLASS_BFM || Lat.Fclass() == F_CLASS_BFM_TYPE2){
+    if(Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonFermion && 
+       Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonTM) do_5d = true;
+  }
+#endif
+
+  if (do_5d) {
     Vector *src_4d    = (Vector*)source.data();
     Vector *sol_4d    = (Vector*)sol.data();
     Vector *midsol_4d = (Vector*)midsol.data();
@@ -931,12 +922,56 @@ void QPropW::CG(int spn, int col,
     // zero clear the sol_5d, important to avoid sys error for AMA 
     sol_5d->VecZero(f_size_5d);
 
+    // //DEBUG - checksum the 4d source
+    // {
+    //   FPConv fp;
+    //   enum FP_FORMAT format = FP_IEEE64LITTLE;
+    //   uint32_t csum(0);
+      
+    //   Float *field_4D = (Float *)src_4d;
+    //   int vol_4d = GJP.VolNodeSites();
+    //   for(int x=0; x<vol_4d; x++){
+    // 	uint32_t csum_contrib = fp.checksum((char *)(field_4D),24,format);
+    // 	csum += csum_contrib;
+    // 	field_4D+=24;
+    //   }
+
+    //   QioControl qc;
+    //   csum = qc.globalSumUint(csum);
+
+    //   if(UniqueID()==0) printf("4D source checksum %u\n",csum);
+    // }
+    // //DEBUG
+
+
+    //printf("CG converting 4D source to 5D\n"); //DEBUG
     Lat.Ffour2five(src_5d, src_4d, 0, ls_glb-1);
     Lat.Ffour2five(sol_5d, sol_4d, ls_glb-1, 0);
 
   // do the MADWF or not
   if(! qp_arg.mob_arg_s ){
   VRB.Result(cname,fname,"Fclass()=%d\n",Lat.Fclass());
+    //   if(GJP.Gparity()) nwilson*=2;
+
+    //   FPConv fp;
+    //   enum FP_FORMAT format = FP_IEEE64LITTLE;
+    //   uint32_t csum(0);
+      
+    //   Float *field_5D = (Float *)src_5d;
+
+    //   for(int x=0; x<nwilson; x++){
+    // 	uint32_t csum_contrib = fp.checksum((char *)(field_5D),24,format);
+    // 	csum += csum_contrib;
+    // 	field_5D+=24;
+    //   }
+
+    //   QioControl qc;
+    //   csum = qc.globalSumUint(csum);
+
+    //   if(UniqueID()==0) printf("5D source checksum %u\n",csum);
+    // }
+
+
     iter = Lat.FmatInv(sol_5d, src_5d, &(qp_arg.cg), &true_res,
 		       CNV_FRM_YES, PRESERVE_NO);
   }else{
@@ -973,7 +1008,7 @@ void QPropW::CG(int spn, int col,
       for(int nls(0);nls<GJP.SnodeSites();nls++) SaveQPropLs(sol_5d, qp_arg.file, nls);
     spnclr_cnt++;
 
-    if(AlgLattice().F5D()) {
+    if(AlgLattice().F5D() &&!GJP.Gparity()){
       MeasConAxialOld(sol_5d);
     }
     // TY Add End
@@ -1011,33 +1046,33 @@ void QPropW::CG(int spn, int col,
 */
 void QPropW::FixSol(FermionVectorTp& sol)
 {
-   char *fname = "FixSol()";
-   VRB.Func(cname, fname);
+  char *fname = "FixSol()";
+  VRB.Func(cname, fname);
 
-   // replace with check for FIX_GAUGE_NONE ??
-   if (GFixedSnk()) {
-	 Lattice& latt(AlgLattice());
-	 switch ( latt.FixGaugeKind() ) {
-	 case ( FIX_GAUGE_NONE ):
-	   ERR.General(cname,fname,"Gauge fixing matrices not calculated\n");
-	   break;
-	 case ( FIX_GAUGE_COULOMB_T ):
-	   // GaugeFixSink seems to be broken for anything
-	   // except timeslice fixing ( dir isn't even used 
-	   // in the function )
-	   sol.GaugeFixSink(latt, 3);
-	   break;
+  // replace with check for FIX_GAUGE_NONE ??
+  if (GFixedSnk()) {
+    Lattice& latt(AlgLattice());
+    switch ( latt.FixGaugeKind() ) {
+    case ( FIX_GAUGE_NONE ):
+      ERR.General(cname,fname,"Gauge fixing matrices not calculated\n");
+      break;
+    case ( FIX_GAUGE_COULOMB_T ):
+      // GaugeFixSink seems to be broken for anything
+      // except timeslice fixing ( dir isn't even used 
+      // in the function )
+      sol.GaugeFixSink(latt, 3);
+      break;
 	   
-	 case ( FIX_GAUGE_LANDAU ):
-	   sol.LandauGaugeFixSink(latt);
-	   break;
+    case ( FIX_GAUGE_LANDAU ):
+      sol.LandauGaugeFixSink(latt);
+      break;
 	   
-	 default:
-	   // should never be reached
-	   ERR.General(cname,fname,"Unimplemented gauge fixing\n");
-	   break;
-	 }
-   }
+    default:
+      // should never be reached
+      ERR.General(cname,fname,"Unimplemented gauge fixing\n");
+      break;
+    }
+  }
 }
 
 /*!
@@ -1084,7 +1119,9 @@ void QPropW::LoadRow(int spin, int color,
 {
  VRB.Result(cname,"LoadRow()","%d %d %p %p %p %p\n",spin,color,&sol,&midsol,prop,midprop);
 #pragma omp parallel for
-  for (int s=0; s<GJP.VolNodeSites(); s++) {
+  int prop_sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
+
+  for (int s=0; s< prop_sz ; s++) {
     int i = s*SPINOR_SIZE;
     prop[s].load_row(spin, color, (wilson_vector &)sol[i]);
   }
@@ -1092,32 +1129,36 @@ void QPropW::LoadRow(int spin, int color,
   // Collect solutions in midpoint propagator.
   if (StoreMidprop() ) {
 #pragma omp parallel for
-    for (int s=0; s<GJP.VolNodeSites(); s++) {
+    for (int s=0; s< prop_sz ; s++) {
+#pragma omp parallel for
       int i = s*SPINOR_SIZE;
       midprop[s].load_row(spin, color, (wilson_vector &)midsol[i]);
     }
   }
  VRB.FuncEnd(cname,"LoadRow()");
-} 
+}
 
 /*!
   Reverse of LoadRow, needed for RestoreQProp
  */
 void QPropW::SaveRow(int spin, int color, FermionVectorTp& sol, 
-					 FermionVectorTp& midsol) {
+		     FermionVectorTp& midsol) {
   int i;
-  for (int s=0; s<GJP.VolNodeSites(); s++) {
+  int prop_sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
+
+  for (int s=0; s< prop_sz ; s++) {
     i = s*SPINOR_SIZE; // FermionVector index
     prop[s].save_row(spin, color, (wilson_vector &)sol[i]);
   }
 
   // Collect solutions in midpoint propagator.
+    for (int s=0; s< prop_sz ; s++) {
   if (StoreMidprop()) {
 #pragma omp parallel for
-    for (int s=0; s<GJP.VolNodeSites(); s++) {
+    for (int s=0; s< prop_sz ; s++) {
       i = s*SPINOR_SIZE; // lattice site
       midprop[s].save_row(spin, color, (wilson_vector &)midsol[i]);
-    }
+    } 
   }
 } 
 
@@ -1154,7 +1195,10 @@ void QPropW::ShiftPropForward(int n) {
  
    for (int j=0; j<n; j++) {
      // shift 1 node in t-dir.  prop -> prop
-     for (int i=0; i<GJP.VolNodeSites(); i++) {
+     int sz = GJP.VolNodeSites();
+     if(GJP.Gparity()) sz*=2;
+
+     for (int i=0; i<sz; i++) {
        send_buf = (Float*)&prop[i];
        getMinusData((IFloat*)recv_buf, (IFloat*)send_buf, len, 3);
        moveMem((IFloat *)&prop[i], (IFloat*)recv_buf, len*sizeof(IFloat) );
@@ -1181,7 +1225,10 @@ void QPropW::ShiftPropBackward(int n) {
  
    for (int j=0; j<n; j++) {
      // shift 1 node in t-dir.  prop -> prop
-     for (int i=0; i<GJP.VolNodeSites(); i++) {
+     int sz = GJP.VolNodeSites();
+     if(GJP.Gparity()) sz*=2;
+
+     for (int i=0; i<sz; i++) {
        send_buf = (Float*)&prop[i];
        getPlusData((IFloat*)recv_buf, (IFloat*)send_buf, len, 3);
        moveMem((IFloat*)&prop[i], (IFloat*)recv_buf, len*sizeof(IFloat));
@@ -1204,13 +1251,14 @@ void QPropW::ShiftPropBackward(int n) {
   the averaging constructor should be removed since it is now obsolete.
  */
 void QPropW::Average(QPropW& Q) {
+  int sz = GJP.Gparity() ? 2*GJP.VolNodeSites() : GJP.VolNodeSites();
 
   if ((Q.prop != NULL)&&(prop !=NULL))
-    for (int i=0; i< GJP.VolNodeSites(); i++)
+    for (int i=0; i< sz; i++)
       prop[i] = ((Float)0.5)*(prop[i]+Q.prop[i]);
 
   if ((Q.midprop != NULL)&&(midprop !=NULL))
-    for (int i=0; i< GJP.VolNodeSites(); i++)
+    for (int i=0; i< sz; i++)
       midprop[i] = ((Float)0.5)*(midprop[i]+Q.midprop[i]);
 }
 
@@ -1225,15 +1273,35 @@ void QPropW::Average(QPropW& Q) {
   This is needed when taking both P+A and P-A.
  */
 void QPropW::LinComb(QPropW& Q, Float a, Float b) {
+  int sz = GJP.VolNodeSites();
+  if(GJP.Gparity()) sz*=2;
 
   if ((Q.prop != NULL)&&(prop !=NULL))
-    for (int i=0; i< GJP.VolNodeSites(); i++)
+    for (int i=0; i< sz; i++)
       prop[i] = a*prop[i]+b*Q.prop[i];
 
   if ((Q.midprop != NULL)&&(midprop !=NULL))
-    for (int i=0; i< GJP.VolNodeSites(); i++)
+    for (int i=0; i< sz; i++)
       midprop[i] = a*midprop[i]+b*Q.midprop[i];
 }
+
+/*! 
+  Compute the norm^2 of the propagator.
+*/
+IFloat QPropW::norm(const bool &global_sum) const{
+  IFloat out(0.0);
+  
+  int sz = GJP.VolNodeSites();
+  if(GJP.Gparity()) sz*=2;
+
+  for (int i=0; i< sz; i++)
+    out += prop[i].norm();
+
+  if(global_sum) glb_sum(&out);
+  return out;
+}
+
+
 
 /*!
  Purpose:
@@ -1270,7 +1338,7 @@ WilsonMatrix& QPropW::GetMatrix(const int *vec, WilsonMatrix& tmp) const {
       }
     }
     on_node_wmat = prop + (on_node_site[0] + GJP.XnodeSites()*(
-						   on_node_site[1] + GJP.YnodeSites()*(
+			   on_node_site[1] + GJP.YnodeSites()*(
                            on_node_site[2] + GJP.ZnodeSites()*
                            on_node_site[3])));
   }
@@ -1312,13 +1380,8 @@ WilsonMatrix& QPropW::GetMatrix(const int *vec, WilsonMatrix& tmp) const {
 
 
 void QPropW::SetSource(FermionVectorTp& src, int spin, int color) {
-
-   char *fname = "SetSource()";
-   VRB.Func(cname, fname);
-
-   // Do nothing
-   // This function should be overridden by specific QPropW types
-   
+  const char *fname = "SetSource()";
+  VRB.Func(cname, fname);
 }
 
 Complex& QPropW::rand_src(int i) const { 
@@ -1443,8 +1506,99 @@ QPropW::~QPropW() {
     delete[] lat_back;
 }
 
-//This #if 0 commented out by Greg to solve linker problems
-//#if 0
+
+
+//Save propagator stored in 'QPropW::prop'. Also save source stored at 'source'. 'allow_save_single_src_tslice' allows us to write only a single
+//time slice if the source type lives only on that timeslice.
+void QPropW::SaveQProp(const char*propOutfile,  WilsonMatrix *source, const bool &allow_save_single_src_tslice){
+  const char* fname = "SaveQProp(WilsonMatrix *source, const bool &allow_save_single_src_tslice)";
+
+  char propType[256], sourceType[256];
+
+  char gfixInfo[256];
+  GetGaugeFixInfo(gfixInfo);
+
+  char fermionInfo[256];
+  GetFermionInfo(fermionInfo);
+
+  sprintf(propType,"4D propagator, mass=%0.4f, StpCond=%0.0E,\nBC=%s%s%s%s,\n%s,\n%s", 
+	  qp_arg.cg.mass, qp_arg.cg.stop_rsd,
+	  BndCndType_map[GJP.Xbc()].name,
+	  BndCndType_map[GJP.Ybc()].name,
+	  BndCndType_map[GJP.Zbc()].name,
+	  BndCndType_map[GJP.Tbc()].name,
+	  gfixInfo, fermionInfo
+	  );
+    
+  //sprintf(sourceType, "fullSource");
+  // be a bit more sophisticated
+  sprintf(sourceType,"%s-source at t=%i",SourceType_map[SrcType()].name ,SourceTime());
+   
+  WilsonMatrix* save_prop;
+
+  //in case of DWF, renormalize first
+  if(AlgLattice().Fclass() == F_CLASS_DWF){
+    int sz = GJP.VolNodeSites()*sizeof(WilsonMatrix);
+    if(GJP.Gparity()) sz*=2;
+       
+    save_prop = (WilsonMatrix*)smalloc(cname, fname, "save_prop",sz);
+    MultiplyProp(save_prop,prop,1.0/(5.0 - GJP.DwfHeight()) );
+  }
+  else{
+    save_prop = &prop[0];
+  }     
+
+#ifdef USE_QIO
+  Float qio_time = -dclock();
+     
+  // always writes the full 4D source
+  //qio_writePropagator writePropQio(propOutfile, QIO_FULL_SOURCE, save_prop, source,
+  //			      qp_arg.ensemble_id, qp_arg.ensemble_label, qp_arg.seqNum, propType, sourceType,
+  //			      GJP.argc(), GJP.argv(), VOLFMT);
+     
+  // write a t-slice/slices or hypercube in some cases for the source
+  qio_writePropagator writePropQio;
+
+  writePropQio.setHeader(qp_arg.ensemble_id, qp_arg.ensemble_label, qp_arg.seqNum, propType, sourceType);
+     
+  // just writing one time-slice?
+  if(  allow_save_single_src_tslice &&
+       ( (SrcType() == POINT) || (SrcType() == VOLUME) || (SrcType() == BOX) || (SrcType() == WALL) ) ){
+    VRB.Flow(cname,fname," source-type: %s only write t-slice %i to file\n",SourceType_map[SrcType()].name ,SourceTime());
+    writePropQio.setSourceTslice(SourceTime());
+  }
+
+  if(qp_arg.save_prop == 1){
+    char *file = const_cast<char *>(propOutfile);
+    writePropQio.write_12pairs(file, QIO_FULL_SOURCE, save_prop, source, VOLFMT);
+  }else if(qp_arg.save_prop == 2){
+    if(GJP.Gparity()) ERR.General(cname,fname,"Saving partial G-parity propagator not yet coded\n");
+
+    int StartSpin = qp_arg.StartSrcSpin;
+    int EndSpin = qp_arg.EndSrcSpin;
+    int StartColor = qp_arg.StartSrcColor;
+    int EndColor = qp_arg.EndSrcColor;
+
+    for (int spn=StartSpin; spn < EndSpin; spn++){
+      for (int col=StartColor; col < EndColor; col++) {
+	char file[256];
+	sprintf(file,"%ss%dc%d",propOutfile,spn,col);
+	writePropQio.write_pair(file, QIO_FULL_SOURCE, save_prop, source, spn, col, VOLFMT);
+      }
+    }
+  }else ERR.General(cname,fname,"invalid save_prop in qp arge\n");
+  
+  qio_time +=dclock();
+  print_time("QPropW::Run","qio_writePropagator",qio_time);
+
+#endif // USE_QIO
+  if(AlgLattice().Fclass() == F_CLASS_DWF)
+    sfree(save_prop);
+}
+    
+
+
+
 void QPropW::SaveQProp(char* name, int mid) {
 
   char *fname = "SaveQProp()";
@@ -2413,8 +2567,6 @@ void QPropW::MeasJ5qPion(Vector* sol_5d) {
     
     // Define hyperplane    
     lclMin[prop_dir]=lclMax[prop_dir] = lclW;
-//  for(int i(0);i<LORENTZs;i++)
-//	VRB.Result(cname,fname,"lclMin[%d]=%d lclMax[%d]=%d\n",i,lclMin[i],i,lclMax[i]);
     
     //Loop over sites in this hyperplane in the local lattice
     for(lcl[0]=lclMin[0]; lcl[0]<=lclMax[0]; lcl[0]++) 
@@ -2430,7 +2582,6 @@ void QPropW::MeasJ5qPion(Vector* sol_5d) {
 	      *( j5q_pion + lclW + lcl2glb_offset[prop_dir] ) += (*(v1+vec_ind)) * (*(v1+vec_ind));
 	    
 	  } //lcl
-//	VRB.Result(cname,fname,"j5q_pion[%d]= %e\n",lclW,
   } //lclW
   sfree(d_data);
 
@@ -2679,9 +2830,11 @@ void QPropWWallSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   VRB.Func(cname, fname);
   
   src.ZeroSource() ;
-  src.SetWallSource(color, spin, qp_arg.t);
+  src.SetWallSource(color, spin, qp_arg.t,qp_arg.flavor);
   if (GFixedSrc())
-    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t);
+    if(AlgLattice().FixGaugeKind() == FIX_GAUGE_COULOMB_T)
+      src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t,qp_arg.flavor);
+    else src.GaugeFixVector(AlgLattice(), spin);
 }
 
 // === for gaussian smeared source ===================================
@@ -2996,9 +3149,9 @@ void QPropWMomSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   VRB.Func(cname, fname);
   
   src.ZeroSource();
-  src.SetMomSource(color, spin, qp_arg.t, mom);
+  src.SetMomSource(color, spin, qp_arg.t, mom, qp_arg.flavor);
   if (GFixedSrc())
-    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t);
+    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t, qp_arg.flavor);
 }
 
 //------------------------------------------------------------------
@@ -3042,9 +3195,9 @@ void QPropWMomCosSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   VRB.Func(cname, fname);
   
   src.ZeroSource();
-  src.SetMomCosSource(color, spin, qp_arg.t, mom);
+  src.SetMomCosSource(color, spin, qp_arg.t, mom, qp_arg.flavor);
   if (GFixedSrc())
-    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t);
+    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t, qp_arg.flavor);
 }
 
 //------------------------------------------------------------------
@@ -3117,11 +3270,15 @@ void QPropWVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
 
   char *fname = "SetSource()";
   VRB.Func(cname, fname);
-  
-  src.SetVolSource(color, spin);
+  src.ZeroSource();
+  src.SetVolSource(color, spin, qp_arg.flavor);
   if (GFixedSrc())
-    for (int t=0; t<GJP.Tnodes()*GJP.TnodeSites(); t++)
-      src.GFWallSource(AlgLattice(), spin, 3, t);
+    if(AlgLattice().FixGaugeKind() == FIX_GAUGE_COULOMB_T)
+    //   for (int t=0; t<GJP.Tnodes()*GJP.TnodeSites(); t++)
+    // 	src.GFWallSource(AlgLattice(), spin, 3, t, qp_arg.flavor); //assumes Coulomb gauge in T-direction!
+    // else
+      src.GaugeFixVector(AlgLattice(),spin); //works for all gauges
+
 }
 
 //------------------------------------------------------------------
@@ -3161,7 +3318,7 @@ void QPropWPointSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   VRB.Func(cname, fname);
 
   src.ZeroSource();
-  src.SetPointSource(color,spin,qp_arg.x,qp_arg.y,qp_arg.z,qp_arg.t);
+  src.SetPointSource(color,spin,qp_arg.x,qp_arg.y,qp_arg.z,qp_arg.t,qp_arg.flavor);
 }
 
 //------------------------------------------------------------------
@@ -3999,6 +4156,49 @@ void QPropWSeqProtUSrc::SetSource(FermionVectorTp& src, int spin, int color) {
   UndoLinkSmear(gauss_arg); // YA: get back the original link
   }
 }
+
+
+
+//------------------------------------------------------------------
+// Quark Propagator (Wilson type) with Volume Momentum Source
+//------------------------------------------------------------------
+QPropWVolMomSrc::QPropWVolMomSrc(Lattice& lat, CommonArg* c_arg) : QPropW(lat, c_arg){
+  
+  char *fname = "QPropWVolMomSrc(L&, ComArg*)";
+  cname = "QPropWVolMomSrc";
+  VRB.Func(cname, fname);
+}
+QPropWVolMomSrc::QPropWVolMomSrc(Lattice& lat,  QPropWArg* arg, 
+			   int* p, CommonArg* c_arg): 
+  QPropW(lat, c_arg), mom(p) {
+ 
+  char *fname = "QPropWVolMomSrc(L&, QPropWArg*, ComArg*)";
+  cname = "QPropWVolMomSrc";
+  VRB.Func(cname, fname);
+  qp_arg = *arg;
+  Run();
+}
+
+QPropWVolMomSrc::QPropWVolMomSrc(const QPropWVolMomSrc& rhs) : 
+  QPropW(rhs), mom(rhs.mom) {
+
+  char *fname = "QPropWVolMomSrc(const QPropW&)";
+  cname = "QPropWVolMomSrc";
+  VRB.Func(cname, fname);
+}
+
+void QPropWVolMomSrc::SetSource(FermionVectorTp& src, int spin, int color) {
+  char *fname = "SetSource()";
+  VRB.Func(cname, fname);
+  
+  src.ZeroSource();
+  src.SetVolMomSource(color, spin, mom, qp_arg.flavor);
+  if (GFixedSrc())
+    src.GaugeFixVector(AlgLattice(),spin);
+}
+
+
+
 
   //-----------------------------------------------------------------
   // TY Add Start

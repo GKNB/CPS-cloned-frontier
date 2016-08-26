@@ -186,6 +186,11 @@ void wilson_dslash(
 		   int dag,
 		   Wilson *wilson_p)
 {
+  if(GJP.Gparity()){
+    if(!UniqueID()) 
+      printf("sse wilson dslash not implemented. Be my guest, I guarantee you will not have much fun doing it.\n");
+    exit(-1);
+  }
 
   const int   lx = wilson_p->ptr[0];
   const int   ly = wilson_p->ptr[1];

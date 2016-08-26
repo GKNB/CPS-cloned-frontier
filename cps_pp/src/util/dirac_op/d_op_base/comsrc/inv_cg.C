@@ -98,6 +98,8 @@ int DiracOp::InvCgShift(Vector *out,
   char *fname = "InvCg(V*,V*,F,F*)";
   IFloat *temp;
 
+if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc inv_cg routines");
+
 // Flash the LED and then turn it off
 //------------------------------------------------------------------
   VRB.LedFlash(cname,fname,3);

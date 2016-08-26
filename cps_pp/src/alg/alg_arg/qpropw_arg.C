@@ -48,6 +48,7 @@ struct vml_enum_map RandomType_map[] = {
 	{"RandomType","ZTWO",ZTWO},
 	{"RandomType","NORAND",NORAND},
 	{"RandomType","TEST",TEST},
+	{"RandomType","ZFOUR",ZFOUR},
 	{NULL,NULL,0}
 };
 	 bool QPropWArg::Encode(char *filename,char *instance){
@@ -84,6 +85,8 @@ vml_QPropWArg (VML *vmls, char *name,QPropWArg *objp)
 	 if (!vml_int (vmls, "z", &objp->z))
 		 return FALSE;
 	 if (!vml_int (vmls, "t", &objp->t))
+		 return FALSE;
+	 if (!vml_int (vmls, "flavor", &objp->flavor))
 		 return FALSE;
 	 if (!vml_int (vmls, "gauge_fix_src", &objp->gauge_fix_src))
 		 return FALSE;

@@ -34,7 +34,6 @@ AlgMomentum::AlgMomentum() : AlgHamiltonian()
 
   int_type = INT_MOM;
   md_time_str = "MD_time/step_size = ";
-
   mom = (Matrix*)smalloc(g_size*sizeof(Float),"mom",fname,cname);
 }
 
@@ -45,13 +44,58 @@ AlgMomentum::~AlgMomentum() {
 
 //!< Heat Bath for the conjugate momentum
 void AlgMomentum::heatbath() {
-
   const char *fname = "heatbath()";
   Float dtime = -dclock();
   VRB.Func(cname, fname);
 
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   lat.RandGaussAntiHermMatrix(mom, 1.0);
+
+  if(UniqueID()==0) printf("Heatbath for conjugate momentum\n");
+
+  if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+    //For comparison with 1f approach, run RNG over second field too
+    //to keep RNG sync'd over evolution
+    for(int n = 0; n < GJP.VolNodeSites(); n++) {
+      LRG.AssignGenerator(n,1);
+      for(int j = 0; j < 4; j++) {
+	for(int i = 0; i < 8; ++i) {
+	  LRG.Grand(FOUR_D);
+	}
+      }
+    }
+  }
+
+  if(GJP.Gparity1fX()){
+    //doubled lattice in X-direction
+    //need | P | P* |
+    //or quad lattice in XY-directions (if GJP.Gparity1fY() also - note GJP.Gparity1fY() cannot return true without Gparity1fX() also true)
+    // | P* | P  |
+    // | P  | P* |
+    if(!UniqueID()){ printf("1f G-parity: copy-conjugating momentum field\n"); fflush(stdout); }
+    Lattice::CopyConjMatrixField(mom,4);
+  }
+
+#if 0
+  {
+    unsigned int gcsum = lat.CheckSum(mom);
+
+    //note: for 2f G-parity the above lat.CheckSum just checksums the flavour-0 part
+    //      so for correct comparison between 1f and 2f we need to do both flavours
+    //      this takes extra computation so make it optional
+
+    if(GJP.Gparity() && GJP.Gparity1f2fComparisonCode()){
+      if(!UniqueID()){ printf("2f G-parity: copy-conjugating momentum field for checksum\n"); fflush(stdout); }
+      Lattice::CopyConjMatrixField(mom,4);
+      gcsum += lat.CheckSum(mom + 4*GJP.VolNodeSites());
+    }
+
+    QioControl qc;
+    gcsum = qc.globalSumUint(gcsum);
+
+    if(UniqueID()==0) printf("Initial conjugate momentum checksum %u\n",gcsum);
+  }
+#endif
 
   //!< reset MD time in Lattice (a momentum refresh means a new trajectory)
   lat.MdTime(0.0);
@@ -103,8 +147,8 @@ void AlgMomentum::LoadState(std::string name){
 
 //!< Calculate gauge contribution to the Hamiltonian
 Float AlgMomentum::energy() {
-
   const char *fname = "energy()";
+
   VRB.Func(cname, fname);
   static Timer time(cname, fname);
   time.start(true);
@@ -112,6 +156,16 @@ Float AlgMomentum::energy() {
   Float dtime = -dclock();
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   Float h = lat.MomHamiltonNode(mom);
+
+  if(GJP.Gparity1fX() && !GJP.Gparity1fY()) h/=2;
+  else if(GJP.Gparity1fX() && GJP.Gparity1fY()) h/=4;
+
+  {
+    Float gsum_h(h);
+    glb_sum(&gsum_h);
+    if(UniqueID()==0) printf("AlgMomentum::energy() %e\n",gsum_h);
+  }
+
   LatticeFactory::Destroy();
 
   Float total_h = h;
@@ -121,7 +175,6 @@ Float AlgMomentum::energy() {
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);
   time.stop(true);
-
   return h;
 }
 
@@ -129,14 +182,37 @@ Float AlgMomentum::energy() {
 void AlgMomentum::evolve(Float dt, int steps) 
 {
   const char *fname = "evolve()";
+
   Float dtime = -dclock();
 
   VRB.Func(cname, fname);
 
+  {
+    Float pvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii + 2;
+      pvals[ii] = ((Float*)mom)[off];
+    }
+    if(UniqueID()==0) printf("AlgMomentum evolve conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+  }    
+
   Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, G_CLASS_NONE);
   for (int i=0; i<steps; i++) lat.EvolveGfield(mom, dt);
+  
+
   lat.MdTimeInc(dt*steps);
   VRB.Flow(cname,fname,"%s%f\n", md_time_str, IFloat(lat.MdTime()));
+
+  {
+    Float linkvals[4];
+    for(int ii=0;ii<4;ii++){
+      int off = 18 * ii;
+      linkvals[ii] = ((Float*)lat.GaugeField())[off];
+    }
+
+    if(UniqueID()==0) printf("Post AlgMomentum evolve gauge links Ux(0) = %.9e, Uy(0) = %.9e, Uz(0) = %.9e, Ut(0) = %.9e\n",linkvals[0],linkvals[1],linkvals[2],linkvals[3]);
+  }
+
   LatticeFactory::Destroy();
 
   dtime += dclock();

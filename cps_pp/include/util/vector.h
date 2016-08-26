@@ -24,8 +24,8 @@ class Matrix;
 extern "C" 
 {
     //! vector copy; b = a
-    void moveMem(void *b, const void *a, int len); 
-    void moveFloat(Float *b, const Float *a, int len); 
+void moveMem(void *b, const void *a, int len); 
+void moveFloat(Float *b, const Float *a, int len); 
 
     //! 3x3 complex matrix multiplication; c = ab 
 #ifndef VEC_INLINE
@@ -98,14 +98,32 @@ inline void mDotMEqual(IFloat* c, const IFloat* a, const IFloat* b)
 }
 #endif
 
+    //! CK: 3x3 complex matrix multiplication with complex conjugate on first matrix; c = Conj(a)b 
+void mStarDotMEqual(IFloat* c, const IFloat* a, const IFloat* b);
+
+  //! CK: 3x3 complex matrix multiplication with complex conjugate on second matrix; c = a Conj(b) 
+void mDotMStarEqual(IFloat* c, const IFloat* a, const IFloat* b);
+
+  //! CK: 3x3 complex matrix multiplication with complex conjugate on second matrix; c = Conj(a) Conj(b) 
+void mStarDotMStarEqual(IFloat* c, const IFloat* a, const IFloat* b);
+
     //! 3x3 complex matrix multiplication and sum; c += ab
-    void mDotMPlus(IFloat* c, const IFloat* a, const IFloat* b); 
+void mDotMPlus(IFloat* c, const IFloat* a, const IFloat* b); 
+
+ //! CK: 3x3 complex matrix multiplication and sum; c += Conj(a)b
+void mStarDotMPlus(IFloat* c, const IFloat* a, const IFloat* b); 
+
+ //! CK: 3x3 complex matrix multiplication and sum; c += a Conj(b)
+void mDotMStarPlus(IFloat* c, const IFloat* a, const IFloat* b); 
+
+//! CK: 3x3 complex matrix multiplication and sum; c += Conj(a) Conj(b)
+void mStarDotMStarPlus(IFloat* c, const IFloat* a, const IFloat* b); 
 
     //! 3x3 complex matrix times vector; y = Mx
-    void uDotXEqual(IFloat* y, const IFloat* m, const IFloat* x); 
+void uDotXEqual(IFloat* y, const IFloat* m, const IFloat* x); 
 
     //! vector scalar product; a.b
-    IFloat dotProduct(const IFloat *a, const IFloat *b, int);
+IFloat dotProduct(const IFloat *a, const IFloat *b, int);
 
     //! vector addition; a += b
 #ifndef VEC_INLINE
@@ -120,7 +138,7 @@ inline void vecAddEquVec(IFloat *a, const IFloat *b, int len)
 #endif
 
     //! vector subtraction; a -= b
-    void vecMinusEquVec(IFloat *a, const IFloat *b, int);  
+void vecMinusEquVec(IFloat *a, const IFloat *b, int);  
 
 inline void vecMinusEquVecSingle(IFloat *a, const IFloat *b, int len)
 {
@@ -130,13 +148,13 @@ inline void vecMinusEquVecSingle(IFloat *a, const IFloat *b, int len)
 }
 
     //! vector negation; a = -b
-    void vecNegative(IFloat *a, const IFloat *b, int); 	
+void vecNegative(IFloat *a, const IFloat *b, int); 	
 
     //! set all elements to zero
-    void vecZero(IFloat *a, int size);
+void vecZero(IFloat *a, int size);
 
     //! real scalar times vector multiplication; a *= b
-    void vecTimesEquFloat(IFloat *a, IFloat b, int); // 
+void vecTimesEquFloat(IFloat *a, IFloat b, int); // 
     void vecAddEquFloat(IFloat *a, IFloat b, int); // 
 
 inline void vecTimesEquFloatSingle(IFloat *a, IFloat b, int len)
@@ -153,11 +171,11 @@ void vecTimesComplex(IFloat *a,
                      int len);
 
     //! real scalar times vector multiplication; a = c*b
-    void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, IFloat c, int); // 
+void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, IFloat c, int); // 
 
 
     //! vector linear combination; a = bc+d
-    void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
+void fTimesV1PlusV2(IFloat *a, IFloat b, const IFloat *c,
 			const IFloat *d, int size); 	
 
 inline void fTimesV1PlusV2Single(IFloat *a, IFloat b, const IFloat *c,
@@ -169,25 +187,26 @@ inline void fTimesV1PlusV2Single(IFloat *a, IFloat b, const IFloat *c,
 }
 
     //! vector linear combination; a = bc-d
-    void fTimesV1MinusV2(IFloat *a, IFloat b, const IFloat *c,
-                         const IFloat *d, int size);    
+void fTimesV1MinusV2(IFloat *a, IFloat b, const IFloat *c,
+			const IFloat *d, int size);    
 
     //! complex vector scalar product; a.b
-    void compDotProduct(IFloat *c_r, IFloat *c_i, 
-                        const IFloat *a, const IFloat *b, int);
+void compDotProduct(IFloat *c_r, IFloat *c_i, 
+        	    const IFloat *a, const IFloat *b, int);
 
     //! complex vector linear combination; a = bc+d
-    void cTimesV1PlusV2(IFloat *a, IFloat b_re, IFloat b_im, const IFloat *c,
-                        const IFloat *d, int size);      
+void cTimesV1PlusV2(IFloat *a, IFloat b_re, IFloat b_im, const IFloat *c,
+                    const IFloat *d, int size);      
 
     //! Not implemented on qcdsp
-    void cTimesV1MinusV2(IFloat *a, IFloat b_re, IFloat b_im, const IFloat *c,
-                         const IFloat *d, int size);      // A = b*C-D
+void cTimesV1MinusV2(IFloat *a, IFloat b_re, IFloat b_im, const IFloat *c,
+	             const IFloat *d, int size);      // A = b*C-D
 
     //! matrix linear combination; a = 1-bc
-    void oneMinusfTimesMatrix(IFloat *a, IFloat b, const IFloat *c, int n);     
+void oneMinusfTimesMatrix(IFloat *a, IFloat b, const IFloat *c, int n);     
 
 }
+
 
 //------------------------------------------------------------------
 // Declarations of some genaral c-style functions that perform
@@ -294,7 +313,6 @@ class Matrix
         u[1] = u[9] = u[17] = c.imag();
         return *this;
     }
-
     //! Overloaded assignment
     /*! \a m should not alias this matrix */
     Matrix& operator=(const Matrix& m) {
@@ -359,6 +377,16 @@ class Matrix
         return *this;
     }
 
+    Matrix& operator*=(const Complex &c) {
+      for(int i = 0; i < COLORS * COLORS; ++i){
+	int reidx = 2*i; int imidx = reidx+1;
+	Float rev = u[reidx];
+	u[reidx] = u[reidx]*c.real() - u[imidx]*c.imag();
+	u[imidx] = rev*c.imag() + u[imidx]*c.real();
+      }
+      return *this;
+    }
+
     //! Multiplies this matrix by a complex scalar.
     /*!
       \param c The complex scalar
@@ -390,7 +418,6 @@ class Matrix
         tmp.DotMEqual(*this, m);
         return tmp;
     }
-
      //! Assignment to matrix product; \a ab
      /*!
          \param a the matrix \a a
@@ -423,6 +450,19 @@ class Matrix
     void Trans(const Matrix& m)
         { Trans((const IFloat *)(m.u)); }
 
+    //! Assignment to Matrix complex conjugate.
+    void Conj(const IFloat* m);
+
+    //! Assignment to matrix complex conjugate.
+    /*!
+      \param m A matrix.
+      \post This matrix is the complex conjugate of \a m.
+      
+      \a m must not be an alias of this matrix/
+    */
+    void Conj(const Matrix& m)
+        { Conj((const IFloat *)(m.u)); }
+
     //! Hermitian conjugate.
     void Dagger(const Matrix& m)
     	{ Dagger((const IFloat *)&m); }
@@ -434,6 +474,11 @@ class Matrix
     void Transpose(const IFloat* m);
     void Transpose();
 
+    //! Determine matrix trace
+    Complex Trace() const{
+      return Complex(u[0]+u[8]+u[16],u[1]+u[9]+u[17]);
+    }
+      
     //! Assignment to hermitian conjugate.
     /*!
       \param m A matrix.
@@ -591,14 +636,14 @@ inline void TrLessAntiHermMatrix()
 
       Should this method not be private?
     */
-    Complex& operator[](int i) { return ((Complex*)u)[i]; }
+    inline Complex& operator[](int i) { return ((Complex*)u)[i]; }
     //! Read access.
     /*!
       \param i A number between 0 and 8
       \return The ([i - i mod 3]/3, i mod 3) matrix element
     */
-    const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
-    IFloat elem(int i) { return u[i]; }
+    inline const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
+    inline IFloat elem(int i) { return u[i]; }
     //! Read access.
     /*!
       \param i A number between 0 and 17
@@ -631,11 +676,11 @@ inline void TrLessAntiHermMatrix()
         Matrix x2;
         x2.DotMEqual(*this, *this);
         return -2.0*x2.ReTr();
-        
-        //IFloat *m = (IFloat*)&u[0];
-        //return dotProduct(m, m, 18);
     }
-
+    IFloat norm2() const {
+        IFloat *m = (IFloat*)&u[0];
+        return dotProduct(m, m, 18);
+    }
     // SU(3) Characters
 
     Complex Char3() const { return Tr() ; } ;
@@ -664,6 +709,27 @@ inline void TrLessAntiHermMatrix()
 
 
 };
+
+
+inline static Matrix Transpose(const Matrix &m){
+  Matrix out;
+  out.Trans(m);
+  return out;
+}
+
+//Added by CK
+inline static Complex Trace(const Matrix &a, const Matrix &b){
+  //Mapping is i*3 + j  
+  Complex out(0.0);
+  //a(0,0)*b(0,0) + a(0,1)*b(1,0) + a(0,2)*b(2,0)
+  out += a[0]*b[0] + a[1]*b[3] + a[2]*b[6]; 
+  //a(1,0)*b(0,1) + a(1,1)*b(1,1) + a(1,2)*b(2,1)
+  out += a[3]*b[1] + a[4]*b[4] + a[5]*b[7];
+  //a(2,0)*b(0,2) + a(2,1)*b(1,2) + a(2,2)*b(2,2)
+  out += a[6]*b[2] + a[7]*b[5] + a[8]*b[8];
+  return out;
+}
+
 
 
 

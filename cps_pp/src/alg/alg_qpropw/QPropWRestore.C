@@ -694,7 +694,7 @@ QPropW::SaveQProp (char *name, int mid)
 
     for (int ii (0); ii < GJP.VolNodeSites (); ++ii)
       *(save_prop + ii) = renFac * prop[ii];
-     
+
   } else
     save_prop = &prop[0];
 

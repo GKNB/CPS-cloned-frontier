@@ -92,6 +92,11 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_DWF4D_PAIR",F_CLASS_DWF4D_PAIR},
 	{"FclassType","F_CLASS_ZMOBIUS",F_CLASS_ZMOBIUS},
 	{"FclassType","F_CLASS_NAIVE",F_CLASS_NAIVE},
+	{"FclassType","F_CLASS_GRID",F_CLASS_GRID},
+	{"FclassType","F_CLASS_GRID_GPARITY_MOBIUS",F_CLASS_GRID_GPARITY_MOBIUS},
+	{"FclassType","F_CLASS_GRID_MOBIUS",F_CLASS_GRID_MOBIUS},
+	{"FclassType","F_CLASS_GRID_GPARITY_WILSON_TM",F_CLASS_GRID_GPARITY_WILSON_TM},
+	{"FclassType","F_CLASS_GRID_WILSON_TM",F_CLASS_GRID_WILSON_TM},
 	{NULL,NULL,0}
 };
 
@@ -242,6 +247,9 @@ vml_BndCndType (VML *vmls, char *name,BndCndType *objp)
 struct vml_enum_map BndCndType_map[] = {
 	{"BndCndType","BND_CND_PRD",BND_CND_PRD},
 	{"BndCndType","BND_CND_APRD",BND_CND_APRD},
+	{"BndCndType","BND_CND_TWISTED",BND_CND_TWISTED},
+	{"BndCndType","BND_CND_GPARITY",BND_CND_GPARITY},
+	{"BndCndType","BND_CND_GPARITY_TWISTED",BND_CND_GPARITY_TWISTED},
 	{NULL,NULL,0}
 };
 

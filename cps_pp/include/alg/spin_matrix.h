@@ -41,21 +41,9 @@ class SpinMatrix
     void UnitSpinMatrix(void);
 
     // ACCESSORS
-    Complex& operator()(int i, int j) {
-        return ((Complex*)u)[i*SPINS+j];
-    }
-
-    const Complex& operator()(int i, int j)const {
-        return ((Complex*)u)[i*SPINS+j];
-    }
-
-    Complex& operator[](int i) {
-        return ((Complex*)u)[i];
-    }
-
-    const Complex& operator[](int i)const {
-        return ((Complex*)u)[i];
-    }
+    Complex& operator()(int i, int j);
+    inline Complex& operator[](int i) { return ((Complex*)u)[i]; }
+    inline const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
 
     SpinMatrix operator*(const Complex &c)const {
         SpinMatrix ret;
@@ -125,6 +113,9 @@ class SpinMatrix
         }
         return ret;
     }
+
+
+
 
     Complex Tr() const;
 

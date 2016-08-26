@@ -131,13 +131,31 @@ class GlobalJobParameter
   int vol_node_sites;  // The number of sites (4-D) of a single node.
   int vol_sites;       // The number of sites (4-D) of the whole lattice
 
+  Float twist_angle[3]; // Twist angle for (partially-)twisted BCs in units of pi
+                        // Note: for regular case  p = n*2*pi/L + theta/L  where theta is the twist_angle
+                        // For twisted G-parity  p = n*2*pi/(2*L) + theta/(2*L)  as BC is applied on u->d boundary but not d->u
+                        // Reproduce untwisted G-parity with theta = pi  (APBC on doubled lattice length)
+  //2f G-parity
+  int gparity; // are G-parity boundary conditions in use?
+
   void Initialize();
 
+  //1f G-parity: for testing purposes we can compare the 2f model with the 1f model 
+  //in up to 2-directions (double/quadrupled lattice size) fixed to X (double latt) or X&Y (quad latt)
+  //these can be switched on using the options in do_arg
+  int gparity_1f_X;
+  int gparity_1f_Y;      
+
+  //option to execute extra code required to ensure 1f and 2f G-parity internal quantities like mom field checksum
+  //are equal (sometimes this requires extra copy-conjugation to be done, hence making this optional)
+  int gparity_doing_1f2f_comparison; 
 
   MdwfArg *mdwf_arg;
   MdwfTuning *mdwf_tuning;
   char *mdwf_tuning_fn;
   char *mdwf_tuning_record_fn;
+
+  int threads;
 
 
   Complex* zmobius_b;
@@ -146,6 +164,9 @@ class GlobalJobParameter
   
 public:
   GlobalJobParameter();
+
+  inline const int & Nthreads() const{ return threads; }
+  void SetNthreads(const int &n);
 
   ~GlobalJobParameter();
 
@@ -421,6 +442,33 @@ public:
   /*!<
     \return The type of global boundary condition along the T axis.
   */
+  const Float& TwistAngle(const int &dir) const{ return twist_angle[dir]; }
+  //!< Get the twist angle in the 'dir'-direction
+  /*!< 
+    \param dir The direction in which to obtain the boundary 
+    condition; 0, 1, or 2 corresponding to X, Y, Z.
+    \return Twist angle in units of pi
+  */
+  Complex TwistPhase(const int &dir) const;
+  //!< Get the twist phase in the 'dir'-direction
+  /*!< 
+    \param dir The direction in which to obtain the boundary 
+    condition; 0, 1, or 2 corresponding to X, Y, Z.
+    \return Complex twist phase
+  */
+
+  bool Gparity() const
+  { return gparity; }
+  //!< Determine whether G-parity boundary conditions are in use in any of the 3 spatial directions.
+  /*!<
+    \return true if G-parity boundary conditions are in use.
+  */
+  
+  bool Gparity1fX() const { return gparity_1f_X == 1; }
+  bool Gparity1fY() const { return gparity_1f_Y == 1; }
+
+  void EnableGparity1f2fComparisonCode(){  gparity_doing_1f2f_comparison = 1; }
+  bool Gparity1f2fComparisonCode() const { return gparity_doing_1f2f_comparison == 1; }
 
   BndCndType NodeBc(int dir) const
       { return node_bc[dir];}
@@ -850,6 +898,12 @@ public:
   //! Sets the global lattice boundary condition in the T direction.
   void Tbc(BndCndType bc) { Bc(3,bc);}
 
+  //! Sets the twist angle in direction 'dir', specified in units of pi
+  // Note: for regular case  p = n*2*pi/L + theta/L  where theta is the twist_angle
+  // For twisted G-parity  p = n*2*pi/(2*L) + theta/(2*L)  as BC is applied on u->d boundary but not d->u
+  // Reproduce untwisted G-parity with theta = pi  (APBC on doubled lattice length)
+  void TwistAngle(const int &dir, const Float &theta){ twist_angle[dir] = theta; }
+    
   void StartConfKind(StartConfType sc)
       {doarg_int.start_conf_kind = sc;}
   //!< Sets the type of initial  gauge configuration.

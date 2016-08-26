@@ -138,6 +138,7 @@ int DiracOpWilsonTypes::RitzLatSize() {
 		dirac_arg->RitzMatOper);
   }
 
+  if(GJP.Gparity()) f_size*=2;
   return f_size;
 }
 

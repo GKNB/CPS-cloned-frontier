@@ -162,7 +162,7 @@ class Lattice
 
  public:
 
-    const Matrix * GetLink(const int *x, int mu) const;
+    const Matrix * GetLink(const int *x, int mu, const int &field_idx = 0) const;
       //!< Gets the gauge link U_mu(x).
       // defined relative to the local site (0,0,0,0).
       // If the link is on-node, it returns a reference to
@@ -171,6 +171,7 @@ class Lattice
       // Since the buffer can be used by other routines as well as other
       // calls to this routine, as a general rule, the link should be
       // used immediately or else copied.
+      // CK: 09/11  field_idx is 0 for standard gauge links, 1 for stored conjugate links
 
     const Matrix * GetLinkOld(Matrix *g_offset, const int *x,
              int dir, int mu) const;
@@ -239,6 +240,13 @@ class Lattice
     Lattice();
 
     virtual ~Lattice();
+    
+    //!<Allocates memory for gauge field if not already done so
+    void AllocGauge();
+
+    //!< Frees memory associated with gauge field and sets is_allocated = 0 and is_initialized = 0.
+    //Does not take off the scope lock (destructor does this).
+    virtual void FreeGauge();
 
     Matrix *GaugeField() const {
         return gauge_field;
@@ -311,6 +319,7 @@ class Lattice
     virtual unsigned long GsiteOffset(const int *x, const int dir) const;
  
     int SigmaOffset(const int x[4], int mu, int nu) const;
+    unsigned int CheckSum(Matrix *field = gauge_field);
     int SigmaOffset(const int index, int mu, int nu) const;
 
 
@@ -338,6 +347,9 @@ class Lattice
         // GRF: consider changing the function name
         // to Lattice::PlaqStaple() for consistency.
 
+    void GparityStaple(Matrix& stap, int *x, int mu);
+    //!< Gparity staple. Automatically called by Staple.
+
     void BufferedStaple(Matrix & stap, const int *x, int mu);
         //!< Calculates the gauge field square staple sum  around a link
         //Buffered version of staple
@@ -358,6 +370,9 @@ class Lattice
         //   + U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~  U_v(x-2v)  U_v(x-v)
         // }
         //
+    void GparityRectStaple(Matrix& stap, int *x, int mu) ;
+    //!< Gparity rect staple. Automatically called by Staple.
+
     void BufferedRectStaple(Matrix& stap, const int *x, int mu);
         //!< Calculates the rectangle staple sum around a link.
         //buffered version of RectStaple 
@@ -415,6 +430,9 @@ class Lattice
         //   U_u(x) U_v(x+u) U_u(x+v)~ U_v(x)~
     Float ReU1Plaq(int *x, int mu, int nu) const;
 
+    Float GparityReTrPlaq(int *x, int mu, int nu) const;
+    //!< Equivalent to ReTrPlaq for G-parity. Automatically called by ReTrPlaq.
+
     Float SumReTrPlaqNode() const;
        //!< Calculates the local sum of the real part of the trace of the plaquette 
     Float SumReU1PlaqNode() const;
@@ -432,6 +450,9 @@ class Lattice
        //
        //   U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
        //
+
+    Float GparityReTrRect(int *x, int mu, int nu) const;
+    //!< G-parity equivalent of ReTrRect. Automatically called by ReTrRect
 
     Float SumReTrRectNode() const;
         //!< Calculates the local sum of the real part of the trace of the 6-link rectangle.
@@ -451,6 +472,13 @@ class Lattice
 
     Float SumReTrCube() ;
     //!< Calculates the global sum of the real part of the trace of the cube
+
+    //!< For G-parity, copy-conjugate all gauge links onto the second half of the lattice array
+    static void CopyConjMatrixField(Matrix *field, const int & nmat_per_site = 4);
+
+    void CopyConjGaugeField(){
+      return Lattice::CopyConjMatrixField(gauge_field);
+    }
 
   // Added in by Ping for anisotropic lattices
   //------------------------------------------------------------------
@@ -534,8 +562,15 @@ class Lattice
     //!< Metropolis algorithm decision.
         // 0 reject, 1 accept. If delta_h < 0 it accepts unconditionally.
 
-    void EvolveGfield(Matrix *mom, Float step_size);
+    void EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparity_flavors = false);
         //!< Molecular dynamics evolution of the gauge field.
+//CK: For G-parity by default this only evolves the U links but not the U* links. This is because the evolving of the gauge field
+//    is most often called from the lowest level integrator, which steps back and forth between evolving the conjugate momentum 
+//    via the gauge action and then evolving the gauge field. In the evaluation of the gauge force, we can significantly reduce
+//    the number of flops by only calculating the force for the U links, ensuring only that links pulled across the G-parity boundary
+//    are complex conjugated appropriately. We can therefore wait to sync the U* fields until the lowest level integrator has finished
+//    evolving. Use evolve_both_gparity_flavors = true to sync the U* links in this function (e.g. in force gradient integrator)
+
 
     Float MomHamiltonNode(Matrix *momentum);
     //!< The kinetic energy term of the canonical Hamiltonian on the local lattice.
@@ -637,6 +672,20 @@ class Lattice
     Float FixGaugeStopCond();
       //!< Returns the stopping condition used 
 
+    const Matrix* FixGaugeMatrix(const int &site, const int &flavor = 0);
+    //!< Returns the gauge fixing matrix for the site 'site' (and G-parity flavor 'flavor')
+    //   for Coulomb gauge, if the hyperplane on which site resides has not been gauge fixed, the function will return NULL    
+
+    const Matrix* FixGaugeMatrix(int const* pos,const int &flavor = 0);
+    //!< Returns the gauge fixing matrix for the position 'pos' (and G-parity flavor 'flavor')
+    //   for Coulomb gauge, if the hyperplane on which pos resides has not been gauge fixed, the function will return NULL
+
+
+    //Determine how close the gauge fixing matrices 'gfix_mat' come to satisfying the gauge fixing condition
+    //returns an array of size 1 for Landau and NodeSites(fixdir) for Coulomb, where fixdir is the gauge fixing direction
+    //the elements of the array are the deviation from the gauge fixing condition in units of the stopping condition (not SmallFloat but a value derived from it)
+    //values < 1 mean all hyperplanes satisfy the gauge fixing condition
+    IFloat* GaugeFixCondSatisfaction(Matrix **gfix_mat, FixGaugeType gfix_type, Float SmallFloat) const;
 
     void *Aux0Ptr();
      //!< Returns a general purpose auxiliary pointer.
@@ -1040,6 +1089,7 @@ class Lattice
                 CnvFrmType cnv_frm,
                 PreserveType prs_f_in)
 	{ return FmatInv(f_out, f_in, cg_arg, true_res , cnv_frm,prs_f_in); }
+}
     //!< Fermion matrix inversion.
     /*!<
       Solves <em> A f_out = f_in </em> for \a f_out, where \a A is the
@@ -1076,7 +1126,7 @@ class Lattice
 	{ return FmatEvlInv(f_out, f_in, cg_arg, 0, cnv_frm); }
 
 	virtual void Fsolfour2five(Vector *sol_5d, Vector *sol_4d, Vector *src_5d, CgArg *cg_arg){
-		char *fname = "Fsolfour2five()";
+      const char *fname = "Fsolfour2five()";
 		ERR.NotImplemented(cname,fname);
 	}
     // Recover the 5D solution from the 4D solution, without solve the equation again.

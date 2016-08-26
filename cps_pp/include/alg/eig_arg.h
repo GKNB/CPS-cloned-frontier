@@ -27,6 +27,10 @@ public:
 		u_int Mass_len;
 		Float *Mass_val;
 	} Mass;
+	struct {
+		u_int Epsilon_len;
+		Float *Epsilon_val;
+	} Epsilon;
 	int n_masses;
 	int N_eig;
 	int N_eigacc;
@@ -45,6 +49,7 @@ public:
 	int print_hsum;
 	int hsum_dir;
 	Float mass;
+	Float epsilon;
 	char *fname;
 	int ncorr;
 	   void resize (  u_int nmass ) ;

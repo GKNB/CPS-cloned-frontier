@@ -6,7 +6,7 @@ CPS_START_NAMESPACE
  /*! \file
    \brief  Definition of DiracOp class multishift CG solver method.
 
-   $Id: minvcg.C,v 1.14 2012/03/26 13:50:11 chulwoo Exp $
+   $Id: minvcg.C,v 1.14.28.2 2013-06-25 19:56:57 ckelly Exp $
  */
 
 CPS_END_NAMESPACE
@@ -52,7 +52,7 @@ int DiracOp::MInvCG(Vector **psi, Vector *chi, Float chi_norm, Float *mass,
 		    int Nmass, int isz, Float *RsdCG,
 		    MultiShiftSolveType type, Float *alpha)
 {
-  char *fname = "MInvCG(V*,V**,...)";
+  char *fname = "MInvCG(V*,V**,...) [d_op_base/noarch version]";
   VRB.Func(cname,fname);
   
 // Flash the LED and then turn it off
@@ -89,6 +89,8 @@ int DiracOp::MInvCG(Vector **psi, Vector *chi, Float chi_norm, Float *mass,
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / 2;
   else
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / (lat.FchkbEvl()+1);
+
+  if(GJP.Gparity()) f_size*=2;
 
   Vector *r = (Vector*)smalloc(f_size*sizeof(Float),cname,fname,"r");
   

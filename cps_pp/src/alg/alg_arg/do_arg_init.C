@@ -34,6 +34,10 @@ DoArg::DoArg () {
   gfix_chkb=1; 
   start_seed_filename = "start_seed";
   start_conf_filename = "start_conf";
+
+  gparity_1f_X = 0;
+  gparity_1f_Y = 0;
+
 #if TARGET == QCDOC
   start_conf_alloc_flag = QFAST|QCOMMS; 
   wfm_send_alloc_flag = QFAST|QCOMMS;

@@ -211,8 +211,11 @@ void LatticeHeader::write(ostream & fout) {
   fout << "PLAQUETTE  = " << setprecision(10) << plaquette << endl;
 
   for(int i=0;i<4;i++){
-    fout << "BOUNDARY_"<<i+1<<" = " <<
-      (boundary[i]== BND_CND_APRD? "ANTIPERIODIC" :"PERIODIC") << endl;
+    fout << "BOUNDARY_"<<i+1<<" = ";
+    if(boundary[i] == BND_CND_PRD) fout << "PERIODIC";
+    else if(boundary[i] == BND_CND_APRD) fout << "ANTIPERIODIC";
+    else if(boundary[i] == BND_CND_GPARITY) fout << "GPARITY";
+    fout << endl;
   }
 
   fout << "CHECKSUM = ";
@@ -269,11 +272,12 @@ void LatticeHeader::read(istream & fin) {
   link_trace = hd.asFloat("LINK_TRACE");
   plaquette = hd.asFloat("PLAQUETTE");
 
-  boundary[0] = (hd.asString("BOUNDARY_1")=="ANTIPERIODIC" ? BND_CND_APRD : BND_CND_PRD);
-  boundary[1] = (hd.asString("BOUNDARY_2")=="ANTIPERIODIC" ? BND_CND_APRD : BND_CND_PRD);
-  boundary[2] = (hd.asString("BOUNDARY_3")=="ANTIPERIODIC" ? BND_CND_APRD : BND_CND_PRD);
-  boundary[3] = (hd.asString("BOUNDARY_4")=="ANTIPERIODIC" ? BND_CND_APRD : BND_CND_PRD);
-
+  string bcs[] = {hd.asString("BOUNDARY_1"), hd.asString("BOUNDARY_2"), hd.asString("BOUNDARY_3"), hd.asString("BOUNDARY_4") };
+  for(int d=0;d<4;d++){
+    if(bcs[d] == "PERIODIC") boundary[d] == BND_CND_PRD;
+    else if(bcs[d] == "ANTIPERIODIC") boundary[d] == BND_CND_APRD;
+    else if(bcs[d] == "GPARITY") boundary[d] == BND_CND_GPARITY;
+  }
   checksum = hd.asHex("CHECKSUM");
   //  sscanf(hd.asString("CHECKSUM").c_str(), "%x ", &checksum);
 

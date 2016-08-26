@@ -95,6 +95,8 @@ public:
 	Float p4_5staple;
 	Float p4_7staple;
 	Float p4_lepage;
+	int gparity_1f_X;
+	int gparity_1f_Y;
 	   DoArg (  ) ;
 	   void SetupAsqTadU0 (  double u0 ) ;
 };

@@ -17,6 +17,11 @@ CPS_START_NAMESPACE
 // number of cg iterations.
 //------------------------------------------------------------------
 
+//CK: In order to directly reproduce the Quotient action results for WilsonTm fermions from CPS using Fbfm, we need to apply a unitary
+//    transformation to the random vectors due to the differing normalization choices. If disabled the Fbfm results will differ slightly from the CPS results
+#define CPS_FBFM_WILSONTM_COMPAT_MODE
+
+
 CPS_END_NAMESPACE
 #include<alg/alg_hmd.h>
 #include<util/lattice.h>
@@ -34,6 +39,19 @@ CPS_END_NAMESPACE
 #include <util/lattice/fbfm.h>
 #include <util/lattice/f_dwf4d.h>
 #endif
+
+#ifdef USE_BFM
+#include<util/lattice/fbfm.h>
+
+#ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
+CPS_START_NAMESPACE
+extern "C" {
+  void g5theta(Vector *in, int vol, IFloat ctheta, IFloat stheta); //defined in d_op_wilsonTm.C
+}
+CPS_END_NAMESPACE
+#endif
+#endif
+
 CPS_START_NAMESPACE
 
 AlgActionQuotient::AlgActionQuotient(AlgMomentum &mom,
@@ -296,6 +314,18 @@ void AlgActionQuotient::heatbath() {
             lat.RandGaussVector(tmp1, 0.5, Ncb);
             lat.RandGaussVector(tmp2, 0.5, Ncb);
 
+#ifdef USE_BFM
+#ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
+	    if(  (lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM){
+	      Float kappa_ferm = 1.0/2.0/sqrt( (frm_mass[i]+4.0)*(frm_mass[i]+4.0) + frm_mass_epsilon[i]*frm_mass_epsilon[i] );
+	      Float ctheta_f = 2*kappa_ferm*(frm_mass[i]+4.0);
+	      Float stheta_f = 2*kappa_ferm*frm_mass_epsilon[i];
+
+	      int sz = GJP.VolNodeSites()/2; if(GJP.Gparity()) sz*=2;
+	      g5theta(tmp1,sz,ctheta_f,stheta_f); 
+	    }
+#endif
+#endif
 
             Float h_i;
 #ifdef USE_BFM
@@ -320,9 +350,9 @@ void AlgActionQuotient::heatbath() {
 
 		//~~ changed for twisted mass Wilson fermions
 		// phi <- M_f^\dag (RGV)
-		h_i = (lat.Fclass() == F_CLASS_WILSON_TM) ?
-		    lat.SetPhi(phi[i], tmp1, tmp2, frm_mass[i], frm_mass_epsilon[i], DAG_YES) :
-		    lat.SetPhi(phi[i], tmp1, tmp2, frm_mass[i], DAG_YES);
+	    if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) 
+	      h_init += lat.SetPhi(phi[i], tmp1, tmp2, frm_mass[i], frm_mass_epsilon[i], DAG_YES);
+	    else lat.SetPhi(phi[i], tmp1, tmp2, frm_mass[i], DAG_YES);
                 h_init += h_i;
 
 		// tmp2 <- (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
@@ -331,9 +361,9 @@ void AlgActionQuotient::heatbath() {
 
 		//~~ changed for twisted mass Wilson fermions
 		// phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
-		(lat.Fclass() == F_CLASS_WILSON_TM) ?
-		    lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_NO) :
-		    lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], DAG_NO);
+            if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) 
+	      lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_NO);
+	    else lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], DAG_NO);
 	    }
             Float total_h_i = h_i;
             glb_sum(&total_h_i);
@@ -354,23 +384,23 @@ void AlgActionQuotient::heatbath() {
 //!< Calculate fermion contribution to the Hamiltonian
 Float AlgActionQuotient::energy() {
 
-    char *fname = "energy()";
+  char *fname = "energy()";
     static Timer timer(cname, fname);
-    Float dtime = -dclock();
-    Float h = 0.0;
+  Float dtime = -dclock();
+  Float h = 0.0;
 
-    if (n_masses > 0) {
-        if (!evolved && h_init != 0.0) {
-            return h_init;
-        } else {
+  if (n_masses > 0) {
+    if (!evolved && h_init != 0.0) {
+      return h_init;
+    } else {
             timer.start(true);
-            Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
+      Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
 
-            for(int i=0; i<n_masses; i++) {
+      for(int i=0; i<n_masses; i++) {
 
-                Float h_i;
-#ifdef USE_BFM
-		if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
+	if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) 
+	  lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES);
+	else lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], DAG_YES);
 		    // DWF with 4D pseudofermions needs separate treatment for efficiency reasons
 
 		    // tmp1 <- M_b^\dag phi
@@ -395,9 +425,10 @@ Float AlgActionQuotient::energy() {
 		    (lat.Fclass() == F_CLASS_WILSON_TM) ?
 			lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
 			lat.SetPhi(tmp1, phi[i], tmp2, bsn_mass[i], DAG_YES);
-
-		    tmp2->VecZero(f_size);
-		    cg_iter = lat.FmatEvlInv(tmp2, tmp1, &frm_cg_arg_mc[i], CNV_FRM_NO);
+	      
+	tmp2 -> VecZero(f_size);
+	cg_iter = 
+	  lat.FmatEvlInv(tmp2, tmp1, &frm_cg_arg_mc[i], CNV_FRM_NO);
 
 		    h_i = lat.FhamiltonNode(tmp1, tmp2);
                     h += h_i;
@@ -407,20 +438,22 @@ Float AlgActionQuotient::energy() {
 		VRB.Result(cname, fname, "energy: mass ratio (%0.4f)/%0.4f final ham = %0.16e\n", frm_mass[i], bsn_mass[i], total_h_i);
 		VRB.Result(cname, fname, "energy: mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
 		updateCgStats(&frm_cg_arg_mc[i]);
+	      
+	h += lat.FhamiltonNode(tmp1, tmp2);
 	    }
       
-            LatticeFactory::Destroy();
-        }
-    } 
-    dtime += dclock();
-    print_flops(cname, fname, 0, dtime);
+      LatticeFactory::Destroy();
+    }
+  } 
+  dtime += dclock();
+  print_flops(cname, fname, 0, dtime);
 
     Float total_dh = h - h_init;
     glb_sum(&total_dh);
     VRB.Result(cname, fname, "total delta-h from this set of quotients = %0.16e\n", total_dh);
 
     timer.stop(true);
-    return h;
+  return h;
 }
 
 void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
@@ -451,7 +484,7 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 
 	//~~ changed for twisted mass Wilson fermions
         // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-        (lat.Fclass() == F_CLASS_WILSON_TM) ?
+        (lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) ?
             lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
             lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], DAG_YES);
 
@@ -494,7 +527,7 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
         //!< Evolve mom using fermion force
         //~~ changed for twisted mass Wilson fermions
         // cg_sol is aka \chi
-        Fdt = (lat.Fclass() == F_CLASS_WILSON_TM) ?
+        Fdt = (lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) ?
             lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt_ratio) :
             lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], dt_ratio);
 
@@ -508,11 +541,21 @@ void AlgActionQuotient::prepare_fg(Matrix * force, Float dt_ratio)
         //~~ changed for twisted mass Wilson fermions
         // cg_sol is aka \chi
         // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
-        Fdt = (lat.Fclass() == F_CLASS_WILSON_TM) ?
-            lat.EvolveMomFforce(mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt_ratio) :
-            // TB flipped cg_sol <---> phi since this is what was in original
-            lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], dt_ratio) ;
+	//Twisted mass guy has argument order backwards (nevertheless it is correct)
+	if(lat.Fclass() == F_CLASS_WILSON_TM) Fdt = lat.EvolveMomFforce(mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt_ratio);
+	else if(lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) Fdt = lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio);
+	else Fdt = lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], dt_ratio) ;
 	
+	//CK: for DWF above does:
+	//v1 = (cg_sol, Deo cg_sol)
+	//v2 = (-kappa^2 phi[i], -kappa^2 Deo^dag phi[i])
+	//where  cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
+	
+	//for WilsonTM
+	//v1 = f_field_out = (phi[i], g5theta(ctheta,-stheta)D_eo phi[i])
+	//v2 = f_field_in  = ( -kappa^2 g5theta(ctheta,stheta)cg_sol, -kappa^2 g5theta(ctheta,stheta) Deo^dag g5theta(ctheta,stheta)cg_sol )
+
+
         dtime_force += dclock();
 
         if (force_measure == FORCE_MEASURE_YES) {
@@ -568,109 +611,109 @@ void AlgActionQuotient::evolve(Float dt, int nsteps)
     Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);
 
     for (int steps=0; steps<nsteps; steps++) {
-        for(int i=0; i<n_masses; i++) {
-
+      for(int i=0; i<n_masses; i++) {
+	//phi[i] = M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
 #ifdef USE_BFM
 	    Fdwf4d::pauli_villars_resid = Fdwf4d::pauli_villars_resid_md;
 #endif
 
-            //~~ changed for twisted mass Wilson fermions
-            // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-            (lat.Fclass() == F_CLASS_WILSON_TM) ?
-                lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) :
-                lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], DAG_YES);
-
-            chronoDeg = ( md_steps > chrono[i] ) ? chrono[i] : md_steps ;
-
-            //!< Perform pointer arithmetic to avoid unnecessary copying
-            int isz = ( chrono[i] > 0 ) ? ( md_steps % chrono[i] ) : 0 ;
-            cg_sol = v[i][isz];
+	// tmp1 <- M_b^dag phi[i] = (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
+	if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2)
+	  lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES);
+	else lat.SetPhi(tmp1, phi[i], tmp1, bsn_mass[i], DAG_YES);
+	    
+	chronoDeg = ( md_steps > chrono[i] ) ? chrono[i] : md_steps ;
+	  
+	//!< Perform pointer arithmetic to avoid unnecessary copying
+	int isz = ( chrono[i] > 0 ) ? ( md_steps % chrono[i] ) : 0 ;
+	cg_sol = v[i][isz];
 	
-            for (int j=0; j<chrono[i]; j++) {
-                int shift = isz - (j+1);
-                if (shift<0) shift += chrono[i];
-                cg_sol_old[i][j] = v[i][shift];
-            }
+	for (int j=0; j<chrono[i]; j++) {
+	  int shift = isz - (j+1);
+	  if (shift<0) shift += chrono[i];
+	  cg_sol_old[i][j] = v[i][shift];
+	}
 
-            //!< Construct the initial guess
-            //
-            // Branch condition added by Hantao: only if we are NOT using
-            // chronological inverter as well as we have a previous
-            // fg-solution in hand, we skip the function FminResExt().
-            //
-            // If chronoDeg == 0 and we don't have a fg forecast, we still
-            // want this function to zero the initial guess for us.
-            if (fg_forecast == false || chronoDeg != 0) {
-                lat.FminResExt(cg_sol, tmp1, cg_sol_old[i], vm[i], 
-                               chronoDeg, &frm_cg_arg_md[i], CNV_FRM_NO);
-            }else{
-                VRB.Result(cname, fname, "Using force gradient forecasting.\n");
-            }
+	//!< Construct the initial guess
+	//
+	// Branch condition added by Hantao: only if we are NOT using
+	// chronological inverter as well as we have a previous
+	// fg-solution in hand, we skip the function FminResExt().
+	//
+	// If chronoDeg == 0 and we don't have a fg forecast, we still
+	// want this function to zero the initial guess for us.
+	if (fg_forecast == false || chronoDeg != 0) {
+	  lat.FminResExt(cg_sol, tmp1, cg_sol_old[i], vm[i], 
+			 chronoDeg, &frm_cg_arg_md[i], CNV_FRM_NO); //find guess for cg_sol
+	}else{
+	  VRB.Result(cname, fname, "Using force gradient forecasting.\n");
+	}
 
-            dtime_cg -= dclock();
-            // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
-            cg_iter = lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_md[i], CNV_FRM_NO);
+	dtime_cg -= dclock();
+	// cg_sol = (M_f^\dag M_f)^{-1} tmp1 = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
+	cg_iter = lat.FmatEvlInv(cg_sol, tmp1, &frm_cg_arg_md[i], CNV_FRM_NO);
 	    VRB.Result(cname, fname, "evolve: mass ratio (%0.4f)/%0.4f cg_iter = %d\n", frm_mass[i], bsn_mass[i], cg_iter);
-	    dtime_cg += dclock();
+	dtime_cg += dclock();
 
-            updateCgStats(&frm_cg_arg_md[i]);
+	updateCgStats(&frm_cg_arg_md[i]);
 
-            int g_size = GJP.VolNodeSites() * lat.GsiteSize();
-            Matrix *mom_tmp;
+	int g_size = GJP.VolNodeSites() * lat.GsiteSize();
+	if(GJP.Gparity()) g_size*=2;
+	Matrix *mom_tmp;
 
-            if (force_measure == FORCE_MEASURE_YES) {
-                mom_tmp = (Matrix*)smalloc(g_size*sizeof(Float),"mom_tmp", fname, cname);
-                ((Vector*)mom_tmp) -> VecZero(g_size);
-            } else {
-                mom_tmp = mom;
-            }
+	if (force_measure == FORCE_MEASURE_YES) {
+	  mom_tmp = (Matrix*)smalloc(g_size*sizeof(Float),"mom_tmp", fname, cname);
+	  ((Vector*)mom_tmp) -> VecZero(g_size);
+	} else {
+	  mom_tmp = mom;
+	}
 
-            dtime_force -= dclock();
-            //!< Evolve mom using fermion force
-            //~~ changed for twisted mass Wilson fermions
-            // cg_sol is aka \chi
-            Fdt = (lat.Fclass() == F_CLASS_WILSON_TM) ?
-                lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt) :
-                lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], dt);
-            if (force_measure == FORCE_MEASURE_YES) {
-                char label[200];
-                sprintf(label, "%s (fermion), mass = %e:", force_label, frm_mass[i]);
-                Fdt.print(dt, label);
-            }
+	dtime_force -= dclock();
+	//!< Evolve mom using fermion force
+	if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM  || fermion == F_CLASS_BFM_TYPE2) 
+	  Fdt =  lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt);
+	else Fdt = lat.EvolveMomFforce(mom_tmp, cg_sol, frm_mass[i], dt);
+
+	if (force_measure == FORCE_MEASURE_YES) {
+	  char label[200];
+	  sprintf(label, "%s (fermion), mass = %e:", force_label, frm_mass[i]);
+	  Fdt.print(dt, label);
+	}
 	
-            //!< Evolve mom using boson force
-            //~~ changed for twisted mass Wilson fermions
-            // cg_sol is aka \chi
-            // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
-            Fdt = (lat.Fclass() == F_CLASS_WILSON_TM) ?
-                lat.EvolveMomFforce(mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt) :
-                // TB flipped cg_sol <---> phi since this is what was in original
-                lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], dt) ;
-            dtime_force += dclock();
+	//!< Evolve mom using boson force
+	//Arguments for general case:   (M_f^\dag M_f)^{-1} M_f^\dag (RGV)   and   M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
+	//Arguments for WilsonTM case:  M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)   and    (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
+
+	if(lat.Fclass() == F_CLASS_WILSON_TM) Fdt = lat.EvolveMomFforce(mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt);
+	else if(lat.Fclass() == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) 
+	  Fdt = lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], bsn_mass_epsilon[i], dt);
+	else Fdt = lat.EvolveMomFforce(mom_tmp, phi[i], cg_sol, bsn_mass[i], dt);
+
+	dtime_force += dclock();
 	
-            if (force_measure == FORCE_MEASURE_YES) {
-                char label[200];
-                sprintf(label, "%s (boson), mass = %e:", force_label, bsn_mass[i]);
-                Fdt.print(dt, label);
+	if (force_measure == FORCE_MEASURE_YES) {
+	  char label[200];
+	  sprintf(label, "%s (boson), mass = %e:", force_label, bsn_mass[i]);
+	  Fdt.print(dt, label);
 	  
-                // If measuring the force, need to measure and then sum to mom
-                Fdt.measure(mom_tmp);
-                Fdt.glb_reduce();
+	  // If measuring the force, need to measure and then sum to mom
+	  Fdt.measure(mom_tmp);
+	  Fdt.glb_reduce();
 
-                fTimesV1PlusV2((IFloat*)mom, 1.0, (IFloat*)mom_tmp, (IFloat*)mom, g_size);
-                sprintf(label, "%s (total), mass = (%e,%e):", force_label, frm_mass[i], bsn_mass[i]); 
-                Fdt.print(dt, label);
+	  fTimesV1PlusV2((IFloat*)mom, 1.0, (IFloat*)mom_tmp, (IFloat*)mom, g_size);
+	  sprintf(label, "%s (total), mass = (%e,%e):", force_label, frm_mass[i], bsn_mass[i]); 
+	  Fdt.print(dt, label);
 	  
-                sfree(mom_tmp, "mom_tmp", fname, cname);
-            }
-        }
-        // Note that as long as the last solve in a trajectory is NOT a
-        // force gradient solve (which should always be the case), we
-        // won't bring our solution across trajectories by using the
-        // statement here.
-        fg_forecast = false;
+	  sfree(mom_tmp, "mom_tmp", fname, cname);
+	}
+      }
+      // Note that as long as the last solve in a trajectory is NOT a
+      // force gradient solve (which should always be the case), we
+      // won't bring our solution across trajectories by using the
+      // statement here.
+      fg_forecast = false;
 
-        md_steps++;
+      md_steps++;
     }
 
     LatticeFactory::Destroy();

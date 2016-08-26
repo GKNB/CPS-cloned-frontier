@@ -136,9 +136,27 @@ public:
   }
 
   WilsonVector& gamma(int dir);
+<<<<<<< HEAD
   WilsonVector& LeftTimesEqual(const Matrix& rhs);
 
 
+||||||| merged common ancestors
+  
+=======
+
+  //Added by CK
+  WilsonVector & ccl(int dir);
+
+  //Added by CK
+  IFloat norm() const{
+    Float out(0.0);
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	out += std::norm(d[s1].c[c1]);
+    return out;
+  }
+  
+>>>>>>> ckelly_latest
   /*!
     Rotate from Dirac to Chiral basis.
     It multiplies the by the rotation matrix 
@@ -346,6 +364,16 @@ public:
     Complex  operator()(int s1, int c1, int s2, int c2) const
     { return p.d[s1].c[c1].d[s2].c[c2]; }
   
+  //CK: Set to unit matrix
+  void Unit(){ 
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	for(int s2=0;s2<4;s2++)
+	  for(int c2=0;c2<3;c2++)
+	    p.d[s1].c[c1].d[s2].c[c2] = (s1 == s2 && c1 == c2) ? Complex(1.0,0.0) : Complex(0.0,0.0);
+  }
+
+
   //! hermitean conjugate the WilsonMatrix
   //WilsonMatrix& hconj();
 #ifndef INLINE_WILSON_MATRIX
@@ -368,6 +396,35 @@ public:
 
   void dump(); // print out the prop
  
+
+  //! complex conjugate the WilsonMatrix
+  void cconj();
+
+  //! transpose the WilsonMatrix
+  void transpose();
+  
+  // added by Daiqian
+  //! transpose the color index of WilsonMatrix
+  void transpose_color() {
+    wilson_matrix mat=p;
+    for(int s2=0;s2<4;s2++)
+      for(int c1=0;c1<3;c1++)
+	for(int s1=0;s1<4;s1++)
+	  for(int c2=0;c2<3;c2++)
+	    p.d[s2].c[c2].d[s1].c[c1] = mat.d[s2].c[c1].d[s1].c[c2];
+  }
+
+
+  // added by CK
+  //! norm^2 of the WilsonMatrix
+  IFloat norm() const{
+    IFloat out(0.0);
+    for(int s1=0;s1<4;s1++)
+      for(int c1=0;c1<3;c1++)
+	out += p.d[s1].c[c1].norm();
+    return out;
+  }
+
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gl(int dir); 
   //! mult the prop by gamma_dir*(1-gamma_5) on the left, and return the new matrix
@@ -378,15 +435,36 @@ public:
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
     WilsonMatrix glA(int dir)const;
   //! glA another version. result = gamma_dir*gamma_5*from
+<<<<<<< HEAD
     WilsonMatrix& glA(const WilsonMatrix & from, int dir);
+||||||| merged common ancestors
+  void glA(const WilsonMatrix & from, int dir);
+=======
+  WilsonMatrix& glA(const WilsonMatrix & from, int dir);
+
+  //! glA another version. this -> gamma_dir*gamma_5*this
+  inline WilsonMatrix& glAx(int dir){
+    WilsonMatrix tmp(*this);
+    glA(tmp,dir);
+    return *this;
+  }
+
+>>>>>>> ckelly_latest
   //! mult the prop by gamma_dir on the left, and return the new matrix
     WilsonMatrix glV(int dir)const;
 
 #ifndef INLINE_WILSON_MATRIX
   //! glV another version. result = gamma_dir*from
+<<<<<<< HEAD
     WilsonMatrix& glV(const WilsonMatrix & from, int dir);
 #else
+||||||| merged common ancestors
+  void glV(const WilsonMatrix & from, int dir);
+=======
+  WilsonMatrix& glV(const WilsonMatrix & from, int dir);
+>>>>>>> ckelly_latest
 
+<<<<<<< HEAD
 #define TIMESPLUSONE(a,b) { b=a; }
 #define TIMESMINUSONE(a,b) { b=-a; }
 #define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
@@ -478,6 +556,18 @@ public:
     WilsonMatrix& grA(const WilsonMatrix & from, int dir);
     //! mult the prop by gamma_dir on the left
     WilsonMatrix& grV(const WilsonMatrix & from, int dir);
+||||||| merged common ancestors
+=======
+  //Added by CK
+  //! left multiply by 1/2(1-gamma_5)
+  WilsonMatrix& glPL();
+  //! left multiply by 1/2(1+gamma_5)
+  WilsonMatrix& glPR(); 
+  //! right multiply by 1/2(1-gamma_5)
+  WilsonMatrix& grPL(); 
+  //! right multiply by 1/2(1+gamma_5)
+  WilsonMatrix& grPR(); 
+>>>>>>> ckelly_latest
 
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gr(int dir); 
@@ -504,14 +594,27 @@ public:
     }
 #endif  //temporarily commented out
   void save_row(int source_spin, int source_color, wilson_vector&);
+<<<<<<< HEAD
   void load_row(int source_spin, int source_color, const wilson_vector&);
   void load_elem(int i, int j, int k, int l, Rcomplex elem);
 
   Rcomplex Trace();
+||||||| merged common ancestors
+  Rcomplex Trace();
+=======
+  Rcomplex Trace() const;
+>>>>>>> ckelly_latest
   const wilson_matrix& wmat() const; // get p 
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
+<<<<<<< HEAD
   WilsonMatrix& LeftTimesEqual(const Matrix& rhs);
 
+||||||| merged common ancestors
+  
+=======
+  WilsonMatrix& LeftTimesEqual(const Matrix& lhs);
+  
+>>>>>>> ckelly_latest
   //! Projects positive parity on the sink
   WilsonMatrix& PParProjectSink();
   WilsonMatrix& NParProjectSink();
@@ -553,14 +656,32 @@ public:
     */
     WilsonMatrix& AddMult( const Rcomplex& fact, const WilsonMatrix& x );
   
+<<<<<<< HEAD
     // Baryon things
     WilsonMatrix& ccl(int dir);
     WilsonMatrix& ccr(int dir);
     WilsonMatrix& diq(const WilsonMatrix& rhs);
     WilsonMatrix& joint(const WilsonMatrix& rhs);
+||||||| merged common ancestors
+  // Baryon things
+  WilsonMatrix& ccl(int dir);
+  WilsonMatrix& ccr(int dir);
+  WilsonMatrix& diq(const WilsonMatrix& rhs);
+  WilsonMatrix& joint(const WilsonMatrix& rhs);
+=======
+  // Baryon things
+  //CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
+  //                      A.ccr(1) = A C     A.ccr(-1) = A C^-1
+  //Poor conventions I know
+  WilsonMatrix& ccl(int dir);
+  WilsonMatrix& ccr(int dir);
+  WilsonMatrix& diq(const WilsonMatrix& rhs);
+  WilsonMatrix& joint(const WilsonMatrix& rhs);
+>>>>>>> ckelly_latest
   
     friend Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);
   
+<<<<<<< HEAD
     SpinMatrix ColorComponent(int row, int col)const {
         SpinMatrix ret;
         for(int i = 0; i < 4; ++i) {
@@ -570,6 +691,34 @@ public:
         }
         return ret;
     }
+||||||| merged common ancestors
+=======
+  //Added by CK
+  void ColorTrace(SpinMatrix &into) const{
+    //SpinMatrix mapping is i*4+j
+    into[0] = p.d[0].c[0].d[0].c[0] + p.d[0].c[1].d[0].c[1] + p.d[0].c[2].d[0].c[2]; //0,0
+    into[1] = p.d[0].c[0].d[1].c[0] + p.d[0].c[1].d[1].c[1] + p.d[0].c[2].d[1].c[2]; //0,1
+    into[2] = p.d[0].c[0].d[2].c[0] + p.d[0].c[1].d[2].c[1] + p.d[0].c[2].d[2].c[2]; //0,2
+    into[3] = p.d[0].c[0].d[3].c[0] + p.d[0].c[1].d[3].c[1] + p.d[0].c[2].d[3].c[2]; //0,3
+
+    into[4] = p.d[1].c[0].d[0].c[0] + p.d[1].c[1].d[0].c[1] + p.d[1].c[2].d[0].c[2]; //1,0
+    into[5] = p.d[1].c[0].d[1].c[0] + p.d[1].c[1].d[1].c[1] + p.d[1].c[2].d[1].c[2]; //1,1
+    into[6] = p.d[1].c[0].d[2].c[0] + p.d[1].c[1].d[2].c[1] + p.d[1].c[2].d[2].c[2]; //1,2
+    into[7] = p.d[1].c[0].d[3].c[0] + p.d[1].c[1].d[3].c[1] + p.d[1].c[2].d[3].c[2]; //1,3
+
+    into[8] = p.d[2].c[0].d[0].c[0] + p.d[2].c[1].d[0].c[1] + p.d[2].c[2].d[0].c[2]; //2,0
+    into[9] = p.d[2].c[0].d[1].c[0] + p.d[2].c[1].d[1].c[1] + p.d[2].c[2].d[1].c[2]; //2,1
+    into[10] = p.d[2].c[0].d[2].c[0] + p.d[2].c[1].d[2].c[1] + p.d[2].c[2].d[2].c[2]; //2,2
+    into[11] = p.d[2].c[0].d[3].c[0] + p.d[2].c[1].d[3].c[1] + p.d[2].c[2].d[3].c[2]; //2,3
+
+    into[12] = p.d[3].c[0].d[0].c[0] + p.d[3].c[1].d[0].c[1] + p.d[3].c[2].d[0].c[2]; //3,0
+    into[13] = p.d[3].c[0].d[1].c[0] + p.d[3].c[1].d[1].c[1] + p.d[3].c[2].d[1].c[2]; //3,1
+    into[14] = p.d[3].c[0].d[2].c[0] + p.d[3].c[1].d[2].c[1] + p.d[3].c[2].d[2].c[2]; //3,2
+    into[15] = p.d[3].c[0].d[3].c[0] + p.d[3].c[1].d[3].c[1] + p.d[3].c[2].d[3].c[2]; //3,3   
+  }
+
+
+>>>>>>> ckelly_latest
 };
 
 // added by Hantao
@@ -658,6 +807,8 @@ extern void mult_by_gamma_left( int dir, const wilson_matrix& src,
 //! right multiply by gamma_dir
 extern void mult_by_gamma_right(int dir, const wilson_matrix& src, 
 				wilson_matrix& dest );
+
+inline Rcomplex Trace(const WilsonMatrix& p1){ return p1.Trace(); }
 
 //! Spin and Color trace of a 2 WilsonMatrices
 extern Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);

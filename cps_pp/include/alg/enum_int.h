@@ -46,6 +46,7 @@ enum FclassType {
 	F_CLASS_DWF = 4,
 	F_CLASS_ASQTAD = 5,
 	F_CLASS_P4 = 6,
+<<<<<<< HEAD
 	F_CLASS_HISQ = 7,
 	F_CLASS_WILSON_TM = 8,
 	F_CLASS_MDWF = 9,
@@ -56,6 +57,21 @@ enum FclassType {
 	F_CLASS_DWF4D_PAIR = 14,
 	F_CLASS_ZMOBIUS = 15,
 	F_CLASS_NAIVE = 16,
+||||||| merged common ancestors
+	F_CLASS_WILSON_TM = 7,
+	F_CLASS_MDWF = 8,
+	F_CLASS_BFM = 9,
+=======
+	F_CLASS_WILSON_TM = 7,
+	F_CLASS_MDWF = 8,
+	F_CLASS_BFM = 9,
+	F_CLASS_BFM_TYPE2 = 10,
+	F_CLASS_GRID = 11,
+	F_CLASS_GRID_GPARITY_MOBIUS = 12,
+	F_CLASS_GRID_MOBIUS = 13,
+	F_CLASS_GRID_GPARITY_WILSON_TM = 14,
+	F_CLASS_GRID_WILSON_TM = 15,
+>>>>>>> ckelly_latest
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];
@@ -146,6 +162,9 @@ extern struct vml_enum_map DagType_map[];
 enum BndCndType {
 	BND_CND_PRD = 0,
 	BND_CND_APRD = 1,
+	BND_CND_TWISTED = 2,
+	BND_CND_GPARITY = 3,
+	BND_CND_GPARITY_TWISTED = 4,
 };
 typedef enum BndCndType BndCndType;
 extern struct vml_enum_map BndCndType_map[];

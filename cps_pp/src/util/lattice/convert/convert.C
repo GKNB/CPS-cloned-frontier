@@ -164,6 +164,7 @@ void Lattice::Convert(StrOrdType new_str_ord)
 	unsigned x,y,z,t,cb ;
 	unsigned r,row,col,mu ;
 	unsigned idx = 0 ;
+	int table_size, nstacked; //CK: for G-parity
 
 	CAS	cas ;
 
@@ -257,10 +258,18 @@ void Lattice::Convert(StrOrdType new_str_ord)
 			VRB.Flow(cname,fname,
 			"Converting gauge field order: WILSON -> CANONICAL\n");
 
+			//CK: for G-parity
+			nstacked = 1;
+			table_size = cas.vol*sizeof(unsigned);
+			if(GJP.Gparity()){
+			  table_size *=2;
+			  nstacked = 2;
+			}
+
 			site_sort_tbl = (unsigned *)
 			fmalloc(cname,fname,
 				    "site_sort_tbl" , 
-				    cas.vol*sizeof(unsigned) );
+				    table_size );
 			
 
 			idx = 0 ;
@@ -270,6 +279,7 @@ void Lattice::Convert(StrOrdType new_str_ord)
 //-------------------------------------------------------------------------
 
 			for (cb=0; cb<2; cb++)
+			for(int stk=0;stk<nstacked;stk++)  
 			for (t=0; t<cas.lt; t++)
 			for (z=0; z<cas.lz; z++)
 			for (y=0; y<cas.ly; y++)
@@ -281,7 +291,7 @@ void Lattice::Convert(StrOrdType new_str_ord)
 // LSB = 1 indicates site needs converting
 //-------------------------------------------------------------------------
 
-					*(site_sort_tbl+idx) = x +
+					*(site_sort_tbl+idx) = x + stk*cas.vol +
 					cas.lx*(y+cas.ly*(z+cas.lz*t))<<1 | 1 ;
 
 					idx++;
@@ -458,20 +468,90 @@ void FwilsonTypes::Fconvert(Vector *f_field,StrOrdType to,StrOrdType from, int c
 		return ;
 	}
 
-	if ((from == CANONICAL) && (to == WILSON)) {
+	/* For G-parity boundary conditions, CANONICAL form is
+	 * | 4d f0 | 4d f1 |
+	 *
+	 * Regular Wilson form for a 4D fermion is
+	 * | 4d odd | 4d even |
+	 * where the labels indicate the 4d parity of the sites contained therein. 
+	 *
+	 * For G-parity boundary conditions
+	 * | 4d odd f0 | 4d odd f1 | 4d even f0 | 4d even f1 |
+	 *
+	 * Each block in both setups has a size 4d-vol/2
+	 */
 
+	if ((from == CANONICAL) && (to == WILSON)) {
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
 
-	  FcanonToWilson(&cas) ;
+	  if(!GJP.Gparity()){
+	    //Regular ole 4d fermions
+	    FcanonToWilson(&cas) ;
+	  }else{
+	    //G-parity boundary conditions, convert to intermediate order
+	    // | 4d odd f0 | 4d even f0 | 4d odd f1 | 4d even f1 |
+	    FcanonToWilson(&cas) ;
+	    cas.start_ptr += cas.site_size * cas.vol;
+	    FcanonToWilson(&cas) ;
+
+	    // Convert to Wilson order as above	    
+	    long f_size = cas.vol * cas.site_size * 2;
+	    Vector *tmp_f_field = (Vector *) fmalloc(cname,fname_fconvert,"tmp_f_field", f_size * sizeof(Float));
+	    
+	    // copy intermediate converted vector to a buffer
+	    Float* field_ptr = (Float *) f_field;
+	    Float* tmp_field_ptr = (Float *) tmp_f_field;
+	    moveFloat(tmp_field_ptr, field_ptr, f_size );
+	    
+	    long block_size = cas.vol/2*cas.site_size;
+
+	    //Copy back block by block into the Wilson order
+	    long block_from_offsets[4] = { 0, 2*block_size, block_size, 3*block_size };
+	    for(int block = 0 ; block < 4; block++){
+	      long block_to_offset = block * block_size;
+	      moveFloat(field_ptr + block_to_offset, tmp_field_ptr + block_from_offsets[block], block_size );
+	    }
+	    ffree(tmp_f_field);
+	  }
 
 	} else if ((from == WILSON) && (to == CANONICAL)) {
 	  
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
 
-	  FwilsonToCanon(&cas) ;
+	  if(!GJP.Gparity()){
+	    //Regular ole 4d fermion fields
+	    FwilsonToCanon(&cas) ;	    
+	  }else{
+	    /* For G-parity convert to an intermediate form
+	     *
+	     * G-parity
+	     * | 4d odd f0 | 4d even f0 | 4d odd f1 | 4d even f1  |
+	     * Such that we do not have to modify FwilsonToCanon
+	     */
+	    long f_size = cas.vol * cas.site_size * 2;
+	    Vector *tmp_f_field = (Vector *) fmalloc(cname,fname_fconvert,"tmp_f_field", f_size * sizeof(Float));
+	    
+	    // copy intermediate converted vector to a buffer
+	    Float* field_ptr = (Float *) f_field;
+	    Float* tmp_field_ptr = (Float *) tmp_f_field;
+	    moveFloat(tmp_field_ptr, field_ptr, f_size );
+	    
+	    long block_size = cas.vol/2*cas.site_size;
 
+	    //Copy back block by block into the intermediate order
+	    long block_from_offsets[4] = { 0, 2*block_size, block_size, 3*block_size };
+	    for(int block = 0 ; block < 4; block++){
+	      long block_to_offset = block * block_size;
+	      moveFloat(field_ptr + block_to_offset, tmp_field_ptr + block_from_offsets[block], block_size );
+	    }
+	    ffree(tmp_f_field);
+
+	    FwilsonToCanon(&cas) ; //do f0
+	    cas.start_ptr += f_size/2;
+	    FwilsonToCanon(&cas) ; //do f1
+	  }
 	} else {
 		ERR.General(cname,fname_fconvert,
 			"Unsupported fermion conversion from %d to %d\n",
@@ -554,82 +634,121 @@ void FstagTypes::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int n
 //------------------------------------------------------------------
 void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb) 
 {
-	Float *field_ptr;
-	Float *tmp_field_ptr;
-	int i;
-	int parity;
-	CAS	cas ;
+  //CK: In G-parity, the fermion field comprises ls slices upon each of which live
+  //    two volumes of fields consecutive in memory
+  //In Wilson form (5d preconditioning) the first volume contains the odd/even-parity  (s=even/odd) sites of *both flavors*
+  //and the second volume contains the even/odd-parity (s=even/odd) sites of both flavors 
 
-  	int ls = GJP.SnodeSites();
+  //Standard Wilson form is | s=0  | s=1  | s=2 | .... | s=0  | s=1 |....
+  //                        | odd  | even | odd | .... | even | odd |....
+  //where the lower line contains the corresponding 4d parity.
+  //G-parity Wilson form is |       s=0        |        s=1        |  .... |        s=0        | ...
+  //                        | f0 odd | f1 odd  | f0 even | f1 even |  .... | f0 even | f1 even | ...
 
-	cas.lx		= GJP.XnodeSites() ;
-	cas.ly		= GJP.YnodeSites() ;
-	cas.lz		= GJP.ZnodeSites() ;
-	cas.lt		= GJP.TnodeSites() ;
-	cas.nc		= Colors() ;
-	cas.ns		= SpinComponents() ;
-	cas.site_size	= FsiteSize() / ls ;
-	cas.start_ptr	= (Float *) f_field ;
-	cas.vol		= GJP.VolNodeSites() ;
-
-        int f_size = cas.vol * FsiteSize();
-        int stride = f_size / ls; 
-        int half_stride = stride / 2;
-
-	VRB.Func(cname,fname_fconvert);
-
-	if (from == to) {
-		VRB.Flow(cname,fname_fconvert,
-			"No conversion necessary from %d to %d\n",
-			int(from), int(to));
-		return ;
-	}
+  /* For G-parity boundary conditions, CANONICAL form is
+   * |      s=0      |      s=1      | ....
+   * | 4d f0 | 4d f1 | 4d f0 | 4d f1 | ....
+   *
+   */
 
 
-	// Allocate memory for a temporary
-	//----------------------------------------------------------
-	Vector *tmp_f_field = (Vector *) 
-	fmalloc(cname,fname_fconvert, 
-		    "tmp_f_field", f_size * sizeof(Float));
+  Float *field_ptr;
+  Float *tmp_field_ptr;
+  int i;
+  int parity;
+  CAS	cas ;
+
+  int ls = GJP.SnodeSites();
+
+  cas.lx		= GJP.XnodeSites() ;
+  cas.ly		= GJP.YnodeSites() ;
+  cas.lz		= GJP.ZnodeSites() ;
+  cas.lt		= GJP.TnodeSites() ;
+  cas.nc		= Colors() ;
+  cas.ns		= SpinComponents() ;
+  cas.site_size	= FsiteSize() / ls ;
+  cas.start_ptr	= (Float *) f_field ;
+  cas.vol		= GJP.VolNodeSites() ;
+
+  int f_size = cas.vol * FsiteSize(); //size of fermion field(s) on a 5d volume  (Lx*Ly*Lz*Lt*Ls*24)
+  if(GJP.Gparity()) f_size*=2; //CK: 2 stacked fields
+
+  int stride = f_size / ls; //size of 4d volume of a single fermion field
+  if(GJP.Gparity()) stride/=2; //CK: only want stride for a single field
+  int half_stride = stride / 2;
+
+  VRB.Func(cname,fname_fconvert);
+
+  if (from == to) {
+    VRB.Flow(cname,fname_fconvert,
+	     "No conversion necessary from %d to %d\n",
+	     int(from), int(to));
+    return ;
+  }
+
+  // Allocate memory for a temporary
+  //----------------------------------------------------------
+  Vector *tmp_f_field = (Vector *) 
+    fmalloc(cname,fname_fconvert, 
+	    "tmp_f_field", f_size * sizeof(Float));
 
 
-	if ((from == CANONICAL) && (to == WILSON)) {
+  if ((from == CANONICAL) && (to == WILSON)) {
 
-	  VRB.Flow(cname,fname_fconvert, converting_str,
-		   int(from), int(to));
+    VRB.Flow(cname,fname_fconvert, converting_str,
+	     int(from), int(to));
 	  
-	  // convert from canonical to intermediate conversion
-	  field_ptr = (Float *) f_field;
-	  for(i=0; i<ls; i++){
-	    cas.start_ptr = field_ptr;
-	    FcanonToWilson(&cas) ;
-	    field_ptr = field_ptr + stride;
-	  }
+    // convert from canonical to intermediate conversion where the ls slices are 4d preconditioned
+    field_ptr = (Float *) f_field;
+    for(i=0; i<ls; i++){
+      cas.start_ptr = field_ptr;
+      FcanonToWilson(&cas) ;
+      field_ptr = field_ptr + stride; //step one 4d lattice volume along the vector
 
-	  // copy intermediate converted vector to a buffer
-	  field_ptr = (Float *) f_field;
-	  tmp_field_ptr = (Float *) tmp_f_field;
-	  moveFloat(tmp_field_ptr, field_ptr, f_size );
+      if(GJP.Gparity()){
+	//CK: G-parity do second stacked field
+	cas.start_ptr = field_ptr;
+	FcanonToWilson(&cas) ;
+	field_ptr = field_ptr + stride;
+      }
+    }
 
-	  // Set odd part
-	  field_ptr = (Float *) f_field;
-	  tmp_field_ptr = (Float *) tmp_f_field;
-	  for(i=0; i<ls; i++){
-	    parity = (i+1) % 2;
-	    moveFloat(field_ptr, tmp_field_ptr, half_stride );
-	    field_ptr = field_ptr + half_stride;
-	    tmp_field_ptr = tmp_field_ptr + (2 * parity + 1) * half_stride; 
-	  }
+    // copy intermediate converted vector to a buffer
+    field_ptr = (Float *) f_field;
+    tmp_field_ptr = (Float *) tmp_f_field;
+    moveFloat(tmp_field_ptr, field_ptr, f_size );
 
-	  // Set even part
-	  tmp_field_ptr = (Float *) tmp_f_field;
-	  tmp_field_ptr = tmp_field_ptr + half_stride;
-	  for(i=0; i<ls; i++){
-	    parity = i % 2;
-	    moveFloat(field_ptr, tmp_field_ptr, half_stride );
-	    field_ptr = field_ptr + half_stride;
-	    tmp_field_ptr = tmp_field_ptr + (2 * parity + 1) * half_stride; 
-	  }
+    // Set odd part
+    field_ptr = (Float *) f_field;
+    tmp_field_ptr = (Float *) tmp_f_field;
+    for(i=0; i<ls; i++){
+      parity = (i+1) % 2;
+      moveFloat(field_ptr, tmp_field_ptr, half_stride );
+      field_ptr = field_ptr + half_stride;
+
+      if(GJP.Gparity()){
+	tmp_field_ptr = tmp_field_ptr + 2 * half_stride; //point to CubarT field
+	moveFloat(field_ptr, tmp_field_ptr, half_stride );
+	field_ptr = field_ptr + half_stride; //now move on to next ls
+      }
+      tmp_field_ptr = tmp_field_ptr + (2 * parity + 1) * half_stride; 
+    }
+
+    // Set even part
+    tmp_field_ptr = (Float *) tmp_f_field;
+    tmp_field_ptr = tmp_field_ptr + half_stride;
+    for(i=0; i<ls; i++){
+      parity = i % 2;
+      moveFloat(field_ptr, tmp_field_ptr, half_stride );
+      field_ptr = field_ptr + half_stride;
+      if(GJP.Gparity()){
+	tmp_field_ptr = tmp_field_ptr + 2 * half_stride;
+	moveFloat(field_ptr, tmp_field_ptr, half_stride );
+	field_ptr = field_ptr + half_stride; //now move on to next ls
+      }
+
+      tmp_field_ptr = tmp_field_ptr + (2 * parity + 1) * half_stride; 
+    }
 	  
 	} else if ((from == CANONICAL) && (to == DWF_4D_EOPREC)) {
 
@@ -705,48 +824,109 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	  }
 
 
-	} else if ((from == WILSON) && (to == CANONICAL)) {
+  } else if ((from == WILSON) && (to == CANONICAL)) {
 	  
-	  VRB.Flow(cname,fname_fconvert, converting_str,
-		   int(from), int(to));
+    VRB.Flow(cname,fname_fconvert, converting_str,
+	     int(from), int(to));
 
 
-	  // copy vector to a buffer for intermediate conversion
-	  field_ptr = (Float *) f_field;
-	  tmp_field_ptr = (Float *) tmp_f_field;
-//	  moveMem(tmp_field_ptr, field_ptr, f_size * sizeof(Float));
-	  moveFloat(tmp_field_ptr, field_ptr, f_size);
+    // copy vector to a buffer for intermediate conversion
+    field_ptr = (Float *) f_field;
+    tmp_field_ptr = (Float *) tmp_f_field;
+    moveFloat(tmp_field_ptr, field_ptr, f_size);
 
+    /*
+     * Note 'stride' is one 4d volume
+     * 'half_stride' is one 4d half-volume
+     *
+     * Regular Wilson form for a 5D fermion is
+     *   odd checkerboard           even checkerboard
+     * | s = 0  |  s = 1  | ..... |  s = 0  |  s = 1 |
+     * | 4d odd | 4d even | ..... | 4d even | 4d odd |
+     * where the lower line indicates the 4d parity of the sites contained therein. 
+     *
+     * For G-parity boundary conditions
+     * |          s=0          |           s=1           | ......... |          s = 0          |.....
+     * | 4d odd f0 | 4d odd f1 | 4d even f0 | 4d even f1 | ......... | 4d even f0 | 4d even f1 |.....
+     *
+     * Each block in the lower lines of both setups has a size 4d-vol/2 or 'half_stride'
+    */
 
-	  // convert odd part to intermediate conversion
-	  field_ptr = (Float *) f_field;
-	  tmp_field_ptr = (Float *) tmp_f_field;
-	  for(i=0; i<ls; i++){
-	    parity = (i+1) % 2;
-//	    moveMem(field_ptr, tmp_field_ptr, half_stride * sizeof(Float));
-	    moveFloat(field_ptr, tmp_field_ptr, half_stride );
-	    field_ptr = field_ptr + (2 * parity + 1) * half_stride; 
-	    tmp_field_ptr = tmp_field_ptr + half_stride;
-	  }
+    /* Convert to an intermediate form
+     * Standard
+     * |   s=0  |   s=0   |   s=1  |   s=1   |   s=2  | ....
+     * | 4d odd | 4d even | 4d odd | 4d even | 4d odd | ....
+     * such that each s=block is in 4d even-odd order
+     *
+     * G-parity
+     * |    s=0    |     s=0    |    s=0    |  s=0        | s=1        |    s=1     |  s=1       |    s=1     |...
+     * | 4d odd f0 | 4d even f0 | 4d odd f1 | 4d even f1  | 4d odd f0  | 4d even f0 | 4d off f1  | 4d even f1 |...
+     * We therefore do not have to modify FwilsonToCanon
+     */
 
-	  // convert even part to intermediate conversion
-	  field_ptr = (Float *) f_field;
-	  field_ptr = field_ptr + half_stride;
-	  for(i=0; i<ls; i++){
-	    parity = i % 2;
-//	    moveMem(field_ptr, tmp_field_ptr, half_stride * sizeof(Float));
-	    moveFloat(field_ptr, tmp_field_ptr, half_stride );
-	    field_ptr = field_ptr + (2 * parity + 1) * half_stride; 
-	    tmp_field_ptr = tmp_field_ptr + half_stride;
-	  }
+    // convert odd part to intermediate conversion
+    field_ptr = (Float *) f_field;
+    tmp_field_ptr = (Float *) tmp_f_field;
+    for(i=0; i<ls; i++){
+      parity = (i+1) % 2; //4d parity of half-volume beginning at this field position
+      moveFloat(field_ptr, tmp_field_ptr, half_stride );
+      tmp_field_ptr = tmp_field_ptr + half_stride;
+      if(GJP.Gparity()){
+	field_ptr = field_ptr + 2 * half_stride;
+	moveFloat(field_ptr, tmp_field_ptr, half_stride );
+	tmp_field_ptr = tmp_field_ptr + half_stride;
+      }
+      field_ptr = field_ptr + (2 * parity + 1) * half_stride; 
+    }
+    //let hs = half_stride
 
-	  // convert from intermediate conversion to canonical
-	  field_ptr = (Float *) f_field;
-	  for(i=0; i<ls; i++){
-	    cas.start_ptr = field_ptr;
-	    FwilsonToCanon(&cas) ;
-	    field_ptr = field_ptr + stride;
-	  }
+    //Standard:
+    //s=0, from_off = 0, to_off = 0
+    //s=1, from_off = hs, to_off = 3*hs
+    //s=2, from_off = 2*hs, to_off = 4*hs
+    //s=3, from_off = 3*hs, to_off = 7*hs
+    //s=4, from_off = 4*hs, to_off = 8*hs
+
+    //G-parity
+    //s=0, from_off_f0 = 0, to_off_f0 = 0, from_off_f1 = hs, to_off_f1 = 2*hs
+    //s=1, from_off_f0 = 2*hs, to_off_f0 = 5*hs, from_off_f1 = 3*hs, to_off_f1 = 7*hs
+
+    // convert even part to intermediate conversion
+    field_ptr = (Float *) f_field;
+    field_ptr = field_ptr + half_stride;
+    for(i=0; i<ls; i++){
+      parity = i % 2;
+      moveFloat(field_ptr, tmp_field_ptr, half_stride );
+      tmp_field_ptr = tmp_field_ptr + half_stride;
+      if(GJP.Gparity()){
+	field_ptr = field_ptr + 2 * half_stride;
+	moveFloat(field_ptr, tmp_field_ptr, half_stride );
+	tmp_field_ptr = tmp_field_ptr + half_stride;
+      }
+      field_ptr = field_ptr + (2 * parity + 1) * half_stride; 
+    }
+    //Standard:
+    //s=0, from_off = ls*hs, to_off = hs
+    //s=1, from_off = (ls+1)*hs, to_off = 2*hs
+    //s=2, from_off = (ls+2)*hs, to_off = 5*hs
+    //s=3, from_off = (ls+2)*hs, to_off = 6*hs
+
+    //G-parity
+    //s=0, from_off_f0 = 2*ls*hs, to_off_f0 = hs, from_off_f1 = (2*ls+1)*hs, to_off_f1 = 3*hs
+    //s=1, from_off_f0 = (2*ls+2)*hs, to_off_f0 = 4*hs, ...., to_off_f1 = 6*hs
+
+    // convert from intermediate conversion to canonical
+    field_ptr = (Float *) f_field;
+    for(i=0; i<ls; i++){
+      cas.start_ptr = field_ptr;
+      FwilsonToCanon(&cas) ;
+      field_ptr = field_ptr + stride;
+      if(GJP.Gparity()){
+	//CK: G-parity do second stacked field
+	cas.start_ptr = field_ptr;
+	FwilsonToCanon(&cas) ;
+	field_ptr = field_ptr + stride;
+      }
 
 	} else if ((from == DWF_4D_EOPREC) && (to == CANONICAL)) {
 	  
@@ -818,18 +998,19 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	  }
 
 
-	} else {
-		ERR.General(cname,fname_fconvert,
-			"Unsupported fermion conversion from %d to %d\n",
-			int(from), int(to)) ;
-	}
+    }
+  } else {
+    ERR.General(cname,fname_fconvert,
+		"Unsupported fermion conversion from %d to %d\n",
+		int(from), int(to)) ;
+  }
 
 
-	// Free temporary fermion field memory
-	//----------------------------------------------------------
-	ffree(cname,fname_fconvert, "tmp_f_field", tmp_f_field);
+  // Free temporary fermion field memory
+  //----------------------------------------------------------
+  ffree(cname,fname_fconvert, "tmp_f_field", tmp_f_field);
 
-	return ;
+  return ;
 
 }
 
