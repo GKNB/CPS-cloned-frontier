@@ -37,7 +37,6 @@ unsigned long long lcl2glb(unsigned long long lclid,
         lclid /= lcl[i];
     }
 
-<<<<<<< HEAD
     unsigned long long glbid = 0;
     for(int i = dim - 1; i >= 0; --i) {
         glbid = glbid * glb[i] + x[i];
@@ -345,10 +344,6 @@ void convert_data(char *fdata, char *mdata, size_t fsize, size_t msize,
     VRB.Result(cname, fname, "End converting data.\n");
 }
 
-||||||| merged common ancestors
-
-=======
->>>>>>> ckelly_latest
 /*********************************************************************/
 /* ParallelIO functions ***********************************************/
 /*********************************************************************/
@@ -357,199 +352,6 @@ void convert_data(char *fdata, char *mdata, size_t fsize, size_t msize,
 int ParallelIO::load(char *data, const int data_per_site, const int site_mem,
 		     const LatHeaderBase &hd, const DataConversion &dconv, 
 		     const int dimension /* 4 or 5 */,
-<<<<<<< HEAD
-		     unsigned int *ptrcsum, unsigned int *ptrpdcsum,
-		     Float *rand_sum, Float *rand_2_sum)
-{
-    const char *fname = "load()";
-
-    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
-
-    const unsigned glb[5] = {
-        qio_arg.XnodeSites() * qio_arg.Xnodes(),
-        qio_arg.YnodeSites() * qio_arg.Ynodes(),
-        qio_arg.ZnodeSites() * qio_arg.Znodes(),
-        qio_arg.TnodeSites() * qio_arg.Tnodes(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
-    };
-    const unsigned lcl[5] = {
-        qio_arg.XnodeSites(),
-        qio_arg.YnodeSites(),
-        qio_arg.ZnodeSites(),
-        qio_arg.TnodeSites(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites(),
-    };
-    const unsigned node[5] = {
-        qio_arg.Xnodes(),
-        qio_arg.Ynodes(),
-        qio_arg.Znodes(),
-        qio_arg.Tnodes(),
-        qio_arg.Snodes(),
-    };
-    const unsigned node_coor[5] = {
-        qio_arg.Xcoor(),
-        qio_arg.Ycoor(),
-        qio_arg.Zcoor(),
-        qio_arg.Tcoor(),
-        qio_arg.Scoor(),
-    };
-
-    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-
-    char *fdata = new char[lcl_vol * chars_per_site];
-    char *rdata = new char[lcl_vol * chars_per_site];
-    char * temp = new char[lcl_vol * chars_per_site];
-
-    int error = 0;
-    //////////////////////////////////////////////////////////////////////
-    // step 1: load data from file
-    //
-    // Note: we don't need sSpread() because all nodes will
-    // participate in loading.
-    VRB.Result(cname, fname, "Parallel loading starting\n");
-    setConcurIONumber(qio_arg.ConcurIONumber);
-
-    getIOTimeSlot();
-
-    unsigned long long mynodeid = 0;
-    for(int i = dimension - 1; i >= 0; --i) {
-        mynodeid = mynodeid * node[i] + node_coor[i];
-||||||| merged common ancestors
-		     unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-		     Float * rand_sum, Float * rand_2_sum)  { 
-  const char * fname = "load()";
-
-  int error = 0;
-  QioArg & rd_arg = qio_arg;
-
-  // check dimensions, b.c, etc
-  int nx = rd_arg.Xnodes() * rd_arg.XnodeSites();
-  int ny = rd_arg.Ynodes() * rd_arg.YnodeSites();
-  int nz = rd_arg.Znodes() * rd_arg.ZnodeSites();
-  int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
-  int ns = rd_arg.Snodes() * rd_arg.SnodeSites();
-
-  int chars_per_site  = data_per_site * dconv.fileDataSize();
-
-  int64_t yblk = nx*chars_per_site;
-  int64_t zblk = ny * yblk;
-  int64_t tblk = nz * zblk;
-  int64_t sblk = nt * tblk;
-
-  int xbegin = rd_arg.XnodeSites() * rd_arg.Xcoor(), xend = rd_arg.XnodeSites() * (rd_arg.Xcoor()+1);
-  int ybegin = rd_arg.YnodeSites() * rd_arg.Ycoor(), yend = rd_arg.YnodeSites() * (rd_arg.Ycoor()+1);
-  int zbegin = rd_arg.ZnodeSites() * rd_arg.Zcoor(), zend = rd_arg.ZnodeSites() * (rd_arg.Zcoor()+1);
-  int tbegin = rd_arg.TnodeSites() * rd_arg.Tcoor(), tend = rd_arg.TnodeSites() * (rd_arg.Tcoor()+1);
-  int sbegin = rd_arg.SnodeSites() * rd_arg.Scoor(), send = rd_arg.SnodeSites() * (rd_arg.Scoor()+1);
-
-
-  // all open file and check error
-  ifstream input(rd_arg.FileName);
-  if ( !input.good() )   error = 1;
-
-  // executed by all, sync and share error status information
-  if(synchronize(error) != 0)   
-    ERR.FileR(cname, fname, rd_arg.FileName);
-
-  // TempBufAlloc is a Mem Allocator that prevents mem leak on function exits
-  TempBufAlloc fbuf(chars_per_site);  // buffer only stores one site
-  
-  // these two only needed when loading LatRng
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-
-
-  // read in parallel manner, node 0 will assign & dispatch IO time slots
-  uint32_t csum = 0;
-  uint32_t pdcsum = 0;
-  Float RandSum = 0;
-  Float Rand2Sum = 0;
-  int siteid = 0;
-  char * pd = data;
-
-  VRB.Result(cname, fname, "Parallel loading starting\n");
-  setConcurIONumber(rd_arg.ConcurIONumber);
-//  setConcurIONumber(1);
-  //
-  getIOTimeSlot();
-
-  if (hd.dataStart()>0) 
-  input.seekg(hd.dataStart(),ios_base::beg);
-
-  int64_t jump = 0;
-  if(dimension == 5) jump = sbegin * sblk;
-
-  for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
-    jump += tbegin * tblk;
-    for(int tr=tbegin;tr<tend;tr++) {
-      jump += zbegin * zblk;
-      for(int zr=zbegin;zr<zend;zr++) {
-	jump += ybegin * yblk;
-	for(int yr=ybegin;yr<yend;yr++) {
-	  jump += xbegin * chars_per_site;
-	  input.seekg(jump,ios_base::cur);
-
-	  for(int xr=xbegin;xr<xend;xr++) {
-	    int try_num =0;
-#if 0
-           input.read(fbuf,chars_per_site);
-           if(!input.good()) {
-             error = 1;
-             goto sync_error;
-           }
-#else
-            streampos r_pos = input.tellg();
-            long long lcsum=-1,lcsum2=-1;
-            do {
-              lcsum2=lcsum;
-	      input.seekg(r_pos,ios::beg);
-	      input.read(fbuf,chars_per_site);
-              lcsum = dconv.checksum(fbuf,data_per_site);
-              try_num++;
-              if(try_num%100==0)
-                printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
-            } while ( ( (lcsum==0) || (lcsum!=lcsum2)) && try_num<1000);
-//	    if(!input.good()) {
-//	      error = 1;
-//             printf("Node %d: csum error in ParIO::load()\n",UniqueID());
-//	      goto sync_error;
-//	    }
-#endif
-
-	    csum += dconv.checksum(fbuf,data_per_site);
-	    pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension,	rd_arg, siteid, 0);
-            if(try_num>2)
-            printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
-
-	    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-	      for(int mat=0;mat<4;mat++) {
-		dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
-		pd += site_mem/4;
-	      }
-	    }
-	    else { // LatHeaderBase::LATRNG_HEADER
-	      // load
-	      dconv.file2host(rng,fbuf,data_per_site);
-	      ugran[siteid].load(rng.IntPtr());
-	      // generate next rand for verification
-	      Float rn = ugran[siteid].Grand(1);
-	      RandSum += rn;
-	      Rand2Sum += rn*rn;
-	      // recover loading
-	      ugran[siteid].load(rng.IntPtr());
-	    }
-	   
-	    siteid++;
-	  }
-	  jump = (nx-xend) * chars_per_site;  // "jump" restart from 0 and count
-	}
-	jump += (ny-yend) * yblk;
-      }
-      jump += (nz-zend) * zblk;
-      
-      if(dimension == 4)
-	VRB.Result(cname,fname, "Parallel loading: %d%% done.\n", (int)((tr-tbegin+1) * 100.0 /(tend-tbegin)));
-=======
 		     unsigned int * ptrcsum, unsigned int * ptrpdcsum,
 		     Float * rand_sum, Float * rand_2_sum)  { 
   if(!UniqueID() & hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()){
@@ -705,20 +507,7 @@ int ParallelIO::load(char *data, const int data_per_site, const int site_mem,
 	VRB.Result(cname,fname, "Parallel loading: %d%% done.\n", (int)((tr-tbegin+1) * 100.0 /(tend-tbegin)));
       }
       jump += (nt-tend) * tblk; //after nt * tblk is start of next stacked field
->>>>>>> ckelly_latest
     }
-<<<<<<< HEAD
-||||||| merged common ancestors
-    
-    if(dimension == 4) break;
-
-    jump += (nt-tend) * tblk;
-
-    VRB.Result(cname,fname, "Parallel loading: %d%% done.\n",(int)((sr-sbegin+1) * 100.0 /(send-sbegin)));
-  }
-
-  VRB.Flow(cname,fname, "This Group Done!\n");
-=======
     
     if(dimension == 4) break;
 
@@ -728,7 +517,6 @@ int ParallelIO::load(char *data, const int data_per_site, const int site_mem,
   }
 
   VRB.Flow(cname,fname, "This Group Done!\n");
->>>>>>> ckelly_latest
 
     FILE *fp = fopen(qio_arg.FileName, "rb");
     if(fp == NULL) {
@@ -796,208 +584,6 @@ int ParallelIO::store(iostream & output,
 		      LatHeaderBase & hd, const DataConversion & dconv,
 		      const int dimension /* 4 or 5 */,
 		      unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-<<<<<<< HEAD
-		      Float * rand_sum, Float * rand_2_sum)
-{
-    const char *fname = "store()";
-
-    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
-
-    const unsigned glb[5] = {
-        qio_arg.XnodeSites() * qio_arg.Xnodes(),
-        qio_arg.YnodeSites() * qio_arg.Ynodes(),
-        qio_arg.ZnodeSites() * qio_arg.Znodes(),
-        qio_arg.TnodeSites() * qio_arg.Tnodes(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
-    };
-    const unsigned lcl[5] = {
-        qio_arg.XnodeSites(),
-        qio_arg.YnodeSites(),
-        qio_arg.ZnodeSites(),
-        qio_arg.TnodeSites(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites(),
-    };
-    const unsigned node[5] = {
-        qio_arg.Xnodes(),
-        qio_arg.Ynodes(),
-        qio_arg.Znodes(),
-        qio_arg.Tnodes(),
-        qio_arg.Snodes(),
-    };
-    const unsigned node_coor[5] = {
-        qio_arg.Xcoor(),
-        qio_arg.Ycoor(),
-        qio_arg.Zcoor(),
-        qio_arg.Tcoor(),
-        qio_arg.Scoor(),
-    };
-
-    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-
-    char *fdata = new char[lcl_vol * chars_per_site];
-
-    unsigned int csum = 0, pdcsum = 0;
-    Float RandSum = 0, Rand2Sum = 0;
-    ////////////////////////////////////////////////////////////////////////
-    // converting data
-    convert_data(fdata, data, chars_per_site, site_mem,
-                 data_per_site, lcl_vol,
-                 hd, dconv,
-                 dimension, qio_arg,
-                 &csum, &pdcsum, &RandSum, &Rand2Sum, true);
-
-    // simple hack to prevent duplicated checksum values.
-    if(dimension == 4 && qio_arg.Scoor() != 0) {
-        csum = pdcsum = 0;
-        RandSum = Rand2Sum = 0;
-||||||| merged common ancestors
-		      Float * rand_sum, Float * rand_2_sum)  { 
-  const char * fname = "store()";
-//  printf("Node %d: ParallelIO::store()\n",UniqueID());
-  
-  int error = 0;
-
-  //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
-  const int chars_per_site = data_per_site * dconv.fileDataSize();
-  QioArg & wt_arg = qio_arg;
-
-  int xbegin = wt_arg.XnodeSites() * wt_arg.Xcoor(), xend = wt_arg.XnodeSites() * (wt_arg.Xcoor()+1);
-  int ybegin = wt_arg.YnodeSites() * wt_arg.Ycoor(), yend = wt_arg.YnodeSites() * (wt_arg.Ycoor()+1);
-  int zbegin = wt_arg.ZnodeSites() * wt_arg.Zcoor(), zend = wt_arg.ZnodeSites() * (wt_arg.Zcoor()+1);
-  int tbegin = wt_arg.TnodeSites() * wt_arg.Tcoor(), tend = wt_arg.TnodeSites() * (wt_arg.Tcoor()+1);
-  int sbegin = wt_arg.SnodeSites() * wt_arg.Scoor(), send = wt_arg.SnodeSites() * (wt_arg.Scoor()+1);
-
-  int nx = wt_arg.XnodeSites() * wt_arg.Xnodes();
-  int ny = wt_arg.YnodeSites() * wt_arg.Ynodes();
-  int nz = wt_arg.ZnodeSites() * wt_arg.Znodes();
-  int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
-  int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
-
-
-  int64_t yblk = nx*chars_per_site;
-  int64_t zblk = yblk * ny;
-  int64_t tblk = zblk * nz;
-  int64_t sblk = tblk * nt;
-
-
-  // TempBufAlloc is a mem allocator that prevents mem leak on function exits
-  TempBufAlloc fbuf(chars_per_site);
-  TempBufAlloc fbuf2(chars_per_site);  // buffer only stores one site
-
-  // these two only need when doing LatRng unloading
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-
-  // start parallel writing
-  uint32_t csum = 0, pdcsum = 0;
-  Float RandSum=0, Rand2Sum=0;
-  const char * pd = data;
-  int siteid=0;
-
-  VRB.Result(cname, fname, "Parallel unloading starting\n");
-  setConcurIONumber(wt_arg.ConcurIONumber);
-  VRB.Result(cname, fname, "ConcurIONumber=%d\n",wt_arg.ConcurIONumber);
-//  setConcurIONumber(1);
-  getIOTimeSlot();
-
-  int retry=0;
-do {
-  if(dimension ==5 || wt_arg.Scoor() == 0) { // this line differs from read()
-  if (hd.dataStart()>0) 
-    output.seekp(hd.dataStart(),ios_base::beg);
-
-    int64_t jump=0;
-    streampos  r_pos=0, w_pos;
-    if(dimension==5) jump = sbegin * sblk;
-
-    for(int sr=sbegin; dimension==4 || sr<send; sr++) {
-      jump += tbegin * tblk;
-      for(int tr=tbegin;tr<tend;tr++) {
-	jump += zbegin * zblk;
-	for(int zr=zbegin;zr<zend;zr++) {
-	  jump += ybegin * yblk;
-	  for(int yr=ybegin;yr<yend;yr++) {
-	    jump += xbegin * chars_per_site;
-	    output.seekp(jump, ios_base::cur);
-
-	    for(int xr=xbegin;xr<xend;xr++) {
-	      if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-		for(int mat=0;mat<4;mat++) {
-		  dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
-		  pd += site_mem/4;
-		}
-	      }
-	      else { //LatHeaderBase::LATRNG_HEADER
-		// dump
-		ugran[siteid].store(rng.IntPtr());
-		dconv.host2file(fbuf,rng,data_per_site);
-		// next rand
-		Float rn = ugran[siteid].Grand();
-		RandSum += rn;
-		Rand2Sum += rn*rn;
-		// recover
-		ugran[siteid].load(rng.IntPtr());
-#if 0
-		Float rn2 = ugran[siteid].Grand();
-		printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
-		ugran[siteid].load(rng.IntPtr());
-#endif
-	      }
-
-	      csum += dconv.checksum(fbuf,data_per_site);
-	      pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, siteid, 0);
-#if 0
-             output.write(fbuf,chars_per_site);
- 
-             if(!output.good()) {
-               error = 1;
-               goto sync_error;
-             }
-#else
-
-              unsigned int lcsum,lcsum2;
-              lcsum=dconv.checksum(fbuf,data_per_site);
-              r_pos=0;w_pos=0;
-              int try_num=0;
-              do{
-                if (!r_pos) r_pos = output.tellp();
-		else output.seekp(r_pos,ios_base::beg);
-  	        output.write(fbuf,chars_per_site);
-                output.flush();
-                if (!w_pos) w_pos = output.tellp();
-  	        if(!output.good()) {
-    		  error = 1;
-                  printf("Node %d: csum error in ParIO::store()\n",UniqueID());
-  		  goto sync_error;
-  	        }
-  	        output.seekg(r_pos, ios_base::beg);
-  	        output.read(fbuf2,chars_per_site);
-                lcsum2=dconv.checksum(fbuf2,data_per_site);
-                try_num++;
-                if (lcsum != lcsum2)
-                printf("Node %d:write jump=%d csum=%x csum2=%x\n",UniqueID(),jump,lcsum,lcsum2);
-              }while (lcsum !=lcsum2|| try_num<10);
-  	      output.seekp(w_pos, ios_base::beg);
-#endif
-	      siteid++;
-	    }	  
-	  
-	    jump = (nx-xend) * chars_per_site;  // jump restarted from 0
-	  }
-	  jump += (ny-yend) * yblk;
-	}
-	jump += (nz-zend) * zblk;
-
-	if(dimension==4)
-	  VRB.Result(cname,fname, "Parallel Unloading: %d%% done.\n", (int)((tr-tbegin+1)*100.0/(tend-tbegin)));
-      }
-
-      if(dimension == 4) break;
-
-      jump += (nt-tend) * tblk;
-
-      VRB.Result(cname,fname, "Parallel Unloading: %d%% done.\n",(int)((sr-sbegin+1)*100.0/(send-sbegin)));
-=======
 		      Float * rand_sum, Float * rand_2_sum)  { 
   const char * fname = "store()";
 //  printf("Node %d: ParallelIO::store()\n",UniqueID());
@@ -1154,7 +740,6 @@ do {
 
 	// jump += (nt-tend) * tblk;
       VRB.Result(cname,fname, "Parallel Unloading: %d%% done.\n",(int)((sr-sbegin+1)*100.0/(send-sbegin)));
->>>>>>> ckelly_latest
     }
 
     char *rdata = new char[lcl_vol * chars_per_site];
@@ -1232,167 +817,6 @@ do {
 int SerialIO::load(char *data, const int data_per_site, const int site_mem,
 		   const LatHeaderBase &hd, const DataConversion &dconv, 
 		   const int dimension /* 4 or 5 */,
-<<<<<<< HEAD
-		   unsigned int *ptrcsum, unsigned int *ptrpdcsum,
-		   Float *rand_sum, Float *rand_2_sum)
-{
-    const char *fname = "load()";
-
-    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
-
-    const unsigned glb[5] = {
-        qio_arg.XnodeSites() * qio_arg.Xnodes(),
-        qio_arg.YnodeSites() * qio_arg.Ynodes(),
-        qio_arg.ZnodeSites() * qio_arg.Znodes(),
-        qio_arg.TnodeSites() * qio_arg.Tnodes(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
-    };
-    const unsigned lcl[5] = {
-        qio_arg.XnodeSites(),
-        qio_arg.YnodeSites(),
-        qio_arg.ZnodeSites(),
-        qio_arg.TnodeSites(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites(),
-    };
-    const unsigned node[5] = {
-        qio_arg.Xnodes(),
-        qio_arg.Ynodes(),
-        qio_arg.Znodes(),
-        qio_arg.Tnodes(),
-        qio_arg.Snodes(),
-    };
-    const unsigned node_coor[5] = {
-        qio_arg.Xcoor(),
-        qio_arg.Ycoor(),
-        qio_arg.Zcoor(),
-        qio_arg.Tcoor(),
-        qio_arg.Scoor(),
-    };
-
-    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-
-    char *fdata = new char[lcl_vol * chars_per_site];
-    char *rdata = new char[lcl_vol * chars_per_site];
-    char * temp = new char[lcl_vol * chars_per_site];
-
-    //////////////////////////////////////////////////////////////////////
-    // step 1: read from the file
-    unsigned long shifts = 1;
-    for(int i = 0; i < dimension; ++i) {
-        shifts *= node[i];
-||||||| merged common ancestors
-		   unsigned int * ptrcsum, unsigned int * ptrpdcsum,
-		   Float * rand_sum, Float * rand_2_sum) {
-  const char * fname = "load()";
-  VRB.Func(cname,fname);
-
-  // only node 0 is responsible for writing
-  int error = 0;
-  QioArg & rd_arg = qio_arg;
-
-  // check dimensions, b.c, etc
-  int nx = rd_arg.Xnodes() * rd_arg.XnodeSites();
-  int ny = rd_arg.Ynodes() * rd_arg.YnodeSites();
-  int nz = rd_arg.Znodes() * rd_arg.ZnodeSites();
-  int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
-  int ns = rd_arg.Snodes() * rd_arg.SnodeSites();
-
-  //  int data_per_site = hd.recon_row_3? 4*12 : 4*18;
-  int chars_per_site  = data_per_site * dconv.fileDataSize();
-
-  ifstream input;
-  if(isNode0()) {
-    input.open(rd_arg.FileName);
-    if ( !input.good() )
-      error = 1;
-  }
-  	VRB.Result(cname,fname,"%s opened sizeof(streamoff)=%d\n",rd_arg.FileName,sizeof(streamoff));
-
-  // executed by all, sync and share error status information
-  if(synchronize(error) != 0)   
-    ERR.FileR(cname, fname, rd_arg.FileName);
- VRB.Result(cname,fname,"error = %d\n",error);
-
-  // TempBufAlloc is a Mem Allocator that prevents mem leak on function exits
-  TempBufAlloc fbuf(chars_per_site);
-  VRB.Result(cname,fname,"fbuf done\n");
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-  VRB.Result(cname,fname,"rng done\n");
-
-  VRB.Result(cname,fname,"Node %d: dataStart() = %d\n",UniqueID(),(streamoff)hd.dataStart());
-  if(isNode0())
-  if ((streamoff)hd.dataStart()>0) {
-	   input.seekg(hd.dataStart(),ios_base::beg);
-  	VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)input.tellg());
-  }
-  
-  
-  int global_id = 0;
-  unsigned int csum = 0;
-  unsigned int pdcsum = 0;
-  Float RandSum = 0;
-  Float Rand2Sum = 0;
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-
-  VRB.Result(cname, fname, "Serial loading <thru node 0> starting\n");
-  for(int sc=0; dimension==4 || sc<ns; sc++) {
-    for(int tc=0;tc<nt;tc++) {
-      for(int zc=0;zc<nz;zc++) {
-		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) 
-		VRB.Result(cname,fname,"%d %d %d %d %d\n",0,0,zc,tc,sc);
-	for(int yc=0;yc<ny;yc++) {
-	  for(int xnd=0; xnd<rd_arg.Xnodes(); xnd++) {
-	    if(isNode0()) { // only node 0 reads
-	      char * pd = data;
-
-	      // only read file to lowest end of buffer,
-	      // then shift (counter-shift) to final place
-	      for(int xst=0; xst<rd_arg.XnodeSites(); xst++) {
-		input.read(fbuf,chars_per_site);
-		if(!input.good()) {
-		  error = 1;
-		  goto sync_error;
-		}
-
-		csum += dconv.checksum(fbuf,data_per_site);
-		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, rd_arg,
-					   -1, global_id);
-
-		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-		  for(int mat=0;mat<4;mat++) {
-		    dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
-		    pd += site_mem/4;
-		  }
-		}
-		else { //LatHeaderBase::LATRNG_HEADER
-		  // load
-		  dconv.file2host(rng,fbuf,data_per_site);
-		  ugran[xst].load(rng.IntPtr());
-		  // generate next rand for verification
-		  Float rn = ugran[xst].Grand(1);
-		  RandSum += rn;
-		  Rand2Sum += rn*rn;
-		  // recover loading
-		  ugran[xst].load(rng.IntPtr());
-		}
-		global_id ++;
-	      }
-	    } // endif(isNode0())
-	  
-	    xShiftNode(data, site_mem * rd_arg.XnodeSites());
-	  }
-
-	  yShift(data, site_mem * rd_arg.XnodeSites());
-	}
-
-	zShift(data, site_mem * rd_arg.XnodeSites());
-      }
-
-      tShift(data, site_mem * rd_arg.XnodeSites());
-
-      if(dimension==4)
-	VRB.Result(cname,fname,"Serial loading: %d%% done.\n",(int)((tc+1) * 100.0 / nt));
-=======
 		   unsigned int * ptrcsum, unsigned int * ptrpdcsum,
 		   Float * rand_sum, Float * rand_2_sum) {
   const char * fname = "load()";
@@ -1513,7 +937,6 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
       if(dimension==4)
 	VRB.Result(cname,fname,"Serial loading: %d%% done.\n",(int)((tc+1) * 100.0 / nt));
       }
->>>>>>> ckelly_latest
     }
 
     FILE *fp = Fopen(qio_arg.FileName, "r");
@@ -1529,43 +952,11 @@ int SerialIO::load(char *data, const int data_per_site, const int site_mem,
     char *o = fdata;
     char *n = temp;
 
-<<<<<<< HEAD
-    int error = 0;
-    for(unsigned long i = 0; i < shifts; ++i) {
-        if(UniqueID() == 0) {
-            size_t ret = fread(o, chars_per_site, lcl_vol, fp);
-            if(ret != lcl_vol) {
-                error = 1;
-                ERR.FileR(cname, fname, qio_arg.FileName);
-            }
-        }
-
-        shift_data(&o, &n, i, lcl_vol * chars_per_site, node);
-    }
-    Fclose(fp);
-
-    VRB.Result(cname, fname, "Serial loading <thru node 0> finishing\n");
-
-    if(synchronize(error) > 0) {
-        ERR.FileR(cname, fname, qio_arg.FileName);
-    }
-
-    //////////////////////////////////////////////////////////////////////
-    // step 2: spread (clone) lattice data along s-dim
-    if(dimension == 4) {
-        sSpread(o, chars_per_site * qio_arg.VolNodeSites());
-    }
-||||||| merged common ancestors
-  // spread (clone) lattice data along s-dim
-  if(dimension==4) 
-    sSpread(data, site_mem * rd_arg.VolNodeSites());
-=======
   // spread (clone) lattice data along s-dim
   if(dimension==4){ 
     sSpread(data, site_mem * rd_arg.VolNodeSites());
     if(GJP.Gparity()) sSpread(data + site_mem * rd_arg.VolNodeSites(), site_mem * rd_arg.VolNodeSites());
   }
->>>>>>> ckelly_latest
   
     //////////////////////////////////////////////////////////////////////
     // step 3: do remapping
@@ -1621,148 +1012,6 @@ int SerialIO::store(iostream &output, char *data,
 { 
     const char *fname = "store()";
   
-<<<<<<< HEAD
-    const size_t chars_per_site = data_per_site * dconv.fileDataSize();
-
-    const unsigned glb[5] = {
-        qio_arg.XnodeSites() * qio_arg.Xnodes(),
-        qio_arg.YnodeSites() * qio_arg.Ynodes(),
-        qio_arg.ZnodeSites() * qio_arg.Znodes(),
-        qio_arg.TnodeSites() * qio_arg.Tnodes(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites() * qio_arg.Snodes(),
-    };
-    const unsigned lcl[5] = {
-        qio_arg.XnodeSites(),
-        qio_arg.YnodeSites(),
-        qio_arg.ZnodeSites(),
-        qio_arg.TnodeSites(),
-        dimension == 4 ? 1 : qio_arg.SnodeSites(),
-    };
-    const unsigned node[5] = {
-        qio_arg.Xnodes(),
-        qio_arg.Ynodes(),
-        qio_arg.Znodes(),
-        qio_arg.Tnodes(),
-        qio_arg.Snodes(),
-    };
-    const unsigned node_coor[5] = {
-        qio_arg.Xcoor(),
-        qio_arg.Ycoor(),
-        qio_arg.Zcoor(),
-        qio_arg.Tcoor(),
-        qio_arg.Scoor(),
-    };
-
-    const unsigned long long lcl_vol = (unsigned long long)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
-
-    char *fdata = new char[lcl_vol * chars_per_site];
-
-    unsigned csum = 0, pdcsum = 0;
-    Float RandSum = 0, Rand2Sum = 0;
-    //////////////////////////////////////////////////////////////////////
-    // start converting data
-    convert_data(fdata, data, chars_per_site, site_mem,
-                 data_per_site, lcl_vol,
-                 hd, dconv,
-                 dimension, qio_arg,
-                 &csum, &pdcsum, &RandSum, &Rand2Sum, true);
-
-    // simple hack to prevent duplicated checksum values.
-    if(dimension == 4 && qio_arg.Scoor() != 0) {
-        csum = pdcsum = 0;
-        RandSum = Rand2Sum = 0;
-||||||| merged common ancestors
-  int error = 0;
-
-  QioArg & wt_arg = qio_arg;
-
-  //  const int data_per_site = wt_arg.ReconRow3 ? 4*12 : 4*18;
-  const int chars_per_site = data_per_site * dconv.fileDataSize();
-
-  int nx = wt_arg.XnodeSites() * wt_arg.Xnodes();
-  int ny = wt_arg.YnodeSites() * wt_arg.Ynodes();
-  int nz = wt_arg.ZnodeSites() * wt_arg.Znodes();
-  int nt = wt_arg.TnodeSites() * wt_arg.Tnodes();
-  int ns = wt_arg.SnodeSites() * wt_arg.Snodes();
-
-
-  TempBufAlloc fbuf(chars_per_site);
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-
-  // start serial writing
-  unsigned int csum = 0, pdcsum = 0;
-  Float RandSum = 0, Rand2Sum = 0;
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-  VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)output.tellp());
-  int global_id = 0;
-
-  if (hd.dataStart()>0) 
-  output.seekp(hd.dataStart(), ios_base::beg);
-  VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)output.tellp());
-
-  VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
-  for(int sc=0; dimension==4 || sc<ns; sc++) {
-    for(int tc=0;tc<nt;tc++) {
-      for(int zc=0;zc<nz;zc++) {
-	for(int yc=0;yc<ny;yc++) {
-	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
-	    if(isNode0()) {
-	      const char * pd = data;
-
-	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
-//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
-		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-		  for(int mat=0;mat<4;mat++) {
-		    dconv.host2file(fbuf + chars_per_site/4*mat, pd, data_per_site/4);
-		    pd += site_mem/4;
-		  }
-		}
-		else { //LatHeaderBase::LATRNG_HEADER
-		  // dump
-//                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
-		  ugran[xst].store(rng.IntPtr());
-		  dconv.host2file(fbuf,rng,data_per_site);
-		  // next rand
-		  Float rn = ugran[xst].Grand();
-//		  printf("Node %d:rn=%0.15e \n",UniqueID(),rn);
-		  RandSum += rn;
-		  Rand2Sum += rn*rn;
-		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
-		  ugran[xst].load(rng.IntPtr());
-#endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
-
-		csum += dconv.checksum(fbuf,data_per_site);
-		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
-					   -1, global_id);
-		output.write(fbuf,chars_per_site);
-		if(!output.good()) {
-		  error = 1;
-		  goto sync_error;
-		} 
-
-		global_id ++;
-	      } //xst
-	    } // ifNode0()
-
-	    xShiftNode(data, site_mem * wt_arg.XnodeSites());
-	  }
-	  
-	  yShift(data, site_mem * wt_arg.XnodeSites());
-	}
-	
-	zShift(data, site_mem * wt_arg.XnodeSites());
-      }
-      
-      tShift(data, site_mem * wt_arg.XnodeSites());
-
-      if(dimension==4)
-	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
-=======
   if(dbl_latt_storemode){
     if(GJP.Bc(2)==BND_CND_GPARITY) ERR.General(cname,fname,"Test code for writing to 1flavour lattices only works for G-parity in X or X&Y directions");
 
@@ -1873,19 +1122,8 @@ int SerialIO::store(iostream &output, char *data,
 
       if(dimension==4)
 	VRB.Result(cname,fname,"Serial unloading: %d%% done.\n",(int)((tc+1)*100.0/nt));
->>>>>>> ckelly_latest
     }
-<<<<<<< HEAD
-
-    char *rdata = new char[lcl_vol * chars_per_site];
-    char * temp = new char[lcl_vol * chars_per_site];
-    remap(rdata, fdata, temp, glb, lcl, node, node_coor, chars_per_site, dimension, true);
-
-    VRB.Result(cname, fname, "Serial unloading <thru node 0> starting\n");
-||||||| merged common ancestors
-=======
     }//for(int stk=0;stk<nstacked....
->>>>>>> ckelly_latest
     
     FILE *fp = Fopen(qio_arg.FileName, "ab");
 
@@ -1934,14 +1172,6 @@ int SerialIO::store(iostream &output, char *data,
 
     return 1;
 }
-
-<<<<<<< HEAD
-||||||| merged common ancestors
-
-
-
-=======
-
 
 bool SerialIO::dbl_latt_storemode(false);
 
@@ -2381,7 +1611,6 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 }
 
 
->>>>>>> ckelly_latest
 // NOTE: !!!
 // the x-shift is a little different from y-, z-, & t-shift.
 // x-shift shift 1 NODE, while others shift a SITE

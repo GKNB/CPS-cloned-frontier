@@ -1,13 +1,17 @@
 #include<config.h>
-#ifndef USE_C11_RNG
 CPS_START_NAMESPACE
 /*!\file
   \brief   Methods for the Random Number Generator classes.
 
+  $Id: random.C,v 1.34.6.2 2013-06-25 19:56:57 ckelly Exp $
 */
 //---------------------------------------------------------------
 //  This is the routine ran3 from Numerical Recipes in C 
 //---------------------------------------------------------------
+
+#define FIX_GPBC_RNG_BUG  //CK 2015 fix for GPBC seeding bug
+#define RNG_WARMUP
+
 
 CPS_END_NAMESPACE
 #include <util/qcdio.h>
@@ -16,13 +20,11 @@ CPS_END_NAMESPACE
 #include <util/error.h>
 #include <util/latrngio.h>
 #include <util/data_shift.h>
-#include <util/time_cps.h>
 #include <comms/glb.h>
 #include <comms/sysfunc_cps.h>
+#include <stdio.h>
+#include <string.h>
 CPS_START_NAMESPACE
-
-#define BOOTSTRAP
-#define RNG_WARMUP
 
 static const int OFFSET = 23;
 static const int N_WARMUP = 1000;
@@ -31,6 +33,52 @@ int  RandomGenerator::MBIG  = 1000000000;
 IFloat  RandomGenerator::FAC = 1.0E-09;			// 1.0/MBIG
 const int RandomGenerator::state_size;
 
+//CK
+
+RandomGenerator::RandomGenerator(const RandomGenerator &in): inext(in.inext), inextp(in.inextp){
+  memcpy(&ma,&in.ma,state_size*sizeof(int) );
+}
+RandomGenerator & RandomGenerator::operator=(const RandomGenerator &in){
+  inext = in.inext;
+  inextp = in.inextp;
+  memcpy(&ma,&in.ma,state_size*sizeof(int) );
+  return *this;
+}
+bool RandomGenerator::operator==(const RandomGenerator &in) const{
+  if(inext != in.inext || inextp != in.inextp){
+    printf("Rand false on ints %d:%d   %d:%d\n",inext,in.inext,inextp,in.inextp);
+    return false;
+  }
+
+  for(int i=0;i<state_size;i++){
+    if(ma[i] != in.ma[i]){
+      printf("Rand false on ma[%d] : %d:%d\n",i,ma[i],in.ma[i]);
+      return false;
+    }
+  }
+  return true;
+}
+
+
+
+void RandomGenerator::store(int *buf) {
+  memcpy(buf,ma,state_size * sizeof(int));
+  buf[state_size] = inext;
+  buf[state_size+1] = inextp;
+}
+
+//! to load from file
+void RandomGenerator::load(int *buf) {
+  char *cname = "RandomGenerator";
+  char *fname =  "load(int *buf)";
+
+  memcpy(ma,buf,state_size * sizeof(int));
+  inext = buf[state_size];
+  inextp = buf[state_size+1];
+  if(inext >= state_size || inextp >= state_size)  ERR.General(cname,fname,"Read error: inext = %d or inextp = %d is greater than state_size = %d\n",inext,inextp);
+
+  //printf("RandomGenerator::load got inext %d, inextp %d\n",inext,inextp);
+}
 /*!
   This method must be called before the RNG is used
   \param idum The seed.	
@@ -98,6 +146,34 @@ void RandomGenerator::StoreSeeds(unsigned int *to) const
     *to++ = (unsigned int)inextp;
     for(int i = 0; i < 55; ++i) *to++ = ma[i];
 }
+//CK added for testing
+GaussianRandomGenerator::GaussianRandomGenerator(const GaussianRandomGenerator &in): RandomGenerator(in), iset(in.iset),
+										     gset(in.gset){}
+GaussianRandomGenerator & GaussianRandomGenerator::operator=(const GaussianRandomGenerator &in){
+  RandomGenerator::operator=(in);
+  iset = in.iset;
+  gset = in.gset;
+  return *this;
+}
+bool GaussianRandomGenerator::operator==(const GaussianRandomGenerator &in) const{
+  if(iset!=in.iset || (iset!=0 && gset != in.gset)){ //if iset is zero gset is regenerated when a random number is drawn
+    printf("False on Grand ints %d:%d   %d:%d\n",iset,in.iset,gset,in.gset);
+    return false;
+  }
+  return RandomGenerator::operator==(in);
+}
+
+
+
+UGrandomGenerator::UGrandomGenerator(const UGrandomGenerator&in): GaussianRandomGenerator(in), UniformRandomGenerator(in){}
+
+UGrandomGenerator & UGrandomGenerator::operator=(const UGrandomGenerator&in){
+  GaussianRandomGenerator::operator=(in);
+  return *this;
+}
+bool UGrandomGenerator::operator==(const UGrandomGenerator&in) const{
+  return GaussianRandomGenerator::operator==(in); //UniformRandomNumberGenerator has no data members
+}
 
 void UGrandomGenerator::StoreSeeds(unsigned int *to) const
 {
@@ -153,6 +229,105 @@ LatRanGen::~LatRanGen() {
   }
 }
 
+//CK added copy constructor, operator= and operator== for testing purposes
+LatRanGen::LatRanGen(const LatRanGen &in): n_rgen(in.n_rgen), rgen_pos(in.rgen_pos), is_initialized(in.is_initialized),
+					   n_rgen_4d(in.n_rgen_4d), rgen_pos_4d(in.rgen_pos_4d), UseParIO(in.UseParIO),
+					   io_good(in.io_good), do_log(in.do_log)
+{
+  char *fname = "LatRanGen(const LatRanGen &in)";
+  
+  if(is_initialized){
+    memcpy(&can,&in.can,5*sizeof(int));
+    memcpy(&hx,&in.hx,5*sizeof(int));
+    memcpy(&log_dir,&in.log_dir,200*sizeof(char));
+
+    ugran = new UGrandomGenerator[n_rgen];
+    if(!ugran) ERR.Pointer(cname, fname, "ugran"); 
+    ugran_4d = new UGrandomGenerator[n_rgen_4d];
+    if(!ugran_4d) ERR.Pointer(cname, fname, "ugran_4d");
+    
+    for(int i=0;i<n_rgen;i++){
+      ugran[i] = in.ugran[i];
+    }
+    for(int i=0;i<n_rgen_4d;i++){
+      ugran_4d[i] = in.ugran_4d[i];
+    }
+    cname = "LatRanGen";
+  }
+}
+LatRanGen &LatRanGen::operator=(const LatRanGen &in){
+  char *fname = "LatRanGen &LatRanGen::operator=(const LatRanGen &in)";
+  
+  if(is_initialized){
+    delete[] ugran;
+    delete[] ugran_4d;
+  }
+
+  n_rgen = in.n_rgen;
+  rgen_pos = in.rgen_pos;
+  is_initialized = in.is_initialized;
+  n_rgen_4d = in.n_rgen_4d;
+  rgen_pos_4d = in.rgen_pos_4d;
+  UseParIO = in.UseParIO;
+  io_good = in.io_good;
+  do_log = in.do_log;
+
+  if(is_initialized){
+    memcpy(&can,&in.can,5*sizeof(int));
+    memcpy(&hx,&in.hx,5*sizeof(int));
+    memcpy(&log_dir,&in.log_dir,200*sizeof(char));
+
+    ugran = new UGrandomGenerator[n_rgen];
+    if(!ugran) ERR.Pointer(cname, fname, "ugran"); 
+    ugran_4d = new UGrandomGenerator[n_rgen_4d];
+    if(!ugran_4d) ERR.Pointer(cname, fname, "ugran_4d");
+    
+    for(int i=0;i<n_rgen;i++){
+      ugran[i] = in.ugran[i];
+    }
+    for(int i=0;i<n_rgen_4d;i++){
+      ugran_4d[i] = in.ugran_4d[i];
+    }
+    cname = "LatRanGen";
+  }
+}
+
+bool LatRanGen::operator==(const LatRanGen &in) const{
+  if(n_rgen != in.n_rgen || rgen_pos != in.rgen_pos || is_initialized != in.is_initialized || 
+     n_rgen_4d != in.n_rgen_4d || rgen_pos_4d != in.rgen_pos_4d){
+    printf("False on integers %d:%d  %d:%d  %d:%d  %d:%d  %d:%d\n",n_rgen,in.n_rgen,rgen_pos,in.rgen_pos,
+	   is_initialized,in.is_initialized,n_rgen_4d, in.n_rgen_4d,rgen_pos_4d,in.rgen_pos_4d);
+
+    return false;
+  }
+
+     //Dont care about IO stuff, only the state of the RNG
+     //|| UseParIO != in.UseParIO ||
+     //io_good != in.io_good || do_log != in.do_log) return false;
+     //if(strcmp(log_dir,in.log_dir) != 0) return false;
+
+  for(int i=0;i<n_rgen;i++){
+    if(!(ugran[i]==in.ugran[i])){
+      printf("False on ugran[%d]\n",i);
+      return false;
+    }
+  }
+  for(int i=0;i<n_rgen_4d;i++){
+    if(!(ugran_4d[i]==in.ugran_4d[i])){
+      printf("False on ugran_4d[%d]\n",i);
+      return false;
+    }
+  } 
+  return true;
+}
+
+//added by CK - turns off is_initialised flag, frees memory and runs initialize again
+void LatRanGen::Reinitialize(){
+  is_initialized = 0;
+  delete[] ugran;
+  delete[] ugran_4d;
+  return Initialize();
+}
 
 /*! Seeds the RNGs according to the method defined in GJP */  
 //---------------------------------------------------------
@@ -164,14 +339,15 @@ void LatRanGen::Initialize()
   VRB.Func(cname, fname);
 
   if(0!=GJP.VolNodeSites()%16)
-      ERR.General(cname, fname,
-		  "Must have a multiple of 2^4 lattice sites per node.");
+    ERR.General(cname, fname,
+		"Must have a multiple of 2^4 lattice sites per node.");
   
   n_rgen = n_rgen_4d = GJP.VolNodeSites()/16;
 
   if (GJP.SnodeSites()>=2)
     n_rgen = GJP.VolNodeSites()*GJP.SnodeSites() / 32;
-//  VRB.Flow(cname,fname,"n_rgen=%d\n",n_rgen);
+  //  VRB.Flow(cname,fname,"n_rgen=%d\n",n_rgen);
+
   //CK: G-parity
   //for 4d RNGs, stack 2 4d lattice volumes on top of each other
   //for 5d RNGs, we have the same idea, only each block is a 2^5 hypercube. We still stack 2 on each s layer.
@@ -180,12 +356,17 @@ void LatRanGen::Initialize()
   if(GJP.SnodeSites()>=2) blocks_per_s_layer = n_rgen /( GJP.SnodeSites() / 2 );
   else blocks_per_s_layer = 1;
 
-
   int default_concur=0;
 #if TARGET==BGQ
-	default_concur=1;
+  default_concur=1;
 #endif
   
+  //For GPBC
+  int nodes_4d = 1;
+  for(int i=0;i<4;i++) nodes_4d *= GJP.Nodes(i);
+  
+  int n_rgen_glb = n_rgen * nodes_4d * GJP.Snodes(); //global number of 5D generators
+  int n_rgen_4d_glb = n_rgen_4d * nodes_4d;  
 
   is_initialized = 1;
 
@@ -233,125 +414,124 @@ void LatRanGen::Initialize()
   int index, index_4d;
   index = index_4d = 0;
 
+  //G-parity, second stacked set of RNGs, start increment from halfway point of RNG array
+  //RNGs for U* field are therefore *NOT THE SAME* as those for the U field. Be aware of this when generating random transforms for the gauge fields
+  int stk_index = blocks_per_s_layer/2;
+  int stk_index_4d = n_rgen_4d/2;
+
   /*PAB: Implement the Britney and Christina tests correctly*/
 #ifdef UNIFORM_SEED_TESTING
   if (1) {
 #else
-  if ( GJP.StartSeedKind() ==  START_SEED_FIXED_UNIFORM ) {
+    if ( GJP.StartSeedKind() ==  START_SEED_FIXED_UNIFORM ) {
 #endif
-    int x[5];
-    int start_seed = default_seed;
+      int x[5];
+      int start_seed = default_seed;
+      int start_seed_stacked = default_seed + n_rgen/2 * 23;
 
-    for(x[4] = 0; x[4] < GJP.SnodeSites(); x[4]+=2) {
-    for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]+=2) {
-    for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]+=2) {
-    for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
-    for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
-                if(GJP.Gparity()){ //fill in both stacked volumes simultaneously with different seeds
-                  start_seed += 23;
-                  start_seed_stacked += 23;
-                  if ( x[4] == 0 ){
-                    ugran_4d[index_4d++].Reset(start_seed);
-                    ugran_4d[stk_index_4d++].Reset(start_seed_stacked);
-                  }
-                  ugran[index++].Reset(start_seed);
-                  ugran[stk_index++].Reset(start_seed_stacked);
-                }else{
+      for(x[4] = 0; x[4] < GJP.SnodeSites(); x[4]+=2) {
+	for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]+=2) {
+	  for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]+=2) {
+	    for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
+	      for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
 
+		if(GJP.Gparity()){ //fill in both stacked volumes simultaneously with different seeds
+		  start_seed += 23;
+		  start_seed_stacked += 23;
+		  if ( x[4] == 0 ){
+		    ugran_4d[index_4d++].Reset(start_seed);
+		    ugran_4d[stk_index_4d++].Reset(start_seed_stacked);
+		  }
+		  ugran[index++].Reset(start_seed);
+		  ugran[stk_index++].Reset(start_seed_stacked);	
+		}else{
+		  start_seed += 23;
+		  ugran[index++].Reset(start_seed);
+		  if ( x[4] == 0 ) ugran_4d[index_4d++].Reset(start_seed);
+		}
 
-      start_seed += OFFSET;
-      ugran[index++].Reset(start_seed);
-      if ( x[4] == 0 ) ugran_4d[index_4d++].Reset(start_seed);
+	      }
+	    }
+	  }
+	}
+	if(GJP.Gparity()){ //moving onto next s, we need to shift both the stacked and original write index forward one 4d volume's worth
+	  index += blocks_per_s_layer/2;
+	  stk_index += blocks_per_s_layer/2;
+	}
       }
-
+      return;
     }
-    }
-    }
-    }
-        if(GJP.Gparity()){ //moving onto next s, we need to shift both the stacked and original write index forward one 4d volume's worth
-          index += blocks_per_s_layer/2;
-          stk_index += blocks_per_s_layer/2;
-        }
-    }
-    return;
-  }
 
 
 
-  // Sort out what the seed should be depending on the GJP.StartSeedKind()
+    // Sort out what the seed should be depending on the GJP.StartSeedKind()
 
-  int start_seed, base_seed;
-  int start_seed_4d, base_seed_4d;
+    int start_seed, base_seed;
+    int start_seed_4d, base_seed_4d;
+    int start_seed_stacked, start_seed_stacked_4d; //CK: G-parity
 
-  switch(GJP.StartSeedKind()){
-  case START_SEED_FILE:
-	if ( !LatRanGen::Read(GJP.StartSeedFilename(),default_concur) ) {
-	      ERR.General(cname, fname,
-		  "Reading file %s",GJP.StartSeedFilename());
-	} 
-	return;
-	break;
-  case START_SEED_INPUT_UNIFORM:
-  case START_SEED_INPUT_NODE:
-  case START_SEED_INPUT:
+    switch(GJP.StartSeedKind()){
+    case START_SEED_FILE:
+      if ( !LatRanGen::Read(GJP.StartSeedFilename(),default_concur) ) {
+	ERR.General(cname, fname,
+		    "Reading file %s",GJP.StartSeedFilename());
+      } 
+      return;
+      break;
+    case START_SEED_INPUT_UNIFORM:
+    case START_SEED_INPUT_NODE:
+    case START_SEED_INPUT:
       base_seed = GJP.StartSeedValue();
       break;
-  case START_SEED_UNIFORM:
-  case START_SEED:
+    case START_SEED_UNIFORM:
+    case START_SEED:
       base_seed = SeedS();
       break;
-  default:
+    default:
       base_seed = default_seed;
-  }
+    }
     
 #ifdef PARALLEL
-  if(GJP.StartSeedKind()==START_SEED_INPUT_NODE){
+    if(GJP.StartSeedKind()==START_SEED_INPUT_NODE){
       int node  = 
 	GJP.XnodeCoor() + GJP.Xnodes()* (
 	GJP.YnodeCoor() + GJP.Ynodes()* (
 	GJP.ZnodeCoor() + GJP.Znodes()* (
 	GJP.TnodeCoor() + GJP.Tnodes()*  GJP.SnodeCoor() )));
-      base_seed = base_seed + OFFSET * node;
-  }
+      base_seed = base_seed + 23 * node;
+    }
 #endif
 
-  // Seed the hypercube RNGs
-  UGrandomGenerator rng_seed_4d;
-  UGrandomGenerator rng_seed_5d;
-  rng_seed_4d.Reset(base_seed);
-  rng_seed_5d.Reset(base_seed);
-  int rng_count=0,rng_count_4d=0;
+    // Seed the hypercube RNGs
 
-  int x[5];
-//  int index, index_4d;
-  index = index_4d = 0;
+    int x[5];
+    //  int index, index_4d;
+    index = index_4d = 0;
   
-for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
-  for(x[3] = x_o[3]; x[3] <= x_f[3]; x[3]+=2) {
-      for(x[2] = x_o[2]; x[2] <= x_f[2]; x[2]+=2) {
+    for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
+      for(x[3] = x_o[3]; x[3] <= x_f[3]; x[3]+=2) {
+	for(x[2] = x_o[2]; x[2] <= x_f[2]; x[2]+=2) {
 	  for(x[1] = x_o[1]; x[1] <= x_f[1]; x[1]+=2) {
-	      for(x[0] = x_o[0]; x[0] <= x_f[0]; x[0]+=2) {
+	    for(x[0] = x_o[0]; x[0] <= x_f[0]; x[0]+=2) {
 
-//		  start_seed = start_seed_4d = base_seed;
-		  start_seed = start_seed_4d = 0;
+	      start_seed = start_seed_4d = base_seed;
 		  
-		  if(GJP.StartSeedKind()==START_SEED||
-		     GJP.StartSeedKind()==START_SEED_INPUT||
-		     GJP.StartSeedKind()==START_SEED_FIXED){
-//		      start_seed = base_seed
-//			  + OFFSET * (x[0]/2 + vx[0]*
-		      start_seed = (x[0]/2 + vx[0]*
-				 (x[1]/2 + vx[1]*
-				 (x[2]/2 + vx[2]*
-				 (x[3]/2 + vx[3]*(x[4]/2+1) ))));
-//		      start_seed_4d = base_seed
-//			  + OFFSET * (x[0]/2 + vx[0]*
-		      start_seed_4d = (x[0]/2 + vx[0]*
-				 (x[1]/2 + vx[1]*
-				 (x[2]/2 + vx[2]*(x[3]/2) )));
-		  }
-//		  Fprintf(stderr,"%d %d %d %d %d",x[0],x[1],x[2],x[3],x[4]);
-		  VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
+	      if(GJP.StartSeedKind()==START_SEED||
+		 GJP.StartSeedKind()==START_SEED_INPUT||
+		 GJP.StartSeedKind()==START_SEED_FIXED){
+		start_seed = base_seed
+		  + 23 * (x[0]/2 + vx[0]*
+			  (x[1]/2 + vx[1]*
+			   (x[2]/2 + vx[2]*
+			    (x[3]/2 + vx[3]*(x[4]/2+1) ))));
+		start_seed_4d = base_seed
+		  + 23 * (x[0]/2 + vx[0]*
+			  (x[1]/2 + vx[1]*
+			   (x[2]/2 + vx[2]*(x[3]/2) )));
+	      }
+	      //		  Fprintf(stderr,"%d %d %d %d %d",x[0],x[1],x[2],x[3],x[4]);
+	      VRB.Debug(cname,fname,"index=%d start_seed= %d\n",index,start_seed);
+
 	      if(GJP.Gparity()){
 #ifdef FIX_GPBC_RNG_BUG
 		start_seed_stacked = start_seed + n_rgen_glb/2*23; //offset seed by 23* global number of flavor 0 RNGs
@@ -388,58 +568,13 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 #endif
 		index++;stk_index++;
 	      }else{
-		  ugran[index].Reset(base_seed + OFFSET * start_seed);
-#ifdef BOOTSTRAP
-{
-		while(rng_count < start_seed){
-			rng_seed_5d.Urand(1,0);
-			rng_count++;
-		}
-//		int new_seed = ugran[index].Urand(RandomGenerator::MBIG,0);
-		int new_seed = rng_seed_5d.Urand(RandomGenerator::MBIG,0);
-			rng_count++;
-		printf("index=%d start_seed=%d new_seed=%d\n",index,start_seed,new_seed);
-		  ugran[index].Reset(new_seed);
-}
-#endif
-#ifdef RNG_WARMUP
-{
-		int n_warm = ugran[index].Urand(N_WARMUP,0);
-		if(!index)printf("index=%d n_warm=%d\n",index,n_warm);
-		while (n_warm>0) {int temp = ugran[index].Urand(100,0); n_warm--; }
-}
-#endif
-		  index++;
-		  if(x[4]==x_o[4]){
-		  	VRB.Debug(cname,fname,"index_4d=%d start_seed= %d\n",index_4d,start_seed_4d);
- 			ugran_4d[index_4d].Reset(base_seed + OFFSET * start_seed_4d);
-#ifdef BOOTSTRAP
-{
-		while(rng_count_4d < start_seed_4d){
-			rng_seed_4d.Urand(1,0);
-			rng_count_4d++;
-		}
-//		int new_seed = ugran[index_4d].Urand(RandomGenerator::MBIG,0);
-		int new_seed = rng_seed_4d.Urand(RandomGenerator::MBIG,0);
-			rng_count_4d++;
-		printf("index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
-		  ugran_4d[index_4d].Reset(new_seed);
-}
-#endif
-#ifdef RNG_WARMUP
-{
-		int n_warm = ugran_4d[index_4d].Urand(N_WARMUP,0);
-		if(!index_4d)printf("index_4d=%d n_warm=%d\n",index_4d,n_warm);
-		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
-}
-#endif
-			index_4d++;
+		ugran[index++].Reset(start_seed);
+		if(x[4]==x_o[4]) ugran_4d[index_4d++].Reset(start_seed_4d);
 	      }
-		  }
-	      }
+	    }
 	  }
+	}
       }
-  }
       if(GJP.Gparity()){ //moving onto next s, we need to shift both the stacked and original write index forward on 4d volume's worth
 	// printf("Just finished s-layer between s=%d and %d\n",x[4],x[4]+2);
 	// printf("index %d  stk_index %d  (blocks per s layer %d [2 stacked fields])\n",index,stk_index,blocks_per_s_layer);
@@ -447,10 +582,10 @@ for(x[4] = x_o[4]; x[4] <= x_f[4]; x[4]+=2) {
 	index += blocks_per_s_layer/2;
 	stk_index += blocks_per_s_layer/2;
       }
-}
-}
 
-//---------------------------------------------------------
+    }
+  }
+  //---------------------------------------------------------
 /*!
   \pre A RNG must be assigned using ::AssignGenerator.
   \return A uniform random number for this  hypercube.
@@ -531,7 +666,6 @@ void LatRanGen::SetSigma(IFloat sigma)
 //----------------------------------------------------------------------
  void LatRanGen::AssignGenerator(int x, int y, int z, int t, int s,const int &field_idx)
 {
-  if(field_idx !=0 && !GJP.Gparity()) ERR.General(cname,"AssignGenerator(x,y,z,t,s,field_idx)", "Non-zero field index not defined when G-parity not in use\n");
   x = x % GJP.XnodeSites();
   y = y % GJP.YnodeSites();
   z = z % GJP.ZnodeSites();
@@ -552,7 +686,8 @@ void LatRanGen::SetSigma(IFloat sigma)
   rgen_pos = x + hx[0] * (y + hx[1] * (z + hx[2] * (t +hx[3] * (field_idx+ nstacked*s))));
   rgen_pos_4d = x + hx[0] * (y + hx[1] * (z + hx[2] * (t + hx[3]*field_idx )));
 
-
+  if(field_idx !=0 && !GJP.Gparity()) ERR.General(cname,"AssignGenerator(x,y,z,t,s,field_idx)",
+						  "Non-zero field index not defined when G-parity not in use\n");
 }
 
 //----------------------------------------------------------------------
@@ -564,9 +699,9 @@ void LatRanGen::SetSigma(IFloat sigma)
   particular hypercubic RNG.
 */
 //----------------------------------------------------------------------
-void LatRanGen::AssignGenerator(const int * x, const int &field_idx)
+ void LatRanGen::AssignGenerator(const int * x,const int &field_idx)
 {
-    AssignGenerator(x[0], x[1], x[2], x[3], 0,field_idx);
+  AssignGenerator(x[0], x[1], x[2], x[3], 0, field_idx);
 }
 
 //---------------------------------------------------------
@@ -606,32 +741,29 @@ void LatRanGen::AssignGenerator(const int * x, const int &field_idx)
 /*!
   \return A uniform random number; one per node, the same on each node.
 */
-// Lrand will return the same random number on every node by
-// performing a global sum over all 2^4 hypercubes, and taking the
-// average value
 //--------------------------------------------------------------
-IFloat LatRanGen::Lrand()
+IFloat LatRanGen::Lrand(Float hi, Float lo)
 {
   Float cntr = 0.0;
-  for(int i = 0; i < n_rgen; i++) cntr += (Float) ugran[i].Urand();
-  
-  Float divisor = (Float) (n_rgen*GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()
-			   *GJP.Tnodes());
-  if(GJP.Snodes()>1) divisor *= (Float) GJP.Snodes();
-  cntr/=divisor;
+
+  //Get one non-zero float from global RNG coordinate zero
+  if(!CoorX()&&!CoorY()&&!CoorZ()&&!CoorT()&&!CoorS())
+    cntr = (Float) ugran[0].Urand(hi,lo); //5d RNG, local coord 0
+
   glb_sum_five(&cntr);
   return  (IFloat) cntr;
-
 }
-
+IFloat LatRanGen::Lrand(){
+  IFloat hi, lo;
+  UniformRandomGenerator::GetInterval(hi,lo);
+  return Lrand(hi,lo);
+}
 
 /*!
   \return The number of unsigned ints that comprise the RNG state vector.
 */
 int LatRanGen::StateSize() const{
-
-    return ugran[0].StateSize();    
-    
+    return ugran[0].StateSize();
 }
 
 /*!
@@ -738,4 +870,3 @@ void LatRanGen::Shift()
    GDS.Shift(ugran_4d, n_rgen_4d*sizeof(UGrandomGenerator));
 }
 CPS_END_NAMESPACE
-#endif

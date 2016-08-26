@@ -5,64 +5,19 @@
 #include <util/omp_wrapper.h>
 #include <qmp.h>
 
-<<<<<<< HEAD
-||||||| merged common ancestors
-#ifdef USE_BFM
-#include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
-#endif
-=======
 #ifdef USE_BFM 
 #if TARGET != NOARCH
-#include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
+//#include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
 #endif
 #endif
 
 #warning "Using vectorised wilson dslash"
->>>>>>> ckelly_latest
 
 CPS_START_NAMESPACE
 /*! \file
   \brief  Routine used internally in the DiracOpWilson class.
 
-<<<<<<< HEAD
-||||||| merged common ancestors
-  $Id: wilson_dslash_vec.C,v 1.3 2012-05-10 05:51:23 chulwoo Exp $
-=======
-  $Id: wilson_dslash_vec.C,v 1.3.6.1 2012-11-15 18:17:08 ckelly Exp $
->>>>>>> ckelly_latest
 */
-<<<<<<< HEAD
-||||||| merged common ancestors
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2012-05-10 05:51:23 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v 1.3 2012-05-10 05:51:23 chulwoo Exp $
-//  $Id: wilson_dslash_vec.C,v 1.3 2012-05-10 05:51:23 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.3 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-=======
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: ckelly $
-//  $Date: 2012-11-15 18:17:08 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v 1.3.6.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Id: wilson_dslash_vec.C,v 1.3.6.1 2012-11-15 18:17:08 ckelly Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $Revision: 1.3.6.1 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_wilson/qmp/wilson_dslash_vec.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
->>>>>>> ckelly_latest
 /***************************************************************************/
 /*                                                                         */
 /* wilson_dslash: It calculates chi = Dslash * psi, or                     */
@@ -174,231 +129,6 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   Float time = -dclock();
   for(int i=0;i<temp_size;i++) fbuf[i]=0.;
 	
-<<<<<<< HEAD
-/*--------------------------------------------------------------------------*/
-/* Initializations                                                          */
-/*--------------------------------------------------------------------------*/
-	int sdag;                 /* = +/-1 if dag = 0/1 */
-	int cbn;
-	Float *chi_p = (Float *) chi_p_f;
-	Float *u_p = (Float *) u_p_f;
-	Float *psi_p = (Float *) psi_p_f;
-
-
-	lx = wilson_p->ptr[0];
-	ly = wilson_p->ptr[1];
-	lz = wilson_p->ptr[2];
-	lt = wilson_p->ptr[3];
-	vol = wilson_p->vol[0];
-	static int local_comm[4];
-
-	if(dag == 0)
-		sdag = 1;
-	else if(dag == 1)
-		sdag = -1;
-	else{
-		ERR.General(" ",fname,"dag must be 0 or 1");
-	}
-
-	if(cb == 0)
-		cbn = 1;
-	else if(cb == 1)
-		cbn = 0;
-	else{
-		ERR.General(" ",fname,"cb must be 0 or 1");
-	}
-
-	Float *ind_buf[8];
-	unsigned long ind_nl[8];
-
-	static unsigned long num_nl[8];
-	static unsigned long *u_ind[8]; 
-	static unsigned long *f_ind[8]; 
-	static unsigned long *t_ind[8]; 
-	static Float *Send_buf[8];
-	static Float *Recv_buf[8];
-	static QMP_msgmem_t Send_mem[8];
-	static QMP_msgmem_t Recv_mem[8];
-	static QMP_msghandle_t Send[8];
-	static QMP_msghandle_t Recv[8];
-
-
-	if(vec_len!=init_len){
-		VRB.Result(cname,fname,"init_len(%d)!=vec_len(%d)\n",init_len,vec_len);
-		if (init_len>0)
-		for (int i =0;i<8;i++){
-			if(u_ind[i])sfree(u_ind[i]);
-			if(f_ind[i])sfree(f_ind[i]);
-			if(Send_buf[i])sfree(Send_buf[i]);
-			if(Recv_buf[i])sfree(Recv_buf[i]);
-			if(Send_mem[i])QMP_free_msgmem(Send_mem[i]);
-			if(Recv_mem[i])QMP_free_msgmem(Recv_mem[i]);
-			if(Send[i])QMP_free_msghandle(Send[i]);
-			if(Recv[i])QMP_free_msghandle(Recv[i]);
-		}
-		num_nl[0]=num_nl[4]= vol/lx;
-		num_nl[1]=num_nl[5]= vol/ly;
-		num_nl[2]=num_nl[6]= vol/lz;
-		num_nl[3]=num_nl[7]= vol/lt;
-		for (int i=0;i<4;i++){
-			if ( GJP.Nodes(i) > 1 )  local_comm[i] = 0;
-			else local_comm[i] = 1;
-		}
-		for (int i =0;i<8;i++){
-			mu = i%4;
-			int sign = 1 - 2*(i/4);
-			if (local_comm[mu]){
-				num_nl[i]=0;
-				u_ind[i]=NULL;
-				f_ind[i]=NULL;
-				Send_buf[i]=NULL;
-				Recv_buf[i]=NULL;
-				Send_mem[i]=NULL;
-				Recv_mem[i]=NULL;
-				Send[i]=NULL;
-				Recv[i]=NULL;
-			} else{
-				u_ind[i]=(unsigned long *)smalloc(cname,fname,"u_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				f_ind[i]=(unsigned long *)smalloc(cname,fname,"f_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				t_ind[i]=(unsigned long *)smalloc(cname,fname,"f_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				Send_buf[i]=(Float *)smalloc(cname,fname,"Send_buf[i]",num_nl[i]*SPINOR_SIZE*sizeof(Float)*vec_len );
-				Recv_buf[i]=(Float *)smalloc(cname,fname,"Recv_buf[i]",num_nl[i]*SPINOR_SIZE*sizeof(Float)*vec_len );
-				Send_mem[i] = QMP_declare_msgmem(Send_buf[i], num_nl[i]*SPINOR_SIZE*sizeof(IFloat)*vec_len);
-				Recv_mem[i] = QMP_declare_msgmem(Recv_buf[i], num_nl[i]*SPINOR_SIZE*sizeof(IFloat)*vec_len);
-				Send[i] = QMP_declare_send_relative(Send_mem[i], mu,-sign, 0);
-				Recv[i] = QMP_declare_receive_relative(Recv_mem[i], mu, sign, 0);
-			}
-		}
-		Printf("initted\n");
-		init_len=vec_len;
-	}
-	for (int i =0;i<8;i++){
-		ind_nl[i]=0;
-		ind_buf[i]=Send_buf[i];
-	}
-
-	if (called%10000==0)
-	VRB.Result(cname,fname,"local_comm=%d %d %d %d\n",local_comm[0],local_comm[1],local_comm[2],local_comm[3]);
-
-//
-//  non-local send
-//
-//
-//omp_set_num_threads(8);
-//	omp_set_num_threads(64);
-||||||| merged common ancestors
-/*--------------------------------------------------------------------------*/
-/* Initializations                                                          */
-/*--------------------------------------------------------------------------*/
-	int sdag;                 /* = +/-1 if dag = 0/1 */
-	int cbn;
-	Float *chi_p = (Float *) chi_p_f;
-	Float *u_p = (Float *) u_p_f;
-	Float *psi_p = (Float *) psi_p_f;
-
-
-	lx = wilson_p->ptr[0];
-	ly = wilson_p->ptr[1];
-	lz = wilson_p->ptr[2];
-	lt = wilson_p->ptr[3];
-	vol = wilson_p->vol[0];
-	static int local_comm[4];
-
-	if(dag == 0)
-		sdag = 1;
-	else if(dag == 1)
-		sdag = -1;
-	else{
-		ERR.General(" ",fname,"dag must be 0 or 1");
-	}
-
-	if(cb == 0)
-		cbn = 1;
-	else if(cb == 1)
-		cbn = 0;
-	else{
-		ERR.General(" ",fname,"cb must be 0 or 1");
-	}
-
-	Float *ind_buf[8];
-	unsigned long ind_nl[8];
-
-	static unsigned long num_nl[8];
-	static unsigned long *u_ind[8]; 
-	static unsigned long *f_ind[8]; 
-	static unsigned long *t_ind[8]; 
-	static Float *Send_buf[8];
-	static Float *Recv_buf[8];
-	static QMP_msgmem_t Send_mem[8];
-	static QMP_msgmem_t Recv_mem[8];
-	static QMP_msghandle_t Send[8];
-	static QMP_msghandle_t Recv[8];
-
-
-	if(vec_len!=init_len){
-		VRB.Result(cname,fname,"init_len(%d)!=vec_len(%d)\n",init_len,vec_len);
-		if (init_len>0)
-		for (int i =0;i<8;i++){
-			if(u_ind[i])sfree(u_ind[i]);
-			if(f_ind[i])sfree(f_ind[i]);
-			if(Send_buf[i])sfree(Send_buf[i]);
-			if(Recv_buf[i])sfree(Recv_buf[i]);
-			if(Send_mem[i])QMP_free_msgmem(Send_mem[i]);
-			if(Recv_mem[i])QMP_free_msgmem(Recv_mem[i]);
-			if(Send[i])QMP_free_msghandle(Send[i]);
-			if(Recv[i])QMP_free_msghandle(Recv[i]);
-		}
-		num_nl[0]=num_nl[4]= vol/lx;
-		num_nl[1]=num_nl[5]= vol/ly;
-		num_nl[2]=num_nl[6]= vol/lz;
-		num_nl[3]=num_nl[7]= vol/lt;
-		for (int i=0;i<4;i++){
-			if ( GJP.Nodes(i) > 1 )  local_comm[i] = 0;
-			else local_comm[i] = 1;
-		}
-		for (int i =0;i<8;i++){
-			mu = i%4;
-			int sign = 1 - 2*(i/4);
-			if (local_comm[mu]){
-				num_nl[i]=0;
-				u_ind[i]=NULL;
-				f_ind[i]=NULL;
-				Send_buf[i]=NULL;
-				Recv_buf[i]=NULL;
-				Send_mem[i]=NULL;
-				Recv_mem[i]=NULL;
-				Send[i]=NULL;
-				Recv[i]=NULL;
-			} else{
-				u_ind[i]=(unsigned long *)smalloc(cname,fname,"u_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				f_ind[i]=(unsigned long *)smalloc(cname,fname,"f_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				t_ind[i]=(unsigned long *)smalloc(cname,fname,"f_ind[i]",num_nl[i]*sizeof(unsigned long) );
-				Send_buf[i]=(Float *)smalloc(cname,fname,"Send_buf[i]",num_nl[i]*SPINOR_SIZE*sizeof(Float)*vec_len );
-				Recv_buf[i]=(Float *)smalloc(cname,fname,"Recv_buf[i]",num_nl[i]*SPINOR_SIZE*sizeof(Float)*vec_len );
-				Send_mem[i] = QMP_declare_msgmem(Send_buf[i], num_nl[i]*SPINOR_SIZE*sizeof(IFloat)*vec_len);
-				Recv_mem[i] = QMP_declare_msgmem(Recv_buf[i], num_nl[i]*SPINOR_SIZE*sizeof(IFloat)*vec_len);
-				Send[i] = QMP_declare_send_relative(Send_mem[i], mu,-sign, 0);
-				Recv[i] = QMP_declare_receive_relative(Recv_mem[i], mu, sign, 0);
-			}
-		}
-		Printf("initted\n");
-		init_len=vec_len;
-	}
-	for (int i =0;i<8;i++){
-		ind_nl[i]=0;
-		ind_buf[i]=Send_buf[i];
-	}
-
-	if (called%100==0)
-	VRB.Result(cname,fname,"local_comm=%d %d %d %d\n",local_comm[0],local_comm[1],local_comm[2],local_comm[3]);
-
-//
-//  non-local send
-//
-//
-//omp_set_num_threads(8);
-	omp_set_num_threads(64);
-=======
   /*--------------------------------------------------------------------------*/
   /* Initializations                                                          */
   /*--------------------------------------------------------------------------*/
@@ -545,7 +275,6 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   //
   omp_set_num_threads(GJP.Nthreads());
 
->>>>>>> ckelly_latest
 #pragma omp parallel for default(shared) private(mu)
   for (int dir=0;dir<8;dir++){
     int x, y, z, t;
@@ -725,7 +454,6 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   /* Loop over sites                                                          */
   /*--------------------------------------------------------------------------*/
 
-<<<<<<< HEAD
 	time = -dclock();
 //	omp_set_num_threads(64);
 /*--------------------------------------------------------------------------*/
@@ -733,18 +461,6 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 /*--------------------------------------------------------------------------*/
 	for(int i=0;i<SPINOR_SIZE;i++) fbuf[i]=0.;
 	int index=0;
-||||||| merged common ancestors
-	time = -dclock();
-	omp_set_num_threads(64);
-/*--------------------------------------------------------------------------*/
-/* Loop over sites                                                          */
-/*--------------------------------------------------------------------------*/
-	for(int i=0;i<SPINOR_SIZE;i++) fbuf[i]=0.;
-	int index=0;
-=======
-  for(int i=0;i<temp_size;i++) fbuf[i]=0.;
-  int index=0;
->>>>>>> ckelly_latest
 #pragma omp parallel for default(shared) private(mu)
   for(index = 0; index<vol*2;index++){
     //	Printf("wilson_dslash: %d %d %d %d\n",x,y,z,t);
@@ -1006,89 +722,10 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 
  #undef NL_OMP
    {
-    int i_nl,i_mu;
+    int i_mu;
 
-<<<<<<< HEAD
-#undef NL_OMP
-{
-||||||| merged common ancestors
-#undef NL_OMP
-{
-	int i_nl,i_mu;
-=======
     for(i_mu = 0;i_mu<4;i_mu++){
->>>>>>> ckelly_latest
 #pragma omp parallel for default(shared)
-<<<<<<< HEAD
-	for( int i=0;i<num_nl[0];i++){ 
-//		int i_nl;
-//		i_nl=i;
-//		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp1[SPINOR_SIZE];
-
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[0]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[0]+i) );
-		Float *psi = ind_buf[0] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSX(u,tmp,tmp1,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP1(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[4]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[4]+i) );
-		psi = ind_buf[4] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-||||||| merged common ancestors
-	for( int i=0;i<num_nl[0];i++){ 
-		i_nl=i;
-		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp1[SPINOR_SIZE];
-
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[0]+i_nl) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[0]+i_nl) );
-		Float *psi = ind_buf[0] + i_nl* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSX(u,tmp,tmp1,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP1(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[4]+i_nl) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[4]+i_nl) );
-		psi = ind_buf[4] + i_nl* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-=======
       for( int i=0;i<num_nl[i_mu];i++){ 
 	Float tmp[temp_size];
 	Float tmp1[temp_size];
@@ -1110,74 +747,8 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 	  chi_f1 = chi_p + SPINOR_SIZE * ( *(t_ind[i_mu]+i) + vol );
 	  u_f1   = u_p + GAUGE_SIZE * ( *(u_ind[i_mu]+i) + vol);
 	  psi_f1 = ind_buf[i_mu] + psi_bufoff + i* SPINOR_SIZE*vec_len;
->>>>>>> ckelly_latest
 	}
 
-<<<<<<< HEAD
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[1];i++){ 
-//		i_mu = 1;
-	Float tmp[SPINOR_SIZE];
-	Float tmp1[SPINOR_SIZE];
-	Float tmp2[SPINOR_SIZE];
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[1]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[1]+i) );
-		Float *psi = ind_buf[1] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSY(u,tmp,tmp2,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP2(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[5]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[5]+i) );
-		psi = ind_buf[5] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-||||||| merged common ancestors
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[1];i++){ 
-		i_mu = 1;
-	Float tmp[SPINOR_SIZE];
-	Float tmp1[SPINOR_SIZE];
-	Float tmp2[SPINOR_SIZE];
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[1]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[1]+i) );
-		Float *psi = ind_buf[1] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSY(u,tmp,tmp2,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP2(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[5]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[5]+i) );
-		psi = ind_buf[5] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-=======
 	int r, c, s;
 	for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
 	  MINUSMU(i_mu,u,tmp,tmp1,sdag,psi);
@@ -1187,78 +758,8 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 		FERM(chi,r,c,s) += FERM(tmp1,r,c,s);
 	  psi += SPINOR_SIZE;
 	  chi +=vec_offset;
->>>>>>> ckelly_latest
 	}
 
-<<<<<<< HEAD
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[2];i++){ 
-//		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp3[SPINOR_SIZE];
-
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[2]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[2]+i) );
-		Float *psi = ind_buf[2] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSZ(u,tmp,tmp3,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP3(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[6]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[6]+i) );
-		psi = ind_buf[6] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-||||||| merged common ancestors
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[2];i++){ 
-		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp3[SPINOR_SIZE];
-
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[2]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[2]+i) );
-		Float *psi = ind_buf[2] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUSZ(u,tmp,tmp3,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP3(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[6]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[6]+i) );
-		psi = ind_buf[6] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-=======
 	if(GJP.Gparity()){
 	  for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
 	    MINUSMU(i_mu,u_f1,tmp,tmp1+SPINOR_SIZE,sdag,psi_f1);
@@ -1269,77 +770,8 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 	    psi_f1 += SPINOR_SIZE;
 	    chi_f1 +=vec_offset;
 	  }
->>>>>>> ckelly_latest
 	}
-<<<<<<< HEAD
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[3];i++){ 
-//		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp4[SPINOR_SIZE];
 
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[3]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[3]+i) );
-		Float *psi = ind_buf[3] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUST(u,tmp,tmp4,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP4(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[7]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[7]+i) );
-		psi = ind_buf[7] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-||||||| merged common ancestors
-#pragma omp parallel for default(shared)
-	for( int i=0;i<num_nl[3];i++){ 
-		i_mu = 0;
-	Float tmp[SPINOR_SIZE];
-	Float tmp4[SPINOR_SIZE];
-
-		/* 1-gamma_0 */
-		/*-----------*/
-
-		Float *chi = chi_p + SPINOR_SIZE * ( *(t_ind[3]+i) );
-		Float *u   = u_p + GAUGE_SIZE * ( *(u_ind[3]+i) );
-		Float *psi = ind_buf[3] + i* SPINOR_SIZE*vec_len;
-		int r, c, s;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			MINUST(u,tmp,tmp4,sdag,psi);
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += TMP4(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-		chi = chi_p + SPINOR_SIZE * ( *(t_ind[7]+i) );
-		u   = u_p + GAUGE_SIZE * ( *(u_ind[7]+i) );
-		psi = ind_buf[7] + i* SPINOR_SIZE*vec_len;
-		for(int vec_ind=0;vec_ind<vec_len;vec_ind++){
-			for(s=0;s<4;s++)
-			for(c=0;c<3;c++)
-			for(r=0;r<2;r++)
-				CHI(r,c,s) += PSI(r,c,s);
-			psi += SPINOR_SIZE;
-			chi +=vec_offset;
-		}
-=======
 
 	chi = chi_p + SPINOR_SIZE * ( *(t_ind[i_mu+4]+i) );
 	u   = u_p + GAUGE_SIZE * ( *(u_ind[i_mu+4]+i) );
@@ -1370,7 +802,6 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 	    psi_f1 += SPINOR_SIZE;
 	    chi_f1 +=vec_offset;
 	  }
->>>>>>> ckelly_latest
 	}
 
 
@@ -1386,72 +817,19 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 
   called++;
 
-<<<<<<< HEAD
 	if (called%10000==0){
 		print_flops("wilson_dslash_vec()","local*10000",0,local);
 		print_flops("wilson_dslash_vec()","nonlocal*00100",0,nonlocal);
 		print_flops("wilson_dslash_vec()","qmp*10000",0,qmp);
 		print_flops("wilson_dslash_vec()","setup*10000",0,setup);
 		local=nonlocal=qmp=setup=0.;
-//#ifdef USE_BFM
-#if 0
-{
-	 char link_name[ND_RESE_DCR_num][10] = { "A-", "A+", "B-", "B+", "C-", "C+", "D-", "D+", "E-", "E+", "IO" };
-    uint32_t i;
-    for (i = 0; i < ND_RESE_DCR_num; i++) {
-||||||| merged common ancestors
-	if (called%10==0){
-		print_flops("wilson_dslash_vec()","local*10",0,local);
-		print_flops("wilson_dslash_vec()","nonlocal*10",0,nonlocal);
-		print_flops("wilson_dslash_vec()","qmp*10",0,qmp);
-		print_flops("wilson_dslash_vec()","setup*10",0,setup);
-		local=nonlocal=qmp=setup=0.;
-#ifdef USE_BFM
-{
-	 char link_name[ND_RESE_DCR_num][10] = { "A-", "A+", "B-", "B+", "C-", "C+", "D-", "D+", "E-", "E+", "IO" };
-    uint32_t i;
-    for (i = 0; i < ND_RESE_DCR_num; i++) {
-=======
-  if (called%10==0){
-    print_flops("wilson_dslash_vec()","local*10",0,local);
-    print_flops("wilson_dslash_vec()","nonlocal*10",0,nonlocal);
-    print_flops("wilson_dslash_vec()","qmp*10",0,qmp);
-    print_flops("wilson_dslash_vec()","setup*10",0,setup);
-    local=nonlocal=qmp=setup=0.;
-#ifdef USE_BFM
-#if TARGET != NOARCH
-    {
-      char link_name[ND_RESE_DCR_num][10] = { "A-", "A+", "B-", "B+", "C-", "C+", "D-", "D+", "E-", "E+", "IO" };
-      uint32_t i;
-      for (i = 0; i < ND_RESE_DCR_num; i++) {
->>>>>>> ckelly_latest
-        uint64_t val_re = DCRReadUser(ND_RESE_DCR(i, RE_LINK_ERR_CNT));
-        uint64_t val_retran = DCRReadUser(ND_RESE_DCR(i, SE_RETRANS_CNT));
-        if (val_re || val_retran)
-          printf("LINK Errors on RESE %s Recv Count = %ld Retran = %ld\n",
-                 link_name[i],val_re,val_retran);
-	//        if (val_re > 3000){
-        if (0){
-	  // crash the node
-	  double *tmp = NULL;
-	  *tmp = 1.0;
-	}
-      }
-    }
-#endif
-<<<<<<< HEAD
 	}
 //	VRB.Result(cname,fname,"done");
 DiracOp::CGflops += 1320*vol*vec_len;
-||||||| merged common ancestors
-	}
-//	VRB.Result(cname,fname,"done");
-=======
 #endif
   }
   //if(!UniqueID()){ printf("Finished vectorised wilson dslash\n"); fflush(stdout); }
   //	VRB.Result(cname,fname,"done");
->>>>>>> ckelly_latest
 }
 
 #if 0
