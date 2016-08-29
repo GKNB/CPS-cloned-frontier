@@ -338,7 +338,8 @@ struct Lanczos{
   }
 
   void freeEvecs(){
-    evec.clear();
+    std::vector<typename GridPolicies::GridFermionField>().swap(evec); //evec.clear();
+    std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
     if(UGrid_f != NULL) delete UGrid_f;
     if(FrbGrid_f != NULL) delete FrbGrid_f;
   }
