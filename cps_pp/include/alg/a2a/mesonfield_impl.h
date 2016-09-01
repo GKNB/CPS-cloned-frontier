@@ -259,8 +259,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}
@@ -316,8 +316,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	mf_accum = 0.;
 
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
 
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 	}
