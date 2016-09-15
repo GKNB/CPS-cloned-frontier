@@ -66,7 +66,8 @@ public:
   }
 
   inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites(); } //increment of linearized coordinate between flavors
-
+  inline int dimpol_site_stride_3d() const{ return 1; }
+ 
   inline int siteFsiteConvert(const int site, const int f) const{ return site + GJP.VolNodeSites()*f; } //convert a site-flavor pair to an fsite
 
   inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
@@ -495,7 +496,8 @@ public:
   }
 
   inline int fsiteFlavorOffset() const{ return logical_vol; }
-
+  inline int dimpol_site_stride_3d() const{ return 1; }
+  
   inline int siteFsiteConvert(const int site, const int f) const{ 
     return site + logical_vol * f;
   }

@@ -95,7 +95,7 @@ public:
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
   inline int fsite_offset(const int fsite) const{ return site_size*fsite; }
-
+  
   inline SiteType* fsite_ptr(const int fsite){  //fsite is in the internal flavor/Euclidean mapping of the DimensionPolicy. Use only if you know what you are doing
     return f + site_size*fsite;
   }

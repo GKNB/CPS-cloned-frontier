@@ -402,7 +402,7 @@ int main(int argc,char *argv[])
 
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(1){
+    if(0){
       //Meson field benchmark is too complex. However the underlying most expensive operation is GridVectorizedSpinColorContract which is easy to compute flops for
       double sum_dt = 0., sum_dt2 = 0.;
       typedef typename GridA2Apolicies::ComplexType GVtype;
@@ -446,7 +446,25 @@ int main(int argc,char *argv[])
       //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
 
+    if(1){ //All-time mesonfield contract
+      std::cout << "Starting all-time mesonfield contract benchmark\n";
+      Float total_time = 0.;
+      std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
+      
+      for(int iter=0;iter<ntests;iter++){
+	W.testRandom();
+	V.testRandom();
+	Wgrid.importFields(W);
+	Vgrid.importFields(V);
+	total_time -= dclock();
+	A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
+	total_time += dclock();
+      }
+      printf("MF contract all t: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);      
+    }
 
+
+    
     
     if(0){ //test mesonfield contract
       //#define MF_CONTR_CPS

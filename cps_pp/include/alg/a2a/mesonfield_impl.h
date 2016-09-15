@@ -289,7 +289,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
   for(int t=0;t<Lt;t++) 
     if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
     else mf_t[t].zero();
+  print_time("A2AmesonField","setup",time + dclock());
 
+  time = -dclock();
   //For W vectors we dilute out the flavor index in-place while performing this contraction
   const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
   const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
@@ -309,23 +311,29 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
       cps::ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
-
+      
       for(int j = 0; j < mf_t[t].nmodes_r; j++) {
 	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
-
+	
 	mf_accum = 0.;
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+	int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
 
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
+	int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
+	
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
-
+	  // SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
+	  // SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,p_3d,t_lcl);
+	  
 	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
+	  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
+	  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
 	}
 	mf_t[t](i,j) = mf_accum; //downcast after accumulate      
       }
     }
-    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1;
-
+    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << " over " << omp_get_max_threads() << " threads";
     print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
   }
   print_time("A2AmesonField","local compute",time + dclock());

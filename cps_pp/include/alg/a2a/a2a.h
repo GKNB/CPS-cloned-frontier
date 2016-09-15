@@ -151,9 +151,15 @@ public:
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const FermionFieldType &field = getMode(i);
     const int x4d = field.threeToFour(p3d,t);
-    return SCFvectorPtr<FieldSiteType>(field.site_ptr(x4d,0),field.site_ptr(x4d,1));
+    FieldSiteType const *f0 = field.site_ptr(x4d,0);
+    return SCFvectorPtr<FieldSiteType>(f0,f0+field.flav_offset());
   }
-
+  //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
+  inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{
+    const FermionFieldType &field = getMode(i);
+    return field.dimpol_site_stride_3d()*field.siteSize();
+  }
+  
   const CPSfermion4D<FieldSiteType> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
   //Replace this vector with the average of this another vector, 'with'
@@ -323,18 +329,20 @@ private:
   std::vector<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
   const std::string cname;
-
+  FieldSiteType zerosc[12];
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
   A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
     wl.resize(nl,FermionFieldType());
-    wh.resize(12*nhits, FermionFieldType()); 
+    wh.resize(12*nhits, FermionFieldType());
+    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
   A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
-    wh.resize(12*nhits, FermionFieldType(field_setup_params)); 
+    wh.resize(12*nhits, FermionFieldType(field_setup_params));
+    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
 
   
@@ -403,18 +411,19 @@ public:
 
   inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    const static FieldSiteType zerosc[12] = { 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
-
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     const int x4d = field.threeToFour(p3d,t);
-    FieldSiteType const* lp[2] = { zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0),
-				   zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1) };
-
-    return SCFvectorPtr<FieldSiteType>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
+    return SCFvectorPtr<FieldSiteType>(zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0), zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1), zero_hint[0], zero_hint[1]);
   }
-
+  //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
+  inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{ 
+    const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
+    bool zero_hint[2] = {false,false};
+    if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
+    return zero_hint[f] ? 0 : field.dimpol_site_stride_3d()*field.siteSize();
+  }
 
   //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
   const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }

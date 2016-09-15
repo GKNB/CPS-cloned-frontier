@@ -23,6 +23,7 @@ public:
   }
   inline ComplexType const* getPtr(const int f) const{ return p[f]; }
   inline bool isZero(const int f) const{ return zero_hint[f]; }
+  inline void incrementPointers(const int df0, const int df1){ p[0] += df0; p[1] += df1; }
 };
 
 
