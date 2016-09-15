@@ -2,7 +2,7 @@
 #define USE_GRID_A2A
 #define USE_GRID_LANCZOS
 #include<chroma.h>
-
+//#include<valgrind/callgrind.h>
 //bfm headers
 #ifdef USE_BFM
 #include<bfm.h>
@@ -402,7 +402,53 @@ int main(int argc,char *argv[])
 
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(1){ //test mesonfield contract
+    if(1){
+      //Meson field benchmark is too complex. However the underlying most expensive operation is GridVectorizedSpinColorContract which is easy to compute flops for
+      double sum_dt = 0., sum_dt2 = 0.;
+      typedef typename GridA2Apolicies::ComplexType GVtype;
+      typedef typename GridA2Apolicies::ScalarComplexType GCtype;
+      const int nsimd = GVtype::Nsimd();      
+
+      //Expects 2 vectors of 12 vectorized complex numbers
+      // GCtype r[24*nsimd];
+      // for(int i=0;i<24*nsimd;i++) r[i] = GCtype(LRG.Urand(),LRG.Urand());
+      // GVtype a, b;
+      // vset(a,&r[0]);
+      // vset(b,&r[12]);
+      NullObject n;
+      CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> a(n); a.testRandom();
+      CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> b(n); b.testRandom();
+      CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
+      CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
+      CPSfield<GVtype,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> cc(simd_dims);
+      
+      printf("Max threads %d\n",omp_get_max_threads());
+      double t0 = Grid::usecond();
+      for(int test=0;test<ntests;test++){
+#pragma omp parallel for
+	for(int i=0;i<aa.nfsites();i++){
+	  GVtype *ai = aa.fsite_ptr(i);
+	  GVtype *bi = bb.fsite_ptr(i);
+	  GVtype *ci = cc.fsite_ptr(i);
+	  *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+	}
+      }
+      double t1 = Grid::usecond();
+      double dt = t1 - t0;
+      
+      int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
+	+ 12*2*nsimd; //12 vectorized += or -=
+      double total_FLOPs = FLOPs * aa.nfsites() * ntests;
+      
+      double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
+      std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops << " Mflops\n";
+      
+      //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
+    }
+
+
+    
+    if(0){ //test mesonfield contract
       //#define MF_CONTR_CPS
 #define MF_CONTR_GRID
       std::cout << "Starting mesonfield contract benchmark\n";
@@ -416,7 +462,11 @@ int main(int argc,char *argv[])
       
 #ifdef MF_CONTR_GRID
 	total_time -= dclock();
+	// CALLGRIND_START_INSTRUMENTATION ;
+	// CALLGRIND_TOGGLE_COLLECT ;
 	mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
+	// CALLGRIND_TOGGLE_COLLECT ;
+	// CALLGRIND_STOP_INSTRUMENTATION ;
 	total_time += dclock();
 #endif
 #ifdef MF_CONTR_CPS

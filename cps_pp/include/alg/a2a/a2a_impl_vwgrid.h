@@ -20,12 +20,12 @@ void chiralProject(FermionField &out, const FermionField &in, const char sgn){
   Grid::GridBase *grid=in._grid;
 
   //decltype(Grid::QCD::peekSpin(static_cast<const Grid::Lattice<typename FermionField::vector_object>&>(in),0)) zero_spn(in._grid);
-  decltype(Grid::PeekIndex<Grid::QCD::SpinIndex>(in,0)) zero_spn(in._grid);
-  zeroit(zero_spn);
+  decltype(Grid::PeekIndex<SpinIndex>(in,0)) zero_spn(in._grid);
+  Grid::zeroit(zero_spn);
 
   out = in;
-  Grid::PokeIndex<Grid::QCD::SpinIndex>(out, zero_spn, base);
-  Grid::PokeIndex<Grid::QCD::SpinIndex>(out, zero_spn, base+1);
+  Grid::PokeIndex<SpinIndex>(out, zero_spn, base);
+  Grid::PokeIndex<SpinIndex>(out, zero_spn, base+1);
 }
 
 //Convert a 5D field to a 4D field, with the upper 2 spin components taken from s-slice 's_u' and the lower 2 from 's_l'
