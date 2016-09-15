@@ -311,6 +311,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
       cps::ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
+
+      SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
+      int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
       
       for(int j = 0; j < mf_t[t].nmodes_r; j++) {
 	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
@@ -318,9 +321,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	mf_accum = 0.;
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 	int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
-
-	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
-	int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
 	
 	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 	  // SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
@@ -330,7 +330,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
 	  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
 	}
-	mf_t[t](i,j) = mf_accum; //downcast after accumulate      
+	mf_t[t](i,j) = mf_accum; //downcast after accumulate
+	lscf.incrementPointers(-size_3d*lscf_site_incr[0], -size_3d*lscf_site_incr[1]); //reset for next j
       }
     }
     std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << " over " << omp_get_max_threads() << " threads";
