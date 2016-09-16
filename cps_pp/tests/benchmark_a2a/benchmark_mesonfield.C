@@ -394,12 +394,18 @@ int main(int argc,char *argv[])
     A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
     A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
     
-    A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims_3d);
-    SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
+    //A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims_3d);
+    //SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
+    int p[3] = {1,1,1};
+    A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
+    SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
+      
 
-    A2AexpSource<> src(2.0);
-    SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
-
+    //A2AexpSource<> src(2.0);
+    //SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
+    A2AflavorProjectedExpSource<> src(2.0,p);
+    SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,15,src);
+    
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
     if(0){
