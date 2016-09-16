@@ -180,6 +180,14 @@ protected:
   SourceType src_allsites;
   SourceType src_omit000; //same source structure, only the site 0,0,0 has been set to zero during the FFT
 
+  //Multiply src_omit000 by sign*I
+  void multOmit000Isign(){
+    typedef typename SourceType::FieldType SrcType;
+    SrcType &the_src = src_omit000.getSource();
+#pragma omp parallel for
+    for(int i=0;i<the_src.fsites();i++)
+      *the_src.fsite_ptr(i) = multiplySignTimesI(sign,*the_src.fsite_ptr(i));
+  }
 public:
   typedef typename SourceType::FieldParamType FieldParamType;
   typedef typename SourceType::Policies::ComplexType ComplexType;
@@ -219,8 +227,8 @@ public:
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
     const ComplexType &val = src_omit000.siteComplex(site);
 
-    out(1,0) = multiplySignTimesI(sign,val);   //std::complex<Float>( -sign * std::imag(val), sign * std::real(val) ); // sign * i * val
-    out(0,1) = -out(1,0); //-1 from sigma2
+    out(1,0) = val; //multiplySignTimesI(sign,val);   //std::complex<Float>( -sign * std::imag(val), sign * std::real(val) ); // sign * i * val
+    out(0,1) = -val;  //-out(1,0); //-1 from sigma2
   }
 };
 
@@ -234,6 +242,7 @@ public:
   A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_setup_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
     this->src_allsites.setup(radius,src_setup_params,false);
     this->src_omit000.setup(radius,src_setup_params,true);
+    this->multOmit000Isign();
   }
 
 };
