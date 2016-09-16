@@ -396,10 +396,35 @@ struct MconjGrid<vComplexType,false,true>{
     return (*l) * conjugate(*r);
   }
 };
+
+#if defined (AVX2)
+inline Grid::vComplexD conjMult(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+  Grid::vComplexD out;
+  __m256d a_real = _mm256_movedup_pd( l->v ); // Ar Ar
+  __m256d a_imag = _mm256_shuffle_pd(l->v,l->v,0xF);//aiai
+  a_imag = _mm256_mul_pd( a_imag, _mm256_permute_pd( r->v, 0x5 ) );  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
+  out.v = _mm256_fmsubadd_pd( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr
+  return out;
+}
+inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vComplexF *const r){
+  Grid::vComplexF out;
+  __m256 a_real = _mm256_moveldup_ps( l->v ); // Ar Ar
+  __m256 a_imag = _mm256_movehdup_ps( l->v ); // Ai Ai
+  a_imag = _mm256_mul_ps( a_imag, _mm256_shuffle_ps( r->v,r->v, _MM_SELECT_FOUR_FOUR(2,3,0,1) ));  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
+  out.v = _mm256_fmsubadd_ps( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr
+  return out;
+}
+#endif
+
+
 template<typename vComplexType>
 struct MconjGrid<vComplexType,true,false>{
   static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+#if defined (AVX2)
+    return conjMult(l,r);
+#else    
     return conjugate(*l) * (*r);
+#endif
   }
 };
 template<typename vComplexType>
@@ -450,13 +475,13 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
     switch(smatidx){
     case 15:
       for(int f1=0;f1<2;f1++)
-	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+      	for(int f3=0;f3<2;f3++)
+      	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
       break;
-    case 0: 
+    case 0:
       for(int f1=0;f1<2;f1++)
-	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
+      	for(int f3=0;f3<2;f3++)
+      	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
       break;
     default:
       ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx);
