@@ -2,7 +2,7 @@
 #define USE_GRID_A2A
 #define USE_GRID_LANCZOS
 #include<chroma.h>
-//#include<valgrind/callgrind.h>
+#include<valgrind/callgrind.h>
 //bfm headers
 #ifdef USE_BFM
 #include<bfm.h>
@@ -427,10 +427,11 @@ int main(int argc,char *argv[])
       CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
       CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
       CPSfield<GVtype,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> cc(simd_dims);
-      
+
+      int ntests_scaled = 10;
       printf("Max threads %d\n",omp_get_max_threads());
       double t0 = Grid::usecond();
-      for(int test=0;test<ntests;test++){
+      for(int test=0;test<ntests_scaled;test++){
 #pragma omp parallel for
 	for(int i=0;i<aa.nfsites();i++){
 	  GVtype *ai = aa.fsite_ptr(i);
@@ -444,14 +445,14 @@ int main(int argc,char *argv[])
       
       int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
 	+ 12*2*nsimd; //12 vectorized += or -=
-      double total_FLOPs = FLOPs * aa.nfsites() * ntests;
+      double total_FLOPs = FLOPs * aa.nfsites() * ntests_scaled;
       
       double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
-      std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops << " Mflops\n";
+      std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops << " Mflops\n";
       
       //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
-    if(0){
+    if(1){
       W.testRandom();
       V.testRandom();
       Wgrid.importFields(W);
@@ -463,21 +464,29 @@ int main(int argc,char *argv[])
       const int Lt = GJP.Tnodes()*GJP.TnodeSites();
       const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
       const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+
+#define BLOCKED_MF
+
       
+      CALLGRIND_START_INSTRUMENTATION ;
+      CALLGRIND_TOGGLE_COLLECT ;
       double t0 = Grid::usecond();
       for(int test=0;test<ntests;test++){
 	printf("Doing test %d\n",test);
 	std::vector<CPSfield<FlavorMatrixGeneral<typename GridA2Apolicies::ComplexType>,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> > cc(omp_get_max_threads(),simd_dims);
 	int cc_step_3d = cc[0].dimpol_site_stride_3d() * cc[0].siteSize();
 	printf("cc_step_3d %d\n",cc_step_3d);
-	
-	for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+
+	//for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+	for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<GJP.TnodeCoor()*GJP.TnodeSites()+1; t++){
 	  const int nl_l = Wgrid.getNl();
 	  const int nl_r = Vgrid.getNl();
 
 	  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 	  printf("Doing t=%d for %d*%d elements and #3d sites %d\n",t,Wgrid.getNmodes(),Vgrid.getNmodes(),size_3d);
 	  double time = -dclock();
+#ifndef BLOCKED_MF
+	  
 #pragma omp parallel for
 	  for(int i = 0; i < Wgrid.getNmodes(); i++){
 	    int me = omp_get_thread_num();
@@ -499,15 +508,11 @@ int main(int argc,char *argv[])
 	      for(int p_3d = 0; p_3d < size_3d; p_3d++) {
 		FlavorMatrixGeneral<typename GridA2Apolicies::ComplexType> lMr;
 		const typename GridA2Apolicies::ComplexType zero(0.);
-		lMr(0,0) = lscf.isZero(0) || rscf.isZero(0) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(0),rscf.getPtr(0));
-		lMr(0,1) = lscf.isZero(0) || rscf.isZero(1) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(0),rscf.getPtr(1));
-		lMr(1,0) = lscf.isZero(1) || rscf.isZero(0) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(1),rscf.getPtr(0));
-		lMr(1,1) = lscf.isZero(1) || rscf.isZero(1) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(1),rscf.getPtr(1));
-
 		
-		// for(int f1=0;f1<2;f1++)
-		//   for(int f3=0;f3<2;f3++)
-		//     lMr(f1,f3) = GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(f1),rscf.getPtr(f3));
+		for(int f1=0;f1<2;f1++)
+		  for(int f3=0;f3<2;f3++)
+		    lMr(f1,f3) = GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(f1),rscf.getPtr(f3));
+		
 		//lMr(f1,f3) = lscf.isZero(f1) || rscf.isZero(f3) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(f1),rscf.getPtr(f3));
 
 		//*(cc[me].site_ptr(cc[me].threeToFour(p_3d,t_lcl))) = lMr;
@@ -521,17 +526,105 @@ int main(int argc,char *argv[])
 	      lscf.incrementPointers(-size_3d*lscf_site_incr[0], -size_3d*lscf_site_incr[1]); //reset for next j
 	    }
 	  }
+#else
+	  // int bi = 4;
+	  // int bj = 18;
+	  // int bk = 32;
+
+	  int bi = 4; //Wgrid.getNmodes()/2;
+	  int bj = 3; //Vgrid.getNmodes()/2;
+	  int bk = size_3d; //100; //size_3d;
+	  
+#pragma omp parallel
+	  {
+	    int me = omp_get_thread_num();
+	    
+	    for(int i0 = 0; i0 < Wgrid.getNmodes(); i0+=bi){
+	      int iup = std::min(i0+bi,Wgrid.getNmodes());
+	    
+	      //int me = omp_get_thread_num();
+	      for(int j0 = 0; j0< Vgrid.getNmodes(); j0+=bj) {
+		int jup = std::min(j0+bj,Vgrid.getNmodes());
+	      
+		for(int k0 = 0; k0 < size_3d; k0+=bk){
+		  int kup = std::min(k0+bk,size_3d);
+
+		  int thr_kwork, thr_koff;
+		  thread_work(thr_kwork, thr_koff, kup-k0, me, omp_get_num_threads());
+
+		  int thr_k0 = k0+thr_koff;
+		
+		  //#pragma omp parallel for
+		    for(int i = i0; i < iup; i++){	    
+		      modeIndexSet i_high_unmapped; if(i>=nl_l) Wgrid.indexUnmap(i-nl_l,i_high_unmapped);
+	    
+		      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,thr_k0,t_lcl); //dilute flavor in-place if it hasn't been already
+		      lscf.setHint(0,false); 	  lscf.setHint(1,false);
+
+		      //lscf[me] = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,thr_k0,t_lcl);
+		      //lscf[me].setHint(0,false); 	  lscf[me].setHint(1,false);
+		  
+		      int lscf_site_incr[2] = { Wgrid.siteStride3D(i,i_high_unmapped,0), Wgrid.siteStride3D(i,i_high_unmapped,1) };
+		  
+		      for(int j = j0; j < jup; j++) {
+			modeIndexSet j_high_unmapped; if(j>=nl_r) Vgrid.indexUnmap(j-nl_r,j_high_unmapped);
+		    
+			SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,thr_k0,t_lcl);
+			rscf.setHint(0,false); 	  rscf.setHint(1,false);
+
+			// rscf[me] = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,thr_k0,t_lcl);
+			// rscf[me].setHint(0,false); 	  rscf[me].setHint(1,false);
+		    
+			int rscf_site_incr[2] = { Vgrid.siteStride3D(j,j_high_unmapped,0), Vgrid.siteStride3D(j,j_high_unmapped,1) };
+		    
+			//FlavorMatrixGeneral<typename GridA2Apolicies::ComplexType> *cc_me = cc[me].site_ptr(cc[me].threeToFour(k0,t_lcl));
+			FlavorMatrixGeneral<typename GridA2Apolicies::ComplexType> *cc_me = cc[me].site_ptr(cc[me].threeToFour(thr_k0,t_lcl));
+		    
+			//for(int p_3d = k0; p_3d < kup; p_3d++) {
+			for(int p_3d = thr_k0; p_3d < thr_k0+thr_kwork; p_3d++) {
+		    
+			  FlavorMatrixGeneral<typename GridA2Apolicies::ComplexType> lMr;
+			  const typename GridA2Apolicies::ComplexType zero(0.);
+		
+			  for(int f1=0;f1<2;f1++)
+			    for(int f3=0;f3<2;f3++)
+			      lMr(f1,f3) = GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(f1),rscf.getPtr(f3));
+		
+			  //lMr(f1,f3) = lscf.isZero(f1) || rscf.isZero(f3) ? zero : GridVectorizedSpinColorContract<typename GridA2Apolicies::ComplexType,true,false>::g5(lscf.getPtr(f1),rscf.getPtr(f3));
+		      
+			  //*(cc[me].site_ptr(cc[me].threeToFour(p_3d,t_lcl))) = lMr;
+			  *cc_me = lMr;
+			  cc_me += cc_step_3d;
+		      
+		      
+			  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
+			  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
+			}
+			lscf.incrementPointers(-thr_kwork*lscf_site_incr[0], -thr_kwork*lscf_site_incr[1]); //reset for next j
+		      }
+		    }
+		}
+	      }
+	    }
+
+	  }
+	  
+	  
+#endif	  
 	  time += dclock();
 	  print_time("Full W V spin-color contraction","local compute",time);
 	}
       }
       double t1 = Grid::usecond();
       double dt = t1 - t0;
-      int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
+      int g5_FLOPs = 12*6*nsimd //4 flav * 12 vectorized conj(a)*b
 	+ 12*2*nsimd; //12 vectorized += or -=
-      double total_FLOPs = FLOPs * double(Lt) * double(Wgrid.getNmodes()) * double(Vgrid.getNmodes()) * double(size_3d) *double(ntests);
+      //double total_FLOPs = FLOPs * double(Lt) * double(Wgrid.getNmodes()) * double(Vgrid.getNmodes()) * double(size_3d) *double(ntests);
+      double total_FLOPs = 4 * g5_FLOPs * double(GJP.Tnodes()) * double(Wgrid.getNmodes()) * double(Vgrid.getNmodes()) * double(size_3d) *double(ntests); //1 timeslice per node
       double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
       std::cout << "Full W V spin-color contraction ( conj(a)*b ): New code " << ntests << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops << " Mflops\n";
+      CALLGRIND_TOGGLE_COLLECT ;
+      CALLGRIND_STOP_INSTRUMENTATION ;
     }
     
 
@@ -542,7 +635,7 @@ int main(int argc,char *argv[])
 
     
 
-    if(1){ //All-time mesonfield contract
+    if(0){ //All-time mesonfield contract
       std::cout << "Starting all-time mesonfield contract benchmark\n";
       Float total_time = 0.;
       std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;

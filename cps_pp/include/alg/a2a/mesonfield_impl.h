@@ -278,6 +278,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 }
 
 //This version is more efficient on multi-nodes
+#define BLOCK_MF_CONTRACT
+
+#ifndef BLOCK_MF_CONTRACT
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
@@ -349,8 +353,108 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
   print_time("A2AmesonField","nodeSum",time + dclock());
 }
 
+#else
 
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+template<typename InnerProduct, typename Allocator>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 
+  double time = -dclock();
+  mf_t.resize(Lt);
+  for(int t=0;t<Lt;t++) 
+    if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
+    else mf_t[t].zero();
+  print_time("A2AmesonField","setup",time + dclock());
+
+  time = -dclock();
+  //For W vectors we dilute out the flavor index in-place while performing this contraction
+  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
+  
+  //Each node only works on its time block
+  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+    double ttime = -dclock();
+
+    const int nl_l = mf_t[t].lindexdilution.getNl();
+    const int nl_r = mf_t[t].rindexdilution.getNl();
+
+    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+
+    int bi = 4; //Wgrid.getNmodes()/2;
+    int bj = 3; //Vgrid.getNmodes()/2;
+    int bp = size_3d; //100; //size_3d;
+    
+#pragma omp parallel
+    {
+      int me = omp_get_thread_num();
+
+      for(int i0 = 0; i0 < mf_t[t].nmodes_l; i0+=bi){
+	int iup = std::min(i0+bi,mf_t[t].nmodes_l);
+	    
+	for(int j0 = 0; j0< mf_t[t].nmodes_r; j0+=bj) {
+	  int jup = std::min(j0+bj,mf_t[t].nmodes_r);
+	  
+	  for(int p0 = 0; p0 < size_3d; p0+=bp){
+	    int pup = std::min(p0+bp,size_3d);
+      
+	    int thr_pwork, thr_poff;
+	    thread_work(thr_pwork, thr_poff, pup-p0, me, omp_get_num_threads());
+
+	    int thr_p0 = p0 + thr_poff;
+	    
+	    for(int i = i0; i < iup; i++){
+	      cps::ComplexD mf_accum;
+	      
+	      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
+
+	      SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,thr_p0,t_lcl); //dilute flavor in-place if it hasn't been already
+	      int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
+	      
+	      for(int j = j0; j < jup; j++) {
+		modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
+	
+		mf_accum = 0.;
+		SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,thr_p0,t_lcl);
+		int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
+	
+		for(int p_3d = thr_p0; p_3d < thr_p0+thr_pwork; p_3d++) {
+		  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
+		  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
+		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
+		}
+		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j
+	  
+#pragma omp critical
+		{
+		  mf_t[t](i,j) += mf_accum; //downcast after accumulate
+		}
+	      }
+	    }
+	  }
+	  
+	}
+      }
+    }//end of parallel region
+    
+    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << " over " << omp_get_max_threads() << " threads";
+    print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
+  }
+  print_time("A2AmesonField","local compute",time + dclock());
+
+  time = -dclock();
+  sync();
+  print_time("A2AmesonField","sync",time + dclock());
+
+  //Accumulate
+  time = -dclock();
+  for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
+  print_time("A2AmesonField","nodeSum",time + dclock());
+}
+
+#endif
 
 //Compute   l^ij(t1,t2) r^ji(t3,t4)
 //Threaded but *node local*
