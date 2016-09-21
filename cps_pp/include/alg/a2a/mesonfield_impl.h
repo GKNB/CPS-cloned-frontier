@@ -355,6 +355,18 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
 #else
 
+//Basic tunings performed on laptop (i7-4700mq 1 thread per core)
+#define MF_COMPUTE_BI 4
+#define MF_COMPUTE_BJ 3
+#define MF_COMPUTE_BP size_3d
+
+#define MF_COMPUTE_PREFETCH_SITE_AHEAD 0
+#define MF_COMPUTE_PREFETCH_SCINCR 12
+
+#ifdef KNL_OPTIMIZATIONS
+//Insert KNL tunings
+#endif
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
@@ -383,9 +395,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
     int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 
-    int bi = 4; //Wgrid.getNmodes()/2;
-    int bj = 3; //Vgrid.getNmodes()/2;
-    int bp = size_3d; //100; //size_3d;
+    int bi = MF_COMPUTE_BI;
+    int bj = MF_COMPUTE_BJ;
+    int bp = MF_COMPUTE_BP;
     
 #pragma omp parallel
     {
@@ -419,14 +431,29 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 		mf_accum = 0.;
 		SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,thr_p0,t_lcl);
 		int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
-	
+
+		for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
+		  vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
+		  vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
+		  vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
+		  vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
+		}
+		
 		for(int p_3d = thr_p0; p_3d < thr_p0+thr_pwork; p_3d++) {
 		  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 		  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
 		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
+
+		  for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
+		    vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
+		    vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
+		    vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
+		    vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
+		  }
+
+		    
 		}
-		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j
-	  
+		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j		
 #pragma omp critical
 		{
 		  mf_t[t](i,j) += mf_accum; //downcast after accumulate

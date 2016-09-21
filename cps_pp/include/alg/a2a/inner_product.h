@@ -470,7 +470,7 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const mf_Complex zero(0.);
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
-
+    
     //Not all are yet supported!
     switch(smatidx){
     case 15:

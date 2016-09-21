@@ -452,7 +452,7 @@ int main(int argc,char *argv[])
       
       //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
-    if(1){
+    if(0){
       W.testRandom();
       V.testRandom();
       Wgrid.importFields(W);
@@ -521,7 +521,7 @@ int main(int argc,char *argv[])
 		
 	      
 		lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
-		rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
+		rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);		
 	      }
 	      lscf.incrementPointers(-size_3d*lscf_site_incr[0], -size_3d*lscf_site_incr[1]); //reset for next j
 	    }
@@ -635,20 +635,28 @@ int main(int argc,char *argv[])
 
     
 
-    if(0){ //All-time mesonfield contract
+    if(1){ //All-time mesonfield contract
       std::cout << "Starting all-time mesonfield contract benchmark\n";
       Float total_time = 0.;
       std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
+
+      W.testRandom();
+      V.testRandom();
+      Wgrid.importFields(W);
+      Vgrid.importFields(V);
+      
+      CALLGRIND_START_INSTRUMENTATION ;
+      CALLGRIND_TOGGLE_COLLECT ;
       
       for(int iter=0;iter<ntests;iter++){
-	W.testRandom();
-	V.testRandom();
-	Wgrid.importFields(W);
-	Vgrid.importFields(V);
 	total_time -= dclock();
 	A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
 	total_time += dclock();
       }
+
+      CALLGRIND_TOGGLE_COLLECT ;
+      CALLGRIND_STOP_INSTRUMENTATION ;
+      
       printf("MF contract all t: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);      
     }
 
