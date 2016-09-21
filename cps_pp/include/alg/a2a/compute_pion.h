@@ -151,7 +151,7 @@ class ComputePion{
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx], fftw_W, *mf_struct_nogp, fftw_V);
       }else{
 	A2AflavorProjectedExpSource<SourcePolicies> fpexp(rad, p_v.ptr(), src_setup_params); //flavor projection is adjacent to right-hand field
-	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<15,ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,fpexp);
 
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
       }
@@ -167,7 +167,7 @@ class ComputePion{
 	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
     
 	A2AflavorProjectedExpSource<SourcePolicies> fpexp(rad, p_v_alt.ptr(), src_setup_params); 
-	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,15,fpexp);
+	SCFspinflavorInnerProduct<15,ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,fpexp);
 
 	std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_ll_alt(Lt);
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll_alt,fftw_W, mf_struct, fftw_V);

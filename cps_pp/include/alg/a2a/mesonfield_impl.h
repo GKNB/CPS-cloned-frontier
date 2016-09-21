@@ -360,6 +360,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 #define MF_COMPUTE_BJ 3
 #define MF_COMPUTE_BP size_3d
 
+#define MF_COMPUTE_DO_PREFETCH 1
 #define MF_COMPUTE_PREFETCH_SITE_AHEAD 0
 #define MF_COMPUTE_PREFETCH_SCINCR 12
 
@@ -432,25 +433,27 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 		SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,thr_p0,t_lcl);
 		int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
 
+#if MF_COMPUTE_DO_PREFETCH == 1
 		for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
 		  vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
 		  vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
 		  vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
 		  vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
 		}
-		
+#endif
 		for(int p_3d = thr_p0; p_3d < thr_p0+thr_pwork; p_3d++) {
 		  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 		  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
 		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
 
+#if MF_COMPUTE_DO_PREFETCH == 1
 		  for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
 		    vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
 		    vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
 		    vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
 		    vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
 		  }
-
+#endif
 		    
 		}
 		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j		

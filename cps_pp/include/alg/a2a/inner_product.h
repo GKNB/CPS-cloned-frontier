@@ -314,32 +314,16 @@ public:
   }
 };
 
-//Optimized inner product for general spin and flavor matrix
-//Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
-template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCFspinflavorInnerProduct{
-  const SourceType &src;
-  FlavorMatrixType sigma;
-  int smatidx;
-public:
-
-  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, const int &_smatidx, const SourceType &_src): 
-  sigma(_sigma), smatidx(_smatidx), src(_src){}
-
-  // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
-  //where phi has flavor structure
-  //p is the momentum 'site' index
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const;
-};
 
 
 
-template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
+
+template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
 struct _SCFspinflavorInnerProduct_impl{};
 
-template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
-struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  complex_double_or_float_mark>{
-  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
+template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  complex_double_or_float_mark>{
+  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const static std::complex<double> zero(0.,0.);
     FlavorMatrix lMr;
@@ -464,28 +448,30 @@ public:
 
 };
 
-template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
-struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
-  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const int smatidx, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
+template<int smatidx,typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect{};
+
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect<15,vComplexType,conj_left,conj_right>{
+  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g5(l,r); }
+};
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect<0,vComplexType,conj_left,conj_right>{
+  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::unit(l,r); }
+};
+
+
+template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
+struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
+  inline static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const mf_Complex zero(0.);
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
-    
+
     //Not all are yet supported!
-    switch(smatidx){
-    case 15:
-      for(int f1=0;f1<2;f1++)
-      	for(int f3=0;f3<2;f3++)
-      	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
-      break;
-    case 0:
-      for(int f1=0;f1<2;f1++)
-      	for(int f3=0;f3<2;f3++)
-      	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
-      break;
-    default:
-      ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx);
-    }
+    for(int f1=0;f1<2;f1++)
+      for(int f3=0;f3<2;f3++)
+    	lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right>::doit(l.getPtr(f1),r.getPtr(f3));
     
     //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrixGeneral<mf_Complex> phi;
@@ -502,17 +488,28 @@ struct _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_righ
 #endif
 
 
-template<typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
-std::complex<double> SCFspinflavorInnerProduct<mf_Complex,SourceType,conj_left,conj_right>::operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+//Optimized inner product for general spin and flavor matrix
+//Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
+template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
+class SCFspinflavorInnerProduct{
+  const SourceType &src;
+  FlavorMatrixType sigma;
+public:
+
+  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): 
+  sigma(_sigma), src(_src){}
+
+  // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
+  //where phi has flavor structure
+  //p is the momentum 'site' index
+  inline std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-  return _SCFspinflavorInnerProduct_impl<mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(src,sigma,smatidx,  l,r,p,t);
+    return _SCFspinflavorInnerProduct_impl<smatidx,mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(src,sigma,  l,r,p,t);
 #else
-  return std::complex<double>(0,0);
+    return std::complex<double>(0,0);
 #endif
-}
-
-
-
+  }
+};
 
 
 

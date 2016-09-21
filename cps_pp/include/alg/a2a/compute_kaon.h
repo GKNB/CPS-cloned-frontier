@@ -81,7 +81,7 @@ class ComputeKaon{
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct, fftw_V);
     }else{ //For GPBC we need a different smearing function for source and sink because the flavor structure depends on the momentum of the V field, which is opposite between source and sink
       A2AflavorProjectedExpSource<SourcePolicies> fpexp_src(rad, p_v_src.ptr(),src_setup_params);
-      SCFspinflavorInnerProduct<ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_src(sigma0,15,fpexp_src);
+      SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_src(sigma0,fpexp_src);
 
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
@@ -89,7 +89,7 @@ class ComputeKaon{
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct_src, fftw_V_s);
 
       A2AflavorProjectedExpSource<SourcePolicies> fpexp_snk(rad, p_v_snk.ptr(),src_setup_params);
-      SCFspinflavorInnerProduct<ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_snk(sigma0,15,fpexp_snk);
+      SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_snk(sigma0,fpexp_snk);
 
       fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);
