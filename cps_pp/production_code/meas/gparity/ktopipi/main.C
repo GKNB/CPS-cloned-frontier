@@ -141,6 +141,9 @@ int main (int argc,char **argv )
       mixed_solve = false;
       if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
       arg++;
+    }else if( strncmp(cmd,"--debug-signals",30) == 0){
+      if(!UniqueID()){ printf("main.C: Ignoring Grid argument\n"); fflush(stdout); }
+      arg++;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
       exit(-1);
