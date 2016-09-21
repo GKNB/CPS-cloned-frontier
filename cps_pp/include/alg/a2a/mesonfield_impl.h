@@ -356,13 +356,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 #else
 
 //Basic tunings performed on laptop (i7-4700mq 1 thread per core)
-#define MF_COMPUTE_BI 4
-#define MF_COMPUTE_BJ 3
-#define MF_COMPUTE_BP size_3d
+#define MF_COMPUTE_BI 32
+#define MF_COMPUTE_BJ 12
+#define MF_COMPUTE_BP 256
 
 #define MF_COMPUTE_DO_PREFETCH 1
 #define MF_COMPUTE_PREFETCH_SITE_AHEAD 0
-#define MF_COMPUTE_PREFETCH_SCINCR 12
+#define MF_COMPUTE_PREFETCH_SCINCR 4
 
 #ifdef KNL_OPTIMIZATIONS
 //Insert KNL tunings
@@ -426,7 +426,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	      SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,thr_p0,t_lcl); //dilute flavor in-place if it hasn't been already
 	      int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
 	      
-	      for(int j = j0; j < jup; j++) {
+	      for(int j = j0; j < jup; j++) {		
 		modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
 	
 		mf_accum = 0.;
@@ -444,7 +444,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 		for(int p_3d = thr_p0; p_3d < thr_p0+thr_pwork; p_3d++) {
 		  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
 		  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
-		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);
+		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);		    
 
 #if MF_COMPUTE_DO_PREFETCH == 1
 		  for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
