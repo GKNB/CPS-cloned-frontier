@@ -454,7 +454,7 @@ int main(int argc,char *argv[])
       
       int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
 	+ 12*2*nsimd; //12 vectorized += or -=
-      double total_FLOPs = FLOPs * aa.nfsites() * ntests_scaled;
+      double total_FLOPs = double(FLOPs) * double(aa.nfsites()) * double(ntests_scaled);
       
       double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
       std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
@@ -515,7 +515,7 @@ int main(int argc,char *argv[])
       }
       const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
       const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
-      double total_FLOPs = FLOPs_per_site * size_3d * ntests;
+      double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
 
       printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);      
     }

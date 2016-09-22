@@ -280,13 +280,17 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 //This version is more efficient on multi-nodes
 #define BLOCK_MF_CONTRACT
 
+#ifdef KNL_OPTIMIZATIONS
+//#undef BLOCK_MF_CONTRACT
+#endif
+
 #ifndef BLOCK_MF_CONTRACT
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+  if(!UniqueID()) printf("Starting A2AmesonField::compute (unblocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
 
   double time = -dclock();
   mf_t.resize(Lt);
@@ -366,14 +370,22 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
 #ifdef KNL_OPTIMIZATIONS
 //Insert KNL tunings
+#define MF_COMPUTE_DO_PREFETCH 0
+#define MF_COMPUTE_BI mf_t[0].nmodes_l
+#define MF_COMPUTE_BJ mf_t[0].nmodes_r
+#define MF_COMPUTE_BP size_3d
 #endif
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
-
+  if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
+#ifdef KNL_OPTIMIZATIONS
+  if(!UniqueID()) printf("Using KNL optimizations\n");
+#else
+  if(!UniqueID()) printf("NOT using KNL optimizations\n");
+#endif
   double time = -dclock();
   mf_t.resize(Lt);
   for(int t=0;t<Lt;t++) 
@@ -399,7 +411,16 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
     int bi = MF_COMPUTE_BI;
     int bj = MF_COMPUTE_BJ;
     int bp = MF_COMPUTE_BP;
-    
+
+    int nthread = omp_get_max_threads();
+    //cps::ComplexD mf_accum_thr[nthread][mf_t[t].nmodes_l][mf_t[t].nmodes_r];
+    std::vector<std::vector<std::vector<cps::ComplexD> > > mf_accum_thr(nthread);
+    for(int s=0;s<nthread;s++){
+      mf_accum_thr[s].resize(mf_t[t].nmodes_l);
+      for(int i=0;i<mf_t[t].nmodes_l;i++)
+	mf_accum_thr[s][i].resize(mf_t[t].nmodes_r);
+    }
+
 #pragma omp parallel
     {
       int me = omp_get_thread_num();
@@ -418,9 +439,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
 	    int thr_p0 = p0 + thr_poff;
 	    
-	    for(int i = i0; i < iup; i++){
-	      cps::ComplexD mf_accum;
-	      
+	    for(int i = i0; i < iup; i++){	      
 	      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
 	      SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,thr_p0,t_lcl); //dilute flavor in-place if it hasn't been already
@@ -429,7 +448,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	      for(int j = j0; j < jup; j++) {		
 		modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
 	
+		cps::ComplexD &mf_accum = mf_accum_thr[me][i][j];
 		mf_accum = 0.;
+
 		SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,thr_p0,t_lcl);
 		int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
 
@@ -457,16 +478,28 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 		    
 		}
 		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j		
-#pragma omp critical
-		{
-		  mf_t[t](i,j) += mf_accum; //downcast after accumulate
-		}
+		//#pragma omp critical
+		//{
+		//  mf_t[t](i,j) += mf_accum; //downcast after accumulate
+		//}
 	      }
 	    }
 	  }
 	  
 	}
       }
+
+      int ijwork = mf_t[t].nmodes_l * mf_t[t].nmodes_r;
+      int thr_ijwork, thr_ijoff;
+      thread_work(thr_ijwork, thr_ijoff, ijwork, me, omp_get_num_threads());
+      for(int ij=thr_ijoff; ij<thr_ijoff + thr_ijwork; ij++){  //ij = j + mf_t[t].nmodes_r * i
+	int i=ij/mf_t[t].nmodes_r;
+	int j=ij%mf_t[t].nmodes_r;
+	for(int s=0;s<omp_get_num_threads();s++)
+	  mf_t[t](i,j) += mf_accum_thr[s][i][j];
+							     
+      }			            
+
     }//end of parallel region
     
     std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << " over " << omp_get_max_threads() << " threads";
