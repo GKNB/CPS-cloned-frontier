@@ -400,11 +400,31 @@ inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vCom
 }
 #endif
 
+#if defined (AVX512)
+inline Grid::vComplexD conjMult(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+  Grid::vComplexD out;
+  __m512d a_real = _mm512_shuffle_pd( l->v, l->v, 0x00 );
+  __m512d a_imag = _mm512_shuffle_pd( l->v, l->v, 0xFF );
+  a_imag = _mm512_mul_pd( a_imag, _mm512_permute_pd( r->v, 0x55 ) );
+  out.v = _mm512_fmsubadd_pd( a_real, r->v, a_imag );
+  return out;
+}
+
+inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vComplexF *const r){
+  Grid::vComplexF out;
+  __m512 a_real = _mm512_moveldup_ps( l->v ); // Ar Ar
+  __m512 a_imag = _mm512_movehdup_ps( l->v ); // Ai Ai
+  a_imag = _mm512_mul_ps( a_imag, _mm512_permute_ps( r->v, 0xB1 ) );  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
+  out.v = _mm512_fmsubadd_ps( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr 
+  return out;
+}
+#endif
+
 
 template<typename vComplexType>
 struct MconjGrid<vComplexType,true,false>{
   static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-#if defined (AVX2)
+#if defined (AVX2) || defined (AVX512)
     return conjMult(l,r);
 #else    
     return conjugate(*l) * (*r);
