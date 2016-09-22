@@ -488,7 +488,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	  
 	}
       }
-
+#pragma omp barrier
+      
       int ijwork = mf_t[t].nmodes_l * mf_t[t].nmodes_r;
       int thr_ijwork, thr_ijoff;
       thread_work(thr_ijwork, thr_ijoff, ijwork, me, omp_get_num_threads());
