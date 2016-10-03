@@ -749,8 +749,9 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 
       tmp_field_ptr = tmp_field_ptr + (2 * parity + 1) * half_stride; 
     }
+	} 
 	  
-	} else if ((from == CANONICAL) && (to == DWF_4D_EOPREC)) {
+else if ((from == CANONICAL) && (to == DWF_4D_EOPREC)) {
 
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
@@ -787,7 +788,8 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	  }
 
 
-	} else if ((from == CANONICAL) && (to == DWF_4D_EOPREC_EE )) {
+	} 
+else if ((from == CANONICAL) && (to == DWF_4D_EOPREC_EE )) {
 
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
@@ -824,7 +826,8 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	  }
 
 
-  } else if ((from == WILSON) && (to == CANONICAL)) {
+  } 
+else if ((from == WILSON) && (to == CANONICAL)) {
 	  
     VRB.Flow(cname,fname_fconvert, converting_str,
 	     int(from), int(to));
@@ -928,7 +931,9 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	field_ptr = field_ptr + stride;
       }
 
-	} else if ((from == DWF_4D_EOPREC) && (to == CANONICAL)) {
+	} 
+}
+else if ((from == DWF_4D_EOPREC) && (to == CANONICAL)) {
 	  
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
@@ -963,7 +968,9 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	  }
 
 
-	} else if ((from == DWF_4D_EOPREC_EE) && (to == CANONICAL)) {
+	} 
+#if 1
+else if ((from == DWF_4D_EOPREC_EE) && (to == CANONICAL)) {
 	  
 	  VRB.Flow(cname,fname_fconvert, converting_str,
 		   int(from), int(to));
@@ -997,13 +1004,12 @@ void FdwfBase::Fconvert(Vector *f_field, StrOrdType to, StrOrdType from, int cb)
 	    field_ptr = field_ptr + stride;
 	  }
 
-
-    }
   } else {
     ERR.General(cname,fname_fconvert,
 		"Unsupported fermion conversion from %d to %d\n",
 		int(from), int(to)) ;
   }
+#endif
 
 
   // Free temporary fermion field memory
