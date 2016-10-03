@@ -107,6 +107,13 @@ class Lattice
 
     static int scope_lock;
     static int bc_applied;
+    inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
+{
+ x[0] = i % hl[0] + low[0]; i /= hl[0];
+ x[1] = i % hl[1] + low[1]; i /= hl[1];
+ x[2] = i % hl[2] + low[2]; i /= hl[2];
+ x[3] = i % hl[3] + low[3];
+}
 
  protected:
 
@@ -1089,7 +1096,6 @@ class Lattice
                 CnvFrmType cnv_frm,
                 PreserveType prs_f_in)
 	{ return FmatInv(f_out, f_in, cg_arg, true_res , cnv_frm,prs_f_in); }
-}
     //!< Fermion matrix inversion.
     /*!<
       Solves <em> A f_out = f_in </em> for \a f_out, where \a A is the

@@ -56,7 +56,6 @@ static const int PAD_HALF_SPINOR_SIZE = 16;
 static const int BLOCK = HALF_SPINOR_SIZE;
 static const int COLUMN_SPINOR_SIZE = 6;
 static const int GAUGE_SIZE = 72;
-#endif
 
 /*--------------------------------------------------------------------------*/
 /* External                                                                 */

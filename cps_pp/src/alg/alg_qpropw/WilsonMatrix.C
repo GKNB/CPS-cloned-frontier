@@ -307,32 +307,6 @@ WilsonMatrix& WilsonMatrix::LeftTimesEqual(const WilsonMatrix& rhs)
     return *this;
 } 
 
-// Left times-equal member for WilsonMatrix
-/*WilsonMatrix& WilsonMatrix::LeftTimesEqual(const WilsonMatrix& rhs)
-{
-        int c1, c2, c3;
-        int s1, s2, s3;
-        wilson_matrix temp=p;
-
-        for(s1=0;s1<4;++s1){
-          for(c1=0;c1<3;++c1){
-            for(s2=0;s2<4;++s2){
-              for(c2=0;c2<3;++c2){
-                p.d[s1].c[c1].d[s2].c[c2]=0.0;
-                for(s3=0;s3<4;++s3){
-                  for(c3=0;c3<3;++c3){
-                    p.d[s1].c[c1].d[s2].c[c2]+=
-                        rhs.p.d[s1].c[c1].d[s3].c[c3]*
-                        temp.d[s3].c[c3].d[s2].c[c2];
-                  }
-                }
-              }
-            }
-          }
-        }
-        return *this;
-}
-*/
 WilsonMatrix& WilsonMatrix::LeftTimesEqual(const Matrix& rhs) {
   wilson_matrix temp = p;
 
@@ -360,6 +334,7 @@ WilsonVector& WilsonVector::LeftTimesEqual(const Matrix& rhs) {
   return *this;
 }
 
+#if 0
 // Left times-equal member for Matrix
 WilsonMatrix& WilsonMatrix::LeftTimesEqual(const Matrix& lhs)
 {
@@ -381,6 +356,7 @@ WilsonMatrix& WilsonMatrix::LeftTimesEqual(const Matrix& lhs)
 	}
 	return *this;
 } 
+#endif
 
 
 // times-equal member operator for WilsonMatrix
@@ -771,7 +747,7 @@ WilsonMatrix& WilsonMatrix::gl(int dir)
     return *this;
 }
 
-WilsonMatrix WilsonMatrix::glR(int dir)
+WilsonMatrix WilsonMatrix::glR(int dir) const
 {
   int i; /*color*/
   int c2,s2;    /* column indices, color and spin */
@@ -824,7 +800,7 @@ WilsonMatrix WilsonMatrix::glR(int dir)
   }
 	return WilsonMatrix(result);
 }
-WilsonMatrix WilsonMatrix::glL(int dir)
+WilsonMatrix WilsonMatrix::glL(int dir) const
 {
   int i; /*color*/
   int c2,s2;    /* column indices, color and spin */
@@ -954,7 +930,7 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
 	return *this;
 }
 //multiply gamma(i) on the left and return a new one
-WilsonMatrix WilsonMatrix::glV(int dir)
+WilsonMatrix WilsonMatrix::glV(int dir) const
 {
   int i; /*color*/
   int c2,s2;    /* column indices, color and spin */
@@ -1093,7 +1069,7 @@ WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
 	return *this;
 }
 //multiply gamma(i)gamma(5) on the left and return a new one
-WilsonMatrix WilsonMatrix::glA(int dir)
+WilsonMatrix WilsonMatrix::glA(int dir) const
 {
   int i; /*color*/
   int c2,s2;    /* column indices, color and spin */

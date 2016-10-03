@@ -162,6 +162,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
   //=========================
 
   if(cnv_frm == CNV_FRM_YES) //Fixed by CK to allow for single checkerboard input vectors as used in AlgActionRational. Previously it would always convert from CANONICAL to WILSON
+  for(i=0; i < N_eig; ++i)  Fconvert(f_eigenv[i], WILSON, CANONICAL);
 
   //------------------------------------------------------------------
   //  we want both the eigenvalues of D_{hermitian} and
@@ -445,9 +446,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
   //  and return both lambda and lambda^2 from RitzEig
   //------------------------------------------------------------------
 
-  Float * lambda2 = (Float * ) smalloc (N_eig*2*sizeof(Float));
-  if ( lambda2 == 0 ) ERR.Pointer(cname,fname, "lambda2");
-  
+  Float * lambda2 = (Float * ) smalloc (cname,fname, "lambda2",N_eig*2*sizeof(Float));
   {
     DiracOpWilsonTm wilson(*this, (Vector*) 0 , (Vector*) 0, &cg_arg, CNV_FRM_NO);
     iter = wilson.RitzEig(f_eigenv, lambda2, valid_eig, eig_arg);
@@ -1560,6 +1559,7 @@ ForceArg FwilsonTm::EvolveMomFforce(Matrix *mom, Vector *chi, Vector *eta,
 #endif
 
   VRB.FuncEnd(cname,fname);
+#endif
   return ForceArg(L1, sqrt(L2), Linf);
 }
 

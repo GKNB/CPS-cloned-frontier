@@ -18,7 +18,7 @@ CPS_START_NAMESPACE
 class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
  public:
   //CK: Modified to allow for multiple sets of arguments for different fermion types
-  static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
+//  static int current_arg_idx;  //current array index of bfmarg within arg array. Switch is performed either manually or automatically in LatticeFactory
     //static bfmarg bfm_arg;
 
     //CK: Modified to allow for multiple sets of arguments for different fermion types
@@ -28,6 +28,15 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   
     static std::map<Float, bfmarg> arg_map;
     static Float current_key_mass;
+//BfmSolver solver;
+	static BfmSolver CurrentSolver(){
+     return arg_map.at(current_key_mass).solver;
+   };
+	BfmSolver Solver(Float mass){
+     return arg_map.at(mass).solver;
+   };
+
+    
 
     // Lets the user specify what MADWF parameters should be used for each key mass during measurements.
     // Leave empty to use regular CG.

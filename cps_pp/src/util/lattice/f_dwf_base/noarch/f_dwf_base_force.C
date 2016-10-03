@@ -405,6 +405,7 @@ ForceArg FdwfBase::EvolveMomFforce(Matrix *mom, Vector *chi,
 
 }
 
+#if 0
 //------------------------------------------------------------------
 // "Odd" fermion force evolution routine written by Chris Dawson, taken 
 // verbatim, so performance will suck on qcdoc.
@@ -749,6 +750,7 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
   return ForceArg(L1, sqrt(L2), Linf);
 
 }
+#endif
 // CJ: change end
 //------------------------------------------------------------------
 // EvolveMomFforceGparity(Matrix *mom, Vector *chi, Float mass, 

@@ -18,20 +18,12 @@ CPS_END_NAMESPACE
 #include <comms/scu.h>
 #include <comms/glb.h>
 #include <util/omp_wrapper.h>
-CPS_START_NAMESPACE
-
-#ifdef _TARTAN
-CPS_END_NAMESPACE
 #include <math.h>
 CPS_START_NAMESPACE
-#else
-CPS_END_NAMESPACE
-#include <math.h>
-CPS_START_NAMESPACE
-#endif
 
 //! The number of colours, again.
-#define COLORS 3  // implemented only for this number of colors
+#define COLORS 3.  // implemented only for this number of colors
+//static const int COLORS=3;
 #undef NEW_GFIX
 
 //------------------------------------------------------------------------//
@@ -1227,8 +1219,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
 
                         int iternum = 0;
 
-                        while((hplane.delta() > hplane.small_enough)
-                              && (iternum < MaxIterNum))
+                        while((hplane.delta() > hplane.small_enough) && (iternum < MaxIterNum))
                             {
                                 //----------------------------------------------------------
                                 // Make iterations
@@ -1253,7 +1244,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
 	    // find gauge fixing matrices for hyperplane
 	    //--------------------------------------------------------------
 
-	    int iternum = 0;
+//	    int iternum = 0;
 
 	    while((hplane.delta() > hplane.small_enough)
 		  && (iternum < MaxIterNum))

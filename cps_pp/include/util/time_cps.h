@@ -99,6 +99,8 @@ struct Elapsed{
   }
 };
 
+// Moving Timer to util/timer.h and merging with the existing version 
+#if 0
 class Timer{
  protected:
   static Float dtime_begin;
@@ -111,7 +113,6 @@ class Timer{
   //Time since last call to this function
   static Elapsed relative_time();
 };
-
-
+#endif
 CPS_END_NAMESPACE
 #endif

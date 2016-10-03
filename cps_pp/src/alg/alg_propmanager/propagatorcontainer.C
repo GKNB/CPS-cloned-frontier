@@ -222,7 +222,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   //For regular lattice classes it is sufficient to modify the boundary condition in GJP, as the boundary condition
   //is applied when the DiracOp class is instantiated within the inverter, and the lattice is restored afterwards.
   //However for Fbfm we must manually apply the BC and re-import the gauge field into the internal bfm objects
-  bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM || latt.Fclass() == F_CLASS_BFM_TYPE2 );
+  bool is_fbfm = ( latt.Fclass() == F_CLASS_BFM );
   if(is_fbfm && PropagatorContainer::fbfm_assume_bc_applied)
     latt.BondCond(); //un-applies the existing BCs, reverting to periodic BCs and imports the gauge field into the bfm instances
 

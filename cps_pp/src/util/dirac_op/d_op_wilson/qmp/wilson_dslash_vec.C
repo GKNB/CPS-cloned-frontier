@@ -5,12 +5,6 @@
 #include <util/omp_wrapper.h>
 #include <qmp.h>
 
-#ifdef USE_BFM 
-#if TARGET != NOARCH
-//#include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
-#endif
-#endif
-
 #warning "Using vectorised wilson dslash"
 
 CPS_START_NAMESPACE
@@ -816,6 +810,7 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   nonlocal += time;
 
   called++;
+#if 1
 
 	if (called%10000==0){
 		print_flops("wilson_dslash_vec()","local*10000",0,local);
@@ -824,10 +819,9 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 		print_flops("wilson_dslash_vec()","setup*10000",0,setup);
 		local=nonlocal=qmp=setup=0.;
 	}
+#endif
 //	VRB.Result(cname,fname,"done");
 DiracOp::CGflops += 1320*vol*vec_len;
-#endif
-  }
   //if(!UniqueID()){ printf("Finished vectorised wilson dslash\n"); fflush(stdout); }
   //	VRB.Result(cname,fname,"done");
 }

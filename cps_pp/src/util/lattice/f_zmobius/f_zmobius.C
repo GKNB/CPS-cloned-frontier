@@ -108,8 +108,8 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
     for(int s=0; s<local_ls;++s){
       int glb_s = s + local_ls*s_node_coor;
       const Complex kappa_b =
-	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
-		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+	1.0 / ( 2. * (GJP.ZMobius_b()[glb_s]
+		     *(4. - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
  	VRB.Flow(cname,fname,"s=%d Zmobius_b=%e %e kappa_b=%e %e\n",
 	glb_s,GJP.ZMobius_b()[glb_s].real(),GJP.ZMobius_b()[glb_s].imag(),kappa_b.real(),kappa_b.imag());
       int idx = s*ls_stride/2;// "/2" is for complex
@@ -271,8 +271,8 @@ int Fzmobius::FmatInv(Vector *f_out,
     for(int s=0; s<local_ls;++s){
       int glb_s = s + local_ls*s_node_coor;
       const Complex kappa_b =
-	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
-		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+	1.0 / ( 2. * (GJP.ZMobius_b()[glb_s]
+		     *(4. - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
       int idx = s*ls_stride/2;// "/2" is for complex
       vecTimesEquComplex((Complex*)dminus_in+idx+ieo*size/4,
 			 2.0*kappa_b, ls_stride);

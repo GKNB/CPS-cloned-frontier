@@ -1,6 +1,7 @@
 #ifndef _A2A_POLICIES_H
 #define _A2A_POLICIES_H
 
+#include<alg/a2a/CPSfield.h>
 CPS_START_NAMESPACE
 
 //Type policies needed for sources
@@ -80,11 +81,13 @@ struct _deduce_double_single_variants<complex_double_or_float_mark>{
   typedef std::complex<double> ComplexTypeD;
   typedef std::complex<float> ComplexTypeF;
 };
+#ifdef USE_GRID
 template<>
 struct _deduce_double_single_variants<grid_vector_complex_mark>{
   typedef Grid::vComplexD ComplexTypeD;
   typedef Grid::vComplexF ComplexTypeF;
 };
+#endif
 
 
 template<typename mf_Complex>

@@ -3,47 +3,8 @@
 /*!\file
   \brief  Lattice class methods.
   
-<<<<<<< HEAD
-||||||| merged common ancestors
   $Id: lattice_base.C,v 1.68 2012-08-15 03:45:46 chulwoo Exp $
-=======
-  $Id: lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
->>>>>>> ckelly_latest
 */
-<<<<<<< HEAD
-||||||| merged common ancestors
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2012-08-15 03:45:46 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68 2012-08-15 03:45:46 chulwoo Exp $
-//  $Id: lattice_base.C,v 1.68 2012-08-15 03:45:46 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.68 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-=======
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: ckelly $
-//  $Date: 2013-06-25 19:56:57 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
-//  $Id: lattice_base.C,v 1.68.4.3 2013-06-25 19:56:57 ckelly Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: lattice_base.C,v $
-//  $Revision: 1.68.4.3 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/lattice_base/lattice_base.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
->>>>>>> ckelly_latest
 //------------------------------------------------------------------
 //
 // lattice_base.C
@@ -63,48 +24,21 @@
 #include <util/ReadU1LatticePar.h>
 #include <util/checksum.h>
 #include <util/data_shift.h>
-<<<<<<< HEAD
 #include <comms/sysfunc_cps.h>
-||||||| merged common ancestors
-#include <comms/nga_reg.h>
-=======
 #include <util/fpconv.h>
-#include <comms/nga_reg.h>
->>>>>>> ckelly_latest
 #include <comms/glb.h>
 #include <comms/scu.h>
 #include <comms/cbuf.h>
 #include<util/time_cps.h>
 #include <cassert>
 #include <util/lattice/fbfm.h>
-
-<<<<<<< HEAD
-||||||| merged common ancestors
-#ifdef _TARTAN
-#include <math64.h>
-#else
-=======
-#include <util/lattice/fbfm.h>
-
-#ifdef _TARTAN
-#include <math64.h>
-#else
->>>>>>> ckelly_latest
 #include <math.h>
+#include <util/omp_wrapper.h>
 
 #if TARGET == BGL
 #include <sys/bgl/bgl_sys_all.h>
 #endif
 
-<<<<<<< HEAD
-#include <util/omp_wrapper.h>
-||||||| merged common ancestors
-//#include <util/omp_wrapper.h>
-=======
-#ifdef USE_OMP
-#include <omp.h>
-#endif
->>>>>>> ckelly_latest
 
 CPS_START_NAMESPACE
 //------------------------------------------------------------------
@@ -164,6 +98,16 @@ static Matrix *mp3 = &mt3;
 static Matrix *mp4 = &mt4;
 
 
+#if 0
+inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
+{
+    x[0] = i % hl[0] + low[0]; i /= hl[0];
+    x[1] = i % hl[1] + low[1]; i /= hl[1];
+    x[2] = i % hl[2] + low[2]; i /= hl[2];
+    x[3] = i % hl[3] + low[3];
+}
+#endif
+
 uint64_t Lattice::ForceFlops = 0;
 int Lattice::scope_lock = 0;
 
@@ -179,12 +123,7 @@ Lattice::Lattice ()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-<<<<<<< HEAD
   int array_size;		// On-node size of the gauge field array.
-||||||| merged common ancestors
-  int array_size;  // On-node size of the gauge field array.
-=======
->>>>>>> ckelly_latest
 
   VRB.Func (cname, fname);
 
@@ -201,111 +140,8 @@ Lattice::Lattice ()
   }
   scope_lock = 1;
 
-<<<<<<< HEAD
-
-  if (!(is_allocated)) {
-    // Allocate memory for the gauge field.
-    //--------------------------------------------------------------
-    array_size = GsiteSize () * GJP.VolNodeSites () * sizeof (Float);
-
-    if (start_conf_kind != START_CONF_LOAD) {
-//       start_conf_kind!=START_CONF_FILE){
-      gauge_field = (Matrix *) pmalloc (array_size);
-      sigma_field = (int *) pmalloc (GJP.VolNodeSites () * 6 * sizeof (int));	//six plaquettes per site.
-//     printf("gauge_field=%p\n",gauge_field);
-      if (gauge_field == 0)
-	ERR.Pointer (cname, fname, "gauge_field");
-      if (sigma_field == 0)
-	ERR.Pointer (cname, fname, "sigma_field");
-      VRB.Pmalloc (cname, fname, "gauge_field", gauge_field, array_size);
-      VRB.Pmalloc (cname, fname, "sigma_field", sigma_field, array_size);
-      GJP.StartConfLoadAddr (gauge_field);
-      memset (sigma_field, 0, GJP.VolNodeSites () * 6 * sizeof (int));
-    }
-    //--------------------------------------------------------------
-    //   Pmalloc space for the gauge update counter and initialize 
-    //   the counter to zero.
-    //--------------------------------------------------------------
-    char *g_upd_cnt_str = "g_upd_cnt";
-    g_upd_cnt = (int *) pmalloc (sizeof (int));
-    if (g_upd_cnt == 0)
-      ERR.Pointer (cname, fname, g_upd_cnt_str);
-    VRB.Pmalloc (cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof (int));
-
-    *g_upd_cnt = 0;		// will this respect checkpoints with pmalloc???
-
-
-    // initialize node_sites[] and g_dir_offset[]
-    //--------------------------------------------------------------
-    node_sites[0] = GJP.XnodeSites ();
-    node_sites[1] = GJP.YnodeSites ();
-    node_sites[2] = GJP.ZnodeSites ();
-    node_sites[3] = GJP.TnodeSites ();
-    node_sites[4] = GJP.SnodeSites ();
-    g_dir_offset[0] = 4;
-    g_dir_offset[1] = g_dir_offset[0] * GJP.XnodeSites ();
-    g_dir_offset[2] = g_dir_offset[1] * GJP.YnodeSites ();
-    g_dir_offset[3] = g_dir_offset[2] * GJP.ZnodeSites ();
-
-    // Set is_allocated flag to 1
-    //--------------------------------------------------------------
-    is_allocated = 1;
-  }
-||||||| merged common ancestors
-
-  if(!(is_allocated)){
-    // Allocate memory for the gauge field.
-    //--------------------------------------------------------------
-    array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
-
-    if(start_conf_kind != START_CONF_LOAD ){
-//       start_conf_kind!=START_CONF_FILE){
-#if TARGET == QCDOC
-       gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
-    VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
-#else
-      gauge_field = (Matrix *) pmalloc(array_size);
-#endif
-//     printf("gauge_field=%p\n",gauge_field);
-      if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
-      VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
-      GJP.StartConfLoadAddr(gauge_field);
-    }
-
-    //--------------------------------------------------------------
-    //   Pmalloc space for the gauge update counter and initialize 
-    //   the counter to zero.
-    //--------------------------------------------------------------
-    char *g_upd_cnt_str = "g_upd_cnt" ;
-    g_upd_cnt = (int *) pmalloc(sizeof(int));
-    if (g_upd_cnt == 0)
-      ERR.Pointer(cname, fname, g_upd_cnt_str);
-    VRB.Pmalloc(cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof(int));
-
-    *g_upd_cnt = 0 ;	// will this respect checkpoints with pmalloc???
-
-
-    // initialize node_sites[] and g_dir_offset[]
-    //--------------------------------------------------------------
-    node_sites[0] = GJP.XnodeSites();
-    node_sites[1] = GJP.YnodeSites();
-    node_sites[2] = GJP.ZnodeSites();
-    node_sites[3] = GJP.TnodeSites();
-    node_sites[4] = GJP.SnodeSites();
-    g_dir_offset[0] = 4;
-    g_dir_offset[1] = g_dir_offset[0]*GJP.XnodeSites();
-    g_dir_offset[2] = g_dir_offset[1]*GJP.YnodeSites();
-    g_dir_offset[3] = g_dir_offset[2]*GJP.ZnodeSites();
-
-    // Set is_allocated flag to 1
-    //--------------------------------------------------------------
-    is_allocated = 1;
-  }
-
-=======
   AllocGauge();
 
->>>>>>> ckelly_latest
   // Initialize the random number generator
   //--------------------------------------------------------------
   LRG.Initialize ();
@@ -738,14 +574,8 @@ void Lattice::GaugeField (Matrix * u)
   VRB.Func (cname, fname);
   int size;
 
-<<<<<<< HEAD
   size = GsiteSize () * GJP.VolNodeSites () * sizeof (IFloat);
-||||||| merged common ancestors
-  size = GsiteSize() * GJP.VolNodeSites() * sizeof(IFloat);  
-=======
-  size = GsiteSize() * GJP.VolNodeSites() * sizeof(IFloat);  
   if(GJP.Gparity()) size*=2;
->>>>>>> ckelly_latest
 
   // Copy from u to gauge_field
   //----------------------------
@@ -753,7 +583,6 @@ void Lattice::GaugeField (Matrix * u)
   smeared = 0;
 }
 
-<<<<<<< HEAD
 void Lattice::U1GaugeField (Float * u)
 {
   char *fname = "U1GaugeField(F*)";
@@ -767,13 +596,11 @@ void Lattice::U1GaugeField (Float * u)
   moveMem ((IFloat *) u1_gauge_field, (IFloat *) u, size);
   smeared = 0;
 }
-||||||| merged common ancestors
-=======
+
 unsigned int Lattice::CheckSum(Matrix *field){
   //checksum the gauge field
   FPConv fp;
   enum FP_FORMAT format = FP_IEEE64LITTLE;
->>>>>>> ckelly_latest
 
   int pos[4];
 
@@ -831,14 +658,8 @@ void Lattice::CopyU1GaugeField (Float * u)
   VRB.Func(cname,fname);
   int size;
 
-<<<<<<< HEAD
-  size = U1GsiteSize () * GJP.VolNodeSites () * sizeof (IFloat);
-||||||| merged common ancestors
-  size = GsiteSize() * GJP.VolNodeSites() * sizeof(IFloat);  
-=======
   size = GsiteSize() * GJP.VolNodeSites() * sizeof(IFloat);  
   if(GJP.Gparity()) size*=2;
->>>>>>> ckelly_latest
 
   // Copy from gauge_field to u
   //----------------------------
@@ -854,31 +675,6 @@ int Lattice::CompareGaugeField (Matrix * u)
   const char *fname = "CompareGaugeField(M*)";
   VRB.Func (cname, fname);
 
-<<<<<<< HEAD
-  int m_size = GsiteSize () * GJP.VolNodeSites ();
-  Float *g1 = (Float *) u;
-  Float *g2 = (Float *) gauge_field;
-  int val = 1;
-  for (int i = 0; i < m_size; i++) {
-    if (*(g1 + i) != *(g2 + i)) {
-      double diff = *(g1 + i) - *(g2 + i);
-      fprintf (stderr,
-	       "Node %d: u[%d](%0.16e)!=gauge_field[%d](%0.16e), rel. diff=%e \n",
-	       UniqueID (), i, *(g1 + i), i, *(g2 + i), diff / (*(g1 + 1)));
-      val = 0;
-      exit (-3);
-||||||| merged common ancestors
-  int m_size = GsiteSize() * GJP.VolNodeSites() ;
-  Float *g1 = (Float*)u;
-  Float *g2 = (Float*)gauge_field;
-  int val=1;
-  for (int i=0; i<m_size; i++) {
-    if (*(g1+i) != *(g2+i) ){
-	double diff = *(g1+i) - *(g2+i);
-        fprintf(stderr,"Node %d: u[%d](%0.16e)!=gauge_field[%d](%0.16e), rel. diff=%e \n", UniqueID(),i,*(g1+i),i,*(g2+i),diff/(*(g1+1)) );
-       val=0;
-       exit(-3);
-=======
   int m_size = GsiteSize() * GJP.VolNodeSites() ;
   if(GJP.Gparity()) m_size*=2;
 
@@ -891,7 +687,6 @@ int Lattice::CompareGaugeField (Matrix * u)
         fprintf(stderr,"Node %d: u[%d](%0.16e)!=gauge_field[%d](%0.16e), rel. diff=%e \n", UniqueID(),i,*(g1+i),i,*(g2+i),diff/(*(g1+1)) );
        val=0;
        exit(-3);
->>>>>>> ckelly_latest
     }
   }
 
@@ -963,15 +758,8 @@ int Lattice::U1GsiteSize (void)
 //    is the same on each node in a given direction.  Otherwise, this
 //    won't work properly.
 //--------------------------------------------------------------------------
-<<<<<<< HEAD
-const Matrix *Lattice::GetLink (const int *site, int dir) const
-||||||| merged common ancestors
-const Matrix *
-Lattice::GetLink(const int *site, int dir) const
-=======
 const Matrix *
 Lattice::GetLink(const int *site, int dir, const int &field_idx) const
->>>>>>> ckelly_latest
 {
   const char *fname = "GetLink()";
 //VRB.Func(cname,fname);
@@ -993,13 +781,7 @@ Lattice::GetLink(const int *site, int dir, const int &field_idx) const
 	on_node = 0;
       }
     }
-<<<<<<< HEAD
-    on_node_link = gauge_field + GsiteOffset (on_node_site) + dir;
-||||||| merged common ancestors
-    on_node_link = gauge_field + GsiteOffset(on_node_site) + dir ;
-=======
     on_node_link = gauge_field + GsiteOffset(on_node_site) + dir + field_idx * 4*GJP.VolNodeSites();
->>>>>>> ckelly_latest
   }
 
 #ifndef PARALLEL
@@ -1115,7 +897,6 @@ int Lattice::GetSigma (const int *site, int mu, int nu) const
   }
 }
 
-<<<<<<< HEAD
 int Lattice::SetSigmaBlock (int block[])
 {
   const char *fname = "SetSigmaBlock\n";
@@ -1139,25 +920,7 @@ int Lattice::SigmaBlockSize ()
 }
 
 
-//------------------------------------------------------------------
-/*!
-  The staple sum around the link \f$ U_mu(x) \f$ is
-\f[
-   \sum_{\nu \neq \mu}[
-              U_\nu(x+\mu) U^\dagger_\mu(x+\nu) U^\dagger_\nu(x)
-           +  U^\dagger_\nu(x+\mu-\nu) U^\dagger_\mu(x-\nu) U_\nu(x-\nu)]     
-\f]
-  \param stap The computed staple sum.
-  \param x The coordinates of the lattice site 
-  \param mu The link direction 
-*/
-//------------------------------------------------------------------
-void Lattice::Staple (Matrix & stap, int *x, int mu)
-{
-//const char *fname = "Staple(M&,i*,i)";
-//VRB.Func(cname,fname);
-||||||| merged common ancestors
-=======
+
 //Added by C.Kelly for G-parity purposes
 void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
   const char* cnames = "Lattice";
@@ -1167,7 +930,6 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
   }
   if(GJP.Gparity()){
     //2f G-parity
->>>>>>> ckelly_latest
 
     Matrix *U = field;
     Matrix *Ustar = field + nmat_per_site*GJP.VolNodeSites();
@@ -1365,11 +1127,29 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
 
 }
 
+
+//------------------------------------------------------------------
+/*!
+  The staple sum around the link \f$ U_mu(x) \f$ is
+\f[
+   \sum_{\nu \neq \mu}[
+              U_\nu(x+\mu) U^\dagger_\mu(x+\nu) U^\dagger_\nu(x)
+           +  U^\dagger_\nu(x+\mu-\nu) U^\dagger_\mu(x-\nu) U_\nu(x-\nu)]     
+\f]
+  \param stap The computed staple sum.
+  \param x The coordinates of the lattice site 
+  \param mu The link direction 
+*/
+//------------------------------------------------------------------
+void Lattice::Staple (Matrix & stap, int *x, int mu)
+{
+//const char *fname = "Staple(M&,i*,i)";
+//VRB.Func(cname,fname);
+
   const Matrix *p1;
   int offset_x = GsiteOffset (x);
   Matrix *g_offset = GaugeField () + offset_x;
 
-<<<<<<< HEAD
   for (int nu = 0; nu < 4; ++nu) {
     if (nu != mu) {
 
@@ -1580,10 +1360,6 @@ void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
   *stap *= multiplier;
 }
 
-||||||| merged common ancestors
-
-=======
->>>>>>> ckelly_latest
 //------------------------------------------------------------------
 /*!
   The staple sum around the link \f$ U_mu(x) \f$ is
@@ -1755,15 +1531,6 @@ void Lattice::RectStaple (Matrix & rect, int *x, int mu)
 //          x[0], x[1], x[2], x[3], mu) ;
 
   int link_site[4];
-
-  //----------------------------------------------------------------------------
-  // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
-  // to guarantee CBUF will start a new proces  on the next read from
-  // a DRAM image controlled by CBUF mode ctrl reg 4.
-  //----------------------------------------------------------------------------
-#ifdef _TARTAN
-  *((unsigned *) mp2) = *((unsigned *) 0x2000);
-#endif
 
   const Matrix *p1;
 
@@ -2152,12 +1919,8 @@ void GP_mDotMPlus(Matrix &out, const Matrix &A, const Matrix &B, const bool &con
 //------------------------------------------------------------------
 void Lattice::GparityStaple(Matrix& stap, int *x, int mu)
 {
-//char *fname = "Staple(M&,i*,i)";
+   const char *fname = "GparityStaple(M&,i*,i)";
 //VRB.Func(cname,fname);
-
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   const Matrix *p1;
   int offset_x = GsiteOffset(x);
@@ -2333,17 +2096,6 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
 
   int link_site[4] ;
 
-  // set CBUF
-  setCbufCntrlReg(4, CBUF_MODE4) ;
-
-  //----------------------------------------------------------------------------
-  // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
-  // to guarantee CBUF will start a new proces  on the next read from
-  // a DRAM image controlled by CBUF mode ctrl reg 4.
-  //----------------------------------------------------------------------------
-#ifdef _TARTAN
-  *((unsigned *)mp2) = *((unsigned *)0x2000) ;
-#endif
 
   const Matrix *p1;
 
@@ -2770,9 +2522,6 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
    
     GP_mDotMPlus(rect,*mp3,*mp2,gp_mp3,gp_mp2) ;
 
-    //----------------------------------------------------------
-    // dummy read to switch CBUF banks for looping
-    //----------------------------------------------------------
     *((IFloat *)mp4) = *((IFloat *)p1) ;
   }
 }
@@ -2798,20 +2547,8 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
 */
 void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const
 {
-<<<<<<< HEAD
-||||||| merged common ancestors
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
- 
-=======
   if(GJP.Gparity()){ printf("Calculation of solo plaquette not yet implemented for G-parity\n"); exit(-1); }
 
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
- 
->>>>>>> ckelly_latest
   const Matrix *p1;
 
   //----------------------------------------
@@ -2930,9 +2667,6 @@ Float Lattice::GparityReTrPlaq(int *x, int mu, int nu) const
   if(GJP.Bc(mu)==BND_CND_GPARITY && GJP.NodeCoor(mu) == GJP.Nodes(mu)-1 && x[mu] == GJP.NodeSites(mu)-1 ) on_bound_mu_hi = true;
   if(GJP.Bc(nu)==BND_CND_GPARITY && GJP.NodeCoor(nu) == GJP.Nodes(nu)-1 && x[nu] == GJP.NodeSites(nu)-1 ) on_bound_nu_hi = true;
 
-  // set cbuf
-  setCbufCntrlReg(2, CBUF_MODE2);
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   const Matrix *p1;
 
@@ -3172,7 +2906,6 @@ Float Lattice::SumReTrPlaq (void) const
   return sum;
 }
 
-<<<<<<< HEAD
 Float Lattice::SumReU1Plaq (void) const
 {
   char *fname = "SumReTrPlaq() const";
@@ -3183,10 +2916,6 @@ Float Lattice::SumReU1Plaq (void) const
   return sum;
 }
 
-||||||| merged common ancestors
-
-=======
->>>>>>> ckelly_latest
 //-----------------------------------------------------------------------------
 /*!
   The rectangle at site \a x in the \f$ \mu-\nu \f$ plane with the long axis
@@ -3205,27 +2934,13 @@ Float Lattice::SumReU1Plaq (void) const
 //-----------------------------------------------------------------------------
 Float Lattice::ReTrRect (int *x, int mu, int nu) const
 {
-<<<<<<< HEAD
-  const char *fname = "ReTrRect(i*,i,i) const";
-||||||| merged common ancestors
-    const char *fname = "ReTrRect(i*,i,i) const";
-=======
   if(GJP.Gparity()) return GparityReTrRect(x,mu,nu);
 
     const char *fname = "ReTrRect(i*,i,i) const";
->>>>>>> ckelly_latest
 //  VRB.Func(cname,fname);
 
   int link_site[4];
 
-  //---------------------------------------------------------------------------
-  // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
-  // to guarantee CBUF will start a new proces  on the next read from
-  // a DRAM image controlled by CBUF mode ctrl reg 4.
-  //---------------------------------------------------------------------------
-#ifdef _TARTAN
-  *((unsigned *) mp2) = *((unsigned *) 0x2000);
-#endif
 
   const Matrix *p1;
 
@@ -3345,17 +3060,6 @@ Float Lattice::GparityReTrRect(int *x, int mu, int nu) const
 
   int link_site[4] ;
 
-  // set CBUF
-  setCbufCntrlReg(4, CBUF_MODE4);
-
-  //---------------------------------------------------------------------------
-  // do a dummy read from the DRAM image controlled by CBUF mode ctrl reg 0
-  // to guarantee CBUF will start a new proces  on the next read from
-  // a DRAM image controlled by CBUF mode ctrl reg 4.
-  //---------------------------------------------------------------------------
-#ifdef _TARTAN
-  *((unsigned *)mp2) = *((unsigned *)0x2000) ;
-#endif
 
   const Matrix *p1;
 
@@ -3468,29 +3172,6 @@ Float Lattice::SumReTrRectNode (void) const
   Float sum = 0.0;
   int x[4];
 
-<<<<<<< HEAD
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
-	  for (int mu = 0; mu < 4; ++mu)
-	    for (int nu = 0; nu < 4; ++nu) {
-	      if (mu != nu) {
-		sum += ReTrRect (x, mu, nu);
-	      }
-	    }
-||||||| merged common ancestors
-  for(x[0] = 0; x[0] < node_sites[0]; ++x[0])
-  for(x[1] = 0; x[1] < node_sites[1]; ++x[1])
-  for(x[2] = 0; x[2] < node_sites[2]; ++x[2])
-  for(x[3] = 0; x[3] < node_sites[3]; ++x[3])
-  for(int mu = 0; mu < 4; ++mu)
-  for(int nu = 0; nu < 4; ++nu) {
-    if (mu != nu) {
-      sum += ReTrRect(x,mu,nu);
-    }
-  }
-=======
   for(x[0] = 0; x[0] < node_sites[0]; ++x[0])
   for(x[1] = 0; x[1] < node_sites[1]; ++x[1])
   for(x[2] = 0; x[2] < node_sites[2]; ++x[2])
@@ -3504,7 +3185,6 @@ Float Lattice::SumReTrRectNode (void) const
   if(GJP.Gparity1fX() && !GJP.Gparity1fY()) sum/=2; //double counting of ReTr
   else if(GJP.Gparity1fX() && GJP.Gparity1fY()) sum/=4; //quad counting of ReTr
 
->>>>>>> ckelly_latest
   return sum;
 }
 
@@ -4115,11 +3795,6 @@ void Lattice::MltFloatImpl (Float factor, int dir)
   numerical integration of the equations of motion.  
 */
 //------------------------------------------------------------------
-<<<<<<< HEAD
-void Lattice::EvolveGfield (Matrix * mom, Float step_size)
-||||||| merged common ancestors
-void Lattice::EvolveGfield(Matrix *mom, Float step_size)
-=======
 
 //CK: For G-parity by default this only evolves the U links but not the U* links. This is because the evolving of the gauge field
 //    is most often called from the lowest level integrator, which steps back and forth between evolving the conjugate momentum 
@@ -4129,122 +3804,37 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size)
 //    evolving. Use evolve_both_gparity_flavors = true to sync the U* links in this function (e.g. in force gradient integrator)
 
 void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparity_flavors)
->>>>>>> ckelly_latest
 {
-<<<<<<< HEAD
-  const char *fname = "EvolveGfield(M*,F)";
-  VRB.Func (cname, fname);
-||||||| merged common ancestors
-    const char *fname = "EvolveGfield(M*,F)";
-    VRB.Func(cname,fname);
-=======
-    const char *fname = "EvolveGfield(M*,F)";
+    const char *fname = "EvolveGfield(M*,F,b)";
   VRB.Func(cname,fname);
->>>>>>> ckelly_latest
-
-<<<<<<< HEAD
-  int n_links = 4 * GJP.VolNodeSites ();
-||||||| merged common ancestors
-    setCbufCntrlReg(4, CBUF_MODE4);
-
-    int n_links = 4 * GJP.VolNodeSites();
-=======
-  setCbufCntrlReg(4, CBUF_MODE4);
 
   int n_links = 4 * GJP.VolNodeSites();
 
->>>>>>> ckelly_latest
 
 #ifdef UNIFORM_SEED_TESTING
-<<<<<<< HEAD
-  VRB.Result (cname, fname, "gauge checksum(before) = %p\n",
-	      global_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE));
-||||||| merged common ancestors
-    VRB.Result(cname,fname,"gauge checksum(before) = %p\n",
-               global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
-=======
   VRB.Result(cname,fname,"gauge checksum(before) = %p\n",
     global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
->>>>>>> ckelly_latest
 #endif
 
-<<<<<<< HEAD
-  // checksuming local gauge matrices before update
-  //-------------------------------------------------
-  unsigned long loc_sum =
-    local_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE);
-||||||| merged common ancestors
-    // checksuming local gauge matrices before update
-    //-------------------------------------------------
-    unsigned long loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
-=======
   // checksuming local gauge matrices before update
   //-------------------------------------------------
   unsigned long loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
->>>>>>> ckelly_latest
-
-<<<<<<< HEAD
-  // checksuming local momentum matrices
-  //----------------------------------------------
-  loc_sum = local_checksum ((Float *) mom, n_links * MATRIX_SIZE);
-  CSM.SaveCsum (CSUM_EVL_MOM, loc_sum);
-||||||| merged common ancestors
-    // checksuming local momentum matrices
-    //----------------------------------------------
-    loc_sum = local_checksum((Float *)mom,n_links*MATRIX_SIZE);
-    CSM.SaveCsum(CSUM_EVL_MOM,loc_sum);
-=======
   // checksuming local momentum matrices
   //----------------------------------------------
   loc_sum = local_checksum((Float *)mom,n_links*MATRIX_SIZE);
   CSM.SaveCsum(CSUM_EVL_MOM,loc_sum);
->>>>>>> ckelly_latest
 
-<<<<<<< HEAD
-  Matrix *curU_p = GaugeField ();
-||||||| merged common ancestors
-    Matrix *curU_p = GaugeField();
-=======
   Matrix *curU_p = GaugeField();
->>>>>>> ckelly_latest
 
   // Hantao: no problem with this since there are no thread reductions.
 #pragma omp parallel for
-<<<<<<< HEAD
-  for (int i = 0; i < n_links; ++i) {
-    Matrix t1, t2, t3;
-||||||| merged common ancestors
-    for(int i = 0; i < n_links; ++i) {
-        Matrix t1, t2, t3;
-=======
   for(int i = 0; i < n_links; ++i) {
     Matrix t1, t2, t3;
->>>>>>> ckelly_latest
 
     t1 = mom[i];
     t1 *= step_size;
     t2 = t1;
 
-<<<<<<< HEAD
-    for (int j = 9; j > 1; --j) {
-      // t3 = 1 + (1/j) * t2
-      oneMinusfTimesMatrix ((Float *) & t3, -1. / j, (const Float *) &t2, 18);
-      // t2 = t1 * t3
-      t2.DotMEqual (t1, t3);
-||||||| merged common ancestors
-        for(int j = 9; j > 1; --j) {
-            // t3 = 1 + (1/j) * t2
-            oneMinusfTimesMatrix((Float *)&t3, -1./j, (const Float *)&t2, 18);
-            // t2 = t1 * t3
-            t2.DotMEqual(t1, t3);
-        }
-
-        // t3 = 1 + t2
-        oneMinusfTimesMatrix((Float *)&t3, -1., (const Float *)&t2, 18);
-        t2 = curU_p[i];
-        // U' = t3 * U
-        curU_p[i].DotMEqual(t3, t2);
-=======
     for(int j = 9; j > 1; --j) {
 
       // t3 = 1 + (1/j) * t2
@@ -4252,27 +3842,7 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparit
       // t2 = t1 * t3
       t2.DotMEqual(t1, t3);
 
->>>>>>> ckelly_latest
     }
-
-<<<<<<< HEAD
-    // t3 = 1 + t2
-    oneMinusfTimesMatrix ((Float *) & t3, -1., (const Float *) &t2, 18);
-    t2 = curU_p[i];
-    // U' = t3 * U
-    curU_p[i].DotMEqual (t3, t2);
-  }
-
-  // checksuming local gauge matrices after update
-  //------------------------------------------------
-  loc_sum = local_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE);
-  CSM.SaveCsum (CSUM_EVL_LAT, loc_sum);
-||||||| merged common ancestors
-    // checksuming local gauge matrices after update
-    //------------------------------------------------
-    loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
-    CSM.SaveCsum(CSUM_EVL_LAT,loc_sum);
-=======
 
     // t3 = 1 + t2
     oneMinusfTimesMatrix((Float *)&t3, -1., (const Float *)&t2, 18);
@@ -4288,30 +3858,13 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparit
   //------------------------------------------------
   loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
   CSM.SaveCsum(CSUM_EVL_LAT,loc_sum);
->>>>>>> ckelly_latest
 
 #ifdef UNIFORM_SEED_TESTING
-<<<<<<< HEAD
-  VRB.Result (cname, fname, "gauge checksum(after) = %p\n",
-	      global_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE));
-||||||| merged common ancestors
-    VRB.Result(cname,fname,"gauge checksum(after) = %p\n",
-               global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
-=======
   VRB.Result(cname,fname,"gauge checksum(after) = %p\n",
     global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
->>>>>>> ckelly_latest
 #endif
-<<<<<<< HEAD
-
-  smeared = 0;
-||||||| merged common ancestors
-
-    smeared = 0;
-=======
 //  sync();
   smeared = 0;
->>>>>>> ckelly_latest
 }
 
 
@@ -4331,15 +3884,7 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparit
 Float Lattice::MomHamiltonNode (Matrix * momentum)
 {
   const char *fname = "MomHamiltonNode(M*)";
-<<<<<<< HEAD
-  VRB.Func (cname, fname);
-
-||||||| merged common ancestors
   VRB.Func(cname,fname);
-
-=======
-  VRB.Func(cname,fname);
->>>>>>> ckelly_latest
   Float ham = 0.0;
   int n_links = 4 * GJP.VolNodeSites ();
 
@@ -4372,18 +3917,10 @@ void Lattice::Reunitarize (void)
   int links;
   Matrix *u;
 
-<<<<<<< HEAD
-  links = 4 * GJP.VolNodeSites ();
-  u = GaugeField ();
-||||||| merged common ancestors
-  links = 4 * GJP.VolNodeSites();
-  u = GaugeField();
-=======
   links = 4 * GJP.VolNodeSites();
   if(GJP.Gparity()) links*=2; //reunitarisation respects complex conjugate relationship
 
   u = GaugeField();
->>>>>>> ckelly_latest
 
   for (i = 0; i < links; i++) {
     u[i].Unitarize ();
@@ -4714,24 +4251,17 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   int s_node_sites = GJP.SnodeSites();
   if(frm_dim == FOUR_D
      || s_node_sites == 0
-<<<<<<< HEAD
      || (!F5D())
+// FIXME: check Fclass() is a bad idea, replace it with something more reasonable.
 //#ifdef USE_BFM
 //     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
 //#endif
-     ) {
-    VRB.Debug(cname,fname,"4D RNG used\n");
-||||||| merged common ancestors
-     // FIXME: checking Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM)) {
-=======
-     // FIXME: check Fclass() is a bad idea, replace it with something more reasonable.
-     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2 && Fclass() != F_CLASS_GRID )
+//     || (Fclass() != F_CLASS_DWF && Fclass() != F_CLASS_BFM && Fclass() != F_CLASS_BFM_TYPE2 && Fclass() != F_CLASS_GRID )
 #ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM || Fclass() == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM) //added by CK
+//     || ( (Fclass() == F_CLASS_BFM || Fclass() == F_CLASS_BFM_TYPE2) && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM) //added by CK
 #endif
      ) {
->>>>>>> ckelly_latest
+    VRB.Debug(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
     VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
@@ -4805,25 +4335,6 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
 	    }
 #endif
     } else {
-<<<<<<< HEAD
-      for (i = 0; i < GJP.VolNodeSites () * s_node_sites; i += 2) {
-	LRG.AssignGenerator (i);
-	for (k = 0; k < vec_size; k++) {
-	  *(ptr) = LRG.Grand (frm_dim);
-	  sum += *ptr;
-	  square += (*ptr) * (*ptr);
-	  ptr++;
-	}
-||||||| merged common ancestors
-      for(i = 0; i < GJP.VolNodeSites()*s_node_sites; i+=2) {
-        LRG.AssignGenerator(i);
-        for(k = 0; k < vec_size; k++) {
-          *(ptr) = LRG.Grand(frm_dim);
-          sum += *ptr;
-          square += (*ptr)*(*ptr);
- 	  ptr++;
-        }
-=======
       if(GJP.Gparity()){
 	for(s=0; s< s_node_sites; s++){
 	  for(int flv=0; flv < nstacked_flav; flv++){
@@ -4850,7 +4361,6 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
           square += (*ptr)*(*ptr);
  	  ptr++;
         }
->>>>>>> ckelly_latest
       }
     }
   }
@@ -4876,18 +4386,10 @@ void Lattice::SetGfieldOrd (void)
   int links;
   Matrix *u;
 
-<<<<<<< HEAD
-  links = 4 * GJP.VolNodeSites ();
-  u = GaugeField ();
-||||||| merged common ancestors
-  links = 4 * GJP.VolNodeSites();
-  u = GaugeField();
-=======
   links = 4 * GJP.VolNodeSites();
   if(GJP.Gparity()) links*=2;
 
   u = GaugeField();
->>>>>>> ckelly_latest
 
   for (i = 0; i < links; i++) {
     u[i].UnitMatrix ();
@@ -4932,25 +4434,11 @@ void Lattice::SetGfieldDisOrd (void)
 
   IFloat *pmat = (IFloat *) gauge_field;
 
-<<<<<<< HEAD
-  for (int i = 0; i < GJP.VolNodeSites (); i++) {
-    LRG.AssignGenerator (i);
-    for (int k = 0; k < site_size; k++) {
-      *(pmat++) = LRG.Urand (FOUR_D);
-//      printf("i=%d *pmat=%e\n",i,*(pmat-1));
-||||||| merged common ancestors
-  for(int i=0; i<GJP.VolNodeSites(); i++) {
-    LRG.AssignGenerator(i);
-    for(int k = 0; k < site_size; k++) {
-      *(pmat++) = LRG.Urand(FOUR_D);
-//      printf("i=%d *pmat=%e\n",i,*(pmat-1));
-=======
   for(int i=0; i<GJP.VolNodeSites(); i++) {
     LRG.AssignGenerator(i);
     for(int k = 0; k < site_size; k++) {
       *(pmat++) = LRG.Urand(FOUR_D);
       //      printf("i=%d *pmat=%e\n",i,*(pmat-1));
->>>>>>> ckelly_latest
     }
   }
   Reunitarize ();
@@ -5448,30 +4936,15 @@ unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
   int parity = (x[0] + x[1] + x[2] + x[3]) % 2;
   int vol = GJP.VolNodeSites ();
   unsigned long index;
-<<<<<<< HEAD
-  switch (StrOrd ()) {
-||||||| merged common ancestors
-  switch(StrOrd()){
-=======
   int cboff = vol;
   if(GJP.Gparity()) cboff*=2;
 
   switch(StrOrd()){
->>>>>>> ckelly_latest
   case WILSON:
 // XYZT ordering, checkerboarded, even first
     index = x[3];
-<<<<<<< HEAD
-    for (int i = 2; i >= 0; i--)
-      index = x[i] + GJP.NodeSites (i) * index;
-    index = (index + vol * parity) / 2;
-||||||| merged common ancestors
-    for(int i=2;i>=0;i--) index = x[i]+GJP.NodeSites(i)*index;
-    index = (index+vol*parity)/2;  
-=======
     for(int i=2;i>=0;i--) index = x[i]+GJP.NodeSites(i)*index;
     index = (index+cboff*parity)/2;  
->>>>>>> ckelly_latest
 // dir also XYZT
     index = index * 4 + dir;
     break;
@@ -5485,7 +4958,6 @@ unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
   return index;
 }
 
-<<<<<<< HEAD
 static const int sigma_offset_lookup[4][4] = { {-1, 0, 1, 2},
 {-1, -1, 3, 4},
 {-1, -1, -1, 5},
@@ -5554,23 +5026,13 @@ int Lattice::SigmaOffset (const int index, int mu, int nu) const
 }
 
 
-inline void compute_coord (int x[4], const int hl[4], const int low[4], int i)
-{
-  x[0] = i % hl[0] + low[0];
-  i /= hl[0];
-  x[1] = i % hl[1] + low[1];
-  i /= hl[1];
-  x[2] = i % hl[2] + low[2];
-  i /= hl[2];
-  x[3] = i % hl[3] + low[3];
-}
-
 // ----------------------------------------------------------------
 // BondCond: toggle boundary condition on/off for gauge field. Based
 // on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
 //
 // The gauge field must be in CANONICAL order.
 // ----------------------------------------------------------------
+#if 0
 void Lattice::BondCond ()
 {
     Matrix *u_base = this->GaugeField();
@@ -5602,6 +5064,7 @@ void Lattice::BondCond ()
     bc_applied = 1 - bc_applied;
     VRB.Result(cname,"BondCond()","bc=%d\n",bc_applied);
 }
+#endif
 
 /*!
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
@@ -5717,53 +5180,6 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 #endif
 
 
-#if 0
-// ----------------------------------------------------------------
-// BondCond: toggle boundary condition on/off for gauge field. Based
-// on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
-//
-// The gauge field must be in CANONICAL order.
-// ----------------------------------------------------------------
-void Lattice::BondCond()
-{
-    Matrix *u_base = this->GaugeField();
-
-    for(int mu = 0; mu < 4; ++mu) {
-        if(GJP.NodeBc(mu) != BND_CND_APRD) continue;
-
-        int low[4] = { 0, 0, 0, 0 };
-        int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
-                        GJP.ZnodeSites(), GJP.TnodeSites() };
-        low[mu] = high[mu] - 1;
-
-        int hl[4] = { high[0] - low[0], high[1] - low[1],
-                      high[2] - low[2], high[3] - low[3] };
-
-        const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
-
-#pragma omp parallel for
-        for(int i = 0; i < hl_sites; ++i) {
-            int x[4];
-            compute_coord(x, hl, low, i);
-
-            int off = mu + 4 * (x[0] + high[0] *
-                                (x[1] + high[1] *
-                                 (x[2] + high[2] * x[3])));
-            u_base[off] *= -1.;
-        }
-    }
-}
-#endif
-||||||| merged common ancestors
-=======
-inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
-{
-    x[0] = i % hl[0] + low[0]; i /= hl[0];
-    x[1] = i % hl[1] + low[1]; i /= hl[1];
-    x[2] = i % hl[2] + low[2]; i /= hl[2];
-    x[3] = i % hl[3] + low[3];
-}
-
 // ----------------------------------------------------------------
 // BondCond: toggle boundary condition on/off for gauge field. Based
 // on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
@@ -5816,6 +5232,5 @@ void Lattice::BondCond(){
   }
   ++calls;
 }
->>>>>>> ckelly_latest
 
 CPS_END_NAMESPACE

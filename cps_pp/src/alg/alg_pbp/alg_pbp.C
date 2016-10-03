@@ -163,8 +163,8 @@ void AlgPbp::run(Float *results)
   bool is_5d_fbfm = false;
   bool is_4d_fbfm = false;
 #ifdef USE_BFM
-  if( lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
-    if( Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonTM && Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonFermion ) is_5d_fbfm = true;
+  if( lat.Fclass() == F_CLASS_BFM ){
+    if( Fbfm::CurrentSolver() != WilsonTM && Fbfm::CurrentSolver() != WilsonFermion ) is_5d_fbfm = true;
     else is_4d_fbfm = true;
   }
 #endif
@@ -686,7 +686,7 @@ void AlgPbp::runPointSource(int x, int y, int z, int t)
   //----------------------------------------------------------------
   // Domain Wall fermions
   //----------------------------------------------------------------
-  if(lat.Fclass() == F_CLASS_DWF || lat.Fclass() == F_CLASS_BFM || lat.Fclass() == F_CLASS_BFM_TYPE2){
+  if(lat.F5D()){
     ls = GJP.SnodeSites();
     ls_glb = GJP.Snodes() * GJP.SnodeSites();
 

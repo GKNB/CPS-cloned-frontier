@@ -225,7 +225,7 @@ static void UnLexVector(int v_str_ord, int *into, int from, int vlen, int *latts
   into[3] = from % lattsize[3];
 }
 
-static void printMat(matrix* m, int x,int y,int z,int t){
+static void printMat(PTmatrix* m, int x,int y,int z,int t){
   int idx = x + cps::GJP.XnodeSites()*(y+cps::GJP.YnodeSites()*(z+cps::GJP.ZnodeSites()*t));
   IFloat *mat = (IFloat*)(m+idx);
   int off =0 ;
@@ -294,7 +294,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
     int vlen = VECT_LEN*sizeof(IFloat); //size of incoming vector
 
     int* gp_l_orig_offsets[n];
-    matrix* gp_l_conj_buf[n];
+    PTmatrix* gp_l_conj_buf[n];
 
     //For G-parity, fermionic boundary conditions have a + sign between flavours 1 and 2, and a - sign between flavours 2 and 1.
     //These are implemented on the gauge fields:  *-->[U_0 U_1 U_2 U_3]-->[U*_0 U*_1 U*_2 -U*_3]-->* cycling between flavours 1 and 2
@@ -313,7 +313,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
       int sites = local_chi_gp[wire_dir];
       if(sites==0) continue;
       
-      gp_l_conj_buf[wireidx] = (matrix *)FastAlloc("PT","mat","gp_l_conj_buf",sizeof(matrix)*sites);
+      gp_l_conj_buf[wireidx] = (PTmatrix *)FastAlloc("PT","mat","gp_l_conj_buf",sizeof(PTmatrix)*sites);
       gp_l_orig_offsets[wireidx] = (int *)FastAlloc("PT","mat","gp_l_orig_offsets",sizeof(int)*sites);
 
       for(int s=0; s<sites; s++){
@@ -503,7 +503,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 	    for(int c=1;c<18;c+=2) mat[c]*=-1; //complex conjugate all the matrices in the receive buffer
 	  }
 	}
-	partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
+	partrans_cmm_agg((uc_nl[w_t]+offset*2),(PTmatrix *)rcv_buf[w_t],mout[n_t],ipoints);
       }
     }
 
@@ -540,7 +540,7 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 	    for(int c=1;c<18;c+=2) mat[c]*=-1; //complex conjugate all the matrices in the receive buffer
 	  }
 	}
-	partrans_cmm_agg((uc_nl[w_t]+offset*2),(matrix *)rcv_buf[w_t],mout[n_t],ipoints);
+	partrans_cmm_agg((uc_nl[w_t]+offset*2),(PTmatrix *)rcv_buf[w_t],mout[n_t],ipoints);
       }
       if ( if_print )
 	printf("thread %d of %d done\n",iam,nt);
@@ -561,8 +561,8 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 	int mu = wire[i]/2;
 	//GPARITY CODE BELOW IS BROKEN (ALSO NOT USED)
 	if(cps::GJP.Bc(mu) == cps::BND_CND_GPARITY)
-	  for(in m=1;m<non_local_chi[wire[i]]*VECT_LEN*3;m+=2) rcv_buf[wire[i]][m]*=-1; //complex conjugate all the matrices in the receive buffer
-	partrans_cmm_agg(uc_nl[wire[i]],(matrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
+	  for(int m=1;m<non_local_chi[wire[i]]*VECT_LEN*3;m+=2) rcv_buf[wire[i]][m]*=-1; //complex conjugate all the matrices in the receive buffer
+	partrans_cmm_agg(uc_nl[wire[i]],(PTmatrix *)rcv_buf[wire[i]],mout[i],non_local_chi[wire[i]]/2);
       }
 
   }//#pragma omp parallel

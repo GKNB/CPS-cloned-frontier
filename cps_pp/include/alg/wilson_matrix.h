@@ -136,13 +136,7 @@ public:
   }
 
   WilsonVector& gamma(int dir);
-<<<<<<< HEAD
   WilsonVector& LeftTimesEqual(const Matrix& rhs);
-
-
-||||||| merged common ancestors
-  
-=======
 
   //Added by CK
   WilsonVector & ccl(int dir);
@@ -156,7 +150,6 @@ public:
     return out;
   }
   
->>>>>>> ckelly_latest
   /*!
     Rotate from Dirac to Chiral basis.
     It multiplies the by the rotation matrix 
@@ -435,12 +428,8 @@ public:
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
     WilsonMatrix glA(int dir)const;
   //! glA another version. result = gamma_dir*gamma_5*from
-<<<<<<< HEAD
     WilsonMatrix& glA(const WilsonMatrix & from, int dir);
-||||||| merged common ancestors
-  void glA(const WilsonMatrix & from, int dir);
-=======
-  WilsonMatrix& glA(const WilsonMatrix & from, int dir);
+//  void glA(const WilsonMatrix & from, int dir);
 
   //! glA another version. this -> gamma_dir*gamma_5*this
   inline WilsonMatrix& glAx(int dir){
@@ -449,22 +438,14 @@ public:
     return *this;
   }
 
->>>>>>> ckelly_latest
   //! mult the prop by gamma_dir on the left, and return the new matrix
     WilsonMatrix glV(int dir)const;
 
 #ifndef INLINE_WILSON_MATRIX
   //! glV another version. result = gamma_dir*from
-<<<<<<< HEAD
     WilsonMatrix& glV(const WilsonMatrix & from, int dir);
+//  void glV(const WilsonMatrix & from, int dir);
 #else
-||||||| merged common ancestors
-  void glV(const WilsonMatrix & from, int dir);
-=======
-  WilsonMatrix& glV(const WilsonMatrix & from, int dir);
->>>>>>> ckelly_latest
-
-<<<<<<< HEAD
 #define TIMESPLUSONE(a,b) { b=a; }
 #define TIMESMINUSONE(a,b) { b=-a; }
 #define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
@@ -556,8 +537,6 @@ public:
     WilsonMatrix& grA(const WilsonMatrix & from, int dir);
     //! mult the prop by gamma_dir on the left
     WilsonMatrix& grV(const WilsonMatrix & from, int dir);
-||||||| merged common ancestors
-=======
   //Added by CK
   //! left multiply by 1/2(1-gamma_5)
   WilsonMatrix& glPL();
@@ -567,7 +546,6 @@ public:
   WilsonMatrix& grPL(); 
   //! right multiply by 1/2(1+gamma_5)
   WilsonMatrix& grPR(); 
->>>>>>> ckelly_latest
 
   //! mult the prop by gamma_dir on the left
   WilsonMatrix& gr(int dir); 
@@ -594,27 +572,15 @@ public:
     }
 #endif  //temporarily commented out
   void save_row(int source_spin, int source_color, wilson_vector&);
-<<<<<<< HEAD
   void load_row(int source_spin, int source_color, const wilson_vector&);
   void load_elem(int i, int j, int k, int l, Rcomplex elem);
 
-  Rcomplex Trace();
-||||||| merged common ancestors
-  Rcomplex Trace();
-=======
+//  Rcomplex Trace();
   Rcomplex Trace() const;
->>>>>>> ckelly_latest
   const wilson_matrix& wmat() const; // get p 
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
-<<<<<<< HEAD
   WilsonMatrix& LeftTimesEqual(const Matrix& rhs);
-
-||||||| merged common ancestors
   
-=======
-  WilsonMatrix& LeftTimesEqual(const Matrix& lhs);
-  
->>>>>>> ckelly_latest
   //! Projects positive parity on the sink
   WilsonMatrix& PParProjectSink();
   WilsonMatrix& NParProjectSink();
@@ -656,19 +622,6 @@ public:
     */
     WilsonMatrix& AddMult( const Rcomplex& fact, const WilsonMatrix& x );
   
-<<<<<<< HEAD
-    // Baryon things
-    WilsonMatrix& ccl(int dir);
-    WilsonMatrix& ccr(int dir);
-    WilsonMatrix& diq(const WilsonMatrix& rhs);
-    WilsonMatrix& joint(const WilsonMatrix& rhs);
-||||||| merged common ancestors
-  // Baryon things
-  WilsonMatrix& ccl(int dir);
-  WilsonMatrix& ccr(int dir);
-  WilsonMatrix& diq(const WilsonMatrix& rhs);
-  WilsonMatrix& joint(const WilsonMatrix& rhs);
-=======
   // Baryon things
   //CK 2015: For clarity  A.ccl(1) = C^-1 A  A.ccl(-1) = C A
   //                      A.ccr(1) = A C     A.ccr(-1) = A C^-1
@@ -677,11 +630,9 @@ public:
   WilsonMatrix& ccr(int dir);
   WilsonMatrix& diq(const WilsonMatrix& rhs);
   WilsonMatrix& joint(const WilsonMatrix& rhs);
->>>>>>> ckelly_latest
   
     friend Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);
   
-<<<<<<< HEAD
     SpinMatrix ColorComponent(int row, int col)const {
         SpinMatrix ret;
         for(int i = 0; i < 4; ++i) {
@@ -691,8 +642,6 @@ public:
         }
         return ret;
     }
-||||||| merged common ancestors
-=======
   //Added by CK
   void ColorTrace(SpinMatrix &into) const{
     //SpinMatrix mapping is i*4+j
@@ -718,7 +667,6 @@ public:
   }
 
 
->>>>>>> ckelly_latest
 };
 
 // added by Hantao

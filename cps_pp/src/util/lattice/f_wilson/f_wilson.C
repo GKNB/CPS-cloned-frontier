@@ -340,7 +340,7 @@ int Fwilson::FeigSolv(Vector **f_eigenv, Float *lambda,
   }
 
   if(cnv_frm == CNV_FRM_YES) {
-    for(i=0; i < N_eig; ++i) {
+    for(i=0; i < N_eig; ++i) 
       Fconvert(f_eigenv[i], CANONICAL, WILSON);
   }
 

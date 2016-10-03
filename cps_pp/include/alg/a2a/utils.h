@@ -1,9 +1,11 @@
 #ifndef CK_A2A_UTILS
 #define CK_A2A_UTILS
 
+#include <assert.h>
 #include <alg/a2a/gsl_wrapper.h>
 #include <alg/a2a/template_wizardry.h>
 #include <util/spincolorflavormatrix.h>
+#include <alg/fix_gauge_arg.h>
 
 CPS_START_NAMESPACE
 

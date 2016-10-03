@@ -254,9 +254,9 @@ void reset_mobius_arg(void* mobius_lib_arg){
   //  printf("TIZB Height %e %e\n", GJP.DwfHeight(), GJP.DwfA5Inv());
   for(int i=0;i<mobius_arg->ls;++i){
     mobius_arg->zmobius_kappa_b[i] = 
-      1.0 / ( 2 * (GJP.ZMobius_b()[i] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+      1.0 / ( 2. * (GJP.ZMobius_b()[i] *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
     mobius_arg->zmobius_kappa_c[i] = 
-      1.0 / ( 2 * (GJP.ZMobius_c()[i] *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+      1.0 / ( 2. * (GJP.ZMobius_c()[i] *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
     mobius_arg->zmobius_kappa_ratio[i] =
       mobius_arg->zmobius_kappa_b[i]  /      mobius_arg->zmobius_kappa_c[i];
 

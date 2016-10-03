@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <util/qcdio.h>
 #include <util/data_types.h>
+#include <util/time_cps.h>
 
 #undef ZERO_ONLY
 #if TARGET == BGL
@@ -117,9 +118,6 @@ void print_asctime_(){
     printf(" : %s\n", asctime(date));
 }
 
-CPS_END_NAMESPACE
-#include <util/time_cps.h>
-CPS_START_NAMESPACE
 
 void TimeStamp::set_file(const char *filename){
   stream = Fopen(ZERO_ONLY,filename,"w");
@@ -217,7 +215,11 @@ Elapsed::Elapsed(const Float &delta){
   mins=(delta-3600.0*hours)/60.0;
   secs=delta-3600.0*hours-60.0*mins;
 }
+CPS_END_NAMESPACE
 
+#include <util/timer.h>
+CPS_START_NAMESPACE
+#if 1
 Float Timer::dtime_begin(dclock());
 Float Timer::dtime_last(dclock());
 
@@ -236,8 +238,7 @@ Elapsed Timer::relative_time(){
   dtime_last = now;
   return Elapsed(delta);
 }
-
-
+#endif
 
 
 CPS_END_NAMESPACE

@@ -429,11 +429,11 @@ class FwilsonTm : public virtual Fwilson
 		   CnvFrmType cnv_frm = CNV_FRM_YES);
 
     
-    int FeigSolv(Vector **f_eigenv, Float *lambda,
-                 Float *chirality, int *valid_eig,
-                 Float **hsum,
-                 EigArg *eig_arg,
-                 CnvFrmType cnv_frm);
+    int FeigSolv(Vector **f_eigenv, Float *lambda, 
+		 Float *chirality, int *valid_eig,
+		 Float **hsum,
+		 EigArg *eig_arg, 
+		 CnvFrmType cnv_frm = CNV_FRM_YES);
     //CK: modified in f_wilsonTm to create wilsonTm fermions 
     int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
 		    int Nshift, int isz, CgArg **cg_arg, 
@@ -470,11 +470,6 @@ class FwilsonTm : public virtual Fwilson
     ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				  int isz, Float *alpha, Float mass, Float epsilon, Float dt,
 				  Vector **sol_d, ForceMeasure measure);
-    int FeigSolv(Vector **f_eigenv, Float *lambda, 
-		 Float *chirality, int *valid_eig,
-		 Float **hsum,
-		 EigArg *eig_arg, 
-		 CnvFrmType cnv_frm = CNV_FRM_YES);
 
     //
     //~~ the following functions are "normal" versions without the
@@ -1225,7 +1220,7 @@ class Fzmobius : public FdwfBase {
 		Float *true_res,
 		CnvFrmType cnv_frm,
 		PreserveType prs_f_in)
-    { FmatInv(f_out,f_in,cg_arg,true_res,cnv_frm, prs_f_in,0);}
+    { return FmatInv(f_out,f_in,cg_arg,true_res,cnv_frm, prs_f_in,0);}
 
     int FmatInv(Vector *f_out,
                 Vector *f_in,

@@ -157,7 +157,7 @@ static inline Rcomplex Trace(const FlavorSpinMatrix &a, const FlavorSpinMatrix &
       for(int f1=0;f1<2;f1++)
 	for(int s2=0;s2<4;s2++)
 	  for(int f2=0;f2<2;f2++)
-	    ret += a(f1,f2)(s1,s2) * b(f2,f1)(s2,s1);
+	    ret += a(f1,f2).operator()(s1,s2) * b(f2,f1).operator()(s2,s1);
     return ret;
 }
 

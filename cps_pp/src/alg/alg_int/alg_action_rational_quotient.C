@@ -411,10 +411,11 @@ Float AlgActionRationalQuotient::energy() {
     return 0.0;
   } else if (!evolved) {
     energyEval = 1;
+    {
     Float glb_h = h_init;
     glb_sum(&glb_h);
-    VRB.Result(cname, fname, "glb_h = %0.15e\n", glb_h);
-      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.9e\n",force_label,gsum_h);
+//    VRB.Result(cname, fname, "glb_h = %0.15e\n", glb_h);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.9e\n",force_label,glb_h);
     }
     return h_init;
   } else {
@@ -492,11 +493,11 @@ Float AlgActionRationalQuotient::energy() {
 void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 {
   //const char * fname = "prepare_fg(M*,F)";
-  static Timer timer(cname, fname);
-  timer.start(true);
 
   char fname[30+strlen(force_label)];
   sprintf(fname, "prepare_fg(M*,F) [%s]",force_label);
+  static Timer timer(cname, fname);
+  timer.start(true);
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;
@@ -701,10 +702,10 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
 void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
   //const char * fname = "evolve(Float, int)";
-  static Timer timer(cname, fname);
-  timer.start(true);
   char fname[30+strlen(force_label)];
   sprintf(fname, "evolve(Float, int) [%s]",force_label);
+  static Timer timer(cname, fname);
+  timer.start(true);
 
   Float dtime = -dclock();
   Float dtime_cg = 0.;

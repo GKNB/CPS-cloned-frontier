@@ -93,8 +93,8 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
   Staple(mt1, x, mu);	
   ForceFlops += 198*3*3+12+216*3;
 
-  Float nstaple = ((Matrix*)mp1)->norm();
-  unsigned int cksumstaple = MCheckSum2(*mp1);
+  Float nstaple = mt1.norm();
+  unsigned int cksumstaple = MCheckSum2(mt1);
   //----------------------------------------------------------------------------
   // mt2 = U_mu(x)
   //----------------------------------------------------------------------------
@@ -117,8 +117,8 @@ void GimprRect::GforceSite(Matrix& force, int *x, int mu)
   RectStaple(mt1, x, mu);
   ForceFlops += 198*3*18+216*3*6;
 
-  Float nrect = ((Matrix*)mp1)->norm();
-  unsigned int cksumrect = MCheckSum2(*mp1);
+  Float nrect = mt1.norm();
+  unsigned int cksumrect = MCheckSum2(mt1);
   //----------------------------------------------------------------------------
   // mt2 = -(beta*c_1/3)*U_mu(x)
   //----------------------------------------------------------------------------

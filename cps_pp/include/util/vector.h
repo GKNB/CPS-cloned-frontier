@@ -376,7 +376,13 @@ class Matrix
             u[i] *= c;
         return *this;
     }
+    //! Multiplies this matrix by a complex scalar.
+    /*!
+      \param c The complex scalar
+      \return The multiplied matrix
+    */
 
+#if 1
     Matrix& operator*=(const Complex &c) {
       for(int i = 0; i < COLORS * COLORS; ++i){
 	int reidx = 2*i; int imidx = reidx+1;
@@ -386,12 +392,7 @@ class Matrix
       }
       return *this;
     }
-
-    //! Multiplies this matrix by a complex scalar.
-    /*!
-      \param c The complex scalar
-      \return The multiplied matrix
-    */
+#else
     // Added by Hantao
     Matrix &operator*=(const Complex &c) {
         Complex *uc = (Complex *)u;
@@ -400,6 +401,7 @@ class Matrix
         }
         return *this;
     }
+#endif
 
     Matrix operator+(const Matrix &m)const {
         Matrix tmp(*this);

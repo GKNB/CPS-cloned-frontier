@@ -122,7 +122,11 @@ inline bool compareTimeInfoP(TimerInfo *p1, TimerInfo *p2) {
   return p1->accumulated_time < p2->accumulated_time;
 }
 
+
 class Timer {
+ protected:
+  static Float dtime_begin;
+  static Float dtime_last;
 
   public :
 
@@ -239,6 +243,11 @@ class Timer {
         display("autodisplay");
       }
     }
+  static void reset();
+  //Time since last reset
+  static Elapsed elapsed_time();
+  //Time since last call to this function
+  static Elapsed relative_time();
 
 };
 

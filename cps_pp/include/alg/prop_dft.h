@@ -2,8 +2,9 @@
 #define PROP_DFT_H
 
 #include<config.h>
-#include <alg/alg_base.h>
+#include <util/timer.h>
 #include <util/lattice.h>
+#include <alg/alg_base.h>
 #include <alg/correlationfunction.h>
 #include <alg/gparity_contract_arg.h>
 #include <alg/common_arg.h>

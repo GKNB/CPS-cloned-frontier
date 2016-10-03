@@ -534,13 +534,15 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where, i
     VRB.Func(cname, fname);
     VRB.Debug(cname,fname,"lat=%p spin=%d dir=%d  where=%d\n",&lat,spin,dir,where);
 
-    if(dir != 3) {
-        ERR.NotImplemented(cname, fname);
+//    if(dir != 3) { ERR.NotImplemented(cname, fname);
   if(dir!=3) ERR.General(cname,fname,"Works only for dir=3\n"); //Added by CK, see site loop below to verify
 
+//the local (on processor) length in "dir" direction
+    int len= GJP.NodeSites(dir);
+// local processor coordinate in d_ direction
+  int lproc = GJP.NodeCoor(dir);
+
   //CK remove nasty switch in favour of improved GJP commands
-  len = GJP.NodeSites(dir);
-  lproc = GJP.NodeCoor(dir);
 
     // nc: node coordinate
     // lc: local coordinate
@@ -572,13 +574,11 @@ void FermionVectorTp::GFWallSource(Lattice &lat, int spin, int dir, int where, i
 #else
   Vector temp;
   Matrix tempmat; 
-    int len;     //the local (on processor) length in "dir" direction
-  int lproc;   // local processor coordinate in d_ direction
-               // 0 <= lproc <= nproc
   // find out if this node overlaps with the hyperplane
   // in which the wall source sits
   int has_overlap = 0;
-  if (lproc * len <= where && where < (lproc + 1) * len)
+//  if (lproc * len <= where && where < (lproc + 1) * len)
+    if (lproc == nc)
     has_overlap = 1;
  
   if (has_overlap) {
@@ -662,24 +662,22 @@ void FermionVectorTp::GaugeFixSink(Lattice &lat, int dir, int unfix) {
     }
 
     Matrix **gm = lat.FixGaugePtr();
+  int nflav=1;
   if(GJP.Gparity()) nflav = 2;
 
   for(int flav = 0; flav < nflav; flav++){
     for (int t=0; t < GJP.TnodeSites(); t++) {
 
       Matrix *pM = gm[t + flav * GJP.TnodeSites()]; //flavour 1 GF matrices stored after flavour 0 hyperplanes
-#pragma omp parallel for 
-    for(int site = 0; site < GJP.VolNodeSites(); site++) {
-        int t = site / loc_3d;
-        // the matrix offset
-        int j = site % loc_3d;
-        Matrix *pM = gm[t];
-      Vector temp;
+	Vector temp;
 
       if(gm[t] != NULL ){
 	for (int z = 0; z < GJP.ZnodeSites(); z++)
 	  for (int y = 0; y < GJP.YnodeSites(); y++)
 	    for (int x = 0; x < GJP.XnodeSites(); x++){
+          // the matrix offset
+		int j =  x + GJP.XnodeSites() * ( y + GJP.YnodeSites() * z);
+
 	      for (int spin = 0; spin < 4; spin++){
 		// the vector offset
 		int i= 2 * GJP.Colors() * ( spin + 4 * (
@@ -694,7 +692,7 @@ void FermionVectorTp::GaugeFixSink(Lattice &lat, int dir, int unfix) {
 				(const IFloat*)&temp);
 		else
 		uDotXEqual((IFloat*)&fv[i],(const IFloat*)&pM[j],
-			     (const IFloat*)&vt);
+			     (const IFloat*)&temp);
 	      }
         }
       }
