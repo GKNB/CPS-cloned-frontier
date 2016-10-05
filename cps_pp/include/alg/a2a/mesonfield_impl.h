@@ -377,6 +377,39 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 #endif
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+class MultKernel{
+public:
+  //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
+  template<typename InnerProduct>
+  static void mult_kernel(std::vector<std::vector<cps::ComplexD> > &mf_accum_m, const InnerProduct &M, const int t,
+			  const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
+			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
+			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
+			  const std::vector<std::pair<int,int> > &site_offsets_i,
+			  const std::vector<std::pair<int,int> > &site_offsets_j){
+    for(int i = i0; i < iup; i++){	      
+      for(int j = j0; j < jup; j++) {		
+	
+	cps::ComplexD &mf_accum = mf_accum_m[i][j];
+	mf_accum = 0.;
+	
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = base_ptrs_i[i];
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = base_ptrs_j[j];
+	lscf.incrementPointers(site_offsets_i[i],p0);
+	rscf.incrementPointers(site_offsets_j[j],p0);
+	
+	for(int p_3d = p0; p_3d < pup; p_3d++) {
+	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
+	  lscf.incrementPointers(site_offsets_i[i]);
+	  rscf.incrementPointers(site_offsets_j[j]);		  
+	}
+      }
+    }
+  }
+};
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -413,7 +446,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
     int bp = MF_COMPUTE_BP;
 
     int nthread = omp_get_max_threads();
-    //cps::ComplexD mf_accum_thr[nthread][mf_t[t].nmodes_l][mf_t[t].nmodes_r];
     std::vector<std::vector<std::vector<cps::ComplexD> > > mf_accum_thr(nthread);
     for(int s=0;s<nthread;s++){
       mf_accum_thr[s].resize(mf_t[t].nmodes_l);
@@ -421,9 +453,31 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	mf_accum_thr[s][i].resize(mf_t[t].nmodes_r);
     }
 
+    //Make a table of p base pointers and site offsets for each i,j
+    std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > base_ptrs_i(mf_t[t].nmodes_l);
+    std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > base_ptrs_j(mf_t[t].nmodes_r);
+    std::vector<std::pair<int,int> > site_offsets_i(mf_t[t].nmodes_l);
+    std::vector<std::pair<int,int> > site_offsets_j(mf_t[t].nmodes_r);
+
 #pragma omp parallel
     {
       int me = omp_get_thread_num();
+
+      //Generate the tables
+      int thr_tabwork, thr_taboff;
+      thread_work(thr_tabwork, thr_taboff, mf_t[t].nmodes_l, me, omp_get_num_threads());
+      for(int i=thr_taboff; i<thr_taboff+thr_tabwork;i++){ //i table
+      	modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
+      	base_ptrs_i[i] = l.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl);
+      	site_offsets_i[i] = std::pair<int,int>( l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) );
+      }
+      thread_work(thr_tabwork, thr_taboff, mf_t[t].nmodes_r, me, omp_get_num_threads());
+      for(int j=thr_taboff; j<thr_taboff+thr_tabwork;j++){ //j table
+      	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
+      	base_ptrs_j[j] = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+      	site_offsets_j[j] = std::pair<int,int>( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
+      }
+#pragma omp barrier
 
       for(int i0 = 0; i0 < mf_t[t].nmodes_l; i0+=bi){
 	int iup = std::min(i0+bi,mf_t[t].nmodes_l);
@@ -438,52 +492,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	    thread_work(thr_pwork, thr_poff, pup-p0, me, omp_get_num_threads());
 
 	    int thr_p0 = p0 + thr_poff;
-	    
-	    for(int i = i0; i < iup; i++){	      
-	      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
-	      SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect(i,i_high_unmapped,thr_p0,t_lcl); //dilute flavor in-place if it hasn't been already
-	      int lscf_site_incr[2] = { l.siteStride3D(i,i_high_unmapped,0), l.siteStride3D(i,i_high_unmapped,1) };
-	      
-	      for(int j = j0; j < jup; j++) {		
-		modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
-	
-		cps::ComplexD &mf_accum = mf_accum_thr[me][i][j];
-		mf_accum = 0.;
-
-		SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect(j,j_high_unmapped,thr_p0,t_lcl);
-		int rscf_site_incr[2] = { r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) };
-
-#if MF_COMPUTE_DO_PREFETCH == 1
-		for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
-		  vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
-		  vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
-		  vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
-		  vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
-		}
-#endif
-		for(int p_3d = thr_p0; p_3d < thr_p0+thr_pwork; p_3d++) {
-		  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
-		  lscf.incrementPointers(lscf_site_incr[0], lscf_site_incr[1]);
-		  rscf.incrementPointers(rscf_site_incr[0], rscf_site_incr[1]);		    
-
-#if MF_COMPUTE_DO_PREFETCH == 1
-		  for(int ii=0;ii<12;ii+=MF_COMPUTE_PREFETCH_SCINCR){
-		    vprefetch( *(lscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[0] + ii) );
-		    vprefetch( *(lscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*lscf_site_incr[1] + ii) );
-		    vprefetch( *(rscf.getPtr(0) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[0] + ii) );
-		    vprefetch( *(rscf.getPtr(1) + MF_COMPUTE_PREFETCH_SITE_AHEAD*rscf_site_incr[1] + ii) );
-		  }
-#endif
-		    
-		}
-		lscf.incrementPointers(-thr_pwork*lscf_site_incr[0], -thr_pwork*lscf_site_incr[1]); //reset for next j		
-		//#pragma omp critical
-		//{
-		//  mf_t[t](i,j) += mf_accum; //downcast after accumulate
-		//}
-	      }
-	    }
+	    MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me],M,t,
+								     i0,iup,j0,jup,thr_p0,thr_p0+thr_pwork,
+								     base_ptrs_i,base_ptrs_j,site_offsets_i,site_offsets_j);
 	  }
 	  
 	}
@@ -502,10 +514,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
       }			            
 
     }//end of parallel region
-    
-    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << " over " << omp_get_max_threads() << " threads";
+
+    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << mf_t[t].nmodes_l << "*" <<  mf_t[t].nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
     print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
   }
+
   print_time("A2AmesonField","local compute",time + dclock());
 
   time = -dclock();

@@ -14,6 +14,13 @@ public:
 #else
 { p[0] = f0; p[1] = f1; zero_hint[0] = zero_f0; zero_hint[1] = zero_f1; }
 #endif
+  inline SCFvectorPtr()
+ #if __cplusplus >= 201103L
+    : p{NULL,NULL}, zero_hint{false,false}{}
+#else
+{ p[0] = NULL; p[1] = NULL; zero_hint[0] = false; zero_hint[1] = false; }
+#endif
+
   inline void assign(const int f, ComplexType* fp){ p[f] = fp; }
   inline const ComplexType & operator()(const int s, const int c, const int f = 0) const{
     return p[f][c+3*s];
@@ -24,6 +31,7 @@ public:
   inline ComplexType const* getPtr(const int f) const{ return p[f]; }
   inline bool isZero(const int f) const{ return zero_hint[f]; }
   inline void incrementPointers(const int df0, const int df1){ p[0] += df0; p[1] += df1; }
+  inline void incrementPointers(const std::pair<int,int> df, const int sites = 1){ p[0] += df.first*sites; p[1] += df.second*sites; }
   inline void setHint(const int f, const bool to){ zero_hint[f] = to; }
 };
 
