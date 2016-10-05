@@ -2,7 +2,9 @@
 
 #include <util/lattice/eff_overlap.h>
 #include <util/lattice/bfm_mixed_solver.h>
+#ifndef BFM_GPARITY
 #include <util/lattice/hdcg_controller.h>
+#endif
 #include <util/timer.h>
 #include <util/gjp.h>
 #include <util/smalloc.h>
@@ -133,12 +135,15 @@ int ApplyOverlapInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_
 	bfm_d.set_zero(vec_5d[Odd]);
     }
 
+#ifndef BFM_GPARITY
     if (itype == HDCG) {
 	HDCG_wrapper *control = HDCGInstance::getInstance();
 	assert(control != NULL);
 	control->HDCG_set_mass(mass);
 	control->HDCG_invert(vec_5d, tmp_5d, stop_rsd, bfm_d.max_iter);
-    } else {
+    } else 
+#endif
+{
 #pragma omp parallel
 	{
 	    if (use_mixed_solver) {
@@ -203,6 +208,9 @@ int ApplyOverlapDag(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixe
     bfm_d.residual = pv_stop_rsd;
     if (use_mixed_solver) bfm_f.residual = 1e-5;
     int iters;
+#ifdef BFM_GPARITY
+   ERR.General(cname,fname,"mixed_cg::threaded_cg_mixed_Mdag_guess not implemented for BFM with Gparity\n");
+#else
 #pragma omp parallel
     {
 	// tmp_5d = D_DW(1)^dag^-1 vec_5d
@@ -212,6 +220,7 @@ int ApplyOverlapDag(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixe
 	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, vec_5d);
     }
+#endif
 
     bfm_d.set_mass(mass);
 #pragma omp parallel
@@ -261,6 +270,9 @@ int ApplyOverlapDagInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool u
     bfm_d.residual = stop_rsd;
     if (use_mixed_solver) bfm_f.residual = 1e-5;
     int iters;
+#ifdef BFM_GPARITY
+   ERR.General(cname,fname,"mixed_cg::threaded_cg_mixed_Mdag_guess not implemented for BFM with Gparity\n");
+#else
 #pragma omp parallel
     {
 	// TODO: optionally make use of initial guess
@@ -270,6 +282,7 @@ int ApplyOverlapDagInverse(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool u
 	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, vec_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, vec_5d);
     }
+#endif
 
     bfm_d.set_mass(1.0);
 #pragma omp parallel
@@ -403,6 +416,9 @@ int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, b
     if (use_mixed_solver) bfm_f.residual = 1e-5;
     int iters_PV;
     VRB.Result(cname, fname, "Doing Pauli-Villars solve to get 5D guess\n");
+#ifdef BFM_GPARITY
+   ERR.General(cname,fname,"mixed_cg::threaded_cg_mixed_Mdag_guess not implemented for BFM with Gparity\n");
+#else
 #pragma omp parallel
     {
         bfm_d.set_zero(tmp_5d[Even]);
@@ -411,6 +427,7 @@ int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, b
 	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, out_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, out_5d);
     }
+#endif
 
     // tmp_5d = D_DW(m)^{\dag-1} P in
     // Above we constructed the initial guess for the inversion.
@@ -420,12 +437,16 @@ int ApplyOverlapDagInverseGuess(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, b
     if (use_mixed_solver) bfm_f.residual = 1e-5;
     int iters_main;
     VRB.Result(cname, fname, "Doing main solve.\n");
+#ifdef BFM_GPARITY
+   ERR.General(cname,fname,"mixed_cg::threaded_cg_mixed_Mdag_guess not implemented for BFM with Gparity\n");
+#else
 #pragma omp parallel 
     {
 	iters_main = use_mixed_solver ?
 	    mixed_cg::threaded_cg_mixed_Mdag_guess(tmp_5d, in_5d, bfm_d, bfm_f, 5) :
 	    bfm_d.CGNE_Mdag(tmp_5d, in_5d);
     }
+#endif
 
     // Finally, out_5d = D_DW(1)^\dag D_DW(m)^{\dag-1} P in
     bfm_d.set_mass(1.0);

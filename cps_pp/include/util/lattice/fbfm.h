@@ -45,13 +45,9 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
     
   bfm_evo<double> bd;
   bfm_evo<float> bf;
-    static std::map<Float, MADWFParams> madwf_arg_map;
-
-    // set true to use single precision BFM object.
-
-    bfm_evo<double> bd;
-    bfm_evo<float> bf;
+  static std::map<Float, MADWFParams> madwf_arg_map;
 //    bfm_evo<double> kernel;
+
  private:
   const char *cname;
 
@@ -63,12 +59,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   multi1d<float> *evalf;
   int ecnt;
 
-    // These are eigenvectors/eigenvalues obtained from Rudy's Lanczos
-    // code. Use them for deflation.
-    multi1d<bfm_fermion> *evec;
-    multi1d<double> *evald;
-    multi1d<float> *evalf;
-    int ecnt;
  public:
   Fbfm(void);
   virtual ~Fbfm(void);
@@ -99,7 +89,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 
   void CalcHmdForceVecsBilinear(Float *v1, Float *v2,
 				Vector *phi1, Vector *phi2,
-				Float mass, Float epsilon = -12345);
+				Float mass);
 
   ForceArg EvolveMomFforceBaseThreaded(Matrix *mom,
 				       Vector *phi1,
@@ -131,8 +121,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
     FclassType Fclass()const {
         return F_CLASS_BFM;
     }
-    else if(current_arg_idx == 1) return F_CLASS_BFM_TYPE2;
-  }
   // It returns the type of fermion class
   
   //! Multiplication of a lattice spin-colour vector by gamma_5.
@@ -392,6 +380,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 
     void SetBfmArg(Float key_mass);
 
+#if 1
     void SetMass(Float mass) {
         if(bd.mass != mass) {
             bd.mass = mass;
@@ -409,9 +398,10 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 //            kernel.GeneralisedFiveDimEnd();
 //            kernel.GeneralisedFiveDimInit();
 //        }
+}
   //CK: Added WilsonTm twist parameter epsilon. Use -12345 as a default for non WilsonTm fermions. Add a catch if using WilsonTm and this value of epsilon is passed in
   void SetMass(Float mass, Float epsilon) {
-    if(epsilon == -12345 && bfm_args[current_arg_idx].solver == WilsonTM) ERR.General("Fbfm","SetMass(Float,Float)","Must specify epsilon for twisted mass Wilson fermions"); 
+    if(epsilon == -12345 && CurrentSolver() == WilsonTM) ERR.General("Fbfm","SetMass(Float,Float)","Must specify epsilon for twisted mass Wilson fermions"); 
 
     if(bd.mass != mass || bd.twistedmass != epsilon) {
       bd.mass = mass;
@@ -426,10 +416,9 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
       bf.GeneralisedFiveDimInit();
     }
   }
+#endif
         void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag);
-    }
-
 
     void SaveFmatEvlInvProblem(const char* path, Vector *f_in, CgArg *cg_arg);
     void LoadFmatEvlInvProblem(const char* path, int save_number, Vector *f_in, CgArg *cg_arg);

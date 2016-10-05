@@ -380,7 +380,10 @@ void AlgPbp::run(Float *results)
     //CK: twisted mass parameter is not specified in pbp_arg so we cannot do WilsonTm quarks (could add it if it is ever used)
     if( lat.Fclass() == F_CLASS_WILSON_TM 
 #ifdef USE_BFM
-	|| (is_4d_fbfm && Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM )
+	|| (is_4d_fbfm && 
+	( ( lat.Fclass() == F_CLASS_BFM ) && ( Fbfm::CurrentSolver() == WilsonTM )) 
+	)
+//Fbfm::bfm_args[Fbfm::current_arg_idx].solver == WilsonTM )
 #endif
 	)
       ERR.General(cname,fname,"Twisted Mass quarks but PbpArg does not contain the twisted mass parameter");

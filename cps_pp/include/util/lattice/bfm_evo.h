@@ -76,16 +76,8 @@ public:
   // ======================================================================
   // these functions need to be rewritten to fit into bfm style.
   // currently they contain both bfm and CPS style gauge/fermion fields.
-#if 0 //testing
-private:
-#endif
   // auxiliary functions used by compute_force().
   // complex version of axpy()
- #if 0
-  void axpy_c(Fermion_t r, Fermion_t x, Fermion_t y, std::complex<double> a, Fermion_t tmp) {
-    this->zaxpy(r, x, y, a);
-  }
-#endif
   //CK: gpf1_offset_p is the offset to reach the second G-parity flavour in the vectors v1p and v2p.
   //    Its value depends on whether v1p/v2p are internal vectors (24*5dvol) or in the buffer send 
   //    from the next node (24*Ls*3dsurfvol  where 3dsurfvol is the 3d surface volume in the comms direction)
@@ -110,7 +102,7 @@ private:
     this->zaxpy (r, x, y, a);
   }
 #endif
-#if 1
+#ifndef BFM_GPARITY
   void zaxpy (Fermion_t r, Fermion_t x, Fermion_t y, std::complex < double >a)
   {
     this->caxpy (r, x, y, std::real (a), std::imag (a));
@@ -134,12 +126,6 @@ public:
   //
   // For BFM M is M = M_oo - M_oe M^{-1}_ee M_eo
   void compute_force(Float *mom, Float *gauge, Fermion_t phiL, Fermion_t phiR, double coef);
-
-#if 0
-  //CHECK CODE
-  template<typename FloatEXT>
-  void thread_impexFermion_s_test(FloatEXT *psi, Fermion_t handle[2], int doimport);
-#endif  
 
   // psi assumes the following order: (color, spin, s, x, y, z, t),
   // mainly used to import/export the "v1" and "v2" vectors in evolution.
@@ -237,8 +223,6 @@ public:
   void threaded_free(void *handle);
 #endif
 
-  int EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2]);
-  int Eig_CGNE_prec(Fermion_t psi, Fermion_t src);
 
 #if 0 //CK: leaving them in BFM
   // copied from Jianglei's bfm
@@ -258,10 +242,6 @@ public:
                       int dag);
 #endif
 
-  // do deflation using eigenvectors/eigenvalues from Rudy's Lanczos code.
-  void deflate(Fermion_t out, Fermion_t in,
-               const multi1d<Fermion_t [2]> *evec,
-               const multi1d<Float> *eval, int N);
 };
 
 //CK: this function gives the offset within a checkerboarded vector
@@ -372,18 +352,6 @@ integer bfm_evo<Float>::cps_idx_s_gparity(int x[4], int s, int reim, int i, int 
 //The set of all sites with  x+y+z+t+s odd is the same as the set of sites with x+y+z+t even, and vice versa.
 template <class Float> template<typename FloatEXT>
 void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doimport, int cb)
-{
-  int csite =
-    x[0] + this->node_latt[0]
-    * (x[1] + this->node_latt[1] * (x[2] + this->node_latt[2] * (x[3])));
-
-  return (csite * i_size + i) * 2 + reim;
-}
-
-template < class Float > template < typename FloatEXT >
-  void bfm_evo < Float >::cps_impexcbFermion (FloatEXT * psi,
-					      Fermion_t handle, int doimport,
-					      int cb)
 {
   int Nspinco = 12;
   int i_inc = this->simd () * 2;
@@ -796,11 +764,12 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
       x[1]=s%this->node_latt[1];    s/=this->node_latt[1];
       x[2]=s%this->node_latt[2];    s/=this->node_latt[2];
       x[3]=s%this->node_latt[3];
-      
       int qidx_base = this->chroma_idx(x, 0, 0, Ncoco);
 
-	  int qidx_base = this->chroma_idx (x, 0, 0, Ncoco);
-
+      for(int coco = 0; coco < Ncoco; ++coco) {
+         for ( int reim = 0; reim < 2; ++reim) {
+      
+		int qidx = qidx_base + reim + coco * 2;
           int siteoff = mu + Nd * site + flav*Nd*vol4d; //Second G-parity flavour offset by Nd*vol4d
           int cidx = reim + 2 * (coco + Ncoco * siteoff);
           U_p[qidx] = importme[cidx];
@@ -811,7 +780,6 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   // to bfm
   this->importGauge (U);
 }
-#endif
 
 
 //CK: phi1 = Mprec phi2 for fermionic vectors.
@@ -899,7 +867,7 @@ template < class Float >
     {
 
       // Assemble the 5d matrix
-#if 0
+#if 1
       for (int s = 0; s < this->Ls; s++)
 	{
 	  if (s == 0)
@@ -954,6 +922,7 @@ template < class Float >
       || (this->solver == HwCayleyTanh)
       || (this->solver == HwCayleyZolo) || (this->solver == HtCayleyZolo))
     {
+#ifndef BFM_GPARITY
       std::vector < double >beo_real (this->Ls);
       std::vector < double >ceo_real (this->Ls);
 
@@ -964,7 +933,11 @@ template < class Float >
 	}
 
       Booee (psi, chi, dag, beo_real, ceo_real);
+#else
+      Booee (psi, chi, dag, this->beo, this->ceo);
+#endif
     }
+#ifndef BFM_GPARITY
   else if (this->solver == HmCayleyComplex)
     {
       Fermion_t chi_real = this->threadedAllocFermion ();
@@ -991,6 +964,7 @@ template < class Float >
       this->threadedFreeFermion (chi_real);
       this->threadedFreeFermion (chi_imag);
     }
+#endif
   else if (this->solver == DWF && this->precon_5d == 1)
     {
       // Booee is the identity matrix in this case.
@@ -1002,11 +976,11 @@ template < class Float >
       // This case added by Greg
       this->copy (chi, psi);
       return;
-    }
   } else {
     if ( this->isBoss() ) {
       printf("Booee: method not implemented for this fermion type / preconditioning type\n");
     }
+  }
 }
 
 static inline double
@@ -1073,10 +1047,9 @@ template < class Float >
   old_x[0] = this->threadedAllocFermion ();
   old_x[1] = this->threadedAllocFermion ();
   int nprec = 1;
-  if (this->solver == DWFKernel)
-    {
-      nprec = 2;
-    }
+#ifndef BFM_GPARITY
+  if (this->solver == DWFKernel) { nprec = 2; }
+#endif
 
   // normalize x
   double fact = this->norm (x[0]);
@@ -1105,9 +1078,11 @@ template < class Float >
       double rel_low = 1., rel_hi = 1.;
       switch (this->solver)
 	{
+#ifndef BFM_GPARITY
 	case DWFKernel:
 	  this->G5D_Kernel (x, tmp0);
 	  break;
+#endif
 	default:
 //    case HmCayleyComplex  :
 //    case HmCayleyTanh  :
@@ -1911,6 +1886,7 @@ template < class Float >
 	fforce_internal(mom, gauge, v1f, v2f, coef, i, me, this->nthread - 4);
       }
     }
+  }
 
   this->thread_barrier ();
 
@@ -2201,32 +2177,14 @@ template < typename Float >
   this->copy (compact_chi[1], chi[1]);
 }
 
-template < typename Float >
-  void bfm_evo < Float >::deflate (Fermion_t out, Fermion_t in,
-				   const multi1d < Fermion_t[2] > *evec,
-				   const multi1d < Float > *eval, int N)
-{
-  if (N == 0 || evec == NULL || eval == NULL)
-    {
-      if (this->isBoss ())
-	{
-	  printf ("bfm_evo::deflate() must provide eigenvectors.\n");
-	}
-      exit (-1);
-    }
-
-  this->set_zero (out);
-  for (int i = 0; i < N; ++i)
-    {
-      std::complex < double >dot = this->inner ((*evec)[i][1], in);
-      this->zaxpy (out, (*evec)[i][1], out, dot / double ((*eval)[i]));
-    }
-}
-
 // GCR, the matrix is preconditioned M.
 template < class Float >
   int bfm_evo < Float >::gcr_M (Fermion_t sol, Fermion_t src)
 {
+#ifdef BFM_GPARITY
+  printf("int bfm_evo<Float>::gcr_M temporarily disabled");
+  exit(-1);
+#endif
   int me = this->thread_barrier ();
 
   Fermion_t r = this->threadedAllocFermion ();
@@ -2333,161 +2291,6 @@ template < class Float >
   return k;
 }
 
-// GMRES(m), we restart after m iterations.
-template < class Float >
-  int bfm_evo < Float >::gmres_M (Fermion_t sol, Fermion_t src, const int m)
-{
-  using namespace std;
-  typedef complex < double >cmplx;
-
-  int me = this->thread_barrier ();
-
-  Fermion_t r = this->threadedAllocFermion ();
-  Fermion_t w = this->threadedAllocFermion ();
-  Fermion_t tv1 = this->threadedAllocFermion ();
-
-  // the history of search directions
-  vector < Fermion_t > v (m + 1, NULL);
-  for (int i = 0; i <= m; ++i)
-    {
-      v[i] = this->threadedAllocFermion ();
-    }
-
-  vector < cmplx > H ((m + 1) * m, 0);
-  vector < cmplx > R ((m + 1) * m, 0);
-  vector < cmplx > B (m, 0);
-
-  vector < cmplx > C (m, 0);
-  vector < cmplx > S (m, 0);
-  vector < cmplx > Y (m, 0);
-
-  const double len = sqrt (this->norm (src));
-  const double stop = len * this->residual;
-
-  this->Mprec (sol, r, tv1, 0, 0);
-  double rsq = this->axpy_norm (r, r, src, -1.0);	// r <- b - M x
-
-  int j = 0;
-  for (; j < this->max_iter / m; ++j)
-    {
-      double beta = sqrt (rsq);
-      this->axpy (v[0], r, r, 1 / beta - 1);	// v[0] <- r / beta
-
-      B.assign (m, 0);
-      B[0] = beta;
-
-      int nr = m;
-      double rho = len;
-
-      for (int i = 0; i < m; ++i)
-	{
-	  this->Mprec (v[i], w, tv1, 0, 0);
-
-	  // Arnoldi iteration
-	  for (int k = 0; k <= i; ++k)
-	    {
-	      H[k * m + i] = this->inner (v[k], w);
-	      this->zaxpy (w, v[k], w, -H[k * m + i]);
-	    }
-	  double w2 = sqrt (this->norm (w));
-
-	  H[(i + 1) * m + i] = w2;
-	  this->axpy (v[i + 1], w, w, 1 / w2 - 1);
-
-	  R[0 * m + i] = H[0 * m + i];
-
-	  // Givens transformation
-	  for (int k = 1; k <= i; ++k)
-	    {
-	      cmplx gamma =
-		C[k - 1] * R[(k - 1) * m + i] + conj (S[k - 1]) * H[k * m +
-								    i];
-	      R[k * m + i] =
-		-S[k - 1] * R[(k - 1) * m + i] + C[k - 1] * H[k * m + i];
-	      R[(k - 1) * m + i] = gamma;
-	    }
-
-	  double rii = norm (R[i * m + i]);
-	  double hii = norm (H[(i + 1) * m + i]);
-	  double delta = sqrt (rii + hii);
-
-	  cmplx mu, tau;
-	  if (rii < hii)
-	    {
-	      mu = R[i * m + i] / H[(i + 1) * m + i];
-	      tau = conj (mu) / abs (mu);
-	    }
-	  else
-	    {
-	      mu = H[(i + 1) * m + i] / R[i * m + i];
-	      tau = mu / abs (mu);
-	    }
-
-	  C[i] = sqrt (rii) / delta;
-	  S[i] = sqrt (hii) * tau / delta;
-
-	  R[i * m + i] =
-	    C[i] * R[i * m + i] + conj (S[i]) * H[(i + 1) * m + i];
-	  B[i + 1] = -S[i] * B[i];
-	  B[i] *= C[i];
-
-	  rho = abs (B[i + 1]);
-
-	  if (this->isBoss () && !me)
-	    {
-	      std::printf ("gmres: (j i) = %4d %4d rsd = %10.3e\n",
-			   j, i, rho / len);
-	    }
-
-	  if (rho < stop)
-	    {
-	      nr = i;
-	      break;
-	    }
-	}
-
-      for (int k = nr - 1; k >= 0; --k)
-	{
-	  Y[k] = B[k];
-	  for (int i = k + 1; i < nr; ++i)
-	    {
-	      Y[k] -= R[k * m + i] * Y[i];
-	    }
-	  Y[k] /= R[k * m + k];
-
-	  this->zaxpy (sol, v[k], sol, Y[k]);
-	}
-
-      this->Mprec (sol, r, tv1, 0, 0);
-      rsq = this->axpy_norm (r, r, src, -1.0);
-      if (rho < stop)
-	break;
-    }
-
-  if (j >= this->max_iter / m)
-    {
-      if (this->isBoss () && !me)
-	{
-	  std::printf ("gmres: not converged in %d iterations.\n", j);
-	}
-    }
-
-  if (this->isBoss () && !me)
-    {
-      std::printf ("gmres: true_rsd = %10.3e\n", std::sqrt (rsq) / len);
-    }
-
-  this->threadedFreeFermion (r);
-  this->threadedFreeFermion (w);
-  this->threadedFreeFermion (tv1);
-
-  for (int i = 0; i <= m; ++i)
-    {
-      this->threadedFreeFermion (v[i]);
-    }
-
-  return j;
-}
 
 
 template < class Float > void bfm_evo < Float >::set_mass (double mass)
@@ -2558,111 +2361,7 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
   }
 }
 
-// GCR, the matrix is preconditioned M.
-template<class Float>
-int bfm_evo<Float>::gcr_M(Fermion_t sol, Fermion_t src)
-{
-  printf("int bfm_evo<Float>::gcr_M temporarily disabled");
-  exit(-1);
-  
-#if 0
-  int me = this->thread_barrier();
 
-  Fermion_t r   = this->threadedAllocFermion();
-  Fermion_t gr  = this->threadedAllocFermion();
-  Fermion_t agr = this->threadedAllocFermion();
-  Fermion_t p   = this->threadedAllocFermion();
-  Fermion_t ap  = this->threadedAllocFermion();
-  Fermion_t x   = sol;
-  Fermion_t tv1 = this->threadedAllocFermion();
-  Fermion_t tv2 = this->threadedAllocFermion();
-
-  const double src_norm = this->norm(src);
-  const double stop = src_norm * this->residual * this->residual;
-
-  this->Mprec(x, r, tv2, 0, 0);
-  double rnorm = this->axpy_norm(r, r, src, -1.0); // r <- b - M x
-
-  if ( this->isBoss() && !me ) {
-    std::printf("gcr_M: iter = %5d rsd = %10.3e true rsd = %10.3e\n",
-                0, std::sqrt(rnorm / src_norm),
-                std::sqrt(rnorm / src_norm));
-  }
-
-  this->g5r5(gr, r);
-  this->Mprec(gr, agr, tv1, 0, 0);
-  this->copy(p, gr);
-  this->copy(ap, agr);
-
-  std::complex<double> ragr = this->inner(r, agr);
-
-  int k = 1;
-  for(; k <= this->max_iter; ++k) {
-    double pdmmp = this->norm(ap);
-
-    std::complex<double> alpha = ragr / pdmmp;
-    this->zaxpy(x, p, x, alpha);
-    this->zaxpy(r, ap, r, -alpha);
-    rnorm = this->norm(r);
-
-    if(rnorm < stop) {
-      if(this->isBoss() && !me) {
-        std::printf("gcr_M: converged in %d iterations.\n", k);
-        std::printf("gcr_M: rsd = %10.3e\n", std::sqrt(rnorm/src_norm));
-      }
-      break;
-    }
-
-    this->g5r5(gr, r);
-    this->Mprec(gr, agr, tv2, 0, 0);
-
-    std::complex<double> ragrn = this->inner(r, agr);
-    std::complex<double> beta = ragrn / ragr;
-    ragr = ragrn;
-
-    this->zaxpy(p, p, gr, beta);
-    this->zaxpy(ap, ap, agr, beta);
-
-    // ======================================================================
-    // Computing true residual and other information, the
-    // following can be removed without any effect on convergence.
-    this->Mprec(x, tv1, tv2, 0, 0);
-    double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
-
-    if ( this->isBoss() && !me ) {
-      std::printf("gcr_M: iter = %5d rsd = %10.3e true_rsd = %10.3e\n",
-                  k,
-                  std::sqrt(rnorm / src_norm),
-                  std::sqrt(true_rsd / src_norm));
-    }
-    // ======================================================================
-  }
-
-  if(k > this->max_iter) {
-    if(this->isBoss() && !me) {
-      std::printf("gcr_M: not converged in %d iterations.\n", k);
-    }
-  }
-
-  this->Mprec(x, tv1, tv2, 0, 0);
-  double true_rsd = this->axpy_norm(tv1, tv1, src, -1.0);
-
-  if(this->isBoss() && !me) {
-    std::printf("gcr_M: true_rsd = %10.3e\n",
-                std::sqrt(true_rsd/src_norm));
-  }
-
-  this->threadedFreeFermion(r);
-  this->threadedFreeFermion(gr);
-  this->threadedFreeFermion(agr);
-  this->threadedFreeFermion(p);
-  this->threadedFreeFermion(ap);
-  this->threadedFreeFermion(tv1);
-  this->threadedFreeFermion(tv2);
-  
-  return k;
-#endif
-}
 
 // GMRES(m), we restart after m iterations.
 template<class Float>

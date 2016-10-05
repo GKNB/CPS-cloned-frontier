@@ -22,7 +22,7 @@ namespace mixed_cg {
 
     // check if 2 instances of bfm agree on what they are going to do.
     template<typename Float_out, typename Float_in>
-    inline bool check(bfm_evo<Float_out> &bfm_out,
+inline bool check(bfm_evo<Float_out> &bfm_out,
 		      bfm_evo<Float_in> &bfm_in)
     {
 	if (bfm_out.node_latt[0] != bfm_in.node_latt[0]) return false;
@@ -36,7 +36,7 @@ namespace mixed_cg {
 
     // Convert between single/double precision bfm fermions
     template<typename Float_out, typename Float_in>
-    inline void threaded_convFermion(Fermion_t out, Fermion_t in,
+inline void threaded_convFermion(Fermion_t out, Fermion_t in,
 	bfm_evo<Float_out> &bfm_out,
 	bfm_evo<Float_in> &bfm_in)
     {
@@ -126,7 +126,7 @@ namespace mixed_cg {
     // Convert between single/double precision bfm fermions
     // CK: And do it quickly! The original takes as long as an Mprec!
     template<typename Float_out, typename Float_in>
-    inline void threaded_convFermion_fast(Fermion_t out, Fermion_t in,
+inline void threaded_convFermion_fast(Fermion_t out, Fermion_t in,
 					  bfm_evo<Float_out> &bfm_out,
 					  bfm_evo<Float_in> &bfm_in)
     {
@@ -157,7 +157,7 @@ namespace mixed_cg {
     // Reinitialize communication subsystem.
     // Check bfmcommspi.C in the bfm package to see if this can be avoided.
     template<typename Float_new, typename Float_old>
-    inline void switch_comm(bfm_evo<Float_new> &bfm_new, bfm_evo<Float_old> &bfm_old)
+inline void switch_comm(bfm_evo<Float_new> &bfm_new, bfm_evo<Float_old> &bfm_old)
     {
 	if (static_cast<void *>(&bfm_new)
 	    == static_cast<void *>(&bfm_old)) return;
@@ -197,7 +197,7 @@ namespace mixed_cg {
     //
     //EIGENVECTORS SHOULD BE SINGLE PRECISION!
 
-    inline int threaded_cg_mixed_MdagM(Fermion_t sol, Fermion_t src,
+inline int threaded_cg_mixed_MdagM(Fermion_t sol, Fermion_t src,
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
                                        int max_cycle, cps::InverterType itype = cps::CG,
                                        // the following parameters are for deflation
@@ -306,7 +306,9 @@ namespace mixed_cg {
 	return iter;
     }
 
-    inline int threaded_cg_mixed_MMdag(Fermion_t sol, Fermion_t src,
+// Not implemented for older BFM
+#ifndef BFM_GPARITY
+inline int threaded_cg_mixed_MMdag(Fermion_t sol, Fermion_t src,
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
 	int max_cycle, cps::InverterType itype = cps::CG,
 	// the following parameters are for deflation
@@ -402,6 +404,7 @@ namespace mixed_cg {
 
 	return iter;
     }
+#endif //#ifdef BFM_GPARITY
 
     // apply single precision solver to double precision vectors. Both
     // sol_d and src_d are in double precision.
@@ -412,7 +415,7 @@ namespace mixed_cg {
     //
     // If import_guess == true, then we import sol_d as an initial
     // guess, other we do a zero start CG.
-    inline int cg_single_prec(Fermion_t sol_d, Fermion_t src_d,
+inline int cg_single_prec(Fermion_t sol_d, Fermion_t src_d,
 	Fermion_t sol_f, Fermion_t src_f,
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f)
     {
@@ -431,7 +434,7 @@ namespace mixed_cg {
     // used as a preconditioner.
     //
     // Calling interface is the same as threaded_cg_mixed_MdagM().
-    inline int cg_MdagM_single_precnd(Fermion_t sol, Fermion_t src,
+inline int cg_MdagM_single_precnd(Fermion_t sol, Fermion_t src,
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f)
     {
 	int me = bfm_d.thread_barrier();
@@ -521,7 +524,7 @@ namespace mixed_cg {
 	return k + iter_s;
     }
     
-    inline int threaded_cg_mixed_M(Fermion_t sol[2], Fermion_t src[2],
+inline int threaded_cg_mixed_M(Fermion_t sol[2], Fermion_t src[2],
                                    bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
                                    int max_cycle, cps::InverterType itype = cps::CG,
                                    // the following parameters are for deflation
@@ -579,7 +582,7 @@ namespace mixed_cg {
 
 
 
-    inline double sigma_sum_recurse(const int &i, const int &start, const int &N, double shifts[], const int &nprod_remaining){
+inline double sigma_sum_recurse(const int &i, const int &start, const int &N, double shifts[], const int &nprod_remaining){
 	double out = 0.0;
 
 	for(int j=start;j<N;j++){
@@ -593,7 +596,7 @@ namespace mixed_cg {
 	return out;
     }
 
-    inline double sigma_prod(const int &i, const int &n, const int &N, double shifts[]){
+inline double sigma_prod(const int &i, const int &n, const int &N, double shifts[]){
 	if(n==N-1) return 1.0;
   
 	int prod_size = N-1-n;
@@ -737,7 +740,7 @@ namespace mixed_cg {
     }
 
 
-    inline double sigma_sum_recurse_2(const int &i, const int &k, const int &start, const int &N, double shifts[], const int &nprod_remaining){
+inline double sigma_sum_recurse_2(const int &i, const int &k, const int &start, const int &N, double shifts[], const int &nprod_remaining){
 	double out = 0.0;
 
 	for(int j=start;j<N;j++){
@@ -751,7 +754,7 @@ namespace mixed_cg {
 	return out;
     }
 
-    inline double sigma_prod_2(const int &i, const int &k, const int &n, const int &N, double shifts[]){
+inline double sigma_prod_2(const int &i, const int &k, const int &n, const int &N, double shifts[]){
 	if(n==N-2) return 1.0;
   
 	int prod_size = N-2-n;
@@ -888,7 +891,7 @@ namespace mixed_cg {
 
 
     template<typename Float>
-    inline void MdagMplusShift(Fermion_t in, Fermion_t out, const double &shift, Fermion_t tmp1, Fermion_t tmp2, bfm_evo<Float> &bfm){
+inline void MdagMplusShift(Fermion_t in, Fermion_t out, const double &shift, Fermion_t tmp1, Fermion_t tmp2, bfm_evo<Float> &bfm){
 	bfm.Mprec(in, tmp1, tmp2, DaggerNo);
 	bfm.Mprec(tmp1, out, tmp2, DaggerYes); 
 	bfm.axpy(out, in, out, shift);
@@ -921,7 +924,7 @@ namespace mixed_cg {
     // precisions).
     //
     // max_cycle: the maximum number of restarts will be performed.
-    inline int threaded_cg_mixed_restarted_multi_shift_MdagM(Fermion_t sol[], 
+inline int threaded_cg_mixed_restarted_multi_shift_MdagM(Fermion_t sol[], 
 							     Fermion_t src,
 							     double    mass[],
 							     double    alpha[],
@@ -1038,7 +1041,7 @@ namespace mixed_cg {
     // precisions).
     //
     // max_cycle: the maximum number of restarts will be performed.
-    inline int threaded_cg_mixed_single_prec_as_guess_multi_shift_MdagM(Fermion_t sol[], 
+inline int threaded_cg_mixed_single_prec_as_guess_multi_shift_MdagM(Fermion_t sol[], 
 									Fermion_t src,
 									double    mass[],
 									double    alpha[],
@@ -1338,7 +1341,7 @@ namespace mixed_cg {
     //fresidual are the residuals used for the initial single precision solve
 
     //min_fp_resid: the smallest value for the residual of the initial single-precision multi-mass solve
-    inline int threaded_cg_mixed_defect_correction_multi_shift_MdagM(Fermion_t sol[], Fermion_t src,
+inline int threaded_cg_mixed_defect_correction_multi_shift_MdagM(Fermion_t sol[], Fermion_t src,
 								     double  mass[], double  alpha[], 
 								     bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, int nshift,
 								     double mresidual[], double fresidual[], int single, int max_cycle){
@@ -1447,7 +1450,7 @@ namespace mixed_cg {
     
     //Note that the final double precision residuals may not be as good as desired, so you may want to perform defect correction on each pole afterwards. I have added a version that does this extra step below.
 
-    inline int threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp(Fermion_t psi[], 
+inline int threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp(Fermion_t psi[], 
 							       Fermion_t src,
 							       double    mass[],
 							       double    alpha[],
@@ -1754,7 +1757,7 @@ namespace mixed_cg {
     //2) Single precision restarted CG with defect correction loop over poles
     //3) Double precision restarted CG with defect correction loop over poles
 
-    inline int threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp_defect_correction(Fermion_t psi[], 
+inline int threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp_defect_correction(Fermion_t psi[], 
 										 Fermion_t src,
 										 double    mass[],
 										 double    alpha[],
@@ -1877,121 +1880,11 @@ namespace mixed_cg {
 
 	return iter;
     }
-};
 
-CPS_START_NAMESPACE
-//Controls the version of the multi-shift algorithm used. The user can define different versions to use in different environments, for example if you
-//want to use an approximate method within the molecular dynamics evolution.
+//MaybeOK, but MooeeInv with Gparity should be checked. Disabling for now
 
-//The current environment must be set manually. It defaults to Generic
-class MultiShiftCGcontroller{
-public:
-    enum Mode { SINGLE_PREC,
-	       DOUBLE_PREC,
-	       SINGLE_PREC_PLUS_OUTER_DEFECT_CORRECTION_LOOP, //Single precision multi-shift followed by single precision restarted defect correction loop over poles
-	       SINGLE_PREC_AS_DOUBLE_PREC_GUESS, //Single precision multi-shift followed by double precision multi-shift using the single prec results as a guess (using Osborn's method) 
-	       SINGLE_PREC_RESTARTED_AS_DOUBLE_PREC_GUESS, //Restarted single precision multi-shift with defect correction followed by double precision multi-shift using the single prec results as a guess (also using Osborn's method)
-	       SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP, //Single precision multi-shift with reliable update followed by single precision restarted defect correction loop over poles
-	       NMultiShiftCGMode };
-    enum Environment { MolecularDynamics, EnergyCalculation, Heatbath, Generic, NMultiShiftEnvironment };
-private:
-    Mode environ_mode[(int)NMultiShiftEnvironment];
-    Environment current_environment;
-
-    double minimum_single_prec_residual;  //For variants with an initial single precision solve, the stopping conditions are set equal to the larger of the double precision residual and this bound. Does not apply
-                                          //to the reliable update version.
-    int reliable_update_freq; //Used in versions with reliable update
-    int max_defect_correction_cycles;
-public:
-    MultiShiftCGcontroller(): current_environment(Generic), 
-			 minimum_single_prec_residual(1e-08), 
-			 reliable_update_freq(100),
-			 max_defect_correction_cycles(500){
-	for(int i=0;i<(int)NMultiShiftEnvironment;i++) environ_mode[i] = DOUBLE_PREC;
-    }
-
-    void setEnvironmentMode(const Environment & environ,  const Mode & mode){ environ_mode[(int)environ] = mode; }
-    void setEnvironment(const Environment & environ){ current_environment = environ; }
-    const Mode& getMode() const{ return environ_mode[(int)current_environment]; }
-
-    void setMinimumSinglePrecResidual(const double &r){ minimum_single_prec_residual = r; }
-    void setReliableUpdateFreq(const int &f){ reliable_update_freq = f; }
-    void setMaximumDefectCorrectionCycles(const int &c){ max_defect_correction_cycles = c; }
-    
-    int MInv(Fermion_t *sol_multi, Fermion_t src, 
-	     Float *shift, int Nshift, 
-	     Float *mresidual, Float *alpha, int single,
-	     bfm_evo<double> &bd,
-	     bfm_evo<float> &bf){
-	
-	const Mode& mode = getMode();
-	int iter;
-
-	if(mode == SINGLE_PREC){ //Note, this uses the residuals specified in the cg_arg without modification
-#pragma omp parallel
-	    {
-		Fermion_t src_f = bf.threadedAllocFermion();
-		Fermion_t sol_f[Nshift];
-		for(int i=0;i<Nshift;i++) sol_f[i] = bf.threadedAllocFermion();
-
-		mixed_cg::threaded_convFermion(src_f,src,bf,bd);
-		mixed_cg::switch_comm(bf,bd);
-		iter = bf.CGNE_prec_MdagM_multi_shift(sol_f, src_f, shift, alpha, Nshift, mresidual, single);
-		mixed_cg::switch_comm(bd,bf);
-		for(int i=0;i<Nshift;i++){
-		    mixed_cg::threaded_convFermion(sol_multi[i],sol_f[i],bd,bf);
-		    bf.threadedFreeFermion(sol_f[i]);
-		}
-		bf.threadedFreeFermion(src_f);
-	    }       
-	}else if(mode == DOUBLE_PREC){
-#pragma omp parallel
-	    {
-		iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, alpha, Nshift, mresidual, single);
-	    }
-	}else if(mode == SINGLE_PREC_PLUS_OUTER_DEFECT_CORRECTION_LOOP){
-	    double fresidual[Nshift]; //residuals for initial single prec solve
-	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
-#pragma omp parallel
-	    {
-		iter = mixed_cg::threaded_cg_mixed_defect_correction_multi_shift_MdagM(sol_multi,src, shift,alpha, bd,bf, Nshift, mresidual, fresidual, single, max_defect_correction_cycles);
-	    }
-	}else if(mode == SINGLE_PREC_AS_DOUBLE_PREC_GUESS){
-	    double fresidual[Nshift]; //residuals for initial single prec solve
-	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
-#pragma omp parallel
-	    {
-		iter = mixed_cg::threaded_cg_mixed_single_prec_as_guess_multi_shift_MdagM(sol_multi,src, shift,alpha, Nshift, mresidual, fresidual, single, bd, bf);
-	    }
-	}else if(mode == SINGLE_PREC_RESTARTED_AS_DOUBLE_PREC_GUESS){
-	    double fresidual[Nshift]; //residuals for initial single prec solve
-	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
-#pragma omp parallel
-	    {
-		iter = mixed_cg::threaded_cg_mixed_restarted_multi_shift_MdagM(sol_multi,src, shift,alpha, Nshift, mresidual, fresidual, single, bd, bf, max_defect_correction_cycles);
-	    }
-	}else if(mode == SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP){
-	    #pragma omp parallel
-	    {
-		iter = mixed_cg::threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp_defect_correction(sol_multi,src, shift,alpha, Nshift, mresidual, single, bf, bd, reliable_update_freq, -1, max_defect_correction_cycles);
-	    }
-	}else ERR.General("_MultiShiftCGargs","MInv(..)","Unknown multi-shift mode\n");
-	return iter;
-    }
-};
-
-extern MultiShiftCGcontroller MultiShiftController; //global instance (created in fbfm.C)
-CPS_END_NAMESPACE
-
-	bfm_d.threadedFreeFermion(be);
-	bfm_d.threadedFreeFermion(bo);
-	bfm_d.threadedFreeFermion(ta);
-	bfm_d.threadedFreeFermion(tb);
-
-	return iter;
-    }
-
-    inline int threaded_cg_mixed_Mdag(Fermion_t sol[2], Fermion_t src[2],
+#ifndef BFM_GPARITY
+inline int threaded_cg_mixed_Mdag(Fermion_t sol[2], Fermion_t src[2],
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
 	int max_cycle, cps::InverterType itype = cps::CG,
 	// the following parameters are for deflation
@@ -2076,7 +1969,7 @@ CPS_END_NAMESPACE
     // as the inner solver. This allows us to make use of the initial
     // guess (so sol needs to be initialized to something reasonable 
     // before calling this function).
-    inline int threaded_cg_mixed_Mdag_guess(Fermion_t sol[2], Fermion_t src[2],
+inline int threaded_cg_mixed_Mdag_guess(Fermion_t sol[2], Fermion_t src[2],
 	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
 	int max_cycle, cps::InverterType itype = cps::CG,
 	// the following parameters are for deflation
@@ -2163,4 +2056,111 @@ CPS_END_NAMESPACE
 	return iter;
     }
 }
+#endif
+};
+
+CPS_START_NAMESPACE
+//Controls the version of the multi-shift algorithm used. The user can define different versions to use in different environments, for example if you
+//want to use an approximate method within the molecular dynamics evolution.
+
+//The current environment must be set manually. It defaults to Generic
+class MultiShiftCGcontroller{
+public:
+    enum Mode { SINGLE_PREC,
+	       DOUBLE_PREC,
+	       SINGLE_PREC_PLUS_OUTER_DEFECT_CORRECTION_LOOP, //Single precision multi-shift followed by single precision restarted defect correction loop over poles
+	       SINGLE_PREC_AS_DOUBLE_PREC_GUESS, //Single precision multi-shift followed by double precision multi-shift using the single prec results as a guess (using Osborn's method) 
+	       SINGLE_PREC_RESTARTED_AS_DOUBLE_PREC_GUESS, //Restarted single precision multi-shift with defect correction followed by double precision multi-shift using the single prec results as a guess (also using Osborn's method)
+	       SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP, //Single precision multi-shift with reliable update followed by single precision restarted defect correction loop over poles
+	       NMultiShiftCGMode };
+    enum Environment { MolecularDynamics, EnergyCalculation, Heatbath, Generic, NMultiShiftEnvironment };
+private:
+    Mode environ_mode[(int)NMultiShiftEnvironment];
+    Environment current_environment;
+
+    double minimum_single_prec_residual;  //For variants with an initial single precision solve, the stopping conditions are set equal to the larger of the double precision residual and this bound. Does not apply
+                                          //to the reliable update version.
+    int reliable_update_freq; //Used in versions with reliable update
+    int max_defect_correction_cycles;
+public:
+    MultiShiftCGcontroller(): current_environment(Generic), 
+			 minimum_single_prec_residual(1e-08), 
+			 reliable_update_freq(100),
+			 max_defect_correction_cycles(500){
+	for(int i=0;i<(int)NMultiShiftEnvironment;i++) environ_mode[i] = DOUBLE_PREC;
+    }
+
+    void setEnvironmentMode(const Environment & environ,  const Mode & mode){ environ_mode[(int)environ] = mode; }
+    void setEnvironment(const Environment & environ){ current_environment = environ; }
+    const Mode& getMode() const{ return environ_mode[(int)current_environment]; }
+
+    void setMinimumSinglePrecResidual(const double &r){ minimum_single_prec_residual = r; }
+    void setReliableUpdateFreq(const int &f){ reliable_update_freq = f; }
+    void setMaximumDefectCorrectionCycles(const int &c){ max_defect_correction_cycles = c; }
+    
+int MInv(Fermion_t *sol_multi, Fermion_t src, 
+	     Float *shift, int Nshift, 
+	     Float *mresidual, Float *alpha, int single,
+	     bfm_evo<double> &bd,
+	     bfm_evo<float> &bf){
+	
+	const Mode& mode = getMode();
+	int iter;
+
+	if(mode == SINGLE_PREC){ //Note, this uses the residuals specified in the cg_arg without modification
+#pragma omp parallel
+	    {
+		Fermion_t src_f = bf.threadedAllocFermion();
+		Fermion_t sol_f[Nshift];
+		for(int i=0;i<Nshift;i++) sol_f[i] = bf.threadedAllocFermion();
+
+		mixed_cg::threaded_convFermion(src_f,src,bf,bd);
+		mixed_cg::switch_comm(bf,bd);
+		iter = bf.CGNE_prec_MdagM_multi_shift(sol_f, src_f, shift, alpha, Nshift, mresidual, single);
+		mixed_cg::switch_comm(bd,bf);
+		for(int i=0;i<Nshift;i++){
+		    mixed_cg::threaded_convFermion(sol_multi[i],sol_f[i],bd,bf);
+		    bf.threadedFreeFermion(sol_f[i]);
+		}
+		bf.threadedFreeFermion(src_f);
+	    }       
+	}else if(mode == DOUBLE_PREC){
+#pragma omp parallel
+	    {
+		iter = bd.CGNE_prec_MdagM_multi_shift(sol_multi, src, shift, alpha, Nshift, mresidual, single);
+	    }
+	}else if(mode == SINGLE_PREC_PLUS_OUTER_DEFECT_CORRECTION_LOOP){
+	    double fresidual[Nshift]; //residuals for initial single prec solve
+	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
+#pragma omp parallel
+	    {
+		iter = mixed_cg::threaded_cg_mixed_defect_correction_multi_shift_MdagM(sol_multi,src, shift,alpha, bd,bf, Nshift, mresidual, fresidual, single, max_defect_correction_cycles);
+	    }
+	}else if(mode == SINGLE_PREC_AS_DOUBLE_PREC_GUESS){
+	    double fresidual[Nshift]; //residuals for initial single prec solve
+	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
+#pragma omp parallel
+	    {
+		iter = mixed_cg::threaded_cg_mixed_single_prec_as_guess_multi_shift_MdagM(sol_multi,src, shift,alpha, Nshift, mresidual, fresidual, single, bd, bf);
+	    }
+	}else if(mode == SINGLE_PREC_RESTARTED_AS_DOUBLE_PREC_GUESS){
+	    double fresidual[Nshift]; //residuals for initial single prec solve
+	    for(int s=0;s<Nshift;s++) fresidual[s] = (mresidual[s] >= minimum_single_prec_residual ? mresidual[s] : minimum_single_prec_residual);
+#pragma omp parallel
+	    {
+		iter = mixed_cg::threaded_cg_mixed_restarted_multi_shift_MdagM(sol_multi,src, shift,alpha, Nshift, mresidual, fresidual, single, bd, bf, max_defect_correction_cycles);
+	    }
+	}else if(mode == SINGLE_PREC_RELIABLE_UPDATE_PLUS_OUTER_DEFECT_CORRECTION_LOOP){
+	    #pragma omp parallel
+	    {
+		iter = mixed_cg::threaded_cg_mixed_multi_shift_MdagM_sp_relup_dp_defect_correction(sol_multi,src, shift,alpha, Nshift, mresidual, single, bf, bd, reliable_update_freq, -1, max_defect_correction_cycles);
+	    }
+	}else ERR.General("_MultiShiftCGargs","MInv(..)","Unknown multi-shift mode\n");
+	return iter;
+    }
+};
+
+
+extern MultiShiftCGcontroller MultiShiftController; //global instance (created in fbfm.C)
+CPS_END_NAMESPACE
 #endif

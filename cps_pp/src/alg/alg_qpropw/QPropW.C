@@ -1100,9 +1100,9 @@ if (Lat.F5D () ) {
     do_5d = true;
 }
 #ifdef USE_BFM
-  else if (Lat.Fclass () == F_CLASS_BFM || Lat.Fclass () == F_CLASS_BFM_TYPE2) {
-    if (Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonFermion &&
-	Fbfm::bfm_args[Fbfm::current_arg_idx].solver != WilsonTM)
+  else if (Lat.Fclass () == F_CLASS_BFM ) {
+    if (Fbfm::CurrentSolver() != WilsonFermion &&
+	Fbfm::CurrentSolver() != WilsonTM)
       do_5d = true;
   }
 #endif

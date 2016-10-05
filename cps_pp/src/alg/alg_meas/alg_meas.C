@@ -273,14 +273,11 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
 {
   /* BFM VALENCE ANALYSIS */
 #ifdef USE_BFM
-  if(fermion == F_CLASS_BFM) Fbfm::current_arg_idx = 0;
-  else if(fermion == F_CLASS_BFM_TYPE2) Fbfm::current_arg_idx = 1;
-
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_NONE ) ) {
+  if ( (fermion == F_CLASS_BFM ) && (gluon == G_CLASS_NONE ) ) {
     lat_p = new GnoneFbfm;
     return *lat_p; 
   }
-  if ( (fermion == F_CLASS_BFM || fermion == F_CLASS_BFM_TYPE2) && (gluon == G_CLASS_IMPR_RECT ) ) {
+  if ( (fermion == F_CLASS_BFM ) && (gluon == G_CLASS_IMPR_RECT ) ) {
     lat_p = new GimprRectFbfm;
     return *lat_p;
   }

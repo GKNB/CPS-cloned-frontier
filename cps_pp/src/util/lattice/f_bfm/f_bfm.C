@@ -2,11 +2,13 @@
 #include<config.h>
 #include<math.h>
 
+#ifndef USE_BFM
 #include<util/multi_cg_controller.h>
 CPS_START_NAMESPACE
 MultiShiftCGcontroller MultiShiftController;
 CPS_END_NAMESPACE
-#ifdef USE_BFM
+#else
+//#ifdef USE_BFM
 
 #include <util/lattice/bfm_evo.h>
 #include <util/lattice/bfm_eigcg.h>
@@ -34,9 +36,11 @@ CPS_END_NAMESPACE
 #include <util/WriteLatticePar.h>
 #include <util/ReadLatticePar.h>
 
+#ifndef BFM_GPARITY
 // These have to be defined somewhere. Why not here?
 BfmHDCGParams HDCGInstance::Params;
 HDCG_wrapper  *HDCGInstance::_instance = NULL;
+#endif
 
 CPS_START_NAMESPACE
 MultiShiftCGcontroller MultiShiftController;
@@ -106,8 +110,6 @@ static void BondCond(Float *u_base)
 }
 
 
-// NOTE: Initialize QDP++ before using this class!
-=======
 // NOTE:
 //
 // 1. Initialize QDP++ and the static copy Fbfm::bfm_arg before
@@ -130,15 +132,6 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
     bfm_inited = false;
     Float current_key_mass = -1789.8;
-#if 0
-    bd.init(bfm_args[current_arg_idx]);
-    if(use_mixed_solver) {
-        bd.comm_end();
-        bf.init(bfm_args[current_arg_idx]);
-        bf.comm_end();
-        bd.comm_init();
-    }
-#endif
 
     // call our own version to import gauge field.
     Fbfm::BondCond();
@@ -151,18 +144,6 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
 Fbfm::~Fbfm(void)
 {
-#if 0
-    // we call base version just to revert the change, no need to
-    // import to BFM in a destructor.
-
-    Lattice::BondCond();
-
-    bd.end();
-    if(use_mixed_solver) {
-	bf.comm_init(); //CK: As the comms have already been ended for bf, calling bf.end() causes a crash when it tries to deallocate the message handle that has already been deallocated. To prevent this I reinitialize the handle.
-        bf.end();
->>>>>>> ckelly_latest
-#endif
     const char *fname = "~Fbfm()";
     VRB.Result(cname, fname,"start");
     // we call base version just to revert the change, no need to
@@ -174,6 +155,11 @@ Fbfm::~Fbfm(void)
 	bd.end();
     VRB.Result(cname, fname,"bd.end()");
 	if (use_mixed_solver) {
+#ifdef BFM_GPARITY
+//Copying from ckelly_latest. Is this necessary?
+//CK: As the comms have already been ended for bf, calling bf.end() causes a crash when it tries to deallocate the message handle that has already been deallocated. To prevent this I reinitialize the handle.
+	    bf.comm_init();
+#endif
 	    bf.end();
     VRB.Result(cname, fname,"bf.end()");
 	}
@@ -202,7 +188,9 @@ void AutofillBfmarg(bfmarg &arg)
     arg.ncoor[3] = 0;
 
     arg.max_iter = 100000;
+#ifndef BFM_GPARITY
     arg.verbose = BfmMessage | BfmError;
+#endif
 }
 
 void Fbfm::SetBfmArg(Float key_mass)
@@ -216,13 +204,14 @@ void Fbfm::SetBfmArg(Float key_mass)
     VRB.Result(cname, fname, "SetBfmArg: (Re)initing BFM objects from key mass %e)\n", key_mass);
 
     bfmarg new_arg = arg_map.at(key_mass);
+#ifndef BFM_GPARITY
     bfmarg kernel_arg = new_arg;
     kernel_arg.solver=DWFKernel;
     kernel_arg.Ls=1;
+#endif
 
     if (!bfm_inited) {
 	AutofillBfmarg(new_arg);
-//	AutofillBfmarg(kernel_arg);
  
 	bd.init(new_arg);
 	if (use_mixed_solver) {
@@ -231,12 +220,6 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bf.comm_end();
 	    bd.comm_init();
 	}
-#if 0
-	bd.comm_end();
-	kernel.init(kernel_arg);
-	kernel.comm_end();
-	bd.comm_init();
-#endif
 
 	ImportGauge();
 	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
@@ -286,16 +269,12 @@ void Fbfm::CalcHmdForceVecsBilinear(Float *v1,
                                     Float *v2,
                                     Vector *phi1,
                                     Vector *phi2,
-                                    Float mass, Float epsilon)
+                                    Float mass)
 {
     SetBfmArg(mass);
-    Fermion_t pi[2] = {bd.allocFermion(), bd.allocFermion()};
-    Fermion_t po[4] = {bd.allocFermion(), bd.allocFermion(),
-                       bd.allocFermion(), bd.allocFermion()};
 
     VRB.Result(cname, "CalcHmdForceVecsBilinear()", "bd.CGdiagonalMee = %d\n", bd.CGdiagonalMee);
 
-    SetMass(mass, epsilon);
     Fermion_t pi[2] = { bd.allocFermion(), bd.allocFermion() };
     Fermion_t po[4] = {bd.allocFermion(), bd.allocFermion(),
                        bd.allocFermion(), bd.allocFermion()};
@@ -403,7 +382,7 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Float *v2 = (Float *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
-    CalcHmdForceVecsBilinear(v1, v2, phi1, phi2, mass, epsilon);
+    CalcHmdForceVecsBilinear(v1, v2, phi1, phi2, mass);
 
     FforceWilsonType cal_force(mom, this->GaugeField(), v1, v2, bd.Ls, coef);
     ForceArg ret = cal_force.run();
@@ -478,22 +457,6 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     CnvFrmType cnv_frm)
 {
     const char *fname = "FmatEvlInv()";
-
-    if(cg_arg == NULL)
-        ERR.Pointer(cname, fname, "cg_arg");
-
-    Fermion_t in  = bd.allocFermion();
-    Fermion_t out = bd.allocFermion();
-
-    SetMass(cg_arg->mass, cg_arg->epsilon);
-    bd.residual = cg_arg->stop_rsd;
-    bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
-    // FIXME: pass single precision rsd in a reasonable way.
-    bf.residual = 1e-5;
-
-    bd.cps_impexcbFermion((Float *)f_in , in,  1, 1);
-    bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
-
     int iter = -1;
 
     static Timer timer(cname, fname);
@@ -719,19 +682,19 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 //    bd.cps_impexFermion((Float *)f_out, out, 1);
     bd.cps_impexFermion((Float *)f_out, out, 0);
 
-    int iter = -1;
-
     if (madwf_arg_map.count(cg_arg->mass) > 0) {
 	// MADWF inversion
 	VRB.Result(cname, fname, "Using MADWF: Main Ls = %d, cheap approx Ls = %d.\n", bd.Ls, madwf_arg_map[cg_arg->mass].cheap_approx.Ls);
 
 	iter = MADWF_CG_M(bd, bf, use_mixed_solver,
 	    out, in, bd.mass, this->GaugeField(), cg_arg->stop_rsd, madwf_arg_map[cg_arg->mass], cg_arg->Inverter);
+#ifndef BFM_GPARITY
     } else if (cg_arg->Inverter == HDCG) {
 	HDCG_wrapper *control = HDCGInstance::getInstance();
 	assert(control != NULL);
 	control->HDCG_set_mass(cg_arg->mass);
 	control->HDCG_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
+#endif
     } else {
 	// no MADWF:
 #pragma omp parallel
@@ -798,7 +761,7 @@ void Fbfm::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
     Float *f5d = (Float *)five;
     Float *f4d = (Float *)four;
 
-    const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
+    int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
     VRB.Result(cname, fname, "Taking Ls from current_key_mass = %e!\n", current_key_mass);
     if(GJP.Gparity()) size_4d *= 2;
     const int size_5d = size_4d * arg_map.at(current_key_mass).Ls; // current_key_mass must be set correctly!!!
@@ -848,7 +811,7 @@ void Fbfm::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
     Float *f5d = (Float *)five;
     Float *f4d = (Float *)four;
 
-    const int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
+    int size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
     if(GJP.Gparity()) size_4d *= 2;
 
     // zero 4D vector
@@ -1000,14 +963,14 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
   
     SetBfmArg(mass);
 
-    const int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
-    const int f_size_cb = f_size_4d * bd.Ls / 2;
+    int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
     if(GJP.Gparity()) f_size_4d *= 2;
+    const int f_size_cb = f_size_4d * bd.Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
     MatPc(tmp, frm, mass, epsilon, DAG_NO);
 
-    ForceArg f_arg = EvolveMomFforceBase(mom, tmp, frm, mass, epsilon, step_size);
+    ForceArg f_arg = EvolveMomFforceBase(mom, tmp, frm, mass, step_size);
     sfree(cname, fname, "tmp", tmp);
 
     return f_arg;
@@ -1157,7 +1120,7 @@ void Fbfm::BondCond()
     ImportGauge();
 }
 
-#if 1
+#ifndef BFM_GPARITY
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
@@ -1233,7 +1196,7 @@ void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   int offset;
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,int)";
   VRB.Func(cname,fname);
-  VRB.Result(cname,fname,"current_arg_idx=%d mobius_scale=%g\n",current_arg_idx,bfmarg::mobius_scale);
+  VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,bfmarg::mobius_scale);
   if (dir_flag!=0) 
   ERR.General(cname,fname,"only implemented for dir_flag(%d)=0\n",dir_flag);
 

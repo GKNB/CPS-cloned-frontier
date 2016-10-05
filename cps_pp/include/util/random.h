@@ -334,9 +334,11 @@ class LatRanGen
 #endif
 
     void Reinitialize(); //added by CK - turns off is_initialised flag, frees memory and runs initialize again
+#ifndef USE_C11_RNG
     //below added by CK as I need access to the random number gens themselves.
     UGrandomGenerator & UGrandGen(const int &idx){ return ugran[idx]; }
     UGrandomGenerator & UGrandGen4D(const int &idx){ return ugran_4d[idx]; }
+#endif
 
     //! Get a uniform random number.
     IFloat Urand(FermionFieldDimension frm_dim=FOUR_D);
