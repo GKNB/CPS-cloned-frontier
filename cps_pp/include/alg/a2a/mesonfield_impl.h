@@ -359,23 +359,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
 #else
 
-//Basic tunings performed on laptop (i7-4700mq 1 thread per core)
-#define MF_COMPUTE_BI 32
-#define MF_COMPUTE_BJ 12
-#define MF_COMPUTE_BP 256
-
-#define MF_COMPUTE_DO_PREFETCH 1
-#define MF_COMPUTE_PREFETCH_SITE_AHEAD 0
-#define MF_COMPUTE_PREFETCH_SCINCR 4
-
-#ifdef KNL_OPTIMIZATIONS
-//Insert KNL tunings
-#define MF_COMPUTE_DO_PREFETCH 0
-#define MF_COMPUTE_BI mf_t[0].nmodes_l
-#define MF_COMPUTE_BJ mf_t[0].nmodes_r
-#define MF_COMPUTE_BP size_3d
-#endif
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 class MultKernel{
 public:
@@ -441,9 +424,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
     int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 
-    int bi = MF_COMPUTE_BI;
-    int bj = MF_COMPUTE_BJ;
-    int bp = MF_COMPUTE_BP;
+    int bi = BlockedMesonFieldArgs::bi;
+    int bj = BlockedMesonFieldArgs::bj;
+    int bp = BlockedMesonFieldArgs::bp;
 
     int nthread = omp_get_max_threads();
     std::vector<std::vector<std::vector<cps::ComplexD> > > mf_accum_thr(nthread);
@@ -493,9 +476,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 
 	    int thr_p0 = p0 + thr_poff;
 
-	    MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me],M,t,
-								     i0,iup,j0,jup,thr_p0,thr_p0+thr_pwork,
-								     base_ptrs_i,base_ptrs_j,site_offsets_i,site_offsets_j);
+	    MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M, t,
+								     i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
+								     base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 	  }
 	  
 	}

@@ -7,6 +7,7 @@
 #include<alg/a2a/spin_color_matrices.h>
 #include<gsl/gsl_blas.h>
 #include<alg/a2a/gsl_wrapper.h>
+#include<alg/a2a/mesonfield_controls.h>
 #include<set>
 
 CPS_START_NAMESPACE
