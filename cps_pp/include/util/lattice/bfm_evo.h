@@ -188,12 +188,14 @@ public:
   template < typename FloatEXT > void cps_importGauge (FloatEXT * importme);
 
   //EigCG
+#if 1
   Fermion_t allocCompactFermion (int mem_type = mem_slow);
   Fermion_t threadedAllocCompactFermion (int mem_type = mem_slow);
   void *threaded_alloc (int length, int mem_type = mem_slow);
   void threaded_free (void *handle);
   int EIG_CGNE_M (Fermion_t solution[2], Fermion_t source[2]);
   int Eig_CGNE_prec (Fermion_t psi, Fermion_t src);
+#endif
 
   // copied from Jianglei's bfm
   double CompactMprec (Fermion_t compact_psi,
@@ -331,6 +333,18 @@ integer bfm_evo<Float>::cps_idx_s(int x[4], int s, int reim, int i, int i_size)
 
   return (csite * i_size + i) * 2 + reim;
 }
+
+template < class Float >
+  integer bfm_evo < Float >::cps_idx_4d (int x[4], int reim, int i,
+					 int i_size)
+{
+  int csite =
+    x[0] + this->node_latt[0]
+    * (x[1] + this->node_latt[1] * (x[2] + this->node_latt[2] * (x[3])));
+
+  return (csite * i_size + i) * 2 + reim;
+}
+
 template<class Float>
 integer bfm_evo<Float>::cps_idx_s_gparity(int x[4], int s, int reim, int i, int i_size, int flav)
 {
@@ -526,6 +540,85 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
       }}//co, reim
   }//xyzts
 }
+
+// Imports a 4D CPS fermion to a 5d BFM fermion, putting the left-handed
+// part at s=0 and the right-handed part at s=Ls-1. (Or does the inverse,
+// exporting a 5D BFM fermion to a 4D CPS fermion).
+template < class Float > template < typename FloatEXT >
+  void bfm_evo < Float >::cps_impexFermion_4d (FloatEXT * psi,
+					       Fermion_t handle[2],
+					       int doimport, bool prezero)
+{
+  if (doimport && prezero)
+    {
+#pragma omp parallel
+      {
+	// zero out 5d bulk since we only import to the walls
+	this->set_zero (handle[Even]);
+	this->set_zero (handle[Odd]);
+      }
+    }
+
+  int Nspinco = 12;
+  int i_inc = this->simd () * 2;
+  int vol4d =
+    this->node_latt[0] *
+    this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
+
+  omp_set_num_threads (this->nthread);
+  Float *bagel[2] = { (Float *) handle[0], (Float *) handle[1] };
+
+#pragma omp parallel for
+  for (int site = 0; site < vol4d; site++)
+    {
+      int x[4];
+      int si = site;
+      x[0] = si % this->node_latt[0];
+      si = si / this->node_latt[0];
+      x[1] = si % this->node_latt[1];
+      si = si / this->node_latt[1];
+      x[2] = si % this->node_latt[2];
+      si = si / this->node_latt[2];
+      x[3] = si % this->node_latt[3];
+
+      int bidx_base_left = this->bagel_idx5d (x, 0, 0, 0, Nspinco, 1);
+      int bidx_base_right =
+	this->bagel_idx5d (x, this->Ls - 1, 0, 0, Nspinco, 1);
+      int cidx_base = this->cps_idx_4d (x, 0, 0, Nspinco);
+
+      for (int co = 0; co < Nspinco; co++)
+	{
+	  // right-handed components are first six spin-color components
+	  // left-handed components are last six spin-color components
+	  int bidx_base;
+	  int s;
+	  if (co < 6)
+	    {
+	      bidx_base = bidx_base_right;
+	      s = this->Ls - 1;
+	    }
+	  else
+	    {
+	      bidx_base = bidx_base_left;
+	      s = 0;
+	    }
+	  int sp = this->precon_5d ? s : 0;
+	  int cb = (x[0] + x[1] + x[2] + x[3] + sp) & 0x1;
+
+	  for (int reim = 0; reim < 2; reim++)
+	    {
+	      int bidx = bidx_base + reim + co * i_inc;
+	      int cidx = cidx_base + reim + co * 2;
+
+	      if (doimport)
+		bagel[cb][bidx] = psi[cidx];
+	      else
+		psi[cidx] = bagel[cb][bidx];
+	    }
+	}			//co, reim
+    }				//xyzts
+}
+
 
 
 #if 0
@@ -2503,5 +2596,6 @@ int bfm_evo<Float>::gmres_M(Fermion_t sol, Fermion_t src, const int m)
   return j;
 #endif
 }
+#include <util/lattice/bfm_eigcg.h>
 
 #endif
