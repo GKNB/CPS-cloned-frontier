@@ -389,6 +389,32 @@ public:
       }
     }
   }
+  //Do a second layer of blocked dgemm to try to fit in the L1 cache
+  //note the i0, iup, etc are the low and high range limits from the outer blocking
+  template<typename InnerProduct>
+  static void inner_block_mult(std::vector<std::vector<cps::ComplexD> > &mf_accum_m, const InnerProduct &M, const int t,
+			       const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
+			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
+			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
+			       const std::vector<std::pair<int,int> > &site_offsets_i,
+			       const std::vector<std::pair<int,int> > &site_offsets_j){
+    //int ni = iup - i0, nj = jup - j0, np = pup - p0;
+    int bii = 8, bjj = 2, bpp = 4; //inner block sizes
+
+    for(int ii0=i0; ii0 < iup; ii0+=bii){
+      int iiup = std::min(ii0+bii,iup);
+      for(int jj0=j0; jj0 < jup; jj0+=bjj){
+	int jjup = std::min(jj0+bjj,jup);
+	for(int pp0=p0; pp0 < pup; pp0+=bpp){
+	  int ppup = std::min(pp0+bpp,pup);
+
+	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_m, M, t,
+								   ii0, iiup, jj0, jjup, pp0, ppup,
+								   base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
+	}
+      }
+    }
+  }
 };
 
 
@@ -475,10 +501,16 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2Ameso
 	    thread_work(thr_pwork, thr_poff, pup-p0, me, omp_get_num_threads());
 
 	    int thr_p0 = p0 + thr_poff;
-
+#ifdef USE_INNER_BLOCKING
+	    MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::inner_block_mult(mf_accum_thr[me], M, t,
+									  i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
+									  base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
+#else
 	    MultKernel<mf_Policies,A2AfieldL,A2AfieldR>::mult_kernel(mf_accum_thr[me], M, t,
-								     i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
-								     base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
+	    							     i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
+	    							     base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
+#endif
+
 	  }
 	  
 	}

@@ -468,6 +468,30 @@ public:
 
 };
 
+#ifdef AVX512
+CPS_END_NAMESPACE
+#include<alg/a2a/inner_product_avx512.h>
+CPS_START_NAMESPACE
+
+template<>
+class GridVectorizedSpinColorContract<Grid::vComplexD,true,false>{
+public:
+  inline static Grid::vComplexD g5(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+    Grid::vComplexD v3;
+    v3.v = g5d_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
+    return v3;
+  }
+  inline static Grid::vComplexD unit(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+    ERR.General("GridVectorizedSpinColorContract","unit","AVX512 ASM version not implemented\n");
+  }
+};
+
+
+#endif
+
+
+
+
 template<int smatidx,typename vComplexType, bool conj_left, bool conj_right>
 struct GridVectorizedSpinColorContractSelect{};
 
