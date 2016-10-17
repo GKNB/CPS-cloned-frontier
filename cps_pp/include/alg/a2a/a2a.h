@@ -81,9 +81,6 @@ public:
   //Get a mode from the high-mode part
   FermionFieldType & getVh(const int ih){ return v[nl+ih]; }
 
-  //Generate the Fourier transformed V fields. This includes gauge fixing and applying the momentum twist
-  void computeVfftw(A2AvectorVfftw<Policies> &into);
-
   //Get a particular site/spin/color element of a given mode 
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int x4d = v[mode].threeToFour(x3d,t);

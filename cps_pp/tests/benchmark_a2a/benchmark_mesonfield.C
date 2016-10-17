@@ -416,7 +416,7 @@ int main(int argc,char *argv[])
     
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(1){
+    if(0){
       // GridVectorizedSpinColorContract benchmark
       typedef typename GridA2Apolicies::ComplexType GVtype;
       typedef typename GridA2Apolicies::ScalarComplexType GCtype;
@@ -462,7 +462,7 @@ int main(int argc,char *argv[])
       //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
 
-    if(1){ //All-time mesonfield contract
+    if(0){ //All-time mesonfield contract
       std::cout << "Starting all-time mesonfield contract benchmark\n";
       Float total_time = 0.;
       std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
@@ -584,6 +584,17 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
+    if(1){ //test mf read/write
+      mf.write("mesonfield.dat",FP_IEEE64BIG);
+      
+      A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
+      mfr.read("mesonfield.dat");
+    }
+
+
+
+
+    
     if(0){ //test vMv implementation
       //#define CPS_VMV
       //#define GRID_VMV

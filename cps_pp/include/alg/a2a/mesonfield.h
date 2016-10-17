@@ -241,6 +241,9 @@ public:
   void nodeDistribute(int node_uniqueid = -1);
   //Get back the data. After the call, all nodes will have a complete copy
   void nodeGet();
+
+  void write(const std::string &filename, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void read(const std::string &filename);
 };
 
 //Matrix product of meson field pairs
