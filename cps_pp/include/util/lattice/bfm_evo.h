@@ -19,6 +19,7 @@
 #include <omp.h>
 #include <math.h>
 #include <vector>
+#include <assert.h>
 #include <util/gjp.h>
 #include "bfm_evo_aux.h"
 void bisec (std::vector < double >alpha, std::vector < double >beta, int n,
@@ -844,11 +845,11 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   int vol4d =
     this->node_latt[0] *
     this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
+  assert (vol>0 );
 
   for (int muu=0;muu<u_sz;muu++) {
     U_p = (QDPdouble *)&(U[muu].elem(0).elem());
     int flav = muu / Nd; int mu = muu % Nd;
-
 #pragma omp parallel for 
     for (int site=0;site<vol4d;site++ ) {
       int x[4];
@@ -869,9 +870,10 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
         }} // reim,coco
     } // x
   }//mu
-
+//  if(this->isBoss()) printf("before importGauge\n");
   // to bfm
   this->importGauge (U);
+//  if(this->isBoss()) printf("after importGauge\n");
 }
 
 

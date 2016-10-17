@@ -1091,4 +1091,6 @@ void eigcg_vec_mult3(Float* V, const int m, double *QZ, const int n, const int f
     }
 }
 
+#undef BLOCK_SIZE
+
 #endif

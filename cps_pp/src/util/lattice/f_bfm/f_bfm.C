@@ -121,6 +121,7 @@ Fbfm::Fbfm(void):cname("Fbfm")
 {
     const char *fname = "Fbfm()";
     VRB.Func(cname,fname);
+    VRB.Result(cname,fname," mass=%g \n",current_key_mass);
 
     if(GJP.Snodes() != 1) {
         ERR.NotImplemented(cname, fname);
@@ -131,7 +132,10 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
 
     bfm_inited = false;
-    Float current_key_mass = -1789.8;
+//    Float current_key_mass = -1789.8;
+    if (arg_map.count(current_key_mass) > 0) {
+        SetBfmArg(current_key_mass);
+    }
 
     // call our own version to import gauge field.
     Fbfm::BondCond();
@@ -140,6 +144,7 @@ Fbfm::Fbfm(void):cname("Fbfm")
     evald = NULL;
     evalf = NULL;
     ecnt = 0;
+//    exit(-42);
 }
 
 Fbfm::~Fbfm(void)
@@ -629,7 +634,7 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 	ERR.Pointer(cname, fname, "cg_arg");
     int threads = omp_get_max_threads();
 
-    SetBfmArg(cg_arg->mass);
+//    SetBfmArg(cg_arg->mass);
     Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
     Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
 
@@ -1171,9 +1176,11 @@ void Fbfm::ImportGauge()
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
-    VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport\n");
+    
     Float *gauge = (Float *)(this->GaugeField());
+    VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport mass=%g gauge=%p\n",current_key_mass, gauge);
     bd.cps_importGauge(gauge);
+//    exit(-43);
     if(use_mixed_solver) {
         bd.comm_end();
         bf.comm_init();
@@ -1181,6 +1188,7 @@ void Fbfm::ImportGauge()
         bf.comm_end();
         bd.comm_init();
     }
+    VRB.Result(cname,fname,"Done\n");
 }
 #endif
 
