@@ -118,5 +118,154 @@ inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::Gr
 }
 #endif
 
+#ifdef USE_QMP
+
+//Cyclic permutation of *4D* CPSfield with std::complex type and FourDpolicy dimension policy
+//Conventions are direction of *data flow*: For shift n in direction +1   f'(x) = f(x-\hat i)  so data is sent in the +x direction. 
+template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &from,
+		   const int dir, const int pm, const int n,
+		   typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value, const int>::type dummy = 0){
+  assert(&to != &from);
+  if(n == 0){
+    to = from;
+    return;
+  }
+  assert(n < GJP.NodeSites(dir));
+
+  QMP_barrier();
+  
+  //Prepare face to send. If we send in the + direction we need to collect the slice starting {L-n ... L-1} (inclusive), and if we send in the - dir we collect the slice {0... n-1}
+  int bsites = n; //sites on boundary
+  int bsizes[4]; bsizes[dir] = n;
+  int boff[4]; boff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
+		 
+  for(int i=0;i<4;i++)
+    if(i != dir){
+      bsizes[i] = GJP.NodeSites(i);
+      bsites *= bsizes[i];
+      boff[i] = 0;
+    }
+  int flav_off = from.flav_offset();
+  int nf = from.nflavors();
+  
+  int bufsz = bsites * SiteSize * nf;
+  int halfbufsz = bufsz/2;
+
+  QMP_mem_t *recv_mem = QMP_allocate_memory(bufsz * sizeof(mf_Complex));
+  mf_Complex *recv_buf = (mf_Complex *)QMP_get_memory_pointer(recv_mem);
+
+  QMP_mem_t *send_mem = QMP_allocate_memory(bufsz * sizeof(mf_Complex));
+  mf_Complex *send_buf = (mf_Complex *)QMP_get_memory_pointer(send_mem);
+
+#pragma omp parallel for
+  for(int i=0;i<bsites;i++){
+    int rem = i;
+    int coor[4];
+    coor[0] = rem % bsizes[0] + boff[0]; rem/=bsizes[0];
+    coor[1] = rem % bsizes[1] + boff[1]; rem/=bsizes[1];
+    coor[2] = rem % bsizes[2] + boff[2]; rem/=bsizes[2];
+    coor[3] = rem + boff[3];
+
+    mf_Complex const* site_ptr = from.site_ptr(coor);
+    mf_Complex* bp = send_buf + i*SiteSize;
+    memcpy(bp,site_ptr,SiteSize*sizeof(mf_Complex));
+    if(nf == 2){
+      site_ptr += flav_off;
+      bp += halfbufsz;
+      memcpy(bp,site_ptr,SiteSize*sizeof(mf_Complex));
+    }
+  }
+  QMP_barrier();
+ 
+  //Copy remaining sites from on-node data with shift
+  int rsizes[4]; rsizes[dir] = GJP.NodeSites(dir) - n;
+  int rsites = GJP.NodeSites(dir) - n;
+  //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
+  //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
+  
+  int roff[4]; roff[dir] = (pm == 1 ? 0 : n);  
+  for(int i=0;i<4;i++)
+    if(i != dir){
+      rsizes[i] = GJP.NodeSites(i);
+      rsites *= rsizes[i];
+      roff[i] = 0;
+    }
+
+#pragma omp parallel for
+  for(int i=0;i<rsites;i++){
+    int rem = i;
+    int from_coor[4];
+    from_coor[0] = rem % rsizes[0] + roff[0]; rem/=rsizes[0];
+    from_coor[1] = rem % rsizes[1] + roff[1]; rem/=rsizes[1];
+    from_coor[2] = rem % rsizes[2] + roff[2]; rem/=rsizes[2];
+    from_coor[3] = rem + roff[3];
+    
+    int to_coor[4]; memcpy(to_coor,from_coor,4*sizeof(int));
+    to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
+    
+    mf_Complex const* from_ptr = from.site_ptr(from_coor);
+    mf_Complex * to_ptr = to.site_ptr(to_coor);
+
+    memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
+    if(nf == 2){
+      from_ptr += flav_off;
+      to_ptr += flav_off;
+      memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
+    }
+  }
+  
+  //Send/receive (note QMP direction convention opposite to mine)
+  QMP_msgmem_t send_msg = QMP_declare_msgmem(send_buf,bufsz * sizeof(mf_Complex));
+  QMP_msgmem_t recv_msg = QMP_declare_msgmem(recv_buf,bufsz * sizeof(mf_Complex));
+  
+  QMP_msghandle_t send = QMP_declare_send_relative(send_msg, dir, pm, 0);
+  QMP_msghandle_t recv = QMP_declare_receive_relative(recv_msg, dir, -pm, 0);
+  QMP_start(recv);
+  QMP_start(send);
+  
+  QMP_status_t send_status = QMP_wait(send);
+  if (send_status != QMP_SUCCESS) 
+    QMP_error("Send failed in cyclicPermute: %s\n", QMP_error_string(send_status));
+  QMP_status_t rcv_status = QMP_wait(recv);
+  if (rcv_status != QMP_SUCCESS) 
+    QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
+
+  //Copy received face into position. For + shift the origin we copy into is the left-face {0..n-1}, for a - shift its the right-face {L-n .. L-1}
+  boff[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
+#pragma omp parallel for
+  for(int i=0;i<bsites;i++){
+    int rem = i;
+    int coor[4];
+    coor[0] = rem % bsizes[0] + boff[0]; rem/=bsizes[0];
+    coor[1] = rem % bsizes[1] + boff[1]; rem/=bsizes[1];
+    coor[2] = rem % bsizes[2] + boff[2]; rem/=bsizes[2];
+    coor[3] = rem + boff[3];
+
+    mf_Complex * site_ptr = to.site_ptr(coor);
+    mf_Complex const* bp = recv_buf + i*SiteSize;
+    memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
+    if(nf == 2){
+      site_ptr += flav_off;
+      bp += halfbufsz;
+      memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
+    }
+  }
+
+  QMP_free_msghandle(send);
+  QMP_free_msghandle(recv);
+  QMP_free_msgmem(send_msg);
+  QMP_free_msgmem(recv_msg);
+  QMP_free_memory(send_mem);
+  QMP_free_memory(recv_mem);
+  QMP_barrier();
+}
+
+#endif
+
+
+
+
+
 CPS_END_NAMESPACE
 #endif

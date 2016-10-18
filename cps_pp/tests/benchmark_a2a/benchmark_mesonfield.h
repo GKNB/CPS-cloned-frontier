@@ -405,6 +405,79 @@ bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColo
 }
 
 
+template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
+void printXrow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &field, const std::string &comment){
+  int Lx = GJP.Xnodes()*GJP.XnodeSites();
+  std::vector<mf_Complex> buf(Lx,0.);
+
+  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
+    for(int x=GJP.XnodeCoor()*GJP.XnodeSites(); x < (GJP.XnodeCoor()+1)*GJP.XnodeSites(); x++){
+      int lcoor[4] = {x - GJP.XnodeCoor()*GJP.XnodeSites(),0,0,0};
+      cps::ComplexD const* site_ptr = field.site_ptr(lcoor);
+      buf[x] = *site_ptr;
+    }
+  }
+  globalSumComplex(buf.data(),Lx);
+
+  
+  if(!UniqueID()){
+    printf("%s: (",comment.c_str()); fflush(stdout);
+    for(int x=0;x<Lx;x++){
+      if(x % GJP.XnodeSites() == 0 && x!=0)
+	printf(")(");
+      
+      printf("%f ",buf[x].real());
+    }
+    printf(")\n"); fflush(stdout);
+  }
+}
+
+void testCyclicPermute(){
+  NullObject null_obj;
+  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
+  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp1(null_obj);
+  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp2(null_obj);
+
+  from.testRandom();
+  tmp1 = from;
+  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *send = &tmp1;
+  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *recv = &tmp2;
+    
+  //permute in incr until we cycle all the way around
+  int shifted = 0;
+  printXrow(from,"Initial xline      ");
+
+  int total = GJP.Xnodes()*GJP.XnodeSites();
+  int incr = GJP.XnodeSites()/2;
+  int perm = 0;
+  while(shifted < total){
+    cyclicPermute(*recv,*send,0,+1,incr);
+    shifted += incr;
+    std::ostringstream comment; comment << "After perm " << perm++;
+    printXrow(*recv,comment.str());
+	        
+    if(shifted < total)
+      std::swap(send,recv);
+  }
+  printXrow(*recv,"Final xline      ");
+      
+  int coor[4];
+  for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
+    for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
+      for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
+	for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
+	  cps::ComplexD const* orig = from.site_ptr(coor);
+	  cps::ComplexD const* permd = recv->site_ptr(coor);
+	  if(orig->real() != permd->real() || orig->imag() != permd->imag()){
+	    printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+	  }
+	}
+      }
+    }
+  }
+}
+
+
   
 //  static void ComputeKtoPiPiGparityBase::multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){
 

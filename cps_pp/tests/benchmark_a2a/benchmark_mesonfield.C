@@ -150,8 +150,6 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   }
 }
 
-
-
 int main(int argc,char *argv[])
 {
   Start(&argc, &argv);
@@ -296,7 +294,36 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-  if(0){
+  if(1) testCyclicPermute();
+  
+  if(1){
+    //Demonstrate relation between FFTW fields
+    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+    typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
+    
+    A2AvectorW<A2Apolicies_ext> W(a2a_args);
+    A2AvectorV<A2Apolicies_ext> V(a2a_args);
+    W.testRandom();
+    V.testRandom();
+
+
+
+	    
+
+    
+
+  }
+    
+
+
+
+
+
+
+
+
+  
+  if(0){ //benchmark single timeslice mf contraction
     typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
 
     A2AvectorWfftw<A2Apolicies> W(a2a_args);
@@ -584,7 +611,7 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(1){ //test mf read/write
+    if(0){ //test mf read/write
       mf.write("mesonfield.dat",FP_IEEE64BIG);
       
       A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;

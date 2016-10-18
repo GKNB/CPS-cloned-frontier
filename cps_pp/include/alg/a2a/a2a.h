@@ -98,6 +98,12 @@ public:
     v[nl+ih] = vv;
   }
 
+  //Set each float to a uniform random number in the specified range.
+  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
+  void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+    for(int i=0;i<nv;i++) v[i].testRandom(hi,lo);
+  }
+  
 };
 
 
@@ -307,7 +313,12 @@ public:
       *(wh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
   }
 
-
+  //Set each float to a uniform random number in the specified range.
+  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
+  void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+    for(int i=0;i<nl;i++) wl[i].testRandom(hi,lo);
+    for(int i=0;i<nhits;i++) wh[i].testRandom(hi,lo);
+  }
 
 };
 
