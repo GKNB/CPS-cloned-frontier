@@ -50,6 +50,15 @@ public:
     memcpy(f,r.f,sizeof(SiteType) * fsize);
   }
 
+  //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
+  CPSfield(SiteType const* copyme, const InputParamType &params): site_size(SiteSize), DimensionPolicy(params){
+    this->setFlavors(flavors); //from FlavorPolicy
+    this->setSites(sites,fsites,flavors); //from DimensionPolicy
+    fsize = fsites * site_size;
+    alloc();
+    memcpy(f,copyme,sizeof(SiteType) * fsize);
+  }
+  
   //Set the field to zero
   void zero(){
     memset(f, 0, sizeof(SiteType) * fsize);      

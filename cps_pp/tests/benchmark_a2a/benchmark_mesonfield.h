@@ -477,6 +477,39 @@ void testCyclicPermute(){
   }
 }
 
+void testGenericFFT(){
+  bool dirs[4] = {1,1,1,0}; //3d fft
+
+  
+  CPSfermion4D<cps::ComplexD> in;
+  in.testRandom();
+    
+  CPSfermion4D<cps::ComplexD> out1;
+  CPSfermion4D<cps::ComplexD> out2;
+
+  out1.fft(in);
+  fft(out2,in,dirs);
+    
+  printXrow(out1,"Out1");
+  printXrow(out2,"Out2");
+    
+  assert( out1.equals(out2) );
+
+
+  //Code for FFT WilsonMatrix
+  WilsonMatrix* buf = (WilsonMatrix*)malloc( GJP.VolNodeSites() * sizeof(WilsonMatrix) ); //here are your WilsonMatrix
+  
+  NullObject null_obj;
+  CPSfield<cps::ComplexD,12*12,FourDpolicy,OneFlavorPolicy,StandardAllocPolicy> cpy( (cps::ComplexD*)buf,null_obj);  //create a CPSfield and copy in data
+
+  CPSfield<cps::ComplexD,12*12,FourDpolicy,OneFlavorPolicy,StandardAllocPolicy> into(null_obj); //FFT output
+  fft(into,cpy,dirs); //do the FFT
+
+  free(buf);
+  
+}
+
+
 
   
 //  static void ComputeKtoPiPiGparityBase::multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){

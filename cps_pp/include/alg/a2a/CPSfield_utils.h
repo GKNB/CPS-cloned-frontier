@@ -264,7 +264,30 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
 #endif
 
 
+template<typename CPSfieldType>
+void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
+	 ){
+  typedef typename LocalToGlobalInOneDirMap<typename CPSfieldType::FieldDimensionPolicy>::type DimPolGlobalInOneDir;
+  typedef CPSfieldGlobalInOneDir<typename CPSfieldType::FieldSiteType, CPSfieldType::FieldSiteSize, DimPolGlobalInOneDir, typename CPSfieldType::FieldFlavorPolicy, typename CPSfieldType::FieldAllocPolicy> CPSfieldTypeGlobalInOneDir;
 
+  int dcount = 0;
+  
+  for(int mu=0;mu<CPSfieldType::FieldDimensionPolicy::EuclideanDimension;mu++)
+    if(do_dirs[mu]){
+      CPSfieldTypeGlobalInOneDir tmp_dbl(mu);
+      tmp_dbl.gather( dcount==0 ? from : into );
+      tmp_dbl.fft();
+      tmp_dbl.scatter(into);
+      dcount ++;
+    }
+}
+template<typename CPSfieldType>
+void fft(CPSfieldType &fftme, const bool* do_dirs,
+	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
+	 ){
+  fft(fftme,fftme,do_dirs);
+}
 
 
 CPS_END_NAMESPACE

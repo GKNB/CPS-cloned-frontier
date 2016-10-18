@@ -634,6 +634,21 @@ struct StandardDimensionPolicy<5>{
   typedef FiveDpolicy type;
 };
 
+//Mapping between local and global-in-one-dir policies
+template<typename LocalDimPol>
+struct LocalToGlobalInOneDirMap{};
+
+template<>
+struct LocalToGlobalInOneDirMap<FourDpolicy>{
+  typedef FourDglobalInOneDir type;
+};
+template<>
+struct LocalToGlobalInOneDirMap<SpatialPolicy>{
+  typedef ThreeDglobalInOneDir type;
+};
+
+
+
 
 CPS_END_NAMESPACE
 #endif
