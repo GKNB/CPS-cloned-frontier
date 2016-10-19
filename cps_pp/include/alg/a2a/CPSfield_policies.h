@@ -14,7 +14,7 @@ class StandardAllocPolicy{
   inline static void* _alloc(const size_t byte_size){
     return smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
   }
-  inline static _free(void* p){
+  inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
   }
 };
@@ -23,7 +23,7 @@ class Aligned128AllocPolicy{
   inline static void* _alloc(const size_t byte_size){
     return memalign(128,byte_size);
   }
-  inline static _free(void* p){
+  inline static void _free(void* p){
     free(p);
   }
 };
@@ -421,7 +421,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    typename Vtype::scalar_type* tmp = memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
+    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)
@@ -467,7 +467,7 @@ public:
 																						(x[3] % logical_dim[3]))));
   }
   //Returns coordinate in logical volume. Other coordinates within SIMD vector can be found by adding logical_dim[i] up to simd_dims[i] times for each direction i
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<4;i++){ 
       x[i] = site % logical_dim[i]; site /= logical_dim[i];
     }
@@ -490,7 +490,7 @@ public:
     
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / logical_vol;
   }
@@ -549,7 +549,7 @@ public:
 																      (x[2] % logical_dim[2])));
   }
   //Returns coordinate in logical volume. Other coordinates within SIMD vector can be found by adding logical_dim[i] up to simd_dims[i] times for each direction i
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[i] = site % logical_dim[i]; site /= logical_dim[i];
     }
@@ -570,7 +570,7 @@ public:
     
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / logical_vol;
   }

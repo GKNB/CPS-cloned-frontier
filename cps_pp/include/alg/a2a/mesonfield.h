@@ -229,8 +229,8 @@ public:
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
   //Option not to resize the output vector, allowing reuse of a previously allocated vector providing it's large enough
-  void splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
-  void scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
+  void splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true) const;
+  void scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true) const;
 #endif
   
   //Transpose the meson field! (parallel)

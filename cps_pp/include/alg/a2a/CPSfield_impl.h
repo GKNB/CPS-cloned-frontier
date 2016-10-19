@@ -372,10 +372,10 @@ public:
 #pragma omp parallel for
     for(int fs=0;fs<from.nfsites();fs++){
       int x[ndim], f; from.fsiteUnmap(fs,x,f);
-      GridSIMDTypeB* fromptr = from.fsite_ptr(fs);
+      GridSIMDTypeB const* fromptr = from.fsite_ptr(fs);
 
       //x is the root coordinate corresponding to SIMD packed index 0
-      std::vector<TypeA const*> ptrs(nsimd);
+      std::vector<TypeA*> ptrs(nsimd);
       ptrs[0] = into.site_ptr(x,f);
       
       int xx[ndim];

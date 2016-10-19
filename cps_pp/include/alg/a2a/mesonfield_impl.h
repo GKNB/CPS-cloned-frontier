@@ -146,7 +146,7 @@ typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matri
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
   //Does not set the size of the output vector, allowing reuse of a previously allocated vector providing it's large enough
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
   typedef typename mf_Policies::ComplexType VectorComplexType;
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
@@ -178,7 +178,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid:
   }
 }
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
 

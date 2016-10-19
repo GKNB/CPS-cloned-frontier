@@ -184,7 +184,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 	   template <typename> class,  template <typename> class>
   friend class multiply_M_r_singlescf_op_grid;
 
-  void constructPackedMloopSCF(SCFoperation<Grid::Vector<MComplexType> > &op){
+  void constructPackedMloopSCF(SCFoperation<Grid::Vector<MComplexType> > &op) const{
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
     int nl_row = this->Mptr->getRowParams().getNl();
     int nl_col = this->Mptr->getColParams().getNl();
@@ -347,7 +347,7 @@ public:
   }
 
   void free_mem(){
-    free_mem_base();
+    this->free_mem_base();
   }
 
 
@@ -361,7 +361,7 @@ public:
   }
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
-    setup_base(l,M,r,_top_glb,i_ind,j_ind);
+    this->setup_base(l,M,r,_top_glb,i_ind,j_ind);
 
     logical_sites_3d = l.getMode(0).nodeSites(0)*l.getMode(0).nodeSites(1)*l.getMode(0).nodeSites(2);
 #ifndef VMV_SPLIT_GRID_MEM_SAVE
@@ -493,7 +493,7 @@ public:
     }
     int sites_3d = logical_sites_3d;
     int site4dop = xop + sites_3d*top;
-    site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
+    this->site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
 
     //M * r
     multiply_M_r(Mr,rreord);

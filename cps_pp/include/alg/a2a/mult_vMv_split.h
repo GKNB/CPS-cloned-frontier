@@ -491,7 +491,7 @@ public:
   }
 
   void free_mem(){
-    free_mem_base();
+    this->free_mem_base();
 #ifdef VMV_SPLIT_MEM_SAVE
     FREEIT(mf_reord_lo_lo);
 

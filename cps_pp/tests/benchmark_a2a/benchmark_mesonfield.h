@@ -558,6 +558,74 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
     assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-8, true ) );
 }
 
+template<typename T>
+struct _printit{
+  static void printit(const T d[], const int n){
+    for(int i=0;i<n;i++){
+      std::cout << d[i] << " ";
+    }
+    std::cout << std::endl;
+  }
+};
+
+template<typename T>
+struct _printit<std::complex<T> >{
+  static void printit(const std::complex<T> d[], const int n){
+    for(int i=0;i<n;i++){
+      std::cout << '[' << d[i].real() << ',' << d[i].imag() << "] ";
+    }
+    std::cout << std::endl;
+  }
+};
+
+  
+template<typename T>
+void printit(const T d[], const int n){
+  _printit<T>::printit(d,n);
+}
+
+
+
+template<typename T>
+void printvType(const T& v){
+  typedef typename T::scalar_type S;
+  int Nsimd = T::Nsimd();
+  S to[Nsimd];
+  vstore(v,to);
+  printit(to,Nsimd);
+}
+
+
+template<typename T>
+struct _rand{
+  inline static T rand(){
+    return LRG.Urand();
+  }
+};
+
+
+
+template<typename T>
+struct _rand<std::complex<T> >{
+  inline static std::complex<T> rand(){
+    return std::complex<T>(LRG.Urand(),LRG.Urand());
+  }
+};
+
+template<typename T>
+T randomvType(){
+  T out;
+  typedef typename T::scalar_type S;
+  int Nsimd = T::Nsimd();
+  S r[Nsimd];
+  for(int i=0;i<Nsimd;i++) r[i] = _rand<S>::rand();
+  vset(out,r);
+  return out;
+}
+
+
+
+
 
 
   

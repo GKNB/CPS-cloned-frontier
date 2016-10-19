@@ -150,6 +150,17 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
 int main(int argc,char *argv[])
 {
   Start(&argc, &argv);
@@ -298,9 +309,21 @@ int main(int argc,char *argv[])
 
   if(0) testGenericFFT();
   
-  if(1) demonstrateFFTreln<mf_Complex>(a2a_args);
+  if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
 
+  if(1){
+    Grid::vComplexF v = randomvType<Grid::vComplexF>();
+    printvType(v);
 
+    
+    
+    
+    Grid::vComplexF::conv_t* conv = reinterpret_cast<Grid::vComplexF::conv_t*>(&v.v);
+    conv->s[0] = 0.0; conv->s[1] = 1.0; conv->s[2] = 2.0; conv->s[3] = 3.0;
+
+    printvType(v);
+
+  }
 
 
 

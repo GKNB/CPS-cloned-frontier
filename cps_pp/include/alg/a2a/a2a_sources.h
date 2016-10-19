@@ -107,14 +107,14 @@ public:
   void setup(const Float &radius, const FieldParamType &field_setup, bool _omit_000 = false){
     A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >::setup(field_setup);
     omit_000 = _omit_000;
-    set(radius);
+    this->set(radius);
   }
   void setup(const Float &radius, bool _omit_000 = false){
     return setup(radius, NullObject(), _omit_000);
   }
     
   inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
-    out(0,0) = out(1,1) = siteComplex(site);
+    out(0,0) = out(1,1) = this->siteComplex(site);
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
 };
@@ -131,7 +131,7 @@ class A2AboxSource: public A2AsourceBase<FieldPolicies, std::vector<int>, A2Abox
       }
       ss[i] = box_size[i];
     }
-    set(ss);
+    this->set(ss);
   }
 public:
   typedef FieldPolicies Policies;
@@ -164,7 +164,7 @@ public:
   }//syntatic sugar to avoid creating a NullObject
     
   inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
-    out(0,0) = out(1,1) = siteComplex(site);
+    out(0,0) = out(1,1) = this->siteComplex(site);
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
 };
