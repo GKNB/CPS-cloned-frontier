@@ -173,9 +173,12 @@ public:
   && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
   
   template<typename extField>
-  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
     for(int i=0;i<fsize;i++){
-      if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ) return false;
+      if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ){
+	if(verbose && !UniqueID()) printf("Err: off %d this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i,f[i].real(),f[i].imag(),r.f[i].real(),r.f[i].imag(),fabs(f[i].real()-r.f[i].real()), fabs(f[i].imag()-r.f[i].imag()) );
+	return false;
+      }
     }
     return true;
   }

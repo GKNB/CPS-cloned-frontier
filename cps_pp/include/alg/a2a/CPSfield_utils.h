@@ -126,7 +126,11 @@ template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename All
 void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
 		   typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value, const int>::type dummy = 0){
-  assert(&to != &from);
+  if(&to == &from){
+    if(n==0) return;    
+    CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermute(to,tmpfrom,dir,pm,n);
+  }
   if(n == 0){
     to = from;
     return;

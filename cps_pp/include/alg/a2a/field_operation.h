@@ -11,6 +11,22 @@ public:
 };
 
 template <typename FieldType>
+class twist: public fieldOperation<FieldType>{
+  int p[3];
+public:
+  twist(const int _p[3]){ for(int i=0;i<3;i++) p[i] = _p[i]; }
+
+  void operator()(const FieldType &in, FieldType &out){
+    //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
+    out = in;
+#ifndef MEMTEST_MODE
+    out.applyPhase(p,true);
+#endif
+  }
+};
+
+
+template <typename FieldType>
 class gaugeFixAndTwist: public fieldOperation<FieldType>{
   int p[3];
   Lattice *lat;

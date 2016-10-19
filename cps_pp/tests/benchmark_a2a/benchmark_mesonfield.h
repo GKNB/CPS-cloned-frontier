@@ -426,7 +426,7 @@ void printXrow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,Alloc
       if(x % GJP.XnodeSites() == 0 && x!=0)
 	printf(")(");
       
-      printf("%f ",buf[x].real());
+      printf("[%f,%f] ",buf[x].real(),buf[x].imag());
     }
     printf(")\n"); fflush(stdout);
   }
@@ -507,6 +507,55 @@ void testGenericFFT(){
 
   free(buf);
   
+}
+
+template<typename mf_Complex>
+void demonstrateFFTreln(const A2AArg &a2a_args){
+  //Demonstrate relation between FFTW fields
+  typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
+    
+  A2AvectorW<A2Apolicies_ext> W(a2a_args);
+  A2AvectorV<A2Apolicies_ext> V(a2a_args);
+  W.testRandom();
+  V.testRandom();
+
+  int p1[3] = {1,1,1};
+  int p5[3] = {5,1,1};
+
+  twist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p1);
+  twist<typename A2Apolicies_ext::FermionFieldType> twist_p5(p5);
+    
+  A2AvectorVfftw<A2Apolicies_ext> Vfftw_p1(a2a_args);
+  Vfftw_p1.fft(V,&twist_p1);
+
+  A2AvectorVfftw<A2Apolicies_ext> Vfftw_p5(a2a_args);
+  Vfftw_p5.fft(V,&twist_p5);
+
+  //f5(n) = f1(n+1)
+  for(int i=0;i<Vfftw_p1.getNmodes();i++)
+    cyclicPermute(Vfftw_p1.getMode(i), Vfftw_p1.getMode(i), 0, -1, 1);
+    
+  printXrow(Vfftw_p1.getMode(0), "T_-1 V(p1) T_-1");
+  printXrow(Vfftw_p5.getMode(0), "V(p5)          ");
+
+  for(int i=0;i<Vfftw_p1.getNmodes();i++)
+    assert( Vfftw_p1.getMode(i).equals( Vfftw_p5.getMode(i), 1e-8, true ) );
+
+  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p1(a2a_args);
+  Wfftw_p1.fft(W,&twist_p1);
+
+  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p5(a2a_args);
+  Wfftw_p5.fft(W,&twist_p5);
+
+  for(int i=0;i<Wfftw_p1.getNmodes();i++)
+    cyclicPermute(Wfftw_p1.getMode(i), Wfftw_p1.getMode(i), 0, -1, 1);
+
+  printXrow(Wfftw_p1.getMode(0), "T_-1 W(p1) T_-1");
+  printXrow(Wfftw_p5.getMode(0), "W(p5)          ");
+
+  for(int i=0;i<Wfftw_p1.getNmodes();i++)
+    assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-8, true ) );
 }
 
 

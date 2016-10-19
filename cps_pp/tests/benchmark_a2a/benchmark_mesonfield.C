@@ -294,33 +294,11 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-  //if(1) testCyclicPermute();
+  if(0) testCyclicPermute();
 
-  if(1) testGenericFFT();
+  if(0) testGenericFFT();
   
-  if(0){
-    //Demonstrate relation between FFTW fields
-    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
-    typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-    
-    A2AvectorW<A2Apolicies_ext> W(a2a_args);
-    A2AvectorV<A2Apolicies_ext> V(a2a_args);
-    W.testRandom();
-    V.testRandom();
-
-    int p1[3] = {1,1,1};
-    int p5[3] = {5,1,1};
-    
-    A2AvectorVfftw<A2Apolicies_ext> Vfftw_p1(a2a_args);
-    Vfftw_p1.gaugeFixTwistFFT(V,p1,lattice);
-
-    A2AvectorVfftw<A2Apolicies_ext> Vfftw_p5(a2a_args);
-    Vfftw_p5.gaugeFixTwistFFT(V,p5,lattice);
-
-    printXrow(Vfftw_p1.getMode(0), "p1");
-    printXrow(Vfftw_p5.getMode(0), "p5");
-  }
-    
+  if(1) demonstrateFFTreln<mf_Complex>(a2a_args);
 
 
 

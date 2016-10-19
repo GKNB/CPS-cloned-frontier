@@ -70,10 +70,8 @@ public:
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
 
-  
-  inline FermionFieldType & getMode(const int i){ return v[i]; }
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
-  
+  inline FermionFieldType & getMode(const int i){ return v[i]; }  
 
   //Get a mode from the low mode part
   FermionFieldType & getVl(const int il){ return v[il]; }
@@ -128,9 +126,12 @@ public:
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
   }
-  
-  inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
 
+  inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
+  inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
+
+  inline FermionFieldType & getMode(const int i){ return v[i]; }
+  
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
@@ -163,8 +164,6 @@ public:
     return field.dimpol_site_stride_3d()*field.siteSize();
   }
   
-  const CPSfermion4D<FieldSiteType> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
-
   //Replace this vector with the average of this another vector, 'with'
   void average(const A2AvectorVfftw<Policies> &with, const bool &parallel = true){
     if( !paramsEqual(with) ) ERR.General("A2AvectorVfftw","average","Second field must share the same underlying parameters\n");
@@ -359,6 +358,14 @@ public:
 
   inline const FermionFieldType & getMode(const int i) const{ return i < nl ? wl[i] : wh[i-nl]; }
 
+  inline FermionFieldType & getWl(const int i){ return wl[i]; }
+  inline FermionFieldType & getWh(const int hit, const int spin_color){ return wh[spin_color + 12*hit]; }
+
+  inline FermionFieldType & getMode(const int i){ return i < nl ? wl[i] : wh[i-nl]; }
+
+  //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
+  inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+  
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
@@ -432,9 +439,6 @@ public:
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
     return zero_hint[f] ? 0 : field.dimpol_site_stride_3d()*field.siteSize();
   }
-
-  //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
-  const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
 
   template<typename extPolicies>
   void importFields(const A2AvectorWfftw<extPolicies> &r){
