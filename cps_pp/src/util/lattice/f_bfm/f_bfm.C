@@ -131,7 +131,7 @@ Fbfm::Fbfm(void):cname("Fbfm")
     }
 
 
-    bfm_inited = false;
+    bfm_initted = false;
 //    Float current_key_mass = -1789.8;
     if (arg_map.count(current_key_mass) > 0) {
         SetBfmArg(current_key_mass);
@@ -156,7 +156,7 @@ Fbfm::~Fbfm(void)
     Lattice::BondCond();
     VRB.Result(cname, fname,"BondCond");
 
-    if (bfm_inited) {
+    if (bfm_initted) {
 	bd.end();
     VRB.Result(cname, fname,"bd.end()");
 	if (use_mixed_solver) {
@@ -215,7 +215,7 @@ void Fbfm::SetBfmArg(Float key_mass)
     kernel_arg.Ls=1;
 #endif
 
-    if (!bfm_inited) {
+    if (!bfm_initted) {
 	AutofillBfmarg(new_arg);
  
 	bd.init(new_arg);
@@ -263,7 +263,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 	VRB.Result(cname, fname, "Just set new mass %e for solver = %d, Ls = %d\n", bd.mass, bd.solver, bd.Ls);
     }
 
-    bfm_inited = true;
+    bfm_initted = true;
     current_key_mass = key_mass;
 }
 
@@ -366,14 +366,14 @@ ForceArg Fbfm::EvolveMomFforceBaseThreaded(Matrix *mom,
 ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
                                    Vector *phi1,
                                    Vector *phi2,
-                                   Float mass, Float epsilon,
+                                   Float mass, 
                                    Float coef)
 {
     const char *fname = "EvolveMomFforceBase()";
     static Timer time(cname, fname);
     time.start(true);
 
-    SetBfmArg(mass);
+    if (!bfm_initted) SetBfmArg(mass);
     VRB.Result(cname,fname,"started\n");
 
 #if 0
@@ -540,7 +540,7 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 
 //    bd.residual = cg_arg[0]->stop_rsd;
 //    bd.max_iter = cg_arg[0]->max_num_iter;
-    SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
+//    SetMass(cg_arg[0]->mass, cg_arg[0]->epsilon);
 
     int iter;
     //If use_mixed_solver we use the MultiShiftController instance, otherwise just do it in double precision
@@ -634,11 +634,11 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 	ERR.Pointer(cname, fname, "cg_arg");
     int threads = omp_get_max_threads();
 
-//    SetBfmArg(cg_arg->mass);
+    SetBfmArg(cg_arg->mass);
     Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
     Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
 
-    SetMass(cg_arg->mass, cg_arg->epsilon);
+//    SetMass(cg_arg->mass, cg_arg->epsilon);
     bd.residual = cg_arg->stop_rsd;
     bd.max_iter = bf.max_iter = cg_arg->max_num_iter;
     // FIXME: pass single precision rsd in a reasonable way.
@@ -863,7 +863,7 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
     }
     
     SetBfmArg(eig_arg->mass);
-    SetMass(eig_arg->mass, eig_arg->epsilon);
+//    SetMass(eig_arg->mass, eig_arg->epsilon);
     bd.residual = eig_arg->Rsdlam;
     bd.max_iter = eig_arg->MaxCG;
 
@@ -916,7 +916,7 @@ int Fbfm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
 // It sets the pseudofermion field phi from frm1, frm2.
 Float Fbfm::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,	       
-                   Float mass, Float epsilon, DagType dag)
+                   Float mass, DagType dag)
 {
     const char *fname = "SetPhi(V*,V*,V*,F)";
 
@@ -926,14 +926,14 @@ Float Fbfm::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     if (frm1 == 0)
         ERR.Pointer(cname,fname,"frm1") ;
 
-    SetBfmArg(mass);
+//    SetBfmArg(mass);
 
     MatPc(phi, frm1, mass, dag);
     Float ret = FhamiltonNode(frm1, frm1);
     return ret;
 }
 
-void Fbfm::MatPc(Vector *out, Vector *in, Float mass, Float epsilon, DagType dag)
+void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
 {
     const char *fname = "MatPc()";
 
@@ -962,7 +962,7 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, Float epsilon, DagType dag
 // It evolves the canonical momentum mom by step_size
 // using the fermion force.
 ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm, 
-                               Float mass, Float epsilon, Float step_size)
+                               Float mass, Float step_size)
 {
     const char *fname = "EvolveMomFforce()";
   
@@ -973,7 +973,7 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
     const int f_size_cb = f_size_4d * bd.Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
-    MatPc(tmp, frm, mass, epsilon, DAG_NO);
+    MatPc(tmp, frm, mass, DAG_NO);
 
     ForceArg f_arg = EvolveMomFforceBase(mom, tmp, frm, mass, step_size);
     sfree(cname, fname, "tmp", tmp);
@@ -982,7 +982,7 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
 }
 
 ForceArg Fbfm::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
-                                    int isz, Float *alpha, Float mass, Float epsilon, Float dt,
+                                    int isz, Float *alpha, Float mass, Float dt,
                                     Vector **sol_d, ForceMeasure force_measure)
 {
     const char *fname = "RHMC_EvolveMomFforce()";
@@ -1014,7 +1014,7 @@ ForceArg Fbfm::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
     }  
 
     for (int i=0; i<degree; i++) {
-        ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, epsilon, alpha[i]*dt);
+        ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, alpha[i]*dt);
 
         if (force_measure == FORCE_MEASURE_YES) {
             sprintf(force_label, "Rational, mass = %e, pole = %d:", mass, i+isz);
@@ -1080,7 +1080,7 @@ Float Fbfm::FhamiltonNode(Vector *phi, Vector *chi)
 
 
 // The boson Hamiltonian of the node sublattice
-Float Fbfm::BhamiltonNode(Vector *boson, Float mass, Float epsilon)
+Float Fbfm::BhamiltonNode(Vector *boson, Float mass)
 {
     const char *fname = "BhamiltonNode()";
     ERR.NotImplemented(cname, fname);
@@ -1211,7 +1211,7 @@ void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
     Fermion_t in[2]  = {bd.allocFermion(), bd.allocFermion()};
     Fermion_t out[2] = {bd.allocFermion(), bd.allocFermion()};
 
-    SetMass(cg_arg->mass,0.);
+    SetBfmArg(cg_arg->mass);
 
     bd.cps_impexFermion((Float *)f_in , in,  1);
 #pragma omp parallel

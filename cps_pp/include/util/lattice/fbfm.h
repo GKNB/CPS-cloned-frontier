@@ -28,6 +28,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   
     static std::map<Float, bfmarg> arg_map;
     static Float current_key_mass;
+	Float key_mass;
 //BfmSolver solver;
 	static BfmSolver CurrentSolver(){
      return arg_map.at(current_key_mass).solver;
@@ -51,7 +52,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
  private:
   const char *cname;
 
-    bool bfm_inited;
+    bool bfm_initted;
   // These are eigenvectors/eigenvalues obtained from Rudy's Lanczos
   // code. Use them for deflation.
   multi1d<bfm_fermion> *evec;
@@ -104,11 +105,12 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   ForceArg EvolveMomFforceBase(Matrix *mom,
 			       Vector *phi1,
 			       Vector *phi2,
-			       Float mass, Float epsilon,
+			       Float mass,
 			       Float coef);
   // It evolves the canonical Momemtum mom:
   // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
   // note: this function does not exist in the base Lattice class.
+#if 0
   ForceArg EvolveMomFforceBase(Matrix *mom,
 			       Vector *phi1,
 			       Vector *phi2,
@@ -116,6 +118,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 			       Float coef){
     return EvolveMomFforceBase(mom,phi1,phi2,mass,-12345,coef);
   }
+#endif
   //CK: Version for non-WilsonTm quarks. Will throw an error if used for WilsonTm
 
     FclassType Fclass()const {
@@ -281,50 +284,33 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   // The function returns the total number of Ritz iterations.
   
   Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
-	       Float mass, Float epsilon, DagType dag);
+	       Float mass, DagType dag);
   // It sets the pseudofermion field phi from frm1, frm2.
 
-  Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
-	       Float mass, DagType dag){
-    return SetPhi(phi,frm1,frm2,mass,-12345,dag);
-  }
-    
-  void MatPc(Vector *out, Vector *in, Float mass, Float epsilon, DagType dag);
+//  void MatPc(Vector *out, Vector *in, Float mass, Float epsilon, DagType dag);
 
-  void MatPc(Vector *out, Vector *in, Float mass, DagType dag){
-    return MatPc(out,in,mass,-12345,dag);
-  }
+  void MatPc(Vector *out, Vector *in, Float mass, DagType dag);
 
   ForceArg EvolveMomFforce(Matrix *mom, Vector *frm,
-			   Float mass, Float epsilon, Float step_size);
-
-  ForceArg EvolveMomFforce(Matrix *mom, Vector *frm,
-			   Float mass, Float step_size){
-    return EvolveMomFforce(mom,frm,mass,-12345,step_size);
-  }
+			   Float mass, Float step_size);
   // It evolves the canonical momentum mom by step_size
   // using the fermion force.
   
-  ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
-			   Float mass, Float epsilon, Float step_size) {
-    return EvolveMomFforceBase(mom, phi, eta, mass, epsilon, -step_size);
-  }
+//  ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
+//			   Float mass, Float epsilon, Float step_size) {
+//    return EvolveMomFforceBase(mom, phi, eta, mass, epsilon, -step_size);
+//  }
   ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 			   Float mass, Float step_size) {
-    return EvolveMomFforceBase(mom, phi, eta, mass, -12345, -step_size);
+    return EvolveMomFforceBase(mom, phi, eta, mass, -step_size);
   }
 
   // It evolve the canonical momentum mom  by step_size
   // using the bosonic quotient force.
   
   ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
-				int isz, Float *alpha, Float mass, Float epsilon, Float dt,
-				Vector **sol_d, ForceMeasure measure);
-  ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				int isz, Float *alpha, Float mass, Float dt,
-				Vector **sol_d, ForceMeasure measure){
-    return RHMC_EvolveMomFforce(mom,sol,degree,isz,alpha,mass,-12345,dt,sol_d,measure);
-  }
+				Vector **sol_d, ForceMeasure measure);
   
   Float FhamiltonNode( Vector *phi,  Vector *chi) ;
   // The fermion Hamiltonian of the node sublattice.
@@ -335,10 +321,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 		StrOrdType from);
   // Convert fermion field f_field from -> to
   
-  Float BhamiltonNode(Vector *boson, Float mass, Float epsilon);
-  Float BhamiltonNode(Vector *boson, Float mass){
-    return BhamiltonNode(boson,mass,-12345);
-  }
+  Float BhamiltonNode(Vector *boson, Float mass);
   // The boson Hamiltonian of the node sublattice
   
   void Freflex (Vector *out, Vector *in);
@@ -382,6 +365,8 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 
 #if 1
     void SetMass(Float mass) {
+	const char *fname="SetMass(Float)";
+    if(!bfm_initted) ERR.General(cname,fname,"Fbfm not initted\n");
         if(bd.mass != mass) {
             bd.mass = mass;
             bd.GeneralisedFiveDimEnd();
@@ -401,7 +386,10 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 }
   //CK: Added WilsonTm twist parameter epsilon. Use -12345 as a default for non WilsonTm fermions. Add a catch if using WilsonTm and this value of epsilon is passed in
   void SetMass(Float mass, Float epsilon) {
+	const char *fname="SetMass(Float,Float)";
+    if(!bfm_initted) ERR.General(cname,fname,"Fbfm not initted\n");
     if(epsilon == -12345 && CurrentSolver() == WilsonTM) ERR.General("Fbfm","SetMass(Float,Float)","Must specify epsilon for twisted mass Wilson fermions"); 
+    if(epsilon != -12345 && CurrentSolver() != WilsonTM) ERR.General("Fbfm","SetMass(Float,Float)","Must specify epsilon for twisted mass Wilson fermions"); 
 
     if(bd.mass != mass || bd.twistedmass != epsilon) {
       bd.mass = mass;

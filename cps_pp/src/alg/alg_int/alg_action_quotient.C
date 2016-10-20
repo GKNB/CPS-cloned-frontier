@@ -361,7 +361,8 @@ void AlgActionQuotient::heatbath() {
 
 		//~~ changed for twisted mass Wilson fermions
 		// phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
-            if(lat.Fclass() == F_CLASS_WILSON_TM || lat.Fclass() == F_CLASS_BFM )
+            if(lat.Fclass() == F_CLASS_WILSON_TM )
+//|| lat.Fclass() == F_CLASS_BFM )
 	      lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_NO);
 	    else lat.SetPhi(phi[i], tmp2, tmp1, bsn_mass[i], DAG_NO);
 	    }

@@ -845,7 +845,7 @@ void bfm_evo<Float>::cps_importGauge(FloatEXT *importme)
   int vol4d =
     this->node_latt[0] *
     this->node_latt[1] * this->node_latt[2] * this->node_latt[3];
-  assert (vol>0 );
+  assert (vol4d>0 );
 
   for (int muu=0;muu<u_sz;muu++) {
     U_p = (QDPdouble *)&(U[muu].elem(0).elem());
