@@ -406,24 +406,33 @@ bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColo
 
 
 template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
-void printXrow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &field, const std::string &comment){
-  int Lx = GJP.Xnodes()*GJP.XnodeSites();
-  std::vector<mf_Complex> buf(Lx,0.);
+void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &field, const int dir, const std::string &comment,
+	       typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value, const int>::type = 0
+	       ){
+  int L = GJP.Nodes(dir)*GJP.NodeSites(dir);
+  std::vector<mf_Complex> buf(L,0.);
 
-  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
-    for(int x=GJP.XnodeCoor()*GJP.XnodeSites(); x < (GJP.XnodeCoor()+1)*GJP.XnodeSites(); x++){
-      int lcoor[4] = {x - GJP.XnodeCoor()*GJP.XnodeSites(),0,0,0};
-      cps::ComplexD const* site_ptr = field.site_ptr(lcoor);
+  int other_dirs[3]; int aa=0;
+  for(int i=0;i<4;i++)
+    if(i!=dir) other_dirs[aa++] = i;
+
+  
+  if(GJP.NodeCoor(other_dirs[0]) == 0 && GJP.NodeCoor(other_dirs[1]) == 0 && GJP.NodeCoor(other_dirs[2]) == 0){
+    for(int x=GJP.NodeCoor(dir)*GJP.NodeSites(dir); x < (GJP.NodeCoor(dir)+1)*GJP.NodeSites(dir); x++){
+      int lcoor[4] = {0,0,0,0};
+      lcoor[dir] = x - GJP.NodeCoor(dir)*GJP.NodeSites(dir);
+      
+      mf_Complex const* site_ptr = field.site_ptr(lcoor);
       buf[x] = *site_ptr;
     }
   }
-  globalSumComplex(buf.data(),Lx);
+  globalSumComplex(buf.data(),L);
 
   
   if(!UniqueID()){
     printf("%s: (",comment.c_str()); fflush(stdout);
-    for(int x=0;x<Lx;x++){
-      if(x % GJP.XnodeSites() == 0 && x!=0)
+    for(int x=0;x<L;x++){
+      if(x % GJP.NodeSites(dir) == 0 && x!=0)
 	printf(")(");
       
       printf("[%f,%f] ",buf[x].real(),buf[x].imag());
@@ -432,6 +441,21 @@ void printXrow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,Alloc
   }
 }
 
+#ifdef USE_GRID
+template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
+void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> &field, const int dir, const std::string &comment,
+	       typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value, const int>::type = 0
+	       ){
+  typedef typename mf_Complex::scalar_type ScalarComplex;
+  NullObject null_obj;
+  CPSfield<ScalarComplex,SiteSize,FourDpolicy,FlavorPolicy,StandardAllocPolicy> tmp(null_obj);
+  tmp.importField(field);
+  printRow(tmp,dir,comment);
+}
+#endif
+
+
+
 void testCyclicPermute(){
   NullObject null_obj;
   CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
@@ -439,43 +463,109 @@ void testCyclicPermute(){
   CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp2(null_obj);
 
   from.testRandom();
-  tmp1 = from;
-  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *send = &tmp1;
-  CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *recv = &tmp2;
-    
-  //permute in incr until we cycle all the way around
-  int shifted = 0;
-  printXrow(from,"Initial xline      ");
 
-  int total = GJP.Xnodes()*GJP.XnodeSites();
-  int incr = GJP.XnodeSites()/2;
-  int perm = 0;
-  while(shifted < total){
-    cyclicPermute(*recv,*send,0,+1,incr);
-    shifted += incr;
-    std::ostringstream comment; comment << "After perm " << perm++;
-    printXrow(*recv,comment.str());
+  for(int dir=0;dir<4;dir++){
+    for(int pm=0;pm<2;pm++){
+      if(!UniqueID()) printf("Testing permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
+      //permute in incr until we cycle all the way around
+      tmp1 = from;
+      CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *send = &tmp1;
+      CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *recv = &tmp2;
+
+      int shifted = 0;
+      printRow(from,dir,"Initial line      ");
+
+      int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
+      int incr = GJP.NodeSites(dir)/2;
+      int perm = 0;
+      while(shifted < total){
+	cyclicPermute(*recv,*send,dir,pm,incr);
+	shifted += incr;
+	std::ostringstream comment; comment << "After perm " << perm++ << " by incr " << incr;
+	printRow(*recv,dir,comment.str());
 	        
-    if(shifted < total)
-      std::swap(send,recv);
-  }
-  printXrow(*recv,"Final xline      ");
+	if(shifted < total)
+	  std::swap(send,recv);
+      }
+      printRow(*recv,dir,"Final line      ");
       
-  int coor[4];
-  for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
-    for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
-      for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
-	for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
-	  cps::ComplexD const* orig = from.site_ptr(coor);
-	  cps::ComplexD const* permd = recv->site_ptr(coor);
-	  if(orig->real() != permd->real() || orig->imag() != permd->imag()){
-	    printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+      int coor[4];
+      for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
+	for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
+	  for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
+	    for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
+	      cps::ComplexD const* orig = from.site_ptr(coor);
+	      cps::ComplexD const* permd = recv->site_ptr(coor);
+	      if(orig->real() != permd->real() || orig->imag() != permd->imag()){
+		printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+	      }
+	    }
 	  }
 	}
       }
     }
   }
-}
+
+#ifdef USE_GRID
+  typedef FourDSIMDPolicy::ParamType simd_params;
+  simd_params sp;
+  FourDSIMDPolicy::SIMDdefaultLayout(sp, Grid::vComplexD::Nsimd() );
+  
+  CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> from_grid(sp);
+  CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp1_grid(sp);
+  CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp2_grid(sp);
+  from_grid.importField(from);
+
+  for(int dir=0;dir<4;dir++){
+    for(int pm=0;pm<2;pm++){
+      if(!UniqueID()) printf("Testing permute in direction %c%d with SIMD layout\n",pm == 1 ? '+' : '-',dir);
+      //permute in incr until we cycle all the way around
+      tmp1_grid = from_grid;
+      CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *send = &tmp1_grid;
+      CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *recv = &tmp2_grid;
+
+      int shifted = 0;
+      printRow(from_grid,dir,"Initial line      ");
+
+      int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
+      int incr = GJP.NodeSites(dir)/2;
+      int perm = 0;
+      while(shifted < total){
+	cyclicPermute(*recv,*send,dir,pm,incr);
+	shifted += incr;
+	std::ostringstream comment; comment << "After perm " << perm++ << " by incr " << incr;
+	printRow(*recv,dir,comment.str());
+	        
+	if(shifted < total)
+	  std::swap(send,recv);
+      }
+      printRow(*recv,dir,"Final line      ");
+
+      tmp1.importField(*recv);
+      
+      int coor[4];
+      for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
+	for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
+	  for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
+	    for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
+	      cps::ComplexD const* orig = from.site_ptr(coor);
+	      cps::ComplexD const* permd = tmp1.site_ptr(coor);
+	      if(orig->real() != permd->real() || orig->imag() != permd->imag()){
+		printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+
+  
+#endif
+
+  if(!UniqueID()){ printf("Passed permute test\n"); fflush(stdout); }
+} 
 
 void testGenericFFT(){
   bool dirs[4] = {1,1,1,0}; //3d fft
@@ -490,8 +580,8 @@ void testGenericFFT(){
   out1.fft(in);
   fft(out2,in,dirs);
     
-  printXrow(out1,"Out1");
-  printXrow(out2,"Out2");
+  printRow(out1,0,"Out1");
+  printRow(out2,0,"Out2");
     
   assert( out1.equals(out2) );
 
@@ -536,8 +626,8 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
   for(int i=0;i<Vfftw_p1.getNmodes();i++)
     cyclicPermute(Vfftw_p1.getMode(i), Vfftw_p1.getMode(i), 0, -1, 1);
     
-  printXrow(Vfftw_p1.getMode(0), "T_-1 V(p1) T_-1");
-  printXrow(Vfftw_p5.getMode(0), "V(p5)          ");
+  printRow(Vfftw_p1.getMode(0),0, "T_-1 V(p1) T_-1");
+  printRow(Vfftw_p5.getMode(0),0, "V(p5)          ");
 
   for(int i=0;i<Vfftw_p1.getNmodes();i++)
     assert( Vfftw_p1.getMode(i).equals( Vfftw_p5.getMode(i), 1e-8, true ) );
@@ -551,8 +641,8 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
   for(int i=0;i<Wfftw_p1.getNmodes();i++)
     cyclicPermute(Wfftw_p1.getMode(i), Wfftw_p1.getMode(i), 0, -1, 1);
 
-  printXrow(Wfftw_p1.getMode(0), "T_-1 W(p1) T_-1");
-  printXrow(Wfftw_p5.getMode(0), "W(p5)          ");
+  printRow(Wfftw_p1.getMode(0),0, "T_-1 W(p1) T_-1");
+  printRow(Wfftw_p5.getMode(0),0, "W(p5)          ");
 
   for(int i=0;i<Wfftw_p1.getNmodes();i++)
     assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-8, true ) );

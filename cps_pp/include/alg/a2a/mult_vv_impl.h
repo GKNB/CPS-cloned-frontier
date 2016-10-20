@@ -244,7 +244,7 @@ public:
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
     out.zero();
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
 
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
@@ -292,7 +292,7 @@ public:
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
     out.zero();
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
 
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 

@@ -305,13 +305,13 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-  if(0) testCyclicPermute();
+  if(1) testCyclicPermute();
 
   if(0) testGenericFFT();
   
   if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
 
-  if(1){
+  if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
     printvType(v);
 

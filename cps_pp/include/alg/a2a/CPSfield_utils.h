@@ -219,7 +219,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
     }
   }
   
-  //Send/receive (note QMP direction convention opposite to mine)
+  //Send/receive
   QMP_msgmem_t send_msg = QMP_declare_msgmem(send_buf,bufsz * sizeof(mf_Complex));
   QMP_msgmem_t recv_msg = QMP_declare_msgmem(recv_buf,bufsz * sizeof(mf_Complex));
   
@@ -265,8 +265,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
   QMP_barrier();
 }
 
-//#ifdef USE_GRID
-#if 0
+#ifdef USE_GRID
 
 //Version with SIMD vectorized data
 template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
@@ -275,7 +274,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
 		   typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value, const int>::type dummy = 0){
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
     return cyclicPermute(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
@@ -284,44 +283,30 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
   }
   assert(n < GJP.NodeSites(dir));
 
-  QMP_barrier();
-
-  //Use notation f (full index), o (outer index) i (inner index)
+  const int nsimd = mf_Complex::Nsimd();
   
-  int bfsites = n; //sites on boundary
-  int bfsizes[4]; bfsizes[dir] = n;
-  int bfoff[4]; bfoff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
-		 
+  //Use notation c (combined index), o (outer index) i (inner index)
+  
+  int bcsites = n; //sites on boundary
+  int bcsizes[4]; bcsizes[dir] = n;
+  int bcoff[4]; bcoff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
+  int bcoff_postcomms[4]; bcoff_postcomms[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
+  
   for(int i=0;i<4;i++)
     if(i != dir){
-      bfsizes[i] = GJP.NodeSites(i);
-      bfsites *= bfsizes[i];
-      bfoff[i] = 0;
+      bcsizes[i] = GJP.NodeSites(i);
+      bcsites *= bcsizes[i];
+      bcoff[i] = 0;
+      bcoff_postcomms[i] = 0;
     }
 
   //Build table of points on face (both outer and inner index)
   int nf = from.nflavors();
   int flav_off = from.flav_offset();
-  std::vector< std::pair<int,int>  > bsite_table( nf * bfsites );
-#pragma omp parallel for
-  for(int f=0;f<bfsites;f++){
-    int rem = f;
-    int coor[4];
-    coor[0] = rem % bfsizes[0] + bfoff[0]; rem/=bfsizes[0];
-    coor[1] = rem % bfsizes[1] + bfoff[1]; rem/=bfsizes[1];
-    coor[2] = rem % bfsizes[2] + bfoff[2]; rem/=bfsizes[2];
-    coor[3] = rem + bfoff[3];
-  
-    int o = SiteSize * from.siteMap(coor);
-    int i = from.SIMDmap(coor);
-
-    bsite_table[d] = std::pair<int,int>(o,i);
-    if(nf == 2) bsite_table[d+bfsites] = std::pair<int,int>(o+flav_off,i);
-  }
 
   typedef typename Grid::GridTypeMapper<mf_Complex>::scalar_type scalarType;
   
-  int bufsz = bsites * SiteSize * nf;
+  int bufsz = bcsites * SiteSize * nf;
 
   QMP_mem_t *recv_mem = QMP_allocate_memory(bufsz * sizeof(scalarType));
   scalarType *recv_buf = (scalarType *)QMP_get_memory_pointer(recv_mem);
@@ -329,112 +314,48 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
   QMP_mem_t *send_mem = QMP_allocate_memory(bufsz * sizeof(scalarType));
   scalarType *send_buf = (scalarType *)QMP_get_memory_pointer(send_mem);
 
-#pragma omp parallel for
-  for(int b=0;b<nf * bfsites;b++){
-    const std::pair<int,int> &offs = bsite_table[b];
-    
-    mf_Complex const* osite_ptr = from.ptr() + offs.first;
-    scalarType* bp = send_buf + b*SiteSize;
-
-    scalarType ounpacked[mf_Complex::Nsimd()];
-    for(int a=0;a<SiteSize;a++){
-      vstore(*osite_ptr++,ounpacked);
-      *(bp++) = ounpacked[offs.second];
-    }
-  }
-  
-  //Build a table for internal shifts
-  int rfsizes[4]; rfsizes[dir] = GJP.NodeSites(dir) - n;
-  int rfsites = GJP.NodeSites(dir) - n;
-  //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
-  //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
-  
-  int rfoff[4]; rfoff[dir] = (pm == 1 ? 0 : n);  
-  for(int i=0;i<4;i++)
-    if(i != dir){
-      rfsizes[i] = GJP.NodeSites(i);
-      rfsites *= rfsizes[i];
-      rfoff[i] = 0;
-    }
-
-  struct _shift{
-    int ofrom;
-    int ifrom;
-    int oto;
-    int ito;    
-  };
-
-  
-  std::vector<_shift> rshift_table( nf * rfsites );
+  int osites = from.nsites();
+  std::vector<int> to_oi_buf_map(nf * osites * nsimd); //map from outer and inner index of destination site to offset within buffer, used *after* comms.
+  //map i + nsimd*(o + osites*f) as index
   
 #pragma omp parallel for
-  for(int f=0;f<rfsites;f++){
-    int rem = f;
-    int from_coor[4];
-    from_coor[0] = rem % rfsizes[0] + rfoff[0]; rem/=rfsizes[0];
-    from_coor[1] = rem % rfsizes[1] + rfoff[1]; rem/=rfsizes[1];
-    from_coor[2] = rem % rfsizes[2] + rfoff[2]; rem/=rfsizes[2];
-    from_coor[3] = rem + rfoff[3];
+  for(int c=0;c<bcsites;c++){
+    int rem = c;
+    int coor[4];
+    coor[0] = rem % bcsizes[0]; rem/=bcsizes[0];
+    coor[1] = rem % bcsizes[1]; rem/=bcsizes[1];
+    coor[2] = rem % bcsizes[2]; rem/=bcsizes[2];
+    coor[3] = rem;
+
+    int coor_dest[4];
+    for(int d=0;d<4;d++){
+      coor_dest[d] = coor[d] + bcoff_postcomms[d];
+      coor[d] += bcoff[d];
+    }
     
-    int to_coor[4]; memcpy(to_coor,from_coor,4*sizeof(int));
-    to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
+    int i = from.SIMDmap(coor);
+    int o = from.siteMap(coor);
 
-    rshift_table[f].ofrom = SiteSize * from.siteMap(from_coor);
-    rshift_table[f].ifrom = from.SIMDmap(from_coor);
-    rshift_table[f].oto = SiteSize * to.siteMap(to_coor);
-    rshift_table[f].ito = to.SIMDmap(to_coor);
+    int i_dest = from.SIMDmap(coor_dest);
+    int o_dest = from.siteMap(coor_dest);
 
-    if(nf == 2){
-      rshift_table[f+rfsites] = rshift_table[f];
-      rshift_table[f+rfsites].ofrom += flav_off;
-      rshift_table[f+rfsites].oto += flav_off;
+    Grid::Vector<scalarType> ounpacked(nsimd);
+    for(int f=0;f<nf;f++){
+      mf_Complex const *osite_ptr = from.site_ptr(o,f);
+      int send_buf_off = (c + bcsites*f)*SiteSize;
+      scalarType* bp = send_buf + send_buf_off;
+      to_oi_buf_map[ i_dest + nsimd*(o_dest+osites*f) ] = send_buf_off;
+      
+      for(int s=0;s<SiteSize;s++){
+	vstore(*(osite_ptr++), ounpacked.data());
+	*(bp++) = ounpacked[i];
+      }      
     }
   }
 
-
-
-
-  
-  //Copy remaining sites from on-node data with shift
-  int rsizes[4]; rsizes[dir] = GJP.NodeSites(dir) - n;
-  int rsites = GJP.NodeSites(dir) - n;
-  //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
-  //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
-  
-  int roff[4]; roff[dir] = (pm == 1 ? 0 : n);  
-  for(int i=0;i<4;i++)
-    if(i != dir){
-      rsizes[i] = GJP.NodeSites(i);
-      rsites *= rsizes[i];
-      roff[i] = 0;
-    }
-
-#pragma omp parallel for
-  for(int i=0;i<rsites;i++){
-    int rem = i;
-    int from_coor[4];
-    from_coor[0] = rem % rsizes[0] + roff[0]; rem/=rsizes[0];
-    from_coor[1] = rem % rsizes[1] + roff[1]; rem/=rsizes[1];
-    from_coor[2] = rem % rsizes[2] + roff[2]; rem/=rsizes[2];
-    from_coor[3] = rem + roff[3];
-    
-    int to_coor[4]; memcpy(to_coor,from_coor,4*sizeof(int));
-    to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
-    
-    mf_Complex const* from_ptr = from.site_ptr(from_coor);
-    mf_Complex * to_ptr = to.site_ptr(to_coor);
-
-    memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
-    if(nf == 2){
-      from_ptr += flav_off;
-      to_ptr += flav_off;
-      memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
-    }
-  }
-  
-  //Send/receive (note QMP direction convention opposite to mine)
-  QMP_msgmem_t send_msg = QMP_declare_msgmem(send_buf,bufsz * sizeof(mf_Complex));
-  QMP_msgmem_t recv_msg = QMP_declare_msgmem(recv_buf,bufsz * sizeof(mf_Complex));
+  //Send/receive
+  QMP_msgmem_t send_msg = QMP_declare_msgmem(send_buf,bufsz * sizeof(scalarType));
+  QMP_msgmem_t recv_msg = QMP_declare_msgmem(recv_buf,bufsz * sizeof(scalarType));
   
   QMP_msghandle_t send = QMP_declare_send_relative(send_msg, dir, pm, 0);
   QMP_msghandle_t recv = QMP_declare_receive_relative(recv_msg, dir, -pm, 0);
@@ -448,24 +369,56 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
   if (rcv_status != QMP_SUCCESS) 
     QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
 
-  //Copy received face into position. For + shift the origin we copy into is the left-face {0..n-1}, for a - shift its the right-face {L-n .. L-1}
-  boff[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
-#pragma omp parallel for
-  for(int i=0;i<bsites;i++){
-    int rem = i;
-    int coor[4];
-    coor[0] = rem % bsizes[0] + boff[0]; rem/=bsizes[0];
-    coor[1] = rem % bsizes[1] + boff[1]; rem/=bsizes[1];
-    coor[2] = rem % bsizes[2] + boff[2]; rem/=bsizes[2];
-    coor[3] = rem + boff[3];
 
-    mf_Complex * site_ptr = to.site_ptr(coor);
-    mf_Complex const* bp = recv_buf + i*SiteSize;
-    memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
-    if(nf == 2){
-      site_ptr += flav_off;
-      bp += halfbufsz;
-      memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
+  
+  //Copy remaining sites from on-node data with shift and pull in data from buffer simultaneously
+  //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
+  //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
+  //Problem is we don't want two threads writing to the same AVX register at the same time. Therefore we thread the loop over the destination SIMD vectors and work back
+  std::vector< std::vector<int> > lane_offsets(nsimd,  std::vector<int>(4) );
+  for(int i=0;i<nsimd;i++) from.SIMDunmap(i, lane_offsets[i].data() );
+
+#pragma omp parallel for
+  for(int oto = 0;oto < osites; oto++){
+    int oto_base_coor[4]; to.siteUnmap(oto,oto_base_coor);
+
+    //For each destination lane compute the source site index and lane
+    int from_lane[nsimd];
+    int from_osite_idx[nsimd]; //also use for recv_buf offsets for sites pulled over boundary
+    for(int lane = 0; lane < nsimd; lane++){
+      int offrom_coor[4];
+      for(int d=0;d<4;d++) offrom_coor[d] = oto_base_coor[d] + lane_offsets[lane][d];
+      offrom_coor[dir] += (pm == 1 ? -n : n);
+
+      if(offrom_coor[dir] < 0 || offrom_coor[dir] >= GJP.NodeSites(dir)){
+	from_lane[lane] = -1; //indicates data is in recv_buf	
+	from_osite_idx[lane] = to_oi_buf_map[ lane + nsimd*oto ]; //here is for flavor 0 - remember to offset for second flav
+      }else{
+	from_lane[lane] = from.SIMDmap(offrom_coor);
+	from_osite_idx[lane] = from.siteMap(offrom_coor);
+      }
+    }
+
+    //Now loop over flavor and element within the site as well as SIMD lanes of the destination vector and gather what we need to poke - then poke it
+    Grid::Vector<scalarType> towrite(nsimd);
+    Grid::Vector<scalarType> unpack(nsimd);
+    
+    for(int f=0;f<nf;f++){
+      for(int s=0;s<SiteSize;s++){
+	for(int tolane=0;tolane<nsimd;tolane++){	  
+	  if(from_lane[tolane] != -1){
+	    mf_Complex const* from_osite_ptr = from.site_ptr(from_osite_idx[tolane], f) + s;
+	    vstore(*from_osite_ptr,unpack.data());
+	    towrite[tolane] = unpack[ from_lane[tolane] ];
+	  }else{
+	    //data is in buffer
+	    towrite[tolane] = recv_buf[ from_osite_idx[tolane] + f*bcsites*SiteSize ];
+	  }
+	    
+	}
+	mf_Complex* to_osite_ptr = to.site_ptr(oto,f) + s;
+	vset(*to_osite_ptr, towrite.data());	
+      }
     }
   }
 
@@ -479,19 +432,6 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
 }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

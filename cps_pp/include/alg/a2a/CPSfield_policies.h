@@ -458,7 +458,7 @@ protected:
 
 public:
   inline int Nsimd() const{ return nsimd; }
-  inline int SIMDpackedSites(const int dir) const{ return simd_dims[dir]; } //number of sites in given direction packed into SIMD vector
+  inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; } 
   
   //Coordinate of SIMD block containing full 4D site x
   inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(
@@ -541,7 +541,7 @@ protected:
 
 public:
   inline int Nsimd() const{ return nsimd; }
-  inline int SIMDpackedSites(const int dir) const{ return simd_dims[dir]; } //number of sites in given direction packed into SIMD vector
+  inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; }
   
   //Coordinate of SIMD block containing full 4D site x
   inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(

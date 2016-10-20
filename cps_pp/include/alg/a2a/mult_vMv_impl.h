@@ -265,7 +265,7 @@ public:
     typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::RightDilutionType jLeftDilutionType;    
     typedef typename rA2AfieldR<mf_Policies>::DilutionType jRightDilutionType;
 
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
     out.zero();
     
@@ -402,7 +402,7 @@ public:
 
 
   static void mult_slow(CPSspinColorFlavorMatrix<VectorComplexType> &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
     int site4dop = l.getMode(0).threeToFour(xop,top);
 
