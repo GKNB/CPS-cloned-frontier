@@ -65,35 +65,85 @@ class ComputeKaon{
     A2AvectorVfftw<mf_Policies> fftw_V_s(V_s.getArgs(),fld_params);
     A2AvectorWfftw<mf_Policies> fftw_W_s(W_s.getArgs(),fld_params);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+    //Use FFT relation to relate twisted FFTs to base FFTs
+    A2AvectorWfftw<mf_Policies> fftw_W_base_p(W.getArgs(), fld_params);
+    A2AvectorWfftw<mf_Policies> fftw_W_base_m(W.getArgs(), fld_params);
+
+    A2AvectorWfftw<mf_Policies> fftw_W_s_base_p(W_s.getArgs(), fld_params);
+    A2AvectorWfftw<mf_Policies> fftw_W_s_base_m(W_s.getArgs(), fld_params);
+    
+    A2AvectorVfftw<mf_Policies> fftw_V_base_p(V.getArgs(), fld_params);
+    A2AvectorVfftw<mf_Policies> fftw_V_base_m(V.getArgs(), fld_params);
+
+    A2AvectorVfftw<mf_Policies> fftw_V_s_base_p(V_s.getArgs(), fld_params);
+    A2AvectorVfftw<mf_Policies> fftw_V_s_base_m(V_s.getArgs(), fld_params);
+    
+    int p_p1[3];
+    GparityBaseMomentum(p_p1,+1);
+    
+    int p_m1[3];
+    GparityBaseMomentum(p_m1,-1);
+
+    fftw_W_base_p.gaugeFixTwistFFT(W, p_p1,lattice);
+    fftw_W_base_m.gaugeFixTwistFFT(W, p_m1,lattice);
+
+    fftw_W_s_base_p.gaugeFixTwistFFT(W_s, p_p1,lattice);
+    fftw_W_s_base_m.gaugeFixTwistFFT(W_s, p_m1,lattice);
+    
+    fftw_V_base_p.gaugeFixTwistFFT(V, p_p1,lattice);
+    fftw_V_base_m.gaugeFixTwistFFT(V, p_m1,lattice);
+
+    fftw_V_s_base_p.gaugeFixTwistFFT(V_s, p_p1,lattice);
+    fftw_V_s_base_m.gaugeFixTwistFFT(V_s, p_m1,lattice);  
+#endif
     
     if(!GJP.Gparity()){
       A2AexpSource<SourcePolicies> expsrc(rad,src_setup_params);
       SCspinInnerProduct<ComplexType, A2AexpSource<SourcePolicies> > mf_struct(15,expsrc);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+      fftw_W.getTwistedFFT(p_w_src.ptr(), &fftw_W_base_p, &fftw_W_base_m);
+      fftw_V_s.getTwistedFFT(p_v_src.ptr(), &fftw_V_s_base_p, &fftw_V_s_base_m);
+#else      
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
-
+#endif
+      
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct, fftw_V_s);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+      fftw_W_s.getTwistedFFT(p_w_snk.ptr(), &fftw_W_s_base_p, &fftw_W_s_base_m);
+      fftw_V.getTwistedFFT(p_v_snk.ptr(), &fftw_V_base_p, &fftw_V_base_m); 
+#else      
       fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);
-
+#endif
+      
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct, fftw_V);
     }else{ //For GPBC we need a different smearing function for source and sink because the flavor structure depends on the momentum of the V field, which is opposite between source and sink
       A2AflavorProjectedExpSource<SourcePolicies> fpexp_src(rad, p_v_src.ptr(),src_setup_params);
       SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_src(sigma0,fpexp_src);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+      fftw_W.getTwistedFFT(p_w_src.ptr(), &fftw_W_base_p, &fftw_W_base_m);
+      fftw_V_s.getTwistedFFT(p_v_src.ptr(), &fftw_V_s_base_p, &fftw_V_s_base_m);
+#else
       fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
       fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
-
+#endif
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct_src, fftw_V_s);
 
       A2AflavorProjectedExpSource<SourcePolicies> fpexp_snk(rad, p_v_snk.ptr(),src_setup_params);
       SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_snk(sigma0,fpexp_snk);
-
+      
+#ifndef DISABLE_FFT_RELN_USAGE
+      fftw_W_s.getTwistedFFT(p_w_snk.ptr(), &fftw_W_s_base_p, &fftw_W_s_base_m);
+      fftw_V.getTwistedFFT(p_v_snk.ptr(), &fftw_V_base_p, &fftw_V_base_m); 
+#else
       fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);
-
+#endif
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct_snk, fftw_V);
     }
 
