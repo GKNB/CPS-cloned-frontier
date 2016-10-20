@@ -311,6 +311,11 @@ int main(int argc,char *argv[])
   
   if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
 
+
+  if(0) testA2AvectorFFTrelnGparity<mf_Complex>(a2a_args,lattice);
+  if(1) testA2AvectorFFTrelnGparity<Grid::vComplexD>(a2a_args,lattice);
+
+  
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
     printvType(v);

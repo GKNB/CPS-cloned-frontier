@@ -233,7 +233,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
   Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
 
-  VRB.Result(cname.c_str(), fname, "Start computing high modes using Grid.\n");
+  VRB.Result("A2AvectorW", fname, "Start computing high modes using Grid.\n");
     
   //Generate the compact random sources for the high modes
 #ifndef MEMTEST_MODE
@@ -308,10 +308,10 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg){
     //NOT IMPLEMENTED YET
-    ERR.General(cname.c_str(),"computeVWhigh","No grid implementation of mixed precision CG with BFM evecs\n");
+    ERR.General("A2AvectorW","computeVWhigh","No grid implementation of mixed precision CG with BFM evecs\n");
   }
 
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),"computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
+  if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW","computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
   EvecInterfaceBFM<mf_Policies> ev(eig,dwf_d,lat,singleprec_evecs);
   return computeVWhigh(V,lat,ev,dwf_d.mass,dwf_d.residual,dwf_d.max_iter);

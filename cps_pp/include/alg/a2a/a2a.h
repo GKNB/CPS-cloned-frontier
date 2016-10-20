@@ -52,19 +52,18 @@ public:
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
-  const std::string cname;
   
 public:
   typedef StandardIndexDilution DilutionType;
 
-  A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorV"){
+  A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv,FermionFieldType());
 
     //When computing V and W we can re-use previous V solutions as guesses. Set default to zero here so we have zero guess when no 
     //previously computed solutions
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
-  A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorV"){
+  A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
     for(int i=0;i<nv;i++) v[i].zero(); 
@@ -114,15 +113,14 @@ public:
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
-  const std::string cname;
 
 public:
   typedef StandardIndexDilution DilutionType;
 
-  A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+  A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv,FermionFieldType());
   }
-  A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+  A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
   }
@@ -142,6 +140,10 @@ public:
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
+  //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+  //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+  void getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m = NULL);
+  
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int site = v[mode].threeToFour(x3d,t);
     return *(v[mode].site_ptr(site,flavor) + spin_color);
@@ -196,8 +198,6 @@ private:
   std::vector<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
   std::vector<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
-  const std::string cname;
-
   //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
   //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
   void setWhRandom(const RandomType &type);
@@ -205,11 +205,11 @@ private:
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
-  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args){
     wl.resize(nl,FermionFieldType());
     wh.resize(nhits, ComplexFieldType()); 
   }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
     wh.resize(nhits, ComplexFieldType(field_setup_params)); 
@@ -335,17 +335,16 @@ private:
   std::vector<FermionFieldType> wl;
   std::vector<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
-  const std::string cname;
   FieldSiteType zerosc[12];
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
-  A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+  A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args){
     wl.resize(nl,FermionFieldType());
     wh.resize(12*nhits, FermionFieldType());
     for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
-  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
     wh.resize(12*nhits, FermionFieldType(field_setup_params));
@@ -376,6 +375,10 @@ public:
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
+  //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+  //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+  void getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m = NULL);
+  
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{

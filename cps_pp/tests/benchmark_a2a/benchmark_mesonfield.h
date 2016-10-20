@@ -646,7 +646,171 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
 
   for(int i=0;i<Wfftw_p1.getNmodes();i++)
     assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-8, true ) );
+
 }
+
+template<typename ParamType, typename mf_Complex>
+struct defaultFieldParams{
+  static void get(ParamType &into){}
+};
+
+template<int N, typename mf_Complex>
+struct defaultFieldParams< SIMDdims<N>, mf_Complex >{
+  static void get(SIMDdims<N> &into){
+    SIMDpolicyBase<N>::SIMDdefaultLayout(into, mf_Complex::Nsimd(), 2);
+  }
+};
+
+template<typename mf_Complex>
+void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
+  assert(GJP.Gparity());
+
+  if(lat.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
+
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+  
+  //Demonstrate relation between FFTW fields
+  typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
+
+  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
+  W.testRandom();
+
+  int p_p1[3];
+  GparityBaseMomentum(p_p1,+1);
+
+  int p_m1[3];
+  GparityBaseMomentum(p_m1,-1);
+
+  //Perform base FFTs
+  //twist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p_p1);
+  //twist<typename A2Apolicies_ext::FermionFieldType> twist_m1(p_m1);
+
+  gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p_p1,lat);
+  gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_m1(p_m1,lat);
+  
+  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p1(a2a_args,fp);
+  Wfftw_p1.fft(W,&twist_p1);
+
+  A2AvectorWfftw<A2Apolicies_ext> Wfftw_m1(a2a_args,fp);
+  Wfftw_m1.fft(W,&twist_m1);
+
+
+  int p[3];  
+  A2AvectorWfftw<A2Apolicies_ext> result(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies_ext> compare(a2a_args,fp);
+  
+  //Get twist for first excited momentum in p1 set
+  {
+    memcpy(p,p_p1,3*sizeof(int));
+    p[0] = 5;
+    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    compare.fft(W,&twist_p);
+
+    result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
+
+    if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in x direction\n",p[0],p[1],p[2]);
+
+    printRow(result.getMode(0),0,  "Result ");
+    printRow(compare.getMode(0),0, "Compare");
+    
+    for(int i=0;i<compare.getNmodes();i++)
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+  }
+  //Get twist for first negative excited momentum in p1 set
+  if(GJP.Bc(1) == BND_CND_GPARITY){
+    memcpy(p,p_p1,3*sizeof(int));
+    p[1] = -3;
+    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    compare.fft(W,&twist_p);
+
+    result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
+
+    if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
+
+    printRow(result.getMode(0),0,  "Result ");
+    printRow(compare.getMode(0),0, "Compare");
+    
+    for(int i=0;i<compare.getNmodes();i++)
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+  }
+  //Try two directions
+  if(GJP.Bc(1) == BND_CND_GPARITY){
+    memcpy(p,p_p1,3*sizeof(int));
+    p[0] = -3;
+    p[1] = -3;
+    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    compare.fft(W,&twist_p);
+
+    result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
+
+    if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
+
+    printRow(result.getMode(0),0,  "Result ");
+    printRow(compare.getMode(0),0, "Compare");
+    
+    for(int i=0;i<compare.getNmodes();i++)
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+  }
+  //Try 3 directions
+  if(GJP.Bc(1) == BND_CND_GPARITY && GJP.Bc(2) == BND_CND_GPARITY){
+    memcpy(p,p_p1,3*sizeof(int));
+    p[0] = -3;
+    p[1] = -3;
+    p[2] = -3;
+    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    compare.fft(W,&twist_p);
+
+    result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
+
+    if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in y direction\n",p[0],p[1],p[2]);
+
+    printRow(result.getMode(0),0,  "Result ");
+    printRow(compare.getMode(0),0, "Compare");
+    
+    for(int i=0;i<compare.getNmodes();i++)
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-7, true ) );
+  }
+  //Get twist for first excited momentum in m1 set
+  {
+    memcpy(p,p_m1,3*sizeof(int));
+    p[0] = 3;
+    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);   
+    compare.fft(W,&twist_p);
+
+    result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
+
+    if(!UniqueID()) printf("Testing p=(%d,%d,%d). Should require permute of 1 in x direction\n",p[0],p[1],p[2]);
+
+    printRow(result.getMode(0),0,  "Result ");
+    printRow(compare.getMode(0),0, "Compare");
+    
+    for(int i=0;i<compare.getNmodes();i++)
+      assert( compare.getMode(i).equals( result.getMode(i), 1e-8, true ) );
+  }
+  
+}
+
+
 
 template<typename T>
 struct _printit{

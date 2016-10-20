@@ -144,13 +144,13 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   StandardIndexDilution stdidx(getArgs());  
   stdidx.indexUnmap(dil_id,hit,tblock,spin_color,flavor);
     
-  VRB.Result(cname.c_str(), fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
+  VRB.Result("A2AvectorW", fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
   int tblock_origt = tblock * args.src_width;
 
   into.zero();
 
   if(tblock_origt / GJP.TnodeSites() != GJP.TnodeCoor()){
-    VRB.Result(cname.c_str(), fname, "Not on node\n    ");
+    VRB.Result("A2AvectorW", fname, "Not on node\n    ");
     return;
   }
 
@@ -260,4 +260,88 @@ void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
     tmp.setUniformRandom();
     V.getVh(i).importField(tmp);
   }
+}
+
+template< typename FieldType>
+FieldType const * getBaseAndShift(int shift[3], const int p[3], FieldType const *base_p, FieldType const *base_m){
+  //With G-parity base_p has momentum +1 in each G-parity direction, base_m has momentum -1 in each G-parity direction.
+  //Non-Gparity directions are assumed to have momentum 0
+
+  //Units of momentum are 2pi/L for periodic BCs, pi/L for antiperiodic and pi/2L for Gparity
+  FieldType const * out = GJP.Gparity() ? NULL : base_p;
+  for(int d=0;d<3;d++){
+    if(GJP.Bc(d) == BND_CND_GPARITY){
+      //Type 1 : f_{p=4b+1}(n) = f_+1(n+b)     // p \in {.. -7 , -3, 1, 5, 9 ..}
+      //Type 2 : f_{p=4b-1}(n) = f_-1(n+b)     // p \n  {.. -5, -1, 3, 7 , 11 ..}
+      if( (p[d]-1) % 4 == 0 ){
+	//Type 1
+	int b = (p[d]-1)/4;
+	shift[d] = -b;  //shift f_+1 backwards by b
+	if(out == NULL) out = base_p;
+	else if(out != base_p) ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because momenta in different G-parity directions do not reside in the same set\n",p[0],p[1],p[2]);
+	
+      }else if( (p[d]+1) % 4 == 0 ){
+	//Type 2
+	int b = (p[d]+1)/4;
+	shift[d] = -b;  //shift f_-1 backwards by b
+	if(out == NULL) out = base_m;
+	else if(out != base_m) ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because momenta in different G-parity directions do not reside in the same set\n",p[0],p[1],p[2]);
+	
+      }else ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because one or more components in G-parity directions are not allowed\n",p[0],p[1],p[2]);
+    }else{
+      //f_b(n) = f_0(n+b)
+      //Let the other directions decide on which base to use if some of them are G-parity dirs ; otherwise the pointer defaults to base_p above
+      shift[d] = -p[d];
+    }
+  }
+  if(!UniqueID()) printf("getBaseAndShift for p=(%d,%d,%d) determined shift=(%d,%d,%d) from ptr %c\n",p[0],p[1],p[2],shift[0],shift[1],shift[2],out == base_p ? 'p' : 'm');
+  
+  return out;
+}
+
+
+
+
+//Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+//With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+template< typename mf_Policies>
+void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m){
+  Float time = -dclock();
+  
+  std::vector<int> shift(3);
+  A2AvectorWfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
+
+  *this = *base;
+  
+  int nshift = 0;
+  for(int i=0;i<3;i++) if(shift[i]) nshift++;
+
+  if(nshift > 0){
+    for(int i=0;i<this->getNmodes();i++)
+      shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
+  }
+  time += dclock();
+  print_time("A2AvectorWfftw::getTwistedFFT","Twist",time);
+}
+
+template< typename mf_Policies>
+void A2AvectorVfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m){
+  Float time = -dclock();
+  
+  std::vector<int> shift(3);
+  A2AvectorVfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  if(base == NULL) ERR.General("A2AvectorVfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
+
+  *this = *base;
+  
+  int nshift = 0;
+  for(int i=0;i<3;i++) if(shift[i]) nshift++;
+
+  if(nshift > 0){
+    for(int i=0;i<this->getNmodes();i++)
+      shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
+  }
+  time += dclock();
+  print_time("A2AvectorVfftw::getTwistedFFT","Twist",time);
 }

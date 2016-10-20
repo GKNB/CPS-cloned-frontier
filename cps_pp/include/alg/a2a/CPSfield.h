@@ -176,14 +176,47 @@ public:
   bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
     for(int i=0;i<fsize;i++){
       if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ){
-	if(verbose && !UniqueID()) printf("Err: off %d this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i,f[i].real(),f[i].imag(),r.f[i].real(),r.f[i].imag(),fabs(f[i].real()-r.f[i].real()), fabs(f[i].imag()-r.f[i].imag()) );
+	if(verbose && !UniqueID()){
+	  int rem = i;
+	  int s = rem % SiteSize; rem /= SiteSize;
+	  int x = rem % sites; rem /= sites;
+	  int flav = rem;
+	  int coor[DimensionPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
+	  std::ostringstream os; for(int a=0;a<DimensionPolicy::EuclideanDimension;a++) os << coor[a] << " ";
+	  std::string coor_str = os.str();
+	  
+	  printf("Err: off %d  [s=%d coor=(%s) f=%d] this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i, s,coor_str.c_str(),flav,
+		 f[i].real(),f[i].imag(),r.f[i].real(),r.f[i].imag(),fabs(f[i].real()-r.f[i].real()), fabs(f[i].imag()-r.f[i].imag()) );
+	}
 	return false;
       }
     }
     return true;
   }
 #undef CONDITION
+
+#ifdef USE_GRID
   
+#define CONDITION _equal<  typename ComplexClassify<typename extField::FieldSiteType>::type  ,  grid_vector_complex_mark>::value \
+  && _equal<typename ComplexClassify<SiteType>::type,grid_vector_complex_mark>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
+    typedef typename SiteType::scalar_type ThisScalarType;
+    typedef typename extField::FieldSiteType::scalar_type ThatScalarType;
+    typedef typename DimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
+    NullObject null_obj;
+    CPSfield<ThisScalarType,SiteSize,ScalarDimPol, FlavorPolicy, StandardAllocPolicy> tmp_this(null_obj);
+    CPSfield<ThatScalarType,SiteSize,ScalarDimPol, FlavorPolicy, StandardAllocPolicy> tmp_that(null_obj);
+    tmp_this.importField(*this);
+    tmp_that.importField(r);
+    return tmp_this.equals(tmp_that,tolerance,verbose);
+  }
+  
+#undef CONDITION
+#endif
   
   double norm2() const;
   
@@ -403,10 +436,9 @@ public:
 //This field contains an entire row of sub-lattices along a particular dimension. Every node along that row contains an identical copy
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfieldGlobalInOneDir(const int &dir): cname("CPSfieldGlobalInOneDir"), CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): cname("CPSfieldGlobalInOneDir"), CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
+  CPSfieldGlobalInOneDir(const int &dir): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Gather up the row. Involves internode communication
   template<typename extSiteType, typename extDimPol, typename extAllocPol>
@@ -422,17 +454,15 @@ public:
 
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfermion4DglobalInOneDir(const int &dir): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion4DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfermion3DglobalInOneDir(const int &dir): cname("CPSfermion3DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  CPSfermion3DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
 
 

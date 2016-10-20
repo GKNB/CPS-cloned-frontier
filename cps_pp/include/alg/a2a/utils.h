@@ -515,6 +515,15 @@ void globalSumComplex(Grid::vComplexF* v, const int n){
 }
 #endif
 
+//The base G-parity momentum vector for quark fields with arbitrary sign
+inline void GparityBaseMomentum(int p[3], const int sgn){
+  for(int i=0;i<3;i++)
+    if(GJP.Bc(i) == BND_CND_GPARITY)
+      p[i] = sgn;
+    else p[i] = 0;
+}
+
+
 
 CPS_END_NAMESPACE
 

@@ -119,6 +119,28 @@ class ComputePion{
     A2AvectorWfftw<mf_Policies> fftw_W(W.getArgs(), fld_params);
     A2AvectorVfftw<mf_Policies> fftw_V(V.getArgs(), fld_params);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+    //Use FFT relation to relate twisted FFTs to base FFTs
+    A2AvectorWfftw<mf_Policies> fftw_W_base_p(W.getArgs(), fld_params);
+    A2AvectorWfftw<mf_Policies> fftw_W_base_m(W.getArgs(), fld_params);
+
+    A2AvectorVfftw<mf_Policies> fftw_V_base_p(V.getArgs(), fld_params);
+    A2AvectorVfftw<mf_Policies> fftw_V_base_m(V.getArgs(), fld_params);
+
+    int p_p1[3];
+    GparityBaseMomentum(p_p1,+1);
+    
+    int p_m1[3];
+    GparityBaseMomentum(p_m1,-1);
+
+    fftw_W_base_p.gaugeFixTwistFFT(W, p_p1,lattice);
+    fftw_W_base_m.gaugeFixTwistFFT(W, p_m1,lattice);
+
+    fftw_V_base_p.gaugeFixTwistFFT(V, p_p1,lattice);
+    fftw_V_base_m.gaugeFixTwistFFT(V, p_m1,lattice);    
+#endif
+
+
     //For info useful to user, compute required memory size of all light-light meson fields
     {
       double mf_size = A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::byte_size(W.getArgs(),V.getArgs()) / (1024.0*1024.0); //in MB
@@ -143,9 +165,13 @@ class ComputePion{
       ThreeMomentum p_w = pion_mom.getWmom(pidx);
       ThreeMomentum p_v = pion_mom.getVmom(pidx);
 
+#ifndef DISABLE_FFT_RELN_USAGE
+      fftw_W.getTwistedFFT(p_w.ptr(), &fftw_W_base_p, &fftw_W_base_m);
+      fftw_V.getTwistedFFT(p_v.ptr(), &fftw_V_base_p, &fftw_V_base_m);
+#else
       fftw_W.gaugeFixTwistFFT(W, p_w.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(V, p_v.ptr(),lattice); 
-
+#endif
       //Meson fields with standard momentum configuration
       if(!GJP.Gparity()){
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx], fftw_W, *mf_struct_nogp, fftw_V);
@@ -162,10 +188,14 @@ class ComputePion{
 	//Average with second momentum configuration to reduce rotational symmetry breaking
 	ThreeMomentum p_w_alt = pion_mom.getWmom(pidx,true);
 	ThreeMomentum p_v_alt = pion_mom.getVmom(pidx,true);
-
+	
+#ifndef DISABLE_FFT_RELN_USAGE
+	fftw_W.getTwistedFFT(p_w_alt.ptr(), &fftw_W_base_p, &fftw_W_base_m);
+	fftw_V.getTwistedFFT(p_v_alt.ptr(), &fftw_V_base_p, &fftw_V_base_m);
+#else
 	fftw_W.gaugeFixTwistFFT(W,p_w_alt.ptr(),lattice);
 	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
-    
+#endif
 	A2AflavorProjectedExpSource<SourcePolicies> fpexp(rad, p_v_alt.ptr(), src_setup_params); 
 	SCFspinflavorInnerProduct<15,ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,fpexp);
 

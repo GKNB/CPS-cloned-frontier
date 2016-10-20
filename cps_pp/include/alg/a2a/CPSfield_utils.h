@@ -412,7 +412,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
 	    towrite[tolane] = unpack[ from_lane[tolane] ];
 	  }else{
 	    //data is in buffer
-	    towrite[tolane] = recv_buf[ from_osite_idx[tolane] + f*bcsites*SiteSize ];
+	    towrite[tolane] = recv_buf[ from_osite_idx[tolane] + s + f*bcsites*SiteSize ];
 	  }
 	    
 	}
@@ -433,8 +433,42 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
 
 #endif
 
+inline int getShiftSign(const int of){ return of > 0 ? +1 : -1; }
 
+//Invoke multiple independent permutes to offset field by vector 'shift' assuming field is periodic
+template<typename FieldType>
+void shiftPeriodicField(FieldType &to, const FieldType &from, const std::vector<int> &shift){
+  int nd = shift.size(); //assume ascending: x,y,z,t
+  int nshift_dirs = 0;
+  for(int i=0;i<nd;i++) if(shift[i]!=0) ++nshift_dirs;
 
+  if(nshift_dirs == 0){
+    to = from;
+    return;
+  }else if(nshift_dirs == 1){
+    for(int d=0;d<nd;d++){
+      if(shift[d] != 0){
+	cyclicPermute(to,from,d,getShiftSign(shift[d]),abs(shift[d]) );
+	return;
+      }
+    }    
+  }else{
+    FieldType tmp1 = from;
+    FieldType tmp2 = from;
+    FieldType * send = &tmp1;
+    FieldType * recv = &tmp2;
+
+    int shifts_done = 0;
+    for(int d=0;d<nd;d++){
+      if(shift[d] != 0){
+	cyclicPermute(shifts_done < nshift_dirs-1 ? *recv : to,*send,d,getShiftSign(shift[d]),abs(shift[d]) );
+	++shifts_done;
+	if(shifts_done < nshift_dirs) std::swap(send,recv);
+	else return;
+      }
+    }   
+  }
+}
 
 
 #endif

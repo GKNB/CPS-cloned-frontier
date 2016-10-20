@@ -89,7 +89,7 @@ protected:
 public:
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))); }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<5;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
     }
@@ -97,7 +97,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))); }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
     }
@@ -144,7 +144,7 @@ protected:
 public:
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*( x[lmap[2]] + dims[2]*x[lmap[3]])); }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<4;i++){ 
       x[lmap[i]] = site % dims[i]; site /= dims[i];
     }
@@ -152,7 +152,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + dvol*f; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite/dvol;
   }
@@ -183,7 +183,7 @@ protected:
   void setSites(int &sites, int &fsites, const int nf) const{ sites = threevol; fsites = nf*sites; }
 public:
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*x[2]); }
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
     }
@@ -191,7 +191,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + GJP.VolNodeSites()/GJP.TnodeSites()*f; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite/threevol;
   }
@@ -273,7 +273,7 @@ protected:
 
 public:
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*x[lmap[2]]); }
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[lmap[i]] = site % dims[i]; site /= dims[i];
     }
@@ -281,7 +281,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*dvol; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / dvol;
   }
@@ -352,7 +352,7 @@ public:
     return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))))/2; 
   }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     site *= 2;
     for(int i=0;i<5;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
@@ -362,7 +362,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))))/2; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     fsite *= 2;
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
