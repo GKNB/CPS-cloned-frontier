@@ -35,6 +35,20 @@ public:
     src->importField(*from.src);
   }
   FieldType & getSource(){ return *src; } //For testing
+
+  inline static int pmod(const int x, const int Lx){
+    //return x >= Lx/2 ? x : Lx-x;
+    return (x + Lx/2) % Lx - Lx/2; //same as above
+  }
+  
+  static Float pmodr(const int r[3], const int glb_size[3]){
+    Float ssq =0.;
+    for(int i=0;i<3;i++){
+      int sr = pmod(r[i],glb_size[i]);
+      ssq += sr*sr;
+    }
+    return sqrt(ssq);
+  }
 };
 
 
@@ -78,16 +92,11 @@ public:
   typedef FieldPolicies Policies;
   typedef typename A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
-  
+
   void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const Float &radius, const int glb_size[3]) const{
     int site[3]; glb.siteUnmap(ss,site); //global site
 
-    Float ssq = 0.0;
-    for(int i=0;i<3;i++){
-      int sr = (site[i] + glb_size[i]/2) % glb_size[i] - glb_size[i]/2; //center at zero
-      ssq += sr*sr;
-    }
-    Float v = sqrt(ssq)/radius;
+    Float v = pmodr(site,glb_size)/radius;
     v = exp(-v)/glb.nsites();
 
     if(omit_000 && ss==0) v = 0;
@@ -144,10 +153,12 @@ public:
     bool inbox = true;
     for(int i=0;i<3;i++){ 
       //Compute distance to closest boundary
-      int bdist = site[i];
-      if(glb_size[i]-site[i] < bdist) bdist = glb_size[i]-site[i]; 
+      // int bdist = site[i];
+      // if(glb_size[i]-site[i] < bdist) bdist = glb_size[i]-site[i]; //equivalent to pmod
 
-      if(bdist > glb_size[i]/2){
+      int bdist = pmod(site[i],glb_size[i]);
+      
+      if(bdist > box_size[i]){
 	inbox = false; break;
       }
     }
@@ -227,7 +238,7 @@ public:
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
     const ComplexType &val = src_omit000.siteComplex(site);
 
-    out(1,0) = multiplySignTimesI(sign,val); //not sure why this version performs better!
+    out(1,0) = multiplySignTimesI(sign,val); //not sure why this version performs better! (I think because I am not flops bound but memory bandwidth bound - cheaper to recompute!)
     out(0,1) = -out(1,0); //-1 from sigma2
 
     //out(1,0) = val; 
