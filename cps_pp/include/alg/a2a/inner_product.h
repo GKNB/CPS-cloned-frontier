@@ -6,6 +6,7 @@
 #include<alg/a2a/gsl_wrapper.h>
 #include<alg/a2a/conj_zmul.h>
 #include<alg/a2a/inner_product_spincolorcontract.h>
+#include<alg/a2a/inner_product_fmatspincolorcontract.h>
 
 CPS_START_NAMESPACE
 
@@ -212,6 +213,9 @@ public:
 
 
 
+
+
+
 //Implementation of spin-color-flavor contraction for std::complex and Grid SIMD vectorized complex types
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
 struct _SCFspinflavorInnerProduct_impl{};
@@ -219,18 +223,10 @@ struct _SCFspinflavorInnerProduct_impl{};
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  complex_double_or_float_mark>{
   static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
-    const static std::complex<double> zero(0.,0.);
     FlavorMatrix lMr;
-#ifdef USE_GRID_SCCON
-    grid_scf_contract_select<smatidx,mf_Complex,conj_left,conj_right>::doit(lMr,l,r);
-#else
-    for(int f1=0;f1<2;f1++)
-      for(int f3=0;f3<2;f3++)
-	lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : SpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right>::doit(l.getPtr(f1),r.getPtr(f3));
-#endif
+    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
     
-    //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrix phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
@@ -245,16 +241,10 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
   inline static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
-    const mf_Complex zero(0.);
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
-
-    //Not all are yet supported!
-    for(int f1=0;f1<2;f1++)
-      for(int f3=0;f3<2;f3++)
-    	lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : GridVectorizedSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right>::doit(l.getPtr(f1),r.getPtr(f3));
+    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
     
-    //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrixGeneral<mf_Complex> phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
