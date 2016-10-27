@@ -4,11 +4,8 @@
 #include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/a2a_sources.h>
 #include<alg/a2a/gsl_wrapper.h>
-#include<alg/a2a/inner_product_grid.h>
-
-#ifdef USE_GRID
-#define USE_GRID_SCCON //switch on inner_product_grid code
-#endif
+#include<alg/a2a/conj_zmul.h>
+#include<alg/a2a/inner_product_spincolorcontract.h>
 
 CPS_START_NAMESPACE
 
@@ -19,36 +16,6 @@ CPS_START_NAMESPACE
 //t is the local time coordinate
 //mf_Complex is the base complex type for the vectors
 //Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
-
-template<typename mf_Complex, bool conj_left, bool conj_right>
-struct Mconj{};
-
-// (re*re - im*im, re*im + im*re )
-template<typename mf_Complex>
-struct Mconj<mf_Complex,false,false>{
-  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
-    return std::complex<double>(l->real()*r->real() - l->imag()*r->imag(), l->real()*r->imag() + l->imag()*r->real());
-  }
-};
-template<typename mf_Complex>
-struct Mconj<mf_Complex,false,true>{
-  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
-    return std::complex<double>(l->real()*r->real() + l->imag()*r->imag(), l->imag()*r->real() - l->real()*r->imag());
-  }
-};
-template<typename mf_Complex>
-struct Mconj<mf_Complex,true,false>{
-  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
-    return std::complex<double>(l->real()*r->real() + l->imag()*r->imag(), l->real()*r->imag() - l->imag()*r->real());
-  }
-};
-template<typename mf_Complex>
-struct Mconj<mf_Complex,true,true>{
-  static inline std::complex<double> doit(const mf_Complex *const l, const mf_Complex *const r){
-    return std::complex<double>(l->real()*r->real() - l->imag()*r->imag(), -l->real()*r->imag() - l->imag()*r->real());
-  }
-};
-
 
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
@@ -84,78 +51,6 @@ public:
     //Multiply by momentum-space source structure
     return out * src.siteComplex(p);
   }
-};
-
-//Compute a^T Mb  for spin-color vectors a,b and spin-color matrix M  in optimal fashion
-//If a,b have flavor structure the indices must be provided
-//Option to complex conjugate left/right vector components
-
-template<typename mf_Complex, bool conj_left, bool conj_right>
-class OptimizedSpinColorContract{
-public:
-  inline static std::complex<double> g5(const mf_Complex *const l, const mf_Complex *const r){
-    const static int sc_size =12;
-    const static int half_sc = 6;
-    
-    std::complex<double> v3(0,0);
-
-#if defined(USE_GRID_SCCON)
-    grid_g5contract<mf_Complex,conj_left,conj_right>::doit(v3,l,r);
-#else
-    for(int i = half_sc; i < sc_size; i++){ 
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
-    }
-    v3 *= -1;
-      
-    for(int i = 0; i < half_sc; i ++){ 
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
-    }
-#endif
-
-    return v3;
-  }
-  inline static std::complex<double> unit(const mf_Complex *const l, const mf_Complex *const r){
-    const static int sc_size =12;
-    std::complex<double> v3(0,0);
-
-#ifdef USE_GSL_SCCON    
-    typedef gsl_wrapper<typename mf_Complex::value_type> gw;
-    
-    typename gw::block_complex_struct lblock;
-    typename gw::vector_complex lgsl;
-    typename gw::block_complex_struct rblock;
-    typename gw::vector_complex rgsl;
-    typename gw::complex result;
-
-    lblock.size = sc_size;
-    lgsl.block = &lblock;
-    lgsl.size = sc_size;
-    lgsl.stride = 1;
-    lgsl.owner = 0;
-      
-    rblock.size = sc_size;
-    rgsl.block = &rblock;
-    rgsl.size = sc_size;
-    rgsl.stride = 1;
-    rgsl.owner = 0;
-
-    lblock.data = lgsl.data = l;
-    rblock.data = rgsl.data = r;
-
-    gsl_dotproduct<typename mf_Complex::value_type,conj_left,conj_right>::doit(&lgsl,&rgsl,&result);
-    double(&v3_a)[2] = reinterpret_cast<double(&)[2]>(v3);
-    v3_a[0] = GSL_REAL(result);
-    v3_a[1] = GSL_IMAG(result);
- 
-#else
-    for(int i = 0; i < sc_size; i ++){
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
-    }
-#endif
-
-    return v3;
-  }
-
 };
 
 
@@ -287,7 +182,7 @@ public:
 
 
 
-//Optimized gamma^5*sigma_i inner product with flavor projection
+//Optimized gamma^5*sigma_i inner product with flavor projection for std::complex types
 template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCg5sigmaInnerProduct{
   const SourceType &src;
@@ -317,7 +212,7 @@ public:
 
 
 
-
+//Implementation of spin-color-flavor contraction for std::complex and Grid SIMD vectorized complex types
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
 struct _SCFspinflavorInnerProduct_impl{};
 
@@ -362,148 +257,7 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
   }
 };
 
-
 #ifdef USE_GRID
-
-template<typename vComplexType, bool conj_left, bool conj_right>
-struct MconjGrid{};
-
-template<typename vComplexType>
-struct MconjGrid<vComplexType,false,false>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return (*l) * (*r);
-  }
-};
-template<typename vComplexType>
-struct MconjGrid<vComplexType,false,true>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return (*l) * conjugate(*r);
-  }
-};
-
-#if defined (AVX2)
-inline Grid::vComplexD conjMult(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
-  Grid::vComplexD out;
-  __m256d a_real = _mm256_movedup_pd( l->v ); // Ar Ar
-  __m256d a_imag = _mm256_shuffle_pd(l->v,l->v,0xF);//aiai
-  a_imag = _mm256_mul_pd( a_imag, _mm256_permute_pd( r->v, 0x5 ) );  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
-  out.v = _mm256_fmsubadd_pd( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr
-  return out;
-}
-inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vComplexF *const r){
-  Grid::vComplexF out;
-  __m256 a_real = _mm256_moveldup_ps( l->v ); // Ar Ar
-  __m256 a_imag = _mm256_movehdup_ps( l->v ); // Ai Ai
-  a_imag = _mm256_mul_ps( a_imag, _mm256_shuffle_ps( r->v,r->v, _MM_SELECT_FOUR_FOUR(2,3,0,1) ));  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
-  out.v = _mm256_fmsubadd_ps( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr
-  return out;
-}
-#endif
-
-#if defined (AVX512)
-inline Grid::vComplexD conjMult(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
-  Grid::vComplexD out;
-  __m512d a_real = _mm512_shuffle_pd( l->v, l->v, 0x00 );
-  __m512d a_imag = _mm512_shuffle_pd( l->v, l->v, 0xFF );
-  a_imag = _mm512_mul_pd( a_imag, _mm512_permute_pd( r->v, 0x55 ) );
-  out.v = _mm512_fmsubadd_pd( a_real, r->v, a_imag );
-  return out;
-}
-
-inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vComplexF *const r){
-  Grid::vComplexF out;
-  __m512 a_real = _mm512_moveldup_ps( l->v ); // Ar Ar
-  __m512 a_imag = _mm512_movehdup_ps( l->v ); // Ai Ai
-  a_imag = _mm512_mul_ps( a_imag, _mm512_permute_ps( r->v, 0xB1 ) );  // (Ai, Ai) * (Bi, Br) = Ai Bi, Ai Br
-  out.v = _mm512_fmsubadd_ps( a_real, r->v, a_imag ); // Ar Br , Ar Bi   +- Ai Bi             = ArBr+AiBi , ArBi-AiBr 
-  return out;
-}
-#endif
-
-
-template<typename vComplexType>
-struct MconjGrid<vComplexType,true,false>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-#if defined (AVX2) || defined (AVX512)
-    return conjMult(l,r);
-#else    
-    return conjugate(*l) * (*r);
-#endif
-  }
-};
-template<typename vComplexType>
-struct MconjGrid<vComplexType,true,true>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return conjugate(*l)*conjugate(*r);
-  }
-};
-
-
-template<typename vComplexType, bool conj_left, bool conj_right>
-class GridVectorizedSpinColorContract{
-public:
-  inline static vComplexType g5(const vComplexType *const l, const vComplexType *const r){
-    const static int sc_size =12;
-    const static int half_sc = 6;
-
-    vComplexType v3; zeroit(v3);
-
-    for(int i = half_sc; i < sc_size; i++){ 
-      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
-    }
-    for(int i = 0; i < half_sc; i ++){ 
-      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
-    }
-    return v3;
-  }
-  inline static vComplexType unit(const vComplexType *const l, const vComplexType *const r){
-    const static int sc_size =12;
-    vComplexType v3; zeroit(v3);
-
-    for(int i = 0; i < sc_size; i ++){
-      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
-    }
-    return v3;
-  }
-
-};
-
-#ifdef AVX512
-CPS_END_NAMESPACE
-#include<alg/a2a/inner_product_avx512.h>
-CPS_START_NAMESPACE
-
-template<>
-class GridVectorizedSpinColorContract<Grid::vComplexD,true,false>{
-public:
-  inline static Grid::vComplexD g5(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
-    Grid::vComplexD v3;
-    v3.v = g5d_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
-    return v3;
-  }
-  inline static Grid::vComplexD unit(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
-    ERR.General("GridVectorizedSpinColorContract","unit","AVX512 ASM version not implemented\n");
-  }
-};
-
-
-#endif
-
-
-
-
-template<int smatidx,typename vComplexType, bool conj_left, bool conj_right>
-struct GridVectorizedSpinColorContractSelect{};
-
-template<typename vComplexType, bool conj_left, bool conj_right>
-struct GridVectorizedSpinColorContractSelect<15,vComplexType,conj_left,conj_right>{
-  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g5(l,r); }
-};
-template<typename vComplexType, bool conj_left, bool conj_right>
-struct GridVectorizedSpinColorContractSelect<0,vComplexType,conj_left,conj_right>{
-  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::unit(l,r); }
-};
-
 
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
 struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
@@ -554,6 +308,9 @@ public:
 #endif
   }
 };
+
+
+
 
 
 

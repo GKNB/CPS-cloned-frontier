@@ -97,7 +97,7 @@ class ComputePion{
   
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
-  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
+  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields indexed by [p,t]
 				 MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
 				 const A2AvectorW<mf_Policies> &W, const A2AvectorV<mf_Policies> &V,
