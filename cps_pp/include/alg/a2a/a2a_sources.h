@@ -86,7 +86,6 @@ public:
 //SrcParams is just a Float for the radius
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AexpSource: public A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
-  bool omit_000; //set source to zero at spatial site 0,0,0
   Float radius;
 
 public:
@@ -94,33 +93,29 @@ public:
   typedef typename A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline ComplexD value(const int site[3], const int glb_size[3]) const{
     Float v = pmodr(site,glb_size)/radius;
     v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
-
-    if(omit_000 && site[0]==0 && site[1]==0 && site[2]==0 ) v = 0;
-
     return ComplexD(v,0);
   }
     
-  A2AexpSource(const Float _radius, const FieldParamType &field_params, bool _omit_000 = false): omit_000(_omit_000), radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(field_params){
+  A2AexpSource(const Float _radius, const FieldParamType &field_params): radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(field_params){
     this->fft_source();
   }
-  A2AexpSource(const Float _radius, bool _omit_000 = false): omit_000(_omit_000), radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(NullObject()){
+  A2AexpSource(const Float _radius): radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(NullObject()){
     this->fft_source();
   } //syntactic sugar to avoid having to provide a NullObject instance where appropriate
 
-  A2AexpSource(): omit_000(false), radius(0.), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
+  A2AexpSource(): radius(0.), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
 
   //Setup the source if the default constructor was used
-  void setup(const Float _radius, const FieldParamType &field_params, bool _omit_000 = false){
+  void setup(const Float _radius, const FieldParamType &field_params){
     this->A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::setup(field_params);
-    omit_000 = _omit_000;
     radius = _radius;
     this->fft_source();
   }
-  void setup(const Float radius, bool _omit_000 = false){
-    return setup(radius, NullObject(), _omit_000);
+  void setup(const Float radius){
+    return setup(radius, NullObject());
   }
     
   inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
@@ -177,29 +172,34 @@ public:
   }
 };
 
+//Splat a cps::ComplexD onto a SIMD type. Just a plain copy for non-SIMD complex types
+#ifdef USE_GRID
+template<typename ComplexType>
+inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< _equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
+  return vsplat(to,from);
+}
+#endif
+template<typename ComplexType>
+inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< !_equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
+  return to = ComplexType(from.real(),from.imag());
+}
+  
+
 //Daiqian's original implementation sets the (1 +/- sigma_2) flavor projection on G-parity fields to unity when the two fermion fields coincide.
 //I'm not sure this is actually necessary, but I need to be able to reproduce his numbers
 template<typename SourceType>
 class A2AflavorProjectedSource{
+public:
+  typedef typename SourceType::FieldParamType FieldParamType;
+  typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
 
   //Derived class should setup the sources
-  SourceType src_allsites;
-  SourceType src_omit000; //same source structure, only the site 0,0,0 has been set to zero during the FFT
-
-  //Multiply src_omit000 by sign*I
-  void multOmit000Isign(){
-    typedef typename SourceType::FieldType SrcType;
-    SrcType &the_src = src_omit000.getSource();
-#pragma omp parallel for
-    for(int i=0;i<the_src.nfsites();i++)
-      *the_src.fsite_ptr(i) = multiplySignTimesI(sign,*the_src.fsite_ptr(i));
-  }
+  SourceType src;
+  ComplexType val000;
 public:
-  typedef typename SourceType::FieldParamType FieldParamType;
-  typedef typename SourceType::Policies::ComplexType ComplexType;
-  
+
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
     if(!GJP.Gparity()){ ERR.General("A2AflavorProjectedSource","getProjSign","Requires GPBC in at least one direction\n"); }
@@ -224,22 +224,23 @@ public:
 
     return sgn;
   }
-  A2AflavorProjectedSource(const int p[3]): sign(getProjSign(p)){}
+  A2AflavorProjectedSource(const int p[3]): sign(getProjSign(p)){
+    int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
+    cps::ComplexD v = src.value(zero,L);
+    SIMDsplat(val000,v);    
+  }
 
-  int nsites() const{ return src_allsites.nsites(); }
+  int nsites() const{ return src.nsites(); }
   
   inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const int site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
-    out(0,0) = out(1,1) = src_allsites.siteComplex(site);
+    const ComplexType &val = src.siteComplex(site);
+    
+    out(0,0) = out(1,1) = val;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    const ComplexType &val = src_omit000.siteComplex(site);
-
-    out(1,0) = multiplySignTimesI(sign,val); //not sure why this version performs better! (I think because I am not flops bound but memory bandwidth bound - cheaper to recompute!)
+    out(1,0) = multiplySignTimesI(sign,val - val000);
     out(0,1) = -out(1,0); //-1 from sigma2
-
-    //out(1,0) = val; 
-    //out(0,1) = -val;//-1 from sigma2
   }
 };
 
@@ -251,9 +252,7 @@ public:
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::ComplexType ComplexType;
   
   A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_field_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
-    this->src_allsites.setup(radius,src_field_params,false);
-    this->src_omit000.setup(radius,src_field_params,true);
-    //this->multOmit000Isign();
+    this->src.setup(radius,src_field_params);
   }
 
 };
