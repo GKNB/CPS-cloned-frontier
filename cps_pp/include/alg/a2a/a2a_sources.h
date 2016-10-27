@@ -53,7 +53,7 @@ public:
 
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
-template<typename FieldPolicies, typename SrcParams, typename Child>
+template<typename FieldPolicies, typename Child>
 class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>{
 public:
   typedef FieldPolicies Policies;
@@ -62,7 +62,7 @@ public:
   A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(p){};
   A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
   
-  void set(const SrcParams &srcp){
+  void fft_source(){
     assert(this->src != NULL);
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
@@ -71,9 +71,10 @@ public:
     glb.zero();
          
 #pragma omp_parallel for
-    for(int i=0;i<glb.nsites();i++)
-      static_cast<Child const*>(this)->setSite(glb,i,srcp,glb_size); //child must have method to setSite of source
-
+    for(int i=0;i<glb.nsites();i++){
+      int x[3]; glb.siteUnmap(i,x); 
+      *glb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
+    }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
     glb.scatter<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(*this->src);
@@ -84,41 +85,41 @@ public:
 //Exponential (hydrogen wavefunction) source
 //SrcParams is just a Float for the radius
 template<typename FieldPolicies = StandardSourcePolicies>
-class A2AexpSource: public A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >{
+class A2AexpSource: public A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
   bool omit_000; //set source to zero at spatial site 0,0,0
+  Float radius;
 
-public:
 public:
   typedef FieldPolicies Policies;
-  typedef typename A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const Float &radius, const int glb_size[3]) const{
-    int site[3]; glb.siteUnmap(ss,site); //global site
-
+  ComplexD value(const int site[3], const int glb_size[3]) const{
     Float v = pmodr(site,glb_size)/radius;
-    v = exp(-v)/glb.nsites();
+    v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
 
-    if(omit_000 && ss==0) v = 0;
+    if(omit_000 && site[0]==0 && site[1]==0 && site[2]==0 ) v = 0;
 
-    ((double*)glb.site_ptr(ss,0))[0] = v; //real part only
+    return ComplexD(v,0);
   }
     
-  A2AexpSource(const Float &radius, const FieldParamType &field_setup, bool _omit_000 = false): omit_000(_omit_000), A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >(field_setup){
-    this->set(radius);
+  A2AexpSource(const Float _radius, const FieldParamType &field_params, bool _omit_000 = false): omit_000(_omit_000), radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(field_params){
+    this->fft_source();
   }
-  A2AexpSource(const Float &radius, bool _omit_000 = false): omit_000(_omit_000), A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >(NullObject()){
-    this->set(radius);
+  A2AexpSource(const Float _radius, bool _omit_000 = false): omit_000(_omit_000), radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(NullObject()){
+    this->fft_source();
   } //syntactic sugar to avoid having to provide a NullObject instance where appropriate
 
-  A2AexpSource(): omit_000(false), A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >(){} //src is not setup
-  
-  void setup(const Float &radius, const FieldParamType &field_setup, bool _omit_000 = false){
-    A2AsourceBase<FieldPolicies, Float, A2AexpSource<FieldPolicies> >::setup(field_setup);
+  A2AexpSource(): omit_000(false), radius(0.), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
+
+  //Setup the source if the default constructor was used
+  void setup(const Float _radius, const FieldParamType &field_params, bool _omit_000 = false){
+    this->A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::setup(field_params);
     omit_000 = _omit_000;
-    this->set(radius);
+    radius = _radius;
+    this->fft_source();
   }
-  void setup(const Float &radius, bool _omit_000 = false){
+  void setup(const Float radius, bool _omit_000 = false){
     return setup(radius, NullObject(), _omit_000);
   }
     
@@ -131,31 +132,17 @@ public:
 //Box source. Unflavored so ignore second flav
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
 template<typename FieldPolicies = StandardSourcePolicies>
-class A2AboxSource: public A2AsourceBase<FieldPolicies, std::vector<int>, A2AboxSource<FieldPolicies> >{
-  void setup(const int box_size[3]){
-    std::vector<int> ss(3);
-    for(int i=0;i<3;i++){
-      if(box_size[i] % 2 == 1){
-	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
-      }
-      ss[i] = box_size[i];
-    }
-    this->set(ss);
-  }
+class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
+  int box_size[3];
 public:
   typedef FieldPolicies Policies;
-  typedef typename A2AsourceBase<FieldPolicies, std::vector<int>, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
   
-  void setSite(CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> &glb, const int ss, const std::vector<int> &box_size, const int glb_size[3]) const{
-    int site[3]; glb.siteUnmap(ss,site); //global site
-
+  ComplexD value(const int site[3], const int glb_size[3]) const{
     bool inbox = true;
+    int V = glb_size[0]*glb_size[1]*glb_size[2];
     for(int i=0;i<3;i++){ 
-      //Compute distance to closest boundary
-      // int bdist = site[i];
-      // if(glb_size[i]-site[i] < bdist) bdist = glb_size[i]-site[i]; //equivalent to pmod
-
       int bdist = pmod(site[i],glb_size[i]);
       
       if(bdist > box_size[i]){
@@ -163,17 +150,27 @@ public:
       }
     }
     if(inbox)
-      ((double*)glb.site_ptr(ss,0))[0] = 1./glb.nsites(); //real part only    
+      return ComplexD(1./V);
+  }
+  
+  A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
+    this->setup(_box_size);
+  }
+  A2AboxSource(const int _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
+    this->setup(_box_size);
+  }//syntatic sugar to avoid creating a NullObject
+
+  void setup(const int _box_size[3]){
+    for(int i=0;i<3;i++){
+      if(_box_size[i] % 2 == 1){
+	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
+      }
+      box_size[i] = _box_size[i];
+    }
+    this->fft_source();
   }
 
   
-  A2AboxSource(const int box_size[3],const FieldParamType &field_setup): A2AsourceBase<FieldPolicies, std::vector<int>, A2AboxSource<FieldPolicies> >(field_setup){
-    setup(box_size);
-  }
-  A2AboxSource(const int box_size[3]): A2AsourceBase<FieldPolicies, std::vector<int>, A2AboxSource<FieldPolicies> >(NullObject()){
-    setup(box_size);
-  }//syntatic sugar to avoid creating a NullObject
-    
   inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
     out(0,0) = out(1,1) = this->siteComplex(site);
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
@@ -253,9 +250,9 @@ public:
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::ComplexType ComplexType;
   
-  A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_setup_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
-    this->src_allsites.setup(radius,src_setup_params,false);
-    this->src_omit000.setup(radius,src_setup_params,true);
+  A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_field_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
+    this->src_allsites.setup(radius,src_field_params,false);
+    this->src_omit000.setup(radius,src_field_params,true);
     //this->multOmit000Isign();
   }
 
