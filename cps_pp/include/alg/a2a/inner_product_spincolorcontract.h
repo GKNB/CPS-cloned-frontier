@@ -79,6 +79,21 @@ public:
 
 };
 
+template<int smatidx,typename mf_Complex, bool conj_left, bool conj_right>
+struct SpinColorContractSelect{};
+
+template<typename mf_Complex, bool conj_left, bool conj_right>
+struct SpinColorContractSelect<15,mf_Complex,conj_left,conj_right>{
+  inline static mf_Complex doit(const mf_Complex *const l, const mf_Complex *const r){
+    return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l,r);
+  }
+};
+template<typename mf_Complex, bool conj_left, bool conj_right>
+struct SpinColorContractSelect<0,mf_Complex,conj_left,conj_right>{
+  inline static mf_Complex doit(const mf_Complex *const l, const mf_Complex *const r){
+    return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l,r);
+  }
+};
 
 
 //For Grid SIMD vectorized complex numbers

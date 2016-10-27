@@ -222,30 +222,13 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
     //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T M[sc1,sc2] r[sc2,f3]
     const static std::complex<double> zero(0.,0.);
     FlavorMatrix lMr;
-
-    //Not all are yet supported!
-    switch(smatidx){
-    case 15:
 #ifdef USE_GRID_SCCON
-      grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_g5con(lMr,l,r);
+    grid_scf_contract_select<smatidx,mf_Complex,conj_left,conj_right>::doit(lMr,l,r);
 #else
-      for(int f1=0;f1<2;f1++)
-	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));
+    for(int f1=0;f1<2;f1++)
+      for(int f3=0;f3<2;f3++)
+	lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : SpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right>::doit(l.getPtr(f1),r.getPtr(f3));
 #endif
-      break;
-    case 0: 
-#ifdef USE_GRID_SCCON
-      grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_unitcon(lMr,l,r);
-#else
-      for(int f1=0;f1<2;f1++)
-	for(int f3=0;f3<2;f3++)
-	  lMr(f1,f3) = l.isZero(f1) || r.isZero(f3) ? zero : OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l.getPtr(f1),r.getPtr(f3));
-#endif
-      break;
-    default:
-      ERR.General("SCFspinflavorInnerProduct","do_op","Spin matrix with idx %d not yet implemented\n",smatidx);
-    }
     
     //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrix phi;
