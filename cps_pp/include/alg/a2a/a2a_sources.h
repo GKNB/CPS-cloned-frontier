@@ -36,19 +36,39 @@ public:
   }
   FieldType & getSource(){ return *src; } //For testing
 
+  //Periodic modulus operation
   inline static int pmod(const int x, const int Lx){
-    //return x >= Lx/2 ? x : Lx-x;
-    return (x + Lx/2) % Lx - Lx/2; //same as above
+    return x <= Lx/2 ? x : Lx-x; //   0 ... L/2-1,  L/2, L/2-1, ... 1
   }
-  
-  static Float pmodr(const int r[3], const int glb_size[3]){
+  //Periodic coordinate relative to boundary
+  inline static int pcoord(const int x, const int Lx){
+    return (x + Lx/2) % Lx - Lx/2; //   0 ... L/2-1, -L/2, 1-L/2, ... -1   includes sign. Note convention for sign at L/2
+  }
+
+  //Radial coordinate
+  static Float pmodr(const int x[3], const int L[3]){
     Float ssq =0.;
     for(int i=0;i<3;i++){
-      int sr = pmod(r[i],glb_size[i]);
+      int sr = pmod(x[i],L[i]);
       ssq += sr*sr;
     }
     return sqrt(ssq);
   }
+  
+  //Spherical coordinates that know about the periodicity of the lattice  
+  static void pmodspherical(Float &r, Float &theta, Float &phi, const int x[3], const int L[3]){
+    int xp[3];
+    Float ssq = 0.;    
+    for(int i=0;i<3;i++){
+      int xp[i] = pcoord(x[i],L[i]);
+      ssq += xp[i]*xp[i];
+    }
+    r = sqrt(ssq);
+    theta = acos(xp[2]/r);
+    phi = atan(xp[1]/xp[0]);
+  }
+
+  
 };
 
 
@@ -82,35 +102,25 @@ public:
 };
 
 
-//Exponential (hydrogen wavefunction) source
-//SrcParams is just a Float for the radius
-template<typename FieldPolicies = StandardSourcePolicies>
-class A2AexpSource: public A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
+template<typename FieldPolicies, typename Derived>
+class A2AhydrogenSourceBase: public A2AsourceBase<FieldPolicies, Derived >{
+protected:
   Float radius;
 
 public:
   typedef FieldPolicies Policies;
-  typedef typename A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename A2AsourceBase<FieldPolicies, Derived >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
-
-  inline ComplexD value(const int site[3], const int glb_size[3]) const{
-    Float v = pmodr(site,glb_size)/radius;
-    v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
-    return ComplexD(v,0);
-  }
-    
-  A2AexpSource(const Float _radius, const FieldParamType &field_params): radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(field_params){
+      
+  A2AhydrogenSourceBase(const Float _radius, const FieldParamType &field_params): radius(_radius), A2AsourceBase<FieldPolicies, Derived >(field_params){
     this->fft_source();
   }
-  A2AexpSource(const Float _radius): radius(_radius), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(NullObject()){
-    this->fft_source();
-  } //syntactic sugar to avoid having to provide a NullObject instance where appropriate
 
-  A2AexpSource(): radius(0.), A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
+  A2AhydrogenSourceBase(): radius(0.), A2AsourceBase<FieldPolicies, Derived >(){} //src is not setup
 
   //Setup the source if the default constructor was used
   void setup(const Float _radius, const FieldParamType &field_params){
-    this->A2AsourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::setup(field_params);
+    this->A2AsourceBase<FieldPolicies, Derived >::setup(field_params);
     radius = _radius;
     this->fft_source();
   }
@@ -123,6 +133,122 @@ public:
     out(0,1) = out(1,0) = typename Policies::ComplexType(0);    
   }
 };
+
+  
+//Exponential (hydrogen wavefunction) source
+//SrcParams is just a Float for the radius
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2AexpSource: public A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >{
+public:
+  typedef FieldPolicies Policies;
+  typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename Policies::ComplexType ComplexType;
+
+  inline ComplexD value(const int site[3], const int glb_size[3]) const{
+    Float v = pmodr(site,glb_size)/this->radius;
+    v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
+    return ComplexD(v,0);
+  }
+    
+  A2AexpSource(const Float _radius, const FieldParamType &field_params): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(_radius,field_params){ }
+  A2AexpSource(const Float _radius): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(_radius, NullObject()){ }
+
+  A2AexpSource(): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
+};
+
+//General s-wave hydrogen wavefunction source 
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2AhydrogenSource: public A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >{
+  int n, l, m;
+public:
+  typedef FieldPolicies Policies;
+  typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename Policies::ComplexType ComplexType;
+
+  inline static ComplexD zexp(const Float phi){
+    return ComplexD( cos(phi), sin(phi) );
+  }
+    
+  
+  inline ComplexD value(const int site[3], const int glb_size[3]) const{
+    assert(n>=0 && n <= 3 &&
+	   l>=0 && l <= n-1 &&
+	   abs(m) <= l);
+    
+    Float a0 = this->radius;
+    Float na0 = a0 * n;
+    Float r, theta, phi;
+    if(l==0) r = pmodr(site,glb_size);   //don't need theta and phi for s-wave
+    else pmodspherical(r,theta,phi,site,glb_size);
+    
+    ComplexD v( exp(-r/na0)/(glb_size[0]*glb_size[1]*glb_size[2]), 0.);
+
+    switch(n){
+    case 1:
+      break;
+    case 2:
+      switch(l){
+      case 0:
+	v *= (2. - r/a0); break;
+      case 1:
+	v *= r/a0;
+	switch(m){
+	case 0:
+	  v *= cos(theta); break;
+	case 1:
+	case -1:
+	  v *= sin(theta) * zexp(phi*m); break;
+	}//m
+      }//l
+      break;
+    case 3:
+      switch(l){
+      case 0:
+	v *= (27. - 18.*r/a0 + 2.*r*r/a0/a0); break;
+      case 1:
+	v *= (6. -r/a0)*r/a0;
+	switch(m){
+	case 0:
+	  v *= cos(theta); break;
+	case 1:
+	case -1:
+	  v *= sin(theta) * zexp(phi*m); break;
+	}//m
+      case 2:
+	v *= r*r/a0/a0;
+	switch(m){
+	case 0:
+	  v *= 3.*cos(theta)*cos(theta) - 1.; break;
+	case 1:
+	case -1:
+	  v *= sin(theta) * cos(theta) * zexp(phi*m); break;
+	case 2:
+	case -2:
+	  v *= sin(theta) * sin(theta) * zexp(phi*m); break;	  
+	}//m	
+      }//l
+      break;     
+    }//n
+    return v;      
+  }
+
+  A2AhydrogenSource(const int _n, const int _l, const int _m, const Float _radius, const FieldParamType &field_params): n(_n), l(_l), m(_m), A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >(_radius,field_params){ }
+  A2AhydrogenSource(const int _n, const int _l, const int _m, const Float _radius): n(_n), l(_l), m(_m), A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >(_radius, NullObject()){ }
+
+  A2AhydrogenSource(): A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >(){} //src is not setup
+
+  void setup(const int _n, const int _l, const int _m, const Float _radius, const FieldParamType &field_params){
+    n = _n; l=_l; m=_m;
+    this->A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >::setup(_radius,field_params);
+  }
+  void setup(const int _n, const int _l, const int _m, const Float radius){
+    return setup(_n,_l,_m, radius, NullObject());
+  }
+};
+
+
+
+
 
 //Box source. Unflavored so ignore second flav
 //SrcParams is std::vector<Float> for the extents x,y,z . *These must be even numbers* (checked)
