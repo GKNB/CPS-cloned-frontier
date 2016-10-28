@@ -255,6 +255,17 @@ public:
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AboxSource: public A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >{
   int box_size[3];
+
+  void box_setup_fft(const int _box_size[3]){    
+    for(int i=0;i<3;i++){
+      if(_box_size[i] % 2 == 1){
+	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
+      }
+      box_size[i] = _box_size[i];
+    }
+    this->fft_source();
+  }
+  
 public:
   typedef FieldPolicies Policies;
   typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
@@ -275,20 +286,15 @@ public:
   }
   
   A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
-    this->setup(_box_size);
+    this->box_setup_fft(_box_size);
   }
   A2AboxSource(const int _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
-    this->setup(_box_size);
+    this->box_setup_fft(_box_size);
   }//syntatic sugar to avoid creating a NullObject
 
-  void setup(const int _box_size[3]){
-    for(int i=0;i<3;i++){
-      if(_box_size[i] % 2 == 1){
-	ERR.General("A2AboxSource","A2AboxSource","box size must be multiple of 2");
-      }
-      box_size[i] = _box_size[i];
-    }
-    this->fft_source();
+  void setup(const int _box_size[3], const FieldParamType &field_params = NullObject()){
+    this->A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::setup(field_params);
+    this->box_setup_fft(_box_size);
   }
 
   
@@ -313,17 +319,23 @@ inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_en
 
 //Daiqian's original implementation sets the (1 +/- sigma_2) flavor projection on G-parity fields to unity when the two fermion fields coincide.
 //I'm not sure this is actually necessary, but I need to be able to reproduce his numbers
+//Derived class should setup the sources
 template<typename SourceType>
-class A2AflavorProjectedSource{
+class A2AflavorProjectedSource: public SourceType{
 public:
   typedef typename SourceType::FieldParamType FieldParamType;
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-
-  //Derived class should setup the sources
-  SourceType src;
   ComplexType val000;
+  virtual void dummy() = 0; //make sure this class can't be instantiated directly
+
+  void setup_projected_src_info(const int p[3]){
+    sign = getProjSign(p);
+    int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
+    cps::ComplexD v = this->value(zero,L);
+    SIMDsplat(val000,v);    
+  }
 public:
 
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
@@ -350,37 +362,43 @@ public:
 
     return sgn;
   }
-  A2AflavorProjectedSource(const int p[3]): sign(getProjSign(p)){
-    int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
-    cps::ComplexD v = src.value(zero,L);
-    SIMDsplat(val000,v);    
-  }
 
-  int nsites() const{ return src.nsites(); }
-  
   inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const int site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
-    const ComplexType &val = src.siteComplex(site);
+    const ComplexType &val = this->siteComplex(site);
     
     out(0,0) = out(1,1) = val;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
     out(1,0) = multiplySignTimesI(sign,val - val000);
     out(0,1) = -out(1,0); //-1 from sigma2
   }
+
+  //Can change momentum sign without redoing FFT
+  void setMomentum(const int p[3]){
+    sign = getProjSign(p);
+  }
 };
 
 
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >{
+  void dummy(){}
 public:
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::ComplexType ComplexType;
   
-  A2AflavorProjectedExpSource(const Float &radius, const int p[3], const FieldParamType &src_field_params = NullObject()): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(p){
-    this->src.setup(radius,src_field_params);
+  A2AflavorProjectedExpSource(const Float radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
+    this->A2AexpSource<FieldPolicies>::setup(radius,src_field_params);
+    this->A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::setup_projected_src_info(p);
   }
+  A2AflavorProjectedExpSource(): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(){}
 
+  void setup(const Float radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
+    this->A2AexpSource<FieldPolicies>::setup(radius,src_field_params);
+    this->A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::setup_projected_src_info(p);
+  }
+  
 };
 
 define_test_has_enum(nSources); //a test for multisrc types (all should have enum nSources)
@@ -393,17 +411,12 @@ private:
   SourceListStruct sources;
 public:
   enum { nSources = getSizeOfListStruct<SourceListStruct>::type };
-  
-  
+
   //Accessors for sources  (call like  src.template get<Idx>() )
   template<int i>
   typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
   template<int i>
   const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }
-
-  
-
-  
 };
 
 
