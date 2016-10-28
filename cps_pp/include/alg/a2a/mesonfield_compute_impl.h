@@ -173,7 +173,7 @@ struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2Afi
   static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_t, const int t){
     return mf_t[t];
   }
-  static inline nodeSum(const mfVectorType &mf_t, const int Lt){
+  static inline void nodeSum(mfVectorType &mf_t, const int Lt){
     for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
   }
 };
@@ -205,7 +205,7 @@ struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2
   static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t){
     return mf_st[0]->operator[](t);
   }
-  static inline nodeSum(const mfVectorType &mf_st, const int Lt){
+  static inline void nodeSum(mfVectorType &mf_st, const int Lt){
     for(int s=0;s<nSources;s++)
       for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
   }

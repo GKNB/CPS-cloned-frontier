@@ -320,14 +320,17 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
 //Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCFspinflavorInnerProduct{
-  const SourceType &src;
+  SourceType &src;
   FlavorMatrixType sigma;
 public:
   typedef SourceType InnerProductSourceType;
   
-  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): 
+  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src): 
   sigma(_sigma), src(_src){}
 
+  SourceType & getSrc(){ return src; }
+  const SourceType & getSrc() const{ return src; }
+  
   // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
   //where phi has flavor structure
   //p is the momentum 'site' index

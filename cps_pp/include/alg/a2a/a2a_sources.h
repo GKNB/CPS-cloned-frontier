@@ -144,8 +144,8 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline ComplexD value(const int site[3], const int glb_size[3]) const{
-    Float v = pmodr(site,glb_size)/this->radius;
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+    Float v = this->pmodr(site,glb_size)/this->radius;
     v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
     return ComplexD(v,0);
   }
@@ -165,12 +165,12 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline static ComplexD zexp(const Float phi){
-    return ComplexD( cos(phi), sin(phi) );
+  inline static cps::ComplexD zexp(const Float phi){
+    return cps::ComplexD( cos(phi), sin(phi) );
   }
     
   
-  inline ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     assert(n>=0 && n <= 3 &&
 	   l>=0 && l <= n-1 &&
 	   abs(m) <= l);
@@ -178,10 +178,10 @@ public:
     Float a0 = this->radius;
     Float na0 = a0 * n;
     Float r, theta, phi;
-    if(l==0) r = pmodr(site,glb_size);   //don't need theta and phi for s-wave
-    else pmodspherical(r,theta,phi,site,glb_size);
+    if(l==0) r = this->pmodr(site,glb_size);   //don't need theta and phi for s-wave
+    else this->pmodspherical(r,theta,phi,site,glb_size);
     
-    ComplexD v( exp(-r/na0)/(glb_size[0]*glb_size[1]*glb_size[2]), 0.);
+    cps::ComplexD v( exp(-r/na0)/(glb_size[0]*glb_size[1]*glb_size[2]), 0.);
 
     switch(n){
     case 1:
@@ -271,18 +271,18 @@ public:
   typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
   
-  ComplexD value(const int site[3], const int glb_size[3]) const{
+  cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     bool inbox = true;
     int V = glb_size[0]*glb_size[1]*glb_size[2];
     for(int i=0;i<3;i++){ 
-      int bdist = pmod(site[i],glb_size[i]);
+      int bdist = this->pmod(site[i],glb_size[i]);
       
       if(bdist > box_size[i]){
 	inbox = false; break;
       }
     }
     if(inbox)
-      return ComplexD(1./V);
+      return cps::ComplexD(1./V);
   }
   
   A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
@@ -308,12 +308,12 @@ public:
 #ifdef USE_GRID
 template<typename ComplexType>
 inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< _equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
-  return vsplat(to,from);
+  vsplat(to,from);
 }
 #endif
 template<typename ComplexType>
 inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< !_equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
-  return to = ComplexType(from.real(),from.imag());
+  to = ComplexType(from.real(),from.imag());
 }
   
 

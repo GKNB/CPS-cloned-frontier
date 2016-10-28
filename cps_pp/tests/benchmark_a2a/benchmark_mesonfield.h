@@ -877,7 +877,57 @@ T randomvType(){
   return out;
 }
 
+CPS_END_NAMESPACE
+#include<alg/a2a/mesonfield_computemany.h>
+CPS_START_NAMESPACE
 
+template<typename mf_Complex>
+void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
+  assert(GJP.Gparity());
+  
+  if(lat.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
+
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+  
+  //Demonstrate relation between FFTW fields
+  typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
+
+  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  W.testRandom();
+  V.testRandom();
+
+  int p[3];
+  GparityBaseMomentum(p,+1);
+  ThreeMomentum pp(p);
+
+  GparityBaseMomentum(p,-1);
+  ThreeMomentum pm(p);
+
+  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::FieldParamType SrcFieldParamType;
+  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::ComplexType SrcComplexType;
+  SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
+  
+  std::vector< A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw> > mf_std;
+  A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies> src(2.0, pp.ptr(), sfp);
+
+    
+}
 
 
 
