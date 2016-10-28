@@ -138,6 +138,165 @@ struct my_is_base_of
   static const bool value = sizeof(check(_is_base_of_host<B,D>(), int())) == sizeof(char);
 };
 
+//Generate a test for if a class has an enum with a particular name
+#define define_test_has_enum(ENUM)			\
+template<class T> \
+struct has_enum_##ENUM{ \
+  typedef char yes; \
+  typedef yes (&no)[2]; \
+  \
+  template<int> \
+  struct test2; \
+  \
+  template<class U> \
+  static yes test(test2<U:: ENUM>*); \
+  template<class U> \
+  static no  test(...); \
+  \
+  static bool const value = sizeof(test<T>(0)) == sizeof(yes); \
+}
+
+//Example usage:
+//<HEAD>
+// define_test_has_enum(HELLO);
+
+// struct Astruct{
+//   enum { HELLO=0 };
+// };
+// struct Bstruct{
+// };
+//
+//<BODY>
+  // assert( has_enum_HELLO<Astruct>::value == true );
+  // assert( has_enum_HELLO<Bstruct>::value == false );
+
+
+//A method of using compound templated classes and recursive functions to iterate over types in a static list
+struct ListEnd{};
+
+template<typename V, typename N>
+struct Elem{
+  typedef V ValueType;
+  typedef N NextType;
+};
+
+//Get a type by index
+template<typename TypeList, int i>
+struct getTypeFromList{
+  typedef typename getTypeFromList<typename TypeList::NextType, i-1>::type type;
+};
+template<typename TypeList>
+struct getTypeFromList<TypeList,0>{
+  typedef typename TypeList::ValueType type;
+};
+
+//A struct containing instances of the list of types.
+template<typename TypeList>
+struct ListStruct{
+  typedef typename TypeList::ValueType ValueType;
+  typedef ListStruct<typename TypeList::NextType> NextType;
+  
+  ValueType v;
+  NextType n;
+};
+template<>
+struct ListStruct<ListEnd>{};
+
+//Access elements by compile time index
+template<typename aListStruct, int i>
+struct getConstElemFromListStruct{
+  static inline const typename getTypeFromList<aListStruct,i>::type & get(const aListStruct &from){
+    return getConstElemFromListStruct<typename aListStruct::NextType,i-1>::get(from.n);
+  }
+};
+template<typename aListStruct>
+struct getConstElemFromListStruct<aListStruct,0>{
+  static inline const typename aListStruct::ValueType & get(const aListStruct &from){
+    return from.v;
+  }
+};
+    
+template<typename aListStruct, int i>
+struct getElemFromListStruct{
+  static inline typename getTypeFromList<aListStruct,i>::type & get(aListStruct &from){
+    return getElemFromListStruct<typename aListStruct::NextType,i-1>::get(from.n);
+  }
+};
+template<typename aListStruct>
+struct getElemFromListStruct<aListStruct,0>{
+  static inline typename aListStruct::ValueType & get(aListStruct &from){
+    return from.v;
+  }
+};
+
+//Number of elements in ListStruct
+template<typename aListStruct, int count = 0>
+struct getSizeOfListStruct{
+  enum{ value = getSizeOfListStruct<typename aListStruct::NextType,count+1>::value };
+};
+template<int count>
+struct getSizeOfListStruct<ListStruct<ListEnd>, count>{
+  enum{ value = count };
+};
+
+
+
+
+//Example print all elements
+template<typename aListStruct>
+struct _printAll{
+  static void doit(std::ostream &into, const aListStruct &src){
+    into << src.v << '\n';
+    typedef typename aListStruct::NextType Next;
+    _printAll<Next>::doit(into,src.n);
+  }
+};
+template<>
+struct _printAll< ListStruct<ListEnd> >{
+  static void doit(std::ostream &into, const ListStruct<ListEnd> &src){
+  }
+};
+
+//Example print single element
+template<typename aListStruct, int idx>
+struct _printElement{
+  static void doit(std::ostream &into, const aListStruct &src){
+    typedef typename aListStruct::NextType Next;
+    _printElement<Next,idx-1>::doit(into,src.n);
+  }
+};
+template<typename aListStruct>
+struct _printElement<aListStruct,0>{
+  static void doit(std::ostream &into, const aListStruct &src){
+    into << src.v << '\n';
+  }
+};
+
+//Perform an operation with templated parameter and static member 'doit' on all elements of list
+template< template<typename> class Operation, typename aListStruct>
+struct _operationAll{
+  static void doit(const aListStruct &src){
+    typedef typename aListStruct::ValueType ValueType;
+    typedef typename aListStruct::NextType NextType;
+    Operation<ValueType>::doit(src.v);
+    _operationAll<Operation, NextType>::doit(src.n);
+  }
+};
+template< template<typename> class Operation>
+struct _operationAll<Operation, ListStruct<ListEnd> >{
+  static void doit(const ListStruct<ListEnd> &src){
+  }
+};
+
+//An example operation
+template<typename T>
+struct _printcout{
+  static void doit(const T &src){
+    std::cout << src << '\n';
+  }
+};
+
+
 
 
 #endif
