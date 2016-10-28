@@ -83,6 +83,9 @@ public:
 	 >
   friend class _mult_lr_impl;
 
+  template<typename mfVectorType, typename InnerProduct>
+  friend struct mf_Vector_policies;
+  
 public:
   A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
   }
@@ -198,6 +201,10 @@ public:
   //This version is more efficient on multi-nodes
   template<typename InnerProduct, typename Allocator>
   static void compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
+
+  //Version of the above for multi-src inner products (output vector indexed by [src idx][t]
+  template<typename InnerProduct, typename Allocator>
+  static void compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
 
   inline const int getNrows() const{ return nmodes_l; }
   inline const int getNcols() const{ return nmodes_r; }

@@ -383,8 +383,28 @@ public:
 
 };
 
+define_test_has_enum(nSources); //a test for multisrc types (all should have enum nSources)
 
+template<typename SourceList>
+class A2AmultiSource{
+public:
+  typedef ListStruct<SourceList> SourceListStruct;
+private:
+  SourceListStruct sources;
+public:
+  enum { nSources = getSizeOfListStruct<SourceListStruct>::type };
+  
+  
+  //Accessors for sources  (call like  src.template get<Idx>() )
+  template<int i>
+  typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
+  template<int i>
+  const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }
 
+  
+
+  
+};
 
 
 
