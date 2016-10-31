@@ -32,30 +32,34 @@ class ComputeMesonFields{
      
 #ifndef DISABLE_FFT_RELN_USAGE
     //Precompute the limited set of *base* FFTs  (remainder are related to base by cyclic permutation) provided this results in a cost saving
-    int nbase = GJP.Gparity() ? 2 : 1; //number of base FFTs
-    int nbase_max = 2;
+    const int nbase = GJP.Gparity() ? 2 : 1; //number of base FFTs
+    const int nbase_max = 2;
+    
     for(int s=0;s<nspecies;s++){
-      if(into.nWmomenta(s) > nbase){
+      if(into.nWffts(s) > nbase){
 	precompute_base_wffts[s] = true;
-	if(!UniqueID()) printf("ComputeMesonFields::compute precomputing W FFTs for species %d as nmomenta %d > %d\n",s,into.nWmomenta(s), nbase);
-      }else if(!UniqueID()) printf("ComputeMesonFields::compute NOT precomputing W FFTs for species %d as nmomenta %d <= %d\n",s,into.nWmomenta(s), nbase);
+	if(!UniqueID()) printf("ComputeMesonFields::compute precomputing W FFTs for species %d as nFFTs %d > %d\n",s,into.nWffts(s), nbase);
+      }else if(!UniqueID()) printf("ComputeMesonFields::compute NOT precomputing W FFTs for species %d as nFFTs %d <= %d\n",s,into.nWffts(s), nbase);
       
-      if(into.nVmomenta(s) > nbase){
+      if(into.nVffts(s) > nbase){
 	precompute_base_vffts[s] = true;
-	if(!UniqueID()) printf("ComputeMesonFields::compute precomputing V FFTs for species %d as nmomenta %d > %d\n",s,into.nVmomenta(s), nbase);
-      }else if(!UniqueID()) printf("ComputeMesonFields::compute NOT precomputing V FFTs for species %d as nmomenta %d <= %d\n",s,into.nVmomenta(s), nbase);
+	if(!UniqueID()) printf("ComputeMesonFields::compute precomputing V FFTs for species %d as nFFTs %d > %d\n",s,into.nVffts(s), nbase);
+      }else if(!UniqueID()) printf("ComputeMesonFields::compute NOT precomputing V FFTs for species %d as nFFTs %d <= %d\n",s,into.nVffts(s), nbase);
       
     }
 
-    std::vector< std::vector<A2AvectorWfftw<mf_Policies>* > > Wfftw_base(nspecies, std::vector<A2AvectorWfftw<mf_Policies>* >(nbase_max,NULL) );
-    std::vector< std::vector<A2AvectorVfftw<mf_Policies>* > > Vfftw_base(nspecies, std::vector<A2AvectorVfftw<mf_Policies>* >(nbase_max,NULL) );
-
+    std::vector< std::vector<A2AvectorWfftw<mf_Policies>* > > Wfftw_base(nspecies);
+    std::vector< std::vector<A2AvectorVfftw<mf_Policies>* > > Vfftw_base(nspecies);
+    
     int p_0[3] = {0,0,0};
     int p_p1[3], p_m1[3];
     GparityBaseMomentum(p_p1,+1);
     GparityBaseMomentum(p_m1,-1);
     
     for(int s=0;s<nspecies;s++){
+      Wfftw_base[s].resize(nbase_max,NULL);
+      Vfftw_base[s].resize(nbase_max,NULL);
+      
       for(int b=0;b<nbase;b++){
 	if(precompute_base_wffts[s])
 	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(fftw_W.getArgs(), fld_params);
@@ -89,6 +93,8 @@ class ComputeMesonFields{
       ThreeMomentum p_w, p_v;      
       into.getComputeParameters(qidx_w,qidx_v,p_w,p_v,cidx);
 
+      if(!UniqueID()) printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str());
+      
 #ifndef DISABLE_FFT_RELN_USAGE
       if(precompute_base_wffts[qidx_w])
 	fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
@@ -106,7 +112,16 @@ class ComputeMesonFields{
 
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
     }
- 
+    
+#ifndef DISABLE_FFT_RELN_USAGE
+    for(int s=0;s<nspecies;s++){
+      for(int b=0;b<nbase_max;b++){
+	if(Wfftw_base[s][b] != NULL) delete Wfftw_base[s][b];
+	if(Vfftw_base[s][b] != NULL) delete Vfftw_base[s][b];
+      }
+    }
+#endif
+    
   }
 
 };
@@ -127,23 +142,19 @@ struct computeParams{
 class MesonFieldStorageBase{
 protected:
   std::vector<computeParams> clist;
-  std::map<int, std::set<ThreeMomentum> > w_species_mom_map;
-  std::map<int, std::set<ThreeMomentum> > v_species_mom_map;
 public:
   void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
     clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
-    w_species_mom_map[qidx_w].insert(p_w);
-    v_species_mom_map[qidx_v].insert(p_v);		     
   }
-  int nWmomenta(const int qidx) const{
-    std::map<int, std::set<ThreeMomentum> >::const_iterator it = w_species_mom_map.find(qidx);
-    if(it == w_species_mom_map.end()) return 0;
-    else return it->second.size();
+  int nWffts(const int qidx) const{
+    int count = 0;
+    for(int i=0;i<clist.size();i++) if(clist[i].qidx_w == qidx) ++count;
+    return count;
   }
-  int nVmomenta(const int qidx) const{
-    std::map<int, std::set<ThreeMomentum> >::const_iterator it = v_species_mom_map.find(qidx);
-    if(it == v_species_mom_map.end()) return 0;
-    else return it->second.size();
+  int nVffts(const int qidx) const{
+    int count = 0;
+    for(int i=0;i<clist.size();i++) if(clist[i].qidx_v == qidx) ++count;
+    return count;
   }
   int nCompute() const{ return clist.size(); }
 
@@ -153,6 +164,32 @@ public:
   }
 };
 
+//Storage with source that remains constant for all computations
+template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+class BasicSourceStorage: public MesonFieldStorageBase{
+public:
+  typedef InnerProduct InnerProductType;
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef storageType& mfComputeInputFormat;
+
+private:
+  const InnerProductType& inner;
+  std::vector<storageType> mf;
+public:  
+  BasicSourceStorage(const InnerProductType& _inner): inner(_inner){}
+
+  const storageType & operator[](const int cidx) const{ return mf[cidx]; }
+  
+  mfComputeInputFormat getMf(const int cidx){
+    if(mf.size() != clist.size()) mf.resize(clist.size());
+    return mf[cidx]; //returns *reference*
+  }  
+  const InnerProductType & getInnerProduct(const int cidx){
+    return inner;
+  }
+};
+
+//Flavor projected operator needs to be fed the momentum of the second quark field in the bilinear
 template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
 class GparityFlavorProjectedBasicSourceStorage: public MesonFieldStorageBase{
 public:
@@ -178,6 +215,41 @@ public:
   }
 };
 
+
+
+
+//Storage for a multi-source type requires different output meson fields for each source in the compound type
+template<typename mf_Policies, typename InnerProduct, typename my_enable_if<has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+class MultiSourceStorage: public MesonFieldStorageBase{
+public:
+  typedef InnerProduct InnerProductType;
+  typedef typename InnerProductType::InnerProductSourceType MultiSourceType;
+  enum {nSources = MultiSourceType::nSources };
+  
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector<storageType* > mfComputeInputFormat;
+
+private:
+  const InnerProductType& inner;
+  std::vector<storageType> mf;
+public:  
+  MultiSourceStorage(const InnerProductType& _inner): inner(_inner){}
+
+  const storageType & operator()(const int src_idx, const int cidx) const{ return mf[src_idx + nSources*cidx]; }
+  
+  mfComputeInputFormat getMf(const int cidx){
+    if(mf.size() != nSources*clist.size()) mf.resize(nSources*clist.size());
+    mfComputeInputFormat ret(nSources);
+    for(int i=0;i<nSources;i++) ret[i] = &mf[i + nSources*cidx];
+    return ret;
+  }  
+  const InnerProductType & getInnerProduct(const int cidx) const{
+    return inner;
+  }
+};
+
+
+//Flavor projected version again requires momentum of right quark field in bilinear
 template<typename MultiSrc, int Size, int I=0>
 struct _multiSrcRecurse{
   static inline void setMomentum(MultiSrc &src, const int p[3]){

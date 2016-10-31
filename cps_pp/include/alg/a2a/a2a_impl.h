@@ -30,17 +30,15 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
 #ifndef MEMTEST_MODE
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
 #endif
-      gather_time += dclock()-dtime;
+      gather_time += dclock()-dtime;  dtime = dclock();
 
       //FFT
-      dtime = dclock();
 #ifndef MEMTEST_MODE
       tmp_dbl.fft();
 #endif
-      fft_time += dclock()-dtime;      
+      fft_time += dclock()-dtime;  dtime = dclock(); 
 
       //Scatter
-      dtime = dclock();
 #ifndef MEMTEST_MODE
       tmp_dbl.scatter( mu==2 ? v[mode]: tmp );
 #endif
@@ -58,24 +56,42 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
 template< typename mf_Policies>
 void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop){
+  if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
   typedef typename FermionFieldType::InputParamType FieldParamType;
   FieldParamType field_setup = from.getWh(0).getDimPolParams();  
   FermionFieldType tmp(field_setup), tmp2(field_setup);
 
+  Float preop_time = 0;
+  Float gather_time = 0;
+  Float fft_time = 0;
+  Float scatter_time = 0;
+  
   //Do wl
   for(int mode=0;mode<nl;mode++){
     FermionFieldType const* init_gather_from = &from.getWl(mode);
     if(mode_preop != NULL){
+      Float dtime = dclock();
       (*mode_preop)(from.getWl(mode),tmp);
       init_gather_from = &tmp;
+      preop_time += dclock()-dtime;
     }
     for(int mu=0;mu<3;mu++){
+      Float dtime = dclock();
       CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
 #ifndef MEMTEST_MODE
       tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
+#endif
+      gather_time += dclock()-dtime;  dtime = dclock(); 
+
+#ifndef MEMTEST_MODE  
       tmp_dbl.fft();
+#endif
+      fft_time += dclock()-dtime;  dtime = dclock(); 
+      
+#ifndef MEMTEST_MODE
       tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
 #endif
+      scatter_time += dclock()-dtime;
     }
   }
   //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
@@ -84,19 +100,37 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       from.getSpinColorDilutedSource(tmp2,hit,sc);
       FermionFieldType* init_gather_from = &tmp2;
       if(mode_preop != NULL){
+	Float dtime = dclock();
 	(*mode_preop)(tmp2,tmp);
 	init_gather_from = &tmp;
+	preop_time += dclock()-dtime;
       }    
       for(int mu=0;mu<3;mu++){
+	Float dtime = dclock();
+	
 	CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
 #ifndef MEMTEST_MODE
 	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
+#endif
+	gather_time += dclock()-dtime;  dtime = dclock();
+
+#ifndef MEMTEST_MODE
 	tmp_dbl.fft();
+#endif
+	fft_time += dclock()-dtime;  dtime = dclock(); 
+
+#ifndef MEMTEST_MODE
 	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );
 #endif
+	scatter_time += dclock()-dtime;
       }
     }
   }
+  if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
+  print_time("A2AvectorWfftw::fft","Preop",preop_time);
+  print_time("A2AvectorWfftw::fft","gather",gather_time);
+  print_time("A2AvectorWfftw::fft","FFT",fft_time);
+  print_time("A2AvectorWfftw::fft","scatter",scatter_time);
 }
 
 
@@ -312,7 +346,8 @@ void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<P
   A2AvectorWfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
   if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
 
-  *this = *base;
+  wl = base->wl;
+  wh = base->wh;
   
   int nshift = 0;
   for(int i=0;i<3;i++) if(shift[i]) nshift++;
@@ -332,8 +367,8 @@ void A2AvectorVfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorVfftw<P
   std::vector<int> shift(3);
   A2AvectorVfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
   if(base == NULL) ERR.General("A2AvectorVfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
-
-  *this = *base;
+  
+  v = base->v;
   
   int nshift = 0;
   for(int i=0;i<3;i++) if(shift[i]) nshift++;

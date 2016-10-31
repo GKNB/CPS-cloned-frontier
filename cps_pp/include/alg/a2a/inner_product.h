@@ -268,8 +268,8 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
 
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseGrid{
-  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){
-    FlavorMatrix phi;
+  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
+    FlavorMatrixGeneral<mf_Complex> phi;
     src.template getSource<Idx>().siteFmat(phi,p);
     phi.pl(sigma);
     
@@ -280,7 +280,7 @@ struct _siteFmatRecurseGrid{
 };
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseGrid<SourceType,mf_Complex,0,Idx>{
-  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){}
+  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
 
 
