@@ -109,7 +109,27 @@ struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CP
   	grid(f)(s)(c) = *cps++;
   }
 };
-				    
+template<typename complex_scalar, typename CPScomplex>
+struct GridTensorConvert<Grid::QCD::iLorentzColourMatrix<complex_scalar>, CPScomplex>{
+  static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
+
+  //Gauge field  mu=0..3  3*3 complex
+  //We have assured the input is not SIMD vectorized so the output type is the same
+  inline static void doit(CPScomplex* cps, const Grid::QCD::iLorentzColourMatrix<complex_scalar> &grid, const int f){
+    for(int mu=0;mu<4;mu++)
+      for(int i=0;i<3;i++)
+	for(int j=0;j<3;j++)
+	  *cps++ = grid(mu)()(i,j);
+  }
+  inline static void doit(Grid::QCD::iLorentzColourMatrix<complex_scalar> &grid, CPScomplex const* cps, const int f){
+    for(int mu=0;mu<4;mu++)
+      for(int i=0;i<3;i++)
+	for(int j=0;j<3;j++)
+	  grid(mu)()(i,j) = *cps++;
+  }
+};
+
+
 template<int Ndim>
 struct dimensionMap{};
 

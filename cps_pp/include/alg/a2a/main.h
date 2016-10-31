@@ -261,7 +261,14 @@ struct LatticeSetup{
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
     lat = new LatticeType(grid_params);
-    lat->ImportGauge(); //lattice -> Grid  (applied APRD - signs internally then reverses)
+    //lat->ImportGauge(); //lattice -> Grid  (applied APRD - signs internally then reverses)
+
+    NullObject null_obj;
+    lat->BondCond();
+    CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
+    cps_gauge.exportGridField(*lat->getUmu());
+    lat->BondCond();
+    
 # if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
     importBFMlattice(lat,solvers);
 # endif
