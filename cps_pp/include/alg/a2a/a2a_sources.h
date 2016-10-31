@@ -60,7 +60,7 @@ public:
     int xp[3];
     Float ssq = 0.;    
     for(int i=0;i<3;i++){
-      int xp[i] = pcoord(x[i],L[i]);
+      xp[i] = pcoord(x[i],L[i]);
       ssq += xp[i]*xp[i];
     }
     r = sqrt(ssq);
@@ -338,6 +338,8 @@ protected:
   }
 public:
 
+  A2AflavorProjectedSource(): SourceType(){}
+  
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
     if(!GJP.Gparity()){ ERR.General("A2AflavorProjectedSource","getProjSign","Requires GPBC in at least one direction\n"); }
@@ -401,6 +403,28 @@ public:
   
 };
 
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2AflavorProjectedHydrogenSource : public A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >{
+  void dummy(){}
+public:
+  typedef typename A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >::FieldParamType FieldParamType;
+  typedef typename A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >::ComplexType ComplexType;
+  
+  A2AflavorProjectedHydrogenSource(const int _n, const int _l, const int _m, const Float _radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
+    this->A2AhydrogenSource<FieldPolicies>::setup(_n,_l,_m,_radius,src_field_params);
+    this->A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >::setup_projected_src_info(p);
+  }
+  A2AflavorProjectedHydrogenSource(): A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >(){}
+
+  void setup(const int _n, const int _l, const int _m, const Float _radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
+    this->A2AhydrogenSource<FieldPolicies>::setup(_n,_l,_m,_radius,src_field_params);
+    this->A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >::setup_projected_src_info(p);
+  }
+  
+};
+
+
+
 define_test_has_enum(nSources); //a test for multisrc types (all should have enum nSources)
 
 template<typename SourceList>
@@ -410,7 +434,7 @@ public:
 private:
   SourceListStruct sources;
 public:
-  enum { nSources = getSizeOfListStruct<SourceListStruct>::type };
+  enum { nSources = getSizeOfListStruct<SourceListStruct>::value };
 
   //Accessors for sources  (call like  src.template get<Idx>() )
   template<int i>

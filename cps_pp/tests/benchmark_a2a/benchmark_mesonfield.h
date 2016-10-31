@@ -919,14 +919,92 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   GparityBaseMomentum(p,-1);
   ThreeMomentum pm(p);
 
+  ThreeMomentum pp3 = pp * 3;
+  ThreeMomentum pm3 = pm * 3;
+
+  
   typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::FieldParamType SrcFieldParamType;
   typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::ComplexType SrcComplexType;
   SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
-  
-  std::vector< A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw> > mf_std;
-  A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies> src(2.0, pp.ptr(), sfp);
 
-    
+  typedef A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies> ExpSrcType;
+  typedef A2AflavorProjectedHydrogenSource<typename A2Apolicies_ext::SourcePolicies> HydSrcType;
+  
+  ExpSrcType _1s_src(2.0, pp.ptr(), sfp);
+  HydSrcType _2s_src(2,0,0, 2.0, pp.ptr(), sfp);
+
+  typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
+  typedef SCFspinflavorInnerProduct<15,mf_Complex,HydSrcType,true,false> HydInnerType;
+  
+  ExpInnerType _1s_inner(sigma3, _1s_src);
+  HydInnerType _2s_inner(sigma3, _2s_src);
+
+  A2AvectorWfftw<A2Apolicies_ext> Wfftw_pp(a2a_args,fp);
+  Wfftw_pp.gaugeFixTwistFFT(W,pp.ptr(),lat);
+
+  A2AvectorVfftw<A2Apolicies_ext> Vfftw_pp(a2a_args,fp);
+  Vfftw_pp.gaugeFixTwistFFT(V,pp.ptr(),lat);
+  
+  std::vector< A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
+  A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
+
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, ExpInnerType> ExpStorageType;
+  
+  ExpStorageType exp_store_1s_pp_pp(_1s_inner);
+  exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
+
+  std::vector< A2AvectorW<A2Apolicies_ext> const*> Wspecies(1, &W);
+  std::vector< A2AvectorV<A2Apolicies_ext> const*> Vspecies(1, &V);
+
+  std::cout << "Start 1s ExpStorage compute\n";
+  ComputeMesonFields<A2Apolicies_ext,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    if(!UniqueID()) printf("Comparing test 1 t=%d\n",t);
+    assert( exp_store_1s_pp_pp[0][t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+  }
+  if(!UniqueID()) printf("Passed equivalence test 1\n");
+
+  typedef Elem<ExpSrcType,Elem<HydSrcType,ListEnd> > SrcList;
+  typedef A2AmultiSource<SrcList> MultiSrcType;
+  typedef SCFspinflavorInnerProduct<15,mf_Complex,MultiSrcType,true,false> ExpHydMultiInnerType;
+
+  MultiSrcType exp_hyd_multi_src;
+  exp_hyd_multi_src.template getSource<0>().setup(2.0,pp.ptr(),sfp);
+  exp_hyd_multi_src.template getSource<1>().setup(2,0,0, 2.0, pp.ptr(), sfp);
+  
+  ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
+
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, HydInnerType> HydStorageType;
+  HydStorageType exp_store_2s_pp_pp(_2s_inner);
+  exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
+  exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
+  exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
+
+  
+  ComputeMesonFields<A2Apolicies_ext,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
+
+  
+  typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies_ext, ExpHydMultiInnerType> ExpHydMultiStorageType;
+  ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner);
+  exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
+
+  std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
+  ComputeMesonFields<A2Apolicies_ext,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+  
+  for(int t=0;t<Lt;t++){
+    if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
+    assert( exp_store_1s_2s_pp_pp(0,0)[t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+  }
+  if(!UniqueID()) printf("Passed equivalence test 2\n");
+  for(int t=0;t<Lt;t++){
+    if(!UniqueID()) printf("Comparing test 3 t=%d\n",t);
+    assert( exp_store_1s_2s_pp_pp(1,0)[t].equals(exp_store_2s_pp_pp[0][t],1e-10,true) );
+  }
+  if(!UniqueID()) printf("Passed equivalence test 3\n");
+
+  
 }
 
 

@@ -137,6 +137,24 @@ public:
     if(mf!=NULL) free(mf);
   }
 
+  bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
+    for(int i=0;i<nmodes_l;i++){
+      for(int j=0;j<nmodes_r;j++){
+	const ScalarComplexType &lval = (*this)(i,j);
+	const ScalarComplexType &rval = r(i,j);
+	
+	if( fabs(lval.real() - rval.real()) > tolerance || fabs(lval.imag() - rval.imag()) > tolerance ){
+	  if(verbose && !UniqueID()){
+	    printf("Err: (%d,%d) : this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i,j,
+		   lval.real(),lval.imag(),rval.real(),rval.imag(),fabs(lval.real()-rval.real()), fabs(lval.imag()-rval.imag()) );
+	  }
+	  return false;
+	}
+      }
+    }
+    return true;
+  }    
+  
   A2AmesonField &operator=(const A2AmesonField &r){
     setup(r.lindexdilution, r.rindexdilution, r.tl, r.tr);
     memcpy(mf, r.mf, fsize*sizeof(ScalarComplexType));

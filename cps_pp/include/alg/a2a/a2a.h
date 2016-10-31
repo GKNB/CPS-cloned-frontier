@@ -74,9 +74,11 @@ public:
 
   //Get a mode from the low mode part
   FermionFieldType & getVl(const int il){ return v[il]; }
+  const FermionFieldType & getVl(const int il) const{ return v[il]; }
 
   //Get a mode from the high-mode part
   FermionFieldType & getVh(const int ih){ return v[nl+ih]; }
+  const FermionFieldType & getVh(const int ih) const{ return v[nl+ih]; }
 
   //Get a particular site/spin/color element of a given mode 
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{

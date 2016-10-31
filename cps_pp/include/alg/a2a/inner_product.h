@@ -228,8 +228,8 @@ struct _siteFmatRecurseStd{
     FlavorMatrix phi;
     src.template getSource<Idx>().siteFmat(phi,p);
     phi.pl(sigma);
-    into[Idx] = TransLeftTrace(lMr, phi);
-    _siteFmatRecurseStd<SourceType,Remaining-1,Idx+1>::doit(into,src,p);
+    into[Idx] += TransLeftTrace(lMr, phi);
+    _siteFmatRecurseStd<SourceType,Remaining-1,Idx+1>::doit(into,src,sigma,p,lMr);
   }
 };
 template<typename SourceType, int Idx>
@@ -252,17 +252,15 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
     FlavorMatrix phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
-
+    
     return TransLeftTrace(lMr, phi);
   }
 
   static void doit_multisrc(std::vector<std::complex<double> > &into, const SourceType &multisrc, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    into.resize(SourceType::nSources);
-    
     FlavorMatrix lMr;
     flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
 
-    _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(into,multisrc,p);
+    _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(into,multisrc,sigma,p,lMr);
   }
 };
 
@@ -274,9 +272,10 @@ struct _siteFmatRecurseGrid{
     FlavorMatrix phi;
     src.template getSource<Idx>().siteFmat(phi,p);
     phi.pl(sigma);
+    
     mf_Complex tlt = TransLeftTrace(lMr, phi);
-    into[Idx] = Reduce(tlt);
-    _siteFmatRecurseGrid<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,src,p);
+    into[Idx] += Reduce(tlt);
+    _siteFmatRecurseGrid<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,src,sigma,p,lMr);
   }
 };
 template<typename SourceType, typename mf_Complex, int Idx>
@@ -295,7 +294,7 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
     FlavorMatrixGeneral<mf_Complex> phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
-
+    
     mf_Complex tlt = TransLeftTrace(lMr, phi);
 
     //Do the sum over the SIMD vectorized sites
@@ -308,7 +307,7 @@ struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,
     FlavorMatrixGeneral<mf_Complex> lMr;
     flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
 
-    _siteFmatRecurseGrid<SourceType,mf_Complex,SourceType::nSources>::doit(into,multisrc,p);
+    _siteFmatRecurseGrid<SourceType,mf_Complex,SourceType::nSources>::doit(into,multisrc,sigma,p,lMr);
   }
   
 };
@@ -342,6 +341,7 @@ public:
 #endif
   }
 
+  //Does out += op(l,r,p,t);
   inline void operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     _SCFspinflavorInnerProduct_impl<smatidx,mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit_multisrc(out, src,sigma,  l,r,p,t);

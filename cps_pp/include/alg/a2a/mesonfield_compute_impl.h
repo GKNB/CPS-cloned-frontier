@@ -176,6 +176,9 @@ struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2Afi
   static inline void nodeSum(mfVectorType &mf_t, const int Lt){
     for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
   }
+  static inline void printElement(const mf_Element &e){
+    std::cout << "(" << e.real() << "," << e.imag() << ")";
+  }
 };
 
 //Multisrc
@@ -208,6 +211,9 @@ struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2
   static inline void nodeSum(mfVectorType &mf_st, const int Lt){
     for(int s=0;s<nSources;s++)
       for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
+  }
+  static inline void printElement(const mf_Element &e){
+    for(int i=0;i<nSources;i++) std::cout << i << ":(" << e[i].real() << "," << e[i].imag() << ") ";
   }
 };
 
@@ -263,7 +269,7 @@ struct mfComputeGeneral{
 	    mfVectorPolicies::initializeElement(mf_accum_thr[thr][i][j]);
 	}
       }
-
+	
       //Make a table of p base pointers and site offsets for each i,j
       std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > base_ptrs_i(nmodes_l);
       std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > base_ptrs_j(nmodes_r);
