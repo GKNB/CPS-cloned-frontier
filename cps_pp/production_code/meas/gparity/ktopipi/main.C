@@ -149,8 +149,12 @@ int main (int argc,char **argv )
       exit(-1);
     }
   }
-
   const char *fname="main(int,char**)";
+  
+#ifdef A2A_LANCZOS_SINGLE
+  if(!evecs_single_prec) ERR.General("",fname,"Must use single-prec eigenvectors when doing Lanczos in single precision\n");
+#endif
+  
   if(chdir(argv[1])!=0) ERR.General("",fname,"Unable to switch to directory '%s'\n",argv[1]);
   CommonArg common_arg("",""), common_arg2("","");
   DoArg do_arg;
@@ -295,11 +299,13 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Memory after light quark Lanczos:\n");
       printMem();      
 
+#ifndef A2A_LANCZOS_SINGLE
       if(evecs_single_prec){
 	eig.toSingle();
 	if(!UniqueID()) printf("Memory after single-prec conversion of light quark evecs:\n");
 	printMem();
       }
+#endif
     }
 
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
@@ -336,12 +342,14 @@ int main (int argc,char **argv )
 
       if(!UniqueID()) printf("Memory after heavy quark Lanczos:\n");
       printMem();
-      
+
+#ifndef A2A_LANCZOS_SINGLE
       if(evecs_single_prec){
 	eig_s.toSingle();
 	if(!UniqueID()) printf("Memory after single-prec conversion of heavy quark evecs:\n");
 	printMem();
       }
+#endif
     }
 
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
