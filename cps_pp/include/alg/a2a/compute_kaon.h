@@ -2,6 +2,7 @@
 #define _COMPUTE_KAON_H
 
 #include<alg/a2a/required_momenta.h>
+#include<alg/a2a/mesonfield_computemany.h>
 
 //Compute stationary kaon two-point function with and without GPBC
 CPS_START_NAMESPACE
@@ -41,7 +42,7 @@ class ComputeKaon{
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
-    
+
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
 
@@ -52,99 +53,47 @@ class ComputeKaon{
     ThreeMomentum p_w_snk = -p_w_src; //sink momentum is opposite source
     ThreeMomentum p_v_snk = -p_v_src;
 
+    std::vector< A2AvectorW<mf_Policies> const*> Wspecies(2); Wspecies[0] = &W; Wspecies[1] = &W_s;
+    std::vector< A2AvectorV<mf_Policies> const*> Vspecies(2); Vspecies[0] = &V; Vspecies[1] = &V_s;
+    
     //Construct the meson fields
     std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_ls(Lt);
     std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_sl(Lt);
-
-    typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
-    VWfieldInputParams fld_params = V.getVh(0).getDimPolParams(); //use same field setup params as V/W input
-    
-    A2AvectorVfftw<mf_Policies> fftw_V(V.getArgs(),fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_W(W.getArgs(),fld_params);
-
-    A2AvectorVfftw<mf_Policies> fftw_V_s(V_s.getArgs(),fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_W_s(W_s.getArgs(),fld_params);
-
-#ifndef DISABLE_FFT_RELN_USAGE
-    //Use FFT relation to relate twisted FFTs to base FFTs
-    A2AvectorWfftw<mf_Policies> fftw_W_base_p(W.getArgs(), fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_W_base_m(W.getArgs(), fld_params);
-
-    A2AvectorWfftw<mf_Policies> fftw_W_s_base_p(W_s.getArgs(), fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_W_s_base_m(W_s.getArgs(), fld_params);
-    
-    A2AvectorVfftw<mf_Policies> fftw_V_base_p(V.getArgs(), fld_params);
-    A2AvectorVfftw<mf_Policies> fftw_V_base_m(V.getArgs(), fld_params);
-
-    A2AvectorVfftw<mf_Policies> fftw_V_s_base_p(V_s.getArgs(), fld_params);
-    A2AvectorVfftw<mf_Policies> fftw_V_s_base_m(V_s.getArgs(), fld_params);
-    
-    int p_p1[3];
-    GparityBaseMomentum(p_p1,+1);
-    
-    int p_m1[3];
-    GparityBaseMomentum(p_m1,-1);
-
-    fftw_W_base_p.gaugeFixTwistFFT(W, p_p1,lattice);
-    fftw_W_base_m.gaugeFixTwistFFT(W, p_m1,lattice);
-
-    fftw_W_s_base_p.gaugeFixTwistFFT(W_s, p_p1,lattice);
-    fftw_W_s_base_m.gaugeFixTwistFFT(W_s, p_m1,lattice);
-    
-    fftw_V_base_p.gaugeFixTwistFFT(V, p_p1,lattice);
-    fftw_V_base_m.gaugeFixTwistFFT(V, p_m1,lattice);
-
-    fftw_V_s_base_p.gaugeFixTwistFFT(V_s, p_p1,lattice);
-    fftw_V_s_base_m.gaugeFixTwistFFT(V_s, p_m1,lattice);  
-#endif
     
     if(!GJP.Gparity()){
-      A2AexpSource<SourcePolicies> expsrc(rad,src_setup_params);
-      SCspinInnerProduct<ComplexType, A2AexpSource<SourcePolicies> > mf_struct(15,expsrc);
-
-#ifndef DISABLE_FFT_RELN_USAGE
-      fftw_W.getTwistedFFT(p_w_src.ptr(), &fftw_W_base_p, &fftw_W_base_m);
-      fftw_V_s.getTwistedFFT(p_v_src.ptr(), &fftw_V_s_base_p, &fftw_V_s_base_m);
-#else      
-      fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
-      fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
-#endif
+      typedef A2AexpSource<SourcePolicies> SourceType;
+      typedef SCspinInnerProduct<ComplexType, SourceType> InnerType;
+      typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
       
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct, fftw_V_s);
-
-#ifndef DISABLE_FFT_RELN_USAGE
-      fftw_W_s.getTwistedFFT(p_w_snk.ptr(), &fftw_W_s_base_p, &fftw_W_s_base_m);
-      fftw_V.getTwistedFFT(p_v_snk.ptr(), &fftw_V_base_p, &fftw_V_base_m); 
-#else      
-      fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
-      fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);
-#endif
+      SourceType src(rad,src_setup_params);
+      InnerType g5_inner(15,src);
+      StorageType mf_store(g5_inner);
       
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct, fftw_V);
+      mf_store.addCompute(0,1, p_w_src,p_v_src);	
+      mf_store.addCompute(1,0, p_w_snk,p_v_snk);
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+      mf_ls = mf_store[0];
+      mf_sl = mf_store[1];
+      
     }else{ //For GPBC we need a different smearing function for source and sink because the flavor structure depends on the momentum of the V field, which is opposite between source and sink
-      A2AflavorProjectedExpSource<SourcePolicies> fpexp_src(rad, p_v_src.ptr(),src_setup_params);
-      SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_src(sigma0,fpexp_src);
+      typedef A2AflavorProjectedExpSource<SourcePolicies> SourceType;
+      typedef SCFspinflavorInnerProduct<15, ComplexType, SourceType > InnerType;
+      typedef GparityFlavorProjectedBasicSourceStorage<mf_Policies,InnerType> StorageType;
 
-#ifndef DISABLE_FFT_RELN_USAGE
-      fftw_W.getTwistedFFT(p_w_src.ptr(), &fftw_W_base_p, &fftw_W_base_m);
-      fftw_V_s.getTwistedFFT(p_v_src.ptr(), &fftw_V_s_base_p, &fftw_V_s_base_m);
-#else
-      fftw_W.gaugeFixTwistFFT(W,p_w_src.ptr(),lattice);
-      fftw_V_s.gaugeFixTwistFFT(V_s,p_v_src.ptr(),lattice);
-#endif
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ls, fftw_W, mf_struct_src, fftw_V_s);
-
-      A2AflavorProjectedExpSource<SourcePolicies> fpexp_snk(rad, p_v_snk.ptr(),src_setup_params);
-      SCFspinflavorInnerProduct<15, ComplexType, A2AflavorProjectedExpSource<SourcePolicies> > mf_struct_snk(sigma0,fpexp_snk);
+      int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
+      GparityBaseMomentum(pbase,+1);
       
-#ifndef DISABLE_FFT_RELN_USAGE
-      fftw_W_s.getTwistedFFT(p_w_snk.ptr(), &fftw_W_s_base_p, &fftw_W_s_base_m);
-      fftw_V.getTwistedFFT(p_v_snk.ptr(), &fftw_V_base_p, &fftw_V_base_m); 
-#else
-      fftw_W_s.gaugeFixTwistFFT(W_s,p_w_snk.ptr(),lattice);
-      fftw_V.gaugeFixTwistFFT(V,p_v_snk.ptr(),lattice);
-#endif
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_sl, fftw_W_s, mf_struct_snk, fftw_V);
+      SourceType src(rad,pbase,src_setup_params);
+      InnerType g5_s0_inner(sigma0,src);
+      StorageType mf_store(g5_s0_inner);
+
+      mf_store.addCompute(0,1, p_w_src,p_v_src);	
+      mf_store.addCompute(1,0, p_w_snk,p_v_snk);
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+      mf_ls = mf_store[0];
+      mf_sl = mf_store[1];
     }
 
     //Compute the two-point function
@@ -152,14 +101,6 @@ class ComputeKaon{
     into *= ScalarComplexType(0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
   }
-
-
-  
-
-
-
-
-
 
 };
 
