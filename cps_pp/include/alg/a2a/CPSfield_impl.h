@@ -693,7 +693,7 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUnifo
     LRG.AssignGenerator(st,flav);
     mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
 
-    for(int site_lcl_off=0;site_lcl_off<2*this->site_size;site_lcl_off++)
+    for(int site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
       *(p++) = LRG.Urand(FOUR_D);
   }
 }
