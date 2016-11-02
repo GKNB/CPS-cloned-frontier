@@ -56,6 +56,7 @@ using namespace cps;
 #include <alg/a2a/mesonfield.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
+#include <alg/a2a/compute_sigma.h>
 #include <alg/a2a/compute_pipi.h>
 #include <alg/a2a/compute_ktopipi.h>
 #include <alg/a2a/main.h>
@@ -459,6 +460,12 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after pion 2pt function computation:\n");
     printMem();
 
+    time = -dclock();
+    if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
+    ComputeSigma<A2Apolicies>::computeAndWrite(meas_arg.WorkDirectory,conf,W,V, jp.pion_rad, lat, field3dparams);
+    time += dclock();
+    print_time("main","Sigma meson fields ",time);
+    
     //------------------------------I=0 and I=2 PiPi two-point function---------------------------------
     if(!UniqueID()) printf("Computing pi-pi 2pt function\n");
     double timeC(0), timeD(0), timeR(0), timeV(0);

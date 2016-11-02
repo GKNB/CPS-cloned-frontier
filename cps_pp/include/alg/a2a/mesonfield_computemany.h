@@ -19,11 +19,6 @@ class ComputeMesonFields{
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-    VWfieldInputParams fld_params = V[0]->getVh(0).getDimPolParams(); //use same field setup params as V/W input
-    
-    A2AvectorWfftw<mf_Policies> fftw_W(W[0]->getArgs(), fld_params); //temp storage for W
-    A2AvectorVfftw<mf_Policies> fftw_V(V[0]->getArgs(), fld_params);
-
     assert(W.size() == V.size());
     const int nspecies = W.size();
 
@@ -62,9 +57,9 @@ class ComputeMesonFields{
       
       for(int b=0;b<nbase;b++){
 	if(precompute_base_wffts[s])
-	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(fftw_W.getArgs(), fld_params);
+	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams() );
 	if(precompute_base_vffts[s])
-	  Vfftw_base[s][b] = new A2AvectorVfftw<mf_Policies>(fftw_V.getArgs(), fld_params);
+	  Vfftw_base[s][b] = new A2AvectorVfftw<mf_Policies>(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams() );
       }
 	
       if(GJP.Gparity()){ //0 = +pi/2L  1 = -pi/2L  for each GP dir
@@ -93,8 +88,12 @@ class ComputeMesonFields{
       ThreeMomentum p_w, p_v;      
       into.getComputeParameters(qidx_w,qidx_v,p_w,p_v,cidx);
 
-      if(!UniqueID()) printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str());
+      if(!UniqueID()){ printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
+      assert(qidx_w < nspecies && qidx_v < nspecies);
       
+      A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); //temp storage for W
+      A2AvectorVfftw<mf_Policies> fftw_V(V[qidx_v]->getArgs(), V[qidx_v]->getMode(0).getDimPolParams() );
+            
 #ifndef DISABLE_FFT_RELN_USAGE
       if(precompute_base_wffts[qidx_w])
 	fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
@@ -104,7 +103,8 @@ class ComputeMesonFields{
       if(precompute_base_vffts[qidx_v])
 	fftw_V.getTwistedFFT(p_v.ptr(), Vfftw_base[qidx_v][0], Vfftw_base[qidx_v][1]);
       else
-	fftw_V.gaugeFixTwistFFT(*V[qidx_v], p_v.ptr(),lattice); 
+	fftw_V.gaugeFixTwistFFT(*V[qidx_v], p_v.ptr(),lattice);
+	
 #else
       fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
       fftw_V.gaugeFixTwistFFT(*V[qidx_v], p_v.ptr(),lattice); 
