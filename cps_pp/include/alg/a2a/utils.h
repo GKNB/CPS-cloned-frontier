@@ -523,7 +523,21 @@ inline void GparityBaseMomentum(int p[3], const int sgn){
     else p[i] = 0;
 }
 
-
+//get MPI rank of this node
+inline int getMyMPIrank(){
+  int my_mpi_rank;
+  int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_mpi_rank);
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Comm_rank failed\n");
+  return my_mpi_rank;
+}
+//get the MPI rank of the node with UniqueID() == 0
+inline int getHeadMPIrank(){
+  int head_mpi_rank;
+  int rank_tmp = UniqueID() == 0 ? getMyMPIrank() : 0;
+  int ret = MPI_Allreduce(&rank_tmp,&head_mpi_rank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD); //node is now the MPI rank corresponding to UniqueID == _node
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Reduce failed\n");
+  return head_mpi_rank;
+}
 
 CPS_END_NAMESPACE
 

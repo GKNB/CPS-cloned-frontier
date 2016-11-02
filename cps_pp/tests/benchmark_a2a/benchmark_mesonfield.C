@@ -632,7 +632,7 @@ int main(int argc,char *argv[])
 	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
 	mfr.read("mesonfield.dat");
 	assert( mfr.equals(mf,1e-18,true));
-	printf("Passed mf single IO test\n");
+	if(!UniqueID()) printf("Passed mf single IO test\n");
       }
       {
 	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfa;
@@ -669,8 +669,24 @@ int main(int argc,char *argv[])
 	assert( mfra.equals(mfa,1e-18,true) );
 	assert( mfrb.equals(mfb,1e-18,true) );
 	assert( mfrc.equals(mfc,1e-18,true) );
-	printf("Passed mf multi IO test\n");
+	if(!UniqueID()) printf("Passed mf multi IO test\n");
       }
+      {
+	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);
+	for(int i=0;i<3;i++){
+	  mfv[i].setup(W,V,i,i);
+	  mfv[i].testRandom();
+	}
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::write("mesonfield_vec.dat", mfv, FP_IEEE64LITTLE);
+	
+	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfrv;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::read("mesonfield_vec.dat", mfrv);
+
+	for(int i=0;i<3;i++)
+	  assert( mfrv[i].equals(mfv[i], 1e-18, true) );
+	if(!UniqueID()) printf("Passed mf vector IO test\n");
+      }
+	
     }
 
 

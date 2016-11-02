@@ -59,7 +59,6 @@ struct FPformat<std::complex<T> >{
   inline static FP_FORMAT get(){ return FPformat<T>::get(); }
 };
 
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, FP_FORMAT fileformat) const{
   if(!UniqueID()) printf("Writing meson field of size %d kB to file %s\n",byte_size()/1024,filename.c_str());
@@ -77,9 +76,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
   if(!UniqueID()) assert(file_ptr != NULL);
   else assert(file_ptr == NULL);
 
-  assert(!file_ptr->fail());
-  file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
-  
+  if(!UniqueID()){
+    assert(!file_ptr->fail());
+    file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+  }
+    
   MPI_Barrier(MPI_COMM_WORLD);
   if(node_mpi_rank != -1){
     int my_rank;
@@ -189,20 +190,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
   if(!UniqueID()) assert(file_ptr != NULL);
   else assert(file_ptr == NULL);
   
-  assert(!file_ptr->fail());
-  file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
-  
-  //Get this node's mpi rank
-  int my_mpi_rank;
-  int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_mpi_rank);
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Comm_rank failed\n");
-  
-  //Broadcast to all nodes the mpi rank of the head node (UniqueID() == 0)
-  MPI_Barrier(MPI_COMM_WORLD);
-  int head_mpi_rank;
-  int rank_tmp = (UniqueID() == 0 ? my_mpi_rank : 0);
-  ret = MPI_Allreduce(&rank_tmp,&head_mpi_rank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD); //node is now the MPI rank corresponding to UniqueID == _node
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Reduce failed\n");
+  if(!UniqueID()){
+    assert(!file_ptr->fail());
+    file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+  }
+    
+  int my_mpi_rank = getMyMPIrank(); //Get this node's mpi rank  
+  int head_mpi_rank = getHeadMPIrank(); //Broadcast to all nodes the mpi rank of the head node (UniqueID() == 0)
 
   int read_fsize;
   unsigned int checksum;
@@ -253,7 +247,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
   MPI_Barrier(MPI_COMM_WORLD);
   
   //Squirt A2Aparams and whatnot over to other nodes for data setup
-  ret = MPI_Bcast(&checksum, 1, MPI_UNSIGNED, head_mpi_rank, MPI_COMM_WORLD);
+  int ret = MPI_Bcast(&checksum, 1, MPI_UNSIGNED, head_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Squirt 1 fail\n");
   
   ret = MPI_Bcast(&read_fsize, 1, MPI_INT, head_mpi_rank, MPI_COMM_WORLD);
@@ -357,8 +351,90 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
   //Every node do the checksum
   FPConv conv;
   FP_FORMAT dataformat = FPformat<ScalarComplexType>::get();
-  assert( conv.checksum((char*)mf, 2*fsize, dataformat) == checksum );  
+  unsigned int calc_cksum = conv.checksum((char*)mf, 2*fsize, dataformat);
+
+  assert( calc_cksum == checksum );  
 }
 
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat){
+  if(!UniqueID()) printf("Writing meson-field vector of size %d to file %s\n",mfs.size(),filename.c_str());
+  std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
+
+  write(file,mfs,fileformat);
+
+  if(!UniqueID())
+    file->close();
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_ptr, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat){
+  if(!UniqueID()) assert(file_ptr != NULL);
+  else assert(file_ptr == NULL);
+
+  if(!UniqueID()){
+    assert(!file_ptr->fail());
+    file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+
+    (*file_ptr) << "BEGIN_MESONFIELD_VECTOR_HEADER\n";
+    (*file_ptr) << "VECTOR_SIZE = " << int(mfs.size()) << '\n';
+    (*file_ptr) << "END_MESONFIELD_VECTOR_HEADER\n";
+    (*file_ptr) << "BEGIN_MESONFIELD_VECTOR_CONTENTS\n";
+  }
+    
+  for(int i=0;i<mfs.size();i++)
+    mfs[i].write(file_ptr,fileformat);
+
+  if(!UniqueID())
+    (*file_ptr) << "END_MESONFIELD_VECTOR_CONTENTS\n";
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs){
+  if(!UniqueID()) printf("Reading vector of meson fields from file %s\n",filename.c_str());
+  std::ifstream *file = !UniqueID() ? new std::ifstream(filename.c_str()) : NULL;
+
+  read(file,mfs);
+
+  if(!UniqueID())
+    file->close();
+}
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs){
+  if(!UniqueID()) assert(file_ptr != NULL);
+  else assert(file_ptr == NULL);
+
+  if(!UniqueID()){
+    assert(!file_ptr->fail());
+    file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+  }
+
+  int my_mpi_rank = getMyMPIrank(); //Get this node's mpi rank  
+  int head_mpi_rank = getHeadMPIrank(); //Broadcast to all nodes the mpi rank of the head node (UniqueID() == 0)
+  
+  int vsize;
+  if(!UniqueID()){
+    std::string str;
+    
+    getline(*file_ptr,str); assert(str == "BEGIN_MESONFIELD_VECTOR_HEADER");
+    getline(*file_ptr,str); assert( sscanf(str.c_str(),"VECTOR_SIZE = %d",&vsize) == 1 );
+    getline(*file_ptr,str); assert(str == "END_MESONFIELD_VECTOR_HEADER");
+    getline(*file_ptr,str); assert(str == "BEGIN_MESONFIELD_VECTOR_CONTENTS");
+  }
+  int ret = MPI_Bcast(&vsize, 1, MPI_INT, head_mpi_rank, MPI_COMM_WORLD);
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read(vector)","Squirt 1 fail\n");
+
+  mfs.resize(vsize);
+  for(int i=0;i<vsize;i++)
+    mfs[i].read(file_ptr);
+
+  if(!UniqueID()){
+    std::string str;
+    getline(*file_ptr,str); assert(str == "END_MESONFIELD_VECTOR_CONTENTS");
+  }
+}
 
 #endif

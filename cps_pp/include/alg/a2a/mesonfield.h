@@ -146,7 +146,7 @@ public:
 	if( fabs(lval.real() - rval.real()) > tolerance || fabs(lval.imag() - rval.imag()) > tolerance ){
 	  if(verbose && !UniqueID()){
 	    printf("Err: (%d,%d) : this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i,j,
-		   lval.real(),lval.imag(),rval.real(),rval.imag(),fabs(lval.real()-rval.real()), fabs(lval.imag()-rval.imag()) );
+		   lval.real(),lval.imag(),rval.real(),rval.imag(),fabs(lval.real()-rval.real()), fabs(lval.imag()-rval.imag()) ); fflush(stdout);
 	  }
 	  return false;
 	}
@@ -239,7 +239,11 @@ public:
   //Set each float to a uniform random number in the specified range
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
-    for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+    if(!UniqueID())
+      for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+    int head_mpi_rank = getHeadMPIrank();
+    int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
+    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");      
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
@@ -271,6 +275,11 @@ public:
   void write(const std::string &filename, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void read(std::istream *file_ptr); //istream pointer should only be open on node 0 - should be NULL otherwise
   void read(const std::string &filename);
+
+  static void write(const std::string &filename, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat);
+  static void write(std::ostream *file_ptr, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat);
+  static void read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
+  static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 };
 
 //Matrix product of meson field pairs
