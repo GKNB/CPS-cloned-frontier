@@ -63,6 +63,23 @@ struct FPformat<std::complex<T> >{
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, FP_FORMAT fileformat) const{
   if(!UniqueID()) printf("Writing meson field of size %d kB to file %s\n",byte_size()/1024,filename.c_str());
+  std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
+
+  write(file,fileformat);
+
+  if(!UniqueID())
+    file->close();
+}  
+  
+//ostream pointer should only be open on node 0 - should be NULL otherwise
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_ptr, FP_FORMAT fileformat) const{
+  if(!UniqueID()) assert(file_ptr != NULL);
+  else assert(file_ptr == NULL);
+
+  assert(!file_ptr->fail());
+  file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+  
   MPI_Barrier(MPI_COMM_WORLD);
   if(node_mpi_rank != -1){
     int my_rank;
@@ -87,11 +104,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
     int dsize = conv.size(dataformat);
     unsigned int checksum = conv.checksum( (char*)mf, 2*fsize, dataformat);
 
-  
     //Header
-    std::ofstream file(filename.c_str(),std::ofstream::out);
-    assert(!file.fail());
-    file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+    std::ostream &file = *file_ptr;     
 
     file << "BEGIN_HEADER\n";
     file << "HDR_VERSION = 1\n";
@@ -154,7 +168,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
     }
     file << "\nEND_DATA\n";
     free(wbuf);
-    file.close();    
   }
   MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -162,7 +175,23 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &filename){
   if(!UniqueID()) printf("Reading meson field from file %s\n",filename.c_str());
+  std::ifstream *file = !UniqueID() ?  new std::ifstream(filename.c_str()) : NULL;
+    
+  read(file);
 
+  if(!UniqueID())
+    file->close();
+}
+
+//istream pointer should only be open on node 0 - should be NULL otherwise
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr){
+  if(!UniqueID()) assert(file_ptr != NULL);
+  else assert(file_ptr == NULL);
+  
+  assert(!file_ptr->fail());
+  file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+  
   //Get this node's mpi rank
   int my_mpi_rank;
   int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_mpi_rank);
@@ -175,9 +204,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
   ret = MPI_Allreduce(&rank_tmp,&head_mpi_rank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD); //node is now the MPI rank corresponding to UniqueID == _node
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Reduce failed\n");
 
-  //Open file on head node
-  std::ifstream file;
-
   int read_fsize;
   unsigned int checksum;
 
@@ -186,9 +212,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
   char dformatbuf[256];
   
   if(UniqueID() == 0){
-    file.open(filename.c_str());
+    std::istream &file = *file_ptr;
     assert(!file.fail());
-    file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
 
     std::string str;
     
@@ -281,6 +306,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
   assert(read_fsize == fsize);
 
   if(!UniqueID()){
+    std::istream &file = *file_ptr;
     //Node 0 finish reading data
     FP_FORMAT dataformat = FPformat<ScalarComplexType>::get();
     FPConv conv;
@@ -294,11 +320,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
     std::string str;
     getline(file,str); assert(str == "BEGIN_DATA");
 
-    std::streampos dstart = file.tellg();
-    file.seekg(0,std::ios::end);
-    std::streampos fend = file.tellg();
-    file.seekg(dstart);
-    
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
@@ -327,7 +348,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
 
     file.ignore(1); //newline
     getline(file,str); assert(str == "END_DATA");
-    file.close();
   }
 
   //Broadcast data

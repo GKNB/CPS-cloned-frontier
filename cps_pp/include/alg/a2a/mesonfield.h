@@ -267,7 +267,9 @@ public:
   //Get back the data. After the call, all nodes will have a complete copy
   void nodeGet();
 
+  void write(std::ostream *file_ptr, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void write(const std::string &filename, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void read(std::istream *file_ptr); //istream pointer should only be open on node 0 - should be NULL otherwise
   void read(const std::string &filename);
 };
 

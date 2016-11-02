@@ -315,7 +315,7 @@ int main(int argc,char *argv[])
   if(0) testA2AvectorFFTrelnGparity<mf_Complex>(a2a_args,lattice);
   if(0) testA2AvectorFFTrelnGparity<Grid::vComplexD>(a2a_args,lattice);
 
-  if(1) testMultiSource<cps::ComplexD>(a2a_args,lattice);
+  if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
 
   
   if(0){
@@ -626,11 +626,51 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
-    if(0){ //test mf read/write
-      mf.write("mesonfield.dat",FP_IEEE64BIG);
+    if(1){ //test mf read/write
+      {
+	mf.write("mesonfield.dat",FP_IEEE64BIG);
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
+	mfr.read("mesonfield.dat");
+	assert( mfr.equals(mf,1e-18,true));
+	printf("Passed mf single IO test\n");
+      }
+      {
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfa;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfb;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfc;
+	mfa.setup(W,V,0,0);
+	mfb.setup(W,V,1,1);
+	mfc.setup(W,V,2,2);		
       
-      A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
-      mfr.read("mesonfield.dat");
+	mfa.testRandom();
+	mfb.testRandom();
+	mfc.testRandom();
+
+	std::ofstream *fp = !UniqueID() ? new std::ofstream("mesonfield_many.dat") : NULL;
+
+	mfa.write(fp,FP_IEEE64BIG);
+	mfb.write(fp,FP_IEEE64LITTLE);
+	mfc.write(fp,FP_IEEE64BIG);
+
+	if(!UniqueID()) fp->close();
+
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfra;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrb;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrc;
+
+	std::ifstream *ifp = !UniqueID() ? new std::ifstream("mesonfield_many.dat") : NULL;
+
+	mfra.read(ifp);
+	mfrb.read(ifp);
+	mfrc.read(ifp);
+
+	if(!UniqueID()) ifp->close();
+
+	assert( mfra.equals(mfa,1e-18,true) );
+	assert( mfrb.equals(mfb,1e-18,true) );
+	assert( mfrc.equals(mfc,1e-18,true) );
+	printf("Passed mf multi IO test\n");
+      }
     }
 
 
