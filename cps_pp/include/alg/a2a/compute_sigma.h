@@ -20,9 +20,12 @@ public:
     }else if(ngp == 2){
       tt->addPandMinusP("(-1,-1,0) + (1,1,0)");
       tt->addPandMinusP("(3,-1,0) + (-3,1,0)");
+      tt->addPandMinusP("(-1,3,0) + (1,-3,0)");
     }else if(ngp == 3){
       tt->addPandMinusP("(-1,-1,-1) + (1,1,1)");
       tt->addPandMinusP("(3,-1,-1) + (-3,1,1)");
+      tt->addPandMinusP("(-1,3,-1) + (1,-3,1)");
+      tt->addPandMinusP("(-1,-1,3) + (1,1,-3)");
     }else{
       ERR.General("StationarySigmaMomentaPolicy","setupMomenta","ngp cannot be >3\n");
     }

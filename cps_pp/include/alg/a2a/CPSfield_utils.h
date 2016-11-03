@@ -121,30 +121,36 @@ inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::Gr
 #ifdef USE_QMP
 
 //Cyclic permutation of *4D* CPSfield with std::complex type and FourDpolicy dimension policy
-//Conventions are direction of *data flow*: For shift n in direction +1   f'(x) = f(x-\hat i)  so data is sent in the +x direction. 
-template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &from,
+//Conventions are direction of *data flow*: For shift n in direction +1   f'(x) = f(x-\hat i)  so data is sent in the +x direction.
+
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<DimensionPolicy,FourDpolicy>::value || _equal<DimensionPolicy,SpatialPolicy>::value)
+
+template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
-		   typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value, const int>::type dummy = 0){
+		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
+  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  assert(dir < Dimension);
+  assert(n < GJP.NodeSites(dir));
+	 
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
     return cyclicPermute(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
-  assert(n < GJP.NodeSites(dir));
 
   QMP_barrier();
   
   //Prepare face to send. If we send in the + direction we need to collect the slice starting {L-n ... L-1} (inclusive), and if we send in the - dir we collect the slice {0... n-1}
   int bsites = n; //sites on boundary
-  int bsizes[4]; bsizes[dir] = n;
-  int boff[4]; boff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
+  int bsizes[Dimension]; bsizes[dir] = n;
+  int boff[Dimension]; boff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
 		 
-  for(int i=0;i<4;i++)
+  for(int i=0;i<Dimension;i++)
     if(i != dir){
       bsizes[i] = GJP.NodeSites(i);
       bsites *= bsizes[i];
@@ -165,11 +171,8 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
 #pragma omp parallel for
   for(int i=0;i<bsites;i++){
     int rem = i;
-    int coor[4];
-    coor[0] = rem % bsizes[0] + boff[0]; rem/=bsizes[0];
-    coor[1] = rem % bsizes[1] + boff[1]; rem/=bsizes[1];
-    coor[2] = rem % bsizes[2] + boff[2]; rem/=bsizes[2];
-    coor[3] = rem + boff[3];
+    int coor[Dimension];
+    for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
 
     mf_Complex const* site_ptr = from.site_ptr(coor);
     mf_Complex* bp = send_buf + i*SiteSize;
@@ -183,13 +186,13 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
   QMP_barrier();
  
   //Copy remaining sites from on-node data with shift
-  int rsizes[4]; rsizes[dir] = GJP.NodeSites(dir) - n;
+  int rsizes[Dimension]; rsizes[dir] = GJP.NodeSites(dir) - n;
   int rsites = GJP.NodeSites(dir) - n;
   //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
   //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
   
-  int roff[4]; roff[dir] = (pm == 1 ? 0 : n);  
-  for(int i=0;i<4;i++)
+  int roff[Dimension]; roff[dir] = (pm == 1 ? 0 : n);  
+  for(int i=0;i<Dimension;i++)
     if(i != dir){
       rsizes[i] = GJP.NodeSites(i);
       rsites *= rsizes[i];
@@ -199,13 +202,10 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
 #pragma omp parallel for
   for(int i=0;i<rsites;i++){
     int rem = i;
-    int from_coor[4];
-    from_coor[0] = rem % rsizes[0] + roff[0]; rem/=rsizes[0];
-    from_coor[1] = rem % rsizes[1] + roff[1]; rem/=rsizes[1];
-    from_coor[2] = rem % rsizes[2] + roff[2]; rem/=rsizes[2];
-    from_coor[3] = rem + roff[3];
+    int from_coor[Dimension];
+    for(int d=0;d<Dimension;d++){ from_coor[d] = rem % rsizes[d] + roff[d]; rem/=rsizes[d]; }
     
-    int to_coor[4]; memcpy(to_coor,from_coor,4*sizeof(int));
+    int to_coor[Dimension]; memcpy(to_coor,from_coor,Dimension*sizeof(int));
     to_coor[dir] = (pm == +1 ? from_coor[dir] + n : from_coor[dir] - n);
     
     mf_Complex const* from_ptr = from.site_ptr(from_coor);
@@ -240,12 +240,9 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
 #pragma omp parallel for
   for(int i=0;i<bsites;i++){
     int rem = i;
-    int coor[4];
-    coor[0] = rem % bsizes[0] + boff[0]; rem/=bsizes[0];
-    coor[1] = rem % bsizes[1] + boff[1]; rem/=bsizes[1];
-    coor[2] = rem % bsizes[2] + boff[2]; rem/=bsizes[2];
-    coor[3] = rem + boff[3];
-
+    int coor[Dimension];
+    for(int d=0;d<Dimension;d++){ coor[d] = rem % bsizes[d] + boff[d]; rem/=bsizes[d]; }
+    
     mf_Complex * site_ptr = to.site_ptr(coor);
     mf_Complex const* bp = recv_buf + i*SiteSize;
     memcpy(site_ptr,bp,SiteSize*sizeof(mf_Complex));
@@ -264,35 +261,41 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPo
   QMP_free_memory(recv_mem);
   QMP_barrier();
 }
+#undef CONDITION
 
 #ifdef USE_GRID
 
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<DimensionPolicy,FourDSIMDPolicy>::value || _equal<DimensionPolicy,ThreeDSIMDPolicy>::value)
+
 //Version with SIMD vectorized data
-template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> &from,
+template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
-		   typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value, const int>::type dummy = 0){
+		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
+  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  assert(dir < Dimension);
+  assert(n < GJP.NodeSites(dir));
+  
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
     return cyclicPermute(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
-  assert(n < GJP.NodeSites(dir));
 
   const int nsimd = mf_Complex::Nsimd();
   
   //Use notation c (combined index), o (outer index) i (inner index)
   
   int bcsites = n; //sites on boundary
-  int bcsizes[4]; bcsizes[dir] = n;
-  int bcoff[4]; bcoff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
-  int bcoff_postcomms[4]; bcoff_postcomms[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
+  int bcsizes[Dimension]; bcsizes[dir] = n;
+  int bcoff[Dimension]; bcoff[dir] = (pm == 1 ? GJP.NodeSites(dir)-n : 0);
+  int bcoff_postcomms[Dimension]; bcoff_postcomms[dir] = (pm == 1 ? 0 : GJP.NodeSites(dir)-n);
   
-  for(int i=0;i<4;i++)
+  for(int i=0;i<Dimension;i++)
     if(i != dir){
       bcsizes[i] = GJP.NodeSites(i);
       bcsites *= bcsizes[i];
@@ -321,14 +324,11 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
 #pragma omp parallel for
   for(int c=0;c<bcsites;c++){
     int rem = c;
-    int coor[4];
-    coor[0] = rem % bcsizes[0]; rem/=bcsizes[0];
-    coor[1] = rem % bcsizes[1]; rem/=bcsizes[1];
-    coor[2] = rem % bcsizes[2]; rem/=bcsizes[2];
-    coor[3] = rem;
+    int coor[Dimension];
+    for(int d=0;d<Dimension;d++){ coor[d] = rem % bcsizes[d]; rem/=bcsizes[d]; }
 
-    int coor_dest[4];
-    for(int d=0;d<4;d++){
+    int coor_dest[Dimension];
+    for(int d=0;d<Dimension;d++){
       coor_dest[d] = coor[d] + bcoff_postcomms[d];
       coor[d] += bcoff[d];
     }
@@ -375,19 +375,19 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
   //if we sent in the + direction we need to shift the remaining L-n sites {0...L-n-1} forwards by n to make way for a new slice at the left side
   //if we sent in the - direction we need to shift the remaining L-n sites {n ... L-1} backwards by n to make way for a new slice at the right side
   //Problem is we don't want two threads writing to the same AVX register at the same time. Therefore we thread the loop over the destination SIMD vectors and work back
-  std::vector< std::vector<int> > lane_offsets(nsimd,  std::vector<int>(4) );
+  std::vector< std::vector<int> > lane_offsets(nsimd,  std::vector<int>(Dimension) );
   for(int i=0;i<nsimd;i++) from.SIMDunmap(i, lane_offsets[i].data() );
 
 #pragma omp parallel for
   for(int oto = 0;oto < osites; oto++){
-    int oto_base_coor[4]; to.siteUnmap(oto,oto_base_coor);
+    int oto_base_coor[Dimension]; to.siteUnmap(oto,oto_base_coor);
 
     //For each destination lane compute the source site index and lane
     int from_lane[nsimd];
     int from_osite_idx[nsimd]; //also use for recv_buf offsets for sites pulled over boundary
     for(int lane = 0; lane < nsimd; lane++){
-      int offrom_coor[4];
-      for(int d=0;d<4;d++) offrom_coor[d] = oto_base_coor[d] + lane_offsets[lane][d];
+      int offrom_coor[Dimension];
+      for(int d=0;d<Dimension;d++) offrom_coor[d] = oto_base_coor[d] + lane_offsets[lane][d];
       offrom_coor[dir] += (pm == 1 ? -n : n);
 
       if(offrom_coor[dir] < 0 || offrom_coor[dir] >= GJP.NodeSites(dir)){
@@ -430,6 +430,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,All
   QMP_free_memory(recv_mem);
   QMP_barrier();
 }
+#undef CONDITION
 
 #endif
 
