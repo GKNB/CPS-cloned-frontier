@@ -490,7 +490,7 @@ public:
 
 
   
-template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+template<typename mf_Policies, typename InnerProduct>
 class GparityFlavorProjectedShiftSourceStorage: public MesonFieldShiftSourceStorageBase{
 public:
   typedef typename InnerProduct::InnerProductSourceType SourceType;
@@ -504,13 +504,39 @@ private:
   SourceType &src;
   std::vector<std::vector<storageType> > mf; //indexed by key(qidx_w,qidx_v,p_w,p_v) and shift
   bool locked;
-   
+
+  template<typename S=SourceType>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type
+  getNmf(const int opt_cidx){ return this->optimized_clist[opt_cidx].shifts.size(); }
+
+  template<typename S=SourceType>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type
+  getNmf(const int opt_cidx){ return SourceType::nSources * this->optimized_clist[opt_cidx].shifts.size(); } //indexed by source_idx + nSources*shift_idx
+
+  template<typename S=SourceType>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  setSourceMomentum(const int opt_cidx){ src.setMomentum(this->optimized_clist[opt_cidx].p_v.ptr()); }
+
+  template<typename S=SourceType>
+  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  setSourceMomentum(const int opt_cidx){ _multiSrcRecurse<S,S::nSources>::setMomentum(src,this->optimized_clist[opt_cidx].p_v.ptr() ); }
+  
 public:  
   GparityFlavorProjectedShiftSourceStorage(InnerProductType& _inner, SourceType &_src): inner(_inner),src(_src),locked(false){} //note 'inner' will have its momentum sign changed dynamically
 
-  const storageType & operator[](const int orig_cidx) const{
+  //Single source
+  template<typename S=SourceType>
+  typename my_enable_if<!has_enum_nSources<S>::value, const storageType &>::type
+  operator[](const int orig_cidx) const{
     const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
     return mf[opt_loc.first][opt_loc.second];
+  }
+  //Multi source
+  template<typename S=SourceType>
+  typename my_enable_if<has_enum_nSources<S>::value, const storageType &>::type
+  operator()(const int src_idx, const int orig_cidx) const{
+    const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
+    return mf[opt_loc.first][src_idx + S::nSources*opt_loc.second];
   }
   
   mfComputeInputFormat getMf(const int opt_cidx){
@@ -518,21 +544,20 @@ public:
       this->optimizeContractionList();
       mf.resize(this->optimized_clist.size());
       for(int c=0;c<this->optimized_clist.size();c++)
-	mf[c].resize( this->optimized_clist[c].shifts.size() );
+	mf[c].resize(getNmf(opt_cidx));
       locked = true;
     }
-    std::vector< storageType* > out(this->optimized_clist[opt_cidx].shifts.size());
+    std::vector< storageType* > out(getNmf(opt_cidx));
     for(int s=0;s<out.size();s++) out[s] = &mf[opt_cidx][s];
 	
     return out;
   }  
   const InnerProductType & getInnerProduct(const int opt_cidx){
-    src.setMomentum(this->optimized_clist[opt_cidx].p_v.ptr());
+    setSourceMomentum(opt_cidx);
     inner.setShifts(this->optimized_clist[opt_cidx].shifts);    
     return inner;
   }
 };
-
 
 
 CPS_END_NAMESPACE

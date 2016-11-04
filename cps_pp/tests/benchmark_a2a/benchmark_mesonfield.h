@@ -1213,6 +1213,26 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   assert( mf_shift_store[0][0].equals( mf_store1[0][0], 1e-6, true) );
   assert( mf_shift_store[1][0].equals( mf_store1[1][0], 1e-6, true) );
   printf("Passed test of shift storage for single source type\n");
+
+  typedef Elem<SrcType, Elem<SrcType,ListEnd > > SrcList;
+  typedef A2AmultiSource<SrcList> MultiSrcType;
+  typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftMultiSrcInnerType;
+  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
+
+  MultiSrcType multisrc;
+  multisrc.template getSource<0>().setup(3.,pp);
+  multisrc.template getSource<1>().setup(2.,pp);
+  ShiftMultiSrcInnerType shift_inner_multisrc(sigma0,multisrc);
+  ShiftMultiSrcStorageType mf_shift_multisrc_store(shift_inner_multisrc, multisrc);
+  mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
+  mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
+  
+  ComputeMesonFields<A2Apolicies_ext,ShiftMultiSrcStorageType>::compute(mf_shift_multisrc_store,Wspecies,Vspecies,lat);
+
+  assert( mf_shift_multisrc_store(1,0)[0].equals( mf_store1[0][0], 1e-6, true) );
+  assert( mf_shift_multisrc_store(1,1)[0].equals( mf_store1[1][0], 1e-6, true) );
+  
+  
 #endif
 }
   

@@ -197,7 +197,7 @@ struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2
   
   inline void initializeElement(mf_Element &e){ e.resize(mfPerTimeSlice);  }
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
-    assert(int(mf_st.size()) == mfPerTimeSlice);
+    if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
     for(int s=0;s<mfPerTimeSlice;s++){
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 

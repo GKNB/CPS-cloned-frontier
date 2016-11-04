@@ -304,6 +304,58 @@ public:
 
 
 
+
+template<typename SourceType, int Remaining, int Idx=0>
+struct _siteFmatRecurseShiftStd{
+  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){
+    FlavorMatrix phi;
+    for(int i=0;i<shifted_sources.size();i++){
+      shifted_sources[i]->template getSource<Idx>().siteFmat(phi,p);
+      phi.pl(sigma);
+      into[Idx+SourceType::nSources*i] += TransLeftTrace(lMr, phi);
+    }  
+    _siteFmatRecurseShiftStd<SourceType,Remaining-1,Idx+1>::doit(into,shifted_sources,sigma,p,lMr);
+  }
+};
+template<typename SourceType, int Idx>
+struct _siteFmatRecurseShiftStd<SourceType,0,Idx>{
+  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){}
+};
+
+#ifdef USE_GRID
+template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
+struct _siteFmatRecurseShiftGrid{
+  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
+    FlavorMatrixGeneral<mf_Complex> phi;
+    for(int i=0;i<shifted_sources.size();i++){
+      shifted_sources[i]->template getSource<Idx>().siteFmat(phi,p);
+      phi.pl(sigma);
+      mf_Complex tlt = TransLeftTrace(lMr, phi);
+      into[Idx+SourceType::nSources*i] += Reduce(tlt);
+    }
+    _siteFmatRecurseShiftGrid<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,shifted_sources,sigma,p,lMr);
+  }
+};
+template<typename SourceType, typename mf_Complex, int Idx>
+struct _siteFmatRecurseShiftGrid<SourceType,mf_Complex,0,Idx>{
+  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
+};
+#endif
+
+
+template<typename SourceType,int Remaining, int Idx=0>
+struct _shiftRecurse{
+  static void inline doit(SourceType &what, const std::vector<int> &shift){
+    shiftPeriodicField(  what.template getSource<Idx>().getSource(), what.template getSource<Idx>().getSource(), shift);
+    _shiftRecurse<SourceType,Remaining-1,Idx+1>::doit(what,shift);
+  }
+};
+template<typename SourceType, int Idx>
+struct _shiftRecurse<SourceType,0,Idx>{
+  static void inline doit(SourceType &what, const std::vector<int> &shift){}
+};
+
+
 template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
 class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
   const SourceType &src;
@@ -312,10 +364,18 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
   std::vector<SourceType*> shifted_sources; 
   std::vector<int> cur_shift;
 
+  template<typename S=SourceType>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  shiftTheSource(SourceType &what, const std::vector<int> &shift){ shiftPeriodicField(what.getSource(),what.getSource(), shift); }
+
+  template<typename S=SourceType>
+  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  shiftTheSource(SourceType &what, const std::vector<int> &shift){ _shiftRecurse<S,S::nSources>::doit(what, shift); }
+  
   void shiftSource(SourceType &what, const std::vector<int> &shift){
     std::vector<int> actual_shift(shift);
     for(int i=0;i<3;i++) actual_shift[i] -= cur_shift[i]; //remove current shift in process
-    shiftPeriodicField(what.getSource(),what.getSource(),actual_shift); //note this changes the source!    
+    shiftTheSource(what,actual_shift);
   }
   
 public:
@@ -328,7 +388,7 @@ public:
   
   //When running with a multisrc type this returns the number of meson fields per timeslice = nSources * nshift
   template<typename S=SourceType>
-  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return shifts.size() * SourceType::nSources; }
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return shifts.size() * SourceType::nSources; } //indexed by  source_idx + nSources*shift_idx
 
   //When running with a single src type this returns the number of meson fields per timeslice = nshift
   template<typename S=SourceType>
@@ -347,8 +407,7 @@ public:
   
 
 
-  //std::complex single source
-  //output vector indexed by src shift index
+  //std::complex single source. output vector indexed by src shift index
 #define CONDITION _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value && !has_enum_nSources<S>::value
   
   template<typename ComplexType = mf_Complex, typename S = SourceType>
@@ -366,9 +425,22 @@ public:
   }
 #undef CONDITION
 
+  //std::complex multi source. output indexed by source_idx + nSources*shift_idx
+#define CONDITION _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value && has_enum_nSources<S>::value
+  template<typename ComplexType = mf_Complex, typename S = SourceType>
+  inline typename my_enable_if<CONDITION, void>::type
+  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrix lMr;
+    this->spinColorContract(lMr,l,r);
+
+    _siteFmatRecurseShiftStd<S,SourceType::nSources>::doit(out,shifted_sources,sigma,p,lMr);
+  }
+#undef CONDITION
+
+  
 #ifdef USE_GRID
 
-  //Grid SIMD complex single src
+  //Grid SIMD complex single src. output vector indexed by src shift index
 #define CONDITION _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value && !has_enum_nSources<S>::value
   
   template<typename ComplexType = mf_Complex, typename S = SourceType>
@@ -388,6 +460,19 @@ public:
   }
 #undef CONDITION
 
+  //Grid SIMD complex multi src. output indexed by source_idx + nSources*shift_idx
+#define CONDITION _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value && has_enum_nSources<S>::value
+  template<typename ComplexType = mf_Complex, typename S = SourceType>
+  inline typename my_enable_if<CONDITION, void>::type
+  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrixGeneral<ComplexType> lMr;
+    this->spinColorContract(lMr,l,r);
+
+    _siteFmatRecurseShiftGrid<S,ComplexType,SourceType::nSources>::doit(out,shifted_sources,sigma,p,lMr);
+  }
+#undef CONDITION
+
+  
 #endif
   
 };
