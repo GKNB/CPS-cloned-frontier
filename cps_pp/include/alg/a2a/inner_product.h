@@ -226,8 +226,8 @@ struct _siteFmatRecurseGrid<SourceType,mf_Complex,0,Idx>{
 
 //All of the inner products for G-parity can be separated into a part involving only the spin-color structure of the source and a part involving the flavor and smearing function.
 //This case class implements the flavor/smearing function part and leaves the spin-color part to the derived class
-template<typename mf_Complex, typename SourceType, typename Derived, bool conj_left = true, bool conj_right=false>
-class GparityInnerProductBase{
+template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
+class GparityInnerProductBase: public SpinColorContractPolicy{
   SourceType &src;
   FlavorMatrixType sigma;
 public:
@@ -243,7 +243,7 @@ public:
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, std::complex<double> >::type
     operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     FlavorMatrix lMr;
-    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+    this->spinColorContract(lMr,l,r);
     
     //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrix phi;
@@ -259,7 +259,7 @@ public:
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, std::complex<double> >::type
     operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
-    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+    this->spinColorContract(lMr,l,r);
     
     //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
     FlavorMatrixGeneral<ComplexType> phi;
@@ -279,7 +279,7 @@ public:
   inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     FlavorMatrix lMr;
-    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+    this->spinColorContract(lMr,l,r);
     
     _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
   }
@@ -289,7 +289,7 @@ public:
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
-    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+    this->spinColorContract(lMr,l,r);
 
     _siteFmatRecurseGrid<SourceType,ComplexType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
   }
@@ -297,49 +297,13 @@ public:
   
 };
 
-
-
-//Optimized gamma^5*sigma_i inner product with flavor projection for std::complex types
-template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCg5sigmaInnerProduct: public GparityInnerProductBase<mf_Complex, SourceType, SCg5sigmaInnerProduct<mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>{
-public:
-  typedef SourceType InnerProductSourceType;
-  
-  SCg5sigmaInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src):
-    GparityInnerProductBase<mf_Complex, SourceType, SCg5sigmaInnerProduct<mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>(_sigma,_src){}
-
-  template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
-    spinColorContract(FlavorMatrix &lg5r, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
-    for(int f1=0;f1<2;f1++)
-      for(int f3=0;f3<2;f3++)
-	lg5r(f1,f3) = OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));     
-  }
-};
-
-
-//Optimized inner product for general spin and flavor matrix
-//Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCFspinflavorInnerProduct: public GparityInnerProductBase<mf_Complex, SourceType, SCFspinflavorInnerProduct<smatidx,mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>{
+class SCFspinflavorInnerProduct: public GparityInnerProductBase<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >{
 public:
   typedef SourceType InnerProductSourceType;
   
   SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src):
-    GparityInnerProductBase<mf_Complex, SourceType, SCFspinflavorInnerProduct<smatidx,mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>(_sigma,_src){}
-
-  template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void>::type
-    spinColorContract(FlavorMatrix &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
-
-    flavorMatrixSpinColorContract<smatidx, ComplexType,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
-  }
-  template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
-    spinColorContract(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
-
-    flavorMatrixSpinColorContract<smatidx, ComplexType,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
-  }
+    GparityInnerProductBase<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >(_sigma,_src){}
 };
 
 
