@@ -75,7 +75,7 @@ class ComputeSigma{
       std::string src_names[2] = {"1s","2s"};
       
       MultiInnerType gunit_s0_inner(sigma0, src);
-      StorageType mf_store(gunit_s0_inner);
+      StorageType mf_store(gunit_s0_inner,src);
 
       for(int pidx=0;pidx<momenta.nMom();pidx++){
 	ThreeMomentum p_w = momenta.getWmom(pidx,false);
@@ -97,11 +97,11 @@ class ComputeSigma{
       
     }else{
       typedef A2AexpSource<SourcePolicies> SrcType;
-      typedef SCspinInnerProduct<ComplexType,SrcType> InnerType;
+      typedef SCspinInnerProduct<0,ComplexType,SrcType> InnerType;
       typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
       
       SrcType src(rad,src_setup_params);
-      InnerType gunit_inner(0,src);
+      InnerType gunit_inner(src);
 
       StorageType mf_store(gunit_inner);
 

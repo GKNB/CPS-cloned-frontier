@@ -158,6 +158,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >, InnerProduct >{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef cps::ComplexD mf_Element;
+
+  static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
   static inline void initializeElement(mf_Element &e){}
   static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
     mf_t.resize(Lt);
@@ -184,46 +186,53 @@ struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2Afi
 //Multisrc
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* >, InnerProduct >{
-  enum { nSources = InnerProduct::InnerProductSourceType::nSources };
+  int mfPerTimeSlice;
+  
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
   typedef std::vector<cps::ComplexD> mf_Element;
+
+  inline void setupPolicy(const InnerProduct &M){
+    mfPerTimeSlice = M.mfPerTimeSlice();
+  }
   
-  static inline void initializeElement(mf_Element &e){ e.resize(nSources);  }
-  static void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
-    assert(int(mf_st.size()) == nSources);
-    for(int s=0;s<nSources;s++){
+  inline void initializeElement(mf_Element &e){ e.resize(mfPerTimeSlice);  }
+  void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
+    assert(int(mf_st.size()) == mfPerTimeSlice);
+    for(int s=0;s<mfPerTimeSlice;s++){
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
 	else mf_st[s]->operator[](t).zero();
     }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<std::vector<mf_Element> > > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
+  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<std::vector<mf_Element> > > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
     for(int thr=0;thr<nthread;thr++)
-      for(int s=0;s<nSources;s++)
+      for(int s=0;s<mfPerTimeSlice;s++)
 	mf_st[s]->operator[](t)(i,j) += mf_accum_thr[thr][i][j][s];
   }
 
   //Used to get information about rows and cols
-  static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t){
+  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t) const{
     return mf_st[0]->operator[](t);
   }
-  static inline void nodeSum(mfVectorType &mf_st, const int Lt){
-    for(int s=0;s<nSources;s++)
+  inline void nodeSum(mfVectorType &mf_st, const int Lt) const{
+    for(int s=0;s<mfPerTimeSlice;s++)
       for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
   }
-  static inline void printElement(const mf_Element &e){
-    for(int i=0;i<nSources;i++) std::cout << i << ":(" << e[i].real() << "," << e[i].imag() << ") ";
+  inline void printElement(const mf_Element &e) const{
+    for(int i=0;i<mfPerTimeSlice;i++) std::cout << i << ":(" << e[i].real() << "," << e[i].imag() << ") ";
   }
 };
 
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorType>
-struct mfComputeGeneral{
-  static void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-    typedef mf_Vector_policies<mfVectorType, InnerProduct > mfVectorPolicies;
+struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
+  typedef mf_Vector_policies<mfVectorType, InnerProduct > mfVectorPolicies;
+
+  void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     typedef typename mfVectorPolicies::mf_Element mf_Element;
+    this->setupPolicy(M);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     if(!UniqueID()) printf("Starting A2AmesonField::compute (blocked) for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
@@ -233,7 +242,7 @@ struct mfComputeGeneral{
     if(!UniqueID()) printf("NOT using KNL optimizations\n");
 #endif
     double time = -dclock();
-    mfVectorPolicies::initializeMesonFields(mf_t,l,r,Lt,do_setup);
+    this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
     print_time("A2AmesonField","setup",time + dclock());
 
     time = -dclock();
@@ -244,7 +253,7 @@ struct mfComputeGeneral{
   
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
-      const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & mf_ref = mfVectorPolicies::getReferenceMf(mf_t,t); //assumes all meson fields of the mf_Element type have the same mode parameters
+      const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & mf_ref = this->getReferenceMf(mf_t,t); //assumes all meson fields of the mf_Element type have the same mode parameters
       
       double ttime = -dclock();
 
@@ -266,7 +275,7 @@ struct mfComputeGeneral{
 	for(int i=0;i<nmodes_l;i++){
 	  mf_accum_thr[thr][i].resize(nmodes_r);
 	  for(int j=0;j<nmodes_r;j++)
-	    mfVectorPolicies::initializeElement(mf_accum_thr[thr][i][j]);
+	    this->initializeElement(mf_accum_thr[thr][i][j]);
 	}
       }
 	
@@ -332,7 +341,7 @@ struct mfComputeGeneral{
 	for(int ij=thr_ijoff; ij<thr_ijoff + thr_ijwork; ij++){  //ij = j + mf_t[t].nmodes_r * i
 	  int i=ij / nmodes_r;
 	  int j=ij % nmodes_r;
-	  mfVectorPolicies::sumThreadedResults(mf_t,mf_accum_thr,i,j,t,nthread);
+	  this->sumThreadedResults(mf_t,mf_accum_thr,i,j,t,nthread);
 	}		
       
       }//end of parallel region
@@ -349,7 +358,7 @@ struct mfComputeGeneral{
 
     //Accumulate
     time = -dclock();
-    mfVectorPolicies::nodeSum(mf_t,Lt);
+    this->nodeSum(mf_t,Lt);
     print_time("A2AmesonField","nodeSum",time + dclock());
   }
 };
@@ -363,7 +372,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > >::compute(mf_t,l,M,r,do_setup);
+  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > > cg;
+  cg.compute(mf_t,l,M,r,do_setup);
 }
 
   //Version of the above for multi-src inner products (output vector indexed by [src idx][t]
@@ -371,7 +381,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > >::compute(mf_st,l,M,r,do_setup);
+  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > > cg;
+  cg.compute(mf_st,l,M,r,do_setup);
 }
 
 

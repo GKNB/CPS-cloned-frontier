@@ -21,6 +21,10 @@ public:
     }//lexicographic comparison
     return false; //all equal
   }
+  bool operator>(const ThreeMomentum &r) const{
+    return (*this)!=r && ! ( (*this) < r );
+  }
+  
   inline static ThreeMomentum negative(const ThreeMomentum &p){
     return ThreeMomentum( -p(0), -p(1), -p(2) );
   }

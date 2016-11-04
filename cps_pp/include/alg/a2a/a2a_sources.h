@@ -20,8 +20,9 @@ public:
     src = new FieldType(params);
   }
   
-  A2Asource(): src(NULL){
-  }
+  A2Asource(): src(NULL){}
+  A2Asource(const A2Asource &cp): src(cp.src == NULL ? NULL : new FieldType(*cp.src)){}
+  
   ~A2Asource(){
     if(src != NULL) delete src;
   }

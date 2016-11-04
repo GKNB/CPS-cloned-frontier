@@ -1049,7 +1049,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
   typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, ExpInnerType> ExpStorageType;
   
-  ExpStorageType exp_store_1s_pp_pp(_1s_inner);
+  ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
   exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
   std::vector< A2AvectorW<A2Apolicies_ext> const*> Wspecies(1, &W);
@@ -1076,7 +1076,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
   typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, HydInnerType> HydStorageType;
-  HydStorageType exp_store_2s_pp_pp(_2s_inner);
+  HydStorageType exp_store_2s_pp_pp(_2s_inner,_2s_src);
   exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
   exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
   exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
@@ -1086,7 +1086,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
   
   typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies_ext, ExpHydMultiInnerType> ExpHydMultiStorageType;
-  ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner);
+  ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
   exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
 
   std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
@@ -1178,10 +1178,12 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 
   InnerType inner1(sigma0,src1);
   InnerType inner2(sigma0,src2);
-  StorageType mf_store1(inner1);
-  StorageType mf_store2(inner2);
+  StorageType mf_store1(inner1,src1);
+  StorageType mf_store2(inner2,src2);
 
   mf_store1.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
+  mf_store1.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
+  
   mf_store2.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
 
   ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
@@ -1191,8 +1193,27 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   assert( mf_store1[0][0].equals( mf_store2[0][0], 1e-6, true) );
   printf("MF Relation proven\n");
 
-  StorageType mf_store3(inner1);
-  mf_store3.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v), true );
+  // StorageType mf_store3(inner1);
+  // mf_store3.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v), true );
+#if 1
+  
+  typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftInnerType;
+  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftInnerType> ShiftStorageType;
+  
+  SrcType src3(2., pp);
+  ShiftInnerType shift_inner(sigma0,src3);
+  ShiftStorageType mf_shift_store(shift_inner,src3);
+  mf_shift_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
+  mf_shift_store.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
+  int nc = mf_shift_store.nCompute();
+  printf("Number of optimized computations: %d\n",nc);
+
+  ComputeMesonFields<A2Apolicies_ext,ShiftStorageType>::compute(mf_shift_store,Wspecies,Vspecies,lat);
+
+  assert( mf_shift_store[0][0].equals( mf_store1[0][0], 1e-6, true) );
+  assert( mf_shift_store[1][0].equals( mf_store1[1][0], 1e-6, true) );
+  printf("Passed test of shift storage for single source type\n");
+#endif
 }
   
 //  static void ComputeKtoPiPiGparityBase::multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){

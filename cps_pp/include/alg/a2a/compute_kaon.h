@@ -62,11 +62,11 @@ class ComputeKaon{
     
     if(!GJP.Gparity()){
       typedef A2AexpSource<SourcePolicies> SourceType;
-      typedef SCspinInnerProduct<ComplexType, SourceType> InnerType;
+      typedef SCspinInnerProduct<15,ComplexType, SourceType> InnerType;
       typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
       
       SourceType src(rad,src_setup_params);
-      InnerType g5_inner(15,src);
+      InnerType g5_inner(src);
       StorageType mf_store(g5_inner);
       
       mf_store.addCompute(0,1, p_w_src,p_v_src);	
@@ -86,7 +86,7 @@ class ComputeKaon{
       
       SourceType src(rad,pbase,src_setup_params);
       InnerType g5_s0_inner(sigma0,src);
-      StorageType mf_store(g5_s0_inner);
+      StorageType mf_store(g5_s0_inner,src);
 
       mf_store.addCompute(0,1, p_w_src,p_v_src);	
       mf_store.addCompute(1,0, p_w_snk,p_v_snk);

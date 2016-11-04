@@ -133,7 +133,7 @@ class ComputePion{
 
       MultiInnerType g5_s3_inner(sigma3, src);
 
-      StorageType mf_store(g5_s3_inner);
+      StorageType mf_store(g5_s3_inner,src);
       //Base momenta
       for(int pidx=0;pidx<nmom;pidx++){
 	ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
@@ -155,11 +155,11 @@ class ComputePion{
       }
     }else{
       typedef A2AexpSource<SourcePolicies> SrcType;
-      typedef SCspinInnerProduct<ComplexType,SrcType> InnerType;
+      typedef SCspinInnerProduct<15,ComplexType,SrcType> InnerType;
       typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
 
       SrcType src(rad,src_setup_params);
-      InnerType g5_inner(15,src);
+      InnerType g5_inner(src);
 
       StorageType mf_store(g5_inner);
 
