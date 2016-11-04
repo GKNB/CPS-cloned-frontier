@@ -189,39 +189,6 @@ public:
 };
 
 
-
-
-//Optimized gamma^5*sigma_i inner product with flavor projection for std::complex types
-template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCg5sigmaInnerProduct{
-  const SourceType &src;
-  FlavorMatrixType sigma;
-public:
-  typedef SourceType InnerProductSourceType;
-  
-  SCg5sigmaInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): sigma(_sigma),src(_src){ }
-    
-  // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
-  //where phi has flavor structure
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    //Tie together the spin-color structure to form a flavor matrix   lg5r[f1,f3] =  l[sc1,f1]^T g5[sc1,sc2] r[sc2,f3]
-    FlavorMatrix lg5r;
-    for(int f1=0;f1<2;f1++)
-      for(int f3=0;f3<2;f3++)
-	lg5r(f1,f3) = OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3)); 
-
-    //Compute   lg5r[f1,f3] s3[f1,f2] phi[f2,f3]  =   lg5r^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrix phi;
-    src.siteFmat(phi,p);
-    phi.pl(sigma);
-
-    //return (lg5r.transpose() * phi).Trace();
-    return Trace(lg5r.transpose() , phi);
-  }
-};
-
-
-
 template<typename SourceType, int Remaining, int Idx=0>
 struct _siteFmatRecurseStd{
   static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){
@@ -237,35 +204,7 @@ struct _siteFmatRecurseStd<SourceType,0,Idx>{
   static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrix &lMr){}
 };
 
-
-//Implementation of spin-color-flavor contraction for std::complex and Grid SIMD vectorized complex types
-template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right, typename Dummy>
-struct _SCFspinflavorInnerProduct_impl{};
-
-template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
-struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  complex_double_or_float_mark>{
-  static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    FlavorMatrix lMr;
-    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
-    
-    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrix phi;
-    src.siteFmat(phi,p);
-    phi.pl(sigma);
-    
-    return TransLeftTrace(lMr, phi);
-  }
-
-  static void doit_multisrc(std::vector<std::complex<double> > &into, const SourceType &multisrc, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    FlavorMatrix lMr;
-    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
-
-    _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(into,multisrc,sigma,p,lMr);
-  }
-};
-
 #ifdef USE_GRID
-
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseGrid{
   static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
@@ -282,72 +221,124 @@ template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseGrid<SourceType,mf_Complex,0,Idx>{
   static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
+#endif
 
 
-template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left, bool conj_right>
-struct _SCFspinflavorInnerProduct_impl<smatidx, mf_Complex,SourceType,conj_left,conj_right,  grid_vector_complex_mark>{
-  inline static std::complex<double> doit(const SourceType &src, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized 
-    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
+//All of the inner products for G-parity can be separated into a part involving only the spin-color structure of the source and a part involving the flavor and smearing function.
+//This case class implements the flavor/smearing function part and leaves the spin-color part to the derived class
+template<typename mf_Complex, typename SourceType, typename Derived, bool conj_left = true, bool conj_right=false>
+class GparityInnerProductBase{
+  SourceType &src;
+  FlavorMatrixType sigma;
+public:
+  typedef SourceType InnerProductSourceType;
+
+  GparityInnerProductBase(const FlavorMatrixType &_sigma, SourceType &_src): sigma(_sigma),src(_src){ }
+
+  SourceType & getSrc(){ return src; }
+  const SourceType & getSrc() const{ return src; }
+  
+  //std::complex   single source
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, std::complex<double> >::type
+    operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrix lMr;
+    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
     
     //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrixGeneral<mf_Complex> phi;
+    FlavorMatrix phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
     
-    mf_Complex tlt = TransLeftTrace(lMr, phi);
+    return TransLeftTrace(lMr, phi);
+  }
+  
+#ifdef USE_GRID
+  //Grid vector type single source
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, std::complex<double> >::type
+    operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
+    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+    
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    FlavorMatrixGeneral<ComplexType> phi;
+    src.siteFmat(phi,p);
+    phi.pl(sigma);
+    
+    ComplexType tlt = TransLeftTrace(lMr, phi);
 
     //Do the sum over the SIMD vectorized sites
     return Reduce(tlt);
   }
+#endif
 
-  static void doit_multisrc(std::vector<std::complex<double> > &into, const SourceType &multisrc, const FlavorMatrixType sigma, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t){
-    into.resize(SourceType::nSources);
+  //std::complex multi source
+  //Does out += op(l,r,p,t);
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void>::type
+  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrix lMr;
+    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
     
-    FlavorMatrixGeneral<mf_Complex> lMr;
-    flavorMatrixSpinColorContract<smatidx, mf_Complex,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
-
-    _siteFmatRecurseGrid<SourceType,mf_Complex,SourceType::nSources>::doit(into,multisrc,sigma,p,lMr);
+    _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
   }
+
+#ifdef USE_GRID
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
+  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
+    static_cast<Derived const*>(this)->spinColorContract(lMr,l,r);
+
+    _siteFmatRecurseGrid<SourceType,ComplexType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
+  }
+#endif
   
 };
 
-#endif
+
+
+//Optimized gamma^5*sigma_i inner product with flavor projection for std::complex types
+template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
+class SCg5sigmaInnerProduct: public GparityInnerProductBase<mf_Complex, SourceType, SCg5sigmaInnerProduct<mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>{
+public:
+  typedef SourceType InnerProductSourceType;
+  
+  SCg5sigmaInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src):
+    GparityInnerProductBase<mf_Complex, SourceType, SCg5sigmaInnerProduct<mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>(_sigma,_src){}
+
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
+    spinColorContract(FlavorMatrix &lg5r, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
+    for(int f1=0;f1<2;f1++)
+      for(int f3=0;f3<2;f3++)
+	lg5r(f1,f3) = OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f1),r.getPtr(f3));     
+  }
+};
 
 
 //Optimized inner product for general spin and flavor matrix
 //Spin matrix indexed in QDP convention, see comments for SCspinInnerProduct
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCFspinflavorInnerProduct{
-  SourceType &src;
-  FlavorMatrixType sigma;
+class SCFspinflavorInnerProduct: public GparityInnerProductBase<mf_Complex, SourceType, SCFspinflavorInnerProduct<smatidx,mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>{
 public:
   typedef SourceType InnerProductSourceType;
   
-  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src): 
-  sigma(_sigma), src(_src){}
+  SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src):
+    GparityInnerProductBase<mf_Complex, SourceType, SCFspinflavorInnerProduct<smatidx,mf_Complex,SourceType,conj_left,conj_right>, conj_left, conj_right>(_sigma,_src){}
 
-  SourceType & getSrc(){ return src; }
-  const SourceType & getSrc() const{ return src; }
-  
-  // l[sc1,f1]^T g5[sc1,sc2] s3[f1,f2] phi[f2,f3] r[sc2,f3]
-  //where phi has flavor structure
-  //p is the momentum 'site' index
-  inline std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    return _SCFspinflavorInnerProduct_impl<smatidx,mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(src,sigma,  l,r,p,t);
-#else
-    return std::complex<double>(0,0);
-#endif
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void>::type
+    spinColorContract(FlavorMatrix &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
+
+    flavorMatrixSpinColorContract<smatidx, ComplexType,conj_left,conj_right, complex_double_or_float_mark>::doit(lMr,l,r);
   }
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
+    spinColorContract(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r) const{
 
-  //Does out += op(l,r,p,t);
-  inline void operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    _SCFspinflavorInnerProduct_impl<smatidx,mf_Complex,SourceType,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit_multisrc(out, src,sigma,  l,r,p,t);
-#else
-    into.resize(SourceType::nSources, std::complex<double>(0.));
-#endif
+    flavorMatrixSpinColorContract<smatidx, ComplexType,conj_left,conj_right, grid_vector_complex_mark>::doit(lMr,l,r);
   }
 };
 

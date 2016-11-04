@@ -305,7 +305,7 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-  if(1) testCyclicPermute();
+  if(0) testCyclicPermute();
 
   if(0) testGenericFFT();
   
@@ -317,7 +317,7 @@ int main(int argc,char *argv[])
 
   if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
 
-  if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
+  if(1) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
 
 
   

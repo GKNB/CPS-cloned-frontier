@@ -49,6 +49,7 @@ public:
   }
   //Get a pointer to the underlying array
   int const* ptr() const{ return &p[0]; }
+  int * ptr(){ return &p[0]; }
 
   //Return momentum as string "(%d,%d,%d)"
   std::string str() const{

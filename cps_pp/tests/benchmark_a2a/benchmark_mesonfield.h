@@ -1145,25 +1145,54 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
 
-  int pp3[3] = { pp[0]-4, pp[1], pp[2] };  //(-3,1,1)
-  int pm3[3] = { pm[0]+4, pm[1], pm[2] }; //(3,-1,-1)
+  //M_ij^{4a+k,4b+l} =  \sum_{n=0}^{L-1} \Omega^{\dagger,4a+k}_i(n) \Gamma \gamma(n) N^{4b+l}_j(n)     (1)
+  //                    \sum_{n=0}^{L-1} \Omega^{\dagger,k}_i(n-a-b) \Gamma \gamma(n-b) N^l_j(n)         (2)
+  
+  //\Omega^{\dagger,k}_i(n) = [ \sum_{x=0}^{L-1} e^{-2\pi i nx/L} e^{- (-k) \pi ix/2L} W_i(x) ]^\dagger
+  //N^l_j(n) = \sum_{x=0}^{L-1} e^{-2\pi ix/L} e^{-l \pi ix/2L} V_i(x)
 
+  //Use a state with total momentum 0; k=1 l=-1 a=-1 b=1  so total momentum  -3 + 3  = 0
+
+  int a = -1;
+  int b = 1;
+  int k = 1;
+  int l = -1;
+
+  assert(a+b == 0); //don't want to permute W V right now
+  
+  //For (1) 
+  int p1w[3] = { -(4*a+k), pm[1],pm[1] };  //fix other momenta to first allowed
+  int p1v[3] = { 4*b+l, pm[1],pm[1] };
+  
+  //For (2)
+  int p2w[3] = {-k, pm[1],pm[1]};
+  int p2v[3] = {l, pm[1],pm[1]};
+  
   typedef A2AflavorProjectedExpSource<SourcePolicies> SrcType;
   typedef SCFspinflavorInnerProduct<0,mf_Complex,SrcType,true,false> InnerType; //unit matrix spin structure
   typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, InnerType> StorageType;
 
-  SrcType src(2., pp);
-  InnerType inner(sigma0,src);
-  StorageType mf_store(inner);
+  SrcType src1(2., pp);
+  SrcType src2(2., pp);
+  cyclicPermute( src2.getSource(), src2.getSource(), 0, 1, b);
 
-  mf_store.addCompute(0,0, ThreeMomentum(pp), ThreeMomentum(pp) );
-  mf_store.addCompute(0,0, ThreeMomentum(pp3), ThreeMomentum(pp3) );
+  InnerType inner1(sigma0,src1);
+  InnerType inner2(sigma0,src2);
+  StorageType mf_store1(inner1);
+  StorageType mf_store2(inner2);
 
-  ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store,Wspecies,Vspecies,lat);
+  mf_store1.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
+  mf_store2.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
+
+  ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
 
   printf("Testing mf relation\n"); fflush(stdout);
-  assert( mf_store[0][0].equals( mf_store[1][0], 1e-12, true) );
+  assert( mf_store1[0][0].equals( mf_store2[0][0], 1e-6, true) );
   printf("MF Relation proven\n");
+
+  StorageType mf_store3(inner1);
+  mf_store3.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v), true );
 }
   
 //  static void ComputeKtoPiPiGparityBase::multGammaLeft(CPSspinColorFlavorMatrix<ComplexType> &M, const int whichGamma, const int i, const int mu){
