@@ -237,6 +237,7 @@ public:
   template<typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, std::complex<double> >::type
     operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrix lMr;
     this->spinColorContract(lMr,l,r);
     
@@ -246,6 +247,9 @@ public:
     phi.pl(sigma);
     
     return TransLeftTrace(lMr, phi);
+#else
+    return std::complex<double>(0);
+#endif
   }
   
 #ifdef USE_GRID
@@ -253,6 +257,7 @@ public:
   template<typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, std::complex<double> >::type
     operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
     
@@ -265,6 +270,9 @@ public:
 
     //Do the sum over the SIMD vectorized sites
     return Reduce(tlt);
+#else
+    return std::complex<double>(0);
+#endif
   }
 #endif
 
@@ -273,20 +281,24 @@ public:
   template<typename ComplexType = mf_Complex>
   inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrix lMr;
     this->spinColorContract(lMr,l,r);
     
     _siteFmatRecurseStd<SourceType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
+#endif
   }
 
 #ifdef USE_GRID
   template<typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
 
     _siteFmatRecurseGrid<SourceType,ComplexType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
+#endif
   }
 #endif
   
@@ -413,6 +425,7 @@ public:
   template<typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrix lMr;
     this->spinColorContract(lMr,l,r);
 
@@ -421,7 +434,8 @@ public:
       shifted_sources[i]->siteFmat(phi,p);
       phi.pl(sigma);
       out[i] += TransLeftTrace(lMr, phi);
-    }    
+    }
+#endif
   }
 #undef CONDITION
 
@@ -430,10 +444,12 @@ public:
   template<typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrix lMr;
     this->spinColorContract(lMr,l,r);
 
     _siteFmatRecurseShiftStd<S,SourceType::nSources>::doit(out,shifted_sources,sigma,p,lMr);
+#endif
   }
 #undef CONDITION
 
@@ -446,6 +462,7 @@ public:
   template<typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr;
     this->spinColorContract(lMr,l,r);
 
@@ -456,7 +473,8 @@ public:
       phi.pl(sigma);
       tmp = TransLeftTrace(lMr, phi);
       out[i] += Reduce(tmp);
-    }    
+    }
+#endif
   }
 #undef CONDITION
 
@@ -465,10 +483,12 @@ public:
   template<typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
   operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr;
     this->spinColorContract(lMr,l,r);
 
     _siteFmatRecurseShiftGrid<S,ComplexType,SourceType::nSources>::doit(out,shifted_sources,sigma,p,lMr);
+#endif
   }
 #undef CONDITION
 
