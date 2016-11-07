@@ -670,16 +670,6 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::applyPha
   }
 }
 
-//Set this field to be the FFT of 'r'
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r){
-  for(int mu=0;mu<3;mu++){
-    CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
-    tmp_dbl.gather( mu==0 ? r : *this );
-    tmp_dbl.fft();
-    tmp_dbl.scatter(*this);
-  }
-}
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -789,17 +779,6 @@ void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[]
   }else{
     for(int sf=0;sf<this->nfsites();sf++)
       apply_phase_site_op(sf,p,punits);
-  }
-}
-
-//Set this field to be the FFT of 'r'
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::fft(const CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy> &r){
-  for(int mu=0;mu<3;mu++){
-    CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> tmp_dbl(mu);
-    tmp_dbl.gather( mu==0 ? r : *this );
-    tmp_dbl.fft();
-    tmp_dbl.scatter(*this);
   }
 }
 

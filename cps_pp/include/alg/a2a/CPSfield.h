@@ -292,12 +292,6 @@ public:
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool &parallel);
-
-  //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy> &r);
-
-  //Set this field to be the FFT of itself
-  void fft(){ fft(*this); }
 };
 
 template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
@@ -321,12 +315,6 @@ public:
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool &parallel);
-
-  //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r);
-
-  //Set this field to be the FFT of itself
-  void fft(){ fft(*this); }
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
