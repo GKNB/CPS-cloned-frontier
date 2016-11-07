@@ -1132,7 +1132,10 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   
   typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
-  
+
+  typedef typename A2Apolicies_ext::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
+
   A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
   A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
   W.testRandom();
@@ -1172,8 +1175,8 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef SCFspinflavorInnerProduct<0,mf_Complex,SrcType,true,false> InnerType; //unit matrix spin structure
   typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, InnerType> StorageType;
 
-  SrcType src1(2., pp);
-  SrcType src2(2., pp);
+  SrcType src1(2., pp, sp);
+  SrcType src2(2., pp, sp);
   cyclicPermute( src2.getSource(), src2.getSource(), 0, 1, b);
 
   InnerType inner1(sigma0,src1);
@@ -1200,7 +1203,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftInnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftInnerType> ShiftStorageType;
   
-  SrcType src3(2., pp);
+  SrcType src3(2., pp, sp);
   ShiftInnerType shift_inner(sigma0,src3);
   ShiftStorageType mf_shift_store(shift_inner,src3);
   mf_shift_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
@@ -1220,8 +1223,8 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
 
   MultiSrcType multisrc;
-  multisrc.template getSource<0>().setup(3.,pp);
-  multisrc.template getSource<1>().setup(2.,pp);
+  multisrc.template getSource<0>().setup(3.,pp, sp);
+  multisrc.template getSource<1>().setup(2.,pp, sp);
   ShiftMultiSrcInnerType shift_inner_multisrc(sigma0,multisrc);
   ShiftMultiSrcStorageType mf_shift_multisrc_store(shift_inner_multisrc, multisrc);
   mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );

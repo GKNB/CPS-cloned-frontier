@@ -444,7 +444,7 @@ void shiftPeriodicField(FieldType &to, const FieldType &from, const std::vector<
   for(int i=0;i<nd;i++) if(shift[i]!=0) ++nshift_dirs;
 
   if(nshift_dirs == 0){
-    to = from;
+    if(&to != &from) to = from;
     return;
   }else if(nshift_dirs == 1){
     for(int d=0;d<nd;d++){

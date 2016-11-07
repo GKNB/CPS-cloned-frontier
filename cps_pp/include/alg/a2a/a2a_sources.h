@@ -82,6 +82,7 @@ public:
   
   A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(p){};
   A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
+  A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(r){}
   
   void fft_source(){
     assert(this->src != NULL);
@@ -119,6 +120,8 @@ public:
 
   A2AhydrogenSourceBase(): radius(0.), A2AsourceBase<FieldPolicies, Derived >(){} //src is not setup
 
+  A2AhydrogenSourceBase(const A2AhydrogenSourceBase &r): radius(r.radius), A2AsourceBase<FieldPolicies, Derived >(r){}
+  
   //Setup the source if the default constructor was used
   void setup(const Float _radius, const FieldParamType &field_params){
     this->A2AsourceBase<FieldPolicies, Derived >::setup(field_params);
@@ -155,6 +158,7 @@ public:
   A2AexpSource(const Float _radius): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(_radius, NullObject()){ }
 
   A2AexpSource(): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(){} //src is not setup
+  A2AexpSource(const A2AexpSource &r): A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >(r){}
 };
 
 //General s-wave hydrogen wavefunction source 
@@ -238,6 +242,8 @@ public:
 
   A2AhydrogenSource(): A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >(){} //src is not setup
 
+  A2AhydrogenSource(const A2AhydrogenSource &r): n(r.n), l(r.l), m(r.m), A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >(r){}
+  
   void setup(const int _n, const int _l, const int _m, const Float _radius, const FieldParamType &field_params){
     n = _n; l=_l; m=_m;
     this->A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >::setup(_radius,field_params);
@@ -292,7 +298,9 @@ public:
   A2AboxSource(const int _box_size[3]): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(NullObject()){
     this->box_setup_fft(_box_size);
   }//syntatic sugar to avoid creating a NullObject
-
+  A2AboxSource(const A2AboxSource &r):  A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(r){ memcpy(box_size,r.box_size,3*sizeof(int)); }
+  
+  
   void setup(const int _box_size[3], const FieldParamType &field_params = NullObject()){
     this->A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::setup(field_params);
     this->box_setup_fft(_box_size);
@@ -328,18 +336,23 @@ public:
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-  ComplexType val000;
+  ComplexType *val000;
   virtual void dummy() = 0; //make sure this class can't be instantiated directly
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
-    SIMDsplat(val000,v);    
+    SIMDsplat(*val000,v);    
   }
 public:
 
-  A2AflavorProjectedSource(): SourceType(){}
+  A2AflavorProjectedSource(): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), SourceType(){}
+  ~A2AflavorProjectedSource(){ free(val000); }
+  
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
+    *val000 = *r.val000;
+  }
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
@@ -373,7 +386,7 @@ public:
     
     out(0,0) = out(1,1) = val;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    out(1,0) = multiplySignTimesI(sign,val - val000);
+    out(1,0) = multiplySignTimesI(sign,val - *val000);
     out(0,1) = -out(1,0); //-1 from sigma2
   }
 
@@ -397,6 +410,8 @@ public:
   }
   A2AflavorProjectedExpSource(): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(){}
 
+  A2AflavorProjectedExpSource(const A2AflavorProjectedExpSource &r): A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >(r){}
+  
   void setup(const Float radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
     this->A2AexpSource<FieldPolicies>::setup(radius,src_field_params);
     this->A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >::setup_projected_src_info(p);
@@ -417,6 +432,8 @@ public:
   }
   A2AflavorProjectedHydrogenSource(): A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >(){}
 
+  A2AflavorProjectedHydrogenSource(const A2AflavorProjectedHydrogenSource &r): A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >(r){}
+  
   void setup(const int _n, const int _l, const int _m, const Float _radius, const int p[3], const FieldParamType &src_field_params = NullObject()){
     this->A2AhydrogenSource<FieldPolicies>::setup(_n,_l,_m,_radius,src_field_params);
     this->A2AflavorProjectedSource<A2AhydrogenSource<FieldPolicies> >::setup_projected_src_info(p);

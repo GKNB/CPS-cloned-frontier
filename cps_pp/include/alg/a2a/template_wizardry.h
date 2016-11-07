@@ -198,6 +198,9 @@ struct ListStruct{
   
   ValueType v;
   NextType n;
+
+  ListStruct(){}
+  ListStruct(const ListStruct &r): v(r.v),n(r.n){}
 };
 template<>
 struct ListStruct<ListEnd>{};

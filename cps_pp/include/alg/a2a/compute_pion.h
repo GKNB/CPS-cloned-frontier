@@ -122,8 +122,10 @@ class ComputePion{
       typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
       typedef Elem<ExpSrcType,ListEnd> SrcList;
       typedef A2AmultiSource<SrcList> MultiSrcType;
-      typedef SCFspinflavorInnerProduct<15,ComplexType,MultiSrcType,true,false> MultiInnerType;
-      typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
+      typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+	//SCFspinflavorInnerProduct<15,ComplexType,MultiSrcType,true,false> MultiInnerType;
+      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
+	//GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
       
       int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
       GparityBaseMomentum(pbase,+1);

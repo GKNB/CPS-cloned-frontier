@@ -317,8 +317,8 @@ int main(int argc,char *argv[])
 
   if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
 
-  if(1) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
-
+  if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
+  if(1) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
 
   
   if(0){
