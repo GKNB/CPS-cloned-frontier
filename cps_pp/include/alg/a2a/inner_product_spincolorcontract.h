@@ -145,7 +145,7 @@ public:
   }
   inline static Grid::vComplexD unit(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
     Grid::vComplexD v3;
-    v3.v = gunit_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
+    v3.v = gunitd_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
     return v3;
   }
 };
