@@ -11,10 +11,9 @@
 
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
-#include<chroma.h>
-
 //bfm headers
 #ifdef USE_BFM
+#include<chroma.h>
 #include<bfm.h>
 #include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
 #include<util/lattice/bfm_evo.h>
@@ -49,7 +48,9 @@
 #include<sys/stat.h>
 #include<unistd.h>
 
+#ifdef USE_BFM
 using namespace Chroma;
+#endif
 using namespace cps;
 
 #include <alg/a2a/a2a.h>

@@ -82,13 +82,13 @@ struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomple
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
   inline static void doit(CPScomplex* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
-    for(int s=0;s<Ns;s++)
-      for(int c=0;c<Nc;c++)
+    for(int s=0;s<Grid::QCD::Ns;s++)
+      for(int c=0;c<Grid::QCD::Nc;c++)
 	*cps++ = grid()(s)(c);
   }
   inline static void doit(Grid::QCD::iSpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
-    for(int s=0;s<Ns;s++)
-      for(int c=0;c<Nc;c++)
+    for(int s=0;s<Grid::QCD::Ns;s++)
+      for(int c=0;c<Grid::QCD::Nc;c++)
 	grid()(s)(c) = *cps++;
   }
 };
@@ -99,13 +99,13 @@ struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CP
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
   inline static void doit(CPScomplex* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
-    for(int s=0;s<Ns;s++)
-      for(int c=0;c<Nc;c++)
+    for(int s=0;s<Grid::QCD::Ns;s++)
+      for(int c=0;c<Grid::QCD::Nc;c++)
 	*cps++ = grid(f)(s)(c);
   }
   inline static void doit(Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
-    for(int s=0;s<Ns;s++)
-      for(int c=0;c<Nc;c++)
+    for(int s=0;s<Grid::QCD::Ns;s++)
+      for(int c=0;c<Grid::QCD::Nc;c++)
   	grid(f)(s)(c) = *cps++;
   }
 };
