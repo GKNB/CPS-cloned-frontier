@@ -2,7 +2,6 @@
 
 CPS_START_NAMESPACE
 
-__attribute__((noinline)) __m512d g5d_conjl_r_asm_avx512(__m512d const*l, __m512d const*r){
 #define ROUT %zmm0 
 #define TMP1 %zmm1 
 #define TMP2 %zmm2 
@@ -152,9 +151,7 @@ __attribute__((noinline)) __m512d g5d_conjl_r_asm_avx512(__m512d const*l, __m512
   _MULADDEVENSUBODD(MYTMP1,MYTMP3,OUT)
 
 
-
-
-
+__attribute__((noinline)) __m512d g5d_conjl_r_asm_avx512(__m512d const*l, __m512d const*r){
    // __asm__ ( 
    // 	     LOADL \
    // 	     LOADR \
@@ -354,8 +351,39 @@ __attribute__((noinline)) __m512d g5d_conjl_r_asm_avx512(__m512d const*l, __m512
    	    _VSUBd(L8,ROUT,ROUT) \
    	    _VSUBd(R0,ROUT,ROUT)
    	    );
-
-
-
 }
+
+
+
+__attribute__((noinline)) __m512d gunitd_conjl_r_asm_avx512(__m512d const*l, __m512d const*r){
+   __asm__ (
+	    ZCONJMUL_TMPREGPASS_MEM(0,LPTR,RPTR,ROUT,  L0,L1,L2)	\
+   	    ZCONJMUL_TMPREGPASS_MEM(1,LPTR,RPTR,L3,    L4,L5,L6)		\
+   	    ZCONJMUL_TMPREGPASS_MEM(2,LPTR,RPTR,L7,    L8,L9,L10)	\
+   	    _VADDd(L3,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(3,LPTR,RPTR,L11,   R0,R1,R2)	\
+   	    _VADDd(L7,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(4,LPTR,RPTR,R3,    R4,R5,R6)	\
+   	    _VADDd(L11,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(5,LPTR,RPTR,R7,    R8,R9,R10)	\
+   	    _VADDd(R3,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(6,LPTR,RPTR,R11,   TMP1,TMP2,TMP3)	\
+   	    _VADDd(R7,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(7,LPTR,RPTR,TMP4,  TMP5,TMP6,TMP7)	\
+   	    _VADDd(R11,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(8,LPTR,RPTR,L0,    L1,L2,L3)		\
+   	    _VADDd(TMP4,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(9,LPTR,RPTR,L4,    L5,L6,L7)		\
+   	    _VADDd(L0,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(10,LPTR,RPTR,L8,   L9,L10,L11)		\
+   	    _VADDd(L4,ROUT,ROUT) \
+   	    ZCONJMUL_TMPREGPASS_MEM(11,LPTR,RPTR,R0,   R1,R2,R3)		\
+   	    _VADDd(L8,ROUT,ROUT) \
+   	    _VADDd(R0,ROUT,ROUT)
+   	    );
+}
+
+
+
+
 CPS_END_NAMESPACE
