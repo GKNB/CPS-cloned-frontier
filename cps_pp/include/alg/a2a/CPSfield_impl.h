@@ -1059,6 +1059,10 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 		       extSiteType, extDimPol, extAllocPol>::scatter(to, *this);
 }
 
+#define FFT_MULTI
+
+#ifndef FFT_MULTI
+
 //Perform a fast Fourier transform along the principal direction
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
 //Assumes SiteType is a std::complex type
@@ -1066,7 +1070,7 @@ template< typename SiteType, int SiteSize, typename DimensionPolicy, typename Fl
 void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
   const int &dir = this->getDir();
   const char* fname = "fft()";
-
+  
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
   int sc_size = this->siteSize(); //we have to assume the sites comprise complex numbers
   int size_1d_glb = GJP.NodeSites(dir) * GJP.Nodes(dir);
@@ -1109,7 +1113,55 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 
+#else
 
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
+  const int &dir = this->getDir();
+  const char* fname = "fft()";
+  
+  //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
+  int sc_size = this->siteSize(); //we have to assume the sites comprise complex numbers
+  int size_1d_glb = GJP.NodeSites(dir) * GJP.Nodes(dir);
+  const int n_fft = this->nsites() / GJP.NodeSites(dir) * this->nflavors();
+
+  //Plan creation is expensive, so make it static and only re-create if the field size changes
+  //Create a plan for each direction because we can have non-cubic spatial volumes
+  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
+  static int plan_sc_size = -1;
+  if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
+    typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
+
+    for(int i=0;i<4;i++){
+      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
+      
+      int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
+
+      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, sc_size, 
+								   tmp_f, NULL, sc_size, 1,
+								   tmp_f, NULL, sc_size, 1,
+								   FFTW_FORWARD, FFTW_ESTIMATE);  
+    }
+    plan_sc_size = sc_size;
+  }
+
+  typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft * sc_size);
+    
+  memcpy((void *)fftw_mem, this->ptr(), this->size()*sizeof(SiteType));
+#pragma omp parallel for
+  for(int n = 0; n < n_fft; n++) {
+    int chunk_id = n; //3d block index
+    int off = size_1d_glb * sc_size * chunk_id;
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+  }
+
+  //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
+
+  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
+}
+
+#endif
 
 
 
