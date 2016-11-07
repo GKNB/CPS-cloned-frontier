@@ -14,7 +14,7 @@ class StandardAllocPolicy{
   inline static void* _alloc(const size_t byte_size){
     return smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
   }
-  inline static _free(void* p){
+  inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
   }
 };
@@ -23,7 +23,7 @@ class Aligned128AllocPolicy{
   inline static void* _alloc(const size_t byte_size){
     return memalign(128,byte_size);
   }
-  inline static _free(void* p){
+  inline static void _free(void* p){
     free(p);
   }
 };

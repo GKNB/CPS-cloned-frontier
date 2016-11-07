@@ -398,10 +398,15 @@ class LatRanGen
     bool Read(const char* filename, int concur_io_num = 0);
     bool Write(const char* filename, int concur_io_num = 0);
 
+#if 0
     int GetGeneratorIndex(const FermionFieldDimension &frm_dim = FIVE_D) const{
-      if(frm_dim == FOUR_D) return rgen_pos_4d;
-      else return rgen_pos;
+#ifndef USE_C11_RNG
+      if(frm_dim == FIVE_D) return rgen_pos;
+      else 
+#endif
+      	return rgen_pos_4d;
     }
+#endif
     
  private:
     bool UseParIO;

@@ -580,6 +580,8 @@ void  SetParams( DIRAC ::ImplParams &params){
   void BforceVector(Vector *in, CgArg *cg_arg)
   {ERR.NotImplemented(cname,"BforceVec");}
 
+// Moving to LatticeBase Temporarily
+#if 0
    int F5D() const {
 #ifdef IF_FIVE_D
      return 1;
@@ -587,6 +589,7 @@ void  SetParams( DIRAC ::ImplParams &params){
      return 0;
 #endif
    }
+#endif
 
 };
 #if 1

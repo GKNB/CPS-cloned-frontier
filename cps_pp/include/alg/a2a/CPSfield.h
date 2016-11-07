@@ -14,6 +14,7 @@ CPS_START_NAMESPACE
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
 
+
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfield: public DimensionPolicy, public FlavorPolicy, public AllocPolicy{

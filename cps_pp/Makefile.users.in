@@ -52,7 +52,7 @@ LIBLIST =\
 all:$(BIN)
 
 .SUFFIXES:
-.SUFFIXES:  .o .C .S .c
+.SUFFIXES:  .o .C .S .c .x
 
 CSRC :=$(wildcard *.c)
 CCSRC :=$(wildcard *.C)
@@ -72,9 +72,13 @@ $(BIN):  $(OBJS) $(LIBLIST)
 .c.o:
 	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
 .C.o:
+	$(CXX) -E $(CXXFLAGS) $(DFLAGS) $(INCLIST) $< > $*.i
 	$(CXX) -o $@ $(CXXFLAGS) $(DFLAGS) -c $(INCLIST) $<
 .S.o:
 	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
+
+.o.x: $(LIBLIST)
+	$(CXX) $< $(LIBLIST) $(LDFLAGS) -o $@
 
 cps:
 	$(MAKE) -C $(BUILDDIR)

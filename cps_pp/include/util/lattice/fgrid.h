@@ -5,7 +5,7 @@
 #define INCLUDED_FGRID_H
 
 #ifdef USE_GRID
-#include<Grid.h>
+#include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 

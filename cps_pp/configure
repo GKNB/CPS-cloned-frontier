@@ -633,7 +633,6 @@ VERSION_MAJOR
 PRECDIR
 LOCALPRECISION
 GSUMPRECISION
-CWD
 CPS_NAMESPACE
 USING_NAMESPACE_CPS
 CPS_START_NAMESPACE
@@ -727,6 +726,7 @@ enable_openmp
 enable_optimise
 enable_sse
 enable_c11
+enable_c11_rng
 enable_debug
 enable_cg_dwf
 enable_blas
@@ -740,6 +740,7 @@ enable_bfm
 enable_cuda
 enable_quda
 enable_fftw
+enable_grid
 enable_namespace
 enable_double_prec
 '
@@ -1385,6 +1386,7 @@ Optional Features:
   --enable-optimise       Compile with maximum optimisation. (default=yes)
   --enable-sse            Compile with SSE. (default=no)
   --enable-c11            Compile with C11 features. (default=no)
+  --enable-c11-rng        Compile with C11 RNG. (default=no)
   --enable-debug          Compile with debug information. (default=no)
   --enable-cg-dwf         Compile with cg-dwf (default=no)
   --enable-blas           Compile with BLAS (default=no)
@@ -1399,6 +1401,7 @@ Optional Features:
   --enable-cuda           Location of CUDA installation. (default=no)
   --enable-quda           Compile with QUDA GPU lib. (default=no)
   --enable-fftw           Compile with FFTW (default=no)
+  --enable-grid           Compile with Grid library (default=no)
   --enable-namespace      Build the library inside a 'cps' namespace.
                           (default=no for QCDOC, yes otherwise)
   --enable-double-prec    Build the library in double precision (default=yes)
@@ -5069,9 +5072,23 @@ $as_echo_n "checking if compile with c++11 ... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11" >&5
 $as_echo "$enable_c11" >&6; }
 if test "$enable_c11" != "no"; then
-   CFLAGS="${CFLAGS} -std=c++11"
    CXXFLAGS="${CXXFLAGS} -std=c++11"
-   DFLAGS="${DFLAGS} -DUSE_C11 -DUSE_C11_RNG -DUSE_C11_MT"
+   DFLAGS="${DFLAGS} -DUSE_C11"
+fi
+
+# Check whether --enable-c11_rng was given.
+if test "${enable_c11_rng+set}" = set; then :
+  enableval=$enable_c11_rng;
+else
+  enable_c11_rng="no"
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 RNG" >&5
+$as_echo_n "checking if compile with c++11 RNG... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11_rng" >&5
+$as_echo "$enable_c11_rng" >&6; }
+if test "$enable_c11_rng" != "no"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT"
 fi
 
 
@@ -5427,6 +5444,27 @@ else
    HAVE_BFM="undef HAVE_BFM"
 fi
 
+# Check whether --enable-grid was given.
+if test "${enable_grid+set}" = set; then :
+  enableval=$enable_grid;
+else
+  enable_grid="no"
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if including Grid" >&5
+$as_echo_n "checking if including Grid... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_grid" >&5
+$as_echo "$enable_grid" >&6; }
+if test "$enable_grid" != "no"; then
+	if test "$enable_grid" != "yes"; then
+   		LDFLAGS="${LDFLAGS} -L${enable_grid}/build/lib -lGrid"
+   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_grid}/include -I${enable_grid}/build/lib"
+	else
+   		LDFLAGS="${LDFLAGS} -lGrid"
+	fi
+   	CXXFLAGS="${CXXFLAGS} -std=c++11"
+   	DFLAGS="${DFLAGS} -DUSE_GRID"
+fi
 
 # Check whether --enable-namespace was given.
 if test "${enable_namespace+set}" = set; then :
@@ -5467,14 +5505,6 @@ fi
 
 
 
-
-
-
-if test "$enable_target" = "qcdoc"; then
-   CWD="/host/${USER}"
-else
-   CWD=""
-fi
 
 
 

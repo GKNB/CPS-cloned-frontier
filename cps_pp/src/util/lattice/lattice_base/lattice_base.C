@@ -14,6 +14,9 @@
 //------------------------------------------------------------------
 
 #include <util/lattice.h>
+//#ifdef USE_GRID
+//#include <util/lattice/fgrid.h> // for F5D()
+//#endif
 #include <util/vector.h>
 #include <util/gjp.h>
 #include <util/pmalloc.h>
@@ -4249,7 +4252,8 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(GJP.Gparity()) nstacked_flav = 2;
 
   int s_node_sites = GJP.SnodeSites();
-  if(frm_dim == FOUR_D || s_node_sites < 2 || (!F5D()) ) {
+  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D());
+  if(frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D()) ) {
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
@@ -4883,11 +4887,14 @@ void
 
 int Lattice::F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-           || Fclass()==F_CLASS_ZMOBIUS
 #ifdef USE_BFM
      || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) //added by CK, moved here  by CJ
 #endif
-           || Fclass() ==F_CLASS_MDWF ) return 1;
+#ifdef USE_GRID
+      || Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+#endif
+           || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
+	return 1;
       else return 0;
 }
 

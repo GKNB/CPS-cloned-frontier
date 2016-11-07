@@ -860,7 +860,7 @@ class Lattice
     }
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
-    int F5D();
+    virtual int F5D();
 #if 0
 {
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS 
