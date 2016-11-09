@@ -307,7 +307,9 @@ int main(int argc,char *argv[])
 
   if(0) testCyclicPermute();
 
+#if 0
   if(0) testGenericFFT();
+#endif
   
   if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
 
@@ -318,8 +320,10 @@ int main(int argc,char *argv[])
   if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
 
   if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
-  if(1) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
+  if(0) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
 
+  if(1) testFFTopt<cps::ComplexD>();
+  //if(0) testFFTopt<Grid::vComplexD>();
   
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();

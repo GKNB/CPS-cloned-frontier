@@ -422,7 +422,7 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::impor
 }
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
   CPSfieldCopy<SiteSize,
 	       extSiteType, extDimPol, extFlavPol, extAllocPol,
 	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);

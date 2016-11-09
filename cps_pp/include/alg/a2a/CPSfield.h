@@ -143,7 +143,7 @@ public:
   void importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r);
 
   template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-  void exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
+  void exportField(CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
 
   bool equals(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r) const{
     for(int i=0;i<fsize;i++)

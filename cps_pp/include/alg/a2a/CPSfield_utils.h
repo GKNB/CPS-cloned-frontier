@@ -493,13 +493,291 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
       dcount ++;
     }
 }
+
+#ifdef USE_GRID
 template<typename CPSfieldType>
-void fft(CPSfieldType &fftme, const bool* do_dirs,
-	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
+void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	 ){
+  typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
+  typedef typename CPSfieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
+
+  NullObject null_obj;
+  ScalarFieldType tmp_in(null_obj);
+  ScalarFieldType tmp_out(null_obj);
+  tmp_in.importField(from);
+  fft(tmp_out, tmp_in, do_dirs);
+  tmp_out.exportField(into);
+}
+#endif
+  
+template<typename CPSfieldType>
+void fft(CPSfieldType &fftme, const bool* do_dirs){
   fft(fftme,fftme,do_dirs);
 }
 
+template<typename CPSfieldType>
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
+	     ){
+  enum { Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
+  int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
+  if(! ndirs_fft ) return;
+
+  //Need info on the MPI node mapping
+  assert(GJP.Snodes() == 1);
+  std::vector<int> node_map;
+  getMPIrankMap(node_map);
+
+  if(!UniqueID()){
+    printf("Node mapping:\n");
+    for(int t=0;t<GJP.Tnodes();t++)
+      for(int z=0;z<GJP.Znodes();z++)
+	for(int y=0;y<GJP.Ynodes();y++)
+	  for(int x=0;x<GJP.Xnodes();x++){
+	    int coor[4] = {x,y,z,t};
+	    int n = node_lex(coor,4);
+	    printf("(%d,%d,%d,%d) -> %d\n",x,y,z,t,node_map[n]);
+	  }
+  }
+  
+  //printf("Into %p, from %p. ndirs_fft = %d\n",&into,&from,ndirs_fft);
+  
+  CPSfieldType tmp(from.getDimPolParams());
+
+  //we want the last fft to end up in 'into'. Intermediate FFTs cycle between into and tmp as temp storage. Thus for odd ndirs_fft, the first fft should output to 'into', for even it should output to 'tmp'
+  CPSfieldType *tmp1, *tmp2;
+  if(ndirs_fft % 2 == 1){
+    tmp1 = &into; tmp2 = &tmp;
+  }else{
+    tmp1 = &tmp; tmp2 = &into;
+  }
+  
+  CPSfieldType* src = tmp2;
+  CPSfieldType* out = tmp1;
+
+  int fft_count = 0;
+  for(int mu=0; mu<Dimension; mu++){
+    if(do_dirs[mu]){
+      CPSfieldType const *msrc = fft_count == 0 ? &from : src;
+      //printf("FFT in dir %d, out %p, in %p\n",mu,out,msrc);
+      fft_opt_mu(*out, *msrc, mu, node_map);
+      ++fft_count;
+      std::swap(src,out);      
+    }
+  }
+}
+
+template<typename CPSfieldType>
+void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map,
+	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
+	     ){
+  enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
+  typedef typename CPSfieldType::FieldSiteType ComplexType;
+  typedef typename ComplexType::value_type FloatType;
+  typedef typename FFTWwrapper<FloatType>::complexType FFTComplex;
+  const int nf = from.nflavors();
+  const int foff = from.flav_offset();
+  const int nthread = omp_get_max_threads();
+  
+  //Eg for fft in X-direction, divide up Y,Z,T work over nodes in X-direction doing linear FFTs.
+  const int munodesites = GJP.NodeSites(mu);
+  const int munodes = GJP.Nodes(mu);
+  const int mutotalsites = munodesites*munodes;
+  const int munodecoor = GJP.NodeCoor(mu);
+  const int n_orthdirs = Dimension - 1;
+      
+  int orthdirs[n_orthdirs]; //map of orthogonal directions to mu
+  int total_work_munodes = 1; //sites orthogonal to FFT direction
+  int o=0;
+  for(int i=0;i< Dimension;i++)
+    if(i!=mu){
+      total_work_munodes *= GJP.NodeSites(i);
+      orthdirs[o++] = i;
+    }
+
+  //Divvy up work over othogonal directions
+  int munodes_work[munodes];
+  int munodes_off[munodes];
+  for(int i=0;i<munodes;i++)
+    thread_work(munodes_work[i],munodes_off[i], total_work_munodes, i, munodes); //use for node work instead :)
+
+  //Get MPI ranks of nodes in mu direction
+  int my_node_coor[4];
+  for(int i=0;i<4;i++) my_node_coor[i] = GJP.NodeCoor(i);
+  
+  int munodes_mpiranks[munodes];
+  for(int i=0;i<munodes;i++){
+    int munode_coor[4]; memcpy(munode_coor,my_node_coor,4*sizeof(int));
+    munode_coor[mu] = i;
+
+    const int munode_lex = node_lex( munode_coor, 4 );
+    munodes_mpiranks[i] = node_map[munode_lex];
+  }
+
+  //Gather send data
+  ComplexType* send_bufs[munodes];
+  int send_buf_sizes[munodes];
+  for(int i=0;i<munodes;i++){
+    send_buf_sizes[i] = munodes_work[i] * munodesites * nf * SiteSize;
+    send_bufs[i] = (ComplexType*)malloc( send_buf_sizes[i] * sizeof(ComplexType) );
+
+    for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
+      const int orthsite = munodes_off[i] + w;
+      int coor_base[Dimension] = {0};
+	  
+      //Unmap orthsite into a base coordinate
+      int rem = orthsite;
+      for(int a=0;a<n_orthdirs;a++){
+	const int dir_a = orthdirs[a];
+	coor_base[dir_a] = rem % GJP.NodeSites(dir_a); rem /= GJP.NodeSites(dir_a);
+      }
+
+      for(int f=0;f<nf;f++){
+	for(int xmu=0;xmu<munodesites;xmu++){
+	  ComplexType* to = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );  //with musite changing slowest
+	  coor_base[mu] = xmu;
+	  ComplexType const* frm = from.site_ptr(coor_base,f);
+
+	  memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	}
+      }
+    }
+  }
+  MPI_Request send_req[munodes];
+  MPI_Request recv_req[munodes];
+  MPI_Status status[munodes];
+
+  //Prepare recv buf
+  const int bufsz = munodes_work[munodecoor] * mutotalsites * nf * SiteSize; //complete line in mu for each orthogonal coordinate
+  ComplexType* recv_buf = (ComplexType*)malloc(bufsz * sizeof(ComplexType) );
+
+  //Setup send/receive    
+  for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self.
+    int sret = MPI_Isend(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]);
+    assert(sret == MPI_SUCCESS);
+
+    int rret = MPI_Irecv(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]);
+    assert(rret == MPI_SUCCESS);
+  }
+
+      
+  int wret = MPI_Waitall(munodes,recv_req,status);
+  assert(wret == MPI_SUCCESS);
+      
+  //Do FFT
+  const int howmany = munodes_work[munodecoor] * nf * SiteSize;
+  const int howmany_per_thread_base = howmany / nthread;
+  //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
+
+  if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
+      
+  static typename FFTWwrapper<FloatType>::planType plan_f_base[Dimension];
+  static typename FFTWwrapper<FloatType>::planType plan_f_base_p1[Dimension];
+      
+  static int plan_howmany[Dimension];
+  static bool plan_init = false;
+
+  if(!plan_init || plan_howmany[mu] != howmany){
+    if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
+
+    typename FFTWwrapper<FloatType>::complexType *tmp_f; //I don't think it actually does anything with this
+
+    const int fft_work_per_musite = howmany_per_thread_base;
+    const int musite_stride = howmany; //stride between musites
+	
+    plan_f_base[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite, 
+							    tmp_f, NULL, musite_stride, 1,
+							    tmp_f, NULL, musite_stride, 1,
+							    FFTW_FORWARD, FFTW_ESTIMATE);
+    plan_f_base_p1[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite+1, 
+							       tmp_f, NULL, musite_stride, 1,
+							       tmp_f, NULL, musite_stride, 1,
+							       FFTW_FORWARD, FFTW_ESTIMATE);	
+    plan_init = true; //other mu's will still init later
+  }
+  FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
+
+#pragma omp parallel
+  {
+    assert(nthread == omp_get_num_threads()); //plans will be messed up if not true
+    const int me = omp_get_thread_num();
+    int thr_work, thr_off;
+    thread_work(thr_work, thr_off, howmany, me, nthread);
+
+    typename FFTWwrapper<FloatType>::planType thr_plan;
+
+    if(thr_work == howmany_per_thread_base) thr_plan = plan_f_base[mu];
+    else if(thr_work == howmany_per_thread_base + 1) thr_plan = plan_f_base_p1[mu];
+    else assert(0); //catch if logic for thr_work changes
+
+    FFTWwrapper<FloatType>::execute_dft(thr_plan, fftw_mem + thr_off, fftw_mem + thr_off); 
+  }
+
+  wret = MPI_Waitall(munodes,send_req,status);
+  assert(wret == MPI_SUCCESS);
+      
+  //Send back out. Reuse the old send buffers as receive buffers and vice versa
+  for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self
+    int sret = MPI_Isend(recv_buf + i*munodes_work[munodecoor]*nf*SiteSize*munodesites, send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], 0, MPI_COMM_WORLD, &send_req[i]);
+    assert(sret == MPI_SUCCESS);
+
+    int rret = MPI_Irecv(send_bufs[i], send_buf_sizes[i]*sizeof(ComplexType), MPI_CHAR, munodes_mpiranks[i], MPI_ANY_TAG, MPI_COMM_WORLD, &recv_req[i]);
+    assert(rret == MPI_SUCCESS);
+  }
+
+  wret = MPI_Waitall(munodes,recv_req,status);
+  assert(wret == MPI_SUCCESS);
+
+  //Poke into output
+  for(int i=0;i<munodes;i++){
+    for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
+      const int orthsite = munodes_off[i] + w;
+      int coor_base[Dimension] = {0};
+	  
+      //Unmap orthsite into a base coordinate
+      int rem = orthsite;
+      for(int a=0;a<n_orthdirs;a++){
+	int dir_a = orthdirs[a];
+	coor_base[dir_a] = rem % GJP.NodeSites(dir_a); rem /= GJP.NodeSites(dir_a);
+      }
+
+      for(int f=0;f<nf;f++){
+	for(int xmu=0;xmu<munodesites;xmu++){	      
+	  coor_base[mu] = xmu;
+	  ComplexType* to = into.site_ptr(coor_base,f);
+	  ComplexType const* frm = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );
+	  memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	}
+      }
+    }
+  }
+
+  wret = MPI_Waitall(munodes,send_req,status);
+  assert(wret == MPI_SUCCESS);
+      
+  free(recv_buf);
+  for(int i=0;i<munodes;i++) free(send_bufs[i]);
+}
+
+#ifdef USE_GRID
+template<typename CPSfieldType>
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
+	     ){ //we can avoid the copies below but with some effort - do at some point
+  typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
+  typedef typename CPSfieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
+
+  NullObject null_obj;
+  ScalarFieldType tmp_in(null_obj);
+  ScalarFieldType tmp_out(null_obj);
+  tmp_in.importField(from);
+  fft_opt(tmp_out, tmp_in, do_dirs);
+  tmp_out.exportField(into);
+}
+#endif
 
 CPS_END_NAMESPACE
 #endif
