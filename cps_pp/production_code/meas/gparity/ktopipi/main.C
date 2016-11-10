@@ -102,6 +102,10 @@ int main (int argc,char **argv )
   bool mixed_solve = true; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
   bool evecs_single_prec = true; //convert the eigenvectors to single precision to save memory
 
+  const int ngrid_arg = 7;
+  const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
+  const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
+  
   int arg = 4;
   while(arg < argc){
     char* cmd = argv[arg];
@@ -143,12 +147,20 @@ int main (int argc,char **argv )
       mixed_solve = false;
       if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
       arg++;
-    }else if( strncmp(cmd,"--debug-signals",30) == 0){
-      if(!UniqueID()){ printf("main.C: Ignoring Grid argument\n"); fflush(stdout); }
-      arg++;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
-      exit(-1);
+      bool is_grid_arg = false;
+      for(int i=0;i<ngrid_arg;i++){
+	if( std::string(cmd) == grid_args[i] ){
+	  if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd); fflush(stdout); }
+	  arg += grid_args_skip[i];
+	  is_grid_arg = true;
+	  break;
+	}
+      }
+      if(!is_grid_arg){
+	if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+	exit(-1);
+      }
     }
   }
   const char *fname="main(int,char**)";
