@@ -324,7 +324,7 @@ struct Lanczos{
       vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
       nodes[i]= GJP.Nodes(i);
     }
-    std::vector<int> simd_layout = Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd());
+    std::vector<int> simd_layout = Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd());
     if(!UniqueID()) printf("Created single-prec Grids: nodes (%d,%d,%d,%d) vol (%d,%d,%d,%d) and SIMD layout (%d,%d,%d,%d)\n",nodes[0],nodes[1],nodes[2],nodes[3],vol[0],vol[1],vol[2],vol[3],simd_layout[0],simd_layout[1],simd_layout[2],simd_layout[3]);
     
     UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
