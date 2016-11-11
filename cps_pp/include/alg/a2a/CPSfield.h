@@ -82,11 +82,9 @@ public:
   }
 
   static std::size_t byte_size(const InputParamType &params){
-    int nf, sites, fsites;
-    FlavorPolicy f; f.setFlavors(nf);
-    DimensionPolicy d(params); d.setSites(sites,fsites,nf);
+    CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
     std::size_t out = SiteSize * sizeof(SiteType);
-    return fsites * out;
+    return tmp.nfsites() * out;
   }
 
   //Set each element to a uniform random number in the specified range.

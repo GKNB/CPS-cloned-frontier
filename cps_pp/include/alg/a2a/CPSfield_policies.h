@@ -27,18 +27,27 @@ class Aligned128AllocPolicy{
     free(p);
   }
 };
+class NullAllocPolicy{
+ protected:
+  inline static void* _alloc(const size_t byte_size){
+    return NULL;
+  }
+  inline static void _free(void* p){
+  }
+};
+
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 
 template<int Nf>
 class FixedFlavorPolicy{
- protected:
+protected:
   void setFlavors(int &flavors) const{ flavors = Nf; }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
 //Default is to use two flavors if GPBC, 1 otherwise
 class DynamicFlavorPolicy{
- protected:
+protected:
   void setFlavors(int &flavors) const{ flavors = GJP.Gparity() ? 2:1 ; }
 };
 
