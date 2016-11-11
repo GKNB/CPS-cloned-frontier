@@ -689,21 +689,43 @@ public:
 	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
 	  assert(qidx_w < nspecies && qidx_v < nspecies);
       
-	  if(!UniqueID()){ 
-	    printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout);
+#ifdef DISABLE_FFT_RELN_USAGE
+	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
+	  A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
+	  fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
+#elif defined(COMPUTEMANY_INPLACE_SHIFT)
+	  A2AvectorWfftw<mf_Policies> *fftw_W_ptr = NULL;
+	  bool delete_fftw_W_ptr = false, restore_fftw_W_ptr = false;
+	  std::vector<int> restore_shift;
+	  
+	  if(precompute_base_wffts[qidx_w]){
+	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Shifting base Wfftw in place\n"); fflush(stdout); }
+	    std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
+	    fftw_W_ptr = inplace.first;
+	    restore_fftw_W_ptr = true; restore_shift = inplace.second;
+	  }else{
+	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
+	    fftw_W_ptr = new A2AvectorWfftw<mf_Policies>(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
+	    fftw_W_ptr->gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
+	    delete_fftw_W_ptr = true;
 	  }
-	  A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); //temp storage for W
-            
-#ifndef DISABLE_FFT_RELN_USAGE
+	  assert( fftw_W_ptr != NULL );
+	  const A2AvectorWfftw<mf_Policies> &fftw_W = *fftw_W_ptr;
+#else
+	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
+	  A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); 
 	  if(precompute_base_wffts[qidx_w])
 	    fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
 	  else
 	    fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
-#else
-	  fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
 #endif
 	  
 	  A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+
+#ifdef COMPUTEMANY_INPLACE_SHIFT
+	  if(delete_fftw_W_ptr) delete fftw_W_ptr;
+	  else if(restore_fftw_W_ptr) fftw_W_ptr->shiftFieldsInPlace(restore_shift);
+#endif	  
 	}//cc
       }//s
     }//b

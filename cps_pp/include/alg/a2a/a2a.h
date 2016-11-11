@@ -387,6 +387,13 @@ public:
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
   //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
   void getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m = NULL);
+
+  void shiftFieldsInPlace(const std::vector<int> &shift);
+
+  //A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage
+  //Returns the pointer to the Wfftw acted upon and the *shift required to restore the Wfftw to it's original form* (use shiftFieldsInPlace to restore)
+  
+  static std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inPlaceTwistedFFT(const int p[3], A2AvectorWfftw<mf_Policies> *base_p, A2AvectorWfftw<mf_Policies> *base_m = NULL);
   
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)

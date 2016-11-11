@@ -339,6 +339,42 @@ void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<P
   print_time("A2AvectorWfftw::getTwistedFFT","Twist",time);
 }
 
+
+template< typename mf_Policies>
+void A2AvectorWfftw<mf_Policies>::shiftFieldsInPlace(const std::vector<int> &shift){
+  Float time = -dclock();
+  int nshift = 0;
+  for(int i=0;i<3;i++) if(shift[i]) nshift++;
+  if(nshift > 0){
+    for(int i=0;i<this->getNmodes();i++)
+      shiftPeriodicField( this->getMode(i), this->getMode(i), shift);
+  }
+  print_time("A2AvectorWfftw::shiftFieldsInPlace","Total",time + dclock());
+}
+
+//A version of the above that directly shifts the base Wfftw rather than outputting into a separate storage
+//Returns the pointer to the Wfftw acted upon and the *shift required to restore the Wfftw to it's original form*
+template< typename mf_Policies>
+std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(const int p[3], A2AvectorWfftw<mf_Policies> *base_p, A2AvectorWfftw<mf_Policies> *base_m){
+  Float time = -dclock();
+  
+  std::vector<int> shift(3);
+  A2AvectorWfftw<mf_Policies>* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
+
+  base->shiftFieldsInPlace(shift);
+
+  for(int i=0;i<3;i++) shift[i] = -shift[i];
+  
+  time += dclock();
+  print_time("A2AvectorWfftw::inPlaceTwistedFFT","Twist",time);
+
+  return std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> >(base,shift);
+}
+  
+
+
+
 template< typename mf_Policies>
 void A2AvectorVfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m){
   Float time = -dclock();
