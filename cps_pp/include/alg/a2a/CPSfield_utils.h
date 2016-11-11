@@ -530,19 +530,17 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   std::vector<int> node_map;
   getMPIrankMap(node_map);
 
-  if(!UniqueID()){
-    printf("Node mapping:\n");
-    for(int t=0;t<GJP.Tnodes();t++)
-      for(int z=0;z<GJP.Znodes();z++)
-	for(int y=0;y<GJP.Ynodes();y++)
-	  for(int x=0;x<GJP.Xnodes();x++){
-	    int coor[4] = {x,y,z,t};
-	    int n = node_lex(coor,4);
-	    printf("(%d,%d,%d,%d) -> %d\n",x,y,z,t,node_map[n]);
-	  }
-  }
-  
-  //printf("Into %p, from %p. ndirs_fft = %d\n",&into,&from,ndirs_fft);
+  // if(!UniqueID()){
+  //   printf("Node mapping:\n");
+  //   for(int t=0;t<GJP.Tnodes();t++)
+  //     for(int z=0;z<GJP.Znodes();z++)
+  // 	for(int y=0;y<GJP.Ynodes();y++)
+  // 	  for(int x=0;x<GJP.Xnodes();x++){
+  // 	    int coor[4] = {x,y,z,t};
+  // 	    int n = node_lex(coor,4);
+  // 	    printf("(%d,%d,%d,%d) -> %d\n",x,y,z,t,node_map[n]);
+  // 	  }
+  // }
   
   CPSfieldType tmp(from.getDimPolParams());
 
@@ -561,7 +559,6 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   for(int mu=0; mu<Dimension; mu++){
     if(do_dirs[mu]){
       CPSfieldType const *msrc = fft_count == 0 ? &from : src;
-      //printf("FFT in dir %d, out %p, in %p\n",mu,out,msrc);
       fft_opt_mu(*out, *msrc, mu, node_map);
       ++fft_count;
       std::swap(src,out);      
@@ -671,7 +668,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const int howmany_per_thread_base = howmany / nthread;
   //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
 
-  if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
+  //if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
       
   static typename FFTWwrapper<FloatType>::planType plan_f_base[Dimension];
   static typename FFTWwrapper<FloatType>::planType plan_f_base_p1[Dimension];

@@ -60,10 +60,14 @@ class ComputeSigma{
       typedef A2AflavorProjectedHydrogenSource<SourcePolicies> HydSrcType;
       
       typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
-      typedef A2AmultiSource<SrcList> MultiSrcType;
-      typedef SCFspinflavorInnerProduct<0,ComplexType,MultiSrcType,true,false> MultiInnerType; //unit matrix spin structure
-      typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
+      typedef A2AmultiSource<SrcList> MultiSrcType;      
+      //typedef SCFspinflavorInnerProduct<0,ComplexType,MultiSrcType,true,false> MultiInnerType; //unit matrix spin structure
+      //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
 
+      //Allows for more memory efficient computation algorithm
+      typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > MultiInnerType;
+      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
+      
       int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
       GparityBaseMomentum(pbase,+1);
       

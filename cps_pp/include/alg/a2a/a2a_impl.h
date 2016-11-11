@@ -37,10 +37,10 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
   FermionFieldType tmp(field_setup);
   
   Float preop_time = 0;
-  Float gather_time = 0;
   Float fft_time = 0;
-  Float scatter_time = 0;
 
+  const bool fft_dirs[4] = {true,true,true,false};
+  
   for(int mode=0;mode<nv;mode++){
     FermionFieldType const* init_gather_from = &from.getMode(mode);
     if(mode_preop != NULL){
@@ -48,35 +48,16 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
       (*mode_preop)(from.getMode(mode),tmp);
       init_gather_from = &tmp;
       preop_time += dclock()-dtime;
-    }    
-    for(int mu=0;mu<3;mu++){
-      Float dtime = dclock();
-
-      //Gather
-      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
-#ifndef MEMTEST_MODE
-      tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
-#endif
-      gather_time += dclock()-dtime;  dtime = dclock();
-
-      //FFT
-#ifndef MEMTEST_MODE
-      tmp_dbl.fft();
-#endif
-      fft_time += dclock()-dtime;  dtime = dclock(); 
-
-      //Scatter
-#ifndef MEMTEST_MODE
-      tmp_dbl.scatter( mu==2 ? v[mode]: tmp );
-#endif
-      scatter_time += dclock()-dtime;
     }
+    Float dtime = dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(v[mode], *init_gather_from, fft_dirs);
+#endif
+    fft_time += dclock() - dtime;
   }
   if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
   print_time("A2AvectorVfftw::fft","Preop",preop_time);
-  print_time("A2AvectorVfftw::fft","gather",gather_time);
   print_time("A2AvectorVfftw::fft","FFT",fft_time);
-  print_time("A2AvectorVfftw::fft","scatter",scatter_time);
 }
 
 //Set this object to be the fast Fourier transform of the input field
@@ -89,9 +70,9 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
   FermionFieldType tmp(field_setup), tmp2(field_setup);
 
   Float preop_time = 0;
-  Float gather_time = 0;
   Float fft_time = 0;
-  Float scatter_time = 0;
+
+  const bool fft_dirs[4] = {true,true,true,false};
   
   //Do wl
   for(int mode=0;mode<nl;mode++){
@@ -102,24 +83,11 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       init_gather_from = &tmp;
       preop_time += dclock()-dtime;
     }
-    for(int mu=0;mu<3;mu++){
-      Float dtime = dclock();
-      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
+    Float dtime = dclock();
 #ifndef MEMTEST_MODE
-      tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
+    cps::fft_opt(wl[mode], *init_gather_from, fft_dirs);
 #endif
-      gather_time += dclock()-dtime;  dtime = dclock(); 
-
-#ifndef MEMTEST_MODE  
-      tmp_dbl.fft();
-#endif
-      fft_time += dclock()-dtime;  dtime = dclock(); 
-      
-#ifndef MEMTEST_MODE
-      tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
-#endif
-      scatter_time += dclock()-dtime;
-    }
+    fft_time += dclock() - dtime;
   }
   //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
   for(int hit=0;hit<nhits;hit++){
@@ -131,33 +99,17 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
 	(*mode_preop)(tmp2,tmp);
 	init_gather_from = &tmp;
 	preop_time += dclock()-dtime;
-      }    
-      for(int mu=0;mu<3;mu++){
-	Float dtime = dclock();
-	
-	CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
-#ifndef MEMTEST_MODE
-	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
-#endif
-	gather_time += dclock()-dtime;  dtime = dclock();
-
-#ifndef MEMTEST_MODE
-	tmp_dbl.fft();
-#endif
-	fft_time += dclock()-dtime;  dtime = dclock(); 
-
-#ifndef MEMTEST_MODE
-	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );
-#endif
-	scatter_time += dclock()-dtime;
       }
+      Float dtime = dclock();
+#ifndef MEMTEST_MODE
+      cps::fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
+#endif
+      fft_time += dclock()-dtime;
     }
   }
   if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
   print_time("A2AvectorWfftw::fft","Preop",preop_time);
-  print_time("A2AvectorWfftw::fft","gather",gather_time);
   print_time("A2AvectorWfftw::fft","FFT",fft_time);
-  print_time("A2AvectorWfftw::fft","scatter",scatter_time);
 }
 
 
