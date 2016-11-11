@@ -324,6 +324,9 @@ int main (int argc,char **argv )
 
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
+
+    if(!UniqueID()) printf("V vector requires %f MB, W vector %f MB of memory\n", 
+			   A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
     
     A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
@@ -368,6 +371,9 @@ int main (int argc,char **argv )
 
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
+
+    if(!UniqueID()) printf("V_s vector requires %f MB, W_s vector %f MB of memory\n", 
+			   A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg_s,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg_s,field4dparams) );
 
     A2AvectorV<A2Apolicies> V_s(a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(a2a_arg_s,field4dparams);

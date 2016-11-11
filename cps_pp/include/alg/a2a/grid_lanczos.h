@@ -52,7 +52,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   for(int i=0;i<Nm;i++){
     evec[i].checkerboard = Grid::Odd;
   }
-
+#ifndef MEMTEST_MODE
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
 
@@ -61,7 +61,6 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   src.checkerboard = Grid::Odd;
   
   int Nconv;
-#ifndef MEMTEST_MODE
   IRL.calc(eval,evec,
 	   src,
 	   Nconv);

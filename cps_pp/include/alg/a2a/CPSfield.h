@@ -74,11 +74,19 @@ public:
     fsize = r.fsize;
 
     if(fsize != old_fsize){
-      freemem();
+     freemem();
       alloc();
     }
     memcpy(f,r.f,sizeof(SiteType) * fsize);
     return *this;
+  }
+
+  static std::size_t byte_size(const InputParamType &params){
+    int nf, sites, fsites;
+    FlavorPolicy f; f.setFlavors(nf);
+    DimensionPolicy d(params); d.setSites(sites,fsites,nf);
+    std::size_t out = SiteSize * sizeof(SiteType);
+    return fsites * out;
   }
 
   //Set each element to a uniform random number in the specified range.

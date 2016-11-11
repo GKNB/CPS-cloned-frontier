@@ -1,5 +1,32 @@
 //Implementations of methods in a2a.h
 
+template<typename VWtype>
+inline double VW_Mbyte_size(const A2AArg &_args, const typename VWtype::FieldInputParamType &field_setup_params){
+  typedef typename VWtype::DilutionType DilutionType;
+  typedef typename VWtype::FermionFieldType FermionFieldType;
+  DilutionType dil(_args); const int sz = dil.getNmodes();
+  double field_size = double(FermionFieldType::byte_size(field_setup_params))/(1024.*1024.);
+  return sz * field_size;
+}
+
+
+template< typename mf_Policies>
+double A2AvectorV<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorV<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorVfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorVfftw<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorW<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorW<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorWfftw<mf_Policies> >(_args,field_setup_params);
+}
+
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
 template< typename mf_Policies>

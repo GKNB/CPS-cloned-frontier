@@ -69,6 +69,8 @@ public:
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
 
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
   inline FermionFieldType & getMode(const int i){ return v[i]; }  
 
@@ -126,6 +128,8 @@ public:
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
   }
+
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
@@ -216,6 +220,8 @@ public:
     wl.resize(nl,FermionFieldType(field_setup_params));
     wh.resize(nhits, ComplexFieldType(field_setup_params)); 
   }
+
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return wh[hit]; }
@@ -353,6 +359,7 @@ public:
     for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
 
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   inline const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return wh[spin_color + 12*hit]; }

@@ -51,15 +51,26 @@ class ComputeMesonFields{
     GparityBaseMomentum(p_p1,+1);
     GparityBaseMomentum(p_m1,-1);
     
+    if(!UniqueID()) printf("ComputeMesonFields::compute Memory prior to V,W FFT precompute:\n");
+    printMem();
+
     for(int s=0;s<nspecies;s++){
       Wfftw_base[s].resize(nbase_max,NULL);
       Vfftw_base[s].resize(nbase_max,NULL);
       
       for(int b=0;b<nbase;b++){
-	if(precompute_base_wffts[s])
+	if(precompute_base_wffts[s]){
+	  if(!UniqueID()){ 
+	    printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams())); fflush(stdout);
+	  }
 	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams() );
-	if(precompute_base_vffts[s])
+	}
+	if(precompute_base_vffts[s]){
+	  if(!UniqueID()){ 
+	    printf("ComputeMesonFields::compute Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams())); fflush(stdout);
+	  }
 	  Vfftw_base[s][b] = new A2AvectorVfftw<mf_Policies>(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams() );
+	}
       }
 	
       if(GJP.Gparity()){ //0 = +pi/2L  1 = -pi/2L  for each GP dir
@@ -80,6 +91,9 @@ class ComputeMesonFields{
     } 
 #endif
 
+    if(!UniqueID()) printf("ComputeMesonFields::compute Memory prior to compute loop:\n");
+    printMem();
+
     for(int cidx=0; cidx < into.nCompute(); cidx++){
       typename StorageType::mfComputeInputFormat cdest = into.getMf(cidx);
       const typename StorageType::InnerProductType &M = into.getInnerProduct(cidx);
@@ -91,7 +105,14 @@ class ComputeMesonFields{
       if(!UniqueID()){ printf("ComputeMesonFields::compute Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
       assert(qidx_w < nspecies && qidx_v < nspecies);
       
+      if(!UniqueID()){ 
+	printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout);
+      }
       A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); //temp storage for W
+
+      if(!UniqueID()){ 
+	printf("ComputeMesonFields::computeAllocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[qidx_w]->getArgs(), V[qidx_w]->getMode(0).getDimPolParams())); fflush(stdout);
+      }
       A2AvectorVfftw<mf_Policies> fftw_V(V[qidx_v]->getArgs(), V[qidx_v]->getMode(0).getDimPolParams() );
             
 #ifndef DISABLE_FFT_RELN_USAGE
@@ -121,7 +142,9 @@ class ComputeMesonFields{
       }
     }
 #endif
-    
+
+    if(!UniqueID()) printf("ComputeMesonFields::compute Memory after compute loop:\n");
+    printMem();
   }
 
 };
