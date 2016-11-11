@@ -580,6 +580,15 @@ public:
     inner.setShifts(this->optimized_clist[opt_cidx].shifts);    
     return inner;
   }
+
+  void nodeDistributeResult(const int opt_cidx){
+    for(int s=0;s<mf[opt_cidx].size();s++) nodeDistributeMany(1, &mf[opt_cidx][s]);    
+  }
+  void nodeGatherAll(){
+    for(int c=0;c<mf.size();c++)
+      for(int s=0;s<mf[c].size();s++)
+	nodeGetMany(1, &mf[c][s]);  
+  }
 };
 
 
@@ -725,7 +734,16 @@ public:
 #ifdef COMPUTEMANY_INPLACE_SHIFT
 	  if(delete_fftw_W_ptr) delete fftw_W_ptr;
 	  else if(restore_fftw_W_ptr) fftw_W_ptr->shiftFieldsInPlace(restore_shift);
-#endif	  
+#endif
+
+
+#ifdef COMPUTEMANY_TEMP_DISTRIBUTE
+	  if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory before distribute:\n");
+	  printMem();
+	  into.nodeDistributeResult(cidx);
+	  if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after distribute:\n");
+	  printMem();
+#endif
 	}//cc
       }//s
     }//b
@@ -736,6 +754,12 @@ public:
 	if(Wfftw_base[s][b] != NULL) delete Wfftw_base[s][b];    
 #endif
 
+#ifdef COMPUTEMANY_TEMP_DISTRIBUTE
+    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory prior to final-stage gather:\n");
+    printMem();
+    into.nodeGatherAll();
+#endif
+    
     if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after compute loop:\n");
     printMem();
   }
