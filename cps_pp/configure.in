@@ -546,7 +546,7 @@ AC_ARG_ENABLE(fftw,
 		[Compile with FFTW (default=no)]), 
 	,[enable_fftw="no"])
 AC_MSG_CHECKING([if including fftw])
-AC_MSG_RESULT($enable_blas)
+AC_MSG_RESULT($enable_fftw)
 if test "$enable_fftw" != "no"; then
 #	if test "$enable_blas" != "yes"; then
    		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib -lfftw3"

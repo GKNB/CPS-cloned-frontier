@@ -625,6 +625,18 @@ class GFCLASS(Gnone)
     }
     
 };
+#undef FGRID
+#undef FIVE_GRID
+#undef FERM_GRID
+#undef F_RB_GRID
+#undef DIRAC
+#undef MOB
+#undef LATTICE_FERMION
+#undef SITE_FERMION
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef CLASS_NAME
 #undef GFCLASS_NAME 
 #endif
 CPS_END_NAMESPACE
