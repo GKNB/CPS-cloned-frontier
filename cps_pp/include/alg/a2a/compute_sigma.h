@@ -47,6 +47,7 @@ class ComputeSigma{
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+    typedef std::vector<MesonFieldType> MesonFieldVectorType;
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -86,7 +87,12 @@ class ComputeSigma{
 	ThreeMomentum p_v = momenta.getVmom(pidx,false);
 	mf_store.addCompute(0,0, p_w,p_v);	
       }
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+							   ,true
+#endif
+							   );
 
       for(int pidx=0;pidx<momenta.nMom();pidx++){
 	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
@@ -95,7 +101,12 @@ class ComputeSigma{
 	for(int s=0;s<nSources;s++){
 	  std::ostringstream os; //momenta in units of pi/2L
 	  os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
-	  MesonFieldType::write(os.str(),mf_store(s,pidx));
+	  MesonFieldVectorType &mf_q = mf_store(s,pidx);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	  nodeGetMany(1,&mf_q);
+#endif
+	  MesonFieldType::write(os.str(),mf_q);
+	  for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed
 	}
       } 
       

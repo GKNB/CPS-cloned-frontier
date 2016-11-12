@@ -554,6 +554,14 @@ public:
     const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
     return mf[opt_loc.first][opt_loc.second];
   }
+  template<typename S=SourceType>
+  typename my_enable_if<!has_enum_nSources<S>::value, storageType &>::type
+  operator[](const int orig_cidx){
+    const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
+    return mf[opt_loc.first][opt_loc.second];
+  }
+
+
   //Multi source
   template<typename S=SourceType>
   typename my_enable_if<has_enum_nSources<S>::value, const storageType &>::type
@@ -561,6 +569,15 @@ public:
     const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
     return mf[opt_loc.first][src_idx + S::nSources*opt_loc.second];
   }
+  template<typename S=SourceType>
+  typename my_enable_if<has_enum_nSources<S>::value, storageType &>::type
+  operator()(const int src_idx, const int orig_cidx){
+    const std::pair<int,int> opt_loc = this->clist_opt_map[orig_cidx];
+    return mf[opt_loc.first][src_idx + S::nSources*opt_loc.second];
+  }
+
+
+
   
   mfComputeInputFormat getMf(const int opt_cidx){
     if(!locked){
@@ -597,7 +614,7 @@ template<typename mf_Policies, typename StorageType>
 class ComputeMesonFieldsShiftSource{
 public:
   //W and V are indexed by the quark type index
-  static void compute(StorageType &into, const std::vector< A2AvectorW<mf_Policies> const*> &W, const std::vector< A2AvectorV<mf_Policies> const*> &V,  Lattice &lattice){
+  static void compute(StorageType &into, const std::vector< A2AvectorW<mf_Policies> const*> &W, const std::vector< A2AvectorV<mf_Policies> const*> &V,  Lattice &lattice, const bool node_distribute = false){
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
@@ -736,14 +753,13 @@ public:
 	  else if(restore_fftw_W_ptr) fftw_W_ptr->shiftFieldsInPlace(restore_shift);
 #endif
 
-
-#ifdef COMPUTEMANY_TEMP_DISTRIBUTE
-	  if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory before distribute:\n");
-	  printMem();
-	  into.nodeDistributeResult(cidx);
-	  if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after distribute:\n");
-	  printMem();
-#endif
+	  if(node_distribute){
+	    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory before distribute:\n");
+	    printMem();
+	    into.nodeDistributeResult(cidx);
+	    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after distribute:\n");
+	    printMem();
+	  }
 	}//cc
       }//s
     }//b
@@ -754,12 +770,6 @@ public:
 	if(Wfftw_base[s][b] != NULL) delete Wfftw_base[s][b];    
 #endif
 
-#ifdef COMPUTEMANY_TEMP_DISTRIBUTE
-    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory prior to final-stage gather:\n");
-    printMem();
-    into.nodeGatherAll();
-#endif
-    
     if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after compute loop:\n");
     printMem();
   }

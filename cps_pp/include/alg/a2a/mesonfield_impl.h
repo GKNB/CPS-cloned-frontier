@@ -377,7 +377,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uni
     free(mf); mf = NULL;
   }//else{ printf("UniqueID %d (MPI rank %d) is storage node, not freeing\n",UniqueID(),my_rank); fflush(stdout); }
 
-  if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
+  //if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
   //if(my_rank == node_mpi_rank) printf("A2AmesonField::nodeDistribute I am node with MPI rank %d and I have UniqueID %d, my first elem remains %f\n",my_rank,UniqueID(),mf[0]);
 #endif
 }
@@ -437,7 +437,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
   }
   //printf("rank %d completed Bcast, first element %f\n",mpi_rank,mf[0]); fflush(stdout);
 
-  if(mpi_rank == node_mpi_rank) printf("A2AmesonField::nodeGet %f MB gathered from node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), UniqueID(), node_mpi_rank);
+  //if(mpi_rank == node_mpi_rank) printf("A2AmesonField::nodeGet %f MB gathered from node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), UniqueID(), node_mpi_rank);
 
   node_mpi_rank = -1; //now on all nodes
   MPI_Barrier(MPI_COMM_WORLD);

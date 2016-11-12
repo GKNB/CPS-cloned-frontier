@@ -111,6 +111,7 @@ class ComputePion{
     std::vector< A2AvectorV<mf_Policies> const*> Vspecies(1, &V);
 
     typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+    typedef std::vector<MesonFieldType> MesonFieldVectorType;
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     
@@ -154,12 +155,36 @@ class ComputePion{
 	ThreeMomentum p_v = pion_mom.getVmom(pidx,true);
 	mf_store.addCompute(0,0, p_w,p_v);	
       }
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+							   ,true
+#endif
+							   );
 
       //Copy to output the average of the 1s result with base and alternative momentum combinations
       for(int pidx=0;pidx<nmom;pidx++){
-	mf_ll[pidx] = mf_store(0,pidx);
-	for(int t=0;t<Lt;t++) mf_ll[pidx][t].average(mf_store(0,pidx+nmom)[t]);	
+	MesonFieldVectorType & mf_1s_pbase = mf_store(0,pidx);
+	MesonFieldVectorType & mf_1s_palt = mf_store(0,pidx+nmom);
+	
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeGetMany(1,&mf_1s_pbase);
+#endif
+	
+	mf_ll[pidx] = mf_1s_pbase;
+	
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeDistributeMany(1,&mf_1s_pbase);
+	nodeGetMany(1,&mf_1s_palt);
+#endif
+	
+	for(int t=0;t<Lt;t++) mf_ll[pidx][t].average(mf_1s_palt[t]);
+	
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeDistributeMany(1,&mf_1s_palt);
+	if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
+	nodeDistributeMany(1,&mf_ll[pidx]);
+#endif
       }
       
       std::string src_names[2] = {"1s","2s"};
@@ -171,7 +196,15 @@ class ComputePion{
 	  for(int s=0;s<2;s++){
 	    std::ostringstream os; //momenta in units of pi/2L
 	    os << work_dir << "/traj_" << traj << "_pion_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
-	    MesonFieldType::write(os.str(),mf_store(s,pidx + alt*nmom));
+
+	    MesonFieldVectorType &mf_q = mf_store(s,pidx+ alt*nmom);
+	    
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	    nodeGetMany(1,&mf_q);
+#endif
+
+	    MesonFieldType::write(os.str(),mf_q);
+	    for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed
 	  }
 	}
       }
@@ -193,15 +226,16 @@ class ComputePion{
       }
       ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
 
-      for(int pidx=0;pidx<nmom;pidx++)
+      for(int pidx=0;pidx<nmom;pidx++){
 	mf_ll[pidx] = mf_store[pidx];
-    }
-
-    for(int pidx=0;pidx<nmom;pidx++){
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
       if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
       nodeDistributeMany(1,&mf_ll[pidx]);
 #endif
+      }	
+    }
+
+    for(int pidx=0;pidx<nmom;pidx++){
       mf_ll_con.add( pion_mom.getMesonMomentum(pidx), mf_ll[pidx]);	
     }
     

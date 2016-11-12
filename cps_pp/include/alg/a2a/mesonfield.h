@@ -132,6 +132,9 @@ public:
     return fsize * sizeof(ScalarComplexType);
   }
 
+  void free_mem(){
+    if(mf!=NULL){ free(mf); mf = NULL; }
+  }
 
   ~A2AmesonField(){
     if(mf!=NULL) free(mf);
