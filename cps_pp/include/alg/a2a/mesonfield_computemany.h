@@ -170,7 +170,8 @@ struct computeParams{
 class MesonFieldStorageBase{
 protected:
   std::vector<computeParams> clist;
-  void getGPmomParams(int a[3], int k[3], const int p[3]){
+public:
+  static void getGPmomParams(int a[3], int k[3], const int p[3]){
     //Any allowed G-parity quark momentum can be written as   4*\vec a + \vec k   where k=(+1,+1,+1) or (-1,-1,-1)  [replace with zeroes when not Gparity directions]
     //Return the vectors a and k. For non GPBC directions set a[d]=p[d] and k[d]=0
     if(      (p[0]-1) % 4 == 0){
@@ -197,7 +198,6 @@ protected:
   }
 
   
-public:
   void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v, bool use_mf_reln_simpl = false){
     if(!GJP.Gparity() || !use_mf_reln_simpl) clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
     else{
@@ -636,140 +636,124 @@ public:
     
     std::vector<bool> precompute_base_wffts(nspecies,false);
 
-#ifndef DISABLE_FFT_RELN_USAGE
-    //Precompute the limited set of *base* FFTs  (remainder are related to base by cyclic permutation) provided this results in a cost saving
-    for(int s=0;s<nspecies;s++){
-      if(into.nWffts(s) > nbase){
-	precompute_base_wffts[s] = true;
-	if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> precomputing W FFTs for species %d as nFFTs %d > %d\n",s,into.nWffts(s), nbase);
-      }else if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> NOT precomputing W FFTs for species %d as nFFTs %d <= %d\n",s,into.nWffts(s), nbase);
-    }
-
-    std::vector< std::vector<A2AvectorWfftw<mf_Policies>* > > Wfftw_base(nspecies);
-    
-    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory prior to V,W FFT precompute:\n");
-    printMem();
-
-    for(int s=0;s<nspecies;s++){
-      Wfftw_base[s].resize(nbase_max,NULL);
-      
-      for(int b=0;b<nbase;b++){
-	if(precompute_base_wffts[s]){
-	  if(!UniqueID()){ 
-	    printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams())); fflush(stdout);
-	  }
-	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams() );
-	}
-      }
-	
-      if(GJP.Gparity() && precompute_base_wffts[s]){ //0 = +pi/2L  1 = -pi/2L  for each GP dir
-	Wfftw_base[s][0]->gaugeFixTwistFFT(*W[s], p_p1,lattice);
-	Wfftw_base[s][1]->gaugeFixTwistFFT(*W[s], p_m1,lattice);
-      }else if(precompute_base_wffts[s])
-	Wfftw_base[s][0]->gaugeFixTwistFFT(*W[s], p_0,lattice);          
-    } 
-#endif
-
     if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory prior to compute loop:\n");
     printMem();
 
     //We need to group the V shifts by base and species
-    std::vector< std::vector< std::vector<int> > > base_cidx_map(nbase, std::vector<std::vector<int> >(nspecies, std::vector<int>(0) ) );
+    std::vector< std::vector< std::vector< std::vector< std::vector<int> > > > > base_cidx_map(nbase); //[base_v][qidx_v][base_w][qidx_w]
+    for(int bv=0;bv<nbase;bv++){
+      base_cidx_map[bv].resize(nspecies);
+      for(int sv=0;sv<nspecies;sv++){
+	base_cidx_map[bv][sv].resize(nbase);
+	for(int bw=0;bw<nbase;bw++){
+	  base_cidx_map[bv][sv][bw].resize(nspecies, std::vector<int>(0));
+	}
+      }
+    }
+    
     for(int c=0;c<into.nCompute();c++){
       int qidx_w, qidx_v;
       ThreeMomentum p_w, p_v;      
       into.getComputeParameters(qidx_w,qidx_v,p_w,p_v,c);
-      bool match = false;
-      for(int b=0;b<nbase;b++)
-	if(p_v == pbase[b]){
-	  base_cidx_map[b][qidx_v].push_back(c); match = true; break;
-	}
-      if(!match) ERR.General("ComputeMesonFields","compute <shift source>","V momentum %s for species %d of computation %d is not in the set of base momenta\n",p_v.str().c_str(),qidx_v,c);
+      ThreeMomentum p_w_base;   int a[3];
+      MesonFieldStorageBase::getGPmomParams(a,p_w_base.ptr(), p_w.ptr());
+	
+      int base_v = -1;
+      int base_w = -1;
+      
+      for(int b=0;b<nbase;b++){
+	if(p_v == pbase[b]) base_v = b; 
+	if(p_w_base == pbase[b]) base_w = b;
+      }
+
+      if(base_v == -1) ERR.General("ComputeMesonFields","compute <shift source>","V momentum %s for species %d of computation %d is not in the set of base momenta\n",p_v.str().c_str(),qidx_v,c);
+      if(base_w == -1) ERR.General("ComputeMesonFields","compute <shift source>","W momentum %s for species %d of computation %d is not in the set of base momenta\n",p_w_base.str().c_str(),qidx_w,c);
+
+      base_cidx_map[base_v][qidx_v][base_w][qidx_w].push_back(c);
     }
 
     //Do the computations with an outer loop over the base momentum index and species of the Vfftw
-    for(int b=0;b<nbase;b++){
-      const ThreeMomentum &pvb = pbase[b];      
-      for(int s=0;s<nspecies;s++){
-	if(base_cidx_map[b][s].size() == 0) continue;
+    for(int bv=0;bv<nbase;bv++){
+      const ThreeMomentum &pvb = pbase[bv];      
+      for(int sv=0;sv<nspecies;sv++){
+	int count = 0;
+	for(int bw=0;bw<nbase;bw++) for(int sw=0;sw<nspecies;sw++) count += base_cidx_map[bv][sv][bw][sw].size();
+	if(count == 0) continue;
 
 	if(!UniqueID()){ 
-	  printf("ComputeMesonFields::compute <shift source> Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams())); fflush(stdout);
+	  printf("ComputeMesonFields::compute <shift source> Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams())); fflush(stdout);
 	}
-	A2AvectorVfftw<mf_Policies> fftw_V(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams() );
-	fftw_V.gaugeFixTwistFFT(*V[s], pvb.ptr(),lattice);
-	
-	//Now loop over computations with this V
-	for(int cc=0; cc < base_cidx_map[b][s].size(); cc++){
-	  const int cidx = base_cidx_map[b][s][cc];
-	  
-	  typename StorageType::mfComputeInputFormat cdest = into.getMf(cidx);
-	  const typename StorageType::InnerProductType &M = into.getInnerProduct(cidx);
+	A2AvectorVfftw<mf_Policies> fftw_V(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams() );
+	fftw_V.gaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);
 
-	  int qidx_w, qidx_v;
-	  ThreeMomentum p_w, p_v;      
-	  into.getComputeParameters(qidx_w,qidx_v,p_w,p_v,cidx);
+	for(int bw=0;bw<nbase;bw++){
+	  const ThreeMomentum &pwb = pbase[bw];
+	  for(int sw=0;sw<nspecies;sw++){
+	    if(base_cidx_map[bv][sv][bw][sw].size() == 0) continue;
 
-	  assert(p_v == pvb && qidx_v == s);
-	  
-	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
-	  assert(qidx_w < nspecies && qidx_v < nspecies);
-      
+#ifndef DISABLE_FFT_RELN_USAGE
+	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams())); fflush(stdout); }
+	    A2AvectorWfftw<mf_Policies> fftw_W_base(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams() );
+	    fftw_W_base.gaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
+
+	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_0 = bw == 0 ? &fftw_W_base : NULL;
+	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_1 = bw == 1 ? &fftw_W_base : NULL;
+#endif
+
+	    //Now loop over computations with this V, W-base
+	    for(int cc=0; cc < base_cidx_map[bv][sv][bw][sw].size(); cc++){
+	      const int cidx = base_cidx_map[bv][sv][bw][sw][cc];
+	      
+	      typename StorageType::mfComputeInputFormat cdest = into.getMf(cidx);
+	      const typename StorageType::InnerProductType &M = into.getInnerProduct(cidx);
+	      
+	      int qidx_w, qidx_v;
+	      ThreeMomentum p_w, p_v;      
+	      into.getComputeParameters(qidx_w,qidx_v,p_w,p_v,cidx);
+	      
+	      assert(p_v == pvb && qidx_v == sv && qidx_w == sw);
+	      assert(qidx_w < nspecies && qidx_v < nspecies);
+	      
+	      if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Computing mesonfield with W species %d and momentum %s and V species %d and momentum %s\n",qidx_w,p_w.str().c_str(),qidx_v,p_v.str().c_str()); fflush(stdout); }
+
+	      //The memory-saving magic of this approach only works if we have FFT relation usage enabled!
 #ifdef DISABLE_FFT_RELN_USAGE
-	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
-	  A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
-	  fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
+	      if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
+	      A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
+	      fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);	      
 #elif defined(COMPUTEMANY_INPLACE_SHIFT)
-	  A2AvectorWfftw<mf_Policies> *fftw_W_ptr = NULL;
-	  bool delete_fftw_W_ptr = false, restore_fftw_W_ptr = false;
-	  std::vector<int> restore_shift;
+	      
+	      std::vector<int> restore_shift;
 	  
-	  if(precompute_base_wffts[qidx_w]){
-	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Shifting base Wfftw in place\n"); fflush(stdout); }
-	    std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
-	    fftw_W_ptr = inplace.first;
-	    restore_fftw_W_ptr = true; restore_shift = inplace.second;
-	  }else{
-	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
-	    fftw_W_ptr = new A2AvectorWfftw<mf_Policies>(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
-	    fftw_W_ptr->gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
-	    delete_fftw_W_ptr = true;
-	  }
-	  assert( fftw_W_ptr != NULL );
-	  const A2AvectorWfftw<mf_Policies> &fftw_W = *fftw_W_ptr;
+	      if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Shifting base Wfftw in place\n"); fflush(stdout); }
+	      std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > inplace = A2AvectorWfftw<mf_Policies>::inPlaceTwistedFFT(p_w.ptr(), Wfftw_base_0, Wfftw_base_1);
+	      restore_shift = inplace.second;
+	      const A2AvectorWfftw<mf_Policies> &fftw_W = fftw_W_base;
 #else
-	  if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
-	  A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); 
-	  if(precompute_base_wffts[qidx_w])
-	    fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
-	  else
-	    fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
+	      if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
+	      A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); 
+	      fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base_0, Wfftw_base_1);
 #endif
 	  
-	  A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
+	      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
 
 #ifdef COMPUTEMANY_INPLACE_SHIFT
-	  if(delete_fftw_W_ptr) delete fftw_W_ptr;
-	  else if(restore_fftw_W_ptr) fftw_W_ptr->shiftFieldsInPlace(restore_shift);
+	      if(cc != base_cidx_map[bv][sv][bw][sw].size() -1) fftw_W_base.shiftFieldsInPlace(restore_shift);
 #endif
 
-	  if(node_distribute){
-	    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory before distribute:\n");
-	    printMem();
-	    into.nodeDistributeResult(cidx);
-	    if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after distribute:\n");
-	    printMem();
-	  }
-	}//cc
-      }//s
-    }//b
+	      if(node_distribute){
+		if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory before distribute:\n");
+		printMem();
+		into.nodeDistributeResult(cidx);
+		if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after distribute:\n");
+		printMem();
+	      }
+	    }//cc
+	  }//sw
+	}//bw
+      }//sv
+    }//bv
     
-#ifndef DISABLE_FFT_RELN_USAGE
-    for(int s=0;s<nspecies;s++)
-      for(int b=0;b<nbase_max;b++)
-	if(Wfftw_base[s][b] != NULL) delete Wfftw_base[s][b];    
-#endif
-
     if(!UniqueID()) printf("ComputeMesonFields::compute <shift source> Memory after compute loop:\n");
     printMem();
   }
