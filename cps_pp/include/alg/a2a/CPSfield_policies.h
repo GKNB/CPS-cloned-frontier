@@ -11,8 +11,8 @@ struct sameDim{ static const bool val = intEq<polA::EuclideanDimension, polB::Eu
 //AllocPolicy controls mem alloc
 class StandardAllocPolicy{
  protected:
-  inline static void* _alloc(const size_t byte_size){
-    return smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
+  inline static void _alloc(void** p, const size_t byte_size){
+    *p = smalloc("CPSfield", "CPSfield", "alloc" , byte_size);
   }
   inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
@@ -20,8 +20,8 @@ class StandardAllocPolicy{
 };
 class Aligned128AllocPolicy{
  protected:
-  inline static void* _alloc(const size_t byte_size){
-    return memalign(128,byte_size);
+  inline static void _alloc(void** p, const size_t byte_size){
+    *p = memalign(128,byte_size);
   }
   inline static void _free(void* p){
     free(p);
@@ -29,12 +29,35 @@ class Aligned128AllocPolicy{
 };
 class NullAllocPolicy{
  protected:
-  inline static void* _alloc(const size_t byte_size){
-    return NULL;
+  inline static void _alloc(void** p, const size_t byte_size){
+    *p = NULL;
   }
   inline static void _free(void* p){
   }
 };
+class ManualAllocPolicy{
+  void** ptr;
+  std::size_t bs;
+ protected:
+  inline void _alloc(void** p, const size_t byte_size){
+    ptr = p; bs = byte_size; *p = NULL;
+  }
+  inline static void _free(void* p){
+    if(p!=NULL) sfree("CPSfield","CPSfield","free",p);
+  }
+ public:
+  inline void allocField(){
+    if(*ptr == NULL)
+      *ptr = smalloc("CPSfield", "CPSfield", "alloc" , bs);
+  }
+  inline void freeField(){
+    if(*ptr != NULL){
+      sfree("CPSfield","CPSfield","free",*ptr);
+      *ptr = NULL;
+    }
+  } 
+};
+
 
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 

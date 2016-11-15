@@ -23,7 +23,7 @@ protected:
   int fsize; //number of SiteType in the array = SiteSize * fsites
   
   void alloc(){
-    f = (SiteType*)this->_alloc(fsize*sizeof(SiteType));
+    this->_alloc((void**)&f, fsize*sizeof(SiteType));
   }
   void freemem(){
     this->_free((void*)f);
@@ -86,7 +86,10 @@ public:
     std::size_t out = SiteSize * sizeof(SiteType);
     return tmp.nfsites() * out;
   }
-
+  std::size_t byte_size() const{
+    return this->nfsites() * SiteSize * sizeof(SiteType);
+  }
+  
   //Set each element to a uniform random number in the specified range.
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);

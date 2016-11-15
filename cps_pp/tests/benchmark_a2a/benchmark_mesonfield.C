@@ -325,7 +325,7 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<cps::ComplexD>();
   //if(0) testFFTopt<Grid::vComplexD>();
 
-  if(1) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
+  if(0) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
   
   //if(0) testVVdag<cps::ComplexD>(lattice);
   if(0) testVVdag<Grid::vComplexD>(lattice);
@@ -334,9 +334,6 @@ int main(int argc,char *argv[])
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
     printvType(v);
 
-    
-    
-    
     Grid::vComplexF::conv_t* conv = reinterpret_cast<Grid::vComplexF::conv_t*>(&v.v);
     conv->s[0] = 0.0; conv->s[1] = 1.0; conv->s[2] = 2.0; conv->s[3] = 3.0;
 
@@ -344,7 +341,20 @@ int main(int argc,char *argv[])
 
   }
 
+  {
+    NullObject null_obj;
+    CPSfield<cps::ComplexD,12,FourDpolicy,DynamicFlavorPolicy,ManualAllocPolicy> ftest(null_obj);
+    assert(ftest.ptr() == NULL);
 
+    ftest.allocField();
+    assert(ftest.ptr() != NULL);
+
+    ftest.freeField();
+    assert(ftest.ptr() == NULL);
+    printf("Passed manual alloc test\n"); fflush(stdout);
+    exit(0);
+  }
+      
 
 
 

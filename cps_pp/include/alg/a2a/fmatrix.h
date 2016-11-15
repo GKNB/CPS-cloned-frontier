@@ -217,7 +217,7 @@ public:
     free_mem();
     thread_size = _thread_size; nthread = _nthread;
     size = _thread_size * _nthread;
-    con = (mf_Complex*)AllocPolicy::_alloc(size*sizeof(mf_Complex));
+    this->_alloc(&con, size*sizeof(mf_Complex));
     memset((void*)con, 0, size * sizeof(mf_Complex));
   }
   ~basicComplexArray(){
