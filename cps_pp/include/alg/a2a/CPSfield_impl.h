@@ -472,7 +472,7 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 struct _gauge_fix_site_op_impl{
   
   template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
     mf_Complex tmp[3];
@@ -480,12 +480,15 @@ struct _gauge_fix_site_op_impl{
     mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
     for(int s=0;s<4;s++){
       memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
-      colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+      if(!dagger)
+	colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+      else
+	colorMatrixDaggerMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);      
     }
   }
 #ifdef USE_GRID
   template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     //x4d is an outer site index
     int nsimd = field.Nsimd();
     int ndim = DimensionPolicy::EuclideanDimension;
@@ -526,8 +529,12 @@ struct _gauge_fix_site_op_impl{
     for(int s=0;s<4;s++){
       mf_Complex* s_base = sc_base + 3 * s;
       memcpy(tmp, s_base, 3 * sizeof(mf_Complex));
-      for(int i=0;i<3;i++)
-	s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+      if(!dagger)
+	for(int i=0;i<3;i++)
+	  s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+      else
+	for(int i=0;i<3;i++)
+	  s_base[i] = conjugate(gfmat[0][i])*tmp[0] + conjugate(gfmat[1][i])*tmp[1] + conjugate(gfmat[2][i])*tmp[2];
     }
     free(tmp);
   }
@@ -539,8 +546,8 @@ struct _gauge_fix_site_op_impl{
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
-  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat);
+void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
+  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat,dagger);
 }
 
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -628,19 +635,19 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phas
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat,const bool dagger){
   int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat);
+  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat,dagger);
 }
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
   if(parallel){
 #pragma omp parallel for
     for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat);
+      gauge_fix_site_op(fi,lat,dagger);
   }else{
     for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat);
+      gauge_fix_site_op(fi,lat,dagger);
   }
 }
 

@@ -232,11 +232,52 @@ public:
   template<typename GridField>
   void exportGridField(GridField &grid) const;
 #endif
-    
+
+  CPSfield & operator+=(const CPSfield &r){
+#pragma omp parallel for
+    for(int i=0;i<fsize;i++) f[i] += r.f[i];
+    return *this;
+  }
+  CPSfield & operator-=(const CPSfield &r){
+#pragma omp parallel for
+    for(int i=0;i<fsize;i++) f[i] -= r.f[i];
+    return *this;
+  }
+
+  CPSfield operator+(const CPSfield &r) const{
+    CPSfield out(*this); out += r;
+    return out;
+  }
+  CPSfield operator-(const CPSfield &r){
+    CPSfield out(*this); out -= r;
+    return out;
+  }
 };
 
+#define INHERIT_TYPEDEFS(...) \
+  typedef typename __VA_ARGS__::FieldSiteType FieldSiteType; \
+  typedef typename __VA_ARGS__::FieldDimensionPolicy FieldDimensionPolicy; \
+  typedef typename __VA_ARGS__::FieldFlavorPolicy FieldFlavorPolicy; \
+  typedef typename __VA_ARGS__::FieldAllocPolicy FieldAllocPolicy; \
+  typedef typename __VA_ARGS__::InputParamType InputParamType; \
+  enum { FieldSiteSize = __VA_ARGS__::FieldSiteSize }
 
 
+#define DEFINE_ADDSUB_DERIVED(DerivedType) \
+  DerivedType & operator+=(const DerivedType &r){ \
+    this->CPSfield<FieldSiteType,FieldSiteSize,FieldDimensionPolicy,FieldFlavorPolicy,FieldAllocPolicy>::operator+=(r); return *this; \
+  } \
+  DerivedType & operator-=(const DerivedType &r){ \
+    this->CPSfield<FieldSiteType,FieldSiteSize,FieldDimensionPolicy,FieldFlavorPolicy,FieldAllocPolicy>::operator-=(r); return *this; \
+  } \
+  DerivedType operator+(const DerivedType &r) const{ \
+    DerivedType out(*this); out += r; \
+    return out; \
+  } \
+  DerivedType operator-(const DerivedType &r){ \
+    DerivedType out(*this); out -= r; \
+    return out; \
+  }
 
 
 
@@ -244,7 +285,7 @@ public:
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion: public CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>{
 protected:
-  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat);
+  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat,const bool dagger = false);
 
   static void getMomentumUnits(double punits[3]);
 
@@ -254,8 +295,7 @@ protected:
   void apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]);
 
 public:
-  enum { FieldSiteSize = 12 };
-  typedef typename CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>);
   
   CPSfermion(): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
   CPSfermion(const InputParamType &params): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
@@ -285,7 +325,8 @@ class CPSfermion3D: public CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,Allo
   template< typename mf_Complex2, typename FlavorPolicy2>
   friend struct _ferm3d_gfix_impl;
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion3D(): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy>(){}
   CPSfermion3D(const CPSfermion3D<mf_Complex> &r): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
 
@@ -298,16 +339,17 @@ public:
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool &parallel);
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion3D);
 };
 
 template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion4D: public CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>{
   typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
-  void gauge_fix_site_op(int fi, Lattice &lat);
+  void gauge_fix_site_op(int fi, Lattice &lat, const bool dagger = false);
   void apply_phase_site_op(int sf,const int p[],double punits[]);
-public:
-  enum { FieldSiteSize = 12 };
-  typedef typename CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+public:  
+  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>);
   
   CPSfermion4D(): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(){}
   CPSfermion4D(const InputParamType &params): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
@@ -316,7 +358,8 @@ public:
   //Apply gauge fixing matrices to the field. 
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
   //that this field represents to obtain the gauge-fixing matrix. I fixed this for CPSfermion3D and a similar implementation will work here
-  void gaugeFix(Lattice &lat, const bool &parallel);
+  //dagger = true  applied V^\dagger to the vector to invert a previous gauge fix
+  void gaugeFix(Lattice &lat, const bool parallel, const bool dagger = false);
 
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
@@ -324,11 +367,15 @@ public:
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion4D);
 };
 
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5D: public CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>{
 public:
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion5D(): CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSfermion5D(const CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(r){}
   
@@ -377,10 +424,7 @@ public:
   }
 #endif
 
-
-
-
-
+  DEFINE_ADDSUB_DERIVED(CPSfermion5D);
 };
 
 
@@ -388,8 +432,8 @@ template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename 
 class CPScomplex4D: public CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>{
   typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
 public:
-  enum { FieldSiteSize = 1 };
-  typedef typename CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>);
+  
   CPScomplex4D(): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPScomplex4D(const InputParamType &params): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
   CPScomplex4D(const CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
@@ -399,16 +443,20 @@ public:
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
+
+  DEFINE_ADDSUB_DERIVED(CPScomplex4D);
 };
 
 //3d complex number field
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>{
-
 public:
-  enum { FieldSiteSize = 1 };
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>);
+  
   CPScomplexSpatial(): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPScomplexSpatial(const CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPScomplexSpatial);
 };
 
 //Lattice-spanning 'global' 3d complex field
@@ -420,7 +468,8 @@ class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy,
 	    typename complex_class, int extEuclDim>
   friend struct _CPSglobalComplexSpatial_scatter_impl;
 public:
-  enum { FieldSiteSize = 1 };
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>);
+  
   CPSglobalComplexSpatial(): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSglobalComplexSpatial(const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
   
@@ -430,6 +479,8 @@ public:
   //Scatter to a local field
   template<typename extComplex, typename extDimPolicy, typename extAllocPolicy>
   void scatter(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to) const;
+
+  DEFINE_ADDSUB_DERIVED(CPSglobalComplexSpatial);
 };
 
 
@@ -437,7 +488,8 @@ public:
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = SiteSize };
+  INHERIT_TYPEDEFS(CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>);
+  
   CPSfieldGlobalInOneDir(const int &dir): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(dir){}
   CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
@@ -451,21 +503,29 @@ public:
 
   //Perform a fast Fourier transform along the principal direction. It currently assumes the DimensionPolicy has the sites mapped in canonical ordering
   void fft();
+
+  DEFINE_ADDSUB_DERIVED(CPSfieldGlobalInOneDir);
 };
 
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion4DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
   CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion4DglobalInOneDir);
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion3DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
   CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion3DglobalInOneDir);
 };
 
 
@@ -473,25 +533,34 @@ public:
 template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dprec: public CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion5Dprec(): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSfermion5Dprec(const CPSfermion5Dprec<mf_Complex,CBpolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion5Dprec);
 };
 
 
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>);
+
   CPSfermion5Dcb4Deven(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(){}
   CPSfermion5Dcb4Deven(const CPSfermion5Dcb4Deven<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Deven);
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
-  enum { FieldSiteSize = 12 };
+  INHERIT_TYPEDEFS(CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>);
+  
   CPSfermion5Dcb4Dodd(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(){}
   CPSfermion5Dcb4Dodd(const CPSfermion5Dcb4Dodd<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(r){}
+
+  DEFINE_ADDSUB_DERIVED(CPSfermion5Dcb4Dodd);
 };
 
 

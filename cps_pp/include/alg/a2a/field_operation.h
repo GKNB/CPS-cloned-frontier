@@ -14,7 +14,9 @@ template <typename FieldType>
 class twist: public fieldOperation<FieldType>{
   int p[3];
 public:
-  twist(const int _p[3]){ for(int i=0;i<3;i++) p[i] = _p[i]; }
+  twist(const int _p[3]){
+    memcpy(p,_p,3*sizeof(int));
+  }
 
   void operator()(const FieldType &in, FieldType &out){
     //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
@@ -30,8 +32,9 @@ template <typename FieldType>
 class gaugeFixAndTwist: public fieldOperation<FieldType>{
   int p[3];
   Lattice *lat;
+  
 public:
-  gaugeFixAndTwist(const int _p[3], Lattice &_lat): lat(&_lat){ for(int i=0;i<3;i++) p[i] = _p[i]; }
+  gaugeFixAndTwist(const int _p[3], Lattice &_lat): lat(&_lat){ memcpy(p,_p,3*sizeof(int)); }
 
   void operator()(const FieldType &in, FieldType &out){
     //Gauge fix and apply phase in parallel (i.e. don't parallelize over modes)
@@ -42,6 +45,28 @@ public:
 #endif
   }
 };
+
+
+//Apply the inverse of the above 
+template <typename FieldType>
+class reverseGaugeFixAndTwist: public fieldOperation<FieldType>{
+  int mp[3];
+  Lattice *lat;
+  
+public:
+  reverseGaugeFixAndTwist(const int p[3], Lattice &_lat): lat(&_lat){ for(int i=0;i<3;i++) mp[i] = -p[i]; }
+
+  void operator()(const FieldType &in, FieldType &out){
+    out = in;
+#ifndef MEMTEST_MODE
+    out.applyPhase(mp,true); //apply - the phase
+    out.gaugeFix(*lat,true,true); //last bool is optional dagger
+#endif
+  }
+};
+
+
+
 
 CPS_END_NAMESPACE
 

@@ -1269,9 +1269,65 @@ void testFFTopt(){
 
   assert( out1.equals(out2, 1e-8, true ) );
   printf("Passed FFT test\n");
+
+  //Test inverse
+  FieldType inv(fp);
+  fft_opt(inv,out2,do_dirs,true);
+
+  assert( inv.equals(in, 1e-8, true ) );
+  printf("Passed FFT inverse test\n");  
 }
 
+template<typename mf_Complex>
+void testVVdag(Lattice &lat){
+  typedef _deduce_a2a_dim_alloc_policies<typename ComplexClassify<mf_Complex>::type> FieldPolicies;
+  
+  typedef CPSfermion4D<mf_Complex,typename FieldPolicies::DimensionPolicy,OneFlavorPolicy, typename FieldPolicies::AllocPolicy> FieldType;
+  typedef typename FieldType::InputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+  if(lat.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
 
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+
+  FieldType a(fp);
+  a.testRandom();
+  
+  FieldType Va(a);
+  Va.gaugeFix(lat,true,false); //parallel, no dagger
+
+  printRow(a,0,"a");
+  printRow(Va,0,"Va");
+  
+  FieldType VdagVa(Va);
+  VdagVa.gaugeFix(lat,true,true);
+
+  printRow(VdagVa,0,"VdagVa");
+
+  assert( VdagVa.equals(a, 1e-8, true) );
+
+  FieldType diff = VdagVa - a;
+  printRow(diff,0,"diff");
+
+  double n2 = diff.norm2();
+  printf("Norm diff = %g\n",n2);
+
+  FieldType zro(fp); zro.zero();
+
+  assert( diff.equals(zro,1e-12,true));
+  
+}
 
 
 

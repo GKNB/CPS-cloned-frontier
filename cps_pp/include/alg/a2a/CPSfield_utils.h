@@ -518,7 +518,7 @@ void fft(CPSfieldType &fftme, const bool* do_dirs){
 }
 
 template<typename CPSfieldType>
-void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
   enum { Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
@@ -530,18 +530,6 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   std::vector<int> node_map;
   getMPIrankMap(node_map);
 
-  // if(!UniqueID()){
-  //   printf("Node mapping:\n");
-  //   for(int t=0;t<GJP.Tnodes();t++)
-  //     for(int z=0;z<GJP.Znodes();z++)
-  // 	for(int y=0;y<GJP.Ynodes();y++)
-  // 	  for(int x=0;x<GJP.Xnodes();x++){
-  // 	    int coor[4] = {x,y,z,t};
-  // 	    int n = node_lex(coor,4);
-  // 	    printf("(%d,%d,%d,%d) -> %d\n",x,y,z,t,node_map[n]);
-  // 	  }
-  // }
-  
   CPSfieldType tmp(from.getDimPolParams());
 
   //we want the last fft to end up in 'into'. Intermediate FFTs cycle between into and tmp as temp storage. Thus for odd ndirs_fft, the first fft should output to 'into', for even it should output to 'tmp'
@@ -559,7 +547,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   for(int mu=0; mu<Dimension; mu++){
     if(do_dirs[mu]){
       CPSfieldType const *msrc = fft_count == 0 ? &from : src;
-      fft_opt_mu(*out, *msrc, mu, node_map);
+      fft_opt_mu(*out, *msrc, mu, node_map, inverse_transform);
       ++fft_count;
       std::swap(src,out);      
     }
@@ -567,7 +555,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
 }
 
 template<typename CPSfieldType>
-void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map,
+void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
   enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
@@ -584,7 +572,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const int mutotalsites = munodesites*munodes;
   const int munodecoor = GJP.NodeCoor(mu);
   const int n_orthdirs = Dimension - 1;
-      
+  FloatType Lmu(mutotalsites);
+  
   int orthdirs[n_orthdirs]; //map of orthogonal directions to mu
   int total_work_munodes = 1; //sites orthogonal to FFT direction
   int o=0;
@@ -669,29 +658,33 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
 
   //if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
-      
+
+  int fft_phase = inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD;
+  
   static typename FFTWwrapper<FloatType>::planType plan_f_base[Dimension];
   static typename FFTWwrapper<FloatType>::planType plan_f_base_p1[Dimension];
       
   static int plan_howmany[Dimension];
   static bool plan_init = false;
-
-  if(!plan_init || plan_howmany[mu] != howmany){
+  static int plan_fft_phase;
+  
+  if(!plan_init || plan_howmany[mu] != howmany || fft_phase != plan_fft_phase){
     if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
 
     typename FFTWwrapper<FloatType>::complexType *tmp_f; //I don't think it actually does anything with this
 
+    plan_fft_phase = fft_phase;
     const int fft_work_per_musite = howmany_per_thread_base;
     const int musite_stride = howmany; //stride between musites
 	
     plan_f_base[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite, 
 							    tmp_f, NULL, musite_stride, 1,
 							    tmp_f, NULL, musite_stride, 1,
-							    FFTW_FORWARD, FFTW_ESTIMATE);
+							    plan_fft_phase, FFTW_ESTIMATE);
     plan_f_base_p1[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite+1, 
 							       tmp_f, NULL, musite_stride, 1,
 							       tmp_f, NULL, musite_stride, 1,
-							       FFTW_FORWARD, FFTW_ESTIMATE);	
+							       plan_fft_phase, FFTW_ESTIMATE);	
     plan_init = true; //other mu's will still init later
   }
   FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
@@ -729,6 +722,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Poke into output
   for(int i=0;i<munodes;i++){
+#pragma omp parallel for
     for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
       const int orthsite = munodes_off[i] + w;
       int coor_base[Dimension] = {0};
@@ -745,7 +739,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 	  coor_base[mu] = xmu;
 	  ComplexType* to = into.site_ptr(coor_base,f);
 	  ComplexType const* frm = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );
-	  memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	  if(!inverse_transform) memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	  else for(int s=0;s<SiteSize;s++) to[s] = frm[s]/Lmu;
 	}
       }
     }
@@ -760,7 +755,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
 #ifdef USE_GRID
 template<typename CPSfieldType>
-void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	     ){ //we can avoid the copies below but with some effort - do at some point
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
@@ -771,7 +766,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   ScalarFieldType tmp_in(null_obj);
   ScalarFieldType tmp_out(null_obj);
   tmp_in.importField(from);
-  fft_opt(tmp_out, tmp_in, do_dirs);
+  fft_opt(tmp_out, tmp_in, do_dirs, inverse_transform);
   tmp_out.exportField(into);
 }
 #endif

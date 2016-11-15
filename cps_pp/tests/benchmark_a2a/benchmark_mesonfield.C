@@ -324,6 +324,8 @@ int main(int argc,char *argv[])
 
   if(1) testFFTopt<cps::ComplexD>();
   //if(0) testFFTopt<Grid::vComplexD>();
+
+  if(0) testVVdag<cps::ComplexD>(lattice);
   
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();

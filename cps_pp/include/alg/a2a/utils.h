@@ -23,6 +23,31 @@ void colorMatrixMultiplyVector(VecFloat* y, const MatFloat* u, const VecFloat* x
 	*(y+5) =  *(u+12) * *(x+1) + *(u+13) * *x     + *(u+14) * *(x+3)
 		+ *(u+15) * *(x+2) + *(u+16) * *(x+5) + *(u+17) * *(x+4);
 }
+//M^\dagger v
+
+//0 ,1    2 ,3    4 ,5
+//6 ,7    8 ,9    10,11
+//12,13   14,15   16,17
+//->
+//0 ,-1   6 ,-7   12,-13
+//2 ,-3   8 ,-9   14,-15 
+//4 ,-5   10,-11  16,-17
+
+template<typename VecFloat, typename MatFloat>
+void colorMatrixDaggerMultiplyVector(VecFloat* y, const MatFloat* u, const VecFloat* x){
+	*y     =  *u      * *x     + *(u+1)  * *(x+1) + *(u+6)  * *(x+2)	  
+		+ *(u+7)  * *(x+3) + *(u+12)  * *(x+4) + *(u+13)  * *(x+5);
+	*(y+1) =  *u      * *(x+1) - *(u+1)  * *x     + *(u+6)  * *(x+3)	  
+		- *(u+7)  * *(x+2) + *(u+12)  * *(x+5) - *(u+13)  * *(x+4);	
+	*(y+2) =  *(u+2)  * *x     + *(u+3)  * *(x+1) + *(u+8)  * *(x+2)	  
+		+ *(u+9)  * *(x+3) + *(u+14) * *(x+4) + *(u+15) * *(x+5);	
+	*(y+3) =  *(u+2)  * *(x+1) - *(u+3)  * *x     + *(u+8)  * *(x+3)	  
+		- *(u+9)  * *(x+2) + *(u+14) * *(x+5) - *(u+15) * *(x+4);	
+	*(y+4) =  *(u+4) * *x     + *(u+5) * *(x+1) + *(u+10) * *(x+2)	  
+		+ *(u+11) * *(x+3) + *(u+16) * *(x+4) + *(u+17) * *(x+5);	
+	*(y+5) =  *(u+4) * *(x+1) - *(u+5) * *x     + *(u+10) * *(x+3)	  
+		- *(u+11) * *(x+2) + *(u+16) * *(x+5) - *(u+17) * *(x+4);
+}
 
 //Array *= with cps::Float(=double) input and arbitrary precision output
 template<typename FloatOut,typename FloatIn>
@@ -567,6 +592,36 @@ inline void getMPIrankMap(std::vector<int> &map){
   int ret = MPI_Allreduce(node_map_send, &map[0], nodes, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
   assert(ret == MPI_SUCCESS);
   free(node_map_send);
+}
+
+//Invert 3x3 complex matrix. Expect elements accessible as  row*3 + col
+//0 1 2
+//3 4 5
+//6 7 8
+
+//+ - +
+//- + -
+//+ - +
+
+template<typename Zout, typename Zin>
+void z3x3_invert(Zout* out, Zin const* in){
+  out[0] = in[4]*in[8]-in[7]*in[5];
+  out[1] = -in[3]*in[8]+in[6]*in[5];
+  out[2] = in[3]*in[7]-in[6]*in[4];
+
+  out[3] = -in[1]*in[8]+in[7]*in[2];
+  out[4] = in[0]*in[8]-in[6]*in[2];
+  out[5] = -in[0]*in[7]+in[6]*in[1];
+
+  out[6] = in[1]*in[5]-in[4]*in[2];
+  out[7] = -in[0]*in[5]+in[3]*in[2];
+  out[8] = in[0]*in[4]-in[3]*in[1];
+  
+  Zout det = in[0]*out[0] + in[1]*out[1] + in[2]*out[2];
+
+  out[0] /= det; out[1] /= det; out[2] /= det;
+  out[3] /= det; out[4] /= det; out[5] /= det;
+  out[6] /= det; out[7] /= det; out[8] /= det;
 }
 
 
