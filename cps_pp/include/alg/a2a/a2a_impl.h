@@ -59,6 +59,39 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
   print_time("A2AvectorVfftw::fft","Preop",preop_time);
   print_time("A2AvectorVfftw::fft","FFT",fft_time);
 }
+template< typename mf_Policies>
+void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
+  if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
+  typedef typename FermionFieldType::InputParamType FieldParamType;
+  FieldParamType field_setup = this->getMode(0).getDimPolParams();  
+  FermionFieldType tmp(field_setup);
+  
+  Float postop_time = 0;
+  Float fft_time = 0;
+
+  const bool fft_dirs[4] = {true,true,true,false};
+  
+  for(int mode=0;mode<nv;mode++){
+    FermionFieldType* out = mode_postop == NULL ? &to.getMode(mode) : &tmp;
+    
+    Float dtime = dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(*out, this->getMode(mode), fft_dirs, true);
+#endif
+
+    if(mode_postop != NULL){
+      Float dtime = dclock();
+      (*mode_postop)(tmp,to.getMode(mode));
+      postop_time += dclock()-dtime;
+    }
+    fft_time += dclock() - dtime;
+  }
+  if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
+  print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
+  print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
+}
+
+
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
@@ -111,6 +144,62 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
   print_time("A2AvectorWfftw::fft","Preop",preop_time);
   print_time("A2AvectorWfftw::fft","FFT",fft_time);
 }
+
+template< typename mf_Policies>
+void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
+  if(!UniqueID()){ printf("Doing W inverse FFT\n"); fflush(stdout); }
+  typedef typename FermionFieldType::InputParamType FieldParamType;
+  FieldParamType field_setup = this->getWh(0,0).getDimPolParams();  
+  FermionFieldType tmp(field_setup), tmp2(field_setup);
+
+  Float postop_time = 0;
+  Float fft_time = 0;
+
+  const bool fft_dirs[4] = {true,true,true,false};
+  
+  //Do wl
+  for(int mode=0;mode<nl;mode++){
+    FermionFieldType * unfft_to = mode_postop == NULL ? &to.getWl(mode) : &tmp;
+
+    Float dtime = dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(*unfft_to, this->wl[mode], fft_dirs, true);
+#endif
+    fft_time += dclock() - dtime;
+
+    if(mode_postop != NULL){
+      Float dtime = dclock();
+      (*mode_postop)(tmp,to.getWl(mode));
+      postop_time += dclock()-dtime;
+    }
+  }
+  //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
+  for(int hit=0;hit<nhits;hit++){
+    ComplexFieldType & to_hit = to.getWh(hit);
+    
+    const int sc = 0;
+    FermionFieldType * compress = mode_postop == NULL ? &tmp2 : &tmp;
+    Float dtime = dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(tmp2, this->wh[sc+12*hit], fft_dirs, true);
+#endif
+    fft_time += dclock()-dtime;
+
+    if(mode_postop != NULL){
+      Float dtime = dclock();
+      (*mode_postop)(tmp,tmp2);
+      postop_time += dclock()-dtime;
+    }
+    //Should give a multiple of the 12-component unit vector with 1 on index sc
+#pragma omp parallel for
+    for(int i=0;i<to_hit.nfsites();i++)
+      *(to_hit.fsite_ptr(i)) = *(compress->fsite_ptr(i) + sc);  
+  }
+  if(!UniqueID()){ printf("Finishing W inverse FFT\n"); fflush(stdout); }
+  print_time("A2AvectorWfftw::fftinverse","FFT",fft_time);
+  print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
+}
+
 
 
 //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this

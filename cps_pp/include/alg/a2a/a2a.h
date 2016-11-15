@@ -141,9 +141,15 @@ public:
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorV<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
 
+  void inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
+  
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
+  }
+  //Unapply the phase and gauge fixing to give back a V vector
+  void unapplyGaugeFixTwistFFT(A2AvectorV<Policies> &to, const int _p[3], Lattice &_lat) const{
+    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
 
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
@@ -379,9 +385,15 @@ public:
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorW<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
 
+  void inversefft(A2AvectorW<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
+  
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
+  }
+  //Unapply the phase and gauge fixing to give back a V vector
+  void unapplyGaugeFixTwistFFT(A2AvectorW<Policies> &to, const int _p[3], Lattice &_lat) const{
+    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
 
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum

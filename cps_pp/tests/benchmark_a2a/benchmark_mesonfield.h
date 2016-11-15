@@ -1279,6 +1279,74 @@ void testFFTopt(){
 }
 
 template<typename mf_Complex>
+void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
+  assert(GJP.Gparity());
+
+  if(lat.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
+
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+  
+  typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
+  typedef typename A2Apolicies_ext::SourcePolicies SourcePolicies;
+  
+  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+
+  typedef typename A2Apolicies_ext::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
+
+  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  W.testRandom();
+  V.testRandom();
+
+  int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
+  int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
+  
+  A2AvectorVfftw<A2Apolicies_ext> Vfft(a2a_args,fp);
+  Vfft.fft(V);
+
+  A2AvectorV<A2Apolicies_ext> Vrec(a2a_args,fp);
+  Vfft.inversefft(Vrec);
+
+  for(int i=0;i<V.getNmodes();i++){
+    assert( Vrec.getMode(i).equals( V.getMode(i), 1e-08, true) ); 
+  }
+  if(!UniqueID()) printf("Passed V fft/inverse test\n");
+
+  A2AvectorWfftw<A2Apolicies_ext> Wfft(a2a_args,fp);
+  Wfft.fft(W);
+
+  A2AvectorW<A2Apolicies_ext> Wrec(a2a_args,fp);
+  Wfft.inversefft(Wrec);
+
+  for(int i=0;i<W.getNl();i++){
+    assert( Wrec.getWl(i).equals( W.getWl(i), 1e-08, true) ); 
+  }
+  if(!UniqueID()) printf("Passed Wl fft/inverse test\n"); 
+
+  for(int i=0;i<W.getNhits();i++){
+    assert( Wrec.getWh(i).equals( W.getWh(i), 1e-08, true) ); 
+  }
+  if(!UniqueID()) printf("Passed Wh fft/inverse test\n"); 
+  
+  
+}
+
+
+template<typename mf_Complex>
 void testVVdag(Lattice &lat){
   typedef _deduce_a2a_dim_alloc_policies<typename ComplexClassify<mf_Complex>::type> FieldPolicies;
   
@@ -1326,7 +1394,6 @@ void testVVdag(Lattice &lat){
   FieldType zro(fp); zro.zero();
 
   assert( diff.equals(zro,1e-12,true));
-  
 }
 
 

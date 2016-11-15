@@ -322,10 +322,13 @@ int main(int argc,char *argv[])
   if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
   if(0) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
 
-  if(1) testFFTopt<cps::ComplexD>();
+  if(0) testFFTopt<cps::ComplexD>();
   //if(0) testFFTopt<Grid::vComplexD>();
 
-  if(0) testVVdag<cps::ComplexD>(lattice);
+  if(1) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
+  
+  //if(0) testVVdag<cps::ComplexD>(lattice);
+  if(0) testVVdag<Grid::vComplexD>(lattice);
   
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();

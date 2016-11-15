@@ -42,7 +42,7 @@ public:
     this->setFlavors(flavors); //from FlavorPolicy
     this->setSites(sites,fsites,flavors); //from DimensionPolicy
     fsize = fsites * SiteSize;
-    alloc(); //zero();  //Don't automatically zero
+    alloc();
   }
   CPSfield(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): fsize(r.fsize), flavors(r.flavors),sites(r.sites),fsites(r.fsites), DimensionPolicy(r){
     alloc();
