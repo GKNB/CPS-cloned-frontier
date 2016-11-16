@@ -52,7 +52,7 @@ public:
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType*> v;
-  
+
 public:
   typedef StandardIndexDilution DilutionType;
 
@@ -68,7 +68,7 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
-
+  
   ~A2AvectorV(){ this->freeFields(v); }
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
@@ -124,7 +124,7 @@ public:
   typedef StandardIndexDilution DilutionType;
 
   A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
-    v.resize(nv, NULL);
+    v.resize(nv);
     this->allocInitializeFields(v,NullObject());
   }
   A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
@@ -153,6 +153,10 @@ public:
 		      typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type = 0);
   
   void inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
+
+  template<typename P = Policies>
+  void destructiveInversefft(A2AvectorV<P> &to, fieldOperation<typename P::FermionFieldType>* mode_postop = NULL,
+			     typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type = 0);
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat){

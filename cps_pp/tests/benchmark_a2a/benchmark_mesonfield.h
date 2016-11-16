@@ -1437,7 +1437,15 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
   for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) != NULL);
 
+  
+  A2AvectorV<ManualAllocA2Apolicies> Vrec(a2a_args,fp);
+  Vfft.destructiveInversefft(Vrec);
 
+  for(int i=0;i<Vrec.getNmodes();i++) assert( &Vrec.getMode(i) != NULL);
+  for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) == NULL); 
+
+  printf("Passed destructive FFT test\n");
+  
   
   //A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp);
   

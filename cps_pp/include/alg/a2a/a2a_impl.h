@@ -103,39 +103,58 @@ void A2AvectorVfftw<mf_Policies>::destructivefft(A2AvectorV<P> &from, fieldOpera
 
 
 
-template< typename mf_Policies>
-void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
-  if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
-  typedef typename FermionFieldType::InputParamType FieldParamType;
-  FieldParamType field_setup = this->getMode(0).getDimPolParams();  
-  FermionFieldType tmp(field_setup);
-  
-  Float postop_time = 0;
-  Float fft_time = 0;
+template<typename OutputType, typename InputType, typename FFTfieldPolicy>
+struct _V_invfft_impl{
+  typedef typename InputType::FermionFieldType FermionFieldType;
 
-  const bool fft_dirs[4] = {true,true,true,false};
+  static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
+    if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
+    typedef typename FermionFieldType::InputParamType FieldParamType;
+    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
+    FermionFieldType tmp(field_setup);
   
-  for(int mode=0;mode<nv;mode++){
-    FermionFieldType* out = mode_postop == NULL ? &to.getMode(mode) : &tmp;
+    Float postop_time = 0;
+    Float fft_time = 0;
+
+    const bool fft_dirs[4] = {true,true,true,false};
+  
+    for(int mode=0;mode<from.getNmodes();mode++){
+      FFTfieldPolicy::actionOutputMode(to, mode); //alloc
+      
+      FermionFieldType* out = mode_postop == NULL ? &to.getMode(mode) : &tmp;
     
-    Float dtime = dclock();
+      Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(*out, this->getMode(mode), fft_dirs, true);
+      cps::fft_opt(*out, from.getMode(mode), fft_dirs, true);
 #endif
 
-    if(mode_postop != NULL){
-      Float dtime = dclock();
-      (*mode_postop)(tmp,to.getMode(mode));
-      postop_time += dclock()-dtime;
+      FFTfieldPolicy::actionInputMode(from, mode); //alloc
+      
+      if(mode_postop != NULL){
+	Float dtime = dclock();
+	(*mode_postop)(tmp,to.getMode(mode));
+	postop_time += dclock()-dtime;
+      }
+      fft_time += dclock() - dtime;
     }
-    fft_time += dclock() - dtime;
+    if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
+    print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
+    print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
   }
-  if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
-  print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
-  print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
+};
+
+
+template< typename mf_Policies>
+void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
+  _V_invfft_impl<A2AvectorV<Policies>, const A2AvectorVfftw<mf_Policies>, FFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
 }
 
-
+template< typename mf_Policies>
+template<typename P>
+void A2AvectorVfftw<mf_Policies>::destructiveInversefft(A2AvectorV<P> &to, fieldOperation<typename P::FermionFieldType>* mode_postop,
+						 typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type){
+  _V_invfft_impl<A2AvectorV<Policies>, A2AvectorVfftw<mf_Policies>, FFTfieldPolicyAllocFree>::inversefft(to,*this,mode_postop);
+}
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
