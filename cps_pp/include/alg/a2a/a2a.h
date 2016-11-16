@@ -52,37 +52,35 @@ public:
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
-  const std::string cname;
   
 public:
   typedef StandardIndexDilution DilutionType;
 
-  A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorV"){
+  A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv,FermionFieldType());
 
     //When computing V and W we can re-use previous V solutions as guesses. Set default to zero here so we have zero guess when no 
     //previously computed solutions
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
-  A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorV"){
+  A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
 
-  
-  inline FermionFieldType & getMode(const int i){ return v[i]; }
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
   inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
-  
+  inline FermionFieldType & getMode(const int i){ return v[i]; }  
 
   //Get a mode from the low mode part
   FermionFieldType & getVl(const int il){ return v[il]; }
+  const FermionFieldType & getVl(const int il) const{ return v[il]; }
 
   //Get a mode from the high-mode part
   FermionFieldType & getVh(const int ih){ return v[nl+ih]; }
-
-  //Generate the Fourier transformed V fields. This includes gauge fixing and applying the momentum twist
-  void computeVfftw(A2AvectorVfftw<Policies> &into);
+  const FermionFieldType & getVh(const int ih) const{ return v[nl+ih]; }
 
   //Get a particular site/spin/color element of a given mode 
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
@@ -101,6 +99,12 @@ public:
     v[nl+ih] = vv;
   }
 
+  //Set each float to a uniform random number in the specified range.
+  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
+  void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+    for(int i=0;i<nv;i++) v[i].testRandom(hi,lo);
+  }
+  
 };
 
 
@@ -113,21 +117,25 @@ public:
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
   std::vector<FermionFieldType> v;
-  const std::string cname;
 
 public:
   typedef StandardIndexDilution DilutionType;
 
-  A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+  A2AvectorVfftw(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv,FermionFieldType());
   }
-  A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args), cname("A2AvectorVfftw"){
+  A2AvectorVfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
   }
-  
-  inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
 
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  inline const FermionFieldType & getMode(const int i) const{ return v[i]; }
+  inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
+
+  inline FermionFieldType & getMode(const int i){ return v[i]; }
+  
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
@@ -138,6 +146,10 @@ public:
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
+  //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+  //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+  void getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m = NULL);
+  
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
     int site = v[mode].threeToFour(x3d,t);
     return *(v[mode].site_ptr(site,flavor) + spin_color);
@@ -148,25 +160,18 @@ public:
   }
 
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
-    const int flav_offset = v[0].flav_offset();
-    const int site_offset = v[0].site_offset(site);
-    return getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset);
-  }
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
-    const FermionFieldType &field = getMode(i);
-    FieldSiteType const* f0_ptr = field.ptr() + site_offset;
-    return SCFvectorPtr<FieldSiteType>(f0_ptr, f0_ptr+flav_offset);
-  }
-
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
+  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const FermionFieldType &field = getMode(i);
     const int x4d = field.threeToFour(p3d,t);
-    return SCFvectorPtr<FieldSiteType>(field.site_ptr(x4d,0),field.site_ptr(x4d,1));
+    FieldSiteType const *f0 = field.site_ptr(x4d,0);
+    return SCFvectorPtr<FieldSiteType>(f0,f0+field.flav_offset());
   }
-
-  const CPSfermion4D<FieldSiteType> & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
-
+  //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
+  inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{
+    const FermionFieldType &field = getMode(i);
+    return field.dimpol_site_stride_3d()*field.siteSize();
+  }
+  
   //Replace this vector with the average of this another vector, 'with'
   void average(const A2AvectorVfftw<Policies> &with, const bool &parallel = true){
     if( !paramsEqual(with) ) ERR.General("A2AvectorVfftw","average","Second field must share the same underlying parameters\n");
@@ -199,8 +204,6 @@ private:
   std::vector<FermionFieldType> wl; //The low mode part of the W field, comprised of nl fermion fields
   std::vector<ComplexFieldType> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
-  const std::string cname;
-
   //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
   //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
   void setWhRandom(const RandomType &type);
@@ -208,15 +211,17 @@ private:
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
-  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args){
     wl.resize(nl,FermionFieldType());
     wh.resize(nhits, ComplexFieldType()); 
   }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), cname("A2AvectorW"){
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
     wh.resize(nhits, ComplexFieldType(field_setup_params)); 
   }
+
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return wh[hit]; }
@@ -315,7 +320,12 @@ public:
       *(wh[i-nl].site_ptr(site,flavor)); //we use different random fields for each time and flavor, although we didn't have to
   }
 
-
+  //Set each float to a uniform random number in the specified range.
+  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
+  void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
+    for(int i=0;i<nl;i++) wl[i].testRandom(hi,lo);
+    for(int i=0;i<nhits;i++) wh[i].testRandom(hi,lo);
+  }
 
 };
 
@@ -333,27 +343,37 @@ private:
   std::vector<FermionFieldType> wl;
   std::vector<FermionFieldType> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
-  const std::string cname;
-
+  FieldSiteType zerosc[12];
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
-  A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+  A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args){
     wl.resize(nl,FermionFieldType());
-    wh.resize(12*nhits, FermionFieldType()); 
+    wh.resize(12*nhits, FermionFieldType());
+    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
-  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args), cname("A2AvectorWfftw"){
+  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl,FermionFieldType(field_setup_params));
-    wh.resize(12*nhits, FermionFieldType(field_setup_params)); 
+    wh.resize(12*nhits, FermionFieldType(field_setup_params));
+    for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
 
+  static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   inline const FermionFieldType & getWl(const int i) const{ return wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return wh[spin_color + 12*hit]; }
 
   inline const FermionFieldType & getMode(const int i) const{ return i < nl ? wl[i] : wh[i-nl]; }
 
+  inline FermionFieldType & getWl(const int i){ return wl[i]; }
+  inline FermionFieldType & getWh(const int hit, const int spin_color){ return wh[spin_color + 12*hit]; }
+
+  inline FermionFieldType & getMode(const int i){ return i < nl ? wl[i] : wh[i-nl]; }
+
+  //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices: for i>=nl the modeIndexSet is used to obtain the appropriate mode 
+  inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+  
   //Set this object to be the threaded fast Fourier transform of the input field
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
@@ -364,6 +384,10 @@ public:
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
+  //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+  //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+  void getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m = NULL);
+  
   //The flavor and timeslice dilutions are still packed so we must treat them differently
   //Mode is a full 'StandardIndex', (unpacked mode index)
   const FieldSiteType & elem(const int mode, const int x3d, const int t, const int spin_color, const int flavor) const{
@@ -412,43 +436,21 @@ public:
   //'site' is a local canonical-ordered, packed four-vector
   //i_high_unmapped is the index i unmapped to its high mode sub-indices (if it is a high mode of course!)
 
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site) const{
-    const int site_offset = i >= nl ? wh[0].site_offset(site) : wl[0].site_offset(site);
-    const int flav_offset = i >= nl ? wh[0].flav_offset() : wl[0].flav_offset();
-    return getFlavorDilutedVect(i,i_high_unmapped,site_offset,flav_offset);
-  }
-
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int site_offset, const int flav_offset) const{
+  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
     const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    const static FieldSiteType zerosc[12] = { 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
-
-    bool zero_hint[2] = {false,false};
-    if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
-
-    FieldSiteType const* f0_ptr = field.ptr() + site_offset;
-    FieldSiteType const* lp[2] = { zero_hint[0] ? &zerosc[0] : f0_ptr,
-				 zero_hint[1] ? &zerosc[0] : f0_ptr + flav_offset };
-
-    return SCFvectorPtr<FieldSiteType>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
-  }
-
-  inline SCFvectorPtr<FieldSiteType> getFlavorDilutedVect2(const int i, const modeIndexSet &i_high_unmapped, const int p3d, const int t) const{
-    const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
-    const static FieldSiteType zerosc[12] = { 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
-
     bool zero_hint[2] = {false,false};
     if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
 
     const int x4d = field.threeToFour(p3d,t);
-    FieldSiteType const* lp[2] = { zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0),
-				   zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1) };
-
-    return SCFvectorPtr<FieldSiteType>(lp[0],lp[1],zero_hint[0],zero_hint[1]);
+    return SCFvectorPtr<FieldSiteType>(zero_hint[0] ? &zerosc[0] : field.site_ptr(x4d,0), zero_hint[1] ? &zerosc[0] : field.site_ptr(x4d,1), zero_hint[0], zero_hint[1]);
   }
-
-
-  //This version allows for the possibility of a different high mode mapping for the index i by passing the unmapped indices
-  const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i); }
+  //Return the pointer stride for between 3d coordinates for a given mode index and flavor. Relies on the dimension policy implementing dimpol_site_stride_3d
+  inline int siteStride3D(const int i, const modeIndexSet &i_high_unmapped, const int f) const{ 
+    const FermionFieldType &field = i >= nl ? getWh(i_high_unmapped.hit, i_high_unmapped.spin_color): getWl(i);
+    bool zero_hint[2] = {false,false};
+    if(i >= nl) zero_hint[ !i_high_unmapped.flavor ] = true;
+    return zero_hint[f] ? 0 : field.dimpol_site_stride_3d()*field.siteSize();
+  }
 
   template<typename extPolicies>
   void importFields(const A2AvectorWfftw<extPolicies> &r){

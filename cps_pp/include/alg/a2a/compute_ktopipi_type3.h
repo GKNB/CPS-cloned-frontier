@@ -22,6 +22,7 @@ CPS_START_NAMESPACE
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H){
+#ifndef MEMTEST_MODE
   static const int con_off = 13; //index of first contraction in set
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -70,7 +71,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_contract(ResultsContainerType &re
       }
     }
   }
-
+#endif
 }
 
 template<typename mf_Policies>
@@ -294,9 +295,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(ResultsContainerType result[], Mi
 	  //These are identical to the type3 diagrams but without the internal quark loop, and with the vertex replaced with a pseudoscalar vertex
 	  for(int mix3_gidx=0; mix3_gidx<2; mix3_gidx++){
 	    for(int pt1_pion=0; pt1_pion<2; pt1_pion++){
+#ifndef MEMTEST_MODE
 #define M mix3[tkp](t_K,t_dis,mix3_gidx,thread_id)
 	      M += Trace( part1[pt1_pion], mix3_Gamma[mix3_gidx] );
 #undef M
+#endif
 	    }
 	  }
 	}//xop3d loop

@@ -6,12 +6,14 @@
 //#define DISABLE_TYPE3_SPLIT_VMV //also disables precompute
 //#define DISABLE_TYPE4_PRECOMPUTE
 
-#define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
+//This option disables the majority of the compute but keeps everything else intact allowing you to test the memory usage without doing a full run
+//#define MEMTEST_MODE
 
-#include<chroma.h>
+#define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
 //bfm headers
 #ifdef USE_BFM
+#include<chroma.h>
 #include<bfm.h>
 #include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
 #include<util/lattice/bfm_evo.h>
@@ -46,13 +48,16 @@
 #include<sys/stat.h>
 #include<unistd.h>
 
+#ifdef USE_BFM
 using namespace Chroma;
+#endif
 using namespace cps;
 
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
+#include <alg/a2a/compute_sigma.h>
 #include <alg/a2a/compute_pipi.h>
 #include <alg/a2a/compute_ktopipi.h>
 #include <alg/a2a/main.h>
@@ -97,6 +102,10 @@ int main (int argc,char **argv )
   bool mixed_solve = true; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
   bool evecs_single_prec = true; //convert the eigenvectors to single precision to save memory
 
+  const int ngrid_arg = 7;
+  const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
+  const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
+  
   int arg = 4;
   while(arg < argc){
     char* cmd = argv[arg];
@@ -139,12 +148,27 @@ int main (int argc,char **argv )
       if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
       arg++;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
-      exit(-1);
+      bool is_grid_arg = false;
+      for(int i=0;i<ngrid_arg;i++){
+	if( std::string(cmd) == grid_args[i] ){
+	  if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd); fflush(stdout); }
+	  arg += grid_args_skip[i];
+	  is_grid_arg = true;
+	  break;
+	}
+      }
+      if(!is_grid_arg){
+	if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+	exit(-1);
+      }
     }
   }
-
   const char *fname="main(int,char**)";
+  
+#ifdef A2A_LANCZOS_SINGLE
+  if(!evecs_single_prec) ERR.General("",fname,"Must use single-prec eigenvectors when doing Lanczos in single precision\n");
+#endif
+  
   if(chdir(argv[1])!=0) ERR.General("",fname,"Unable to switch to directory '%s'\n",argv[1]);
   CommonArg common_arg("",""), common_arg2("","");
   DoArg do_arg;
@@ -289,15 +313,20 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Memory after light quark Lanczos:\n");
       printMem();      
 
+#ifndef A2A_LANCZOS_SINGLE
       if(evecs_single_prec){
 	eig.toSingle();
 	if(!UniqueID()) printf("Memory after single-prec conversion of light quark evecs:\n");
 	printMem();
       }
+#endif
     }
 
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
+
+    if(!UniqueID()) printf("V vector requires %f MB, W vector %f MB of memory\n", 
+			   A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
     
     A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
@@ -330,16 +359,21 @@ int main (int argc,char **argv )
 
       if(!UniqueID()) printf("Memory after heavy quark Lanczos:\n");
       printMem();
-      
+
+#ifndef A2A_LANCZOS_SINGLE
       if(evecs_single_prec){
 	eig_s.toSingle();
 	if(!UniqueID()) printf("Memory after single-prec conversion of heavy quark evecs:\n");
 	printMem();
       }
+#endif
     }
 
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
+
+    if(!UniqueID()) printf("V_s vector requires %f MB, W_s vector %f MB of memory\n", 
+			   A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg_s,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg_s,field4dparams) );
 
     A2AvectorV<A2Apolicies> V_s(a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(a2a_arg_s,field4dparams);
@@ -366,9 +400,13 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
       gaugeFixUnity(lat,fix_gauge_arg);      
     }else{
-      if(!UniqueID()) printf("Gauge fixing\n");
+      if(!UniqueID()){ printf("Gauge fixing\n"); fflush(stdout); }
       time = -dclock();
+#ifndef MEMTEST_MODE
       fix_gauge.run();
+#else
+      gaugeFixUnity(lat,fix_gauge_arg);
+#endif      
       time += dclock();
       print_time("main","Gauge fix",time);
     }
@@ -402,7 +440,7 @@ int main (int argc,char **argv )
     
     if(!UniqueID()) printf("Computing light-light meson fields\n");
     time = -dclock();
-    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
+    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
     time += dclock();
     print_time("main","Light-light meson fields",time);
 
@@ -441,6 +479,12 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after pion 2pt function computation:\n");
     printMem();
 
+    time = -dclock();
+    if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
+    ComputeSigma<A2Apolicies>::computeAndWrite(meas_arg.WorkDirectory,conf,W,V, jp.pion_rad, lat, field3dparams);
+    time += dclock();
+    print_time("main","Sigma meson fields ",time);
+    
     //------------------------------I=0 and I=2 PiPi two-point function---------------------------------
     if(!UniqueID()) printf("Computing pi-pi 2pt function\n");
     double timeC(0), timeD(0), timeR(0), timeV(0);

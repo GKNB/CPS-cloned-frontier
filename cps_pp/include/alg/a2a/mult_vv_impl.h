@@ -149,7 +149,9 @@ public:
     typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
     typename gw::complex zero; GSL_SET_COMPLEX(&zero,0.0,0.0);
 
+#ifndef MEMTEST_MODE
     gw::blas_gemm(CblasNoTrans, CblasNoTrans, one, lgsl, rgsl, zero, ogsl);
+#endif
     
     for(int sl=0;sl<4;sl++){
       for(int sr=0;sr<4;sr++){
@@ -242,7 +244,7 @@ public:
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
     out.zero();
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
 
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
@@ -290,13 +292,11 @@ public:
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
     out.zero();
-    assert(l.getMode(0).SIMDpackedSites(3) == 1);
+    assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
 
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
     //Precompute index mappings
-    ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
-
     modeIndexSet ilp, irp;
     ilp.time = top_glb;
     irp.time = top_glb;
@@ -315,8 +315,9 @@ public:
         
     std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv) );    
     std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf) );    
-    for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
-    for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
+
+    std::vector<std::vector<bool> > lnon_zeroes_all(nscf);
+    std::vector<std::vector<bool> > rnon_zeroes_all(nscf);
     
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
@@ -326,24 +327,28 @@ public:
     	  int scf = f+2*(c+3*s);
 	  
 	  std::vector<int> lmap;
-	  std::vector<bool> lnon_zeroes;
+	  std::vector<bool> &lnon_zeroes = lnon_zeroes_all[scf];
 	  l.getIndexMapping(lmap,lnon_zeroes,ilp);
 
 	  for(int i=0;i<nv;i++) 
 	    if(lnon_zeroes[i]){
+#ifndef MEMTEST_MODE
 	      const VectorComplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
 	      lcp[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+#endif
 	    }
 	  
 	  std::vector<int> rmap;
-	  std::vector<bool> rnon_zeroes;
+	  std::vector<bool> &rnon_zeroes = rnon_zeroes_all[scf];
 	  r.getIndexMapping(rmap,rnon_zeroes,irp);
 
 	  for(int i=0;i<nv;i++)
 	    if(rnon_zeroes[i]){
+#ifndef MEMTEST_MODE
 	      const VectorComplexType &rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
 	      rcp[i][scf] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
-	    }
+#endif
+	    }	  
 	}
       }
     }
@@ -356,8 +361,11 @@ public:
 	      for(int fr=0;fr<2;fr++){
 		int scfl = fl+2*(cl+3*sl);
 		int scfr = fr+2*(cr+3*sr);
+#ifndef MEMTEST_MODE
 		for(int v=0;v<nv;v++)
-		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lcp[scfl][v]*rcp[v][scfr];
+		  if(lnon_zeroes_all[scfl][v] && rnon_zeroes_all[scfr][v])
+		    out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lcp[scfl][v]*rcp[v][scfr];
+#endif
 	      }
 	    }
 	  }

@@ -16,6 +16,7 @@ CPS_START_NAMESPACE
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 						     const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+#ifndef MEMTEST_MODE
   static const int con_off = 23; //index of first contraction in set
 
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -66,6 +67,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 #undef C	     	    
     }
   }
+#endif
 }
 
 template<typename mf_Policies>
@@ -168,10 +170,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
 	//Compute mix4 diagram
 	//These are identical to the type4 diagrams but without the quark loop, and with the vertex replaced with a pseudoscalar vertex
 	for(int mix4_gidx=0; mix4_gidx<2; mix4_gidx++){
+#ifndef MEMTEST_MODE
 #define M mix4(t_K,t_dis,mix4_gidx,thread_id)
 	  //M += ( part1 * mix4_Gamma[mix4_gidx] ).Trace();
 	  M += Trace( part1 , mix4_Gamma[mix4_gidx] );
 #undef M
+#endif
 	}
 
       }//t_K loop

@@ -5,7 +5,7 @@
 #ifndef _GRID_SIMDLINALG_H
 #define _GRID_SIMDLINALG_H
 
-#include <Grid.h>
+#include <Grid/Grid.h>
 
 namespace Grid_A2A{
   

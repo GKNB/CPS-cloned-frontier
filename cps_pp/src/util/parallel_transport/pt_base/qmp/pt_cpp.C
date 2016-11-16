@@ -262,7 +262,8 @@ void pt_cmv_cpp(int sites, ind_agg *u, double *gauge_field, double *a, double *t
 
   for(s=0;s<sites;s++)
     {
-#ifdef USE_SSE
+      //#ifdef USE_SSE
+#if 0
   IFloat *tmp;
   QLA_D3_ColorVector *fp0, *fp1;
   QLA_D3_ColorMatrix *uu ;
@@ -361,7 +362,8 @@ void pt_cmv_pad_cpp(int sites, ind_agg *u, double *gauge_field, double *a, doubl
 
   for(s=0;s<sites;s++)
     {
-#ifdef USE_SSE
+      //#ifdef USE_SSE
+#if 0
   IFloat *tmp;
   QLA_D3_ColorVector *fp0, *fp1;
   QLA_D3_ColorMatrix *uu ;

@@ -1,6 +1,7 @@
 #ifndef _MAIN_CK_H
 #define _MAIN_CK_H
 
+#include <util/omp_wrapper.h>
 #include <util/time_cps.h>
 #include <alg/a2a/grid_lanczos.h>
 
@@ -260,10 +261,15 @@ struct LatticeSetup{
     assert(jp.solver == BFM_HmCayleyTanh);
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
-    lat = new LatticeType(grid_params); //applies BondCond in constructor
-    lat->ImportGauge(); //lattice -> Grid  
-    lat->BondCond(); //unapply BondCond
+    lat = new LatticeType(grid_params);
+    //lat->ImportGauge(); //lattice -> Grid  (applied APRD - signs internally then reverses)
 
+    NullObject null_obj;
+    lat->BondCond();
+    CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
+    cps_gauge.exportGridField(*lat->getUmu());
+    lat->BondCond();
+    
 # if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
     importBFMlattice(lat,solvers);
 # endif
@@ -300,15 +306,41 @@ struct Lanczos{
 
   //For precision change
   Grid::GridCartesian *UGrid_f;
+  Grid::GridRedBlackCartesian *UrbGrid_f;
+  Grid::GridCartesian *FGrid_f;
   Grid::GridRedBlackCartesian *FrbGrid_f;
   
-  Lanczos(): UGrid_f(NULL),FrbGrid_f(NULL){}
+  Lanczos(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL){}
   
   void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, typename GridPolicies::FgridGFclass &lat){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
+    
+#ifdef A2A_LANCZOS_SINGLE
+    //Make single precision Grids
+    int Ls = GJP.Snodes()*GJP.SnodeSites();
+    std::vector<int> nodes(4);
+    std::vector<int> vol(4);
+    for(int i=0;i<4;i++){
+      vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
+      nodes[i]= GJP.Nodes(i);
+    }
+    std::vector<int> simd_layout = Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd());
+    if(!UniqueID()) printf("Created single-prec Grids: nodes (%d,%d,%d,%d) vol (%d,%d,%d,%d) and SIMD layout (%d,%d,%d,%d)\n",nodes[0],nodes[1],nodes[2],nodes[3],vol[0],vol[1],vol[2],vol[3],simd_layout[0],simd_layout[1],simd_layout[2],simd_layout[3]);
+    
+    UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
+    UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
+    FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid_f);
+    FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f); 
+
+    gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
+#else    
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
+#  ifndef MEMTEST_MODE
     test_eigenvectors<GridPolicies>(evec,eval,lanc_arg.mass,lat);
+#  endif
+
+#endif
   }
   void toSingle(){
     typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -321,13 +353,15 @@ struct Lanczos{
       vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
       nodes[i]= GJP.Nodes(i);
     }
-    UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
+    UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd()),nodes);
     FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
 
     int nev = evec.size();
     for(int i=0;i<nev;i++){      
       GridFermionFieldF tmp_f(FrbGrid_f);
-      precisionChange(tmp_f, evec.back());      
+#ifndef MEMTEST_MODE
+      precisionChange(tmp_f, evec.back());
+#endif
       evec.pop_back();
       evec_f.push_back(std::move(tmp_f));
     }
@@ -336,8 +370,11 @@ struct Lanczos{
   }
 
   void freeEvecs(){
-    evec.clear();
+    std::vector<typename GridPolicies::GridFermionField>().swap(evec); //evec.clear();
+    std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
     if(UGrid_f != NULL) delete UGrid_f;
+    if(UrbGrid_f != NULL) delete UrbGrid_f;
+    if(FGrid_f != NULL) delete FGrid_f;
     if(FrbGrid_f != NULL) delete FrbGrid_f;
   }
 

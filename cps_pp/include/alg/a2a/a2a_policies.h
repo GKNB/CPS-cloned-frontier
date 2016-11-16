@@ -2,6 +2,7 @@
 #define _A2A_POLICIES_H
 
 #include<alg/a2a/CPSfield.h>
+//using cps::ComplexD;
 CPS_START_NAMESPACE
 
 //Type policies needed for sources
@@ -20,7 +21,7 @@ struct GridSIMDSourcePoliciesSingle{
 #endif
 
 struct StandardSourcePolicies{
-  typedef cps::ComplexD ComplexType;
+  typedef ComplexD ComplexType;
   typedef SpatialPolicy DimensionPolicy;
   typedef StandardAllocPolicy AllocPolicy;
 };

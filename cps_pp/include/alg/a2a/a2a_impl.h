@@ -1,4 +1,32 @@
 //Implementations of methods in a2a.h
+#include<util/time_cps.h> //dclock()
+
+template<typename VWtype>
+inline double VW_Mbyte_size(const A2AArg &_args, const typename VWtype::FieldInputParamType &field_setup_params){
+  typedef typename VWtype::DilutionType DilutionType;
+  typedef typename VWtype::FermionFieldType FermionFieldType;
+  DilutionType dil(_args); const int sz = dil.getNmodes();
+  double field_size = double(FermionFieldType::byte_size(field_setup_params))/(1024.*1024.);
+  return sz * field_size;
+}
+
+
+template< typename mf_Policies>
+double A2AvectorV<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorV<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorVfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorVfftw<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorW<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorW<mf_Policies> >(_args,field_setup_params);
+}
+template< typename mf_Policies>
+double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
+  return VW_Mbyte_size<A2AvectorWfftw<mf_Policies> >(_args,field_setup_params);
+}
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
@@ -10,10 +38,10 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
   FermionFieldType tmp(field_setup);
   
   Float preop_time = 0;
-  Float gather_time = 0;
   Float fft_time = 0;
-  Float scatter_time = 0;
 
+  const bool fft_dirs[4] = {true,true,true,false};
+  
   for(int mode=0;mode<nv;mode++){
     FermionFieldType const* init_gather_from = &from.getMode(mode);
     if(mode_preop != NULL){
@@ -21,54 +49,46 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
       (*mode_preop)(from.getMode(mode),tmp);
       init_gather_from = &tmp;
       preop_time += dclock()-dtime;
-    }    
-    for(int mu=0;mu<3;mu++){
-      Float dtime = dclock();
-
-      //Gather
-      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
-      tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
-      gather_time += dclock()-dtime;
-
-      //FFT
-      dtime = dclock();      
-      tmp_dbl.fft();
-      fft_time += dclock()-dtime;      
-
-      //Scatter
-      dtime = dclock();
-      tmp_dbl.scatter( mu==2 ? v[mode]: tmp );
-      scatter_time += dclock()-dtime;
     }
+    Float dtime = dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(v[mode], *init_gather_from, fft_dirs);
+#endif
+    fft_time += dclock() - dtime;
   }
   if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
   print_time("A2AvectorVfftw::fft","Preop",preop_time);
-  print_time("A2AvectorVfftw::fft","gather",gather_time);
   print_time("A2AvectorVfftw::fft","FFT",fft_time);
-  print_time("A2AvectorVfftw::fft","scatter",scatter_time);
 }
 
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
 template< typename mf_Policies>
 void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop){
+  if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
   typedef typename FermionFieldType::InputParamType FieldParamType;
   FieldParamType field_setup = from.getWh(0).getDimPolParams();  
   FermionFieldType tmp(field_setup), tmp2(field_setup);
 
+  Float preop_time = 0;
+  Float fft_time = 0;
+
+  const bool fft_dirs[4] = {true,true,true,false};
+  
   //Do wl
   for(int mode=0;mode<nl;mode++){
     FermionFieldType const* init_gather_from = &from.getWl(mode);
     if(mode_preop != NULL){
+      Float dtime = cps::dclock();
       (*mode_preop)(from.getWl(mode),tmp);
       init_gather_from = &tmp;
+      preop_time += cps::dclock()-dtime;
     }
-    for(int mu=0;mu<3;mu++){
-      CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
-      tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
-      tmp_dbl.fft();
-      tmp_dbl.scatter( mu==2 ? wl[mode]: tmp );
-    }
+    Float dtime = cps::dclock();
+#ifndef MEMTEST_MODE
+    cps::fft_opt(wl[mode], *init_gather_from, fft_dirs);
+#endif
+    fft_time += cps::dclock() - dtime;
   }
   //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
   for(int hit=0;hit<nhits;hit++){
@@ -76,17 +96,21 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       from.getSpinColorDilutedSource(tmp2,hit,sc);
       FermionFieldType* init_gather_from = &tmp2;
       if(mode_preop != NULL){
+	Float dtime = cps::dclock();
 	(*mode_preop)(tmp2,tmp);
 	init_gather_from = &tmp;
-      }    
-      for(int mu=0;mu<3;mu++){
-	CPSfermion4DglobalInOneDir<typename mf_Policies::ScalarComplexType> tmp_dbl(mu);
-	tmp_dbl.gather( mu==0 ? *init_gather_from : tmp );
-	tmp_dbl.fft();
-	tmp_dbl.scatter( mu==2 ? wh[sc+12*hit] : tmp );
+	preop_time += cps::dclock()-dtime;
       }
+      Float dtime = cps::dclock();
+#ifndef MEMTEST_MODE
+      cps::fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
+#endif
+      fft_time += cps::dclock()-dtime;
     }
   }
+  if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
+  print_time("A2AvectorWfftw::fft","Preop",preop_time);
+  print_time("A2AvectorWfftw::fft","FFT",fft_time);
 }
 
 
@@ -134,13 +158,13 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   StandardIndexDilution stdidx(getArgs());  
   stdidx.indexUnmap(dil_id,hit,tblock,spin_color,flavor);
     
-  VRB.Result(cname.c_str(), fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
+  VRB.Result("A2AvectorW", fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
   int tblock_origt = tblock * args.src_width;
 
   into.zero();
 
   if(tblock_origt / GJP.TnodeSites() != GJP.TnodeCoor()){
-    VRB.Result(cname.c_str(), fname, "Not on node\n    ");
+    VRB.Result("A2AvectorW", fname, "Not on node\n    ");
     return;
   }
 
@@ -157,7 +181,7 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[3] = tblock_origt_lcl + rem;
 
     TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
-    mf_Complex const* from_site = (mf_Complex*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
+    mf_Complex * from_site = (mf_Complex*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
     *into_site = *from_site;
   }
 }
@@ -250,4 +274,89 @@ void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
     tmp.setUniformRandom();
     V.getVh(i).importField(tmp);
   }
+}
+
+template< typename FieldType>
+FieldType const * getBaseAndShift(int shift[3], const int p[3], FieldType const *base_p, FieldType const *base_m){
+  //With G-parity base_p has momentum +1 in each G-parity direction, base_m has momentum -1 in each G-parity direction.
+  //Non-Gparity directions are assumed to have momentum 0
+
+  //Units of momentum are 2pi/L for periodic BCs, pi/L for antiperiodic and pi/2L for Gparity
+  FieldType const * out = GJP.Gparity() ? NULL : base_p;
+  for(int d=0;d<3;d++){
+    if(GJP.Bc(d) == BND_CND_GPARITY){
+      //Type 1 : f_{p=4b+1}(n) = f_+1(n+b)     // p \in {.. -7 , -3, 1, 5, 9 ..}
+      //Type 2 : f_{p=4b-1}(n) = f_-1(n+b)     // p \n  {.. -5, -1, 3, 7 , 11 ..}
+      if( (p[d]-1) % 4 == 0 ){
+	//Type 1
+	int b = (p[d]-1)/4;
+	shift[d] = -b;  //shift f_+1 backwards by b
+	if(out == NULL) out = base_p;
+	else if(out != base_p) ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because momenta in different G-parity directions do not reside in the same set\n",p[0],p[1],p[2]);
+	
+      }else if( (p[d]+1) % 4 == 0 ){
+	//Type 2
+	int b = (p[d]+1)/4;
+	shift[d] = -b;  //shift f_-1 backwards by b
+	if(out == NULL) out = base_m;
+	else if(out != base_m) ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because momenta in different G-parity directions do not reside in the same set\n",p[0],p[1],p[2]);
+	
+      }else ERR.General("","getBaseAndShift","Momentum (%d,%d,%d) appears to be invalid because one or more components in G-parity directions are not allowed\n",p[0],p[1],p[2]);
+    }else{
+      //f_b(n) = f_0(n+b)
+      //Let the other directions decide on which base to use if some of them are G-parity dirs ; otherwise the pointer defaults to base_p above
+      shift[d] = -p[d];
+    }
+  }
+  if(!UniqueID()) printf("getBaseAndShift for p=(%d,%d,%d) determined shift=(%d,%d,%d) from ptr %c\n",p[0],p[1],p[2],shift[0],shift[1],shift[2],out == base_p ? 'p' : 'm');
+  
+  return out;
+}
+
+
+
+
+//Use the relations between FFTs to obtain the FFT for a chosen quark momentum
+//With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
+template< typename mf_Policies>
+void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m){
+  Float time = -cps::dclock();
+  
+  std::vector<int> shift(3);
+  A2AvectorWfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
+
+  wl = base->wl;
+  wh = base->wh;
+  
+  int nshift = 0;
+  for(int i=0;i<3;i++) if(shift[i]) nshift++;
+
+  if(nshift > 0){
+    for(int i=0;i<this->getNmodes();i++)
+      shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
+  }
+  time += dclock();
+  print_time("A2AvectorWfftw::getTwistedFFT","Twist",time);
+}
+
+template< typename mf_Policies>
+void A2AvectorVfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m){
+  Float time = -dclock();
+  
+  std::vector<int> shift(3);
+  A2AvectorVfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  if(base == NULL) ERR.General("A2AvectorVfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
+  
+  v = base->v;
+  
+  int nshift = 0;
+  for(int i=0;i<3;i++) if(shift[i]) nshift++;
+
+  if(nshift > 0){
+    for(int i=0;i<this->getNmodes();i++)
+      shiftPeriodicField( this->getMode(i), base->getMode(i), shift);
+  }
+  time += dclock();
+  print_time("A2AvectorVfftw::getTwistedFFT","Twist",time);
 }

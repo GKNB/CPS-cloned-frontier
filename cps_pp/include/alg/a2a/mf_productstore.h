@@ -16,7 +16,6 @@ class MesonFieldProductStore{
     KeyType key(a,b);
     int Lt = GJP.TnodeSites()*GJP.Tnodes();
     MfType &into = products[key];
-
     mult(into,*a,*b,node_local);
     return into;
   }

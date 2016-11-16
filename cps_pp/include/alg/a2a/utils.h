@@ -517,6 +517,62 @@ void globalSumComplex(Grid::vComplexF* v, const int n){
 }
 #endif
 
+//The base G-parity momentum vector for quark fields with arbitrary sign
+inline void GparityBaseMomentum(int p[3], const int sgn){
+  for(int i=0;i<3;i++)
+    if(GJP.Bc(i) == BND_CND_GPARITY)
+      p[i] = sgn;
+    else p[i] = 0;
+}
+
+//get MPI rank of this node
+inline int getMyMPIrank(){
+  int my_mpi_rank;
+  int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_mpi_rank);
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Comm_rank failed\n");
+  return my_mpi_rank;
+}
+//get the MPI rank of the node with UniqueID() == 0
+inline int getHeadMPIrank(){
+  int head_mpi_rank;
+  int rank_tmp = UniqueID() == 0 ? getMyMPIrank() : 0;
+  int ret = MPI_Allreduce(&rank_tmp,&head_mpi_rank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD); //node is now the MPI rank corresponding to UniqueID == _node
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Reduce failed\n");
+  return head_mpi_rank;
+}
+
+inline int node_lex(const int* coor, const int ndir){
+  int out = 0;
+  for(int i=ndir-1;i>=0;i--){
+    out *= GJP.Nodes(i);
+    out += coor[i];
+  }
+  return out;  
+}
+
+//Generate map to convert lexicographic node index from GJP to an MPI rank in MPI_COMM_WORLD
+inline void getMPIrankMap(std::vector<int> &map){
+  int nodes = 1;
+  int my_node_coor[5];
+  for(int i=0;i<5;i++){
+    nodes*= GJP.Nodes(i);
+    my_node_coor[i] = GJP.NodeCoor(i);
+  }
+  const int my_node_lex = node_lex( my_node_coor, 5 );
+  const int my_mpi_rank = getMyMPIrank();
+
+  int *node_map_send = (int*)malloc(nodes*sizeof(int));
+  memset(node_map_send,0,nodes*sizeof(int));
+  node_map_send[my_node_lex] = my_mpi_rank;
+
+  map.resize(nodes);
+  int ret = MPI_Allreduce(node_map_send, &map[0], nodes, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  assert(ret == MPI_SUCCESS);
+  free(node_map_send);
+}
+
+
+
 
 CPS_END_NAMESPACE
 

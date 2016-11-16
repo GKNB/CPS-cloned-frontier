@@ -136,7 +136,7 @@ public:
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
 
     A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
-    SCFspinflavorInnerProduct<typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
+    SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
@@ -228,7 +228,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2);
  
   static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
@@ -435,32 +435,3 @@ CPS_END_NAMESPACE
 
 
 #endif
-
-
-//       //Daiqian thinned the spatial sampling by computing only on a random site within a linearized site index block
-//       NullObject n;
-//       CPSfield<int,1,FourDpolicy,OneFlavorPolicy> randoff(n);
-//       randoff.zero();
-      
-//       LRG.SetInterval(1.0,0.0);
-//       for(int t=0;t<GJP.TnodeSites();t++){
-// 	if(!node_top_used[t]) continue;
-
-// 	// int top_glb = t  + GJP.TnodeCoor()*GJP.TnodeSites();
-// 	// int t_dis = modLt(top_glb - t_K_all[0], Lt); //FIXME
-// 	// if(t_dis >= tsep_k_pi[0] || t_dis == 0) continue; //FIXME ! //don't bother generating random numbers for timeslices we're not going to use
-
-// 	if(!UniqueID()) printf("Generating random field for t_pi_1 = %d and t_lcl = %d, a random number = %12e\n",t_pi1,t,LRG.Urand(FOUR_D));
-
-// 	for(int i = 0; i < size_3d / xyzStep; i++){
-// 	  int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t;
-
-// #ifndef DAIQIAN_EVIL_RANDOM_SITE_OFFSET
-// 	  LRG.AssignGenerator(x);
-// #else
-// 	  //Generate in same order as Daiqian. He doesn't set the hypercube RNG so it uses whichever one was used last! I know this sucks.
-// #endif
-
-// 	  *(randoff.site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
-// 	}
-//       }
