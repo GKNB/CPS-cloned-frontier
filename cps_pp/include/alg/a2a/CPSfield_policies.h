@@ -57,7 +57,28 @@ class ManualAllocPolicy{
     }
   } 
 };
-
+class ManualAligned128AllocPolicy{
+  void** ptr;
+  std::size_t bs;
+ protected:
+  inline void _alloc(void** p, const size_t byte_size){
+    ptr = p; bs = byte_size; *p = NULL;
+  }
+  inline static void _free(void* p){
+    if(p!=NULL) free(p);
+  }
+ public:
+  inline void allocField(){
+    if(*ptr == NULL)
+      *ptr = memalign(128,bs);
+  }
+  inline void freeField(){
+    if(*ptr != NULL){
+      free(*ptr);
+      *ptr = NULL;
+    }
+  } 
+};
 
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 

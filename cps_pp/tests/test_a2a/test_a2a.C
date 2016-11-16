@@ -392,13 +392,13 @@ int main(int argc,char *argv[])
 
   typedef Grid::vComplexD grid_Complex;
   
-  typedef _deduce_a2a_field_policies<grid_Complex> A2ApoliciesBase_grid;
+  typedef deduceA2Apolicies<grid_Complex> A2ApoliciesBase_grid;
   typedef GridA2APoliciesBase LanczosPolicies;
   typedef GridA2APoliciesBase::FgridGFclass LatticeType;  
   typedef GridA2APolicies<A2ApoliciesBase_grid> A2Apolicies_grid; //combines A2ApoliciesBase and GridPoliciesBase
   typedef GridA2APoliciesBase::GridFermionField GridFermionField;
   
-  typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase_std;
+  typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase_std;
   typedef GridA2APolicies<A2ApoliciesBase_std> A2Apolicies_std; //combines A2ApoliciesBase and GridPoliciesBase
 
   static_assert( std::is_same<typename A2Apolicies_grid::FermionFieldType::FieldDimensionPolicy, FourDSIMDPolicy>::value, "SIMDpolicy unexpected");

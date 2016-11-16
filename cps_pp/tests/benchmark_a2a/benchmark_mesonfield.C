@@ -325,7 +325,7 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<cps::ComplexD>();
   //if(0) testFFTopt<Grid::vComplexD>();
 
-  if(0) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
+  if(1) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
   
   //if(0) testVVdag<cps::ComplexD>(lattice);
   if(0) testVVdag<Grid::vComplexD>(lattice);
@@ -361,7 +361,7 @@ int main(int argc,char *argv[])
 
   
   if(0){ //benchmark single timeslice mf contraction
-    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
 
     A2AvectorWfftw<A2Apolicies> W(a2a_args);
     A2AvectorVfftw<A2Apolicies> V(a2a_args);
@@ -434,8 +434,8 @@ int main(int argc,char *argv[])
   }
   
   if(0){
-    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
-    typedef _deduce_a2a_field_policies<grid_Complex> GridA2Apolicies;
+    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
+    typedef deduceA2Apolicies<grid_Complex> GridA2Apolicies;
     
     A2AexpSource<typename A2Apolicies::SourcePolicies> std_exp(2.0);
     A2AexpSource<typename GridA2Apolicies::SourcePolicies> grid_exp(2.0, simd_dims_3d);
@@ -451,8 +451,8 @@ int main(int argc,char *argv[])
   int ns = tmp.nodeSites(0);
 
   {
-    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
-    typedef _deduce_a2a_field_policies<grid_Complex> GridA2Apolicies;
+    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
+    typedef deduceA2Apolicies<grid_Complex> GridA2Apolicies;
 
     typename my_enable_if< _equal<typename A2Apolicies::ScalarComplexType, typename GridA2Apolicies::ScalarComplexType>::value, int>::type dummy = 0;
 

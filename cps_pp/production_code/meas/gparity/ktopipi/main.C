@@ -241,7 +241,7 @@ int main (int argc,char **argv )
   printMem();
 
   //Grab the A2A policies
-  typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase;
+  typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase;
 #if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
   typedef GridA2APoliciesBase LanczosPolicies;
   typedef GridA2APoliciesBase::FgridGFclass LatticeType;

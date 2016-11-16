@@ -25,83 +25,99 @@ struct StandardSourcePolicies{
 };
 
 template<typename mf_Complex, typename mf_Complex_class>
-struct _deduce_source_policies{};
+struct deduceSourcePolicies{};
 
 template<typename T>
-struct _deduce_source_policies<std::complex<T>, complex_double_or_float_mark>{
+struct deduceSourcePolicies<std::complex<T>, complex_double_or_float_mark>{
   typedef StandardSourcePolicies SourcePolicies;
 };
 #ifdef USE_GRID
 template<>
-struct _deduce_source_policies<Grid::vComplexD, grid_vector_complex_mark>{
+struct deduceSourcePolicies<Grid::vComplexD, grid_vector_complex_mark>{
   typedef GridSIMDSourcePolicies SourcePolicies;
 };
 template<>
-struct _deduce_source_policies<Grid::vComplexF, grid_vector_complex_mark>{
+struct deduceSourcePolicies<Grid::vComplexF, grid_vector_complex_mark>{
   typedef GridSIMDSourcePoliciesSingle SourcePolicies;
 };
 #endif
 
 
 //Deduction of fermion field properties given a complex type class. Don't have to use them but it can be useful
-template<typename mf_Complex_class>
-struct _deduce_a2a_dim_alloc_policies{};
+struct ManualAllocStrategy{};
+struct AutomaticAllocStrategy{};
+
+template<typename mf_Complex_class, typename AllocStrategy = AutomaticAllocStrategy>
+struct deduceA2AfieldLayout{};
 
 template<>
-struct _deduce_a2a_dim_alloc_policies<complex_double_or_float_mark>{
+struct deduceA2AfieldLayout<complex_double_or_float_mark, AutomaticAllocStrategy>{
   typedef FourDpolicy DimensionPolicy;
   typedef StandardAllocPolicy AllocPolicy;
 };
+template<>
+struct deduceA2AfieldLayout<complex_double_or_float_mark, ManualAllocStrategy>{
+  typedef FourDpolicy DimensionPolicy;
+  typedef ManualAllocPolicy AllocPolicy;
+};
 
 template<>
-struct _deduce_a2a_dim_alloc_policies<grid_vector_complex_mark>{
+struct deduceA2AfieldLayout<grid_vector_complex_mark, AutomaticAllocStrategy>{
   typedef FourDSIMDPolicy DimensionPolicy;
   typedef Aligned128AllocPolicy AllocPolicy;
 };
+template<>
+struct deduceA2AfieldLayout<grid_vector_complex_mark, ManualAllocStrategy>{
+  typedef FourDSIMDPolicy DimensionPolicy;
+  typedef ManualAligned128AllocPolicy AllocPolicy;
+};
+
 
 template<typename mf_Complex, typename mf_Complex_class>
-struct _deduce_scalar_complex_type{};
+struct deduceScalarComplexType{};
 
 template<typename mf_Complex>
-struct _deduce_scalar_complex_type<mf_Complex, complex_double_or_float_mark>{
+struct deduceScalarComplexType<mf_Complex, complex_double_or_float_mark>{
   typedef mf_Complex ScalarComplexType;
 };
 
 template<typename mf_Complex>
-struct _deduce_scalar_complex_type<mf_Complex, grid_vector_complex_mark>{
+struct deduceScalarComplexType<mf_Complex, grid_vector_complex_mark>{
   typedef typename mf_Complex::scalar_type ScalarComplexType;
 };
 
 template<typename mf_Complex_class>
-struct _deduce_double_single_variants{};
+struct deduceMultiPrecComplexTypes{};
 
 template<>
-struct _deduce_double_single_variants<complex_double_or_float_mark>{
+struct deduceMultiPrecComplexTypes<complex_double_or_float_mark>{
   typedef std::complex<double> ComplexTypeD;
   typedef std::complex<float> ComplexTypeF;
 };
 template<>
-struct _deduce_double_single_variants<grid_vector_complex_mark>{
+struct deduceMultiPrecComplexTypes<grid_vector_complex_mark>{
   typedef Grid::vComplexD ComplexTypeD;
   typedef Grid::vComplexF ComplexTypeF;
 };
 
 
-template<typename mf_Complex>
-class _deduce_a2a_field_policies{
+template<typename mf_Complex, typename A2AfieldAllocStrategy = AutomaticAllocStrategy>
+class deduceA2Apolicies{
 public:
   typedef mf_Complex ComplexType; //Can be SIMD-vectorized or scalar complex. Used internally.
 private:
   typedef typename ComplexClassify<mf_Complex>::type ComplexClass;
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
+  typedef deduceA2AfieldLayout<ComplexClass,A2AfieldAllocStrategy> Layout;
+  typedef typename Layout::DimensionPolicy DimensionPolicy;
 public:
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
-  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeD ComplexTypeD;
-  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeF ComplexTypeF;
-  typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
+  typedef A2AfieldAllocStrategy FieldAllocStrategy;
+  typedef typename Layout::AllocPolicy AllocPolicy;
+  typedef typename deduceMultiPrecComplexTypes<ComplexClass>::ComplexTypeD ComplexTypeD;
+  typedef typename deduceMultiPrecComplexTypes<ComplexClass>::ComplexTypeF ComplexTypeF;
+  typedef typename deduceScalarComplexType<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
   typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
-  typedef typename _deduce_source_policies<ComplexType,ComplexClass>::SourcePolicies SourcePolicies;
+  typedef typename deduceSourcePolicies<ComplexType,ComplexClass>::SourcePolicies SourcePolicies;
 };
 
   
@@ -140,6 +156,7 @@ struct GridA2APolicies{
   typedef typename BaseA2Apolicies::FermionFieldType FermionFieldType;
   typedef typename BaseA2Apolicies::ComplexFieldType ComplexFieldType;
   typedef typename BaseA2Apolicies::SourcePolicies SourcePolicies;
+  typedef typename BaseA2Apolicies::FieldAllocStrategy FieldAllocStrategy;
   typedef typename BaseA2Apolicies::AllocPolicy AllocPolicy;
   
   typedef typename GridA2APoliciesBase::FgridFclass FgridFclass;

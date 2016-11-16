@@ -27,38 +27,84 @@ double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldI
   return VW_Mbyte_size<A2AvectorWfftw<mf_Policies> >(_args,field_setup_params);
 }
 
+struct FFTfieldPolicyBasic{
+  template<typename T>
+  static inline void actionOutputMode(T &v){}
+  template<typename T>
+  static inline void actionInputMode(T &v){}
+};
+struct FFTfieldPolicyAllocFree{
+  template<typename T>
+  static inline void actionOutputMode(T &v){
+    v.allocField();
+  }
+  template<typename T>
+  static inline void actionInputMode(T &v){
+    v.freeField();
+  }
+};
+
+
+template<typename OutputType, typename InputType, typename FFTfieldPolicy>
+struct _V_fft_impl{
+  typedef typename InputType::FermionFieldType FermionFieldType;
+  
+  static inline void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
+    if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
+    typedef typename FermionFieldType::InputParamType FieldParamType;
+    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
+    FermionFieldType tmp(field_setup);
+  
+    Float preop_time = 0;
+    Float fft_time = 0;
+
+    const bool fft_dirs[4] = {true,true,true,false};
+  
+    for(int mode=0;mode<from.getNmodes();mode++){
+      FermionFieldType const* init_gather_from = &from.getMode(mode);
+      if(mode_preop != NULL){
+	Float dtime = dclock();
+	(*mode_preop)(from.getMode(mode),tmp);
+	init_gather_from = &tmp;
+	preop_time += dclock()-dtime;
+      }
+      Float dtime = dclock();
+      
+      FFTfieldPolicy::actionOutputMode(to.getMode(mode)); //alloc
+      
+#ifndef MEMTEST_MODE
+      cps::fft_opt(to.getMode(mode), *init_gather_from, fft_dirs);
+#endif
+      fft_time += dclock() - dtime;
+
+      FFTfieldPolicy::actionInputMode(from.getMode(mode)); //free
+    }
+    if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
+    print_time("A2AvectorVfftw::fft","Preop",preop_time);
+    print_time("A2AvectorVfftw::fft","FFT",fft_time);
+  }
+};
+
+
+
 //Set this object to be the fast Fourier transform of the input field
 //Can optionally supply an object mode_preop that performs a transformation on each mode prior to the FFT
 template< typename mf_Policies>
 void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop){
-  if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
-  typedef typename FermionFieldType::InputParamType FieldParamType;
-  FieldParamType field_setup = from.getMode(0).getDimPolParams();  
-  FermionFieldType tmp(field_setup);
-  
-  Float preop_time = 0;
-  Float fft_time = 0;
-
-  const bool fft_dirs[4] = {true,true,true,false};
-  
-  for(int mode=0;mode<nv;mode++){
-    FermionFieldType const* init_gather_from = &from.getMode(mode);
-    if(mode_preop != NULL){
-      Float dtime = dclock();
-      (*mode_preop)(from.getMode(mode),tmp);
-      init_gather_from = &tmp;
-      preop_time += dclock()-dtime;
-    }
-    Float dtime = dclock();
-#ifndef MEMTEST_MODE
-    cps::fft_opt(v[mode], *init_gather_from, fft_dirs);
-#endif
-    fft_time += dclock() - dtime;
-  }
-  if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
-  print_time("A2AvectorVfftw::fft","Preop",preop_time);
-  print_time("A2AvectorVfftw::fft","FFT",fft_time);
+  _V_fft_impl<A2AvectorVfftw<mf_Policies>, const A2AvectorV<mf_Policies>, FFTfieldPolicyBasic>::fft(*this,from,mode_preop);
 }
+
+template< typename mf_Policies>
+template<typename P>
+void A2AvectorVfftw<mf_Policies>::destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop,
+						 typename my_enable_if<
+						 _equal<typename P::AllocPolicy,ManualAllocPolicy>::value || _equal<typename P::AllocPolicy,ManualAligned128AllocPolicy>::value
+						 , int>::type ){
+  _V_fft_impl<A2AvectorVfftw<P>, A2AvectorV<P>, FFTfieldPolicyAllocFree>::fft(*this,from,mode_preop);
+}
+
+
+
 template< typename mf_Policies>
 void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
   if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }

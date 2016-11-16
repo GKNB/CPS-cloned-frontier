@@ -61,7 +61,7 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
 template<typename complexFieldType, typename mf_Policies>
 struct _set_wh_random_impl<complexFieldType, mf_Policies, grid_vector_complex_mark>{
   static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef _deduce_a2a_field_policies<typename mf_Policies::ScalarComplexType> scalar_a2a_policies;
+    typedef deduceA2Apolicies<typename mf_Policies::ScalarComplexType> scalar_a2a_policies;
     typedef typename scalar_a2a_policies::ComplexFieldType scalarComplexFieldType;
 
     //Use scalar generation code and import

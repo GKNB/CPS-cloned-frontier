@@ -58,11 +58,11 @@ public:
 
   A2AvectorV(const A2AArg &_args): StandardIndexDilution(_args){
     v.resize(nv,FermionFieldType());
-
     //When computing V and W we can re-use previous V solutions as guesses. Set default to zero here so we have zero guess when no 
     //previously computed solutions
     for(int i=0;i<nv;i++) v[i].zero(); 
   }
+  
   A2AvectorV(const A2AArg &_args, const FieldInputParamType &field_setup_params): StandardIndexDilution(_args){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     v.resize(nv,FermionFieldType(field_setup_params));
@@ -141,6 +141,11 @@ public:
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorV<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
 
+  //Same as the above but allocates Vfft modes and deallocates V along the way to minimize memory usage. Only defined for manual alloc policies
+  template<typename P = Policies>
+  void destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop = NULL,
+		      typename my_enable_if<  _equal<typename P::AllocPolicy,ManualAllocPolicy>::value || _equal<typename P::AllocPolicy,ManualAligned128AllocPolicy>::value   , int>::type = 0);
+  
   void inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
