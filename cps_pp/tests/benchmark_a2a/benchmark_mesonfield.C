@@ -59,17 +59,13 @@ using namespace cps;
 #include <alg/a2a/compute_ktopipi_base.h>
 
 #include "benchmark_mesonfield.h"
- typedef double mf_Float;
- typedef Grid::vComplexD grid_Complex;
- typedef GridSIMDSourcePolicies GridSrcPolicy;
 
-//typedef float mf_Float;
-//typedef Grid::vComplexF grid_Complex;
-//typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
+typedef A2ApoliciesSIMDdoubleAutoAlloc GridA2Apolicies;
+typedef A2ApoliciesDoubleAutoAlloc ScalarA2Apolicies;
 
-
-typedef std::complex<mf_Float> mf_Complex;
-
+typedef typename GridA2Apolicies::ComplexType grid_Complex;
+typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
+typedef typename mf_Complex::value_type mf_Float;
 
 inline int toInt(const char* a){
   std::stringstream ss; ss << a; int o; ss >> o;
@@ -311,24 +307,24 @@ int main(int argc,char *argv[])
   if(0) testGenericFFT();
 #endif
   
-  if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
+  if(0) demonstrateFFTreln<ScalarA2Apolicies>(a2a_args);
 
 
-  if(0) testA2AvectorFFTrelnGparity<mf_Complex>(a2a_args,lattice);
-  if(0) testA2AvectorFFTrelnGparity<Grid::vComplexD>(a2a_args,lattice);
+  if(0) testA2AvectorFFTrelnGparity<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
 
-  if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
+  if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
 
-  if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
-  if(0) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
+  if(0) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testMfFFTreln<GridA2Apolicies>(a2a_args,lattice);
 
-  if(0) testFFTopt<cps::ComplexD>();
-  //if(0) testFFTopt<Grid::vComplexD>();
+  if(0) testFFTopt<ScalarA2Apolicies>();
+  if(0) testFFTopt<GridA2Apolicies>();
 
-  if(1) testA2AFFTinv<cps::ComplexD>(a2a_args,lattice);
+  if(1) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
-  //if(0) testVVdag<cps::ComplexD>(lattice);
-  if(0) testVVdag<Grid::vComplexD>(lattice);
+  if(0) testVVdag<ScalarA2Apolicies>(lattice);
+  if(0) testVVdag<GridA2Apolicies>(lattice);
   
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
@@ -354,42 +350,13 @@ int main(int argc,char *argv[])
     printf("Passed manual alloc test\n"); fflush(stdout);
     exit(0);
   }
-      
 
-
-
-
-  
-  if(0){ //benchmark single timeslice mf contraction
-    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-
-    A2AvectorWfftw<A2Apolicies> W(a2a_args);
-    A2AvectorVfftw<A2Apolicies> V(a2a_args);
-    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
-    
-    A2AexpSource<> src(2.0);
-    SCFspinflavorInnerProduct<15,typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,src);
-    
-    Float total_time = 0.;
-    for(int iter=0;iter<ntests;iter++){
-      W.testRandom();
-      V.testRandom();
-      
-      total_time -= dclock();
-      mf.compute(W,mf_struct,V,0);
-      total_time += dclock();
-    }
-    printf("Avg time %d iters: %g secs\n",ntests,total_time/ntests);
-  }
-    
-  int nsimd = grid_Complex::Nsimd();
+  int nsimd = GridA2Apolicies::ComplexType::Nsimd();
+  ThreeDSIMDPolicy::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
   
   FourDSIMDPolicy::ParamType simd_dims;
   FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
-
-  ThreeDSIMDPolicy::ParamType simd_dims_3d;
-  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
-
   
   printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
   for(int i=0;i<4;i++)
@@ -434,13 +401,10 @@ int main(int argc,char *argv[])
   }
   
   if(0){
-    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-    typedef deduceA2Apolicies<grid_Complex> GridA2Apolicies;
-    
-    A2AexpSource<typename A2Apolicies::SourcePolicies> std_exp(2.0);
+    A2AexpSource<typename ScalarA2Apolicies::SourcePolicies> std_exp(2.0);
     A2AexpSource<typename GridA2Apolicies::SourcePolicies> grid_exp(2.0, simd_dims_3d);
 
-    CPSfield<typename A2Apolicies::SourcePolicies::ComplexType,1,typename A2Apolicies::SourcePolicies::DimensionPolicy,OneFlavorPolicy,typename A2Apolicies::SourcePolicies::AllocPolicy> b(n);
+    CPSfield<typename ScalarA2Apolicies::SourcePolicies::ComplexType,1,typename ScalarA2Apolicies::SourcePolicies::DimensionPolicy,OneFlavorPolicy,typename ScalarA2Apolicies::SourcePolicies::AllocPolicy> b(n);
     b.importField(grid_exp.getSource());
 
     assert( b.equals(std_exp.getSource(),tol));
@@ -451,16 +415,14 @@ int main(int argc,char *argv[])
   int ns = tmp.nodeSites(0);
 
   {
-    typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-    typedef deduceA2Apolicies<grid_Complex> GridA2Apolicies;
+    typename my_enable_if< _equal<typename ScalarA2Apolicies::ScalarComplexType, typename GridA2Apolicies::ScalarComplexType>::value, int>::type dummy = 0;
 
-    typename my_enable_if< _equal<typename A2Apolicies::ScalarComplexType, typename GridA2Apolicies::ScalarComplexType>::value, int>::type dummy = 0;
-
-    typedef typename A2Apolicies::ScalarComplexType Ctype;
+    typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;
+    typedef typename ScalarA2Apolicies::ScalarComplexType Ctype;
     typedef typename Ctype::value_type Ftype;
 	  
-    A2AvectorWfftw<A2Apolicies> W(a2a_args);
-    A2AvectorVfftw<A2Apolicies> V(a2a_args);
+    A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+    A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
     
     A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
     A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
@@ -476,9 +438,9 @@ int main(int argc,char *argv[])
     //A2AexpSource<> src(2.0);
     //SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
     A2AflavorProjectedExpSource<> src(2.0,p);
-    SCFspinflavorInnerProduct<15,typename A2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,src);
+    SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,src);
     
-    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+    A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
     if(0){
       // GridVectorizedSpinColorContract benchmark
@@ -651,15 +613,15 @@ int main(int argc,char *argv[])
     if(0){ //test mf read/write
       {
 	mf.write("mesonfield.dat",FP_IEEE64BIG);
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
 	mfr.read("mesonfield.dat");
 	assert( mfr.equals(mf,1e-18,true));
 	if(!UniqueID()) printf("Passed mf single IO test\n");
       }
       {
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfa;
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfb;
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfc;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfa;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfb;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfc;
 	mfa.setup(W,V,0,0);
 	mfb.setup(W,V,1,1);
 	mfc.setup(W,V,2,2);		
@@ -676,9 +638,9 @@ int main(int argc,char *argv[])
 
 	if(!UniqueID()) fp->close();
 
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfra;
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrb;
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrc;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfra;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrb;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrc;
 
 	std::ifstream *ifp = !UniqueID() ? new std::ifstream("mesonfield_many.dat") : NULL;
 
@@ -694,15 +656,15 @@ int main(int argc,char *argv[])
 	if(!UniqueID()) printf("Passed mf multi IO test\n");
       }
       {
-	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);
+	std::vector< A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);
 	for(int i=0;i<3;i++){
 	  mfv[i].setup(W,V,i,i);
 	  mfv[i].testRandom();
 	}
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::write("mesonfield_vec.dat", mfv, FP_IEEE64LITTLE);
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::write("mesonfield_vec.dat", mfv, FP_IEEE64LITTLE);
 	
-	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfrv;
-	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::read("mesonfield_vec.dat", mfrv);
+	std::vector< A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfrv;
+	A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::read("mesonfield_vec.dat", mfrv);
 
 	for(int i=0;i<3;i++)
 	  assert( mfrv[i].equals(mfv[i], 1e-18, true) );
@@ -747,7 +709,7 @@ int main(int argc,char *argv[])
       int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
       int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
 
-      mult_vMv_split<A2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
+      mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
       mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
 
       std::vector<CPSspinColorFlavorMatrix<mf_Complex>> orig_split_xall_tmp(orig_3vol);

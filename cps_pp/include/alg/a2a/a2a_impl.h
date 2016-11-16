@@ -250,13 +250,13 @@ void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldO
 
 //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
 //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-template<typename complexFieldType, typename mf_Policies, typename complex_class>
+template<typename ComplexFieldType, typename complex_class>
 struct _set_wh_random_impl{};
 
-template<typename complexFieldType, typename mf_Policies>
-struct _set_wh_random_impl<complexFieldType, mf_Policies, complex_double_or_float_mark>{
-  static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef typename complexFieldType::FieldSiteType FieldSiteType;
+template<typename ComplexFieldType>
+struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
+  static void doit(std::vector<ComplexFieldType> &wh, const RandomType &type, const int nhits){
+    typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
     LRG.SetInterval(1, 0);
     int sites = wh[0].nsites(), flavors = wh[0].nflavors();
     
@@ -276,7 +276,7 @@ struct _set_wh_random_impl<complexFieldType, mf_Policies, complex_double_or_floa
 
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
-  _set_wh_random_impl<ComplexFieldType, mf_Policies, typename ComplexClassify<typename ComplexFieldType::FieldSiteType>::type>::doit(wh,type,nhits);
+  _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,type,nhits);
 }
 
 //Get the diluted source with index id.

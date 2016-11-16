@@ -58,15 +58,21 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
 }
 
 //Randomization of wh fields must have handled with care to ensure order preservation
-template<typename complexFieldType, typename mf_Policies>
-struct _set_wh_random_impl<complexFieldType, mf_Policies, grid_vector_complex_mark>{
-  static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef deduceA2Apolicies<typename mf_Policies::ScalarComplexType> scalar_a2a_policies;
-    typedef typename scalar_a2a_policies::ComplexFieldType scalarComplexFieldType;
+template<typename ComplexFieldType>
+struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
+  static void doit(std::vector<ComplexFieldType> &wh, const RandomType &type, const int nhits){
+    typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
+    
+    
+    typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
+		     typename ComplexFieldType::FieldDimensionPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldFlavorPolicy, typename ComplexFieldType::FieldAllocPolicy>
+      ScalarComplexFieldType;
 
+    NullObject null_obj;
+    
     //Use scalar generation code and import
-    std::vector<scalarComplexFieldType> wh_scalar(nhits);
-    _set_wh_random_impl<scalarComplexFieldType, scalar_a2a_policies, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
+    std::vector<ScalarComplexFieldType> wh_scalar(nhits, null_obj);
+    _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
     for(int i=0;i<nhits;i++)
       wh[i].importField(wh_scalar[i]);
   }

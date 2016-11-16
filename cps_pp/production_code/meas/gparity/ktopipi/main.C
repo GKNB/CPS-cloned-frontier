@@ -63,16 +63,17 @@ using namespace cps;
 #include <alg/a2a/main.h>
 
 #ifdef A2A_PREC_DOUBLE
-typedef std::complex<double> mf_Complex;
+typedef A2ApoliciesDoubleAutoAlloc A2Apolicies;
 #elif defined(A2A_PREC_SINGLE)
-typedef std::complex<float> mf_Complex;
+typedef A2ApoliciesSingleAutoAlloc A2Apolicies;
 #elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef Grid::vComplexD mf_Complex;
+typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies;
 #elif defined(A2A_PREC_SIMD_SINGLE)
-typedef Grid::vComplexF mf_Complex;
+typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 #else
 #error "Must provide an A2A precision"
 #endif
+
 
 
 int main (int argc,char **argv )
@@ -240,12 +241,8 @@ int main (int argc,char **argv )
   if(!UniqueID()) printf("Memory prior to config loop:\n");
   printMem();
 
-  //Grab the A2A policies
-  typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase;
 #if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
-  typedef GridA2APoliciesBase LanczosPolicies;
-  typedef GridA2APoliciesBase::FgridGFclass LatticeType;
-  typedef GridA2APolicies<A2ApoliciesBase> A2Apolicies; //combines A2ApoliciesBase and GridPoliciesBase
+  typedef A2Apolicies LanczosPolicies;
   if(GJP.Gparity()){
 #ifndef USE_GRID_GPARITY
     ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
@@ -257,12 +254,11 @@ int main (int argc,char **argv )
   }      
 #else
   typedef void LanczosPolicies;
-  typedef GwilsonFdwf LatticeType;
-  typedef A2ApoliciesBase A2Apolicies;
 #endif
 
   //Setup parameters of fields
-  
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2Apolicies::LatticeType LatticeType;
   typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType Field3DparamType;
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
   Field4DparamType field4dparams; setupFieldParams<mf_Complex>(field4dparams);
@@ -285,8 +281,6 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
     printMem();
 
-
-    
     LatticeSetup<LatticeType> lattice_setup(jp,solvers); //for BFM this creates a lattice object and imports the gauge field into the bfm instances, for Grid a lattice object and import of the gauge field
     LatticeType &lat = lattice_setup.getLattice();
 

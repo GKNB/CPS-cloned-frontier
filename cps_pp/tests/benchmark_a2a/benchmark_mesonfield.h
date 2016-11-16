@@ -701,27 +701,24 @@ void testGenericFFT(){ //old fft has been deleted
 #endif
 
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void demonstrateFFTreln(const A2AArg &a2a_args){
   //Demonstrate relation between FFTW fields
-  typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-    
-  A2AvectorW<A2Apolicies_ext> W(a2a_args);
-  A2AvectorV<A2Apolicies_ext> V(a2a_args);
+  A2AvectorW<A2Apolicies> W(a2a_args);
+  A2AvectorV<A2Apolicies> V(a2a_args);
   W.testRandom();
   V.testRandom();
 
   int p1[3] = {1,1,1};
   int p5[3] = {5,1,1};
 
-  twist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p1);
-  twist<typename A2Apolicies_ext::FermionFieldType> twist_p5(p5);
+  twist<typename A2Apolicies::FermionFieldType> twist_p1(p1);
+  twist<typename A2Apolicies::FermionFieldType> twist_p5(p5);
     
-  A2AvectorVfftw<A2Apolicies_ext> Vfftw_p1(a2a_args);
+  A2AvectorVfftw<A2Apolicies> Vfftw_p1(a2a_args);
   Vfftw_p1.fft(V,&twist_p1);
 
-  A2AvectorVfftw<A2Apolicies_ext> Vfftw_p5(a2a_args);
+  A2AvectorVfftw<A2Apolicies> Vfftw_p5(a2a_args);
   Vfftw_p5.fft(V,&twist_p5);
 
   //f5(n) = f1(n+1)
@@ -734,10 +731,10 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
   for(int i=0;i<Vfftw_p1.getNmodes();i++)
     assert( Vfftw_p1.getMode(i).equals( Vfftw_p5.getMode(i), 1e-8, true ) );
 
-  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p1(a2a_args);
+  A2AvectorWfftw<A2Apolicies> Wfftw_p1(a2a_args);
   Wfftw_p1.fft(W,&twist_p1);
 
-  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p5(a2a_args);
+  A2AvectorWfftw<A2Apolicies> Wfftw_p5(a2a_args);
   Wfftw_p5.fft(W,&twist_p5);
 
   for(int i=0;i<Wfftw_p1.getNmodes();i++)
@@ -763,7 +760,7 @@ struct defaultFieldParams< SIMDdims<N>, mf_Complex >{
   }
 };
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());
 
@@ -783,13 +780,11 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
   }
   
   //Demonstrate relation between FFTW fields
-  typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-
-  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
   
-  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
   W.testRandom();
 
   int p_p1[3];
@@ -799,29 +794,29 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
   GparityBaseMomentum(p_m1,-1);
 
   //Perform base FFTs
-  //twist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p_p1);
-  //twist<typename A2Apolicies_ext::FermionFieldType> twist_m1(p_m1);
+  //twist<typename A2Apolicies::FermionFieldType> twist_p1(p_p1);
+  //twist<typename A2Apolicies::FermionFieldType> twist_m1(p_m1);
 
-  gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p1(p_p1,lat);
-  gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_m1(p_m1,lat);
+  gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p1(p_p1,lat);
+  gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_m1(p_m1,lat);
   
-  A2AvectorWfftw<A2Apolicies_ext> Wfftw_p1(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> Wfftw_p1(a2a_args,fp);
   Wfftw_p1.fft(W,&twist_p1);
 
-  A2AvectorWfftw<A2Apolicies_ext> Wfftw_m1(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> Wfftw_m1(a2a_args,fp);
   Wfftw_m1.fft(W,&twist_m1);
 
 
   int p[3];  
-  A2AvectorWfftw<A2Apolicies_ext> result(a2a_args,fp);
-  A2AvectorWfftw<A2Apolicies_ext> compare(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> result(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> compare(a2a_args,fp);
   
   //Get twist for first excited momentum in p1 set
   {
     memcpy(p,p_p1,3*sizeof(int));
     p[0] = 5;
-    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
-    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    //twist<typename A2Apolicies::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p(p,lat);    
     compare.fft(W,&twist_p);
 
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
@@ -838,8 +833,8 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
   if(GJP.Bc(1) == BND_CND_GPARITY){
     memcpy(p,p_p1,3*sizeof(int));
     p[1] = -3;
-    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
-    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    //twist<typename A2Apolicies::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p(p,lat);    
     compare.fft(W,&twist_p);
 
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
@@ -857,8 +852,8 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     memcpy(p,p_p1,3*sizeof(int));
     p[0] = -3;
     p[1] = -3;
-    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
-    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    //twist<typename A2Apolicies::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p(p,lat);    
     compare.fft(W,&twist_p);
 
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
@@ -877,8 +872,8 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
     p[0] = -3;
     p[1] = -3;
     p[2] = -3;
-    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
-    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);    
+    //twist<typename A2Apolicies::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p(p,lat);    
     compare.fft(W,&twist_p);
 
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
@@ -895,8 +890,8 @@ void testA2AvectorFFTrelnGparity(const A2AArg &a2a_args,Lattice &lat){
   {
     memcpy(p,p_m1,3*sizeof(int));
     p[0] = 3;
-    //twist<typename A2Apolicies_ext::FermionFieldType> twist_p(p);
-    gaugeFixAndTwist<typename A2Apolicies_ext::FermionFieldType> twist_p(p,lat);   
+    //twist<typename A2Apolicies::FermionFieldType> twist_p(p);
+    gaugeFixAndTwist<typename A2Apolicies::FermionFieldType> twist_p(p,lat);   
     compare.fft(W,&twist_p);
 
     result.getTwistedFFT(p, &Wfftw_p1, &Wfftw_m1);
@@ -983,7 +978,7 @@ CPS_END_NAMESPACE
 #include<alg/a2a/mesonfield_computemany.h>
 CPS_START_NAMESPACE
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());
   
@@ -1003,14 +998,12 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   }
   
   //Demonstrate relation between FFTW fields
-  typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-
-  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
   
-  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies> V(a2a_args,fp);
   W.testRandom();
   V.testRandom();
 
@@ -1025,12 +1018,12 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   ThreeMomentum pm3 = pm * 3;
 
   
-  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::FieldParamType SrcFieldParamType;
-  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies>::ComplexType SrcComplexType;
+  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
+  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
   SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
 
-  typedef A2AflavorProjectedExpSource<typename A2Apolicies_ext::SourcePolicies> ExpSrcType;
-  typedef A2AflavorProjectedHydrogenSource<typename A2Apolicies_ext::SourcePolicies> HydSrcType;
+  typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
+  typedef A2AflavorProjectedHydrogenSource<typename A2Apolicies::SourcePolicies> HydSrcType;
   
   ExpSrcType _1s_src(2.0, pp.ptr(), sfp);
   HydSrcType _2s_src(2,0,0, 2.0, pp.ptr(), sfp);
@@ -1041,25 +1034,25 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   ExpInnerType _1s_inner(sigma3, _1s_src);
   HydInnerType _2s_inner(sigma3, _2s_src);
 
-  A2AvectorWfftw<A2Apolicies_ext> Wfftw_pp(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> Wfftw_pp(a2a_args,fp);
   Wfftw_pp.gaugeFixTwistFFT(W,pp.ptr(),lat);
 
-  A2AvectorVfftw<A2Apolicies_ext> Vfftw_pp(a2a_args,fp);
+  A2AvectorVfftw<A2Apolicies> Vfftw_pp(a2a_args,fp);
   Vfftw_pp.gaugeFixTwistFFT(V,pp.ptr(),lat);
   
-  std::vector< A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
-  A2AmesonField<A2Apolicies_ext,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
+  std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, ExpInnerType> ExpStorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
   
   ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
   exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
-  std::vector< A2AvectorW<A2Apolicies_ext> const*> Wspecies(1, &W);
-  std::vector< A2AvectorV<A2Apolicies_ext> const*> Vspecies(1, &V);
+  std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
+  std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
 
   std::cout << "Start 1s ExpStorage compute\n";
-  ComputeMesonFields<A2Apolicies_ext,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   for(int t=0;t<Lt;t++){
@@ -1078,22 +1071,22 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   
   ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, HydInnerType> HydStorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
   HydStorageType exp_store_2s_pp_pp(_2s_inner,_2s_src);
   exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
   exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
   exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
 
   
-  ComputeMesonFields<A2Apolicies_ext,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
 
   
-  typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies_ext, ExpHydMultiInnerType> ExpHydMultiStorageType;
+  typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, ExpHydMultiInnerType> ExpHydMultiStorageType;
   ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
   exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
 
   std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
-  ComputeMesonFields<A2Apolicies_ext,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
   
   for(int t=0;t<Lt;t++){
     if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
@@ -1110,7 +1103,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 }
 
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());
 
@@ -1128,24 +1121,22 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
     AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
     fix_gauge.run();
   }
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2Apolicies::SourcePolicies SourcePolicies;
   
-  typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-  typedef typename A2Apolicies_ext::SourcePolicies SourcePolicies;
-  
-  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename A2Apolicies_ext::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
-  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies> V(a2a_args,fp);
   W.testRandom();
   V.testRandom();
 
-  std::vector< A2AvectorW<A2Apolicies_ext> const* > Wspecies(1,&W);
-  std::vector< A2AvectorV<A2Apolicies_ext> const* > Vspecies(1,&V);
+  std::vector< A2AvectorW<A2Apolicies> const* > Wspecies(1,&W);
+  std::vector< A2AvectorV<A2Apolicies> const* > Vspecies(1,&V);
   
   
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
@@ -1176,7 +1167,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   
   typedef A2AflavorProjectedExpSource<SourcePolicies> SrcType;
   typedef SCFspinflavorInnerProduct<0,mf_Complex,SrcType,true,false> InnerType; //unit matrix spin structure
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies_ext, InnerType> StorageType;
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, InnerType> StorageType;
 
   SrcType src1(2., pp, sp);
   SrcType src2(2., pp, sp);
@@ -1192,8 +1183,8 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   
   mf_store2.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
 
-  ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
-  ComputeMesonFields<A2Apolicies_ext,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
 
   printf("Testing mf relation\n"); fflush(stdout);
   assert( mf_store1[0][0].equals( mf_store2[0][0], 1e-6, true) );
@@ -1204,7 +1195,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 #if 1
   
   typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftInnerType;
-  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftInnerType> ShiftStorageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftInnerType> ShiftStorageType;
   
   SrcType src3(2., pp, sp);
   ShiftInnerType shift_inner(sigma0,src3);
@@ -1214,7 +1205,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   int nc = mf_shift_store.nCompute();
   printf("Number of optimized computations: %d\n",nc);
 
-  ComputeMesonFields<A2Apolicies_ext,ShiftStorageType>::compute(mf_shift_store,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,ShiftStorageType>::compute(mf_shift_store,Wspecies,Vspecies,lat);
 
   assert( mf_shift_store[0][0].equals( mf_store1[0][0], 1e-6, true) );
   assert( mf_shift_store[1][0].equals( mf_store1[1][0], 1e-6, true) );
@@ -1223,7 +1214,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef Elem<SrcType, Elem<SrcType,ListEnd > > SrcList;
   typedef A2AmultiSource<SrcList> MultiSrcType;
   typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftMultiSrcInnerType;
-  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies_ext, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
+  typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
 
   MultiSrcType multisrc;
   multisrc.template getSource<0>().setup(3.,pp, sp);
@@ -1233,7 +1224,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
   mf_shift_multisrc_store.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
   
-  ComputeMesonFields<A2Apolicies_ext,ShiftMultiSrcStorageType>::compute(mf_shift_multisrc_store,Wspecies,Vspecies,lat);
+  ComputeMesonFields<A2Apolicies,ShiftMultiSrcStorageType>::compute(mf_shift_multisrc_store,Wspecies,Vspecies,lat);
 
   assert( mf_shift_multisrc_store(1,0)[0].equals( mf_store1[0][0], 1e-6, true) );
   assert( mf_shift_multisrc_store(1,1)[0].equals( mf_store1[1][0], 1e-6, true) );
@@ -1248,11 +1239,13 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 
 
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testFFTopt(){
-  typedef deduceA2AfieldLayout<typename ComplexClassify<mf_Complex>::type> FieldPolicies;
+  typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
+  typedef typename A2Apolicies::FermionFieldType::FieldDimensionPolicy DimensionPolicy;
+  typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
   
-  typedef CPSfield<mf_Complex,12,typename FieldPolicies::DimensionPolicy,OneFlavorPolicy, typename FieldPolicies::AllocPolicy> FieldType;
+  typedef CPSfield<mf_Complex,12,DimensionPolicy,OneFlavorPolicy, AllocPolicy> FieldType;
   typedef typename FieldType::InputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
@@ -1278,7 +1271,7 @@ void testFFTopt(){
   printf("Passed FFT inverse test\n");  
 }
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());
 
@@ -1296,29 +1289,27 @@ void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
     AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
     fix_gauge.run();
   }
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2Apolicies::SourcePolicies SourcePolicies;
   
-  typedef deduceA2Apolicies<mf_Complex> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-  typedef typename A2Apolicies_ext::SourcePolicies SourcePolicies;
-  
-  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename A2Apolicies_ext::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
-  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies> V(a2a_args,fp);
   W.testRandom();
   V.testRandom();
 
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
   
-  A2AvectorVfftw<A2Apolicies_ext> Vfft(a2a_args,fp);
+  A2AvectorVfftw<A2Apolicies> Vfft(a2a_args,fp);
   Vfft.fft(V);
 
-  A2AvectorV<A2Apolicies_ext> Vrec(a2a_args,fp);
+  A2AvectorV<A2Apolicies> Vrec(a2a_args,fp);
   Vfft.inversefft(Vrec);
 
   for(int i=0;i<V.getNmodes();i++){
@@ -1326,10 +1317,10 @@ void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
   }
   if(!UniqueID()) printf("Passed V fft/inverse test\n");
 
-  A2AvectorWfftw<A2Apolicies_ext> Wfft(a2a_args,fp);
+  A2AvectorWfftw<A2Apolicies> Wfft(a2a_args,fp);
   Wfft.fft(W);
 
-  A2AvectorW<A2Apolicies_ext> Wrec(a2a_args,fp);
+  A2AvectorW<A2Apolicies> Wrec(a2a_args,fp);
   Wfft.inversefft(Wrec);
 
   for(int i=0;i<W.getNl();i++){
@@ -1346,11 +1337,13 @@ void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
 }
 
 
-template<typename mf_Complex>
+template<typename A2Apolicies>
 void testVVdag(Lattice &lat){
-  typedef deduceA2AfieldLayout<typename ComplexClassify<mf_Complex>::type> FieldPolicies;
+  typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
+  typedef typename A2Apolicies::FermionFieldType::FieldDimensionPolicy DimensionPolicy;
+  typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
+  typedef CPSfermion4D<mf_Complex,DimensionPolicy,OneFlavorPolicy, AllocPolicy> FieldType;
   
-  typedef CPSfermion4D<mf_Complex,typename FieldPolicies::DimensionPolicy,OneFlavorPolicy, typename FieldPolicies::AllocPolicy> FieldType;
   typedef typename FieldType::InputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
   
@@ -1397,7 +1390,7 @@ void testVVdag(Lattice &lat){
 }
 
 
-template<typename mf_Complex>
+template<typename ManualAllocA2Apolicies>
 void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());
 
@@ -1416,34 +1409,33 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
     fix_gauge.run();
   }
   
-  typedef deduceA2Apolicies<mf_Complex,ManualAllocStrategy> A2Apolicies;
-  typedef GridA2APolicies<A2Apolicies> A2Apolicies_ext;
-  typedef typename A2Apolicies_ext::SourcePolicies SourcePolicies;
+  typedef typename ManualAllocA2Apolicies::SourcePolicies SourcePolicies;
+  typedef typename ManualAllocA2Apolicies::ComplexType mf_Complex;
   
-  typedef typename A2AvectorWfftw<A2Apolicies_ext>::FieldInputParamType FieldInputParamType;
+  typedef typename A2AvectorWfftw<ManualAllocA2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename A2Apolicies_ext::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename ManualAllocA2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
-  A2AvectorW<A2Apolicies_ext> W(a2a_args,fp);
-  A2AvectorV<A2Apolicies_ext> V(a2a_args,fp);
+  A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
+  A2AvectorV<ManualAllocA2Apolicies> V(a2a_args,fp);
   W.testRandom();
   V.testRandom();
 
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
   
-  A2AvectorVfftw<A2Apolicies_ext> Vfft(a2a_args,fp);
+  A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp);
   Vfft.destructivefft(V);
 
 
 
   
-  //A2AvectorVfftw<A2Apolicies_ext> Vfft(a2a_args,fp);
+  //A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp);
   
 
-  // A2AvectorV<A2Apolicies_ext> Vrec(a2a_args,fp);
+  // A2AvectorV<ManualAllocA2Apolicies> Vrec(a2a_args,fp);
   // Vfft.inversefft(Vrec);
 
   // for(int i=0;i<V.getNmodes();i++){
@@ -1451,10 +1443,10 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   // }
   // if(!UniqueID()) printf("Passed V fft/inverse test\n");
 
-  // A2AvectorWfftw<A2Apolicies_ext> Wfft(a2a_args,fp);
+  // A2AvectorWfftw<ManualAllocA2Apolicies> Wfft(a2a_args,fp);
   // Wfft.fft(W);
 
-  // A2AvectorW<A2Apolicies_ext> Wrec(a2a_args,fp);
+  // A2AvectorW<ManualAllocA2Apolicies> Wrec(a2a_args,fp);
   // Wfft.inversefft(Wrec);
 
   // for(int i=0;i<W.getNl();i++){
