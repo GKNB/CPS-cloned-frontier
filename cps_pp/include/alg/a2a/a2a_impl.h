@@ -29,18 +29,18 @@ double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldI
 
 struct FFTfieldPolicyBasic{
   template<typename T>
-  static inline void actionOutputMode(T &v){}
+  static inline void actionOutputMode(T &v, const int i){}
   template<typename T>
-  static inline void actionInputMode(T &v){}
+  static inline void actionInputMode(T &v, const int i){}
 };
 struct FFTfieldPolicyAllocFree{
   template<typename T>
-  static inline void actionOutputMode(T &v){
-    v.allocField();
+  static inline void actionOutputMode(T &v, const int i){
+    v.allocMode(i);
   }
   template<typename T>
-  static inline void actionInputMode(T &v){
-    v.freeField();
+  static inline void actionInputMode(T &v, const int i){
+    v.freeMode(i);
   }
 };
 
@@ -70,14 +70,14 @@ struct _V_fft_impl{
       }
       Float dtime = dclock();
       
-      FFTfieldPolicy::actionOutputMode(to.getMode(mode)); //alloc
+      FFTfieldPolicy::actionOutputMode(to, mode); //alloc
       
 #ifndef MEMTEST_MODE
       cps::fft_opt(to.getMode(mode), *init_gather_from, fft_dirs);
 #endif
       fft_time += dclock() - dtime;
 
-      FFTfieldPolicy::actionInputMode(from.getMode(mode)); //free
+      FFTfieldPolicy::actionInputMode(from, mode); //free
     }
     if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
     print_time("A2AvectorVfftw::fft","Preop",preop_time);
@@ -97,9 +97,7 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
 template< typename mf_Policies>
 template<typename P>
 void A2AvectorVfftw<mf_Policies>::destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop,
-						 typename my_enable_if<
-						 _equal<typename P::AllocPolicy,ManualAllocPolicy>::value || _equal<typename P::AllocPolicy,ManualAligned128AllocPolicy>::value
-						 , int>::type ){
+						 typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type){
   _V_fft_impl<A2AvectorVfftw<P>, A2AvectorV<P>, FFTfieldPolicyAllocFree>::fft(*this,from,mode_preop);
 }
 
@@ -164,7 +162,7 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
     }
     Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(wl[mode], *init_gather_from, fft_dirs);
+    cps::fft_opt(*wl[mode], *init_gather_from, fft_dirs);
 #endif
     fft_time += dclock() - dtime;
   }
@@ -181,7 +179,7 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       }
       Float dtime = dclock();
 #ifndef MEMTEST_MODE
-      cps::fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
+      cps::fft_opt(*wh[sc+12*hit], *init_gather_from, fft_dirs);
 #endif
       fft_time += dclock()-dtime;
     }
@@ -209,7 +207,7 @@ void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldO
 
     Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(*unfft_to, this->wl[mode], fft_dirs, true);
+    cps::fft_opt(*unfft_to, *this->wl[mode], fft_dirs, true);
 #endif
     fft_time += dclock() - dtime;
 
@@ -227,7 +225,7 @@ void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldO
     FermionFieldType * compress = mode_postop == NULL ? &tmp2 : &tmp;
     Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(tmp2, this->wh[sc+12*hit], fft_dirs, true);
+    cps::fft_opt(tmp2, *this->wh[sc+12*hit], fft_dirs, true);
 #endif
     fft_time += dclock()-dtime;
 
@@ -255,10 +253,10 @@ struct _set_wh_random_impl{};
 
 template<typename ComplexFieldType>
 struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
-  static void doit(std::vector<ComplexFieldType> &wh, const RandomType &type, const int nhits){
+  static void doit(std::vector<ComplexFieldType*> &wh, const RandomType &type, const int nhits){
     typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
     LRG.SetInterval(1, 0);
-    int sites = wh[0].nsites(), flavors = wh[0].nflavors();
+    int sites = wh[0]->nsites(), flavors = wh[0]->nflavors();
     
     for(int i = 0; i < sites*flavors; ++i) {
       int flav = i / sites;
@@ -266,7 +264,7 @@ struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
       
       LRG.AssignGenerator(st,flav);
       for(int j = 0; j < nhits; ++j) {
-	FieldSiteType* p = wh[j].site_ptr(st,flav);
+	FieldSiteType* p = wh[j]->site_ptr(st,flav);
 	RandomComplex<FieldSiteType>::rand(p,type,FOUR_D);
       }
     }
@@ -315,7 +313,7 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[3] = tblock_origt_lcl + rem;
 
     TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
-    mf_Complex const* from_site = (mf_Complex*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
+    mf_Complex const* from_site = (mf_Complex*)wh[hit]->site_ptr(x,flavor); //note same random numbers for each spin/color!
     *into_site = *from_site;
   }
 }
@@ -329,9 +327,9 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
   into.zero();
 
 #pragma omp parallel for
-  for(int i=0;i<wh[hit].nfsites();i++){ //same mapping, different site_size
+  for(int i=0;i<wh[hit]->nfsites();i++){ //same mapping, different site_size
     FieldSiteType &into_site = *(into.fsite_ptr(i) + sc_id);
-    const FieldSiteType &from_site = *(wh[hit].fsite_ptr(i));
+    const FieldSiteType &from_site = *(wh[hit]->fsite_ptr(i));
     into_site = from_site;
   }
 }

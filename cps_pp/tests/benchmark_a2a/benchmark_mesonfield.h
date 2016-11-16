@@ -1418,17 +1418,24 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   typedef typename ManualAllocA2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
-  A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
+  //A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
   A2AvectorV<ManualAllocA2Apolicies> V(a2a_args,fp);
-  W.testRandom();
+  //W.testRandom();
+
+  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
+  V.allocModes();
+  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) != NULL);
+  
   V.testRandom();
 
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
   
-  A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp);
+  A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp); //no allocation yet performed
   Vfft.destructivefft(V);
 
+  for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
+  for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) != NULL);
 
 
   
