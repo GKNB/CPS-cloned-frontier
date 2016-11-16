@@ -60,7 +60,7 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
 //Randomization of wh fields must have handled with care to ensure order preservation
 template<typename ComplexFieldType>
 struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
-  static void doit(std::vector<ComplexFieldType*> &wh, const RandomType &type, const int nhits){
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
     typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
     
     
@@ -71,12 +71,9 @@ struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
     NullObject null_obj;
     
     //Use scalar generation code and import
-    std::vector<ScalarComplexFieldType*> wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i] = new ScalarComplexFieldType(null_obj);
+    std::vector<PtrWrapper<ScalarComplexFieldType> > wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].set(new ScalarComplexFieldType(null_obj));
     _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
-    for(int i=0;i<nhits;i++){
-      wh[i]->importField(*wh_scalar[i]);
-      delete wh_scalar[i];
-    }
+    for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
   }
 };
 

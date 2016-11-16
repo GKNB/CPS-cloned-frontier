@@ -272,7 +272,7 @@ struct _set_wh_random_impl{};
 
 template<typename ComplexFieldType>
 struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
-  static void doit(std::vector<ComplexFieldType*> &wh, const RandomType &type, const int nhits){
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
     typedef typename ComplexFieldType::FieldSiteType FieldSiteType;
     LRG.SetInterval(1, 0);
     int sites = wh[0]->nsites(), flavors = wh[0]->nflavors();

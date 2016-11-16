@@ -1428,6 +1428,8 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   
   V.testRandom();
 
+  A2AvectorV<ManualAllocA2Apolicies> Vcopy = V;
+  
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
   
@@ -1444,6 +1446,9 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   for(int i=0;i<Vrec.getNmodes();i++) assert( &Vrec.getMode(i) != NULL);
   for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) == NULL); 
 
+  for(int i=0;i<Vrec.getNmodes();i++) assert( Vrec.getMode(i).equals( Vcopy.getMode(i), 1e-08, true) );
+
+  
   printf("Passed destructive FFT test\n");
   
   

@@ -51,7 +51,7 @@ public:
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
-  std::vector<FermionFieldType*> v;
+  std::vector<PtrWrapper<FermionFieldType> > v;
 
 public:
   typedef StandardIndexDilution DilutionType;
@@ -68,8 +68,6 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
-  
-  ~A2AvectorV(){ this->freeFields(v); }
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
@@ -118,7 +116,7 @@ public:
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 private:
-  std::vector<FermionFieldType*> v;
+  std::vector<PtrWrapper<FermionFieldType> > v;
 
 public:
   typedef StandardIndexDilution DilutionType;
@@ -133,8 +131,6 @@ public:
     this->allocInitializeFields(v,field_setup_params);
   }
 
-  ~A2AvectorVfftw(){ this->freeFields(v); }
-  
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
@@ -222,8 +218,8 @@ public:
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
-  std::vector<FermionFieldType*> wl; //The low mode part of the W field, comprised of nl fermion fields
-  std::vector<ComplexFieldType*> wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
+  std::vector<PtrWrapper<FermionFieldType> > wl; //The low mode part of the W field, comprised of nl fermion fields
+  std::vector<PtrWrapper<ComplexFieldType> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
   //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
   //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
@@ -242,8 +238,6 @@ public:
     wh.resize(nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
   }
 
-  ~A2AvectorW(){ this->freeLowModeFields(wl); this->freeHighModeFields(wh); }
-  
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
@@ -363,8 +357,8 @@ public:
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
 
-  std::vector<FermionFieldType*> wl;
-  std::vector<FermionFieldType*> wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
+  std::vector<PtrWrapper<FermionFieldType> > wl;
+  std::vector<PtrWrapper<FermionFieldType> > wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
   FieldSiteType zerosc[12];
 public:
@@ -380,10 +374,6 @@ public:
     wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
     wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
     for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
-  }
-
-  ~A2AvectorWfftw(){
-    this->freeLowModeFields(wl); this->freeHighModeFields(wh);
   }
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);

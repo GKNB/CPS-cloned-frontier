@@ -624,6 +624,39 @@ void z3x3_invert(Zout* out, Zin const* in){
   out[6] /= det; out[7] /= det; out[8] /= det;
 }
 
+//A class that owns data via a pointer that has an assignment and copy constructor which does a deep copy.
+template<typename T>
+class PtrWrapper{
+  T* t;
+public:
+  inline T& operator*(){ return *t; }
+  inline T* operator->(){ return t; }
+  inline T const& operator*() const{ return *t; }
+  inline T const* operator->() const{ return t; }
+  
+  inline PtrWrapper(): t(NULL){};
+  inline PtrWrapper(T* _t): t(_t){}
+  inline ~PtrWrapper(){ if(t!=NULL) delete t; }
+
+  inline const bool assigned() const{ return t != NULL; }
+  
+  inline void set(T* _t){
+    if(t!=NULL) delete t;
+    t = _t;
+  }
+  inline void free(){
+    if(t!=NULL) delete t;
+    t = NULL;
+  }
+  
+  //Deep copies
+  inline PtrWrapper(const PtrWrapper &r): t(new T(*r.t)){}
+
+  inline PtrWrapper & operator=(const PtrWrapper &r){
+    if(t!=NULL) delete t;
+    t = new T(*r.t);
+  } 
+};
 
 
 
