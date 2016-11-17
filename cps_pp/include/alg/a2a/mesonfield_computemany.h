@@ -9,11 +9,18 @@ CPS_START_NAMESPACE
 
 
 template<typename mf_Policies, typename StorageType>
-class ComputeMesonFields{
+class ComputeMesonFields{  
  public:
-
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef const std::vector< A2AvectorW<mf_Policies>*> WspeciesVector;
+  typedef const std::vector< A2AvectorV<mf_Policies>*> VspeciesVector;
+#else
+  typedef const std::vector< A2AvectorW<mf_Policies> const*> WspeciesVector;
+  typedef const std::vector< A2AvectorV<mf_Policies> const*> VspeciesVector;
+#endif
+  
   //W and V are indexed by the quark type index
-  static void compute(StorageType &into, const std::vector< A2AvectorW<mf_Policies> const*> &W, const std::vector< A2AvectorV<mf_Policies> const*> &V,  Lattice &lattice, const bool node_distribute = false){
+  static void compute(StorageType &into, WspeciesVector &W, VspeciesVector &V,  Lattice &lattice, const bool node_distribute = false){
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
@@ -78,16 +85,28 @@ class ComputeMesonFields{
 	for(int bw=0;bw<nbase;bw++) for(int sw=0;sw<nspecies;sw++) count += base_cidx_map[bv][sv][bw][sw].size();
 	if(count == 0) continue;
 
+#ifndef DISABLE_FFT_RELN_USAGE
+
+# ifdef USE_DESTRUCTIVE_FFT
+	if(!UniqueID()){
+	  printf("ComputeMesonFields::compute Allocating V FFT of size %f MB dynamically as V of size %f MB is deallocated\n",
+		 A2AvectorVfftw<mf_Policies>::Mbyte_size(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams()),
+		 A2AvectorV<mf_Policies>::Mbyte_size(V[sv]->getArgs(), W[sv]->getWh(0).getDimPolParams()));
+	  fflush(stdout);
+	}
+# else
 	if(!UniqueID()){ 
 	  printf("ComputeMesonFields::compute Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams())); fflush(stdout);
 	}
-#ifndef DISABLE_FFT_RELN_USAGE
+# endif
+	
 	A2AvectorVfftw<mf_Policies> fftw_V_base(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams() );
 # ifdef USE_DESTRUCTIVE_FFT
-	fftw_V_base.allocModes();
-# endif	
+	fftw_V_base.destructiveGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice); //allocs Vfft and deallocs V internally
+# else
 	fftw_V_base.gaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);
-
+# endif
+	
 	A2AvectorVfftw<mf_Policies> const* Vfftw_base_0 = bv == 0 ? &fftw_V_base : NULL;
 	A2AvectorVfftw<mf_Policies> const* Vfftw_base_1 = bv == 1 ? &fftw_V_base : NULL;
 #endif
@@ -98,12 +117,24 @@ class ComputeMesonFields{
 	    if(base_cidx_map[bv][sv][bw][sw].size() == 0) continue;
 
 #ifndef DISABLE_FFT_RELN_USAGE
-	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams())); fflush(stdout); }
+
+# ifdef USE_DESTRUCTIVE_FFT
+	    if(!UniqueID()){
+	      printf("ComputeMesonFields::compute Allocating W FFT of size %f MB dynamically as W of size %f MB is deallocated\n",
+		     A2AvectorWfftw<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams()),
+		     A2AvectorW<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams()));
+	      fflush(stdout);
+	    }
+# else
+	    if(!UniqueID()){ printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams())); fflush(stdout); }
+# endif
+	    
 	    A2AvectorWfftw<mf_Policies> fftw_W_base(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams() );
 # ifdef USE_DESTRUCTIVE_FFT
-	    fftw_W_base.allocModes();
-# endif
+	    fftw_W_base.destructiveGaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
+# else
 	    fftw_W_base.gaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
+# endif
 
 	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_0 = bw == 0 ? &fftw_W_base : NULL;
 	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_1 = bw == 1 ? &fftw_W_base : NULL;
@@ -138,8 +169,12 @@ class ComputeMesonFields{
 # endif
 
 # ifdef DISABLE_FFT_RELN_USAGE
+#   ifdef USE_DESTRUCTIVE_FFT
+#   error "In ComputeMany cannot combine DISABLE_FFT_RELN_USAGE with USE_DESTRUCTIVE_FFT as the W and V vectors have been deallocated by the point of use"
+#   else	      
 	      fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);
 	      fftw_V.gaugeFixTwistFFT(*V[qidx_v], p_v.ptr(),lattice);
+#   endif
 # else
 	      fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base_0, Wfftw_base_1);
 	      fftw_V.getTwistedFFT(p_v.ptr(), Vfftw_base_0, Vfftw_base_1);
@@ -161,12 +196,16 @@ class ComputeMesonFields{
 
 	      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
 
+# ifndef USE_DESTRUCTIVE_FFT
 	      if(cc != base_cidx_map[bv][sv][bw][sw].size() -1){
+# endif		
 		fftw_W_base.shiftFieldsInPlace(restore_shift_w);
 		fftw_V_base.shiftFieldsInPlace(restore_shift_v);
+# ifndef USE_DESTRUCTIVE_FFT	       
 	      }
+# endif
+	      
 #endif
-
 	      if(node_distribute){
 		if(!UniqueID()) printf("ComputeMesonFields::compute Memory before distribute:\n");
 		printMem();
@@ -175,8 +214,17 @@ class ComputeMesonFields{
 		printMem();
 	      }
 	    }//cc
+
+#ifdef USE_DESTRUCTIVE_FFT
+	    fftw_W_base.destructiveUnapplyGaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
+#endif
+	    
 	  }//sw
 	}//bw
+
+#ifdef USE_DESTRUCTIVE_FFT
+	fftw_V_base.destructiveUnapplyGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);  //allocs V and deallocs Vfft internally
+#endif	
       }//sv
     }//bv
     

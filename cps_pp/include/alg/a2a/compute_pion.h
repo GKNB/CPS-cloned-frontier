@@ -95,6 +95,14 @@ template<typename mf_Policies>
 class ComputePion{
  public:
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef A2AvectorW<mf_Policies> Wtype;
+  typedef A2AvectorV<mf_Policies> Vtype;
+#else
+  typedef const A2AvectorW<mf_Policies> Wtype;
+  typedef const A2AvectorV<mf_Policies> Vtype;
+#endif
   
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
@@ -102,13 +110,13 @@ class ComputePion{
 				 MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
 				 const std::string &work_dir, const int traj,  //all meson fields stored to disk
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
-				 const A2AvectorW<mf_Policies> &W, const A2AvectorV<mf_Policies> &V,
+				 Wtype &W, Vtype &V,
 				 const Float &rad, //exponential wavefunction radius
 				 Lattice &lattice,			      
 				 const FieldParamType &src_setup_params = NullObject()){
     Float time = -dclock();    
-    std::vector< A2AvectorW<mf_Policies> const*> Wspecies(1, &W);
-    std::vector< A2AvectorV<mf_Policies> const*> Vspecies(1, &V);
+    std::vector<Wtype*> Wspecies(1, &W);
+    std::vector<Vtype*> Vspecies(1, &V);
 
     typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
     typedef std::vector<MesonFieldType> MesonFieldVectorType;
@@ -240,7 +248,7 @@ class ComputePion{
     }
     
     time += dclock();
-    print_time("ComputePion","total",time);      
+    print_time("ComputePion::computeMesonFields","total",time);      
   }
 
 

@@ -37,10 +37,18 @@ template<typename mf_Policies>
 class ComputeSigma{
  public:
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef A2AvectorW<mf_Policies> Wtype;
+  typedef A2AvectorV<mf_Policies> Vtype;
+#else
+  typedef const A2AvectorW<mf_Policies> Wtype;
+  typedef const A2AvectorV<mf_Policies> Vtype;
+#endif
   
   //Computes sigma meson fields and saves to disk
   static void computeAndWrite(const std::string &work_dir, const int traj,
-			      const A2AvectorW<mf_Policies> &W, const A2AvectorV<mf_Policies> &V, const Float &rad, Lattice &lattice,
+			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			      const FieldParamType &src_setup_params = NullObject()){
 
     typedef typename mf_Policies::ComplexType ComplexType;
@@ -53,8 +61,8 @@ class ComputeSigma{
 
     RequiredMomentum<StationarySigmaMomentaPolicy> momenta;
 
-    std::vector< A2AvectorW<mf_Policies> const*> Wspecies(1,&W);
-    std::vector< A2AvectorV<mf_Policies> const*> Vspecies(1,&V);
+    std::vector<Wtype*> Wspecies(1,&W);
+    std::vector<Vtype*> Vspecies(1,&V);
     
     if(GJP.Gparity()){
       typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;

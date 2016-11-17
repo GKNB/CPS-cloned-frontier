@@ -20,7 +20,10 @@ double A2AvectorVfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldI
 }
 template< typename mf_Policies>
 double A2AvectorW<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
-  return VW_Mbyte_size<A2AvectorW<mf_Policies> >(_args,field_setup_params);
+  FullyPackedIndexDilution dil(_args);
+  double ffield_size = double(FermionFieldType::byte_size(field_setup_params))/(1024.*1024.);
+  double cfield_size = double(ComplexFieldType::byte_size(field_setup_params))/(1024.*1024.);
+  return dil.getNl() * ffield_size + dil.getNhits() * cfield_size;
 }
 template< typename mf_Policies>
 double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params){
