@@ -98,6 +98,13 @@ public:
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef A2AvectorW<mf_Policies> Wtype;
+#else
+  typedef const A2AvectorW<mf_Policies> Wtype;
+#endif
+  
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -113,7 +120,7 @@ public:
   //ls_WW meson fields
   template< typename Allocator >
   static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww,
-				      const A2AvectorW<mf_Policies> &W, const A2AvectorW<mf_Policies> &W_s, const int kaon_rad, Lattice &lat,
+				      Wtype &W, Wtype &W_s, const int kaon_rad, Lattice &lat,
 				      const SourceParamType &src_params = NullObject()){
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
@@ -130,18 +137,26 @@ public:
     VWfieldInputParams fld_params = W.getWh(0).getDimPolParams();
     
     A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
-    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
-
     A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
+    
+#ifdef USE_DESTRUCTIVE_FFT
+    fftw_Wl_p.destructiveGaugeFixTwistFFT(W, p,lat);
+    fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,p,lat); 
+#else
+    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
+#endif
 
     A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
     SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
-    //for(int t=0;t<Lt;t++)
-    //mf_ls_ww[t].compute(fftw_Wl_p, mf_struct, fftw_Ws_p,t);
+#ifdef USE_DESTRUCTIVE_FFT
+    fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, p,lat);
+    fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, p,lat);
+#endif
+    
     time += dclock();
     print_time("ComputeKtoPiPiGparity","ls WW meson fields",time);
   }

@@ -62,6 +62,22 @@ using namespace cps;
 #include <alg/a2a/compute_ktopipi.h>
 #include <alg/a2a/main.h>
 
+#ifdef USE_DESTRUCTIVE_FFT
+
+#ifdef A2A_PREC_DOUBLE
+typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SINGLE)
+typedef A2ApoliciesSingleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_DOUBLE)
+typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_SINGLE)
+typedef A2ApoliciesSIMDsingleManualAlloc A2Apolicies;
+#else
+#error "Must provide an A2A precision"
+#endif
+
+#else
+
 #ifdef A2A_PREC_DOUBLE
 typedef A2ApoliciesDoubleAutoAlloc A2Apolicies;
 #elif defined(A2A_PREC_SINGLE)
@@ -74,6 +90,7 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 #error "Must provide an A2A precision"
 #endif
 
+#endif
 
 
 int main (int argc,char **argv )
@@ -325,6 +342,10 @@ int main (int argc,char **argv )
     A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
 
+#ifdef USE_DESTRUCTIVE_FFT
+    V.allocModes(); W.allocModes();
+#endif
+    
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
       //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
@@ -372,6 +393,10 @@ int main (int argc,char **argv )
     A2AvectorV<A2Apolicies> V_s(a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(a2a_arg_s,field4dparams);
 
+#ifdef USE_DESTRUCTIVE_FFT
+    V_s.allocModes(); W_s.allocModes();
+#endif
+    
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
       //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);

@@ -64,12 +64,18 @@ class ComputeMesonFields{
 	    printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams())); fflush(stdout);
 	  }
 	  Wfftw_base[s][b] = new A2AvectorWfftw<mf_Policies>(W[s]->getArgs(), W[s]->getWh(0).getDimPolParams() );
+#ifdef USE_DESTRUCTIVE_FFT
+	  Wfftw_base[s][b]->allocModes();
+#endif	  
 	}
 	if(precompute_base_vffts[s]){
 	  if(!UniqueID()){ 
 	    printf("ComputeMesonFields::compute Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams())); fflush(stdout);
 	  }
 	  Vfftw_base[s][b] = new A2AvectorVfftw<mf_Policies>(V[s]->getArgs(), V[s]->getMode(0).getDimPolParams() );
+#ifdef USE_DESTRUCTIVE_FFT
+	  Vfftw_base[s][b]->allocModes();
+#endif	
 	}
       }
 	
@@ -109,12 +115,17 @@ class ComputeMesonFields{
 	printf("ComputeMesonFields::compute Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout);
       }
       A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() ); //temp storage for W
-
+#ifdef USE_DESTRUCTIVE_FFT
+      fftw_W.allocModes();
+#endif	
       if(!UniqueID()){ 
 	printf("ComputeMesonFields::compute Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[qidx_v]->getArgs(), V[qidx_v]->getMode(0).getDimPolParams())); fflush(stdout);
       }
       A2AvectorVfftw<mf_Policies> fftw_V(V[qidx_v]->getArgs(), V[qidx_v]->getMode(0).getDimPolParams() );
-            
+#ifdef USE_DESTRUCTIVE_FFT
+      fftw_V.allocModes();
+#endif
+      
 #ifndef DISABLE_FFT_RELN_USAGE
       if(precompute_base_wffts[qidx_w])
 	fftw_W.getTwistedFFT(p_w.ptr(), Wfftw_base[qidx_w][0], Wfftw_base[qidx_w][1]);
@@ -684,6 +695,10 @@ public:
 	  printf("ComputeMesonFields::compute <shift source> Allocating a V FFT of size %f MB\n", A2AvectorVfftw<mf_Policies>::Mbyte_size(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams())); fflush(stdout);
 	}
 	A2AvectorVfftw<mf_Policies> fftw_V(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams() );
+#ifdef USE_DESTRUCTIVE_FFT
+	fftw_V.allocModes();
+#endif
+	
 	fftw_V.gaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);
 
 	for(int bw=0;bw<nbase;bw++){
@@ -694,6 +709,9 @@ public:
 #ifndef DISABLE_FFT_RELN_USAGE
 	    if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams())); fflush(stdout); }
 	    A2AvectorWfftw<mf_Policies> fftw_W_base(W[sw]->getArgs(), W[sw]->getWh(0).getDimPolParams() );
+# ifdef USE_DESTRUCTIVE_FFT
+	    fftw_W_base.allocModes();
+# endif
 	    fftw_W_base.gaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
 
 	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_0 = bw == 0 ? &fftw_W_base : NULL;
@@ -720,6 +738,9 @@ public:
 #ifdef DISABLE_FFT_RELN_USAGE
 	      if(!UniqueID()){ printf("ComputeMesonFields::compute <shift source> Allocating a W FFT of size %f MB\n", A2AvectorWfftw<mf_Policies>::Mbyte_size(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams())); fflush(stdout); }
 	      A2AvectorWfftw<mf_Policies> fftw_W(W[qidx_w]->getArgs(), W[qidx_w]->getWh(0).getDimPolParams() );
+# ifdef USE_DESTRUCTIVE_FFT
+	      fftw_W.allocModes();
+# endif
 	      fftw_W.gaugeFixTwistFFT(*W[qidx_w], p_w.ptr(),lattice);	      
 #elif defined(COMPUTEMANY_INPLACE_SHIFT)
 	      
