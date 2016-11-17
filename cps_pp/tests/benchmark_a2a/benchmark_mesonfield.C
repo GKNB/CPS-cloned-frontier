@@ -11,6 +11,14 @@
 #define CALLGRIND_TOGGLE_COLLECT ;
 #endif
 
+#ifdef USE_VTUNE
+#include<ittnotify.h>
+#else
+void __itt_pause(){}
+void __itt_resume(){}
+void __itt_detach(){}
+#endif
+
 //bfm headers
 #ifdef USE_BFM
 #include<bfm.h>
@@ -322,27 +330,19 @@ int main(int argc,char *argv[])
   if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
   if(0) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
 
-  if(1) testFFTopt<cps::ComplexD>();
+  if(0) testFFTopt<cps::ComplexD>();
   //if(0) testFFTopt<Grid::vComplexD>();
   
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
-    printvType(v);
-
-    
-    
-    
+    printvType(v);    
     Grid::vComplexF::conv_t* conv = reinterpret_cast<Grid::vComplexF::conv_t*>(&v.v);
     conv->s[0] = 0.0; conv->s[1] = 1.0; conv->s[2] = 2.0; conv->s[3] = 3.0;
-
     printvType(v);
-
   }
 
 
-
-
-
+  if(1) testGridg5Contract<Grid::vComplexD>();
 
   
   if(0){ //benchmark single timeslice mf contraction
@@ -386,7 +386,7 @@ int main(int argc,char *argv[])
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
   if(0) benchmarkmultGammaLeft(ntests, tol);
-  
+
   NullObject n;
   if(0){
     CPSfield<grid_Complex,1,ThreeDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> a(simd_dims_3d);
@@ -465,7 +465,7 @@ int main(int argc,char *argv[])
     
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(0){
+    if(1){
       // GridVectorizedSpinColorContract benchmark
       typedef typename GridA2Apolicies::ComplexType GVtype;
       typedef typename GridA2Apolicies::ScalarComplexType GCtype;
@@ -478,25 +478,60 @@ int main(int argc,char *argv[])
       CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
       CPSfield<GVtype,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> cc(simd_dims);
 
-      int ntests_scaled = 5000;
+      int ntests_scaled = ntests * 1000;
       printf("Max threads %d\n",omp_get_max_threads());
       double t0 = Grid::usecond();
 
+      __itt_resume();
 #pragma omp parallel //avoid thread creation overheads
       {
 	int me = omp_get_thread_num();
 	int work, off;
 	thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
+	
+	GVtype *abase = aa.fsite_ptr(off);
+	GVtype *bbase = bb.fsite_ptr(off);
+	GVtype *cbase = cc.fsite_ptr(off);
 
 	for(int test=0;test<ntests_scaled;test++){
-	  for(int i=off;i<off+work;i++){
-	    GVtype *ai = aa.fsite_ptr(i);
-	    GVtype *bi = bb.fsite_ptr(i);
-	    GVtype *ci = cc.fsite_ptr(i);
+	  GVtype *ai = abase;
+	  GVtype *bi = bbase;
+	  GVtype *ci = cbase;
+
+	  for(int i=0;i<work;i++){
+	    for(int s=0;s<12;s++){
+	      vprefetch(*(ai+3*12+s));
+	      vprefetch(*(bi+3*12+s));
+	    }
+	    vprefetch(*(ci+3));
+
 	    *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+	    ai += 12;
+	    bi += 12;
+	    ci += 1;
 	  }
 	}
       }
+
+
+// #pragma omp parallel
+//       {
+// 	const int work = aa.nfsites();
+// 	GVtype *abase = aa.fsite_ptr(0);
+// 	GVtype *bbase = bb.fsite_ptr(0);
+// 	GVtype *cbase = cc.fsite_ptr(0);
+
+// 	for(int test=0;test<ntests_scaled;test++){
+// #pragma omp for schedule(guided) nowait
+// 	  for(int i=0;i<work;i++){
+// 	    GVtype *ai = abase + 12*i;
+// 	    GVtype *bi = bbase + 12*i;
+// 	    cbase[i] = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+// 	  }
+// 	}
+//       }
+
+      __itt_detach();
       
       double t1 = Grid::usecond();
       double dt = t1 - t0;

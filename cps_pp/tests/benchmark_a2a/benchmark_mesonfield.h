@@ -44,7 +44,7 @@ void randomMatrix(CPSspinColorFlavorMatrix<cps::ComplexD> &B){
 
 void benchmarkTrace(const int ntests, const double tol){
   typedef CPSsquareMatrix<CPSsquareMatrix<CPSsquareMatrix<cps::ComplexD,2>,3>,4> SCFmat;
-  typedef CPSsquareMatrix<cps::ComplexD,3> Cmat;
+ typedef CPSsquareMatrix<cps::ComplexD,3> Cmat;
     
   //Test they give the same answer
   {
@@ -1272,7 +1272,73 @@ void testFFTopt(){
 }
 
 
+#ifdef USE_GRID
+template<typename vComplexType, bool conj_left, bool conj_right>
+class GridVectorizedSpinColorContractBasic{
+public:
+  inline static vComplexType g5(const vComplexType *const l, const vComplexType *const r){
+    const static int sc_size =12;
+    const static int half_sc = 6;
 
+    vComplexType v3; zeroit(v3);
+
+    for(int i = half_sc; i < sc_size; i++){ 
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+    }
+    for(int i = 0; i < half_sc; i ++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
+    }
+    return v3;
+  }
+};
+
+template<typename T>
+typename my_enable_if< is_complex_double_or_float<typename T::scalar_type>::value, bool>::type 
+vTypeEquals(const T& a, const T &b, const double tolerance = 1e-12, bool verbose = false){
+  typedef typename T::scalar_type S;
+  int Nsimd = T::Nsimd();
+  S ato[Nsimd];
+  vstore(a,ato);
+  S bto[Nsimd];
+  vstore(b,bto);
+  
+  bool eq = true;
+  for(int i=0;i<Nsimd;i++)
+    if( fabs(ato[i].real() - bto[i].real()) > tolerance || fabs(ato[i].imag() - bto[i].imag()) > tolerance ){
+      if(verbose && !UniqueID()){	
+	double rdiff = fabs(ato[i].real() - bto[i].real());
+	double idiff = fabs(ato[i].imag() - bto[i].imag());
+	printf("Mismatch index %d: (%g,%g) vs (%g,%g) with diffs (%g,%g)\n",i,ato[i].real(),bto[i].real(),ato[i].imag(),bto[i].imag(),rdiff,idiff);
+      }
+      eq = false; break;
+    }
+
+  if(!eq && verbose && !UniqueID()){
+    printf("NOT EQUAL:\n");
+    printit(ato,Nsimd);
+    printit(bto,Nsimd);
+  }    
+  return eq;
+}
+
+#endif
+
+template<typename mf_Complex>
+void testGridg5Contract(){
+#ifdef USE_GRID
+  Grid::Vector<mf_Complex> vec1(12);
+  Grid::Vector<mf_Complex> vec2(12);
+  for(int i=0;i<12;i++){
+    vec1[i] = randomvType<mf_Complex>();
+    vec2[i] = randomvType<mf_Complex>();
+  }
+
+  mf_Complex a = GridVectorizedSpinColorContractBasic<mf_Complex,true,false>::g5(vec1.data(),vec2.data());
+  mf_Complex b = GridVectorizedSpinColorContract<mf_Complex,true,false>::g5(vec1.data(),vec2.data());
+  assert(vTypeEquals(a,b,1e-6,true) == true);
+  if(!UniqueID()){ printf("Passed g5 contract repro\n"); fflush(stdout); }
+#endif
+}
 
 
 CPS_END_NAMESPACE
