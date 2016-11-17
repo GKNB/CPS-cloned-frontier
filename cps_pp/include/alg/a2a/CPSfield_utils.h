@@ -661,8 +661,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   int fft_phase = inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD;
   
-  static typename FFTWwrapper<FloatType>::planType plan_f_base[Dimension];
-  static typename FFTWwrapper<FloatType>::planType plan_f_base_p1[Dimension];
+  static FFTplanContainer<FloatType> plan_f_base[Dimension]; //destructors deallocate plans
+  static FFTplanContainer<FloatType> plan_f_base_p1[Dimension];
       
   static int plan_howmany[Dimension];
   static bool plan_init = false;
@@ -676,15 +676,15 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     plan_fft_phase = fft_phase;
     const int fft_work_per_musite = howmany_per_thread_base;
     const int musite_stride = howmany; //stride between musites
-	
-    plan_f_base[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite, 
-							    tmp_f, NULL, musite_stride, 1,
-							    tmp_f, NULL, musite_stride, 1,
-							    plan_fft_phase, FFTW_ESTIMATE);
-    plan_f_base_p1[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite+1, 
-							       tmp_f, NULL, musite_stride, 1,
-							       tmp_f, NULL, musite_stride, 1,
-							       plan_fft_phase, FFTW_ESTIMATE);	
+    
+    plan_f_base[mu].setPlan(1, &mutotalsites, fft_work_per_musite, 
+			    tmp_f, NULL, musite_stride, 1,
+			    tmp_f, NULL, musite_stride, 1,
+			    plan_fft_phase, FFTW_ESTIMATE);
+    plan_f_base_p1[mu].setPlan(1, &mutotalsites, fft_work_per_musite+1, 
+			       tmp_f, NULL, musite_stride, 1,
+			       tmp_f, NULL, musite_stride, 1,
+			       plan_fft_phase, FFTW_ESTIMATE);	
     plan_init = true; //other mu's will still init later
   }
   FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
@@ -696,13 +696,13 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     int thr_work, thr_off;
     thread_work(thr_work, thr_off, howmany, me, nthread);
 
-    typename FFTWwrapper<FloatType>::planType thr_plan;
-
-    if(thr_work == howmany_per_thread_base) thr_plan = plan_f_base[mu];
-    else if(thr_work == howmany_per_thread_base + 1) thr_plan = plan_f_base_p1[mu];
+    const FFTplanContainer<FloatType>* thr_plan_ptr;
+    
+    if(thr_work == howmany_per_thread_base) thr_plan_ptr = &plan_f_base[mu];
+    else if(thr_work == howmany_per_thread_base + 1) thr_plan_ptr = &plan_f_base_p1[mu];
     else assert(0); //catch if logic for thr_work changes
 
-    FFTWwrapper<FloatType>::execute_dft(thr_plan, fftw_mem + thr_off, fftw_mem + thr_off); 
+    FFTWwrapper<FloatType>::execute_dft(thr_plan_ptr->getPlan(), fftw_mem + thr_off, fftw_mem + thr_off); 
   }
 
   wret = MPI_Waitall(munodes,send_req,status);

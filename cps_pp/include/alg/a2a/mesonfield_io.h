@@ -66,8 +66,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
 
   write(file,fileformat);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
 }  
   
 //ostream pointer should only be open on node 0 - should be NULL otherwise
@@ -180,8 +182,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
     
   read(file);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
 }
 
 //istream pointer should only be open on node 0 - should be NULL otherwise
@@ -366,8 +370,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
 
   write(file,mfs,fileformat);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
+    
   print_time("A2AmesonField","write Lt meson fields",dclock()+dtime);
 }
 
@@ -400,8 +407,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
 
   read(file,mfs);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
+    
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>

@@ -65,6 +65,46 @@ public:
   static void free(void *p){ fftw_free(p); }
 };
 
+template<typename mf_Float>
+class FFTplanContainer{
+  typedef typename FFTWwrapper<mf_Float>::planType planType;
+  typedef typename FFTWwrapper<mf_Float>::complexType complexType;
+  planType plan;
+  bool plan_allocd;
+public:
+  FFTplanContainer(): plan_allocd(false){}
+
+  FFTplanContainer(int rank, const int *n, int howmany,
+		   complexType *in, const int *inembed,
+		   int istride, int idist,
+		   complexType *out, const int *onembed,
+		   int ostride, int odist,
+		   int sign, unsigned flags): plan_allocd(false){
+    setPlan(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,sign,flags);
+  }
+  
+  void setPlan(int rank, const int *n, int howmany,
+		  complexType *in, const int *inembed,
+		  int istride, int idist,
+		  complexType *out, const int *onembed,
+		  int ostride, int odist,
+		  int sign, unsigned flags){
+    if(plan_allocd) FFTWwrapper<mf_Float>::destroy_plan(plan);
+
+    plan = FFTWwrapper<mf_Float>::plan_many_dft(rank,n,howmany,in,inembed,istride,idist,out,onembed,ostride,odist,sign,flags);
+    plan_allocd = true;
+  }
+
+  planType & getPlan(){ return plan; }
+  const planType & getPlan() const{ return plan; }
+  
+  ~FFTplanContainer(){
+    if(plan_allocd) FFTWwrapper<mf_Float>::destroy_plan(plan);
+  } 
+};
+
+
+
 CPS_END_NAMESPACE 
 #endif
 
