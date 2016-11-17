@@ -1408,7 +1408,7 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
     AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
     fix_gauge.run();
   }
-  
+  typedef typename ManualAllocA2Apolicies::FermionFieldType FermionFieldType;
   typedef typename ManualAllocA2Apolicies::SourcePolicies SourcePolicies;
   typedef typename ManualAllocA2Apolicies::ComplexType mf_Complex;
   
@@ -1418,30 +1418,39 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   typedef typename ManualAllocA2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
-  //A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
+  A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
   A2AvectorV<ManualAllocA2Apolicies> V(a2a_args,fp);
-  //W.testRandom();
-
+  
   for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
   V.allocModes();
   for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) != NULL);
   
   V.testRandom();
 
+  W.allocModes();
+  for(int i=0;i<W.getNl();i++) assert( &W.getWl(i) != NULL);
+  for(int i=0;i<W.getNhits();i++) assert( &W.getWh(i) != NULL);
+  W.testRandom();
+
+  
   A2AvectorV<ManualAllocA2Apolicies> Vcopy = V;
+  A2AvectorW<ManualAllocA2Apolicies> Wcopy = W;
   
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
+
+  gaugeFixAndTwist<FermionFieldType> fft_op(pp,lat);  
+  reverseGaugeFixAndTwist<FermionFieldType> invfft_op(pp,lat);
   
   A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp); //no allocation yet performed
-  Vfft.destructivefft(V);
+  Vfft.destructivefft(V, &fft_op);
 
   for(int i=0;i<V.getNmodes();i++) assert( &V.getMode(i) == NULL);
   for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) != NULL);
 
   
   A2AvectorV<ManualAllocA2Apolicies> Vrec(a2a_args,fp);
-  Vfft.destructiveInversefft(Vrec);
+  Vfft.destructiveInversefft(Vrec, &invfft_op);
 
   for(int i=0;i<Vrec.getNmodes();i++) assert( &Vrec.getMode(i) != NULL);
   for(int i=0;i<Vfft.getNmodes();i++) assert( &Vfft.getMode(i) == NULL); 
@@ -1449,35 +1458,33 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   for(int i=0;i<Vrec.getNmodes();i++) assert( Vrec.getMode(i).equals( Vcopy.getMode(i), 1e-08, true) );
 
   
-  printf("Passed destructive FFT test\n");
+  printf("Passed V destructive fft/inverse test\n");
+   
+  A2AvectorWfftw<ManualAllocA2Apolicies> Wfft(a2a_args,fp);
+  Wfft.destructiveGaugeFixTwistFFT(W,pp,lat);
+
+  for(int i=0;i<W.getNl();i++) assert( &W.getWl(i) == NULL);
+  for(int i=0;i<W.getNhits();i++) assert( &W.getWh(i) == NULL);
   
+  for(int i=0;i<Wfft.getNmodes();i++) assert( &Wfft.getMode(i) != NULL);
   
-  //A2AvectorVfftw<ManualAllocA2Apolicies> Vfft(a2a_args,fp);
+  A2AvectorW<ManualAllocA2Apolicies> Wrec(a2a_args,fp);
+  Wfft.destructiveUnapplyGaugeFixTwistFFT(Wrec, pp,lat);
   
+  for(int i=0;i<Wfft.getNmodes();i++) assert( &Wfft.getMode(i) == NULL);
 
-  // A2AvectorV<ManualAllocA2Apolicies> Vrec(a2a_args,fp);
-  // Vfft.inversefft(Vrec);
+  for(int i=0;i<Wrec.getNl();i++) assert( &Wrec.getWl(i) != NULL);
+  for(int i=0;i<Wrec.getNhits();i++) assert( &Wrec.getWh(i) != NULL);
+  
+  for(int i=0;i<Wrec.getNl();i++){
+    assert( Wrec.getWl(i).equals( Wcopy.getWl(i), 1e-08, true) ); 
+  }
+  if(!UniqueID()) printf("Passed Wl destructive fft/inverse test\n"); 
 
-  // for(int i=0;i<V.getNmodes();i++){
-  //   assert( Vrec.getMode(i).equals( V.getMode(i), 1e-08, true) ); 
-  // }
-  // if(!UniqueID()) printf("Passed V fft/inverse test\n");
-
-  // A2AvectorWfftw<ManualAllocA2Apolicies> Wfft(a2a_args,fp);
-  // Wfft.fft(W);
-
-  // A2AvectorW<ManualAllocA2Apolicies> Wrec(a2a_args,fp);
-  // Wfft.inversefft(Wrec);
-
-  // for(int i=0;i<W.getNl();i++){
-  //   assert( Wrec.getWl(i).equals( W.getWl(i), 1e-08, true) ); 
-  // }
-  // if(!UniqueID()) printf("Passed Wl fft/inverse test\n"); 
-
-  // for(int i=0;i<W.getNhits();i++){
-  //   assert( Wrec.getWh(i).equals( W.getWh(i), 1e-08, true) ); 
-  // }
-  // if(!UniqueID()) printf("Passed Wh fft/inverse test\n"); 
+  for(int i=0;i<Wrec.getNhits();i++){
+    assert( Wrec.getWh(i).equals( Wcopy.getWh(i), 1e-08, true) ); 
+  }
+  if(!UniqueID()) printf("Passed Wh destructive fft/inverse test\n"); 
   
   
 }

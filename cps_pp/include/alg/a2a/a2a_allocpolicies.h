@@ -118,7 +118,7 @@ class A2AvectorW_manualAllocPolicies{
   typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
   
   typename FermionFieldType::InputParamType lfield_setup_params;
-  typename FermionFieldType::InputParamType hfield_setup_params;
+  typename ComplexFieldType::InputParamType hfield_setup_params;
   
   std::vector<PtrWrapper<FermionFieldType> > *lptr;
   std::vector<PtrWrapper<ComplexFieldType> > *hptr;
@@ -136,7 +136,7 @@ public:
     if(! (*lptr)[i].assigned() ) (*lptr)[i].set(new FermionFieldType(lfield_setup_params)); 
   }
   void allocHighMode(const int i){
-    if(! (*hptr)[i].assigned() ) (*lptr)[i].set(new ComplexFieldType(hfield_setup_params)); 
+    if(! (*hptr)[i].assigned() ) (*hptr)[i].set(new ComplexFieldType(hfield_setup_params)); 
   }
   
   void freeLowMode(const int i){
@@ -197,7 +197,7 @@ public:
     if(! (*lptr)[i].assigned() ) (*lptr)[i].set(new FermionFieldType(field_setup_params)); 
   }
   void allocHighMode(const int i){
-    if(! (*hptr)[i].assigned() ) (*lptr)[i].set(new FermionFieldType(field_setup_params)); 
+    if(! (*hptr)[i].assigned() ) (*hptr)[i].set(new FermionFieldType(field_setup_params)); 
   }
   
   void freeLowMode(const int i){

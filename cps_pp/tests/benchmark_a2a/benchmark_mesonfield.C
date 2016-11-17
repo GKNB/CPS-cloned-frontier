@@ -321,7 +321,7 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<ScalarA2Apolicies>();
   if(0) testFFTopt<GridA2Apolicies>();
 
-  if(0) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
+  if(1) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
   if(0) testVVdag<ScalarA2Apolicies>(lattice);
   if(0) testVVdag<GridA2Apolicies>(lattice);
