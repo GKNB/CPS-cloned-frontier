@@ -429,7 +429,7 @@ dnl   fi
    fi
 
    DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM"
-   LDFLAGS="-lqdp -lchroma ${LDFLAGS} -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lbfm"
+   LDFLAGS="-lqdp -lchroma ${LDFLAGS} -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lbfm  -lgsl -lgslcblas"
    #CK: don't assume QIO
    if test "$enable_qio" != "no"; then
 	LDFLAGS="${LDFLAGS} -lqio"

@@ -110,10 +110,10 @@ int main(int argc, char *argv[])
 
   int arg0 = CommandLine::arg_as_int(0);
   printf("Arg0 is %d\n",arg0);
-  if(arg0==0){
+  if(arg0==1){
     gparity_X=true;
     printf("Doing G-parity HMC test in X direction\n");
-  }else if(arg0==1){
+  }else if(arg0==2){
     printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;

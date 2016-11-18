@@ -4,6 +4,7 @@
 #include<mpi.h>
 #endif
 
+#include <cassert>
 #include <vector>
 #include <fftw3.h>
 

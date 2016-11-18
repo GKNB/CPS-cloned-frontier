@@ -268,7 +268,9 @@ static int no_gparity_test(GwilsonFdwf* lattice, const BfmSolver &solver){
   long f_size = (long)24 * GJP.VolNodeSites() * GJP.SnodeSites();
 
   delete lattice; //temporarily delete the lattice object to remove the scope lock. The memory allocated to the gauge field remains
-  Fbfm::bfm_arg = dwfa;
+
+  Fbfm::current_arg_idx = 0;
+  Fbfm::bfm_args[0] = dwfa;
   GnoneFbfm *fbfm = new GnoneFbfm;
   
 
@@ -476,10 +478,6 @@ int main(int argc,char *argv[])
 {
   Start(&argc,&argv); //initialises QMP
 
-#ifdef HAVE_BFM
-  Chroma::initialize(&argc,&argv);
-#endif
-
   CommandLine::is(argc,argv);
 
   bool gparity_X(false);
@@ -487,10 +485,10 @@ int main(int argc,char *argv[])
 
   int arg0 = CommandLine::arg_as_int(0);
   printf("Arg0 is %d\n",arg0);
-  if(arg0==0){
+  if(arg0==1){
     gparity_X=true;
     printf("Doing G-parity HMC test in X direction\n");
-  }else if(arg0==1){
+  }else if(arg0==2){
     printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
@@ -653,6 +651,11 @@ int main(int argc,char *argv[])
   
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
+#ifdef HAVE_BFM
+  cps_qdp_init(&argc,&argv);
+  Chroma::initialize(&argc,&argv);
+#endif
+  
   if(load_lrg){
     if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
     LRG.Read(load_lrg_file,32);
@@ -826,7 +829,7 @@ int main(int argc,char *argv[])
       for(int i=0;i<mom_size;i++) mom_test4[i] = 0.0;
 
       delete lattice; //temporarily delete the lattice object to remove the scope lock. The memory allocated to the gauge field remains
-      Fbfm::bfm_arg = dwfa;
+      Fbfm::bfm_args[0] = dwfa;
       GnoneFbfm *fbfm = new GnoneFbfm;
       //expects phi to be in cps checkerboard format. We can use in[0] and in2[0] as above, and export from bfm to cps format
       int f_size_cb = f_size / 2;
@@ -1319,7 +1322,7 @@ int main(int argc,char *argv[])
       for(int i=0;i<mom_size;i++) mom_test4_dbllatt[i] = 0.0;
 
       delete doubled_lattice; //temporarily delete the lattice object to remove the scope lock. The memory allocated to the gauge field remains
-      Fbfm::bfm_arg = dwfa;
+      Fbfm::bfm_args[0] = dwfa;
       GnoneFbfm *fbfm = new GnoneFbfm;
       //expects phi to be in cps checkerboard format. We can use in[0] and in2[0] as above, and export from bfm to cps format
       int f_size_cb = f_size / 2;

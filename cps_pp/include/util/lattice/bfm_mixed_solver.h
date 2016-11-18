@@ -101,9 +101,13 @@ namespace mixed_cg {
 		}else{
 		    //G-parity checkerboard ordering stacks the second flavour after the first on each checkerboard : cb0[f0 f1]cb1[f0 f1]
 
+# ifdef USE_NEW_BFM_GPARITY
+		    int out_base[2] = { bfm_out.bagel_idx5d(x, s, 0, 0, Nspinco, 1, 0), bfm_out.bagel_idx5d(x, s, 0, 0, Nspinco, 1, 1) };
+		    int  in_base[2] = { bfm_in.bagel_idx5d(x, s, 0, 0, Nspinco, 1, 0) , bfm_in.bagel_idx5d(x, s, 0, 0, Nspinco, 1, 1) };		    
+# else
 		    int out_base[2] = { bfm_out.bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, 0), bfm_out.bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, 1) };
 		    int  in_base[2] = { bfm_in.bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, 0) , bfm_in.bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, 1) };
-		    
+# endif		    
 		    for(int flav = 0; flav < 2; flav++){
 			for ( int co=0;co<Nspinco;co++ ) { 
 			    for ( int reim=0;reim<2;reim++ ) {
@@ -1490,9 +1494,13 @@ namespace mixed_cg {
 
 		    ++nunconv;
 		}
+# ifdef USE_NEW_BFM_GPARITY
+	    bfm_d.axpy_sy(p_d,p_d,r,a);
+# else
 	    bfm_d.axpy(p_d,p_d,r,a,1);
-#endif
+# endif
 
+#endif
 	    cp=c;
     
 	    mixed_cg::threaded_convFermion_fast(p, p_d, bfm_f, bfm_d);
