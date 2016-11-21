@@ -1,5 +1,5 @@
 #include<math.h>
-
+#include<stdlib.h>
 void tred2(double **a, int n, double *d, double *e);
 int tqli(double *d, double *e, int n, double **z);
 

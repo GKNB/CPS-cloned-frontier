@@ -548,6 +548,7 @@ inline void GparityBaseMomentum(int p[3], const int sgn){
     else p[i] = 0;
 }
 
+#ifdef USE_MPI
 //get MPI rank of this node
 inline int getMyMPIrank(){
   int my_mpi_rank;
@@ -593,7 +594,7 @@ inline void getMPIrankMap(std::vector<int> &map){
   assert(ret == MPI_SUCCESS);
   free(node_map_send);
 }
-
+#endif 
 //Invert 3x3 complex matrix. Expect elements accessible as  row*3 + col
 //0 1 2
 //3 4 5

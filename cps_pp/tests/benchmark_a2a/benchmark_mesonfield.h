@@ -455,7 +455,7 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,Al
 #endif
 
 
-
+#ifdef USE_MPI
 void testCyclicPermute(){
   NullObject null_obj;
   {//4D
@@ -665,6 +665,8 @@ void testCyclicPermute(){
 
   if(!UniqueID()){ printf("Passed permute test\n"); fflush(stdout); }
 } 
+#endif
+
 
 #if 0
 void testGenericFFT(){ //old fft has been deleted
