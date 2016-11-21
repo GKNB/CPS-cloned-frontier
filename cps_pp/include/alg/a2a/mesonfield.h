@@ -244,9 +244,13 @@ public:
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
     if(!UniqueID())
       for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+#ifdef USE_MPI
     int head_mpi_rank = getHeadMPIrank();
     int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
-    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");      
+    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");
+#else
+    if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","testRandom","Parallel implementation requires MPI\n");
+#endif
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk

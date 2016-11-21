@@ -1074,8 +1074,8 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
 //Assumes SiteType is a std::complex type
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
-  const int &dir = this->getDir();
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+  const int dir = this->getDir();
   const char* fname = "fft()";
   
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
@@ -1085,22 +1085,24 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
-  static int plan_sc_size = -1;
-  if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
+  static FFTplanContainer<typename SiteType::value_type> plan_f[4];
+  static bool plan_init = false;
+  static int plan_sc_size;
+  static bool plan_inv_trans;
+  if(!plan_init || sc_size != plan_sc_size || inverse_transform != plan_inv_trans){ //recreate/create
     typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
-      
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, 1, 
-								   tmp_f, NULL, sc_size, size_i * sc_size,
-								   tmp_f, NULL, sc_size, size_i * sc_size,
-								   FFTW_FORWARD, FFTW_ESTIMATE);  
+      plan_f[i].setPlan(1, &size_i, 1, 
+			tmp_f, NULL, sc_size, size_i * sc_size,
+			tmp_f, NULL, sc_size, size_i * sc_size,
+			inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD, FFTW_ESTIMATE);  
     }
     plan_sc_size = sc_size;
+    plan_inv_trans = inverse_transform;
+    plan_init = true;
   }
     
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
@@ -1111,20 +1113,22 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     int sc_id = n % sc_size;
     int chunk_id = n / sc_size; //3d block index
     int off = size_1d_glb * sc_size * chunk_id + sc_id;
-    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir].getPlan(), fftw_mem + off, fftw_mem + off); 
   }
 
   //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
 
-  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  else for(int i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 
 #else
 
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
-  const int &dir = this->getDir();
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+  const int dir = this->getDir();
   const char* fname = "fft()";
   
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
@@ -1134,22 +1138,24 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
-  static int plan_sc_size = -1;
-  if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
+  static FFTplanContainer<typename SiteType::value_type> plan_f[4];
+  static bool plan_init = false;
+  static int plan_sc_size;
+  static bool plan_inv_trans;
+  if(!plan_init || sc_size != plan_sc_size || inverse_transform != plan_inv_trans){ //recreate/create
     typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
-      
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, sc_size, 
-								   tmp_f, NULL, sc_size, 1,
-								   tmp_f, NULL, sc_size, 1,
-								   FFTW_FORWARD, FFTW_ESTIMATE);  
+      plan_f[i].setPlan(1, &size_i, sc_size, 
+			tmp_f, NULL, sc_size, 1,
+			tmp_f, NULL, sc_size, 1,
+			inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD, FFTW_ESTIMATE);  
     }
     plan_sc_size = sc_size;
+    plan_inv_trans = inverse_transform;
+    plan_init = true;
   }
 
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft * sc_size);
@@ -1159,12 +1165,12 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
   for(int n = 0; n < n_fft; n++) {
     int chunk_id = n; //3d block index
     int off = size_1d_glb * sc_size * chunk_id;
-    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir].getPlan(), fftw_mem + off, fftw_mem + off); 
   }
 
-  //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
-
-  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  else for(int i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 

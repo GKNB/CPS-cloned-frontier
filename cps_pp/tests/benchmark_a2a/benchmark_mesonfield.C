@@ -309,13 +309,7 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-#ifdef USE_MPI
   if(0) testCyclicPermute();
-#endif 
-
-#if 0
-  if(0) testGenericFFT();
-#endif
   
   if(0) demonstrateFFTreln<ScalarA2Apolicies>(a2a_args);
 
@@ -331,7 +325,7 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<ScalarA2Apolicies>();
   if(0) testFFTopt<GridA2Apolicies>();
 
-  if(0) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
+  if(1) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
   if(0) testVVdag<ScalarA2Apolicies>(lattice);
   if(0) testVVdag<GridA2Apolicies>(lattice);

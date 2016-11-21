@@ -455,7 +455,6 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,Al
 #endif
 
 
-#ifdef USE_MPI
 void testCyclicPermute(){
   NullObject null_obj;
   {//4D
@@ -466,7 +465,7 @@ void testCyclicPermute(){
     from.testRandom();
 
     for(int dir=0;dir<4;dir++){
-      for(int pm=0;pm<2;pm++){
+      for(int pm=-1;pm<=1;pm+=2){
 	if(!UniqueID()) printf("Testing 4D permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1 = from;
@@ -516,7 +515,7 @@ void testCyclicPermute(){
     from.testRandom();
 
     for(int dir=0;dir<3;dir++){
-      for(int pm=0;pm<2;pm++){
+      for(int pm=-1;pm<=1;pm+=2){
 	if(!UniqueID()) printf("Testing 3D permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1 = from;
@@ -567,7 +566,7 @@ void testCyclicPermute(){
     from_grid.importField(from);
 
     for(int dir=0;dir<4;dir++){
-      for(int pm=0;pm<2;pm++){
+      for(int pm=-1;pm<=1;pm+=2){
 	if(!UniqueID()) printf("Testing 4D permute in direction %c%d with SIMD layout\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1_grid = from_grid;
@@ -626,7 +625,7 @@ void testCyclicPermute(){
     from_grid.importField(from);
 
     for(int dir=0;dir<3;dir++){
-      for(int pm=0;pm<2;pm++){
+      for(int pm=-1;pm<=1;pm+=2){
 	if(!UniqueID()) printf("Testing 3D permute in direction %c%d with SIMD layout\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1_grid = from_grid;
@@ -665,42 +664,8 @@ void testCyclicPermute(){
 
   if(!UniqueID()){ printf("Passed permute test\n"); fflush(stdout); }
 } 
-#endif
 
 
-#if 0
-void testGenericFFT(){ //old fft has been deleted
-  bool dirs[4] = {1,1,1,0}; //3d fft
-
-  
-  CPSfermion4D<cps::ComplexD> in;
-  in.testRandom();
-    
-  CPSfermion4D<cps::ComplexD> out1;
-  CPSfermion4D<cps::ComplexD> out2;
-
-  out1.fft(in);
-  fft(out2,in,dirs);
-    
-  printRow(out1,0,"Out1");
-  printRow(out2,0,"Out2");
-    
-  assert( out1.equals(out2) );
-
-
-  //Code for FFT WilsonMatrix
-  WilsonMatrix* buf = (WilsonMatrix*)malloc( GJP.VolNodeSites() * sizeof(WilsonMatrix) ); //here are your WilsonMatrix
-  
-  NullObject null_obj;
-  CPSfield<cps::ComplexD,12*12,FourDpolicy,OneFlavorPolicy,StandardAllocPolicy> cpy( (cps::ComplexD*)buf,null_obj);  //create a CPSfield and copy in data
-
-  CPSfield<cps::ComplexD,12*12,FourDpolicy,OneFlavorPolicy,StandardAllocPolicy> into(null_obj); //FFT output
-  fft(into,cpy,dirs); //do the FFT
-
-  free(buf);
-  
-}
-#endif
 
 
 template<typename A2Apolicies>
@@ -731,7 +696,7 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
   printRow(Vfftw_p5.getMode(0),0, "V(p5)          ");
 
   for(int i=0;i<Vfftw_p1.getNmodes();i++)
-    assert( Vfftw_p1.getMode(i).equals( Vfftw_p5.getMode(i), 1e-8, true ) );
+    assert( Vfftw_p1.getMode(i).equals( Vfftw_p5.getMode(i), 1e-7, true ) );
 
   A2AvectorWfftw<A2Apolicies> Wfftw_p1(a2a_args);
   Wfftw_p1.fft(W,&twist_p1);
@@ -746,8 +711,9 @@ void demonstrateFFTreln(const A2AArg &a2a_args){
   printRow(Wfftw_p5.getMode(0),0, "W(p5)          ");
 
   for(int i=0;i<Wfftw_p1.getNmodes();i++)
-    assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-8, true ) );
+    assert( Wfftw_p1.getMode(i).equals( Wfftw_p5.getMode(i), 1e-7, true ) );
 
+  if(!UniqueID()) printf("Passed FFT relation test\n");
 }
 
 template<typename ParamType, typename mf_Complex>

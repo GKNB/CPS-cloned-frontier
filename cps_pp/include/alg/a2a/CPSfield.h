@@ -98,10 +98,10 @@ public:
   inline const int nflavors() const{ return flavors; }
   inline const int nfsites() const{ return fsites; } //number of generalized sites including flavor
 
-  //Number of floats per site
+  //Number of SiteType per site
   inline const int siteSize() const{ return SiteSize; }
 
-  //Number of floats in field
+  //Number of SiteType in field
   inline const int size() const{ return fsize; }
 
   //Accessors
@@ -505,7 +505,7 @@ public:
   void scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to) const;
 
   //Perform a fast Fourier transform along the principal direction. It currently assumes the DimensionPolicy has the sites mapped in canonical ordering
-  void fft();
+  void fft(const bool inverse_transform = false);
 
   DEFINE_ADDSUB_DERIVED(CPSfieldGlobalInOneDir);
 };
