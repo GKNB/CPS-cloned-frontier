@@ -4,6 +4,7 @@
 #include<util/omp_wrapper.h>
 //Implementations of CPSfield.h
 
+CPS_START_NAMESPACE
 
 //Real-reduce for norm2
 template<typename T>
@@ -1168,6 +1169,7 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
 
 
+CPS_END_NAMESPACE
 
 
 #endif

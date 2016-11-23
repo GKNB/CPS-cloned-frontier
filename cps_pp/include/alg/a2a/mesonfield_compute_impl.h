@@ -49,7 +49,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
       }
     }
   }
-  sync();
+  cps::sync();
   print_time("A2AmesonField","local compute",time + dclock());
   time = -dclock();
 
@@ -67,22 +67,22 @@ template<typename mf_Element, typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy{};
 
 template<typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
-  static inline void setZero(cps::ComplexD &mf_accum){
+struct mf_Element_policy< ComplexD, InnerProduct, FieldSiteType>{
+  static inline void setZero(ComplexD &mf_accum){
     mf_accum = 0.;
   }  
-  static inline void accumulate(cps::ComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
+  static inline void accumulate(ComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
     mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
   }
 };
 //For multi-src
 template<typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteType>{
-  static inline void setZero(std::vector<cps::ComplexD> &mf_accum){
+struct mf_Element_policy< std::vector<ComplexD>, InnerProduct, FieldSiteType>{
+  static inline void setZero(std::vector<ComplexD> &mf_accum){
     for(int i=0;i<mf_accum.size();i++)
       mf_accum[i] = 0.;
   }  
-  static inline void accumulate(std::vector<cps::ComplexD> &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
+  static inline void accumulate(std::vector<ComplexD> &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
     M(mf_accum,lscf,rscf,p_3d,t);
   }
 };
@@ -157,7 +157,7 @@ struct mf_Vector_policies{};
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >, InnerProduct >{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
-  typedef cps::ComplexD mf_Element;
+  typedef ComplexD mf_Element;
 
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
   static inline void initializeElement(mf_Element &e){}
@@ -189,7 +189,7 @@ struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2
   int mfPerTimeSlice;
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
-  typedef std::vector<cps::ComplexD> mf_Element;
+  typedef std::vector<ComplexD> mf_Element;
 
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
@@ -353,7 +353,7 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
     print_time("A2AmesonField","local compute",time + dclock());
 
     time = -dclock();
-    sync();
+    cps::sync();
     print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate

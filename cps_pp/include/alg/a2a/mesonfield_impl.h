@@ -1,6 +1,7 @@
 #ifndef MESON_FIELD_IMPL
 #define MESON_FIELD_IMPL
 
+#include<alg/a2a/mesonfield.h>
 #include<alg/a2a/mult_impl.h>
 #include<alg/a2a/mult_vMv_split.h>
 #include<alg/a2a/mult_vMv_split_grid.h>
@@ -8,6 +9,9 @@
 #include<alg/a2a/mult_vv_impl.h>
 #include<alg/a2a/mesonfield_io.h>
 #include<alg/a2a/mesonfield_compute_impl.h>
+#include<alg/a2a/gsl_wrapper.h>
+
+//CPS_START_NAMESPACE
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &with, const bool parallel){
@@ -446,6 +450,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
 
 
 
+//CPS_END_NAMESPACE
 
 
 #endif

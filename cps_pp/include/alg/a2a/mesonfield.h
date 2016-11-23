@@ -406,6 +406,6 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 
 
 
-CPS_END_NAMESPACE
 #include<alg/a2a/mesonfield_impl.h>
+CPS_END_NAMESPACE
 #endif

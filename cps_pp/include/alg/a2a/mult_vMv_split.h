@@ -1,8 +1,13 @@
 #ifndef _MULT_VMV_SPLIT_H
 #define _MULT_VMV_SPLIT_H
 
+#include<alg/a2a/gsl_wrapper.h>
+#include<alg/a2a/template_wizardry.h>
+
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_MEM_SAVE
+
+CPS_START_NAMESPACE
 
 template<typename ComplexMatrixType>
 class SCFoperation{
@@ -683,6 +688,7 @@ public:
 
 
 
+CPS_END_NAMESPACE
 
 
 #endif

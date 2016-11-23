@@ -120,8 +120,7 @@ public:
 			  fail = true;
 			}
 		      }
-		if(fail)
-		  exit(0);
+		if(fail) exit(-42);
 #endif
 	}
 	virtual ~FgridBase(void){
@@ -272,7 +271,6 @@ CPS_END_NAMESPACE
 #define XSTR(s) STR(s)
 #define STR(s) #s
 
-//#ifdef GRID_GPARITY
 #define GRID_GPARITY
 #define IF_FIVE_D 
 #define FGRID FgridGparityMobius
@@ -299,7 +297,6 @@ CPS_END_NAMESPACE
 #define GP gp
 #include "fgrid.h.inc"
 
-//#else
 #undef GRID_GPARITY
 #define IF_FIVE_D 
 #define FGRID FgridMobius
