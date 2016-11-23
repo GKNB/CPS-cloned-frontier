@@ -20,12 +20,11 @@ template< typename SiteType, int SiteSize, typename DimensionPolicy, typename Fl
 class CPSfield: public DimensionPolicy, public FlavorPolicy, public AllocPolicy{
   SiteType* f;
 protected:
-  int site_size; //number of SiteType per spatial (not including the dynamical flavor index)
   int sites; //number of Euclidean sites
   int flavors; //number of flavors
   int fsites; //number of generalized sites (including flavor)
 
-  int fsize; //number of SiteType in the array = site_size * fsites
+  int fsize; //number of SiteType in the array = SiteSize * fsites
   
   void alloc(){
     f = (SiteType*)this->_alloc(fsize*sizeof(SiteType));
@@ -43,17 +42,26 @@ public:
   
   typedef typename DimensionPolicy::ParamType InputParamType;
 
-  CPSfield(const InputParamType &params): site_size(SiteSize), DimensionPolicy(params){
+  CPSfield(const InputParamType &params): DimensionPolicy(params){
     this->setFlavors(flavors); //from FlavorPolicy
     this->setSites(sites,fsites,flavors); //from DimensionPolicy
-    fsize = fsites * site_size;
+    fsize = fsites * SiteSize;
     alloc(); //zero();  //Don't automatically zero
   }
-  CPSfield(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): fsize(r.fsize), site_size(r.site_size),flavors(r.flavors),sites(r.sites),fsites(r.fsites), DimensionPolicy(r){
+  CPSfield(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): fsize(r.fsize), flavors(r.flavors),sites(r.sites),fsites(r.fsites), DimensionPolicy(r){
     alloc();
     memcpy(f,r.f,sizeof(SiteType) * fsize);
   }
 
+  //Copy from external pointer. Make sure you set the params and policies correctly because it has no way of bounds checking
+  CPSfield(SiteType const* copyme, const InputParamType &params): DimensionPolicy(params){
+    this->setFlavors(flavors); //from FlavorPolicy
+    this->setSites(sites,fsites,flavors); //from DimensionPolicy
+    fsize = fsites * SiteSize;
+    alloc();
+    memcpy(f,copyme,sizeof(SiteType) * fsize);
+  }
+  
   //Set the field to zero
   void zero(){
     memset(f, 0, sizeof(SiteType) * fsize);      
@@ -62,7 +70,6 @@ public:
   CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &operator=(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r){
     static_cast<DimensionPolicy&>(*this) = r; //copy policy info
     
-    site_size = r.site_size;
     sites = r.sites;
     fsites = r.fsites;
     flavors = r.flavors;
@@ -71,26 +78,32 @@ public:
     fsize = r.fsize;
 
     if(fsize != old_fsize){
-      freemem();
+     freemem();
       alloc();
     }
     memcpy(f,r.f,sizeof(SiteType) * fsize);
     return *this;
   }
 
+  static std::size_t byte_size(const InputParamType &params){
+    CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,NullAllocPolicy> tmp(params); //doesn't allocate
+    std::size_t out = SiteSize * sizeof(SiteType);
+    return tmp.nfsites() * out;
+  }
+
   //Set each element to a uniform random number in the specified range.
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi = 0.5, const Float lo = -0.5);
 
-  const int nsites() const{ return sites; }
-  const int nflavors() const{ return flavors; }
-  const int nfsites() const{ return fsites; } //number of generalized sites including flavor
+  inline const int nsites() const{ return sites; }
+  inline const int nflavors() const{ return flavors; }
+  inline const int nfsites() const{ return fsites; } //number of generalized sites including flavor
 
   //Number of floats per site
-  const int siteSize() const{ return site_size; }
+  inline const int siteSize() const{ return SiteSize; }
 
   //Number of floats in field
-  const int size() const{ return fsize; }
+  inline const int size() const{ return fsize; }
 
   //Accessors
   inline SiteType* ptr(){ return f; }
@@ -98,34 +111,34 @@ public:
 
   //Accessors *do not check bounds*
   //int fsite is the linearized N-dimensional site/flavorcoordinate with the mapping specified by the policy class
-  inline int fsite_offset(const int fsite) const{ return site_size*fsite; }
-
+  inline int fsite_offset(const int fsite) const{ return SiteSize*fsite; }
+  
   inline SiteType* fsite_ptr(const int fsite){  //fsite is in the internal flavor/Euclidean mapping of the DimensionPolicy. Use only if you know what you are doing
-    return f + site_size*fsite;
+    return f + SiteSize*fsite;
   }
   inline SiteType const* fsite_ptr(const int fsite) const{  //fsite is in the internal flavor/Euclidean mapping of the DimensionPolicy. Use only if you know what you are doing
-    return f + site_size*fsite;
+    return f + SiteSize*fsite;
   }
 
   //int site is the linearized N-dimension Euclidean coordinate with mapping specified by the policy class
-  inline int site_offset(const int site, const int flav = 0) const{ return site_size*this->siteFsiteConvert(site,flav); }
-  inline int site_offset(const int x[], const int flav = 0) const{ return site_size*this->fsiteMap(x,flav); }
+  inline int site_offset(const int site, const int flav = 0) const{ return SiteSize*this->siteFsiteConvert(site,flav); }
+  inline int site_offset(const int x[], const int flav = 0) const{ return SiteSize*this->fsiteMap(x,flav); }
 
   inline SiteType* site_ptr(const int site, const int flav = 0){  //site is in the internal Euclidean mapping of the DimensionPolicy
-    return f + site_size*this->siteFsiteConvert(site,flav);
+    return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
   inline SiteType* site_ptr(const int x[], const int flav = 0){ 
-    return f + site_size*this->fsiteMap(x,flav);
+    return f + SiteSize*this->fsiteMap(x,flav);
   }    
 
   inline SiteType const* site_ptr(const int site, const int flav = 0) const{  //site is in the internal Euclidean mapping of the DimensionPolicy
-    return f + site_size*this->siteFsiteConvert(site,flav);
+    return f + SiteSize*this->siteFsiteConvert(site,flav);
   }
   inline SiteType const* site_ptr(const int x[], const int flav = 0) const{ 
-    return f + site_size*this->fsiteMap(x,flav);
+    return f + SiteSize*this->fsiteMap(x,flav);
   }    
  
-  inline int flav_offset() const{ return site_size*this->fsiteFlavorOffset(); } //pointer offset between flavors
+  inline int flav_offset() const{ return SiteSize*this->fsiteFlavorOffset(); } //pointer offset between flavors
 
   //Set this field to the average of this and a second field, r
   void average(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r, const bool &parallel = true);
@@ -140,7 +153,7 @@ public:
   void importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r);
 
   template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-  void exportField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
+  void exportField(CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const;
 
   bool equals(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r) const{
     for(int i=0;i<fsize;i++)
@@ -148,10 +161,75 @@ public:
     return true;
   }
 
+#define CONDITION is_double_or_float<typename extField::FieldSiteType>::value \
+  && is_double_or_float<SiteType>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+  
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance) const{
+    for(int i=0;i<fsize;i++){
+      if( fabs(f[i] - r.f[i]) > tolerance) return false;
+    }
+    return true;
+  }
+#undef CONDITION
+  
+#define CONDITION is_complex_double_or_float<typename extField::FieldSiteType>::value \
+  && is_complex_double_or_float<SiteType>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+  
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
+    for(int i=0;i<fsize;i++){
+      if( fabs(f[i].real() - r.f[i].real()) > tolerance || fabs(f[i].imag() - r.f[i].imag()) > tolerance ){
+	if(verbose && !UniqueID()){
+	  int rem = i;
+	  int s = rem % SiteSize; rem /= SiteSize;
+	  int x = rem % sites; rem /= sites;
+	  int flav = rem;
+	  int coor[DimensionPolicy::EuclideanDimension]; this->siteUnmap(x,coor);
+	  std::ostringstream os; for(int a=0;a<DimensionPolicy::EuclideanDimension;a++) os << coor[a] << " ";
+	  std::string coor_str = os.str();
+	  
+	  printf("Err: off %d  [s=%d coor=(%s) f=%d] this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i, s,coor_str.c_str(),flav,
+		 f[i].real(),f[i].imag(),r.f[i].real(),r.f[i].imag(),fabs(f[i].real()-r.f[i].real()), fabs(f[i].imag()-r.f[i].imag()) );
+	}
+	return false;
+      }
+    }
+    return true;
+  }
+#undef CONDITION
+
+#ifdef USE_GRID
+  
+#define CONDITION _equal<  typename ComplexClassify<typename extField::FieldSiteType>::type  ,  grid_vector_complex_mark>::value \
+  && _equal<typename ComplexClassify<SiteType>::type,grid_vector_complex_mark>::value \
+  && _equal<DimensionPolicy, typename extField::FieldDimensionPolicy>::value \
+  && _equal<FlavorPolicy, typename extField::FieldFlavorPolicy>::value
+
+  template<typename extField>
+  bool equals(const extField &r, typename my_enable_if<CONDITION,const double>::type tolerance, bool verbose = false) const{
+    typedef typename SiteType::scalar_type ThisScalarType;
+    typedef typename extField::FieldSiteType::scalar_type ThatScalarType;
+    typedef typename DimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
+    NullObject null_obj;
+    CPSfield<ThisScalarType,SiteSize,ScalarDimPol, FlavorPolicy, StandardAllocPolicy> tmp_this(null_obj);
+    CPSfield<ThatScalarType,SiteSize,ScalarDimPol, FlavorPolicy, StandardAllocPolicy> tmp_that(null_obj);
+    tmp_this.importField(*this);
+    tmp_that.importField(r);
+    return tmp_this.equals(tmp_that,tolerance,verbose);
+  }
+  
+#undef CONDITION
+#endif
+  
   double norm2() const;
   
 #ifdef USE_GRID
-
+  //Import for Grid Lattice<blah> types
   template<typename GridField>
   void importGridField(const GridField &grid);
   
@@ -180,6 +258,7 @@ protected:
   void apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]);
 
 public:
+  enum { FieldSiteSize = 12 };
   typedef typename CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
   
   CPSfermion(): CPSfield<mf_Complex,12,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
@@ -210,6 +289,7 @@ class CPSfermion3D: public CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,Allo
   template< typename mf_Complex2, typename FlavorPolicy2>
   friend struct _ferm3d_gfix_impl;
 public:
+  enum { FieldSiteSize = 12 };
   CPSfermion3D(): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy>(){}
   CPSfermion3D(const CPSfermion3D<mf_Complex> &r): CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
 
@@ -222,12 +302,6 @@ public:
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool &parallel);
-
-  //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy> &r);
-
-  //Set this field to be the FFT of itself
-  void fft(){ fft(*this); }
 };
 
 template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
@@ -236,6 +310,7 @@ class CPSfermion4D: public CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,Al
   void gauge_fix_site_op(int fi, Lattice &lat);
   void apply_phase_site_op(int sf,const int p[],double punits[]);
 public:
+  enum { FieldSiteSize = 12 };
   typedef typename CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
   
   CPSfermion4D(): CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>(){}
@@ -250,12 +325,6 @@ public:
   //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
   //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
   void applyPhase(const int p[], const bool &parallel);
-
-  //Set this field to be the FFT of 'r'
-  void fft(const CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &r);
-
-  //Set this field to be the FFT of itself
-  void fft(){ fft(*this); }
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
@@ -300,6 +369,8 @@ private:
     }
   }
 public:
+  enum { FieldSiteSize = 12 };
+	 
   template<typename FloatExt>
   void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
     impexFermion<FloatExt>(const_cast<Fermion_t>(bfm_field), cb, 1, dwf);
@@ -321,6 +392,7 @@ template< typename mf_Complex, typename DimensionPolicy = FourDpolicy, typename 
 class CPScomplex4D: public CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>{
   typename my_enable_if<DimensionPolicy::EuclideanDimension == 4, int>::type dummy;
 public:
+  enum { FieldSiteSize = 1 };
   typedef typename CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>::InputParamType InputParamType;
   CPScomplex4D(): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPScomplex4D(const InputParamType &params): CPSfield<mf_Complex,1,DimensionPolicy,FlavorPolicy,AllocPolicy>(params){}
@@ -338,6 +410,7 @@ template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, type
 class CPScomplexSpatial: public CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>{
 
 public:
+  enum { FieldSiteSize = 1 };
   CPScomplexSpatial(): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPScomplexSpatial(const CPScomplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,SpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
 };
@@ -351,6 +424,7 @@ class CPSglobalComplexSpatial: public CPSfield<mf_Complex,1,GlobalSpatialPolicy,
 	    typename complex_class, int extEuclDim>
   friend struct _CPSglobalComplexSpatial_scatter_impl;
 public:
+  enum { FieldSiteSize = 1 };
   CPSglobalComplexSpatial(): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSglobalComplexSpatial(const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,1,GlobalSpatialPolicy,FlavorPolicy,AllocPolicy>(r){}
   
@@ -366,10 +440,10 @@ public:
 //This field contains an entire row of sub-lattices along a particular dimension. Every node along that row contains an identical copy
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfieldGlobalInOneDir: public CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfieldGlobalInOneDir(const int &dir): cname("CPSfieldGlobalInOneDir"), CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): cname("CPSfieldGlobalInOneDir"), CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
+  enum { FieldSiteSize = SiteSize };
+  CPSfieldGlobalInOneDir(const int &dir): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfieldGlobalInOneDir(const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>(r){}
 
   //Gather up the row. Involves internode communication
   template<typename extSiteType, typename extDimPol, typename extAllocPol>
@@ -385,17 +459,17 @@ public:
 
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion4DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfermion4DglobalInOneDir(const int &dir): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  enum { FieldSiteSize = 12 };
+  CPSfermion4DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion4DglobalInOneDir(const CPSfermion4DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,FourDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion3DglobalInOneDir: public CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>{
-  std::string cname;
 public:
-  CPSfermion3DglobalInOneDir(const int &dir): cname("CPSfermion3DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
-  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): cname("CPSfermion4DglobalInOneDir"), CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
+  enum { FieldSiteSize = 12 };
+  CPSfermion3DglobalInOneDir(const int &dir): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(dir){}
+  CPSfermion3DglobalInOneDir(const CPSfermion3DglobalInOneDir<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfieldGlobalInOneDir<mf_Complex,12,ThreeDglobalInOneDir,FlavorPolicy,AllocPolicy>(r){}
 };
 
 
@@ -403,6 +477,7 @@ public:
 template< typename mf_Complex, typename CBpolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dprec: public CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>{
 public:
+  enum { FieldSiteSize = 12 };
   CPSfermion5Dprec(): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(NullObject()){}
   CPSfermion5Dprec(const CPSfermion5Dprec<mf_Complex,CBpolicy,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDevenOddpolicy<CBpolicy>,FlavorPolicy,AllocPolicy>(r){}
 };
@@ -411,12 +486,14 @@ public:
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Deven: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>{
 public:
+  enum { FieldSiteSize = 12 };
   CPSfermion5Dcb4Deven(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(){}
   CPSfermion5Dcb4Deven(const CPSfermion5Dcb4Deven<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,0>,FlavorPolicy,AllocPolicy>(r){}
 };
 template< typename mf_Complex, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion5Dcb4Dodd: public CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>{
 public:
+  enum { FieldSiteSize = 12 };
   CPSfermion5Dcb4Dodd(): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(){}
   CPSfermion5Dcb4Dodd(const CPSfermion5Dcb4Dodd<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfermion5Dprec<mf_Complex,CheckerBoard<4,1>,FlavorPolicy,AllocPolicy>(r){}
 };
@@ -425,7 +502,7 @@ public:
 
 
 
+CPS_END_NAMESPACE
 #include<alg/a2a/CPSfield_impl.h>
 
-CPS_END_NAMESPACE
 #endif

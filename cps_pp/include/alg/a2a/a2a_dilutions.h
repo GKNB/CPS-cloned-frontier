@@ -50,6 +50,8 @@ public:
     non_zeroes.resize(nv,true);
     map.resize(nv); for(int i=0;i<nv;i++) map[i] = i; //trivial mapping
   }
+
+  static std::string name(){ return "StandardIndexDilution"; }
 };
 
 //An index containing only the hit, flavor and spin-color indices
@@ -98,7 +100,7 @@ public:
       map[idx_unpacked] = idx_packed;
     }
   }
-
+  static std::string name(){ return "TimePackedIndexDilution"; }
 };
 
 //An index containing only the hit and spin-color indices
@@ -148,7 +150,7 @@ public:
       map[idx_unpacked] = idx_packed;
     }
   }
-
+  static std::string name(){ return "TimeFlavorPackedIndexDilution"; }
 };
 
 
@@ -199,6 +201,7 @@ public:
       map[idx_unpacked] = idx_packed;
     }
   }
+  static std::string name(){ return "FullyPackedIndexDilution"; }
 };
 
 

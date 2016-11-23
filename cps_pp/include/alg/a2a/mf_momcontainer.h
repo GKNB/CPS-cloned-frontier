@@ -1,10 +1,11 @@
 #ifndef _PIPI_MFCONTAINER_H
 #define _PIPI_MFCONTAINER_H
 
+#include<alg/a2a/mesonfield.h>
 #include<alg/a2a/threemomentum.h>
 CPS_START_NAMESPACE
 
-//We must construct meson fields with a number of different pion momenta. This class holds the fields and allows access in a flexible and transparent manner
+//We must construct meson fields with a number of different total momenta. This class holds the fields and allows access in a flexible and transparent manner
 //The ThreeMomentum is the pion momentum
 template<typename mf_Policies>
 class MesonFieldMomentumContainer{

@@ -2,6 +2,9 @@
 #define _MULT_IMPL
 
 #include<alg/a2a/gsl_wrapper.h>
+#include<alg/a2a/mesonfield.h>
+
+CPS_START_NAMESPACE
 
 //Options for _mult_impl:
 //MULT_IMPL_BASIC        :not using any external libraries
@@ -9,8 +12,12 @@
 //MULT_IMPL_GSL          :blocked matrix implementation using GSL BLAS (and I think other BLAS can be slotted in by linking to the appropriate libraries)
 //MULT_IMPL_GRID         :using Grid library SIMD intrinsics with a hand-crafted wrapper
 
-#define MULT_IMPL_GSL
+//#ifdef USE_GRID
 //#define MULT_IMPL_GRID
+//#else
+//#define MULT_IMPL_GSL
+//#endif
+#define MULT_IMPL_BLOCK_BASIC
 
 #if defined(MULT_IMPL_BASIC)
 #  include<alg/a2a/mult_impl_basic.h>
@@ -34,5 +41,6 @@ void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonF
   _mult_impl<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR>::mult(out,l,r, node_local);
 }
 
+CPS_END_NAMESPACE
 
 #endif

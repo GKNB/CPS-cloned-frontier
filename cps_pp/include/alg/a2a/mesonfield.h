@@ -7,6 +7,7 @@
 #include<alg/a2a/spin_color_matrices.h>
 #include<gsl/gsl_blas.h>
 #include<alg/a2a/gsl_wrapper.h>
+#include<alg/a2a/mesonfield_controls.h>
 #include<set>
 
 CPS_START_NAMESPACE
@@ -43,7 +44,7 @@ public:
  private:
   ScalarComplexType* mf;
   int nmodes_l, nmodes_r;
-  int fsize; //in floats
+  int fsize; //in units of ScalarComplexType
 
   LeftDilutionType lindexdilution;
   RightDilutionType rindexdilution;
@@ -82,6 +83,9 @@ public:
 	 >
   friend class _mult_lr_impl;
 
+  template<typename mfVectorType, typename InnerProduct>
+  friend struct mf_Vector_policies;
+  
 public:
   A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
   }
@@ -133,6 +137,24 @@ public:
     if(mf!=NULL) free(mf);
   }
 
+  bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
+    for(int i=0;i<nmodes_l;i++){
+      for(int j=0;j<nmodes_r;j++){
+	const ScalarComplexType &lval = (*this)(i,j);
+	const ScalarComplexType &rval = r(i,j);
+	
+	if( fabs(lval.real() - rval.real()) > tolerance || fabs(lval.imag() - rval.imag()) > tolerance ){
+	  if(verbose && !UniqueID()){
+	    printf("Err: (%d,%d) : this[%g,%g] vs that[%g,%g] : diff [%g,%g]\n",i,j,
+		   lval.real(),lval.imag(),rval.real(),rval.imag(),fabs(lval.real()-rval.real()), fabs(lval.imag()-rval.imag()) ); fflush(stdout);
+	  }
+	  return false;
+	}
+      }
+    }
+    return true;
+  }    
+  
   A2AmesonField &operator=(const A2AmesonField &r){
     setup(r.lindexdilution, r.rindexdilution, r.tl, r.tr);
     memcpy(mf, r.mf, fsize*sizeof(ScalarComplexType));
@@ -198,6 +220,10 @@ public:
   template<typename InnerProduct, typename Allocator>
   static void compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
 
+  //Version of the above for multi-src inner products (output vector indexed by [src idx][t]
+  template<typename InnerProduct, typename Allocator>
+  static void compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
+
   inline const int getNrows() const{ return nmodes_l; }
   inline const int getNcols() const{ return nmodes_r; }
 
@@ -213,7 +239,11 @@ public:
   //Set each float to a uniform random number in the specified range
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
-    for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+    if(!UniqueID())
+      for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+    int head_mpi_rank = getHeadMPIrank();
+    int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
+    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");      
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
@@ -228,8 +258,8 @@ public:
   //Do a column reorder but where we pack the row indices to exclude those not used (as indicated by input bool array)
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
   //Option not to resize the output vector, allowing reuse of a previously allocated vector providing it's large enough
-  void splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
-  void scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true);
+  void splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true) const;
+  void scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize = true) const;
 #endif
   
   //Transpose the meson field! (parallel)
@@ -240,6 +270,16 @@ public:
   void nodeDistribute(int node_uniqueid = -1);
   //Get back the data. After the call, all nodes will have a complete copy
   void nodeGet();
+
+  void write(std::ostream *file_ptr, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void write(const std::string &filename, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void read(std::istream *file_ptr); //istream pointer should only be open on node 0 - should be NULL otherwise
+  void read(const std::string &filename);
+
+  static void write(const std::string &filename, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat = FP_AUTOMATIC);
+  static void write(std::ostream *file_ptr, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat = FP_AUTOMATIC);
+  static void read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
+  static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 };
 
 //Matrix product of meson field pairs
@@ -301,7 +341,7 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   for(int t=0;t<Lt;t++){
-    if(!UniqueID()){ printf("Get element 0 time %d\n",t); fflush(stdout); }
+    //if(!UniqueID()){ printf("Get element 0 time %d\n",t); fflush(stdout); }
     sync();
     a->operator[](t).nodeGet();
   }
@@ -312,12 +352,12 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   for(int i=1; i<n; i++){
     std::vector<T>* val=va_arg(vl,std::vector<T>*);
     if(done_ptrs.count(val)){
-      if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
+      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
       continue;
     }
 
     for(int t=0;t<Lt;t++){
-      if(!UniqueID()){ printf("Get element %d time %d\n",i,t); fflush(stdout); }
+      //if(!UniqueID()){ printf("Get element %d time %d\n",i,t); fflush(stdout); }
       sync();
       val->operator[](t).nodeGet();
     }
@@ -336,7 +376,7 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   for(int t=0;t<Lt;t++){
-    if(!UniqueID()){ printf("Distributing element 0 time %d first elem %f\n",t,a->operator[](t).ptr()[0]); fflush(stdout); }
+    //if(!UniqueID()){ printf("Distributing element 0 time %d first elem %f\n",t,a->operator[](t).ptr()[0]); fflush(stdout); }
     sync();
     a->operator[](t).nodeDistribute();
   }
@@ -347,12 +387,12 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
   for(int i=1; i<n; i++){
     std::vector<T>* val=va_arg(vl,std::vector<T>*);
     if(done_ptrs.count(val)){
-      if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
+      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
       continue;
     }
 
     for(int t=0;t<Lt;t++){
-      if(!UniqueID()){ printf("Distributing element %d time %d first elem %f\n",i,t,val->operator[](t).ptr()[0]); fflush(stdout); }
+      //if(!UniqueID()){ printf("Distributing element %d time %d first elem %f\n",i,t,val->operator[](t).ptr()[0]); fflush(stdout); }
       sync();
       val->operator[](t).nodeDistribute();
     }
@@ -367,10 +407,5 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 
 
 #include<alg/a2a/mesonfield_impl.h>
-
-
-
-
-
 CPS_END_NAMESPACE
 #endif

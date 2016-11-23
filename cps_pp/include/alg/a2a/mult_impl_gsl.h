@@ -1,7 +1,6 @@
 #ifndef _MULT_IMPL_GSL_H
 #define _MULT_IMPL_GSL_H
 
-CPS_END_NAMESPACE
 #include<alg/a2a/gsl_wrapper.h>
 CPS_START_NAMESPACE
 
@@ -127,11 +126,17 @@ public:
       Float flops_total = Float(ni)*Float(nk)*Float(nj)*8.;
 
       A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> lreord;
-      l.colReorder(lreord,jlmap,nj);
       A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> rreord;
+#ifndef MEMTEST_MODE
       r.rowReorder(rreord,jrmap,nj);
+      l.colReorder(lreord,jlmap,nj);
+#endif
       
       typename gw::matrix_complex *lreord_gsl = gw::matrix_complex_alloc(ni,nj);
+      typename gw::matrix_complex *rreord_gsl = gw::matrix_complex_alloc(nj,nk);
+      
+#ifndef MEMTEST_MODE
+      
 #pragma omp parallel for
       for(int i=0;i<ni;i++)
 	for(int j=0;j<nj;j++){
@@ -140,7 +145,7 @@ public:
 	  *(el_gsl++) = std::real(el);
 	  *(el_gsl) = std::imag(el);
 	}
-      typename gw::matrix_complex *rreord_gsl = gw::matrix_complex_alloc(nj,nk);
+
 #pragma omp parallel for
       for(int j=0;j<nj;j++)
 	for(int k=0;k<nk;k++){
@@ -149,7 +154,9 @@ public:
 	  *(el_gsl++) = std::real(el);
 	  *(el_gsl) = std::imag(el);
 	}
-
+      
+#endif
+      
       static const int lcol_stride = 1;      
       int rrow_stride = rreord.getNcols();
 
@@ -173,21 +180,10 @@ public:
 	typename gw::complex one; GSL_SET_COMPLEX(&one,1.0,0.0);
 	typename gw::complex zero; GSL_SET_COMPLEX(&zero,0.0,0.0);
 
+#ifndef MEMTEST_MODE
 	gw::matrix_complex_set_zero(tmp_out);
-	// for(int i=0;i<bi;i++) 
-	//   for(int j=0;j<bj;j++){
-	//     const std::complex<mf_Float> & el = lreord(i0+i, j0+j);
-	//     GSL_SET_COMPLEX(&tmp, std::real(el), std::imag(el) );
-	//     gw::matrix_complex_set(ijblock,i,j,tmp);
-	//   }
-	// for(int j=0;j<bj;j++) 
-	//   for(int k=0;k<bk;k++){
-	//     const std::complex<mf_Float> & el = rreord(j0+j, k0+k);
-	//     GSL_SET_COMPLEX(&tmp, std::real(el), std::imag(el) );
-	//     gw::matrix_complex_set(jkblock,j,k,tmp);
-	//   }
 	gw::blas_gemm(CblasNoTrans, CblasNoTrans, one, ijblock, jkblock, zero, tmp_out);
-
+	
 	for(int i=0;i<bi;i++) 
 	  for(int k=0;k<bk;k++){
 	    mf_Float const* el = (mf_Float const*)gw::matrix_complex_ptr(tmp_out,i,k);
@@ -196,13 +192,10 @@ public:
 	    out_el[0] += *(el++);
 #pragma omp atomic
 	    out_el[1] += *(el);
-
-	    //tmp = gw::matrix_complex_get(tmp_out,i,k);
-	    //out(i0+i,k0+k) += std::complex<mf_Float>( GSL_REAL(tmp), GSL_IMAG(tmp) );
 	  }
+#endif
+	
 	gw::matrix_complex_free(tmp_out);
-	// gw::matrix_complex_free(ijblock);
-	// gw::matrix_complex_free(jkblock);
       }
 
 
@@ -222,5 +215,6 @@ public:
   }
   
 };
+CPS_END_NAMESPACE
 
 #endif

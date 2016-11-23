@@ -3,6 +3,14 @@
 #define USE_GRID_LANCZOS
 #include<chroma.h>
 
+#ifdef USE_CALLGRIND
+#include<valgrind/callgrind.h>
+#else
+#define CALLGRIND_START_INSTRUMENTATION ;
+#define CALLGRIND_STOP_INSTRUMENTATION ;
+#define CALLGRIND_TOGGLE_COLLECT ;
+#endif
+
 //bfm headers
 #ifdef USE_BFM
 #include<bfm.h>
@@ -51,13 +59,13 @@ using namespace cps;
 #include <alg/a2a/compute_ktopipi_base.h>
 
 #include "benchmark_mesonfield.h"
-// typedef double mf_Float;
-// typedef Grid::vComplexD grid_Complex;
-// typedef GridSIMDSourcePolicies GridSrcPolicy;
+ typedef double mf_Float;
+ typedef Grid::vComplexD grid_Complex;
+ typedef GridSIMDSourcePolicies GridSrcPolicy;
 
-typedef float mf_Float;
-typedef Grid::vComplexF grid_Complex;
-typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
+//typedef float mf_Float;
+//typedef Grid::vComplexF grid_Complex;
+//typedef GridSIMDSourcePoliciesSingle GridSrcPolicy;
 
 
 typedef std::complex<mf_Float> mf_Complex;
@@ -144,6 +152,15 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
 
 
 
+
+
+
+
+
+
+
+
+
 int main(int argc,char *argv[])
 {
   Start(&argc, &argv);
@@ -168,7 +185,7 @@ int main(int argc,char *argv[])
   int ntests = 10;
   
   double tol = 1e-8;
-
+  int nlowmodes = 100;
   printf("Argc is %d\n",argc);
   int i=2;
   while(i<argc){
@@ -218,6 +235,11 @@ int main(int argc,char *argv[])
       std::stringstream ss; ss << argv[i+1];
       ss >> tol;
       if(!UniqueID()) printf("Set tolerance to %g\n",tol);
+      i+=2;
+    }else if( strncmp(cmd,"-nl",15) == 0){
+      std::stringstream ss; ss << argv[i+1];
+      ss >> nlowmodes;
+      if(!UniqueID()) printf("Set nl to %d\n",nlowmodes);
       i+=2;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
@@ -276,32 +298,54 @@ int main(int argc,char *argv[])
   int nscf = 10;
   int nv = 10;
 
-  // {
-  //   typedef grid_Complex VectorComplexType;
-    
-  //   VectorComplexType zro; zeroit(zro);
-  //   std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
-  //   std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
-    
-  //   VectorComplexType lcp[nscf][nv];
-  //   VectorComplexType rcp[nv][nscf];
-  //   for(int i=0;i<nscf;i++) for(int j=0;j<nv;j++) zeroit(lcp[i][j]);
-  //   for(int i=0;i<nv;i++) for(int j=0;j<nscf;j++) zeroit(rcp[i][j]);
 
-    
-
-    
-  
-
-
-  
   A2AArg a2a_args;
-  a2a_args.nl = 100;
+  a2a_args.nl = nlowmodes;
   a2a_args.nhits = 1;
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
+  if(0) testCyclicPermute();
+
+#if 0
+  if(0) testGenericFFT();
+#endif
+  
+  if(0) demonstrateFFTreln<mf_Complex>(a2a_args);
+
+
+  if(0) testA2AvectorFFTrelnGparity<mf_Complex>(a2a_args,lattice);
+  if(0) testA2AvectorFFTrelnGparity<Grid::vComplexD>(a2a_args,lattice);
+
+  if(0) testMultiSource<cps::ComplexD>(a2a_args,lattice);
+
+  if(0) testMfFFTreln<cps::ComplexD>(a2a_args,lattice);
+  if(0) testMfFFTreln<Grid::vComplexD>(a2a_args,lattice);
+
+  if(1) testFFTopt<cps::ComplexD>();
+  //if(0) testFFTopt<Grid::vComplexD>();
+  
   if(0){
+    Grid::vComplexF v = randomvType<Grid::vComplexF>();
+    printvType(v);
+
+    
+    
+    
+    Grid::vComplexF::conv_t* conv = reinterpret_cast<Grid::vComplexF::conv_t*>(&v.v);
+    conv->s[0] = 0.0; conv->s[1] = 1.0; conv->s[2] = 2.0; conv->s[3] = 3.0;
+
+    printvType(v);
+
+  }
+
+
+
+
+
+
+  
+  if(0){ //benchmark single timeslice mf contraction
     typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
 
     A2AvectorWfftw<A2Apolicies> W(a2a_args);
@@ -309,7 +353,7 @@ int main(int argc,char *argv[])
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
     
     A2AexpSource<> src(2.0);
-    SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
+    SCFspinflavorInnerProduct<15,typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,src);
     
     Float total_time = 0.;
     for(int iter=0;iter<ntests;iter++){
@@ -338,7 +382,7 @@ int main(int argc,char *argv[])
   printf("\n");
 
   if(0) benchmarkTrace(ntests,tol);
-  if(1) benchmarkSpinFlavorTrace(ntests,tol);
+  if(0) benchmarkSpinFlavorTrace(ntests,tol);
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
   if(0) benchmarkmultGammaLeft(ntests, tol);
@@ -375,13 +419,16 @@ int main(int argc,char *argv[])
   }
   
   if(0){
-    A2AexpSource<StandardSourcePolicies> std_exp(2.0);
-    A2AexpSource<GridSIMDSourcePolicies> grid_exp(2.0, simd_dims_3d);
+    typedef _deduce_a2a_field_policies<mf_Complex> A2Apolicies;
+    typedef _deduce_a2a_field_policies<grid_Complex> GridA2Apolicies;
+    
+    A2AexpSource<typename A2Apolicies::SourcePolicies> std_exp(2.0);
+    A2AexpSource<typename GridA2Apolicies::SourcePolicies> grid_exp(2.0, simd_dims_3d);
 
-    CPSfield<cps::ComplexD,1,SpatialPolicy,OneFlavorPolicy,StandardAllocPolicy> b(n);
+    CPSfield<typename A2Apolicies::SourcePolicies::ComplexType,1,typename A2Apolicies::SourcePolicies::DimensionPolicy,OneFlavorPolicy,typename A2Apolicies::SourcePolicies::AllocPolicy> b(n);
     b.importField(grid_exp.getSource());
 
-    assert( b.equals(std_exp.getSource()) );
+    assert( b.equals(std_exp.getSource(),tol));
     printf("Test3 success\n");  
   }
 
@@ -404,15 +451,130 @@ int main(int argc,char *argv[])
     A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
     A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
     
-    A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims_3d);
-    SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
+    //A2AexpSource<GridSrcPolicy> src_grid(2.0, simd_dims_3d);
+    //SCFspinflavorInnerProduct<typename GridA2Apolicies::ComplexType,A2AexpSource<GridSrcPolicy> > mf_struct_grid(sigma3,15,src_grid);
+    int p[3] = {1,1,1};
+    A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
+    SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > mf_struct_grid(sigma3,src_grid);
+      
 
-    A2AexpSource<> src(2.0);
-    SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
-
+    //A2AexpSource<> src(2.0);
+    //SCFspinflavorInnerProduct<typename A2Apolicies::ComplexType,A2AexpSource<> > mf_struct(sigma3,15,src);
+    A2AflavorProjectedExpSource<> src(2.0,p);
+    SCFspinflavorInnerProduct<15,typename A2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,src);
+    
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
+    if(0){
+      // GridVectorizedSpinColorContract benchmark
+      typedef typename GridA2Apolicies::ComplexType GVtype;
+      typedef typename GridA2Apolicies::ScalarComplexType GCtype;
+      const int nsimd = GVtype::Nsimd();      
+
+      NullObject n;
+      CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> a(n); a.testRandom();
+      CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> b(n); b.testRandom();
+      CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
+      CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
+      CPSfield<GVtype,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> cc(simd_dims);
+
+      int ntests_scaled = 5000;
+      printf("Max threads %d\n",omp_get_max_threads());
+      double t0 = Grid::usecond();
+
+#pragma omp parallel //avoid thread creation overheads
+      {
+	int me = omp_get_thread_num();
+	int work, off;
+	thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
+
+	for(int test=0;test<ntests_scaled;test++){
+	  for(int i=off;i<off+work;i++){
+	    GVtype *ai = aa.fsite_ptr(i);
+	    GVtype *bi = bb.fsite_ptr(i);
+	    GVtype *ci = cc.fsite_ptr(i);
+	    *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+	  }
+	}
+      }
+      
+      double t1 = Grid::usecond();
+      double dt = t1 - t0;
+      
+      int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
+	+ 12*2*nsimd; //12 vectorized += or -=
+      double total_FLOPs = double(FLOPs) * double(aa.nfsites()) * double(ntests_scaled);
+      
+      double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
+      std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
+      
+      //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
+    }
+
+    if(0){ //All-time mesonfield contract
+      std::cout << "Starting all-time mesonfield contract benchmark\n";
+      Float total_time = 0.;
+      std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
+
+      W.testRandom();
+      V.testRandom();
+      Wgrid.importFields(W);
+      Vgrid.importFields(V);
+      
+      CALLGRIND_START_INSTRUMENTATION ;
+      CALLGRIND_TOGGLE_COLLECT ;
+      
+      for(int iter=0;iter<ntests;iter++){
+	total_time -= dclock();
+	A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
+	total_time += dclock();
+      }
+
+      CALLGRIND_TOGGLE_COLLECT ;
+      CALLGRIND_STOP_INSTRUMENTATION ;
+
+      int g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//4 flav * 12 vectorized conj(a)*b  + 12 vectorized += or -=         
+      int siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z                                                                                                                             
+      int s3_FLOPs = 4*nsimd; //2 vectorized -1*z                                                                                                                                                          
+      int TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd                                                                                                                                 
+      int reduce_FLOPs = (nsimd - 1)*2; //nsimd-1 cadd                                                                                                                                                    
+
+      double FLOPs_per_site = 0.;
+      for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+        const int nl_l = mf_grid_t[t].getRowParams().getNl();
+        const int nl_r = mf_grid_t[t].getColParams().getNl();
+
+        int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+
+        for(int i = 0; i < mf_grid_t[t].getNrows(); i++){
+          modeIndexSet i_high_unmapped; if(i>=nl_l) mf_grid_t[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+          SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
+                                                                                                                                                                                                           
+          for(int j = 0; j < mf_grid_t[t].getNcols(); j++) {
+            modeIndexSet j_high_unmapped; if(j>=nl_r) mf_grid_t[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+            SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+
+            for(int a=0;a<2;a++)
+              for(int b=0;b<2;b++)
+                if(!lscf.isZero(a) && !rscf.isZero(b))
+                  FLOPs_per_site += g5_FLOPs;
+            FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+          }
+        }
+      }
+      const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
+      const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+      double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
+
+      printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);      
+    }
+
+
+    
+    
     if(0){ //test mesonfield contract
+      //#define MF_CONTR_CPS
+#define MF_CONTR_GRID
       std::cout << "Starting mesonfield contract benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -422,14 +584,21 @@ int main(int argc,char *argv[])
 	Wgrid.importFields(W);
 	Vgrid.importFields(V);
       
+#ifdef MF_CONTR_GRID
 	total_time -= dclock();
+	// CALLGRIND_START_INSTRUMENTATION ;
+	// CALLGRIND_TOGGLE_COLLECT ;
 	mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
+	// CALLGRIND_TOGGLE_COLLECT ;
+	// CALLGRIND_STOP_INSTRUMENTATION ;
 	total_time += dclock();
-
+#endif
+#ifdef MF_CONTR_CPS
 	total_time_orig -= dclock();
 	mf.compute(W,mf_struct,V,0);
 	total_time_orig += dclock();
-      
+#endif
+#if defined(MF_CONTR_CPS) && defined(MF_CONTR_GRID)
 	bool fail = false;
 	for(int i=0;i<mf.size();i++){
 	  const Ctype& gd = mf_grid.ptr()[i];
@@ -442,9 +611,14 @@ int main(int argc,char *argv[])
 	  }
 	}
 	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");	
+#endif
       }
+#if defined MF_CONTR_GRID
       printf("MF contract: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+#endif
+#if defined MF_CONTR_CPS
       printf("MF contract: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+#endif
     }else{
       W.testRandom();
       V.testRandom();
@@ -459,7 +633,81 @@ int main(int argc,char *argv[])
 	  mf_grid(i,j) = mf(i,j); //both are scalar complex
     }
 
+    if(0){ //test mf read/write
+      {
+	mf.write("mesonfield.dat",FP_IEEE64BIG);
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfr;
+	mfr.read("mesonfield.dat");
+	assert( mfr.equals(mf,1e-18,true));
+	if(!UniqueID()) printf("Passed mf single IO test\n");
+      }
+      {
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfa;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfb;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfc;
+	mfa.setup(W,V,0,0);
+	mfb.setup(W,V,1,1);
+	mfc.setup(W,V,2,2);		
+      
+	mfa.testRandom();
+	mfb.testRandom();
+	mfc.testRandom();
+
+	std::ofstream *fp = !UniqueID() ? new std::ofstream("mesonfield_many.dat") : NULL;
+
+	mfa.write(fp,FP_IEEE64BIG);
+	mfb.write(fp,FP_IEEE64LITTLE);
+	mfc.write(fp,FP_IEEE64BIG);
+
+	if(!UniqueID()) fp->close();
+
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfra;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrb;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mfrc;
+
+	std::ifstream *ifp = !UniqueID() ? new std::ifstream("mesonfield_many.dat") : NULL;
+
+	mfra.read(ifp);
+	mfrb.read(ifp);
+	mfrc.read(ifp);
+
+	if(!UniqueID()) ifp->close();
+
+	assert( mfra.equals(mfa,1e-18,true) );
+	assert( mfrb.equals(mfb,1e-18,true) );
+	assert( mfrc.equals(mfc,1e-18,true) );
+	if(!UniqueID()) printf("Passed mf multi IO test\n");
+      }
+      {
+	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfv(3);
+	for(int i=0;i<3;i++){
+	  mfv[i].setup(W,V,i,i);
+	  mfv[i].testRandom();
+	}
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::write("mesonfield_vec.dat", mfv, FP_IEEE64LITTLE);
+	
+	std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfrv;
+	A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::read("mesonfield_vec.dat", mfrv);
+
+	for(int i=0;i<3;i++)
+	  assert( mfrv[i].equals(mfv[i], 1e-18, true) );
+	if(!UniqueID()) printf("Passed mf vector IO test\n");
+      }
+	
+    }
+
+
+
+
+    
     if(0){ //test vMv implementation
+      //#define CPS_VMV
+      //#define GRID_VMV
+      //#define CPS_SPLIT_VMV
+#define GRID_SPLIT_VMV
+      //#define CPS_SPLIT_VMV_XALL
+      //#define GRID_SPLIT_VMV_XALL
+
       std::cout << "Starting vMv benchmark\n";
       Float total_time = 0.;
       Float total_time_orig = 0.;
@@ -498,7 +746,7 @@ int main(int argc,char *argv[])
 	}
 	
 	for(int top = 0; top < GJP.TnodeSites(); top++){
-
+#ifdef CPS_VMV
 	  //ORIG VMV
 	  total_time_orig -= dclock();	  
 #pragma omp parallel for
@@ -508,7 +756,8 @@ int main(int argc,char *argv[])
 	    orig_sum[me] += orig_tmp[me];
 	  }
 	  total_time_orig += dclock();
-
+#endif
+#ifdef GRID_VMV
 	  //GRID VMV
 	  total_time -= dclock();
 #pragma omp parallel for
@@ -518,7 +767,9 @@ int main(int argc,char *argv[])
 	    grid_sum[me] += grid_tmp[me];
 	  }
 	  total_time += dclock();
+#endif
 
+#ifdef CPS_SPLIT_VMV
 	  //SPLIT VMV
 	  total_time_split_orig -= dclock();	  
 	  vmv_split_orig.setup(V, mf, W, top);
@@ -530,7 +781,9 @@ int main(int argc,char *argv[])
 	    orig_sum_split[me] += orig_tmp[me];
 	  }
 	  total_time_split_orig += dclock();
+#endif
 
+#ifdef GRID_SPLIT_VMV
 	  //SPLIT VMV GRID
 	  total_time_split_grid -= dclock();	  
 	  vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
@@ -542,8 +795,9 @@ int main(int argc,char *argv[])
 	    grid_sum_split[me] += grid_tmp[me];
 	  }
 	  total_time_split_grid += dclock();
-	  
-	  
+#endif
+
+#ifdef CPS_SPLIT_VMV_XALL	  	 
 	  //SPLIT VMV THAT DOES IT FOR ALL SITES
 	  total_time_split_orig_xall -= dclock();	  
 	  vmv_split_orig.setup(V, mf, W, top);
@@ -554,7 +808,9 @@ int main(int argc,char *argv[])
 	    orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
 	  }
 	  total_time_split_orig_xall += dclock();
+#endif
 
+#ifdef GRID_SPLIT_VMV_XALL
 	  //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
 	  total_time_split_grid_xall -= dclock();	  
 	  vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
@@ -565,8 +821,7 @@ int main(int argc,char *argv[])
 	    grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
 	  }
 	  total_time_split_grid_xall += dclock();
-
-	  
+#endif	  
 	}//end top loop
 	for(int i=1;i<nthreads;i++){
 	  orig_sum[0] += orig_sum[i];
@@ -576,118 +831,44 @@ int main(int argc,char *argv[])
 	  orig_sum_split_xall[0] += orig_sum_split_xall[i];
 	  grid_sum_split_xall[0] += grid_sum_split_xall[i];  
 	}
-
-	
-	bool fail = false;
-	
-	Ctype gd;
-	for(int sl=0;sl<4;sl++)
-	  for(int cl=0;cl<3;cl++)
-	    for(int fl=0;fl<2;fl++)
-	      for(int sr=0;sr<4;sr++)
-		for(int cr=0;cr<3;cr++)
-		  for(int fr=0;fr<2;fr++){
-		    gd = Reduce( grid_sum[0](sl,sr)(cl,cr)(fl,fr) );
-		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
-		    
-		    double rdiff = fabs(gd.real()-cp.real());
-		    double idiff = fabs(gd.imag()-cp.imag());
-		    if(rdiff > tol|| idiff > tol){
-		      printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-		      fail = true;
-		    }
-		  }
-
-	if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
-
-	for(int sl=0;sl<4;sl++)
-	  for(int cl=0;cl<3;cl++)
-	    for(int fl=0;fl<2;fl++)
-	      for(int sr=0;sr<4;sr++)
-		for(int cr=0;cr<3;cr++)
-		  for(int fr=0;fr<2;fr++){
-		    const mf_Complex &split = orig_sum_split[0](sl,sr)(cl,cr)(fl,fr);
-		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
-		    double rdiff = fabs(split.real()-cp.real());
-		    double idiff = fabs(split.imag()-cp.imag());
-		    if(rdiff > tol|| idiff > tol){
-		      printf("Fail: Iter %d Split (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, split.real(),split.imag(), cp.real(),cp.imag(), cp.real()-split.real(), cp.imag()-split.imag());
-		      fail = true;
-		    }
-		  }
-
-	if(fail) ERR.General("","","Standard vs Split implementation 1 test failed\n");
-
-	for(int sl=0;sl<4;sl++)
-	  for(int cl=0;cl<3;cl++)
-	    for(int fl=0;fl<2;fl++)
-	      for(int sr=0;sr<4;sr++)
-		for(int cr=0;cr<3;cr++)
-		  for(int fr=0;fr<2;fr++){
-		    gd = Reduce( grid_sum_split[0](sl,sr)(cl,cr)(fl,fr) );
-		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
-		    
-		    double rdiff = fabs(gd.real()-cp.real());
-		    double idiff = fabs(gd.imag()-cp.imag());
-		    if(rdiff > tol|| idiff > tol){
-		      printf("Fail: Iter %d Grid split (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-		      fail = true;
-		    }
-		  }
-
-	if(fail) ERR.General("","","Standard vs Grid split implementation 1 test failed\n");
-
-
-	
-	for(int sl=0;sl<4;sl++)
-	  for(int cl=0;cl<3;cl++)
-	    for(int fl=0;fl<2;fl++)
-	      for(int sr=0;sr<4;sr++)
-		for(int cr=0;cr<3;cr++)
-		  for(int fr=0;fr<2;fr++){
-		    const mf_Complex &split = orig_sum_split_xall[0](sl,sr)(cl,cr)(fl,fr);
-		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
-		    
-		    double rdiff = fabs(split.real()-cp.real());
-		    double idiff = fabs(split.imag()-cp.imag());
-		    if(rdiff > tol|| idiff > tol){
-		      printf("Fail: Iter %d Split xall (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, split.real(),split.imag(), cp.real(),cp.imag(), cp.real()-split.real(), cp.imag()-split.imag());
-		      fail = true;
-		    }
-		  }
-
-	if(fail) ERR.General("","","Standard vs Split xall implementation 2 test failed\n");
-
-	for(int sl=0;sl<4;sl++)
-	  for(int cl=0;cl<3;cl++)
-	    for(int fl=0;fl<2;fl++)
-	      for(int sr=0;sr<4;sr++)
-		for(int cr=0;cr<3;cr++)
-		  for(int fr=0;fr<2;fr++){
-		    gd = Reduce( grid_sum_split_xall[0](sl,sr)(cl,cr)(fl,fr) );
-		    const mf_Complex &cp = orig_sum[0](sl,sr)(cl,cr)(fl,fr);
-		    
-		    double rdiff = fabs(gd.real()-cp.real());
-		    double idiff = fabs(gd.imag()-cp.imag());
-		    if(rdiff > tol|| idiff > tol){
-		      printf("Fail: Iter %d Grid split xall (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-		      fail = true;
-		    }
-		  }
-
-	if(fail) ERR.General("","","Standard vs Grid split xall implementation 2 test failed\n");
-
+#ifdef CPS_VMV
+	if(iter == 0){
+#  ifdef GRID_VMV
+            if(!compare(orig_sum[0],grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
+#  endif
+#  ifdef CPS_SPLIT_VMV
+	    if(!compare(orig_sum[0],orig_sum_split[0],tol)) ERR.General("","","Standard vs Split implementation test failed\n");
+#  endif
+#  ifdef GRID_SPLIT_VMV
+	    if(!compare(orig_sum[0],grid_sum_split[0],tol)) ERR.General("","","Standard vs Grid Split implementation test failed\n");
+#  endif
+#  ifdef CPS_SPLIT_VMV_XALL
+	    if(!compare(orig_sum[0],orig_sum_split_xall[0],tol)) ERR.General("","","Standard vs Split xall implementation test failed\n");
+#  endif
+#  ifdef GRID_SPLIT_VMV_XALL
+	    if(!compare(orig_sum[0],grid_sum_split_xall[0],tol)) ERR.General("","","Standard vs Grid split xall implementation test failed\n");
+#  endif
+        }
+#endif
       }
-
+#ifdef CPS_VMV
       printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+#endif
+#ifdef GRID_VMV
       printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-      
+#endif
+#ifdef CPS_SPLIT_VMV
       printf("vMv: Avg time old code split %d iters: %g secs\n",ntests,total_time_split_orig/ntests);
+#endif
+#ifdef GRID_SPLIT_VMV
       printf("vMv: Avg time new code split %d iters: %g secs\n",ntests,total_time_split_grid/ntests);
-      
+#endif
+#ifdef CPS_SPLIT_VMV_XALL
       printf("vMv: Avg time old code split xall %d iters: %g secs\n",ntests,total_time_split_orig_xall/ntests);
+#endif
+#ifdef CPS_SPLIT_VMV_XALL
       printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
-
+#endif
     }
     
 
@@ -766,36 +947,7 @@ int main(int argc,char *argv[])
     
   }
 
-
-
-    
-
-
-  
-
-  
-    
-  //A2Asource<Grid::vComplexD,FourDSIMDPolicy,Aligned128AllocPolicy> gsrc;
-
-  
-
-  //OptimizedSpinColorContract<double,true,true> M;
-  // {
-  //   A2AexpSource<> src(2.0);
-  //   A2AexpSource<GridSIMDSourcePolicies> grid_src(2.0, simd_dims);
-    
-  //   FlavorMatrixGeneral<Grid::vComplexD> vf;
-  //   vf.zero();
-    
-  //   SCFspinflavorInnerProduct<cps::ComplexD,A2AexpSource<> ,true,true> ip(sigma3,0,src);
-  //   SCFspinflavorInnerProduct<Grid::vComplexD,A2AexpSource<> ,true,true> ip2(sigma3,0,src);
-    
-  //   SCFvectorPtr<Grid::vComplexD> aa(NULL,NULL);
-  //   ip2(aa,aa,0,0);
-  // }
-  
-
-
+  printf("Finished\n"); fflush(stdout);
   
   return 0;
 }

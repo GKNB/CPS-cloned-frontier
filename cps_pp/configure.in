@@ -574,7 +574,7 @@ AC_MSG_RESULT($enable_grid)
 if test "$enable_grid" != "no"; then
 	if test "$enable_grid" != "yes"; then
    		LDFLAGS="${LDFLAGS} -L${enable_grid}/build/lib -lGrid"
-   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_grid}/include -I${enable_grid}/build/lib"
+   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_grid}/include -I${enable_grid}/build/lib -I${enable_grid}/lib"
 	else
    		LDFLAGS="${LDFLAGS} -lGrid"
 	fi

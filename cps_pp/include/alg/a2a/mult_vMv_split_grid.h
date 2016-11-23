@@ -1,11 +1,16 @@
 #ifndef _MULT_VMV_SPLIT_GRID_H
 #define _MULT_VMV_SPLIT_GRID_H
+
+//using cps::SCFoperation;
+//using cps::mult_vMv_split_v;
+//using cps::CPSspinColorFlavorMatrix;
+//using cps::A2AmesonField;
 #ifdef USE_GRID
 
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_GRID_MEM_SAVE
 //Don't splat-vectorize packed mesonfield at beginning, instead do it at the point of use
-#define VMV_SPLIT_GRID_STREAMING_SPLAT
+//#define VMV_SPLIT_GRID_STREAMING_SPLAT
 //Do blocked matrix multiplication
 #define VMV_BLOCKED_MATRIX_MULT
 
@@ -37,14 +42,15 @@ public:
   }
   
   void operator()(const Grid::Vector<MComplexType>& M_packed, const int scf, const int rows, const int cols){
+#ifndef MEMTEST_MODE
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
-#ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
+# ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
     VectorComplexType tmp;
-#endif
+# endif
 
-#ifdef VMV_BLOCKED_MATRIX_MULT
+# ifdef VMV_BLOCKED_MATRIX_MULT
     int block_width_max = cols;
-    int block_height_max = 8; //4;
+    int block_height_max = 32; //4;
 
     //Blocked matrix multiply
     for(int i0=0; i0<rows; i0+=block_height_max){
@@ -56,31 +62,33 @@ public:
     	for(int ii=0;ii<iblock_size;ii++){
     	  VectorComplexType &into = Mr[scf][i_packed_unmap[i0+ii]];
     	  for(int jj=0;jj<jblock_size;jj++){
-#ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
+#  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	    vsplat(tmp,M_packed[cols*(i0+ii) +j0+jj]);
 	    into = into + tmp*rreord[scf][j0+jj];
-#else
+#  else
     	    into = into + M_packed[cols*(i0+ii) +j0+jj]*rreord[scf][j0+jj];
-#endif
+#  endif
 	  }
     	}
       }
     }
 
-#else
+# else
     
     for(int i=0;i<rows;i++){
       VectorComplexType &into = Mr[scf][i_packed_unmap[i]];
       zeroit(into);
       for(int j=0;j<cols;j++){
-#ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
+#  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	vsplat(tmp,M_packed[cols*i + j]);
 	into = into + tmp*rreord[scf][j];
-#else
+#  else
     	into = into + M_packed[cols*i + j]*rreord[scf][j];
-#endif
+#  endif
       }
     }
+    
+# endif
     
 #endif
     
@@ -111,16 +119,18 @@ class multiply_M_r_singlescf_op_grid: public SCFoperation<Grid::Vector<
   std::vector< std::vector<Grid::Vector<VectorComplexType> > > &Mr;
   std::vector< std::vector<Grid::Vector<VectorComplexType> > > &rreord;
   
-  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> *split_obj;
+  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* split_obj;
 public:
-  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<Grid::Vector<VectorComplexType> > > &_Mr, std::vector< std::vector<Grid::Vector<VectorComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<Grid::Vector<VectorComplexType> > > &_Mr, std::vector< std::vector<Grid::Vector<VectorComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(const Grid::Vector<MComplexType>& M_packed, const int scf, const int rows, const int cols){
+#ifndef MEMTEST_MODE
 #pragma omp parallel
     {
       int me = omp_get_thread_num();
       split_obj->multiply_M_r_singlescf(Mr,rreord,M_packed,off[me], work[me],scf);
     }
+#endif
   }
 };
 
@@ -179,7 +189,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 	   template <typename> class,  template <typename> class>
   friend class multiply_M_r_singlescf_op_grid;
 
-  void constructPackedMloopSCF(SCFoperation<Grid::Vector<MComplexType> > &op){
+  void constructPackedMloopSCF(SCFoperation<Grid::Vector<MComplexType> > &op) const{
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
     int nl_row = this->Mptr->getRowParams().getNl();
     int nl_col = this->Mptr->getColParams().getNl();
@@ -251,20 +261,21 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 
     	for(int s=off;s<off+work;s++){
     	  VectorComplexType const* base = &rreord[s][scf][j0];
-
+# ifndef MEMTEST_MODE
     	  for(int i_packed=0;i_packed < iblock_size; i_packed++){
     	    VectorComplexType &into = Mr[s][scf][ i_packed_unmap[i0+i_packed] ];
     	    zeroit(into);
 	    
     	    for(int j_packed=0;j_packed<jblock_size;j_packed++){
-#ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
+#  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	      vsplat(tmp, M_packed[cols*(i0+i_packed)+j0+j_packed]);
 	      into = into + tmp*base[j_packed];
-#else
+#  else
     	      into = into + M_packed[cols*(i0+i_packed)+j0+j_packed]*base[j_packed];
-#endif
+#  endif
 	    }
     	  }
+# endif
     	}
       }
     }
@@ -274,17 +285,19 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
       int i_full = i_packed_unmap[i];
 
       for(int s=off;s<off+work;s++){
+# ifndef MEMTEST_MODE
 	VectorComplexType &into = Mr[s][scf][i_full];
 	zeroit(into);
 	
 	for(int j=0;j<cols;j++){
-#ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
+#  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	  vsplat(tmp,M_packed[cols*i+j]);
 	  into = into + tmp * rreord[s][scf][j];
-#else
+#  else
 	  into = into + M_packed[cols*i+j] * rreord[s][scf][j];
-#endif
+#  endif
 	}
+# endif
       }
     }
 	  
@@ -318,8 +331,10 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 		int loff = 0;
 		for(int b=0;b<blocks.size();b++){
 		  VectorComplexType const* Mr_block_ptr = Mr_base + this->irmap[scfl][blocks[b].first]; //Mr is not packed, lreord is. Cycle over blocks of consecutive elements
+#ifndef MEMTEST_MODE
 		  for(int i=0;i<blocks[b].second;i++)
 		    into = into + lbase[loff++] * Mr_block_ptr[i];		  
+#endif
 		}
 	      }
 	    }
@@ -337,7 +352,7 @@ public:
   }
 
   void free_mem(){
-    free_mem_base();
+    this->free_mem_base();
   }
 
 
@@ -351,7 +366,7 @@ public:
   }
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
-    setup_base(l,M,r,_top_glb,i_ind,j_ind);
+    this->setup_base(l,M,r,_top_glb,i_ind,j_ind);
 
     logical_sites_3d = l.getMode(0).nodeSites(0)*l.getMode(0).nodeSites(1)*l.getMode(0).nodeSites(2);
 #ifndef VMV_SPLIT_GRID_MEM_SAVE
@@ -483,7 +498,7 @@ public:
     }
     int sites_3d = logical_sites_3d;
     int site4dop = xop + sites_3d*top;
-    site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
+    this->site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
 
     //M * r
     multiply_M_r(Mr,rreord);

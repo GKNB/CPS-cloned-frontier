@@ -1,5 +1,6 @@
 #include <config.h>
-#ifdef USE_SSE
+//#ifdef USE_SSE //CK: no longer appears to work
+#if 0
 #include "../sse/wilson_init.C"
 #else
 CPS_START_NAMESPACE

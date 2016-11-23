@@ -27,18 +27,27 @@ class Aligned128AllocPolicy{
     free(p);
   }
 };
+class NullAllocPolicy{
+ protected:
+  inline static void* _alloc(const size_t byte_size){
+    return NULL;
+  }
+  inline static void _free(void* p){
+  }
+};
+
 
 //The FlavorPolicy allows the number of flavors to be fixed or 2/1 if Gparity/noGparity 
 template<int Nf>
 class FixedFlavorPolicy{
- protected:
+protected:
   void setFlavors(int &flavors) const{ flavors = Nf; }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
 //Default is to use two flavors if GPBC, 1 otherwise
 class DynamicFlavorPolicy{
- protected:
+protected:
   void setFlavors(int &flavors) const{ flavors = GJP.Gparity() ? 2:1 ; }
 };
 
@@ -66,7 +75,8 @@ public:
   }
 
   inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites(); } //increment of linearized coordinate between flavors
-
+  inline int dimpol_site_stride_3d() const{ return 1; }
+ 
   inline int siteFsiteConvert(const int site, const int f) const{ return site + GJP.VolNodeSites()*f; } //convert a site-flavor pair to an fsite
 
   inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
@@ -88,7 +98,7 @@ protected:
 public:
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))); }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<5;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
     }
@@ -96,7 +106,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))); }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
     }
@@ -143,7 +153,7 @@ protected:
 public:
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*( x[lmap[2]] + dims[2]*x[lmap[3]])); }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<4;i++){ 
       x[lmap[i]] = site % dims[i]; site /= dims[i];
     }
@@ -151,7 +161,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + dvol*f; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite/dvol;
   }
@@ -182,7 +192,7 @@ protected:
   void setSites(int &sites, int &fsites, const int nf) const{ sites = threevol; fsites = nf*sites; }
 public:
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*x[2]); }
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
     }
@@ -190,7 +200,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + GJP.VolNodeSites()/GJP.TnodeSites()*f; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite/threevol;
   }
@@ -272,7 +282,7 @@ protected:
 
 public:
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*x[lmap[2]]); }
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[lmap[i]] = site % dims[i]; site /= dims[i];
     }
@@ -280,7 +290,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*dvol; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / dvol;
   }
@@ -351,7 +361,7 @@ public:
     return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))))/2; 
   }
 
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     site *= 2;
     for(int i=0;i<5;i++){ 
       x[i] = site % GJP.NodeSites(i); site /= GJP.NodeSites(i);
@@ -361,7 +371,7 @@ public:
 
   inline int fsiteMap(const int x[], const int f) const{ return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))))/2; }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     fsite *= 2;
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
@@ -420,7 +430,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    typename Vtype::scalar_type* tmp = memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
+    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)
@@ -457,7 +467,7 @@ protected:
 
 public:
   inline int Nsimd() const{ return nsimd; }
-  inline int SIMDpackedSites(const int dir) const{ return simd_dims[dir]; } //number of sites in given direction packed into SIMD vector
+  inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; } 
   
   //Coordinate of SIMD block containing full 4D site x
   inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(
@@ -466,7 +476,7 @@ public:
 																						(x[3] % logical_dim[3]))));
   }
   //Returns coordinate in logical volume. Other coordinates within SIMD vector can be found by adding logical_dim[i] up to simd_dims[i] times for each direction i
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<4;i++){ 
       x[i] = site % logical_dim[i]; site /= logical_dim[i];
     }
@@ -489,13 +499,14 @@ public:
     
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / logical_vol;
   }
 
   inline int fsiteFlavorOffset() const{ return logical_vol; }
-
+  inline int dimpol_site_stride_3d() const{ return 1; }
+  
   inline int siteFsiteConvert(const int site, const int f) const{ 
     return site + logical_vol * f;
   }
@@ -539,7 +550,7 @@ protected:
 
 public:
   inline int Nsimd() const{ return nsimd; }
-  inline int SIMDpackedSites(const int dir) const{ return simd_dims[dir]; } //number of sites in given direction packed into SIMD vector
+  inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; }
   
   //Coordinate of SIMD block containing full 4D site x
   inline int siteMap(const int x[]) const{ return (x[0] % logical_dim[0]) + logical_dim[0]*(
@@ -547,7 +558,7 @@ public:
 																      (x[2] % logical_dim[2])));
   }
   //Returns coordinate in logical volume. Other coordinates within SIMD vector can be found by adding logical_dim[i] up to simd_dims[i] times for each direction i
-  inline void siteUnmap(int site, int x[]){
+  inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
       x[i] = site % logical_dim[i]; site /= logical_dim[i];
     }
@@ -568,7 +579,7 @@ public:
     
   inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*logical_vol; } //second flavor still stacked after first
 
-  inline void fsiteUnmap(int fsite, int x[], int &f){
+  inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
     f = fsite / logical_vol;
   }
@@ -631,6 +642,21 @@ template<>
 struct StandardDimensionPolicy<5>{
   typedef FiveDpolicy type;
 };
+
+//Mapping between local and global-in-one-dir policies
+template<typename LocalDimPol>
+struct LocalToGlobalInOneDirMap{};
+
+template<>
+struct LocalToGlobalInOneDirMap<FourDpolicy>{
+  typedef FourDglobalInOneDir type;
+};
+template<>
+struct LocalToGlobalInOneDirMap<SpatialPolicy>{
+  typedef ThreeDglobalInOneDir type;
+};
+
+
 
 
 CPS_END_NAMESPACE

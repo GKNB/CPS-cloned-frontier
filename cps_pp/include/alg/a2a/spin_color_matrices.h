@@ -180,12 +180,13 @@ struct _PartialTraceImpl<U,T,0>{
 
 
 
-template<typename T, int RemoveDepth1, int RemoveDepth2, typename my_enable_if<RemoveDepth1 < RemoveDepth2,int>::type = 0 >
+template<typename T, int RemoveDepth1, int RemoveDepth2> 
 struct _PartialDoubleTraceFindReducedType{
+  typedef typename my_enable_if<RemoveDepth1 < RemoveDepth2,int>::type test;
   typedef typename T::template Rebase< typename _PartialDoubleTraceFindReducedType<typename T::value_type,RemoveDepth1-1,RemoveDepth2-1>::type >::type type;
 };
 template<typename T,int RemoveDepth2>
-struct _PartialDoubleTraceFindReducedType<T,0,RemoveDepth2, 0>{
+struct _PartialDoubleTraceFindReducedType<T,0,RemoveDepth2>{
   typedef typename _PartialTraceFindReducedType<typename T::value_type,RemoveDepth2-1>::type type;
 };
 

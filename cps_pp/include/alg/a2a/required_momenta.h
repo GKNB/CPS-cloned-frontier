@@ -52,6 +52,8 @@ public:
       }
     }
   }
+  //Add a W^dag and V momentum (respectively) from a string in the form "(%d,%d,%d) + (%d%d,%d)"
+  //Use alternative = true to specify second G-parity momentum averaged with the first to improve rotational symmetry
   void addP(const std::string &p, const bool &alternative = false){
     std::pair<ThreeMomentum,ThreeMomentum> p2 = ThreeMomentum::parse_str_two_mom(p);
     std::vector<ThreeMomentum> &wto = alternative ? wdag_mom_alt : wdag_mom;

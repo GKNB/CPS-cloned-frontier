@@ -3,6 +3,7 @@
 
 #include<memory>
 #include<alg/a2a/mf_momcontainer.h>
+#include<alg/a2a/mesonfield_computemany.h>
 
 CPS_START_NAMESPACE
 
@@ -37,7 +38,7 @@ public:
       tt->addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false); tt->addPandMinusP("(1,1,1) + (-3,1,-3)",true);
 
       //p_pi = (-2,-2,2)
-      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false); tt->addPandMinusP("(1,1,1) + (-3,-3,1)",true);
+      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false); tt->addPandMinusP("(1,1,1) + (-3,-3,1)",true);      
     }else{
       ERR.General("StandardPionMomentaPolicy","setupMomenta","ngp cannot be >3\n");
     }
@@ -97,94 +98,115 @@ class ComputePion{
   
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
-  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields
+  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields indexed by [p,t]
 				 MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
+				 const std::string &work_dir, const int traj,  //all meson fields stored to disk
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
 				 const A2AvectorW<mf_Policies> &W, const A2AvectorV<mf_Policies> &V,
 				 const Float &rad, //exponential wavefunction radius
-				 Lattice &lattice,
+				 Lattice &lattice,			      
 				 const FieldParamType &src_setup_params = NullObject()){
+    Float time = -dclock();    
+    std::vector< A2AvectorW<mf_Policies> const*> Wspecies(1, &W);
+    std::vector< A2AvectorV<mf_Policies> const*> Vspecies(1, &V);
+
+    typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
-    int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    int nmom = pion_mom.nMom();
+    
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nmom = pion_mom.nMom();
     if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
       ERR.General("ComputePion","computeMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
-
     mf_ll.resize(nmom);
-
-    typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
-    VWfieldInputParams fld_params = V.getVh(0).getDimPolParams(); //use same field setup params as V/W input
     
-    A2AvectorWfftw<mf_Policies> fftw_W(W.getArgs(), fld_params);
-    A2AvectorVfftw<mf_Policies> fftw_V(V.getArgs(), fld_params);
+    if(GJP.Gparity()){
+      typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
+      typedef A2AflavorProjectedHydrogenSource<SourcePolicies> HydSrcType;
+      typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
+      typedef A2AmultiSource<SrcList> MultiSrcType;
+      //typedef SCFspinflavorInnerProduct<15,ComplexType,MultiSrcType,true,false> MultiInnerType;
+      //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
+      
+      //Allows for more memory efficient computation algorithm
+      typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
 
-    //For info useful to user, compute required memory size of all light-light meson fields
-    {
-      double mf_size = A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::byte_size(W.getArgs(),V.getArgs()) / (1024.0*1024.0); //in MB
-      double all_mf_size = Lt * nmom * mf_size;
-      if(!UniqueID()) printf("Memory requirement for light-light meson fields: %f MB (each %f MB)\n",all_mf_size,mf_size);
-    }
+      int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
+      GparityBaseMomentum(pbase,+1);
+      
+      MultiSrcType src;
+      src.template getSource<0>().setup(rad,pbase,src_setup_params); //1s
+      src.template getSource<1>().setup(2,0,0,rad,pbase,src_setup_params); //2s
+      
+      MultiInnerType g5_s3_inner(sigma3, src);
 
-    //For non-Gparity
-    std::auto_ptr<A2AexpSource<SourcePolicies> > expsrc_nogp; 
-    std::auto_ptr<SCspinInnerProduct<ComplexType,A2AexpSource<SourcePolicies> > > mf_struct_nogp;
-    if(!GJP.Gparity()){
-      expsrc_nogp.reset(new A2AexpSource<SourcePolicies>(rad,src_setup_params));
-      mf_struct_nogp.reset(new SCspinInnerProduct<ComplexType,A2AexpSource<SourcePolicies> >(15,*expsrc_nogp));
+      StorageType mf_store(g5_s3_inner,src);
+      //Base momenta
+      for(int pidx=0;pidx<nmom;pidx++){
+	ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,false);
+	mf_store.addCompute(0,0, p_w,p_v);	
+      }
+      //Alt momenta
+      for(int pidx=0;pidx<nmom;pidx++){
+	ThreeMomentum p_w = pion_mom.getWmom(pidx,true);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,true);
+	mf_store.addCompute(0,0, p_w,p_v);	
+      }
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+
+      //Copy to output the average of the 1s result with base and alternative momentum combinations
+      for(int pidx=0;pidx<nmom;pidx++){
+	mf_ll[pidx] = mf_store(0,pidx);
+	for(int t=0;t<Lt;t++) mf_ll[pidx][t].average(mf_store(0,pidx+nmom)[t]);	
+      }
+      
+      std::string src_names[2] = {"1s","2s"};
+      for(int pidx=0;pidx<nmom;pidx++){
+	for(int alt=0; alt<2;alt++){
+	  ThreeMomentum p_wdag = -pion_mom.getWmom(pidx, alt);
+	  ThreeMomentum p_v = pion_mom.getVmom(pidx, alt);
+	
+	  for(int s=0;s<2;s++){
+	    std::ostringstream os; //momenta in units of pi/2L
+	    os << work_dir << "/traj_" << traj << "_pion_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
+	    MesonFieldType::write(os.str(),mf_store(s,pidx + alt*nmom));
+	  }
+	}
+      }
+      
+    }else{
+      typedef A2AexpSource<SourcePolicies> SrcType;
+      typedef SCspinInnerProduct<15,ComplexType,SrcType> InnerType;
+      typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
+
+      SrcType src(rad,src_setup_params);
+      InnerType g5_inner(src);
+
+      StorageType mf_store(g5_inner);
+
+      for(int pidx=0;pidx<nmom;pidx++){
+	ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,false);
+	mf_store.addCompute(0,0, p_w,p_v);	
+      }
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+
+      for(int pidx=0;pidx<nmom;pidx++)
+	mf_ll[pidx] = mf_store[pidx];
     }
 
     for(int pidx=0;pidx<nmom;pidx++){
-      if(!UniqueID()) printf("Generating light-light meson fields pidx=%d\n",pidx);
-      double time = -dclock();
-
-      mf_ll[pidx].resize(Lt);
-
-      ThreeMomentum p_w = pion_mom.getWmom(pidx);
-      ThreeMomentum p_v = pion_mom.getVmom(pidx);
-
-      fftw_W.gaugeFixTwistFFT(W, p_w.ptr(),lattice);
-      fftw_V.gaugeFixTwistFFT(V, p_v.ptr(),lattice); 
-
-      //Meson fields with standard momentum configuration
-      if(!GJP.Gparity()){
-	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx], fftw_W, *mf_struct_nogp, fftw_V);
-      }else{
-	A2AflavorProjectedExpSource<SourcePolicies> fpexp(rad, p_v.ptr(), src_setup_params); //flavor projection is adjacent to right-hand field
-	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,15,fpexp);
-
-	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll[pidx],fftw_W, mf_struct, fftw_V);
-      }
-
-      if(GJP.Gparity() && pion_mom.nAltMom() > 0){
-	if(!UniqueID()) printf("Generating second momentum combination G-parity quarks\n",pidx);
-      
-	//Average with second momentum configuration to reduce rotational symmetry breaking
-	ThreeMomentum p_w_alt = pion_mom.getWmom(pidx,true);
-	ThreeMomentum p_v_alt = pion_mom.getVmom(pidx,true);
-
-	fftw_W.gaugeFixTwistFFT(W,p_w_alt.ptr(),lattice);
-	fftw_V.gaugeFixTwistFFT(V,p_v_alt.ptr(),lattice);
-    
-	A2AflavorProjectedExpSource<SourcePolicies> fpexp(rad, p_v_alt.ptr(), src_setup_params); 
-	SCFspinflavorInnerProduct<ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma3,15,fpexp);
-
-	std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_ll_alt(Lt);
-	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_ll_alt,fftw_W, mf_struct, fftw_V);
-	for(int t=0;t<Lt;t++){
-	  mf_ll[pidx][t].average(mf_ll_alt[t]);
-	}
-      }
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
       if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
       nodeDistributeMany(1,&mf_ll[pidx]);
 #endif
-
-      mf_ll_con.add( pion_mom.getMesonMomentum(pidx), mf_ll[pidx]);
-      
-      time += dclock();
-      print_time("ComputePion","meson field",time);
+      mf_ll_con.add( pion_mom.getMesonMomentum(pidx), mf_ll[pidx]);	
     }
+    
+    time += dclock();
+    print_time("ComputePion","total",time);      
   }
 
 

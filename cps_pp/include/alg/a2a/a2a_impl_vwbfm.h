@@ -5,7 +5,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   const char *fname = "computeVQlow(....)";
   typedef typename mf_Policies::ComplexType::value_type mf_Float;
   int gparity = GJP.Gparity();
-  if(eig.dop.gparity != gparity){ ERR.General(cname.c_str(),fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
+  if(eig.dop.gparity != gparity){ ERR.General("A2AvectorW",fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
   //Double precision temp fields
   CPSfermion4D<ComplexD> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
@@ -95,9 +95,9 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   const char *fname = "computeVWhigh(....)";
   typedef typename mf_Policies::ComplexType::value_type mf_Float;
   bool mixed_prec_cg = dwf_fp != NULL; 
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
+  if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW",fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
-  VRB.Result(cname.c_str(), fname, "Start computing high modes.\n");
+  VRB.Result("A2AvectorW", fname, "Start computing high modes.\n");
     
   //Generate the compact random sources for the high modes
   setWhRandom(args.rand_type);
