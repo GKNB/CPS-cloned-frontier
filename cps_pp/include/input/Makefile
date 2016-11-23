@@ -1,5 +1,5 @@
-SRCDIR = /home/ckelly/CPS/build/cps_grid/../../src/cps/cps_pp
-BUILDDIR = /home/ckelly/CPS/build/cps_grid
+SRCDIR = /global/u2/c/ckelly/CPS/src/cps_pp_git/cps_pp
+BUILDDIR = /global/homes/c/ckelly/CPS/bld/cps_pp_avx512
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/

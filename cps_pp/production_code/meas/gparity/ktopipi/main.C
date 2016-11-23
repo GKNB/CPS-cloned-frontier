@@ -103,6 +103,9 @@ int main (int argc,char **argv )
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   if(!UniqueID()) printf("Using node distribution of meson fields\n");
 #endif
+#ifdef MEMTEST_MODE
+  if(!UniqueID()) printf("Running in MEMTEST MODE (so don't expect useful results)\n");
+#endif
 
   const char *cname=argv[0];
   const int TrajStart = atoi(argv[2]);
