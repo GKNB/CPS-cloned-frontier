@@ -458,7 +458,7 @@ void  SetParams( DIRAC ::ImplParams &params){
 	}
 #endif
 #if 1
-	grid_mom +=2.*Ta(dSdU);
+	grid_mom +=-coef*2.*Ta(dSdU);
 	ImportGauge(mom, &grid_mom);
 #endif
 }
@@ -478,70 +478,69 @@ void  SetParams( DIRAC ::ImplParams &params){
   
   ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				int isz, Float *alpha, Float mass, Float epsilon, Float dt,
-				Vector **sol_d, ForceMeasure measure)
+				Vector **sol_d, ForceMeasure force_measure)
   {
 	const char *fname("RHMC_EvolveMomFforce()");
-#if 0
-//	mass = cg_arg[0]->mass;
-	VRB.Result(cname,fname,"mass=%0.14g\n",mass);
-	RealD M5 = GJP.DwfHeight();
-	ImportGauge();
-	std::vector<int> twists = SetTwist();
-        LatticeGaugeFieldD mom_grid(UGrid);
-	
+    char *force_label=NULL;
 
-	DIRAC ::ImplParams params;
-	params.twists = twists;
-//	DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass  MOB PARAMS );
-	DIRAC Ddwf(*Umu, FIVE_GRID *UGrid,*UrbGrid,mass  MOB PARAMS );
+    int g_size = GJP.VolNodeSites() * GsiteSize();
+    if(GJP.Gparity()) g_size *= 2;
 
-	LATTICE_FERMION grid_in(FERM_GRID),psi(FERM_GRID);
-	std::vector<LATTICE_FERMION> grid_rb_out(Nshift,F_RB_GRID);
-	LATTICE_FERMION grid_rb_in(F_RB_GRID),grid_out(FERM_GRID);
+    Matrix *mom_tmp;
 
-//	Float stp_cnd = cg_arg->stop_rsd;
-//	stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
+    if (force_measure == FORCE_MEASURE_YES) {
+        mom_tmp = (Matrix*)smalloc(g_size * sizeof(Float),cname, fname, "mom_tmp");
+        ((Vector*)mom_tmp) -> VecZero(g_size);
+        force_label = new char[100];
+    } else {
+        mom_tmp = mom;
+    }
 
-#if 0
-	ConjugateGradient<LATTICE_FERMION> CG(stp_cnd,cg_arg->max_num_iter);
-	SchurRedBlackDiagMooeeSolve<LATTICE_FERMION> SchurSolver(CG);
-	SchurSolver(Ddwf,grid_in,grid_out);
-#else 
-	MultiShiftFunction shifts;
-	shifts.order=Nshift;
-	shifts.poles.resize(Nshift);
-	shifts.tolerances.resize(Nshift);
-	shifts.residues.resize(Nshift);
-	for(int i=0;i<Nshift;i++){
-		shifts.poles[i]  = shift[i];
-		shifts.residues[i]  =alpha[i];
-		shifts.tolerances[i]  =cg_arg[i]->stop_rsd;
+    if(!UniqueID()){
+	Float pvals[4];
+	for(int ii=0;ii<4;ii++){
+	    int off = 18 * ii + 2;
+	    pvals[ii] = ((Float*)mom)[off];
 	}
-	ImportFermion(grid_in, f_in,Odd);
+	VRB.Result(cname,fname,"initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+    }  
 
-	pickCheckerboard(Odd,grid_rb_in,grid_in);
-	SchurDifferentiableOperator< IMPL > MdagM(Ddwf);
-    ConjugateGradientMultiShift<LATTICE_FERMION> 
-				MSCG(cg_arg[0]->max_num_iter,shifts);
-	MSCG(MdagM,grid_rb_in,grid_rb_out); 
-	for(int i=0;i<Nshift;i++){
-	setCheckerboard(grid_out,grid_rb_out[i]);
-	ImportFermion(f_out[i], grid_out,Odd);
-	}
-	
-#endif
-#if 0
-	if(1){
-		LATTICE_FERMION temp(FERM_GRID);
-		Ddwf.M(grid_out,temp);
-		temp = temp - grid_in;
-		true_res = std::sqrt(norm2(temp)/norm2(grid_in));
-		VRB.Result(cname,fname,"true_res=%g\n",true_res);
-	}
-	ImportFermion(f_out, grid_out,Odd);
-#endif
-#endif
+    for (int i=0; i<degree; i++) {
+	Float *sol_f = (Float *)sol[i];
+	VRB.Result(cname,fname,"sol[%d] = %g mass=%g epsilon=%g alpha[%d]=%g dt=%g\n",i, *sol_f,mass,epsilon,i,alpha[i],dt);
+        ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, epsilon, alpha[i]*dt);
+
+        if (force_measure == FORCE_MEASURE_YES) {
+            sprintf(force_label, "Rational, mass = %e, pole = %d:", mass, i+isz);
+            Fdt.print(dt, force_label);
+        }
+
+	if(!UniqueID()){
+	    Float pvals[4];
+	    for(int ii=0;ii<4;ii++){
+		int off = 18 * ii + 2;
+		pvals[ii] = ((Float*)mom_tmp)[off];
+	    }
+	    VRB.Result(cname,fname,"mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
+	}  
+    }
+
+    ForceArg ret;
+
+    // If measuring the force, need to measure and then sum to mom
+    if (force_measure == FORCE_MEASURE_YES) {
+        ret.measure(mom_tmp);
+        ret.glb_reduce();
+
+        fTimesV1PlusV2((IFloat*)mom, 1.0, (IFloat*)mom_tmp, (IFloat*)mom, g_size);
+
+        delete[] force_label;
+        sfree(mom_tmp, cname, fname, "mom_tmp");
+    }
+
+    return ret;
   }
+
   ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				int isz, Float *alpha, Float mass, Float dt,
 				Vector **sol_d, ForceMeasure measure) {
