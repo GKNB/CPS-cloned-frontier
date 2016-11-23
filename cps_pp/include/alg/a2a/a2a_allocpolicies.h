@@ -37,10 +37,14 @@ protected:
   }
 public:
   void allocMode(const int i){
-    if(! (*vptr)[i].assigned() ) (*vptr)[i].set(new FermionFieldType(field_setup_params)); 
+    if(! (*vptr)[i].assigned() ){
+      (*vptr)[i].set(new FermionFieldType(field_setup_params));
+      if(!UniqueID()) printf("V allocMode %d %p\n",i,(*vptr)[i].operator->());
+    }
     (*vptr)[i]->zero();
   }
   void freeMode(const int i){
+    if(!UniqueID()) printf("V freeMode %d %p\n",i,(*vptr)[i].operator->());
     (*vptr)[i].free();
   }
   void allocModes(){
@@ -80,9 +84,13 @@ protected:
   
 public:
   void allocMode(const int i){
-    if(! (*vptr)[i].assigned() ) (*vptr)[i].set(new FermionFieldType(field_setup_params)); 
+    if(! (*vptr)[i].assigned() ){
+      (*vptr)[i].set(new FermionFieldType(field_setup_params));
+      if(!UniqueID()) printf("VFFT allocMode %d %p\n",i,(*vptr)[i].operator->());
+    }
   }
   void freeMode(const int i){
+    if(!UniqueID()) printf("VFFT freeMode %d %p\n",i,(*vptr)[i].operator->());
     (*vptr)[i].free();
   }
   void allocModes(){

@@ -321,6 +321,10 @@ CPS_END_NAMESPACE
 #endif
 CPS_START_NAMESPACE
 
+inline double byte_to_MB(const int b){
+  return double(b)/1024./1024.;
+}
+
 inline void printMem(){
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
@@ -362,6 +366,30 @@ inline void printMem(){
   if(!UniqueID()){
     printf("printMem: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",total_mem, free_mem, total_mem-free_mem);
   }
+
+# define PRINT_MALLOC_INFO
+# ifdef PRINT_MALLOC_INFO
+  struct mallinfo mi;
+  mi = mallinfo();
+
+  // int arena;     /* Non-mmapped space allocated (bytes) */
+  // int ordblks;   /* Number of free chunks */
+  // int smblks;    /* Number of free fastbin blocks */
+  // int hblks;     /* Number of mmapped regions */
+  // int hblkhd;    /* Space allocated in mmapped regions (bytes) */
+  // int usmblks;   /* Maximum total allocated space (bytes) */
+  // int fsmblks;   /* Space in freed fastbin blocks (bytes) */
+  // int uordblks;  /* Total allocated space (bytes) */
+  // int fordblks;  /* Total free space (bytes) */
+  // int keepcost;  /* Top-most, releasable space (bytes) */
+
+  if(!UniqueID()){
+    printf("printMem: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
+	   byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
+  }
+
+# endif
+  
 #endif
 }
 

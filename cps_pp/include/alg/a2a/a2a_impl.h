@@ -119,9 +119,14 @@ struct _V_invfft_impl{
     Float fft_time = 0;
 
     const bool fft_dirs[4] = {true,true,true,false};
-  
     for(int mode=0;mode<from.getNmodes();mode++){
+      if(!UniqueID()) printf("Mode %d, memory before output alloc\n",mode);
+      printMem();
+      
       FFTfieldPolicy::actionOutputMode(to, mode); //alloc
+
+      if(!UniqueID()) printf("Mode %d, memory after output alloc\n",mode);
+      printMem();
       
       FermionFieldType* out = mode_postop == NULL ? &to.getMode(mode) : &tmp;
     
@@ -130,7 +135,13 @@ struct _V_invfft_impl{
       cps::fft_opt(*out, from.getMode(mode), fft_dirs, true);
 #endif
 
+      if(!UniqueID()) printf("Mode %d, memory before input free\n",mode);
+      printMem();
+      
       FFTfieldPolicy::actionInputMode(from, mode); //alloc
+
+      if(!UniqueID()) printf("Mode %d, memory after input free\n",mode);
+      printMem();
       
       if(mode_postop != NULL){
 	Float dtime = dclock();
@@ -138,6 +149,7 @@ struct _V_invfft_impl{
 	postop_time += dclock()-dtime;
       }
       fft_time += dclock() - dtime;
+      printMem();
     }
     if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
     print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
