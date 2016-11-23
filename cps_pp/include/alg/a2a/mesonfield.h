@@ -167,6 +167,16 @@ public:
 
 
   ScalarComplexType* ptr(){ return mf; } //Use at your own risk
+
+  void move(A2AmesonField &from){
+    free_mem();
+    nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; 
+    lindexdilution = from.lindexdilution; rindexdilution = from.rindexdilution; 
+    tl = from.tl; tr = from.tr;
+    node_mpi_rank = from.node_mpi_rank;
+    mf = from.mf; fsize = from.fsize; 
+    from.mf = NULL; from.fsize = 0;
+  }
   
   //Size in complex
   inline const int size() const{ return fsize; }

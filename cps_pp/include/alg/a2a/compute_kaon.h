@@ -98,9 +98,19 @@ class ComputeKaon{
       mf_store.addCompute(0,1, p_w_src,p_v_src);	
       mf_store.addCompute(1,0, p_w_snk,p_v_snk);
 
+#ifndef NODE_DISTRIBUTE_MESONFIELDS
       ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
       mf_ls = mf_store[0];
       mf_sl = mf_store[1];
+#else
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice, true);
+      for(int t=0;t<Lt;t++){
+	mf_store[0][t].nodeGet();
+	mf_ls[t].move(mf_store[0][t]);
+	mf_store[1][t].nodeGet();
+	mf_sl[t].move(mf_store[1][t]);
+      }
+#endif
     }
 
     //Compute the two-point function

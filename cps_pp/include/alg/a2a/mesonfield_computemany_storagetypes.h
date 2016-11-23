@@ -152,6 +152,7 @@ public:
   GparityFlavorProjectedBasicSourceStorage(const InnerProductType& _inner, SourceType &_src): inner(_inner), src(_src){} //note 'inner' will have its momentum sign changed dynamically
 
   const storageType & operator[](const int cidx) const{ return mf[cidx]; }
+  storageType & operator[](const int cidx){ return mf[cidx]; }
   
   mfComputeInputFormat getMf(const int cidx){
     if(mf.size() != clist.size()) mf.resize(clist.size());
