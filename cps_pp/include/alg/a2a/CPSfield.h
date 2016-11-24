@@ -371,6 +371,8 @@ public:
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
 
+  void setGaussianRandom();
+
   DEFINE_ADDSUB_DERIVED(CPSfermion4D);
 };
 
@@ -427,6 +429,8 @@ public:
   }
 #endif
 
+  void setGaussianRandom();
+  
   DEFINE_ADDSUB_DERIVED(CPSfermion5D);
 };
 

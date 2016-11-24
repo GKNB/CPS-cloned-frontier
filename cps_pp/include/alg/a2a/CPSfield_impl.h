@@ -695,6 +695,37 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUnifo
   }
 }
 
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+  typedef typename mf_Complex::value_type mf_Float;
+  for(int i = 0; i < this->sites*this->flavors; ++i) {
+    int flav = i / this->sites;
+    int st = i % this->sites;
+
+    LRG.AssignGenerator(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+
+    for(int site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
+      *(p++) = LRG.Grand(FOUR_D);
+  }
+}
+
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+  typedef typename mf_Complex::value_type mf_Float;
+  for(int i = 0; i < this->sites*this->flavors; ++i) {
+    int flav = i / this->sites;
+    int st = i % this->sites;
+
+    LRG.AssignGenerator(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+
+    for(int site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
+      *(p++) = LRG.Grand(FIVE_D);
+  }
+}
+
+
 
 
 //Gauge fix 3D fermion field with dynamic info type
