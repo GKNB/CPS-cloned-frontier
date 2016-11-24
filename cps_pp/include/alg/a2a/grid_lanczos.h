@@ -7,7 +7,7 @@
 CPS_START_NAMESPACE
 
 template<typename GridFermionField, typename GridGaugeField, typename GridDirac>
-void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
+void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
 		 GridDirac &Ddwf, const GridGaugeField& Umu,
 		 Grid::GridCartesian *UGrid, Grid::GridRedBlackCartesian *UrbGrid,
 		 Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
@@ -53,6 +53,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
     evec[i].checkerboard = Grid::Odd;
   }
 #ifndef MEMTEST_MODE
+#if 0
   GridFermionField src(FrbGrid);
 #if 1
   std::vector<int> seeds5({5,6,7,8});
@@ -61,7 +62,8 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   gaussian(RNG5rb,src);
 //  Grid::CartesianCommunicator::Barrier();
 #else
-  src=1.; //hack to save init time during testing
+//  src=1.; //hack to save init time during testing
+#endif
 #endif
   Float temp=0.; glb_sum(&temp);
   src.checkerboard = Grid::Odd;
@@ -95,9 +97,23 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
   typename GridDirac::ImplParams params;
   lattice.SetParams(params);
 
+  GridFermionField src(FrbGrid);
+  GridFermionField src_all(FGrid);
+{
+  int n_gp=1; if (GJP.Gparity()) n_gp++;
+
+  Vector *X_in =
+        (Vector*)smalloc(GJP.VolNodeSites()*n_gp*lattice.FsiteSize()*sizeof(IFloat));
+  lattice.RandGaussVector(X_in,0.5,1);
+  lattice.ImportFermion(src_all,X_in,Odd);
+  pickCheckerboard(Grid::Odd,src,src_all);
+  sfree(X_in);
+}
+
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
 
-  gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid);
+  gridLanczos(src,eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid);
+  int n_gp=1; if (GJP.Gparity()) n_gp++;
 }
 
 template<typename GridPolicies>
@@ -128,9 +144,21 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   typename GridDiracF::ImplParams params;
   lattice.SetParams(params);
 
+  GridFermionFieldF src(FrbGrid_f);
+  GridFermionFieldF src_all(FGrid_f);
+{
+  int n_gp=1; if (GJP.Gparity()) n_gp++;
+  Vector *X_in =
+        (Vector*)smalloc(GJP.VolNodeSites()*n_gp*lattice.FsiteSize()*sizeof(IFloat));
+  lattice.RandGaussVector(X_in,0.5,1);
+  lattice.ImportFermion(src_all,X_in,FgridBase::Odd);
+  pickCheckerboard(Grid::Odd,src,src_all);
+  sfree(X_in);
+}
+
   GridDiracF Ddwf(Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,lanc_arg.mass,M5,mob_b,mob_c, params);
 
-  gridLanczos(eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f);
+  gridLanczos(src,eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f);
 }
 
 

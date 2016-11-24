@@ -53,8 +53,9 @@ class FGRID : public virtual Lattice, public FgridParams,
 				Float *cps = (Float *)cps_f;
 				cps += 2*(i+Nc*(s+Ns*(index)));
 				std::complex<double> elem(*cps,*(cps+1));
-//				if (norm(elem)>0.01) printf("%d %d %d %d: cps[%d][%d][%d][%d] = %g %g\n", GJP.NodeCoor(0),GJP.NodeCoor(1),GJP.NodeCoor(2),GJP.NodeCoor(3), site,gp,s,i,elem.real(),elem.imag());
-				siteGrid(GP)(s)(i) = elem;
+				siteGrid(GP)(s)(i).real(*cps);
+				siteGrid(GP)(s)(i).imag(*(cps+1));
+//				if (norm(elem)>0.01) printf("%d %d %d %d: cps[%d][%d][%d][%d] = %g %g %g %g\n", GJP.NodeCoor(0),GJP.NodeCoor(1),GJP.NodeCoor(2),GJP.NodeCoor(3), site,gp,s,i,elem.real(),elem.imag(), siteGrid(GP)(s)(i).real(),siteGrid(GP)(s)(i).imag());
 			}
 			pokeLocalSite(siteGrid,grid_f,grid_coor);
 		} else {
@@ -94,70 +95,12 @@ class FGRID : public virtual Lattice, public FgridParams,
 	void ImportFermion(LATTICE_FERMION &grid_f,Vector *cps_f,EvenOdd eo = All){
 	ImpexFermion<LATTICE_FERMION,SITE_FERMION>(cps_f,grid_f,1,eo);
 	}
-
-#if 0
-	void ImportGauge( Matrix *mom){ ImportGauge( NULL, mom,1); }
-
-	void ImportGauge( LatticeGaugeFieldD *grid_lat)
-		{ ImportGauge( grid_lat,NULL,1); }
-
-	void ImportGauge( LatticeGaugeFieldD *grid_lat, Matrix *mom){
-		ImpexGauge( grid_lat, mom, 1);
+	void ImportFermion(Vector *cps_f, LATTICE_FERMION_F &grid_f,EvenOdd eo = All){
+	ImpexFermion<LATTICE_FERMION_F, SITE_FERMION_F>(cps_f,grid_f,0,eo);
 	}
-
-	void ImportGauge( Matrix *mom, LatticeGaugeFieldD *grid_lat){
-		ImpexGauge( grid_lat, mom, 0);
+	void ImportFermion(LATTICE_FERMION_F &grid_f,Vector *cps_f,EvenOdd eo = All){
+	ImpexFermion<LATTICE_FERMION_F,SITE_FERMION_F>(cps_f,grid_f,1,eo);
 	}
-
-	void ImportGauge() { ImpexGauge(NULL,NULL,1); }
-		
-	void ImpexGauge( LatticeGaugeFieldD *grid_lat, Matrix *mom, int cps2grid){
-
-		Float *gauge = (Float *) mom;
-		if(!mom)  gauge = (Float *)GaugeField();
-		if (!grid_lat)  grid_lat = Umu;
-		unsigned long vol;
-		const char *fname="ImpexGauge()";
-		GridBase *grid = grid_lat->_grid;
-		if (grid_lat->_grid->lSites()!= (vol = GJP.VolNodeSites()))
-			ERR.General(cname,fname,"numbers of grid(%d) and GJP(%d) does not match\n",grid_lat->_grid->lSites(),vol);
-		std::vector<int> grid_coor;
-		LorentzColourMatrixD siteGrid;
-		for(int site=0;site<vol;site++)
-		for(int mu=0;mu<4;mu++){
-			if(cps2grid){
-			for(int i=0;i<Nc;i++)
-			for(int j=0;j<Nc;j++){
-				Float *cps = gauge +18*(site*4+mu)+6*j+2*i;
-				std::complex<double> elem(*cps,*(cps+1));
-				siteGrid(mu)()(j,i) = elem;
-//				if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-			}
-			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
-			pokeLocalSite(siteGrid,*grid_lat,grid_coor);
-			} else {
-			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
-			peekLocalSite(siteGrid,*grid_lat,grid_coor);
-			for(int i=0;i<Nc;i++)
-			for(int j=0;j<Nc;j++){
-				std::complex<double> elem;
-				elem  = siteGrid(mu)()(j,i);
-				Float *cps = gauge +18*(site*4+mu)+6*j+2*i;
-				*cps = elem.real();*(cps+1)=elem.imag();
-//				if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-			}
-			}
-		} 
-	}
-std::vector<int> SetTwist(){
-	std::vector<int> twists(Nd,0);
-	for(int i=0;i<3;i++){
-		 twists[i] = (GJP.Bc(i) == BND_CND_GPARITY) ? 1 : 0 ;
-		if(twists[i]) VRB.Result(cname,"SetTwist()","gparity[%d]=1\n",i);
-	}
-	return twists;
-}
-#endif
 
 void  SetParams( DIRAC ::ImplParams &params){
 #ifdef GRID_GPARITY
@@ -172,8 +115,6 @@ void  SetParams( DIRAC ::ImplParams &params){
 	void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag){
 	const char *fname("Fdslash()");
-#if 1
-//	mass = cg_arg->mass;
 	SetMass(cg_arg->mass);
 	SetEpsilon(cg_arg->epsilon);
 	VRB.Result(cname,fname,"mass=%0.14g epsilon=%g \n",mass,eps);
@@ -189,7 +130,6 @@ void  SetParams( DIRAC ::ImplParams &params){
 	DIRAC Ddwf(*Umu, FIVE_GRID *UGrid,*UrbGrid,mass  MOB PARAMS );
 	Ddwf.M(grid_in,grid_out);
 	ImportFermion(f_out, grid_out);
-#endif
 	}
   // It returns the type of fermion class
   FclassType Fclass()const {
@@ -458,7 +398,7 @@ void  SetParams( DIRAC ::ImplParams &params){
 	}
 #endif
 #if 1
-	grid_mom +=-coef*2.*Ta(dSdU);
+	grid_mom +=2.*Ta(dSdU);
 	ImportGauge(mom, &grid_mom);
 #endif
 }
@@ -478,69 +418,70 @@ void  SetParams( DIRAC ::ImplParams &params){
   
   ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				int isz, Float *alpha, Float mass, Float epsilon, Float dt,
-				Vector **sol_d, ForceMeasure force_measure)
+				Vector **sol_d, ForceMeasure measure)
   {
 	const char *fname("RHMC_EvolveMomFforce()");
-    char *force_label=NULL;
+#if 0
+//	mass = cg_arg[0]->mass;
+	VRB.Result(cname,fname,"mass=%0.14g\n",mass);
+	RealD M5 = GJP.DwfHeight();
+	ImportGauge();
+	std::vector<int> twists = SetTwist();
+        LatticeGaugeFieldD mom_grid(UGrid);
+	
 
-    int g_size = GJP.VolNodeSites() * GsiteSize();
-    if(GJP.Gparity()) g_size *= 2;
+	DIRAC ::ImplParams params;
+	params.twists = twists;
+//	DIRAC Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass  MOB PARAMS );
+	DIRAC Ddwf(*Umu, FIVE_GRID *UGrid,*UrbGrid,mass  MOB PARAMS );
 
-    Matrix *mom_tmp;
+	LATTICE_FERMION grid_in(FERM_GRID),psi(FERM_GRID);
+	std::vector<LATTICE_FERMION> grid_rb_out(Nshift,F_RB_GRID);
+	LATTICE_FERMION grid_rb_in(F_RB_GRID),grid_out(FERM_GRID);
 
-    if (force_measure == FORCE_MEASURE_YES) {
-        mom_tmp = (Matrix*)smalloc(g_size * sizeof(Float),cname, fname, "mom_tmp");
-        ((Vector*)mom_tmp) -> VecZero(g_size);
-        force_label = new char[100];
-    } else {
-        mom_tmp = mom;
-    }
+//	Float stp_cnd = cg_arg->stop_rsd;
+//	stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
 
-    if(!UniqueID()){
-	Float pvals[4];
-	for(int ii=0;ii<4;ii++){
-	    int off = 18 * ii + 2;
-	    pvals[ii] = ((Float*)mom)[off];
+#if 0
+	ConjugateGradient<LATTICE_FERMION> CG(stp_cnd,cg_arg->max_num_iter);
+	SchurRedBlackDiagMooeeSolve<LATTICE_FERMION> SchurSolver(CG);
+	SchurSolver(Ddwf,grid_in,grid_out);
+#else 
+	MultiShiftFunction shifts;
+	shifts.order=Nshift;
+	shifts.poles.resize(Nshift);
+	shifts.tolerances.resize(Nshift);
+	shifts.residues.resize(Nshift);
+	for(int i=0;i<Nshift;i++){
+		shifts.poles[i]  = shift[i];
+		shifts.residues[i]  =alpha[i];
+		shifts.tolerances[i]  =cg_arg[i]->stop_rsd;
 	}
-	VRB.Result(cname,fname,"initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
-    }  
+	ImportFermion(grid_in, f_in,Odd);
 
-    for (int i=0; i<degree; i++) {
-	Float *sol_f = (Float *)sol[i];
-	VRB.Result(cname,fname,"sol[%d] = %g mass=%g epsilon=%g alpha[%d]=%g dt=%g\n",i, *sol_f,mass,epsilon,i,alpha[i],dt);
-        ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, epsilon, alpha[i]*dt);
-
-        if (force_measure == FORCE_MEASURE_YES) {
-            sprintf(force_label, "Rational, mass = %e, pole = %d:", mass, i+isz);
-            Fdt.print(dt, force_label);
-        }
-
-	if(!UniqueID()){
-	    Float pvals[4];
-	    for(int ii=0;ii<4;ii++){
-		int off = 18 * ii + 2;
-		pvals[ii] = ((Float*)mom_tmp)[off];
-	    }
-	    VRB.Result(cname,fname,"mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
-	}  
-    }
-
-    ForceArg ret;
-
-    // If measuring the force, need to measure and then sum to mom
-    if (force_measure == FORCE_MEASURE_YES) {
-        ret.measure(mom_tmp);
-        ret.glb_reduce();
-
-        fTimesV1PlusV2((IFloat*)mom, 1.0, (IFloat*)mom_tmp, (IFloat*)mom, g_size);
-
-        delete[] force_label;
-        sfree(mom_tmp, cname, fname, "mom_tmp");
-    }
-
-    return ret;
+	pickCheckerboard(Odd,grid_rb_in,grid_in);
+	SchurDifferentiableOperator< IMPL > MdagM(Ddwf);
+    ConjugateGradientMultiShift<LATTICE_FERMION> 
+				MSCG(cg_arg[0]->max_num_iter,shifts);
+	MSCG(MdagM,grid_rb_in,grid_rb_out); 
+	for(int i=0;i<Nshift;i++){
+	setCheckerboard(grid_out,grid_rb_out[i]);
+	ImportFermion(f_out[i], grid_out,Odd);
+	}
+	
+#endif
+#if 0
+	if(1){
+		LATTICE_FERMION temp(FERM_GRID);
+		Ddwf.M(grid_out,temp);
+		temp = temp - grid_in;
+		true_res = std::sqrt(norm2(temp)/norm2(grid_in));
+		VRB.Result(cname,fname,"true_res=%g\n",true_res);
+	}
+	ImportFermion(f_out, grid_out,Odd);
+#endif
+#endif
   }
-
   ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 				int isz, Float *alpha, Float mass, Float dt,
 				Vector **sol_d, ForceMeasure measure) {
