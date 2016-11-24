@@ -22,11 +22,11 @@ class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
     *p = memalign(128,byte_size);
-    printf("Aligned128AllocPolicy alloc %p, size %f MB\n",*p, double(byte_size)/1024./1024.);
+    //if(!UniqueID()) printf("Aligned128AllocPolicy alloc %p, size %f MB\n",*p, double(byte_size)/1024./1024.);
   }
   inline static void _free(void* p){
     free(p);
-    printf("Aligned128AllocPolicy free %p\n",p);
+    //if(!UniqueID()) printf("Aligned128AllocPolicy free %p\n",p);
   }
 };
 class NullAllocPolicy{

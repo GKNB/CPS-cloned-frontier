@@ -367,7 +367,7 @@ inline void printMem(){
     printf("printMem: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",total_mem, free_mem, total_mem-free_mem);
   }
 
-# define PRINT_MALLOC_INFO
+  //# define PRINT_MALLOC_INFO    //Use of int means this is garbage for large memory systems
 # ifdef PRINT_MALLOC_INFO
   struct mallinfo mi;
   mi = mallinfo();
@@ -388,6 +388,11 @@ inline void printMem(){
 	   byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
   }
 
+# endif
+
+  //# define PRINT_MALLOC_STATS  Also doesn't work well
+# ifdef PRINT_MALLOC_STATS
+  if(!UniqueID()) malloc_stats();
 # endif
   
 #endif

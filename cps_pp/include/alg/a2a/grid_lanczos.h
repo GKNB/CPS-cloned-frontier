@@ -53,17 +53,30 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
     evec[i].checkerboard = Grid::Odd;
   }
 #ifndef MEMTEST_MODE
+  if(!UniqueID()) printf("Starting Grid RNG seeding for Lanczos\n");
+  double time = -dclock();
+
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
 
+  print_time("gridLanczos","RNG seeding",time+dclock());
+  time = -dclock();
+
+  if(!UniqueID()) printf("Initializing Gaussian src\n");
   GridFermionField src(FrbGrid);
   gaussian(RNG5rb,src);
   src.checkerboard = Grid::Odd;
   
+  print_time("gridLanczos","Gaussian src",time+dclock());
+  time = -dclock();
+  
+  if(!UniqueID()) printf("Starting Lanczos algorithm\n");
   int Nconv;
   IRL.calc(eval,evec,
 	   src,
 	   Nconv);
+
+  print_time("gridLanczos","Algorithm",time+dclock());
 #endif
 }
 
