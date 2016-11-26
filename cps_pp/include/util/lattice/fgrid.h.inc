@@ -53,8 +53,9 @@ class FGRID : public virtual Lattice, public FgridParams,
 				Float *cps = (Float *)cps_f;
 				cps += 2*(i+Nc*(s+Ns*(index)));
 				std::complex<double> elem(*cps,*(cps+1));
-//				if (norm(elem)>0.01) printf("%d %d %d %d: cps[%d][%d][%d][%d] = %g %g\n", GJP.NodeCoor(0),GJP.NodeCoor(1),GJP.NodeCoor(2),GJP.NodeCoor(3), site,gp,s,i,elem.real(),elem.imag());
-				siteGrid(GP)(s)(i) = elem;
+				siteGrid(GP)(s)(i).real(*cps);
+				siteGrid(GP)(s)(i).imag(*(cps+1));
+//				if (norm(elem)>0.01) printf("%d %d %d %d: cps[%d][%d][%d][%d] = %g %g %g %g\n", GJP.NodeCoor(0),GJP.NodeCoor(1),GJP.NodeCoor(2),GJP.NodeCoor(3), site,gp,s,i,elem.real(),elem.imag(), siteGrid(GP)(s)(i).real(),siteGrid(GP)(s)(i).imag());
 			}
 			pokeLocalSite(siteGrid,grid_f,grid_coor);
 		} else {
@@ -94,70 +95,12 @@ class FGRID : public virtual Lattice, public FgridParams,
 	void ImportFermion(LATTICE_FERMION &grid_f,Vector *cps_f,EvenOdd eo = All){
 	ImpexFermion<LATTICE_FERMION,SITE_FERMION>(cps_f,grid_f,1,eo);
 	}
-
-#if 0
-	void ImportGauge( Matrix *mom){ ImportGauge( NULL, mom,1); }
-
-	void ImportGauge( LatticeGaugeFieldD *grid_lat)
-		{ ImportGauge( grid_lat,NULL,1); }
-
-	void ImportGauge( LatticeGaugeFieldD *grid_lat, Matrix *mom){
-		ImpexGauge( grid_lat, mom, 1);
+	void ImportFermion(Vector *cps_f, LATTICE_FERMION_F &grid_f,EvenOdd eo = All){
+	ImpexFermion<LATTICE_FERMION_F, SITE_FERMION_F>(cps_f,grid_f,0,eo);
 	}
-
-	void ImportGauge( Matrix *mom, LatticeGaugeFieldD *grid_lat){
-		ImpexGauge( grid_lat, mom, 0);
+	void ImportFermion(LATTICE_FERMION_F &grid_f,Vector *cps_f,EvenOdd eo = All){
+	ImpexFermion<LATTICE_FERMION_F,SITE_FERMION_F>(cps_f,grid_f,1,eo);
 	}
-
-	void ImportGauge() { ImpexGauge(NULL,NULL,1); }
-		
-	void ImpexGauge( LatticeGaugeFieldD *grid_lat, Matrix *mom, int cps2grid){
-
-		Float *gauge = (Float *) mom;
-		if(!mom)  gauge = (Float *)GaugeField();
-		if (!grid_lat)  grid_lat = Umu;
-		unsigned long vol;
-		const char *fname="ImpexGauge()";
-		GridBase *grid = grid_lat->_grid;
-		if (grid_lat->_grid->lSites()!= (vol = GJP.VolNodeSites()))
-			ERR.General(cname,fname,"numbers of grid(%d) and GJP(%d) does not match\n",grid_lat->_grid->lSites(),vol);
-		std::vector<int> grid_coor;
-		LorentzColourMatrixD siteGrid;
-		for(int site=0;site<vol;site++)
-		for(int mu=0;mu<4;mu++){
-			if(cps2grid){
-			for(int i=0;i<Nc;i++)
-			for(int j=0;j<Nc;j++){
-				Float *cps = gauge +18*(site*4+mu)+6*j+2*i;
-				std::complex<double> elem(*cps,*(cps+1));
-				siteGrid(mu)()(j,i) = elem;
-//				if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-			}
-			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
-			pokeLocalSite(siteGrid,*grid_lat,grid_coor);
-			} else {
-			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
-			peekLocalSite(siteGrid,*grid_lat,grid_coor);
-			for(int i=0;i<Nc;i++)
-			for(int j=0;j<Nc;j++){
-				std::complex<double> elem;
-				elem  = siteGrid(mu)()(j,i);
-				Float *cps = gauge +18*(site*4+mu)+6*j+2*i;
-				*cps = elem.real();*(cps+1)=elem.imag();
-//				if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-			}
-			}
-		} 
-	}
-std::vector<int> SetTwist(){
-	std::vector<int> twists(Nd,0);
-	for(int i=0;i<3;i++){
-		 twists[i] = (GJP.Bc(i) == BND_CND_GPARITY) ? 1 : 0 ;
-		if(twists[i]) VRB.Result(cname,"SetTwist()","gparity[%d]=1\n",i);
-	}
-	return twists;
-}
-#endif
 
 void  SetParams( DIRAC ::ImplParams &params){
 #ifdef GRID_GPARITY
@@ -172,8 +115,6 @@ void  SetParams( DIRAC ::ImplParams &params){
 	void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag){
 	const char *fname("Fdslash()");
-#if 1
-//	mass = cg_arg->mass;
 	SetMass(cg_arg->mass);
 	SetEpsilon(cg_arg->epsilon);
 	VRB.Result(cname,fname,"mass=%0.14g epsilon=%g \n",mass,eps);
@@ -189,7 +130,6 @@ void  SetParams( DIRAC ::ImplParams &params){
 	DIRAC Ddwf(*Umu, FIVE_GRID *UGrid,*UrbGrid,mass  MOB PARAMS );
 	Ddwf.M(grid_in,grid_out);
 	ImportFermion(f_out, grid_out);
-#endif
 	}
   // It returns the type of fermion class
   FclassType Fclass()const {

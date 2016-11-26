@@ -276,10 +276,13 @@ CPS_END_NAMESPACE
 #define FGRID FgridGparityMobius
 #define CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
 #define DIRAC Grid::QCD::GparityMobiusFermionD
+#define DIRAC_F Grid::QCD::GparityMobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
 #define IMPL Grid::QCD::GparityWilsonImplD	
 #define LATTICE_FERMION DIRAC ::FermionField
+#define LATTICE_FERMION_F DIRAC_F ::FermionField
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -289,10 +292,13 @@ CPS_END_NAMESPACE
 #define FGRID FgridGparityWilsonTM
 #define CLASS_NAME F_CLASS_GRID_GPARITY_WILSON_TM
 #define DIRAC Grid::QCD::GparityWilsonTMFermionD
+#define DIRAC_F Grid::QCD::GparityWilsonTMFermionF
 #define MOB  ,eps
 #define IMPL Grid::QCD::GparityWilsonImplD	
 #define LATTICE_FERMION DIRAC ::FermionField
+#define LATTICE_FERMION_F DIRAC_F ::FermionField
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -302,9 +308,12 @@ CPS_END_NAMESPACE
 #define FGRID FgridMobius
 #define CLASS_NAME F_CLASS_GRID_MOBIUS
 #define DIRAC Grid::QCD::MobiusFermionD
+#define DIRAC_F Grid::QCD::MobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
 #define LATTICE_FERMION DIRAC ::FermionField
+#define LATTICE_FERMION_F DIRAC_F ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::WilsonImplD	
 #define PARAMS	
 #define GP 
@@ -315,10 +324,13 @@ CPS_END_NAMESPACE
 #define FGRID FgridWilsonTM
 #define CLASS_NAME F_CLASS_GRID_WILSON_TM
 #define DIRAC Grid::QCD::WilsonTMFermionD
+#define DIRAC_F Grid::QCD::WilsonTMFermionF
 #define MOB  ,eps
 #define IMPL Grid::QCD::WilsonImplD	
 #define LATTICE_FERMION DIRAC ::FermionField
+#define LATTICE_FERMION_F DIRAC_F ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define PARAMS	
 #define GP 
 #include "fgrid.h.inc"
@@ -328,6 +340,7 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef MOB
 #undef LATTICE_FERMION
+#undef LATTICE_FERMION_F
 #undef SITE_FERMION
 #undef IMPL
 #undef PARAMS	
