@@ -325,7 +325,7 @@ int main(int argc,char *argv[])
   if(0) testFFTopt<ScalarA2Apolicies>();
   if(0) testFFTopt<GridA2Apolicies>();
 
-  if(1) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
   if(0) testVVdag<ScalarA2Apolicies>(lattice);
   if(0) testVVdag<GridA2Apolicies>(lattice);
@@ -462,7 +462,11 @@ int main(int argc,char *argv[])
       int ntests_scaled = ntests * 1000;
       printf("Max threads %d\n",omp_get_max_threads());
       double t0 = Grid::usecond();
-
+#ifdef TIMERS_OFF
+      printf("Timers are OFF\n"); fflush(stdout);
+#else
+      printf("Timers are ON\n"); fflush(stdout);
+#endif
       __itt_resume();
 #pragma omp parallel //avoid thread creation overheads
       {
@@ -478,23 +482,18 @@ int main(int argc,char *argv[])
 	  GVtype *ai = abase;
 	  GVtype *bi = bbase;
 	  GVtype *ci = cbase;
-
+	  __SSC_MARK(0x1);
 	  for(int i=0;i<work;i++){
-	    for(int s=0;s<12;s++){
-	      vprefetch(*(ai+3*12+s));
-	      vprefetch(*(bi+3*12+s));
-	    }
-	    vprefetch(*(ci+3));
-
 	    *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
 	    ai += 12;
 	    bi += 12;
 	    ci += 1;
 	  }
+	  __SSC_MARK(0x2);
 	}
       }
 
-
+      
 // #pragma omp parallel
 //       {
 // 	const int work = aa.nfsites();
@@ -524,6 +523,7 @@ int main(int argc,char *argv[])
       double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
       std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
       
+      exit(0);
       //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
 

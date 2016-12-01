@@ -396,23 +396,83 @@ __attribute__((noinline)) __m512d g5d_conjl_r_asm_avx512(__m512d const*l, __m512
 	    /* _VPREFETCH1(11,RPTR) \ */
 
    __asm__ (
-   	    ZCONJMUL2_TMPREGPASS_MEM(0,LPTR,RPTR,ROUT,  1,LPTR,RPTR,L0,   L1,L2,L3,L4,L5,L6) \
-   	    ZCONJMUL2_TMPREGPASS_MEM(2,LPTR,RPTR,L7,    3,LPTR,RPTR,L8,   L9,L10,L11,R0,R1,R2) \
-   	    _VADDd(L0,ROUT,ROUT) \
-   	    ZCONJMUL2_TMPREGPASS_MEM(4,LPTR,RPTR,R3,    5,LPTR,RPTR,R4,   R5,R6,R7,R8,R9,R10) \
-   	    _VADDd(L7,ROUT,ROUT) \
-   	    ZCONJMUL2_TMPREGPASS_MEM(6,LPTR,RPTR,R11,   7,LPTR,RPTR,TMP1, TMP2,TMP3,TMP4,TMP5,TMP6,TMP7) \
-   	    _VADDd(L8,ROUT,ROUT) \
-   	    ZCONJMUL2_TMPREGPASS_MEM(8,LPTR,RPTR,L0,     9,LPTR,RPTR,L1,  L2,L3,L4,L5,L6,L7)	\
-   	    _VADDd(R3,ROUT,ROUT) \
-   	    ZCONJMUL2_TMPREGPASS_MEM(10,LPTR,RPTR,L8,    11,LPTR,RPTR,L9, L10,L11,R0,R1,R2,R3) \
-   	    _VADDd(R4,ROUT,ROUT) \
-   	    _VADDd(R11,TMP1,TMP1) \
-   	    _VADDd(L0,L1,L1) \
-   	    _VADDd(L8,L9,L9) \
-   	    _VSUBd(TMP1,ROUT,ROUT) \
-   	    _VADDd(L1,L9,L9) \
-   	    _VSUBd(L9,ROUT,ROUT)
+	    _GETIMAGMEM(6,LPTR,%zmm1) \
+	    _GETIMAGMEM(7,LPTR,%zmm2) \
+	    _GETIMAGMEM(8,LPTR,%zmm3) \
+	    _GETIMAGMEM(9,LPTR,%zmm4) \
+	    _GETIMAGMEM(10,LPTR,%zmm5) \
+	    _GETIMAGMEM(11,LPTR,%zmm6) \
+	    _PERMUTEREIMMEM(6,RPTR,%zmm7) \
+	    _PERMUTEREIMMEM(7,RPTR,%zmm8) \
+	    _PERMUTEREIMMEM(8,RPTR,%zmm9) \
+	    _PERMUTEREIMMEM(9,RPTR,%zmm10) \
+	    _PERMUTEREIMMEM(10,RPTR,%zmm11) \
+	    _PERMUTEREIMMEM(11,RPTR,%zmm12) \
+	    _VLOADd(6,RPTR,%zmm13) \
+	    _VLOADd(7,RPTR,%zmm14) \
+	    _VLOADd(8,RPTR,%zmm15) \
+	    _VLOADd(9,RPTR,%zmm16) \
+	    _VLOADd(10,RPTR,%zmm17) \
+	    _VLOADd(11,RPTR,%zmm18) \
+	    _GETREALMEM(6,LPTR,%zmm19) \
+	    _GETREALMEM(7,LPTR,%zmm20) \
+	    _GETREALMEM(8,LPTR,%zmm21) \
+	    _GETREALMEM(9,LPTR,%zmm22) \
+	    _GETREALMEM(10,LPTR,%zmm23) \
+	    _GETREALMEM(11,LPTR,%zmm24) \
+	    _VMULd(%zmm1,%zmm7,%zmm1) \
+	    _VMULd(%zmm2,%zmm8,%zmm2) \
+	    _VMULd(%zmm3,%zmm9,%zmm3) \
+	    _VMULd(%zmm4,%zmm10,%zmm4) \
+	    _VMULd(%zmm5,%zmm11,%zmm5) \
+	    _VMULd(%zmm6,%zmm12,%zmm6) \
+	    _MULADDEVENSUBODD(%zmm1,%zmm19,%zmm13) \
+	    _MULADDEVENSUBODD(%zmm2,%zmm20,%zmm14) \
+	    _MULADDEVENSUBODD(%zmm3,%zmm21,%zmm15) \
+	    _MULADDEVENSUBODD(%zmm4,%zmm22,%zmm16) \
+	    _MULADDEVENSUBODD(%zmm5,%zmm23,%zmm17) \
+	    _MULADDEVENSUBODD(%zmm6,%zmm24,%zmm18) \
+	    _GETIMAGMEM(0,LPTR,%zmm25) \
+	    _GETIMAGMEM(1,LPTR,%zmm26) \
+	    _GETIMAGMEM(2,LPTR,%zmm27) \
+	    _GETIMAGMEM(3,LPTR,%zmm28) \
+	    _GETIMAGMEM(4,LPTR,%zmm29) \
+	    _GETIMAGMEM(5,LPTR,%zmm30) \
+	    _PERMUTEREIMMEM(0,RPTR,%zmm31) \
+	    _PERMUTEREIMMEM(1,RPTR,%zmm7) \
+	    _PERMUTEREIMMEM(2,RPTR,%zmm8) \
+	    _PERMUTEREIMMEM(3,RPTR,%zmm9) \
+	    _PERMUTEREIMMEM(4,RPTR,%zmm10) \
+	    _PERMUTEREIMMEM(5,RPTR,%zmm11) \
+	    _VLOADd(0,RPTR,%zmm12) \
+	    _VLOADd(1,RPTR,%zmm1) \
+	    _VLOADd(2,RPTR,%zmm19) \
+	    _VLOADd(3,RPTR,%zmm2) \
+	    _VLOADd(4,RPTR,%zmm20) \
+	    _VLOADd(5,RPTR,%zmm3) \
+	    _GETREALMEM(0,LPTR,%zmm21) \
+	    _GETREALMEM(1,LPTR,%zmm4) \
+	    _GETREALMEM(2,LPTR,%zmm22) \
+	    _GETREALMEM(3,LPTR,%zmm5) \
+	    _GETREALMEM(4,LPTR,%zmm23) \
+	    _GETREALMEM(5,LPTR,%zmm6) \
+	    _MULSUBEVENADDODD(%zmm13,%zmm25,%zmm31) \
+	    _MULSUBEVENADDODD(%zmm14,%zmm26,%zmm7) \
+	    _MULSUBEVENADDODD(%zmm15,%zmm27,%zmm8) \
+	    _MULSUBEVENADDODD(%zmm16,%zmm28,%zmm9) \
+	    _MULSUBEVENADDODD(%zmm17,%zmm29,%zmm10) \
+	    _MULSUBEVENADDODD(%zmm18,%zmm30,%zmm11) \
+	    _MULADDEVENSUBODD(%zmm31,%zmm21,%zmm12) \
+	    _MULADDEVENSUBODD(%zmm7,%zmm4,%zmm1) \
+	    _VADDd(%zmm12,%zmm1,%zmm12) \
+	    _MULADDEVENSUBODD(%zmm8,%zmm22,%zmm19) \
+	    _MULADDEVENSUBODD(%zmm9,%zmm5,%zmm2) \
+	    _VADDd(%zmm19,%zmm2,%zmm19) \
+	    _VADDd(%zmm12,%zmm19,%zmm12) \
+	    _MULADDEVENSUBODD(%zmm10,%zmm23,%zmm20) \
+	    _MULADDEVENSUBODD(%zmm11,%zmm6,%zmm3) \
+	    _VADDd(%zmm20,%zmm3,%zmm20) \
+	    _VADDd(%zmm12,%zmm20,%zmm0)
    	    );
 
 
