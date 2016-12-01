@@ -461,70 +461,53 @@ int main(int argc,char *argv[])
 
       int ntests_scaled = ntests * 1000;
       printf("Max threads %d\n",omp_get_max_threads());
-      double t0 = Grid::usecond();
 #ifdef TIMERS_OFF
       printf("Timers are OFF\n"); fflush(stdout);
 #else
       printf("Timers are ON\n"); fflush(stdout);
 #endif
       __itt_resume();
+
+      for(int oloop=0; oloop < 100; oloop++){
+	double t0 = Grid::usecond();
+
 #pragma omp parallel //avoid thread creation overheads
-      {
-	int me = omp_get_thread_num();
-	int work, off;
-	thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
+	{
+	  int me = omp_get_thread_num();
+	  int work, off;
+	  thread_work(work, off, aa.nfsites(), me, omp_get_num_threads());
 	
-	GVtype *abase = aa.fsite_ptr(off);
-	GVtype *bbase = bb.fsite_ptr(off);
-	GVtype *cbase = cc.fsite_ptr(off);
+	  GVtype *abase = aa.fsite_ptr(off);
+	  GVtype *bbase = bb.fsite_ptr(off);
+	  GVtype *cbase = cc.fsite_ptr(off);
 
-	for(int test=0;test<ntests_scaled;test++){
-	  GVtype *ai = abase;
-	  GVtype *bi = bbase;
-	  GVtype *ci = cbase;
-	  __SSC_MARK(0x1);
-	  for(int i=0;i<work;i++){
-	    *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
-	    ai += 12;
-	    bi += 12;
-	    ci += 1;
+	  for(int test=0;test<ntests_scaled;test++){
+	    GVtype *ai = abase;
+	    GVtype *bi = bbase;
+	    GVtype *ci = cbase;
+	    __SSC_MARK(0x1);
+	    for(int i=0;i<work;i++){
+	      *ci = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
+	      ai += 12;
+	      bi += 12;
+	      ci += 1;
+	    }
+	    __SSC_MARK(0x2);
 	  }
-	  __SSC_MARK(0x2);
 	}
+
+	double t1 = Grid::usecond();
+	double dt = t1 - t0;
+      
+	int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
+	  + 12*2*nsimd; //12 vectorized += or -=
+	double total_FLOPs = double(FLOPs) * double(aa.nfsites()) * double(ntests_scaled);
+      
+	double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
+	std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
+
       }
-
-      
-// #pragma omp parallel
-//       {
-// 	const int work = aa.nfsites();
-// 	GVtype *abase = aa.fsite_ptr(0);
-// 	GVtype *bbase = bb.fsite_ptr(0);
-// 	GVtype *cbase = cc.fsite_ptr(0);
-
-// 	for(int test=0;test<ntests_scaled;test++){
-// #pragma omp for schedule(guided) nowait
-// 	  for(int i=0;i<work;i++){
-// 	    GVtype *ai = abase + 12*i;
-// 	    GVtype *bi = bbase + 12*i;
-// 	    cbase[i] = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ai,bi);
-// 	  }
-// 	}
-//       }
-
       __itt_detach();
-      
-      double t1 = Grid::usecond();
-      double dt = t1 - t0;
-      
-      int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
-	+ 12*2*nsimd; //12 vectorized += or -=
-      double total_FLOPs = double(FLOPs) * double(aa.nfsites()) * double(ntests_scaled);
-      
-      double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
-      std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
-      
-      exit(0);
-      //printf("GridVectorizedSpinColorContract( conj(a)*b ): New code %d tests over %d threads: Time %g secs  flops %g\n",ntests,nthreads,dt,flops);
     }
 
     if(0){ //All-time mesonfield contract
