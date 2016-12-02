@@ -684,11 +684,13 @@ public:
   }
   
   //Deep copies
-  inline PtrWrapper(const PtrWrapper &r): t(new T(*r.t)){}
+  inline PtrWrapper(const PtrWrapper &r): t(NULL){
+    if(r.t != NULL) t = new T(*r.t);
+  }
 
   inline PtrWrapper & operator=(const PtrWrapper &r){
-    if(t!=NULL) delete t;
-    t = new T(*r.t);
+    if(t!=NULL){ delete t; t = NULL; }
+    if(r.t!=NULL) t = new T(*r.t);
   } 
 };
 

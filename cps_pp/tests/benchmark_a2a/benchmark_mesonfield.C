@@ -346,6 +346,9 @@ int main(int argc,char *argv[])
 
   if(0) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);
   
+  if(0) testA2AallocFree(a2a_args,lattice);
+
+  
   if(0){
     Grid::vComplexF v = randomvType<Grid::vComplexF>();
     printvType(v);

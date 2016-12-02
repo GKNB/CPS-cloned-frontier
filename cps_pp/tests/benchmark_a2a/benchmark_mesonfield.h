@@ -1521,6 +1521,58 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   
   
 }
+
+
+void testA2AallocFree(const A2AArg &a2a_args,Lattice &lat){
+  typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
+  //typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
+
+  typedef typename A2Apolicies::FermionFieldType FermionFieldType;
+  typedef typename A2Apolicies::SourcePolicies SourcePolicies;
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+
+  A2AvectorVfftw<A2Apolicies> Vfft(a2a_args,fp);
+  double size =  A2AvectorVfftw<A2Apolicies>::Mbyte_size(a2a_args,fp);
+  
+  for(int i=0;i<100;i++){
+    if(!UniqueID()) printf("Pre-init\n");
+    printMem(); fflush(stdout);
+
+    if(!UniqueID()) printf("Expected size %f MB\n",size);
+    
+    if(!UniqueID()) printf("Post-init\n");
+    printMem(); fflush(stdout);
+
+    Vfft.allocModes();
+
+    for(int i=0;i<Vfft.getNmodes();i++){
+      assert(&Vfft.getMode(i) != NULL);
+      Vfft.getMode(i).zero();
+    }
+    if(!UniqueID()) printf("Post-alloc\n");
+    printMem(); fflush(stdout);
+
+    Vfft.freeModes();
+
+    for(int i=0;i<Vfft.getNmodes();i++)
+      assert(&Vfft.getMode(i) == NULL);
+    
+    if(!UniqueID()) printf("Post-free\n");
+    printMem(); fflush(stdout);
+  }
+
+  exit(0);
+}
+
+
+
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif
