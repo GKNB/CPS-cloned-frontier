@@ -245,6 +245,20 @@ int main(int argc,char *argv[])
       ss >> nlowmodes;
       if(!UniqueID()) printf("Set nl to %d\n",nlowmodes);
       i+=2;
+    }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
+      int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
+      for(int a=0;a<3;a++){
+	std::stringstream ss; ss << argv[i+1+a];
+	ss >> *b[a];
+      }
+      i+=4;
+    }else if( strncmp(cmd,"-mf_innerblocking",15) == 0){
+      int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
+      for(int a=0;a<3;a++){
+	std::stringstream ss; ss << argv[i+1+a];
+	ss >> *b[a];
+      }
+      i+=4;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
       exit(-1);
@@ -446,7 +460,7 @@ int main(int argc,char *argv[])
     
     A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
 
-    if(1){
+    if(0){
       // GridVectorizedSpinColorContract benchmark
       typedef typename GridA2Apolicies::ComplexType GVtype;
       typedef typename GridA2Apolicies::ScalarComplexType GCtype;
@@ -510,8 +524,11 @@ int main(int argc,char *argv[])
       __itt_detach();
     }
 
-    if(0){ //All-time mesonfield contract
+    if(1){ //All-time mesonfield contract
       std::cout << "Starting all-time mesonfield contract benchmark\n";
+      if(!UniqueID()) printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp);
+      if(!UniqueID()) printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp);
+
       Float total_time = 0.;
       std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid_t;
 
