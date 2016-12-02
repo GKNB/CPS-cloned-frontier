@@ -130,9 +130,10 @@ public:
 			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
 			       const std::vector<std::pair<int,int> > &site_offsets_i,
 			       const std::vector<std::pair<int,int> > &site_offsets_j){
-    //int ni = iup - i0, nj = jup - j0, np = pup - p0;
-    int bii = 8, bjj = 2, bpp = 4; //inner block sizes
-
+    const int bii = BlockedMesonFieldArgs::bii;
+    const int bjj = BlockedMesonFieldArgs::bjj;
+    const int bpp = BlockedMesonFieldArgs::bpp;
+    
     for(int ii0=i0; ii0 < iup; ii0+=bii){
       int iiup = std::min(ii0+bii,iup);
       for(int jj0=j0; jj0 < jup; jj0+=bjj){
@@ -264,9 +265,9 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
       
       int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
 
-      int bi = BlockedMesonFieldArgs::bi;
-      int bj = BlockedMesonFieldArgs::bj;
-      int bp = BlockedMesonFieldArgs::bp;
+      const int bi = BlockedMesonFieldArgs::bi;
+      const int bj = BlockedMesonFieldArgs::bj;
+      const int bp = BlockedMesonFieldArgs::bp;
 
       int nthread = omp_get_max_threads();
       std::vector<std::vector<std::vector<mf_Element> > > mf_accum_thr(nthread); //indexed by [thread][i][j]
