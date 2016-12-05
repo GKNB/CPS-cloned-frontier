@@ -92,6 +92,31 @@ struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteTyp
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename mf_Element>
 class MultKernel{
 public:
+  inline static void prefetchSite(const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
+				  const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf){				  
+#ifdef AVX512
+    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
+    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
+    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
+    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
+#endif
+  }
+
+  inline static void prefetchAdvanceSite(SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
+					 SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf,
+					 const std::pair<int,int> &site_offset_i, const std::pair<int,int> &site_offset_j){
+#ifdef AVX512
+    lscf.incrementPointers(site_offset_i);
+    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
+    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
+    rscf.incrementPointers(site_offset_j);
+    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
+    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
+    lscf.incrementPointers(site_offset_i,-1);
+    rscf.incrementPointers(site_offset_j,-1);
+#endif
+  }
+
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
   template<typename InnerProduct>
   static void mult_kernel(std::vector<std::vector<mf_Element> > &mf_accum_m, const InnerProduct &M, const int t,
@@ -108,12 +133,14 @@ public:
 	mf_Element &mf_accum = mf_accum_m[i][j];
 	mfElementPolicy::setZero(mf_accum);
 	
-	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = base_ptrs_i[i];
-	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = base_ptrs_j[j];
-	lscf.incrementPointers(site_offsets_i[i],p0);
-	rscf.incrementPointers(site_offsets_j[j],p0);
-	
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf(base_ptrs_i[i], site_offsets_i[i], p0);
+	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf(base_ptrs_j[j], site_offsets_j[j], p0);
+
+	prefetchSite(lscf,rscf);
+
 	for(int p_3d = p0; p_3d < pup; p_3d++) {
+	  prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
+
 	  mfElementPolicy::accumulate(mf_accum, M, lscf, rscf, p_3d, t);
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
@@ -286,6 +313,8 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
       std::vector<std::pair<int,int> > site_offsets_i(nmodes_l);
       std::vector<std::pair<int,int> > site_offsets_j(nmodes_r);
 
+      __SSC_MARK(0x1);
+
 #pragma omp parallel
       {
 	int me = omp_get_thread_num();
@@ -311,7 +340,7 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
 	    
 	  for(int j0 = 0; j0< nmodes_r; j0+=bj) {
 	    int jup = std::min(j0+bj,nmodes_r);
-	  
+
 	    for(int p0 = 0; p0 < size_3d; p0+=bp){
 	      int pup = std::min(p0+bp,size_3d);
       
@@ -346,6 +375,8 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
 	}		
       
       }//end of parallel region
+
+      __SSC_MARK(0x2);
 
       std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
