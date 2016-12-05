@@ -117,6 +117,17 @@ public:
 #endif
   }
 
+  inline static int prefetchSitesL2(SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
+				    SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf){
+#ifdef AVX512
+    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T1);
+    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T1);
+    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T1);
+    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T1);
+    return 5; //number of sites between calls
+#endif
+  }
+
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
   template<typename InnerProduct>
   static void mult_kernel(std::vector<std::vector<mf_Element> > &mf_accum_m, const InnerProduct &M, const int t,
@@ -136,14 +147,21 @@ public:
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf(base_ptrs_i[i], site_offsets_i[i], p0);
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf(base_ptrs_j[j], site_offsets_j[j], p0);
 
-	prefetchSite(lscf,rscf);
+	//prefetchSite(lscf,rscf);
+	//prefetchSitesL2(lscf,rscf);
 
+	//int L2prefetchFreq = 1;
+
+	//int iter = 0;
 	for(int p_3d = p0; p_3d < pup; p_3d++) {
-	  prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
+	  //if(iter % L2prefetchFreq == 0) L2prefetchFreq = prefetchSitesL2(lscf,rscf);
+
+	  //prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
 
 	  mfElementPolicy::accumulate(mf_accum, M, lscf, rscf, p_3d, t);
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
+	  //++iter;
 	}
       }
     }
