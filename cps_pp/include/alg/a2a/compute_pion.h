@@ -106,8 +106,7 @@ class ComputePion{
   
   //These meson fields are also used by the pi-pi and K->pipi calculations
   template<typename PionMomentumPolicy>
-  static void computeMesonFields(std::vector< std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > > &mf_ll, //output vector for meson fields indexed by [p,t]
-				 MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //convenient storage for pointers to the above, assembled at same time
+  static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //container for output fields, accessible by ThreeMomentum of pion
 				 const std::string &work_dir, const int traj,  //all meson fields stored to disk
 				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
@@ -127,7 +126,6 @@ class ComputePion{
     const int nmom = pion_mom.nMom();
     if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
       ERR.General("ComputePion","computeMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
-    mf_ll.resize(nmom);
     
     if(GJP.Gparity()){
       typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
@@ -172,26 +170,27 @@ class ComputePion{
 
       //Copy to output the average of the 1s result with base and alternative momentum combinations
       for(int pidx=0;pidx<nmom;pidx++){
+	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
 	MesonFieldVectorType & mf_1s_pbase = mf_store(0,pidx);
 	MesonFieldVectorType & mf_1s_palt = mf_store(0,pidx+nmom);
 	
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 	nodeGetMany(1,&mf_1s_pbase);
 #endif
-	
-	mf_ll[pidx] = mf_1s_pbase;
+
+	MesonFieldVectorType & stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_1s_pbase); //don't move, just copy
 	
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 	nodeDistributeMany(1,&mf_1s_pbase);
 	nodeGetMany(1,&mf_1s_palt);
 #endif
 	
-	for(int t=0;t<Lt;t++) mf_ll[pidx][t].average(mf_1s_palt[t]);
+	for(int t=0;t<Lt;t++) stored[t].average(mf_1s_palt[t]); //average with second mom
 	
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 	nodeDistributeMany(1,&mf_1s_palt);
 	if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
-	nodeDistributeMany(1,&mf_ll[pidx]);
+	nodeDistributeMany(1,&stored);
 #endif
       }
       
@@ -235,16 +234,13 @@ class ComputePion{
       ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
 
       for(int pidx=0;pidx<nmom;pidx++){
-	mf_ll[pidx] = mf_store[pidx];
+	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
+	MesonFieldVectorType &stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_store[pidx]);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-      if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
-      nodeDistributeMany(1,&mf_ll[pidx]);
+	if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
+	nodeDistributeMany(1,&stored);
 #endif
       }	
-    }
-
-    for(int pidx=0;pidx<nmom;pidx++){
-      mf_ll_con.add( pion_mom.getMesonMomentum(pidx), mf_ll[pidx]);	
     }
     
     time += dclock();

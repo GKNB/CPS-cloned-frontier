@@ -457,12 +457,11 @@ int main (int argc,char **argv )
     //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
     RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
 
-    std::vector< std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll; //[pidx][t]   stores the meson fields
-    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //manager for pointers to the above
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
     
     if(!UniqueID()) printf("Computing light-light meson fields\n");
     time = -dclock();
-    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
+    ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
     time += dclock();
     print_time("main","Light-light meson fields",time);
 
