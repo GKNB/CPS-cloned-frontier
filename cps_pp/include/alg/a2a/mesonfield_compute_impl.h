@@ -88,6 +88,11 @@ struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteTyp
 };
 
 
+#ifdef AVX512
+CPS_END_NAMESPACE
+#include<simd/Intel512common.h>
+CPS_START_NAMESPACE
+#endif
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename mf_Element>
 class MultKernel{
@@ -102,16 +107,45 @@ public:
 #endif
   }
 
+#ifdef AVX512
+  static void prefetchFvec(const char* ptr){
+    //T0 hint
+    #define _VPREFETCH1(O,A) VPREFETCH1(O,A)
+    //T1 hint
+    #define _VPREFETCH2(O,A) VPREFETCH2(O,A)
+
+    __asm__ ( 
+    _VPREFETCH2(0,%rdi) \
+    _VPREFETCH2(1,%rdi) \
+    _VPREFETCH2(2,%rdi) \
+    _VPREFETCH2(3,%rdi) \
+    _VPREFETCH2(4,%rdi) \
+    _VPREFETCH2(5,%rdi) \
+    _VPREFETCH2(6,%rdi) \
+    _VPREFETCH2(7,%rdi) \
+    _VPREFETCH2(8,%rdi) \
+    _VPREFETCH2(9,%rdi) \
+    _VPREFETCH2(10,%rdi) \
+    _VPREFETCH2(11,%rdi) 
+	      );
+  }
+#endif
+
+
   inline static void prefetchAdvanceSite(SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
 					 SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf,
 					 const std::pair<int,int> &site_offset_i, const std::pair<int,int> &site_offset_j){
 #ifdef AVX512
     lscf.incrementPointers(site_offset_i);
-    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
-    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
+    prefetchFvec((const char*)lscf.getPtr(0));
+    prefetchFvec((const char*)lscf.getPtr(1));
+    //_mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
+    //_mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
     rscf.incrementPointers(site_offset_j);
-    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
-    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
+    prefetchFvec((const char*)rscf.getPtr(0));
+    prefetchFvec((const char*)rscf.getPtr(1));
+    //_mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
+    //_mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
     lscf.incrementPointers(site_offset_i,-1);
     rscf.incrementPointers(site_offset_j,-1);
 #endif
