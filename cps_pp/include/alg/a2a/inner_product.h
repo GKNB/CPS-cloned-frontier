@@ -31,7 +31,7 @@ public:
   
   SCmatrixInnerProduct(const WilsonMatrix &_sc, const SourceType &_src): sc(_sc), src(_src){ }
     
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  void operator()(std::complex<double> &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++){
       // Mr
@@ -52,7 +52,7 @@ public:
       out += outf;
     }
     //Multiply by momentum-space source structure
-    return out * src.siteComplex(p);
+    into += out * src.siteComplex(p);
   }
 };
 
@@ -66,11 +66,11 @@ public:
   
   SCg5InnerProduct(const SourceType &_src): src(_src){ }
     
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  void operator()(std::complex<double> &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++)
       out += OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l.getPtr(f),r.getPtr(f));    
-    return out * src.siteComplex(p);
+    into += out * src.siteComplex(p);
   }
 };
 
@@ -109,20 +109,20 @@ public:
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return 1; }
 
   template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, std::complex<double> >::type
-  operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void >::type
+  operator()(std::complex<double> &into, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     assert(!GJP.Gparity());
     std::complex<double> out = SpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0));
-    return out * src.siteComplex(p);
+    into += out * src.siteComplex(p);
   }
   
   template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, std::complex<double> >::type
-  operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
+  operator()(std::complex<double> &into, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     assert(!GJP.Gparity());
     ComplexType out = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0));
     out *= src.siteComplex(p);
-    return Reduce(out);
+    into += Reduce(out);
   }
 };
 
@@ -142,7 +142,7 @@ public:
     if(!GJP.Gparity()) ERR.General("SCFfmatSrcInnerProduct","SCFfmatSrcInnerProduct","Only for G-parity BCs");
   }
 
-  std::complex<double> operator()(const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  void operator()(std::complex<double> &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     //Get source flavor matrix structure for this momentum site
     FlavorMatrix N = src.siteFmat(p);
     
@@ -175,7 +175,7 @@ public:
       for(int c1=0;c1<3;c1++)
 	for(int f1=0;f1<2;f1++)
 	  out += lvec[s1][c1][f1] * rvec[s1][c1][f1];
-    return out;
+    into += out;
   }
 };
 
@@ -235,8 +235,8 @@ public:
   
   //std::complex   single source
   template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, std::complex<double> >::type
-    operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value, void >::type
+  operator()(std::complex<double> &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrix lMr;
     this->spinColorContract(lMr,l,r);
@@ -246,17 +246,15 @@ public:
     src.siteFmat(phi,p);
     phi.pl(sigma);
     
-    return TransLeftTrace(lMr, phi);
-#else
-    return std::complex<double>(0);
+    out += TransLeftTrace(lMr, phi);
 #endif
   }
   
 #ifdef USE_GRID
   //Grid vector type single source
   template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, std::complex<double> >::type
-    operator()(const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
+  operator()(std::complex<double> &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
@@ -269,9 +267,7 @@ public:
     ComplexType tlt = TransLeftTrace(lMr, phi);
 
     //Do the sum over the SIMD vectorized sites
-    return Reduce(tlt);
-#else
-    return std::complex<double>(0);
+    out += Reduce(tlt);
 #endif
   }
 #endif

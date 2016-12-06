@@ -72,7 +72,7 @@ struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
     mf_accum = 0.;
   }  
   static inline void accumulate(cps::ComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
-    mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
+    M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
   }
 };
 //For multi-src

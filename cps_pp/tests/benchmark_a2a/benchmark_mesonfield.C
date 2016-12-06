@@ -265,8 +265,9 @@ int main(int argc,char *argv[])
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
   if(0) benchmarkmultGammaLeft(ntests, tol);
-
-  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  
+  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+  if(0) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 
 
   printf("Finished\n"); fflush(stdout);

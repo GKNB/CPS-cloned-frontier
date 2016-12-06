@@ -2086,8 +2086,8 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
 
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
-void testMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
-  std::cout << "Starting vMv benchmark\n";
+void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol){
+  std::cout << "Starting MF contraction test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
@@ -2100,8 +2100,8 @@ void testMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads
   A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
   A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
   
-  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
-  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+  std::vector<A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf;
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_grid;
   
   typedef typename GridA2Apolicies::ComplexType grid_Complex;
   typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
@@ -2120,42 +2120,29 @@ void testMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads
   A2AflavorProjectedExpSource<> src(2.0,p);
   SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,src);
 
-  
-  std::cout << "Starting mesonfield contract benchmark\n";
-  Float total_time = 0.;
-  Float total_time_orig = 0.;
-  for(int iter=0;iter<ntests;iter++){
-    W.testRandom();
-    V.testRandom();
-    Wgrid.importFields(W);
-    Vgrid.importFields(V);
+  W.testRandom();
+  V.testRandom();
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
       
-    total_time -= dclock();
-    mf_grid.compute(Wgrid,mf_struct_grid,Vgrid,0);
-    total_time += dclock();
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid,0);
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf,W,mf_struct,V,0);
 
-    total_time_orig -= dclock();
-    mf.compute(W,mf_struct,V,0);
-    total_time_orig += dclock();
-
-    if(iter == 0){
-      bool fail = false;
-      for(int i=0;i<mf.size();i++){
-	const Ctype& gd = mf_grid.ptr()[i];
-	const Ctype& cp = mf.ptr()[i];
-	Ftype rdiff = fabs(gd.real()-cp.real());
-	Ftype idiff = fabs(gd.imag()-cp.imag());
-	if(rdiff > tol|| idiff > tol){
-	  printf("Fail: Iter %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",iter, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
-	  fail = true;
-	}
+  bool fail = false;
+  for(int t=0;t<mf.size();t++){
+    for(int i=0;i<mf[t].size();i++){
+      const Ctype& gd = mf_grid[t].ptr()[i];
+      const Ctype& cp = mf[t].ptr()[i];
+      Ftype rdiff = fabs(gd.real()-cp.real());
+      Ftype idiff = fabs(gd.imag()-cp.imag());
+      if(rdiff > tol|| idiff > tol){
+	printf("Fail: t %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",t, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+	fail = true;
       }
-      if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
     }
   }
-
-  printf("MF contract: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
-  printf("MF contract: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+  if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
+  else if(!UniqueID()){ printf("Passed MF contraction test\n"); fflush(stdout); }
 }
 
 
