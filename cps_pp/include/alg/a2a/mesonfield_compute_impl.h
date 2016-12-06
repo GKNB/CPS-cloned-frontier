@@ -66,6 +66,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 template<typename mf_Element, typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy{};
 
+//Single src
 template<typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
   static inline void setZero(cps::ComplexD &mf_accum){
@@ -230,12 +231,10 @@ public:
 };
 
 //Policies for single and multi-src outputs
-template<typename mfVectorType, typename InnerProduct>
-struct mf_Vector_policies{};
 
 //Single src
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
-struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >, InnerProduct >{
+struct SingleSrcVectorPolicies{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef cps::ComplexD mf_Element;
 
@@ -265,7 +264,7 @@ struct mf_Vector_policies< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2Afi
 
 //Multisrc
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
-struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* >, InnerProduct >{
+struct MultiSrcVectorPolicies{
   int mfPerTimeSlice;
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
@@ -306,9 +305,10 @@ struct mf_Vector_policies< std::vector< std::vector<A2AmesonField<mf_Policies,A2
 
 
 
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorType>
-struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
-  typedef mf_Vector_policies<mfVectorType, InnerProduct > mfVectorPolicies;
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
+struct mfComputeGeneral: public mfVectorPolicies{
+  typedef typename mfVectorPolicies::mfVectorType mfVectorType;
 
   void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     typedef typename mfVectorPolicies::mf_Element mf_Element;
@@ -456,7 +456,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > > cg;
+  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPolicies;
+  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_t,l,M,r,do_setup);
 }
 
@@ -465,7 +466,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,  std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > > cg;
+  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPolicies;
+  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_st,l,M,r,do_setup);
 }
 

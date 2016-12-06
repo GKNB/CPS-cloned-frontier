@@ -53,10 +53,6 @@ public:
 
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
 
-  void nodeSum(){
-    QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
-  }
-
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
@@ -83,9 +79,6 @@ public:
 	 >
   friend class _mult_lr_impl;
 
-  template<typename mfVectorType, typename InnerProduct>
-  friend struct mf_Vector_policies;
-  
 public:
   A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
   }
@@ -297,6 +290,10 @@ public:
   static void write(std::ostream *file_ptr, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat = FP_AUTOMATIC);
   static void read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
+
+  void nodeSum(){ //don't call unless you know what you're doing
+    QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
+  }
 };
 
 //Matrix product of meson field pairs

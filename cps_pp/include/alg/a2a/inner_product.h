@@ -270,6 +270,23 @@ public:
     out += Reduce(tlt);
 #endif
   }
+
+  //Vectorized output, no reduce
+  template<typename ComplexType = mf_Complex>
+  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
+  operator()(Grid::vComplexD &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
+    this->spinColorContract(lMr,l,r);
+    
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    FlavorMatrixGeneral<ComplexType> phi;
+    src.siteFmat(phi,p);
+    phi.pl(sigma);
+    out += TransLeftTrace(lMr, phi);
+#endif
+  }
+  
 #endif
 
   //std::complex multi source
