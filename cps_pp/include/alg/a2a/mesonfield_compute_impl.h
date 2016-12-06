@@ -69,9 +69,6 @@ struct mf_Element_policy{};
 //Single src
 template<typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
-  static inline void setZero(cps::ComplexD &mf_accum){
-    mf_accum = 0.;
-  }  
   static inline void accumulate(cps::ComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
     M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
   }
@@ -79,10 +76,6 @@ struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
 //For multi-src
 template<typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteType>{
-  static inline void setZero(std::vector<cps::ComplexD> &mf_accum){
-    for(int i=0;i<mf_accum.size();i++)
-      mf_accum[i] = 0.;
-  }  
   static inline void accumulate(std::vector<cps::ComplexD> &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
     M(mf_accum,lscf,rscf,p_3d,t);
   }
@@ -91,9 +84,6 @@ struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteTyp
 #ifdef USE_GRID
 template<typename InnerProduct, typename FieldSiteType>
 struct mf_Element_policy< Grid::vComplexD, InnerProduct, FieldSiteType>{
-  static inline void setZero(Grid::vComplexD &mf_accum){
-    zeroit(mf_accum);
-  }  
   static inline void accumulate(Grid::vComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
     M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
   }
@@ -189,7 +179,6 @@ public:
       for(int j = j0; j < jup; j++) {		
 	
 	mf_Element &mf_accum = mf_accum_m[i][j];
-	mfElementPolicy::setZero(mf_accum);
 	
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf(base_ptrs_i[i], site_offsets_i[i], p0);
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf(base_ptrs_j[j], site_offsets_j[j], p0);
@@ -252,7 +241,7 @@ struct SingleSrcVectorPolicies{
   typedef std::vector<mf_Element> mf_Element_Vector;
 
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
-  static inline void initializeElement(mf_Element &e){}
+  static inline void initializeElement(mf_Element &e){ e = mf_Element(0.); }
   static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
     mf_t.resize(Lt);
     for(int t=0;t<Lt;t++) 
@@ -291,7 +280,7 @@ struct MultiSrcVectorPolicies{
     mfPerTimeSlice = M.mfPerTimeSlice();
   }
   
-  inline void initializeElement(mf_Element &e){ e.resize(mfPerTimeSlice);  }
+  inline void initializeElement(mf_Element &e){ e.resize(mfPerTimeSlice, cps::ComplexD(0.));  }
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
     for(int s=0;s<mfPerTimeSlice;s++){
@@ -334,7 +323,7 @@ struct SingleSrcVectorPoliciesSIMD{
   typedef Grid::Vector<mf_Element> mf_Element_Vector;
   
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
-  static inline void initializeElement(mf_Element &e){}
+  static inline void initializeElement(mf_Element &e){ zeroit(e); }
   static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
     mf_t.resize(Lt);
     for(int t=0;t<Lt;t++) 
