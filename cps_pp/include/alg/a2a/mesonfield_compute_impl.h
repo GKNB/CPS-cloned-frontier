@@ -87,6 +87,18 @@ struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteTyp
     M(mf_accum,lscf,rscf,p_3d,t);
   }
 };
+//Single src vectorized output
+#ifdef USE_GRID
+template<typename InnerProduct, typename FieldSiteType>
+struct mf_Element_policy< Grid::vComplexD, InnerProduct, FieldSiteType>{
+  static inline void setZero(Grid::vComplexD &mf_accum){
+    zeroit(mf_accum);
+  }  
+  static inline void accumulate(Grid::vComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
+    M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
+  }
+};
+#endif
 
 
 #ifdef AVX512
@@ -95,7 +107,7 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 #endif
 
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename mf_Element>
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename mf_Element, typename mf_Element_Vector>
 class MultKernel{
 public:
   inline static void prefetchSite(const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
@@ -165,7 +177,7 @@ public:
 
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
   template<typename InnerProduct>
-  static void mult_kernel(std::vector<std::vector<mf_Element> > &mf_accum_m, const InnerProduct &M, const int t,
+  static void mult_kernel(std::vector<mf_Element_Vector> &mf_accum_m, const InnerProduct &M, const int t,
 			  const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
 			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
@@ -204,7 +216,7 @@ public:
   //Do a second layer of blocked dgemm to try to fit in the L1 cache
   //note the i0, iup, etc are the low and high range limits from the outer blocking
   template<typename InnerProduct>
-  static void inner_block_mult(std::vector<std::vector<mf_Element> > &mf_accum_m, const InnerProduct &M, const int t,
+  static void inner_block_mult(std::vector<mf_Element_Vector> &mf_accum_m, const InnerProduct &M, const int t,
 			       const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
 			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
@@ -221,9 +233,9 @@ public:
 	for(int pp0=p0; pp0 < pup; pp0+=bpp){
 	  int ppup = std::min(pp0+bpp,pup);
 
-	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element>::mult_kernel(mf_accum_m, M, t,
-									      ii0, iiup, jj0, jjup, pp0, ppup,
-									      base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
+	  MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element,mf_Element_Vector>::mult_kernel(mf_accum_m, M, t,
+												ii0, iiup, jj0, jjup, pp0, ppup,
+												base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 	}
       }
     }
@@ -237,6 +249,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct SingleSrcVectorPolicies{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef cps::ComplexD mf_Element;
+  typedef std::vector<mf_Element> mf_Element_Vector;
 
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
   static inline void initializeElement(mf_Element &e){}
@@ -244,9 +257,12 @@ struct SingleSrcVectorPolicies{
     mf_t.resize(Lt);
     for(int t=0;t<Lt;t++) 
       if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
-      else mf_t[t].zero();
+      else{
+	assert(mf_t[t].ptr() != NULL);
+	mf_t[t].zero();
+      }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<std::vector<std::vector<mf_Element> > > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
+  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
     for(int thr=0;thr<nthread;thr++)
 	mf_t[t](i,j) += mf_accum_thr[thr][i][j];
   }
@@ -269,7 +285,8 @@ struct MultiSrcVectorPolicies{
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
   typedef std::vector<cps::ComplexD> mf_Element;
-
+  typedef std::vector<mf_Element> mf_Element_Vector;
+  
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
   }
@@ -281,10 +298,13 @@ struct MultiSrcVectorPolicies{
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
 	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
-	else mf_st[s]->operator[](t).zero();
+	else{
+	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  mf_st[s]->operator[](t).zero();
+	}
     }
   }
-  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<std::vector<mf_Element> > > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
+  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
     for(int thr=0;thr<nthread;thr++)
       for(int s=0;s<mfPerTimeSlice;s++)
 	mf_st[s]->operator[](t)(i,j) += mf_accum_thr[thr][i][j][s];
@@ -305,6 +325,43 @@ struct MultiSrcVectorPolicies{
 
 
 
+//Single src vectorized with delayed reduction
+#ifdef USE_GRID
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
+struct SingleSrcVectorPoliciesSIMD{
+  typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
+  typedef Grid::vComplexD mf_Element;
+  typedef Grid::Vector<mf_Element> mf_Element_Vector;
+  
+  static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
+  static inline void initializeElement(mf_Element &e){}
+  static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
+    mf_t.resize(Lt);
+    for(int t=0;t<Lt;t++) 
+      if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
+      else{
+	assert(mf_t[t].ptr() != NULL);
+	mf_t[t].zero();
+      }
+  }
+  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
+    mf_Element tmp = mf_accum_thr[0][i][j];
+    for(int thr=1;thr<nthread;thr++) tmp += mf_accum_thr[thr][i][j];
+    mf_t[t](i,j) += Reduce(tmp);
+  }
+  //Used to get information about rows and cols
+  static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_t, const int t){
+    return mf_t[t];
+  }
+  static inline void nodeSum(mfVectorType &mf_t, const int Lt){
+    for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
+  }
+  static inline void printElement(const mf_Element &e){
+  }
+};
+#endif
+
+
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
 struct mfComputeGeneral: public mfVectorPolicies{
@@ -312,6 +369,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
   void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     typedef typename mfVectorPolicies::mf_Element mf_Element;
+    typedef typename mfVectorPolicies::mf_Element_Vector mf_Element_Vector;
     this->setupPolicy(M);
     
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -349,7 +407,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
       const int bp = BlockedMesonFieldArgs::bp;
 
       int nthread = omp_get_max_threads();
-      std::vector<std::vector<std::vector<mf_Element> > > mf_accum_thr(nthread); //indexed by [thread][i][j]
+      std::vector<std::vector<mf_Element_Vector> > mf_accum_thr(nthread); //indexed by [thread][i][j]
       for(int thr=0;thr<nthread;thr++){
 	mf_accum_thr[thr].resize(nmodes_l);
 	for(int i=0;i<nmodes_l;i++){
@@ -401,11 +459,11 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
 	      int thr_p0 = p0 + thr_poff;
 #ifdef USE_INNER_BLOCKING
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element>::inner_block_mult(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element,mf_Element_Vector>::inner_block_mult(mf_accum_thr[me], M, t,
 											  i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 											  base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #else
-	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element>::mult_kernel(mf_accum_thr[me], M, t,
+	      MultKernel<mf_Policies,A2AfieldL,A2AfieldR,mf_Element,mf_Element_Vector>::mult_kernel(mf_accum_thr[me], M, t,
 										     i0, iup, j0, jup, thr_p0, thr_p0+thr_pwork,
 										     base_ptrs_i, base_ptrs_j, site_offsets_i, site_offsets_j);
 #endif

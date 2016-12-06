@@ -273,7 +273,7 @@ public:
 
   //Vectorized output, no reduce
   template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
+  inline typename my_enable_if< _equal<ComplexType, Grid::vComplexD>::value, void >::type
   operator()(Grid::vComplexD &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized

@@ -2115,18 +2115,28 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;    
   int p[3] = {1,1,1};
   A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
-  SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > mf_struct_grid(sigma3,src_grid);
+  typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
+  GridInnerProduct mf_struct_grid(sigma3,src_grid);
   
   A2AflavorProjectedExpSource<> src(2.0,p);
-  SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > mf_struct(sigma3,src);
+  typedef SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > StdInnerProduct;
+  StdInnerProduct mf_struct(sigma3,src);
 
   W.testRandom();
   V.testRandom();
   Wgrid.importFields(W);
   Vgrid.importFields(V);
       
-  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid,0);
-  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf,W,mf_struct,V,0);
+  //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid,0);
+  {
+    typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+    typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+    mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+    cg.compute(mf_grid,Wgrid,mf_struct_grid,Vgrid, true);
+  }
+
+  
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf,W,mf_struct,V);
 
   bool fail = false;
   for(int t=0;t<mf.size();t++){
@@ -2175,7 +2185,8 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   
   int p[3] = {1,1,1};
   A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
-  SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > mf_struct_grid(sigma3,src_grid);
+  typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
+  GridInnerProduct mf_struct_grid(sigma3,src_grid);
       
   std::cout << "Starting all-time mesonfield contract benchmark\n";
   if(!UniqueID()) printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp);
@@ -2191,10 +2202,18 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
       
   CALLGRIND_START_INSTRUMENTATION ;
   CALLGRIND_TOGGLE_COLLECT ;
-      
+  
+  typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+  typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+  mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+  
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
-    A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
+
+    cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
+
+    
+    //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
     total_time += dclock();
   }
 
