@@ -531,16 +531,15 @@ struct _choose_vector_policies{};
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
 struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,complex_double_or_float_mark>{
-  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPolicies;
-  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
+  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
+  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
 };
 
 #ifdef USE_GRID
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
 struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,grid_vector_complex_mark>{
-  typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPolicies;
-  //typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
-  typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
+  typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
+  typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
 };
 #endif
 
@@ -550,7 +549,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::SingleSrcVectorPolicies VectorPolicies;  
+  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::SingleSrcVectorPoliciesT VectorPolicies;  
   mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_t,l,M,r,do_setup);
 }
@@ -560,7 +559,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::MultiSrcVectorPolicies VectorPolicies;  
+  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::MultiSrcVectorPoliciesT VectorPolicies;  
   mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_st,l,M,r,do_setup);
 }
