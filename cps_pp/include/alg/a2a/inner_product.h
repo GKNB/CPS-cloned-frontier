@@ -18,6 +18,17 @@ CPS_START_NAMESPACE
 //mf_Complex is the base complex type for the vectors
 //Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
 
+inline doAccum(std::complex<double> &to, const std::complex<double> &from){
+  to += from;
+}
+#ifdef USE_GRID
+inline doAccum(std::complex<double> &to, const Grid::vComplexD &from){
+  to += Reduce(from);
+}
+inline doAccum(Grid::vComplexD &to, const Grid::vComplexD &from){
+  to += from;
+}
+#endif
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
 //Assumed diagonal matrix in flavor space if G-parity
@@ -30,7 +41,7 @@ public:
   typedef SourceType InnerProductSourceType;
   
   SCmatrixInnerProduct(const WilsonMatrix &_sc, const SourceType &_src): sc(_sc), src(_src){ }
-    
+
   void operator()(std::complex<double> &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     std::complex<double> out(0.0,0.0);
     for(int f=0;f<1+GJP.Gparity();f++){
@@ -115,15 +126,17 @@ public:
     std::complex<double> out = SpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0));
     into += out * src.siteComplex(p);
   }
-  
-  template<typename ComplexType = mf_Complex>
+
+#ifdef USE_GRID
+  template<typename AccumType, typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
-  operator()(std::complex<double> &into, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  operator()(AccumType &into, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
     assert(!GJP.Gparity());
     ComplexType out = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0));
     out *= src.siteComplex(p);
-    into += Reduce(out);
+    doAccum(into,out);
   }
+#endif
 };
 
 
@@ -198,19 +211,20 @@ struct _siteFmatRecurseStd<SourceType,0,Idx>{
 #ifdef USE_GRID
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseGrid{
-  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
+  template<typename AccumVtype>
+  static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
     FlavorMatrixGeneral<mf_Complex> phi;
     src.template getSource<Idx>().siteFmat(phi,p);
     phi.pl(sigma);
     
-    mf_Complex tlt = TransLeftTrace(lMr, phi);
-    into[Idx] += Reduce(tlt);
+    doAccum(into[Idx], TransLeftTrace(lMr, phi));
     _siteFmatRecurseGrid<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,src,sigma,p,lMr);
   }
 };
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseGrid<SourceType,mf_Complex,0,Idx>{
-  static inline void doit(std::vector<std::complex<double> > &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
+  template<typename AccumVtype>
+  static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
 #endif
 
@@ -252,9 +266,9 @@ public:
   
 #ifdef USE_GRID
   //Grid vector type single source
-  template<typename ComplexType = mf_Complex>
+  template<typename AccumType, typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void >::type
-  operator()(std::complex<double> &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  operator()(AccumType &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
@@ -263,30 +277,11 @@ public:
     FlavorMatrixGeneral<ComplexType> phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
-    
-    ComplexType tlt = TransLeftTrace(lMr, phi);
 
     //Do the sum over the SIMD vectorized sites
-    out += Reduce(tlt);
+    doAccum(out, TransLeftTrace(lMr, phi));
 #endif
-  }
-
-  //Vectorized output, no reduce
-  template<typename ComplexType = mf_Complex>
-  inline typename my_enable_if< _equal<ComplexType, Grid::vComplexD>::value, void >::type
-  operator()(Grid::vComplexD &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
-    this->spinColorContract(lMr,l,r);
-    
-    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrixGeneral<ComplexType> phi;
-    src.siteFmat(phi,p);
-    phi.pl(sigma);
-    out += TransLeftTrace(lMr, phi);
-#endif
-  }
-  
+  }  
 #endif
 
   //std::complex multi source
@@ -303,9 +298,9 @@ public:
   }
 
 #ifdef USE_GRID
-  template<typename ComplexType = mf_Complex>
+  template<typename AccumVtype, typename ComplexType = mf_Complex>
   inline typename my_enable_if< _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
-  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  operator()(std::vector<AccumVtype> &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
@@ -325,6 +320,9 @@ public:
   SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src):
     GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >(_sigma,_src){}
 };
+
+
+
 
 
 
@@ -350,20 +348,22 @@ struct _siteFmatRecurseShiftStd<SourceType,0,Idx>{
 #ifdef USE_GRID
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseShiftGrid{
-  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
+
+  template<typename AccumVtype>
+  static inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
     FlavorMatrixGeneral<mf_Complex> phi;
     for(int i=0;i<shifted_sources.size();i++){
       shifted_sources[i]->template getSource<Idx>().siteFmat(phi,p);
       phi.pl(sigma);
-      mf_Complex tlt = TransLeftTrace(lMr, phi);
-      into[Idx+SourceType::nSources*i] += Reduce(tlt);
+      doAccum(into[Idx+SourceType::nSources*i], TransLeftTrace(lMr, phi));
     }
     _siteFmatRecurseShiftGrid<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,shifted_sources,sigma,p,lMr);
   }
 };
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseShiftGrid<SourceType,mf_Complex,0,Idx>{
-  static inline void doit(std::vector<std::complex<double> > &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
+  template<typename AccumVtype>
+  static inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
 #endif
 
@@ -429,8 +429,6 @@ public:
       shiftSource(*shifted_sources[i], shifts[i]);
     }    
   }
-  
-
 
   //std::complex single source. output vector indexed by src shift index
 #define CONDITION _equal<typename ComplexClassify<ComplexType>::type,complex_double_or_float_mark>::value && !has_enum_nSources<S>::value
@@ -472,30 +470,29 @@ public:
   //Grid SIMD complex single src. output vector indexed by src shift index
 #define CONDITION _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value && !has_enum_nSources<S>::value
   
-  template<typename ComplexType = mf_Complex, typename S = SourceType>
+  template<typename AccumVtype, typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
-  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  operator()(AccumVtype &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr;
     this->spinColorContract(lMr,l,r);
 
     FlavorMatrixGeneral<ComplexType> phi;
-    ComplexType tmp;
     for(int i=0;i<shifts.size();i++){
       shifted_sources[i]->siteFmat(phi,p);
       phi.pl(sigma);
-      tmp = TransLeftTrace(lMr, phi);
-      out[i] += Reduce(tmp);
+      doAccum(out[i],TransLeftTrace(lMr, phi));
     }
 #endif
-  }
+  }  
 #undef CONDITION
 
   //Grid SIMD complex multi src. output indexed by source_idx + nSources*shift_idx
 #define CONDITION _equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value && has_enum_nSources<S>::value
-  template<typename ComplexType = mf_Complex, typename S = SourceType>
+  
+  template<typename AccumVtype, typename ComplexType = mf_Complex, typename S = SourceType>
   inline typename my_enable_if<CONDITION, void>::type
-  operator()(std::vector< std::complex<double> > &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  operator()(AccumVtype &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<ComplexType> lMr;
     this->spinColorContract(lMr,l,r);

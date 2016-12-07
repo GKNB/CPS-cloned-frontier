@@ -62,35 +62,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 
 //Compute meson fields for all timeslices. This version is more efficient on multi-nodes
-
-template<typename mf_Element, typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy{};
-
-//Single src
-template<typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy< cps::ComplexD, InnerProduct, FieldSiteType>{
-  static inline void accumulate(cps::ComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
-    M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
-  }
-};
-//For multi-src
-template<typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy< std::vector<cps::ComplexD>, InnerProduct, FieldSiteType>{
-  static inline void accumulate(std::vector<cps::ComplexD> &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
-    M(mf_accum,lscf,rscf,p_3d,t);
-  }
-};
-//Single src vectorized output
-#ifdef USE_GRID
-template<typename InnerProduct, typename FieldSiteType>
-struct mf_Element_policy< Grid::vComplexD, InnerProduct, FieldSiteType>{
-  static inline void accumulate(Grid::vComplexD &mf_accum, const InnerProduct &M, const SCFvectorPtr<FieldSiteType> &lscf, const SCFvectorPtr<FieldSiteType> &rscf, const int p_3d, const int t){
-    M(mf_accum,lscf,rscf,p_3d,t); //produces double precision output by spec
-  }
-};
-#endif
-
-
 #ifdef AVX512
 CPS_END_NAMESPACE
 #include<simd/Intel512common.h>
@@ -173,8 +144,6 @@ public:
 			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
 			  const std::vector<std::pair<int,int> > &site_offsets_i,
 			  const std::vector<std::pair<int,int> > &site_offsets_j){
-    typedef mf_Element_policy<mf_Element,InnerProduct,typename mf_Policies::FermionFieldType::FieldSiteType> mfElementPolicy;
-
     for(int i = i0; i < iup; i++){	      
       for(int j = j0; j < jup; j++) {		
 	
@@ -194,7 +163,7 @@ public:
 
 	  //prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
 
-	  mfElementPolicy::accumulate(mf_accum, M, lscf, rscf, p_3d, t);
+	  M(mf_accum,lscf,rscf,p_3d,t);	 
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
 	  //++iter;
@@ -313,9 +282,8 @@ struct MultiSrcVectorPolicies{
 };
 
 
-
-//Single src vectorized with delayed reduction
 #ifdef USE_GRID
+//Single src vectorized with delayed reduction
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct SingleSrcVectorPoliciesSIMD{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
@@ -348,6 +316,67 @@ struct SingleSrcVectorPoliciesSIMD{
   static inline void printElement(const mf_Element &e){
   }
 };
+
+
+//Multisrc with delayed reduction
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
+struct MultiSrcVectorPoliciesSIMD{
+  int mfPerTimeSlice;
+  
+  typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
+  typedef Grid::Vector<Grid::vComplexD> mf_Element;
+  typedef std::vector<mf_Element> mf_Element_Vector;
+  
+  inline void setupPolicy(const InnerProduct &M){
+    mfPerTimeSlice = M.mfPerTimeSlice();
+  }
+  
+  inline void initializeElement(mf_Element &e){
+    e.resize(mfPerTimeSlice);
+    for(int i=0;i<mfPerTimeSlice;i++) zeroit(e[i]);
+  }
+  void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
+    if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
+    for(int s=0;s<mfPerTimeSlice;s++){
+      mf_st[s]->resize(Lt);
+      for(int t=0;t<Lt;t++) 
+	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
+	else{
+	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  mf_st[s]->operator[](t).zero();
+	}
+    }
+  }
+  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
+    mf_Element tmp(mfPerTimeSlice);
+    for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0][i][j][s];
+
+    for(int thr=1;thr<nthread;thr++)
+      for(int s=0;s<mfPerTimeSlice;s++)
+    	tmp[s] += mf_accum_thr[thr][i][j][s];
+
+    for(int s=0;s<mfPerTimeSlice;s++)
+      mf_st[s]->operator[](t)(i,j) += Reduce(tmp[s]);    
+  }
+
+  //Used to get information about rows and cols
+  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t) const{
+    return mf_st[0]->operator[](t);
+  }
+  inline void nodeSum(mfVectorType &mf_st, const int Lt) const{
+    for(int s=0;s<mfPerTimeSlice;s++)
+      for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
+  }
+  inline void printElement(const mf_Element &e) const{
+    //for(int i=0;i<mfPerTimeSlice;i++) std::cout << i << ":(" << e[i].real() << "," << e[i].imag() << ") ";
+  }
+};
+
+
+
+
+
+
 #endif
 
 
@@ -497,13 +526,31 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
 
 
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator, typename ComplexClass>
+struct _choose_vector_policies{};
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
+struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,complex_double_or_float_mark>{
+  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPolicies;
+  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
+};
+
+#ifdef USE_GRID
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
+struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,grid_vector_complex_mark>{
+  typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPolicies;
+  //typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
+  typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPolicies;
+};
+#endif
+
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPolicies;
+  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::SingleSrcVectorPolicies VectorPolicies;  
   mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_t,l,M,r,do_setup);
 }
@@ -513,7 +560,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 template<typename InnerProduct, typename Allocator>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st,
 							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPolicies;
+  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::MultiSrcVectorPolicies VectorPolicies;  
   mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
   cg.compute(mf_st,l,M,r,do_setup);
 }
