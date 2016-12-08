@@ -1,15 +1,13 @@
 #ifndef _COMPUTE_KTOPIPI_H
 #define _COMPUTE_KTOPIPI_H
 
-#include<alg/a2a/fmatrix.h>
-#include<alg/a2a/required_momenta.h>
 #include<alg/a2a/compute_ktopipi_base.h>
-#include<alg/a2a/mf_productstore.h>
+#include<alg/a2a/mf_momcontainer.h>
 #include<alg/a2a/mesonfield_mult_vMv_split.h>
 #include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
-
-#include<memory>
-#include <algorithm>
+#include<alg/a2a/required_momenta.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_productstore.h>
 
 CPS_START_NAMESPACE
 

@@ -2,6 +2,7 @@
 #define _A2A_POLICIES_H
 
 #include<alg/a2a/a2a_allocpolicies.h>
+#include<alg/a2a/CPSfield.h>
 
 CPS_START_NAMESPACE
 

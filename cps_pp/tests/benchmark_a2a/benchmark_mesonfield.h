@@ -1,6 +1,37 @@
 #ifndef _BENCHMARK_MESONFIELD_H
 #define _BENCHMARK_MESONFIELD_H
 
+#ifdef USE_CALLGRIND
+#include<valgrind/callgrind.h>
+#else
+#define CALLGRIND_START_INSTRUMENTATION ;
+#define CALLGRIND_STOP_INSTRUMENTATION ;
+#define CALLGRIND_TOGGLE_COLLECT ;
+#endif
+
+#ifdef USE_VTUNE
+#include<ittnotify.h>
+#else
+void __itt_pause(){}
+void __itt_resume(){}
+void __itt_detach(){}
+#endif
+
+//bfm headers
+#ifdef USE_BFM
+#include<bfm.h>
+#include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
+#include<util/lattice/bfm_evo.h>
+#endif
+
+#include<alg/a2a/compute_ktopipi_base.h>
+#include<alg/a2a/a2a.h>
+#include<alg/fix_gauge_arg.h>
+#include<alg/alg_fix_gauge.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mesonfield_mult_vMv_split.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
+
 CPS_START_NAMESPACE
 
 inline int toInt(const char* a){

@@ -2,28 +2,26 @@
 #define CK_A2A
 
 #include<util/lattice.h>
+#include<util/time_cps.h>
 
 #ifdef USE_GRID
-#include <util/lattice/fgrid.h>
+#include<util/lattice/fgrid.h>
 #endif
 
 #ifdef USE_BFM
 #include<util/lattice/bfm_mixed_solver.h>
-#include <util/lattice/bfm_evo.h>
-#include <alg/eigen/Krylov_5d.h>
+#include<util/lattice/bfm_evo.h>
+#include<alg/eigen/Krylov_5d.h>
 #endif
 
-#include<alg/a2a/CPSfield.h>
-#include<alg/a2a/CPSfield_utils.h>
-#include<alg/a2a/scfvectorptr.h>
-#include<alg/a2a/utils.h>
-
-#include<alg/a2a/a2a_params.h>
 #include<alg/a2a/a2a_dilutions.h>
-#include<alg/a2a/field_operation.h>
 #include<alg/a2a/a2a_policies.h>
+#include<alg/a2a/field_operation.h>
+#include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/evec_interface.h>
+#include<alg/a2a/CPSfield_utils.h>
 #include<alg/a2a/grid_cgne_m_high.h>
+
 CPS_START_NAMESPACE 
 
 //If using SIMD, we don't want to vectorize across the time direction

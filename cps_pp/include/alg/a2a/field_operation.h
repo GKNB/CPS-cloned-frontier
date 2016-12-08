@@ -1,6 +1,8 @@
 #ifndef _FIELD_OPERATION_H
 #define _FIELD_OPERATION_H
 
+#include<util/lattice.h>
+
 CPS_START_NAMESPACE
 
 //Perform some operation on a field

@@ -1,6 +1,8 @@
 #ifndef _MESONFIELD_CONTROLS_H
 #define _MESONFIELD_CONTROLS_H
 
+#include<config.h>
+
 CPS_START_NAMESPACE
 
 //Basic tunings performed on laptop (i7-4700mq 1 thread per core)

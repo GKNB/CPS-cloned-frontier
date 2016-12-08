@@ -417,8 +417,6 @@ private:
     }
   }
 public:
-  enum { FieldSiteSize = 12 };
-	 
   template<typename FloatExt>
   void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
     impexFermion<FloatExt>(const_cast<Fermion_t>(bfm_field), cb, 1, dwf);

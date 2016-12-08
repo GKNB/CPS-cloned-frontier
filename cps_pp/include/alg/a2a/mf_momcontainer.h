@@ -2,6 +2,9 @@
 #define _PIPI_MFCONTAINER_H
 
 #include<alg/a2a/threemomentum.h>
+#include<alg/a2a/a2a.h>
+#include<alg/a2a/mesonfield.h>
+
 CPS_START_NAMESPACE
 
 //We must construct meson fields with a number of different total momenta. This class holds the fields and allows access in a flexible and transparent manner

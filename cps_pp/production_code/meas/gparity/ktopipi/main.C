@@ -11,56 +11,18 @@
 
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
-//bfm headers
-#ifdef USE_BFM
-#include<chroma.h>
-#include<bfm.h>
-#include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
-#include<util/lattice/bfm_evo.h>
-#endif
-
-//cps headers
-#include<alg/common_arg.h>
-#include<alg/fix_gauge_arg.h>
-#include<alg/do_arg.h>
-#include<alg/meas_arg.h>
-#include<alg/a2a_arg.h>
-#include<alg/lanc_arg.h>
-#include<alg/ktopipi_jobparams.h>
-#include<util/qioarg.h>
-#include<util/ReadLatticePar.h>
 #include<alg/alg_fix_gauge.h>
-#include<util/flavormatrix.h>
-#include<alg/wilson_matrix.h>
-#include<util/spincolorflavormatrix.h>
-
-#if defined(USE_GRID) && !defined(DISABLE_GRID_A2A)
-#include<util/lattice/fgrid.h>
-#endif
-
-#ifdef USE_MPI
-//mpi headers
-#warning "WARNING : USING MPI"
-#include<mpi.h>
-#endif
-
-//c++ classes
-#include<sys/stat.h>
-#include<unistd.h>
-
-#ifdef USE_BFM
-using namespace Chroma;
-#endif
-using namespace cps;
-
-#include <alg/a2a/a2a.h>
-#include <alg/a2a/mesonfield.h>
+#include <alg/a2a/main.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
 #include <alg/a2a/compute_sigma.h>
 #include <alg/a2a/compute_pipi.h>
 #include <alg/a2a/compute_ktopipi.h>
-#include <alg/a2a/main.h>
+
+
+using namespace cps;
+
+
 
 #ifdef USE_DESTRUCTIVE_FFT
 

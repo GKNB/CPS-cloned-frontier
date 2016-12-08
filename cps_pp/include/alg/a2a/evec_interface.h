@@ -1,9 +1,13 @@
 #ifndef _EVEC_INTERFACE_H
 #define _EVEC_INTERFACE_H
+#ifdef USE_GRID
+
+#include<config.h>
+#include<precision.h>
+#include<Grid/Grid.h>
 
 CPS_START_NAMESPACE
 
-#ifdef USE_GRID
 //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos
 template<typename GridPolicies>
 class EvecInterface{
@@ -23,7 +27,7 @@ class EvecInterface{
 
 #include <alg/a2a/evec_interface_impl.tcc>
 
-#endif
-
 CPS_END_NAMESPACE
+
+#endif
 #endif

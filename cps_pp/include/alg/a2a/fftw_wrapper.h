@@ -1,6 +1,8 @@
 #ifndef FFTW_WRAPPER
 #define FFTW_WRAPPER
 
+#include<config.h>
+
 //#ifdef USE_FFTW
 #include <fftw3.h>
 //#endif

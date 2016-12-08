@@ -1,9 +1,9 @@
 #ifndef _COMPUTE_KTOPIPI_BASE
 #define _COMPUTE_KTOPIPI_BASE
 
-#include<alg/a2a/fmatrix.h>
 #include<alg/a2a/spin_color_matrices.h>
-#include<cassert>
+#include<alg/a2a/fmatrix.h>
+
 CPS_START_NAMESPACE
 
 //Results containers and other helper classes for K->pipi

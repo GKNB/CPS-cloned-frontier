@@ -1,75 +1,9 @@
-//#define USE_GRID
 #define USE_GRID_A2A
 #define USE_GRID_LANCZOS
-#include<chroma.h>
-
-#ifdef USE_CALLGRIND
-#include<valgrind/callgrind.h>
-#else
-#define CALLGRIND_START_INSTRUMENTATION ;
-#define CALLGRIND_STOP_INSTRUMENTATION ;
-#define CALLGRIND_TOGGLE_COLLECT ;
-#endif
-
-#ifdef USE_VTUNE
-#include<ittnotify.h>
-#else
-void __itt_pause(){}
-void __itt_resume(){}
-void __itt_detach(){}
-#endif
-
-//bfm headers
-#ifdef USE_BFM
-#include<bfm.h>
-#include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
-#include<util/lattice/bfm_evo.h>
-#endif
-
-//cps headers
-#include<util/time_cps.h>
-#include<alg/common_arg.h>
-#include<alg/fix_gauge_arg.h>
-#include<alg/do_arg.h>
-#include<alg/meas_arg.h>
-#include<alg/a2a_arg.h>
-#include<alg/lanc_arg.h>
-#include<alg/ktopipi_jobparams.h>
-#include<util/qioarg.h>
-#include<util/ReadLatticePar.h>
-#include<alg/alg_fix_gauge.h>
-#include<util/flavormatrix.h>
-#include<alg/wilson_matrix.h>
-#include<util/spincolorflavormatrix.h>
-
-
-#if defined(USE_GRID) && !defined(DISABLE_GRID_A2A)
-#include<util/lattice/fgrid.h>
-#endif
-
-#ifdef USE_MPI
-//mpi headers
-#warning "WARNING : USING MPI"
-#include<mpi.h>
-#endif
-
-//c++ classes
-#include<sys/stat.h>
-#include<unistd.h>
-
-//using namespace Chroma;
-using namespace cps;
-
-#include <alg/a2a/template_wizardry.h>
-#include <alg/a2a/spin_color_matrices.h>
-#include <alg/a2a/a2a.h>
-#include <alg/a2a/mesonfield.h>
-#include <alg/a2a/compute_ktopipi_base.h>
-#include <alg/a2a/mesonfield_mult_vMv_split.h>
-#include <alg/a2a/mesonfield_mult_vMv_split_grid.h>
-
 
 #include "benchmark_mesonfield.h"
+
+using namespace cps;
 
 typedef A2ApoliciesSIMDdoubleAutoAlloc GridA2Apolicies;
 typedef A2ApoliciesDoubleAutoAlloc ScalarA2Apolicies;
@@ -277,3 +211,6 @@ int main(int argc,char *argv[])
   
   return 0;
 }
+
+
+

@@ -1,10 +1,7 @@
 #ifndef _CK_INNER_PRODUCT_H
 #define _CK_INNER_PRODUCT_H
 
-#include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/a2a_sources.h>
-#include<alg/a2a/gsl_wrapper.h>
-#include<alg/a2a/conj_zmul.h>
 #include<alg/a2a/inner_product_spincolorcontract.h>
 #include<alg/a2a/inner_product_fmatspincolorcontract.h>
 

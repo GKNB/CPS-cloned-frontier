@@ -3,6 +3,7 @@
 
 //These are alternatives to Matrix, WilsonMatrix, SpinColorFlavorMatrix
 #include<util/flavormatrix.h>
+#include<alg/a2a/template_wizardry.h>
 
 CPS_START_NAMESPACE
 

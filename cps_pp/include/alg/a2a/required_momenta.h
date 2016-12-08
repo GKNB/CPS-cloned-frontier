@@ -1,6 +1,7 @@
 #ifndef _REQUIRED_MOMENTA_H
 #define _REQUIRED_MOMENTA_H
 
+#include<vector>
 #include<alg/a2a/threemomentum.h>
 
 CPS_START_NAMESPACE

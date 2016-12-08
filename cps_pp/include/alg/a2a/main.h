@@ -1,8 +1,10 @@
 #ifndef _MAIN_CK_H
 #define _MAIN_CK_H
 
-#include <util/time_cps.h>
+#include<alg/meas_arg.h>
+#include<alg/ktopipi_jobparams.h>
 #include <alg/a2a/grid_lanczos.h>
+#include <alg/a2a/a2a.h>
 
 //Useful functions for main programs
 CPS_START_NAMESPACE

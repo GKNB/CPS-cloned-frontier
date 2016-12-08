@@ -1,6 +1,8 @@
 #ifndef _A2A_ALLOC_POLICIES_H
 #define _A2A_ALLOC_POLICIES_H
 
+#include<alg/a2a/utils.h>
+
 CPS_START_NAMESPACE
 
 template< typename mf_Policies> class A2AvectorV;

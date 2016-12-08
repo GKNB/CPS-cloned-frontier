@@ -1,9 +1,17 @@
 #ifndef CK_A2A_UTILS
 #define CK_A2A_UTILS
 
+#include <cassert>
+#include <vector>
+
+#include <alg/fix_gauge_arg.h>
 #include <alg/a2a/gsl_wrapper.h>
 #include <alg/a2a/template_wizardry.h>
 #include <util/spincolorflavormatrix.h>
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 
 CPS_START_NAMESPACE
 

@@ -1,3 +1,8 @@
+#if defined(USE_GRID) && defined(AVX512)
+
+#ifndef _INNER_PRODUCT_AVX512_H
+#define _INNER_PRODUCT_AVX512_H
+
 #include<simd/Intel512common.h>
 
 CPS_START_NAMESPACE
@@ -525,3 +530,6 @@ __attribute__((noinline)) __m512d gunitd_conjl_r_asm_avx512(__m512d const*l, __m
 
 
 CPS_END_NAMESPACE
+
+#endif
+#endif

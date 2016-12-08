@@ -2,6 +2,9 @@
 #define _INNER_PRODUCT_SPINCOLOR_CONTRACT
 
 #include<alg/a2a/inner_product_grid.h>
+#include<alg/a2a/inner_product_avx512.h>
+#include<alg/a2a/conj_zmul.h>
+#include<alg/a2a/template_wizardry.h>
 
 #ifdef USE_GRID
 #define USE_GRID_SCCON //switch on inner_product_grid code
@@ -130,10 +133,7 @@ public:
 
 
 //Hand-optimized AVX512 kernel
-#ifdef AVX512
-CPS_END_NAMESPACE
-#include<alg/a2a/inner_product_avx512.h>
-CPS_START_NAMESPACE
+# ifdef AVX512
 
 template<>
 class GridVectorizedSpinColorContract<Grid::vComplexD,true,false>{
@@ -150,7 +150,7 @@ public:
   }
 };
 
-#endif //AVX512
+# endif //AVX512
 
 template<int smatidx,typename vComplexType, bool conj_left, bool conj_right>
 struct GridVectorizedSpinColorContractSelect{};

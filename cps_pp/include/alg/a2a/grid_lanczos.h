@@ -2,7 +2,10 @@
 #define _A2A_GRID_LANCZOS_H
 
 #ifdef USE_GRID
+#include<util/time_cps.h>
 #include<util/lattice/fgrid.h>
+#include<alg/lanc_arg.h>
+#include<alg/a2a/CPSfield.h>
 
 CPS_START_NAMESPACE
 

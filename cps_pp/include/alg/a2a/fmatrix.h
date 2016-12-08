@@ -1,7 +1,13 @@
 #ifndef _FMATRIX_H
 #define _FMATRIX_H
 
+#include<string>
+#include<util/gjp.h>
+#include<util/qcdio.h>
+
 CPS_START_NAMESPACE
+
+class StandardAllocPolicy;
 
 template<typename T>
 class basicMatrix{

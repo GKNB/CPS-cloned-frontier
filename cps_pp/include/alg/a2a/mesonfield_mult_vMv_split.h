@@ -1,6 +1,8 @@
 #ifndef _MULT_VMV_SPLIT_H
 #define _MULT_VMV_SPLIT_H
 
+#include<alg/a2a/mesonfield.h>
+
 CPS_START_NAMESPACE
 
 //Try to save memory at the cost of some performance

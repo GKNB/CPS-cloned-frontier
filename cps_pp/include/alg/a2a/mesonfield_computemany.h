@@ -3,7 +3,6 @@
 #ifndef _MESONFIELD_COMPUTE_MANY_H
 #define _MESONFIELD_COMPUTE_MANY_H
 
-#include<alg/a2a/threemomentum.h>
 #include<alg/a2a/mesonfield_computemany_storagetypes.h>
 CPS_START_NAMESPACE
 

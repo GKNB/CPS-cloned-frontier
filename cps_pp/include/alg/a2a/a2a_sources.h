@@ -1,6 +1,9 @@
 #ifndef _A2A_SOURCES_H
 #define _A2A_SOURCES_H
 
+#include<alg/a2a/CPSfield.h>
+#include<alg/a2a/a2a_policies.h>
+
 CPS_START_NAMESPACE
 
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity

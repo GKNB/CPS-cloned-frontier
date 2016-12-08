@@ -3,6 +3,7 @@
 
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/mesonfield_computemany.h>
+#include<alg/a2a/inner_product.h>
 
 //Compute stationary kaon two-point function with and without GPBC
 CPS_START_NAMESPACE

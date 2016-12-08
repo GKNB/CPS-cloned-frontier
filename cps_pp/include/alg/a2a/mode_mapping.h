@@ -1,6 +1,9 @@
 #ifndef _MODE_MAPPING_H
 #define _MODE_MAPPING_H
 
+#include<alg/a2a/a2a_dilutions.h>
+#include<alg/a2a/utils.h>
+
 CPS_START_NAMESPACE
 
 //As we dilute we unpack in the following order: spincolor , flavor, time. We assign these indices  spincolor=3, flavor=2, time=1

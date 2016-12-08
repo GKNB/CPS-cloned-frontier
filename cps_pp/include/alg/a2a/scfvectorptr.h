@@ -1,6 +1,11 @@
 #ifndef _SCF_VECTOR_PTR_H
 #define _SCF_VECTOR_PTR_H
 
+#include<utility>
+#include<config.h>
+
+CPS_START_NAMESPACE
+
 //A class that hides away the pointer arithmetic for a spin-color-flavor vector
 //ComplexType is the basic type of each element of the vectors. Usually std::complex<double> or same for float
 template<typename ComplexType>
@@ -51,6 +56,6 @@ public:
 };
 
 
-
+CPS_END_NAMESPACE
 
 #endif

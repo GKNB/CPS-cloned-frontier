@@ -1,6 +1,10 @@
 #ifndef _A2A_PARAMS_H
 #define _A2A_PARAMS_H
 
+#include<alg/a2a_arg.h>
+#include<string>
+#include<sstream>
+
 CPS_START_NAMESPACE
 
 class A2Aparams{

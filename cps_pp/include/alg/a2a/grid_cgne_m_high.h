@@ -3,6 +3,8 @@
 
 #ifdef USE_GRID
 #include<util/lattice/fgrid.h>
+#include<alg/a2a/evec_interface.h>
+
 CPS_START_NAMESPACE
 
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.

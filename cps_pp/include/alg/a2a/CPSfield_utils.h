@@ -1,6 +1,8 @@
 #ifndef CPS_FIELD_UTILS_H
 #define CPS_FIELD_UTILS_H
 
+#include<alg/a2a/CPSfield.h>
+
 CPS_START_NAMESPACE
 
 inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<ComplexD> &B, const std::string &descr = "Ferms", const double tol = 1e-9){

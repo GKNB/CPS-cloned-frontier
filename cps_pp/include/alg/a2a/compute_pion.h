@@ -1,9 +1,10 @@
 #ifndef _COMPUTE_PION_H
 #define _COMPUTE_PION_H
 
-#include<memory>
-#include<alg/a2a/mf_momcontainer.h>
+#include<alg/a2a/required_momenta.h>
 #include<alg/a2a/mesonfield_computemany.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_momcontainer.h>
 
 CPS_START_NAMESPACE
 

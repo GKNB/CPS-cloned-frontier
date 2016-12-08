@@ -1,6 +1,8 @@
 #ifndef _THREEMOMENTUM_H
 #define _THREEMOMENTUM_H
 
+#include<util/gjp.h>
+
 CPS_START_NAMESPACE
 
 class ThreeMomentum{

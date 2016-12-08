@@ -3,6 +3,9 @@
 #ifndef _CONJ_ZMUL
 #define _CONJ_ZMUL
 
+#include<config.h>
+#include<complex>
+
 CPS_START_NAMESPACE
 
 //For std::complex types

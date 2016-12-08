@@ -1,14 +1,14 @@
 #ifndef _CK_MESON_FIELD
 #define _CK_MESON_FIELD
 
-#include<alg/a2a/inner_product.h>
-#include<alg/a2a/fmatrix.h>
+#include<set>
+#include<util/time_cps.h>
+#include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/mode_contraction_indices.h>
 #include<alg/a2a/spin_color_matrices.h>
-#include<gsl/gsl_blas.h>
-#include<alg/a2a/gsl_wrapper.h>
+#include<alg/a2a/a2a_dilutions.h>
+#include<alg/a2a/CPSfield.h>
 #include<alg/a2a/mesonfield_controls.h>
-#include<set>
 
 CPS_START_NAMESPACE
 

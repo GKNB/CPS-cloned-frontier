@@ -3,6 +3,8 @@
 
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/mesonfield_computemany.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_momcontainer.h>
 
 //Compute stationary sigma meson two-point function with and without GPBC
 CPS_START_NAMESPACE

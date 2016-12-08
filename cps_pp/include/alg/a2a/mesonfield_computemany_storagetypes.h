@@ -1,6 +1,10 @@
 #ifndef _MESONFIELD_COMPUTEMANY_STORAGETYPES_H
 #define _MESONFIELD_COMPUTEMANY_STORAGETYPES_H
 
+#include<alg/a2a/threemomentum.h>
+#include<alg/a2a/a2a_sources.h>
+#include<alg/a2a/mesonfield.h>
+
 CPS_START_NAMESPACE
 
 struct computeParams{
