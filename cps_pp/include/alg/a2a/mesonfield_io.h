@@ -66,8 +66,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &fi
 
   write(file,fileformat);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
 }  
   
 //ostream pointer should only be open on node 0 - should be NULL otherwise
@@ -80,15 +82,23 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     assert(!file_ptr->fail());
     file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
   }
-    
+
+#ifdef USE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  
   if(node_mpi_rank != -1){
+#ifdef USE_MPI    
     int my_rank;
     int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","write","Comm_rank failed\n");
     
     if(!UniqueID() && node_mpi_rank != my_rank)
       ERR.General("A2AmesonField","write","Mesonfield must be present on head node\n");
+#else
+    ERR.General("A2AmesonField","write","Mesonfield must be present on head node (no mpi)\n");
+#endif
+    
   }
 
   if(!UniqueID()){
@@ -170,7 +180,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     file << "\nEND_DATA\n";
     free(wbuf);
   }
+
+#ifdef USE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
+#endif
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -180,8 +193,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
     
   read(file);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
 }
 
 //istream pointer should only be open on node 0 - should be NULL otherwise
@@ -194,10 +209,13 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     assert(!file_ptr->fail());
     file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
   }
-    
+#ifdef USE_MPI
   int my_mpi_rank = getMyMPIrank(); //Get this node's mpi rank  
   int head_mpi_rank = getHeadMPIrank(); //Broadcast to all nodes the mpi rank of the head node (UniqueID() == 0)
-
+#else
+  if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","read","Parallel implementation requires MPI\n");
+#endif
+  
   int read_fsize;
   unsigned int checksum;
 
@@ -244,6 +262,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 
     getline(file,str); assert(str == "END_PARAMS");
   }
+#ifdef USE_MPI  
   MPI_Barrier(MPI_COMM_WORLD);
   
   //Squirt A2Aparams and whatnot over to other nodes for data setup
@@ -276,7 +295,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 
   ret = MPI_Bcast(a2aparams_r_buf, a2aparams_r_buflen, MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Squirt 8 fail\n");
-
+#endif
+  
   //Every node parse the params buffers
   A2AArg read_a2a_args_l, read_a2a_args_r;
   {
@@ -345,9 +365,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
   }
 
   //Broadcast data
+#ifdef USE_MPI
   ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read","Squirt data fail\n");
-
+#endif
+  
   //Every node do the checksum
   FPConv conv;
   FP_FORMAT dataformat = FPformat<ScalarComplexType>::get();
@@ -360,13 +382,18 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat){
+  Float dtime = -dclock();
   if(!UniqueID()) printf("Writing meson-field vector of size %d to file %s\n",mfs.size(),filename.c_str());
   std::ofstream *file = !UniqueID() ? new std::ofstream(filename.c_str(),std::ofstream::out) : NULL;
 
   write(file,mfs,fileformat);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
+    
+  print_time("A2AmesonField","write Lt meson fields",dclock()+dtime);
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -398,8 +425,11 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(const std::string &fil
 
   read(file,mfs);
 
-  if(!UniqueID())
+  if(!UniqueID()){
     file->close();
+    delete file;
+  }
+    
 }
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
@@ -411,9 +441,12 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     assert(!file_ptr->fail());
     file_ptr->exceptions ( std::ofstream::failbit | std::ofstream::badbit );
   }
-
+#ifdef USE_MPI
   int my_mpi_rank = getMyMPIrank(); //Get this node's mpi rank  
   int head_mpi_rank = getHeadMPIrank(); //Broadcast to all nodes the mpi rank of the head node (UniqueID() == 0)
+#else
+  if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","read(std::istream *, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &)","Parallel implementation requires MPI\n");
+#endif
   
   int vsize;
   if(!UniqueID()){
@@ -424,9 +457,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     getline(*file_ptr,str); assert(str == "END_MESONFIELD_VECTOR_HEADER");
     getline(*file_ptr,str); assert(str == "BEGIN_MESONFIELD_VECTOR_CONTENTS");
   }
+#ifdef USE_MPI
   int ret = MPI_Bcast(&vsize, 1, MPI_INT, head_mpi_rank, MPI_COMM_WORLD);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","read(vector)","Squirt 1 fail\n");
-
+#endif
   mfs.resize(vsize);
   for(int i=0;i<vsize;i++)
     mfs[i].read(file_ptr);

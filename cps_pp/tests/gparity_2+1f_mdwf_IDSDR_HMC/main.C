@@ -109,72 +109,80 @@ char * strconcat(char *a,char*b){
 
 void init_bfm(int *argc, char **argv[])
 {
-    Chroma::initialize(argc, argv);
-    multi1d<int> nrow(Nd);
+  cps_qdp_init(argc,argv);
+  Chroma::initialize(argc, argv);
+  multi1d<int> nrow(Nd);
 
-    for(int i = 0; i< Nd; ++i)
-        nrow[i] = GJP.Sites(i);
+  for(int i = 0; i< Nd; ++i)
+    nrow[i] = GJP.Sites(i);
 
-    Layout::setLattSize(nrow);
-    Layout::create();
+  Layout::setLattSize(nrow);
+  Layout::create();
 
-    //Set for Mobius fermions
-    Fbfm::bfm_arg.solver = HmCayleyTanh;
-    Fbfm::bfm_arg.precon_5d = 0;
+  Fbfm::current_arg_idx = 0;
+  bfmarg &bfm_arg = Fbfm::bfm_args[0];
+    
+  //Set for Mobius fermions
+  bfm_arg.solver = HmCayleyTanh;
+  bfm_arg.precon_5d = 0;
 
-    // mixed-precision CG *based on environment variable*, *true by default*
-    char* use_mixed_solver_env = getenv( "use_mixed_solver" );
-    Fbfm::use_mixed_solver = true;
-    if ( use_mixed_solver_env && strcmp( use_mixed_solver_env, "false" ) == 0 )
-      Fbfm::use_mixed_solver = false;
-    VRB.Result( "cps", "init_bfm", "Fbfm::use_mixed_solver: %d\n", Fbfm::use_mixed_solver );
+  // mixed-precision CG *based on environment variable*, *true by default*
+  char* use_mixed_solver_env = getenv( "use_mixed_solver" );
+  Fbfm::use_mixed_solver = true;
+  if ( use_mixed_solver_env && strcmp( use_mixed_solver_env, "false" ) == 0 )
+    Fbfm::use_mixed_solver = false;
+  VRB.Result( "cps", "init_bfm", "Fbfm::use_mixed_solver: %d\n", Fbfm::use_mixed_solver );
 
-    Fbfm::bfm_arg.Ls = GJP.SnodeSites();
-    Fbfm::bfm_arg.M5 = GJP.DwfHeight();
-    Fbfm::bfm_arg.mass = 0.1;
-    Fbfm::bfm_arg.residual = 1e-8;
-    Fbfm::bfm_arg.max_iter = 10000;
-    Fbfm::bfm_arg.Csw = 0.0;
+  bfm_arg.Ls = GJP.SnodeSites();
+  bfm_arg.M5 = GJP.DwfHeight();
+  bfm_arg.mass = 0.1;
+  bfm_arg.residual = 1e-8;
+  bfm_arg.max_iter = 10000;
+  bfm_arg.Csw = 0.0;
 
-    Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
-    Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
-    Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
-    Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+  bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+  bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+  bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+  bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
 
-    multi1d<int> procs = QDP::Layout::logicalSize();
-    multi1d<int> ncoor = QDP::Layout::nodeCoord();
+  multi1d<int> procs = QDP::Layout::logicalSize();
+  multi1d<int> ncoor = QDP::Layout::nodeCoord();
 
-    for(int i=0;i<4;i++) Fbfm::bfm_arg.ncoor[i] = ncoor[i];
+  for(int i=0;i<4;i++) bfm_arg.ncoor[i] = ncoor[i];
 
-    Fbfm::bfm_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
-    Fbfm::bfm_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
-    Fbfm::bfm_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
-    Fbfm::bfm_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
+  bfm_arg.local_comm[0] = procs[0] > 1 ? 0 : 1;
+  bfm_arg.local_comm[1] = procs[1] > 1 ? 0 : 1;
+  bfm_arg.local_comm[2] = procs[2] > 1 ? 0 : 1;
+  bfm_arg.local_comm[3] = procs[3] > 1 ? 0 : 1;
 
-    if(GJP.Gparity()){
-      Fbfm::bfm_arg.gparity = 1;
-      if(!UniqueID()) printf("G-parity directions: ");
-      for(int d=0;d<3;d++)
-	if(GJP.Bc(d) == BND_CND_GPARITY){ Fbfm::bfm_arg.gparity_dir[d] = 1; if(!UniqueID()) printf("%d ",d); }
-	else Fbfm::bfm_arg.gparity_dir[d] = 0;
-      for(int d=0;d<4;d++){
-	Fbfm::bfm_arg.nodes[d] = procs[d];
-      }
-      if(!UniqueID()) printf("\n");
+  if(GJP.Gparity()){
+    bfm_arg.gparity = 1;
+    if(!UniqueID()) printf("G-parity directions: ");
+    for(int d=0;d<3;d++)
+      if(GJP.Bc(d) == BND_CND_GPARITY){ bfm_arg.gparity_dir[d] = 1; if(!UniqueID()) printf("%d ",d); }
+      else bfm_arg.gparity_dir[d] = 0;
+    for(int d=0;d<4;d++){
+      bfm_arg.nodes[d] = procs[d];
     }
+    if(!UniqueID()) printf("\n");
+  }
 
-    // mobius_scale = b + c in Andrew's notation
-    bfmarg::mobius_scale = 2.0;
-
-#if TARGET == BGQ  
-    bfmarg::Threads(64); //32
-#else
-    bfmarg::Threads(1);
+  // mobius_scale = b + c in Andrew's notation
+#ifdef USE_NEW_BFM_GPARITY
+  bfm_arg.mobius_scale = 2.0;
+#else    
+  bfmarg::mobius_scale = 2.0;
 #endif
-    bfmarg::Reproduce(0);
-    bfmarg::ReproduceChecksum(0);
-    bfmarg::ReproduceMasterCheck(0);
-    bfmarg::Verbose(0);
+    
+#if TARGET == BGQ  
+  bfmarg::Threads(64); //32
+#else
+  bfmarg::Threads(1);
+#endif
+  bfmarg::Reproduce(0);
+  bfmarg::ReproduceChecksum(0);
+  bfmarg::ReproduceMasterCheck(0);
+  bfmarg::Verbose(0);
 }
 
 //'results' should have space for 4, i.e. (2*n_masses) floats
@@ -255,10 +263,10 @@ int main(int argc, char *argv[])
 
   int arg0 = CommandLine::arg_as_int(0);
   if(!UniqueID()) printf("Arg0 is %d\n",arg0);
-  if(arg0==0){
+  if(arg0==1){
     gparity_X=true;
     if(!UniqueID()) printf("Doing G-parity HMC test in X direction\n");
-  }else if(arg0==1){
+  }else if(arg0==2){
     if(!UniqueID()) printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
@@ -544,11 +552,13 @@ int main(int argc, char *argv[])
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
 
-	Fbfm::bfm_arg.gparity = 0;
-	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
-	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
-	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
-	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+	bfmarg &bfm_arg = Fbfm::bfm_args[Fbfm::current_arg_idx];
+	
+	bfm_arg.gparity = 0;
+	bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
       }
 #endif
 
@@ -593,11 +603,12 @@ int main(int argc, char *argv[])
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
 
-	Fbfm::bfm_arg.gparity = 1;
-	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
-	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
-	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
-	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+	bfmarg &bfm_arg = Fbfm::bfm_args[Fbfm::current_arg_idx];
+	bfm_arg.gparity = 1;
+	bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
       }
 #endif
 
@@ -750,12 +761,13 @@ int main(int argc, char *argv[])
 	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
-
-	Fbfm::bfm_arg.gparity = 0;
-	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
-	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
-	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
-	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+	
+	bfmarg &bfm_arg = Fbfm::bfm_args[Fbfm::current_arg_idx];
+	bfm_arg.gparity = 0;
+	bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
       }
 #endif
       
@@ -864,12 +876,13 @@ int main(int argc, char *argv[])
 	for(int i = 0;i<Nd;i++) nrow[i] = GJP.Sites(i);
 	QDP::Layout::setLattSize(nrow);
 	QDP::Layout::create();
-
-	Fbfm::bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
-	Fbfm::bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
-	Fbfm::bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
-	Fbfm::bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
-	Fbfm::bfm_arg.gparity = 1;
+	bfmarg &bfm_arg = Fbfm::bfm_args[Fbfm::current_arg_idx];
+	
+	bfm_arg.node_latt[0] = QDP::Layout::subgridLattSize()[0];
+	bfm_arg.node_latt[1] = QDP::Layout::subgridLattSize()[1];
+	bfm_arg.node_latt[2] = QDP::Layout::subgridLattSize()[2];
+	bfm_arg.node_latt[3] = QDP::Layout::subgridLattSize()[3];
+	bfm_arg.gparity = 1;
       }
 #endif
 

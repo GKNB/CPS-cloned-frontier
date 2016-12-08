@@ -53,10 +53,6 @@ public:
 
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
 
-  void nodeSum(){
-    QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
-  }
-
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
@@ -83,9 +79,6 @@ public:
 	 >
   friend class _mult_lr_impl;
 
-  template<typename mfVectorType, typename InnerProduct>
-  friend struct mf_Vector_policies;
-  
 public:
   A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
   }
@@ -132,6 +125,9 @@ public:
     return fsize * sizeof(ScalarComplexType);
   }
 
+  void free_mem(){
+    if(mf!=NULL){ free(mf); mf = NULL; }
+  }
 
   ~A2AmesonField(){
     if(mf!=NULL) free(mf);
@@ -164,6 +160,16 @@ public:
 
 
   ScalarComplexType* ptr(){ return mf; } //Use at your own risk
+
+  void move(A2AmesonField &from){
+    free_mem();
+    nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; 
+    lindexdilution = from.lindexdilution; rindexdilution = from.rindexdilution; 
+    tl = from.tl; tr = from.tr;
+    node_mpi_rank = from.node_mpi_rank;
+    mf = from.mf; fsize = from.fsize; 
+    from.mf = NULL; from.fsize = 0;
+  }
   
   //Size in complex
   inline const int size() const{ return fsize; }
@@ -241,9 +247,13 @@ public:
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
     if(!UniqueID())
       for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+#ifdef USE_MPI
     int head_mpi_rank = getHeadMPIrank();
     int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
-    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");      
+    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");
+#else
+    if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","testRandom","Parallel implementation requires MPI\n");
+#endif
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
@@ -280,6 +290,10 @@ public:
   static void write(std::ostream *file_ptr, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs, FP_FORMAT fileformat = FP_AUTOMATIC);
   static void read(const std::string &filename, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
+
+  void nodeSum(){ //don't call unless you know what you're doing
+    QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
+  }
 };
 
 //Matrix product of meson field pairs

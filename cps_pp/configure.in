@@ -25,25 +25,27 @@ AC_MSG_RESULT($enable_qmp)
 
 dnl Set correct compiler information
 if test "$cross_compiling" = "yes"; then
-   if test "$host" = "powerpc-bgl-blrts-gnu"; then
-     AC_PATH_PROGS(CC, mpicc, ${host_alias}-gcc)
-     AC_PATH_PROGS(CXX, mpicxx, ${host_alias}-g++)
-   elif test "$host" = "powerpc-bgp-linux-gnu"; then
-     AC_PATH_PROGS(CC, mpicc)
-     AC_PATH_PROGS(CXX, mpicxx)
-   elif test "${host_alias}" = "powerpc64-bgq-linux"; then
-     AC_PATH_PROGS(CC, mpicc)
-     AC_PATH_PROGS(CXX, mpicxx)
-   else
-     AC_PATH_PROGS(CC, ${host_alias}-gcc)
-     AC_PATH_PROGS(CXX, ${host_alias}-g++)
-   fi
-   AC_PATH_PROGS(LD, ${host_alias}-ld)
-   AC_PATH_PROGS(AR, ${host_alias}-ar)
-   AC_PATH_PROGS(AS, ${host_alias}-as)
-   if test -z "$CXX" || test -z "$LD" || test -z "$AR" || test -z "$AS"; then
-     echo "Missing required cross-compilation tools"
-     exit 1
+   if test "$host" != "none-none-none"; then
+      if test "$host" = "powerpc-bgl-blrts-gnu"; then
+        AC_PATH_PROGS(CC, mpicc, ${host_alias}-gcc)
+    	AC_PATH_PROGS(CXX, mpicxx, ${host_alias}-g++)
+      elif test "$host" = "powerpc-bgp-linux-gnu"; then
+        AC_PATH_PROGS(CC, mpicc)
+        AC_PATH_PROGS(CXX, mpicxx)
+      elif test "${host_alias}" = "powerpc64-bgq-linux"; then
+        AC_PATH_PROGS(CC, mpicc)
+        AC_PATH_PROGS(CXX, mpicxx)
+      else
+        AC_PATH_PROGS(CC, ${host_alias}-gcc)
+        AC_PATH_PROGS(CXX, ${host_alias}-g++)
+      fi
+      AC_PATH_PROGS(LD, ${host_alias}-ld)
+      AC_PATH_PROGS(AR, ${host_alias}-ar)
+      AC_PATH_PROGS(AS, ${host_alias}-as)
+      if test -z "$CXX" || test -z "$LD" || test -z "$AR" || test -z "$AS"; then
+        echo "Missing required cross-compilation tools"
+        exit 1
+      fi
    fi
 else
 dnl check if Intel compiler is available if running on 686
@@ -456,6 +458,11 @@ dnl     echo "BFM_DIR environment variable not set"
    fi
       DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM -DUSE_HDCG"
 
+<<<<<<< HEAD
+=======
+   DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM"
+   LDFLAGS="-lqdp -lchroma ${LDFLAGS} -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lbfm  -lgsl -lgslcblas"
+>>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
    #CK: don't assume QIO
    if test "$enable_qio" != "no"; then
 	LDFLAGS="${LDFLAGS} -lqio"

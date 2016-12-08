@@ -476,7 +476,7 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 struct _gauge_fix_site_op_impl{
   
   template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
     mf_Complex tmp[3];
@@ -484,12 +484,15 @@ struct _gauge_fix_site_op_impl{
     mf_Complex* sc_base = (mf_Complex*)field.site_ptr(x4d,f); //if Dimension < 4 the site_ptr method will ignore the remaining indices. Make sure this is what you want
     for(int s=0;s<4;s++){
       memcpy(tmp, sc_base + 3 * s, 3 * sizeof(mf_Complex));
-      colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+      if(!dagger)
+	colorMatrixMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);
+      else
+	colorMatrixDaggerMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);      
     }
   }
 #ifdef USE_GRID
   template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat){
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     //x4d is an outer site index
     int nsimd = field.Nsimd();
     int ndim = DimensionPolicy::EuclideanDimension;
@@ -530,8 +533,12 @@ struct _gauge_fix_site_op_impl{
     for(int s=0;s<4;s++){
       mf_Complex* s_base = sc_base + 3 * s;
       memcpy(tmp, s_base, 3 * sizeof(mf_Complex));
-      for(int i=0;i<3;i++)
-	s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+      if(!dagger)
+	for(int i=0;i<3;i++)
+	  s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
+      else
+	for(int i=0;i<3;i++)
+	  s_base[i] = conjugate(gfmat[0][i])*tmp[0] + conjugate(gfmat[1][i])*tmp[1] + conjugate(gfmat[2][i])*tmp[2];
     }
     free(tmp);
   }
@@ -543,8 +550,8 @@ struct _gauge_fix_site_op_impl{
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat){
-  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat);
+void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
+  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat,dagger);
 }
 
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -632,19 +639,19 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phas
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat){
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat,const bool dagger){
   int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat);
+  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat,dagger);
 }
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool &parallel){
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
   if(parallel){
 #pragma omp parallel for
     for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat);
+      gauge_fix_site_op(fi,lat,dagger);
   }else{
     for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat);
+      gauge_fix_site_op(fi,lat,dagger);
   }
 }
 
@@ -691,6 +698,37 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUnifo
       *(p++) = LRG.Urand(FOUR_D);
   }
 }
+
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+  typedef typename mf_Complex::value_type mf_Float;
+  for(int i = 0; i < this->sites*this->flavors; ++i) {
+    int flav = i / this->sites;
+    int st = i % this->sites;
+
+    LRG.AssignGenerator(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+
+    for(int site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
+      *(p++) = LRG.Grand(FOUR_D);
+  }
+}
+
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+  typedef typename mf_Complex::value_type mf_Float;
+  for(int i = 0; i < this->sites*this->flavors; ++i) {
+    int flav = i / this->sites;
+    int st = i % this->sites;
+
+    LRG.AssignGenerator(st,flav);
+    mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
+
+    for(int site_lcl_off=0;site_lcl_off<2*FieldSiteSize;site_lcl_off++)
+      *(p++) = LRG.Grand(FIVE_D);
+  }
+}
+
 
 
 
@@ -1071,8 +1109,8 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
 //Assumes SiteType is a std::complex type
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
-  const int &dir = this->getDir();
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+  const int dir = this->getDir();
   const char* fname = "fft()";
   
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
@@ -1082,22 +1120,24 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
-  static int plan_sc_size = -1;
-  if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
+  static FFTplanContainer<typename SiteType::value_type> plan_f[4];
+  static bool plan_init = false;
+  static int plan_sc_size;
+  static bool plan_inv_trans;
+  if(!plan_init || sc_size != plan_sc_size || inverse_transform != plan_inv_trans){ //recreate/create
     typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
-      
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, 1, 
-								   tmp_f, NULL, sc_size, size_i * sc_size,
-								   tmp_f, NULL, sc_size, size_i * sc_size,
-								   FFTW_FORWARD, FFTW_ESTIMATE);  
+      plan_f[i].setPlan(1, &size_i, 1, 
+			tmp_f, NULL, sc_size, size_i * sc_size,
+			tmp_f, NULL, sc_size, size_i * sc_size,
+			inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD, FFTW_ESTIMATE);  
     }
     plan_sc_size = sc_size;
+    plan_inv_trans = inverse_transform;
+    plan_init = true;
   }
     
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft);
@@ -1108,20 +1148,22 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     int sc_id = n % sc_size;
     int chunk_id = n / sc_size; //3d block index
     int off = size_1d_glb * sc_size * chunk_id + sc_id;
-    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir].getPlan(), fftw_mem + off, fftw_mem + off); 
   }
 
   //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
 
-  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  else for(int i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 
 #else
 
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(){
-  const int &dir = this->getDir();
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+  const int dir = this->getDir();
   const char* fname = "fft()";
   
   //We do a large number of simple linear FFTs. This field has its principal direction as the fastest changing index so this is nice and easy
@@ -1131,22 +1173,24 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
   //Plan creation is expensive, so make it static and only re-create if the field size changes
   //Create a plan for each direction because we can have non-cubic spatial volumes
-  static typename FFTWwrapper<typename SiteType::value_type>::planType plan_f[4];
-  static int plan_sc_size = -1;
-  if(plan_sc_size == -1 || sc_size != plan_sc_size){ //recreate/create
+  static FFTplanContainer<typename SiteType::value_type> plan_f[4];
+  static bool plan_init = false;
+  static int plan_sc_size;
+  static bool plan_inv_trans;
+  if(!plan_init || sc_size != plan_sc_size || inverse_transform != plan_inv_trans){ //recreate/create
     typename FFTWwrapper<typename SiteType::value_type>::complexType *tmp_f; //I don't think it actually does anything with this
 
     for(int i=0;i<4;i++){
-      if(plan_sc_size != -1) FFTWwrapper<typename SiteType::value_type>::destroy_plan(plan_f[i]);    
-      
       int size_i = GJP.NodeSites(i) * GJP.Nodes(i);
 
-      plan_f[i] = FFTWwrapper<typename SiteType::value_type>::plan_many_dft(1, &size_i, sc_size, 
-								   tmp_f, NULL, sc_size, 1,
-								   tmp_f, NULL, sc_size, 1,
-								   FFTW_FORWARD, FFTW_ESTIMATE);  
+      plan_f[i].setPlan(1, &size_i, sc_size, 
+			tmp_f, NULL, sc_size, 1,
+			tmp_f, NULL, sc_size, 1,
+			inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD, FFTW_ESTIMATE);  
     }
     plan_sc_size = sc_size;
+    plan_inv_trans = inverse_transform;
+    plan_init = true;
   }
 
   typename FFTWwrapper<typename SiteType::value_type>::complexType *fftw_mem = FFTWwrapper<typename SiteType::value_type>::alloc_complex(size_1d_glb * n_fft * sc_size);
@@ -1156,12 +1200,12 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
   for(int n = 0; n < n_fft; n++) {
     int chunk_id = n; //3d block index
     int off = size_1d_glb * sc_size * chunk_id;
-    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir], fftw_mem + off, fftw_mem + off); 
+    FFTWwrapper<typename SiteType::value_type>::execute_dft(plan_f[dir].getPlan(), fftw_mem + off, fftw_mem + off); 
   }
 
-  //FFTWwrapper<SiteType>::cleanup(); //I think this actually destroys existing plans!
-
-  memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  if(!inverse_transform) memcpy(this->ptr(), (void *)fftw_mem, this->size()*sizeof(SiteType));
+  else for(int i=0;i<this->size();i++) this->ptr()[i] = *( (SiteType*)fftw_mem+i )/double(size_1d_glb);
+  
   FFTWwrapper<typename SiteType::value_type>::free(fftw_mem);
 }
 

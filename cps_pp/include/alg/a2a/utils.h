@@ -25,6 +25,31 @@ void colorMatrixMultiplyVector(VecFloat* y, const MatFloat* u, const VecFloat* x
 	*(y+5) =  *(u+12) * *(x+1) + *(u+13) * *x     + *(u+14) * *(x+3)
 		+ *(u+15) * *(x+2) + *(u+16) * *(x+5) + *(u+17) * *(x+4);
 }
+//M^\dagger v
+
+//0 ,1    2 ,3    4 ,5
+//6 ,7    8 ,9    10,11
+//12,13   14,15   16,17
+//->
+//0 ,-1   6 ,-7   12,-13
+//2 ,-3   8 ,-9   14,-15 
+//4 ,-5   10,-11  16,-17
+
+template<typename VecFloat, typename MatFloat>
+void colorMatrixDaggerMultiplyVector(VecFloat* y, const MatFloat* u, const VecFloat* x){
+	*y     =  *u      * *x     + *(u+1)  * *(x+1) + *(u+6)  * *(x+2)	  
+		+ *(u+7)  * *(x+3) + *(u+12)  * *(x+4) + *(u+13)  * *(x+5);
+	*(y+1) =  *u      * *(x+1) - *(u+1)  * *x     + *(u+6)  * *(x+3)	  
+		- *(u+7)  * *(x+2) + *(u+12)  * *(x+5) - *(u+13)  * *(x+4);	
+	*(y+2) =  *(u+2)  * *x     + *(u+3)  * *(x+1) + *(u+8)  * *(x+2)	  
+		+ *(u+9)  * *(x+3) + *(u+14) * *(x+4) + *(u+15) * *(x+5);	
+	*(y+3) =  *(u+2)  * *(x+1) - *(u+3)  * *x     + *(u+8)  * *(x+3)	  
+		- *(u+9)  * *(x+2) + *(u+14) * *(x+5) - *(u+15) * *(x+4);	
+	*(y+4) =  *(u+4) * *x     + *(u+5) * *(x+1) + *(u+10) * *(x+2)	  
+		+ *(u+11) * *(x+3) + *(u+16) * *(x+4) + *(u+17) * *(x+5);	
+	*(y+5) =  *(u+4) * *(x+1) - *(u+5) * *x     + *(u+10) * *(x+3)	  
+		- *(u+11) * *(x+2) + *(u+16) * *(x+5) - *(u+17) * *(x+4);
+}
 
 //Array *= with cps::Float(=double) input and arbitrary precision output
 template<typename FloatOut,typename FloatIn>
@@ -298,6 +323,10 @@ CPS_END_NAMESPACE
 #endif
 CPS_START_NAMESPACE
 
+inline double byte_to_MB(const int b){
+  return double(b)/1024./1024.;
+}
+
 inline void printMem(){
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
@@ -339,6 +368,35 @@ inline void printMem(){
   if(!UniqueID()){
     printf("printMem: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",total_mem, free_mem, total_mem-free_mem);
   }
+
+  //# define PRINT_MALLOC_INFO    //Use of int means this is garbage for large memory systems
+# ifdef PRINT_MALLOC_INFO
+  struct mallinfo mi;
+  mi = mallinfo();
+
+  // int arena;     /* Non-mmapped space allocated (bytes) */
+  // int ordblks;   /* Number of free chunks */
+  // int smblks;    /* Number of free fastbin blocks */
+  // int hblks;     /* Number of mmapped regions */
+  // int hblkhd;    /* Space allocated in mmapped regions (bytes) */
+  // int usmblks;   /* Maximum total allocated space (bytes) */
+  // int fsmblks;   /* Space in freed fastbin blocks (bytes) */
+  // int uordblks;  /* Total allocated space (bytes) */
+  // int fordblks;  /* Total free space (bytes) */
+  // int keepcost;  /* Top-most, releasable space (bytes) */
+
+  if(!UniqueID()){
+    printf("printMem: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
+	   byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
+  }
+
+# endif
+
+  //# define PRINT_MALLOC_STATS  Also doesn't work well
+# ifdef PRINT_MALLOC_STATS
+  if(!UniqueID()) malloc_stats();
+# endif
+  
 #endif
 }
 
@@ -525,6 +583,7 @@ inline void GparityBaseMomentum(int p[3], const int sgn){
     else p[i] = 0;
 }
 
+#ifdef USE_MPI
 //get MPI rank of this node
 inline int getMyMPIrank(){
   int my_mpi_rank;
@@ -570,7 +629,72 @@ inline void getMPIrankMap(std::vector<int> &map){
   assert(ret == MPI_SUCCESS);
   free(node_map_send);
 }
+#endif 
+//Invert 3x3 complex matrix. Expect elements accessible as  row*3 + col
+//0 1 2
+//3 4 5
+//6 7 8
 
+//+ - +
+//- + -
+//+ - +
+
+template<typename Zout, typename Zin>
+void z3x3_invert(Zout* out, Zin const* in){
+  out[0] = in[4]*in[8]-in[7]*in[5];
+  out[1] = -in[3]*in[8]+in[6]*in[5];
+  out[2] = in[3]*in[7]-in[6]*in[4];
+
+  out[3] = -in[1]*in[8]+in[7]*in[2];
+  out[4] = in[0]*in[8]-in[6]*in[2];
+  out[5] = -in[0]*in[7]+in[6]*in[1];
+
+  out[6] = in[1]*in[5]-in[4]*in[2];
+  out[7] = -in[0]*in[5]+in[3]*in[2];
+  out[8] = in[0]*in[4]-in[3]*in[1];
+  
+  Zout det = in[0]*out[0] + in[1]*out[1] + in[2]*out[2];
+
+  out[0] /= det; out[1] /= det; out[2] /= det;
+  out[3] /= det; out[4] /= det; out[5] /= det;
+  out[6] /= det; out[7] /= det; out[8] /= det;
+}
+
+//A class that owns data via a pointer that has an assignment and copy constructor which does a deep copy.
+template<typename T>
+class PtrWrapper{
+  T* t;
+public:
+  inline T& operator*(){ return *t; }
+  inline T* operator->(){ return t; }
+  inline T const& operator*() const{ return *t; }
+  inline T const* operator->() const{ return t; }
+  
+  inline PtrWrapper(): t(NULL){};
+  inline PtrWrapper(T* _t): t(_t){}
+  inline ~PtrWrapper(){ if(t!=NULL) delete t; }
+
+  inline const bool assigned() const{ return t != NULL; }
+  
+  inline void set(T* _t){
+    if(t!=NULL) delete t;
+    t = _t;
+  }
+  inline void free(){
+    if(t!=NULL) delete t;
+    t = NULL;
+  }
+  
+  //Deep copies
+  inline PtrWrapper(const PtrWrapper &r): t(NULL){
+    if(r.t != NULL) t = new T(*r.t);
+  }
+
+  inline PtrWrapper & operator=(const PtrWrapper &r){
+    if(t!=NULL){ delete t; t = NULL; }
+    if(r.t!=NULL) t = new T(*r.t);
+  } 
+};
 
 
 

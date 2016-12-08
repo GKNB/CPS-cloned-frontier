@@ -1204,7 +1204,15 @@ void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   int offset;
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,int)";
   VRB.Func(cname,fname);
+<<<<<<< HEAD
   VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,bfmarg::mobius_scale);
+=======
+#ifdef USE_NEW_BFM_GPARITY
+  VRB.Result(cname,fname,"current_arg_idx=%d mobius_scale=%g\n",current_arg_idx,bfm_args[current_arg_idx].mobius_scale);
+#else
+  VRB.Result(cname,fname,"current_arg_idx=%d mobius_scale=%g\n",current_arg_idx,bfmarg::mobius_scale);
+#endif
+>>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
   if (dir_flag!=0) 
   ERR.General(cname,fname,"only implemented for dir_flag(%d)=0\n",dir_flag);
 

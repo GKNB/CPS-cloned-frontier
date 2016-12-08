@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 SRCDIR = /project/projectdirs/m2078/chulwoo/CPS_Gparity/src/cps2/cps_pp
 BUILDDIR = /project/projectdirs/m2078/chulwoo/CPS_Gparity/build2/cps
+=======
+SRCDIR = /global/u2/c/ckelly/CPS/src/cps_pp_git/cps_pp
+BUILDDIR = /global/homes/c/ckelly/CPS/bld/cps_pp_avx512
+>>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/

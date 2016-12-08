@@ -62,16 +62,34 @@ using namespace cps;
 #include <alg/a2a/compute_ktopipi.h>
 #include <alg/a2a/main.h>
 
+#ifdef USE_DESTRUCTIVE_FFT
+
 #ifdef A2A_PREC_DOUBLE
-typedef std::complex<double> mf_Complex;
+typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
 #elif defined(A2A_PREC_SINGLE)
-typedef std::complex<float> mf_Complex;
+typedef A2ApoliciesSingleManualAlloc A2Apolicies;
 #elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef Grid::vComplexD mf_Complex;
+typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
 #elif defined(A2A_PREC_SIMD_SINGLE)
-typedef Grid::vComplexF mf_Complex;
+typedef A2ApoliciesSIMDsingleManualAlloc A2Apolicies;
 #else
 #error "Must provide an A2A precision"
+#endif
+
+#else
+
+#ifdef A2A_PREC_DOUBLE
+typedef A2ApoliciesDoubleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SINGLE)
+typedef A2ApoliciesSingleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_DOUBLE)
+typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_SINGLE)
+typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
+#else
+#error "Must provide an A2A precision"
+#endif
+
 #endif
 
 
@@ -84,6 +102,9 @@ int main (int argc,char **argv )
   }
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   if(!UniqueID()) printf("Using node distribution of meson fields\n");
+#endif
+#ifdef MEMTEST_MODE
+  if(!UniqueID()) printf("Running in MEMTEST MODE (so don't expect useful results)\n");
 #endif
 
   const char *cname=argv[0];
@@ -240,12 +261,8 @@ int main (int argc,char **argv )
   if(!UniqueID()) printf("Memory prior to config loop:\n");
   printMem();
 
-  //Grab the A2A policies
-  typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase;
 #if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
-  typedef GridA2APoliciesBase LanczosPolicies;
-  typedef GridA2APoliciesBase::FgridGFclass LatticeType;
-  typedef GridA2APolicies<A2ApoliciesBase> A2Apolicies; //combines A2ApoliciesBase and GridPoliciesBase
+  typedef A2Apolicies LanczosPolicies;
   if(GJP.Gparity()){
 #ifndef USE_GRID_GPARITY
     ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
@@ -257,12 +274,11 @@ int main (int argc,char **argv )
   }      
 #else
   typedef void LanczosPolicies;
-  typedef GwilsonFdwf LatticeType;
-  typedef A2ApoliciesBase A2Apolicies;
 #endif
 
   //Setup parameters of fields
-  
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2Apolicies::LatticeType LatticeType;
   typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType Field3DparamType;
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
   Field4DparamType field4dparams; setupFieldParams<mf_Complex>(field4dparams);
@@ -285,8 +301,6 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
     printMem();
 
-
-    
     LatticeSetup<LatticeType> lattice_setup(jp,solvers); //for BFM this creates a lattice object and imports the gauge field into the bfm instances, for Grid a lattice object and import of the gauge field
     LatticeType &lat = lattice_setup.getLattice();
 
@@ -331,6 +345,10 @@ int main (int argc,char **argv )
     A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);
 
+#ifdef USE_DESTRUCTIVE_FFT
+    V.allocModes(); W.allocModes();
+#endif
+    
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
       //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
@@ -378,6 +396,10 @@ int main (int argc,char **argv )
     A2AvectorV<A2Apolicies> V_s(a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(a2a_arg_s,field4dparams);
 
+#ifdef USE_DESTRUCTIVE_FFT
+    V_s.allocModes(); W_s.allocModes();
+#endif
+    
     if(!randomize_vw){
       computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
       //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
@@ -435,12 +457,13 @@ int main (int argc,char **argv )
     //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
     RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
 
-    std::vector< std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll; //[pidx][t]   stores the meson fields
-    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //manager for pointers to the above
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s; //Gparity only
     
     if(!UniqueID()) printf("Computing light-light meson fields\n");
     time = -dclock();
-    ComputePion<A2Apolicies>::computeMesonFields(mf_ll, mf_ll_con, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
+    if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
+    else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, meas_arg.WorkDirectory,conf, pion_mom, W, V, jp.pion_rad, lat, field3dparams);
     time += dclock();
     print_time("main","Light-light meson fields",time);
 
@@ -555,6 +578,10 @@ int main (int argc,char **argv )
 
     typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
     typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+
+    MesonFieldMomentumContainer<A2Apolicies>* ll_meson_field_ptrs[2] = { &mf_ll_con, &mf_ll_con_2s };
+    const int nsource = GJP.Gparity() ? 2 : 1;
+    const std::string src_str[2] = { "", "_src2s" };
     
     //For type1 loop over momentum of pi1 (conventionally the pion closest to the kaon)
     int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
@@ -562,34 +589,39 @@ int main (int argc,char **argv )
 
     if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",nmom);
     time = -dclock();
+    
     for(int pidx=0; pidx < nmom; pidx++){
 #ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3
       if(ngp == 3 && pidx >= 4) continue; // p_pi1 = (-1,-1,-1), (1,1,1) [diag] (1,-1,-1), (-1,1,1) [orth] only
 #endif
-      if(!UniqueID()) printf("Starting type 1 contractions with pidx=%d\n",pidx);
-      if(!UniqueID()) printf("Memory status before type1 K->pipi:\n");
-      printMem();
+      for(int sidx=0; sidx<nsource;sidx++){
+      
+	if(!UniqueID()) printf("Starting type 1 contractions with pidx=%d and source idx %d\n",pidx,sidx);
+	if(!UniqueID()) printf("Memory status before type1 K->pipi:\n");
+	printMem();
 
-      ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
-      std::vector<ResultsContainerType> type1;
-      ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
-					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, jp.xyzstep_type1, p_pi1,
-					     mf_ls_ww, mf_ll_con,
-					     V, V_s,
-					     W, W_s);
-      for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
-	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type1_deltat_" << k_pi_separation[kpi_idx] << "_sep_" << jp.pipi_separation;
+	ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
+	std::vector<ResultsContainerType> type1;
+	ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
+						  k_pi_separation, jp.pipi_separation, jp.tstep_type12, jp.xyzstep_type1, p_pi1,
+						  mf_ls_ww, *ll_meson_field_ptrs[sidx],
+						  V, V_s,
+						  W, W_s);
+	for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
+	  std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type1_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
-	os << "_mom" << p_pi1.file_str(2);
+	  os << "_mom" << p_pi1.file_str(2);
 #else
-	os << "_mom" << (-p_pi1).file_str(2);
+	  os << "_mom" << (-p_pi1).file_str(2);
 #endif
-	type1[kpi_idx].write(os.str());
+	  type1[kpi_idx].write(os.str());
+	}
+	if(!UniqueID()) printf("Memory status after type1 K->pipi:\n");
+	printMem();
       }
-      if(!UniqueID()) printf("Memory status after type1 K->pipi:\n");
-      printMem();
-
     }
+
+    
     time += dclock();
     print_time("main","K->pipi type 1",time);
 
@@ -597,46 +629,48 @@ int main (int argc,char **argv )
     printMem();
 
     //Type 2 and 3 are optimized by performing the sum over pipi momentum orientations within the contraction
-    {
-      time = -dclock();
-      if(!UniqueID()) printf("Starting type 2 contractions\n");
+    time = -dclock();    
+    for(int sidx=0; sidx< nsource; sidx++){
+      if(!UniqueID()) printf("Starting type 2 contractions with source idx %d\n", sidx);
       std::vector<ResultsContainerType> type2;
       ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
 					     k_pi_separation, jp.pipi_separation, jp.tstep_type12, pion_mom,
-					     mf_ls_ww, mf_ll_con,
+					     mf_ls_ww, *ll_meson_field_ptrs[sidx],
 					     V, V_s,
 					     W, W_s);
       for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
-	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type2_deltat_" << k_pi_separation[kpi_idx] << "_sep_" << jp.pipi_separation;
+	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type2_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << jp.pipi_separation;
 	type2[kpi_idx].write(os.str());
       }
-      time += dclock();
-      print_time("main","K->pipi type 2",time);
-
-      if(!UniqueID()) printf("Memory after type2 K->pipi:\n");
-      printMem();
     }
+    time += dclock();
+    print_time("main","K->pipi type 2",time);
+    
+    if(!UniqueID()) printf("Memory after type2 K->pipi:\n");
+    printMem();
+    
 
-    {
-      time = -dclock();
-      if(!UniqueID()) printf("Starting type 3 contractions\n");
+    time = -dclock();
+    for(int sidx=0; sidx< nsource; sidx++){
+      if(!UniqueID()) printf("Starting type 3 contractions with source idx %d\n", sidx);
       std::vector<ResultsContainerType> type3;
       std::vector<MixDiagResultsContainerType> mix3;
       ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
 					     k_pi_separation, jp.pipi_separation, 1, pion_mom,
-					     mf_ls_ww, mf_ll_con,
+					     mf_ls_ww, *ll_meson_field_ptrs[sidx],
 					     V, V_s,
 					     W, W_s);
       for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
-	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type3_deltat_" << k_pi_separation[kpi_idx] << "_sep_" << jp.pipi_separation;
+	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type3_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << jp.pipi_separation;
 	write(os.str(),type3[kpi_idx],mix3[kpi_idx]);
       }
-      time += dclock();
-      print_time("main","K->pipi type 3",time);
-      
-      if(!UniqueID()) printf("Memory after type3 K->pipi:\n");
-      printMem();
     }
+    time += dclock();
+    print_time("main","K->pipi type 3",time);
+    
+    if(!UniqueID()) printf("Memory after type3 K->pipi:\n");
+    printMem();
+    
 
     {
       //Type 4 has no momentum loop as the pion disconnected part is computed as part of the pipi 2pt function calculation

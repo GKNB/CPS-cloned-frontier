@@ -585,8 +585,8 @@ namespace BFM_Krylov{
     // PAB
     // Very inefficient
     //for(int s=0;s<this->Ls;s++){
-    int n_flav(1);
-    if(dop.gparity) n_flav = 2;
+    const int n_flav = dop.gparity ? 2 : 1;
+
     for(int f=0;f<n_flav;f++){
       for(int s=0;s<Ls;s++){
 	for ( x[3]=0; x[3]<dop.node_latt[3];x[3]++ ) { 
@@ -603,7 +603,11 @@ namespace BFM_Krylov{
 		  cb1 = ((site)&0x1);}
 
 		for ( int co=0;co<Nspinco;co++ ) { 
-		  for ( int reim=0;reim<2;reim++ ) { 
+		  for ( int reim=0;reim<2;reim++ ) {
+#ifdef USE_NEW_BFM_GPARITY
+		    bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
+		    rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1,f);
+#else		    
 		    if(!dop.gparity){
 		      bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1);
 		      rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1);	///TODO Must be an easier way...
@@ -611,7 +615,7 @@ namespace BFM_Krylov{
 		      bidx = dop.bagel_gparity_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
 		      rb_idx = dop.bagel_gparity_idx5d(x,s,reim,co,Nspinco,1,f);
 		    }
-
+#endif
 		    sgn = 1.0;
 		    if(co > 5) sgn = -1.0;
 

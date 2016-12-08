@@ -132,7 +132,8 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
   enum {Dimension = DimensionPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
-	 
+  assert(pm == 1 || pm == -1);
+	   
   if(&to == &from){
     if(n==0) return;    
     CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
@@ -263,7 +264,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 }
 #undef CONDITION
 
-#ifdef USE_GRID
+# ifdef USE_GRID
 
 #define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<DimensionPolicy,FourDSIMDPolicy>::value || _equal<DimensionPolicy,ThreeDSIMDPolicy>::value)
 
@@ -275,6 +276,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
   enum {Dimension = DimensionPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
+  assert(pm == 1 || pm == -1);
   
   if(&to == &from){
     if(n==0) return;    
@@ -432,7 +434,116 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 }
 #undef CONDITION
 
-#endif
+# endif //ifdef USE_GRID
+
+#else //ifdef USE_QMP
+
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<DimensionPolicy,FourDpolicy>::value || _equal<DimensionPolicy,SpatialPolicy>::value)
+
+template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
+		   const int dir, const int pm, const int n,
+		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
+  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  assert(dir < Dimension);
+  assert(n < GJP.NodeSites(dir));
+  assert(pm == 1 || pm == -1);
+  
+  if(&to == &from){
+    if(n==0) return;    
+    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermute(to,tmpfrom,dir,pm,n);
+  }
+  if(n == 0){
+    to = from;
+    return;
+  }
+  const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
+  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+
+#pragma omp parallel for
+  for(int i=0;i<from.nfsites();i++){
+    int f; int x[Dimension];
+    from.fsiteUnmap(i,x,f);
+    x[dir] = (x[dir] + pm * n + 5*GJP.NodeSites(dir) ) % GJP.NodeSites(dir);
+    const mf_Complex* from_ptr = from.fsite_ptr(i);
+    mf_Complex* to_ptr = to.site_ptr(x,f);
+    memcpy(to_ptr,from_ptr,SiteSize*sizeof(mf_Complex));
+  }
+}
+#undef CONDITION
+
+# ifdef USE_GRID
+
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<DimensionPolicy,FourDSIMDPolicy>::value || _equal<DimensionPolicy,ThreeDSIMDPolicy>::value)
+
+//Version with SIMD vectorized data
+template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
+		   const int dir, const int pm, const int n,
+		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
+  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  assert(dir < Dimension);
+  assert(n < GJP.NodeSites(dir));
+  assert(pm == 1 || pm == -1);
+  
+  if(&to == &from){
+    if(n==0) return;    
+    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermute(to,tmpfrom,dir,pm,n);
+  }
+  if(n == 0){
+    to = from;
+    return;
+  }
+  const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
+  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+  
+  const int nsimd = mf_Complex::Nsimd();
+
+  typedef typename mf_Complex::scalar_type scalar_type;
+  const int nthr = omp_get_max_threads();
+  scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign(128,nsimd*sizeof(scalar_type));
+  
+#pragma omp parallel for
+  for(int ofto=0;ofto<to.nfsites();ofto++){ //loop over outer site index
+    const int me = omp_get_thread_num();
+    int f; int oxto[Dimension];
+    to.fsiteUnmap(ofto,oxto,f);
+
+    mf_Complex* to_base_ptr = to.fsite_ptr(ofto);
+    
+    scalar_type* tmp_store = tmp_store_thr[me];
+
+    //indexed by destination lane
+    mf_Complex const* from_base_ptrs[nsimd];
+    int from_lane_idx[nsimd];
+      
+    for(int tolane = 0; tolane < nsimd; tolane++){
+      int ixto_off[Dimension];
+      to.SIMDunmap(tolane,ixto_off); //get offset of inner site on tolane
+
+      int xfrom[Dimension]; for(int d=0;d<Dimension;d++) xfrom[d] = oxto[d] + ixto_off[d]; //full coord corresponding to tolane + outer site
+      xfrom[dir] = (xfrom[dir] - pm * n + 5*GJP.NodeSites(dir) ) % GJP.NodeSites(dir);
+
+      from_base_ptrs[tolane] = from.site_ptr(xfrom,f);
+      from_lane_idx[tolane] = from.SIMDmap(xfrom);
+    }
+
+    for(int s=0;s<SiteSize;s++){
+      for(int tolane = 0; tolane < nsimd; tolane++)
+	tmp_store[tolane] = *( (scalar_type*)(from_base_ptrs[tolane] + s) + from_lane_idx[tolane] ); //cast SIMD type to scalar type pointer
+      vset(*(to_base_ptr + s), tmp_store);
+    }
+  }            
+  for(int i=0;i<nthr;i++) free(tmp_store_thr[i]);  
+}
+#undef CONDITION
+  
+# endif //ifdef USE_GRID
+
+#endif //ifdef USE_QMP
+
 
 inline int getShiftSign(const int of){ return of > 0 ? +1 : -1; }
 
@@ -472,11 +583,13 @@ void shiftPeriodicField(FieldType &to, const FieldType &from, const std::vector<
 }
 
 
-#endif
+
+
+
 
 
 template<typename CPSfieldType>
-void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	 ){
   typedef typename LocalToGlobalInOneDirMap<typename CPSfieldType::FieldDimensionPolicy>::type DimPolGlobalInOneDir;
@@ -488,7 +601,7 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
     if(do_dirs[mu]){
       CPSfieldTypeGlobalInOneDir tmp_dbl(mu);
       tmp_dbl.gather( dcount==0 ? from : into );
-      tmp_dbl.fft();
+      tmp_dbl.fft(inverse_transform);
       tmp_dbl.scatter(into);
       dcount ++;
     }
@@ -496,7 +609,7 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
 
 #ifdef USE_GRID
 template<typename CPSfieldType>
-void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	 ){
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
@@ -507,7 +620,7 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   ScalarFieldType tmp_in(null_obj);
   ScalarFieldType tmp_out(null_obj);
   tmp_in.importField(from);
-  fft(tmp_out, tmp_in, do_dirs);
+  fft(tmp_out, tmp_in, do_dirs, inverse_transform);
   tmp_out.exportField(into);
 }
 #endif
@@ -518,9 +631,13 @@ void fft(CPSfieldType &fftme, const bool* do_dirs){
 }
 
 template<typename CPSfieldType>
-void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
+#ifndef USE_MPI
+  fft(into,from,do_dirs,inverse_transform);
+#else
+  
   enum { Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
   int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
   if(! ndirs_fft ) return;
@@ -530,18 +647,6 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   std::vector<int> node_map;
   getMPIrankMap(node_map);
 
-  // if(!UniqueID()){
-  //   printf("Node mapping:\n");
-  //   for(int t=0;t<GJP.Tnodes();t++)
-  //     for(int z=0;z<GJP.Znodes();z++)
-  // 	for(int y=0;y<GJP.Ynodes();y++)
-  // 	  for(int x=0;x<GJP.Xnodes();x++){
-  // 	    int coor[4] = {x,y,z,t};
-  // 	    int n = node_lex(coor,4);
-  // 	    printf("(%d,%d,%d,%d) -> %d\n",x,y,z,t,node_map[n]);
-  // 	  }
-  // }
-  
   CPSfieldType tmp(from.getDimPolParams());
 
   //we want the last fft to end up in 'into'. Intermediate FFTs cycle between into and tmp as temp storage. Thus for odd ndirs_fft, the first fft should output to 'into', for even it should output to 'tmp'
@@ -559,15 +664,17 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   for(int mu=0; mu<Dimension; mu++){
     if(do_dirs[mu]){
       CPSfieldType const *msrc = fft_count == 0 ? &from : src;
-      fft_opt_mu(*out, *msrc, mu, node_map);
+      fft_opt_mu(*out, *msrc, mu, node_map, inverse_transform);
       ++fft_count;
       std::swap(src,out);      
     }
   }
+#endif
 }
 
+#ifdef USE_MPI
 template<typename CPSfieldType>
-void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map,
+void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
   enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
@@ -584,7 +691,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   const int mutotalsites = munodesites*munodes;
   const int munodecoor = GJP.NodeCoor(mu);
   const int n_orthdirs = Dimension - 1;
-      
+  FloatType Lmu(mutotalsites);
+  
   int orthdirs[n_orthdirs]; //map of orthogonal directions to mu
   int total_work_munodes = 1; //sites orthogonal to FFT direction
   int o=0;
@@ -669,29 +777,33 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   //Divide work orthogonal to mu, 'howmany', over threads. Note, this may not divide howmany equally. The difference is made up by adding 1 unit of work to threads in ascending order until total work matches. Thus we need 2 plans: 1 for the base amount and one for the base+1
 
   //if(!UniqueID()) printf("FFT work per site %d, divided over %d threads with %d work each. Remaining work %d allocated to ascending threads\n", howmany, nthread, howmany_per_thread_base, howmany - howmany_per_thread_base*nthread);
-      
-  static typename FFTWwrapper<FloatType>::planType plan_f_base[Dimension];
-  static typename FFTWwrapper<FloatType>::planType plan_f_base_p1[Dimension];
+
+  int fft_phase = inverse_transform ? FFTW_BACKWARD : FFTW_FORWARD;
+  
+  static FFTplanContainer<FloatType> plan_f_base[Dimension]; //destructors deallocate plans
+  static FFTplanContainer<FloatType> plan_f_base_p1[Dimension];
       
   static int plan_howmany[Dimension];
   static bool plan_init = false;
-
-  if(!plan_init || plan_howmany[mu] != howmany){
+  static int plan_fft_phase;
+  
+  if(!plan_init || plan_howmany[mu] != howmany || fft_phase != plan_fft_phase){
     if(!plan_init) for(int i=0;i<Dimension;i++) plan_howmany[i] = -1;
 
     typename FFTWwrapper<FloatType>::complexType *tmp_f; //I don't think it actually does anything with this
 
+    plan_fft_phase = fft_phase;
     const int fft_work_per_musite = howmany_per_thread_base;
     const int musite_stride = howmany; //stride between musites
-	
-    plan_f_base[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite, 
-							    tmp_f, NULL, musite_stride, 1,
-							    tmp_f, NULL, musite_stride, 1,
-							    FFTW_FORWARD, FFTW_ESTIMATE);
-    plan_f_base_p1[mu] = FFTWwrapper<FloatType>::plan_many_dft(1, &mutotalsites, fft_work_per_musite+1, 
-							       tmp_f, NULL, musite_stride, 1,
-							       tmp_f, NULL, musite_stride, 1,
-							       FFTW_FORWARD, FFTW_ESTIMATE);	
+    
+    plan_f_base[mu].setPlan(1, &mutotalsites, fft_work_per_musite, 
+			    tmp_f, NULL, musite_stride, 1,
+			    tmp_f, NULL, musite_stride, 1,
+			    plan_fft_phase, FFTW_ESTIMATE);
+    plan_f_base_p1[mu].setPlan(1, &mutotalsites, fft_work_per_musite+1, 
+			       tmp_f, NULL, musite_stride, 1,
+			       tmp_f, NULL, musite_stride, 1,
+			       plan_fft_phase, FFTW_ESTIMATE);	
     plan_init = true; //other mu's will still init later
   }
   FFTComplex*fftw_mem = (FFTComplex*)recv_buf;
@@ -703,13 +815,13 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
     int thr_work, thr_off;
     thread_work(thr_work, thr_off, howmany, me, nthread);
 
-    typename FFTWwrapper<FloatType>::planType thr_plan;
-
-    if(thr_work == howmany_per_thread_base) thr_plan = plan_f_base[mu];
-    else if(thr_work == howmany_per_thread_base + 1) thr_plan = plan_f_base_p1[mu];
+    const FFTplanContainer<FloatType>* thr_plan_ptr;
+    
+    if(thr_work == howmany_per_thread_base) thr_plan_ptr = &plan_f_base[mu];
+    else if(thr_work == howmany_per_thread_base + 1) thr_plan_ptr = &plan_f_base_p1[mu];
     else assert(0); //catch if logic for thr_work changes
 
-    FFTWwrapper<FloatType>::execute_dft(thr_plan, fftw_mem + thr_off, fftw_mem + thr_off); 
+    FFTWwrapper<FloatType>::execute_dft(thr_plan_ptr->getPlan(), fftw_mem + thr_off, fftw_mem + thr_off); 
   }
 
   wret = MPI_Waitall(munodes,send_req,status);
@@ -729,6 +841,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Poke into output
   for(int i=0;i<munodes;i++){
+#pragma omp parallel for
     for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
       const int orthsite = munodes_off[i] + w;
       int coor_base[Dimension] = {0};
@@ -745,7 +858,8 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 	  coor_base[mu] = xmu;
 	  ComplexType* to = into.site_ptr(coor_base,f);
 	  ComplexType const* frm = send_bufs[i] + SiteSize * (w + munodes_work[i]*( f + nf*xmu ) );
-	  memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	  if(!inverse_transform) memcpy(to,frm,SiteSize*sizeof(ComplexType));
+	  else for(int s=0;s<SiteSize;s++) to[s] = frm[s]/Lmu;
 	}
       }
     }
@@ -757,12 +871,17 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   free(recv_buf);
   for(int i=0;i<munodes;i++) free(send_bufs[i]);
 }
+#endif
+
 
 #ifdef USE_GRID
 template<typename CPSfieldType>
-void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
+void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	     ){ //we can avoid the copies below but with some effort - do at some point
+# ifdef USE_MPI
+  fft(into,from,do_dirs,inverse_transform);
+# else
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
   typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
@@ -771,8 +890,9 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs,
   ScalarFieldType tmp_in(null_obj);
   ScalarFieldType tmp_out(null_obj);
   tmp_in.importField(from);
-  fft_opt(tmp_out, tmp_in, do_dirs);
+  fft_opt(tmp_out, tmp_in, do_dirs, inverse_transform);
   tmp_out.exportField(into);
+# endif
 }
 #endif
 

@@ -993,110 +993,6 @@ void CPS_CalcHmdForceVecs(Vector *chi, Vector *f_out, Vector *f_in, DiracOpWilso
   return ;
 }
 
-
-static int no_gparity_test_wilson(Lattice* latt_in){
-  delete latt_in;
-  GnoneFwilson* lattice = new GnoneFwilson;
-
-  int mom_size = 18*4*GJP.VolNodeSites();
-
-  Float* mom_test1 = (Float *)pmalloc( sizeof(Float) * mom_size);
-  for(int i=0;i<mom_size;i++) mom_test1[i] = 0.0;
-
-  Float* mom_test2 = (Float *)pmalloc( sizeof(Float) * mom_size);
-  for(int i=0;i<mom_size;i++) mom_test2[i] = 0.0;
-
-  Float* v1 = rand_4d_canonical_fermion(*lattice);
-
-  //Test the RHMC by calculating the force with 2 RHMC actions with the same mass and a square-root, and a single quotient action.
-  ActionRationalQuotientArg rat_quo_arg;
-  ActionQuotientArg quo_arg;
-  Float bsn_masses[] = {-1.8, -1.8};
-  Float bsn_epsilon[] = {0.5, 0.5};
-  Float frm_masses[] = {-1.8, -1.8};
-  Float frm_epsilon[] = {0.02, 0.02};
-  int pwr_num[] = {1,1};
-  int pwr_den[] = {2,2};
-
-  setupRatQuoArg(rat_quo_arg, 1, &bsn_masses[0], &bsn_epsilon[0], &frm_masses[0], &frm_epsilon[0], &pwr_num[0], &pwr_den[0]);
-  setupQuoArg(quo_arg, 1, &bsn_masses[0], &bsn_epsilon[0], &frm_masses[0], &frm_epsilon[0]);
-
-  Float* mom_test3 = (Float *)pmalloc( sizeof(Float) * mom_size);
-  Float* mom_test4 = (Float *)pmalloc( sizeof(Float) * mom_size);
-
-  delete lattice; //delete lattice to release stupid scope lock (does not delete the gauge links)
-
-  AlgMomentum mom;
-  Float* m1 = (Float*)mom.getMom();
-  for(int i=0;i<mom_size;i++) m1[i] = 0.0;
-
-  LatRanGen LRGbak(LRG);
-  {
-    for(int i=0;i<mom_size;i++) m1[i] = 0.0;
-    
-    AlgActionRationalQuotient rat_quo(mom,rat_quo_arg,0);
-    rat_quo.heatbath();
-    //set pseudofermion vector for second mass same as first
-    Vector **phi = rat_quo.getPhi();
-    
-    int f_size = 24*GJP.VolNodeSites() / 2;
-    // for(int i=0;i<f_size;i++){
-    //   //((Float*)phi[1])[i] = ((Float*)phi[0])[i];
-
-    //   ((Float*)phi[0])[i] = 1.0;
-    //   ((Float*)phi[1])[i] = 1.0;
-    // }
-
-    printf("RatQuo initial energy: %f\n",rat_quo.energy());
-
-
-    rat_quo.evolve(0.1, 1);
-    
-    for(int i=0;i<mom_size;i++) mom_test3[i] = m1[i];
-  }
-  LRG = LRGbak;
-  
-  {
-    for(int i=0;i<mom_size;i++) m1[i] = 0.0;
-
-    AlgActionQuotient quo(mom,quo_arg);
-    quo.heatbath();
-    Vector **phi = quo.getPhi();
-
-    int f_size = 24*GJP.VolNodeSites() / 2;
-    // for(int i=0;i<f_size;i++){
-    //   ((Float*)phi[0])[i] = 1.0;
-    // }
-    printf("Quo initial energy: %f\n",quo.energy());
-    
-    quo.evolve(0.1, 1);
-
-    for(int i=0;i<mom_size;i++) mom_test4[i] = m1[i];
-  } 
-  LRG = LRGbak;
-
-
-  bool fail = false;
-  for(int i=0;i<mom_size;i++){
-    int rem = i;
-    int midx = rem % 18; rem/=18;
-    int mu = rem % 4; rem/=4;
-
-    int x[4];
-    for(int j=0;j<4;j++){ x[j] = rem % GJP.NodeSites(j) + GJP.NodeSites(j)*GJP.NodeCoor(j); rem /=  GJP.NodeSites(j); }
-
-    if(fabs(mom_test4[i] - mom_test3[i])>1e-08){
-      printf("**RHMC test fail midx %d mu %d (%d %d %d %d): %f %f, ratio %f\n",midx,mu,x[0],x[1],x[2],x[3],mom_test4[i],mom_test3[i],mom_test4[i]/mom_test3[i]);
-      fail=true;
-    }//else printf("Pass EvolveMomFforce improved code test midx %d mu %d (%d %d %d %d): %f %f\n",midx,mu,x[0],x[1],x[2],x[3],mom_test2[i],mom_test1[i]);
-  }
-  if(fail){ printf("Failed RHMC test\n"); exit(-1); }
-  else printf("Passed RHMC test\n");
-
-  return 0;
-}
-
-
 int InvCgShift_CPS(Vector *out, 
 		   Vector *in, 
 		   Float src_norm_sq, 
@@ -3090,10 +2986,6 @@ int main(int argc,char *argv[])
 {
   Start(&argc,&argv); //initialises QMP
 
-#ifdef HAVE_BFM
-  Chroma::initialize(&argc,&argv);
-#endif
-
   CommandLine::is(argc,argv);
 
   bool gparity_X(false);
@@ -3108,12 +3000,8 @@ int main(int argc,char *argv[])
     printf("Doing G-parity HMC test in X and Y directions\n");
     gparity_X = true;
     gparity_Y = true;
-  }else if(arg0==2){
-    printf("Doing No-G-parity twisted mass test\n");
-  }else if(arg0==3){
-    printf("Doing No-G-parity standard Wilson fermion test\n");
   }else{
-    printf("Doing No G-parity test\n");
+    printf("Doing No-G-parity twisted mass test\n");
   }
 
   bool save_config(false);
@@ -3256,6 +3144,11 @@ int main(int argc,char *argv[])
 
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
+#ifdef HAVE_BFM
+  cps_qdp_init(&argc,&argv);
+  Chroma::initialize(&argc,&argv);
+#endif
+  
   if(load_lrg){
     if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
     LRG.Read(load_lrg_file,32);
@@ -3300,9 +3193,7 @@ int main(int argc,char *argv[])
   }
   cps_qdp_init(&argc,&argv);
 
-  if(!gparity_X && !gparity_Y) 
-    if(arg0==2) return no_gparity_test(lattice);
-    else return no_gparity_test_wilson(lattice);
+  if(!gparity_X && !gparity_Y) return no_gparity_test(lattice);
   
   LatRanGen LRGbak(LRG);
   Float* v1 = rand_4d_canonical_fermion(*lattice);
@@ -3836,7 +3727,7 @@ int main(int argc,char *argv[])
     //arising from the volume doubling in the second direction. In the 1-direction case the number of spin-color vectors is identical
     //they are just ordered differently. For the 2-directions case the number of spin-color vectors is twice as large (although the
     //extra sites are not independent).
-    for(int i=0;i<f_size_cb;i++) eigenvector_1f[i] *= sqrt(2.0);
+    if(gparity_X && gparity_Y) for(int i=0;i<f_size_cb;i++) eigenvector_1f[i] *= sqrt(2.0);
 
     bool fail(false);
     for(int i=0;i<f_size_cb;i++){

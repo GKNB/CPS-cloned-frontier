@@ -59,13 +59,29 @@ void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vec
   for(int i=0;i<Nm;i++){
     evec[i].checkerboard = Grid::Odd;
   }
+  GridFermionField src(FrbGrid);
+  
 #ifndef MEMTEST_MODE
+<<<<<<< HEAD
 #if 0
   GridFermionField src(FrbGrid);
 #if 1
   std::vector<int> seeds5({5,6,7,8});
   Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
 
+=======
+  if(!UniqueID()) printf("Starting Grid RNG seeding for Lanczos\n");
+  double time = -dclock();
+  
+# if 0
+  std::vector<int> seeds5({5,6,7,8});
+  Grid::GridParallelRNG RNG5rb(FrbGrid);  RNG5rb.SeedFixedIntegers(seeds5);
+
+  print_time("gridLanczos","RNG seeding",time+dclock());
+  time = -dclock();
+
+  if(!UniqueID()) printf("Initializing Gaussian src\n");
+>>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
   gaussian(RNG5rb,src);
 //  Grid::CartesianCommunicator::Barrier();
 #else
@@ -74,10 +90,33 @@ void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vec
 #endif
   Float temp=0.; glb_sum(&temp);
   src.checkerboard = Grid::Odd;
+# else
+  {
+    CPSfermion5D<cps::ComplexD> tmp;
+    tmp.setGaussianRandom();
+    
+    GridFermionField src_all(FGrid);
+    tmp.exportGridField(src_all);
+    pickCheckerboard(Grid::Odd,src,src_all);
+  }
+# endif
+
+  print_time("gridLanczos","Gaussian src",time+dclock());
+  time = -dclock();
+
   
+  if(!UniqueID()) printf("Starting Lanczos algorithm\n");
   int Nconv;
+<<<<<<< HEAD
   if(ord>1) IRL.calc(eval,evec, src, Nconv);
   else  IRL2.calc(eval,evec, src, Nconv);
+=======
+  IRL.calc(eval,evec,
+	   src,
+	   Nconv);
+
+  print_time("gridLanczos","Algorithm",time+dclock());
+>>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 #endif
 }
 
