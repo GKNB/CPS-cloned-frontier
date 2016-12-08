@@ -2158,7 +2158,7 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   Wgrid.importFields(W);
   Vgrid.importFields(V);
       
-  //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid,0);
+  //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid);
   {
     typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
     typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
@@ -2241,12 +2241,15 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
 
+    __itt_resume();
     cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
-
+    __itt_pause();
     
     //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
     total_time += dclock();
   }
+  __itt_detach();
+
 
   CALLGRIND_TOGGLE_COLLECT ;
   CALLGRIND_STOP_INSTRUMENTATION ;
@@ -2255,7 +2258,7 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   int siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z                                                                                                                             
   int s3_FLOPs = 4*nsimd; //2 vectorized -1*z                                                                                                                                                          
   int TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd                                                                                                                                 
-  int reduce_FLOPs = (nsimd - 1)*2; //nsimd-1 cadd                                                                                                                                                    
+  int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd                                                                                                                                                    
 
   double FLOPs_per_site = 0.;
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
