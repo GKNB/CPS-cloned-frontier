@@ -1,7 +1,6 @@
 #ifndef _A2A_POLICIES_H
 #define _A2A_POLICIES_H
 
-#include<alg/a2a/CPSfield.h>
 #include<alg/a2a/a2a_allocpolicies.h>
 
 CPS_START_NAMESPACE
@@ -22,7 +21,7 @@ struct GridSIMDSourcePoliciesSingle{
 #endif
 
 struct StandardSourcePolicies{
-  typedef ComplexD ComplexType;
+  typedef cps::ComplexD ComplexType;
   typedef SpatialPolicy DimensionPolicy;
   typedef StandardAllocPolicy AllocPolicy;
 };
@@ -39,43 +38,6 @@ struct A2ApoliciesBase{
   typedef typename A2ApoliciesBase::LatticeType LatticeType;
 
 
-#if 0
-template<typename mf_Complex_class>
-struct _deduce_double_single_variants{};
-
-template<>
-struct _deduce_double_single_variants<complex_double_or_float_mark>{
-  typedef std::complex<double> ComplexTypeD;
-  typedef std::complex<float> ComplexTypeF;
-};
-#ifdef USE_GRID
-template<>
-struct _deduce_double_single_variants<grid_vector_complex_mark>{
-  typedef Grid::vComplexD ComplexTypeD;
-  typedef Grid::vComplexF ComplexTypeF;
-};
-#endif
-
-
-template<typename mf_Complex>
-class _deduce_a2a_field_policies{
-public:
-  typedef mf_Complex ComplexType; //Can be SIMD-vectorized or scalar complex. Used internally.
-private:
-  typedef typename ComplexClassify<mf_Complex>::type ComplexClass;
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::DimensionPolicy DimensionPolicy;
-public:
-  typedef typename _deduce_a2a_dim_alloc_policies<ComplexClass>::AllocPolicy AllocPolicy;
-  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeD ComplexTypeD;
-  typedef typename _deduce_double_single_variants<ComplexClass>::ComplexTypeF ComplexTypeF;
-  typedef typename _deduce_scalar_complex_type<ComplexType, ComplexClass>::ScalarComplexType ScalarComplexType; //scalarized version of ComplexType if SIMD-vectorized, otherwise the same
-  typedef CPSfermion4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, DimensionPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
-  typedef typename _deduce_source_policies<ComplexType,ComplexClass>::SourcePolicies SourcePolicies;
-};
-
-#endif
-  
 #ifdef USE_GRID
 
 CPS_END_NAMESPACE

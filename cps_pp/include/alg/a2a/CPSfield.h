@@ -6,14 +6,10 @@
 #include<alg/a2a/fftw_wrapper.h>
 #include<alg/a2a/utils.h>
 #include<alg/a2a/CPSfield_policies.h>
-#ifdef USE_BFM
-#include<util/lattice/bfm_evo.h>
-#endif
 CPS_START_NAMESPACE 
 
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
-
 
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
 template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy = DynamicFlavorPolicy, typename AllocPolicy = StandardAllocPolicy>
@@ -578,7 +574,7 @@ public:
 
 
 
-CPS_END_NAMESPACE
 #include<alg/a2a/CPSfield_impl.h>
 
+CPS_END_NAMESPACE
 #endif

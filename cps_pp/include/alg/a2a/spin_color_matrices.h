@@ -71,7 +71,7 @@ struct _timespmI<T, no_mark>{
     out = cps::timesI(in);
   }
   static inline void timesMinusI(T &out, const T &in){
-    out = timesMinusI(in);
+    out = cps::timesMinusI(in);
   }
 };
 template<typename T>

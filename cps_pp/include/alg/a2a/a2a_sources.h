@@ -89,10 +89,10 @@ public:
     int glb_size[3]; for(int i=0;i<3;i++) glb_size[i] = GJP.Nodes(i)*GJP.NodeSites(i);
 
     //Generate a global 4d source
-    CPSglobalComplexSpatial<ComplexD,OneFlavorPolicy> glb; //always of this type
+    CPSglobalComplexSpatial<cps::ComplexD,OneFlavorPolicy> glb; //always of this type
     glb.zero();
          
-#pragma omp parallel for
+#pragma omp_parallel for
     for(int i=0;i<glb.nsites();i++){
       int x[3]; glb.siteUnmap(i,x); 
       *glb.site_ptr(i) = static_cast<Child const*>(this)->value(x,glb_size);
@@ -148,7 +148,7 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AexpSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     Float v = this->pmodr(site,glb_size)/this->radius;
     v = exp(-v)/(glb_size[0]*glb_size[1]*glb_size[2]);
     return ComplexD(v,0);
@@ -170,12 +170,12 @@ public:
   typedef typename A2AhydrogenSourceBase<FieldPolicies, A2AhydrogenSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
 
-  inline static ComplexD zexp(const Float phi){
-    return ComplexD( cos(phi), sin(phi) );
+  inline static cps::ComplexD zexp(const Float phi){
+    return cps::ComplexD( cos(phi), sin(phi) );
   }
     
   
-  inline ComplexD value(const int site[3], const int glb_size[3]) const{
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     assert(n>=0 && n <= 3 &&
 	   l>=0 && l <= n-1 &&
 	   abs(m) <= l);
@@ -186,7 +186,7 @@ public:
     if(l==0) r = this->pmodr(site,glb_size);   //don't need theta and phi for s-wave
     else this->pmodspherical(r,theta,phi,site,glb_size);
     
-    ComplexD v( exp(-r/na0)/(glb_size[0]*glb_size[1]*glb_size[2]), 0.);
+    cps::ComplexD v( exp(-r/na0)/(glb_size[0]*glb_size[1]*glb_size[2]), 0.);
 
     switch(n){
     case 1:
@@ -278,7 +278,7 @@ public:
   typedef typename A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >::FieldParamType FieldParamType;
   typedef typename Policies::ComplexType ComplexType;
   
-  ComplexD value(const int site[3], const int glb_size[3]) const{
+  cps::ComplexD value(const int site[3], const int glb_size[3]) const{
     bool inbox = true;
     int V = glb_size[0]*glb_size[1]*glb_size[2];
     for(int i=0;i<3;i++){ 
@@ -289,7 +289,7 @@ public:
       }
     }
     if(inbox)
-      return ComplexD(1./V);
+      return cps::ComplexD(1./V);
   }
   
   A2AboxSource(const int _box_size[3],const FieldParamType &field_params): A2AsourceBase<FieldPolicies, A2AboxSource<FieldPolicies> >(field_params){
@@ -313,15 +313,15 @@ public:
   }
 };
 
-//Splat a ComplexD onto a SIMD type. Just a plain copy for non-SIMD complex types
+//Splat a cps::ComplexD onto a SIMD type. Just a plain copy for non-SIMD complex types
 #ifdef USE_GRID
 template<typename ComplexType>
-inline void SIMDsplat(ComplexType &to, const ComplexD &from, typename my_enable_if< _equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
+inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< _equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
   vsplat(to,from);
 }
 #endif
 template<typename ComplexType>
-inline void SIMDsplat(ComplexType &to, const ComplexD &from, typename my_enable_if< !_equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
+inline void SIMDsplat(ComplexType &to, const cps::ComplexD &from, typename my_enable_if< !_equal<  typename ComplexClassify<ComplexType>::type, grid_vector_complex_mark  >::value, int>::type = 0){
   to = ComplexType(from.real(),from.imag());
 }
   
@@ -342,7 +342,7 @@ protected:
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
-    ComplexD v = this->value(zero,L);
+    cps::ComplexD v = this->value(zero,L);
     SIMDsplat(*val000,v);    
   }
 public:

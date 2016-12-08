@@ -1,9 +1,7 @@
 #ifndef _FMATRIX_H
 #define _FMATRIX_H
 
-#include<alg/a2a/a2a_policies.h>
 CPS_START_NAMESPACE
-
 
 template<typename T>
 class basicMatrix{

@@ -1,6 +1,7 @@
 #ifndef _MULT_IMPL_GSL_H
 #define _MULT_IMPL_GSL_H
 
+CPS_END_NAMESPACE
 #include<alg/a2a/gsl_wrapper.h>
 CPS_START_NAMESPACE
 
@@ -215,6 +216,5 @@ public:
   }
   
 };
-CPS_END_NAMESPACE
 
 #endif

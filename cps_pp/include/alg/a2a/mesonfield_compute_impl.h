@@ -30,7 +30,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      ComplexD mf_accum;
+      cps::ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 

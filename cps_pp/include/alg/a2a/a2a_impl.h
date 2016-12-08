@@ -1,5 +1,4 @@
 //Implementations of methods in a2a.h
-#include<util/time_cps.h> //dclock()
 
 template<typename VWtype>
 inline double VW_Mbyte_size(const A2AArg &_args, const typename VWtype::FieldInputParamType &field_setup_params){
@@ -249,11 +248,7 @@ struct _W_fft_impl{
 	Float dtime = dclock();
 	FFTfieldPolicy::actionOutputHighMode(to, sc+12*hit); //alloc
 #ifndef MEMTEST_MODE
-<<<<<<< HEAD
-    fft_opt(v[mode], *init_gather_from, fft_dirs);
-=======
 	cps::fft_opt(to.getWh(hit,sc), *init_gather_from, fft_dirs);
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 #endif
 	fft_time += dclock()-dtime;
       }
@@ -302,11 +297,7 @@ struct _W_invfft_impl{
 
       Float dtime = dclock();
 #ifndef MEMTEST_MODE
-<<<<<<< HEAD
-    fft_opt(wl[mode], *init_gather_from, fft_dirs);
-=======
       cps::fft_opt(*unfft_to, from.getWl(mode), fft_dirs, true);
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 #endif
       fft_time += dclock() - dtime;
 
@@ -326,11 +317,7 @@ struct _W_invfft_impl{
       FermionFieldType * compress = mode_postop == NULL ? &tmp2 : &tmp;
       Float dtime = dclock();
 #ifndef MEMTEST_MODE
-<<<<<<< HEAD
-      fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
-=======
       cps::fft_opt(tmp2, from.getWh(hit,sc), fft_dirs, true);
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 #endif
       fft_time += dclock()-dtime;
 
@@ -432,11 +419,7 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     x[3] = tblock_origt_lcl + rem;
 
     TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);
-<<<<<<< HEAD
-    mf_Complex * from_site = (mf_Complex*)wh[hit].site_ptr(x,flavor); //note same random numbers for each spin/color!
-=======
     mf_Complex const* from_site = (mf_Complex*)wh[hit]->site_ptr(x,flavor); //note same random numbers for each spin/color!
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
     *into_site = *from_site;
   }
 }

@@ -1,10 +1,5 @@
 #ifndef _MULT_VMV_SPLIT_GRID_H
 #define _MULT_VMV_SPLIT_GRID_H
-
-//using cps::SCFoperation;
-//using cps::mult_vMv_split_v;
-//using cps::CPSspinColorFlavorMatrix;
-//using cps::A2AmesonField;
 #ifdef USE_GRID
 
 //Try to save memory at the cost of some performance

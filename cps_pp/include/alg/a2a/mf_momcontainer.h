@@ -1,7 +1,6 @@
 #ifndef _PIPI_MFCONTAINER_H
 #define _PIPI_MFCONTAINER_H
 
-#include<alg/a2a/mesonfield.h>
 #include<alg/a2a/threemomentum.h>
 CPS_START_NAMESPACE
 

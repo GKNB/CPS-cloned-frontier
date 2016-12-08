@@ -13,6 +13,7 @@
 #include <alg/eigen/Krylov_5d.h>
 #endif
 
+#include<alg/a2a_arg.h>
 #include<alg/a2a/CPSfield.h>
 #include<alg/a2a/CPSfield_utils.h>
 #include<alg/a2a/scfvectorptr.h>

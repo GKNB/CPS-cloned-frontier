@@ -1,9 +1,9 @@
 #ifndef _MAIN_CK_H
 #define _MAIN_CK_H
 
-#include <util/omp_wrapper.h>
 #include <util/time_cps.h>
 #include <alg/a2a/grid_lanczos.h>
+#include <alg/ktopipi_jobparams.h>
 
 //Useful functions for main programs
 CPS_START_NAMESPACE
@@ -266,7 +266,7 @@ struct LatticeSetup{
 
     NullObject null_obj;
     lat->BondCond();
-    CPSfield<ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((ComplexD*)lat->GaugeField(),null_obj);
+    CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
     cps_gauge.exportGridField(*lat->getUmu());
     lat->BondCond();
     
@@ -429,7 +429,7 @@ struct computeA2Avectors{
 };
 
 template<typename ComplexType>
-void setupFieldParams(NullObject &n){}
+void setupFieldParams(cps::NullObject &n){}
 
 #ifdef USE_GRID
 template<typename ComplexType>
