@@ -43,8 +43,12 @@ void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vec
 
   
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
-  if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d Cheb(0)=%g \n",lo,hi,ord,Cheb.approx(0));
+  if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d Cheb(0)=%g Cheb(0.001)=%g Cheb(0.0037)=%g \n",lo,hi,ord,Cheb.approx(0),Cheb.approx(0.001),Cheb.approx(0.0037));
   Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+
+  std::vector<double> Coeffs { 0.,-1.};
+  Grid::Polynomial<GridFermionField> PolyX(Coeffs);
+  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL2(HermOp,PolyX,Nstop,Nk,Nm,resid,MaxIt);
 
   if(lanc_arg.lock) IRL.lock = 1;
 
@@ -72,9 +76,8 @@ void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vec
   src.checkerboard = Grid::Odd;
   
   int Nconv;
-  IRL.calc(eval,evec,
-	   src,
-	   Nconv);
+  if(ord>1) IRL.calc(eval,evec, src, Nconv);
+  else  IRL2.calc(eval,evec, src, Nconv);
 #endif
 }
 
