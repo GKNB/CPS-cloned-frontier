@@ -71,36 +71,28 @@ CPS_START_NAMESPACE
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename mf_Element, typename mf_Element_Vector>
 class MultKernel{
 public:
-  inline static void prefetchSite(const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
-				  const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf){				  
-#ifdef AVX512
-    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
-    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
-    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
-    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
-#endif
-  }
-
 #ifdef AVX512
   static void prefetchFvec(const char* ptr){
     //T0 hint
-    #define _VPREFETCH1(O,A) VPREFETCH1(O,A)
+#define _VPREFETCH1(O,A) VPREFETCH1(O,A)
     //T1 hint
-    #define _VPREFETCH2(O,A) VPREFETCH2(O,A)
+#define _VPREFETCH2(O,A) VPREFETCH2(O,A)
+    
+#define _PREF(O,A) VPREFETCH2(O,A)
 
     __asm__ ( 
-    _VPREFETCH2(0,%rdi) \
-    _VPREFETCH2(1,%rdi) \
-    _VPREFETCH2(2,%rdi) \
-    _VPREFETCH2(3,%rdi) \
-    _VPREFETCH2(4,%rdi) \
-    _VPREFETCH2(5,%rdi) \
-    _VPREFETCH2(6,%rdi) \
-    _VPREFETCH2(7,%rdi) \
-    _VPREFETCH2(8,%rdi) \
-    _VPREFETCH2(9,%rdi) \
-    _VPREFETCH2(10,%rdi) \
-    _VPREFETCH2(11,%rdi) 
+    _PREF(0,%rdi) \
+    _PREF(1,%rdi) \
+    _PREF(2,%rdi) \
+    _PREF(3,%rdi) \
+    _PREF(4,%rdi) \
+    _PREF(5,%rdi) \
+    _PREF(6,%rdi) \
+    _PREF(7,%rdi) \
+    _PREF(8,%rdi) \
+    _PREF(9,%rdi) \
+    _PREF(10,%rdi) \
+    _PREF(11,%rdi) 
 	      );
   }
 #endif
@@ -113,26 +105,20 @@ public:
     lscf.incrementPointers(site_offset_i);
     prefetchFvec((const char*)lscf.getPtr(0));
     prefetchFvec((const char*)lscf.getPtr(1));
-    //_mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T0);
-    //_mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T0);
     rscf.incrementPointers(site_offset_j);
     prefetchFvec((const char*)rscf.getPtr(0));
     prefetchFvec((const char*)rscf.getPtr(1));
-    //_mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T0);
-    //_mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T0);
     lscf.incrementPointers(site_offset_i,-1);
     rscf.incrementPointers(site_offset_j,-1);
 #endif
   }
-
-  inline static int prefetchSitesL2(SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
-				    SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf){
+  inline static void prefetchSite(const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &lscf,
+				  const SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> &rscf){				  
 #ifdef AVX512
-    _mm_prefetch((const char*)lscf.getPtr(0),_MM_HINT_T1);
-    _mm_prefetch((const char*)lscf.getPtr(1),_MM_HINT_T1);
-    _mm_prefetch((const char*)rscf.getPtr(0),_MM_HINT_T1);
-    _mm_prefetch((const char*)rscf.getPtr(1),_MM_HINT_T1);
-    return 5; //number of sites between calls
+    prefetchFvec((const char*)lscf.getPtr(0));
+    prefetchFvec((const char*)lscf.getPtr(1));
+    prefetchFvec((const char*)rscf.getPtr(0));
+    prefetchFvec((const char*)rscf.getPtr(1));
 #endif
   }
 
@@ -153,20 +139,13 @@ public:
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf(base_ptrs_j[j], site_offsets_j[j], p0);
 
 	//prefetchSite(lscf,rscf);
-	//prefetchSitesL2(lscf,rscf);
 
-	//int L2prefetchFreq = 1;
-
-	//int iter = 0;
 	for(int p_3d = p0; p_3d < pup; p_3d++) {
-	  //if(iter % L2prefetchFreq == 0) L2prefetchFreq = prefetchSitesL2(lscf,rscf);
-
 	  //prefetchAdvanceSite(lscf,rscf,site_offsets_i[i],site_offsets_j[j]);
 
 	  M(mf_accum,lscf,rscf,p_3d,t);	 
 	  lscf.incrementPointers(site_offsets_i[i]);
 	  rscf.incrementPointers(site_offsets_j[j]);		  
-	  //++iter;
 	}
       }
     }
