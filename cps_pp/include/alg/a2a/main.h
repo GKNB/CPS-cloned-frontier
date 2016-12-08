@@ -9,7 +9,7 @@
 CPS_START_NAMESPACE
 
 void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
-  double time = -cps::dclock();
+  double time = -dclock();
   const char *cname = "main";
   const char *fname = "ReadGaugeField";
 
@@ -24,12 +24,12 @@ void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
   rl.read(lat,lat_file.c_str());
   if(!rl.good())ERR.General(cname,fname,"Failed read lattice %s",lat_file.c_str());
 
-  time += cps::dclock();
-  cps::print_time(cname,fname,time);
+  time += dclock();
+  print_time(cname,fname,time);
 }
 
 void ReadRngFile(const MeasArg &meas_arg, bool double_latt = false){
-  double time = -cps::dclock();
+  double time = -dclock();
   const char *cname = "main";
   const char *fname = "ReadRngFile";
 
@@ -38,8 +38,8 @@ void ReadRngFile(const MeasArg &meas_arg, bool double_latt = false){
   std::string rng_file = os.str();
 
   if(!LRG.Read(rng_file.c_str())) ERR.General(cname,fname,"Failed read rng file %s",rng_file.c_str());
-  time += cps::dclock();
-  cps::print_time(cname,fname,time);
+  time += dclock();
+  print_time(cname,fname,time);
 }
 
 #ifdef USE_BFM
@@ -266,7 +266,7 @@ struct LatticeSetup{
 
     NullObject null_obj;
     lat->BondCond();
-    CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
+    CPSfield<ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((ComplexD*)lat->GaugeField(),null_obj);
     cps_gauge.exportGridField(*lat->getUmu());
     lat->BondCond();
     

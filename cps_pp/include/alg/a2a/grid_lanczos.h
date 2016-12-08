@@ -21,6 +21,9 @@ void gridLanczos(GridFermionField &src, std::vector<Grid::RealD> &eval, std::vec
 
   assert(lanc_arg.precon);
   Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
+  HermOp.MpcNorm=false;
+  HermOp.MpcDagNorm=false;
+
 
     // int Nstop;   // Number of evecs checked for convergence
     // int Nk;      // Number of converged sought
@@ -105,7 +108,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
   Vector *X_in =
         (Vector*)smalloc(GJP.VolNodeSites()*n_gp*lattice.FsiteSize()*sizeof(IFloat));
   lattice.RandGaussVector(X_in,0.5,1);
-  lattice.ImportFermion(src_all,X_in,Odd);
+  lattice.ImportFermion(src_all,X_in,FgridBase::Odd);
   pickCheckerboard(Grid::Odd,src,src_all);
   sfree(X_in);
 }
@@ -132,7 +135,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   
   NullObject null_obj;
   lattice.BondCond();
-  CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
+  CPSfield<ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((ComplexD*)lattice.GaugeField(),null_obj);
   cps_gauge.exportGridField(Umu_f);
   lattice.BondCond();
 

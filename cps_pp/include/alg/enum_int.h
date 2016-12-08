@@ -19,7 +19,7 @@ typedef double Float;
 
 typedef double IFloat;
 
-typedef uint32_t Pointer;
+typedef uint64_t Pointer;
 
 enum DirType {
 	DIR_X = 0,

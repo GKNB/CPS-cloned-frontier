@@ -496,7 +496,7 @@ struct _gauge_fix_site_op_impl{
     assert(ndim == 4);
 
     //Assemble pointers to the GF matrices for each lane
-    std::vector<cps::Complex*> gf_base_ptrs(nsimd);
+    std::vector<Complex*> gf_base_ptrs(nsimd);
     int x4d_lane[4];
     int lane_off[4];
     
@@ -504,7 +504,7 @@ struct _gauge_fix_site_op_impl{
       field.SIMDunmap(lane, lane_off);		      
       for(int xx=0;xx<4;xx++) x4d_lane[xx] = x4d[xx] + lane_off[xx];
       int gf_off = x4d_lane[0] + GJP.XnodeSites()*( x4d_lane[1] + GJP.YnodeSites()* ( x4d_lane[2] + GJP.ZnodeSites()*x4d_lane[3] ) );
-      gf_base_ptrs[lane] = (cps::Complex*)lat.FixGaugeMatrix(gf_off,f);
+      gf_base_ptrs[lane] = (Complex*)lat.FixGaugeMatrix(gf_off,f);
     }
 
 

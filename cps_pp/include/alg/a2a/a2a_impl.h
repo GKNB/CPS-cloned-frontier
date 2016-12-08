@@ -52,7 +52,7 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
     }
     Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(v[mode], *init_gather_from, fft_dirs);
+    fft_opt(v[mode], *init_gather_from, fft_dirs);
 #endif
     fft_time += dclock() - dtime;
   }
@@ -79,16 +79,16 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
   for(int mode=0;mode<nl;mode++){
     FermionFieldType const* init_gather_from = &from.getWl(mode);
     if(mode_preop != NULL){
-      Float dtime = cps::dclock();
+      Float dtime = dclock();
       (*mode_preop)(from.getWl(mode),tmp);
       init_gather_from = &tmp;
-      preop_time += cps::dclock()-dtime;
+      preop_time += dclock()-dtime;
     }
-    Float dtime = cps::dclock();
+    Float dtime = dclock();
 #ifndef MEMTEST_MODE
-    cps::fft_opt(wl[mode], *init_gather_from, fft_dirs);
+    fft_opt(wl[mode], *init_gather_from, fft_dirs);
 #endif
-    fft_time += cps::dclock() - dtime;
+    fft_time += dclock() - dtime;
   }
   //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
   for(int hit=0;hit<nhits;hit++){
@@ -96,16 +96,16 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
       from.getSpinColorDilutedSource(tmp2,hit,sc);
       FermionFieldType* init_gather_from = &tmp2;
       if(mode_preop != NULL){
-	Float dtime = cps::dclock();
+	Float dtime = dclock();
 	(*mode_preop)(tmp2,tmp);
 	init_gather_from = &tmp;
-	preop_time += cps::dclock()-dtime;
+	preop_time += dclock()-dtime;
       }
-      Float dtime = cps::dclock();
+      Float dtime = dclock();
 #ifndef MEMTEST_MODE
-      cps::fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
+      fft_opt(wh[sc+12*hit], *init_gather_from, fft_dirs);
 #endif
-      fft_time += cps::dclock()-dtime;
+      fft_time += dclock()-dtime;
     }
   }
   if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
@@ -320,7 +320,7 @@ FieldType const * getBaseAndShift(int shift[3], const int p[3], FieldType const 
 //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
 template< typename mf_Policies>
 void A2AvectorWfftw<mf_Policies>::getTwistedFFT(const int p[3], A2AvectorWfftw<Policies> const *base_p, A2AvectorWfftw<Policies> const *base_m){
-  Float time = -cps::dclock();
+  Float time = -dclock();
   
   std::vector<int> shift(3);
   A2AvectorWfftw<mf_Policies> const* base = getBaseAndShift(&shift[0], p, base_p, base_m);

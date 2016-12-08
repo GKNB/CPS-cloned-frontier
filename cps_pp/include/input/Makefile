@@ -1,5 +1,5 @@
-SRCDIR = /root/chulwoo/CPS/develop/openmpi/../cps_pp
-BUILDDIR = /root/chulwoo/CPS/develop/openmpi
+SRCDIR = /project/projectdirs/m2078/chulwoo/CPS_Gparity/src/cps2/cps_pp
+BUILDDIR = /project/projectdirs/m2078/chulwoo/CPS_Gparity/build2/cps
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml
 RHFLAGS=-h -C -x -u util/vml/ -v alg/

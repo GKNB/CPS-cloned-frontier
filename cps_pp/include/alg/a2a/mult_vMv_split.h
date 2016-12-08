@@ -7,7 +7,7 @@
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_MEM_SAVE
 
-CPS_START_NAMESPACE
+//CPS_START_NAMESPACE
 
 template<typename ComplexMatrixType>
 class SCFoperation{
@@ -688,7 +688,7 @@ public:
 
 
 
-CPS_END_NAMESPACE
+//CPS_END_NAMESPACE
 
 
 #endif

@@ -38,12 +38,12 @@
 
 
 #define VERSION_MAJOR 5
-#define VERSION_MINOR 2
-#define VERSION_SUB 1
-#define VERSION_STR "CPS_V5.2.1"
+#define VERSION_MINOR 3
+#define VERSION_SUB 0
+#define VERSION_STR "CPS_V5.3.0"
 
 #define TARGET NOARCH
-#define PARALLEL 1
+#undef PARALLEL
 
 #undef HAVE_BFM
 

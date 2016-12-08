@@ -30,7 +30,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      cps::ComplexD mf_accum;
+      ComplexD mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -49,7 +49,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
       }
     }
   }
-  cps::sync();
+  sync();
   print_time("A2AmesonField","local compute",time + dclock());
   time = -dclock();
 
@@ -353,7 +353,7 @@ struct mfComputeGeneral: public mf_Vector_policies<mfVectorType, InnerProduct >{
     print_time("A2AmesonField","local compute",time + dclock());
 
     time = -dclock();
-    cps::sync();
+    sync();
     print_time("A2AmesonField","sync",time + dclock());
 
     //Accumulate
