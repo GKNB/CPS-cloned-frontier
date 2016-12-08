@@ -65,6 +65,9 @@ using namespace cps;
 #include <alg/a2a/a2a.h>
 #include <alg/a2a/mesonfield.h>
 #include <alg/a2a/compute_ktopipi_base.h>
+#include <alg/a2a/mesonfield_mult_vMv_split.h>
+#include <alg/a2a/mesonfield_mult_vMv_split_grid.h>
+
 
 #include "benchmark_mesonfield.h"
 

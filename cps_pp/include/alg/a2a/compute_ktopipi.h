@@ -4,6 +4,9 @@
 #include<alg/a2a/fmatrix.h>
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/compute_ktopipi_base.h>
+#include<alg/a2a/mf_productstore.h>
+#include<alg/a2a/mesonfield_mult_vMv_split.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
 
 #include<memory>
 #include <algorithm>
@@ -436,13 +439,13 @@ public:
 
 };
 
+#include<alg/a2a/compute_ktopipi_type1.tcc>
+#include<alg/a2a/compute_ktopipi_type2.tcc>
+#include<alg/a2a/compute_ktopipi_type3.tcc>
+#include<alg/a2a/compute_ktopipi_type4.tcc>
+
+
 CPS_END_NAMESPACE
-
-
-#include<alg/a2a/compute_ktopipi_type1.h>
-#include<alg/a2a/compute_ktopipi_type2.h>
-#include<alg/a2a/compute_ktopipi_type3.h>
-#include<alg/a2a/compute_ktopipi_type4.h>
 
 #undef DAIQIAN_COMPATIBILITY_MODE
 #undef DAIQIAN_EVIL_RANDOM_SITE_OFFSET

@@ -2,6 +2,10 @@
 #define _MULT_VMV_SPLIT_GRID_H
 #ifdef USE_GRID
 
+#include<alg/a2a/mesonfield_mult_vMv_split.h>
+
+CPS_START_NAMESPACE
+
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_GRID_MEM_SAVE
 //Don't splat-vectorize packed mesonfield at beginning, instead do it at the point of use
@@ -510,6 +514,7 @@ public:
 
 
 
+CPS_END_NAMESPACE
 
 #endif
 

@@ -574,7 +574,7 @@ public:
 
 
 
-#include<alg/a2a/CPSfield_impl.h>
+#include<alg/a2a/CPSfield_impl.tcc>
 
 CPS_END_NAMESPACE
 #endif

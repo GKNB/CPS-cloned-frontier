@@ -1,8 +1,6 @@
 #ifndef _COMPUTE_KTOPIPI_TYPE1_H
 #define _COMPUTE_KTOPIPI_TYPE1_H
 
-CPS_START_NAMESPACE
-
 //TYPE 1
 //Each contraction of this type is made up of different trace combinations of two objects:
 //1) \sum_{ \vec x }  \Gamma_1 \prop^L(x_op,x) S_2 \prop^L(x,x_op)    
@@ -429,6 +427,5 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 
 
 
-CPS_END_NAMESPACE
 
 #endif

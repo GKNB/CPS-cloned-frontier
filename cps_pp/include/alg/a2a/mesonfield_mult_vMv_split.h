@@ -1,6 +1,8 @@
 #ifndef _MULT_VMV_SPLIT_H
 #define _MULT_VMV_SPLIT_H
 
+CPS_START_NAMESPACE
+
 //Try to save memory at the cost of some performance
 #define VMV_SPLIT_MEM_SAVE
 
@@ -680,9 +682,6 @@ public:
 
 };
 
-
-
-
-
+CPS_END_NAMESPACE
 
 #endif

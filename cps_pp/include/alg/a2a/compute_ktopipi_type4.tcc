@@ -1,8 +1,6 @@
 #ifndef _COMPUTE_KTOPIPI_TYPE4_H
 #define _COMPUTE_KTOPIPI_TYPE4_H
 
-CPS_START_NAMESPACE
-
 //Each contraction of this type is made up of different trace combinations of two objects (below for simplicity we ignore the fact that the two vectors in the meson fields are allowed to vary in position relative to each other):
 //1) \prop^L(x_op,x_K) \gamma^5 \prop^H(x_K,x_op)
 //   we use g5-hermiticity on the strange prop
@@ -189,7 +187,5 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
   mix4.threadSum();
   mix4.nodeSum();
 }
-
-CPS_END_NAMESPACE
 
 #endif

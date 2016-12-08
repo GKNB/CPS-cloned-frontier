@@ -533,11 +533,7 @@ public:
 
 
 
-#include <alg/a2a/a2a_impl.h>
-
-#ifdef USE_GRID
-#include<alg/a2a/evec_interface_impl.h>
-#endif
+#include <alg/a2a/a2a_impl.tcc>
 
 //Can do Lanczos in BFM or Grid, and A2A in BFM or Grid. I have a BFM Lanczos -> Grid interface
 
@@ -552,7 +548,7 @@ public:
 #  error "No Grid Lanczos -> BFM A2A interface implemented"
 # endif
 
-# include <alg/a2a/a2a_impl_vwbfm.h>
+# include <alg/a2a/a2a_impl_vwbfm.tcc>
 
 #elif defined(USE_GRID_A2A)
 # warning "Using Grid A2A"
@@ -565,7 +561,7 @@ public:
 #  error "BFM Lanczos -> Grid A2A interface requires BFM!"
 # endif
 
-# include <alg/a2a/a2a_impl_vwgrid.h>
+# include <alg/a2a/a2a_impl_vwgrid.tcc>
 
 #else
 

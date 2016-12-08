@@ -419,7 +419,16 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 
 
 
-
-#include<alg/a2a/mesonfield_impl.h>
+#include<alg/a2a/mesonfield_mult_impl.tcc>
+#include<alg/a2a/mesonfield_mult_vMv_impl.tcc>
+#include<alg/a2a/mesonfield_mult_vv_impl.tcc>
+#include<alg/a2a/mesonfield_io.tcc>
+#include<alg/a2a/mesonfield_compute_impl.tcc>
+#include<alg/a2a/mesonfield_impl.tcc>
 CPS_END_NAMESPACE
+
+
+
+
+
 #endif

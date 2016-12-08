@@ -77,7 +77,7 @@ public:
 
 
 
-#include<alg/a2a/mode_mapping_impl.h>
+#include<alg/a2a/mode_mapping_impl.tcc>
 
 CPS_END_NAMESPACE
 

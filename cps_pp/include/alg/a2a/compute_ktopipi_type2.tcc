@@ -1,9 +1,6 @@
 #ifndef _COMPUTE_KTOPIPI_TYPE2_H
 #define _COMPUTE_KTOPIPI_TYPE2_H
 
-#include<alg/a2a/mf_productstore.h>
-CPS_START_NAMESPACE
-
 //TYPE 2
 //Each contraction of this type is made up of different trace combinations of two objects (below [but not in the code!] for simplicity we ignore the fact that the two vectors in 
 //the meson fields are allowed to vary in position relative to each other):
@@ -342,8 +339,4 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
   }
 }
 
-
-
-
-CPS_END_NAMESPACE
 #endif

@@ -20,6 +20,9 @@ class EvecInterface{
 			  GridFermionField &solution, const GridFermionField &source,
 			  double resid, int max_iters);
 };
+
+#include <alg/a2a/evec_interface_impl.tcc>
+
 #endif
 
 CPS_END_NAMESPACE

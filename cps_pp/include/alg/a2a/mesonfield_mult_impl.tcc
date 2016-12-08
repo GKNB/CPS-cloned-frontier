@@ -1,7 +1,6 @@
 #ifndef _MULT_IMPL
 #define _MULT_IMPL
 
-#include<alg/a2a/gsl_wrapper.h>
 
 //Options for _mult_impl:
 //MULT_IMPL_BASIC        :not using any external libraries
@@ -13,13 +12,13 @@
 //#define MULT_IMPL_GRID
 
 #if defined(MULT_IMPL_BASIC)
-#  include<alg/a2a/mult_impl_basic.h>
+#  include<alg/a2a/mesonfield_mult_impl_basic.tcc>
 #elif defined(MULT_IMPL_BLOCK_BASIC)
-#  include<alg/a2a/mult_impl_block_basic.h>
+#  include<alg/a2a/mesonfield_mult_impl_block_basic.tcc>
 #elif defined(MULT_IMPL_GSL)
-#  include<alg/a2a/mult_impl_gsl.h>
+#  include<alg/a2a/mesonfield_mult_impl_gsl.tcc>
 #elif defined(MULT_IMPL_GRID)
-#  include<alg/a2a/mult_impl_grid.h>
+#  include<alg/a2a/mesonfield_mult_impl_grid.tcc>
 #else
 #  error Must specify a MULT_IMPL_* in alg/a2a/mult_impl.h
 #endif
