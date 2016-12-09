@@ -27,6 +27,10 @@ int main(int argc,char *argv[])
   int nthreads = 1;
   int step = 100;
   int min = 100;
+
+  const int ngrid_arg = 7;
+  const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
+  const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
   
   int i=2;
   while(i<argc){
@@ -44,8 +48,19 @@ int main(int argc,char *argv[])
       printf("Set evec min to %d\n", min);
       i+=2;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
-      exit(-1);
+      bool is_grid_arg = false;
+      for(int a=0;a<ngrid_arg;a++){
+	if( std::string(cmd) == grid_args[a] ){
+	  if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd); fflush(stdout); }
+	  i += grid_args_skip[a];
+	  is_grid_arg = true;
+	  break;
+	}
+      }
+      if(!is_grid_arg){
+	if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+	exit(-1);
+      }
     }
   }
 
