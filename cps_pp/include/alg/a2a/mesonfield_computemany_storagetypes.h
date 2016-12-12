@@ -28,6 +28,11 @@ protected:
   std::vector<computeParams> clist;
 public:
   static void getGPmomParams(int a[3], int k[3], const int p[3]){
+    if(!GJP.Gparity()){
+      for(int i=0;i<3;i++){ a[i]=p[i]; k[i]=0; }
+      return;
+    } 
+    
     //Any allowed G-parity quark momentum can be written as   4*\vec a + \vec k   where k=(+1,+1,+1) or (-1,-1,-1)  [replace with zeroes when not Gparity directions]
     //Return the vectors a and k. For non GPBC directions set a[d]=p[d] and k[d]=0
     if(      (p[0]-1) % 4 == 0){
