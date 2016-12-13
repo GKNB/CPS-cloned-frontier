@@ -4003,9 +4003,6 @@ void gamma_5(IFloat *v_out, IFloat *v_in, int num_sites)
 //------------------------------------------------------------------
 void AlgEig_CPSeigsolver::run(Float **evalues)
 {
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-#endif
 
   Float time = -dclock();
   int iter=0;

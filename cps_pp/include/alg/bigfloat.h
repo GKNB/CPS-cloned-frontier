@@ -7,7 +7,9 @@
 //------------------------------------------------------------------
 #include<config.h>
 #include<cstddef>
+#ifdef USE_GMP
 #include <gmp.h>
+#endif
 
 #ifdef USE_MPFR
 #include <mpfr.h>

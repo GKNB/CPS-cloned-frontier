@@ -261,6 +261,8 @@ public:
   // 0 to [GJP.Snodes() * GJP.SnodeSites() - 1]
   // The same 4D field is generarted in all s node slices.
 #endif
+
+  friend QMPSCU::init_qmp(int *argc, char **argv);
     
 };
 CPS_END_NAMESPACE

@@ -3,7 +3,7 @@
 
 #include<config.h>
 
-#ifdef GMP        // If GMP is defined 
+#ifdef USE_GMP        // If GMP is defined 
 
 #include <util/lattice.h>
 #include <util/smalloc.h>

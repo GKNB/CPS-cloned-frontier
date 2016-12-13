@@ -57,6 +57,9 @@ namespace QMPSCU {
 #else
   static const int* pePos;  /*!< Position of this process in the grid.*/ 
   static const int* peGrid; /*!< Number of processors in each direction */
+#ifdef USE_GRID
+  static QMP_comm_t qmp_comm; // generate new comm
+#endif
 #endif
 
   //Clean up resources used by QMP
@@ -91,7 +94,7 @@ void init_qmp(int * argc, char ***argv) {
   
     QMP_thread_level_t prv;
 #ifndef UNIFORM_SEED_NO_COMMS
-    QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_SINGLE, &prv);
+    QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_MULTIPLE, &prv);
     if (init_status) printf("QMP_init_msg_passing returned %d\n",init_status);
     qmpRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
@@ -132,6 +135,23 @@ void init_qmp(int * argc, char ***argv) {
     NDIM = QMP_get_allocated_number_of_dimensions();
     peGrid = QMP_get_allocated_dimensions();
     pePos = QMP_get_allocated_coordinates();
+#if 0 //not yet tested
+#ifdef USE_GRID
+	Grid::Grid_init(GJP.argc_p(),GJP.argv_p());
+	FgridBase::grid_initted=true;
+	std::vector<int> processors;
+	for(i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
+	Grid::CartesianCommunicator grid_cart(processors);
+	peRank=0;
+	for(i=NDIM-1;i>=0;i--){
+		pePos[i] = grid_cart._processor_coor[i];
+		peRank *= peGrid[i];
+		peRank += pePos[i];
+	}
+	QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
+	QMP_comm_set_default(qmp_comm);
+#endif
+#endif
 
     if(peRank==0){
       for(int i = 0; i<*argc;i++){
@@ -145,7 +165,6 @@ void init_qmp(int * argc, char ***argv) {
     NDIM=4;
 #endif
 
-//#if (TARGET == BGL) || (TARGET == BGP)
   if (NDIM>5){
     peNum = 1;
     for(int i = 0;i<5;i++)
@@ -169,7 +188,6 @@ void init_qmp(int * argc, char ***argv) {
   } 
 
 
-//     printf("QMP_declare_logical_topology(peGrid, NDIM)\n");
 #ifndef UNIFORM_SEED_NO_COMMS
     //Declare the logical topology (Redundant for GRID machines)
     if (QMP_declare_logical_topology(peGrid, NDIM) != QMP_SUCCESS) {
@@ -192,7 +210,7 @@ void init_qmp(int * argc, char ***argv) {
     
   }
     
-}//End namespace QMPSCU {
+}
 
 
 /*-------------------------------------------------------------------------*/
@@ -289,24 +307,6 @@ if (sync_status != QMP_SUCCESS) {
 return 1;
 }
 #endif
-
-//----------------------------------------------------------------
-/*
-  On QCDSP this function returns the explicit wire
-  number (0 - 7) of the physics direction given by \a dir. In the MPI
-  version this returns the internal direction from the cartesian
-  communicator which corresponds to the given physics direction.
-  \param dir The physics (lattice) direction.
-  \return The number used by the comms layer to represents that direction.
-
-  Possibly.
-*/
-/* In this implementation, this just returns the integer value
-  associated with the direction from the SCUDir enum */
-//int SCURemap( SCUDir dir ) {
-//    return (int)dir;
-//}
-
 
 CPS_END_NAMESPACE
 #endif

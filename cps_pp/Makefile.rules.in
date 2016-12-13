@@ -21,7 +21,7 @@ CC_PATH = @CC_PATH@
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 ASFLAGS = @ASFLAGS@
-XLCFLAGS = -qarch=pwr3 -O3 -D_XLC_
+#XLCFLAGS = -qarch=pwr3 -O3 -D_XLC_
 
 INCLUDE_FLAGS = -I${BUILDDIR} -I${SRCDIR}/include @INCLUDE_FLAGS@
 
@@ -99,10 +99,10 @@ SOBJ=$(SSRC:.S=.o)
 OBJS_SRC = $(SOBJ) $(CCOBJ) $(COBJ)
 OBJS := $(notdir $(OBJS_SRC))
 
-XLCOBJ=$(CSRC:.c=.xlo)
-XLCCOBJ=$(CCSRC:.C=.xlo)
-XLCOBJS_SRC = $(XLCCOBJ) $(XLCOBJ)
-XLCOBJS := $(notdir $(XLCOBJS_SRC))
+# XLCOBJ=$(CSRC:.c=.xlo)
+#XLCCOBJ=$(CCSRC:.C=.xlo)
+#XLCOBJS_SRC = $(XLCCOBJ) $(XLCOBJ)
+#XLCOBJS := $(notdir $(XLCOBJS_SRC))
 
 
 %.o:%.c
@@ -118,13 +118,13 @@ ifneq ($(CONCUR),yes)
 	cd $(BUILDDIR2) ; ${AR} rcs ${BUILDDIR}/$(LIBNAME).a $@
 endif
 
-%.xlo:%.c
-	cd $(BUILDDIR2)/ ; xlC -F$(BUILDDIR)/XLC.cfg -S $< ${XLCFLAGS}
-	xlC -F$(BUILDDIR)/XLC.cfg -c $< -o $(BUILDDIR2)/$@ ${XLCFLAGS}
-ifneq ($(CONCUR),yes)
-	cd $(BUILDDIR2) ; objcopy -R .eh_frame $@
-	cd $(BUILDDIR2) ; ar  rcs ${BUILDDIR}/$(LIBNAME).xla $@
-endif
+# %.xlo:%.c
+#	cd $(BUILDDIR2)/ ; xlC -F$(BUILDDIR)/XLC.cfg -S $< ${XLCFLAGS}
+#	xlC -F$(BUILDDIR)/XLC.cfg -c $< -o $(BUILDDIR2)/$@ ${XLCFLAGS}
+#ifneq ($(CONCUR),yes)
+#	cd $(BUILDDIR2) ; objcopy -R .eh_frame $@
+#	cd $(BUILDDIR2) ; ar  rcs ${BUILDDIR}/$(LIBNAME).xla $@
+#endif
 
 %.xlo:%.C
 	cd $(BUILDDIR2)/ ; xlC -F$(BUILDDIR)/XLC.cfg -S $< ${XLCFLAGS}

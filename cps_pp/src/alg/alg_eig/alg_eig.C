@@ -199,9 +199,6 @@ void AlgEig::run()
 //------------------------------------------------------------------
 void AlgEig::run(Float **evalues, Vector **in_eigv)
 {
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-#endif
 
   Float time = -dclock();
   int iter=0;

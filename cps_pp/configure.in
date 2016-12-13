@@ -233,7 +233,7 @@ dnl Are we compiling with C11?
 AC_ARG_ENABLE(c11, 
 	AC_HELP_STRING([--enable-c11], 
 	[Compile with C11 features. (default=no)]), 
-	,[enable_c11="no"])
+	,[enable_c11="yes"])
 AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
 if test "$enable_c11" != "no"; then
@@ -320,7 +320,7 @@ AC_ARG_ENABLE(mpfr,
 AC_MSG_CHECKING([if including GMP mpfr])
 AC_MSG_RESULT($enable_mpfr)
 if test "$enable_gmp" != "no"; then
-   DFLAGS="${DFLAGS} -DGMP"
+   DFLAGS="${DFLAGS} -DUSE_GMP"
    LDFLAGS="${LDFLAGS} -lgmp"
   if test "$enable_gmp" != "yes"; then
    LDFLAGS="${LDFLAGS} -L${enable_gmp}/lib "
@@ -329,6 +329,10 @@ if test "$enable_gmp" != "no"; then
   if test "$enable_mpfr" != "no"; then
      LDFLAGS="${LDFLAGS} -lmpfr"
      DFLAGS="${DFLAGS} -DUSE_MPFR"
+    if test "$enable_mpfr" != "yes"; then
+     LDFLAGS="${LDFLAGS} -L${enable_mpfr}/lib "
+     INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_mpfr}/include"
+    fi
   fi
 fi
 
@@ -458,11 +462,6 @@ dnl     echo "BFM_DIR environment variable not set"
    fi
       DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM -DUSE_HDCG"
 
-<<<<<<< HEAD
-=======
-   DFLAGS="${DFLAGS} -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM"
-   LDFLAGS="-lqdp -lchroma ${LDFLAGS} -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lbfm  -lgsl -lgslcblas"
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
    #CK: don't assume QIO
    if test "$enable_qio" != "no"; then
 	LDFLAGS="${LDFLAGS} -lqio"
@@ -555,13 +554,13 @@ AC_ARG_ENABLE(fftw,
 AC_MSG_CHECKING([if including fftw])
 AC_MSG_RESULT($enable_fftw)
 if test "$enable_fftw" != "no"; then
-#	if test "$enable_blas" != "yes"; then
-#   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib -lfftw3"
-#   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
+	if test "$enable_fftw" != "yes"; then
+   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib"
+   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
 #	else
 #   		LDFLAGS="${LDFLAGS} -L\${SRCDIR}/aux/GotoBLAS2 -lgoto2"
 #   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I\${SRCDIR}/aux/GotoBLAS2"
-#	fi
+	fi
    	DFLAGS="${DFLAGS} -DUSE_FFTW"
 fi
 
@@ -682,13 +681,12 @@ AC_CHECK_TYPES(netobj)
 #AC_CHECK_FUNCS(sync)
 AC_CHECK_FUNCS(posix_memalign)
 dnl AC_CHECK_HEADERS([qcdocos/scu_checksum.h])
-AC_CHECK_HEADERS([gmp.h])
+#AC_CHECK_HEADERS([gmp.h])
 AC_CONFIG_HEADERS([conf.h])
 
 
 AC_OUTPUT(config.h \
 	  precision.h \
-	  XLC.cfg \
 	  Makefile \
 	  Makefile.rules \
 	  Makefile.users \
@@ -697,3 +695,4 @@ AC_OUTPUT(config.h \
           tests/regression.pl \
 	  include/input/Makefile\
 	  )	  
+#	  XLC.cfg \

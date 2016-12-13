@@ -188,9 +188,6 @@ AlgHmdR2::~AlgHmdR2() {
 //------------------------------------------------------------------
 Float AlgHmdR2::run(void)
 {
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-#endif
   int i;
   int step;                            // Trajectory step
   Float frm_time_step;
