@@ -49,6 +49,7 @@ class FgridBase: public virtual Lattice, public virtual FgridParams,
 	RealD eps; // WilsonTM 
 	int Ls;
 	double mob_b; //Mobius
+	std::vector<Grid::ComplexD> gamma;
 	static bool grid_initted;
 
 public: 
@@ -265,13 +266,25 @@ CPS_END_NAMESPACE
 #define GP gp
 #include "fgrid.h.inc"
 
-//#else
 #undef GRID_GPARITY
 #define IF_FIVE_D 
 #define FGRID FgridMobius
 #define CLASS_NAME F_CLASS_GRID_MOBIUS
 #define DIRAC Grid::QCD::MobiusFermionD
 #define MOB	,M5,mob_b,mob_b-1.
+#define LATTICE_FERMION DIRAC ::FermionField
+#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define IMPL Grid::QCD::WilsonImplD	
+#define PARAMS	
+#define GP 
+#include "fgrid.h.inc"
+
+#undef GRID_GPARITY
+#define IF_FIVE_D 
+#define FGRID FgridZmobius
+#define CLASS_NAME F_CLASS_GRID_ZMOBIUS
+#define DIRAC Grid::QCD::ZMobiusFermionD
+#define MOB	,M5,omega,1.,0.
 #define LATTICE_FERMION DIRAC ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
 #define IMPL Grid::QCD::WilsonImplD	
