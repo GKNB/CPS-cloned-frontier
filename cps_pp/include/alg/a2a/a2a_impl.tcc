@@ -30,63 +30,6 @@ double A2AvectorWfftw<mf_Policies>::Mbyte_size(const A2AArg &_args, const FieldI
   return VW_Mbyte_size<A2AvectorWfftw<mf_Policies> >(_args,field_setup_params);
 }
 
-struct VFFTfieldPolicyBasic{
-  template<typename T>
-  static inline void actionOutputMode(T &v, const int i){}
-  template<typename T>
-  static inline void actionInputMode(T &v, const int i){}
-};
-struct VFFTfieldPolicyAllocFree{
-  template<typename T>
-  static inline void actionOutputMode(T &v, const int i){
-    v.allocMode(i);
-  }
-  template<typename T>
-  static inline void actionInputMode(T &v, const int i){
-    v.freeMode(i);
-  }
-};
-
-
-template<typename OutputType, typename InputType, typename FFTfieldPolicy>
-struct _V_fft_impl{
-  typedef typename InputType::FermionFieldType FermionFieldType;
-  
-  static inline void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
-    if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
-    typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
-    FermionFieldType tmp(field_setup);
-  
-    Float preop_time = 0;
-    Float fft_time = 0;
-
-    const bool fft_dirs[4] = {true,true,true,false};
-  
-    for(int mode=0;mode<from.getNmodes();mode++){
-      FermionFieldType const* init_gather_from = &from.getMode(mode);
-      if(mode_preop != NULL){
-	Float dtime = dclock();
-	(*mode_preop)(from.getMode(mode),tmp);
-	init_gather_from = &tmp;
-	preop_time += dclock()-dtime;
-      }
-      Float dtime = dclock();
-      
-      FFTfieldPolicy::actionOutputMode(to, mode); //alloc
-      
-#ifndef MEMTEST_MODE
-      cps::fft_opt(to.getMode(mode), *init_gather_from, fft_dirs);
-#endif
-      fft_time += dclock() - dtime;
-
-      FFTfieldPolicy::actionInputMode(from, mode); //free
-    }
-    if(!UniqueID()){ printf("Finishing V FFT\n"); fflush(stdout); }
-    print_time("A2AvectorVfftw::fft","Preop",preop_time);
-    print_time("A2AvectorVfftw::fft","FFT",fft_time);
-  }
-};
 
 
 
@@ -97,168 +40,15 @@ void A2AvectorVfftw<mf_Policies>::fft(const A2AvectorV<mf_Policies> &from, field
   _V_fft_impl<A2AvectorVfftw<mf_Policies>, const A2AvectorV<mf_Policies>, VFFTfieldPolicyBasic>::fft(*this,from,mode_preop);
 }
 
-template< typename mf_Policies>
-template<typename P>
-void A2AvectorVfftw<mf_Policies>::destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) ){
-  _V_fft_impl<A2AvectorVfftw<P>, A2AvectorV<P>, VFFTfieldPolicyAllocFree>::fft(*this,from,mode_preop);
-}
-
-
-
-template<typename OutputType, typename InputType, typename FFTfieldPolicy>
-struct _V_invfft_impl{
-  typedef typename InputType::FermionFieldType FermionFieldType;
-
-  static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
-    if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
-    typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
-    FermionFieldType tmp(field_setup);
-  
-    Float postop_time = 0;
-    Float fft_time = 0;
-
-    const bool fft_dirs[4] = {true,true,true,false};
-    for(int mode=0;mode<from.getNmodes();mode++){
-      //if(!UniqueID()) printf("Mode %d, memory before output alloc\n",mode);
-      //printMem();
-      
-      FFTfieldPolicy::actionOutputMode(to, mode); //alloc
-
-      //if(!UniqueID()) printf("Mode %d, memory after output alloc\n",mode);
-      //printMem();
-      
-      FermionFieldType* out = mode_postop == NULL ? &to.getMode(mode) : &tmp;
-    
-      Float dtime = dclock();
-#ifndef MEMTEST_MODE
-      cps::fft_opt(*out, from.getMode(mode), fft_dirs, true);
-#endif
-
-      //if(!UniqueID()) printf("Mode %d, memory before input free\n",mode);
-      //printMem();
-      
-      FFTfieldPolicy::actionInputMode(from, mode); //alloc
-
-      //if(!UniqueID()) printf("Mode %d, memory after input free\n",mode);
-      //printMem();
-      
-      if(mode_postop != NULL){
-	Float dtime = dclock();
-	(*mode_postop)(tmp,to.getMode(mode));
-	postop_time += dclock()-dtime;
-      }
-      fft_time += dclock() - dtime;
-      //printMem();
-    }
-    if(!UniqueID()){ printf("Finishing V invert FFT\n"); fflush(stdout); }
-    print_time("A2AvectorVfftw::inversefft","FFT",fft_time);
-    print_time("A2AvectorVfftw::inversefft","Postop",postop_time);
-  }
-};
-
 
 template< typename mf_Policies>
 void A2AvectorVfftw<mf_Policies>::inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
   _V_invfft_impl<A2AvectorV<Policies>, const A2AvectorVfftw<mf_Policies>, VFFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
 }
 
-template< typename mf_Policies>
-template<typename P>
-void A2AvectorVfftw<mf_Policies>::destructiveInversefft(A2AvectorV<P> &to, fieldOperation<typename P::FermionFieldType>* mode_postop, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) ){
-  _V_invfft_impl<A2AvectorV<Policies>, A2AvectorVfftw<mf_Policies>, VFFTfieldPolicyAllocFree>::inversefft(to,*this,mode_postop);
-}
 
 
-struct WFFTfieldPolicyBasic{
-  template<typename T>
-  static inline void actionOutputLowMode(T &v, const int i){}
-  template<typename T>
-  static inline void actionOutputHighMode(T &v, const int i){}
-  
-  template<typename T>
-  static inline void actionInputLowMode(T &v, const int i){}
-  template<typename T>
-  static inline void actionInputHighMode(T &v, const int i){}
-};
-struct WFFTfieldPolicyAllocFree{
-  template<typename T>
-  static inline void actionOutputLowMode(T &v, const int i){
-    v.allocLowMode(i);
-  }
-  template<typename T>
-  static inline void actionOutputHighMode(T &v, const int i){
-    v.allocHighMode(i);
-  }
-  
-  template<typename T>
-  static inline void actionInputLowMode(T &v, const int i){
-    v.freeLowMode(i);
-  }
-  template<typename T>
-  static inline void actionInputHighMode(T &v, const int i){
-    v.freeHighMode(i);
-  }
-};
 
-
-template<typename OutputType, typename InputType, typename FFTfieldPolicy>
-struct _W_fft_impl{
-  typedef typename InputType::FermionFieldType FermionFieldType;
-
-  inline static void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
-    if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
-    typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getWh(0).getDimPolParams();  
-    FermionFieldType tmp(field_setup), tmp2(field_setup);
-
-    Float preop_time = 0;
-    Float fft_time = 0;
-
-    const bool fft_dirs[4] = {true,true,true,false};
-  
-    //Do wl
-    for(int mode=0;mode<from.getNl();mode++){
-      FermionFieldType const* init_gather_from = &from.getWl(mode);
-      if(mode_preop != NULL){
-	Float dtime = dclock();
-	(*mode_preop)(from.getWl(mode),tmp);
-	init_gather_from = &tmp;
-	preop_time += dclock()-dtime;
-      }
-      FFTfieldPolicy::actionOutputLowMode(to, mode); //alloc
-      Float dtime = dclock();
-#ifndef MEMTEST_MODE
-      cps::fft_opt(to.getWl(mode), *init_gather_from, fft_dirs);
-#endif
-      fft_time += dclock() - dtime;
-      FFTfieldPolicy::actionInputLowMode(from, mode); //free
-    }
-    //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
-    for(int hit=0;hit<from.getNhits();hit++){
-      for(int sc=0;sc<12;sc++){ //spin/color dilution index
-	from.getSpinColorDilutedSource(tmp2,hit,sc);
-	FermionFieldType* init_gather_from = &tmp2;
-	if(mode_preop != NULL){
-	  Float dtime = dclock();
-	  (*mode_preop)(tmp2,tmp);
-	  init_gather_from = &tmp;
-	  preop_time += dclock()-dtime;
-	}
-	Float dtime = dclock();
-	FFTfieldPolicy::actionOutputHighMode(to, sc+12*hit); //alloc
-#ifndef MEMTEST_MODE
-	cps::fft_opt(to.getWh(hit,sc), *init_gather_from, fft_dirs);
-#endif
-	fft_time += dclock()-dtime;
-      }
-      FFTfieldPolicy::actionInputHighMode(from, hit); //free
-    }
-    if(!UniqueID()){ printf("Finishing W FFT\n"); fflush(stdout); }
-    print_time("A2AvectorWfftw::fft","Preop",preop_time);
-    print_time("A2AvectorWfftw::fft","FFT",fft_time);
-  }
-};
 
 
 
@@ -270,86 +60,8 @@ void A2AvectorWfftw<mf_Policies>::fft(const A2AvectorW<mf_Policies> &from, field
 }
 
 template< typename mf_Policies>
-template<typename P>
-void A2AvectorWfftw<mf_Policies>::destructivefft(A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) ){
-  _W_fft_impl<A2AvectorWfftw<mf_Policies>, A2AvectorW<mf_Policies>, WFFTfieldPolicyAllocFree>::fft(*this,from,mode_preop);
-}
-
-template<typename OutputType, typename InputType, typename FFTfieldPolicy>
-struct _W_invfft_impl{
-  typedef typename InputType::FermionFieldType FermionFieldType;
-
-  static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
-    if(!UniqueID()){ printf("Doing W inverse FFT\n"); fflush(stdout); }
-    typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getWh(0,0).getDimPolParams();  
-    FermionFieldType tmp(field_setup), tmp2(field_setup);
-
-    Float postop_time = 0;
-    Float fft_time = 0;
-
-    const bool fft_dirs[4] = {true,true,true,false};
-  
-    //Do wl
-    for(int mode=0;mode<from.getNl();mode++){
-      FFTfieldPolicy::actionOutputLowMode(to, mode); //alloc
-      FermionFieldType * unfft_to = mode_postop == NULL ? &to.getWl(mode) : &tmp;
-
-      Float dtime = dclock();
-#ifndef MEMTEST_MODE
-      cps::fft_opt(*unfft_to, from.getWl(mode), fft_dirs, true);
-#endif
-      fft_time += dclock() - dtime;
-
-      if(mode_postop != NULL){
-	Float dtime = dclock();
-	(*mode_postop)(tmp,to.getWl(mode));
-	postop_time += dclock()-dtime;
-      }
-      FFTfieldPolicy::actionInputLowMode(from, mode); //free
-    }
-    //Do wh. First we need to uncompact the spin/color index as this is acted upon by the operator
-    for(int hit=0;hit<from.getNhits();hit++){
-      FFTfieldPolicy::actionOutputHighMode(to, hit); //alloc
-      typename InputType::ComplexFieldType & to_hit = to.getWh(hit);
-    
-      const int sc = 0;
-      FermionFieldType * compress = mode_postop == NULL ? &tmp2 : &tmp;
-      Float dtime = dclock();
-#ifndef MEMTEST_MODE
-      cps::fft_opt(tmp2, from.getWh(hit,sc), fft_dirs, true);
-#endif
-      fft_time += dclock()-dtime;
-
-      if(mode_postop != NULL){
-	Float dtime = dclock();
-	(*mode_postop)(tmp2,tmp);
-	postop_time += dclock()-dtime;
-      }
-      //Should give a multiple of the 12-component unit vector with 1 on index sc
-#pragma omp parallel for
-      for(int i=0;i<to_hit.nfsites();i++)
-	*(to_hit.fsite_ptr(i)) = *(compress->fsite_ptr(i) + sc);
-
-      for(int ssc=0;ssc<12;ssc++) FFTfieldPolicy::actionInputHighMode(from, ssc + 12*hit); //free for all sc
-      
-    }
-    if(!UniqueID()){ printf("Finishing W inverse FFT\n"); fflush(stdout); }
-    print_time("A2AvectorWfftw::fftinverse","FFT",fft_time);
-    print_time("A2AvectorWfftw::fftinverse","Postop",postop_time);
-  }
-};
-  
-
-template< typename mf_Policies>
 void A2AvectorWfftw<mf_Policies>::inversefft(A2AvectorW<mf_Policies> &to, fieldOperation<FermionFieldType>* mode_postop) const{
   _W_invfft_impl<A2AvectorW<mf_Policies>, const A2AvectorWfftw<mf_Policies>, WFFTfieldPolicyBasic>::inversefft(to,*this,mode_postop);
-}
-
-template< typename mf_Policies>
-template<typename P>
-void A2AvectorWfftw<mf_Policies>::destructiveInversefft(A2AvectorW<mf_Policies> &to, fieldOperation<FermionFieldType>* mode_postop, WFFTW_ENABLE_IF_MANUAL_ALLOC(P)){
-  _W_invfft_impl<A2AvectorW<mf_Policies>, A2AvectorWfftw<mf_Policies>, WFFTfieldPolicyAllocFree>::inversefft(to,*this,mode_postop);
 }
 
 //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
@@ -441,78 +153,91 @@ void A2AvectorW<mf_Policies>::getSpinColorDilutedSource(FermionFieldType &into, 
 }
 
 
-template<typename mf_Policies, typename my_enable_if<_equal<typename ComplexClassify<typename mf_Policies::ComplexType>::type, complex_double_or_float_mark>::value, int>::type = 0>
-void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
-  typedef typename mf_Policies::FermionFieldType FermionFieldType;
-  typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
+template<typename mf_Policies,typename ComplexClass>
+struct _randomizeVWimpl{};
+
+template<typename mf_Policies>
+struct _randomizeVWimpl<mf_Policies,complex_double_or_float_mark>{
+  static inline void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+    typedef typename mf_Policies::FermionFieldType FermionFieldType;
+    typedef typename mf_Policies::ComplexFieldType ComplexFieldType;
   
-  int nl = V.getNl();
-  int nh = V.getNh(); //number of fully diluted high-mode indices
-  int nhit = V.getNhits();
-  assert(nl == W.getNl());
-  assert(nh == W.getNh());
-  assert(nhit == W.getNhits());
+    int nl = V.getNl();
+    int nh = V.getNh(); //number of fully diluted high-mode indices
+    int nhit = V.getNhits();
+    assert(nl == W.getNl());
+    assert(nh == W.getNh());
+    assert(nhit == W.getNhits());
   
 
-  std::vector<FermionFieldType> wl(nl);
-  for(int i=0;i<nl;i++) wl[i].setUniformRandom();
+    std::vector<FermionFieldType> wl(nl);
+    for(int i=0;i<nl;i++) wl[i].setUniformRandom();
   
-  std::vector<FermionFieldType> vl(nl);
-  for(int i=0;i<nl;i++) vl[i].setUniformRandom();
+    std::vector<FermionFieldType> vl(nl);
+    for(int i=0;i<nl;i++) vl[i].setUniformRandom();
   
-  std::vector<ComplexFieldType> wh(nhit);
-  for(int i=0;i<nhit;i++) wh[i].setUniformRandom();
+    std::vector<ComplexFieldType> wh(nhit);
+    for(int i=0;i<nhit;i++) wh[i].setUniformRandom();
   
-  std::vector<FermionFieldType> vh(nh);
-  for(int i=0;i<nh;i++) vh[i].setUniformRandom();
+    std::vector<FermionFieldType> vh(nh);
+    for(int i=0;i<nh;i++) vh[i].setUniformRandom();
     
-  for(int i=0;i<nl;i++){
-    V.importVl(vl[i],i);
-    W.importWl(wl[i],i);
-  }
+    for(int i=0;i<nl;i++){
+      V.importVl(vl[i],i);
+      W.importWl(wl[i],i);
+    }
 
-  for(int i=0;i<nh;i++)
-    V.importVh(vh[i],i);
+    for(int i=0;i<nh;i++)
+      V.importVh(vh[i],i);
   
-  for(int i=0;i<nhit;i++)
-    W.importWh(wh[i],i);
-}
+    for(int i=0;i<nhit;i++)
+      W.importWh(wh[i],i);
+  }
+};
 
 //Ensure this generates randoms in the same order as the scalar version
-template<typename mf_Policies, typename my_enable_if<_equal<typename ComplexClassify<typename mf_Policies::ComplexType>::type, grid_vector_complex_mark>::value, int>::type = 0>
-void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
-  typedef typename mf_Policies::FermionFieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimensionPolicy;
+template<typename mf_Policies>
+struct _randomizeVWimpl<mf_Policies,grid_vector_complex_mark>{
+  static inline void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+    typedef typename mf_Policies::FermionFieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimensionPolicy;
   
-  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarFermionFieldType;
-  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarComplexFieldType;
+    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarFermionFieldType;
+    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarComplexFieldType;
   
-  int nl = V.getNl();
-  int nh = V.getNh(); //number of fully diluted high-mode indices
-  int nhit = V.getNhits();
-  assert(nl == W.getNl());
-  assert(nh == W.getNh());
-  assert(nhit == W.getNhits());
+    int nl = V.getNl();
+    int nh = V.getNh(); //number of fully diluted high-mode indices
+    int nhit = V.getNhits();
+    assert(nl == W.getNl());
+    assert(nh == W.getNh());
+    assert(nhit == W.getNhits());
 
-  ScalarFermionFieldType tmp;
-  ScalarComplexFieldType tmp_cmplx;
+    ScalarFermionFieldType tmp;
+    ScalarComplexFieldType tmp_cmplx;
   
-  for(int i=0;i<nl;i++){
-    tmp.setUniformRandom();
-    W.getWl(i).importField(tmp);
+    for(int i=0;i<nl;i++){
+      tmp.setUniformRandom();
+      W.getWl(i).importField(tmp);
+    }
+    for(int i=0;i<nl;i++){
+      tmp.setUniformRandom();
+      V.getVl(i).importField(tmp);
+    }
+    for(int i=0;i<nhit;i++){
+      tmp_cmplx.setUniformRandom();
+      W.getWh(i).importField(tmp_cmplx);
+    }
+    for(int i=0;i<nh;i++){
+      tmp.setUniformRandom();
+      V.getVh(i).importField(tmp);
+    }
   }
-  for(int i=0;i<nl;i++){
-    tmp.setUniformRandom();
-    V.getVl(i).importField(tmp);
-  }
-  for(int i=0;i<nhit;i++){
-    tmp_cmplx.setUniformRandom();
-    W.getWh(i).importField(tmp_cmplx);
-  }
-  for(int i=0;i<nh;i++){
-    tmp.setUniformRandom();
-    V.getVh(i).importField(tmp);
-  }
+};
+
+template<typename mf_Policies>
+void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+  return _randomizeVWimpl<mf_Policies,typename ComplexClassify<typename mf_Policies::ComplexType>::type>::randomizeVW(V,W);
 }
+
 
 template< typename FieldType>
 FieldType const * getBaseAndShift(int shift[3], const int p[3], FieldType const *base_p, FieldType const *base_m){

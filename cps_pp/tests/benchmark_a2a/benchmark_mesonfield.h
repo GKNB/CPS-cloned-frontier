@@ -1636,9 +1636,12 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
 
 
 void testA2AallocFree(const A2AArg &a2a_args,Lattice &lat){
+#ifdef USE_GRID
   typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
-  //typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
-
+#else  
+  typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
+#endif
+  
   typedef typename A2Apolicies::FermionFieldType FermionFieldType;
   typedef typename A2Apolicies::SourcePolicies SourcePolicies;
   typedef typename A2Apolicies::ComplexType mf_Complex;
@@ -1846,6 +1849,7 @@ void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
+#ifdef USE_GRID
   //#define CPS_VMV
   //#define GRID_VMV
   //#define CPS_SPLIT_VMV
@@ -1910,7 +1914,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
   mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
   mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
 
-  std::vector<CPSspinColorFlavorMatrix<mf_Complex>> orig_split_xall_tmp(orig_3vol);
+  std::vector<CPSspinColorFlavorMatrix<mf_Complex> > orig_split_xall_tmp(orig_3vol);
   Grid::Vector<CPSspinColorFlavorMatrix<grid_Complex> > grid_split_xall_tmp(grid_3vol);
       
   for(int iter=0;iter<ntests;iter++){
@@ -2044,6 +2048,8 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #ifdef CPS_SPLIT_VMV_XALL
   printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
 #endif
+
+#endif
 }
 
 template<typename ScalarA2Apolicies>
@@ -2118,6 +2124,7 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol){
+#ifdef USE_GRID
   std::cout << "Starting MF contraction test\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
@@ -2184,12 +2191,14 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   }
   if(fail) ERR.General("","","Standard vs Grid implementation test failed\n");
   else if(!UniqueID()){ printf("Passed MF contraction test\n"); fflush(stdout); }
+#endif
 }
 
 
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads){
+#ifdef USE_GRID
   typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;
   typedef typename ScalarA2Apolicies::ScalarComplexType Ctype;
   typedef typename Ctype::value_type Ftype;
@@ -2287,7 +2296,8 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
   double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
 
-  printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);      
+  printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);
+#endif
 }
 
 

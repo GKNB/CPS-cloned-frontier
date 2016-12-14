@@ -21,6 +21,7 @@
 #include<alg/a2a/evec_interface.h>
 #include<alg/a2a/CPSfield_utils.h>
 #include<alg/a2a/grid_cgne_m_high.h>
+#include<alg/a2a/a2a_fft.h>
 
 CPS_START_NAMESPACE 
 
@@ -114,7 +115,7 @@ public:
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 
-  #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type
+  #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
 private:
   std::vector<PtrWrapper<FermionFieldType> > v;
 
@@ -142,36 +143,19 @@ public:
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorV<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
-
-  //Same as the above but allocates Vfft modes and deallocates V along the way to minimize memory usage. Only defined for manual alloc policies
-  template<typename P = Policies>
-  void destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop = NULL, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   void inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
-
-  template<typename P = Policies>
-  void destructiveInversefft(A2AvectorV<P> &to, fieldOperation<typename P::FermionFieldType>* mode_postop = NULL, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
-  template<typename P=mf_Policies>
-  void destructiveGaugeFixTwistFFT(A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructivefft(from, &op);
-  }
-  
   //Unapply the phase and gauge fixing to give back a V vector
   void unapplyGaugeFixTwistFFT(A2AvectorV<Policies> &to, const int _p[3], Lattice &_lat) const{
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
   
-  template<typename P=mf_Policies>
-  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorV<Policies> &to, const int _p[3], Lattice &_lat, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
-  }
-
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
   //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
   void getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m = NULL);
@@ -413,33 +397,17 @@ public:
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorW<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
-
-  template<typename P = mf_Policies>
-  void destructivefft(A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   void inversefft(A2AvectorW<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
-
-  template<typename P=mf_Policies>
-  void destructiveInversefft(A2AvectorW<mf_Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
-
-  template<typename P=mf_Policies>
-  void destructiveGaugeFixTwistFFT(A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructivefft(from, &op);
-  }
   
   //Unapply the phase and gauge fixing to give back a V vector
   void unapplyGaugeFixTwistFFT(A2AvectorW<Policies> &to, const int _p[3], Lattice &_lat) const{
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
-  }
-
-  template<typename P=mf_Policies>
-  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorW<Policies> &to, const int _p[3], Lattice &_lat, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
   }
 
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum

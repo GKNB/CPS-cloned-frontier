@@ -583,7 +583,7 @@ public:
 
 public:
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-  void contract(std::vector<CPSspinColorFlavorMatrix<ScalarComplexType>> &out, const bool conj_l, const bool conj_r) const{
+  void contract(std::vector<CPSspinColorFlavorMatrix<ScalarComplexType> > &out, const bool conj_l, const bool conj_r) const{
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 

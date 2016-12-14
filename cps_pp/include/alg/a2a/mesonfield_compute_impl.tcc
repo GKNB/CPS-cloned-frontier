@@ -3,6 +3,10 @@
 #ifndef _MESONFIELD_COMPUTE_IMPL
 #define _MESONFIELD_COMPUTE_IMPL
 
+#ifndef USE_GRID
+#define __SSC_MARK(I)
+#endif
+
 //For all mode indices l_i and r_j, compute the meson field  \sum_p l_i^\dagger(p,t) M(p,t) r_j(p,t)
 //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
 //M(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice

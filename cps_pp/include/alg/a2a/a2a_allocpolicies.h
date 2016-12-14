@@ -2,6 +2,7 @@
 #define _A2A_ALLOC_POLICIES_H
 
 #include<alg/a2a/utils.h>
+#include<alg/a2a/a2a_fft.h>
 
 CPS_START_NAMESPACE
 
@@ -102,6 +103,23 @@ public:
     for(int i=0;i<vptr->size();i++) freeMode(i);
   }
   typedef ManualAllocStrategy FieldAllocStrategy;
+
+  //Allocates Vfft modes and deallocates V along the way to minimize memory usage
+  void destructivefft(A2AvectorV<mf_Policies> &from, fieldOperation<typename mf_Policies::FermionFieldType>* mode_preop = NULL){
+    _V_fft_impl<A2AvectorVfftw<mf_Policies>, A2AvectorV<mf_Policies>, VFFTfieldPolicyAllocFree>::fft(static_cast<A2AvectorVfftw<mf_Policies>&>(*this),from,mode_preop);    
+  }
+  
+  void destructiveInversefft(A2AvectorV<mf_Policies> &to, fieldOperation<typename mf_Policies::FermionFieldType>* mode_postop = NULL){
+    _V_invfft_impl<A2AvectorV<mf_Policies>, A2AvectorVfftw<mf_Policies>, VFFTfieldPolicyAllocFree>::inversefft(to,static_cast<A2AvectorVfftw<mf_Policies>&>(*this),mode_postop);
+  }
+
+  void destructiveGaugeFixTwistFFT(A2AvectorV<mf_Policies> &from, const int _p[3], Lattice &_lat ){
+    gaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructivefft(from, &op);
+  }
+
+  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorV<mf_Policies> &to, const int _p[3], Lattice &_lat ){
+    reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
+  }
 };
 
 
@@ -226,6 +244,22 @@ public:
     for(int i=0;i<hptr->size();i++) freeHighMode(i);
   }
   typedef ManualAllocStrategy FieldAllocStrategy;
+
+  void destructivefft(A2AvectorW<mf_Policies> &from, fieldOperation<typename mf_Policies::FermionFieldType>* mode_preop = NULL){
+    _W_fft_impl<A2AvectorWfftw<mf_Policies>, A2AvectorW<mf_Policies>, WFFTfieldPolicyAllocFree>::fft(static_cast<A2AvectorWfftw<mf_Policies>&>(*this),from,mode_preop);
+  }
+
+  void destructiveInversefft(A2AvectorW<mf_Policies> &to, fieldOperation<typename mf_Policies::FermionFieldType>* mode_postop = NULL){
+    _W_invfft_impl<A2AvectorW<mf_Policies>, A2AvectorWfftw<mf_Policies>, WFFTfieldPolicyAllocFree>::inversefft(to,static_cast<A2AvectorWfftw<mf_Policies>&>(*this),mode_postop);
+  }
+
+  void destructiveGaugeFixTwistFFT(A2AvectorW<mf_Policies> &from, const int _p[3], Lattice &_lat){
+    gaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructivefft(from, &op);
+  }
+
+  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorW<mf_Policies> &to, const int _p[3], Lattice &_lat){
+    reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
+  }
 };
 
 

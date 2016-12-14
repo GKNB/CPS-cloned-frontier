@@ -101,25 +101,29 @@ public:
   //       13     gamma1 gamma3 gamma4        =  gamma5 gamma2
   //       14     gamma2 gamma3 gamma4        = -gamma5 gamma1
   //       15     gamma1 gamma2 gamma3 gamma4 =  gamma5
+
 template<int smatidx,typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCspinInnerProduct{
   const SourceType &src;
+
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return S::nSources; }
+
 public:
   typedef SourceType InnerProductSourceType;
   
   SCspinInnerProduct(const SourceType &_src): src(_src){ }
-    
-  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
-  template<typename S=SourceType>
-  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return SourceType::nSources; }
 
-  template<typename S=SourceType>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return 1; }
+  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
 
-  template<typename AccumType, typename ComplexType = mf_Complex>  
-  void operator()(AccumType &into, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  template<typename AccumType>  
+  void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     assert(!GJP.Gparity());
-    ComplexType out = GeneralSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right, typename ComplexClassify<ComplexType>::type>::doit(l.getPtr(0),r.getPtr(0));
+    mf_Complex out = GeneralSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l.getPtr(0),r.getPtr(0));
     doAccum(into,out * src.siteComplex(p));
   }  
 };
@@ -199,35 +203,36 @@ struct _siteFmatRecurse<SourceType,mf_Complex,0,Idx>{
   static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
 
-
-
 //All of the inner products for G-parity can be separated into a part involving only the spin-color structure of the source and a part involving the flavor and smearing function.
 //This case class implements the flavor/smearing function part and leaves the spin-color part to the derived class
 template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
 class GparityInnerProduct: public SpinColorContractPolicy{
   const SourceType &src;
   FlavorMatrixType sigma;
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return S::nSources; }
+  
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
 public:
   typedef SourceType InnerProductSourceType;
 
   GparityInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): sigma(_sigma),src(_src){ }
 
   //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
-  template<typename S=SourceType>
-  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return SourceType::nSources; }
-
-  template<typename S=SourceType>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return 1; }
+  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
   
   //Single source
-  template<typename AccumType, typename ComplexType = mf_Complex>
-  inline void operator()(AccumType &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  template<typename AccumType>
+  inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
+    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
     
     //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrixGeneral<ComplexType> phi;
+    FlavorMatrixGeneral<mf_Complex> phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
 
@@ -238,13 +243,13 @@ public:
   
   //Multi source
   //Does out += op(l,r,p,t);
-  template<typename AccumVtype, typename ComplexType = mf_Complex>
-  inline void operator()(std::vector<AccumVtype> &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
+  template<typename AccumVtype>
+  inline void operator()(std::vector<AccumVtype> &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<ComplexType> lMr; //is vectorized
+    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
 
-    _siteFmatRecurse<SourceType,ComplexType,SourceType::nSources>::doit(out,src,sigma,p,lMr);
+    _siteFmatRecurse<SourceType,mf_Complex,SourceType::nSources>::doit(out,src,sigma,p,lMr);
 #endif
   }
   
@@ -303,18 +308,55 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
   std::vector<SourceType*> shifted_sources; 
   std::vector<int> cur_shift;
 
-  template<typename S=SourceType>
+  template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
-  shiftTheSource(SourceType &what, const std::vector<int> &shift){ shiftPeriodicField(what.getSource(),what.getSource(), shift); }
+  shiftTheSource(S &what, const std::vector<int> &shift){ shiftPeriodicField(what.getSource(),what.getSource(), shift); }
 
-  template<typename S=SourceType>
+  template<typename S>
   inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
-  shiftTheSource(SourceType &what, const std::vector<int> &shift){ _shiftRecurse<S,S::nSources>::doit(what, shift); }
+  shiftTheSource(S &what, const std::vector<int> &shift){ _shiftRecurse<S,S::nSources>::doit(what, shift); }
   
   void shiftSource(SourceType &what, const std::vector<int> &shift){
     std::vector<int> actual_shift(shift);
     for(int i=0;i<3;i++) actual_shift[i] -= cur_shift[i]; //remove current shift in process
-    shiftTheSource(what,actual_shift);
+    shiftTheSource<SourceType>(what,actual_shift);
+  }
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources * nshift
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return shifts.size() * S::nSources; } //indexed by  source_idx + nSources*shift_idx
+
+  //When running with a single src type this returns the number of meson fields per timeslice = nshift
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return shifts.size(); }
+
+
+  //Single src, output vector indexed by src shift index
+  template<typename AccumVtype, typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<mf_Complex> lMr;
+    this->spinColorContract(lMr,l,r);
+
+    FlavorMatrixGeneral<mf_Complex> phi;
+    for(int i=0;i<shifts.size();i++){
+      shifted_sources[i]->siteFmat(phi,p);
+      phi.pl(sigma);
+      doAccum(out[i],TransLeftTrace(lMr, phi));
+    }
+#endif
+  }  
+
+  //Multi src. output indexed by source_idx + nSources*shift_idx
+  template<typename AccumVtype,typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<mf_Complex> lMr;
+    this->spinColorContract(lMr,l,r);
+    _siteFmatRecurseShift<S,mf_Complex,S::nSources>::doit(out,shifted_sources,sigma,p,lMr);
+#endif
   }
   
 public:
@@ -325,13 +367,7 @@ public:
 
   ~GparitySourceShiftInnerProduct(){ for(int i=0;i<shifted_sources.size();i++) delete shifted_sources[i]; }
   
-  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources * nshift
-  template<typename S=SourceType>
-  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return shifts.size() * SourceType::nSources; } //indexed by  source_idx + nSources*shift_idx
-
-  //When running with a single src type this returns the number of meson fields per timeslice = nshift
-  template<typename S=SourceType>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type mfPerTimeSlice() const{ return shifts.size(); }
+  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); } //indexed by  source_idx + nSources*shift_idx
 
   void setShifts(const std::vector< std::vector<int> > &to_shifts){
     shifts = to_shifts;
@@ -343,36 +379,11 @@ public:
       shiftSource(*shifted_sources[i], shifts[i]);
     }    
   }
-
-  //Single src, output vector indexed by src shift index
-  template<typename AccumVtype, typename ComplexType = mf_Complex, typename S = SourceType>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
-  operator()(AccumVtype &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<ComplexType> lMr;
-    this->spinColorContract(lMr,l,r);
-
-    FlavorMatrixGeneral<ComplexType> phi;
-    for(int i=0;i<shifts.size();i++){
-      shifted_sources[i]->siteFmat(phi,p);
-      phi.pl(sigma);
-      doAccum(out[i],TransLeftTrace(lMr, phi));
-    }
-#endif
-  }  
-
-  //Multi src. output indexed by source_idx + nSources*shift_idx
-  template<typename AccumVtype, typename ComplexType = mf_Complex, typename S = SourceType>
-  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
-  operator()(AccumVtype &out, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r, const int p, const int t) const{
-#ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<ComplexType> lMr;
-    this->spinColorContract(lMr,l,r);
-
-    _siteFmatRecurseShift<S,ComplexType,SourceType::nSources>::doit(out,shifted_sources,sigma,p,lMr);
-#endif
-  }
   
+  template<typename AccumVtype>
+  inline void operator()(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+    return do_op<AccumVtype,SourceType>(out,l,r,p,t);
+  }
 };
 
 

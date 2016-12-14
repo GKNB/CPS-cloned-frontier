@@ -194,7 +194,6 @@ int main (int argc,char **argv )
     VRB.Result(cname,fname,"Can't open fix_gauge_arg.vml!\n");exit(1);
   }
 
-  //Chroma::initialize(&argc,&argv);
   GJP.Initialize(do_arg);
   LRG.Initialize();
 
@@ -210,7 +209,7 @@ int main (int argc,char **argv )
   }
 #ifdef USE_BFM
   cps_qdp_init(&argc,&argv);
-  Chroma::initialize(&argc,&argv);
+  //Chroma::initialize(&argc,&argv);
 #endif
 
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -301,8 +300,10 @@ int main (int argc,char **argv )
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
 
-    if(!UniqueID()) printf("V vector requires %f MB, W vector %f MB of memory\n", 
+    if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n", 
 			   A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
+      fflush(stdout);
+    }
     
     A2AvectorV<A2Apolicies> V(a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(a2a_arg, field4dparams);

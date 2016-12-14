@@ -468,10 +468,11 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 }
 
 
-
-struct _gauge_fix_site_op_impl{
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+struct _gauge_fix_site_op_impl;
   
-  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,complex_double_or_float_mark>{
   inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
@@ -486,8 +487,12 @@ struct _gauge_fix_site_op_impl{
 	colorMatrixDaggerMultiplyVector<mf_Float,Float>( (mf_Float*)(sc_base + 3*s), (Float*)gfmat, (mf_Float*)tmp);      
     }
   }
+};
+
+
 #ifdef USE_GRID
-  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,grid_vector_complex_mark>{
   inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     //x4d is an outer site index
     int nsimd = field.Nsimd();
@@ -538,16 +543,14 @@ struct _gauge_fix_site_op_impl{
     }
     free(tmp);
   }
-#endif
-  
 };
-
+#endif
 
 
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
-  _gauge_fix_site_op_impl::gauge_fix_site_op(*this, x4d, f, lat,dagger);
+  _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy, FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::gauge_fix_site_op(*this, x4d, f, lat,dagger);
 }
 
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
@@ -567,8 +570,11 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentu
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
 //x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 
-struct _apply_phase_site_op_impl{
-  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,complex_double_or_float_mark>::value,int>::type = 0>
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+struct _apply_phase_site_op_impl{};
+
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,complex_double_or_float_mark>{
   inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
     assert(DimensionPolicy::EuclideanDimension >= 3);
     
@@ -585,10 +591,12 @@ struct _apply_phase_site_op_impl{
       (*v) *= phase_prec;
     }
   }
+};
 
 #ifdef USE_GRID
   
-  template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename my_enable_if<_equal<typename ComplexClassify<mf_Complex>::type,grid_vector_complex_mark>::value,int>::type = 0>
+template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,grid_vector_complex_mark>{
   inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
     assert(DimensionPolicy::EuclideanDimension >= 3);
 
@@ -620,16 +628,14 @@ struct _apply_phase_site_op_impl{
       *v = vphase * (*v);
     }
   }
-
-#endif
 };
-
+#endif
 
 
 
 template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
-  _apply_phase_site_op_impl::apply_phase_site_op(*this, x_lcl, flav, p, punits);
+  _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::apply_phase_site_op(*this, x_lcl, flav, p, punits);
 }  
 
 

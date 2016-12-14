@@ -1,14 +1,20 @@
-#define USE_GRID_A2A
-#define USE_GRID_LANCZOS
+//In your makefile choose between the following
+//#define USE_BFM_A2A
+//#define USE_BFM_LANCZOS
+//#define USE_GRID_A2A
+//#define USE_GRID_LANCZOS
+
 
 #include "benchmark_mesonfield.h"
 
 using namespace cps;
 
+#ifdef USE_GRID
 typedef A2ApoliciesSIMDdoubleAutoAlloc GridA2Apolicies;
-typedef A2ApoliciesDoubleAutoAlloc ScalarA2Apolicies;
-
 typedef typename GridA2Apolicies::ComplexType grid_Complex;
+#endif
+
+typedef A2ApoliciesDoubleAutoAlloc ScalarA2Apolicies;
 typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
 typedef typename mf_Complex::value_type mf_Float;
 
@@ -173,44 +179,60 @@ int main(int argc,char *argv[])
 
 
   if(0) testA2AvectorFFTrelnGparity<ScalarA2Apolicies>(a2a_args,lattice);
+#ifdef USE_GRID
   if(0) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
-
+#endif
+  
   if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
 
   if(0) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
+#ifdef USE_GRID
   if(0) testMfFFTreln<GridA2Apolicies>(a2a_args,lattice);
-
+#endif
+  
   if(0) testFFTopt<ScalarA2Apolicies>();
+#ifdef USE_GRID
   if(0) testFFTopt<GridA2Apolicies>();
-
+#endif
+  
   if(0) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
   if(0) testVVdag<ScalarA2Apolicies>(lattice);
+#ifdef USE_GRID
   if(0) testVVdag<GridA2Apolicies>(lattice);
-
+#endif
+  
   if(0) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);
   
   if(0) testA2AallocFree(a2a_args,lattice);
 
-
+#ifdef USE_GRID
   if(0) benchmarkMFcontractKernel<GridA2Apolicies>(ntests,nthreads);
-  
-  if(1) testGridg5Contract<Grid::vComplexD>(); //Keep active because its very quick and checks that the kernel is correct
+#endif
 
+#ifdef USE_GRID
+  if(0) testGridg5Contract<Grid::vComplexD>(); //Keep active because its very quick and checks that the kernel is correct
+#endif
+  
   if(0) benchmarkTrace(ntests,tol);
   if(0) benchmarkSpinFlavorTrace(ntests,tol);
   if(0) benchmarkTraceProd(ntests,tol);
   if(0) benchmarkColorTranspose(ntests,tol);
   if(0) benchmarkmultGammaLeft(ntests, tol);
-  
-  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
-  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 
+#ifdef USE_GRID
+  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+#endif
+
+#ifdef USE_GRID
+  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+#endif
 
   printf("Finished\n"); fflush(stdout);
   
   return 0;
 }
+
 
 
 

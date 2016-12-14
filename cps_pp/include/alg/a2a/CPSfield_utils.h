@@ -38,7 +38,7 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
-template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
+template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,void>::type>
 inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
   typedef typename FieldType::FieldSiteType::value_type value_type;
   
@@ -84,7 +84,7 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 
 
 #ifdef USE_BFM
-inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
+inline void exportBFMcb(CPSfermion5D<cps::ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
   Fermion_t zero_a = dwf.allocFermion();
 #pragma omp parallel
   {   
@@ -102,7 +102,7 @@ inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<do
     tmp[cb] = etmp;
   }else tmp[cb] = from;
 
-  dwf.cps_impexFermion(into.ptr(),tmp,0);
+  dwf.cps_impexFermion((double*)into.ptr(),tmp,0);
   dwf.freeFermion(zero_a);
   dwf.freeFermion(etmp);
 }
@@ -110,7 +110,7 @@ inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<do
 
 #ifdef USE_GRID
 template<typename GridPolicies>
-inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
+inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   typename GridPolicies::GridFermionField tmp_g(FGrid);
   tmp_g = Grid::zero;

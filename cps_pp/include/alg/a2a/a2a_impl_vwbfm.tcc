@@ -11,8 +11,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   CPSfermion4D<ComplexD> afield;  Vector* a = (Vector*)afield.ptr(); //breaks encapsulation, but I can sort this out later.
   CPSfermion5D<ComplexD> bfield;  Vector* b = (Vector*)bfield.ptr();
 
-  int afield_fsize = afield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
-  
+  const int afield_fsize = 2*afield.size();
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
     
   Fermion_t tmp[2] = { dwf.allocFermion(), dwf.allocFermion() };
@@ -73,7 +72,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     //Get 4D part, poke onto a then copy into wl
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)wl[i].ptr(), (Float*)a, 1.0, afield_fsize);
+    assert(wl[i].assigned());
+    this->getWl(i) = afield;
   }
 
   dwf.freeFermion(tmp[0]);
