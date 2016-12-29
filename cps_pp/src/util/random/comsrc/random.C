@@ -19,8 +19,8 @@ CPS_START_NAMESPACE
 #include <comms/sysfunc_cps.h>
 #include <stdio.h>
 #include <string.h>
-  CPS_START_NAMESPACE
-#undef BOOTSTRAP		//need to be undef'd for regression testing with Gparity
+CPS_START_NAMESPACE
+#define BOOTSTRAP		//need to be undef'd for regression testing with Gparity
 #define RNG_WARMUP
 static const int OFFSET = 23;
 static const int N_WARMUP = 1000;

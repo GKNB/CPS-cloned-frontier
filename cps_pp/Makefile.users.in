@@ -42,7 +42,7 @@ DFLAGS += @DFLAGS@
 
 
 LIBLIST =\
-  $(BUILDDIR)/cps.a \
+  $(BUILDDIR)/libcps.a \
 
 #
 #  targets
@@ -67,7 +67,7 @@ OBJS := $(notdir $(OBJS_SRC))
 
 $(BIN):  $(OBJS) $(LIBLIST)
 	@echo OBJS = $(OBJS)
-	$(CXX) $(OBJS) $(LIBLIST) $(LDFLAGS) -o $(BIN)
+	$(CXX) $(OBJS) -L$(BUILDDIR) -lcps  $(LDFLAGS) -o $(BIN)
 
 .c.o:
 	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
