@@ -42,9 +42,9 @@ LIBNAME := $(subst XXX_,,$(LIBNAME))
 LIBNAME := $(subst _XXX,,$(LIBNAME))
 LIBNAME := $(subst XXX,,$(LIBNAME))
 else
-LIBNAME = cps
+LIBNAME = libcps
 endif
-LIBNAME ?= cps
+LIBNAME ?= libcps
 
 DFLAGS += @DFLAGS@
 

@@ -381,7 +381,7 @@ void LatRanGen::SetSigma(IFloat sigma)
   particular hypercubic RNG.  
  */
 //----------------------------------------------------------------------
-void LatRanGen::AssignGenerator(int x, int y, int z, int t,int s)
+void LatRanGen::AssignGenerator(int x, int y, int z, int t,int s, const int &field_idx)
 {
   x = x % GJP.XnodeSites();
   y = y % GJP.YnodeSites();
@@ -409,7 +409,7 @@ void LatRanGen::AssignGenerator(int x, int y, int z, int t,int s)
   particular hypercubic RNG.
 */
 //----------------------------------------------------------------------
-void LatRanGen::AssignGenerator(const int * x)
+void LatRanGen::AssignGenerator(const int * x, const int &field_idx)
 {
     AssignGenerator(x[0], x[1], x[2], x[3], 0);
 }
@@ -423,7 +423,7 @@ void LatRanGen::AssignGenerator(const int * x)
   particular hypercubic RNG.
 */
 //----------------------------------------------------------------------
-void LatRanGen ::AssignGenerator(int i)
+void LatRanGen ::AssignGenerator(int i, const int &field_idx)
 {
   char *fname = "AssignGenerator(i)";
   int x = (i/can[0]) % hx[0];

@@ -17,13 +17,13 @@ CPS_START_NAMESPACE
 class SpinMatrix;
 
 
-enum{SPINS=4};
 
 //------------------------------------------------------------------
 // The SpinMatrix class.
 //------------------------------------------------------------------
 class SpinMatrix
 {
+    enum{SPINS=4};
     Float u[2*SPINS*SPINS];	// The matrix
 
   public:
@@ -41,7 +41,8 @@ class SpinMatrix
     void UnitSpinMatrix(void);
 
     // ACCESSORS
-    Complex& operator()(int i, int j) const;
+    Complex& operator()(int i, int j){ return ((Complex*)u)[i*SPINS+j]; }
+    const Complex& operator()(int i, int j) const { return ((Complex*)u)[i*SPINS+j]; }
     inline Complex& operator[](int i) { return ((Complex*)u)[i]; }
     inline const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
 

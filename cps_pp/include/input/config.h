@@ -8,21 +8,7 @@
 /* Global options for compiling the Columbia code:  
  * config.h.  Generated from config.h.in by configure.
  * 
- *--------------------------------------------------------------------
- *  CVS keywords
- *
- *  $Author: ckelly $
- *  $Date: 2012-11-15 18:17:08 $
- *  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
- *  $Id: config.h.in,v 1.29.28.1 2012-11-15 18:17:08 ckelly Exp $
- *  $Name: v5_0_16_hantao_io_test_v7 $
- *  $Locker:  $
- *  $RCSfile: config.h.in,v $
- *  $Revision: 1.29.28.1 $
- *  $Source: /space/cvs/cps/cps++/config.h.in,v $
- *  $State: Exp $
  */
-/* ------------------------------------------------------------------*/
 
 #ifndef INCLUDED_CONFIG_H_
 #define INCLUDED_CONFIG_H_                  //!< Prevent multiple inclusion 
@@ -43,9 +29,9 @@
 #define VERSION_STR "CPS_V5.3.0"
 
 #define TARGET NOARCH
-#undef PARALLEL
+#define PARALLEL 1
 
-#undef HAVE_BFM
+#define HAVE_BFM 1
 
 // The configure procedure should make this unnecessary, but just in case...
 #ifndef TARGET
@@ -74,16 +60,10 @@
 #define CPS_NAMESPACE	     cps
 
 
-#if TARGET == cpsMPI
-/*! Data size for the MPI comms layer: */
-#define COMMS_DATASIZE (sizeof(float))
-/* Override printf to only print from only one processor */
-#include<util/qcdio_qprintf.h>
-#elif TARGET == BGL
+#if TARGET == BGL
 /*! Data size for the MPI comms layer: */
 #define COMMS_DATASIZE (sizeof(double))
 /* Override printf to only print from only one processor */
-#include<util/qcdio_qprintf.h>
 #else
 #define COMMS_DATASIZE (sizeof(double))
 #endif

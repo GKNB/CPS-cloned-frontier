@@ -30,6 +30,8 @@
 
 #include <util/lattice.h>
 #include <util/vector.h>
+#include <util/error.h>
+#include <util/verbose.h>
 #include <util/smalloc.h>
 #include <util/zmobius.h>
 #include <comms/sysfunc_cps.h>
@@ -634,6 +636,22 @@ public:
       {return doext_p->mobius_b_coeff;}
   Float Mobius_c() const
       {return doext_p->mobius_c_coeff;}
+
+  Float SetMobius (Float mob) { 
+   doext_p->mobius_b_coeff = 0.5*(mob+1.);
+   doext_p->mobius_c_coeff = 0.5*(mob-1.);
+   VRB.Result(cname,"SetMobius()","mobius_b_coeff=%g mobius_c_coeff=%g \n",
+		 doext_p->mobius_b_coeff, doext_p->mobius_c_coeff);
+    return mob;}
+
+  Float GetMobius () {
+   Float mob_b = doext_p->mobius_b_coeff ;
+   Float mob_c = doext_p->mobius_c_coeff ;
+   if(fabs(mob_b-mob_c-1.)>1e-4)
+   ERR.General(cname,"GetMobius()","b-c(%g) not equal to 1\n",mob_b-mob_c);
+   VRB.Result(cname,"GetMobius()","mobius_factor=%g\n",mob_b+mob_c);
+    return (mob_b+mob_c);}
+
   
   Complex* ZMobius_b() const
   {return zmobius_b;}
