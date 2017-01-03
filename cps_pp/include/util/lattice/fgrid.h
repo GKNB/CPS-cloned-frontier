@@ -1,12 +1,17 @@
-#include<config.h>
-#include<util/lattice.h>
 #ifndef INCLUDED_FGRID_H
 #define INCLUDED_FGRID_H
-
+#include<config.h>
+#include<util/lattice.h>
+#include<util/time_cps.h>
+#ifdef USE_BFM
+#include<util/lattice/bfm_mixed_solver.h>
+#endif
+#include<util/multi_cg_controller.h>
 #ifdef USE_GRID
 #include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
+#undef HAVE_HANDOPT
 
 
 
@@ -36,11 +41,16 @@ class FgridBase: public virtual Lattice, public virtual FgridParams,
    	const int  Nd = Grid::QCD::Nd;
    	const int  Ns = Grid::QCD::Ns;
 	int n_gp;
-	Grid::GridCartesian *UGrid;
-	Grid::GridRedBlackCartesian *UrbGrid;
-	Grid::GridCartesian *FGrid;
-	Grid::GridRedBlackCartesian *FrbGrid;
+	Grid::GridCartesian *UGridD;
+	Grid::GridCartesian *UGridF;
+	Grid::GridRedBlackCartesian *UrbGridD;
+	Grid::GridRedBlackCartesian *UrbGridF;
+	Grid::GridCartesian *FGridD;
+	Grid::GridCartesian *FGridF;
+	Grid::GridRedBlackCartesian *FrbGridF;
+	Grid::GridRedBlackCartesian *FrbGridD;
 	Grid::QCD::LatticeGaugeFieldD *Umu;
+//	Grid::QCD::LatticeGaugeFieldF *Umu_f;
 	int threads;
 	std::vector< int > vol; // global volume
 	std::vector< int > nodes;
@@ -53,15 +63,18 @@ class FgridBase: public virtual Lattice, public virtual FgridParams,
 public: 
         double get_mob_b(){return mob_b;};
 
-	Grid::GridCartesian *getFGrid(){return FGrid;}
-	Grid::GridRedBlackCartesian *getFrbGrid(){return FrbGrid;}
-	Grid::GridCartesian *getUGrid(){return UGrid;}
-	Grid::GridRedBlackCartesian *getUrbGrid(){return UrbGrid;}
+	Grid::GridCartesian *getFGrid(){return FGridD;}
+	Grid::GridRedBlackCartesian *getFrbGrid(){return FrbGridD;}
+	Grid::GridCartesian *getUGrid(){return UGridD;}
+	Grid::GridCartesian *getUGridF(){return UGridF;}
+	Grid::GridRedBlackCartesian *getUrbGrid(){return UrbGridD;}
 	Grid::QCD::LatticeGaugeFieldD *getUmu(){return Umu;}
+//	Grid::QCD::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
 	FgridBase(FgridParams &params): cname("FgridBase"),vol(4,0),nodes(4,0),mass(1.), Ls(1){
 //,epsilon(0.),
 		const char *fname("FgridBase()");
 		if(!grid_initted) Grid::Grid_init(GJP.argc_p(),GJP.argv_p());
+		grid_initted=true;
 		*((FgridParams *) this) = params;
 		eps = params.epsilon;
 		
@@ -72,59 +85,52 @@ public:
 //		ERR.General(cname,fname,"Only implemented for Grid with Gparity at the moment\n");
 			n_gp=1;
 		} else n_gp = 2;
-		VRB.Result(cname,fname,"Grid initted\n");
+		VRB.Debug(cname,fname,"Grid initted\n");
+//		omp_set_num_threads(8);
+//		Grid::GridThread::SetThreads(100);
 		threads = Grid::GridThread::GetThreads();
 		for(int i=0;i<4;i++) vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
 		for(int i=0;i<4;i++) nodes[i]= GJP.Nodes(i);
-		VRB.Result(cname,fname,"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d\n",Nd,Grid::vComplexD::Nsimd());
+		VRB.Result(cname,fname,"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d threads=%d omp_get_max_threads()=%d\n",Nd,Grid::vComplexD::Nsimd(), threads,omp_get_max_threads());
 		for(int i=0;i<4;i++) 
-		VRB.Result(cname,fname,"%d %d \n",vol[i],nodes[i]);
-		UGrid = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexD::Nsimd()),nodes);
-		VRB.Result(cname,fname,"UGrid.lSites()=%d\n",UGrid->lSites());
+		VRB.Debug(cname,fname,"%d %d \n",vol[i],nodes[i]);
+		UGridD = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexD::Nsimd()),nodes);
+		UGridF = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexF::Nsimd()),nodes);
+		for(int i=0;i<4;i++){
+		printf("CPS: %d  pos[%d]=%d Grid: %d pos[%d]=%d\n",UniqueID(), i, GJP.NodeCoor(i),UGridD->_processor,i,UGridD->_processor_coor[i]);
+		}
+#ifdef HAVE_HANDOPT
+		if (GJP.Gparity()) Grid::QCD::WilsonKernelsStatic::HandOpt=0; //Doesn't seem to be working with Gparity
+		else Grid::QCD::WilsonKernelsStatic::HandOpt=1; 
+#endif
+		VRB.Debug(cname,fname,"UGrid.lSites()=%d\n",UGridD->lSites());
 		SetLs(GJP.SnodeSites());
-		UrbGrid = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid);
-		FGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid);
-		VRB.Result(cname,fname,"FGrid.lSites()=%d\n",FGrid->lSites());
-		FrbGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGrid);
-		for(int i=0;i<5;i++)
-		  VRB.Result(cname,fname,"FGrid.gdimensions[%d]=%d\n",i,FGrid->_gdimensions[i]);
-		Umu = new Grid::QCD::LatticeGaugeFieldD(UGrid);
+		UrbGridD = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGridD);
+		UrbGridF = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGridF);
+		FGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGridD);
+		FGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGridF);
+		VRB.Debug(cname,fname,"FGridD.lSites()=%d\n",FGridD->lSites());
+		FrbGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGridD);
+		FrbGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGridF);
+		Umu = new Grid::QCD::LatticeGaugeFieldD(UGridD);
+//		Umu_f = new Grid::QCD::LatticeGaugeFieldF(UGrid_f);
 		grid_initted=true;
 		VRB.FuncEnd(cname,fname);
 //		BondCond();
-
-#ifdef USE_QMP
-		bool fail = false;
-		for(int t=0;t<GJP.Tnodes();t++)
-		  for(int z=0;z<GJP.Znodes();z++)
-		    for(int y=0;y<GJP.Ynodes();y++)
-		      for(int x=0;x<GJP.Xnodes();x++){
-			std::vector<int> node {x,y,z,t};
-			int cps_rank = QMP_get_node_number_from(&node[0]); //is a MPI_COMM_WORLD rank
-			int grid_rank = UGrid->RankFromProcessorCoor(node); //is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below
-			int fail = 0;
-			if(UGrid->_processor == grid_rank){
-			  int world_rank; MPI_Comm_rank(MPI_COMM_WORLD,&world_rank);
-			  if(world_rank != UGrid->_processor) fail = 1;
-			}
-			QMP_status_t ierr = QMP_sum_int(&fail);
-			if(ierr != QMP_SUCCESS)
-			  ERR.General("FgridBase","FgridBase","Rank check sum failed\n");
-			if(fail != 0)
-			  ERR.General("FgridBase","FgridBase","Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n");
-						
-			if(cps_rank != grid_rank){
-			  if(!UniqueID()){ std::cout << "Error in FgridBase constructor: node (" << node[0] << "," << node[1] << "," << node[2] << "," << node[3] << ") maps to different MPI ranks for Grid " << grid_rank << " and CPS " << cps_rank << std::endl;
-			    std::cout.flush();
-			  }
-			  fail = true;
-			}
-		      }
-		if(fail) exit(-42);
-#endif
+	}
+	void ResetParams(FgridParams &params){
+		this-> mobius_scale = params.mobius_scale;
+		this-> epsilon = params.epsilon;
 	}
 	virtual ~FgridBase(void){
 		if(Umu) delete Umu;
+//		if(Umu_f) delete Umu_f;
+		delete UGridD;
+		delete UrbGridF;
+		delete FGridD;
+		delete FGridF;
+		delete FrbGridD;
+		delete FrbGridF;
 //		BondCond();
 //		Grid_finalize();
 	}
@@ -134,21 +140,22 @@ public:
 
 
 	void ImportGauge( Grid::QCD::LatticeGaugeFieldD *grid_lat, Matrix *mom){
-		ImpexGauge( grid_lat, mom, 1);
+		ImpexGauge( grid_lat, NULL, mom, 1);
 	}
 
 	void ImportGauge( Matrix *mom, Grid::QCD::LatticeGaugeFieldD *grid_lat){
-		ImpexGauge( grid_lat, mom, 0);
+		ImpexGauge( grid_lat, NULL, mom, 0);
 	}
 
-	void ImportGauge() { ImpexGauge(NULL,NULL,1); }
+	void ImportGauge() { ImpexGauge(Umu,NULL,NULL,1); }
 		
-	void ImpexGauge( Grid::QCD::LatticeGaugeFieldD *grid_lat, Matrix *mom, int cps2grid){
+	void ImpexGauge( Grid::QCD::LatticeGaugeFieldD *grid_lat, Grid::QCD::LatticeGaugeFieldF *grid_lat_f, Matrix *mom, int cps2grid){
 
-	  BondCond(); //Apply - sign to boundary for APRD directions. Does nothing for GPBC dirs.
+	BondCond();
 		Float *gauge = (Float *) mom;
 		if(!mom)  gauge = (Float *)GaugeField();
-		if (!grid_lat)  grid_lat = Umu;
+//		if (!grid_lat)  grid_lat = Umu;
+//		if (!grid_lat_f && cps2grid )  grid_lat_f = Umu_f;
 		unsigned long vol;
 		const char *fname="ImpexGauge()";
 		Grid::GridBase *grid = grid_lat->_grid;
@@ -156,6 +163,7 @@ public:
 			ERR.General(cname,fname,"numbers of grid(%d) and GJP(%d) does not match\n",grid_lat->_grid->lSites(),vol);
 		std::vector<int> grid_coor;
 		Grid::QCD::LorentzColourMatrixD siteGrid;
+		Grid::QCD::LorentzColourMatrixF siteGrid_f;
 		for(int site=0;site<vol;site++)
 		for(int mu=0;mu<4;mu++){
 			if(cps2grid){
@@ -164,10 +172,12 @@ public:
 				Float *cps = gauge +18*(site*4+mu)+6*j+2*i;
 				std::complex<double> elem(*cps,*(cps+1));
 				siteGrid(mu)()(j,i) = elem;
+				siteGrid_f(mu)()(j,i) = elem;
 //				if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
 			}
 			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
 			pokeLocalSite(siteGrid,*grid_lat,grid_coor);
+			if(grid_lat_f) pokeLocalSite(siteGrid_f,*grid_lat_f,grid_coor);
 			} else {
 			Grid::Lexicographic::CoorFromIndex(grid_coor,site,grid->_ldimensions);
 			peekLocalSite(siteGrid,*grid_lat,grid_coor);
@@ -181,15 +191,17 @@ public:
 			}
 			}
 		} 
-		BondCond(); //Unapply - sign for APRD directions.
-		//if(cps2grid) std::cout << "Imported gauge field:\n" << *grid_lat << std::endl;
-			    
+		Float *f_tmp = (Float*)gauge;
+		VRB.Debug(cname,fname,"mom=(%g %g)(%g %g)(%g %g)\n",
+			*f_tmp,*(f_tmp+1),*(f_tmp+2),
+			*(f_tmp+3),*(f_tmp+4),*(f_tmp+5));
+	BondCond();
 	}
 	std::vector<int> SetTwist(){
 	std::vector<int> twists(Nd,0);
 	for(int i=0;i<3;i++){
 		 twists[i] = (GJP.Bc(i) == BND_CND_GPARITY) ? 1 : 0 ;
-		if(twists[i]) VRB.Result(cname,"SetTwist()","gparity[%d]=1\n",i);
+		if(twists[i]) VRB.Debug(cname,"SetTwist()","gparity[%d]=1\n",i);
 	}
 	return twists;
 }
@@ -261,11 +273,10 @@ public:
   // 0 to [GJP.Snodes() * GJP.SnodeSites() - 1]
   // The same 4D field is generarted in all s node slices.
 #endif
-
-//  friend void QMPSCU::init_qmp(int *argc, char **argv);
     
 };
 CPS_END_NAMESPACE
+
 
 #define PASTER(x,y) x ## y
 #define EVALUATOR(x,y) PASTER(x,y)
@@ -273,66 +284,74 @@ CPS_END_NAMESPACE
 #define XSTR(s) STR(s)
 #define STR(s) #s
 
+// Match to Fbfm twisted wilson instead of FwilsonTM
+#undef USE_F_CLASS_WILSON_TM
+
+//#ifdef GRID_GPARITY
 #define GRID_GPARITY
 #define IF_FIVE_D 
+#undef IF_TM 
 #define FGRID FgridGparityMobius
 #define CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
 #define DIRAC Grid::QCD::GparityMobiusFermionD
 #define DIRAC_F Grid::QCD::GparityMobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
 #define IMPL Grid::QCD::GparityWilsonImplD	
-#define LATTICE_FERMION DIRAC ::FermionField
-#define LATTICE_FERMION_F DIRAC_F ::FermionField
+#define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
 
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef LATTICE_FERMION
+#undef SITE_FERMION
+#undef IMPL
+#undef PARAMS	
+#undef GP 
+
 #define GRID_GPARITY
 #undef IF_FIVE_D 
+#define IF_TM 
 #define FGRID FgridGparityWilsonTM
 #define CLASS_NAME F_CLASS_GRID_GPARITY_WILSON_TM
 #define DIRAC Grid::QCD::GparityWilsonTMFermionD
 #define DIRAC_F Grid::QCD::GparityWilsonTMFermionF
 #define MOB  ,eps
 #define IMPL Grid::QCD::GparityWilsonImplD	
-#define LATTICE_FERMION DIRAC ::FermionField
-#define LATTICE_FERMION_F DIRAC_F ::FermionField
+#define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
 
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef LATTICE_FERMION
+#undef SITE_FERMION
+#undef IMPL
+#undef PARAMS	
+#undef GP 
+
+//#else
 #undef GRID_GPARITY
 #define IF_FIVE_D 
+#undef IF_TM
 #define FGRID FgridMobius
 #define CLASS_NAME F_CLASS_GRID_MOBIUS
 #define DIRAC Grid::QCD::MobiusFermionD
 #define DIRAC_F Grid::QCD::MobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
-#define LATTICE_FERMION DIRAC ::FermionField
-#define LATTICE_FERMION_F DIRAC_F ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::WilsonImplD	
-#define PARAMS	
-#define GP 
-#include "fgrid.h.inc"
-
-#undef GRID_GPARITY
-#undef IF_FIVE_D
-#define FGRID FgridWilsonTM
-#define CLASS_NAME F_CLASS_GRID_WILSON_TM
-#define DIRAC Grid::QCD::WilsonTMFermionD
-#define DIRAC_F Grid::QCD::WilsonTMFermionF
-#define MOB  ,eps
-#define IMPL Grid::QCD::WilsonImplD	
-#define LATTICE_FERMION DIRAC ::FermionField
-#define LATTICE_FERMION_F DIRAC_F ::FermionField
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define IMPL_F Grid::QCD::WilsonImplF
 #define PARAMS	
 #define GP 
 #include "fgrid.h.inc"
@@ -340,17 +359,42 @@ CPS_END_NAMESPACE
 #undef FGRID
 #undef CLASS_NAME
 #undef DIRAC
+#undef DIRAC_F
 #undef MOB
 #undef LATTICE_FERMION
-#undef LATTICE_FERMION_F
+#undef SITE_FERMION
+#undef IMPL
+#undef PARAMS	
+#undef GP 
+
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#define IF_TM
+#define FGRID FgridWilsonTM
+#define CLASS_NAME F_CLASS_GRID_WILSON_TM
+#define DIRAC Grid::QCD::WilsonTMFermionD
+#define DIRAC_F Grid::QCD::WilsonTMFermionF
+#define MOB  ,eps
+#define IMPL Grid::QCD::WilsonImplD	
+#define IMPL_F Grid::QCD::WilsonImplF
+#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define PARAMS	
+#define GP 
+#include "fgrid.h.inc"
+
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef LATTICE_FERMION
 #undef SITE_FERMION
 #undef IMPL
 #undef PARAMS	
 #undef GP 
 
 #else  
-//#error Does not compile without Grid for now. Needs fake implementations 
-#warning "FGrid without Grid!"
+#error Does not compile without Grid for now. Needs fake implementations 
 #endif //#ifdef USE_GRID
 
 
