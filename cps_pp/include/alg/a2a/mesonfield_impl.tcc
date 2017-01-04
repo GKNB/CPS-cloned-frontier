@@ -139,8 +139,8 @@ typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matri
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
   //Does not set the size of the output vector, allowing reuse of a previously allocated vector providing it's large enough
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
-  typedef typename mf_Policies::ComplexType VectorComplexType;
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(typename AlignedVector<typename mf_Policies::ComplexType>::type &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
+  typedef typename mf_Policies::ComplexType SIMDcomplexType;
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
 
@@ -158,7 +158,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid:
   for(int i_full=0;i_full<full_rows;i_full++){
     if(rowidx_used[i_full]){
       ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full;
-      VectorComplexType* row_base = &into[map_size*i_packed];
+      SIMDcomplexType* row_base = &into[map_size*i_packed];
 
       for(int b=0;b<blocks.size();b++){
 	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
@@ -171,7 +171,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid:
   }
 }
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(typename AlignedVector<typename mf_Policies::ComplexType>::type &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
 

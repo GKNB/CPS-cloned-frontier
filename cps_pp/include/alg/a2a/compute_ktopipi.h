@@ -27,7 +27,7 @@ struct getInnerVectorType{
 #ifdef USE_GRID
 template<typename T>
 struct getInnerVectorType<T,grid_vector_complex_mark>{
-  typedef Grid::Vector<T> type;
+  typedef typename AlignedVector<T>::type type;
 };
 #endif
 

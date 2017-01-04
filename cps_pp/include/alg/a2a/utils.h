@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <vector>
+#include <malloc.h>
 
 #include <alg/fix_gauge_arg.h>
 #include <alg/a2a/gsl_wrapper.h>
@@ -702,6 +703,46 @@ public:
   } 
 };
 
+
+template<typename _Tp>
+class BasicAlignedAllocator {
+public: 
+  typedef std::size_t     size_type;
+  typedef std::ptrdiff_t  difference_type;
+  typedef _Tp*       pointer;
+  typedef const _Tp* const_pointer;
+  typedef _Tp&       reference;
+  typedef const _Tp& const_reference;
+  typedef _Tp        value_type;
+
+  template<typename _Tp1>  struct rebind { typedef BasicAlignedAllocator<_Tp1> other; };
+  BasicAlignedAllocator() throw() { }
+  BasicAlignedAllocator(const BasicAlignedAllocator&) throw() { }
+  template<typename _Tp1> BasicAlignedAllocator(const BasicAlignedAllocator<_Tp1>&) throw() { }
+  ~BasicAlignedAllocator() throw() { }
+  pointer       address(reference __x)       const { return &__x; }
+  size_type  max_size() const throw() { return size_t(-1) / sizeof(_Tp); }
+
+  pointer allocate(size_type __n, const void* _p= 0)
+  { 
+    size_type bytes = __n*sizeof(_Tp);
+    return (pointer) memalign(128,bytes);
+  }
+
+  void deallocate(pointer __p, size_type __n) { 
+    free((void *)__p);
+  }
+  void construct(pointer __p, const _Tp& __val) { };
+  void construct(pointer __p) { };
+  void destroy(pointer __p) { };
+};
+template<typename _Tp>  inline bool operator==(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return true; }
+template<typename _Tp>  inline bool operator!=(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return false; }
+
+template<typename T>
+struct AlignedVector{
+  typedef std::vector<T,BasicAlignedAllocator<T> > type;
+};
 
 
 CPS_END_NAMESPACE

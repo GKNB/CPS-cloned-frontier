@@ -250,7 +250,7 @@ template<typename mf_Policies,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
 class _mult_vMv_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,grid_vector_complex_mark>{ //for SIMD vectorized W and V vectors
 public:
-  typedef typename mf_Policies::ComplexType VectorComplexType;
+  typedef typename mf_Policies::ComplexType SIMDcomplexType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   //Form SpinColorFlavorMatrix prod1 = vL_i(\vec xop, top ; tpi2) [\sum_{\vec xpi2} wL_i^dag(\vec xpi2, tpi2) S2 vL_j(\vec xpi2, tpi2; top)] wL_j^dag(\vec xop,top)
 
@@ -258,7 +258,7 @@ public:
   //argument xop is the *local* 3d site index of the reduced (logical) lattice in canonical ordering, top is the *local* time coordinate
   //it is assumed that the lattice is not SIMD vectorized in the time direction
   // Node local and unthreaded
-  static void mult(CPSspinColorFlavorMatrix<VectorComplexType> &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
     typedef typename lA2AfieldL<mf_Policies>::DilutionType iLeftDilutionType;
     typedef typename A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL>::LeftDilutionType iRightDilutionType;
 
@@ -294,8 +294,8 @@ public:
     bool rowidx_used[Mrows]; for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
 
     //Reorder rows and columns such that they can be accessed sequentially
-    Grid::Vector<VectorComplexType> lreord[nscf];
-    Grid::Vector<VectorComplexType> rreord[nscf];
+    Grid::Vector<SIMDcomplexType> lreord[nscf];
+    Grid::Vector<SIMDcomplexType> rreord[nscf];
     
     //Note:
     //il is the index of l, 
@@ -324,7 +324,7 @@ public:
     	    i_ind.getBothIndices(ilmap_this[i],irmap_this[i],i,ilp,irp);
 	    rowidx_used[ irmap_this[i] ] = true; //this row index of Mr is used
 	    
-	    const VectorComplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
+	    const SIMDcomplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
 	    lreord[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
     	  }
 
@@ -339,7 +339,7 @@ public:
     	  for(int j = 0; j < nj_this; j++){
     	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
 
-	    const VectorComplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
+	    const SIMDcomplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
 	    rreord[scf][j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
     	  }
 
@@ -349,8 +349,8 @@ public:
 
 
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
-    VectorComplexType Mr[Mrows][nscf];
-    VectorComplexType tmp_v;
+    SIMDcomplexType Mr[Mrows][nscf];
+    SIMDcomplexType tmp_v;
     for(int i=0;i<Mrows;i++){
       if(!rowidx_used[i]) continue;
       
@@ -361,7 +361,7 @@ public:
 	
 	for(int j=0;j<nj_this;j++){
 	  Grid::vsplat(tmp_v, M(i, jlmap[scf][j]) );
-	  //const VectorComplexType &relem = r.nativeElem(jrmap[scf][j], site4dop, sc, f);
+	  //const SIMDcomplexType &relem = r.nativeElem(jrmap[scf][j], site4dop, sc, f);
 	  //Mr[i][scf] = Mr[i][scf] + tmp_v * (conj_r ? Grid::conjugate(relem) : relem);
 	  
 	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord[scf][j];
@@ -381,10 +381,10 @@ public:
 	      for(int fr=0;fr<2;fr++){
 		int scfr = fr + 2*(cr + 3*sr);		
 
-		VectorComplexType &into = out(sl,sr)(cl,cr)(fl,fr);
+		SIMDcomplexType &into = out(sl,sr)(cl,cr)(fl,fr);
 
 		for(int i=0;i<ni_this;i++){
-		  //const VectorComplexType lelem = l.nativeElem(ilmap[scfl][i], site4dop, scl, fl);
+		  //const SIMDcomplexType lelem = l.nativeElem(ilmap[scfl][i], site4dop, scl, fl);
 		  //into = into + (conj_l ? Grid::conjugate(lelem) : lelem) * Mr[irmap[scfl][i]][scfr];
 		  
 		  into = into + lreord[scfl][i]*Mr[irmap[scfl][i]][scfr];
@@ -401,7 +401,7 @@ public:
 
 
 
-  static void mult_slow(CPSspinColorFlavorMatrix<VectorComplexType> &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult_slow(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
     assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
     int site4dop = l.getMode(0).threeToFour(xop,top);
@@ -414,7 +414,7 @@ public:
 
     out.zero();
 
-    VectorComplexType tmp;
+    SIMDcomplexType tmp;
     
     for(int sl=0;sl<4;sl++){
       for(int cl=0;cl<3;cl++){
@@ -426,17 +426,17 @@ public:
 
 		for(int i=0;i<ni;i++){
 
-		  const VectorComplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
-		  VectorComplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+		  const SIMDcomplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
+		  SIMDcomplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
 		  
   		  for(int j=0;j<nj;j++){
-  		    const VectorComplexType &rval_tmp = r.elem(j,xop,top,cr+3*sr,fr);
-  		    VectorComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+  		    const SIMDcomplexType &rval_tmp = r.elem(j,xop,top,cr+3*sr,fr);
+  		    SIMDcomplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 
 		    const ScalarComplexType &Mval = M.elem(i,j);
 		    Grid::vsplat(tmp, Mval);
 		    
-		    VectorComplexType delta = lval * tmp * rval;
+		    SIMDcomplexType delta = lval * tmp * rval;
   		    out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + delta;
   		  }
   		}

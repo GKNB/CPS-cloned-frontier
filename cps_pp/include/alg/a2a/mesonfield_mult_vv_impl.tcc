@@ -233,13 +233,15 @@ template<typename mf_Policies,
 class _mult_lr_impl_v<mf_Policies,lA2Afield,rA2Afield,grid_vector_complex_mark>{ 
 public:
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
-  typedef typename mf_Policies::ComplexType VectorComplexType;
+  typedef typename mf_Policies::ComplexType SIMDcomplexType;
 
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
+  
   //#define BASIC_MULT_GRID
   
 #ifdef BASIC_MULT_GRID
   
-  static void mult(CPSspinColorFlavorMatrix<VectorComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
     typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
@@ -272,8 +274,8 @@ public:
 		  const int il = i_ind.getLeftIndex(i,ilp,irp);
 		  const int ir = i_ind.getRightIndex(i,ilp,irp);
 
-		  const VectorComplexType &lval_tmp = l.nativeElem(il, site4dop, ilp.spin_color, fl);
-		  const VectorComplexType &rval_tmp = r.nativeElem(ir, site4dop, irp.spin_color, fr);
+		  const SIMDcomplexType &lval_tmp = l.nativeElem(il, site4dop, ilp.spin_color, fl);
+		  const SIMDcomplexType &rval_tmp = r.nativeElem(ir, site4dop, irp.spin_color, fr);
 
 		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + (conj_l ? Grid::conjugate(lval_tmp) : lval_tmp)* (conj_r ? Grid::conjugate(rval_tmp) : rval_tmp);
 		}
@@ -287,7 +289,7 @@ public:
 
 #else
 
-  static void mult(CPSspinColorFlavorMatrix<VectorComplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
+  static void mult(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const lA2Afield<mf_Policies> &l, const rA2Afield<mf_Policies> &r, const int &xop, const int &top, const bool &conj_l, const bool &conj_r){
     typedef typename lA2Afield<mf_Policies>::DilutionType iLeftDilutionType;
     typedef typename rA2Afield<mf_Policies>::DilutionType iRightDilutionType;
 
@@ -307,14 +309,8 @@ public:
     int nv = std_idx.getNmodes();
     const static int nscf = 2*3*4;
 
-    //Why doesn't this work?
-    // VectorComplexType zro; zeroit(zro);
-    // std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv, zro) );    
-    // std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf, zro) );    
-
-        
-    std::vector<Grid::Vector<VectorComplexType> > lcp(nscf, Grid::Vector<VectorComplexType>(nv) );    
-    std::vector<Grid::Vector<VectorComplexType> > rcp(nv, Grid::Vector<VectorComplexType>(nscf) );    
+    std::vector<AlignedSIMDcomplexVector> lcp(nscf, AlignedSIMDcomplexVector(nv) );    
+    std::vector<AlignedSIMDcomplexVector> rcp(nv, AlignedSIMDcomplexVector(nscf) );    
 
     std::vector<std::vector<bool> > lnon_zeroes_all(nscf);
     std::vector<std::vector<bool> > rnon_zeroes_all(nscf);
@@ -333,7 +329,7 @@ public:
 	  for(int i=0;i<nv;i++) 
 	    if(lnon_zeroes[i]){
 #ifndef MEMTEST_MODE
-	      const VectorComplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
+	      const SIMDcomplexType &lval_tmp = l.nativeElem(lmap[i], site4dop, ilp.spin_color, f);
 	      lcp[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
 #endif
 	    }
@@ -345,7 +341,7 @@ public:
 	  for(int i=0;i<nv;i++)
 	    if(rnon_zeroes[i]){
 #ifndef MEMTEST_MODE
-	      const VectorComplexType &rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
+	      const SIMDcomplexType &rval_tmp = r.nativeElem(rmap[i], site4dop, irp.spin_color, f);
 	      rcp[i][scf] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 #endif
 	    }	  
@@ -399,10 +395,10 @@ public:
 
 		for(int i=0;i<ni;i++){
 
-		  const VectorComplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
-		  VectorComplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+		  const SIMDcomplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
+		  SIMDcomplexType lval = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
 		  
-		  const VectorComplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
+		  const SIMDcomplexType &rval_tmp = r.elem(i,xop,top,cr+3*sr,fr);
 		  ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
 
 		  out(sl,sr)(cl,cr)(fl,fr) = out(sl,sr)(cl,cr)(fl,fr) + lval * rval;

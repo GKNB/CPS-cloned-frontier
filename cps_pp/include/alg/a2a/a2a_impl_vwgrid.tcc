@@ -156,7 +156,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     setCheckerboard(tmp_full, bq_tmp); //odd checkerboard
 
     //Get 4D part and poke into a
-    //Recall that D^{-1} = <w^\dagger v> = <q \bar q>.  v therefore transforms like a conjugate spinor. For conjugate spinors \bar\psi(x) = P_R \bar\psi(x,Ls-1) + P_L \bar\psi(x,0),  i.e. s_u=Ls-1 and s_l=0 for CPS gamma5
+    //Recall that D^{-1} = <v w^\dagger> = <q \bar q>.  v therefore transforms like a spinor. For spinors \psi(x) = P_R \psi(x,Ls-1) + P_L \psi(x,0),  i.e. s_u=Ls-1 and s_l=0 for CPS gamma5
 
     DomainWallFiveToFour(tmp_full_4d, tmp_full, glb_ls-1,0);
     tmp_full_4d = Grid::RealD(1./eval) * tmp_full_4d;
@@ -183,7 +183,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     axpy(tmp_full, -mob_c, tmp_full2, tmp_full); 
 
     //Get 4D part, poke onto a then copy into wl
-    //Recall that D^{-1} = <w^\dagger v> = <q \bar q>.  w (and w^\dagger) therefore transforms like a spinor. For spinors \psi(x) = P_R \bar\psi(x,0) + P_L \bar\psi(x,Ls-1),  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
+    //Recall that D^{-1} = <v w^\dagger> = <q \bar q>.  w (and w^\dagger) therefore transforms like a conjugate spinor. For spinors \bar\psi(x) =  \bar\psi(x,0) P_R +  \bar\psi(x,Ls-1) P_L,  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
     DomainWallFiveToFour(tmp_full_4d, tmp_full, 0, glb_ls-1);
     wl[i]->importGridField(tmp_full_4d);
   }

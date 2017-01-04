@@ -317,8 +317,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
   //Setup the data buffer
   this->setup(read_a2a_args_l,read_a2a_args_r,tl,tr);
 
-  assert(read_fsize == fsize);
-
+  if(read_fsize != fsize){
+    ERR.General("A2AmesonField","read(const std::string &)","Error in reading mesonfield: read_fsize = %d versus computed fsize %d\n",read_fsize,fsize);
+  }
+  
   if(!UniqueID()){
     std::istream &file = *file_ptr;
     //Node 0 finish reading data
