@@ -409,6 +409,10 @@ int main (int argc,char **argv )
 					jp.kaon_rad, lat, field3dparams);
       std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
       kaon.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      kaon.write(os.str(),true);
+#endif
       time += dclock();
       print_time("main","Kaon 2pt function",time);
     }
@@ -458,6 +462,10 @@ int main (int argc,char **argv )
       os << (-pion_mom.getMesonMomentum(p)).file_str(2);
 #endif
       pion.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      pion.write(os.str(),true);
+#endif
     }
     time += dclock();
     print_time("main","Pion 2pt function",time);
@@ -498,6 +506,10 @@ int main (int argc,char **argv )
 	  os << "_mom" << (-p_pi1_src).file_str(2) << "_mom" << (-p_pi1_snk).file_str(2);
 #endif
 	  pipi.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	  os << ".hexfloat";
+	  pipi.write(os.str(),true);
+#endif	  
 	  time += dclock();
 	  *timeCDR[d] += time;
 	}
@@ -515,6 +527,10 @@ int main (int argc,char **argv )
 	os << "_mom" << (-p_pi1_src).file_str(2);
 #endif
 	figVdis.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	figVdis.write(os.str(),true);
+#endif	
 	time += dclock();
 	timeV += time;
       }
@@ -578,6 +594,10 @@ int main (int argc,char **argv )
 	  os << "_mom" << (-p_pi1).file_str(2);
 #endif
 	  type1[kpi_idx].write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	  os << ".hexfloat";
+	  type1[kpi_idx].write(os.str(),true);
+#endif
 	}
 	if(!UniqueID()) printf("Memory status after type1 K->pipi:\n");
 	printMem();
@@ -604,6 +624,10 @@ int main (int argc,char **argv )
       for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
 	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type2_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << jp.pipi_separation;
 	type2[kpi_idx].write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	type2[kpi_idx].write(os.str(),true);
+#endif
       }
     }
     time += dclock();
@@ -626,6 +650,10 @@ int main (int argc,char **argv )
       for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
 	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type3_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << jp.pipi_separation;
 	write(os.str(),type3[kpi_idx],mix3[kpi_idx]);
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	write(os.str(),type3[kpi_idx],mix3[kpi_idx],true);
+#endif
       }
     }
     time += dclock();
@@ -651,6 +679,10 @@ int main (int argc,char **argv )
       {
 	std::ostringstream os; os << meas_arg.WorkDirectory << "/traj_" << conf << "_type4";
 	write(os.str(),type4,mix4);
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	write(os.str(),type4,mix4,true);
+#endif
       }
       time += dclock();
       print_time("main","K->pipi type 4",time);

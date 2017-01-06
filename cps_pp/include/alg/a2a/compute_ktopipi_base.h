@@ -46,10 +46,13 @@ public:
     for(int i=0;i<this->size;i++) this->con[i] = this->con[i] * f;
     return *this;
   }
-	  // //Daiqian's loops are in the following order (outer->inner): tk, tdis, mu, con_idx, gcombidx
-	  // int off = gcombidx + 8* cidx + (8*n_contract + dq_extrafig)*(tk * Lt + tdis); //Daiqian puts the sbar g5 d diagrams after the usual combination block for type3/type4. For these set dq_extrafig to 2
+  // //Daiqian's loops are in the following order (outer->inner): tk, tdis, mu, con_idx, gcombidx
+  // int off = gcombidx + 8* cidx + (8*n_contract + dq_extrafig)*(tk * Lt + tdis); //Daiqian puts the sbar g5 d diagrams after the usual combination block for type3/type4. For these set dq_extrafig to 2
 
-  void write(const std::string &filename) const{
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
+    
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
@@ -59,7 +62,7 @@ public:
 	for(int cidx=0; cidx<ncontract; cidx++){
 	  for(int gcombidx=0;gcombidx<8;gcombidx++){
 	    std::complex<Float> dp = convertComplexD((*this)(tk,tdis,cidx,gcombidx));
-	    Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
+	    Fprintf(p,fmt,std::real(dp),std::imag(dp));
 	  }
 	}
 	Fprintf(p,"\n");
@@ -67,8 +70,6 @@ public:
     }	
     Fclose(p);
   }
-
-
 };
 
 //Lt * Lt * 2 tensor  (option for multiple independent threads)
@@ -105,7 +106,10 @@ public:
     return *this;
   }
 
-  void write(const std::string &filename) const{
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
+
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("KtoPiPiGparityResultsContainer","write",filename.c_str());
@@ -114,7 +118,7 @@ public:
 	Fprintf(p,"%d %d ", tk, tdis);
 	for(int fidx=0;fidx<2;fidx++){
 	  std::complex<Float> dp = convertComplexD((*this)(tk,tdis,fidx));
-	  Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
+	  Fprintf(p,fmt,std::real(dp),std::imag(dp));
 	}
 	Fprintf(p,"\n");
       }
@@ -126,8 +130,10 @@ public:
 };
 
 //Daiqian places both type3 and mix3 as well as type4 and mix4 diagrams into combined files
+//hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
 template<typename ComplexType, typename AllocPolicy>
-inline static void write(const std::string &filename, const KtoPiPiGparityResultsContainer<ComplexType,AllocPolicy> &con, const KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> &mix){
+inline static void write(const std::string &filename, const KtoPiPiGparityResultsContainer<ComplexType,AllocPolicy> &con, const KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> &mix, const bool hexfloat = false){
+  const char* fmt = hexfloat ? "%a %a " : "%.16e %.16e ";
   int Lt = GJP.Tnodes()*GJP.TnodeSites();
   int n_contract = con.getNcontract();
   FILE *p;
@@ -139,12 +145,12 @@ inline static void write(const std::string &filename, const KtoPiPiGparityResult
       for(int cidx=0; cidx<n_contract; cidx++){
 	for(int gcombidx=0;gcombidx<8;gcombidx++){
 	  std::complex<Float> dp = convertComplexD(con(tk,tdis,cidx,gcombidx));
-	  Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
+	  Fprintf(p,fmt,std::real(dp),std::imag(dp));
 	}
       }
       for(int fidx=0;fidx<2;fidx++){
 	std::complex<Float> dp = convertComplexD(mix(tk,tdis,fidx));
-	Fprintf(p,"%.16e %.16e ",std::real(dp),std::imag(dp));
+	Fprintf(p,fmt,std::real(dp),std::imag(dp));
       }
       Fprintf(p,"\n");
     }

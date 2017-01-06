@@ -110,15 +110,18 @@ public:
     free_matrix();
   }
 
-  void write(const std::string &filename) const{
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%d %d %a %a\n" : "%d %d %.16e %.16e\n";
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("fMatrix","write",filename.c_str());
     for(int r=0;r<rows;r++)
       for(int c=0;c<cols;c++)
-	Fprintf(p,"%d %d %.16e %.16e\n",r,c, (*this)(r,c).real(), (*this)(r,c).imag());
+	Fprintf(p,fmt,r,c, (*this)(r,c).real(), (*this)(r,c).imag());
     Fclose(p);
   }
+
 };
 
 //Rearrange an Lt*Lt matrix from ordering  tsnk, tsrc  to   tsrc,  tsep=tsnk-tsrc
@@ -189,15 +192,19 @@ public:
   ~fVector(){
     free_mem();
   }
-
-  void write(const std::string &filename) const{
+  
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%d %a %a\n" : "%d %.16e %.16e\n";
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("fVector","write",filename.c_str());
     for(int i=0;i<fsize;i++)
-      Fprintf(p,"%d %.16e %.16e\n",i, tt[i].real(), tt[i].imag());
+      Fprintf(p,fmt,i, tt[i].real(), tt[i].imag());
     Fclose(p);
   }
+
+
 };
 
 
