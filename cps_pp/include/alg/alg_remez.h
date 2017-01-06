@@ -1,5 +1,5 @@
-#ifndef INCLUDED_ALG_REMEZ_H
-#define INCLUDED_ALG_REMEZ_H
+#ifndef CPS_INCLUDED_ALG_REMEZ_H
+#define CPS_INCLUDED_ALG_REMEZ_H
 
 #include<config.h>
 

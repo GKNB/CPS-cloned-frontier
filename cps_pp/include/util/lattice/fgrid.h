@@ -1,13 +1,13 @@
 #ifndef INCLUDED_FGRID_H
 #define INCLUDED_FGRID_H
 #include<config.h>
+#ifdef USE_GRID
 #include<util/lattice.h>
 #include<util/time_cps.h>
 #ifdef USE_BFM
 #include<util/lattice/bfm_mixed_solver.h>
 #endif
 #include<util/multi_cg_controller.h>
-#ifdef USE_GRID
 #include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;

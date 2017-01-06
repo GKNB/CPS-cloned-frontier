@@ -31,7 +31,6 @@ public:
 		u_int Epsilon_len;
 		Float *Epsilon_val;
 	} Epsilon;
-	int n_masses;
 	int N_eig;
 	int N_eigacc;
 	int Kalk_Sim;

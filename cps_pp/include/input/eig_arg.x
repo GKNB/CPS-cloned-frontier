@@ -23,7 +23,7 @@ class EigArg {
                                 the eigenvalue is measured. */
     Float Epsilon<>; /*!< CK: Epsilon factor for twisted mass fermions */    
 
-    int n_masses; 
+ //   int n_masses; 
 
     int N_eig;		/*!< The number of eigenvectors/values to calculate */
     /* CLAUDIO: added number of accurate eigenvalues to compute */

@@ -18,8 +18,8 @@
 
 CPS_START_NAMESPACE
 
-#ifndef INCLUDED_BIGFLOAT_H
-#define INCLUDED_BIGFLOAT_H
+#ifndef CPS_INCLUDED_BIGFLOAT_H
+#define CPS_INCLUDED_BIGFLOAT_H
 
 //------------------------------------------------------------------
 //

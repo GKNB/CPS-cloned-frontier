@@ -2397,5 +2397,6 @@ CPS_END_NAMESPACE
 
 #include <util/lattice/f_wilson_types.h>
 #include <util/lattice/lattice_types.h>
+//#include <util/lattice/fgrid.h>
 
 #endif
