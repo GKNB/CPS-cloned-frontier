@@ -271,7 +271,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct SingleSrcVectorPoliciesSIMD{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef Grid::vComplexD mf_Element;
-  typedef Grid::Vector<mf_Element> mf_Element_Vector;
+  typedef typename AlignedVector<mf_Element>::type mf_Element_Vector;
   
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
   static inline void initializeElement(mf_Element &e){ zeroit(e); }
@@ -307,7 +307,7 @@ struct MultiSrcVectorPoliciesSIMD{
   int mfPerTimeSlice;
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
-  typedef Grid::Vector<Grid::vComplexD> mf_Element;
+  typedef typename AlignedVector<Grid::vComplexD>::type mf_Element;
   typedef std::vector<mf_Element> mf_Element_Vector;
   
   inline void setupPolicy(const InnerProduct &M){

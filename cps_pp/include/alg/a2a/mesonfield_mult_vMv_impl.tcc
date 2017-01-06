@@ -252,6 +252,8 @@ class _mult_vMv_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,g
 public:
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
+  
   //Form SpinColorFlavorMatrix prod1 = vL_i(\vec xop, top ; tpi2) [\sum_{\vec xpi2} wL_i^dag(\vec xpi2, tpi2) S2 vL_j(\vec xpi2, tpi2; top)] wL_j^dag(\vec xop,top)
 
   // l^i(xop,top) M^ij(tl,tr) r^j(xop,top)
@@ -293,9 +295,9 @@ public:
     //Are particular row indices of M actually used?
     bool rowidx_used[Mrows]; for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
 
-    //Reorder rows and columns such that they can be accessed sequentially
-    Grid::Vector<SIMDcomplexType> lreord[nscf];
-    Grid::Vector<SIMDcomplexType> rreord[nscf];
+    //Reorder rows and columns such that they can be accessed sequentially    
+    AlignedSIMDcomplexVector lreord[nscf];
+    AlignedSIMDcomplexVector rreord[nscf];
     
     //Note:
     //il is the index of l, 

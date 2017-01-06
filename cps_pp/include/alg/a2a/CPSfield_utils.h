@@ -343,7 +343,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
     int i_dest = from.SIMDmap(coor_dest);
     int o_dest = from.siteMap(coor_dest);
 
-    Grid::Vector<scalarType> ounpacked(nsimd);
+    typename AlignedVector<scalarType>::type ounpacked(nsimd);
     for(int f=0;f<nf;f++){
       mf_Complex const *osite_ptr = from.site_ptr(o,f);
       int send_buf_off = (c + bcsites*f)*SiteSize;
@@ -404,8 +404,8 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
     }
 
     //Now loop over flavor and element within the site as well as SIMD lanes of the destination vector and gather what we need to poke - then poke it
-    Grid::Vector<scalarType> towrite(nsimd);
-    Grid::Vector<scalarType> unpack(nsimd);
+    typename AlignedVector<scalarType>::type towrite(nsimd);
+    typename AlignedVector<scalarType>::type unpack(nsimd);
     
     for(int f=0;f<nf;f++){
       for(int s=0;s<SiteSize;s++){

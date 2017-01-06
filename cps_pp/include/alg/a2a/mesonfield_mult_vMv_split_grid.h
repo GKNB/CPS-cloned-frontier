@@ -22,6 +22,7 @@ class multiply_M_r_op_grid: public SCFoperation<typename AlignedVector<
 #endif
 						  >::type >{
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
   
 #ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
   typedef typename mf_Policies::ScalarComplexType MComplexType;
@@ -31,12 +32,12 @@ class multiply_M_r_op_grid: public SCFoperation<typename AlignedVector<
 
   typedef typename AlignedVector<MComplexType>::type AlignedMComplexVector;
   
-  std::vector<Grid::Vector<SIMDcomplexType> >& Mr;
-  const std::vector<Grid::Vector<SIMDcomplexType> >& rreord;
+  std::vector<AlignedSIMDcomplexVector>& Mr;
+  const std::vector<AlignedSIMDcomplexVector>& rreord;
   std::vector<int> const* i_packed_unmap_all;
   
 public:
-  multiply_M_r_op_grid(std::vector<Grid::Vector<SIMDcomplexType> >& _Mr, const std::vector<Grid::Vector<SIMDcomplexType> >& _rreord,
+  multiply_M_r_op_grid(std::vector<AlignedSIMDcomplexVector>& _Mr, const std::vector<AlignedSIMDcomplexVector>& _rreord,
 		  std::vector<int> const* _i_packed_unmap_all): Mr(_Mr), rreord(_rreord),i_packed_unmap_all(_i_packed_unmap_all){
   }
   ~multiply_M_r_op_grid(){
@@ -108,7 +109,8 @@ class multiply_M_r_singlescf_op_grid: public SCFoperation<typename AlignedVector
 #endif
 							    >::type >{
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
-
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
+  
 #ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
   typedef typename mf_Policies::ScalarComplexType MComplexType;
 #else
@@ -119,12 +121,12 @@ class multiply_M_r_singlescf_op_grid: public SCFoperation<typename AlignedVector
   
   const int* work;
   const int* off;
-  std::vector< std::vector<Grid::Vector<SIMDcomplexType> > > &Mr;
-  std::vector< std::vector<Grid::Vector<SIMDcomplexType> > > &rreord;
+  std::vector< std::vector<AlignedSIMDcomplexVector> > &Mr;
+  std::vector< std::vector<AlignedSIMDcomplexVector> > &rreord;
   
   mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* split_obj;
 public:
-  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<Grid::Vector<SIMDcomplexType> > > &_Mr, std::vector< std::vector<Grid::Vector<SIMDcomplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, std::vector<  std::vector<AlignedSIMDcomplexVector> > &_Mr, std::vector< std::vector<AlignedSIMDcomplexVector> > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, grid_vector_complex_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(const AlignedMComplexVector& M_packed, const int scf, const int rows, const int cols){
 #ifndef MEMTEST_MODE
@@ -157,7 +159,8 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
   //jr is the index of r
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
   typedef typename mf_Policies::ComplexType SIMDcomplexType;
-
+  typedef typename AlignedVector<SIMDcomplexType>::type AlignedSIMDcomplexVector;
+  
 #ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
   typedef typename mf_Policies::ScalarComplexType MComplexType;
 #else
@@ -232,7 +235,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
   
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over
   //Mr is part of an array of length nsites. For each site there are nscf=24 vectors of the appropriate number of modes
-  void multiply_M_r(std::vector<Grid::Vector<SIMDcomplexType> > &Mr, const std::vector<Grid::Vector<SIMDcomplexType> >& rreord) const{
+  void multiply_M_r(std::vector<AlignedSIMDcomplexVector> &Mr, const std::vector<AlignedSIMDcomplexVector>& rreord) const{
     multiply_M_r_op_grid<mf_Policies> op(Mr, rreord, this->i_packed_unmap_all);
     constructPackedMloopSCF(op);
   }
@@ -240,7 +243,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
   
   //off is the 3d site offset for the start of the internal site loop, and work is the number of sites to iterate over 
   //M_packed is the Mesonfield in packed format.
-  void multiply_M_r_singlescf(std::vector<std::vector<Grid::Vector<SIMDcomplexType> > >& Mr, const std::vector<std::vector<Grid::Vector<SIMDcomplexType> > >& rreord, 
+  void multiply_M_r_singlescf(std::vector<std::vector<AlignedSIMDcomplexVector> >& Mr, const std::vector<std::vector<AlignedSIMDcomplexVector> >& rreord, 
 			      const AlignedMComplexVector& M_packed,
 			      const int off, const int work, const int scf) const{
     //M * r
@@ -311,8 +314,8 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
   }
   
   void site_multiply_l_Mr(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, 
-			  const std::vector<Grid::Vector<SIMDcomplexType> > &lreord,
-			  const std::vector<Grid::Vector<SIMDcomplexType> > &Mr) const{
+			  const std::vector<AlignedSIMDcomplexVector> &lreord,
+			  const std::vector<AlignedSIMDcomplexVector> &Mr) const{
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
       for(int sr=0;sr<4;sr++){
@@ -322,7 +325,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 	      int scfl = fl + 2*(cl + 3*sl);
 	      int ni_this = this->ni[scfl];
 
-	      Grid::Vector<SIMDcomplexType> const& lbase = lreord[scfl];
+	      AlignedSIMDcomplexVector const& lbase = lreord[scfl];
 	      const std::vector<std::pair<int,int> > &blocks = this->blocks_scf[scfl];
 	      
 	      for(int fr=0;fr<2;fr++){
@@ -438,10 +441,10 @@ public:
 
     out.resize(sites_3d);
 
-    std::vector< std::vector<Grid::Vector<SIMDcomplexType> > > lreord(sites_3d); //[3d site][scf][reordered mode]
-    std::vector< std::vector<Grid::Vector<SIMDcomplexType> > > rreord(sites_3d);
+    std::vector< std::vector<AlignedSIMDcomplexVector> > lreord(sites_3d); //[3d site][scf][reordered mode]
+    std::vector< std::vector<AlignedSIMDcomplexVector> > rreord(sites_3d);
 
-    std::vector<  std::vector<Grid::Vector<SIMDcomplexType> > > Mr(sites_3d); //[3d site][scf][M row]
+    std::vector<  std::vector<AlignedSIMDcomplexVector> > Mr(sites_3d); //[3d site][scf][M row]
 
     //Run everything in parallel environment to avoid thread creation overheads
     int work[omp_get_max_threads()], off[omp_get_max_threads()];
@@ -492,10 +495,10 @@ public:
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
-    std::vector<Grid::Vector<SIMDcomplexType > > lreord; //[scf][reordered mode]
-    std::vector<Grid::Vector<SIMDcomplexType > > rreord;
+    std::vector<AlignedSIMDcomplexVector> lreord; //[scf][reordered mode]
+    std::vector<AlignedSIMDcomplexVector> rreord;
 
-    std::vector<Grid::Vector<SIMDcomplexType > > Mr(nscf); //[scf][M row]
+    std::vector<AlignedSIMDcomplexVector> Mr(nscf); //[scf][M row]
     for(int scf=0;scf<nscf;scf++){
       Mr[scf].resize(this->Mrows);
       for(int i=0;i<this->Mrows;i++)
