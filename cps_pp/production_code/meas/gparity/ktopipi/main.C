@@ -130,6 +130,20 @@ int main (int argc,char **argv )
       mixed_solve = false;
       if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
       arg++;
+    }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
+      int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
+      for(int a=0;a<3;a++){
+	std::stringstream ss; ss << argv[arg+1+a];
+	ss >> *b[a];
+      }
+      arg+=4;
+    }else if( strncmp(cmd,"-mf_innerblocking",15) == 0){
+      int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
+      for(int a=0;a<3;a++){
+	std::stringstream ss; ss << argv[arg+1+a];
+	ss >> *b[a];
+      }
+      arg+=4;
     }else{
       bool is_grid_arg = false;
       for(int i=0;i<ngrid_arg;i++){
