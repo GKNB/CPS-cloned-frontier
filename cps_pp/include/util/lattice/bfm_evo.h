@@ -218,48 +218,15 @@ public:
   // Simple utility function to set the mass and reinit if necessary.
   void set_mass (double mass);
 
-  //EigCG
-#if 0 //THESE ARE IN BFM
-  Fermion_t allocCompactFermion   (int mem_type=mem_slow);
-  Fermion_t threadedAllocCompactFermion   (int mem_type=mem_slow);
-  void* threaded_alloc(int length, int mem_type=mem_slow);
-  void threaded_free(void *handle);
-#endif
-
-
-#if 0 //CK: leaving them in BFM
-  // copied from Jianglei's bfm
-  double CompactMprec(Fermion_t compact_psi,
-                      Fermion_t compact_chi,
-                      Fermion_t psi,
-                      Fermion_t chi,
-                      Fermion_t tmp,
-                      int dag,int donrm=0) ;
-
-  // copied from Jianglei's bfm
-  void CompactMunprec(Fermion_t compact_psi[2],
-                      Fermion_t compact_chi[2],
-                      Fermion_t psi[2],
-                      Fermion_t chi[2],
-                      Fermion_t tmp,
-                      int dag);
-#endif
-
-<<<<<<< HEAD
-=======
-  // do deflation using eigenvectors/eigenvalues from Rudy's Lanczos code.
-  void deflate(Fermion_t out, Fermion_t in,
-               const multi1d<Fermion_t [2]> *evec,
-               const multi1d<Float> *eval, int N);
 
 #ifdef USE_NEW_BFM_GPARITY
   inline void axpby_ssp_proj(Fermion_t out, std::complex<double> a,Fermion_t x, std::complex<double> b,Fermion_t y,int sxo,int sy,int psign){
     this->axpby_ssp_proj_complex(out,a.real(),a.imag(),x,b.real(),b.imag(),y,sxo,sy,psign);
   }
 #endif
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 };
 
+#if 0
 //CK: this function gives the offset within a checkerboarded vector
 template < class Float >
   integer bfm_evo < Float >::cps_idx_cb (int x[4], int s, int reim, int i,
@@ -765,25 +732,6 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
       cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
     }
-<<<<<<< HEAD
-
-      for (int co = 0; co < Nspinco; co++)
-	{
-	  for (int reim = 0; reim < 2; reim++)
-	    {
-	      // int bidx = this->bagel_idx5d(x, s, reim, co, Nspinco, 1);
-	      // int cidx = cps_idx_s(x, s, reim, co, Nspinco);
-	      int bidx = bidx_base + reim + co * i_inc;
-	      int cidx = cidx_base + reim + co * 2;
-
-	      if (doimport)
-		bagel[cb][bidx] = psi[cidx];
-	      else
-		psi[cidx] = bagel[cb][bidx];
-	    }
-	}			//co, reim
-    }				//xyzts
-=======
 #endif
     for ( int co=0;co<Nspinco;co++ ) {
       for ( int reim=0;reim<2;reim++ ) {
@@ -796,7 +744,6 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
         else psi[cidx] = bagel[cb][bidx];
       }}//co, reim
   }//xyzts
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
 }
 
 template < class Float >
@@ -968,45 +915,6 @@ template < class Float >
 				 const std::vector < double >&b_coefs,
 				 const std::vector < double >&c_coefs)
 {
-<<<<<<< HEAD
-  int Pminus = -1;
-  int Pplus = 1;
-
-  if (dag)
-    {
-      // Assemble the 5d matrix
-      for (int s = 0; s < this->Ls; s++)
-	{
-	  if (s == 0)
-	    {
-	      this->axpby_ssp_proj (chi, b_coefs[s], psi, -c_coefs[s + 1],
-				    psi, s, s + 1, Pplus);
-	      this->axpby_ssp_proj (chi, 1.0, chi,
-				    this->mass * c_coefs[this->Ls - 1], psi,
-				    s, this->Ls - 1, Pminus);
-	    }
-	  else if (s == (this->Ls - 1))
-	    {
-	      this->axpby_ssp_proj (chi, b_coefs[s], psi,
-				    this->mass * c_coefs[0], psi, s, 0,
-				    Pplus);
-	      this->axpby_ssp_proj (chi, 1.0, chi, -c_coefs[s - 1], psi, s,
-				    s - 1, Pminus);
-	    }
-	  else
-	    {
-	      this->axpby_ssp_proj (chi, b_coefs[s], psi, -c_coefs[s + 1],
-				    psi, s, s + 1, Pplus);
-	      this->axpby_ssp_proj (chi, 1.0, chi, -c_coefs[s - 1], psi, s,
-				    s - 1, Pminus);
-	    }
-	}
-
-    }
-  else
-    {
-
-=======
   int Pminus=-1;
   int Pplus=1;
   
@@ -1019,7 +927,6 @@ template < class Float >
        ) {
 
     if ( dag ) { 
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
       // Assemble the 5d matrix
 #if 1
       for (int s = 0; s < this->Ls; s++)
@@ -1064,34 +971,6 @@ template < class Float >
           this->axpby_ssp_proj(chi,1.0   ,chi,-this->ceo[s-1],psi,s,s-1,Pminus);
         }
       }
-<<<<<<< HEAD
-#endif
-
-template < class Float >
-  void bfm_evo < Float >::Booee (Fermion_t psi, Fermion_t chi, int dag)
-{
-  int me = this->thread_barrier ();
-
-  if ((this->solver == HmCayleyTanh)
-      || (this->solver == HtCayleyTanh)
-      || (this->solver == HwCayleyTanh)
-      || (this->solver == HwCayleyZolo) || (this->solver == HtCayleyZolo))
-    {
-#ifndef BFM_GPARITY
-      std::vector < double >beo_real (this->Ls);
-      std::vector < double >ceo_real (this->Ls);
-
-      for (int s = 0; s < this->Ls; s++)
-	{
-	  beo_real[s] = this->beo[s].real ();
-	  ceo_real[s] = this->ceo[s].real ();
-	}
-
-      Booee (psi, chi, dag, beo_real, ceo_real);
-#else
-      Booee (psi, chi, dag, this->beo, this->ceo);
-#endif
-=======
     } else { 
 
       // Assemble the 5d matrix
@@ -1109,7 +988,6 @@ template < class Float >
           this->axpby_ssp_proj(chi,1.0,chi,-this->ceo[s],psi,s,s-1,Pplus);
         }
       }
->>>>>>> 7c08a24df10cdde130a3cddc95db233175f5e66d
     }
 #ifndef BFM_GPARITY
   else if (this->solver == HmCayleyComplex)
@@ -2683,4 +2561,6 @@ int bfm_evo<Float>::gmres_M(Fermion_t sol, Fermion_t src, const int m)
 }
 #include <util/lattice/bfm_eigcg.h>
 
+#endif
+#endif
 #endif

@@ -534,11 +534,16 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     ERR.NotImplemented (cname, "FminResExt");
   }
 
-  int FmatInv (Vector * f_out, Vector * f_in,
-	       CgArg * cg_arg,
-	       Float * true_res,
-	       CnvFrmType cnv_frm = CNV_FRM_YES,
-	       PreserveType prs_f_in = PRESERVE_YES) {
+//  int FmatInv (Vector * f_out, Vector * f_in,
+//	       CgArg * cg_arg,
+//	       Float * true_res,
+//	       CnvFrmType cnv_frm = CNV_FRM_YES,
+//	       PreserveType prs_f_in = PRESERVE_YES) {
+  int FmatInv(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
+	      CnvFrmType cnv_frm ,
+	      PreserveType prs_f_in ,int if_dminus){
     const char *fname ("FmatInv()");
 #if 1
     mass = cg_arg->mass;
@@ -548,11 +553,19 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     std::vector < int >twists = SetTwist ();
 
     LATTICE_FERMION grid_in (FERM_GRID), grid_out (FERM_GRID);
-    ImportFermion (grid_in, f_in);
-    ImportFermion (grid_out, f_out);
     DIRAC::ImplParams params;
     SetParams (params);
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+
+#ifndef IF_TM
+    if(if_dminus){
+        ImportFermion (grid_out, f_in);
+        Ddwf.Dminus(grid_out,grid_in);
+    } else 
+#endif
+        ImportFermion (grid_in, f_in);
+
+    ImportFermion (grid_out, f_out);
 
     Float stp_cnd = cg_arg->stop_rsd;
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
@@ -573,13 +586,28 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     ImportFermion (f_out, grid_out);
 #endif
   }
+  int FmatInv(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
+	      CnvFrmType cnv_frm = CNV_FRM_YES,
+	      PreserveType prs_f_in = PRESERVE_YES){
+	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,1);
+  }
+
+  int FmatInvTest(Vector *f_out, Vector *f_in, 
+	      CgArg *cg_arg, 
+	      Float *true_res,
+	      CnvFrmType cnv_frm = CNV_FRM_YES,
+	      PreserveType prs_f_in = PRESERVE_YES){
+	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,0);
+  }
 
 
   int FmatInv (Vector * f_out, Vector * f_in,
 	       CgArg * cg_arg,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    ERR.NotImplemented (cname, "FmatInv");
+	FmatInv(f_out,f_in, cg_arg,NULL,cnv_frm,prs_f_in,1);
   }
 
   int FeigSolv (Vector ** f_eigenv, Float * lambda,
