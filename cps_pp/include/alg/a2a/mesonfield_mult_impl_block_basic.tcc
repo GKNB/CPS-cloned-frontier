@@ -81,6 +81,7 @@ public:
       static const int lcol_stride = 1;      
       int rrow_stride = rreord.getNcols();
 
+      //WARNING: THIS IS PROBABLY NOT BIT REPRODUCIBLE DUE TO THREAD ORDERING
 #pragma omp parallel for
       for(int i0j0k0 = node_off; i0j0k0 < node_off + node_work; ++i0j0k0){
 	int rem = i0j0k0;

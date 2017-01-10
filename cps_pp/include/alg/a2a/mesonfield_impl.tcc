@@ -254,7 +254,7 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
 
 #ifndef MEMTEST_MODE
   
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
   for(int i = 0; i < ni; i++){
     int id = omp_get_thread_num();
     int li = i_ind.getLeftIndex(i,lip,rip);

@@ -50,7 +50,7 @@ template< typename SiteType, int SiteSize, typename DimensionPolicy, typename Fl
 double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::norm2() const{
   SiteType accum[omp_get_max_threads()];
   memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
-#pragma omp parallel for  
+#pragma omp parallel for schedule(static)  
   for(int i=0;i<this->nfsites();i++){
     SiteType const *site = this->fsite_ptr(i);
     for(int s=0;s<SiteSize;s++)

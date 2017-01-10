@@ -341,7 +341,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
       OneFlavorIntegerField const* randoff = random_fields[t_pi1];
 
       //Now loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
       for(int xop3d_loc_base = 0; xop3d_loc_base < size_3d; xop3d_loc_base+=xyzStep){
 	int thread_id = omp_get_thread_num();
 
