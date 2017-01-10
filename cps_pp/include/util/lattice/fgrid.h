@@ -135,6 +135,7 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
 									Nsimd
 									()),
 						 nodes);
+    VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n",UGridD,UGridF);
     for (int i = 0; i < 4; i++) {
       printf ("CPS: %d  pos[%d]=%d Grid: %d pos[%d]=%d\n", UniqueID (), i,
 	      GJP.NodeCoor (i), UGridD->_processor, i,
@@ -150,11 +151,14 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
     SetLs (GJP.SnodeSites ());
     UrbGridD = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
     UrbGridF = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
+    VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n",UrbGridD,UrbGridF);
     FGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
     FGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
+    VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n",FGridD,FGridF);
     VRB.Debug (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
     FrbGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
     FrbGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
+    VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n",FrbGridD,FrbGridF);
     Umu = new Grid::QCD::LatticeGaugeFieldD (UGridD);
 //              Umu_f = new Grid::QCD::LatticeGaugeFieldF(UGrid_f);
     grid_initted = true;
