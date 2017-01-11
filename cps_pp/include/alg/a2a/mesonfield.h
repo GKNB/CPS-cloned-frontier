@@ -105,9 +105,9 @@ public:
 
     if(mf!=NULL && old_fsize != fsize ){ 
       free(mf); 
-      mf = (ScalarComplexType*)malloc(fsize * sizeof(ScalarComplexType));   
+      mf = (ScalarComplexType*)memalign(128,fsize * sizeof(ScalarComplexType));   
     }else if(mf == NULL){
-      mf = (ScalarComplexType*)malloc(fsize * sizeof(ScalarComplexType));   
+      mf = (ScalarComplexType*)memalign(128,fsize * sizeof(ScalarComplexType));   
     }
     zero();
   }

@@ -732,9 +732,9 @@ public:
   void deallocate(pointer __p, size_type __n) { 
     free((void *)__p);
   }
-  void construct(pointer __p, const _Tp& __val) { };
-  void construct(pointer __p) { };
-  void destroy(pointer __p) { };
+  void construct(pointer __p, const _Tp& __val) { new((void *)__p) _Tp(__val); };
+  void construct(pointer __p) { new((void *)__p) _Tp();  };
+  void destroy(pointer __p) { ((_Tp*)__p)->~_Tp(); };
 };
 template<typename _Tp>  inline bool operator==(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return true; }
 template<typename _Tp>  inline bool operator!=(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return false; }

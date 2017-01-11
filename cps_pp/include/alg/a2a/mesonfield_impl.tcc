@@ -237,11 +237,11 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   ModeContractionIndices<DilType0,DilType3> i_ind(l.getRowParams());
   ModeContractionIndices<DilType1,DilType2> j_ind(r.getRowParams());
 
-  int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
+  const int times[4] = { l.getRowTimeslice(), l.getColTimeslice(), r.getRowTimeslice(), r.getColTimeslice() };
 
   //W * W is only non-zero when the timeslice upon which we evaluate them are equal
   const int n_threads = omp_get_max_threads();
-  std::vector<ScalarComplexType> ret_vec(n_threads,(0.,0.));
+  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));
     
   modeIndexSet lip; lip.time = times[0];
   modeIndexSet rip; rip.time = times[3];
@@ -249,26 +249,28 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   modeIndexSet ljp; ljp.time = times[1];
   modeIndexSet rjp; rjp.time = times[2];
 
-  const int &ni = i_ind.getNindices(lip,rip); //how many indices to loop over
-  const int &nj = j_ind.getNindices(ljp,rjp);
+  const int ni = i_ind.getNindices(lip,rip); //how many indices to loop over
+  const int nj = j_ind.getNindices(ljp,rjp);
 
 #ifndef MEMTEST_MODE
-  
+
 #pragma omp parallel for schedule(static)
   for(int i = 0; i < ni; i++){
-    int id = omp_get_thread_num();
-    int li = i_ind.getLeftIndex(i,lip,rip);
-    int ri = i_ind.getRightIndex(i,lip,rip);
+    const int id = omp_get_thread_num();
+    const int li = i_ind.getLeftIndex(i,lip,rip);
+    const int ri = i_ind.getRightIndex(i,lip,rip);
 
     for(int j = 0; j < nj; j++){
-      int lj = j_ind.getLeftIndex(j,ljp,rjp);
-      int rj = j_ind.getRightIndex(j,ljp,rjp);
+      const int lj = j_ind.getLeftIndex(j,ljp,rjp);
+      const int rj = j_ind.getRightIndex(j,ljp,rjp);
       
       ret_vec[id] += l(li,lj) *  r(rj,ri);
     }
   }
+
   for(int i=0;i<n_threads;i++) into += ret_vec[i];
-  
+  }
+	 
 #endif
   
   return into;
