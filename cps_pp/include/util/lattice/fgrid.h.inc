@@ -559,8 +559,17 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 
 #ifndef IF_TM
     if(if_dminus){
+#if 0
+//was broken in Grid.
         ImportFermion (grid_out, f_in);
         Ddwf.Dminus(grid_out,grid_in);
+#else
+// Obviously only for mobius, needs more work for zMobius
+        ImportFermion (grid_in, f_in);
+        Ddwf.DW(grid_in,grid_out,Grid::QCD::DaggerNo);
+	double mob_c = mob_b-1.;
+	axpy(grid_in,-mob_c,grid_out,grid_in);
+#endif
     } else 
 #endif
         ImportFermion (grid_in, f_in);
