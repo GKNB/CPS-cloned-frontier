@@ -465,8 +465,6 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-#else
-#error Does not compile without Grid for now. Needs fake implementations
 #endif //#ifdef USE_GRID
 
 

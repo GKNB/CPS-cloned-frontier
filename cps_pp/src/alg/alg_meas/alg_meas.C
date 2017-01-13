@@ -441,6 +441,7 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
     return *lat_p;
   }
 
+#ifdef USE_GRID
   if ( (fermion == F_CLASS_GRID_WILSON_TM) && (gluon == G_CLASS_NONE ) ) {
     FgridParams params; // needs for constructor. Params needs to be overwritten later
     lat_p = new GnoneFgridWilsonTM(params);
@@ -463,6 +464,7 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
     lat_p = new GnoneFgridGparityWilsonTM(params);
     return *lat_p;
   }
+#endif
 
   /* F_NONE VALENCE ANALYSIS */
   if ( (fermion == F_CLASS_NONE) && (gluon == G_CLASS_NONE ) ) {

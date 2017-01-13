@@ -1789,9 +1789,11 @@ void FdwfBase::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   VRB.Func(cname,fname);
   DiracOpDwf dwf(*this, f_out, f_in, cg_arg, cnv_frm);
   int offset = GJP.VolNodeSites()*this->FsiteSize()/ (2*6); 
+  if(GJP.Gparity()) offset *=2;
   
   dwf.Dslash(f_out,f_in+offset,CHKB_EVEN,DAG_NO);
   dwf.Dslash(f_out+offset,f_in,CHKB_ODD,DAG_NO);
+  f_out->FTimesV1PlusV2(-.5/(5.0-GJP.DwfHeight()),f_out,f_in,offset*(2*6));
 }
 
 
