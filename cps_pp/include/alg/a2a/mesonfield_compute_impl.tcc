@@ -571,10 +571,10 @@ struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allo
 #ifdef USE_GRID
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
 struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,grid_vector_complex_mark>{
-  typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
-  typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
-  // typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
-  // typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
+  // typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
+  // typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
+  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
+  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
 };
 #endif
 
