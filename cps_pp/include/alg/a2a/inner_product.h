@@ -216,17 +216,11 @@ class GparityInnerProduct: public SpinColorContractPolicy{
   
   template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
-public:
-  typedef SourceType InnerProductSourceType;
 
-  GparityInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): sigma(_sigma),src(_src){ }
-
-  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
-  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
-  
   //Single source
-  template<typename AccumType>
-  inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  template<typename AccumType, typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
@@ -243,8 +237,9 @@ public:
   
   //Multi source
   //Does out += op(l,r,p,t);
-  template<typename AccumVtype>
-  inline void operator()(std::vector<AccumVtype> &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  template<typename AccumVtype, typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
     FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
     this->spinColorContract(lMr,l,r);
@@ -253,6 +248,18 @@ public:
 #endif
   }
   
+public:
+  typedef SourceType InnerProductSourceType;
+
+  GparityInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): sigma(_sigma),src(_src){ }
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
+  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
+  
+  template<typename AccumType>
+  inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+    do_op<AccumType,SourceType>(out,l,r,p,t);
+  }  
 };
 
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>

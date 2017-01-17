@@ -190,7 +190,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct SingleSrcVectorPolicies{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef cps::ComplexD mf_Element;
-  typedef std::vector<mf_Element> mf_Element_Vector;
+  typedef typename AlignedVector<mf_Element>::type mf_Element_Vector;
 
   static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
   static inline void initializeElement(mf_Element &e){ e = mf_Element(0.); }
@@ -225,14 +225,38 @@ struct MultiSrcVectorPolicies{
   int mfPerTimeSlice;
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
-  typedef std::vector<cps::ComplexD> mf_Element;
+  typedef cps::ComplexD* mf_Element;
   typedef std::vector<mf_Element> mf_Element_Vector;
+
+  cps::ComplexD* mem_pool;
+  size_t mem_pool_size;
+  size_t mem_pool_off;
+  
+  MultiSrcVectorPolicies(): mem_pool(NULL){}
+  ~MultiSrcVectorPolicies(){ if(mem_pool) free(mem_pool); }
+
+  inline void createMemPool(const int nmodes_l, const int nmodes_r){
+    const int nthread = omp_get_max_threads();
+    size_t size = nthread * nmodes_l * nmodes_r * mfPerTimeSlice;
+    if(mem_pool == NULL || (mem_pool != NULL && mem_pool_size != size) ){
+      if(mem_pool != NULL) free(mem_pool);
+      mem_pool = (cps::ComplexD*)memalign(128, size * sizeof(cps::ComplexD));
+      mem_pool_size = size;
+    }
+    mem_pool_off = 0;
+    memset(mem_pool, 0, size * sizeof(cps::ComplexD));
+  } 
   
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
   }
   
-  inline void initializeElement(mf_Element &e){ e.resize(mfPerTimeSlice, cps::ComplexD(0.));  }
+  inline void initializeElement(mf_Element &e){
+    e = mem_pool + mem_pool_off;
+    mem_pool_off += mfPerTimeSlice;
+    //e.resize(mfPerTimeSlice, cps::ComplexD(0.));  }
+  }
+  
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
     for(int s=0;s<mfPerTimeSlice;s++){
@@ -252,8 +276,10 @@ struct MultiSrcVectorPolicies{
   }
 
   //Used to get information about rows and cols
-  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t) const{
-    return mf_st[0]->operator[](t);
+  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t){
+    const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf_ref = mf_st[0]->operator[](t);
+    createMemPool(mf_ref.getNrows(), mf_ref.getNcols());
+    return mf_ref;
   }
   inline void nodeSum(mfVectorType &mf_st, const int Lt) const{
     for(int s=0;s<mfPerTimeSlice;s++)
@@ -547,6 +573,8 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,grid_vector_complex_mark>{
   typedef SingleSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
   typedef MultiSrcVectorPoliciesSIMD<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
+  // typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> SingleSrcVectorPoliciesT;
+  // typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> MultiSrcVectorPoliciesT;
 };
 #endif
 
