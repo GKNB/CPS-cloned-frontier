@@ -226,6 +226,7 @@ int main(int argc,char *argv[])
 
 #ifdef USE_GRID
   if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(1) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 #endif
 
   printf("Finished\n"); fflush(stdout);

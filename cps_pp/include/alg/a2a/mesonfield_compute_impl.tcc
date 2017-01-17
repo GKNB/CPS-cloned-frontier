@@ -307,16 +307,36 @@ struct MultiSrcVectorPoliciesSIMD{
   int mfPerTimeSlice;
   
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
-  typedef typename AlignedVector<Grid::vComplexD>::type mf_Element;
+  typedef typename Grid::vComplexD* mf_Element;
   typedef std::vector<mf_Element> mf_Element_Vector;
+
+  Grid::vComplexD* mem_pool;
+  size_t mem_pool_size;
+  size_t mem_pool_off;
   
+  MultiSrcVectorPoliciesSIMD(): mem_pool(NULL){}
+  ~MultiSrcVectorPoliciesSIMD(){ if(mem_pool) free(mem_pool); }
+
+  inline void createMemPool(const int nmodes_l, const int nmodes_r){
+    const int nthread = omp_get_max_threads();
+    size_t size = nthread * nmodes_l * nmodes_r * mfPerTimeSlice + nthread * mfPerTimeSlice; //extra space for final threaded accumulations
+    if(mem_pool == NULL || (mem_pool != NULL && mem_pool_size != size) ){
+      if(mem_pool != NULL) free(mem_pool);
+      mem_pool = (Grid::vComplexD*)memalign(128, size * sizeof(Grid::vComplexD));
+      mem_pool_size = size;
+    }
+    mem_pool_off = 0;
+    memset(mem_pool, 0, size * sizeof(Grid::vComplexD));
+  } 
+
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
   }
   
   inline void initializeElement(mf_Element &e){
-    e.resize(mfPerTimeSlice);
-    for(int i=0;i<mfPerTimeSlice;i++) zeroit(e[i]);
+    e = mem_pool + mem_pool_off;
+    //for(int i=0;i<mfPerTimeSlice;i++) zeroit(e[i]);
+    mem_pool_off += mfPerTimeSlice;
   }
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
@@ -331,7 +351,9 @@ struct MultiSrcVectorPoliciesSIMD{
     }
   }
   inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
-    mf_Element tmp(mfPerTimeSlice);
+    //typename AlignedVector<Grid::vComplexD>::type tmp(mfPerTimeSlice);
+    Grid::vComplexD* tmp = mem_pool + mem_pool_off + omp_get_thread_num() * mfPerTimeSlice;
+    
     for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0][i][j][s];
 
     for(int thr=1;thr<nthread;thr++)
@@ -343,8 +365,10 @@ struct MultiSrcVectorPoliciesSIMD{
   }
 
   //Used to get information about rows and cols
-  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t) const{
-    return mf_st[0]->operator[](t);
+  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t){
+    const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &mf_ref = mf_st[0]->operator[](t);
+    createMemPool(mf_ref.getNrows(), mf_ref.getNcols()); //hacky but it does the job!
+    return mf_ref;
   }
   inline void nodeSum(mfVectorType &mf_st, const int Lt) const{
     for(int s=0;s<mfPerTimeSlice;s++)

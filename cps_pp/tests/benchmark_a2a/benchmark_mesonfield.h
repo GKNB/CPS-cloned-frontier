@@ -17,6 +17,13 @@ void __itt_resume(){}
 void __itt_detach(){}
 #endif
 
+#ifdef USE_GPERFTOOLS
+#include <gperftools/profiler.h>
+#else
+int ProfilerStart(const char* fname){}
+void ProfilerStop(){}
+#endif
+
 //bfm headers
 #ifdef USE_BFM
 #include<bfm.h>
@@ -2246,19 +2253,20 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
   typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
-  
+
+  ProfilerStart("SingleSrcProfile.prof");
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
 
     __itt_resume();
     cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
     __itt_pause();
-    
+
     //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
     total_time += dclock();
   }
   __itt_detach();
-
+  ProfilerStop();  
 
   CALLGRIND_TOGGLE_COLLECT ;
   CALLGRIND_STOP_INSTRUMENTATION ;
@@ -2299,6 +2307,147 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   printf("MF contract all t: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);
 #endif
 }
+
+
+
+
+
+
+
+
+
+template<typename ScalarA2Apolicies, typename GridA2Apolicies>
+void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const int nthreads){
+#ifdef USE_GRID
+  typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;
+  typedef typename ScalarA2Apolicies::ScalarComplexType Ctype;
+  typedef typename Ctype::value_type Ftype;
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy::ParamType simd_dims;
+  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+  
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+
+  ThreeDSIMDPolicy::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+
+  printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<4;i++)
+    printf("%d ", simd_dims[i]);
+  printf("\n");
+  
+  int p[3] = {1,1,1};
+
+  typedef typename GridA2Apolicies::ComplexType ComplexType;  
+  typedef A2AflavorProjectedExpSource<GridSrcPolicy> ExpSrcType;
+  typedef A2AflavorProjectedHydrogenSource<GridSrcPolicy> HydSrcType;
+  typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
+  typedef A2AmultiSource<SrcList> MultiSrcType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+
+  const double rad = 2.0;
+  MultiSrcType src;
+  src.template getSource<0>().setup(rad,p,simd_dims_3d); //1s
+  src.template getSource<1>().setup(2,0,0,rad,p,simd_dims_3d); //2s
+
+  MultiInnerType g5_s3_inner(sigma3, src);
+  std::vector<std::vector<int> > shifts(1, std::vector<int>(3,0));
+  g5_s3_inner.setShifts(shifts);
+  
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_exp;
+  std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_hyd;
+
+  std::vector< std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >* > mf_st(2);
+  mf_st[0] = &mf_exp;
+  mf_st[1] = &mf_hyd;
+  
+  std::cout << "Starting all-time mesonfield contract benchmark with multi-src (1s, 2s hyd)\n";
+  if(!UniqueID()) printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp);
+  if(!UniqueID()) printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp);
+
+  Float total_time = 0.;
+
+  W.testRandom();
+  V.testRandom();
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
+      
+  CALLGRIND_START_INSTRUMENTATION ;
+  CALLGRIND_TOGGLE_COLLECT ;
+  
+  typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+  typedef MultiSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
+  mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, MultiInnerType, VectorPolicies> cg;
+
+  ProfilerStart("MultiSrcProfile.prof");
+  for(int iter=0;iter<ntests;iter++){
+    total_time -= dclock();
+
+    __itt_resume();
+    cg.compute(mf_st,Wgrid,g5_s3_inner,Vgrid, true);
+    __itt_pause();
+    
+    //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
+    total_time += dclock();
+  }
+  ProfilerStop();
+  __itt_detach();
+
+
+  CALLGRIND_TOGGLE_COLLECT ;
+  CALLGRIND_STOP_INSTRUMENTATION ;
+
+  int nsrc = 2;
+  
+  int g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//4 flav * 12 vectorized conj(a)*b  + 12 vectorized += or -=
+  int siteFmat_FLOPs = nsrc*3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
+  int s3_FLOPs = nsrc*4*nsimd; //2 vectorized -1*z
+  int TransLeftTrace_FLOPs = nsrc*nsimd*4*6 + nsrc*nsimd*3*2; //4 vcmul + 3vcadd
+  int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd
+
+  double FLOPs_per_site = 0.;
+  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
+    const int nl_l = mf_exp[t].getRowParams().getNl();
+    const int nl_r = mf_exp[t].getColParams().getNl();
+
+    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
+
+    for(int i = 0; i < mf_exp[t].getNrows(); i++){
+      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_exp[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
+      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
+                                                                                                                                                                                                           
+      for(int j = 0; j < mf_exp[t].getNcols(); j++) {
+	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_exp[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
+	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
+
+	for(int a=0;a<2;a++)
+	  for(int b=0;b<2;b++)
+	    if(!lscf.isZero(a) && !rscf.isZero(b))
+	      FLOPs_per_site += g5_FLOPs;
+	FLOPs_per_site += siteFmat_FLOPs + s3_FLOPs + TransLeftTrace_FLOPs + reduce_FLOPs;
+      }
+    }
+  }
+  const typename GridA2Apolicies::FermionFieldType &mode0 = Wgrid.getMode(0);
+  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
+  double total_FLOPs = double(FLOPs_per_site) * double(size_3d) * double(ntests);
+
+  printf("MF contract all t multi-src: Avg time new code %d iters: %g secs. Avg flops %g Gflops\n",ntests,total_time/ntests, total_FLOPs/total_time/1e9);
+#endif
+}
+
+
+
+
 
 
 
