@@ -269,7 +269,6 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   }
 
   for(int i=0;i<n_threads;i++) into += ret_vec[i];
-  }
 	 
 #endif
   
