@@ -2450,8 +2450,53 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
 
 
 
+template<typename A2Apolicies>
+void testTraceSingle(const A2AArg &a2a_args, const double tol){
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+  mf_grid.setup(a2a_args,a2a_args,0,0);
 
+  LRG.AssignGenerator(0); //always uses the RNG at coord 0 on node 0 - should always be the same one!
+  mf_grid.testRandom();
 
+  typedef typename A2Apolicies::ScalarComplexType mf_Complex;  
+  mf_Complex fast = trace(mf_grid);
+  mf_Complex slow = trace_slow(mf_grid);
+
+  bool fail = false;
+  if(!UniqueID()) printf("Trace Fast (%g,%g) Slow (%g,%g) Diff (%g,%g)\n",fast.real(),fast.imag(), slow.real(),slow.imag(), fast.real()-slow.real(), fast.imag()-slow.imag());
+  double rdiff = fabs(fast.real()-slow.real());
+  double idiff = fabs(fast.imag()-slow.imag());
+  if(rdiff > tol|| idiff > tol){
+    fail = true;
+  }
+  if(fail) ERR.General("","","MF single trace test failed\n");
+  else if(!UniqueID()) printf("MF single trace pass\n");
+
+  //Manually test node number independence of the node distributed trace
+  std::vector<typename A2Apolicies::ScalarComplexType> into;
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > m(3);
+  for(int i=0;i<m.size();i++){
+    m[i].setup(a2a_args,a2a_args,0,0);
+    LRG.AssignGenerator(0);
+    m[i].testRandom();
+  }
+  trace(into,m);
+
+  if(!UniqueID()){
+    printf("Distributed traces:");
+    for(int i=0;i<into.size();i++){
+      printf(" (%g,%g)",into[i].real(),into[i].imag());
+    }
+    printf("\n");
+  }
+
+  
+  
+  
+  
+    
+  
+}
 
 
 CPS_END_NAMESPACE

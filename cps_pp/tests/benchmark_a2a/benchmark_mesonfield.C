@@ -221,14 +221,16 @@ int main(int argc,char *argv[])
   if(0) benchmarkmultGammaLeft(ntests, tol);
 
 #ifdef USE_GRID
-  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+  if(0) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
 #endif
 
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
-  if(1) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 #endif
 
+  if(1) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
+  
   printf("Finished\n"); fflush(stdout);
   
   return 0;

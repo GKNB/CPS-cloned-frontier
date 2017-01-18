@@ -310,6 +310,12 @@ struct _printcout{
 };
 
 
+template<bool> struct StaticAssert;
+template<> struct StaticAssert<true> {};
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif

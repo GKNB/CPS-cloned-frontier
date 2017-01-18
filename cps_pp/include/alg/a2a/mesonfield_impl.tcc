@@ -291,18 +291,11 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
   into.resize(lsize,rsize);
 
-  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
-  int work = lsize*rsize;
+  const int work = lsize*rsize;
 
-  bool do_work = true;
-  if(nodes > work){
-    nodes = work; if(UniqueID() >= work) do_work = false; //too many nodes, at least for this parallelization. Might want to consider parallelizing in a different way!
-  }
-
-  int node_work = work/nodes;
-  if(node_work * nodes < work && !UniqueID()) node_work += work - node_work * nodes; //node 0 mops up remainder
-
-  int node_off = UniqueID()*node_work;
+  bool do_work;
+  int node_work, node_off;
+  getNodeWork(work, node_work, node_off, do_work);
 
 #ifndef MEMTEST_MODE
   if(do_work){
@@ -317,6 +310,116 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
   into.nodeSum(); //give all nodes a copy
 #endif
 }
+
+
+//Compute   m^ii(t1,t2)
+//Threaded but *node local*
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &m){
+  //Check the indices match
+  if(! m.getRowParams().paramsEqual( m.getColParams() ) )
+    ERR.General("","trace(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &)","Illegal trace: underlying index parameters must match\n");
+  
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  ScalarComplexType into(0,0);
+
+  typedef typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::LeftDilutionType DilType0;
+  typedef typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::RightDilutionType DilType1;
+
+  ModeContractionIndices<DilType0,DilType1> i_ind(m.getRowParams());
+
+  const int times[2] = { m.getRowTimeslice(), m.getColTimeslice() };
+
+  const int n_threads = omp_get_max_threads();
+  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));
+    
+  modeIndexSet lip; lip.time = times[0];
+  modeIndexSet rip; rip.time = times[1];
+
+  const int ni = i_ind.getNindices(lip,rip); //how many indices to loop over
+
+#ifndef MEMTEST_MODE
+
+#pragma omp parallel for schedule(static)
+  for(int i = 0; i < ni; i++){
+    const int id = omp_get_thread_num();
+    const int li = i_ind.getLeftIndex(i,lip,rip);
+    const int ri = i_ind.getRightIndex(i,lip,rip);
+
+    ret_vec[id] += m(li,ri);
+  }
+
+  for(int i=0;i<n_threads;i++) into += ret_vec[i];
+	 
+#endif
+  
+  return into;
+}
+
+
+
+
+//Basic implementation for testing
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+typename mf_Policies::ScalarComplexType trace_slow(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &m){
+  //Check the indices match
+  if(! m.getRowParams().paramsEqual( m.getColParams() ) )
+    ERR.General("","trace(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &)","Illegal trace: underlying index parameters must match\n");
+  
+  typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+  ScalarComplexType into(0,0);
+
+  const int nv = m.getRowParams().getNv();
+
+  const int n_threads = omp_get_max_threads();
+  std::vector<ScalarComplexType, BasicAlignedAllocator<ScalarComplexType> > ret_vec(n_threads,(0.,0.));
+  
+#pragma omp parallel for schedule(static)
+  for(int i = 0; i < nv; i++){
+    const int id = omp_get_thread_num();
+    ret_vec[id] += m.elem(i,i);
+  }
+  for(int i=0;i<n_threads;i++) into += ret_vec[i];  
+  return into;
+}
+
+
+
+
+//Compute   m^ii(t1,t2)  for an arbitrary vector of meson fields
+//This is both threaded and distributed over nodes
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &m){
+  //Distribute load over all nodes
+  const int nmf = m.size();
+  into.resize(nmf);
+  for(int i=0;i<nmf;i++) into[i] = typename mf_Policies::ScalarComplexType(0);
+
+  const int work = nmf;
+  bool do_work;
+  int node_work, node_off;
+  getNodeWork(work, node_work, node_off, do_work);
+
+#ifndef MEMTEST_MODE
+  if(do_work){
+    for(int t=node_off; t<node_off + node_work; t++){
+      into[t] = trace(m[t]);
+    }
+  }
+  QMP_sum_array( (typename mf_Policies::ScalarComplexType::value_type*)&into[0],2*nmf); //give all nodes a copy
+#endif
+}
+
+
+
+
+
 
 
 struct nodeDistributeCounter{

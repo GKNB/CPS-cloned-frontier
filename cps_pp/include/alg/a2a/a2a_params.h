@@ -20,25 +20,25 @@ protected:
   int nv; //total number of v fields =  nl + ndilute * nhits
 
 public:
-  const int &getNl() const{ return nl; }
-  const int &getNhits() const{ return nhits; }
-  const int &getNflavors() const{ return nflavors; }
-  const int &getNspinColor() const{ return nspincolor; }
-  const int &getNtBlocks() const{ return ntblocks; }
-  const int &getNdilute() const{ return ndilute; }
-  const int &getNh() const{ return nh; }
-  const int &getNv() const{ return nv; }
+  inline const int getNl() const{ return nl; }
+  inline const int getNhits() const{ return nhits; }
+  inline const int getNflavors() const{ return nflavors; }
+  inline const int getNspinColor() const{ return nspincolor; }
+  inline const int getNtBlocks() const{ return ntblocks; }
+  inline const int getNdilute() const{ return ndilute; }
+  inline const int getNh() const{ return nh; }
+  inline const int getNv() const{ return nv; }
 
   A2Aparams(): nl(0),nhits(0),nflavors(0),nspincolor(0),ntblocks(0),ndilute(0),nh(0),nv(0){}
   A2Aparams(const A2AArg &_args);
 
-  bool paramsEqual(const A2Aparams &r) const{
+  inline bool paramsEqual(const A2Aparams &r) const{
     return (nl == r.nl  &&  nhits == r.nhits  &&  nflavors == r.nflavors  &&  ntblocks == r.ntblocks  &&  ndilute == r.ndilute  &&  nh == r.nh  &&  nv == r.nv);
   }
 
-  const A2AArg &getArgs() const{ return args; }
+  inline const A2AArg &getArgs() const{ return args; }
 
-  std::string print() const{
+  inline std::string print() const{
     std::ostringstream os; os << "nl=" << nl << " nhits=" << nhits << " nflavors=" << nflavors 
 			      << " nspincolor=" << nspincolor << " ntblocks=" << ntblocks << " ndilute=" << ndilute << " nh=" << nh << " nv=" << nv;
     return os.str();

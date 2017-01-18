@@ -59,7 +59,7 @@ public:
       exit(-1);
     }
 
-    out.setup(l.getRowParams(),r.getColParams(), l.tl, r.tr ); //zeroes output, so safe to re-use
+    out.setup(l.getRowParams(),r.getColParams(), l.getRowTimeslice(), r.getColTimeslice() ); //zeroes output, so safe to re-use
   
     const int ni = l.getNrows();
     const int nk = r.getNcols();
@@ -69,8 +69,8 @@ public:
 
     ModeContractionIndices<LeftDilutionType,RightDilutionType> j_ind2(l.getColParams()); //these maps could be cached somewhere
     
-    modeIndexSet lmodeparams; lmodeparams.time = l.tr;
-    modeIndexSet rmodeparams; rmodeparams.time = r.tl;
+    modeIndexSet lmodeparams; lmodeparams.time = l.getColTimeslice();
+    modeIndexSet rmodeparams; rmodeparams.time = r.getRowTimeslice();
     
     const int nj = j_ind2.getNindices(lmodeparams,rmodeparams);
 

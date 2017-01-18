@@ -56,29 +56,6 @@ public:
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
-  template<typename mf_Policies2, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
-	   >
-  friend class _mult_impl; //can't friend 'mult' directly as it gives an ambiguous overload
-
-  template<typename mf_Policies2, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
-	   >
-  friend class _mult_vMv_impl;
-  
-  template<typename mf_Policies2, 
-	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
-	   >
-  friend class mult_vMv_split;
-  
-  template<typename mf_Policies2, 
-	 template <typename> class lA2Afield,  template <typename> class rA2Afield
-	 >
-  friend class _mult_lr_impl;
-
 public:
   A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
   }
@@ -93,7 +70,7 @@ public:
   }
 
   //Call this when you use the default constructor if not automatically called (it is called automatically in ::compute)
-  void setup(const A2Aparams &lp, const A2Aparams &rp, const int &_tl, const int &_tr){
+  void setup(const A2Aparams &lp, const A2Aparams &rp, const int _tl, const int _tr){
     tl = _tl; tr = _tr;
     lindexdilution = lp; rindexdilution = rp;
 
@@ -188,6 +165,9 @@ public:
   
   //A slow implementation to access elements from full unpacked indices
   inline const ScalarComplexType & elem(const int full_i, const int full_j) const{
+    StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
+    StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
+    
     static ScalarComplexType zero(0.0,0.0);
 
     int nll = lindexdilution.getNl();
@@ -246,7 +226,7 @@ public:
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
     if(!UniqueID())
-      for(int i=0;i<this->fsize;i++) mf[i] = LRG.Urand(hi,lo,FOUR_D);
+      for(int i=0;i<this->fsize;i++) mf[i] = ScalarComplexType(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D) );
 #ifdef USE_MPI
     int head_mpi_rank = getHeadMPIrank();
     int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
@@ -343,6 +323,21 @@ template<typename mf_Policies,
 	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR
 	 >
 void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::vector<A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> > &l, const std::vector<A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> > &r);
+
+
+//Compute   m^ii(t1,t2)
+//Threaded but *node local*
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &m);
+
+//Compute   m^ii(t1,t2)  for an arbitrary vector of meson fields
+//This is both threaded and distributed over nodes
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &m);
 
 
 //Handy helpers for gather and distribute of length Lt vectors of meson fields
