@@ -29,6 +29,10 @@
 #if TARGET == BGP
 void spi_init();
 #endif
+#ifdef USE_GRID
+#include <Grid/Grid.h>
+#include <util/lattice/fgrid.h>
+#endif
 CPS_START_NAMESPACE
 
 /*!\namespace cps
@@ -55,8 +59,11 @@ namespace QMPSCU {
   static const int pePos[4] = {0,0,0,0};
   static const int peGrid[4] = {1,1,1,1};
 #else
-  static const int* pePos;  /*!< Position of this process in the grid.*/ 
-  static const int* peGrid; /*!< Number of processors in each direction */
+  static int* pePos;  /*!< Position of this process in the grid.*/ 
+  static int* peGrid; /*!< Number of processors in each direction */
+//    static std::vector<int> pePos;
+//    static std::vector<int> peGrid;
+
 #ifdef USE_GRID
   static QMP_comm_t qmp_comm; // generate new comm
 #endif
@@ -99,7 +106,7 @@ void init_qmp(int * argc, char ***argv) {
     qmpRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
     if(!qmpRank)printf("QMP_init_msg_passing returned %d\n",init_status);
-    if(!qmpRank)printf("MPI_Initialized() returned %d\n",MPI_Initialized);
+//    if(!qmpRank)printf("MPI_Initialized() returned %d\n",MPI_Initialized());
 
     if (init_status != QMP_SUCCESS) {
       QMP_error("%s\n",QMP_error_string(init_status));
@@ -123,6 +130,7 @@ void init_qmp(int * argc, char ***argv) {
             break;
         default:
             printf("QMP thread level = no idea what this is, boom!\n");
+            exit(-32);
         }
     }
 
@@ -133,17 +141,26 @@ void init_qmp(int * argc, char ***argv) {
     //Get information about the allocated machine
     peNum = QMP_get_number_of_nodes();
     NDIM = QMP_get_allocated_number_of_dimensions();
-    peGrid = QMP_get_allocated_dimensions();
-    pePos = QMP_get_allocated_coordinates();
-#if 0 //not yet tested
+    
+    const int *peGrid_t = QMP_get_allocated_dimensions();
+    const int *pePos_t = QMP_get_allocated_coordinates();
+    peGrid = new int[NDIM];
+    pePos = new int[NDIM];
+    for(int i =0;i<NDIM;i++){
+	peGrid[i] = peGrid_t[i];
+	pePos[i] = pePos_t[i];
+//	peGrid.push_back(peGrid_t[i]);
+//	pePos.push_back(pePos_t[i]);
+    }
+#if 1 //not yet tested
 #ifdef USE_GRID
-	Grid::Grid_init(GJP.argc_p(),GJP.argv_p());
+	Grid::Grid_init(argc,argv);
 	FgridBase::grid_initted=true;
 	std::vector<int> processors;
-	for(i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
+	for(int i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
 	Grid::CartesianCommunicator grid_cart(processors);
 	peRank=0;
-	for(i=NDIM-1;i>=0;i--){
+	for(int i=NDIM-1;i>=0;i--){
 		pePos[i] = grid_cart._processor_coor[i];
 		peRank *= peGrid[i];
 		peRank += pePos[i];
@@ -194,10 +211,10 @@ void init_qmp(int * argc, char ***argv) {
       QMP_error("Node %d: Failed to declare logical topology\n",peRank);
       exit(-4);
     }
-    pePos = QMP_get_logical_coordinates();
-    peRank = pePos[NDIM-1];
+    pePos_t = QMP_get_logical_coordinates();
+    peRank = pePos_t[NDIM-1];
     if(NDIM>1)
-    for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos[i];
+    for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos_t[i];
  //debugging
     if (peRank != qmpRank){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
@@ -206,10 +223,10 @@ void init_qmp(int * argc, char ***argv) {
     }
 #endif
     initialized = true;
-  printf("Rank=%d init_qmp() done\n",peRank);
+    if(!peRank) printf("Rank=%d init_qmp() done\n",peRank);
     
+    QMP_barrier();  
   }
-    
 }
 
 
