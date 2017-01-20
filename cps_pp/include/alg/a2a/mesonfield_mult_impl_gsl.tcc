@@ -111,7 +111,7 @@ public:
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work,node_local);
 
-    //if(!UniqueID()) printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d. Work %d, node_work %d\n",ni,nj,nk,bi,bj,bk,ni0,nj0,nk0,work,node_work);
+    //if(!UniqueID()) printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d. Work %d, node_work %d\n",ni,nj,nk,bi,nj,bk,ni0,1,nk0,work,node_work);
 
     if(do_work){    
       Float t1 = dclock();
@@ -168,6 +168,12 @@ public:
 
 	typename gw::matrix_complex *tmp_out = gw::matrix_complex_alloc(bi,bk);
 
+	// if(i0 >= ni) ERR.General("_mult_impl","mult","i0 out of range\n");
+	// if(i0 + bi > ni) ERR.General("_mult_impl","mult","i0+bi overflows matrix\n");
+	// if(k0 >= nk) ERR.General("_mult_impl","mult","k0 out of range\n");
+	// if(k0 + bk > nk) ERR.General("_mult_impl","mult","k0+bk overflows matrix\n");
+
+	
 	typename gw::matrix_complex_const_view ijblock_view = gw::matrix_complex_const_submatrix(lreord_gsl,i0,0,bi,nj);
 	typename gw::matrix_complex_const_view jkblock_view = gw::matrix_complex_const_submatrix(rreord_gsl,0,k0,nj,bk);
 

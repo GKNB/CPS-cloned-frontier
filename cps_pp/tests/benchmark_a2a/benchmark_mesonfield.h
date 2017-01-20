@@ -2488,15 +2488,30 @@ void testTraceSingle(const A2AArg &a2a_args, const double tol){
       printf(" (%g,%g)",into[i].real(),into[i].imag());
     }
     printf("\n");
-  }
+  } 
+}
+
+template<typename A2Apolicies>
+void testMFmult(const A2AArg &a2a_args, const double tol){
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_wv;
+  mf_wv.setup(a2a_args,a2a_args,0,0);
+  mf_wv.testRandom();  
+
+  if(!UniqueID()) printf("WV sizes %d %d\n", mf_wv.getNrows(), mf_wv.getNcols());
+  
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_ww;
+  mf_ww.setup(a2a_args,a2a_args,0,0);
+  mf_ww.testRandom();  
+
+  if(!UniqueID()) printf("WW sizes %d %d\n", mf_ww.getNrows(), mf_ww.getNcols());
+  
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_out;
+  mult(mf_out, mf_wv, mf_ww);
 
   
-  
-  
-  
-    
-  
 }
+
+
 
 
 CPS_END_NAMESPACE

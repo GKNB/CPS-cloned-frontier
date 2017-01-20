@@ -229,7 +229,9 @@ int main(int argc,char *argv[])
   if(0) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 #endif
 
-  if(1) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
+  if(0) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
+
+  if(1) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
   
   printf("Finished\n"); fflush(stdout);
   
