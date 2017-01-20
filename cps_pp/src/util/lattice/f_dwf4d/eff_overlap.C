@@ -1,6 +1,8 @@
 #ifdef USE_BFM
 
 #include <util/lattice/eff_overlap.h>
+#include <util/lattice/bfm_evo.h>
+#include <util/lattice/bfm_eigcg.h>
 #include <util/lattice/bfm_mixed_solver.h>
 #ifndef BFM_GPARITY
 #include <util/lattice/hdcg_controller.h>

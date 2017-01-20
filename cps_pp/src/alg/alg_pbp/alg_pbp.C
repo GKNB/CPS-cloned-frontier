@@ -121,9 +121,6 @@ AlgPbp::~AlgPbp() {
 //------------------------------------------------------------------
 void AlgPbp::run(Float *results)
 {
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-#endif
   int iter;
   int ls;
   int ls_glb;
@@ -652,9 +649,6 @@ structure,
 //------------------------------------------------------------------
 void AlgPbp::runPointSource(int x, int y, int z, int t)
 {
-#if TARGET==cpsMPI
-    using MPISCU::fprintf;
-#endif
   int i;
   int iter;
   int ls;

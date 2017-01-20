@@ -19,12 +19,13 @@ void chiralProject(FermionField &out, const FermionField &in, const char sgn){
   const int Ns = 4;
   Grid::GridBase *grid=in._grid;
 
-  decltype(Grid::QCD::peekSpin(in,0)) zero_spn(in._grid);
-  zeroit(zero_spn);
+  //decltype(Grid::QCD::peekSpin(static_cast<const Grid::Lattice<typename FermionField::vector_object>&>(in),0)) zero_spn(in._grid);
+  decltype(Grid::PeekIndex<SpinIndex>(in,0)) zero_spn(in._grid);
+  Grid::zeroit(zero_spn);
 
   out = in;
-  Grid::QCD::pokeSpin(out, zero_spn, base);
-  Grid::QCD::pokeSpin(out, zero_spn, base+1);
+  Grid::PokeIndex<SpinIndex>(out, zero_spn, base);
+  Grid::PokeIndex<SpinIndex>(out, zero_spn, base+1);
 }
 
 //Convert a 5D field to a 4D field, with the upper 2 spin components taken from s-slice 's_u' and the lower 2 from 's_l'
@@ -57,17 +58,22 @@ void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, in
 }
 
 //Randomization of wh fields must have handled with care to ensure order preservation
-template<typename complexFieldType, typename mf_Policies>
-struct _set_wh_random_impl<complexFieldType, mf_Policies, grid_vector_complex_mark>{
-  static void doit(std::vector<complexFieldType> &wh, const RandomType &type, const int nhits){
-    typedef _deduce_a2a_field_policies<typename mf_Policies::ScalarComplexType> scalar_a2a_policies;
-    typedef typename scalar_a2a_policies::ComplexFieldType scalarComplexFieldType;
+template<typename ComplexFieldType>
+struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
+    typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
+    
+    
+    typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
+		     typename ComplexFieldType::FieldDimensionPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldFlavorPolicy, typename ComplexFieldType::FieldAllocPolicy>
+      ScalarComplexFieldType;
 
+    NullObject null_obj;
+    
     //Use scalar generation code and import
-    std::vector<scalarComplexFieldType> wh_scalar(nhits);
-    _set_wh_random_impl<scalarComplexFieldType, scalar_a2a_policies, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
-    for(int i=0;i<nhits;i++)
-      wh[i].importField(wh_scalar[i]);
+    std::vector<PtrWrapper<ScalarComplexFieldType> > wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].set(new ScalarComplexFieldType(null_obj));
+    _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
+    for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
   }
 };
 
@@ -133,6 +139,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   GridFermionField tmp_full_4d(UGrid);
   
   //The general method is described by page 60 of Daiqian's thesis
+#ifndef MEMTEST_MODE
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
     Float eval = evecs.getEvec(bq_tmp,i);
@@ -178,8 +185,9 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     //Get 4D part, poke onto a then copy into wl
     //Recall that D^{-1} = <w^\dagger v> = <q \bar q>.  w (and w^\dagger) therefore transforms like a spinor. For spinors \psi(x) = P_R \bar\psi(x,0) + P_L \bar\psi(x,Ls-1),  i.e. s_u=0 and s_l=Ls-1 for CPS gamma5
     DomainWallFiveToFour(tmp_full_4d, tmp_full, 0, glb_ls-1);
-    wl[i].importGridField(tmp_full_4d);
+    wl[i]->importGridField(tmp_full_4d);
   }
+#endif
 }
 
 
@@ -230,13 +238,15 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
   Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
 
-  VRB.Result(cname.c_str(), fname, "Start computing high modes using Grid.\n");
+  VRB.Result("A2AvectorW", fname, "Start computing high modes using Grid.\n");
     
   //Generate the compact random sources for the high modes
+#ifndef MEMTEST_MODE
   setWhRandom(args.rand_type);
-
+#endif
+  
   //Allocate temp *double precision* storage for fermions
-  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldDimensionPolicy, typename mf_Policies::FermionFieldType::FieldFlavorPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(wh[0].getDimPolParams());
+  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldDimensionPolicy, typename mf_Policies::FermionFieldType::FieldFlavorPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(wh[0]->getDimPolParams());
   
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 
@@ -251,6 +261,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
   GridFermionField tmp_full_4d(UGrid);
 
   //Details of this process can be found in Daiqian's thesis, page 60
+#ifndef MEMTEST_MODE
   for(int i=0; i<nh; i++){
     //Step 1) Get the diluted W vector to invert upon
     getDilutedSource(v4dfield, i);
@@ -260,7 +271,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     DomainWallFourToFive(gsrc, tmp_full_4d, 0, glb_ls-1);
 
     //Left-multiply by D-.  D- = (1-c*DW)
-    Ddwf.DW(gsrc, gtmp_full, Grid::DaggerNo);
+    Ddwf.DW(gsrc, gtmp_full, Grid::QCD::DaggerNo);
     axpy(gsrc, -mob_c, gtmp_full, gsrc); 
 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
@@ -269,17 +280,18 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     V.getVh(i).exportGridField(tmp_full_4d);
     DomainWallFourToFive(gtmp_full, tmp_full_4d, 0, glb_ls-1);
 
-    Ddwf.DW(gtmp_full, gtmp_full2, Grid::DaggerNo);
+    Ddwf.DW(gtmp_full, gtmp_full2, Grid::QCD::DaggerNo);
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG
     Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, residual, max_iter, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
- 
+    
     //CPSify the solution, including 1/nhit for the hit average
     DomainWallFiveToFour(tmp_full_4d, gtmp_full, glb_ls-1,0);
     tmp_full_4d = Grid::RealD(1. / nhits) * tmp_full_4d;
     V.getVh(i).importGridField(tmp_full_4d);
   }
+#endif
 }
 
 
@@ -301,10 +313,10 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg){
     //NOT IMPLEMENTED YET
-    ERR.General(cname.c_str(),"computeVWhigh","No grid implementation of mixed precision CG with BFM evecs\n");
+    ERR.General("A2AvectorW","computeVWhigh","No grid implementation of mixed precision CG with BFM evecs\n");
   }
 
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General(cname.c_str(),"computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
+  if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW","computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
   EvecInterfaceBFM<mf_Policies> ev(eig,dwf_d,lat,singleprec_evecs);
   return computeVWhigh(V,lat,ev,dwf_d.mass,dwf_d.residual,dwf_d.max_iter);

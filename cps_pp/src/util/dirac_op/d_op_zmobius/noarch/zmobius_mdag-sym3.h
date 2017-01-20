@@ -46,8 +46,8 @@ void  zmobius_mdag_sym3(Vector *out,
   DEBUG_MOBIUS_DSLASH("out<-in %e\n", time_elapse());
 
 
-  Complex *b_coeff = GJP.ZMobius_b();
-  Complex *c_coeff = GJP.ZMobius_c();
+  Complex *b_coeff = (Complex *) GJP.ZMobius_b();
+  Complex *c_coeff = (Complex *) GJP.ZMobius_c();
   const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b;
 
   Complex Imag(0,1);

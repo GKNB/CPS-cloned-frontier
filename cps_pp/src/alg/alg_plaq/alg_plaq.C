@@ -104,9 +104,6 @@ void AlgPlaq::run(Float *results)
   char *fname = "run()";
   VRB.Func(cname,fname);
 
-#if TARGET==cpsMPI
-  using MPISCU::fprintf;
-#endif
   
   // Set the Lattice pointer
   //----------------------------------------------------------------

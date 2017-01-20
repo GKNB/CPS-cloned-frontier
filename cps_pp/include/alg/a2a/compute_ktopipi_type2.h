@@ -21,7 +21,8 @@ CPS_START_NAMESPACE
 
 //Run inside threaded environment
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]){
+void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2){
+#ifndef MEMTEST_MODE
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
   for(int mu=0;mu<4;mu++){ //sum over mu here
@@ -54,6 +55,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
       }
     }
   }
+#endif
 }
 
 
@@ -303,7 +305,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
       
 	//Construct part 2 (this doesn't involve the kaon):
 	// \sum_{ \vec y, \vec z  }  \Gamma_2 vL(x_op) [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] wL^dag(x_op)
-	SCFmat part2[2]; 
+	//SCFmat part2[2]; 
+	SCFmatVector part2(2);
 
 #if defined(DISABLE_TYPE2_SPLIT_VMV)
 	mult(part2[0], vL, con_pi1_pi2[t_pi1_idx], wL, xop3d_loc, top_loc, false, true); //part2 goes from insertion to pi1 to pi2 and back to insertion

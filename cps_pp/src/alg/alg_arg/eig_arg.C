@@ -42,8 +42,6 @@ vml_EigArg (VML *vmls, char *name,EigArg *objp)
 	 if (!vml_array (vmls, "Epsilon", (char **)&objp->Epsilon.Epsilon_val, (u_int *) &objp->Epsilon.Epsilon_len, ~0,
 		sizeof (Float), (vmlproc_t) vml_Float))
 		 return FALSE;
-	 if (!vml_int (vmls, "n_masses", &objp->n_masses))
-		 return FALSE;
 	 if (!vml_int (vmls, "N_eig", &objp->N_eig))
 		 return FALSE;
 	 if (!vml_int (vmls, "N_eigacc", &objp->N_eigacc))

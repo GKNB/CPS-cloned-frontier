@@ -9,6 +9,7 @@ public:
   ThreeMomentum(){ p[0]=p[1]=p[2]=0; }
   explicit ThreeMomentum(const int all){ p[0]=p[1]=p[2]=all; }
   ThreeMomentum(const int px, const int py, const int pz){ p[0]=px; p[1]=py; p[2]=pz; }
+  ThreeMomentum(const int _p[3]){ memcpy(p,_p,3*sizeof(int)); }
   
   int &operator()(const int i){ return p[i]; }
   const int operator()(const int i) const{ return p[i]; }
@@ -20,6 +21,10 @@ public:
     }//lexicographic comparison
     return false; //all equal
   }
+  bool operator>(const ThreeMomentum &r) const{
+    return (*this)!=r && ! ( (*this) < r );
+  }
+  
   inline static ThreeMomentum negative(const ThreeMomentum &p){
     return ThreeMomentum( -p(0), -p(1), -p(2) );
   }
@@ -48,6 +53,7 @@ public:
   }
   //Get a pointer to the underlying array
   int const* ptr() const{ return &p[0]; }
+  int * ptr(){ return &p[0]; }
 
   //Return momentum as string "(%d,%d,%d)"
   std::string str() const{

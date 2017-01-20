@@ -1500,15 +1500,17 @@ Float FdwfBase::FhamiltonNode(Vector *phi, Vector *chi){
   if (chi == 0)
     ERR.Pointer(cname,fname,"chi") ;
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / 2 ;
-  if(GJP.Gparity()) f_size *=2;
+  int f_size = GJP.VolNodeSites() * FsiteSize() / 2 * (GJP.Gparity() ? 2:1);
 
-  Float ret_val;
-  ret_val = phi->ReDotProductNode(chi, f_size ) ;
+  Float ret_val = phi->ReDotProductNode(chi, f_size ) ;
 
+  if(GJP.Gparity1fY()) ret_val /= 2; //global lattice contains 2 copies of the fermion fields
+  
   // Sum accross s nodes in case Snodes() != 1
   glb_sum_dir(&ret_val, 4) ;
 
+  printf("FdwfBase::FhamiltonNode Gparity=%d, fsize=%d val=%f\n",GJP.Gparity(),f_size,ret_val);
+  
   return ret_val ;
 
 }
@@ -1787,9 +1789,11 @@ void FdwfBase::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   VRB.Func(cname,fname);
   DiracOpDwf dwf(*this, f_out, f_in, cg_arg, cnv_frm);
   int offset = GJP.VolNodeSites()*this->FsiteSize()/ (2*6); 
+  if(GJP.Gparity()) offset *=2;
   
   dwf.Dslash(f_out,f_in+offset,CHKB_EVEN,DAG_NO);
   dwf.Dslash(f_out+offset,f_in,CHKB_ODD,DAG_NO);
+  f_out->FTimesV1PlusV2(-.5/(5.0-GJP.DwfHeight()),f_out,f_in,offset*(2*6));
 }
 
 

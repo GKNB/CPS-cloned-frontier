@@ -4,8 +4,9 @@
 #include<alg/a2a/threemomentum.h>
 CPS_START_NAMESPACE
 
-//We must construct meson fields with a number of different pion momenta. This class holds the fields and allows access in a flexible and transparent manner
+//We must construct meson fields with a number of different total momenta. This class holds the fields and allows access in a flexible and transparent manner
 //The ThreeMomentum is the pion momentum
+//The class owns the meson fields it stores, and they are deleted when it is destroyed
 template<typename mf_Policies>
 class MesonFieldMomentumContainer{
 private:
@@ -40,10 +41,22 @@ public:
       os << it->first.str() << "\n";
   }
 
-  void add(const ThreeMomentum &p, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
-    mf[p] = &mfield;
+  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& copyAdd(const ThreeMomentum &p, const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){   
+    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield);
+    return *mf[p];
   }
+  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& moveAdd(const ThreeMomentum &p, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
+    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield.size());
+    for(int i=0;i<mfield.size();i++) mf[p]->operator[](i).move(mfield[i]);
+    mfield.swap(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >());
+    return *mf[p];
+  }
+  
   bool contains(const ThreeMomentum &p) const{ return mf.count(p) != 0; }
+
+  ~MesonFieldMomentumContainer(){
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++) delete it->second;
+  }
 };
 
 

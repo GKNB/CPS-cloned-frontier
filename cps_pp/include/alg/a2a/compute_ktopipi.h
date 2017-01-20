@@ -98,6 +98,13 @@ public:
   typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef A2AvectorW<mf_Policies> Wtype;
+#else
+  typedef const A2AvectorW<mf_Policies> Wtype;
+#endif
+  
   //Compute type 1,2,3,4 diagram for fixed tsep(pi->K) and tsep(pi->pi). 
 
   //By convention pi1 is the pion closest to the kaon
@@ -113,7 +120,7 @@ public:
   //ls_WW meson fields
   template< typename Allocator >
   static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww,
-				      const A2AvectorW<mf_Policies> &W, const A2AvectorW<mf_Policies> &W_s, const int kaon_rad, Lattice &lat,
+				      Wtype &W, Wtype &W_s, const int kaon_rad, Lattice &lat,
 				      const SourceParamType &src_params = NullObject()){
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
@@ -130,18 +137,26 @@ public:
     VWfieldInputParams fld_params = W.getWh(0).getDimPolParams();
     
     A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
-    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
-
     A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
+    
+#ifdef USE_DESTRUCTIVE_FFT
+    fftw_Wl_p.destructiveGaugeFixTwistFFT(W, p,lat);
+    fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,p,lat); 
+#else
+    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
     fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
+#endif
 
     A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
-    SCFspinflavorInnerProduct<typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,0,fpexp); // (1)_flav * (1)_spin 
+    SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
 
     A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
-    //for(int t=0;t<Lt;t++)
-    //mf_ls_ww[t].compute(fftw_Wl_p, mf_struct, fftw_Ws_p,t);
+#ifdef USE_DESTRUCTIVE_FFT
+    fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, p,lat);
+    fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, p,lat);
+#endif
+    
     time += dclock();
     print_time("ComputeKtoPiPiGparity","ls WW meson fields",time);
   }
@@ -228,7 +243,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2);
  
   static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
@@ -435,32 +450,3 @@ CPS_END_NAMESPACE
 
 
 #endif
-
-
-//       //Daiqian thinned the spatial sampling by computing only on a random site within a linearized site index block
-//       NullObject n;
-//       CPSfield<int,1,FourDpolicy,OneFlavorPolicy> randoff(n);
-//       randoff.zero();
-      
-//       LRG.SetInterval(1.0,0.0);
-//       for(int t=0;t<GJP.TnodeSites();t++){
-// 	if(!node_top_used[t]) continue;
-
-// 	// int top_glb = t  + GJP.TnodeCoor()*GJP.TnodeSites();
-// 	// int t_dis = modLt(top_glb - t_K_all[0], Lt); //FIXME
-// 	// if(t_dis >= tsep_k_pi[0] || t_dis == 0) continue; //FIXME ! //don't bother generating random numbers for timeslices we're not going to use
-
-// 	if(!UniqueID()) printf("Generating random field for t_pi_1 = %d and t_lcl = %d, a random number = %12e\n",t_pi1,t,LRG.Urand(FOUR_D));
-
-// 	for(int i = 0; i < size_3d / xyzStep; i++){
-// 	  int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t;
-
-// #ifndef DAIQIAN_EVIL_RANDOM_SITE_OFFSET
-// 	  LRG.AssignGenerator(x);
-// #else
-// 	  //Generate in same order as Daiqian. He doesn't set the hypercube RNG so it uses whichever one was used last! I know this sucks.
-// #endif
-
-// 	  *(randoff.site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
-// 	}
-//       }

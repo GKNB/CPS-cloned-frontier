@@ -74,8 +74,10 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM guess norm %le\n",f);
 
   //MdagM inverse controlled by evec interface
+#ifndef MEMTEST_MODE
   evecs.CGNE_MdagM(linop, sol_o, src_o, resid, max_iters);
-
+#endif
+  
   f = norm2(sol_o);
   if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM sol norm %le\n",f);
 

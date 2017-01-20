@@ -95,8 +95,6 @@ public:
 	Float p4_5staple;
 	Float p4_7staple;
 	Float p4_lepage;
-	int gparity_1f_X;
-	int gparity_1f_Y;
 	   DoArg (  ) ;
 	   void SetupAsqTadU0 (  double u0 ) ;
 };
@@ -111,6 +109,8 @@ public:
 	Float twist_bc_y;
 	Float twist_bc_z;
 	Float twist_bc_t;
+	int gparity_1f_X;
+	int gparity_1f_Y;
 	StartConfType start_u1_conf_kind;
 	Pointer start_u1_conf_load_addr;
 	char *start_u1_conf_filename;

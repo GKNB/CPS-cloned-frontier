@@ -348,8 +348,6 @@ int main(int argc,char *argv[])
     std::cout << "Vectorized sf unit matrix\n" << vsf << std::endl;
 
     static_assert( _equal<typename _PartialTraceFindReducedType<Fmat,0>::type, cps::Complex>::value, "Foutertracetest");
-    
-    exit(0);
   }
   
   {
@@ -394,13 +392,13 @@ int main(int argc,char *argv[])
 
   typedef Grid::vComplexD grid_Complex;
   
-  typedef _deduce_a2a_field_policies<grid_Complex> A2ApoliciesBase_grid;
+  typedef deduceA2Apolicies<grid_Complex> A2ApoliciesBase_grid;
   typedef GridA2APoliciesBase LanczosPolicies;
   typedef GridA2APoliciesBase::FgridGFclass LatticeType;  
   typedef GridA2APolicies<A2ApoliciesBase_grid> A2Apolicies_grid; //combines A2ApoliciesBase and GridPoliciesBase
   typedef GridA2APoliciesBase::GridFermionField GridFermionField;
   
-  typedef _deduce_a2a_field_policies<mf_Complex> A2ApoliciesBase_std;
+  typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase_std;
   typedef GridA2APolicies<A2ApoliciesBase_std> A2Apolicies_std; //combines A2ApoliciesBase and GridPoliciesBase
 
   static_assert( std::is_same<typename A2Apolicies_grid::FermionFieldType::FieldDimensionPolicy, FourDSIMDPolicy>::value, "SIMDpolicy unexpected");
@@ -415,7 +413,7 @@ int main(int argc,char *argv[])
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
 
   //Some checkerboard checking stuff
-  if(1){
+  if(0){
     Grid::GridCartesian* grid5d_full = lattice.getFGrid();
     Grid::GridCartesian* grid4d_full = lattice.getUGrid();
     Grid::GridRedBlackCartesian* grid5d_cb = lattice.getFrbGrid();
@@ -740,7 +738,7 @@ int main(int argc,char *argv[])
     if(fail) ERR.General("","","Standard vs Grid implementation type1 test failed\n");
     printf("Type 1 pass\n");
   }
-  if(0){
+  if(1){
     typename ComputeKtoPiPiGparity<A2Apolicies_grid>::ResultsContainerType type2_grid;
     ComputeKtoPiPiGparity<A2Apolicies_grid>::type2(type2_grid, 4, 2, 1, p_pi_plus, mf_ls_ww_grid, mf_ll_con_grid, V_grid, V_grid, W_grid, W_grid);
 

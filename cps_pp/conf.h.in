@@ -6,9 +6,6 @@
 /* Define to 1 if the system has the type `enum_t'. */
 #undef HAVE_ENUM_T
 
-/* Define to 1 if you have the <gmp.h> header file. */
-#undef HAVE_GMP_H
-
 /* Define to 1 if the system has the type `int16_t'. */
 #undef HAVE_INT16_T
 

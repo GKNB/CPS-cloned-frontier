@@ -6,6 +6,8 @@
 #include<alg/a2a/mult_vMv_split_grid.h>
 #include<alg/a2a/mult_vMv_impl.h>
 #include<alg/a2a/mult_vv_impl.h>
+#include<alg/a2a/mesonfield_io.h>
+#include<alg/a2a/mesonfield_compute_impl.h>
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &with, const bool parallel){
@@ -145,7 +147,7 @@ typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matri
   //Output to a linearized matrix of Grid SIMD vectors where we have splatted the scalar onto all SIMD lanes
   //Does not set the size of the output vector, allowing reuse of a previously allocated vector providing it's large enough
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid::Vector<typename mf_Policies::ComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
   typedef typename mf_Policies::ComplexType VectorComplexType;
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
@@ -177,7 +179,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(Grid:
   }
 }
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize){
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(Grid::Vector<typename mf_Policies::ScalarComplexType> &into, const int idx_map[], int map_size, bool rowidx_used[], bool do_resize) const{
   int full_rows = nmodes_l;
   int full_cols = nmodes_r;
 
@@ -222,127 +224,6 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_
       into(j,i) = (*this)(i,j);
 }
 
-//For all mode indices l_i and r_j, compute the meson field  \sum_p l_i^\dagger(p,t) M(p,t) r_j(p,t)
-//It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
-//M(p,t) is a completely general momentum-space spin/color/flavor matrix per temporal slice
-
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-template<typename InnerProduct>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, const int &t, bool do_setup){
-  if(do_setup) setup(l,r,t,t); //both vectors have same timeslice
-  else zero();
-  
-  if(!UniqueID()) printf("Starting A2AmesonField::compute timeslice %d with %d threads\n",t, omp_get_max_threads());
-
-  double time = -dclock();
-
-  //For W vectors we dilute out the flavor index in-place while performing this contraction
-  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
-  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
-  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
-
-  int nl_l = lindexdilution.getNl();
-  int nl_r = rindexdilution.getNl();
-
-  int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
-  if(t_lcl >= 0 && t_lcl < GJP.TnodeSites()){ //if timeslice is on-node
-
-#pragma omp parallel for
-    for(int i = 0; i < nmodes_l; i++){
-      cps::ComplexD mf_accum;
-
-      modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
-
-      for(int j = 0; j < nmodes_r; j++) {
-	modeIndexSet j_high_unmapped; if(j>=nl_r) rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
-
-	mf_accum = 0.;
-
-	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
-
-	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
-	}
-	(*this)(i,j) = mf_accum; //downcast after accumulate      
-      }
-    }
-  }
-  sync();
-  print_time("A2AmesonField","local compute",time + dclock());
-  time = -dclock();
-
-  //Sum over all nodes so all nodes have a copy
-  nodeSum();
-  print_time("A2AmesonField","nodeSum",time + dclock());
-}
-
-//This version is more efficient on multi-nodes
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-template<typename InnerProduct, typename Allocator>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  if(!UniqueID()) printf("Starting A2AmesonField::compute for %d timeslices with %d threads\n",Lt, omp_get_max_threads());
-
-  double time = -dclock();
-  mf_t.resize(Lt);
-  for(int t=0;t<Lt;t++) 
-    if(do_setup) mf_t[t].setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
-    else mf_t[t].zero();
-
-  //For W vectors we dilute out the flavor index in-place while performing this contraction
-  const typename mf_Policies::FermionFieldType &mode0 = l.getMode(0);
-  const int size_3d = mode0.nodeSites(0)*mode0.nodeSites(1)*mode0.nodeSites(2);
-  if(mode0.nodeSites(3) != GJP.TnodeSites()) ERR.General("A2AmesonField","compute","Not implemented for fields where node time dimension != GJP.TnodeSites()\n");
-
-  //Each node only works on its time block
-  for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
-    double ttime = -dclock();
-
-    const int nl_l = mf_t[t].lindexdilution.getNl();
-    const int nl_r = mf_t[t].rindexdilution.getNl();
-
-    int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
-
-#pragma omp parallel for
-    for(int i = 0; i < mf_t[t].nmodes_l; i++){
-      cps::ComplexD mf_accum;
-
-      modeIndexSet i_high_unmapped; if(i>=nl_l) mf_t[t].lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
-
-      for(int j = 0; j < mf_t[t].nmodes_r; j++) {
-	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_t[t].rindexdilution.indexUnmap(j-nl_r,j_high_unmapped);
-
-	mf_accum = 0.;
-
-	for(int p_3d = 0; p_3d < size_3d; p_3d++) {
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf = l.getFlavorDilutedVect2(i,i_high_unmapped,p_3d,t_lcl); //dilute flavor in-place if it hasn't been already
-	  SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf = r.getFlavorDilutedVect2(j,j_high_unmapped,p_3d,t_lcl);
-
-	  mf_accum += M(lscf,rscf,p_3d,t); //produces double precision output by spec
-	}
-	mf_t[t](i,j) = mf_accum; //downcast after accumulate      
-      }
-    }
-    std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1;
-
-    print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
-  }
-  print_time("A2AmesonField","local compute",time + dclock());
-
-  time = -dclock();
-  sync();
-  print_time("A2AmesonField","sync",time + dclock());
-
-  //Accumulate
-  time = -dclock();
-  for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
-  print_time("A2AmesonField","nodeSum",time + dclock());
-}
-
-
-
-
 //Compute   l^ij(t1,t2) r^ji(t3,t4)
 //Threaded but *node local*
 template<typename mf_Policies, 
@@ -379,6 +260,8 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
   const int &ni = i_ind.getNindices(lip,rip); //how many indices to loop over
   const int &nj = j_ind.getNindices(ljp,rjp);
 
+#ifndef MEMTEST_MODE
+  
 #pragma omp parallel for
   for(int i = 0; i < ni; i++){
     int id = omp_get_thread_num();
@@ -393,7 +276,9 @@ typename mf_Policies::ScalarComplexType trace(const A2AmesonField<mf_Policies,lA
     }
   }
   for(int i=0;i<n_threads;i++) into += ret_vec[i];
-
+  
+#endif
+  
   return into;
 }
 
@@ -426,6 +311,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
 
   int node_off = UniqueID()*node_work;
 
+#ifndef MEMTEST_MODE
   if(do_work){
     for(int tt=node_off; tt<node_off + node_work; tt++){
       int rem = tt;
@@ -436,6 +322,7 @@ void trace(fMatrix<typename mf_Policies::ScalarComplexType> &into, const std::ve
     }
   }
   into.nodeSum(); //give all nodes a copy
+#endif
 }
 
 
@@ -490,7 +377,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uni
     free(mf); mf = NULL;
   }//else{ printf("UniqueID %d (MPI rank %d) is storage node, not freeing\n",UniqueID(),my_rank); fflush(stdout); }
 
-  if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
+  //if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
   //if(my_rank == node_mpi_rank) printf("A2AmesonField::nodeDistribute I am node with MPI rank %d and I have UniqueID %d, my first elem remains %f\n",my_rank,UniqueID(),mf[0]);
 #endif
 }
@@ -515,8 +402,8 @@ struct getMPIdataType<float>{
 //Get back the data. After the call, all nodes will have a complete copy
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
-  if(node_mpi_rank == -1) return; //already on all nodes
   typedef typename ScalarComplexType::value_type mf_Float;
+  if(node_mpi_rank == -1) return; //already on all nodes
 #ifndef USE_MPI
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1) ERR.General("A2AmesonField","nodeGet","Implementation requires MPI\n");
@@ -527,7 +414,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
 
   if(mpi_rank != node_mpi_rank){
     //if(mf != NULL) printf("rank %d pointer should be NULL but it isn't!\n",mpi_rank); fflush(stdout);
-    mf = (mf_Float*)malloc(fsize * sizeof(ScalarComplexType));  
+    mf = (ScalarComplexType*)malloc(byte_size());  
     if(mf == NULL){ printf("rank %d failed to allocate memory!\n",mpi_rank); fflush(stdout); exit(-1); }
     //printf("rank %d allocated memory\n",mpi_rank); fflush(stdout);
   }//else{ printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); }
@@ -550,12 +437,14 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
   }
   //printf("rank %d completed Bcast, first element %f\n",mpi_rank,mf[0]); fflush(stdout);
 
-  if(mpi_rank == node_mpi_rank) printf("A2AmesonField::nodeGet %f MB gathered from node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), UniqueID(), node_mpi_rank);
+  //if(mpi_rank == node_mpi_rank) printf("A2AmesonField::nodeGet %f MB gathered from node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), UniqueID(), node_mpi_rank);
 
   node_mpi_rank = -1; //now on all nodes
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 }
+
+
 
 
 

@@ -5,6 +5,10 @@
 #include <util/lattice/f_dwf4d.h>
 #endif
 
+#ifdef USE_GRID
+#include <util/lattice/fgrid.h>
+#endif
+
 #include <alg/no_arg.h>
 #include <alg/common_arg.h>
 #include <alg/pbp_arg.h>
@@ -436,6 +440,31 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
     lat_p = new GtadpoleRectFp4;
     return *lat_p;
   }
+
+#ifdef USE_GRID
+  if ( (fermion == F_CLASS_GRID_WILSON_TM) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    lat_p = new GnoneFgridWilsonTM(params);
+    return *lat_p;
+  }
+  if ( (fermion == F_CLASS_GRID_MOBIUS) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    params.mobius_scale = GJP.GetMobius();
+    lat_p = new GnoneFgridMobius(params);
+    return *lat_p;
+  }
+  if ( (fermion == F_CLASS_GRID_GPARITY_MOBIUS) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    params.mobius_scale = GJP.GetMobius();
+    lat_p = new GnoneFgridGparityMobius(params);
+    return *lat_p;
+  }
+  if ( (fermion == F_CLASS_GRID_GPARITY_WILSON_TM) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    lat_p = new GnoneFgridGparityWilsonTM(params);
+    return *lat_p;
+  }
+#endif
 
   /* F_NONE VALENCE ANALYSIS */
   if ( (fermion == F_CLASS_NONE) && (gluon == G_CLASS_NONE ) ) {

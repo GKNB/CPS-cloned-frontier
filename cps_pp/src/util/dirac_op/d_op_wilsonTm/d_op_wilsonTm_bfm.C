@@ -27,9 +27,6 @@
 //#define Printf printf
 
 
-#ifdef USE_CHROMA
-#endif
-
 USING_NAMESPACE_CPS
 
 void importGauge(
@@ -174,9 +171,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.mass = toDouble(mass);
     wilsa.twistedmass = toDouble(epsilon);
     wilsa.Csw  = 0.0;
-
-#if 0 
-\\deprecated in bfm-2.99
+#ifndef USE_NEW_BFM_GPARITY
     wilsa.list_engine=0;
     wilsa.list_length=0;
 #endif

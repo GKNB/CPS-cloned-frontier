@@ -5,7 +5,7 @@
 
 CPS_START_NAMESPACE
 
-bool FgridBase::grid_initted=0;
+bool FgridBase::grid_initted=false;
 
 
 //------------------------------------------------------------------

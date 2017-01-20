@@ -102,9 +102,9 @@ class multiply_M_r_singlescf_op: public SCFoperation<typename gsl_wrapper<typena
   std::vector<  std::vector<std::vector<ScalarComplexType> > > &Mr;
   std::vector< std::vector<std::vector<ScalarComplexType> > > &rreord;
   
-  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> *split_obj;
+  mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> const* split_obj;
 public:
-  multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> * _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
+  multiply_M_r_singlescf_op(const int* _work, const int* _off, std::vector<  std::vector<std::vector<ScalarComplexType> > > &_Mr, std::vector< std::vector<std::vector<ScalarComplexType> > > &_rreord,mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,complex_double_or_float_mark> const* _split_obj): work(_work),off(_off),Mr(_Mr),rreord(_rreord),split_obj(_split_obj){}
   
   void operator()(const typename gw::matrix_complex& M_packed, const int scf, const int rows, const int cols){
 #pragma omp parallel
@@ -235,7 +235,9 @@ protected:
 
 	for(int i = 0; i < ni_this; i++){
 	  const ComplexType &lval_tmp = this->lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	  lreord[scf][i] = conj_l ? cconj(lval_tmp) : lval_tmp;
+#endif
 	}
 
 	//j index
@@ -245,7 +247,9 @@ protected:
 	rreord[scf].resize(nj_this);
 	for(int j = 0; j < nj_this; j++){
 	  const ComplexType &rval_tmp = this->rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	  rreord[scf][j] = conj_r ? cconj(rval_tmp) : rval_tmp;
+#endif
 	}
 
       }
@@ -487,7 +491,7 @@ public:
   }
 
   void free_mem(){
-    free_mem_base();
+    this->free_mem_base();
 #ifdef VMV_SPLIT_MEM_SAVE
     FREEIT(mf_reord_lo_lo);
 

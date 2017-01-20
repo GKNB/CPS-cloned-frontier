@@ -126,7 +126,7 @@ Lattice::Lattice ()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-  int array_size;		// On-node size of the gauge field array.
+  uint64_t array_size;		// On-node size of the gauge field array.
 
   VRB.Func (cname, fname);
 
@@ -162,10 +162,11 @@ if ( GJP.ExtInitialized()){
   StartConfType start_u1_conf_kind = GJP.StartU1ConfKind();
   // TIZB: It banged for sencond lattice creation. I am not sure.
   //if(start_u1_conf_kind != START_CONF_LOAD ){  
+  VRB.Result(cname,fname,"u1_is_initialized=%d u1_conf_kind=%d\n",u1_is_initialized, start_u1_conf_kind);
   if(!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD ){
-      u1_gauge_field = (Float *) pmalloc(array_size/18);
-      if( u1_gauge_field == 0) ERR.Pointer(cname,fname, "u1_gauge_field");
-      VRB.Pmalloc(cname, fname, "u1_gauge_field", u1_gauge_field, array_size/9);
+  	array_size = 4*GJP.VolNodeSites() * sizeof(Float);  
+      u1_gauge_field = (Float *) 
+      smalloc(cname, fname, "u1_gauge_field", array_size);
       GJP.StartU1ConfLoadAddr(u1_gauge_field);
   }
     if (start_u1_conf_kind == START_CONF_ORD) {
@@ -1089,7 +1090,7 @@ void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
 	databuf_last = data_buf;
 	otherbuf_last = recv_buf; //next buffer that we can write to
       }
-      sync();
+      cps::sync();
       //LR quadrant databuf_last contains LL quadrant data
       //on LL quadrant we need to refill databuf_last with LL quadrant data
       if(npos[0] < nL[0]/2 && npos[1] < nL[1]/2)

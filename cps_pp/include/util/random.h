@@ -455,11 +455,21 @@ class LRGState {
 
   char *cname;
 #ifdef USE_C11_RNG
-  LRGState(){}
-  ~LRGState(){}
+  RNGSTATE *rng_state;
+
+  LRGState(){
+     rng_state = new RNGSTATE[LRG.StateSize()*LRG.NStates()];
+  }
+  ~LRGState(){
+     delete[] rng_state;
+  }
   
-  void GetStates(){ERR.NotImplemented(cname,"GetStates()");}
-  void SetStates(){ERR.NotImplemented(cname,"SetStates()");}
+  void GetStates(){
+    LRG.GetAllStates(rng_state);
+  }
+  void SetStates(){
+    LRG.SetAllStates(rng_state);
+  }
 #else
   unsigned int ** rng4d;
   unsigned int ** rng5d;

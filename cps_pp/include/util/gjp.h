@@ -1,6 +1,7 @@
 #ifndef INCLUDED_GLOBAL_JOB_PARAMETER_H
 #define INCLUDED_GLOBAL_JOB_PARAMETER_H
 
+#include<vector>
 #include<config.h>
 /*!\file
   \brief  Definitions of global job parameters.
@@ -30,6 +31,8 @@
 
 #include <util/lattice.h>
 #include <util/vector.h>
+#include <util/error.h>
+#include <util/verbose.h>
 #include <util/smalloc.h>
 #include <util/zmobius.h>
 #include <comms/sysfunc_cps.h>
@@ -158,8 +161,8 @@ class GlobalJobParameter
   int threads;
 
 
-  Complex* zmobius_b;
-  Complex* zmobius_c;
+  std::vector< Complex >  zmobius_b;
+  std::vector< Complex >  zmobius_c;
   ZMobiusPCType zmobius_pc_type;
   
 public:
@@ -634,13 +637,28 @@ public:
       {return doext_p->mobius_b_coeff;}
   Float Mobius_c() const
       {return doext_p->mobius_c_coeff;}
+
+  Float SetMobius (Float mob) { 
+   doext_p->mobius_b_coeff = 0.5*(mob+1.);
+   doext_p->mobius_c_coeff = 0.5*(mob-1.);
+   VRB.Result(cname,"SetMobius()","mobius_b_coeff=%g mobius_c_coeff=%g \n",
+		 doext_p->mobius_b_coeff, doext_p->mobius_c_coeff);
+    return mob;}
+
+  Float GetMobius () {
+   Float mob_b = doext_p->mobius_b_coeff ;
+   Float mob_c = doext_p->mobius_c_coeff ;
+   if(fabs(mob_b-mob_c-1.)>1e-4)
+   ERR.General(cname,"GetMobius()","b-c(%g) not equal to 1\n",mob_b-mob_c);
+   VRB.Result(cname,"GetMobius()","mobius_factor=%g\n",mob_b+mob_c);
+    return (mob_b+mob_c);}
+
   
-  Complex* ZMobius_b() const
-  {return zmobius_b;}
-  //{return (Complex*)( doext_p->zmobius_b_coeff.zmobius_b_coeff_val);}
-  Complex* ZMobius_c() const
-  {return zmobius_c;}
-  //{return (Complex*)( doext_p->zmobius_c_coeff.zmobius_c_coeff_val);}
+  Complex* ZMobius_b() 
+  {return zmobius_b.data();}
+  Complex* ZMobius_c() 
+  {return zmobius_c.data();}
+  int ZMobius_ls(){return zmobius_b.size();}
   
   ZMobiusPCType ZMobius_PC_Type() const
   {return zmobius_pc_type; }
@@ -856,23 +874,29 @@ public:
   void Mobius_c(Float c)
       {doext_int.mobius_c_coeff = c;}
 
-  // FIXME: this is dangerous, assuming the contents of pointer b and c are foever
   void ZMobius_b(Float* b, int ls)
   {
-    if(zmobius_b) sfree(zmobius_b, "zmobius_b", "Zmobius_b", "GJP");
-    zmobius_b=(Complex*)smalloc("GJP","Zmobius_b", "zmobius_b", sizeof(Complex)*ls );
-    for(int s=0;s<ls;++s) zmobius_b[s]=Complex(b[2*s],b[2*s+1]);
+//    if(zmobius_b) sfree(zmobius_b, "zmobius_b", "Zmobius_b", "GJP");
+//    zmobius_b=(Complex*)smalloc("GJP","Zmobius_b", "zmobius_b", sizeof(Complex)*ls );
+//    for(int s=0;s<ls;++s) zmobius_b[s]=Complex(b[2*s],b[2*s+1]);
+      zmobius_b.clear();
+    for(int s=0;s<ls;++s){
+	printf("%d: %g %g\n",s,b[2*s],b[2*s+1]);
+	 zmobius_b.push_back(Complex(b[2*s],b[2*s+1]));
+    }
+
+      
   }
   
       
     
-  //{doext_int. zmobius_c_coeff.zmobius_c_coeff_val = b;}
   void ZMobius_c(Float* c, int ls)
   {
-    if(zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
-    zmobius_c=(Complex*)smalloc("GJP","Zmobius_c", "zmobius_c", sizeof(Complex)*ls );
-    for(int s=0;s<ls;++s) 
-      zmobius_c[s]=Complex(c[2*s],c[2*s+1]);
+//    if(zmobius_c) sfree(zmobius_c, "zmobius_c", "Zmobius_c", "GJP");
+//    zmobius_c=(Complex*)smalloc("GJP","Zmobius_c", "zmobius_c", sizeof(Complex)*ls );
+//    for(int s=0;s<ls;++s) zmobius_c[s]=Complex(c[2*s],c[2*s+1]);
+      zmobius_c.clear();
+    for(int s=0;s<ls;++s) zmobius_c.push_back(Complex(c[2*s],c[2*s+1]));
   }
 
   void ZMobius_PC_Type(ZMobiusPCType zpc )

@@ -123,8 +123,8 @@ GlobalJobParameter::GlobalJobParameter()
   doext_p = NULL;
   arg_set=0;
 
-  zmobius_b=NULL;
-  zmobius_c=NULL;
+//  zmobius_b=NULL;
+//  zmobius_c=NULL;
   zmobius_pc_type= ZMOB_PC_SYM2;
 }
 
@@ -160,10 +160,19 @@ void GlobalJobParameter::Initialize(const DoArg& rda) {
 #endif
 }
 
+//    void ZMobius_b(Float* b, int ls)
 void GlobalJobParameter::InitializeExt(const DoArgExt& rda) {
   doext_int = rda;
   doext_p = &doext_int;
-//  Initialize();
+  int ls = doext_int.zmobius_b_coeff.zmobius_b_coeff_len/2;
+  if ( ls != (doext_int.zmobius_c_coeff.zmobius_c_coeff_len/2) )
+    ERR.General(cname,"nitializeExt()","zmobius_b and zmobius_c has different length!\n");
+  if(ls>0){
+     ZMobius_b(doext_int.zmobius_b_coeff.zmobius_b_coeff_val, ls);
+     ZMobius_c(doext_int.zmobius_c_coeff.zmobius_c_coeff_val, ls);
+  }
+  
+   
 }
 
 void GlobalJobParameter::Initialize() {
@@ -256,14 +265,14 @@ nodes[0], nodes[1], nodes[2], nodes[3], nodes[4]);
 
   //CK: for G-parity testing we compare the 2f to the 1f model. The 1f model uses a doubled/quadrupled lattice for G-parity
   //    in 1 or 2 directions, and antiperiodic boundary conditions in those directions
-  if(doarg_int.gparity_1f_X){
+  if(doext_int.gparity_1f_X){
     VRB.Result(cname,fname,"1f G-parity enabled in X-direction, doubling xsites from %d to %d\n",node_sites[0],node_sites[0]*2);
     node_sites[0]*=2;
     gparity_1f_X = 1;
   }else gparity_1f_X = 0;
 
-  if(doarg_int.gparity_1f_Y){
-    if(!doarg_int.gparity_1f_X) ERR.General(cname,fname,
+  if(doext_int.gparity_1f_Y){
+    if(!doext_int.gparity_1f_X) ERR.General(cname,fname,
 					    "G-parity 1f model can choose either X or both X and Y directions for BC application, not Y alone\n");
     VRB.Result(cname,fname,"1f G-parity enabled in Y-direction, doubling ysites from %d to %d\n",node_sites[1],node_sites[1]*2);
     node_sites[1]*=2;
@@ -359,10 +368,10 @@ node_coor[0], node_coor[1], node_coor[2], node_coor[3], node_coor[4]);
   gparity_doing_1f2f_comparison = 0;
 
   //If twisted BCs are desired in the 1f G-parity direction, set that global BC to BND_CND_TWISTED
-  if(doarg_int.gparity_1f_X && bc[0] != BND_CND_TWISTED){
+  if(doext_int.gparity_1f_X && bc[0] != BND_CND_TWISTED){
     bc[0] = BND_CND_APRD;
   }
-  if(doarg_int.gparity_1f_Y && bc[0] != BND_CND_TWISTED){
+  if(doext_int.gparity_1f_Y && bc[0] != BND_CND_TWISTED){
     bc[1] = BND_CND_APRD;
   }
 
@@ -429,8 +438,8 @@ if (!UniqueID())
    else twist_angle[i] = 0;
  }
  //For 1f test code APBC on u->d boundary
- if(doarg_int.gparity_1f_X && Bc(0) == BND_CND_TWISTED) twist_angle[0] = Nodes(0)*NodeSites(0);
- if(doarg_int.gparity_1f_Y && Bc(1) == BND_CND_TWISTED) twist_angle[1] = Nodes(1)*NodeSites(1);
+ if(doext_int.gparity_1f_X && Bc(0) == BND_CND_TWISTED) twist_angle[0] = Nodes(0)*NodeSites(0);
+ if(doext_int.gparity_1f_Y && Bc(1) == BND_CND_TWISTED) twist_angle[1] = Nodes(1)*NodeSites(1);
 
  threads = 1;
 #if TARGET == BGQ

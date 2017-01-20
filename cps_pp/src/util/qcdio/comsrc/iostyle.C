@@ -24,6 +24,24 @@ using namespace std;
 
 CPS_START_NAMESPACE
 
+#ifdef USE_C11_RNG
+static void CalcRand(char *msite,int data_per_site, Float *RandSum, Float *Rand2Sum){
+       static int called=0;
+       RNGSTATE *dump = (RNGSTATE*) msite;
+       stringstream ss_dump;
+       for(int i =0;i<data_per_site;i++){
+               ss_dump << dump[i]<< " ";
+       }
+      CPS_RNG temp_rng;
+       ss_dump >>  temp_rng;
+       std::normal_distribution<Float> grand;
+       Float rn = grand(temp_rng);
+//     VRB.Result("","CalcRand","data_per_site=%d dump[0]=%u rn=%g\n",data_per_site,dump[0],rn);
+       *RandSum += rn;
+       *Rand2Sum += rn*rn;
+}
+#endif
+
 #define PROFILE
 
 /*********************************************************************/
@@ -91,82 +109,89 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
   TempBufAlloc fbuf(chars_per_site);  // buffer only stores one site
   
   // these two only needed when loading LatRng
-  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
-  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
-
-
-  // read in parallel manner, node 0 will assign & dispatch IO time slots
-  uint32_t csum = 0;
-  uint32_t pdcsum = 0;
-  Float RandSum = 0;
-  Float Rand2Sum = 0;
-  int siteid = 0;
-  char * pd = data;
-
-  VRB.Result(cname, fname, "Parallel loading starting\n");
-  setConcurIONumber(rd_arg.ConcurIONumber);
-//  setConcurIONumber(1);
-  //
-  getIOTimeSlot();
-
-  if (hd.dataStart()>0) 
-  input.seekg(hd.dataStart(),ios_base::beg);
-
-  int64_t jump = 0;
-  if(dimension == 5) jump = sbegin * sblk;
-
-  for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
-    for(int stk=0;stk<nstacked;stk++){
-      //if(stk==1) printf("Stk idx 1 begins at loc %p\n",(char *)&ugran[siteid]);
-    jump += tbegin * tblk;
-    for(int tr=tbegin;tr<tend;tr++) {
-      jump += zbegin * zblk;
-      for(int zr=zbegin;zr<zend;zr++) {
-	jump += ybegin * yblk;
-	for(int yr=ybegin;yr<yend;yr++) {
-	  jump += xbegin * chars_per_site;
-	  input.seekg(jump,ios_base::cur);
-
-	  for(int xr=xbegin;xr<xend;xr++) {
-	    int try_num =0;
-#if 0
-           input.read(fbuf,chars_per_site);
-           if(!input.good()) {
-             error = 1;
-             goto sync_error;
-           }
-#else
-            streampos r_pos = input.tellg();
-            long long lcsum=-1,lcsum2=-1;
-            do {
-              lcsum2=lcsum;
-	      input.seekg(r_pos,ios::beg);
-	      input.read(fbuf,chars_per_site);
-              lcsum = dconv.checksum(fbuf,data_per_site);
-              try_num++;
-              if(try_num%100==0)
-                printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
-            } while ( ( (lcsum==0) || (lcsum!=lcsum2)) && try_num<1000);
-//	    if(!input.good()) {
-//	      error = 1;
-//             printf("Node %d: csum error in ParIO::load()\n",UniqueID());
-//	      goto sync_error;
-//	    }
+	  TempBufAlloc rng(data_per_site * dconv.hostDataSize());
+#ifndef USE_C11_RNG
+	  UGrandomGenerator * ugran = (UGrandomGenerator*)data;
 #endif
 
-	    csum += dconv.checksum(fbuf,data_per_site);
-	    pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension,	rd_arg, siteid, 0);
-            if(try_num>2)
-            printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
 
-	    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
-	      for(int mat=0;mat<4;mat++) {
-		dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
-		pd += site_mem/4;
-	      }
-	    }
-	    else { // LatHeaderBase::LATRNG_HEADER
-	      // load
+	  // read in parallel manner, node 0 will assign & dispatch IO time slots
+	  uint32_t csum = 0;
+	  uint32_t pdcsum = 0;
+	  Float RandSum = 0;
+	  Float Rand2Sum = 0;
+	  int siteid = 0;
+	  char * pd = data;
+
+	  VRB.Result(cname, fname, "Parallel loading starting\n");
+	  setConcurIONumber(rd_arg.ConcurIONumber);
+	//  setConcurIONumber(1);
+	  //
+	  getIOTimeSlot();
+
+	  if (hd.dataStart()>0) 
+	  input.seekg(hd.dataStart(),ios_base::beg);
+
+	  int64_t jump = 0;
+	  if(dimension == 5) jump = sbegin * sblk;
+
+	  for(int sr=sbegin; dimension==4 || sr<send; sr++) { // if 4-dim, has to enter once
+	    for(int stk=0;stk<nstacked;stk++){
+	      //if(stk==1) printf("Stk idx 1 begins at loc %p\n",(char *)&ugran[siteid]);
+	    jump += tbegin * tblk;
+	    for(int tr=tbegin;tr<tend;tr++) {
+	      jump += zbegin * zblk;
+	      for(int zr=zbegin;zr<zend;zr++) {
+		jump += ybegin * yblk;
+		for(int yr=ybegin;yr<yend;yr++) {
+		  jump += xbegin * chars_per_site;
+		  input.seekg(jump,ios_base::cur);
+
+		  for(int xr=xbegin;xr<xend;xr++) {
+		    int try_num =0;
+	#if 0
+		   input.read(fbuf,chars_per_site);
+		   if(!input.good()) {
+		     error = 1;
+		     goto sync_error;
+		   }
+	#else
+		    streampos r_pos = input.tellg();
+		    long long lcsum=-1,lcsum2=-1;
+		    do {
+		      lcsum2=lcsum;
+		      input.seekg(r_pos,ios::beg);
+		      input.read(fbuf,chars_per_site);
+		      lcsum = dconv.checksum(fbuf,data_per_site);
+		      try_num++;
+		      if(try_num%100==0)
+			printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
+		    } while ( ( (lcsum==0) || (lcsum!=lcsum2)) && try_num<1000);
+	//	    if(!input.good()) {
+	//	      error = 1;
+	//             printf("Node %d: csum error in ParIO::load()\n",UniqueID());
+	//	      goto sync_error;
+	//	    }
+	#endif
+
+		    csum += dconv.checksum(fbuf,data_per_site);
+		    pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension,	rd_arg, siteid, 0);
+		    if(try_num>2)
+		    printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
+
+		    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
+		      for(int mat=0;mat<4;mat++) {
+			dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
+			pd += site_mem/4;
+		      }
+		    }
+		    else { // LatHeaderBase::LATRNG_HEADER
+		      // load
+#ifdef USE_C11_RNG
+	      dconv.file2host(pd, fbuf, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 	      dconv.file2host(rng,fbuf,data_per_site);
 	      ugran[siteid].load(rng.IntPtr());
 	      // generate next rand for verification
@@ -175,6 +200,7 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
 	      Rand2Sum += rn*rn;
 	      // recover loading
 	      ugran[siteid].load(rng.IntPtr());
+#endif
 	    }
 	   
 	    siteid++;
@@ -274,12 +300,14 @@ int ParallelIO::store(iostream & output,
 
   // these two only need when doing LatRng unloading
   TempBufAlloc rng(data_per_site * dconv.hostDataSize());
+#ifndef USE_C11_RNG
   UGrandomGenerator * ugran = (UGrandomGenerator*)data;
+#endif
 
   // start parallel writing
   uint32_t csum = 0, pdcsum = 0;
   Float RandSum=0, Rand2Sum=0;
-  const char * pd = data;
+  char * pd = data;
   int siteid=0;
 
   VRB.Result(cname, fname, "Parallel unloading starting\n");
@@ -318,6 +346,11 @@ do {
 	      }
 	      else { //LatHeaderBase::LATRNG_HEADER
 		// dump
+#ifdef USE_C11_RNG
+		dconv.host2file(fbuf,pd,data_per_site);
+	        CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+		pd += site_mem;
+#else
 		ugran[siteid].store(rng.IntPtr());
 		dconv.host2file(fbuf,rng,data_per_site);
 		// next rand
@@ -325,10 +358,6 @@ do {
 		RandSum += rn;
 		Rand2Sum += rn*rn;
 		// recover
-		ugran[siteid].load(rng.IntPtr());
-#if 0
-		Float rn2 = ugran[siteid].Grand();
-		printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		ugran[siteid].load(rng.IntPtr());
 #endif
 	      }
@@ -488,13 +517,17 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
   unsigned int pdcsum = 0;
   Float RandSum = 0;
   Float Rand2Sum = 0;
+#ifndef USE_C11_RNG
   UGrandomGenerator * ugran = (UGrandomGenerator*)data;
+#endif
 
   VRB.Result(cname, fname, "Serial loading <thru node 0> starting\n");
   for(int sc=0; dimension==4 || sc<ns; sc++) {
     for(int stk=0;stk<nstacked;stk++){
       char *data_stk = data + stk*site_mem* rd_arg.VolNodeSites(); //shifted field pointer for stacked fields on node
+#ifndef USE_C11_RNG
       ugran = (UGrandomGenerator*)data_stk;
+#endif
 
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
@@ -526,6 +559,11 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		}
 		else { //LatHeaderBase::LATRNG_HEADER
 		  // load
+#ifdef USE_C11_RNG
+	      dconv.file2host(pd, fbuf, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  dconv.file2host(rng,fbuf,data_per_site);
 		  ugran[xst].load(rng.IntPtr());
 		  // generate next rand for verification
@@ -534,6 +572,7 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		  Rand2Sum += rn*rn;
 		  // recover loading
 		  ugran[xst].load(rng.IntPtr());
+#endif
 		}
 		global_id ++;
 	      }
@@ -622,7 +661,9 @@ int SerialIO::store(iostream & output,
   // start serial writing
   unsigned int csum = 0, pdcsum = 0;
   Float RandSum = 0, Rand2Sum = 0;
+#ifndef USE_C11_RNG
   UGrandomGenerator * ugran = (UGrandomGenerator*)data;
+#endif
 
   VRB.Result(cname,fname,"Node %d: pos = %d\n",UniqueID(),(streamoff)output.tellp());
   int global_id = 0;
@@ -642,14 +683,17 @@ int SerialIO::store(iostream & output,
     for(int stk=0;stk<nstacked;stk++){
       //for gauge fields, site_mem = 72 = re/im * ncol*ncol * dirs
       char *data_stk = data + stk*site_mem* wt_arg.VolNodeSites(); //shifted field pointer for stacked fields
+
+#ifndef USE_C11_RNG
       ugran = (UGrandomGenerator*)data_stk;
+#endif
       //printf("ugran ptr %p,  data ptr %p\n", (char *)&ugran[0], data_stk);
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
 	    if(isNode0()) {
-		const char * pd = data_stk;
+		char * pd = data_stk;
 
 	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
 //                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
@@ -660,6 +704,11 @@ int SerialIO::store(iostream & output,
 		  }
 		}
 		else { //LatHeaderBase::LATRNG_HEADER
+#ifdef USE_C11_RNG
+	      dconv.host2file(fbuf, pd, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  // dump
 //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 		  ugran[xst].store(rng.IntPtr());
@@ -670,10 +719,6 @@ int SerialIO::store(iostream & output,
 		  RandSum += rn;
 		  Rand2Sum += rn*rn;
 		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
@@ -778,7 +823,9 @@ int SerialIO::storeGparityInterleaved(iostream & output,
   // start serial writing
   unsigned int csum = 0, pdcsum = 0;
   Float RandSum = 0, Rand2Sum = 0;
+#ifndef USE_C11_RNG
   UGrandomGenerator * ugran;
+#endif
 //if(hd.headerType() != LatHeaderBase::LATTICE_HEADER)
 //  printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
   int global_id = 0;
@@ -792,8 +839,10 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
 	    if(isNode0()) {
-	      const char * pd = data;
+	      char * pd = data;
+#ifndef USE_C11_RNG
 	      ugran = (UGrandomGenerator*)data;
+#endif
 
 	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
 		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
@@ -806,6 +855,11 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		else { //LatHeaderBase::LATRNG_HEADER
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+#ifdef USE_C11_RNG
+	      dconv.host2file(fbuf, pd, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  ugran[xst].store(rng.IntPtr());
 		  dconv.host2file(fbuf,rng,data_per_site);
 		  // next rand
@@ -814,10 +868,6 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  RandSum += rn;
 		  Rand2Sum += rn*rn;
 		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
@@ -846,7 +896,9 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 	      } //xst
 
 	      pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+#ifndef USE_C11_RNG
 	      ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+#endif
 
 	      for(int xst=0;xst<wt_arg.XnodeSites();xst++) {
 		//                if(!UniqueID()) printf("Node %d: %d %d %d %d %d %d\n",UniqueID(),xst,xnd,yc,zc,tc,sc);
@@ -859,6 +911,11 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		else { //LatHeaderBase::LATRNG_HEADER
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+#ifdef USE_C11_RNG
+	      dconv.host2file(fbuf, pd, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  ugran[xst].store(rng.IntPtr());
 		  dconv.host2file(fbuf,rng,data_per_site);
 		  // next rand
@@ -867,10 +924,6 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  RandSum += rn;
 		  Rand2Sum += rn*rn;
 		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
@@ -988,7 +1041,9 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
   // start serial writing
   unsigned int csum = 0, pdcsum = 0;
   Float RandSum = 0, Rand2Sum = 0;
+#ifndef USE_C11_RNG
   UGrandomGenerator * ugran;
+#endif
 //if(hd.headerType() != LatHeaderBase::LATTICE_HEADER)
 //  printf("Node %d: ugran[0]=%e\n",UniqueID(),ugran[0].Urand(0,1));
   int global_id = 0;
@@ -1003,19 +1058,23 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<wt_arg.Xnodes(); xnd++) {
 	    if(isNode0()) {
-	      const char * pd;
+	      char * pd;
 
 	      int stk;
 
 	      if(ycycle==1){
 		//U* field
 		pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+#ifndef USE_C11_RNG
 		ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+#endif
 		stk = 1;
 	      }else{
 		//U field
 		pd = data;
+#ifndef USE_C11_RNG
 		ugran = (UGrandomGenerator*)data;
+#endif
 		stk = 0;
 	      }
 
@@ -1030,6 +1089,11 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		else { //LatHeaderBase::LATRNG_HEADER
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+#ifdef USE_C11_RNG
+	      dconv.host2file(fbuf, pd, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  ugran[xst].store(rng.IntPtr());
 		  dconv.host2file(fbuf,rng,data_per_site);
 		  // next rand
@@ -1038,10 +1102,6 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  RandSum += rn;
 		  Rand2Sum += rn*rn;
 		  // recover
-		  ugran[xst].load(rng.IntPtr());
-#if 0
-		  Float rn2 = ugran[xst].Grand();
-		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
@@ -1068,12 +1128,16 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 	      if(ycycle==1){
 		//U field
 		pd = data;
+#ifndef USE_C11_RNG
 		ugran = (UGrandomGenerator*)data;
+#endif
 		stk = 0;
 	      }else{
 		//U* field
 		pd = data + site_mem* wt_arg.VolNodeSites(); //write from second stacked field
+#ifndef USE_C11_RNG
 		ugran = (UGrandomGenerator*)(data + site_mem * wt_arg.VolNodeSites());
+#endif
 		stk = 1;
 	      }
 
@@ -1088,6 +1152,11 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		else { //LatHeaderBase::LATRNG_HEADER
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
+#ifdef USE_C11_RNG
+	      dconv.host2file(fbuf, pd, data_per_site);
+              CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
+         	pd += site_mem;
+#else
 		  ugran[xst].store(rng.IntPtr());
 		  dconv.host2file(fbuf,rng,data_per_site);
 		  // next rand
@@ -1097,6 +1166,7 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  Rand2Sum += rn*rn;
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
+#endif
 #if 0
 		  Float rn2 = ugran[xst].Grand();
 		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
