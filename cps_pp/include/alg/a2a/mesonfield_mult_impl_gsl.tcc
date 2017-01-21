@@ -17,31 +17,17 @@ public:
   //Matrix product of meson field pairs
   //out(t1,t4) = l(t1,t2) * r(t3,t4)     (The stored timeslices are only used to unpack TimePackedIndex so it doesn't matter if t2 and t3 are thrown away; their indices are contracted over hence the times are not needed)
 
-  inline static int nearest_divisor(const int of, const int base_divisor){
-    //printf("nearest_divisor of %d, base_divisor %d\n", of, base_divisor); fflush(stdout);
-    assert(base_divisor > 0);
-    if(of % base_divisor == 0) return base_divisor;
-
-    int nearest_below = base_divisor;    
-    bool no_nearest_below = false;
-    while(of % nearest_below != 0){ 
-      --nearest_below;
-      if(nearest_below == 0){ no_nearest_below = true; break; }
-    }
-    int nearest_above = base_divisor;
-    bool no_nearest_above = false;
-    while(of % nearest_above !=0){
-      ++nearest_above;
-      if(nearest_above == of){ no_nearest_above = true; break; }
-    }
-    if(no_nearest_above && no_nearest_below) return of;
-    if(no_nearest_below) return nearest_above;
-    if(no_nearest_above) return nearest_below;
+  static int next_divisor(const int of, const int start){
+    if(start == of) return start;
     
-    int sep_above = nearest_above - base_divisor;
-    int sep_below = base_divisor - nearest_below;
-    return sep_above < sep_below ? nearest_above : nearest_below;
+    int ret = start + 1;
+    while(of % ret !=0){
+      ++ret;
+      if(ret == of) break;
+    }
+    return ret;
   }
+  
   
   static void mult(A2AmesonField<mf_Policies,lA2AfieldL,rA2AfieldR> &out, const A2AmesonField<mf_Policies,lA2AfieldL,lA2AfieldR> &l, const A2AmesonField<mf_Policies,rA2AfieldL,rA2AfieldR> &r, const bool node_local){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
@@ -86,33 +72,38 @@ public:
     const int compute_elements = omp_get_max_threads() * ( node_local ? 1 : nodes );
 
     //Want the total number of blocks to be close to the number of compute elements = (number of nodes)*(number of threads)
-    //We shouldn't just take the square-root though because quite often the number of indices differs substantially
-    //We want   ni0 * nk0 = nodes
-    //and the ratios to be approximately the same between the number of blocks and the number of indices
-    //Take ratios wrt smallest so these are always >=1
 
-    const int smallest = std::min(ni,nk);  
+    //ni0 = ni/bi   number of i blocks
+    //nk0 = nk/bk   number of k blocks
 
-    const int ratios[2] = {ni/smallest, nk/smallest};
-    int base = (int)pow( compute_elements/ratios[0]/ratios[1], 1/2.);  //compute_element
-    if(!base) ++base;
+    //Require  ni0 * nk0 ~ compute_elements
+    //=>  ni * nk ~ compute_elements * bi * bk
+    //Require ni % bi == 0,  nk % bk == 0
+
+    int bi = 1, bk = 1;
     
-    const int ni0 = nearest_divisor(ni, ratios[0]*base);
-    const int nk0 = nearest_divisor(nk, ratios[1]*base);
+    int cycle = 0;
+    while(compute_elements * bi * bk < ni * nk){
+      //printf("bi %d bk %d,  compute_elements*bi*bk %d,  ni*nk %d\n",bi,bk,compute_elements*bi*bk,ni*nk);
+      if(cycle % 2 == 0) bi = next_divisor(ni,bi);
+      else bk = next_divisor(nk,bk);
+      ++cycle;
+    }
 
-    assert(ni % ni0 == 0);
-    assert(nk % nk0 == 0);
-    
-    const int bi = ni/ni0;
-    const int bk = nk/nk0;
+    assert(ni % bi == 0);
+    const int ni0 = ni/bi;
+  
+    assert(nk % bk == 0);
+    const int nk0 = nk/bk;
+
     
     //parallelize ik blocks
     const int work = ni0 * nk0;
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work,node_local);
 
-    //if(!UniqueID()) printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d. Work %d, node_work %d\n",ni,nj,nk,bi,nj,bk,ni0,1,nk0,work,node_work);
-
+    //if(!UniqueID()) printf("mult sizes %d %d %d block sizes %d %d %d, num blocks %d %d %d, total blocks %d, compute elements %d\n",ni,nj,nk,bi,nj,bk,ni0,1,nk0,ni0*nk0,compute_elements);
+    
     if(do_work){    
       Float t1 = dclock();
 
@@ -172,7 +163,6 @@ public:
 	// if(i0 + bi > ni) ERR.General("_mult_impl","mult","i0+bi overflows matrix\n");
 	// if(k0 >= nk) ERR.General("_mult_impl","mult","k0 out of range\n");
 	// if(k0 + bk > nk) ERR.General("_mult_impl","mult","k0+bk overflows matrix\n");
-
 	
 	typename gw::matrix_complex_const_view ijblock_view = gw::matrix_complex_const_submatrix(lreord_gsl,i0,0,bi,nj);
 	typename gw::matrix_complex_const_view jkblock_view = gw::matrix_complex_const_submatrix(rreord_gsl,0,k0,nj,bk);
