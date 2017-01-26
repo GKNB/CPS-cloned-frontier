@@ -230,7 +230,7 @@ struct MultiSrcVectorPolicies{
 
   cps::ComplexD* mem_pool;
   size_t mem_pool_size;
-  size_t mem_pool_off;
+  std::vector<size_t> mem_pool_off; //accumulate next pointer offset per thread
   
   MultiSrcVectorPolicies(): mem_pool(NULL){}
   ~MultiSrcVectorPolicies(){ if(mem_pool) free(mem_pool); }
@@ -243,7 +243,10 @@ struct MultiSrcVectorPolicies{
       mem_pool = (cps::ComplexD*)memalign(128, size * sizeof(cps::ComplexD));
       mem_pool_size = size;
     }
-    mem_pool_off = 0;
+    mem_pool_off.resize(nthread);
+    for(int i=0;i<nthread;i++)
+      mem_pool_off[i] = i*nmodes_l * nmodes_r * mfPerTimeSlice;
+    
     memset(mem_pool, 0, size * sizeof(cps::ComplexD));
   } 
   
@@ -252,9 +255,9 @@ struct MultiSrcVectorPolicies{
   }
   
   inline void initializeElement(mf_Element &e){
-    e = mem_pool + mem_pool_off;
-    mem_pool_off += mfPerTimeSlice;
-    //e.resize(mfPerTimeSlice, cps::ComplexD(0.));  }
+    int me = omp_get_thread_num();
+    e = mem_pool + mem_pool_off[me];
+    mem_pool_off[me] += mfPerTimeSlice;    
   }
   
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
@@ -338,7 +341,8 @@ struct MultiSrcVectorPoliciesSIMD{
 
   Grid::vComplexD* mem_pool;
   size_t mem_pool_size;
-  size_t mem_pool_off;
+  std::vector<size_t> mem_pool_off;
+  size_t mem_pool_reduce_off;
   
   MultiSrcVectorPoliciesSIMD(): mem_pool(NULL){}
   ~MultiSrcVectorPoliciesSIMD(){ if(mem_pool) free(mem_pool); }
@@ -351,7 +355,12 @@ struct MultiSrcVectorPoliciesSIMD{
       mem_pool = (Grid::vComplexD*)memalign(128, size * sizeof(Grid::vComplexD));
       mem_pool_size = size;
     }
-    mem_pool_off = 0;
+    mem_pool_reduce_off = nthread * nmodes_l * nmodes_r * mfPerTimeSlice;
+    
+    mem_pool_off.resize(nthread);
+    for(int i=0;i<nthread;i++)
+      mem_pool_off[i] = i*nmodes_l * nmodes_r * mfPerTimeSlice;
+    
     memset(mem_pool, 0, size * sizeof(Grid::vComplexD));
   } 
 
@@ -360,9 +369,9 @@ struct MultiSrcVectorPoliciesSIMD{
   }
   
   inline void initializeElement(mf_Element &e){
-    e = mem_pool + mem_pool_off;
-    //for(int i=0;i<mfPerTimeSlice;i++) zeroit(e[i]);
-    mem_pool_off += mfPerTimeSlice;
+    int me = omp_get_thread_num();
+    e = mem_pool + mem_pool_off[me];
+    mem_pool_off[me] += mfPerTimeSlice;
   }
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
@@ -377,8 +386,7 @@ struct MultiSrcVectorPoliciesSIMD{
     }
   }
   inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
-    //typename AlignedVector<Grid::vComplexD>::type tmp(mfPerTimeSlice);
-    Grid::vComplexD* tmp = mem_pool + mem_pool_off + omp_get_thread_num() * mfPerTimeSlice;
+    Grid::vComplexD* tmp = mem_pool + mem_pool_reduce_off + omp_get_thread_num() * mfPerTimeSlice;
     
     for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0][i][j][s];
 
@@ -459,6 +467,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
       int nthread = omp_get_max_threads();
       std::vector<std::vector<mf_Element_Vector> > mf_accum_thr(nthread); //indexed by [thread][i][j]
+#pragma omp parallel for
       for(int thr=0;thr<nthread;thr++){
 	mf_accum_thr[thr].resize(nmodes_l);
 	for(int i=0;i<nmodes_l;i++){
