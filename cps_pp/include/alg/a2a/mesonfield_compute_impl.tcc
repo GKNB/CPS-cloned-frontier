@@ -128,7 +128,7 @@ public:
 
   //Lowest level of blocked matrix mult. Ideally this should fit in L1 cache.
   template<typename InnerProduct>
-  static void mult_kernel(std::vector<mf_Element_Vector> &mf_accum_m, const InnerProduct &M, const int t,
+  static void mult_kernel(basicMatrix<mf_Element,Aligned128AllocPolicy> & mf_accum_m, const InnerProduct &M, const int t,
 			  const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
 			  const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
@@ -137,7 +137,7 @@ public:
     for(int i = i0; i < iup; i++){	      
       for(int j = j0; j < jup; j++) {		
 	
-	mf_Element &mf_accum = mf_accum_m[i][j];
+	mf_Element &mf_accum = mf_accum_m(i,j);
 	
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> lscf(base_ptrs_i[i], site_offsets_i[i], p0);
 	SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> rscf(base_ptrs_j[j], site_offsets_j[j], p0);
@@ -157,7 +157,7 @@ public:
   //Do a second layer of blocked dgemm to try to fit in the L1 cache
   //note the i0, iup, etc are the low and high range limits from the outer blocking
   template<typename InnerProduct>
-  static void inner_block_mult(std::vector<mf_Element_Vector> &mf_accum_m, const InnerProduct &M, const int t,
+  static void inner_block_mult(basicMatrix<mf_Element,Aligned128AllocPolicy> &mf_accum_m, const InnerProduct &M, const int t,
 			       const int i0, const int iup, const int j0, const int jup, const int p0, const int pup,
 			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_i,
 			       const std::vector<SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> > &base_ptrs_j,
@@ -203,9 +203,9 @@ struct SingleSrcVectorPolicies{
 	mf_t[t].zero();
       }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
+  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<basicMatrix<mf_Element,Aligned128AllocPolicy> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
     for(int thr=0;thr<nthread;thr++)
-	mf_t[t](i,j) += mf_accum_thr[thr][i][j];
+      mf_t[t](i,j) += mf_accum_thr[thr](i,j);
   }
   //Used to get information about rows and cols
   static inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_t, const int t){
@@ -272,10 +272,10 @@ struct MultiSrcVectorPolicies{
 	}
     }
   }
-  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
+  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<basicMatrix<mf_Element,Aligned128AllocPolicy> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
     for(int thr=0;thr<nthread;thr++)
       for(int s=0;s<mfPerTimeSlice;s++)
-	mf_st[s]->operator[](t)(i,j) += mf_accum_thr[thr][i][j][s];
+	mf_st[s]->operator[](t)(i,j) += mf_accum_thr[thr](i,j)[s];
   }
 
   //Used to get information about rows and cols
@@ -313,9 +313,9 @@ struct SingleSrcVectorPoliciesSIMD{
 	mf_t[t].zero();
       }
   }
-  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
-    mf_Element tmp = mf_accum_thr[0][i][j];
-    for(int thr=1;thr<nthread;thr++) tmp += mf_accum_thr[thr][i][j];
+  static inline void sumThreadedResults(mfVectorType &mf_t, const std::vector<basicMatrix<mf_Element,Aligned128AllocPolicy> > &mf_accum_thr, const int i, const int j, const int t, const int nthread){
+    mf_Element tmp = mf_accum_thr[0](i,j);
+    for(int thr=1;thr<nthread;thr++) tmp += mf_accum_thr[thr](i,j);
     mf_t[t](i,j) += Reduce(tmp);
   }
   //Used to get information about rows and cols
@@ -385,14 +385,14 @@ struct MultiSrcVectorPoliciesSIMD{
 	}
     }
   }
-  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<std::vector<mf_Element_Vector> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
+  inline void sumThreadedResults(mfVectorType &mf_st, const std::vector<basicMatrix<mf_Element,Aligned128AllocPolicy> > &mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
     Grid::vComplexD* tmp = mem_pool + mem_pool_reduce_off + omp_get_thread_num() * mfPerTimeSlice;
     
-    for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0][i][j][s];
+    for(int s=0;s<mfPerTimeSlice;s++) tmp[s] = mf_accum_thr[0](i,j)[s];
 
     for(int thr=1;thr<nthread;thr++)
       for(int s=0;s<mfPerTimeSlice;s++)
-    	tmp[s] += mf_accum_thr[thr][i][j][s];
+    	tmp[s] += mf_accum_thr[thr](i,j)[s];
 
     for(int s=0;s<mfPerTimeSlice;s++)
       mf_st[s]->operator[](t)(i,j) += Reduce(tmp[s]);    
@@ -466,15 +466,13 @@ struct mfComputeGeneral: public mfVectorPolicies{
       const int bp = BlockedMesonFieldArgs::bp;
 
       int nthread = omp_get_max_threads();
-      std::vector<std::vector<mf_Element_Vector> > mf_accum_thr(nthread); //indexed by [thread][i][j]
+      std::vector<basicMatrix<mf_Element,Aligned128AllocPolicy> > mf_accum_thr(nthread);
+
 #pragma omp parallel for
       for(int thr=0;thr<nthread;thr++){
-	mf_accum_thr[thr].resize(nmodes_l);
-	for(int i=0;i<nmodes_l;i++){
-	  mf_accum_thr[thr][i].resize(nmodes_r);
-	  for(int j=0;j<nmodes_r;j++)
-	    this->initializeElement(mf_accum_thr[thr][i][j]);
-	}
+	mf_accum_thr[thr].resize(nmodes_l,nmodes_r);
+	mf_Element* ptr = mf_accum_thr[thr].ptr();
+	for(int ij=0; ij< mf_accum_thr[thr].size(); ij++) this->initializeElement( *(ptr++) );
       }
 	
       //Make a table of p base pointers and site offsets for each i,j

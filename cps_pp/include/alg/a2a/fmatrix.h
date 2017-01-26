@@ -9,47 +9,52 @@ CPS_START_NAMESPACE
 
 class StandardAllocPolicy;
 
-template<typename T>
-class basicMatrix{
+template<typename T, typename AllocPolicy = StandardAllocPolicy>
+class basicMatrix : public AllocPolicy{
   T* tt;
   int rows, cols;
   int fsize; //number of elements
   
-  void free(){
-    if(tt!=NULL) sfree("basicMatrix","~basicMatrix","free",tt);
+  inline void free(){
+    if(tt!=NULL) AllocPolicy::_free(tt);
   }
 
-  void alloc(const int &_rows, const int &_cols, T const* cp = NULL){
-    if(_rows != rows || _cols != cols){
-      free();
-      rows = _rows; cols = _cols; fsize = rows*cols;
-      tt = (T*)smalloc("basicMatrix", "basicMatrix", "alloc" , sizeof(T) * fsize);
-    }
-    if(cp != NULL) for(int i=0;i<fsize;i++) tt[i] = cp[i];
+  inline void alloc(const int _rows, const int _cols){
+    rows = _rows; cols = _cols; fsize = rows*cols;
+    AllocPolicy::_alloc(&tt, fsize*sizeof(T));
   }
 
 public:
   basicMatrix(): rows(0),cols(0),fsize(0),tt(NULL){ }
 
-  basicMatrix(const int &_rows, const int &_cols): tt(NULL){ 
-    alloc(_rows,_cols);
+  basicMatrix(const int _rows, const int _cols){
+    this->alloc(_rows,_cols);
   }
   basicMatrix(const basicMatrix<T> &r){
-    alloc(r.rows,r.cols,r.tt);
+    this->alloc(r.rows,r.cols);
+    for(int i=0;i<fsize;i++) tt[i] = r.tt[i];
   }
   
   T* ptr(){ return tt;}
+  T const* ptr() const{ return tt;}
+  
+  const int size() const{ return fsize; }
+  
+  void resize(const int _rows, const int _cols){
+    if(tt == NULL || _rows * _cols != fsize){
+      this->free();
+      this->alloc(_rows,_cols);
+    }
+  }
 
-  void resize(const int &_rows, const int &_cols){ alloc(_rows,_cols); }
+  inline const T & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
+  inline T & operator()(const int i, const int j){ return tt[j + cols*i]; }
 
-  inline const T & operator()(const int &i, const int &j) const{ return tt[j + cols*i]; }
-  inline T & operator()(const int &i, const int &j){ return tt[j + cols*i]; }
-
-  inline const int &nRows() const{ return rows; }
-  inline const int &nCols() const{ return cols; }
+  inline const int nRows() const{ return rows; }
+  inline const int nCols() const{ return cols; }
 
   ~basicMatrix(){
-    free();
+    this->free();
   }
 };
 
