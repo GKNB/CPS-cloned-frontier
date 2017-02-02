@@ -77,7 +77,8 @@ int main (int argc,char **argv )
 #if TARGET == BGQ
   nthreads = 64;
 #endif
-  bool randomize_vw = false; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W. This should only be used after you have tested
+  bool randomize_vw = false; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
+  bool randomize_evecs = false; //skip Lanczos and just use random evecs for testing.
   bool tune_lanczos_light = false; //just run the light lanczos on first config then exit
   bool tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
   bool skip_gauge_fix = false;
@@ -93,23 +94,35 @@ int main (int argc,char **argv )
   const int ngrid_arg = 7;
   const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
   const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
+
+  Float inner_cg_resid;
+  Float *inner_cg_resid_p = NULL;
   
   int arg = 4;
   while(arg < argc){
     char* cmd = argv[arg];
     if( strncmp(cmd,"-nthread",8) == 0){
-      if(arg == argc-1){ 
-	if(!UniqueID()){ printf("-nthread must be followed by a number!\n"); fflush(stdout); }
-	exit(-1);
-      }
-      std::stringstream ss; ss << argv[arg+1];
-      ss >> nthreads;
+      if(arg == argc-1){ if(!UniqueID()){ printf("-nthread must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+      nthreads = strToAny<int>(argv[arg+1]);
       if(!UniqueID()){ printf("Setting number of threads to %d\n",nthreads); }
       arg+=2;
+    }else if( strncmp(cmd,"-set_inner_resid",16) == 0){ //only for mixed CG
+      if(arg == argc-1){ if(!UniqueID()){ printf("-set_inner_resid must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+      inner_cg_resid = strToAny<Float>(argv[arg+1]);
+      inner_cg_resid_p = &inner_cg_resid;
+      if(!UniqueID()){ printf("Setting inner CG initial residual to %g\n",inner_cg_resid); }
+#ifdef USE_BFM_A2A
+      ERR.General("","main","Changing initial inner CG residual not implemented for BFM version\n");
+#endif      
+      arg+=2;      
     }else if( strncmp(cmd,"-randomize_vw",15) == 0){
       randomize_vw = true;
       if(!UniqueID()){ printf("Using random vectors for V and W, skipping Lanczos and inversion stages\n"); fflush(stdout); }
       arg++;
+    }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
+      randomize_evecs = true;
+      if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
+      arg++;      
     }else if( strncmp(cmd,"-tune_lanczos_light",15) == 0){
       tune_lanczos_light = true;
       if(!UniqueID()){ printf("Just tuning light lanczos on first config\n"); fflush(stdout); }
@@ -137,17 +150,11 @@ int main (int argc,char **argv )
       arg++;
     }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
       int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
-      for(int a=0;a<3;a++){
-	std::stringstream ss; ss << argv[arg+1+a];
-	ss >> *b[a];
-      }
+      for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
       arg+=4;
     }else if( strncmp(cmd,"-mf_innerblocking",15) == 0){
       int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
-      for(int a=0;a<3;a++){
-	std::stringstream ss; ss << argv[arg+1+a];
-	ss >> *b[a];
-      }
+      for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
       arg+=4;
     }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
       do_kaon2pt = false;
@@ -340,7 +347,8 @@ int main (int argc,char **argv )
       if(!UniqueID()) printf("Running light quark Lanczos\n");
       lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       time = -dclock();
-      eig.compute(lanc_arg, LANCZOS_EXTRA_ARG);
+      if(randomize_evecs) eig.randomizeEvecs(lanc_arg, LANCZOS_EXTRA_ARG);
+      else eig.compute(lanc_arg, LANCZOS_EXTRA_ARG);
       time += dclock();
       print_time("main","Light quark Lanczos",time);
 
@@ -378,7 +386,11 @@ int main (int argc,char **argv )
 #ifdef USE_BFM_LANCZOS
       W.computeVW(V, *a2a_lat, *eig.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
 #else
-      if(evecs_single_prec){ W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000); }else{ W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000); }
+      if(evecs_single_prec){
+	W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000,inner_cg_resid_p);
+      }else{
+	W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
+      }
 #endif     
     }else randomizeVW<A2Apolicies>(V,W);    
 
@@ -402,7 +414,8 @@ int main (int argc,char **argv )
       lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       if(!UniqueID()) printf("Running strange quark Lanczos\n");
       time = -dclock();
-      eig_s.compute(lanc_arg_s, LANCZOS_EXTRA_ARG);
+      if(randomize_evecs) eig_s.randomizeEvecs(lanc_arg_s, LANCZOS_EXTRA_ARG);
+      else eig_s.compute(lanc_arg_s, LANCZOS_EXTRA_ARG);
       time += dclock();
       print_time("main","Strange quark Lanczos",time);
 
@@ -438,7 +451,11 @@ int main (int argc,char **argv )
 #ifdef USE_BFM_LANCZOS
       W_s.computeVW(V_s, *a2a_lat, *eig_s.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
 #else
-      if(evecs_single_prec){ W_s.computeVW(V_s, *a2a_lat, eig_s.evec_f, eig_s.eval, eig_s.mass, eig_s.resid, 10000); }else{ W_s.computeVW(V_s, *a2a_lat, eig_s.evec, eig_s.eval, eig_s.mass, eig_s.resid, 10000); }
+      if(evecs_single_prec){
+	W_s.computeVW(V_s, *a2a_lat, eig_s.evec_f, eig_s.eval, eig_s.mass, eig_s.resid, 10000, inner_cg_resid_p);
+      }else{
+	W_s.computeVW(V_s, *a2a_lat, eig_s.evec, eig_s.eval, eig_s.mass, eig_s.resid, 10000);
+      }
 #endif     
     }else randomizeVW<A2Apolicies>(V_s,W_s);      
 

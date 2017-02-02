@@ -348,8 +348,9 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 }
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter, const Float *init_inner_resid){
   EvecInterfaceGridSinglePrec<mf_Policies> ev(evec,eval,lat,mass);
+  if(init_inner_resid != NULL) ev.overrideInitialInnerResid(*init_inner_resid);
   return computeVWhigh(V,lat,ev,mass,residual,max_iter);
 }
 

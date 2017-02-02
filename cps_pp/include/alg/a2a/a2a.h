@@ -294,11 +294,11 @@ public:
   //Single-precision variants (use mixed_CG internally)
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter, const Float *init_inner_resid = NULL);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter, const Float *high_mode_init_inner_resid = NULL){
     computeVWlow(V,lat,evec,eval,mass);
-    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
+    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter,high_mode_init_inner_resid);
   }
 #endif
 

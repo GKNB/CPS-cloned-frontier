@@ -223,11 +223,11 @@ struct BFMsolvers{
       ERR.General("LatticeSolvers","constructor","Unknown solver\n");
     }
     setup_bfmargs(dwfa,nthreads,solver,jp.mobius_scale);
-    dwf_d.init(dwfa);
-    dwf_d.comm_end(); dwf_f.init(dwfa); dwf_f.comm_end(); dwf_d.comm_init();
 #ifdef USE_NEW_BFM_GPARITY
     dwf_d.threads = dwf_f.threads = nthreads;
 #endif
+    dwf_d.init(dwfa);
+    dwf_d.comm_end(); dwf_f.init(dwfa); dwf_f.comm_end(); dwf_d.comm_init();
   }
 
   ~BFMsolvers(){
@@ -338,6 +338,11 @@ struct GridLanczosWrapper{
 
 # endif
   }
+
+  void randomizeEvecs(const LancArg &lanc_arg,typename GridPolicies::FgridGFclass &lat){
+    ERR.General("GridLanczosWrapper","randomizeEvecs","Not yet implemented");
+  }
+  
   void toSingle(){
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
@@ -403,6 +408,28 @@ struct BFMLanczosWrapper{
     eig->free_bq();
   }
 
+  void randomizeEvecs(const LancArg &lanc_arg, BFMsolvers &solvers){
+    assert(eig == NULL);
+    eig = new BFM_Krylov::Lanczos_5d<double>(solvers.dwf_d,const_cast<LancArg&>(lanc_arg));
+    eig->bq.resize(eig->get);
+    eig->evals.resize(eig->get);
+    
+    CPSfermion5D<cps::ComplexD> tmp;
+    
+    for(int i=0;i<eig->get;i++){      
+#pragma omp parallel
+      {
+	eig->bq[i][0] = eig->bq[i][1] = NULL;
+	for(int p=eig->prec; p<2; p++) eig->bq[i][p] = solvers.dwf_d.threadedAllocCompactFermion();
+      }
+      tmp.setGaussianRandom();
+      for(int p=eig->prec; p<2; p++) tmp.exportFermion<double>(eig->bq[i][p], p, solvers.dwf_d);
+      
+      eig->evals[i] = LRG.Lrand(10,0.1); //same on all nodes      
+    }
+  }
+
+  
   ~BFMLanczosWrapper(){
     if(eig != NULL)
       delete eig;

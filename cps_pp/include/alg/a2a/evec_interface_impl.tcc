@@ -138,8 +138,11 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
   Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF> *Linop_f;
 
   bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
+
+  bool override_inner_resid;
+  Float inner_resid;
 public:
-  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false){
+  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false), override_inner_resid(false){
     FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
     const GridGaugeField & Umu = *latg.getUmu();    
     
@@ -180,6 +183,12 @@ public:
     if(delete_FrbGrid_f) delete FrbGrid_f;
   }
 
+  //Optionally set the initial inner CG residual. By default it is the same as the overall residual.
+  void overrideInitialInnerResid(const Float value){
+    inner_resid = value;
+    override_inner_resid = true;
+  }
+  
   Float getEvec(GridFermionField &into, const int idx){ //get *double precision* eigenvector
     precisionChange(into,evec[idx]);
     return eval[idx];
@@ -199,6 +208,9 @@ public:
     deflateGuess<GridFermionFieldF> guesser(evec,eval);
     Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
     mCG.useGuesser(guesser);
+
+    if(override_inner_resid) mCG.InnerTolerance = inner_resid;
+    
     mCG(source,solution);
   }
 

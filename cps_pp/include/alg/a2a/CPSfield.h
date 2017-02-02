@@ -394,21 +394,24 @@ private:
   void impexFermion(Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
     if(this->flavors == 2) assert(dwf.gparity);
 
-    const int sc_incr = dwf.nsimd() * 2; //stride between spin-color indices
+    const int sc_incr = dwf.nsimd * 2; //stride between spin-color indices
     FloatExt * bb = (FloatExt*)bfm_field;
 
     typedef typename mf_Complex::value_type mf_Float;
     
 #pragma omp parallel for
     for(int fs=0;fs<this->fsites;fs++){
-      int x[5], f; this->fsiteUnmap(fs);
+      int x[5], f; this->fsiteUnmap(fs, x, f);
       if( (x[0]+x[1]+x[2]+x[3] + (dwf.precon_5d ? x[4] : 0)) % 2 == cb){
 	mf_Float* cps_base = (mf_Float*)this->fsite_ptr(fs);
 
+#ifdef USE_NEW_BFM_GPARITY
+	int bidx_off = dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1, f);
+#else
 	int bidx_off = dwf.gparity ? 
 	  dwf.bagel_gparity_idx5d(x, x[4], 0, 0, 12, 1, f) :
 	  dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1);
-
+#endif
 	FloatExt * bfm_base = bb + bidx_off;
 
 	for(int i=0;i<12;i++)

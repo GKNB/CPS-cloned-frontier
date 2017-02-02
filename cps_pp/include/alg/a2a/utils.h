@@ -744,6 +744,12 @@ struct AlignedVector{
   typedef std::vector<T,BasicAlignedAllocator<T> > type;
 };
 
+template<typename T>
+inline T strToAny(const char* a){
+  std::stringstream ss; ss << a; T o; ss >> o;
+  return o;
+}
+
 
 CPS_END_NAMESPACE
 
