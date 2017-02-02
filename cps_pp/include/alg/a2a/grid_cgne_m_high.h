@@ -1,7 +1,7 @@
 #ifndef _GRID_CGNE_M_HIGH_H
 #define _GRID_CGNE_M_HIGH_H
 
-#ifdef USE_GRID
+#if defined(USE_GRID) && defined(USE_GRID_A2A)
 #include<util/lattice/fgrid.h>
 #include<alg/a2a/evec_interface.h>
 

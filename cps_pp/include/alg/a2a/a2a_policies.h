@@ -27,25 +27,13 @@ struct StandardSourcePolicies{
   typedef StandardAllocPolicy AllocPolicy;
 };
 
-struct A2ApoliciesBase{
-  typedef cps::ComplexD ComplexTypeD;
-  typedef cps::ComplexF ComplexTypeF;
-  typedef GwilsonFdwf LatticeType;
-};
-
-#define INHERIT_A2A_POLICIES_BASE_TYPEDEFS \
-  typedef typename A2ApoliciesBase::ComplexTypeD ComplexTypeD; \
-  typedef typename A2ApoliciesBase::ComplexTypeF ComplexTypeF; \
-  typedef typename A2ApoliciesBase::LatticeType LatticeType;
-
-
+//These typedefs are needed if Grid is being used at all even if the main program is not using SIMD vectorized data types
 #ifdef USE_GRID
 
 CPS_END_NAMESPACE
 #include<util/lattice/fgrid.h>
 CPS_START_NAMESPACE
 
-//These typedefs are needed if Grid is being used at all even if the main program is not using SIMD vectorized data types
 struct BaseGridPolicies{
 # ifdef USE_GRID_GPARITY
   typedef FgridGparityMobius FgridFclass;
@@ -79,12 +67,13 @@ struct BaseGridPolicies{
 
 //Policy choices
 struct A2ApoliciesDoubleAutoAlloc{
-  INHERIT_A2A_POLICIES_BASE_TYPEDEFS;
 #ifdef USE_GRID
   INHERIT_BASE_GRID_TYPEDEFS;
 #endif
   
   typedef cps::ComplexD ComplexType;
+  typedef cps::ComplexD ComplexTypeD;
+  typedef cps::ComplexF ComplexTypeF;
   typedef StandardAllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
   typedef CPSfermion4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
@@ -95,12 +84,13 @@ struct A2ApoliciesDoubleAutoAlloc{
 };
 
 struct A2ApoliciesDoubleManualAlloc{
-  INHERIT_A2A_POLICIES_BASE_TYPEDEFS;
 #ifdef USE_GRID
   INHERIT_BASE_GRID_TYPEDEFS;
 #endif
   
   typedef cps::ComplexD ComplexType;
+  typedef cps::ComplexD ComplexTypeD;
+  typedef cps::ComplexF ComplexTypeF;
   typedef StandardAllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
   typedef CPSfermion4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
@@ -113,24 +103,13 @@ struct A2ApoliciesDoubleManualAlloc{
 
 #ifdef USE_GRID
 
-//Base stuff for SIMD policies
-struct A2ApoliciesGridBase{
-  typedef Grid::vComplexD ComplexTypeD;
-  typedef Grid::vComplexF ComplexTypeF;
-};
-
-#define INHERIT_A2A_POLICIES_GRID_BASE_TYPEDEFS \
-  typedef typename A2ApoliciesGridBase::ComplexTypeD ComplexTypeD; \
-  typedef typename A2ApoliciesGridBase::ComplexTypeF ComplexTypeF;
-
-
 //Policy choices
 struct A2ApoliciesSIMDdoubleAutoAlloc{
   INHERIT_BASE_GRID_TYPEDEFS;
-  INHERIT_A2A_POLICIES_GRID_BASE_TYPEDEFS;
 
-  typedef FgridGFclass LatticeType;
   typedef Grid::vComplexD ComplexType;
+  typedef Grid::vComplexD ComplexTypeD;
+  typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
   typedef CPSfermion4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
@@ -142,10 +121,10 @@ struct A2ApoliciesSIMDdoubleAutoAlloc{
 
 struct A2ApoliciesSIMDdoubleManualAlloc{
   INHERIT_BASE_GRID_TYPEDEFS;
-  INHERIT_A2A_POLICIES_GRID_BASE_TYPEDEFS;
 
-  typedef FgridGFclass LatticeType;
   typedef Grid::vComplexD ComplexType;
+  typedef Grid::vComplexD ComplexTypeD;
+  typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
   typedef CPSfermion4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;

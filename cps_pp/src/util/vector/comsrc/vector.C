@@ -138,7 +138,14 @@ Complex Matrix::Char10() const
   return tmp ;
 }
 
-
+//------------------------------------------------------------------
+#ifndef VEC_INLINE
+void Matrix::TrLessAntiHermMatrix(){
+  Matrix dag;
+  dag.Dagger(*this);
+  this->TrLessAntiHermMatrix(dag);
+}
+#endif
 //------------------------------------------------------------------
 // The Vector class.
 //------------------------------------------------------------------

@@ -20,10 +20,11 @@
 #include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/evec_interface.h>
 #include<alg/a2a/CPSfield_utils.h>
+#include<alg/a2a/bfm_cgne_m_high.h>
 #include<alg/a2a/grid_cgne_m_high.h>
 #include<alg/a2a/a2a_fft.h>
 
-CPS_START_NAMESPACE 
+CPS_START_NAMESPACE
 
 //If using SIMD, we don't want to vectorize across the time direction
 template<typename FieldInputParamType>
@@ -253,7 +254,7 @@ public:
     *wh[hit] = whin;
   }
 
-#ifdef USE_GRID
+#if defined(USE_GRID_A2A)
   //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
 
   //Compute the low mode part of the W and V vectors.

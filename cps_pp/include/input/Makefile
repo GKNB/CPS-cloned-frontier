@@ -1,4 +1,4 @@
-SRCDIR = /home/ckelly/CPS/src/cps/cps_pp
+SRCDIR = /home/ckelly/CPS/build/cps_grid_mpi/../../src/cps/cps_pp
 BUILDDIR = /home/ckelly/CPS/build/cps_grid_mpi
 VPATH:=${SRCDIR}/include/input
 RPCGEN=${SRCDIR}/misc/vml_encode/rpcgenvml/rpcgenvml

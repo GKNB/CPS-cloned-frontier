@@ -186,7 +186,7 @@ int main (int argc,char **argv )
 #ifdef A2A_LANCZOS_SINGLE
   if(!evecs_single_prec) ERR.General("",fname,"Must use single-prec eigenvectors when doing Lanczos in single precision\n");
 #endif
-  
+    
   if(chdir(argv[1])!=0) ERR.General("",fname,"Unable to switch to directory '%s'\n",argv[1]);
   CommonArg common_arg("",""), common_arg2("","");
   DoArg do_arg;
@@ -232,6 +232,18 @@ int main (int argc,char **argv )
   GJP.Initialize(do_arg);
   LRG.Initialize();
 
+#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
+  if(GJP.Gparity()){
+#ifndef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
+#endif
+  }else{
+#ifdef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
+#endif
+  }      
+#endif
+  
   if(double_latt) SerialIO::dbl_latt_storemode = true;
 
   if(!UniqueID()) printf("Initial memory post-initialize:\n");
@@ -246,10 +258,13 @@ int main (int argc,char **argv )
   cps_qdp_init(&argc,&argv);
   //Chroma::initialize(&argc,&argv);
 #endif
+  omp_set_num_threads(nthreads);
+ 
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  
-  LatticeSolvers solvers(jp,nthreads); //for BFM holds a double and single precision bfm instance, nothing for Grid
+#if defined(USE_BFM_A2A) || defined(USE_BFM_LANCZOS)
+  BFMsolvers bfm_solvers(jp,nthreads); //for BFM holds a double and single precision bfm instance
+#endif
   
   if(chdir(meas_arg.WorkDirectory)!=0) ERR.General("",fname,"Unable to switch to work directory '%s'\n",meas_arg.WorkDirectory);
   double time;
@@ -257,24 +272,35 @@ int main (int argc,char **argv )
   if(!UniqueID()) printf("Memory prior to config loop:\n");
   printMem();
 
-#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
-  typedef A2Apolicies LanczosPolicies;
-  if(GJP.Gparity()){
-#ifndef USE_GRID_GPARITY
-    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
-#endif
-  }else{
-#ifdef USE_GRID_GPARITY
-    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
-#endif
-  }      
-#else
-  typedef void LanczosPolicies;
+#ifdef USE_GRID_LANCZOS
+  typedef GridLanczosWrapper<A2Apolicies> LanczosWrapper;
+  typedef typename A2Apolicies::FgridGFclass LanczosLattice;
+# define LANCZOS_LATARGS jp
+# define LANCZOS_LATMARK isGridtype
+# define LANCZOS_EXTRA_ARG *lanczos_lat
+#else //USE_BFM_LANCZOS
+  typedef BFMLanczosWrapper LanczosWrapper;
+  typedef GwilsonFdwf LanczosLattice;
+# define LANCZOS_LATARGS bfm_solvers
+# define LANCZOS_LATMARK isBFMtype
+# define LANCZOS_EXTRA_ARG bfm_solvers
 #endif
 
+#ifdef USE_GRID_A2A
+  typedef A2Apolicies::FgridGFclass A2ALattice;
+# define A2A_LATARGS jp
+# define A2A_LATMARK isGridtype
+#else
+  typedef GwilsonFdwf A2ALattice;
+# define A2A_LATARGS bfm_solvers
+# define A2A_LATMARK isBFMtype
+#endif
+  
+  LanczosLattice* lanczos_lat;
+  A2ALattice* a2a_lat;
+    
   //Setup parameters of fields
   typedef typename A2Apolicies::ComplexType mf_Complex;
-  typedef typename A2Apolicies::LatticeType LatticeType;
   typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType Field3DparamType;
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
   Field4DparamType field4dparams; setupFieldParams<mf_Complex>(field4dparams);
@@ -293,30 +319,28 @@ int main (int argc,char **argv )
     //-------------------- Read gauge field --------------------//
     ReadGaugeField(meas_arg,double_latt); 
     ReadRngFile(meas_arg,double_latt); 
-
+    
     if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
     printMem();
 
-    LatticeSetup<LatticeType> lattice_setup(jp,solvers); //for BFM this creates a lattice object and imports the gauge field into the bfm instances, for Grid a lattice object and import of the gauge field
-    LatticeType &lat = lattice_setup.getLattice();
-
+    LanczosWrapper eig;
     if(tune_lanczos_light || tune_lanczos_heavy){
       if(!UniqueID()) printf("Tuning lanczos %s with mass %f\n", tune_lanczos_light ? "light": "heavy", tune_lanczos_light ? lanc_arg.mass : lanc_arg_s.mass);
+      lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       time = -dclock();
-      Lanczos<LanczosPolicies> eig;
-      eig.compute(tune_lanczos_light ? lanc_arg : lanc_arg_s, solvers, lat);
+      eig.compute(tune_lanczos_light ? lanc_arg : lanc_arg_s, LANCZOS_EXTRA_ARG);
       time += dclock();
       print_time("main","Lanczos",time);
+      delete lanczos_lat;
       exit(0);
     }
 
     //-------------------- Light quark v and w --------------------//
-    Lanczos<LanczosPolicies> eig;
-
     if(!randomize_vw){
       if(!UniqueID()) printf("Running light quark Lanczos\n");
+      lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       time = -dclock();
-      eig.compute(lanc_arg, solvers, lat);
+      eig.compute(lanc_arg, LANCZOS_EXTRA_ARG);
       time += dclock();
       print_time("main","Light quark Lanczos",time);
 
@@ -330,8 +354,11 @@ int main (int argc,char **argv )
 	printMem();
       }
 #endif
+      delete lanczos_lat;
     }
 
+    a2a_lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS); //the lattice class used to perform the CG and whatnot
+    
     if(!UniqueID()) printf("Computing light quark A2A vectors\n");
     time = -dclock();
 
@@ -348,8 +375,11 @@ int main (int argc,char **argv )
 #endif
     
     if(!randomize_vw){
-      computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V,W,mixed_solve,evecs_single_prec, lat, eig, solvers);
-      //W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
+#ifdef USE_BFM_LANCZOS
+      W.computeVW(V, *a2a_lat, *eig.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
+#else
+      if(evecs_single_prec){ W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000); }else{ W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000); }
+#endif     
     }else randomizeVW<A2Apolicies>(V,W);    
 
     if(!UniqueID()) printf("Memory after light A2A vector computation:\n");
@@ -363,13 +393,16 @@ int main (int argc,char **argv )
     time += dclock();
     print_time("main","Light quark A2A vectors",time);
 
+    delete a2a_lat;
+    
     //-------------------- Strange quark v and w --------------------//
-    Lanczos<LanczosPolicies> eig_s;
+    LanczosWrapper eig_s;
 
     if(!randomize_vw){
+      lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       if(!UniqueID()) printf("Running strange quark Lanczos\n");
       time = -dclock();
-      eig_s.compute(lanc_arg_s,solvers,lat);
+      eig_s.compute(lanc_arg_s, LANCZOS_EXTRA_ARG);
       time += dclock();
       print_time("main","Strange quark Lanczos",time);
 
@@ -383,7 +416,10 @@ int main (int argc,char **argv )
 	printMem();
       }
 #endif
+      delete lanczos_lat;
     }
+
+    a2a_lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS);
 
     if(!UniqueID()) printf("Computing strange quark A2A vectors\n");
     time = -dclock();
@@ -399,8 +435,11 @@ int main (int argc,char **argv )
 #endif
     
     if(!randomize_vw){
-      computeA2Avectors<A2Apolicies,LanczosPolicies>::compute(V_s,W_s,mixed_solve,evecs_single_prec, lat, eig_s, solvers);
-      //W_s.computeVW(V_s, lat, *eig_s.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
+#ifdef USE_BFM_LANCZOS
+      W_s.computeVW(V_s, *a2a_lat, *eig_s.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
+#else
+      if(evecs_single_prec){ W_s.computeVW(V_s, *a2a_lat, eig_s.evec_f, eig_s.eval, eig_s.mass, eig_s.resid, 10000); }else{ W_s.computeVW(V_s, *a2a_lat, eig_s.evec, eig_s.eval, eig_s.mass, eig_s.resid, 10000); }
+#endif     
     }else randomizeVW<A2Apolicies>(V_s,W_s);      
 
     if(!UniqueID()) printf("Memory after heavy A2A vector computation:\n");
@@ -414,6 +453,9 @@ int main (int argc,char **argv )
     time += dclock();
     print_time("main","Strange quark A2A vectors",time);
 
+    //From now one we just need a generic lattice instance, so use a2a_lat
+    Lattice& lat = (Lattice&)(*a2a_lat);
+    
     //-------------------Fix gauge----------------------------
     AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
     if(skip_gauge_fix){

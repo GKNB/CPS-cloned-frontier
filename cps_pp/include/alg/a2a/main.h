@@ -113,8 +113,13 @@ void setup_bfmargs(bfmarg &dwfa, int nthread, const BfmSolver &solver = HmCayley
  
 void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dwf, bool singleprec_evecs){
   const int len = 24 * dwf.node_cbvol * (1 + dwf.gparity) * dwf.cbLs;
+#ifdef USE_NEW_BFM_GPARITY
+  omp_set_num_threads(dwf.threads);
+  if(!UniqueID()) printf("test_eigenvectors set omp threads %d to bfm threads %d\n",omp_get_max_threads(),dwf.threads);
+#else
   omp_set_num_threads(bfmarg::threads);	
-
+#endif
+  
   Fermion_t bq_tmp = singleprec_evecs ? dwf.allocCompactFermion() : dwf.allocFermion(); 
   Fermion_t tmp1 = dwf.allocFermion();
   Fermion_t tmp2 = dwf.allocFermion();
@@ -159,7 +164,7 @@ void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dw
 #endif
 
 
-#if defined(USE_GRID_LANCZOS)
+#if defined(USE_GRID)
 template<typename GridPolicies>
 void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, typename GridPolicies::FgridGFclass &lattice){
   typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -199,21 +204,14 @@ void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField
 }
 #endif
 
-
-//Keep code clean by wrapping BFM or Grid underlay
-struct LatticeSolvers{
-#if !defined(USE_BFM_LANCZOS) && !defined(USE_BFM_A2A)
-
-  LatticeSolvers(const JobParams &jp, const int nthreads){
-    omp_set_num_threads(nthreads);
-  }
-
-#else
+#ifdef USE_BFM
+//Hold bfm instances
+struct BFMsolvers{
   bfm_evo<double> dwf_d;
   bfm_evo<float> dwf_f;
   bfmarg dwfa;
 
-  LatticeSolvers(const JobParams &jp, const int nthreads){
+  BFMsolvers(const JobParams &jp, const int nthreads){
     //Initialize both a double and single precision instance of BFM
     BfmSolver solver;
     switch(jp.solver){
@@ -227,78 +225,75 @@ struct LatticeSolvers{
     setup_bfmargs(dwfa,nthreads,solver,jp.mobius_scale);
     dwf_d.init(dwfa);
     dwf_d.comm_end(); dwf_f.init(dwfa); dwf_f.comm_end(); dwf_d.comm_init();
+#ifdef USE_NEW_BFM_GPARITY
+    dwf_d.threads = dwf_f.threads = nthreads;
+#endif
   }
 
-  ~LatticeSolvers(){
+  ~BFMsolvers(){
     dwf_d.end();
     dwf_f.end();
   }
-
-#endif
-
-};
-
-template<typename LattType>
-struct LatticeSetup{
-# if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
-  static void importBFMlattice(Lattice *lat, LatticeSolvers &solvers){
+  //Import CPS gauge field into BFM
+  void importLattice(Lattice *lat){
     lat->BondCond(); //Apply the boundary conditions!
     Float* gauge = (Float*) lat->GaugeField();
-    solvers.dwf_d.cps_importGauge(gauge);
-    solvers.dwf_d.comm_end(); 
-    solvers.dwf_f.comm_init(); solvers.dwf_f.cps_importGauge(gauge); solvers.dwf_f.comm_end(); 
-    solvers.dwf_d.comm_init();
+    dwf_d.cps_importGauge(gauge);
+    dwf_d.comm_end(); 
+    dwf_f.comm_init(); dwf_f.cps_importGauge(gauge); dwf_f.comm_end(); 
+    dwf_d.comm_init();
     lat->BondCond(); //Un-apply the boundary conditions! 
   }
+};
 #endif
 
-  typedef LattType LatticeType;
-  LatticeType *lat;
-  
-  //Grid or Grid/BFM mixed
-#if defined(USE_GRID_LANCZOS) || defined(USE_GRID_A2A)
 
-  LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
+struct isGridtype{};
+struct isBFMtype{};
+
+template<typename LatticeType, typename BFMorGrid>
+struct createLattice{};
+
+#ifdef USE_BFM
+template<typename LatticeType>
+struct createLattice<LatticeType, isBFMtype>{
+  static LatticeType* doit(BFMsolvers &bfm_solvers){
+    LatticeType* lat = new LatticeType;
+    bfm_solvers.importLattice(lat);
+    return lat;
+  }
+};
+#endif
+
+#ifdef USE_GRID
+template<typename LatticeType>
+struct createLattice<LatticeType, isGridtype>{
+  static LatticeType* doit(const JobParams &jp){
     assert(jp.solver == BFM_HmCayleyTanh);
     FgridParams grid_params; 
     grid_params.mobius_scale = jp.mobius_scale;
-    lat = new LatticeType(grid_params);
-    //lat->ImportGauge(); //lattice -> Grid  (applied APRD - signs internally then reverses)
-
+    LatticeType* lat = new LatticeType(grid_params);
+        
     NullObject null_obj;
     lat->BondCond();
     CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
     cps_gauge.exportGridField(*lat->getUmu());
     lat->BondCond();
     
-# if defined(USE_BFM_LANCZOS) || defined(USE_BFM_A2A)
-    importBFMlattice(lat,solvers);
-# endif
+    return lat;
   }
-
-#else
-  //BFM only
-
-
-  LatticeSetup(const JobParams &jp, LatticeSolvers &solvers){
-    lat = new LatticeType; //doesn't actually matter
-    importBFMlattice(lat,solvers);
-  }
-
+};
 #endif
 
-  LatticeType & getLattice(){ return *lat; }
 
-  ~LatticeSetup(){
-    delete lat;
-  }
 
-};
+
 
 //Generates and stores evecs and evals
-template<typename GridPolicies = void>
-struct Lanczos{
-#if defined(USE_GRID_LANCZOS)
+#ifdef USE_GRID
+
+template<typename GridPolicies>
+struct GridLanczosWrapper{
   std::vector<Grid::RealD> eval; 
   std::vector<typename GridPolicies::GridFermionField> evec;
   std::vector<typename GridPolicies::GridFermionFieldF> evec_f;
@@ -311,13 +306,13 @@ struct Lanczos{
   Grid::GridCartesian *FGrid_f;
   Grid::GridRedBlackCartesian *FrbGrid_f;
   
-  Lanczos(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL){}
+  GridLanczosWrapper(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL){}
   
-  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, typename GridPolicies::FgridGFclass &lat){
+  void compute(const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lat){
     mass = lanc_arg.mass;
     resid = lanc_arg.stop_rsd;
     
-#ifdef A2A_LANCZOS_SINGLE
+# ifdef A2A_LANCZOS_SINGLE
     //Make single precision Grids
     int Ls = GJP.Snodes()*GJP.SnodeSites();
     std::vector<int> nodes(4);
@@ -335,13 +330,13 @@ struct Lanczos{
     FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f); 
 
     gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
-#else    
+# else    
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
 #  ifndef MEMTEST_MODE
     test_eigenvectors<GridPolicies>(evec,eval,lanc_arg.mass,lat);
 #  endif
 
-#endif
+# endif
   }
   void toSingle(){
     typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -360,9 +355,9 @@ struct Lanczos{
     int nev = evec.size();
     for(int i=0;i<nev;i++){      
       GridFermionFieldF tmp_f(FrbGrid_f);
-#ifndef MEMTEST_MODE
+# ifndef MEMTEST_MODE
       precisionChange(tmp_f, evec.back());
-#endif
+# endif
       evec.pop_back();
       evec_f.push_back(std::move(tmp_f));
     }
@@ -378,14 +373,16 @@ struct Lanczos{
     if(FGrid_f != NULL) delete FGrid_f;
     if(FrbGrid_f != NULL) delete FrbGrid_f;
   }
+};
+#endif
 
-#else
-  
+#ifdef USE_BFM
+struct BFMLanczosWrapper{
   BFM_Krylov::Lanczos_5d<double> *eig;
 
-  Lanczos(): eig(NULL){}
+  BFMLanczosWrapper(): eig(NULL){}
   
-  void compute(const LancArg &lanc_arg, LatticeSolvers &solvers, Lattice &lat){
+  void compute(const LancArg &lanc_arg, BFMsolvers &solvers){
     eig = new BFM_Krylov::Lanczos_5d<double>(solvers.dwf_d,const_cast<LancArg&>(lanc_arg)); //sets up the mass of dwf_d correctly
     eig->Run();
 
@@ -406,28 +403,13 @@ struct Lanczos{
     eig->free_bq();
   }
 
-  ~Lanczos(){
+  ~BFMLanczosWrapper(){
     if(eig != NULL)
       delete eig;
   }
+};
 #endif
 
-};
-
-
-template<typename mf_Policies, typename LanczosPolicies>
-struct computeA2Avectors{
-  static void compute(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W, bool mixed_solve, bool evecs_single_prec, Lattice &lat, Lanczos<LanczosPolicies> &eig, LatticeSolvers &solvers){
-#ifdef USE_BFM_LANCZOS
-    W.computeVW(V, lat, *eig.eig, evecs_single_prec, solvers.dwf_d, mixed_solve ? & solvers.dwf_f : NULL);
-#else
-    if(evecs_single_prec)
-      W.computeVW(V, lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000);
-    else
-      W.computeVW(V, lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
-#endif
-  }
-};
 
 template<typename ComplexType>
 void setupFieldParams(cps::NullObject &n){}

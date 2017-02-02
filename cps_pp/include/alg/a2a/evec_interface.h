@@ -1,6 +1,6 @@
 #ifndef _EVEC_INTERFACE_H
 #define _EVEC_INTERFACE_H
-#ifdef USE_GRID
+#if defined(USE_GRID) && defined(USE_GRID_A2A)
 
 #include<config.h>
 #include<precision.h>

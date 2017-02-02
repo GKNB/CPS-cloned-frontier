@@ -26,7 +26,11 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 
     //Copy bq[i][1] into bq_tmp
     const int len = 24 * eig.dop.node_cbvol * (1 + gparity) * eig.dop.cbLs;
-    omp_set_num_threads(bfmarg::threads);		
+#ifdef USE_NEW_BFM_GPARITY
+    omp_set_num_threads(dwf.threads);
+#else
+    omp_set_num_threads(bfmarg::threads);
+#endif
     if(singleprec_evecs) // eig->bq is in single precision
 #pragma omp parallel for  //Bet I could reduce the threading overheads by parallelizing this entire method
       for(int j = 0; j < len; j++) {
@@ -166,14 +170,23 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
       //Do the mixed precision deflated solve
       dwf_fp->residual = 1e-5; //todo: make this not hardcoded
       int max_cycle = 100;
+#ifdef USE_NEW_BFM_GPARITY
+      omp_set_num_threads(dwf_d.threads);
+#else
       omp_set_num_threads(bfmarg::threads);
+#endif
+      
 #pragma omp parallel
       { mixed_cg::threaded_cg_mixed_M(V_tmp2, src, dwf_d, *dwf_fp, max_cycle, CG, &eig.bq, &eval, nl); }
     }else{
       //Do a double precision deflated solve 
 #pragma omp parallel
       {
+#ifdef USE_NEW_BFM_GPARITY
+	CGNE_M_high(dwf_d,V_tmp2, src, eig.bq, eval_d, nl, singleprec_evecs);
+#else
 	dwf_d.CGNE_M_high(V_tmp2, src, eig.bq, eval_d, nl, singleprec_evecs);
+#endif
       }
     }
 
