@@ -73,8 +73,12 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   src.checkerboard = Grid::Odd;
 # else
   {
+    LatRanGen lrgbak(LRG);
+    
     CPSfermion5D<cps::ComplexD> tmp;
     tmp.setGaussianRandom();
+
+    LRG = lrgbak;
     
     GridFermionField src_all(FGrid);
     tmp.exportGridField(src_all);
