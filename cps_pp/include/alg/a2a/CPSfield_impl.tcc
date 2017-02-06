@@ -67,6 +67,29 @@ double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::nor
   return final;
 }
 
+template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::norm2(const IncludeSite<DimensionPolicy::EuclideanDimension> & restrictsites) const{
+  SiteType accum[omp_get_max_threads()];
+  memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
+#pragma omp parallel for schedule(static)  
+  for(int i=0;i<this->nfsites();i++){
+    SiteType const *site = this->fsite_ptr(i);
+    int x[DimensionPolicy::EuclideanDimension]; int f;
+    this->fsiteUnmap(i,x,f);
+    if(!restrictsites.query(x,f)) continue;
+    for(int s=0;s<SiteSize;s++)
+      accum[omp_get_thread_num()] = accum[omp_get_thread_num()] + normdefs<SiteType>::conjugate(site[s])*site[s];
+  }
+  SiteType total;
+  memset(&total, 0, sizeof(SiteType));
+
+  for(int i=0;i<omp_get_max_threads();i++)
+    total = total + accum[i];
+
+  double final = normdefs<SiteType>::real_reduce(total);
+  glb_sum_five(&final);
+  return final;
+}
 
 
 
@@ -170,6 +193,10 @@ public:
       for(int i=0;i<Nd;i++)
 	grid_x[ dim_map.cps_to_grid[i] ] = x[i];
 
+      if(from._grid->CheckerBoard(grid_x) != from.checkerboard){ //skip sites not on Grid checkerboard
+	continue;
+      }	
+      
       sobj siteGrid; //contains both flavors if Gparity
       peekLocalSite(siteGrid,from,grid_x);
 
@@ -210,8 +237,22 @@ public:
       std::vector<int> lcoor_cps(Nd);
       
       for(int lane=0; lane < nsimd; lane++){
+	int checker_dim = -1;
+	//Get the local coordinate on Grid's local lattice 
 	for(int mu=0;mu<Nd;mu++){
 	  lcoor[mu] = out_ocoor[mu] + into._grid->_rdimensions[mu]*out_icoor[lane][mu];
+
+	  //For checkerboarded Grid fields the above is defined on a reduced lattice of half the size
+	  if(into._grid->CheckerBoarded(mu)){
+	    lcoor[mu] = lcoor[mu]*2;
+	    checker_dim = mu;
+	  }
+	}
+	if(checker_dim != -1 && into._grid->CheckerBoard(lcoor) != into.checkerboard)
+	  lcoor[checker_dim] += 1;
+
+	//Remap directions to CPS x y z t s ordering
+	for(int mu=0;mu<Nd;mu++){
 	  lcoor_cps[ dim_map.grid_to_cps[mu] ] = lcoor[mu];
 	}
 	int cps_site = from.siteMap(&lcoor_cps[0]);

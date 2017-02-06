@@ -230,6 +230,7 @@ public:
 #endif
   
   double norm2() const;
+  double norm2(const IncludeSite<DimensionPolicy::EuclideanDimension> & restrictsites) const;
   
 #ifdef USE_GRID
   //Import for Grid Lattice<blah> types
@@ -394,11 +395,11 @@ private:
   void impexFermion(Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
     if(this->flavors == 2) assert(dwf.gparity);
 
-    const int sc_incr = dwf.nsimd * 2; //stride between spin-color indices
+    const int sc_incr = dwf.simd() * 2; //stride between spin-color indices
     FloatExt * bb = (FloatExt*)bfm_field;
 
     typedef typename mf_Complex::value_type mf_Float;
-    
+
 #pragma omp parallel for
     for(int fs=0;fs<this->fsites;fs++){
       int x[5], f; this->fsiteUnmap(fs, x, f);
@@ -412,14 +413,13 @@ private:
 	  dwf.bagel_gparity_idx5d(x, x[4], 0, 0, 12, 1, f) :
 	  dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1);
 #endif
+	
 	FloatExt * bfm_base = bb + bidx_off;
 
 	for(int i=0;i<12;i++)
 	  for(int reim=0;reim<2;reim++)
-	    if(do_import)
-	      *(cps_base + 2*i + reim) = *(bfm_base + 2*sc_incr*i + reim);
-	    else
-	      *(bfm_base + 2*sc_incr*i + reim) = *(cps_base + 2*i + reim);
+	    if(do_import) *(cps_base + 2*i + reim) = *(bfm_base + sc_incr*i + reim);	    
+	    else *(bfm_base + sc_incr*i + reim) = *(cps_base + 2*i + reim);
       }
     }
   }

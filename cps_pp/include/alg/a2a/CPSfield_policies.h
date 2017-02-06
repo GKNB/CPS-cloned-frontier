@@ -705,6 +705,44 @@ struct LocalToGlobalInOneDirMap<SpatialPolicy>{
 
 
 
+template<int Dimension>
+struct IncludeSite{
+  virtual bool query(const int x[Dimension], const int f = 0) const = 0;
+};
+template<int Dimension>
+struct IncludeCBsite: public IncludeSite<Dimension>{
+  int cb;
+  int excludeflav;
+  
+  IncludeCBsite(const int _cb, int frestrict = -1): cb(_cb),  excludeflav(frestrict == -1 ? -1 : !frestrict){  //frestrict : restrict to a particular flavor
+    for(int i=0;i<Dimension;i++) assert(GJP.NodeSites(i) % 2 == 0);
+  }
+  
+  bool query(const int x[Dimension], const int f = 0) const{
+    int c = 0;
+    for(int i=0;i<Dimension;i++) c += x[i];
+    return c % 2 == cb && f != excludeflav;    
+  }
+};
+template<>
+struct IncludeCBsite<5>: public IncludeSite<5>{
+  int cb;
+  bool fived_prec;
+  int excludeflav;
+  
+  IncludeCBsite(const int _cb, bool _fived_prec = false, int frestrict = -1): cb(_cb), fived_prec(_fived_prec),  excludeflav(frestrict == -1 ? -1 : !frestrict){
+    for(int i=0;i<4;i++) assert(GJP.NodeSites(i) % 2 == 0);
+    if(fived_prec) assert(GJP.SnodeSites() % 2 == 0);
+  }
+  
+  bool query(const int x[5], const int f = 0) const{
+    int c = 0;
+    for(int i=0;i<4;i++) c += x[i];
+    if(fived_prec) c += x[4];
+    return c % 2 == cb && f != excludeflav;        
+  }
+};
+
 
 CPS_END_NAMESPACE
 #endif

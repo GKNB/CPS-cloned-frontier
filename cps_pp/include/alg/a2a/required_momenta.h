@@ -62,7 +62,7 @@ public:
 
     wto.push_back(p2.first); vto.push_back(p2.second);
     if(alternative){
-      if(vmom_alt.size() != vmom.size()){ ERR.General("RequiredMomentum","addPandMinusP","Alternative momentum combination must be added after standard combination\n"); }
+      if(vmom_alt.size() != vmom.size()){ ERR.General("RequiredMomentum","addP","Alternative momentum combination must be added after standard combination\n"); }
       int i = vmom.size()-1;
       ThreeMomentum ptot_alt = vmom_alt[i] + wdag_mom_alt[i];
       ThreeMomentum ptot_orig = vmom[i] + wdag_mom[i];
