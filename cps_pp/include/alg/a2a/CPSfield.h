@@ -390,48 +390,11 @@ public:
   CPSfermion5D(const CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy> &r): CPSfield<mf_Complex,12,FiveDpolicy,FlavorPolicy,AllocPolicy>(r){}
   
 #ifdef USE_BFM
-private:
   template<typename FloatExt>
-  void impexFermion(Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
-    if(this->flavors == 2) assert(dwf.gparity);
+  void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf);
 
-    const int sc_incr = dwf.simd() * 2; //stride between spin-color indices
-    FloatExt * bb = (FloatExt*)bfm_field;
-
-    typedef typename mf_Complex::value_type mf_Float;
-
-#pragma omp parallel for
-    for(int fs=0;fs<this->fsites;fs++){
-      int x[5], f; this->fsiteUnmap(fs, x, f);
-      if( (x[0]+x[1]+x[2]+x[3] + (dwf.precon_5d ? x[4] : 0)) % 2 == cb){
-	mf_Float* cps_base = (mf_Float*)this->fsite_ptr(fs);
-
-#ifdef USE_NEW_BFM_GPARITY
-	int bidx_off = dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1, f);
-#else
-	int bidx_off = dwf.gparity ? 
-	  dwf.bagel_gparity_idx5d(x, x[4], 0, 0, 12, 1, f) :
-	  dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1);
-#endif
-	
-	FloatExt * bfm_base = bb + bidx_off;
-
-	for(int i=0;i<12;i++)
-	  for(int reim=0;reim<2;reim++)
-	    if(do_import) *(cps_base + 2*i + reim) = *(bfm_base + sc_incr*i + reim);	    
-	    else *(bfm_base + sc_incr*i + reim) = *(cps_base + 2*i + reim);
-      }
-    }
-  }
-public:
   template<typename FloatExt>
-  void importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
-    impexFermion<FloatExt>(const_cast<Fermion_t>(bfm_field), cb, 1, dwf);
-  }
-  template<typename FloatExt>
-  void exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const{
-    const_cast<CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>*>(this)->impexFermion<FloatExt>(bfm_field, cb, 0, dwf);
-  }
+  void exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const;
 #endif
 
   void setGaussianRandom();

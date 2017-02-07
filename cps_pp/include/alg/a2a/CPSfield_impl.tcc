@@ -773,6 +773,72 @@ void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
 }
 
 
+#ifdef USE_BFM
+
+template<typename FloatExt,  typename mf_Complex, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+struct _bfm_fermion_impex{};
+
+template<typename FloatExt,  typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+struct _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy, complex_double_or_float_mark>{
+  static void impexFermion(CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy> &cps_field, Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
+    if(cps_field.nflavors() == 2) assert(dwf.gparity);
+
+    const int sc_incr = dwf.simd() * 2; //stride between spin-color indices
+    FloatExt * bb = (FloatExt*)bfm_field;
+
+    typedef typename mf_Complex::value_type mf_Float;
+
+#pragma omp parallel for
+    for(int fs=0;fs<cps_field.nfsites();fs++){
+      int x[5], f; cps_field.fsiteUnmap(fs, x, f);
+      if( (x[0]+x[1]+x[2]+x[3] + (dwf.precon_5d ? x[4] : 0)) % 2 == cb){
+	mf_Float* cps_base = (mf_Float*)cps_field.fsite_ptr(fs);
+
+#ifdef USE_NEW_BFM_GPARITY
+	int bidx_off = dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1, f);
+#else
+	int bidx_off = dwf.gparity ? 
+	  dwf.bagel_gparity_idx5d(x, x[4], 0, 0, 12, 1, f) :
+	  dwf.bagel_idx5d(x, x[4], 0, 0, 12, 1);
+#endif
+	
+	FloatExt * bfm_base = bb + bidx_off;
+
+	for(int i=0;i<12;i++)
+	  for(int reim=0;reim<2;reim++)
+	    if(do_import) *(cps_base + 2*i + reim) = *(bfm_base + sc_incr*i + reim);	    
+	    else *(bfm_base + sc_incr*i + reim) = *(cps_base + 2*i + reim);
+      }
+    }
+  }
+};
+
+
+
+
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+template<typename FloatExt>
+void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
+  _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*this, const_cast<Fermion_t>(bfm_field), cb, 1, dwf);
+}
+template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+template<typename FloatExt>
+void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const{
+  _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*const_cast<CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>*>(this), const_cast<Fermion_t>(bfm_field), cb, 0, dwf);
+}
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
 
 
 //Gauge fix 3D fermion field with dynamic info type
