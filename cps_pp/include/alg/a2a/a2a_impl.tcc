@@ -107,9 +107,14 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   int hit, tblock, spin_color, flavor;
   StandardIndexDilution stdidx(getArgs());  
   stdidx.indexUnmap(dil_id,hit,tblock,spin_color,flavor);
-    
+
+  const int src_layout[4] = { wh[hit]->nodeSites(0), wh[hit]->nodeSites(1), wh[hit]->nodeSites(2), wh[hit]->nodeSites(3) };
+  
+  assert(src_layout[3] == GJP.TnodeSites());
+  const int src_size = src_layout[0]*src_layout[1]*src_layout[2]*args.src_width;  //size of source 3D*width slice in units of complex numbers
+  
   VRB.Result("A2AvectorW", fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
-  int tblock_origt = tblock * args.src_width;
+  const int tblock_origt = tblock * args.src_width;
 
   into.zero();
 
@@ -118,16 +123,15 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
     return;
   }
 
-  int tblock_origt_lcl = tblock_origt % GJP.TnodeSites();
-    
-  int src_size = GJP.VolNodeSites()/GJP.TnodeSites() * args.src_width; //size of source in units of complex numbers
+  const int tblock_origt_lcl = tblock_origt % GJP.TnodeSites();
+  
 #pragma omp parallel for
   for(int i=0;i<src_size;i++){
     int x[4];
     int rem = i;
-    x[0] = rem % GJP.XnodeSites(); rem /= GJP.XnodeSites();
-    x[1] = rem % GJP.YnodeSites(); rem /= GJP.YnodeSites();
-    x[2] = rem % GJP.ZnodeSites(); rem /= GJP.ZnodeSites();
+    x[0] = rem % src_layout[0]; rem /= src_layout[0];
+    x[1] = rem % src_layout[1]; rem /= src_layout[1];
+    x[2] = rem % src_layout[2]; rem /= src_layout[2];
     x[3] = tblock_origt_lcl + rem;
 
     TargetComplex *into_site = (TargetComplex*)(into.site_ptr(x,flavor) + spin_color);

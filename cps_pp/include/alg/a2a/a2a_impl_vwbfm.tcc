@@ -3,8 +3,7 @@
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   const char *fname = "computeVQlow(....)";
-  typedef typename mf_Policies::ComplexType::value_type mf_Float;
-  int gparity = GJP.Gparity();
+  const int gparity = GJP.Gparity();
   if(eig.dop.gparity != gparity){ ERR.General("A2AvectorW",fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
 
   //Double precision temp fields
@@ -22,7 +21,6 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   //The general method is described by page 60 of Daiqian's thesis
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
-    mf_Float* vi = (mf_Float*)V.getVl(i).ptr();
 
     //Copy bq[i][1] into bq_tmp
     const int len = 24 * eig.dop.node_cbvol * (1 + gparity) * eig.dop.cbLs;
@@ -51,8 +49,9 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     //Get 4D part and poke into a
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,glb_ls-1,0,2); // a[4d] = b[5d walls]
-    //Multiply by 1/lambda[i] and copy into v (with precision change if necessary)
-    VecTimesEquFloat<mf_Float,Float>(vi, (Float*)a, 1.0 / eig.evals[i], afield_fsize);
+    //Multiply by 1/lambda[i] and copy into v 
+    VecTimesEquFloat<Float,Float>((Float*)a, (Float*)a, 1.0 / eig.evals[i], afield_fsize);
+    V.getVl(i).importField(afield);
 
     //Step 2) Compute Wl
 
@@ -77,7 +76,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
     assert(wl[i].assigned());
-    this->getWl(i) = afield;
+    this->getWl(i).importField(afield);
   }
 
   dwf.freeFermion(tmp[0]);
@@ -97,7 +96,6 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   const char *fname = "computeVWhigh(....)";
-  typedef typename mf_Policies::ComplexType::value_type mf_Float;
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW",fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
@@ -155,7 +153,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
     //If no previously computed solutions this wastes a few flops, but not enough to care about
     //V vectors default to zero, so this is a zero guess if not reusing existing solutions
-    VecTimesEquFloat<Float,mf_Float>((Float*)v4d, (mf_Float*)V.getVh(i).ptr(), 1.0, v4dfield_fsize); // v[i]->v4d to double precision
+    V.getVh(i).exportField(v4dfield);
     lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // to 5d
     if(dwf_d.solver == HmCayleyTanh) {
       dwf_d.cps_impexFermion((Float*)a, V_tmp, 1); // to bfm
@@ -193,7 +191,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
     //CPSify the solution, including 1/nhit for the hit average
     dwf_d.cps_impexFermion((Float *)b,V_tmp2,0);
     lat.Ffive2four(v4d, b, glb_ls-1, 0, 2);
-    VecTimesEquFloat<mf_Float,Float>((mf_Float*)V.getVh(i).ptr(), (Float*)v4d, 1.0 / nhits, v4dfield_fsize);
+    VecTimesEquFloat<Float,Float>( (Float*)v4d, (Float*)v4d, 1.0 / nhits, v4dfield_fsize);
+    V.getVh(i).importField(v4dfield);
   }
   dwf_d.freeFermion(src[0]); 
   dwf_d.freeFermion(src[1]);
