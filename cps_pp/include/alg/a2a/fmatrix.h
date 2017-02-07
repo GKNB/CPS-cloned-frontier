@@ -21,7 +21,7 @@ class basicMatrix : public AllocPolicy{
 
   inline void alloc(const int _rows, const int _cols){
     rows = _rows; cols = _cols; fsize = rows*cols;
-    AllocPolicy::_alloc(&tt, fsize*sizeof(T));
+    AllocPolicy::_alloc((void**)&tt, fsize*sizeof(T));
   }
 
 public:
