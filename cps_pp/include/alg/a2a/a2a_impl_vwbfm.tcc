@@ -105,10 +105,11 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   setWhRandom(args.rand_type);
 
   //Allocate temp *double precision* storage for fermions
-  CPSfermion5D<ComplexD> afield,bfield;
-  CPSfermion4D<ComplexD> v4dfield;
+  CPSfermion5D<cps::ComplexD> afield,bfield;
+  CPSfermion4D<cps::ComplexD> v4dfield;
+  FermionFieldType v4dfield_import(V.getVh(0).getDimPolParams());
 
-  int v4dfield_fsize = v4dfield.size()*sizeof(CPSfermion4D<ComplexD>::FieldSiteType)/sizeof(Float); //number of floats in field
+  const int v4dfield_fsize = v4dfield.size()*2; //number of floats in field
   
   Vector *a = (Vector*)afield.ptr(), *b = (Vector*)bfield.ptr(), *v4d = (Vector*)v4dfield.ptr();
 
@@ -134,8 +135,9 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
 
   for(int i=0; i<nh; i++){
     //Step 1) Get the diluted W vector to invert upon
-    getDilutedSource(v4dfield, i);
-
+    getDilutedSource(v4dfield_import, i);
+    v4dfield.importField(v4dfield_import);
+    
     //Step 2) Solve V
     lat.Ffour2five(a, v4d, 0, glb_ls-1, 2); // poke the diluted 4D source onto a 5D source (I should write my own code to do this)
     dwf_d.cps_impexFermion((Float *)a,src,1);

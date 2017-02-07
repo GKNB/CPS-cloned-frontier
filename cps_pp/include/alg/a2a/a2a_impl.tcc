@@ -89,6 +89,28 @@ struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
   }
 };
 
+#ifdef USE_GRID
+//Randomization of wh fields must have handled with care to ensure order preservation
+template<typename ComplexFieldType>
+struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
+    typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
+    
+    
+    typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
+		     typename ComplexFieldType::FieldDimensionPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldFlavorPolicy, typename ComplexFieldType::FieldAllocPolicy>
+      ScalarComplexFieldType;
+
+    NullObject null_obj;
+    
+    //Use scalar generation code and import
+    std::vector<PtrWrapper<ScalarComplexFieldType> > wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].set(new ScalarComplexFieldType(null_obj));
+    _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
+    for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
+  }
+};
+#endif
+
 
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
