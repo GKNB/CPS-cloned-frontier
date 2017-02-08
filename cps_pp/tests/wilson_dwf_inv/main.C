@@ -29,13 +29,7 @@ MobiusArg mobius_arg;
 static int nx,ny,nz,nt,ns;
 static CgArg cg_arg;
 
-#if 0
-#include <omp.h>
-#else
-inline void omp_set_num_threads(int num){}
-inline int omp_get_num_threads(){return 1;}
-inline int omp_get_thread_num(){return 0;}
-#endif
+#include <util/omp_wrapper.h>
 
 //void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK);
 void run_inv(Lattice &lat, StrOrdType str_ord, char *out_name, int DO_CHECK);
@@ -44,7 +38,6 @@ int main(int argc,char *argv[]){
 
     Start(&argc, &argv);
     char *fname = "main()";
-//omp_set_num_threads(16);
 #pragma omp parallel default(shared)
 {
   int tnum = omp_get_num_threads();

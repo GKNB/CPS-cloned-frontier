@@ -126,8 +126,6 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
     } else
       n_gp = 2;
     VRB.Debug (cname, fname, "Grid initted\n");
-//              omp_set_num_threads(8);
-//              Grid::GridThread::SetThreads(100);
     threads = Grid::GridThread::GetThreads ();
     for (int i = 0; i < 4; i++)
       vol[i] = GJP.NodeSites (i) * GJP.Nodes (i);;

@@ -336,7 +336,6 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 
     //do the local pt on the G-parity boundary
     if(omp_get_max_threads()<n){
-      //omp_set_num_threads(n); THIS IS A BAD IDEA
 
       //Do it unthreaded
       for(int n_t =0; n_t < n; n_t++){ //local stuff
@@ -402,7 +401,6 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
 #ifdef USE_TEST2
 
   if(omp_get_max_threads()<n){
-    //omp_set_num_threads(n); THIS IS A BAD IDEA
 
     //Do it unthreaded
     for(int n_t =0; n_t < n; n_t++){ //local stuff
@@ -486,7 +484,6 @@ void PT::mat(int n, PTmatrix **mout, PTmatrix **min, const int *dir){
   //Do non-local computations
 #ifdef USE_TEST2
   if(omp_get_max_threads()<n){
-    //omp_set_num_threads(n); //THIS IS A BAD IDEA
     
     //Do it unthreaded
     for(int n_t =0; n_t < n; n_t++){

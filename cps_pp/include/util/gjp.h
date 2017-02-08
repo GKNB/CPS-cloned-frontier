@@ -169,7 +169,7 @@ public:
   GlobalJobParameter();
 
   inline const int & Nthreads() const{ return threads; }
-  void SetNthreads(const int &n);
+  const int SetNthreads(const int &n=0);
 
   ~GlobalJobParameter();
 

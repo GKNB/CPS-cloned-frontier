@@ -267,7 +267,7 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   //  non-local send
   //
   //
-  omp_set_num_threads(GJP.Nthreads());
+  GJP.SetNthreads();
 
 #pragma omp parallel for default(shared) private(mu)
   for (int dir=0;dir<8;dir++){
@@ -442,14 +442,13 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   setup += time;
 
   time = -dclock();
-  omp_set_num_threads(GJP.Nthreads());
+  GJP.SetNthreads();
 
   /*--------------------------------------------------------------------------*/
   /* Loop over sites                                                          */
   /*--------------------------------------------------------------------------*/
 
 	time = -dclock();
-//	omp_set_num_threads(64);
 /*--------------------------------------------------------------------------*/
 /* Loop over sites                                                          */
 /*--------------------------------------------------------------------------*/

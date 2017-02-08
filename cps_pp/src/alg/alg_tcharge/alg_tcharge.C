@@ -1235,13 +1235,13 @@ void AlgTcharge::smartrun()
   Float tmat[nfunc][nfunc] = {0};
 
   const int nthread = GJP.Nthreads();
+  GJP.SetNthreads();
   Float tmp[nthread][nfunc][nfunc];
   for(int i=0;i<nthread;i++)
     for(int j=0;j<nfunc;j++)
       for(int k=0;k<nfunc;k++)
 	tmp[i][j][k] = 0;
 
-  omp_set_num_threads(nthread);
   Float* process_slice_sums[64][nfunc];
   for(int p = 0; p < 64; p++) {
     for(int f = 0; f < nfunc; f++) {
@@ -1253,7 +1253,6 @@ void AlgTcharge::smartrun()
   }
 
 
-//  omp_set_num_threads(64);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {

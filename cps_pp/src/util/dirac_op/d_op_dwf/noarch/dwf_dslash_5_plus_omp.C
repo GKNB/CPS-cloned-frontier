@@ -149,9 +149,7 @@ void dwf_dslash_5_plus(Vector *out,
   }
   f_out = f_out + ls_stride; 
 
-  int nthreads = GJP.Nthreads();
-
-  omp_set_num_threads(nthreads);
+  int nthreads = GJP.SetNthreads();
   int thread_work = vol_4d_cb*(local_ls-1);
   if(GJP.Gparity()) thread_work*=2;
 

@@ -445,6 +445,10 @@ if (!UniqueID())
 #if TARGET == BGQ
  threads = 64;
 #endif
+ char * nthr_str = getenv("OMP_NUM_THREADS");
+ if(nthr_str) sscanf(nthr_str,"%d",&threads);
+ if(!UniqueID()) printf("nthreads=%d\n",threads);
+ 
 
  omp_set_dynamic(false);
  omp_set_num_threads(threads);
@@ -452,9 +456,10 @@ if (!UniqueID())
   VRB.FuncEnd(cname,fname);
 }
 
-void GlobalJobParameter::SetNthreads(const int &n){ 
-  threads = n; 
+const int GlobalJobParameter::SetNthreads(const int &n){ 
+  if (n>0) threads = n; 
   omp_set_num_threads(threads);
+  return threads;
 }
 
   //!< Get the twist phase in the 'dir'-direction

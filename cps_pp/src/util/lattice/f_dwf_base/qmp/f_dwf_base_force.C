@@ -380,7 +380,6 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
     }
   }
 #if 1
-//omp_set_num_threads(MAX_THREADS);
   Float L1[MAX_THREADS] ;
   Float L2[MAX_THREADS];
   Float Linf[MAX_THREADS] ;
@@ -995,7 +994,6 @@ ForceArg FdwfBase::EvolveMomFforceInt(Matrix *mom, Vector *v1, Vector *v2,
 
   L1[0] /= 4.0*GJP.VolSites();
   L2[0] /= 4.0*GJP.VolSites();
-//omp_set_num_threads(MAX_THREADS);
 
   return ForceArg(L1[0], sqrt(L2[0]), Linf[0]);
 }

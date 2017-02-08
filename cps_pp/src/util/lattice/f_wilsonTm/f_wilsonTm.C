@@ -295,8 +295,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   bfmarg bfm_arg;
 
-  int nthread = GJP.Nthreads();
-  omp_set_num_threads(nthread);
+  int nthread = GJP.SetNthreads();
 
   bfm_arg.solver = WilsonTM;
   for(int i=0;i<4;i++) bfm_arg.node_latt[i] = GJP.NodeSites(i);

@@ -160,9 +160,8 @@ int DiracOpWilsonTm::InvCg(Vector *out,
       Printf("\n");
     }
   
-    omp_set_num_threads(GJP.Nthreads());
+    GJP.SetNthreads();
     
-//    omp_set_num_threads(64);
     Float *gauge = (Float*) lat.GaugeField();
     wilsa.precon_5d = 0;
     wilsa.Ls   = 1;
@@ -331,7 +330,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
      ********************************************************
      */
     bfmarg wilsa;
-    omp_set_num_threads(GJP.Nthreads());
+    GJP.SetNthreads();
 
     wilsa.solver = WilsonTM;
     wilsa.node_latt[0]  = lx;
@@ -628,7 +627,7 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
 
   //Start BFM engines!
   bfmarg wilsa;
-  omp_set_num_threads(GJP.Nthreads());
+  GJP.SetNthreads();
 
   wilsa.solver = WilsonTM;
   for(int i=0;i<4;i++) wilsa.node_latt[i] = QDP::Layout::subgridLattSize()[i];

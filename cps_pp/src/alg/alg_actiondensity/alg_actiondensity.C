@@ -811,12 +811,11 @@ void AlgActionDensity::smartrun(Float* result)
   yend[2] = ysta[2] + GJP.ZnodeSites();
   yend[3] = ysta[3] + GJP.TnodeSites();
 
-  int nthread = GJP.Nthreads();
+  int nthread = GJP.SetNthreads();
   Float tmp_action[nthread];  for(int i=0;i<nthread;i++) tmp_action[i]=0.0;
 
   Float timer = -dclock();
 
-  omp_set_num_threads(nthread);
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
   {
