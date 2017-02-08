@@ -414,6 +414,7 @@ node_coor[0], node_coor[1], node_coor[2], node_coor[3], node_coor[4]);
   VRB.Level(doarg_int.verbose_level);
 if (!UniqueID())
   printf("verbose_level =%d\n",VRB.Level());
+//  exit(-31);
   CSM.Initialize(1000);
   CSM.Activate(doarg_int.checksum_level);
 if (!UniqueID())

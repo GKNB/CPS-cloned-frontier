@@ -19,6 +19,8 @@ void* smalloc(size_t request,
 #ifdef HAVE_POSIX_MEMALIGN
 #define ALLOC_MEMALIGN_NUM 512
   void *p;
+    if (request<=0)
+	ERR.General(cname,fname,"smalloc requested with size %d!\n",request);
   if( posix_memalign((void**)&p, ALLOC_MEMALIGN_NUM, request) ) ERR.Pointer(cname, fname, vname);
     VRB.Smalloc(cname, fname, vname, p, request);
 #else 
