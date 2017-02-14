@@ -9,6 +9,18 @@ CPS_START_NAMESPACE
 template<typename polA, typename polB>
 struct sameDim{ static const bool val = intEq<polA::EuclideanDimension, polB::EuclideanDimension>::val; };
 
+
+inline void writePolicyName(std::ostream &file, const std::string &policy, const std::string &name, bool newline = true){
+  file << policy << " = " << name << (newline ? "\n" : "");
+}
+
+inline void checkPolicyName(std::istream &file, const std::string &policy, const std::string &name){
+  std::string tmp; getline(file,tmp);
+  std::ostringstream expect; writePolicyName(expect,policy,name,false);
+  if(tmp != expect.str()){ printf("checkPolicyName expected \"%s\" got \"%s\"\n",expect.str().c_str(), tmp.c_str()); fflush(stdout); exit(-1); }
+}
+
+
 //AllocPolicy controls mem alloc
 class StandardAllocPolicy{
  protected:
@@ -18,16 +30,26 @@ class StandardAllocPolicy{
   inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
   }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
+  }
 };
 class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
     *p = memalign(128,byte_size);
-    //if(!UniqueID()) printf("Aligned128AllocPolicy alloc %p, size %f MB\n",*p, double(byte_size)/1024./1024.);
   }
   inline static void _free(void* p){
     free(p);
-    //if(!UniqueID()) printf("Aligned128AllocPolicy free %p\n",p);
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
   }
 };
 class NullAllocPolicy{
@@ -36,6 +58,12 @@ class NullAllocPolicy{
     *p = NULL;
   }
   inline static void _free(void* p){
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
 };
 class ManualAllocPolicy{
@@ -58,7 +86,13 @@ class ManualAllocPolicy{
       sfree("CPSfield","CPSfield","free",*ptr);
       *ptr = NULL;
     }
-  } 
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
 };
 class ManualAligned128AllocPolicy{
   void** ptr;
@@ -80,7 +114,13 @@ class ManualAligned128AllocPolicy{
       free(*ptr);
       *ptr = NULL;
     }
-  } 
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
+  }
 };
 
 
@@ -89,6 +129,15 @@ template<int Nf>
 class FixedFlavorPolicy{
 protected:
   void setFlavors(int &flavors) const{ flavors = Nf; }
+  
+  inline void writeParams(std::ostream &file) const{
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    writePolicyName(file, "FLAVORPOLICY", os.str());
+  }
+  inline void readParams(std::istream &file){
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    checkPolicyName(file, "FLAVORPOLICY", os.str());
+  }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
@@ -96,6 +145,13 @@ typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 class DynamicFlavorPolicy{
 protected:
   void setFlavors(int &flavors) const{ flavors = GJP.Gparity() ? 2:1 ; }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "FLAVORPOLICY", "DynamicFlavorPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "FLAVORPOLICY", "DynamicFlavorPolicy");
+  }
 };
 
 
@@ -136,6 +192,13 @@ public:
   inline int threeToFour(const int x3d, const int t) const{ return x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t; } //convert 3d index to 4d index
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDpolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDpolicy");
+  }
 };
 //Canonical layout 5D field. The fsite second flavor is stacked inside the s-loop. The site is just linearized in the canonical format
 class FiveDpolicy{ 
@@ -177,6 +240,13 @@ public:
   const static int EuclideanDimension = 5;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FiveDpolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FiveDpolicy");
+  }
 };
 class FourDglobalInOneDir{ //4D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
   int lmap[4]; //map of local dimension to physical X,Y,Z,T dimension. e.g.  [1,0,2,3] means local dimension 0 is the Y dimension, local dimension 1 is the X-direction and so on
@@ -231,6 +301,22 @@ public:
   ParamType getDimPolParams() const{ return dir; }
 
   typedef FourDpolicy EquivalentLocalPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDglobalInOneDir");
+    file << "LMAP = " << lmap[0] << " " << lmap[1] << " " << lmap[2] << " " << lmap[3] << "\n";
+    file << "DIMS = " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << "\n";
+    file << "DIR = " << dir << "\n";
+    file << "DVOL = " << dvol << "\n";
+  }
+  inline void readParams(std::istream &file){ //overwrite existing dir
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDglobalInOneDir");
+    std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"LMAP = %d %d %d %d",&lmap[0],&lmap[1],&lmap[2],&lmap[3]) == 4 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIMS = %d %d %d %d",&dims[0],&dims[1],&dims[2],&dims[3]) == 4 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIR = %d",&dir) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"DVOL = %d",&dvol) == 1 );
+  }
 };
 
 class SpatialPolicy{ //Canonical layout 3D field
@@ -266,6 +352,13 @@ public:
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "SpatialPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "SpatialPolicy");    
+  }
 };
 
 class GlobalSpatialPolicy{ //Global canonical 3D field
@@ -306,6 +399,14 @@ public:
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "GlobalSpatialPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "GlobalSpatialPolicy");    
+  }
+  
 };
 
 class ThreeDglobalInOneDir{ //3D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
@@ -360,6 +461,22 @@ public:
   ParamType getDimPolParams() const{ return dir; }
 
   typedef SpatialPolicy EquivalentLocalPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "ThreeDglobalInOneDir");
+    file << "LMAP = " << lmap[0] << " " << lmap[1] << " " << lmap[2] << "\n";
+    file << "DIMS = " << dims[0] << " " << dims[1] << " " << dims[2] << "\n";
+    file << "DIR = " << dir << "\n";
+    file << "DVOL = " << dvol << "\n";
+  }
+  inline void readParams(std::istream &file){ //overwrite existing dir
+    checkPolicyName(file, "DIMENSIONPOLICY", "ThreeDglobalInOneDir");
+    std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"LMAP = %d %d %d",&lmap[0],&lmap[1],&lmap[2]) == 3 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIMS = %d %d %d",&dims[0],&dims[1],&dims[2]) == 3 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIR = %d",&dir) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"DVOL = %d",&dvol) == 1 );
+  }
 };
 
 
@@ -382,6 +499,9 @@ public:
     int c = 0; for(int i=0;i<_CBdim;i++) c += x[i];
     return c % 2 == _CB;
   }
+
+  inline std::string getPolicyName() const{ std::ostringstream os; os << "CheckerBoard<" << _CBdim << "," << _CB << ">"; return os.str(); }
+  
 };
 
 template<typename T>
@@ -442,6 +562,15 @@ public:
   const static int EuclideanDimension = 5;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    std::ostringstream os; os << "FiveDevenOddpolicy< " << this->CheckerBoardType::getPolicyName() << " >";    
+    writePolicyName(file, "DIMENSIONPOLICY", os.str());
+  }
+  inline void readParams(std::istream &file){
+    std::ostringstream os; os << "FiveDevenOddpolicy< " << this->CheckerBoardType::getPolicyName() << " >";  
+    checkPolicyName(file, "DIMENSIONPOLICY", os.str());    
+  }
 };
 
 template<int N>
@@ -453,7 +582,7 @@ public:
   inline int* ptr(){ return &v[0]; }
   inline int const* ptr() const{ return &v[0]; }
   inline void set(const int* f){ for(int i=0;i<N;i++) v[i] = f[i]; }
-  SIMDdims(){}
+  SIMDdims(){ for(int i=0;i<N;i++) v[i] = 1; }
   SIMDdims(const int* f){ set(f); }
 };
 
@@ -511,7 +640,6 @@ class FourDSIMDPolicy: public SIMDpolicyBase<4>{ //4D field with the dimensions 
   int nsimd;
 protected:
   void setSites(int &sites, int &fsites, const int nf) const{ sites = logical_vol; fsites = nf*sites; }
-
 public:
   inline int Nsimd() const{ return nsimd; }
   inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; } 
@@ -562,7 +690,8 @@ public:
   
   typedef SIMDpolicyBase<4>::ParamType ParamType;
 
-  FourDSIMDPolicy(const ParamType &_simd_dims){
+private:
+  void setup(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<4;i++){
       simd_dims[i] = _simd_dims[i];
@@ -571,6 +700,10 @@ public:
       logical_vol *= logical_dim[i];
     }
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2]*simd_dims[3];
+  }
+public:
+  FourDSIMDPolicy(const ParamType &_simd_dims){
+    setup(_simd_dims);
   }
   const static int EuclideanDimension = 4;
 
@@ -582,6 +715,17 @@ public:
   }
 
   typedef FourDpolicy EquivalentScalarPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDSIMDPolicy");
+    file << "SIMD_DIMS = " << simd_dims[0] << " " << simd_dims[1] << " " << simd_dims[2] << " " << simd_dims[3] << "\n";
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDSIMDPolicy");
+    ParamType rd_simd_dims; std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"SIMD_DIMS = %d %d %d %d",&rd_simd_dims[0],&rd_simd_dims[1],&rd_simd_dims[2],&rd_simd_dims[3]) == 4 );
+    setup(rd_simd_dims);    
+  }
 };
 
 
@@ -640,8 +784,9 @@ public:
   inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
 
   typedef SIMDpolicyBase<3>::ParamType ParamType;
-  
-  ThreeDSIMDPolicy(const ParamType &_simd_dims){
+
+private:
+  void setup(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<3;i++){
       simd_dims[i] = _simd_dims[i];
@@ -651,6 +796,10 @@ public:
     }
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2];
   }
+public:
+  ThreeDSIMDPolicy(const ParamType &_simd_dims){
+    setup(_simd_dims);
+  }
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{
@@ -658,6 +807,17 @@ public:
   }
 
   typedef SpatialPolicy EquivalentScalarPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "ThreeDSIMDPolicy");
+    file << "SIMD_DIMS = " << simd_dims[0] << " " << simd_dims[1] << " " << simd_dims[2] << "\n";
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "ThreeDSIMDPolicy");
+    ParamType rd_simd_dims; std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"SIMD_DIMS = %d %d %d",&rd_simd_dims[0],&rd_simd_dims[1],&rd_simd_dims[2]) == 3 );
+    setup(rd_simd_dims);    
+  }
 };
 
 

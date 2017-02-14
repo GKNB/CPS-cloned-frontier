@@ -1,64 +1,6 @@
 #ifndef MESONFIELD_IO
 #define MESONFIELD_IO
 
-struct hostEndian{
-  enum EndianType { BIG, LITTLE };
-  inline static EndianType get(){ //copied from fpconv
-    char end_check[4] = {1,0,0,0};
-    uint32_t *lp = (uint32_t *)end_check;
-    if ( *lp == 0x1 ) { 
-      return LITTLE;
-    } else {
-      return BIG;
-    }
-  }
-};
-
-template<typename T>
-struct FPformat{
-  inline static FP_FORMAT get(){ //also taken from fpconv
-    assert(sizeof(T) == 4 || sizeof(T) == 8);
-    static const hostEndian::EndianType endian = hostEndian::get();
-    
-    if(sizeof(T) == 8){
-      return endian == hostEndian::LITTLE ? FP_IEEE64LITTLE : FP_IEEE64BIG;
-    }else {  // 32 bits
-      union { 
-	float pinum;
-	char pichar[4];
-      }cpspi;
-
-      FP_FORMAT format;
-      
-      cpspi.pinum = FPConv_PI;
-      if(endian == hostEndian::BIG) {
-	format = FP_IEEE32BIG;
-	for(int i=0;i<4;i++) {
-	  if(cpspi.pichar[i] != FPConv_ieee32pi_big[i]) {
-	    format = FP_TIDSP32;
-	    break;
-	  }
-	}
-      }
-      else {
-	format = FP_IEEE32LITTLE;
-	for(int i=0;i<4;i++) {
-	  if(cpspi.pichar[i] != FPConv_ieee32pi_big[3-i]) {
-	    format = FP_TIDSP32;
-	    break;
-	  }
-	}
-      }
-      return format;
-    } // end of 32 bits
-  }   
-};
-
-template<typename T>
-struct FPformat<std::complex<T> >{
-  inline static FP_FORMAT get(){ return FPformat<T>::get(); }
-};
-
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(const std::string &filename, FP_FORMAT fileformat) const{
   if(!UniqueID()) printf("Writing meson field of size %d kB to file %s\n",byte_size()/1024,filename.c_str());

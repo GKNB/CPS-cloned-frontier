@@ -1320,8 +1320,4 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
 #endif
 
-
-
-
-
 #endif

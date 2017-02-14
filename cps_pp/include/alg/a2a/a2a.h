@@ -104,7 +104,9 @@ public:
   void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
     for(int i=0;i<nv;i++) v[i]->testRandom(hi,lo);
   }
-  
+
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node id will be appended
+  void readParallel(const std::string &file_stub);
 };
 
 
@@ -345,6 +347,8 @@ public:
     for(int i=0;i<nhits;i++) wh[i]->testRandom(hi,lo);
   }
 
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node id will be appended
+  void readParallel(const std::string &file_stub);
 };
 
 
@@ -501,6 +505,7 @@ public:
 
 
 #include <alg/a2a/a2a_impl.tcc>
+#include <alg/a2a/a2a_io.tcc>
 
 //Can do Lanczos in BFM or Grid, and A2A in BFM or Grid. I have a BFM Lanczos -> Grid interface
 

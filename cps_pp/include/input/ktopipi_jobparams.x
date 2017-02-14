@@ -3,7 +3,7 @@ class JobParams{
   double mobius_scale; //if solver == BFM_HmCayleyTanh
   
   double pion_rad; //radius of pion Hydrogen wavefunction source
-  double kaon_rad; //radius of pion Hydrogen wavefunction source
+  double kaon_rad; //radius of kaon Hydrogen wavefunction source
 
   int pipi_separation; //timeslice separation of pions in pipi src/snk
   int tstep_pipi; //time increment on which we place pipi sources in pipi 2pt function calc. Default 1.

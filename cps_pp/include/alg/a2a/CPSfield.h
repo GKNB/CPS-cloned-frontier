@@ -160,7 +160,7 @@ public:
 
   bool equals(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r) const{
     for(int i=0;i<fsize;i++)
-      if(f[i] != r.f[i]) return false;
+      if(!cps::equals(f[i],r.f[i])) return false;
     return true;
   }
 
@@ -260,6 +260,12 @@ public:
     CPSfield out(*this); out -= r;
     return out;
   }
+
+  void writeParallel(std::ostream &file, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node index is appended
+  void readParallel(std::istream &file);
+  void readParallel(const std::string &file_stub); 
+  
 };
 
 #define INHERIT_TYPEDEFS(...) \
@@ -543,6 +549,7 @@ public:
 
 
 #include<alg/a2a/CPSfield_impl.tcc>
+#include<alg/a2a/CPSfield_io.tcc>
 
 CPS_END_NAMESPACE
 #endif

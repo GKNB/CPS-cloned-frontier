@@ -231,7 +231,23 @@ int main(int argc,char *argv[])
 
   if(0) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
 
-  if(1) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
+  if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
+
+  if(0) testCPSfieldIO();
+  if(1) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
+  if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
+
+
+  Grid::vComplexD a, b;
+
+  Grid::vsplat(a, std::complex<double>(1,2));
+  Grid::vsplat(b, std::complex<double>(2,1));
+  assert(!equals(a,b));
+  assert(!equals(b,a));
+  assert(equals(a,a));
+  assert(equals(b,b));
+  
+  
   
   printf("Finished\n"); fflush(stdout);
   

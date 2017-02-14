@@ -2512,6 +2512,136 @@ void testMFmult(const A2AArg &a2a_args, const double tol){
 }
 
 
+void testCPSfieldIO(){
+  {
+    CPSfermion4D<cps::ComplexD> a;
+    a.testRandom();
+    
+    a.writeParallel("field");
+    
+    CPSfermion4D<cps::ComplexD> b;
+    b.readParallel("field");
+    
+    assert( a.equals(b) );
+  }
+
+  {
+    CPScomplex4D<cps::ComplexD> a;
+    a.testRandom();
+    
+    a.writeParallel("field");
+    
+    CPScomplex4D<cps::ComplexD> b;
+    b.readParallel("field");
+    
+    assert( a.equals(b) );
+  }
+  
+}
+
+template<typename A2Apolicies, typename ComplexClass>
+struct setupFieldParams{};
+
+template<typename A2Apolicies>
+struct setupFieldParams<A2Apolicies,complex_double_or_float_mark>{
+  NullObject params;
+};
+
+template<typename A2Apolicies>
+struct setupFieldParams<A2Apolicies, grid_vector_complex_mark>{
+  typename FourDSIMDPolicy::ParamType params;
+  setupFieldParams(){
+    const int nsimd = A2Apolicies::ComplexType::Nsimd();
+    FourDSIMDPolicy::SIMDdefaultLayout(params,nsimd,2);
+  }
+};
+
+
+
+template<typename A2Apolicies>
+void testA2AvectorIO(const A2AArg &a2a_args){
+  typedef typename A2AvectorV<A2Apolicies>::FieldInputParamType FieldParams;
+  
+  setupFieldParams<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+
+  {
+    A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
+    Va.testRandom();
+
+    Va.writeParallel("Vvector");
+
+    A2AArg def;
+    def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+
+    A2AvectorV<A2Apolicies> Vb(def, p.params);
+    Vb.readParallel("Vvector");
+
+    assert( Va.paramsEqual(Vb) );
+    assert( Va.getNmodes() == Vb.getNmodes() );
+  
+    for(int i=0;i<Va.getNmodes();i++){
+      assert( Va.getMode(i).equals(Vb.getMode(i)) );
+    }
+  }
+
+  
+  {
+    A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
+    Wa.testRandom();
+
+    Wa.writeParallel("Wvector");
+
+    A2AArg def;
+    def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+
+    A2AvectorW<A2Apolicies> Wb(def, p.params);
+    Wb.readParallel("Wvector");
+
+    assert( Wa.paramsEqual(Wb) );
+    assert( Wa.getNmodes() == Wb.getNmodes() );
+  
+    for(int i=0;i<Wa.getNl();i++){
+      assert( Wa.getWl(i).equals(Wb.getWl(i)) );
+    }
+    for(int i=0;i<Wa.getNhits();i++){
+      assert( Wa.getWh(i).equals(Wb.getWh(i)) );
+    }
+    
+  }
+  
+}
+
+
+
+
+
+
+
+
+
+#ifdef USE_GRID
+void benchmarkTest(){
+  CPSfermion4D<cps::ComplexD> rnd4d;
+  rnd4d.testRandom();
+
+  const int nsimd = Grid::vComplexD::Nsimd();      
+  
+  FourDSIMDPolicy::ParamType simd_dims;
+  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd);
+  
+  CPSfermion4D<Grid::vComplexD,FourDSIMDPolicy> in(simd_dims);
+  in.importField(rnd4d);
+
+
+  
+
+
+
+}
+#endif
+
+
+
 
 
 CPS_END_NAMESPACE
