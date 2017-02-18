@@ -55,7 +55,7 @@ CPS_START_NAMESPACE
 //  Some temporay stuff for compress decompress experiments
 //-----------------------------------------------------------
 
-void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
+void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, size_t f_size, Float* alpha);
 
 #if 0
 // specific to dwf 
@@ -112,7 +112,7 @@ class EigenCache {
   Vector* evec;
   //Float* tmp;
 
-  int f_size;
+  size_t f_size;
 
   int alloc_flag;  // if the memory for cache is allocated or not
   int eval_cached; // if the eval is already cached or not
@@ -167,10 +167,12 @@ class EigenCache {
       neig == a_neig ;
   }
 
-  void alloc( char* a_fname_root_bc, int a_neig, int a_f_size )
+  void alloc( char* a_fname_root_bc, int a_neig, size_t a_f_size )
     {
       char* fname = "alloc(C*,I,I)";
       VRB.Func(cname,fname);
+      VRB.Result(cname,fname,"fname=%s neig=%d f_size=%d\n",
+		a_fname_root_bc, a_neig,a_f_size);
 
       // first deallocate if already allocated
       dealloc();
@@ -353,11 +355,11 @@ class EigenContainer {
 
   Vector* evec; // one eigen vector
 
-  int f_size; // size of one vector in the unit of Float
-  int f_stride_size; // size of save_stride vectors in the unit of Float
+  size_t f_size; // size of one vector in the unit of Float
+  size_t f_stride_size; // size of save_stride vectors in the unit of Float
 
-  int f_size_per_site;
-  int n_fields;
+  size_t f_size_per_site;
+  size_t n_fields;
 
   // stride is the number of Vectors in one eigenvector
   int stride;
@@ -388,7 +390,7 @@ class EigenContainer {
   //
 
  EigenContainer(Lattice & latt, char* a_fname_root_bc, 
-		int neig_, int f_size_per_site_, int n_fields_, 
+		int neig_, size_t f_size_per_site_, int n_fields_, 
 		EigenCache* a_ecache = 0)
    : cname( "EigenContainer" ),
      fname( "EigenContainer(...)" ),
@@ -618,7 +620,7 @@ class EigenContainer {
     //Float phase = atan2( ftmp1[1], ftmp1[0] );
     //Rcomplex rot_phase( cos( phase ), sin(- phase ) );
     
-    for(int i=0;i<f_size;i+=2){
+    for(uint64_t i=0;i<f_size;i+=2){
       Rcomplex C(ftmp1[i], ftmp1[i+1]);
       //C *= rot_phase;
       if( C.norm() > 1e-10)

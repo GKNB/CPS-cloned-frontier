@@ -48,13 +48,13 @@ void testMat (Vector * Apsi, Vector * psi, int f_size);
 void QRtrf (Float * d, Float * e, int nk, int n, Float ** z, Float dsh,
 	    int kmin, int kmax);
 
-void lanczos_GramSchm (Float * psi, Float ** vec, int Nvec, int f_size,
+void lanczos_GramSchm (Float * psi, Float ** vec, int Nvec, size_t f_size,
 		       Float * alpha);
-void lanczos_GramSchm_real (Float * psi, Float ** vec, int Nvec, int f_size,
+void lanczos_GramSchm_real (Float * psi, Float ** vec, int Nvec, size_t f_size,
 			    Float * alpha);
-void lanczos_GramSchm_test (Float * psi, Float ** vec, int Nvec, int f_size,
+void lanczos_GramSchm_test (Float * psi, Float ** vec, int Nvec, size_t f_size,
 			    Float * alpha);
-void lanczos_GramSchm_test (Float * psi, float **vec, int Nvec, int f_size,
+void lanczos_GramSchm_test (Float * psi, float **vec, int Nvec, size_t f_size,
 			    Float * alpha);
 void double_to_float (Float * vec, int f_size);
 void movefloattoFloat (Float * out, float *in, int f_size);

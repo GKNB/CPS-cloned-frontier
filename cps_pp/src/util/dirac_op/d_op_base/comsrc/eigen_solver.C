@@ -31,7 +31,7 @@ int tqri2(Float *d, Float *e, Float *s, int n, Float **Q, int steps);
 int tqri3(Float *d, Float *e, Float *s, int n, Float **Q, int steps);
 void mult_vec_by_tridiag(Float* out, Float *in, Float *d, Float *e, int n);
 void eigsrt_low(Float *d, int n);
-void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float* alpha);
+void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, size_t f_size, Float* alpha);
 void QRtrf(Float *d, Float *e,int nk, int n, Float **Q, Float dsh, int kmin, int kmax);
 void mvfloattoFloat(Float* out, float* in, int f_size);
 void mvFloattofloat(float* out, Float* in, int f_size);
@@ -1134,7 +1134,7 @@ void mult_vec_by_tridiag(Float* out, Float *in, Float *d, Float *e, int n){
 }
 
 // orthogonalize psi w/r to vec's only one vector
-void GramSchm_save(Float *psi, Float **vec, int Nvec, int f_size) 
+void GramSchm_save(Float *psi, Float **vec, int Nvec, size_t f_size) 
 {
   Float xp;
 
@@ -1243,7 +1243,7 @@ ZAXPYfloat (const int N, const float *alpha, const float *X,  float *Y)
 
 // orthogonalize psi w/r to vec's only one vector
 // treating the imaginary part of dot product exactly
-void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float *alpha) 
+void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, size_t f_size, Float *alpha) 
 {
   Float xp[2]; //xp_r, xp_i;
   
@@ -1275,7 +1275,7 @@ void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, int f_size, Float *alph
 }
 
 
-void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, int f_size, Float *alpha) 
+void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, size_t f_size, Float *alpha) 
 {
   Float xp[2]; //xp_r, xp_i;
   
@@ -1312,7 +1312,7 @@ void lanczos_GramSchm_test(Float *psi, Float **vec, int Nvec, int f_size, Float 
 
 // float version
 #if 0
-void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float *alpha) 
+void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, size_t f_size, Float *alpha) 
 {
   Float xp[2]; //xp_r, xp_i;
   Vector *vtmp = (Vector *) smalloc("","lanczos_GramSchm_test", "r", f_size * sizeof(Float));
@@ -1338,7 +1338,7 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float 
 }
 #endif
 // another float version (dot prods. are floats, not Floats)
-void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, int f_size, Float *alpha) 
+void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, size_t f_size, Float *alpha) 
 {
 
   float xp[2]; //xp_r, xp_i;
@@ -1415,7 +1415,7 @@ void mvFloattofloat(float* out, Float* in, int f_size)
 
 // orthogonalize psi w/r to vec's only one vector
 // assuming the imaginary part of dot product zero
-void lanczos_GramSchm_real(Float *psi, Float **vec, int Nvec, int f_size, Float *alpha) 
+void lanczos_GramSchm_real(Float *psi, Float **vec, int Nvec, size_t f_size, Float *alpha) 
 {
   Float xp;
 
