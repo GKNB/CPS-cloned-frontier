@@ -34,7 +34,7 @@ template<class Float> void matrix_dgemm (const int M,const int N, const int K, F
 void min_eig_index(int *INDEX, int nev,double *EIG, int n);
 void invert_H_zpotri(std::complex<double> *data, int N);
 void invert_H_matrix(std::complex<double> *data, int N); //if n is large enough, must be parallerized!!!
-template<class Float> void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_size_cb, const int nthread, const int me);
+template<class Float> void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const size_t f_size_cb, const int nthread, const int me);
 
 static double time_diff(const struct timeval &end_time, const struct timeval &start_time)
 {
@@ -967,7 +967,7 @@ template<class Float> void matrix_dgemm (const int M,const int N, const int K, F
 }
 
 template<class Float>
-void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_size_cb, const int nthread, const int me)
+void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const size_t f_size_cb, const int nthread, const int me)
 //QZ is saved in column major format. 
 //perform V = V*QZ;
 {
@@ -1008,7 +1008,7 @@ void eigcg_vec_mult(Float* V, const int m, double *QZ, const int n, const int f_
 }
 
 template<class Float>
-void eigcg_vec_mult2(Float* V, const int m, double *QZ, const int n, const int f_size_cb,
+void eigcg_vec_mult2(Float* V, const int m, double *QZ, const int n, const size_t f_size_cb,
                      const int nthread, const int me,
                      bfm_evo<Float> &bfmobj)
 //QZ is saved in column major format. 
@@ -1057,7 +1057,7 @@ void myaxpy(Float *r, Float *x, Float *y, double a, int len)
 }
 
 template<class Float>
-void eigcg_vec_mult3(Float* V, const int m, double *QZ, const int n, const int f_size_cb,
+void eigcg_vec_mult3(Float* V, const int m, double *QZ, const int n, const size_t f_size_cb,
                      const int nthread, const int me,
                      bfm_evo<Float> &bfmobj)
 //QZ is saved in column major format. 

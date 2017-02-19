@@ -141,8 +141,8 @@ int main(int argc,char *argv[]){
     }
     int ls_glb = GJP.SnodeSites()*GJP.Snodes();
 
-    int f_size = GJP.VolNodeSites() * lat.FsiteSize()/GJP.SnodeSites();
-    int f_size_5d = GJP.SnodeSites() * f_size;
+    size_t f_size = GJP.VolNodeSites() * lat.FsiteSize()/GJP.SnodeSites();
+    size_t f_size_5d = GJP.SnodeSites() * f_size;
     
     Vector *X_out = (Vector*)smalloc(f_size_5d*sizeof(IFloat),"x_out",fname,cname);
     Vector *X_in = (Vector*)smalloc(f_size_5d*sizeof(IFloat),"X_in",fname,cname);

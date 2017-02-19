@@ -921,7 +921,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     if (chi == 0)
       ERR.Pointer (cname, fname, "chi");
 
-    int f_size = GJP.VolNodeSites () * FsiteSize () / 2;
+    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
     if (GJP.Gparity ())
       f_size *= 2;
 

@@ -288,7 +288,7 @@ static int no_gparity_test(GwilsonFdwf* lattice, const BfmSolver &solver){
 
 
   //expects phi to be in cps checkerboard format. We can use in[0] and in2[0] as above, and export from bfm to cps format
-  int f_size_cb = f_size / 2;
+  size_t f_size_cb = f_size / 2;
   Vector* phi1 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
   Vector* phi2 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
 
@@ -832,7 +832,7 @@ int main(int argc,char *argv[])
       Fbfm::bfm_args[0] = dwfa;
       GnoneFbfm *fbfm = new GnoneFbfm;
       //expects phi to be in cps checkerboard format. We can use in[0] and in2[0] as above, and export from bfm to cps format
-      int f_size_cb = f_size / 2;
+      size_t f_size_cb = f_size / 2;
       Vector* phi1 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
       Vector* phi2 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
 
@@ -1325,7 +1325,7 @@ int main(int argc,char *argv[])
       Fbfm::bfm_args[0] = dwfa;
       GnoneFbfm *fbfm = new GnoneFbfm;
       //expects phi to be in cps checkerboard format. We can use in[0] and in2[0] as above, and export from bfm to cps format
-      int f_size_cb = f_size / 2;
+      size_t f_size_cb = f_size / 2;
       Vector* phi1 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
       Vector* phi2 = (Vector *)pmalloc(sizeof(Float) * f_size_cb);
 

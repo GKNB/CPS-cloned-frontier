@@ -231,7 +231,7 @@ int FdwfBase::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   char *fname = "FmatEvlMInv(V**, V*, .....)";
   VRB.Func(cname,fname);
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size*=2;
 
   Float dot = f_in -> NormSqGlbSum(f_size);
@@ -963,7 +963,7 @@ void FdwfBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb)
 //------------------------------------------------------------------
 // Initializations
 //------------------------------------------------------------------
-  int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb/2;
+  size_t f_size = GJP.VolNodeSites() * FsiteSize()*Ncb/2;
   if(GJP.Gparity()) f_size*=2;
 
   int ls = GJP.SnodeSites();
@@ -1071,7 +1071,7 @@ void FdwfBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb)
 // Initializations
 //------------------------------------------------------------------
   int ls = GJP.SnodeSites();
-  int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb / (ls*2);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize()*Ncb / (ls*2);
   if(GJP.Gparity()) f_size*=2;
 
   int vol_4d = GJP.VolNodeSites()*Ncb/2;
@@ -1163,8 +1163,8 @@ void FdwfBase::Fsolfour2five(Vector *sol_5d, Vector *sol_4d, Vector *src_5d, CgA
 {
   const char *fname="Fsolfour2five()";
 
-  const int f_size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
-  const int f_size_5d = GJP.VolNodeSites() * FsiteSize();
+  const size_t f_size_4d = GJP.VolNodeSites() * SPINOR_SIZE;
+  const size_t f_size_5d = GJP.VolNodeSites() * FsiteSize();
   const int ls_glb = GJP.Snodes() * GJP.SnodeSites();
   const int s_size = GJP.SnodeSites();
   VRB.Result(cname,fname,"sol_5d=%p sol_4d=%p src_5d=%p cg_arg=%p",sol_5d,sol_4d,src_5d,cg_arg);
@@ -1269,7 +1269,7 @@ int FdwfBase::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // calculate chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
+  size_t f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
   if(GJP.Gparity()) f_size*=2;
 
   Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
@@ -1500,7 +1500,7 @@ Float FdwfBase::FhamiltonNode(Vector *phi, Vector *chi){
   if (chi == 0)
     ERR.Pointer(cname,fname,"chi") ;
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / 2 * (GJP.Gparity() ? 2:1);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / 2 * (GJP.Gparity() ? 2:1);
 
   Float ret_val = phi->ReDotProductNode(chi, f_size ) ;
 
@@ -1529,7 +1529,7 @@ Float FdwfBase::BhamiltonNode(Vector *boson, Float mass){
   if (boson == 0)
     ERR.Pointer(cname,fname,"boson");
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / 2 ;
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / 2 ;
   if(GJP.Gparity()) f_size *=2;
 
   char *str_tmp = "bsn_tmp" ;
@@ -1644,7 +1644,7 @@ void FdwfBase::SpinProject(Vector * out, Vector *in, int s_size, int type)
   int lcl_pos[4], color;
   int s;
 
-  int f_size_4d= GJP.VolNodeSites()*2*Colors()*SpinComponents();
+  size_t f_size_4d= GJP.VolNodeSites()*2*Colors()*SpinComponents();
 
   for(s = 0; s < lcl_size[4]; ++s){
     for_each_site_4d(lcl_pos){

@@ -123,7 +123,7 @@ void mobius_m5inv_dag0(Vector *inout,
   // const int s_node_coor = GJP.SnodeCoor();
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
   const int ls_stride = 24 * vol_4d_cb;
-  const int f_size = 24 * vol_4d_cb * ls;
+  const size_t f_size = 24 * vol_4d_cb * ls;
 
   const IFloat two_kappa = -mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const IFloat inv_two_kappa = 1.0 / two_kappa;
@@ -257,7 +257,7 @@ void mobius_m5inv_dag1(Vector *inout,
   // const int s_node_coor = GJP.SnodeCoor();
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
   const int ls_stride = 24 * vol_4d_cb;
-  const int f_size = 24 * vol_4d_cb * ls;
+  const size_t f_size = 24 * vol_4d_cb * ls;
 
   const IFloat two_kappa = -mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const IFloat inv_two_kappa = 1.0 / two_kappa;
@@ -394,7 +394,7 @@ void mobius_m5inv(Vector *out, Vector *in,
 		  Dwf *mobius_lib_arg)
 {
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
-  const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
+  const size_t f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
 
   moveFloat( (Float*)out, (Float*)in, f_size );
 

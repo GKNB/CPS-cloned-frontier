@@ -68,7 +68,7 @@ void zmobius_dslash_4_dag0(Vector *out,
   //----------------------------------------------------------------
   const int dag=0;
   ls = mobius_lib_arg->ls;
-  const int f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
 #if 0
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();
@@ -153,7 +153,7 @@ void zmobius_dslash_4_dag1(Vector *out,
   //----------------------------------------------------------------
   const int dag=1;
   ls = mobius_lib_arg->ls;
-  const int f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
 #if 0
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();

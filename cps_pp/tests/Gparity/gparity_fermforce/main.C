@@ -298,7 +298,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = 2* f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = f_vec_count * lat.Colors() * 2;
+    size_t f_size = f_vec_count * lat.Colors() * 2;
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -417,7 +417,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = 2* f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = f_vec_count * lat.Colors() * 2;
+    size_t f_size = f_vec_count * lat.Colors() * 2;
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -567,7 +567,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = 2* f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = f_vec_count * lat.Colors() * 2;
+    size_t f_size = f_vec_count * lat.Colors() * 2;
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -680,7 +680,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = f_vec_count * lat.Colors() * 2;
+    size_t f_size = f_vec_count * lat.Colors() * 2;
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -839,7 +839,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = f_vec_count * lat.Colors() * 2;
+    size_t f_size = f_vec_count * lat.Colors() * 2;
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -967,7 +967,7 @@ int main(int argc,char *argv[])
     int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1); //half-checkerboard fermion
 
     int f_vec_count = f_sites * lat.SpinComponents(); //number of 3-vectors in fermion
-    int f_size = 2*f_vec_count * lat.Colors();
+    size_t f_size = 2*f_vec_count * lat.Colors();
 
     int Ncb;
     if(lat.FchkbEvl() == 1) Ncb = 1; 
@@ -1224,13 +1224,13 @@ void EvolveMomFforceUstarGparity(Lattice &lat, Matrix *mom, Vector *chi, double 
   // allocate space for two CANONICAL fermion fields
   //----------------------------------------------------------------
 
-  int f_size = lat.FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = lat.FsiteSize() * GJP.VolNodeSites() ;
   int f_site_size_4d = 2 * lat.Colors() * lat.SpinComponents();
-  int f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
+  size_t f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
 
   //CK: Need space for both d and C\bar u^T fields stacked
   //Two 4d volumes are stacked on each Ls such that Ls can be split over multiple nodes
-  int f_size_alloc = f_size *2 *sizeof(double);
+  size_t f_size_alloc = f_size *2 *sizeof(double);
   int f_single4dsite_alloc = lat.FsiteSize()*sizeof(double)*2;
 
 

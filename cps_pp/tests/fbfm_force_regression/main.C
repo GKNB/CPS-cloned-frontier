@@ -186,7 +186,7 @@ static void hmd_force_vec_test(GwilsonFdwf* &lattice){
   fbfm->bd.cps_impexFermion(v1,in,1);
 
   //expects phi to be in cps checkerboard format. We can extract this easily by exporting from the bfm 'in' object to cps format
-  int f_size_cb = f_size / 2;
+  size_t f_size_cb = f_size / 2;
   
   Vector* chi = (Vector *)pmalloc(sizeof(Float) * f_size_cb); //ODD vector
   fbfm->bd.cps_impexcbFermion((Float *)chi, in[1], 0, 1); 
@@ -335,7 +335,7 @@ static void force_test(GwilsonFdwf* &lattice){
   fbfm->bd.cps_impexFermion(v1,in,1);
 
   //expects phi to be in cps checkerboard format. We can extract this easily by exporting from the bfm 'in' object to cps format
-  int f_size_cb = f_size / 2;
+  size_t f_size_cb = f_size / 2;
   
   Vector* chi = (Vector *)pmalloc(sizeof(Float) * f_size_cb); //ODD vector
   fbfm->bd.cps_impexcbFermion((Float *)chi, in[1], 0, 1); 

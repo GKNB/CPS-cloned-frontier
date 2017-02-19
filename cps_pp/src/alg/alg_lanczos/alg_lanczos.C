@@ -118,7 +118,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   if (nt>nk)
   ERR.General(cname,fname,"nk(%d) cannot be smaller than nt(%d)\n",nk,nt);
   int m = nk+np;
-  int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+  size_t f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
 
   lambda = ecache->eval_address();
   // eigenvectors are stored in cache. Pass along addresses.
@@ -172,7 +172,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
       ERR.NotImplemented(cname,fname,"This  init_flag is not supported yet\n");
       Lattice& lattice= lat;
       const int n_fields =  GJP.SnodeSites();  //   *nk ; 
-      const int f_size_per_site = lattice.FsiteSize() / GJP.SnodeSites()  / (lattice.FchkbEvl()+1);
+      const size_t f_size_per_site = lattice.FsiteSize() / GJP.SnodeSites()  / (lattice.FchkbEvl()+1);
       
 #if 1
       int neig= 20;
@@ -188,7 +188,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
 
       int step_eig= (neig - 1)/(ncompress-1);
       
-      int f_size = f_size_per_site * n_fields *GJP.VolNodeSites();
+      size_t f_size = f_size_per_site * n_fields *GJP.VolNodeSites();
       Vector* sol = eigenv[0];
 
       Float* eig1 = (Float*) smalloc(cname,fname,"eig1",
@@ -241,7 +241,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   char* field_type_label = "n/a";
 
   const int n_fields =  GJP.SnodeSites();  //   *nk ; 
-  const int f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  * Ncb / 2 / 2; // 2nd two is for float!
+  const size_t f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  * Ncb / 2 / 2; // 2nd two is for float!
 
   // write to disk if desired, confirm save in cache
   char filename[1024];

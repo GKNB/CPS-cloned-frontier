@@ -184,7 +184,7 @@ class ParTransAsqtad : public ParTransStagTypes
 
     char *cname;         // Class name.
 
-    int f_size_cb;       //The node checkerbrd. size of the ferm. field
+    size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
 
     Vector *frm_tmp;     // Temporary fermion field
 
@@ -299,7 +299,7 @@ class ParTransStaggered_cb : public ParTransStagTypes
 
     char *cname;         // Class name.
 
-    int f_size_cb;       //The node checkerbrd. size of the ferm. field
+    size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
 
     Vector *frm_tmp;     // Temporary fermion field
 

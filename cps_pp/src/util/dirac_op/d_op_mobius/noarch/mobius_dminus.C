@@ -61,7 +61,7 @@ void mobius_dminus(Vector *out,
   // Initializations
   //----------------------------------------------------------------
   ls = mobius_lib_arg->ls;
-  const int f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
   Float c_coeff = GJP.Mobius_c();
 
   frm_in = (IFloat *) in;

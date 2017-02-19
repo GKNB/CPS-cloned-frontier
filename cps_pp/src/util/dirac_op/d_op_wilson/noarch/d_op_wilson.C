@@ -484,7 +484,7 @@ void DiracOpWilson::CalcHmdForceVecs(Vector *chi)
 
   Vector *chi_new, *rho, *psi, *sigma ;
 
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
   if(GJP.Gparity()) f_size_cb *= 2;
 
   chi_new = f_out ;

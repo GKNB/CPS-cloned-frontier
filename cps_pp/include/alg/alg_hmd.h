@@ -113,7 +113,7 @@ class AlgHmcPhi : public AlgHmd
     int n_bsn_masses;     
     //!< The number of dynamical boson masses.
 
-    int f_size;       
+    size_t f_size;       
     //!< The size of the pseudofermion (and similar) fields.
     /*!< The size is given in terms of the total number of floating point
       numbers in the field on the local lattice, taking into account whether
@@ -235,7 +235,7 @@ class AlgHmcQPQ : public AlgHmd
     int n_bsn_masses;     
     //!< The number of dynamical boson masses.
 
-    int f_size;       
+    size_t f_size;       
     //!< The size of the pseudofermion (and similar) fields.
     /*!< The size is given in terms of the total number of floating point
       numbers in the field on the local lattice, taking into account whether
@@ -357,7 +357,7 @@ class AlgHmcRHMC : public AlgHmd
     int f_sites;       
     int f_vec_count;       
     int f_count;       
-    int f_size;       
+    size_t f_size;       
     //!< The size of a fermion field.
     /*!< The size is given in terms of the total number of floating point
       numbers in the field on the local lattice, taking into account whether
@@ -506,7 +506,7 @@ class AlgHmdR : public AlgHmd
       Actually it is the differences between them. At least most of it is.
     */
 
-    int f_size;       
+    size_t f_size;       
     //!< The size of the pseudofermion (and similar) fields.
     /*!< The size is given in terms of the total number of floating point
       numbers in the field on the local lattice, taking into account whether
@@ -585,7 +585,7 @@ class AlgHmdR2 : public AlgHmd
     int f_sites;       
     int f_vec_count;       
     int f_count;       
-    int f_size;       
+    size_t f_size;       
     //!< The size of the pseudofermion (and similar) fields.
     /*!< The size is given in terms of the total number of floating point
       numbers in the field on the local lattice, taking into account whether

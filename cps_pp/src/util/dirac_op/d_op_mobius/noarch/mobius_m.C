@@ -42,7 +42,7 @@ void  mobius_m(Vector *out,
   //------------------------------------------------------------------
   // Initializations
   //------------------------------------------------------------------
-  const int f_size = 24 * mobius_lib_arg->vol_4d * mobius_lib_arg->ls / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d * mobius_lib_arg->ls / 2;
   const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
   Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;

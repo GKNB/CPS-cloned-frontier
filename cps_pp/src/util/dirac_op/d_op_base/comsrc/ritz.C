@@ -114,7 +114,7 @@ CPS_START_NAMESPACE
   \post Each vector in the array \a psi is orthogonal to all of the vectors
   in the array \a vec.
 */
-void DiracOp::GramSchm(Vector **psi, int Npsi, Vector **vec, int Nvec, int f_size) 
+void DiracOp::GramSchm(Vector **psi, int Npsi, Vector **vec, int Nvec, size_t f_size) 
 {
   Complex xp;
 
@@ -130,7 +130,7 @@ void DiracOp::GramSchm(Vector **psi, int Npsi, Vector **vec, int Nvec, int f_siz
   }
 }
 // same as above, but orthogonalize only one vector
-void DiracOp::GramSchm(Vector *psi, Vector **vec, int Nvec, int f_size) 
+void DiracOp::GramSchm(Vector *psi, Vector **vec, int Nvec, size_t f_size) 
 {
   Complex xp;
 
@@ -188,7 +188,7 @@ int DiracOp::Ritz(Vector **psi_all, int N_eig, Float &lambda,
 
 // Set the node checkerboard size of the fermion field
 //------------------------------------------------------------------
-  int f_size = RitzLatSize();
+  size_t f_size = RitzLatSize();
     
 // Set the node checkerboard size of the fermion field
 //------------------------------------------------------------------

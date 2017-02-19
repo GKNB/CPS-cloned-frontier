@@ -1299,7 +1299,7 @@ namespace BFM_Krylov{
   //copy from Qi's EigCG code
   //QZ is saved in column major format. 
   //perform V = V*QZ;
-  template<class Float> void eigcg_vec_mult(Float** V, const int m, double *QZ, const int n, const int f_size_cb, const int nthread, const int me)
+  template<class Float> void eigcg_vec_mult(Float** V, const int m, double *QZ, const int n, const size_t f_size_cb, const int nthread, const int me)
   {
     //implementation 4
     //reorder QZ to 4x4 blocks
@@ -1340,7 +1340,7 @@ namespace BFM_Krylov{
   //CK imported nice clean version of above from Qi. I don't care if it's slower, that thing is HIDEOUS
   //m is number of rows, n number of columns. There are m fermion vectors in V
   template<class Float>
-  void eigcg_vec_mult2(Float** V, const int m, double *QZ, const int n, const int f_size_cb,
+  void eigcg_vec_mult2(Float** V, const int m, double *QZ, const int n, const size_t f_size_cb,
 		       const int nthread, const int me,
 		       bfm_evo<Float> &bfmobj)
   //QZ is saved in column major format. 
@@ -1385,7 +1385,7 @@ namespace BFM_Krylov{
       for(int j = 0; j < N; j++)
 	QZ[i*N + j] = Q(j, i);
 
-    int f_size_cb = dop.cbLs*24*dop.node_cbvol;
+    size_t f_size_cb = dop.cbLs*24*dop.node_cbvol;
     if(dop.gparity) f_size_cb *=2; //on each checkerboard live 2 flavours stacked
     //QDPIO::cout << "Krylov<Float>::times_real with checkerboard fermion size " << f_size_cb << std::endl;
 
@@ -1447,7 +1447,7 @@ namespace BFM_Krylov{
       for(int j = 0; j < NM; j++)
 	QZ[i*NM+j] = this->evecs[i][j];
 
-    int f_size_cb = 24*dop.cbLs*dop.node_cbvol;
+    size_t f_size_cb = 24*dop.cbLs*dop.node_cbvol;
     if(dop.gparity) f_size_cb *=2; //why does this quantity need to be redefined in every...single...function??
 
     for(int cb = this->prec; cb < 2; cb++)

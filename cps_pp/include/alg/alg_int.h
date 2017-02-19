@@ -359,7 +359,7 @@ protected:
     //!< Number of Vectors in a Vector array
     int f_vec_count;
     //!< Number of Floats in a Vector array
-    int f_size;
+    size_t f_size;
     //!< Number of checkerboards
     int Ncb;
 

@@ -819,7 +819,7 @@ void MatrixPrint(Matrix *mat){
 
 //   int f_sites = GJP.SnodeSites()*GJP.VolNodeSites() / (lat.FchkbEvl()+1);
 //   int f_vec_count = f_sites * lat.SpinComponents();
-//   int f_size = f_vec_count * lat.Colors() * 2;
+//   size_t f_size = f_vec_count * lat.Colors() * 2;
 //   if(GJP.Gparity()) f_size *= 2; //2 stacked G-parity flavors
 //   Vector *tmp1 = (Vector*)smalloc(f_size*sizeof(Float),"tmp1",fname,cname);
 //   Vector *tmp2 = (Vector*)smalloc(f_size*sizeof(Float),"tmp2",fname,cname);
@@ -894,11 +894,11 @@ void MatrixPrint(Matrix *mat){
 //   }
 //   MatrixPrint(mom);
 
-//   // int f_size2 = lat.FsiteSize() * GJP.VolNodeSites() ;
+//   // size_t f_size2 = lat.FsiteSize() * GJP.VolNodeSites() ;
 //   // int f_site_size_4d = 24;
-//   // int f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
+//   // size_t f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
 
-//   // int f_size_alloc = f_size2 *2 *sizeof(Float);
+//   // size_t f_size_alloc = f_size2 *2 *sizeof(Float);
 //   // int f_single4dsite_alloc = lat.FsiteSize()*sizeof(Float)*2;
   
 //   // Vector *v1 = (Vector *)smalloc(f_size_alloc) ;

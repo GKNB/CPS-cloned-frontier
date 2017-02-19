@@ -98,7 +98,7 @@ int FwilsonTm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   char *fname = "FmatMInv(V*, V*, .....)";
   VRB.Func(cname,fname);
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size *= 2;
   Float dot = f_in -> NormSqGlbSum4D(f_size);
 
@@ -194,7 +194,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // Compute chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
 
   Vector* v1 = (Vector *)smalloc(f_size*sizeof(Float));
   if (v1 == 0)
@@ -380,7 +380,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
   BondCond();
 
   //Compute chirality and whatnot
-  int f_size = (GJP.VolNodeSites() * FsiteSize())/ 2; //single checkerboard field
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize())/ 2; //single checkerboard field
   if(GJP.Gparity()) f_size *= 2;
   Vector* v1 = (Vector *)pmalloc(f_size*sizeof(Float));
 
@@ -466,7 +466,7 @@ int FwilsonTm::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // Compute chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
   if(GJP.Gparity()) f_size *= 2;
 
   Vector* v1 = (Vector *)smalloc(f_size*sizeof(Float));
@@ -670,7 +670,7 @@ Float FwilsonTm::BhamiltonNode(Vector *boson, Float mass, Float epsilon){
   if (boson == 0)
     ERR.Pointer(cname,fname,"boson");
 
-  int f_size = (GJP.VolNodeSites() * FsiteSize()) >> 1 ;
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize()) >> 1 ;
   if(GJP.Gparity()) f_size*=2;
 
   Vector *bsn_tmp = (Vector *)
@@ -725,7 +725,7 @@ ForceArg FwilsonTm::EvolveMomFforce(Matrix *mom, Vector *chi,
     if (mom == 0) ERR.Pointer(cname,fname,"mom");
     if (chi == 0) ERR.Pointer(cname,fname,"chi");
 
-    const int f_size = FsiteSize() * GJP.VolNodeSites();
+    const size_t f_size = FsiteSize() * GJP.VolNodeSites();
     Vector *v1 = (Vector *)smalloc(cname, fname, "v1", f_size*sizeof(Float));
     Vector *v2 = (Vector *)smalloc(cname, fname, "v2", f_size*sizeof(Float));
 
@@ -755,7 +755,7 @@ ForceArg FwilsonTm::EvolveMomFforce(Matrix *mom, Vector *chi,
 //------------------------------------------------------------------
 // allocate space for two CANONICAL fermion fields.
 //------------------------------------------------------------------
-  int f_size = FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = FsiteSize() * GJP.VolNodeSites() ;
 
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(cname, fname, str_v1, f_size*sizeof(Float)) ;
@@ -1016,7 +1016,7 @@ ForceArg FwilsonTm::EvolveMomFforceGparity(Matrix *mom, Vector *chi,
 //------------------------------------------------------------------
 // allocate space for two CANONICAL fermion fields.
 //------------------------------------------------------------------
-  int f_size = FsiteSize() * GJP.VolNodeSites()*2;
+  size_t f_size = FsiteSize() * GJP.VolNodeSites()*2;
   int f1_vectoff = f_size/2; //offset within fermion vector to f1 field
 
   char *str_v1 = "v1" ;
@@ -1244,7 +1244,7 @@ ForceArg FwilsonTm::EvolveMomFforce(Matrix *mom, Vector *chi, Vector *eta,
     if (mom == 0)            { ERR.Pointer(cname,fname,"mom") ; }
     if (eta == 0)            { ERR.Pointer(cname,fname,"eta") ; }
 
-    const int f_size = FsiteSize() * GJP.VolNodeSites();
+    const size_t f_size = FsiteSize() * GJP.VolNodeSites();
     Vector *v1 = (Vector *)smalloc(cname, fname, "v1", f_size*sizeof(Float)) ;
     Vector *v2 = (Vector *)smalloc(cname, fname, "v2", f_size*sizeof(Float)) ;
 
@@ -1281,7 +1281,7 @@ ForceArg FwilsonTm::EvolveMomFforce(Matrix *mom, Vector *chi, Vector *eta,
 // these are all full fermion vector sizes ( i.e. *not* preconditioned )
 //------------------------------------------------------------------
 
-  int f_size        ( FsiteSize() * GJP.VolNodeSites() );
+  size_t f_size        ( FsiteSize() * GJP.VolNodeSites() );
 
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;
@@ -1581,7 +1581,7 @@ ForceArg FwilsonTm::EvolveMomFforceGparity(Matrix *mom, Vector *chi, Vector *eta
 // these are all full fermion vector sizes ( i.e. *not* preconditioned )
 //------------------------------------------------------------------
 
-  int f_size( FsiteSize() * GJP.VolNodeSites()*2);
+  size_t f_size( FsiteSize() * GJP.VolNodeSites()*2);
   int f1_vectoff = f_size/2; //offset within fermion vector to f1 field
 
   char *str_v1 = "v1" ;

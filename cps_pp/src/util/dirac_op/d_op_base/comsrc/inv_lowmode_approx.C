@@ -44,7 +44,7 @@ CPS_END_NAMESPACE
 
 CPS_START_NAMESPACE
 
-void movefloattoFloat(Float* out, float* in, int f_size);
+void movefloattoFloat(Float* out, float* in, size_t f_size);
 
 int DiracOp::InvLowModeApprox(
 			Vector *out, 
@@ -56,7 +56,7 @@ int DiracOp::InvLowModeApprox(
 
   time_elapse();
   
-  int f_size_cb;     // Node checkerboard size of the fermion field
+  size_t f_size_cb;     // Node checkerboard size of the fermion field
   int itr;                       // Current number of CG iterations
   int max_itr;                       // Max number of CG iterations
   Float stp_cnd;                   // Stop if residual^2 <= stp_cnd
@@ -97,7 +97,7 @@ int DiracOp::InvLowModeApprox(
 
 
   const int n_fields =  GJP.SnodeSites();  //   *nk ; 
-  const int f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  / (lat.FchkbEvl()+1);
+  const size_t f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  / (lat.FchkbEvl()+1);
 
 
   char fname_eig_root_bc[1024];
@@ -219,7 +219,7 @@ void DiracOp::InvLowModeProj( Vector *in,
 
   time_elapse();
   
-  int f_size_cb;     // Node checkerboard size of the fermion field
+  size_t f_size_cb;     // Node checkerboard size of the fermion field
   int itr;                       // Current number of CG iterations
   int max_itr;                       // Max number of CG iterations
   Float stp_cnd;                   // Stop if residual^2 <= stp_cnd
@@ -250,7 +250,7 @@ void DiracOp::InvLowModeProj( Vector *in,
 
 
   const int n_fields =  GJP.SnodeSites();  //   *nk ; 
-  const int f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  / (lat.FchkbEvl()+1);
+  const size_t f_size_per_site = lat.FsiteSize() / GJP.SnodeSites()  / (lat.FchkbEvl()+1);
 
 
   char fname_eig_root_bc[1024];

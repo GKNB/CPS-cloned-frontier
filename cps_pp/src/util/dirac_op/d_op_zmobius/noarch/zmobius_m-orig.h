@@ -10,7 +10,7 @@ void  zmobius_m_orig(Vector *out,
   //------------------------------------------------------------------
   // Initializations
   //------------------------------------------------------------------
-  const int f_size = 24 * mobius_lib_arg->vol_4d * mobius_lib_arg->ls / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d * mobius_lib_arg->ls / 2;
   const int ls=mobius_lib_arg->ls;
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
   const int ls_stride = 24 * vol_4d_cb;

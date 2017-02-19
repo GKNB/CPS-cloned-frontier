@@ -154,7 +154,7 @@ Float FwilsonTypes::FhamiltonNode( Vector *phi,  Vector *chi) {
   if (chi == 0)
     ERR.Pointer(cname,fname,"chi") ;
 
-  int f_size = ((GJP.VolNodeSites()*FsiteSize())>>1)*(2-FchkbEvl());
+  size_t f_size = ((GJP.VolNodeSites()*FsiteSize())>>1)*(2-FchkbEvl());
   if(GJP.Gparity()) f_size*=2;
 
   return phi->ReDotProductNode(chi,f_size);

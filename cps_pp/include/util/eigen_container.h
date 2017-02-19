@@ -171,7 +171,7 @@ class EigenCache {
     {
       char* fname = "alloc(C*,I,I)";
       VRB.Func(cname,fname);
-      VRB.Result(cname,fname,"fname=%s neig=%d f_size=%d\n",
+      VRB.Result(cname,fname,"fname=%s neig=%d f_size=%ld\n",
 		a_fname_root_bc, a_neig,a_f_size);
 
       // first deallocate if already allocated

@@ -190,7 +190,7 @@ int InvCgShift_CPS(Vector *out,
 // Set the node checkerboard size of the fermion field
 //------------------------------------------------------------------
 
-  int f_size_cb;
+  size_t f_size_cb;
 
   if(lat.Fclass() == F_CLASS_CLOVER) {
     f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
@@ -414,7 +414,7 @@ int InvCGtest(){
   //technically we need a WILSON ordered fermion, but as it is random it doesn't matter
   Float* in = rand_4d_canonical_fermion(*lattice);
   
-  int f_size_cb =  GJP.VolNodeSites() * 24/2;
+  size_t f_size_cb =  GJP.VolNodeSites() * 24/2;
   Float *out_1 = (Float*)pmalloc(f_size_cb*sizeof(Float));
   Float *out_2 = (Float*)pmalloc(f_size_cb*sizeof(Float));
   for(int i=0;i<f_size_cb;i++){

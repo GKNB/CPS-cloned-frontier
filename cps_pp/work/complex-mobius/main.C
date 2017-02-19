@@ -79,7 +79,7 @@ LanczosArg lanczos_arg;
 MdwfArg real_mdwf_arg;
 
 
-void movefloattoFloat(Float* out, float* in, int f_size);
+void movefloattoFloat(Float* out, float* in, size_t f_size);
 
 // needed to declare globally
 std::vector<EigenCache*> cps::EigenCacheList(0);
@@ -354,7 +354,7 @@ int main(int argc,char *argv[])
   }
 
   {
-    int f_size = GJP.VolNodeSites()*24;
+    size_t f_size = GJP.VolNodeSites()*24;
     
     Float norm_zmob = out_zmob_4d->NormSqGlbSum(f_size);
     Float norm_mob = out_mob_4d->NormSqGlbSum(f_size);
@@ -397,7 +397,7 @@ void cps::EigenCacheListCleanup( )
   EigenCacheList.clear() ;
 }
 
-void movefloattoFloat(Float* out, float* in, int f_size){
+void movefloattoFloat(Float* out, float* in, size_t f_size){
 
   float flt;
   for(int i=0;i<f_size;i++){

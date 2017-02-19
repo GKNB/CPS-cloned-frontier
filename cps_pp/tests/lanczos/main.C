@@ -53,7 +53,7 @@ LanczosArg lanczos_arg;
 QPropWArg qp_arg;
 
 
-void movefloattoFloat (Float * out, float *in, int f_size);
+void movefloattoFloat (Float * out, float *in, size_t f_size);
 
 
 static void SetZmobiusPC(int flag)
@@ -184,7 +184,7 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
       ecache->alloc (evecname_bc, neig, fsize);
       {				//read in only
 	const int n_fields = GJP.SnodeSites ();
-	const int f_size_per_site = lattice.FsiteSize () / n_fields / 2;
+	const size_t f_size_per_site = lattice.FsiteSize () / n_fields / 2;
 	EigenContainer eigcon (lattice, evecname_bc, neig, f_size_per_site / 2,
 			       n_fields, ecache);
 	// factor of 2 for single-prec.
@@ -350,7 +350,7 @@ int main (int argc, char *argv[])
 }
 
 
-void movefloattoFloat (Float * out, float *in, int f_size)
+void movefloattoFloat (Float * out, float *in, size_t f_size)
 {
 
   float flt;

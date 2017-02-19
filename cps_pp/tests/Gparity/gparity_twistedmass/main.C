@@ -190,7 +190,7 @@ static void oldTm_EvolveMomFforce_nogp(Matrix *mom, Vector *chi,
   const char* cname ="";
   const char* fname = "oldTm_EvolveMomFforce_nogp(..)";
   
-  int f_size = lattice->FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = lattice->FsiteSize() * GJP.VolNodeSites() ;
   if(GJP.Gparity()) f_size *=2;
 
   char *str_v1 = "v1" ;
@@ -395,7 +395,7 @@ ForceArg oldTm_EvolveMomFforce_boson_nogp(Matrix *mom, Vector *chi, Vector *eta,
 //------------------------------------------------------------------
   Matrix *gauge = lattice->GaugeField();
  
-  int f_size        ( lattice->FsiteSize() * GJP.VolNodeSites() );
+  size_t f_size        ( lattice->FsiteSize() * GJP.VolNodeSites() );
 
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;
@@ -964,7 +964,7 @@ void CPS_CalcHmdForceVecs(Vector *chi, Vector *f_out, Vector *f_in, DiracOpWilso
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int vol =  GJP.VolNodeSites()/2;
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
   if(GJP.Gparity()){ 
     vol*=2;
     f_size_cb *= 2; //Layout is   |   odd   |   even  |
@@ -1042,7 +1042,7 @@ int InvCgShift_CPS(Vector *out,
 // Set the node checkerboard size of the fermion field
 //------------------------------------------------------------------
 
-  int f_size_cb;
+  size_t f_size_cb;
 
   if(lat.Fclass() == F_CLASS_CLOVER) {
     f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
@@ -1268,7 +1268,7 @@ int MInvCG_CPS(Vector **psi, Vector *chi, Float chi_norm, Float *mass,
 //------------------------------------------------------------------
 
   int iz, k, s;
-  int f_size;
+  size_t f_size;
 
   if(lat.Fclass() == F_CLASS_CLOVER)
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / 2;
@@ -1565,7 +1565,7 @@ int CPS_FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // Compute chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = (GJP.VolNodeSites() * lat.FsiteSize()) * Ncb / 2; //CK: fixed
+  size_t f_size = (GJP.VolNodeSites() * lat.FsiteSize()) * Ncb / 2; //CK: fixed
   if(GJP.Gparity()) f_size *= 2;
 
   Vector* v1 = (Vector *)smalloc(f_size*sizeof(Float));
@@ -1687,7 +1687,7 @@ static void convertSorderToCanonical(Vector* vect, Fbfm* fbfm){
   fbfm->bd.freeFermion(handle[1]);
 }
 // static void convertFullCbFermToCanonical(Vector* vect, Fbfm* fbfm){
-//   int f_size_cb = GJP.VolNodeSites()*24/2; if(GJP.Gparity()) f_size_cb*=2;
+//   size_t f_size_cb = GJP.VolNodeSites()*24/2; if(GJP.Gparity()) f_size_cb*=2;
 //   Fermion_t handle[2] = { fbfm->bd.allocFermion(), fbfm->bf.allocFermion() };
 //   fbfm->bd.cps_impexcbFermion((Float*)vect,handle[0],1,1);
 //   fbfm->bd.cps_impexcbFermion((Float*)vect + f_size_cb,handle[1],1,0);
@@ -1706,7 +1706,7 @@ ForceArg CPS_EvolveMomFforce(Matrix *mom, Vector *v1, Vector* v2,
   const char *cname = "";
   Matrix *gauge = latt->GaugeField() ;
 
-  int f_size = latt->FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = latt->FsiteSize() * GJP.VolNodeSites() ;
 
   Float *site_v1 = (Float *)pmalloc(latt->FsiteSize()*sizeof(Float));
   Float *site_v2 = (Float *)pmalloc(latt->FsiteSize()*sizeof(Float));
@@ -1817,7 +1817,7 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
 
 #if 0
   {
-    int f_size = 24*GJP.VolNodeSites();
+    size_t f_size = 24*GJP.VolNodeSites();
     Vector* f_in_cps = (Vector*)pmalloc(f_size * sizeof(Float));
     Vector* f_out_cps = (Vector*)pmalloc(f_size * sizeof(Float));
     Vector* f_in_bfm = (Vector*)pmalloc(f_size * sizeof(Float));
@@ -1939,7 +1939,7 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
       LRG = LRGbak;
 
       Vector **eigenvectors_bfm = algeig_bfm.getEigenVectors();
-      int f_size = GJP.VolNodeSites()*24;
+      size_t f_size = GJP.VolNodeSites()*24;
       
       bool fail = false;
 
@@ -1981,7 +1981,7 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
     for(int ev = 0; ev < 2; ev++){
       //lattice->Fconvert(eigenvectors[ev], WILSON, CANONICAL);
     
-      int f_size = GJP.VolNodeSites()*24/2; //only on odd checkerboard
+      size_t f_size = GJP.VolNodeSites()*24/2; //only on odd checkerboard
       Vector* MdagM_v = (Vector*)pmalloc(f_size * sizeof(Float));
       Vector* lambda_v = (Vector*)pmalloc(f_size * sizeof(Float));
 
@@ -2087,7 +2087,7 @@ static int no_gparity_test(GnoneFwilsonTm* lattice){
     Fbfm::bfm_args[0].max_iter = 10000;
     Fbfm::bfm_args[0].residual = 1e-08;
 
-    int f_size = 24*GJP.VolNodeSites();
+    size_t f_size = 24*GJP.VolNodeSites();
     
 
     //Test 1: check we get the same HMD force vectors (up to the appropriate normalization difference)
@@ -3259,7 +3259,7 @@ int main(int argc,char *argv[])
   
     DiracOpWilsonTm dop(*lattice, (Vector*)0, (Vector*)0, &cg_arg, CNV_FRM_NO);
 
-    int f_size_cb =  GJP.VolNodeSites() * 24/2 * 2; //extra factor of 2 for G-parity second flavour
+    size_t f_size_cb =  GJP.VolNodeSites() * 24/2 * 2; //extra factor of 2 for G-parity second flavour
     invcg_test_2fout = (Float*)pmalloc(f_size_cb*sizeof(Float));
     
     Float* out_1 = invcg_test_2fout;
@@ -3304,7 +3304,7 @@ int main(int argc,char *argv[])
   
     DiracOpWilsonTm dop(*lattice, (Vector*)0, (Vector*)0, &cg_arg, CNV_FRM_NO);
     
-    int f_size_cb =  GJP.VolNodeSites() * 24/2 * 2;
+    size_t f_size_cb =  GJP.VolNodeSites() * 24/2 * 2;
     Float src_norm_sq = ((Vector*)v1)->NormSqNode(f_size_cb);
     glb_sum(&src_norm_sq);
   
@@ -3399,7 +3399,7 @@ int main(int argc,char *argv[])
 
     evalue_2f = evalues[0][0];
     
-    int f_size_cb = GJP.VolNodeSites()*24/2 * 2;
+    size_t f_size_cb = GJP.VolNodeSites()*24/2 * 2;
     eigenvector_2f = (Float*)pmalloc(f_size_cb * sizeof(Float) );
 
     Float* ev = (Float*)(algeig.getEigenVectors()[0]);
@@ -3611,7 +3611,7 @@ int main(int argc,char *argv[])
   
     DiracOpWilsonTm dop(doubled_lattice, (Vector*)0, (Vector*)0, &cg_arg, CNV_FRM_NO);
 
-    int f_size_cb =  GJP.VolNodeSites() * 24/2;
+    size_t f_size_cb =  GJP.VolNodeSites() * 24/2;
     invcg_test_2fout = (Float*)pmalloc(f_size_cb*sizeof(Float));
     
     Float* out_1 = (Float*)pmalloc(f_size_cb*sizeof(Float));
@@ -3649,7 +3649,7 @@ int main(int argc,char *argv[])
   
     DiracOpWilsonTm dop(doubled_lattice, (Vector*)0, (Vector*)0, &cg_arg, CNV_FRM_NO);
     
-    int f_size_cb =  GJP.VolNodeSites() * 24/2;
+    size_t f_size_cb =  GJP.VolNodeSites() * 24/2;
     Float src_norm_sq = ((Vector*)v1_dbl)->NormSqNode(f_size_cb);
     glb_sum(&src_norm_sq);
   
@@ -3720,7 +3720,7 @@ int main(int argc,char *argv[])
 
     Float evalue_1f = evalues[0][0];
     
-    int f_size_cb = GJP.VolNodeSites()*24/2;
+    size_t f_size_cb = GJP.VolNodeSites()*24/2;
     Float* eigenvector_1f = (Float*)(algeig.getEigenVectors()[0]);
 
     //There is a normalization factor of sqrt(2) between the 2f and 1f versions in the 2-directions case 
@@ -3879,11 +3879,11 @@ AlgEig_CPSeigsolver::AlgEig_CPSeigsolver(Lattice& latt,
   // NOTE: at this point we must know on what lattice size the operator 
   // will act.
   //----------------------------------------------------------------
-  int f_size = GJP.VolNodeSites() * latt.FsiteSize() * Ncb / 2;
+  size_t f_size = GJP.VolNodeSites() * latt.FsiteSize() * Ncb / 2;
   if(GJP.Gparity()) f_size*=2;
 
   VRB.Flow(cname,fname,"f_size=%d\n",0);
-//  int f_size = GJP.VolNodeSites() * Ncb / 2;
+//  size_t f_size = GJP.VolNodeSites() * Ncb / 2;
 //  exit(1);
   int N_eig = alg_eig_arg->N_eig;
 
@@ -4016,7 +4016,7 @@ void AlgEig_CPSeigsolver::run(Float **evalues)
   eig_arg = alg_eig_arg;
 
   const int N_eig = eig_arg->N_eig;
-  int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+  size_t f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
   if(GJP.Gparity()) f_size*=2;
   Float **hsum;
   int hsum_len = 0;

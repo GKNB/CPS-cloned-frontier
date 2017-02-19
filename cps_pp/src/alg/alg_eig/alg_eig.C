@@ -92,12 +92,12 @@ AlgEig::AlgEig(Lattice& latt,
   // NOTE: at this point we must know on what lattice size the operator 
   // will act.
   //----------------------------------------------------------------
-  int f_size = GJP.VolNodeSites() * latt.FsiteSize() * Ncb / 2;
+  size_t f_size = GJP.VolNodeSites() * latt.FsiteSize() * Ncb / 2;
   if(GJP.Gparity()) f_size*=2;
 
   VRB.Flow(cname,fname,"f_size=%d\n",0);
 
-  //  int f_size = GJP.VolNodeSites() * Ncb / 2;
+  //  size_t f_size = GJP.VolNodeSites() * Ncb / 2;
   //  exit(1);
 
   
@@ -212,7 +212,7 @@ void AlgEig::run(Float **evalues, Vector **in_eigv)
   eig_arg = alg_eig_arg;
 
   const int N_eig = eig_arg->N_eig;
-  int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+  size_t f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
   if(GJP.Gparity()) f_size*=2;
   Float **hsum;
   int hsum_len = 0;
@@ -369,7 +369,7 @@ void AlgEig::run(Float **evalues, Vector **in_eigv)
 /*
     // DEBUG, dumping start vector from QCDOC to be read in QCDSP
     cout << "Dump DEBUGGING info...startvector.dat" << endl;
-    int f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
+    size_t f_size = GJP.VolNodeSites() * lat.FsiteSize() * Ncb / 2;
     ofstream fout ( "startvector.dat");
     fout << "f_size=" << f_size << endl;
     for(n=0;n<N_eig;++n) {

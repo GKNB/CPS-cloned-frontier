@@ -36,7 +36,7 @@ void FgridBase::Ffour2five(Vector *five, Vector *four, int s_u, int s_l, int Ncb
   //------------------------------------------------------------------
   // Initializations
   //------------------------------------------------------------------
-  int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb/2;
+  size_t f_size = GJP.VolNodeSites() * FsiteSize()*Ncb/2;
   if(GJP.Gparity()) f_size*=2;
 
   int ls = GJP.SnodeSites();
@@ -144,7 +144,7 @@ void FgridBase::Ffive2four(Vector *four, Vector *five, int s_u, int s_l, int Ncb
   // Initializations
   //------------------------------------------------------------------
   int ls = GJP.SnodeSites();
-  int f_size = GJP.VolNodeSites() * FsiteSize()*Ncb / (ls*2);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize()*Ncb / (ls*2);
   if(GJP.Gparity()) f_size*=2;
 
   int vol_4d = GJP.VolNodeSites()*Ncb/2;

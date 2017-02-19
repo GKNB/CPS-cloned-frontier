@@ -33,8 +33,8 @@ void mult_vec_by_tridiag(Float* out, Float *in, Float *d, Float *e, int n);
 void eigsrt_low(Float *d, int n);
 void lanczos_GramSchm(Float *psi, Float **vec, int Nvec, size_t f_size, Float* alpha);
 void QRtrf(Float *d, Float *e,int nk, int n, Float **Q, Float dsh, int kmin, int kmax);
-void mvfloattoFloat(Float* out, float* in, int f_size);
-void mvFloattofloat(float* out, Float* in, int f_size);
+void mvfloattoFloat(Float* out, float* in, size_t f_size);
+void mvFloattofloat(float* out, Float* in, size_t f_size);
 
 //int eigen_solver(Float **A, int n, Float *Eval, Float *aux)
 int eigen_solver(Float *A, Float *Evec, Float *Eval, int n)
@@ -1389,7 +1389,7 @@ void lanczos_GramSchm_test(Float *psi, float **vec, int Nvec, size_t f_size, Flo
   sfree(vtmp);
 }
 
-void mvfloattoFloat(Float* out, float* in, int f_size)
+void mvfloattoFloat(Float* out, float* in, size_t f_size)
 {
 #if 1
   float flt;
@@ -1399,7 +1399,7 @@ void mvfloattoFloat(Float* out, float* in, int f_size)
   }
 #endif
 };
-void mvFloattofloat(float* out, Float* in, int f_size)
+void mvFloattofloat(float* out, Float* in, size_t f_size)
 {
 #if 1
   float flt;

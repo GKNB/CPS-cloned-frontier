@@ -126,7 +126,7 @@ void zmobius_B_MIT( Vector* out, Float mass,
   
   const int ls = GJP.SnodeSites();
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
-  const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
+  const size_t f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
   const int ls_stride = 24 * vol_4d_cb;
   
   Vector *temp = (Vector *) smalloc( cname,fname, "temp", f_size * sizeof(Float));
@@ -184,7 +184,7 @@ void zmobius_Binv_MIT( Vector* out, Float mass,
 
   const int ls = GJP.SnodeSites();
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
-  const int f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
+  const size_t f_size = 24 * mobius_lib_arg->ls * vol_4d_cb;
   const int ls_stride = 24 * vol_4d_cb;
   
 
@@ -1449,7 +1449,7 @@ void DiracOpZMobius::CalcHmdForceVecs(Vector *chi)
 
   Vector *chi_new, *rho, *psi, *sigma ;
 
-  int f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
 
   chi_new = f_out ;
 

@@ -55,7 +55,7 @@ void dwf_init(Dwf *dwf_p)
 //------------------------------------------------------------------
 // Allocate memory for two temporary fermion checkerboard fields  
 //------------------------------------------------------------------
-  int f_size = 24 * GJP.VolNodeSites() * GJP.SnodeSites() / 2; 
+  size_t f_size = 24 * GJP.VolNodeSites() * GJP.SnodeSites() / 2; 
   if(!UniqueID()) printf("Allocating temp ferms. Base ferm size is %d\n",f_size);//DEBUG
   if(GJP.Gparity()){
     f_size*=2;

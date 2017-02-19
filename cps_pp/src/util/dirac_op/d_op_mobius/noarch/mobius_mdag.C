@@ -48,7 +48,7 @@ void  mobius_mdag(Vector *out,
   int size_cb[2];
 
   const int ls = mobius_lib_arg->ls;
-  const int f_size = 24 * mobius_lib_arg->vol_4d * ls / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d * ls / 2;
   const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
   const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const Float b_coeff =  GJP.Mobius_b();

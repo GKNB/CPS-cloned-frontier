@@ -209,7 +209,7 @@ int Fwilson::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   char *fname = "FmatMInv(V*, V*, .....)";
   VRB.Func(cname,fname);
 
-  int f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size *= 2;
   Float dot = f_in -> NormSqGlbSum4D(f_size);
 
@@ -354,7 +354,7 @@ int Fwilson::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // Compute chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize()) * Ncb / 2; //CK: fixed
   if(GJP.Gparity()) f_size *= 2;
 
   Vector* v1 = (Vector *)smalloc(f_size*sizeof(Float));
@@ -493,7 +493,7 @@ ForceArg Fwilson::EvolveMomFforce(Matrix *mom, Vector *chi,
 //------------------------------------------------------------------
 // allocate space for two CANONICAL fermion fields.
 //------------------------------------------------------------------
-  int f_size = FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = FsiteSize() * GJP.VolNodeSites() ;
 
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;
@@ -757,7 +757,7 @@ Float Fwilson::BhamiltonNode(Vector *boson, Float mass){
   if (boson == 0)
     ERR.Pointer(cname,fname,"boson");
 
-  int f_size = (GJP.VolNodeSites() * FsiteSize()) >> 1 ;
+  size_t f_size = (GJP.VolNodeSites() * FsiteSize()) >> 1 ;
   if(GJP.Gparity()) f_size*=2;
 
   Vector *bsn_tmp = (Vector *)

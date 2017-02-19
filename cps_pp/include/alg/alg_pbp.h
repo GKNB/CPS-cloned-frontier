@@ -55,7 +55,7 @@ class AlgPbp : public Alg
     PbpArg *alg_pbp_arg;
         // The argument structure for the pbp algorithm
  
-    int f_size;       
+    size_t f_size;       
         // Node checkerboard size of the fermion field
 
     Vector *src;

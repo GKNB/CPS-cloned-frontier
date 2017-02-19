@@ -504,7 +504,7 @@ int InvertOverlapDefectCorrection(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
     int total_iters = 0;
     int total_iters_times_Ls = 0;
 
-    int f_size = 24 * GJP.VolNodeSites();
+    size_t f_size = 24 * GJP.VolNodeSites();
     Vector *approx_sol = (Vector*)smalloc(f_size * sizeof(Float), "approx_sol", fname, "");
     Vector *residual = (Vector*)smalloc(f_size * sizeof(Float), "residual", fname, "");
     Vector *tmp = (Vector*)smalloc(f_size * sizeof(Float), "tmp", fname, "");
@@ -741,7 +741,7 @@ int MADWF_CG_M(bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f, bool use_mixed_sol
     Fermion_t residual[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
     Fermion_t z[] = { bfm_d.allocFermion(), bfm_d.allocFermion() };
 
-    int f_size_4d = 24 * GJP.VolNodeSites();
+    size_t f_size_4d = 24 * GJP.VolNodeSites();
     Vector *c0 = (Vector*)smalloc(f_size_4d * sizeof(Float), "c0", fname, ""); 
     Vector *guess_y0 = (Vector*)smalloc(f_size_4d * sizeof(Float), "guess_y0", fname, ""); 
 

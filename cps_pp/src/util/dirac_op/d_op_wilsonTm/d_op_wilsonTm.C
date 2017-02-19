@@ -617,7 +617,7 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int vol =  ((Wilson *)wilson_lib_arg)->vol[0];
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
   if(GJP.Gparity()){ 
     vol*=2;
     f_size_cb *= 2; //Layout is   |   odd   |   even  |
@@ -669,7 +669,7 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
 
   int vol =  ((Wilson *)wilson_lib_arg)->vol[0];
   // size in Floats
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
 
 //---------------------------------------------------------
 // define v1, v2 in terms of DiracOp( ..., f_out, f_in, ... )
@@ -760,7 +760,7 @@ void DiracOpWilsonTm::CalcBsnForceVecs(Vector *chi, Vector *phi)
 
   int vol =  ((Wilson *)wilson_lib_arg)->vol[0];
   // size in Floats
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
   if(GJP.Gparity()){ 
     vol*=2;
     f_size_cb *= 2; //Layout is   |   odd   |   even  |

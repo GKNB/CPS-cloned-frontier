@@ -65,9 +65,9 @@ ForceArg FdwfBase::EvolveMomFforce(Matrix *mom, Vector *chi,
   // allocate space for two CANONICAL fermion fields
   //----------------------------------------------------------------
 
-  int f_size = FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = FsiteSize() * GJP.VolNodeSites() ;
   int f_site_size_4d = 2 * Colors() * SpinComponents();
-  int f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
+  size_t f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
  
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;
@@ -430,10 +430,10 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
 
   // these are all full fermion vector sizes ( i.e. *not* preconditioned )
 
-  const int f_size        ( FsiteSize() * GJP.VolNodeSites() );
-  const int f_size_cb     ( f_size/2 ) ; // f_size must be multiple of 2
+  const size_t f_size        ( FsiteSize() * GJP.VolNodeSites() );
+  const size_t f_size_cb     ( f_size/2 ) ; // f_size must be multiple of 2
   const int f_site_size_4d( 2 * Colors() * SpinComponents() );
-  const int f_size_4d     ( f_site_size_4d * GJP.VolNodeSites()) ;
+  const size_t f_size_4d     ( f_site_size_4d * GJP.VolNodeSites()) ;
   
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;
@@ -783,13 +783,13 @@ ForceArg FdwfBase::EvolveMomFforceGparity(Matrix *mom, Vector *chi,
   // allocate space for two CANONICAL fermion fields
   //----------------------------------------------------------------
 
-  int f_size = FsiteSize() * GJP.VolNodeSites() ;
+  size_t f_size = FsiteSize() * GJP.VolNodeSites() ;
   int f_site_size_4d = 2 * Colors() * SpinComponents();
-  int f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
+  size_t f_size_4d = f_site_size_4d * GJP.VolNodeSites() ;
 
   //CK: Need space for both d and C\bar u^T fields stacked
   //Two 4d volumes are stacked on each Ls such that Ls can be split over multiple nodes
-  int f_size_alloc = f_size *2 *sizeof(Float);
+  size_t f_size_alloc = f_size *2 *sizeof(Float);
   int f_single4dsite_alloc = FsiteSize()*sizeof(Float)*2;
 
 
@@ -1092,10 +1092,10 @@ ForceArg FdwfBase::EvolveMomFforce( Matrix* mom, // momenta
 
   // these are all full fermion vector sizes ( i.e. *not* preconditioned )
 
-  const int f_size        ( FsiteSize() * GJP.VolNodeSites() );
-  const int f_size_cb     ( f_size/2 ) ; // f_size must be multiple of 2
+  const size_t f_size        ( FsiteSize() * GJP.VolNodeSites() );
+  const size_t f_size_cb     ( f_size/2 ) ; // f_size must be multiple of 2
   const int f_site_size_4d( 2 * Colors() * SpinComponents() );
-  const int f_size_4d     ( f_site_size_4d * GJP.VolNodeSites()) ;
+  const size_t f_size_4d     ( f_site_size_4d * GJP.VolNodeSites()) ;
   
   char *str_v1 = "v1" ;
   Vector *v1 = (Vector *)smalloc(f_size*sizeof(Float)) ;

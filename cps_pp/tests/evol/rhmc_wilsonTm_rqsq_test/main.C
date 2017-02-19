@@ -163,7 +163,7 @@ int MInvCG_CPS(Vector **psi, Vector *chi, Float chi_norm, Float *mass,
 //------------------------------------------------------------------
 
   int iz, k, s;
-  int f_size;
+  size_t f_size;
 
   if(lat.Fclass() == F_CLASS_CLOVER)
     f_size = lat.FsiteSize()*GJP.VolNodeSites() / 2;
@@ -469,7 +469,7 @@ int InvCgShift_CPS(Vector *out,
 // Set the node checkerboard size of the fermion field
 //------------------------------------------------------------------
 
-  int f_size_cb;
+  size_t f_size_cb;
 
   if(lat.Fclass() == F_CLASS_CLOVER) {
     f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
@@ -688,7 +688,7 @@ int MinvCGtest(){
   //technically we need a WILSON ordered fermion, but as it is random it doesn't matter
   Float* in = rand_4d_canonical_fermion(*lattice);
 
-  int f_size_cb =  GJP.VolNodeSites() * 24/2;
+  size_t f_size_cb =  GJP.VolNodeSites() * 24/2;
   Float src_norm_sq = ((Vector*)in)->NormSqNode(f_size_cb);
   glb_sum(&src_norm_sq);
   

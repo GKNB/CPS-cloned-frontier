@@ -35,7 +35,7 @@ NoArg no_arg;
 CommonArg common_arg;
 LanczosArg lanczos_arg;
 
-void movefloattoFloat(Float* out, float* in, int f_size);
+void movefloattoFloat(Float* out, float* in, size_t f_size);
 
 // needed to declare globally
 std::vector<EigenCache*> cps::EigenCacheList(0);
@@ -177,7 +177,7 @@ int main(int argc,char *argv[])
       ecache->alloc( evecname_bc, neig, fsize );
       {//read in only
 	const int n_fields =  GJP.SnodeSites();
-	const int f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
+	const size_t f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
 	EigenContainer eigcon( lattice, evecname_bc, neig, f_size_per_site/2, n_fields, ecache );
 	// factor of 2 for single-prec.
 	// have to do this if stride != 1 FIX!
@@ -201,7 +201,7 @@ int main(int argc,char *argv[])
     int neig  = mobius_arg2.cg.neig;
 
     const int n_fields =  GJP.SnodeSites();
-    const int f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
+    const size_t f_size_per_site = lattice.FsiteSize() / n_fields / 2 ;
     // the two is for checkerboard?
     EigenContainer eigcon( lattice, evecname_bc, neig, f_size_per_site, n_fields, ecache );
     Float* eval = eigcon.load_eval();
@@ -292,7 +292,7 @@ void cps::EigenCacheListCleanup( )
   EigenCacheList.clear() ;
 }
 
-void movefloattoFloat(Float* out, float* in, int f_size){
+void movefloattoFloat(Float* out, float* in, size_t f_size){
 
   float flt;
   for(int i=0;i<f_size;i++){

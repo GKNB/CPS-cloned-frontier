@@ -61,7 +61,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
 
   const char *fname="InvCg(V*,V*,F,F*) [bfm version]";
   double cg_time = -dclock();
-  unsigned int f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
+  unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
   if(GJP.Gparity()) f_size_cb*=2;
   
   src_norm_sq = in->NormSqNode(f_size_cb);
@@ -299,7 +299,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
   char *fname="MInvCG(V**,V*,F,F*,i,i,F*,t,F*)[bfm WilsonTm version]";
 
   VRB.Func(cname,fname);
-  unsigned int f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
   if(GJP.Gparity()) f_size_cb*=2;
 
   VRB.Result(cname,fname,"cps_qdp_init(GJP.argc_p(), GJP.argv_p())");
@@ -612,7 +612,7 @@ void DiracOpWilsonTm::CalcHmdForceVecs(Vector *chi)
   Vector *chi_new, *rho, *psi, *sigma ;
 
   int vol =  ((Wilson *)wilson_lib_arg)->vol[0];
-  int f_size_cb = 12 * GJP.VolNodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() ;
   if(GJP.Gparity()){ 
     vol*=2;
     f_size_cb *= 2; //Layout is   |   odd   |   even  |

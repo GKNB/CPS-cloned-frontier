@@ -13,7 +13,7 @@ using namespace std;
 // qio-factory functions 
 
 // global variable for fanctor  (could make a separated record and  read from it, but then we would need if statement...)
-struct qio_genfield_glb_type {  int precision; int n_fields; int f_size_per_site; int n_sites; };
+struct qio_genfield_glb_type {  int precision; int n_fields; size_t f_size_per_site; int n_sites; };
 static qio_genfield_glb_type qio_genfield_glb;
 
 void qio_genfield_get_glb(char *buf_, size_t site_index, int count, void *arg_)
@@ -40,7 +40,7 @@ void qio_getGenField(char *buf_, size_t site_index, int count, void *arg)
   
 
   const int n_field = qio_genfield_glb. n_fields;
-  const int f_size = qio_genfield_glb. f_size_per_site;
+  const size_t f_size = qio_genfield_glb. f_size_per_site;
   const int n_sites = qio_genfield_glb. n_sites;
 
 #if 0
@@ -132,7 +132,7 @@ void qio_writeGenericFields::qio_openOutput(char *filename, QIO_String *record_f
 
 void qio_writeGenericFields::write_genericfields(
 						 char *outfile,
-						 int n_fields, int f_size_per_site, void *field,
+						 int n_fields, size_t f_size_per_site, void *field,
 						 int volFormat, FP_FORMAT floatFormat)
  {
 #ifdef PROFILE

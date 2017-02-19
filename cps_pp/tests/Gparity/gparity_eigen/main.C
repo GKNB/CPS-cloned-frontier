@@ -389,7 +389,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = *lattice;
-    int f_size = GJP.VolNodeSites()*lat.FsiteSize() *2;
+    size_t f_size = GJP.VolNodeSites()*lat.FsiteSize() *2;
 
     vecttest_2f = (Vector *) pmalloc(f_size * sizeof(Float));
     Float *f = (Float*)(vecttest_2f);
@@ -423,7 +423,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = *lattice;
-    int f_size = GJP.VolNodeSites()/2*lat.FsiteSize() *2;
+    size_t f_size = GJP.VolNodeSites()/2*lat.FsiteSize() *2;
 
     vecttest_2f = (Vector *) pmalloc(f_size * sizeof(Float));
     Float *f = (Float*)(vecttest_2f);
@@ -497,7 +497,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = *lattice;
-    int f_size = GJP.VolNodeSites()/2*lat.FsiteSize() *2;
+    size_t f_size = GJP.VolNodeSites()/2*lat.FsiteSize() *2;
     eigenv = (Vector **) pmalloc (N_eig * sizeof(Vector *));
 
     lambda = (Float*)pmalloc(2*N_eig * sizeof(Float) );
@@ -601,7 +601,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = doubled_lattice;
-    int f_size = GJP.VolNodeSites()*lat.FsiteSize();
+    size_t f_size = GJP.VolNodeSites()*lat.FsiteSize();
 
     Vector *vecttest_1f = (Vector *) pmalloc(f_size * sizeof(Float));
     //lat.RandGaussVector(vecttest_1f, 0.5, 1);
@@ -675,7 +675,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = doubled_lattice;
-    int f_size = GJP.VolNodeSites()/2*lat.FsiteSize();
+    size_t f_size = GJP.VolNodeSites()/2*lat.FsiteSize();
 
     Vector *vecttest_1f = (Vector *) pmalloc(f_size * sizeof(Float));
     //lat.RandGaussVector(vecttest_1f, 0.5, 1);
@@ -758,7 +758,7 @@ int main(int argc,char *argv[])
     LatRanGen LRGbak(LRG);
 
     Lattice &lat = doubled_lattice;
-    int f_size = GJP.VolNodeSites()/2*lat.FsiteSize();
+    size_t f_size = GJP.VolNodeSites()/2*lat.FsiteSize();
     Vector ** eigenv_1f = (Vector **) pmalloc(N_eig * sizeof(Vector *));
 
     Float* lambda_1f = (Float*)pmalloc(2*N_eig * sizeof(Float) );

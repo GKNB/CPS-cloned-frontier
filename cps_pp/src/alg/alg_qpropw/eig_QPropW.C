@@ -90,7 +90,7 @@ void QPropW::eig_Run(Vector **V, const int vec_len, Float *M, Float max_eig, con
 
    // Set the node size of the full (non-checkerboarded) fermion field
    //----------------------------------------------------------------
-   //int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
+   //size_t f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
    int iter;
    Float true_res;
    if(def_len>max_def_len)
@@ -631,8 +631,8 @@ void QPropW::eig_CG(Vector **V, const int vec_len, Float *M, const int nev, cons
   //----------------------------------------------------------------
   int ls = GJP.SnodeSites();
   int ls_glb = GJP.SnodeSites()*GJP.Snodes();
-  int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
-  int f_size_5d = f_size * ls;
+  size_t f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
+  size_t f_size_5d = f_size * ls;
 
   // Do inversion
   //----------------------------------------------------------------

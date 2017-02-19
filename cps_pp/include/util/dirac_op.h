@@ -196,7 +196,7 @@ class DiracOp
   //
 
   //! the fundamental lanczos steps (TB Dec. 2010, TIZB Aug. 2011)
-  void lanczos(int k, int m, int f_size,
+  void lanczos(int k, int m, size_t f_size,
 	       Vector *Apsi, Vector *r, Vector **V, Float *alpha, Float* beta,
 	       MatrixPolynomialArg* cheby_arg,
 	       RitzMatType RitMat_lanczos );
@@ -204,8 +204,8 @@ class DiracOp
 
   
   //! Vector orthogonalisation
-  void GramSchm(Vector **psi, int Npsi, Vector **vec, int Nvec, int f_size);
-  void GramSchm(Vector *psi, Vector **vec, int Nvec, int f_size);
+  void GramSchm(Vector **psi, int Npsi, Vector **vec, int Nvec, size_t f_size);
+  void GramSchm(Vector *psi, Vector **vec, int Nvec, size_t f_size);
 
   //! Jacobi diagonalisation of a matrix.
   int Jacobi(Vector **psi, int N_eig, Float *lambda, 
@@ -497,7 +497,7 @@ class DiracOpStag : public DiracOpStagTypes
   Float mass_rs;       // rescaled mass
   Float mass_sq;       // = mass^2
 
-  int f_size_cb;       //The node checkerbrd. size of the ferm. field
+  size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
 
   Vector *frm_tmp;     // Temporary fermion field
 
@@ -615,7 +615,7 @@ class DiracOpAsqtad : public DiracOpStagTypes
   Float mass_rs;       // rescaled mass
   Float mass_sq;       // = mass^2
 
-  int f_size_cb;       //The node checkerbrd. size of the ferm. field
+  size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
 
   Vector *frm_tmp;     // Temporary fermion field
 
@@ -740,7 +740,7 @@ class DiracOpP4 : public DiracOpStagTypes
   Float mass_rs;       // rescaled mass
   Float mass_sq;       // = mass^2
 
-  int f_size_cb;       //The node checkerbrd. size of the ferm. field
+  size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
 
   Vector *frm_tmp;     // Temporary fermion field
 
@@ -846,7 +846,7 @@ class DiracOpHisq : public DiracOpStagTypes
   Float mass_rs;       // rescaled mass
   Float mass_sq;       // = mass^2
   
-  int f_size_cb;       //The node checkerbrd. size of the ferm. field
+  size_t f_size_cb;       //The node checkerbrd. size of the ferm. field
   
   Vector *frm_tmp;     // Temporary fermion field
   

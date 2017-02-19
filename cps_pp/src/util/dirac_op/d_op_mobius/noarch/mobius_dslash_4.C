@@ -66,7 +66,7 @@ void mobius_dslash_4(Vector *out,
   // Initializations
   //----------------------------------------------------------------
   ls = mobius_lib_arg->ls;
-  const int f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();
 

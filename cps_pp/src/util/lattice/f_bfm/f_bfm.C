@@ -563,7 +563,7 @@ int Fbfm::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
     //Combine solutions if in SINGLE mode
     if (type == SINGLE) {
 	// FIXME
-	int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
+	size_t f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
 	if(GJP.Gparity()) f_size_cb *=2;
 	Vector *t = (Vector *)smalloc(cname, fname, "t", sizeof(Float) * f_size_cb);
 
@@ -596,8 +596,8 @@ void Fbfm::FminResExt(Vector *sol, Vector *source, Vector **sol_old,
     const char *fname = "FminResExt(V*, V*, V**, ...)";
 
     SetBfmArg(cg_arg->mass);
-//    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
-    int f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
+//    size_t f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * Fbfm::bfm_args[current_arg_idx].Ls / 2;
+    size_t f_size_cb = GJP.VolNodeSites() * SPINOR_SIZE * bd.Ls / 2;
     if(GJP.Gparity()) f_size_cb *=2;
 
     // does nothing other than setting sol to zero
@@ -968,9 +968,9 @@ ForceArg Fbfm::EvolveMomFforce(Matrix *mom, Vector *frm,
   
     SetBfmArg(mass);
 
-    int f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
+    size_t f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
     if(GJP.Gparity()) f_size_4d *= 2;
-    const int f_size_cb = f_size_4d * bd.Ls / 2;
+    const size_t f_size_cb = f_size_4d * bd.Ls / 2;
   
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
     MatPc(tmp, frm, mass, DAG_NO);
@@ -1058,7 +1058,7 @@ Float Fbfm::FhamiltonNode(Vector *phi, Vector *chi)
     if (phi == 0) ERR.Pointer(cname, fname, "phi");
     if (chi == 0) ERR.Pointer(cname, fname, "chi");
 
-    int f_size = GJP.VolNodeSites() * FsiteSize() / 2;
+    size_t f_size = GJP.VolNodeSites() * FsiteSize() / 2;
     if(GJP.Gparity()) f_size *= 2;
 
     // Sum accross s nodes is not necessary for MDWF since the library

@@ -539,7 +539,7 @@ void impexFermion(
     double cg_time = -dclock();
     Float *sol_cps = (Float*) out;
     Float *src_cps = (Float*) in;
-    unsigned int f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
+    unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
     if(GJP.Gparity()) f_size_cb*=2;
 
     Float src_norm_sq = in->NormSqNode(f_size_cb);

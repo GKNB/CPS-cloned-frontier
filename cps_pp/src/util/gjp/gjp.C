@@ -451,7 +451,7 @@ if (!UniqueID())
  if(!UniqueID()) printf("nthreads=%d\n",threads);
  
 
- omp_set_dynamic(false);
+// omp_set_dynamic(false);
  omp_set_num_threads(threads);
 
   VRB.FuncEnd(cname,fname);

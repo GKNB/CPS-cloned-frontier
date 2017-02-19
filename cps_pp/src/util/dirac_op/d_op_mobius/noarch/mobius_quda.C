@@ -67,7 +67,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
 
-  int f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  size_t f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
   //--------------------------------------
   //  Parameter setting for Gauge Data

@@ -511,7 +511,7 @@ int Fzmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   // calculate chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
-  int f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
+  size_t f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
   Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
   Vector *fourg5 = (Vector *) smalloc (cname,fname, "fourg5", f_size * sizeof(Float));
   Float help;

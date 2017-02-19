@@ -422,7 +422,7 @@ void QPropW::Run (const int do_rerun, const Float precision)
 
   // Set the node size of the full (non-checkerboarded) fermion field
   //----------------------------------------------------------------
-  //int f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
+  //size_t f_size = GJP.VolNodeSites() * Lat.FsiteSize()/GJP.SnodeSites();
   int iter;
   Float true_res;
 
@@ -1084,11 +1084,11 @@ Lattice & Lat = AlgLattice ();
   //----------------------------------------------------------------
 int ls = GJP.SnodeSites ();
 int ls_glb = GJP.SnodeSites () * GJP.Snodes ();
-int f_size = GJP.VolNodeSites () * Lat.FsiteSize () / GJP.SnodeSites ();
+size_t f_size = GJP.VolNodeSites () * Lat.FsiteSize () / GJP.SnodeSites ();
 if (GJP.Gparity ())
   f_size *= 2;
 
-int f_size_5d = f_size * ls;
+size_t f_size_5d = f_size * ls;
 
 VRB.Result(cname, fname, "f_size_5d = %d\n", f_size_5d);
 
@@ -2045,7 +2045,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
     }
 
     if (qp_arg.save_ls_prop == 2) {
-      int f_size = sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
+      size_t f_size = sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
 
       int s_local = ls % GJP.SnodeSites ();
       int s_node = ls / GJP.SnodeSites ();
@@ -2197,7 +2197,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
     }
 
     if (qp_arg.save_ls_prop == 2) {
-      int f_size = sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
+      size_t f_size = sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
 //    int ls;
 
       for (int ls = 0; ls < GJP.SnodeSites (); ls++) {
@@ -2355,7 +2355,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
 
     if (qp_arg.save_ls_prop == 2) {
       if (GJP.Snodes () > 1 && org_ls == 0) {
-	int f_size =
+	size_t f_size =
 	  sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
 
 	int s_u_local = (ls_glb - 1) % GJP.SnodeSites ();
@@ -2407,7 +2407,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
 	}
 
       } else if (GJP.Snodes () == 2 && org_ls != 0) {
-	int f_size =
+	size_t f_size =
 	  sizeof (WilsonMatrix) * GJP.VolNodeSites () / sizeof (Float);
 
 	int s_u_local = GJP.SnodeSites () - 1;
@@ -3014,7 +3014,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
 
     // Set the node size of the full (non-checkerboarded) fermion field
     //----------------------------------------------------------------
-    int f_size = GJP.VolNodeSites () * lat.FsiteSize () / GJP.SnodeSites ();
+    size_t f_size = GJP.VolNodeSites () * lat.FsiteSize () / GJP.SnodeSites ();
     int iter = 0;
     Float true_res = 0.;
 

@@ -671,7 +671,7 @@ void FdwfBase::Fconvert (Vector * f_field, StrOrdType to, StrOrdType from,
   cas.start_ptr = (Float *) f_field;
   cas.vol = GJP.VolNodeSites ();
 
-  int f_size = cas.vol * FsiteSize ();	//size of fermion field(s) on a 5d volume  (Lx*Ly*Lz*Lt*Ls*24)
+  size_t f_size = cas.vol * FsiteSize ();	//size of fermion field(s) on a 5d volume  (Lx*Ly*Lz*Lt*Ls*24)
   if (GJP.Gparity ())
     f_size *= 2;		//CK: 2 stacked fields
 

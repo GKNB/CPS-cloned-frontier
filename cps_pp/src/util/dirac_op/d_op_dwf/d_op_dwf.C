@@ -707,7 +707,7 @@ void DiracOpDwf::CalcHmdForceVecs(Vector *chi)
 
   Vector *chi_new, *rho, *psi, *sigma ;
 
-  int f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
+  size_t f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
   if(GJP.Gparity()) f_size_cb*=2; //odd-parity sites for CubarT field stored immediately after odd-parity sites for d field
 
   chi_new = f_out ;
