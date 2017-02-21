@@ -1,0 +1,757 @@
+#ifndef _MAIN_H
+#define _MAIN_H
+
+//Header for main program
+
+using namespace cps;
+
+
+//Setup the A2A policy
+#ifdef USE_DESTRUCTIVE_FFT
+
+#ifdef A2A_PREC_DOUBLE
+typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SINGLE)
+typedef A2ApoliciesSingleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_DOUBLE)
+typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_SINGLE)
+typedef A2ApoliciesSIMDsingleManualAlloc A2Apolicies;
+#else
+#error "Must provide an A2A precision"
+#endif
+
+#else
+
+#ifdef A2A_PREC_DOUBLE
+typedef A2ApoliciesDoubleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SINGLE)
+typedef A2ApoliciesSingleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_DOUBLE)
+typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies;
+#elif defined(A2A_PREC_SIMD_SINGLE)
+typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
+#else
+#error "Must provide an A2A precision"
+#endif
+
+#endif
+
+//Defines for Grid/BFM wrapping
+#ifdef USE_GRID_LANCZOS
+  typedef GridLanczosWrapper<A2Apolicies> LanczosWrapper;
+  typedef typename A2Apolicies::FgridGFclass LanczosLattice;
+# define LANCZOS_LATARGS params.jp
+# define LANCZOS_LATMARK isGridtype
+# define LANCZOS_EXTRA_ARG *lanczos_lat
+# define COMPUTE_EVECS_EXTRA_ARG_PASS NULL
+# define COMPUTE_EVECS_EXTRA_ARG_GRAB void*
+#else //USE_BFM_LANCZOS
+  typedef BFMLanczosWrapper LanczosWrapper;
+  typedef GwilsonFdwf LanczosLattice;
+# define LANCZOS_LATARGS bfm_solvers
+# define LANCZOS_LATMARK isBFMtype
+# define LANCZOS_EXTRA_ARG bfm_solvers
+# define COMPUTE_EVECS_EXTRA_ARG_PASS bfm_solvers
+# define COMPUTE_EVECS_EXTRA_ARG_GRAB BFMsolvers &bfm_solvers
+#endif
+
+#ifdef USE_GRID_A2A
+  typedef A2Apolicies::FgridGFclass A2ALattice;
+# define A2A_LATARGS params.jp
+# define A2A_LATMARK isGridtype
+#else
+  typedef GwilsonFdwf A2ALattice;
+# define A2A_LATARGS bfm_solvers
+# define A2A_LATMARK isBFMtype
+#endif
+
+
+
+//Command line argument store/parse
+struct CommandLineArgs{
+  int nthreads = 1;
+#if TARGET == BGQ
+  nthreads = 64;
+#endif
+  bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
+  bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+  bool tune_lanczos_light; //just run the light lanczos on first config then exit
+  bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
+  bool skip_gauge_fix;
+  bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+  bool mixed_solve; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
+  bool evecs_single_prec; //convert the eigenvectors to single precision to save memory
+  bool do_kaon2pt;
+  bool do_pion2pt;
+  bool do_pipi;
+  bool do_ktopipi;
+  bool do_sigma;
+
+  Float inner_cg_resid;
+  Float *inner_cg_resid_p;
+
+  CommandLineArgs(int argc, char **argv, int begin){
+    nthreads = 1;
+#if TARGET == BGQ
+    nthreads = 64;
+#endif
+    randomize_vw = false;
+    randomize_evecs = false;
+    tune_lanczos_light = false; //just run the light lanczos on first config then exit
+    tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
+    skip_gauge_fix = false;
+    double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
+    mixed_solve = true; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
+    evecs_single_prec = true; //convert the eigenvectors to single precision to save memory
+    do_kaon2pt = true;
+    do_pion2pt = true;
+    do_pipi = true;
+    do_ktopipi = true;
+    do_sigma = true;
+
+    inner_cg_resid;
+    inner_cg_resid_p = NULL;
+
+    parse(argc,argv,begin);
+  }
+
+  void parse(int argc, char **argv, int begin){
+    if(!UniqueID()){ printf("Arguments:\n"); fflush(stdout); }
+    for(int i=0;i<argc;i++){
+      if(!UniqueID()){ printf("%d \"%s\"\n",i,argv[i]); fflush(stdout); }
+    }
+    
+    const int ngrid_arg = 7;
+    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
+    const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
+
+    int arg = begin;
+    while(arg < argc){
+      char* cmd = argv[arg];
+      if( strncmp(cmd,"-nthread",8) == 0){
+	if(arg == argc-1){ if(!UniqueID()){ printf("-nthread must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+	nthreads = strToAny<int>(argv[arg+1]);
+	if(!UniqueID()){ printf("Setting number of threads to %d\n",nthreads); }
+	arg+=2;
+      }else if( strncmp(cmd,"-set_inner_resid",16) == 0){ //only for mixed CG
+	if(arg == argc-1){ if(!UniqueID()){ printf("-set_inner_resid must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+	inner_cg_resid = strToAny<Float>(argv[arg+1]);
+	inner_cg_resid_p = &inner_cg_resid;
+	if(!UniqueID()){ printf("Setting inner CG initial residual to %g\n",inner_cg_resid); }
+#ifdef USE_BFM_A2A
+	ERR.General("","main","Changing initial inner CG residual not implemented for BFM version\n");
+#endif      
+	arg+=2;      
+      }else if( strncmp(cmd,"-randomize_vw",15) == 0){
+	randomize_vw = true;
+	if(!UniqueID()){ printf("Using random vectors for V and W, skipping Lanczos and inversion stages\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
+	randomize_evecs = true;
+	if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
+	arg++;      
+      }else if( strncmp(cmd,"-tune_lanczos_light",15) == 0){
+	tune_lanczos_light = true;
+	if(!UniqueID()){ printf("Just tuning light lanczos on first config\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-tune_lanczos_heavy",15) == 0){
+	tune_lanczos_heavy = true;
+	if(!UniqueID()){ printf("Just tuning heavy lanczos on first config\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-double_latt",15) == 0){
+	double_latt = true;
+	if(!UniqueID()){ printf("Loading doubled lattices\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-skip_gauge_fix",20) == 0){
+	skip_gauge_fix = true;
+	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-disable_evec_singleprec_convert",30) == 0){
+	evecs_single_prec = false;
+	mixed_solve = false;
+	if(!UniqueID()){ printf("Disabling single precision conversion of evecs\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-disable_mixed_prec_CG",30) == 0){
+	mixed_solve = false;
+	if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
+	arg++;
+      }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
+	int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
+	for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
+	arg+=4;
+      }else if( strncmp(cmd,"-mf_innerblocking",15) == 0){
+	int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
+	for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
+	arg+=4;
+      }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
+	do_kaon2pt = false;
+	arg++;
+      }else if( strncmp(cmd,"-skip_pion2pt",30) == 0){
+	do_pion2pt = false;
+	arg++;
+      }else if( strncmp(cmd,"-skip_sigma",30) == 0){
+	do_sigma = false;
+	arg++;
+      }else if( strncmp(cmd,"-skip_pipi",30) == 0){
+	do_pipi = false;
+	arg++;
+      }else if( strncmp(cmd,"-skip_ktopipi",30) == 0){
+	do_ktopipi = false;
+	arg++;  
+      }else{
+	bool is_grid_arg = false;
+	for(int i=0;i<ngrid_arg;i++){
+	  if( std::string(cmd) == grid_args[i] ){
+	    if(!UniqueID()){ printf("main.C: Ignoring Grid argument %s\n",cmd); fflush(stdout); }
+	    arg += grid_args_skip[i];
+	    is_grid_arg = true;
+	    break;
+	  }
+	}
+	if(!is_grid_arg){
+	  if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+	  exit(-1);
+	}
+      }
+    }
+  }
+
+};
+
+//Store/read job parameters
+struct Parameters{
+  CommonArg common_arg;
+  CommonArg common_arg2;
+  DoArg do_arg;
+  JobParams jp;
+  MeasArg meas_arg;
+  FixGaugeArg fix_gauge_arg;
+  A2AArg a2a_arg;
+  A2AArg a2a_arg_s;
+  LancArg lanc_arg;
+  LancArg lanc_arg_s;
+
+  Parameters(const char* directory): common_arg("",""), common_arg2("",""){
+    if(chdir(directory)!=0) ERR.General("Parameters","Parameters","Unable to switch to directory '%s'\n",directory);
+
+    if(!do_arg.Decode("do_arg.vml","do_arg")){
+      do_arg.Encode("do_arg.templ","do_arg");
+      VRB.Result("Parameters","Parameters","Can't open do_arg.vml!\n");exit(1);
+    }
+    if(!jp.Decode("job_params.vml","job_params")){
+      jp.Encode("job_params.templ","job_params");
+      VRB.Result("Parameters","Parameters","Can't open job_params.vml!\n");exit(1);
+    }
+    if(!meas_arg.Decode("meas_arg.vml","meas_arg")){
+      meas_arg.Encode("meas_arg.templ","meas_arg");
+      std::cout<<"Can't open meas_arg!"<<std::endl;exit(1);
+    }
+    if(!a2a_arg.Decode("a2a_arg.vml","a2a_arg")){
+      a2a_arg.Encode("a2a_arg.templ","a2a_arg");
+      VRB.Result("Parameters","Parameters","Can't open a2a_arg.vml!\n");exit(1);
+    }
+    if(!a2a_arg_s.Decode("a2a_arg_s.vml","a2a_arg_s")){
+      a2a_arg_s.Encode("a2a_arg_s.templ","a2a_arg_s");
+      VRB.Result("Parameters","Parameters","Can't open a2a_arg_s.vml!\n");exit(1);
+    }
+    if(!lanc_arg.Decode("lanc_arg.vml","lanc_arg")){
+      lanc_arg.Encode("lanc_arg.templ","lanc_arg");
+      VRB.Result("Parameters","Parameters","Can't open lanc_arg.vml!\n");exit(1);
+    }
+    if(!lanc_arg_s.Decode("lanc_arg_s.vml","lanc_arg_s")){
+      lanc_arg_s.Encode("lanc_arg_s.templ","lanc_arg_s");
+      VRB.Result("Parameters","Parameters","Can't open lanc_arg_s.vml!\n");exit(1);
+    }
+    if(!fix_gauge_arg.Decode("fix_gauge_arg.vml","fix_gauge_arg")){
+      fix_gauge_arg.Encode("fix_gauge_arg.templ","fix_gauge_arg");
+      VRB.Result("Parameters","Parameters","Can't open fix_gauge_arg.vml!\n");exit(1);
+    }
+
+    common_arg.set_filename(meas_arg.WorkDirectory);
+  }
+
+};
+
+
+void setupJob(int argc, char **argv, const Parameters &params, const CommandLineArgs &cmdline){
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  if(!UniqueID()) printf("Using node distribution of meson fields\n");
+#endif
+#ifdef MEMTEST_MODE
+  if(!UniqueID()) printf("Running in MEMTEST MODE (so don't expect useful results)\n");
+#endif
+  
+#ifdef A2A_LANCZOS_SINGLE
+  if(!cmdline.evecs_single_prec) ERR.General("",fname,"Must use single-prec eigenvectors when doing Lanczos in single precision\n");
+#endif
+
+  GJP.Initialize(params.do_arg);
+  LRG.Initialize();
+
+#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
+  if(GJP.Gparity()){
+#ifndef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
+#endif
+  }else{
+#ifdef USE_GRID_GPARITY
+    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
+#endif
+  }      
+#endif
+  
+  if(cmdline.double_latt) SerialIO::dbl_latt_storemode = true;
+
+  if(!cmdline.tune_lanczos_light && !cmdline.tune_lanczos_heavy){ 
+    assert(params.a2a_arg.nl <= params.lanc_arg.N_true_get);
+    assert(params.a2a_arg_s.nl <= params.lanc_arg_s.N_true_get);
+  }
+#ifdef USE_BFM
+  cps_qdp_init(&argc,&argv);
+  //Chroma::initialize(&argc,&argv);
+#endif
+  omp_set_num_threads(cmdline.nthreads);
+
+  if(!UniqueID()) printf("Initial memory post-initialize:\n");
+  printMem();
+}
+
+
+//Tune the Lanczos and exit
+void LanczosTune(bool tune_lanczos_light, bool tune_lanczos_heavy, const Parameters &params, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+  LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
+
+  if(tune_lanczos_light){
+    LanczosWrapper eig;
+    if(!UniqueID()) printf("Tuning lanczos light with mass %f\n", params.lanc_arg.mass);
+
+    double time = -dclock();
+    eig.compute(params.lanc_arg, LANCZOS_EXTRA_ARG);
+    time += dclock();
+    print_time("main","Lanczos light",time);
+  }
+  if(tune_lanczos_heavy){
+    LanczosWrapper eig;
+    if(!UniqueID()) printf("Tuning lanczos heavy with mass %f\n", params.lanc_arg_s.mass);
+
+    double time = -dclock();
+    eig.compute(params.lanc_arg_s, LANCZOS_EXTRA_ARG);
+    time += dclock();
+    print_time("main","Lanczos heavy",time);
+  }
+  
+  delete lanczos_lat;
+  exit(0);
+}
+
+enum LightHeavy { Light, Heavy };
+
+void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &params, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+  const char* name = (lh ==  Light ? "light" : "heavy");
+  const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
+  
+  if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
+  LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
+  double time = -dclock();
+  if(randomize_evecs) eig.randomizeEvecs(lanc_arg, LANCZOS_EXTRA_ARG);
+  else eig.compute(lanc_arg, LANCZOS_EXTRA_ARG);
+  time += dclock();
+
+  std::ostringstream os; os << name << " quark Lanczos";
+      
+  print_time("main",os.str().c_str(),time);
+
+  if(!UniqueID()) printf("Memory after %s quark Lanczos:\n",name);
+  printMem();      
+
+#ifndef A2A_LANCZOS_SINGLE
+  if(evecs_single_prec){
+    eig.toSingle();
+    if(!UniqueID()) printf("Memory after single-prec conversion of %s quark evecs:\n",name);
+    printMem();
+  }
+#endif
+  delete lanczos_lat;
+}
+
+
+A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const LanczosWrapper &eig,
+		      const bool evecs_single_prec, const bool randomize_vw, const bool mixed_solve, Float const* inner_cg_resid_p, const bool delete_lattice, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+  const char* name = (lh ==  Light ? "light" : "heavy");
+  A2ALattice* a2a_lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS); //the lattice class used to perform the CG and whatnot
+    
+  if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
+  double time = -dclock();
+
+  typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
+  Field4DparamType field4dparams = V.getVh(0).getDimPolParams();
+  
+  if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n", 
+			  A2AvectorV<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams) );
+    fflush(stdout);
+  }
+
+#ifdef USE_DESTRUCTIVE_FFT
+  V.allocModes(); W.allocModes();
+#endif
+    
+  if(!randomize_vw){
+#ifdef USE_BFM_LANCZOS
+    W.computeVW(V, *a2a_lat, *eig.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
+#else
+    if(evecs_single_prec){
+      W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000, inner_cg_resid_p);
+    }else{
+      W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
+    }
+#endif     
+  }else randomizeVW<A2Apolicies>(V,W);    
+
+  if(!UniqueID()) printf("Memory after %s A2A vector computation:\n", name);
+  printMem();
+
+  time += dclock();
+  std::ostringstream os; os << name << " quark A2A vectors";
+  print_time("main",os.str().c_str(),time);
+  
+  if(delete_lattice){
+    delete a2a_lat;
+    return NULL;
+  }else return a2a_lat;
+}
+
+
+void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &params){
+  AlgFixGauge fix_gauge(lat,&params.common_arg,&params.fix_gauge_arg);
+  if(skip_gauge_fix){
+    if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
+    gaugeFixUnity(lat,params.fix_gauge_arg);      
+  }else{
+    if(!UniqueID()){ printf("Gauge fixing\n"); fflush(stdout); }
+    double time = -dclock();
+#ifndef MEMTEST_MODE
+    fix_gauge.run();
+#else
+    gaugeFixUnity(lat,params.fix_gauge_arg);
+#endif      
+    time += dclock();
+    print_time("main","Gauge fix",time);
+  }
+
+  if(!UniqueID()) printf("Memory after gauge fix:\n");
+  printMem();
+}
+
+
+void computeKaon2pt(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W, const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
+		 const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+  if(!UniqueID()) printf("Computing kaon 2pt function\n");
+  double time = -dclock();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
+  ComputeKaon<A2Apolicies>::compute(kaon,
+				    W, V, W_s, V_s,
+				    params.jp.kaon_rad, lat, field3dparams);
+  std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
+  kaon.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+  os << ".hexfloat";
+  kaon.write(os.str(),true);
+#endif
+  time += dclock();
+  print_time("main","Kaon 2pt function",time);
+
+  if(!UniqueID()) printf("Memory after kaon 2pt function computation:\n");
+  printMem();
+}
+
+void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+			  const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
+			  const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom,
+			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+  if(!UniqueID()) printf("Computing light-light meson fields\n");
+  double time = -dclock();
+  if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  time += dclock();
+  print_time("main","Light-light meson fields",time);
+
+  if(!UniqueID()) printf("Memory after light-light meson field computation:\n");
+  printMem();
+}
+
+void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom, const int conf, const Parameters &params){
+  const int nmom = pion_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  
+  if(!UniqueID()) printf("Computing pion 2pt function\n");
+  double time = -dclock();
+  for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
+    if(!UniqueID()) printf("Starting pidx %d\n",p);
+    fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
+    ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
+    //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
+    //f'(p) = \sum_{x,y}e^{ip(x-y)}f(x,y)  [conventional]
+    //f'(p) = \sum_{x,y}e^{-ip(x-y)}f(x,y) [Daiqian]
+    //This may have been a mistake as it only manifests in the difference between the labelling of the pion momenta and the sign of 
+    //the individual quark momenta.
+    //However it doesn't really make any difference. If you enable DAIQIAN_PION_PHASE_CONVENTION
+    //the output files will be labelled in Daiqian's convention
+#define DAIQIAN_PION_PHASE_CONVENTION
+
+    std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pioncorr_mom";
+#ifndef DAIQIAN_PION_PHASE_CONVENTION
+    os << pion_mom.getMesonMomentum(p).file_str(2);  //note the divisor of 2 is to put the momenta in units of pi/L and not pi/2L
+#else
+    os << (-pion_mom.getMesonMomentum(p)).file_str(2);
+#endif
+    pion.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+    os << ".hexfloat";
+    pion.write(os.str(),true);
+#endif
+  }
+  time += dclock();
+  print_time("main","Pion 2pt function",time);
+
+  if(!UniqueID()) printf("Memory after pion 2pt function computation:\n");
+  printMem();
+}
+
+void computeSigmaMesonFields(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
+			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+  double time = -dclock();
+  if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
+  ComputeSigma<A2Apolicies>::computeAndWrite(params.meas_arg.WorkDirectory,conf,W,V, params.jp.pion_rad, lat, field3dparams);
+  time += dclock();
+  print_time("main","Sigma meson fields ",time);
+}
+
+void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom, const int conf, const Parameters &params){
+  const int nmom = pion_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+
+  if(!UniqueID()) printf("Computing pi-pi 2pt function\n");
+  double timeC(0), timeD(0), timeR(0), timeV(0);
+  double* timeCDR[3] = {&timeC, &timeD, &timeR};
+
+  for(int psrcidx=0; psrcidx < nmom; psrcidx++){
+    ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(psrcidx);
+
+    for(int psnkidx=0; psnkidx < nmom; psnkidx++){	
+      fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
+      ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
+	
+      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
+
+      char diag[3] = {'C','D','R'};
+      for(int d = 0; d < 3; d++){
+	if(!UniqueID()){ printf("Doing pipi figure %c, psrcidx=%d psnkidx=%d\n",diag[d],psrcidx,psnkidx); fflush(stdout); }
+
+	double time = -dclock();
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products);
+	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
+#ifndef DAIQIAN_PION_PHASE_CONVENTION
+	os << "_mom" << p_pi1_src.file_str(2) << "_mom" << p_pi1_snk.file_str(2);
+#else
+	os << "_mom" << (-p_pi1_src).file_str(2) << "_mom" << (-p_pi1_snk).file_str(2);
+#endif
+	pipi.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	pipi.write(os.str(),true);
+#endif	  
+	time += dclock();
+	*timeCDR[d] += time;
+      }
+    }
+
+    { //V diagram
+      if(!UniqueID()){ printf("Doing pipi figure V, pidx=%d\n",psrcidx); fflush(stdout); }
+      double time = -dclock();
+      fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
+      ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,params.jp.pipi_separation,mf_ll_con);
+      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_FigureVdis_sep" << params.jp.pipi_separation;
+#ifndef DAIQIAN_PION_PHASE_CONVENTION
+      os << "_mom" << p_pi1_src.file_str(2);
+#else
+      os << "_mom" << (-p_pi1_src).file_str(2);
+#endif
+      figVdis.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      figVdis.write(os.str(),true);
+#endif	
+      time += dclock();
+      timeV += time;
+    }
+  }//end of psrcidx loop
+
+  print_time("main","Pi-pi figure C",timeC);
+  print_time("main","Pi-pi figure D",timeD);
+  print_time("main","Pi-pi figure R",timeR);
+  print_time("main","Pi-pi figure V",timeV);
+
+  if(!UniqueID()) printf("Memory after pi-pi 2pt function computation:\n");
+  printMem();
+}
+
+
+void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+		    const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
+		    const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
+		    Lattice &lat, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams,
+		    const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom, const int conf, const Parameters &params){
+  const int nmom = pion_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  
+  //We first need to generate the light-strange W*W contraction
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
+  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,params.jp.kaon_rad,lat, field3dparams);
+
+  std::vector<int> k_pi_separation(params.jp.k_pi_separation.k_pi_separation_len);
+  for(int i=0;i<params.jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = params.jp.k_pi_separation.k_pi_separation_val[i];
+
+  if(!UniqueID()) printf("Memory after computing W*W meson fields:\n");
+  printMem();
+
+  typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+
+  MesonFieldMomentumContainer<A2Apolicies>* ll_meson_field_ptrs[2] = { &mf_ll_con, &mf_ll_con_2s };
+  const int nsource = GJP.Gparity() ? 2 : 1;
+  const std::string src_str[2] = { "", "_src2s" };
+    
+  //For type1 loop over momentum of pi1 (conventionally the pion closest to the kaon)
+  int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
+#define TYPE1_DO_ASSUME_ROTINVAR_GP3  //For GPBC in 3 directions we can assume rotational invariance around the G-parity diagonal vector (1,1,1) and therefore calculate only one off-diagonal momentum
+
+  if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",nmom);
+  double time = -dclock();
+    
+  for(int pidx=0; pidx < nmom; pidx++){
+#ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3
+    if(ngp == 3 && pidx >= 4) continue; // p_pi1 = (-1,-1,-1), (1,1,1) [diag] (1,-1,-1), (-1,1,1) [orth] only
+#endif
+    for(int sidx=0; sidx<nsource;sidx++){
+      
+      if(!UniqueID()) printf("Starting type 1 contractions with pidx=%d and source idx %d\n",pidx,sidx);
+      if(!UniqueID()) printf("Memory status before type1 K->pipi:\n");
+      printMem();
+
+      ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
+      std::vector<ResultsContainerType> type1;
+      ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
+						k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, params.jp.xyzstep_type1, p_pi1,
+						mf_ls_ww, *ll_meson_field_ptrs[sidx],
+						V, V_s,
+						W, W_s);
+      for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
+	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type1_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << params.jp.pipi_separation;
+#ifndef DAIQIAN_PION_PHASE_CONVENTION
+	os << "_mom" << p_pi1.file_str(2);
+#else
+	os << "_mom" << (-p_pi1).file_str(2);
+#endif
+	type1[kpi_idx].write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+	os << ".hexfloat";
+	type1[kpi_idx].write(os.str(),true);
+#endif
+      }
+      if(!UniqueID()) printf("Memory status after type1 K->pipi:\n");
+      printMem();
+    }
+  }
+
+    
+  time += dclock();
+  print_time("main","K->pipi type 1",time);
+
+  if(!UniqueID()) printf("Memory after type1 K->pipi:\n");
+  printMem();
+
+  //Type 2 and 3 are optimized by performing the sum over pipi momentum orientations within the contraction
+  time = -dclock();    
+  for(int sidx=0; sidx< nsource; sidx++){
+    if(!UniqueID()) printf("Starting type 2 contractions with source idx %d\n", sidx);
+    std::vector<ResultsContainerType> type2;
+    ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
+					      k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, pion_mom,
+					      mf_ls_ww, *ll_meson_field_ptrs[sidx],
+					      V, V_s,
+					      W, W_s);
+    for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
+      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type2_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << params.jp.pipi_separation;
+      type2[kpi_idx].write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      type2[kpi_idx].write(os.str(),true);
+#endif
+    }
+  }
+  time += dclock();
+  print_time("main","K->pipi type 2",time);
+    
+  if(!UniqueID()) printf("Memory after type2 K->pipi:\n");
+  printMem();
+    
+
+  time = -dclock();
+  for(int sidx=0; sidx< nsource; sidx++){
+    if(!UniqueID()) printf("Starting type 3 contractions with source idx %d\n", sidx);
+    std::vector<ResultsContainerType> type3;
+    std::vector<MixDiagResultsContainerType> mix3;
+    ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
+					      k_pi_separation, params.jp.pipi_separation, 1, pion_mom,
+					      mf_ls_ww, *ll_meson_field_ptrs[sidx],
+					      V, V_s,
+					      W, W_s);
+    for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
+      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type3_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << params.jp.pipi_separation;
+      write(os.str(),type3[kpi_idx],mix3[kpi_idx]);
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      write(os.str(),type3[kpi_idx],mix3[kpi_idx],true);
+#endif
+    }
+  }
+  time += dclock();
+  print_time("main","K->pipi type 3",time);
+    
+  if(!UniqueID()) printf("Memory after type3 K->pipi:\n");
+  printMem();
+    
+
+  {
+    //Type 4 has no momentum loop as the pion disconnected part is computed as part of the pipi 2pt function calculation
+    time = -dclock();
+    if(!UniqueID()) printf("Starting type 4 contractions\n");
+    ResultsContainerType type4;
+    MixDiagResultsContainerType mix4;
+      
+    ComputeKtoPiPiGparity<A2Apolicies>::type4(type4, mix4,
+					      1,
+					      mf_ls_ww,
+					      V, V_s,
+					      W, W_s);
+      
+    {
+      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type4";
+      write(os.str(),type4,mix4);
+#ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      write(os.str(),type4,mix4,true);
+#endif
+    }
+    time += dclock();
+    print_time("main","K->pipi type 4",time);
+    
+    if(!UniqueID()) printf("Memory after type4 K->pipi and end of config loop:\n");
+    printMem();
+  }
+}//do_ktopipi
+
+
+#endif
