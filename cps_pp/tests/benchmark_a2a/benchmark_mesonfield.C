@@ -4,6 +4,7 @@
 //#define USE_GRID_A2A
 //#define USE_GRID_LANCZOS
 
+#if 1
 
 #include "benchmark_mesonfield.h"
 
@@ -234,9 +235,10 @@ int main(int argc,char *argv[])
   if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
   if(0) testCPSfieldIO();
-  if(1) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
+  if(0) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
   if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
 
+  if(1) benchmarkCPSfieldIO();
 
   Grid::vComplexD a, b;
 
@@ -257,3 +259,4 @@ int main(int argc,char *argv[])
 
 
 
+#endif

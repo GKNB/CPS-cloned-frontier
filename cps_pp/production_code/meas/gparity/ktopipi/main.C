@@ -130,6 +130,7 @@ int main (int argc,char **argv )
     //--------------------------------------K->pipi contractions--------------------------------------------------------
     if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,conf,params);
 
+    delete a2a_lat;
     conf_time += dclock();
     print_time("main","Configuration total",conf_time);
   }//end of config loop

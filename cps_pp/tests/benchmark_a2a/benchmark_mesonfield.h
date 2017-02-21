@@ -2540,17 +2540,17 @@ void testCPSfieldIO(){
 }
 
 template<typename A2Apolicies, typename ComplexClass>
-struct setupFieldParams{};
+struct setupFieldParams2{};
 
 template<typename A2Apolicies>
-struct setupFieldParams<A2Apolicies,complex_double_or_float_mark>{
+struct setupFieldParams2<A2Apolicies,complex_double_or_float_mark>{
   NullObject params;
 };
 
 template<typename A2Apolicies>
-struct setupFieldParams<A2Apolicies, grid_vector_complex_mark>{
+struct setupFieldParams2<A2Apolicies, grid_vector_complex_mark>{
   typename FourDSIMDPolicy::ParamType params;
-  setupFieldParams(){
+  setupFieldParams2(){
     const int nsimd = A2Apolicies::ComplexType::Nsimd();
     FourDSIMDPolicy::SIMDdefaultLayout(params,nsimd,2);
   }
@@ -2562,7 +2562,7 @@ template<typename A2Apolicies>
 void testA2AvectorIO(const A2AArg &a2a_args){
   typedef typename A2AvectorV<A2Apolicies>::FieldInputParamType FieldParams;
   
-  setupFieldParams<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
+  setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
 
   {
     A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
@@ -2612,7 +2612,38 @@ void testA2AvectorIO(const A2AArg &a2a_args){
 }
 
 
+void benchmarkCPSfieldIO(){
+  const int nfield_tests[7] = {1,10,50,100,250,500,1000};
 
+  for(int n=0;n<7;n++){
+    const int nfield = nfield_tests[n];
+    
+    std::vector<CPSfermion4D<cps::ComplexD> > a(nfield);
+    for(int i=0;i<nfield;i++) a[i].testRandom();
+    const double mb_written = double(a[0].byte_size())/1024/1024*nfield;
+    
+    const int ntest = 10;
+
+    double avg_rate = 0;
+    
+    for(int i=0;i<ntest;i++){
+      std::ostringstream fname; fname << "field.test" << i << ".node" << UniqueID();
+      std::ofstream f(fname.str().c_str());
+      double time = -dclock();
+      for(int j=0;j<nfield;j++) a[j].writeParallel(f);
+      f.close();
+      time += dclock();
+      
+      const double rate = mb_written/time;
+      avg_rate += rate;
+      if(!UniqueID()) printf("Test %d, wrote %f MB in %f s: rate %f MB/s\n",i,mb_written,time,rate);
+    }
+    avg_rate /= ntest;
+    
+    if(!UniqueID()) printf("Data size %f MB, avg rate %f MB/s\n",mb_written,avg_rate);
+    
+  }
+}
 
 
 
