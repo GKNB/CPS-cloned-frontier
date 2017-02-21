@@ -12,7 +12,7 @@
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
 #include <alg/alg_fix_gauge.h>
-#include <alg/a2a/main.h>
+#include <alg/a2a/utils_main.h>
 #include <alg/a2a/grid_wrappers.h>
 #include <alg/a2a/bfm_wrappers.h>
 #include <alg/a2a/compute_kaon.h>

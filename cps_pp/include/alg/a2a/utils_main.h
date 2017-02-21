@@ -1,13 +1,17 @@
-#ifndef _MAIN_CK_H
-#define _MAIN_CK_H
+#ifndef _UTILS_MAIN_H_
+#define _UTILS_MAIN_H_
 
+#include <util/time_cps.h>
 #include <util/lattice/fgrid.h>
 #include <alg/meas_arg.h>
 #include <alg/ktopipi_jobparams.h>
 #include <alg/a2a/bfm_wrappers.h>
+#include <alg/a2a/CPSfield.h>
 
 //Useful functions for main programs
 CPS_START_NAMESPACE
+
+
 
 void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
   double time = -dclock();
