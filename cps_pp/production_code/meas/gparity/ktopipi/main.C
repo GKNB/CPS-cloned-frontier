@@ -11,8 +11,10 @@
 
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 
-#include<alg/alg_fix_gauge.h>
+#include <alg/alg_fix_gauge.h>
 #include <alg/a2a/main.h>
+#include <alg/a2a/grid_wrappers.h>
+#include <alg/a2a/bfm_wrappers.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
 #include <alg/a2a/compute_sigma.h>
@@ -270,7 +272,7 @@ int main (int argc,char **argv )
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
 #if defined(USE_BFM_A2A) || defined(USE_BFM_LANCZOS)
-  BFMsolvers bfm_solvers(jp,nthreads); //for BFM holds a double and single precision bfm instance
+  BFMsolvers bfm_solvers(nthreads, 0.01, 1e-08, 20000, jp.solver, jp.mobius_scale); //for BFM holds a double and single precision bfm instance. Mass is not important as it is changed when necessary
 #endif
   
   if(chdir(meas_arg.WorkDirectory)!=0) ERR.General("",fname,"Unable to switch to work directory '%s'\n",meas_arg.WorkDirectory);

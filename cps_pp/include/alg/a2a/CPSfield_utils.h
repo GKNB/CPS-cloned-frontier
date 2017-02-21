@@ -898,5 +898,35 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 }
 #endif
 
+
+
+template<typename ComplexType>
+void setupFieldParams(cps::NullObject &n){}
+
+#ifdef USE_GRID
+template<typename ComplexType>
+void setupFieldParams(typename FourDSIMDPolicy::ParamType &p){
+  int nsimd = ComplexType::Nsimd();
+  FourDSIMDPolicy::SIMDdefaultLayout(p,nsimd,2); //only divide over spatial directions
+  
+  printf("4D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<4;i++)
+    printf("%d ", p[i]);
+  printf("\n");
+}
+template<typename ComplexType>
+void setupFieldParams(typename ThreeDSIMDPolicy::ParamType &p){
+  int nsimd = ComplexType::Nsimd();
+  ThreeDSIMDPolicy::SIMDdefaultLayout(p,nsimd);
+  
+  printf("3D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+  for(int i=0;i<3;i++)
+    printf("%d ", p[i]);
+  printf("\n");
+}
+#endif
+
+
+
 CPS_END_NAMESPACE
 #endif
