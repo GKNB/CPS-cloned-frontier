@@ -122,9 +122,9 @@ struct CommandLineArgs{
       if(!UniqueID()){ printf("%d \"%s\"\n",i,argv[i]); fflush(stdout); }
     }
     
-    const int ngrid_arg = 7;
-    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking" };
-    const int grid_args_skip[ngrid_arg] = { 1, 1, 1, 1, 2, 1, 2 };
+    const int ngrid_arg = 10;
+    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking", "--comms-isend", "--comms-sendrecv", "--comms-overlap" };
+    const int grid_args_skip[ngrid_arg] =    { 1                , 1                 , 1                , 1             , 2      , 1           , 2                , 1              , 1                 , 1 };
 
     int arg = begin;
     while(arg < argc){

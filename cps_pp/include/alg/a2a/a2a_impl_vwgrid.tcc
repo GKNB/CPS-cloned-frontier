@@ -272,6 +272,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     V.getVh(i).importGridField(tmp_full_4d);
   }
 #endif
+
+  Ddwf.Report();
 }
 
 
