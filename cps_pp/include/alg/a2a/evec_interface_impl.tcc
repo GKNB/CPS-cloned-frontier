@@ -209,8 +209,9 @@ public:
     Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
     mCG.useGuesser(guesser);
 
+#ifndef DISABLE_GRID_MCG_INNERTOL //Temporary catch for old branches of Grid that do not have the new mixed CG inner tol option
     if(override_inner_resid) mCG.InnerTolerance = inner_resid;
-    
+#endif
     mCG(source,solution);
   }
 
