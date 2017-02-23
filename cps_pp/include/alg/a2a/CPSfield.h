@@ -527,6 +527,7 @@ public:
 
 
 #include<alg/a2a/CPSfield_impl.tcc>
+#include<alg/a2a/CPSfield_copy.tcc>
 #include<alg/a2a/CPSfield_io.tcc>
 
 CPS_END_NAMESPACE
