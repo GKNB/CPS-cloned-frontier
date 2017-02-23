@@ -174,71 +174,71 @@ int main(int argc,char *argv[])
   a2a_args.rand_type = UONE;
   a2a_args.src_width = 1;
 
-  if(1) testCyclicPermute();
+  if(0) testCyclicPermute();
   
-  if(1) demonstrateFFTreln<ScalarA2Apolicies>(a2a_args);
+  if(0) demonstrateFFTreln<ScalarA2Apolicies>(a2a_args);
 
 
-  if(1) testA2AvectorFFTrelnGparity<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testA2AvectorFFTrelnGparity<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
-  if(1) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
+  if(0) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
 #endif
   
-  if(1) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
 
-  if(1) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
-  if(1) testMfFFTreln<GridA2Apolicies>(a2a_args,lattice);
+  if(0) testMfFFTreln<GridA2Apolicies>(a2a_args,lattice);
 #endif
   
-  if(1) testFFTopt<ScalarA2Apolicies>();
+  if(0) testFFTopt<ScalarA2Apolicies>();
 #ifdef USE_GRID
-  if(1) testFFTopt<GridA2Apolicies>();
+  if(0) testFFTopt<GridA2Apolicies>();
 #endif
   
-  if(1) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testA2AFFTinv<ScalarA2Apolicies>(a2a_args,lattice);
   
-  if(1) testVVdag<ScalarA2Apolicies>(lattice);
+  if(0) testVVdag<ScalarA2Apolicies>(lattice);
 #ifdef USE_GRID
-  if(1) testVVdag<GridA2Apolicies>(lattice);
+  if(0) testVVdag<GridA2Apolicies>(lattice);
 #endif
   
-  if(1) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);
+  if(0) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);
   
-  if(1) testA2AallocFree(a2a_args,lattice);
-
-#ifdef USE_GRID
-  if(1) benchmarkMFcontractKernel<GridA2Apolicies>(ntests,nthreads);
-#endif
+  if(0) testA2AallocFree(a2a_args,lattice);
 
 #ifdef USE_GRID
-  if(1) testGridg5Contract<Grid::vComplexD>(); //Keep active because its very quick and checks that the kernel is correct
-#endif
-  
-  if(1) benchmarkTrace(ntests,tol);
-  if(1) benchmarkSpinFlavorTrace(ntests,tol);
-  if(1) benchmarkTraceProd(ntests,tol);
-  if(1) benchmarkColorTranspose(ntests,tol);
-  if(1) benchmarkmultGammaLeft(ntests, tol);
-
-#ifdef USE_GRID
-  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+  if(0) benchmarkMFcontractKernel<GridA2Apolicies>(ntests,nthreads);
 #endif
 
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
-  if(1) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(0) testGridg5Contract<Grid::vComplexD>(); //Keep active because its very quick and checks that the kernel is correct
+#endif
+  
+  if(0) benchmarkTrace(ntests,tol);
+  if(0) benchmarkSpinFlavorTrace(ntests,tol);
+  if(0) benchmarkTraceProd(ntests,tol);
+  if(0) benchmarkColorTranspose(ntests,tol);
+  if(0) benchmarkmultGammaLeft(ntests, tol);
+
+#ifdef USE_GRID
+  if(0) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
 #endif
 
-  if(1) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
+#ifdef USE_GRID
+  if(0) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+#endif
 
-  if(1) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
+  if(0) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
 
-  if(1) testCPSfieldIO();
-  if(1) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
-  if(1) testA2AvectorIO<GridA2Apolicies>(a2a_args);
+  if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
-  if(1) benchmarkCPSfieldIO();
+  if(0) testCPSfieldIO();
+  if(0) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
+  if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
+
+  if(0) benchmarkCPSfieldIO();
 
   Grid::vComplexD a, b;
 
@@ -249,7 +249,7 @@ int main(int argc,char *argv[])
   assert(equals(a,a));
   assert(equals(b,b));
   
-  
+  if(1) testCPSfieldImpex();
   
   printf("Finished\n"); fflush(stdout);
   

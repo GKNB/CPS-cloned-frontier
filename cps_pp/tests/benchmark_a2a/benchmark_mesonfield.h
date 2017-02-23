@@ -2514,7 +2514,130 @@ void testMFmult(const A2AArg &a2a_args, const double tol){
   
 }
 
+void testCPSfieldImpex(){
+  { //4D fields
+    typedef CPSfermion4D<cps::ComplexD> CPSfermion4DBasic;
+    CPSfermion4DBasic a;
+    a.testRandom();
+    
+    {
+      CPSfermion4DBasic b;
+      a.exportField(b);
+      CPSfermion4DBasic c;
+      c.importField(b);
+      assert( a.equals(c) );
+    }
 
+    {
+      CPSfermion4DBasic b_odd, b_even;
+      IncludeCBsite<4> odd_mask(1);
+      IncludeCBsite<4> even_mask(0);
+      a.exportField(b_odd, &odd_mask);
+      a.exportField(b_even, &even_mask);
+          
+      CPSfermion4DBasic c;
+      c.importField(b_odd, &odd_mask);
+      c.importField(b_even, &even_mask);
+
+      assert( a.equals(c) );
+    }
+
+#ifdef USE_GRID
+    typedef CPSfermion4D<Grid::vComplexD, FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> CPSfermion4DGrid;
+    typedef typename CPSfermion4DGrid::InputParamType CPSfermion4DGridParams;
+    CPSfermion4DGridParams gp;
+    setupFieldParams<CPSfermion4DGrid>(gp);
+    
+    {
+      CPSfermion4DGrid b(gp);
+      a.exportField(b);
+      
+      CPSfermion4DBasic c;
+      c.importField(b);
+      
+      assert( a.equals(c) );
+    }
+    {
+      CPSfermion4DGrid b(gp);
+      b.importField(a);
+      
+      CPSfermion4DBasic c;
+      b.exportField(c);
+      
+      assert( a.equals(c) );
+    }
+
+    {
+      CPSfermion4DGrid b_odd(gp), b_even(gp);
+      IncludeCBsite<4> odd_mask(1);
+      IncludeCBsite<4> even_mask(0);
+      a.exportField(b_odd, &odd_mask);
+      a.exportField(b_even, &even_mask);
+          
+      CPSfermion4DBasic c;
+      c.importField(b_odd, &odd_mask);
+      c.importField(b_even, &even_mask);
+
+      assert( a.equals(c) );
+    }
+#endif
+    
+  }
+
+  
+
+  { //5D fields
+    typedef CPSfermion5D<cps::ComplexD> CPSfermion5DBasic;
+    CPSfermion5DBasic a;
+    a.testRandom();
+
+    {
+      CPSfermion5DBasic b;
+      a.exportField(b);
+      CPSfermion5DBasic c;
+      c.importField(b);
+      assert( a.equals(c) );
+    }
+
+    {
+      CPSfermion5DBasic b_odd, b_even;
+      IncludeCBsite<5> odd_mask(1); //4d prec
+      IncludeCBsite<5> even_mask(0);
+      a.exportField(b_odd, &odd_mask);
+      a.exportField(b_even, &even_mask);
+          
+      CPSfermion5DBasic c;
+      c.importField(b_odd, &odd_mask);
+      c.importField(b_even, &even_mask);
+
+      assert( a.equals(c) );
+    }
+
+    {//The reduced size checkerboarded fields
+      CPSfermion5Dcb4Dodd<cps::ComplexD> b_odd;
+      CPSfermion5Dcb4Deven<cps::ComplexD> b_even;
+
+      IncludeCBsite<5> odd_mask(1); //4d prec
+      IncludeCBsite<5> even_mask(0);
+      a.exportField(b_odd, &odd_mask);
+      a.exportField(b_even, &even_mask);
+          
+      CPSfermion5DBasic c;
+      c.importField(b_odd, &odd_mask);
+      c.importField(b_even, &even_mask); //shouldn't need mask because only the cb sites are contained in the imported field but it disables the site number check
+
+      assert( a.equals(c) );
+    }
+    
+  }
+
+
+
+
+  
+}
+
+  
 void testCPSfieldIO(){
   {
     CPSfermion4D<cps::ComplexD> a;

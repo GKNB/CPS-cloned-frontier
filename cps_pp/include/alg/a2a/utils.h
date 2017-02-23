@@ -8,7 +8,6 @@
 #include <alg/a2a/utils_floatingpt.h>
 #include <alg/a2a/utils_memory.h>
 #include <alg/a2a/utils_complex.h>
-#include <alg/a2a/utils.h>
 #include <alg/a2a/utils_matrix.h>
 #include <alg/a2a/utils_parallel.h>
 

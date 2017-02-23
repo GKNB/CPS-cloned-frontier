@@ -163,6 +163,7 @@ public:
 //The DimensionPolicy controls the mapping between an N-dimensional vector and a flavor index to an integer which is used to compute the pointer offset.
 //Each policy contains 2 mappings; a linearization of a Euclidean vector to an index, and a linearization of the Euclidean vector plus a flavor index. The latter is used to compute pointer offsets, the former for convenient site looping
 //We generically refer to 'sites' as being those of the Euclidean lattice, and fsites as those of the Euclidean+flavor lattice (as if flavor was another dimension)
+
 template<typename FlavorPolicy  = DynamicFlavorPolicy>
 class FourDpolicy: public FlavorPolicy{ //Canonical layout 4D field with second flavor stacked after full 4D block
 public:
@@ -360,7 +361,7 @@ public:
     }
   }
 
-  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + GJP.VolNodeSites()/GJP.TnodeSites()*f; }
+  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + threevol*f; }
 
   inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
