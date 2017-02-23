@@ -145,7 +145,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   
   NullObject null_obj;
   lattice.BondCond();
-  CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
+  CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
   cps_gauge.exportGridField(Umu_f);
   lattice.BondCond();
 

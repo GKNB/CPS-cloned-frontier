@@ -116,7 +116,7 @@ public:
 
   //The kaon meson field is expected to be constructed in the W*W form
 
-  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
+  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
   
   //ls_WW meson fields
   template< typename Allocator >
@@ -164,7 +164,7 @@ public:
 
   //--------------------------------------------------------------------------
   //TYPE 1
-  typedef CPSfield<int,1,FourDpolicy,OneFlavorPolicy> OneFlavorIntegerField;
+  typedef CPSfield<int,1,FourDpolicy<OneFlavorPolicy> > OneFlavorIntegerField;
 
 private:
   //Run inside threaded environment

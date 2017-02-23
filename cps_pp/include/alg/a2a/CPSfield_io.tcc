@@ -1,6 +1,6 @@
 //Parallel write
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::writeParallel(std::ostream &file, FP_FORMAT fileformat) const{
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::ostream &file, FP_FORMAT fileformat) const{
   assert(!file.fail());
   file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
     
@@ -42,13 +42,12 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::write
   
   //Parameters    
   file << "BEGIN_PARAMS\n";
-  file << "SITES = " << sites << "\n";
-  file << "FLAVORS = " << flavors << "\n";
-  file << "FSITES = " << fsites << "\n";
+  file << "SITES = " << this->nsites() << "\n";
+  file << "FLAVORS = " << this->nflavors() << "\n";
+  file << "FSITES = " << this->nfsites() << "\n";
   file << "SITESIZE = " << SiteSize << "\n";
   file << "FSIZE = " << fsize << "\n";
-  this->DimensionPolicy::writeParams(file);
-  this->FlavorPolicy::writeParams(file);
+  this->MappingPolicy::writeParams(file);
   this->AllocPolicy::writeParams(file);
   file << "END_PARAMS\n";      
 
@@ -81,8 +80,8 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::write
 }
 
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat) const{
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat) const{
   std::ostringstream os; os << file_stub << "." << UniqueID();
   std::ofstream of(os.str().c_str(),std::ofstream::out);
   writeParallel(of,fileformat);
@@ -92,8 +91,8 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::write
 
 
 //Parallel read
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::readParallel(std::istream &file){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::istream &file){
 #ifdef USE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -144,8 +143,7 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::readP
   assert(rd_sitesize == SiteSize);
 
   //overwrite policy parameters and check
-  this->DimensionPolicy::readParams(file);
-  this->FlavorPolicy::readParams(file);
+  this->MappingPolicy::readParams(file);
   this->AllocPolicy::readParams(file);
 
   getline(file,str); assert(str == "END_PARAMS");
@@ -153,12 +151,10 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::readP
   int current_fsize = fsize;
   
   //Write over current field params
-  this->setFlavors(this->flavors); //from FlavorPolicy
-  assert(this->flavors == rd_flavors);
-  this->setSites(this->sites,this->fsites,this->flavors); //from DimensionPolicy
-  assert(this->sites == rd_sites && this->fsites == rd_fsites);
+  assert(this->nflavors() == rd_flavors);
+  assert(this->nsites() == rd_sites && this->nfsites() == rd_fsites);
   
-  this->fsize = this->fsites * SiteSize;
+  this->fsize = this->nfsites() * SiteSize;
   
   if(fsize != current_fsize){ //reallocate if wrong size
     freemem();  
@@ -220,8 +216,8 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::readP
 #endif
 }
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::readParallel(const std::string &file_stub){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(const std::string &file_stub){
   std::ostringstream os; os << file_stub << "." << UniqueID();
   std::ifstream ifs(os.str().c_str(),std::ifstream::in);
   readParallel(ifs);

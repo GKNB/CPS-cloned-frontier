@@ -11,19 +11,19 @@ CPS_START_NAMESPACE
 #ifdef USE_GRID
 struct GridSIMDSourcePolicies{
   typedef Grid::vComplexD ComplexType;
-  typedef ThreeDSIMDPolicy DimensionPolicy;
+  typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
   typedef Aligned128AllocPolicy AllocPolicy;
 };
 struct GridSIMDSourcePoliciesSingle{
   typedef Grid::vComplexF ComplexType;
-  typedef ThreeDSIMDPolicy DimensionPolicy;
+  typedef ThreeDSIMDPolicy<OneFlavorPolicy> MappingPolicy;
   typedef Aligned128AllocPolicy AllocPolicy;
 };
 #endif
 
 struct StandardSourcePolicies{
   typedef cps::ComplexD ComplexType;
-  typedef SpatialPolicy DimensionPolicy;
+  typedef SpatialPolicy<OneFlavorPolicy> MappingPolicy;
   typedef StandardAllocPolicy AllocPolicy;
 };
 
@@ -76,8 +76,8 @@ struct A2ApoliciesDoubleAutoAlloc{
   typedef cps::ComplexF ComplexTypeF;
   typedef StandardAllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
-  typedef CPSfermion4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
+  typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
+  typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef StandardSourcePolicies SourcePolicies;
 
   SET_A2AVECTOR_AUTOMATIC_ALLOC(A2ApoliciesDoubleAutoAlloc);
@@ -93,8 +93,8 @@ struct A2ApoliciesDoubleManualAlloc{
   typedef cps::ComplexF ComplexTypeF;
   typedef StandardAllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
-  typedef CPSfermion4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, FourDpolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
+  typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
+  typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef StandardSourcePolicies SourcePolicies;
 
   SET_A2AVECTOR_MANUAL_ALLOC(A2ApoliciesDoubleManualAlloc);
@@ -112,8 +112,8 @@ struct A2ApoliciesSIMDdoubleAutoAlloc{
   typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
-  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
+  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
+  typedef CPScomplex4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef GridSIMDSourcePolicies SourcePolicies;
 
   SET_A2AVECTOR_AUTOMATIC_ALLOC(A2ApoliciesSIMDdoubleAutoAlloc);
@@ -127,8 +127,8 @@ struct A2ApoliciesSIMDdoubleManualAlloc{
   typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
   typedef cps::ComplexD ScalarComplexType;
-  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> FermionFieldType;
-  typedef CPScomplex4D<ComplexType, FourDSIMDPolicy, DynamicFlavorPolicy, AllocPolicy> ComplexFieldType;
+  typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
+  typedef CPScomplex4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef GridSIMDSourcePolicies SourcePolicies;
 
   SET_A2AVECTOR_MANUAL_ALLOC(A2ApoliciesSIMDdoubleManualAlloc);

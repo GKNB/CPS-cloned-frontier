@@ -31,7 +31,7 @@ public:
 template<typename mf_Policies>
 class ComputeKaon{
  public:
-  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
 #ifdef USE_DESTRUCTIVE_FFT
   typedef A2AvectorW<mf_Policies> Wtype;
   typedef A2AvectorV<mf_Policies> Vtype;

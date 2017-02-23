@@ -445,7 +445,7 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &param
 
 
 void computeKaon2pt(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W, const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
-		 const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+		 const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
@@ -469,7 +469,7 @@ void computeKaon2pt(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolici
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 			  const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
 			  const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom,
-			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(!UniqueID()) printf("Computing light-light meson fields\n");
   double time = -dclock();
   if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
@@ -520,7 +520,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
 }
 
 void computeSigmaMesonFields(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
-			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams){
+			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   double time = -dclock();
   if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
   ComputeSigma<A2Apolicies>::computeAndWrite(params.meas_arg.WorkDirectory,conf,W,V, params.jp.pion_rad, lat, field3dparams);
@@ -601,7 +601,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 		    const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
 		    const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
-		    Lattice &lat, const typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType &field3dparams,
+		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		    const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom, const int conf, const Parameters &params){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();

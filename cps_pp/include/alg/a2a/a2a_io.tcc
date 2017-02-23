@@ -49,7 +49,7 @@ void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
 
   file << "BEGIN_VFIELDS\n";
 
-  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> IOFieldType; //always write in non-SIMD format for portability
+  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> IOFieldType; //always write in non-SIMD format for portability
   IOFieldType tmp;
   
   for(int i=0;i<nv;i++)
@@ -101,7 +101,7 @@ void A2AvectorV<mf_Policies>::readParallel(const std::string &file_stub){
   getline(file,str); assert(str == "END_PARAMS");
   getline(file,str); assert(str == "BEGIN_VFIELDS");
 
-  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> IOFieldType; //always write in non-SIMD format for portability
+  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> IOFieldType; //always write in non-SIMD format for portability
   IOFieldType tmp;
   
   for(int i=0;i<nv;i++)
@@ -139,7 +139,7 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
 
   file << "BEGIN_WLFIELDS\n";
 
-  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> WlIOFieldType; //always write in non-SIMD format for portability
+  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> WlIOFieldType; //always write in non-SIMD format for portability
   WlIOFieldType tmp;
   
   for(int i=0;i<nl;i++)
@@ -149,7 +149,7 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
 
   file << "BEGIN_WHFIELDS\n";
 
-  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> WhIOFieldType;
+  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> WhIOFieldType;
   WhIOFieldType tmp2;
   
   for(int i=0;i<nhits;i++){
@@ -205,7 +205,7 @@ void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
   getline(file,str); assert(str == "END_PARAMS");
   getline(file,str); assert(str == "BEGIN_WLFIELDS");
 
-  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> WlIOFieldType;
+  typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> WlIOFieldType;
   WlIOFieldType tmp;
   
   for(int i=0;i<nl;i++)
@@ -215,7 +215,7 @@ void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
 
   getline(file,str); assert(str == "BEGIN_WHFIELDS");
 
-  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, FourDpolicy, DynamicFlavorPolicy, StandardAllocPolicy> WhIOFieldType;
+  typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, FourDpolicy<DynamicFlavorPolicy>, StandardAllocPolicy> WhIOFieldType;
   WhIOFieldType tmp2;
   
   for(int i=0;i<nhits;i++)

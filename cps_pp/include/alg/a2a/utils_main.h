@@ -75,7 +75,7 @@ struct createLattice<LatticeType, isGridtype>{
         
     NullObject null_obj;
     lat->BondCond();
-    CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
+    CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lat->GaugeField(),null_obj);
     cps_gauge.exportGridField(*lat->getUmu());
     lat->BondCond();
     

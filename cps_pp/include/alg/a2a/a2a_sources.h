@@ -9,10 +9,10 @@ CPS_START_NAMESPACE
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
 
 //3D complex field. Defined for a *single flavor* if GPBC
-template<typename mf_Complex,typename DimensionPolicy = SpatialPolicy, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<DimensionPolicy::EuclideanDimension == 3, int>::type = 0>
+template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
 class A2Asource{
 public:
-  typedef CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> FieldType;  
+  typedef CPSfield<mf_Complex,1,MappingPolicy,FieldAllocPolicy> FieldType;  
 protected:
   FieldType *src;
 public:
@@ -34,8 +34,8 @@ public:
   inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
   inline const int nsites() const{ return src->nsites(); }
 
-  template< typename extComplexType, typename extDimPol, typename extAllocPol>
-  void importSource(const A2Asource<extComplexType,extDimPol,extAllocPol> &from){
+  template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
+  void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
     src->importField(*from.src);
   }
   FieldType & getSource(){ return *src; } //For testing
@@ -78,14 +78,14 @@ public:
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
 template<typename FieldPolicies, typename Child>
-class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>{
+class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>{
 public:
   typedef FieldPolicies Policies;
-  typedef typename A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+  typedef typename A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
   
-  A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(p){};
-  A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
-  A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(r){}
+  A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(p){};
+  A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
+  A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(r){}
   
   void fft_source(){
     assert(this->src != NULL);
@@ -102,7 +102,7 @@ public:
     }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
-    glb.scatter<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(*this->src);
+    glb.scatter<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(*this->src);
   }
 };
 

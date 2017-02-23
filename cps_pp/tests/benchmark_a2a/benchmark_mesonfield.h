@@ -525,7 +525,7 @@ bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColo
 
 
 template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
-void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocPolicy> &field, const int dir, const std::string &comment,
+void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy<FlavorPolicy>,AllocPolicy> &field, const int dir, const std::string &comment,
 	       typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	       ){
   int L = GJP.Nodes(dir)*GJP.NodeSites(dir);
@@ -562,12 +562,12 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDpolicy,FlavorPolicy,AllocP
 
 #ifdef USE_GRID
 template< typename mf_Complex, int SiteSize, typename FlavorPolicy, typename AllocPolicy>
-void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,AllocPolicy> &field, const int dir, const std::string &comment,
+void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy<FlavorPolicy>,AllocPolicy> &field, const int dir, const std::string &comment,
 	       typename my_enable_if< _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	       ){
   typedef typename mf_Complex::scalar_type ScalarComplex;
   NullObject null_obj;
-  CPSfield<ScalarComplex,SiteSize,FourDpolicy,FlavorPolicy,StandardAllocPolicy> tmp(null_obj);
+  CPSfield<ScalarComplex,SiteSize,FourDpolicy<FlavorPolicy>,StandardAllocPolicy> tmp(null_obj);
   tmp.importField(field);
   printRow(tmp,dir,comment);
 }
@@ -577,9 +577,9 @@ void printRow(const CPSfield<mf_Complex,SiteSize,FourDSIMDPolicy,FlavorPolicy,Al
 void testCyclicPermute(){
   NullObject null_obj;
   {//4D
-    CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
-    CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp1(null_obj);
-    CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp2(null_obj);
+    CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> from(null_obj);
+    CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp1(null_obj);
+    CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp2(null_obj);
 
     from.testRandom();
 
@@ -588,8 +588,8 @@ void testCyclicPermute(){
 	if(!UniqueID()) printf("Testing 4D permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1 = from;
-	CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *send = &tmp1;
-	CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *recv = &tmp2;
+	CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *send = &tmp1;
+	CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *recv = &tmp2;
 
 	int shifted = 0;
 	printRow(from,dir,"Initial line      ");
@@ -627,9 +627,9 @@ void testCyclicPermute(){
   }//End 4D
 
   {//3D
-    CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
-    CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp1(null_obj);
-    CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp2(null_obj);
+    CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> from(null_obj);
+    CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp1(null_obj);
+    CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp2(null_obj);
 
     from.testRandom();
 
@@ -638,8 +638,8 @@ void testCyclicPermute(){
 	if(!UniqueID()) printf("Testing 3D permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1 = from;
-	CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *send = &tmp1;
-	CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> *recv = &tmp2;
+	CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *send = &tmp1;
+	CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *recv = &tmp2;
 
 	int shifted = 0;
 	int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
@@ -671,16 +671,16 @@ void testCyclicPermute(){
 #ifdef USE_GRID
 
   {//4D
-    typedef FourDSIMDPolicy::ParamType simd_params;
+    typedef FourDSIMDPolicy<FixedFlavorPolicy<1> >::ParamType simd_params;
     simd_params sp;
-    FourDSIMDPolicy::SIMDdefaultLayout(sp, Grid::vComplexD::Nsimd() );
+    FourDSIMDPolicy<FixedFlavorPolicy<1> >::SIMDdefaultLayout(sp, Grid::vComplexD::Nsimd() );
   
-    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> from_grid(sp);
-    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp1_grid(sp);
-    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp2_grid(sp);
+    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> from_grid(sp);
+    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> tmp1_grid(sp);
+    CPSfield<Grid::vComplexD,1,FourDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> tmp2_grid(sp);
 
-    CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
-    CPSfield<cps::ComplexD,1,FourDpolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp1(null_obj);
+    CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> from(null_obj);
+    CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp1(null_obj);
     from.testRandom();
     from_grid.importField(from);
 
@@ -689,8 +689,8 @@ void testCyclicPermute(){
 	if(!UniqueID()) printf("Testing 4D permute in direction %c%d with SIMD layout\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1_grid = from_grid;
-	CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *send = &tmp1_grid;
-	CPSfield<Grid::vComplexD,1,FourDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *recv = &tmp2_grid;
+	CPSfield<Grid::vComplexD,1,FourDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> *send = &tmp1_grid;
+	CPSfield<Grid::vComplexD,1,FourDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> *recv = &tmp2_grid;
 
 	int shifted = 0;
 	printRow(from_grid,dir,"Initial line      ");
@@ -730,16 +730,16 @@ void testCyclicPermute(){
   }
 
   {//3D
-    typedef ThreeDSIMDPolicy::ParamType simd_params;
+    typedef ThreeDSIMDPolicy<FixedFlavorPolicy<1> >::ParamType simd_params;
     simd_params sp;
-    ThreeDSIMDPolicy::SIMDdefaultLayout(sp, Grid::vComplexD::Nsimd() );
+    ThreeDSIMDPolicy<FixedFlavorPolicy<1> >::SIMDdefaultLayout(sp, Grid::vComplexD::Nsimd() );
   
-    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> from_grid(sp);
-    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp1_grid(sp);
-    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> tmp2_grid(sp);
+    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> from_grid(sp);
+    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> tmp1_grid(sp);
+    CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> tmp2_grid(sp);
 
-    CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> from(null_obj);
-    CPSfield<cps::ComplexD,1,SpatialPolicy,FixedFlavorPolicy<1>,StandardAllocPolicy> tmp1(null_obj);
+    CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> from(null_obj);
+    CPSfield<cps::ComplexD,1,SpatialPolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> tmp1(null_obj);
     from.testRandom();
     from_grid.importField(from);
 
@@ -748,8 +748,8 @@ void testCyclicPermute(){
 	if(!UniqueID()) printf("Testing 3D permute in direction %c%d with SIMD layout\n",pm == 1 ? '+' : '-',dir);
 	//permute in incr until we cycle all the way around
 	tmp1_grid = from_grid;
-	CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *send = &tmp1_grid;
-	CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy,FixedFlavorPolicy<1>,Aligned128AllocPolicy> *recv = &tmp2_grid;
+	CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> *send = &tmp1_grid;
+	CPSfield<Grid::vComplexD,1,ThreeDSIMDPolicy<FixedFlavorPolicy<1> >,Aligned128AllocPolicy> *recv = &tmp2_grid;
 
 	int shifted = 0;
 	int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
@@ -1214,7 +1214,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
   A2AvectorW<A2Apolicies> W(a2a_args,fp);
@@ -1329,10 +1329,12 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 template<typename A2Apolicies>
 void testFFTopt(){
   typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
-  typedef typename A2Apolicies::FermionFieldType::FieldDimensionPolicy DimensionPolicy;
+  typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
   typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
+
+  typedef typename MappingPolicy::template Rebase<OneFlavorPolicy>::type OneFlavorMap;
   
-  typedef CPSfield<mf_Complex,12,DimensionPolicy,OneFlavorPolicy, AllocPolicy> FieldType;
+  typedef CPSfield<mf_Complex,12,OneFlavorMap, AllocPolicy> FieldType;
   typedef typename FieldType::InputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
@@ -1382,7 +1384,7 @@ void testA2AFFTinv(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
   A2AvectorW<A2Apolicies> W(a2a_args,fp);
@@ -1492,9 +1494,12 @@ void testGridg5Contract(){
 template<typename A2Apolicies>
 void testVVdag(Lattice &lat){
   typedef typename A2Apolicies::FermionFieldType::FieldSiteType mf_Complex;
-  typedef typename A2Apolicies::FermionFieldType::FieldDimensionPolicy DimensionPolicy;
+  typedef typename A2Apolicies::FermionFieldType::FieldMappingPolicy MappingPolicy;
   typedef typename A2Apolicies::FermionFieldType::FieldAllocPolicy AllocPolicy;
-  typedef CPSfermion4D<mf_Complex,DimensionPolicy,OneFlavorPolicy, AllocPolicy> FieldType;
+
+  typedef typename MappingPolicy::template Rebase<OneFlavorPolicy>::type OneFlavorMap;
+  
+  typedef CPSfermion4D<mf_Complex,OneFlavorMap, AllocPolicy> FieldType;
   
   typedef typename FieldType::InputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
@@ -1567,7 +1572,7 @@ void testDestructiveFFT(const A2AArg &a2a_args,Lattice &lat){
   typedef typename A2AvectorWfftw<ManualAllocA2Apolicies>::FieldInputParamType FieldInputParamType;
   FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
 
-  typedef typename ManualAllocA2Apolicies::SourcePolicies::DimensionPolicy::ParamType SrcInputParamType;
+  typedef typename ManualAllocA2Apolicies::SourcePolicies::MappingPolicy::ParamType SrcInputParamType;
   SrcInputParamType sp; defaultFieldParams<SrcInputParamType, mf_Complex>::get(sp);
 
   A2AvectorW<ManualAllocA2Apolicies> W(a2a_args,fp);
@@ -1685,8 +1690,6 @@ void testA2AallocFree(const A2AArg &a2a_args,Lattice &lat){
     if(!UniqueID()) printf("Post-free\n");
     printMem(); fflush(stdout);
   }
-
-  exit(0);
 }
 
 
@@ -1698,15 +1701,15 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
   typedef typename GridA2Apolicies::ScalarComplexType GCtype;
   const int nsimd = GVtype::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  FourDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
   
   NullObject n;
-  CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> a(n); a.testRandom();
-  CPSfield<GCtype,12,FourDpolicy,OneFlavorPolicy> b(n); b.testRandom();
-  CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
-  CPSfield<GVtype,12,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
-  CPSfield<GVtype,1,FourDSIMDPolicy,OneFlavorPolicy,Aligned128AllocPolicy> cc(simd_dims);
+  CPSfield<GCtype,12,FourDpolicy<OneFlavorPolicy> > a(n); a.testRandom();
+  CPSfield<GCtype,12,FourDpolicy<OneFlavorPolicy> > b(n); b.testRandom();
+  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> aa(simd_dims); aa.importField(a);
+  CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
+  CPSfield<GVtype,1,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> cc(simd_dims);
 
   int ntests_scaled = ntests * 1000;
   printf("Max threads %d\n",omp_get_max_threads());
@@ -1767,8 +1770,8 @@ void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
       
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -1868,8 +1871,8 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::MappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::MappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
       
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -2136,8 +2139,8 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
       
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -2154,8 +2157,8 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   typedef typename GridA2Apolicies::ScalarComplexType Ctype;
   typedef typename Ctype::value_type Ftype;
   
-  ThreeDSIMDPolicy::ParamType simd_dims_3d;
-  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
   typedef typename GridA2Apolicies::SourcePolicies GridSrcPolicy;    
   int p[3] = {1,1,1};
@@ -2212,8 +2215,8 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
 
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -2222,8 +2225,8 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
 
-  ThreeDSIMDPolicy::ParamType simd_dims_3d;
-  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
   printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
   for(int i=0;i<4;i++)
@@ -2326,8 +2329,8 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2);
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
 
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -2336,8 +2339,8 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
   A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
   A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
 
-  ThreeDSIMDPolicy::ParamType simd_dims_3d;
-  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  ThreeDSIMDPolicy<OneFlavorPolicy>::ParamType simd_dims_3d;
+  ThreeDSIMDPolicy<OneFlavorPolicy>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
   printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
   for(int i=0;i<4;i++)
@@ -2549,10 +2552,10 @@ struct setupFieldParams2<A2Apolicies,complex_double_or_float_mark>{
 
 template<typename A2Apolicies>
 struct setupFieldParams2<A2Apolicies, grid_vector_complex_mark>{
-  typename FourDSIMDPolicy::ParamType params;
+  typename FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType params;
   setupFieldParams2(){
     const int nsimd = A2Apolicies::ComplexType::Nsimd();
-    FourDSIMDPolicy::SIMDdefaultLayout(params,nsimd,2);
+    FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(params,nsimd,2);
   }
 };
 
@@ -2657,10 +2660,10 @@ void benchmarkTest(){
 
   const int nsimd = Grid::vComplexD::Nsimd();      
   
-  FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd);
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd);
   
-  CPSfermion4D<Grid::vComplexD,FourDSIMDPolicy> in(simd_dims);
+  CPSfermion4D<Grid::vComplexD,FourDSIMDPolicy<DynamicFlavorPolicy> > in(simd_dims);
   in.importField(rnd4d);
 
 

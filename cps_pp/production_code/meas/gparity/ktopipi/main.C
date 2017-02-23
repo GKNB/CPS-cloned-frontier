@@ -51,10 +51,11 @@ int main (int argc,char **argv )
 
   //Setup parameters of fields
   typedef typename A2Apolicies::ComplexType mf_Complex;
-  typedef typename A2Apolicies::SourcePolicies::DimensionPolicy::ParamType Field3DparamType;
+  typedef typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType Field3DparamType;
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
-  Field4DparamType field4dparams; setupFieldParams<mf_Complex>(field4dparams);
-  Field3DparamType field3dparams; setupFieldParams<mf_Complex>(field3dparams);
+  typedef typename A2Asource<typename A2Apolicies::SourcePolicies::ComplexType, typename A2Apolicies::SourcePolicies::MappingPolicy, typename A2Apolicies::SourcePolicies::AllocPolicy>::FieldType SourceFieldType;
+  Field4DparamType field4dparams; setupFieldParams<typename A2Apolicies::FermionFieldType>(field4dparams);
+  Field3DparamType field3dparams; setupFieldParams<SourceFieldType>(field3dparams);
   
   //-------------------- Main Loop Begin! -------------------- //
   for(int conf = TrajStart; conf < LessThanLimit; conf += params.meas_arg.TrajIncrement) {

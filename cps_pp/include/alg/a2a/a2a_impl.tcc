@@ -98,7 +98,7 @@ struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
     
     
     typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
-		     typename ComplexFieldType::FieldDimensionPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldFlavorPolicy, typename ComplexFieldType::FieldAllocPolicy>
+		     typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
       ScalarComplexFieldType;
 
     NullObject null_obj;
@@ -225,10 +225,10 @@ struct _randomizeVWimpl<mf_Policies,complex_double_or_float_mark>{
 template<typename mf_Policies>
 struct _randomizeVWimpl<mf_Policies,grid_vector_complex_mark>{
   static inline void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
-    typedef typename mf_Policies::FermionFieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimensionPolicy;
+    typedef typename mf_Policies::FermionFieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMappingPolicy;
   
-    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarFermionFieldType;
-    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarDimensionPolicy, DynamicFlavorPolicy, StandardAllocPolicy> ScalarComplexFieldType;
+    typedef CPSfermion4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarFermionFieldType;
+    typedef CPScomplex4D<typename mf_Policies::ScalarComplexType, ScalarMappingPolicy, StandardAllocPolicy> ScalarComplexFieldType;
   
     int nl = V.getNl();
     int nh = V.getNh(); //number of fully diluted high-mode indices

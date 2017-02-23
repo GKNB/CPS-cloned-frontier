@@ -46,8 +46,8 @@ struct normdefs<Grid::vComplexF>{
 };
 #endif
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::norm2() const{
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2() const{
   SiteType accum[omp_get_max_threads()];
   memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
 #pragma omp parallel for schedule(static)  
@@ -67,14 +67,14 @@ double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::nor
   return final;
 }
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-double CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::norm2(const IncludeSite<DimensionPolicy::EuclideanDimension> & restrictsites) const{
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+double CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::norm2(const IncludeSite<MappingPolicy::EuclideanDimension> & restrictsites) const{
   SiteType accum[omp_get_max_threads()];
   memset(accum, 0, omp_get_max_threads()*sizeof(SiteType));
 #pragma omp parallel for schedule(static)  
   for(int i=0;i<this->nfsites();i++){
     SiteType const *site = this->fsite_ptr(i);
-    int x[DimensionPolicy::EuclideanDimension]; int f;
+    int x[MappingPolicy::EuclideanDimension]; int f;
     this->fsiteUnmap(i,x,f);
     if(!restrictsites.query(x,f)) continue;
     for(int s=0;s<SiteSize;s++)
@@ -167,19 +167,19 @@ struct dimensionMap<4>{
   const int grid_to_cps[4] = {0,1,2,3};
 };
 
-template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+template<typename Type, int SiteSize, typename MapPol, typename AllocPol,
 	 typename GridField, typename ComplexClass>
 class CPSfieldGridImpex{};
 
-template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+template<typename Type, int SiteSize, typename MapPol, typename AllocPol,
 	 typename GridField>
-class CPSfieldGridImpex<Type,SiteSize,DimPol,FlavPol,AllocPol,GridField,complex_double_or_float_mark>{
-  typedef CPSfield<Type,SiteSize,DimPol,FlavPol,AllocPol> CPSfieldType;
+class CPSfieldGridImpex<Type,SiteSize,MapPol,AllocPol,GridField,complex_double_or_float_mark>{
+  typedef CPSfield<Type,SiteSize,MapPol,AllocPol> CPSfieldType;
 
 public:
 
   static void import(CPSfieldType &into, const GridField &from){
-    const int Nd = DimPol::EuclideanDimension;
+    const int Nd = MapPol::EuclideanDimension;
     assert(Nd == from._grid->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
 
@@ -208,7 +208,7 @@ public:
   }
   
   static void exportit(GridField &into, const CPSfieldType &from){
-    const int Nd = DimPol::EuclideanDimension;
+    const int Nd = MapPol::EuclideanDimension;
     assert(Nd == into._grid->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
   
@@ -268,40 +268,40 @@ public:
 };
 
 #ifdef USE_GRID
-template<typename Type, int SiteSize, typename DimPol, typename FlavPol, typename AllocPol,
+template<typename Type, int SiteSize, typename MapPol, typename AllocPol,
 	 typename GridField>
-class CPSfieldGridImpex<Type,SiteSize,DimPol,FlavPol,AllocPol,GridField,grid_vector_complex_mark>{
-  typedef CPSfield<Type,SiteSize,DimPol,FlavPol,AllocPol> CPSfieldType;
+class CPSfieldGridImpex<Type,SiteSize,MapPol,AllocPol,GridField,grid_vector_complex_mark>{
+  typedef CPSfield<Type,SiteSize,MapPol,AllocPol> CPSfieldType;
 
 public:
 
   static void import(CPSfieldType &into, const GridField &from){
-    const int Nd = DimPol::EuclideanDimension;
+    const int Nd = MapPol::EuclideanDimension;
     assert(Nd == from._grid->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
     typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
     
     //Create temp CPS unvectorized field
-    typedef typename StandardDimensionPolicy<DimPol::EuclideanDimension>::type CPSscalarDimPol;
+    typedef typename StandardDimensionPolicy<MapPol::EuclideanDimension, typename MapPol::FieldFlavorPolicy>::type CPSscalarMapPol;
     NullObject n;
-    CPSfield<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy> cps_unpacked(n);
+    CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
 
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from);
     into.importField(cps_unpacked);
   }
   
   static void exportit(GridField &into, const CPSfieldType &from){
-    const int Nd = DimPol::EuclideanDimension;
+    const int Nd = MapPol::EuclideanDimension;
     assert(Nd == into._grid->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
     typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
 
     //Create temp CPS unvectorized field
-    typedef typename StandardDimensionPolicy<DimPol::EuclideanDimension>::type CPSscalarDimPol;
+    typedef typename StandardDimensionPolicy<MapPol::EuclideanDimension, typename MapPol::FieldFlavorPolicy>::type CPSscalarMapPol;
     NullObject n;
-    CPSfield<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy> cps_unpacked(n);
+    CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
     cps_unpacked.importField(from);
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarDimPol,FlavPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked);
   }
 };
 #endif
@@ -310,40 +310,40 @@ public:
 
 
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 template<typename GridField>
-void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importGridField(const GridField &grid){
+void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::importGridField(const GridField &grid){
   typedef typename ComplexClassify<SiteType>::type ComplexClass;
-  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField,ComplexClass>::import(*this, grid);
+  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::import(*this, grid);
 }
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 template<typename GridField>
-void  CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportGridField(GridField &grid) const{
+void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::exportGridField(GridField &grid) const{
   typedef typename ComplexClassify<SiteType>::type ComplexClass;
-  CPSfieldGridImpex<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,GridField,ComplexClass>::exportit(grid,*this);
+  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::exportit(grid,*this);
 }
 #endif
 
 template<int SiteSize,
-	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB,
+	 typename TypeA, typename MapPolA, typename AllocPolA,
+	 typename TypeB, typename MapPolB, typename AllocPolB,
 	 typename Enable = void>
 class CPSfieldCopy;
 
 //Generic copy. SiteSize and number of Euclidean dimensions must be the same
 #ifdef USE_GRID
-#define CONDITION sameDim<DimPolA,DimPolB>::val && !Grid::is_simd<TypeA>::value && !Grid::is_simd<TypeB>::value
+#define CONDITION sameDim<MapPolA,MapPolB>::val && !Grid::is_simd<TypeA>::value && !Grid::is_simd<TypeB>::value
 #else
-#define CONDITION sameDim<DimPolA,DimPolB>::val
+#define CONDITION sameDim<MapPolA,MapPolB>::val
 #endif
 
 template<int SiteSize,
-	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
-class CPSfieldCopy<SiteSize,TypeA,DimPolA,FlavPolA,AllocPolA, TypeB,DimPolB,FlavPolB,AllocPolB, typename my_enable_if<CONDITION,void>::type>{
+	 typename TypeA, typename MapPolA, typename AllocPolA,
+	 typename TypeB, typename MapPolB, typename AllocPolB>
+class CPSfieldCopy<SiteSize,TypeA,MapPolA,AllocPolA, TypeB,MapPolB,AllocPolB, typename my_enable_if<CONDITION,void>::type>{
 public: 
-  static void copy(CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
-		   const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+  static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
+		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from){
     assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed
     
     #pragma omp parallel for
@@ -368,20 +368,20 @@ std::string vtostring(const int* v, const int ndim){
 }
 
 //TypeA is Grid_simd type
-#define CONDITION sameDim<DimPolA,DimPolB>::val && Grid::is_simd<GridSIMDTypeA>::value && !Grid::is_simd<TypeB>::value
+#define CONDITION sameDim<MapPolA,MapPolB>::val && Grid::is_simd<GridSIMDTypeA>::value && !Grid::is_simd<TypeB>::value
 
 template<int SiteSize,
-	 typename GridSIMDTypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename TypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+	 typename GridSIMDTypeA, typename MapPolA, typename AllocPolA,
+	 typename TypeB, typename MapPolB, typename AllocPolB>
 class CPSfieldCopy<SiteSize,
-		   GridSIMDTypeA, DimPolA, FlavPolA, AllocPolA,
-		   TypeB, DimPolB, FlavPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
+		   GridSIMDTypeA, MapPolA, AllocPolA,
+		   TypeB, MapPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
 {
 public:
-  static void copy(CPSfield<GridSIMDTypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
-		   const CPSfield<TypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+  static void copy(CPSfield<GridSIMDTypeA,SiteSize,MapPolA,AllocPolA> &into,
+		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from){
     const int nsimd = GridSIMDTypeA::Nsimd();
-    const int ndim = DimPolA::EuclideanDimension;
+    const int ndim = MapPolA::EuclideanDimension;
     if(from.nfsites()/nsimd != into.nfsites()) ERR.General("CPSfieldCopy","copy(<SIMD field> &into, const <non-SIMD field> &from)","Expected from.nfsites/nsimd = into.nfsites, got %d/%d (=%d) != %d\n",from.nfsites(),nsimd, from.nfsites()/nsimd, into.nfsites());
     
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
@@ -411,20 +411,20 @@ public:
 #undef CONDITION
 
 //TypeB is Grid_simd type
-#define CONDITION sameDim<DimPolA,DimPolB>::val && !Grid::is_simd<TypeA>::value && Grid::is_simd<GridSIMDTypeB>::value
+#define CONDITION sameDim<MapPolA,MapPolB>::val && !Grid::is_simd<TypeA>::value && Grid::is_simd<GridSIMDTypeB>::value
 
 template<int SiteSize,
-	 typename TypeA, typename DimPolA, typename FlavPolA, typename AllocPolA,
-	 typename GridSIMDTypeB, typename DimPolB, typename FlavPolB, typename AllocPolB>
+	 typename TypeA, typename MapPolA, typename AllocPolA,
+	 typename GridSIMDTypeB, typename MapPolB, typename AllocPolB>
 class CPSfieldCopy<SiteSize,
-		   TypeA, DimPolA, FlavPolA, AllocPolA,
-		   GridSIMDTypeB, DimPolB, FlavPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
+		   TypeA, MapPolA, AllocPolA,
+		   GridSIMDTypeB, MapPolB, AllocPolB, typename my_enable_if<CONDITION,void>::type>
 {
 public:
-  static void copy(CPSfield<TypeA,SiteSize,DimPolA,FlavPolA,AllocPolA> &into,
-		   const CPSfield<GridSIMDTypeB,SiteSize,DimPolB,FlavPolB,AllocPolB> &from){
+  static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
+		   const CPSfield<GridSIMDTypeB,SiteSize,MapPolB,AllocPolB> &from){
     const int nsimd = GridSIMDTypeB::Nsimd();
-    const int ndim = DimPolA::EuclideanDimension;
+    const int ndim = MapPolA::EuclideanDimension;
     if(into.nfsites()/nsimd != from.nfsites()) ERR.General("CPSfieldCopy","copy(<non-SIMD field> &into, const <SIMD-field> &from)","Expected into.nfsites/nsimd = from.nfsites, got %d/%d (=%d) != %d\n",into.nfsites(),nsimd, into.nfsites()/nsimd, from.nfsites());
 
     std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
@@ -454,19 +454,19 @@ public:
 
 #endif
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::importField(const CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template< typename extSiteType, typename extMapPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::importField(const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &r){
   CPSfieldCopy<SiteSize,
-	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy,
-	       extSiteType, extDimPol, extFlavPol, extAllocPol>::copy(*this,r);
+	       SiteType,MappingPolicy,AllocPolicy,
+	       extSiteType, extMapPol, extAllocPol>::copy(*this,r);
 }
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template< typename extSiteType, typename extDimPol, typename extFlavPol, typename extAllocPol>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::exportField(CPSfield<extSiteType,SiteSize,extDimPol,extFlavPol,extAllocPol> &r) const{
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template< typename extSiteType, typename extMapPol, typename extAllocPol>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::exportField(CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &r) const{
   CPSfieldCopy<SiteSize,
-	       extSiteType, extDimPol, extFlavPol, extAllocPol,
-	       SiteType,DimensionPolicy,FlavorPolicy,AllocPolicy>::copy(r,*this);
+	       extSiteType, extMapPol,  extAllocPol,
+	       SiteType,MappingPolicy,AllocPolicy>::copy(r,*this);
 }
 
 
@@ -492,13 +492,13 @@ public:
 
 //Set each float to a uniform random number in the specified range.
 //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::testRandom(const Float hi, const Float lo){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::testRandom(const Float hi, const Float lo){
   _testRandom<SiteType>::rand(this->f,this->fsize,hi,lo);
 }
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 //Set this field to the average of this and a second field, r
-void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &r, const bool &parallel){
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::average(const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &r, const bool &parallel){
   //The beauty of having the ordering baked into the policy class is that we implicitly *know* the ordering of the second field, so we can just loop over the floats in a dumb way
   if(parallel){
 #pragma omp parallel for
@@ -509,12 +509,12 @@ void CPSfield<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::avera
 }
 
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
 struct _gauge_fix_site_op_impl;
   
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,complex_double_or_float_mark>{
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
     mf_Complex tmp[3];
@@ -532,12 +532,12 @@ struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPoli
 
 
 #ifdef USE_GRID
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,grid_vector_complex_mark>{
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
+  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
     //x4d is an outer site index
     int nsimd = field.Nsimd();
-    int ndim = DimensionPolicy::EuclideanDimension;
+    int ndim = MappingPolicy::EuclideanDimension;
     assert(ndim == 4);
 
     //Assemble pointers to the GF matrices for each lane
@@ -589,13 +589,13 @@ struct _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPoli
 
 
 //Apply gauge fixing matrices to the field
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
-  _gauge_fix_site_op_impl<mf_Complex,DimensionPolicy, FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::gauge_fix_site_op(*this, x4d, f, lat,dagger);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
+  _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::gauge_fix_site_op(*this, x4d, f, lat,dagger);
 }
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){
   for(int i=0;i<3;i++){
     int fac;
     if(GJP.Bc(i) == BND_CND_PRD) fac = 1;
@@ -611,15 +611,15 @@ void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentu
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
 //x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
 struct _apply_phase_site_op_impl{};
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,complex_double_or_float_mark>{
-  inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
-    assert(DimensionPolicy::EuclideanDimension >= 3);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
+  inline static void apply_phase_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+    StaticAssert<MappingPolicy::EuclideanDimension >= 3> check;
     
-    int x_glb[DimensionPolicy::EuclideanDimension]; for(int i=0;i<DimensionPolicy::EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
+    int x_glb[MappingPolicy::EuclideanDimension]; for(int i=0;i<MappingPolicy::EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
     
     double phi = 0;
     for(int i=0;i<3;i++) phi += p[i]*punits[i]*x_glb[i];
@@ -636,22 +636,22 @@ struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPo
 
 #ifdef USE_GRID
   
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,grid_vector_complex_mark>{
-  inline static void apply_phase_site_op(CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
-    assert(DimensionPolicy::EuclideanDimension >= 3);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
+  inline static void apply_phase_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+    StaticAssert<MappingPolicy::EuclideanDimension >= 3> check;
 
     int nsimd = field.Nsimd();
 
     typedef typename mf_Complex::scalar_type stype;
     stype* buf = (stype*)memalign(128, nsimd*sizeof(stype));
 
-    int lane_off[DimensionPolicy::EuclideanDimension];
-    int x_gbl_lane[DimensionPolicy::EuclideanDimension];
+    int lane_off[MappingPolicy::EuclideanDimension];
+    int x_gbl_lane[MappingPolicy::EuclideanDimension];
     
     for(int lane = 0; lane < nsimd; lane++){
       field.SIMDunmap(lane, lane_off);
-      for(int xx=0;xx<DimensionPolicy::EuclideanDimension;xx++) x_gbl_lane[xx] = x_lcl[xx] + lane_off[xx] + GJP.NodeCoor(xx)*GJP.NodeSites(xx);
+      for(int xx=0;xx<MappingPolicy::EuclideanDimension;xx++) x_gbl_lane[xx] = x_lcl[xx] + lane_off[xx] + GJP.NodeCoor(xx)*GJP.NodeSites(xx);
       
       double phi = 0;
       for(int i=0;i<3;i++) phi += p[i]*punits[i]*x_gbl_lane[i];
@@ -674,20 +674,20 @@ struct _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPo
 
 
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
-  _apply_phase_site_op_impl<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::apply_phase_site_op(*this, x_lcl, flav, p, punits);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
+  _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::apply_phase_site_op(*this, x_lcl, flav, p, punits);
 }  
 
 
 //Apply gauge fixing matrices to the field
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat,const bool dagger){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat,const bool dagger){
   int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat,dagger);
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat,dagger);
 }
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
   if(parallel){
 #pragma omp parallel for
     for(int fi=0;fi<this->nfsites();fi++)
@@ -701,18 +701,18 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::gaugeFix
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
-  int x[this->EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
+  int x[MappingPolicy::EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
   const char *fname = "apply_phase(int p[])";
 
   double punits[3];
-  CPSfermion<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::getMomentumUnits(punits);
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
   
   if(parallel){
 #pragma omp parallel for
@@ -726,13 +726,13 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::applyPha
 
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
-  for(int i = 0; i < this->sites*this->flavors; ++i) {
-    int flav = i / this->sites;
-    int st = i % this->sites;
+  for(int i = 0; i < this->nsites()*this->nflavors(); ++i) {
+    int flav = i / this->nsites();
+    int st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
     mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
@@ -742,8 +742,8 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUnifo
   }
 }
 
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
   typedef typename mf_Complex::value_type mf_Float;
   for(int i = 0; i < this->sites*this->flavors; ++i) {
     int flav = i / this->sites;
@@ -757,12 +757,12 @@ void CPSfermion4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setGauss
   }
 }
 
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
   typedef typename mf_Complex::value_type mf_Float;
-  for(int i = 0; i < this->sites*this->flavors; ++i) {
-    int flav = i / this->sites;
-    int st = i % this->sites;
+  for(int i = 0; i < this->nsites()*this->nflavors(); ++i) {
+    int flav = i / this->nsites();
+    int st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
     mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
@@ -775,12 +775,12 @@ void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::setGaussianRandom(){
 
 #ifdef USE_BFM
 
-template<typename FloatExt,  typename mf_Complex, typename FlavorPolicy, typename AllocPolicy, typename ComplexClass>
+template<typename FloatExt,  typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
 struct _bfm_fermion_impex{};
 
-template<typename FloatExt,  typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-struct _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy, complex_double_or_float_mark>{
-  static void impexFermion(CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy> &cps_field, Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
+template<typename FloatExt,  typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+struct _bfm_fermion_impex<FloatExt,mf_Complex,MappingPolicy,AllocPolicy, complex_double_or_float_mark>{
+  static void impexFermion(CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy> &cps_field, Fermion_t bfm_field, const int cb, const int do_import, bfm_qdp<FloatExt> &dwf){
     if(cps_field.nflavors() == 2) assert(dwf.gparity);
 
     const int sc_incr = dwf.simd() * 2; //stride between spin-color indices
@@ -816,15 +816,15 @@ struct _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy, complex_
 
 
 
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 template<typename FloatExt>
-void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
-  _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*this, const_cast<Fermion_t>(bfm_field), cb, 1, dwf);
+void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::importFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf){
+  _bfm_fermion_impex<FloatExt,mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*this, const_cast<Fermion_t>(bfm_field), cb, 1, dwf);
 }
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 template<typename FloatExt>
-void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const{
-  _bfm_fermion_impex<FloatExt,mf_Complex,FlavorPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*const_cast<CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>*>(this), const_cast<Fermion_t>(bfm_field), cb, 0, dwf);
+void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::exportFermion(const Fermion_t bfm_field, const int cb, bfm_qdp<FloatExt> &dwf) const{
+  _bfm_fermion_impex<FloatExt,mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::impexFermion(*const_cast<CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>*>(this), const_cast<Fermion_t>(bfm_field), cb, 0, dwf);
 }
 
 #endif
@@ -842,17 +842,17 @@ void CPSfermion5D<mf_Complex,FlavorPolicy,AllocPolicy>::exportFermion(const Ferm
 
 
 //Gauge fix 3D fermion field with dynamic info type
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _ferm3d_gfix_impl{
 
-  static void gaugeFix(CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
+  static void gaugeFix(CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &t, const bool &parallel){
     if(GJP.Gparity() && field.nflavors() == 1) ERR.General("CPSfermion3D","gaugeFix(Lattice &, const int &, const bool &)","For one flavor fields with G-parity enabled, to gauge fix we need to know the flavor of this field\n");
 
 #define LOOP								\
     for(int fi=0;fi<field.nfsites();fi++){				\
       int x4d[4]; int f; field.fsiteUnmap(fi,x4d,f);			\
       x4d[3] = t;							\
-      field.CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy>::gauge_fix_site_op(x4d,f,lat); \
+      field.CPSfermion<mf_Complex,MappingPolicy>::gauge_fix_site_op(x4d,f,lat); \
     }
 
     if(parallel){
@@ -866,9 +866,9 @@ struct _ferm3d_gfix_impl{
 
 };
 //Partial specialization for one flavor. We must provide the flavor index for the gauge fixing matrix, i.e. the flavor that this field represents
-template< typename mf_Complex, typename AllocPolicy>
-struct _ferm3d_gfix_impl<mf_Complex,FixedFlavorPolicy<1>,AllocPolicy>{
-  static void gaugeFix(CPSfermion3D<mf_Complex,FixedFlavorPolicy<1>,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FixedFlavorPolicy<1> >::InfoType &time_flav, const bool &parallel){
+template< typename mf_Complex, template<typename> typename DimensionPolicy, typename AllocPolicy>
+struct _ferm3d_gfix_impl<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,AllocPolicy>{
+  static void gaugeFix(CPSfermion3D<mf_Complex,DimensionPolicy<FixedFlavorPolicy<1> >,AllocPolicy> &field, Lattice &lat, const typename GaugeFix3DInfo<FixedFlavorPolicy<1> >::InfoType &time_flav, const bool &parallel){
     printf("_ferm3d_gfix_impl::gauge_fix with time=%d, flav=%d\n",time_flav.first,time_flav.second);
     typedef typename mf_Complex::value_type mf_Float;
 
@@ -902,26 +902,26 @@ struct _ferm3d_gfix_impl<mf_Complex,FixedFlavorPolicy<1>,AllocPolicy>{
 };
 
 
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<FlavorPolicy>::InfoType &t, const bool &parallel){
-    _ferm3d_gfix_impl<mf_Complex,FlavorPolicy,AllocPolicy>::gaugeFix(*this,lat,t,parallel);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &t, const bool &parallel){
+  _ferm3d_gfix_impl<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(*this,lat,t,parallel);
 }
 
 
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::apply_phase_site_op(const int &sf,const int p[],double punits[]){
-  int x[this->Dimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(const int &sf,const int p[],double punits[]){
+  int x[MappingPolicy::EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
 }
 
-template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
   const char *fname = "apply_phase(int p[])";
 
   double punits[3];
-  CPSfermion<mf_Complex,SpatialPolicy,FlavorPolicy>::getMomentumUnits(punits);
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
   
   if(parallel){
 #pragma omp parallel for
@@ -952,12 +952,12 @@ void CPSfermion3D<mf_Complex,FlavorPolicy,AllocPolicy>::applyPhase(const int p[]
 
 
 //Make a random complex scalar field of type
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setRandom(const RandomType &type){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setRandom(const RandomType &type){
   LRG.SetInterval(1, 0);
-  for(int i = 0; i < this->sites*this->flavors; ++i) {
-    int flav = i / this->sites;
-    int st = i % this->sites;
+  for(int i = 0; i < this->sites*this->nflavors(); ++i) {
+    int flav = i / this->nsites();
+    int st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
     mf_Complex *p = this->site_ptr(st,flav);
@@ -966,13 +966,13 @@ void CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setRando
 }
 
 //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
-template< typename mf_Complex, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPScomplex4D<mf_Complex,DimensionPolicy,FlavorPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
+void CPScomplex4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const Float &hi, const Float &lo){
   typedef typename mf_Complex::value_type mf_Float;
   LRG.SetInterval(hi,lo);
-  for(int i = 0; i < this->sites*this->flavors; ++i) {
-    int flav = i / this->sites;
-    int st = i % this->sites;
+  for(int i = 0; i < this->nsites()*this->nflavors(); ++i) {
+    int flav = i / this->nsites();
+    int st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
     mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
@@ -1023,15 +1023,15 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::fft(){
 //Scatter to a local field
 
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
-	  typename extComplex, typename extDimPolicy, typename extAllocPolicy,
-	  typename complex_class, int extEuclDim>
+	  typename extComplex, typename extMapPolicy, typename extAllocPolicy,
+	  typename complex_class, int extEuclDim, typename dummy>
 struct _CPSglobalComplexSpatial_scatter_impl{};
 
 //Standard implementation for std::complex
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
-	  typename extComplex, typename extDimPolicy, typename extAllocPolicy>
-struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extDimPolicy, extAllocPolicy, complex_double_or_float_mark, 3>{
-  static void doit(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
+	  typename extComplex, typename extMapPolicy, typename extAllocPolicy, typename dummy>
+struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extMapPolicy, extAllocPolicy, complex_double_or_float_mark, 3, dummy>{
+  static void doit(CPSfield<extComplex,1,extMapPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
     const char *fname = "scatter(...)";
     int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
 
@@ -1052,9 +1052,9 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
 
 //Implementation for Grid vector complex types
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy,
-	  typename extComplex, typename extDimPolicy, typename extAllocPolicy>
-struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extDimPolicy, extAllocPolicy, grid_vector_complex_mark, 3>{
-  static void doit(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
+	  typename extComplex, typename extMapPolicy, typename extAllocPolicy, typename dummy>
+struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,  extComplex, extMapPolicy, extAllocPolicy, grid_vector_complex_mark, 3, dummy>{
+  static void doit(CPSfield<extComplex,1,extMapPolicy,extAllocPolicy> &to, const CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy> &from){
     const char *fname = "scatter(...)";
     int orig[3]; for(int i=0;i<3;i++) orig[i] = GJP.NodeSites(i)*GJP.NodeCoor(i);
 
@@ -1089,54 +1089,57 @@ struct _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy
 
 
 template< typename mf_Complex, typename FlavorPolicy, typename AllocPolicy>
-template<typename extComplex, typename extDimPolicy, typename extAllocPolicy>
-void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfield<extComplex,1,extDimPolicy,FlavorPolicy,extAllocPolicy> &to) const{
+template<typename extComplex, typename extMapPolicy, typename extAllocPolicy>
+void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfield<extComplex,1,extMapPolicy,extAllocPolicy> &to) const{
   _CPSglobalComplexSpatial_scatter_impl<mf_Complex,FlavorPolicy,AllocPolicy,
-					extComplex,extDimPolicy,extAllocPolicy,
+					extComplex,extMapPolicy,extAllocPolicy,
 					typename ComplexClassify<extComplex>::type,
-					extDimPolicy::EuclideanDimension>::doit(to,*this);
+					extMapPolicy::EuclideanDimension,
+					typename my_enable_if<_equal<typename extMapPolicy::FieldFlavorPolicy,FlavorPolicy>::value, int>::type
+					>::doit(to,*this);
 }
 
 
-
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy,
-	  typename extSiteType, typename extDimPol, typename extAllocPol,
-	  typename my_enable_if<intEq<DimensionPolicy::EuclideanDimension,extDimPol::EuclideanDimension>::val, int>::type = 0>
+//When the local field has the right dimension but is not the same as the equivalent local dimension policy, do an intermediate impex
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
+	  typename extSiteType, typename extMapPol, typename extAllocPol,
+	  typename my_enable_if<intEq<MappingPolicy::EuclideanDimension,extMapPol::EuclideanDimension>::val && _equal<typename MappingPolicy::FieldFlavorPolicy,typename extMapPol::FieldFlavorPolicy>::value, int>::type = 0>
 struct _gather_scatter_impl{
-  typedef typename DimensionPolicy::EquivalentLocalPolicy EquivalentLocalPolicy;
+  typedef typename MappingPolicy::EquivalentLocalPolicy EquivalentLocalPolicy;
   
-  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &into, const CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &from){
+  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &into, const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &from){
     NullObject n;
-    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,FlavorPolicy,AllocPolicy> tmp(n);
+    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,AllocPolicy> tmp(n);
     tmp.importField(from);
-    _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+    _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 			 SiteType, EquivalentLocalPolicy, AllocPolicy>::gather(into, tmp);    
   }
-  static void scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from){
+  static void scatter(CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &from){
     NullObject n;
-    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,FlavorPolicy,AllocPolicy> tmp(n);
-    _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
+    CPSfield<SiteType,SiteSize,EquivalentLocalPolicy,AllocPolicy> tmp(n);
+    _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 			 SiteType, EquivalentLocalPolicy, AllocPolicy>::scatter(tmp, from);
     to.importField(tmp);
   }
     
 };
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy,
-	  typename my_enable_if<intEq<DimensionPolicy::EuclideanDimension,DimensionPolicy::EquivalentLocalPolicy::EuclideanDimension>::val, int>::type test>
-struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
-		    SiteType, typename DimensionPolicy::EquivalentLocalPolicy, AllocPolicy, test>{
-  typedef typename DimensionPolicy::EquivalentLocalPolicy LocalDimensionPolicy;
 
-  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &from){
-    assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
-    const int &dir = into.getDir();
+//When the local field has DimensionPolicy equal to the EquivalentLocalPolicy
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
+	  typename my_enable_if<intEq<MappingPolicy::EuclideanDimension,MappingPolicy::EquivalentLocalPolicy::EuclideanDimension>::val, int>::type test>
+struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
+		    SiteType, typename MappingPolicy::EquivalentLocalPolicy, AllocPolicy, test>{
+  typedef typename MappingPolicy::EquivalentLocalPolicy LocalMappingPolicy;
+
+  static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> &from){
+    const int dir = into.getDir();
 
     const char *fname = "gather(...)";
     NullObject nullobj;
-    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp1(nullobj);
-    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> tmp2(nullobj);
-    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* >(&from);
-    CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy>* recv = &tmp2;
+    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> tmp1(nullobj);
+    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> tmp2(nullobj);
+    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* send = const_cast<CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* >(&from);
+    CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy>* recv = &tmp2;
 
     int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);    
     int size_in_Float = from.size() * sizeof(SiteType) / sizeof(IFloat); //getPlusData measures the send/recv size in units of sizeof(IFloat)
@@ -1146,7 +1149,7 @@ struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     for(int shift = 0; shift < nshift; shift++){
 #pragma omp parallel for
       for(int i=0;i<send->nfsites();i++){
-	int x[DimensionPolicy::EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
+	int x[MappingPolicy::EuclideanDimension]; int flavor;  send->fsiteUnmap(i,x,flavor); //unmap the buffer coordinate
 	x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
 
 	SiteType* tosite = into.site_ptr(x,flavor);
@@ -1168,17 +1171,15 @@ struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
     }    
   }
 
-  static void scatter(CPSfield<SiteType,SiteSize,LocalDimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from){
-    assert(LocalDimensionPolicy::EuclideanDimension == DimensionPolicy::EuclideanDimension);
-    
-    const int &dir = from.getDir();
+  static void scatter(CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> &to, const CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &from){
+    const int dir = from.getDir();
     
     const char *fname = "scatter(...)";
     int cur_dir_origin = GJP.NodeSites(dir)*GJP.NodeCoor(dir);
 
 #pragma omp parallel for
     for(int i=0;i<to.nfsites();i++){
-      int x[DimensionPolicy::EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
+      int x[MappingPolicy::EuclideanDimension]; int flavor;  to.fsiteUnmap(i,x, flavor); //unmap the target coordinate
       x[dir] += cur_dir_origin; //now a global coordinate in the dir direction
       
       SiteType* tosite = to.fsite_ptr(i);
@@ -1194,20 +1195,20 @@ struct _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
 
 //Gather up the row. Involves internode communication
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template<typename extSiteType, typename extDimPol, typename extAllocPol>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::gather(const CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &from){
-  _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
-	       extSiteType, extDimPol, extAllocPol>::gather(*this, from);  
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template<typename extSiteType, typename extMapPol, typename extAllocPol>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::gather(const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &from){
+  _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
+	       extSiteType, extMapPol, extAllocPol>::gather(*this, from);  
 }
 
 
 //Scatter back out. Involves no communication
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-template<typename extSiteType, typename extDimPol, typename extAllocPol>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::scatter(CPSfield<extSiteType,SiteSize,extDimPol,FlavorPolicy,extAllocPol> &to) const{
-  _gather_scatter_impl<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy,
-		       extSiteType, extDimPol, extAllocPol>::scatter(to, *this);
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template<typename extSiteType, typename extMapPol, typename extAllocPol>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::scatter(CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &to) const{
+  _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
+		       extSiteType, extMapPol, extAllocPol>::scatter(to, *this);
 }
 
 #define FFT_MULTI
@@ -1217,8 +1218,8 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 //Perform a fast Fourier transform along the principal direction
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
 //Assumes SiteType is a std::complex type
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(const bool inverse_transform){
   const int dir = this->getDir();
   const char* fname = "fft()";
   
@@ -1270,8 +1271,8 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,Alloc
 
 #else
 
-template< typename SiteType, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void CPSfieldGlobalInOneDir<SiteType,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy>::fft(const bool inverse_transform){
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(const bool inverse_transform){
   const int dir = this->getDir();
   const char* fname = "fft()";
   
