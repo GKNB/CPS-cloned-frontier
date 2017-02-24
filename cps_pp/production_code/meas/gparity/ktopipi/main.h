@@ -754,4 +754,82 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
 }//do_ktopipi
 
 
+
+void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
+		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams){
+
+  params.meas_arg.TrajCur = conf;
+
+  std::string dir(params.meas_arg.WorkDirectory);
+
+  //-------------------- Read gauge field --------------------//
+  ReadGaugeField(params.meas_arg,cmdline.double_latt); 
+  ReadRngFile(params.meas_arg,cmdline.double_latt); 
+    
+  if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
+  printMem();
+
+  if(cmdline.tune_lanczos_light || cmdline.tune_lanczos_heavy) LanczosTune(cmdline.tune_lanczos_light, cmdline.tune_lanczos_heavy, params, COMPUTE_EVECS_EXTRA_ARG_PASS);    
+
+  //-------------------- Light quark Lanczos ---------------------//
+  LanczosWrapper eig;
+  if(!cmdline.randomize_vw) computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+
+  //-------------------- Light quark v and w --------------------//
+  A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
+  A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
+  computeVW(V, W, Light, params, eig, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
+
+  eig.freeEvecs();
+  if(!UniqueID()) printf("Memory after light evec free:\n");
+  printMem();
+    
+  //-------------------- Strange quark Lanczos ---------------------//
+  LanczosWrapper eig_s;
+  if(!cmdline.randomize_vw) computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+
+  //-------------------- Strange quark v and w --------------------//
+  A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
+  A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+  A2ALattice* a2a_lat = computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
+
+  eig_s.freeEvecs();
+  if(!UniqueID()) printf("Memory after heavy evec free:\n");
+  printMem();
+
+  //From now one we just need a generic lattice instance, so use a2a_lat
+  Lattice& lat = (Lattice&)(*a2a_lat);
+    
+  //-------------------Fix gauge----------------------------
+  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+
+  //-------------------------Compute the kaon two-point function---------------------------------
+  if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,conf,lat,params,field3dparams);
+
+  //The pion two-point function and pipi/k->pipi all utilize the same meson fields. Generate those here
+  //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
+  RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
+
+  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
+  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s; //Gparity only
+
+  computeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom, conf, lat, params, field3dparams);
+
+  //----------------------------Compute the pion two-point function---------------------------------
+  if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, pion_mom, conf, params);
+
+  //----------------------------Compute the sigma meson fields---------------------------------
+  if(cmdline.do_sigma) computeSigmaMesonFields(V,W,conf,lat,params,field3dparams);
+    
+  //------------------------------I=0 and I=2 PiPi two-point function---------------------------------
+  if(cmdline.do_pipi) computePiPi2pt(mf_ll_con, pion_mom, conf, params);
+
+  //--------------------------------------K->pipi contractions--------------------------------------------------------
+  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,conf,params);
+
+  delete a2a_lat;
+}
+
+
 #endif
