@@ -21,15 +21,12 @@ class CPSfieldCopy<SiteSize,TypeA,MapPolA,AllocPolA, TypeB,MapPolB,AllocPolB, ty
 public: 
   static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
 		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from, IncludeSite<MapPolB::EuclideanDimension> const* fromsitemask){
-    if(fromsitemask == NULL) assert(into.nfsites() == from.nfsites()); //should be true in # Euclidean dimensions the same, but not guaranteed.
-    //If a mask is provided its up to the user to ensure all masked sites are valid for the destination field
-    
 #pragma omp parallel for
-    for(int fs=0;fs<from.nfsites();fs++){
-      int x[5], f; from.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[5], f; into.fsiteUnmap(fs,x,f); //doesn't matter if the linearization differs between the two
       if(fromsitemask == NULL || fromsitemask->query(x,f)){
-	TypeA* toptr = into.site_ptr(x,f);
-	TypeB const* fromptr = from.fsite_ptr(fs);
+	TypeA* toptr = into.fsite_ptr(fs);
+	TypeB const* fromptr = from.site_ptr(x,f);
 	for(int i=0;i<SiteSize;i++) toptr[i] = fromptr[i];
       }
     }
@@ -61,22 +58,27 @@ public:
   static void copy(CPSfield<GridSIMDTypeA,SiteSize,MapPolA,AllocPolA> &into,
 		   const CPSfield<TypeB,SiteSize,MapPolB,AllocPolB> &from, IncludeSite<MapPolB::EuclideanDimension> const* fromsitemask){
     const int nsimd = GridSIMDTypeA::Nsimd();
-    const int ndim = MapPolA::EuclideanDimension;
-    if(fromsitemask == NULL) if(from.nfsites()/nsimd != into.nfsites()) ERR.General("CPSfieldCopy","copy(<SIMD field> &into, const <non-SIMD field> &from)","Expected from.nfsites/nsimd = into.nfsites, got %d/%d (=%d) != %d\n",from.nfsites(),nsimd, from.nfsites()/nsimd, into.nfsites());
-    //If a mask is provided its up to the user to ensure all masked sites are valid for the destination fiedl
-    
+    const int ndim = MapPolA::EuclideanDimension;    
     typedef typename GridSIMDTypeA::scalar_type GridTypeScalar;
+
+    std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
+    for(int i=0;i<nsimd;i++) into.SIMDunmap(i,&packed_offsets[i][0]);
     
 #pragma omp parallel for
-    for(int fs=0;fs<from.nfsites();fs++){
-      int x[ndim], f; from.fsiteUnmap(fs,x,f);
-      if(fromsitemask == NULL || fromsitemask->query(x,f)){
-	int lane = into.SIMDmap(x);
-	GridSIMDTypeA * toptr = into.site_ptr(x,f);
-	TypeB const* fromptr = from.fsite_ptr(fs);
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[ndim], f; into.fsiteUnmap(fs,x,f); //this is the root coordinate for lane 0
+      GridSIMDTypeA * toptr = into.fsite_ptr(fs);
+
+      int xx[ndim]; //full coordinate
+      for(int lane=0;lane<nsimd;lane++){
+	for(int d=0;d<ndim;d++) xx[d] = x[d] + packed_offsets[lane][d];  //xx = x + offset
+
+	if(fromsitemask == NULL || fromsitemask->query(xx,f)){
+	  TypeB const* fromptr = from.site_ptr(xx,f);
 	
-	for(int s=0;s<SiteSize;s++)
-	  *(  (GridTypeScalar*)(toptr+s) + lane ) = fromptr[s];
+	  for(int s=0;s<SiteSize;s++)
+	    *(  (GridTypeScalar*)(toptr+s) + lane ) = fromptr[s];
+	}
       }
     }
   }
@@ -96,34 +98,21 @@ class CPSfieldCopy<SiteSize,
 public:
   static void copy(CPSfield<TypeA,SiteSize,MapPolA,AllocPolA> &into,
 		   const CPSfield<GridSIMDTypeB,SiteSize,MapPolB,AllocPolB> &from, IncludeSite<MapPolB::EuclideanDimension> const* fromsitemask){
-    const int nsimd = GridSIMDTypeB::Nsimd();
     const int ndim = MapPolA::EuclideanDimension;
-    if(fromsitemask == NULL) if(into.nfsites()/nsimd != from.nfsites()) ERR.General("CPSfieldCopy","copy(<non-SIMD field> &into, const <SIMD-field> &from)","Expected into.nfsites/nsimd = from.nfsites, got %d/%d (=%d) != %d\n",into.nfsites(),nsimd, into.nfsites()/nsimd, from.nfsites());
-    //If a mask is provided its up to the user to ensure all masked sites are valid for the destination field
-    
-    std::vector<std::vector<int> > packed_offsets(nsimd,std::vector<int>(ndim));
-    for(int i=0;i<nsimd;i++) from.SIMDunmap(i,&packed_offsets[i][0]);
-
     typedef typename GridSIMDTypeB::scalar_type GridTypeScalar;
     
 #pragma omp parallel for
-    for(int fs=0;fs<from.nfsites();fs++){
-      int x[ndim], f; from.fsiteUnmap(fs,x,f);
-      GridSIMDTypeB const* fromptr = from.fsite_ptr(fs);
-            
-      //x is the root coordinate corresponding to SIMD packed index 0      
-      int xx[ndim];
-      for(int lane=0;lane<nsimd;lane++){
-	for(int d=0;d<ndim;d++) xx[d] = x[d] + packed_offsets[lane][d];  //xx = x + offset
-	
-	if(fromsitemask == NULL || fromsitemask->query(xx,f)){
-	  TypeA* toptr = into.site_ptr(xx,f);
-	  for(int s=0;s<SiteSize;s++)
-	    toptr[s] = *( (GridTypeScalar const*)(fromptr + s) + lane );
-	} 
+    for(int fs=0;fs<into.nfsites();fs++){
+      int x[ndim], f; into.fsiteUnmap(fs,x,f);
+      TypeA* toptr = into.fsite_ptr(fs);
+      
+      if(fromsitemask == NULL || fromsitemask->query(x,f)){
+	int lane = from.SIMDmap(x);
+	GridSIMDTypeB const* fromptr = from.site_ptr(x,f);
+	for(int s=0;s<SiteSize;s++)
+	  toptr[s] = *( (GridTypeScalar const*)(fromptr + s) + lane );      
       }
-    }
-    
+    }    
   }
 };
 #undef CONDITION
