@@ -189,6 +189,92 @@ void getSubmatrix(T* sub, const T* from, const int Nrows, const int Ncols, const
   #undef DOIT
 }
 
+//Grid peeking and poking to SIMD lanes
+#ifdef USE_GRID
+
+template<typename T>
+struct TensorPeekPoke{};
+
+template<typename C>
+struct ScalarPeekPoke{
+  typedef typename Grid::GridTypeMapper<C>::scalar_type ScalarC;
+  inline static void pokeLane(C &into, const ScalarC &from, const int lane){
+    ScalarC* Cp = (ScalarC*)&into;
+    Cp[lane] = from;
+  }
+  inline static void peekLane(ScalarC &into, const C &from, const int lane){
+    ScalarC const* Cp = (ScalarC const*)&from;
+    into = Cp[lane];
+  }
+};
+
+template<typename T, int isScalar>
+struct TensorScalarPeekPokeReroute{};
+
+template<typename T>
+struct TensorScalarPeekPokeReroute<T,0>{
+  typedef TensorPeekPoke<T> Route;
+};
+template<typename T>
+struct TensorScalarPeekPokeReroute<T,1>{
+  typedef ScalarPeekPoke<T> Route;
+};
+
+
+
+template<typename U>
+struct TensorPeekPoke<Grid::iScalar<U> >{
+  typedef typename Grid::iScalar<U>::scalar_object ScalarType;
+  inline static void pokeLane(Grid::iScalar<U> &into, const ScalarType &from, const int lane){
+    TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::pokeLane(into._internal, from._internal, lane);
+  }
+  inline static void peekLane(ScalarType &into, const Grid::iScalar<U> &from, const int lane){
+    TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::peekLane(into._internal, from._internal, lane);
+  }
+};
+
+template<typename U, int N>
+struct TensorPeekPoke<Grid::iVector<U,N> >{
+  typedef typename Grid::iVector<U,N>::scalar_object ScalarType;
+  inline static void pokeLane(Grid::iVector<U,N> &into, const ScalarType &from, const int lane){
+    for(int i=0;i<N;i++)
+      TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::pokeLane(into._internal[i], from._internal[i], lane);
+  }
+  inline static void peekLane(ScalarType &into, const Grid::iVector<U,N> &from, const int lane){
+    for(int i=0;i<N;i++)
+      TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::peekLane(into._internal[i], from._internal[i], lane);
+  }
+};
+
+template<typename U, int N>
+struct TensorPeekPoke<Grid::iMatrix<U,N> >{
+  typedef typename Grid::iMatrix<U,N>::scalar_object ScalarType;
+  inline static void pokeLane(Grid::iMatrix<U,N> &into, const ScalarType &from, const int lane){
+    for(int i=0;i<N;i++)
+      for(int j=0;j<N;j++)
+	TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::pokeLane(into._internal[i][j], from._internal[i][j], lane);
+  }
+  inline static void peekLane(ScalarType &into, const Grid::iMatrix<U,N> &from, const int lane){
+    for(int i=0;i<N;i++)
+      for(int j=0;j<N;j++)
+	TensorScalarPeekPokeReroute<U, !Grid::isGridTensor<U>::value>::Route::peekLane(into._internal[i][j], from._internal[i][j], lane);
+  }
+};
+
+
+template<typename T>
+void pokeLane(T &into, const typename Grid::GridTypeMapper<T>::scalar_object &from, const int lane){
+  TensorScalarPeekPokeReroute<T, !Grid::isGridTensor<T>::value >::Route::pokeLane(into,from,lane);
+}
+template<typename T>
+void peekLane(typename Grid::GridTypeMapper<T>::scalar_object &into, const T &from, const int lane){
+  TensorScalarPeekPokeReroute<T, !Grid::isGridTensor<T>::value >::Route::peekLane(into,from,lane);
+}
+
+#endif
+
+
+
 
 
 CPS_END_NAMESPACE

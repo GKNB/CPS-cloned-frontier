@@ -2627,15 +2627,118 @@ void testCPSfieldImpex(){
       c.importField(b_even, &even_mask); //shouldn't need mask because only the cb sites are contained in the imported field but it disables the site number check
 
       assert( a.equals(c) );
-    }
+    }    
+  }//end of 5d field testing
+}
+
+#ifdef USE_GRID
+
+
+
+
+
+
+
+template<typename GridA2Apolicies>
+void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
+
+  { //test my peek poke
+    typedef Grid::iVector<Grid::iScalar<Grid::vRealD>, 3> vtype;
+    typedef typename Grid::GridTypeMapper<vtype>::scalar_object stype;
+    typedef typename Grid::GridTypeMapper<vtype>::scalar_type rtype;
+
+    const int Nsimd = vtype::vector_type::Nsimd();
     
+    vtype* vp = (vtype*)memalign(128,sizeof(vtype));
+    stype* sp = (stype*)memalign(128,Nsimd*sizeof(stype));
+    stype* sp2 = (stype*)memalign(128,Nsimd*sizeof(stype));
+
+    for(int i=0;i<Nsimd;i++)
+      for(int j=0;j<sizeof(stype)/sizeof(rtype);j++)
+	(  (rtype*)(sp+i) )[j] = rtype(j+Nsimd*i);
+
+    std::cout << "Poking:\n";
+    for(int i=0;i<Nsimd;i++) std::cout << sp[i] << std::endl;
+
+    
+    for(int lane=0;lane<Nsimd;lane++)
+      pokeLane(*vp, sp[lane], lane);
+
+    
+    std::cout << "\nAfter poke: " << *vp << std::endl;
+
+
+    std::cout << "Peeked:\n";    
+    for(int lane=0;lane<Nsimd;lane++){
+      peekLane(sp[lane], *vp, lane);
+      std::cout << sp[lane] << std::endl;
+    }
   }
 
 
+  
+  Grid::GridCartesian *FGrid = lattice.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
+  Grid::GridCartesian *UGrid = lattice.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
 
+  typedef typename GridA2Apolicies::GridFermionField GridFermionField;
+
+  typedef CPSfermion5D<cps::ComplexD> CPSfermion5DBasic;
+  CPSfermion5DBasic a;
+  a.testRandom();
+
+  GridFermionField a_grid(FGrid);
+  a.exportGridField(a_grid);
+
+  {
+    CPSfermion5DBasic b;
+    b.importGridField(a_grid);
+    assert(b.equals(a));    
+  }
+
+  {
+    CPSfermion5DBasic b_odd, b_even;
+    IncludeCBsite<5> odd_mask(1); //4d prec
+    IncludeCBsite<5> even_mask(0);
+    b_odd.importGridField(a_grid, &odd_mask);
+    b_even.importGridField(a_grid, &even_mask);
+          
+    CPSfermion5DBasic c;
+    c.importField(b_odd, &odd_mask);
+    c.importField(b_even, &even_mask);
+
+    assert( a.equals(c) );
+  }
 
   
+  {//The reduced size checkerboarded fields
+    CPSfermion5Dcb4Dodd<cps::ComplexD> b_odd;
+    CPSfermion5Dcb4Deven<cps::ComplexD> b_even;
+
+    IncludeCBsite<5> odd_mask(1); //4d prec
+    IncludeCBsite<5> even_mask(0);
+    b_odd.importGridField(a_grid, &odd_mask);
+    b_even.importGridField(a_grid, &even_mask);
+          
+    CPSfermion5DBasic c;
+    c.importField(b_odd, &odd_mask);
+    c.importField(b_even, &even_mask); //shouldn't need mask because only the cb sites are contained in the imported field but it disables the site number check
+
+    assert( a.equals(c) );
+  }    
+    
+  
+  
+
 }
+
+
+
+#endif
+
+
+
 
   
 void testCPSfieldIO(){
@@ -2662,6 +2765,37 @@ void testCPSfieldIO(){
     
     assert( a.equals(b) );
   }
+
+  {
+    typedef CPSfermion5D<cps::ComplexD> CPSfermion5DBasic;
+    CPSfermion5DBasic a;
+    a.testRandom();
+
+    CPSfermion5Dcb4Dodd<cps::ComplexD> b_odd;
+    CPSfermion5Dcb4Deven<cps::ComplexD> b_even;
+    
+    IncludeCBsite<5> odd_mask(1); //4d prec
+    IncludeCBsite<5> even_mask(0);
+    a.exportField(b_odd, &odd_mask);
+    a.exportField(b_even, &even_mask);
+
+    b_odd.writeParallel("field_odd");
+    b_even.writeParallel("field_even");
+    
+    CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd;
+    CPSfermion5Dcb4Deven<cps::ComplexD> c_even;
+    c_odd.readParallel("field_odd");
+    c_even.readParallel("field_even");
+
+    CPSfermion5DBasic d;
+    d.importField(c_odd, &odd_mask);
+    d.importField(c_even, &even_mask); 
+    
+    assert( a.equals(d) );
+  }
+    
+
+
   
 }
 

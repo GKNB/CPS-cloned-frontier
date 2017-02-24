@@ -216,10 +216,10 @@ public:
 #ifdef USE_GRID
   //Import for Grid Lattice<blah> types
   template<typename GridField>
-  void importGridField(const GridField &grid);
+  void importGridField(const GridField &grid, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask = NULL);
   
   template<typename GridField>
-  void exportGridField(GridField &grid) const;
+  void exportGridField(GridField &grid, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask = NULL) const;
 #endif
 
   CPSfield & operator+=(const CPSfield &r){

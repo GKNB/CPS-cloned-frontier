@@ -133,8 +133,23 @@ int main(int argc,char *argv[])
 #endif
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
+#ifndef USE_GRID
   GnoneFnone lattice;
+#else
 
+   
+  
+#ifdef USE_GRID_GPARITY
+  assert(ngp != 0);
+  std::cout << "Using standard BCs\n";
+#else
+  assert(ngp == 0);
+  std::cout << "Using Gparity BCs\n";
+#endif
+  FgridParams fgp; fgp.epsilon = 0.; fgp.mobius_scale = 32./12.;
+  typename GridA2Apolicies::FgridGFclass lattice(fgp);
+#endif
+  
   if(load_lrg){
     if(UniqueID()==0) printf("Loading RNG state from %s\n",load_lrg_file);
     LRG.Read(load_lrg_file,32);
@@ -234,6 +249,11 @@ int main(int argc,char *argv[])
 
   if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
+  if(1) testCPSfieldImpex();
+#ifdef USE_GRID
+  if(1) testGridFieldImpex<GridA2Apolicies>(lattice);
+#endif
+  
   if(0) testCPSfieldIO();
   if(0) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
   if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
@@ -248,10 +268,8 @@ int main(int argc,char *argv[])
   assert(!equals(b,a));
   assert(equals(a,a));
   assert(equals(b,b));
-  
-  if(1) testCPSfieldImpex();
-  
-  printf("Finished\n"); fflush(stdout);
+    
+  if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }
   
   return 0;
 }

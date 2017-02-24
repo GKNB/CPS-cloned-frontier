@@ -167,6 +167,41 @@ struct dimensionMap<4>{
   const int grid_to_cps[4] = {0,1,2,3};
 };
 
+//Local coordinate *in Grid's dimension ordering* (cf above)
+inline void getLocalLatticeCoord(std::vector<int> &lcoor, const int oidx, const int iidx, Grid::GridBase const* grid, const int checkerboard){
+  Grid::GridBase* gridc = const_cast<Grid::GridBase*>(grid); //the lookup functions are not const for some reason
+  const int Nd = grid->Nd();
+  std::vector<int> ocoor(Nd);
+  gridc->oCoorFromOindex(ocoor, oidx);
+
+  std::vector<int> icoor(Nd);
+  gridc->iCoorFromIindex(icoor, iidx);
+
+  int checker_dim = -1;
+  //Get the local coordinate on Grid's local lattice 
+  for(int mu=0;mu<Nd;mu++){
+    lcoor[mu] = ocoor[mu] + gridc->_rdimensions[mu]*icoor[mu];
+
+    //For checkerboarded Grid fields the above is defined on a reduced lattice of half the size
+    if(gridc->CheckerBoarded(mu)){
+      lcoor[mu] = lcoor[mu]*2;
+      checker_dim = mu;
+    }
+  }
+  if(checker_dim != -1 && gridc->CheckerBoard(lcoor) != checkerboard) lcoor[checker_dim] += 1;
+}
+//Local coordinate in canonical x,y,z,t,s ordering
+template<int Nd>
+inline void getLocalCanonicalLatticeCoord(std::vector<int> &lcoor, const int oidx, const int iidx, Grid::GridBase const* grid, const int checkerboard){
+  assert(grid->Nd() == Nd);
+  static dimensionMap<Nd> dim_map;
+  std::vector<int> lcoor_grid(Nd);
+  getLocalLatticeCoord(lcoor_grid, oidx,iidx, grid, checkerboard);
+  for(int mu=0;mu<Nd;mu++) lcoor[ dim_map.grid_to_cps[mu] ] = lcoor_grid[mu];
+}
+
+
+
 template<typename Type, int SiteSize, typename MapPol, typename AllocPol,
 	 typename GridField, typename ComplexClass>
 class CPSfieldGridImpex{};
@@ -177,13 +212,13 @@ class CPSfieldGridImpex<Type,SiteSize,MapPol,AllocPol,GridField,complex_double_o
   typedef CPSfield<Type,SiteSize,MapPol,AllocPol> CPSfieldType;
 
 public:
-
-  static void import(CPSfieldType &into, const GridField &from){
+  typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
+  
+  static void import(CPSfieldType &into, const GridField &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
     assert(Nd == from._grid->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
 
-    typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
 #pragma omp parallel for
     for(int site=0;site<into.nsites();site++){
       std::vector<int> x(Nd);
@@ -201,67 +236,40 @@ public:
       peekLocalSite(siteGrid,from,grid_x);
 
       for(int f=0;f<into.nflavors();f++){
-	typename CPSfieldType::FieldSiteType *cps = into.site_ptr(site,f);
-	GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(cps, siteGrid, f);
+	if(fromsitemask == NULL || fromsitemask->query(&x[0],f)){
+	  typename CPSfieldType::FieldSiteType *cps = into.site_ptr(site,f);
+	  GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(cps, siteGrid, f);
+	}
       }      
     }
   }
+
   
-  static void exportit(GridField &into, const CPSfieldType &from){
+  
+  static void exportit(GridField &into, const CPSfieldType &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
     assert(Nd == into._grid->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
-  
-    typedef typename Grid::GridTypeMapper<typename GridField::vector_object>::scalar_object sobj;
-    int nthread = omp_get_max_threads();
+    const int Nsimd = GridField::vector_type::Nsimd();
     
-    int nsimd = into._grid->Nsimd();
-    std::vector<std::vector<sobj> > tstore(nthread,std::vector<sobj>(nsimd)); //thread-individual temp storage for Grid-converted tensors
-    std::vector<std::vector<sobj*> > tstore_ptrs(nthread,std::vector<sobj*>(nsimd));
-    for(int i=0;i<nthread;i++)
-      for(int j=0;j<nsimd;j++)
-	tstore_ptrs[i][j] = &tstore[i][j];
-
-    std::vector<std::vector<int> > out_icoor(nsimd); //store inner coordinate offsets
-    for(int i=0;i<nsimd;i++){
-      out_icoor[i].resize(Nd);
-      into._grid->iCoorFromIindex(out_icoor[i], i);
-    }
 #pragma omp parallel for
     for(int out_oidx=0;out_oidx<into._grid->oSites();out_oidx++){
-      int me = omp_get_thread_num();
-      std::vector<int> out_ocoor(Nd);
-      into._grid->oCoorFromOindex(out_ocoor, out_oidx);
-
-      std::vector<int> lcoor(Nd);
       std::vector<int> lcoor_cps(Nd);
-      
-      for(int lane=0; lane < nsimd; lane++){
-	int checker_dim = -1;
-	//Get the local coordinate on Grid's local lattice 
-	for(int mu=0;mu<Nd;mu++){
-	  lcoor[mu] = out_ocoor[mu] + into._grid->_rdimensions[mu]*out_icoor[lane][mu];
 
-	  //For checkerboarded Grid fields the above is defined on a reduced lattice of half the size
-	  if(into._grid->CheckerBoarded(mu)){
-	    lcoor[mu] = lcoor[mu]*2;
-	    checker_dim = mu;
+      for(int lane=0;lane<Nsimd;lane++){
+	getLocalCanonicalLatticeCoord<Nd>(lcoor_cps, out_oidx, lane, into._grid, into.checkerboard);
+
+	sobj tmp; peekLane(tmp,into._odata[out_oidx],lane);
+	
+	for(int f=0;f<from.nflavors();f++){
+	  if(fromsitemask == NULL || fromsitemask->query(lcoor_cps.data(),f)){	    	   
+	    typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(lcoor_cps.data(),f);
+	    GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(tmp, cps, f);
 	  }
 	}
-	if(checker_dim != -1 && into._grid->CheckerBoard(lcoor) != into.checkerboard)
-	  lcoor[checker_dim] += 1;
 
-	//Remap directions to CPS x y z t s ordering
-	for(int mu=0;mu<Nd;mu++){
-	  lcoor_cps[ dim_map.grid_to_cps[mu] ] = lcoor[mu];
-	}
-	int cps_site = from.siteMap(&lcoor_cps[0]);
-	for(int f=0;f<from.nflavors();f++){
-	  typename CPSfieldType::FieldSiteType const* cps = from.site_ptr(cps_site,f);
-	  GridTensorConvert<sobj, typename CPSfieldType::FieldSiteType>::doit(tstore[me][lane], cps, f);
-	}
+	pokeLane(into._odata[out_oidx], tmp, lane);
       }
-      merge(into._odata[out_oidx], tstore_ptrs[me], 0);
     }
   }
   
@@ -275,7 +283,7 @@ class CPSfieldGridImpex<Type,SiteSize,MapPol,AllocPol,GridField,grid_vector_comp
 
 public:
 
-  static void import(CPSfieldType &into, const GridField &from){
+  static void import(CPSfieldType &into, const GridField &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
     assert(Nd == from._grid->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
@@ -286,11 +294,11 @@ public:
     NullObject n;
     CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
 
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::import(cps_unpacked,from,fromsitemask);
     into.importField(cps_unpacked);
   }
   
-  static void exportit(GridField &into, const CPSfieldType &from){
+  static void exportit(GridField &into, const CPSfieldType &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
     assert(Nd == into._grid->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
@@ -301,7 +309,7 @@ public:
     NullObject n;
     CPSfield<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy> cps_unpacked(n);
     cps_unpacked.importField(from);
-    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked);
+    CPSfieldGridImpex<CPSscalarType,SiteSize,CPSscalarMapPol,StandardAllocPolicy,GridField, CPSscalarTypeClass>::exportit(into, cps_unpacked,fromsitemask);
   }
 };
 #endif
@@ -312,15 +320,15 @@ public:
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 template<typename GridField>
-void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::importGridField(const GridField &grid){
+void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::importGridField(const GridField &grid, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask){
   typedef typename ComplexClassify<SiteType>::type ComplexClass;
-  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::import(*this, grid);
+  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::import(*this, grid,fromsitemask);
 }
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 template<typename GridField>
-void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::exportGridField(GridField &grid) const{
+void  CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::exportGridField(GridField &grid, IncludeSite<MappingPolicy::EuclideanDimension> const* fromsitemask) const{
   typedef typename ComplexClassify<SiteType>::type ComplexClass;
-  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::exportit(grid,*this);
+  CPSfieldGridImpex<SiteType,SiteSize,MappingPolicy,AllocPolicy,GridField,ComplexClass>::exportit(grid,*this,fromsitemask);
 }
 #endif
 
