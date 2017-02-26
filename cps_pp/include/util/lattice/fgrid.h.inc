@@ -296,11 +296,6 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
   // Returns 0 => If no checkerboard is used for the evolution
   //      or the CG that inverts the evolution matrix.
 
-  int FmatEvlInv (Vector * f_out, Vector * f_in,
-		  CgArg * cg_arg,
-		  Float * true_res, CnvFrmType cnv_frm = CNV_FRM_YES) {
-    ERR.NotImplemented (cname, "FmatEvlInv");
-  }
   // It calculates f_out where A * f_out = f_in and
   // A is the preconditioned fermion matrix that appears
   // in the HMC evolution (even/odd preconditioning 
@@ -315,8 +310,117 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
   // *true_res = |src - MatPcDagMatPc * sol| / |src|
   // The function returns the total number of CG iterations.
   int FmatEvlInv (Vector * f_out, Vector * f_in,
-		  CgArg * cg_arg, CnvFrmType cnv_frm = CNV_FRM_YES) {
-    ERR.NotImplemented (cname, "FmatEvlInv");
+		  CgArg * cg_arg,
+		  Float * true_res, CnvFrmType cnv_frm = CNV_FRM_YES) {
+    const char *fname ("FmatEvlInv()");
+#if 1
+    Float shift[1],alph[1];
+    shift[0]=0.; alph[0]=1.;
+    CgArg *args[1];
+    args[0] = cg_arg;
+    Vector *f_out_list[1];
+    Vector *f_out_d_fake[1];
+    f_out_list[0] = f_out;
+    f_out_d_fake[0] = NULL;
+    FmatEvlMInv( &f_out,f_in, shift,1,0,args,cnv_frm,SINGLE,alph,f_out_d_fake);
+#else
+    SetMass (cg_arg->mass);
+    SetEpsilon (cg_arg->epsilon);
+    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
+    VRB.Result (cname, fname, "max_iter=%d\n", cg_arg->max_num_iter);
+    RealD M5 = GJP.DwfHeight ();
+
+    Float time_total, time1, time2;
+    time_total = time1 = dclock ();
+
+    ImportGauge ();
+    std::vector < int >twists = SetTwist ();
+    int threads = Grid::GridThread::GetThreads ();
+    std::cout << Grid:: GridLogMessage << "Grid is setup to use " << threads << " threads" << std::endl;
+{
+  Float max_dev=1;
+  Float max_diff=1;
+  CheckUnitarity(max_dev,max_diff);
+  VRB.Result(cname,fname,"CheckUnitarity():dev=%g max_diff=%g\n",max_dev,max_diff);
+}
+
+
+    DIRAC::ImplParams params;
+    SetParams (params);
+    DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+    Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+    precisionChange (UmuF, *Umu);
+    DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+
+    LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
+    LATTICE_FERMION grid_rb_out (F_RB_GRID);
+    LATTICE_FERMION grid_rb_in (F_RB_GRID), grid_out (FERM_GRID);
+
+    LatVector cps_temp (FsiteSize () / 6 * n_gp, GJP.VolNodeSites () / 2);
+    VRB.Debug (cname, fname, "cps_temp.Size()=%d\n", cps_temp.Size ());
+//    VRB.Debug (cname, fname, "Nshift=%d alpha=%p\n", Nshift, alpha);
+    Vector *f_temp = cps_temp.Vec ();
+
+#if (defined IF_TM ) && ( defined USE_F_CLASS_WILSON_TM)
+    Float kappa = cg_arg[0]->mass + 4.;
+    kappa = kappa * kappa + cg_arg[0]->epsilon * cg_arg[0]->epsilon;
+    kappa = 0.5 / sqrt (kappa);
+    double fac = 0.25 / (kappa * kappa);
+    VRB.Debug (cname, fname, "kappa=%0.14g fac=%g \n", kappa, fac);
+#else
+    double fac = 1.;
+#endif
+
+    double inner_fac = 1.;
+
+    ImportFermion (grid_in, f_in, Odd);
+
+    pickCheckerboard (Odd, grid_rb_in, grid_in);
+    Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+    VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
+		MultiShiftController.getMode ());
+//    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
+if(1)
+    {
+      VRB.Result (cname, fname, "running full double\n");
+      time1 = dclock ();
+      Float stp_cnd = cg_arg->stop_rsd;
+      Grid::ConjugateGradient< LATTICE_FERMION > CG_d (stp_cnd,cg_arg->max_num_iter);
+      CG_d (MdagMD, grid_rb_in, grid_rb_out);
+      time2 = dclock ();
+
+      Float total_flops =
+	(Float) GJP.VolNodeSites () * n_gp * (2 * 1440) * CG_d.iter;
+      if (F5D ())
+	total_flops *= Ls;
+      print_flops (fname, "CG(D)", total_flops, time2 - time1);
+      time1 = time2;
+    } else {
+      VRB.Result (cname, fname,
+		  "running single precision Multimass followed by shifted mixed precision CG\n");
+      int maxouter = 10;
+      int maxinner = cg_arg->max_num_iter;
+      int maxmulti = cg_arg->max_num_iter;
+      LATTICE_FERMION_F grid_in_f (FERM_GRID_F), psi_f (FERM_GRID_F);
+      LATTICE_FERMION_F grid_rb_out_f (F_RB_GRID_F);
+      LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F);
+//      precisionChange(grid_rb_out[i],grid_rb_out_f[i]);
+	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
+	CG_m (cg_arg->stop_rsd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
+	CG_m (grid_rb_in, grid_rb_out);
+      time2 = dclock ();
+      print_time (fname, "MixedCG", time2 - time1);
+      time1 = time2;
+    }
+
+
+    time2 = dclock ();
+    print_time (fname, "Acc/Export", time2 - time1);
+    time1 = time2;
+    // print_flops(cname,fname,time2,-time_total,
+
+#endif
   }
 
   int FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
@@ -559,7 +663,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 
 #ifndef IF_TM
     if(if_dminus){
-#if 1
+#if 0
 //was broken in Grid.
         ImportFermion (grid_out, f_in);
         Ddwf.Dminus(grid_out,grid_in);

@@ -3,7 +3,7 @@
 #define _PRECISION_H_
 typedef double Float;
 typedef double IFloat;
-//typedef uint64_t IntFlopCounter;
+typedef int64_t Integer;
 #ifdef HAVE_UINT64_T
 typedef uint64_t Pointer;
 #else
