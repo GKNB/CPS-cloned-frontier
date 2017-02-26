@@ -635,7 +635,11 @@ if(1)
   void FminResExt (Vector * sol, Vector * source, Vector ** sol_old,
 		   Vector ** vm, int degree, CgArg * cg_arg, CnvFrmType cnv_frm)
   {
-    ERR.NotImplemented (cname, "FminResExt");
+    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
+    if (GJP.Gparity ()) f_size *= 2;
+    sol->VecZero(f_size);
+
+//    ERR.NotImplemented (cname, "FminResExt");
   }
 
 //  int FmatInv (Vector * f_out, Vector * f_in,
