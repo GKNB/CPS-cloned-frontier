@@ -435,7 +435,7 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
 
 
 void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &params){
-  AlgFixGauge fix_gauge(lat,&params.common_arg,&params.fix_gauge_arg);
+  AlgFixGauge fix_gauge(lat, const_cast<CommonArg *>(&params.common_arg), const_cast<FixGaugeArg *>(&params.fix_gauge_arg) );
   if(skip_gauge_fix){
     if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
     gaugeFixUnity(lat,params.fix_gauge_arg);      
