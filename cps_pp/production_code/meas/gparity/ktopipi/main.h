@@ -91,6 +91,10 @@ struct CommandLineArgs{
   Float inner_cg_resid;
   Float *inner_cg_resid_p;
 
+  bool do_split_job;
+  int split_job_part;
+  std::string checkpoint_dir; //directory the checkpointed data is stored in (could be scratch for example)
+  
   CommandLineArgs(int argc, char **argv, int begin){
     nthreads = 1;
 #if TARGET == BGQ
@@ -113,6 +117,8 @@ struct CommandLineArgs{
     inner_cg_resid;
     inner_cg_resid_p = NULL;
 
+    do_split_job = false;
+    
     parse(argc,argv,begin);
   }
 
@@ -184,6 +190,12 @@ struct CommandLineArgs{
 	int* b[3] = { &BlockedMesonFieldArgs::bii, &BlockedMesonFieldArgs::bjj, &BlockedMesonFieldArgs::bpp };
 	for(int a=0;a<3;a++) *b[a] = strToAny<int>(argv[arg+1+a]);
 	arg+=4;
+      }else if( strncmp(cmd,"-do_split_job",30) == 0){
+	do_split_job = true;
+	split_job_part = strToAny<int>(argv[arg+1]);
+	checkpoint_dir = argv[arg+2];
+	if(!UniqueID()) printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir);
+	arg+=3;       
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
 	arg++;
@@ -830,6 +842,136 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   delete a2a_lat;
 }
+
+void doConfigurationSplit(const int conf, Parameters &params, const CommandLineArgs &cmdline,
+			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+			  const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+
+  params.meas_arg.TrajCur = conf;
+
+  std::string dir(params.meas_arg.WorkDirectory);
+
+  //-------------------- Read gauge field --------------------//
+  ReadGaugeField(params.meas_arg,cmdline.double_latt); 
+  ReadRngFile(params.meas_arg,cmdline.double_latt); 
+    
+  if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
+  printMem();
+
+  if(cmdline.split_job_part == 0){
+    //Do light Lanczos, strange Lanczos and strange CG, store results
+    
+    //-------------------- Light quark Lanczos ---------------------//
+    {
+      LanczosWrapper eig;
+      computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;    
+      eig.writeParallel(os.str());
+    }
+
+    {//Do the light A2A vector random fields to ensure same ordering as unsplit job
+      A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
+      W.setWhRandom();
+    }
+    
+    //-------------------- Strange quark Lanczos ---------------------//
+    LanczosWrapper eig_s;
+    computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+
+    //-------------------- Strange quark v and w --------------------//
+    A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
+    A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    
+    {
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
+      V_s.writeParallel(os.str());
+    }
+    {
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.W_s.cfg" << conf;
+      W_s.writeParallel(os.str());
+    }
+    
+  }else if(cmdline.split_job_part == 1){
+    //Do light CG and contractions
+
+    LanczosWrapper eig;
+    {
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
+
+#ifdef USE_GRID_LANCZOS
+      LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
+      eig.readParallel(os.str(),*lanczos_lat);
+      delete lanczos_lat;
+#else
+      eig.readParallel(os.str());
+#endif
+    }
+
+    //-------------------- Light quark v and w --------------------//
+    A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
+    A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
+    A2ALattice* a2a_lat = computeVW(V, W, Light, params, eig, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    
+    eig.freeEvecs();
+    if(!UniqueID()) printf("Memory after light evec free:\n");
+    printMem();    
+    
+    //-------------------- Strange quark v and w read --------------------//
+    A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
+    A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
+    
+    {
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
+      V_s.readParallel(os.str());
+    }
+    {
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.W_s.cfg" << conf;
+      W_s.readParallel(os.str());
+    }
+
+    //From now one we just need a generic lattice instance, so use a2a_lat
+    Lattice& lat = (Lattice&)(*a2a_lat);
+    
+    //-------------------Fix gauge----------------------------
+    doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+  
+    //-------------------------Compute the kaon two-point function---------------------------------
+    if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,conf,lat,params,field3dparams);
+  
+    //The pion two-point function and pipi/k->pipi all utilize the same meson fields. Generate those here
+    //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
+    RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
+
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
+    MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s; //Gparity only
+
+    computeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom, conf, lat, params, field3dparams);
+
+    //----------------------------Compute the pion two-point function---------------------------------
+    if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, pion_mom, conf, params);
+
+    //----------------------------Compute the sigma meson fields---------------------------------
+    if(cmdline.do_sigma) computeSigmaMesonFields(V,W,conf,lat,params,field3dparams);
+    
+    //------------------------------I=0 and I=2 PiPi two-point function---------------------------------
+    if(cmdline.do_pipi) computePiPi2pt(mf_ll_con, pion_mom, conf, params);
+
+    //--------------------------------------K->pipi contractions--------------------------------------------------------
+    if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,conf,params);
+
+    delete a2a_lat;
+  }else{ //part 1
+    ERR.General("","doConfigurationSplit","Invalid part index %d\n", cmdline.split_job_part);
+  }
+
+    
+}
+
+
+
+
+
 
 
 #endif

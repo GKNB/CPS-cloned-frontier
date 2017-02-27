@@ -14,7 +14,7 @@ struct GridLanczosWrapper{
   std::vector<typename GridPolicies::GridFermionFieldF> evec_f;
   double mass;
   double resid;
-
+  
   //For precision change
   Grid::GridCartesian *UGrid_f;
   Grid::GridRedBlackCartesian *UrbGrid_f;
@@ -183,6 +183,8 @@ struct GridLanczosWrapper{
     file << "HDR_VERSION = 1\n";
     file << "N_EVECS = " << n_evec << "\n";
     file << "PRECISION = " << (single_prec ? 1 : 2) << "\n";
+    file << "MASS = " << mass << "\n";
+    file << "RESID = " << resid << "\n";
     file << "END_HEADER\n";
     file << "BEGIN_EVALS\n";
 
@@ -230,6 +232,9 @@ struct GridLanczosWrapper{
 
     int read_precision;
     getline(file,str); assert( sscanf(str.c_str(),"PRECISION = %d",&read_precision) == 1 );
+
+    getline(file,str); assert( sscanf(str.c_str(),"MASS = %lf",&mass) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"RESID = %lf",&resid) == 1 );
     
     bool single_prec = (read_precision == 1);
     getline(file,str); assert(str == "END_HEADER");

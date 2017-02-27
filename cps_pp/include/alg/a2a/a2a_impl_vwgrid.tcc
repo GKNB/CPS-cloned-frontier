@@ -220,9 +220,9 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
 
   VRB.Result("A2AvectorW", fname, "Start computing high modes using Grid.\n");
     
-  //Generate the compact random sources for the high modes
+  //Generate the compact random sources for the high modes if not yet set
 #ifndef MEMTEST_MODE
-  setWhRandom(args.rand_type);
+  setWhRandom();
 #endif
   
   //Allocate temp *double precision* storage for fermions

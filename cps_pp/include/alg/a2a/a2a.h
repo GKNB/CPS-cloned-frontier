@@ -224,23 +224,25 @@ private:
   std::vector<PtrWrapper<FermionFieldType> > wl; //The low mode part of the W field, comprised of nl fermion fields
   std::vector<PtrWrapper<ComplexFieldType> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
-  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-  void setWhRandom(const RandomType &type);
-  
+  bool wh_rand_performed; //store if the wh random numbers have been set
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
-  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args){
+  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), wh_rand_performed(false){
     wl.resize(nl); this->allocInitializeLowModeFields(wl,NullObject());
     wh.resize(nhits); this->allocInitializeHighModeFields(wh,NullObject());
   }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args){
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), wh_rand_performed(false){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
     wh.resize(nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
   }
 
+  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
+  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
+  //Note - this does not have to be called manually; it will be called by computeVWhigh if not previously called
+  void setWhRandom();
+  
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
   
   const FermionFieldType & getWl(const int i) const{ return *wl[i]; }

@@ -2913,6 +2913,22 @@ void benchmarkCPSfieldIO(){
 
 #ifdef USE_GRID
 
+template<typename T>
+bool GridTensorEquals(const T &a, const T &b){
+  typedef typename T::vector_type vtype;
+  const int sz = sizeof(T)/sizeof(vtype);
+
+  vtype const* va = (vtype const*)&a;
+  vtype const* vb = (vtype const*)&b;
+  
+  for(int i=0;i<sz;i++){
+    if( ! equals(va[i], vb[i])) return false;  
+  }
+  return true;
+}
+
+
+
 template<typename GridA2Apolicies>
 void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
   LancArg lanc_arg;
@@ -2941,6 +2957,11 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       c_odd_d_2.importGridField(lanc2.evec[i]);
       
       assert( c_odd_d_1.equals( c_odd_d_2 ) );
+
+      for(int s=0;s<lanc.evec[i]._grid->oSites();s++)
+	assert( GridTensorEquals(lanc.evec[i]._odata[s] , lanc2.evec[i]._odata[s]) );
+      
+      
     }
   }
 
@@ -2964,6 +2985,9 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       c_odd_f_2.importGridField(lanc2.evec_f[i]);
       
       assert( c_odd_f_1.equals( c_odd_f_2 ) );
+
+      for(int s=0;s<lanc.evec_f[i]._grid->oSites();s++)
+	assert( GridTensorEquals(lanc.evec_f[i]._odata[s] , lanc2.evec_f[i]._odata[s]) );
     }
   }
 }

@@ -61,7 +61,10 @@ int main (int argc,char **argv )
     double conf_time = -dclock();
     if(!UniqueID()) std::cout<<"Starting configuration "<<conf<< std::endl;
 
-    doConfiguration(conf,params,cmdline,field3dparams,field4dparams, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    if(cmdline.do_split_job)
+      doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    else
+      doConfiguration(conf,params,cmdline,field3dparams,field4dparams, COMPUTE_EVECS_EXTRA_ARG_PASS);
     
     conf_time += dclock();
     print_time("main","Configuration total",conf_time);

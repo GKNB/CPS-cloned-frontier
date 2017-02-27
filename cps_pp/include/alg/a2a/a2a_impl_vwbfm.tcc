@@ -101,8 +101,8 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
 
   VRB.Result("A2AvectorW", fname, "Start computing high modes.\n");
     
-  //Generate the compact random sources for the high modes
-  setWhRandom(args.rand_type);
+  //Generate the compact random sources for the high modes if they have not already been set
+  setWhRandom();
 
   //Allocate temp *double precision* storage for fermions
   CPSfermion5D<cps::ComplexD> afield,bfield;

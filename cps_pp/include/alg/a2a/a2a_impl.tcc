@@ -113,8 +113,11 @@ struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
 
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::setWhRandom(const RandomType &type){
-  _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,type,nhits);
+void A2AvectorW<mf_Policies>::setWhRandom(){
+  if(!wh_rand_performed){
+    _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,args.rand_type,nhits);
+    wh_rand_performed = true;
+  }
 }
 
 //Get the diluted source with index id.
