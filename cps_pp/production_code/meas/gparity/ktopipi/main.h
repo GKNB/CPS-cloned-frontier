@@ -865,8 +865,12 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     {
       LanczosWrapper eig;
       computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
-      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;    
+      std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
+      if(!UniqueID()) printf("Writing light Lanczos to %s\n",os.str().c_str());
+      double time = -dclock();
       eig.writeParallel(os.str());
+      time+=dclock();
+      print_time("main","Light Lanczos write",time);
     }
 
     {//Do the light A2A vector random fields to ensure same ordering as unsplit job
@@ -885,11 +889,19 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
+      if(!UniqueID()) printf("Writing V_s to %s\n",os.str().c_str());
+      double time = -dclock();
       V_s.writeParallel(os.str());
+      time+=dclock();
+      print_time("main","V_s write",time);
     }
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.W_s.cfg" << conf;
+      if(!UniqueID()) printf("Writing W_s to %s\n",os.str().c_str());
+      double time = -dclock();
       W_s.writeParallel(os.str());
+      time+=dclock();
+      print_time("main","W_s write",time);
     }
     
   }else if(cmdline.split_job_part == 1){
@@ -898,14 +910,17 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     LanczosWrapper eig;
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
-
+      if(!UniqueID()) printf("Reading light Lanczos from %s\n",os.str().c_str());
+      double time = -dclock();
 #ifdef USE_GRID_LANCZOS
       LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
       eig.readParallel(os.str(),*lanczos_lat);
       delete lanczos_lat;
 #else
-      eig.readParallel(os.str());
+      eig.readParallel(os.str());      
 #endif
+      time+=dclock();
+      print_time("main","Light Lanczos read",time);
     }
 
     //-------------------- Light quark v and w --------------------//
@@ -923,11 +938,19 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
+      if(!UniqueID()) printf("Reading V_s from %s\n",os.str().c_str());
+      double time = -dclock();
       V_s.readParallel(os.str());
+      time+=dclock();
+      print_time("main","V_s read",time);
     }
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.W_s.cfg" << conf;
+      if(!UniqueID()) printf("Reading W_s from %s\n",os.str().c_str());
+      double time = -dclock();
       W_s.readParallel(os.str());
+      time+=dclock();
+      print_time("main","W_s read",time);
     }
 
     //From now one we just need a generic lattice instance, so use a2a_lat
