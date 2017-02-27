@@ -141,7 +141,7 @@ struct GridLanczosWrapper{
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
 
-    setupSPgrids();
+    if(FrbGrid_f == NULL) setupSPgrids();
     
     int nev = evec.size();
     for(int i=0;i<nev;i++){      
@@ -156,6 +156,128 @@ struct GridLanczosWrapper{
     std::reverse(evec_f.begin(), evec_f.end());
   }
 
+
+    
+
+  
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const{
+    if(evec.size() == 0 && evec_f.size() == 0) ERR.General("GridLanczosWrapper","writeParallel","No eigenvectors to write!\n");
+    
+    bool single_prec = evec_f.size() > 0;
+    int n_evec = single_prec ? evec_f.size() : evec.size();
+
+    Grid::GridBase* grd = single_prec ? evec_f[0]._grid : evec[0]._grid;
+    bool is_rb(false); for(int i=0;i<5;i++) if(grd->CheckerBoarded(i)){ is_rb = true; break; }
+    assert(is_rb);
+    Grid::GridRedBlackCartesian* grd_rb = dynamic_cast<Grid::GridRedBlackCartesian*>(grd);
+    assert(grd_rb->_checker_dim_mask[0] == 0); //4d checkerboarding
+
+    std::ostringstream filename; filename << file_stub << "." << UniqueID();
+    std::ofstream file(filename.str().c_str());
+    assert(!file.fail());
+    file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+
+    arrayIO<Grid::RealD> evalio(fileformat);
+    
+    file << "BEGIN_HEADER\n";
+    file << "HDR_VERSION = 1\n";
+    file << "N_EVECS = " << n_evec << "\n";
+    file << "PRECISION = " << (single_prec ? 1 : 2) << "\n";
+    file << "END_HEADER\n";
+    file << "BEGIN_EVALS\n";
+
+    file << "DATA_FORMAT = " << evalio.getFileFormatString() << '\n';
+    file << "CHECKSUM = " << evalio.checksum(eval.data(),eval.size()) << '\n';
+    evalio.write(file,eval.data(),eval.size());
+    
+    file << "END_EVALS\n";
+    file << "BEGIN_EVECS\n";
+
+    CPSfermion5Dcb4Dodd<cps::ComplexF> c_odd_f;
+    CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d;
+    
+    for(int i=0;i<n_evec;i++){
+      if(single_prec){
+	c_odd_f.importGridField(evec_f[i]);
+	c_odd_f.writeParallel(file,fileformat);
+      }else{
+	c_odd_d.importGridField(evec[i]);
+	c_odd_d.writeParallel(file,fileformat);
+      }
+    }    
+
+    file << "END_EVECS\n";
+    file.close();
+  }
+
+  void readParallel(const std::string &file_stub, typename GridPolicies::FgridGFclass &lat){
+    { //clear all memory associated with existing evecs
+      std::vector<typename GridPolicies::GridFermionField>().swap(evec);
+      std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
+    }
+
+    std::ostringstream os; os << file_stub << "." << UniqueID();
+    std::ifstream file(os.str().c_str(),std::ifstream::in);
+    file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
+    assert(!file.fail());
+
+    std::string str;
+    getline(file,str); assert(str == "BEGIN_HEADER");
+    getline(file,str); assert(str == "HDR_VERSION = 1");
+  
+    int read_nvecs;
+    getline(file,str); assert( sscanf(str.c_str(),"N_EVECS = %d",&read_nvecs) == 1 );
+
+    int read_precision;
+    getline(file,str); assert( sscanf(str.c_str(),"PRECISION = %d",&read_precision) == 1 );
+    
+    bool single_prec = (read_precision == 1);
+    getline(file,str); assert(str == "END_HEADER");
+    getline(file,str); assert(str == "BEGIN_EVALS");
+
+    char dformatbuf[256];
+    getline(file,str); assert( sscanf(str.c_str(),"DATA_FORMAT = %s",dformatbuf) == 1 );
+    
+    unsigned int read_checksum;
+    getline(file,str); assert( sscanf(str.c_str(),"CHECKSUM = %u",&read_checksum) == 1 );
+
+    eval.resize(read_nvecs);
+    arrayIO<Grid::RealD> evalio(dformatbuf);
+    evalio.read(file,eval.data(),eval.size());
+    
+    assert( evalio.checksum(eval.data(),eval.size()) == read_checksum );
+
+    getline(file,str); assert(str == "END_EVALS");
+    getline(file,str); assert(str == "BEGIN_EVECS");
+
+    if(single_prec){
+      CPSfermion5Dcb4Dodd<cps::ComplexF> c_odd_f;
+      if(FrbGrid_f == NULL) setupSPgrids();
+      evec_f.resize(read_nvecs, FrbGrid_f);
+      for(int i=0;i<read_nvecs;i++){
+	c_odd_f.readParallel(file);
+	evec_f[i].checkerboard = Grid::Odd;
+	c_odd_f.exportGridField(evec_f[i]);
+      }
+    }else{
+      CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d;
+      Grid::GridRedBlackCartesian *FrbGrid = lat.getFrbGrid();
+      evec.resize(read_nvecs, FrbGrid);
+      for(int i=0;i<read_nvecs;i++){
+	c_odd_d.readParallel(file);
+	evec[i].checkerboard = Grid::Odd;
+	c_odd_d.exportGridField(evec[i]);
+      }
+    }
+
+    getline(file,str); assert(str == "END_EVECS");
+
+    file.close();
+  }
+
+  
+
+  
   void freeEvecs(){
     std::vector<typename GridPolicies::GridFermionField>().swap(evec); //evec.clear();
     std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);

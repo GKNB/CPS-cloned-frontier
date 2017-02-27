@@ -68,6 +68,105 @@ struct FPformat<std::complex<T> >{
   inline static FP_FORMAT get(){ return FPformat<T>::get(); }
 };
 
+template<typename T>
+class arrayIO{
+  FPConv conv;
+  FP_FORMAT fileformat;
+  FP_FORMAT dataformat;  
+  int dsize; //underlying floating point data type
+  int nd_in_T; //number of floats in T
+public:
+  arrayIO(FP_FORMAT _fileformat = FP_AUTOMATIC): fileformat(_fileformat){
+    dataformat = FPformat<T>::get();
+    if(fileformat == FP_AUTOMATIC)
+      fileformat = dataformat;
+    else if(conv.size(fileformat) != conv.size(dataformat))
+      ERR.General("arrayIO","arrayIO","Size of fileformat %s differs from size of data format %s\n",conv.name(fileformat),conv.name(dataformat));
+
+    conv.setHostFormat(dataformat);
+    conv.setFileFormat(fileformat);
+
+    dsize = conv.size(dataformat); //underlying floating point data type
+    assert(sizeof(T) % dsize == 0);
+    nd_in_T = sizeof(T)/dsize;
+  }
+  arrayIO(const char* _fileformat){
+    dataformat = FPformat<T>::get();
+
+    conv.setHostFormat(dataformat);
+    conv.setFileFormat(_fileformat);
+    fileformat = conv.fileFormat;
+
+    if(conv.size(fileformat) != conv.size(dataformat))
+      ERR.General("arrayIO","arrayIO","Size of fileformat %s differs from size of data format %s\n",conv.name(fileformat),conv.name(dataformat));
+    
+    dsize = conv.size(dataformat); //underlying floating point data type
+    assert(sizeof(T) % dsize == 0);
+    nd_in_T = sizeof(T)/dsize;
+  }
+  std::string getFileFormatString() const{ return conv.name(fileformat); }
+  
+  unsigned int checksum(T const* v, const int size){
+    return conv.checksum( (char*)v, nd_in_T*size, dataformat);    
+  }
+  void write(std::ostream &to, T const* v, const int size){
+    static const int chunk = 32768; //32kb chunks
+    assert(chunk % dsize == 0);
+    int fdinchunk = chunk/dsize;
+    char* wbuf = (char*)malloc(chunk * sizeof(char));     
+    char const* dptr = (char const*)v;
+    
+    int off = 0;
+    int nfd = nd_in_T*size;
+    while(off < nfd){
+      int grab = std::min(nfd-off, fdinchunk); //How many data elements to grab
+      int grabchars = grab * dsize;
+      conv.host2file(wbuf,dptr,grab);
+      to.write(wbuf,grabchars);
+      off += grab;
+      dptr += grabchars;
+    }
+    free(wbuf);
+    to << '\n';
+  }
+
+  void read(std::istream &from, T* v, const int size){
+    static const int chunk = 32768; //32kb chunks
+    assert(chunk % dsize == 0);
+    int fdinchunk = chunk/dsize;
+    char *rbuf = (char *)malloc(chunk * sizeof(char)); //leave room for auto null char      
+    char *dptr = (char *)v;
+
+    int off = 0;
+    int nfd = nd_in_T*size;
+    while(off < nfd){
+      int grab = std::min(nfd-off, fdinchunk); //How many data elements to grab
+      int grabchars = grab * dsize;
+      
+      from.read(rbuf,grabchars);
+      int got = from.gcount();
+      
+      if(from.gcount() != grabchars)
+	ERR.General("arrayIO","read","Only managed to read %d chars, needed %d\n",from.gcount(),grabchars);
+      
+      conv.file2host(dptr,rbuf,grab);
+      
+      off += grab;
+      dptr += grabchars;
+    }
+    free(rbuf);
+
+    from.ignore(1); //newline
+  }
+  
+};
+
+
+
+
+
+
+
 
 CPS_END_NAMESPACE
 

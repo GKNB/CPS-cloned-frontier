@@ -192,6 +192,14 @@ struct BFMLanczosWrapper{
     test_eigenvectors(*eig,eig->dop,true);
   }
 
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const{
+    ERR.General("BFMLanczosWrapper","writeParallel","Not yet implemented\n");
+  }  
+  void readParallel(const std::string &file_stub){
+    ERR.General("BFMLanczosWrapper","readParallel","Not yet implemented\n");
+  }
+    
+  
   void freeEvecs(){
     eig->free_bq();
   }

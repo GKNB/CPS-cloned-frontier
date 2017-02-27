@@ -249,9 +249,10 @@ int main(int argc,char *argv[])
 
   if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
-  if(1) testCPSfieldImpex();
+  if(0) testCPSfieldImpex();
 #ifdef USE_GRID
-  if(1) testGridFieldImpex<GridA2Apolicies>(lattice);
+  if(0) testGridFieldImpex<GridA2Apolicies>(lattice);
+  if(1) testLanczosIO<GridA2Apolicies>(lattice);
 #endif
   
   if(0) testCPSfieldIO();
