@@ -61,7 +61,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
 
   const char *fname="InvCg(V*,V*,F,F*) [bfm version]";
   double cg_time = -dclock();
-  unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
+  size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
   if(GJP.Gparity()) f_size_cb*=2;
   
   src_norm_sq = in->NormSqNode(f_size_cb);
@@ -299,7 +299,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
   char *fname="MInvCG(V**,V*,F,F*,i,i,F*,t,F*)[bfm WilsonTm version]";
 
   VRB.Func(cname,fname);
-  unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
   if(GJP.Gparity()) f_size_cb*=2;
 
   VRB.Result(cname,fname,"cps_qdp_init(GJP.argc_p(), GJP.argv_p())");

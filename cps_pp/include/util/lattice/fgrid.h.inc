@@ -791,7 +791,10 @@ if(1)
     SetParams (params);
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
     Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (Ddwf);
+    if (dag==DAG_NO)
     Mpc.Mpc (grid_rb_in, grid_rb_out);
+	else
+    Mpc.MpcDag(grid_rb_in, grid_rb_out);
     setCheckerboard (grid_out, grid_rb_out);
     ImportFermion (f_out, grid_out, Odd);
 #endif
@@ -894,6 +897,7 @@ if(1)
 //              LATTICE_FERMION X(FGrid),Y(FGrid);
 
     }
+//    grid_mom += -coef * 2. * (dSdU);
     grid_mom += -coef * 2. * Ta (dSdU);
 
     ImportGauge (mom, &grid_mom);

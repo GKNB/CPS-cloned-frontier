@@ -20,8 +20,8 @@ CPS_START_NAMESPACE
 #include <stdio.h>
 #include <string.h>
 CPS_START_NAMESPACE
-#define BOOTSTRAP		//need to be undef'd for regression testing with Gparity
-#define RNG_WARMUP
+#undef BOOTSTRAP		//need to be undef'd for regression testing with Gparity
+#define RNG_WARMUP		//need to turn off for non-Gparity regression!
 static const int OFFSET = 23;
 static const int N_WARMUP = 1000;
 
@@ -678,10 +678,10 @@ void LatRanGen::Initialize ()
 #endif
 	      index++;
 	      if (x[4] == x_o[4]) {
-		start_seed = base_seed + OFFSET * start_seed;
+		start_seed_4d = base_seed + OFFSET * start_seed_4d;
 		VRB.Debug (cname, fname, "index_4d=%d start_seed= %d\n",
 			     index_4d, start_seed_4d);
-		ugran_4d[index_4d].Reset (start_seed);
+		ugran_4d[index_4d].Reset (start_seed_4d);
 #ifdef BOOTSTRAP
 		{
 		  while (rng_count_4d < start_seed_4d) {
