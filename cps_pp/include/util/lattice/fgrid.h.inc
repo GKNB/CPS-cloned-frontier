@@ -313,7 +313,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 		  CgArg * cg_arg,
 		  Float * true_res, CnvFrmType cnv_frm = CNV_FRM_YES) {
     const char *fname ("FmatEvlInv()");
-#if 1
+#if 0
     Float shift[1],alph[1];
     shift[0]=0.; alph[0]=1.;
     CgArg *args[1];
@@ -381,7 +381,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
 //    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
-if(1)
+if(0)
     {
       VRB.Result (cname, fname, "running full double\n");
       time1 = dclock ();
@@ -390,11 +390,13 @@ if(1)
       CG_d (MdagMD, grid_rb_in, grid_rb_out);
       time2 = dclock ();
 
+#if 0
       Float total_flops =
 	(Float) GJP.VolNodeSites () * n_gp * (2 * 1440) * CG_d.iter;
       if (F5D ())
 	total_flops *= Ls;
       print_flops (fname, "CG(D)", total_flops, time2 - time1);
+#endif
       time1 = time2;
     } else {
       VRB.Result (cname, fname,
@@ -405,7 +407,6 @@ if(1)
       LATTICE_FERMION_F grid_in_f (FERM_GRID_F), psi_f (FERM_GRID_F);
       LATTICE_FERMION_F grid_rb_out_f (F_RB_GRID_F);
       LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F);
-//      precisionChange(grid_rb_out[i],grid_rb_out_f[i]);
 	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
 	CG_m (cg_arg->stop_rsd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
 	CG_m (grid_rb_in, grid_rb_out);
@@ -413,6 +414,8 @@ if(1)
       print_time (fname, "MixedCG", time2 - time1);
       time1 = time2;
     }
+    setCheckerboard (grid_out, grid_rb_out);
+    ImportFermion (f_out, grid_out, Odd);
 
 
     time2 = dclock ();
