@@ -31,14 +31,6 @@ vml_IFloat (VML *vmls, char *name,IFloat *objp)
 }
 
 bool_t
-vml_Integer (VML *vmls, char *name,Integer *objp)
-{
-	if (!vml_int64_t (vmls,name,objp))
-		return FALSE;
-	return TRUE;
-}
-
-bool_t
 vml_Pointer (VML *vmls, char *name,Pointer *objp)
 {
 	if (!vml_uint64_t (vmls,name,objp))

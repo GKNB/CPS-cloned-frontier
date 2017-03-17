@@ -262,8 +262,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Ddwf.M (grid_in, grid_out);
 #ifdef IF_TM
     LATTICE_FERMION grid_tmp (FERM_GRID);
-    grid_tmp = Grid::QCD::Gamma (Grid::QCD::Gamma::Gamma5) * grid_in;
-//      Grid::QCD::multGamma5(grid_tmp,grid_in);
+    grid_tmp = Grid::QCD::Gamma (Grid::QCD::Gamma::Algebra::Gamma5) * grid_in;
     grid_out += std::complex < double >(0, 1.) * grid_tmp;
 #endif
     ImportFermion (f_out, grid_out);
@@ -516,12 +515,13 @@ if(0)
 	MSCG (cg_arg[0]->max_num_iter, shifts);
       MSCG (MdagMD, grid_rb_in, grid_rb_out);
       time2 = dclock ();
-
+#if 0
       Float total_flops =
 	(Float) GJP.VolNodeSites () * n_gp * (2 * 1440) * MSCG.iter;
       if (F5D ())
 	total_flops *= Ls;
       print_flops (fname, "MultiCG(D)", total_flops, time2 - time1);
+#endif
       time1 = time2;
     } else {
       VRB.Result (cname, fname,
@@ -549,11 +549,13 @@ if(0)
       MSCG (MdagMF, grid_rb_in_f, grid_rb_out_f);
       time2 = dclock ();
 
+#if 0
       Float total_flops =
 	(Float) GJP.VolNodeSites () * n_gp * (2 * 1440) * MSCG.iter;
       if (F5D ())
 	total_flops *= Ls;
       print_flops (fname, "MultiCG(F)", total_flops, time2 - time1);
+#endif
       time1 = time2;
       for (int i = 0; i < Nshift; i++)
 	precisionChange (grid_rb_out[i], grid_rb_out_f[i]);
@@ -579,11 +581,14 @@ if(0)
 
       for (int i = 0; i < Nshift; i++) {
 //      precisionChange(grid_rb_out[i],grid_rb_out_f[i]);
+#if 0
 	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
 	  LATTICE_FERMION_F > CG_m (shifts.tolerances[i], maxinner, maxouter,
 				    F_RB_GRID_F, MdagMF, MdagMD);
 	RealD shift = shifts.poles[i];
 	CG_m (grid_rb_in, grid_rb_out[i], &shift);
+#else
+#endif
       }
       time2 = dclock ();
       print_time (fname, "ShiftedCG", time2 - time1);
