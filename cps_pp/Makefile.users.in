@@ -31,6 +31,9 @@ CXXFLAGS= @CXXFLAGS@
 ASFLAGS= @ASFLAGS@
 DFLAGS += @DFLAGS@
 
+libcps_CXXFLAGS = $(INCLIST) $(CXXFLAGS) $(DFLAGS)
+libcps_CFLAGS = $(INCLIST) $(CFLAGS) $(DFLAGS)
+
 #
 # Libraries for the Columbia code
 #
@@ -70,10 +73,10 @@ $(BIN):  $(OBJS) $(LIBLIST)
 	$(CXX) $(OBJS) -L$(BUILDDIR) -lcps  $(LDFLAGS) -o $(BIN)
 
 .c.o:
-	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CC) -o $@ $(libcps_CFLAGS)  -c $<
 .C.o:
-	$(CXX) -E $(CXXFLAGS) $(DFLAGS) $(INCLIST) $< > $*.i
-	$(CXX) -o $@ $(CXXFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CXX) -E $(libcps_CXXFLAGS) $< > $*.i
+	$(CXX) -o $@ $(libcps_CXXFLAGS) $<
 .S.o:
 	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
 

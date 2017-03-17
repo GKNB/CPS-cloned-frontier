@@ -99,11 +99,6 @@ SOBJ=$(SSRC:.S=.o)
 OBJS_SRC = $(SOBJ) $(CCOBJ) $(COBJ)
 OBJS := $(notdir $(OBJS_SRC))
 
-# XLCOBJ=$(CSRC:.c=.xlo)
-#XLCCOBJ=$(CCSRC:.C=.xlo)
-#XLCOBJS_SRC = $(XLCCOBJ) $(XLCOBJ)
-#XLCOBJS := $(notdir $(XLCOBJS_SRC))
-
 
 %.o:%.c
 	${CC} -c $< -o $(BUILDDIR2)/$@ ${libcps_CFLAGS}
@@ -116,22 +111,6 @@ endif
 	${CXX} -c $< -o $(BUILDDIR2)/$@ ${libcps_CXXFLAGS}
 ifneq ($(CONCUR),yes)
 	cd $(BUILDDIR2) ; ${AR} rcs ${BUILDDIR}/$(LIBNAME).a $@
-endif
-
-# %.xlo:%.c
-#	cd $(BUILDDIR2)/ ; xlC -F$(BUILDDIR)/XLC.cfg -S $< ${XLCFLAGS}
-#	xlC -F$(BUILDDIR)/XLC.cfg -c $< -o $(BUILDDIR2)/$@ ${XLCFLAGS}
-#ifneq ($(CONCUR),yes)
-#	cd $(BUILDDIR2) ; objcopy -R .eh_frame $@
-#	cd $(BUILDDIR2) ; ar  rcs ${BUILDDIR}/$(LIBNAME).xla $@
-#endif
-
-%.xlo:%.C
-	cd $(BUILDDIR2)/ ; xlC -F$(BUILDDIR)/XLC.cfg -S $< ${XLCFLAGS}
-	xlC -F$(BUILDDIR)/XLC.cfg -c $< -o $(BUILDDIR2)/$@ ${XLCFLAGS}
-ifneq ($(CONCUR),yes)
-	cd $(BUILDDIR2) ; objcopy -R .eh_frame $@
-	cd $(BUILDDIR2) ; ar  rcs ${BUILDDIR}/$(LIBNAME).xla $@
 endif
 
 %.o:%.S
@@ -147,9 +126,6 @@ depend: recurse
 ifeq ($(HAVE_MAKEDEPEND),yes)
 	cd $(SRCDIR2) ;makedepend -f$(BUILDDIR2)/Makefile_depend $(INCLUDE_FLAGS) $(DFLAGS) $(notdir $(CSRC)) $(notdir $(CCSRC))
 else
-######################################################################
-# use these lines if you don't have makedepend (is a bit slower)
-######################################################################
 	cd $(SRCDIR2) ; \
 	$(CXX) -M $(libcps_CXXFLAGS) $(notdir $(CSRC)) $(notdir $(CCSRC)) \
 	| sed -e 's/:.*\.[cC]/\:/g' > $(PWD)/Makefile_depend
