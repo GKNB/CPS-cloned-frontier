@@ -152,7 +152,7 @@ void init_qmp(int * argc, char ***argv) {
 //	peGrid.push_back(peGrid_t[i]);
 //	pePos.push_back(pePos_t[i]);
     }
-#if 1 //not yet tested
+#if 0 //not yet tested
 #ifdef USE_GRID
 	Grid::Grid_init(argc,argv);
 	FgridBase::grid_initted=true;

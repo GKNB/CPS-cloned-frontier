@@ -76,7 +76,7 @@ $(BIN):  $(OBJS) $(LIBLIST)
 	$(CC) -o $@ $(libcps_CFLAGS)  -c $<
 .C.o:
 	$(CXX) -E $(libcps_CXXFLAGS) $< > $*.i
-	$(CXX) -o $@ $(libcps_CXXFLAGS) $<
+	$(CXX) -o $@ $(libcps_CXXFLAGS) -c $<
 .S.o:
 	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
 
