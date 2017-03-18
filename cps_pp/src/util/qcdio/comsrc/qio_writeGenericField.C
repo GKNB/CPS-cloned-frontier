@@ -44,7 +44,7 @@ void qio_getGenField(char *buf_, size_t site_index, int count, void *arg)
   const size_t f_size = qio_genfield_glb. f_size_per_site;
   const int n_sites = qio_genfield_glb. n_sites;
 
-#if 1
+#if 0
   VRB.Result("","qio_geGenField", "%d %d %d %d %d %x\n", n_field, f_size, n_sites,count, site_index, buf_);
 #endif
 
