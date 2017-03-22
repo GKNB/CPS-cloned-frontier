@@ -494,7 +494,7 @@ namespace BFM_Krylov{
  //An implementation using the LAPACK package courtesy of Luchang
 #ifdef USE_LAPACK
   template <class T>
-  int lapackcj_Wilkinson(Matrix<T> &AH, vector<T> &tevals, vector<vector<T> > &tevecs, double small) {
+  int lapackcj_Wilkinson(Matrix<T> &AH, std::vector<T> &tevals, std::vector<std::vector<T> > &tevecs, double small) {
     double time = -cps::dclock();
     const int size = AH.dim;
     tevals.resize(size);
@@ -518,7 +518,7 @@ namespace BFM_Krylov{
 	  if (i==j) evals_tmp[i] = AA[i][j];
 	  if (j==(i-1)) EE[j] = AA[i][j];
 	  //        if (i<20 && j<20)
-	  QDPIO:: cout << "AA["<<i<<"]["<<j<<"]="<<AA[i][j]<<endl;
+	  QDPIO:: cout << "AA["<<i<<"]["<<j<<"]="<<AA[i][j]<<std::endl;
 	}
     int evals_found;
     int lwork = ( (18*NN) > (1+4*NN+NN*NN)? (18*NN):(1+4*NN+NN*NN)) ;
@@ -622,6 +622,7 @@ namespace BFM_Krylov{
     }
 
     cps::print_time("lapackcj_Wilkinson","run time",time+cps::dclock());
+    return 0;
   }
 #endif
 

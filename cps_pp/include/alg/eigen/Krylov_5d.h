@@ -39,6 +39,7 @@ void Krylov_5d<S>::toSingle() // Change bq to single precision
 
 	for(int i = 0; i < this->get; i++) {
 		bfm_fermion bq_tmp;
+		
 		for(int cb = this->prec; cb < 2; cb++) {
 			bq_tmp[cb] = (float *)bfm_alloc(words * sizeof(float),mem_slow);
 			if(bq_tmp[cb] == 0){ printf("bfmbase::allocFermion\n"); fflush(stdout); exit(-1);}

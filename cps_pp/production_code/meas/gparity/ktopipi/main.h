@@ -70,10 +70,7 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 
 //Command line argument store/parse
 struct CommandLineArgs{
-  int nthreads = 1;
-#if TARGET == BGQ
-  nthreads = 64;
-#endif
+  int nthreads;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
   bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
@@ -194,7 +191,7 @@ struct CommandLineArgs{
 	do_split_job = true;
 	split_job_part = strToAny<int>(argv[arg+1]);
 	checkpoint_dir = argv[arg+2];
-	if(!UniqueID()) printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir);
+	if(!UniqueID()) printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir.c_str());
 	arg+=3;       
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
@@ -378,12 +375,13 @@ void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &pa
   printMem();      
 
 #ifndef A2A_LANCZOS_SINGLE
-  if(evecs_single_prec){
+  if(evecs_single_prec){ 
     eig.toSingle();
     if(!UniqueID()) printf("Memory after single-prec conversion of %s quark evecs:\n",name);
     printMem();
   }
 #endif
+  eig.checkEvecMemGuards();
   delete lanczos_lat;
 }
 
@@ -793,6 +791,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
   computeVW(V, W, Light, params, eig, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
+  if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
   eig.freeEvecs();
   if(!UniqueID()) printf("Memory after light evec free:\n");
   printMem();

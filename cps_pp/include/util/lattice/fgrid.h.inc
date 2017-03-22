@@ -617,7 +617,7 @@ class GFCLASS(Gnone)
     }
 
     ~GFCLASS(Gnone)() {
-      const char *fname = "~"GFCLASS_NAME"()";
+      const char *fname = "~" GFCLASS_NAME "()";
       VRB.Func(cname,fname);
     }
     

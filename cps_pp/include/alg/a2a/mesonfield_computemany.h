@@ -108,8 +108,8 @@ class ComputeMesonFields{
 	fftw_V_base.gaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);
 # endif
 	
-	A2AvectorVfftw<mf_Policies> const* Vfftw_base_0 = bv == 0 ? &fftw_V_base : NULL;
-	A2AvectorVfftw<mf_Policies> const* Vfftw_base_1 = bv == 1 ? &fftw_V_base : NULL;
+	A2AvectorVfftw<mf_Policies> * Vfftw_base_0 = bv == 0 ? &fftw_V_base : NULL;
+	A2AvectorVfftw<mf_Policies> * Vfftw_base_1 = bv == 1 ? &fftw_V_base : NULL;
 #endif
 
 	if(!UniqueID()) printf("ComputeMesonFields::compute Memory after V FFT:\n");
@@ -140,8 +140,8 @@ class ComputeMesonFields{
 	    fftw_W_base.gaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
 # endif
 
-	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_0 = bw == 0 ? &fftw_W_base : NULL;
-	    A2AvectorWfftw<mf_Policies> const* Wfftw_base_1 = bw == 1 ? &fftw_W_base : NULL;
+	    A2AvectorWfftw<mf_Policies> * Wfftw_base_0 = bw == 0 ? &fftw_W_base : NULL;
+	    A2AvectorWfftw<mf_Policies> * Wfftw_base_1 = bw == 1 ? &fftw_W_base : NULL;
 #endif
 
 	    if(!UniqueID()) printf("ComputeMesonFields::compute Memory after W FFT:\n");

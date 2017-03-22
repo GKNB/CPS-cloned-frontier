@@ -434,7 +434,7 @@ struct AttributeContainer {
 };
 typedef struct AttributeContainer AttributeContainer;
 template <typename T> AttrType AttributeContainer::type_map(){
-	 return -1000;
+	 return AttrType(-1000);
 }
 template <> AttrType AttributeContainer::type_map<GenericPropAttrArg>();
 template <> AttrType AttributeContainer::type_map<PointSourceAttrArg>();

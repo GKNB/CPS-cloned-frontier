@@ -286,7 +286,6 @@ namespace BFM_Krylov{
     void qpoly(double beta, double alpha, bfm_fermion input, bfm_fermion &result);
     void shift_multiply(bfm_fermion input, bfm_fermion &result);
     void multiply(bfm_fermion input, bfm_fermion &result);
-
   };
 
   /// Constructor
@@ -393,8 +392,9 @@ namespace BFM_Krylov{
   template <class S> 
   void Krylov<S>::free_bq()
   {
-    for(int i = 0; i < bq.size(); i++)
+    for(int i = 0; i < bq.size(); i++){
       if(bq[i][0] != NULL || bq[i][1]!=NULL) this->free_fermion(bq[i]);
+    }
     bq.resize(0);
   }
 

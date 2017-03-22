@@ -5,6 +5,9 @@
 #ifdef USE_GRID
 #include <Grid/Grid.h>
 #endif
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 
 CPS_START_NAMESPACE
 

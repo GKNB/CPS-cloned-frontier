@@ -285,7 +285,7 @@ struct computeParamsMultiShift{
 
 
 struct KeyOnSpeciesAndMomentum{
-  inline bool operator()(const computeParams &l, const computeParams &r){ 
+  inline bool operator()(const computeParams &l, const computeParams &r) const{ 
     if(l.qidx_w < r.qidx_w) return true;
     else if(l.qidx_w > r.qidx_w) return false;
     

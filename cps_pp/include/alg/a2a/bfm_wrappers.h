@@ -10,6 +10,35 @@
 
 CPS_START_NAMESPACE
 
+//Check the guards haven't been overwritten
+inline int  bfm_checkptr (void *ptr,int size){
+  void *optr=ptr;
+  integer iptr = (integer)ptr;
+  iptr-=128;
+  int bad = 0;
+  ptr      = (void *) iptr;
+  unsigned char *cp = (unsigned char *)ptr;
+  for(int i=0;i<128;i++){
+    if ( cp[i]!=0x5A ) {
+      printf("Low Fence post @ %d overwritten (%2.2x %2.2x) pointer %lx \n",i,cp[i],0x5A,&cp[i]); fflush(stdout);
+      bad = 1 ;
+      break;
+    };
+  }
+  if ( size ) { 
+    for(int i=size+128;i<size+512;i++){
+      if ( cp[i]!=0xA5 ) {
+	printf("High Fence post @ %d overwritten (%2.2x %2.2x) pointer %lx \n",i-size-128,cp[i],0xA5,&cp[i]); fflush(stdout);
+	bad = 1 ;
+	break;
+      }
+    }  
+  }
+  return bad;
+}
+
+
+
 //Hold bfm instances
 struct BFMsolvers{
   bfm_evo<double> dwf_d;
@@ -25,7 +54,6 @@ struct BFMsolvers{
   
   static void setup_bfmargs(bfmarg &dwfa, int nthread, const double mass, const double residual, const int max_iter, const BfmSolver &solver = HmCayleyTanh, const double mobius_scale = 1.){
     if(!UniqueID()) printf("Setting up bfmargs\n");
-
     omp_set_num_threads(nthread);
 
     dwfa.node_latt[0] = GJP.XnodeSites();
@@ -52,6 +80,9 @@ struct BFMsolvers{
     dwfa.verbose=1;
     dwfa.reproduce=0;
     bfmarg::Threads(nthread);
+#ifdef USE_NEW_BFM_GPARITY
+    dwfa.threads = nthread;
+#endif
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -95,9 +126,6 @@ struct BFMsolvers{
       ERR.General("LatticeSolvers","constructor","Unknown solver\n");
     }
     setup_bfmargs(dwfa, nthreads, mass, residual, max_iters, solver, mobius_scale);
-#ifdef USE_NEW_BFM_GPARITY
-    dwf_d.threads = dwf_f.threads = nthreads;
-#endif
     dwf_d.init(dwfa);
     dwf_d.comm_end(); dwf_f.init(dwfa); dwf_f.comm_end(); dwf_d.comm_init();
   }
@@ -124,8 +152,9 @@ struct BFMsolvers{
 //Wrap the Lanczos
 struct BFMLanczosWrapper{
   BFM_Krylov::Lanczos_5d<double> *eig;
-
-  BFMLanczosWrapper(): eig(NULL){}
+  bool singleprec_evecs;
+  
+  BFMLanczosWrapper(): eig(NULL), singleprec_evecs(false){}
   
   void compute(const LancArg &lanc_arg, BFMsolvers &solvers){
     eig = new BFM_Krylov::Lanczos_5d<double>(solvers.dwf_d,const_cast<LancArg&>(lanc_arg)); //sets up the mass of dwf_d correctly
@@ -133,9 +162,10 @@ struct BFMLanczosWrapper{
 
     solvers.setMass(solvers.dwf_f, solvers.dwf_d.mass); //keep the single-prec solver in sync
     test_eigenvectors(*eig,solvers.dwf_d,false);
+    checkEvecMemGuards();
   }
 
-  static void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dwf, bool singleprec_evecs){
+  static void test_eigenvectors(BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> & dwf,bool singleprec_evecs){
     const int len = 24 * dwf.node_cbvol * (1 + dwf.gparity) * dwf.cbLs;
 #ifdef USE_NEW_BFM_GPARITY
     omp_set_num_threads(dwf.threads);
@@ -188,8 +218,10 @@ struct BFMLanczosWrapper{
   
   void toSingle(){
     eig->toSingle(); 
+    singleprec_evecs = true;
     //Test the single-prec converted eigenvectors to make sure we haven't dropped too much precision
     test_eigenvectors(*eig,eig->dop,true);
+    checkEvecMemGuards();
   }
 
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const{
@@ -199,9 +231,46 @@ struct BFMLanczosWrapper{
     ERR.General("BFMLanczosWrapper","readParallel","Not yet implemented\n");
   }
     
-  
+  //For debugging, check bfm's guard regions around the evec memory locations to ensure they have not been overwritten
+  void checkEvecMemGuards(){
+    if(!UniqueID()) printf("BFMLanczosWrapper: checkEvecMemGuards begin\n");
+    if(eig != NULL){
+      int words = 24 * eig->dop.node_cbvol * eig->dop.cbLs * (eig->dop.gparity ? 2:1);
+      int bytes = words * (singleprec_evecs ? sizeof(float) : sizeof(double) );
+      for(int i = 0; i < eig->bq.size(); i++)
+	for(int cb=eig->prec;cb<2;cb++)
+	  if(eig->bq[i][cb] != NULL){
+	    if(bfm_checkptr (eig->bq[i][cb], bytes)){
+	      printf("Node %d evec %d cb %d with ptr %p has had it's guards overwritten!\n",UniqueID(),i,cb,eig->bq[i][cb]); fflush(stdout); 
+	      exit(-1);
+	    }
+	  }
+    }
+    QMP_barrier();
+    if(!UniqueID()) printf("BFMLanczosWrapper: checkEvecMemGuards succeeded\n");
+  }
+
   void freeEvecs(){
-    eig->free_bq();
+    if(eig != NULL){
+      if(singleprec_evecs){ //have to deallocate manually because the fermion field size is different from what the Lanczos expects
+	int words = 24 * eig->dop.node_cbvol * eig->dop.cbLs * (eig->dop.gparity ? 2:1);
+	int bytes = words*sizeof(float);
+	
+	for(int i = 0; i < eig->bq.size(); i++){
+	  for(int cb=eig->prec;cb<2;cb++)
+	    if(eig->bq[i][cb] != NULL){
+	      printf("Free single prec evec %d with ptr %p\n",i,eig->bq[i][cb]); fflush(stdout);
+	      bfm_free(eig->bq[i][cb],bytes);
+	      eig->bq[i][cb] = NULL;
+	    }
+	}
+	printf("Resize evec array to zero\n"); fflush(stdout);
+	eig->bq.resize(0);
+	printf("Done freeEvecs()\n"); fflush(stdout);
+      }else{	
+	eig->free_bq();
+      }
+    }
   }
 
   void randomizeEvecs(const LancArg &lanc_arg, BFMsolvers &solvers){
@@ -256,10 +325,22 @@ struct BFMLanczosWrapper{
 
   
   ~BFMLanczosWrapper(){
-    if(eig != NULL)
+    if(eig != NULL){
+      freeEvecs();
       delete eig;
+    }
   }
 };
+
+
+
+
+
+
+
+
+
+
 
 CPS_END_NAMESPACE
 

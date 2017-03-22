@@ -353,7 +353,7 @@ std::pair< A2AvectorWfftw<mf_Policies>*, std::vector<int> > A2AvectorWfftw<mf_Po
   Float time = -dclock();
   
   std::vector<int> shift(3);
-  A2AvectorWfftw<mf_Policies>* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  A2AvectorWfftw<mf_Policies>* base = const_cast<A2AvectorWfftw<mf_Policies>*>(getBaseAndShift(&shift[0], p, base_p, base_m));
   if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
 
   base->shiftFieldsInPlace(shift);
@@ -409,7 +409,7 @@ std::pair< A2AvectorVfftw<mf_Policies>*, std::vector<int> > A2AvectorVfftw<mf_Po
   Float time = -dclock();
   
   std::vector<int> shift(3);
-  A2AvectorVfftw<mf_Policies>* base = getBaseAndShift(&shift[0], p, base_p, base_m);
+  A2AvectorVfftw<mf_Policies>* base = const_cast<A2AvectorVfftw<mf_Policies>*>(getBaseAndShift(&shift[0], p, base_p, base_m));
   if(base == NULL) ERR.General("A2AvectorWfftw","getTwistedFFT","Base pointer for twist momentum (%d,%d,%d) is NULL\n",p[0],p[1],p[2]);
 
   base->shiftFieldsInPlace(shift);

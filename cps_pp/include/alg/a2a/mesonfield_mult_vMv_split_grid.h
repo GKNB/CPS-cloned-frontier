@@ -459,7 +459,7 @@ public:
 
       for(int s=off[me];s<off[me]+work[me];s++){
 	int site4dop = s + sites_3d*top;
-	site_reorder_lr(lreord[s],rreord[s],conj_l,conj_r,site4dop);
+	this->site_reorder_lr(lreord[s],rreord[s],conj_l,conj_r,site4dop);
       }
       
       for(int s=off[me];s<off[me]+work[me];s++){

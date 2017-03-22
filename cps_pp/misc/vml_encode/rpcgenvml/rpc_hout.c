@@ -296,7 +296,7 @@ prpc_generate_union_typemap_code(definition *def){
   if(default_decl){
     f_print (fout, "\t return %s;\n",default_decl->type);
   }else{
-    f_print (fout, "\t return -1000;\n"); //this should cause a compiler error if it is instantiated to catch invalid types
+    f_print (fout, "\t return %s(-1000);\n",enum_type); //this should cause a compiler error if it is instantiated to catch invalid types
   }
   f_print( fout, "}\n");
 
