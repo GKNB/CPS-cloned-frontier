@@ -228,8 +228,8 @@ void writePion2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, 
   results.write(os.str());
 }
 
-#include "meas_standard.h"
-#include "meas_gparity.h"
+#include "meas_standard.tcc"
+#include "meas_gparity.tcc"
 
 
 void measurePion2ptLW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
