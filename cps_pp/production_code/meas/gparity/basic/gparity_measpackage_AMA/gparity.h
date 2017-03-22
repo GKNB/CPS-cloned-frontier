@@ -1,6 +1,16 @@
 #ifndef _GPARITY_H
 #define _GPARITY_H
 
+#include <string>
+#include <vector>
+#include <util/gjp.h>
+#include <alg/do_arg.h>
+#include <alg/bfm_arg.h>
+#include <alg/lanc_arg.h>
+#include <alg/fix_gauge_arg.h>
+#include <alg/gparity_contract_arg.h>
+#include <util/lattice/fbfm.h>
+
 CPS_START_NAMESPACE
 
 template<class T>
@@ -73,7 +83,7 @@ void init_fbfm(int *argc, char **argv[], const BfmArg &args)
   if(!UniqueID()) printf("Initializing Fbfm\n");
   // /*! IMPORTANT: BfmSolverType is not the same as the BfmSolver in the bfm package. BfmSolverType is defined in enum.x. Basically it adds a BFM_ prefix to the corresponding names in the BfmSolver enum. */
   cps_qdp_init(argc,argv);
-  Chroma::initialize(argc, argv);
+//Chroma::initialize(argc, argv);
   multi1d<int> nrow(Nd);
   
   for(int i = 0; i< Nd; ++i)
@@ -124,12 +134,14 @@ void init_fbfm(int *argc, char **argv[], const BfmArg &args)
     printf("\n");
   }else if(!UniqueID()) printf("Standard boundary conditions\n");
 
-  // mobius_scale = b + c in Andrew's notation
-  bfmarg::mobius_scale = args.mobius_scale;
-
   //Fbfm::current_arg_idx = 0;
-
-  bfmarg::Threads(args.threads); 
+#ifdef USE_NEW_BFM_GPARITY
+  Fbfm::bfm_args[0].threads = args.threads;
+  Fbfm::bfm_args[0].mobius_scale = args.mobius_scale;  // mobius_scale = b + c in Andrew's notation
+#else
+  bfmarg::Threads(args.threads);
+  bfmarg::mobius_scale = args.mobius_scale;
+#endif
   omp_set_num_threads(args.threads);
 
   bfmarg::Reproduce(0);

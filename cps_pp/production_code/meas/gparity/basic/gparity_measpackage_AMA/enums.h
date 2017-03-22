@@ -1,5 +1,8 @@
 #ifndef GP_MEAS_ENUMS_H
 #define GP_MEAS_ENUMS_H
+
+#include<config.h>
+
 CPS_START_NAMESPACE
 
 enum PropPrecision { Sloppy, Exact };

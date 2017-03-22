@@ -1,6 +1,16 @@
 #ifndef _TESTS_GPARITY_AMA
 #define _TESTS_GPARITY_AMA
 
+#include <util/time_cps.h>
+#include <alg/fix_gauge_arg.h>
+#include <alg/alg_fix_gauge.h>
+#include <alg/bfm_arg.h>
+#include <alg/prop_dft.h>
+#include "meas.h"
+#include "lattice_doubleT.h"
+#include "cshift.h"
+#include "gparity.h"
+
 CPS_START_NAMESPACE
 
 bool exit_on_error = true;

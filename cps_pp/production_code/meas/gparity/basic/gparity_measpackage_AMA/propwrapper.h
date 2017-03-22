@@ -1,8 +1,13 @@
 #ifndef _PROP_WRAPPER_H
 #define _PROP_WRAPPER_H
 
+#include <cassert>
+#include <omp.h>
 #include <util/spincolorflavormatrix.h>
+#include <alg/a2a/CPSfield_policies.h>
+#include <alg/a2a/fmatrix.h>
 #include "enums.h"
+
 
 CPS_START_NAMESPACE
 //Wrapper representing a propagator with a particular source momentum

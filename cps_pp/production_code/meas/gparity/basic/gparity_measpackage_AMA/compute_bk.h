@@ -1,6 +1,9 @@
 #ifndef _COMPUTE_BK_AMA_H
 #define _COMPUTE_BK_AMA_H
 
+#include "prop_sitematrix_getter.h"
+#include "spin_flav_op.h"
+
 CPS_START_NAMESPACE
 
 //We compute B_K for a given first kaon timeslice (t0) and a fixed K->K separation for each operator insertion time. The sink kaon timeslice is t1 = (t0 + tsep) % Lt

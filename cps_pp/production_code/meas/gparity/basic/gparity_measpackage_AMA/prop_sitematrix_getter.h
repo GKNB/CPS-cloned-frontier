@@ -4,6 +4,7 @@
 #include "propwrapper.h"
 #include "propmomcontainer.h"
 #include "prop_tag.h"
+#include "wallsinkprop.h"
 
 CPS_START_NAMESPACE
 

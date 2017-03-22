@@ -1,6 +1,12 @@
 #ifndef _SPIN_FLAV_H
 #define _SPIN_FLAV_H
 
+#include<util/gjp.h>
+#include<util/flavormatrix.h>
+#include<alg/wilson_matrix.h>
+#include<util/spincolorflavormatrix.h>
+#include<alg/a2a/threemomentum.h>
+
 CPS_START_NAMESPACE
 
 //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)

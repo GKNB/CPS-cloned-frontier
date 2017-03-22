@@ -1,7 +1,10 @@
 #ifndef _MESON_MOMENTA_H
 #define _MESON_MOMENTA_H
 
+#include <vector>
+#include <iostream>
 #include <alg/a2a/threemomentum.h>
+#include "enums.h"
 
 CPS_START_NAMESPACE
 

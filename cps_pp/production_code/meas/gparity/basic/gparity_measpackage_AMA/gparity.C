@@ -13,69 +13,15 @@
 #warning "Compiling for TEST mode"
 #endif
 
-#include <config.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
-#include <util/qcdio.h>
-#ifdef PARALLEL
-#include <comms/sysfunc_cps.h>
-#endif
-#include <comms/scu.h>
-#include <comms/glb.h>
-
-#include <util/lattice.h>
-#include<util/lattice/fbfm.h>
-#include <util/time_cps.h>
-#include <util/smalloc.h>
-
-#include <util/ReadLatticePar.h>
-#include <util/WriteLatticePar.h>
-
-#include <util/command_line.h>
-
-#include<unistd.h>
-#include<config.h>
-
-#include <util/data_shift.h>
-
-#include <alg/propmanager.h>
 #include <alg/alg_fix_gauge.h>
-#include <alg/gparity_contract_arg.h>
-#include <alg/alg_gparitycontract.h>
-#include <alg/prop_dft.h>
-#include <alg/eigen/Krylov_5d.h>
-
-#ifdef USE_EIGEN
-//Stupid header guard conflict between eigen and chroma
-#undef EIGEN_IO_H
-#endif
-#include <chroma.h>
-
-#include <omp.h>
-#include <pthread.h>
-
-#include <alg/bfm_arg.h>
-
-#include <alg/a2a/threemomentum.h>
-#include <alg/a2a/utils.h>
-#include <alg/a2a/fmatrix.h>
-
-#include "propmomcontainer.h"
-#include "mesonmomenta.h"
-#include "wallsinkprop.h"
 #include "meas.h"
-#include "gparity.h"
-#include "lattice_doubleT.h"
 #include "cshift.h"
+#include "gparity.h"
 #include "tests.h"
-
 
 USING_NAMESPACE_CPS
 
-//#define TESTING
+#define TESTING
 
 int main(int argc,char *argv[])
 {
@@ -474,3 +420,5 @@ int main(int argc,char *argv[])
   }
   return 0;
 }
+
+

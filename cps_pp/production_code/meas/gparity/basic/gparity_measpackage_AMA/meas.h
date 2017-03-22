@@ -8,7 +8,9 @@
 #include "compute_bk.h"
 #include "enums.h"
 #include "prop_tag.h"
+#include "mesonmomenta.h"
 #include <alg/eigen/Krylov_5d.h>
+#include <util/lattice/fbfm.h>
 
 CPS_START_NAMESPACE
 

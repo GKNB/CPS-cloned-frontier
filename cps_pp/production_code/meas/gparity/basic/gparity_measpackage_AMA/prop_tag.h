@@ -1,6 +1,11 @@
 #ifndef _AMA_PROP_TAG_H
 #define _AMA_PROP_TAG_H
 
+#include <cassert>
+#include <string>
+#include <util/gjp.h>
+#include <alg/enum_int.h>
+#include <alg/a2a/threemomentum.h>
 #include "enums.h"
 
 CPS_START_NAMESPACE
