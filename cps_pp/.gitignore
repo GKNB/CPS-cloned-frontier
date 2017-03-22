@@ -1,0 +1,6 @@
+*.o
+*.stmp
+*.stmp2
+include/input/vml.done
+misc/vml_encode/rpcgenvml/rpcgenvml
+*~
