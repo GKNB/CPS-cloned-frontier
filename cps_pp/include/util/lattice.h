@@ -748,6 +748,11 @@ class Lattice
     //! Not implemented here.
     virtual void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg, 
 		 CnvFrmType cnv_frm, int dir_flag);
+    virtual void MatPc (Vector * f_out, Vector * f_in, Float mass, Float epsilon,
+              DagType dag){
+	ERR.NotImplemented(cname,"MatPc");
+    }
+
 
     // dir_flag is flag which takes value 0 when all direction contribute to D
     // 1 - when only the special anisotropic direction contributes to D,
@@ -850,13 +855,8 @@ class Lattice
     }
 
     //~~ added F_CLASS_WILSON_TM for twisted mass fermions
-    int FwilsonType(){
-      if (Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_CLOVER || 
-	  Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-	  || Fclass()==F_CLASS_ZMOBIUS 
-        || Fclass() ==F_CLASS_WILSON_TM || Fclass() ==F_CLASS_NAIVE
-        || Fclass() ==F_CLASS_BFM ) return 1;
-      else return 0;
+    virtual int FwilsonType(){
+      return 0;
     }
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.

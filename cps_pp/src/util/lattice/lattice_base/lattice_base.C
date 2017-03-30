@@ -4254,7 +4254,8 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
 
   int s_node_sites = GJP.SnodeSites();
   VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D());
-  if(frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D()) ) {
+  if(frm_dim == FOUR_D || s_node_sites < 2 || 
+(!(this->F5D()) && Fclass()!= F_CLASS_GRID_ZMOBIUS) ) {
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {

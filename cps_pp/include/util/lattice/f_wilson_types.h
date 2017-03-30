@@ -1,7 +1,10 @@
+#include<config.h>
+//#include<util/dirac_op.h>
 #ifndef INCLUDED_F_WILSON_TYPES_H
 #define INCLUDED_F_WILSON_TYPES_H           //!< Prevent multiple inclusion
 
 #include<util/dwf.h>
+//#include<util/error.h>
 
 CPS_START_NAMESPACE
 
@@ -97,6 +100,9 @@ class FwilsonTypes : public virtual Lattice
     //!< Method to ensure bosonic force works (does nothing for Wilson
     //!< theories.
     void BforceVector(Vector *in, CgArg *cg_arg);
+    virtual int FwilsonType(){
+      return 1;
+    }
 };
 
 
@@ -1242,6 +1248,8 @@ class Fzmobius : public FdwfBase {
 
     void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag);
+    void MatPc (Vector * f_out, Vector * f_in, Float mass, Float epsilon,
+              DagType dag);
 };
 
 CPS_END_NAMESPACE

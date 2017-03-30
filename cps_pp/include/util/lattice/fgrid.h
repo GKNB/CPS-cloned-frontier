@@ -2,6 +2,7 @@
 #define INCLUDED_FGRID_H
 #include<stdlib.h>
 #include<config.h>
+#include<assert.h>
 #ifdef USE_GRID
 #include<util/lattice.h>
 #include<util/time_cps.h>
@@ -29,14 +30,15 @@ public:
   }
   ~FgridParams () {
   }
-  void setZmobius(cps::Complex  *b, int ls){
+//  void setZmobius(cps::Complex  *b, int ls){
+  void setZmobius(std::vector< std::complex<double> > bs ){
 // assumes b=1 c=0
     omega.clear();
-    for(int i =0;i<ls;i++){
+    for(int i =0;i<bs.size();i++){
 //    std::complex<double> bs(b[2*i],b[2*i+1]);
-    std::complex<double> temp = 1./(2.*b[i] -1.);
+    std::complex<double> temp = 1./(2.*bs[i] -1.);
     VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
-	i,b[i].real(),b[i].imag(), i,temp.real(),temp.imag());
+	i,bs[i].real(),bs[i].imag(), i,temp.real(),temp.imag());
     omega.push_back(temp);
     }
 //  exit(-40);
@@ -510,6 +512,8 @@ CPS_END_NAMESPACE
 
 #undef GRID_GPARITY
 #define IF_FIVE_D 
+#define GRID_ZMOB 
+
 #define FGRID FgridZmobius
 #define CLASS_NAME F_CLASS_GRID_ZMOBIUS
 #define DIRAC Grid::QCD::ZMobiusFermionD
@@ -524,6 +528,7 @@ CPS_END_NAMESPACE
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
+#undef GRID_ZMOB 
 #undef IF_TM
 #undef FGRID
 #undef CLASS_NAME

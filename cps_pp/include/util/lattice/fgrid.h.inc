@@ -235,7 +235,18 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     std::vector < int >twists = SetTwist ();
     params.twists = twists;
 #endif
+#ifdef GRID_ZMOB
+//      this->setZmobius(GJP.zmobius_b);
+// assumes b=1 c=0
+    this->omegas.clear();
+    for(int i =0;i<GJP.zmobius_b.size();i++){
+    std::complex<double> temp = 1./(2.*GJP.zmobius_b[i] -1.);
+    VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
+        i,GJP.zmobius_b[i].real(),GJP.zmobius_b[i].imag(), i,temp.real(),temp.imag());
+    this->omegas.push_back(temp);
+    }
 
+#endif
   }
 
 
@@ -671,6 +682,9 @@ if(0)
     LATTICE_FERMION grid_in (FERM_GRID), grid_out (FERM_GRID);
     DIRAC::ImplParams params;
     SetParams (params);
+    VRB.Result(cname,fname,"DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
+Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
+
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
 
 #ifndef IF_TM
@@ -1050,7 +1064,7 @@ if(0)
     return phi->ReDotProductNode (chi, f_size);
   }
 
-#if 1
+#if 0
   // doing nothing for now
   // Convert fermion field f_field from -> to
   void Fconvert (Vector * f_field, StrOrdType to, StrOrdType from)
@@ -1087,8 +1101,10 @@ if(0)
   int F5D () const
   {
 #ifdef IF_FIVE_D
+//   printf("F5D() should be 1!\n");
     return 1;
 #else
+//   printf("F5D() should be 0!\n");
     return 0;
 #endif
   }

@@ -517,7 +517,7 @@ static void UmuTimes(Float *into, Float *u, Float *psi, const int &mu, const int
 CPS_END_NAMESPACE
 #else //USE_QMP
 #ifdef USE_SSE
-#include "../sse/sse-wilson_dslash.C"
+#include "sse-wilson_dslash.C"
 #else
 #if 1 
 #include "../qmp/wilson_dslash_vec.C"
