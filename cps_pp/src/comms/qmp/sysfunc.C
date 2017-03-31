@@ -152,7 +152,6 @@ void init_qmp(int * argc, char ***argv) {
 //	peGrid.push_back(peGrid_t[i]);
 //	pePos.push_back(pePos_t[i]);
     }
-#if 0 //not yet tested
 #ifdef USE_GRID
 	Grid::Grid_init(argc,argv);
 	FgridBase::grid_initted=true;
@@ -167,7 +166,6 @@ void init_qmp(int * argc, char ***argv) {
 	}
 	QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
 	QMP_comm_set_default(qmp_comm);
-#endif
 #endif
 
     if(peRank==0){
