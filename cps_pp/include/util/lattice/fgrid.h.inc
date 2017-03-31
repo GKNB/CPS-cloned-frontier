@@ -661,20 +661,14 @@ if(0)
 //    ERR.NotImplemented (cname, "FminResExt");
   }
 
-//  int FmatInv (Vector * f_out, Vector * f_in,
-//	       CgArg * cg_arg,
-//	       Float * true_res,
-//	       CnvFrmType cnv_frm = CNV_FRM_YES,
-//	       PreserveType prs_f_in = PRESERVE_YES) {
   int FmatInv(Vector *f_out, Vector *f_in, 
 	      CgArg *cg_arg, 
 	      Float *true_res,
 	      CnvFrmType cnv_frm ,
 	      PreserveType prs_f_in ,int if_dminus){
     const char *fname ("FmatInv()");
-#if 1
     mass = cg_arg->mass;
-    VRB.Debug (cname, fname, "mass=%0.14g\n", mass);
+    VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass,if_dminus);
     RealD M5 = GJP.DwfHeight ();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
@@ -688,8 +682,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
 
 #ifndef IF_TM
-    if(if_dminus){
-#if 0
+    if(if_dminus==1){
+#if 1
 //was broken in Grid.
         ImportFermion (grid_out, f_in);
         Ddwf.Dminus(grid_out,grid_in);
@@ -700,8 +694,14 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 	double mob_c = mob_b-1.;
 	axpy(grid_in,-mob_c,grid_out,grid_in);
 #endif
+    } else if(if_dminus==-1){
+        ImportFermion (grid_out, f_in);
+        Ddwf.Dminus(grid_out,grid_in);
+        ImportFermion (f_out, grid_in);
+	return 0;
     } else 
 #endif
+    
         ImportFermion (grid_in, f_in);
 
     ImportFermion (grid_out, f_out);
@@ -712,7 +712,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     {
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
 						      cg_arg->max_num_iter);
-      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+//      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+      Grid::SchurRedBlackDiagTwoSolve < LATTICE_FERMION > SchurSolver (CG);
       SchurSolver (Ddwf, grid_in, grid_out);
     }
     if (true_res) {
@@ -723,7 +724,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
       VRB.Result (cname, fname, "true_res=%g\n", *true_res);
     }
     ImportFermion (f_out, grid_out);
-#endif
+   return 0;
   }
   int FmatInv(Vector *f_out, Vector *f_in, 
 	      CgArg *cg_arg, 

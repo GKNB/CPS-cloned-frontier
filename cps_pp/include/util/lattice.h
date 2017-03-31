@@ -1090,6 +1090,13 @@ class Lattice
                         Float *true_res,
 			CnvFrmType cnv_frm = CNV_FRM_YES,
 			PreserveType prs_f_in = PRESERVE_YES) = 0;
+    virtual int FmatInv(Vector *f_out, Vector *f_in,
+                CgArg *cg_arg,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in, int dminus)
+	{ return FmatInv(f_out, f_in, cg_arg, true_res , cnv_frm,prs_f_in); }
+
     virtual int FmatInvTest(Vector *f_out, Vector *f_in,
                 CgArg *cg_arg,
                 Float *true_res,
