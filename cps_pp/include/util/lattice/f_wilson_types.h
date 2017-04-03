@@ -680,20 +680,14 @@ class FdwfBase : public virtual FwilsonTypes
     FclassType Fclass() const;
         // It returns the type of fermion class
 
+//    virtual int F5D(){return 1;}
+
     int FsiteOffsetChkb(const int *x) const;
         // Sets the offsets for the fermion fields on a 
         // checkerboard. The fermion field storage order
         // is not the canonical one but it is particular
         // to the Dwf fermion type. x[i] is the 
         // ith coordinate where i = {0,1,2,3,4} = {x,y,z,t,s}.
-
-#if 0
-    int FsiteOffset(const int *x) const;
-        // Sets the offsets for the fermion fields on a 
-        // checkerboard. The fermion field storage order
-        // is the canonical one. X[I] is the
-        // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
-#endif
 
     int FsiteSize() const;
         // Returns the number of fermion field 
@@ -945,6 +939,7 @@ class Fmdwf : public virtual Lattice {
   FclassType Fclass() const;
   // It returns the type of fermion class
   
+//  virtual int F5D(){return 1;}
   //! Multiplication of a lattice spin-colour vector by gamma_5.
   void Gamma5(Vector *v_out, Vector *v_in, int num_sites);
 
@@ -1215,6 +1210,8 @@ class Fzmobius : public FdwfBase {
     ~Fzmobius(void);
 
     FclassType Fclass(void) const;
+
+//    virtual int F5D(){return 1;}
 
     int FmatInv(Vector *f_out, Vector *f_in, 
 		CgArg *cg_arg, 

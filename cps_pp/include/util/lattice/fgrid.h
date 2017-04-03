@@ -30,11 +30,11 @@ public:
   }
   ~FgridParams () {
   }
-//  void setZmobius(cps::Complex  *b, int ls){
-  void setZmobius(std::vector< std::complex<double> > bs ){
+  void setZmobius(cps::Complex  *bs, int ls){
+//  void setZmobius(std::vector< std::complex<double> > bs ){
 // assumes b=1 c=0
     omega.clear();
-    for(int i =0;i<bs.size();i++){
+    for(int i =0;i<ls;i++){
 //    std::complex<double> bs(b[2*i],b[2*i+1]);
     std::complex<double> temp = 1./(2.*bs[i] -1.);
     VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",

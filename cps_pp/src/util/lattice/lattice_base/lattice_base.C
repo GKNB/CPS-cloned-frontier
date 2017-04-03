@@ -14,9 +14,6 @@
 //------------------------------------------------------------------
 
 #include <util/lattice.h>
-//#ifdef USE_GRID
-//#include <util/lattice/fgrid.h> // for F5D()
-//#endif
 #include <util/vector.h>
 #include <util/gjp.h>
 #include <util/pmalloc.h>
@@ -4887,6 +4884,7 @@ void
 }
 #endif
 
+#if 0
 int Lattice::F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
 #ifdef USE_BFM
@@ -4894,11 +4892,13 @@ int Lattice::F5D(){
 #endif
 #ifdef USE_GRID
       || Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS
 #endif
            || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
 	return 1;
       else return 0;
 }
+#endif
 
 int
   Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,

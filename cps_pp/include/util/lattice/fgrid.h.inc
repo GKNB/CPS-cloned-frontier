@@ -41,7 +41,7 @@ private:
 		       Float * fac)
   {
     const char *fname = "ImpexFermion()";
-    VRB.Debug (cname, fname, "%p %p %d %d\n", cps_f, &grid_f, cps2grid, eo);
+    VRB.Result (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f, cps2grid, eo,this->F5D());fflush(stdout);fflush(stderr);
     if (fac)
       VRB.Result (cname, fname, "fac=%g\n", *fac);
     if (!cps_f)
@@ -74,7 +74,7 @@ private:
 	pos[i] = grid_coor[i + offset];
       if ((ncb > 1) || (pos[0] + pos[1] + pos[2] + pos[3]) % 2 == eo)
 	if (cps2grid) {
-//                      printf("%d: %s:%s: site=%d grid_coor=%d %d %d %d %d 4dindex = %d \n", UniqueID(),cname,fname, site,grid_coor[0],grid_coor[1],grid_coor[2],grid_coor[3],grid_coor[4], (FsiteOffset(pos)/(2/ncb)) );
+  //                    printf("%d: %s:%s: site=%d grid_coor=%d %d %d %d %d 4dindex = %d \n", UniqueID(),cname,fname, site,grid_coor[0],grid_coor[1],grid_coor[2],grid_coor[3],grid_coor[4], (FsiteOffset(pos)/(2/ncb)) );fflush(stdout);
 	  for (int gp = 0; gp < n_gp; gp++)
 	    for (int s = 0; s < Ns; s++)
 	      for (int i = 0; i < Nc; i++) {
@@ -235,7 +235,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     std::vector < int >twists = SetTwist ();
     params.twists = twists;
 #endif
-#ifdef GRID_ZMOB
+//#ifdef GRID_ZMOB
+#if 0 
 //      this->setZmobius(GJP.zmobius_b);
 // assumes b=1 c=0
     this->omegas.clear();
@@ -701,8 +702,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 	return 0;
     } else 
 #endif
-    
-        ImportFermion (grid_in, f_in);
+    ImportFermion (grid_in, f_in);
 
     ImportFermion (grid_out, f_out);
 
@@ -1099,16 +1099,18 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     ERR.NotImplemented (cname, "BforceVec");
   }
 
+#if 0
   int F5D () const
   {
 #ifdef IF_FIVE_D
-//   printf("F5D() should be 1!\n");
+//   VRB.Result(cname,"F5D()"," should be 1\n");
     return 1;
 #else
-//   printf("F5D() should be 0!\n");
+//   VRB.Result(cname,"F5D()"," should be 0\n");
     return 0;
 #endif
   }
+#endif
 
 #include "fgrid_lanczos.h.inc"
 
