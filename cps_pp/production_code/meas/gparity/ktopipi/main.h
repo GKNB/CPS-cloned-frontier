@@ -381,7 +381,9 @@ void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &pa
     printMem();
   }
 #endif
+#ifdef USE_BFM_LANCZOS
   eig.checkEvecMemGuards();
+#endif
   delete lanczos_lat;
 }
 
@@ -842,10 +844,34 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   delete a2a_lat;
 }
 
+void checkWriteable(const std::string &dir,const int conf){
+  std::string file;
+  {
+    std::ostringstream os; os << dir << "/writeTest.node" << UniqueID() << ".conf" << conf;
+    file = os.str();
+  }
+  std::ofstream of(file);
+  double fail = 0;
+  if(!of.good()){ std::cout << "checkWriteable failed to open file for write: " << file << std::endl; std::cout.flush(); fail = 1; }
+
+  of << "Test\n";
+  if(!of.good()){ std::cout << "checkWriteable failed to write to file: " << file << std::endl; std::cout.flush(); fail = 1; }
+
+  glb_sum_five(&fail);
+
+  if(fail != 0.){
+    if(!UniqueID()){ printf("Disk write check failed\n");  fflush(stdout); }
+    exit(-1);
+  }else{
+    if(!UniqueID()){ printf("Disk write check passed\n"); fflush(stdout); }
+  }
+}
+
+
 void doConfigurationSplit(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 			  const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, COMPUTE_EVECS_EXTRA_ARG_GRAB){
-
+  checkWriteable(cmdline.checkpoint_dir,conf);
   params.meas_arg.TrajCur = conf;
 
   std::string dir(params.meas_arg.WorkDirectory);
@@ -865,7 +891,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
       LanczosWrapper eig;
       computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
-      if(!UniqueID()) printf("Writing light Lanczos to %s\n",os.str().c_str());
+      if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
       eig.writeParallel(os.str());
       time+=dclock();
@@ -888,7 +914,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
-      if(!UniqueID()) printf("Writing V_s to %s\n",os.str().c_str());
+      if(!UniqueID()){ printf("Writing V_s to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
       V_s.writeParallel(os.str());
       time+=dclock();
@@ -896,7 +922,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     }
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.W_s.cfg" << conf;
-      if(!UniqueID()) printf("Writing W_s to %s\n",os.str().c_str());
+      if(!UniqueID()){ printf("Writing W_s to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
       W_s.writeParallel(os.str());
       time+=dclock();
