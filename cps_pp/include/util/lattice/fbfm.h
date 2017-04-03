@@ -125,7 +125,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
         return F_CLASS_BFM;
     }
 
-#if 0
+#if 1
     virtual int F5D(){
       if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) ) return 1;
       else return 0;

@@ -855,13 +855,33 @@ class Lattice
     }
 
     //~~ added F_CLASS_WILSON_TM for twisted mass fermions
-    virtual int FwilsonType(){
+    virtual int FwilsonType()
+#if 0
+    {return 0;}
+#else
+     {
+      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
+       if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
+       if(Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_WILSON_TM ) return 1;
+       if(Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_CLOVER ) return 1;
+#ifdef USE_BFM
+     if ( (Fclass() == F_CLASS_BFM) ) return 1;
+#endif
+#ifdef USE_GRID
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_WILSON_TM || Fclass()==F_CLASS_GRID_WILSON_TM )
+      return 1;
+#endif
       return 0;
-    }
+     }
+#endif
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
     virtual int F5D()
-#if 1
+#if 0
+    {return 0;}
+#else
      {
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
        if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
@@ -873,9 +893,7 @@ class Lattice
       || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
 #endif
       return 0;
-}
-#else
-{return 0;};
+     }
 #endif
 
 

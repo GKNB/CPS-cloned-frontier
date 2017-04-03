@@ -100,9 +100,7 @@ class FwilsonTypes : public virtual Lattice
     //!< Method to ensure bosonic force works (does nothing for Wilson
     //!< theories.
     void BforceVector(Vector *in, CgArg *cg_arg);
-    virtual int FwilsonType(){
-      return 1;
-    }
+//    virtual int FwilsonType(){ return 1; }
 };
 
 
@@ -680,7 +678,7 @@ class FdwfBase : public virtual FwilsonTypes
     FclassType Fclass() const;
         // It returns the type of fermion class
 
-//    virtual int F5D(){return 1;}
+    virtual int F5D(){return 1;}
 
     int FsiteOffsetChkb(const int *x) const;
         // Sets the offsets for the fermion fields on a 
@@ -939,7 +937,7 @@ class Fmdwf : public virtual Lattice {
   FclassType Fclass() const;
   // It returns the type of fermion class
   
-//  virtual int F5D(){return 1;}
+  virtual int F5D(){return 1;}
   //! Multiplication of a lattice spin-colour vector by gamma_5.
   void Gamma5(Vector *v_out, Vector *v_in, int num_sites);
 
