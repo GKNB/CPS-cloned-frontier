@@ -65,7 +65,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
 
 }
 
-#undef SINGLE
+#define SINGLE
 
 int FeigSolv (Vector ** f_eigenv, Float * lambda,
 	      LanczosArg * eig_arg, CnvFrmType cnv_frm)
