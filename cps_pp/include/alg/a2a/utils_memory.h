@@ -125,12 +125,12 @@ public:
 };
 
 
-inline double byte_to_MB(const int b){
+inline double byte_to_MB(const size_t b){
   return double(b)/1024./1024.;
 }
 
 //Print memory usage
-inline void printMem(){
+inline void printMem(int node = 0){
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
   uint64_t shared, persist, heapavail, stackavail, stack, heap, guard, mmap;
@@ -143,10 +143,10 @@ inline void printMem(){
   Kernel_GetMemorySize(KERNEL_MEMSIZE_GUARD, &guard);
   Kernel_GetMemorySize(KERNEL_MEMSIZE_MMAP, &mmap);
 
-  if(!UniqueID()){
-    printf("printMem: Allocated heap: %.2f MB, avail. heap: %.2f MB\n", (double)heap/(1024*1024),(double)heapavail/(1024*1024));
-    printf("printMem: Allocated stack: %.2f MB, avail. stack: %.2f MB\n", (double)stack/(1024*1024), (double)stackavail/(1024*1024));
-    printf("printMem: Memory: shared: %.2f MB, persist: %.2f MB, guard: %.2f MB, mmap: %.2f MB\n", (double)shared/(1024*1024), (double)persist/(1024*1024), (double)guard/(1024*1024), (double)mmap/(1024*1024));
+  if(UniqueID()==node){
+    printf("printMem node %d: Allocated heap: %.2f MB, avail. heap: %.2f MB\n", node, (double)heap/(1024*1024),(double)heapavail/(1024*1024));
+    printf("printMem node %d: Allocated stack: %.2f MB, avail. stack: %.2f MB\n", node, (double)stack/(1024*1024), (double)stackavail/(1024*1024));
+    printf("printMem node %d: Memory: shared: %.2f MB, persist: %.2f MB, guard: %.2f MB, mmap: %.2f MB\n", node, (double)shared/(1024*1024), (double)persist/(1024*1024), (double)guard/(1024*1024), (double)mmap/(1024*1024));
   }
 #else
 #warning "printMem using NOARCH"
@@ -168,8 +168,8 @@ inline void printMem(){
   double free_mem = myinfo.mem_unit * myinfo.freeram;
   free_mem /= (1024.*1024.);
   
-  if(!UniqueID()){
-    printf("printMem: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",total_mem, free_mem, total_mem-free_mem);
+  if(UniqueID()==node){
+    printf("printMem node %d: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",node,total_mem, free_mem, total_mem-free_mem);
   }
 
   //# define PRINT_MALLOC_INFO    //Use of int means this is garbage for large memory systems
@@ -188,16 +188,16 @@ inline void printMem(){
   // int fordblks;  /* Total free space (bytes) */
   // int keepcost;  /* Top-most, releasable space (bytes) */
 
-  if(!UniqueID()){
-    printf("printMem: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
-	   byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
+  if(UniqueID()==node){
+    printf("printMem node %d: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
+	   node, byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
   }
 
 # endif
 
   //# define PRINT_MALLOC_STATS  Also doesn't work well
 # ifdef PRINT_MALLOC_STATS
-  if(!UniqueID()) malloc_stats();
+  if(UniqueID()==node) malloc_stats();
 # endif
   
 #endif

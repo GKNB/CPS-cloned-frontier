@@ -101,9 +101,9 @@ class ComputeMesonFields{
 	
 	A2AvectorVfftw<mf_Policies> fftw_V_base(V[sv]->getArgs(), V[sv]->getMode(0).getDimPolParams() );
 # ifdef USE_DESTRUCTIVE_FFT
-	assert(&fftw_V_base.getMode(0) == NULL);
-	fftw_V_base.destructiveGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice); //allocs Vfft and deallocs V internally
-	assert(&V[sv]->getMode(0) == NULL);
+	assert(!fftw_V_base.modeIsAllocated(0));
+	fftw_V_base.destructiveGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice); //allocs Vfft and deallocs V internally	
+	assert(!V[sv]->modeIsAllocated(0));
 # else
 	fftw_V_base.gaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);
 # endif
@@ -232,7 +232,7 @@ class ComputeMesonFields{
 	    }
 	    printMem();
 	    fftw_W_base.destructiveUnapplyGaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
-	    assert(&fftw_W_base.getMode(0) == NULL);
+	    assert(!fftw_W_base.highModeIsAllocated(0));	    
 	    printMem();
 #endif
 	    
@@ -249,7 +249,7 @@ class ComputeMesonFields{
 	}
 	printMem();
 	fftw_V_base.destructiveUnapplyGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);  //allocs V and deallocs Vfft internally
-	assert(&fftw_V_base.getMode(0) == NULL);
+	assert(!fftw_V_base.modeIsAllocated(0));
 	printMem();
 #endif	
       }//sv

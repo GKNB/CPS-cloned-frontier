@@ -42,12 +42,12 @@ public:
   void allocMode(const int i){
     if(! (*vptr)[i].assigned() ){
       (*vptr)[i].set(new FermionFieldType(field_setup_params));
-      if(!UniqueID()) printf("V allocMode %d %p\n",i,(*vptr)[i].operator->());
+      //if(!UniqueID()) printf("V allocMode %d %p\n",i,(*vptr)[i].operator->());
     }
     (*vptr)[i]->zero();
   }
   void freeMode(const int i){
-    if(!UniqueID()) printf("V freeMode %d %p\n",i,(*vptr)[i].operator->());
+    //if(!UniqueID()) printf("V freeMode %d %p\n",i,(*vptr)[i].operator->());
     (*vptr)[i].free();
   }
   void allocModes(){
@@ -57,6 +57,8 @@ public:
     for(int i=0;i<vptr->size();i++) freeMode(i);
   }
   typedef ManualAllocStrategy FieldAllocStrategy;
+
+  inline bool modeIsAllocated(const int i) const{ return vptr->operator[](i).assigned(); }
 };
 
 
@@ -81,6 +83,7 @@ class A2AvectorVfftw_manualAllocPolicies{
   std::vector<PtrWrapper<FermionFieldType> > *vptr;
 protected:
   void allocInitializeFields(std::vector<PtrWrapper<FermionFieldType> > &v, const typename FermionFieldType::InputParamType &_field_setup_params){
+    //if(!UniqueID()){ printf("A2AvectorVfftw_manualAllocPolicies::allocInitializeFields called\n"); fflush(stdout); }
     vptr = &v; field_setup_params = _field_setup_params;
     for(int i=0;i<v.size();i++) v[i].set(NULL);
   }
@@ -89,11 +92,11 @@ public:
   void allocMode(const int i){
     if(! (*vptr)[i].assigned() ){
       (*vptr)[i].set(new FermionFieldType(field_setup_params));
-      if(!UniqueID()) printf("VFFT allocMode %d %p\n",i,(*vptr)[i].operator->());
+      //if(!UniqueID()) printf("VFFT allocMode %d %p\n",i,(*vptr)[i].operator->());
     }
   }
   void freeMode(const int i){
-    if(!UniqueID()) printf("VFFT freeMode %d %p\n",i,(*vptr)[i].operator->());
+    //if(!UniqueID()) printf("VFFT freeMode %d %p\n",i,(*vptr)[i].operator->());
     (*vptr)[i].free();
   }
   void allocModes(){
@@ -120,6 +123,8 @@ public:
   void destructiveUnapplyGaugeFixTwistFFT(A2AvectorV<mf_Policies> &to, const int _p[3], Lattice &_lat ){
     reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
   }
+
+  inline bool modeIsAllocated(const int i) const{ return vptr->operator[](i).assigned(); }
 };
 
 
@@ -183,6 +188,9 @@ public:
     for(int i=0;i<hptr->size();i++) freeHighMode(i);
   }
   typedef ManualAllocStrategy FieldAllocStrategy;
+
+  inline bool lowModeIsAllocated(const int i) const{ return lptr->operator[](i).assigned(); }
+  inline bool highModeIsAllocated(const int i) const{ return hptr->operator[](i).assigned(); }
 };
 
 
@@ -260,6 +268,9 @@ public:
   void destructiveUnapplyGaugeFixTwistFFT(A2AvectorW<mf_Policies> &to, const int _p[3], Lattice &_lat){
     reverseGaugeFixAndTwist<typename mf_Policies::FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
   }
+
+  inline bool lowModeIsAllocated(const int i) const{ return lptr->operator[](i).assigned(); }
+  inline bool highModeIsAllocated(const int i) const{ return hptr->operator[](i).assigned(); }
 };
 
 

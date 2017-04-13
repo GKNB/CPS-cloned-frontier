@@ -396,6 +396,10 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
   if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
   double time = -dclock();
 
+#ifdef USE_DESTRUCTIVE_FFT
+  V.allocModes(); W.allocModes();
+#endif
+
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
   Field4DparamType field4dparams = V.getVh(0).getDimPolParams();
   
@@ -403,10 +407,6 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
 			  A2AvectorV<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams) );
     fflush(stdout);
   }
-
-#ifdef USE_DESTRUCTIVE_FFT
-  V.allocModes(); W.allocModes();
-#endif
     
   if(!randomize_vw){
 #ifdef USE_BFM_LANCZOS
@@ -456,7 +456,8 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &param
 }
 
 
-void computeKaon2pt(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W, const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
+void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
+		    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
 		 const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
@@ -479,7 +480,7 @@ void computeKaon2pt(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolici
 }
 
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
+			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
 			  const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom,
 			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(!UniqueID()) printf("Computing light-light meson fields\n");
@@ -531,7 +532,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
   printMem();
 }
 
-void computeSigmaMesonFields(const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
+void computeSigmaMesonFields(typename ComputeSigma<A2Apolicies>::Vtype &V, typename ComputeSigma<A2Apolicies>::Wtype &W,
 			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   double time = -dclock();
   if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
@@ -611,8 +612,8 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
 
 
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-		    const A2AvectorV<A2Apolicies> &V, const A2AvectorW<A2Apolicies> &W,
-		    const A2AvectorV<A2Apolicies> &V_s, const A2AvectorW<A2Apolicies> &W_s,
+		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		    const RequiredMomentum<StandardPionMomentaPolicy> &pion_mom, const int conf, const Parameters &params){
   const int nmom = pion_mom.nMom();
@@ -820,6 +821,9 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   //-------------------------Compute the kaon two-point function---------------------------------
   if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,conf,lat,params,field3dparams);
 
+  //----------------------------Compute the sigma meson fields---------------------------------
+  if(cmdline.do_sigma) computeSigmaMesonFields(V,W,conf,lat,params,field3dparams);
+
   //The pion two-point function and pipi/k->pipi all utilize the same meson fields. Generate those here
   //For convenience pointers to the meson fields are collected into a single object that is passed to the compute methods
   RequiredMomentum<StandardPionMomentaPolicy> pion_mom; //these are the W and V momentum combinations
@@ -831,9 +835,6 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //----------------------------Compute the pion two-point function---------------------------------
   if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, pion_mom, conf, params);
-
-  //----------------------------Compute the sigma meson fields---------------------------------
-  if(cmdline.do_sigma) computeSigmaMesonFields(V,W,conf,lat,params,field3dparams);
     
   //------------------------------I=0 and I=2 PiPi two-point function---------------------------------
   if(cmdline.do_pipi) computePiPi2pt(mf_ll_con, pion_mom, conf, params);

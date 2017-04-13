@@ -192,7 +192,10 @@ struct SingleSrcVectorPolicies{
   typedef cps::ComplexD mf_Element;
   typedef typename AlignedVector<mf_Element>::type mf_Element_Vector;
 
-  static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
+  static inline void setupPolicy(const InnerProduct &M){ 
+    if(!UniqueID()){ printf("Using SingleSrcVectorPolicies\n"); fflush(stdout); }
+    assert(M.mfPerTimeSlice() == 1); 
+  }
   static inline void initializeElement(mf_Element &e){ e = mf_Element(0.); }
   static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
     mf_t.resize(Lt);
@@ -240,7 +243,27 @@ struct MultiSrcVectorPolicies{
     size_t size = nthread * nmodes_l * nmodes_r * mfPerTimeSlice;
     if(mem_pool == NULL || (mem_pool != NULL && mem_pool_size != size) ){
       if(mem_pool != NULL) free(mem_pool);
-      mem_pool = (cps::ComplexD*)memalign(128, size * sizeof(cps::ComplexD));
+
+      if(!UniqueID()){
+	printf("Initializing memory pool. Node 0 memory status: \n");
+	printMem(0);
+	fflush(stdout);
+      }
+      cps::sync();
+
+      //mem_pool = (cps::ComplexD*)memalign(128, size * sizeof(cps::ComplexD));
+      
+      int r = posix_memalign( (void**)&mem_pool, 128, size * sizeof(cps::ComplexD));
+      if(r){
+	std::cout << "MultiSrcVectorPolicies::createMemPool Node " << UniqueID() << " unable to allocate memory of size " << byte_to_MB(size*sizeof(cps::ComplexD)) << "  MB" 
+		  << ". Error code " << r << " (" << EINVAL << "=EINVAL, " << ENOMEM << "=ENOMEM)\n";
+	std::cout << "Memory status: \n";	
+	std::cout.flush();
+	printMem(UniqueID());
+	fflush(stdout);
+	exit(-1);
+      }
+
       mem_pool_size = size;
     }
     mem_pool_off.resize(nthread);
@@ -252,6 +275,7 @@ struct MultiSrcVectorPolicies{
   
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
+    if(!UniqueID()){ printf("Using MultiSrcVectorPolicies with #MF per timeslice %d\n",mfPerTimeSlice); fflush(stdout); }
   }
   
   inline void initializeElement(mf_Element &e){
@@ -262,6 +286,20 @@ struct MultiSrcVectorPolicies{
   
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
+
+    size_t mf_size = A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::byte_size(l,r);
+    size_t total_size = mf_size * Lt * mfPerTimeSlice;
+    if(!UniqueID()){
+      typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::LeftDilutionType ll = l;
+      typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::RightDilutionType rr = r;
+      
+      printf("Initializing meson fields of size %d * %d. Memory requirement is %g MB, memory status is:\n", ll.getNmodes(),rr.getNmodes(),byte_to_MB(total_size));
+      printMem(0);
+      fflush(stdout);
+    }
+    cps::sync();
+
+
     for(int s=0;s<mfPerTimeSlice;s++){
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
@@ -302,7 +340,10 @@ struct SingleSrcVectorPoliciesSIMD{
   typedef Grid::vComplexD mf_Element;
   typedef typename AlignedVector<mf_Element>::type mf_Element_Vector;
   
-  static inline void setupPolicy(const InnerProduct &M){ assert(M.mfPerTimeSlice() == 1); }
+  static inline void setupPolicy(const InnerProduct &M){ 
+    if(!UniqueID()){ printf("Using SingleSrcVectorPoliciesSIMD\n"); fflush(stdout); }
+    assert(M.mfPerTimeSlice() == 1); 
+  }
   static inline void initializeElement(mf_Element &e){ zeroit(e); }
   static void initializeMesonFields(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup){
     mf_t.resize(Lt);
@@ -366,6 +407,7 @@ struct MultiSrcVectorPoliciesSIMD{
 
   inline void setupPolicy(const InnerProduct &M){
     mfPerTimeSlice = M.mfPerTimeSlice();
+    if(!UniqueID()){ printf("Using MultiSrcVectorPoliciesSIMD with #MF per timeslice %d\n",mfPerTimeSlice); fflush(stdout); }
   }
   
   inline void initializeElement(mf_Element &e){
@@ -375,6 +417,7 @@ struct MultiSrcVectorPoliciesSIMD{
   }
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
     if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
+
     for(int s=0;s<mfPerTimeSlice;s++){
       mf_st[s]->resize(Lt);
       for(int t=0;t<Lt;t++) 
@@ -438,6 +481,14 @@ struct mfComputeGeneral: public mfVectorPolicies{
 #else
     if(!UniqueID()) printf("NOT using KNL optimizations\n");
 #endif
+    if(!UniqueID()){
+      printf("Node 0 memory status:\n");
+      printMem(0);
+      fflush(stdout);
+    }
+    cps::sync();
+
+
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
     print_time("A2AmesonField","setup",time + dclock());
