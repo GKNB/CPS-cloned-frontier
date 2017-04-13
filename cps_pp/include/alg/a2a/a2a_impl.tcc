@@ -264,7 +264,9 @@ struct _randomizeVWimpl<mf_Policies,grid_vector_complex_mark>{
 
 template<typename mf_Policies>
 void randomizeVW(A2AvectorV<mf_Policies> &V, A2AvectorW<mf_Policies> &W){
+#ifndef MEMTEST_MODE
   return _randomizeVWimpl<mf_Policies,typename ComplexClassify<typename mf_Policies::ComplexType>::type>::randomizeVW(V,W);
+#endif
 }
 
 

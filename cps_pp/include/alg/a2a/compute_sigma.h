@@ -98,6 +98,11 @@ class ComputeSigma{
       }
       if(!UniqueID()) printf("Computing sigma meson fields with 1s source\n");
 
+#  ifdef ARCH_BGQ
+      int init_thr = omp_get_max_threads();
+      if(init_thr > 8) omp_set_num_threads(8);
+#  endif
+
       ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
 							      ,true
@@ -110,6 +115,12 @@ class ComputeSigma{
 							      ,true
 #  endif
 							      );
+
+#  ifdef ARCH_BGQ
+      omp_set_num_threads(init_thr);
+#  endif
+
+
 #else      
       typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
       typedef A2AmultiSource<SrcList> MultiSrcType;      
@@ -160,7 +171,10 @@ class ComputeSigma{
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 	  nodeGetMany(1,&mf_q);
 #endif
+
+#ifndef MEMTEST_MODE
 	  MesonFieldType::write(os.str(),mf_q);
+#endif
 	  for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed
 	}
       } 

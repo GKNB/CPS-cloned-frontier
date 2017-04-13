@@ -262,8 +262,10 @@ private:
 	
 	std::ostringstream os; //momenta in units of pi/2L
 	os << work_dir << "/traj_" << traj << "_pion_mf_mom" << pi_mom_pidx.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
-	
+
+#ifndef MEMTEST_MODE	
 	MesonFieldType::write(os.str(),tmp);
+#endif
       }
     }
   }
@@ -344,7 +346,17 @@ public:
     if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
       ERR.General("ComputePion","computeGparityMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
 
+#ifdef ARCH_BGQ
+    int init_thr = omp_get_max_threads();
+    if(init_thr > 32) omp_set_num_threads(32);
+#endif
+
     typename GparityComputeTypes::StorageType* mf_store = GparityDoCompute(pion_mom,Wspecies,Vspecies,rad,lattice,src_setup_params);
+
+#ifdef ARCH_BGQ
+    omp_set_num_threads(init_thr);
+#endif
+
     GparityCombineStore(mf_ll_1s_con, pion_mom, 0, mf_store);
     GparityCombineStore(mf_ll_2s_con, pion_mom, 1, mf_store);    
     GparityWriteAverageMF(work_dir, traj, rad, pion_mom, mf_store); //write all meson fields to disk

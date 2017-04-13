@@ -23,11 +23,15 @@ void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
   os << meas_arg.GaugeStem << '.' << meas_arg.TrajCur;
   std::string lat_file = os.str();
 
+#ifdef MEMTEST_MODE
+  lat.SetGfieldOrd();
+#else
   ReadLatticeParallel rl;
   if(double_latt) rl.disableGparityReconstructUstarField();
 
   rl.read(lat,lat_file.c_str());
   if(!rl.good())ERR.General(cname,fname,"Failed read lattice %s",lat_file.c_str());
+#endif
 
   time += dclock();
   print_time(cname,fname,time);
@@ -41,8 +45,9 @@ void ReadRngFile(const MeasArg &meas_arg, bool double_latt = false){
   std::ostringstream os;
   os << meas_arg.RNGStem << '.' << meas_arg.TrajCur;
   std::string rng_file = os.str();
-
+#ifndef MEMTEST_MODE
   if(!LRG.Read(rng_file.c_str())) ERR.General(cname,fname,"Failed read rng file %s",rng_file.c_str());
+#endif
   time += dclock();
   print_time(cname,fname,time);
 }
