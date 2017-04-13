@@ -60,7 +60,10 @@ private:
   static void GparitySeparateSources(const std::string &work_dir, const int traj,
 				     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 				     const FieldParamType &src_setup_params = NullObject()){
-    
+#ifdef ARCH_BGQ
+    int init_thr = omp_get_max_threads();
+    if(init_thr > 32) omp_set_num_threads(32);
+#endif
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
@@ -83,72 +86,92 @@ private:
 
     ExpSrcType exp_src(rad,pbase,src_setup_params); //1s
     HydSrcType hyd_src(2,0,0,rad,pbase,src_setup_params); //2s
+
+    const int nsplit =  1; //further splitting over the momenta (must be a divisor of nMom which is 4 for G-parity in 3 dirs) 
+
+#ifdef ARCH_BGQ
+    if(momenta.nMom() == 4) nsplit = 2;
+#endif
+
+    assert( momenta.nMom() % nsplit == 0 );    
+    const int pincr = momenta.nMom() / nsplit;
+
+    for(int split = 0; split < nsplit; split++){
+      const int p_lo = split * pincr;
+      const int p_hi = (split+1) * pincr;
       
-    ExpInnerType exp_gunit_s0_inner(sigma0, exp_src);
-    ExpStorageType exp_mf_store(exp_gunit_s0_inner,exp_src);
+      ExpInnerType exp_gunit_s0_inner(sigma0, exp_src);
+      ExpStorageType exp_mf_store(exp_gunit_s0_inner,exp_src);
 
-    HydInnerType hyd_gunit_s0_inner(sigma0, hyd_src);
-    HydStorageType hyd_mf_store(hyd_gunit_s0_inner,hyd_src);
+      HydInnerType hyd_gunit_s0_inner(sigma0, hyd_src);
+      HydStorageType hyd_mf_store(hyd_gunit_s0_inner,hyd_src);
 
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_w = momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
-      exp_mf_store.addCompute(0,0, p_w,p_v);	
-      hyd_mf_store.addCompute(0,0, p_w,p_v);	
-    }
-    if(!UniqueID()) printf("Computing sigma meson fields with 1s source\n");
+      for(int pidx=p_lo;pidx<p_hi;pidx++){
+	ThreeMomentum p_w = momenta.getWmom(pidx,false);
+	ThreeMomentum p_v = momenta.getVmom(pidx,false);
+	exp_mf_store.addCompute(0,0, p_w,p_v);	
+	hyd_mf_store.addCompute(0,0, p_w,p_v);	
+      }
+      if(!UniqueID()) printf("Computing sigma meson fields with 1s source for %d <= pidx < %d\n", p_lo,p_hi);
     
-    ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
-							    ,true
+							      ,true
 #  endif
-							    );
+							      );
 
-    if(!UniqueID()) printf("Writing 1s sigma meson fields to disk\n");
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+      if(!UniqueID()) printf("Writing 1s sigma meson fields to disk for %d <= pidx < %d\n", p_lo,p_hi);
+      for(int pidx=p_lo;pidx<p_hi;pidx++){
+	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
+	ThreeMomentum p_v = momenta.getVmom(pidx,false);
 	
-      std::ostringstream os; //momenta in units of pi/2L
-      os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd1s_rad" << rad << ".dat";
-      MesonFieldVectorType &mf_q = exp_mf_store[pidx];
+	std::ostringstream os; //momenta in units of pi/2L
+	os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd1s_rad" << rad << ".dat";
+	MesonFieldVectorType &mf_q = exp_mf_store[pidx-p_lo];
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-      nodeGetMany(1,&mf_q);
+	nodeGetMany(1,&mf_q);
 #endif
 
 #ifndef MEMTEST_MODE
-      MesonFieldType::write(os.str(),mf_q);
+	MesonFieldType::write(os.str(),mf_q);
 #endif
-      for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed      
-    }
+	for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed      
+      }
   
-    if(!UniqueID()) printf("Computing sigma meson fields with 2s source\n");
+      if(!UniqueID()) printf("Computing sigma meson fields with 2s source for %d <= pidx < %d\n", p_lo,p_hi);
     
-    ComputeMesonFields<mf_Policies,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<mf_Policies,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
 #  ifdef NODE_DISTRIBUTE_MESONFIELDS
-							    ,true
+							      ,true
 #  endif
-							    );
+							      );
 
-    if(!UniqueID()) printf("Writing 2s sigma meson fields to disk\n");
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+      if(!UniqueID()) printf("Writing 2s sigma meson fields to disk for %d <= pidx < %d\n", p_lo,p_hi);
+      for(int pidx=p_lo;pidx<p_hi;pidx++){
+	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
+	ThreeMomentum p_v = momenta.getVmom(pidx,false);
 	
-      std::ostringstream os; //momenta in units of pi/2L
-      os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd2s_rad" << rad << ".dat";
-      MesonFieldVectorType &mf_q = hyd_mf_store[pidx];
+	std::ostringstream os; //momenta in units of pi/2L
+	os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd2s_rad" << rad << ".dat";
+	MesonFieldVectorType &mf_q = hyd_mf_store[pidx-p_lo];
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-      nodeGetMany(1,&mf_q);
+	nodeGetMany(1,&mf_q);
 #endif
 
 #ifndef MEMTEST_MODE
-      MesonFieldType::write(os.str(),mf_q);
+	MesonFieldType::write(os.str(),mf_q);
 #endif
-      for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed      
-    }
+	for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed      
+      }
+
+      
+    }//split
+    
+#ifdef ARCH_BGQ
+    omp_set_num_threads(init_thr);
+#endif
   }
 
 
