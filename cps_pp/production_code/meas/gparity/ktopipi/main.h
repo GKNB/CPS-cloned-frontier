@@ -555,15 +555,21 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
     for(int psnkidx=0; psnkidx < nmom; psnkidx++){	
       fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
       ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
-	
-      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
 
+#ifndef DISABLE_PIPI_PRODUCTSTORE
+      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
+#endif
+      
       char diag[3] = {'C','D','R'};
       for(int d = 0; d < 3; d++){
 	if(!UniqueID()){ printf("Doing pipi figure %c, psrcidx=%d psnkidx=%d\n",diag[d],psrcidx,psnkidx); fflush(stdout); }
 
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products);
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con
+#ifndef DISABLE_PIPI_PRODUCTSTORE
+						 , products
+#endif
+						 );
 	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
 	os << "_mom" << p_pi1_src.file_str(2) << "_mom" << p_pi1_snk.file_str(2);

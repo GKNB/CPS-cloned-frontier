@@ -30,6 +30,15 @@ CPS_START_NAMESPACE
 
 template<typename mf_Policies>
 class ComputePiPiGparity{
+#ifdef DISABLE_PIPI_PRODUCTSTORE
+#define RECV_PRODUCTSTORE
+#define PASS_PRODUCTSTORE
+#define ADDCOMMA
+#else
+#define RECV_PRODUCTSTORE MesonFieldProductStore<mf_Policies> &products
+#define PASS_PRODUCTSTORE products
+#define ADDCOMMA ,
+#endif
   
   //C = \sum_{x,y,r,s}  \sum_{  0.5 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(r) S_2 * v(r)]] [[w^dag(s) S_2 v(s)]] [[w^dag(x) S_2 v(x)]] )
   //  = 0.5 Tr(  mf(p_pi1_snk) mf(p_pi2_src) mf(p_pi2_snk) mf(p_pi1_src) )
@@ -38,7 +47,7 @@ class ComputePiPiGparity{
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Policies> &products,
+			     RECV_PRODUCTSTORE ADDCOMMA
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     int tsrc2 = (tsrc-tsep+Lt) % Lt;
     int tsnk2 = (tsnk+tsep) % Lt;
@@ -46,9 +55,14 @@ class ComputePiPiGparity{
     int tdis = (tsnk - tsrc + Lt) % Lt;
 
     //Topology 1  x4=tsrc (pi1)  y4=tsnk (pi1)  r4=tsrc2 (pi2)  s4=tsnk2 (pi2)
+#ifdef DISABLE_PIPI_PRODUCTSTORE
+    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l, prod_r;
+    mult(prod_l, mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
+    mult(prod_r, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+#else
     const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
     const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-
+#endif
     into(tsrc, tdis) += typename mf_Policies::ScalarComplexType(0.5) * trace(prod_l, prod_r);
 
     //Topology 2  x4=tsrc (pi1) y4=tsnk2 (pi2)  r4=tsrc2 (pi2) s4=tsnk (pi1)
@@ -62,7 +76,6 @@ class ComputePiPiGparity{
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Policies> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
@@ -88,7 +101,7 @@ class ComputePiPiGparity{
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
 			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
-			     MesonFieldProductStore<mf_Policies> &products,
+			     RECV_PRODUCTSTORE ADDCOMMA
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
@@ -98,17 +111,31 @@ class ComputePiPiGparity{
     ScalarComplexType incr(0,0);
 
     //Topology 1    x4=tsrc (pi1) y4=tsnk (pi1)   r4=tsrc2 (pi2) s4=tsnk2 (pi2)
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
-
-    incr += trace( prod_l_top1, prod_r_top1 );
-
+    {
+#ifdef DISABLE_PIPI_PRODUCTSTORE
+      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l_top1, prod_r_top1;
+      mult(prod_l_top1, mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
+      mult(prod_r_top1, mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
+#else      
+      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
+      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
+#endif
+      incr += trace( prod_l_top1, prod_r_top1 );
+    }
+    
     //Topology 2    x4=tsrc (pi1)  y4=tsnk_outer (pi2)  r4=tsrc_outer (pi2) s4=tsnk (pi1)
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-
-    incr += trace( prod_l_top2, prod_r_top2 );
-
+    {
+#ifdef DISABLE_PIPI_PRODUCTSTORE
+      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l_top2, prod_r_top2;
+      mult(prod_l_top2, mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
+      mult(prod_r_top2, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+#else
+      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
+      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+#endif 
+      incr += trace( prod_l_top2, prod_r_top2 );
+    }
+      
     incr *= ScalarComplexType(0.5*0.5); //extra factor of 0.5 from average over 2 distinct topologies
 
     into(tsrc, tdis) += incr;
@@ -126,7 +153,7 @@ public:
 
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products){
+		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     ThreeMomentum p_pi2_src = -p_pi1_src;
@@ -160,11 +187,11 @@ public:
 	int tsrc = rem * tstep_src; //source time
 
 	if(diag == 'C')
-	  figureC(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, products, tsrc,tsnk, tsep,Lt);
+	  figureC(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, PASS_PRODUCTSTORE ADDCOMMA tsrc,tsnk, tsep,Lt);
 	else if(diag == 'D')
-	  figureD(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, products, tsrc,tsnk, tsep,Lt);
+	  figureD(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, tsrc,tsnk, tsep,Lt);
 	else if(diag == 'R')
-	  figureR(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, products, tsrc,tsnk, tsep,Lt);
+	  figureR(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, PASS_PRODUCTSTORE ADDCOMMA tsrc,tsnk, tsep,Lt);
 	else ERR.General("ComputePiPiGparity","compute","Invalid diagram '%c'\n",diag);
       }
     }
