@@ -87,10 +87,10 @@ private:
     ExpSrcType exp_src(rad,pbase,src_setup_params); //1s
     HydSrcType hyd_src(2,0,0,rad,pbase,src_setup_params); //2s
 
-    const int nsplit =  1; //further splitting over the momenta (must be a divisor of nMom which is 4 for G-parity in 3 dirs) 
+    int nsplit =  1; //further splitting over the momenta (must be a divisor of nMom which is 8 for G-parity in 3 dirs) 
 
 #ifdef ARCH_BGQ
-    if(momenta.nMom() == 4) nsplit = 2;
+    if(momenta.nMom() == 8) nsplit = 2;
 #endif
 
     assert( momenta.nMom() % nsplit == 0 );    
