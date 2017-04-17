@@ -94,11 +94,18 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
     ThreeMomentum p_pi_2 = -p_pi_1;
 
     std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    nodeGetMany(2,&mf_pi1,&mf_pi2);
+    std::vector<bool> pi1_tslice_mask(Lt,false);
+    std::vector<bool> pi2_tslice_mask(Lt,false);
+    for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
+      int tpi1 = modLt(t_pi1_lin,Lt);
+      int tpi2 = modLt(tpi1  + tsep_pion, Lt);
+      pi1_tslice_mask[tpi1] = true;
+      pi2_tslice_mask[tpi2] = true;
+    }
+    nodeGetMany(2,&mf_pi1,&pi1_tslice_mask,&mf_pi2,&pi2_tslice_mask);
 #endif
-    //nodeGetPionMf(mf_pi1,mf_pi2);
 
     //for(int tpi1=0;tpi1<Lt;tpi1+=tstep){ //my sensible ordering
     for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
@@ -130,8 +137,6 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(2,&mf_pi1,&mf_pi2);
 #endif
-
-    //nodeDistributePionMf(mf_pi1,mf_pi2);
   }
   if(nmom > 1)
     for(int t=0;t<tpi_sampled;t++)
