@@ -65,6 +65,12 @@ inline T strToAny(const char* a){
   std::stringstream ss; ss << a; T o; ss >> o;
   return o;
 }
+template<typename T>
+inline std::string anyToStr(const T &t){
+  std::ostringstream os; os << t;
+  return os.str();
+}
+
 
 CPS_END_NAMESPACE
 

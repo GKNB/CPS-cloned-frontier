@@ -169,6 +169,8 @@ private:
 			   const int src_idx,
 			   typename GparityComputeTypes::StorageType* mf_store){
 
+    printMemNodeFile("GparityCombineStore src_idx="+anyToStr(src_idx));
+
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
 			   
@@ -234,6 +236,8 @@ private:
   static void GparityWriteAverageMF(const std::string &work_dir, const int traj, const Float &rad,
 				    const RequiredMomentum<PionMomentumPolicy> &pion_mom,
 				    typename GparityComputeTypes::StorageType* mf_store){
+    printMemNodeFile("GparityWriteAverageMF");
+
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
     std::string src_names[2] = {"1s","2s"};

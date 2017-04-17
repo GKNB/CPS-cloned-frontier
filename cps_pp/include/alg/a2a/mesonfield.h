@@ -102,10 +102,6 @@ public:
     this->freeMem();
   }
 
-  ~A2AmesonField(){
-    this->freeMem();
-  }
-
   bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
     for(int i=0;i<nmodes_l;i++){
       for(int j=0;j<nmodes_r;j++){
@@ -134,6 +130,7 @@ public:
 
 
   inline ScalarComplexType* ptr(){ return (ScalarComplexType*)this->data(); } //Use at your own risk
+  inline ScalarComplexType const* ptr() const{ return (ScalarComplexType const*)this->data(); }
 
   void move(A2AmesonField &from){
     nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; fsize = from.fsize;

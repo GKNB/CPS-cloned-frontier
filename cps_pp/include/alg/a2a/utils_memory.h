@@ -330,7 +330,7 @@ class DistributedMemoryStorage{
 public:
   DistributedMemoryStorage(): ptr(NULL), _master_uid(-1){}
 
-  DistributedMemoryStorage(const DistributedMemoryStorage &r){
+  DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL){
     alloc(r._alignment, r._size);
     memcpy(ptr, r.ptr, r._size);
     _master_uid = r._master_uid;
@@ -360,13 +360,17 @@ public:
 
   
   void alloc(int alignment, size_t size){
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ free(ptr); ptr = NULL; }
+    }
     int r = posix_memalign(&ptr, alignment, size);
     if(r){
 #ifdef USE_MPI
       int mpi_rank; assert( MPI_Comm_rank(MPI_COMM_WORLD,&mpi_rank) == MPI_SUCCESS );
-      printf("Error: rank %d (uid %d) failed to allocate memory! posix_memalign return code %d. Require %g MB. Memory status\n", mpi_rank, UniqueID(), byte_to_MB(size) );
+      printf("Error: rank %d (uid %d) failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", mpi_rank, UniqueID(), r, EINVAL, ENOMEM, byte_to_MB(size) );
 #else
-      printf("Error: uid %d failed to allocate memory! posix_memalign return code %d. Require %g MB. Memory status\n", UniqueID(), byte_to_MB(size) ); 
+      printf("Error: uid %d failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", UniqueID(), r,EINVAL, ENOMEM, byte_to_MB(size) ); 
 #endif
       printMem(UniqueID());
       fflush(stdout); 
@@ -383,6 +387,7 @@ public:
   }
 
   inline void* data(){ return ptr; }
+  inline void const* data() const{ return ptr; }
   
   //Every node performs gather but if not required and not master, data is not kept
   void gather(bool require){
