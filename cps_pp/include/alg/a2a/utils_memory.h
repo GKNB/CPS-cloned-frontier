@@ -130,7 +130,7 @@ inline double byte_to_MB(const size_t b){
 }
 
 //Print memory usage
-inline void printMem(int node = 0){
+inline void printMem(int node = 0, FILE* stream = stdout){
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
   uint64_t shared, persist, heapavail, stackavail, stack, heap, guard, mmap;
@@ -144,9 +144,9 @@ inline void printMem(int node = 0){
   Kernel_GetMemorySize(KERNEL_MEMSIZE_MMAP, &mmap);
 
   if(UniqueID()==node){
-    printf("printMem node %d: Allocated heap: %.2f MB, avail. heap: %.2f MB\n", node, (double)heap/(1024*1024),(double)heapavail/(1024*1024));
-    printf("printMem node %d: Allocated stack: %.2f MB, avail. stack: %.2f MB\n", node, (double)stack/(1024*1024), (double)stackavail/(1024*1024));
-    printf("printMem node %d: Memory: shared: %.2f MB, persist: %.2f MB, guard: %.2f MB, mmap: %.2f MB\n", node, (double)shared/(1024*1024), (double)persist/(1024*1024), (double)guard/(1024*1024), (double)mmap/(1024*1024));
+    fprintf(stream,"printMem node %d: Allocated heap: %.2f MB, avail. heap: %.2f MB\n", node, (double)heap/(1024*1024),(double)heapavail/(1024*1024));
+    fprintf(stream,"printMem node %d: Allocated stack: %.2f MB, avail. stack: %.2f MB\n", node, (double)stack/(1024*1024), (double)stackavail/(1024*1024));
+    fprintf(stream,"printMem node %d: Memory: shared: %.2f MB, persist: %.2f MB, guard: %.2f MB, mmap: %.2f MB\n", node, (double)shared/(1024*1024), (double)persist/(1024*1024), (double)guard/(1024*1024), (double)mmap/(1024*1024));
   }
 #else
 #warning "printMem using NOARCH"
@@ -169,7 +169,7 @@ inline void printMem(int node = 0){
   free_mem /= (1024.*1024.);
   
   if(UniqueID()==node){
-    printf("printMem node %d: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",node,total_mem, free_mem, total_mem-free_mem);
+    fprintf(stream,"printMem node %d: Memory: total: %.2f MB, avail: %.2f MB, used %.2f MB\n",node,total_mem, free_mem, total_mem-free_mem);
   }
 
   //# define PRINT_MALLOC_INFO    //Use of int means this is garbage for large memory systems
@@ -189,7 +189,7 @@ inline void printMem(int node = 0){
   // int keepcost;  /* Top-most, releasable space (bytes) */
 
   if(UniqueID()==node){
-    printf("printMem node %d: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
+    fprintf(stream,"printMem node %d: Malloc info: arena %f MB, ordblks %d, smblks %d, hblks %d, hblkhd %f MB, fsmblks %f MB, uordblks %f MB, fordblks %f MB, keepcost %f MB\n",
 	   node, byte_to_MB(mi.arena), mi.ordblks, mi.smblks, mi.hblks, byte_to_MB(mi.hblkhd), byte_to_MB(mi.fsmblks), byte_to_MB(mi.uordblks), byte_to_MB(mi.fordblks), byte_to_MB(mi.keepcost) );
   }
 
@@ -201,6 +201,22 @@ inline void printMem(int node = 0){
 # endif
   
 #endif
+}
+
+
+inline void printMemNodeFile(const std::string &msg = ""){
+  static int calls = 0;
+
+  std::ostringstream os; os << "mem_status." << UniqueID();
+  FILE* out = fopen (os.str().c_str(), calls == 0 ? "w" : "a");
+  
+  fprintf(out, msg.c_str());
+  
+  printMem(UniqueID(),out);
+
+  fclose(out);
+
+  calls++;
 }
 
 

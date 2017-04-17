@@ -434,13 +434,30 @@ struct nodeDistributeCounter{
     cur = (cur + 1) % nodes;
     return out;
   }
+
+  //Keep tally of the number of MF uniquely stored on this node
+  static int incrOnNodeCount(const int by){
+    static int i = 0;
+    i += by;
+    return i;
+  }
+  static int onNodeCount(){
+    return incrOnNodeCount(0);
+  }
+
 };
 
 
 //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uniqueid){
-  if(node_uniqueid == -1) node_uniqueid = nodeDistributeCounter::getNext(); //draw the next node index from the pool
+  if(node_uniqueid == -1){
+    if(base_node_uniqueid != -1) node_uniqueid = base_node_uniqueid;
+    else{
+      node_uniqueid = nodeDistributeCounter::getNext(); //draw the next node index from the pool
+      base_node_uniqueid = node_uniqueid;
+    }
+  }   
 
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
   if(node_uniqueid < 0 || node_uniqueid >= nodes) ERR.General("A2AmesonField","nodeDistribute","Invalid node rank %d\n", node_uniqueid);
@@ -471,7 +488,10 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uni
   if(UniqueID() != node_uniqueid){
     //printf("UniqueID %d (MPI rank %d) free'd memory\n",UniqueID(),my_rank); fflush(stdout);
     free(mf); mf = NULL;
-  }//else{ printf("UniqueID %d (MPI rank %d) is storage node, not freeing\n",UniqueID(),my_rank); fflush(stdout); }
+  }else{ 
+    nodeDistributeCounter::incrOnNodeCount(1);    
+    //printf("UniqueID %d (MPI rank %d) is storage node, not freeing\n",UniqueID(),my_rank); fflush(stdout); 
+  }
 
   //if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
   //if(my_rank == node_mpi_rank) printf("A2AmesonField::nodeDistribute I am node with MPI rank %d and I have UniqueID %d, my first elem remains %f\n",my_rank,UniqueID(),mf[0]);
@@ -499,7 +519,9 @@ struct getMPIdataType<float>{
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
   typedef typename ScalarComplexType::value_type mf_Float;
-  if(node_mpi_rank == -1) return; //already on all nodes
+  if(node_mpi_rank == -1){ 
+    return; //already on all nodes  
+  }
 #ifndef USE_MPI
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
   if(nodes > 1) ERR.General("A2AmesonField","nodeGet","Implementation requires MPI\n");
@@ -508,17 +530,32 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
   int ret = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","nodeGet","Comm_rank failed\n");
 
+  int alloc_fail_this = 0;
   if(mpi_rank != node_mpi_rank){
     //if(mf != NULL) printf("rank %d pointer should be NULL but it isn't!\n",mpi_rank); fflush(stdout);
     mf = (ScalarComplexType*)malloc(byte_size());  
     if(mf == NULL){ 
-      printf("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet rank %d failed to allocate memory! Require %g MB. Memory status\n", mpi_rank, byte_to_MB(byte_size()) ); 
+      printf("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet rank %d (uid %d) failed to allocate memory! Require %g MB. Memory status\n", mpi_rank, UniqueID(), byte_to_MB(byte_size()) ); 
       printMem(UniqueID());
       fflush(stdout); 
-      exit(-1); 
+      alloc_fail_this =  1;
+      //exit(-1); 
     }
     //printf("rank %d allocated memory\n",mpi_rank); fflush(stdout);
-  }//else{ printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); }
+  }else{ 
+    nodeDistributeCounter::incrOnNodeCount(-1); //will no longer be uniquely stored on this node
+    //printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); 
+  }
+  int alloc_fail_any = 0;
+  ret = MPI_Allreduce(&alloc_fail_this, &alloc_fail_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>","nodeGet","Error comm failure");
+  
+  if(alloc_fail_any){
+    printf("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet rank %d (uid %d) Exiting because one or more nodes failed to allocate. Count of uniquely stored MF on node %d\n",mpi_rank,UniqueID(),nodeDistributeCounter::onNodeCount());
+    fflush(stdout);
+    printMemNodeFile("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet alloc failure\n");
+    exit(-1);
+  }
   
   MPI_Datatype dtype = getMPIdataType<mf_Float>::doit();
   int dsize;

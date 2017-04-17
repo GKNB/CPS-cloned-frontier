@@ -52,20 +52,21 @@ public:
   int tl, tr; //time coordinates associated with left and right fields of the outer-product
 
   int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
+  int base_node_uniqueid; //when first distribute performed this will be set, and used as the distribute target for future distributes
 
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
 public:
-  A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
+  A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
   }
 
   //Just setup memory (setup is automatically called when 'compute' is called, so this is not necessary. However if you disable the setup at compute time you should setup the memory beforehand)
-  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
+  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
     setup(l,r,-1,-1);
   }
 
-  A2AmesonField(const A2AmesonField &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1){
+  A2AmesonField(const A2AmesonField &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
     *this = r;
   }
 
