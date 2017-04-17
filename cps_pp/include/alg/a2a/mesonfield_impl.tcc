@@ -9,9 +9,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonF
   }
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) mf[i] += with.mf[i];
+    for(int i=0;i<fsize;i++) this->ptr()[i] += with.ptr()[i];
   }else{
-    for(int i=0;i<fsize;i++) mf[i] += with.mf[i];
+    for(int i=0;i<fsize;i++) this->ptr()[i] += with.ptr()[i];
   }
 }
 
@@ -19,9 +19,9 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::times_equals(const ScalarComplexType f,const bool parallel){
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) mf[i] *= f;			       
+    for(int i=0;i<fsize;i++) this->ptr()[i] *= f;			       
   }else{
-    for(int i=0;i<fsize;i++) mf[i] *= f;
+    for(int i=0;i<fsize;i++) this->ptr()[i] *= f;
   }
 }
 
@@ -40,9 +40,9 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::average(const A2AmesonField
   }
   if(parallel){
 #pragma omp_parallel for
-    for(int i=0;i<fsize;i++) mf[i] = complexAvg(mf[i],with.mf[i]);//(mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) this->ptr()[i] = complexAvg(this->ptr()[i],with.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
   }else{
-    for(int i=0;i<fsize;i++) mf[i] = complexAvg(mf[i],with.mf[i]);//(mf[i] + with.mf[i])/2.0;
+    for(int i=0;i<fsize;i++) this->ptr()[i] = complexAvg(this->ptr()[i],with.ptr()[i]);//(mf[i] + with.mf[i])/2.0;
   }
 }
 
@@ -120,7 +120,7 @@ typename gsl_wrapper<typename mf_Policies::ScalarComplexType::value_type>::matri
 
   for(int i_full=0;i_full<rows;i_full++){
     if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full; //meson field are row major so columns are contiguous
+      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full; //meson field are row major so columns are contiguous
       typename gw::complex* row_base = gw::matrix_complex_ptr(M_packed,i_packed,0); //GSL matrix are also row major
       for(int b=0;b<blocks.size();b++){
 	ScalarComplexType const* block_ptr = mf_row_base + idx_map[blocks[b].first];
@@ -157,7 +157,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::splatPackedColReorder(typen
 
   for(int i_full=0;i_full<full_rows;i_full++){
     if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full;
+      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full;
       SIMDcomplexType* row_base = &into[map_size*i_packed];
 
       for(int b=0;b<blocks.size();b++){
@@ -188,7 +188,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::scalarPackedColReorder(type
 
   for(int i_full=0;i_full<full_rows;i_full++){
     if(rowidx_used[i_full]){
-      ScalarComplexType const* mf_row_base = mf + nmodes_r*i_full;
+      ScalarComplexType const* mf_row_base = this->ptr() + nmodes_r*i_full;
       ScalarComplexType* row_base = &into[map_size*i_packed];
 
       for(int b=0;b<blocks.size();b++){
@@ -418,172 +418,101 @@ void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std
 
 
 
-
-
-
-
-struct nodeDistributeCounter{
-  //Get a rank idx that cycles between 0... nodes-1
-  static int getNext(){
-    static int cur = 0;
-    static int nodes = -1;
-    if(nodes == -1){
-      nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
-    }
-    int out = cur;
-    cur = (cur + 1) % nodes;
-    return out;
-  }
-
-  //Keep tally of the number of MF uniquely stored on this node
-  static int incrOnNodeCount(const int by){
-    static int i = 0;
-    i += by;
-    return i;
-  }
-  static int onNodeCount(){
-    return incrOnNodeCount(0);
-  }
-
-};
-
-
 //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(int node_uniqueid){
-  if(node_uniqueid == -1){
-    if(base_node_uniqueid != -1) node_uniqueid = base_node_uniqueid;
-    else{
-      node_uniqueid = nodeDistributeCounter::getNext(); //draw the next node index from the pool
-      base_node_uniqueid = node_uniqueid;
-    }
-  }   
-
-  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
-  if(node_uniqueid < 0 || node_uniqueid >= nodes) ERR.General("A2AmesonField","nodeDistribute","Invalid node rank %d\n", node_uniqueid);
-
-#ifndef USE_MPI
-  if(nodes > 1) ERR.General("A2AmesonField","nodeDistribute","Implementation requires MPI\n");
-  //For one node, don't do anything
-#else
-  //if(!UniqueID()){ printf("nodeDistribute start with destination node UniqueID %d\n",node_uniqueid); fflush(stdout); }
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  //MPI rank and CPS UniqueID may not be the same. Translate
-  int my_rank;
-  int ret = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","nodeDistribute","Comm_rank failed\n");
-
-  if(mf == NULL){ printf("Error nodeDistribute: Rank %d has null pointer!\n",my_rank); fflush(stdout); exit(-1); }
-
-  //printf("UniqueID %d -> MPI rank %d\n",UniqueID(),my_rank); fflush(stdout);
-
-  int rank_tmp = (UniqueID() == node_uniqueid ? my_rank : 0);
-  ret = MPI_Allreduce(&rank_tmp,&node_mpi_rank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD); //node is now the MPI rank corresponding to UniqueID == _node
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","nodeDistribute","Reduce failed\n");
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  //printf("UniqueID %d (MPI rank %d) got storage rank %d\n",UniqueID(),my_rank,node_mpi_rank); fflush(stdout);
-
-  if(UniqueID() != node_uniqueid){
-    //printf("UniqueID %d (MPI rank %d) free'd memory\n",UniqueID(),my_rank); fflush(stdout);
-    free(mf); mf = NULL;
-  }else{ 
-    nodeDistributeCounter::incrOnNodeCount(1);    
-    //printf("UniqueID %d (MPI rank %d) is storage node, not freeing\n",UniqueID(),my_rank); fflush(stdout); 
-  }
-
-  //if(!UniqueID()) printf("A2AmesonField::nodeDistribute %f MB stored on node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), node_uniqueid, node_mpi_rank);
-  //if(my_rank == node_mpi_rank) printf("A2AmesonField::nodeDistribute I am node with MPI rank %d and I have UniqueID %d, my first elem remains %f\n",my_rank,UniqueID(),mf[0]);
-#endif
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeDistribute(){
+  this->distribute();
 }
 
-#ifdef USE_MPI
 
-template<typename mf_Float>
-struct getMPIdataType{
-};
-template<>
-struct getMPIdataType<double>{
-  static MPI_Datatype doit(){ return MPI_DOUBLE; }
-};
-template<>
-struct getMPIdataType<float>{
-  static MPI_Datatype doit(){ return MPI_FLOAT; }
-};
-
-#endif
 
 
 //Get back the data. After the call, all nodes will have a complete copy
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(){
-  typedef typename ScalarComplexType::value_type mf_Float;
-  if(node_mpi_rank == -1){ 
-    return; //already on all nodes  
-  }
-#ifndef USE_MPI
-  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
-  if(nodes > 1) ERR.General("A2AmesonField","nodeGet","Implementation requires MPI\n");
-#else
-  int mpi_rank; //get this node's MPI rank
-  int ret = MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","nodeGet","Comm_rank failed\n");
-
-  int alloc_fail_this = 0;
-  if(mpi_rank != node_mpi_rank){
-    //if(mf != NULL) printf("rank %d pointer should be NULL but it isn't!\n",mpi_rank); fflush(stdout);
-    mf = (ScalarComplexType*)malloc(byte_size());  
-    if(mf == NULL){ 
-      printf("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet rank %d (uid %d) failed to allocate memory! Require %g MB. Memory status\n", mpi_rank, UniqueID(), byte_to_MB(byte_size()) ); 
-      printMem(UniqueID());
-      fflush(stdout); 
-      alloc_fail_this =  1;
-      //exit(-1); 
-    }
-    //printf("rank %d allocated memory\n",mpi_rank); fflush(stdout);
-  }else{ 
-    nodeDistributeCounter::incrOnNodeCount(-1); //will no longer be uniquely stored on this node
-    //printf("rank %d is root, first element of data %f\n",mpi_rank,mf[0]); fflush(stdout); 
-  }
-  int alloc_fail_any = 0;
-  ret = MPI_Allreduce(&alloc_fail_this, &alloc_fail_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  if(ret != MPI_SUCCESS) ERR.General("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>","nodeGet","Error comm failure");
-  
-  if(alloc_fail_any){
-    printf("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet rank %d (uid %d) Exiting because one or more nodes failed to allocate. Count of uniquely stored MF on node %d\n",mpi_rank,UniqueID(),nodeDistributeCounter::onNodeCount());
-    fflush(stdout);
-    printMemNodeFile("A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet alloc failure\n");
-    exit(-1);
-  }
-  
-  MPI_Datatype dtype = getMPIdataType<mf_Float>::doit();
-  int dsize;
-  MPI_Type_size(dtype,&dsize);
-  if(sizeof(mf_Float) != dsize){
-    if(!UniqueID()){ printf("MPI size mismatch, want %d, got %d\n",sizeof(mf_Float),dsize); fflush(stdout); }
-    MPI_Barrier(MPI_COMM_WORLD);
-    exit(-1);
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  ret = MPI_Bcast((void*)mf, 2*fsize, dtype, node_mpi_rank, MPI_COMM_WORLD);
-  if(ret != MPI_SUCCESS){
-    printf("rank %d Bcast fail\n",mpi_rank,mf[0]); fflush(stdout);
-    MPI_Barrier(MPI_COMM_WORLD);
-    exit(-1);
-  }
-  //printf("rank %d completed Bcast, first element %f\n",mpi_rank,mf[0]); fflush(stdout);
-
-  //if(mpi_rank == node_mpi_rank) printf("A2AmesonField::nodeGet %f MB gathered from node %d (MPI rank %d)\n",(double)byte_size()/(1024.*1024.), UniqueID(), node_mpi_rank);
-
-  node_mpi_rank = -1; //now on all nodes
-  MPI_Barrier(MPI_COMM_WORLD);
-#endif
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
+  this->gather(require);
 }
 
 
+//Handy helpers for gather and distribute of length Lt vectors of meson fields
+template<typename T>
+void nodeGetMany(const int n, std::vector<T> *a, ...){
+  cps::sync();
+  
+  double time = -dclock();
 
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    a->operator[](t).nodeGet();
+  }
+
+  va_list vl;
+  va_start(vl,a);
+  for(int i=1; i<n; i++){
+    std::vector<T>* val=va_arg(vl,std::vector<T>*);
+
+    for(int t=0;t<Lt;t++){
+      val->operator[](t).nodeGet();
+    }
+  }
+  va_end(vl);
+
+  print_time("nodeGetMany","Meson field gather",time+dclock());
+}
+
+
+template<typename T>
+void nodeDistributeMany(const int n, std::vector<T> *a, ...){
+  cps::sync();
+  
+  double time = -dclock();
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    a->operator[](t).nodeDistribute();
+  }
+
+  va_list vl;
+  va_start(vl,a);
+  for(int i=1; i<n; i++){
+    std::vector<T>* val=va_arg(vl,std::vector<T>*);
+
+    for(int t=0;t<Lt;t++){
+      val->operator[](t).nodeDistribute();
+    }
+  }
+  va_end(vl);
+
+  print_time("nodeDistributeMany","Meson field distribute",time+dclock());
+}
+
+
+//Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
+template<typename T>
+void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...){
+  cps::sync();
+
+  double time = -dclock();
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  for(int t=0;t<Lt;t++){
+    a->operator[](t).nodeGet(a_timeslice_mask->at(t));
+  }
+
+  va_list vl;
+  va_start(vl,a);
+  for(int i=1; i<n; i++){
+    std::vector<T>* val=va_arg(vl,std::vector<T>*);
+    std::vector<bool> const* timeslice_mask = va_arg(vl,std::vector<bool> const*);
+    
+    for(int t=0;t<Lt;t++){
+      val->operator[](t).nodeGet(timeslice_mask->at(t));
+    }
+  }
+  va_end(vl);
+
+  print_time("nodeGetMany","Meson field gather",time+dclock());
+}
 
 
 #endif

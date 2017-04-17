@@ -220,6 +220,211 @@ inline void printMemNodeFile(const std::string &msg = ""){
 }
 
 
+#ifdef USE_MPI
+
+struct _MPI_UniqueID_map{
+  std::map<int,int> mpi_rank_to_uid;
+  std::map<int,int> uid_to_mpi_rank;
+  
+  void setup(){
+    int nodes = 1;
+    for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+
+    int* mpi_ranks = (int*)malloc(nodes *  sizeof(int));
+    memset(mpi_ranks, 0, nodes *  sizeof(int));
+    assert( MPI_Comm_rank(MPI_COMM_WORLD, mpi_ranks + UniqueID() ) == MPI_SUCCESS );
+
+    int* mpi_ranks_all = (int*)malloc(nodes *  sizeof(int));
+    assert( MPI_Allreduce(mpi_ranks, mpi_ranks_all, nodes, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+
+    for(int i=0;i<nodes;i++){
+      int uid = i;
+      int rank = mpi_ranks_all[i];
+      
+      mpi_rank_to_uid[rank] = uid;
+      uid_to_mpi_rank[uid] = rank;
+    }
+    
+    free(mpi_ranks);
+    free(mpi_ranks_all);
+  }
+};
+
+class MPI_UniqueID_map{
+  static _MPI_UniqueID_map *getMap(){
+    static _MPI_UniqueID_map* mp = NULL;
+    if(mp == NULL){
+      mp = new _MPI_UniqueID_map;
+      mp->setup();
+    }
+    return mp;
+  }
+public:
+  
+  static int MPIrankToUid(const int rank){ return getMap()->mpi_rank_to_uid[rank]; }
+  static int UidToMPIrank(const int uid){ return getMap()->uid_to_mpi_rank[uid]; }
+};
+
+#endif
+
+struct nodeDistributeCounter{
+  //Get a rank idx that cycles between 0... nodes-1
+  static int getNext(){
+    static int cur = 0;
+    static int nodes = -1;
+    if(nodes == -1){
+      nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+    }
+    int out = cur;
+    cur = (cur + 1) % nodes;
+    return out;
+  }
+
+  //Keep tally of the number of MF uniquely stored on this node
+  static int incrOnNodeCount(const int by){
+    static int i = 0;
+    i += by;
+    return i;
+  }
+  static int onNodeCount(){
+    return incrOnNodeCount(0);
+  }
+
+};
+
+
+class DistributedMemoryStorage{
+  void *ptr;
+  int _alignment;
+  size_t _size;
+  int _master_uid;
+  int _master_mpirank;
+
+  void initMaster(){
+    if(_master_uid == -1){
+      int master_uid = nodeDistributeCounter::getNext(); //round-robin assignment
+      
+      int nodes = 1;
+      for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+#ifndef USE_MPI
+      _master_uid = master_uid;
+      if(nodes > 1) ERR.General("DistributedMemoryStorage","initMaster","Implementation requires MPI\n");
+#else
+      //Check all nodes are decided on the same master node
+      int* masters = (int*)malloc(nodes *  sizeof(int));
+      memset(masters, 0, nodes *  sizeof(int));
+      masters[UniqueID()] = master_uid;
+
+      int* masters_all = (int*)malloc(nodes *  sizeof(int));
+      assert( MPI_Allreduce(masters, masters_all, nodes, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+
+      for(int i=0;i<nodes;i++) assert(masters_all[i] == master_uid);
+
+      free(masters); free(masters_all);
+      _master_uid = master_uid;
+      _master_mpirank = MPI_UniqueID_map::UidToMPIrank(master_uid);
+#endif
+    }
+  }
+
+public:
+  DistributedMemoryStorage(): ptr(NULL), _master_uid(-1){}
+
+  DistributedMemoryStorage(const DistributedMemoryStorage &r){
+    alloc(r._alignment, r._size);
+    memcpy(ptr, r.ptr, r._size);
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+  }
+
+  DistributedMemoryStorage & operator=(const DistributedMemoryStorage &r){
+    freeMem();
+    alloc(r._alignment, r._size);
+    memcpy(ptr, r.ptr, r._size);
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+    return *this;
+  }
+
+  inline bool isOnNode() const{ return ptr != NULL; }
+  
+  void move(DistributedMemoryStorage &r){
+    ptr = r.ptr;
+    _alignment = r._alignment;
+    _size = r._size;
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+    r._size = 0;
+    r.ptr = NULL;
+  }
+
+  
+  void alloc(int alignment, size_t size){
+    int r = posix_memalign(&ptr, alignment, size);
+    if(r){
+#ifdef USE_MPI
+      int mpi_rank; assert( MPI_Comm_rank(MPI_COMM_WORLD,&mpi_rank) == MPI_SUCCESS );
+      printf("Error: rank %d (uid %d) failed to allocate memory! posix_memalign return code %d. Require %g MB. Memory status\n", mpi_rank, UniqueID(), byte_to_MB(size) );
+#else
+      printf("Error: uid %d failed to allocate memory! posix_memalign return code %d. Require %g MB. Memory status\n", UniqueID(), byte_to_MB(size) ); 
+#endif
+      printMem(UniqueID());
+      fflush(stdout); 
+    }
+    _size = size;
+    _alignment = alignment;
+  }
+
+  void freeMem(){
+    if(ptr != NULL){
+      free(ptr);
+      ptr = NULL;
+    }
+  }
+
+  inline void* data(){ return ptr; }
+  
+  //Every node performs gather but if not required and not master, data is not kept
+  void gather(bool require){
+#ifndef USE_MPI
+    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather","Implementation requires MPI\n");
+#else
+    //Check to see if a gather is actually necessary
+    int do_gather_node = (require && ptr == NULL);
+    int do_gather_any = 0;
+    assert( MPI_Allreduce(&do_gather_node, &do_gather_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+
+    //Do the gather. All nodes need memory space, albeit temporarily
+    if(do_gather_any){
+      if(UniqueID() != _master_uid && ptr == NULL) alloc(_alignment, _size);      
+      assert( MPI_Bcast(ptr, _size, MPI_BYTE, _master_mpirank, MPI_COMM_WORLD) == MPI_SUCCESS );
+    }
+    
+    //Non-master copies safe to throw away data if not required  
+    if(!require && UniqueID() != _master_uid && ptr != NULL) freeMem();
+#endif
+  }
+
+  void distribute(){
+    initMaster();
+    if(UniqueID() != _master_uid) freeMem();
+  }
+  
+  ~DistributedMemoryStorage(){
+    freeMem();
+  }
+  
+};
+
+
+
+
+
+
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif

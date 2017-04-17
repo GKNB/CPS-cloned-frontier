@@ -155,30 +155,50 @@ public:
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
 		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
-    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     ThreeMomentum p_pi2_src = -p_pi1_src;
     ThreeMomentum p_pi2_snk = -p_pi1_snk;
     ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi1_snk, &p_pi2_src, &p_pi2_snk };
     for(int p=0;p<4;p++)
       if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
-    
-    //Get the meson fields we require
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src = mesonfields.get(p_pi1_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src = mesonfields.get(p_pi2_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-    nodeGetMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
-#endif
-
-    into.resize(Lt,Lt); into.zero();
 
     if(Lt % tstep_src != 0) ERR.General("ComputePiPiGparity","compute(..)","tstep_src must divide the time range exactly\n"); 
-
+    
     //Distribute load over all nodes
     int work = Lt*Lt/tstep_src;
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
+
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src = mesonfields.get(p_pi1_src);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src = mesonfields.get(p_pi2_src);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
+    
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    //Get the meson fields we require. Only get those for the timeslices computed on this node
+    std::vector<bool> tslice_src_mask(Lt, false);
+    std::vector<bool> tslice_snk_mask(Lt, false);
+    if(do_work){
+      for(int tt=node_off; tt<node_off + node_work; tt++){
+	int rem = tt;
+	int tsnk = rem % Lt; rem /= Lt; //sink time
+	int tsrc = rem * tstep_src; //source time
+
+	int tsrc2 = (tsrc-tsep+Lt) % Lt;
+	int tsnk2 = (tsnk+tsep) % Lt;
+	
+	tslice_src_mask[tsrc] = tslice_src_mask[tsrc2] = true;
+	tslice_snk_mask[tsnk] = tslice_snk_mask[tsnk2] = true;
+      }
+    }
+    nodeGetMany(4,
+		&mf_pi1_src, &tslice_src_mask,
+		&mf_pi2_src, &tslice_src_mask,
+		&mf_pi1_snk, &tslice_snk_mask,
+		&mf_pi2_snk, &tslice_snk_mask);
+#endif
+
+    into.resize(Lt,Lt); into.zero();
     
     if(do_work){
       for(int tt=node_off; tt<node_off + node_work; tt++){

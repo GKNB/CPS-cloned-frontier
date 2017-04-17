@@ -32,7 +32,7 @@ struct FlavorUnpacked<StandardIndexDilution>{
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-class A2AmesonField{
+class A2AmesonField: public DistributedMemoryStorage{
 public:
   //Deduce the dilution types for the meson field. We unpack the flavor index in W fields
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -42,7 +42,6 @@ public:
   typedef typename FlavorUnpacked<RightInputDilutionType>::UnpackedType RightDilutionType;
   typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
  private:
-  ScalarComplexType* mf;
   int nmodes_l, nmodes_r;
   int fsize; //in units of ScalarComplexType
 
@@ -51,24 +50,20 @@ public:
 
   int tl, tr; //time coordinates associated with left and right fields of the outer-product
 
-  int node_mpi_rank; //node (MPI rank) that the data is currently stored on. Object on all other nodes is empty. By default all nodes have a copy, and the value of node is -1
-  int base_node_uniqueid; //when first distribute performed this will be set, and used as the distribute target for future distributes
-
   template<typename, template <typename> class ,  template <typename> class >
   friend class A2AmesonField; //friend this class but with other field types
 
 public:
-  A2AmesonField(): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
-  }
+  A2AmesonField(): fsize(0), nmodes_l(0), nmodes_r(0), DistributedMemoryStorage(){ }
 
   //Just setup memory (setup is automatically called when 'compute' is called, so this is not necessary. However if you disable the setup at compute time you should setup the memory beforehand)
-  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
+  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): fsize(0), nmodes_l(0), nmodes_r(0), DistributedMemoryStorage(){
     setup(l,r,-1,-1);
   }
 
-  A2AmesonField(const A2AmesonField &r): mf(NULL), fsize(0), nmodes_l(0), nmodes_r(0), node_mpi_rank(-1), base_node_uniqueid(-1){
-    *this = r;
-  }
+  A2AmesonField(const A2AmesonField &r): nmodes_l(r.nmodes_l), nmodes_r(r.nmodes_r),
+					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
+					 tl(r.tl), tr(r.tr), DistributedMemoryStorage(r){ }
 
   //Call this when you use the default constructor if not automatically called (it is called automatically in ::compute)
   void setup(const A2Aparams &lp, const A2Aparams &rp, const int _tl, const int _tr){
@@ -81,11 +76,11 @@ public:
     int old_fsize = fsize;
     fsize = nmodes_l*nmodes_r;
 
-    if(mf!=NULL && old_fsize != fsize ){ 
-      free(mf); 
-      mf = (ScalarComplexType*)memalign(128,fsize * sizeof(ScalarComplexType));   
-    }else if(mf == NULL){
-      mf = (ScalarComplexType*)memalign(128,fsize * sizeof(ScalarComplexType));   
+    if(this->data() != NULL && old_fsize != fsize ){
+      this->freeMem();
+      this->alloc(128, fsize * sizeof(ScalarComplexType)); 
+    }else if(this->data() == NULL){
+      this->alloc(128, fsize * sizeof(ScalarComplexType)); 
     }
     zero();
   }
@@ -104,11 +99,11 @@ public:
   }
 
   void free_mem(){
-    if(mf!=NULL){ free(mf); mf = NULL; }
+    this->freeMem();
   }
 
   ~A2AmesonField(){
-    if(mf!=NULL) free(mf);
+    this->freeMem();
   }
 
   bool equals(const A2AmesonField &r, const double tolerance = 1e-10, bool verbose = false) const{
@@ -129,24 +124,22 @@ public:
     return true;
   }    
   
-  A2AmesonField &operator=(const A2AmesonField &r){
-    setup(r.lindexdilution, r.rindexdilution, r.tl, r.tr);
-    memcpy(mf, r.mf, fsize*sizeof(ScalarComplexType));
-    node_mpi_rank = r.node_mpi_rank;
+  A2AmesonField &operator=(const A2AmesonField &r){    
+    nmodes_l = r.nmodes_l; nmodes_r = r.nmodes_r; fsize = r.fsize;
+    lindexdilution = r.lindexdilution;  rindexdilution = r.rindexdilution;
+    tl = r.tl; tr = r.tr;
+    ((DistributedMemoryStorage*)this)->operator=(r);
     return *this;
   }
 
 
-  ScalarComplexType* ptr(){ return mf; } //Use at your own risk
+  inline ScalarComplexType* ptr(){ return (ScalarComplexType*)this->data(); } //Use at your own risk
 
   void move(A2AmesonField &from){
-    free_mem();
-    nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; 
+    nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; fsize = from.fsize;
     lindexdilution = from.lindexdilution; rindexdilution = from.rindexdilution; 
     tl = from.tl; tr = from.tr;
-    node_mpi_rank = from.node_mpi_rank;
-    mf = from.mf; fsize = from.fsize; 
-    from.mf = NULL; from.fsize = 0;
+    ((DistributedMemoryStorage*)this)->move(from);
   }
   
   //Size in complex
@@ -154,11 +147,11 @@ public:
 
   //Access elements with compressed mode index
   inline ScalarComplexType & operator()(const int i, const int j){ //Use at your own risk
-    return mf[j + nmodes_r*i]; //right mode index changes most quickly
+    return this->ptr()[j + nmodes_r*i]; //right mode index changes most quickly
   }
   
   inline const ScalarComplexType & operator()(const int i, const int j) const{
-    return mf[j + nmodes_r*i];
+    return this->ptr()[j + nmodes_r*i];
   }
   
   inline const int getRowTimeslice() const{ return tl; }
@@ -194,7 +187,7 @@ public:
   }
 
   inline void zero(const bool parallel = true){
-    memset(mf, 0, sizeof(ScalarComplexType) * fsize);      
+    memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
   }
   //For all mode indices l_i and r_j, compute the meson field  V^-1 \sum_p l_i^\dagger(p,t) M(p,t) r_j(p,t)
   //It is assumed that A2AfieldL and A2AfieldR are Fourier transformed field containers
@@ -227,10 +220,10 @@ public:
   //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
   void testRandom(const Float hi=0.5, const Float lo=-0.5){
     if(!UniqueID())
-      for(int i=0;i<this->fsize;i++) mf[i] = ScalarComplexType(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D) );
+      for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D) );
 #ifdef USE_MPI
     int head_mpi_rank = getHeadMPIrank();
-    int ret = MPI_Bcast(mf, 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
+    int ret = MPI_Bcast(this->ptr(), 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
     if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");
 #else
     if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","testRandom","Parallel implementation requires MPI\n");
@@ -257,10 +250,11 @@ public:
   void transpose(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const;
 
   //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
-  //If no node idx is suppled (default) the memory will be distributed according to a global index that cycles between 0... nodes-1 (with looping) to ensure even distribution
-  void nodeDistribute(int node_uniqueid = -1);
+  //The memory will be distributed according to a global index that cycles between 0... nodes-1 (with looping) to ensure even distribution
+  void nodeDistribute();
   //Get back the data. After the call, all nodes will have a complete copy
-  void nodeGet();
+  //All nodes must call nodeGet simultaneously. If 'require' is false the comms will be performed but the data will not be kept on this node
+  void nodeGet(bool require = true);
 
   void write(std::ostream *file_ptr, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void write(const std::string &filename, FP_FORMAT fileformat = FP_AUTOMATIC) const;
@@ -273,7 +267,7 @@ public:
   static void read(std::istream *file_ptr, std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &mfs);
 
   void nodeSum(){ //don't call unless you know what you're doing
-    QMP_sum_array( (typename ScalarComplexType::value_type*)mf,2*fsize);
+    QMP_sum_array( (typename ScalarComplexType::value_type*)this->data(),2*fsize);
   }
 };
 
@@ -341,79 +335,15 @@ template<typename mf_Policies,
 void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &m);
 
 
-//Handy helpers for gather and distribute of length Lt vectors of meson fields
 template<typename T>
-void nodeGetMany(const int n, std::vector<T> *a, ...){
-  //Make sure if there are duplicate pointers the operation is only called once
-  std::set<std::vector<T> *> done_ptrs;
-
-  double time = -dclock();
-
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  for(int t=0;t<Lt;t++){
-    //if(!UniqueID()){ printf("Get element 0 time %d\n",t); fflush(stdout); }
-    sync();
-    a->operator[](t).nodeGet();
-  }
-  done_ptrs.insert(a);
-
-  va_list vl;
-  va_start(vl,a);
-  for(int i=1; i<n; i++){
-    std::vector<T>* val=va_arg(vl,std::vector<T>*);
-    if(done_ptrs.count(val)){
-      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
-      continue;
-    }
-
-    for(int t=0;t<Lt;t++){
-      //if(!UniqueID()){ printf("Get element %d time %d\n",i,t); fflush(stdout); }
-      sync();
-      val->operator[](t).nodeGet();
-    }
-    done_ptrs.insert(val);
-  }
-  va_end(vl);
-
-  print_time("nodeGetMany","Meson field gather",time+dclock());
-}
-
+void nodeGetMany(const int n, std::vector<T> *a, ...);
 
 template<typename T>
-void nodeDistributeMany(const int n, std::vector<T> *a, ...){
-  double time = -dclock();
-  std::set<std::vector<T> *> done_ptrs;
+void nodeDistributeMany(const int n, std::vector<T> *a, ...);
 
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  for(int t=0;t<Lt;t++){
-    //if(!UniqueID()){ printf("Distributing element 0 time %d first elem %f\n",t,a->operator[](t).ptr()[0]); fflush(stdout); }
-    sync();
-    a->operator[](t).nodeDistribute();
-  }
-  done_ptrs.insert(a);
-
-  va_list vl;
-  va_start(vl,a);
-  for(int i=1; i<n; i++){
-    std::vector<T>* val=va_arg(vl,std::vector<T>*);
-    if(done_ptrs.count(val)){
-      //if(!UniqueID()){ printf("Skipping element %d as we have already done it\n",i); fflush(stdout); }
-      continue;
-    }
-
-    for(int t=0;t<Lt;t++){
-      //if(!UniqueID()){ printf("Distributing element %d time %d first elem %f\n",i,t,val->operator[](t).ptr()[0]); fflush(stdout); }
-      sync();
-      val->operator[](t).nodeDistribute();
-    }
-    done_ptrs.insert(val);
-  }
-  va_end(vl);
-
-  print_time("nodeDistributeMany","Meson field distribute",time+dclock());
-}
-
-
+//Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
+template<typename T>
+void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...);
 
 #include<alg/a2a/mesonfield_mult_impl.tcc>
 #include<alg/a2a/mesonfield_mult_vMv_impl.tcc>
