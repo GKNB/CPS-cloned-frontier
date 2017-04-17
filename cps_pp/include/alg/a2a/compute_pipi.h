@@ -153,7 +153,11 @@ public:
 
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE){
+		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+		      , bool do_redistribute = true
+#endif		      
+		      ){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     ThreeMomentum p_pi2_src = -p_pi1_src;
@@ -218,7 +222,7 @@ public:
     into.nodeSum();
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    nodeDistributeMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
+    if(do_redistribute) nodeDistributeMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
 #endif
   }
 

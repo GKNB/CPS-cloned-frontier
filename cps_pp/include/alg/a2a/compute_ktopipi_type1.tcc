@@ -125,7 +125,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
 							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
 							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,
 							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-							       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi){
+							       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
+							       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask ){
   //The two meson field are independent of x_op so we can pregenerate them for each y_4, top    
   //Form contraction  con_pi_K(y_4) =   [[ wL_i^dag(y_4) S_2 vL_j(y_4;t_K) ]] [[ wL_j^dag(t_K) wH_k(t_K) ) ]]
   //Compute contraction for each K->pi separation. Try to reuse as there will be some overlap.
@@ -133,18 +134,23 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
   con_pi2_K.resize(Lt);
     
   if(!UniqueID()){ printf("Computing con_pi_K\n"); fflush(stdout); }
+  for(int pi_idx = 0; pi_idx < 2; pi_idx++){
+    const std::vector<bool> &tpi_mask = pi_idx == 0 ? tpi1_mask : tpi2_mask;
+    std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi_K = pi_idx == 0 ? con_pi1_K : con_pi2_K;
+    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi = pi_idx == 0 ? mf_pi1 : mf_pi2;
     
-  for(int tpi=0;tpi<Lt;tpi++){
-    if(!UniqueID()){ printf("tpi = %d\n",tpi); fflush(stdout); }
-    con_pi1_K[tpi].resize(ntsep_k_pi);
-    con_pi2_K[tpi].resize(ntsep_k_pi);
+    for(int tpi=0;tpi<Lt;tpi++){
+      if(!tpi_mask[tpi]) continue;
+    
+      if(!UniqueID()){ printf("pi_idx %d tpi = %d\n",pi_idx,tpi); fflush(stdout); }
+      con_pi_K[tpi].resize(ntsep_k_pi);
 
-    for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
-      int tk_pi1 = modLt(tpi - tsep_k_pi[tkpi_idx], Lt);
-      int tk_pi2 = modLt(tpi - tsep_pion - tsep_k_pi[tkpi_idx], Lt); //on the further timeslice
-
-      mult(con_pi1_K[tpi][tkpi_idx], mf_pi1[tpi], mf_kaon[tk_pi1]); //node and thread distributed
-      mult(con_pi2_K[tpi][tkpi_idx], mf_pi2[tpi], mf_kaon[tk_pi2]);
+      for(int tkpi_idx=0;tkpi_idx<ntsep_k_pi;tkpi_idx++){
+	int tk_pi1 = modLt(tpi - tsep_k_pi[tkpi_idx], Lt);
+	int tk_pi2 = modLt(tpi - tsep_pion - tsep_k_pi[tkpi_idx], Lt); //on the further timeslice
+	int tk_pi = pi_idx == 0 ? tk_pi1 : tk_pi2;
+	mult(con_pi_K[tpi][tkpi_idx], mf_pi[tpi], mf_kaon[tk_pi]); //node and thread distributed
+      }
     }
     //NB time coordinate of con_pi1_K, con_pi2_K is the time of the respective pion
   }
@@ -265,10 +271,22 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
+
+  //Compute which pion timeslices are involved in the calculation on this node
+  std::vector<bool> pi1_tslice_mask(Lt,false);
+  std::vector<bool> pi2_tslice_mask(Lt,false);
+  for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){
+    int t_pi1 = modLt(t_pi1_lin,Lt);
+    int t_pi2 = modLt(t_pi1 + tsep_pion, Lt);
+    pi1_tslice_mask[t_pi1] = true;
+    pi2_tslice_mask[t_pi2] = true;
+  }
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");
+  if(!UniqueID()) printf("Memory prior to fetching meson fields type1 K->pipi:\n");    
   printMem();
-  nodeGetMany(2,&mf_pi1,&mf_pi2);
+  nodeGetMany(2,
+	      &mf_pi1,&pi1_tslice_mask,
+	      &mf_pi2,&pi2_tslice_mask);
   if(!UniqueID()) printf("Memory after fetching meson fields type1 K->pipi:\n");
   printMem();
 #endif
@@ -278,7 +296,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
   std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > con_pi1_K(Lt); //[tpi][tsep_k_pi]
   std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > con_pi2_K(Lt);
     
-  type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi);
+  type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi,pi1_tslice_mask,pi2_tslice_mask);
 
   if(!UniqueID()) printf("Memory after computing mfproducts type1 K->pipi:\n");
   printMem();

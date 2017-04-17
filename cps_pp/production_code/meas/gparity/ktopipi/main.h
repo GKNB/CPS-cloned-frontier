@@ -570,6 +570,9 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
 #ifndef DISABLE_PIPI_PRODUCTSTORE
 						 , products
 #endif
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+						 , (d == 2 ? true : false)
+#endif
 						 );
 	std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_Figure" << diag[d] << "_sep" << params.jp.pipi_separation;
 #ifndef DAIQIAN_PION_PHASE_CONVENTION
