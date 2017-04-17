@@ -563,6 +563,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
       char diag[3] = {'C','D','R'};
       for(int d = 0; d < 3; d++){
 	if(!UniqueID()){ printf("Doing pipi figure %c, psrcidx=%d psnkidx=%d\n",diag[d],psrcidx,psnkidx); fflush(stdout); }
+	printMem(0);
 
 	double time = -dclock();
 	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con
@@ -588,6 +589,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const R
 
     { //V diagram
       if(!UniqueID()){ printf("Doing pipi figure V, pidx=%d\n",psrcidx); fflush(stdout); }
+      printMem(0);
       double time = -dclock();
       fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
       ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,params.jp.pipi_separation,mf_ll_con);
