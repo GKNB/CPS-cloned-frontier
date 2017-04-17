@@ -51,7 +51,7 @@ public:
   std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& moveAdd(const ThreeMomentum &p, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
     mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield.size());
     for(int i=0;i<mfield.size();i++) mf[p]->operator[](i).move(mfield[i]);
-    mfield.swap(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >());
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >().swap(mfield);
     return *mf[p];
   }
   

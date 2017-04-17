@@ -163,87 +163,49 @@ private:
     return mf_store;
   }
 
+  //Replace MF with pidx < nmom  with avg( Mf[pidx],  Mf[pidx + nmom] ), i.e. combine with alternate momentum configuration
   template<typename PionMomentumPolicy>
-  static void GparityCombineStore(MesonFieldMomentumContainer<mf_Policies> &mf_ll_con,
-			   const RequiredMomentum<PionMomentumPolicy> &pion_mom,
-			   const int src_idx,
-			   typename GparityComputeTypes::StorageType* mf_store){
+  static void GparityAverageAltMomenta(const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+				       typename GparityComputeTypes::StorageType* mf_store){
 
-    printMemNodeFile("GparityCombineStore src_idx="+anyToStr(src_idx));
+    printMemNodeFile("GparityAverageAltMomenta");
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
-			   
+
     for(int pidx=0;pidx<nmom;pidx++){
-      const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
-      MesonFieldVectorType & mf_pbase = (*mf_store)(src_idx,pidx);
-      MesonFieldVectorType & mf_palt = (*mf_store)(src_idx,pidx+nmom);
-	
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-      nodeGetMany(1,&mf_pbase);
-#endif
+      for(int src_idx=0; src_idx<2; src_idx++){
+	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
+	MesonFieldVectorType & mf_pbase = (*mf_store)(src_idx,pidx);
+	MesonFieldVectorType & mf_palt = (*mf_store)(src_idx,pidx+nmom);
 
-      MesonFieldVectorType & stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_pbase); //don't move, just copy
-	
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-      nodeDistributeMany(1,&mf_pbase);
-      nodeGetMany(1,&mf_palt);
+	nodeGetMany(1,&mf_pbase);
+	nodeGetMany(1,&mf_palt);
 #endif
-	
-      for(int t=0;t<Lt;t++) stored[t].average(mf_palt[t]); //average with second mom
-	
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-      nodeDistributeMany(1,&mf_palt);
-      if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
-      nodeDistributeMany(1,&stored);
-#endif
-    }
-  }
-
-  //Frees the meson fields as it pulls them in
-  template<typename PionMomentumPolicy>
-  static void GparityWriteMF(const std::string &work_dir, const int traj, const Float &rad,
-		      const RequiredMomentum<PionMomentumPolicy> &pion_mom,
-		      typename GparityComputeTypes::StorageType* mf_store){
-    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    const int nmom = pion_mom.nMom();
-    std::string src_names[2] = {"1s","2s"};
-    
-    for(int pidx=0;pidx<nmom;pidx++){
-      for(int alt=0; alt<2;alt++){
-	ThreeMomentum p_wdag = -pion_mom.getWmom(pidx, alt);
-	ThreeMomentum p_v = pion_mom.getVmom(pidx, alt);
-	
-	for(int s=0;s<2;s++){
-	  std::ostringstream os; //momenta in units of pi/2L
-	  os << work_dir << "/traj_" << traj << "_pion_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
-
-	  MesonFieldVectorType &mf_q = (*mf_store)(s,pidx+ alt*nmom);
-	    
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-	  nodeGetMany(1,&mf_q);
-#endif
-
-	  MesonFieldType::write(os.str(),mf_q);
-	  for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed
+	for(int t=0;t<Lt;t++){
+	  mf_pbase[t].average(mf_palt[t]);
+	  mf_palt[t].free_mem();
 	}
+      
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeDistributeMany(1,&mf_pbase);
+#endif
       }
     }
   }
 
-  //Same as above but averages base and alternate momentum. Also frees meson fields as it pulls them in
+  //Writes meson fields with pidx < nMom   (i.e. after alt_mom have been averaged)
   template<typename PionMomentumPolicy>
-  static void GparityWriteAverageMF(const std::string &work_dir, const int traj, const Float &rad,
+  static void GparityWriteMF(const std::string &work_dir, const int traj, const Float &rad,
 				    const RequiredMomentum<PionMomentumPolicy> &pion_mom,
 				    typename GparityComputeTypes::StorageType* mf_store){
-    printMemNodeFile("GparityWriteAverageMF");
+    printMemNodeFile("GparityWriteMF");
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
     std::string src_names[2] = {"1s","2s"};
 
-    MesonFieldVectorType tmp(Lt);
-    
     for(int pidx=0;pidx<nmom;pidx++){
       for(int s=0;s<2;s++){
 	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
@@ -251,29 +213,40 @@ private:
 	MesonFieldVectorType &mf_base = (*mf_store)(s,pidx);	    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 	nodeGetMany(1,&mf_base);
-#endif
-	for(int t=0;t<Lt;t++) tmp[t].move(mf_base[t]); //steals data as no longer needed
-
-	MesonFieldVectorType &mf_alt = (*mf_store)(s,pidx + nmom);
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-	nodeGetMany(1,&mf_alt);
 #endif	
-
-	for(int t=0; t<Lt; t++){
-	  tmp[t].average(mf_alt[t]);
-	  mf_alt[t].free_mem();
-	}
-	
 	std::ostringstream os; //momenta in units of pi/2L
 	os << work_dir << "/traj_" << traj << "_pion_mf_mom" << pi_mom_pidx.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
 
 #ifndef MEMTEST_MODE	
-	MesonFieldType::write(os.str(),tmp);
+	MesonFieldType::write(os.str(),mf_base);
 #endif
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeDistributeMany(1,&mf_base);
+#endif
+	
       }
     }
   }
-  
+
+  template<typename PionMomentumPolicy>
+  static void GparityStore(MesonFieldMomentumContainer<mf_Policies> &mf_ll_con,
+			   const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+			   const int src_idx,
+			   typename GparityComputeTypes::StorageType* mf_store){
+
+    printMemNodeFile("GparityStore src_idx="+anyToStr(src_idx));
+
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nmom = pion_mom.nMom();
+			   
+    for(int pidx=0;pidx<nmom;pidx++){
+      const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
+      MesonFieldVectorType & mf_pbase = (*mf_store)(src_idx,pidx);
+      MesonFieldVectorType & stored = mf_ll_con.moveAdd(pi_mom_pidx, mf_pbase);
+    }
+  }
+
 public:
   
   //These meson fields are also used by the pi-pi and K->pipi calculations
@@ -285,6 +258,7 @@ public:
 				 const Float &rad, //exponential wavefunction radius
 				 Lattice &lattice,			      
 				 const FieldParamType &src_setup_params = NullObject()){
+    assert(!GJP.Gparity());
     Float time = -dclock();    
     std::vector<Wtype*> Wspecies(1, &W);
     std::vector<Vtype*> Vspecies(1, &V);
@@ -294,36 +268,30 @@ public:
     if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
       ERR.General("ComputePion","computeMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
     
-    if(GJP.Gparity()){
-      typename GparityComputeTypes::StorageType* mf_store = GparityDoCompute(pion_mom,Wspecies,Vspecies,rad,lattice,src_setup_params);
-      GparityCombineStore(mf_ll_con, pion_mom, 0, mf_store); //combine and store 1s pion
-      GparityWriteAverageMF(work_dir, traj, rad, pion_mom, mf_store); //write all meson fields to disk
-      delete mf_store;
-    }else{
-      typedef A2AexpSource<SourcePolicies> SrcType;
-      typedef SCspinInnerProduct<15,ComplexType,SrcType> InnerType;
-      typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
 
-      SrcType src(rad,src_setup_params);
-      InnerType g5_inner(src);
+    typedef A2AexpSource<SourcePolicies> SrcType;
+    typedef SCspinInnerProduct<15,ComplexType,SrcType> InnerType;
+    typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
 
-      StorageType mf_store(g5_inner);
+    SrcType src(rad,src_setup_params);
+    InnerType g5_inner(src);
 
-      for(int pidx=0;pidx<nmom;pidx++){
-	ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
-	ThreeMomentum p_v = pion_mom.getVmom(pidx,false);
-	mf_store.addCompute(0,0, p_w,p_v);	
-      }
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+    StorageType mf_store(g5_inner);
 
-      for(int pidx=0;pidx<nmom;pidx++){
-	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
-	MesonFieldVectorType &stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_store[pidx]);
+    for(int pidx=0;pidx<nmom;pidx++){
+      ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
+      ThreeMomentum p_v = pion_mom.getVmom(pidx,false);
+      mf_store.addCompute(0,0, p_w,p_v);	
+    }
+    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
+
+    for(int pidx=0;pidx<nmom;pidx++){
+      const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
+      MesonFieldVectorType &stored = mf_ll_con.copyAdd(pi_mom_pidx, mf_store[pidx]);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-	if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
-	nodeDistributeMany(1,&stored);
-#endif
-      }	
+      if(!UniqueID()){ printf("Distributing mf_ll[%d]\n",pidx); fflush(stdout); }
+      nodeDistributeMany(1,&stored);
+#endif      
     }
     
     time += dclock();
@@ -361,9 +329,12 @@ public:
     omp_set_num_threads(init_thr);
 #endif
 
-    GparityCombineStore(mf_ll_1s_con, pion_mom, 0, mf_store);
-    GparityCombineStore(mf_ll_2s_con, pion_mom, 1, mf_store);    
-    GparityWriteAverageMF(work_dir, traj, rad, pion_mom, mf_store); //write all meson fields to disk
+    GparityAverageAltMomenta(pion_mom,mf_store);
+    GparityWriteMF(work_dir, traj, rad, pion_mom, mf_store); //write all meson fields to disk
+    
+    GparityStore(mf_ll_1s_con, pion_mom, 0, mf_store);
+    GparityStore(mf_ll_2s_con, pion_mom, 1, mf_store);    
+
     delete mf_store;
   }
     
