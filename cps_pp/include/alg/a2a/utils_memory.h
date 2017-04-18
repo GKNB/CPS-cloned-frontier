@@ -405,8 +405,8 @@ public:
       assert( MPI_Bcast(ptr, _size, MPI_BYTE, _master_mpirank, MPI_COMM_WORLD) == MPI_SUCCESS );
     }
     
-    //Non-master copies safe to throw away data if not required  
-    if(!require && UniqueID() != _master_uid && ptr != NULL) freeMem();
+    //Non-master copies safe to throw away data if not required. If data was already present we don't throw away because it may have been pulled by a different call to gather
+    if(!require && UniqueID() != _master_uid && ptr != NULL && do_gather_node) freeMem();
 #endif
   }
 
