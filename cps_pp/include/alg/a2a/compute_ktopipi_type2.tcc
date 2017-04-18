@@ -231,11 +231,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 
   static const int n_contract = 6; //six type2 diagrams
   static const int con_off = 7; //index of first contraction in set
-  const int nthread = omp_get_max_threads();
-
-  for(int tkp=0;tkp<tsep_k_pi.size();tkp++)
-    result[tkp].resize(n_contract,nthread); //Resize zeroes output. Result will be thread-reduced before this method ends 
-    
+  const int nthread = omp_get_max_threads();    
   const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
 
   //Compile some information about which timeslices are involved in the calculation such that we can minimize work by skipping unused timeslices
@@ -258,6 +254,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
   std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > con_pi1_pi2;//(tpi_sampled); //y is associated with pi1, z with pi2
   std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > con_pi2_pi1; //(tpi_sampled); //y is associated with pi2, z with pi1
   type2_compute_mfproducts(con_pi1_pi2,con_pi2_pi1,tsep_pion,tstep,p_pi_1_all,mf_pions, Lt, tpi_sampled);
+
+  for(int tkp=0;tkp<tsep_k_pi.size();tkp++)
+    result[tkp].resize(n_contract,nthread); //Resize zeroes output. Result will be thread-reduced before this method ends 
 
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();

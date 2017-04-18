@@ -200,13 +200,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(ResultsContainerType result[], Mi
   
   static const int n_contract = 10; //ten type3 diagrams
   static const int con_off = 13; //index of first contraction in set
-  const int nthread = omp_get_max_threads();
-  
-  for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
-    result[tkp].resize(n_contract,nthread); //it will be thread-reduced before this method ends
-    mix3[tkp].resize(nthread);
-  }
-  
+  const int nthread = omp_get_max_threads();    
   const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
   
   //Form the product of the three meson fields
@@ -222,6 +216,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(ResultsContainerType result[], Mi
     getUsedTimeslices(node_top_used[t_pi1_idx],tsep_k_pi,t_pi1);
   }
   
+  for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
+    result[tkp].resize(n_contract,nthread); //it will be thread-reduced before this method ends
+    mix3[tkp].resize(nthread);
+  }
+
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
     
