@@ -31,6 +31,50 @@ struct getInnerVectorType<T,grid_vector_complex_mark>{
 };
 #endif
 
+#define TIMER_ELEMS \
+  ELEM(type1_compute_mfproducts) \
+  ELEM(type1_mult_vMv_setup) \
+  ELEM(type1_precompute_part1_part2) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type1timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type2_compute_mfproducts) \
+  ELEM(type2_mult_vMv_setup) \
+  ELEM(type2_precompute_part1_part2) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type2timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type3_compute_mfproducts) \
+  ELEM(type3_mult_vMv_setup) \
+  ELEM(type3_precompute_part1) \
+  ELEM(part2_calc) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type3timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type4_mult_vMv_setup) \
+  ELEM(type4_precompute_part1) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type4timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
 template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
 private:

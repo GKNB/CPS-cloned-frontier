@@ -73,24 +73,27 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_v
 							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 							   const int top_loc, const int tstep, const int Lt){
+  Type4timings::timer().type4_mult_vMv_setup -= dclock();
   mult_vMv_split_part1.resize(Lt/tstep); //[tKidx]
   int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
   for(int tkidx=0; tkidx < Lt/tstep; tkidx++)
     mult_vMv_split_part1[tkidx].setup(vL,mf_kaon[tkidx*tstep],vH,top_glb);
+  Type4timings::timer().type4_mult_vMv_setup += dclock();
 }
 
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFmatVector> &mult_vMv_contracted_part1,
 							     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
-
+  Type4timings::timer().type4_precompute_part1 -= dclock();
   mult_vMv_contracted_part1.resize(Lt/tstep); //[tKidx]
 
   for(int tkidx=0; tkidx < Lt/tstep; tkidx++){
     mult_vMv_split_part1[tkidx].contract(mult_vMv_contracted_part1[tkidx],false,true);
     mult_vMv_split_part1[tkidx].free_mem();
   }
+  Type4timings::timer().type4_precompute_part1 += dclock();
 }
 
 
@@ -104,7 +107,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   
-  
+  Type4timings::timer().reset();
+  Type4timings::timer().total -= dclock();
   SCFmat mix4_Gamma[2];
   mix4_Gamma[0].unit().pr(F0).gr(-5);
   mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -136,6 +140,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
 #endif
 
     //Now loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
+    Type4timings::timer().contraction_time -= dclock();
 #pragma omp parallel for schedule(static)
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
       int thread_id = omp_get_thread_num();
@@ -179,13 +184,19 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
       }//t_K loop
 
     }//xop3d loop
+    Type4timings::timer().contraction_time += dclock();
+    
   }//top_loc loop
 
+  Type4timings::timer().finish_up -= dclock();
   result.threadSum();
   result.nodeSum();
 
   mix4.threadSum();
   mix4.nodeSum();
+  Type4timings::timer().finish_up += dclock();
+  Type4timings::timer().total += dclock();  
+  Type4timings::timer().report();  
 }
 
 #endif

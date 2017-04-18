@@ -62,6 +62,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
 							       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
 							       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 							       const int Lt, const int tpi_sampled){
+  Type2timings::timer().type2_compute_mfproducts -= dclock();
   con_pi1_pi2.resize(tpi_sampled); //y is associated with pi1, z with pi2
   con_pi2_pi1.resize(tpi_sampled); //y is associated with pi2, z with pi1
 
@@ -134,8 +135,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
     for(int t=0;t<tpi_sampled;t++){
       con_pi1_pi2[t].times_equals(1./nmom);  con_pi2_pi1[t].times_equals(1./nmom);
     }
-
-  if(!UniqueID()){ printf("Finished computing con_pi_pi\n"); fflush(stdout); }
+  Type2timings::timer().type2_compute_mfproducts += dclock();
 }
 
 
@@ -152,7 +152,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_v
 							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 							   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 							   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
-
+  Type2timings::timer().type2_mult_vMv_setup -= dclock();
   //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
   mult_vMv_split_part1.resize(t_K_all.size());
   mult_vMv_split_part2_pi1_pi2.resize(tpi_sampled);
@@ -178,7 +178,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_v
     mult_vMv_split_part2_pi1_pi2[t_pi1_idx].setup(vL,con_pi1_pi2[t_pi1_idx],wL, top_glb);
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].setup(vL,con_pi2_pi1[t_pi1_idx],wL, top_glb);
   }
-  
+  Type2timings::timer().type2_mult_vMv_setup += dclock();
 }
 
 template<typename mf_Policies>
@@ -190,7 +190,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
 								   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 								   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
-
+  Type2timings::timer().type2_precompute_part1_part2 += dclock();
   mult_vMv_contracted_part1.resize(t_K_all.size());
   mult_vMv_contracted_part2_pi1_pi2.resize(tpi_sampled);
   mult_vMv_contracted_part2_pi2_pi1.resize(tpi_sampled);
@@ -213,6 +213,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].contract(mult_vMv_contracted_part2_pi2_pi1[t_pi1_idx], false,true);
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].free_mem();
   }
+  Type2timings::timer().type2_precompute_part1_part2 -= dclock();
 }
 
 
@@ -224,7 +225,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 		  const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-      
+  Type2timings::timer().reset();
+  Type2timings::timer().total -= dclock();
+    
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   assert(Lt % tstep == 0);
   const int tpi_sampled = Lt/tstep;
@@ -283,6 +286,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 #endif
 
     //Now loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
+    Type2timings::timer().contraction_time -= dclock();
 #pragma omp parallel for schedule(static)
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
       int thread_id = omp_get_thread_num();
@@ -343,8 +347,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 
       }//tpi1 loop
     }//xop3d_loc loop
+    Type2timings::timer().contraction_time += dclock();
+    
   }//top_loc loop
 
+  Type2timings::timer().finish_up -= dclock();
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
     result[tkp].threadSum();
     result[tkp].nodeSum();
@@ -352,6 +359,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
     result[tkp] *= Float(0.5); //coefficient of 0.5 associated with average over pt2 pion ordering
 #endif
   }
+  Type2timings::timer().finish_up += dclock();
+  Type2timings::timer().total += dclock();
+  Type2timings::timer().report();
 }
 
 #endif
