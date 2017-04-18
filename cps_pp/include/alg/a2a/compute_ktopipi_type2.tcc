@@ -69,9 +69,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
     
   if(!UniqueID()){ printf("Computing con_*_*\n"); fflush(stdout); }
 
+#ifndef DISABLE_TYPE2_PRODUCTSTORE
   //Some of these mults are quite likely duplicates, so use the product store to maximize reuse
   MesonFieldProductStore<mf_Policies> products;
-
+#endif
+  
   int nmom = p_pi_1_all.size();
   for(int pidx=0;pidx<nmom;pidx++){
     const ThreeMomentum &p_pi_1 = p_pi_1_all[pidx];
@@ -100,18 +102,26 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
       int tpi2 = modLt(tpi1  + tsep_pion, Lt);
 
       if(pidx==0){
+#ifndef DISABLE_TYPE2_PRODUCTSTORE
 	con_pi1_pi2[tpi1_idx] = products.getProduct(mf_pi1[tpi1], mf_pi2[tpi2]); //node distributed
 	con_pi2_pi1[tpi1_idx] = products.getProduct(mf_pi2[tpi2], mf_pi1[tpi1]);
-
-	//mult(con_pi1_pi2[tpi1_idx], mf_pi1[tpi1], mf_pi2[tpi2]);
-	//mult(con_pi2_pi1[tpi1_idx], mf_pi2[tpi2], mf_pi1[tpi1]);
-      }else{
-	//mult(tmp, mf_pi1[tpi1], mf_pi2[tpi2]);   
+#else
+	mult(con_pi1_pi2[tpi1_idx], mf_pi1[tpi1], mf_pi2[tpi2]);
+	mult(con_pi2_pi1[tpi1_idx], mf_pi2[tpi2], mf_pi1[tpi1]);
+#endif
+      }else{	
+#ifndef DISABLE_TYPE2_PRODUCTSTORE
 	tmp = products.getProduct(mf_pi1[tpi1], mf_pi2[tpi2]);
+#else
+	mult(tmp, mf_pi1[tpi1], mf_pi2[tpi2]);
+#endif
 	con_pi1_pi2[tpi1_idx].plus_equals(tmp, true);
 
-	//mult(tmp, mf_pi2[tpi2], mf_pi1[tpi1]);   
+#ifndef DISABLE_TYPE2_PRODUCTSTORE	
 	tmp = products.getProduct(mf_pi2[tpi2], mf_pi1[tpi1]);
+#else
+	mult(tmp, mf_pi2[tpi2], mf_pi1[tpi1]);   
+#endif
 	con_pi2_pi1[tpi1_idx].plus_equals(tmp, true);
       }
       //NB time coordinate of con_*_* is the time coordinate of pi1 (that closest to the kaon)
