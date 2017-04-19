@@ -190,7 +190,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
 								   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 								   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
-  Type2timings::timer().type2_precompute_part1_part2 += dclock();
+  Type2timings::timer().type2_precompute_part1_part2 -= dclock();
   mult_vMv_contracted_part1.resize(t_K_all.size());
   mult_vMv_contracted_part2_pi1_pi2.resize(tpi_sampled);
   mult_vMv_contracted_part2_pi2_pi1.resize(tpi_sampled);
@@ -213,7 +213,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].contract(mult_vMv_contracted_part2_pi2_pi1[t_pi1_idx], false,true);
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].free_mem();
   }
-  Type2timings::timer().type2_precompute_part1_part2 -= dclock();
+  Type2timings::timer().type2_precompute_part1_part2 += dclock();
 }
 
 
