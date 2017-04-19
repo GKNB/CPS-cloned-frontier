@@ -403,11 +403,8 @@ namespace BFM_Krylov{
   void Krylov<S>::Run()
   {
     tot_time -= dclock();
-    printf("THIS pointer pre-init %p\n",this);
     init();
 
-    printf("THIS pointer %p\n",this);
-    printf("con %d\n",this->con);
     int ff = this->con;
 
     QDPIO::cout << "Krylov: Run()"<<std::endl;
@@ -1346,7 +1343,7 @@ namespace BFM_Krylov{
   //QZ is saved in column major format. 
   //perform V = V*QZ;
   {
-    printf("Using eigcg_vec_mult2\n");
+    //    printf("Using eigcg_vec_mult2\n");
 
     std::vector<Fermion_t> ret(n, NULL);
     for(int i = 0; i < n; ++i) {

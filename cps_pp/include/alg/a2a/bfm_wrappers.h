@@ -68,7 +68,10 @@ struct BFMsolvers{
       dwfa.gparity = 1;
       if(!UniqueID()) printf("G-parity directions: ");
       for(int d=0;d<3;d++)
-	if(GJP.Bc(d) == BND_CND_GPARITY){ dwfa.gparity_dir[d] = 1; printf("%d ",d); }
+	if(GJP.Bc(d) == BND_CND_GPARITY){
+	  dwfa.gparity_dir[d] = 1;
+	  if(!UniqueID()) printf("%d ",d);
+	}
 	else dwfa.gparity_dir[d] = 0;
       for(int d=0;d<4;d++){
 	dwfa.nodes[d] = procs[d];
@@ -259,14 +262,14 @@ struct BFMLanczosWrapper{
 	for(int i = 0; i < eig->bq.size(); i++){
 	  for(int cb=eig->prec;cb<2;cb++)
 	    if(eig->bq[i][cb] != NULL){
-	      printf("Free single prec evec %d with ptr %p\n",i,eig->bq[i][cb]); fflush(stdout);
+	      //printf("Free single prec evec %d with ptr %p\n",i,eig->bq[i][cb]); fflush(stdout);
 	      bfm_free(eig->bq[i][cb],bytes);
 	      eig->bq[i][cb] = NULL;
 	    }
 	}
-	printf("Resize evec array to zero\n"); fflush(stdout);
+	//printf("Resize evec array to zero\n"); fflush(stdout);
 	eig->bq.resize(0);
-	printf("Done freeEvecs()\n"); fflush(stdout);
+	//printf("Done freeEvecs()\n"); fflush(stdout);
       }else{	
 	eig->free_bq();
       }
