@@ -103,7 +103,7 @@ public:
       p_latt[i] = p[i] * unit;
     }
   }
-
+  inline int norm2(){return p[0]*p[0]+p[1]*p[1]+p[2]*p[2];}
 };
 
 //exp(-i p.x)

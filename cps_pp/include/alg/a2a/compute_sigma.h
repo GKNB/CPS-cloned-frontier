@@ -10,28 +10,27 @@
 CPS_START_NAMESPACE
 
 //Policy for stationary sigma with and without GPBC
-class StationarySigmaMomentaPolicy{
+class StationarySigmaMomentaPolicy: public RequiredMomentum{
 public:
-  void setupMomenta(const int &ngp){
-    RequiredMomentum<StationarySigmaMomentaPolicy> *tt = static_cast<RequiredMomentum<StationarySigmaMomentaPolicy>*>(this);
+  StationarySigmaMomentaPolicy(): RequiredMomentum() {
     if(ngp == 0){
-      tt->addP("(0,0,0) + (0,0,0)");
+      addP("(0,0,0) + (0,0,0)");
     }else if(ngp == 1){
-      tt->addPandMinusP("(-1,0,0) + (1,0,0)");
-      tt->addPandMinusP("(-3,0,0) + (3,0,0)");
+      addPandMinusP("(-1,0,0) + (1,0,0)");
+      addPandMinusP("(-3,0,0) + (3,0,0)");
     }else if(ngp == 2){
-      tt->addPandMinusP("(-1,-1,0) + (1,1,0)");
-      tt->addPandMinusP("(3,-1,0) + (-3,1,0)");
-      tt->addPandMinusP("(-1,3,0) + (1,-3,0)");
+      addPandMinusP("(-1,-1,0) + (1,1,0)");
+      addPandMinusP("(3,-1,0) + (-3,1,0)");
+      addPandMinusP("(-1,3,0) + (1,-3,0)");
     }else if(ngp == 3){
-      tt->addPandMinusP("(-1,-1,-1) + (1,1,1)");
-      tt->addPandMinusP("(3,-1,-1) + (-3,1,1)");
-      tt->addPandMinusP("(-1,3,-1) + (1,-3,1)");
-      tt->addPandMinusP("(-1,-1,3) + (1,1,-3)");
+      addPandMinusP("(-1,-1,-1) + (1,1,1)");
+      addPandMinusP("(3,-1,-1) + (-3,1,1)");
+      addPandMinusP("(-1,3,-1) + (1,-3,1)");
+      addPandMinusP("(-1,-1,3) + (1,1,-3)");
     }else{
-      ERR.General("StationarySigmaMomentaPolicy","setupMomenta","ngp cannot be >3\n");
+      ERR.General("StationarySigmaMomentaPolicy","constructor","ngp cannot be >3\n");
     }
-  }
+  };
 };
 
 
@@ -67,7 +66,7 @@ private:
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-    RequiredMomentum<StationarySigmaMomentaPolicy> momenta;
+    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);
@@ -182,7 +181,7 @@ private:
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-    RequiredMomentum<StationarySigmaMomentaPolicy> momenta;
+    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);
@@ -253,7 +252,7 @@ private:
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-    RequiredMomentum<StationarySigmaMomentaPolicy> momenta;
+    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);

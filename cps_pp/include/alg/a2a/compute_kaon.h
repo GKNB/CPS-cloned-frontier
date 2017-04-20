@@ -9,22 +9,21 @@
 CPS_START_NAMESPACE
 
 //Policy for stationary kaon with and without GPBC
-class StationaryKaonMomentaPolicy{
+class StationaryKaonMomentaPolicy: public RequiredMomentum{
 public:
-  void setupMomenta(const int &ngp){
-    RequiredMomentum<StationaryKaonMomentaPolicy> *tt = static_cast<RequiredMomentum<StationaryKaonMomentaPolicy>*>(this);
+  StationaryKaonMomentaPolicy(): RequiredMomentum() {
     if(ngp == 0){
-      tt->addP("(0,0,0) + (0,0,0)");
+      addP("(0,0,0) + (0,0,0)");
     }else if(ngp == 1){
-      tt->addP("(-1,0,0) + (1,0,0)");
+      addP("(-1,0,0) + (1,0,0)");
     }else if(ngp == 2){
-      tt->addP("(-1,-1,0) + (1,1,0)");
+      addP("(-1,-1,0) + (1,1,0)");
     }else if(ngp == 3){
-      tt->addP("(-1,-1,-1) + (1,1,1)");
+      addP("(-1,-1,-1) + (1,1,1)");
     }else{
-      ERR.General("StationaryKaonMomentaPolicy","setupMomenta","ngp cannot be >3\n");
+      ERR.General("StationaryKaonMomentaPolicy","constructor","ngp cannot be >3\n");
     }
-  }
+  };
 };
 
 
@@ -54,7 +53,7 @@ class ComputeKaon{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
 
-    RequiredMomentum<StationaryKaonMomentaPolicy> kaon_momentum;
+    StationaryKaonMomentaPolicy kaon_momentum;
     ThreeMomentum p_w_src = kaon_momentum.getWmom(0);
     ThreeMomentum p_v_src = kaon_momentum.getVmom(0);
     

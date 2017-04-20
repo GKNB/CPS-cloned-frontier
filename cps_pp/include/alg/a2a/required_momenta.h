@@ -3,25 +3,27 @@
 
 #include<vector>
 #include<alg/a2a/threemomentum.h>
+#include<algorithm>
 
 CPS_START_NAMESPACE
 
 //A class to compute and store the W^dagger V meson field momenta
-template<typename MomComputePolicy>
-class RequiredMomentum: public MomComputePolicy{
+class RequiredMomentum{
+protected:
   std::vector<ThreeMomentum>  wdag_mom;
   std::vector<ThreeMomentum>  vmom;
   std::vector<ThreeMomentum>  wdag_mom_alt;
   std::vector<ThreeMomentum>  vmom_alt;
+  int ngp;
+  const int maxMom;
      
 public:
-  RequiredMomentum(){
+  RequiredMomentum(const int mp=0): ngp(0), maxMom(mp){
     //We require meson fields with both p and -p for each non-identical momentum direction.     
-    int ngp = 0; for(int i=0;i<3;i++){
+    for(int i=0;i<3;i++){
       if(GJP.Bc(i) == BND_CND_GPARITY) ngp++;
       if(i>0 && GJP.Bc(i) == BND_CND_GPARITY && GJP.Bc(i-1) != BND_CND_GPARITY){ ERR.General("RequiredMomentum","RequiredMomentum","Expect G-parity directions to be consecutive\n"); }     //(as it is setup here we expect the G-parity directions to be consecutive, i.e.  x, or x and y, or x and y and z)
     }
-    this->setupMomenta(ngp); //in MomComputePolicy
   }
 
   int nMom() const{ return vmom.size(); }
@@ -70,6 +72,20 @@ public:
     }
 
   }
+  void addUpToMaxCOMP(){
+    int m=maxMom;
+    for(int i=-m; i<=m; i++){
+      for(int j=-m; j<=m; j++){
+	for(int k=-m; k<=m; k++){
+	  if(i*i+j*j+k*k>m*m) continue;
+	  std::ostringstream os;
+	  os << "(" << i << "," << j << "," << k << ") + (0,0,0)\n";
+	  addP(os.str(),false);
+	}
+      }
+    }
+  }
+
 };
 
 

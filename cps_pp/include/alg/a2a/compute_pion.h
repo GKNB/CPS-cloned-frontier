@@ -9,79 +9,82 @@
 CPS_START_NAMESPACE
 
 //Policy for RequiredMomenta. This is the set of momenta that Daiqian used.
-class StandardPionMomentaPolicy{
+class StandardPionMomentaPolicy: public RequiredMomentum{
 public:
-  void setupMomenta(const int &ngp){
-    RequiredMomentum<StandardPionMomentaPolicy> *tt = static_cast<RequiredMomentum<StandardPionMomentaPolicy>*>(this);
+  StandardPionMomentaPolicy(): RequiredMomentum() {
     if(ngp == 0){
       //p_pi = (0,0,0)
-      tt->addP("(0,0,0) + (0,0,0)",false);
+      addP("(0,0,0) + (0,0,0)",false);
+      //one unit of momenta in units of 2pi/L
+      addPandMinusP("(1,0,0) + (0,0,0)",false);
+      addPandMinusP("(0,1,0) + (0,0,0)",false);
+      addPandMinusP("(0,0,1) + (0,0,0)",false);
     }else if(ngp == 1){
       //p_pi = (-2,0,0)     (units of pi/2L)    
-      tt->addPandMinusP("(-1,0,0) + (-1,0,0)",false); tt->addPandMinusP("(1,0,0) + (-3,0,0)",true); //alternative momentum   
+      addPandMinusP("(-1,0,0) + (-1,0,0)",false); addPandMinusP("(1,0,0) + (-3,0,0)",true); //alternative momentum   
       //(In case you're wondering why my first momentum has the opposite sign to Daiqian's, its because mine is for W^dagger, not W)
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (-2,-2,0)     (units of pi/2L)  
-      tt->addPandMinusP("(-1,-1,0) + (-1,-1,0)",false); tt->addPandMinusP("(1,1,0) + (-3,-3,0)",true);
+      addPandMinusP("(-1,-1,0) + (-1,-1,0)",false); addPandMinusP("(1,1,0) + (-3,-3,0)",true);
 
       //Along off-diagonal direction:      
       //p_pi = (2,-2,0)
-      tt->addPandMinusP("(-1,-1,0) + (3,-1,0)",false); tt->addPandMinusP("(1,1,0) + (1,-3,0)",true);
+      addPandMinusP("(-1,-1,0) + (3,-1,0)",false); addPandMinusP("(1,1,0) + (1,-3,0)",true);
     }else if(ngp == 3){
       //p_pi = (-2,-2,-2)     (units of pi/2L)  
-      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false); tt->addPandMinusP("(1,1,1) + (-3,-3,-3)",true);
+      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false); addPandMinusP("(1,1,1) + (-3,-3,-3)",true);
 
       //p_pi = (2,-2,-2)
-      tt->addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false); tt->addPandMinusP("(1,1,1) + (1,-3,-3)",true);
+      addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false); addPandMinusP("(1,1,1) + (1,-3,-3)",true);
 
       //p_pi = (-2,2,-2)
-      tt->addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false); tt->addPandMinusP("(1,1,1) + (-3,1,-3)",true);
+      addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false); addPandMinusP("(1,1,1) + (-3,1,-3)",true);
 
       //p_pi = (-2,-2,2)
-      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false); tt->addPandMinusP("(1,1,1) + (-3,-3,1)",true);      
+      addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false); addPandMinusP("(1,1,1) + (-3,-3,1)",true);      
     }else{
-      ERR.General("StandardPionMomentaPolicy","setupMomenta","ngp cannot be >3\n");
+      ERR.General("StandardPionMomentaPolicy","constructor","ngp cannot be >3\n");
     }
-  }
+  };
 };
 
 //This set of momenta does not include the second momentum combination with which we average to reduce the G-parity rotational symmetry breaking
-class H4asymmetricMomentaPolicy{
+class H4asymmetricMomentaPolicy: public RequiredMomentum{
 public:
-  void setupMomenta(const int &ngp){
-    RequiredMomentum<H4asymmetricMomentaPolicy> *tt = static_cast<RequiredMomentum<H4asymmetricMomentaPolicy>*>(this);
+  void setupMomenta(){
     if(ngp == 0){
       //p_pi = (0,0,0)
-      tt->addP("(0,0,0) + (0,0,0)",false);
+      addP("(0,0,0) + (0,0,0)",false);
     }else if(ngp == 1){
       //p_pi = (-2,0,0)     (units of pi/2L)    
-      tt->addPandMinusP("(-1,0,0) + (-1,0,0)",false);
+      addPandMinusP("(-1,0,0) + (-1,0,0)",false);
       //(In case you're wondering why my first momentum has the opposite sign to Daiqian's, its because mine is for W^dagger, not W)
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (-2,-2,0)     (units of pi/2L)  
-      tt->addPandMinusP("(-1,-1,0) + (-1,-1,0)",false);
+      addPandMinusP("(-1,-1,0) + (-1,-1,0)",false);
 
       //Along off-diagonal direction:      
       //p_pi = (2,-2,0)
-      tt->addPandMinusP("(-1,-1,0) + (3,-1,0)",false);
+      addPandMinusP("(-1,-1,0) + (3,-1,0)",false);
     }else if(ngp == 3){
       //p_pi = (-2,-2,-2)     (units of pi/2L)  
-      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false);
 
       //p_pi = (2,-2,-2)
-      tt->addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false);
 
       //p_pi = (-2,2,-2)
-      tt->addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false);
 
       //p_pi = (-2,-2,2)
-      tt->addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false);
     }else{
       ERR.General("H4asymmetricMomentaPolicy","setupMomenta","ngp cannot be >3\n");
     }
   }
+  H4asymmetricMomentaPolicy(): RequiredMomentum() { setupMomenta();};
 };
 
 
@@ -127,7 +130,7 @@ private:
   };
 
   template<typename PionMomentumPolicy>
-  static typename GparityComputeTypes::StorageType* GparityDoCompute(const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+  static typename GparityComputeTypes::StorageType* GparityDoCompute(const PionMomentumPolicy &pion_mom,
 							      const std::vector<Wtype*> &Wspecies, const std::vector<Vtype*> &Vspecies,
 							      const Float &rad, Lattice &lattice, const FieldParamType &src_setup_params){
     const int nmom = pion_mom.nMom();
@@ -165,7 +168,7 @@ private:
 
   //Replace MF with pidx < nmom  with avg( Mf[pidx],  Mf[pidx + nmom] ), i.e. combine with alternate momentum configuration
   template<typename PionMomentumPolicy>
-  static void GparityAverageAltMomenta(const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+  static void GparityAverageAltMomenta(const PionMomentumPolicy &pion_mom,
 				       typename GparityComputeTypes::StorageType* mf_store){
 
     printMemNodeFile("GparityAverageAltMomenta");
@@ -198,7 +201,7 @@ private:
   //Writes meson fields with pidx < nMom   (i.e. after alt_mom have been averaged)
   template<typename PionMomentumPolicy>
   static void GparityWriteMF(const std::string &work_dir, const int traj, const Float &rad,
-				    const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+				    const PionMomentumPolicy &pion_mom,
 				    typename GparityComputeTypes::StorageType* mf_store){
     printMemNodeFile("GparityWriteMF");
 
@@ -231,7 +234,7 @@ private:
 
   template<typename PionMomentumPolicy>
   static void GparityStore(MesonFieldMomentumContainer<mf_Policies> &mf_ll_con,
-			   const RequiredMomentum<PionMomentumPolicy> &pion_mom,
+			   const PionMomentumPolicy &pion_mom,
 			   const int src_idx,
 			   typename GparityComputeTypes::StorageType* mf_store){
 
@@ -253,7 +256,7 @@ public:
   template<typename PionMomentumPolicy>
   static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
 				 const std::string &work_dir, const int traj,  //all meson fields stored to disk
-				 const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
+				 const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
 				 const Float &rad, //exponential wavefunction radius
 				 Lattice &lattice,			      
@@ -303,7 +306,7 @@ public:
   static void computeGparityMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_1s_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
 					MesonFieldMomentumContainer<mf_Policies> &mf_ll_2s_con, //same for 2s source
 					const std::string &work_dir, const int traj,  //all meson fields stored to disk
-					const RequiredMomentum<PionMomentumPolicy> &pion_mom, //object that tells us what quark momenta to use
+					const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
 					Wtype &W, Vtype &V,
 					const Float &rad, //exponential wavefunction radius
 					Lattice &lattice,			      
@@ -342,7 +345,7 @@ public:
   //The pion is given the momentum associated with index 'pidx' in the RequiredMomentum
   //result is indexed by (tsrc, tsep)  where tsep is the source-sink separation
   template<typename PionMomentumPolicy>
-  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, const RequiredMomentum<PionMomentumPolicy> &pion_mom, const int pidx){
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, MesonFieldMomentumContainer<mf_Policies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int pidx){
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     
