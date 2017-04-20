@@ -40,6 +40,19 @@ const int RandomGenerator::state_size;
 
 uint32_t BOOTSTRAP_MAX=1000000000;
 
+#if (defined USE_C11_MT) 
+#define RNG_SEED_RANLUX
+#elif  (defined USE_C11_RANLUX) 
+#define RNG_SEED_RANLUX
+#else //sitmo
+#define RNG_SEED_SKIP
+const uint64_t RNG_SKIP = 1000000000000;
+#endif
+
+#if (!defined RNG_SEED_RANLUX)  && (!defined RNG_SEED_SKIP )
+#error RNG_SEED_RANLUX or RNG_SEED_SKIP should be defined
+#endif
+
 //---------------------------------------------------------------
 
 
@@ -61,7 +74,6 @@ LatRanGen::~LatRanGen() {
     char *fname = "~LatRanGen()";
 //  printf("%s::%s Entered\n",cname,fname);
   if(is_initialized){
-//	mtran
   }
 }
 
@@ -75,8 +87,8 @@ void LatRanGen::Initialize()
   const char *fname = "Initialize";
   VRB.Func(cname, fname);
 
-//  stringstream mtran_dump;
-//  mtran_dump.open("mtran_dump");
+//  stringstream cpsran_dump;
+//  cpsran_dump.open("cpsran_dump");
 
   if(0!=GJP.VolNodeSites()%16)
       ERR.General(cname, fname,
@@ -93,9 +105,10 @@ void LatRanGen::Initialize()
 
   is_initialized = 1;
 
-//  mtran = new CPS_RNG[n_rgen_4d];
- mtran.resize(n_rgen_4d);
-// if(!mtran) ERR.Pointer(cname, fname, "mtran"); 
+//  cpsran = new CPS_RNG[n_rgen_4d];
+ cpsran.resize(n_rgen_4d);
+//printf("cpsran\n");
+// if(!cpsran) ERR.Pointer(cname, fname, "cpsran"); 
 
   // Lower bounds of global lattice coordinates on this node
   int x_o[5];
@@ -136,7 +149,6 @@ void LatRanGen::Initialize()
   int index, index_4d;
   index = index_4d = 0;
 
-  /*PAB: Implement the Britney and Christina tests correctly*/
 #ifdef UNIFORM_SEED_TESTING
   if (1) {
 #else
@@ -144,7 +156,9 @@ void LatRanGen::Initialize()
 #endif
     int x[5];
     long int start_seed = default_seed;
+#ifdef RNG_SEED_RANLUX
     std::ranlux48 ran_std(start_seed);
+#endif
     
 
     for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]+=2) {
@@ -152,9 +166,17 @@ void LatRanGen::Initialize()
     for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]+=2) {
     for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]+=2) {
 
- //     start_seed += OFFSET;
+#ifdef RNG_SEED_RANLUX
       start_seed = ran_std();
-      mtran[index_4d++].seed(start_seed);
+      VRB.RNGSeed(cname,fname,"index_4d=%d start_seed=%ld\n",index_4d,start_seed);
+      cpsran[index_4d++].seed(start_seed);
+#else
+      cpsran[index_4d].seed(start_seed);
+      uint64_t nskip = RNG_SKIP * (uint64_t) index_4d; 
+      VRB.RNGSeed(cname,fname,"index_4d=%d nskip=%ld\n",index_4d,nskip);
+      cpsran[index_4d].discard(nskip);
+      index_4d++;
+#endif
 
     }
     }
@@ -195,10 +217,12 @@ void LatRanGen::Initialize()
       base_seed = default_seed;
   }
     
-//  srand48(base_seed);
+#ifdef RNG_SEED_RANLUX
     std::ranlux48 ran_std(base_seed);
 // warming up rand48 (maybe not necessary?)
-  for(int tmp_i=0;tmp_i<100;tmp_i++){ran_std();};
+  for(int tmp_i=0;tmp_i<100;tmp_i++){long int temp=ran_std();printf("temp=%d\n",temp);};
+#endif
+
 #ifdef PARALLEL
   if(GJP.StartSeedKind()==START_SEED_INPUT_NODE){
       int node  = 
@@ -215,7 +239,10 @@ void LatRanGen::Initialize()
   int x[5];
 //  int index, index_4d;
   index = index_4d = 0;
-  uint32_t rng_offset=0,rng_count=0;
+  uint32_t rng_offset=0;
+#ifdef RNG_SEED_RANLUX
+  uint32_t rng_count=0;
+#endif
   
   for(x[3] = x_o[3]; x[3] <= x_f[3]; x[3]+=2) {
       for(x[2] = x_o[2]; x[2] <= x_f[2]; x[2]+=2) {
@@ -227,20 +254,17 @@ void LatRanGen::Initialize()
 		  if(GJP.StartSeedKind()==START_SEED||
 		     GJP.StartSeedKind()==START_SEED_INPUT||
 		     GJP.StartSeedKind()==START_SEED_FIXED){
-#if 0
-		      start_seed_4d = base_seed
-			  + OFFSET * (x[0]/2 + vx[0]*
-				 (x[1]/2 + vx[1]*
-				 (x[2]/2 + vx[2]*(x[3]/2) )));
-#else
 		      rng_offset = (x[0]/2 + vx[0]*
 				 (x[1]/2 + vx[1]*
 				 (x[2]/2 + vx[2]*(x[3]/2) )));
+#ifdef RNG_SEED_RANLUX
                       while (rng_count <rng_offset){
-			ran_std();
+			long int temp=ran_std();
+      VRB.Result(cname,fname,"index_4d=%d start_seed=%ld\n",index_4d,temp);
 			rng_count++;
                       }
 			start_seed_4d = ran_std();
+      VRB.Result(cname,fname,"index_4d=%d start_seed=%ld\n",index_4d,start_seed_4d);
 			rng_count++;
 #endif
 		  }
@@ -255,16 +279,26 @@ void LatRanGen::Initialize()
 		printf("%g temp start_seed_4d = %d %d\n",dclock(), temp,start_seed_4d);
 }
 #endif
+
+ 		cpsran[index_4d].seed(start_seed_4d);
+#ifdef RNG_SEED_SKIP
+#ifdef USE_C11_SITMO
+		cpsran[index_4d].set_counter(0,0,(uint64_t)index_4d,0,0);
+#else
+		uint64_t nskip = RNG_SKIP * (uint64_t) index_4d; 
+		cpsran[index_4d].discard(nskip);
+#endif
+#endif
+
 //	  	VRB.Result(cname,fname,"index_4d=%d rng_count=%d start_seed= %d\n",index_4d,rng_count,start_seed_4d);
 //	printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
- 			mtran[index_4d].seed(start_seed_4d);
-//	std::cout << "mtran["<<index_4d<<"]:\n"<<mtran[index_4d]<<std::endl;
+//	std::cout << "cpsran["<<index_4d<<"]:\n"<<cpsran[index_4d]<<std::endl;
 
 #undef RNG_WARMUP
 #ifdef RNG_WARMUP
 {
 		int n_warm = ugran_4d[index_4d].Urand(100,0);
-		VRB.Debug(cname,fname,"index_4d=%d n_warm=%d\n",index_4d,n_warm);
+		VRB.Result(cname,fname,"index_4d=%d n_warm=%d\n",index_4d,n_warm);
 		while (n_warm>0) {int temp = ugran_4d[index_4d].Urand(100,0); n_warm--; }
 }
 #endif
@@ -272,30 +306,29 @@ void LatRanGen::Initialize()
 #ifdef BOOTSTRAP
 {
 		std::uniform_int_distribution<> uniform_dist(0,BOOTSTRAP_MAX);
-		int new_seed = uniform_dist(mtran[index_4d]);
-		VRB.Debug(cname,fname,"index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
-		  mtran[index_4d].seed(new_seed);
+		int new_seed = uniform_dist(cpsran[index_4d]);
+		VRB.Result(cname,fname,"index_4d=%d start_seed_4d=%d new_seed=%d\n",index_4d,start_seed_4d,new_seed);
+		  cpsran[index_4d].seed(new_seed);
 }
 #endif
-//if (index_4d==0){
 if (0){
-		std::stringstream mtran_dump;
-		mtran_dump <<mtran[index_4d];
+		std::stringstream cpsran_dump;
+		cpsran_dump <<cpsran[index_4d];
 	if (!UniqueID()){
-		std::cout << "mtran["<<index_4d<<"]"<<std::endl;
-		std::cout << mtran_dump.str() << std::endl;
-		mtran_dump.seekg(0,mtran_dump.beg);
+		std::cout << "cpsran["<<index_4d<<"]"<<std::endl;
+		std::cout << cpsran_dump.str() << std::endl;
+		cpsran_dump.seekg(0,cpsran_dump.beg);
 	}
 #if 0
-		for (int i_dump=0;i_dump<1000 && !mtran_dump.eof(); i_dump++){
+		for (int i_dump=0;i_dump<1000 && !cpsran_dump.eof(); i_dump++){
 			RNGSTATE dump,dump2;
 #if 1
-			mtran_dump >> dump;
+			cpsran_dump >> dump;
 #else
 			char temp_num[50];
-			mtran_dump.get(temp_num,50,' ');
+			cpsran_dump.get(temp_num,50,' ');
 			sscanf(temp_num,"%d",&dump);
-			mtran_dump.get(temp_num,50,' ');
+			cpsran_dump.get(temp_num,50,' ');
 			sscanf(temp_num,"%d",&dump2);
 #endif
 			std::cout << i_dump <<" "<< dump<< std::endl;
@@ -318,13 +351,13 @@ if (0){
 IFloat LatRanGen::Urand(FermionFieldDimension frm_dim)
 {
   char *fname = "Urand(FermionFieldDimension)";
-    return (urand_lo + (urand_hi-urand_lo) * urand(mtran[rgen_pos_4d]));
+    return (urand_lo + (urand_hi-urand_lo) * urand(cpsran[rgen_pos_4d]));
 }
 
 IFloat LatRanGen::Urand(Float hi, Float lo, FermionFieldDimension frm_dim)
 {
   char *fname = "Urand(FermionFieldDimension)";
-    return (lo + (hi-lo) * urand(mtran[rgen_pos_4d]));
+    return (lo + (hi-lo) * urand(cpsran[rgen_pos_4d]));
 }
 
 //---------------------------------------------------------
@@ -337,7 +370,7 @@ IFloat LatRanGen::Grand(FermionFieldDimension frm_dim)
 {
   char *fname = "Grand(FermionFieldDimension)";
 //  printf("LatRanGen::Grand():%d\n",rgen_pos);
-    return grand_mean + sqrt(grand_sigma)*grand(mtran[rgen_pos_4d]);
+    return grand_mean + sqrt(grand_sigma)*grand(cpsran[rgen_pos_4d]);
 }
 
 
@@ -550,14 +583,16 @@ void LatRanGen::Shift()
 void LatRanGen::GetAllStates(RNGSTATE *dump) {
     for(int h=0; h<NStates(); h++){
 	std::stringstream ss_dump;
-	ss_dump << mtran[h] ;
+	ss_dump << cpsran[h] ;
 if (!UniqueID()&& h==0){
-	std::cout <<"GetAllState::mtran[0]= "<< ss_dump.str()<<std::endl;
+	std::cout <<"GetAllState::cpsran[0]= "<< ss_dump.str()<<std::endl;
 	ss_dump.seekg(0);
 }
        	for(int i=0; i<StateSize(); i++){
 		RNGSTATE temp;
 		ss_dump >>temp;
+//		if (!UniqueID()&& h==0)
+//	std::cout <<"GetAllState::cpsran[0]= "<< i <<" "<<temp <<std::endl;
 		dump[h*StateSize()+i] = temp;
         }
     }
@@ -570,11 +605,10 @@ void LatRanGen::SetAllStates(RNGSTATE *dump) {
 		ss_dump << dump[h*StateSize()+i]<<" ";
         }
 if (!UniqueID()&& h==0){
-//if (!UniqueID()){
-	std::cout <<"SetAllState::mtran["<<h<<"]= "<< ss_dump.str()<<std::endl;
+	std::cout <<"SetAllState::cpsran["<<h<<"]= "<< ss_dump.str()<<std::endl;
 	ss_dump.seekg(0);
 }
-	ss_dump >> mtran[h] ;
+	ss_dump >> cpsran[h] ;
     }
 }
 
@@ -582,29 +616,32 @@ bool LatRanGen::Read(const char * filename, int concur_io_number) {
   io_good = false;
   QioArg rd_arg(filename, concur_io_number);
   LatRngRead  rd;
-  RNGSTATE *mtran_dump = new RNGSTATE[StateSize()*NStates()];
+  RNGSTATE *cpsran_dump = new RNGSTATE[StateSize()*NStates()];
   if(parIO()) rd.setParallel();
   else        rd.setSerial();
   if(do_log) rd.setLogDir(log_dir);
-  rd.read(mtran_dump,rd_arg);
-  LRG.SetAllStates(mtran_dump);
-  delete[] mtran_dump;
+  rd.read(cpsran_dump,rd_arg);
+  LRG.SetAllStates(cpsran_dump);
+  delete[] cpsran_dump;
   return (io_good = rd.good());
 }
 
 
 bool LatRanGen::Write(const char * filename, int concur_io_number) {
   io_good = false;
-  QioArg wt_arg(filename, concur_io_number);
-  VRB.Result(cname,"Write()","concur_io_number=%d\n",concur_io_number);
-  RNGSTATE *mtran_dump = new RNGSTATE[StateSize()*NStates()];
-  LRG.GetAllStates(mtran_dump);
+  IntConv intconv;
+  INT_FORMAT intFormat = intconv.testHostFormat(sizeof(RNGSTATE));
+  QioArg wt_arg(filename, concur_io_number,intFormat );
+  VRB.Result(cname,"Write()","concur_io_number=%d %s\n",concur_io_number, intconv.name(wt_arg.FileIntFormat));
+  RNGSTATE *cpsran_dump = new RNGSTATE[StateSize()*NStates()];
+  LRG.GetAllStates(cpsran_dump);
   LatRngWrite  wt;
+
   if(parIO()) wt.setParallel();
   else        wt.setSerial();
   if(do_log) wt.setLogDir(log_dir);
-  wt.write(mtran_dump,wt_arg);
-  delete[] mtran_dump;
+  wt.write(cpsran_dump,wt_arg);
+  delete[] cpsran_dump;
   return (io_good=wt.good());
 }
 CPS_END_NAMESPACE

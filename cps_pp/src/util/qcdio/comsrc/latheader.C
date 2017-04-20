@@ -301,9 +301,11 @@ void LatRngHeader::init(const QioArg & qio_arg, INT_FORMAT FileFormat) {
   hdr_version = "1.0";
 #ifdef USE_C11_RNG
 #ifdef USE_C11_MT
-  datatype = "LATTICE_RNG_C11_MT19937";
+    datatype = "LATTICE_RNG_C11_MT19937";
+#elif (defined USE_C11_RANLUX)
+    datatype = "LATTICE_RNG_C11_RANLUX48";
 #else
-  datatype = "LATTICE_RNG_C11_RANLUX48";
+    datatype = "LATTICE_RNG_C11_SITMO";
 #endif
 #else
   datatype = "LATTICE_RNG_5D_4D";
@@ -463,6 +465,7 @@ void LatRngHeader::read(istream & fin) {
   archive_date = hd.asString("ARCHIVE_DATE");
 
   IntConv intconv;
+  intconv.testHostFormat(sizeof(RNGSTATE));
   int_format = intconv.setFileFormat(hd.asString("INT_FORMAT").c_str());
 
 }

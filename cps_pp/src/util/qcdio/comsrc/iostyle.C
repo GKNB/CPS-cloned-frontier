@@ -31,6 +31,7 @@ static void CalcRand(char *msite,int data_per_site, Float *RandSum, Float *Rand2
        stringstream ss_dump;
        for(int i =0;i<data_per_site;i++){
                ss_dump << dump[i]<< " ";
+//               std::cout  << i << " "<< dump[i]<< std::endl;
        }
       CPS_RNG temp_rng;
        ss_dump >>  temp_rng;
@@ -54,6 +55,7 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
 		     const int dimension /* 4 or 5 */,
 		     unsigned int * ptrcsum, unsigned int * ptrpdcsum,
 		     Float * rand_sum, Float * rand_2_sum)  { 
+  const char *fname="load()";
   if(!UniqueID() & hd.headerType() == LatHeaderBase::LATTICE_HEADER && GJP.Gparity()){
     if(!doGparityReconstructUstarField()){
       printf("Loading both U and U* fields\n");
@@ -61,8 +63,14 @@ int ParallelIO::load(char * data, const int data_per_site, const int site_mem,
       printf("Loading U field and reconstructing U* field\n");
     }
   }
+  VRB.Result(cname,fname,"%p %d %d %p %p %d %p %p %p %p\n",
+data, data_per_site, site_mem,
+                     &hd, &dconv,
+                     dimension /* 4 or 5 */,
+                     ptrcsum, ptrpdcsum,
+                     rand_sum,rand_2_sum);
+  VRB.Result(cname,fname,"hostDataSize()=%d\n",dconv.hostDataSize());
 
-  const char * fname = "load()";
 
   int error = 0;
   QioArg & rd_arg = qio_arg;
