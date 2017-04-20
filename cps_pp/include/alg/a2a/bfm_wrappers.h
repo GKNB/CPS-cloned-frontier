@@ -236,21 +236,28 @@ struct BFMLanczosWrapper{
     
   //For debugging, check bfm's guard regions around the evec memory locations to ensure they have not been overwritten
   void checkEvecMemGuards(){
-    if(!UniqueID()) printf("BFMLanczosWrapper: checkEvecMemGuards begin\n");
+    if(!UniqueID()){ printf("BFMLanczosWrapper: checkEvecMemGuards begin\n"); fflush(stdout); }
     if(eig != NULL){
       int words = 24 * eig->dop.node_cbvol * eig->dop.cbLs * (eig->dop.gparity ? 2:1);
       int bytes = words * (singleprec_evecs ? sizeof(float) : sizeof(double) );
+      int error = 0;
       for(int i = 0; i < eig->bq.size(); i++)
 	for(int cb=eig->prec;cb<2;cb++)
 	  if(eig->bq[i][cb] != NULL){
 	    if(bfm_checkptr (eig->bq[i][cb], bytes)){
 	      printf("Node %d evec %d cb %d with ptr %p has had it's guards overwritten!\n",UniqueID(),i,cb,eig->bq[i][cb]); fflush(stdout); 
-	      exit(-1);
+	      error = 1;
 	    }
 	  }
+      int error_any;
+      assert( MPI_Allreduce(&error, &error_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+      if(error_any)
+	ERR.General("BFMLanczosWrapper","checkEvecMemGuards","Check failed on one or more nodes");
+      else
+	if(!UniqueID()){ printf("BFMLanczosWrapper: checkEvecMemGuards succeeded\n"); fflush(stdout); }
     }
-    QMP_barrier();
-    if(!UniqueID()) printf("BFMLanczosWrapper: checkEvecMemGuards succeeded\n");
+    if(!UniqueID()){ printf("BFMLanczosWrapper: checkEvecMemGuards end\n"); fflush(stdout); }
+    cps::sync();
   }
 
   void freeEvecs(){

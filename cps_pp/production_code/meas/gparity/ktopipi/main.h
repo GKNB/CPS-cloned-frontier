@@ -73,6 +73,7 @@ struct CommandLineArgs{
   int nthreads;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
   bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+  bool force_evec_compute; //randomize_evecs causes Lanczos to be skipped unless this option is used
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
   bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
   bool skip_gauge_fix;
@@ -99,6 +100,7 @@ struct CommandLineArgs{
 #endif
     randomize_vw = false;
     randomize_evecs = false;
+    force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
     tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
     skip_gauge_fix = false;
@@ -153,6 +155,10 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-randomize_evecs",15) == 0){
 	randomize_evecs = true;
 	if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
+	arg++;      
+      }else if( strncmp(cmd,"-force_evec_compute",15) == 0){
+	force_evec_compute = true;
+	if(!UniqueID()){ printf("Forcing evec compute despite randomize_vw\n"); fflush(stdout); }
 	arg++;      
       }else if( strncmp(cmd,"-tune_lanczos_light",15) == 0){
 	tune_lanczos_light = true;
@@ -798,7 +804,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Light quark Lanczos ---------------------//
   LanczosWrapper eig;
-  if(!cmdline.randomize_vw) computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
@@ -812,7 +818,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     
   //-------------------- Strange quark Lanczos ---------------------//
   LanczosWrapper eig_s;
-  if(!cmdline.randomize_vw) computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
