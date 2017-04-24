@@ -128,7 +128,7 @@ struct CommandLineArgs{
     }
     
     const int ngrid_arg = 10;
-    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking", "--comms-isend", "--comms-sendrecv", "--comms-overlap" };
+    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking", "--comms-concurrent", "--comms-sequential", "--comms-overlap" };
     const int grid_args_skip[ngrid_arg] =    { 1                , 1                 , 1                , 1             , 2      , 1           , 2                , 1              , 1                 , 1 };
 
     int arg = begin;
@@ -213,7 +213,11 @@ struct CommandLineArgs{
 	arg++;
       }else if( strncmp(cmd,"-skip_ktopipi",30) == 0){
 	do_ktopipi = false;
-	arg++;  
+	arg++;
+      }else if( strncmp(cmd,"--comms-isend",30) == 0){
+	ERR.General("","main","Grid option --comms-isend is deprecated: use --comms-concurrent instead");
+      }else if( strncmp(cmd,"--comms-sendrecv",30) == 0){
+	ERR.General("","main","Grid option --comms-sendrecv is deprecated: use --comms-sequential instead");
       }else{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){
@@ -442,6 +446,8 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
 
 void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &params){
   AlgFixGauge fix_gauge(lat, const_cast<CommonArg *>(&params.common_arg), const_cast<FixGaugeArg *>(&params.fix_gauge_arg) );
+  if( (lat.FixGaugeKind() != FIX_GAUGE_NONE) || (lat.FixGaugePtr() != NULL) )
+    lat.FixGaugeFree(); //in case it has previously been allocated
   if(skip_gauge_fix){
     if(!UniqueID()) printf("Skipping gauge fix -> Setting all GF matrices to unity\n");
     gaugeFixUnity(lat,params.fix_gauge_arg);      

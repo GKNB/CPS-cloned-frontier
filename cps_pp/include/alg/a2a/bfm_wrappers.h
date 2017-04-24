@@ -164,7 +164,9 @@ struct BFMLanczosWrapper{
     eig->Run();
 
     solvers.setMass(solvers.dwf_f, solvers.dwf_d.mass); //keep the single-prec solver in sync
+#ifndef DISABLE_EVEC_CHECK
     test_eigenvectors(*eig,solvers.dwf_d,false);
+#endif
     checkEvecMemGuards();
   }
 
@@ -223,7 +225,9 @@ struct BFMLanczosWrapper{
     eig->toSingle(); 
     singleprec_evecs = true;
     //Test the single-prec converted eigenvectors to make sure we haven't dropped too much precision
+#ifndef DISABLE_EVEC_CHECK
     test_eigenvectors(*eig,eig->dop,true);
+#endif
     checkEvecMemGuards();
   }
 
