@@ -209,13 +209,14 @@ inline void printMemNodeFile(const std::string &msg = ""){
 
   std::ostringstream os; os << "mem_status." << UniqueID();
   FILE* out = fopen (os.str().c_str(), calls == 0 ? "w" : "a");
-  
-  fprintf(out, msg.c_str());
-  
-  printMem(UniqueID(),out);
-
-  fclose(out);
-
+  if(out == NULL){
+    printf("Non-fatal error in printMemNodeFile on node %d: could not open file %s with mode %c\n",UniqueID(),os.str().c_str(),calls==0 ? 'w' : 'a');
+    fflush(stdout);
+  }else{
+    fprintf(out, msg.c_str());
+    printMem(UniqueID(),out);
+    fclose(out);
+  }
   calls++;
 }
 
