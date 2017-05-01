@@ -41,7 +41,7 @@ private:
 		       Float * fac)
   {
     const char *fname = "ImpexFermion()";
-    VRB.Result (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f, cps2grid, eo,this->F5D());fflush(stdout);fflush(stderr);
+    VRB.Debug (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f, cps2grid, eo,this->F5D());fflush(stdout);fflush(stderr);
     if (fac)
       VRB.Result (cname, fname, "fac=%g\n", *fac);
     if (!cps_f)
@@ -127,6 +127,13 @@ private:
   }
 
 public:
+   void PrintMass(const char *fname){
+#ifdef IF_TM
+    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
+#else
+    VRB.Result (cname, fname, "mass=%0.14g\n", mass);
+#endif
+   }
 
 
 FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
@@ -260,7 +267,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 //      mass = cg_arg->mass;
     SetMass (cg_arg->mass);
     SetEpsilon (cg_arg->epsilon);
-    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
+    PrintMass(fname);
     RealD M5 = GJP.DwfHeight ();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
@@ -337,7 +344,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 #else
     SetMass (cg_arg->mass);
     SetEpsilon (cg_arg->epsilon);
-    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
+    PrintMass(fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
 
@@ -348,6 +355,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     std::vector < int >twists = SetTwist ();
     int threads = Grid::GridThread::GetThreads ();
     std::cout << Grid:: GridLogMessage << "Grid is setup to use " << threads << " threads" << std::endl;
+    if(0)
 {
   Float max_dev=1;
   Float max_diff=1;
@@ -391,8 +399,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
-//    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
-if(0)
+    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
     {
       VRB.Result (cname, fname, "running full double\n");
       time1 = dclock ();
@@ -446,7 +453,7 @@ if(0)
 //      mass = cg_arg[0]->mass;
     SetMass (cg_arg[0]->mass);
     SetEpsilon (cg_arg[0]->epsilon);
-    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
+    PrintMass(fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg[0]->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
 
@@ -677,7 +684,7 @@ if(0)
     LATTICE_FERMION grid_in (FERM_GRID), grid_out (FERM_GRID);
     DIRAC::ImplParams params;
     SetParams (params);
-    VRB.Result(cname,fname,"DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
+    VRB.Debug(cname,fname,"DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
 Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
@@ -792,7 +799,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 //      mass = cg_arg->mass;
     SetMass (mass);
     SetEpsilon (epsilon);
-    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
+    PrintMass(fname);
     RealD M5 = GJP.DwfHeight ();
 #ifdef IF_TM
     if (epsilon < -10000)
@@ -873,10 +880,11 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     ForceArg Fdt;
 
 
+
     ImportGauge ();
     SetMass (mass);
     SetEpsilon (epsilon);
-    VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
+    PrintMass(fname);
 
     Grid::QCD::LatticeGaugeFieldD grid_mom (UGridD), dSdU (UGridD),
       force (UGridD);
@@ -990,14 +998,14 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 	int off = 18 * ii + 2;
 	pvals[ii] = ((Float *) mom)[off];
       }
-      VRB.Result (cname, fname,
+      VRB.Debug (cname, fname,
 		  "initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
 		  pvals[0], pvals[1], pvals[2], pvals[3]);
     }
 
     for (int i = 0; i < degree; i++) {
       Float *sol_f = (Float *) sol[i];
-      VRB.Result (cname, fname,
+      VRB.Debug (cname, fname,
 		  "sol[%d] = %g mass=%g epsilon=%g alpha[%d]=%g dt=%g\n", i,
 		  *sol_f, mass, epsilon, i, alpha[i], dt);
       ForceArg Fdt =
@@ -1014,7 +1022,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 	  int off = 18 * ii + 2;
 	  pvals[ii] = ((Float *) mom_tmp)[off];
 	}
-	VRB.Result (cname, fname,
+	VRB.Debug (cname, fname,
 		    "mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
 		    i, pvals[0], pvals[1], pvals[2], pvals[3]);
       }
@@ -1103,10 +1111,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
   int F5D () const
   {
 #ifdef IF_FIVE_D
-//   VRB.Result(cname,"F5D()"," should be 1\n");
     return 1;
 #else
-//   VRB.Result(cname,"F5D()"," should be 0\n");
     return 0;
 #endif
   }
