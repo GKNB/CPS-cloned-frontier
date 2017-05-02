@@ -1,4 +1,5 @@
 #include <config.h>
+#if (!defined USE_SSE) && (!defined SSE_TO_C)
 #include <stdio.h>
 #include <math.h>
 /*! \file
@@ -552,3 +553,4 @@ void wilson_dslash_two(Float *chi0, Float *chi1,
 }
 
 CPS_END_NAMESPACE
+#endif

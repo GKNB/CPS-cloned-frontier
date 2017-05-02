@@ -14,11 +14,16 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   DIRAC::ImplParams params;
   SetParams (params);
   DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
   Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+#ifndef TWOKKAPPA
+  Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+  Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#else
+  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
   Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#endif
 
   LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
 //      std::vector<LATTICE_FERMION> grid_rb_out(Nshift,F_RB_GRID);

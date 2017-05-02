@@ -25,6 +25,10 @@
 #define LATTICE_FERMION DIRAC ::FermionField
 #define LATTICE_FERMION_F DIRAC_F ::FermionField
 
+#ifdef TWOKAPPA
+#include<Grid/qcd/action/fermion/SchurDiagTwoKappa.h>
+#endif
+
 
 CPS_START_NAMESPACE 
 class FGRID:public virtual Lattice, public FgridParams,
@@ -395,8 +399,16 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     ImportFermion (grid_in, f_in, Odd);
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
+#ifndef TWOKAPPA
+//#if 1
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+#else
+//    Grid::QCD::SchurDiagTwoOperator < DIRAC, IMPL > MdagMD (DdwfD);
+//    Grid::QCD::SchurDiagTwoOperator < DIRAC_F, IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
+#endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
     if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
@@ -521,8 +533,15 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     ImportFermion (grid_in, f_in, Odd);
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
+#ifndef TWOKAPPA
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+#else
+//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC, IMPL > MdagMD (DdwfD);
+//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC_F, IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
+#endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
     if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
@@ -719,8 +738,11 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     {
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
 						      cg_arg->max_num_iter);
-//      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+#ifndef TWOKAPPA
+      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+#else
       Grid::SchurRedBlackDiagTwoSolve < LATTICE_FERMION > SchurSolver (CG);
+#endif
       SchurSolver (Ddwf, grid_in, grid_out);
     }
     if (true_res) {
@@ -787,9 +809,6 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
   }
 
 
-//void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
-//                    CnvFrmType cnv_frm, int dir_flag){
-
 //Seem to have a minus sign relative to Fbfm. Putting in for now.
   void MatPc (Vector * f_out, Vector * f_in, Float mass, Float epsilon,
 	      DagType dag)
@@ -820,7 +839,12 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     DIRAC::ImplParams params;
     SetParams (params);
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+#ifndef TWOKAPPA
     Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (Ddwf);
+#else
+//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC, IMPL > Mpc (Ddwf);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (Ddwf);
+#endif
     if (dag==DAG_NO)
     Mpc.Mpc (grid_rb_in, grid_rb_out);
 	else
@@ -915,8 +939,11 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 //              NumOp.ImportGauge(*Umu);
       DenOp.ImportGauge (*Umu);
 
+#ifdef TWOKAPPA
+     ERR.General(cname,fname,"Not implemnted for TwoKappa Preconditioning yet\n");
+#endif
       Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
-//              Grid::QCD::SchurDifferentiableOperator< IMPL > Vpc(NumOp);
+//      Grid::QCD::SchurDiagTwoOperator < DIRAC, IMPL > Mpc (DenOp);
 
       force = 0.;
       Mpc.MpcDeriv (force, X, Y);
@@ -925,10 +952,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
       Mpc.MpcDagDeriv (force, Y, X);
       dSdU = dSdU + force;
 
-//              LATTICE_FERMION X(FGrid),Y(FGrid);
 
     }
-//    grid_mom += -coef * 2. * (dSdU);
     grid_mom += -coef * 2. * Ta (dSdU);
 
     ImportGauge (mom, &grid_mom);

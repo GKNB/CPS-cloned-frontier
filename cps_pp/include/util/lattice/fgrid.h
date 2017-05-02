@@ -424,7 +424,8 @@ CPS_END_NAMESPACE
 #define STR(s) #s
 // Match to Fbfm twisted wilson instead of FwilsonTM
 #undef USE_F_CLASS_WILSON_TM
-//#ifdef GRID_GPARITY
+
+#undef TWOKAPPA
 
 #define GRID_GPARITY
 #define IF_FIVE_D
@@ -525,6 +526,8 @@ CPS_END_NAMESPACE
 #define IMPL_F Grid::QCD::ZWilsonImplF
 #define PARAMS	
 #define GP 
+// Using TwoKappa only for zMobius for now
+#define TWOKAPPA
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
@@ -540,6 +543,7 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
+#undef TWOKAPPA
 
 #undef IF_FIVE_D
 #define IF_TM
