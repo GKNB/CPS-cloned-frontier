@@ -23,6 +23,8 @@ class EvecInterface{
   virtual void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
 			  GridFermionField &solution, const GridFermionField &source,
 			  double resid, int max_iters);
+
+  virtual void Report() const{}
 };
 
 #include <alg/a2a/evec_interface_impl.tcc>

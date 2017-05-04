@@ -272,8 +272,10 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     V.getVh(i).importGridField(tmp_full_4d);
   }
 #endif
-
+  VRB.Result("A2AvectorW", fname, "Grid double precision Dirac op timings (if applicable)\n");
   Ddwf.Report();
+  VRB.Result("A2AvectorW", fname, "Grid single precision Dirac op timings (if applicable)\n");
+  evecs.Report();
 }
 
 

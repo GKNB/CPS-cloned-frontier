@@ -40,25 +40,34 @@ struct BaseGridPolicies{
   typedef GnoneFgridGparityMobius FgridGFclass;
   typedef Grid::QCD::GparityMobiusFermionD GridDirac;
   typedef Grid::QCD::GparityMobiusFermionF GridDiracF; //single prec
+  typedef Grid::QCD::GparityMobiusFermionFH GridDiracFH; //half-precision comms
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_GPARITY_MOBIUS };
 # else
   typedef FgridMobius FgridFclass;
   typedef GnoneFgridMobius FgridGFclass;
   typedef Grid::QCD::MobiusFermionD GridDirac;
   typedef Grid::QCD::MobiusFermionF GridDiracF;
+  typedef Grid::QCD::MobiusFermionFH GridDiracFH;
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_MOBIUS };
 # endif  
   
   typedef typename GridDirac::FermionField GridFermionField;
   typedef typename GridDiracF::FermionField GridFermionFieldF;
+#ifdef GRID_INNER_CG_HALFPREC_COMMS
+  typedef GridDiracFH GridDiracFMixedCGInner; //which single-precision fermion action to use for inner CG of Grid high mode calculation
+#else
+  typedef GridDiracF GridDiracFMixedCGInner;
+#endif
 };
 
 #define INHERIT_BASE_GRID_TYPEDEFS \
-  typedef typename BaseGridPolicies::FgridFclass FgridFclass; \
-  typedef typename BaseGridPolicies::FgridGFclass FgridGFclass; \
-  typedef typename BaseGridPolicies::GridDirac GridDirac; \
-  typedef typename BaseGridPolicies::GridFermionField GridFermionField; \
-  typedef typename BaseGridPolicies::GridDiracF GridDiracF; \
+  typedef typename BaseGridPolicies::FgridFclass FgridFclass;		\
+  typedef typename BaseGridPolicies::FgridGFclass FgridGFclass;		\
+  typedef typename BaseGridPolicies::GridDirac GridDirac;		\
+  typedef typename BaseGridPolicies::GridDiracF GridDiracF;		\
+  typedef typename BaseGridPolicies::GridDiracFH GridDiracFH;		\
+  typedef typename BaseGridPolicies::GridDiracFMixedCGInner GridDiracFMixedCGInner; \
+  typedef typename BaseGridPolicies::GridFermionField GridFermionField;	\
   typedef typename BaseGridPolicies::GridFermionFieldF GridFermionFieldF; \
   enum { FGRID_CLASS_NAME=BaseGridPolicies::FGRID_CLASS_NAME }
 

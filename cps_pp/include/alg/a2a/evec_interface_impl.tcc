@@ -123,11 +123,11 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
   typedef typename GridPolicies::GridFermionField GridFermionField;
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDirac GridDirac;
-  typedef typename GridPolicies::GridDirac::GaugeField GridGaugeField;
+  typedef typename GridDirac::GaugeField GridGaugeField;
 
-  typedef typename GridPolicies::GridDiracF GridDiracF;
+  typedef typename GridPolicies::GridDiracFMixedCGInner GridDiracF;
   typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
-  typedef typename GridPolicies::GridDiracF::GaugeField GridGaugeFieldF;
+  typedef typename GridDiracF::GaugeField GridGaugeFieldF;
   
   const std::vector<Grid::RealD> &eval; 
   const std::vector<GridFermionFieldF> &evec;
@@ -215,6 +215,10 @@ public:
     mCG(source,solution);
   }
 
+  void Report() const{
+    Ddwf_f->Report();
+  }
+  
 };
 
 #endif

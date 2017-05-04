@@ -42,6 +42,7 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
   typedef GridLanczosWrapper<A2Apolicies> LanczosWrapper;
   typedef typename A2Apolicies::FgridGFclass LanczosLattice;
 # define LANCZOS_LATARGS params.jp
+# define COMPUTE_EVECS_LANCZOS_LATARGS jp
 # define LANCZOS_LATMARK isGridtype
 # define LANCZOS_EXTRA_ARG *lanczos_lat
 # define COMPUTE_EVECS_EXTRA_ARG_PASS NULL
@@ -50,6 +51,7 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
   typedef BFMLanczosWrapper LanczosWrapper;
   typedef GwilsonFdwf LanczosLattice;
 # define LANCZOS_LATARGS bfm_solvers
+# define COMPUTE_EVECS_LANCZOS_LATARGS bfm_solvers
 # define LANCZOS_LATMARK isBFMtype
 # define LANCZOS_EXTRA_ARG bfm_solvers
 # define COMPUTE_EVECS_EXTRA_ARG_PASS bfm_solvers
@@ -366,12 +368,9 @@ void LanczosTune(bool tune_lanczos_light, bool tune_lanczos_heavy, const Paramet
 
 enum LightHeavy { Light, Heavy };
 
-void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &params, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
-  const char* name = (lh ==  Light ? "light" : "heavy");
-  const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
-  
+void computeEvecs(LanczosWrapper &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
   if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
-  LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
+  LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(COMPUTE_EVECS_LANCZOS_LATARGS);
   double time = -dclock();
   if(randomize_evecs) eig.randomizeEvecs(lanc_arg, LANCZOS_EXTRA_ARG);
   else eig.compute(lanc_arg, LANCZOS_EXTRA_ARG);
@@ -396,7 +395,11 @@ void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &pa
 #endif
   delete lanczos_lat;
 }
-
+void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &params, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+  const char* name = (lh ==  Light ? "light" : "heavy");
+  const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
+  return computeEvecs(eig, lanc_arg, params.jp, name, evecs_single_prec, randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+}
 
 A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const LanczosWrapper &eig,
 		      const bool evecs_single_prec, const bool randomize_vw, const bool mixed_solve, Float const* inner_cg_resid_p, const bool delete_lattice, COMPUTE_EVECS_EXTRA_ARG_GRAB){

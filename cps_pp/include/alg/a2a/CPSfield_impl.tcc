@@ -364,9 +364,9 @@ void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setUniformRandom(const 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::setGaussianRandom(){
   typedef typename mf_Complex::value_type mf_Float;
-  for(int i = 0; i < this->sites*this->flavors; ++i) {
-    int flav = i / this->sites;
-    int st = i % this->sites;
+  for(int i = 0; i < this->nsites()*this->nflavors(); ++i) {
+    int flav = i / this->nsites();
+    int st = i % this->nsites();
 
     LRG.AssignGenerator(st,flav);
     mf_Float *p = (mf_Float*)this->site_ptr(st,flav);
