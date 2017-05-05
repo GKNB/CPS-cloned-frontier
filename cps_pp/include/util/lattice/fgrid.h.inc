@@ -192,7 +192,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
       grid_lat = Umu;
     unsigned long vol;
     const char *fname = "ImpexGauge()";
-    GridBase *grid = grid_lat->_grid;
+    Grid::GridBase *grid = grid_lat->_grid;
     if (grid_lat->_grid->lSites () != (vol = GJP.VolNodeSites ()))
       ERR.General (cname, fname,
 		   "numbers of grid(%d) and GJP(%d) does not match\n",
@@ -404,8 +404,6 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
-//    Grid::QCD::SchurDiagTwoOperator < DIRAC, IMPL > MdagMD (DdwfD);
-//    Grid::QCD::SchurDiagTwoOperator < DIRAC_F, IMPL_F > MdagMF (DdwfF);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
 #endif
@@ -537,8 +535,6 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
-//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC, IMPL > MdagMD (DdwfD);
-//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC_F, IMPL_F > MdagMF (DdwfF);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
 #endif
@@ -735,16 +731,56 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     Float stp_cnd = cg_arg->stop_rsd;
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
 
+// should be fixed to use evecs gnenerated from Lanczos. Making it compile for now.
+//#ifndef TWOKAPPA
+#if 1
     {
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
 						      cg_arg->max_num_iter);
-#ifndef TWOKAPPA
       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
-#else
-      Grid::SchurRedBlackDiagTwoSolve < LATTICE_FERMION > SchurSolver (CG);
-#endif
       SchurSolver (Ddwf, grid_in, grid_out);
     }
+#else
+	{
+//      Grid::SchurRedBlackDiagTwoKappaSolve < LATTICE_FERMION > SchurSolver (CG);
+		DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+		Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+		precisionChange (UmuF, *Umu);
+		DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+
+		Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+		Grid::SchurDiagTwoKappaOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+
+      Grid::GridBase *grid = F_RB_GRID;
+      Grid::GridBase *fgrid= FERM_GRID;
+
+
+      LATTICE_FERMION src_e(grid);
+      LATTICE_FERMION src_o(grid);
+      LATTICE_FERMION sol_e(grid);
+      LATTICE_FERMION sol_o(grid);
+      LATTICE_FERMION   tmp(grid);
+      LATTICE_FERMION  Mtmp(grid);
+      LATTICE_FERMION resid(fgrid);
+
+      pickCheckerboard(Even,src_e,grid_in);
+      pickCheckerboard(Odd ,src_o,grid_in);
+      pickCheckerboard(Even,sol_e,grid_out);
+      pickCheckerboard(Odd ,sol_o,grid_out);
+
+      /////////////////////////////////////////////////////
+      // src_o = Mdag * (source_o - Moe MeeInv source_e)
+      /////////////////////////////////////////////////////
+      _Matrix.MooeeInv(src_e,tmp);     assert(  tmp.checkerboard ==Even);
+      _Matrix.Meooe   (tmp,Mtmp);      assert( Mtmp.checkerboard ==Odd);
+      tmp=src_o-Mtmp;                  assert(  tmp.checkerboard ==Odd);
+
+	      // get the right MpcDag
+      _HermOpEO.MpcDag(tmp,src_o);     assert(src_o.checkerboard ==Odd);
+
+
+	}
+#endif
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);
       Ddwf.M (grid_out, temp);

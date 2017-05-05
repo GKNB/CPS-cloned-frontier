@@ -17,12 +17,12 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
-#ifndef TWOKKAPPA
+#ifndef TWOKAPPA
   Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
   Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
 #else
-  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
-  Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+  Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+  Grid::SchurDiagTwoKappaOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
 #endif
 
   LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
@@ -92,12 +92,22 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 
 //      Staying with double precision, at least until gaining more confidence in single precision
   DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+#ifndef TWOKAPPA
   Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#else
+  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+//  Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#endif
 #ifdef SINGLE
   Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+#ifndef TWOKAPPA
   Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#else
+  Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+//  Grid::SchurDiagTwoKappaOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#endif
 #endif
 
   LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);

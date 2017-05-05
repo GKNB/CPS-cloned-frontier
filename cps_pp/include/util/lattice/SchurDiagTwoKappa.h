@@ -194,7 +194,7 @@ namespace QCD{
 
 	SchurDifferentiableDiagTwo (Matrix &Mat) : SchurDiagTwoOperator<Matrix,FermionField>(Mat) {};
     };
-#if 0
+#if 1
     template<class Impl>
     class SchurDifferentiableDiagTwoKappa :  public SchurDiagTwoKappaOperator<FermionOperator<Impl>,typename Impl::FermionField> 
       {

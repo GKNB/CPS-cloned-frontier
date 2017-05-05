@@ -541,6 +541,7 @@ CPS_END_NAMESPACE
 #undef LATTICE_FERMION
 #undef SITE_FERMION
 #undef IMPL
+#undef IMPL_F
 #undef PARAMS
 #undef GP
 #undef TWOKAPPA
