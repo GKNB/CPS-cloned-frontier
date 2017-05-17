@@ -485,7 +485,9 @@ void LatRngHeader::read(istream & fin) {
   archive_date = hd.asString("ARCHIVE_DATE");
 
   IntConv intconv;
+#ifdef USE_C11_RNG
   intconv.testHostFormat(sizeof(RNGSTATE));
+#endif
   int_format = intconv.setFileFormat(hd.asString("INT_FORMAT").c_str());
 
 }
