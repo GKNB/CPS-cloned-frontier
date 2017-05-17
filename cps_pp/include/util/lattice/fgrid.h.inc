@@ -905,14 +905,14 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 								       CG, CG);
 
     {
-//              NumOp.ImportGauge(*Umu);
       DenOp.ImportGauge (*Umu);
 
-#ifdef TWOKAPPA
-     ERR.General(cname,fname,"Not implemnted for TwoKappa Preconditioning yet\n");
-#endif
       Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
-//      Grid::QCD::SchurDiagTwoOperator < DIRAC, IMPL > Mpc (DenOp);
+#ifdef TWOKAPPA
+     ERR.General(cname,fname,"Not implemnted for DiagTwo Preconditioning yet\n");
+//	MpDeriv is written yet.
+//	Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
+#endif
 
       force = 0.;
       Mpc.MpcDeriv (force, X, Y);
