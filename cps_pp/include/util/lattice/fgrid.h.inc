@@ -400,7 +400,6 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-//#if 1
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
@@ -732,55 +731,16 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
 
 // should be fixed to use evecs gnenerated from Lanczos. Making it compile for now.
-//#ifndef TWOKAPPA
-#if 1
     {
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
 						      cg_arg->max_num_iter);
+#ifndef TWOKAPPA
       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+#else
+      Grid::SchurRedBlackDiagTwoSolve < LATTICE_FERMION > SchurSolver (CG);
+#endif
       SchurSolver (Ddwf, grid_in, grid_out);
     }
-#else
-	{
-//      Grid::SchurRedBlackDiagTwoKappaSolve < LATTICE_FERMION > SchurSolver (CG);
-		DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-		Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
-		precisionChange (UmuF, *Umu);
-		DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
-
-		Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
-		Grid::SchurDiagTwoKappaOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
-
-      Grid::GridBase *grid = F_RB_GRID;
-      Grid::GridBase *fgrid= FERM_GRID;
-
-
-      LATTICE_FERMION src_e(grid);
-      LATTICE_FERMION src_o(grid);
-      LATTICE_FERMION sol_e(grid);
-      LATTICE_FERMION sol_o(grid);
-      LATTICE_FERMION   tmp(grid);
-      LATTICE_FERMION  Mtmp(grid);
-      LATTICE_FERMION resid(fgrid);
-
-      pickCheckerboard(Even,src_e,grid_in);
-      pickCheckerboard(Odd ,src_o,grid_in);
-      pickCheckerboard(Even,sol_e,grid_out);
-      pickCheckerboard(Odd ,sol_o,grid_out);
-
-      /////////////////////////////////////////////////////
-      // src_o = Mdag * (source_o - Moe MeeInv source_e)
-      /////////////////////////////////////////////////////
-      _Matrix.MooeeInv(src_e,tmp);     assert(  tmp.checkerboard ==Even);
-      _Matrix.Meooe   (tmp,Mtmp);      assert( Mtmp.checkerboard ==Odd);
-      tmp=src_o-Mtmp;                  assert(  tmp.checkerboard ==Odd);
-
-	      // get the right MpcDag
-      _HermOpEO.MpcDag(tmp,src_o);     assert(src_o.checkerboard ==Odd);
-
-
-	}
-#endif
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);
       Ddwf.M (grid_out, temp);
@@ -972,14 +932,14 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 								       CG, CG);
 
     {
-//              NumOp.ImportGauge(*Umu);
       DenOp.ImportGauge (*Umu);
 
-#ifdef TWOKAPPA
-     ERR.General(cname,fname,"Not implemnted for TwoKappa Preconditioning yet\n");
-#endif
       Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
-//      Grid::QCD::SchurDiagTwoOperator < DIRAC, IMPL > Mpc (DenOp);
+#ifdef TWOKAPPA
+     ERR.General(cname,fname,"Not implemnted for DiagTwo Preconditioning yet\n");
+//	MpDeriv is written yet.
+//	Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
+#endif
 
       force = 0.;
       Mpc.MpcDeriv (force, X, Y);

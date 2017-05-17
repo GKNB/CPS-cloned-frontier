@@ -22,6 +22,12 @@ AC_ARG_ENABLE(qmp,
 AC_MSG_CHECKING([if including QMP])
 AC_MSG_RESULT($enable_qmp)
 
+if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR=${abs_top_srcdir}
+fi
+if test "X${BUILDDIR}X" = "XX"; then
+	SRCDIR=${abs_top_builddir}
+fi
 
 dnl Set correct compiler information
 if test "$cross_compiling" = "yes"; then
@@ -658,6 +664,8 @@ AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)
 AC_SUBST(VERSION_STR)
+AC_SUBST(SRCDIR)
+AC_SUBST(BUILDDIR)
 
 AC_SUBST(HAVE_BFM)
 
