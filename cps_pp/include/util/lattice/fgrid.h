@@ -10,14 +10,37 @@
 #include<util/lattice/bfm_mixed_solver.h>
 #endif
 #include<util/multi_cg_controller.h>
+#include<util/eigen_container.h>
 #include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 #undef HAVE_HANDOPT
 
+namespace Grid{
 
+template<typename Float, class Field>
+class Guesser: public LinearFunction<Field> {
+    public:
+	int neig;
+	std::vector < Float> &eval;
+	std::vector < Field > &evec;
+    Guesser(int n, std::vector<Float> &_eval, std::vector <Field> &_evec)
+	: neig(n),eval(_eval),evec(_evec)
+	{ 
+		assert ( eval.size()>=neig); 
+		assert ( evec.size()>=neig); 
+	}
+	void operator() (const Field &in, Field &out){
+	out=0.;
+	for(int i=0;i<neig;i++){
+		Grid::ComplexD coef = innerProduct(evec[i],in);
+		coef = coef / eval[i];
+		out += coef * evec[i];
+	}
+	}
+};
 
-
+}
 
 CPS_START_NAMESPACE 
 class FgridParams {
@@ -438,6 +461,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::GparityWilsonImplD
 #define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -449,8 +473,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
@@ -466,6 +490,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::GparityWilsonImplD
 #define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -477,8 +502,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
@@ -492,6 +517,7 @@ CPS_END_NAMESPACE
 #define DIRAC_F Grid::QCD::MobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::WilsonImplD
 #define IMPL_F Grid::QCD::WilsonImplF
 #define PARAMS
@@ -505,8 +531,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
@@ -520,8 +546,8 @@ CPS_END_NAMESPACE
 #define DIRAC Grid::QCD::ZMobiusFermionD
 #define DIRAC_F Grid::QCD::ZMobiusFermionF
 #define MOB	,M5,omegas,1.,0.
-#define LATTICE_FERMION DIRAC ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::ZWilsonImplD	
 #define IMPL_F Grid::QCD::ZWilsonImplF
 #define PARAMS	
@@ -538,8 +564,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef IMPL_F
 #undef PARAMS
@@ -556,6 +582,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::WilsonImplD
 #define IMPL_F Grid::QCD::WilsonImplF
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
 #include "fgrid.h.inc"
@@ -567,8 +594,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP

@@ -1,11 +1,4 @@
 
-#undef FIVE_GRID
-#undef FIVE_GRID_F
-#undef FERM_GRID
-#undef FERM_GRID_F
-#undef F_RB_GRID
-#undef F_RB_GRID_F
-
 #ifdef IF_FIVE_D
 #define FIVE_GRID *FGridD,*FrbGridD,
 #define FIVE_GRID_F *FGridF,*FrbGridF,
@@ -40,7 +33,7 @@ public:
   const char *cname;
 
 private:
-  template < typename vobj, typename sobj >
+  template < typename CPSfloat, typename vobj, typename sobj >
     void ImpexFermion (Vector * cps_f, vobj & grid_f, int cps2grid, EvenOdd eo,
 		       Float * fac)
   {
@@ -88,7 +81,8 @@ private:
 		int index =
 		  (FsiteOffset (pos) / (2 / ncb)) + fourvol * (gp +
 							       n_gp * i_gp);
-		Float *cps = (Float *) cps_f;
+//		Float *cps = (Float *) cps_f;
+		CPSfloat *cps = (CPSfloat *) cps_f;
 		cps += 2 * (i + Nc * (s + Ns * (index)));
 		std::complex < double >elem (*cps, *(cps + 1));
 //                              if (norm(elem)>0.01) printf("%d %d %d %d: cps[%d][%d][%d][%d] = %g %g\n", GJP.NodeCoor(0),GJP.NodeCoor(1),GJP.NodeCoor(2),GJP.NodeCoor(3), site,gp,s,i,elem.real(),elem.imag());
@@ -116,7 +110,8 @@ private:
 		int index =
 		  (FsiteOffset (pos) / (2 / ncb)) + fourvol * (gp +
 							       n_gp * i_gp);
-		Float *cps = (Float *) cps_f;
+//		Float *cps = (Float *) cps_f;
+		CPSfloat *cps = (CPSfloat *) cps_f;
 		cps += 2 * (i + Nc * (s + Ns * (index)));
 		if (fac) {
 		  *cps = elem.real () * (*fac);
@@ -149,96 +144,24 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
   }
   void ImportFermion (Vector * cps_f, LATTICE_FERMION & grid_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 0, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 0, eo, fac);
   }
+
   void ImportFermion (LATTICE_FERMION & grid_f, Vector * cps_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 1, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 1, eo, fac);
   }
 
-#if 0
-  void ImportGauge (Matrix * mom)
-  {
-    ImportGauge (NULL, mom, 1);
+  void ImportFermion (Vector * cps_f, LATTICE_FERMION_F & grid_f, EvenOdd eo =
+		      All, Float * fac = NULL) {
+    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 0, eo, fac);
   }
 
-  void ImportGauge (LatticeGaugeFieldD * grid_lat)
-  {
-    ImportGauge (grid_lat, NULL, 1);
-  }
 
-  void ImportGauge (LatticeGaugeFieldD * grid_lat, Matrix * mom)
-  {
-    ImpexGauge (grid_lat, mom, 1);
+  void ImportFermion (LATTICE_FERMION_F & grid_f, Vector * cps_f, EvenOdd eo =
+		      All, Float * fac = NULL) {
+    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 1, eo, fac);
   }
-
-  void ImportGauge (Matrix * mom, LatticeGaugeFieldD * grid_lat)
-  {
-    ImpexGauge (grid_lat, mom, 0);
-  }
-
-  void ImportGauge ()
-  {
-    ImpexGauge (NULL, NULL, 1);
-  }
-
-  void ImpexGauge (LatticeGaugeFieldD * grid_lat, Matrix * mom, int cps2grid)
-  {
-
-    Float *gauge = (Float *) mom;
-    if (!mom)
-      gauge = (Float *) GaugeField ();
-    if (!grid_lat)
-      grid_lat = Umu;
-    unsigned long vol;
-    const char *fname = "ImpexGauge()";
-    Grid::GridBase *grid = grid_lat->_grid;
-    if (grid_lat->_grid->lSites () != (vol = GJP.VolNodeSites ()))
-      ERR.General (cname, fname,
-		   "numbers of grid(%d) and GJP(%d) does not match\n",
-		   grid_lat->_grid->lSites (), vol);
-    std::vector < int >grid_coor;
-    LorentzColourMatrixD siteGrid;
-    for (int site = 0; site < vol; site++)
-      for (int mu = 0; mu < 4; mu++) {
-	if (cps2grid) {
-	  for (int i = 0; i < Nc; i++)
-	    for (int j = 0; j < Nc; j++) {
-	      Float *cps = gauge + 18 * (site * 4 + mu) + 6 * j + 2 * i;
-	      std::complex < double >elem (*cps, *(cps + 1));
-	      siteGrid (mu) ()(j, i) = elem;
-//                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-	    }
-	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
-					      grid->_ldimensions);
-	  pokeLocalSite (siteGrid, *grid_lat, grid_coor);
-	} else {
-	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
-					      grid->_ldimensions);
-	  peekLocalSite (siteGrid, *grid_lat, grid_coor);
-	  for (int i = 0; i < Nc; i++)
-	    for (int j = 0; j < Nc; j++) {
-	      std::complex < double >elem;
-	      elem = siteGrid (mu) ()(j, i);
-	      Float *cps = gauge + 18 * (site * 4 + mu) + 6 * j + 2 * i;
-	      *cps = elem.real ();
-	      *(cps + 1) = elem.imag ();
-//                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
-	    }
-	}
-      }
-  }
-  std::vector < int >SetTwist ()
-  {
-    std::vector < int >twists (Nd, 0);
-    for (int i = 0; i < 3; i++) {
-      twists[i] = (GJP.Bc (i) == BND_CND_GPARITY) ? 1 : 0;
-      if (twists[i])
-	VRB.Debug (cname, "SetTwist()", "gparity[%d]=1\n", i);
-    }
-    return twists;
-  }
-#endif
 
   void SetParams (DIRAC::ImplParams & params)
   {
@@ -400,7 +323,6 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-//#if 1
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
@@ -684,6 +606,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 //    ERR.NotImplemented (cname, "FminResExt");
   }
 
+  
+
   int FmatInv(Vector *f_out, Vector *f_in, 
 	      CgArg *cg_arg, 
 	      Float *true_res,
@@ -703,6 +627,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+    Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+    precisionChange (UmuF, *Umu);
+    DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 
 #ifndef IF_TM
     if(if_dminus==1){
@@ -726,14 +653,48 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 #endif
     ImportFermion (grid_in, f_in);
 
+  std::string fname_root(cg_arg->fname_eigen);
+  std::stringstream fname_bc;
+  fname_bc << fname_root<<".bc"<<GJP.Bc(0)<<GJP.Bc(1)<<GJP.Bc(2)<<GJP.Bc(3)<<std::endl;
+  VRB.Result(cname,fname,"fname_eig=%s\n",fname_bc.str().c_str());
+  const char *fname_eig_root_bc = fname_bc.str().c_str();
+  int n_fields =  GJP.SnodeSites();
+  const size_t f_size_per_site = FsiteSize() / GJP.SnodeSites()  /2 ;
+  int neig = cg_arg->neig;
+  std::cout << "neig= "<<neig<<std::endl;
+  std::vector < Float > eval (neig);
+  std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
+  Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig,eval,evec_f);
+
+{
+  LATTICE_FERMION_F grid_f(FERM_GRID_F),grid_f_rb(F_RB_GRID_F);
+  // search for eigen cache
+  EigenCache* ecache;
+  if( (ecache=EigenCacheListSearch( (char *)fname_eig_root_bc, neig ))== 0 ){
+    ERR.General(cname,fname,"Eigenvector cache does not exist: neig %d name %s \n",neig,fname_eig_root_bc);
+  }
+  Float mass = cg_arg->mass;
+  EigenContainer eigcon( *this, (char*) fname_eig_root_bc, neig, f_size_per_site/2 , n_fields, ecache );
+
+  Float* eval_cps = eigcon.load_eval();
+  for(int i=0;i<neig;i++){
+		VRB.Result(cname,fname,"eval[%d]=%0.14e\n",i,eval[i]);
+		 eval[i]=eval_cps[i];
+		Vector *evec =eigcon.nev_load(i);
+	    ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > ( evec, grid_f, 1, Odd, NULL);
+		pickCheckerboard (Odd, evec_f[i], grid_f);
+  }
+  
+
+}
+
     ImportFermion (grid_out, f_out);
 
     Float stp_cnd = cg_arg->stop_rsd;
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
 
 // should be fixed to use evecs gnenerated from Lanczos. Making it compile for now.
-//#ifndef TWOKAPPA
-#if 1
+#ifndef TWOKAPPA
     {
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
 						      cg_arg->max_num_iter);
@@ -741,45 +702,18 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
       SchurSolver (Ddwf, grid_in, grid_out);
     }
 #else
-	{
-//      Grid::SchurRedBlackDiagTwoKappaSolve < LATTICE_FERMION > SchurSolver (CG);
-		DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-		Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
-		precisionChange (UmuF, *Umu);
-		DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
-
-		Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
-		Grid::SchurDiagTwoKappaOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
-
-      Grid::GridBase *grid = F_RB_GRID;
-      Grid::GridBase *fgrid= FERM_GRID;
-
-
-      LATTICE_FERMION src_e(grid);
-      LATTICE_FERMION src_o(grid);
-      LATTICE_FERMION sol_e(grid);
-      LATTICE_FERMION sol_o(grid);
-      LATTICE_FERMION   tmp(grid);
-      LATTICE_FERMION  Mtmp(grid);
-      LATTICE_FERMION resid(fgrid);
-
-      pickCheckerboard(Even,src_e,grid_in);
-      pickCheckerboard(Odd ,src_o,grid_in);
-      pickCheckerboard(Even,sol_e,grid_out);
-      pickCheckerboard(Odd ,sol_o,grid_out);
-
-      /////////////////////////////////////////////////////
-      // src_o = Mdag * (source_o - Moe MeeInv source_e)
-      /////////////////////////////////////////////////////
-      _Matrix.MooeeInv(src_e,tmp);     assert(  tmp.checkerboard ==Even);
-      _Matrix.Meooe   (tmp,Mtmp);      assert( Mtmp.checkerboard ==Odd);
-      tmp=src_o-Mtmp;                  assert(  tmp.checkerboard ==Odd);
-
-	      // get the right MpcDag
-      _HermOpEO.MpcDag(tmp,src_o);     assert(src_o.checkerboard ==Odd);
-
-
-	}
+    {
+	int maxinner = cg_arg->max_num_iter;
+	int maxouter = 10;
+//      Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (Ddwf);
+    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
+	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
+	CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
+	CG_m.useGuesser(guesser);
+      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
+      SchurSolver (Ddwf, grid_in, grid_out);
+    }
 #endif
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);
@@ -878,7 +812,6 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 #ifndef TWOKAPPA
     Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (Ddwf);
 #else
-//    Grid::QCD::SchurDiagTwoKappaOperator < DIRAC, IMPL > Mpc (Ddwf);
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (Ddwf);
 #endif
     if (dag==DAG_NO)
@@ -1144,11 +1077,11 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 
   Float BhamiltonNode (Vector * boson, Float mass, Float epsilon)
   {
-    ERR.NotImplemented (cname, "BhamiltonNode");
+    ERR.NotImplemented (cname, "BhamiltonNode");return 0.;
   }
   Float BhamiltonNode (Vector * boson, Float mass)
   {
-    ERR.NotImplemented (cname, "BhamiltonNode");
+    ERR.NotImplemented (cname, "BhamiltonNode");return 0.;
   }
   // The boson Hamiltonian of the node sublattice
   int SpinComponents () const
@@ -1218,3 +1151,13 @@ GFCLASS (Gnone) (FgridParams & params):cname (GFCLASS_NAME), FGRID (params),
 #undef GFCLASS_NAME
 #endif
 CPS_END_NAMESPACE
+
+#undef LATTICE_FERMION 
+#undef LATTICE_FERMION_F 
+
+#undef FIVE_GRID
+#undef FIVE_GRID_F
+#undef FERM_GRID
+#undef FERM_GRID_F
+#undef F_RB_GRID
+#undef F_RB_GRID_F

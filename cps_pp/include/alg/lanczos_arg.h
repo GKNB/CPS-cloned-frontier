@@ -45,6 +45,8 @@ public:
 	int maxiters;
 	int save;
 	int conv_check;
+	enum PrecType precision;
+	int mem_save;
 	char *results;
 	char *file;
 	MatrixPolynomialArg matpoly_arg;

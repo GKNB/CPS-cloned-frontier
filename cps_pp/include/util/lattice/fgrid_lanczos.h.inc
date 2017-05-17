@@ -78,6 +78,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   const char *fname ("FeigSolv()");
   if (cnv_frm == CNV_FRM_YES)
     ERR.General (cname, fname, " only has support for checkerboarded\n");
+  int Ncb = 1; //hard coded for CNV_FRM_NO, Ncb=1
   SetMass (eig_arg->mass);
   SetEpsilon (0.);
   VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
@@ -86,7 +87,8 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
-
+  int mem_save = eig_arg->mem_save;
+  int precision = eig_arg->precision;
   DIRAC::ImplParams params;
   SetParams (params);
 
@@ -139,6 +141,11 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   Float high = eig_arg->matpoly_arg.params.params_val[0];
   high = high * high;
   int order = eig_arg->matpoly_arg.Npol + 1;	//convention difference
+
+  if(mem_save==1)
+  for (int i = 0; i < Nstop; i++) {
+    if (f_eigenv[i] != NULL) sfree(f_eigenv[i]);
+  }
 #ifndef SINGLE
   Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);
   Grid::ImplicitlyRestartedLanczos < LATTICE_FERMION > IRL (HermOp, Cheb, Nstop,
@@ -164,18 +171,30 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
 #endif
 
-  for (int i = 0; i < Nstop; i++) {
-    if (f_eigenv[i] == NULL)
+	uint64_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
+	if(precision=PREC_SINGLE) f_size *=sizeof(float);
+	else				 f_size *=sizeof(double);
+
+  for (int i = Nstop-1; i >= 0  ; i--) {
+    if( (mem_save==0) && (f_eigenv[i] == NULL) )
       ERR.General (cname, fname, "f_eigenv[%d] not allocated\n", i);
     lambda[i] = eval[i];
+
+    if(mem_save==1){
+		f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
+    } 
 #ifndef SINGLE
     setCheckerboard (grid_out, evec[i]);
     ImportFermion (f_eigenv[i], grid_out, Odd);
+	evec.resize(i,F_RB_GRID);
 #else
     setCheckerboard (grid_out_f, evec_f[i]);
-    precisionChange(grid_out,grid_out_f);
-    ImportFermion (f_eigenv[i], grid_out, Odd);
+//    ImportFermion (f_eigenv[i], grid_out_f, Odd);
+// forcing it to be float, although it is ostensively double
+    ImpexFermion < float,LATTICE_FERMION_F, SITE_FERMION_F > (f_eigenv[i], grid_out_f, 0, Odd, NULL);
+	evec_f.resize(i,F_RB_GRID_F);
 #endif
+    
   }
 
   return Nconv;

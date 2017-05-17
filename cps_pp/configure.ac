@@ -1,19 +1,30 @@
-dnl  $Author: ckelly $
-dnl  $Date: 2012-11-15 18:17:08 $
-dnl  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/configure.in,v 1.82.4.1 2012-11-15 18:17:08 ckelly Exp $
-dnl  $Id: configure.in,v 1.82.4.1 2012-11-15 18:17:08 ckelly Exp $
 AC_INIT(./src/)
 dnl AC_CONFIG_HEADERS([conf.h])
 AC_CHECK_HEADERS([malloc.h])
+
+dnl Get host and target information:
+AC_CANONICAL_TARGET
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+#	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+
+#if test "X${BUILDDIR}X" = "XX"; then
+#	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
 
 #CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
 #AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
 HAVE_MAKEDEPEND="no"
 AC_SUBST(HAVE_MAKEDEPEND)
-
-dnl Get host and target information:
-AC_CANONICAL_TARGET
-
 dnl Are we compiling with QMP library?
 AC_ARG_ENABLE(qmp, 
 	AC_HELP_STRING([--enable-qmp], 
@@ -77,10 +88,6 @@ fi
 dnl path for the compiler
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
 AC_SUBST(CC_PATH)
-
-dnl If using this script, then we are not making the QCDSP version.
-NOT_TESTING_QCDSP="yes"
-AC_SUBST(NOT_TESTING_QCDSP)
 
 dnl Check for maths library
 dnl AC_CHECK_LIB(m, sin, ,echo "CPS needs the math library - bailing out"; exit 1)

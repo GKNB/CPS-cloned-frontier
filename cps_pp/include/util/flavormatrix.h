@@ -13,7 +13,7 @@ inline T timesMinusI(const T &v){
 
 #ifdef USE_GRID
 CPS_END_NAMESPACE
-#include<Grid.h>
+#include<Grid/Grid.h>
 CPS_START_NAMESPACE
 
 template<>

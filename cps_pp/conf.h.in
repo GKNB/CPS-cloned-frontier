@@ -1,4 +1,4 @@
-/* conf.h.in.  Generated from configure.in by autoheader.  */
+/* conf.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to 1 if the system has the type `bool_t'. */
 #undef HAVE_BOOL_T

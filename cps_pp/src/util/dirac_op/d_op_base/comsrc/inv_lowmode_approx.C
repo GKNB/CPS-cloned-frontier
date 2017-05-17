@@ -330,7 +330,6 @@ void DiracOp::InvLowModeProj( Vector *in,
     *(complex<double>*)&z=cblas_zdotc( f_size_cb / 2,
 		     (complex<double>*)evec, 1, (complex<double>*)src, 1);
 #endif
-    
     glb_sum((double*)&z);
     glb_sum((double*)&z+1);
 #endif

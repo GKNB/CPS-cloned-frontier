@@ -647,7 +647,6 @@ ASFLAGS
 ARCHDIR
 ARCH
 topwd_srcdir
-NOT_TESTING_QCDSP
 CC_PATH
 ac_ct_CXX
 CXXFLAGS
@@ -655,6 +654,7 @@ AS
 AR
 LD
 CXX
+HAVE_MAKEDEPEND
 target_os
 target_vendor
 target_cpu
@@ -667,7 +667,6 @@ build_os
 build_vendor
 build_cpu
 build
-HAVE_MAKEDEPEND
 EGREP
 GREP
 CPP
@@ -3477,11 +3476,6 @@ fi
 done
 
 
-#CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
-#AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
-HAVE_MAKEDEPEND="no"
-
-
 ac_aux_dir=
 for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
   if test -f "$ac_dir/install-sh"; then
@@ -3621,6 +3615,26 @@ test -n "$target_alias" &&
   test "$program_prefix$program_suffix$program_transform_name" = \
     NONENONEs,x,x, &&
   program_prefix=${target_alias}-
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+#	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+
+#if test "X${BUILDDIR}X" = "XX"; then
+#	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
+
+#CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
+#AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
+HAVE_MAKEDEPEND="no"
 
 # Check whether --enable-qmp was given.
 if test "${enable_qmp+set}" = set; then :
@@ -4805,9 +4819,6 @@ done
    fi
 fi
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
-
-
-NOT_TESTING_QCDSP="yes"
 
 
 
