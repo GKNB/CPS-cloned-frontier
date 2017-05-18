@@ -106,8 +106,10 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 #ifndef TWOKAPPA
+  VRB.Result (cname, fname, "Using Asym preconditioner\n");
   Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
 #else
+  VRB.Result (cname, fname, "Using SYM2 preconditioner\n");
   Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
 #endif
 #endif

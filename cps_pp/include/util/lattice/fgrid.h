@@ -31,10 +31,12 @@ class Guesser: public LinearFunction<Field> {
 		assert ( evec.size()>=neig); 
 	}
 	void operator() (const Field &in, Field &out){
+	 std::cout<<GridLogMessage << "guesser() called "<<std::endl;
 	out=0.;
 	for(int i=0;i<neig;i++){
 		Grid::ComplexD coef = innerProduct(evec[i],in);
 		coef = coef / eval[i];
+	    std::cout<<GridLogMessage <<"eval coef "<<i<<" : "<<eval[i]<<" "<<coef<<std::endl;
 		out += coef * evec[i];
 	}
 	}

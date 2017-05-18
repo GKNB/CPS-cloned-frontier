@@ -35,7 +35,7 @@ class LanczosArg {
     int maxiters;            /*!< max number of restartings  */
     int save; /* save eig vecs or not (always save evals) */
     int conv_check; /* do the convergence check every conv_check iters */
-	enum PrecType precision; 
+	PrecType precision; 
 	int	 mem_save;
 
     string results<>;  // the file name for ascii output file (number of iteration and whatnot)
