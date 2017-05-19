@@ -30,6 +30,11 @@
 #if TARGET == BGP
 void spi_init();
 #endif
+#ifdef USE_GRID
+#include <Grid/Grid.h>
+#include <util/lattice/fgrid.h>
+#endif
+
 CPS_START_NAMESPACE
 
 /*!\namespace cps
@@ -58,6 +63,11 @@ namespace QMPSCU {
 #else
   static const int* pePos;  /*!< Position of this process in the grid.*/ 
   static const int* peGrid; /*!< Number of processors in each direction */
+
+# ifdef USE_GRID
+  static QMP_comm_t qmp_comm; // generate new comm
+# endif
+  
 #endif
 
   //Clean up resources used by QMP
@@ -88,7 +98,12 @@ void init_qmp(int * argc, char ***argv) {
   
     QMP_thread_level_t prv;
 #ifndef UNIFORM_SEED_NO_COMMS
+
+#ifdef USE_GRID
+    QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_MULTIPLE, &prv);
+#else
     QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_SINGLE, &prv);
+#endif
     if (init_status) printf("QMP_init_msg_passing returned %d\n",init_status);
     qmpRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
@@ -130,6 +145,24 @@ void init_qmp(int * argc, char ***argv) {
     peGrid = QMP_get_allocated_dimensions();
     pePos = QMP_get_allocated_coordinates();
 
+#ifdef USE_GRID
+    Grid::Grid_init(argc,argv);
+    FgridBase::grid_initted=true;
+    std::vector<int> processors;
+    for(int i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
+    Grid::CartesianCommunicator grid_cart(processors);
+    peRank=0;
+    for(int i=NDIM-1;i>=0;i--){
+      pePos[i] = grid_cart._processor_coor[i];
+      peRank *= peGrid[i];
+      peRank += pePos[i];
+    }
+    //peRank = QMP_get_node_number_from(pePos); //fails because QMP topo not yet created. Have to assume the mapping is lex as above
+	
+    QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
+    QMP_comm_set_default(qmp_comm);
+#endif
+    
     if(peRank==0){
       for(int i = 0; i<*argc;i++){
         printf("argv[%d])(after)=%s\n",i,(*argv)[i]); 

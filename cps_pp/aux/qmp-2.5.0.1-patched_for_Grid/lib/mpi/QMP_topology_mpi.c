@@ -1,7 +1,7 @@
 #include "QMP_P_COMMON.h"
 
 //Chris Kelly: Enable the option below to force QMP to use MPI_Cart and thus share the same MPI topology as Grid
-#define USE_MPI_CART
+//#define USE_MPI_CART
 
 #ifdef USE_MPI_CART
 #include<stdlib.h>

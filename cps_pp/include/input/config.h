@@ -42,10 +42,10 @@
 #define VERSION_SUB 19
 #define VERSION_STR "CPS_V5.0.19"
 
-#define TARGET BGQ
-#define PARALLEL 1
+#define TARGET NOARCH
+#undef PARALLEL
 
-#define HAVE_BFM 1
+#undef HAVE_BFM
 
 // The configure procedure should make this unnecessary, but just in case...
 #ifndef TARGET

@@ -93,36 +93,36 @@ public:
 		VRB.FuncEnd(cname,fname);
 //		BondCond();
 
-#ifdef USE_QMP
-		bool fail = false;
-		for(int t=0;t<GJP.Tnodes();t++)
-		  for(int z=0;z<GJP.Znodes();z++)
-		    for(int y=0;y<GJP.Ynodes();y++)
-		      for(int x=0;x<GJP.Xnodes();x++){
-			std::vector<int> node {x,y,z,t};
-			int cps_rank = QMP_get_node_number_from(&node[0]); //is a MPI_COMM_WORLD rank
-			int grid_rank = UGrid->RankFromProcessorCoor(node); //is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below
-			int fail = 0;
-			if(UGrid->_processor == grid_rank){
-			  int world_rank; MPI_Comm_rank(MPI_COMM_WORLD,&world_rank);
-			  if(world_rank != UGrid->_processor) fail = 1;
-			}
-			QMP_status_t ierr = QMP_sum_int(&fail);
-			if(ierr != QMP_SUCCESS)
-			  ERR.General("FgridBase","FgridBase","Rank check sum failed\n");
-			if(fail != 0)
-			  ERR.General("FgridBase","FgridBase","Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n");
+/* #ifdef USE_QMP */
+/* 		bool fail = false; */
+/* 		for(int t=0;t<GJP.Tnodes();t++) */
+/* 		  for(int z=0;z<GJP.Znodes();z++) */
+/* 		    for(int y=0;y<GJP.Ynodes();y++) */
+/* 		      for(int x=0;x<GJP.Xnodes();x++){ */
+/* 			std::vector<int> node {x,y,z,t}; */
+/* 			int cps_rank = QMP_get_node_number_from(&node[0]); //is a MPI_COMM_WORLD rank */
+/* 			int grid_rank = UGrid->RankFromProcessorCoor(node); //is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below */
+/* 			int fail = 0; */
+/* 			if(UGrid->_processor == grid_rank){ */
+/* 			  int world_rank; MPI_Comm_rank(MPI_COMM_WORLD,&world_rank); */
+/* 			  if(world_rank != UGrid->_processor) fail = 1; */
+/* 			} */
+/* 			QMP_status_t ierr = QMP_sum_int(&fail); */
+/* 			if(ierr != QMP_SUCCESS) */
+/* 			  ERR.General("FgridBase","FgridBase","Rank check sum failed\n"); */
+/* 			if(fail != 0) */
+/* 			  ERR.General("FgridBase","FgridBase","Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n"); */
 						
-			if(cps_rank != grid_rank){
-			  if(!UniqueID()){ std::cout << "Error in FgridBase constructor: node (" << node[0] << "," << node[1] << "," << node[2] << "," << node[3] << ") maps to different MPI ranks for Grid " << grid_rank << " and CPS " << cps_rank << std::endl;
-			    std::cout.flush();
-			  }
-			  fail = true;
-			}
-		      }
-		if(fail)
-		  exit(0);
-#endif
+/* 			if(cps_rank != grid_rank){ */
+/* 			  if(!UniqueID()){ std::cout << "Error in FgridBase constructor: node (" << node[0] << "," << node[1] << "," << node[2] << "," << node[3] << ") maps to different MPI ranks for Grid " << grid_rank << " and CPS " << cps_rank << std::endl; */
+/* 			    std::cout.flush(); */
+/* 			  } */
+/* 			  fail = true; */
+/* 			} */
+/* 		      } */
+/* 		if(fail) */
+/* 		  exit(0); */
+/* #endif */
 	}
 	virtual ~FgridBase(void){
 		if(Umu) delete Umu;
