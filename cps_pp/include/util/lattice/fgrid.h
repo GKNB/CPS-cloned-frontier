@@ -36,9 +36,10 @@ class Guesser: public LinearFunction<Field> {
 	for(int i=0;i<neig;i++){
 		Grid::ComplexD coef = innerProduct(evec[i],in);
 		coef = coef / eval[i];
-	    std::cout<<GridLogMessage <<"eval coef "<<i<<" : "<<eval[i]<<" "<<coef<<std::endl;
+	    std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
 		out += coef * evec[i];
 	}
+	std::cout<<GridLogMessage <<"norm(out)  : "<<norm2(out)<< std::endl;
 	}
 };
 

@@ -668,10 +668,12 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
   int n_fields =  GJP.SnodeSites();
   const size_t f_size_per_site = FsiteSize() / GJP.SnodeSites()  /2 ;
 
-  int neig=1;
+  int neig = 1;
+  bool if_defl=false;
   if( (cg_arg->Inverter==CG_LOWMODE_DEFL) || 
     ( cg_arg->Inverter==LOWMODEAPPROX) ) {
-	neig = cg_arg->neig;
+	if_defl=true;
+  	neig = cg_arg->neig;
   }
 
   std::cout << "neig= "<<neig<<std::endl;
@@ -679,6 +681,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
   std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
   Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig,eval,evec_f);
 
+if(if_defl)
 {
   LATTICE_FERMION_F grid_f(FERM_GRID_F),grid_f_rb(F_RB_GRID_F);
   // search for eigen cache
@@ -723,8 +726,7 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
 	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
 	CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
-  if( (cg_arg->Inverter==CG_LOWMODE_DEFL) || 
-    ( cg_arg->Inverter==LOWMODEAPPROX) ) {
+  if( if_defl) { 
 	CG_m.useGuesser(guesser);
   }
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
