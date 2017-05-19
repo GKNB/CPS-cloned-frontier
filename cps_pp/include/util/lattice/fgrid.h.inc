@@ -653,14 +653,27 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 #endif
     ImportFermion (grid_in, f_in);
 
+#if 0
   std::string fname_root(cg_arg->fname_eigen);
   std::stringstream fname_bc;
   fname_bc << fname_root<<".bc"<<GJP.Bc(0)<<GJP.Bc(1)<<GJP.Bc(2)<<GJP.Bc(3)<<std::endl;
   VRB.Result(cname,fname,"fname_eig=%s\n",fname_bc.str().c_str());
   const char *fname_eig_root_bc = fname_bc.str().c_str();
+#else
+  char fname_eig_root_bc[1024];
+  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",cg_arg->fname_eigen,
+       GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+  VRB.Result(cname,fname,"fname=%s\n",fname_eig_root_bc);
+#endif
   int n_fields =  GJP.SnodeSites();
   const size_t f_size_per_site = FsiteSize() / GJP.SnodeSites()  /2 ;
-  int neig = cg_arg->neig;
+
+  int neig=1;
+  if( (cg_arg->Inverter==CG_LOWMODE_DEFL) || 
+    ( cg_arg->Inverter==LOWMODEAPPROX) ) {
+	neig = cg_arg->neig;
+  }
+
   std::cout << "neig= "<<neig<<std::endl;
   std::vector < Float > eval (neig);
   std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
@@ -678,8 +691,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
 
   Float* eval_cps = eigcon.load_eval();
   for(int i=0;i<neig;i++){
-		VRB.Result(cname,fname,"eval[%d]=%0.14e\n",i,eval[i]);
 		 eval[i]=eval_cps[i];
+		VRB.Result(cname,fname,"eval[%d]=%0.14e\n",i,eval[i]);
 		Vector *evec =eigcon.nev_load(i);
 	    ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > ( evec, grid_f, 1, Odd, NULL);
 		pickCheckerboard (Odd, evec_f[i], grid_f);
@@ -710,7 +723,10 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
 	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
 	CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
+  if( (cg_arg->Inverter==CG_LOWMODE_DEFL) || 
+    ( cg_arg->Inverter==LOWMODEAPPROX) ) {
 	CG_m.useGuesser(guesser);
+  }
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
       SchurSolver (Ddwf, grid_in, grid_out);
     }

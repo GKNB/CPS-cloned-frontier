@@ -158,7 +158,7 @@ class EigenCache {
   // if the arguments are already cached
   int is_cached( char* a_fname_root_bc, int a_neig )
   {
-    VRB.Debug(cname,"is_cached","%s %d: %s %d\n",
+    VRB.Result(cname,"is_cached","%s %d: %s %d\n",
 	fname_root_bc, neig,
 	a_fname_root_bc, a_neig);
 
