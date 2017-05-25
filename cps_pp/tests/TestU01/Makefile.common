@@ -1,0 +1,29 @@
+#Sorry, it has to be manually edited
+TESTU01=/home/chulwoo/CPS/TestU01
+CPS=/home/chulwoo/CPS/branches/sitmo/
+
+SRCDIR = /home/chulwoo/CPS/branches/sitmo/cps_pp
+
+INCLUDE_FLAGS = -I${BUILDDIR} -I${SRCDIR}/include  -I/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/include    -I/home/chulwoo/SciDAC/scidac/install/qio-2.3.9-OPENMPI/include
+
+LDFLAGS = -fopenmp -lgmp -L/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/lib -lqmp -L/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/lib -lqmp -L/home/chulwoo/SciDAC/scidac/install/qio-2.3.9-OPENMPI/lib -lqio -llime \
+-L${TESTU01}/lib  -lmylib -ltestu01 -lqmp
+
+CXXFLAGS= -fopenmp -g -O3 -Wall -std=c++11
+
+all: ${BIN}
+
+.SUFFIXES: .c .C .o .x
+
+libcps_CXXFLAGS = $(INCLUDE_FLAGS) $(CXXFLAGS) $(DFLAGS)
+
+clean:
+	rm -f *.o ${BIN}
+.c.o:	
+	mpicc -I${TESTU01}/include -c $< 
+
+.C.o:
+	mpicxx -c -I${TESTU01}/include ${libcps_CXXFLAGS} $< 
+
+${BIN}:	u_cps.o cps.o
+	mpicxx $^ -L${BUILDDIR} -lcps ${LDFLAGS} -o $@

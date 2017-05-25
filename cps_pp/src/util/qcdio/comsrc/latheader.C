@@ -10,6 +10,23 @@ using namespace std;
 
 CPS_START_NAMESPACE
 
+
+#if 1
+const char *LatRngHeader::RNGString = 
+#ifdef USE_C11_RNG
+#ifdef USE_C11_MT
+"LATTICE_RNG_C11_MT19937";
+#elif (defined USE_C11_RANLUX)
+"LATTICE_RNG_C11_RANLUX48";
+#else
+"LATTICE_RNG_C11_SITMO";
+#endif
+#else
+"LATTICE_RNG_5D_4D";
+#endif
+#endif
+
+
 ///////////////////////////////////////////////////////////////////
 // GCFheaderPar class members
 string elmSpacePar(string str)
@@ -293,22 +310,27 @@ void LatticeHeader::read(istream & fin) {
   floating_point = fp.setFileFormat(hd.asString("FLOATING_POINT").c_str());
 }
 
-
 /////////////////////////////////////////////////////////////////////
 // LatRngHeader members 
 /////////////////////////////////////////////////////////////////////
 void LatRngHeader::init(const QioArg & qio_arg, INT_FORMAT FileFormat) {
   hdr_version = "1.0";
+
+  storage_format = "1.0";
+
+#if 1
 #ifdef USE_C11_RNG
 #ifdef USE_C11_MT
-  datatype = "LATTICE_RNG_C11_MT19937";
+	datatype = "LATTICE_RNG_C11_MT19937";
+#elif (defined USE_C11_RANLUX)
+	datatype = "LATTICE_RNG_C11_RANLUX48";
 #else
-  datatype = "LATTICE_RNG_C11_RANLUX48";
+	datatype = "LATTICE_RNG_C11_SITMO";
 #endif
 #else
-  datatype = "LATTICE_RNG_5D_4D";
+	datatype = "LATTICE_RNG_5D_4D";
 #endif
-  storage_format = "1.0";
+#endif
 
   for(int i=0;i<5;i++)
     dimension[i] = qio_arg.Nodes(i)*qio_arg.NodeSites(i);
@@ -463,6 +485,9 @@ void LatRngHeader::read(istream & fin) {
   archive_date = hd.asString("ARCHIVE_DATE");
 
   IntConv intconv;
+#ifdef USE_C11_RNG
+  intconv.testHostFormat(sizeof(RNGSTATE));
+#endif
   int_format = intconv.setFileFormat(hd.asString("INT_FORMAT").c_str());
 
 }

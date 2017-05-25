@@ -5,8 +5,8 @@
 #----------------------------------------------------------------------
 
 
-SRCDIR = @SRCDIR@
-BUILDDIR = @BUILDDIR@
+SRCDIR = @abs_top_srcdir@
+BUILDDIR = @abs_top_builddir@
 QOS = @QOS@
 QOSLIB = ${QOS}/quser/gcc-lib-user///
 CC = @CC@
