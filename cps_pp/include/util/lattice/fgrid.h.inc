@@ -1130,7 +1130,9 @@ if(if_defl)
   }
 #endif
 
+#ifndef IF_TM
 #include "fgrid_lanczos.h.inc"
+#endif
 
 };
 #if 1
