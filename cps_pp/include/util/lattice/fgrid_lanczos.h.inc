@@ -143,9 +143,10 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   int order = eig_arg->matpoly_arg.Npol + 1;	//convention difference
   VRB.Result(cname,fname,"low=%g high=%g order=%d\n",low,high,order);
 
-  if(mem_save==1){
-    if (f_eigenv[0] != NULL) sfree(f_eigenv[0]);
-    for (int i = Nstop-1; i >= 0  ; i--) f_eigenv[i]=NULL;
+  if(mem_save==1)
+    for (int i = Nstop-1; i >= 0  ; i--) {
+    if (f_eigenv[i] != NULL) sfree(f_eigenv[i]);
+	f_eigenv[i]=NULL;
   }
 #ifndef SINGLE
   Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);

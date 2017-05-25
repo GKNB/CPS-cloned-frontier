@@ -107,16 +107,18 @@ class EigenCache {
  
   char fname_root_bc[1024];  // cached root_fname
   //int bc[4]; // boundary conditions in 4 dim, those used in the cached eigen vectors
-  Float* eval; 
-  //Vector** evec;
-  Vector* evec;
+//  Float* eval; 
+	std::vector <Float>  eval;
+//  Vector** evec;
+	std::vector <Float *> evec;
+//  Vector* evec;
   //Float* tmp;
 
   size_t f_size;
 
   int alloc_flag;  // if the memory for cache is allocated or not
   int eval_cached; // if the eval is already cached or not
-  int* index; //index of eigen vector that is cached.
+  std::vector <int > index; //index of eigen vector that is cached.
               // if negative imply it's not cached yet.
               // This is a map between index for eigenv and the index of cache array
               // i.e.   if  I == cached_index[i],  then  evec[I]  holds  i-th eigenvalue
@@ -136,7 +138,7 @@ class EigenCache {
       neig = 0;
       alloc_flag = 0;
       eval_cached = 0; // eigen value is not cached yet
-      index = 0;
+//      index = 0;
     }
 
   EigenCache(char* name)
@@ -149,7 +151,7 @@ class EigenCache {
       neig = 0;
       alloc_flag = 0;
       eval_cached = 0; // eigen value is not cached yet
-      index = 0;
+//      index = 0;
     }
 
   int Neig(){return neig;}
@@ -182,12 +184,12 @@ class EigenCache {
 
       strcpy(fname_root_bc, a_fname_root_bc);
   
-      eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
-      if(eval==0)ERR.General(cname,fname,"eval could not malloced\n");
-      evec = (Vector*) smalloc(cname,fname, "evec[]", neig*f_size* sizeof(Float));
-      if(evec==0)ERR.General(cname,fname,"evec could not malloced\n");
-
-      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
+//      eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
+	eval.resize(neig);
+	evec.resize(neig);
+	for(int i=0;i<neig;i++) evec[i] = (Float*) smalloc(cname,fname, "evec[]",f_size* sizeof(Float));
+	index.resize(neig);
+//      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
       
       clear( );
       alloc_flag = 1;
@@ -207,9 +209,10 @@ class EigenCache {
     if(! alloc_flag) return;
     neig = 0;
     *fname_root_bc=0;
-    sfree(cname,fname,"index", index);
-    sfree(cname,fname,"evec", evec);
-    sfree(cname,fname,"eval", eval);
+//    sfree(cname,fname,"index", index);
+    for(int i=0;i<neig;i++)
+    sfree(cname,fname,"evec[i]", evec[i]);
+//    sfree(cname,fname,"eval", eval);
     alloc_flag = 0;
     eval_cached = 0;
   }
@@ -217,17 +220,20 @@ class EigenCache {
   void free_vec(int vec_i)
   {
     char* fname="free(int n)";
+	//only works when freeing the last one
     VRB.Func(cname,fname);
     if(! alloc_flag) return;
+	assert(vec_i ==(neig-1));
+	sfree(evec[vec_i]);
     neig--;
-    evec = (Vector*)std::realloc(evec,neig*f_size*sizeof(Float));
+    evec.resize(neig);
   }
   
   // save eigenvalues into cache 
   void save( Float* lam )
   {
     VRB.Flow(cname,"save(F*)","here");
-    moveFloat( eval, lam, neig);
+    moveFloat( eval.data(), lam, neig);
     eval_cached = 1;
   }
 
@@ -237,7 +243,7 @@ class EigenCache {
   {
     VRB.Flow(cname,"load(F*)", "%d\n",eval_cached);
     if (! eval_cached ) return 0;
-    moveFloat( lam,  eval,  neig );
+    moveFloat( lam,  eval.data(),  neig );
     return 1;
   }
 
@@ -248,9 +254,8 @@ class EigenCache {
       index[idx] = idx;   // currently only for a full contents support
 
       int c_idx = index[idx]; // for future extention, like circular buffer 
-      //moveFloat((Float*)(evec[c_idx]), (Float*)v, f_size);
-      moveFloat((Float*)evec + c_idx*f_size, (Float*)v, f_size);
-      //moveMem((Float*)evec + c_idx*f_size, (float*)v, f_size);
+//      moveFloat((Float*)evec + c_idx*f_size, (Float*)v, f_size);
+      moveFloat((Float*)evec[c_idx], (Float*)v, f_size);
     }
   }
 
@@ -261,8 +266,8 @@ class EigenCache {
     VRB.Flow(cname,"loadvec(V*,I)", "idx %d index %d\n",idx, index[idx]);
     if ( index[idx] < 0 )  return 0;
     int c_idx = index[idx]; // for future extention, like circular buffer 
-    //moveFloat( (Float*)v, (Float*)(evec[c_idx]), f_size);
-    moveFloat( (Float*)v, (Float*)evec+c_idx*f_size, f_size);
+    moveFloat( (Float*)v, (Float*)(evec[c_idx]), f_size);
+//    moveFloat( (Float*)v, (Float*)evec+c_idx*f_size, f_size);
     return 1;
   }
 
@@ -271,7 +276,8 @@ class EigenCache {
   {
     VRB.Flow(cname,"vec_ptr(index)", "idx %d index %d\n",idx, index[idx]);
     if(! alloc_flag) return 0;
-    return (Vector*)((Float*)evec + idx*f_size);
+//    return (Vector*)((Float*)evec + idx*f_size);
+    return (Vector*)((Float*)evec[idx]);
   }
   // just return the pointer in the cache, not copy
   // return 0 if it's not in the cache
@@ -280,20 +286,22 @@ class EigenCache {
     VRB.Flow(cname,"pointer(index)", "idx %d index %d\n",idx, index[idx]);
     if ( index[idx] < 0 )  return 0;
     int c_idx = index[idx]; // for future extention, like circular buffer 
-    //return (Vector*)(evec[c_idx]);
-    Vector* ptr = (Vector*)((Float*)evec + c_idx*f_size);
+    return (Vector*)(evec[c_idx]);
+//    Vector* ptr = (Vector*)((Float*)evec + c_idx*f_size);
     //printf("evec: %d %d %x",idx, c_idx, ptr);
-    return ptr;
+//    return ptr;
   }
+#if 0
   Vector* evec_address()
   {
     VRB.Flow(cname,"evec_address()", "\n");
     return evec;
   }
+#endif
   Float* eval_address()
   {
     VRB.Flow(cname,"eval_address()", "\n");
-    return eval;
+    return eval.data();
   }
   void set_neig(int n)
   {
