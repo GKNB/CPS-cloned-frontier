@@ -14,6 +14,21 @@
 
 CPS_START_NAMESPACE
 
+#if 0
+const char *RNGString = 
+#ifdef USE_C11_RNG
+#ifdef USE_C11_MT
+"LATTICE_RNG_C11_MT19937";
+#elif (defined USE_C11_RANLUX)
+"LATTICE_RNG_C11_RANLUX48";
+#else
+"LATTICE_RNG_C11_SITMO";
+#endif
+#else
+"LATTICE_RNG_5D_4D";
+#endif
+#endif
+
 // GCFheaderPar class
 // header parser for parallel IO
 // removed "exit()"'s, others same as class GCFheader
@@ -153,6 +168,8 @@ class LatRngHeader : public LatHeaderBase {
   std::string hdr_version;
   std::string datatype;
   std::string storage_format;
+  static const char *RNGString;
+
 
   int dimension[5];
   unsigned int checksum;
@@ -169,7 +186,7 @@ class LatRngHeader : public LatHeaderBase {
   INT_FORMAT int_format;
 
 
-  LatRngHeader() {  }
+  LatRngHeader():datatype(RNGString) {  }
 
   void init(const QioArg & qio_arg, INT_FORMAT FileFormat);
     void write(std::ostream & fout);

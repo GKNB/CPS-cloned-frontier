@@ -6,6 +6,7 @@ extern "C"{
 #include <stdlib.h>
 #include <config.h>
 #include <util/gjp.h>
+#include <util/latheader.h>
 
 USING_NAMESPACE_CPS
 static int CPS_initted=0;
@@ -89,6 +90,9 @@ unif01_Gen * Create_CPS (int *argc, char ***argv, char *doarg_name,  int take, i
 	CPS_initted=1;
 	gen->param = param;
 	gen->state = state;
+//	char *rng_name =new char[(LatRngHeader::rng_datatype).size()+1];
+ //	strncpy(rng_name,(LatRngHeader::rng_datatype).c_str(),(LatRngHeader::rng_datatype).size());
+	gen->name  = (char *)cps::LatRngHeader::RNGString;
 	return gen;
 }
 

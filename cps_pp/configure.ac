@@ -113,13 +113,8 @@ AC_ARG_ENABLE(target,
 AC_MSG_CHECKING([what target we are compiling for])
 AC_MSG_RESULT($enable_target)
 
-#CFLAGS=""
-#CXXFLAGS=""
-#DFLAGS=""
-dnl Can add more cases as we need to, e.g. QCDSP
+dnl Can add more cases as we need to
 if test "$enable_target" = "bgl"; then
-#     AC_PATH_PROG(CC, blrts_xlc)
-#    AC_PATH_PROG(CXX, blrts_xlC)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -132,8 +127,6 @@ if test "$enable_target" = "bgl"; then
    namespace_default="yes"
 
 elif test "$enable_target" = "bgp"; then
-#   AC_CHECK_PROGS(CC, mpicc)
-#   AC_CHECK_PROGS(CXX, mpicxx)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -170,9 +163,6 @@ elif test "$enable_target" = "noarch-bfm"; then
 
    #openmp assumed
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXFLAGS} -fopenmp"
 
 else
 
@@ -197,9 +187,6 @@ AC_MSG_CHECKING([if using OpenMP])
 AC_MSG_RESULT($enable_openmp)
 if test "$enable_openmp" = "yes"; then
    DFLAGS="${DFLAGS} -DUSE_OMP"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXLAGS} -fopenmp"
 fi
 
 dnl Need to put in machine/compiler specific optimisation flags here
@@ -251,18 +238,22 @@ AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
 if test "$enable_c11" != "no"; then
    CXXFLAGS="${CXXFLAGS} -std=c++11"
-   DFLAGS="${DFLAGS} -DUSE_C11" 
+   DFLAGS="${DFLAGS} -DUSE_C11 " 
 fi
 
 dnl Are we compiling with C11 RNG?
 AC_ARG_ENABLE(c11_rng, 
-	AC_HELP_STRING([--enable-c11-rng], 
-	[Compile with C11 RNG. (default=no)]), 
+	AC_HELP_STRING([--enable-c11-rng=sitmo|mt19937|ranlux48], 
+	[Compile with C11 RNG. (default=no, sitmo if enabled)]), 
 	,[enable_c11_rng="no"])
-AC_MSG_CHECKING([if compile with c++11 RNG])
-AC_MSG_RESULT($enable_c11_rng)
-if test "$enable_c11_rng" != "no"; then
-   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT"
+	AC_MSG_CHECKING([if compile with c++11 RNG])
+	AC_MSG_RESULT($enable_c11_rng)
+if test "$enable_c11_rng" == "mt19337"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT " 
+elif test "$enable_c11_rng" == "ranlux48"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_RANLUX " 
+elif test "$enable_c11_rng" != "no"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_SITMO " 
 fi
 
 
@@ -402,11 +393,6 @@ if test "$enable_mdwf" != "no"; then
 fi
 
 if test "$enable_qio" != "no"; then
-dnl   if test "$enable_qio" != "yes"; then
-dnl   elif test "X${QIO_DIR}X" = "XX"; then
-dnl     echo "QIO_DIR environment variable not set"
-dnl     exit 1
-dnl   fi
    if test "X${QMP_DIR}X" = "XX"; then
      echo "QMP directory not set"
      exit 1
