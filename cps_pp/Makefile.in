@@ -2,8 +2,8 @@
 # $Id: Makefile.in,v 1.37 2013-03-18 19:33:13 chulwoo Exp $
 # @configure_input@
 
-SRCDIR = @SRCDIR@
-BUILDDIR = @BUILDDIR@
+SRCDIR = @abs_top_srcdir@
+BUILDDIR = @abs_top_builddir@
 TESTDIR = tests
 HDW_TESTDIR= hdw_tests
 DOCDIR = doc

@@ -5,21 +5,6 @@ AC_CHECK_HEADERS([malloc.h])
 dnl Get host and target information:
 AC_CANONICAL_TARGET
 
-#echo top_srcdir = ${ac_top_srcdir}
-#echo abs_top_srcdir = ${ac_abs_top_srcdir}
-#exit
-#if test "X${SRCDIR}X" = "XX"; then
-#	SRCDIR=${ac_abs_top_srcdir}
-#fi
-#	echo "SRCDIR =" X${SRCDIR}X
-#	exit 1
-#AC_SUBST(SRCDIR)
-
-#if test "X${BUILDDIR}X" = "XX"; then
-#	BUILDDIR=${ac_abs_top_builddir}
-#fi
-#AC_SUBST(BUILDDIR)
-
 
 #CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
 #AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
@@ -32,13 +17,6 @@ AC_ARG_ENABLE(qmp,
 	,[enable_qmp="no"])
 AC_MSG_CHECKING([if including QMP])
 AC_MSG_RESULT($enable_qmp)
-
-if test "X${SRCDIR}X" = "XX"; then
-	SRCDIR=${abs_top_srcdir}
-fi
-if test "X${BUILDDIR}X" = "XX"; then
-	SRCDIR=${abs_top_builddir}
-fi
 
 dnl Set correct compiler information
 if test "$cross_compiling" = "yes"; then
@@ -646,6 +624,21 @@ AC_SUBST(GSUMPRECISION)
 AC_SUBST(LOCALPRECISION)
 AC_SUBST(PRECDIR)
 
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+#if test "X${BUILDDIR}X" = "XX"; then
+	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
 dnl configuring version number
 .  $srcdir/VERSION
 echo CPS source: $srcdir
@@ -653,6 +646,8 @@ echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
 echo "CPS Version SUB:   ${VERSION_SUB}"
 echo Version ${VERSION_STR}
+echo "SRCDIR = " ${SRCDIR}
+echo "BUILDDIR = " ${BUILDDIR}
 AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)

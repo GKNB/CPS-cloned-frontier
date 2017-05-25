@@ -3631,21 +3631,6 @@ test -n "$target_alias" &&
     NONENONEs,x,x, &&
   program_prefix=${target_alias}-
 
-#echo top_srcdir = ${ac_top_srcdir}
-#echo abs_top_srcdir = ${ac_abs_top_srcdir}
-#exit
-#if test "X${SRCDIR}X" = "XX"; then
-#	SRCDIR=${ac_abs_top_srcdir}
-#fi
-#	echo "SRCDIR =" X${SRCDIR}X
-#	exit 1
-#AC_SUBST(SRCDIR)
-
-#if test "X${BUILDDIR}X" = "XX"; then
-#	BUILDDIR=${ac_abs_top_builddir}
-#fi
-#AC_SUBST(BUILDDIR)
-
 
 #CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
 #AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
@@ -3662,13 +3647,6 @@ fi
 $as_echo_n "checking if including QMP... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_qmp" >&5
 $as_echo "$enable_qmp" >&6; }
-
-if test "X${SRCDIR}X" = "XX"; then
-	SRCDIR=${abs_top_srcdir}
-fi
-if test "X${BUILDDIR}X" = "XX"; then
-	SRCDIR=${abs_top_builddir}
-fi
 
 if test "$cross_compiling" = "yes"; then
    if test "$host" != "none-none-none"; then
@@ -5549,12 +5527,29 @@ fi
 
 
 
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+#if test "X${BUILDDIR}X" = "XX"; then
+	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
 .  $srcdir/VERSION
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
 echo "CPS Version SUB:   ${VERSION_SUB}"
 echo Version ${VERSION_STR}
+echo "SRCDIR = " ${SRCDIR}
+echo "BUILDDIR = " ${BUILDDIR}
 
 
 
