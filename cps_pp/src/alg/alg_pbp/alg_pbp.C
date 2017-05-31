@@ -37,6 +37,9 @@ CPS_END_NAMESPACE
 #include <util/vector.h>
 #include <util/verbose.h>
 #include <util/error.h>
+#ifdef USE_BFM
+#include <util/lattice/fbfm.h>
+#endif
 CPS_START_NAMESPACE
 
 #define POINT
@@ -181,11 +184,6 @@ void AlgPbp::run()
     VRB.Smalloc(cname,fname, "pbg5p_all", pbg5p_all, ls_glb * sizeof(Float));
 
 
-    // initialize 4-dimensional source
-    lat.RandGaussVector(src_4d, 0.5, FOUR_D);
-
-    // set the 5-dimensional source
-    lat.Ffour2five(src, src_4d, pbp_arg->src_u_s, pbp_arg->src_l_s);
 
     // Initialize the cg_arg mass, with the first mass we
     // want to compute for:
@@ -205,6 +203,16 @@ void AlgPbp::run()
 		  pbp_arg->pattern_kind);
       break;
     }
+    VRB.Result(cname,fname, "mass=%g\n",cg_arg->mass);
+#ifdef USE_BFM
+	Fbfm::current_key_mass=(cg_arg->mass);
+#endif
+
+    // initialize 4-dimensional source
+    lat.RandGaussVector(src_4d, 0.5, FOUR_D);
+
+    // set the 5-dimensional source
+    lat.Ffour2five(src, src_4d, pbp_arg->src_u_s, pbp_arg->src_l_s);
 
     // Loop over masses
     for(int m=0; m<pbp_arg->n_masses; m++){
@@ -294,6 +302,7 @@ void AlgPbp::run()
         switch( pbp_arg->pattern_kind ) {
 	case ARRAY: 
 	  cg_arg->mass = pbp_arg->mass[m+1]; 
+          VRB.Result(cname,fname, "mass[%d]=%g\n",m+1,cg_arg->mass);
 	  break;
 	case LIN:   
 	  cg_arg->mass += pbp_arg->mass_step; 

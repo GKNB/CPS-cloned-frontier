@@ -3105,9 +3105,6 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(frm_dim == FOUR_D
      || s_node_sites == 0
      || (!F5D())
-//#ifdef USE_BFM
-//     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK
-//#endif
      ) {
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;

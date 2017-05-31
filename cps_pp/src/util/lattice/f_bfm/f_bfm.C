@@ -150,12 +150,6 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bf.comm_end();
 	    bd.comm_init();
 	}
-#if 0
-	bd.comm_end();
-	kernel.init(kernel_arg);
-	kernel.comm_end();
-	bd.comm_init();
-#endif
 
 	ImportGauge();
 	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
