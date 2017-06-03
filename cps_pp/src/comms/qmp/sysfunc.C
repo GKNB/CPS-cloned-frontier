@@ -147,18 +147,15 @@ void init_qmp(int * argc, char ***argv) {
 
 #ifdef USE_GRID
     Grid::Grid_init(argc,argv);
-    FgridBase::grid_initted=true;
+    FgridBase::setGridInitted(true);
     std::vector<int> processors;
     for(int i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
     Grid::CartesianCommunicator grid_cart(processors);
     peRank=0;
     for(int i=NDIM-1;i>=0;i--){
-      pePos[i] = grid_cart._processor_coor[i];
       peRank *= peGrid[i];
-      peRank += pePos[i];
+      peRank += grid_cart._processor_coor[i];
     }
-    //peRank = QMP_get_node_number_from(pePos); //fails because QMP topo not yet created. Have to assume the mapping is lex as above
-	
     QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
     QMP_comm_set_default(qmp_comm);
 #endif

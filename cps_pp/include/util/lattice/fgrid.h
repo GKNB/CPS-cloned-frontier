@@ -52,7 +52,7 @@ class FgridBase: public virtual Lattice, public virtual FgridParams,
 
 public: 
         double get_mob_b(){return mob_b;};
-
+	static void setGridInitted(const bool value = true){ grid_initted = value; }
 	Grid::GridCartesian *getFGrid(){return FGrid;}
 	Grid::GridRedBlackCartesian *getFrbGrid(){return FrbGrid;}
 	Grid::GridCartesian *getUGrid(){return UGrid;}
