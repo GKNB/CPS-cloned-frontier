@@ -444,6 +444,8 @@ dnl     echo "BFM_DIR environment variable not set"
 	LDFLAGS="${LDFLAGS} -lqio"
    fi		    					 
 
+dnl      LDFLAGS="${LDFLAGS} -lqdp -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm -lgsl -lgslcblas -lqmp"
+dnl -L/soft/libraries/essl/current/lib64 -lesslbg -L/soft/compilers/ibmcmp-nov2012/xlf/bg/14.1/lib64 -lxlf90_r -lxlfmath -lxl -ldl 
    if test "X{$enable_xml}X" = "XX"; then
     enable_xml="yes"
    fi
@@ -678,6 +680,10 @@ AC_CHECK_TYPES(netobj)
 AC_CHECK_FUNCS(posix_memalign)
 dnl AC_CHECK_HEADERS([qcdocos/scu_checksum.h])
 #AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([cblas.h])
+AC_CHECK_HEADERS([mkl_cblas.h])
+AC_CHECK_HEADERS([gsl_cblas.h])
 AC_CONFIG_HEADERS([conf.h])
 
 

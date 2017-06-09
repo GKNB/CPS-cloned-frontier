@@ -19,7 +19,7 @@ CPS_START_NAMESPACE
 //CK: In order to directly reproduce the Quotient action results for WilsonTm fermions from CPS using Fbfm, we need to apply a unitary
 //    transformation to the random vectors due to the differing normalization choices. If disabled the Fbfm results will differ slightly from the CPS results
 #define CPS_FBFM_WILSONTM_COMPAT_MODE
-  CPS_END_NAMESPACE
+CPS_END_NAMESPACE
 #include<alg/alg_hmd.h>
 #include<util/lattice.h>
 #include<util/vector.h>
@@ -35,9 +35,6 @@ CPS_START_NAMESPACE
 #ifdef USE_BFM
 #include <util/lattice/fbfm.h>
 #include <util/lattice/f_dwf4d.h>
-#endif
-#ifdef USE_BFM
-#include<util/lattice/fbfm.h>
 #ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
 CPS_START_NAMESPACE extern "C"
 {
@@ -47,7 +44,7 @@ CPS_END_NAMESPACE
 #endif
 #endif
  
-  CPS_START_NAMESPACE
+CPS_START_NAMESPACE
   AlgActionQuotient::AlgActionQuotient (AlgMomentum & mom,
 					ActionQuotientArg & q_arg)
 :AlgActionBilinear (mom, q_arg.bi_arg), cname ("AlgActionQuotient")

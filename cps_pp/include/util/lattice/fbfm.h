@@ -3,9 +3,9 @@
 
 #include<config.h>
 
-# ifdef USE_BFM
-#  include <util/lattice/bfm_evo.h>
-#  include <util/lattice/bfm_mixed_solver.h>
+#ifdef USE_BFM
+#include <util/lattice/bfm_evo.h>
+#include <util/lattice/bfm_mixed_solver.h>
 #include <util/lattice/bfm_mixed_solver_multi.h>
 #include <util/lattice/eff_overlap.h>
 # endif
@@ -127,7 +127,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 
 #if 1
     virtual int F5D(){
-      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) ) return 1;
+      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM)  return 1;
       else return 0;
     }
 #endif

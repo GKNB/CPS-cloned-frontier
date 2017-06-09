@@ -44,11 +44,16 @@ CPS_START_NAMESPACE
 int cps_qdp_init(int *argc, char ***argv){
   VRB.Result("","cps_qdp_init()","started\n");
   if (qdp_initted) return 1;
+<<<<<<< HEAD
   //  if (Chroma::isInitialized()) {
   if ( qdp_already_initted ) {
 //|| QDP::QDP_isInitialized()) {
+=======
+//  if (Chroma::isInitialized()) {
+  if ( qdp_already_initted || QDP::QDP_isInitialized()) {
+>>>>>>> e2592eedd14e6d19eb61858a553bebec4e07420b
 
-    VRB.Result("","cps_qdp_init()","Already started!");
+    VRB.Debug("","cps_qdp_init()","Already started!");
     qdp_initted = 1;
     return 1;
   }
@@ -76,10 +81,14 @@ int cps_qdp_finalize(){
   if (!qdp_initted) {
     ERR.General("","cps_qdp_finalize()","qdp_initted=0!");
   }
+<<<<<<< HEAD
   // Keep Chroma in scope, as it seems to finalize QMP too!
   qdp_already_initted = 1;
   //  if (! qdp_already_initted) Chroma::finalize();
   //  else   VRB.Result("","cps_qdp_finalize()","cps_qdp had already started, not finalized here.");
+=======
+   qdp_already_initted = 1;
+>>>>>>> e2592eedd14e6d19eb61858a553bebec4e07420b
   qdp_initted = 0;
   return 1;
 }
