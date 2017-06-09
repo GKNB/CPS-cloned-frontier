@@ -626,6 +626,8 @@ INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
 HAVE_BFM
+BUILDDIR
+SRCDIR
 VERSION_STR
 VERSION_SUB
 VERSION_MINOR
@@ -647,7 +649,6 @@ ASFLAGS
 ARCHDIR
 ARCH
 topwd_srcdir
-NOT_TESTING_QCDSP
 CC_PATH
 ac_ct_CXX
 CXXFLAGS
@@ -655,6 +656,7 @@ AS
 AR
 LD
 CXX
+HAVE_MAKEDEPEND
 target_os
 target_vendor
 target_cpu
@@ -667,7 +669,6 @@ build_os
 build_vendor
 build_cpu
 build
-HAVE_MAKEDEPEND
 EGREP
 GREP
 CPP
@@ -697,6 +698,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -793,6 +795,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1045,6 +1048,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1182,7 +1194,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1335,6 +1347,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1374,7 +1387,8 @@ Optional Features:
   --enable-optimise       Compile with maximum optimisation. (default=yes)
   --enable-sse            Compile with SSE. (default=no)
   --enable-c11            Compile with C11 features. (default=no)
-  --enable-c11-rng        Compile with C11 RNG. (default=no)
+  --enable-c11-rng=sitmo|mt19937|ranlux48
+                          Compile with C11 RNG. (default=no, sitmo if enabled)
   --enable-debug          Compile with debug information. (default=no)
   --enable-cg-dwf         Compile with cg-dwf (default=no)
   --enable-blas           Compile with BLAS (default=no)
@@ -3477,11 +3491,6 @@ fi
 done
 
 
-#CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
-#AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
-HAVE_MAKEDEPEND="no"
-
-
 ac_aux_dir=
 for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
   if test -f "$ac_dir/install-sh"; then
@@ -3622,6 +3631,11 @@ test -n "$target_alias" &&
     NONENONEs,x,x, &&
   program_prefix=${target_alias}-
 
+
+#CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
+#AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
+HAVE_MAKEDEPEND="no"
+
 # Check whether --enable-qmp was given.
 if test "${enable_qmp+set}" = set; then :
   enableval=$enable_qmp;
@@ -3633,7 +3647,6 @@ fi
 $as_echo_n "checking if including QMP... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_qmp" >&5
 $as_echo "$enable_qmp" >&6; }
-
 
 if test "$cross_compiling" = "yes"; then
    if test "$host" != "none-none-none"; then
@@ -4807,9 +4820,6 @@ fi
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
 
 
-NOT_TESTING_QCDSP="yes"
-
-
 
 topwd_srcdir=`pwd`
 
@@ -4828,12 +4838,7 @@ $as_echo_n "checking what target we are compiling for... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_target" >&5
 $as_echo "$enable_target" >&6; }
 
-#CFLAGS=""
-#CXXFLAGS=""
-#DFLAGS=""
 if test "$enable_target" = "bgl"; then
-#     AC_PATH_PROG(CC, blrts_xlc)
-#    AC_PATH_PROG(CXX, blrts_xlC)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -4846,8 +4851,6 @@ if test "$enable_target" = "bgl"; then
    namespace_default="yes"
 
 elif test "$enable_target" = "bgp"; then
-#   AC_CHECK_PROGS(CC, mpicc)
-#   AC_CHECK_PROGS(CXX, mpicxx)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -4924,9 +4927,6 @@ test -n "$CXX" || CXX="g++"
 
    #openmp assumed
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXFLAGS} -fopenmp"
 
 else
 
@@ -4997,9 +4997,6 @@ $as_echo_n "checking if using OpenMP... " >&6; }
 $as_echo "$enable_openmp" >&6; }
 if test "$enable_openmp" = "yes"; then
    DFLAGS="${DFLAGS} -DUSE_OMP"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXLAGS} -fopenmp"
 fi
 
 # Check whether --enable-optimise was given.
@@ -5063,7 +5060,7 @@ $as_echo_n "checking if compile with c++11 ... " >&6; }
 $as_echo "$enable_c11" >&6; }
 if test "$enable_c11" != "no"; then
    CXXFLAGS="${CXXFLAGS} -std=c++11"
-   DFLAGS="${DFLAGS} -DUSE_C11"
+   DFLAGS="${DFLAGS} -DUSE_C11 "
 fi
 
 # Check whether --enable-c11_rng was given.
@@ -5073,12 +5070,16 @@ else
   enable_c11_rng="no"
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 RNG" >&5
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 RNG" >&5
 $as_echo_n "checking if compile with c++11 RNG... " >&6; }
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11_rng" >&5
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11_rng" >&5
 $as_echo "$enable_c11_rng" >&6; }
-if test "$enable_c11_rng" != "no"; then
-   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT"
+if test "$enable_c11_rng" == "mt19337"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT "
+elif test "$enable_c11_rng" == "ranlux48"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_RANLUX "
+elif test "$enable_c11_rng" != "no"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_SITMO "
 fi
 
 
@@ -5526,12 +5527,31 @@ fi
 
 
 
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+#if test "X${BUILDDIR}X" = "XX"; then
+	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
 .  $srcdir/VERSION
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
 echo "CPS Version SUB:   ${VERSION_SUB}"
 echo Version ${VERSION_STR}
+echo "SRCDIR = " ${SRCDIR}
+echo "BUILDDIR = " ${BUILDDIR}
+
+
 
 
 

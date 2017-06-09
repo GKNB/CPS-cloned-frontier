@@ -20,7 +20,8 @@ void* smalloc(size_t request,
   void *p;
     if (request<=0)
 	ERR.General(cname,fname,"smalloc requested with size %d!\n",request);
-#ifdef HAVE_POSIX_MEMALIGN
+//#ifdef HAVE_POSIX_MEMALIGN
+#if 0
 #define ALLOC_MEMALIGN_NUM 512
   if( posix_memalign((void**)&p, ALLOC_MEMALIGN_NUM, request) ) ERR.Pointer(cname, fname, vname);
 #else 

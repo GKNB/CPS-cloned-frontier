@@ -28,7 +28,7 @@ CPS_END_NAMESPACE
 #include <util/enum_func.h>
 #include <util/dwf.h>
 #include <util/zmobius.h> 
-USING_NAMESPACE_CPS
+CPS_START_NAMESPACE
 
 using cps::Complex;
 
@@ -95,11 +95,9 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpZMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   // First multiply D_- to source
-//#if 1
-  if(dminus) dop. Dminus(dminus_in, f_in);
-//#else
+  if(dminus==1) dop. Dminus(dminus_in, f_in);
+  else if(dminus==-1){ dop. Dminus(f_out, f_in); return 0;}
   else moveFloat((IFloat*)dminus_in, (IFloat*)f_in, size);
-//#endif
 
 #if 1  
   // Multiply 2*kappa
@@ -117,7 +115,6 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
 			 2.0*kappa_b, ls_stride);
     }
   }
-  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
 #endif
   
   // solve it
@@ -668,4 +665,15 @@ void Fzmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
 
 }
 
-//CPS_END_NAMESPACE
+    void Fzmobius::MatPc (Vector * f_out, Vector * f_in, Float mass, Float epsilon,
+              DagType dag){
+	CgArg cg_arg; 
+	cg_arg.mass=mass;
+	cg_arg.epsilon=epsilon;
+	DiracOpZMobius dirac(*this,f_out,f_in,&cg_arg,CNV_FRM_NO);
+	if (dag==DAG_NO) dirac.MatPc(f_out,f_in);
+	else dirac.MatPcDag(f_out,f_in);
+	
+    }
+
+CPS_END_NAMESPACE

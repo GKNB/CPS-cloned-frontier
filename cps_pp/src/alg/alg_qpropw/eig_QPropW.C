@@ -1,8 +1,8 @@
-#include <util/dirac_op.h>
 #include <config.h> 
 #include <stdlib.h>     // exit()
 #include <stdio.h>
 #include <string.h>
+#include <util/dirac_op.h>
 #include <alg/common_arg.h>
 #include <comms/glb.h>
 #include <comms/scu.h>

@@ -1233,6 +1233,7 @@ if (Lat.F5D () ) {
     //
     //! FIXME !  Don't we need zero clear for solution for AMA here ?
     //  may be none will use sloppy CG except DWF-type
+VRB.Result(cname,fname,"source=%p sol=%p\n",source.data(),sol.data());
     iter = Lat.FmatInv ((Vector *) sol.data (), (Vector *) source.data (),
 			&(qp_arg.cg), &true_res, CNV_FRM_YES, PRESERVE_NO);
   }

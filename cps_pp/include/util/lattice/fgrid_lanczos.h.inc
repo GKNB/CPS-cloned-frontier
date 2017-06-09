@@ -14,11 +14,16 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   DIRAC::ImplParams params;
   SetParams (params);
   DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
   Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+#ifndef TWOKAPPA
+  Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+  Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#else
+  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
   Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#endif
 
   LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
 //      std::vector<LATTICE_FERMION> grid_rb_out(Nshift,F_RB_GRID);
@@ -65,12 +70,15 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
 
 }
 
+#define SINGLE
+
 int FeigSolv (Vector ** f_eigenv, Float * lambda,
 	      LanczosArg * eig_arg, CnvFrmType cnv_frm)
 {
   const char *fname ("FeigSolv()");
   if (cnv_frm == CNV_FRM_YES)
     ERR.General (cname, fname, " only has support for checkerboarded\n");
+  int Ncb = 1; //hard coded for CNV_FRM_NO, Ncb=1
   SetMass (eig_arg->mass);
   SetEpsilon (0.);
   VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
@@ -79,17 +87,38 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
-
+  int mem_save = eig_arg->mem_save;
+  int precision = eig_arg->precision;
   DIRAC::ImplParams params;
   SetParams (params);
 
 //      Staying with double precision, at least until gaining more confidence in single precision
   DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+#ifndef TWOKAPPA
+  Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#else
   Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+//  Grid::SchurDiagTwoKappaOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#endif
+
+#ifdef SINGLE
+  Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+  precisionChange (UmuF, *Umu);
+  DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+#ifndef TWOKAPPA
+  VRB.Result (cname, fname, "Using Asym preconditioner\n");
+  Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#else
+  VRB.Result (cname, fname, "Using SYM2 preconditioner\n");
+  Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#endif
+#endif
 
   LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
   LATTICE_FERMION grid_rb_in (F_RB_GRID), grid_out (FERM_GRID);
-//      LATTICE_FERMION_F grid_rb_in_f(F_RB_GRID_F),grid_out_f(FERM_GRID_F);
+#ifdef SINGLE
+  LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F), grid_out_f (FERM_GRID_F);
+#endif
   LatVector cps_temp (FsiteSize () / 6 * n_gp, GJP.VolNodeSites () / 2);
   VRB.Debug (cname, fname, "cps_temp.Size()=%d\n", cps_temp.Size ());
 //      VRB.Debug(cname,fname,"Nshift=%d alpha=%p\n",Nshift,alpha);
@@ -114,31 +143,63 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   Float high = eig_arg->matpoly_arg.params.params_val[0];
   high = high * high;
   int order = eig_arg->matpoly_arg.Npol + 1;	//convention difference
+
+  if(mem_save==1)
+  for (int i = 0; i < Nstop; i++) {
+    if (f_eigenv[i] != NULL) sfree(f_eigenv[i]);
+  }
+#ifndef SINGLE
   Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);
   Grid::ImplicitlyRestartedLanczos < LATTICE_FERMION > IRL (HermOp, Cheb, Nstop,
 							    Nk, Nm, resid,
 							    MaxIt);
-
-//  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid_f,MaxIt);
-//  precisionChange(grid_rb_in_f,grid_rb_in);
+#else
+  Grid::Chebyshev < LATTICE_FERMION_F > Cheb (low, high, order);
+  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  precisionChange(grid_rb_in_f,grid_rb_in);
+#endif
 
   std::vector < Grid::RealD > eval (Nm);
+
+  int Nconv;
+#ifndef SINGLE
   std::vector < LATTICE_FERMION > evec (Nm, F_RB_GRID);
   for (int i = 0; i < Nm; i++)
     evec[i].checkerboard = Grid::Odd;
-
-  int Nconv;
   IRL.calc (eval, evec, grid_rb_in, Nconv);
-//  IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
+#else
+  std::vector < LATTICE_FERMION_F > evec_f (Nm, F_RB_GRID_F);
+  for (int i = 0; i < Nm; i++) evec_f[i].checkerboard = Grid::Odd;
+  IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
+#endif
 
-  for (int i = 0; i < Nstop; i++) {
-    if (f_eigenv[i] == NULL)
+	uint64_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
+	if(precision=PREC_SINGLE) f_size *=sizeof(float);
+	else				 f_size *=sizeof(double);
+
+  for (int i = Nstop-1; i >= 0  ; i--) {
+    if( (mem_save==0) && (f_eigenv[i] == NULL) )
       ERR.General (cname, fname, "f_eigenv[%d] not allocated\n", i);
-    setCheckerboard (grid_out, evec[i]);
     lambda[i] = eval[i];
+
+    if(mem_save==1){
+		f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
+    } 
+#ifndef SINGLE
+    setCheckerboard (grid_out, evec[i]);
     ImportFermion (f_eigenv[i], grid_out, Odd);
+	evec.resize(i,F_RB_GRID);
+#else
+    setCheckerboard (grid_out_f, evec_f[i]);
+//    ImportFermion (f_eigenv[i], grid_out_f, Odd);
+// forcing it to be float, although it is ostensively double
+    ImpexFermion < float,LATTICE_FERMION_F, SITE_FERMION_F > (f_eigenv[i], grid_out_f, 0, Odd, NULL);
+	evec_f.resize(i,F_RB_GRID_F);
+#endif
+    
   }
 
   return Nconv;
 
 }
+#undef SINGLE

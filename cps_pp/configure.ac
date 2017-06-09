@@ -1,19 +1,15 @@
-dnl  $Author: ckelly $
-dnl  $Date: 2012-11-15 18:17:08 $
-dnl  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/configure.in,v 1.82.4.1 2012-11-15 18:17:08 ckelly Exp $
-dnl  $Id: configure.in,v 1.82.4.1 2012-11-15 18:17:08 ckelly Exp $
 AC_INIT(./src/)
 dnl AC_CONFIG_HEADERS([conf.h])
 AC_CHECK_HEADERS([malloc.h])
+
+dnl Get host and target information:
+AC_CANONICAL_TARGET
+
 
 #CK: makedepend is soooooo sllooooooooww. Disabling in favour of the cmd line version
 #AC_CHECK_PROG(HAVE_MAKEDEPEND,makedepend,yes,no)
 HAVE_MAKEDEPEND="no"
 AC_SUBST(HAVE_MAKEDEPEND)
-
-dnl Get host and target information:
-AC_CANONICAL_TARGET
-
 dnl Are we compiling with QMP library?
 AC_ARG_ENABLE(qmp, 
 	AC_HELP_STRING([--enable-qmp], 
@@ -21,7 +17,6 @@ AC_ARG_ENABLE(qmp,
 	,[enable_qmp="no"])
 AC_MSG_CHECKING([if including QMP])
 AC_MSG_RESULT($enable_qmp)
-
 
 dnl Set correct compiler information
 if test "$cross_compiling" = "yes"; then
@@ -78,10 +73,6 @@ dnl path for the compiler
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
 AC_SUBST(CC_PATH)
 
-dnl If using this script, then we are not making the QCDSP version.
-NOT_TESTING_QCDSP="yes"
-AC_SUBST(NOT_TESTING_QCDSP)
-
 dnl Check for maths library
 dnl AC_CHECK_LIB(m, sin, ,echo "CPS needs the math library - bailing out"; exit 1)
 
@@ -100,13 +91,8 @@ AC_ARG_ENABLE(target,
 AC_MSG_CHECKING([what target we are compiling for])
 AC_MSG_RESULT($enable_target)
 
-#CFLAGS=""
-#CXXFLAGS=""
-#DFLAGS=""
-dnl Can add more cases as we need to, e.g. QCDSP
+dnl Can add more cases as we need to
 if test "$enable_target" = "bgl"; then
-#     AC_PATH_PROG(CC, blrts_xlc)
-#    AC_PATH_PROG(CXX, blrts_xlC)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -119,8 +105,6 @@ if test "$enable_target" = "bgl"; then
    namespace_default="yes"
 
 elif test "$enable_target" = "bgp"; then
-#   AC_CHECK_PROGS(CC, mpicc)
-#   AC_CHECK_PROGS(CXX, mpicxx)
 
    CFLAGS+="${CFLAGS}"
    CXXFLAGS+="${CXXFLAGS}"
@@ -157,9 +141,6 @@ elif test "$enable_target" = "noarch-bfm"; then
 
    #openmp assumed
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXFLAGS} -fopenmp"
 
 else
 
@@ -184,9 +165,6 @@ AC_MSG_CHECKING([if using OpenMP])
 AC_MSG_RESULT($enable_openmp)
 if test "$enable_openmp" = "yes"; then
    DFLAGS="${DFLAGS} -DUSE_OMP"
-#   LDFLAGS="${LDFLAGS} -fopenmp"
-#   CFLAGS="${CFLAGS} -fopenmp"
-#   CXXFLAGS="${CXXLAGS} -fopenmp"
 fi
 
 dnl Need to put in machine/compiler specific optimisation flags here
@@ -238,18 +216,22 @@ AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
 if test "$enable_c11" != "no"; then
    CXXFLAGS="${CXXFLAGS} -std=c++11"
-   DFLAGS="${DFLAGS} -DUSE_C11" 
+   DFLAGS="${DFLAGS} -DUSE_C11 " 
 fi
 
 dnl Are we compiling with C11 RNG?
 AC_ARG_ENABLE(c11_rng, 
-	AC_HELP_STRING([--enable-c11-rng], 
-	[Compile with C11 RNG. (default=no)]), 
+	AC_HELP_STRING([--enable-c11-rng=sitmo|mt19937|ranlux48], 
+	[Compile with C11 RNG. (default=no, sitmo if enabled)]), 
 	,[enable_c11_rng="no"])
-AC_MSG_CHECKING([if compile with c++11 RNG])
-AC_MSG_RESULT($enable_c11_rng)
-if test "$enable_c11_rng" != "no"; then
-   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT"
+	AC_MSG_CHECKING([if compile with c++11 RNG])
+	AC_MSG_RESULT($enable_c11_rng)
+if test "$enable_c11_rng" == "mt19337"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT " 
+elif test "$enable_c11_rng" == "ranlux48"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_RANLUX " 
+elif test "$enable_c11_rng" != "no"; then
+   DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_SITMO " 
 fi
 
 
@@ -389,11 +371,6 @@ if test "$enable_mdwf" != "no"; then
 fi
 
 if test "$enable_qio" != "no"; then
-dnl   if test "$enable_qio" != "yes"; then
-dnl   elif test "X${QIO_DIR}X" = "XX"; then
-dnl     echo "QIO_DIR environment variable not set"
-dnl     exit 1
-dnl   fi
    if test "X${QMP_DIR}X" = "XX"; then
      echo "QMP directory not set"
      exit 1
@@ -647,6 +624,21 @@ AC_SUBST(GSUMPRECISION)
 AC_SUBST(LOCALPRECISION)
 AC_SUBST(PRECDIR)
 
+
+#echo top_srcdir = ${ac_top_srcdir}
+#echo abs_top_srcdir = ${ac_abs_top_srcdir}
+#exit
+#if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR=${ac_abs_top_srcdir}
+#fi
+#	echo "SRCDIR =" X${SRCDIR}X
+#	exit 1
+#AC_SUBST(SRCDIR)
+#if test "X${BUILDDIR}X" = "XX"; then
+	BUILDDIR=${ac_abs_top_builddir}
+#fi
+#AC_SUBST(BUILDDIR)
+
 dnl configuring version number
 .  $srcdir/VERSION
 echo CPS source: $srcdir
@@ -654,10 +646,14 @@ echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
 echo "CPS Version SUB:   ${VERSION_SUB}"
 echo Version ${VERSION_STR}
+echo "SRCDIR = " ${SRCDIR}
+echo "BUILDDIR = " ${BUILDDIR}
 AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)
 AC_SUBST(VERSION_STR)
+AC_SUBST(SRCDIR)
+AC_SUBST(BUILDDIR)
 
 AC_SUBST(HAVE_BFM)
 

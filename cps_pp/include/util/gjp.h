@@ -2,6 +2,7 @@
 #define INCLUDED_GLOBAL_JOB_PARAMETER_H
 
 #include<vector>
+#include<assert.h>
 #include<config.h>
 /*!\file
   \brief  Definitions of global job parameters.
@@ -161,12 +162,11 @@ class GlobalJobParameter
   int threads;
 
 
-  std::vector< Complex >  zmobius_b;
-  std::vector< Complex >  zmobius_c;
   ZMobiusPCType zmobius_pc_type;
   
 public:
   GlobalJobParameter();
+
 
   inline const int & Nthreads() const{ return threads; }
   const int SetNthreads(const int &n=0);
@@ -653,12 +653,18 @@ public:
    VRB.Result(cname,"GetMobius()","mobius_factor=%g\n",mob_b+mob_c);
     return (mob_b+mob_c);}
 
+
+  std::vector< Complex >  zmobius_b;
+  std::vector< Complex >  zmobius_c;
   
   Complex* ZMobius_b() 
   {return zmobius_b.data();}
   Complex* ZMobius_c() 
   {return zmobius_c.data();}
-  int ZMobius_ls(){return zmobius_b.size();}
+  int ZMobius_ls(){
+	assert(zmobius_b.size()==zmobius_c.size());
+	return zmobius_b.size();
+  }
   
   ZMobiusPCType ZMobius_PC_Type() const
   {return zmobius_pc_type; }

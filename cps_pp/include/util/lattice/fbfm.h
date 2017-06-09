@@ -124,6 +124,14 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
     FclassType Fclass()const {
         return F_CLASS_BFM;
     }
+
+#if 1
+    virtual int F5D(){
+      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) ) return 1;
+      else return 0;
+    }
+#endif
+
   // It returns the type of fermion class
   
   //! Multiplication of a lattice spin-colour vector by gamma_5.

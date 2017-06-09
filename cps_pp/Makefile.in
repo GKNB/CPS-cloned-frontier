@@ -3,7 +3,7 @@
 # @configure_input@
 
 SRCDIR = @abs_top_srcdir@
-BUILDDIR = @abs_builddir@
+BUILDDIR = @abs_top_builddir@
 TESTDIR = tests
 HDW_TESTDIR= hdw_tests
 DOCDIR = doc

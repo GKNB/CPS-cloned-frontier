@@ -2,6 +2,7 @@
 #include<vector>
 #ifdef USE_C11_RNG
 #include<random>
+#include <util/prng_engine.hpp>
 #endif
 CPS_START_NAMESPACE
 /*!\file
@@ -26,8 +27,12 @@ CPS_START_NAMESPACE
 #ifdef USE_C11_MT
 typedef   std::mt19937  CPS_RNG;
 typedef u_int32_t RNGSTATE ;
-#else
+#elif  (defined USE_C11_RANLUX )
 typedef   std::ranlux48  CPS_RNG;
+typedef u_int64_t RNGSTATE ;
+#else 
+// making sitmo C11_RNG default
+typedef   sitmo::prng_engine  CPS_RNG;
 typedef u_int64_t RNGSTATE ;
 #endif
 #endif
@@ -298,16 +303,17 @@ class LatRanGen
     int rgen_pos_4d;// CJ: ID of the 4D generator being used
 
 #ifdef USE_C11_RNG
-    std::vector<CPS_RNG>  mtran;
-//   CPS_RNG  *mtran;
+   std::vector<CPS_RNG>  cpsran;
    std::uniform_real_distribution<Float> urand;
    std::normal_distribution<Float> grand;
    Float urand_lo=0,urand_hi=1.;
    Float grand_mean=0,grand_sigma=1.;
-#ifdef USE_C11_MT
+#if (defined USE_C11_MT)
    static const int state_size = 625;
-#else
+#elif (defined USE_C11_RANLUX)
    static const int state_size = 15;
+#else
+   static const int state_size = 11;
 #endif
 #else
     UGrandomGenerator *ugran;

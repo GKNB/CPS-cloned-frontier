@@ -748,6 +748,11 @@ class Lattice
     //! Not implemented here.
     virtual void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg, 
 		 CnvFrmType cnv_frm, int dir_flag);
+    virtual void MatPc (Vector * f_out, Vector * f_in, Float mass, Float epsilon,
+              DagType dag){
+	ERR.NotImplemented(cname,"MatPc");
+    }
+
 
     // dir_flag is flag which takes value 0 when all direction contribute to D
     // 1 - when only the special anisotropic direction contributes to D,
@@ -850,28 +855,48 @@ class Lattice
     }
 
     //~~ added F_CLASS_WILSON_TM for twisted mass fermions
-    int FwilsonType(){
-      if (Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_CLOVER || 
-	  Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-	  || Fclass()==F_CLASS_ZMOBIUS 
-        || Fclass() ==F_CLASS_WILSON_TM || Fclass() ==F_CLASS_NAIVE
-        || Fclass() ==F_CLASS_BFM ) return 1;
-      else return 0;
-    }
+    virtual int FwilsonType()
+#if 0
+    {return 0;}
+#else
+     {
+      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
+       if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
+       if(Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_WILSON_TM ) return 1;
+       if(Fclass()==F_CLASS_WILSON || Fclass() ==F_CLASS_CLOVER ) return 1;
+#ifdef USE_BFM
+     if ( (Fclass() == F_CLASS_BFM) ) return 1;
+#endif
+#ifdef USE_GRID
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_WILSON_TM || Fclass()==F_CLASS_GRID_WILSON_TM )
+      return 1;
+#endif
+      return 0;
+     }
+#endif
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
-    virtual int F5D();
+    virtual int F5D()
 #if 0
-{
-      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS 
-	   || Fclass()==F_CLASS_ZMOBIUS 
+    {return 0;}
+#else
+     {
+      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
+       if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
 #ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver == WilsonTM) //added by CK, moved here  by CJ
+     if ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1; //added by CK, moved here  by CJ
 #endif
-	   || Fclass() ==F_CLASS_MDWF ) return 1;
-      else return 0;
-    }
+#ifdef USE_GRID
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
 #endif
+      return 0;
+     }
+#endif
+
+
 
     virtual int FsiteOffsetChkb(const int *x) const = 0;
     //!< Gets the lattice site index for the odd-even (checkerboard) order.
@@ -1090,6 +1115,13 @@ class Lattice
                         Float *true_res,
 			CnvFrmType cnv_frm = CNV_FRM_YES,
 			PreserveType prs_f_in = PRESERVE_YES) = 0;
+    virtual int FmatInv(Vector *f_out, Vector *f_in,
+                CgArg *cg_arg,
+                Float *true_res,
+                CnvFrmType cnv_frm,
+                PreserveType prs_f_in, int dminus)
+	{ return FmatInv(f_out, f_in, cg_arg, true_res , cnv_frm,prs_f_in); }
+
     virtual int FmatInvTest(Vector *f_out, Vector *f_in,
                 CgArg *cg_arg,
                 Float *true_res,

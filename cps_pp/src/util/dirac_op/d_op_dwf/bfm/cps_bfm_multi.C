@@ -69,7 +69,7 @@ int DiracOpDwf::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
   TimeStamp::start_func(cname,fname);
 
   VRB.Func(cname,fname);
-  unsigned size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  size_t f_size_cb =  GJP.VolNodeSites() * lat.FsiteSize() / 2;
   if(GJP.Gparity()) f_size_cb*=2;
 
   VRB.Result(cname,fname,"cps_qdp_init(GJP.argc_p(), GJP.argv_p())");

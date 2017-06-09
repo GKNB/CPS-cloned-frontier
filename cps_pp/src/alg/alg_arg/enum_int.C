@@ -68,6 +68,19 @@ struct vml_enum_map ChiralProj_map[] = {
 };
 
 bool_t
+vml_PrecType (VML *vmls, char *name,PrecType *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,PrecType_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map PrecType_map[] = {
+	{"PrecType","PREC_SINGLE",PREC_SINGLE},
+	{"PrecType","PREC_DOUBLE",PREC_DOUBLE},
+	{NULL,NULL,0}
+};
+
+bool_t
 vml_FclassType (VML *vmls, char *name,FclassType *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,FclassType_map))

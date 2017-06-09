@@ -320,8 +320,12 @@ void AlgActionRationalQuotient::heatbath() {
 	}
 #endif
       lat.RandGaussVector(phi[i], 0.5, Ncb);
+      if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
+
       Float h_i = lat.FhamiltonNode(phi[i],phi[i]);
       h_init += h_i;
+      VRB.Result(cname,fname,"h_init=%0.16e\n",h_init);
+
       Float total_h_i = h_i;
       glb_sum(&total_h_i);
       VRB.Result(cname, fname, "heatbath: mass ratio %0.4f/%0.4f initial ham = %0.16e\n", frm_cg_arg_mc[i][0]->mass, bsn_cg_arg_mc[i][0]->mass, total_h_i);
@@ -360,7 +364,7 @@ void AlgActionRationalQuotient::heatbath() {
 	glb_sum(&gsum_h);
 	if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] delta H for mass %d:  %.9e\n",force_label,i,gsum_h);
       }
-      h_init += delta_h;
+     // h_init += delta_h;
 
       //!< First apply the fermion rational
       frmn[0] -> 
@@ -371,6 +375,11 @@ void AlgActionRationalQuotient::heatbath() {
 				frm_remez_arg_mc[i].degree, 0, 
 				frm_cg_arg_mc[i], CNV_FRM_NO, SINGLE,
 				frm_remez_arg_mc[i].residue_inv);
+     {
+        Float * tmp_f = (Float *)frmn[0];
+        VRB.Result(cname,fname,"frm: phi=%g\n",*tmp_f);
+      }
+
       VRB.Result(cname, fname, "fermion mass %e multishift inversion cg_iter = %d\n", frm_cg_arg_mc[i][0]->mass, cg_iter);
 
       //!< Now apply the boson rational
@@ -383,6 +392,11 @@ void AlgActionRationalQuotient::heatbath() {
 				bsn_cg_arg_mc[i], CNV_FRM_NO, SINGLE,
 				bsn_remez_arg_mc[i].residue_inv);
       VRB.Result(cname, fname, "boson mass %e multishift inversion cg_iter = %d\n", bsn_cg_arg_mc[i][0]->mass, cg_iter);
+      {
+        Float * tmp_f = (Float *)phi[i];
+        VRB.Result(cname,fname,"bsn: phi=%g\n",*tmp_f);
+      }
+
 
       updateCgStats(frm_cg_arg_mc[i][0]);
       updateCgStats(bsn_cg_arg_mc[i][0]);
@@ -406,6 +420,9 @@ Float AlgActionRationalQuotient::energy() {
   //const char *fname="energy()";
   char fname[20+strlen(force_label)];
   sprintf(fname, "energy() [%s]",force_label);
+   VRB.Result(cname,fname,"energeEval evolved h_init=%d %d %g\n",
+        energyEval,evolved,h_init);
+
 
   if (energyEval) {
     return 0.0;

@@ -2,6 +2,7 @@
 #define INCLUDED_FGRID_H
 #include<stdlib.h>
 #include<config.h>
+#include<assert.h>
 #ifdef USE_GRID
 #include<util/lattice.h>
 #include<util/time_cps.h>
@@ -9,14 +10,40 @@
 #include<util/lattice/bfm_mixed_solver.h>
 #endif
 #include<util/multi_cg_controller.h>
+#include<util/eigen_container.h>
 #include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 #undef HAVE_HANDOPT
 
+namespace Grid{
 
+template<typename Float, class Field>
+class Guesser: public LinearFunction<Field> {
+    public:
+	int neig;
+	std::vector < Float> &eval;
+	std::vector < Field > &evec;
+    Guesser(int n, std::vector<Float> &_eval, std::vector <Field> &_evec)
+	: neig(n),eval(_eval),evec(_evec)
+	{ 
+		assert ( eval.size()>=neig); 
+		assert ( evec.size()>=neig); 
+	}
+	void operator() (const Field &in, Field &out){
+	 std::cout<<GridLogMessage << "guesser() called "<<std::endl;
+	out=0.;
+	for(int i=0;i<neig;i++){
+		Grid::ComplexD coef = innerProduct(evec[i],in);
+		coef = coef / eval[i];
+	    std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
+		out += coef * evec[i];
+	}
+	std::cout<<GridLogMessage <<"norm(out)  : "<<norm2(out)<< std::endl;
+	}
+};
 
-
+}
 
 CPS_START_NAMESPACE 
 class FgridParams {
@@ -29,14 +56,15 @@ public:
   }
   ~FgridParams () {
   }
-  void setZmobius(cps::Complex  *b, int ls){
+  void setZmobius(cps::Complex  *bs, int ls){
+//  void setZmobius(std::vector< std::complex<double> > bs ){
 // assumes b=1 c=0
     omega.clear();
     for(int i =0;i<ls;i++){
 //    std::complex<double> bs(b[2*i],b[2*i+1]);
-    std::complex<double> temp = 1./(2.*b[i] -1.);
+    std::complex<double> temp = 1./(2.*bs[i] -1.);
     VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
-	i,b[i].real(),b[i].imag(), i,temp.real(),temp.imag());
+	i,bs[i].real(),bs[i].imag(), i,temp.real(),temp.imag());
     omega.push_back(temp);
     }
 //  exit(-40);
@@ -422,7 +450,8 @@ CPS_END_NAMESPACE
 #define STR(s) #s
 // Match to Fbfm twisted wilson instead of FwilsonTM
 #undef USE_F_CLASS_WILSON_TM
-//#ifdef GRID_GPARITY
+
+#undef TWOKAPPA
 
 #define GRID_GPARITY
 #define IF_FIVE_D
@@ -435,6 +464,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::GparityWilsonImplD
 #define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -446,8 +476,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
@@ -463,6 +493,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::GparityWilsonImplD
 #define IMPL_F Grid::QCD::GparityWilsonImplF
 #define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -474,8 +505,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
@@ -489,6 +520,7 @@ CPS_END_NAMESPACE
 #define DIRAC_F Grid::QCD::MobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::WilsonImplD
 #define IMPL_F Grid::QCD::WilsonImplF
 #define PARAMS
@@ -502,39 +534,46 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP
 
 #undef GRID_GPARITY
 #define IF_FIVE_D 
+#define GRID_ZMOB 
+
 #define FGRID FgridZmobius
 #define CLASS_NAME F_CLASS_GRID_ZMOBIUS
 #define DIRAC Grid::QCD::ZMobiusFermionD
 #define DIRAC_F Grid::QCD::ZMobiusFermionF
 #define MOB	,M5,omegas,1.,0.
-#define LATTICE_FERMION DIRAC ::FermionField
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::QCD::ZWilsonImplD	
 #define IMPL_F Grid::QCD::ZWilsonImplF
 #define PARAMS	
 #define GP 
+// Using TwoKappa only for zMobius for now
+#define TWOKAPPA
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
+#undef GRID_ZMOB 
 #undef IF_TM
 #undef FGRID
 #undef CLASS_NAME
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
+#undef IMPL_F
 #undef PARAMS
 #undef GP
+#undef TWOKAPPA
 
 #undef IF_FIVE_D
 #define IF_TM
@@ -546,6 +585,7 @@ CPS_END_NAMESPACE
 #define IMPL Grid::QCD::WilsonImplD
 #define IMPL_F Grid::QCD::WilsonImplF
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
 #include "fgrid.h.inc"
@@ -557,8 +597,8 @@ CPS_END_NAMESPACE
 #undef DIRAC
 #undef DIRAC_F
 #undef MOB
-#undef LATTICE_FERMION
 #undef SITE_FERMION
+#undef SITE_FERMION_F
 #undef IMPL
 #undef PARAMS
 #undef GP

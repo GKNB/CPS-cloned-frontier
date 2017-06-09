@@ -1,4 +1,5 @@
 #include <config.h>
+#if (!defined USE_SSE) && (!defined SSE_TO_C)
 #include <stdio.h>
 #include <math.h>
 /*! \file
@@ -517,7 +518,7 @@ static void UmuTimes(Float *into, Float *u, Float *psi, const int &mu, const int
 CPS_END_NAMESPACE
 #else //USE_QMP
 #ifdef USE_SSE
-#include "../sse/sse-wilson_dslash.C"
+#include "sse-wilson_dslash.C"
 #else
 #if 1 
 #include "../qmp/wilson_dslash_vec.C"
@@ -552,3 +553,4 @@ void wilson_dslash_two(Float *chi0, Float *chi1,
 }
 
 CPS_END_NAMESPACE
+#endif

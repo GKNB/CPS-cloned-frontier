@@ -924,7 +924,7 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
         break;
     default:
 		//VRB.Result(cname,fname,"BAD CALL TO glV()\n");
-	ERR.General(cname, "glV()", "BAD CALL TO glV(from=%p, dir = %d\n", from,dir);
+	ERR.General(cname, "glV()", "BAD CALL TO glV(from=%p, dir = %d\n", &from,dir);
 	break;
   }
 	return *this;

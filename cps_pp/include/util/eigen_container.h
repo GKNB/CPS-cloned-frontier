@@ -158,7 +158,7 @@ class EigenCache {
   // if the arguments are already cached
   int is_cached( char* a_fname_root_bc, int a_neig )
   {
-    VRB.Debug(cname,"is_cached","%s %d: %s %d\n",
+    VRB.Result(cname,"is_cached","%s %d: %s %d\n",
 	fname_root_bc, neig,
 	a_fname_root_bc, a_neig);
 
@@ -421,7 +421,7 @@ class EigenContainer {
 	}
       eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
       if(eval==0)ERR.General(cname,fname,"eval could not malloced\n");
-      evec = (Vector*) smalloc(cname,fname, "evec", f_stride_size* sizeof(float));
+      evec = (Vector*) smalloc(cname,fname, "evec", f_stride_size* sizeof(Float));
       if(evec==0)ERR.General(cname,fname,"evec could not be malloced\n");
     }
 
@@ -519,8 +519,8 @@ class EigenContainer {
     snprintf(file,1024, "%s.nev%03d", fname_root_bc, num);
     
     qio_readGenericFields readGenField;
-    //readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN);
-    readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN, FP_IEEE32LITTLE);
+    readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN);
+//    readGenField. read_genericfields( file, save_stride*n_fields, f_size_per_site, evec, QIO_UNKNOWN, FP_IEEE32LITTLE);
     //printf("EVEC %e %e\n",*((float*)evec),*((float*)evec+1));
     //for(int i=0;i<f_size;i++)
     //printf("EVEC after qio read %d %e\n", i, *((float*)evec+i));
@@ -565,12 +565,12 @@ class EigenContainer {
 
     int save_stride = GJP.SaveStride();
     writeGenField.setHeader( ensemble_id, ensemble_label, seqNum, field_type_label );
-    //writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT);
+    writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT);
     // save in single
-    VRB.Result("writeGenField", "write_genericfields","(%s,%d x %d,%d,%p,%d,%d)\n",
- file, save_stride,n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
+//    VRB.Result("writeGenField", "write_genericfields","(%s,%d x %d,%d,%p,%d,%d)\n",
+// file, save_stride,n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
 
-    writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
+//    writeGenField. write_genericfields( file, save_stride*n_fields, f_size_per_site, evec_, QIO_VOLFMT, FP_IEEE32LITTLE);
 
     if(!UniqueID()) printf("nev_save, time to save :%e sec\n",time-dclock());
   }

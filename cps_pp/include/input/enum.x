@@ -24,6 +24,11 @@ enum DirType {DIR_X,
 // chiral projectors 1+-g5
 enum ChiralProj{PL=-6,PR=-7};
 
+enum PrecType {
+	PREC_SINGLE,
+	PREC_DOUBLE
+};
+
 /*------------------------------------------------------------------*/
 /*! The types of fermion action*/
 /*  ~~F_CLASS_WILSON_TM added for twisted mass Wilson fermions      */ 

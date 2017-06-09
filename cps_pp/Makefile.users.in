@@ -6,7 +6,7 @@
 
 
 SRCDIR = @abs_top_srcdir@
-BUILDDIR = @abs_builddir@
+BUILDDIR = @abs_top_builddir@
 QOS = @QOS@
 QOSLIB = ${QOS}/quser/gcc-lib-user///
 CC = @CC@
@@ -30,6 +30,9 @@ CFLAGS= @CFLAGS@
 CXXFLAGS= @CXXFLAGS@
 ASFLAGS= @ASFLAGS@
 DFLAGS += @DFLAGS@
+
+libcps_CXXFLAGS = $(INCLIST) $(CXXFLAGS) $(DFLAGS)
+libcps_CFLAGS = $(INCLIST) $(CFLAGS) $(DFLAGS)
 
 #
 # Libraries for the Columbia code
@@ -70,10 +73,10 @@ $(BIN):  $(OBJS) $(LIBLIST)
 	$(CXX) $(OBJS) -L$(BUILDDIR) -lcps  $(LDFLAGS) -o $(BIN)
 
 .c.o:
-	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CC) -o $@ $(libcps_CFLAGS)  -c $<
 .C.o:
-	$(CXX) -E $(CXXFLAGS) $(DFLAGS) $(INCLIST) $< > $*.i
-	$(CXX) -o $@ $(CXXFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CXX) -E $(libcps_CXXFLAGS) $< > $*.i
+	$(CXX) -o $@ $(libcps_CXXFLAGS) -c $<
 .S.o:
 	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
 
