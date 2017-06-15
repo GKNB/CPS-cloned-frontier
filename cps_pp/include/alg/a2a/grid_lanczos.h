@@ -126,7 +126,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid);
 
-  Ddwf.Report();
+  //Ddwf.Report();
 }
 
 template<typename GridPolicies>
@@ -161,7 +161,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f);
 
-  Ddwf.Report();
+  //Ddwf.Report();
 }
 
 

@@ -21,6 +21,7 @@
 //Command line argument store/parse
 struct TuneCommandLineArgs{
   int nthreads;
+  double inner_prec_start;
 
   bool load_evecs;
   std::string load_evecs_stub; //will be appended with ".<CONF>" where <CONF> is replaced by the configuration index
@@ -32,6 +33,7 @@ struct TuneCommandLineArgs{
 #endif
 
     load_evecs = false;
+    inner_prec_start = 1e-08;
     
     parse(argc,argv,begin);
   }
@@ -59,6 +61,10 @@ struct TuneCommandLineArgs{
 	load_evecs_stub = argv[arg+1];
 	if(!UniqueID()){ printf("Loading evecs with stub %s\n",load_evecs_stub); }
 	arg+=2;	
+      }else if( std::string(cmd) == "-inner_prec_start" ){
+        inner_prec_start = strToAny<double>(argv[arg+1]);
+        if(!UniqueID()){ printf("Using initial inner CG residual %g\n",inner_prec_start); }
+        arg+=2;
       }else if( strncmp(cmd,"--comms-isend",30) == 0){
 	ERR.General("","main","Grid option --comms-isend is deprecated: use --comms-concurrent instead");
       }else if( strncmp(cmd,"--comms-sendrecv",30) == 0){
@@ -119,7 +125,7 @@ struct TuneParameters{
 
 template< typename mf_Policies>
 void doInvert(Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval,
-	      const double mass, const Float residual, const int max_iter, const int nl){
+	      const double mass, const Float residual, const int max_iter, const int nl, double inner_prec_start){
   EvecInterfaceGridSinglePrec<mf_Policies> evecs(evec,eval,lat,mass);
   
   typedef typename mf_Policies::GridFermionField GridFermionField;
@@ -202,7 +208,7 @@ void doInvert(Lattice &lat, const std::vector<typename mf_Policies::GridFermionF
   Ddwf.DW(gsrc, gtmp_full, Grid::QCD::DaggerNo);
   axpy(gsrc, -mob_c, gtmp_full, gsrc); 
 
-  Float inner_resid = 1e-08;
+  Float inner_resid = inner_prec_start;
   
   for(int i=0;i<8;i++){
     evecs.overrideInitialInnerResid(inner_resid);    
@@ -231,24 +237,22 @@ void doInvert(Lattice &lat, const std::vector<typename mf_Policies::GridFermionF
 int main(int argc,char *argv[])
 {
   Start(&argc, &argv);
-  assert(argc > 3);
+  assert(argc > 2);
 
   const char* vml_dir = argv[1];
-  const int conf = strToAny<int>(argv[2]);
   TuneParameters params(vml_dir);
 
-  TuneCommandLineArgs cmdline(argc,argv,3);
+  TuneCommandLineArgs cmdline(argc,argv,2);
   
   GJP.Initialize(params.do_arg);
   LRG.Initialize();
 
   LanczosWrapper eig;
   if(cmdline.load_evecs){
-    std::ostringstream os; os << cmdline.load_evecs_stub << '.' << conf;
-    if(!UniqueID()) printf("Reading light Lanczos from %s\n",os.str().c_str());
+    if(!UniqueID()) printf("Reading light Lanczos from %s\n",cmdline.load_evecs_stub);
     double time = -dclock();
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(LANCZOS_LATARGS);
-    eig.readParallel(os.str(),*lanczos_lat);
+    eig.readParallel(cmdline.load_evecs_stub,*lanczos_lat);
     delete lanczos_lat;
     time+=dclock();
     print_time("main","Light Lanczos read",time);
@@ -260,7 +264,7 @@ int main(int argc,char *argv[])
 
   A2ALattice &a2a_lat = *createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS); 
   
-  doInvert<A2Apolicies>(a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000, params.a2a_arg.nl);
+  doInvert<A2Apolicies>(a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000, params.a2a_arg.nl, cmdline.inner_prec_start);
 
   
   return 0;
