@@ -440,18 +440,49 @@ class EigenContainer {
       sfree(cname,fname, "evec",evec);
     }
 
+  int load_eval_mgl(const char *file, int start,int end){
+
+    std::string fname("load_eval_mgl");
+    FILE* fp;
+    fp = Fopen(file,"r");
+    int neig;
+    fscanf(fp,"%d",&neig);
+    if (neig < end) {
+      ERR.General(cname,fname.c_str(),"saved neig(%d)< needed(%d)\n",neig,end);
+    }
+    for(int i=0; i< end; ++i ){
+      //printf("NEIG %d %d\n",neig,i);
+      int idx;
+      Float e=0.;      
+      if(!UniqueID()) {
+	  fscanf( fp, "%lf", &e );
+      printf("e=%0.14e\n",e);
+      }
+      glb_sum(&e);
+      if (i >= start) eval[i]=e;
+     VRB.Result(cname,fname.c_str(),"eval[%d]=%0.14e\n",i,eval[i]);
+    }
+    Fclose(fp);
+    return (end-start+1);
+  }
+
   // load eigen values from  fname_root.s-eval
   Float* load_eval( )
   {
     char* fname="load_eval()";
 
-    FILE* fp;
-    // try cache fist 
     if( ecache )
       if( ecache-> load( eval ) ) return eval;
 
     char file[1024];
+#if 1
+    snprintf(file, 1024, "%s/eigen-values.txt",fname_root_bc);
+    load_eval_mgl(file,0,neig);
+#else
+    FILE* fp;
+    // try cache fist 
     // formerly extension was .eval, which contains eigenvalue of MATPCDAG_MATPC, now .evals contains the eigenvalue of MAPC_HERM
+
     snprintf(file, 1024, "%s.evals",fname_root_bc);
     fp = Fopen(file,"r");
     if(!fp) 
@@ -469,11 +500,13 @@ class EigenContainer {
       eval[i]=e;
     }
     Fclose(fp);
+#endif
 
     if( ecache )
       ecache-> save( eval );
     return eval;
   }
+
 
   // save eigen values from  fname_root.s-eval 
   void save_eval( Float* in_eval )

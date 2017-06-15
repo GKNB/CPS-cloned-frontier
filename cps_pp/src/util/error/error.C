@@ -1,25 +1,9 @@
 #include<config.h>
+#include<string>
 CPS_START_NAMESPACE
 /*!\file 
   \brief   Definition of Error class methods.
-
-  $Id: error.C,v 1.13.30.1 2012/11/04 15:12:14 yinnht Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: yinnht $
-//  $Date: 2012/11/04 15:12:14 $
-//  $Header: /space/cvs/cps/cps++/src/util/error/error.C,v 1.13.30.1 2012/11/04 15:12:14 yinnht Exp $
-//  $Id: error.C,v 1.13.30.1 2012/11/04 15:12:14 yinnht Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: error.C,v $
-//  $Revision: 1.13.30.1 $
-//  $Source: /space/cvs/cps/cps++/src/util/error/error.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 
 CPS_END_NAMESPACE
 #include <util/qcdio.h>
@@ -365,6 +349,26 @@ void Error::General(const char *class_name, const char *func_name,
     Exit(exit_value[file_w]);
   }
   Fprintf(fp, error_string[general], class_name, func_name);
+  Vfprintf(fp, format, args);
+  Fclose(fp);
+
+  Exit(exit_value[general]);
+}
+
+void Error::General(std::string &cname, std::string &fname,
+		    const char *format,  // format of message
+		    ...)                 // argument list of message
+{
+  FILE *fp;
+  error_func_name = "General";
+  va_list args;
+  va_start(args, format);
+
+  if( (fp = Fopen(ADD_ID,error_file_name, "w")) == NULL ) {
+    printf(error_string[file_w], error_class_name, error_func_name, error_file_name);
+    Exit(exit_value[file_w]);
+  }
+  Fprintf(fp, error_string[general], cname.c_str(), fname.c_str());
   Vfprintf(fp, format, args);
   Fclose(fp);
 

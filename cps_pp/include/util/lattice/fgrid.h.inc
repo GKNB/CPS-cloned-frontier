@@ -661,8 +661,8 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
   const char *fname_eig_root_bc = fname_bc.str().c_str();
 #else
   char fname_eig_root_bc[1024];
-  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",cg_arg->fname_eigen,
-       GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+//  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",cg_arg->fname_eigen, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+  snprintf(fname_eig_root_bc,1024,"%s",cg_arg->fname_eigen);
   VRB.Result(cname,fname,"fname=%s\n",fname_eig_root_bc);
 #endif
   int n_fields =  GJP.SnodeSites();
@@ -727,6 +727,14 @@ if(if_defl)
 	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
 	CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
   if( if_defl) { 
+    for(int i=0;i<neig;i++){
+        LATTICE_FERMION_F  tmp (F_RB_GRID_F);
+        MdagMF.HermOp(evec_f[i],tmp);
+		Grid::ComplexD zalph = innerProduct(evec_f[i],tmp);
+		Grid::RealD alph = real(alph);
+		tmp = tmp - alph * evec_f[i];
+		VRB.Result(cname,fname,"norm(evec)= %e %e %e\n",norm2(evec_f[i]),alph,norm2(tmp));
+    }
 	CG_m.useGuesser(guesser);
   }
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
