@@ -111,9 +111,7 @@ class EigenCache {
  
   char fname_root_bc[1024];  // cached root_fname
   //int bc[4]; // boundary conditions in 4 dim, those used in the cached eigen vectors
-//  Float* eval; 
 	std::vector <Float>  eval;
-//  Vector** evec;
 	std::vector <Float *> evec;
 
   size_t f_size;
@@ -313,6 +311,8 @@ class EigenCache {
   {
     index[n]=n;
   }
+
+  int decompress(const char* root_);
 };
 
 #ifdef USE_GRID
@@ -820,10 +820,14 @@ private:
     //    sfree(cname,fname,"sol",sol);
   }
 
+#if 0
   Vector *rbc_load (const char* dir)
   {
     EvecReader evec_io;
   }
+#endif
+
+  friend class EvecReader;
 
 };
 
