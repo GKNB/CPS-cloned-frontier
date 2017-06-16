@@ -1,6 +1,9 @@
 #ifndef _EIGEN_CONTAINER_H_
 #define _EIGEN_CONTAINER_H_
 #include<config.h>
+#ifdef USE_GRID
+#include<Grid/Grid.h>
+#endif
 /*
     Declaration/definition for 
      1.  eigen vectors/values container (EigenContainer class),
@@ -32,6 +35,7 @@
 #include <util/qio_writeGenericFields.h>
 #include <util/qio_readGenericFields.h>
 #include <util/dirac_op.h>
+#include <util/eig_io.h>
 #include <alg/cg_arg.h>
 #include <comms/sysfunc_cps.h>
 #include <comms/glb.h>
@@ -111,8 +115,6 @@ class EigenCache {
 	std::vector <Float>  eval;
 //  Vector** evec;
 	std::vector <Float *> evec;
-//  Vector* evec;
-  //Float* tmp;
 
   size_t f_size;
 
@@ -313,6 +315,26 @@ class EigenCache {
   }
 };
 
+#ifdef USE_GRID
+template <class Field>
+class EigenCacheGrid: public EigenCache {
+   private:
+   char *cname;
+   char *fname;
+   public:
+
+   Grid::GridBase *grid;
+
+   std::vector<Field> evec_grid;
+   EigenCacheGrid():_grid(NULL),cname("EigenCacheGrid")
+   {}
+  EigenCacheGrid(char* name):EigenCache(name){}
+   ~EigenCacheGrid() {}
+
+};
+#endif
+
+
 //----------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------//
@@ -353,9 +375,12 @@ void EigenCacheListCleanup( );
 
 
 class EigenContainer {
- private:
+
+private:
   char* cname;
   char* fname;
+
+ protected:
 
   int neig;  // number of eigenvalue
 
@@ -795,6 +820,10 @@ class EigenContainer {
     //    sfree(cname,fname,"sol",sol);
   }
 
+  Vector *rbc_load (const char* dir)
+  {
+    EvecReader evec_io;
+  }
 
 };
 
