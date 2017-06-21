@@ -5,17 +5,17 @@
 #----------------------------------------------------------------------
 
 
-SRCDIR = /home/chulwoo/CPS/CPS_v5_0_16_hantao_io_test_v7_TR/V10.0/../cps++
-BUILDDIR = /home/chulwoo/CPS/CPS_v5_0_16_hantao_io_test_v7_TR/V10.0
+SRCDIR = /home/chulwoo/CPS/branches/develop/test/../cps_pp
+BUILDDIR = /home/chulwoo/CPS/branches/develop/test
 QOS = 
 QOSLIB = ${QOS}/quser/gcc-lib-user///
-CC = /bgsys/drivers/ppcfloor/comm/gcc/bin/mpicc
-CXX = /bgsys/drivers/ppcfloor/comm/gcc/bin/mpicxx
-AS  = /bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc64-bgq-linux-as
-LDFLAGS = -lqdp -lchroma -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib  -fopenmp -lgmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ//lib  -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lqmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lqmp -L/gpfs/mira-home/chulwoo/V10.0//install_CJ//lib -lqio -llime  -L/gpfs/mira-home/chulwoo/V10.0//install_CJ/lib -lxml2 -lm -lqdp -lchroma -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm
+CC = mpicc
+CXX = mpicxx
+AS  = as
+LDFLAGS = -fopenmp -lgmp -L/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/lib -lqmp -L/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/lib -lqmp -L/home/chulwoo/SciDAC/scidac/install/qio-2.3.9-OPENMPI/lib -lqio -llime 
 
 me = $(notdir $(PWD))
-BIN = BGQ.x
+BIN = NOARCH.x
 
 VPATH :=$(SRCDIR)/tests/$(me)
 
@@ -24,12 +24,12 @@ VPATH :=$(SRCDIR)/tests/$(me)
 #
 # include list for the Columbia code
 #
-INCLIST = -I${BUILDDIR} -I${SRCDIR}/include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include  -I/gpfs/mira-home/chulwoo/V10.0//install_CJ//include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include    -I/gpfs/mira-home/chulwoo/V10.0//install_CJ//include -I/gpfs/mira-home/chulwoo/V10.0//install_CJ/include/libxml2
+INCLIST = -I${BUILDDIR} -I${SRCDIR}/include  -I/home/chulwoo/SciDAC//scidac/install/qmp-git-OPENMPI/include    -I/home/chulwoo/SciDAC/scidac/install/qio-2.3.9-OPENMPI/include
 
-CFLAGS= -g -O2 -fopenmp -O2
-CXXFLAGS=  -fopenmp -O2
+CFLAGS= -fopenmp -g -O3 -Wall
+CXXFLAGS= -fopenmp -g -O3 -Wall -std=c++11
 ASFLAGS= 
-DFLAGS +=  -DUSE_OMP -DGMP -DUSE_QMP -DUSE_QIO -DUSE_BFM -DUSE_BFM_MINV -DUSE_BFM_TM
+DFLAGS +=  -DUSE_OMP -DUSE_C11  -DUSE_GMP -DUSE_QMP -DUSE_QIO
 
 #
 # Libraries for the Columbia code
@@ -41,8 +41,7 @@ DFLAGS +=  -DUSE_OMP -DGMP -DUSE_QMP -DUSE_QIO -DUSE_BFM -DUSE_BFM_MINV -DUSE_BF
 .PHONY: cps clean
 
 
-LIBLIST = $(BUILDDIR)/cps.a 
-#LIBLIST =  $(BUILDDIR)/cps.xla $(BUILDDIR)/cps.a 
+LIBLIST = $(BUILDDIR)/libcps.a 
 	 
 
 #
