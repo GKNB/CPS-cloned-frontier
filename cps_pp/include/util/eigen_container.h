@@ -312,7 +312,15 @@ class EigenCache {
     index[n]=n;
   }
 
-  int decompress(const char* root_);
+  int decompress(const char* root_){
+
+     EvecReader evec_reader;
+    std::vector < float * > evec_f;
+	for(int i=0;i<evec.size();i++){
+		evec_f.push_back((float *)evec[i]);
+	}
+	evec_reader.decompress(root_,evec_f);
+  }
 };
 
 #ifdef USE_GRID

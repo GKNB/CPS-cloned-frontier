@@ -67,6 +67,8 @@ namespace cps
     static const char *cname;
 
   public:
+    EvecReader(){};
+    ~EvecReader(){};
     typedef float OPT;
     int nthreads;
 
@@ -646,8 +648,7 @@ namespace cps
 
 			 fclose (f); return 1;}
 
-// right now assumes contiguous memory!
-			 int decompress (const char *root_, OPT * dest_all);
+			 int decompress (const char *root_, std::vector < OPT *> &dest_all);
 
 
 
