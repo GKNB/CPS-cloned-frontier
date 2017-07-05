@@ -1204,7 +1204,7 @@ void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   int offset;
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,int)";
   VRB.Func(cname,fname);
-  VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,bfmarg::mobius_scale);
+  VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,arg_map.at(current_key_mass).mobius_scale);
   if (dir_flag!=0) 
   ERR.General(cname,fname,"only implemented for dir_flag(%d)=0\n",dir_flag);
 

@@ -563,6 +563,8 @@ inline int cg_MdagM_single_precnd (Fermion_t sol, Fermion_t src,
   return k + iter_s;
 }
 
+
+
 inline int threaded_cg_mixed_M (Fermion_t sol[2], Fermion_t src[2],
 				bfm_evo < double >&bfm_d,
 				bfm_evo < float >&bfm_f, int max_cycle,
@@ -2343,8 +2345,178 @@ inline int threaded_cg_mixed_Mdag_guess (Fermion_t sol[2], Fermion_t src[2],
 }
 #endif
 
-#if 1
-#endif
+
+    inline int threaded_cg_mixed_Mdag(Fermion_t sol[2], Fermion_t src[2],
+	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
+	int max_cycle, cps::InverterType itype = cps::CG,
+	// the following parameters are for deflation
+	multi1d<Fermion_t[2]> *evec = NULL,
+	multi1d<float> *eval = NULL,
+	int N = 0)
+    {
+	int me = bfm_d.thread_barrier();
+	Fermion_t be = bfm_d.threadedAllocFermion();
+	Fermion_t bo = bfm_d.threadedAllocFermion();
+	Fermion_t ta = bfm_d.threadedAllocFermion();
+	Fermion_t tb = bfm_d.threadedAllocFermion();
+
+	double nsrc = bfm_d.norm(src[0]) + bfm_d.norm(src[1]);
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_Mdag: source norm is %17.10e\n", nsrc);
+	    printf("threaded_cg_mixed_Mdag: bfm_d.CGdiagonalMee = %d\n", bfm_d.CGdiagonalMee);
+	}
+
+	// eo preconditioning
+	// CGdiagonalMee == 2 has an extra Moo^{\dag-1}
+	if (bfm_d.CGdiagonalMee == 0 || bfm_d.CGdiagonalMee == 1) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerYes); // ta == Mee^{\dag-1} src[e]
+	    bfm_d.Meo(ta, tb, Odd, DaggerYes); // tb == Moe^\dag Mee^{\dag-1} src[e]
+	    bfm_d.axpy(bo, tb, src[Odd], -1.0); // bo == src[o] - Moe^\dag Mee^{\dag-1} src[e]
+	} else if (bfm_d.CGdiagonalMee == 2) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerYes);
+	    bfm_d.Meo(ta, tb, Odd, DaggerYes);
+	    bfm_d.axpy(tb, tb, src[Odd], -1.0); 
+	    bfm_d.MooeeInv(tb, bo, DaggerYes); // bo == Moo^{\dag-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+	} else {
+	    printf("threaded_cg_mixed_Mdag: Unknown CGdiagonalMee: %d\n", bfm_d.CGdiagonalMee);
+	    exit(-1);
+	}
+
+	// There seems to be no easy way to use an initial guess for this
+	// inversion, so just set the guess to zero.
+	bfm_d.set_zero(ta); 
+
+	// ta = (Mprec^\dag Mprec)^{-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+	int iter = threaded_cg_mixed_MdagM(ta, bo, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);
+
+	bfm_d.Mprec(ta, sol[Odd], tb, DaggerNo); // sol[o] = Mprec^{\dag-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+
+	// For CGdiagonalMee == 1 we need to multiply the odd
+	// solution by MooInv^d
+	if (bfm_d.CGdiagonalMee == 1) {
+	    bfm_d.MooeeInv(sol[Odd], ta, DaggerYes, Odd);
+	    bfm_d.copy(sol[Odd], ta);
+	}
+
+	bfm_d.Meo(sol[Odd], ta, Even, DaggerYes); // ta == Meo^\dag sol[o]
+	bfm_d.axpy(tb, ta, src[Even], -1.0); // tb == src[e] - Meo^\dag sol[o]
+	bfm_d.MooeeInv(tb, sol[Even], DaggerYes); // sol[e] = Mee^{\dag-1} (src[e] - Meo^\dag sol[o])
+
+	double nsol = bfm_d.norm(sol[0]) + bfm_d.norm(sol[1]);
+
+	// compute final residual
+	Fermion_t tmp[2] = { be, bo };
+	bfm_d.Munprec(sol, tmp, ta, DaggerYes);
+
+	double ndiff = 0.;
+	for (int i = 0; i < 2; ++i) {
+	    bfm_d.axpy(tb, tmp[i], src[i], -1.0);
+	    ndiff += bfm_d.norm(tb);
+	}
+
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_Mdag: unprec sol norm = %17.10e, residual = %17.10e\n",
+		nsol, sqrt(ndiff / nsrc));
+	}
+
+	bfm_d.threadedFreeFermion(be);
+	bfm_d.threadedFreeFermion(bo);
+	bfm_d.threadedFreeFermion(ta);
+	bfm_d.threadedFreeFermion(tb);
+
+	return iter;
+    }
+    // Inverts unpreconditioned Mdag by using preconditioned MMdag
+    // as the inner solver. This allows us to make use of the initial
+    // guess (so sol needs to be initialized to something reasonable 
+    // before calling this function).
+    inline int threaded_cg_mixed_Mdag_guess(Fermion_t sol[2], Fermion_t src[2],
+	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
+	int max_cycle, cps::InverterType itype = cps::CG,
+	// the following parameters are for deflation
+	multi1d<Fermion_t[2]> *evec = NULL,
+	multi1d<float> *eval = NULL,
+	int N = 0)
+    {
+	int me = bfm_d.thread_barrier();
+	Fermion_t be = bfm_d.threadedAllocFermion();
+	Fermion_t bo = bfm_d.threadedAllocFermion();
+	Fermion_t ta = bfm_d.threadedAllocFermion();
+	Fermion_t tb = bfm_d.threadedAllocFermion();
+
+	double nsrc = bfm_d.norm(src[0]) + bfm_d.norm(src[1]);
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_Mdag: source norm is %17.10e\n", nsrc);
+	    printf("threaded_cg_mixed_Mdag: bfm_d.CGdiagonalMee = %d\n", bfm_d.CGdiagonalMee);
+	}
+
+	// eo preconditioning
+	// CGdiagonalMee == 2 has an extra Moo^{\dag-1}
+	if (bfm_d.CGdiagonalMee == 0 || bfm_d.CGdiagonalMee == 1) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerYes); // ta == Mee^{\dag-1} src[e]
+	    bfm_d.Meo(ta, tb, Odd, DaggerYes); // tb == Moe^\dag Mee^{\dag-1} src[e]
+	    bfm_d.axpy(bo, tb, src[Odd], -1.0); // bo == src[o] - Moe^\dag Mee^{\dag-1} src[e]
+	} else if (bfm_d.CGdiagonalMee == 2) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerYes);
+	    bfm_d.Meo(ta, tb, Odd, DaggerYes);
+	    bfm_d.axpy(tb, tb, src[Odd], -1.0); 
+	    bfm_d.MooeeInv(tb, bo, DaggerYes); // bo == Moo^{\dag-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+	} else {
+	    printf("threaded_cg_mixed_Mdag: Unknown CGdiagonalMee: %d\n", bfm_d.CGdiagonalMee);
+	    exit(-1);
+	}
+
+        // for CGdiagonalMee == 1 the guess needs to get multiplied by Moo^\dag
+        if (bfm_d.CGdiagonalMee == 1) {
+            bfm_d.Mooee(sol[Odd], tb, DaggerYes, Odd);
+            bfm_d.copy(sol[Odd], tb);
+        }
+
+        // ta = Mprec bo
+        //    = Mprec (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+        bfm_d.Mprec(bo, ta, tb, DaggerNo);
+
+        // sol[o] = (Mprec Mprec^\dag)^{-1} ta
+        //        = (Mprec Mprec^\dag)^{-1} Mprec (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+        //        = Mprec^{\dag-1} (src[o] - Moe^\dag Mee^{\dag-1} src[e])
+        int iter = threaded_cg_mixed_MMdag(sol[Odd], ta, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);
+
+	// For CGdiagonalMee == 1 we need to multiply the odd
+	// solution by MooInv^d
+	if (bfm_d.CGdiagonalMee == 1) {
+	    bfm_d.MooeeInv(sol[Odd], ta, DaggerYes, Odd);
+	    bfm_d.copy(sol[Odd], ta);
+	}
+
+	bfm_d.Meo(sol[Odd], ta, Even, DaggerYes); // ta == Meo^\dag sol[o]
+	bfm_d.axpy(tb, ta, src[Even], -1.0); // tb == src[e] - Meo^\dag sol[o]
+	bfm_d.MooeeInv(tb, sol[Even], DaggerYes); // sol[e] = Mee^{\dag-1} (src[e] - Meo^\dag sol[o])
+
+	double nsol = bfm_d.norm(sol[0]) + bfm_d.norm(sol[1]);
+
+	// compute final residual
+	Fermion_t tmp[2] = { be, bo };
+	bfm_d.Munprec(sol, tmp, ta, DaggerYes);
+
+	double ndiff = 0.;
+	for (int i = 0; i < 2; ++i) {
+	    bfm_d.axpy(tb, tmp[i], src[i], -1.0);
+	    ndiff += bfm_d.norm(tb);
+	}
+
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_Mdag: unprec sol norm = %17.10e, residual = %17.10e\n",
+		nsol, sqrt(ndiff / nsrc));
+	}
+
+	bfm_d.threadedFreeFermion(be);
+	bfm_d.threadedFreeFermion(bo);
+	bfm_d.threadedFreeFermion(ta);
+	bfm_d.threadedFreeFermion(tb);
+
+	return iter;
+    }
+
 
 }
 

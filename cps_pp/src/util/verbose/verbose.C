@@ -711,11 +711,7 @@ void Verbose::RNGSeed(const char *class_name, const char *func_name,
  */
 void Verbose::ActivateLevel(VerboseLevelType value){
 
-<<<<<<< HEAD
   if (!UniqueID()) printf("Node %d: %s::ActiveLevel(): %d activated\n",UniqueID(),cname,(int)value);
-=======
-//  if (!UniqueID()) printf("Node %d: %s::ActiveLevel(): %d activated ",UniqueID(),cname,(int)value);
->>>>>>> e2592eedd14e6d19eb61858a553bebec4e07420b
     active[value] = 1;
 
 }

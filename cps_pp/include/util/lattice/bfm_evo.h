@@ -647,7 +647,8 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
     x[3]=si/this->node_latt[2];
 
     int sp = this->precon_5d ? s : 0;
-    int cb = x[0]+x[1]+x[2]+x[3]+sp & 0x1;
+    int cb = (x[0]+x[1]+x[2]+x[3]+sp) & 0x1;
+
 
     int bidx_base;
     int cidx_base;
