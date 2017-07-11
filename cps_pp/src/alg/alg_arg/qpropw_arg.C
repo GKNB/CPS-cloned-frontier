@@ -31,6 +31,7 @@ struct vml_enum_map SourceType_map[] = {
 	{"SourceType","SUM_MOM",SUM_MOM},
 	{"SourceType","FL_FUNC",FL_FUNC},
 	{"SourceType","MOM",MOM},
+	{"SourceType","RANDMOM",RANDMOM},
 	{NULL,NULL,0}
 };
 

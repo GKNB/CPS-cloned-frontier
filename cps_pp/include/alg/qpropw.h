@@ -532,6 +532,20 @@ public:
 
 };
 
+//Random wall-momentum source
+class QPropWRandMomSrc : public QPropWRand {
+  ThreeMom mom;
+public:
+  QPropWRandMomSrc(Lattice& lat, CommonArg* c_arg);
+  QPropWRandMomSrc(Lattice& lat, QPropWArg* , QPropWRandArg *, int *p, CommonArg*);
+  
+  void SetSource(FermionVectorTp& src, int spin, int color);
+  SourceType SrcType() { return RANDMOM; }
+  
+  ThreeMom Mom() { return mom; } 
+};
+
+
 class QPropWRandVolSrc : public QPropWRand {
 
 public:

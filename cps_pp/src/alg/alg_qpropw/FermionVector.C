@@ -1213,7 +1213,7 @@ void FermionVectorTp::SetVolMomSource(int color, int spin, ThreeMom& mom, int fl
 // Check this if it is correct...
 void FermionVectorTp::SetMomSource(int color, int spin, int source_time,
 				   ThreeMom& mom, int flavor) {
-  char *fname = "SetMomSource(color,spin,source_time,Mom)";
+  const char *fname = "SetMomSource(color,spin,source_time,Mom,flavor)";
   
   VRB.Func(cname, fname);
   
@@ -1234,6 +1234,35 @@ void FermionVectorTp::SetMomSource(int color, int spin, int source_time,
     if( source_time == s.physT()) // continue only physical time is source_time
       ((Complex *)fv)[color + COLORS*(spin + 4*s.Index()) + cmplx_offset] = mom.Fact(s); //CK: ThreeMom correctly uses units of pi/2L for momenta in G-parity directions
 }
+
+void FermionVectorTp::SetMomSource(int color, int spin, int source_time,
+				   ThreeMom& mom, Float* src, int flavor) {
+  const char *fname = "SetMomSource(color,spin,source_time,Mom,src,flavor)";
+  
+  VRB.Func(cname, fname);
+  
+  if (color < 0 || color >= GJP.Colors()) {
+    ERR.General(cname, fname,
+		"Color index out of range: color = %d\n", color);
+  }
+  if (spin < 0 || spin > 3) {
+    ERR.General(cname, fname,
+		"Spin index out of range: spin = %d\n", spin);
+  }
+
+  int vol4d = GJP.VolNodeSites();
+  int cmplx_offset = 0;
+  if(GJP.Gparity() && flavor == 1) cmplx_offset = GJP.VolNodeSites() * GJP.Colors() * 4; //CK: skip on field
+
+  Complex* site_complex = (Complex*)src;
+  Site s ;
+  for(s.Begin();s.End();s.nextSite())
+    if( source_time == s.physT()) // continue only physical time is source_time
+      ((Complex *)fv)[color + COLORS*(spin + 4*s.Index()) + cmplx_offset] = site_complex[s.Index()+flavor*vol4d] * mom.Fact(s); //CK: ThreeMom correctly uses units of pi/2L for momenta in G-parity directions
+}
+
+
+
 
 // Momentum Cosine wall source
 // Check this if it is correct...

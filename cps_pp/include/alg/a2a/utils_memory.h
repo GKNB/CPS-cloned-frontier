@@ -9,7 +9,10 @@
 #include <sys/sysinfo.h>
 #endif
 #include <util/gjp.h>
-
+#include<errno.h>
+#ifdef USE_MPI
+#include<mpi.h>
+#endif
 //Utilities for memory control
 
 CPS_START_NAMESPACE

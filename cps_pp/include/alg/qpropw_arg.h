@@ -31,6 +31,7 @@ enum SourceType {
 	SUM_MOM = 14,
 	FL_FUNC = 15,
 	MOM = 16,
+	RANDMOM = 17,
 };
 typedef enum SourceType SourceType;
 extern struct vml_enum_map SourceType_map[];

@@ -19,7 +19,8 @@ enum SourceType {
   EXP             = 13,  // for exponential smearing
   SUM_MOM         = 14,
   FL_FUNC         = 15,
-  MOM         = 16};
+  MOM         = 16,
+  RANDMOM = 17};
 
 enum RandomType {
   GAUSS  = 0, 
