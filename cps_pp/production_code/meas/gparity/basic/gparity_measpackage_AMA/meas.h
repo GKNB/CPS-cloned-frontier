@@ -7,7 +7,6 @@
 #include "kaon_twopoint.h"
 #include "compute_bk.h"
 #include "enums.h"
-#include "prop_tag.h"
 #include "mesonmomenta.h"
 #include <alg/eigen/Krylov_5d.h>
 #include <util/lattice/fbfm.h>
@@ -46,10 +45,10 @@ QPropWMomSrc* randomSolutionPropagator(const bool store_midprop, Lattice &latt){
 
 //Note: If using Fbfm or FGrid, the current temporal BC listed in GJP.Tbc() must be applied to the bfm/Grid internal gauge field (i.e. minuses on t-links at boundard for APRD) prior to using this method. Internally
 //it changes the bc to 'time_bc' but it changes it back at the end.
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
-				Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+QPropWMomSrc* computeMomSourcePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &mom, const BndCndType time_bc, const bool store_midprop, 
+					  Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
   if(random_solution) return randomSolutionPropagator(store_midprop,latt);
-
+  int const* p = mom.ptr();
   multi1d<float> *eval_conv = NULL;
 
   if(deflate != NULL){
@@ -114,77 +113,56 @@ QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const
   return ret;
 }
 
-QPropWMomSrc* computePropagator(const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &p, const BndCndType time_bc, const bool store_midprop, 
-				Lattice &latt, BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
-  return computePropagator(mass,stop_prec,t,flav,p.ptr(),time_bc,store_midprop,latt,deflate,random_solution);
+
+PropWrapper computeMomSourcePropagator(const double mass, const double stop_prec, const int t, const ThreeMomentum &mom, const BndCndType time_bc, const bool store_midprop, 
+					Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+  QPropWMomSrc* prop_f0 = computeMomSourcePropagator(mass,stop_prec,t,0,mom,time_bc,store_midprop,latt,deflate,random_solution);
+  QPropWMomSrc* prop_f1 = GJP.Gparity() ? computeMomSourcePropagator(mass,stop_prec,t,1,mom,time_bc,store_midprop,latt,deflate,random_solution) : NULL;
+  return PropWrapper(prop_f0, prop_f1);
 }
 
-void quarkInvert(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const double stop_prec, const double mass, const BndCndType time_bc,
-		 const std::vector<int> &tslices, const QuarkMomenta &quark_momenta, const bool store_midprop, 
-		 Lattice &lattice, BFM_Krylov::Lanczos_5d<double> *lanc = NULL, const bool random_solution = false){
-  if(!UniqueID()) printf("Computing %s %s quark propagators\n", pp == Sloppy ? "sloppy":"exact", qtype==Light ? "light" : "heavy");
-  double time = -dclock();
-  
-  for(int s=0;s<tslices.size();s++){
-    const int tsrc = tslices[s];
-    
-    for(int pidx=0;pidx<quark_momenta.nMom();pidx++){
-      const ThreeMomentum &p = quark_momenta.getMom(pidx);
-      if(!UniqueID()) std::cout << "Starting inversion for prop on timeslice " << tsrc << " with momentum phase " << p.str() << '\n';  
+
+
+void computeMomSourcePropagators(Props &props, const double mass, const double stop_prec, const std::vector<int> &tslices, const QuarkMomenta &quark_momenta, const BndCndType time_bc, const bool store_midprop, 
+				  Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){
+  for(int tt=0;tt<tslices.size();tt++){
+    const int t = tslices[tt];
+    for(int pp=0;pp<quark_momenta.nMom();pp++){
+      const ThreeMomentum &p = quark_momenta.getMom(pp);
+
+      props(t,p) = computeMomSourcePropagator(mass,stop_prec,t,p,time_bc,store_midprop,latt,deflate,random_solution);
 
       if(GJP.Gparity()){
-	QPropWMomSrc* prop_f0 = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
-	QPropWMomSrc* prop_f1 = computePropagator(mass,stop_prec,tsrc,1,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
-	
-	//Add both + and - source momentum  (PropMomContainer manages prop memory)
-	PropWrapper prop_pplus(prop_f0,prop_f1,false);
-	props.insert(prop_pplus, propTag(qtype,pp,tsrc,p,time_bc));
-	
-	PropWrapper prop_pminus(prop_f0,prop_f1,true);
-	props.insert(prop_pminus, propTag(qtype,pp,tsrc,-p,time_bc));
-      }else{
-	QPropWMomSrc* prop = computePropagator(mass,stop_prec,tsrc,0,p.ptr(),time_bc,store_midprop,lattice,lanc,random_solution);
-	PropWrapper propw(prop);
-	props.insert(propw, propTag(qtype,pp,tsrc,p,time_bc));
-      }
+	//Free to add - momentum
+	(props(t,-p) = props(t,p)).setFlip(true);
+      }	      
     }
   }
-  print_time("main","Inversions",time + dclock());
 }
 
 //Combine quarks with P and A Tbcs into F=P+A and B=P-A types which are added to the PropMomContainer with appropriate tags
-static void quarkCombine(PropMomContainer &props, const QuarkType qtype, const PropPrecision pp, const std::vector<int> &tslices, const QuarkMomenta &quark_momenta){
-  if(!UniqueID()) printf("Combining %s %s quark propagators with different Tbcs\n", pp == Sloppy ? "sloppy":"exact", qtype==Light ? "light" : "heavy");
-  double time = -dclock();
-  
-  for(int s=0;s<tslices.size();s++){
-    const int tsrc = tslices[s];
-    
-    for(int pidx=0;pidx<quark_momenta.nMom();pidx++){
-      const ThreeMomentum &p = quark_momenta.getMom(pidx);
-      if(!UniqueID()) std::cout << "Starting combination of props on timeslice " << tsrc << " with momentum phase " << p.str() << '\n';  
+void combinePA(Props &props_F, Props &props_B, const Props &props_P, const Props &props_A){
+  Props::const_iterator itP = props_P.begin();
+  Props::const_iterator itA = props_A.begin();
 
-      PropWrapper prop_P = props.get(propTag(qtype,pp,tsrc,p,BND_CND_PRD));
-      PropWrapper prop_A = props.get(propTag(qtype,pp,tsrc,p,BND_CND_APRD));
+  while(itP != props_P.end()){
+    const int t = itP->first.first;
+    const ThreeMomentum &p = itP->first.second;
 
-      PropWrapper combF = PropWrapper::combinePA(prop_P,prop_A,CombinationF);
-      props.insert(combF, propTag(qtype,pp,tsrc,p,CombinationF));
+    assert(itA->first.first == t);
+    assert(itA->first.second == p);
 
-      PropWrapper combB = PropWrapper::combinePA(prop_P,prop_A,CombinationB);
-      props.insert(combB, propTag(qtype,pp,tsrc,p,CombinationB));
+    PropWrapper combF = PropWrapper::combinePA(itP->second,itA->second,CombinationF);
+    PropWrapper combB = PropWrapper::combinePA(itP->second,itA->second,CombinationB);
 
-      if(GJP.Gparity()){
-	//We can just change the flip flag and the momentum for the -ve mom counterparts without using up extra memory
-	combF.setFlip(true);
-	props.insert(combF, propTag(qtype,pp,tsrc,-p,CombinationF));
-	
-	combB.setFlip(true);
-	props.insert(combB, propTag(qtype,pp,tsrc,-p,CombinationB));
-      }
-    }
+    props_F(t,p) = combF;
+    props_B(t,p) = combB;
+
+    itP++; itA++;
   }
-  print_time("main","Combinations",time + dclock());
 }
+
+typedef std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > LanczosPtrType;
 
 inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &lattice, const LancArg lanc_arg, const BndCndType time_bc){
   if(lanc_arg.N_get == 0) return std::auto_ptr<BFM_Krylov::Lanczos_5d<double> >(NULL);
@@ -211,20 +189,18 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
 }
 
 
-
-
-void writeBasic2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, const std::string &descr, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
-		     const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr = ""){
+void writeBasic2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, const std::string &corr_descr, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
+		     const int conf, const std::string &extra_descr = ""){
   std::ostringstream os; 
-  os << results_dir << '/' << descr << "_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
+  os << results_dir << '/' << corr_descr << "_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << extra_descr << '.' << conf;
   results.write(os.str());
 }
 
 
 void writePion2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, const std::string &snk_op, const ThreeMomentum &p_psibar, const ThreeMomentum &p_psi, 
-		    const PropPrecision status, const TbcStatus &time_bc, const int conf, const std::string &extra_descr){
+		    const int conf, const std::string &extra_descr){
   std::ostringstream os; 
-  os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << (status == Sloppy ? "_sloppy" : "_exact") << "_tbc" << time_bc.getTag() << time_bc.getTag() << extra_descr << '.' << conf;
+  os << results_dir << "/pion_" << snk_op << "_P_LW_mom" << p_psibar.file_str() << "_plus" << p_psi.file_str() << extra_descr << '.' << conf;
   results.write(os.str());
 }
 
@@ -232,64 +208,39 @@ void writePion2ptLW(fMatrix<Rcomplex> &results, const std::string &results_dir, 
 #include "meas_gparity.tcc"
 
 
-void measurePion2ptLW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
-		      const std::string &results_dir, const int conf){
-  if(!UniqueID()) printf("Computing pion 2pt LW with %s props\n", status == Sloppy ? "sloppy" : "exact");
+void measurePion2ptLW(const PropGetter &props, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta,
+		      const std::string &results_dir, const int conf, const std::string &extra_descr){
+  if(!UniqueID()) printf("Computing pion 2pt LW with description %s\n", extra_descr.c_str());
   double time = -dclock();
 
-  if(GJP.Gparity()) measurePion2ptLWGparity(props,status,time_bc, tslices,ll_meson_momenta,results_dir, conf);
-  else measurePion2ptLWStandard(props,status,time_bc,tslices,ll_meson_momenta,results_dir, conf);
+  if(GJP.Gparity()) measurePion2ptLWGparity(props, tslices,ll_meson_momenta,results_dir, conf, extra_descr);
+  else measurePion2ptLWStandard(props,tslices,ll_meson_momenta,results_dir, conf, extra_descr);
 
   print_time("main","Pion 2pt LW",time + dclock());
 }
 
-void measurePion2ptPPWW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &ll_meson_momenta, Lattice &lat,
-			const std::string &results_dir, const int conf){
-  if(!UniqueID()) printf("Computing pion 2pt WW with %s props\n", status == Sloppy ? "sloppy" : "exact");
+void measureKaon2ptLW(const PropGetter &props_l, const PropGetter &props_h, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
+		      const std::string results_dir, const int conf, const std::string &extra_descr){
+  if(!UniqueID()) printf("Computing kaon 2pt LW with description %s\n", extra_descr.c_str());
   double time = -dclock();
 
-  if(GJP.Gparity()) measurePion2ptPPWWGparity(props,status,time_bc,tslices,ll_meson_momenta,lat,results_dir,conf);
-  else measurePion2ptPPWWStandard(props,status,time_bc,tslices,ll_meson_momenta,lat,results_dir,conf);
-
-  print_time("main","Pion 2pt WW",time + dclock());
-}
-
-void measureKaon2ptLW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
-		      const std::string results_dir, const int conf){
-  if(!UniqueID()) printf("Computing kaon 2pt LW with %s props\n", status == Sloppy ? "sloppy" : "exact");
-  double time = -dclock();
-
-  if(GJP.Gparity()) measureKaon2ptLWGparity(props,status,time_bc,tslices,meson_momenta,results_dir,conf);
-  else measureKaon2ptLWStandard(props,status,time_bc,tslices,meson_momenta,results_dir,conf);
+  if(GJP.Gparity()) measureKaon2ptLWGparity(props_l,props_h,tslices,meson_momenta,results_dir,conf,extra_descr);
+  else measureKaon2ptLWStandard(props_l,props_h,tslices,meson_momenta,results_dir,conf,extra_descr);
 
   print_time("main","Kaon 2pt LW",time + dclock());
-}
-
-//Kaon 2pt LW functions pseudoscalar sink (cf pion version for comments)
-void measureKaon2ptPPWW(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta, Lattice &lat,
-			const std::string &results_dir, const int conf){
-
-  if(!UniqueID()) printf("Computing pion 2pt WW with %s props\n", status == Sloppy ? "sloppy" : "exact");
-  double time = -dclock();
-
-  if(GJP.Gparity()) measureKaon2ptPPWWGparity(props,status,time_bc,tslices,meson_momenta,lat,results_dir,conf);
-  else measureKaon2ptPPWWStandard(props,status,time_bc,tslices,meson_momenta,lat,results_dir,conf);
-
-  print_time("main","Kaon 2pt WW",time + dclock());
 }
 
 //Measure BK with source kaons on each of the timeslices t0 in prop_tsources and K->K time separations tseps
 //Can use standard P or A time BCs but you will need to use closer-together kaon sources to avoid round-the-world effects. These can be eliminated by using the F=P+A and B=P-A combinations
 //Either can be specified using the appropriate time_bc parameter below
 //For G-parity can optionally choose to disable the source/sink flavor projection (ignored for standard BCs)
-void measureBK(const PropMomContainer &props, const PropPrecision status, const std::vector<int> &prop_tsources, const std::vector<int> &tseps, const MesonMomenta &meson_momenta,
-	       const TbcStatus &time_bc_t0,
-	       const std::string &results_dir, const int conf, const bool do_flavor_project = true){
-  if(!UniqueID()) printf("Computing BK with %s props\n", status == Sloppy ? "sloppy" : "exact");
+void measureBK(const PropGetter &props_l, const PropGetter &props_h, const std::vector<int> &prop_tsources, const std::vector<int> &tseps, const MesonMomenta &meson_momenta,
+	       const std::string &results_dir, const int conf, const std::string &extra_descr, const bool do_flavor_project = true){
+  if(!UniqueID()) printf("Computing BK with description %s\n", extra_descr.c_str() );
   double time = -dclock();
 
-  if(GJP.Gparity()) measureBKGparity(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,results_dir,conf,do_flavor_project);
-  else measureBKStandard(props,status,prop_tsources,tseps,meson_momenta,time_bc_t0,results_dir,conf);
+  if(GJP.Gparity()) measureBKGparity(props_l,props_h,prop_tsources,tseps,meson_momenta,results_dir,conf,extra_descr,do_flavor_project);
+  else measureBKStandard(props_l,props_h,prop_tsources,tseps,meson_momenta,results_dir,conf,extra_descr);
 
   print_time("main","BK",time + dclock());
 }
@@ -297,16 +248,17 @@ void measureBK(const PropMomContainer &props, const PropPrecision status, const 
 
 //Note: Mres is only properly defined with APRD time BCs. A runtime check is *not* performed
 //For G-parity can optionally choose to disable the source/sink flavor projection (ignored for standard BCs)
-void measureMres(const PropMomContainer &props, const PropPrecision status, const TbcStatus &time_bc, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
-		 const std::string &results_dir, const int conf, const bool do_flavor_project = true){
-  if(!UniqueID()) printf("Computing J5 and J5q (mres) with %s props\n", status == Sloppy ? "sloppy" : "exact");
+void measureMres(const PropGetter &props, const std::vector<int> &tslices, const MesonMomenta &meson_momenta,
+		 const std::string &results_dir, const int conf, const std::string &extra_descr, const bool do_flavor_project = true){
+  if(!UniqueID()) printf("Computing J5 and J5q (mres) with description %s\n", extra_descr.c_str());
   double time = -dclock();
 
-  if(GJP.Gparity()) measureMresGparity(props,status,time_bc,tslices,meson_momenta,results_dir,conf,do_flavor_project);
-  else measureMresStandard(props,status,time_bc,tslices,meson_momenta,results_dir,conf);
+  if(GJP.Gparity()) measureMresGparity(props,tslices,meson_momenta,results_dir,conf,extra_descr,do_flavor_project);
+  else measureMresStandard(props,tslices,meson_momenta,results_dir,conf,extra_descr);
 
   print_time("main","J5 and J5q",time + dclock());
 }
+
 
 
 

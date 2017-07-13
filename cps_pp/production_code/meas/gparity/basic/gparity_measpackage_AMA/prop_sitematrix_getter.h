@@ -3,7 +3,6 @@
 
 #include "propwrapper.h"
 #include "propmomcontainer.h"
-#include "prop_tag.h"
 #include "wallsinkprop.h"
 
 CPS_START_NAMESPACE
@@ -13,8 +12,10 @@ CPS_START_NAMESPACE
 //Note, the resulting site must be available on this node - no comms are performed. This is not a huge restriction as the shifts we perform are in units of Lt
 class PropSiteMatrixGetter{
 public:
+  //(tsrc + tdis_glb) % Lt must be on node (runtime check performed)
   virtual void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const = 0;
   virtual void siteMatrix(SpinColorFlavorMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const = 0;
+  virtual void shiftSourcenLt(const int n) = 0; //use the known periodicity to shift the source timeslice by n*Lt
   virtual ~PropSiteMatrixGetter(){}
 };
 
@@ -23,15 +24,16 @@ class PropSiteMatrixStandard: public PropSiteMatrixGetter{
   PropWrapper prop;
   BndCndType bc;
   int tsrc;
-
+  int base_sgn;
+  
   inline void get4dcoordAndSign(int &x4d_lcl, int &sgn, const int x3d_lcl, const int tdis_glb) const{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    sgn = 1;
+    sgn = base_sgn;
     int t = tdis_glb + tsrc;
     while(t<0 || t>=Lt){
       if(t<0) t+= Lt;
       else t-=Lt;
-      sgn *= (BND_CND_APRD ? -1 : 1); //APRD   G(t-Lt) = -G(t)
+      sgn *= (BND_CND_APRD ? -1 : 1); //APRD   G(t-Lt,t') = -G(t,t')
     }
     int t_lcl = t - GJP.TnodeCoor() * GJP.TnodeSites();
     assert(t_lcl>=0 && t_lcl<GJP.TnodeSites());
@@ -40,7 +42,7 @@ class PropSiteMatrixStandard: public PropSiteMatrixGetter{
 
 
 public:
-  PropSiteMatrixStandard(const PropWrapper &_prop, const BndCndType _bc, const int _tsrc): prop(_prop), bc(_bc), tsrc(_tsrc){}
+  PropSiteMatrixStandard(const PropWrapper &_prop, const BndCndType _bc, const int _tsrc): prop(_prop), bc(_bc), tsrc(_tsrc), base_sgn(1){}
 
   void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const{
     int sgn, x4d_lcl;
@@ -53,23 +55,28 @@ public:
     get4dcoordAndSign(x4d_lcl,sgn,x3d_lcl,tdis_glb);
     prop.siteMatrix(into,x4d_lcl,splane);
     if(!sgn) into *= Float(-1);
-  }    
+  }
+  void shiftSourcenLt(const int n){
+    int absn = abs(n);
+    for(int i=0;i<absn;i++) base_sgn *= (BND_CND_APRD ? -1 : 1); //APRD   G(t,t') = -G(t,t'+/-Lt)
+  }
 };
 
 
 //For F=P+A and B=P-A propagators with modulo-2Lt periodicity
-//Utilize F(t+Lt) = B(t) and B(t+Lt) = F(t)
+//Utilize F(t+Lt,t') = B(t,t') and B(t+Lt,t') = F(t,t')
 //Need both the F and B propagators. The 'base' propagator is either F or B, and the 'shift' propagator is B or F respectively
 class PropSiteMatrixFB: public PropSiteMatrixGetter{
   PropWrapper prop_base;
   PropWrapper prop_shift;
   int tsrc;
-
+  int use_base;
+  
   inline PropWrapper const* get4dcoordAndProp(int &x4d_lcl, const int x3d_lcl, const int tdis_glb) const{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     int t = tdis_glb + tsrc;
     PropWrapper const* props[2] = { &prop_base, &prop_shift };
-    int use = 0;
+    int use = use_base;
     while(t<0 || t>=Lt){
       if(t<0) t+= Lt;
       else t-=Lt;
@@ -94,7 +101,7 @@ class PropSiteMatrixFB: public PropSiteMatrixGetter{
 
 
 public:
-  PropSiteMatrixFB(const PropWrapper &_prop_base, const PropWrapper &_prop_shift, const int _tsrc): prop_base(_prop_base),prop_shift(_prop_shift),tsrc(_tsrc){}
+  PropSiteMatrixFB(const PropWrapper &_prop_base, const PropWrapper &_prop_shift, const int _tsrc): prop_base(_prop_base),prop_shift(_prop_shift),tsrc(_tsrc),use_base(0){}
 
   void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const{
     int x4d_lcl;
@@ -105,32 +112,12 @@ public:
     int x4d_lcl;
     PropWrapper const* prop_use = get4dcoordAndProp(x4d_lcl,x3d_lcl,tdis_glb);
     prop_use->siteMatrix(into,x4d_lcl,splane);
-  }    
-};
-
-
-class PropSiteMatrixGetterFactory{
-public:
-  static PropSiteMatrixGetter* get(const PropMomContainer &props, const QuarkType lh, const PropPrecision prec, const int tsrc, const ThreeMomentum &p, const TbcStatus &tbc){
-    std::string tag = propTag(lh,prec,tsrc,p,tbc);
-    if(!tbc.isCombinedType()){
-      return new PropSiteMatrixStandard(props.get(tag), tbc.getSingleBc(), tsrc);
-    }else{
-      TbcCombination base_comb = tbc.getCombinedBc(); 
-      assert(base_comb == CombinationF || base_comb == CombinationB);
-      TbcCombination shift_comb = base_comb == CombinationF ? CombinationB : CombinationF;
-      
-      std::string shift_tag = propTag(lh,prec,tsrc,p,shift_comb);
-      
-      const PropWrapper &base_prop = props.get(tag);
-      const PropWrapper &shift_prop = props.get(shift_tag);
-      return new PropSiteMatrixFB(base_prop,shift_prop,tsrc);
-    }
+  }
+  void shiftSourcenLt(const int n){
+    int absn = abs(n);
+    for(int i=0;i<absn;i++) use_base = (use_base + 1) % 2; //F(t,t'+/-Lt) = B(t,t'),  B(t,t'+/-Lt) = F(t,t')
   }
 };
-
-
-
 
 
 template<typename MatrixType>
@@ -215,28 +202,74 @@ public:
 };
 
 
-template<typename MatrixType>
-class WallSinkPropSiteMatrixGetterFactory{
+class PropGetter{
 public:
-  static WallSinkPropSiteMatrixGetter<MatrixType>* get(const PropMomContainer &props, const QuarkType lh, const PropPrecision prec, const int tsrc, 
-						       const ThreeMomentum &p_src, const ThreeMomentum &p_snk, const TbcStatus &tbc, Lattice &lat, const bool gauge_fix_sink = true){
-    std::string tag = propTag(lh,prec,tsrc,p_src,tbc);
-    if(!tbc.isCombinedType()){
-      return new WallSinkPropSiteMatrixStandard<MatrixType>(props.get(tag), tbc.getSingleBc(), tsrc, p_snk, lat, gauge_fix_sink);
-    }else{
-      TbcCombination base_comb = tbc.getCombinedBc(); 
-      assert(base_comb == CombinationF || base_comb == CombinationB);
-      TbcCombination shift_comb = base_comb == CombinationF ? CombinationB : CombinationF;
-      
-      std::string shift_tag = propTag(lh,prec,tsrc,p_src,shift_comb);
-      
-      const PropWrapper &base_prop = props.get(tag);
-      const PropWrapper &shift_prop = props.get(shift_tag);
-      return new WallSinkPropSiteMatrixFB<MatrixType>(base_prop,shift_prop,tsrc, p_snk, lat, gauge_fix_sink);
-    }
+  virtual std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const = 0;
+};
+class PropGetterFB: public PropGetter{
+  const Props &props_base;
+  const Props &props_shift;
+
+public:
+  PropGetterFB(const Props &_props_base, const Props &_props_shift): props_base(_props_base),  props_shift(_props_shift){}
+  
+  std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const{
+    const PropWrapper &pF = props_base(t,psrc);
+    const PropWrapper &pB = props_shift(t,psrc);
+    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixFB(pF,pB,t));
+  }
+};
+class PropGetterStd: public PropGetter{
+  const Props &props;
+  const BndCndType time_bc;
+public:
+  PropGetterStd(const Props &_props, const BndCndType _time_bc): props(_props){}
+  
+  std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const{
+    const PropWrapper &p = props(t,psrc);
+    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixStandard(p,time_bc,t));
   }
 };
 
+
+template<typename MatrixType>
+class WallSinkPropGetter{
+protected:
+  Lattice &lattice;
+  bool gauge_fix_sink;
+public:
+  WallSinkPropGetter(Lattice &_lattice, bool _gauge_fix_sink = true): lattice(_lattice), gauge_fix_sink(_gauge_fix_sink){}
+  
+  virtual std::auto_ptr<WallSinkPropSiteMatrixGetter<MatrixType> > operator()(const int t, const ThreeMomentum &psrc, const ThreeMomentum &psnk) const = 0;
+};
+template<typename MatrixType>
+class WallSinkPropGetterFB: public WallSinkPropGetter<MatrixType>{
+  const Props &props_base;
+  const Props &props_shift;
+
+public:
+  WallSinkPropGetterFB(const Props &_props_base, const Props &_props_shift, Lattice &_lattice, bool _gauge_fix_sink = true): props_base(_props_base),  props_shift(_props_shift),
+															     WallSinkPropGetter<MatrixType>(_lattice,_gauge_fix_sink){}
+  
+  std::auto_ptr<WallSinkPropSiteMatrixGetter<MatrixType> > operator()(const int t, const ThreeMomentum &psrc, const ThreeMomentum &psnk) const{
+    const PropWrapper &pF = props_base(t,psrc);
+    const PropWrapper &pB = props_shift(t,psrc);
+    return std::auto_ptr<WallSinkPropSiteMatrixGetter<MatrixType> >(new WallSinkPropSiteMatrixFB<MatrixType>(pF,pB,t,psnk,this->lattice,this->gauge_fix_sink));
+  }
+};
+template<typename MatrixType>
+class WallSinkPropGetterStd: public WallSinkPropGetter<MatrixType>{
+  const Props &props;
+  const BndCndType time_bc;
+public:
+  WallSinkPropGetterStd(const Props &_props, const BndCndType _time_bc, Lattice &_lattice, bool _gauge_fix_sink = true): props(_props), time_bc(_time_bc),
+    WallSinkPropGetter<MatrixType>(_lattice,_gauge_fix_sink){}
+  
+  std::auto_ptr<WallSinkPropSiteMatrixGetter<MatrixType> > operator()(const int t, const ThreeMomentum &psrc, const ThreeMomentum &psnk) const{
+    const PropWrapper &p = props(t,psrc);
+    return std::auto_ptr<WallSinkPropSiteMatrixGetter<MatrixType> >(new WallSinkPropSiteMatrixStandard<MatrixType>(p,time_bc,t,psnk,this->lattice,this->gauge_fix_sink));
+  }
+};
 
 
 CPS_END_NAMESPACE

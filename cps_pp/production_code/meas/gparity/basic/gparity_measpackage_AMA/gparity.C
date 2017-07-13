@@ -14,10 +14,19 @@
 #endif
 
 #include <alg/alg_fix_gauge.h>
+#include "gparity.h"
 #include "meas.h"
 #include "cshift.h"
-#include "gparity.h"
 #include "tests.h"
+
+template<typename T>
+inline void set_vec(std::vector<T> &v, const T &a){
+  v.resize(1); v[0] = a;
+}
+template<typename T>
+inline void set_vec(std::vector<T> &v, const T &a, const T &b){
+  v.resize(2); v[0] = a; v[1] = b;
+}
 
 USING_NAMESPACE_CPS
 
@@ -262,8 +271,6 @@ int main(int argc,char *argv[])
       return 0;
     }
 
-    typedef std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > LanczosPtrType;
-
     //Generate eigenvectors
 #ifdef USE_TBC_INPUT
     LanczosPtrType lanc_l(NULL), lanc_h(NULL);
@@ -277,34 +284,10 @@ int main(int argc,char *argv[])
     time += dclock();    
     print_time("main","Heavy quark Lanczos",time);
 #else  //USE_TBC_FB
-    LanczosPtrType lanc_l_P(NULL), lanc_l_A(NULL), lanc_h_P(NULL), lanc_h_A(NULL);
 
-    Float time = -dclock();
-    if(!disable_lanczos) lanc_l_P = doLanczos(lattice,lanc_arg_l,BND_CND_PRD);
-    time += dclock();    
-    print_time("main","Light quark Lanczos PRD",time);
-
-    time = -dclock();
-    if(!disable_lanczos) lanc_l_A = doLanczos(lattice,lanc_arg_l,BND_CND_APRD);
-    time += dclock();    
-    print_time("main","Light quark Lanczos APRD",time);
-
-    time = -dclock();
-    if(!disable_lanczos) lanc_h_P = doLanczos(lattice,lanc_arg_h,BND_CND_PRD);
-    time += dclock();    
-    print_time("main","Heavy quark Lanczos PRD",time);
-
-    time = -dclock();
-    if(!disable_lanczos) lanc_h_A = doLanczos(lattice,lanc_arg_h,BND_CND_APRD);
-    time += dclock();    
-    print_time("main","Heavy quark Lanczos APRD",time);
 #endif
 
-    
-
     //We want stationary mesons and moving mesons. For GPBC there are two inequivalent directions: along the G-parity axis and perpendicular to it. 
-    PropMomContainer props; //stores generated propagators by tag
-
     std::string results_dir(ama_arg.results_dir);
 
     std::vector<int> tslice_sloppy(ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_val, 
@@ -323,94 +306,127 @@ int main(int argc,char *argv[])
 	tslice_exact[i] = nval;
       }
     }
+#ifdef USE_TBC_FB
+    LanczosPtrType lanc_l_P(NULL), lanc_l_A(NULL), lanc_h_P(NULL), lanc_h_A(NULL);
 
-#ifdef USE_TBC_INPUT
-    BndCndType tbcs[1] = { GJP.Tbc() };
-    LanczosPtrType lanc_l_bcs[1] = { lanc_l }; //note this invalidates the old auto_ptrs
-    LanczosPtrType lanc_h_bcs[1] = { lanc_h };
-    int ntbc = 1;
-    TbcStatus pi_k_tbcuse[1] = { TbcStatus(GJP.Tbc()) };
-    int npiktbc = 1;
-    TbcStatus bk_tbcuse[2] = { TbcStatus(GJP.Tbc()), TbcStatus(GJP.Tbc()) };
-    TbcStatus mres_tbcuse(GJP.Tbc());
-    bool store_midprop_l[1] = { true };
-#else //USE_TBC_FB
-    BndCndType tbcs[2] = { BND_CND_PRD, BND_CND_APRD };
-    LanczosPtrType lanc_l_bcs[2] = { lanc_l_P, lanc_l_A };
-    LanczosPtrType lanc_h_bcs[2] = { lanc_h_P, lanc_h_A };
-    int ntbc = 2;
-    TbcStatus pi_k_tbcuse[2] = { TbcStatus(CombinationF), TbcStatus(CombinationB) };
-    int npiktbc = 2;
-    TbcStatus bk_tbcuse[2] = { TbcStatus(CombinationF), TbcStatus(CombinationB) };
-    TbcStatus mres_tbcuse(BND_CND_APRD);
-    bool store_midprop_l[2] = { false, true };
-#endif
+    //Light quark Lanczos
+    Float time = -dclock();
+    if(!disable_lanczos) lanc_l_P = doLanczos(lattice,lanc_arg_l,BND_CND_PRD);
+    time += dclock();    
+    print_time("main","Light quark Lanczos PRD",time);
 
-    for(int status = 0; status < 2; status++){ //sloppy, exact
-      Float status_start_time = dclock();
-      PropPrecision pp = status == 0 ? Sloppy : Exact;
-      std::string status_str = status == 0 ? "sloppy" : "exact";
+    time = -dclock();
+    if(!disable_lanczos) lanc_l_A = doLanczos(lattice,lanc_arg_l,BND_CND_APRD);
+    time += dclock();    
+    print_time("main","Light quark Lanczos APRD",time);
 
-      const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
-      double prec = status == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision;
+    //Heavy quark Lanczos
+    time = -dclock();
+    if(!disable_lanczos) lanc_h_P = doLanczos(lattice,lanc_arg_h,BND_CND_PRD);
+    time += dclock();    
+    print_time("main","Heavy quark Lanczos PRD",time);
+
+    time = -dclock();
+    if(!disable_lanczos) lanc_h_A = doLanczos(lattice,lanc_arg_h,BND_CND_APRD);
+    time += dclock();    
+    print_time("main","Heavy quark Lanczos APRD",time);
+
+    
+    for(int se=0; se<2; se++){
+      std::string se_str = se == 0 ? "sloppy" : "exact";
       
-      if(tslices.size() == 0){
-	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",status_str.c_str());
-	continue;
-      }
-      if(!UniqueID()) printf("Starting %s contractions\n",status_str.c_str());
+      //Light quark props
+      Props props_l_P;
+      computeMomSourcePropagators(props_l_P, ama_arg.ml,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  light_quark_momenta, BND_CND_PRD, true, lattice, lanc_l_P.get(), random_prop_solns);
+      Props props_l_A;      
+      computeMomSourcePropagators(props_l_A, ama_arg.ml,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  light_quark_momenta, BND_CND_APRD, true, lattice, lanc_l_A.get(), random_prop_solns);
 
-      //Quark inversions
-      for(int bci=0;bci<ntbc;bci++){
-	std::string bc_name(BndCndType_map[(int)tbcs[bci]].name);
-	std::string bc_info = std::string("Propagators Light ") + status_str + std::string(" ") + bc_name;
-	time = -dclock();
-	quarkInvert(props, Light, pp, prec, ama_arg.ml,tbcs[bci],tslices,light_quark_momenta,store_midprop_l[bci],lattice,lanc_l_bcs[bci].get(),random_prop_solns);
-	print_time("main",bc_info.c_str(),time+dclock());
-	
-	bc_info = std::string("Propagators Heavy ") + status_str + std::string(" ") + bc_name;
-	time = -dclock();
-	quarkInvert(props, Heavy, pp, prec, ama_arg.mh,tbcs[bci],tslices,heavy_quark_momenta,false,lattice,lanc_h_bcs[bci].get(),random_prop_solns); //no need to store the midpoint prop for the heavy quarks
-	print_time("main",bc_info.c_str(),time+dclock());
-      }
-#ifdef USE_TBC_FB  //Make F and B combinations from P and A computed above
-      quarkCombine(props,Light,pp,tslices,light_quark_momenta);
-      quarkCombine(props,Heavy,pp,tslices,heavy_quark_momenta);
-#endif
 
-      props.printAllTags();
-      props.writePropNormTdep(results_dir);
+      Props props_l_F, props_l_B;
+      combinePA(props_l_F, props_l_B, props_l_P, props_l_A);
 
-      for(int piktbci = 0; piktbci < npiktbc; piktbci++){
-	const TbcStatus & tbs = pi_k_tbcuse[piktbci];
+      //Heavy quark props
+      Props props_h_P;
+      computeMomSourcePropagators(props_h_P, ama_arg.mh,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  heavy_quark_momenta, BND_CND_PRD, true, lattice, lanc_h_P.get(), random_prop_solns);
+      Props props_h_A;      
+      computeMomSourcePropagators(props_h_A, ama_arg.mh,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  heavy_quark_momenta, BND_CND_APRD, true, lattice, lanc_h_A.get(), random_prop_solns);
 
-	//Pion 2pt LW functions pseudoscalar and axial sinks	     
-	measurePion2ptLW(props,pp,tbs,tslices,pion_momenta,results_dir,conf);
+
+      Props props_h_F, props_h_B;
+      combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
+
+
+      
+      const std::vector<int> &tslices_se = se == 0 ? tslice_sloppy : tslice_exact;
+
+      for(int fb=0; fb<2; fb++){
+	std::string fb_str = fb == 0 ? "_F" : "_B";
+
+	const Props &props_l_base = fb == 0 ? props_l_F : props_l_B;
+	const Props &props_l_shift = fb == 0 ? props_l_B : props_l_F;
+
+	const Props &props_h_base = fb == 0 ? props_h_F : props_h_B;
+	const Props &props_h_shift = fb == 0 ? props_h_B : props_h_F;
 	
-	//Pion 2pt WW function pseudoscalar sink
-	measurePion2ptPPWW(props,pp,tbs,tslices,pion_momenta,lattice,results_dir,conf);
-	
-	//SU(2) flavor singlet
-	if(GJP.Gparity()) measureLightFlavorSingletLW(props,pp,tbs,tslices,su2_singlet_momenta,results_dir,conf);
-	
+	PropGetterFB sites_l(props_l_base,props_l_shift);
+	PropGetterFB sites_h(props_h_base,props_h_shift);
+		
+	//Pion 2pt LW functions pseudoscalar and axial sinks      
+	measurePion2ptLW(sites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
+
 	//Kaon 2pt LW functions pseudoscalar and axial sinks
-	measureKaon2ptLW(props,pp,tbs,tslices,kaon_momenta,results_dir,conf);
-      
-	//Kaon 2pt WW function pseudoscalar sink
-	measureKaon2ptPPWW(props,pp,tbs,tslices,kaon_momenta,lattice,results_dir,conf);
-      }
+	measureKaon2ptLW(sites_l, sites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+	
+	if(GJP.Gparity()){
+	  WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
+	  WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
 
-      //BK O_{VV+AA} 3pt contractions
-      //Need to ensure that props exist on t0 and t0+tsep for all tseps
-      measureBK(props,pp,tslices,bk_tseps,kaon_momenta,bk_tbcuse[0],results_dir,conf,bk_do_flavor_project);
+	  //SU(2) flavor singlet
+	  measureLightFlavorSingletLW(sites_l,tslices_se,su2_singlet_momenta,results_dir,conf, se_str + fb_str);
+	  	  
+	  //Pion 2pt WW function pseudoscalar sink
+	  measurePion2ptPPWWGparity(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
+	  
+	  //Kaon 2pt WW function pseudoscalar sink
+	  measureKaon2ptPPWWGparity(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+	}else{
+	  WallSinkPropGetterFB<WilsonMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
+	  WallSinkPropGetterFB<WilsonMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
+	  
+	  //Pion 2pt WW function pseudoscalar sink
+	  measurePion2ptPPWWStandard(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
 
+	  //Kaon 2pt WW function pseudoscalar sink
+	  measureKaon2ptPPWWStandard(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+	}
+
+	//BK O_{VV+AA} 3pt contractions
+	//Need to ensure that props exist on t0 and t0+tsep for all tseps
+	measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str+"_F",bk_do_flavor_project);
+	
+      }//fb
+
+      PropGetterStd sites_l_A(props_l_A, BND_CND_APRD);
       //J5 and J5q for mres
-      measureMres(props,pp,mres_tbcuse,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);
+      measureMres(sites_l_A,tslices_se,pion_momenta,results_dir,conf, se_str+"_A",mres_do_flavor_project);
+    }//se
+#endif
 
-      props.clear(); //delete all propagators thus far computed
-      print_time("main",status_str.c_str(),dclock()-status_start_time);
-    }
+    
     lattice.FixGaugeFree();
+    
     print_time("main","Configuration time",dclock()-conf_start_time);
   }//end of conf loop
 
@@ -422,3 +438,77 @@ int main(int argc,char *argv[])
 }
 
 
+// #if 0
+//     std::vector<BndCndType> tbcs;
+//     std::vector<LanczosPtrType> lanc_l_bcs;
+//     std::vector<LanczosPtrType> lanc_h_bcs;
+//     std::vector<TbcStatus> pi_k_tbcuse;
+//     std::vector<TbcStatus> bk_tbcuse;
+//     std::vector<TbcStatus> mres_tbcuse;
+//     std::vector<bool> store_midprop_l;
+    
+// #ifdef USE_TBC_INPUT
+//     set_vec(tbcs, GJP.Tbc());
+//     set_vec(lanc_l_bcs, lanc_l);
+//     set_vec(lanc_h_bcs, lanc_h);
+//     set_vec(pi_k_tbcuse, TbcStatus(GJP.Tbc()));
+//     set_vec(bk_tbcuse, TbcStatus(GJP.Tbc()), TbcStatus(GJP.Tbc()) );
+//     set_vec(mres_tbcuse,GJP.Tbc());
+//     set_vec(store_midprop_l, true);
+// #else //USE_TBC_FB
+//     set_vec(tbcs, BND_CND_PRD, BND_CND_APRD);
+//     set_vec(lanc_l_bcs, lanc_l_P, lanc_l_A);
+//     set_vec(lanc_h_bcs, lanc_h_P, lanc_h_A);
+//     set_vec(pi_k_tbcuse, TbcStatus(CombinationF), TbcStatus(CombinationB));
+//     set_vec(bk_tbcuse, TbcStatus(CombinationF), TbcStatus(CombinationB));
+//     set_vec(mres_tbcuse,BND_CND_APRD);
+//     set_vec(store_midprop_l, false, true);
+// #endif
+
+//     for(int status = 0; status < 2; status++){ //sloppy, exact
+//       Float status_start_time = dclock();
+//       PropPrecision sloppy_exact = status == 0 ? Sloppy : Exact;
+
+//       const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
+      
+//       if(tslices.size() == 0){
+// 	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",toString(pp).c_str());
+// 	continue;
+//       }
+//       computePropagators(props, sloppy_exact, tslices, tbcs,
+// 			 light_quark_momenta, heavy_quark_momenta,
+// 			 lanc_l_bcs, lanc_h_bcs,
+// 			 store_midprop_l, lattice, 
+// 			 ama_arg, random_prop_solns);
+
+//       for(int piktbci = 0; piktbci < npiktbc; piktbci++){
+// 	const TbcStatus & tbs = pi_k_tbcuse[piktbci];
+
+// 	//Pion 2pt LW functions pseudoscalar and axial sinks	     
+// 	measurePion2ptLW(props,pp,tbs,tslices,pion_momenta,results_dir,conf);
+	
+// 	//Pion 2pt WW function pseudoscalar sink
+// 	measurePion2ptPPWW(props,pp,tbs,tslices,pion_momenta,lattice,results_dir,conf);
+	
+// 	//SU(2) flavor singlet
+// 	if(GJP.Gparity()) measureLightFlavorSingletLW(props,pp,tbs,tslices,su2_singlet_momenta,results_dir,conf);
+	
+// 	//Kaon 2pt LW functions pseudoscalar and axial sinks
+// 	measureKaon2ptLW(props,pp,tbs,tslices,kaon_momenta,results_dir,conf);
+      
+// 	//Kaon 2pt WW function pseudoscalar sink
+// 	measureKaon2ptPPWW(props,pp,tbs,tslices,kaon_momenta,lattice,results_dir,conf);
+//       }
+
+//       //BK O_{VV+AA} 3pt contractions
+//       //Need to ensure that props exist on t0 and t0+tsep for all tseps
+//       measureBK(props,pp,tslices,bk_tseps,kaon_momenta,bk_tbcuse[0],results_dir,conf,bk_do_flavor_project);
+
+//       //J5 and J5q for mres
+//       measureMres(props,pp,mres_tbcuse,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);
+
+//       props.clear(); //delete all propagators thus far computed
+//       print_time("main",status_str.c_str(),dclock()-status_start_time);
+//     }
+
+// #endif
