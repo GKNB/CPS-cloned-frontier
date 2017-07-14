@@ -30,7 +30,7 @@ inline void set_vec(std::vector<T> &v, const T &a, const T &b){
 
 USING_NAMESPACE_CPS
 
-#define TESTING
+//#define TESTING
 
 int main(int argc,char *argv[])
 {
