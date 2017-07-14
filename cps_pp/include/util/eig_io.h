@@ -2,6 +2,7 @@
 #define INCLUDED_EIG_IO_H
 
 #define _FILE_OFFSET_BITS 64
+#include <mpi.h>
 #include <omp.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -14,9 +15,9 @@
 
 #include <sys/stat.h>
 #include <comms/sysfunc_cps.h>
-//#include "sumarray.h"
+#include <util/sumarray.h>
 #include <util/time_cps.h>
-#include <util/eigen_container.h>
+//#include <util/eigen_container.h>
 #include <util/gjp.h>
 #include <util/verbose.h>
 #include <unistd.h>
@@ -80,9 +81,9 @@ namespace cps
     char *raw_in;
 
 
-      vector < vector < OPT > >block_data;
-      vector < vector < OPT > >block_data_ortho;
-      vector < vector < OPT > >block_coef;
+      std::vector < std::vector < OPT > >block_data;
+      std::vector < std::vector < OPT > >block_data_ortho;
+      std::vector < std::vector < OPT > >block_coef;
 
 //float* ord_in; // in non-bfm ordering:  co fastest, then x,y,z,t,s
 
@@ -249,11 +250,11 @@ namespace cps
     }
 
     template < class T >
-      void caxpy_single (T * res, complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_single (T * res, std::complex < T > ca, T * x, T * y, int f_size)
     {
-      complex < T > *cx = (complex < T > *)x;
-      complex < T > *cy = (complex < T > *)y;
-      complex < T > *cres = (complex < T > *)res;
+      std::complex < T > *cx = (std::complex < T > *)x;
+      std::complex < T > *cy = (std::complex < T > *)y;
+      std::complex < T > *cres = (std::complex < T > *)res;
       int c_size = f_size / 2;
 
       for (int i = 0; i < c_size; i++)
@@ -261,11 +262,11 @@ namespace cps
     }
 
     template < class T >
-      void caxpy_threaded (T * res, complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y, int f_size)
     {
-      complex < T > *cx = (complex < T > *)x;
-      complex < T > *cy = (complex < T > *)y;
-      complex < T > *cres = (complex < T > *)res;
+      std::complex < T > *cx = (std::complex < T > *)x;
+      std::complex < T > *cy = (std::complex < T > *)y;
+      std::complex < T > *cres = (std::complex < T > *)res;
       int c_size = f_size / 2;
 
 #pragma omp for
@@ -280,11 +281,11 @@ namespace cps
     }
 
     template < class T >
-      void caxpy (T * res, complex < T > ca, T * x, T * y, int f_size)
+      void caxpy (T * res, std::complex < T > ca, T * x, T * y, int f_size)
     {
-      complex < T > *cx = (complex < T > *)x;
-      complex < T > *cy = (complex < T > *)y;
-      complex < T > *cres = (complex < T > *)res;
+      std::complex < T > *cx = (std::complex < T > *)x;
+      std::complex < T > *cy = (std::complex < T > *)y;
+      std::complex < T > *cres = (std::complex < T > *)res;
       int c_size = f_size / 2;
 
 #pragma omp parallel for
@@ -292,29 +293,29 @@ namespace cps
 	cres[i] = ca * cx[i] + cy[i];
     }
 
-    template < class T > complex < T > sp_single (T * a, T * b, int f_size)
+    template < class T > std::complex < T > sp_single (T * a, T * b, int f_size)
     {
-      complex < T > *ca = (complex < T > *)a;
-      complex < T > *cb = (complex < T > *)b;
+      std::complex < T > *ca = (std::complex < T > *)a;
+      std::complex < T > *cb = (std::complex < T > *)b;
       int c_size = f_size / 2;
 
       int i;
-      complex < T > ret = 0.0;
+      std::complex < T > ret = 0.0;
       for (i = 0; i < c_size; i++)
 	ret += conj (ca[i]) * cb[i];
 
       return ret;
     }
 
-    template < class T > complex < T > sp (T * a, T * b, int f_size) {
-      complex < T > *ca = (complex < T > *)a;
-      complex < T > *cb = (complex < T > *)b;
+    template < class T > std::complex < T > sp (T * a, T * b, int f_size) {
+      std::complex < T > *ca = (std::complex < T > *)a;
+      std::complex < T > *cb = (std::complex < T > *)b;
       int c_size = f_size / 2;
 
-      complex < T > res = 0.0;
+      std::complex < T > res = 0.0;
 #pragma omp parallel shared(res)
       {
-	complex < T > resl = 0.0;
+	std::complex < T > resl = 0.0;
 #pragma omp for
 	for (int i = 0; i < c_size; i++)
 	  resl += conj (ca[i]) * cb[i];
@@ -327,7 +328,7 @@ namespace cps
       return res;
     }
 
-    template < class T > T norm_of_evec (vector < vector < T > >&v, int j) {
+    template < class T > T norm_of_evec (std::vector < std::vector < T > >&v, int j) {
       T gg = 0.0;
 #pragma omp parallel shared(gg)
       {
@@ -421,7 +422,7 @@ namespace cps
       unsigned short tmp = val;
       fix_short_endian (&val, 1);
       if ((float) ((int) val + 0.5) != (float) (val + 0.5))
-	cout << tmp << "after fix \t" << val << std::endl;
+	std::cout << tmp << "after fix \t" << val << std::endl;
       return min + (float) ((int) val + 0.5) * (max - min) / (float) (N + 1);
     }
 
@@ -544,7 +545,7 @@ namespace cps
       sumArray (&barrier, 1);
       //std::cout << GridLogMessage << "Reading data that was generated on node-layout " << nn << std::endl;
 
-      vector < uint32_t > crc32_arr (nprocessors, 0);
+      std::vector < uint32_t > crc32_arr (nprocessors, 0);
       if (UniqueID () == 0) {
 	printf ("node 0, before reading crc32\n");
 	for (int i = 0; i < nprocessors; i++) {
