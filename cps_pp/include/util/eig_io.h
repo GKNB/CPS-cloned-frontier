@@ -68,6 +68,7 @@ namespace cps
     static const char *cname;
 
   public:
+    _evc_meta_ args;
     EvecReader(){};
     ~EvecReader(){};
     typedef float OPT;
@@ -178,7 +179,6 @@ namespace cps
 
     }
 
-    _evc_meta_ args;
 
 #if 1
     int get_bfm_index (int *pos, int co)
@@ -471,7 +471,8 @@ namespace cps
     }
 
 //added by bzy. read post-processed metadata
-    int read_metadata (const char *root, _evc_meta_ & args)
+//    int read_metadata (const char *root, _evc_meta_ & args)
+    int read_metadata (const char *root)
     {
       char buf[1024];
       sprintf (buf, "%s/metadata.txt", root);
@@ -566,7 +567,8 @@ namespace cps
       return 1;
     }
 
-    int read_meta (const char *root, _evc_meta_ & args)
+//    int read_meta (const char *root, _evc_meta_ & args)
+    int read_meta(const char *root)
     {
 
       char buf[1024];

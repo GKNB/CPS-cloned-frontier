@@ -315,6 +315,7 @@ class EigenCache {
   int decompress(const char* root_){
 
      EvecReader evec_reader;
+     evec_reader.read_meta(root_);
     std::vector < float * > evec_f;
 	for(int i=0;i<evec.size();i++){
 		evec_f.push_back((float *)evec[i]);
@@ -334,7 +335,7 @@ class EigenCacheGrid: public EigenCache {
    Grid::GridBase *grid;
 
    std::vector<Field> evec_grid;
-   EigenCacheGrid():_grid(NULL),cname("EigenCacheGrid")
+   EigenCacheGrid():grid(NULL),cname("EigenCacheGrid")
    {}
   EigenCacheGrid(char* name):EigenCache(name){}
    ~EigenCacheGrid() {}
