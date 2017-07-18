@@ -148,8 +148,6 @@ int main(int argc,char *argv[])
     if(Fbfm::use_mixed_solver) printf("Using Fbfm mixed precision solver\n");
     else printf("Using Fbfm double precision solver\n");
 
-  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
   check_bk_tsources(ama_arg); //Check the time seps for BK before we have to do any work
 
   GnoneFbfm lattice;
@@ -233,7 +231,7 @@ int main(int argc,char *argv[])
     LatticeTimeDoubler doubler;
     doubler.doubleLattice(lattice,do_arg);
 #endif
-
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
     if(rng_test){ //just load config, generate some uniform random numbers then move onto next config
       if(!UniqueID()) printf("Random offsets in range 0..Lt\n");
@@ -270,22 +268,6 @@ int main(int argc,char *argv[])
       }
       return 0;
     }
-
-    //Generate eigenvectors
-#ifdef USE_TBC_INPUT
-    LanczosPtrType lanc_l(NULL), lanc_h(NULL);
-    Float time = -dclock();
-    if(!disable_lanczos) lanc_l = doLanczos(lattice,lanc_arg_l,GJP.Tbc());
-    time += dclock();    
-    print_time("main","Light quark Lanczos",time);
-
-    time = -dclock();
-    if(!disable_lanczos) lanc_h = doLanczos(lattice,lanc_arg_h,GJP.Tbc());
-    time += dclock();    
-    print_time("main","Heavy quark Lanczos",time);
-#else  //USE_TBC_FB
-
-#endif
 
     //We want stationary mesons and moving mesons. For GPBC there are two inequivalent directions: along the G-parity axis and perpendicular to it. 
     std::string results_dir(ama_arg.results_dir);
@@ -421,8 +403,76 @@ int main(int argc,char *argv[])
       //J5 and J5q for mres
       measureMres(sites_l_A,tslices_se,pion_momenta,results_dir,conf, se_str+"_A",mres_do_flavor_project);
     }//se
-#endif
+#elif defined(USE_TBC_INPUT)
+    LanczosPtrType lanc_l(NULL), lanc_h(NULL);
+    Float time = -dclock();
+    if(!disable_lanczos) lanc_l = doLanczos(lattice,lanc_arg_l,GJP.Tbc());
+    time += dclock();    
+    print_time("main","Light quark Lanczos",time);
 
+    time = -dclock();
+    if(!disable_lanczos) lanc_h = doLanczos(lattice,lanc_arg_h,GJP.Tbc());
+    time += dclock();    
+    print_time("main","Heavy quark Lanczos",time);
+
+    for(int se=0; se<2; se++){
+      std::string se_str = se == 0 ? "_sloppy" : "_exact";
+      
+      //Light quark props
+      Props props_l;
+      computeMomSourcePropagators(props_l, ama_arg.ml,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  light_quark_momenta, GJP.Tbc(), true, lattice, lanc_l.get(), random_prop_solns);
+      //Heavy quark props
+      Props props_h;
+      computeMomSourcePropagators(props_h, ama_arg.mh,
+				  se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
+				  se == 0 ? tslice_sloppy : tslice_exact,
+				  heavy_quark_momenta, GJP.Tbc(), true, lattice, lanc_h.get(), random_prop_solns);
+      
+      const std::vector<int> &tslices_se = se == 0 ? tslice_sloppy : tslice_exact;
+
+      PropGetterStd sites_l(props_l, GJP.Tbc());
+      PropGetterStd sites_h(props_h, GJP.Tbc());
+		
+      //Pion 2pt LW functions pseudoscalar and axial sinks      
+      measurePion2ptLW(sites_l, tslices_se, pion_momenta, results_dir, conf, se_str);
+
+      //Kaon 2pt LW functions pseudoscalar and axial sinks
+      measureKaon2ptLW(sites_l, sites_h,tslices_se,kaon_momenta,results_dir,conf, se_str);
+	
+      if(GJP.Gparity()){
+	WallSinkPropGetterStd<SpinColorFlavorMatrix> wallsites_l(props_l, GJP.Tbc(), lattice);
+	WallSinkPropGetterStd<SpinColorFlavorMatrix> wallsites_h(props_h, GJP.Tbc(), lattice);
+
+	//SU(2) flavor singlet
+	measureLightFlavorSingletLW(sites_l,tslices_se,su2_singlet_momenta,results_dir,conf, se_str);
+	
+	//Pion 2pt WW function pseudoscalar sink
+	measurePion2ptPPWWGparity(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str);
+	
+	//Kaon 2pt WW function pseudoscalar sink
+	measureKaon2ptPPWWGparity(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str);
+      }else{
+	WallSinkPropGetterStd<WilsonMatrix> wallsites_l(props_l, GJP.Tbc(), lattice);
+	WallSinkPropGetterStd<WilsonMatrix> wallsites_h(props_h, GJP.Tbc(), lattice);
+	  
+	//Pion 2pt WW function pseudoscalar sink
+	measurePion2ptPPWWStandard(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str);
+	
+	//Kaon 2pt WW function pseudoscalar sink
+	measureKaon2ptPPWWStandard(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str);
+      }
+      
+      //BK O_{VV+AA} 3pt contractions
+      //Need to ensure that props exist on t0 and t0+tsep for all tseps
+      measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str,bk_do_flavor_project);   
+      
+      //J5 and J5q for mres
+      measureMres(sites_l,tslices_se,pion_momenta,results_dir,conf, se_str,mres_do_flavor_project);
+    }
+#endif
     
     lattice.FixGaugeFree();
     
@@ -435,79 +485,3 @@ int main(int argc,char *argv[])
   }
   return 0;
 }
-
-
-// #if 0
-//     std::vector<BndCndType> tbcs;
-//     std::vector<LanczosPtrType> lanc_l_bcs;
-//     std::vector<LanczosPtrType> lanc_h_bcs;
-//     std::vector<TbcStatus> pi_k_tbcuse;
-//     std::vector<TbcStatus> bk_tbcuse;
-//     std::vector<TbcStatus> mres_tbcuse;
-//     std::vector<bool> store_midprop_l;
-    
-// #ifdef USE_TBC_INPUT
-//     set_vec(tbcs, GJP.Tbc());
-//     set_vec(lanc_l_bcs, lanc_l);
-//     set_vec(lanc_h_bcs, lanc_h);
-//     set_vec(pi_k_tbcuse, TbcStatus(GJP.Tbc()));
-//     set_vec(bk_tbcuse, TbcStatus(GJP.Tbc()), TbcStatus(GJP.Tbc()) );
-//     set_vec(mres_tbcuse,GJP.Tbc());
-//     set_vec(store_midprop_l, true);
-// #else //USE_TBC_FB
-//     set_vec(tbcs, BND_CND_PRD, BND_CND_APRD);
-//     set_vec(lanc_l_bcs, lanc_l_P, lanc_l_A);
-//     set_vec(lanc_h_bcs, lanc_h_P, lanc_h_A);
-//     set_vec(pi_k_tbcuse, TbcStatus(CombinationF), TbcStatus(CombinationB));
-//     set_vec(bk_tbcuse, TbcStatus(CombinationF), TbcStatus(CombinationB));
-//     set_vec(mres_tbcuse,BND_CND_APRD);
-//     set_vec(store_midprop_l, false, true);
-// #endif
-
-//     for(int status = 0; status < 2; status++){ //sloppy, exact
-//       Float status_start_time = dclock();
-//       PropPrecision sloppy_exact = status == 0 ? Sloppy : Exact;
-
-//       const std::vector<int> &tslices = status == 0 ? tslice_sloppy : tslice_exact;
-      
-//       if(tslices.size() == 0){
-// 	if(!UniqueID()) printf("Skipping %s contractions because 0 source timeslices given\n",toString(pp).c_str());
-// 	continue;
-//       }
-//       computePropagators(props, sloppy_exact, tslices, tbcs,
-// 			 light_quark_momenta, heavy_quark_momenta,
-// 			 lanc_l_bcs, lanc_h_bcs,
-// 			 store_midprop_l, lattice, 
-// 			 ama_arg, random_prop_solns);
-
-//       for(int piktbci = 0; piktbci < npiktbc; piktbci++){
-// 	const TbcStatus & tbs = pi_k_tbcuse[piktbci];
-
-// 	//Pion 2pt LW functions pseudoscalar and axial sinks	     
-// 	measurePion2ptLW(props,pp,tbs,tslices,pion_momenta,results_dir,conf);
-	
-// 	//Pion 2pt WW function pseudoscalar sink
-// 	measurePion2ptPPWW(props,pp,tbs,tslices,pion_momenta,lattice,results_dir,conf);
-	
-// 	//SU(2) flavor singlet
-// 	if(GJP.Gparity()) measureLightFlavorSingletLW(props,pp,tbs,tslices,su2_singlet_momenta,results_dir,conf);
-	
-// 	//Kaon 2pt LW functions pseudoscalar and axial sinks
-// 	measureKaon2ptLW(props,pp,tbs,tslices,kaon_momenta,results_dir,conf);
-      
-// 	//Kaon 2pt WW function pseudoscalar sink
-// 	measureKaon2ptPPWW(props,pp,tbs,tslices,kaon_momenta,lattice,results_dir,conf);
-//       }
-
-//       //BK O_{VV+AA} 3pt contractions
-//       //Need to ensure that props exist on t0 and t0+tsep for all tseps
-//       measureBK(props,pp,tslices,bk_tseps,kaon_momenta,bk_tbcuse[0],results_dir,conf,bk_do_flavor_project);
-
-//       //J5 and J5q for mres
-//       measureMres(props,pp,mres_tbcuse,tslices,pion_momenta,results_dir,conf, mres_do_flavor_project);
-
-//       props.clear(); //delete all propagators thus far computed
-//       print_time("main",status_str.c_str(),dclock()-status_start_time);
-//     }
-
-// #endif
