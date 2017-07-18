@@ -303,23 +303,15 @@ void measureBKGparity(const PropGetter &props_l, const PropGetter &props_h, cons
 	for(int t0i=0;t0i<prop_tsources.size();t0i++){
 	  int t0 = prop_tsources[t0i];
 	  int t1 = t0 + tseps[tspi];
-	  //If t1 is across the boundary we must use the periodicity of the propagators to shift it back to 0<=t<Lt
-	  int nLt_shift = -t1/Lt;
-	  int t1_torus = t1 % Lt;
 
 	  //check t1 is in the vector, if not skip
-	  if(std::find(prop_tsources.begin(), prop_tsources.end(), t1) == prop_tsources.end()) continue;
+	  if(!props_h.contains(t1,p_prop_h_t1) || !props_l.contains(t1,p_prop_l_t1)) continue;
 
 	  std::auto_ptr<PropSiteMatrixGetter> prop_h_t0(props_h(t0,p_prop_h_t0));
 	  std::auto_ptr<PropSiteMatrixGetter> prop_l_t0(props_l(t0,p_prop_l_t0));
 
-	  std::auto_ptr<PropSiteMatrixGetter> prop_h_t1(props_h(t1_torus,p_prop_h_t1)); //source time parameter here defined on torus
-	  std::auto_ptr<PropSiteMatrixGetter> prop_l_t1(props_l(t1_torus,p_prop_l_t1));
-
-	  if(nLt_shift != 0){ //account for source timeslice over boundary by applying prop BCs (delayed until getter is used to compute siteMatrix)
-	    prop_h_t1->shiftSourcenLt(nLt_shift);
-	    prop_l_t1->shiftSourcenLt(nLt_shift);
-	  }
+	  std::auto_ptr<PropSiteMatrixGetter> prop_h_t1(props_h(t1,p_prop_h_t1)); //source time parameter here defined on torus
+	  std::auto_ptr<PropSiteMatrixGetter> prop_l_t1(props_l(t1,p_prop_l_t1));
 	  
 	  GparityBK(results, t0, t1,
 		    *prop_h_t0, *prop_l_t0, p_psi_h_t0,

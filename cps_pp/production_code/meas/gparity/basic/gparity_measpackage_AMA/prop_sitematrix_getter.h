@@ -25,12 +25,16 @@ class PropSiteMatrixStandard: public PropSiteMatrixGetter{
   BndCndType bc;
   int tsrc;
   int base_sgn;
+  int tdis_shift;  //if we translate the source internally using the BCs we also have to translate the src->snk sep
+  //G(x,y) = G'(x+nLt,y) = G'(x',y)
+  //y = tdis + x      y = tdis + x'-nLt
+
   
   inline void get4dcoordAndSign(int &x4d_lcl, int &sgn, const int x3d_lcl, const int tdis_glb) const{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     sgn = base_sgn;
-    int t = tdis_glb + tsrc;
-    while(t<0 || t>=Lt){
+    int t = tdis_glb + tdis_shift + tsrc;
+    while(t<0 || t>=Lt){ //use periodicity in sink coordinate
       if(t<0) t+= Lt;
       else t-=Lt;
       sgn *= (BND_CND_APRD ? -1 : 1); //APRD   G(t-Lt,t') = -G(t,t')
@@ -42,7 +46,7 @@ class PropSiteMatrixStandard: public PropSiteMatrixGetter{
 
 
 public:
-  PropSiteMatrixStandard(const PropWrapper &_prop, const BndCndType _bc, const int _tsrc): prop(_prop), bc(_bc), tsrc(_tsrc), base_sgn(1){}
+ PropSiteMatrixStandard(const PropWrapper &_prop, const BndCndType _bc, const int _tsrc): prop(_prop), bc(_bc), tsrc(_tsrc), base_sgn(1), tdis_shift(0){}
 
   void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const{
     int sgn, x4d_lcl;
@@ -58,6 +62,7 @@ public:
   }
   void shiftSourcenLt(const int n){
     int absn = abs(n);
+    tdis_shift -= n*GJP.TnodeSites()*GJP.Tnodes();
     for(int i=0;i<absn;i++) base_sgn *= (BND_CND_APRD ? -1 : 1); //APRD   G(t,t') = -G(t,t'+/-Lt)
   }
 };
@@ -71,10 +76,12 @@ class PropSiteMatrixFB: public PropSiteMatrixGetter{
   PropWrapper prop_shift;
   int tsrc;
   int use_base;
+  int tdis_shift; //cf above
+
   
   inline PropWrapper const* get4dcoordAndProp(int &x4d_lcl, const int x3d_lcl, const int tdis_glb) const{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    int t = tdis_glb + tsrc;
+    int t = tdis_glb + tdis_shift + tsrc;
     PropWrapper const* props[2] = { &prop_base, &prop_shift };
     int use = use_base;
     while(t<0 || t>=Lt){
@@ -101,7 +108,7 @@ class PropSiteMatrixFB: public PropSiteMatrixGetter{
 
 
 public:
-  PropSiteMatrixFB(const PropWrapper &_prop_base, const PropWrapper &_prop_shift, const int _tsrc): prop_base(_prop_base),prop_shift(_prop_shift),tsrc(_tsrc),use_base(0){}
+  PropSiteMatrixFB(const PropWrapper &_prop_base, const PropWrapper &_prop_shift, const int _tsrc): prop_base(_prop_base),prop_shift(_prop_shift),tsrc(_tsrc),use_base(0), tdis_shift(0){}
 
   void siteMatrix(WilsonMatrix &into, const int x3d_lcl, const int tdis_glb, const PropSplane splane = SPLANE_BOUNDARY) const{
     int x4d_lcl;
@@ -115,6 +122,7 @@ public:
   }
   void shiftSourcenLt(const int n){
     int absn = abs(n);
+    tdis_shift -= n*GJP.TnodeSites()*GJP.Tnodes();
     for(int i=0;i<absn;i++) use_base = (use_base + 1) % 2; //F(t,t'+/-Lt) = B(t,t'),  B(t,t'+/-Lt) = F(t,t')
   }
 };
@@ -204,7 +212,22 @@ public:
 
 class PropGetter{
 public:
-  virtual std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const = 0;
+  //0<=t<Lt
+  virtual std::auto_ptr<PropSiteMatrixGetter> get(const int t_torus, const ThreeMomentum &psrc) const = 0;
+  
+  //-\infty <= t <= \infty
+  std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const{
+    //If t is across the boundary we must use the periodicity of the propagators to shift it back to 0<=t<Lt
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nLt_shift = -t/Lt;
+    const int t_torus = t % Lt;
+    std::auto_ptr<PropSiteMatrixGetter> ret( this->get(t_torus,psrc) );
+    if(nLt_shift != 0) ret->shiftSourcenLt(nLt_shift);
+    return ret;
+  }
+
+  //-\infty <= t <= \infty
+  virtual bool contains(const int t, const ThreeMomentum &psrc) const = 0;  
 };
 class PropGetterFB: public PropGetter{
   const Props &props_base;
@@ -213,11 +236,17 @@ class PropGetterFB: public PropGetter{
 public:
   PropGetterFB(const Props &_props_base, const Props &_props_shift): props_base(_props_base),  props_shift(_props_shift){}
   
-  std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const{
-    const PropWrapper &pF = props_base(t,psrc);
-    const PropWrapper &pB = props_shift(t,psrc);
-    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixFB(pF,pB,t));
+  std::auto_ptr<PropSiteMatrixGetter> get(const int t_torus, const ThreeMomentum &psrc) const{
+    const PropWrapper &pF = props_base(t_torus,psrc);
+    const PropWrapper &pB = props_shift(t_torus,psrc);
+    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixFB(pF,pB,t_torus));
   }
+  bool contains(const int t, const ThreeMomentum &psrc) const{
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int t_torus = t % Lt;
+    return props_base.contains(t_torus,psrc) && props_shift.contains(t_torus,psrc);
+  }
+    
 };
 class PropGetterStd: public PropGetter{
   const Props &props;
@@ -225,9 +254,15 @@ class PropGetterStd: public PropGetter{
 public:
   PropGetterStd(const Props &_props, const BndCndType _time_bc): props(_props){}
   
-  std::auto_ptr<PropSiteMatrixGetter> operator()(const int t, const ThreeMomentum &psrc) const{
-    const PropWrapper &p = props(t,psrc);
-    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixStandard(p,time_bc,t));
+  std::auto_ptr<PropSiteMatrixGetter> get(const int t_torus, const ThreeMomentum &psrc) const{
+    const PropWrapper &p = props(t_torus,psrc);
+    return std::auto_ptr<PropSiteMatrixGetter>(new PropSiteMatrixStandard(p,time_bc,t_torus));
+  }
+
+  bool contains(const int t, const ThreeMomentum &psrc) const{
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int t_torus = t % Lt;
+    return props.contains(t_torus,psrc);
   }
 };
 

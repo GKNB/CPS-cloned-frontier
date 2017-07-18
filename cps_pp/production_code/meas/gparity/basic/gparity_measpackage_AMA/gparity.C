@@ -333,7 +333,7 @@ int main(int argc,char *argv[])
 
     
     for(int se=0; se<2; se++){
-      std::string se_str = se == 0 ? "sloppy" : "exact";
+      std::string se_str = se == 0 ? "_sloppy" : "_exact";
       
       //Light quark props
       Props props_l_P;
@@ -414,8 +414,7 @@ int main(int argc,char *argv[])
 
 	//BK O_{VV+AA} 3pt contractions
 	//Need to ensure that props exist on t0 and t0+tsep for all tseps
-	measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str+"_F",bk_do_flavor_project);
-	
+	measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str+fb_str,bk_do_flavor_project);   
       }//fb
 
       PropGetterStd sites_l_A(props_l_A, BND_CND_APRD);

@@ -131,6 +131,11 @@ public:
   ~Props(){
     clear();
   }
+
+  bool contains(const int t, const ThreeMomentum &p) const{
+    const_iterator it = props.find( std::pair<int, ThreeMomentum>(t,p) );
+    return it != props.end();
+  }
   
 };
 
