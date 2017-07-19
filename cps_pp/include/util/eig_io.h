@@ -68,8 +68,12 @@ namespace cps
     static const char *cname;
 
   public:
+    bool machine_is_little_endian ;
+    int bigendian ;	// write data back in big endian
     _evc_meta_ args;
-    EvecReader(){};
+    EvecReader():
+	 machine_is_little_endian(1),bigendian(0)
+	{};
     ~EvecReader(){};
     typedef float OPT;
     int nthreads;
@@ -147,6 +151,8 @@ namespace cps
 
     void fix_short_endian (unsigned short *dest, int nshorts)
     {
+      if ((bigendian && machine_is_little_endian) ||	// written for readability
+	  (!bigendian && !machine_is_little_endian)) 
       for (int i = 0; i < nshorts; i++) {
 	char *c1 = (char *) &dest[i];
 	char tmp = c1[0];
@@ -159,8 +165,6 @@ namespace cps
     {
       int n_endian_test = 1;
       //bool machine_is_little_endian = *(char *)&n_endian_test == 1;
-      bool machine_is_little_endian = 0;
-      int bigendian = 0;	// write data back in big endian
 
       if ((bigendian && machine_is_little_endian) ||	// written for readability
 	  (!bigendian && !machine_is_little_endian)) {
@@ -395,7 +399,10 @@ namespace cps
 
       for (int64_t i = 0; i < n; i++)
 	out[i] = in[i];
+//	std::cout <<"out[0]= "<<out[0];
       fix_float_endian (out, n);
+	if(std::isnan(out[0]))
+	std::cout <<"read_floats out[0]= "<<out[0]<<std::endl;
     }
 
     int fp_map (float in, float min, float max, int N)
@@ -465,6 +472,8 @@ namespace cps
 	for (int i = 0; i < nsc; i++) {
 	  ev[i] = fp_unmap (*bptr++, min, max, SHRT_UMAX);
 	}
+	if(std::isnan(ev[0]))
+	std::cout <<"read_floats_fp16 ev[0]= "<<ev[0]<<std::endl;
 
       }
 

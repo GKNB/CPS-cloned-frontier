@@ -321,6 +321,13 @@ class EigenCache {
 		evec_f.push_back((float *)evec[i]);
 	}
 	evec_reader.decompress(root_,evec_f);
+	for(int i=0;i<evec.size();i++){
+		float * temp = (float *)evec[i];
+		Float sum=0.;
+		for(size_t ind=0;ind<f_size*(sizeof(Float)/sizeof(float));ind++)
+		sum += temp[i]*temp[i];
+	VRB.Result(cname,"decompress","evec[%d][0]=%g sum[%d]=%g\n",i,*temp,i,sum);
+	}
   }
 };
 
