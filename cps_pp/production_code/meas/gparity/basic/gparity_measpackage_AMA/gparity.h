@@ -3,14 +3,16 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <util/gjp.h>
 #include <alg/do_arg.h>
 #include <alg/bfm_arg.h>
 #include <alg/lanc_arg.h>
 #include <alg/fix_gauge_arg.h>
 #include <alg/gparity_contract_arg.h>
+#include <alg/eigen/Krylov_5d.h>
 #include <util/lattice/fbfm.h>
-
+#include <util/ReadLatticePar.h>
 CPS_START_NAMESPACE
 
 template<class T>
@@ -159,6 +161,107 @@ inline int toInt(const char* a){
 inline bool contains_pctd(const std::string &c){
   return c.find("%d") != std::string::npos;
 }
+
+void getTimeslices(std::vector<int> &tslice_sloppy, std::vector<int> &tslice_exact, std::vector<int> &bk_tseps, const GparityAMAarg2 &ama_arg, bool random_exact_tsrc_offset){
+  tslice_sloppy = std::vector<int>(ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_val, 
+				   ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_val + ama_arg.sloppy_solve_timeslices.sloppy_solve_timeslices_len);
+  tslice_exact = std::vector<int>(ama_arg.exact_solve_timeslices.exact_solve_timeslices_val, 
+				  ama_arg.exact_solve_timeslices.exact_solve_timeslices_val + ama_arg.exact_solve_timeslices.exact_solve_timeslices_len);
+    
+  bk_tseps = std::vector<int> (ama_arg.bk_tseps.bk_tseps_val, ama_arg.bk_tseps.bk_tseps_val + ama_arg.bk_tseps.bk_tseps_len);
+
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  if(random_exact_tsrc_offset){
+    int offset = int(floor( LRG.Lrand(Lt,0) )) % Lt;
+    if(!UniqueID()) printf("Shifting exact src timeslices by offset %d\n",offset);
+    for(int i=0;i<tslice_exact.size();i++){
+      int nval = (tslice_exact[i]+offset) % Lt;
+      if(!UniqueID()) printf("Exact src timeslice %d -> %d\n",tslice_exact[i], nval);
+      tslice_exact[i] = nval;
+    }
+  }
+}
+    
+typedef std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > LanczosPtrType;
+
+inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &lattice, const LancArg lanc_arg, const BndCndType time_bc){
+  if(lanc_arg.N_get == 0) return std::auto_ptr<BFM_Krylov::Lanczos_5d<double> >(NULL);
+
+  BndCndType init_tbc = GJP.Tbc();
+  BndCndType target_tbc = time_bc;
+
+  GJP.Bc(3,target_tbc);
+  lattice.BondCond();  //Apply BC to internal gauge fields
+
+  bfm_evo<double> &dwf_d = static_cast<Fbfm&>(lattice).bd;
+  std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > ret(new BFM_Krylov::Lanczos_5d<double>(dwf_d, const_cast<LancArg&>(lanc_arg)));
+  ret->Run();
+  if(Fbfm::use_mixed_solver){
+    //Convert eigenvectors to single precision
+    ret->toSingle();
+  }
+
+  //Restore the BCs
+  lattice.BondCond();  //unapply BC
+  GJP.Bc(3,init_tbc);
+
+  return ret;
+}
+
+//Read/generate the gauge configuration and RNG
+void readLatticeAndRNG(Lattice &lattice, const CmdLine &cmdline, const DoArg &do_arg, const GparityAMAarg2 &ama_arg, const int conf){
+  char load_config_file[1000];
+  char load_rng_file[1000];
+  
+  if(do_arg.start_conf_kind == START_CONF_ORD || cmdline.rng_test){
+    if(!UniqueID()) printf("Using unit gauge links\n");
+    lattice.SetGfieldOrd();
+  }else if(do_arg.start_conf_kind == START_CONF_DISORD){
+    if(!UniqueID()) printf("Using random gauge links\n");
+    lattice.SetGfieldDisOrd();
+    printf("Gauge checksum = %d\n", lattice.CheckSum());
+  }else if(do_arg.start_conf_kind == START_CONF_FILE){    
+    if(sprintf(load_config_file,ama_arg.config_fmt,conf) < 0){
+      ERR.General("","main()","Configuration filename creation problem : %s | %s",load_config_file,ama_arg.config_fmt);
+    }
+    //load the configuration
+    ReadLatticeParallel readLat;
+    if(UniqueID()==0) printf("Reading: %s (NERSC-format)\n",load_config_file);
+    if(cmdline.dbl_latt_storemode){
+      if(!UniqueID()) printf("Disabling U* field reconstruction\n");
+      readLat.disableGparityReconstructUstarField();
+    }
+    readLat.read(lattice,load_config_file);
+  }else{
+    ERR.General("","main()","Invalid do_arg.start_conf_kind\n");
+  }
+
+  if(do_arg.start_seed_kind == START_SEED_FILE){   
+    if(sprintf(load_rng_file,ama_arg.rng_fmt,conf) < 0){
+      ERR.General("","main()","RNG filename creation problem : %s | %s",load_rng_file,ama_arg.rng_fmt);
+    }
+    if(UniqueID()==0) printf("Loading RNG state from %s\n",load_rng_file);
+    int default_concur=0;
+#if TARGET==BGQ
+    default_concur=1;
+#endif
+    LRG.Read(load_rng_file,default_concur);
+    if(UniqueID()==0) printf("RNG read.\n");
+  }
+
+#ifdef DOUBLE_TLATT
+  if(!UniqueID()) printf("Doubling lattice temporal size\n");
+  LatticeTimeDoubler doubler;
+  doubler.doubleLattice(lattice,do_arg);
+#endif
+  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  if(cmdline.tshift != 0)
+    Tshift4D( (Float*)lattice.GaugeField(), 4*3*3*2, cmdline.tshift); //do optional temporal shift
+}
+
+		       
+
 
 
 CPS_END_NAMESPACE
