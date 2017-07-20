@@ -184,7 +184,6 @@ namespace cps
     }
 
 
-#if 1
     int get_bfm_index (int *pos, int co)
     {
 
@@ -199,32 +198,30 @@ namespace cps
 	 args.s[0] * (pos[1] +
 		      args.s[1] * (pos[2] +
 				   args.s[2] * (pos[3] % NtHalf)))) / 2;
-      int regu_vol = vol_4d_oo / 2;
+//      int regu_vol = vol_4d_oo / 2;
 
       return +regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
-#else
-    int get_dst_index (int *pos, int co)
+    int get_cps_index (int *pos, int co)
     {
 
       int ls = args.s[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
-      int SimdT = 1;
-      int NtHalf = args.s[3] / SimdT;
-      int simd_coor = pos[3] / NtHalf;
-      assert (simd_coor == 0);
-      int regu_coor =
-	(pos[0] +
-	 args.s[0] * (pos[1] +
-		      args.s[1] * (pos[2] +
-				   args.s[2] * (pos[3] % NtHalf)))) / SimdT;
-      int regu_vol = vol_4d_oo / SimdT;
+//      int SimdT = 1;
+//      int NtHalf = args.s[3];
+//      int simd_coor = pos[3] / NtHalf;
+//      assert (simd_coor == 0);
+      int regu_coor = (pos[0] + args.s[0] * 
+					(pos[1] + args.s[1] * 
+					(pos[2] + args.s[2] * 
+					(pos[3] ))))/2 ;
+//      int regu_vol = vol_4d_oo / SimdT;
 
-      return (((regu_coor * ls + pos[4]) * 12 + co) * 2 + simd_coor) * SimdT;
+       return ((regu_coor * ls + pos[4]) * 12 + co) * 2  ;
+//      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
-#endif
 
     void index_to_pos (int i, int *pos, int *latt)
     {

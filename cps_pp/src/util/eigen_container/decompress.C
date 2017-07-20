@@ -406,7 +406,8 @@ int EvecReader::decompress(const char* root_ , std::vector < OPT *> &dest_all) {
 
 							int co;
 							for (co=0;co<12;co++) {
-								OPT* out=&dest[ get_bfm_index(pos,co) ];
+//								OPT* out=&dest[ get_bfm_index(pos,co) ];
+								OPT* out=&dest[ get_cps_index(pos,co) ];
 								out[0] = dst[2*co + 0];
 								out[1] = dst[2*co + 1];
 							}
