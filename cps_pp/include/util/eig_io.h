@@ -213,13 +213,14 @@ namespace cps
 //      int NtHalf = args.s[3];
 //      int simd_coor = pos[3] / NtHalf;
 //      assert (simd_coor == 0);
+//      int regu_vol = vol_4d_oo / SimdT;
       int regu_coor = (pos[0] + args.s[0] * 
 					(pos[1] + args.s[1] * 
 					(pos[2] + args.s[2] * 
-					(pos[3] ))))/2 ;
-//      int regu_vol = vol_4d_oo / SimdT;
+					(pos[3] + args.s[3] * 
+					pos[4] ))))/2 ;
 
-       return ((regu_coor * ls + pos[4]) * 12 + co) * 2  ;
+       return ((regu_coor ) * 12 + co) * 2  ;
 //      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
 
