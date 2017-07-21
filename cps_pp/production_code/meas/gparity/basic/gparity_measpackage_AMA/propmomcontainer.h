@@ -100,7 +100,7 @@ public:
 class Props{
   std::map< std::pair<int, ThreeMomentum>, PropWrapper > props;
 public:
-  typedef std::map< std::pair<int, ThreeMomentum>, PropWrapper >::const_iterator iterator;
+  typedef std::map< std::pair<int, ThreeMomentum>, PropWrapper >::iterator iterator;
   typedef std::map< std::pair<int, ThreeMomentum>, PropWrapper >::const_iterator const_iterator;
   
   PropWrapper & operator()(const int t, const ThreeMomentum &p){ return props[ std::pair<int, ThreeMomentum>(t,p) ]; }

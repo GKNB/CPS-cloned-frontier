@@ -252,7 +252,7 @@ class PropGetterStd: public PropGetter{
   const Props &props;
   const BndCndType time_bc;
 public:
-  PropGetterStd(const Props &_props, const BndCndType _time_bc): props(_props){}
+ PropGetterStd(const Props &_props, const BndCndType _time_bc): props(_props), time_bc(GJP.Tbc()){}
   
   std::auto_ptr<PropSiteMatrixGetter> get(const int t_torus, const ThreeMomentum &psrc) const{
     const PropWrapper &p = props(t_torus,psrc);
