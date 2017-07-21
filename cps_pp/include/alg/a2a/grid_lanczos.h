@@ -46,8 +46,9 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
   Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 
-  if(lanc_arg.lock) IRL.lock = 1;
-
+  //if(lanc_arg.lock) IRL.lock = 1;
+  if(lanc_arg.lock) ERR.General("::","gridLanczos","Grid Lanczos does not currently support locking\n");
+  
   eval.resize(Nm);
   evec.reserve(Nm);
   evec.resize(Nm, FrbGrid);

@@ -1,6 +1,6 @@
 #ifndef CK_A2A_UTILS
 #define CK_A2A_UTILS
-
+#include <cxxabi.h>
 #include <util/lattice.h>
 #include <alg/fix_gauge_arg.h>
 
@@ -70,6 +70,19 @@ inline std::string anyToStr(const T &t){
   std::ostringstream os; os << t;
   return os.str();
 }
+
+std::string demangle( const char* mangled_name ) {
+
+  std::size_t len = 0 ;
+  int status = 0 ;
+  std::unique_ptr< char, decltype(&std::free) > ptr(
+						    __cxxabiv1::__cxa_demangle( mangled_name, nullptr, &len, &status ), &std::free ) ;
+  return ptr.get() ;
+}
+
+//Print a type as a string (useful for debugging)
+template<typename T>
+inline std::string printType(){ return demangle(typeid(T).name()); }
 
 
 CPS_END_NAMESPACE

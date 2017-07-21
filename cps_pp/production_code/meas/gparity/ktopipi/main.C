@@ -37,6 +37,10 @@ int main (int argc,char **argv )
 
   setupJob(argc, argv, params, cmdline);
 
+#ifdef BNL_KNL_PERFORMANCE_CHECK
+  bnl_knl_performance_check(cmdline,params);
+#endif
+
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
 #if defined(USE_BFM_A2A) || defined(USE_BFM_LANCZOS)

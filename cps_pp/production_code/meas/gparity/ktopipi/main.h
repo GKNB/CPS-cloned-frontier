@@ -68,6 +68,96 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 # define A2A_LATMARK isBFMtype
 #endif
 
+#ifdef USE_GRID
+//Returns per-node performance in Mflops of double/double Dirac op
+template<typename GridPolicies>
+double gridBenchmark(Lattice &lat){
+  typedef typename GridPolicies::GridFermionField GridFermionField;
+  typedef typename GridPolicies::FgridFclass FgridFclass;
+  typedef typename GridPolicies::GridDirac GridDirac;
+  typedef typename GridDirac::GaugeField GridGaugeField;
+  
+  FgridFclass & lgrid = dynamic_cast<FgridFclass &>(lat);
+  
+  Grid::GridCartesian *FGrid = lgrid.getFGrid();
+  Grid::GridCartesian *UGrid = lgrid.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = lgrid.getUrbGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = lgrid.getFrbGrid();
+
+  GridGaugeField & Umu = *lgrid.getUmu();    
+
+  //Setup Dirac operator
+  const double mass = 0.1;
+  const double mob_b = lgrid.get_mob_b();
+  const double mob_c = mob_b - 1.;   //b-c = 1
+  const double M5 = GJP.DwfHeight();
+  
+  typename GridDirac::ImplParams params;
+  lgrid.SetParams(params);
+    
+  GridDirac Ddwf(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+
+  //Run benchmark
+  std::cout << "gridBenchmark: Running Grid Dhop benchmark\n";
+  std::cout << "Dirac operator type is : " << printType<GridDirac>() << std::endl;
+  
+  std::vector<int> seeds4({1,2,3,4});
+  std::vector<int> seeds5({5,6,7,8});
+  
+  std::cout << Grid::GridLogMessage << "Initialising 4d RNG" << std::endl;
+  Grid::GridParallelRNG          RNG4(UGrid);  RNG4.SeedFixedIntegers(seeds4);
+  std::cout << Grid::GridLogMessage << "Initialising 5d RNG" << std::endl;
+  Grid::GridParallelRNG          RNG5(FGrid);  RNG5.SeedFixedIntegers(seeds5);
+  std::cout << Grid::GridLogMessage << "Initialised RNGs" << std::endl;
+  
+  GridFermionField src   (FGrid); random(RNG5,src);
+  Grid::RealD N2 = 1.0/::sqrt(norm2(src));
+  src = src*N2;
+  
+  GridFermionField result(FGrid); result=Grid::zero;
+  GridFermionField    ref(FGrid);    ref=Grid::zero;
+  GridFermionField    tmp(FGrid);
+  GridFermionField    err(FGrid);
+  
+  Grid::RealD NP = UGrid->_Nprocessors;
+  Grid::RealD NN = UGrid->NodeCount();
+  
+  std::cout << Grid::GridLogMessage<< "* Vectorising space-time by "<<Grid::vComplexF::Nsimd()<<std::endl;
+#ifdef GRID_OMP
+  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsAndCompute ) std::cout << Grid::GridLogMessage<< "* Using Overlapped Comms/Compute" <<std::endl;
+  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsThenCompute) std::cout << Grid::GridLogMessage<< "* Using sequential comms compute" <<std::endl;
+#endif
+  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptGeneric   ) std::cout << Grid::GridLogMessage<< "* Using GENERIC Nc WilsonKernels" <<std::endl;
+  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptHandUnroll) std::cout << Grid::GridLogMessage<< "* Using Nc=3       WilsonKernels" <<std::endl;
+  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptInlineAsm ) std::cout << Grid::GridLogMessage<< "* Using Asm Nc=3   WilsonKernels" <<std::endl;
+  std::cout << Grid::GridLogMessage<< "*****************************************************************" <<std::endl;
+  
+  int ncall =1000;
+
+  FGrid->Barrier();
+  Ddwf.ZeroCounters();
+  Ddwf.Dhop(src,result,0);
+  std::cout<<Grid::GridLogMessage<<"Called warmup"<<std::endl;
+  double t0=Grid::usecond();
+  for(int i=0;i<ncall;i++){
+    Ddwf.Dhop(src,result,0);
+  }
+  double t1=Grid::usecond();
+  FGrid->Barrier();
+
+  double volume=GJP.Snodes()*GJP.SnodeSites();  for(int mu=0;mu<4;mu++) volume=volume*GJP.NodeSites(mu)*GJP.Nodes(mu);
+  double flops=(GJP.Gparity() + 1)*1344*volume*ncall;
+
+  std::cout<<Grid::GridLogMessage << "Called Dw "<<ncall<<" times in "<<t1-t0<<" us"<<std::endl;
+  std::cout<<Grid::GridLogMessage << "mflop/s =   "<< flops/(t1-t0)<<std::endl;
+  std::cout<<Grid::GridLogMessage << "mflop/s per rank =  "<< flops/(t1-t0)/NP<<std::endl;
+  std::cout<<Grid::GridLogMessage << "mflop/s per node =  "<< flops/(t1-t0)/NN<<std::endl;
+  Ddwf.Report();
+  return flops/(t1-t0)/NN; //node performance in Mflops
+}
+#endif
+
+
 
 
 //Command line argument store/parse
@@ -94,6 +184,10 @@ struct CommandLineArgs{
   bool do_split_job;
   int split_job_part;
   std::string checkpoint_dir; //directory the checkpointed data is stored in (could be scratch for example)
+
+#ifdef BNL_KNL_PERFORMANCE_CHECK
+  double bnl_knl_minperf; //in Mflops per node (not per rank, eg MPI3!)
+#endif
   
   CommandLineArgs(int argc, char **argv, int begin){
     nthreads = 1;
@@ -119,7 +213,10 @@ struct CommandLineArgs{
     inner_cg_resid_p = NULL;
 
     do_split_job = false;
-    
+
+#ifdef BNL_KNL_PERFORMANCE_CHECK
+    bnl_knl_minperf = 50000;
+#endif
     parse(argc,argv,begin);
   }
 
@@ -220,6 +317,12 @@ struct CommandLineArgs{
 	ERR.General("","main","Grid option --comms-isend is deprecated: use --comms-concurrent instead");
       }else if( strncmp(cmd,"--comms-sendrecv",30) == 0){
 	ERR.General("","main","Grid option --comms-sendrecv is deprecated: use --comms-sequential instead");
+#ifdef BNL_KNL_PERFORMANCE_CHECK
+      }else if( strncmp(cmd,"-bnl_knl_minperf",30) == 0){
+	bnl_knl_minperf = strToAny<double>(argv[arg+1]);
+	if(!UniqueID()) printf("Set BNL KNL min performance to %f Mflops/node\n",bnl_knl_minperf);
+	arg+=2;
+#endif	
       }else{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){
@@ -337,6 +440,17 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
   if(!UniqueID()) printf("Initial memory post-initialize:\n");
   printMem();
 }
+
+#ifdef BNL_KNL_PERFORMANCE_CHECK
+void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &params){
+  A2ALattice* lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS);
+  lat->SetGfieldOrd(); //so we don't interfere with the RNG state
+  double node_perf = gridBenchmark<A2Apolicies>(*lat);  
+  if(node_perf < args.bnl_knl_minperf && !UniqueID()){ printf("BAD PERFORMANCE\n"); fflush(stdout); }
+  delete lat;
+  return 123456;
+}
+#endif
 
 
 //Tune the Lanczos and exit
