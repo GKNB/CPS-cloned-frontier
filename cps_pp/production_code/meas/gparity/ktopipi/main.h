@@ -446,9 +446,8 @@ void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &par
   A2ALattice* lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS);
   lat->SetGfieldOrd(); //so we don't interfere with the RNG state
   double node_perf = gridBenchmark<A2Apolicies>(*lat);  
-  if(node_perf < args.bnl_knl_minperf && !UniqueID()){ printf("BAD PERFORMANCE\n"); fflush(stdout); }
   delete lat;
-  return 123456;
+  if(node_perf < args.bnl_knl_minperf && !UniqueID()){ printf("BAD PERFORMANCE\n"); fflush(stdout); exit(-1); }
 }
 #endif
 
