@@ -247,9 +247,10 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   char filename[1024];
   snprintf(filename,1024, "%s.bc%d%d%d%d", alg_lanczos_arg->file, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
   EigenContainer eigcon( lat, filename, nk, f_size_per_site, n_fields, ecache);
+  if(lanczos_arg->save) {
   eigcon. save_eval( lambda );
   ecache->eval_cached=1;
-
+  }
   for(int iev=0; iev < nk; iev++)
     ecache->index[iev]=iev;
 
