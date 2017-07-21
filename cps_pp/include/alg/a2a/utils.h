@@ -75,9 +75,16 @@ std::string demangle( const char* mangled_name ) {
 
   std::size_t len = 0 ;
   int status = 0 ;
-  std::unique_ptr< char, decltype(&std::free) > ptr(
-						    __cxxabiv1::__cxa_demangle( mangled_name, nullptr, &len, &status ), &std::free ) ;
-  return ptr.get() ;
+  char* unmangled = __cxxabiv1::__cxa_demangle( mangled_name, NULL, &len, &status );
+  if(status == 0){  
+    std::string out(unmangled);
+    free(unmangled);
+    return out;
+  }else return "<demangling failed>";
+  
+  /* std::unique_ptr< char, decltype(&std::free) > ptr( */
+  /* 						    __cxxabiv1::__cxa_demangle( mangled_name, nullptr, &len, &status ), &std::free ) ; */
+  /* return ptr.get() ; */
 }
 
 //Print a type as a string (useful for debugging)

@@ -111,58 +111,57 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
 
     
   for(int se=0; se<2; se++){
-    std::string se_str = se == 0 ? "_sloppy" : "_exact";
-      
-    //Light quark props
-    Props props_l_P;
-    computeMomSourcePropagators(props_l_P, ama_arg.ml,
-				se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
-				se == 0 ? tslice_sloppy : tslice_exact,
-				light_quark_momenta, BND_CND_PRD, true, lattice, lanc_l_P.get(), cmdline.random_prop_solns);
-    Props props_l_A;      
-    computeMomSourcePropagators(props_l_A, ama_arg.ml,
-				se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
-				se == 0 ? tslice_sloppy : tslice_exact,
-				light_quark_momenta, BND_CND_APRD, true, lattice, lanc_l_A.get(), cmdline.random_prop_solns);
-
-
-    Props props_l_F, props_l_B;
-    combinePA(props_l_F, props_l_B, props_l_P, props_l_A);
-
-    //Heavy quark props
-    Props props_h_P;
-    computeMomSourcePropagators(props_h_P, ama_arg.mh,
-				se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
-				se == 0 ? tslice_sloppy : tslice_exact,
-				heavy_quark_momenta, BND_CND_PRD, true, lattice, lanc_h_P.get(), cmdline.random_prop_solns);
-    Props props_h_A;      
-    computeMomSourcePropagators(props_h_A, ama_arg.mh,
-				se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision,
-				se == 0 ? tslice_sloppy : tslice_exact,
-				heavy_quark_momenta, BND_CND_APRD, true, lattice, lanc_h_A.get(), cmdline.random_prop_solns);
-
-
-    Props props_h_F, props_h_B;
-    combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
-
-
-      
     const std::vector<int> &tslices_se = se == 0 ? tslice_sloppy : tslice_exact;
+    const double precision_se = se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision;
+    
+#ifdef DO_MOM_SOURCE
+    {
+      std::string se_str = se == 0 ? "_momsrc_sloppy" : "_momsrc_exact";
+      
+      //Light quark props
+      Props props_l_P, props_l_A;
+      computeMomSourcePropagators(props_l_P, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_PRD, true, lattice, lanc_l_P.get(), cmdline.random_prop_solns);
+      computeMomSourcePropagators(props_l_A, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_APRD, true, lattice, lanc_l_A.get(), cmdline.random_prop_solns);
 
-    measFB(props_l_F, props_l_B,
-		props_h_F, props_h_B,
-		props_l_A,
-		tslices_se,
-		se_str,
-		pion_momenta,
-		kaon_momenta,
-		su2_singlet_momenta,
-		cmdline,
-		ama_arg,
-		bk_tseps,
-		conf,
-		lattice
-	   );
+      Props props_l_F, props_l_B;
+      combinePA(props_l_F, props_l_B, props_l_P, props_l_A);
+
+      //Heavy quark props
+      Props props_h_P, props_h_A;
+      computeMomSourcePropagators(props_h_P, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_PRD, true, lattice, lanc_h_P.get(), cmdline.random_prop_solns);
+      computeMomSourcePropagators(props_h_A, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_APRD, true, lattice, lanc_h_A.get(), cmdline.random_prop_solns);
+
+      Props props_h_F, props_h_B;
+      combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
+
+      measFB(props_l_F, props_l_B, props_h_F, props_h_B, props_l_A, tslices_se, se_str, pion_momenta, kaon_momenta, su2_singlet_momenta, cmdline, ama_arg, bk_tseps, conf, lattice);
+    }
+#endif
+
+#ifdef DO_Z2_MOM_SOURCE
+    {
+      std::string se_str = se == 0 ? "_z2momsrc_sloppy" : "_z2momsrc_exact";
+
+       //Light quark props
+      Props props_l_P, props_l_A;
+      computeRandMomSourcePropagators(props_l_P, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_PRD, true, lattice, lanc_l_P.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_l_A, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_APRD, true, lattice, lanc_l_A.get(), cmdline.random_prop_solns);
+
+      Props props_l_F, props_l_B;
+      combinePA(props_l_F, props_l_B, props_l_P, props_l_A);
+
+      //Heavy quark props
+      Props props_h_P, props_h_A;
+      computeRandMomSourcePropagators(props_h_P, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_PRD, true, lattice, lanc_h_P.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_h_A, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_APRD, true, lattice, lanc_h_A.get(), cmdline.random_prop_solns);
+
+      Props props_h_F, props_h_B;
+      combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
+
+      measFB(props_l_F, props_l_B, props_h_F, props_h_B, props_l_A, tslices_se, se_str, pion_momenta, kaon_momenta, su2_singlet_momenta, cmdline, ama_arg, bk_tseps, conf, lattice);
+    }
+#endif
+      
   }//se
 }
 
