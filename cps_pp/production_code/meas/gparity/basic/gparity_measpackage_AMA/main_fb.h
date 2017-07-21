@@ -3,6 +3,74 @@
 
 CPS_START_NAMESPACE
 
+void measFB(const Props &props_l_F, const Props &props_l_B,
+	    const Props &props_h_F, const Props &props_h_B,
+	    const Props &props_l_A,
+	    const std::vector<int> &tslices_se,
+	    const std::string &se_str,
+	    const MesonMomenta &pion_momenta,
+	    const MesonMomenta &kaon_momenta,
+	    const MesonMomenta &su2_singlet_momenta,
+	    const CmdLine &cmdline,
+	    const GparityAMAarg2 &ama_arg,
+	    const std::vector<int> &bk_tseps,
+	    const int conf,
+	    Lattice &lattice
+	    ){
+  std::string results_dir(ama_arg.results_dir);
+  
+  for(int fb=0; fb<2; fb++){
+    std::string fb_str = fb == 0 ? "_F" : "_B";
+
+    const Props &props_l_base = fb == 0 ? props_l_F : props_l_B;
+    const Props &props_l_shift = fb == 0 ? props_l_B : props_l_F;
+
+    const Props &props_h_base = fb == 0 ? props_h_F : props_h_B;
+    const Props &props_h_shift = fb == 0 ? props_h_B : props_h_F;
+	
+    PropGetterFB sites_l(props_l_base,props_l_shift);
+    PropGetterFB sites_h(props_h_base,props_h_shift);
+		
+    //Pion 2pt LW functions pseudoscalar and axial sinks      
+    measurePion2ptLW(sites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
+
+    //Kaon 2pt LW functions pseudoscalar and axial sinks
+    measureKaon2ptLW(sites_l, sites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+	
+    if(GJP.Gparity()){
+      WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
+      WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
+
+      //SU(2) flavor singlet
+      measureLightFlavorSingletLW(sites_l,tslices_se,su2_singlet_momenta,results_dir,conf, se_str + fb_str);
+	  	  
+      //Pion 2pt WW function pseudoscalar sink
+      measurePion2ptPPWWGparity(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
+	  
+      //Kaon 2pt WW function pseudoscalar sink
+      measureKaon2ptPPWWGparity(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+    }else{
+      WallSinkPropGetterFB<WilsonMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
+      WallSinkPropGetterFB<WilsonMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
+	  
+      //Pion 2pt WW function pseudoscalar sink
+      measurePion2ptPPWWStandard(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
+
+      //Kaon 2pt WW function pseudoscalar sink
+      measureKaon2ptPPWWStandard(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
+    }
+
+    //BK O_{VV+AA} 3pt contractions
+    //Need to ensure that props exist on t0 and t0+tsep for all tseps
+    measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str+fb_str,cmdline.bk_do_flavor_project);   
+  }//fb
+
+  PropGetterStd sites_l_A(props_l_A, BND_CND_APRD);
+  //J5 and J5q for mres
+  measureMres(sites_l_A,tslices_se,pion_momenta,results_dir,conf, se_str+"_A",cmdline.mres_do_flavor_project);
+}
+    
+
 void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
 	   const DoArg &do_arg,
 	   const LancArg &lanc_arg_l,
@@ -14,8 +82,6 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
 	   const MesonMomenta &kaon_momenta,
 	   const MesonMomenta &su2_singlet_momenta,
 	   const int conf){
-  std::string results_dir(ama_arg.results_dir);
-
   std::vector<int> tslice_sloppy, tslice_exact, bk_tseps;
   getTimeslices(tslice_sloppy, tslice_exact, bk_tseps,ama_arg,cmdline.random_exact_tsrc_offset);
   
@@ -83,55 +149,20 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
       
     const std::vector<int> &tslices_se = se == 0 ? tslice_sloppy : tslice_exact;
 
-    for(int fb=0; fb<2; fb++){
-      std::string fb_str = fb == 0 ? "_F" : "_B";
-
-      const Props &props_l_base = fb == 0 ? props_l_F : props_l_B;
-      const Props &props_l_shift = fb == 0 ? props_l_B : props_l_F;
-
-      const Props &props_h_base = fb == 0 ? props_h_F : props_h_B;
-      const Props &props_h_shift = fb == 0 ? props_h_B : props_h_F;
-	
-      PropGetterFB sites_l(props_l_base,props_l_shift);
-      PropGetterFB sites_h(props_h_base,props_h_shift);
-		
-      //Pion 2pt LW functions pseudoscalar and axial sinks      
-      measurePion2ptLW(sites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
-
-      //Kaon 2pt LW functions pseudoscalar and axial sinks
-      measureKaon2ptLW(sites_l, sites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
-	
-      if(GJP.Gparity()){
-	WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
-	WallSinkPropGetterFB<SpinColorFlavorMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
-
-	//SU(2) flavor singlet
-	measureLightFlavorSingletLW(sites_l,tslices_se,su2_singlet_momenta,results_dir,conf, se_str + fb_str);
-	  	  
-	//Pion 2pt WW function pseudoscalar sink
-	measurePion2ptPPWWGparity(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
-	  
-	//Kaon 2pt WW function pseudoscalar sink
-	measureKaon2ptPPWWGparity(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
-      }else{
-	WallSinkPropGetterFB<WilsonMatrix> wallsites_l(props_l_base, props_l_shift, lattice);
-	WallSinkPropGetterFB<WilsonMatrix> wallsites_h(props_h_base, props_h_shift, lattice);
-	  
-	//Pion 2pt WW function pseudoscalar sink
-	measurePion2ptPPWWStandard(wallsites_l, tslices_se, pion_momenta, results_dir, conf, se_str + fb_str);
-
-	//Kaon 2pt WW function pseudoscalar sink
-	measureKaon2ptPPWWStandard(wallsites_l,wallsites_h,tslices_se,kaon_momenta,results_dir,conf, se_str + fb_str);
-      }
-
-      //BK O_{VV+AA} 3pt contractions
-      //Need to ensure that props exist on t0 and t0+tsep for all tseps
-      measureBK(sites_l,sites_h,tslices_se,bk_tseps,kaon_momenta,results_dir,conf,se_str+fb_str,cmdline.bk_do_flavor_project);   
-    }//fb
-
-    PropGetterStd sites_l_A(props_l_A, BND_CND_APRD);
-    //J5 and J5q for mres
-    measureMres(sites_l_A,tslices_se,pion_momenta,results_dir,conf, se_str+"_A",cmdline.mres_do_flavor_project);
+    measFB(props_l_F, props_l_B,
+		props_h_F, props_h_B,
+		props_l_A,
+		tslices_se,
+		se_str,
+		pion_momenta,
+		kaon_momenta,
+		su2_singlet_momenta,
+		cmdline,
+		ama_arg,
+		bk_tseps,
+		conf,
+		lattice
+	   );
   }//se
 }
 
