@@ -132,7 +132,7 @@ void QPropWcontainer::readProp(Lattice &latt){
   if(UniqueID()==0) printf("Prop is on disk, loading from file %s\n",io->qio_filename);
   
   //load prop with info from io
-  CommonArg c_arg("label","filename");//find out what this does!
+  CommonArg c_arg;
   
   prop = new QPropW(latt,&c_arg);
   prop->ReLoad(io->qio_filename);
@@ -145,7 +145,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   const char *cname = "QPropWcontainer";
   const char *fname = "calcProp()";
 
-  CommonArg c_arg("label","filename");//find out what this does!
+  CommonArg c_arg;
 
   GenericPropAttrArg *generics;
   if(!getAttr(generics)) ERR.General(cname,fname,"Propagator attribute list does not contain a GenericPropAttr\n");
