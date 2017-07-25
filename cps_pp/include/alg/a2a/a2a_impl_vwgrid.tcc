@@ -226,7 +226,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
 #endif
   
   //Allocate temp *double precision* storage for fermions
-  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldMappingPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(wh[0]->getDimPolParams());
+  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldMappingPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(V.getFieldInputParams());
   
   const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
 

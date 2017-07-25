@@ -179,7 +179,7 @@ public:
     for(int i=0;i<3;i++) p[i] = (GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0);
 
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
-    VWfieldInputParams fld_params = W.getWh(0).getDimPolParams();
+    VWfieldInputParams fld_params = W.getFieldInputParams();
     
     A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
     A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);

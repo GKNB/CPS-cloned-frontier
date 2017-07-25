@@ -636,6 +636,13 @@ public:
   SIMDdims(){ for(int i=0;i<N;i++) v[i] = 1; }
   SIMDdims(const int* f){ set(f); }
 };
+template<int N>
+std::ostream & operator<<(std::ostream &os, const SIMDdims<N> &v){
+  os << "SIMDdims(";
+  for(int i=0;i<N-1;i++) os << v[i] << ", ";
+  os << v[N-1] << ")";
+  return os;
+}
 
 template<int Dimension>
 class SIMDpolicyBase{

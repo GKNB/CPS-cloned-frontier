@@ -516,9 +516,10 @@ void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &pa
 
 A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const LanczosWrapper &eig,
 		      const bool evecs_single_prec, const bool randomize_vw, const bool mixed_solve, Float const* inner_cg_resid_p, const bool delete_lattice, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+  const A2AArg &a2a_arg = lh == Light ? params.a2a_arg : params.a2a_arg_s;  
   const char* name = (lh ==  Light ? "light" : "heavy");
   A2ALattice* a2a_lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS); //the lattice class used to perform the CG and whatnot
-    
+  
   if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
   double time = -dclock();
 
@@ -527,10 +528,10 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
 #endif
 
   typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
-  Field4DparamType field4dparams = V.getVh(0).getDimPolParams();
+  Field4DparamType field4dparams = V.getFieldInputParams();
   
   if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n", 
-			  A2AvectorV<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams) );
+			  A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
     fflush(stdout);
   }
     

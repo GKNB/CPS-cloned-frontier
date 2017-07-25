@@ -71,6 +71,12 @@ public:
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
+  inline FieldInputParamType getFieldInputParams() const{
+    if(v.size() == 0) ERR.General("A2AvectorV","getFieldInputParams","Vector size is zero\n");
+    if(!v[0].assigned()) ERR.General("A2AvectorV","getFieldInputParams","Zeroth field is unassigned\n");
+    return v[0]->getDimPolParams();
+  }    
+  
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline FermionFieldType & getMode(const int i){ return *v[i]; }  
 
@@ -134,9 +140,15 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
-
+  
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
+  inline FieldInputParamType getFieldInputParams() const{
+    if(v.size() == 0) ERR.General("A2AvectorVfftw","getFieldInputParams","Vector size is zero\n");
+    if(!v[0].assigned()) ERR.General("A2AvectorVfftw","getFieldInputParams","Zeroth field is unassigned\n");
+    return v[0]->getDimPolParams();
+  }   
+  
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
@@ -244,6 +256,14 @@ public:
   void setWhRandom();
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  inline FieldInputParamType getFieldInputParams() const{
+    if(wl.size() == 0 && wh.size() == 0) ERR.General("A2AvectorW","getFieldInputParams","Wl and Wh sizes are both zero\n");
+    if(wl.size() != 0 && wl[0].assigned()) return wl[0]->getDimPolParams();
+    if(wh.size() != 0 && wh[0].assigned()) return wh[0]->getDimPolParams();
+    
+    ERR.General("A2AvectorW","getFieldInputParams","Neither of the zeroth fields are assigned\n");
+  }   
   
   const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
@@ -386,6 +406,14 @@ public:
   }
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  inline FieldInputParamType getFieldInputParams() const{
+    if(wl.size() == 0 && wh.size() == 0) ERR.General("A2AvectorWfft","getFieldInputParams","Wl and Wh sizes are both zero\n");
+    if(wl.size() != 0 && wl[0].assigned()) return wl[0]->getDimPolParams();
+    if(wh.size() != 0 && wh[0].assigned()) return wh[0]->getDimPolParams();
+    
+    ERR.General("A2AvectorWfftw","getFieldInputParams","Neither of the zeroth fields are assigned\n");
+  }   
   
   inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return *wh[spin_color + 12*hit]; }

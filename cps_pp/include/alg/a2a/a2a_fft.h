@@ -31,7 +31,7 @@ struct _V_fft_impl{
   static inline void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
     if(!UniqueID()){ printf("Doing V FFT\n"); fflush(stdout); }
     typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
+    FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup);
 
     Float action_output_mode_time = 0;
@@ -81,7 +81,7 @@ struct _V_invfft_impl{
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
     if(!UniqueID()){ printf("Doing V inverse FFT\n"); fflush(stdout); }
     typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getMode(0).getDimPolParams();  
+    FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup);
 
     Float action_output_mode_time = 0;
@@ -162,7 +162,7 @@ struct _W_fft_impl{
   inline static void fft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_preop){
     if(!UniqueID()){ printf("Doing W FFT\n"); fflush(stdout); }
     typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getWh(0).getDimPolParams();  
+    FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup), tmp2(field_setup);
 
     Float action_output_mode_time = 0;
@@ -236,7 +236,7 @@ struct _W_invfft_impl{
   static inline void inversefft(OutputType &to, InputType &from, fieldOperation<FermionFieldType>* mode_postop){
     if(!UniqueID()){ printf("Doing W inverse FFT\n"); fflush(stdout); }
     typedef typename FermionFieldType::InputParamType FieldParamType;
-    FieldParamType field_setup = from.getWh(0,0).getDimPolParams();  
+    FieldParamType field_setup = from.getFieldInputParams();
     FermionFieldType tmp(field_setup), tmp2(field_setup);
 
     Float action_output_mode_time = 0;
