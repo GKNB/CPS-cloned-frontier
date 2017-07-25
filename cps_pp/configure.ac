@@ -625,19 +625,14 @@ AC_SUBST(LOCALPRECISION)
 AC_SUBST(PRECDIR)
 
 
-#echo top_srcdir = ${ac_top_srcdir}
-#echo abs_top_srcdir = ${ac_abs_top_srcdir}
-#exit
-#if test "X${SRCDIR}X" = "XX"; then
-	SRCDIR=${ac_abs_top_srcdir}
-#fi
-#	echo "SRCDIR =" X${SRCDIR}X
-#	exit 1
-#AC_SUBST(SRCDIR)
-#if test "X${BUILDDIR}X" = "XX"; then
-	BUILDDIR=${ac_abs_top_builddir}
-#fi
-#AC_SUBST(BUILDDIR)
+if test "X${SRCDIR}X" = "XX"; then
+	SRCDIR='${SRCDIR0}'
+fi
+if test "X${BUILDDIR}X" = "XX"; then
+	BUILDDIR='${BUILDDIR0}'
+fi
+AC_SUBST(SRCDIR)
+AC_SUBST(BUILDDIR)
 
 dnl configuring version number
 .  $srcdir/VERSION

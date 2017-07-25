@@ -39,10 +39,10 @@ require 'machine_depend.pl' ;
 #------ 
 
 # This makes it run autoconf version:
-  $machine = 'powerpc64-bgq-linux-gnu';
+  $machine = 'x86_64-unknown-linux-gnu';
   $parallel = 'yes';
-  $executable = "BGQ.x";
-  $mach = "BGQ"  ; 
+  $executable = "NOARCH.x";
+  $mach = "NOARCH"  ; 
 
 
 
