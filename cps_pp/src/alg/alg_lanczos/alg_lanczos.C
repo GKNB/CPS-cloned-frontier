@@ -153,7 +153,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
     // set the initial vector 
     int nodes = GJP.Nodes(0)*GJP.Nodes(1)*GJP.Nodes(2)*GJP.Nodes(3)*GJP.Nodes(4);
     for(int n=0;n<f_size;n+=2){
-      *((float*)(eigenv[0])+n) = (float)(sqrt(2.0)/sqrt((float)nodes)/sqrt((float)f_size));
+      *((float*)(eigenv[0])+n) = (float)(std::sqrt(2.0)/std::sqrt((float)nodes)/std::sqrt((float)f_size));
       *((float*)(eigenv[0])+1+n) = 0.0;
     }
 #if 0

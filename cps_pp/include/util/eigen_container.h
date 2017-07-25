@@ -711,8 +711,8 @@ private:
 #endif
 
     
-    Float rnorm = sqrt(Apsi->NormSqGlbSum(f_size ));
-    Float norm = sqrt(vtmp->NormSqGlbSum(f_size));
+    Float rnorm = std::sqrt(Apsi->NormSqGlbSum(f_size ));
+    Float norm = std::sqrt(vtmp->NormSqGlbSum(f_size));
     VRB.Result(cname,fname, "Final True Residual  %e norm %e alpha %.16e\n",rnorm,norm,alp);
 
 
@@ -802,13 +802,13 @@ private:
     int n_lcon = (neig-1)/step_eig + 1;
 
     // sol[0] is the linear combination
-    Float norm = sqrt(sol[0]->NormSqGlbSum(f_size ));
+    Float norm = std::sqrt(sol[0]->NormSqGlbSum(f_size ));
     sol[0] -> VecTimesEquFloat(1.0/norm, f_size);
 
     for(int i=0; i< n_lcon-1 ;++i) {
       HermicianDWF_ee( vtmp, sol[i], mass, lattice, Apsi );    
       sol[i+1] -> FTimesV1PlusV2( -1.0/eig1[i], vtmp, sol[i], f_size );
-      Float norm = sqrt(sol[i+1]->NormSqGlbSum(f_size ));
+      Float norm = std::sqrt(sol[i+1]->NormSqGlbSum(f_size ));
       VRB.Result(cname,fname,"extracting %d %g %g\n",i,eig1[i], norm);
       sol[i+1] -> VecTimesEquFloat(1.0/norm, f_size);
     }
@@ -821,7 +821,7 @@ private:
     for(int i=n_lcon-2; i>=0; --i){
       lanczos_GramSchm( (Float*)(sol[i]), (Float**)sol+i+1, 
 			n_lcon-1-i, f_size,0);
-      Float norm = sqrt(sol[i]->NormSqGlbSum(f_size ));
+      Float norm = std::sqrt(sol[i]->NormSqGlbSum(f_size ));
       VRB.Result(cname,fname,"claiming %d %g %g\n",i,eig1[i], norm);
       sol[i] -> VecTimesEquFloat(1.0/norm, f_size);
       nev_check( sol[i],  mass );

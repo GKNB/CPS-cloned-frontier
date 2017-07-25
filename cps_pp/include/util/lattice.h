@@ -1356,7 +1356,7 @@ class Lattice
     // added by Hantao to facilitate doing force statistics.
     void updateForce(ForceArg &f_arg, const Matrix &m)const {
         Float a2 = m.norm();
-        Float a = sqrt(a2);
+        Float a = ::sqrt(a2);
 
         f_arg.L1 += a;
         f_arg.L2 += a2;
