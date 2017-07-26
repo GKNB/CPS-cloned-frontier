@@ -1197,7 +1197,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
-      eig.writeParallel(os.str());
+      if(params.lanc_arg.N_true_get > 0) eig.writeParallel(os.str());
       time+=dclock();
       print_time("main","Light Lanczos write",time);
     }
