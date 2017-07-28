@@ -1,8 +1,9 @@
 template<typename GridPolicies>
 void EvecInterface<GridPolicies>::CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
 					     typename GridPolicies::GridFermionField &solution, const typename GridPolicies::GridFermionField &source,
-					     double resid, int max_iters){
-  Grid::ConjugateGradient<GridFermionField> CG(resid, max_iters);
+					     const CGcontrols &cg_controls){
+  if(cg_controls.CGalgorithm != AlgorithmCG) ERR.General("EvecInterface","CGNE_MdagM","Only regular CG is presently supported");
+  Grid::ConjugateGradient<GridFermionField> CG(cg_controls.CG_tolerance, cg_controls.CG_max_iters);
   CG(linop, source, solution);
 }
 
@@ -24,6 +25,7 @@ class EvecInterfaceBFM: public EvecInterface<GridPolicies>{
   GridFermionField *tmp_full;
 public:
   EvecInterfaceBFM(BFM_Krylov::Lanczos_5d<double> &_eig, bfm_evo<double> &_dwf, Lattice &lat, const bool _singleprec_evecs): eig(_eig), dwf(_dwf), singleprec_evecs(_singleprec_evecs){
+    
     len = 24 * eig.dop.node_cbvol * (1 + dwf.gparity) * eig.dop.cbLs;
     cps_tmp_d = (double*)malloc(len * sizeof(double));
     bq_tmp_bfm = dwf.allocCompactFermion(); 
@@ -139,10 +141,8 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
 
   bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
 
-  bool override_inner_resid;
-  Float inner_resid;
 public:
-  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false), override_inner_resid(false){
+  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false){
     FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
     const GridGaugeField & Umu = *latg.getUmu();    
     
@@ -182,12 +182,6 @@ public:
     delete Linop_f;
     if(delete_FrbGrid_f) delete FrbGrid_f;
   }
-
-  //Optionally set the initial inner CG residual. By default it is the same as the overall residual.
-  void overrideInitialInnerResid(const Float value){
-    inner_resid = value;
-    override_inner_resid = true;
-  }
   
   Float getEvec(GridFermionField &into, const int idx){ //get *double precision* eigenvector
     precisionChange(into,evec[idx]);
@@ -203,24 +197,30 @@ public:
   
   //Overload high-mode solve to call mixed precision CG with single prec evecs
   void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
-			  GridFermionField &solution, const GridFermionField &source,
-			  double resid, int max_iters){
-#ifndef USE_RELIABLE_UPDATE_CG
-    //Mixed precision restarted CG
-    Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
-    deflateGuess<GridFermionFieldF> guesser(evec,eval);
-    mCG.useGuesser(guesser);
+		  GridFermionField &solution, const GridFermionField &source,
+		  const CGcontrols &cg_controls){
 
-# ifndef DISABLE_GRID_MCG_INNERTOL //Temporary catch for old branches of Grid that do not have the new mixed CG inner tol option
-    if(override_inner_resid) mCG.InnerTolerance = inner_resid;
-# endif
-    mCG(source,solution);
+
     
-#else
-    //Mixed precision reliable update CG
-    Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(resid, max_iters, 0.1, FrbGrid_f, *Linop_f, linop);
-    rlCG(source, solution);
+    if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionRestartedCG){
+      Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, 50, FrbGrid_f, *Linop_f, linop);
+      deflateGuess<GridFermionFieldF> guesser(evec,eval);
+      mCG.useGuesser(guesser);
+# ifndef DISABLE_GRID_MCG_INNERTOL //Temporary catch for old branches of Grid that do not have the new mixed CG inner tol option
+      mCG.InnerTolerance = cg_controls.mixedCG_init_inner_tolerance;
+# endif
+      mCG(source,solution);
+    }
+#ifndef DISABLE_GRID_RELIABLE_UPDATE_CG //Old versions of Grid don't have it      
+    else if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
+      Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta, FrbGrid_f, *Linop_f, linop);
+      rlCG(source, solution);
+    }      
 #endif
+    else if(cg_controls.CGalgorithm == AlgorithmCG){
+      this->EvecInterface<GridPolicies>::CGNE_MdagM(linop, solution, source, cg_controls);
+    }
+    else ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM","Unknown CG algorithm");
   }
 
   void Report() const{

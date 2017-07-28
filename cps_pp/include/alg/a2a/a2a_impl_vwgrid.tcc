@@ -261,7 +261,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG
-    Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, cg_controls.CG_tolerance, cg_controls.CG_max_iters, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
+    Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, cg_controls, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
     
     //CPSify the solution, including 1/nhit for the hit average
     DomainWallFiveToFour(tmp_full_4d, gtmp_full, glb_ls-1,0);
@@ -333,12 +333,6 @@ template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
   if(!UniqueID()) printf("computeVWhigh with EvecInterfaceGridSinglePrec\n");
   EvecInterfaceGridSinglePrec<mf_Policies> ev(evec,eval,lat,mass);
-# ifdef USE_RELIABLE_UPDATE_CG
-  if(cg_controls.CGalgorithm != AlgorithmMixedPrecisionReliableUpdateCG) ERR.General("A2AvectorW","computeVWhigh","Grid computation of V and W with single precision evecs is set for reliable update\n");
-# else
-  if(cg_controls.CGalgorithm != AlgorithmMixedPrecisionRestartedCG) ERR.General("A2AvectorW","computeVWhigh","Grid computation of V and W with single precision evecs is set for mixed-precision restarted CG\n");
-  ev.overrideInitialInnerResid(cg_controls.mixedCG_init_inner_tolerance);
-# endif
   return computeVWhigh(V,lat,ev,mass,cg_controls);
 }
 

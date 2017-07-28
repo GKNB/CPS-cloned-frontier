@@ -9,7 +9,7 @@ CPS_START_NAMESPACE
 
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.
 template<typename GridPolicies>
-inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, const typename GridPolicies::GridFermionField &source, double resid, int max_iters,
+inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, const typename GridPolicies::GridFermionField &source, const CGcontrols &cg_controls,
 			     EvecInterface<GridPolicies> &evecs, int nLowMode, 
 			     typename GridPolicies::FgridFclass &latg, typename GridPolicies::GridDirac &Ddwf, Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
   typedef typename GridPolicies::GridFermionField GridFermionField;
@@ -77,7 +77,7 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
 
   //MdagM inverse controlled by evec interface
 #ifndef MEMTEST_MODE
-  evecs.CGNE_MdagM(linop, sol_o, src_o, resid, max_iters);
+  evecs.CGNE_MdagM(linop, sol_o, src_o, cg_controls);
 #endif
   
   f = norm2(sol_o);
