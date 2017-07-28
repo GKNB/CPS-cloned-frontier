@@ -205,26 +205,20 @@ public:
   void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
 			  GridFermionField &solution, const GridFermionField &source,
 			  double resid, int max_iters){    
-    deflateGuess<GridFermionFieldF> guesser(evec,eval);
-
 #ifndef USE_RELIABLE_UPDATE_CG
     //Mixed precision restarted CG
     Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
+    deflateGuess<GridFermionFieldF> guesser(evec,eval);
     mCG.useGuesser(guesser);
 
 # ifndef DISABLE_GRID_MCG_INNERTOL //Temporary catch for old branches of Grid that do not have the new mixed CG inner tol option
     if(override_inner_resid) mCG.InnerTolerance = inner_resid;
 # endif
     mCG(source,solution);
+    
 #else
     //Mixed precision reliable update CG
     Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(resid, max_iters, 0.1, FrbGrid_f, *Linop_f, linop);
-    GridFermionFieldF tmp_src(FrbGrid_f);
-    GridFermionFieldF tmp_sol(FrbGrid_f);
-    Grid::precisionChange(tmp_src, source);
-    Grid::precisionChange(tmp_sol, solution);
-    guesser(tmp_src, tmp_sol);
-    Grid::precisionChange(solution, tmp_sol);
     rlCG(source, solution);
 #endif
   }
