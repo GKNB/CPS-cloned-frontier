@@ -94,11 +94,24 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   const char *fname = "computeVWhigh(....)";
-  bool mixed_prec_cg = dwf_fp != NULL; 
-  if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW",fname,"If using mixed precision CG, input eigenvectors must be stored in single precision"); }
-
+  dwf_d.residual = cg_controls.CG_tolerance;
+  dwf_d.max_iter = cg_controls.CG_max_iters;    
+  
+  bool mixed_prec_cg;
+  if(cg_controls.CGalgorithm == AlgorithmCG){
+    mixed_prec_cg = false;
+  }else if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionRestartedCG){
+    mixed_prec_cg = true;
+    if(dwf_fp == NULL) ERR.General("A2AvectorW",fname,"If using mixed precision CG, require single precision bfm instance");
+    if(!singleprec_evecs) ERR.General("A2AvectorW",fname,"If using mixed precision CG, input eigenvectors must be stored in single precision");
+    dwf_fp->max_iter = cg_controls.CG_max_iters;
+    dwf_fp->residual = cg_controls.mixedCG_init_inner_tolerance;
+  }else{
+    ERR.General("","computeVW","BFM computation of V and W only supports standard CG and mixed-precision restarted CG\n");
+  }
+  
   VRB.Result("A2AvectorW", fname, "Start computing high modes.\n");
     
   //Generate the compact random sources for the high modes if they have not already been set
@@ -168,7 +181,6 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
     //Do the CG
     if(mixed_prec_cg){
       //Do the mixed precision deflated solve
-      dwf_fp->residual = 1e-5; //todo: make this not hardcoded
       int max_cycle = 100;
 #ifdef USE_NEW_BFM_GPARITY
       omp_set_num_threads(dwf_d.threads);

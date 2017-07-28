@@ -1098,4 +1098,18 @@ struct vml_enum_map BfmSolverType_map[] = {
 	{"BfmSolverType","BFM_HtContFracZolo",BFM_HtContFracZolo},
 	{NULL,NULL,0}
 };
+
+bool_t
+vml_A2ACGalgorithm (VML *vmls, char *name,A2ACGalgorithm *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2ACGalgorithm_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2ACGalgorithm_map[] = {
+	{"A2ACGalgorithm","AlgorithmCG",AlgorithmCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionRestartedCG",AlgorithmMixedPrecisionRestartedCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
+	{NULL,NULL,0}
+};
 CPS_END_NAMESPACE

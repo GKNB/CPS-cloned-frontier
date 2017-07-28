@@ -278,17 +278,19 @@ public:
     *wh[hit] = whin;
   }
 
-#if defined(USE_GRID_A2A)
+#if defined(USE_GRID_A2A) && ( defined(USE_GRID_LANCZOS) || defined(USE_BFM_LANCZOS) )
   //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
 
   //Compute the low mode part of the W and V vectors.
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass);
 
   //Compute the high mode parts of V and W. 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
 #endif
 
-#if defined(USE_BFM_LANCZOS)
+#if defined(USE_BFM_LANCZOS) && ( defined(USE_BFM_A2A) || defined(USE_GRID_A2A) )
+  //BFM for Lanczos and either BFM or Grid for A2A
+  
   //In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
   //Set 'singleprec_evecs' if this has been done
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
@@ -296,33 +298,34 @@ public:
   //singleprec_evecs specifies whether the input eigenvectors are stored in single precision
   //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
   //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-  void computeVWhigh(A2AvectorV<Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
+  void computeVWhigh(A2AvectorV<Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
     computeVWlow(V,lat,eig,dwf_d,singleprec_evecs);
-    computeVWhigh(V,eig,singleprec_evecs,lat,dwf_d,dwf_fp);
+    computeVWhigh(V,eig,singleprec_evecs,lat,cg_controls,dwf_d,dwf_fp);
   }
 #endif
 
 
-#if defined(USE_GRID_LANCZOS)
+#if defined(USE_GRID_LANCZOS) && defined(USE_GRID_A2A)
+  //Pure Grid for both Lanczos and A2A
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
     computeVWlow(V,lat,evec,eval,mass);
-    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
+    computeVWhigh(V,lat,evec,eval,mass,cg_controls);
   }
 
   //Single-precision variants (use mixed_CG internally)
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter, const Float *init_inner_resid = NULL);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter, const Float *high_mode_init_inner_resid = NULL){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
     computeVWlow(V,lat,evec,eval,mass);
-    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter,high_mode_init_inner_resid);
+    computeVWhigh(V,lat,evec,eval,mass,cg_controls);
   }
 #endif
 

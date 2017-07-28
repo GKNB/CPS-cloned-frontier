@@ -758,6 +758,14 @@ enum BfmSolverType {
 typedef enum BfmSolverType BfmSolverType;
 extern struct vml_enum_map BfmSolverType_map[];
 
+enum A2ACGalgorithm {
+	AlgorithmCG = 0,
+	AlgorithmMixedPrecisionRestartedCG = 1,
+	AlgorithmMixedPrecisionReliableUpdateCG = 2,
+};
+typedef enum A2ACGalgorithm A2ACGalgorithm;
+extern struct vml_enum_map A2ACGalgorithm_map[];
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -823,6 +831,7 @@ extern  bool_t vml_GaussianKernelLinkSmearType (VML *, char *instance, GaussianK
 extern  bool_t vml_CalcQpropType (VML *, char *instance, CalcQpropType*);
 extern  bool_t vml_CalcSeqType (VML *, char *instance, CalcSeqType*);
 extern  bool_t vml_BfmSolverType (VML *, char *instance, BfmSolverType*);
+extern  bool_t vml_A2ACGalgorithm (VML *, char *instance, A2ACGalgorithm*);
 
 #else /* K&R C */
 extern  bool_t vml_pooh (VML *, char *instance, pooh*);
@@ -883,6 +892,7 @@ extern  bool_t vml_GaussianKernelLinkSmearType (VML *, char *instance, GaussianK
 extern  bool_t vml_CalcQpropType (VML *, char *instance, CalcQpropType*);
 extern  bool_t vml_CalcSeqType (VML *, char *instance, CalcSeqType*);
 extern  bool_t vml_BfmSolverType (VML *, char *instance, BfmSolverType*);
+extern  bool_t vml_A2ACGalgorithm (VML *, char *instance, A2ACGalgorithm*);
 
 #endif /* K&R C */
 

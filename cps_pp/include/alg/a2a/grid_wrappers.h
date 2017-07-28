@@ -14,6 +14,7 @@ struct GridLanczosWrapper{
   std::vector<typename GridPolicies::GridFermionFieldF> evec_f;
   double mass;
   double resid;
+  bool singleprec_evecs;
   
   //For precision change
   Grid::GridCartesian *UGrid_f;
@@ -21,7 +22,7 @@ struct GridLanczosWrapper{
   Grid::GridCartesian *FGrid_f;
   Grid::GridRedBlackCartesian *FrbGrid_f;
   
-  GridLanczosWrapper(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL){
+  GridLanczosWrapper(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL), singleprec_evecs(false){
   }
 
   void setupSPgrids(){
@@ -50,8 +51,10 @@ struct GridLanczosWrapper{
 # ifdef A2A_LANCZOS_SINGLE
     setupSPgrids();
     gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
+    singleprec_evecs = true;
 # else    
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
+    singleprec_evecs = false;
 #  ifndef MEMTEST_MODE
     test_eigenvectors(evec,eval,lanc_arg.mass,lat);
 #  endif
@@ -135,9 +138,12 @@ struct GridLanczosWrapper{
       if(!UniqueID()) printf("random evec %d Grid norm %g CPS norm %g (odd %g : odd f0 %g, odd f1 %g) (even %g : even f0 %g, even f1 %g) and eval %g\n",i,nrm,nrmcps,nrmoddcps,nrmoddf0cps,nrmoddf1cps,nrmevencps,nrmevenf0cps,nrmevenf1cps,eval[i]);
 
     }
+    singleprec_evecs = false;
   }
   
   void toSingle(){
+    if(singleprec_evecs) return;
+    
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
 
@@ -154,16 +160,13 @@ struct GridLanczosWrapper{
     }
     //These are in reverse order!
     std::reverse(evec_f.begin(), evec_f.end());
+    singleprec_evecs = true;
   }
 
-
-    
-
-  
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const{
     if(evec.size() == 0 && evec_f.size() == 0) ERR.General("GridLanczosWrapper","writeParallel","No eigenvectors to write!\n");
     
-    bool single_prec = evec_f.size() > 0;
+    bool single_prec = singleprec_evecs;
     int n_evec = single_prec ? evec_f.size() : evec.size();
 
     Grid::GridBase* grd = single_prec ? evec_f[0]._grid : evec[0]._grid;
@@ -264,6 +267,7 @@ struct GridLanczosWrapper{
 	evec_f[i].checkerboard = Grid::Odd;
 	c_odd_f.exportGridField(evec_f[i]);
       }
+      singleprec_evecs = true;
     }else{
       CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d;
       Grid::GridRedBlackCartesian *FrbGrid = lat.getFrbGrid();
@@ -273,6 +277,7 @@ struct GridLanczosWrapper{
 	evec[i].checkerboard = Grid::Odd;
 	c_odd_d.exportGridField(evec[i]);
       }
+      singleprec_evecs = false;
     }
 
     getline(file,str); assert(str == "END_EVECS");

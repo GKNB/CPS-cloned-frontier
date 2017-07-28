@@ -173,11 +173,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 
 
 //Compute the high mode parts of V and W. 
-//singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
-//You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
-//WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const Float residual, const int max_iter){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
@@ -264,7 +261,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG
-    Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, residual, max_iter, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
+    Grid_CGNE_M_high<mf_Policies>(gtmp_full, gsrc, cg_controls.CG_tolerance, cg_controls.CG_max_iters, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
     
     //CPSify the solution, including 1/nhit for the hit average
     DomainWallFiveToFour(tmp_full_4d, gtmp_full, glb_ls-1,0);
@@ -293,7 +290,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 }
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   bool mixed_prec_cg = dwf_fp != NULL; 
   if(mixed_prec_cg){
     //NOT IMPLEMENTED YET
@@ -303,7 +300,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   if(mixed_prec_cg && !singleprec_evecs){ ERR.General("A2AvectorW","computeVWhigh","If using mixed precision CG, input eigenvectors must be stored in single precision"); }
 
   EvecInterfaceBFM<mf_Policies> ev(eig,dwf_d,lat,singleprec_evecs);
-  return computeVWhigh(V,lat,ev,dwf_d.mass,dwf_d.residual,dwf_d.max_iter);
+  return computeVWhigh(V,lat,ev,dwf_d.mass,cg_controls);
 }
 
 #endif
@@ -320,9 +317,10 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 }
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
+  if(!UniqueID()) printf("computeVWhigh with EvecInterfaceGrid\n");
   EvecInterfaceGrid<mf_Policies> ev(evec,eval);
-  return computeVWhigh(V,lat,ev,mass,residual,max_iter);
+  return computeVWhigh(V,lat,ev,mass,cg_controls);
 }
 
 template< typename mf_Policies>
@@ -332,10 +330,16 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 }
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter, const Float *init_inner_resid){
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, const std::vector<typename mf_Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
+  if(!UniqueID()) printf("computeVWhigh with EvecInterfaceGridSinglePrec\n");
   EvecInterfaceGridSinglePrec<mf_Policies> ev(evec,eval,lat,mass);
-  if(init_inner_resid != NULL) ev.overrideInitialInnerResid(*init_inner_resid);
-  return computeVWhigh(V,lat,ev,mass,residual,max_iter);
+# ifdef USE_RELIABLE_UPDATE_CG
+  if(cg_controls.CGalgorithm != AlgorithmMixedPrecisionReliableUpdateCG) ERR.General("A2AvectorW","computeVWhigh","Grid computation of V and W with single precision evecs is set for reliable update\n");
+# else
+  if(cg_controls.CGalgorithm != AlgorithmMixedPrecisionRestartedCG) ERR.General("A2AvectorW","computeVWhigh","Grid computation of V and W with single precision evecs is set for mixed-precision restarted CG\n");
+  ev.overrideInitialInnerResid(cg_controls.mixedCG_init_inner_tolerance);
+# endif
+  return computeVWhigh(V,lat,ev,mass,cg_controls);
 }
 
 

@@ -47,7 +47,7 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 # define LANCZOS_EXTRA_ARG *lanczos_lat
 # define COMPUTE_EVECS_EXTRA_ARG_PASS NULL
 # define COMPUTE_EVECS_EXTRA_ARG_GRAB void*
-#else //USE_BFM_LANCZOS
+#elif defined(USE_BFM_LANCZOS)
   typedef BFMLanczosWrapper LanczosWrapper;
   typedef GwilsonFdwf LanczosLattice;
 # define LANCZOS_LATARGS bfm_solvers
@@ -56,16 +56,20 @@ typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
 # define LANCZOS_EXTRA_ARG bfm_solvers
 # define COMPUTE_EVECS_EXTRA_ARG_PASS bfm_solvers
 # define COMPUTE_EVECS_EXTRA_ARG_GRAB BFMsolvers &bfm_solvers
+#else
+#error "Must compile with either USE_GRID_LANCZOS or USE_BFM_LANCZOS"
 #endif
 
 #ifdef USE_GRID_A2A
   typedef A2Apolicies::FgridGFclass A2ALattice;
 # define A2A_LATARGS params.jp
 # define A2A_LATMARK isGridtype
-#else
+#elif defined(USE_BFM_A2A)
   typedef GwilsonFdwf A2ALattice;
 # define A2A_LATARGS bfm_solvers
 # define A2A_LATMARK isBFMtype
+#else
+#error "Must compile with either USE_GRID_A2A or USE_BFM_A2A"
 #endif
 
 #ifdef USE_GRID
@@ -306,16 +310,11 @@ struct CommandLineArgs{
   bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
   bool skip_gauge_fix;
   bool double_latt; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
-  bool mixed_solve; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
-  bool evecs_single_prec; //convert the eigenvectors to single precision to save memory
   bool do_kaon2pt;
   bool do_pion2pt;
   bool do_pipi;
   bool do_ktopipi;
   bool do_sigma;
-
-  Float inner_cg_resid;
-  Float *inner_cg_resid_p;
 
   bool do_split_job;
   int split_job_part;
@@ -341,16 +340,11 @@ struct CommandLineArgs{
     tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
     skip_gauge_fix = false;
     double_latt = false; //most ancient 8^4 quenched lattices stored both U and U*. Enable this to read those configs
-    mixed_solve = true; //do high mode inversions using mixed precision solves. Is disabled if we turn off the single-precision conversion of eigenvectors (because internal single-prec inversion needs singleprec eigenvectors)
-    evecs_single_prec = true; //convert the eigenvectors to single precision to save memory
     do_kaon2pt = true;
     do_pion2pt = true;
     do_pipi = true;
     do_ktopipi = true;
     do_sigma = true;
-
-    inner_cg_resid;
-    inner_cg_resid_p = NULL;
 
     do_split_job = false;
 
@@ -370,9 +364,15 @@ struct CommandLineArgs{
       if(!UniqueID()){ printf("%d \"%s\"\n",i,argv[i]); fflush(stdout); }
     }
     
-    const int ngrid_arg = 10;
-    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll", "--dslash-asm", "--shm", "--lebesgue", "--cacheblocking", "--comms-concurrent", "--comms-sequential", "--comms-overlap" };
-    const int grid_args_skip[ngrid_arg] =    { 1                , 1                 , 1                , 1             , 2      , 1           , 2                , 1              , 1                 , 1 };
+    const int ngrid_arg = 11;
+    const std::string grid_args[ngrid_arg] = { "--debug-signals", "--dslash-generic", "--dslash-unroll",
+					       "--dslash-asm", "--shm", "--lebesgue",
+					       "--cacheblocking", "--comms-concurrent", "--comms-sequential",
+					       "--comms-overlap", "--log" };
+    const int grid_args_skip[ngrid_arg] =    { 1  , 1 , 1,
+					       1  , 2 , 1,
+					       2  , 1 , 1,
+					       1  , 2};
 
     int arg = begin;
     while(arg < argc){
@@ -382,15 +382,6 @@ struct CommandLineArgs{
 	nthreads = strToAny<int>(argv[arg+1]);
 	if(!UniqueID()){ printf("Setting number of threads to %d\n",nthreads); }
 	arg+=2;
-      }else if( strncmp(cmd,"-set_inner_resid",16) == 0){ //only for mixed CG
-	if(arg == argc-1){ if(!UniqueID()){ printf("-set_inner_resid must be followed by a number!\n"); fflush(stdout); } exit(-1); }
-	inner_cg_resid = strToAny<Float>(argv[arg+1]);
-	inner_cg_resid_p = &inner_cg_resid;
-	if(!UniqueID()){ printf("Setting inner CG initial residual to %g\n",inner_cg_resid); }
-#ifdef USE_BFM_A2A
-	ERR.General("","main","Changing initial inner CG residual not implemented for BFM version\n");
-#endif      
-	arg+=2;      
       }else if( strncmp(cmd,"-randomize_vw",15) == 0){
 	randomize_vw = true;
 	if(!UniqueID()){ printf("Using random vectors for V and W, skipping Lanczos and inversion stages\n"); fflush(stdout); }
@@ -418,15 +409,6 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-skip_gauge_fix",20) == 0){
 	skip_gauge_fix = true;
 	if(!UniqueID()){ printf("Skipping gauge fixing\n"); fflush(stdout); }
-	arg++;
-      }else if( strncmp(cmd,"-disable_evec_singleprec_convert",30) == 0){
-	evecs_single_prec = false;
-	mixed_solve = false;
-	if(!UniqueID()){ printf("Disabling single precision conversion of evecs\n"); fflush(stdout); }
-	arg++;
-      }else if( strncmp(cmd,"-disable_mixed_prec_CG",30) == 0){
-	mixed_solve = false;
-	if(!UniqueID()){ printf("Disabling mixed-precision CG\n"); fflush(stdout); }
 	arg++;
       }else if( strncmp(cmd,"-mf_outerblocking",15) == 0){
 	int* b[3] = { &BlockedMesonFieldArgs::bi, &BlockedMesonFieldArgs::bj, &BlockedMesonFieldArgs::bp };
@@ -602,7 +584,7 @@ void bnl_knl_performance_check(const CommandLineArgs &args,const Parameters &par
 #endif
 
 void runInitialGridBenchmarks(const CommandLineArgs &cmdline, const Parameters &params){
-#ifdef USE_GRID
+#if defined(USE_GRID) && defined(USE_GRID_A2A)
   if(cmdline.run_initial_grid_benchmarks){
     A2ALattice* lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS);
     gridBenchmark<A2Apolicies>(*lat);
@@ -642,7 +624,7 @@ void LanczosTune(bool tune_lanczos_light, bool tune_lanczos_heavy, const Paramet
 
 enum LightHeavy { Light, Heavy };
 
-void computeEvecs(LanczosWrapper &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+void computeEvecs(LanczosWrapper &eig, const LancArg &lanc_arg, const JobParams &jp, const char* name, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
   if(!UniqueID()) printf("Running %s quark Lanczos\n",name);
   LanczosLattice* lanczos_lat = createLattice<LanczosLattice,LANCZOS_LATMARK>::doit(COMPUTE_EVECS_LANCZOS_LATARGS);
   double time = -dclock();
@@ -658,7 +640,7 @@ void computeEvecs(LanczosWrapper &eig, const LancArg &lanc_arg, const JobParams 
   printMem();      
 
 #ifndef A2A_LANCZOS_SINGLE
-  if(evecs_single_prec){ 
+  if(jp.convert_evecs_to_single_precision){ 
     eig.toSingle();
     if(!UniqueID()) printf("Memory after single-prec conversion of %s quark evecs:\n",name);
     printMem();
@@ -669,14 +651,14 @@ void computeEvecs(LanczosWrapper &eig, const LancArg &lanc_arg, const JobParams 
 #endif
   delete lanczos_lat;
 }
-void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &params, const bool evecs_single_prec, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+void computeEvecs(LanczosWrapper &eig, const LightHeavy lh, const Parameters &params, const bool randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_GRAB){
   const char* name = (lh ==  Light ? "light" : "heavy");
   const LancArg &lanc_arg = (lh == Light ? params.lanc_arg : params.lanc_arg_s);
-  return computeEvecs(eig, lanc_arg, params.jp, name, evecs_single_prec, randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  return computeEvecs(eig, lanc_arg, params.jp, name, randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 }
 
 A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const LightHeavy lh, const Parameters &params, const LanczosWrapper &eig,
-		      const bool evecs_single_prec, const bool randomize_vw, const bool mixed_solve, Float const* inner_cg_resid_p, const bool delete_lattice, COMPUTE_EVECS_EXTRA_ARG_GRAB){
+		      const bool randomize_vw, const bool delete_lattice, COMPUTE_EVECS_EXTRA_ARG_GRAB){
   const A2AArg &a2a_arg = lh == Light ? params.a2a_arg : params.a2a_arg_s;  
   const char* name = (lh ==  Light ? "light" : "heavy");
   A2ALattice* a2a_lat = createLattice<A2ALattice,A2A_LATMARK>::doit(A2A_LATARGS); //the lattice class used to perform the CG and whatnot
@@ -695,15 +677,16 @@ A2ALattice* computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, co
 			  A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
     fflush(stdout);
   }
-    
+  const CGcontrols &cg_controls = params.jp.cg_controls;
+  
   if(!randomize_vw){
 #ifdef USE_BFM_LANCZOS
-    W.computeVW(V, *a2a_lat, *eig.eig, evecs_single_prec, bfm_solvers.dwf_d, mixed_solve ? & bfm_solvers.dwf_f : NULL);
+    W.computeVW(V, *a2a_lat, *eig.eig, eig.singleprec_evecs, cg_controls, bfm_solvers.dwf_d, &bfm_solvers.dwf_f);
 #else
-    if(evecs_single_prec){
-      W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, eig.resid, 10000, inner_cg_resid_p);
+    if(eig.singleprec_evecs){
+      W.computeVW(V, *a2a_lat, eig.evec_f, eig.eval, eig.mass, cg_controls);
     }else{
-      W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, eig.resid, 10000);
+      W.computeVW(V, *a2a_lat, eig.evec, eig.eval, eig.mass, cg_controls);
     }
 #endif     
   }else randomizeVW<A2Apolicies>(V,W);    
@@ -1088,12 +1071,12 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
 
   //-------------------- Light quark Lanczos ---------------------//
   LanczosWrapper eig;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig, Light, params, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   //-------------------- Light quark v and w --------------------//
   A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
   A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-  computeVW(V, W, Light, params, eig, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  computeVW(V, W, Light, params, eig, cmdline.randomize_vw, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
   eig.freeEvecs();
@@ -1102,12 +1085,12 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
     
   //-------------------- Strange quark Lanczos ---------------------//
   LanczosWrapper eig_s;
-  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  if(!cmdline.randomize_vw || cmdline.force_evec_compute) computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   //-------------------- Strange quark v and w --------------------//
   A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
   A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-  A2ALattice* a2a_lat = computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
+  A2ALattice* a2a_lat = computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
   eig_s.freeEvecs();
   if(!UniqueID()) printf("Memory after heavy evec free:\n");
@@ -1193,7 +1176,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark Lanczos ---------------------//
     {
       LanczosWrapper eig;
-      computeEvecs(eig, Light, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+      computeEvecs(eig, Light, params, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.lanczos_l.cfg" << conf;
       if(!UniqueID()){ printf("Writing light Lanczos to %s\n",os.str().c_str()); fflush(stdout); }
       double time = -dclock();
@@ -1209,12 +1192,12 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     
     //-------------------- Strange quark Lanczos ---------------------//
     LanczosWrapper eig_s;
-    computeEvecs(eig_s, Heavy, params, cmdline.evecs_single_prec, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    computeEvecs(eig_s, Heavy, params, cmdline.randomize_evecs, COMPUTE_EVECS_EXTRA_ARG_PASS);
 
     //-------------------- Strange quark v and w --------------------//
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    computeVW(V_s, W_s, Heavy, params, eig_s, cmdline.randomize_vw, true, COMPUTE_EVECS_EXTRA_ARG_PASS);
     
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
@@ -1255,7 +1238,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Light quark v and w --------------------//
     A2AvectorV<A2Apolicies> V(params.a2a_arg, field4dparams);
     A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
-    A2ALattice* a2a_lat = computeVW(V, W, Light, params, eig, cmdline.evecs_single_prec, cmdline.randomize_vw, cmdline.mixed_solve, cmdline.inner_cg_resid_p, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
+    A2ALattice* a2a_lat = computeVW(V, W, Light, params, eig, cmdline.randomize_vw, false, COMPUTE_EVECS_EXTRA_ARG_PASS);
     
     eig.freeEvecs();
     if(!UniqueID()) printf("Memory after light evec free:\n");

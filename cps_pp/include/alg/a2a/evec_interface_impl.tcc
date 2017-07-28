@@ -204,7 +204,7 @@ public:
   //Overload high-mode solve to call mixed precision CG with single prec evecs
   void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
 			  GridFermionField &solution, const GridFermionField &source,
-			  double resid, int max_iters){    
+			  double resid, int max_iters){
 #ifndef USE_RELIABLE_UPDATE_CG
     //Mixed precision restarted CG
     Grid::MixedPrecisionConjugateGradient<GridFermionField,GridFermionFieldF> mCG(resid, max_iters, 50, FrbGrid_f, *Linop_f, linop);
