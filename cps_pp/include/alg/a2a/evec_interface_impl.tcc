@@ -127,7 +127,8 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
   typedef typename GridPolicies::GridDirac GridDirac;
   typedef typename GridDirac::GaugeField GridGaugeField;
 
-  typedef typename GridPolicies::GridDiracFMixedCGInner GridDiracF;
+  typedef typename GridPolicies::GridDiracF GridDiracF; //single/single
+  typedef typename GridPolicies::GridDiracFMixedCGInner GridDiracFMixedCGInner;
   typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
   typedef typename GridDiracF::GaugeField GridGaugeFieldF;
   
@@ -136,8 +137,11 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
 
   Grid::GridRedBlackCartesian * FrbGrid_f;
   GridGaugeFieldF *Umu_f;
-  GridDiracF* Ddwf_f;
-  Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF> *Linop_f;
+  GridDiracFMixedCGInner* Ddwf_f;
+  Grid::SchurDiagMooeeOperator<GridDiracFMixedCGInner,GridFermionFieldF> *Linop_f; //single/single *or* single/half depending on policies
+
+  GridDiracF* Ddwf_f_ss;
+  Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF> *Linop_f_ss; //single/single
 
   bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
 
@@ -170,16 +174,21 @@ public:
     const double mob_c = mob_b - 1.;   //b-c = 1
     const double M5 = GJP.DwfHeight();
 
-    typename GridDiracF::ImplParams params;
+    typename GridDiracFMixedCGInner::ImplParams params;
     latg.SetParams(params);
     
-    Ddwf_f = new GridDiracF(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
-    Linop_f = new Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF>(*Ddwf_f);
+    Ddwf_f = new GridDiracFMixedCGInner(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
+    Linop_f = new Grid::SchurDiagMooeeOperator<GridDiracFMixedCGInner,GridFermionFieldF>(*Ddwf_f);
+
+    Ddwf_f_ss = new GridDiracF(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
+    Linop_f_ss = new Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF>(*Ddwf_f_ss);
   }
   ~EvecInterfaceGridSinglePrec(){
     delete Umu_f;
     delete Ddwf_f;
     delete Linop_f;
+    delete Ddwf_f_ss;
+    delete Linop_f_ss;
     if(delete_FrbGrid_f) delete FrbGrid_f;
   }
   
@@ -214,6 +223,7 @@ public:
 #ifndef DISABLE_GRID_RELIABLE_UPDATE_CG //Old versions of Grid don't have it      
     else if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
       Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta, FrbGrid_f, *Linop_f, linop);
+      if(cg_controls.reliable_update_transition_tol > 0.) rlCG.setFallbackLinop(*Linop_f_ss, cg_controls.reliable_update_transition_tol);
       rlCG(source, solution);
     }      
 #endif
