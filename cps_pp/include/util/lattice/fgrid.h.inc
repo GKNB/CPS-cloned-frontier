@@ -1140,16 +1140,14 @@ if(if_defl)
 #include "fgrid_lanczos.h.inc"
 #endif
 
+#ifdef GRID_MADWF
+#include "fgrid_madwf.h.inc"
+#endif
+
+
 };
 #if 1
 
-#if 0
-#define PASTER(x,y) x ## y
-#define EVALUATOR(x,y) PASTER(x,y)
-#define GFCLASS(class) EVALUATOR(class, FGRID )
-#define XSTR(s) STR(s)
-#define STR(s) #s
-#endif
 
 //------------------------------------------------------------------
 #define GFCLASS_NAME XSTR(GFCLASS(Gnone))

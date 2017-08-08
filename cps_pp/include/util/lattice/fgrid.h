@@ -57,17 +57,13 @@ public:
   ~FgridParams () {
   }
   void setZmobius(cps::Complex  *bs, int ls){
-//  void setZmobius(std::vector< std::complex<double> > bs ){
-// assumes b=1 c=0
     omega.clear();
     for(int i =0;i<ls;i++){
-//    std::complex<double> bs(b[2*i],b[2*i+1]);
     std::complex<double> temp = 1./(2.*bs[i] -1.);
     VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
 	i,bs[i].real(),bs[i].imag(), i,temp.real(),temp.imag());
     omega.push_back(temp);
     }
-//  exit(-40);
   }
 };
 
@@ -555,8 +551,9 @@ CPS_END_NAMESPACE
 #define IMPL_F Grid::QCD::ZWilsonImplF
 #define PARAMS	
 #define GP 
-// Using TwoKappa only for zMobius for now
+// Using TwoKappa only for zMobius for now, really SYM2
 #define TWOKAPPA
+#define GRID_MADWF
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
@@ -574,6 +571,7 @@ CPS_END_NAMESPACE
 #undef PARAMS
 #undef GP
 #undef TWOKAPPA
+#undef GRID_MADWF
 
 #undef IF_FIVE_D
 #define IF_TM

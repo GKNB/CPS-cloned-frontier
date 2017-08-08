@@ -141,24 +141,6 @@ int Fzmobius::FmatInv(Vector *f_out, Vector *f_in,
   //if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
   
 
-#if 0  
-  // divide by2*kappa
-  // do even / odd 
-  for(int ieo=0;ieo<2;++ieo){
-    for(int s=0; s<local_ls;++s){
-      int glb_s = s + local_ls*s_node_coor;
-      const Complex kappa_b =
-	1.0 / ( 2 * (GJP.ZMobius_b()[glb_s]
-		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
-      int idx = s*ls_stride/2;// "/2" is for complex
-      vecTimesEquComplex((Complex*)f_out+idx+ieo*size/4,
-			 (2.0*kappa_b), ls_stride);
-    }
-  }
-  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
-#endif
-
-  
   sfree(cname, fname,  "dminus_in",  dminus_in);
   // commented out above, so do here too. TB if(prs_f_in==PRESERVE_YES) 
     sfree(cname, fname,  "temp",  temp);
