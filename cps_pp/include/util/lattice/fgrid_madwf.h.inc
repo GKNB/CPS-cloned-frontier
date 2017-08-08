@@ -20,13 +20,9 @@ void Schur (LATTICE_FERMION_F & grid_out_l, const LATTICE_FERMION_F & grid_in_l,
 }
 
 void MixedSchur (LATTICE_FERMION & grid_out, LATTICE_FERMION & grid_in,
-//              Grid::GridRedBlackCartesian * FrbGridF,          
 		 DIRAC & Ddwf, DIRAC_F & DdwfF, Float rsd, int maxinner,
 		 int maxouter)
 {
-//  VRB.Result(cname,"MixedSchur","FrbGridF = %p DdwfF.FiveDimRedBlackGrid=%p\n",
-//      FrbGridF, DdwfF.FermionRedBlackGrid());
-//  assert(FrbGridF == DdwfF.FermionRedBlackGrid());
   Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf);
   Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
   Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F >
@@ -158,15 +154,17 @@ int FmatInv (Vector * f_out,
   grid_src_l = grid_in_l;	//dminus_in
   MixedSchur (grid_out_l, grid_in_l, Ddwf_l, DdwfF_l, rsd_vec[0],
 	      cg_arg_l->max_num_iter, 1);
+  Float stp_cnd = cg_arg_l->stop_rsd * cg_arg_l->stop_rsd * norm2 (grid_src_l);
+  VRB.Result (cname, fname, "stp_cnd = %e\n", stp_cnd);
 //  CheckFermion (f_out, grid_out_l); exit(-1);
-  for (int i = 0; i < 10; i++) {
-{
-    LATTICE_FERMION grid_tmp_l (FGridD_l);
-    Ddwf_l.M (grid_out_l, grid_tmp_l);	//left to right
-    grid_tmp_l = grid_in_l - grid_tmp_l;
-    VRB.Result (cname, fname, "inner iter %d: residual %e\n",
-		i, norm2 (grid_tmp_l));
-}
+  for (int i = 0; i < n_restart; i++) {
+    if (0) {
+      LATTICE_FERMION grid_tmp_l (FGridD_l);
+      Ddwf_l.M (grid_out_l, grid_tmp_l);	//left to right
+      grid_tmp_l = grid_in_l - grid_tmp_l;
+      VRB.Result (cname, fname, "inner iter %d: residual %e\n",
+		  i, norm2 (grid_tmp_l));
+    }
     if (i == 0)
       grid_sol_l = grid_out_l;
     else
@@ -175,6 +173,8 @@ int FmatInv (Vector * f_out,
     grid_in_l = grid_src_l - grid_out_l;	//deficit
     VRB.Result (cname, fname, "inner iter %d: residual %e\n",
 		i, norm2 (grid_in_l));
+    if (norm2 (grid_in_l) < stp_cnd)
+      break;
     grid_out_l = 0.;
 // 1st PV
     MixedSchur (grid_out_l, grid_in_l, Ddwf_l_PV, DdwfF_l_PV,
@@ -192,10 +192,8 @@ int FmatInv (Vector * f_out,
       precisionChange (grid_fin_s, grid_tmp_s);
     }
 
-//void Schur(LATTICE_FERMION_F & grid_out_l,LATTICE_FERMION_F & grid_in_l, 
-//      DIRAC_F &DdwfF, Float rsd, int maxinner)
     Schur (grid_fout_s, grid_fin_s, DdwfF_s,
-	   cg_arg_s->stop_rsd, cg_arg_s->max_num_iter);
+	   rsd_vec[i], cg_arg_s->max_num_iter);
     {
       LATTICE_FERMION grid_tmp_s (FGridD_s);
       LATTICE_FERMION grid_tmp_l (FGridD_l);
@@ -223,12 +221,23 @@ int FmatInv (Vector * f_out,
 
   }
 
+  {
+    LATTICE_FERMION temp (FGridD_l);
+    Ddwf_l.M (grid_sol_l, temp);
+    temp = temp - grid_src_l;
+    Float temp_res = std::sqrt (norm2 (temp) / norm2 (grid_src_l));
+    VRB.Result (cname, fname, "true_res before final solve =%g\n", temp_res);
+    if (true_res)
+      *true_res = temp_res;
+  }
 
+#if 1
+  MixedSchur (grid_sol_l, grid_src_l, Ddwf_l, DdwfF_l, cg_arg_l->stop_rsd,
+	      cg_arg_l->max_num_iter, 5);
 
-
-
-  ImportFermion (grid_out_l, f_out);
-  Float stp_cnd = cg_arg_l->stop_rsd; {
+#else
+//  ImportFermion (grid_out_l, f_out);
+  {
     int maxinner = cg_arg_l->max_num_iter;
     int maxouter = 10;
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf_l);
@@ -239,14 +248,17 @@ int FmatInv (Vector * f_out,
     Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
     SchurSolver (Ddwf_l, grid_in_l, grid_out_l);
   }
-  if (true_res) {
-    LATTICE_FERMION temp (FERM_GRID);
-    Ddwf_l.M (grid_out_l, temp);
-    temp = temp - grid_in_l;
-    *true_res = std::sqrt (norm2 (temp) / norm2 (grid_in_l));
-    VRB.Result (cname, fname, "true_res=%g\n", *true_res);
+#endif
+  {
+    LATTICE_FERMION temp (FGridD_l);
+    Ddwf_l.M (grid_sol_l, temp);
+    temp = temp - grid_src_l;
+    Float temp_res = std::sqrt (norm2 (temp) / norm2 (grid_src_l));
+    VRB.Result (cname, fname, "true_res=%g\n", temp_res);
+    if (true_res)
+      *true_res = temp_res;
   }
-  ImportFermion (f_out, grid_out_l);
+  ImportFermion (f_out, grid_sol_l);
 // probably doesn't need to create and destroy *_l ones, or even both. 
   delete (FGridD_l);
   delete (FGridF_l);
