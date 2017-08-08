@@ -19,19 +19,32 @@ void Schur (LATTICE_FERMION_F & grid_out_l, const LATTICE_FERMION_F & grid_in_l,
   SchurSolver (DdwfF, grid_in_l, grid_out_l);
 }
 
-void MixedSchur (LATTICE_FERMION & grid_out_l, LATTICE_FERMION & grid_in_l,
-		 DIRAC & Ddwf_l, DIRAC_F & DdwfF_l, Float rsd, int maxinner,
+void MixedSchur (LATTICE_FERMION & grid_out, LATTICE_FERMION & grid_in,
+//              Grid::GridRedBlackCartesian * FrbGridF,          
+		 DIRAC & Ddwf, DIRAC_F & DdwfF, Float rsd, int maxinner,
 		 int maxouter)
 {
-  Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf_l);
-  Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF_l);
+//  VRB.Result(cname,"MixedSchur","FrbGridF = %p DdwfF.FiveDimRedBlackGrid=%p\n",
+//      FrbGridF, DdwfF.FermionRedBlackGrid());
+//  assert(FrbGridF == DdwfF.FermionRedBlackGrid());
+  Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf);
+  Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
   Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F >
-    CG_m (rsd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
+    CG_m (rsd, maxinner, maxouter, DdwfF.FermionRedBlackGrid (), MdagMF,
+	  MdagMD);
   Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
-  SchurSolver (Ddwf_l, grid_in_l, grid_out_l);
+  SchurSolver (Ddwf, grid_in, grid_out);
 }
 
-//shamelessly copied from Christoph's GPT, except src and dst reversed
+void CheckFermion (Vector * cps_f, LATTICE_FERMION & grid_f)
+{
+  ImportFermion (cps_f, grid_f);
+  Float *ftmp = (Float *) cps_f;
+  printf ("CheckFermion: %g %g\n", ftmp[0], ftmp[1]);
+}
+
+
+//Copied from Christoph's GPT, except src and dst reversed
 template < typename VV >
   void SpinProject (VV & _dst, const VV & _src, int inverse)
      const
@@ -112,7 +125,7 @@ int FmatInv (Vector * f_out,
   FrbGridF_s =
     Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (mob_s_ls, UGridF);
 
-  LATTICE_FERMION grid_zero_l (FGridD_l);
+  LATTICE_FERMION grid_tmp2_l (FGridD_l);
   LATTICE_FERMION_F grid_fin_s (FGridF_s), grid_fout_s (FGridF_s);
 
   mass = cg_arg_l->mass;
@@ -142,10 +155,18 @@ int FmatInv (Vector * f_out,
 
   ImportFermion (grid_out_l, f_in);
   Ddwf_l.Dminus (grid_out_l, grid_in_l);	//left to right 
-  grid_src_l = grid_in_l;
+  grid_src_l = grid_in_l;	//dminus_in
   MixedSchur (grid_out_l, grid_in_l, Ddwf_l, DdwfF_l, rsd_vec[0],
 	      cg_arg_l->max_num_iter, 1);
+//  CheckFermion (f_out, grid_out_l); exit(-1);
   for (int i = 0; i < 10; i++) {
+{
+    LATTICE_FERMION grid_tmp_l (FGridD_l);
+    Ddwf_l.M (grid_out_l, grid_tmp_l);	//left to right
+    grid_tmp_l = grid_in_l - grid_tmp_l;
+    VRB.Result (cname, fname, "inner iter %d: residual %e\n",
+		i, norm2 (grid_tmp_l));
+}
     if (i == 0)
       grid_sol_l = grid_out_l;
     else
@@ -154,15 +175,16 @@ int FmatInv (Vector * f_out,
     grid_in_l = grid_src_l - grid_out_l;	//deficit
     VRB.Result (cname, fname, "inner iter %d: residual %e\n",
 		i, norm2 (grid_in_l));
-    grid_sol_l = 0.;
+    grid_out_l = 0.;
 // 1st PV
     MixedSchur (grid_out_l, grid_in_l, Ddwf_l_PV, DdwfF_l_PV,
-		1e-5, cg_arg_l->max_num_iter, 5); {
+		1e-5, cg_arg_l->max_num_iter, 5);
+    {
       LATTICE_FERMION grid_tmp_s (FGridD_s);
       LATTICE_FERMION grid_tmp2_s (FGridD_s);
-      LATTICE_FERMION _c0 (FGridD_s);
-      SpinProject (grid_zero_l, grid_out_l, 1);
-      ExtractSlice (_c0, grid_zero_l, 0, 0);	// grid_zero_s should be kept
+      LATTICE_FERMION _c0 (UGridD);
+      SpinProject (grid_tmp2_l, grid_out_l, 1);
+      ExtractSlice (_c0, grid_tmp2_l, 0, 0);	// grid_zero_s should be kept
       grid_tmp_s = 0.;
       InsertSlice (_c0, grid_tmp_s, 0, 0);	//left to right
       SpinProject (grid_tmp2_s, grid_tmp_s, 0);
@@ -173,13 +195,13 @@ int FmatInv (Vector * f_out,
 //void Schur(LATTICE_FERMION_F & grid_out_l,LATTICE_FERMION_F & grid_in_l, 
 //      DIRAC_F &DdwfF, Float rsd, int maxinner)
     Schur (grid_fout_s, grid_fin_s, DdwfF_s,
-	   cg_arg_s->stop_rsd, cg_arg_s->max_num_iter); {
+	   cg_arg_s->stop_rsd, cg_arg_s->max_num_iter);
+    {
       LATTICE_FERMION grid_tmp_s (FGridD_s);
       LATTICE_FERMION grid_tmp_l (FGridD_l);
-      LATTICE_FERMION grid_tmp2_l (FGridD_l);
       LATTICE_FERMION _yprime (FGridD_s);
-      LATTICE_FERMION _y0prime (FGridD_s);
-      LATTICE_FERMION _ci (FGridD_s);
+      LATTICE_FERMION _y0prime (UGridD);
+      LATTICE_FERMION _ci (UGridD);
       precisionChange (grid_tmp_s, grid_fout_s);
       SpinProject (_yprime, grid_tmp_s, 1);
       ExtractSlice (_y0prime, _yprime, 0, 0);
@@ -187,7 +209,7 @@ int FmatInv (Vector * f_out,
       InsertSlice (_y0prime, grid_tmp_l, 0, 0);
       grid_tmp_l = (-1.) * grid_tmp_l;
       for (int i = 1; i < mob_l_ls; i++) {
-	ExtractSlice (_ci, grid_zero_l, i, 0);
+	ExtractSlice (_ci, grid_tmp2_l, i, 0);
 	InsertSlice (_ci, grid_tmp_l, i, 0);
       }
       SpinProject (grid_tmp2_l, grid_tmp_l, 0);
@@ -225,6 +247,16 @@ int FmatInv (Vector * f_out,
     VRB.Result (cname, fname, "true_res=%g\n", *true_res);
   }
   ImportFermion (f_out, grid_out_l);
+// probably doesn't need to create and destroy *_l ones, or even both. 
+  delete (FGridD_l);
+  delete (FGridF_l);
+  delete (FrbGridD_l);
+  delete (FrbGridF_l);
+  delete (FGridD_s);
+  delete (FGridF_s);
+  delete (FrbGridD_s);
+  delete (FrbGridF_s);
+
   return 0;
 }
 
