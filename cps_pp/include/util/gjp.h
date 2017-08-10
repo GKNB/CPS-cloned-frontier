@@ -132,8 +132,8 @@ class GlobalJobParameter
   BndCndType node_bc[5];  // sites of a single node along {X,Y,Z,T,S} direction
   int node_coor[5];  // sites of a single node along {X,Y,Z,T,S} direction
 
-  int vol_node_sites;  // The number of sites (4-D) of a single node.
-  int vol_sites;       // The number of sites (4-D) of the whole lattice
+  size_t vol_node_sites;  // The number of sites (4-D) of a single node.
+  size_t vol_sites;       // The number of sites (4-D) of the whole lattice
 
   Float twist_angle[3]; // Twist angle for (partially-)twisted BCs in units of pi
                         // Note: for regular case  p = n*2*pi/L + theta/L  where theta is the twist_angle
@@ -336,7 +336,7 @@ public:
     \return The number of lattice sites on the node.
    */
 
-  int VolSites() const
+  size_t VolSites() const
       {return vol_sites;}
   //!< Gets the global lattice volume.
   /*!<
