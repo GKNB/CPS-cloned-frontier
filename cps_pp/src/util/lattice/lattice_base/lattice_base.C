@@ -203,21 +203,13 @@ if ( GJP.ExtInitialized()){
     VRB.Flow (cname, fname, "Disordered starting configuration\n");
     GJP.StartConfKind (START_CONF_MEM);
   } else if (start_conf_kind == START_CONF_FILE) {
-//#if TARGET == QCDOC || TARGET == NOARCH || TARGET == BGL || TARGET == BGP
-#if 1
-//    gauge_field = GJP.StartConfLoadAddr();
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
 	      gauge_field);
+//    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
     ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
     str_ord = CANONICAL;
     is_initialized = 1;
     GJP.StartConfKind (START_CONF_MEM);
-#else
-    //???
-    VRB.Flow (cname, fname, "File starting configuration\n");
-    ERR.NotImplemented (cname, fname,
-			"Starting config. type  START_CONF_FILE not implemented\n");
-#endif
   } else if (start_conf_kind == START_CONF_LOAD) {
     gauge_field = GJP.StartConfLoadAddr ();
     is_initialized = 1;

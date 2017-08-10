@@ -33,6 +33,7 @@ class  ReadLatticeParallel : public QioControl
   const char *cname;
   LatticeHeader hd;
   bool UseParIO;
+  const int default_concur=16;
 
  public:
   // ctor for 2-step loading
@@ -40,24 +41,15 @@ class  ReadLatticeParallel : public QioControl
    : QioControl(), cname("ReadLatticeParallel")
     { 
       //CK set architecture-dependent default IO style rather than hardcoding it.
-#if TARGET == BGQ
-      setSerial();
-#else
-      setParallel();
-#endif
+      setDefault();
     }
 
   // ctor invoking loading behavior
  ReadLatticeParallel(Lattice & lat, const char * filename, const Float chkprec = 0.01): QioControl(), cname("ReadLatticeParallel")
     {
     //CK set architecture-dependent default IO style rather than hardcoding it.
-#if TARGET == BGQ
-    setSerial();
-#else
-    setParallel();
-#endif   
-
     QioArg rd_arg(filename,chkprec);
+	rd_arg.ConcurIONumber=default_concur;
     read(lat,rd_arg);
   }
 
@@ -66,11 +58,7 @@ class  ReadLatticeParallel : public QioControl
    : QioControl(), cname("ReadLatticeParallel")
     {
       //CK set architecture-dependent default IO style rather than hardcoding it.
-#if TARGET == BGQ
-      setSerial();
-#else
-      setParallel();
-#endif
+      setDefault();
 
       read(lat,rd_arg);
     }
@@ -79,6 +67,7 @@ class  ReadLatticeParallel : public QioControl
 
   void read(Lattice &lat, const char *filename, const Float chkprec = 0.01){
     QioArg rd_arg(filename,chkprec);
+	rd_arg.ConcurIONumber=default_concur;
     read(lat,rd_arg);
   }
 
@@ -94,15 +83,8 @@ class  ReadLatticeParallel : public QioControl
 
  public:
   inline void setParallel() { UseParIO = 1; }
-  inline void setSerial() { 
-#if 1
-    UseParIO = 0; 
-#else
-    const char * fname = "setSerial()";
-    VRB.Result(cname,fname,"On non-QCDOC platform, setSerial() has no effect!\n");
-    exit(-42);
-#endif
-  }
+  inline void setSerial() { UseParIO = 0; }
+  inline void setDefault() { UseParIO = 1; }
   inline int parIO() const { return UseParIO; }
 };
 

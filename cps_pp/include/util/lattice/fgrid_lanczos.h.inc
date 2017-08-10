@@ -43,9 +43,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   RealD resid = 1.0e-8;
   RealD resid_f = 1.0e-6;
 
-  std::vector < double >Coeffs
-  {
-  0., -1.};
+  std::vector < double >Coeffs { 0., -1.};
   Grid::Polynomial < LATTICE_FERMION > PolyX (Coeffs);
   Grid::Chebyshev < LATTICE_FERMION_F > Cheb (low, high, order + 1);
 //  ChebyshevLanczos<LatticeFermion> Cheb(9.,1.,0.,20);
@@ -143,10 +141,12 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   Float high = eig_arg->matpoly_arg.params.params_val[0];
   high = high * high;
   int order = eig_arg->matpoly_arg.Npol + 1;	//convention difference
+  VRB.Result(cname,fname,"low=%g high=%g order=%d\n",low,high,order);
 
   if(mem_save==1)
-  for (int i = 0; i < Nstop; i++) {
+    for (int i = Nstop-1; i >= 0  ; i--) {
     if (f_eigenv[i] != NULL) sfree(f_eigenv[i]);
+	f_eigenv[i]=NULL;
   }
 #ifndef SINGLE
   Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);
@@ -202,4 +202,109 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   return Nconv;
 
 }
+
+#ifndef IF_TM
+#undef SINGLE
+int SimpleLanczos (std::vector<Float>  &lambda, LanczosArg * eig_arg)
+{
+  const char *fname ("FeigSolv()");
+  int Ncb = 1; //hard coded for CNV_FRM_NO, Ncb=1
+  SetMass (eig_arg->mass);
+  SetEpsilon (0.);
+  VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
+//      VRB.Result(cname,fname,"max_iter=%d\n",cg_arg->max_num_iter);
+  RealD M5 = GJP.DwfHeight ();
+
+  ImportGauge ();
+  std::vector < int >twists = SetTwist ();
+  int mem_save = eig_arg->mem_save;
+  int precision = eig_arg->precision;
+  DIRAC::ImplParams params;
+  SetParams (params);
+
+//      Staying with double precision, at least until gaining more confidence in single precision
+  DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+#ifndef TWOKAPPA
+  Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#else
+  Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > HermOp (DdwfD);
+#endif
+
+#ifdef SINGLE
+  Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+  precisionChange (UmuF, *Umu);
+  DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
+#ifndef TWOKAPPA
+  VRB.Result (cname, fname, "Using Asym preconditioner\n");
+  Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#else
+  VRB.Result (cname, fname, "Using SYM2 preconditioner\n");
+  Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > HermOpF (DdwfF);
+#endif
+#endif
+
+  LATTICE_FERMION grid_in (FERM_GRID), psi (FERM_GRID);
+  LATTICE_FERMION grid_rb_in (F_RB_GRID), grid_out (FERM_GRID);
+#ifdef SINGLE
+  LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F), grid_out_f (FERM_GRID_F);
+#endif
+  LatVector cps_temp (FsiteSize () / 6 * n_gp, GJP.VolNodeSites () / 2);
+  VRB.Debug (cname, fname, "cps_temp.Size()=%d\n", cps_temp.Size ());
+  Vector *f_temp = cps_temp.Vec ();
+  RandGaussVector (f_temp, 0.5, 1);
+
+  ImportFermion (grid_in, f_temp, Odd);
+  pickCheckerboard (Odd, grid_rb_in, grid_in);
+  std:: cout<<"norm2(grid_rb_n)= " << norm2(grid_rb_in)<<std::endl;
+
+  const int Np = eig_arg->np_lanczos_vectors;
+  const int Nk = eig_arg->nk_lanczos_vectors;
+  const int Nm = Np + Nk;
+  const int Nstop = eig_arg->nt_lanczos_vectors;
+  const int MaxIt = eig_arg->maxiters;
+  RealD resid = eig_arg->stop_residual;
+
+  Float low = eig_arg->matpoly_arg.params.params_val[1];
+  low = low * low;
+  Float high = eig_arg->matpoly_arg.params.params_val[0];
+  high = high * high;
+  int order = eig_arg->matpoly_arg.Npol + 1;	//convention difference
+  std::vector < Grid::RealD > eval (Nm);
+
+  int Nconv;
+
+  std::vector < double >Coeffs { 0., -1.};
+
+#ifndef SINGLE
+  Grid::Polynomial < LATTICE_FERMION > PolyX (Coeffs);
+  Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);
+  if(order >2){
+  Grid::SimpleLanczos<LATTICE_FERMION> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  IRL.calc(eval,grid_rb_in,Nconv);
+  } else {
+  Grid::SimpleLanczos<LATTICE_FERMION> IRL(HermOp,PolyX,Nstop,Nk,Nm,resid,MaxIt);
+  IRL.calc(eval,grid_rb_in,Nconv);
+  }
+#else
+  Grid::Polynomial < LATTICE_FERMION_F > PolyX (Coeffs);
+  Grid::Chebyshev < LATTICE_FERMION_F > Cheb (low, high, order);
+  if(order >2){
+  Grid::SimpleLanczos<LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  precisionChange(grid_rb_in_f,grid_rb_in);
+  IRL.calc(eval,grid_rb_in_f,Nconv);
+  } else {
+  Grid::SimpleLanczos<LATTICE_FERMION_F> IRL(HermOpF,PolyX,Nstop,Nk,Nm,resid,MaxIt);
+  precisionChange(grid_rb_in_f,grid_rb_in);
+  IRL.calc(eval,grid_rb_in_f,Nconv);
+  }
+#endif
+
+  lambda.resize(Nconv);
+  for(int i=0;i<Nconv;i++) eval[i] = lambda[i];
+
+
+  return Nconv;
+
+}
+#endif
 #undef SINGLE

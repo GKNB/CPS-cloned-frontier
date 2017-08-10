@@ -26,7 +26,7 @@ void* smalloc(size_t request,
   if( posix_memalign((void**)&p, ALLOC_MEMALIGN_NUM, request) ) ERR.Pointer(cname, fname, vname);
 #else 
     p = malloc(request);
-//    if(!p) ERR.Pointer(cname, fname, vname);
+    if(!p) ERR.Pointer(cname, fname, vname);
 #endif
     VRB.Smalloc(cname, fname, vname, p, request);
     return p;
@@ -37,7 +37,7 @@ void* smalloc(size_t request){
 	ERR.General("","","smalloc requested with size %d!\n",request);
     VRB.Smalloc("", "", "", NULL, request);
     void *p = malloc(request);
-    if(!p) ERR.Pointer("", "", "");
+//    if(!p) ERR.Pointer("", "", "");
     VRB.Smalloc("", "", "", p, request);
     return p;
 }
