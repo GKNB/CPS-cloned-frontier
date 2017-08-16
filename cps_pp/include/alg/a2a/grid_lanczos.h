@@ -44,8 +44,13 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
   
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
+#ifdef USE_CHULWOOS_LANCZOS
+#warning "Using Chulwoo's Grid Lanczos implementation"
+  Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+#else
+#warning "Using default Grid Lanczos implementation"
   Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-
+#endif
   //if(lanc_arg.lock) IRL.lock = 1;
   if(lanc_arg.lock) ERR.General("::","gridLanczos","Grid Lanczos does not currently support locking\n");
   
