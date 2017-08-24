@@ -553,7 +553,8 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bf.residual = 1e-5;
 
     // deal with Mobius Dminus
-    if (bd.solver == HmCayleyTanh) {
+//    if (bd.solver == HmCayleyTanh) {
+    if ( bd.IsGeneralisedFiveDim() ) {
 	bd.cps_impexFermion((Float *)f_in, out, 1);
 #pragma omp parallel
 	{
