@@ -119,7 +119,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.node_latt[3]  = lt;
     wilsa.verbose=0;
     wilsa.reproduce=0;
-    bfmarg::Threads(64);
+//    bfmarg::Threads(64);
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
