@@ -128,6 +128,7 @@ private:
   }
 
 public:
+  bool if_defl;
   void PrintMass (const char *fname)
   {
 #ifdef IF_TM
@@ -138,7 +139,7 @@ public:
   }
 
 
-FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
+FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(false) {
 #ifdef GRID_GPARITY
     if (!GJP.Gparity ())
       ERR.General (cname, XSTR (FGRID),
@@ -668,24 +669,14 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 #endif
       ImportFermion (grid_in, f_in);
 
-#if 0
-    std::string fname_root (cg_arg->fname_eigen);
-    std::stringstream fname_bc;
-    fname_bc << fname_root << ".bc" << GJP.Bc (0) << GJP.Bc (1) << GJP.
-      Bc (2) << GJP.Bc (3) << std::endl;
-    VRB.Result (cname, fname, "fname_eig=%s\n", fname_bc.str ().c_str ());
-    const char *fname_eig_root_bc = fname_bc.str ().c_str ();
-#else
     char fname_eig_root_bc[1024];
-//  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",cg_arg->fname_eigen, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
     snprintf (fname_eig_root_bc, 1024, "%s", cg_arg->fname_eigen);
     VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
-#endif
     int n_fields = GJP.SnodeSites ();
     const size_t f_size_per_site = FsiteSize () / GJP.SnodeSites () / 2;
 
     int neig = 1;
-    bool if_defl = false;
+    if_defl = false;
     if ((cg_arg->Inverter == CG_LOWMODE_DEFL) ||
 	(cg_arg->Inverter == LOWMODEAPPROX)) {
       if_defl = true;

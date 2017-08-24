@@ -59,6 +59,7 @@ template < typename VV >
      }
 
 
+
 int FmatInv (Vector * f_out,
 	     Vector * f_in,
 	     MobiusArg * mob_l,
@@ -92,7 +93,6 @@ int FmatInv (Vector * f_out,
   setZmobius (omegas_s, mob_s->zmobius_b_coeff.zmobius_b_coeff_val,
 	      mob_s->zmobius_b_coeff.zmobius_b_coeff_len);
 
-
   int mob_l_ls = mob_l->ls;
   Grid::GridCartesian * FGridD_l;
   Grid::GridCartesian * FGridF_l;
@@ -120,6 +120,48 @@ int FmatInv (Vector * f_out,
     Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (mob_s_ls, UGridD);
   FrbGridF_s =
     Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (mob_s_ls, UGridF);
+
+  char fname_eig_root_bc[1024];
+  snprintf (fname_eig_root_bc, 1024, "%s", cg_arg_s->fname_eigen);
+  VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
+  int n_fields = GJP.SnodeSites ();
+  const size_t f_size_per_site = FsiteSize () / GJP.SnodeSites () / 2;
+  int neig = 0;
+  if_defl = false;
+  if ((cg_arg_s->Inverter == CG_LOWMODE_DEFL)
+      || (cg_arg_s->Inverter == LOWMODEAPPROX)) {
+    if_defl = true;
+    neig = cg_arg_s->neig;
+  }
+
+  std::cout << "neig= " << neig << std::endl;
+  std::vector < Float > eval_s (neig);
+  std::vector < LATTICE_FERMION_F > evec_f_s (neig, FrbGridF_s);
+  Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval_s, evec_f_s);
+  if (if_defl) {
+    LATTICE_FERMION_F grid_f (FGridF_s), grid_f_rb (FrbGridF_s);
+    // search for eigen cache
+    EigenCache *ecache;
+    if ((ecache = EigenCacheListSearch ((char *) fname_eig_root_bc, neig)) == 0) {
+      ERR.General (cname, fname,
+		   "Eigenvector cache does not exist: neig %d name %s \n",
+		   neig, fname_eig_root_bc);
+    }
+    Float mass = cg_arg_s->mass;
+    EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig,
+			   f_size_per_site / 2, n_fields, ecache);
+    Float *eval_cps = eigcon.load_eval ();
+    for (int i = 0; i < neig; i++) {
+      eval_s[i] = eval_cps[i];
+      VRB.Result (cname, fname, "eval[%d]=%0.14e\n", i, eval_s[i]);
+      Vector *evec = eigcon.nev_load (i);
+      ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec,
+								 grid_f,
+								 1, Odd, NULL);
+      pickCheckerboard (Odd, evec_f_s[i], grid_f);
+    }
+  }
+
 
   LATTICE_FERMION grid_tmp2_l (FGridD_l);
   LATTICE_FERMION_F grid_fin_s (FGridF_s), grid_fout_s (FGridF_s);
@@ -184,7 +226,7 @@ int FmatInv (Vector * f_out,
       LATTICE_FERMION grid_tmp2_s (FGridD_s);
       LATTICE_FERMION _c0 (UGridD);
       SpinProject (grid_tmp2_l, grid_out_l, 1);
-      ExtractSlice (_c0, grid_tmp2_l, 0, 0);	// grid_zero_s should be kept
+      ExtractSlice (_c0, grid_tmp2_l, 0, 0);	// grid_tmp2_l should be kept
       grid_tmp_s = 0.;
       InsertSlice (_c0, grid_tmp_s, 0, 0);	//left to right
       SpinProject (grid_tmp2_s, grid_tmp_s, 0);
@@ -192,8 +234,16 @@ int FmatInv (Vector * f_out,
       precisionChange (grid_fin_s, grid_tmp_s);
     }
 
-    Schur (grid_fout_s, grid_fin_s, DdwfF_s,
-	   rsd_vec[i], cg_arg_s->max_num_iter);
+//    Schur (grid_fout_s, grid_fin_s, DdwfF_s, rsd_vec[i], cg_arg_s->max_num_iter);
+//void Schur (LATTICE_FERMION_F & grid_out_l, const LATTICE_FERMION_F & grid_in_l,
+//          DIRAC_F & DdwfF, Float rsd, int maxinner)
+    {
+      Grid::ConjugateGradient < LATTICE_FERMION_F >
+	CG (rsd_vec[i], cg_arg_s->max_num_iter, false);
+      if (if_defl) guesser(grid_fin_s,grid_fout_s);
+      Grid::SchurRedBlackDiagTwoSolve < LATTICE_FERMION_F > SchurSolver (CG);
+      SchurSolver (DdwfF_s, grid_fin_s, grid_fout_s);
+    }
     {
       LATTICE_FERMION grid_tmp_s (FGridD_s);
       LATTICE_FERMION grid_tmp_l (FGridD_l);
@@ -271,51 +321,3 @@ int FmatInv (Vector * f_out,
 
   return 0;
 }
-
-
-#if 0
-{
-  char fname_eig_root_bc[1024];
-  snprintf (fname_eig_root_bc, 1024, "%s", cg_arg_s->fname_eigen);
-  VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
-  int n_fields = GJP.SnodeSites ();
-  const size_t f_size_per_site = FsiteSize () / GJP.SnodeSites () / 2;
-  int neig = 1;
-  bool if_defl = false;
-  if ((cg_arg_s->Inverter == CG_LOWMODE_DEFL)
-      || (cg_arg_s->Inverter == LOWMODEAPPROX)) {
-    if_defl = true;
-    neig = cg_arg_s->neig;
-  }
-
-  std::cout << "neig= " << neig << std::endl;
-  std::vector < Float > eval_s (neig);
-  std::vector < LATTICE_FERMION_F > evec_f_s (neig, FrbGridF_s);
-  Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval_s, evec_f_s);
-  if (if_defl) {
-    LATTICE_FERMION_F grid_f (FGridF_s), grid_f_rb (FrbGridF_s);
-    // search for eigen cache
-    EigenCache *ecache;
-    if ((ecache = EigenCacheListSearch ((char *) fname_eig_root_bc, neig)) == 0) {
-      ERR.General (cname, fname,
-		   "Eigenvector cache does not exist: neig %d name %s \n",
-		   neig, fname_eig_root_bc);
-    }
-    Float mass = cg_arg_s->mass;
-    EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig,
-			   f_size_per_site / 2, n_fields, ecache);
-    Float *eval_cps = eigcon.load_eval ();
-    for (int i = 0; i < neig; i++) {
-      eval_s[i] = eval_cps[i];
-      VRB.Result (cname, fname, "eval[%d]=%0.14e\n", i, eval_s[i]);
-      Vector *evec = eigcon.nev_load (i);
-      ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec,
-								 grid_f,
-								 1, Odd, NULL);
-      pickCheckerboard (Odd, evec_f_s[i], grid_f);
-    }
-
-
-  }
-}
-#endif
