@@ -24,7 +24,8 @@
 
 
 CPS_START_NAMESPACE class FGRID:public virtual Lattice, public FgridParams,
-  public virtual FgridBase {
+  public virtual FgridBase
+{
 
   using RealD = Grid::RealD;
   using RealF = Grid::RealF;
@@ -32,24 +33,25 @@ public:
   const char *cname;
 
 private:
-  template < typename CPSfloat, typename vobj, typename sobj >
+    template < typename CPSfloat, typename vobj, typename sobj >
     void ImpexFermion (Vector * cps_f, vobj & grid_f, int cps2grid, EvenOdd eo,
 		       Float * fac)
   {
     const char *fname = "ImpexFermion()";
-    VRB.Debug (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f, cps2grid,
-	       eo, this->F5D ());
-    fflush (stdout);
-    fflush (stderr);
+      VRB.Debug (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f,
+		 cps2grid, eo, this->F5D ());
+      fflush (stdout);
+      fflush (stderr);
     if (fac)
-      VRB.Result (cname, fname, "fac=%g\n", *fac);
+        VRB.Result (cname, fname, "fac=%g\n", *fac);
     if (!cps_f)
-      ERR.General (cname, fname, "CPS field not allocated\n");
+        ERR.General (cname, fname, "CPS field not allocated\n");
     unsigned long vol;
-    Grid::GridBase * grid = grid_f._grid;
+      Grid::GridBase * grid = grid_f._grid;
     unsigned long fourvol = GJP.VolNodeSites ();
     int ncb = 2;
-    if (eo != All) {
+    if (eo != All)
+    {
       fourvol /= 2;
       ncb = 1;
     }
@@ -139,7 +141,8 @@ public:
   }
 
 
-FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(false) {
+FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
+    if_defl (false) {
 #ifdef GRID_GPARITY
     if (!GJP.Gparity ())
       ERR.General (cname, XSTR (FGRID),
@@ -292,9 +295,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(fa
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
     int threads = Grid::GridThread::GetThreads ();
-    std::cout << Grid::
-      GridLogMessage << "Grid is setup to use " << threads << " threads" <<
-      std::endl;
+    std::
+      cout << Grid::GridLogMessage << "Grid is setup to use " << threads <<
+      " threads" << std::endl;
     if (0) {
       Float max_dev = 1;
       Float max_diff = 1;
@@ -410,8 +413,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(fa
     std::vector < int >twists = SetTwist ();
 #if 1
     int threads = Grid::GridThread::GetThreads ();
-    std::
-      cout << Grid::GridLogMessage << "Grid is setup to use " << threads <<
+    std::cout << Grid::GridLogMessage << "Grid is setup to use " << threads <<
       " threads" << std::endl;
 #endif
 
@@ -629,6 +631,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(fa
 	       CnvFrmType cnv_frm, PreserveType prs_f_in, int if_dminus)
   {
     const char *fname ("FmatInv()");
+
+    int verbose = 0;		// turning off debug output
     mass = cg_arg->mass;
     VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass, if_dminus);
     RealD M5 = GJP.DwfHeight ();
@@ -705,7 +709,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(fa
       Float *eval_cps = eigcon.load_eval ();
       for (int i = 0; i < neig; i++) {
 	eval[i] = eval_cps[i];
-	VRB.Result (cname, fname, "eval[%d]=%0.14e\n", i, eval[i]);
+	VRB.Debug (cname, fname, "eval[%d]=%0.14e\n", i, eval[i]);
 	Vector *evec = eigcon.nev_load (i);
 	ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
 								   1, Odd,
@@ -739,16 +743,17 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),if_defl(fa
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
       if (if_defl) {
-	for (int i = 0; i < neig; i++) {
-	  LATTICE_FERMION_F tmp (F_RB_GRID_F);
-	  MdagMF.HermOp (evec_f[i], tmp);
-	  Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
+	if (verbose)
+	  for (int i = 0; i < neig; i++) {
+	    LATTICE_FERMION_F tmp (F_RB_GRID_F);
+	    MdagMF.HermOp (evec_f[i], tmp);
+	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
 //              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
-	  Grid::RealD alph = real (zalph);
-	  tmp = tmp - alph * evec_f[i];
-	  VRB.Result (cname, fname, "norm(evec)= %e %e %e\n", norm2 (evec_f[i]),
-		      alph, norm2 (tmp));
-	}
+	    Grid::RealD alph = real (zalph);
+	    tmp = tmp - alph * evec_f[i];
+	    VRB.Result (cname, fname, "norm(evec)= %e %e %e\n",
+			norm2 (evec_f[i]), alph, norm2 (tmp));
+	  }
 	CG_m.useGuesser (guesser);
       }
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);

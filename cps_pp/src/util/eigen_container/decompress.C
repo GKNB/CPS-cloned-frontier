@@ -208,7 +208,7 @@ int EvecReader::decompress(const char* root_ , std::vector < OPT *> &dest_all) {
 
 		if (crc_comp != args.crc32) {
 			fprintf(stderr,"Corrupted file!\n");
-			return 9;
+//			return 9;
 		}
 
 		fclose(f);

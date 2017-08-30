@@ -323,6 +323,7 @@ class EigenCache {
 	evec_reader.decompress(root_,evec_f);
 	for(int i=0;i<evec.size();i++){
 		float * temp = (float *)evec[i];
+		char *c_tmp = (char *) temp;
 		Float sum=0.;
 		for(size_t ind=0;ind<f_size*(sizeof(Float)/sizeof(float));ind++)
 		sum += temp[i]*temp[i];
@@ -497,11 +498,11 @@ private:
       Float e=0.;      
       if(!UniqueID()) {
 	  fscanf( fp, "%lf", &e );
-      printf("e=%0.14e\n",e);
+//      printf("e=%0.14e\n",e);
       }
       glb_sum(&e);
       if (i >= start) eval[i]=e;
-     VRB.Result(cname,fname.c_str(),"eval[%d]=%0.14e\n",i,eval[i]);
+     VRB.Debug(cname,fname.c_str(),"eval[%d]=%0.14e\n",i,eval[i]);
     }
     Fclose(fp);
     return (end-start+1);

@@ -59,6 +59,7 @@ namespace cps
     uint32_t crc32;
 
     int FP16_COEF_EXP_SHARE_FLOATS;
+//    bool big_endian;
   };
 
 
@@ -68,13 +69,16 @@ namespace cps
     static const char *cname;
 
   public:
-    bool machine_is_little_endian ;
-    int bigendian ;	// write data back in big endian
+      bool machine_is_little_endian;
+    int bigendian;		// read/write data back in big endian
     _evc_meta_ args;
-    EvecReader():
-	 machine_is_little_endian(1),bigendian(0)
-	{};
-    ~EvecReader(){};
+      EvecReader ():bigendian (0)	// fixed to little endian
+    {
+      machine_is_little_endian = machine_endian ();
+    };
+     ~EvecReader ()
+    {
+    };
     typedef float OPT;
     int nthreads;
 
@@ -86,11 +90,24 @@ namespace cps
     char *raw_in;
 
 
-      std::vector < std::vector < OPT > >block_data;
-      std::vector < std::vector < OPT > >block_data_ortho;
-      std::vector < std::vector < OPT > >block_coef;
+    std::vector < std::vector < OPT > >block_data;
+    std::vector < std::vector < OPT > >block_data_ortho;
+    std::vector < std::vector < OPT > >block_coef;
 
 //float* ord_in; // in non-bfm ordering:  co fastest, then x,y,z,t,s
+    int machine_endian ()
+    {
+      char endian_c[4] = { 1, 0, 0, 0 };
+      uint32_t *endian_i = (uint32_t *) endian_c;
+      if (*endian_i == 0x1)
+//        printf("little endian\n");
+	return 1;
+      else
+//        printf("big endian\n");
+	return 0;
+
+    }
+
 
     inline int sumArray (long *recv, const long *send, const long n_elem)
     {
@@ -99,7 +116,7 @@ namespace cps
 			    QMP_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (long));
-        return 0;
+      return 0;
 #endif
     }
 
@@ -152,13 +169,13 @@ namespace cps
     void fix_short_endian (unsigned short *dest, int nshorts)
     {
       if ((bigendian && machine_is_little_endian) ||	// written for readability
-	  (!bigendian && !machine_is_little_endian)) 
-      for (int i = 0; i < nshorts; i++) {
-	char *c1 = (char *) &dest[i];
-	char tmp = c1[0];
-	c1[0] = c1[1];
-	c1[1] = tmp;
-      }
+	  (!bigendian && !machine_is_little_endian))
+	for (int i = 0; i < nshorts; i++) {
+	  char *c1 = (char *) &dest[i];
+	  char tmp = c1[0];
+	  c1[0] = c1[1];
+	  c1[1] = tmp;
+	}
     }
 
     void fix_float_endian (float *dest, int nfloats)
@@ -170,6 +187,7 @@ namespace cps
 	  (!bigendian && !machine_is_little_endian)) {
 	int i;
 	for (i = 0; i < nfloats; i++) {
+	  float before = dest[i];
 	  char *c = (char *) &dest[i];
 	  char tmp;
 	  int j;
@@ -178,6 +196,8 @@ namespace cps
 	    c[j] = c[3 - j];
 	    c[3 - j] = tmp;
 	  }
+	  float after = dest[i];
+	  printf ("fix_float_endian: %g ->%g\n", before, after);
 	}
       }
 
@@ -214,13 +234,12 @@ namespace cps
 //      int simd_coor = pos[3] / NtHalf;
 //      assert (simd_coor == 0);
 //      int regu_vol = vol_4d_oo / SimdT;
-      int regu_coor = (pos[0] + args.s[0] * 
-					(pos[1] + args.s[1] * 
-					(pos[2] + args.s[2] * 
-					(pos[3] + args.s[3] * 
-					pos[4] ))))/2 ;
+      int regu_coor = (pos[0] + args.s[0] *
+		       (pos[1] + args.s[1] *
+			(pos[2] + args.s[2] *
+			 (pos[3] + args.s[3] * pos[4])))) / 2;
 
-       return ((regu_coor ) * 12 + co) * 2  ;
+      return ((regu_coor) * 12 + co) * 2;
 //      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
 
@@ -252,7 +271,8 @@ namespace cps
     }
 
     template < class T >
-      void caxpy_single (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_single (T * res, std::complex < T > ca, T * x, T * y,
+			 int f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
@@ -264,7 +284,8 @@ namespace cps
     }
 
     template < class T >
-      void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y,
+			   int f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
@@ -330,7 +351,8 @@ namespace cps
       return res;
     }
 
-    template < class T > T norm_of_evec (std::vector < std::vector < T > >&v, int j) {
+    template < class T > T norm_of_evec (std::vector < std::vector < T > >&v,
+					 int j) {
       T gg = 0.0;
 #pragma omp parallel shared(gg)
       {
@@ -397,10 +419,10 @@ namespace cps
 
       for (int64_t i = 0; i < n; i++)
 	out[i] = in[i];
-//	std::cout <<"out[0]= "<<out[0];
       fix_float_endian (out, n);
-	if(std::isnan(out[0]))
-	std::cout <<"read_floats out[0]= "<<out[0]<<std::endl;
+//      std::cout << "out[0]= " << out[0] << std::endl;
+      if (std::isnan (out[0]))
+	std::cout << "read_floats out[0]= " << out[0] << std::endl;
     }
 
     int fp_map (float in, float min, float max, int N)
@@ -470,8 +492,8 @@ namespace cps
 	for (int i = 0; i < nsc; i++) {
 	  ev[i] = fp_unmap (*bptr++, min, max, SHRT_UMAX);
 	}
-	if(std::isnan(ev[0]))
-	std::cout <<"read_floats_fp16 ev[0]= "<<ev[0]<<std::endl;
+      if(std::isnan(ev[0]))
+	std::cout << "read_floats_fp16 ev[0]= " << ev[0] << std::endl;
 
       }
 
@@ -527,10 +549,12 @@ namespace cps
 	_IRL_READ_INT ("nkeep = %d\n", &args.nkeep);
 	_IRL_READ_INT ("nkeep_single = %d\n", &args.nkeep_single);
 	_IRL_READ_INT ("blocks = %d\n", &args.blocks);
+//      _IRL_READ_INT ("big_endian = %d\n", &args.big_endian);
 	_IRL_READ_INT ("FP16_COEF_EXP_SHARE_FLOATS = %d\n",
 		       &args.FP16_COEF_EXP_SHARE_FLOATS);
-	printf ("node 0, after reading metadata\n");
+	printf ("node 0, after reading metadata \n");
       }
+      //     bigendian = args.big_endian; //currently fixed to be little endian
       sumArray (args.s, 5);
       sumArray (args.b, 5);
       sumArray (args.nb, 5);
@@ -575,7 +599,7 @@ namespace cps
     }
 
 //    int read_meta (const char *root, _evc_meta_ & args)
-    int read_meta(const char *root)
+    int read_meta (const char *root)
     {
 
       char buf[1024];
@@ -608,17 +632,18 @@ namespace cps
 	    if (!strcmp (buf, #n)) {			\
 					args.n[i] = atoi(val);		\
 				}
-			 PARSE_ARRAY (s)
-			 else
-			 PARSE_ARRAY (b)
-			 else
-			 PARSE_ARRAY (nb)
-			 else
-			 {
-			 fprintf (stderr, "Unknown array '%s' in %s.meta\n",
-				  buf, root); return 4;}
+	    PARSE_ARRAY (s)
+	      else
+	    PARSE_ARRAY (b)
+	      else
+	    PARSE_ARRAY (nb)
+	      else
+	    {
+	      fprintf (stderr, "Unknown array '%s' in %s.meta\n", buf, root);
+	      return 4;
+	    }
 
-			 } else {
+	  } else {
 
 #define PARSE_INT(n)				\
 				if (!strcmp(buf,#n)) {			\
@@ -629,40 +654,44 @@ namespace cps
 					sscanf(val,"%X",&args.n);		\
 				}
 
-			 PARSE_INT (neig)
-			 else
-			 PARSE_INT (nkeep)
-			 else
-			 PARSE_INT (nkeep_single)
-			 else
-			 PARSE_INT (blocks)
-			 else
-			 PARSE_INT (FP16_COEF_EXP_SHARE_FLOATS)
-			 else
-			 PARSE_INT (index)
-			 else
-			 PARSE_HEX (crc32)
-			 else
-			 {
-			 fprintf (stderr, "Unknown parameter '%s' in %s.meta\n",
-				  buf, root); return 4;}
+	    PARSE_INT (neig)
+	      else
+	    PARSE_INT (nkeep)
+	      else
+	    PARSE_INT (nkeep_single)
+	      else
+	    PARSE_INT (blocks)
+	      else
+	    PARSE_INT (FP16_COEF_EXP_SHARE_FLOATS)
+	      else
+	    PARSE_INT (index)
+	      else
+	    PARSE_HEX (crc32)
+	      else
+	    {
+	      fprintf (stderr, "Unknown parameter '%s' in %s.meta\n",
+		       buf, root);
+	      return 4;
+	    }
 
 
-			 }
+	  }
 
-			 } else {
-			 printf ("Improper format: %s\n", line);	// double nl is OK
-			 }
+	} else {
+	  printf ("Improper format: %s\n", line);	// double nl is OK
+	}
 
-			 }
+      }
 
-			 fclose (f); return 1;}
+      fclose (f);
+      return 1;
+    }
 
-			 int decompress (const char *root_, std::vector < OPT *> &dest_all);
+    int decompress (const char *root_, std::vector < OPT * >&dest_all);
 
 
 
-};
+  };
 
 #endif
 
