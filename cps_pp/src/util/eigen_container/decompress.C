@@ -38,6 +38,16 @@ const char* EvecReader::header =
 "Date: 2017\n";
 #endif
 
+void movefloattoFloat (Float * out, float *in, int f_size)
+{
+
+  float flt;
+  for (int i = 0; i < f_size; i++) {
+    flt = in[i];
+    out[i] = (Float) flt;
+  }
+};
+
 
 int EvecReader::decompress(const char* root_ , std::vector < OPT *> &dest_all) {
 

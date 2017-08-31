@@ -62,6 +62,8 @@ namespace cps
 //    bool big_endian;
   };
 
+ class EigenCache ; //forward declaration
+
 
   class EvecReader
   {
@@ -694,6 +696,8 @@ namespace cps
   };
 
 #endif
+  void alcf_evecs_save(char* dest,EigenCache* ec,int nkeep);
+  void movefloattoFloat (Float * out, float *in, int f_size);
 
 }
 #endif
