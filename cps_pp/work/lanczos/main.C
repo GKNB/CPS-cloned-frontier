@@ -1,36 +1,17 @@
 #include <conf.h>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <alg/alg_int.h>
-#include <alg/int_arg.h>
-#include <alg/alg_hmc.h>
-#include <alg/hmc_arg.h>
-#include <alg/alg_plaq.h>
-#include <alg/alg_lanczos.h>
-#include <alg/alg_meas.h>
-#include <alg/alg_remez.h>
-#include <alg/alg_eig.h>
-#include <alg/alg_fix_gauge.h>
-#include <alg/qpropw.h>
-#include <alg/meson.h>
-#include <alg/nuc2pt.h>
-#include <util/lattice.h>
-#ifdef USE_GRID
-#include <util/lattice/fgrid.h>
-#endif
-#include <util/verbose.h>
-#include <util/error.h>
-#include <util/command_line.h>
-#include <util/ReadLatticePar.h>
-#include <util/ReadU1LatticePar.h>
-#include <util/qio_general.h>
-#ifdef USE_QIO
-#include <util/qio_readLattice.h>
-#endif
-#include <util/qcdio.h>
-#include <util/eigen_container.h>
 
+#include <util/eigen_container.h>
+#include <util/lattice/fgrid.h>
+
+#include <alg/qpropw.h>
+#include <alg/alg_eig.h>
+#include <alg/alg_lanczos.h>
+#include <alg/nuc2pt.h>
+#include <alg/meson.h>
 
 
 USING_NAMESPACE_CPS 
@@ -40,23 +21,15 @@ using namespace std;
 DoArg do_arg;
 DoArgExt doext_arg;
 
-//HmcArg hmc_arg;
-//ActionGaugeArg gauge_arg;
-
 // It is very imporatnt that mobius_arg is global and exits for ever
 // as in GJP, we use zmobius_c_coeff and zmobius_b_coeff is pointing the contetnts of mobius_arg
+// We may want to fix this later,  I am not fixing this due to lack of time
 MobiusArg mobius_arg;
-//MobiusArg mobius_arg2;
-//MdwfArg mdwf_arg;
-//RemezArg remez_arg;
-
 NoArg no_arg;
 CommonArg common_arg;
 LanczosArg lanczos_arg;
-QPropWArg qp_arg;
+QPropWArg qpropw_arg;
 
-
-void movefloattoFloat (Float * out, float *in, int f_size);
 
 
 static void SetZmobiusPC(int flag)
@@ -85,7 +58,9 @@ static void SetZmobiusPC(int flag)
     }
 }
 
-EigenCache *ecache;
+typedef Grid::QCD::ZMobiusFermionF::FermionField GRID_FERMION_F;
+
+EigenCacheGrid< GRID_FERMION_F > *ecache;
 char *cname;
 
 void CalMesons (QPropW & q, char *out_dir, int traj, char *src_str);
@@ -141,44 +116,45 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
   Float etime = time_elapse ();
   char cache_name[1024];
   snprintf (cache_name, 1024, "cache_0_mass%g", lanczos_arg.mass);
-  ecache = new EigenCache (cache_name);
+  ecache = new EigenCacheGrid< GRID_FERMION_F > (cache_name);
+#if 0
   char evecname[1024];
   snprintf (evecname, 1024, "%s/eig4dee.mass%g.ls%d.pc%d",
 	    lanczos_arg.file, lanczos_arg.mass, GJP.SnodeSites (), GJP.ZMobius_PC_Type ());
   lanczos_arg.file = evecname;
+#endif
 
 
 
-  snprintf (evecname_bc, 1024, "%s.bc%d%d%d%d", lanczos_arg.file, GJP.Bc (0),
-	    GJP.Bc (1), GJP.Bc (2), GJP.Bc (3));
+//  snprintf (evecname_bc, 1024, "%s.bc%d%d%d%d", lanczos_arg.file, GJP.Bc (0), GJP.Bc (1), GJP.Bc (2), GJP.Bc (3));
+  snprintf (evecname_bc, 1024, "%s", lanczos_arg.file);
 
 
   AlgLanczos eig (lattice, &common_arg, &lanczos_arg, ecache);
   int Ncb = eig.NumChkb (lanczos_arg.RitzMat_lanczos);
   int fsize = GJP.VolNodeSites () * lattice.FsiteSize () * Ncb / 2 / 2;	//last 2 for single prec.;
   EigenCacheList.push_back (ecache);
-  EigenCacheListSearch("test",0);
-  printf("EigenCacheList.size()=%d\n",EigenCacheList.size());
-//  exit(-5432);
   int neig;
 
 
-#if 1
-  if (lanczos_arg.nt_lanczos_vectors > 0) {
+  if (lanczos_arg.nk_lanczos_vectors > 0) {
 
     int init_flag = 0;		// 0 : wall start, 1 :  compression, 2 : compress & decompress, 3: refinement using Ritz
-    int ncompress = 1;		// number of evecs in the compressed linear combination
+    int ncompress = 10;		// number of evecs in the compressed linear combination
 
     char *comp_file;
 
     neig = lanczos_arg.nk_lanczos_vectors + lanczos_arg.np_lanczos_vectors;
     ecache->alloc (evecname_bc, neig, fsize);
     eig.run (init_flag, ncompress, comp_file);
-    neig = lanczos_arg.nt_lanczos_vectors;
+    neig = lanczos_arg.nk_lanczos_vectors;
     ecache->set_neig (neig);
-  EigenCacheListSearch("test",0);
-  printf("EigenCacheList.size()=%d\n",EigenCacheList.size());
-//  exit(-5432);
+
+    if ( ( lanczos_arg.save) && (lanczos_arg.file[0] == '#') ) {
+    // save in alcf format
+       alcf_evecs_save(&lanczos_arg.file[1],ecache,lanczos_arg.nt_lanczos_vectors);
+    }
+
   } else {
     if (num_eig>0) neig=num_eig;
     else
@@ -192,8 +168,12 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 			       n_fields, ecache);
 	// factor of 2 for single-prec.
 	// have to do this if stride != 1 FIX!
+      float *evec_f = (float*)(ecache->vec_ptr(0));
+	  if (int status = ecache->decompress(evecname_bc))
+		ERR.General(fname,"decompress()","returned %d\n",status);
+//      eigcon.rbc_load(evecname_bc);
 	for (int iev = 0; iev < neig; iev++) {
-	  Vector *evec = eigcon.nev_load (iev+eig_start);
+//	  Vector *evec = eigcon.nev_load (iev+eig_start);
 	  ecache->set_index (iev);
 	}
       }
@@ -203,7 +183,6 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
   etime = time_elapse ();
   if (!UniqueID ())
     printf ("Time for Lanczos %g\n", etime);
-#endif
 
 
 
@@ -222,6 +201,8 @@ void truncate_it(CommonArg *common_arg, const char stem[], int traj)
     common_arg->set_filename(fnbuf);
 }
 
+
+
 int main (int argc, char *argv[])
 {
 
@@ -229,12 +210,6 @@ int main (int argc, char *argv[])
   char *fname = "main()";
 
   Start (&argc, &argv);
-{
-  const int LEN=10;
-  Vector a[LEN*6],b[LEN*6],c[LEN*6];
-  double coef=1.;
-  vaxpy3(a,&coef,b,c,LEN);
-}
 
   if (argc < 3) {
     if (!UniqueID ())
@@ -243,6 +218,18 @@ int main (int argc, char *argv[])
 	 argc);
     exit (-1);
   }
+
+
+{
+  char endian_c[4]={1,0,0,0};
+  uint32_t *endian_i = (uint32_t*)endian_c;
+  std::string answer;
+  if (*endian_i==0x1) 	
+	printf("little endian\n");
+  else
+	printf("big endian\n");
+	
+}
 
   chdir (argv[1]);
 //  int do_zmob_sm = atoi (argv[5]);
@@ -253,27 +240,29 @@ int main (int argc, char *argv[])
   setQioSparseNum(io_sparse);
 
   if (!do_arg.Decode ("do_arg.vml", "do_arg")) {
+    do_arg.Encode ("do_arg.dat", "do_arg");
     ERR.General (fname, fname, "Decoding of do_arg failed\n");
   }
-  // make a record of what was run
   do_arg.Encode ("do_arg.dat", "do_arg");
 
   if (!doext_arg.Decode ("doext_arg.vml", "doext_arg")) {
+    doext_arg.Encode ("doext_arg.dat", "doext_arg");
     ERR.General (fname, fname, "Decoding of doext_arg failed\n");
   }
-  // make a record of what was run
   doext_arg.Encode ("doext_arg.dat", "doext_arg");
 
   if (!mobius_arg.Decode ("mobius_arg.vml", "mobius_arg")) {
     mobius_arg.Encode ("mobius_arg.dat", "mobius_arg");
     ERR.General (fname, fname, "Decoding of mobius_arg failed\n");
   }
-  mobius_arg.Encode ("mboius_arg.dat", "mobius_arg");
+  mobius_arg.Encode ("mobius_arg.dat", "mobius_arg");
 
-  if (!qp_arg.Decode ("qpropw_arg.vml", "qpropw_arg")) {
+
+  if (!qpropw_arg.Decode ("qpropw_arg.vml", "qpropw_arg")) {
+    qpropw_arg.Encode ("qpropw_arg.dat", "qpropw_arg");
     ERR.General (fname, fname, "Decoding of qpropw_arg failed\n");
   }
-  qp_arg.Encode ("qpropw_arg.dat", "qpropw_arg");
+  qpropw_arg.Encode ("qpropw_arg.dat", "qpropw_arg");
 
   if (!lanczos_arg.Decode ("lanczos_arg.vml", "lanczos_arg")) {
     lanczos_arg.Encode ("lanczos_arg.dat", "lanczos_arg");
@@ -284,67 +273,59 @@ int main (int argc, char *argv[])
   lanczos_arg.Encode ("lanczos_arg.dat", "lanczos_arg");
 
 
+
   GJP.Initialize (do_arg);
   GJP.InitializeExt (doext_arg);
-  VRB.Result("","main()","GJP.SaveStride()=%d\n",GJP.SaveStride());
   VRB.Level (do_arg.verbose_level);
+  VRB.Result("","main()","GJP.SaveStride()=%d\n",GJP.SaveStride());
+
 
   // Solve  Small Ls with Zmobius
   //--------------------------------------------
- // if (do_zmob_sm) 
   {
     GJP.SnodeSites (mobius_arg.ls);
-    SetZmobiusPC(atoi(argv[2]));
-#define ZMOB
-#if defined (ZMOB)
-    GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val, mobius_arg.ls);
+//    GnoneFzmobius lattice;
+    GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
+		   mobius_arg.ls);
     GJP.ZMobius_c (mobius_arg.zmobius_c_coeff.zmobius_c_coeff_val,
 		   mobius_arg.ls);
-#ifdef USE_GRID
+//	Lattice &lattice = LatticeFactory::Create(F_CLASS_MOBIUS, G_CLASS_NONE);
+//  Lattice &lattice = LatticeFactory::Create(F_CLASS_ZMOBIUS, G_CLASS_NONE);
     FgridParams params;
     params.setZmobius(GJP.ZMobius_b(),GJP.ZMobius_ls());
     GnoneFgridZmobius lattice(params);
-#else
-    GnoneFzmobius lattice;
-#endif
-#elif defined (MOBIUS)
-#ifndef USE_GRID
-    GnoneFmobius lattice;
+
+
     GJP.Mobius_b (mobius_arg.mobius_b_coeff);
     GJP.Mobius_c (mobius_arg.mobius_c_coeff);
-#else
-    FgridParams params;
-    params.mobius_scale = GJP.GetMobius();
-    GnoneFgridMobius lattice(params);
-#endif
-#else
-    GnoneFdwf lattice;
-#endif
+    //GnoneFmobius lattice;
+//    GnoneFdwf lattice;
 
 
+    SetZmobiusPC(atoi(argv[2]));
 
     VRB.Result(cname,"main()", "GJP.ZMobius_PC_Type() = %d\n",GJP.ZMobius_PC_Type());
 
-{
+if (do_meas){
     Float high = 0.,low=0.;
-    if (do_meas)
     meas_bound (lattice,&high,&low,mobius_arg.cg.mass);
 //  cps::sync();exit(-1);
 }
     comp_read_eigenvectors (lattice);
-
-    CgArg cg_save = qp_arg.cg;
-    qp_arg.cg = mobius_arg.cg;
+#if 1
+    CgArg cg_save = qpropw_arg.cg;
+    qpropw_arg.cg = mobius_arg.cg;
 
     CommonArg carg;
 
-    QPropWPointSrc qp (lattice, &qp_arg, &carg);
+    QPropWPointSrc qp (lattice, &qpropw_arg, &carg);
     // 
-    system ("mkdir -p results");
-    CalMesons (qp, "results", 0, "point");
-    CalNucleons (qp, "results", 0, "point");
+    system ("mkdir -p zmob_sm");
+    CalMesons (qp, "zmob_sm", 0, "point");
+    CalNucleons (qp, "zmob_sm", 0, "point");
 
-    qp_arg.cg = cg_save;
+    qpropw_arg.cg = cg_save;
+#endif
   }
 
 
@@ -459,4 +440,3 @@ void CalMesons (QPropW & q, char *out_dir, int traj, char *src_str)
   Fclose (fp);
 
 }
-
