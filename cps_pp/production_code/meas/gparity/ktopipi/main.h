@@ -961,6 +961,9 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
 
     {//Do the light A2A vector random fields to ensure same ordering as unsplit job
       A2AvectorW<A2Apolicies> W(params.a2a_arg, field4dparams);
+#ifdef USE_DESTRUCTIVE_FFT
+      W.allocModes();
+#endif
       W.setWhRandom();
     }
     
@@ -1021,7 +1024,9 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     //-------------------- Strange quark v and w read --------------------//
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);
     A2AvectorW<A2Apolicies> W_s(params.a2a_arg_s,field4dparams);
-    
+#ifdef USE_DESTRUCTIVE_FFT
+    V_s.allocModes(); W_s.allocModes();
+#endif
     {
       std::ostringstream os; os << cmdline.checkpoint_dir << "/checkpoint.V_s.cfg" << conf;
       if(!UniqueID()) printf("Reading V_s from %s\n",os.str().c_str());

@@ -52,9 +52,17 @@ struct GridLanczosWrapper{
     setupSPgrids();
     gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
     singleprec_evecs = true;
+
+    evec_f.resize(lanc_arg.N_get, FrbGrid_f); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
+    eval.resize(lanc_arg.N_get);
+    
 # else    
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
     singleprec_evecs = false;
+
+    evec.resize(lanc_arg.N_get, lat.getFrbGrid());
+    eval.resize(lanc_arg.N_get);
+    
 #  ifndef MEMTEST_MODE
     test_eigenvectors(evec,eval,lanc_arg.mass,lat);
 #  endif
@@ -253,7 +261,9 @@ struct GridLanczosWrapper{
     arrayIO<Grid::RealD> evalio(dformatbuf);
     evalio.read(file,eval.data(),eval.size());
     
-    assert( evalio.checksum(eval.data(),eval.size()) == read_checksum );
+    //assert( evalio.checksum(eval.data(),eval.size()) == read_checksum );
+    unsigned int actual_checksum = evalio.checksum(eval.data(),eval.size());
+    if(actual_checksum != read_checksum) ERR.General("GridLanczosWrapper","readParallel","Eval array checksum error, expected %u got %u\n",read_checksum, actual_checksum);    
 
     getline(file,str); assert(str == "END_EVALS");
     getline(file,str); assert(str == "BEGIN_EVECS");
