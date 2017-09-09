@@ -53,15 +53,15 @@ struct GridLanczosWrapper{
     gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
     singleprec_evecs = true;
 
-    evec_f.resize(lanc_arg.N_get, FrbGrid_f); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
-    eval.resize(lanc_arg.N_get);
+    evec_f.resize(lanc_arg.N_true_get, FrbGrid_f); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
+    eval.resize(lanc_arg.N_true_get);
     
 # else    
     gridLanczos<GridPolicies>(eval,evec,lanc_arg,lat);
     singleprec_evecs = false;
 
-    evec.resize(lanc_arg.N_get, lat.getFrbGrid());
-    eval.resize(lanc_arg.N_get);
+    evec.resize(lanc_arg.N_true_get, lat.getFrbGrid());
+    eval.resize(lanc_arg.N_true_get);
     
 #  ifndef MEMTEST_MODE
     test_eigenvectors(evec,eval,lanc_arg.mass,lat);
