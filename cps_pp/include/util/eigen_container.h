@@ -326,7 +326,27 @@ class EigenCache {
 		char *c_tmp = (char *) temp;
 		Float sum=0.;
 		for(size_t ind=0;ind<f_size*(sizeof(Float)/sizeof(float));ind++)
-		sum += temp[i]*temp[i];
+		sum += temp[ind]*temp[ind];
+		glb_sum(&sum);
+	VRB.Result(cname,"decompress","evec[%d][0]=%g sum[%d]=%g\n",i,*temp,i,sum);
+	}
+  }
+  int read_compressed(const char* root_, const char *checksum_dir){
+
+     EvecReader evec_reader;
+     evec_reader.read_meta(root_);
+    std::vector < float * > evec_f;
+	for(int i=0;i<evec.size();i++){
+		evec_f.push_back((float *)evec[i]);
+	}
+	evec_reader.read_compressed_vectors(root_,checksum_dir,evec_f);
+	for(int i=0;i<evec.size();i++){
+		float * temp = (float *)evec[i];
+		char *c_tmp = (char *) temp;
+		Float sum=0.;
+		for(size_t ind=0;ind<f_size*(sizeof(Float)/sizeof(float));ind++)
+		sum += temp[ind]*temp[ind];
+		glb_sum(&sum);
 	VRB.Result(cname,"decompress","evec[%d][0]=%g sum[%d]=%g\n",i,*temp,i,sum);
 	}
   }
@@ -486,9 +506,10 @@ private:
 
     std::string fname("load_eval_mgl");
     FILE* fp;
-    fp = Fopen(file,"r");
+    fp = fopen(file,"r");
     int neig;
     fscanf(fp,"%d",&neig);
+     VRB.Debug(cname,fname.c_str(),"file=%s neig=%d\n",file,neig);
     if (neig < end) {
       ERR.General(cname,fname.c_str(),"saved neig(%d)< needed(%d)\n",neig,end);
     }
@@ -504,7 +525,7 @@ private:
       if (i >= start) eval[i]=e;
      VRB.Debug(cname,fname.c_str(),"eval[%d]=%0.14e\n",i,eval[i]);
     }
-    Fclose(fp);
+    fclose(fp);
     return (end-start+1);
   }
 

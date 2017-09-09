@@ -85,6 +85,7 @@ namespace cps
     int nthreads;
 
     static const char *header;
+    std::vector <double> evals;
 
     int vol4d, vol5d;
     int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
@@ -568,6 +569,7 @@ namespace cps
 
 //we do not divide the fifth dimension
       int nn[5];
+//      std::vector<int> nn(5);
       nn[4] = 1;
       for (int i = 0; i < 4; i++) {
 	//     assert(GJP.Sites(i) % args.s[i] == 0);
@@ -577,7 +579,10 @@ namespace cps
       }
       double barrier = 0;
       sumArray (&barrier, 1);
-      //std::cout << GridLogMessage << "Reading data that was generated on node-layout " << nn << std::endl;
+//      std::cout << "Reading data that was generated on node-layout " << nn << std::endl;
+      
+      if (UniqueID () == 0) 
+	printf("node-layout %d %d %d %d %d nprocessors %d\n",nn[0],nn[1],nn[2],nn[3],nn[4],nprocessors);
 
       std::vector < uint32_t > crc32_arr (nprocessors, 0);
       if (UniqueID () == 0) {
@@ -688,14 +693,43 @@ namespace cps
       fclose (f);
       return 1;
     }
+    int globalToLocalCanonicalBlock(int slot,const std::vector<int>& src_nodes,int nb);
+    void get_read_geometry(const std::vector<int>& cnodes,
+                std::map<int, std::vector<int> >& slots,
+                std::vector<int>& slot_lvol,
+                std::vector<int>& lvol,
+                int64_t& slot_lsites,int& ntotal);
 
     int decompress (const char *root_, std::vector < OPT * >&dest_all);
-
+    int read_compressed_vectors(const char *root, const char * checksum_dir,
+        std::vector < OPT * >&dest_all,       float time_out=100000);
 
 
   };
 
 #endif
+class Lexicographic {
+	public:
+
+		static inline void CoorFromIndex (std::vector<int>& coor,int index,std::vector<int> &dims){
+			int nd= dims.size();
+			coor.resize(nd);
+			for(int d=0;d<nd;d++){
+				coor[d] = index % dims[d];
+				index   = index / dims[d];
+			}
+		}
+
+		static inline void IndexFromCoor (std::vector<int>& coor,int &index,std::vector<int> &dims){
+			int nd=dims.size();
+			int stride=1;
+			index=0;
+			for(int d=0;d<nd;d++){
+				index = index+stride*coor[d];
+				stride=stride*dims[d];
+			}
+		}
+};
   void alcf_evecs_save(char* dest,EigenCache* ec,int nkeep);
   void movefloattoFloat (Float * out, float *in, int f_size);
 
