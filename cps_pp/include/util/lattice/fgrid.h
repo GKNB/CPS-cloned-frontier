@@ -40,7 +40,8 @@ namespace Grid
       for (int i = 0; i < neig; i++) {
 	Grid::ComplexD coef = innerProduct (evec[i], in);
 	coef = coef / eval[i];
-//          std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
+//	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
+          std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
 	out += coef * evec[i];
       }
       std::

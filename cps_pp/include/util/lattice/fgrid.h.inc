@@ -632,7 +632,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
   {
     const char *fname ("FmatInv()");
 
-    int verbose = 0;		// turning off debug output
+    int verbose = 1;		// turning off debug output
     mass = cg_arg->mass;
     VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass, if_dminus);
     RealD M5 = GJP.DwfHeight ();
@@ -748,7 +748,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	    LATTICE_FERMION_F tmp (F_RB_GRID_F);
 	    MdagMF.HermOp (evec_f[i], tmp);
 	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
-//              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
+              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
 	    Grid::RealD alph = real (zalph);
 	    tmp = tmp - alph * evec_f[i];
 	    VRB.Result (cname, fname, "norm(evec)= %e %e %e\n",
