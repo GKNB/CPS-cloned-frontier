@@ -327,7 +327,7 @@ class EigenCache {
 		Float sum=0.;
 		for(size_t ind=0;ind<f_size*(sizeof(Float)/sizeof(float));ind++)
 		sum += temp[i]*temp[i];
-	VRB.Result(cname,"decompress","evec[%d][0]=%g sum[%d]=%g\n",i,*temp,i,sum);
+	VRB.Debug(cname,"decompress","evec[%d][0]=%g sum[%d]=%g\n",i,*temp,i,sum);
 	}
   }
 };
