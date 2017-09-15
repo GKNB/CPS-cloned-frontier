@@ -242,7 +242,7 @@ vector< vector<OPT> > block_coef;
 		slot *= GJP.Nodes(i);
 		slot += GJP.NodeCoor(i+1);
 		ntotal *= GJP.Nodes(i);
-    }
+    	}
         ntotal *= GJP.Nodes(3);
     int nperdir = ntotal / n_cycle;
     if (nperdir<1) nperdir=1;
@@ -307,11 +307,14 @@ vector< vector<OPT> > block_coef;
 		}
 
 		uint32_t crc_comp = crc32_fast(raw_in,size,0);
-
 		double t2 = dclock();
+		uint32_t crc_comp2 = crc32(0,raw_in,size);
+		double t3 = dclock();
+
 
 		if (UniqueID() == cycle) {
 		printf("Computed CRC32: %X   (in %.4g seconds)\n",crc_comp,t2-t1);
+		printf("Computed CRC32(zlib): %X   (in %.3g seconds)\n",crc_comp,t3-t2);
 		printf("Expected CRC32: %X\n",args.crc32);
 		}
 
@@ -401,7 +404,7 @@ vector< vector<OPT> > block_coef;
 		// now loop through eigenvectors and decompress them
 #if 0
 		//OPT* dest_all = (OPT*)malloc(f_size * sizeof(OPT) * args.neig);
-		dest_all = (OPT*)malloc(f_size * sizeof(OPT) * args.neig);
+		//dest_all = (OPT*)malloc(f_size * sizeof(OPT) * args.neig);
 		
 		if (!dest_all) {
 			fprintf(stderr,"Out of mem\n");
@@ -431,7 +434,7 @@ vector< vector<OPT> > block_coef;
 		double t0 = dclock();
 #pragma omp parallel
 		{
-			for (int j=0;j<args.neig;j++) {
+			for (int j=0;j<dest_total;j++) {
 
 //				OPT* dest = &dest_all[ (int64_t)f_size * j ];
 				OPT* dest = dest_all[  j ];
@@ -517,7 +520,7 @@ vector< vector<OPT> > block_coef;
 
 							int co;
 							for (co=0;co<12;co++) {
-								OPT* out=&dest[ get_bfm_index(pos,co) ];
+								OPT* out=&dest[ get_cps_index(pos,co) ];
 								out[0] = dst[2*co + 0];
 								out[1] = dst[2*co + 1];
 							}
@@ -554,10 +557,6 @@ vector< vector<OPT> > block_coef;
 }
 
 
-//int read_compressed_vectors(Lattice &lat, const std::string& path, const std::string &checksum_dir, 
-//		float* &dest_all,		float time_out=100000) {
-
-//int EvecReader::decompress(const char* root_ , std::vector < OPT *> &dest_all) {
 int EvecReader::read_compressed_vectors(const char *root, 
 		const char * cdir, std::vector< OPT *>  &dest_all,  
 		float time_out) {
@@ -860,11 +859,12 @@ if(cdir){
 						fseeko(f, read_size * nb, SEEK_SET);
 						std::vector<char> raw_in(read_size);
 						assert(fread(&raw_in[0],read_size,1,f) == 1);
-						uint32_t crc_comp = crc32_fast(&raw_in[0],read_size,0);
+//						uint32_t crc_comp = crc32_fast(&raw_in[0],read_size,0);
+						uint32_t crc_comp = crc32(0,&raw_in[0],read_size);
 						if (cdir)  // turns off if checksum directory is not specified
 						if (crc_comp != slot_checksums[nb]) {
 							printf("nb = %d, crc_compute = %X, crc_read[nb] = %X\n", nb, crc_comp, slot_checksums[nb]);
-							assert(crc_comp == slot_checksums[nb]);
+//							assert(crc_comp == slot_checksums[nb]);
 						}
 						char* ptr = &raw_in[0];
 
@@ -1064,7 +1064,8 @@ if(cdir){
 
 						int co;
 						for (co=0;co<12;co++) {
-							float* out=&dest[ get_bfm_index(pos,co) ];
+//							float* out=&dest[ get_bfm_index(pos,co) ];
+							float* out=&dest[ get_cps_index(pos,co) ];
 							out[0] = dst[2*co + 0];
 							out[1] = dst[2*co + 1];
 						}
