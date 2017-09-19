@@ -325,7 +325,8 @@ namespace cps
 
 	if (crc_comp2 != args.crc32_header[UniqueID ()]) {
 	  fprintf (stderr, "Corrupted file!\n");
-//                      return 9;
+	  exit (-42);
+	  return 9;
 	}
 
 	fclose (f);
@@ -923,8 +924,8 @@ namespace cps
 //#pragma omp single
       sync ();
       if (UniqueID () == 0)
-	std::
-	  cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
+	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::
+	  endl;
 
       //ptr = ptr + _cf_block_size * 2*nsingleCap*args.blocks*4;
 
@@ -1018,8 +1019,7 @@ namespace cps
 	    if (mnb != -1) {
 
 	      char *lptr = ptr + (4 * buf1.size () + FP_16_SIZE (buf2.size (),
-								 args.
-								 FP16_COEF_EXP_SHARE_FLOATS))
+								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
 	      read_floats (lptr, &buf1[0], buf1.size ());
@@ -1046,8 +1046,8 @@ namespace cps
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
       if (UniqueID () == 0)
-	std::
-	  cout << "Processed compressed data in " << t1 << " sec " << std::endl;
+	std::cout << "Processed compressed data in " << t1 << " sec " << std::
+	  endl;
       //}
     }
     sync ();

@@ -587,14 +587,13 @@ namespace cps
       if (UniqueID () == 0) {
 	VRB.Debug (cname, fname, "node-layout %d %d %d %d %d nprocessors %d\n",
 		   nn[0], nn[1], nn[2], nn[3], nn[4], nprocessors);
-	std::
-	  cout << "nprocessor= " << nprocessors << " nfile= " << nfile << std::
-	  endl;
+	std::cout << "nprocessor= " << nprocessors << " nfile= " << nfile <<
+	  std::endl;
       }
 //      std::vector < uint32_t > crc32_arr (file, 0);
       args.crc32_header.resize (nfile);
+      VRB.Debug (cname, fname, "node 0, before reading crc32\n");
       if (UniqueID () == 0) {
-	VRB.Debug (cname, fname, "node 0, before reading crc32\n");
 	for (int i = 0; i < nfile; i++) {
 	  sprintf (buf, "crc32[%d] = %%X\n", i);
 	  _IRL_READ_INT (buf, &args.crc32_header[i]);
@@ -607,7 +606,8 @@ namespace cps
 //      args.crc32 = crc32_arr[UniqueID ()];
 
 #undef _IRL_READ_INT
-      if (nprocessors >= nfile) {
+//      if (nprocessors >= nfile) {
+      {
 
 //first debug for this
 	int ngroup = (nprocessors - 1) / nfile + 1;	//number of nodes reading the same file
@@ -616,85 +616,90 @@ namespace cps
 	int nperdir = nfile / n_cycle;
 	if (nperdir < 1)
 	  nperdir = n_cycle;
-	int dir = slot / nperdir;
+	while (slot < nfile) {
+	  int dir = slot / nperdir;
 
-	sprintf (buf, "%s/%2.2d/%10.10d.compressed", root, dir, slot);
-	FILE *f2 = fopen (buf, "rb");
-	if (!f2) {
-	  fprintf (stderr, "Could not open %s\n", buf);
-	  //return 3;
-	  sleep (2);
-	  f2 = fopen (buf, "rb");
+	  sprintf (buf, "%s/%2.2d/%10.10d.compressed", root, dir, slot);
+	  FILE *f2 = fopen (buf, "rb");
 	  if (!f2) {
-	    fprintf (stderr, "Could not open %s again.\n", buf);
-	    return 3;
+	    fprintf (stderr, "Could not open %s\n", buf);
+	    //return 3;
+	    sleep (2);
+	    f2 = fopen (buf, "rb");
+	    if (!f2) {
+	      fprintf (stderr, "Could not open %s again.\n", buf);
+	      exit (-43);
+	    }
 	  }
-	}
-	fseek (f2, 0, SEEK_END);
-	long size0 = ftell (f2);
-	long size = size0 / ngroup;
-	long offset = size * (nodeID % ngroup);
-	if (((nodeID % ngroup) == (ngroup - 1))  || (nodeID==(nprocessors-1))){
-	  size = size0 - offset;
-	}
+	  fseek (f2, 0, SEEK_END);
+	  long size0 = ftell (f2);
+	  long size = size0 / ngroup;
+	  long offset = size * (nodeID % ngroup);
+	  if (((nodeID % ngroup) == (ngroup - 1))
+	      || (nodeID == (nprocessors - 1))) {
+	    size = size0 - offset;
+	  }
 
-	raw_in = (char *) smalloc (size);
-	if (0) {
-	  long half = size / 2;
-	  fseek (f2, 0, SEEK_SET);
-	  fread (raw_in, 1, half, f2);
-	  uint32_t first = crc32 (0, (const Bytef *) raw_in, half);
-	  fseek (f2, half, SEEK_SET);
-	  fread (raw_in, 1, half, f2);
-	  uint32_t second = crc32 (0, (const Bytef *) raw_in, half);
-	  printf ("half first second = %d %x %x\n", half, first, second);
-	}
-	fseek (f2, offset, SEEK_SET);
-	if (!raw_in) {
-	  fprintf (stderr, "Out of mem\n");
-	  return 5;
-	}
+	  raw_in = (char *) smalloc (size);
+	  if (0) {
+	    long half = size / 2;
+	    fseek (f2, 0, SEEK_SET);
+	    fread (raw_in, 1, half, f2);
+	    uint32_t first = crc32 (0, (const Bytef *) raw_in, half);
+	    fseek (f2, half, SEEK_SET);
+	    fread (raw_in, 1, half, f2);
+	    uint32_t second = crc32 (0, (const Bytef *) raw_in, half);
+	    printf ("half first second = %d %x %x\n", half, first, second);
+	  }
+	  fseek (f2, offset, SEEK_SET);
+	  if (!raw_in) {
+	    fprintf (stderr, "Out of mem\n");
+	    return 5;
+	  }
 
-	long t_pos = ftell (f2);
-	if (fread (raw_in, 1, size, f2) != size) {
-	  fprintf (stderr, "Invalid fread\n");
-	  return 6;
-	}
-	long t_pos2 = ftell (f2);
-	VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
+	  long t_pos = ftell (f2);
+	  if (fread (raw_in, 1, size, f2) != size) {
+	    fprintf (stderr, "Invalid fread\n");
+	    return 6;
+	  }
+	  long t_pos2 = ftell (f2);
+	  VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
 
 //        std::vector < uint32_t > crc32_part(node);
-	uint32_t crc32_part[nprocessors];
-	for (int i = 0; i < nprocessors; i++)
-	  crc32_part[i] = 0;
-	crc32_part[nodeID] = crc32 (0, (const Bytef *) raw_in, size);
+	  uint32_t crc32_part[nprocessors];
+	  for (int i = 0; i < nprocessors; i++)
+	    crc32_part[i] = 0;
+	  crc32_part[nodeID] = crc32 (0, (const Bytef *) raw_in, size);
 //      crc32_part[nodeID] = crc32_fast(raw_in,size,0);
-	VRB.Debug (cname, fname,
-		   "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
-		   nprocessors, nodeID, ngroup, size, offset,
-		   crc32_part[nodeID]);
-	sumArray (crc32_part, nprocessors);
-	if (nodeID % ngroup == 0) {
-	  uint32_t crc32_all = crc32_part[nodeID];
-	  VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
-	  for (int i = 1; i < ngroup; i++) {
-	    VRB.Debug (cname, fname, "%d: crc32_part[%d]: %x\n", nodeID,
-		       nodeID + i, crc32_part[nodeID + i], crc32_all);
-	    if (i < (ngroup - 1))
-	      crc32_all =
-		crc32_combine64 (crc32_all, crc32_part[nodeID + i], size);
-	    else
-	      crc32_all =
-		crc32_combine64 (crc32_all, crc32_part[nodeID + i],
-				 size0 - (size * (ngroup - 1)));
+	  VRB.Debug (cname, fname,
+		     "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
+		     nprocessors, nodeID, ngroup, size, offset,
+		     crc32_part[nodeID]);
+	  sumArray (crc32_part, nprocessors);
+	  if (nodeID % ngroup == 0) {
+	    uint32_t crc32_all = crc32_part[nodeID];
+	    VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
+	    for (int i = 1; i < ngroup; i++) {
+	      VRB.Debug (cname, fname, "%d: crc32_part[%d]: %x\n", nodeID,
+			 nodeID + i, crc32_part[nodeID + i], crc32_all);
+	      if (i < (ngroup - 1))
+		crc32_all =
+		  crc32_combine64 (crc32_all, crc32_part[nodeID + i], size);
+	      else
+		crc32_all =
+		  crc32_combine64 (crc32_all, crc32_part[nodeID + i],
+				   size0 - (size * (ngroup - 1)));
+	    }
+	    printf ("%d: crc32_all: %x crc32_header %x\n", slot, crc32_all,
+		    args.crc32_header[slot]);
+	    assert (crc32_all == args.crc32_header[slot]);
 	  }
-	  printf("%d: crc32_all: %x crc32_header %x\n", nodeID, crc32_all,args.crc32_header[(nodeID/ngroup)]);
-	  assert (crc32_all == args.crc32_header[(nodeID/ngroup)]);
+	  free (raw_in);
+	  raw_in = NULL;
+	  if (f2)
+	    fclose (f2);
+	  slot += nprocessors;	// in case nfile > nprocessors
 	}
-	free (raw_in);
-	raw_in = NULL;
-	if (f2)
-	  fclose (f2);
 	crc32_checked = true;
 //      exit (-42);
 
