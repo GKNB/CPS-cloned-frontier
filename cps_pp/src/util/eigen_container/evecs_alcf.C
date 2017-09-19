@@ -83,7 +83,7 @@ void alcf_evecs_save(char* dest,EigenCache* ec, int nkeep) {
   int ngroups = slots_total / nwrite_at_once;
   int igroup;
   
-  uint32_t crc32 = 0x0;
+  uint32_t crc32_all = 0x0;
   for (igroup=0;igroup<ngroups;igroup++) {
     Float test = 0.0;
     if (id % ngroups == igroup) {
@@ -119,7 +119,8 @@ void alcf_evecs_save(char* dest,EigenCache* ec, int nkeep) {
                         }
           }
 
-          crc32 = crc32_fast(ev, sizeof(float)*size_float, crc32);
+//          crc32 = crc32_fast(ev, sizeof(float)*size_float, crc32);
+          crc32_all = crc32(crc32_all, (const Bytef*) ev, sizeof(float)*size_float);
 	  {
 	    int nr = 0;
 	    while (fwrite(ev,sizeof(float)*size_float,1,f) != 1) {
@@ -165,7 +166,7 @@ void alcf_evecs_save(char* dest,EigenCache* ec, int nkeep) {
   for (i=0;i<slots_total;i++) {
     uint32_t this_crc32 = 0x0;
     if (i == id)
-      this_crc32 += crc32;
+      this_crc32 += crc32_all;
     uint32_t rcv_crc32;
     MPI_Allreduce(&this_crc32, &rcv_crc32, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     if (f)

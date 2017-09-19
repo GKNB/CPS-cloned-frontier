@@ -22,12 +22,6 @@
 #include <util/verbose.h>
 #include <unistd.h>
 
-//inline double dclock() {
-//      struct timeval tv; 
-//      gettimeofday(&tv,NULL);
-//      return (1.0*tv.tv_usec + 1.0e6*tv.tv_sec) / 1.0e6;
-//}
-//
 #if 0
 extern MPI_Comm QMP_COMM_WORLD;
 #else
@@ -36,7 +30,8 @@ extern MPI_Comm QMP_COMM_WORLD;
 
 
 
-uint32_t crc32_fast (const void *data, size_t length, uint32_t previousCrc32);
+#include <zlib.h>
+//uint32_t crc32_fast (const void *data, size_t length, uint32_t previousCrc32);
 
 namespace cps
 {
@@ -56,13 +51,13 @@ namespace cps
 
     int index;
 
-    uint32_t crc32;
+      std::vector < uint32_t > crc32_header;
 
     int FP16_COEF_EXP_SHARE_FLOATS;
 //    bool big_endian;
   };
 
- class EigenCache ; //forward declaration
+  class EigenCache;		//forward declaration
 
 
   class EvecReader
@@ -71,10 +66,12 @@ namespace cps
     static const char *cname;
 
   public:
-      bool machine_is_little_endian;
-    int bigendian;		// read/write data back in big endian
+    const int n_cycle = 32;
+    bool machine_is_little_endian;
+    bool bigendian;		// read/write data back in big endian
     _evc_meta_ args;
-      EvecReader ():bigendian (0)	// fixed to little endian
+    bool crc32_checked;
+      EvecReader ():bigendian (false), crc32_checked (false)	// fixed to little endian
     {
       machine_is_little_endian = machine_endian ();
     };
@@ -85,7 +82,7 @@ namespace cps
     int nthreads;
 
     static const char *header;
-    std::vector <double> evals;
+    std::vector < double >evals;
 
     int vol4d, vol5d;
     int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
@@ -200,7 +197,8 @@ namespace cps
 	    c[3 - j] = tmp;
 	  }
 	  float after = dest[i];
-	  printf ("fix_float_endian: %g ->%g\n", before, after);
+	  VRB.Debug (cname, "fix_float_endian", "fix_float_endian: %g ->%g\n",
+		     before, after);
 	}
       }
 
@@ -379,7 +377,8 @@ namespace cps
       static double data_counter = 0.0;
 
       // checksum
-      crc = crc32_fast (buf, s, crc);
+//      crc = crc32_fast (buf, s, crc);
+      crc = crc32 (crc, (const Bytef *) buf, s);
 
       double t0 = dclock ();
       if (fwrite (buf, s, 1, f) != 1) {
@@ -390,8 +389,8 @@ namespace cps
 
       data_counter += (double) s;
       if (data_counter > 1024. * 1024. * 256) {
-	printf ("Writing at %g GB/s\n",
-		(double) s / 1024. / 1024. / 1024. / (t1 - t0));
+	VRB.Result (cname, "write_bytes", "Writing at %g GB/s\n",
+		    (double) s / 1024. / 1024. / 1024. / (t1 - t0));
 	data_counter = 0.0;
       }
     }
@@ -495,8 +494,8 @@ namespace cps
 	for (int i = 0; i < nsc; i++) {
 	  ev[i] = fp_unmap (*bptr++, min, max, SHRT_UMAX);
 	}
-      if(std::isnan(ev[0]))
-	std::cout << "read_floats_fp16 ev[0]= " << ev[0] << std::endl;
+	if (std::isnan (ev[0]))
+	  std::cout << "read_floats_fp16 ev[0]= " << ev[0] << std::endl;
 
       }
 
@@ -506,20 +505,21 @@ namespace cps
 //    int read_metadata (const char *root, _evc_meta_ & args)
     int read_metadata (const char *root)
     {
+      const char *fname = "read_metadata()";
+
       char buf[1024];
       sprintf (buf, "%s/metadata.txt", root);
-      uint32_t nprocessors = 1;
       FILE *f = NULL;
       uint32_t status = 0;
       if (UniqueID () == 0) {
-	printf ("node 0, before fopen \n");
+	VRB.Debug (cname, fname, "node 0, before fopen \n");
 	f = fopen (buf, "r");
 	status = f ? 1 : 0;
       }
       sumArray (&status, 1);
 //      _grid->GlobalSum(status);
       if (!status) {
-	printf ("failed to open %s \n", buf);
+	ERR.General (cname, fname, "failed to open %s \n", buf);
 	return false;
       }
       for (int i = 0; i < 5; i++) {
@@ -535,7 +535,7 @@ namespace cps
 
 #define _IRL_READ_INT(buf,p) if (f) { assert(fscanf(f,buf,p)==1); } else { *(p) = 0; }
       if (UniqueID () == 0) {
-	printf ("node 0, before reading metadata\n");
+	VRB.Debug (cname, fname, "node 0, before reading metadata\n");
 	for (int i = 0; i < 5; i++) {
 	  sprintf (buf, "s[%d] = %%d\n", i);
 	  _IRL_READ_INT (buf, &args.s[i]);
@@ -555,7 +555,7 @@ namespace cps
 //      _IRL_READ_INT ("big_endian = %d\n", &args.big_endian);
 	_IRL_READ_INT ("FP16_COEF_EXP_SHARE_FLOATS = %d\n",
 		       &args.FP16_COEF_EXP_SHARE_FLOATS);
-	printf ("node 0, after reading metadata \n");
+	VRB.Debug (cname, fname, "node 0, after reading metadata \n");
       }
       //     bigendian = args.big_endian; //currently fixed to be little endian
       sumArray (args.s, 5);
@@ -568,37 +568,136 @@ namespace cps
       sumArray (&args.FP16_COEF_EXP_SHARE_FLOATS, 1);
 
 //we do not divide the fifth dimension
-      int nn[5];
-//      std::vector<int> nn(5);
+//      int nn[5];
+      uint32_t nprocessors = 1;
+      uint32_t nfile = 1;
+      std::vector < int >nn (5);
       nn[4] = 1;
       for (int i = 0; i < 4; i++) {
 	//     assert(GJP.Sites(i) % args.s[i] == 0);
 	//    nn[i] = GJP.Sites(i)/ args.s[i];
 	nn[i] = GJP.Nodes (i);
 	nprocessors *= nn[i];
+	nfile *= (GJP.Sites (i) / args.s[i]);
       }
       double barrier = 0;
       sumArray (&barrier, 1);
 //      std::cout << "Reading data that was generated on node-layout " << nn << std::endl;
-      
-      if (UniqueID () == 0) 
-	printf("node-layout %d %d %d %d %d nprocessors %d\n",nn[0],nn[1],nn[2],nn[3],nn[4],nprocessors);
 
-      std::vector < uint32_t > crc32_arr (nprocessors, 0);
       if (UniqueID () == 0) {
-	printf ("node 0, before reading crc32\n");
-	for (int i = 0; i < nprocessors; i++) {
+	VRB.Debug (cname, fname, "node-layout %d %d %d %d %d nprocessors %d\n",
+		   nn[0], nn[1], nn[2], nn[3], nn[4], nprocessors);
+	std::
+	  cout << "nprocessor= " << nprocessors << " nfile= " << nfile << std::
+	  endl;
+      }
+//      std::vector < uint32_t > crc32_arr (file, 0);
+      args.crc32_header.resize (nfile);
+      if (UniqueID () == 0) {
+	VRB.Debug (cname, fname, "node 0, before reading crc32\n");
+	for (int i = 0; i < nfile; i++) {
 	  sprintf (buf, "crc32[%d] = %%X\n", i);
-	  _IRL_READ_INT (buf, &crc32_arr[i]);
-	  printf ("crc32[%d] = %X\n", i, crc32_arr[i]);
+	  _IRL_READ_INT (buf, &args.crc32_header[i]);
+	  VRB.Debug (cname, fname, "crc32[%d] = %X\n", i, args.crc32_header[i]);
 	}
-	printf ("node 0, after reading crc32\n");
+	VRB.Debug (cname, fname, "node 0, after reading crc32\n");
       }
       //printf("node %d, before sumarray crc32\n", UniqueID());
-      sumArray (&crc32_arr[0], nprocessors);
-      args.crc32 = crc32_arr[UniqueID ()];
+      sumArray (&args.crc32_header[0], nfile);
+//      args.crc32 = crc32_arr[UniqueID ()];
 
 #undef _IRL_READ_INT
+      if (nprocessors >= nfile) {
+
+//first debug for this
+	int ngroup = (nprocessors - 1) / nfile + 1;	//number of nodes reading the same file
+	int nodeID = UniqueID ();
+	int slot = nodeID / ngroup;
+	int nperdir = nfile / n_cycle;
+	if (nperdir < 1)
+	  nperdir = n_cycle;
+	int dir = slot / nperdir;
+
+	sprintf (buf, "%s/%2.2d/%10.10d.compressed", root, dir, slot);
+	FILE *f2 = fopen (buf, "rb");
+	if (!f2) {
+	  fprintf (stderr, "Could not open %s\n", buf);
+	  //return 3;
+	  sleep (2);
+	  f2 = fopen (buf, "rb");
+	  if (!f2) {
+	    fprintf (stderr, "Could not open %s again.\n", buf);
+	    return 3;
+	  }
+	}
+	fseek (f2, 0, SEEK_END);
+	long size0 = ftell (f2);
+	long size = size0 / ngroup;
+	long offset = size * (nodeID % ngroup);
+	if ((nodeID % ngroup) == (ngroup - 1)) {
+	  size = size0 - offset;
+	}
+
+	raw_in = (char *) smalloc (size);
+	if (0) {
+	  long half = size / 2;
+	  fseek (f2, 0, SEEK_SET);
+	  fread (raw_in, 1, half, f2);
+	  uint32_t first = crc32 (0, (const Bytef *) raw_in, half);
+	  fseek (f2, half, SEEK_SET);
+	  fread (raw_in, 1, half, f2);
+	  uint32_t second = crc32 (0, (const Bytef *) raw_in, half);
+	  printf ("half first second = %d %x %x\n", half, first, second);
+	}
+	fseek (f2, offset, SEEK_SET);
+	if (!raw_in) {
+	  fprintf (stderr, "Out of mem\n");
+	  return 5;
+	}
+
+	long t_pos = ftell (f2);
+	if (fread (raw_in, 1, size, f2) != size) {
+	  fprintf (stderr, "Invalid fread\n");
+	  return 6;
+	}
+	long t_pos2 = ftell (f2);
+	VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
+
+//        std::vector < uint32_t > crc32_part(node);
+	uint32_t crc32_part[nprocessors];
+	for (int i = 0; i < nprocessors; i++)
+	  crc32_part[i] = 0;
+	crc32_part[nodeID] = crc32 (0, (const Bytef *) raw_in, size);
+//      crc32_part[nodeID] = crc32_fast(raw_in,size,0);
+	VRB.Debug (cname, fname,
+		   "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
+		   nprocessors, nodeID, ngroup, size, offset,
+		   crc32_part[nodeID]);
+	sumArray (crc32_part, nprocessors);
+	if (nodeID % ngroup == 0) {
+	  uint32_t crc32_all = crc32_part[nodeID];
+	  VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
+	  for (int i = 1; i < ngroup; i++) {
+	    VRB.Debug (cname, fname, "%d: crc32_part[%d]: %x\n", nodeID,
+		       nodeID + i, crc32_part[nodeID + i], crc32_all);
+	    if (i < (ngroup - 1))
+	      crc32_all =
+		crc32_combine64 (crc32_all, crc32_part[nodeID + i], size);
+	    else
+	      crc32_all =
+		crc32_combine64 (crc32_all, crc32_part[nodeID + i],
+				 size0 - (size * (ngroup - 1)));
+	  }
+	  VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
+	}
+	free (raw_in);
+	raw_in = NULL;
+	if (f2)
+	  fclose (f2);
+	crc32_checked = true;
+//      exit (-42);
+
+      }
 
       if (f)
 	fclose (f);
@@ -606,6 +705,7 @@ namespace cps
     }
 
 //    int read_meta (const char *root, _evc_meta_ & args)
+#if 0
     int read_meta (const char *root)
     {
 
@@ -693,44 +793,54 @@ namespace cps
       fclose (f);
       return 1;
     }
-    int globalToLocalCanonicalBlock(int slot,const std::vector<int>& src_nodes,int nb);
-    void get_read_geometry(const std::vector<int>& cnodes,
-                std::map<int, std::vector<int> >& slots,
-                std::vector<int>& slot_lvol,
-                std::vector<int>& lvol,
-                int64_t& slot_lsites,int& ntotal);
+#endif
+    int globalToLocalCanonicalBlock (int slot,
+				     const std::vector < int >&src_nodes,
+				     int nb);
+    void get_read_geometry (const std::vector < int >&cnodes, std::map < int,
+			    std::vector < int > >&slots,
+			    std::vector < int >&slot_lvol,
+			    std::vector < int >&lvol, int64_t & slot_lsites,
+			    int &ntotal);
 
     int decompress (const char *root_, std::vector < OPT * >&dest_all);
-    int read_compressed_vectors(const char *root, const char * checksum_dir,
-        std::vector < OPT * >&dest_all,       float time_out=100000);
+    int read_compressed_vectors (const char *root, const char *checksum_dir,
+				 std::vector < OPT * >&dest_all,
+				 float time_out = 100000);
 
 
   };
 
 #endif
-class Lexicographic {
-	public:
+  class Lexicographic
+  {
+  public:
 
-		static inline void CoorFromIndex (std::vector<int>& coor,int index,std::vector<int> &dims){
-			int nd= dims.size();
-			coor.resize(nd);
-			for(int d=0;d<nd;d++){
-				coor[d] = index % dims[d];
-				index   = index / dims[d];
-			}
-		}
+    static inline void CoorFromIndex (std::vector < int >&coor, int index,
+				      std::vector < int >&dims)
+    {
+      int nd = dims.size ();
+        coor.resize (nd);
+      for (int d = 0; d < nd; d++)
+      {
+	coor[d] = index % dims[d];
+	index = index / dims[d];
+      }
+    }
 
-		static inline void IndexFromCoor (std::vector<int>& coor,int &index,std::vector<int> &dims){
-			int nd=dims.size();
-			int stride=1;
-			index=0;
-			for(int d=0;d<nd;d++){
-				index = index+stride*coor[d];
-				stride=stride*dims[d];
-			}
-		}
-};
-  void alcf_evecs_save(char* dest,EigenCache* ec,int nkeep);
+    static inline void IndexFromCoor (std::vector < int >&coor, int &index,
+				      std::vector < int >&dims)
+    {
+      int nd = dims.size ();
+      int stride = 1;
+      index = 0;
+      for (int d = 0; d < nd; d++) {
+	index = index + stride * coor[d];
+	stride = stride * dims[d];
+      }
+    }
+  };
+  void alcf_evecs_save (char *dest, EigenCache * ec, int nkeep);
   void movefloattoFloat (Float * out, float *in, int f_size);
 
 }

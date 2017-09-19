@@ -10,7 +10,7 @@ CPS_START_NAMESPACE
 const char *EvecReader::cname = "EvecReader";
 const char* EvecReader::header =
 "QCD eigenvector decompressor\n"
-"Authors: Christoph Lehner\n"
+"Authors: Christoph Lehner, Ziyuan Bai, Chulwoo Jung\n"
 "Date: 2017\n";
 #endif
 
