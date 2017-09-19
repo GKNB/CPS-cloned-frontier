@@ -634,7 +634,7 @@ namespace cps
 	long size0 = ftell (f2);
 	long size = size0 / ngroup;
 	long offset = size * (nodeID % ngroup);
-	if ((nodeID % ngroup) == (ngroup - 1)) {
+	if (((nodeID % ngroup) == (ngroup - 1))  || (nodeID==(nprocessors-1))){
 	  size = size0 - offset;
 	}
 
@@ -688,7 +688,8 @@ namespace cps
 		crc32_combine64 (crc32_all, crc32_part[nodeID + i],
 				 size0 - (size * (ngroup - 1)));
 	  }
-	  VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
+	  printf("%d: crc32_all: %x crc32_header %x\n", nodeID, crc32_all,args.crc32_header[(nodeID/ngroup)]);
+	  assert (crc32_all == args.crc32_header[(nodeID/ngroup)]);
 	}
 	free (raw_in);
 	raw_in = NULL;
