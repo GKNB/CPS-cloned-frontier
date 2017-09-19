@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <util/command_line.h>
 #include <util/eigen_container.h>
 #include <util/lattice/fgrid.h>
 
@@ -68,43 +69,6 @@ void CalNucleons (QPropW & q, char *out_dir, int traj, char *src_str);
 
 char evecname_bc[1024];
 
-
-void meas_bound (Lattice & lattice, Float *meas_high, Float *meas_low,Float mass)
-{
-  char *fname = "meas_bound(lattice&)";
-  Float etime = time_elapse ();
-  EigArg eig_arg;
-  if (!eig_arg.Decode ("eig_arg.vml", "eig_arg")) {
-    ERR.General (fname, fname, "Decoding of eig_arg failed\n");
-  }
-  eig_arg.Mass.Mass_val[0]=mass;
-  eig_arg.mass=mass;
-  eig_arg.Encode ("eig_arg.dat", "eig_arg");
-if (meas_high)
-{
-  eig_arg.RitzMatOper =  NEG_MATPCDAG_MATPC;
-  AlgEig ritz(lattice,&common_arg,&eig_arg);
-  Float eigen[1][1];
-// Segfault. Can't be bother to fix it at the moment
-//  ritz.run((Float**)eigen,(Vector**)NULL);
-//  VRB.Result("",fname,"high_value =%0.16g\n",eigen[0][0]);
-//  *meas_high = eigen[0][0];
-  ritz.run();
-}
-if (meas_low)
-{
-  eig_arg.RitzMatOper =  MATPCDAG_MATPC;
-  AlgEig ritz(lattice,&common_arg,&eig_arg);
-//  Float eigen[1][1];
-//  ritz.run((Float**)eigen,(Vector**)NULL);
-//  VRB.Result("",fname,"low =%0.16g\n",eigen[0][0]);
-  ritz.run();
-}
-  etime = time_elapse ();
-  if (!UniqueID ())
-    printf ("Time for Ritz %g\n", etime);
-}
-
 void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 {
   char *fname = "comp_read_eigenvectors(lattice&, int)";
@@ -117,16 +81,6 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
   char cache_name[1024];
   snprintf (cache_name, 1024, "cache_0_mass%g", lanczos_arg.mass);
   ecache = new EigenCacheGrid< GRID_FERMION_F > (cache_name);
-#if 0
-  char evecname[1024];
-  snprintf (evecname, 1024, "%s/eig4dee.mass%g.ls%d.pc%d",
-	    lanczos_arg.file, lanczos_arg.mass, GJP.SnodeSites (), GJP.ZMobius_PC_Type ());
-  lanczos_arg.file = evecname;
-#endif
-
-
-
-//  snprintf (evecname_bc, 1024, "%s.bc%d%d%d%d", lanczos_arg.file, GJP.Bc (0), GJP.Bc (1), GJP.Bc (2), GJP.Bc (3));
   snprintf (evecname_bc, 1024, "%s", lanczos_arg.file);
 
 
@@ -169,8 +123,9 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 	// factor of 2 for single-prec.
 	// have to do this if stride != 1 FIX!
       float *evec_f = (float*)(ecache->vec_ptr(0));
-	  if (int status = ecache->decompress(evecname_bc))
-		ERR.General(fname,"decompress()","returned %d\n",status);
+//	  if (int status = ecache->decompress(evecname_bc))
+	  if (int status = ecache->read_compressed(evecname_bc,NULL))
+		ERR.General(fname,"read_compressed()","returned %d\n",status);
 //      eigcon.rbc_load(evecname_bc);
 	for (int iev = 0; iev < neig; iev++) {
 //	  Vector *evec = eigcon.nev_load (iev+eig_start);
@@ -201,6 +156,16 @@ void truncate_it(CommonArg *common_arg, const char stem[], int traj)
     common_arg->set_filename(fnbuf);
 }
 
+void endian_check()
+{
+  char endian_c[4]={1,0,0,0};
+  uint32_t *endian_i = (uint32_t*)endian_c;
+  std::string answer;
+  if (*endian_i==0x1) 	
+	printf("little endian\n");
+  else
+	printf("big endian\n");
+}
 
 
 int main (int argc, char *argv[])
@@ -218,25 +183,11 @@ int main (int argc, char *argv[])
 	 argc);
     exit (-1);
   }
+  CommandLine::is(argc,argv);
 
 
-{
-  char endian_c[4]={1,0,0,0};
-  uint32_t *endian_i = (uint32_t*)endian_c;
-  std::string answer;
-  if (*endian_i==0x1) 	
-	printf("little endian\n");
-  else
-	printf("big endian\n");
-	
-}
-
-  chdir (argv[1]);
-//  int do_zmob_sm = atoi (argv[5]);
-  int do_meas = atoi(argv[3]);
-  int ntraj = atoi(argv[4]);
-  int io_sparse=16;
-  if (argc>5) io_sparse = atoi(argv[5]);
+  chdir (CommandLine::arg());
+  int io_sparse=1;
   setQioSparseNum(io_sparse);
 
   if (!do_arg.Decode ("do_arg.vml", "do_arg")) {
@@ -306,11 +257,6 @@ int main (int argc, char *argv[])
 
     VRB.Result(cname,"main()", "GJP.ZMobius_PC_Type() = %d\n",GJP.ZMobius_PC_Type());
 
-if (do_meas){
-    Float high = 0.,low=0.;
-    meas_bound (lattice,&high,&low,mobius_arg.cg.mass);
-//  cps::sync();exit(-1);
-}
     comp_read_eigenvectors (lattice);
 #if 1
     CgArg cg_save = qpropw_arg.cg;
