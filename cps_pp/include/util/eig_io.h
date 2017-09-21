@@ -511,11 +511,13 @@ namespace cps
     int read_metadata (const char *root)
     {
       const char *fname = "read_metadata()";
+      std::string path(root);
 
       char buf[1024];
       sprintf (buf, "%s/metadata.txt", root);
       FILE *f = NULL;
       uint32_t status = 0;
+
       if (UniqueID () == 0) {
 	VRB.Debug (cname, fname, "node 0, before fopen \n");
 	f = fopen (buf, "r");
@@ -709,6 +711,27 @@ namespace cps
 
       if (f)
 	fclose (f);
+
+//    double vals[nvec];
+    long nvec=0;
+    evals.resize(args.neig);
+    double *vals = evals.data();
+//    memset (vals, 0, sizeof (vals));
+    if (!UniqueID ()) {
+      std::cout << "Reading eigenvalues \n";
+      const std::string filename = path + "/eigen-values.txt";
+      FILE *file = fopen (filename.c_str (), "r");
+      fscanf (file, "%ld\n", &nvec);
+      assert(nvec <=args.neig);
+      for (int i = 0; i < args.neig; i++) {
+        fscanf (file, "%lE\n", vals + i);
+        std::cout << sqrt (evals[i]) << std::endl;
+      }
+      fclose (file);
+    }
+    sumArray (vals, args.neig);
+    if (!UniqueID ()) std::cout << "End Reading eigenvalues\n";
+
       return 1;
     }
 
@@ -724,6 +747,7 @@ namespace cps
     int decompress (const char *root_, std::vector < OPT * >&dest_all);
     int read_compressed_vectors (const char *root, const char *checksum_dir,
 				 std::vector < OPT * >&dest_all,
+				int start=-1, int end=-1,
 				 float time_out = 100000);
 
 

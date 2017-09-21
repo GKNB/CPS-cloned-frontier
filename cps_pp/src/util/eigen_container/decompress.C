@@ -578,11 +578,19 @@ namespace cps
   int EvecReader::read_compressed_vectors (const char *root,
 					   const char *cdir,
 					   std::vector < OPT * >&dest_all,
+					   int start, int end,
 					   float time_out)
   {
     std::string path (root);
+    std::string fname ("read_compressed_vectors()");
 
     int dest_total = dest_all.size ();
+    if( start<0 ) start=0;
+    if( end<0 ) end=dest_total;
+    VRB.Result(cname,fname.c_str(),"start=%d end=%d\n",start,end);
+    
+//    int start = 0;
+//    int end = dest_total;
 //      const int N_threads_old=bfmarg::threads;
 //      const int N_threads = 64;
 //      omp_set_num_threads(N_threads);
@@ -618,6 +626,7 @@ namespace cps
     assert (nvec == args.neig);
 
 
+#if 0
     double vals[nvec];
     memset (vals, 0, sizeof (vals));
     if (!UniqueID ()) {
@@ -625,7 +634,7 @@ namespace cps
       const std::string filename = path + "/eigen-values.txt";
       FILE *file = fopen (filename.c_str (), "r");
       fscanf (file, "%ld\n", &nvec);
-      for (int i = 0; i < dest_total; i++) {
+      for (int i = 0; i < end; i++) {
 	fscanf (file, "%lE\n", &vals[i]);
 	std::cout << sqrt (vals[i]) << std::endl;
       }
@@ -639,6 +648,7 @@ namespace cps
     }
     if (UniqueID () == 0)
       std::cout << "End Reading eigenvalues\n";
+#endif
 
     //.......................Reading metadata........................
 
@@ -738,11 +748,11 @@ namespace cps
 
     if (f)
       fclose (f);
-#endif
-
-    sync ();
     if (UniqueID () == 0)
       printf ("after read metadata\n");
+#endif
+
+    cps::sync ();
 
     if (UniqueID () == 1) {
       printf ("Parameters:\n");
@@ -865,8 +875,8 @@ namespace cps
       //gsw.Start();
       //double t0 = -dclock();
 
-      fseeko (f, 0, SEEK_END);
-      size = ftello (f);
+//      fseeko (f, 0, SEEK_END);
+//      size = ftello (f);
       fseeko (f, 0, SEEK_SET);
 
 
@@ -1044,10 +1054,8 @@ namespace cps
       //}
     }
     sync ();
-//      dest_all = (float*)malloc((int64_t)f_size * sizeof(float) * args.neig);
-//      memset(dest_all, 0, f_size * size(f(float) * args.neig);
-    for (int i = 0; i < dest_total; i++)
-      memset (dest_all[i], 0, f_size * sizeof (OPT));
+    for (int i = start; i < end; i++)
+      memset (dest_all[i-start], 0, f_size * sizeof (OPT));
 
     double t0 = dclock ();
     //Now change the args to the local one.
@@ -1066,11 +1074,11 @@ namespace cps
 
 #pragma omp parallel
     {
-      for (int j = 0; j < args.neig; j++) {
+      for (int j = start; j < end; j++) {
 //      if (UniqueID() == 0) std::cout << "j = " << j << std::endl;
 
 //                      float* dest = &dest_all[ (int64_t)f_size * j ];
-	OPT *dest = dest_all[j];
+	OPT *dest = dest_all[j-start];
 
 	double ta, tb;
 	int tid = omp_get_thread_num ();

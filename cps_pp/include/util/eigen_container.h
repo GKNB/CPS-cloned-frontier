@@ -113,6 +113,7 @@ class EigenCache
 
   int alloc_flag;		// if the memory for cache is allocated or not
   int eval_cached;		// if the eval is already cached or not
+  int read_interval;		// for testing mostly at the moment
     std::vector < int >index;	//index of eigen vector that is cached.
   // if negative imply it's not cached yet.
   // This is a map between index for eigenv and the index of cache array
@@ -126,26 +127,19 @@ class EigenCache
 public:
 
   // Constructer null-ing flags, should be called once in the global scope
-    EigenCache ()
+    EigenCache ():	
+	cname("EigenCache"),read_interval(10),neig(0),alloc_flag(0),eval_cached(0)
   {
-    cname = "EigenCache";
     *fname_root_bc = 0;		// clear file name
-    neig = 0;
-    alloc_flag = 0;
-    eval_cached = 0;		// eigen value is not cached yet
 //      index = 0;
   }
 
   EigenCache (char *name)
+	:cname("EigenCache"),read_interval(10),neig(0),alloc_flag(0),eval_cached(0)
   {
-    cname = "EigenCache";
-
     strcpy (cache_name, name);
 
     *fname_root_bc = 0;		// clear file name
-    neig = 0;
-    alloc_flag = 0;
-    eval_cached = 0;		// eigen value is not cached yet
 //      index = 0;
   }
 
@@ -319,6 +313,7 @@ public:
     index[n] = n;
   }
 
+#if 0
   int decompress (const char *root_)
   {
 
@@ -341,17 +336,19 @@ public:
 		  i, sum);
     }
   }
+#endif
   int read_compressed (const char *root_, const char *checksum_dir)
   {
 
     EvecReader evec_reader;
     evec_reader.read_metadata (root_);
-    std::vector < float *>evec_f;
-    for (int i = 0; i < evec.size (); i++) {
-      evec_f.push_back ((float *) evec[i]);
+    printf("read_interval=%d\n",read_interval);
+    for (int i = 0; i < evec.size (); i+= read_interval) {
+      std::vector < float *>evec_f;
+      for (int j =0;j<read_interval && (i+j)< evec.size(); j++)
+      evec_f.push_back ((float *) evec[i+j]);
+      evec_reader.read_compressed_vectors (root_, checksum_dir, evec_f,i,i+evec_f.size());
     }
-    evec_reader.read_compressed_vectors (root_, checksum_dir, evec_f);
-//      evec_reader.decompress(root_,evec_f);
     for (int i = 0; i < evec.size (); i++) {
       float *temp = (float *) evec[i];
       char *c_tmp = (char *) temp;
