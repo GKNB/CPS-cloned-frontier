@@ -171,12 +171,6 @@ namespace cps
     double barrier = 0;
     sumArray (&barrier, 1);
 
-    //  if (argc < 1+1) {
-    //    fprintf(stderr,"Arguments: fileroot\n");
-    //    return 1;
-    //  }
-
-    //  char* root = argv[1];
     const char *root = root_;
     {
       int i;
@@ -594,7 +588,6 @@ namespace cps
 //      omp_set_num_threads(N_threads);
 
     char *cname = "read_compressed_vectors";
-//      Lanczos_5d<lanc_type>* eig = (Lanczos_5d<lanc_type>*)(lat.get_eig());
     vector < vector < OPT > >block_data;
     vector < vector < OPT > >block_data_ortho;
     vector < vector < OPT > >block_coef;
@@ -623,14 +616,11 @@ namespace cps
     printf ("dest_all.size() %d  args.neig %d\n", dest_all.size (), args.neig);
     assert (dest_all.size () <= args.neig);
     assert (nvec == args.neig);
-//      eig->get = nvec;
-//      eig->bq.resize(eig->get);
-//      eig->bl.resize(eig->get);
 
 
     double vals[nvec];
     memset (vals, 0, sizeof (vals));
-    if (0 == UniqueID ()) {
+    if (!UniqueID ()) {
       std::cout << "Reading eigenvalues \n";
       const std::string filename = path + "/eigen-values.txt";
       FILE *file = fopen (filename.c_str (), "r");
@@ -648,7 +638,7 @@ namespace cps
       evals[k] = vals[k];
     }
     if (UniqueID () == 0)
-      std::cout << "End Reading eigenvectors\n";
+      std::cout << "End Reading eigenvalues\n";
 
     //.......................Reading metadata........................
 
@@ -658,10 +648,11 @@ namespace cps
     //      evc_meta args;
     char buf[1024];
     sprintf (buf, "%s/metadata.txt", path.c_str ());
-    //std::string buf = path + "/metadata.txt";
-    uint32_t nprocessors = 1;
-    uint32_t nprocessors_real = 1;
     FILE *f = NULL;
+    //std::string buf = path + "/metadata.txt";
+#if 0
+//    uint32_t nprocessors = 1;
+//    uint32_t nprocessors_real = 1;
     uint32_t status = 0;
     if (UniqueID () == 0)
       std::cout << "here" << std::endl;
@@ -747,6 +738,7 @@ namespace cps
 
     if (f)
       fclose (f);
+#endif
 
     sync ();
     if (UniqueID () == 0)
@@ -924,8 +916,8 @@ namespace cps
 //#pragma omp single
       sync ();
       if (UniqueID () == 0)
-	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::
-	  endl;
+	std::
+	  cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
 
       //ptr = ptr + _cf_block_size * 2*nsingleCap*args.blocks*4;
 
@@ -1019,7 +1011,8 @@ namespace cps
 	    if (mnb != -1) {
 
 	      char *lptr = ptr + (4 * buf1.size () + FP_16_SIZE (buf2.size (),
-								 args.FP16_COEF_EXP_SHARE_FLOATS))
+								 args.
+								 FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
 	      read_floats (lptr, &buf1[0], buf1.size ());
@@ -1046,8 +1039,8 @@ namespace cps
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
       if (UniqueID () == 0)
-	std::cout << "Processed compressed data in " << t1 << " sec " << std::
-	  endl;
+	std::
+	  cout << "Processed compressed data in " << t1 << " sec " << std::endl;
       //}
     }
     sync ();
@@ -1159,11 +1152,7 @@ namespace cps
     }
     sync ();
     int size_5d_prec = GJP.VolNodeSites () * GJP.SnodeSites () * 24 / 2;
-    for (int k = 0; k < dest_total; k++) {
-//              eig->bq[k][1] = &(dest_all[size_5d_prec * k]);
-    }
     sync ();
-//      omp_set_num_threads(N_threads_old);
 #undef FP_16_SIZE
     return true;
   }

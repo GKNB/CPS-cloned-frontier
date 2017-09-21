@@ -71,7 +71,12 @@ namespace cps
     bool bigendian;		// read/write data back in big endian
     _evc_meta_ args;
     bool crc32_checked;
-      EvecReader ():bigendian (false), crc32_checked (false)	// fixed to little endian
+      uint32_t nprocessors ;
+      uint32_t nfile ;
+      std::vector < int >nn;
+      EvecReader ():
+	bigendian (false), crc32_checked (false),
+	nprocessors(1),nfile(1),nn(5,1)	// fixed to little endian
     {
       machine_is_little_endian = machine_endian ();
     };
@@ -569,9 +574,6 @@ namespace cps
 
 //we do not divide the fifth dimension
 //      int nn[5];
-      uint32_t nprocessors = 1;
-      uint32_t nfile = 1;
-      std::vector < int >nn (5);
       nn[4] = 1;
       for (int i = 0; i < 4; i++) {
 	//     assert(GJP.Sites(i) % args.s[i] == 0);
@@ -710,96 +712,6 @@ namespace cps
       return 1;
     }
 
-//    int read_meta (const char *root, _evc_meta_ & args)
-#if 0
-    int read_meta (const char *root)
-    {
-
-      char buf[1024];
-      char val[1024];
-      char line[1024];
-
-
-      // read meta data
-      sprintf (buf, "%s/metadata.txt", root);
-      FILE *f = fopen (buf, "r");
-      if (!f) {
-	fprintf (stderr, "Could not open %s\n", buf);
-	return 3;
-      }
-
-      while (!feof (f)) {
-	int i;
-
-	if (!fgets (line, sizeof (line), f))
-	  break;
-
-	if (sscanf (line, "%s = %s\n", buf, val) == 2) {
-
-	  char *r = strchr (buf, '[');
-	  if (r) {
-	    *r = '\0';
-	    i = atoi (r + 1);
-
-#define PARSE_ARRAY(n) \
-	    if (!strcmp (buf, #n)) {			\
-					args.n[i] = atoi(val);		\
-				}
-	    PARSE_ARRAY (s)
-	      else
-	    PARSE_ARRAY (b)
-	      else
-	    PARSE_ARRAY (nb)
-	      else
-	    {
-	      fprintf (stderr, "Unknown array '%s' in %s.meta\n", buf, root);
-	      return 4;
-	    }
-
-	  } else {
-
-#define PARSE_INT(n)				\
-				if (!strcmp(buf,#n)) {			\
-					args.n = atoi(val);			\
-				}
-#define PARSE_HEX(n)				\
-				if (!strcmp(buf,#n)) {			\
-					sscanf(val,"%X",&args.n);		\
-				}
-
-	    PARSE_INT (neig)
-	      else
-	    PARSE_INT (nkeep)
-	      else
-	    PARSE_INT (nkeep_single)
-	      else
-	    PARSE_INT (blocks)
-	      else
-	    PARSE_INT (FP16_COEF_EXP_SHARE_FLOATS)
-	      else
-	    PARSE_INT (index)
-	      else
-	    PARSE_HEX (crc32)
-	      else
-	    {
-	      fprintf (stderr, "Unknown parameter '%s' in %s.meta\n",
-		       buf, root);
-	      return 4;
-	    }
-
-
-	  }
-
-	} else {
-	  printf ("Improper format: %s\n", line);	// double nl is OK
-	}
-
-      }
-
-      fclose (f);
-      return 1;
-    }
-#endif
     int globalToLocalCanonicalBlock (int slot,
 				     const std::vector < int >&src_nodes,
 				     int nb);
