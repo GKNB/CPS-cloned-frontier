@@ -73,10 +73,10 @@ namespace cps
     bool crc32_checked;
       uint32_t nprocessors ;
       uint32_t nfile ;
-      std::vector < int >nn;
+//      std::vector < int >nn;
       EvecReader ():
 	bigendian (false), crc32_checked (false),
-	nprocessors(1),nfile(1),nn(5,1)	// fixed to little endian
+	nprocessors(1),nfile(1)	// fixed to little endian
     {
       machine_is_little_endian = machine_endian ();
     };
@@ -210,28 +210,28 @@ namespace cps
     }
 
 
-    int get_bfm_index (int *pos, int co)
+    int get_bfm_index (int *pos, int co, int *s_l)
     {
 
-      int ls = args.s[4];
+      int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
-      int NtHalf = args.s[3] / 2;
+      int NtHalf = s_l[3] / 2;
       int simd_coor = pos[3] / NtHalf;
       int regu_coor =
 	(pos[0] +
-	 args.s[0] * (pos[1] +
-		      args.s[1] * (pos[2] +
-				   args.s[2] * (pos[3] % NtHalf)))) / 2;
+	 s_l[0] * (pos[1] +
+		      s_l[1] * (pos[2] +
+				   s_l[2] * (pos[3] % NtHalf)))) / 2;
 //      int regu_vol = vol_4d_oo / 2;
 
       return +regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
-    int get_cps_index (int *pos, int co)
+    int get_cps_index (int *pos, int co, int *s_l)
     {
 
-      int ls = args.s[4];
+      int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
@@ -240,10 +240,10 @@ namespace cps
 //      int simd_coor = pos[3] / NtHalf;
 //      assert (simd_coor == 0);
 //      int regu_vol = vol_4d_oo / SimdT;
-      int regu_coor = (pos[0] + args.s[0] *
-		       (pos[1] + args.s[1] *
-			(pos[2] + args.s[2] *
-			 (pos[3] + args.s[3] * pos[4])))) / 2;
+      int regu_coor = (pos[0] + s_l[0] *
+		       (pos[1] + s_l[1] *
+			(pos[2] + s_l[2] *
+			 (pos[3] + s_l[3] * pos[4])))) / 2;
 
       return ((regu_coor) * 12 + co) * 2;
 //      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
@@ -482,7 +482,7 @@ namespace cps
       unsigned short *in = (unsigned short *) ptr;
       ptr += 2 * (n + nsites);
 
-#define assert(exp)  { if ( !(exp) ) { fprintf(stderr,"Assert " #exp " failed\n"); exit(84); } }
+//#define assert(exp)  { if ( !(exp) ) { fprintf(stderr,"Assert " #exp " failed\n"); exit(84); } }
 
       // do for each site
       for (int64_t site = 0; site < nsites; site++) {
@@ -576,6 +576,7 @@ namespace cps
 
 //we do not divide the fifth dimension
 //      int nn[5];
+      std::vector < int >nn(5,1);
       nn[4] = 1;
       for (int i = 0; i < 4; i++) {
 	//     assert(GJP.Sites(i) % args.s[i] == 0);
@@ -730,7 +731,7 @@ namespace cps
       fclose (file);
     }
     sumArray (vals, args.neig);
-    if (!UniqueID ()) std::cout << "End Reading eigenvalues\n";
+    if (!UniqueID ()) std::cout << "End Reading eigenvalues, read_metadata done\n";
 
       return 1;
     }
@@ -744,7 +745,7 @@ namespace cps
 			    std::vector < int >&lvol, int64_t & slot_lsites,
 			    int &ntotal);
 
-    int decompress (const char *root_, std::vector < OPT * >&dest_all);
+//    int decompress (const char *root_, std::vector < OPT * >&dest_all);
     int read_compressed_vectors (const char *root, const char *checksum_dir,
 				 std::vector < OPT * >&dest_all,
 				int start=-1, int end=-1,

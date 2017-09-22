@@ -114,7 +114,7 @@ void init_qmp(int * argc, char ***argv) {
 
     // check QMP thread level
     // Added by Hantao
-    if(peRank == 0) {
+    if(qmpRank == 0) {
         switch(prv) {
         case QMP_THREAD_SINGLE:
             printf("QMP thread level = QMP_THREAD_SINGLE\n");

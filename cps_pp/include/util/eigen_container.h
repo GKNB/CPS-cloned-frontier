@@ -4,6 +4,7 @@
 #ifdef USE_GRID
 #include<Grid/Grid.h>
 #endif
+
 /*
     Declaration/definition for 
      1.  eigen vectors/values container (EigenContainer class),
@@ -60,7 +61,7 @@ void lanczos_GramSchm (Float * psi, Float ** vec, int Nvec, size_t f_size,
 static void ReflectAndMultGamma5 (Vector * out, const Vector * in, int nodevol,
 				  int ls)
 {
-  char *fname = "MultGamma5(V*,V*,i)";
+  const char *fname = "MultGamma5(V*,V*,i)";
   VRB.Func ("", fname);
   for (int s = 0; s < ls; ++s) {
     IFloat *p = (IFloat *) out + 24 * nodevol * s;
@@ -163,7 +164,7 @@ public:
 
   void alloc (char *a_fname_root_bc, int a_neig, size_t a_f_size)
   {
-    char *fname = "alloc(C*,I,I)";
+    const char *fname = "alloc(C*,I,I)";
     VRB.Func (cname, fname);
     VRB.Result (cname, fname, "fname=%s neig=%d f_size=%ld\n",
 		a_fname_root_bc, a_neig, a_f_size);
@@ -199,7 +200,7 @@ public:
 
   void dealloc ()
   {
-    char *fname = "dealloc()";
+    const char *fname = "dealloc()";
     VRB.Func (cname, fname);
     if (!alloc_flag)
       return;
@@ -215,7 +216,7 @@ public:
 
   void free_vec (int vec_i)
   {
-    char *fname = "free(int n)";
+    const char *fname = "free(int n)";
     //only works when freeing the last one
     VRB.Func (cname, fname);
     if (!alloc_flag)
@@ -367,7 +368,7 @@ public:
 template < class Field > class EigenCacheGrid:public EigenCache {
 private:
   char *cname;
-  char *fname;
+//  const char *fname;
 public:
 
   Grid::GridBase * grid;
@@ -429,7 +430,7 @@ class EigenContainer
 
 private:
   char *cname;
-  char *fname;
+//  char *fname;
 
 protected:
 
@@ -476,7 +477,8 @@ public:
   EigenContainer (Lattice & latt, char *a_fname_root_bc,
 		  int neig_, size_t f_size_per_site_, int n_fields_,
 		  EigenCache * a_ecache = 0)
-:  cname ("EigenContainer"), fname ("EigenContainer(...)"), lattice (&latt) {
+:  cname ("EigenContainer"), lattice (&latt) {
+    const char *fname="EigenContainer(...)";
 
     f_size_per_site = f_size_per_site_;
     n_fields = n_fields_;
@@ -513,7 +515,7 @@ public:
   }
 
   ~EigenContainer () {
-    fname = "~EigenContainer()";
+    const char *fname = "~EigenContainer()";
     sfree (cname, fname, "eval", eval);
     sfree (cname, fname, "evec", evec);
   }
@@ -551,7 +553,7 @@ public:
   // load eigen values from  fname_root.s-eval
   Float *load_eval ()
   {
-    char *fname = "load_eval()";
+    const char *fname = "load_eval()";
 
     if (ecache)
       if (ecache->load (eval))
@@ -598,7 +600,7 @@ public:
   // save eigen values from  fname_root.s-eval 
   void save_eval (Float * in_eval)
   {
-    char *fname = "save_eval()";
+    const char *fname = "save_eval()";
 
     if (!UniqueID ()) {
 
@@ -712,7 +714,7 @@ public:
 
   void nev_check (Vector * vtmp, Float mass, Float * residual =
 		  0, Float * eval = 0) {
-    char *fname = "nev_check(V*,F,F*,F*)";
+    const char *fname = "nev_check(V*,F,F*,F*)";
 
     CgArg cg_arg;
     cg_arg.mass = mass;
@@ -782,7 +784,7 @@ public:
 
 
   void nev_check (int index, Float mass, Float * residual = 0, Float * eval = 0) {
-    char *fname = "nev_check(I,F,F*,F*)";
+    const char *fname = "nev_check(I,F,F*,F*)";
     Vector *vtmp = nev_load (index);
     nev_check (vtmp, mass, residual, eval);
   }
@@ -790,7 +792,7 @@ public:
 
   void compress (Vector * sol, Float mass, int step_eig, Float * eig1)
   {
-    char *fname = "compress(I)";
+    const char *fname = "compress(I)";
     VRB.Func (cname, fname);
 
 
@@ -849,7 +851,7 @@ public:
 
   void decompress (Vector ** sol, Float mass, int step_eig, Float * eig1)
   {
-    char *fname = "decompress(F,I,I)";
+    const char *fname = "decompress(F,I,I)";
     VRB.Func (cname, fname);
 
     Vector *Apsi =
