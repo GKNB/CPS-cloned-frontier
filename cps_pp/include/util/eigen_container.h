@@ -365,6 +365,7 @@ public:
       glb_sum (&sum);
       VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i, *temp,
 		  i, sum);
+      set_index(i);
     }
   }
 };
@@ -925,12 +926,17 @@ public:
     //    sfree(cname,fname,"sol",sol);
   }
 
-#if 0
-  Vector *rbc_load (const char *dir)
+  int load_rbc (const char *dir)
   {
-    EvecReader evec_io;
+	const char *fname="rbc_load(s)";
+	if(!ecache) ERR.General(cname,fname,"ecache should be set before calling rbc_load()\n");
+	ecache->read_compressed(dir,NULL);
+    char file[1024];
+    snprintf (file, 1024, "%s/eigen-values.txt", dir);
+    load_eval_mgl (file, 0, neig);
+    if (ecache) ecache->save (eval);
+	format=RBCcomp;
   }
-#endif
 
   friend class EvecReader;
 
