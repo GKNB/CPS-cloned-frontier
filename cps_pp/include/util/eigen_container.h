@@ -97,6 +97,7 @@ class EigenContainer;		// forward declaration
 //
 // A class for eigenvector cache to reduce I/O
 //
+enum EigenFormat{ UNDEFINED, QIO, RBC, RBCcomp} ;
 class EigenCache
 {
   friend class EigenContainer;
@@ -115,6 +116,7 @@ class EigenCache
   int alloc_flag;		// if the memory for cache is allocated or not
   int eval_cached;		// if the eval is already cached or not
   int read_interval;		// for testing mostly at the moment
+
     std::vector < int >index;	//index of eigen vector that is cached.
   // if negative imply it's not cached yet.
   // This is a map between index for eigenv and the index of cache array
@@ -126,7 +128,6 @@ class EigenCache
   char cache_name[1024];	// name to identify the cache
 
 public:
-
   // Constructer null-ing flags, should be called once in the global scope
     EigenCache ():	
 	cname("EigenCache"),read_interval(10),neig(0),alloc_flag(0),eval_cached(0)
@@ -180,9 +181,11 @@ public:
 //      eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
     eval.resize (neig);
     evec.resize (neig);
-    for (int i = 0; i < neig; i++)
+    for (int i = 0; i < neig; i++){
       evec[i] =
 	(Float *) smalloc (cname, fname, "evec[]", f_size * sizeof (Float));
+    VRB.Result(cname,fname,"evec[%d]=%p\n",i,evec[i]);
+    }
     index.resize (neig);
 //      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
 
@@ -239,7 +242,7 @@ public:
   // return 0 if it's not in the cache
   int load (Float * lam)
   {
-    VRB.Flow (cname, "load(F*)", "%d\n", eval_cached);
+    VRB.Result (cname, "load(F*)", "%d\n", eval_cached);
     if (!eval_cached)
       return 0;
     moveFloat (lam, eval.data (), neig);
@@ -278,6 +281,8 @@ public:
     if (!alloc_flag)
       return 0;
 //    return (Vector*)((Float*)evec + idx*f_size);
+    VRB.Result (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx, index[idx],evec[idx]);
+    assert(idx < neig);
     return (Vector *) ((Float *) evec[idx]);
   }
   // just return the pointer in the cache, not copy
@@ -343,7 +348,7 @@ public:
 
     EvecReader evec_reader;
     evec_reader.read_metadata (root_);
-    printf("read_interval=%d\n",read_interval);
+    if(!UniqueID()) printf("read_interval=%d\n",read_interval);
     for (int i = 0; i < evec.size (); i+= read_interval) {
       std::vector < float *>evec_f;
       for (int j =0;j<read_interval && (i+j)< evec.size(); j++)
@@ -358,7 +363,7 @@ public:
 	   ind++)
 	sum += temp[ind] * temp[ind];
       glb_sum (&sum);
-      VRB.Result (cname, "decompress", "evec[%d][0]=%g sum[%d]=%g\n", i, *temp,
+      VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i, *temp,
 		  i, sum);
     }
   }
@@ -416,7 +421,7 @@ EigenCache *EigenCacheListSearch (char *fname_root_bc, int neig);
 void EigenCacheListCleanup ();
 
 
-//---------------------------------------------------------------------
+//----0----------------------------------------------------------------
 //
 //  I/O etc for eigen value and vectors
 //
@@ -453,13 +458,14 @@ protected:
 
   char fname_root_bc[1024];	// the preamble part of the eigen file with the boundary condition appended
   // example
-  //    fname_root.bc0001.nev0001  :  1st eigenvector
-  //    fname_root.bc0001.eval     :  eigenvalue list
+  //    fname_root.nev0001  :  1st eigenvector
+  //    fname_root.eval     :  eigenvalue list
   //  bc0001 is the spacial periodic boundaryconditions with antiperiodic temporal direction
 
   double mass;			// useful for automatic check of eigen value equation
 
   EigenCache *ecache;		// pointer to cache class
+  enum EigenFormat format;
 
 public:
   // n_fields : the number of the most outer loop in the file format
@@ -477,7 +483,7 @@ public:
   EigenContainer (Lattice & latt, char *a_fname_root_bc,
 		  int neig_, size_t f_size_per_site_, int n_fields_,
 		  EigenCache * a_ecache = 0)
-:  cname ("EigenContainer"), lattice (&latt) {
+:  cname ("EigenContainer"), lattice (&latt),format(UNDEFINED) {
     const char *fname="EigenContainer(...)";
 
     f_size_per_site = f_size_per_site_;
@@ -555,12 +561,13 @@ public:
   {
     const char *fname = "load_eval()";
 
+   VRB.Result(cname,fname,"ecache=%p\n",ecache);
     if (ecache)
       if (ecache->load (eval))
 	return eval;
 
     char file[1024];
-#if 1
+#if 0
     snprintf (file, 1024, "%s/eigen-values.txt", fname_root_bc);
     load_eval_mgl (file, 0, neig);
 #else
@@ -629,9 +636,12 @@ public:
   Vector *nev_load (int index)
   {
 
-    VRB.Flow (cname, "nev_load(I)", "ecache %x \n", ecache);
+   const char *fname="nev_load(I)";
+  
+
+    VRB.Result (cname, fname, "ecache %x \n", ecache);
     if (ecache) {		// cached, don't read in again
-      VRB.Flow (cname, "nev_load(I)", " index %d ecache->index[index] %d \n",
+      VRB.Result (cname, fname, " index %d ecache->index[index] %d \n",
 		index, ecache->index[index]);
 
       if (ecache->index[index] >= 0) {
@@ -644,6 +654,10 @@ public:
 	//return ecache->vec_ptr( index );
       }
     }
+
+   if(format==UNDEFINED ) format=QIO;
+   if(format!=QIO)
+     ERR.General(cname,fname,"Only works with QIO format. use read_compressed() for RBC Compressed\n");
 
     char file[1024];
     int save_stride = GJP.SaveStride ();
@@ -688,6 +702,13 @@ public:
 		 char *field_type_label,
 		 char *ensemble_id = "n/a",
 		 char *ensemble_label = "n/a", int seqNum = 777) {
+
+   const char *fname="nev_save(I,V*,s,s,s,I)";
+
+   if(format==UNDEFINED ) format=QIO;
+   if(format!=QIO)
+     ERR.General(cname,fname,"Only works with QIO format. use read_compressed() for RBC Compressed\n");
+
     double time = dclock ();
 
     char file[1024];
