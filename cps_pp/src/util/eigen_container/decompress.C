@@ -202,155 +202,24 @@ namespace cps
     assert (nvec == args.neig);
 
 
-#if 0
-    double vals[nvec];
-    memset (vals, 0, sizeof (vals));
-    if (!UniqueID ()) {
-      std::cout << "Reading eigenvalues \n";
-      const std::string filename = path + "/eigen-values.txt";
-      FILE *file = fopen (filename.c_str (), "r");
-      fscanf (file, "%ld\n", &nvec);
-      for (int i = 0; i < end; i++) {
-	fscanf (file, "%lE\n", &vals[i]);
-	std::cout << sqrt (vals[i]) << std::endl;
-      }
-      fclose (file);
-    }
-    sumArray (vals, dest_total);
-    evals.resize (dest_total);
-    for (int k = 0; k < dest_total; k++) {
-//              eig->bl[k] = vals[k];
-      evals[k] = vals[k];
-    }
-    if (UniqueID () == 0)
-      std::cout << "End Reading eigenvalues\n";
-#endif
-
     //.......................Reading metadata........................
 
     char hostname[1024];
     sprintf (hostname, "%d", UniqueID ());
 
-    //      evc_meta args;
-    char buf[1024];
-    sprintf (buf, "%s/metadata.txt", path.c_str ());
-    FILE *f = NULL;
-    //std::string buf = path + "/metadata.txt";
-#if 1
-//    uint32_t nprocessors = 1;
     uint32_t nprocessors_real = 1;
     uint32_t status = 0;
-    if (UniqueID () == 0)
-      std::cout << "here" << std::endl;
-    if (UniqueID () == 0) {
-      printf ("node 0, before fopen metadata. \n");
-      f = fopen (buf, "r");
-      status = f ? 1 : 0;
-    }
-    sumArray (&status, 1);
-    if (!status) {
-      printf ("fopen fail \n");
-      return false;
-    }
-#if 0
-    for (int i = 0; i < 5; i++) {
-      args.s[i] = 0;
-      args.b[i] = 0;
-      args.nb[i] = 0;
-    }
-    args.neig = 0;
-    args.nkeep = 0;
-    args.nkeep_single = 0;
-    args.blocks = 0;
-    args.FP16_COEF_EXP_SHARE_FLOATS = 0;
-
-#define _IRL_READ_INT(buf,p) if (f) { assert(fscanf(f,buf,p)==1); } else { *(p) = 0; }
-    if (UniqueID () == 0) {
-      printf ("node 0, before reading metadata\n");
-      for (int i = 0; i < 5; i++) {
-	sprintf (buf, "s[%d] = %%d\n", i);
-	_IRL_READ_INT (buf, &args.s[i]);
-      }
-      for (int i = 0; i < 5; i++) {
-	sprintf (buf, "b[%d] = %%d\n", i);
-	_IRL_READ_INT (buf, &args.b[i]);
-      }
-      for (int i = 0; i < 5; i++) {
-	sprintf (buf, "nb[%d] = %%d\n", i);
-	_IRL_READ_INT (buf, &args.nb[i]);
-      }
-      _IRL_READ_INT ("neig = %d\n", &args.neig);
-      _IRL_READ_INT ("nkeep = %d\n", &args.nkeep);
-      _IRL_READ_INT ("nkeep_single = %d\n", &args.nkeep_single);
-      _IRL_READ_INT ("blocks = %d\n", &args.blocks);
-      _IRL_READ_INT ("FP16_COEF_EXP_SHARE_FLOATS = %d\n",
-		     &args.FP16_COEF_EXP_SHARE_FLOATS);
-      printf ("node 0, after reading metadata\n");
-    }
-    sumArray (args.s, 5);
-    sumArray (args.b, 5);
-    sumArray (args.nb, 5);
-    sumArray (&args.neig, 1);
-    sumArray (&args.nkeep, 1);
-    sumArray (&args.nkeep_single, 1);
-    sumArray (&args.blocks, 1);
-    sumArray (&args.FP16_COEF_EXP_SHARE_FLOATS, 1);
-#endif
-
-    vector < int >nn (5, 1);
     for (int i = 0; i < 5; i++) {
       nprocessors_real *= GJP.Nodes (i);;
     }
+
+    vector < int >nn (5, 1);
     for (int i = 0; i < 5; i++) {
       assert (glb_i[i] % args.s[i] == 0);
       nn[i] = glb_i[i] / args.s[i];
-//      nprocessors *= nn[i];
     }
-    sync ();
-
-#if 0
-    vector < uint32_t > crc32_arr (nprocessors, 0);
-    if (UniqueID () == 0) {
-      printf ("node 0, before reading crc32\n");
-      for (int i = 0; i < nprocessors; i++) {
-	sprintf (buf, "crc32[%d] = %%X\n", i);
-	_IRL_READ_INT (buf, &crc32_arr[i]);
-	printf ("crc32[%d] = %X\n", i, crc32_arr[i]);
-      }
-      printf ("node 0, after reading crc32\n");
-    }
-    //printf("node %d, before sumarray crc32\n", UniqueID());
-    sumArray (&crc32_arr[0], nprocessors);
-    //args.crc32 = crc32_arr[UniqueID()];
-#endif
-
-#undef _IRL_READ_INT
-
-    if (f)
-      fclose (f);
-    if (UniqueID () == 0)
-      printf ("after read metadata\n");
-#endif
 
     cps::sync ();
-
-    if (0)
-    if (UniqueID () == 1) {
-      printf ("Parameters:\n");
-      for (int i = 0; i < 5; i++)
-	printf ("s[%d] = %d\n", i, args.s[i]);
-      for (int i = 0; i < 5; i++)
-	printf ("b[%d] = %d\n", i, args.b[i]);
-      printf ("nkeep = %d\n", args.nkeep);
-      printf ("nkeep_single = %d\n", args.nkeep_single);
-
-      printf ("FP16_COEF_EXP_SHARE_FLOATS = %d\n",
-	      args.FP16_COEF_EXP_SHARE_FLOATS);
-      printf ("\n");
-    }
-
-
-
 
     if (nn[4] != 1) {
       std::cout << "nn[4] != 1. forget Grid -> GJP conversion? \n";
@@ -414,6 +283,7 @@ namespace cps
     int nperdir = ntotal / num_dir;
     if (nperdir < 1)
       nperdir = 1;
+    FILE *f;
 
     // load all necessary slots and store them appropriately
     for (std::map < int, std::vector < int > >::iterator sl = slots.begin ();

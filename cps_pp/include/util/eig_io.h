@@ -620,7 +620,7 @@ namespace cps
 	int slot = nodeID / ngroup;
 	int nperdir = nfile / n_cycle;
 	if (nperdir < 1)
-	  nperdir = n_cycle;
+	  nperdir = 1;
 	while (slot < nfile) {
 	  int dir = slot / nperdir;
 
@@ -720,8 +720,14 @@ namespace cps
 //    memset (vals, 0, sizeof (vals));
     if (!UniqueID ()) {
       std::cout << "Reading eigenvalues \n";
-      const std::string filename = path + "/eigen-values.txt";
+      std::string filename = path + "/eigen-values.txt.smoothed";
       FILE *file = fopen (filename.c_str (), "r");
+      if (!file) {
+	filename.clear();
+      	filename = path + "/eigen-values.txt";
+	VRB.Result(cname,fname,"smoothed eignevalues not available. Trying %s\n",filename.c_str());
+      	file = fopen (filename.c_str (), "r");
+      }
       fscanf (file, "%ld\n", &nvec);
       assert(nvec <=args.neig);
       for (int i = 0; i < args.neig; i++) {

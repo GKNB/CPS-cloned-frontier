@@ -751,9 +751,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
 //              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
 	    Grid::RealD alph = real (zalph);
-	    tmp = tmp - alph * evec_f[i];
-	    VRB.Result (cname, fname, "norm(evec)= %e %e %e\n",
-			norm2 (evec_f[i]), alph, norm2 (tmp));
+	    tmp = tmp - eval[i] * evec_f[i];
+	    VRB.Result (cname, fname, "evec %d: norm alpha eval residual= %e %e %e %e\n",
+			i,norm2 (evec_f[i]), alph, eval[i],norm2 (tmp));
 	  }
 	  verbose=0;
         }

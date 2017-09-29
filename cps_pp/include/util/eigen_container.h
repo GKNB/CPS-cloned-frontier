@@ -188,7 +188,7 @@ public:
     for (int i = 0; i < neig; i++) {
       evec[i] =
 	(Float *) smalloc (cname, fname, "evec[]", f_size * sizeof (Float));
-      VRB.Result (cname, fname, "evec[%d]=%p\n", i, evec[i]);
+      VRB.Debug (cname, fname, "evec[%d]=%p\n", i, evec[i]);
     }
     index.resize (neig);
 //      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
@@ -285,7 +285,7 @@ public:
     if (!alloc_flag)
       return 0;
 //    return (Vector*)((Float*)evec + idx*f_size);
-    VRB.Result (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx,
+    VRB.Debug (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx,
 		index[idx], evec[idx]);
     assert (idx < neig);
     return (Vector *) ((Float *) evec[idx]);
@@ -348,9 +348,10 @@ public:
     }
   }
 #endif
-  int read_compressed (const char *root_, const char *checksum_dir)
+  int read_compressed (const char *root_, const char *checksum_dir, int interval=-1)
   {
 
+    if(interval>0) read_interval = interval;
     evec_reader.read_metadata (root_);
     if (!UniqueID ())
       printf ("read_interval=%d\n", read_interval);
@@ -646,9 +647,9 @@ public:
     const char *fname = "nev_load(I)";
 
 
-    VRB.Result (cname, fname, "ecache %x \n", ecache);
+    VRB.Debug (cname, fname, "ecache %x \n", ecache);
     if (ecache) {		// cached, don't read in again
-      VRB.Result (cname, fname, " index %d ecache->index[index] %d \n",
+      VRB.Debug (cname, fname, " index %d ecache->index[index] %d \n",
 		  index, ecache->index[index]);
 
       if (ecache->index[index] >= 0) {
@@ -909,7 +910,7 @@ public:
 	HermicianDWF_ee (vtmp, sol[i], mass, lattice, Apsi);
 	sol[i + 1]->FTimesV1PlusV2 (-1.0 / eig1[i], vtmp, sol[i], f_size);
 	Float norm = std::sqrt (sol[i + 1]->NormSqGlbSum (f_size));
-	VRB.Result (cname, fname, "extracting %d %g %g\n", i, eig1[i], norm);
+	VRB.Debug (cname, fname, "extracting %d %g %g\n", i, eig1[i], norm);
 	sol[i + 1]->VecTimesEquFloat (1.0 / norm, f_size);
       }
 
@@ -936,13 +937,13 @@ public:
     //    sfree(cname,fname,"sol",sol);
   }
 
-  int load_rbc (const char *dir)
+  int load_rbc (const char *dir, int interval=-1)
   {
     const char *fname = "load_rbc(s)";
     if (!ecache)
       ERR.General (cname, fname,
 		   "ecache should be set before calling load_rbc()\n");
-    ecache->read_compressed (dir, NULL);
+    ecache->read_compressed (dir, NULL,interval);
     char file[1024];
     snprintf (file, 1024, "%s/eigen-values.txt", dir);
     load_eval_mgl (file, 0, neig);
