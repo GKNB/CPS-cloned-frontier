@@ -97,7 +97,8 @@ class EigenContainer;		// forward declaration
 //
 // A class for eigenvector cache to reduce I/O
 //
-enum EigenFormat{ UNDEFINED, QIO, RBC, RBCcomp} ;
+enum EigenFormat
+{ UNDEFINED, QIO, RBC, RBCcomp };
 class EigenCache
 {
   friend class EigenContainer;
@@ -126,18 +127,21 @@ class EigenCache
   // but currently cache size is same as original data ( cacheing all the eigen vectors)
 
   char cache_name[1024];	// name to identify the cache
+  EvecReader evec_reader;
 
 public:
   // Constructer null-ing flags, should be called once in the global scope
-    EigenCache ():	
-	cname("EigenCache"),read_interval(10),neig(0),alloc_flag(0),eval_cached(0)
+    EigenCache ():
+    cname ("EigenCache"), read_interval (10), neig (0), alloc_flag (0),
+    eval_cached (0)
   {
     *fname_root_bc = 0;		// clear file name
 //      index = 0;
   }
 
   EigenCache (char *name)
-	:cname("EigenCache"),read_interval(10),neig(0),alloc_flag(0),eval_cached(0)
+  : cname ("EigenCache"), read_interval (10), neig (0), alloc_flag (0),
+    eval_cached (0)
   {
     strcpy (cache_name, name);
 
@@ -181,10 +185,10 @@ public:
 //      eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
     eval.resize (neig);
     evec.resize (neig);
-    for (int i = 0; i < neig; i++){
+    for (int i = 0; i < neig; i++) {
       evec[i] =
 	(Float *) smalloc (cname, fname, "evec[]", f_size * sizeof (Float));
-    VRB.Result(cname,fname,"evec[%d]=%p\n",i,evec[i]);
+      VRB.Result (cname, fname, "evec[%d]=%p\n", i, evec[i]);
     }
     index.resize (neig);
 //      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
@@ -281,8 +285,9 @@ public:
     if (!alloc_flag)
       return 0;
 //    return (Vector*)((Float*)evec + idx*f_size);
-    VRB.Result (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx, index[idx],evec[idx]);
-    assert(idx < neig);
+    VRB.Result (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx,
+		index[idx], evec[idx]);
+    assert (idx < neig);
     return (Vector *) ((Float *) evec[idx]);
   }
   // just return the pointer in the cache, not copy
@@ -346,14 +351,15 @@ public:
   int read_compressed (const char *root_, const char *checksum_dir)
   {
 
-    EvecReader evec_reader;
     evec_reader.read_metadata (root_);
-    if(!UniqueID()) printf("read_interval=%d\n",read_interval);
-    for (int i = 0; i < evec.size (); i+= read_interval) {
+    if (!UniqueID ())
+      printf ("read_interval=%d\n", read_interval);
+    for (int i = 0; i < evec.size (); i += read_interval) {
       std::vector < float *>evec_f;
-      for (int j =0;j<read_interval && (i+j)< evec.size(); j++)
-      evec_f.push_back ((float *) evec[i+j]);
-      evec_reader.read_compressed_vectors (root_, checksum_dir, evec_f,i,i+evec_f.size());
+      for (int j = 0; j < read_interval && (i + j) < evec.size (); j++)
+	evec_f.push_back ((float *) evec[i + j]);
+      evec_reader.read_compressed_vectors (root_, checksum_dir, evec_f, i,
+					   i + evec_f.size ());
     }
     for (int i = 0; i < evec.size (); i++) {
       float *temp = (float *) evec[i];
@@ -363,9 +369,9 @@ public:
 	   ind++)
 	sum += temp[ind] * temp[ind];
       glb_sum (&sum);
-      VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i, *temp,
-		  i, sum);
-      set_index(i);
+      VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i,
+		  *temp, i, sum);
+      set_index (i);
     }
   }
 };
@@ -484,8 +490,8 @@ public:
   EigenContainer (Lattice & latt, char *a_fname_root_bc,
 		  int neig_, size_t f_size_per_site_, int n_fields_,
 		  EigenCache * a_ecache = 0)
-:  cname ("EigenContainer"), lattice (&latt),format(UNDEFINED) {
-    const char *fname="EigenContainer(...)";
+:  cname ("EigenContainer"), lattice (&latt), format (UNDEFINED) {
+    const char *fname = "EigenContainer(...)";
 
     f_size_per_site = f_size_per_site_;
     n_fields = n_fields_;
@@ -562,7 +568,7 @@ public:
   {
     const char *fname = "load_eval()";
 
-   VRB.Result(cname,fname,"ecache=%p\n",ecache);
+    VRB.Result (cname, fname, "ecache=%p\n", ecache);
     if (ecache)
       if (ecache->load (eval))
 	return eval;
@@ -637,13 +643,13 @@ public:
   Vector *nev_load (int index)
   {
 
-   const char *fname="nev_load(I)";
-  
+    const char *fname = "nev_load(I)";
+
 
     VRB.Result (cname, fname, "ecache %x \n", ecache);
     if (ecache) {		// cached, don't read in again
       VRB.Result (cname, fname, " index %d ecache->index[index] %d \n",
-		index, ecache->index[index]);
+		  index, ecache->index[index]);
 
       if (ecache->index[index] >= 0) {
 	//if(!UniqueID()) printf("Getting cached eig-vec %d\n",index);
@@ -656,9 +662,11 @@ public:
       }
     }
 
-   if(format==UNDEFINED ) format=QIO;
-   if(format!=QIO)
-     ERR.General(cname,fname,"Only works with QIO format. use read_compressed() for RBC Compressed\n");
+    if (format == UNDEFINED)
+      format = QIO;
+    if (format != QIO)
+      ERR.General (cname, fname,
+		   "Only works with QIO format. use read_compressed() for RBC Compressed\n");
 
     char file[1024];
     int save_stride = GJP.SaveStride ();
@@ -704,11 +712,13 @@ public:
 		 char *ensemble_id = "n/a",
 		 char *ensemble_label = "n/a", int seqNum = 777) {
 
-   const char *fname="nev_save(I,V*,s,s,s,I)";
+    const char *fname = "nev_save(I,V*,s,s,s,I)";
 
-   if(format==UNDEFINED ) format=QIO;
-   if(format!=QIO)
-     ERR.General(cname,fname,"Only works with QIO format. use read_compressed() for RBC Compressed\n");
+    if (format == UNDEFINED)
+      format = QIO;
+    if (format != QIO)
+      ERR.General (cname, fname,
+		   "Only works with QIO format. use read_compressed() for RBC Compressed\n");
 
     double time = dclock ();
 
@@ -928,14 +938,17 @@ public:
 
   int load_rbc (const char *dir)
   {
-	const char *fname="rbc_load(s)";
-	if(!ecache) ERR.General(cname,fname,"ecache should be set before calling rbc_load()\n");
-	ecache->read_compressed(dir,NULL);
+    const char *fname = "load_rbc(s)";
+    if (!ecache)
+      ERR.General (cname, fname,
+		   "ecache should be set before calling load_rbc()\n");
+    ecache->read_compressed (dir, NULL);
     char file[1024];
     snprintf (file, 1024, "%s/eigen-values.txt", dir);
     load_eval_mgl (file, 0, neig);
-    if (ecache) ecache->save (eval);
-	format=RBCcomp;
+    if (ecache)
+      ecache->save (eval);
+    format = RBCcomp;
   }
 
   friend class EvecReader;

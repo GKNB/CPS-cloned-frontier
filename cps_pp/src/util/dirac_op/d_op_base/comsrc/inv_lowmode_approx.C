@@ -101,8 +101,8 @@ int DiracOp::InvLowModeApprox(
 
 
   char fname_eig_root_bc[1024];
-  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",fname_eig_root,
-	   GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+  snprintf(fname_eig_root_bc,1024,"%s",fname_eig_root);
+//	   GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
   VRB.Result(cname,fname,"fname=%s\n",fname_eig_root_bc);
 	   
 
