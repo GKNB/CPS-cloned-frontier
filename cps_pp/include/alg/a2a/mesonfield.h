@@ -31,8 +31,16 @@ struct FlavorUnpacked<StandardIndexDilution>{
 //In the majority of cases the timeslice of the right-hand vector is equal to that of the left-hand, but in some cases we might desire it to be different,
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
 
+//If using the NODE_DISTRIBUTE_MESONFIELDS option, we can choose whether to distribute over the memory of the nodes or to read/write from disk
+#ifdef MESONFIELD_USE_BURSTBUFFER
+typedef BurstBufferMemoryStorage MesonFieldDistributedStorageType;
+#else
+typedef DistributedMemoryStorage MesonFieldDistributedStorageType;
+#endif
+
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-class A2AmesonField: public DistributedMemoryStorage{
+class A2AmesonField: public MesonFieldDistributedStorageType{
 public:
   //Deduce the dilution types for the meson field. We unpack the flavor index in W fields
   typedef typename A2AfieldL<mf_Policies>::DilutionType LeftInputDilutionType;
@@ -54,16 +62,16 @@ public:
   friend class A2AmesonField; //friend this class but with other field types
 
 public:
-  A2AmesonField(): fsize(0), nmodes_l(0), nmodes_r(0), DistributedMemoryStorage(){ }
+  A2AmesonField(): fsize(0), nmodes_l(0), nmodes_r(0), MesonFieldDistributedStorageType(){ }
 
   //Just setup memory (setup is automatically called when 'compute' is called, so this is not necessary. However if you disable the setup at compute time you should setup the memory beforehand)
-  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): fsize(0), nmodes_l(0), nmodes_r(0), DistributedMemoryStorage(){
+  A2AmesonField(const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r): fsize(0), nmodes_l(0), nmodes_r(0), MesonFieldDistributedStorageType(){
     setup(l,r,-1,-1);
   }
 
  A2AmesonField(const A2AmesonField &r): nmodes_l(r.nmodes_l), nmodes_r(r.nmodes_r),
 					 fsize(r.fsize), lindexdilution(r.lindexdilution), rindexdilution(r.rindexdilution),
-					 tl(r.tl), tr(r.tr), DistributedMemoryStorage(r){ }
+					 tl(r.tl), tr(r.tr), MesonFieldDistributedStorageType(r){ }
 
   //Call this when you use the default constructor if not automatically called (it is called automatically in ::compute)
   void setup(const A2Aparams &lp, const A2Aparams &rp, const int _tl, const int _tr){
@@ -124,7 +132,7 @@ public:
     nmodes_l = r.nmodes_l; nmodes_r = r.nmodes_r; fsize = r.fsize;
     lindexdilution = r.lindexdilution;  rindexdilution = r.rindexdilution;
     tl = r.tl; tr = r.tr;
-    ((DistributedMemoryStorage*)this)->operator=(r);
+    ((MesonFieldDistributedStorageType*)this)->operator=(r);
     return *this;
   }
 
@@ -136,7 +144,7 @@ public:
     nmodes_l = from.nmodes_l; nmodes_r = from.nmodes_r; fsize = from.fsize;
     lindexdilution = from.lindexdilution; rindexdilution = from.rindexdilution; 
     tl = from.tl; tr = from.tr;
-    ((DistributedMemoryStorage*)this)->move(from);
+    ((MesonFieldDistributedStorageType*)this)->move(from);
   }
   
   //Size in complex

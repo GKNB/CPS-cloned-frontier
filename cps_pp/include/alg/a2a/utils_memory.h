@@ -1,6 +1,6 @@
 #ifndef _UTILS_MEMORY_H_
 #define _UTILS_MEMORY_H_
-
+#include <fstream>
 #include <malloc.h>
 #include <vector>
 #ifdef ARCH_BGQ
@@ -426,6 +426,138 @@ public:
 };
 
 
+//A similar class to the above but which stores to disk rather than distributing over the memory systems of a multi-node machine
+class BurstBufferMemoryStorage{
+  void *ptr;
+  int _alignment;
+  size_t _size;
+  std::string file;
+  bool ondisk;
+  unsigned int ondisk_checksum; //so we can tell if the data has changed since we wrote it previously
+  
+  unsigned int checksum() const{
+    static bool init = false;
+    static FPConv fp;    
+    if(!init){
+      fp.setFileFormat(FP_AUTOMATIC);
+      init = true;
+    }
+    assert(sizeof(Float) == sizeof(double));
+    assert(_size % sizeof(double) == 0);   
+    return fp.checksum((char*)ptr, _size/sizeof(double), FP_AUTOMATIC);
+  }  
+public:
+  BurstBufferMemoryStorage(): ptr(NULL), ondisk(false){}
+
+  BurstBufferMemoryStorage(const BurstBufferMemoryStorage &r): ptr(NULL){
+    alloc(r._alignment, r._size);
+    memcpy(ptr, r.ptr, r._size);
+    file = r.file;
+    ondisk = r.ondisk;
+    ondisk_checksum = r.ondisk_checksum;
+  }
+
+  BurstBufferMemoryStorage & operator=(const BurstBufferMemoryStorage &r){
+    freeMem();
+    alloc(r._alignment, r._size);
+    memcpy(ptr, r.ptr, r._size);    
+    file = r.file;
+    ondisk = r.ondisk;
+    ondisk_checksum = r.ondisk_checksum;
+    return *this;
+  }
+
+  static std::string & filestub(){ static std::string b = "burststore"; return b; } //change this to the base filename (an _<IDX>.dat is appended)
+  
+  inline bool isOnNode() const{ return ptr != NULL; }
+  
+  void move(BurstBufferMemoryStorage &r){
+    ptr = r.ptr;
+    _alignment = r._alignment;
+    _size = r._size;
+    file = r.file;
+    ondisk = r.ondisk;
+    ondisk_checksum = r.ondisk_checksum;
+    r._size = 0;
+    r.ondisk = false;
+    r.file = "";
+    r.ptr = NULL;
+  }
+
+  
+  void alloc(int alignment, size_t size){
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ free(ptr); ptr = NULL; }
+    }
+    int r = posix_memalign(&ptr, alignment, size);
+    if(r){
+      printf("Error: Node %d failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", UniqueID(), r, EINVAL, ENOMEM, byte_to_MB(size) );
+      printMem(UniqueID());
+      fflush(stdout); 
+    }
+    _size = size;
+    _alignment = alignment;
+  }
+
+  void freeMem(){
+    if(ptr != NULL){
+      free(ptr);
+      ptr = NULL;
+    }
+  }
+
+  inline void* data(){ return ptr; }
+  inline void const* data() const{ return ptr; }
+  
+  //Load from disk (optional)
+  void gather(bool require){
+    int do_gather_node = (require && ptr == NULL);
+    if(do_gather_node){
+      alloc(_alignment,_size);
+      std::fstream f(file, std::ios::in | std::ios::binary);
+      if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for read\n",file.c_str());
+      size_t rd_size; f.read((char*)&rd_size,sizeof(size_t));
+      if(rd_size != _size) ERR.General("BurstBufferMemoryStorage","gather(bool)","Data size %lu in file %s different from expected %lu\n", (unsigned long)rd_size, file.c_str(), (unsigned long)_size );
+      unsigned int cksum_rd; f.read((char*)&cksum_rd,sizeof(unsigned int));
+      f.read((char*)ptr,_size);
+      if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Read error in file %s\n",file.c_str());      
+      f.close();
+      unsigned int cksum_calc = checksum();
+      if(cksum_calc != cksum_rd) ERR.General("BurstBufferMemoryStorage","gather(bool)","Checksum error on reading file %s, expected %u, got %u\n",file.c_str(),cksum_rd,cksum_calc);
+    }
+  }
+
+  void distribute(){
+    if(ptr == NULL) return;
+    unsigned int cksum = checksum();
+    if(!ondisk || (ondisk && ondisk_checksum != cksum) ){ //it is assumed here that node 0 has a copy
+      static int fidx = 0;
+      if(!ondisk){
+	std::ostringstream os; os << filestub() << "_" << fidx++ << ".dat";
+	file = os.str();
+      }
+	
+      if(!UniqueID()){
+	assert(ptr != NULL);
+	std::fstream f(file, std::ios::out | std::ios::binary);
+	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for write\n",file.c_str());
+	f.write((char*)&_size,sizeof(size_t));
+	f.write((char*)&cksum,sizeof(unsigned int));
+	f.write((char*)ptr,_size);
+	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Write error in file %s\n",file.c_str());
+      }
+      ondisk = true;
+      ondisk_checksum = cksum;
+    }
+    freeMem();
+  }
+  
+  ~BurstBufferMemoryStorage(){
+    freeMem();
+  }
+  
+};
 
 
 
