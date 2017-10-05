@@ -335,16 +335,26 @@ public:
   DistributedMemoryStorage(): ptr(NULL), _master_uid(-1){}
 
   DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL){
-    alloc(r._alignment, r._size);
-    memcpy(ptr, r.ptr, r._size);
+    if(r.ptr != NULL){    
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
   }
 
   DistributedMemoryStorage & operator=(const DistributedMemoryStorage &r){
     freeMem();
-    alloc(r._alignment, r._size);
-    memcpy(ptr, r.ptr, r._size);
+    if(r.ptr != NULL){
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);      
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
     return *this;
@@ -450,8 +460,13 @@ public:
   BurstBufferMemoryStorage(): ptr(NULL), ondisk(false){}
 
   BurstBufferMemoryStorage(const BurstBufferMemoryStorage &r): ptr(NULL){
-    alloc(r._alignment, r._size);
-    memcpy(ptr, r.ptr, r._size);
+    if(r.ptr != NULL){
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
     file = r.file;
     ondisk = r.ondisk;
     ondisk_checksum = r.ondisk_checksum;
@@ -459,8 +474,13 @@ public:
 
   BurstBufferMemoryStorage & operator=(const BurstBufferMemoryStorage &r){
     freeMem();
-    alloc(r._alignment, r._size);
-    memcpy(ptr, r.ptr, r._size);    
+    if(r.ptr != NULL){
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }
     file = r.file;
     ondisk = r.ondisk;
     ondisk_checksum = r.ondisk_checksum;
