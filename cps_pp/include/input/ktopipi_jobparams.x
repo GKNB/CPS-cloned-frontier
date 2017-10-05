@@ -5,6 +5,7 @@ class CGcontrols{
   double mixedCG_init_inner_tolerance; //mixed precision restarted CG inner CG initial tolerance
   double reliable_update_delta; //'delta' parameter of reliable update CG, controlling how often the reliable update is performed
   double reliable_update_transition_tol; //tolerance at which the single precision linear operator is replaced by the 'fallback' operator (use 0 to not use the fallback)
+  int multiCG_block_size; //if using multi-RHS or split-CG, how many solves are we performing at once?
   
   rpccommand GENERATE_PRINT_METHOD;
   rpccommand GENERATE_DEEPCOPY_METHOD;

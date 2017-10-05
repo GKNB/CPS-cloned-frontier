@@ -529,6 +529,8 @@ public:
 
   inline void* data(){ return ptr; }
   inline void const* data() const{ return ptr; }
+
+#define DISTRIBUTE_FLUSH_MEMBUF
   
   //Load from disk (optional)
   void gather(bool require){
@@ -546,6 +548,7 @@ public:
       unsigned int cksum_calc = checksum();
       if(cksum_calc != cksum_rd) ERR.General("BurstBufferMemoryStorage","gather(bool)","Checksum error on reading file %s, expected %u, got %u\n",file.c_str(),cksum_rd,cksum_calc);
     }
+    cps::sync();
   }
 
   void distribute(){
@@ -566,10 +569,14 @@ public:
 	f.write((char*)&cksum,sizeof(unsigned int));
 	f.write((char*)ptr,_size);
 	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Write error in file %s\n",file.c_str());
+#ifdef DISTRIBUTE_FLUSH_MEMBUF
+	f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
+#endif	
       }
       ondisk = true;
       ondisk_checksum = cksum;
     }
+    cps::sync();
     freeMem();
   }
   

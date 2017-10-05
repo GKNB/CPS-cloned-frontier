@@ -40,6 +40,8 @@ vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
 		 return FALSE;
 	 if (!vml_double (vmls, "reliable_update_transition_tol", &objp->reliable_update_transition_tol))
 		 return FALSE;
+	 if (!vml_int (vmls, "multiCG_block_size", &objp->multiCG_block_size))
+		 return FALSE;
 	 vml_class_end(vmls,"CGcontrols",name);
 	return TRUE;
 }
@@ -52,6 +54,7 @@ void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &pref
 	rpc_print<double>::doit(what.mixedCG_init_inner_tolerance,spaces+" mixedCG_init_inner_tolerance = ");
 	rpc_print<double>::doit(what.reliable_update_delta,spaces+" reliable_update_delta = ");
 	rpc_print<double>::doit(what.reliable_update_transition_tol,spaces+" reliable_update_transition_tol = ");
+	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
 	std::cout << spaces << "}\n";
 }
 void CGcontrols::print(const std::string &prefix){
@@ -64,6 +67,7 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 	  rpc_deepcopy<double>::doit(into.mixedCG_init_inner_tolerance,from.mixedCG_init_inner_tolerance);
 	  rpc_deepcopy<double>::doit(into.reliable_update_delta,from.reliable_update_delta);
 	  rpc_deepcopy<double>::doit(into.reliable_update_transition_tol,from.reliable_update_transition_tol);
+	  rpc_deepcopy<int>::doit(into.multiCG_block_size,from.multiCG_block_size);
 }
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);

@@ -6,6 +6,13 @@ void EvecInterface<GridPolicies>::CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDi
   Grid::ConjugateGradient<GridFermionField> CG(cg_controls.CG_tolerance, cg_controls.CG_max_iters);
   CG(linop, source, solution);
 }
+template<typename GridPolicies>
+void EvecInterface<GridPolicies>::CGNE_MdagM_multi(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
+						   std::vector<typename GridPolicies::GridFermionField> &solution, const std::vector<typename GridPolicies::GridFermionField> &source,
+						   const CGcontrols &cg_controls){
+  ERR.General("EvecInterface","CGNE_MdagM_multi","Not presently supported");
+}
+
 
 //BFM evecs
 #ifdef USE_BFM_LANCZOS
@@ -231,6 +238,22 @@ public:
       this->EvecInterface<GridPolicies>::CGNE_MdagM(linop, solution, source, cg_controls);
     }
     else ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM","Unknown CG algorithm");
+  }
+
+  void CGNE_MdagM_multi(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
+			std::vector<typename GridPolicies::GridFermionField> &solution, const std::vector<typename GridPolicies::GridFermionField> &source,
+			const CGcontrols &cg_controls){
+    //Currently just implement as a loop until we actually have multi-CG implemented
+    CGcontrols cg_controls_sub(cg_controls);    
+    switch(cg_controls.CGalgorithm){
+    case AlgorithmMixedPrecisionReliableUpdateMultiCG:
+      cg_controls_sub.CGalgorithm = AlgorithmMixedPrecisionReliableUpdateCG; break;
+    default:
+      ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM_multi","Unknown multi-CG algorithm");
+    }
+    assert(solution.size() == source.size());
+    for(int i=0;i<solution.size();i++)
+      this->CGNE_MdagM(linop,solution[i],source[i],cg_controls_sub);
   }
 
   void Report() const{

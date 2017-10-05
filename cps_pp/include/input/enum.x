@@ -878,5 +878,6 @@ enum BfmSolverType {
 enum A2ACGalgorithm {
  AlgorithmCG,
  AlgorithmMixedPrecisionRestartedCG,
- AlgorithmMixedPrecisionReliableUpdateCG
+ AlgorithmMixedPrecisionReliableUpdateCG,
+ AlgorithmMixedPrecisionReliableUpdateMultiCG
 };

@@ -1110,6 +1110,7 @@ struct vml_enum_map A2ACGalgorithm_map[] = {
 	{"A2ACGalgorithm","AlgorithmCG",AlgorithmCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionRestartedCG",AlgorithmMixedPrecisionRestartedCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateMultiCG",AlgorithmMixedPrecisionReliableUpdateMultiCG},
 	{NULL,NULL,0}
 };
 CPS_END_NAMESPACE

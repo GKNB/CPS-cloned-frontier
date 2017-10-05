@@ -174,20 +174,20 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 
 //Compute the high mode parts of V and W. 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
   
-  const char *fname = "computeVWhigh(....)";
+  const char *fname = "computeVWhighSingle(....)";
 
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
 #ifdef USE_GRID_GPARITY
-  if(ngp == 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is currently compiled for G-parity\n");
+  if(ngp == 0) ERR.General("A2AvectorW",fname,"Fgrid is currently compiled for G-parity\n");
 #else
-  if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
+  if(ngp != 0) ERR.General("A2AvectorW",fname,"Fgrid is not currently compiled for G-parity\n");
 #endif
 
   assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
@@ -269,11 +269,142 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice 
     V.getVh(i).importGridField(tmp_full_4d);
   }
 #endif
-  //VRB.Result("A2AvectorW", fname, "Grid double precision Dirac op timings (if applicable)\n");
-  //Ddwf.Report();
-  //VRB.Result("A2AvectorW", fname, "Grid single precision Dirac op timings (if applicable)\n");
-  //evecs.Report();
 }
+
+
+
+
+
+//Version of the above that calls into CG with multiple src/solution pairs so we can use split-CG or multi-RHS CG
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+  typedef typename mf_Policies::GridFermionField GridFermionField;
+  typedef typename mf_Policies::FgridFclass FgridFclass;
+  typedef typename mf_Policies::GridDirac GridDirac;
+  
+  const char *fname = "computeVWhighMulti(....)";
+
+  int ngp = 0;
+  for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
+
+#ifdef USE_GRID_GPARITY
+  if(ngp == 0) ERR.General("A2AvectorW",fname,"Fgrid is currently compiled for G-parity\n");
+#else
+  if(ngp != 0) ERR.General("A2AvectorW",fname,"Fgrid is not currently compiled for G-parity\n");
+#endif
+
+  assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
+  FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
+
+  //Grids and gauge field
+  Grid::GridCartesian *UGrid = latg.getUGrid();
+  Grid::GridRedBlackCartesian *UrbGrid = latg.getUrbGrid();
+  Grid::GridCartesian *FGrid = latg.getFGrid();
+  Grid::GridRedBlackCartesian *FrbGrid = latg.getFrbGrid();
+  Grid::QCD::LatticeGaugeFieldD *Umu = latg.getUmu();
+  
+  //Mobius parameters
+  const double mob_b = latg.get_mob_b();
+  const double mob_c = mob_b - 1.;   //b-c = 1
+  const double M5 = GJP.DwfHeight();
+  printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
+
+  const int gparity = GJP.Gparity();
+
+  //Setup Grid Dirac operator
+  typename GridDirac::ImplParams params;
+  latg.SetParams(params);
+
+  GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,mob_b,mob_c, params);
+  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> linop(Ddwf);
+
+  VRB.Result("A2AvectorW", fname, "Start computing high modes using Grid multi-RHS solver type.\n");
+    
+  //Generate the compact random sources for the high modes if not yet set
+#ifndef MEMTEST_MODE
+  setWhRandom();
+#endif
+  
+  //Allocate temp *double precision* storage for fermions
+  CPSfermion4D<typename mf_Policies::ComplexTypeD,typename mf_Policies::FermionFieldType::FieldMappingPolicy, typename mf_Policies::FermionFieldType::FieldAllocPolicy> v4dfield(V.getFieldInputParams());
+  
+  const int glb_ls = GJP.SnodeSites() * GJP.Snodes();
+
+  GridFermionField gtmp(FrbGrid);
+  GridFermionField gtmp2(FrbGrid);
+  GridFermionField gtmp3(FrbGrid);
+
+  GridFermionField gtmp_full2(FGrid);
+
+  GridFermionField tmp_full_4d(UGrid);
+
+  if(nh % cg_controls.multiCG_block_size != 0)
+    ERR.General("A2AvectorW",fname,"Block size %d must be a divisor of the number of high modes %d\n",cg_controls.multiCG_block_size, nh);
+  
+  const int nblocks = nh / cg_controls.multiCG_block_size;
+
+  std::vector<GridFermionField> gsrc(cg_controls.multiCG_block_size, GridFermionField(FGrid));
+  std::vector<GridFermionField> gtmp_full(cg_controls.multiCG_block_size, GridFermionField(FGrid));
+    
+  //Details of this process can be found in Daiqian's thesis, page 60
+#ifndef MEMTEST_MODE
+  for(int b=0;b<nblocks;b++){
+    for(int s=0;s<cg_controls.multiCG_block_size;s++){
+      int i = s + b*cg_controls.multiCG_block_size;
+      
+      //Step 1) Get the diluted W vector to invert upon
+      getDilutedSource(v4dfield, i);
+
+      //Step 2) Solve V
+      v4dfield.exportGridField(tmp_full_4d);
+      DomainWallFourToFive(gsrc[s], tmp_full_4d, 0, glb_ls-1);
+
+      //Left-multiply by D-.  D- = (1-c*DW)
+      Ddwf.DW(gsrc[s], gtmp_full[s], Grid::QCD::DaggerNo);
+      axpy(gsrc[s], -mob_c, gtmp_full[s], gsrc[s]); 
+      
+      //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
+      //If no previously computed solutions this wastes a few flops, but not enough to care about
+      //V vectors default to zero, so this is a zero guess if not reusing existing solutions
+      V.getVh(i).exportGridField(tmp_full_4d);
+      DomainWallFourToFive(gtmp_full[s], tmp_full_4d, 0, glb_ls-1);
+
+      Ddwf.DW(gtmp_full[s], gtmp_full2, Grid::QCD::DaggerNo);
+      axpy(gtmp_full[s], -mob_c, gtmp_full2, gtmp_full[s]); 
+    }
+      
+    //Do the CG
+    Grid_CGNE_M_high_multi<mf_Policies>(gtmp_full, gsrc, cg_controls, evecs, nl, latg, Ddwf, FGrid, FrbGrid);
+
+    for(int s=0;s<cg_controls.multiCG_block_size;s++){
+      int i = s + b*cg_controls.multiCG_block_size;
+      
+      //CPSify the solution, including 1/nhit for the hit average
+      DomainWallFiveToFour(tmp_full_4d, gtmp_full[s], glb_ls-1,0);
+      tmp_full_4d = Grid::RealD(1. / nhits) * tmp_full_4d;
+      V.getVh(i).importGridField(tmp_full_4d);
+    }
+  }
+#endif
+}
+
+
+inline bool isMultiCG(const A2ACGalgorithm al){
+  if(al == AlgorithmMixedPrecisionReliableUpdateMultiCG) return true;
+  return false;
+}
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+  if(isMultiCG(cg_controls.CGalgorithm)){
+    return computeVWhighMulti(V,lat,evecs,mass,cg_controls);
+  }else{
+    return computeVWhighSingle(V,lat,evecs,mass,cg_controls);
+  }
+}
+
+
+
 
 
 //Wrappers for generic interface

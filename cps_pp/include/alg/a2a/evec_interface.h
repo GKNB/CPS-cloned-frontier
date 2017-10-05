@@ -25,6 +25,10 @@ class EvecInterface{
 			  GridFermionField &solution, const GridFermionField &source,
 			  const CGcontrols &cg_controls);
 
+  //Multi-RHS version of the above
+  virtual void CGNE_MdagM_multi(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
+				std::vector<GridFermionField> &solution, const std::vector<GridFermionField> &source,
+				const CGcontrols &cg_controls);
   virtual void Report() const{}
 };
 

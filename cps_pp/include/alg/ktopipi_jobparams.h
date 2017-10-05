@@ -27,6 +27,7 @@ public:
 	double mixedCG_init_inner_tolerance;
 	double reliable_update_delta;
 	double reliable_update_transition_tol;
+	int multiCG_block_size;
 	   void print(const std::string &prefix ="");
 	   void deep_copy(const CGcontrols &rhs);
 };
