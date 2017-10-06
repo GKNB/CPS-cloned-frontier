@@ -9,7 +9,9 @@
 //This option disables the majority of the compute but keeps everything else intact allowing you to test the memory usage without doing a full run
 //#define MEMTEST_MODE
 
+#ifndef DISABLE_NODE_DISTRIBUTE_MESONFIELDS
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
+#endif
 
 #include <alg/alg_fix_gauge.h>
 #include <alg/a2a/utils_main.h>
