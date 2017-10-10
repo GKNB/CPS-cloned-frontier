@@ -28,6 +28,10 @@ public:
 	double reliable_update_delta;
 	double reliable_update_transition_tol;
 	int multiCG_block_size;
+	struct {
+		u_int split_grid_geometry_len;
+		int *split_grid_geometry_val;
+	} split_grid_geometry;
 	   void print(const std::string &prefix ="");
 	   void deep_copy(const CGcontrols &rhs);
 };

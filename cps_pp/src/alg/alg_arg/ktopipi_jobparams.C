@@ -42,6 +42,9 @@ vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "multiCG_block_size", &objp->multiCG_block_size))
 		 return FALSE;
+	 if (!vml_array (vmls, "split_grid_geometry", (char **)&objp->split_grid_geometry.split_grid_geometry_val, (u_int *) &objp->split_grid_geometry.split_grid_geometry_len, ~0,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
 	 vml_class_end(vmls,"CGcontrols",name);
 	return TRUE;
 }
@@ -55,6 +58,7 @@ void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &pref
 	rpc_print<double>::doit(what.reliable_update_delta,spaces+" reliable_update_delta = ");
 	rpc_print<double>::doit(what.reliable_update_transition_tol,spaces+" reliable_update_transition_tol = ");
 	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
+	rpc_print<int *>::doit(what.split_grid_geometry.split_grid_geometry_val,what.split_grid_geometry.split_grid_geometry_len,spaces+" split_grid_geometry = ");
 	std::cout << spaces << "}\n";
 }
 void CGcontrols::print(const std::string &prefix){
@@ -68,6 +72,8 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 	  rpc_deepcopy<double>::doit(into.reliable_update_delta,from.reliable_update_delta);
 	  rpc_deepcopy<double>::doit(into.reliable_update_transition_tol,from.reliable_update_transition_tol);
 	  rpc_deepcopy<int>::doit(into.multiCG_block_size,from.multiCG_block_size);
+	  into.split_grid_geometry.split_grid_geometry_len = from.split_grid_geometry.split_grid_geometry_len;
+	  rpc_deepcopy<int *>::doit(into.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_len);
 }
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);

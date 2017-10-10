@@ -5,7 +5,7 @@
 #include<config.h>
 #include<precision.h>
 #include<Grid/Grid.h>
-
+#include<alg/a2a/grid_split_cg.h>
 CPS_START_NAMESPACE
 
 //Unified interface for obtaining evecs and evals from either Grid- or BFM-computed Lanczos

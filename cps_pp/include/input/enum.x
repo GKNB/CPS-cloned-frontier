@@ -879,5 +879,5 @@ enum A2ACGalgorithm {
  AlgorithmCG,
  AlgorithmMixedPrecisionRestartedCG,
  AlgorithmMixedPrecisionReliableUpdateCG,
- AlgorithmMixedPrecisionReliableUpdateMultiCG
+ AlgorithmMixedPrecisionReliableUpdateSplitCG
 };

@@ -152,10 +152,17 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
 
   bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
 
+  const GridGaugeField & Umu;
+  double mass;
+  double mob_b;
+  double mob_c;
+  double M5;
+  typename GridDiracFMixedCGInner::ImplParams params;
 public:
-  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double mass): evec(_evec), eval(_eval), delete_FrbGrid_f(false){
+  EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, const std::vector<Grid::RealD> &_eval, Lattice &lat, const double _mass): evec(_evec), eval(_eval),
+																		     delete_FrbGrid_f(false), mass(_mass),
+																		     Umu(*dynamic_cast<FgridFclass&>(lat).getUmu()){
     FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
-    const GridGaugeField & Umu = *latg.getUmu();    
     
     //Make a single precision Grid (used by the Mixed prec solver also even if no evecs)
     std::vector<int> nodes(4);
@@ -177,11 +184,10 @@ public:
     Umu_f = new GridGaugeFieldF(UGrid_f);
     precisionChange(*Umu_f, Umu);
 
-    const double mob_b = latg.get_mob_b();
-    const double mob_c = mob_b - 1.;   //b-c = 1
-    const double M5 = GJP.DwfHeight();
+    mob_b = latg.get_mob_b();
+    mob_c = mob_b - 1.;   //b-c = 1
+    M5 = GJP.DwfHeight();
 
-    typename GridDiracFMixedCGInner::ImplParams params;
     latg.SetParams(params);
     
     Ddwf_f = new GridDiracFMixedCGInner(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
@@ -243,19 +249,30 @@ public:
   void CGNE_MdagM_multi(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,
 			std::vector<typename GridPolicies::GridFermionField> &solution, const std::vector<typename GridPolicies::GridFermionField> &source,
 			const CGcontrols &cg_controls){
-    //Currently just implement as a loop until we actually have multi-CG implemented
-    CGcontrols cg_controls_sub(cg_controls);    
-    switch(cg_controls.CGalgorithm){
-    case AlgorithmMixedPrecisionReliableUpdateMultiCG:
-      cg_controls_sub.CGalgorithm = AlgorithmMixedPrecisionReliableUpdateCG; break;
-    default:
+    if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateSplitCG){
+      std::vector<int> split_grid_geometry(cg_controls.split_grid_geometry.split_grid_geometry_val, cg_controls.split_grid_geometry.split_grid_geometry_val + cg_controls.split_grid_geometry.split_grid_geometry_len);
+      typedef Grid::MobiusLinopPolicy<GridDirac,Grid::SchurDiagMooeeOperator> LinopPolicyD;
+      typedef Grid::MobiusLinopPolicy<GridDiracFMixedCGInner,Grid::SchurDiagMooeeOperator> LinopPolicyF;
+      typedef Grid::MobiusLinopPolicy<GridDiracF,Grid::SchurDiagMooeeOperator> LinopPolicyFFallback;
+
+      typename LinopPolicyD::InputType linop_inputs(mass,mob_b,mob_c,M5,params);
+
+      //We ignore the input Linop and make our own here using the above policies
+      Grid::SplitConjugateGradientReliableUpdate<LinopPolicyD,LinopPolicyF> CG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta,
+									       linop_inputs, split_grid_geometry, Umu, *Umu_f, GJP.Snodes()*GJP.SnodeSites(), true, true);
+
+      
+      LinopPolicyFFallback fallback(linop_inputs);
+      fallback.Setup(CG.getSinglePrecSplitGaugeField(), CG.getSinglePrecSplitGrids());
+
+      if(cg_controls.reliable_update_transition_tol > 0.) CG.setFallbackLinop(fallback.getLinop(), cg_controls.reliable_update_transition_tol);
+
+      CG(source,solution);
+    }else{
       ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM_multi","Unknown multi-CG algorithm");
     }
-    assert(solution.size() == source.size());
-    for(int i=0;i<solution.size();i++)
-      this->CGNE_MdagM(linop,solution[i],source[i],cg_controls_sub);
   }
-
+    
   void Report() const{
     Ddwf_f->Report();
   }

@@ -230,13 +230,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
   }
 }
 
-
-
-
-
-
-
-
 CPS_END_NAMESPACE
+
 #endif
 #endif

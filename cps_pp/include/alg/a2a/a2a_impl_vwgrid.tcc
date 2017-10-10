@@ -390,7 +390,7 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
 
 
 inline bool isMultiCG(const A2ACGalgorithm al){
-  if(al == AlgorithmMixedPrecisionReliableUpdateMultiCG) return true;
+  if(al == AlgorithmMixedPrecisionReliableUpdateSplitCG) return true;
   return false;
 }
 
