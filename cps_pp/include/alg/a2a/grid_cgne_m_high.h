@@ -44,7 +44,7 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   //Compute low-mode projection and CG guess
   int Nev = evecs.nEvecs();
 
-  GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)
+  GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)  
   lsol_full = Grid::zero;
 
   GridFermionField lsol_defl(FrbGrid); //low-mode part for subset of evecs with index < nLowMode
@@ -136,6 +136,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
 
   GridFermionField tmp_full(FGrid);
   GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)
+  lsol_full.checkerboard = Grid::Odd;
   
   const int Nev = evecs.nEvecs();
   if(Nev < nLowMode)
@@ -170,7 +171,8 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     //Compute low-mode projection and CG guess (=low-mode part)
     lsol_full = Grid::zero;
     lsol_defl[s].checkerboard = Grid::Odd;
-
+    sol_o[s].checkerboard = Grid::Odd;
+    
     if(Nev > 0){
       if (!UniqueID()) printf("Grid_CGNE_M_High: deflating src %d with %d evecs\n",s,Nev);
 
@@ -182,7 +184,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
 	if(n == nLowMode - 1) lsol_defl[s] = lsol_full; //store until after CG
       }
       sol_o[s] = lsol_full; //sol_o = lsol   Set guess equal to low mode projection 
-    }
+    }else sol_o[s] = Grid::zero;
 
     f = norm2(src_o[s]);
     if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM src %d norm %le\n",s,f);

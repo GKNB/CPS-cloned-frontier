@@ -108,12 +108,15 @@ namespace Grid{
     ConjugateGradientReliableUpdate<FermionFieldD,FermionFieldF> *CG;
     bool use_rbgrid;
     int NsubGrids;
+    LinearOperatorBase<FermionFieldD> &linop_check;
   public:
     SplitConjugateGradientReliableUpdate(RealD tol, Integer maxit, RealD _delta,
+					 LinearOperatorBase<FermionFieldD> &_linop_check, //while inner workings are performed with internally-generated linops, the result is checked with this operator
 					 const LinopParameters &linop_params,
 					 const std::vector<int> &subgrid_geometry,
 					 const GaugeFieldD &Umu_d, const GaugeFieldF &Umu_f,
 					 const int Ls, bool _use_rbgrid = true, bool err_on_no_conv = true):
+      linop_check(_linop_check),
       linop_d(linop_params), linop_f(linop_params),
       sgrids_d(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_d._grid), Ls), sgrids_f(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_f._grid), Ls),
       use_rbgrid(_use_rbgrid){
@@ -178,6 +181,19 @@ namespace Grid{
       Grid_unsplit(sol, sol_split);
       tunsplit_sol += usecond();
 
+      //Check the solutions
+      FermionFieldD mmp(src[0]._grid);
+      FermionFieldD p(src[0]._grid);
+      for(int i=0; i<Nfield; i++){
+	linop_check.HermOp(sol[i], mmp);
+        p = mmp - src[i];
+	RealD srcnorm = sqrt(norm2(src[i]));
+        RealD resnorm = sqrt(norm2(p));
+        RealD true_residual = resnorm / srcnorm;
+	std::cout << GridLogMessage << "\tSolution " << i << " true residual " << true_residual<<std::endl;
+	std::cout << GridLogMessage << "\tTarget " << CG->Tolerance << std::endl;
+	if (CG->ErrorOnNoConverge) assert(true_residual / CG->Tolerance < 10000.0);
+      }
       std::cout << GridLogMessage << "SplitConjugateGradientReliableUpdate operator timings: "
       << "split sources " << tsplit_src/1e3 << " ms, "
       << "split guesses " << tsplit_sol/1e3 << " ms, "

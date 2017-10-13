@@ -258,7 +258,7 @@ public:
       typename LinopPolicyD::InputType linop_inputs(mass,mob_b,mob_c,M5,params);
 
       //We ignore the input Linop and make our own here using the above policies
-      Grid::SplitConjugateGradientReliableUpdate<LinopPolicyD,LinopPolicyF> CG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta,
+      Grid::SplitConjugateGradientReliableUpdate<LinopPolicyD,LinopPolicyF> CG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta,linop,
 									       linop_inputs, split_grid_geometry, Umu, *Umu_f, GJP.Snodes()*GJP.SnodeSites(), true, true);
 
       
