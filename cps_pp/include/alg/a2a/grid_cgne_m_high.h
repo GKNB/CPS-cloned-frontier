@@ -171,6 +171,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     //Compute low-mode projection and CG guess (=low-mode part)
     lsol_full = Grid::zero;
     lsol_defl[s].checkerboard = Grid::Odd;
+    lsol_defl[s] = Grid::zero;
     sol_o[s].checkerboard = Grid::Odd;
     
     if(Nev > 0){
