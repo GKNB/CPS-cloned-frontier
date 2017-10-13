@@ -115,7 +115,7 @@ namespace Grid{
 					 const GaugeFieldD &Umu_d, const GaugeFieldF &Umu_f,
 					 const int Ls, bool _use_rbgrid = true, bool err_on_no_conv = true):
       linop_d(linop_params), linop_f(linop_params),
-      sgrids_d(subgrid_geometry, Umu_d._grid, Ls), sgrids_f(subgrid_geometry, Umu_f._grid, Ls),
+      sgrids_d(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_d._grid), Ls), sgrids_f(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_f._grid), Ls),
       use_rbgrid(_use_rbgrid){
       
       assert(sgrids_d.NsubGrids == sgrids_f.NsubGrids);
