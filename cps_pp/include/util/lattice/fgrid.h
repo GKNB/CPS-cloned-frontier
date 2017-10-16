@@ -364,7 +364,7 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
 	      Float *cps = gauge + 18 * (site * 4 + mu) + 6 * j + 2 * i;
 	      *cps = elem.real ();
 	      *(cps + 1) = elem.imag ();
-//                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
+//i	if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
 	    }
 	}
       }

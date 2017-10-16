@@ -213,8 +213,14 @@ void init_qmp(int * argc, char ***argv) {
     peRank = pePos_t[NDIM-1];
     if(NDIM>1)
     for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos_t[i];
+    for(int i = 0; i<NDIM;i++)
+    if ( pePos_t[i] != grid_cart._processor_coor[i] ) { 
+       printf("%d %d: QMP %d Grid %d\n",peRank,i,pePos_t[i],grid_cart._processor_coor[i]);
+       QMP_abort(-32);
+    }
  //debugging
-    if (peRank != qmpRank){
+//    if (peRank != qmpRank){
+    if(0){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
 	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);
 	printf("\n");

@@ -711,7 +711,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       for (int i = 0; i < neig; i++) {
 	eval[i] = eval_cps[i];
 	Vector *evec = eigcon.nev_load (i);
-	VRB.Result (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
+	VRB.Debug (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
 	ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
 								   1, Odd,
 								   NULL);
