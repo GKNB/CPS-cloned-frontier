@@ -322,7 +322,12 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
   if(!cmdline.evecs_single_prec) ERR.General("",fname,"Must use single-prec eigenvectors when doing Lanczos in single precision\n");
 #endif
 
-  GJP.Initialize(params.do_arg);
+  //Stop GJP from loading the gauge and RNG field on initialization; we handle these ourselves under a config loop
+  DoArg do_arg_tmp(params.do_arg);
+  do_arg_tmp.start_conf_kind = START_CONF_ORD;
+  do_arg_tmp.start_seed_kind = START_SEED_FIXED;
+  
+  GJP.Initialize(do_arg_tmp);
   LRG.Initialize();
 
 #if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
@@ -830,6 +835,31 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   }
 }//do_ktopipi
 
+
+void readGaugeRNG(const Parameters &params, const CommandLineArgs &cmdline){
+  if(params.do_arg.start_conf_kind == START_CONF_FILE){
+    if(!UniqueID()) printf("Reading gauge field from file\n");
+    ReadGaugeField(params.meas_arg,cmdline.double_latt);
+  }else if(params.do_arg.start_conf_kind == START_CONF_ORD){
+    if(!UniqueID()) printf("Using ordered gauge field\n");
+    GwilsonFdwf lat;
+    lat.SetGfieldOrd();
+  }else if(params.do_arg.start_conf_kind == START_CONF_DISORD){
+    //Generate new random config for every traj in outer loop
+    if(!UniqueID()) printf("Using disordered gauge field\n");
+    GwilsonFdwf lat;
+    lat.SetGfieldDisOrd();
+  }else ERR.General("","readGaugeRNG","Unsupported do_arg.start_conf_kind\n");
+
+  if(params.do_arg.start_seed_kind == START_SEED_FILE){
+    if(!UniqueID()) printf("Reading RNG state from file\n");
+    ReadRngFile(params.meas_arg,cmdline.double_latt); 
+  }else{
+    if(!UniqueID()) printf("Using existing RNG state\n");
+  }
+}
+
+
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, COMPUTE_EVECS_EXTRA_ARG_GRAB){
@@ -839,8 +869,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   std::string dir(params.meas_arg.WorkDirectory);
 
   //-------------------- Read gauge field --------------------//
-  ReadGaugeField(params.meas_arg,cmdline.double_latt); 
-  ReadRngFile(params.meas_arg,cmdline.double_latt); 
+  readGaugeRNG(params,cmdline);
     
   if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
   printMem();
@@ -942,8 +971,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
   std::string dir(params.meas_arg.WorkDirectory);
 
   //-------------------- Read gauge field --------------------//
-  ReadGaugeField(params.meas_arg,cmdline.double_latt); 
-  ReadRngFile(params.meas_arg,cmdline.double_latt); 
+  readGaugeRNG(params,cmdline);
     
   if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
   printMem();
