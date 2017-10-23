@@ -89,8 +89,9 @@ namespace cps
     static const char *header;
     std::vector < double >evals;
 
-    int vol4d, vol5d;
-    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
+    size_t vol4d, vol5d;
+//    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
+    size_t f_size_block;
 
     char *raw_in;
 
@@ -278,75 +279,74 @@ namespace cps
 
     template < class T >
       void caxpy_single (T * res, std::complex < T > ca, T * x, T * y,
-			 int f_size)
+			 size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
     template < class T >
       void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y,
-			   int f_size)
+			   size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
 #pragma omp for
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
-    template < class T > void scale_single (T * res, T s, int f_size)
+    template < class T > void scale_single (T * res, T s, size_t f_size)
     {
-      for (int i = 0; i < f_size; i++)
+      for (size_t i = 0; i < f_size; i++)
 	res[i] *= s;
     }
 
     template < class T >
-      void caxpy (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy (T * res, std::complex < T > ca, T * x, T * y, size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
 #pragma omp parallel for
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
-    template < class T > std::complex < T > sp_single (T * a, T * b, int f_size)
+    template < class T > std::complex < T > sp_single (T * a, T * b, size_t f_size)
     {
       std::complex < T > *ca = (std::complex < T > *)a;
       std::complex < T > *cb = (std::complex < T > *)b;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
-      int i;
       std::complex < T > ret = 0.0;
-      for (i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	ret += conj (ca[i]) * cb[i];
 
       return ret;
     }
 
-    template < class T > std::complex < T > sp (T * a, T * b, int f_size) {
+    template < class T > std::complex < T > sp (T * a, T * b, size_t f_size) {
       std::complex < T > *ca = (std::complex < T > *)a;
       std::complex < T > *cb = (std::complex < T > *)b;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
       std::complex < T > res = 0.0;
 #pragma omp parallel shared(res)
       {
 	std::complex < T > resl = 0.0;
 #pragma omp for
-	for (int i = 0; i < c_size; i++)
+	for (size_t i = 0; i < c_size; i++)
 	  resl += conj (ca[i]) * cb[i];
 
 #pragma omp critical
@@ -599,7 +599,7 @@ namespace cps
       args.crc32_header.resize (nfile);
       VRB.Debug (cname, fname, "node 0, before reading crc32\n");
       if (UniqueID () == 0) {
-	for (int i = 0; i < nfile; i++) {
+	for (uint32_t i = 0; i < nfile; i++) {
 	  sprintf (buf, "crc32[%d] = %%X\n", i);
 	  _IRL_READ_INT (buf, &args.crc32_header[i]);
 	  VRB.Debug (cname, fname, "crc32[%d] = %X\n", i, args.crc32_header[i]);
@@ -636,10 +636,10 @@ namespace cps
 	      exit (-43);
 	    }
 	  }
-	  fseek (f2, 0, SEEK_END);
-	  long size0 = ftell (f2);
-	  long size = size0 / ngroup;
-	  long offset = size * (nodeID % ngroup);
+	  fseeko (f2, 0, SEEK_END);
+	  off_t size0 = ftello (f2);
+	  off_t size = size0 / ngroup;
+	  off_t offset = size * (nodeID % ngroup);
 	  if (((nodeID % ngroup) == (ngroup - 1))
 	      || (nodeID == (nprocessors - 1))) {
 	    size = size0 - offset;
@@ -647,27 +647,27 @@ namespace cps
 
 	  raw_in = (char *) smalloc (size);
 	  if (0) {
-	    long half = size / 2;
-	    fseek (f2, 0, SEEK_SET);
+	    off_t half = size / 2;
+	    fseeko (f2, 0, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
 	    uint32_t first = crc32 (0, (const Bytef *) raw_in, half);
-	    fseek (f2, half, SEEK_SET);
+	    fseeko (f2, half, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
 	    uint32_t second = crc32 (0, (const Bytef *) raw_in, half);
 	    printf ("half first second = %d %x %x\n", half, first, second);
 	  }
-	  fseek (f2, offset, SEEK_SET);
+	  fseeko (f2, offset, SEEK_SET);
 	  if (!raw_in) {
 	    fprintf (stderr, "Out of mem\n");
 	    return 5;
 	  }
 
-	  long t_pos = ftell (f2);
+	  off_t t_pos = ftello (f2);
 	  if (fread (raw_in, 1, size, f2) != size) {
 	    fprintf (stderr, "Invalid fread\n");
 	    return 6;
 	  }
-	  long t_pos2 = ftell (f2);
+	  off_t t_pos2 = ftello (f2);
 	  VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
 
 //        std::vector < uint32_t > crc32_part(node);
@@ -790,7 +790,7 @@ namespace cps
     }
   };
   void alcf_evecs_save (char *dest, EigenCache * ec, int nkeep);
-  void movefloattoFloat (Float * out, float *in, int f_size);
+  void movefloattoFloat (Float * out, float *in, size_t f_size);
 
 }
 #endif

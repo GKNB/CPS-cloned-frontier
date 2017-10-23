@@ -139,7 +139,7 @@ public:
     return Umu;
   }
 //      Grid::QCD::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
-FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), mass (1.),
+FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), mass (1.),
     Ls (1) {
 //,epsilon(0.),
     const char *fname ("FgridBase()");
@@ -172,19 +172,11 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
       VRB.Debug (cname, fname, "%d %d \n", vol[i], nodes[i]);
     UGridD =
       Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
-						 Grid::GridDefaultSimd (Nd,
-									Grid::
-									vComplexD::
-									Nsimd
-									()),
+						 Grid::GridDefaultSimd (Nd, Grid:: vComplexD:: Nsimd ()),
 						 nodes);
     UGridF =
       Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
-						 Grid::GridDefaultSimd (Nd,
-									Grid::
-									vComplexF::
-									Nsimd
-									()),
+						 Grid::GridDefaultSimd (Nd, Grid:: vComplexF:: Nsimd ()),
 						 nodes);
     VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n", UGridD, UGridF);
     bool fail = false;

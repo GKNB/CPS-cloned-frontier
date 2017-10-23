@@ -28,7 +28,7 @@ namespace cps
 {
 
 
-  void movefloattoFloat (Float * out, float *in, int f_size)
+  void movefloattoFloat (Float * out, float *in, size_t f_size)
   {
 
     float flt;
@@ -238,10 +238,10 @@ namespace cps
     }
     sync ();
 
-    int f_size_coef_block = args.neig * 2 * args.nkeep;
+    size_t f_size_coef_block = args.neig * 2 * args.nkeep;
     //int vol5d = GJP.XnodeSites() * GJP.YnodeSites() *GJP.ZnodeSites() *GJP.TnodeSites() *GJP.SnodeSites();
-    int64_t f_size = vol5d / 2 * 24;
-    int f_size_block = f_size / nb_per_node;
+    size_t f_size = vol5d / 2 * 24;
+    size_t f_size_block = f_size / nb_per_node;
 
     block_coef.resize (nb_per_node);
     for (int i = 0; i < nb_per_node; i++) {
@@ -346,7 +346,7 @@ namespace cps
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
 	  //read now
-	  int64_t read_size = _cf_block_size * 2 * nsingleCap * 4;
+	  off_t read_size = _cf_block_size * 2 * nsingleCap * 4;
 	  fseeko (f, read_size * nb, SEEK_SET);
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
@@ -394,9 +394,9 @@ namespace cps
       for (int nb = 0; nb < args.blocks; nb++) {
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
-	  int64_t read_size =
+	  off_t read_size =
 	    FP_16_SIZE (2 * _cf_block_size, 24) * (args.nkeep - nsingleCap);
-	  int64_t seek_size =
+	  off_t seek_size =
 	    _cf_block_size * 2 * nsingleCap * args.blocks * 4 + (args.nkeep -
 								 nsingleCap) *
 	    nb * FP_16_SIZE (2 * _cf_block_size, 24);
@@ -435,7 +435,7 @@ namespace cps
 	  std::endl;
       sync ();
 
-      int64_t seek_size = _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
+      off_t seek_size = _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
       fseeko (f, seek_size, SEEK_SET);
