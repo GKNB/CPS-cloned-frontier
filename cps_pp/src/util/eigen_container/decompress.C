@@ -346,7 +346,7 @@ namespace cps
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
 	  //read now
-	  off_t read_size = _cf_block_size * 2 * nsingleCap * 4;
+	  size_t read_size = _cf_block_size * 2 * nsingleCap * 4;
 	  fseeko (f, read_size * nb, SEEK_SET);
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
@@ -394,13 +394,17 @@ namespace cps
       for (int nb = 0; nb < args.blocks; nb++) {
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
-	  off_t read_size =
+	  size_t read_size =
 	    FP_16_SIZE (2 * _cf_block_size, 24) * (args.nkeep - nsingleCap);
 	  off_t seek_size =
 	    _cf_block_size * 2 * nsingleCap * args.blocks * 4 + (args.nkeep -
 								 nsingleCap) *
 	    nb * FP_16_SIZE (2 * _cf_block_size, 24);
+	if(!UniqueID())
+	std:;cout <<"read_size= "<< read_size <<std::endl;
+	assert(seek_size>=0);
 	  fseeko (f, seek_size, SEEK_SET);
+	
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
 //        uint32_t crc_comp = crc32_fast (&raw_in[0], read_size, 0);
@@ -439,11 +443,15 @@ namespace cps
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
       fseeko (f, seek_size, SEEK_SET);
+
       int64_t read_size =
 	(4 * args.nkeep_single * 2 +
 	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
+       VRB.Result(cname,fname.c_str(),"sizeof(off_t)=%d sizeof(size_t)=%d\n",sizeof(off_t),sizeof(size_t));
+	std::cout <<"read_size= "<<read_size<<std::endl;
+
 
       std::vector < char >raw_in (read_size);
       assert (fread (&raw_in[0], read_size, 1, f) == 1);
