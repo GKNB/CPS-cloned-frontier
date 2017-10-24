@@ -347,6 +347,8 @@ namespace cps
 	if (mnb != -1) {
 	  //read now
 	  size_t read_size = _cf_block_size * 2 * nsingleCap * 4;
+	if(!UniqueID())
+	std::cout <<"read_size= "<< read_size <<std::endl;
 	  fseeko (f, read_size * nb, SEEK_SET);
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
@@ -401,7 +403,7 @@ namespace cps
 								 nsingleCap) *
 	    nb * FP_16_SIZE (2 * _cf_block_size, 24);
 	if(!UniqueID())
-	std:;cout <<"read_size= "<< read_size <<std::endl;
+	std::cout <<"read_size= "<< read_size <<std::endl;
 	assert(seek_size>=0);
 	  fseeko (f, seek_size, SEEK_SET);
 	

@@ -51,7 +51,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
 //  exit(-24);
 //  ImplicitlyRestartedLanczos<FermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 //  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-  Grid::ImplicitlyRestartedLanczos < LATTICE_FERMION_F > IRL (HermOpF, Cheb,
+  Grid::ImplicitlyRestartedLanczosCJ < LATTICE_FERMION_F > IRL (HermOpF, Cheb,
 							      Nstop, Nk, Nm,
 							      resid_f, MaxIt);
   precisionChange (grid_rb_in_f, grid_rb_in);
