@@ -32,7 +32,23 @@ extern MPI_Comm QMP_COMM_WORLD;
 
 
 #include <zlib.h>
-//uint32_t crc32_fast (const void *data, size_t length, uint32_t previousCrc32);
+static uint32_t crc32_loop(uint32_t previousCrc32, unsigned char* data, size_t len) {
+
+     // CL: crc32 of zlib was incorrect for very large sizes, so do it block-wise
+     uint32_t crc = previousCrc32;
+     size_t blk = 0;
+     size_t step = (size_t)1024*1024*1024;
+     while (len > step) {
+       crc = crc32(crc,&data[blk],step);
+       blk += step;
+       len -= step;
+     }
+
+	if(len>0) crc = crc32(crc,&data[blk],len);
+     return crc;
+
+   }
+
 
 namespace cps
 {
@@ -384,7 +400,7 @@ namespace cps
 
       // checksum
 //      crc = crc32_fast (buf, s, crc);
-      crc = crc32 (crc, (const Bytef *) buf, s);
+      crc = crc32_loop (crc, (Bytef *) buf, s);
 
       double t0 = dclock ();
       if (fwrite (buf, s, 1, f) != 1) {
@@ -593,8 +609,7 @@ namespace cps
       if (UniqueID () == 0) {
 	VRB.Debug (cname, fname, "node-layout %d %d %d %d %d nprocessors %d\n",
 		   nn[0], nn[1], nn[2], nn[3], nn[4], nprocessors);
-	std::cout << "nprocessor= " << nprocessors << " nfile= " << nfile <<
-	  std::endl;
+	std::cout << "nprocessor= " << nprocessors << " nfile= " << nfile << std::endl;
       }
 //      std::vector < uint32_t > crc32_arr (file, 0);
       args.crc32_header.resize (nfile);
@@ -609,10 +624,8 @@ namespace cps
       }
       //printf("node %d, before sumarray crc32\n", UniqueID());
       sumArray (&args.crc32_header[0], nfile);
-//      args.crc32 = crc32_arr[UniqueID ()];
 
 #undef _IRL_READ_INT
-//      if (nprocessors >= nfile) {
       {
 
 //first debug for this
@@ -639,22 +652,25 @@ namespace cps
 	  }
 	  fseeko (f2, 0, SEEK_END);
 	  off_t size0 = ftello (f2);
+      std::cout <<"size0= "<<size0<<std::endl;
 	  off_t size = size0 / ngroup;
+      std::cout <<"size= "<<size<<std::endl;
 	  off_t offset = size * (nodeID % ngroup);
 	  if (((nodeID % ngroup) == (ngroup - 1))
 	      || (nodeID == (nprocessors - 1))) {
 	    size = size0 - offset;
 	  }
+      std::cout <<"offset= "<<offset<<std::endl;
 
 	  raw_in = (char *) smalloc (size);
 	  if (0) {
 	    off_t half = size / 2;
 	    fseeko (f2, 0, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
-	    uint32_t first = crc32 (0, (const Bytef *) raw_in, half);
+	    uint32_t first = crc32_loop (0, (Bytef *) raw_in, half);
 	    fseeko (f2, half, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
-	    uint32_t second = crc32 (0, (const Bytef *) raw_in, half);
+	    uint32_t second = crc32_loop (0, (Bytef *) raw_in, half);
 	    printf ("half first second = %d %x %x\n", half, first, second);
 	  }
 	  fseeko (f2, offset, SEEK_SET);
@@ -671,17 +687,16 @@ namespace cps
 	  off_t t_pos2 = ftello (f2);
 	  VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
 
-//        std::vector < uint32_t > crc32_part(node);
-	  uint32_t crc32_part[nprocessors];
+        std::vector < uint32_t > crc32_part(nprocessors);
+//	  uint32_t crc32_part[nprocessors];
 	  for (int i = 0; i < nprocessors; i++)
 	    crc32_part[i] = 0;
-	  crc32_part[nodeID] = crc32 (0, (const Bytef *) raw_in, size);
-//      crc32_part[nodeID] = crc32_fast(raw_in,size,0);
+	  crc32_part[nodeID] = crc32_loop (0, (Bytef *) raw_in, size);
 	  VRB.Debug (cname, fname,
 		     "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
 		     nprocessors, nodeID, ngroup, size, offset,
 		     crc32_part[nodeID]);
-	  sumArray (crc32_part, nprocessors);
+	  sumArray (crc32_part.data(), nprocessors);
 	  if (nodeID % ngroup == 0) {
 	    uint32_t crc32_all = crc32_part[nodeID];
 	    VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
@@ -698,7 +713,7 @@ namespace cps
 	    }
 	    printf ("%d: crc32_all: %x crc32_header %x\n", slot, crc32_all,
 		    args.crc32_header[slot]);
-	    assert (crc32_all == args.crc32_header[slot]);
+//	    assert (crc32_all == args.crc32_header[slot]);
 	  }
 	  free (raw_in);
 	  raw_in = NULL;

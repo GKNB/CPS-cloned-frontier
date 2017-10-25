@@ -346,14 +346,12 @@ namespace cps
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
 	  //read now
-	  size_t read_size = _cf_block_size * 2 * nsingleCap * 4;
-	if(!UniqueID())
-	std::cout <<"read_size= "<< read_size <<std::endl;
+	  size_t read_size = (size_t) _cf_block_size * 2 * nsingleCap * 4;
+//	if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
 	  fseeko (f, read_size * nb, SEEK_SET);
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
-//    uint32_t crc_comp = crc32_fast(&raw_in[0],read_size,0);
-	  uint32_t crc_comp = crc32 (0, (const Bytef *) &raw_in[0], read_size);
+	  uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
 	  if ((!crc32_checked) && cdir)	// turns off if checksum directory is not specified
 	    if (crc_comp != slot_checksums[nb]) {
 	      printf ("nb = %d, crc_compute = %X, crc_read[nb] = %X\n", nb,
@@ -397,20 +395,18 @@ namespace cps
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
 	  size_t read_size =
-	    FP_16_SIZE (2 * _cf_block_size, 24) * (args.nkeep - nsingleCap);
+	    FP_16_SIZE (2 * _cf_block_size, 24) * (size_t) (args.nkeep - nsingleCap);
 	  off_t seek_size =
-	    _cf_block_size * 2 * nsingleCap * args.blocks * 4 + (args.nkeep -
+	    (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 + (args.nkeep -
 								 nsingleCap) *
 	    nb * FP_16_SIZE (2 * _cf_block_size, 24);
-	if(!UniqueID())
-	std::cout <<"read_size= "<< read_size <<std::endl;
+//	if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
 	assert(seek_size>=0);
 	  fseeko (f, seek_size, SEEK_SET);
 	
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
-//        uint32_t crc_comp = crc32_fast (&raw_in[0], read_size, 0);
-	  uint32_t crc_comp = crc32 (0, (const Bytef *) &raw_in[0], read_size);
+	  uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
 	  if (cdir)
 	    if (crc_comp != slot_checksums[nb + args.blocks]) {
 	      printf ("nb = %d, crc_compute = %X, crc_read[nb+blocks] = %X\n",
@@ -441,14 +437,13 @@ namespace cps
 	  std::endl;
       sync ();
 
-      off_t seek_size = _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
+      off_t seek_size = (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
       fseeko (f, seek_size, SEEK_SET);
 
-      int64_t read_size =
-	(4 * args.nkeep_single * 2 +
-	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
+      size_t read_size =
+	(4 * (size_t) args.nkeep_single * 2 + FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
        VRB.Result(cname,fname.c_str(),"sizeof(off_t)=%d sizeof(size_t)=%d\n",sizeof(off_t),sizeof(size_t));
@@ -457,8 +452,7 @@ namespace cps
 
       std::vector < char >raw_in (read_size);
       assert (fread (&raw_in[0], read_size, 1, f) == 1);
-//      uint32_t crc_comp = crc32_fast (&raw_in[0], read_size, 0);
-      uint32_t crc_comp = crc32 (0, (const Bytef *) &raw_in[0], read_size);
+      uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
       if (cdir)
 	if (crc_comp != slot_checksums[2 * args.blocks]) {
 	  printf

@@ -610,6 +610,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     }
     ImportFermion (f_out, grid_out, Odd);
 #endif
+   return 0;
   }
 
   void FminResExt (Vector * sol, Vector * source, Vector ** sol_old,
@@ -778,7 +779,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       Float * true_res,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1);
+    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1);
   }
 
   int FmatInvTest (Vector * f_out, Vector * f_in,
@@ -786,7 +787,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 		   Float * true_res,
 		   CnvFrmType cnv_frm = CNV_FRM_YES,
 		   PreserveType prs_f_in = PRESERVE_YES) {
-    FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 0);
+    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 0);
   }
 
 
@@ -794,7 +795,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       CgArg * cg_arg,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    FmatInv (f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1);
+    return FmatInv (f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1);
   }
 
   int FeigSolv (Vector ** f_eigenv, Float * lambda,
@@ -802,6 +803,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 		Float ** hsum,
 		EigArg * eig_arg, CnvFrmType cnv_frm = CNV_FRM_YES) {
     ERR.NotImplemented (cname, "FeigSolv");
+    return 0;
   }
 
   // It sets the pseudofermion field phi from frm1, frm2.
