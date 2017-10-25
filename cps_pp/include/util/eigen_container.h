@@ -237,7 +237,7 @@ public:
   // save eigenvalues into cache 
   void save (Float * lam)
   {
-    VRB.Flow (cname, "save(F*)", "here");
+    VRB.Result (cname, "save(F*)", "here\n");
     moveFloat (eval.data (), lam, neig);
     eval_cached = 1;
   }

@@ -61,7 +61,7 @@ static void SetZmobiusPC(int flag)
 
 typedef Grid::QCD::ZMobiusFermionF::FermionField GRID_FERMION_F;
 
-EigenCacheGrid< GRID_FERMION_F > *ecache;
+EigenCache *ecache;
 char *cname;
 
 void CalMesons (QPropW & q, char *out_dir, int traj, char *src_str);
@@ -80,7 +80,7 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
   Float etime = time_elapse ();
   char cache_name[1024];
   snprintf (cache_name, 1024, "cache_0_mass%g", lanczos_arg.mass);
-  ecache = new EigenCacheGrid< GRID_FERMION_F > (cache_name);
+  ecache = new EigenCache (cache_name);
   snprintf (evecname_bc, 1024, "%s", lanczos_arg.file);
 
 
@@ -124,13 +124,16 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 	// have to do this if stride != 1 FIX!
       float *evec_f = (float*)(ecache->vec_ptr(0));
 //	  if (int status = ecache->decompress(evecname_bc))
-	  if (int status = ecache->read_compressed(evecname_bc,NULL))
-		ERR.General(fname,"read_compressed()","returned %d\n",status);
-//      eigcon.rbc_load(evecname_bc);
+//	  if (int status = ecache->read_compressed(evecname_bc,NULL))
+//		ERR.General(fname,"read_compressed()","returned %d\n",status);
+#if 1
+      eigcon.load_rbc(evecname_bc);
+#else
 	for (int iev = 0; iev < neig; iev++) {
-//	  Vector *evec = eigcon.nev_load (iev+eig_start);
+	  Vector *evec = eigcon.nev_load (iev+eig_start);
 	  ecache->set_index (iev);
 	}
+#endif
       }
     }
   }
@@ -253,7 +256,7 @@ int main (int argc, char *argv[])
 //    GnoneFdwf lattice;
 
 
-    SetZmobiusPC(atoi(argv[2]));
+    SetZmobiusPC(2); //SYM2
 
     VRB.Result(cname,"main()", "GJP.ZMobius_PC_Type() = %d\n",GJP.ZMobius_PC_Type());
 
