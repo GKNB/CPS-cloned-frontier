@@ -139,13 +139,13 @@ namespace cps
 //      printf("%d: slot %d lidx %d\n",UniqueID(),slot,lidx);
       Lexicographic::IndexFromCoor (scoor, slot, nodes);
       std::map < int, std::vector < int >>::iterator sl = slots.find (slot);
-      if (sl == slots.end ()){
+      if (sl == slots.end ()) {
 //        printf("%d: slot %d created\n",UniqueID(),slot);
 	slots[slot] = std::vector < int >();
       }
       slots[slot].push_back (lidx);
     }
-    
+
   }
 
 
@@ -154,17 +154,18 @@ namespace cps
   int EvecReader::read_compressed_vectors (const char *root,
 					   const char *cdir,
 					   std::vector < OPT * >&dest_all,
-					   int start, int end,
-					   float time_out)
+					   int start, int end, float time_out)
   {
     std::string path (root);
     std::string fname ("read_compressed_vectors()");
 
     int dest_total = dest_all.size ();
-    if( start<0 ) start=0;
-    if( end<0 ) end=dest_total;
-    VRB.Result(cname,fname.c_str(),"start=%d end=%d\n",start,end);
-    
+    if (start < 0)
+      start = 0;
+    if (end < 0)
+      end = dest_total;
+    VRB.Result (cname, fname.c_str (), "start=%d end=%d\n", start, end);
+
 //    int start = 0;
 //    int end = dest_total;
 //      const int N_threads_old=bfmarg::threads;
@@ -290,7 +291,7 @@ namespace cps
 	 sl != slots.end (); sl++) {
       std::vector < int >&idx = sl->second;
       int slot = sl->first;
-      printf("%d: slot %d len %d \n",UniqueID(),slot,idx.size());
+      printf ("%d: slot %d len %d \n", UniqueID (), slot, idx.size ());
       std::vector < float >rdata;
       vector < uint32_t > slot_checksums (args.blocks * 2 + 1);
 
@@ -347,16 +348,16 @@ namespace cps
 	if (mnb != -1) {
 	  //read now
 	  size_t read_size = (size_t) _cf_block_size * 2 * nsingleCap * 4;
-//	if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
+//      if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
 	  fseeko (f, read_size * nb, SEEK_SET);
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
-	  uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
+	  uint32_t crc_comp = crc32_loop (0, (Bytef *) & raw_in[0], read_size);
 	  if ((!crc32_checked) && cdir)	// turns off if checksum directory is not specified
 	    if (crc_comp != slot_checksums[nb]) {
 	      printf ("nb = %d, crc_compute = %X, crc_read[nb] = %X\n", nb,
 		      crc_comp, slot_checksums[nb]);
-//                                                      assert(crc_comp == slot_checksums[nb]);
+	      assert (crc_comp == slot_checksums[nb]);
 	    }
 	  char *ptr = &raw_in[0];
 
@@ -378,8 +379,7 @@ namespace cps
 //#pragma omp single
       sync ();
       if (UniqueID () == 0)
-	std::
-	  cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
+	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
 
       //ptr = ptr + _cf_block_size * 2*nsingleCap*args.blocks*4;
 
@@ -395,18 +395,19 @@ namespace cps
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
 	  size_t read_size =
-	    FP_16_SIZE (2 * _cf_block_size, 24) * (size_t) (args.nkeep - nsingleCap);
+	    FP_16_SIZE (2 * _cf_block_size,
+			24) * (size_t) (args.nkeep - nsingleCap);
 	  off_t seek_size =
-	    (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 + (args.nkeep -
-								 nsingleCap) *
-	    nb * FP_16_SIZE (2 * _cf_block_size, 24);
-//	if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
-	assert(seek_size>=0);
+	    (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
+	    (args.nkeep - nsingleCap) * nb * FP_16_SIZE (2 * _cf_block_size,
+							 24);
+//      if(!UniqueID()) std::cout <<"read_size= "<< read_size <<std::endl;
+	  assert (seek_size >= 0);
 	  fseeko (f, seek_size, SEEK_SET);
-	
+
 	  std::vector < char >raw_in (read_size);
 	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
-	  uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
+	  uint32_t crc_comp = crc32_loop (0, (Bytef *) & raw_in[0], read_size);
 	  if (cdir)
 	    if (crc_comp != slot_checksums[nb + args.blocks]) {
 	      printf ("nb = %d, crc_compute = %X, crc_read[nb+blocks] = %X\n",
@@ -437,22 +438,25 @@ namespace cps
 	  std::endl;
       sync ();
 
-      off_t seek_size = (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
+      off_t seek_size =
+	(off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
       fseeko (f, seek_size, SEEK_SET);
 
       size_t read_size =
-	(4 * (size_t) args.nkeep_single * 2 + FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
+	(4 * (size_t) args.nkeep_single * 2 +
+	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
-       VRB.Result(cname,fname.c_str(),"sizeof(off_t)=%d sizeof(size_t)=%d\n",sizeof(off_t),sizeof(size_t));
-	std::cout <<"read_size= "<<read_size<<std::endl;
+      VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
+		  sizeof (off_t), sizeof (size_t));
+      std::cout << "read_size= " << read_size << std::endl;
 
 
       std::vector < char >raw_in (read_size);
       assert (fread (&raw_in[0], read_size, 1, f) == 1);
-      uint32_t crc_comp = crc32_loop (0, (Bytef *) &raw_in[0], read_size);
+      uint32_t crc_comp = crc32_loop (0, (Bytef *) & raw_in[0], read_size);
       if (cdir)
 	if (crc_comp != slot_checksums[2 * args.blocks]) {
 	  printf
@@ -477,8 +481,7 @@ namespace cps
 	    if (mnb != -1) {
 
 	      char *lptr = ptr + (4 * buf1.size () + FP_16_SIZE (buf2.size (),
-								 args.
-								 FP16_COEF_EXP_SHARE_FLOATS))
+								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
 	      read_floats (lptr, &buf1[0], buf1.size ());
@@ -505,13 +508,12 @@ namespace cps
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
       if (UniqueID () == 0)
-	std::
-	  cout << "Processed compressed data in " << t1 << " sec " << std::endl;
+	std::cout << "Processed compressed data in " << t1 << " sec " << std::endl;
       //}
     }
     sync ();
     for (int i = start; i < end; i++)
-      memset (dest_all[i-start], 0, f_size * sizeof (OPT));
+      memset (dest_all[i - start], 0, f_size * sizeof (OPT));
 
     double t0 = dclock ();
 #if 0
@@ -532,8 +534,8 @@ namespace cps
 #else
 
 //    args.blocks = nb_per_node;
- //   std::vector < int > s_l(5),nb_l(5);
-	int s_l[5],nb_l[5];
+    //   std::vector < int > s_l(5),nb_l(5);
+    int s_l[5], nb_l[5];
 
     s_l[0] = GJP.NodeSites (0);
     s_l[1] = GJP.NodeSites (1);
@@ -554,7 +556,7 @@ namespace cps
 //      if (UniqueID() == 0) std::cout << "j = " << j << std::endl;
 
 //                      float* dest = &dest_all[ (int64_t)f_size * j ];
-	OPT *dest = dest_all[j-start];
+	OPT *dest = dest_all[j - start];
 
 	double ta, tb;
 	int tid = omp_get_thread_num ();
@@ -606,7 +608,7 @@ namespace cps
 	      int co;
 	      for (co = 0; co < 12; co++) {
 //                                                      float* out=&dest[ get_bfm_index(pos,co) ];
-		float *out = &dest[get_cps_index (pos, co,s_l)];
+		float *out = &dest[get_cps_index (pos, co, s_l)];
 		out[0] = dst[2 * co + 0];
 		out[1] = dst[2 * co + 1];
 	      }
