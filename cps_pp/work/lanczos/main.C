@@ -127,7 +127,7 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 //	  if (int status = ecache->read_compressed(evecname_bc,NULL))
 //		ERR.General(fname,"read_compressed()","returned %d\n",status);
 #if 1
-      eigcon.load_rbc(evecname_bc);
+      eigcon.load_rbc(evecname_bc,neig);
 #else
 	for (int iev = 0; iev < neig; iev++) {
 	  Vector *evec = eigcon.nev_load (iev+eig_start);
