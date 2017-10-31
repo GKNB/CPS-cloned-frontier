@@ -366,14 +366,14 @@ public:
       float *temp = (float *) evec[i];
       char *c_tmp = (char *) temp;
       Float sum = 0.;
-      for (size_t ind = 0; ind < f_size * (sizeof (Float) / sizeof (float));
-	   ind++)
+      for (size_t ind = 0; ind < (size_t) f_size * (sizeof (Float) / sizeof (float)); ind++)
 	sum += temp[ind] * temp[ind];
       glb_sum (&sum);
       VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i,
 		  *temp, i, sum);
       set_index (i);
     }
+    return evec.size();
   }
 };
 
@@ -950,6 +950,7 @@ public:
     if (ecache)
       ecache->save (eval);
     format = RBCcomp;
+    return neig;
   }
 
   friend class EvecReader;

@@ -125,7 +125,7 @@ int FmatInv (Vector * f_out,
   snprintf (fname_eig_root_bc, 1024, "%s", cg_arg_s->fname_eigen);
   VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
   int n_fields = GJP.SnodeSites ();
-  const size_t f_size_per_site = FsiteSize () / GJP.SnodeSites () / 2;
+  const size_t f_size_per_site = (size_t) FsiteSize () / GJP.SnodeSites () / 2;
   int neig = 0;
   if_defl = false;
   if ((cg_arg_s->Inverter == CG_LOWMODE_DEFL)

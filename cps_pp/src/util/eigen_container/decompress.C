@@ -237,7 +237,7 @@ namespace cps
     for (int dir = 0; dir < 5; dir++) {
       nb_per_node *= GJP.NodeSites (dir) / args.b[dir];
     }
-    sync ();
+    cps::sync ();
 
     size_t f_size_coef_block = args.neig * 2 * args.nkeep;
     //int vol5d = GJP.XnodeSites() * GJP.YnodeSites() *GJP.ZnodeSites() *GJP.TnodeSites() *GJP.SnodeSites();
@@ -271,7 +271,7 @@ namespace cps
     get_read_geometry (_nn, slots, slot_lvol, lvol, slot_lsites, ntotal);
     if (UniqueID () == 0)
       std::cout << "After get_read_geometry()" << endl;
-    sync ();
+    cps::sync ();
     int _nd = (int) lvol.size ();
 
     // types
@@ -377,9 +377,10 @@ namespace cps
 
 //#pragma omp barrier
 //#pragma omp single
-      sync ();
+      cps::sync ();
       if (UniqueID () == 0)
-	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
+	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::
+	  endl;
 
       //ptr = ptr + _cf_block_size * 2*nsingleCap*args.blocks*4;
 
@@ -394,9 +395,9 @@ namespace cps
       for (int nb = 0; nb < args.blocks; nb++) {
 	int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
 	if (mnb != -1) {
-	  size_t read_size =
-	    FP_16_SIZE (2 * _cf_block_size,
-			24) * (size_t) (args.nkeep - nsingleCap);
+	  size_t read_size = FP_16_SIZE (2 * _cf_block_size,
+					 24) * (size_t) (args.nkeep -
+							 nsingleCap);
 	  off_t seek_size =
 	    (off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	    (args.nkeep - nsingleCap) * nb * FP_16_SIZE (2 * _cf_block_size,
@@ -436,7 +437,7 @@ namespace cps
       if (UniqueID () == 0)
 	std::cout << "Finished reading block_data_ortho nsingleCap-nkeep " <<
 	  std::endl;
-      sync ();
+      cps::sync ();
 
       off_t seek_size =
 	(off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
@@ -481,7 +482,8 @@ namespace cps
 	    if (mnb != -1) {
 
 	      char *lptr = ptr + (4 * buf1.size () + FP_16_SIZE (buf2.size (),
-								 args.FP16_COEF_EXP_SHARE_FLOATS))
+								 args.
+								 FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
 	      read_floats (lptr, &buf1[0], buf1.size ());
@@ -508,33 +510,15 @@ namespace cps
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
       if (UniqueID () == 0)
-	std::cout << "Processed compressed data in " << t1 << " sec " << std::endl;
+	std::cout << "Processed compressed data in " << t1 << " sec " << std::
+	  endl;
       //}
     }
-    sync ();
+    cps::sync ();
     for (int i = start; i < end; i++)
       memset (dest_all[i - start], 0, f_size * sizeof (OPT));
 
     double t0 = dclock ();
-#if 0
-    //Now change the args to the local one.
-    // this is bad!! overwrite persistent params
-    args.blocks = nb_per_node;
-    args.s[0] = GJP.NodeSites (0);
-    args.s[1] = GJP.NodeSites (1);
-    args.s[2] = GJP.NodeSites (2);
-    args.s[3] = GJP.NodeSites (3);
-    args.s[4] = GJP.NodeSites (4);
-
-    args.nb[0] = args.s[0] / args.b[0];
-    args.nb[1] = args.s[1] / args.b[1];
-    args.nb[2] = args.s[2] / args.b[2];
-    args.nb[3] = args.s[3] / args.b[3];
-    args.nb[4] = args.s[4] / args.b[4];
-#else
-
-//    args.blocks = nb_per_node;
-    //   std::vector < int > s_l(5),nb_l(5);
     int s_l[5], nb_l[5];
 
     s_l[0] = GJP.NodeSites (0);
@@ -548,7 +532,6 @@ namespace cps
     nb_l[2] = s_l[2] / args.b[2];
     nb_l[3] = s_l[3] / args.b[3];
     nb_l[4] = s_l[4] / args.b[4];
-#endif
 
 //#pragma omp parallel
     {
@@ -566,7 +549,7 @@ namespace cps
 
 //#if 1
 
-//#pragma omp for
+#pragma omp for
 	for (int nb = 0; nb < nb_per_node; nb++) {
 
 	  float *dest_block = &block_data[nb][0];
@@ -625,7 +608,7 @@ namespace cps
 
     double t1 = dclock ();
 
-    sync ();
+    cps::sync ();
     if (UniqueID () == 0) {
       printf ("Reconstruct eigenvectors in %g seconds\n", t1 - t0);
     }
@@ -636,9 +619,9 @@ namespace cps
       }
       std::cout << "end decompressing" << endl;
     }
-    sync ();
+    cps::sync ();
     int size_5d_prec = GJP.VolNodeSites () * GJP.SnodeSites () * 24 / 2;
-    sync ();
+    cps::sync ();
 #undef FP_16_SIZE
     return true;
   }

@@ -491,6 +491,8 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
   ERR.General("LatticeFactory","Create()",
 	      "Lattice type (fermion = %d, gluon = %d) not defined\n",
 	      fermion, gluon);
+  lat_p = new GnoneFnone;
+  return *lat_p;
 
 }
 char *AlgMeas::Dirname (char *path)

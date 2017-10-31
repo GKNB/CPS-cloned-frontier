@@ -270,19 +270,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 		  CgArg * cg_arg,
 		  Float * true_res, CnvFrmType cnv_frm = CNV_FRM_YES) {
     const char *fname ("FmatEvlInv()");
-#if 0
-    Float shift[1], alph[1];
-    shift[0] = 0.;
-    alph[0] = 1.;
-    CgArg *args[1];
-    args[0] = cg_arg;
-    Vector *f_out_list[1];
-    Vector *f_out_d_fake[1];
-    f_out_list[0] = f_out;
-    f_out_d_fake[0] = NULL;
-    FmatEvlMInv (&f_out, f_in, shift, 1, 0, args, cnv_frm, SINGLE, alph,
-		 f_out_d_fake);
-#else
+
     SetMass (cg_arg->mass);
     SetEpsilon (cg_arg->epsilon);
     PrintMass (fname);
@@ -291,6 +279,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
+    int total; //total iteration count
 
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
@@ -377,6 +366,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
 				  F_RB_GRID_F, MdagMF, MdagMD);
       CG_m (grid_rb_in, grid_rb_out);
+      total = CG_m.TotalInnerIterations;
       time2 = dclock ();
       print_time (fname, "MixedCG", time2 - time1);
       time1 = time2;
@@ -389,8 +379,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     print_time (fname, "Acc/Export", time2 - time1);
     time1 = time2;
     // print_flops(cname,fname,time2,-time_total,
-
-#endif
+   return total;
   }
 
   int FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
@@ -616,7 +605,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
   void FminResExt (Vector * sol, Vector * source, Vector ** sol_old,
 		   Vector ** vm, int degree, CgArg * cg_arg, CnvFrmType cnv_frm)
   {
-    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
+    size_t f_size = (size_t) GJP.VolNodeSites () * FsiteSize () / 2;
     if (GJP.Gparity ())
       f_size *= 2;
     sol->VecZero (f_size);
@@ -678,7 +667,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     snprintf (fname_eig_root_bc, 1024, "%s", cg_arg->fname_eigen);
     VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
     int n_fields = GJP.SnodeSites ();
-    const size_t f_size_per_site = FsiteSize () / GJP.SnodeSites () / 2;
+    const size_t f_size_per_site = (size_t) FsiteSize () / GJP.SnodeSites () / 2;
 
     int neig = 1;
     if_defl = false;
@@ -744,6 +733,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
+	VRB.Result (cname, fname, "if_defl=%d verbose=%d\n",if_defl,verbose);
       if (if_defl) {
 	if (verbose) {
 	  for (int i = 0; i < neig; i++) {
@@ -1109,7 +1099,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     if (chi == 0)
       ERR.Pointer (cname, fname, "chi");
 
-    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
+    size_t f_size = (size_t) GJP.VolNodeSites () * FsiteSize () / 2;
     if (GJP.Gparity ())
       f_size *= 2;
 
@@ -1212,3 +1202,18 @@ CPS_END_NAMESPACE
 #undef FERM_GRID_F
 #undef F_RB_GRID
 #undef F_RB_GRID_F
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef IMPL_F
+#undef PARAMS
+#undef GP
+#undef GRID_GPARITY

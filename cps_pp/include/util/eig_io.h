@@ -671,7 +671,8 @@ namespace cps
 	    fseeko (f2, half, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
 	    uint32_t second = crc32_loop (0, (Bytef *) raw_in, half);
-	    printf ("half first second = %d %x %x\n", half, first, second);
+//	    printf ("half first second = %d %x %x\n", half, first, second);
+	    std::cout <<"half "<<half<<" first "<<first<<" second "<<second<<std::endl;
 	  }
 	  fseeko (f2, offset, SEEK_SET);
 	  if (!raw_in) {
