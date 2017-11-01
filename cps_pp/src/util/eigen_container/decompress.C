@@ -379,8 +379,7 @@ namespace cps
 //#pragma omp single
       cps::sync ();
       if (UniqueID () == 0)
-	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::
-	  endl;
+	std::cout << "Finished reading block_data_ortho 0-nsingleCap" << std::endl;
 
       //ptr = ptr + _cf_block_size * 2*nsingleCap*args.blocks*4;
 
@@ -482,8 +481,7 @@ namespace cps
 	    if (mnb != -1) {
 
 	      char *lptr = ptr + (4 * buf1.size () + FP_16_SIZE (buf2.size (),
-								 args.
-								 FP16_COEF_EXP_SHARE_FLOATS))
+								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
 	      read_floats (lptr, &buf1[0], buf1.size ());
@@ -510,8 +508,7 @@ namespace cps
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
       if (UniqueID () == 0)
-	std::cout << "Processed compressed data in " << t1 << " sec " << std::
-	  endl;
+	std::cout << "Processed compressed data in " << t1 << " sec " << std::endl;
       //}
     }
     cps::sync ();
@@ -533,7 +530,7 @@ namespace cps
     nb_l[3] = s_l[3] / args.b[3];
     nb_l[4] = s_l[4] / args.b[4];
 
-//#pragma omp parallel
+#pragma omp parallel
     {
       for (int j = start; j < end; j++) {
 //      if (UniqueID() == 0) std::cout << "j = " << j << std::endl;
@@ -590,7 +587,7 @@ namespace cps
 
 	      int co;
 	      for (co = 0; co < 12; co++) {
-//                                                      float* out=&dest[ get_bfm_index(pos,co) ];
+//      float* out=&dest[ get_bfm_index(pos,co) ];
 		float *out = &dest[get_cps_index (pos, co, s_l)];
 		out[0] = dst[2 * co + 0];
 		out[1] = dst[2 * co + 1];
