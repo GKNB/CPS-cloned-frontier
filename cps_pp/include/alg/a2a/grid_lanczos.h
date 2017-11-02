@@ -49,7 +49,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 #else
 #warning "Using default Grid Lanczos implementation"
-  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::PlainHermOp<GridFermionField> HermOpF(HermOp);
+  Grid::FunctionHermOp<GridFermionField> ChebF(Cheb,HermOp); 
+  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(ChebF,HermOpF,Nstop,Nk,Nm,resid,MaxIt);
+  
+  //Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 #endif
   //if(lanc_arg.lock) IRL.lock = 1;
   if(lanc_arg.lock) ERR.General("::","gridLanczos","Grid Lanczos does not currently support locking\n");
@@ -98,10 +102,15 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   
   if(!UniqueID()) printf("Starting Lanczos algorithm\n");
   int Nconv;
+  IRL.normalise(src);
   IRL.calc(eval,evec,
 	   src,
-	   Nconv);
-
+	   Nconv
+#ifndef USE_CHULWOOS_LANCZOS
+	   , true
+#endif
+	   );
+  
   print_time("gridLanczos","Algorithm",time+dclock());
 #endif
 }

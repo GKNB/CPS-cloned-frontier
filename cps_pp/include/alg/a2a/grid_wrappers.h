@@ -71,6 +71,7 @@ struct GridLanczosWrapper{
   }
 
   static void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, typename GridPolicies::FgridGFclass &lattice){
+    if(!UniqueID()) printf("Starting eigenvector residual test\n");
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::FgridFclass FgridFclass;
     typedef typename GridPolicies::GridDirac GridDirac;
@@ -102,7 +103,7 @@ struct GridLanczosWrapper{
 
       double nrm = sqrt(axpy_norm(tmp1, -1., tmp2, tmp3)); //tmp1 = tmp3 - tmp2
     
-      if(!UniqueID()) printf("%d %g\n",i,nrm);
+      if(!UniqueID()) printf("Idx %d Eval %g Resid %g #Evecs %d #Evals %d\n",i,eval[i],nrm,evec.size(),eval.size());
     }
 
   }
