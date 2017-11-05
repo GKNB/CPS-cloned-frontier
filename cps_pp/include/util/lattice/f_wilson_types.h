@@ -1173,7 +1173,7 @@ class Fmobius : public FdwfBase {
                 Float *true_res,
                 CnvFrmType cnv_frm,
                 PreserveType prs_f_in)
-    { FmatInv(f_out,f_in,cg_arg,true_res,cnv_frm, prs_f_in,0);}
+    { return FmatInv(f_out,f_in,cg_arg,true_res,cnv_frm, prs_f_in,0);}
 
     int FmatInv(Vector *f_out,
                 Vector *f_in,

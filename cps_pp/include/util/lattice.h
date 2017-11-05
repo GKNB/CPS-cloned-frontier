@@ -1176,7 +1176,7 @@ class Lattice
     virtual int FeigSolv(Vector **f_eigenv, Float *lambda, 
 			 LanczosArg *eig_arg, 
 			 CnvFrmType cnv_frm = CNV_FRM_YES){
-		char *fname = "FeigSolv(**V,F*,L*,C)";
+		const char *fname = "FeigSolv(**V,F*,L*,C)";
 		ERR.NotImplemented(cname,fname);
 		return -1;
 	}
@@ -1218,7 +1218,7 @@ class Lattice
 	      Float *true_res,
 	      CnvFrmType cnv_frm ,
 	      PreserveType prs_f_in)
-  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");} // for now
+  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");return 1;} // for now
 
   
     virtual Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
@@ -1301,7 +1301,7 @@ class Lattice
     virtual void Fconvert(Vector *f_field, 
 		   	  StrOrdType to,
 			  StrOrdType from, int cb=2){
-		char *fname = "Fconvert(*V,O,O)";
+		const char *fname = "Fconvert(*V,O,O)";
 		ERR.NotImplemented(cname,fname);
 	}
     //!< Converts the field layout.

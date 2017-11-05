@@ -14,7 +14,7 @@ using namespace std;
 // qio-factory functions 
 
 // global variable for fanctor  (could make a separated record and  read from it, but then we would need if statement...)
-struct qio_genfield_glb_type {  int precision; int n_fields; size_t f_size_per_site; int n_sites; };
+struct qio_genfield_glb_type {  int precision; int n_fields; int f_size_per_site; int n_sites; };
 static qio_genfield_glb_type qio_genfield_glb;
 
 void qio_genfield_get_glb(char *buf_, size_t site_index, int count, void *arg_)

@@ -4,7 +4,7 @@
 #include "timer.h"
 #include <complex>
 #include <comms/sysfunc_cps.h>
-#include "crc32-reference.h"
+//#include "crc32-reference.h"
 
 #if 0
 extern MPI_Comm QMP_COMM_WORLD;

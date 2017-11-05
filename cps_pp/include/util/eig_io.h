@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <complex>
+#include <map>
 #include <vector>
 #include <memory.h>
 #include <iostream>
@@ -22,12 +23,6 @@
 #include <util/verbose.h>
 #include <unistd.h>
 
-//inline double dclock() {
-//      struct timeval tv; 
-//      gettimeofday(&tv,NULL);
-//      return (1.0*tv.tv_usec + 1.0e6*tv.tv_sec) / 1.0e6;
-//}
-//
 #if 0
 extern MPI_Comm QMP_COMM_WORLD;
 #else
@@ -36,7 +31,24 @@ extern MPI_Comm QMP_COMM_WORLD;
 
 
 
-uint32_t crc32_fast (const void *data, size_t length, uint32_t previousCrc32);
+#include <zlib.h>
+static uint32_t crc32_loop(uint32_t previousCrc32, unsigned char* data, size_t len) {
+
+     // CL: crc32 of zlib was incorrect for very large sizes, so do it block-wise
+     uint32_t crc = previousCrc32;
+     size_t blk = 0;
+     size_t step = (size_t)1024*1024*1024;
+     while (len > step) {
+       crc = crc32(crc,&data[blk],step);
+       blk += step;
+       len -= step;
+     }
+
+	if(len>0) crc = crc32(crc,&data[blk],len);
+     return crc;
+
+   }
+
 
 namespace cps
 {
@@ -56,10 +68,13 @@ namespace cps
 
     int index;
 
-    uint32_t crc32;
+      std::vector < uint32_t > crc32_header;
 
     int FP16_COEF_EXP_SHARE_FLOATS;
+//    bool big_endian;
   };
+
+  class EigenCache;		//forward declaration
 
 
   class EvecReader
@@ -68,29 +83,54 @@ namespace cps
     static const char *cname;
 
   public:
-    bool machine_is_little_endian ;
-    int bigendian ;	// write data back in big endian
+    const int n_cycle = 32;
+    bool machine_is_little_endian;
+    bool bigendian;		// read/write data back in big endian
     _evc_meta_ args;
-    EvecReader():
-	 machine_is_little_endian(1),bigendian(0)
-	{};
-    ~EvecReader(){};
+    bool crc32_checked;
+      uint32_t nprocessors ;
+      uint32_t nfile ;
+//      std::vector < int >nn;
+      EvecReader ():
+	bigendian (false), crc32_checked (false),
+	nprocessors(1),nfile(1)	// fixed to little endian
+    {
+      machine_is_little_endian = machine_endian ();
+    };
+     ~EvecReader ()
+    {
+    };
     typedef float OPT;
     int nthreads;
 
     static const char *header;
+    std::vector < double >evals;
 
-    int vol4d, vol5d;
-    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
+    size_t vol4d, vol5d;
+//    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
+    size_t f_size_block;
 
     char *raw_in;
 
 
-      std::vector < std::vector < OPT > >block_data;
-      std::vector < std::vector < OPT > >block_data_ortho;
-      std::vector < std::vector < OPT > >block_coef;
+    std::vector < std::vector < OPT > >block_data;
+    std::vector < std::vector < OPT > >block_data_ortho;
+    std::vector < std::vector < OPT > >block_coef;
 
 //float* ord_in; // in non-bfm ordering:  co fastest, then x,y,z,t,s
+    int machine_endian ()
+    {
+      char endian_c[4] = { 1, 0, 0, 0 };
+      uint32_t *endian_i = (uint32_t *) endian_c;
+      if (*endian_i == 0x1)
+//        printf("little endian\n");
+	return 1;
+      else
+//        printf("big endian\n");
+	return 0;
+
+    }
+
 
     inline int sumArray (long *recv, const long *send, const long n_elem)
     {
@@ -99,7 +139,7 @@ namespace cps
 			    QMP_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (long));
-        return 0;
+      return 0;
 #endif
     }
 
@@ -152,13 +192,13 @@ namespace cps
     void fix_short_endian (unsigned short *dest, int nshorts)
     {
       if ((bigendian && machine_is_little_endian) ||	// written for readability
-	  (!bigendian && !machine_is_little_endian)) 
-      for (int i = 0; i < nshorts; i++) {
-	char *c1 = (char *) &dest[i];
-	char tmp = c1[0];
-	c1[0] = c1[1];
-	c1[1] = tmp;
-      }
+	  (!bigendian && !machine_is_little_endian))
+	for (int i = 0; i < nshorts; i++) {
+	  char *c1 = (char *) &dest[i];
+	  char tmp = c1[0];
+	  c1[0] = c1[1];
+	  c1[1] = tmp;
+	}
     }
 
     void fix_float_endian (float *dest, int nfloats)
@@ -170,6 +210,7 @@ namespace cps
 	  (!bigendian && !machine_is_little_endian)) {
 	int i;
 	for (i = 0; i < nfloats; i++) {
+	  float before = dest[i];
 	  char *c = (char *) &dest[i];
 	  char tmp;
 	  int j;
@@ -178,34 +219,37 @@ namespace cps
 	    c[j] = c[3 - j];
 	    c[3 - j] = tmp;
 	  }
+	  float after = dest[i];
+	  VRB.Debug (cname, "fix_float_endian", "fix_float_endian: %g ->%g\n",
+		     before, after);
 	}
       }
 
     }
 
 
-    int get_bfm_index (int *pos, int co)
+    int get_bfm_index (int *pos, int co, int *s_l)
     {
 
-      int ls = args.s[4];
+      int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
-      int NtHalf = args.s[3] / 2;
+      int NtHalf = s_l[3] / 2;
       int simd_coor = pos[3] / NtHalf;
       int regu_coor =
 	(pos[0] +
-	 args.s[0] * (pos[1] +
-		      args.s[1] * (pos[2] +
-				   args.s[2] * (pos[3] % NtHalf)))) / 2;
+	 s_l[0] * (pos[1] +
+		      s_l[1] * (pos[2] +
+				   s_l[2] * (pos[3] % NtHalf)))) / 2;
 //      int regu_vol = vol_4d_oo / 2;
 
       return +regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
-    int get_cps_index (int *pos, int co)
+    int get_cps_index (int *pos, int co, int *s_l)
     {
 
-      int ls = args.s[4];
+      int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
@@ -214,13 +258,12 @@ namespace cps
 //      int simd_coor = pos[3] / NtHalf;
 //      assert (simd_coor == 0);
 //      int regu_vol = vol_4d_oo / SimdT;
-      int regu_coor = (pos[0] + args.s[0] * 
-					(pos[1] + args.s[1] * 
-					(pos[2] + args.s[2] * 
-					(pos[3] + args.s[3] * 
-					pos[4] ))))/2 ;
+      int regu_coor = (pos[0] + s_l[0] *
+		       (pos[1] + s_l[1] *
+			(pos[2] + s_l[2] *
+			 (pos[3] + s_l[3] * pos[4])))) / 2;
 
-       return ((regu_coor ) * 12 + co) * 2  ;
+      return ((regu_coor) * 12 + co) * 2;
 //      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
 
@@ -252,74 +295,75 @@ namespace cps
     }
 
     template < class T >
-      void caxpy_single (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_single (T * res, std::complex < T > ca, T * x, T * y,
+			 size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
     template < class T >
-      void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy_threaded (T * res, std::complex < T > ca, T * x, T * y,
+			   size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
 #pragma omp for
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
-    template < class T > void scale_single (T * res, T s, int f_size)
+    template < class T > void scale_single (T * res, T s, size_t f_size)
     {
-      for (int i = 0; i < f_size; i++)
+      for (size_t i = 0; i < f_size; i++)
 	res[i] *= s;
     }
 
     template < class T >
-      void caxpy (T * res, std::complex < T > ca, T * x, T * y, int f_size)
+      void caxpy (T * res, std::complex < T > ca, T * x, T * y, size_t f_size)
     {
       std::complex < T > *cx = (std::complex < T > *)x;
       std::complex < T > *cy = (std::complex < T > *)y;
       std::complex < T > *cres = (std::complex < T > *)res;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
 #pragma omp parallel for
-      for (int i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	cres[i] = ca * cx[i] + cy[i];
     }
 
-    template < class T > std::complex < T > sp_single (T * a, T * b, int f_size)
+    template < class T > std::complex < T > sp_single (T * a, T * b, size_t f_size)
     {
       std::complex < T > *ca = (std::complex < T > *)a;
       std::complex < T > *cb = (std::complex < T > *)b;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
-      int i;
       std::complex < T > ret = 0.0;
-      for (i = 0; i < c_size; i++)
+      for (size_t i = 0; i < c_size; i++)
 	ret += conj (ca[i]) * cb[i];
 
       return ret;
     }
 
-    template < class T > std::complex < T > sp (T * a, T * b, int f_size) {
+    template < class T > std::complex < T > sp (T * a, T * b, size_t f_size) {
       std::complex < T > *ca = (std::complex < T > *)a;
       std::complex < T > *cb = (std::complex < T > *)b;
-      int c_size = f_size / 2;
+      size_t c_size = f_size / 2;
 
       std::complex < T > res = 0.0;
 #pragma omp parallel shared(res)
       {
 	std::complex < T > resl = 0.0;
 #pragma omp for
-	for (int i = 0; i < c_size; i++)
+	for (size_t i = 0; i < c_size; i++)
 	  resl += conj (ca[i]) * cb[i];
 
 #pragma omp critical
@@ -330,7 +374,8 @@ namespace cps
       return res;
     }
 
-    template < class T > T norm_of_evec (std::vector < std::vector < T > >&v, int j) {
+    template < class T > T norm_of_evec (std::vector < std::vector < T > >&v,
+					 int j) {
       T gg = 0.0;
 #pragma omp parallel shared(gg)
       {
@@ -354,7 +399,8 @@ namespace cps
       static double data_counter = 0.0;
 
       // checksum
-      crc = crc32_fast (buf, s, crc);
+//      crc = crc32_fast (buf, s, crc);
+      crc = crc32_loop (crc, (Bytef *) buf, s);
 
       double t0 = dclock ();
       if (fwrite (buf, s, 1, f) != 1) {
@@ -365,8 +411,8 @@ namespace cps
 
       data_counter += (double) s;
       if (data_counter > 1024. * 1024. * 256) {
-	printf ("Writing at %g GB/s\n",
-		(double) s / 1024. / 1024. / 1024. / (t1 - t0));
+	VRB.Result (cname, "write_bytes", "Writing at %g GB/s\n",
+		    (double) s / 1024. / 1024. / 1024. / (t1 - t0));
 	data_counter = 0.0;
       }
     }
@@ -397,10 +443,10 @@ namespace cps
 
       for (int64_t i = 0; i < n; i++)
 	out[i] = in[i];
-//	std::cout <<"out[0]= "<<out[0];
       fix_float_endian (out, n);
-	if(std::isnan(out[0]))
-	std::cout <<"read_floats out[0]= "<<out[0]<<std::endl;
+//      std::cout << "out[0]= " << out[0] << std::endl;
+      if (std::isnan (out[0]))
+	std::cout << "read_floats out[0]= " << out[0] << std::endl;
     }
 
     int fp_map (float in, float min, float max, int N)
@@ -453,7 +499,7 @@ namespace cps
       unsigned short *in = (unsigned short *) ptr;
       ptr += 2 * (n + nsites);
 
-#define assert(exp)  { if ( !(exp) ) { fprintf(stderr,"Assert " #exp " failed\n"); exit(84); } }
+//#define assert(exp)  { if ( !(exp) ) { fprintf(stderr,"Assert " #exp " failed\n"); exit(84); } }
 
       // do for each site
       for (int64_t site = 0; site < nsites; site++) {
@@ -470,8 +516,8 @@ namespace cps
 	for (int i = 0; i < nsc; i++) {
 	  ev[i] = fp_unmap (*bptr++, min, max, SHRT_UMAX);
 	}
-	if(std::isnan(ev[0]))
-	std::cout <<"read_floats_fp16 ev[0]= "<<ev[0]<<std::endl;
+	if (std::isnan (ev[0]))
+	  std::cout << "read_floats_fp16 ev[0]= " << ev[0] << std::endl;
 
       }
 
@@ -481,20 +527,23 @@ namespace cps
 //    int read_metadata (const char *root, _evc_meta_ & args)
     int read_metadata (const char *root)
     {
+      const char *fname = "read_metadata()";
+      std::string path(root);
+
       char buf[1024];
       sprintf (buf, "%s/metadata.txt", root);
-      uint32_t nprocessors = 1;
       FILE *f = NULL;
       uint32_t status = 0;
+
       if (UniqueID () == 0) {
-	printf ("node 0, before fopen \n");
+	VRB.Debug (cname, fname, "node 0, before fopen \n");
 	f = fopen (buf, "r");
 	status = f ? 1 : 0;
       }
       sumArray (&status, 1);
 //      _grid->GlobalSum(status);
       if (!status) {
-	printf ("failed to open %s \n", buf);
+	ERR.General (cname, fname, "failed to open %s \n", buf);
 	return false;
       }
       for (int i = 0; i < 5; i++) {
@@ -510,7 +559,7 @@ namespace cps
 
 #define _IRL_READ_INT(buf,p) if (f) { assert(fscanf(f,buf,p)==1); } else { *(p) = 0; }
       if (UniqueID () == 0) {
-	printf ("node 0, before reading metadata\n");
+	VRB.Debug (cname, fname, "node 0, before reading metadata\n");
 	for (int i = 0; i < 5; i++) {
 	  sprintf (buf, "s[%d] = %%d\n", i);
 	  _IRL_READ_INT (buf, &args.s[i]);
@@ -527,10 +576,12 @@ namespace cps
 	_IRL_READ_INT ("nkeep = %d\n", &args.nkeep);
 	_IRL_READ_INT ("nkeep_single = %d\n", &args.nkeep_single);
 	_IRL_READ_INT ("blocks = %d\n", &args.blocks);
+//      _IRL_READ_INT ("big_endian = %d\n", &args.big_endian);
 	_IRL_READ_INT ("FP16_COEF_EXP_SHARE_FLOATS = %d\n",
 		       &args.FP16_COEF_EXP_SHARE_FLOATS);
-	printf ("node 0, after reading metadata\n");
+	VRB.Debug (cname, fname, "node 0, after reading metadata \n");
       }
+      //     bigendian = args.big_endian; //currently fixed to be little endian
       sumArray (args.s, 5);
       sumArray (args.b, 5);
       sumArray (args.nb, 5);
@@ -541,130 +592,222 @@ namespace cps
       sumArray (&args.FP16_COEF_EXP_SHARE_FLOATS, 1);
 
 //we do not divide the fifth dimension
-      int nn[5];
+//      int nn[5];
+      std::vector < int >nn(5,1);
       nn[4] = 1;
       for (int i = 0; i < 4; i++) {
 	//     assert(GJP.Sites(i) % args.s[i] == 0);
 	//    nn[i] = GJP.Sites(i)/ args.s[i];
 	nn[i] = GJP.Nodes (i);
 	nprocessors *= nn[i];
+	nfile *= (GJP.Sites (i) / args.s[i]);
       }
       double barrier = 0;
       sumArray (&barrier, 1);
-      //std::cout << GridLogMessage << "Reading data that was generated on node-layout " << nn << std::endl;
+//      std::cout << "Reading data that was generated on node-layout " << nn << std::endl;
 
-      std::vector < uint32_t > crc32_arr (nprocessors, 0);
       if (UniqueID () == 0) {
-	printf ("node 0, before reading crc32\n");
-	for (int i = 0; i < nprocessors; i++) {
+	VRB.Debug (cname, fname, "node-layout %d %d %d %d %d nprocessors %d\n",
+		   nn[0], nn[1], nn[2], nn[3], nn[4], nprocessors);
+	std::cout << "nprocessor= " << nprocessors << " nfile= " << nfile << std::endl;
+      }
+//      std::vector < uint32_t > crc32_arr (file, 0);
+      args.crc32_header.resize (nfile);
+      VRB.Debug (cname, fname, "node 0, before reading crc32\n");
+      if (UniqueID () == 0) {
+	for (uint32_t i = 0; i < nfile; i++) {
 	  sprintf (buf, "crc32[%d] = %%X\n", i);
-	  _IRL_READ_INT (buf, &crc32_arr[i]);
-	  printf ("crc32[%d] = %X\n", i, crc32_arr[i]);
+	  _IRL_READ_INT (buf, &args.crc32_header[i]);
+	  VRB.Debug (cname, fname, "crc32[%d] = %X\n", i, args.crc32_header[i]);
 	}
-	printf ("node 0, after reading crc32\n");
+	VRB.Debug (cname, fname, "node 0, after reading crc32\n");
       }
       //printf("node %d, before sumarray crc32\n", UniqueID());
-      sumArray (&crc32_arr[0], nprocessors);
-      args.crc32 = crc32_arr[UniqueID ()];
+      sumArray (&args.crc32_header[0], nfile);
 
 #undef _IRL_READ_INT
+      {
+
+//first debug for this
+	int ngroup = (nprocessors - 1) / nfile + 1;	//number of nodes reading the same file
+	int nodeID = UniqueID ();
+	int slot = nodeID / ngroup;
+	int nperdir = nfile / n_cycle;
+	if (nperdir < 1)
+	  nperdir = 1;
+	while (slot < nfile) {
+	  int dir = slot / nperdir;
+
+	  sprintf (buf, "%s/%2.2d/%10.10d.compressed", root, dir, slot);
+	  FILE *f2 = fopen (buf, "rb");
+	  if (!f2) {
+	    fprintf (stderr, "Could not open %s\n", buf);
+	    //return 3;
+	    sleep (2);
+	    f2 = fopen (buf, "rb");
+	    if (!f2) {
+	      fprintf (stderr, "Could not open %s again.\n", buf);
+	      exit (-43);
+	    }
+	  }
+	  fseeko (f2, 0, SEEK_END);
+	  off_t size0 = ftello (f2);
+      std::cout <<"size0= "<<size0<<std::endl;
+	  off_t size = size0 / ngroup;
+      std::cout <<"size= "<<size<<std::endl;
+	  off_t offset = size * (nodeID % ngroup);
+	  if (((nodeID % ngroup) == (ngroup - 1))
+	      || (nodeID == (nprocessors - 1))) {
+	    size = size0 - offset;
+	  }
+      std::cout <<"offset= "<<offset<<std::endl;
+
+	  raw_in = (char *) smalloc (size);
+	  if (0) {
+	    off_t half = size / 2;
+	    fseeko (f2, 0, SEEK_SET);
+	    fread (raw_in, 1, half, f2);
+	    uint32_t first = crc32_loop (0, (Bytef *) raw_in, half);
+	    fseeko (f2, half, SEEK_SET);
+	    fread (raw_in, 1, half, f2);
+	    uint32_t second = crc32_loop (0, (Bytef *) raw_in, half);
+//	    printf ("half first second = %d %x %x\n", half, first, second);
+	    std::cout <<"half "<<half<<" first "<<first<<" second "<<second<<std::endl;
+	  }
+	  fseeko (f2, offset, SEEK_SET);
+	  if (!raw_in) {
+	    fprintf (stderr, "Out of mem\n");
+	    return 5;
+	  }
+
+	  off_t t_pos = ftello (f2);
+	  if (fread (raw_in, 1, size, f2) != size) {
+	    fprintf (stderr, "Invalid fread\n");
+	    return 6;
+	  }
+	  off_t t_pos2 = ftello (f2);
+	  VRB.Debug (cname, fname, "%d read: %d %d\n", nodeID, t_pos, t_pos);
+
+        std::vector < uint32_t > crc32_part(nprocessors);
+//	  uint32_t crc32_part[nprocessors];
+	  for (int i = 0; i < nprocessors; i++)
+	    crc32_part[i] = 0;
+	  crc32_part[nodeID] = crc32_loop (0, (Bytef *) raw_in, size);
+	  VRB.Debug (cname, fname,
+		     "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
+		     nprocessors, nodeID, ngroup, size, offset,
+		     crc32_part[nodeID]);
+	  sumArray (crc32_part.data(), nprocessors);
+	  if (nodeID % ngroup == 0) {
+	    uint32_t crc32_all = crc32_part[nodeID];
+	    VRB.Debug (cname, fname, "%d: crc32_all: %x\n", nodeID, crc32_all);
+	    for (int i = 1; i < ngroup; i++) {
+	      VRB.Debug (cname, fname, "%d: crc32_part[%d]: %x\n", nodeID,
+			 nodeID + i, crc32_part[nodeID + i], crc32_all);
+	      if (i < (ngroup - 1))
+		crc32_all =
+		  crc32_combine64 (crc32_all, crc32_part[nodeID + i], size);
+	      else
+		crc32_all =
+		  crc32_combine64 (crc32_all, crc32_part[nodeID + i],
+				   size0 - (size * (ngroup - 1)));
+	    }
+	    printf ("%d: crc32_all: %x crc32_header %x\n", slot, crc32_all,
+		    args.crc32_header[slot]);
+//	    assert (crc32_all == args.crc32_header[slot]);
+	  }
+	  free (raw_in);
+	  raw_in = NULL;
+	  if (f2)
+	    fclose (f2);
+	  slot += nprocessors;	// in case nfile > nprocessors
+	}
+	crc32_checked = true;
+//      exit (-42);
+
+      }
 
       if (f)
 	fclose (f);
+
+//    double vals[nvec];
+    long nvec=0;
+    evals.resize(args.neig);
+    double *vals = evals.data();
+//    memset (vals, 0, sizeof (vals));
+    if (!UniqueID ()) {
+      std::cout << "Reading eigenvalues \n";
+      std::string filename = path + "/eigen-values.txt.smoothed";
+      FILE *file = fopen (filename.c_str (), "r");
+      if (!file) {
+	filename.clear();
+      	filename = path + "/eigen-values.txt";
+	VRB.Result(cname,fname,"smoothed eignevalues not available. Trying %s\n",filename.c_str());
+      	file = fopen (filename.c_str (), "r");
+      }
+      fscanf (file, "%ld\n", &nvec);
+      assert(nvec <=args.neig);
+      for (int i = 0; i < args.neig; i++) {
+        fscanf (file, "%lE\n", vals + i);
+        std::cout << sqrt (evals[i]) << std::endl;
+      }
+      fclose (file);
+    }
+    sumArray (vals, args.neig);
+    if (!UniqueID ()) std::cout << "End Reading eigenvalues, read_metadata done\n";
+
       return 1;
     }
 
-//    int read_meta (const char *root, _evc_meta_ & args)
-    int read_meta(const char *root)
-    {
+    int globalToLocalCanonicalBlock (int slot,
+				     const std::vector < int >&src_nodes,
+				     int nb);
+    void get_read_geometry (const std::vector < int >&cnodes, std::map < int,
+			    std::vector < int > >&slots,
+			    std::vector < int >&slot_lvol,
+			    std::vector < int >&lvol, int64_t & slot_lsites,
+			    int &ntotal);
 
-      char buf[1024];
-      char val[1024];
-      char line[1024];
-
-
-      // read meta data
-      sprintf (buf, "%s/metadata.txt", root);
-      FILE *f = fopen (buf, "r");
-      if (!f) {
-	fprintf (stderr, "Could not open %s\n", buf);
-	return 3;
-      }
-
-      while (!feof (f)) {
-	int i;
-
-	if (!fgets (line, sizeof (line), f))
-	  break;
-
-	if (sscanf (line, "%s = %s\n", buf, val) == 2) {
-
-	  char *r = strchr (buf, '[');
-	  if (r) {
-	    *r = '\0';
-	    i = atoi (r + 1);
-
-#define PARSE_ARRAY(n) \
-	    if (!strcmp (buf, #n)) {			\
-					args.n[i] = atoi(val);		\
-				}
-			 PARSE_ARRAY (s)
-			 else
-			 PARSE_ARRAY (b)
-			 else
-			 PARSE_ARRAY (nb)
-			 else
-			 {
-			 fprintf (stderr, "Unknown array '%s' in %s.meta\n",
-				  buf, root); return 4;}
-
-			 } else {
-
-#define PARSE_INT(n)				\
-				if (!strcmp(buf,#n)) {			\
-					args.n = atoi(val);			\
-				}
-#define PARSE_HEX(n)				\
-				if (!strcmp(buf,#n)) {			\
-					sscanf(val,"%X",&args.n);		\
-				}
-
-			 PARSE_INT (neig)
-			 else
-			 PARSE_INT (nkeep)
-			 else
-			 PARSE_INT (nkeep_single)
-			 else
-			 PARSE_INT (blocks)
-			 else
-			 PARSE_INT (FP16_COEF_EXP_SHARE_FLOATS)
-			 else
-			 PARSE_INT (index)
-			 else
-			 PARSE_HEX (crc32)
-			 else
-			 {
-			 fprintf (stderr, "Unknown parameter '%s' in %s.meta\n",
-				  buf, root); return 4;}
+//    int decompress (const char *root_, std::vector < OPT * >&dest_all);
+    int read_compressed_vectors (const char *root, const char *checksum_dir,
+				 std::vector < OPT * >&dest_all,
+				int start=-1, int end=-1,
+				 float time_out = 100000);
 
 
-			 }
-
-			 } else {
-			 printf ("Improper format: %s\n", line);	// double nl is OK
-			 }
-
-			 }
-
-			 fclose (f); return 1;}
-
-			 int decompress (const char *root_, std::vector < OPT *> &dest_all);
-
-
-
-};
+  };
 
 #endif
+  class Lexicographic
+  {
+  public:
+
+    static inline void CoorFromIndex (std::vector < int >&coor, int index,
+				      std::vector < int >&dims)
+    {
+      int nd = dims.size ();
+        coor.resize (nd);
+      for (int d = 0; d < nd; d++)
+      {
+	coor[d] = index % dims[d];
+	index = index / dims[d];
+      }
+    }
+
+    static inline void IndexFromCoor (std::vector < int >&coor, int &index,
+				      std::vector < int >&dims)
+    {
+      int nd = dims.size ();
+      int stride = 1;
+      index = 0;
+      for (int d = 0; d < nd; d++) {
+	index = index + stride * coor[d];
+	stride = stride * dims[d];
+      }
+    }
+  };
+  void alcf_evecs_save (char *dest, EigenCache * ec, int nkeep);
+  void movefloattoFloat (Float * out, float *in, size_t f_size);
 
 }
 #endif

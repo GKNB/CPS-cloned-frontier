@@ -205,8 +205,8 @@ if ( GJP.ExtInitialized()){
   } else if (start_conf_kind == START_CONF_FILE) {
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
 	      gauge_field);
-//    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
-    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
+    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
+//    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
     str_ord = CANONICAL;
     is_initialized = 1;
     GJP.StartConfKind (START_CONF_MEM);
@@ -5017,45 +5017,6 @@ int Lattice::SigmaOffset (const int index, int mu, int nu) const
 }
 
 
-// ----------------------------------------------------------------
-// BondCond: toggle boundary condition on/off for gauge field. Based
-// on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
-//
-// The gauge field must be in CANONICAL order.
-// ----------------------------------------------------------------
-#if 0
-void Lattice::BondCond ()
-{
-    Matrix *u_base = this->GaugeField();
-    for(int mu = 0; mu < 4; ++mu) {
-        if(GJP.NodeBc(mu) != BND_CND_APRD) continue;
-
-    int low[4] = { 0, 0, 0, 0 };
-    int high[4] = { GJP.XnodeSites (), GJP.YnodeSites (),
-      GJP.ZnodeSites (), GJP.TnodeSites ()
-    };
-    low[mu] = high[mu] - 1;
-
-    int hl[4] = { high[0] - low[0], high[1] - low[1],
-      high[2] - low[2], high[3] - low[3]
-    };
-
-    const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
-
-#pragma omp parallel for
-    for (int i = 0; i < hl_sites; ++i) {
-      int x[4];
-      compute_coord (x, hl, low, i);
-
-      int off = mu + 4 * (x[0] + high[0] *
-			  (x[1] + high[1] * (x[2] + high[2] * x[3])));
-      u_base[off] *= -1.;
-    }
-  }
-    bc_applied = 1 - bc_applied;
-    VRB.Result(cname,"BondCond()","bc=%d\n",bc_applied);
-}
-#endif
 
 /*!
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
@@ -5179,6 +5140,7 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 // ----------------------------------------------------------------
 void Lattice::BondCond(){
   static int calls = 0; //CK: if calls %2 == 1 this operation reverses the BC. For PRD or APRD this makes no difference, but for Twisted BCs we need to reverse the twist angle
+  VRB.Result(cname,"BondCond()","calls=%d\n",calls);
 
   Matrix *u_base = this->GaugeField();
   Complex twist_phase;

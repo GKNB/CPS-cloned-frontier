@@ -114,7 +114,7 @@ void init_qmp(int * argc, char ***argv) {
 
     // check QMP thread level
     // Added by Hantao
-    if(peRank == 0) {
+    if(qmpRank == 0) {
         switch(prv) {
         case QMP_THREAD_SINGLE:
             printf("QMP thread level = QMP_THREAD_SINGLE\n");
@@ -213,8 +213,14 @@ void init_qmp(int * argc, char ***argv) {
     peRank = pePos_t[NDIM-1];
     if(NDIM>1)
     for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos_t[i];
- //debugging
-    if (peRank != qmpRank){
+#ifdef USE_GRID
+    for(int i = 0; i<NDIM;i++)
+    if ( pePos_t[i] != grid_cart._processor_coor[i] ) { 
+       printf("%d %d: QMP %d Grid %d\n",peRank,i,pePos_t[i],grid_cart._processor_coor[i]);
+       QMP_abort(-32);
+    }
+#endif
+    if(0){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
 	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);
 	printf("\n");

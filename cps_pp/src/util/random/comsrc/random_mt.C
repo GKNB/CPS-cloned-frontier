@@ -338,7 +338,7 @@ void LatRanGen::Initialize ()
 #ifdef RNG_WARMUP
 	  {
 	    int n_warm = ugran_4d[index_4d].Urand (100, 0);
-	    VRB.Result (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
+	    VRB.RNGSeed (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
 			n_warm);
 	    while (n_warm > 0) {
 	      int temp = ugran_4d[index_4d].Urand (100, 0);
@@ -351,7 +351,7 @@ void LatRanGen::Initialize ()
 	  {
 	    std::uniform_int_distribution <> uniform_dist (0, BOOTSTRAP_MAX);
 	    int new_seed = uniform_dist (cpsran[index_4d]);
-	    VRB.Result (cname, fname,
+	    VRB.RNGSeed (cname, fname,
 			"index_4d=%d start_seed_4d=%d new_seed=%d\n", index_4d,
 			start_seed_4d, new_seed);
 	    cpsran[index_4d].seed (new_seed);

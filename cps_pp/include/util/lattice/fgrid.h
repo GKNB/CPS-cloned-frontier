@@ -16,58 +16,64 @@
 //using namespace Grid::QCD;
 #undef HAVE_HANDOPT
 
-namespace Grid{
+namespace Grid
+{
 
-template<typename Float, class Field>
-class Guesser: public LinearFunction<Field> {
-    public:
-	int neig;
-	std::vector < Float> &eval;
-	std::vector < Field > &evec;
-    Guesser(int n, std::vector<Float> &_eval, std::vector <Field> &_evec)
-	: neig(n),eval(_eval),evec(_evec)
-	{ 
-		assert ( eval.size()>=neig); 
-		assert ( evec.size()>=neig); 
-	}
-	void operator() (const Field &in, Field &out){
-	 std::cout<<GridLogMessage << "guesser() called "<<std::endl;
-	out=0.;
-	for(int i=0;i<neig;i++){
-		Grid::ComplexD coef = innerProduct(evec[i],in);
-		coef = coef / eval[i];
-	    std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
-		out += coef * evec[i];
-	}
-	std::cout<<GridLogMessage <<"norm(out)  : "<<norm2(out)<< std::endl;
-	}
-};
+  template < typename Float, class Field >
+    class Guesser:public LinearFunction < Field >
+  {
+  public:
+    int neig;
+      std::vector < Float > &eval;
+      std::vector < Field > &evec;
+      Guesser (int n, std::vector < Float > &_eval,
+	       std::vector < Field > &_evec)
+    : neig (n), eval (_eval), evec (_evec)
+    {
+      assert (eval.size () >= neig);
+      assert (evec.size () >= neig);
+    }
+    void operator  () (const Field & in, Field & out)
+    {
+      std::cout << GridLogMessage << "guesser() called " << std::endl;
+      out = 0.;
+      for (int i = 0; i < neig; i++) {
+	Grid::ComplexD coef = innerProduct (evec[i], in);
+	coef = coef / eval[i];
+//	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
+          std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
+	out += coef * evec[i];
+      }
+      std::
+	cout << GridLogMessage << "norm(out)  : " << norm2 (out) << std::endl;
+    }
+  };
 
 }
 
-CPS_START_NAMESPACE 
-class FgridParams {
+CPS_START_NAMESPACE class FgridParams
+{
 public:
   Float mobius_scale;
   Float mobius_bmc;
-  std::vector < std::complex<double>  > omega; //ZMobius
+    std::vector < std::complex < double >>omega;	//ZMobius
   Float epsilon;		//WilsonTM
-  FgridParams ():mobius_scale (1.),mobius_bmc(1.) {
+    FgridParams ():mobius_scale (1.), mobius_bmc (1.)
+  {
   }
-  ~FgridParams () {
+   ~FgridParams ()
+  {
   }
-  void setZmobius(cps::Complex  *bs, int ls){
-//  void setZmobius(std::vector< std::complex<double> > bs ){
-// assumes b=1 c=0
-    omega.clear();
-    for(int i =0;i<ls;i++){
-//    std::complex<double> bs(b[2*i],b[2*i+1]);
-    std::complex<double> temp = 1./(2.*bs[i] -1.);
-    VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
-	i,bs[i].real(),bs[i].imag(), i,temp.real(),temp.imag());
-    omega.push_back(temp);
+  void setZmobius (cps::Complex * bs, int ls)
+  {
+    omega.clear ();
+    for (int i = 0; i < ls; i++) {
+      std::complex < double >temp = 1. / (2. * bs[i] - 1.);
+      VRB.Result ("FgridParams", "setZmobius", "bs[%d]=%g %g, omega=%g %g\n",
+		  i, bs[i].real (), bs[i].imag (), i, temp.real (),
+		  temp.imag ());
+      omega.push_back (temp);
     }
-//  exit(-40);
   }
 };
 
@@ -105,7 +111,7 @@ protected:
   RealD mob_b;			//Mobius
   RealD mob_c;			//Mobius
   RealD eps;			// WilsonTM 
-  std::vector < std::complex<double>  > omegas; //ZMobius
+    std::vector < std::complex < double >>omegas;	//ZMobius
   int Ls;
 
 public:
@@ -133,7 +139,7 @@ public:
     return Umu;
   }
 //      Grid::QCD::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
-FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), mass (1.),
+FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), mass (1.),
     Ls (1) {
 //,epsilon(0.),
     const char *fname ("FgridBase()");
@@ -166,30 +172,23 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
       VRB.Debug (cname, fname, "%d %d \n", vol[i], nodes[i]);
     UGridD =
       Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
-						 Grid::GridDefaultSimd (Nd,
-									Grid::
-									vComplexD::
-									Nsimd
-									()),
+						 Grid::GridDefaultSimd (Nd, Grid:: vComplexD:: Nsimd ()),
 						 nodes);
     UGridF =
       Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
-						 Grid::GridDefaultSimd (Nd,
-									Grid::
-									vComplexF::
-									Nsimd
-									()),
+						 Grid::GridDefaultSimd (Nd, Grid:: vComplexF:: Nsimd ()),
 						 nodes);
-    VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n",UGridD,UGridF);
+    VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n", UGridD, UGridF);
     bool fail = false;
-    for (int i = 0; i < 4; i++) 
-    if(GJP.NodeCoor(i) != UGridD->_processor_coor[i]) fail=true;
-    if(fail)
-    for (int i = 0; i < 4; i++) {
-      printf ("CPS: %d  pos[%d]=%d Grid: %d pos[%d]=%d\n", UniqueID (), i,
-	      GJP.NodeCoor (i), UGridD->_processor, i,
-	      UGridD->_processor_coor[i]);
-    }
+    for (int i = 0; i < 4; i++)
+      if (GJP.NodeCoor (i) != UGridD->_processor_coor[i])
+	fail = true;
+    if (fail)
+      for (int i = 0; i < 4; i++) {
+	printf ("CPS: %d  pos[%d]=%d Grid: %d pos[%d]=%d\n", UniqueID (), i,
+		GJP.NodeCoor (i), UGridD->_processor, i,
+		UGridD->_processor_coor[i]);
+      }
 #ifdef HAVE_HANDOPT
     if (GJP.Gparity ())
       Grid::QCD::WilsonKernelsStatic::HandOpt = 0;	//Doesn't seem to be working with Gparity
@@ -200,48 +199,57 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
     SetLs (GJP.SnodeSites ());
     UrbGridD = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
     UrbGridF = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
-    VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n",UrbGridD,UrbGridF);
+    VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n", UrbGridD, UrbGridF);
     FGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
     FGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n",FGridD,FGridF);
+    VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n", FGridD, FGridF);
     VRB.Debug (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
     FrbGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
     FrbGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n",FrbGridD,FrbGridF);
+    VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n", FrbGridD, FrbGridF);
     Umu = new Grid::QCD::LatticeGaugeFieldD (UGridD);
 //  Umu_f = new Grid::QCD::LatticeGaugeFieldF(UGrid_f);
     grid_initted = true;
     VRB.FuncEnd (cname, fname);
 //#ifdef USE_QMP
 #if 0
-                fail = false;
-                for(int t=0;t<GJP.Tnodes();t++)
-                  for(int z=0;z<GJP.Znodes();z++)
-                    for(int y=0;y<GJP.Ynodes();y++)
-                      for(int x=0;x<GJP.Xnodes();x++){
-                        std::vector<int> node {x,y,z,t};
-                        int cps_rank = QMP_get_node_number_from(&node[0]); //is a MPI_COMM_WORLD rank
-                        int grid_rank = UGridD->RankFromProcessorCoor(node); //is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below
-                        int fail = 0;
-                        if(UGridD->_processor == grid_rank){
-                          int world_rank; MPI_Comm_rank(MPI_COMM_WORLD,&world_rank);
-                          if(world_rank != UGridD->_processor) fail = 1;
-                        }
-                        QMP_status_t ierr = QMP_sum_int(&fail);
-                        if(ierr != QMP_SUCCESS)
-                          ERR.General("FgridBase","FgridBase","Rank check sum failed\n");
-                        if(fail != 0)
-                          ERR.General("FgridBase","FgridBase","Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n");
+    fail = false;
+    for (int t = 0; t < GJP.Tnodes (); t++)
+      for (int z = 0; z < GJP.Znodes (); z++)
+	for (int y = 0; y < GJP.Ynodes (); y++)
+	  for (int x = 0; x < GJP.Xnodes (); x++) {
+	    std::vector < int >node
+	    {
+	    x, y, z, t};
+	    int cps_rank = QMP_get_node_number_from (&node[0]);	//is a MPI_COMM_WORLD rank
+	    int grid_rank = UGridD->RankFromProcessorCoor (node);	//is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below
+	    int fail = 0;
+	    if (UGridD->_processor == grid_rank) {
+	      int world_rank;
+	      MPI_Comm_rank (MPI_COMM_WORLD, &world_rank);
+	      if (world_rank != UGridD->_processor)
+		fail = 1;
+	    }
+	    QMP_status_t ierr = QMP_sum_int (&fail);
+	    if (ierr != QMP_SUCCESS)
+	      ERR.General ("FgridBase", "FgridBase", "Rank check sum failed\n");
+	    if (fail != 0)
+	      ERR.General ("FgridBase", "FgridBase",
+			   "Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n");
 
-                        if(cps_rank != grid_rank){
-                          if(!UniqueID()){ std::cout << "Error in FgridBase constructor: node (" << node[0] << "," << node[1] << "," << node[2] << "," << node[3] << ") maps to different MPI ranks for Grid " << grid_rank << " and CPS " << cps_rank << std::endl;
-                            std::cout.flush();
-                          }
-                          fail = true;
-                        }
-                      }
-                if(fail)
-                  exit(0);
+	    if (cps_rank != grid_rank) {
+	      if (!UniqueID ()) {
+		std::cout << "Error in FgridBase constructor: node (" << node[0]
+		  << "," << node[1] << "," << node[2] << "," << node[3] <<
+		  ") maps to different MPI ranks for Grid " << grid_rank <<
+		  " and CPS " << cps_rank << std::endl;
+		std::cout.flush ();
+	      }
+	      fail = true;
+	    }
+	  }
+    if (fail)
+      exit (0);
 #endif
 
   }
@@ -249,12 +257,13 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
   {
     this->mobius_scale = params.mobius_scale;
     this->mobius_bmc = params.mobius_bmc;
-    this->eps= params.epsilon;
+    this->eps = params.epsilon;
     this->omegas = params.omega;
   }
   virtual ~ FgridBase (void)
   {
-    if (Umu) delete Umu;
+    if (Umu)
+      delete Umu;
 //              if(Umu_f) delete Umu_f;
     delete UGridD;
     delete UGridF;
@@ -347,7 +356,7 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 0), nodes (4, 0), 
 	      Float *cps = gauge + 18 * (site * 4 + mu) + 6 * j + 2 * i;
 	      *cps = elem.real ();
 	      *(cps + 1) = elem.imag ();
-//                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
+//i	if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
 	    }
 	}
       }
@@ -450,9 +459,7 @@ CPS_END_NAMESPACE
 #define STR(s) #s
 // Match to Fbfm twisted wilson instead of FwilsonTM
 #undef USE_F_CLASS_WILSON_TM
-
 #undef TWOKAPPA
-
 #define GRID_GPARITY
 #define IF_FIVE_D
 #undef IF_TM
@@ -481,7 +488,6 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-
 #define GRID_GPARITY
 #undef IF_FIVE_D
 #define IF_TM
@@ -510,7 +516,6 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-
 #undef GRID_GPARITY
 #define IF_FIVE_D
 #undef IF_TM
@@ -539,11 +544,9 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-
 #undef GRID_GPARITY
-#define IF_FIVE_D 
-#define GRID_ZMOB 
-
+#define IF_FIVE_D
+#define GRID_ZMOB
 #define FGRID FgridZmobius
 #define CLASS_NAME F_CLASS_GRID_ZMOBIUS
 #define DIRAC Grid::QCD::ZMobiusFermionD
@@ -551,16 +554,17 @@ CPS_END_NAMESPACE
 #define MOB	,M5,omegas,1.,0.
 #define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
 #define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
-#define IMPL Grid::QCD::ZWilsonImplD	
+#define IMPL Grid::QCD::ZWilsonImplD
 #define IMPL_F Grid::QCD::ZWilsonImplF
-#define PARAMS	
-#define GP 
-// Using TwoKappa only for zMobius for now
+#define PARAMS
+#define GP
+// Using TwoKappa only for zMobius for now, really SYM2
 #define TWOKAPPA
+#define GRID_MADWF
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
-#undef GRID_ZMOB 
+#undef GRID_ZMOB
 #undef IF_TM
 #undef FGRID
 #undef CLASS_NAME
@@ -574,7 +578,7 @@ CPS_END_NAMESPACE
 #undef PARAMS
 #undef GP
 #undef TWOKAPPA
-
+#undef GRID_MADWF
 #undef IF_FIVE_D
 #define IF_TM
 #define FGRID FgridWilsonTM
@@ -602,8 +606,5 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
-
 #endif //#ifdef USE_GRID
-
-
 #endif

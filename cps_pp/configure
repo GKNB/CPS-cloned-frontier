@@ -1401,9 +1401,10 @@ Optional Features:
   --enable-openmp         Compile with OpenMP. (default=no)
   --enable-optimise       Compile with maximum optimisation. (default=yes)
   --enable-sse            Compile with SSE. (default=no)
-  --enable-c11            Compile with C11 features. (default=no)
+  --enable-c11            Compile with C11 features. (default=yes)
   --enable-c11-rng=sitmo|mt19937|ranlux48
-                          Compile with C11 RNG. (default=no, sitmo if enabled)
+                          Compile with C11 RNG. (default=yes, sitmo if
+                          enabled)
   --enable-debug          Compile with debug information. (default=no)
   --enable-cg-dwf         Compile with cg-dwf (default=no)
   --enable-blas           Compile with BLAS (default=no)
