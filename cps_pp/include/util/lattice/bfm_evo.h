@@ -518,7 +518,7 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
 
       int bidx_base;
       int cidx_base;
-#ifdef USE_NEW_BFM_GPARITY
+#ifdef BFM_GPARITY
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1,flav);      
       cidx_base = cps::GJP.Gparity() ? this->cps_idx_cb_gparity(x, s, 0, 0, Nspinco, flav) : this->cps_idx_cb(x, s, 0, 0, Nspinco);
 #else
@@ -2015,7 +2015,7 @@ void bfm_evo<Float>::deflate(Fermion_t out, Fermion_t in,
   //this->set_zero(out);
   for(int i = 0; i < N; ++i) {
     std::complex<double> dot = this->inner((*evec)[i][1], in);
-#ifdef USE_NEW_BFM_GPARITY
+#ifdef BFM_GPARITY
     this->caxpy(out, (*evec)[i][1], out, dot.real() / double((*eval)[i]),  dot.imag() / double((*eval)[i]) );
 #else
     this->zaxpy(out, (*evec)[i][1], out, dot / double((*eval)[i]));

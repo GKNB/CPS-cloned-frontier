@@ -604,7 +604,7 @@ namespace BFM_Krylov{
 
 		for ( int co=0;co<Nspinco;co++ ) { 
 		  for ( int reim=0;reim<2;reim++ ) {
-#ifdef USE_NEW_BFM_GPARITY
+#ifdef BFM_GPARITY
 		    bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
 		    rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1,f);
 #else		    

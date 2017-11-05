@@ -4247,10 +4247,12 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
+
 #ifdef USE_BFM
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
       s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
+      VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
       VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
 #ifndef USE_C11_RNG
       if (s_node_sites > GJP.SnodeSites()) {

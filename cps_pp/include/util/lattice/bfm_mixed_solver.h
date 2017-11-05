@@ -2,12 +2,10 @@
 #ifndef INCLUDED_BFM_MIXED_SOLVER_HT_H
 #define INCLUDED_BFM_MIXED_SOLVER_HT_H
 
+#include <bfm.h>
 #include <util/lattice/bfm_evo.h>
 #include <alg/enum_int.h>
 
-#ifdef USE_CHROMA
-#include <chroma.h>
-#endif
 #include <omp.h>
 #include <pthread.h>
 
@@ -107,7 +105,8 @@ namespace mixed_cg
 	} else {
 	  //G-parity checkerboard ordering stacks the second flavour after the first on each checkerboard : cb0[f0 f1]cb1[f0 f1]
 
-# ifdef USE_NEW_BFM_GPARITY
+//# ifdef USE_NEW_BFM_GPARITY
+#ifdef BFM_GPARITY
 	  int out_base[2] =
 	    { bfm_out.bagel_idx5d (x, s, 0, 0, Nspinco, 1, 0),
 	  bfm_out.bagel_idx5d (x, s, 0, 0, Nspinco, 1, 1) };
@@ -336,7 +335,7 @@ inline int threaded_cg_mixed_MdagM (Fermion_t sol, Fermion_t src,
 }
 
 // Not implemented for older BFM
-#ifndef BFM_GPARITY
+#ifdef BFM_GPARITY
 inline int threaded_cg_mixed_MMdag (Fermion_t sol, Fermion_t src,
 				    bfm_evo < double >&bfm_d,
 				    bfm_evo < float >&bfm_f, int max_cycle,
