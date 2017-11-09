@@ -304,7 +304,7 @@ void Lattice::AllocGauge(){
 
     // Allocate memory for the gauge field.
     //--------------------------------------------------------------
-    int array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
+    size_t array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
     if(GJP.Gparity()) array_size*=2;
 
     if(start_conf_kind != START_CONF_LOAD ){
