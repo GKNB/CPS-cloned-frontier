@@ -133,7 +133,11 @@ struct _gauge_fix_site_op_impl;
   
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+
+  _gauge_fix_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){}
+
+  void gauge_fix_site_op(const int x4d[], const int f, Lattice &lat, const bool dagger, const int thread){
     typedef typename mf_Complex::value_type mf_Float;
     int i = x4d[0] + GJP.XnodeSites()*( x4d[1] + GJP.YnodeSites()* ( x4d[2] + GJP.ZnodeSites()*x4d[3] ) );
     mf_Complex tmp[3];
@@ -153,7 +157,15 @@ struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_doub
 #ifdef USE_GRID
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
-  inline static void gauge_fix_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x4d[], const int &f, Lattice &lat, const bool dagger){
+  typedef typename mf_Complex::scalar_type stype;
+  int nsimd;
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+
+  _gauge_fix_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &f, const int num_threads): field(f){
+    nsimd = field.Nsimd();
+  }
+  
+  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger, const int thread){
     //x4d is an outer site index
     int nsimd = field.Nsimd();
     int ndim = MappingPolicy::EuclideanDimension;
@@ -173,27 +185,26 @@ struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_
 
 
     //Poke the GFmatrix elements into SIMD vector objects
-    typedef typename mf_Complex::scalar_type stype;
-    stype* buf = (stype*)memalign(128, nsimd*sizeof(stype));
-
+    stype buf[nsimd];
     mf_Complex gfmat[3][3];
     for(int i=0;i<3;i++){
       for(int j=0;j<3;j++){
-
 	for(int lane=0;lane<nsimd;lane++)
 	  buf[lane] = *(gf_base_ptrs[lane] + j + 3*i);
 	vset(gfmat[i][j], buf);
       }
     }
 
-    free(buf);
-
     //Do the matrix multiplication
-    mf_Complex* tmp = (mf_Complex*)memalign(128, 3*sizeof(mf_Complex));
-    mf_Complex* sc_base = field.site_ptr(x4d,f); 
+    mf_Complex* sc_base = field.site_ptr(x4d,f);
+    mf_Complex tmp[3];
+    
     for(int s=0;s<4;s++){
       mf_Complex* s_base = sc_base + 3 * s;
-      memcpy(tmp, s_base, 3 * sizeof(mf_Complex));
+      tmp[0] = *(s_base);
+      tmp[1] = *(s_base+1);
+      tmp[2] = *(s_base+2);
+      
       if(!dagger)
 	for(int i=0;i<3;i++)
 	  s_base[i] = gfmat[i][0]*tmp[0] + gfmat[i][1]*tmp[1] + gfmat[i][2]*tmp[2];
@@ -201,18 +212,40 @@ struct _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_
 	for(int i=0;i<3;i++)
 	  s_base[i] = conjugate(gfmat[0][i])*tmp[0] + conjugate(gfmat[1][i])*tmp[1] + conjugate(gfmat[2][i])*tmp[2];
     }
-    free(tmp);
   }
 };
 #endif
 
 
+
+
+
+
 //Apply gauge fixing matrices to the field
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat, const bool dagger){
-  _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::gauge_fix_site_op(*this, x4d, f, lat,dagger);
+void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
+  _gauge_fix_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(*this, parallel ? omp_get_max_threads() : 1);
+  
+  if(parallel){
+#pragma omp parallel for
+    for(int fi=0;fi<this->nfsites();fi++){
+      int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
+      op.gauge_fix_site_op(x4d, f, lat,dagger, omp_get_thread_num());
+    }
+  }else{
+    int x4d[4]; int f;
+    for(int fi=0;fi<this->nfsites();fi++){
+      this->fsiteUnmap(fi,x4d,f);
+      op.gauge_fix_site_op(x4d, f, lat,dagger, 0);
+    }
+  }
 }
 
+
+
+//Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
+//The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
+//x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double punits[3]){
   for(int i=0;i<3;i++){
@@ -226,16 +259,17 @@ void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(double p
   }
 }
 
-//Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-//The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-//x_lcl is the site in node lattice coords. 3 or more dimensions (those after 3 are ignored)
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy, typename ComplexClass>
 struct _apply_phase_site_op_impl{};
 
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_double_or_float_mark>{
-  inline static void apply_phase_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+
+  _apply_phase_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &fld, const int num_threads): field(fld){}
+  
+  void apply_phase_site_op(const int x_lcl[], const int flav, const int p[], const double punits[], const int thread){
     StaticAssert<MappingPolicy::EuclideanDimension >= 3> check;
     
     int x_glb[MappingPolicy::EuclideanDimension]; for(int i=0;i<MappingPolicy::EuclideanDimension;i++) x_glb[i] = x_lcl[i] + GJP.NodeCoor(i)*GJP.NodeSites(i);
@@ -257,14 +291,19 @@ struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,complex_do
   
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vector_complex_mark>{
-  inline static void apply_phase_site_op(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field, const int x_lcl[], const int &flav, const int p[], const double punits[]){
+  int nsimd;
+  typedef typename mf_Complex::scalar_type stype;  
+  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &field;
+  
+  _apply_phase_site_op_impl(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy> &fld, const int num_threads): field(fld){
+    nsimd = field.Nsimd();
+  }
+  
+  void apply_phase_site_op(const int x_lcl[], const int flav, const int p[], const double punits[], const int thread){
     StaticAssert<MappingPolicy::EuclideanDimension >= 3> check;
 
-    int nsimd = field.Nsimd();
-
-    typedef typename mf_Complex::scalar_type stype;
-    stype* buf = (stype*)memalign(128, nsimd*sizeof(stype));
-
+    stype buf[nsimd];
+    
     int lane_off[MappingPolicy::EuclideanDimension];
     int x_gbl_lane[MappingPolicy::EuclideanDimension];
     
@@ -280,7 +319,6 @@ struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vecto
 
     mf_Complex vphase;
     vset(vphase, buf);
-    free(buf);
 
     mf_Complex* base = field.site_ptr(x_lcl,flav);
     for(int sc=0;sc<12;sc++){
@@ -292,54 +330,27 @@ struct _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,grid_vecto
 #endif
 
 
-
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]){
-  _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type>::apply_phase_site_op(*this, x_lcl, flav, p, punits);
-}  
-
-
-//Apply gauge fixing matrices to the field
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(int fi, Lattice &lat,const bool dagger){
-  int x4d[4]; int f; this->fsiteUnmap(fi,x4d,f);
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::gauge_fix_site_op(x4d,f,lat,dagger);
-}
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const bool parallel, const bool dagger){
-  if(parallel){
-#pragma omp parallel for
-    for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat,dagger);
-  }else{
-    for(int fi=0;fi<this->nfsites();fi++)
-      gauge_fix_site_op(fi,lat,dagger);
-  }
-}
-
-
 //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
 //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(int sf,const int p[],double punits[]){
-  int x[MappingPolicy::EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
-}
-
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion4D<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
-  const char *fname = "apply_phase(int p[])";
-
+void CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool parallel){
   double punits[3];
   CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
-  
+
+  _apply_phase_site_op_impl<mf_Complex,MappingPolicy,AllocPolicy,typename ComplexClassify<mf_Complex>::type> op(*this, parallel ? omp_get_max_threads() : 1);
+
   if(parallel){
 #pragma omp parallel for
-    for(int sf=0;sf<this->nfsites();sf++)
-      apply_phase_site_op(sf,p,punits);
+    for(int sf=0;sf<this->nfsites();sf++){
+      int x[MappingPolicy::EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
+      op.apply_phase_site_op(x, f, p, punits, omp_get_thread_num());
+    }
   }else{
-    for(int sf=0;sf<this->nfsites();sf++)
-      apply_phase_site_op(sf,p,punits);
+    int x[MappingPolicy::EuclideanDimension]; int f;
+    for(int sf=0;sf<this->nfsites();sf++){
+      this->fsiteUnmap(sf,x,f);
+      op.apply_phase_site_op(x, f, p, punits, 0);
+    }
   }
 }
 
@@ -450,16 +461,6 @@ void CPSfermion5D<mf_Complex,MappingPolicy,AllocPolicy>::exportFermion(const Fer
 
 
 
-
-
-
-
-
-
-
-
-
-
 //Gauge fix 3D fermion field with dynamic info type
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 struct _ferm3d_gfix_impl{
@@ -525,49 +526,6 @@ template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
 void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &t, const bool &parallel){
   _ferm3d_gfix_impl<mf_Complex,MappingPolicy,AllocPolicy>::gaugeFix(*this,lat,t,parallel);
 }
-
-
-//Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-//The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(const int &sf,const int p[],double punits[]){
-  int x[MappingPolicy::EuclideanDimension]; int f; this->fsiteUnmap(sf,x,f);
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::apply_phase_site_op(x,f,p,punits);
-}
-
-template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy>
-void CPSfermion3D<mf_Complex,MappingPolicy,AllocPolicy>::applyPhase(const int p[], const bool &parallel){
-  const char *fname = "apply_phase(int p[])";
-
-  double punits[3];
-  CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>::getMomentumUnits(punits);
-  
-  if(parallel){
-#pragma omp parallel for
-    for(int sf=0;sf<this->nfsites();sf++)
-      apply_phase_site_op(sf,p,punits);
-  }else{
-    for(int sf=0;sf<this->nfsites();sf++)
-      apply_phase_site_op(sf,p,punits);
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 //Make a random complex scalar field of type

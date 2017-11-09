@@ -279,14 +279,7 @@ public:
 template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfermion: public CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>{
 protected:
-  void gauge_fix_site_op(const int x4d[], const int &f, Lattice &lat,const bool dagger = false);
-
   static void getMomentumUnits(double punits[3]);
-
-  //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-  //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-  //x_lcl is the site in node lattice coords
-  void apply_phase_site_op(const int x_lcl[], const int &flav, const int p[], const double punits[]);
 
 public:
   INHERIT_TYPEDEFS(CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>);
@@ -294,6 +287,19 @@ public:
   CPSfermion(): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
   CPSfermion(const InputParamType &params): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(params){}
   CPSfermion(const CPSfermion &r): CPSfield<mf_Complex,12,MappingPolicy,AllocPolicy>(r){}
+};
+
+template< typename mf_Complex, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
+class CPSfermion3D4Dcommon: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
+public:
+  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>);
+  //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
+  //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
+  void applyPhase(const int p[], const bool parallel);
+
+  CPSfermion3D4Dcommon(): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(NullObject()){} //default constructor won't compile if policies need arguments
+  CPSfermion3D4Dcommon(const InputParamType &params): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(params){}
+  CPSfermion3D4Dcommon(const CPSfermion3D4Dcommon &r): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(r){}
 };
 
 template<typename FlavorPolicy>
@@ -313,17 +319,16 @@ struct GaugeFix3DInfo<FixedFlavorPolicy<1> >{
 };
 
 template< typename mf_Complex, typename MappingPolicy = SpatialPolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion3D: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
+class CPSfermion3D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 3> check;
-  void apply_phase_site_op(const int &sf,const int p[],double punits[]);
 
   template< typename mf_Complex2, typename FlavorPolicy2>
   friend struct _ferm3d_gfix_impl;
 public:
-  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>);
+  INHERIT_TYPEDEFS(CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>);
   
-  CPSfermion3D(): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(){}
-  CPSfermion3D(const CPSfermion3D &r): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(r){}
+  CPSfermion3D(): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(){}
+  CPSfermion3D(const CPSfermion3D &r): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field
   //Because this is a 3d field we must also provide a time coordinate.
@@ -331,34 +336,24 @@ public:
   //We make the field_info type dynamic based on the FlavorPolicy for this reason (pretty cool!)
   void gaugeFix(Lattice &lat, const typename GaugeFix3DInfo<typename MappingPolicy::FieldFlavorPolicy>::InfoType &field_info, const bool &parallel);
 
-  //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-  //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-  void applyPhase(const int p[], const bool &parallel);
-
   DEFINE_ADDSUB_DERIVED(CPSfermion3D);
 };
 
 template< typename mf_Complex, typename MappingPolicy = FourDpolicy<DynamicFlavorPolicy>, typename AllocPolicy = StandardAllocPolicy>
-class CPSfermion4D: public CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>{
+class CPSfermion4D: public CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>{
   StaticAssert<MappingPolicy::EuclideanDimension == 4> check;
-  void gauge_fix_site_op(int fi, Lattice &lat, const bool dagger = false);
-  void apply_phase_site_op(int sf,const int p[],double punits[]);
 public:
-  INHERIT_TYPEDEFS(CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>);
+  INHERIT_TYPEDEFS(CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>);
   
-  CPSfermion4D(): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(){}
-  CPSfermion4D(const InputParamType &params): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(params){}
-  CPSfermion4D(const CPSfermion4D &r): CPSfermion<mf_Complex,MappingPolicy,AllocPolicy>(r){}
+  CPSfermion4D(): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(){}
+  CPSfermion4D(const InputParamType &params): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(params){}
+  CPSfermion4D(const CPSfermion4D &r): CPSfermion3D4Dcommon<mf_Complex,MappingPolicy,AllocPolicy>(r){}
 
   //Apply gauge fixing matrices to the field. 
   //NOTE: This does not work correctly for GPBC and FlavorPolicy==FixedFlavorPolicy<1> because we need to provide the flavor 
   //that this field represents to obtain the gauge-fixing matrix. I fixed this for CPSfermion3D and a similar implementation will work here
   //dagger = true  applied V^\dagger to the vector to invert a previous gauge fix
   void gaugeFix(Lattice &lat, const bool parallel, const bool dagger = false);
-
-  //Apply the phase exp(-ip.x) to each site of this vector, where p is a *three momentum*
-  //The units of the momentum are 2pi/L for periodic BCs, pi/L for antiperiodic BCs and pi/2L for G-parity BCs
-  void applyPhase(const int p[], const bool &parallel);
 
   //Set the real and imaginary parts to uniform random numbers drawn from the appropriate local RNGs
   void setUniformRandom(const Float &hi = 0.5, const Float &lo = -0.5);
