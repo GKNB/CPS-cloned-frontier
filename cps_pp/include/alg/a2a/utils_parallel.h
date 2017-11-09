@@ -155,7 +155,7 @@ inline void getMPIrankMap(std::vector<int> &map){
   assert(ret == MPI_SUCCESS);
   free(node_map_send);
 }
-#endif 
+
 
 template<typename mf_Float>
 struct getMPIdataType{
@@ -168,6 +168,8 @@ template<>
 struct getMPIdataType<float>{
   static MPI_Datatype doit(){ return MPI_FLOAT; }
 };
+
+#endif 
 
 CPS_END_NAMESPACE
 
