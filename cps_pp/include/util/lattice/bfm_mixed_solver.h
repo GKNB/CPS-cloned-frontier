@@ -78,14 +78,10 @@ namespace mixed_cg
     for (int site = throff; site < throff + thrlen; ++site) {
       int x[4], s;
       int si = site;
-      x[0] = si % out_lat[0];
-      si = si / out_lat[0];
-      x[1] = si % out_lat[1];
-      si = si / out_lat[1];
-      x[2] = si % out_lat[2];
-      si = si / out_lat[2];
-      x[3] = si % out_lat[3];
-      s = si / out_lat[3];
+      x[0] = si % out_lat[0]; si = si / out_lat[0];
+      x[1] = si % out_lat[1]; si = si / out_lat[1];
+      x[2] = si % out_lat[2]; si = si / out_lat[2];
+      x[3] = si % out_lat[3]; s = si / out_lat[3];
 
       // both in and out must have the same preconditioning scheme.
       int sp = bfm_out.precon_5d ? s : 0;
@@ -102,10 +98,13 @@ namespace mixed_cg
 	      outf[out_id] = inf[in_id];
 
 	  }}			//co,reim
-	} else {
+	} 
+	else {
+#ifndef BFM_GPARITY
+	printf("Compiled with BFM without Gparity\n");exit(-43);
+#else
 	  //G-parity checkerboard ordering stacks the second flavour after the first on each checkerboard : cb0[f0 f1]cb1[f0 f1]
 
-//# ifdef USE_NEW_BFM_GPARITY
 #ifdef BFM_GPARITY
 	  int out_base[2] =
 	    { bfm_out.bagel_idx5d (x, s, 0, 0, Nspinco, 1, 0),
@@ -131,6 +130,7 @@ bfm_in.bagel_gparity_idx5d (x, s, 0, 0, Nspinco, 1, 1) };
 
 	    }}			//co,reim
 	  }			//flav
+#endif
 	}
       }				//cb
     }				//xyzts
@@ -335,7 +335,8 @@ inline int threaded_cg_mixed_MdagM (Fermion_t sol, Fermion_t src,
 }
 
 // Not implemented for older BFM
-#ifdef BFM_GPARITY
+//#ifdef BFM_GPARITY
+#if 1
 inline int threaded_cg_mixed_MMdag (Fermion_t sol, Fermion_t src,
 				    bfm_evo < double >&bfm_d,
 				    bfm_evo < float >&bfm_f, int max_cycle,

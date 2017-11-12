@@ -381,6 +381,7 @@ void impexFermion(
     multi1d<int> ncoor = QDP::Layout::nodeCoord();
     multi1d<int> procs = QDP::Layout::logicalSize();
 
+#ifdef BFM_GPARITY
     if(GJP.Gparity()){
       dwfa.gparity = 1;
       Printf("G-parity directions: ");
@@ -393,6 +394,7 @@ void impexFermion(
       }
       Printf("\n");
     }
+#endif
 
     dwfa.verbose=1;
     dwfa.reproduce=0;
