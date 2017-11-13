@@ -342,7 +342,8 @@ public:
                const multi1d<Float> *eval, int N);
   void set_mass (double mass);
 
-#ifdef USE_NEW_BFM_GPARITY
+//#ifdef USE_NEW_BFM_GPARITY
+#if 1
   inline void axpby_ssp_proj(Fermion_t out, std::complex<double> a,Fermion_t x, std::complex<double> b,Fermion_t y,int sxo,int sy,int psign){
     this->axpby_ssp_proj_complex(out,a.real(),a.imag(),x,b.real(),b.imag(),y,sxo,sy,psign);
   }
@@ -521,15 +522,9 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
 #ifdef BFM_GPARITY
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1,flav);      
       cidx_base = cps::GJP.Gparity() ? this->cps_idx_cb_gparity(x, s, 0, 0, Nspinco, flav) : this->cps_idx_cb(x, s, 0, 0, Nspinco);
-      if(cps::GJP.Gparity()){
-	bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
-	cidx_base = this->cps_idx_cb_gparity(x, s, 0, 0, Nspinco, flav);
-      }else{
-#endif
+#else
 	bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
 	cidx_base = this->cps_idx_cb(x, s, 0, 0, Nspinco);
-#ifdef BFM_GPARITY
-      }
 #endif
       for ( int co=0;co<Nspinco;co++ ) { 
         for ( int reim=0;reim<2;reim++ ) {
@@ -591,15 +586,9 @@ void bfm_evo<Float>::cps_impexFermion(FloatEXT *psi, Fermion_t handle[2], int do
 
     bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1, flav);
     cidx_base = cps::GJP.Gparity() ? this->cps_idx_gparity(x, s, 0, 0, Nspinco, flav) : this->cps_idx(x, s, 0, 0, Nspinco);
-    if(cps::GJP.Gparity()){
-      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
-      cidx_base = this->cps_idx_gparity(x, s, 0, 0, Nspinco, flav);
-    }else{
-#endif
+#else
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
       cidx_base = this->cps_idx(x, s, 0, 0, Nspinco);
-#ifdef BFM_GPARITY
-    }
 #endif
     for ( int co=0;co<Nspinco;co++ ) { 
       for ( int reim=0;reim<2;reim++ ) { 
@@ -658,15 +647,9 @@ void bfm_evo<Float>::cps_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], int 
 #ifdef BFM_GPARITY
     bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1, flav);
     cidx_base = cps::GJP.Gparity() ? this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav) : this->cps_idx_s(x, s, 0, 0, Nspinco);
-    if(cps::GJP.Gparity()){
-      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1,flav);
-      cidx_base = this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav);
-    }else{
-#endif
+#else
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
       cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
-#ifdef BFM_GPARITY
-    }
 #endif
     for ( int co=0;co<Nspinco;co++ ) {
       for ( int reim=0;reim<2;reim++ ) {
@@ -795,15 +778,9 @@ void bfm_evo<Float>::thread_impexFermion_s(FloatEXT *psi, Fermion_t handle[2], i
 #ifdef BFM_GPARITY
     bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1, flav);
     cidx_base = cps::GJP.Gparity() ? this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav) : this->cps_idx_s(x, s, 0, 0, Nspinco);
-    if(cps::GJP.Gparity()){
-      bidx_base = this->bagel_gparity_idx5d(x, s, 0, 0, Nspinco, 1, flav);
-      cidx_base = this->cps_idx_s_gparity(x, s, 0, 0, Nspinco, flav);
-    }else{
-#endif
+#else
       bidx_base = this->bagel_idx5d(x, s, 0, 0, Nspinco, 1);
       cidx_base = this->cps_idx_s(x, s, 0, 0, Nspinco);
-#ifdef BFM_GPARITY
-    }
 #endif
     for ( int co=0;co<Nspinco;co++ ) {
       for ( int reim=0;reim<2;reim++ ) {

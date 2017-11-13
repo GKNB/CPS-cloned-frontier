@@ -246,25 +246,24 @@ namespace cps
 
       return +regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
+
     int get_cps_index (int *pos, int co, int *s_l)
     {
 
+#ifdef USE_BFM
+      return get_bfm_index(pos,co,s_l);
+#else
       int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
-//      int SimdT = 1;
-//      int NtHalf = args.s[3];
-//      int simd_coor = pos[3] / NtHalf;
-//      assert (simd_coor == 0);
-//      int regu_vol = vol_4d_oo / SimdT;
       int regu_coor = (pos[0] + s_l[0] *
 		       (pos[1] + s_l[1] *
 			(pos[2] + s_l[2] *
 			 (pos[3] + s_l[3] * pos[4])))) / 2;
 
       return ((regu_coor) * 12 + co) * 2;
-//      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
+#endif
     }
 
     void index_to_pos (int i, int *pos, int *latt)

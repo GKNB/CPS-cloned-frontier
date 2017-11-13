@@ -611,15 +611,9 @@ dop.gparity ? 2 :
 #ifdef BFM_GPARITY
 		    bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
 		    rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1,f);
-		    if(!dop.gparity){
-#endif		    
+#else
 		      bidx = dop.bagel_idx5d(x,Ls-1-s,reim,co,Nspinco,1);
 		      rb_idx = dop.bagel_idx5d(x,s,reim,co,Nspinco,1);	///TODO Must be an easier way...
-#ifdef BFM_GPARITY
-		    }else{
-		      bidx = dop.bagel_gparity_idx5d(x,Ls-1-s,reim,co,Nspinco,1,f);
-		      rb_idx = dop.bagel_gparity_idx5d(x,s,reim,co,Nspinco,1,f);
-		    }
 #endif
 		    sgn = 1.0;
 		    if(co > 5) sgn = -1.0;
