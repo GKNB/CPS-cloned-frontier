@@ -85,7 +85,6 @@ std::string demangle( const char* mangled_name ) {
 template<typename T>
 inline std::string printType(){ return demangle(typeid(T).name()); }
 
-
 CPS_END_NAMESPACE
 
 #endif

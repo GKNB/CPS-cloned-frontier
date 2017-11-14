@@ -169,7 +169,34 @@ struct getMPIdataType<float>{
   static MPI_Datatype doit(){ return MPI_FLOAT; }
 };
 
-#endif 
+
+#endif //USE_MPI
+
+//Check each node can write to disk
+void checkWriteable(const std::string &dir,const int conf){
+  std::string file;
+  {
+    std::ostringstream os; os << dir << "/writeTest.node" << UniqueID() << ".conf" << conf;
+    file = os.str();
+  }
+  std::ofstream of(file);
+  double fail = 0;
+  if(!of.good()){ std::cout << "checkWriteable failed to open file for write: " << file << std::endl; std::cout.flush(); fail = 1; }
+
+  of << "Test\n";
+  if(!of.good()){ std::cout << "checkWriteable failed to write to file: " << file << std::endl; std::cout.flush(); fail = 1; }
+
+  glb_sum_five(&fail);
+
+  if(fail != 0.){
+    if(!UniqueID()){ printf("Disk write check failed\n");  fflush(stdout); }
+    exit(-1);
+  }else{
+    if(!UniqueID()){ printf("Disk write check passed\n"); fflush(stdout); }
+  }
+}
+
+
 
 CPS_END_NAMESPACE
 
