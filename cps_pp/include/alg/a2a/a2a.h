@@ -111,7 +111,7 @@ public:
     for(int i=0;i<nv;i++) v[i]->testRandom(hi,lo);
   }
 
-  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node id will be appended
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
   void readParallel(const std::string &file_stub);
 };
 
@@ -376,7 +376,7 @@ public:
     for(int i=0;i<nhits;i++) wh[i]->testRandom(hi,lo);
   }
 
-  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node id will be appended
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
   void readParallel(const std::string &file_stub);
 };
 

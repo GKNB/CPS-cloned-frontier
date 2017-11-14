@@ -5,6 +5,7 @@
 #include<config.h>
 #include<precision.h>
 #include<Grid/Grid.h>
+#include<alg/ktopipi_jobparams.h>
 #include<alg/a2a/grid_split_cg.h>
 CPS_START_NAMESPACE
 

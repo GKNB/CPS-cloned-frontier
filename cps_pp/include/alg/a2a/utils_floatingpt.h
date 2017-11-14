@@ -68,6 +68,17 @@ struct FPformat<std::complex<T> >{
   inline static FP_FORMAT get(){ return FPformat<T>::get(); }
 };
 
+#ifdef USE_GRID
+template<>
+struct FPformat<Grid::vComplexD>{
+  inline static FP_FORMAT get(){ return FPformat<double>::get(); }
+};
+template<>
+struct FPformat<Grid::vComplexF>{
+  inline static FP_FORMAT get(){ return FPformat<float>::get(); }
+};
+#endif
+
 template<typename T>
 class arrayIO{
   FPConv conv;

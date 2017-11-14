@@ -2743,61 +2743,99 @@ void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
 
   
 void testCPSfieldIO(){
-  {
-    CPSfermion4D<cps::ComplexD> a;
-    a.testRandom();
-    
-    a.writeParallel("field");
-    
-    CPSfermion4D<cps::ComplexD> b;
-    b.readParallel("field");
-    
-    assert( a.equals(b) );
-  }
-
-  {
-    CPScomplex4D<cps::ComplexD> a;
-    a.testRandom();
-    
-    a.writeParallel("field");
-    
-    CPScomplex4D<cps::ComplexD> b;
-    b.readParallel("field");
-    
-    assert( a.equals(b) );
-  }
-
-  {
-    typedef CPSfermion5D<cps::ComplexD> CPSfermion5DBasic;
-    CPSfermion5DBasic a;
-    a.testRandom();
-
-    CPSfermion5Dcb4Dodd<cps::ComplexD> b_odd;
-    CPSfermion5Dcb4Deven<cps::ComplexD> b_even;
-    
-    IncludeCBsite<5> odd_mask(1); //4d prec
-    IncludeCBsite<5> even_mask(0);
-    a.exportField(b_odd, &odd_mask);
-    a.exportField(b_even, &even_mask);
-
-    b_odd.writeParallel("field_odd");
-    b_even.writeParallel("field_even");
-    
-    CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd;
-    CPSfermion5Dcb4Deven<cps::ComplexD> c_even;
-    c_odd.readParallel("field_odd");
-    c_even.readParallel("field_even");
-
-    CPSfermion5DBasic d;
-    d.importField(c_odd, &odd_mask);
-    d.importField(c_even, &even_mask); 
-    
-    assert( a.equals(d) );
-  }
-    
-
-
+  if(!UniqueID()) printf("testCPSfieldIO called\n");
+  CPSfield_checksumType cksumtype[2] = { checksumBasic, checksumCRC32 };
+  FP_FORMAT fileformat[2] = { FP_IEEE64BIG, FP_IEEE64LITTLE };
   
+  for(int i=0;i<2;i++){
+    for(int j=0;j<2;j++){
+      {
+	CPSfermion4D<cps::ComplexD> a;
+	a.testRandom();
+    
+	a.writeParallel("field", fileformat[j], cksumtype[i]);
+    
+	CPSfermion4D<cps::ComplexD> b;
+	b.readParallel("field");
+    
+	assert( a.equals(b) );
+      }
+#ifdef USE_GRID
+      {
+	//Native write with SIMD intact
+	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> GridFieldType;
+	typedef CPSfield<cps::ComplexD,12,FourDpolicy<DynamicFlavorPolicy> > ScalarFieldType;
+	typedef GridFieldType::InputParamType ParamType;
+
+	ParamType params;
+	GridFieldType::SIMDdefaultLayout(params, Grid::vComplexD::Nsimd());
+	
+	GridFieldType a(params);
+	a.testRandom();
+
+	a.writeParallel("field_simd", fileformat[j], cksumtype[i]);
+    
+	GridFieldType b(params);
+	b.readParallel("field_simd");
+    
+	assert( a.equals(b) );
+
+	//Impex to non-SIMD
+	NullObject null;
+	ScalarFieldType c(null);
+	c.importField(a);
+
+	c.writeParallel("field_scalar", fileformat[j], cksumtype[i]);
+
+	ScalarFieldType d(null);
+	d.readParallel("field_scalar");
+	b.importField(d);
+	
+	assert( a.equals(b) );
+      }
+#endif
+      
+      {
+	CPScomplex4D<cps::ComplexD> a;
+	a.testRandom();
+    
+	a.writeParallel("field", fileformat[j], cksumtype[i]);
+    
+	CPScomplex4D<cps::ComplexD> b;
+	b.readParallel("field");
+    
+	assert( a.equals(b) );
+      }
+
+      {
+	typedef CPSfermion5D<cps::ComplexD> CPSfermion5DBasic;
+	CPSfermion5DBasic a;
+	a.testRandom();
+
+	CPSfermion5Dcb4Dodd<cps::ComplexD> b_odd;
+	CPSfermion5Dcb4Deven<cps::ComplexD> b_even;
+    
+	IncludeCBsite<5> odd_mask(1); //4d prec
+	IncludeCBsite<5> even_mask(0);
+	a.exportField(b_odd, &odd_mask);
+	a.exportField(b_even, &even_mask);
+
+	b_odd.writeParallel("field_odd", fileformat[j], cksumtype[i]);
+	b_even.writeParallel("field_even", fileformat[j], cksumtype[i]);
+    
+	CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd;
+	CPSfermion5Dcb4Deven<cps::ComplexD> c_even;
+	c_odd.readParallel("field_odd");
+	c_even.readParallel("field_even");
+
+	CPSfermion5DBasic d;
+	d.importField(c_odd, &odd_mask);
+	d.importField(c_even, &even_mask); 
+    
+	assert( a.equals(d) );
+      }
+    }
+  } 
 }
 
 template<typename A2Apolicies, typename ComplexClass>
@@ -2821,55 +2859,63 @@ struct setupFieldParams2<A2Apolicies, grid_vector_complex_mark>{
 
 template<typename A2Apolicies>
 void testA2AvectorIO(const A2AArg &a2a_args){
+  if(!UniqueID()) printf("testA2AvectorIO called\n");
   typedef typename A2AvectorV<A2Apolicies>::FieldInputParamType FieldParams;
   
   setupFieldParams2<A2Apolicies, typename ComplexClassify<typename A2Apolicies::ComplexType>::type> p;
 
-  {
-    A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
-    Va.testRandom();
-
-    Va.writeParallel("Vvector");
-
-    A2AArg def;
-    def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
-
-    A2AvectorV<A2Apolicies> Vb(def, p.params);
-    Vb.readParallel("Vvector");
-
-    assert( Va.paramsEqual(Vb) );
-    assert( Va.getNmodes() == Vb.getNmodes() );
+  CPSfield_checksumType cksumtype[2] = { checksumBasic, checksumCRC32 };
+  FP_FORMAT fileformat[2] = { FP_IEEE64BIG, FP_IEEE64LITTLE };
   
-    for(int i=0;i<Va.getNmodes();i++){
-      assert( Va.getMode(i).equals(Vb.getMode(i)) );
+  for(int i=0;i<2;i++){
+    for(int j=0;j<2;j++){
+  
+      {
+	A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
+	Va.testRandom();
+
+	Va.writeParallel("Vvector", fileformat[j], cksumtype[i]);
+
+	A2AArg def;
+	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+
+	A2AvectorV<A2Apolicies> Vb(def, p.params);
+	Vb.readParallel("Vvector");
+
+	assert( Va.paramsEqual(Vb) );
+	assert( Va.getNmodes() == Vb.getNmodes() );
+  
+	for(int i=0;i<Va.getNmodes();i++){
+	  assert( Va.getMode(i).equals(Vb.getMode(i)) );
+	}
+      }
+
+  
+      {
+	A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
+	Wa.testRandom();
+
+	Wa.writeParallel("Wvector", fileformat[j], cksumtype[i]);
+
+	A2AArg def;
+	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+
+	A2AvectorW<A2Apolicies> Wb(def, p.params);
+	Wb.readParallel("Wvector");
+
+	assert( Wa.paramsEqual(Wb) );
+	assert( Wa.getNmodes() == Wb.getNmodes() );
+  
+	for(int i=0;i<Wa.getNl();i++){
+	  assert( Wa.getWl(i).equals(Wb.getWl(i)) );
+	}
+	for(int i=0;i<Wa.getNhits();i++){
+	  assert( Wa.getWh(i).equals(Wb.getWh(i)) );
+	}    
+      }
+      
     }
   }
-
-  
-  {
-    A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
-    Wa.testRandom();
-
-    Wa.writeParallel("Wvector");
-
-    A2AArg def;
-    def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
-
-    A2AvectorW<A2Apolicies> Wb(def, p.params);
-    Wb.readParallel("Wvector");
-
-    assert( Wa.paramsEqual(Wb) );
-    assert( Wa.getNmodes() == Wb.getNmodes() );
-  
-    for(int i=0;i<Wa.getNl();i++){
-      assert( Wa.getWl(i).equals(Wb.getWl(i)) );
-    }
-    for(int i=0;i<Wa.getNhits();i++){
-      assert( Wa.getWh(i).equals(Wb.getWh(i)) );
-    }
-    
-  }
-  
 }
 
 

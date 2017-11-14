@@ -252,12 +252,12 @@ int main(int argc,char *argv[])
   if(0) testCPSfieldImpex();
 #ifdef USE_GRID
   if(0) testGridFieldImpex<GridA2Apolicies>(lattice);
-  if(1) testLanczosIO<GridA2Apolicies>(lattice);
+  if(0) testLanczosIO<GridA2Apolicies>(lattice);
 #endif
   
-  if(0) testCPSfieldIO();
-  if(0) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
-  if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
+  if(1) testCPSfieldIO();
+  if(1) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
+  if(1) testA2AvectorIO<GridA2Apolicies>(a2a_args);
 
   if(0) benchmarkCPSfieldIO();
 
@@ -271,7 +271,7 @@ int main(int argc,char *argv[])
   assert(equals(b,b));
     
   if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }
-  
+  End();
   return 0;
 }
 

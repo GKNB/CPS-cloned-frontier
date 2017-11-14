@@ -1,6 +1,6 @@
 //Parallel write
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::ostream &file, FP_FORMAT fileformat) const{
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::ostream &file, FP_FORMAT fileformat, CPSfield_checksumType cksumtype) const{
   assert(!file.fail());
   file.exceptions ( std::ofstream::failbit | std::ofstream::badbit );
     
@@ -21,11 +21,42 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
   const int dsize = conv.size(dataformat); //underlying floating point data type
   assert(sizeof(SiteType) % dsize == 0);
   const int nd_in_sitetype = sizeof(SiteType) / dsize;
+
+  //Header
+  file << "BEGIN_HEADER\n";
+
+#define HEADER_VERSION 2
   
+#if HEADER_VERSION == 2
+  file << "HDR_VERSION = 2\n";
+  file << "DATA_FORMAT = " << conv.name(fileformat) << '\n';
+  file << "BASE_FLOATBYTES = " << dsize << '\n';
+  file << "SITETYPE_NFLOATS = " << nd_in_sitetype << '\n';
+  file << "CHECKSUM_TYPE = " << checksumTypeToString(cksumtype) << '\n';
+
+  if(cksumtype == checksumBasic){
+    unsigned int checksum = conv.checksum( (char*)f, nd_in_sitetype*fsize, dataformat); //assumes complex or real SiteType
+    file << "CHECKSUM = " << checksum << "\n";
+  }else{
+    uint32_t checksum = conv.checksumCRC32( (char*)f, nd_in_sitetype*fsize, dataformat);
+    file << "CHECKSUM = " << checksum << "\n";
+  }
+  
+  file << "NODE_ID = " << UniqueID() << "\n";
+  file << "NODE_COOR =";
+  for(int i=0;i<5;i++) file << " " << GJP.NodeCoor(i);
+  file << "\n";  
+  file << "NODE_SITES =";
+  for(int i=0;i<5;i++) file << " " << GJP.NodeSites(i);
+  file << "\n";
+  file << "NODE_GEOMETRY =";
+  for(int i=0;i<5;i++) file << " " << GJP.Nodes(i);
+  file << '\n';
+#else
+
   unsigned int checksum = conv.checksum( (char*)f, nd_in_sitetype*fsize, dataformat); //assumes complex or real SiteType
   
   //Header
-  file << "BEGIN_HEADER\n";
   file << "HDR_VERSION = 1\n";
   file << "DATA_FORMAT = " << conv.name(fileformat) << '\n';
   file << "BASE_FLOATBYTES = " << dsize << '\n';
@@ -38,6 +69,9 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
   file << "NODE_SITES = ";
   for(int i=0;i<4;i++) file << GJP.NodeSites(i) << " ";
   file << GJP.NodeSites(4) << "\n";    
+
+#endif
+
   file << "END_HEADER\n";
   
   //Parameters    
@@ -81,10 +115,10 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
 
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat) const{
+void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat, CPSfield_checksumType cksumtype) const{
   std::ostringstream os; os << file_stub << "." << UniqueID();
   std::ofstream of(os.str().c_str(),std::ofstream::out);
-  writeParallel(of,fileformat);
+  writeParallel(of,fileformat,cksumtype);
   of.close();
 }
 
@@ -105,30 +139,75 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
   std::string str;
   char dformatbuf[256];
   unsigned int checksum;
+  uint32_t checksumcrc32;
+  CPSfield_checksumType checksumtype;
+  
   int rd_dsize, rd_nd_in_sitetype;
   
   //Header
   getline(file,str); assert(str == "BEGIN_HEADER");
-  getline(file,str); assert(str == "HDR_VERSION = 1");
-  getline(file,str); assert( sscanf(str.c_str(),"DATA_FORMAT = %s",dformatbuf) == 1 );
-  getline(file,str); assert( sscanf(str.c_str(),"BASE_FLOATBYTES = %d",&rd_dsize) == 1 ); 
-  getline(file,str); assert( sscanf(str.c_str(),"SITETYPE_NFLOATS = %d",&rd_nd_in_sitetype) == 1 ); 
-  getline(file,str); assert( sscanf(str.c_str(),"CHECKSUM = %u",&checksum) == 1 );
-
-  int rd_node;
-  getline(file,str); assert( sscanf(str.c_str(),"NODE_ID = %d",&rd_node) == 1 ); 
-  assert(rd_node == UniqueID());
-
-  int node_coor[5];
-  getline(file,str); assert( sscanf(str.c_str(),"NODE_COOR = %d %d %d %d %d",&node_coor[0],&node_coor[1],&node_coor[2],&node_coor[3],&node_coor[4]) == 5 );  
-  for(int i=0;i<5;i++) assert(node_coor[i] == GJP.NodeCoor(i));
-
-  int node_sites[5];
-  getline(file,str); assert( sscanf(str.c_str(),"NODE_SITES = %d %d %d %d %d",&node_sites[0],&node_sites[1],&node_sites[2],&node_sites[3],&node_sites[4]) == 5 ); 
-  for(int i=0;i<5;i++) assert(node_sites[i] == GJP.NodeSites(i));
   
-  getline(file,str); assert(str == "END_HEADER");
+  int header_version;
+  getline(file,str); assert( sscanf(str.c_str(),"HDR_VERSION = %d", &header_version) == 1 );
 
+  if(header_version == 1){
+    getline(file,str); assert( sscanf(str.c_str(),"DATA_FORMAT = %s",dformatbuf) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"BASE_FLOATBYTES = %d",&rd_dsize) == 1 ); 
+    getline(file,str); assert( sscanf(str.c_str(),"SITETYPE_NFLOATS = %d",&rd_nd_in_sitetype) == 1 ); 
+    getline(file,str); assert( sscanf(str.c_str(),"CHECKSUM = %u",&checksum) == 1 );
+
+    checksumtype = checksumBasic;
+    
+    int rd_node;
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_ID = %d",&rd_node) == 1 ); 
+    assert(rd_node == UniqueID());
+
+    int node_coor[5];
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_COOR = %d %d %d %d %d",&node_coor[0],&node_coor[1],&node_coor[2],&node_coor[3],&node_coor[4]) == 5 );  
+    for(int i=0;i<5;i++) assert(node_coor[i] == GJP.NodeCoor(i));
+
+    int node_sites[5];
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_SITES = %d %d %d %d %d",&node_sites[0],&node_sites[1],&node_sites[2],&node_sites[3],&node_sites[4]) == 5 ); 
+    for(int i=0;i<5;i++) assert(node_sites[i] == GJP.NodeSites(i));
+  
+  }else if(header_version == 2){
+
+    getline(file,str); assert( sscanf(str.c_str(),"DATA_FORMAT = %s",dformatbuf) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"BASE_FLOATBYTES = %d",&rd_dsize) == 1 ); 
+    getline(file,str); assert( sscanf(str.c_str(),"SITETYPE_NFLOATS = %d",&rd_nd_in_sitetype) == 1 );
+
+    char cksumtypebuf[256];
+    getline(file,str); assert( sscanf(str.c_str(),"CHECKSUM_TYPE = %s",cksumtypebuf) == 1 );
+    checksumtype = checksumTypeFromString(std::string(cksumtypebuf));
+
+    getline(file,str);
+    if(checksumtype == checksumBasic){
+      assert( sscanf(str.c_str(),"CHECKSUM = %u",&checksum) == 1 );
+    }else{
+      assert( sscanf(str.c_str(),"CHECKSUM = %" SCNu32,&checksumcrc32) == 1 );
+    }
+      
+    int rd_node;
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_ID = %d",&rd_node) == 1 ); 
+    assert(rd_node == UniqueID());
+
+    int node_coor[5];
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_COOR = %d %d %d %d %d",&node_coor[0],&node_coor[1],&node_coor[2],&node_coor[3],&node_coor[4]) == 5 );  
+    for(int i=0;i<5;i++) assert(node_coor[i] == GJP.NodeCoor(i));
+
+    int node_sites[5];
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_SITES = %d %d %d %d %d",&node_sites[0],&node_sites[1],&node_sites[2],&node_sites[3],&node_sites[4]) == 5 ); 
+    for(int i=0;i<5;i++) assert(node_sites[i] == GJP.NodeSites(i));
+
+    int node_geom[5];
+    getline(file,str); assert( sscanf(str.c_str(),"NODE_GEOMETRY = %d %d %d %d %d",&node_geom[0],&node_geom[1],&node_geom[2],&node_geom[3],&node_geom[4]) == 5 ); 
+    for(int i=0;i<5;i++) assert(node_geom[i] == GJP.Nodes(i));
+    
+  }else{
+    ERR.General("CPSfield","readParallel","Unknown header version %d\n",header_version);
+  }
+  getline(file,str); assert(str == "END_HEADER");
+    
   
   //Parameters
   getline(file,str); assert(str == "BEGIN_PARAMS");
@@ -207,9 +286,13 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
   getline(file,str); assert(str == "END_DATA");
 
   //Checksum
-  unsigned int calc_cksum = conv.checksum((char*)f, nd_in_sitetype*fsize, dataformat);
-
-  assert( calc_cksum == checksum );
+  if(checksumtype == checksumBasic){
+    unsigned int calc_cksum = conv.checksum((char*)f, nd_in_sitetype*fsize, dataformat);
+    assert( calc_cksum == checksum );
+  }else{
+    uint32_t calc_cksum = conv.checksumCRC32((char*)f, nd_in_sitetype*fsize, dataformat);
+    assert( calc_cksum == checksumcrc32 );
+  }
 
 #ifdef USE_MPI
   MPI_Barrier(MPI_COMM_WORLD);

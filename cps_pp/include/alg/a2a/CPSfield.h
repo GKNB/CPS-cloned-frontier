@@ -15,6 +15,14 @@ CPS_START_NAMESPACE
 typedef std::complex<float> ComplexF;
 typedef std::complex<double> ComplexD;
 
+enum CPSfield_checksumType { checksumCRC32, checksumBasic };
+inline std::string checksumTypeToString(CPSfield_checksumType type){ return type == checksumCRC32 ? "checksumCRC32" : "checksumBasic"; }
+inline CPSfield_checksumType checksumTypeFromString(const std::string &str){
+  if(str == "checksumCRC32") return checksumCRC32;
+  else if(str == "checksumBasic") return checksumBasic;
+  else ERR.General("","checksumTypeFromString","Could not parse checksum type %s\n",str.c_str());
+}
+
 //A wrapper for a CPS-style field. Most functionality is generic so it can do quite a lot of cool things
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy = StandardAllocPolicy>
 class CPSfield: public MappingPolicy, public AllocPolicy{
@@ -242,8 +250,8 @@ public:
     return out;
   }
 
-  void writeParallel(std::ostream &file, FP_FORMAT fileformat = FP_AUTOMATIC) const;
-  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC) const; //node index is appended
+  void writeParallel(std::ostream &file, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumBasic) const;
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumBasic) const; //node index is appended
   void readParallel(std::istream &file);
   void readParallel(const std::string &file_stub); 
   

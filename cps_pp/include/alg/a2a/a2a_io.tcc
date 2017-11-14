@@ -1,8 +1,8 @@
 template<typename IOType, typename FieldType>
 struct A2Avector_IOconvert{
-  inline static void write(std::ostream &file, FP_FORMAT fileformat, const FieldType &f, IOType &tmp){
+  inline static void write(std::ostream &file, FP_FORMAT fileformat, CPSfield_checksumType cksumtype, const FieldType &f, IOType &tmp){
     tmp.importField(f);
-    tmp.writeParallel(file,fileformat);
+    tmp.writeParallel(file,fileformat,cksumtype);
   }
   inline static void read(std::istream &file, FieldType &f, IOType &tmp){    
     tmp.readParallel(file);
@@ -12,8 +12,8 @@ struct A2Avector_IOconvert{
 };
 template<typename IOType>
 struct A2Avector_IOconvert<IOType,IOType>{
-  inline static void write(std::ostream &file, FP_FORMAT fileformat, const IOType &f, IOType &tmp){
-    f.writeParallel(file,fileformat);
+  inline static void write(std::ostream &file, FP_FORMAT fileformat, CPSfield_checksumType cksumtype, const IOType &f, IOType &tmp){
+    f.writeParallel(file,fileformat,cksumtype);
   }
   inline static void read(std::istream &file, IOType &f, IOType &tmp){
     f.readParallel(file);
@@ -23,7 +23,7 @@ struct A2Avector_IOconvert<IOType,IOType>{
 
 
 template< typename mf_Policies>
-void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat) const{
+void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat, CPSfield_checksumType cksumtype) const{
   std::ostringstream os; os << file_stub << "." << UniqueID();
   std::ofstream file(os.str().c_str(),std::ofstream::out);
 
@@ -53,7 +53,7 @@ void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   IOFieldType tmp;
   
   for(int i=0;i<nv;i++)
-    A2Avector_IOconvert<IOFieldType, FermionFieldType>::write(file, fileformat, *v[i], tmp);
+    A2Avector_IOconvert<IOFieldType, FermionFieldType>::write(file, fileformat, cksumtype, *v[i], tmp);
 
   file << "END_VFIELDS\n";
 
@@ -113,7 +113,7 @@ void A2AvectorV<mf_Policies>::readParallel(const std::string &file_stub){
 
 
 template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat) const{
+void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FORMAT fileformat, CPSfield_checksumType cksumtype) const{
   std::ostringstream os; os << file_stub << "." << UniqueID();
   std::ofstream file(os.str().c_str(),std::ofstream::out);
 
@@ -143,7 +143,7 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   WlIOFieldType tmp;
   
   for(int i=0;i<nl;i++)
-    A2Avector_IOconvert<WlIOFieldType, FermionFieldType>::write(file, fileformat, *wl[i], tmp);
+    A2Avector_IOconvert<WlIOFieldType, FermionFieldType>::write(file, fileformat, cksumtype, *wl[i], tmp);
 
   file << "END_WLFIELDS\n";
 
@@ -153,7 +153,7 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   WhIOFieldType tmp2;
   
   for(int i=0;i<nhits;i++){
-    A2Avector_IOconvert<WhIOFieldType, ComplexFieldType>::write(file, fileformat, *wh[i], tmp2);
+    A2Avector_IOconvert<WhIOFieldType, ComplexFieldType>::write(file, fileformat, cksumtype, *wh[i], tmp2);
   }
   file << "END_WHFIELDS\n";
   
