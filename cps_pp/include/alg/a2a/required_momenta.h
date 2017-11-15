@@ -26,19 +26,23 @@ public:
     }
   }
 
-  int nMom() const{ return vmom.size(); }
-  int nAltMom() const{ return vmom_alt.size(); }
+  inline int nMom() const{ return vmom.size(); }
+  inline int nAltMom() const{ return vmom_alt.size(); }
   
   //Get the twist momentum for the W field. Use alternative = true to access the second G-parity momentum averaged with the first to improve rotational symmetry
-  ThreeMomentum getWmom(const int &i, const bool &alternative = false) const{ return ThreeMomentum::negative(alternative ? wdag_mom_alt[i] : wdag_mom[i]); } //negative because p(W) = -p(W^dag)
+  inline ThreeMomentum getWmom(const int i, const bool alternative = false) const{ return ThreeMomentum::negative(alternative ? wdag_mom_alt[i] : wdag_mom[i]); } //negative because p(W) = -p(W^dag)
+  inline ThreeMomentum getWdagMom(const int i, const bool alternative = false) const{ return alternative ? wdag_mom_alt[i] : wdag_mom[i]; }
+  
   //Get the twist momentum for the V field. Use alternative = true to access the second G-parity momentum averaged with the first to improve rotational symmetry
-  ThreeMomentum getVmom(const int &i, const bool &alternative = false) const{ return alternative ? vmom_alt[i] : vmom[i]; }
+  inline ThreeMomentum getVmom(const int i, const bool alternative = false) const{ return alternative ? vmom_alt[i] : vmom[i]; }
+  inline ThreeMomentum getVdagMom(const int i, const bool alternative = false) const{ return ThreeMomentum::negative(alternative ? vmom_alt[i] : vmom[i]); }
 
-  ThreeMomentum getMesonMomentum(const int &i) const{ return wdag_mom[i] + vmom[i]; }
+  //Total momentum of the meson
+  inline ThreeMomentum getMesonMomentum(const int i) const{ return wdag_mom[i] + vmom[i]; }
 
   //Add a W^dag and V momentum (respectively) from a string in the form "(%d,%d,%d) + (%d%d,%d)", plus the negatives of these
   //Use alternative = true to specify second G-parity momentum averaged with the first to improve rotational symmetry
-  void addPandMinusP(const std::string &p, const bool &alternative = false){
+  void addPandMinusP(const std::string &p, const bool alternative = false){
     std::pair<ThreeMomentum,ThreeMomentum> p2 = ThreeMomentum::parse_str_two_mom(p);
     std::vector<ThreeMomentum> &wto = alternative ? wdag_mom_alt : wdag_mom;
     std::vector<ThreeMomentum> &vto = alternative ? vmom_alt : vmom;
@@ -57,7 +61,7 @@ public:
   }
   //Add a W^dag and V momentum (respectively) from a string in the form "(%d,%d,%d) + (%d%d,%d)"
   //Use alternative = true to specify second G-parity momentum averaged with the first to improve rotational symmetry
-  void addP(const std::string &p, const bool &alternative = false){
+  void addP(const std::string &p, const bool alternative = false){
     std::pair<ThreeMomentum,ThreeMomentum> p2 = ThreeMomentum::parse_str_two_mom(p);
     std::vector<ThreeMomentum> &wto = alternative ? wdag_mom_alt : wdag_mom;
     std::vector<ThreeMomentum> &vto = alternative ? vmom_alt : vmom;

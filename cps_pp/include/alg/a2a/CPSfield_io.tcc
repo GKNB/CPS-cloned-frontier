@@ -184,7 +184,10 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
     if(checksumtype == checksumBasic){
       assert( sscanf(str.c_str(),"CHECKSUM = %u",&checksum) == 1 );
     }else{
-      assert( sscanf(str.c_str(),"CHECKSUM = %" SCNu32,&checksumcrc32) == 1 );
+      //assert( sscanf(str.c_str(),"CHECKSUM = %" SCNu32,&checksumcrc32) == 1 );
+      char cksumbuf[256];
+      assert( sscanf(str.c_str(),"CHECKSUM = %s",cksumbuf) == 1 );
+      std::stringstream ss; ss << cksumbuf; ss >> checksumcrc32;
     }
       
     int rd_node;
