@@ -102,30 +102,34 @@ class ComputeSigma{
 
 private:
 
-  
+  template<typename MomentumPolicy>
   static void GparitySeparateSourcesWrite(const std::string &work_dir, const int traj,
-				     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
-				     const FieldParamType &src_setup_params = NullObject()){
+					  const MomentumPolicy &sigma_mom,
+					  Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
+					  const FieldParamType &src_setup_params = NullObject()){
     WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
     WriteSigmaMesonFields<mf_Policies> write_2s(work_dir, "hyd2s", traj, rad);
     
-    GparitySeparateSources(write_1s, write_2s, W, V, rad, lattice, src_setup_params);
+    GparitySeparateSources(write_1s, write_2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
+  template<typename MomentumPolicy>
   static void GparitySeparateSourcesStore(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
 					  MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+					  const MomentumPolicy &sigma_mom,
 					  Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 					  const FieldParamType &src_setup_params = NullObject()){
 
     MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
     MemStoreSigmaMesonFields<mf_Policies> storewrp2s(store_2s);
   
-    GparitySeparateSources(storewrp1s, storewrp2s, W, V, rad, lattice, src_setup_params);
+    GparitySeparateSources(storewrp1s, storewrp2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
   
 
   //Multi-src multi-mom strategy consumes a lot of memory - too much for a 64-node job on Cori I. This version does the two sources separately, reducing the memory usage by a factor of 2 at the loss of computational efficiency
-  template<typename MfStore>
+  template<typename MfStore, typename MomentumPolicy>
   static void GparitySeparateSources(MfStore &store_1s, MfStore &store_2s,
+				     const MomentumPolicy &sigma_mom,
 				     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 				     const FieldParamType &src_setup_params = NullObject()){
 #ifdef ARCH_BGQ
@@ -134,8 +138,6 @@ private:
 #endif
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);
@@ -158,11 +160,11 @@ private:
     int nsplit =  1; //further splitting over the momenta (must be a divisor of nMom which is 8 for G-parity in 3 dirs) 
 
 #ifdef ARCH_BGQ
-    if(momenta.nMom() == 8) nsplit = 2;
+    if(sigma_mom.nMom() == 8) nsplit = 2;
 #endif
 
-    assert( momenta.nMom() % nsplit == 0 );    
-    const int pincr = momenta.nMom() / nsplit;
+    assert( sigma_mom.nMom() % nsplit == 0 );    
+    const int pincr = sigma_mom.nMom() / nsplit;
 
     for(int split = 0; split < nsplit; split++){
       const int p_lo = split * pincr;
@@ -175,8 +177,8 @@ private:
       HydStorageType hyd_mf_store(hyd_gunit_s0_inner,hyd_src);
 
       for(int pidx=p_lo;pidx<p_hi;pidx++){
-	ThreeMomentum p_w = momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
+	ThreeMomentum p_w = sigma_mom.getWmom(pidx,false);
+	ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
 	exp_mf_store.addCompute(0,0, p_w,p_v);	
 	hyd_mf_store.addCompute(0,0, p_w,p_v);	
       }
@@ -189,8 +191,8 @@ private:
 							      );
 
       for(int pidx=p_lo;pidx<p_hi;pidx++){
-	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
+	ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
+	ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
 	
 	store_1s(p_wdag, p_v, exp_mf_store[pidx-p_lo]);
       }
@@ -204,8 +206,8 @@ private:
 							      );
 
       for(int pidx=p_lo;pidx<p_hi;pidx++){
-	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
+	ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
+	ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
 	
 	store_2s(p_wdag, p_v, hyd_mf_store[pidx-p_lo]);
       }
@@ -218,37 +220,39 @@ private:
 #endif
   }
 
-
+  template<typename MomentumPolicy>
   static void GparityAllInOneWrite(const std::string &work_dir, const int traj,
+				   const MomentumPolicy &sigma_mom,
 			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			      const FieldParamType &src_setup_params = NullObject()){
     WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
     WriteSigmaMesonFields<mf_Policies> write_2s(work_dir, "hyd2s", traj, rad);
     
-    GparityAllInOne(write_1s, write_2s, W, V, rad, lattice, src_setup_params);
+    GparityAllInOne(write_1s, write_2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
+  template<typename MomentumPolicy>
   static void GparityAllInOneStore(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
 				   MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+				   const MomentumPolicy &sigma_mom,
 				   Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 				   const FieldParamType &src_setup_params = NullObject()){
 
     MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
     MemStoreSigmaMesonFields<mf_Policies> storewrp2s(store_2s);
   
-    GparityAllInOne(storewrp1s, storewrp2s, W, V, rad, lattice, src_setup_params);
+    GparityAllInOne(storewrp1s, storewrp2s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
   
     
     
 
-  template<typename MfStore>
+  template<typename MfStore,typename MomentumPolicy>
   static void GparityAllInOne(MfStore &store_1s, MfStore &store_2s,
+			      const MomentumPolicy &sigma_mom,
 			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			      const FieldParamType &src_setup_params = NullObject()){
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);
@@ -275,9 +279,9 @@ private:
     MultiInnerType gunit_s0_inner(sigma0, src);
     StorageType mf_store(gunit_s0_inner,src);
 
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_w = momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+    for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
+      ThreeMomentum p_w = sigma_mom.getWmom(pidx,false);
+      ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
       mf_store.addCompute(0,0, p_w,p_v);	
     }
     if(!UniqueID()) printf("Computing sigma meson fields with 1s/2s sources\n");
@@ -290,9 +294,9 @@ private:
       
     std::string src_names[2] = {"1s","2s"};
     if(!UniqueID()) printf("Writing sigma meson fields to disk\n");
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+    for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
+      ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
+      ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
 	
       for(int s=0;s<2;s++){
 	MesonFieldVectorType &mf_q = mf_store(s,pidx);
@@ -301,33 +305,36 @@ private:
       }
     } 
   }
-
+  
+  template<typename MomentumPolicy>
   static void noGparityWrite(const std::string &work_dir, const int traj,
+			     const MomentumPolicy &sigma_mom,
 			     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			     const FieldParamType &src_setup_params = NullObject()){
     WriteSigmaMesonFields<mf_Policies> write_1s(work_dir, "hyd1s", traj, rad);
     
-    noGparity(write_1s, W, V, rad, lattice, src_setup_params);
+    noGparity(write_1s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
+  template<typename MomentumPolicy>
   static void noGparityStore(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
 			     MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+			     const MomentumPolicy &sigma_mom,
 			     Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			     const FieldParamType &src_setup_params = NullObject()){
     
     MemStoreSigmaMesonFields<mf_Policies> storewrp1s(store_1s);
   
-    noGparity(storewrp1s, W, V, rad, lattice, src_setup_params);
+    noGparity(storewrp1s, sigma_mom, W, V, rad, lattice, src_setup_params);
   }
   
-  template<typename MfStore>
+  template<typename MfStore, typename MomentumPolicy>
   static void noGparity(MfStore &store_1s,
+			const MomentumPolicy &sigma_mom,
 			Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			const FieldParamType &src_setup_params = NullObject()){
 
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-
-    StationarySigmaMomentaPolicy momenta;
 
     std::vector<Wtype*> Wspecies(1,&W);
     std::vector<Vtype*> Vspecies(1,&V);
@@ -341,46 +348,49 @@ private:
 
     StorageType mf_store(gunit_inner);
 
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_w = momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+    for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
+      ThreeMomentum p_w = sigma_mom.getWmom(pidx,false);
+      ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
       mf_store.addCompute(0,0, p_w,p_v);	
     }
     ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
       
-    for(int pidx=0;pidx<momenta.nMom();pidx++){
-      ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-      ThreeMomentum p_v = momenta.getVmom(pidx,false);
+    for(int pidx=0;pidx<sigma_mom.nMom();pidx++){
+      ThreeMomentum p_wdag = -sigma_mom.getWmom(pidx,false);
+      ThreeMomentum p_v = sigma_mom.getVmom(pidx,false);
       store_1s(p_wdag, p_v, mf_store[pidx]);
     }
   }
 public:
   
   //Computes sigma meson fields and saves to disk
+  template<typename MomentumPolicy>
   static void computeAndWrite(const std::string &work_dir, const int traj,
+			      const MomentumPolicy &sigma_mom,
 			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 			      const FieldParamType &src_setup_params = NullObject()){
     if(GJP.Gparity()){
 #ifdef SIGMA_DO_SOURCES_SEPARATELY
-      GparitySeparateSourcesWrite(work_dir,traj,W,V,rad,lattice,src_setup_params);
+      GparitySeparateSourcesWrite(work_dir,traj,sigma_mom,W,V,rad,lattice,src_setup_params);
 #else
-      GparityAllInOneWrite(work_dir,traj,W,V,rad,lattice,src_setup_params);
+      GparityAllInOneWrite(work_dir,traj,sigma_mom,W,V,rad,lattice,src_setup_params);
 #endif
     }else{
-      noGparityWrite(work_dir,traj,W,V,rad,lattice,src_setup_params);
+      noGparityWrite(work_dir,traj,sigma_mom,W,V,rad,lattice,src_setup_params);
     }
   }
-
+  template<typename MomentumPolicy>
   static void computeGparityMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &store_1s,
 					MesonFieldMomentumPairContainer<mf_Policies> &store_2s,
+					const MomentumPolicy &sigma_mom,
 					Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
 					const FieldParamType &src_setup_params = NullObject()){
     if(!GJP.Gparity()) ERR.General("ComputeSigma","computeGparityMesonFields","G-parity BCs not active!");
       
 #ifdef SIGMA_DO_SOURCES_SEPARATELY
-    GparitySeparateSourcesStore(store_1s,store_2s,W,V,rad,lattice,src_setup_params);
+    GparitySeparateSourcesStore(store_1s,store_2s,sigma_mom,W,V,rad,lattice,src_setup_params);
 #else
-    GparityAllInOneStore(store_1s,store_2s,W,V,rad,lattice,src_setup_params);
+    GparityAllInOneStore(store_1s,store_2s,sigma_mom,W,V,rad,lattice,src_setup_params);
 #endif
   }
   

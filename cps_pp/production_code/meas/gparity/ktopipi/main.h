@@ -466,7 +466,8 @@ void computeSigmaMesonFields(typename ComputeSigma<A2Apolicies>::Vtype &V, typen
 			     const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   double time = -dclock();
   if(!UniqueID()) printf("Computing sigma mesonfield computation\n");
-  ComputeSigma<A2Apolicies>::computeAndWrite(params.meas_arg.WorkDirectory,conf,W,V, params.jp.pion_rad, lat, field3dparams);
+  StationarySigmaMomentaPolicy sigma_mom;
+  ComputeSigma<A2Apolicies>::computeAndWrite(params.meas_arg.WorkDirectory,conf,sigma_mom,W,V, params.jp.pion_rad, lat, field3dparams);
   time += dclock();
   print_time("main","Sigma meson fields ",time);
 }
