@@ -131,7 +131,8 @@ public:
   BasicSourceStorage(const InnerProductType& _inner): inner(_inner){}
 
   const storageType & operator[](const int cidx) const{ return mf[cidx]; }
-  
+  storageType & operator[](const int cidx){ return mf[cidx]; }
+
   mfComputeInputFormat getMf(const int cidx){
     if(mf.size() != clist.size()) mf.resize(clist.size());
     return mf[cidx]; //returns *reference*
