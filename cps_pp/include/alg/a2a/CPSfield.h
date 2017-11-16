@@ -254,7 +254,9 @@ public:
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumBasic) const; //node index is appended
   void readParallel(std::istream &file);
   void readParallel(const std::string &file_stub); 
-  
+
+  void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat) const;
+  void readParallelSeparateMetadata(const std::string &path);
 };
 
 #define INHERIT_TYPEDEFS(...) \

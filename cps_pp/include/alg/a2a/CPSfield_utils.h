@@ -940,7 +940,10 @@ void setupFieldParams(typename FieldType::InputParamType &p){
 }
 
 
-
+template<typename DerivedType>
+struct baseCPSfieldType{
+  typedef CPSfield<typename DerivedType::FieldSiteType, DerivedType::FieldSiteSize, typename DerivedType::FieldMappingPolicy, typename DerivedType::FieldAllocPolicy> type;
+};
 
 CPS_END_NAMESPACE
 #endif

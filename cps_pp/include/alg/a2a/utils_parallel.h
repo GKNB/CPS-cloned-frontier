@@ -9,6 +9,11 @@
 #include <mpi.h>
 #endif
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+
 CPS_START_NAMESPACE
 
 //Divide work over nodes 
@@ -195,6 +200,33 @@ void checkWriteable(const std::string &dir,const int conf){
     if(!UniqueID()){ printf("Disk write check passed\n"); fflush(stdout); }
   }
 }
+
+
+
+bool checkDirExists(const std::string& dir){
+  DIR* dirp = opendir(dir.c_str());
+  if(dirp){
+    closedir(dirp);
+    return true;
+  }else if(errno == ENOENT){
+    return false;
+  }else{
+    ERR.General("","checkDirExists failed with error %s searching for path %s. cf https://linux.die.net/man/3/opendir for error descriptions.\n",strerror(errno),dir.c_str());
+  }
+}
+
+
+void makedir(const std::string& dir, const mode_t mode = 0775){
+  if(!UniqueID()){
+    int ret = mkdir(dir.c_str(), mode);
+    if(ret == 0 || (ret == -1 && errno == EEXIST) ){
+      //all is well!
+    }else ERR.General("","makedir","Creation of directory %s failed with error %s\n",dir.c_str(),strerror(errno));
+  }
+  cps::sync();
+  assert(checkDirExists(dir));
+}
+
 
 
 

@@ -2744,6 +2744,8 @@ void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
   
 void testCPSfieldIO(){
   if(!UniqueID()) printf("testCPSfieldIO called\n");
+
+#if 0
   CPSfield_checksumType cksumtype[2] = { checksumBasic, checksumCRC32 };
   FP_FORMAT fileformat[2] = { FP_IEEE64BIG, FP_IEEE64LITTLE };
   
@@ -2835,7 +2837,61 @@ void testCPSfieldIO(){
 	assert( a.equals(d) );
       }
     }
-  } 
+  }
+#endif
+
+  //Test parallel write with separate metadata
+  
+  {
+    FP_FORMAT fileformat[2] = { FP_IEEE64BIG, FP_IEEE64LITTLE };
+    for(int i=0;i<2;i++){
+      {
+	CPSfermion4D<cps::ComplexD> a;
+	a.testRandom();
+	
+	a.writeParallelSeparateMetadata("field_split", fileformat[i]);
+	
+	CPSfermion4D<cps::ComplexD> b;
+	b.readParallelSeparateMetadata("field_split");
+	assert(a.equals(b));
+      }
+      {
+    	CPSfermion4D<cps::ComplexD> a;
+    	CPSfermion4D<cps::ComplexD> b;
+    	a.testRandom();
+    	b.testRandom();
+
+    	typedef typename baseCPSfieldType<CPSfermion4D<cps::ComplexD> >::type baseField;
+	
+    	std::vector<baseField const*> ptrs_wr(2);
+    	ptrs_wr[0] = &a;
+    	ptrs_wr[1] = &b;
+
+    	writeParallelSeparateMetadata<typename baseField::FieldSiteType,baseField::FieldSiteSize,
+				      typename baseField::FieldMappingPolicy, typename baseField::FieldAllocPolicy> wr(fileformat[i]);
+
+	wr.writeManyFields("field_split_multi", ptrs_wr);
+	
+	CPSfermion4D<cps::ComplexD> c;
+    	CPSfermion4D<cps::ComplexD> d;
+
+	std::vector<baseField*> ptrs_rd(2);
+    	ptrs_rd[0] = &c;
+    	ptrs_rd[1] = &d;
+
+	readParallelSeparateMetadata<typename baseField::FieldSiteType,baseField::FieldSiteSize,
+				     typename baseField::FieldMappingPolicy, typename baseField::FieldAllocPolicy> rd;
+	
+	rd.readManyFields(ptrs_rd, "field_split_multi");
+
+	assert(a.equals(c));
+	assert(b.equals(d));
+      }
+      
+    }
+  }
+    
+  
 }
 
 template<typename A2Apolicies, typename ComplexClass>
