@@ -2868,7 +2868,7 @@ void testCPSfieldIO(){
     	ptrs_wr[1] = &b;
 
     	writeParallelSeparateMetadata<typename baseField::FieldSiteType,baseField::FieldSiteSize,
-				      typename baseField::FieldMappingPolicy, typename baseField::FieldAllocPolicy> wr(fileformat[i]);
+				      typename baseField::FieldMappingPolicy> wr(fileformat[i]);
 
 	wr.writeManyFields("field_split_multi", ptrs_wr);
 	
@@ -2880,12 +2880,57 @@ void testCPSfieldIO(){
     	ptrs_rd[1] = &d;
 
 	readParallelSeparateMetadata<typename baseField::FieldSiteType,baseField::FieldSiteSize,
-				     typename baseField::FieldMappingPolicy, typename baseField::FieldAllocPolicy> rd;
+				     typename baseField::FieldMappingPolicy> rd;
 	
 	rd.readManyFields(ptrs_rd, "field_split_multi");
 
 	assert(a.equals(c));
 	assert(b.equals(d));
+
+#ifdef USE_GRID
+	//Test for SIMD types too
+	typedef CPSfield<Grid::vComplexD,12,FourDSIMDPolicy<DynamicFlavorPolicy>,Aligned128AllocPolicy> GridFieldType;
+	typedef GridFieldType::InputParamType ParamType;
+
+	ParamType params;
+	GridFieldType::SIMDdefaultLayout(params, Grid::vComplexD::Nsimd());
+	
+	GridFieldType asimd(params);
+	asimd.importField(a);
+	
+	GridFieldType bsimd(params);
+	bsimd.importField(b);
+	
+	//First save in SIMD format and re-read in SIMD format
+	std::vector<GridFieldType const*> ptrs_wrsimd(2);
+	ptrs_wrsimd[0] = &asimd;
+	ptrs_wrsimd[1] = &bsimd;
+	
+	wr.writeManyFields("field_split_multi_simd", ptrs_wrsimd);
+
+	GridFieldType csimd(params);
+	GridFieldType dsimd(params);
+
+	std::vector<GridFieldType*> ptrs_rdsimd(2);
+	ptrs_rdsimd[0] = &csimd;
+	ptrs_rdsimd[1] = &dsimd;
+
+	rd.readManyFields(ptrs_rdsimd, "field_split_multi_simd");
+	
+	assert(asimd.equals(csimd));
+	assert(bsimd.equals(dsimd));
+
+	//Also try loading SIMD field as non-SIMD
+	rd.readManyFields(ptrs_rd, "field_split_multi_simd");
+	assert(a.equals(c));
+	assert(b.equals(d));
+
+	//Finally try loading non-SIMD field as SIMD
+	rd.readManyFields(ptrs_rdsimd, "field_split_multi");
+
+	assert(asimd.equals(csimd));
+	assert(bsimd.equals(dsimd));	
+#endif
       }
       
     }

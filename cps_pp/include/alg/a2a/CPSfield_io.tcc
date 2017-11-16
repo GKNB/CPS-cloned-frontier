@@ -323,13 +323,14 @@ struct nodeCoor{
   }
 };				  
 
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy>
 class writeParallelSeparateMetadata{};
 
 
-template< typename SiteType, int SiteSize, typename AllocPolicy>
-class writeParallelSeparateMetadata<SiteType,SiteSize,FourDpolicy<DynamicFlavorPolicy>,AllocPolicy>{ //4d lexicographic with flavors set by GJP.Gparity()
+template< typename SiteType, int SiteSize>
+class writeParallelSeparateMetadata<SiteType,SiteSize,FourDpolicy<DynamicFlavorPolicy> >{ //4d lexicographic with flavors set by GJP.Gparity()
   typedef FourDpolicy<DynamicFlavorPolicy> MappingPolicy;
+  typedef FourDSIMDPolicy<DynamicFlavorPolicy> SIMDmappingPolicy;
   FP_FORMAT fileformat;
   FP_FORMAT dataformat;
   FPConv conv;
@@ -381,6 +382,7 @@ private:
   }
 
   //Gather CRC32 checksums *to head node only*
+  template<typename AllocPolicy>
   void gatherNodeCRC32checksums(std::vector<uint32_t> &into, const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &field) const{
 #ifndef USE_MPI
     ERR.General("writeParallelSeparateMetadata","gatherNodeCRC32checksums","Requires MPI\n");
@@ -452,6 +454,7 @@ private:
   }			  
 
   //Node index will be appended to file_stub
+  template<typename AllocPolicy>
   void writeNodeData(const std::string &file_stub, const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &field) const{
     std::ostringstream os; os << file_stub << '.' << UniqueID();
     
@@ -479,7 +482,7 @@ private:
     }
     free(wbuf);
   }
-
+  template<typename AllocPolicy>
   void writeNodeMetadataSingle(const std::string &filename, const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &field) const{
     std::vector<nodeCoor> node_coors;
     gatherNodeCoors(node_coors);
@@ -504,16 +507,12 @@ private:
 #endif
   }
 
-  void writeNodeMetadataMulti(const std::string &filename, const std::vector<CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> const*> &fields) const{
+  void writeNodeMetadataMulti(const std::string &filename, const std::vector<std::vector<uint32_t> > node_checksums) const{
     std::vector<nodeCoor> node_coors;
     gatherNodeCoors(node_coors);
 
-    int nfield = fields.size();
+    int nfield = node_checksums.size();
     
-    std::vector<std::vector<uint32_t> > node_checksums(nfield);
-    for(int f=0;f<nfield;f++)
-      gatherNodeCRC32checksums(node_checksums[f], *fields[f]);
-
     if(!UniqueID()){
       std::ofstream of(filename.c_str());
       assert(!of.fail());
@@ -534,9 +533,21 @@ private:
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
   }
-  
-  
+
+  template<typename AllocPolicy>
+  void writeNodeMetadataMulti(const std::string &filename, const std::vector<CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> const*> &fields) const{
+    int nfield = fields.size();
+    
+    std::vector<std::vector<uint32_t> > node_checksums(nfield);
+    for(int f=0;f<nfield;f++)
+      gatherNodeCRC32checksums(node_checksums[f], *fields[f]);
+
+    writeNodeMetadataMulti(filename, node_checksums);
+  }
+
+    
 public:
+  template<typename AllocPolicy>
   void writeOneField(const std::string &path, const CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &field) const{
     //Create paths
     makedir(path);
@@ -548,6 +559,7 @@ public:
     writeNodeMetadataSingle(path + "/node_metadata.txt",field);
     writeNodeData(checkpoint_path + "/checkpoint",field);
   }
+  template<typename AllocPolicy>
   void writeManyFields(const std::string &path, const std::vector<CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> const*> &fields) const{
     //Create paths
     makedir(path);
@@ -561,20 +573,45 @@ public:
     
       writeNodeData(checkpoint_path.str() + "/checkpoint",*fields[f]);
     }
-  }  
+  }
+  //version for SIMD fields. Here we convert to non-SIMD fields for IO
+  template<typename SIMDsiteType,typename AllocPolicy>
+  void writeManyFields(const std::string &path, const std::vector<CPSfield<SIMDsiteType,SiteSize,SIMDmappingPolicy,AllocPolicy> const*> &fields) const{
+    //Create paths
+    makedir(path);
+    
+    writeGlobalMetadata(path + "/global_metadata.txt");
+    
+    std::vector<std::vector<uint32_t> > node_checksums(fields.size());
+    NullObject nul;
+    CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> nonsimd(nul);
+    for(int f=0;f<fields.size();f++){
+      nonsimd.importField(*fields[f]);
+      gatherNodeCRC32checksums(node_checksums[f], nonsimd);
+            
+      std::ostringstream checkpoint_path; checkpoint_path << path << "/checkpoint_" << f;
+      makedir(checkpoint_path.str());
+    
+      writeNodeData(checkpoint_path.str() + "/checkpoint",nonsimd);
+    }
+    writeNodeMetadataMulti(path + "/node_metadata.txt",node_checksums);    
+  } 
+  
 };
 
 
 
 
 
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+template< typename SiteType, int SiteSize, typename MappingPolicy>
 class readParallelSeparateMetadata{};
 
 
-template< typename SiteType, int SiteSize, typename AllocPolicy>
-class readParallelSeparateMetadata<SiteType,SiteSize,FourDpolicy<DynamicFlavorPolicy>,AllocPolicy>{ //4d lexicographic with flavors set by GJP.Gparity()
+template< typename SiteType, int SiteSize>
+class readParallelSeparateMetadata<SiteType,SiteSize,FourDpolicy<DynamicFlavorPolicy> >{ //4d lexicographic with flavors set by GJP.Gparity()
   typedef FourDpolicy<DynamicFlavorPolicy> MappingPolicy;
+  typedef FourDSIMDPolicy<DynamicFlavorPolicy> SIMDmappingPolicy;
+  
   FPConv conv;
   FP_FORMAT dataformat;
   FP_FORMAT fileformat;
@@ -737,7 +774,7 @@ private:
   }
   
 public:
-
+  template<typename AllocPolicy>
   void readOneField(CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> &field, const std::string &path){
     std::string checkpoint_path = path + "/checkpoint";
     readGlobalMetadata(path + "/global_metadata.txt");
@@ -754,7 +791,7 @@ public:
       ERR.General("readParallelSeparateMetadata","readOneField","Not yet implemented for layouts different from original\n");
     }      
   }
-
+  template<typename AllocPolicy>
   void readManyFields(std::vector<CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>*> &fields, const std::string &path){
     readGlobalMetadata(path + "/global_metadata.txt");
     
@@ -776,7 +813,32 @@ public:
     }      
   }
 
+  //SIMD version. Here we do IO in non-SIMD format
+  template<typename SIMDsiteType,typename AllocPolicy>
+  void readManyFields(std::vector<CPSfield<SIMDsiteType,SiteSize,SIMDmappingPolicy,AllocPolicy>*> &fields, const std::string &path){
+    readGlobalMetadata(path + "/global_metadata.txt");
+    
+    std::vector<nodeCoor> node_coors;
+    std::vector<std::vector<uint32_t> > checksums; //[field idx][node]
+    int nfield = readNodeMetadataMulti(node_coors, checksums, path + "/node_metadata.txt");
+    assert(nfield == fields.size());
+    
+    if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
+      NullObject nul;
+      CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy> nonsimd(nul);
+      for(int f=0;f<fields.size();f++){
+	std::ostringstream checkpoint_path; checkpoint_path << path << "/checkpoint_" << f;
+      
+	std::pair<char*,size_t> data = readNodeData(checkpoint_path.str() + "/checkpoint", UniqueID(), checksums[f][UniqueID()]);
+	memcpy(nonsimd.ptr(), data.first, data.second);
+	free(data.first);
 
+	fields[f]->importField(nonsimd);
+      }	
+    }else{
+      ERR.General("readParallelSeparateMetadata","readOneField","Not yet implemented for layouts different from original\n");
+    }      
+  }
   
   
 };
@@ -785,11 +847,11 @@ public:
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat) const{
-  cps::writeParallelSeparateMetadata<SiteType,SiteSize,MappingPolicy,AllocPolicy> wrt(fileformat);
+  cps::writeParallelSeparateMetadata<SiteType,SiteSize,MappingPolicy> wrt(fileformat);
   wrt.writeOneField(path, *this);
 }
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallelSeparateMetadata(const std::string &path){
-  cps::readParallelSeparateMetadata<SiteType,SiteSize,MappingPolicy,AllocPolicy> rd;
+  cps::readParallelSeparateMetadata<SiteType,SiteSize,MappingPolicy> rd;
   rd.readOneField(*this, path);
 }
