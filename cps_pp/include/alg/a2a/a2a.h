@@ -113,6 +113,10 @@ public:
 
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
   void readParallel(const std::string &file_stub);
+
+  //Read/write to binary files per node with separate metadata files. User provides path which is created internally
+  void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void readParallelSeparateMetadata(const std::string &path);
 };
 
 
@@ -378,6 +382,10 @@ public:
 
   void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
   void readParallel(const std::string &file_stub);
+
+  //Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
+  void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void readParallelSeparateMetadata(const std::string &path);
 };
 
 

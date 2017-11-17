@@ -223,3 +223,109 @@ void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
   
   getline(file,str); assert(str == "END_WHFIELDS");  
 }
+
+
+//Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
+template< typename mf_Policies>
+void A2AvectorV<mf_Policies>::writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat) const{
+  typedef typename baseCPSfieldType<FermionFieldType>::type baseField;
+
+  std::vector<baseField const*> ptrs_wr(v.size());
+  for(int i=0;i<v.size();i++){
+    assert(v[i].assigned());
+    ptrs_wr[i] = v[i].ptr();
+  }
+  
+  cps::writeParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseField::FieldSiteSize,
+				     typename getScalarMappingPolicy<typename baseField::FieldMappingPolicy>::type> wr(fileformat);
+
+  wr.writeManyFields(path, ptrs_wr);
+}
+
+template< typename mf_Policies>
+void A2AvectorV<mf_Policies>::readParallelSeparateMetadata(const std::string &path){
+  typedef typename baseCPSfieldType<FermionFieldType>::type baseField;
+
+  std::vector<baseField*> ptrs_rd(v.size());
+  for(int i=0;i<v.size();i++){
+    assert(v[i].assigned());
+    ptrs_rd[i] = v[i].ptr();
+  }
+  
+  cps::readParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseField::FieldSiteSize,
+				    typename getScalarMappingPolicy<typename baseField::FieldMappingPolicy>::type> rd;
+
+  rd.readManyFields(ptrs_rd, path);
+} 
+
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat) const{
+  makedir(path);
+
+  //Low and high mode fields not same type, so save in different subdirectories
+  std::string Wlpath = path + "/wl";
+  std::string Whpath = path + "/wh";
+  
+  typedef typename baseCPSfieldType<FermionFieldType>::type baseFieldL;
+  typedef typename baseCPSfieldType<ComplexFieldType>::type baseFieldH;
+
+  {
+    std::vector<baseFieldL const*> ptrs_wr(wl.size());
+    for(int i=0;i<wl.size();i++){
+      assert(wl[i].assigned());
+      ptrs_wr[i] = wl[i].ptr();
+    }
+  
+    cps::writeParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseFieldL::FieldSiteSize,
+				       typename getScalarMappingPolicy<typename baseFieldL::FieldMappingPolicy>::type> wr(fileformat);
+
+    wr.writeManyFields(Wlpath, ptrs_wr);
+  }
+  {
+    std::vector<baseFieldH const*> ptrs_wr(wh.size());
+    for(int i=0;i<wh.size();i++){
+      assert(wh[i].assigned());
+      ptrs_wr[i] = wh[i].ptr();
+    }
+  
+    cps::writeParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseFieldH::FieldSiteSize,
+				       typename getScalarMappingPolicy<typename baseFieldH::FieldMappingPolicy>::type> wr(fileformat);
+
+    wr.writeManyFields(Whpath, ptrs_wr);
+  }
+}
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::readParallelSeparateMetadata(const std::string &path){
+  std::string Wlpath = path + "/wl";
+  std::string Whpath = path + "/wh";
+
+  typedef typename baseCPSfieldType<FermionFieldType>::type baseFieldL;
+  typedef typename baseCPSfieldType<ComplexFieldType>::type baseFieldH;
+
+  {
+    std::vector<baseFieldL*> ptrs_rd(wl.size());
+    for(int i=0;i<wl.size();i++){
+      assert(wl[i].assigned());
+      ptrs_rd[i] = wl[i].ptr();
+    }
+  
+    cps::readParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseFieldL::FieldSiteSize,
+				      typename getScalarMappingPolicy<typename baseFieldL::FieldMappingPolicy>::type> rd;
+
+    rd.readManyFields(ptrs_rd, Wlpath);
+  }
+  {
+    std::vector<baseFieldH*> ptrs_rd(wh.size());
+    for(int i=0;i<wh.size();i++){
+      assert(wh[i].assigned());
+      ptrs_rd[i] = wh[i].ptr();
+    }
+  
+    cps::readParallelSeparateMetadata<typename mf_Policies::ScalarComplexType, baseFieldH::FieldSiteSize,
+				      typename getScalarMappingPolicy<typename baseFieldH::FieldMappingPolicy>::type> rd;
+
+    rd.readManyFields(ptrs_rd, Whpath);
+  }
+} 

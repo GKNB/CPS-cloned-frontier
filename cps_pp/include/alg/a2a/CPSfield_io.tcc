@@ -798,7 +798,7 @@ public:
     std::vector<nodeCoor> node_coors;
     std::vector<std::vector<uint32_t> > checksums; //[field idx][node]
     int nfield = readNodeMetadataMulti(node_coors, checksums, path + "/node_metadata.txt");
-    assert(nfield == fields.size());
+    if(nfield != fields.size()) ERR.General("readParallelSeparateMetadata","readOneField","Path %s contains %d fields, not equal to the number of output fields provided, %d\n",path.c_str(),nfield,fields.size());
     
     if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
       for(int f=0;f<fields.size();f++){
@@ -821,7 +821,7 @@ public:
     std::vector<nodeCoor> node_coors;
     std::vector<std::vector<uint32_t> > checksums; //[field idx][node]
     int nfield = readNodeMetadataMulti(node_coors, checksums, path + "/node_metadata.txt");
-    assert(nfield == fields.size());
+    if(nfield != fields.size()) ERR.General("readParallelSeparateMetadata","readOneField","Path %s contains %d fields, not equal to the number of output fields provided, %d\n",path.c_str(),nfield,fields.size()); 
     
     if(sameLayout() && sameCoordinate(node_coors[UniqueID()])){ //easiest if node layout same as in original files
       NullObject nul;

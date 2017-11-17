@@ -2745,7 +2745,6 @@ void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
 void testCPSfieldIO(){
   if(!UniqueID()) printf("testCPSfieldIO called\n");
 
-#if 0
   CPSfield_checksumType cksumtype[2] = { checksumBasic, checksumCRC32 };
   FP_FORMAT fileformat[2] = { FP_IEEE64BIG, FP_IEEE64LITTLE };
   
@@ -2838,7 +2837,6 @@ void testCPSfieldIO(){
       }
     }
   }
-#endif
 
   //Test parallel write with separate metadata
   
@@ -2972,51 +2970,97 @@ void testA2AvectorIO(const A2AArg &a2a_args){
     for(int j=0;j<2;j++){
   
       {
-	A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
-	Va.testRandom();
+  	A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
+  	Va.testRandom();
 
-	Va.writeParallel("Vvector", fileformat[j], cksumtype[i]);
+  	Va.writeParallel("Vvector", fileformat[j], cksumtype[i]);
 
-	A2AArg def;
-	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+  	A2AArg def;
+  	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
 
-	A2AvectorV<A2Apolicies> Vb(def, p.params);
-	Vb.readParallel("Vvector");
+  	A2AvectorV<A2Apolicies> Vb(def, p.params);
+  	Vb.readParallel("Vvector");
 
-	assert( Va.paramsEqual(Vb) );
-	assert( Va.getNmodes() == Vb.getNmodes() );
+  	assert( Va.paramsEqual(Vb) );
+  	assert( Va.getNmodes() == Vb.getNmodes() );
   
-	for(int i=0;i<Va.getNmodes();i++){
-	  assert( Va.getMode(i).equals(Vb.getMode(i)) );
-	}
+  	for(int i=0;i<Va.getNmodes();i++){
+  	  assert( Va.getMode(i).equals(Vb.getMode(i)) );
+  	}
       }
 
   
       {
-	A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
-	Wa.testRandom();
+  	A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
+  	Wa.testRandom();
 
-	Wa.writeParallel("Wvector", fileformat[j], cksumtype[i]);
+  	Wa.writeParallel("Wvector", fileformat[j], cksumtype[i]);
 
-	A2AArg def;
-	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
+  	A2AArg def;
+  	def.nl = 1; def.nhits = 1; def.rand_type = UONE; def.src_width = 1;
 
-	A2AvectorW<A2Apolicies> Wb(def, p.params);
-	Wb.readParallel("Wvector");
+  	A2AvectorW<A2Apolicies> Wb(def, p.params);
+  	Wb.readParallel("Wvector");
 
-	assert( Wa.paramsEqual(Wb) );
-	assert( Wa.getNmodes() == Wb.getNmodes() );
+  	assert( Wa.paramsEqual(Wb) );
+  	assert( Wa.getNmodes() == Wb.getNmodes() );
   
-	for(int i=0;i<Wa.getNl();i++){
-	  assert( Wa.getWl(i).equals(Wb.getWl(i)) );
-	}
-	for(int i=0;i<Wa.getNhits();i++){
-	  assert( Wa.getWh(i).equals(Wb.getWh(i)) );
-	}    
-      }
-      
+  	for(int i=0;i<Wa.getNl();i++){
+  	  assert( Wa.getWl(i).equals(Wb.getWl(i)) );
+  	}
+  	for(int i=0;i<Wa.getNhits();i++){
+  	  assert( Wa.getWh(i).equals(Wb.getWh(i)) );
+  	}    
+      }      
     }
   }
+
+
+
+
+  //Test parallel read/write with separate metadata
+  for(int i=0;i<2;i++){
+    {//V  
+      A2AvectorV<A2Apolicies> Va(a2a_args, p.params);
+      Va.testRandom();
+    
+      Va.writeParallelSeparateMetadata("Vvector_split", fileformat[i]);
+    
+      A2AvectorV<A2Apolicies> Vb(a2a_args, p.params);
+
+      Vb.readParallelSeparateMetadata("Vvector_split");
+    
+      assert( Va.paramsEqual(Vb) );
+      assert( Va.getNmodes() == Vb.getNmodes() );
+    
+      for(int i=0;i<Va.getNmodes();i++){
+	assert( Va.getMode(i).equals(Vb.getMode(i)) );
+      }
+    }//V
+    {//W
+      A2AvectorW<A2Apolicies> Wa(a2a_args, p.params);
+      Wa.testRandom();
+      
+      Wa.writeParallelSeparateMetadata("Wvector_split", fileformat[i]);
+
+      A2AvectorW<A2Apolicies> Wb(a2a_args, p.params);
+      Wb.readParallelSeparateMetadata("Wvector_split");
+
+      assert( Wa.paramsEqual(Wb) );
+      assert( Wa.getNmodes() == Wb.getNmodes() );
+      
+      for(int i=0;i<Wa.getNl();i++){
+	assert( Wa.getWl(i).equals(Wb.getWl(i)) );
+      }
+      for(int i=0;i<Wa.getNhits();i++){
+	assert( Wa.getWh(i).equals(Wb.getWh(i)) );
+      }    
+    }//W
+  }
+
+
+
+  
 }
 
 

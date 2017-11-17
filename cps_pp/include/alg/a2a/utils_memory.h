@@ -96,6 +96,8 @@ template<typename T>
 class PtrWrapper{
   T* t;
 public:
+  inline T* ptr(){ return t; }
+  inline T const* ptr() const{ return t; }
   inline T& operator*(){ return *t; }
   inline T* operator->(){ return t; }
   inline T const& operator*() const{ return *t; }

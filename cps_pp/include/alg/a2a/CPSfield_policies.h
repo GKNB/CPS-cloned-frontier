@@ -900,6 +900,18 @@ public:
 };
 
 
+//Structs to get a scalar mapping policy from a SIMD mapping policy
+template<typename MappingPolicy, int is_SIMD = isSIMDdimensionPolicy<MappingPolicy>::value>
+struct getScalarMappingPolicy{};
+
+template<typename MappingPolicy>
+struct getScalarMappingPolicy<MappingPolicy, 0>{
+  typedef MappingPolicy type;
+};
+template<typename MappingPolicy>
+struct getScalarMappingPolicy<MappingPolicy, 1>{
+  typedef typename MappingPolicy::EquivalentScalarPolicy type;
+};
 
 
 //Some helper structs to get policies for common field types
