@@ -39,8 +39,7 @@ class ComputeMesonFields{
     if(GJP.Gparity()){ pbase[0] = ThreeMomentum(p_p1); pbase[1] = ThreeMomentum(p_m1); }
     else pbase[0] = ThreeMomentum(p_0);
     
-    if(!UniqueID()) printf("ComputeMesonFields::compute Memory prior to compute loop:\n");
-    printMem();
+    printMem("ComputeMesonFields::compute Memory prior to compute loop");
 
     //We need to group the V shifts by base and species
     std::vector< std::vector< std::vector< std::vector< std::vector<int> > > > > base_cidx_map(nbase); //[base_v][qidx_v][base_w][qidx_w]
@@ -117,8 +116,7 @@ class ComputeMesonFields{
 	A2AvectorVfftw<mf_Policies> * Vfftw_base_1 = bv == 1 ? &fftw_V_base : NULL;
 #endif
 
-	if(!UniqueID()) printf("ComputeMesonFields::compute Memory after V FFT:\n");
-	printMem();
+	printMem("ComputeMesonFields::compute Memory after V FFT");
 	
 	for(int bw=0;bw<nbase;bw++){
 	  const ThreeMomentum &pwb = pbase[bw];
@@ -151,8 +149,7 @@ class ComputeMesonFields{
 	    A2AvectorWfftw<mf_Policies> * Wfftw_base_1 = bw == 1 ? &fftw_W_base : NULL;
 #endif
 
-	    if(!UniqueID()) printf("ComputeMesonFields::compute Memory after W FFT:\n");
-	    printMem();
+	    printMem("ComputeMesonFields::compute Memory after W FFT");
 
 	    //Now loop over computations with this V-base, W-base
 	    for(int cc=0; cc < base_cidx_map[bv][sv][bw][sw].size(); cc++){
@@ -221,11 +218,9 @@ class ComputeMesonFields{
 	      
 #endif
 	      if(node_distribute){
-		if(!UniqueID()) printf("ComputeMesonFields::compute Memory before distribute:\n");
-		printMem();
+		printMem("ComputeMesonFields::compute Memory before distribute");
 		into.nodeDistributeResult(cidx);
-		if(!UniqueID()) printf("ComputeMesonFields::compute Memory after distribute:\n");
-		printMem();
+		printMem("ComputeMesonFields::compute Memory after distribute");
 	      }
 	    }//cc
 
@@ -237,9 +232,9 @@ class ComputeMesonFields{
 		     );
 	      fflush(stdout);
 	    }
-	    printMem();
+	    printMem("Prior to W restore");
 	    fftw_W_base.destructiveUnapplyGaugeFixTwistFFT(*W[sw], pwb.ptr(),lattice);
-	    printMem();
+	    printMem("After W restore");
 #endif
 	    
 	  }//sw
@@ -253,15 +248,14 @@ class ComputeMesonFields{
 		 );
 	  fflush(stdout);
 	}
-	printMem();
+	printMem("Prior to V restore");
 	fftw_V_base.destructiveUnapplyGaugeFixTwistFFT(*V[sv], pvb.ptr(),lattice);  //allocs V and deallocs Vfft internally
-	printMem();
+	printMem("After V restore");
 #endif	
       }//sv
     }//bv
     
-    if(!UniqueID()) printf("ComputeMesonFields::compute Memory after compute loop:\n");
-    printMem();
+    printMem("ComputeMesonFields::compute Memory after compute loop");
   }
 };
 

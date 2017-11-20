@@ -13,6 +13,12 @@
 #ifdef USE_MPI
 #include<mpi.h>
 #endif
+
+#ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
+//Allows dumping of heap state. Requires linking against libtcmalloc  -ltcmalloc
+#include<gperftools/heap-profiler.h>
+#endif
+
 //Utilities for memory control
 
 CPS_START_NAMESPACE
@@ -134,8 +140,18 @@ inline double byte_to_MB(const size_t b){
   return double(b)/1024./1024.;
 }
 
+//Empty shells for google perftools heap profile funcs
+#ifndef BASE_HEAP_PROFILER_H_
+inline void HeapProfilerStart(const char* nm){}
+inline void HeapProfilerStop(){}
+inline void HeapProfilerDump(const char *reason){}
+#endif
+
+
 //Print memory usage
-inline void printMem(int node = 0, FILE* stream = stdout){
+inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
+  if(UniqueID()==node && reason != "") fprintf(stream, "printMem node %d called with reason: %s\n", node, reason.c_str());
+  
 #ifdef ARCH_BGQ
   #warning "printMem using ARCH_BGQ"
   uint64_t shared, persist, heapavail, stackavail, stack, heap, guard, mmap;
@@ -206,6 +222,12 @@ inline void printMem(int node = 0, FILE* stream = stdout){
 # endif
   
 #endif
+
+#ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
+  //if(UniqueID()==node) reason == "" ? HeapProfilerDump("printMem") : HeapProfilerDump(reason.c_str());
+  HeapProfilerDump(reason.c_str());
+#endif
+  fflush(stream);
 }
 
 
@@ -218,8 +240,7 @@ inline void printMemNodeFile(const std::string &msg = ""){
     printf("Non-fatal error in printMemNodeFile on node %d: could not open file %s with mode %c\n",UniqueID(),os.str().c_str(),calls==0 ? 'w' : 'a');
     fflush(stdout);
   }else{
-    fprintf(out, msg.c_str());
-    printMem(UniqueID(),out);
+    printMem(msg,UniqueID(),out);
     fclose(out);
   }
   calls++;
@@ -388,8 +409,7 @@ public:
 #else
       printf("Error: uid %d failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", UniqueID(), r,EINVAL, ENOMEM, byte_to_MB(size) ); 
 #endif
-      printMem(UniqueID());
-      fflush(stdout); 
+      printMem("Error",UniqueID());
     }
     _size = size;
     _alignment = alignment;
@@ -515,8 +535,7 @@ public:
     int r = posix_memalign(&ptr, alignment, size);
     if(r){
       printf("Error: Node %d failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", UniqueID(), r, EINVAL, ENOMEM, byte_to_MB(size) );
-      printMem(UniqueID());
-      fflush(stdout); 
+      printMem("Error",UniqueID());
     }
     _size = size;
     _alignment = alignment;

@@ -14,6 +14,8 @@
 
 int main (int argc,char **argv )
 {
+  HeapProfilerStart("distribute");
+  
   const char *fname="main(int,char**)";
   Start(&argc, &argv);
 
@@ -67,5 +69,7 @@ int main (int argc,char **argv )
 
   if(!UniqueID()) printf("Done\n");
   End();
+
+  HeapProfilerStop();
 }
 

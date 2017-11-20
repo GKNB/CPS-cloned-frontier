@@ -295,8 +295,7 @@ void setupJob(int argc, char **argv, const Parameters &params, const CommandLine
     assert(params.a2a_arg_s.nl <= params.lanc_arg_s.N_true_get);
   }
 
-  if(!UniqueID()) printf("Initial memory post-initialize:\n");
-  printMem();
+  printMem("Initial memory post-initialize");
 }
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
@@ -373,8 +372,7 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
 
   a2a_lat.computeVW(V,W,eig,params.jp.cg_controls,randomize_vw);
   
-  if(!UniqueID()) printf("Memory after %s A2A vector computation:\n", name);
-  printMem();
+  printMem(stringize("Memory after %s A2A vector computation", name));
 
   time += dclock();
   std::ostringstream os; os << name << " quark A2A vectors";
@@ -405,8 +403,7 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
   time += dclock();
   print_time("main","Kaon 2pt function",time);
 
-  if(!UniqueID()) printf("Memory after kaon 2pt function computation:\n");
-  printMem();
+  printMem("Memory after kaon 2pt function computation");
 }
 
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
@@ -420,8 +417,7 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
   time += dclock();
   print_time("main","Light-light meson fields",time);
 
-  if(!UniqueID()) printf("Memory after light-light meson field computation:\n");
-  printMem();
+  printMem("Memory after light-light meson field computation");
 }
 
 void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const StandardPionMomentaPolicy &pion_mom, const int conf, const Parameters &params){
@@ -458,8 +454,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const S
   time += dclock();
   print_time("main","Pion 2pt function",time);
 
-  if(!UniqueID()) printf("Memory after pion 2pt function computation:\n");
-  printMem();
+  printMem("Memory after pion 2pt function computation");
 }
 
 void computeSigmaMesonFields(typename ComputeSigma<A2Apolicies>::Vtype &V, typename ComputeSigma<A2Apolicies>::Wtype &W,
@@ -493,8 +488,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const S
       
       char diag[3] = {'C','D','R'};
       for(int d = 0; d < 3; d++){
-	if(!UniqueID()){ printf("Doing pipi figure %c, psrcidx=%d psnkidx=%d\n",diag[d],psrcidx,psnkidx); fflush(stdout); }
-	printMem(0);
+	printMem(stringize("Doing pipi figure %c, psrcidx=%d psnkidx=%d",diag[d],psrcidx,psnkidx),0);
 
 	double time = -dclock();
 	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con
@@ -522,8 +516,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const S
     }
 
     { //V diagram
-      if(!UniqueID()){ printf("Doing pipi figure V, pidx=%d\n",psrcidx); fflush(stdout); }
-      printMem(0);
+      printMem(stringize("Doing pipi figure V, pidx=%d",psrcidx),0);
       double time = -dclock();
       fVector<typename A2Apolicies::ScalarComplexType> figVdis(Lt);
       ComputePiPiGparity<A2Apolicies>::computeFigureVdis(figVdis,p_pi1_src,params.jp.pipi_separation,mf_ll_con);
@@ -548,8 +541,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const S
   print_time("main","Pi-pi figure R",timeR);
   print_time("main","Pi-pi figure V",timeV);
 
-  if(!UniqueID()) printf("Memory after pi-pi 2pt function computation:\n");
-  printMem();
+  printMem("Memory after pi-pi 2pt function computation");
 }
 
 
@@ -568,8 +560,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   std::vector<int> k_pi_separation(params.jp.k_pi_separation.k_pi_separation_len);
   for(int i=0;i<params.jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = params.jp.k_pi_separation.k_pi_separation_val[i];
 
-  if(!UniqueID()) printf("Memory after computing W*W meson fields:\n");
-  printMem();
+  printMem("Memory after computing W*W meson fields");
 
   typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
   typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
@@ -592,8 +583,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
     for(int sidx=0; sidx<nsource;sidx++){
       
       if(!UniqueID()) printf("Starting type 1 contractions with pidx=%d and source idx %d\n",pidx,sidx);
-      if(!UniqueID()) printf("Memory status before type1 K->pipi:\n");
-      printMem();
+      printMem("Memory status before type1 K->pipi");
 
       ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
       std::vector<ResultsContainerType> type1;
@@ -615,8 +605,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
 	type1[kpi_idx].write(os.str(),true);
 #endif
       }
-      if(!UniqueID()) printf("Memory status after type1 K->pipi:\n");
-      printMem();
+      printMem("Memory status after type1 K->pipi");
     }
   }
 
@@ -624,8 +613,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   time += dclock();
   print_time("main","K->pipi type 1",time);
 
-  if(!UniqueID()) printf("Memory after type1 K->pipi:\n");
-  printMem();
+  printMem("Memory after type1 K->pipi");
 
   //Type 2 and 3 are optimized by performing the sum over pipi momentum orientations within the contraction
   time = -dclock();    
@@ -649,8 +637,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   time += dclock();
   print_time("main","K->pipi type 2",time);
     
-  if(!UniqueID()) printf("Memory after type2 K->pipi:\n");
-  printMem();
+  printMem("Memory after type2 K->pipi");
     
 
   time = -dclock();
@@ -675,8 +662,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   time += dclock();
   print_time("main","K->pipi type 3",time);
     
-  if(!UniqueID()) printf("Memory after type3 K->pipi:\n");
-  printMem();
+  printMem("Memory after type3 K->pipi");
     
 
   {
@@ -703,8 +689,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
     time += dclock();
     print_time("main","K->pipi type 4",time);
     
-    if(!UniqueID()) printf("Memory after type4 K->pipi and end of config loop:\n");
-    printMem();
+    printMem("Memory after type4 K->pipi and end of config loop");
   }
 }//do_ktopipi
 
@@ -725,8 +710,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
     
-  if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
-  printMem();
+  printMem("Memory after gauge and RNG read");
 
   runInitialGridBenchmarks(cmdline,params);
   
@@ -745,8 +729,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   }
   if(!UniqueID()){ printf("Freeing light evecs\n"); fflush(stdout); }
   eig.freeEvecs();
-  if(!UniqueID()) printf("Memory after light evec free:\n");
-  printMem();
+  printMem("Memory after light evec free");
     
   //-------------------- Strange quark Lanczos ---------------------//
   BFMGridLanczosWrapper<A2Apolicies> eig_s(solvers, params.jp);
@@ -759,8 +742,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   computeVW(V_s, W_s, Heavy, params, eig_s, latwrp, cmdline.randomize_vw);
 
   eig_s.freeEvecs();
-  if(!UniqueID()) printf("Memory after heavy evec free:\n");
-  printMem();
+  printMem("Memory after heavy evec free");
 
   //From now one we just need a generic lattice instance, so use a2a_lat
   Lattice& lat = (Lattice&)(*latwrp.a2a_lat);
@@ -804,8 +786,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
   //-------------------- Read gauge field --------------------//
   readGaugeRNG(params,cmdline);
     
-  if(!UniqueID()) printf("Memory after gauge and RNG read:\n");
-  printMem();
+  printMem("Memory after gauge and RNG read");
 
   runInitialGridBenchmarks(cmdline,params);
   
@@ -880,8 +861,7 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
     computeVW(V, W, Light, params, eig, latwrp, cmdline.randomize_vw);
     
     eig.freeEvecs();
-    if(!UniqueID()) printf("Memory after light evec free:\n");
-    printMem();    
+    printMem("Memory after light evec free");    
     
     //-------------------- Strange quark v and w read --------------------//
     A2AvectorV<A2Apolicies> V_s(params.a2a_arg_s,field4dparams);

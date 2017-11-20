@@ -244,11 +244,7 @@ struct MultiSrcVectorPolicies{
     if(mem_pool == NULL || (mem_pool != NULL && mem_pool_size != size) ){
       if(mem_pool != NULL) free(mem_pool);
 
-      if(!UniqueID()){
-	printf("Initializing memory pool. Node 0 memory status: \n");
-	printMem(0);
-	fflush(stdout);
-      }
+      if(!UniqueID()) printMem("Initializing memory pool. Node 0 memory status:",0);
       cps::sync();
 
       //mem_pool = (cps::ComplexD*)memalign(128, size * sizeof(cps::ComplexD));
@@ -257,9 +253,8 @@ struct MultiSrcVectorPolicies{
       if(r){
 	std::cout << "MultiSrcVectorPolicies::createMemPool Node " << UniqueID() << " unable to allocate memory of size " << byte_to_MB(size*sizeof(cps::ComplexD)) << "  MB" 
 		  << ". Error code " << r << " (" << EINVAL << "=EINVAL, " << ENOMEM << "=ENOMEM)\n";
-	std::cout << "Memory status: \n";	
 	std::cout.flush();
-	printMem(UniqueID());
+	printMem("Error",UniqueID());
 	fflush(stdout);
 	exit(-1);
       }
@@ -294,11 +289,9 @@ struct MultiSrcVectorPolicies{
       typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::RightDilutionType rr = r;
       
       printf("Initializing meson fields of size %d * %d. Memory requirement is %g MB, memory status is:\n", ll.getNmodes(),rr.getNmodes(),byte_to_MB(total_size));
-      printMem(0);
-      fflush(stdout);
+      printMem("Meson field initialization",0);
     }
     cps::sync();
-
 
     for(int s=0;s<mfPerTimeSlice;s++){
       mf_st[s]->resize(Lt);
@@ -481,13 +474,9 @@ struct mfComputeGeneral: public mfVectorPolicies{
 #else
     if(!UniqueID()) printf("NOT using KNL optimizations\n");
 #endif
-    if(!UniqueID()){
-      printf("Node 0 memory status:\n");
-      printMem(0);
-      fflush(stdout);
-    }
-    cps::sync();
+    if(!UniqueID()) printMem("mfComputeGeneral node 0 memory status",0);
 
+    cps::sync();
 
     double time = -dclock();
     this->initializeMesonFields(mf_t,l,r,Lt,do_setup);
