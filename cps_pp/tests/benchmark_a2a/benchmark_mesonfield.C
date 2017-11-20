@@ -141,10 +141,10 @@ int main(int argc,char *argv[])
   
 #ifdef USE_GRID_GPARITY
   assert(ngp != 0);
-  std::cout << "Using standard BCs\n";
+  std::cout << "Using Gparity BCs\n";
 #else
   assert(ngp == 0);
-  std::cout << "Using Gparity BCs\n";
+  std::cout << "Using standard BCs\n";
 #endif
   FgridParams fgp; fgp.epsilon = 0.; fgp.mobius_scale = 32./12.;
   typename GridA2Apolicies::FgridGFclass lattice(fgp);
