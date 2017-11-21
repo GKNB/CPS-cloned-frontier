@@ -365,13 +365,19 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   //
   //!< Note: Agent classes which needs to import gauge field to
   //!external libraries need to overwrite this function.
-  virtual void BondCond();
+#ifndef NO_BFM_BC
+  void BondCond(){
+    Lattice::BondCond();
+    ImportGauge();
+  }
+#endif
+
+
 
   void ImportGauge();
 
     void SetBfmArg(Float key_mass);
 
-#if 1
     void SetMass(Float mass) {
 	const char *fname="SetMass(Float)";
     if(!bfm_initted) ERR.General(cname,fname,"Fbfm not initted\n");
@@ -412,7 +418,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
       bf.GeneralisedFiveDimInit();
     }
   }
-#endif
         void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag);
 

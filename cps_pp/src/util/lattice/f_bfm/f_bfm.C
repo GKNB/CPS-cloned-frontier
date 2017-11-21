@@ -70,6 +70,7 @@ inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
     x[3] = i % hl[3] + low[3];
 }
 
+#if 0
 // ----------------------------------------------------------------
 // static void BondCond: toggle boundary condition on/off for any
 // gauge-like field. Based on code from
@@ -108,7 +109,7 @@ static void BondCond(Float *u_base)
         }
     }
 }
-
+#endif
 
 // NOTE:
 //
@@ -138,7 +139,12 @@ Fbfm::Fbfm(void):cname("Fbfm")
     }
 
     // call our own version to import gauge field.
+#ifdef NO_BFM_BC
+    BondCond();
+    ImportGauge();
+#else
     Fbfm::BondCond();
+#endif
 
     evec = NULL;
     evald = NULL;
@@ -1066,19 +1072,6 @@ Float Fbfm::FhamiltonNode(Vector *phi, Vector *chi)
     return phi->ReDotProductNode(chi, f_size);
 }
 
-// Convert fermion field f_field from -> to
-// Moved to fbfm.h by CJ
-#if 0
-                    StrOrdType from)
-{
-    const char *fname = "Fconvert()";
-
-    // nothing needs to be done
-    //ERR.NotImplemented(cname, fname);
-}
-#endif
-
-
 // The boson Hamiltonian of the node sublattice
 Float Fbfm::BhamiltonNode(Vector *boson, Float mass)
 {
@@ -1119,13 +1112,15 @@ void Fbfm::Dminus(Vector *out, Vector *in)
     ERR.NotImplemented(cname, fname);
 }
 
+#if 0
 void Fbfm::BondCond()
 {
     Lattice::BondCond();
     ImportGauge();
 }
+#endif
 
-#ifndef BFM_GPARITY
+#ifdef USE_NEW_BFM_IMP
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";

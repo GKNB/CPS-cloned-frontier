@@ -35,7 +35,7 @@ ParTransGauge::ParTransGauge(Lattice & latt) :
     lat.Convert(CANONICAL);
   }
   if(GJP.Gparity() && DiracOp::scope_lock ==0)
-    BondCond(latt, gauge_field); //remove fermionic boundary conditions on gauge links (they are applied in the ParTrans constructor)
+    BondCond(lat, gauge_field); //remove fermionic boundary conditions on gauge links (they are applied in the ParTrans constructor)
 
   pt_init(lat);
   pt_init_g();
@@ -52,7 +52,7 @@ ParTransGauge::~ParTransGauge() {
       lat.StrOrd() != DWF_4D_EOPREC && lat.StrOrd() != DWF_4D_EOPREC_EE  ){
 
   if(GJP.Gparity() && DiracOp::scope_lock ==0)
-    BondCond(lat, gauge_field); //remove fermionic boundary conditions on gauge links (they are applied in the ParTrans destructor)
+    BondCond(lat, gauge_field); //remove fermionic boundary conditions on gauge links (they are applied in the ParTrans constructor)
 
     lat.Convert(old_str_ord);
   }

@@ -5235,11 +5235,11 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O -Wall"
      CXXFLAGS="${CXXFLAGS} -O -Wall"
    elif test "$enable_target" = "bgq"; then
-     CFLAGS="${CFLAGS} -O2 -Wall"
-     CXXFLAGS="${CXXFLAGS} -O2 -Wall"
+     CFLAGS="${CFLAGS} -O2 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -O2 -Wall -fno-strict-aliasing "
    else
-     CFLAGS="${CFLAGS} -g -O3 -Wall"
-     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall"
+     CFLAGS="${CFLAGS} -g -O3 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall -fno-strict-aliasing "
    fi
 fi
 
