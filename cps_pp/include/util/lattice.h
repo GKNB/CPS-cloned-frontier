@@ -1354,6 +1354,8 @@ class Lattice
     virtual void BondCond();
     Float GetReTrPlaq(const int x[4],Float *ReTrPlaq);
     int BcApplied(){return bc_applied;}
+   
+    virtual void SetMassArg(Float mass){}
 };
 
 //------------------------------------------------------------------

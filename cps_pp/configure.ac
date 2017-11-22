@@ -179,8 +179,8 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O -Wall"
      CXXFLAGS="${CXXFLAGS} -O -Wall"
    elif test "$enable_target" = "bgq"; then
-     CFLAGS="${CFLAGS} -O2 -Wall -fno-strict-aliasing "
-     CXXFLAGS="${CXXFLAGS} -O2 -Wall -fno-strict-aliasing "
+     CFLAGS="${CFLAGS} -g -O2 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O2 -Wall -fno-strict-aliasing "
    else
      CFLAGS="${CFLAGS} -g -O3 -Wall -fno-strict-aliasing "
      CXXFLAGS="${CXXFLAGS} -g -O3 -Wall -fno-strict-aliasing "

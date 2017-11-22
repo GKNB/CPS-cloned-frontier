@@ -166,6 +166,12 @@ void init_qmp(int * argc, char ***argv) {
 	}
 	QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
 	QMP_comm_set_default(qmp_comm);
+#else
+	peRank=0;
+	for(int i=NDIM-1;i>=0;i--){
+		peRank *= peGrid[i];
+		peRank += pePos[i];
+	}
 #endif
 
     if(peRank==0){

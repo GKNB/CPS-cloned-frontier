@@ -49,7 +49,8 @@ MultiShiftCGcontroller MultiShiftController;
 bool Fbfm::use_mixed_solver = false;
 
 std::map<Float, bfmarg> Fbfm::arg_map;
-Float Fbfm::current_key_mass = -1789.8;
+Float Fbfm::default_key_mass = -1789.8;
+Float Fbfm::current_key_mass = Fbfm::default_key_mass;
 
 std::map<Float, MADWFParams> Fbfm::madwf_arg_map;
 
@@ -133,23 +134,22 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
 
     bfm_initted = false;
-//    Float current_key_mass = -1789.8;
-    if (arg_map.count(current_key_mass) > 0) {
-        SetBfmArg(current_key_mass);
-    }
+    if (arg_map.count(current_key_mass) > 0) 
+    SetBfmArg(current_key_mass);
+#if 0
+    else
+    ERR.General(cname,fname," mass(%g) not initialized\n",current_key_mass);
+#endif
 
     // call our own version to import gauge field.
-#ifdef NO_BFM_BC
-    BondCond();
-    ImportGauge();
-#else
-    Fbfm::BondCond();
-#endif
+//    Fbfm::BondCond();
+    Lattice::BondCond();
 
     evec = NULL;
     evald = NULL;
     evalf = NULL;
     ecnt = 0;
+    VRB.Result(cname, fname,"ended");
 //    exit(-42);
 }
 
@@ -207,7 +207,7 @@ void AutofillBfmarg(bfmarg &arg)
 void Fbfm::SetBfmArg(Float key_mass)
 {
     const char* fname = "SetBfmArg(F)";
-
+//    printf("Node %d: mass %g\n",UniqueID(),key_mass);
     if (arg_map.count(key_mass) == 0) {
 	ERR.General(cname, fname, "No entry for key mass %e in arg_map!\n", key_mass);
     }
@@ -232,11 +232,11 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bd.comm_init();
 	}
 
-	ImportGauge();
 	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
     } else {
 	if (key_mass == current_key_mass) {
 	    VRB.Result(cname, fname, "Already inited from desired key mass %e\n", key_mass);
+            ImportGauge();
 	    return; // already inited with desired params
 	}
 
@@ -271,6 +271,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     bfm_initted = true;
     current_key_mass = key_mass;
+    ImportGauge();
 }
 
 // This function differs from the original CalcHmdForceVecsBilinear()
@@ -1124,6 +1125,7 @@ void Fbfm::BondCond()
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
+    if (!bfm_initted) SetBfmArg(current_key_mass);
     VRB.Result(cname,fname,"NEW VERSION with CPS parallel transport\n");
     LatMatrix One;
     LatMatrix LatDir[8];
@@ -1171,11 +1173,10 @@ void Fbfm::ImportGauge()
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
-    
+//    if (!bfm_initted) SetBfmArg(current_key_mass);
     Float *gauge = (Float *)(this->GaugeField());
     VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport mass=%g gauge=%p\n",current_key_mass, gauge);
     bd.cps_importGauge(gauge);
-//    exit(-43);
     if(use_mixed_solver) {
         bd.comm_end();
         bf.comm_init();

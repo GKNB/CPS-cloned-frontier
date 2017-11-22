@@ -27,6 +27,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 //    static int nthreads[2];
   
     static std::map<Float, bfmarg> arg_map;
+    static Float default_key_mass;
     static Float current_key_mass;
 	Float key_mass;
 //BfmSolver solver;
@@ -125,7 +126,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
         return F_CLASS_BFM;
     }
 
-#if 1
+#if 0
     virtual int F5D(){
       if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM)  return 1;
       else return 0;
@@ -368,7 +369,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 #ifndef NO_BFM_BC
   void BondCond(){
     Lattice::BondCond();
-    ImportGauge();
+    if (bfm_initted) ImportGauge();
   }
 #endif
 
@@ -377,6 +378,11 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   void ImportGauge();
 
     void SetBfmArg(Float key_mass);
+
+    void SetMassArg(Float mass){
+	VRB.Result(cname,"SetMassArg(F)","called\n");
+	SetBfmArg(mass);
+    }
 
     void SetMass(Float mass) {
 	const char *fname="SetMass(Float)";

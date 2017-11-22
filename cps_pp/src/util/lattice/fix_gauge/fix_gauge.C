@@ -1227,6 +1227,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
 
                                 for(int j=0; j<XXX::CheckFreq; j++)
                                     {
+										if((iternum%100) ==0 ) VRB.Result(cname,fname,"delta[%d]=%g\n",iternum,hplane.delta());
                                         hplane.iter();
                                         iternum++;
                                     }

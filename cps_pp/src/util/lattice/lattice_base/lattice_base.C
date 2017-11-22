@@ -4878,16 +4878,22 @@ void
 
 int Lattice::F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-#ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) //added by CK, moved here  by CJ
-#endif
-#ifdef USE_GRID
-      || Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS
-#endif
            || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
 	return 1;
-      else return 0;
+//added by CK, moved here  by CJ
+#ifdef USE_BFM
+     if (Fclass() == F_CLASS_BFM) {
+	if ( !Fbfm::arg_map.count(Fbfm::current_key_mass) ) 
+         ERR.General(cname,"F5D()","key_mass(%g) needs to be set before calling F5D()\n");
+	if (Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1;
+     }
+#endif
+
+#ifdef USE_GRID
+      if( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+#endif
+      return 0;
 }
 
 int
