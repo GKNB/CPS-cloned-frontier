@@ -12,7 +12,7 @@ QOSLIB = ${QOS}/quser/gcc-lib-user///
 CC = @CC@
 CXX = @CXX@
 AS  = @AS@
-LDFLAGS = @LDFLAGS@
+LDFLAGS = @LDFLAGS@ @LIBS@
 
 me = $(notdir $(PWD))
 BIN = @ARCH@.x
