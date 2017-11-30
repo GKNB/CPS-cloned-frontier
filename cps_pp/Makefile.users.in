@@ -10,7 +10,7 @@ BUILDDIR = @abs_top_builddir@
 CC = @CC@
 CXX = @CXX@
 AS  = @AS@
-LDFLAGS = @LDFLAGS@
+LDFLAGS = @LDFLAGS@ @LIBS@
 
 me = $(notdir $(PWD))
 BIN = @ARCH@.x

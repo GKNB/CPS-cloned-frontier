@@ -134,7 +134,7 @@ class EigenCache
 public:
   // Constructer null-ing flags, should be called once in the global scope
     EigenCache ():
-    cname ("EigenCache"), read_interval (10), neig (0), alloc_flag (0),
+    cname ("EigenCache"), read_interval (1000), neig (0), alloc_flag (0),
     eval_cached (0)
   {
     *fname_root_bc = 0;		// clear file name
@@ -213,12 +213,10 @@ public:
     VRB.Func (cname, fname);
     if (!alloc_flag)
       return;
-    neig = 0;
     *fname_root_bc = 0;
-//    sfree(cname,fname,"index", index);
     for (int i = 0; i < neig; i++)
       sfree (cname, fname, "evec[i]", evec[i]);
-//    sfree(cname,fname,"eval", eval);
+    neig = 0;
     alloc_flag = 0;
     eval_cached = 0;
   }
