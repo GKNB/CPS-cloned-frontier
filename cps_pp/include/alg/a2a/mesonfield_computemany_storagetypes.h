@@ -163,6 +163,9 @@ public:
 
   const storageType & operator[](const int cidx) const{ return mf[cidx]; }
   storageType & operator[](const int cidx){ return mf[cidx]; }
+
+  const storageType & operator()(const int cidx) const{ return mf[cidx]; }
+  storageType & operator()(const int cidx){ return mf[cidx]; }
   
   mfComputeInputFormat getMf(const int cidx){
     if(mf.size() != clist.size()) mf.resize(clist.size());
@@ -175,6 +178,7 @@ public:
   void nodeDistributeResult(const int cidx){
     nodeDistributeMany(1, &mf[cidx]);    
   }
+    
 };
 
 
@@ -407,6 +411,8 @@ public:
     const std::pair<int,int> opt_loc = static_cast<Derived const*>(this)->clist_opt_map[orig_cidx];
     return static_cast<Derived const*>(this)->mf[opt_loc.first][opt_loc.second];
   }
+
+  typedef int accessorIdxType;
 };
 //Multi source
 template<typename mf_Policies, typename InnerProduct>
@@ -423,6 +429,11 @@ public:
     const std::pair<int,int> opt_loc = static_cast<Derived const*>(this)->clist_opt_map[orig_cidx];
     return static_cast<Derived const*>(this)->mf[opt_loc.first][src_idx + SourceType::nSources*opt_loc.second];
   }
+
+  typedef std::pair<int,int> accessorIdxType; //(src, cidx)
+  
+  storageType & operator()(const accessorIdxType &idx){ return (*this)(idx.first, idx.second); }
+  const storageType & operator()(const accessorIdxType &idx) const{ return (*this)(idx.first, idx.second); }
 };
   
 
@@ -435,6 +446,7 @@ public:
   typedef InnerProduct InnerProductType;
   typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
   typedef std::vector< storageType* > mfComputeInputFormat;
+  typedef typename _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
   friend class _GparityFlavorProjectedShiftSourceStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
 private:
 
@@ -483,8 +495,45 @@ public:
 
   void nodeDistributeResult(const int opt_cidx){
     for(int s=0;s<mf[opt_cidx].size();s++) nodeDistributeMany(1, &mf[opt_cidx][s]);    
-  }
+  }  
 };
+
+
+
+//Replace   mf[offset(0)] with   avg(mf[offset(0)], mf[offset(1)], mf[offset(2)]...., mf[offset(navg-1)])
+//All averaged meson fields apart from mf[offset(0)] will have their memory freed
+//Preserves distributed status of meson fields unless disable_redistribute = true, in which case it won't redistribute
+template<typename StoreType, typename Indexer>
+void stridedAverageFree(StoreType &mf_store, const Indexer &offset, const int navg, bool disable_redistribute = false){
+  typedef typename StoreType::storageType storageType;
+  storageType &mf_base = mf_store(offset(0));
+    
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  bool redistribute = false;
+  if(!mesonFieldsOnNode(mf_base)){
+    nodeGetMany(1,&mf_base); redistribute = true;
+  }
+#endif
+  int Lt = mf_base.size();
+    
+  for(int i=1; i<navg; i++){
+    storageType &mf_alt = mf_store(offset(i));
+      
+    for(int t=0;t<Lt;t++){
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      mf_alt[t].nodeGet(); //gather iff distributed
+#endif	
+      mf_base[t].plus_equals(mf_alt[t]);
+      mf_alt[t].free_mem();
+    }
+  }
+  for(int t=0;t<Lt;t++)
+    mf_base[t].times_equals(1./navg);
+    
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  if(!disable_redistribute) nodeDistributeMany(1, &mf_base);  
+#endif
+}  
 
 CPS_END_NAMESPACE
 

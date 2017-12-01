@@ -9,3 +9,6 @@ misc/vml_encode/rpcgenvml/rpcgenvml
 *.bak3
 *.tar.gz
 ../*
+*.py
+*.pyc
+\#*#

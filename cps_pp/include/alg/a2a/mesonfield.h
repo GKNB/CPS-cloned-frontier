@@ -350,6 +350,12 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...);
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...);
 
+template<typename T>
+bool mesonFieldsOnNode(const std::vector<T> &mf){
+  for(int i=0;i<mf.size();i++) if(!mf[i].isOnNode()) return false;
+  return true;
+}
+
 #include<alg/a2a/mesonfield_mult_impl.tcc>
 #include<alg/a2a/mesonfield_mult_vMv_impl.tcc>
 #include<alg/a2a/mesonfield_mult_vv_impl.tcc>

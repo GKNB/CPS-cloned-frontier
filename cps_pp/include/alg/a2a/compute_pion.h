@@ -12,42 +12,65 @@ CPS_START_NAMESPACE
 class StandardPionMomentaPolicy: public RequiredMomentum{
 public:
   StandardPionMomentaPolicy(): RequiredMomentum() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+    
     if(ngp == 0){
       //p_pi = (0,0,0)
-      addP("(0,0,0) + (0,0,0)",false);
+      addP("(0,0,0) + (0,0,0)");
       //one unit of momenta in units of 2pi/L
-      addPandMinusP("(1,0,0) + (0,0,0)",false);
-      addPandMinusP("(0,1,0) + (0,0,0)",false);
-      addPandMinusP("(0,0,1) + (0,0,0)",false);
+      addPandMinusP("(1,0,0) + (0,0,0)");
+      addPandMinusP("(0,1,0) + (0,0,0)");
+      addPandMinusP("(0,0,1) + (0,0,0)");
     }else if(ngp == 1){
       //p_pi = (-2,0,0)     (units of pi/2L)    
-      addPandMinusP("(-1,0,0) + (-1,0,0)",false); addPandMinusP("(1,0,0) + (-3,0,0)",true); //alternative momentum   
+      addPandMinusP("(-1,0,0) + (-1,0,0)"); addPandMinusP("(1,0,0) + (-3,0,0)"); //alternative momentum   
       //(In case you're wondering why my first momentum has the opposite sign to Daiqian's, its because mine is for W^dagger, not W)
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (-2,-2,0)     (units of pi/2L)  
-      addPandMinusP("(-1,-1,0) + (-1,-1,0)",false); addPandMinusP("(1,1,0) + (-3,-3,0)",true);
+      addPandMinusP("(-1,-1,0) + (-1,-1,0)"); addPandMinusP("(1,1,0) + (-3,-3,0)");
 
       //Along off-diagonal direction:      
       //p_pi = (2,-2,0)
-      addPandMinusP("(-1,-1,0) + (3,-1,0)",false); addPandMinusP("(1,1,0) + (1,-3,0)",true);
+      addPandMinusP("(-1,-1,0) + (3,-1,0)"); addPandMinusP("(1,1,0) + (1,-3,0)");
     }else if(ngp == 3){
-      //p_pi = (-2,-2,-2)     (units of pi/2L)  
-      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false); addPandMinusP("(1,1,1) + (-3,-3,-3)",true);
+      //p_pi = (-2,-2,-2)     (units of pi/2L)
+      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)"); addPandMinusP("(1,1,1) + (-3,-3,-3)");
 
       //p_pi = (2,-2,-2)
-      addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false); addPandMinusP("(1,1,1) + (1,-3,-3)",true);
+      addPandMinusP("(-1,-1,-1) + (3,-1,-1)"); addPandMinusP("(1,1,1) + (1,-3,-3)");
 
       //p_pi = (-2,2,-2)
-      addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false); addPandMinusP("(1,1,1) + (-3,1,-3)",true);
+      addPandMinusP("(-1,-1,-1) + (-1,3,-1)"); addPandMinusP("(1,1,1) + (-3,1,-3)");
 
       //p_pi = (-2,-2,2)
-      addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false); addPandMinusP("(1,1,1) + (-3,-3,1)",true);      
+      addPandMinusP("(-1,-1,-1) + (-1,-1,3)"); addPandMinusP("(1,1,1) + (-3,-3,1)");
+
+      assert(nMom() == 8);
+      for(int i=0;i<8;i++) assert(nAltMom(i) == 2);
     }else{
       ERR.General("StandardPionMomentaPolicy","constructor","ngp cannot be >3\n");
     }
   };
 };
+
+
+//Same as the above but where we reverse the momentum assignments of the W^dag and V
+class ReversePionMomentaPolicy: public StandardPionMomentaPolicy{
+public:
+  ReversePionMomentaPolicy(): StandardPionMomentaPolicy() {
+    this->reverseVWdagMomentumAssignments();
+  }
+};
+
+//Add Wdag, V momenta and the reverse assignment to make a symmetric combination
+class SymmetricPionMomentaPolicy: public StandardPionMomentaPolicy{
+public:
+  SymmetricPionMomentaPolicy(): StandardPionMomentaPolicy() {
+    this->symmetrizeVWdagMomentumAssignments();
+  }
+};
+
 
 //This set of momenta does not include the second momentum combination with which we average to reduce the G-parity rotational symmetry breaking
 class H4asymmetricMomentaPolicy: public RequiredMomentum{
@@ -55,31 +78,31 @@ public:
   void setupMomenta(){
     if(ngp == 0){
       //p_pi = (0,0,0)
-      addP("(0,0,0) + (0,0,0)",false);
+      addP("(0,0,0) + (0,0,0)");
     }else if(ngp == 1){
       //p_pi = (-2,0,0)     (units of pi/2L)    
-      addPandMinusP("(-1,0,0) + (-1,0,0)",false);
+      addPandMinusP("(-1,0,0) + (-1,0,0)");
       //(In case you're wondering why my first momentum has the opposite sign to Daiqian's, its because mine is for W^dagger, not W)
     }else if(ngp == 2){
       //Along G-parity direction:
       //p_pi = (-2,-2,0)     (units of pi/2L)  
-      addPandMinusP("(-1,-1,0) + (-1,-1,0)",false);
+      addPandMinusP("(-1,-1,0) + (-1,-1,0)");
 
       //Along off-diagonal direction:      
       //p_pi = (2,-2,0)
-      addPandMinusP("(-1,-1,0) + (3,-1,0)",false);
+      addPandMinusP("(-1,-1,0) + (3,-1,0)");
     }else if(ngp == 3){
       //p_pi = (-2,-2,-2)     (units of pi/2L)  
-      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,-1,-1)");
 
       //p_pi = (2,-2,-2)
-      addPandMinusP("(-1,-1,-1) + (3,-1,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (3,-1,-1)");
 
       //p_pi = (-2,2,-2)
-      addPandMinusP("(-1,-1,-1) + (-1,3,-1)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,3,-1)");
 
       //p_pi = (-2,-2,2)
-      addPandMinusP("(-1,-1,-1) + (-1,-1,3)",false);
+      addPandMinusP("(-1,-1,-1) + (-1,-1,3)");
     }else{
       ERR.General("H4asymmetricMomentaPolicy","setupMomenta","ngp cannot be >3\n");
     }
@@ -144,17 +167,18 @@ private:
     typename GparityComputeTypes::MultiInnerType g5_s3_inner(sigma3, src);
     
     typename GparityComputeTypes::StorageType* mf_store = new typename GparityComputeTypes::StorageType(g5_s3_inner,src);
-    //Base momenta
-    for(int pidx=0;pidx<nmom;pidx++){
-      ThreeMomentum p_w = pion_mom.getWmom(pidx,false);
-      ThreeMomentum p_v = pion_mom.getVmom(pidx,false);
-      mf_store->addCompute(0,0, p_w,p_v);	
-    }
-    //Alt momenta
-    for(int pidx=0;pidx<nmom;pidx++){
-      ThreeMomentum p_w = pion_mom.getWmom(pidx,true);
-      ThreeMomentum p_v = pion_mom.getVmom(pidx,true);
-      mf_store->addCompute(0,0, p_w,p_v);	
+
+    int nalt;
+    for(int pidx=0;pidx<nmom;pidx++)
+      if(pidx == 0) nalt = pion_mom.nAltMom(pidx);
+      else assert(pion_mom.nAltMom(pidx) == nalt);
+    
+    for(int alt=0;alt<nalt;alt++){      
+      for(int pidx=0;pidx<nmom;pidx++){      
+	ThreeMomentum p_w = pion_mom.getWmom(pidx,alt);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,alt);
+	mf_store->addCompute(0,0, p_w,p_v);
+      }
     }
 
     ComputeMesonFields<mf_Policies,typename GparityComputeTypes::StorageType>::compute(*mf_store,Wspecies,Vspecies,lattice
@@ -173,27 +197,18 @@ private:
 
     printMemNodeFile("GparityAverageAltMomenta");
 
-    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
 
     for(int pidx=0;pidx<nmom;pidx++){
       for(int src_idx=0; src_idx<2; src_idx++){
-	const ThreeMomentum pi_mom_pidx = pion_mom.getMesonMomentum(pidx);
-	MesonFieldVectorType & mf_pbase = (*mf_store)(src_idx,pidx);
-	MesonFieldVectorType & mf_palt = (*mf_store)(src_idx,pidx+nmom);
-
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-	nodeGetMany(1,&mf_pbase);
-	nodeGetMany(1,&mf_palt);
-#endif
-	for(int t=0;t<Lt;t++){
-	  mf_pbase[t].average(mf_palt[t]);
-	  mf_palt[t].free_mem();
-	}
-      
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-	nodeDistributeMany(1,&mf_pbase);
-#endif
+	struct indexer{
+	  const int base;
+	  const int stride;
+	  const int src_idx;
+	  indexer(const int b, const int s, const int src): base(b), stride(s), src_idx(src){}	  
+	  inline std::pair<int,int> operator()(const int i) const{ return std::pair<int,int>(src_idx, base+i*stride); }
+	};
+	stridedAverageFree(*mf_store,indexer(pidx, nmom, src_idx), pion_mom.nAltMom(pidx));
       }
     }
   }
@@ -268,9 +283,6 @@ public:
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
-    if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
-      ERR.General("ComputePion","computeMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
-    
 
     typedef A2AexpSource<SourcePolicies> SrcType;
     typedef SCspinInnerProduct<15,ComplexType,SrcType> InnerType;
@@ -318,8 +330,6 @@ public:
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
-    if(pion_mom.nAltMom() > 0 && pion_mom.nAltMom() != nmom)
-      ERR.General("ComputePion","computeGparityMesonFields","If alternate momentum combinations are specified there must be one for each pion momentum!\n");
 
 #ifdef ARCH_BGQ
     int init_thr = omp_get_max_threads();
