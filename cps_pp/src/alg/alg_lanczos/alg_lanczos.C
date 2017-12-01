@@ -125,7 +125,7 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   eigenv = (Vector**)smalloc(m*sizeof(Vector*));
   for(int i=0;i<m;++i){
 	 eigenv[i] = ecache->vec_ptr(i);
-	VRB.Result (cname, fname, "evec[%d]=%p\n", i, eigenv[i]);
+	VRB.Result (cname, fname, "eigenv[%d]=%p\n", i, eigenv[i]);
   }
 
 
@@ -234,6 +234,10 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
     iter = lat.FeigSolv(eigenv, lambda, lanczos_arg, CNV_FRM_YES);
   else if(Ncb==1)
     iter = lat.FeigSolv(eigenv, lambda, lanczos_arg, CNV_FRM_NO);
+  for(int i=0;i<m;++i){
+	 ecache->set_ptr(i,eigenv[i]);
+	VRB.Result (cname, fname, "eigenv[%d]=%p ecache %p\n", i, eigenv[i],ecache->vec_ptr(i));
+  }
  
   // Now Let's save them
 

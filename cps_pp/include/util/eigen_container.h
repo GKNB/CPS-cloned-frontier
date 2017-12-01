@@ -151,6 +151,8 @@ public:
 
   int Neig ()
   {
+    assert(neig == eval.size());
+    assert(neig == evec.size());
     return neig;
   }
   char *Name ()
@@ -175,7 +177,7 @@ public:
 		a_fname_root_bc, a_neig, a_f_size);
 
     // first deallocate if already allocated
-    dealloc ();
+    if(alloc_flag) dealloc ();
 
     f_size = a_f_size;
     neig = a_neig;
@@ -215,6 +217,8 @@ public:
     for (int i = 0; i < neig; i++)
       sfree (cname, fname, "evec[i]", evec[i]);
     neig = 0;
+    eval.resize(0);
+    evec.resize(0);
     alloc_flag = 0;
     eval_cached = 0;
   }
@@ -230,6 +234,21 @@ public:
     sfree (evec[vec_i]);
     neig--;
     evec.resize (neig);
+  }
+
+  void resize (int new_size)
+  {
+    const char *fname = "resize(int n)";
+    //only works when freeing the last one
+//    VRB.Func (cname, fname);
+    if (!alloc_flag)
+      return;
+    assert (new_size < neig);
+    for(int i=(neig-1); i>=new_size;i--)
+    sfree (evec[i]);
+    neig=new_size;
+    evec.resize (neig);
+    eval.resize (neig);
   }
 
   // save eigenvalues into cache 
@@ -288,6 +307,20 @@ public:
     assert (idx < neig);
     return (Vector *) ((Float *) evec[idx]);
   }
+
+  // just return the pointer in the cache
+  Vector *set_ptr (int idx, Vector *ptr)
+  {
+    VRB.Flow (cname, "set_ptr(index)", "idx %d index %d\n", idx, index[idx]);
+    if (!alloc_flag)
+      return 0;
+    assert (idx < neig);
+    evec[idx] = (Float *) ptr;
+    VRB.Debug (cname, "set_ptr(index)", "idx %d index %d %p\n", idx,
+		index[idx], evec[idx]);
+    return (Vector *) ((Float *) evec[idx]);
+  }
+
   // just return the pointer in the cache, not copy
   // return 0 if it's not in the cache
   Vector *pointer (int idx)
