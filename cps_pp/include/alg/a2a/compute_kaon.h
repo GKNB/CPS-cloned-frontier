@@ -70,29 +70,24 @@ class ComputeKaon{
   typedef const A2AvectorV<mf_Policies> Vtype;
 #endif
 
-  //Compute the two-point function using a hydrogen-wavefunction source of radius 'rad'
-  //result is indexed by (tsrc, tsep)  where tsep is the source-sink separation
   template<typename KaonMomentumPolicy>
-  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-		      Wtype &W, Vtype &V, 
-		      Wtype &W_s, Vtype &V_s,
-		      const KaonMomentumPolicy &kaon_momentum,
-		      const Float &rad, Lattice &lattice,
-		      const FieldParamType &src_setup_params = NullObject()){
+  static void computeMesonFields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ls,
+				 std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sl,				 
+				 Wtype &W, Vtype &V, 
+				 Wtype &W_s, Vtype &V_s,
+				 const KaonMomentumPolicy &kaon_momentum,
+				 const Float &rad, Lattice &lattice,
+				 const FieldParamType &src_setup_params = NullObject()){
     typedef typename mf_Policies::ComplexType ComplexType;
-    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
 
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    into.resize(Lt,Lt);
+    mf_ls.resize(Lt); mf_sl.resize(Lt);
 
     std::vector<Wtype*> Wspecies(2); Wspecies[0] = &W; Wspecies[1] = &W_s;
     std::vector<Vtype*> Vspecies(2); Vspecies[0] = &V; Vspecies[1] = &V_s;
     
     //Construct the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_ls(Lt);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > mf_sl(Lt);
-
     assert(kaon_momentum.LightHeavy.nMom() == 1); assert(kaon_momentum.HeavyLight.nMom() == 1);
     if(!GJP.Gparity()){
       assert(kaon_momentum.LightHeavy.nAltMom(0) == 1); assert(kaon_momentum.HeavyLight.nAltMom(0) == 1);
@@ -152,12 +147,20 @@ class ComputeKaon{
 	mf_sl[t].move(mf_store[1][t]);
       } 
     }//if G-parity
+  }
 
+
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+		      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_ls,
+		      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sl){
     //Compute the two-point function
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt,Lt);
     trace(into,mf_sl,mf_ls);
-    into *= ScalarComplexType(0.5,0);
+    into *= typename mf_Policies::ScalarComplexType(0.5,0);
     rearrangeTsrcTsep(into); //rearrange temporal ordering
   }
+
 
 };
 

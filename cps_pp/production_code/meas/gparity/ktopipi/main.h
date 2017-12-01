@@ -383,18 +383,41 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &param
   doGaugeFix(lat,skip_gauge_fix,params.fix_gauge_arg);
 }
 
+struct KaonMesonFields{
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
+  mfVector mf_ls;
+  mfVector mf_sl;
+  KaonMesonFields(){}
+
+  void move(KaonMesonFields &r){
+    int n = r.mf_ls.size();
+    for(int i=0;i<n;i++){
+      mf_ls[i].move(r.mf_ls[i]);
+      mf_sl[i].move(r.mf_sl[i]);
+    }
+  }
+};
+
 template<typename KaonMomentumPolicy>
 void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
 		    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
 		    const KaonMomentumPolicy &kaon_mom,
-		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+		    KaonMesonFields *keep_mesonfields = NULL){
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
+  
+  KaonMesonFields mf;
+  ComputeKaon<A2Apolicies>::computeMesonFields(mf.mf_ls, mf.mf_sl,
+					       W, V, W_s, V_s, kaon_mom,
+					       params.jp.kaon_rad, lat, field3dparams);
+
   fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
-  ComputeKaon<A2Apolicies>::compute(kaon,
-				    W, V, W_s, V_s, kaon_mom,
-				    params.jp.kaon_rad, lat, field3dparams);
+  ComputeKaon<A2Apolicies>::compute(kaon, mf.mf_ls, mf.mf_sl);
+  
   std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
   kaon.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
@@ -404,6 +427,8 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
   time += dclock();
   print_time("main","Kaon 2pt function",time);
 
+  if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
+  
   printMem("Memory after kaon 2pt function computation");
 }
 
@@ -546,12 +571,25 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
   printMem("Memory after pi-pi 2pt function computation");
 }
 
+struct LSWWmesonFields{
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mfVector;
+  mfVector mf_ls_ww;
+  LSWWmesonFields(){}
+
+  void move(mfVector &r){
+    int n = r.size();
+    for(int i=0;i<n;i++)
+      mf_ls_ww[i].move(r[i]);
+  }
+};
+
 template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
 		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
-		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params){
+		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params,
+		    LSWWmesonFields* mf_ls_ww_keep = NULL){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
@@ -693,6 +731,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
     
     printMem("Memory after type4 K->pipi and end of config loop");
   }
+  if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww);
 }//do_ktopipi
 
 
@@ -736,7 +775,6 @@ void doContractions(const int conf, Parameters &params, const CommandLineArgs &c
   StandardLSWWmomentaPolicy lsWW_mom;
   if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,lsWW_mom,conf,params);
 }
-
 
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
