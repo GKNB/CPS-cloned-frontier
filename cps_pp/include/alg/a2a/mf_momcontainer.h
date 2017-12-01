@@ -13,16 +13,17 @@ CPS_START_NAMESPACE
 template<typename mf_Policies>
 class MesonFieldMomentumContainer{
 private:
-  typedef std::map<ThreeMomentum, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >* > MapType; //vector is the time index of the meson field
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
+  typedef std::map<ThreeMomentum, std::vector<MfType >* > MapType; //vector is the time index of the meson field
   MapType mf; //store pointers so we don't have to copy
   
 public:
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > const* getPtr(const ThreeMomentum &p) const{
+  std::vector<MfType > const* getPtr(const ThreeMomentum &p) const{
     typename MapType::const_iterator it = mf.find(p);
     if(it == mf.end()) return NULL;
     else return it->second;
   }
-  const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p) const{
+  const std::vector<MfType >& get(const ThreeMomentum &p) const{
     typename MapType::const_iterator it = mf.find(p);
     if(it == mf.end()){
       std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomentum " << p.str() << std::endl; std::cout.flush();
@@ -30,7 +31,7 @@ public:
     }      
     else return *it->second;
   }
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p){
+  std::vector<MfType >& get(const ThreeMomentum &p){
     typename MapType::iterator it = mf.find(p);
     if(it == mf.end()){
       std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomentum " << p.str() << std::endl; std::cout.flush();
@@ -44,21 +45,57 @@ public:
       os << it->first.str() << "\n";
   }
 
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& copyAdd(const ThreeMomentum &p, const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){   
-    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield);
+  std::vector<MfType >& copyAdd(const ThreeMomentum &p, const std::vector<MfType > &mfield){   
+    mf[p] = new std::vector<MfType >(mfield);
     return *mf[p];
   }
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& moveAdd(const ThreeMomentum &p, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
-    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield.size());
+  std::vector<MfType >& moveAdd(const ThreeMomentum &p, std::vector<MfType > &mfield){
+    mf[p] = new std::vector<MfType >(mfield.size());
     for(int i=0;i<mfield.size();i++) mf[p]->operator[](i).move(mfield[i]);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >().swap(mfield);
+    std::vector<MfType >().swap(mfield);
     return *mf[p];
   }
   
   bool contains(const ThreeMomentum &p) const{ return mf.count(p) != 0; }
 
+  void average(MesonFieldMomentumContainer<mf_Policies> &r){
+    if(!UniqueID()) printf("MesonFieldMomentumContainer::average called\n");
+    double time = -dclock();
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      assert(r.contains(it->first));
+      std::vector<MfType >&rmf = r.get(it->first);
+      std::vector<MfType >&lmf = *it->second;
+
+      bool redist_l = false;
+      bool redist_r = false;
+      if(!mesonFieldsOnNode(lmf)){
+	nodeGetMany(1,&lmf);
+	redist_l = true;
+      }
+      if(!mesonFieldsOnNode(rmf)){
+	nodeGetMany(1,&rmf);
+	redist_r = true;
+      }
+      
+      for(int t=0;t<lmf.size();t++) lmf[t].average(rmf[t]);
+
+      if(redist_l) nodeDistributeMany(1,&lmf);
+      if(redist_r) nodeDistributeMany(1,&rmf);
+    }
+    print_time("MesonFieldMomentumContainer","average",time + dclock());
+  }
+  
+  inline void free_mem(){
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	delete it->second;
+	it->second = NULL;
+      }
+    }
+  }
+  
   ~MesonFieldMomentumContainer(){
-    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++) delete it->second;
+    free_mem();
   }
 };
 
@@ -68,17 +105,18 @@ public:
 //In some cases we are interested in storing multiple momentum combinations with the same total momentum; use this container for easy storage of such
 template<typename mf_Policies>
 class MesonFieldMomentumPairContainer{
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
   typedef std::pair<ThreeMomentum,ThreeMomentum> MomentumPair;
-  typedef std::map<MomentumPair, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >* > MapType; //vector is the time index of the meson field
+  typedef std::map<MomentumPair, std::vector<MfType >* > MapType; //vector is the time index of the meson field
   MapType mf; 
   
 public:
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > const* getPtr(const ThreeMomentum &p1, const ThreeMomentum &p2) const{
+  std::vector<MfType > const* getPtr(const ThreeMomentum &p1, const ThreeMomentum &p2) const{
     typename MapType::const_iterator it = mf.find(MomentumPair(p1,p2));
     if(it == mf.end()) return NULL;
     else return it->second;
   }
-  const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p1, const ThreeMomentum &p2) const{
+  const std::vector<MfType >& get(const ThreeMomentum &p1, const ThreeMomentum &p2) const{
     typename MapType::const_iterator it = mf.find(MomentumPair(p1,p2));
     if(it == mf.end()){
       std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomenta " << p1.str() << " + " << p2.str() << std::endl; std::cout.flush();
@@ -86,7 +124,7 @@ public:
     }      
     else return *it->second;
   }
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& get(const ThreeMomentum &p1, const ThreeMomentum &p2){
+  std::vector<MfType >& get(const ThreeMomentum &p1, const ThreeMomentum &p2){
     typename MapType::iterator it = mf.find(MomentumPair(p1,p2));
     if(it == mf.end()){
       std::cout << "MesonFieldMomentumContainer::get Cannot find meson field with ThreeMomenta " << p1.str() << " + " << p2.str() << std::endl; std::cout.flush();
@@ -100,16 +138,16 @@ public:
       os << it->first.first.str() << " + " << it->first.second.str() << "\n";
   }
 
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& copyAdd(const ThreeMomentum &p1, const ThreeMomentum &p2, const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
+  std::vector<MfType >& copyAdd(const ThreeMomentum &p1, const ThreeMomentum &p2, const std::vector<MfType > &mfield){
     MomentumPair p(p1,p2);
-    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield);
+    mf[p] = new std::vector<MfType >(mfield);
     return *mf[p];
   }
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& moveAdd(const ThreeMomentum &p1, const ThreeMomentum &p2, std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mfield){
+  std::vector<MfType >& moveAdd(const ThreeMomentum &p1, const ThreeMomentum &p2, std::vector<MfType > &mfield){
     MomentumPair p(p1,p2);
-    mf[p] = new std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >(mfield.size());
+    mf[p] = new std::vector<MfType >(mfield.size());
     for(int i=0;i<mfield.size();i++) mf[p]->operator[](i).move(mfield[i]);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >().swap(mfield);
+    std::vector<MfType >().swap(mfield);
     return *mf[p];
   }
   

@@ -218,8 +218,8 @@ private:
   //Writes meson fields with pidx < nMom   (i.e. after alt_mom have been averaged)
   template<typename PionMomentumPolicy>
   static void GparityWriteMF(const std::string &work_dir, const int traj, const Float &rad,
-				    const PionMomentumPolicy &pion_mom,
-				    typename GparityComputeTypes::StorageType* mf_store){
+			     const PionMomentumPolicy &pion_mom,
+			     typename GparityComputeTypes::StorageType* mf_store, const std::string &postpend = ""){
     printMemNodeFile("GparityWriteMF");
 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -235,7 +235,7 @@ private:
 	nodeGetMany(1,&mf_base);
 #endif	
 	std::ostringstream os; //momenta in units of pi/2L
-	os << work_dir << "/traj_" << traj << "_pion_mf_mom" << pi_mom_pidx.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
+	os << work_dir << "/traj_" << traj << "_pion_mf_mom" << pi_mom_pidx.file_str() << "_hyd" << src_names[s] << "_rad" << rad << postpend << ".dat";
 
 #ifndef MEMTEST_MODE	
 	MesonFieldType::write(os.str(),mf_base);
@@ -323,8 +323,8 @@ public:
 					const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
 					Wtype &W, Vtype &V,
 					const Float &rad, //exponential wavefunction radius
-					Lattice &lattice,			      
-					const FieldParamType &src_setup_params = NullObject()){
+					Lattice &lattice,
+					const FieldParamType &src_setup_params = NullObject(), const std::string &mf_write_postpend = ""){
     assert(GJP.Gparity());
     Float time = -dclock();    
     std::vector<Wtype*> Wspecies(1, &W);
@@ -345,7 +345,7 @@ public:
 #endif
 
     GparityAverageAltMomenta(pion_mom,mf_store);
-    GparityWriteMF(work_dir, traj, rad, pion_mom, mf_store); //write all meson fields to disk
+    GparityWriteMF(work_dir, traj, rad, pion_mom, mf_store, mf_write_postpend); //write all meson fields to disk
     
     GparityStore(mf_ll_1s_con, pion_mom, 0, mf_store);
     GparityStore(mf_ll_2s_con, pion_mom, 1, mf_store);    

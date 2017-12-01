@@ -7,35 +7,47 @@ struct LSWWmesonFields{
   LSWWmesonFields(){}
 
   void move(mfVector &r){
-    int n = r.size();
-    for(int i=0;i<n;i++)
+    mf_ls_ww.resize(r.size());
+    for(int i=0;i<r.size();i++)
       mf_ls_ww[i].move(r[i]);
+  }
+  void average(const LSWWmesonFields &r){
+    for(int i=0;i<mf_ls_ww.size();i++){
+      bool redist_l = false, redist_r = false;
+      if(!mf_ls_ww[i].isOnNode()){ mf_ls_ww[i].nodeGet(); redist_l = true; }
+      if(!r.mf_ls_ww[i].isOnNode()){ r.mf_ls_ww[i].nodeGet(); redist_r = true; }
+      
+      mf_ls_ww[i].average(r.mf_ls_ww[i]);
+
+      if(redist_l) mf_ls_ww[i].nodeDistribute();
+      if(redist_r) r.mf_ls_ww[i].nodeDistribute();
+    }      
+  }
+  void free_mem(){
+    for(int i=0;i<mf_ls_ww.size();i++)
+      mf_ls_ww[i].free_mem();
   }
 };
 
-template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
-void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
-		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
-		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
-		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params,
-		    LSWWmesonFields* mf_ls_ww_keep = NULL){
+
+template<typename PionMomentumPolicy>
+void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+				const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
+				const LSWWmesonFields &mf_ls_ww_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+				const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
-  //We first need to generate the light-strange W*W contraction
-  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
-  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
+  typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+
+  const std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > &mf_ls_ww = mf_ls_ww_con.mf_ls_ww;
+
+  MesonFieldMomentumContainer<A2Apolicies>* ll_meson_field_ptrs[2] = { &mf_ll_con, &mf_ll_con_2s };
 
   std::vector<int> k_pi_separation(params.jp.k_pi_separation.k_pi_separation_len);
   for(int i=0;i<params.jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = params.jp.k_pi_separation.k_pi_separation_val[i];
 
-  printMem("Memory after computing W*W meson fields");
-
-  typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
-  typedef ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
-
-  MesonFieldMomentumContainer<A2Apolicies>* ll_meson_field_ptrs[2] = { &mf_ll_con, &mf_ll_con_2s };
   const int nsource = GJP.Gparity() ? 2 : 1;
   const std::string src_str[2] = { "", "_src2s" };
     
@@ -69,6 +81,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
 #else
 	os << "_mom" << (-p_pi1).file_str(2);
 #endif
+	os << postpend;
 	type1[kpi_idx].write(os.str());
 #ifdef WRITE_HEX_OUTPUT
 	os << ".hexfloat";
@@ -97,6 +110,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
 					      W, W_s);
     for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
       std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type2_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << params.jp.pipi_separation;
+      os << postpend;
       type2[kpi_idx].write(os.str());
 #ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";
@@ -122,6 +136,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
 					      W, W_s);
     for(int kpi_idx=0;kpi_idx<k_pi_separation.size();kpi_idx++){
       std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type3_deltat_" << k_pi_separation[kpi_idx] << src_str[sidx] << "_sep_" << params.jp.pipi_separation;
+      os << postpend;
       write(os.str(),type3[kpi_idx],mix3[kpi_idx]);
 #ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";
@@ -150,6 +165,7 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
       
     {
       std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_type4";
+      os << postpend;
       write(os.str(),type4,mix4);
 #ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";
@@ -161,8 +177,30 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
     
     printMem("Memory after type4 K->pipi and end of config loop");
   }
-  if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww);
-}//do_ktopipi
+}
+				
+
+template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
+void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
+		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params,
+		    LSWWmesonFields* mf_ls_ww_keep = NULL){
+
+  
+  //We first need to generate the light-strange W*W contraction
+  LSWWmesonFields mf_ls_ww_con;
+  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
+
+  printMem("Memory after computing W*W meson fields");
+
+  computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con,mf_ll_con,mf_ll_con_2s,pion_mom,conf,params);
+  
+  if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww_con.mf_ls_ww);
+}
+
+
 
 
 #endif

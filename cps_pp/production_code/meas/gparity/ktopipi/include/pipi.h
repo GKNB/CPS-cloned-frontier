@@ -3,7 +3,7 @@
 
 
 template<typename PionMomentumPolicy>
-void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params){
+void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
@@ -41,6 +41,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 #else
 	os << "_mom" << (-p_pi1_src).file_str(2) << "_mom" << (-p_pi1_snk).file_str(2);
 #endif
+	os << postpend;
 	pipi.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
 	os << ".hexfloat";
@@ -62,6 +63,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 #else
       os << "_mom" << (-p_pi1_src).file_str(2);
 #endif
+      os << postpend;
       figVdis.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";

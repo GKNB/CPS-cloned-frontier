@@ -7,14 +7,53 @@ struct KaonMesonFields{
   mfVector mf_sl;
   KaonMesonFields(){}
 
-  void move(KaonMesonFields &r){
+  inline void move(KaonMesonFields &r){
     int n = r.mf_ls.size();
+    mf_ls.resize(n);
+    mf_sl.resize(n);
     for(int i=0;i<n;i++){
       mf_ls[i].move(r.mf_ls[i]);
       mf_sl[i].move(r.mf_sl[i]);
     }
   }
+  inline void free_mem(){
+    for(int i=0;i<mf_ls.size();i++){
+      mf_ls[i].free_mem();
+      mf_sl[i].free_mem();
+    }
+  }
+  inline void average(KaonMesonFields &with){
+    for(int a=0;a<2;a++){
+      mfVector &l = a==0 ? mf_ls : mf_sl;
+      mfVector &r = a==0 ? with.mf_ls : with.mf_sl;
+    
+      for(int i=0;i<l.size();i++){
+	bool redist_l = false, redist_r = false;
+	if(!l[i].isOnNode()){ l[i].nodeGet(); redist_l = true; }
+	if(!r[i].isOnNode()){ r[i].nodeGet(); redist_r = true; }
+      
+	l[i].average(r[i]);
+
+	if(redist_l) l[i].nodeDistribute();
+	if(redist_r) r[i].nodeDistribute();	
+      }
+    }
+  }
 };
+
+void computeKaon2ptContraction(const int conf, const Parameters &params, const KaonMesonFields &mf, const std::string &postpend = ""){
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
+  ComputeKaon<A2Apolicies>::compute(kaon, mf.mf_ls, mf.mf_sl);
+  
+  std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr" << postpend;
+  kaon.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+  os << ".hexfloat";
+  kaon.write(os.str(),true);
+#endif
+}
+
 
 template<typename KaonMomentumPolicy>
 void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
@@ -25,29 +64,46 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
-
-  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
   
   KaonMesonFields mf;
   ComputeKaon<A2Apolicies>::computeMesonFields(mf.mf_ls, mf.mf_sl,
 					       W, V, W_s, V_s, kaon_mom,
 					       params.jp.kaon_rad, lat, field3dparams);
-
-  fMatrix<typename A2Apolicies::ScalarComplexType> kaon(Lt,Lt);
-  ComputeKaon<A2Apolicies>::compute(kaon, mf.mf_ls, mf.mf_sl);
+  computeKaon2ptContraction(conf,params,mf);
   
-  std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_kaoncorr";
-  kaon.write(os.str());
-#ifdef WRITE_HEX_OUTPUT
-  os << ".hexfloat";
-  kaon.write(os.str(),true);
-#endif
-  time += dclock();
-  print_time("main","Kaon 2pt function",time);
-
   if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
-  
+
+  print_time("main","Kaon 2pt function",time + dclock());
   printMem("Memory after kaon 2pt function computation");
 }
 
+
+template<typename KaonMomentumPolicyStd, typename KaonMomentumPolicyReverse>
+void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
+					typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+					const KaonMomentumPolicyStd &kaon_mom_std, const KaonMomentumPolicyReverse &kaon_mom_rev,
+					const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+   if(!UniqueID()) printf("Computing kaon 2pt function standard and symmetric\n");
+   double time = -dclock();
+   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+   
+   KaonMesonFields mf_std;
+   ComputeKaon<A2Apolicies>::computeMesonFields(mf_std.mf_ls, mf_std.mf_sl,
+						W, V, W_s, V_s, kaon_mom_std,
+						params.jp.kaon_rad, lat, field3dparams);
+   computeKaon2ptContraction(conf,params,mf_std);
+   
+   KaonMesonFields mf_symm;
+   ComputeKaon<A2Apolicies>::computeMesonFields(mf_symm.mf_ls, mf_symm.mf_sl,
+						W, V, W_s, V_s, kaon_mom_rev,
+						params.jp.kaon_rad, lat, field3dparams);
+   mf_symm.average(mf_std);
+   mf_std.free_mem();
+     
+   computeKaon2ptContraction(conf,params,mf_symm,"_symm");
+   
+   print_time("main","Kaon 2pt function",time + dclock());
+   printMem("Memory after kaon 2pt function computation");
+}
+ 
 #endif

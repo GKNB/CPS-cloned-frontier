@@ -5,11 +5,11 @@ template<typename PionMomentumPolicy>
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
 			  const PionMomentumPolicy &pion_mom,
-			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, const std::string &mf_write_postpend = ""){
   if(!UniqueID()) printf("Computing light-light meson fields\n");
   double time = -dclock();
   if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
-  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
   time += dclock();
   print_time("main","Light-light meson fields",time);
 
@@ -17,7 +17,7 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
 }
 
 template<typename PionMomentumPolicy>
-void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params){
+void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
@@ -42,6 +42,7 @@ void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 #else
     os << (-pion_mom.getMesonMomentum(p)).file_str(2);
 #endif
+    os << postpend;
     pion.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
     os << ".hexfloat";
