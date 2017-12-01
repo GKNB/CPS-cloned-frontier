@@ -42,8 +42,8 @@ public:
 class ReverseKaonMomentaPolicy: public StationaryKaonMomentaPolicy{
 public:
   ReverseKaonMomentaPolicy(): StationaryKaonMomentaPolicy() {
-    this->LightHeavy.reverseVWdagMomentumAssignments();
-    this->HeavyLight.reverseVWdagMomentumAssignments();
+    this->LightHeavy.reverseABmomentumAssignments();
+    this->HeavyLight.reverseABmomentumAssignments();
   }
 };
 
@@ -51,8 +51,8 @@ public:
 class SymmetricKaonMomentaPolicy: public StationaryKaonMomentaPolicy{
 public:
   SymmetricKaonMomentaPolicy(): StationaryKaonMomentaPolicy() {
-    this->LightHeavy.symmetrizeVWdagMomentumAssignments();
-    this->HeavyLight.symmetrizeVWdagMomentumAssignments();
+    this->LightHeavy.symmetrizeABmomentumAssignments();
+    this->HeavyLight.symmetrizeABmomentumAssignments();
   }
 };
 

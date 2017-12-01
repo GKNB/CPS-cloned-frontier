@@ -13,6 +13,7 @@ CPS_START_NAMESPACE
 class StationarySigmaMomentaPolicy: public RequiredMomentum{
 public:
   StationarySigmaMomentaPolicy(): RequiredMomentum() {
+    const int ngp = this->nGparityDirs();
     if(ngp == 0){
       addP("(0,0,0) + (0,0,0)");
     }else if(ngp == 1){

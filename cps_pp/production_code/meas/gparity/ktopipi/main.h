@@ -546,18 +546,18 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
   printMem("Memory after pi-pi 2pt function computation");
 }
 
-template<typename PionMomentumPolicy>
+template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
 		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
-		    const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params){
+		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params){
   const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
   //We first need to generate the light-strange W*W contraction
   std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww;
-  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,params.jp.kaon_rad,lat, field3dparams);
+  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
 
   std::vector<int> k_pi_separation(params.jp.k_pi_separation.k_pi_separation_len);
   for(int i=0;i<params.jp.k_pi_separation.k_pi_separation_len;i++) k_pi_separation[i] = params.jp.k_pi_separation.k_pi_separation_val[i];
@@ -733,7 +733,8 @@ void doContractions(const int conf, Parameters &params, const CommandLineArgs &c
   if(cmdline.do_pipi) computePiPi2pt(mf_ll_con, pion_mom, conf, params);
 
   //--------------------------------------K->pipi contractions--------------------------------------------------------
-  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,conf,params);
+  StandardLSWWmomentaPolicy lsWW_mom;
+  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,lsWW_mom,conf,params);
 }
 
 

@@ -74,6 +74,44 @@ struct getInnerVectorType<T,grid_vector_complex_mark>{
 #define TIMER Type4timings
 #include<alg/a2a/static_timer_impl.tcc>
 
+//K->pipi requires calculation of a meson field of the form   W_l^\dagger . W_h. Here is it's momentum policy
+
+class StandardLSWWmomentaPolicy: public MomentumAssignments{
+public:
+  StandardLSWWmomentaPolicy(): MomentumAssignments() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+
+    const int ngp = this->nGparityDirs();
+    if(ngp == 0){
+      addP("(0,0,0) + (0,0,0)");      
+    }else if(ngp == 1){
+      addP("(-1,0,0) + (1,0,0)");
+    }else if(ngp == 2){
+      addP("(-1,-1,0) + (1,1,0)");
+    }else if(ngp == 3){
+      addP("(-1,-1,-1) + (1,1,1)");
+    }else{
+      ERR.General("StandardLSWWmomentaPolicy","constructor","ngp cannot be >3\n");
+    }
+  }
+};
+
+//Same as the above but where we reverse the momentum assignments of the W^dag and W
+class ReverseLSWWmomentaPolicy: public StandardLSWWmomentaPolicy{
+public:
+  ReverseLSWWmomentaPolicy(): StandardLSWWmomentaPolicy() {
+    this->reverseABmomentumAssignments();
+  }
+};
+
+//Add Wdag, W momenta and the reverse assignment to make a symmetric combination
+class SymmetricLSWWmomentaPolicy: public StandardLSWWmomentaPolicy{
+public:
+  SymmetricLSWWmomentaPolicy(): StandardLSWWmomentaPolicy() {
+    this->symmetrizeABmomentumAssignments();
+  }
+};
+
 
 template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
@@ -163,9 +201,9 @@ public:
   typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
   
   //ls_WW meson fields
-  template< typename Allocator >
+  template< typename Allocator, typename MomentumPolicy>
   static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww,
-				      Wtype &W, Wtype &W_s, const int kaon_rad, Lattice &lat,
+				      Wtype &W, Wtype &W_s, const MomentumPolicy &lsWWmom, const int kaon_rad, Lattice &lat,
 				      const SourceParamType &src_params = NullObject()){
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
@@ -174,34 +212,48 @@ public:
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     mf_ls_ww.resize(Lt);
 
-    //0 momentum kaon constructed from (-1,-1,-1) + (1,1,1)  in units of pi/2L
-    int p[3];
-    for(int i=0;i<3;i++) p[i] = (GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0);
-
+    typedef A2AflavorProjectedExpSource<SourcePolicies> SourceType;
+    typedef SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,SourceType> InnerType;
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
+
     VWfieldInputParams fld_params = W.getFieldInputParams();
-    
-    A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
-    
+
+    assert(lsWWmom.nMom() == 1);
+    int nalt = lsWWmom.nAltMom(0);
+
+    for(int a=0;a<nalt;a++){
+      ThreeMomentum pA = lsWWmom.getMomA(0,a);
+      ThreeMomentum mpA = -pA;
+      ThreeMomentum pB = lsWWmom.getMomB(0,a);
+      
+      SourceType fpexp(kaon_rad, pB.ptr() , src_params);
+      InnerType mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
+
+      A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
+      A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
+      
 #ifdef USE_DESTRUCTIVE_FFT
-    fftw_Wl_p.destructiveGaugeFixTwistFFT(W, p,lat);
-    fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,p,lat); 
+      fftw_Wl_p.destructiveGaugeFixTwistFFT(W, mpA.ptr(),lat); //will be daggered, swapping momentum
+      fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,pB.ptr(),lat); 
 #else
-    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
-    fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
+      fftw_Wl_p.gaugeFixTwistFFT(W, mpA.ptr(),lat); 
+      fftw_Ws_p.gaugeFixTwistFFT(W_s,pB.ptr(),lat); 
 #endif
-
-    A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
-    SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
-
-    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
+      std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> mf_ls_ww_tmp(Lt);
+      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww_tmp, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
 #ifdef USE_DESTRUCTIVE_FFT
-    fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, p,lat);
-    fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, p,lat);
+      fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, mpA.ptr(),lat);
+      fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, pB.ptr(),lat);
 #endif
-    
+
+      if(a == 0)
+	for(int t=0;t<Lt;t++) mf_ls_ww[t].move(mf_ls_ww_tmp[t]);
+      else
+	for(int t=0;t<Lt;t++) mf_ls_ww[t].plus_equals(mf_ls_ww_tmp[t]);
+    }
+    for(int t=0;t<Lt;t++) mf_ls_ww[t].times_equals(1./nalt);
+          
     time += dclock();
     print_time("ComputeKtoPiPiGparity","ls WW meson fields",time);
   }

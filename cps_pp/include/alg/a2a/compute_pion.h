@@ -13,7 +13,8 @@ class StandardPionMomentaPolicy: public RequiredMomentum{
 public:
   StandardPionMomentaPolicy(): RequiredMomentum() {
     this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
-    
+
+    const int ngp = this->nGparityDirs();
     if(ngp == 0){
       //p_pi = (0,0,0)
       addP("(0,0,0) + (0,0,0)");
@@ -59,7 +60,7 @@ public:
 class ReversePionMomentaPolicy: public StandardPionMomentaPolicy{
 public:
   ReversePionMomentaPolicy(): StandardPionMomentaPolicy() {
-    this->reverseVWdagMomentumAssignments();
+    this->reverseABmomentumAssignments();
   }
 };
 
@@ -67,7 +68,7 @@ public:
 class SymmetricPionMomentaPolicy: public StandardPionMomentaPolicy{
 public:
   SymmetricPionMomentaPolicy(): StandardPionMomentaPolicy() {
-    this->symmetrizeVWdagMomentumAssignments();
+    this->symmetrizeABmomentumAssignments();
   }
 };
 
@@ -76,6 +77,7 @@ public:
 class H4asymmetricMomentaPolicy: public RequiredMomentum{
 public:
   void setupMomenta(){
+    const int ngp = this->nGparityDirs();
     if(ngp == 0){
       //p_pi = (0,0,0)
       addP("(0,0,0) + (0,0,0)");
