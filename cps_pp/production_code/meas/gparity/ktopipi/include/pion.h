@@ -1,0 +1,58 @@
+#ifndef _KTOPIPI_MAIN_A2A_PION_H_
+#define _KTOPIPI_MAIN_A2A_PION_H_
+
+template<typename PionMomentumPolicy>
+void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
+			  const PionMomentumPolicy &pion_mom,
+			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  if(!UniqueID()) printf("Computing light-light meson fields\n");
+  double time = -dclock();
+  if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  time += dclock();
+  print_time("main","Light-light meson fields",time);
+
+  printMem("Memory after light-light meson field computation");
+}
+
+template<typename PionMomentumPolicy>
+void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params){
+  const int nmom = pion_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  
+  if(!UniqueID()) printf("Computing pion 2pt function\n");
+  double time = -dclock();
+  for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
+    if(!UniqueID()) printf("Starting pidx %d\n",p);
+    fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
+    ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
+    //Note it seems Daiqian's pion momenta are opposite what they should be for 'conventional' Fourier transform phase conventions:
+    //f'(p) = \sum_{x,y}e^{ip(x-y)}f(x,y)  [conventional]
+    //f'(p) = \sum_{x,y}e^{-ip(x-y)}f(x,y) [Daiqian]
+    //This may have been a mistake as it only manifests in the difference between the labelling of the pion momenta and the sign of 
+    //the individual quark momenta.
+    //However it doesn't really make any difference. If you enable DAIQIAN_PION_PHASE_CONVENTION
+    //the output files will be labelled in Daiqian's convention
+#define DAIQIAN_PION_PHASE_CONVENTION
+
+    std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pioncorr_mom";
+#ifndef DAIQIAN_PION_PHASE_CONVENTION
+    os << pion_mom.getMesonMomentum(p).file_str(2);  //note the divisor of 2 is to put the momenta in units of pi/L and not pi/2L
+#else
+    os << (-pion_mom.getMesonMomentum(p)).file_str(2);
+#endif
+    pion.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+    os << ".hexfloat";
+    pion.write(os.str(),true);
+#endif
+  }
+  time += dclock();
+  print_time("main","Pion 2pt function",time);
+
+  printMem("Memory after pion 2pt function computation");
+}
+
+
+#endif
