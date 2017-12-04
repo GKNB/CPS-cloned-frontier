@@ -397,6 +397,8 @@ void readGaugeRNG(const Parameters &params, const CommandLineArgs &cmdline){
   readGaugeRNG(params.do_arg, params.meas_arg, cmdline.double_latt);
 }
 
+#define USE_TIANLES_CONVENTIONS
+
 template<typename mf_Policies>
 struct ComputeSigmaContractions{
   //Sigma has 2 terms in it's Wick contraction:    
@@ -420,7 +422,7 @@ struct ComputeSigmaContractions{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt);
 
-    if(sigma_mom.nAltMom() != 0) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
+    if(sigma_mom.nAltMom(pidx) != 1) ERR.General("ComputeSigmaContractions","computeDisconnectedBubble","Sigma with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx, sigma_mom.getWdagMom(pidx).str().c_str(),  sigma_mom.getVmom(pidx).str().c_str(), sigma_mom.nAltMom(pidx) );
     
     ThreeMomentum p1 = sigma_mom.getWdagMom(pidx);
     ThreeMomentum p2 = sigma_mom.getVmom(pidx);
@@ -449,6 +451,23 @@ struct ComputeSigmaContractions{
   }
 
 
+
+  //Tianle computes the product of the traces online and adds it to his answer. For consistency I do the same here
+  static void computeDisconnectedDiagram(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_snk,
+					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_src){
+    //0.5 * tr( G(x1,tsnk; x2, tsnk) ) * tr( G(y1, tsrc; y2, tsrc) )
+    typedef typename mf_Policies::ScalarComplexType Complex;
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt,Lt);
+    for(int tsrc=0; tsrc<Lt; tsrc++){
+      for(int tsep=0; tsep<Lt; tsep++){
+	int tsnk = (tsrc + tsep) % Lt;
+	into(tsrc, tsep) = Complex(0.5) * sigma_bubble_snk(tsnk) * sigma_bubble_src(tsrc); 
+      }
+    }
+  }
+  
   //The second term we compute in full
   //  \Theta_x \Theta_y -0.5 tr( G(y2, tsrc; x1, tsnk) * G(x2, tsnk; y1, tsrc) )
   //= \Theta_x \Theta_y -0.5 tr( V(y2, tsrc) * W^dag(x1, tsnk) * V(x2, tsnk)*W^dag(y1, tsrc) )
@@ -465,8 +484,10 @@ struct ComputeSigmaContractions{
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
     into.resize(Lt,Lt);
 
-    if(sigma_mom.nAltMom() != 0) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
-    
+    if(sigma_mom.nAltMom(pidx_snk) != 1) ERR.General("ComputeSigmaContractions","computeConnected","Sigma (sink) with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx_snk, sigma_mom.getWdagMom(pidx_snk).str().c_str(),  sigma_mom.getVmom(pidx_snk).str().c_str(), sigma_mom.nAltMom(pidx_snk) );
+
+    if(sigma_mom.nAltMom(pidx_src) != 1) ERR.General("ComputeSigmaContractions","computeConnected","Sigma (source) with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx_src, sigma_mom.getWdagMom(pidx_src).str().c_str(),  sigma_mom.getVmom(pidx_src).str().c_str(), sigma_mom.nAltMom(pidx_src) );
+        
     ThreeMomentum p1_src = sigma_mom.getWdagMom(pidx_src);
     ThreeMomentum p2_src = sigma_mom.getVmom(pidx_src);
 
@@ -500,24 +521,30 @@ struct ComputeSigmaContractions{
 };
 
 
+
+
 template<typename mf_Policies>
-struct ComputeSigmaToPipiContractions{
+struct ComputePiPiToSigmaContractions{
+  //This is identical to the sigma->pipi up to an overall - sign, a sign change of the momenta and swapping tsrc<->tsnk. However we compute it explicitly here rather than reusing it because we want to compute only on a limited number of source timeslices
+  
   //This has 2 Wick contractions. The first is disconnected, and we are able to re-use the sigma bubble from the sigma->sigma contractions and the pipi bubble from the pipi->pipi contractions
   //The second is connected, and has to be computed explicitly
-  //  -sqrt(6)/2 \Theta_y \Theta_x tr( g5 s3 G(x2,tsnk; y2,tsrc) G(y1,tsrc; x4,tsnk) g5 s3 G(x3,tsnk; x1, tsnk) )
-  //  -sqrt(6)/2 \Theta_y \Theta_x tr( g5 s3 V(x2,tsnk)W^dag(y2,tsrc) V(y1,tsrc)W^dag(x4,tsnk) g5 s3 V(x3,tsnk)W^dag(x1, tsnk) )
-  //  -sqrt(6)/2 tr( [[\Theta_x W^dag(x1, tsnk) g5 s3 V(x2,tsnk)]][[\Theta_y W^dag(y2,tsrc) V(y1,tsrc)]][[\Theta_x W^dag(x4,tsnk) g5 s3 V(x3,tsnk)]] ) 
-  //  -sqrt(6)/2 tr( M_piB(tsnk,tsnk) M_piA(tsnk,tsnk) M_sigma(tsrc,tsrc) ) 
+  //  +sqrt(6)/2 \Theta_y \Theta_x tr( g5 s3 G(y1,tsrc; x1,tsnk) G(x2,tsnk; y3,tsrc) g5 s3 G(y4,tsrc; y2, tsrc) )
+  //  +sqrt(6)/2 \Theta_y \Theta_x tr( g5 s3 V(y1,tsrc) W^dag(x1,tsnk) V(x2,tsnk) W^dag(y3,tsrc) g5 s3 V(y4,tsrc) W^dag(y2, tsrc) )
+  //  +sqrt(6)/2 tr( [[\Theta_y12 W^dag(y2, tsrc) g5 s3 V(y1,tsrc)]] [[\Theta_x W^dag(x1,tsnk) V(x2,tsnk)]] [[\Theta_y34 W^dag(y3,tsrc) g5 s3 V(y4,tsrc)]]  )
+  //  +sqrt(6)/2 tr( mf_piA(tsrc,tsrc) mf_sigma(tsnk,tsnk) mf_piB(tsrc,tsrc)  )
 
-  //Note  x1,x2 are associated with one pion (A) and x3,x4 the other (B)
-  //When the two pions are staggered in time we have 2 topologies
-  //A->1  B->2   :   x1,x2  tsnk (pi1),  x3,x4 tsnk+tdelta (pi2)
-  //A->2  B->1   :   x3,x4  tsnk (pi1),  x1,x2 tsnk+tdelta (pi2)
+  //\Theta_x = \sum_x1,x2 exp(+i psnk2.y2) exp(+i psnk1.y1 )
+  //\Theta_y = \sum_y1,y2,y3,y4  exp(-i psrc1.y1 ) exp(-i psrc2.y2) exp(-i psrc3.y3 ) exp(-i psrc4.y4)     
 
-  //  -sqrt(6)/4 tr( [ M_pi2(tsnk+tsep,tsnk+tsep)M_pi1(tsnk,tsnk)  + M_pi1(tsnk,tsnk)M_pi2(tsnk+tsep,tsnk+tsep) ] *  M_sigma(tsrc,tsrc)  ) 
+  //When split sources
+  //  +sqrt(6)/4 tr( [mf_piB(tsrc,tsrc) mf_piA(tsrc-delta,tsrc-delta) + mf_piB(tsrc-delta,tsrc-delta) mf_piA(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
 
+  //We label the inner pion as pi1, and it is this pion for which we specify the momentum
+
+  //  +sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
   
-  //We provide the momentum index of the first (inner) sink pion
+  //We provide the momentum index of the second (inner) sink pion
   template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
   static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
 			       MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_sigma,
@@ -531,19 +558,20 @@ struct ComputeSigmaToPipiContractions{
     into.resize(Lt,Lt); into.zero();
 
     if(Lt % tstep_src != 0) ERR.General("ComputeSigmaToPipiContractions","computeConnected(..)","tstep_src must divide the time range exactly\n"); 
-    
-    if(sigma_mom.nAltMom() != 0) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
+
+    if(sigma_mom.nAltMom(pidx_sigma) != 1) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
 
     //Work out the momenta we need
-    ThreeMomentum pWdag_sigma_src = sigma_mom.getWdagMom(pidx_sigma);
-    ThreeMomentum pV_sigma_src = sigma_mom.getVmom(pidx_sigma);
+    ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(pidx_pi1);
+    ThreeMomentum p_pi2_src = -p_pi1_src; //total zero momentum
 
-    ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(pidx_pi1);
-    ThreeMomentum p_pi2_snk = -p_pi1_snk; //total zero momentum
 
-    assert(mf_sigma_con.contains(pWdag_sigma_src,pV_sigma_src));
-    assert(mf_pion_con.contains(p_pi1_snk));
-    assert(mf_pion_con.contains(p_pi2_snk));
+    ThreeMomentum pWdag_sigma_snk = sigma_mom.getWdagMom(pidx_sigma);
+    ThreeMomentum pV_sigma_snk = sigma_mom.getVmom(pidx_sigma);
+    
+    assert(mf_sigma_con.contains(pWdag_sigma_snk,pV_sigma_snk));
+    assert(mf_pion_con.contains(p_pi1_src));
+    assert(mf_pion_con.contains(p_pi2_src));
 
     //Distribute load over all nodes
     int work = Lt*Lt/tstep_src;
@@ -551,9 +579,9 @@ struct ComputeSigmaToPipiContractions{
     getNodeWork(work,node_work,node_off,do_work);
     
     //Gather the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(pWdag_sigma_src, pV_sigma_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_snk); //meson field of the inner pion
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(pWdag_sigma_snk, pV_sigma_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
 
@@ -567,11 +595,11 @@ struct ComputeSigmaToPipiContractions{
 	int rem = tt;
 	int tsnk = rem % Lt; rem /= Lt; //sink time
 	int tsrc = rem * tstep_src; //source time
-	int tsnk2 = (tsnk+tsep_pipi) % Lt;
+	int tsrc2 = (tsrc-tsep_pipi+Lt) % Lt;
 
-	tslice_sigma_mask[tsrc] = true;
-	tslice_pi1_mask[tsnk] = tslice_pi2_mask[tsnk] = true; //2 topologies
-	tslice_pi1_mask[tsnk2] = tslice_pi2_mask[tsnk2] = true;
+	tslice_sigma_mask[tsnk] = true;
+	tslice_pi1_mask[tsrc] = true;
+	tslice_pi2_mask[tsrc2] = true;
       }
     }
     
@@ -582,24 +610,43 @@ struct ComputeSigmaToPipiContractions{
     cps::sync();
 #endif
 
-    //Do the contraction
+    //Do the contraction  +sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
+    //We can relate the two terms by g5-hermiticity
+#define PIPI_SIGMA_USE_G5_HERM
+
     if(do_work){
       for(int tt=node_off; tt<node_off + node_work; tt++){
 	int rem = tt;
 	int tsnk = rem % Lt; rem /= Lt; //sink time
 	int tsrc = rem * tstep_src; //source time
-	int tsnk2 = (tsnk+tsep_pipi) % Lt;
+	int tsrc2 = (tsrc-tsep_pipi+Lt) % Lt;
 	int tdis = (tsnk - tsrc + Lt) % Lt;
 	
+#ifdef PIPI_SIGMA_USE_G5_HERM
+	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod;
+	//mult(pi_prod, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
+	mult(pi_prod, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
+
+	
+	ScalarComplexType incr(0,0);
+	incr += trace(pi_prod, mf_sigma[tsnk]);
+
+	into(tsrc,tdis) +=  sqrt(6.)/2. * incr; 	
+#else
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod_1, pi_prod_2;
-	mult(pi_prod_1, mf_pi2[tsnk2], mf_pi1[tsnk],NODE_LOCAL);
-	mult(pi_prod_2, mf_pi1[tsnk], mf_pi2[tsnk2],NODE_LOCAL);
+	mult(pi_prod_1, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
+	mult(pi_prod_2, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
 
 	ScalarComplexType incr(0,0);
-	incr += trace(pi_prod_1, mf_sigma[tsrc]);
-	incr += trace(pi_prod_2, mf_sigma[tsrc]);
+	incr += trace(pi_prod_1, mf_sigma[tsnk]);
+	incr += trace(pi_prod_2, mf_sigma[tsnk]);
 
-	into(tsrc,tdis) +=  -sqrt(6.)/4. * incr; //extra 1/2 from average of 2 topologies
+	into(tsrc,tdis) +=  sqrt(6.)/4. * incr; //extra 1/2 from average of 2 topologies
+#endif
+
+#ifdef USE_TIANLES_CONVENTIONS
+	into(tsrc,tdis) *= -1.;
+#endif
       }
     }
     into.nodeSum();
@@ -608,7 +655,116 @@ struct ComputeSigmaToPipiContractions{
     nodeDistributeMany(3,&mf_sigma,&mf_pi1,&mf_pi2);
 #endif
   }
+
+
+  //Tianle computes the product of the traces online and adds it to his answer. For consistency I do the same here
+  static void computeDisconnectedDiagram(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+  					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble,
+  					 const fVector<typename mf_Policies::ScalarComplexType> &pipi_bubble,  
+  					 const int tstep_src){
+    //-sqrt(6)/4 \Theta_y \Theta_x \tr( G(x2, tsnk; x1, tsnk) ) \tr( g5 G(y1, tsrc; y3, tsrc) g5 s3 G(y4, tsrc; y2, tsrc) s3 ) 
+    //-sqrt(6)/4 \Theta_y \Theta_x \tr( V(x2, tsnk)W^dag(x1, tsnk) ) \tr( g5 V(y1, tsrc)W^dag(y3, tsrc) g5 s3 V(y4, tsrc)W^dag(y2, tsrc) s3 ) 
+    //-sqrt(6)/4 \tr( [[\Theta_x W^dag(x1, tsnk) V(x2, tsnk)]] ) \tr( [[\Theta_y12 W^dag(y2, tsrc) s3 g5 V(y1, tsrc)]] [[\Theta_y34 W^dag(y3, tsrc) g5 s3 V(y4, tsrc)]] ) 
+    //-sqrt(6)/4 \tr( M_sigma(tsnk,tsnk) ) \tr( M_piA(tsrc,tsrc) M_piB(tsrc,tsrc)) 
+
+    //When separated
+    //-sqrt(6)/8 \tr( M_sigma(tsnk,tsnk) ) [  \tr( M_piA(tsrc-delta,tsrc-delta) M_piB(tsrc,tsrc)) + \tr( M_piA(tsrc,tsrc) M_piB(tsrc-delta,tsrc-delta))   ] 
+    //-sqrt(6)/8 \tr( M_sigma(tsnk,tsnk) ) [  \tr( M_pi2(tsrc-delta,tsrc-delta) M_pi1(tsrc,tsrc)) + \tr( M_pi1(tsrc,tsrc) M_pi2(tsrc-delta,tsrc-delta))   ] 
+    //-sqrt(6)/4 \tr( M_sigma(tsnk,tsnk) ) [  M_pi1(tsrc,tsrc)) \tr( M_pi2(tsrc-delta,tsrc-delta)  ] 
+    
+    //\Theta_x = \sum_x1,x2 exp(+i psnk2.y2) exp(+i psnk1.y1 )
+    //\Theta_y = \sum_y1,y2,y3,y4  exp(-i psrc1.y1 ) exp(-i psrc2.y2) exp(-i psrc3.y3 ) exp(-i psrc4.y4)     
+    
+    //As pipi total momentum = 0,    psrc1+psrc2 = -psrc3-psrc4
+    
+    //We have pipi_bubble(t, p) = 0.5 * tr( M_pi1(p, t) M_pi2(-p, t-delta) )  which is created by ComputePiPiGparity::computeFigureVdis
+    //Thus we compute
+    //-sqrt(6)/2 \tr( M_sigma(tsnk,tsnk) ) B(tsrc)
+        
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt,Lt); into.zero();
+    double coeff = -sqrt(6.)/2;
+#ifdef USE_TIANLES_CONVENTIONS
+    coeff *= -1.;
+#endif
+    
+    for(int tsrc=0; tsrc<Lt; tsrc+=tstep_src){
+      for(int tsep=0; tsep<Lt; tsep++){
+	int tsnk = (tsrc + tsep) % Lt;
+  	into(tsrc, tsep) = coeff * sigma_bubble(tsnk) * pipi_bubble(tsrc);
+      }
+    }
+  }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void computeSigma2ptTianle(std::vector< fVector<typename A2Apolicies::ScalarComplexType> > &sigma_bub, //output bubble
+			   MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con, const StationarySigmaMomentaPolicy &sigma_mom, const int conf, const Parameters &params){
+  const int nmom = sigma_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+
+  //All momentum combinations have total momentum 0 at source and sink
+  if(!UniqueID()) printf("Computing sigma 2pt function\n");
+  double time = -dclock();
+
+  sigma_bub.resize(nmom);
+  for(int pidx=0;pidx<nmom;pidx++){
+    //Compute the disconnected bubble
+    if(!UniqueID()) printf("Sigma disconnected bubble pidx=%d\n",pidx);
+    fVector<typename A2Apolicies::ScalarComplexType> &into = sigma_bub[pidx]; into.resize(Lt);
+    ComputeSigmaContractions<A2Apolicies>::computeDisconnectedBubble(into, mf_sigma_con, sigma_mom, pidx);
+
+    std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf;
+    os  << "_sigmaself_mom" << sigma_mom.getWmom(pidx).file_str(1) << "_v2"; //note Vmom == -WdagMom = Wmom for sigma as momentum 0
+    into.write(os.str());
+# ifdef WRITE_HEX_OUTPUT
+    os << ".hexfloat";
+    into.write(os.str(),true);
+# endif
+  }
+
+  for(int psnkidx=0;psnkidx<nmom;psnkidx++){
+    for(int psrcidx=0;psrcidx<nmom;psrcidx++){
+      if(!UniqueID()) printf("Sigma connected psrcidx=%d psnkidx=%d\n",psrcidx,psnkidx);
+      fMatrix<typename A2Apolicies::ScalarComplexType> into(Lt,Lt);
+      ComputeSigmaContractions<A2Apolicies>::computeConnected(into, mf_sigma_con, sigma_mom, psrcidx, psnkidx);
+
+      fMatrix<typename A2Apolicies::ScalarComplexType> disconn(Lt,Lt);
+      ComputeSigmaContractions<A2Apolicies>::computeDisconnectedDiagram(disconn, sigma_bub[psnkidx], sigma_bub[psrcidx]);
+
+      into += disconn;
+
+      std::ostringstream os; //traj_0_sigmacorr_mompsrc_1_1_1psnk_1_1_1_v2
+      os
+	<< params.meas_arg.WorkDirectory << "/traj_" << conf << "_sigmacorr_mom"
+	<< "psrc" << sigma_mom.getWmom(psrcidx).file_str() << "psnk" << sigma_mom.getWmom(psnkidx).file_str() << "_v2";
+
+      into.write(os.str());
+# ifdef WRITE_HEX_OUTPUT
+      os << ".hexfloat";
+      into.write(os.str(),true);
+# endif
+    }
+  }
+        
+  time += dclock();
+  print_time("main","Sigma 2pt function",time);
+
+  printMem("Memory after Sigma 2pt function computation");
+}
+
 
 
 
@@ -620,20 +776,21 @@ void computeSigma2pt(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con,
   //All momentum combinations have total momentum 0 at source and sink
   if(!UniqueID()) printf("Computing sigma 2pt function\n");
   double time = -dclock();
+
   for(int psnkidx=0;psnkidx<nmom;psnkidx++){
     {
       //Compute the disconnected bubble
       if(!UniqueID()) printf("Sigma disconnected bubble pidx=%d\n",psnkidx);
       fVector<typename A2Apolicies::ScalarComplexType> into(Lt);
       ComputeSigmaContractions<A2Apolicies>::computeDisconnectedBubble(into, mf_sigma_con, sigma_mom, psnkidx);
-      
-      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_sigmabubble_mom";
-      os << sigma_mom.getWdagMom(psnkidx).file_str(1) << "_plus" << sigma_mom.getVmom(psnkidx).file_str(1);
+
+      std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf;
+      os  << "_sigmabubble_mom" << sigma_mom.getWdagMom(psnkidx).file_str(1) << "_plus" << sigma_mom.getVmom(psnkidx).file_str(1);    
       into.write(os.str());
-#ifdef WRITE_HEX_OUTPUT
+# ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";
       into.write(os.str(),true);
-#endif
+# endif
     }
     
     for(int psrcidx=0;psrcidx<nmom;psrcidx++){
@@ -648,12 +805,13 @@ void computeSigma2pt(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con,
 	<< "_momsrc" << sigma_mom.getWdagMom(psrcidx).file_str(1) << "_plus" << sigma_mom.getVmom(psrcidx).file_str(1);
 
       into.write(os.str());
-#ifdef WRITE_HEX_OUTPUT
+# ifdef WRITE_HEX_OUTPUT
       os << ".hexfloat";
       into.write(os.str(),true);
-#endif
+# endif
     }
   }
+
   time += dclock();
   print_time("main","Sigma 2pt function",time);
 
@@ -661,30 +819,48 @@ void computeSigma2pt(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con,
 }
 
 
-void computeSigmaToPipi(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con, const StationarySigmaMomentaPolicy &sigma_mom, 
-			MesonFieldMomentumContainer<A2Apolicies> &mf_pion_con, const StandardPionMomentaPolicy &pion_mom,
-			const int conf, const Parameters &params){
+
+
+
+
+
+
+
+void computePiPiToSigmaTianle(const std::vector< fVector<typename A2Apolicies::ScalarComplexType> > &sigma_bub,
+			      MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_con, const StationarySigmaMomentaPolicy &sigma_mom, 
+			      MesonFieldMomentumContainer<A2Apolicies> &mf_pion_con, const StandardPionMomentaPolicy &pion_mom,
+			      const int conf, const Parameters &params){
   const int nmom_sigma = sigma_mom.nMom();
   const int nmom_pi = pion_mom.nMom();
   
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
+  std::vector<fVector<typename A2Apolicies::ScalarComplexType> > pipi_bub(nmom_pi);
+  for(int pidx=0;pidx<nmom_pi;pidx++){
+    ComputePiPiGparity<A2Apolicies>::computeFigureVdis(pipi_bub[pidx], pion_mom.getMesonMomentum(pidx), params.jp.pipi_separation, mf_pion_con);
+  }
+  
   //All momentum combinations have total momentum 0 at source and sink
-  if(!UniqueID()) printf("Computing sigma->pipi\n");
+  if(!UniqueID()) printf("Computing Pipi->sigma\n");
   double time = -dclock();
   for(int ppi1_idx=0;ppi1_idx<nmom_pi;ppi1_idx++){
     for(int psigma_idx=0;psigma_idx<nmom_sigma;psigma_idx++){
-      if(!UniqueID()) printf("Sigma->pipi connected psigma_idx=%d ppi1_idx=%d\n",psigma_idx,ppi1_idx);
+      if(!UniqueID()) printf("Pipi->sigma connected psigma_idx=%d ppi1_idx=%d\n",psigma_idx,ppi1_idx);
       fMatrix<typename A2Apolicies::ScalarComplexType> into(Lt,Lt);
-            
-      ComputeSigmaToPipiContractions<A2Apolicies>::computeConnected(into,mf_sigma_con,sigma_mom,psigma_idx,
+
+      ComputePiPiToSigmaContractions<A2Apolicies>::computeConnected(into,mf_sigma_con,sigma_mom,psigma_idx,
 								    mf_pion_con,pion_mom,ppi1_idx,
 								    params.jp.pipi_separation, params.jp.tstep_pipi); //reuse same tstep currently
+
+      //Tianle also computes the disconnected part
+      fMatrix<typename A2Apolicies::ScalarComplexType> disconn(Lt,Lt);
+      ComputePiPiToSigmaContractions<A2Apolicies>::computeDisconnectedDiagram(disconn, sigma_bub[psigma_idx], pipi_bub[ppi1_idx], params.jp.tstep_pipi);
+
+      into += disconn;
+      
       std::ostringstream os;
-      os
-	<< params.meas_arg.WorkDirectory << "/traj_" << conf << "_sigma_to_pipi_connected"
-	<< "_pi1mom" << pion_mom.getMesonMomentum(ppi1_idx).file_str(1) //units of pi/2L
-	<< "_sigmamom" << sigma_mom.getWdagMom(psigma_idx).file_str(1) << "_plus" << sigma_mom.getVmom(psigma_idx).file_str(1);
+      os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pipitosigma_sigmawdagmom";
+      os << sigma_mom.getWmom(psigma_idx).file_str() << "_pionmom" << (-pion_mom.getMesonMomentum(ppi1_idx)).file_str() << "_v2";
       
       into.write(os.str());
 #ifdef WRITE_HEX_OUTPUT
@@ -694,9 +870,9 @@ void computeSigmaToPipi(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma_c
     }
   }
   time += dclock();
-  print_time("main","Sigma->pipi function",time);
+  print_time("main","Pipi->sigma function",time);
 
-  printMem("Memory after Sigma->pipi function computation");
+  printMem("Memory after Pipi->sigma function computation");
 }
 
   
@@ -766,12 +942,23 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   else   
     computePionMesonFields(mf_pion_con_1s, mf_pion_con_2s, V, W, pion_mom, conf, lat, params, field3dparams);
 
-  //1s-1s  
-  computeSigma2pt(mf_sigma_con_1s, sigma_mom, conf, params);
 
-  computeSigmaToPipi(mf_sigma_con_1s, sigma_mom, 
-		     mf_pion_con_1s, pion_mom,
-		     conf, params);
+  
+  //1s-1s
+#ifdef USE_TIANLES_CONVENTIONS
+  std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
+  computeSigma2ptTianle(sigma_bub, mf_sigma_con_1s, sigma_mom, conf, params);
+  computePiPiToSigmaTianle(sigma_bub,mf_sigma_con_1s, sigma_mom, 
+			  mf_pion_con_1s, pion_mom,
+			  conf, params);
+#else
+  computeSigma2pt(mf_sigma_con_1s, sigma_mom, conf, params);
+  /* computeSigmaToPipi(mf_sigma_con_1s, sigma_mom,  */
+  /* 		     mf_pion_con_1s, pion_mom, */
+  /* 		     conf, params); */
+#endif
+  
+
 }
 
 #endif
