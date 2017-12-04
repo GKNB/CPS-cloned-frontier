@@ -175,6 +175,7 @@ namespace Grid{
 
       double tinvert = -usecond();
       (*CG)(src_split,sol_split);
+      cps::sync(); //make sure all CGs are finished for timings
       tinvert += usecond();
 
       double tunsplit_sol = -usecond();
