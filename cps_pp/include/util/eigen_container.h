@@ -214,15 +214,21 @@ public:
     if (!alloc_flag)
       return;
     *fname_root_bc = 0;
+#if 1
+    resize(0);
+#else
     for (int i = 0; i < neig; i++)
       sfree (cname, fname, "evec[i]", evec[i]);
     neig = 0;
     eval.resize(0);
     evec.resize(0);
+    index.resize (neig);
+#endif
     alloc_flag = 0;
     eval_cached = 0;
   }
 
+#if 0
   void free_vec (int vec_i)
   {
     const char *fname = "free(int n)";
@@ -235,11 +241,11 @@ public:
     neig--;
     evec.resize (neig);
   }
+#endif
 
   void resize (int new_size)
   {
-    const char *fname = "resize(int n)";
-    //only works when freeing the last one
+    const char *fname = "resize(i)";
 //    VRB.Func (cname, fname);
     if (!alloc_flag)
       return;
@@ -249,6 +255,7 @@ public:
     neig=new_size;
     evec.resize (neig);
     eval.resize (neig);
+    index.resize (neig);
   }
 
   // save eigenvalues into cache 
