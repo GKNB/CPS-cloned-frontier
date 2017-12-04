@@ -34,6 +34,8 @@ struct FlavorUnpacked<StandardIndexDilution>{
 //If using the NODE_DISTRIBUTE_MESONFIELDS option, we can choose whether to distribute over the memory of the nodes or to read/write from disk
 #ifdef MESONFIELD_USE_BURSTBUFFER
 typedef BurstBufferMemoryStorage MesonFieldDistributedStorageType;
+#elif defined(MESONFIELD_USE_NODE_SCRATCH)
+typedef IndependentDiskWriteStorage MesonFieldDistributedStorageType;
 #else
 typedef DistributedMemoryStorage MesonFieldDistributedStorageType;
 #endif

@@ -458,8 +458,9 @@ public:
 };
 
 
-//A similar class to the above but which stores to disk rather than distributing over the memory systems of a multi-node machine
+//A similar class to the above but which stores to disk rather than distributing over the memory systems of a multi-node machine. This version is designed to work on systems with burst buffers that are on a shared filesystem such that only the head node writes to disk
 class BurstBufferMemoryStorage{
+protected:
   void *ptr;
   int _alignment;
   size_t _size;
@@ -612,6 +613,42 @@ public:
 
 
 
+//This works similarly to the above only each node writes its own unique copy rather than just the head node. This is intended for systems where nodes have independent scratch disks
+class IndependentDiskWriteStorage: public BurstBufferMemoryStorage{
+public:
+  IndependentDiskWriteStorage(): BurstBufferMemoryStorage(){}
+
+  IndependentDiskWriteStorage(const IndependentDiskWriteStorage &r): BurstBufferMemoryStorage(r){}
+
+  inline IndependentDiskWriteStorage & operator=(const IndependentDiskWriteStorage &r){
+    static_cast<BurstBufferMemoryStorage&>(*this) = r;
+  }
+
+  void distribute(){
+    if(ptr == NULL) return;
+    unsigned int cksum = checksum();
+    if(!ondisk || (ondisk && ondisk_checksum != cksum) ){
+      static int fidx = 0;
+      if(!ondisk){
+	std::ostringstream os; os << filestub() << "_" << fidx++ << "_node" << UniqueID() << ".dat";
+	file = os.str();
+      }
+      assert(ptr != NULL);
+      std::fstream f(file, std::ios::out | std::ios::binary);
+      if(!f.good()) ERR.General("IndependentDiskWriteStorage","gather(bool)","Failed to open file %s for write\n",file.c_str());
+      f.write((char*)&_size,sizeof(size_t));
+      f.write((char*)&cksum,sizeof(unsigned int));
+      f.write((char*)ptr,_size);
+      if(!f.good()) ERR.General("IndependentDiskWriteStorage","gather(bool)","Write error in file %s\n",file.c_str());
+#ifdef DISTRIBUTE_FLUSH_MEMBUF
+      f.flush(); //should ensure data is written to disk immediately and not kept around in some memory buffer, but may slow things down
+#endif
+      ondisk = true;
+      ondisk_checksum = cksum;      
+    }
+    freeMem();
+  }
+};
 
 
 CPS_END_NAMESPACE
