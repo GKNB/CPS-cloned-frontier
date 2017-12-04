@@ -345,12 +345,17 @@ void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, ...);
 
-template<typename T>
-void nodeDistributeMany(const int n, std::vector<T> *a, ...);
-
 //Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...);
+
+template<typename T>
+void nodeDistributeMany(const int n, std::vector<T> *a, ...);
+
+//Distribute only meson fields in 'from' that are *not* present in any of the sets 'notina' and following
+template<typename T>
+void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> const* notina, ...);
+
 
 template<typename T>
 bool mesonFieldsOnNode(const std::vector<T> &mf){

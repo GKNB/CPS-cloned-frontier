@@ -515,6 +515,34 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
 }
 
 
+//Distribute only meson fields in 'from' that are *not* present in any of the sets 'notina' and following
+template<typename T>
+void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> const* notina, ...){
+  cps::sync();
+  
+  double time = -dclock();
+  
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+  
+  std::set<T const*> exclude;
+
+  va_list vl;
+  va_start(vl,notina);
+  for(int i=1; i<n; i++){
+    std::vector<T> const* val=va_arg(vl,std::vector<T> const*);
+
+    for(int t=0;t<Lt;t++)
+      exclude.insert(& val->operator[](t) );
+  }
+  va_end(vl);
+
+  for(int t=0;t<Lt;t++){
+    if(exclude.count(&from[t]) == 0) from[t].nodeDistribute();
+  }
+
+  print_time("nodeDistributeUnique","Meson field distribute",time+dclock());
+}
+
 #endif
 
 

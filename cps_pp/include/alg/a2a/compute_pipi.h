@@ -39,14 +39,17 @@ class ComputePiPiGparity{
 #define PASS_PRODUCTSTORE products
 #define ADDCOMMA ,
 #endif
+
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
+  
   
   //C = \sum_{x,y,r,s}  \sum_{  0.5 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(r) S_2 * v(r)]] [[w^dag(s) S_2 v(s)]] [[w^dag(x) S_2 v(x)]] )
   //  = 0.5 Tr(  mf(p_pi1_snk) mf(p_pi2_src) mf(p_pi2_snk) mf(p_pi1_src) )
   inline static void figureC(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     const std::vector<MfType >& mf_pi1_src,
+			     const std::vector<MfType >& mf_pi2_src,
+			     const std::vector<MfType >& mf_pi1_snk,
+			     const std::vector<MfType >& mf_pi2_snk,
 			     RECV_PRODUCTSTORE ADDCOMMA
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     int tsrc2 = (tsrc-tsep+Lt) % Lt;
@@ -56,12 +59,12 @@ class ComputePiPiGparity{
 
     //Topology 1  x4=tsrc (pi1)  y4=tsnk (pi1)  r4=tsrc2 (pi2)  s4=tsnk2 (pi2)
 #ifdef DISABLE_PIPI_PRODUCTSTORE
-    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l, prod_r;
+    MfType prod_l, prod_r;
     mult(prod_l, mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
     mult(prod_r, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 #else
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
-    const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+    const MfType &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
+    const MfType &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 #endif
     into(tsrc, tdis) += typename mf_Policies::ScalarComplexType(0.5) * trace(prod_l, prod_r);
 
@@ -72,10 +75,10 @@ class ComputePiPiGparity{
   //where x,y are the source and sink coords of the first pion and r,s the second pion
   //2 different topologies to average over
   inline static void figureD(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     const std::vector<MfType >& mf_pi1_src,
+			     const std::vector<MfType >& mf_pi2_src,
+			     const std::vector<MfType >& mf_pi1_snk,
+			     const std::vector<MfType >& mf_pi2_snk,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
@@ -97,10 +100,10 @@ class ComputePiPiGparity{
   //R = 0.5 Tr( [[w^dag(r) S_2 v(r)]] [[w^dag(s) S_2 * v(s)]][[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] )
   //2 different topologies to average over
   inline static void figureR(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk,
-			     const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk,
+			     const std::vector<MfType >& mf_pi1_src,
+			     const std::vector<MfType >& mf_pi2_src,
+			     const std::vector<MfType >& mf_pi1_snk,
+			     const std::vector<MfType >& mf_pi2_snk,
 			     RECV_PRODUCTSTORE ADDCOMMA
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
@@ -113,12 +116,12 @@ class ComputePiPiGparity{
     //Topology 1    x4=tsrc (pi1) y4=tsnk (pi1)   r4=tsrc2 (pi2) s4=tsnk2 (pi2)
     {
 #ifdef DISABLE_PIPI_PRODUCTSTORE
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l_top1, prod_r_top1;
+      MfType prod_l_top1, prod_r_top1;
       mult(prod_l_top1, mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
       mult(prod_r_top1, mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
 #else      
-      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
-      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
+      const MfType &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
+      const MfType &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
 #endif
       incr += trace( prod_l_top1, prod_r_top1 );
     }
@@ -126,12 +129,12 @@ class ComputePiPiGparity{
     //Topology 2    x4=tsrc (pi1)  y4=tsnk_outer (pi2)  r4=tsrc_outer (pi2) s4=tsnk (pi1)
     {
 #ifdef DISABLE_PIPI_PRODUCTSTORE
-      A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> prod_l_top2, prod_r_top2;
+      MfType prod_l_top2, prod_r_top2;
       mult(prod_l_top2, mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
       mult(prod_r_top2, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 #else
-      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
-      const A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
+      const MfType &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
+      const MfType &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
 #endif 
       incr += trace( prod_l_top2, prod_r_top2 );
     }
@@ -155,7 +158,7 @@ public:
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
 		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-		      , bool do_redistribute = true
+		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
 #endif		      
 		      ){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
@@ -173,10 +176,10 @@ public:
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
 
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_src = mesonfields.get(p_pi1_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_src = mesonfields.get(p_pi2_src);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
+    std::vector<MfType >& mf_pi1_src = mesonfields.get(p_pi1_src);
+    std::vector<MfType >& mf_pi2_src = mesonfields.get(p_pi2_src);
+    std::vector<MfType >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
+    std::vector<MfType >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
     
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     //Get the meson fields we require. Only get those for the timeslices computed on this node
@@ -222,7 +225,16 @@ public:
     into.nodeSum();
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    if(do_redistribute) nodeDistributeMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
+    //Need to take care that there's no overlap in the source and sink meson fields lest we distribute one we intend to keep
+    if(do_redistribute_snk && do_redistribute_src){
+      nodeDistributeMany(4,&mf_pi1_src,&mf_pi2_src,&mf_pi1_snk,&mf_pi2_snk);
+    }else if(do_redistribute_snk){
+      nodeDistributeUnique(mf_pi1_snk, 2, &mf_pi1_src, &mf_pi2_src);
+      nodeDistributeUnique(mf_pi2_snk, 2, &mf_pi1_src, &mf_pi2_src);
+    }else if(do_redistribute_src){
+      nodeDistributeUnique(mf_pi1_src, 2, &mf_pi1_snk, &mf_pi2_snk);
+      nodeDistributeUnique(mf_pi2_src, 2, &mf_pi1_snk, &mf_pi2_snk);
+    }  
 #endif
   }
 
@@ -238,8 +250,8 @@ public:
       if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","computeFigureVdis(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
     
     //Get the meson fields we require
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi = mesonfields.get(p_pi);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> >& mf_pi2 = mesonfields.get(p_pi2);
+    std::vector<MfType >& mf_pi = mesonfields.get(p_pi);
+    std::vector<MfType >& mf_pi2 = mesonfields.get(p_pi2);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeGetMany(2,&mf_pi,&mf_pi2);
