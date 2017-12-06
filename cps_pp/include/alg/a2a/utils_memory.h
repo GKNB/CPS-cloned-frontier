@@ -559,7 +559,7 @@ public:
     int do_gather_node = (require && ptr == NULL);
     if(do_gather_node){
       alloc(_alignment,_size);
-      std::fstream f(file, std::ios::in | std::ios::binary);
+      std::fstream f(file.c_str(), std::ios::in | std::ios::binary);
       if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for read\n",file.c_str());
       size_t rd_size; f.read((char*)&rd_size,sizeof(size_t));
       if(rd_size != _size) ERR.General("BurstBufferMemoryStorage","gather(bool)","Data size %lu in file %s different from expected %lu\n", (unsigned long)rd_size, file.c_str(), (unsigned long)_size );
@@ -585,7 +585,7 @@ public:
 	
       if(!UniqueID()){
 	assert(ptr != NULL);
-	std::fstream f(file, std::ios::out | std::ios::binary);
+	std::fstream f(file.c_str(), std::ios::out | std::ios::binary);
 	if(!f.good()) ERR.General("BurstBufferMemoryStorage","gather(bool)","Failed to open file %s for write\n",file.c_str());
 	f.write((char*)&_size,sizeof(size_t));
 	f.write((char*)&cksum,sizeof(unsigned int));
@@ -634,7 +634,7 @@ public:
 	file = os.str();
       }
       assert(ptr != NULL);
-      std::fstream f(file, std::ios::out | std::ios::binary);
+      std::fstream f(file.c_str(), std::ios::out | std::ios::binary);
       if(!f.good()) ERR.General("IndependentDiskWriteStorage","gather(bool)","Failed to open file %s for write\n",file.c_str());
       f.write((char*)&_size,sizeof(size_t));
       f.write((char*)&cksum,sizeof(unsigned int));

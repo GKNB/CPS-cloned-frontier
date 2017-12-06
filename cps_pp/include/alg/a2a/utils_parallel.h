@@ -184,7 +184,7 @@ void checkWriteable(const std::string &dir,const int conf){
     std::ostringstream os; os << dir << "/writeTest.node" << UniqueID() << ".conf" << conf;
     file = os.str();
   }
-  std::ofstream of(file);
+  std::ofstream of(file.c_str());
   double fail = 0;
   if(!of.good()){ std::cout << "checkWriteable failed to open file for write: " << file << std::endl; std::cout.flush(); fail = 1; }
 
