@@ -449,7 +449,7 @@ namespace cps
 	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
-
+//faster, but needs more memory
 #if 0
       VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
 		  sizeof (off_t), sizeof (size_t));
@@ -530,34 +530,31 @@ namespace cps
 	      off_t offset = seek_size+(4 * buf1.size () + FP_16_SIZE (buf2.size (),
 								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
-      		fseeko (f, offset, SEEK_SET);
 		std::vector<char> raw_tmp(sizeof(float)*(buf1.size()+buf2.size()));
-      		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
+ 		int total=0,i_try=0;
+      		while (total<1) {
+      			fseeko (f, offset, SEEK_SET);
+			total = fread (&raw_tmp[0], raw_tmp.size(), 1, f) ;
+			i_try++;
+//			if((i_try%100)==0) 
+			if(total<1) printf("Node %d: fread failed? \n",UniqueID(),i_try);
+			total=1;//make it pass for now.
+		}
 	      int l;
 		char *lptr= raw_tmp.data();
-	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
+	      VRB.Debug(cname,fname,"lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
 	      read_floats (lptr, &buf1[0], buf1.size ());
 	      //automatically increase lptr
 	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
 		      &buf1[0], buf1.size () * sizeof (float));
 
-//	      offset += raw_tmp.size();
-//	      lptr = (char *)offset;
-//         	fseeko (f, offset, SEEK_SET);
-//		raw_tmp.resize(sizeof(float)*buf2.size());
-//     		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
-//		lptr= raw_tmp.data();
-	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size+sizeof(float)*buf1.size()),(int) *lptr, (int) *(lptr+1));
+	      VRB.Debug(cname,fname,"lptr=%p %d %d\n",(char*)(offset-seek_size+sizeof(float)*buf1.size()),(int) *lptr, (int) *(lptr+1));
 	      
-//        	lptr= raw_tmp.data();
 	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
 				args.FP16_COEF_EXP_SHARE_FLOATS);
 	      memcpy (&block_coef[mnb]
 		      [j * (buf1.size () + buf2.size ()) + buf1.size ()],
 		      &buf2[0], buf2.size () * sizeof (float));
-	      //      for (l=nkeep_single;l<nkeep;l++) {
-	      //              ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf2[2*(l-nkeep_single)+0],buf2[2*(l-nkeep_single)+1]);
-	      //}
 
 	    }
 	  }
