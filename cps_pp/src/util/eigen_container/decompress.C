@@ -530,30 +530,26 @@ namespace cps
 	      off_t offset = seek_size+(4 * buf1.size () + FP_16_SIZE (buf2.size (),
 								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
-	      char *lptr = (char *)offset;
       		fseeko (f, offset, SEEK_SET);
-		std::vector<char> raw_tmp(sizeof(float)*buf1.size());
+		std::vector<char> raw_tmp(sizeof(float)*(buf1.size()+buf2.size()));
       		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
 	      int l;
-		lptr= raw_tmp.data();
+		char *lptr= raw_tmp.data();
 	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
 	      read_floats (lptr, &buf1[0], buf1.size ());
 	      //automatically increase lptr
 	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
 		      &buf1[0], buf1.size () * sizeof (float));
-	      //for (l=0;l<nkeep_single;l++) {
-	      //      ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf1[2*l+0],buf1[2*l+1]);
-	      //}
 
-	      offset += raw_tmp.size();
-	      lptr = (char *)offset;
-         	fseeko (f, offset, SEEK_SET);
-		raw_tmp.resize(sizeof(float)*buf2.size());
-      		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
-		lptr= raw_tmp.data();
-	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
+//	      offset += raw_tmp.size();
+//	      lptr = (char *)offset;
+//         	fseeko (f, offset, SEEK_SET);
+//		raw_tmp.resize(sizeof(float)*buf2.size());
+//     		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
+//		lptr= raw_tmp.data();
+	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size+sizeof(float)*buf1.size()),(int) *lptr, (int) *(lptr+1));
 	      
-        	lptr= raw_tmp.data();
+//        	lptr= raw_tmp.data();
 	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
 				args.FP16_COEF_EXP_SHARE_FLOATS);
 	      memcpy (&block_coef[mnb]
