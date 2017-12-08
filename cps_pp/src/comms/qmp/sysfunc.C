@@ -219,8 +219,8 @@ void init_qmp(int * argc, char ***argv) {
        QMP_abort(-32);
     }
  //debugging
-//    if (peRank != qmpRank){
-    if(0){
+//    if(0){
+    if (peRank != qmpRank){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
 	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);
 	printf("\n");

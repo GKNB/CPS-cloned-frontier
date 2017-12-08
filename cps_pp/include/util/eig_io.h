@@ -110,7 +110,7 @@ namespace cps
 //    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
     size_t f_size_block;
 
-    char *raw_in;
+//    char *raw_in;
 
 
     std::vector < std::vector < OPT > >block_data;
@@ -662,7 +662,7 @@ namespace cps
 	  }
       std::cout <<"offset= "<<offset<<std::endl;
 
-	  raw_in = (char *) smalloc (read_size);
+	  char *raw_in = (char *) smalloc (read_size);
 	  if (0) {
 	    off_t half = read_size / 2;
 	    fseeko (f2, 0, SEEK_SET);

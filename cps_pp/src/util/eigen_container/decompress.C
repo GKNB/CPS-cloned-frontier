@@ -438,7 +438,7 @@ namespace cps
 	  std::endl;
       cps::sync ();
 
-      off_t seek_size =
+      off_t seek_size = 
 	(off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
@@ -449,6 +449,8 @@ namespace cps
 	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
+
+#if 0
       VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
 		  sizeof (off_t), sizeof (size_t));
       std::cout << "read_size= " << read_size << std::endl;
@@ -484,6 +486,7 @@ namespace cps
 								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
+	      printf("lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
 	      read_floats (lptr, &buf1[0], buf1.size ());
 	      //automatically increase lptr
 	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
@@ -491,6 +494,7 @@ namespace cps
 	      //for (l=0;l<nkeep_single;l++) {
 	      //      ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf1[2*l+0],buf1[2*l+1]);
 	      //}
+	      printf("lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
 	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
 				args.FP16_COEF_EXP_SHARE_FLOATS);
 	      memcpy (&block_coef[mnb]
@@ -504,6 +508,68 @@ namespace cps
 	  }
 
       }
+#else
+      VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
+		  sizeof (off_t), sizeof (size_t));
+      std::cout << "read_size= " << read_size << std::endl;
+
+
+//#pragma omp parallel
+      {
+	std::vector < float >buf1 (args.nkeep_single * 2);
+	std::vector < float >buf2 ((args.nkeep - args.nkeep_single) * 2);
+
+//#pragma omp for
+	for (int j = 0; j < args.neig; j++)
+	  for (int nb = 0; nb < args.blocks; nb++) {
+	    int ii, oi;
+	    int mnb = globalToLocalCanonicalBlock (slot, _nn, nb);
+	    //int mnb = (nb < nb_per_node) ? nb : -1;
+	    if (mnb != -1) {
+
+	      off_t offset = seek_size+(4 * buf1.size () + FP_16_SIZE (buf2.size (),
+								 args.FP16_COEF_EXP_SHARE_FLOATS))
+		* (nb + j * args.blocks);
+	      char *lptr = (char *)offset;
+      		fseeko (f, offset, SEEK_SET);
+		std::vector<char> raw_tmp(sizeof(float)*buf1.size());
+      		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
+	      int l;
+		lptr= raw_tmp.data();
+	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
+	      read_floats (lptr, &buf1[0], buf1.size ());
+	      //automatically increase lptr
+	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
+		      &buf1[0], buf1.size () * sizeof (float));
+	      //for (l=0;l<nkeep_single;l++) {
+	      //      ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf1[2*l+0],buf1[2*l+1]);
+	      //}
+
+	      offset += raw_tmp.size();
+	      lptr = (char *)offset;
+         	fseeko (f, offset, SEEK_SET);
+		raw_tmp.resize(sizeof(float)*buf2.size());
+      		assert (fread (&raw_tmp[0], raw_tmp.size(), 1, f) == 1);
+		lptr= raw_tmp.data();
+	      printf("lptr=%p %d %d\n",(char*)(offset-seek_size),(int) *lptr, (int) *(lptr+1));
+	      
+        	lptr= raw_tmp.data();
+	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
+				args.FP16_COEF_EXP_SHARE_FLOATS);
+	      memcpy (&block_coef[mnb]
+		      [j * (buf1.size () + buf2.size ()) + buf1.size ()],
+		      &buf2[0], buf2.size () * sizeof (float));
+	      //      for (l=nkeep_single;l<nkeep;l++) {
+	      //              ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf2[2*(l-nkeep_single)+0],buf2[2*(l-nkeep_single)+1]);
+	      //}
+
+	    }
+	  }
+
+      }
+#endif
+
+    
       fclose (f);
       t1 += dclock ();
       //std::cout << "Processed " << totalGB << " GB of compressed data at " << totalGB/t1<< " GB/s" << std::endl;
@@ -544,7 +610,6 @@ namespace cps
 	//if (!tid)
 	ta = dclock ();
 
-//#if 1
 
 #pragma omp for
 	for (int nb = 0; nb < nb_per_node; nb++) {
