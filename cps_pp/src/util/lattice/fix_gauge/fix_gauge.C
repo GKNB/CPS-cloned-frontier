@@ -1191,7 +1191,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
     //------------------------------------------------------------------------
 
     Float not_converged = 0;
-    Float tot_iternum = 0;
+    unsigned long tot_iternum = 0;
 
     {
         int loop_num = 
@@ -1217,7 +1217,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
                         // find gauge fixing matrices for hyperplane
                         //--------------------------------------------------------------
 
-                        int iternum = 0;
+                        unsigned long int iternum = 0;
 
                         while((hplane.delta() > hplane.small_enough) && (iternum < MaxIterNum))
                             {
@@ -1287,7 +1287,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
   sfree(Ind2Dir);
 
 	//Add by Jianglei
-	VRB.Result(cname, fname, "Iteration numbers = %d", tot_iternum);
+	VRB.Result(cname, fname, "Iteration numbers = %lu", tot_iternum);
 
   //--------------------------------------------------------------
   // Issue a warning through broadcast if MaxIterNum is reached

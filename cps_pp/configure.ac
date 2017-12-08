@@ -532,7 +532,7 @@ AC_SEARCH_LIBS([fftw_execute],[fftw3],
 	[AC_DEFINE([USE_FFTW],[1],[Define 1 if you have fftw3 library])]
 	[enable_fftw=true])
 
-AC_SEARCH_LIBS([crc32_combine64 ],[z],
+AC_SEARCH_LIBS([crc32_combine],[z],
 	[AC_DEFINE([USE_ZLIB],[1],[Define 1 if you have zlib])]
 	[enable_zlib=true],
 	[AC_MSG_ERROR("zlib needed for crc32")]
