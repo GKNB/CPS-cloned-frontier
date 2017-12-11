@@ -49,6 +49,8 @@ uint32_t BOOTSTRAP_MAX = 1000000000;
 //#define RNG_SEED_RANLUX
 #define RNG_SEED_SKIP
 #endif
+#undef RNG_WARMUP
+#undef BOOTSTRAP
 const uint64_t RNG_SKIP = 1099511627776; // 2^40
 const uint64_t MAX_RNG = 16777216; // 2^24
 //const uint64_t RNG_SKIP = 23;
@@ -334,7 +336,6 @@ void LatRanGen::Initialize ()
 //      printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
 //      std::cout << "cpsran["<<index_4d<<"]:\n"<<cpsran[index_4d]<<std::endl;
 
-#undef RNG_WARMUP
 #ifdef RNG_WARMUP
 	  {
 	    int n_warm = ugran_4d[index_4d].Urand (100, 0);
@@ -346,7 +347,6 @@ void LatRanGen::Initialize ()
 	    }
 	  }
 #endif
-#undef BOOTSTRAP
 #ifdef BOOTSTRAP
 	  {
 	    std::uniform_int_distribution <> uniform_dist (0, BOOTSTRAP_MAX);

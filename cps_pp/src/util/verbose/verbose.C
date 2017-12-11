@@ -393,7 +393,7 @@ void Verbose::Flow(const char *class_name, const char *func_name,
 #endif
     }
     else {
-//	printf("\n\t");
+	if (!UniqueID()) printf("\n");
     }
     
 }

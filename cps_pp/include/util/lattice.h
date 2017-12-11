@@ -878,23 +878,7 @@ class Lattice
 #endif
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
-    virtual int F5D()
-#if 0
-    {return 0;}
-#else
-     {
-      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
-       if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
-#ifdef USE_BFM
-     if ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1; //added by CK, moved here  by CJ
-#endif
-#ifdef USE_GRID
-      if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
-#endif
-      return 0;
-     }
-#endif
+    virtual int F5D();
 
 
 
@@ -1370,6 +1354,8 @@ class Lattice
     virtual void BondCond();
     Float GetReTrPlaq(const int x[4],Float *ReTrPlaq);
     int BcApplied(){return bc_applied;}
+   
+    virtual void SetMassArg(Float mass){}
 };
 
 //------------------------------------------------------------------

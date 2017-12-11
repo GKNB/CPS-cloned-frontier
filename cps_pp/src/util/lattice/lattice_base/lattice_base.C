@@ -4247,17 +4247,18 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
-    VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
+
 #ifdef USE_BFM
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
       s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
+      VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
       VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
 #ifndef USE_C11_RNG
       if (s_node_sites > GJP.SnodeSites()) {
         ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
-#endif
       }
+#endif
     }
 #endif
 
@@ -4875,21 +4876,25 @@ void
 }
 #endif
 
-#if 0
 int Lattice::F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-#ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) //added by CK, moved here  by CJ
-#endif
-#ifdef USE_GRID
-      || Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS
-#endif
            || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
 	return 1;
-      else return 0;
-}
+//added by CK, moved here  by CJ
+#ifdef USE_BFM
+     if (Fclass() == F_CLASS_BFM) {
+	if ( !Fbfm::arg_map.count(Fbfm::current_key_mass) ) 
+         ERR.General(cname,"F5D()","key_mass(%g) needs to be set before calling F5D()\n");
+	if (Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1;
+     }
 #endif
+
+#ifdef USE_GRID
+      if( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+#endif
+      return 0;
+}
 
 int
   Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,

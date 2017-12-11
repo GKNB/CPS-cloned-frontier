@@ -166,6 +166,12 @@ void init_qmp(int * argc, char ***argv) {
 	}
 	QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
 	QMP_comm_set_default(qmp_comm);
+#else
+	peRank=0;
+	for(int i=NDIM-1;i>=0;i--){
+		peRank *= peGrid[i];
+		peRank += pePos[i];
+	}
 #endif
 
     if(peRank==0){
@@ -209,6 +215,7 @@ void init_qmp(int * argc, char ***argv) {
       QMP_error("Node %d: Failed to declare logical topology\n",peRank);
       exit(-4);
     }
+#ifdef USE_GRID
     pePos_t = QMP_get_logical_coordinates();
     peRank = pePos_t[NDIM-1];
     if(NDIM>1)
@@ -221,8 +228,8 @@ void init_qmp(int * argc, char ***argv) {
     }
 #endif
  //debugging
-//    if (peRank != qmpRank){
-    if(0){
+//    if(0){
+    if (peRank != qmpRank){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
 	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);
 	printf("\n");

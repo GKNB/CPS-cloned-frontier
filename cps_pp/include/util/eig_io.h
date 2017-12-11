@@ -23,13 +23,6 @@
 #include <util/verbose.h>
 #include <unistd.h>
 
-#if 0
-extern MPI_Comm QMP_COMM_WORLD;
-#else
-#define QMP_COMM_WORLD MPI_COMM_WORLD
-#endif
-
-
 
 #include <zlib.h>
 static uint32_t crc32_loop(uint32_t previousCrc32, unsigned char* data, size_t len) {
@@ -110,7 +103,7 @@ namespace cps
 //    int f_size, f_size_block, f_size_coef_block, nkeep_fp16;
     size_t f_size_block;
 
-    char *raw_in;
+//    char *raw_in;
 
 
     std::vector < std::vector < OPT > >block_data;
@@ -132,11 +125,12 @@ namespace cps
     }
 
 
+#if 0
     inline int sumArray (long *recv, const long *send, const long n_elem)
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((long *) send, recv, n_elem, MPI_LONG, MPI_SUM,
-			    QMP_COMM_WORLD);
+			    MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (long));
       return 0;
@@ -148,7 +142,7 @@ namespace cps
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((uint32_t *) send, recv, n_elem, MPI_UNSIGNED,
-			    MPI_SUM, QMP_COMM_WORLD);
+			    MPI_SUM, MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (uint32_t));
       return 0;
@@ -159,7 +153,7 @@ namespace cps
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((int *) send, recv, n_elem, MPI_INT, MPI_SUM,
-			    QMP_COMM_WORLD);
+			    MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (int));
       return 0;
@@ -169,22 +163,27 @@ namespace cps
     inline int sumArray (double *recv, const double *send, const long n_elem)
     {
 #ifdef USE_QMP
-      return MPI_Allreduce ((double *) send, recv, n_elem, MPI_DOUBLE, MPI_SUM,
-			    QMP_COMM_WORLD);
+      int ret= MPI_Allreduce ((double *) send, recv, n_elem, MPI_DOUBLE, MPI_SUM,
+			    MPI_COMM_WORLD);
+	for(int i=0;i<n_elem;i++) *(recv+i) =*(send+i);
+	return (int)QMP_sum_double_array(recv,n_elem);
 #else
       memmove (recv, send, n_elem * sizeof (double));
       return 0;
 #endif
     }
+#endif
 
     template < class M > int sumArray (M * vs, const long n_elem)
     {
       // M can be double or long
       int status = 0;
-#ifdef USE_QMP
+#if 0
       M tmp[n_elem];
       status = sumArray (tmp, vs, n_elem);
       memcpy (vs, tmp, n_elem * sizeof (M));
+#else
+      status = glb_sum(vs, n_elem);
 #endif
       return status;
     }
@@ -246,25 +245,24 @@ namespace cps
 
       return +regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
     }
+
     int get_cps_index (int *pos, int co, int *s_l)
     {
 
+#ifdef USE_BFM
+      return get_bfm_index(pos,co,s_l);
+#else
       int ls = s_l[4];
       int vol_4d_oo = vol4d / 2;
       int vol_5d = vol_4d_oo * ls;
 
-//      int SimdT = 1;
-//      int NtHalf = args.s[3];
-//      int simd_coor = pos[3] / NtHalf;
-//      assert (simd_coor == 0);
-//      int regu_vol = vol_4d_oo / SimdT;
       int regu_coor = (pos[0] + s_l[0] *
 		       (pos[1] + s_l[1] *
 			(pos[2] + s_l[2] *
 			 (pos[3] + s_l[3] * pos[4])))) / 2;
 
       return ((regu_coor) * 12 + co) * 2;
-//      return regu_coor * ls * 48 + pos[4] * 48 + co * 4 + simd_coor * 2;
+#endif
     }
 
     void index_to_pos (int i, int *pos, int *latt)
@@ -653,18 +651,18 @@ namespace cps
 	  fseeko (f2, 0, SEEK_END);
 	  off_t size0 = ftello (f2);
       std::cout <<"size0= "<<size0<<std::endl;
-	  off_t size = size0 / ngroup;
-      std::cout <<"size= "<<size<<std::endl;
-	  off_t offset = size * (nodeID % ngroup);
+	  off_t read_size = size0 / ngroup;
+      std::cout <<"read_size= "<<read_size<<std::endl;
+	  off_t offset = read_size * (nodeID % ngroup);
 	  if (((nodeID % ngroup) == (ngroup - 1))
 	      || (nodeID == (nprocessors - 1))) {
-	    size = size0 - offset;
+	    read_size = size0 - offset;
 	  }
       std::cout <<"offset= "<<offset<<std::endl;
 
-	  raw_in = (char *) smalloc (size);
+	  char *raw_in = (char *) smalloc (read_size);
 	  if (0) {
-	    off_t half = size / 2;
+	    off_t half = read_size / 2;
 	    fseeko (f2, 0, SEEK_SET);
 	    fread (raw_in, 1, half, f2);
 	    uint32_t first = crc32_loop (0, (Bytef *) raw_in, half);
@@ -681,7 +679,7 @@ namespace cps
 	  }
 
 	  off_t t_pos = ftello (f2);
-	  if (fread (raw_in, 1, size, f2) != size) {
+	  if (fread (raw_in, 1, read_size, f2) != read_size) {
 	    fprintf (stderr, "Invalid fread\n");
 	    return 6;
 	  }
@@ -692,10 +690,10 @@ namespace cps
 //	  uint32_t crc32_part[nprocessors];
 	  for (int i = 0; i < nprocessors; i++)
 	    crc32_part[i] = 0;
-	  crc32_part[nodeID] = crc32_loop (0, (Bytef *) raw_in, size);
+	  crc32_part[nodeID] = crc32_loop (0, (Bytef *) raw_in, read_size);
 	  VRB.Debug (cname, fname,
-		     "%d %d: ngroup size offset crc32 : %d %d %d %x\n",
-		     nprocessors, nodeID, ngroup, size, offset,
+		     "%d %d: ngroup read_size offset crc32 : %d %d %d %x\n",
+		     nprocessors, nodeID, ngroup, read_size, offset,
 		     crc32_part[nodeID]);
 	  sumArray (crc32_part.data(), nprocessors);
 	  if (nodeID % ngroup == 0) {
@@ -706,11 +704,11 @@ namespace cps
 			 nodeID + i, crc32_part[nodeID + i], crc32_all);
 	      if (i < (ngroup - 1))
 		crc32_all =
-		  crc32_combine64 (crc32_all, crc32_part[nodeID + i], size);
+		  crc32_combine (crc32_all, crc32_part[nodeID + i], read_size);
 	      else
 		crc32_all =
-		  crc32_combine64 (crc32_all, crc32_part[nodeID + i],
-				   size0 - (size * (ngroup - 1)));
+		  crc32_combine (crc32_all, crc32_part[nodeID + i],
+				   size0 - (read_size * (ngroup - 1)));
 	    }
 	    printf ("%d: crc32_all: %x crc32_header %x\n", slot, crc32_all,
 		    args.crc32_header[slot]);

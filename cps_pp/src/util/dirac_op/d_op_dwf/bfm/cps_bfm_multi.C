@@ -168,6 +168,7 @@ int DiracOpDwf::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
     multi1d<int> ncoor = QDP::Layout::nodeCoord();
     multi1d<int> procs = QDP::Layout::logicalSize();
 
+#ifdef BFM_GPARITY
     if(GJP.Gparity()){
       dwfa.gparity = 1;
       Printf("G-parity directions: ");
@@ -180,6 +181,7 @@ int DiracOpDwf::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
       }
       Printf("\n");
     }
+#endif
 
 
     Printf("%d dim machine\n\t", procs.size());

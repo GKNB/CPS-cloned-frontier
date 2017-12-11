@@ -86,8 +86,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
   int mem_save = eig_arg->mem_save;
-  if (mem_save)
-    ERR.General (cname, fname, " mem_save does not work yet!\n");
+//  if (mem_save) ERR.General (cname, fname, " mem_save does not work yet!\n");
   int precision = eig_arg->precision;
   DIRAC::ImplParams params;
   SetParams (params);
@@ -180,12 +179,12 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 	else				 f_size *=sizeof(double);
 
   for (int i = Nstop-1; i >= 0  ; i--) {
-    if( (mem_save==0) && (f_eigenv[i] == NULL) )
+    if( (mem_save==0) && (!f_eigenv[i] ) )
       ERR.General (cname, fname, "f_eigenv[%d] not allocated\n", i);
     lambda[i] = eval[i];
 
     if(mem_save==1){
-		f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
+	f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
     } 
 #ifndef SINGLE
     setCheckerboard (grid_out, evec[i]);

@@ -179,11 +179,11 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O -Wall"
      CXXFLAGS="${CXXFLAGS} -O -Wall"
    elif test "$enable_target" = "bgq"; then
-     CFLAGS="${CFLAGS} -O2 -Wall"
-     CXXFLAGS="${CXXFLAGS} -O2 -Wall"
+     CFLAGS="${CFLAGS} -g -O2 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O2 -Wall -fno-strict-aliasing "
    else
-     CFLAGS="${CFLAGS} -g -O3 -Wall"
-     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall"
+     CFLAGS="${CFLAGS} -g -O3 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall -fno-strict-aliasing "
    fi
 fi
 
@@ -444,6 +444,8 @@ dnl     echo "BFM_DIR environment variable not set"
 	LDFLAGS="${LDFLAGS} -lqio"
    fi		    					 
 
+dnl      LDFLAGS="${LDFLAGS} -lqdp -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm -lgsl -lgslcblas -lqmp"
+dnl -L/soft/libraries/essl/current/lib64 -lesslbg -L/soft/compilers/ibmcmp-nov2012/xlf/bg/14.1/lib64 -lxlf90_r -lxlfmath -lxl -ldl 
    if test "X{$enable_xml}X" = "XX"; then
     enable_xml="yes"
    fi
@@ -524,22 +526,34 @@ fi
 #-------------------------windy---------------------------	
 
 dnl Are we compiling with fftw?
-AC_ARG_ENABLE(fftw, 
-	AC_HELP_STRING([--enable-fftw], 
-		[Compile with FFTW (default=no)]), 
-	,[enable_fftw="no"])
-AC_MSG_CHECKING([if including fftw])
-AC_MSG_RESULT($enable_fftw)
-if test "$enable_fftw" != "no"; then
-	if test "$enable_fftw" != "yes"; then
-   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib"
-   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
-#	else
+
+AC_SEARCH_LIBS([fftw_execute],[fftw3],
+	[AC_SEARCH_LIBS([fftwf_execute],[fftw3f], [], [AC_MSG_ERROR("single precision fftw library not found")])]
+	[AC_DEFINE([USE_FFTW],[1],[Define 1 if you have fftw3 library])]
+	[enable_fftw=true])
+
+AC_SEARCH_LIBS([crc32_combine],[z],
+	[AC_DEFINE([USE_ZLIB],[1],[Define 1 if you have zlib])]
+	[enable_zlib=true],
+	[AC_MSG_ERROR("zlib needed for crc32")]
+	)
+
+#AC_ARG_ENABLE(fftw, 
+#	AC_HELP_STRING([--enable-fftw], 
+#		[Compile with FFTW (default=no)]), 
+#	,[enable_fftw="no"])
+#AC_MSG_CHECKING([if including fftw])
+#AC_MSG_RESULT($enable_fftw)
+#if test "$enable_fftw" != "no"; then
+#	if test "$enable_fftw" != "yes"; then
+#   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib"
+#   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
+##	else
 #   		LDFLAGS="${LDFLAGS} -L\${SRCDIR}/aux/GotoBLAS2 -lgoto2"
 #   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I\${SRCDIR}/aux/GotoBLAS2"
-	fi
-   	DFLAGS="${DFLAGS} -DUSE_FFTW"
-fi
+#	fi
+#   	DFLAGS="${DFLAGS} -DUSE_FFTW"
+#fi
 
 if test "$enable_bfm" != "no"; then
    HAVE_BFM="define HAVE_BFM 1"
@@ -593,6 +607,7 @@ AC_SUBST(DFLAGS)
 AC_SUBST(INCLUDE_FLAGS)
 AC_SUBST(LD)
 AC_SUBST(LDFLAGS)
+AC_SUBST(LIBS)
 AC_SUBST(TESTING_PARALLEL)
 AC_SUBST(ENABLE_PARALLEL)
 AC_SUBST(QOS)
@@ -673,6 +688,10 @@ AC_CHECK_TYPES(netobj)
 AC_CHECK_FUNCS(posix_memalign)
 dnl AC_CHECK_HEADERS([qcdocos/scu_checksum.h])
 #AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([cblas.h])
+AC_CHECK_HEADERS([mkl_cblas.h])
+AC_CHECK_HEADERS([gsl_cblas.h])
 AC_CONFIG_HEADERS([conf.h])
 
 

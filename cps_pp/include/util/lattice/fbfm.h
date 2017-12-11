@@ -3,9 +3,9 @@
 
 #include<config.h>
 
-# ifdef USE_BFM
-#  include <util/lattice/bfm_evo.h>
-#  include <util/lattice/bfm_mixed_solver.h>
+#ifdef USE_BFM
+#include <util/lattice/bfm_evo.h>
+#include <util/lattice/bfm_mixed_solver.h>
 #include <util/lattice/bfm_mixed_solver_multi.h>
 #include <util/lattice/eff_overlap.h>
 # endif
@@ -27,6 +27,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 //    static int nthreads[2];
   
     static std::map<Float, bfmarg> arg_map;
+    static Float default_key_mass;
     static Float current_key_mass;
 	Float key_mass;
 //BfmSolver solver;
@@ -125,9 +126,9 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
         return F_CLASS_BFM;
     }
 
-#if 1
+#if 0
     virtual int F5D(){
-      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) ) return 1;
+      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM)  return 1;
       else return 0;
     }
 #endif
@@ -365,13 +366,24 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   //
   //!< Note: Agent classes which needs to import gauge field to
   //!external libraries need to overwrite this function.
-  virtual void BondCond();
+#ifndef NO_BFM_BC
+  void BondCond(){
+    Lattice::BondCond();
+    if (bfm_initted) ImportGauge();
+  }
+#endif
+
+
 
   void ImportGauge();
 
     void SetBfmArg(Float key_mass);
 
-#if 1
+    void SetMassArg(Float mass){
+	VRB.Result(cname,"SetMassArg(F)","called\n");
+	SetBfmArg(mass);
+    }
+
     void SetMass(Float mass) {
 	const char *fname="SetMass(Float)";
     if(!bfm_initted) ERR.General(cname,fname,"Fbfm not initted\n");
@@ -412,7 +424,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
       bf.GeneralisedFiveDimInit();
     }
   }
-#endif
         void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag);
 

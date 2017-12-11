@@ -1,6 +1,8 @@
 #ifndef INCLUDED_ERROR_H
 #define INCLUDED_ERROR_H  //!< Prevent multiple inclusions
 
+#include<cstring>
+#include<string>
 #include<config.h>
 #include<string>
 /*!\file
