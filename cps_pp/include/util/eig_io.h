@@ -23,13 +23,6 @@
 #include <util/verbose.h>
 #include <unistd.h>
 
-#if 0
-extern MPI_Comm QMP_COMM_WORLD;
-#else
-#define QMP_COMM_WORLD MPI_COMM_WORLD
-#endif
-
-
 
 #include <zlib.h>
 static uint32_t crc32_loop(uint32_t previousCrc32, unsigned char* data, size_t len) {
@@ -132,11 +125,12 @@ namespace cps
     }
 
 
+#if 0
     inline int sumArray (long *recv, const long *send, const long n_elem)
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((long *) send, recv, n_elem, MPI_LONG, MPI_SUM,
-			    QMP_COMM_WORLD);
+			    MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (long));
       return 0;
@@ -148,7 +142,7 @@ namespace cps
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((uint32_t *) send, recv, n_elem, MPI_UNSIGNED,
-			    MPI_SUM, QMP_COMM_WORLD);
+			    MPI_SUM, MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (uint32_t));
       return 0;
@@ -159,7 +153,7 @@ namespace cps
     {
 #ifdef USE_QMP
       return MPI_Allreduce ((int *) send, recv, n_elem, MPI_INT, MPI_SUM,
-			    QMP_COMM_WORLD);
+			    MPI_COMM_WORLD);
 #else
       memmove (recv, send, n_elem * sizeof (int));
       return 0;
@@ -169,22 +163,27 @@ namespace cps
     inline int sumArray (double *recv, const double *send, const long n_elem)
     {
 #ifdef USE_QMP
-      return MPI_Allreduce ((double *) send, recv, n_elem, MPI_DOUBLE, MPI_SUM,
-			    QMP_COMM_WORLD);
+      int ret= MPI_Allreduce ((double *) send, recv, n_elem, MPI_DOUBLE, MPI_SUM,
+			    MPI_COMM_WORLD);
+	for(int i=0;i<n_elem;i++) *(recv+i) =*(send+i);
+	return (int)QMP_sum_double_array(recv,n_elem);
 #else
       memmove (recv, send, n_elem * sizeof (double));
       return 0;
 #endif
     }
+#endif
 
     template < class M > int sumArray (M * vs, const long n_elem)
     {
       // M can be double or long
       int status = 0;
-#ifdef USE_QMP
+#if 0
       M tmp[n_elem];
       status = sumArray (tmp, vs, n_elem);
       memcpy (vs, tmp, n_elem * sizeof (M));
+#else
+      status = glb_sum(vs, n_elem);
 #endif
       return status;
     }

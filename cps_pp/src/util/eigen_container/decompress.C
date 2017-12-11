@@ -198,7 +198,7 @@ namespace cps
       fclose (file);
     }
     sumArray (&nvec, 1);
-    printf ("dest_all.size() %d  args.neig %d\n", dest_all.size (), args.neig);
+    VRB.Debug(cname,fname.c_str(),"dest_all.size() %d  args.neig %d\n", (int) dest_all.size (), args.neig);
     assert (dest_all.size () <= args.neig);
     assert (nvec == args.neig);
 
@@ -437,11 +437,17 @@ namespace cps
 	std::cout << "Finished reading block_data_ortho nsingleCap-nkeep " <<
 	  std::endl;
       cps::sync ();
+      VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
+		  sizeof (off_t), sizeof (size_t));
 
       off_t seek_size = 
 	(off_t) _cf_block_size * 2 * nsingleCap * args.blocks * 4 +
 	FP_16_SIZE (_cf_block_size * 2 * (args.nkeep - nsingleCap) *
 		    args.blocks, 24);
+
+//faster, but needs more memory
+#if TARGET != BGQ
+
       fseeko (f, seek_size, SEEK_SET);
 
       size_t read_size =
@@ -449,10 +455,6 @@ namespace cps
 	 FP_16_SIZE ((args.nkeep - args.nkeep_single) * 2,
 		     args.FP16_COEF_EXP_SHARE_FLOATS))
 	* (args.neig * args.blocks);
-//faster, but needs more memory
-#if 0
-      VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
-		  sizeof (off_t), sizeof (size_t));
       std::cout << "read_size= " << read_size << std::endl;
 
 
@@ -509,9 +511,6 @@ namespace cps
 
       }
 #else
-      VRB.Result (cname, fname.c_str (), "sizeof(off_t)=%d sizeof(size_t)=%d\n",
-		  sizeof (off_t), sizeof (size_t));
-      std::cout << "read_size= " << read_size << std::endl;
 
 
 //#pragma omp parallel
@@ -536,20 +535,21 @@ namespace cps
       			fseeko (f, offset, SEEK_SET);
 			total = fread (&raw_tmp[0], raw_tmp.size(), 1, f) ;
 			i_try++;
-//			if((i_try%100)==0) 
-			if(total<1) printf("Node %d: fread failed? \n",UniqueID(),i_try);
-			total=1;//make it pass for now.
+			if(i_try>100) {
+			     printf("Node %d: fread failed %d times, passing for now\n",UniqueID(),i_try);
+			      total=1;//make it pass for now.
+ 			}
 		}
 	      int l;
 		char *lptr= raw_tmp.data();
 		int *iptr= (int*)raw_tmp.data();
-//	      VRB.Debug(cname,fname,"lptr=%p %d %d\n",(char*)(offset-seek_size),*iptr, *(iptr+1));
+	      VRB.Debug(cname,fname.c_str(),"lptr=%p %d %d\n",(char*)(offset-seek_size),*iptr, *(iptr+1));
 	      read_floats (lptr, &buf1[0], buf1.size ());
 	      //automatically increase lptr
 	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
 		      &buf1[0], buf1.size () * sizeof (float));
 
-//	      VRB.Debug(cname,fname,"lptr=%p %d %d\n",(char*)(offset-seek_size),*iptr, *(iptr+1));
+	      VRB.Debug(cname,fname.c_str(),"lptr=%p %d %d\n",(char*)(offset-seek_size),*iptr, *(iptr+1));
 	      
 	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
 				args.FP16_COEF_EXP_SHARE_FLOATS);

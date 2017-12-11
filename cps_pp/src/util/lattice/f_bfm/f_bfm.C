@@ -223,7 +223,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     if (!bfm_initted) {
 	AutofillBfmarg(new_arg);
- 
+
 	bd.init(new_arg);
 	if (use_mixed_solver) {
 	    bd.comm_end();
@@ -232,7 +232,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bd.comm_init();
 	}
 
-	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
+	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e CGdiagonalMee=%d\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale,bf.CGdiagonalMee);
     } else {
 	if (key_mass == current_key_mass) {
 	    VRB.Result(cname, fname, "Already inited from desired key mass %e\n", key_mass);
