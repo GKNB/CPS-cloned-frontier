@@ -158,7 +158,7 @@ struct CommandLineArgs{
 	if(!UniqueID()) printf("Running initial Grid benchmarks\n");
 	arg++;
 #endif
-#ifdef MESONFIELD_USE_BURSTBUFFER
+#if defined(MESONFIELD_USE_BURSTBUFFER) || defined(MESONFIELD_USE_NODE_SCRATCH)
       }else if( strncmp(cmd,"-mesonfield_scratch_stub",50) == 0){
 	BurstBufferMemoryStorage::filestub() = argv[arg+1];
 	if(!UniqueID()) printf("Set mesonfield scratch stub to %s\n",BurstBufferMemoryStorage::filestub().c_str());
