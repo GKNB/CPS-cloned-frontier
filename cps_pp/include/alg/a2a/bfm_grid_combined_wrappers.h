@@ -13,7 +13,7 @@ struct BFMGridSolverWrapper{
 #if defined(USE_BFM_A2A) || defined(USE_BFM_LANCZOS)
   BFMsolvers bfm_solvers;
   
-  BFMGridWrapperBase(const int nthreads, const double mass, const double residual, const int max_iters, const BfmSolverType bfm_solver, const double mobius_scale):
+  BFMGridSolverWrapper(const int nthreads, const double mass, const double residual, const int max_iters, const BfmSolverType bfm_solver, const double mobius_scale):
     bfm_solvers(nthreads, mass, residual, max_iters, bfm_solver, mobius_scale){
   }
 #endif
@@ -47,12 +47,12 @@ struct BFMGridLanczosWrapper{
   typedef GwilsonFdwf LanczosLattice;
 
   void compute(const LancArg &lanc_arg){
-    LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isBFMtype>::doit(bfm_solvers);
+    LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isBFMtype>::doit(solvers.bfm_solvers);
     wrapper.compute(lanc_arg, solvers.bfm_solvers);
     delete lanczos_lat;
   }
   void randomizeEvecs(const LancArg &lanc_arg){
-    LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isBFMtype>::doit(bfm_solvers);
+    LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isBFMtype>::doit(solvers.bfm_solvers);
     wrapper.randomizeEvecs(lanc_arg, solvers.bfm_solvers);
     delete lanczos_lat;
   }
@@ -100,11 +100,11 @@ struct BFMGridA2ALatticeWrapper{
 #ifdef USE_GRID_A2A
     a2a_lat = createLattice<A2ALattice,isGridtype>::doit(jp);
 #else
-    a2a_lat = createLattice<A2ALattice,isBFMtype>::doit(solvers);
+    a2a_lat = createLattice<A2ALattice,isBFMtype>::doit(solvers.bfm_solvers);
 #endif
   }
 
-  void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const BFMGridLanczosWrapper<A2Apolicies> &eig, const CGcontrols &cg_controls, bool randomize_vw){
+  void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const BFMGridLanczosWrapper<A2Apolicies> &eig, const CGcontrols &cg_controls, bool randomize_vw) const{
 #ifdef USE_DESTRUCTIVE_FFT
     V.allocModes(); W.allocModes();
 #endif  

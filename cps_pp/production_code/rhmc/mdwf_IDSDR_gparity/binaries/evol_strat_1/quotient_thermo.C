@@ -41,7 +41,6 @@
 
 #include <util/lat_cont.h>
 
-#include <chroma.h>
 #include <omp.h>
 #include <pthread.h>
 //-------------------------------------------------------------
@@ -107,7 +106,6 @@ void config_repro(const char* repro_config, const Float &tolerance);
 
 void init_bfm(int *argc, char **argv[])
 {
-    Chroma::initialize(argc, argv);
     multi1d<int> nrow(Nd);
 
     for(int i = 0; i< Nd; ++i)
@@ -162,15 +160,24 @@ void init_bfm(int *argc, char **argv[])
     }
 
     // mobius_scale = b + c in Andrew's notation
+#ifdef USE_NEW_BFM_GPARITY
+    Fbfm::bfm_args[0].mobius_scale = 2.00;
+#else
     bfmarg::mobius_scale = 2.00; //Frozen mobius scale to match DWF Shamir kernel with Mobius Ls = Shamir Ls/2    //b_arg.mobius_scale;
-
+#endif
     Fbfm::current_arg_idx = 0;
 
-#if TARGET == BGQ  
-    bfmarg::Threads(64); //32
-#else
-    bfmarg::Threads(1);
+    int nthreads = 1;
+#if TARGET == BGQ
+    nthreads = 64;
 #endif
+    
+#ifdef USE_NEW_BFM_GPARITY
+    Fbfm::bfm_args[0].threads = nthreads;
+#else
+    bfmarg::Threads(nthreads);
+#endif
+
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -182,6 +189,10 @@ void init_bfm(int *argc, char **argv[])
 //By setting quo_tm_arg.bi_arg.fermion = F_CLASS_BFM_TYPE2 we enable using Fbfm to do the Twisted Mass fermions also
 void init_bfm_wilsontm(){
   if(!UniqueID()) printf("Doing DSDR term with Fbfm also\n");
+
+#ifdef USE_NEW_BFM_GPARITY
+  Fbfm::bfm_args[1].threads = Fbfm::bfm_args[0].threads;
+#endif
 
   Fbfm::bfm_args[1].solver = WilsonTM;
   Fbfm::bfm_args[1].precon_5d = 0;
@@ -250,13 +261,17 @@ void setup(int *argc, char ***argv)
 
     GJP.Initialize(do_arg);
     LRG.Initialize();
+    cps_qdp_init(argc,argv);
 
     VRB.Result(cname, fname, "VRB.Level(%d)\n", do_arg.verbose_level);
     VRB.Level(do_arg.verbose_level);
 
     init_bfm(argc, argv);
+#ifdef USE_NEW_BFM_GPARITY
+    VRB.Result(cname, fname, "Mobius scale (2c+1) = %.10f\n", Fbfm::bfm_args[0].mobius_scale);
+#else
     VRB.Result(cname, fname, "Mobius scale (2c+1) = %.10f\n", bfmarg::mobius_scale);
-
+#endif
     //Use Fbfm to do the Twisted Mass Wilson part also
     if(rat_quo_tm_arg.bi_arg.fermion == F_CLASS_BFM_TYPE2) init_bfm_wilsontm();
     else if(rat_quo_tm_arg.bi_arg.fermion != F_CLASS_WILSON_TM) ERR.General(cname,fname,"rat_quo_tm_arg fermion type can only be either F_CLASS_WILSON_TM or F_CLASS_BFM_TYPE2");

@@ -23,6 +23,7 @@
 #include<alg/a2a/bfm_cgne_m_high.h>
 #include<alg/a2a/grid_cgne_m_high.h>
 #include<alg/a2a/a2a_fft.h>
+#include<alg/a2a/spin_color_matrices.h>
 
 CPS_START_NAMESPACE
 

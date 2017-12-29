@@ -11,7 +11,7 @@ struct LSWWmesonFields{
     for(int i=0;i<r.size();i++)
       mf_ls_ww[i].move(r[i]);
   }
-  void average(const LSWWmesonFields &r){
+  void average(LSWWmesonFields &r){
     for(int i=0;i<mf_ls_ww.size();i++){
       bool redist_l = false, redist_r = false;
       if(!mf_ls_ww[i].isOnNode()){ mf_ls_ww[i].nodeGet(); redist_l = true; }

@@ -41,13 +41,14 @@ void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Lig
   const A2AArg &a2a_arg = lh == Light ? params.a2a_arg : params.a2a_arg_s;  
   const char* name = (lh ==  Light ? "light" : "heavy");
 
-  typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
-  Field4DparamType field4dparams = V.getFieldInputParams();
+  //If using destructive FFTs we have not yet allocated V!
+  /* typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType; */
+  /* Field4DparamType field4dparams = V.getFieldInputParams(); */
   
-  if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n", 
-			  A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) );
-    fflush(stdout);
-  }
+  /* if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n",  */
+  /* 			  A2AvectorV<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(a2a_arg,field4dparams) ); */
+  /*   fflush(stdout); */
+  /* } */
   
   if(!UniqueID()) printf("Computing %s quark A2A vectors\n",name);
   double time = -dclock();

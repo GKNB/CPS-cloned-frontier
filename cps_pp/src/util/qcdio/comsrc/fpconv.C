@@ -389,7 +389,7 @@ uint32_t FPConv::checksumCRC32(char * data, const int data_len,
   uint64_t rembytes =  uint64_t(size(chkFormat)) * data_len;
   const uint32_t chunkbytes = 4096;  //Do the CRC checksum in chunks of 4096 bytes
   uint32_t s = crc32(0L, NULL, 0);
-  unsigned char* d = data;
+  unsigned char* d = (unsigned char*)data;
   
   while(rembytes > 0){
     uint32_t thischunkbytes = rembytes < chunkbytes ? rembytes : chunkbytes;
