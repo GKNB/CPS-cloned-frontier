@@ -33,12 +33,14 @@ CPS_END_NAMESPACE
 USING_NAMESPACE_CPS
 
 
+#if 0
 Fmobius::Fmobius() : FdwfBase(){
   cname = "Fmobius";
 }
 
 Fmobius::~Fmobius(){
 }
+#endif
 
 FclassType Fmobius::Fclass(void) const {
   return F_CLASS_MOBIUS;

@@ -78,15 +78,15 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
   //----------------------------------------------------------------
 #undef PROFILE
 #ifdef PROFILE
-  Float time = -dclock();
+  Float dtime = -dclock();
 #endif
   if(cnv_frm == CNV_FRM_YES)
     lat.Convert( DWF_4D_EOPREC_EE, f_out, f_in);
   else if(cnv_frm == CNV_FRM_NO)
     lat.Convert(WILSON);
 #ifdef PROFILE
-  time += dclock();
-  print_flops("lattice","Convert()",0,time);
+  dtime += dclock();
+  print_flops("lattice","Convert()",0,dtime);
 #endif
 
   //----------------------------------------------------------------
@@ -132,15 +132,15 @@ DiracOpMobius::~DiracOpMobius() {
   //----------------------------------------------------------------
 #undef PROFILE
 #ifdef PROFILE
-  Float time = -dclock();
+  Float dtime = -dclock();
 #endif
   if(cnv_frm == CNV_FRM_YES)
     lat.Convert(CANONICAL, f_out, f_in);
   else if(cnv_frm == CNV_FRM_NO)
     lat.Convert(CANONICAL);
 #ifdef PROFILE
-  time += dclock();
-  print_flops("lattice","Convert()",0,time);
+  dtime += dclock();
+  print_flops("lattice","Convert()",0,dtime);
 #endif
 
 }
@@ -489,9 +489,9 @@ int DiracOpMobius::MatInv(Vector *out,
     MatPcDag(in, temp);
 //    DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
 #ifdef PROFILE
-    time += dclock();
-    printf("CPU preconditioning time = %1.4e sec\n",time);
-    time_CG = -dclock();
+    Float dtime = dclock();
+    printf("CPU preconditioning time = %1.4e sec\n",dtime);
+    Float time_CG = -dclock();
 #endif
 #ifdef USE_QUDA
     iter = QudaInvert(out, in, true_res, 1);

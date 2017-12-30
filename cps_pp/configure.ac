@@ -513,7 +513,7 @@ dnl     echo "CUDA_DIR environment variable not set"
      CUDA_DIR=${enable_cuda}
    fi
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${CUDA_DIR}/include"
-   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcudart"
+   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcudart -lcuda"
 fi
 
 dnl If --enable-cuda was given for --enable-quda case, program will stop.
@@ -532,7 +532,7 @@ AC_SEARCH_LIBS([fftw_execute],[fftw3],
 	[AC_DEFINE([USE_FFTW],[1],[Define 1 if you have fftw3 library])]
 	[enable_fftw=true])
 
-AC_SEARCH_LIBS([crc32_combine],[z],
+AC_SEARCH_LIBS([crc32],[z],
 	[AC_DEFINE([USE_ZLIB],[1],[Define 1 if you have zlib])]
 	[enable_zlib=true],
 	[AC_MSG_ERROR("zlib needed for crc32")]

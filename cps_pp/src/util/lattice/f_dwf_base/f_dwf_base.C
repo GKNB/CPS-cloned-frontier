@@ -574,6 +574,7 @@ int FdwfBase::FmatInv(Vector *f_out, Vector *f_in,
 {
   const char *fname = "FmatInv(CgArg*,V*,V*,F*,CnvFrmType)";
   VRB.Func(cname, fname);
+  VRB.Result(cname, fname,"Fclass()=%d\n",this->Fclass());
 
   if(GJP.GetMdwfTuning() != NULL){
     struct Results results;

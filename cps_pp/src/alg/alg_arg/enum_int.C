@@ -33,7 +33,7 @@ vml_IFloat (VML *vmls, char *name,IFloat *objp)
 bool_t
 vml_Pointer (VML *vmls, char *name,Pointer *objp)
 {
-	if (!vml_uint64_t (vmls,name,objp))
+	if (!vml_uint32_t (vmls,name,objp))
 		return FALSE;
 	return TRUE;
 }

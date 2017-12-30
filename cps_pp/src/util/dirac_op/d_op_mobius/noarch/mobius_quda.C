@@ -59,7 +59,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
   char *fname = "QudaInvert(V*, V*, F*, int)";
 
-//  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
+  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
 
   struct timeval start, end;
   gettimeofday(&start,NULL);
