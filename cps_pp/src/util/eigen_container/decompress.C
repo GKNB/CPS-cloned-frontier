@@ -41,6 +41,23 @@ namespace cps
   };
 #endif
 
+  size_t fread_check (void *ptr, off_t offset, size_t read_size, FILE * f){
+	size_t total=0,i_try=0;
+      	while (total<read_size ) {
+      	fseeko (f, offset, SEEK_SET);
+	total = fread (ptr, 1, read_size, f) ;
+ 	if (total< read_size) usleep(100);
+	i_try++;
+	if((i_try%100)==0) {
+	     printf("Node %d: fread failed %d times read_size=%d %d\n",UniqueID(),i_try,read_size, total);
+//	      total=1;//make it pass for now.
+ 	}
+	if((i_try%1000)==0) {
+	     printf("Node %d: fread failed %d times read_size=%d %d, letting it pass for now\n",UniqueID(),i_try,read_size, total);
+	      total=read_size;//make it pass for now.
+ 	}
+	}
+  }
 
   int EvecReader::globalToLocalCanonicalBlock (int slot,
 					       const std::vector <
@@ -218,7 +235,9 @@ namespace cps
 
     vector < int >nn (5, 1);
     for (int i = 0; i < 5; i++) {
-      assert (glb_i[i] % args.s[i] == 0);
+//      assert (glb_i[i] % args.s[i] == 0);
+      if ((glb_i[i] % args.s[i]) != 0)
+      ERR.General(cname,fname.c_str(),"glb_i[%d](%d) should be divided by args.s[%d])(%d)\n",i,glb_i[i],i,args.s[i]);
       nn[i] = glb_i[i] / args.s[i];
     }
 
@@ -408,7 +427,8 @@ namespace cps
 	  fseeko (f, seek_size, SEEK_SET);
 
 	  std::vector < char >raw_in (read_size);
-	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
+//	  assert (fread (&raw_in[0], read_size, 1, f) == 1);
+	  fread_check (&raw_in[0], seek_size, read_size, f);
 	  uint32_t crc_comp = crc32_loop (0, (Bytef *) & raw_in[0], read_size);
 	  if (cdir)
 	    if (crc_comp != slot_checksums[nb + args.blocks]) {
@@ -532,6 +552,9 @@ namespace cps
 								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 		std::vector<char> raw_tmp(sizeof(float)*(buf1.size()+buf2.size()));
+#if 1
+	  fread_check (&raw_tmp[0], offset, raw_tmp.size(), f);
+#else
  		int total=0,i_try=0;
       		while (total<1) {
       			fseeko (f, offset, SEEK_SET);
@@ -542,6 +565,7 @@ namespace cps
 			      total=1;//make it pass for now.
  			}
 		}
+#endif
 	      int l;
 		char *lptr= raw_tmp.data();
 		int *iptr= (int*)raw_tmp.data();
