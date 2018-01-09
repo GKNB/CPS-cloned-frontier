@@ -59,7 +59,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
   char *fname = "QudaInvert(V*, V*, F*, int)";
 
-  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
+//  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
 
   struct timeval start, end;
   gettimeofday(&start,NULL);
@@ -67,7 +67,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
 
-  size_t f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / 2;
+  size_t f_size_cb = (size_t) GJP.VolNodeSites() * lat.FsiteSize() / 2;
 
   //--------------------------------------
   //  Parameter setting for Gauge Data
@@ -192,8 +192,8 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     ERR.General(cname, fname, "Matrix solution type not defined\n");
   }
 
-  inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
-  //inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
+//  inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
   inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
   inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
   
@@ -316,8 +316,9 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     //MatPcDag(r, in_tmp);
 //    MatPcDagMatPc(r, in);
 //    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
-    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
-    //inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
+//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+//    inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
+  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
     //MatQuda(r_tmp, in_tmp, &inv_param);
     MatQuda(r_tmp, in, &inv_param);
     //MatDagMatQuda(r_tmp, in, &inv_param);

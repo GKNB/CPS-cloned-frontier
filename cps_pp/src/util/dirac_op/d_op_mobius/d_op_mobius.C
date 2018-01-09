@@ -410,29 +410,15 @@ int DiracOpMobius::MatInv(Vector *out,
   Vector *save_in;
 
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize() / 2;
-  Vector *temp  = (Vector *) smalloc(temp_size * sizeof(Float));
-  if (temp == 0) ERR.Pointer(cname, fname, "temp");
-  VRB.Smalloc(cname,fname, "temp", temp, temp_size * sizeof(Float));
+  Vector *temp  = (Vector *) smalloc(cname,fname, "temp", temp_size * sizeof(Float));
 
-  temp2 = (Vector *) smalloc(temp_size * sizeof(Float));
-  if (temp2 == 0) ERR.Pointer(cname, fname, "temp2");
-  VRB.Smalloc(cname,fname, "temp2", temp2, temp_size * sizeof(Float));
+  temp2 = (Vector *) smalloc(cname,fname, "temp2", temp_size * sizeof(Float));
 
   // points to the even part of fermion source 
   Vector *odd_in = (Vector *) ( (IFloat *) in + temp_size );
 
   // points to the even part of fermion solution
   Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
-
-  // prepare source
-  // mult by Dminus to compare with Hantao
-  // do outside in f_mobius class instead
-#if 0
-  Dminus(temp3,in);
-  //moveFloat((IFloat *)in, (IFloat *)temp3, 2*temp_size);
-  //VRB.Sfree(cname, fname, "temp3", temp3);
-  //sfree(temp3);
-#endif
 
   //DEBTIZB("insrc", (Vector*) in, 2*temp_size);
   // save source

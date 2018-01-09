@@ -89,7 +89,7 @@ void mobius_mdagm_shift(Vector *out,
 
   const int vol_4d_cb = mobius_lib_arg->vol_4d / 2;
   const int ls = mobius_lib_arg->ls;
-  const size_t f_size = vol_4d_cb * ls * 24;
+  const size_t f_size = (size_t) vol_4d_cb * ls * 24;
   
 
   //  1. tmp1 <- M in
