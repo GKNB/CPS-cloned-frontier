@@ -280,7 +280,7 @@ inline int threaded_cg_mixed_MdagM (Fermion_t sol, Fermion_t src,
 
     bfm_f.set_zero (sol_f);
     switch (itype) {
-    case cps::CG:
+    case cps::CG_LOWMODE_DEFL:
       if (evec && eval && (*eval).size () > 0) {
 	//CK: NOTE it is the single-precision bfm instance doing the deflation. All of its linalg assumes then single precision fermions, *including the eigenvectors*
 	if (bfm_f.isBoss () && !me)
@@ -288,6 +288,9 @@ inline int threaded_cg_mixed_MdagM (Fermion_t sol, Fermion_t src,
 		  (*eval).size ());
 	bfm_f.deflate (sol_f, src_f, evec, eval, (*eval).size ());
       }
+      iter += bfm_f.CGNE_prec_MdagM (sol_f, src_f);
+      break;
+    case cps::CG:
       iter += bfm_f.CGNE_prec_MdagM (sol_f, src_f);
       break;
     case cps::EIGCG:
