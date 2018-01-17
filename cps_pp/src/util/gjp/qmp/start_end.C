@@ -26,10 +26,6 @@ void Start(){
 void Start(int * argc, char *** argv) {
 //  printf("Start(%d %p)\n",*argc,*argv);
   //Initialize QMP
-#ifdef USE_GRID
-//  Grid::Grid_init(argc,argv);
-//  Fgrid::grid_initted=true;
-#endif
   QMPSCU::init_qmp(argc, argv);
   GJP.setArg(argc,argv);
 #ifdef USE_QUDA
@@ -37,14 +33,14 @@ void Start(int * argc, char *** argv) {
 #endif
 }
 void End(){
-  printf("End()\n");
+//  printf("End()\n");
   QMPSCU::destroy_qmp();
-  printf("destroy_qmp()\n");
+//  printf("destroy_qmp()\n");
 //  _mcleanup();
 #ifdef USE_QUDA
   endQuda();
 #endif
-  printf("End()\n");
+//  printf("End()\n");
 }
 #else
 void Start(int * argc, char *** argv) {
