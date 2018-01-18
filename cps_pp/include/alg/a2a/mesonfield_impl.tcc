@@ -526,6 +526,9 @@ void nodeDistributeUnique(std::vector<T> &from, const int n, std::vector<T> cons
   
   std::set<T const*> exclude;
 
+  for(int t=0;t<Lt;t++)
+    exclude.insert(& notina->operator[](t) );
+
   va_list vl;
   va_start(vl,notina);
   for(int i=1; i<n; i++){
