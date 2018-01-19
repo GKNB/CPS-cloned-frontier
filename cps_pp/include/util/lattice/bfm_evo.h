@@ -308,7 +308,7 @@ public:
 #endif
 
   //EigCG
-#if 0 //THESE ARE IN BFM
+#ifndef BFM_GPARITY
   Fermion_t allocCompactFermion   (int mem_type=mem_slow);
   Fermion_t threadedAllocCompactFermion   (int mem_type=mem_slow);
   void* threaded_alloc(int length, int mem_type=mem_slow);

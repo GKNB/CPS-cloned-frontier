@@ -404,9 +404,9 @@ inline int threaded_cg_mixed_MMdag (Fermion_t sol, Fermion_t src,
       }
       iter += bfm_f.CGNE_prec_MMdag (sol_f, src_f);
       break;
-      /*case cps::EIGCG:
+      case cps::EIGCG:
          iter += bfm_f.Eig_CGNE_prec(sol_f, src_f);
-         break; */
+         break;
     default:
       if (bfm_f.isBoss () && !me) {
 	printf ("cg_mixed_MMdag: unsupported inverter type.\n");
@@ -567,66 +567,84 @@ inline int cg_MdagM_single_precnd (Fermion_t sol, Fermion_t src,
 }
 
 
+    inline int threaded_cg_mixed_M(Fermion_t sol[2], Fermion_t src[2],
+	bfm_evo<double> &bfm_d, bfm_evo<float> &bfm_f,
+	int max_cycle, cps::InverterType itype = cps::CG,
+	// the following parameters are for deflation
+	multi1d<Fermion_t[2]> *evec = NULL,
+	multi1d<float> *eval = NULL,
+	int N = 0)
+    {
+	int me = bfm_d.thread_barrier();
+	Fermion_t be = bfm_d.threadedAllocFermion();
+	Fermion_t bo = bfm_d.threadedAllocFermion();
+	Fermion_t ta = bfm_d.threadedAllocFermion();
+	Fermion_t tb = bfm_d.threadedAllocFermion();
 
-inline int threaded_cg_mixed_M (Fermion_t sol[2], Fermion_t src[2],
-				bfm_evo < double >&bfm_d,
-				bfm_evo < float >&bfm_f, int max_cycle,
-				cps::InverterType itype = cps::CG,
-				// the following parameters are for deflation
-				multi1d < Fermion_t[2] > *evec = NULL,
-				multi1d < float >*eval = NULL, int N = 0)
-{
-  int me = bfm_d.thread_barrier ();
-  Fermion_t be = bfm_d.threadedAllocFermion ();
-  Fermion_t bo = bfm_d.threadedAllocFermion ();
-  Fermion_t ta = bfm_d.threadedAllocFermion ();
-  Fermion_t tb = bfm_d.threadedAllocFermion ();
+	double nsrc = bfm_d.norm(src[0]) + bfm_d.norm(src[1]);
+	double *frm_p[2];
+	for(int i=0;i<2;i++) frm_p[i]= (double *)src[i];
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_M: source %10g %10g norm is %17.10e\n", *(frm_p[0]),*(frm_p[1]),nsrc);
+	    printf("threaded_cg_mixed_M: bfm_d.CGdiagonalMee == %d\n", bfm_d.CGdiagonalMee);
+	}
 
-  double nsrc = bfm_d.norm (src[0]) + bfm_d.norm (src[1]);
-  if (bfm_d.isBoss () && !me) {
-    printf ("threaded_cg_mixed_M: source norm is %17.10e\n", nsrc);
-  }
-  // eo preconditioning
-  bfm_d.MooeeInv (src[Even], ta, DaggerNo);
-  bfm_d.Meo (ta, tb, Odd, DaggerNo);	// tb == Moe Mee^{-1} src[e]
-  bfm_d.axpy (ta, tb, src[Odd], -1.0);
-  bfm_d.Mprec (ta, bo, tb, DaggerYes);	// bo = Mprec^dag (src[o] - Moe Mee^{-1} src[e])
+	// eo preconditioning
+	// when CGdiagonalMee == 1 there is an extra MooInv
+	if (bfm_d.CGdiagonalMee == 0 || bfm_d.CGdiagonalMee == 2) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerNo);
+	    bfm_d.Meo(ta, tb, Odd, DaggerNo); // tb == Moe Mee^{-1} src[e]
+	    bfm_d.axpy(ta, tb, src[Odd], -1.0);
+	    bfm_d.Mprec(ta, bo, tb, DaggerYes); // bo = Mprec^dag (src[o] - Moe Mee^{-1} src[e])
+	} else if (bfm_d.CGdiagonalMee == 1) {
+	    bfm_d.MooeeInv(src[Even], ta, DaggerNo);
+	    bfm_d.Meo(ta, tb, Odd, DaggerNo);
+	    bfm_d.axpy(ta, tb, src[Odd], -1.0);
+	    bfm_d.MooeeInv(ta, tb, DaggerNo);
+	    bfm_d.Mprec(tb, bo, ta, DaggerYes); // bo = Mprec^dag Moo^{-1} (src[o] - Moe Mee^{-1} src[e])
+	} else {
+	    printf("threaded_cg_mixed_M: Unknown CGdiagonalMee: %d\n", bfm_d.CGdiagonalMee);
+	    exit(-1);
+	}
 
-  int iter =
-    threaded_cg_mixed_MdagM (sol[Odd], bo, bfm_d, bfm_f, max_cycle, itype, evec,
-			     eval, N);
+	int iter = threaded_cg_mixed_MdagM(sol[Odd], bo, bfm_d, bfm_f, max_cycle, itype, evec, eval, N);
 
-  bfm_d.Meo (sol[Odd], ta, Even, DaggerNo);
-  bfm_d.axpy (tb, ta, src[Even], -1.0);
-  bfm_d.MooeeInv (tb, sol[Even], DaggerNo);
+	// For CGdiagonalMee == 2 we need to multiply the odd
+	// solution by MooInv
+	if (bfm_d.CGdiagonalMee == 2) {
+	    bfm_d.MooeeInv(sol[Odd], ta, DaggerNo);
+	    bfm_d.copy(sol[Odd], ta);
+	}
 
-  double nsol = bfm_d.norm (sol[0]) + bfm_d.norm (sol[1]);
+	bfm_d.Meo(sol[Odd], ta, Even, DaggerNo);
+	bfm_d.axpy(tb, ta, src[Even], -1.0);
+	bfm_d.MooeeInv(tb, sol[Even], DaggerNo);
 
-  // compute final residual
-  Fermion_t tmp[2] = { be, bo };
-  bfm_d.Munprec (sol, tmp, ta, DaggerNo);
+	double nsol = bfm_d.norm(sol[0]) + bfm_d.norm(sol[1]);
 
-  double ndiff = 0.;
-  for (int i = 0; i < 2; ++i) {
-    bfm_d.axpy (tb, tmp[i], src[i], -1.0);
-    ndiff += bfm_d.norm (tb);
-  }
+	// compute final residual
+	Fermion_t tmp[2] = { be, bo };
+	bfm_d.Munprec(sol, tmp, ta, DaggerNo);
 
-  if (bfm_d.isBoss () && !me) {
-    printf
-      ("threaded_cg_mixed_M: unprec sol norm = %17.10e, residual = %17.10e\n",
-       nsol, sqrt (ndiff / nsrc));
-  }
+	double ndiff = 0.;
+	for (int i = 0; i < 2; ++i) {
+	    bfm_d.axpy(tb, tmp[i], src[i], -1.0);
+	    ndiff += bfm_d.norm(tb);
+	}
 
-  bfm_d.threadedFreeFermion (be);
-  bfm_d.threadedFreeFermion (bo);
-  bfm_d.threadedFreeFermion (ta);
-  bfm_d.threadedFreeFermion (tb);
+	for(int i=0;i<2;i++) frm_p[i]= (double *)sol[i];
+	if (bfm_d.isBoss() && !me) {
+	    printf("threaded_cg_mixed_M: unprec sol %10g %10g norm = %17.10e, residual = %17.10e\n",
+		*(frm_p[0]),*(frm_p[1]), nsol, sqrt(ndiff / nsrc));
+	}
 
-  return iter;
-}
+	bfm_d.threadedFreeFermion(be);
+	bfm_d.threadedFreeFermion(bo);
+	bfm_d.threadedFreeFermion(ta);
+	bfm_d.threadedFreeFermion(tb);
 
-
+	return iter;
+    }
 
 inline double sigma_sum_recurse (const int &i, const int &start, const int &N,
 				 double shifts[], const int &nprod_remaining)
@@ -651,7 +669,7 @@ inline double sigma_prod (const int &i, const int &n, const int &N,
   if (n == N - 1)
     return 1.0;
 
-  int prod_size = N - 1 - n;
+   int prod_size = N - 1 - n;
   return sigma_sum_recurse (i, 0, N, shifts, prod_size);
 }
 

@@ -665,6 +665,8 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
+
+#if 0
 #pragma omp parallel
     {
         if(use_mixed_solver) {
@@ -694,8 +696,9 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
         }
     }
 
-//    bd.cps_impexFermion((Float *)f_out, out, 1);
     bd.cps_impexFermion((Float *)f_out, out, 0);
+#endif
+    bd.cps_impexFermion((Float *)f_out, out, 1);
 
     if (madwf_arg_map.count(cg_arg->mass) > 0) {
 	// MADWF inversion
@@ -718,13 +721,16 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
 	    } else {
 		switch (cg_arg->Inverter) {
-		    case CG:
-			if (evec && evald && ecnt) {
-			    iter = bd.CGNE_M(out, in, *evec, *evald);
-			} else {
-			    iter = bd.CGNE_M(out, in);
-			}
-			break;
+            case CG_LOWMODE_DEFL:
+                if(evec && evald && ecnt) {
+                    iter = bd.CGNE_M(out, in, *evec, *evald);
+                } else {
+                    iter = bd.CGNE_M(out, in);
+                }
+                break;
+            case CG:
+                iter = bd.CGNE_M(out, in);
+                break;
 		    case EIGCG:
 			iter = bd.EIG_CGNE_M(out, in);
 			break;
