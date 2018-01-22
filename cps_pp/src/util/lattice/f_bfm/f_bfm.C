@@ -698,7 +698,7 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 
     bd.cps_impexFermion((Float *)f_out, out, 0);
 #endif
-    bd.cps_impexFermion((Float *)f_out, out, 1);
+//    bd.cps_impexFermion((Float *)f_out, out, 1);
 
     if (madwf_arg_map.count(cg_arg->mass) > 0) {
 	// MADWF inversion
@@ -718,10 +718,12 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 #pragma omp parallel
 	{
 	    if (use_mixed_solver) {
-		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
+// threaded_cg_mixed_M project out the low mode part unless the last parameter is set to 0
+		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, 0);
 	    } else {
 		switch (cg_arg->Inverter) {
             case CG_LOWMODE_DEFL:
+// Relying ont evald=NULL when single precision evecs are loaded.
                 if(evec && evald && ecnt) {
                     iter = bd.CGNE_M(out, in, *evec, *evald);
                 } else {

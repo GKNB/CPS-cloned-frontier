@@ -313,6 +313,8 @@ inline int threaded_cg_mixed_MdagM (Fermion_t sol, Fermion_t src,
 
   if (N > 0) {			// Subtract N low modes from final sol, usually for all to all propagators. 
     // TODO is it legal to only use the single precision eval?
+    if (bfm_f.isBoss () && !me)
+	  printf ("cg_mixed_MdagM: Solution deflated with %d eigenvectors.\n",N);
     threaded_convFermion (src_f, src, bfm_f, bfm_d);
     bfm_f.deflate (sol_f, src_f, evec, eval, N);
     threaded_convFermion (tv1_d, sol_f, bfm_d, bfm_f);
@@ -586,7 +588,7 @@ inline int cg_MdagM_single_precnd (Fermion_t sol, Fermion_t src,
 	for(int i=0;i<2;i++) frm_p[i]= (double *)src[i];
 	if (bfm_d.isBoss() && !me) {
 	    printf("threaded_cg_mixed_M: source %10g %10g norm is %17.10e\n", *(frm_p[0]),*(frm_p[1]),nsrc);
-	    printf("threaded_cg_mixed_M: bfm_d.CGdiagonalMee == %d\n", bfm_d.CGdiagonalMee);
+	    printf("threaded_cg_mixed_M: N=%d bfm_d.CGdiagonalMee == %d\n", N, bfm_d.CGdiagonalMee);
 	}
 
 	// eo preconditioning
