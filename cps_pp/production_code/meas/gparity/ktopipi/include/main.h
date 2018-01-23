@@ -16,7 +16,6 @@ using namespace cps;
 #include "ktopipi.h"
 #include "do_contractions.h"
 
-
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,
 		     const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 		     const typename A2Apolicies::FermionFieldType::InputParamType &field4dparams, BFMGridSolverWrapper &solvers){
@@ -65,6 +64,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   //From now one we just need a generic lattice instance, so use a2a_lat
   Lattice& lat = (Lattice&)(*latwrp.a2a_lat);
   
+  freeGridSharedMem();
   doContractions(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
 }
 
@@ -181,7 +181,8 @@ void doConfigurationSplit(const int conf, Parameters &params, const CommandLineA
 
     //From now one we just need a generic lattice instance, so use a2a_lat
     Lattice& lat = (Lattice&)(*latwrp.a2a_lat);
-    
+
+    freeGridSharedMem();
     doContractions(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
   }else{ //part 1
     ERR.General("","doConfigurationSplit","Invalid part index %d\n", cmdline.split_job_part);

@@ -178,6 +178,17 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const FixGaugeArg &fix_
 }
 
 
+inline void freeGridSharedMem(){
+#if defined(USE_GRID_LANCZOS) || defined(USE_GRID_A2A)
+
+#ifdef GRID_SHMEM_FREE_OLD //For older versions before MPI/MPI3 union (late Dec 2017)
+  munmap(Grid::CartesianCommunicator::ShmCommBuf, Grid::CartesianCommunicator::MAX_MPI_SHM_BYTES);
+#else
+  Grid::GlobalSharedMemory::SharedMemoryFree();
+#endif
+
+#endif
+}
 
 CPS_END_NAMESPACE
 
