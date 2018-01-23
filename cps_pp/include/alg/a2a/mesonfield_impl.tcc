@@ -500,7 +500,7 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
   }
 
   va_list vl;
-  va_start(vl,a);
+  va_start(vl,a_timeslice_mask);
   for(int i=1; i<n; i++){
     std::vector<T>* val=va_arg(vl,std::vector<T>*);
     std::vector<bool> const* timeslice_mask = va_arg(vl,std::vector<bool> const*);
