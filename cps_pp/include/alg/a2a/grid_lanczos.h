@@ -100,7 +100,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   time = -dclock();
 
   
-  if(!UniqueID()) printf("Starting Lanczos algorithm\n");
+  if(!UniqueID()) printf("Starting Lanczos algorithm with %d threads (omp_get_max_threads %d)\n", Grid::GridThread::GetThreads(),omp_get_max_threads());
   int Nconv;
   IRL.normalise(src);
   IRL.calc(eval,evec,

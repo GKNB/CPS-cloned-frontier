@@ -146,6 +146,9 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   //Chroma::initialize(&argc,&argv);
 #endif
   GJP.SetNthreads(nthreads);
+#ifdef USE_GRID
+  Grid::GridThread::SetThreads(nthreads);
+#endif
 }
 
 

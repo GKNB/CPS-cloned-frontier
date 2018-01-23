@@ -76,7 +76,7 @@ public:
 		threads = Grid::GridThread::GetThreads();
 		for(int i=0;i<4;i++) vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
 		for(int i=0;i<4;i++) nodes[i]= GJP.Nodes(i);
-		VRB.Result(cname,fname,"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d\n",Nd,Grid::vComplexD::Nsimd());
+		VRB.Result(cname,fname,"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d threads %d\n",Nd,Grid::vComplexD::Nsimd(),threads);
 		for(int i=0;i<4;i++) 
 		VRB.Result(cname,fname,"%d %d \n",vol[i],nodes[i]);
 		UGrid = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Nd,Grid::vComplexD::Nsimd()),nodes);

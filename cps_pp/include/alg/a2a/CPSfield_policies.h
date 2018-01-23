@@ -676,6 +676,8 @@ class SIMDpolicyBase{
   //Iteratively divide the dimensions over the SIMD lanes up to a chosen maximum dimension (so we can exclude the time dimension for example, by setting max_dim_idx = 2)
   inline static void SIMDdefaultLayout(ParamType &simd_dims, const int nsimd, const int max_dim_idx = Dimension-1){
     for(int i=0;i<Dimension;i++) simd_dims[i] = 1;
+    if(nsimd == 1) return;
+
     assert(nsimd % 2 == 0);
     int rem = nsimd;
     int i=0;
