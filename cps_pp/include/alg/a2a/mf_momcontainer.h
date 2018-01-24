@@ -40,6 +40,12 @@ public:
     else return *it->second;
   }
 
+  void getMomenta(std::vector<ThreeMomentum> &mom){
+    mom.resize(0);
+    for(typename MapType::const_iterator it = mf.begin(); it != mf.end(); it++)
+      mom.push_back(it->first);
+  }
+
   void printMomenta(std::ostream &os) const{
     for(typename MapType::const_iterator it = mf.begin(); it != mf.end(); it++)
       os << it->first.str() << "\n";
@@ -94,6 +100,51 @@ public:
     }
   }
   
+  void freeMesonFieldMem(){
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	int n = it->second->size();
+	for(int i=0;i<n;i++) it->second->at(i).free_mem();
+      }
+    }
+  }
+
+  //Store the meson fields to disk and free their memory. Intended for temporary storage
+  void dumpToDiskAndFree(const std::string &file_stub){
+    double time = -dclock();
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	std::ostringstream f;  f<<file_stub << "_mom" << it->first.file_str() << ".dat";
+	nodeGetMany(1,it->second);
+	MfType::write(f.str(), *it->second);
+	int n = it->second->size();
+	for(int i=0;i<n;i++) it->second->at(i).free_mem();
+      }
+    }
+    cps::sync();
+    print_time("MesonFieldMomentumContainer","dumpToDiskAndFree",time+dclock());
+  }
+  void restoreFromDisk(const std::string &file_stub, bool distribute, bool do_delete = true){
+    double time = -dclock();
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	std::ostringstream f;  f<<file_stub << "_mom" << it->first.file_str() << ".dat";
+	MfType::read(f.str(), *it->second);
+
+	if(distribute) nodeDistributeMany(1,it->second);
+
+	if(do_delete && !UniqueID())
+	  if(remove(f.str().c_str())){
+	    std::perror("Error deleting file");
+	    ERR.General("MesonFieldMomentumContainer","Restore from disk", "Could not delete file %s",f.str().c_str());
+	  }
+      }
+    }
+    cps::sync();
+    print_time("MesonFieldMomentumContainer","restoreFromDisk",time+dclock());
+  }
+
+
   ~MesonFieldMomentumContainer(){
     free_mem();
   }

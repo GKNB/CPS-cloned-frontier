@@ -83,7 +83,13 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   //--------------------------------------K->pipi contractions--------------------------------------------------------
   StandardLSWWmomentaPolicy lsWW_mom_std;
   LSWWmesonFields mf_ls_ww_con_std;
-  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, &mf_ls_ww_con_std);
+  if(cmdline.do_ktopipi){
+#ifdef SYMM_DUMP_RESTORE
+    computeKtoPiPiDumpRestore(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, true,&mf_ls_ww_con_std);
+#else
+    computeKtoPiPi(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, &mf_ls_ww_con_std);
+#endif
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////////////
   //Do the reverse momentum assignment, average with standard and repeat measurements
@@ -114,7 +120,11 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
     mf_ls_ww_con_std.free_mem();
     
     printMem("Memory after computing W*W meson fields");
+#ifdef SYMM_DUMP_RESTORE
+    computeKtoPiPiContractionsDumpRestore(V,W,V_s,W_s,mf_ls_ww_con_symm,mf_ll_con_symm,mf_ll_con_2s_symm,pion_mom_std,conf,params,false,"_symm");
+#else
     computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_symm,mf_ll_con_symm,mf_ll_con_2s_symm,pion_mom_std,conf,params,"_symm");
+#endif
   }
 }
 
