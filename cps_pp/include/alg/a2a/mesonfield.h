@@ -224,17 +224,13 @@ public:
   void average(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &with, const bool parallel = true);
 
   //Set each float to a uniform random number in the specified range
-  //WARNING: Uses only the current RNG in LRG, and does not change this based on site. This is therefore only useful for testing*
-  void testRandom(const Float hi=0.5, const Float lo=-0.5){
-    if(!UniqueID())
-      for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(LRG.Urand(hi,lo,FOUR_D), LRG.Urand(hi,lo,FOUR_D) );
-#ifdef USE_MPI
-    int head_mpi_rank = getHeadMPIrank();
-    int ret = MPI_Bcast(this->ptr(), 2*fsize*sizeof(typename ScalarComplexType::value_type) , MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
-    if(ret != MPI_SUCCESS) ERR.General("A2AmesonField","testRandom","Squirt data fail\n");
-#else
-    if(GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes() != 1) ERR.General("A2AmesonField","testRandom","Parallel implementation requires MPI\n");
-#endif
+  //Uses a fixed-seed uniform RNG that every node has an identical copy of
+  void testRandom(const Float hi=0.5, const Float lo=-0.5){    
+    static UniformRandomGenerator urng(hi,lo);
+    static bool init = false;
+    if(!init){ urng.Reset(1234); init = true; }
+
+    for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urng.Rand(hi,lo), urng.Rand(hi,lo) );
   }
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk

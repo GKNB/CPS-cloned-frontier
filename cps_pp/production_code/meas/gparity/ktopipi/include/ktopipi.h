@@ -163,7 +163,24 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
 
   printMem("Memory at end of K->pipi contractions");
 }
-			
+
+template<typename LSWWmomentumPolicy>		
+void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,
+				 typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+				 typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
+				 Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+				 const LSWWmomentumPolicy &lsWW_mom, const Parameters &params, bool randomize_mf){
+  if(randomize_mf){
+    const int Lt=GJP.Tnodes()*GJP.TnodeSites();
+    mf_ls_ww_con.mf_ls_ww.resize(Lt);
+    for(int t=0;t<Lt;t++){ 
+      mf_ls_ww_con.mf_ls_ww[t].setup(W,W_s,t,t); 
+      mf_ls_ww_con.mf_ls_ww[t].testRandom();
+    }
+  }else{
+    ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
+  }
+}
 
 
 template<typename PionMomentumPolicy>
@@ -182,20 +199,18 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
    }
 }
 
-
 template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
 		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
-		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params,
+		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params, bool randomize_mf,
 		    LSWWmesonFields* mf_ls_ww_keep = NULL){
 
   
   //We first need to generate the light-strange W*W contraction
   LSWWmesonFields mf_ls_ww_con;
-  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
-
+  computeKtoPipiWWmesonFields(mf_ls_ww_con,W,W_s,lat,field3dparams,lsWW_mom,params,randomize_mf);
   printMem("Memory after computing W*W meson fields");
 
   computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con,mf_ll_con,mf_ll_con_2s,pion_mom,conf,params);
@@ -203,6 +218,8 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww_con.mf_ls_ww);
 }
 
+
+//Versions of the above but where meson fields are temporarily stored to disk to save space
 
 template<typename PionMomentumPolicy>
 void computeKtoPiPiContractionsDumpRestore(const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
@@ -236,14 +253,13 @@ void computeKtoPiPiDumpRestore(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_c
 			       const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
 			       const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 			       Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
-			       const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params, bool do_restore,
+			       const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params, bool randomize_mf, bool do_restore,
 			       LSWWmesonFields* mf_ls_ww_keep = NULL){
 
   
   //We first need to generate the light-strange W*W contraction
   LSWWmesonFields mf_ls_ww_con;
-  ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
-
+  computeKtoPipiWWmesonFields(mf_ls_ww_con,W,W_s,lat,field3dparams,lsWW_mom,params,randomize_mf);
   printMem("Memory after computing W*W meson fields");
 
   computeKtoPiPiContractionsDumpRestore(V,W,V_s,W_s,mf_ls_ww_con,mf_ll_con,mf_ll_con_2s,pion_mom,conf,params,do_restore);

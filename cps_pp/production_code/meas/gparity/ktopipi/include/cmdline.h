@@ -6,6 +6,7 @@ struct CommandLineArgs{
   int nthreads;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
   bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
+  bool randomize_mf; //use random meson fields
   bool force_evec_compute; //randomize_evecs causes Lanczos to be skipped unless this option is used
   bool tune_lanczos_light; //just run the light lanczos on first config then exit
   bool tune_lanczos_heavy; //just run the heavy lanczos on first config then exit
@@ -36,6 +37,7 @@ struct CommandLineArgs{
 #endif
     randomize_vw = false;
     randomize_evecs = false;
+    randomize_mf = false;
     force_evec_compute = false; //randomize_evecs causes Lanczos to be skipped unless this option is used
     tune_lanczos_light = false; //just run the light lanczos on first config then exit
     tune_lanczos_heavy = false; //just run the heavy lanczos on first config then exit
@@ -93,6 +95,10 @@ struct CommandLineArgs{
 	randomize_evecs = true;
 	if(!UniqueID()){ printf("Using random eigenvectors\n"); fflush(stdout); }
 	arg++;      
+      }else if( strncmp(cmd,"-randomize_mf",15) == 0){
+	randomize_mf = true;
+	if(!UniqueID()){ printf("Using random meson fields\n"); fflush(stdout); }
+	arg++; 
       }else if( strncmp(cmd,"-force_evec_compute",15) == 0){
 	force_evec_compute = true;
 	if(!UniqueID()){ printf("Forcing evec compute despite randomize_vw\n"); fflush(stdout); }

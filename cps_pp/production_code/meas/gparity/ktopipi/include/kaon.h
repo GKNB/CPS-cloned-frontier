@@ -54,21 +54,50 @@ void computeKaon2ptContraction(const int conf, const Parameters &params, const K
 #endif
 }
 
+template<typename KaonMomentumPolicy>
+void randomizeKaonMesonFields(KaonMesonFields &mf, typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
+			      typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+			      const KaonMomentumPolicy &kaon_mom){
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  mf.mf_ls.resize(Lt);
+  mf.mf_sl.resize(Lt);
+  for(int t=0;t<Lt;t++){ 
+    mf.mf_ls[t].setup(W,V_s,t,t); 
+    mf.mf_ls[t].testRandom();
+    mf.mf_sl[t].setup(W_s,V,t,t); 
+    mf.mf_sl[t].testRandom();
+  }
+}
+			      
+
+template<typename KaonMomentumPolicy>
+void computeKaonMesonFields(KaonMesonFields &mf, typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
+			    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
+			    const KaonMomentumPolicy &kaon_mom,
+			    Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+			    bool randomize_mf){
+  if(randomize_mf){    
+    randomizeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom);
+  }else{
+    ComputeKaon<A2Apolicies>::computeMesonFields(mf.mf_ls, mf.mf_sl,
+						 W, V, W_s, V_s, kaon_mom,
+						 params.jp.kaon_rad, lat, field3dparams);
+  }
+}
+
 
 template<typename KaonMomentumPolicy>
 void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
 		    typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
 		    const KaonMomentumPolicy &kaon_mom,
-		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+		    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, bool randomize_mf,
 		    KaonMesonFields *keep_mesonfields = NULL){
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
-  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
   KaonMesonFields mf;
-  ComputeKaon<A2Apolicies>::computeMesonFields(mf.mf_ls, mf.mf_sl,
-					       W, V, W_s, V_s, kaon_mom,
-					       params.jp.kaon_rad, lat, field3dparams);
+  computeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom,lat,params,field3dparams,randomize_mf);
+
   computeKaon2ptContraction(conf,params,mf);
   
   if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
@@ -82,21 +111,19 @@ template<typename KaonMomentumPolicyStd, typename KaonMomentumPolicyReverse>
 void computeKaon2ptStandardAndSymmetric(typename ComputeKaon<A2Apolicies>::Vtype &V, typename ComputeKaon<A2Apolicies>::Wtype &W, 
 					typename ComputeKaon<A2Apolicies>::Vtype &V_s, typename ComputeKaon<A2Apolicies>::Wtype &W_s,
 					const KaonMomentumPolicyStd &kaon_mom_std, const KaonMomentumPolicyReverse &kaon_mom_rev,
-					const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+					const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,bool randomize_mf){
    if(!UniqueID()) printf("Computing kaon 2pt function standard and symmetric\n");
    double time = -dclock();
    const int Lt = GJP.Tnodes() * GJP.TnodeSites();
    
    KaonMesonFields mf_std;
-   ComputeKaon<A2Apolicies>::computeMesonFields(mf_std.mf_ls, mf_std.mf_sl,
-						W, V, W_s, V_s, kaon_mom_std,
-						params.jp.kaon_rad, lat, field3dparams);
+   computeKaonMesonFields(mf_std,V,W,V_s,W_s,kaon_mom_std,lat,params,field3dparams,randomize_mf);
+
    computeKaon2ptContraction(conf,params,mf_std);
    
    KaonMesonFields mf_symm;
-   ComputeKaon<A2Apolicies>::computeMesonFields(mf_symm.mf_ls, mf_symm.mf_sl,
-						W, V, W_s, V_s, kaon_mom_rev,
-						params.jp.kaon_rad, lat, field3dparams);
+   computeKaonMesonFields(mf_symm,V,W,V_s,W_s,kaon_mom_rev,lat,params,field3dparams,randomize_mf);
+
    mf_symm.average(mf_std);
    mf_std.free_mem();
      

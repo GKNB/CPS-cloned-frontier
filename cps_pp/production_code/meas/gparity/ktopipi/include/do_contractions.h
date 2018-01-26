@@ -22,7 +22,7 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
   //-------------------------Compute the kaon two-point function---------------------------------
 
   KaonMomentumPolicy kaon_mom;
-  if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,kaon_mom,conf,lat,params,field3dparams);
+  if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,kaon_mom,conf,lat,params,field3dparams,cmdline.randomize_mf);
 
   //----------------------------Compute the sigma meson fields---------------------------------
   SigmaMomentumPolicy sigma_mom;
@@ -35,7 +35,7 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con; //stores light-light meson fields, accessible by momentum
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s; //Gparity only
 
-  computeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom, conf, lat, params, field3dparams);
+  computeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom, conf, lat, params, field3dparams, cmdline.randomize_mf);
 
   //----------------------------Compute the pion two-point function---------------------------------
   if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, pion_mom, conf, params);
@@ -45,7 +45,7 @@ void doContractionsBasic(const int conf, Parameters &params, const CommandLineAr
 
   //--------------------------------------K->pipi contractions--------------------------------------------------------
   LSWWmomentumPolicy lsWW_mom;
-  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,lsWW_mom,conf,params);
+  if(cmdline.do_ktopipi) computeKtoPiPi(mf_ll_con,mf_ll_con_2s,V,W,V_s,W_s,lat,field3dparams,pion_mom,lsWW_mom,conf,params, cmdline.randomize_mf);
 }
 
 
@@ -60,7 +60,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   //-------------------------Compute the kaon two-point function---------------------------------
   StationaryKaonMomentaPolicy kaon_mom_std;
   ReverseKaonMomentaPolicy kaon_mom_rev;
-  if(cmdline.do_kaon2pt) computeKaon2ptStandardAndSymmetric(V,W,V_s,W_s,kaon_mom_std,kaon_mom_rev,conf,lat,params,field3dparams);
+  if(cmdline.do_kaon2pt) computeKaon2ptStandardAndSymmetric(V,W,V_s,W_s,kaon_mom_std,kaon_mom_rev,conf,lat,params,field3dparams,cmdline.randomize_mf);
 
   //----------------------------Compute the sigma meson fields---------------------------------
   StationarySigmaMomentaPolicy sigma_mom_std;
@@ -72,7 +72,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_std; //stores light-light meson fields, accessible by momentum
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_std; //Gparity only
 
-  computeLLmesonFields(mf_ll_con_std, mf_ll_con_2s_std, V, W, pion_mom_std, conf, lat, params, field3dparams);
+  computeLLmesonFields(mf_ll_con_std, mf_ll_con_2s_std, V, W, pion_mom_std, conf, lat, params, field3dparams, cmdline.randomize_mf);
 
   //----------------------------Compute the pion two-point function---------------------------------
   if(cmdline.do_pion2pt) computePion2pt(mf_ll_con_std, pion_mom_std, conf, params);
@@ -85,9 +85,9 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   LSWWmesonFields mf_ls_ww_con_std;
   if(cmdline.do_ktopipi){
 #ifdef SYMM_DUMP_RESTORE
-    computeKtoPiPiDumpRestore(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, true,&mf_ls_ww_con_std);
+    computeKtoPiPiDumpRestore(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf, true,&mf_ls_ww_con_std);
 #else
-    computeKtoPiPi(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, &mf_ls_ww_con_std);
+    computeKtoPiPi(mf_ll_con_std,mf_ll_con_2s_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf, &mf_ls_ww_con_std);
 #endif
   }
 
@@ -98,7 +98,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_symm; //Gparity only
-  computeLLmesonFields(mf_ll_con_symm, mf_ll_con_2s_symm, V, W, pion_mom_rev, conf, lat, params, field3dparams, "_rev");
+  computeLLmesonFields(mf_ll_con_symm, mf_ll_con_2s_symm, V, W, pion_mom_rev, conf, lat, params, field3dparams, cmdline.randomize_mf, "_rev");
 
   mf_ll_con_symm.average(mf_ll_con_std);
   mf_ll_con_2s_symm.average(mf_ll_con_2s_std);
@@ -115,7 +115,7 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   if(cmdline.do_ktopipi){
     LSWWmesonFields mf_ls_ww_con_symm;
     ReverseLSWWmomentaPolicy lsWW_mom_rev;
-    ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con_symm.mf_ls_ww,W,W_s,lsWW_mom_rev,params.jp.kaon_rad,lat, field3dparams);
+    computeKtoPipiWWmesonFields(mf_ls_ww_con_symm,W,W_s,lat,field3dparams,lsWW_mom_rev,params,cmdline.randomize_mf);
     mf_ls_ww_con_symm.average(mf_ls_ww_con_std);
     mf_ls_ww_con_std.free_mem();
     

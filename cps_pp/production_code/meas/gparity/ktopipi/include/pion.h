@@ -2,14 +2,47 @@
 #define _KTOPIPI_MAIN_A2A_PION_H_
 
 template<typename PionMomentumPolicy>
+void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
+			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
+			  const PionMomentumPolicy &pion_mom){
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > *ins;
+  for(int t=0;t<Lt;t++) mf[t].setup(W,V,t,t);
+
+  for(int p=0;p<pion_mom.nMom();p++){
+    for(int t=0;t<Lt;t++) mf[t].testRandom();
+    ins = &mf_ll_con.copyAdd(pion_mom.getTotalMomentum(p),mf);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,ins);
+#endif
+    if(GJP.Gparity()){
+      for(int t=0;t<Lt;t++) mf[t].testRandom();
+      ins = &mf_ll_con_2s.copyAdd(pion_mom.getTotalMomentum(p),mf);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      nodeDistributeMany(1,ins);
+#endif
+    }
+  }
+}
+
+template<typename PionMomentumPolicy>
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
 			  const PionMomentumPolicy &pion_mom,
-			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, const std::string &mf_write_postpend = ""){
+			  const int conf, Lattice &lat, const Parameters &params, 
+			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
+			  const bool randomize_mf,
+			  const std::string &mf_write_postpend = ""){
   if(!UniqueID()) printf("Computing light-light meson fields\n");
   double time = -dclock();
-  if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
-  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
+  if(randomize_mf){
+    randomizeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom);
+  }else{  
+    if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+    else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
+  }
+
   time += dclock();
   print_time("main","Light-light meson fields",time);
 
