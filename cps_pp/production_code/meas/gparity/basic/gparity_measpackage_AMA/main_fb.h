@@ -163,6 +163,11 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
 #endif
       
   }//se
+  cps::sync();
+  freeLanczos(lanc_l_P);
+  freeLanczos(lanc_l_A);
+  freeLanczos(lanc_h_P);
+  freeLanczos(lanc_h_A);
 }
 
 CPS_END_NAMESPACE

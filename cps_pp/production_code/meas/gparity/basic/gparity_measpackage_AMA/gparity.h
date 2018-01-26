@@ -208,6 +208,29 @@ inline std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > doLanczos(GnoneFbfm &latti
   return ret;
 }
 
+inline void freeLanczos(std::auto_ptr<BFM_Krylov::Lanczos_5d<double> > &lanc){
+  if(lanc.get() == NULL) return;
+
+  if(Fbfm::use_mixed_solver){
+    BFM_Krylov::Lanczos_5d<double>* eig = lanc.get();
+    //Evecs were converted to single in place which changes their size. Thus we need to manually dealloc in order to prevent a crash
+    
+    int words = 24 * eig->dop.node_cbvol * eig->dop.cbLs * (eig->dop.gparity ? 2:1);
+    int bytes = words*sizeof(float);
+	
+    for(int i = 0; i < eig->bq.size(); i++){
+      for(int cb=eig->prec;cb<2;cb++)
+	if(eig->bq[i][cb] != NULL){
+	  bfm_free(eig->bq[i][cb],bytes);
+	  eig->bq[i][cb] = NULL;
+	}
+    }
+    eig->bq.resize(0);
+  }
+  lanc.reset();
+}
+
+
 //Read/generate the gauge configuration and RNG
 void readLatticeAndRNG(Lattice &lattice, const CmdLine &cmdline, const DoArg &do_arg, const GparityAMAarg2 &ama_arg, const int conf){
   char load_config_file[1000];
