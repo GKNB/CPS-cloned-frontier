@@ -161,7 +161,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 	} else {
 	    int Ls = arg_map.at(current_key_mass).Ls;
 	    int ret = 24 * Ls;
-	    //printf("FsiteSize() using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
+	    VRB.Result(cname,fname,"using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
 	    return ret;
 	}
     }

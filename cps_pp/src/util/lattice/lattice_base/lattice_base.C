@@ -4242,7 +4242,7 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(GJP.Gparity()) nstacked_flav = 2;
 
   int s_node_sites = GJP.SnodeSites();
-  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D());
+  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d nflav=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D(),nstacked_flav);
   if(frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D()) ) {
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
@@ -4352,11 +4352,9 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
     }
   }
   }
-#if 0
   glb_sum_five (&sum);
   glb_sum_five (&square);
-  printf ("sum=%0.18e square=%0.18e\n", sum, square);
-#endif
+  VRB.Result (cname,fname,"sum=%0.18e square=%0.18e\n", sum, square);
 }
 
 

@@ -71,6 +71,27 @@ AlgPbp::AlgPbp(Lattice& latt,
     ERR.Pointer(cname,fname, "arg");
   alg_pbp_arg = arg;
 
+    // Initialize the cg_arg mass, with the first mass we
+    // want to compute for:
+    Float mass;// first mass
+    switch( alg_pbp_arg->pattern_kind ) {
+    case ARRAY: 
+      mass = alg_pbp_arg->mass[0]; 
+      break;
+    case LIN:   
+      mass = alg_pbp_arg->mass_start; 
+      break;
+    case LOG:   
+      mass = alg_pbp_arg->mass_start; 
+      break;
+    default: 
+      ERR.General(cname, fname,
+		  "pbp_arg->pattern_kind = %d is unrecognized\n", 
+		  alg_pbp_arg->pattern_kind);
+      break;
+    }
+
+    latt.SetMassArg(mass);
 
   // Set the node size of the full (non-checkerboarded) fermion field
   //----------------------------------------------------------------

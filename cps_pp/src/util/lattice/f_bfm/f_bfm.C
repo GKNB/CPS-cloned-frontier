@@ -498,6 +498,14 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
 
     bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
+    Float in_norm, out_norm;
+#pragma omp parallel
+    {
+	in_norm=bd.norm(in);
+	out_norm=bd.norm(out);
+    }
+    VRB.Result(cname, fname, "norm(in)=%e norm(out)=%e\n", in_norm,out_norm);
+
 
 #pragma omp parallel
     {
