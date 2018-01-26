@@ -1,6 +1,8 @@
 #ifndef _UTILS_MAIN_H_
 #define _UTILS_MAIN_H_
 
+#include <sys/mman.h>
+
 #include <util/time_cps.h>
 #include <util/lattice/fgrid.h>
 #include <alg/meas_arg.h>

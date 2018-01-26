@@ -434,9 +434,23 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::nodeGet(bool require){
 }
 
 
+template<typename S>
+struct _nodeGetManyPerf{ 
+  static void reset(){}
+  static void print(){}; 
+};
+
+template<>
+struct _nodeGetManyPerf<DistributedMemoryStorage>{ 
+  static void reset(){ DistributedMemoryStorage::perf().reset(); }; 
+  static void print(){ DistributedMemoryStorage::perf().print(); }; 
+};
+
+
 //Handy helpers for gather and distribute of length Lt vectors of meson fields
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, ...){
+  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
   cps::sync();
   
   double time = -dclock();
@@ -458,6 +472,7 @@ void nodeGetMany(const int n, std::vector<T> *a, ...){
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
+  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
 }
 
 
@@ -490,6 +505,7 @@ void nodeDistributeMany(const int n, std::vector<T> *a, ...){
 //Same as above but the user can pass in a set of bools that tell the gather whether the MF on that timeslice is required. If not it is internally deleted, freeing memory
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_timeslice_mask,  ...){
+  _nodeGetManyPerf<MesonFieldDistributedStorageType>::reset();
   cps::sync();
 
   double time = -dclock();
@@ -512,6 +528,7 @@ void nodeGetMany(const int n, std::vector<T> *a, std::vector<bool> const* a_time
   va_end(vl);
 
   print_time("nodeGetMany","Meson field gather",time+dclock());
+  _nodeGetManyPerf<MesonFieldDistributedStorageType>::print();
 }
 
 

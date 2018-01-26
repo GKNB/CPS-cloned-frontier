@@ -355,6 +355,39 @@ class DistributedMemoryStorage{
   }
 
 public:
+  struct GatherPerf{
+    size_t check_calls;
+    double check_time;
+    size_t alloc_calls;
+    double alloc_time;
+    size_t gather_calls;
+    double gather_time;
+    size_t bytes;
+    size_t free_calls;
+    double free_time;
+    
+    void reset(){
+      check_calls=alloc_calls=gather_calls=bytes=free_calls=0;
+      check_time=alloc_time=gather_time=free_time=0;
+    }
+    GatherPerf(){
+      reset();
+    }
+    void print(){
+      if(!UniqueID()){
+	double avg_check_time = check_time / double(check_calls);
+	double avg_alloc_time = alloc_time / double(alloc_calls);
+	double avg_gather_time = gather_time / double(gather_calls);
+	double avg_free_time = free_time / double(free_calls);
+	double avg_bandwidth = double(bytes)/gather_time/(1024*1024); //MB/s
+	std::ostringstream os; 
+	os << "DistributedMemoryStorage::GatherPerf avg check time " << avg_check_time << "s, avg alloc time " << avg_alloc_time << "s, avg gather time " << avg_gather_time << "s, gather bandwidth " << avg_bandwidth << "MB/s, avg free time " << avg_free_time << "s\n";
+	printf(os.str().c_str()); fflush(stdout);
+      }
+    }
+  };
+  static GatherPerf & perf(){ static GatherPerf p; return p; }
+
   DistributedMemoryStorage(): ptr(NULL), _master_uid(-1){}
 
   DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL){
@@ -430,19 +463,44 @@ public:
 #ifndef USE_MPI
     if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather","Implementation requires MPI\n");
 #else
-    //Check to see if a gather is actually necessary
+    double time = dclock();
     int do_gather_node = (require && ptr == NULL);
+
+    //#define ENABLE_GATHER_PRECHECK
+#ifdef ENABLE_GATHER_PRECHECK   //This actually takes a lot of time on Cori! Disable by default
+    //Check to see if a gather is actually necessary
     int do_gather_any = 0;
     assert( MPI_Allreduce(&do_gather_node, &do_gather_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
 
+    perf().check_calls++;
+    perf().check_time += dclock() - time;
+#else
+    int do_gather_any = 1;
+#endif
+
     //Do the gather. All nodes need memory space, albeit temporarily
     if(do_gather_any){
-      if(UniqueID() != _master_uid && ptr == NULL) alloc(_alignment, _size);      
+      if(UniqueID() != _master_uid && ptr == NULL){
+	time = dclock();
+	alloc(_alignment, _size);      
+	perf().alloc_calls++;
+	perf().alloc_time += dclock() - time;
+      }
+      time = dclock();
       assert( MPI_Bcast(ptr, _size, MPI_BYTE, _master_mpirank, MPI_COMM_WORLD) == MPI_SUCCESS );
+      perf().gather_calls++;
+      perf().gather_time += dclock() - time;
+      perf().bytes += _size;
     }
     
     //Non-master copies safe to throw away data if not required. If data was already present we don't throw away because it may have been pulled by a different call to gather
-    if(!require && UniqueID() != _master_uid && ptr != NULL && do_gather_node) freeMem();
+    if(!require && UniqueID() != _master_uid && ptr != NULL && do_gather_node){
+      time = dclock();
+      freeMem();
+      perf().free_calls++;
+      perf().free_time += dclock() - time;
+    }
+
 #endif
   }
 

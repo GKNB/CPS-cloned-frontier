@@ -142,6 +142,16 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-skip_ktopipi",30) == 0){
 	do_ktopipi = false;
 	arg++;
+      }else if( strncmp(cmd,"-mmap_threshold_and_max",40) == 0){ //Using these options can reduce memory fragmentation but may impact performance
+	size_t threshold = strToAny<size_t>(argv[arg+1]);
+	size_t mmap_max = strToAny<size_t>(argv[arg+2]);
+	if(!UniqueID()){
+	  std::ostringstream os; os << "Set mmap_threshold to " << threshold << " and mmap_max to " << mmap_max << std::endl;  
+	  printf(os.str().c_str());
+	}
+	assert(mallopt(M_MMAP_THRESHOLD, threshold)==1);
+	assert(mallopt(M_MMAP_MAX, mmap_max)==1);
+	arg+=3;
       }else if( strncmp(cmd,"--comms-isend",30) == 0){
 	ERR.General("","main","Grid option --comms-isend is deprecated: use --comms-concurrent instead");
       }else if( strncmp(cmd,"--comms-sendrecv",30) == 0){
