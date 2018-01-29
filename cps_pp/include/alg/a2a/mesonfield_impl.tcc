@@ -443,7 +443,12 @@ struct _nodeGetManyPerf{
 template<>
 struct _nodeGetManyPerf<DistributedMemoryStorage>{ 
   static void reset(){ DistributedMemoryStorage::perf().reset(); }; 
-  static void print(){ DistributedMemoryStorage::perf().print(); }; 
+  static void print(){ 
+    DistributedMemoryStorage::perf().print(); 
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+    DistributedMemoryStorage::block_allocator().stats(std::cout);
+#endif
+  }; 
 };
 
 

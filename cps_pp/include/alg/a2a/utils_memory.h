@@ -19,6 +19,8 @@
 #include<gperftools/heap-profiler.h>
 #endif
 
+#include<alg/a2a/reuse_block_allocator.h>
+
 //Utilities for memory control
 
 CPS_START_NAMESPACE
@@ -140,6 +142,10 @@ inline double byte_to_MB(const size_t b){
   return double(b)/1024./1024.;
 }
 
+bool isAligned(void *p, const size_t alignment){
+  return (((uintptr_t)p) % alignment == 0 );
+}
+
 //Empty shells for google perftools heap profile funcs
 #ifndef BASE_HEAP_PROFILER_H_
 inline void HeapProfilerStart(const char* nm){}
@@ -230,7 +236,6 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   fflush(stream);
 }
 
-
 inline void printMemNodeFile(const std::string &msg = ""){
   static int calls = 0;
 
@@ -318,7 +323,6 @@ struct nodeDistributeCounter{
   }
 
 };
-
 
 class DistributedMemoryStorage{
   void *ptr;
@@ -428,29 +432,51 @@ public:
     r.ptr = NULL;
   }
 
-  
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
+#endif
+
+
   void alloc(int alignment, size_t size){
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ block_allocator().free(ptr); ptr = NULL; }
+    }
+    ptr = block_allocator().alloc(alignment,size);
+
+#else
+
     if(ptr != NULL){
       if(alignment == _alignment && size == _size) return;
       else{ free(ptr); ptr = NULL; }
     }
     int r = posix_memalign(&ptr, alignment, size);
     if(r){
-#ifdef USE_MPI
+#  ifdef USE_MPI
       int mpi_rank; assert( MPI_Comm_rank(MPI_COMM_WORLD,&mpi_rank) == MPI_SUCCESS );
-      printf("Error: rank %d (uid %d) failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", mpi_rank, UniqueID(), r, EINVAL, ENOMEM, byte_to_MB(size) );
-#else
+      printf("Error: rank %d (uid %d) failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", 
+	     mpi_rank, UniqueID(), r, EINVAL, ENOMEM, byte_to_MB(size) );
+#  else
       printf("Error: uid %d failed to allocate memory! posix_memalign return code %d (EINVAL=%d ENOMEM=%d). Require %g MB. Memory status\n", UniqueID(), r,EINVAL, ENOMEM, byte_to_MB(size) ); 
-#endif
+#  endif
       printMem("Error",UniqueID());
     }
+
+#endif
     _size = size;
     _alignment = alignment;
   }
 
   void freeMem(){
     if(ptr != NULL){
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+      block_allocator().free(ptr);
+#else
       free(ptr);
+#endif
       ptr = NULL;
     }
   }
