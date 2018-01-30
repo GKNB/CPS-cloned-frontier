@@ -489,30 +489,28 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
   int Nspinco=12;
   int i_inc = this->simd() * 2;
   int vol5d =
-    this->node_latt[0] *
-    this->node_latt[1] *
-    this->node_latt[2] *
-    this->node_latt[3] *
+    this->node_latt[0] * this->node_latt[1] *
+    this->node_latt[2] * this->node_latt[3] *
     this->Ls;
 
   Float *bagel = (Float *)handle;
   omp_set_num_threads(this->nthread);
 
-  int work = vol5d;
+  size_t work = (size_t) vol5d;
   if(cps::GJP.Gparity()) work*=2;
+  if(this->isBoss()) printf("cps_impexcbFermion: %d %d %d %d %d\n",this->node_latt[0],this->node_latt[1],this->node_latt[2],this->node_latt[3],this->Ls);
 
 #pragma omp parallel for 
-  for (int sf = 0; sf < work; sf++) {
-    int flav = sf;
-    int site = flav % vol5d; flav /= vol5d;
+  for (size_t sf = 0; sf < work; sf++) {
+    size_t flav = sf;
+    size_t site = flav % vol5d; flav /= vol5d;
     
     int x[4], s;
-    int si=site;
+    size_t si=site;
     x[0]=si%this->node_latt[0];    si=si/this->node_latt[0];
     x[1]=si%this->node_latt[1];    si=si/this->node_latt[1];
     x[2]=si%this->node_latt[2];    si=si/this->node_latt[2];
-    x[3]=si%this->node_latt[3];
-    s   =si/this->node_latt[3];
+    x[3]=si%this->node_latt[3];    s=si/this->node_latt[3];
     
     int sp = this->precon_5d ? s : 0;
     if ( (x[0]+x[1]+x[2]+x[3] + (sp &0x1)) == cb ) {

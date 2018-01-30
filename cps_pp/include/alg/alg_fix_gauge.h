@@ -14,6 +14,7 @@ CPS_START_NAMESPACE
 
 CPS_END_NAMESPACE
 #include <util/lattice.h>
+#include <util/qioarg.h>
 #include <alg/alg_base.h>
 #include <alg/common_arg.h>
 #include <alg/fix_gauge_arg.h>
@@ -33,6 +34,8 @@ class AlgFixGauge : public Alg
 {
  private:
     char *cname;
+  int num, lattice_dir_size;
+
 
     FixGaugeArg *alg_fix_gauge_arg;
         // The argument structure for the AlgFixGauge algorithm
@@ -40,6 +43,7 @@ class AlgFixGauge : public Alg
 
  public:
     AlgFixGauge(Lattice & latt, CommonArg *c_arg, FixGaugeArg *arg);
+//:Alg(),num(0),lattice_dir_size(0);
 
     virtual ~AlgFixGauge();
 
@@ -48,6 +52,9 @@ class AlgFixGauge : public Alg
       which can be accessed using Lattice::FixGaugePtr.
      */
     void run(void);  
+
+    void Save(const char *fname, QioArg &wt_arg);
+    void Load(const char *fname, const QioArg &rd_arg);
 
     // Frees the memory allocated for the gauge fixing matrices.
     void free(void);

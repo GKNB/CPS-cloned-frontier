@@ -369,7 +369,8 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 #ifndef NO_BFM_BC
   void BondCond(){
     Lattice::BondCond();
-    if (bfm_initted) ImportGauge();
+//    if (bfm_initted) 
+	ImportGauge();
   }
 #endif
 

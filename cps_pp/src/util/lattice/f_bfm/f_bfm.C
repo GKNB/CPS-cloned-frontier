@@ -232,11 +232,11 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bd.comm_init();
 	}
 
+        ImportGauge();
 	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e CGdiagonalMee=%d\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale,bf.CGdiagonalMee);
     } else {
 	if (key_mass == current_key_mass) {
 	    VRB.Result(cname, fname, "Already inited from desired key mass %e\n", key_mass);
-            ImportGauge();
 	    return; // already inited with desired params
 	}
 
@@ -271,7 +271,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     bfm_initted = true;
     current_key_mass = key_mass;
-    ImportGauge();
+//    ImportGauge();
 }
 
 // This function differs from the original CalcHmdForceVecsBilinear()
@@ -380,15 +380,14 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     static Timer time(cname, fname);
     time.start(true);
 
-    if (!bfm_initted) SetBfmArg(mass);
+    SetBfmArg(mass);
     VRB.Result(cname,fname,"started\n");
 
 #if 0
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
 #endif
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
-//    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
+    size_t f_size = (size_t)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
     if(GJP.Gparity()) f_size*=2;
 
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
@@ -499,12 +498,6 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
     bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
     Float in_norm, out_norm;
-#pragma omp parallel
-    {
-	in_norm=bd.norm(in);
-	out_norm=bd.norm(out);
-    }
-    VRB.Result(cname, fname, "norm(in)=%e norm(out)=%e\n", in_norm,out_norm);
 
 
 #pragma omp parallel
@@ -514,6 +507,13 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
             ? mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5)
             : bd.CGNE_prec_MdagM(out, in);
     }
+
+#pragma omp parallel
+    {
+	in_norm=bd.norm(in);
+	out_norm=bd.norm(out);
+    }
+    VRB.Result(cname, fname, "norm(in)=%e norm(out)=%e\n", in_norm,out_norm);
 
     bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
 
@@ -952,10 +952,12 @@ Float Fbfm::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     if (frm1 == 0)
         ERR.Pointer(cname,fname,"frm1") ;
 
-//    SetBfmArg(mass);
+    SetBfmArg(mass);
 
     MatPc(phi, frm1, mass, dag);
-    Float ret = FhamiltonNode(frm1, frm1);
+    Float ret = FhamiltonNode(phi, phi);
+    VRB.Result(cname,fname,"phi*phi=%e\n",ret);
+    ret = FhamiltonNode(frm1, frm1);
     return ret;
 }
 
@@ -963,26 +965,36 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
 {
     const char *fname = "MatPc()";
 
-    VRB.Result(cname, fname, "start MatPc: mass = %e\n", mass);
+    Float in_norm,out_norm;
     SetBfmArg(mass);
+    size_t f_size= GJP.VolNodeSites() * FsiteSize()/2;
+    in_norm = in->NormSqGlbSum(f_size);
+    VRB.Result(cname, fname, "start MatPc: mass = %e f_size=%d in=%0.10e \n", mass,f_size,in_norm);
 //    SetMass(mass, epsilon);
     Fermion_t i = bd.allocFermion();
     Fermion_t o = bd.allocFermion();
     Fermion_t t = bd.allocFermion();
 
 
+
     bd.cps_impexcbFermion((Float *)in , i, 1, 1);
+
 #pragma omp parallel
     {
         bd.Mprec(i, o, t, dag == DAG_YES, 0);
+	in_norm=bd.norm(i);
+	out_norm=bd.norm(o);
     }
+
     bd.cps_impexcbFermion((Float *)out, o, 0, 1);
 
     bd.freeFermion(i);
     bd.freeFermion(o);
     bd.freeFermion(t);
 
-    VRB.Result(cname, fname, "end MatPc: mass = %e\n", mass);
+    VRB.Result(cname, fname, "end MatPc: mass = %e in out = %e %e\n", mass,in_norm,out_norm);
+    out_norm = out->NormSqGlbSum(f_size);
+    VRB.Result(cname, fname, "end MatPc: mass = %e out = %e\n", mass,out_norm);
 }
 
 // It evolves the canonical momentum mom by step_size
@@ -1140,11 +1152,12 @@ void Fbfm::BondCond()
 }
 #endif
 
-#ifdef USE_NEW_BFM_IMP
+//#ifdef USE_NEW_BFM_IMP
+#if 0
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
-    if (!bfm_initted) SetBfmArg(current_key_mass);
+//    if (!bfm_initted) SetBfmArg(current_key_mass);
     VRB.Result(cname,fname,"NEW VERSION with CPS parallel transport\n");
     LatMatrix One;
     LatMatrix LatDir[8];

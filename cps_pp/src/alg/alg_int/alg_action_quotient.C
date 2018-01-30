@@ -317,7 +317,7 @@ void AlgActionQuotient::heatbath ()
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
 
     h_init = 0.;
-    VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
+//    VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
 
     // tmp1, tmp2 < - random Gaussian vector (RGV)
     for (int i = 0; i < n_masses; i++) {
@@ -337,6 +337,8 @@ void AlgActionQuotient::heatbath ()
 #ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
       if ((lat.Fclass () == F_CLASS_BFM)
 	  && Fbfm::arg_map.at (Fbfm::current_key_mass).solver == WilsonTM) {
+	VRB.Result (cname, fname,
+		    "CPS WilsonTM compatibility mode");
 	Float kappa_ferm =
 	  1.0 / 2.0 / sqrt ((frm_mass[i] + 4.0) * (frm_mass[i] + 4.0) +
 			    frm_mass_epsilon[i] * frm_mass_epsilon[i]);
@@ -356,6 +358,8 @@ void AlgActionQuotient::heatbath ()
       if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
 	// DWF with 4D pseudofermions needs separate treatment for efficiency reasons
 	// tmp1 = M_f^\dag (RGV)
+	VRB.Result (cname, fname,
+		    "F_CLASS_DWFD\n");
 	Fdwf4d::pauli_villars_resid = Fdwf4d::pauli_villars_resid_mc;
 	h_i = lat.SetPhi (tmp2, tmp1, NULL, frm_mass[i], DAG_YES);
 	h_init += h_i;

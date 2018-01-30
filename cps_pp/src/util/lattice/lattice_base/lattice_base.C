@@ -4283,7 +4283,10 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
 	    LRG.AssignGenerator(x[0],x[1],x[2],x[3],s,flv);
 //	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
           for(k = 0; k < vec_size; k++) {
-            *(ptr++) = LRG.Grand(frm_dim);
+            *(ptr) = LRG.Grand(frm_dim);
+		sum += *ptr;
+		square += (*ptr)*(*ptr);
+	ptr++;
         VRB.Debug(cname,fname,"%d %d %d %d %d %d %g\n",x[0],x[1],x[2],x[3],     s,flv,*(ptr-1));
           }
         }
