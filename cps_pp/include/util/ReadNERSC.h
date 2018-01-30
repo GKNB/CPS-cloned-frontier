@@ -117,6 +117,7 @@ void read(dtype *data, const QioArg & rd_arg)
 
     if(!error) {
       hd.read(input);
+      assert(data_per_site == hd.data_per_site);
       input.close();
     }
   }

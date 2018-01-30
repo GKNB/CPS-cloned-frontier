@@ -168,6 +168,7 @@ void write(void *data, const QioArg & wt_arg)
   // write header
   if(isRoot()){
     hd.init(wt_arg, fpconv.fileFormat);
+    hd.setHeader(data_per_site);
     hd.write(output);
   }
   if (error)

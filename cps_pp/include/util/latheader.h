@@ -89,6 +89,7 @@ class LatNERSCHeader : public LatHeaderBase {
     std::string hdr_version;
 //  int recon_row_3; // determines DATATYPE = 4D_SU3_GAUGE or 4D_SU3_GAUGE_3X3
     std::string storage_format;
+    int data_per_site;
 
   int dimension[4];
 //  Float link_trace;
@@ -114,7 +115,7 @@ class LatNERSCHeader : public LatHeaderBase {
   }
 
   void init(const QioArg & qio_arg, FP_FORMAT FileFormat);
-  void setHeader(const char *CreatorName = NULL, const char *CreatorHardware = NULL );
+  void setHeader(int ndata, const char *CreatorName = NULL, const char *CreatorHardware = NULL );
     void write(std::ostream & fout);
     void fillInChecksum(std::ostream & fout, unsigned int checksum) const;
   
