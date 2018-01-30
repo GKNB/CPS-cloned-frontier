@@ -490,7 +490,7 @@ namespace cps
 
       int64_t nsites = n / nsc;
       if (n % nsc) {
-	fprintf (stderr, "Invalid size in write_floats_fp16\n");
+	fprintf (stderr, "Invalid size in read_floats_fp16\n");
 	exit (4);
       }
 

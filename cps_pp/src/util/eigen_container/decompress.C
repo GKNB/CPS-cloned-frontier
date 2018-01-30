@@ -510,7 +510,7 @@ namespace cps
 								 args.FP16_COEF_EXP_SHARE_FLOATS))
 		* (nb + j * args.blocks);
 	      int l;
-	      printf("lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
+	      VRB.Debug(cname,fname.c_str(),"lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
 	      read_floats (lptr, &buf1[0], buf1.size ());
 	      //automatically increase lptr
 	      memcpy (&block_coef[mnb][j * (buf1.size () + buf2.size ())],
@@ -518,7 +518,7 @@ namespace cps
 	      //for (l=0;l<nkeep_single;l++) {
 	      //      ((CoeffCoarse_t*)&coef._v[j]._odata[oi]._internal._internal[l])[ii] = CoeffCoarse_t(buf1[2*l+0],buf1[2*l+1]);
 	      //}
-	      printf("lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
+	      VRB.Debug(cname,fname.c_str(),"lptr=%p %d %d\n",lptr-ptr,(int) *lptr, (int) *(lptr+1));
 	      read_floats_fp16 (lptr, &buf2[0], buf2.size (),
 				args.FP16_COEF_EXP_SHARE_FLOATS);
 	      memcpy (&block_coef[mnb]

@@ -193,7 +193,7 @@ data, data_per_site, site_mem,
 			pd += site_mem/4;
 		      }
 		    }
-		    else { // LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		      // load
 #ifdef USE_C11_RNG
 	      dconv.file2host(pd, fbuf, data_per_site);
@@ -210,6 +210,10 @@ data, data_per_site, site_mem,
 	      ugran[siteid].load(rng.IntPtr());
 #endif
 	    }
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.file2host(pd,fbuf,data_per_site);
+		pd +=site_mem;
+ 	      }
 	   
 	    siteid++;
 	  }
@@ -352,7 +356,7 @@ do {
 		  pd += site_mem/4;
 		}
 	      }
-	      else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		// dump
 #ifdef USE_C11_RNG
 		dconv.host2file(fbuf,pd,data_per_site);
@@ -369,6 +373,10 @@ do {
 		ugran[siteid].load(rng.IntPtr());
 #endif
 	      }
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 	      csum += dconv.checksum(fbuf,data_per_site);
 	      pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, siteid, 0);
@@ -565,7 +573,7 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // load
 #ifdef USE_C11_RNG
 	      dconv.file2host(pd, fbuf, data_per_site);
@@ -582,6 +590,10 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		}
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.file2host(pd,fbuf,data_per_site);
+		pd +=site_mem;
+ 	      }
 		global_id ++;
 	      }
 	    } // endif(isNode0())
@@ -711,7 +723,7 @@ int SerialIO::store(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 #ifdef USE_C11_RNG
 	      dconv.host2file(fbuf, pd, data_per_site);
               CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
@@ -729,7 +741,10 @@ int SerialIO::store(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		csum += dconv.checksum(fbuf,data_per_site);
 		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
@@ -860,7 +875,7 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -878,7 +893,10 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
 		csum += csum_contrib;
@@ -916,7 +934,7 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -934,7 +952,10 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
 		csum += csum_contrib;
@@ -1094,7 +1115,7 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -1112,7 +1133,10 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
 		csum += csum_contrib;
@@ -1157,7 +1181,7 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -1180,7 +1204,10 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
 		csum += csum_contrib;
