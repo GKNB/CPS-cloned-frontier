@@ -61,7 +61,8 @@ class LatHeaderBase {
  public:
   enum HEADER_TYPES {
     LATTICE_HEADER,
-    LATRNG_HEADER
+    LATRNG_HEADER,
+    LATTICE_NERSC
   };
   virtual enum HEADER_TYPES headerType() const = 0;
   virtual std::streamoff dataStart() const = 0;
@@ -78,6 +79,58 @@ class LatHeaderBase {
 
  protected:
   GCFheaderPar hd;
+};
+
+// header specification/interpretation
+class LatNERSCHeader : public LatHeaderBase {
+ public:
+     const char *cname;
+  // header strings
+    std::string hdr_version;
+//  int recon_row_3; // determines DATATYPE = 4D_SU3_GAUGE or 4D_SU3_GAUGE_3X3
+    std::string storage_format;
+
+  int dimension[4];
+//  Float link_trace;
+//  Float plaquette;
+
+  BndCndType boundary[4]; 
+  unsigned int checksum;
+
+//    std::string ensemble_id ;
+//    std::string ensemble_label ;
+//  int sequence_number ;
+    std::string creator ;
+    std::string creator_hardware ;
+    std::string creation_date ;
+    std::string archive_date ;
+
+  FP_FORMAT floating_point;
+
+  LatNERSCHeader():LatHeaderBase(),cname("LatNERSCHeader") {
+//    ensemble_id = "unspecified";
+//    ensemble_label = "unspecified";
+//    sequence_number = 0;
+  }
+
+  void init(const QioArg & qio_arg, FP_FORMAT FileFormat);
+  void setHeader(const char *CreatorName = NULL, const char *CreatorHardware = NULL );
+    void write(std::ostream & fout);
+    void fillInChecksum(std::ostream & fout, unsigned int checksum) const;
+  
+    void read(std::istream & fin);
+
+  void show() const { hd.Show(); }
+
+  enum HEADER_TYPES headerType() const { return LATTICE_NERSC; }
+  std::streamoff dataStart() const { return data_start; }
+  void fillInCheckInfo(std::ostream & fout, unsigned int cs, unsigned int pdcs,
+		       const Float calc1, const Float calc2) const {
+    fillInChecksum(fout, cs);
+  }
+
+ private:
+  int csum_pos;
 };
 
 
