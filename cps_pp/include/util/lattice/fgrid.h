@@ -12,6 +12,7 @@
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
 #include<Grid/Grid.h>
+#include<Grid/algorithms/iterative/SimpleLanczos.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 #undef HAVE_HANDOPT

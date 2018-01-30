@@ -28,6 +28,7 @@ namespace cps
 {
 
 
+#if 0
   void movefloattoFloat (Float * out, float *in, size_t f_size)
   {
 
@@ -38,6 +39,7 @@ namespace cps
       out[i] = (Float) flt;
     }
   };
+#endif
 
 
   int EvecReader::globalToLocalCanonicalBlock (int slot,
