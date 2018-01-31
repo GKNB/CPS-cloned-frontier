@@ -669,7 +669,7 @@ private:
   
     int *dist_max;
 
-    friend int Lattice::FixGauge(Float SmallFloat, int MaxIterNum);
+    friend int Lattice::FixGauge(Float SmallFloat, unsigned long MaxIterNum);
   friend IFloat* Lattice::GaugeFixCondSatisfaction(Matrix **gfix_mat, FixGaugeType gfix_type, Float SmallFloat) const;
 };
 
@@ -1117,7 +1117,7 @@ void FixHPlane::unitarize(int recurse)
 //  int MaxIterNum - issues a warning if reached.                          //
 //                                                                         //
 //-------------------------------------------------------------------------//
-int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
+int Lattice::FixGauge(Float SmallFloat, unsigned long MaxIterNum)
 {
     char *fname = "FixGauge(F,i)";
 
@@ -1191,7 +1191,7 @@ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
     //------------------------------------------------------------------------
 
     Float not_converged = 0;
-    unsigned long tot_iternum = 0;
+    unsigned long int tot_iternum = 0;
 
     {
         int loop_num = 
@@ -1679,6 +1679,37 @@ const Matrix* Lattice::FixGaugeMatrix(const int &site,const int &flavor){
     ERR.General(cname,fname,"Only implemented for CANONICAL ordering");
   }
   return FixGaugeMatrix(pos,flavor);
+}
+void Lattice::SetFixGaugeMatrix(const Matrix &mat, int const* pos,const int &flavor){
+  static const char* fname = "FixGaugeMatrix(int const* pos, const int &flavor)";
+  if(fix_gauge_kind==FIX_GAUGE_LANDAU){ //stored in CANONICAL ordering
+    int off = pos[0]+GJP.XnodeSites()*(pos[1] + GJP.YnodeSites()*(pos[2] * GJP.ZnodeSites()*pos[3]));
+    if(GJP.Gparity()) off += flavor * GJP.VolNodeSites();
+//    return &fix_gauge_ptr[0][off];
+    fix_gauge_ptr[0][off] = mat;
+  }else if(fix_gauge_kind == FIX_GAUGE_COULOMB_X ||
+	   fix_gauge_kind == FIX_GAUGE_COULOMB_Y ||
+	   fix_gauge_kind == FIX_GAUGE_COULOMB_Z ||
+	   fix_gauge_kind == FIX_GAUGE_COULOMB_T){
+    int normdir = (int)fix_gauge_kind - (int)FIX_GAUGE_COULOMB_X;
+    int hplane = pos[normdir];
+    if(GJP.Gparity()) hplane += flavor * GJP.NodeSites(normdir);
+    if(fix_gauge_ptr[hplane] == NULL) 
+	ERR.General(cname,fname,"gauge fixing not allocated on %d %d %d %d\n",pos[0],pos[1],pos[2],pos[3]);
+
+    int tposvec[3];
+    int tlenvec[3];
+    int j=0;
+    for(int i=0;i<4;i++){
+      if(i==normdir) continue;
+      tlenvec[j] = GJP.NodeSites(i);
+      tposvec[j++] = pos[i];
+    }      
+    int threepos = tposvec[0] + tlenvec[0]*(tposvec[1] + tlenvec[1]*tposvec[2]);
+
+//    return &fix_gauge_ptr[hplane][threepos];
+    fix_gauge_ptr[hplane][threepos] = mat;
+  }else ERR.General(cname,fname,"Unknown gauge fixing");
 }
 
 

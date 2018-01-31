@@ -120,7 +120,8 @@ void write(void *data, const QioArg & wt_arg)
   // write lattice data, in Parallel or Serial manner
   // determined by the template parameter "IoStyle" of this class
 //  int data_per_site = recon_row_3 ? 4*12 : 4*18;
-  const size_t chars_per_site = data_per_site * fpconv.fileFpSize();
+//  const size_t chars_per_site = data_per_site * fpconv.fileFpSize();
+  const size_t chars_per_site = data_per_site * sizeof(dtype);
 
   unsigned int csum = 0;
 
@@ -182,14 +183,14 @@ void write(void *data, const QioArg & wt_arg)
 
   if(parIO()) {
     ParallelIO pario(wt_arg);
-    if(!pario.store(output, (char*)data, data_per_site, data_per_site,
+    if(!pario.store(output, (char*)data, data_per_site, chars_per_site,
 		    hd, fpconv, Ndim, &csum)) 
       ERR.General(cname, fname, "Unload failed\n");
 
   }
   else {
     SerialIO serio(wt_arg);
-    if(!serio.store(output, (char*)data, data_per_site, data_per_site,
+    if(!serio.store(output, (char*)data, data_per_site, chars_per_site,
 		    hd, fpconv, Ndim, &csum)) 
       ERR.General(cname, fname, "Unload failed\n");
   }

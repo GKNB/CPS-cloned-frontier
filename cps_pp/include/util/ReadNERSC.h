@@ -10,17 +10,19 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <sys/time.h>
 #include <util/gjp.h>
 #include <util/vector.h>
+#include <util/time_cps.h>
 #include <util/lattice.h>
 #include <util/data_types.h>
 #include <util/verbose.h>
 #include <util/error.h>
-#include <alg/do_arg.h>
 #include <util/qioarg.h>
 #include <util/fpconv.h>
 #include <util/iostyle.h>
 #include <util/latheader.h>
+#include <alg/do_arg.h>
 
 CPS_START_NAMESPACE
 
@@ -40,7 +42,7 @@ class  ReadNERSC : public QioControl
  public:
   // ctor for 2-step loading
  ReadNERSC(int ndata)
-   : QioControl(), cname("ReadNERSC"),Ndim(_Ndim)
+   : QioControl(), cname("ReadNERSC"),Ndim(_Ndim),data_per_site(ndata)
     { 
       //CK set architecture-dependent default IO style rather than hardcoding it.
       setDefault();
@@ -49,6 +51,7 @@ class  ReadNERSC : public QioControl
   // ctor invoking loading behavior
  ReadNERSC(int ndata,dtype *data , const char * filename): QioControl(), cname("ReadNERSC"),Ndim(_Ndim),data_per_site(ndata)
     {
+      setDefault();
     //CK set architecture-dependent default IO style rather than hardcoding it.
     QioArg rd_arg(filename);
 	rd_arg.ConcurIONumber=default_concur;
@@ -117,6 +120,7 @@ void read(dtype *data, const QioArg & rd_arg)
 
     if(!error) {
       hd.read(input);
+      VRB.Result(cname,fname,"data_per_site=%d hd.data_per_site=%d\n",data_per_site,hd.data_per_site);
       assert(data_per_site == hd.data_per_site);
       input.close();
     }
@@ -173,6 +177,7 @@ void read(dtype *data, const QioArg & rd_arg)
 // #endif
 
   log();
+  const size_t chars_per_site = data_per_site * sizeof(dtype);
 
   VRB.Flow(cname,fname,"Reading configuation to address: %p\n", rd_arg.StartConfLoadAddr);
   if(parIO()) {
@@ -182,7 +187,7 @@ void read(dtype *data, const QioArg & rd_arg)
       pario.disableGparityReconstructUstarField();
     }
 
-    if(! pario.load((char*)data, data_per_site, data_per_site,
+    if(! pario.load((char*)data, data_per_site, chars_per_site,
 		    hd, fpconv, 4, &csum))  
       ERR.General(cname,fname,"Load Failed\n");  // failed to load
   }
@@ -190,7 +195,7 @@ void read(dtype *data, const QioArg & rd_arg)
   else {
     SerialIO serio(rd_arg);
 
-    if(! serio.load((char*)data, data_per_site, data_per_site,
+    if(! serio.load((char*)data, data_per_site, chars_per_site,
 		    hd, fpconv, 4, &csum))  
       ERR.General(cname,fname,"Load Failed\n");  // failed to load
   }

@@ -34,6 +34,8 @@ CPS_END_NAMESPACE
 #include <util/vector.h>
 #include <util/verbose.h>
 #include <util/error.h>
+#include <util/ReadNERSC.h>
+#include <util/WriteNERSC.h>
 CPS_START_NAMESPACE
 
 
@@ -78,7 +80,7 @@ AlgFixGauge::~AlgFixGauge() {
 //------------------------------------------------------------------
 // Allocates memory and constructs the gauge fixing matrices
 //------------------------------------------------------------------
-void AlgFixGauge::run()
+void AlgFixGauge::run(const QioArg *rd_arg)
 {
   const char *fname = "run";
   VRB.Func(cname,fname);
@@ -136,6 +138,8 @@ void AlgFixGauge::run()
   // Allocate gauge fixing matrices and set them to 1
   //----------------------------------------------------------------
   lat.FixGaugeAllocate(fix, num, h_planes);
+  if(rd_arg)
+  this->Load(*rd_arg);
 
 
   // Calculate the gauge fixing matrices
@@ -167,7 +171,7 @@ void AlgFixGauge::free()
   lat.FixGaugeFree();
 }
 
-void AlgFixGauge::Save(const char *filename, QioArg &wt_arg){
+void AlgFixGauge::Save(const QioArg &wt_arg){
 
   const char *fname("Save()");
   Lattice& lat = AlgLattice();
@@ -175,15 +179,46 @@ void AlgFixGauge::Save(const char *filename, QioArg &wt_arg){
 
   Site s;
   while(s.LoopsOverNode()){
-	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos(),0);
+//	int *pos = s.pos();
+	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos());
 	if(mat1 !=NULL ){
 		Matrix *mat2 = gfix_mat.Mat(s.Index());
 		*mat2 = *mat1;
+	Float *tmp_p = (Float*)mat2;
+//	VRB.Result(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	printf("LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	s.physX(),s.physY(),s.physZ(),s.physT(), s.Index(),
+	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
         } else {
-	VRB.Result(cname,fname,"Gauge fix matrix should have been calculated on every sites!\n");
+	ERR.General(cname,fname,"Gauge fix matrix should be available on every sites!\n");
         }
   }
-  
+  WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem());
+  nersc_write.write(gfix_mat.Field(),wt_arg);
+}
+
+void AlgFixGauge::Load(const QioArg &rd_arg){
+
+  const char *fname("Load()");
+  Lattice& lat = AlgLattice();
+  LatMatrix gfix_mat(1);
+
+  ReadNERSC<LatNERSCHeader,4,Float> nersc_read(gfix_mat.Nelem());
+//  Being lazy. Should be fixed eventually!
+//  ReadNERSC<LatNERSCHeader,4,Float> nersc_read(18);
+  nersc_read.read(gfix_mat.Field(),rd_arg);
+
+  Site s;
+  while(s.LoopsOverNode()){
+//	int *pos = s.pos();
+//	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos());
+	Matrix *mat2 = gfix_mat.Mat(s.Index());
+	Float *tmp_p = (Float*)mat2;
+	VRB.Result(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	s.X(),s.Y(),s.Z(),s.T(), s.Index(),
+	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
+	lat.SetFixGaugeMatrix(*mat2,s.pos());
+  }
 }
 
 

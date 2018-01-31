@@ -51,10 +51,18 @@ class AlgFixGauge : public Alg
     /*!\post The Lattice class allocates memory for the gauge fixing matrices
       which can be accessed using Lattice::FixGaugePtr.
      */
-    void run(void);  
+    void run(const QioArg *rd_arg=NULL);  
 
-    void Save(const char *fname, QioArg &wt_arg);
-    void Load(const char *fname, const QioArg &rd_arg);
+    void Save(const QioArg &wt_arg);
+    void Save(const char *filename){
+        QioArg wt_arg(filename);
+        this->Save(wt_arg);
+    }
+    void Load(const QioArg &rd_arg);
+    void Load(const char *filename){
+        QioArg wt_arg(filename);
+        this->Load(wt_arg);
+    }
 
     // Frees the memory allocated for the gauge fixing matrices.
     void free(void);
