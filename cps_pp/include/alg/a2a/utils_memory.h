@@ -492,8 +492,8 @@ public:
     double time = dclock();
     int do_gather_node = (require && ptr == NULL);
 
-    //#define ENABLE_GATHER_PRECHECK
-#ifdef ENABLE_GATHER_PRECHECK   //This actually takes a lot of time on Cori! Disable by default
+#define ENABLE_GATHER_PRECHECK
+#ifdef ENABLE_GATHER_PRECHECK
     //Check to see if a gather is actually necessary
     int do_gather_any = 0;
     assert( MPI_Allreduce(&do_gather_node, &do_gather_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
