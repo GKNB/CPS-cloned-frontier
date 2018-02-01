@@ -95,6 +95,20 @@ void doContractionsStandardAndSymmetric(const int conf, Parameters &params, cons
   //Do the reverse momentum assignment, average with standard and repeat measurements
   ////////////////////////////////////////////////////////////////////////////////////////////
   
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  {
+    if(!UniqueID()){
+      std::ostringstream os; DistributedMemoryStorage::block_allocator().stats(os);
+      printf("Trimming block allocator. Current stats: %s\n",os.str().c_str()); fflush(stdout);
+    }
+    DistributedMemoryStorage::block_allocator().trim();
+    if(!UniqueID()){
+      std::ostringstream os; DistributedMemoryStorage::block_allocator().stats(os);
+      printf("Post-trim stats: %s\n",os.str().c_str()); fflush(stdout);
+    }
+  }
+#endif
+
   ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_2s_symm; //Gparity only
@@ -133,6 +147,9 @@ void doContractions(const int conf, Parameters &params, const CommandLineArgs &c
 		    A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 		    A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
 		    const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  if(cmdline.nthread_contractions != cmdline.nthreads && !UniqueID()) printf("Changing threads to %d for contractions\n", cmdline.nthread_contractions);
+  GJP.SetNthreads(cmdline.nthread_contractions);
+
 #ifdef USE_STANDARD_AND_SYMMETRIC_MOM_POLICIES
   doContractionsStandardAndSymmetric(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
 #else

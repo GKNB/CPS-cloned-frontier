@@ -49,10 +49,15 @@ public:
     size_t totsz = 0;
     for(typename blockList::const_iterator it = blocks.begin(); it != blocks.end(); it++) totsz += it->size;
 
+    size_t unused = 0;
     os << "ReuseBlockAllocator " << double(totsz)/1024./1024. << " MB over " << blocks.size() << " blocks\n";
     for(typename allFreeMapType::iterator mit = all_free.begin(); mit != all_free.end(); mit++){
-      if(mit->second.size() > 0 ) os << "ReuseBlockAllocator " << mit->second.size() << " blocks of size " << double(mit->first)/1024./1024. << " MB are awaiting reuse\n";
+      if(mit->second.size() > 0 ){
+	unused += mit->second.size() * mit->first;
+	os << "ReuseBlockAllocator " << mit->second.size() << " blocks of size " << double(mit->first)/1024./1024. << " MB are awaiting reuse\n";
+      }
     }
+    os << "ReuseBlockAllocator " << double(unused)/1024./1024. << " MB unused space\n";
     os.flush();
   }
 
@@ -170,6 +175,11 @@ public:
     ptr_map.erase(it);
   }
 
+  inline void trim(){
+    for(AlignmentMap::iterator mit = allocators.begin(); mit != allocators.end(); mit++){
+      mit->second->trim();
+    }
+  }
 };
 
 

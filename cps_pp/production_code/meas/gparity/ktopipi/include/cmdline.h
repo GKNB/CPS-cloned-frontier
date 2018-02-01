@@ -4,6 +4,7 @@
 //Command line argument store/parse
 struct CommandLineArgs{
   int nthreads;
+  int nthread_contractions;
   bool randomize_vw; //rather than doing the Lanczos and inverting the propagators, etc, just use random vectors for V and W
   bool randomize_evecs; //skip Lanczos and just use random evecs for testing.
   bool randomize_mf; //use random meson fields
@@ -35,6 +36,7 @@ struct CommandLineArgs{
 #if TARGET == BGQ
     nthreads = 64;
 #endif
+    nthread_contractions = -1;
     randomize_vw = false;
     randomize_evecs = false;
     randomize_mf = false;
@@ -82,10 +84,16 @@ struct CommandLineArgs{
     int arg = begin;
     while(arg < argc){
       char* cmd = argv[arg];
-      if( strncmp(cmd,"-nthread",8) == 0){
+      std::string cmdstr(cmd);
+      if( cmdstr == "-nthread" ){
 	if(arg == argc-1){ if(!UniqueID()){ printf("-nthread must be followed by a number!\n"); fflush(stdout); } exit(-1); }
 	nthreads = strToAny<int>(argv[arg+1]);
 	if(!UniqueID()){ printf("Setting number of threads to %d\n",nthreads); }
+	arg+=2;
+      }else if( cmdstr == "-nthread_contractions" ){ //optional - use if you want more/less threads in the contraction part
+	if(arg == argc-1){ if(!UniqueID()){ printf("-nthread_contractions must be followed by a number!\n"); fflush(stdout); } exit(-1); }
+	nthread_contractions = strToAny<int>(argv[arg+1]);
+	if(!UniqueID()){ printf("Setting number of threads in contractions to %d\n",nthread_contractions); }
 	arg+=2;
       }else if( strncmp(cmd,"-randomize_vw",15) == 0){
 	randomize_vw = true;
@@ -196,6 +204,8 @@ struct CommandLineArgs{
 	}
       }
     }
+
+    if(nthread_contractions == -1) nthread_contractions = nthreads; //default equal
   }
 
 };
