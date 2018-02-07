@@ -185,15 +185,41 @@ void AlgFixGauge::Save(const QioArg &wt_arg){
 		Matrix *mat2 = gfix_mat.Mat(s.Index());
 		*mat2 = *mat1;
 	Float *tmp_p = (Float*)mat2;
-//	VRB.Result(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
-	printf("LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+//	printf("LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	VRB.Debug(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
 	s.physX(),s.physY(),s.physZ(),s.physT(), s.Index(),
 	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
         } else {
 	ERR.General(cname,fname,"Gauge fix matrix should be available on every sites!\n");
         }
   }
-  WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem());
+//  WriteNERSC<LatGfixHeader < alg_fix_gauge_arg->fix_gauge_kind >,4,Float> nersc_write(gfix_mat.Nelem());
+  std::vector <std::string > key;
+  key.push_back("GF_TYPE");
+  key.push_back("GF_ACCRUACY");
+
+  std::vector <std::string > value;
+  switch ( alg_fix_gauge_arg->fix_gauge_kind){
+        case FIX_GAUGE_LANDAU:
+        value.push_back( "LANDAU"); break;
+        case FIX_GAUGE_COULOMB_X:
+        value.push_back( "COULOMB_X"); break;
+        case FIX_GAUGE_COULOMB_Y:
+        value.push_back( "COULOMB_Y"); break;
+        case FIX_GAUGE_COULOMB_Z:
+        value.push_back( "COULOMB_Z"); break;
+        case FIX_GAUGE_COULOMB_T:
+        value.push_back( "COULOMB_T"); break;
+        default:
+        ERR.General(cname,fname,"Gauge fixing type not defined\n");
+  }
+  std::stringstream accuracy;
+  accuracy.precision(8);  
+  accuracy << alg_fix_gauge_arg->stop_cond;
+  value.push_back(accuracy.str());
+
+
+  WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem(),key,value);
   nersc_write.write(gfix_mat.Field(),wt_arg);
 }
 
@@ -214,8 +240,8 @@ void AlgFixGauge::Load(const QioArg &rd_arg){
 //	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos());
 	Matrix *mat2 = gfix_mat.Mat(s.Index());
 	Float *tmp_p = (Float*)mat2;
-	VRB.Result(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
-	s.X(),s.Y(),s.Z(),s.T(), s.Index(),
+	VRB.Debug(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	s.physX(),s.physY(),s.physZ(),s.physT(), s.Index(),
 	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
 	lat.SetFixGaugeMatrix(*mat2,s.pos());
   }

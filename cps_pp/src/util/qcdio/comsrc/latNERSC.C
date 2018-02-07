@@ -73,10 +73,10 @@ void LatNERSCHeader::setHeader(int ndata, const char *CreatorName , const char *
   if (CreatorHardware) creator_hardware = CreatorHardware;
 }
 
-void LatNERSCHeader::write(ostream & fout) {
-  const char *fname="write(ostream&)";
-  fout.seekp(0,ios::beg);
-  fout << "BEGIN_HEADER" << endl;
+void LatNERSCHeader::writeContent(ostream & fout) {
+  const char *fname="writeContent(ostream&)";
+//  fout.seekp(0,ios::beg);
+//  fout << "BEGIN_HEADER" << endl;
   fout << "HDR_VERSION = " << hdr_version << endl;
   fout << "STORAGE_FORMAT = " << storage_format << endl;
 
@@ -93,10 +93,9 @@ void LatNERSCHeader::write(ostream & fout) {
   fout << "FLOATING_POINT = " << FPConv::name(floating_point) <<endl;
   fout << "DATA_PER_SITE = " <<data_per_site << endl;
 
-  fout << "END_HEADER" << endl;
-  
-  data_start = fout.tellp();
-  VRB.Result(cname,fname,"data_start=%d csum_pos=%d\n",data_start,csum_pos);
+//  fout << "END_HEADER" << endl;
+//  data_start = fout.tellp();
+//  VRB.Result(cname,fname,"data_start=%d csum_pos=%d\n",data_start,csum_pos);
 }
 
 
@@ -155,6 +154,38 @@ void LatNERSCHeader::read(istream & fin) {
 }
 
 
+template<FixGaugeType gfix_type>
+void LatGfixHeader<gfix_type>::writeContent(ostream & fout) {
+  const char *fname="writeContent(ostream&)";
+//  fout.seekp(0,ios::beg);
+//  fout << "BEGIN_HEADER" << endl;
+  LatNERSCHeader::writeContent(fout);
+  switch (gfix_type){
+	case FIX_GAUGE_LANDAU:
+  	fout << "GF_TYPE = "<< "LANDAU"<< endl; break;
+	case FIX_GAUGE_COULOMB_X:
+  	fout << "GF_TYPE = "<< "COULOMB_X" << endl; break;
+	case FIX_GAUGE_COULOMB_Y:
+  	fout << "GF_TYPE = "<< "COULOMB_Y" << endl; break;
+	case FIX_GAUGE_COULOMB_Z:
+  	fout << "GF_TYPE = "<< "COULOMB_Z" << endl; break;
+	case FIX_GAUGE_COULOMB_T:
+  	fout << "GF_TYPE = "<< "COULOMB_T" << stp_cnd << endl; break;
+	default:
+	ERR.General(cname,fname,"Gauge fixing type not defined\n");
+  }
+  fout << "GF_ACCURACY"<< setprecision(8)  << stp_cnd << endl;
+}
 
+template<FixGaugeType gfix_type>
+void LatGfixHeader<gfix_type>::read(istream & fin) {
+  
+  const char *fname="read(istream&)";
+
+  LatNERSCHeader::read(fin);
+//  std::sting gf_type = hd.asString("GF_TYPE");
+//  Checks should be added   
+  
+}
 
 CPS_END_NAMESPACE

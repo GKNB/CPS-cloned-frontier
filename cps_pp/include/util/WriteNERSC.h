@@ -40,27 +40,35 @@ class WriteNERSC : public QioControl
     const char *cname;
     bool UseParIO;
     int Ndim;
+    std::vector<std::string > key;
+    std::vector<std::string > value;
 
  public:
     headertype hd;
 
  public:
     // ctor for 2-step unloading
-    WriteNERSC(int ndata)  
-      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata){
+    WriteNERSC(int ndata, 
+	std::vector <std::string> _key, 
+	std::vector <std::string> _value )  
+      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata),key(_key),value(_value){
     }
 
     // ctor containing unloading behavior
     WriteNERSC(int ndata,dtype * data, const char * filename,
+	std::vector <std::string> _key, 
+	std::vector <std::string> _value,   
 			 const FP_FORMAT dataFormat = FP_AUTOMATIC)
-      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata){
+      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata),key(_key),value(_value){
       QioArg  wt_arg(filename, dataFormat);
       write(data, wt_arg);
     }
 
     // ctor containing unloading behavior
-    WriteNERSC(int ndata,dtype *data, const QioArg & wt_arg)
-      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata){
+    WriteNERSC(int ndata,dtype *data, const QioArg & wt_arg,
+	std::vector <std::string> _key, 
+	std::vector <std::string> _value )  
+      : QioControl(), cname("WriteNERSC"),Ndim(_Ndim),data_per_site(ndata),key(_key),value(_value){
       write(data, wt_arg);
     }
 
@@ -170,7 +178,22 @@ void write(void *data, const QioArg & wt_arg)
   if(isRoot()){
     hd.init(wt_arg, fpconv.fileFormat);
     hd.setHeader(data_per_site);
-    hd.write(output);
+    hd.write(output,key,value);
+#if 0
+    output.seekp(0,std::ios::beg);
+    output << "BEGIN_HEADER" << std::endl;
+     hd.writeContent(output);
+    VRB.Result(cname,fname,"key(%d) and value(%d) length mismatch\n",key.size(),value.size());
+    for(int i =0;i<key.size();i++){
+    std::cout << key[i] <<" = " << value[i] << std::endl;
+    output << key[i] <<" = " << value[i] << std::endl;
+    }
+    
+    output << "END_HEADER" << std::endl;
+    data_start = fout.tellp();
+    VRB.Result(cname,"write()","data_start=%d csum_pos=%d\n",data_start,csum_pos);
+#endif
+
   }
   if (error)
     printf("Node %d: says Writing header failed  %s failed\n",UniqueID(),wt_arg.FileName);
