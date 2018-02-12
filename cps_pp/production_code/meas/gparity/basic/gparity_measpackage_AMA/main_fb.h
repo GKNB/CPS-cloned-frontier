@@ -142,23 +142,28 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
     {
       std::string se_str = se == 0 ? "_z2momsrc_sloppy" : "_z2momsrc_exact";
 
+      //Use a single common 4d random source 
+      Complex* rand_src = getRandomSource(ZTWO,lattice);
+      
        //Light quark props
       Props props_l_P, props_l_A;
-      computeRandMomSourcePropagators(props_l_P, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_PRD, true, lattice, lanc_l_P.get(), cmdline.random_prop_solns);
-      computeRandMomSourcePropagators(props_l_A, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_APRD, true, lattice, lanc_l_A.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_l_P, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_PRD, true, lattice, rand_src, lanc_l_P.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_l_A, ZTWO, ama_arg.ml, precision_se, tslices_se, light_quark_momenta, BND_CND_APRD, true, lattice, rand_src, lanc_l_A.get(), cmdline.random_prop_solns);
 
       Props props_l_F, props_l_B;
       combinePA(props_l_F, props_l_B, props_l_P, props_l_A);
 
       //Heavy quark props
       Props props_h_P, props_h_A;
-      computeRandMomSourcePropagators(props_h_P, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_PRD, true, lattice, lanc_h_P.get(), cmdline.random_prop_solns);
-      computeRandMomSourcePropagators(props_h_A, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_APRD, true, lattice, lanc_h_A.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_h_P, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_PRD, true, lattice, rand_src, lanc_h_P.get(), cmdline.random_prop_solns);
+      computeRandMomSourcePropagators(props_h_A, ZTWO, ama_arg.mh, precision_se, tslices_se, heavy_quark_momenta, BND_CND_APRD, true, lattice, rand_src, lanc_h_A.get(), cmdline.random_prop_solns);
 
       Props props_h_F, props_h_B;
       combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
 
       measFB(props_l_F, props_l_B, props_h_F, props_h_B, props_l_A, tslices_se, se_str, pion_momenta, kaon_momenta, su2_singlet_momenta, cmdline, ama_arg, bk_tseps, conf, lattice);
+
+      free(rand_src);
     }
 #endif
       

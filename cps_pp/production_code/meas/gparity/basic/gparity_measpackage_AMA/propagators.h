@@ -144,9 +144,28 @@ void computeMomSourcePropagators(Props &props, const double mass, const double s
   }
 }
 
+Complex* getRandomSource(const RandomType rand_type, Lattice &latt){
+  CommonArg c_arg;
+  CgArg cg;
+  QPropWArg qpropw_arg;
+  setupBasicArgs(cg, qpropw_arg,0.01,1e-8,0,0,false); //these can be anything
 
-QPropWRandMomSrc* computeRandMomSourcePropagator(const RandomType rand_type, const double mass, const double stop_prec, const int t, const int flav, const ThreeMomentum &mom, const BndCndType time_bc, const bool store_midprop, 
-						 Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+  QPropWRandArg rand_arg;
+  rand_arg.rng = rand_type;
+
+  QPropWRand r(latt,&qpropw_arg,&rand_arg, &c_arg);
+  void *base = (void*)&r.rand_src(0);
+  
+  size_t sz = (GJP.Gparity() + 1) * GJP.VolNodeSites() * 2 * sizeof(Float);
+  void* out = malloc(sz);
+  memcpy(out,base,sz);
+  return (Complex*)out;
+}
+ 
+
+QPropWRandMomSrc* computeRandMomSourcePropagator(const RandomType rand_type, const double mass, const double stop_prec, const int t, const int flav, 
+						 const ThreeMomentum &mom, const BndCndType time_bc, const bool store_midprop, 
+						 Lattice &latt, Complex const* random_src, BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
   if(random_solution) return randomSolutionPropagator<QPropWRandMomSrc>(store_midprop,latt);
   int const* p = mom.ptr();
   multi1d<float> *eval_conv = latticeSetDeflation(latt, deflate);
@@ -170,7 +189,7 @@ QPropWRandMomSrc* computeRandMomSourcePropagator(const RandomType rand_type, con
   GJP.Bc(3,target_tbc);
   if(is_wrapper_type) latt.BondCond();  //Apply new BC to internal gauge fields
 
-  QPropWRandMomSrc* ret = new QPropWRandMomSrc(latt,&qpropw_arg,&rand_arg,const_cast<int*>(p),&c_arg);
+  QPropWRandMomSrc* ret = new QPropWRandMomSrc(latt,&qpropw_arg,&rand_arg,const_cast<int*>(p),&c_arg, random_src);
 
   //Restore the BCs
   if(is_wrapper_type) latt.BondCond();  //unapply existing BC
@@ -181,22 +200,22 @@ QPropWRandMomSrc* computeRandMomSourcePropagator(const RandomType rand_type, con
 }
 
 PropWrapper computeRandMomSourcePropagator(const RandomType rand_type,const double mass, const double stop_prec, const int t, const ThreeMomentum &mom, const BndCndType time_bc, const bool store_midprop, 
-					   Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
-  QPropWRandMomSrc* prop_f0 = computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,0,mom,time_bc,store_midprop,latt,deflate,random_solution);
-  QPropWRandMomSrc* prop_f1 = GJP.Gparity() ? computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,1,mom,time_bc,store_midprop,latt,deflate,random_solution) : NULL;
+					   Lattice &latt, Complex const* random_src,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){ 
+  QPropWRandMomSrc* prop_f0 = computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,0,mom,time_bc,store_midprop,latt,random_src,deflate,random_solution);
+  QPropWRandMomSrc* prop_f1 = GJP.Gparity() ? computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,1,mom,time_bc,store_midprop,latt,random_src,deflate,random_solution) : NULL;
   return PropWrapper(prop_f0, prop_f1);
 }
 
 
-
+//Assume common 4d complex random source
 void computeRandMomSourcePropagators(Props &props, const RandomType rand_type,const double mass, const double stop_prec, const std::vector<int> &tslices, const QuarkMomenta &quark_momenta, const BndCndType time_bc, const bool store_midprop, 
-				  Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){
+				     Lattice &latt, Complex const* random_src, BFM_Krylov::Lanczos_5d<double> *deflate = NULL, const bool random_solution = false){
   for(int tt=0;tt<tslices.size();tt++){
     const int t = tslices[tt];
     for(int pp=0;pp<quark_momenta.nMom();pp++){
       const ThreeMomentum &p = quark_momenta.getMom(pp);
 
-      props(t,p) = computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,p,time_bc,store_midprop,latt,deflate,random_solution);
+      props(t,p) = computeRandMomSourcePropagator(rand_type,mass,stop_prec,t,p,time_bc,store_midprop,latt,random_src,deflate,random_solution);
 
       if(GJP.Gparity()){
 	//Free to add - momentum

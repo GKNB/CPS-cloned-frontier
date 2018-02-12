@@ -2911,6 +2911,20 @@ void QPropWRand::DeleteRsrc() {
 }
 
 QPropWRand::QPropWRand(Lattice& lat,  QPropWArg* arg, QPropWRandArg *r_arg, 
+		       CommonArg* c_arg, Complex const* rsrc_in) : QPropW(lat, arg, c_arg),rand_arg(*r_arg) 
+{
+  char *fname = "QPropWRand(L&, QPropWArg*, ComArg*)";
+  cname = "QPropWRand";
+  VRB.Func(cname, fname);
+
+  rsrc = NULL;
+  AllocateRsrc();
+  size_t sz = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1) * sizeof(Float);
+  memcpy(rsrc, rsrc_in, sz);
+}
+
+
+QPropWRand::QPropWRand(Lattice& lat,  QPropWArg* arg, QPropWRandArg *r_arg, 
 CommonArg* c_arg) : QPropW(lat, arg, c_arg),rand_arg(*r_arg) 
 {
   char *fname = "QPropWRand(L&, QPropWArg*, ComArg*)";
@@ -3149,6 +3163,16 @@ QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat, CommonArg* c_arg) :
 QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg, 
 				     QPropWRandArg *r_arg, int *p, CommonArg* c_arg) 
   : QPropWRand(lat, arg, r_arg, c_arg), mom(p) {
+ 
+  const char *fname = "QPropWRandMomSrc(...)";
+  cname = "QPropWRandWallSrc";
+  VRB.Func(cname, fname);
+
+  Run();
+}
+QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg, 
+				   QPropWRandArg *r_arg, int *p, CommonArg* c_arg, Complex const* rsrc_in) 
+  : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in), mom(p) {
  
   const char *fname = "QPropWRandMomSrc(...)";
   cname = "QPropWRandWallSrc";

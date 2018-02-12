@@ -181,6 +181,7 @@ int main(int argc,char *argv[])
   if(UniqueID()==0){
     printf("Main job complete\n"); 
     fflush(stdout);
-  }
+  }  
+  End();
   return 0;
 }
