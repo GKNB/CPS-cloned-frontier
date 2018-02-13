@@ -171,7 +171,7 @@ void AlgFixGauge::free()
   lat.FixGaugeFree();
 }
 
-void AlgFixGauge::Save(const QioArg &wt_arg){
+void AlgFixGauge::Save(const QioArg &wt_arg, int pario){
 
   const char *fname("Save()");
   Lattice& lat = AlgLattice();
@@ -220,6 +220,7 @@ void AlgFixGauge::Save(const QioArg &wt_arg){
 
 
   WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem(),key,value);
+  if (!pario ) nersc_write.setSerial();
   nersc_write.write(gfix_mat.Field(),wt_arg);
 }
 

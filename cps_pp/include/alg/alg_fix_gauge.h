@@ -53,15 +53,15 @@ class AlgFixGauge : public Alg
      */
     void run(const QioArg *rd_arg=NULL);  
 
-    void Save(const QioArg &wt_arg);
-    void Save(const char *filename){
-        QioArg wt_arg(filename);
+    void Save(const QioArg &wt_arg, int pario = 1);
+    void Save(const char *filename, int pario = 1){
+        QioArg wt_arg(filename, pario);
         this->Save(wt_arg);
     }
     void Load(const QioArg &rd_arg);
     void Load(const char *filename){
-        QioArg wt_arg(filename);
-        this->Load(wt_arg);
+        QioArg rd_arg(filename);
+        this->Load(rd_arg);
     }
 
     // Frees the memory allocated for the gauge fixing matrices.
