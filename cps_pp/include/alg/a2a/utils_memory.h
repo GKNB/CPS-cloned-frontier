@@ -19,6 +19,7 @@
 #include<gperftools/heap-profiler.h>
 #endif
 
+#include<util/time_cps.h>
 #include<alg/a2a/reuse_block_allocator.h>
 
 //Utilities for memory control
