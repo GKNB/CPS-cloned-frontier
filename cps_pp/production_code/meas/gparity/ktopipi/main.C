@@ -60,6 +60,8 @@ int main (int argc,char **argv )
 
     if(cmdline.do_split_job)
       doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
+    else if(cmdline.do_LL_props_only)
+      doConfigurationLLprops(conf,params,cmdline,field3dparams,field4dparams, solvers);
     else
       doConfiguration(conf,params,cmdline,field3dparams,field4dparams, solvers);
     

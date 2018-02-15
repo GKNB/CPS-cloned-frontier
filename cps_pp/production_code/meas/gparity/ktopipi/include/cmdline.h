@@ -19,9 +19,14 @@ struct CommandLineArgs{
   bool do_ktopipi;
   bool do_sigma;
 
+  //For split job version
   bool do_split_job;
   int split_job_part;
   std::string checkpoint_dir; //directory the checkpointed data is stored in (could be scratch for example)
+  
+  //For version that just computes light quark props (also sets checkpoint_dir as above)
+  bool do_LL_props_only;
+
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
   double bnl_knl_minperf; //in Mflops per node (not per rank, eg MPI3!)
@@ -52,6 +57,8 @@ struct CommandLineArgs{
     do_sigma = true;
 
     do_split_job = false;
+
+    do_LL_props_only = false;
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
     bnl_knl_minperf = 50000;
@@ -140,7 +147,12 @@ struct CommandLineArgs{
 	split_job_part = strToAny<int>(argv[arg+1]);
 	checkpoint_dir = argv[arg+2];
 	if(!UniqueID()) printf("Doing split job part %d with checkpoint directory %s\n",split_job_part,checkpoint_dir.c_str());
-	arg+=3;       
+	arg+=3;
+      }else if( strncmp(cmd,"-do_LL_props_only",30) == 0){
+	do_LL_props_only = true;
+	checkpoint_dir = argv[arg+1];
+	if(!UniqueID()) printf("Doing LL props only with checkpoint directory %s\n",checkpoint_dir.c_str());
+	arg+=2;
       }else if( strncmp(cmd,"-skip_kaon2pt",30) == 0){
 	do_kaon2pt = false;
 	arg++;
