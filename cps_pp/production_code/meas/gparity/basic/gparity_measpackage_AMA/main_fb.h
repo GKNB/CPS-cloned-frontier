@@ -109,7 +109,11 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
   time += dclock();    
   print_time("main","Heavy quark Lanczos APRD",time);
 
-    
+#ifdef DO_Z2_MOM_SOURCE
+  //Use a single common 4d random source 
+  Complex* rand_src = getRandomSource(ZTWO,lattice);
+#endif
+
   for(int se=0; se<2; se++){
     const std::vector<int> &tslices_se = se == 0 ? tslice_sloppy : tslice_exact;
     const double precision_se = se == 0 ? ama_arg.sloppy_precision : ama_arg.exact_precision;
@@ -141,9 +145,6 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
 #ifdef DO_Z2_MOM_SOURCE
     {
       std::string se_str = se == 0 ? "_z2momsrc_sloppy" : "_z2momsrc_exact";
-
-      //Use a single common 4d random source 
-      Complex* rand_src = getRandomSource(ZTWO,lattice);
       
        //Light quark props
       Props props_l_P, props_l_A;
@@ -162,13 +163,12 @@ void runFB(const CmdLine &cmdline, GnoneFbfm &lattice,
       combinePA(props_h_F, props_h_B, props_h_P, props_h_A);
 
       measFB(props_l_F, props_l_B, props_h_F, props_h_B, props_l_A, tslices_se, se_str, pion_momenta, kaon_momenta, su2_singlet_momenta, cmdline, ama_arg, bk_tseps, conf, lattice);
-
-      free(rand_src);
     }
 #endif
       
   }//se
   cps::sync();
+  free(rand_src);
   freeLanczos(lanc_l_P);
   freeLanczos(lanc_l_A);
   freeLanczos(lanc_h_P);

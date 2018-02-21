@@ -158,7 +158,14 @@ Complex* getRandomSource(const RandomType rand_type, Lattice &latt){
   
   size_t sz = (GJP.Gparity() + 1) * GJP.VolNodeSites() * 2 * sizeof(Float);
   void* out = malloc(sz);
-  memcpy(out,base,sz);
+
+  if(GJP.Gparity()){
+    //We actually want the source to be the same for both flavors
+    memcpy(out,base,sz/2);
+    memcpy(out+sz/2,base,sz/2);
+  }else{  
+    memcpy(out,base,sz);
+  }
   return (Complex*)out;
 }
  
