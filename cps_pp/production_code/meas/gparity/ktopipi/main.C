@@ -58,12 +58,17 @@ int main (int argc,char **argv )
     double conf_time = -dclock();
     if(!UniqueID()) std::cout<<"Starting configuration "<<conf<< std::endl;
 
-    if(cmdline.do_split_job)
-      doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
-    else if(cmdline.do_LL_props_only)
-      doConfigurationLLprops(conf,params,cmdline,field3dparams,field4dparams, solvers);
-    else
-      doConfiguration(conf,params,cmdline,field3dparams,field4dparams, solvers);
+    if(cmdline.do_LL_props_only){
+      if(cmdline.do_split_job)
+	doConfigurationLLpropsSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
+      else
+	doConfigurationLLprops(conf,params,cmdline,field3dparams,field4dparams, solvers);
+    }else{
+      if(cmdline.do_split_job)
+	doConfigurationSplit(conf,params,cmdline,field3dparams,field4dparams, solvers);
+      else
+	doConfiguration(conf,params,cmdline,field3dparams,field4dparams, solvers);
+    }
     
     conf_time += dclock();
     print_time("main","Configuration total",conf_time);
