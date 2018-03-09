@@ -4853,7 +4853,7 @@ elif test "$enable_target" = "bgq"; then
    ARCHDIR="BGQ_DIR"
    TESTING_PARALLEL="yes";
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-   LDFLAGS="${LDFLAGS} -fopenmp"
+   LDFLAGS="${LDFLAGS} -lgomp"
    CFLAGS="${CFLAGS} -fopenmp"
    CXXFLAGS="${CXXLAGS} -fopenmp"
 
@@ -4983,6 +4983,9 @@ $as_echo_n "checking if using OpenMP... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_openmp" >&5
 $as_echo "$enable_openmp" >&6; }
 if test "$enable_openmp" = "yes"; then
+   LDFLAGS="${LDFLAGS} -lgomp"
+   CFLAGS="${CFLAGS} -fopenmp"
+   CXXFLAGS="${CXXLAGS} -fopenmp"
    DFLAGS="${DFLAGS} -DUSE_OMP"
 fi
 
@@ -5387,7 +5390,7 @@ if test "$enable_cuda" != "no"; then
      CUDA_DIR=${enable_cuda}
    fi
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${CUDA_DIR}/include"
-   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcudart"
+   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcuda -lcudart"
 fi
 
 if test "$enable_quda" != "no"; then
