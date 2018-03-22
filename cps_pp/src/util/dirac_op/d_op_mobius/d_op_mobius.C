@@ -423,9 +423,8 @@ int DiracOpMobius::MatInv(Vector *out,
   //DEBTIZB("insrc", (Vector*) in, 2*temp_size);
   // save source
   if(prs_in == PRESERVE_YES){
-    temp3 = (Vector *) smalloc(2*temp_size * sizeof(Float));
+    temp3 = (Vector *) smalloc(cname,fname, "temp3", 2*temp_size * sizeof(Float));
     if (temp3 == 0) ERR.Pointer(cname, fname, "temp2");
-    VRB.Smalloc(cname,fname, "temp3", temp3, 2*temp_size * sizeof(Float));
     moveMem((IFloat *)temp3, (IFloat *)in, 2*temp_size * sizeof(IFloat));
   }
 
@@ -545,10 +544,8 @@ int DiracOpMobius::MatInv(Vector *out,
   fTimesV1PlusV2((IFloat *)odd_out, kappa_b, (IFloat *)odd_out,
 		 (IFloat *)temp, temp_size);
 
-  VRB.Sfree(cname, fname, "temp2", temp2);
-  sfree(temp2);
-  VRB.Sfree(cname, fname, "temp", temp);
-  sfree(temp);
+  sfree(cname, fname, "temp2", temp2);
+  sfree(cname, fname, "temp", temp);
 
  
   return iter;
@@ -777,17 +774,15 @@ void DiracOpMobius::MatHerm(Vector *out, Vector *in) {
   // Implement routine
   //----------------------------------------------------------------
   int temp_size = GJP.VolNodeSites() * lat.FsiteSize();
-  Vector *temp = (Vector *) smalloc(temp_size * sizeof(Float));
+  Vector *temp = (Vector *) smalloc(cname,fname, "temp", temp_size *sizeof(Float) );
   if (temp == 0) 
     ERR.Pointer(cname, fname, "temp");
-  VRB.Smalloc(cname,fname, "temp", temp, temp_size);
 
   Mat(out, in);
   lat.Freflex(temp, out);
   MultGamma(out, temp, 15, GJP.VolNodeSites()*GJP.SnodeSites());
   
-  VRB.Sfree(cname, fname, "temp", temp);
-  sfree(temp);
+  sfree(cname, fname, "temp", temp);
 
 }
 

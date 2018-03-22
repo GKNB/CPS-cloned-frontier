@@ -1070,6 +1070,7 @@ class Fmdwf : public virtual Lattice {
   // on solution. f_eigenv is defined on the whole lattice.
   // The function returns the total number of Ritz iterations.
   
+
   Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,	       
                Float mass, DagType dag);
   // It sets the pseudofermion field phi from frm1, frm2.
@@ -1201,6 +1202,44 @@ class Fmobius : public virtual FdwfBase {
 
     void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag);
+
+
+  int FmatEvlInv(Vector *f_out, Vector *f_in, 
+		 CgArg *cg_arg, 
+		 Float *true_res,
+		 CnvFrmType cnv_frm = CNV_FRM_YES);
+  int FmatEvlInv(Vector *f_out, Vector *f_in, 
+		 CgArg *cg_arg, 
+		 CnvFrmType cnv_frm = CNV_FRM_YES)
+  {
+    return FmatEvlInv(f_out, f_in, cg_arg, NULL, cnv_frm);
+  }
+  
+  int FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
+		  int Nshift, int isz, CgArg **cg_arg, 
+		  CnvFrmType cnv_frm, MultiShiftSolveType type, Float *alpha,
+		  Vector **f_out_d);
+
+  Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,	       
+               Float mass, DagType dag);
+  // It sets the pseudofermion field phi from frm1, frm2.
+  
+  ForceArg EvolveMomFforce(Matrix *mom, Vector *frm, 
+                           Float mass, Float step_size);
+  ForceArg EvolveMomFforceBase(Matrix *mom, Vector *frm, Vector *frm2,
+                           Float mass, Float step_size);
+  // It evolves the canonical momentum mom by step_size
+  // using the fermion force.
+  
+  ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
+                           Float mass, Float step_size);
+  // It evolve the canonical momentum mom  by step_size
+  // using the bosonic quotient force.
+  
+  ForceArg RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
+                                int isz, Float *alpha, Float mass, Float dt,
+                                Vector **sol_d, ForceMeasure measure);
+
 };
 
 

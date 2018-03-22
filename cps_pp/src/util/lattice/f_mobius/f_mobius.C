@@ -13,9 +13,9 @@ CPS_START_NAMESPACE
 //--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
-// f_dwf.C
+// f_mobius.C
 //
-// Fdwf is derived from FwilsonTypes and is relevant to
+// Fmobius is derived from FwilsonTypes and is relevant to
 // domain wall fermions
 //
 //------------------------------------------------------------------
@@ -27,20 +27,14 @@ CPS_END_NAMESPACE
 #include <util/time_cps.h>
 #include <util/enum_func.h>
 #include <util/time_cps.h>
+#include <util/timer.h>
+#include <util/lattice/fforce_wilson_type.h>
 
 #include <util/zmobius.h> // for debug remove later 
 
-USING_NAMESPACE_CPS
+//USING_NAMESPACE_CPS
+CPS_START_NAMESPACE
 
-
-#if 0
-Fmobius::Fmobius() : FdwfBase(){
-  cname = "Fmobius";
-}
-
-Fmobius::~Fmobius(){
-}
-#endif
 
 FclassType Fmobius::Fclass(void) const {
   return F_CLASS_MOBIUS;
@@ -109,7 +103,7 @@ if (!dminus){
 
 
     // TIZB check
-if (0){
+if (1){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
@@ -578,6 +572,153 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
 }
 #endif
 }
+int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in, 
+		     CgArg *cg_arg, 
+		     Float *true_res,
+		     CnvFrmType cnv_frm)
+{
+  int iter;
+  char *fname = "FmatEvlInv(CgArg*,V*,V*,F*,CnvFrmType)";
+  VRB.Func(cname,fname);
+
+  DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
+  
+  iter = dop.InvCg(&(cg_arg->true_rsd));
+  if (true_res) *true_res = cg_arg ->true_rsd;
+
+  // Return the number of iterations
+  return iter;
+}
 
 
-//CPS_END_NAMESPACE
+#if 0
+//------------------------------------------------------------------
+// Overloaded function is same as original but with true_res=0;
+//------------------------------------------------------------------
+int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in, 
+		     CgArg *cg_arg, 
+		     CnvFrmType cnv_frm)
+{ return FmatEvlInv(f_out, f_in, cg_arg, 0, cnv_frm); }
+#endif
+
+
+//------------------------------------------------------------------
+// int FmatEvlMInv(Vector *f_out, Vector *f_in, 
+//                Float shift[], int Nshift, 
+//                CgArg **cg_arg, Float *true_res,
+//		  CnvFrmType cnv_frm = CNV_FRM_YES):
+// It calculates f_out where (A + shift)* f_out = f_in and
+// A is the fermion matrix that appears in the HMC 
+// evolution ([Dirac^dag Dirac]) and shift is a real shift of the 
+// fermion matrix, with Nshift such shifts. The inversion is done 
+// with the multishift conjugate gradient. cg_arg is the structure
+// that contains all the control parameters, f_in is the
+// fermion field source vector, f_out is the array of solution 
+// vectors, f_in and f_out are defined on a checkerboard.
+// The function returns the total number of CG iterations.
+//------------------------------------------------------------------
+int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift, 
+			  int Nshift, int isz, CgArg **cg_arg, 
+			  CnvFrmType cnv_frm, MultiShiftSolveType type, 
+			  Float *alpha, Vector **f_out_d)
+{
+  int iter;
+  char *fname = "FmatEvlMInv(V**, V*, .....)";
+  VRB.Func(cname,fname);
+
+  size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
+  if(GJP.Gparity()) f_size*=2;
+
+  Float dot = f_in -> NormSqGlbSum(f_size);
+  VRB.Result(cname,fname,"f_size=%d\n",f_size);
+
+  Float *RsdCG = new Float[Nshift];
+  for (int s=0; s<Nshift; s++) RsdCG[s] = cg_arg[s]->stop_rsd;
+
+  Float * out_p = (Float *)f_in;
+  VRB.Result(cname,fname,"f_in=%g\n",out_p[0]);
+  for(int i =0;i<Nshift;i++){
+	Float a_tmp=1.; 
+	if (alpha) a_tmp=alpha[i];
+  VRB.Result(cname,fname,"%d: shift=%g alpha=%g RsdCG=%g\n",i,shift[i],a_tmp,RsdCG[i]);
+  }
+  //Fake the constructor
+  DiracOpMobius dop(*this, f_out[0], f_in, cg_arg[0], cnv_frm);
+
+  int return_value= dop.MInvCG(f_out,f_in,dot,shift,Nshift,isz,RsdCG,type,alpha);  
+  out_p = (Float *)f_out[0];
+  VRB.Result(cname,fname,"f_out[0]=%g\n",out_p[0]);
+  for (int s=0; s<Nshift; s++) cg_arg[s]->true_rsd = RsdCG[s];  
+
+  delete[] RsdCG;
+  return return_value;
+}
+
+// It evolves the canonical Momemtum mom:
+// mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
+//
+// NOTE:
+//
+// 1. This function does not exist in the base Lattice class.
+//
+// 2. The 2 auxiliary vectors v1 and v2 calculated by
+// CalcHmdForceVecsBilinear must be in (reim, color, spin, s, x, y, z,
+// t) order.
+//
+// 3. For BFM M is M = M_oo - M_oe M^{-1}_ee M_eo
+
+//CK: when called below, phi1 = Mpc phi2
+ForceArg Fmobius::EvolveMomFforceBase(Matrix *mom,
+                                   Vector *phi1,
+                                   Vector *phi2,
+                                   Float mass, 
+                                   Float coef)
+{
+    const char *fname = "EvolveMomFforceBase()";
+    static Timer time(cname, fname);
+    time.start(true);
+
+    VRB.Result(cname,fname,"started\n");
+
+    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * GJP.SnodeSites();
+//    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
+    if(GJP.Gparity()) f_size*=2;
+
+    Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
+    Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
+
+  {
+    CgArg cg_arg ;
+    cg_arg.mass = mass ;
+#ifdef PROFILE
+  time = -dclock();
+#endif
+    DiracOpMobius dwf(*this, v1, v2, &cg_arg, CNV_FRM_NO) ;
+//    dwf.CalcHmdForceVecs(chi) ;
+#ifdef PROFILE
+  time += dclock();
+  print_flops(fname,"CalcHmdForceVecs()",0,time);
+  time = -dclock();
+#endif
+
+    Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
+    Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
+#ifdef PROFILE
+  time += dclock();
+  print_flops(fname,"Fconvert()",0,time);
+#endif
+  }
+
+    FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
+    ForceArg ret = cal_force.run();
+//    FforceWilsonType cal_force(mom, this->GaugeField(), v1, v2, Fmobius::bfm_args[current_arg_idx].Ls, coef);
+
+    sfree(cname, fname, "v1", v1);
+    sfree(cname, fname, "v2", v2);
+
+    time.stop(true);
+    return ret;
+}
+
+
+CPS_END_NAMESPACE

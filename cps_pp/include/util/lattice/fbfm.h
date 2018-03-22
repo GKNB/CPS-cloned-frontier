@@ -305,10 +305,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   // It evolves the canonical momentum mom by step_size
   // using the fermion force.
   
-//  ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
-//			   Float mass, Float epsilon, Float step_size) {
-//    return EvolveMomFforceBase(mom, phi, eta, mass, epsilon, -step_size);
-//  }
   ForceArg EvolveMomFforce(Matrix *mom, Vector *phi, Vector *eta,
 			   Float mass, Float step_size) {
     return EvolveMomFforceBase(mom, phi, eta, mass, -step_size);
