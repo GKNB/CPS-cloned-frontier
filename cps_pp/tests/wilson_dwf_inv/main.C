@@ -55,135 +55,31 @@ for(int  i = 0;i<100;i++){
     //----------------------------------------------------------------
     DoArg do_arg;
     char *out_file=NULL;
-#if 1
     if(argc>1) out_file=argv[1];
   if ( !do_arg.Decode("do_arg.vml","do_arg") )
     {
       do_arg.Encode("do_arg.dat","do_arg");
       ERR.General("",fname,"Decoding of do_arg failed\n");
     }
-  if ( !cg_arg.Decode("cg_arg.vml","cg_arg") )
-    {
-      ERR.General("",fname,"Decoding of cg_arg failed\n");
-    }
-#else
-
-
-    char *out_file=NULL;
-    char *fname = "main()";
-#if 1
-    if(argc>1) out_file=argv[1];
-  if ( !do_arg.Decode("do_arg.vml","do_arg") )
-    {
-      ERR.General("",fname,"Decoding of do_arg failed\n");
-    }
   if ( !doext_arg.Decode("doext_arg.vml","doext_arg") )
     {
+      doext_arg.Encode("doext_arg.dat","doext_arg");
       ERR.General("",fname,"Decoding of doext_arg failed\n");
     }
-  if ( !mobius_arg.Decode("mobius_arg.vml","mobius_arg") )
-    {
-      mobius_arg.Encode("mobius_arg.dat","mobius_arg");
-      ERR.General("",fname,"Decoding of mobius_arg failed\n");
-    }
-
-  do_arg.Encode("do_arg.dat","do_arg");
-  doext_arg.Encode("doext_arg.dat","doext_arg");
-  mobius_arg.Encode("mobius_arg.dat","mobius_arg");
-      GJP.SnodeSites(mobius_arg.ls);
-    GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
-                   mobius_arg.ls);
-    GJP.ZMobius_c (mobius_arg.zmobius_c_coeff.zmobius_c_coeff_val,
-                   mobius_arg.ls);
-
-//HACK!! Needs to be fixed, as cg_arg has dynamical allocation now.
-    cg_arg = mobius_arg.cg; 
-
-#else
-    if (argc < 6){
-        ERR.General("f_wilson_test","main()","usage: %s nx ny nz nt ns (filename) \n",argv[0]);
-    }
-    sscanf(argv[1],"%d",&nx);
-    sscanf(argv[2],"%d",&ny);
-    sscanf(argv[3],"%d",&nz);
-    sscanf(argv[4],"%d",&nt);
-    sscanf(argv[5],"%d",&ns);  
-    if(argc>6) out_file=argv[6];
-    VRB.Result("","main()","sites = %d %d %d %d %d\n",nx,ny,nz,nt,ns);
-    do_arg.x_sites = nx;
-    do_arg.y_sites = ny;
-    do_arg.z_sites = nz;
-    do_arg.t_sites = nt;
-    do_arg.s_sites = ns;
-    do_arg.x_node_sites = 0;
-    do_arg.y_node_sites = 0;
-    do_arg.z_node_sites = 0;
-    do_arg.t_node_sites = 0;
-    do_arg.s_node_sites = 0;
-    do_arg.x_nodes = SizeX();
-    do_arg.y_nodes = SizeY();
-    do_arg.z_nodes = SizeZ();
-    do_arg.t_nodes = SizeT();
-    do_arg.s_nodes = SizeS();
-    do_arg.x_bc = BND_CND_PRD;
-    do_arg.y_bc = BND_CND_PRD;
-    do_arg.z_bc = BND_CND_PRD;
-    do_arg.t_bc = BND_CND_APRD;
-
-    do_arg.start_conf_kind = START_CONF_DISORD;
-
-    do_arg.start_seed_kind = START_SEED_FIXED;
-    do_arg.beta = 5.5;
-    do_arg.dwf_height = 1.8;
-    do_arg.clover_coeff = 2.0171;
-#ifdef USE_CG_DWF
-    do_arg.verbose_level = -120205;
-#else
-    do_arg.verbose_level = -120205;
-#endif
-
-    do_arg.asqtad_KS = (1.0/8.0)+(6.0/16.0)+(1.0/8.0);
-    do_arg.asqtad_naik = -1.0/24.0;
-    do_arg.asqtad_3staple = (-1.0/8.0)*0.5;
-    do_arg.asqtad_5staple = ( 1.0/8.0)*0.25*0.5;
-    do_arg.asqtad_7staple = (-1.0/8.0)*0.125*(1.0/6.0);
-    do_arg.asqtad_lepage = -1.0/16;
-
-    cg_arg.mass =0.001;
-    cg_arg.stop_rsd = 1e-9;
-    cg_arg.max_num_iter = 10000;
-#ifndef USE_CG_DWF
-    cg_arg.max_num_iter++;
-#endif
+  if ( !cg_arg.Decode("cg_arg.vml","cg_arg") ) { ERR.General("",fname,"Decoding of cg_arg failed\n"); }
+#ifdef USE_QUDA
+   if ( !QudaParam.Decode("quda_arg.vml","QudaParam") ) { printf("Bum quda_arg\n"); exit(-1);}
 #endif
 
     GJP.Initialize(do_arg);
+    GJP.InitializeExt(doext_arg);
 
-#if 0
-    wilson_set_sloppy(false);
-{
-    GwilsonFwilson lat;
-    DiracOpWilson dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,dirac,WILSON,out_file,1);
-}
    
 {
-    GwilsonFdwf lat;
-    DiracOpDwf dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,dirac,WILSON,out_file,0);
+    GwilsonFmobius lat;
+//    DiracOpMobius dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
+	run_inv(lat,DWF_4D_EOPREC_EE,out_file,1);
 }
-#endif
-
-#if 0
-    wilson_set_sloppy(true);
-for(int i = 0;i<1;i++)
-{
-    GnoneFzmobius lat;
-//    DiracOpZMobius dirac(lat,NULL,NULL,&cg_arg,CNV_FRM_NO);
-	run_inv(lat,DWF_4D_EOPREC_EE,NULL,1);
-}
-	
-	
 
     End();
     return 0; 
