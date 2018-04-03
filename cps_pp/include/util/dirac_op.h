@@ -1996,7 +1996,11 @@ class DiracOpMobius : public DiracOpWilsonTypes
   void Dminus(Vector *out, Vector *in);
 
 #ifdef USE_QUDA
+
   int QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type);
+  int MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift, 
+	     int Nshift, int isz, Float *RsdCG, 
+	     MultiShiftSolveType type, Float *alpha);
 #endif
 };
 

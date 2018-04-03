@@ -84,6 +84,7 @@ void mobius_unprec(Vector *out,
 //  unsigned long  size = GJP.VolNodeSites() * local_ls * 2 * Colors() * SpinComponents();
   unsigned long  size = GJP.VolNodeSites() * local_ls * 2 * 3 * 4;
   for(int ieo=0;ieo<2;++ieo){
+#pragma omp parallel for
     for(int s=0; s<local_ls;++s){
       int glb_s = s + local_ls*s_node_coor;
 //      const Complex kappa_b =
