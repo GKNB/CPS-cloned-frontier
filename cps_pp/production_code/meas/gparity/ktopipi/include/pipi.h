@@ -1,7 +1,6 @@
 #ifndef _KTOPIPI_MAIN_A2A_PIPI_H_
 #define _KTOPIPI_MAIN_A2A_PIPI_H_
 
-
 template<typename PionMomentumPolicy>
 void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
@@ -18,9 +17,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
       fMatrix<typename A2Apolicies::ScalarComplexType> pipi(Lt,Lt);
       ThreeMomentum p_pi1_snk = pion_mom.getMesonMomentum(psnkidx);
 
-#ifndef DISABLE_PIPI_PRODUCTSTORE
-      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible
-#endif
+      MesonFieldProductStore<A2Apolicies> products; //try to reuse products of meson fields wherever possible (not used ifdef DISABLE_PIPI_PRODUCTSTORE)
       
       char diag[3] = {'C','D','R'};
       for(int d = 0; d < 3; d++){
@@ -33,10 +30,7 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
 	//bool redistribute_snk = true;
 
 	double time = -dclock();
-	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con
-#ifndef DISABLE_PIPI_PRODUCTSTORE
-						 , products
-#endif
+	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 						 , redistribute_src, redistribute_snk
 #endif

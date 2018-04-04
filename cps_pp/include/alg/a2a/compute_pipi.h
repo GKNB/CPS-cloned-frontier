@@ -28,20 +28,17 @@ CPS_START_NAMESPACE
 
 #define NODE_LOCAL true
 
-template<typename mf_Policies>
-class ComputePiPiGparity{
 #ifdef DISABLE_PIPI_PRODUCTSTORE
-#define RECV_PRODUCTSTORE
-#define PASS_PRODUCTSTORE
-#define ADDCOMMA
+#define PIPI_COMPUTE_PRODUCT(INTO, A,B) MfType INTO; mult(INTO, A,B,NODE_LOCAL)
 #else
-#define RECV_PRODUCTSTORE MesonFieldProductStore<mf_Policies> &products
-#define PASS_PRODUCTSTORE products
-#define ADDCOMMA ,
+#define PIPI_COMPUTE_PRODUCT(INTO, A,B) const MfType &INTO = products.getProduct(A,B,NODE_LOCAL)
 #endif
 
-  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType;
-  
+//[1] = https://rbc.phys.columbia.edu/rbc_ukqcd/individual_postings/ckelly/Gparity/contractions_v1.pdf
+
+template<typename mf_Policies>
+class ComputePiPiGparity{
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MfType; 
   
   //C = \sum_{x,y,r,s}  \sum_{  0.5 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(r) S_2 * v(r)]] [[w^dag(s) S_2 v(s)]] [[w^dag(x) S_2 v(x)]] )
   //  = 0.5 Tr(  mf(p_pi1_snk) mf(p_pi2_src) mf(p_pi2_snk) mf(p_pi1_src) )
@@ -50,26 +47,42 @@ class ComputePiPiGparity{
 			     const std::vector<MfType >& mf_pi2_src,
 			     const std::vector<MfType >& mf_pi1_snk,
 			     const std::vector<MfType >& mf_pi2_snk,
-			     RECV_PRODUCTSTORE ADDCOMMA
+			     MesonFieldProductStore<mf_Policies> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tsrc2 = (tsrc-tsep+Lt) % Lt;
     int tsnk2 = (tsnk+tsep) % Lt;
       
     int tdis = (tsnk - tsrc + Lt) % Lt;
 
     //Topology 1  x4=tsrc (pi1)  y4=tsnk (pi1)  r4=tsrc2 (pi2)  s4=tsnk2 (pi2)
-#ifdef DISABLE_PIPI_PRODUCTSTORE
-    MfType prod_l, prod_r;
-    mult(prod_l, mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
-    mult(prod_r, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-#else
-    const MfType &prod_l = products.getProduct(mf_pi1_snk[tsnk], mf_pi2_src[tsrc2],NODE_LOCAL);
-    const MfType &prod_r = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-#endif
-    into(tsrc, tdis) += typename mf_Policies::ScalarComplexType(0.5) * trace(prod_l, prod_r);
+    //Corresponds to Eq.6 in [1]
+    ScalarComplexType topo1;
+    {
+      PIPI_COMPUTE_PRODUCT(prod_l, mf_pi1_snk[tsnk], mf_pi2_src[tsrc2]);
+      PIPI_COMPUTE_PRODUCT(prod_r, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc]);
+      topo1 = 0.5 * trace(prod_l, prod_r);
+    }
+    
 
+#ifdef DISABLE_EVALUATION_OF_SECOND_PIPI_TOPOLOGY
+    into(tsrc, tdis) += topo1;    
+#else
     //Topology 2  x4=tsrc (pi1) y4=tsnk2 (pi2)  r4=tsrc2 (pi2) s4=tsnk (pi1)
-    //This topology is identical to the first in this case due to g5-hermiticity and the G-parity complex conjugate relation
+    //This topology is similar to the first due to g5-hermiticity and the G-parity complex conjugate relation 
+    //but g5-hermiticity swaps the quark and antiquark momenta. In the original version (reenabled with DISABLE_EVALUATION_OF_SECOND_PIPI_TOPOLOGY) 
+    //we overlooked this and so combined the diagrams into one
+
+    //Corresponds to Eq.5 in [1]
+    ScalarComplexType topo2;
+    {
+      PIPI_COMPUTE_PRODUCT(prod_l, mf_pi1_src[tsrc], mf_pi2_snk[tsnk2]);
+      PIPI_COMPUTE_PRODUCT(prod_r, mf_pi2_src[tsrc2], mf_pi1_snk[tsnk]);
+      topo2 = 0.5 * trace(prod_l, prod_r);
+    }
+    into(tsrc,tdis) += 0.5*topo1 + 0.5*topo2;
+
+#endif
   }
   //D = 0.25 Tr( [[w^dag(y) S_2 v(y)]] [[w^dag(x) S_2 v(x)]] ) * Tr( [[w^dag(s) S_2 v(s)]] [[w^dag(r) S_2 v(r)]] )
   //where x,y are the source and sink coords of the first pion and r,s the second pion
@@ -104,44 +117,54 @@ class ComputePiPiGparity{
 			     const std::vector<MfType >& mf_pi2_src,
 			     const std::vector<MfType >& mf_pi1_snk,
 			     const std::vector<MfType >& mf_pi2_snk,
-			     RECV_PRODUCTSTORE ADDCOMMA
+			     MesonFieldProductStore<mf_Policies> &products,
 			     const int tsrc, const int tsnk, const int tsep, const int Lt){
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
     int tdis = (tsnk - tsrc + Lt) % Lt;
     int tsrc2 = (tsrc-tsep+Lt) % Lt; //source position of pi2 by convention
     int tsnk2 = (tsnk+tsep) % Lt;
 
-    ScalarComplexType incr(0,0);
-
     //Topology 1    x4=tsrc (pi1) y4=tsnk (pi1)   r4=tsrc2 (pi2) s4=tsnk2 (pi2)
+    //Correponds to fig 9 in [1]
+    ScalarComplexType topo1;
     {
-#ifdef DISABLE_PIPI_PRODUCTSTORE
-      MfType prod_l_top1, prod_r_top1;
-      mult(prod_l_top1, mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
-      mult(prod_r_top1, mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
-#else      
-      const MfType &prod_l_top1 = products.getProduct(mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2],NODE_LOCAL);
-      const MfType &prod_r_top1 = products.getProduct(mf_pi1_snk[tsnk], mf_pi1_src[tsrc],NODE_LOCAL);
-#endif
-      incr += trace( prod_l_top1, prod_r_top1 );
+      PIPI_COMPUTE_PRODUCT(prod_l_top1, mf_pi2_src[tsrc2], mf_pi2_snk[tsnk2]);
+      PIPI_COMPUTE_PRODUCT(prod_r_top1, mf_pi1_snk[tsnk], mf_pi1_src[tsrc]);
+      topo1 = 0.5 * trace( prod_l_top1, prod_r_top1 );
     }
     
     //Topology 2    x4=tsrc (pi1)  y4=tsnk_outer (pi2)  r4=tsrc_outer (pi2) s4=tsnk (pi1)
+    //Corresponds to fig 12 in [1]
+    ScalarComplexType topo2;
     {
-#ifdef DISABLE_PIPI_PRODUCTSTORE
-      MfType prod_l_top2, prod_r_top2;
-      mult(prod_l_top2, mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
-      mult(prod_r_top2, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-#else
-      const MfType &prod_l_top2 = products.getProduct(mf_pi2_src[tsrc2], mf_pi1_snk[tsnk],NODE_LOCAL);
-      const MfType &prod_r_top2 = products.getProduct(mf_pi2_snk[tsnk2], mf_pi1_src[tsrc],NODE_LOCAL);
-#endif 
-      incr += trace( prod_l_top2, prod_r_top2 );
+      PIPI_COMPUTE_PRODUCT(prod_l_top2, mf_pi2_src[tsrc2], mf_pi1_snk[tsnk]);
+      PIPI_COMPUTE_PRODUCT(prod_r_top2, mf_pi2_snk[tsnk2], mf_pi1_src[tsrc]);
+      topo2 = 0.5 * trace( prod_l_top2, prod_r_top2 );
     }
       
-    incr *= ScalarComplexType(0.5*0.5); //extra factor of 0.5 from average over 2 distinct topologies
+#ifdef DISABLE_EVALUATION_OF_SECOND_PIPI_TOPOLOGY
+    into(tsrc, tdis) += 0.5*topo1 + 0.5*topo2;
+#else
 
-    into(tsrc, tdis) += incr;
+    //Like with the C diagrams we previously incorrectly used g5-hermiticity to combine the pairs of similar topologies. This can be re-enabled using DISABLE_EVALUATION_OF_SECOND_PIPI_TOPOLOGY
+       
+    //Correponds to fig 10 in [1]
+    ScalarComplexType topo3;
+    {
+      PIPI_COMPUTE_PRODUCT(prod_l_top3, mf_pi2_snk[tsnk2], mf_pi2_src[tsrc2]);
+      PIPI_COMPUTE_PRODUCT(prod_r_top3, mf_pi1_src[tsrc], mf_pi1_snk[tsnk]);
+      topo3 = 0.5 * trace( prod_l_top3, prod_r_top3 );
+    }
+    //Correponds to fig 11 in [1]
+    ScalarComplexType topo4;
+    {
+      PIPI_COMPUTE_PRODUCT(prod_l_top4, mf_pi1_snk[tsnk], mf_pi2_src[tsrc2]);
+      PIPI_COMPUTE_PRODUCT(prod_r_top4, mf_pi1_src[tsrc], mf_pi2_snk[tsnk2]);
+      topo4 = 0.5 * trace( prod_l_top4, prod_r_top4 );
+    }
+
+    into(tsrc, tdis) += 0.25*topo1 + 0.25*topo2 + 0.25*topo3 + 0.25*topo4;
+#endif
   }
 
 
@@ -156,7 +179,7 @@ public:
 
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields ADDCOMMA RECV_PRODUCTSTORE
+		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
 #endif		      
@@ -214,11 +237,11 @@ public:
 	int tsrc = rem * tstep_src; //source time
 
 	if(diag == 'C')
-	  figureC(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, PASS_PRODUCTSTORE ADDCOMMA tsrc,tsnk, tsep,Lt);
+	  figureC(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, products, tsrc,tsnk, tsep,Lt);
 	else if(diag == 'D')
 	  figureD(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, tsrc,tsnk, tsep,Lt);
 	else if(diag == 'R')
-	  figureR(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, PASS_PRODUCTSTORE ADDCOMMA tsrc,tsnk, tsep,Lt);
+	  figureR(into, mf_pi1_src, mf_pi2_src, mf_pi1_snk, mf_pi2_snk, products, tsrc,tsnk, tsep,Lt);
 	else ERR.General("ComputePiPiGparity","compute","Invalid diagram '%c'\n",diag);
       }
     }
