@@ -746,8 +746,10 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom, Vector *frm,
     CgArg cg_arg;
     cg_arg.mass=mass;
     Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
+{
     DiracOpMobius dwf(*this, tmp, frm, &cg_arg, CNV_FRM_NO) ;
     dwf.MatPc(tmp, frm);
+}
 
     ForceArg f_arg = EvolveMomFforce(mom, tmp, frm, mass, step_size);
     sfree(cname, fname, "tmp", tmp);
