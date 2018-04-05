@@ -15,7 +15,7 @@ string plaquette_stem = "./plaq"
 string pbp_stem = "./pbp"
 string evo_stem = "./hmc"
 string w_spect_directory = "./alg_w_spect"
-string work_directory = "./"
+string work_directory = "."
 int measure_pbp = 0
 int measure_w_spect_interval = 0
 }

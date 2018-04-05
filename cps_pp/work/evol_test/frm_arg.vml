@@ -1,6 +1,6 @@
 class ActionFermionArg frm_arg = {
 class ActionBilinearArg bi_arg = {
-FclassType fermion = F_CLASS_GRID_MOBIUS
+FclassType fermion = F_CLASS_MOBIUS
 Array bilinears[1] = {
 class BilinearDescr bilinears[0] = {
 double mass =   0.1

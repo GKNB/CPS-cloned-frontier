@@ -44,6 +44,8 @@
 #include <pthread.h>
 //-------------------------------------------------------------
 
+#define HAVE_DOEXT
+
 USING_NAMESPACE_CPS
 using namespace std;
 
@@ -116,7 +118,7 @@ void measure_tc(CommonArg &common_arg, int cycle);
 void measure_pbp(CommonArg &common_arg, int traj);
 void run_hmc(CommonArg &common_arg, int traj, AlgIntAB &int_ab);
 
-#ifdef USE_GRID 
+#ifndef USE_BFM
 void init(int *argc, char **argv[]){
 }
 #else
@@ -199,6 +201,10 @@ void setup(int argc, char *argv[])
 #ifdef HAVE_DOEXT
     encode_vml(doext_arg,0);
 #endif
+#ifdef USE_QUDA
+   if ( !QudaParam.Decode("quda_arg.vml","QudaParam") )
+        { printf("Bum quda_arg\n"); exit(-1);}
+#endif
     decode_vml_all();
 
     if(chdir(evo_arg.work_directory) != 0) {
@@ -254,9 +260,9 @@ int main(int argc, char *argv[])
     //!< Construct numerical integrators
     AlgIntAB &ab1 = AlgIntAB::Create(mom, gauge, ab1_arg);
 //    AlgIntAB &ab2 = AlgIntAB::Create(ab1, rat_quo,   ab2_arg);
-//    AlgIntAB &ab2 = AlgIntAB::Create(ab1, quotient,   ab2_arg);
+    AlgIntAB &ab2 = AlgIntAB::Create(ab1, quotient,   ab2_arg);
 //    AlgIntAB &ab2 = AlgIntAB::Create(ab1, fermion,   ab2_arg);
-    AlgIntAB &ab2 = AlgIntAB::Create(ab1, sum,   ab2_arg);
+//    AlgIntAB &ab2 = AlgIntAB::Create(ab1, sum,   ab2_arg);
     // AlgIntAB &ab3 = AlgIntAB::Create(ab2, sum,         ab3_arg);
     //////////////////////////////////////////////////////////////////////
 
