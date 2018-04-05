@@ -232,6 +232,7 @@ void AlgActionQuotient::reweight (Float * rw_fac, Float * norm)
 {
 
   char *fname = "reweight()";
+  VRB.Func(cname,fname);
 
   if (n_masses > 0) {
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
@@ -309,6 +310,7 @@ void AlgActionQuotient::heatbath ()
 {
 
   char *fname = "heatbath()";
+  VRB.Func(cname,fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
@@ -427,6 +429,7 @@ Float AlgActionQuotient::energy ()
 {
 
   char *fname = "energy()";
+  VRB.Func(cname,fname);
   static Timer timer (cname, fname);
   Float dtime = -dclock ();
   Float h = 0.0;
@@ -512,6 +515,7 @@ Float AlgActionQuotient::energy ()
 void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 {
   char *fname = "prepare_fg(M*,F)";
+  VRB.Func(cname,fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
@@ -660,6 +664,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 void AlgActionQuotient::evolve (Float dt, int nsteps)
 {
   char *fname = "evolve(Float,int)";
+  VRB.Func(cname,fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
