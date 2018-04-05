@@ -1,11 +1,11 @@
 class PbpArg pbp_arg = {
 PatternType pattern_kind = ARRAY
-int n_masses = 2
+int n_masses = 3
 double mass_start =   1.0000000000000000e-02
 double mass_step =   1.0000000000000000e-02
 Vector mass[100] = { 
-double mass[0] =   6.78e-4
-double mass[1] =   0.02661
+double mass[0] =   0.00078
+double mass[1] =   0.005
 double mass[2] =   0.01
 double mass[3] =   0.02
 double mass[4] =   0.0000000000000000e+00
