@@ -13,10 +13,8 @@
 
 CPS_START_NAMESPACE
 
-void* smalloc(size_t request,
-	      const char vname[], const char fname[], const char cname[]){
+void* smalloc( const char cname[], const char fname[], const char vname[], size_t request){
 
-    VRB.Smalloc(cname, fname, vname, NULL, request);
   void *p;
     if (request<=0)
 	ERR.General(cname,fname,"smalloc requested with size %d!\n",request);
@@ -32,23 +30,8 @@ void* smalloc(size_t request,
     return p;
 }
 
-void* smalloc(size_t request){
-    if (request<=0)
-	ERR.General("","","smalloc requested with size %d!\n",request);
-    VRB.Smalloc("", "", "", NULL, request);
-    void *p = malloc(request);
-//    if(!p) ERR.Pointer("", "", "");
-    VRB.Smalloc("", "", "", p, request);
-    return p;
-}
-
-void sfree(void* p, const char vname[], const char fname[], const char cname[]){
+void sfree( const char cname[], const char fname[], const char vname[], void* p ){
     VRB.Sfree(cname, fname, vname, p);
-    free(p);
-}
-
-void sfree(void* p){
-    VRB.Sfree("", "", "", p);
     free(p);
 }
 

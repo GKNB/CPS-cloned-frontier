@@ -581,13 +581,21 @@ int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in,
   int iter;
   char *fname = "FmatEvlInv(CgArg*,V*,V*,F*,CnvFrmType)";
   VRB.Func(cname,fname);
+  Float dtime = -dclock();
 
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
   
-  iter = dop.InvCg(&(cg_arg->true_rsd));
+#ifdef USE_QUDA
+    iter = dop.QudaInvert(f_out, f_in, true_res, 1);
+#else
+    iter = dop.InvCg(f_out,f_in,&(cg_arg->true_rsd));
+//  iter = dop.InvCg(&(cg_arg->true_rsd));
+#endif
   if (true_res) *true_res = cg_arg ->true_rsd;
 
   // Return the number of iterations
+  dtime += dclock();
+  print_flops(cname,fname,0,dtime);
   return iter;
 }
 
@@ -626,6 +634,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   int iter;
   char *fname = "FmatEvlMInv(V**, V*, .....)";
   VRB.Func(cname,fname);
+  Float dtime = -dclock();
 
   size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size*=2;
@@ -652,6 +661,8 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   for (int s=0; s<Nshift; s++) cg_arg[s]->true_rsd = RsdCG[s];  
 
   delete[] RsdCG;
+  dtime += dclock();
+  print_flops(cname,fname,0,dtime);
   return return_value;
 }
 
@@ -824,7 +835,7 @@ Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
   if (frm1 == 0)
     ERR.Pointer(cname,fname,"frm1") ;
   
-  DiracOpDwf dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
+  DiracOpMobius dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
 #if 0
   { IFloat *tmp = (IFloat *)frm1;
   printf("frm1[0]=%e\n",*tmp);}

@@ -205,7 +205,7 @@ void wilson_dslash_vec(IFloat *chi_p_f,
     if(!UniqueID()){
       printf("Lattice is %d x %d x %d x %d, volume is %d, cb volume %d. Input 'vol' is %d.\n",
 	     GJP.XnodeSites(),GJP.YnodeSites(),GJP.ZnodeSites(),GJP.TnodeSites(),GJP.VolNodeSites(),GJP.VolNodeSites()/2,vol);
-      fflush(stdout);
+//      fflush(stdout);
     }
 
 
