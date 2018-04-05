@@ -60,6 +60,7 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   if (dminus){
+  VRB.Result(cname,fname,"Dminus applied\n");
     dminus_in = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
   //TIZB: this is bug !  below Dminus multiplication is not in effect.
   // mult by Dminus
@@ -580,13 +581,21 @@ int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in,
   int iter;
   char *fname = "FmatEvlInv(CgArg*,V*,V*,F*,CnvFrmType)";
   VRB.Func(cname,fname);
+  Float dtime = -dclock();
 
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
   
-  iter = dop.InvCg(&(cg_arg->true_rsd));
+#ifdef USE_QUDA
+    iter = dop.QudaInvert(f_out, f_in, true_res, 1);
+#else
+    iter = dop.InvCg(f_out,f_in,&(cg_arg->true_rsd));
+//  iter = dop.InvCg(&(cg_arg->true_rsd));
+#endif
   if (true_res) *true_res = cg_arg ->true_rsd;
 
   // Return the number of iterations
+  dtime += dclock();
+  print_flops(cname,fname,0,dtime);
   return iter;
 }
 
@@ -625,6 +634,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   int iter;
   char *fname = "FmatEvlMInv(V**, V*, .....)";
   VRB.Func(cname,fname);
+  Float dtime = -dclock();
 
   size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size*=2;
@@ -651,6 +661,8 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   for (int s=0; s<Nshift; s++) cg_arg[s]->true_rsd = RsdCG[s];  
 
   delete[] RsdCG;
+  dtime += dclock();
+  print_flops(cname,fname,0,dtime);
   return return_value;
 }
 
@@ -668,7 +680,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 // 3. For BFM M is M = M_oo - M_oe M^{-1}_ee M_eo
 
 //CK: when called below, phi1 = Mpc phi2
-ForceArg Fmobius::EvolveMomFforceBase(Matrix *mom,
+ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
                                    Vector *phi1,
                                    Vector *phi2,
                                    Float mass, 
@@ -720,5 +732,122 @@ ForceArg Fmobius::EvolveMomFforceBase(Matrix *mom,
     return ret;
 }
 
+ForceArg Fmobius::EvolveMomFforce(Matrix *mom, Vector *frm, 
+                               Float mass, Float step_size)
+{
+    const char *fname = "EvolveMomFforce()";
+  
+
+    size_t f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
+    if(GJP.Gparity()) f_size_4d *= 2;
+    const size_t f_size_cb = f_size_4d * GJP.SnodeSites() / 2;
+  
+
+    CgArg cg_arg;
+    cg_arg.mass=mass;
+    Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
+    DiracOpMobius dwf(*this, tmp, frm, &cg_arg, CNV_FRM_NO) ;
+    dwf.MatPc(tmp, frm);
+
+    ForceArg f_arg = EvolveMomFforce(mom, tmp, frm, mass, step_size);
+    sfree(cname, fname, "tmp", tmp);
+
+    return f_arg;
+}
+
+ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
+                                    int isz, Float *alpha, Float mass, Float dt,
+                                    Vector **sol_d, ForceMeasure force_measure)
+{
+    const char *fname = "RHMC_EvolveMomFforce()";
+    static Timer time(cname, fname);
+    time.start(true);
+
+    char *force_label=NULL;
+
+    int g_size = GJP.VolNodeSites() * GsiteSize();
+    if(GJP.Gparity()) g_size *= 2;
+
+    Matrix *mom_tmp;
+
+    if (force_measure == FORCE_MEASURE_YES) {
+        mom_tmp = (Matrix*)smalloc(g_size * sizeof(Float),cname, fname, "mom_tmp");
+        ((Vector*)mom_tmp) -> VecZero(g_size);
+        force_label = new char[100];
+    } else {
+        mom_tmp = mom;
+    }
+
+    if(!UniqueID()){
+	Float pvals[4];
+	for(int ii=0;ii<4;ii++){
+	    int off = 18 * ii + 2;
+	    pvals[ii] = ((Float*)mom)[off];
+	}
+	if(UniqueID()==0) printf("Fmobius::RHMC_EvolveMomFforce initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+    }  
+
+    for (int i=0; i<degree; i++) {
+        ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, alpha[i]*dt);
+
+        if (force_measure == FORCE_MEASURE_YES) {
+            sprintf(force_label, "Rational, mass = %e, pole = %d:", mass, i+isz);
+            Fdt.print(dt, force_label);
+        }
+
+	if(!UniqueID()){
+	    Float pvals[4];
+	    for(int ii=0;ii<4;ii++){
+		int off = 18 * ii + 2;
+		pvals[ii] = ((Float*)mom_tmp)[off];
+	    }
+	    if(UniqueID()==0) printf("Fmobius::RHMC_EvolveMomFforce mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
+	}  
+    }
+
+    ForceArg ret;
+
+    // If measuring the force, need to measure and then sum to mom
+    if (force_measure == FORCE_MEASURE_YES) {
+        ret.measure(mom_tmp);
+        ret.glb_reduce();
+
+        fTimesV1PlusV2((IFloat*)mom, 1.0, (IFloat*)mom_tmp, (IFloat*)mom, g_size);
+
+        delete[] force_label;
+        sfree(mom_tmp, cname, fname, "mom_tmp");
+    }
+
+    time.stop(true);
+    return ret;
+}
+
+Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
+		       Float mass, DagType dag){
+  char *fname = "SetPhi(V*,V*,V*,F)";
+  VRB.Func(cname,fname);
+  CgArg cg_arg;
+  cg_arg.mass = mass;
+
+  if (phi == 0)
+    ERR.Pointer(cname,fname,"phi") ;
+
+  if (frm1 == 0)
+    ERR.Pointer(cname,fname,"frm1") ;
+  
+  DiracOpMobius dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
+#if 0
+  { IFloat *tmp = (IFloat *)frm1;
+  printf("frm1[0]=%e\n",*tmp);}
+#endif
+  if (dag == DAG_YES) dwf.MatPcDag(phi, frm1) ;
+  else dwf.MatPc(phi, frm1) ;
+#if 0
+{ IFloat *tmp = (IFloat *)phi;
+  printf("phi[0]=%e\n",*tmp);}
+#endif
+
+  return FhamiltonNode(frm1, frm1);
+}
 
 CPS_END_NAMESPACE

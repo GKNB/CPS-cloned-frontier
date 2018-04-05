@@ -89,28 +89,27 @@ AlgActionRational::AlgActionRational(AlgMomentum &mom,
     if (fermion == F_CLASS_DWF) {
       
       //!< For dwf we need the solution vector contiguous in memory
-      frmn = (Vector**) smalloc(max_size*sizeof(Vector*), "frmn", fname, cname);
+      frmn = (Vector**) smalloc("frmn", fname, cname,max_size*sizeof(Vector*));
       
-      frmn[0] = (Vector*) smalloc(f_size*max_size*sizeof(Float), 
-				  "frmn[0]", fname, cname);
+      frmn[0] = (Vector*) smalloc("frmn[0]", fname, cname,f_size*max_size*sizeof(Float));
       
       for (int i=1; i<max_size; i++) frmn[i] = frmn[0] + i*f_vec_count;
       
       frmn_d = 0;
     } else {
       //!< For asqtad we need them checkerboarded with dslash applied
-      frmn = (Vector**)smalloc(total_size*sizeof(Vector*), "frmn", fname, cname);
+      frmn = (Vector**)smalloc("frmn", fname, cname,total_size*sizeof(Vector*));
       frmn_d = (Vector**)
-	smalloc(total_size*sizeof(Vector*), "frmn_d", fname, cname);
+	smalloc("frmn_d", fname, cname,total_size*sizeof(Vector*));
       
       for (int i=0; i<total_size; i++) {
-	frmn[i] = (Vector*) smalloc(2*f_size*sizeof(Float), "frmn[i]", fname, cname);
+	frmn[i] = (Vector*) smalloc( "frmn[i]", fname, cname,2*f_size*sizeof(Float));
 	frmn_d[i] = frmn[i] + f_vec_count;
       }
       
     }
 
-    all_res = (Float *)smalloc(total_size*sizeof(Float),"all_res",fname,cname);
+    all_res = (Float *)smalloc("all_res",fname,cname,total_size*sizeof(Float));
     frmn_tmp = (Vector**)smalloc(total_size*sizeof(Vector*),"frmn_tmp",fname,cname);
 
 
