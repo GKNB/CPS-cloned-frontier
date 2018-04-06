@@ -389,7 +389,7 @@ void AlgActionQuotient::heatbath ()
 	  h_i = lat.SetPhi (phi[i], tmp1, tmp2, frm_mass[i], DAG_YES);
 	}
 	h_init += h_i;
-	VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
+	VRB.Result (cname, fname, " %d:h_init=%0.14e\n", i, h_init);
 
 	// tmp2 <- (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
 	tmp2->VecZero (f_size);
