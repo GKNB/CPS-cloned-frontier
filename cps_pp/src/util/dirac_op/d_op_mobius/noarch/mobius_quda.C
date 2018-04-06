@@ -172,6 +172,9 @@ static void ParamSetup(QudaArg &quda_param, QudaGaugeParam & gauge_param,
   //----------------------------------------------------------
   // Currently, CPS program uses constant value for b_5, c_5 
   // coefficients not array type data.
+  //
+  VRB.Result(cname.c_str(),fname.c_str(), "b_5 c_5 = %e %e\n", GJP.Mobius_b(), GJP.Mobius_c() );
+
   for(int xs = 0; xs < GJP.SnodeSites(); xs++)
   {
     inv_param.b_5[xs] = GJP.Mobius_b();
@@ -314,7 +317,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
   
   int total_iter = 0, k = 0;
-  int MatDMat_test = 0;
+  int MatDMat_test = 1;
   int cg_test = 1;
 //----------------------Debug code------------------------
   if(MatDMat_test == 1)
@@ -430,6 +433,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       //---------------------------------
       inv_time -=dclock();
       invertQuda(x, r, &inv_param);
+      VRB.Result(cname, fname, "invertQuda() done\n");
       inv_time +=dclock();
 
       // Update solution
