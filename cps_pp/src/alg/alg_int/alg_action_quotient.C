@@ -19,7 +19,7 @@ CPS_START_NAMESPACE
 //CK: In order to directly reproduce the Quotient action results for WilsonTm fermions from CPS using Fbfm, we need to apply a unitary
 //    transformation to the random vectors due to the differing normalization choices. If disabled the Fbfm results will differ slightly from the CPS results
 #define CPS_FBFM_WILSONTM_COMPAT_MODE
-CPS_END_NAMESPACE
+  CPS_END_NAMESPACE
 #include<alg/alg_hmd.h>
 #include<util/lattice.h>
 #include<util/vector.h>
@@ -44,7 +44,7 @@ CPS_END_NAMESPACE
 #endif
 #endif
  
-CPS_START_NAMESPACE
+  CPS_START_NAMESPACE
   AlgActionQuotient::AlgActionQuotient (AlgMomentum & mom,
 					ActionQuotientArg & q_arg)
 :AlgActionBilinear (mom, q_arg.bi_arg), cname ("AlgActionQuotient")
@@ -232,7 +232,7 @@ void AlgActionQuotient::reweight (Float * rw_fac, Float * norm)
 {
 
   char *fname = "reweight()";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
 
   if (n_masses > 0) {
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
@@ -310,7 +310,7 @@ void AlgActionQuotient::heatbath ()
 {
 
   char *fname = "heatbath()";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
@@ -398,7 +398,6 @@ void AlgActionQuotient::heatbath ()
 	//~~ changed for twisted mass Wilson fermions
 	// phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
 	if (lat.Fclass () == F_CLASS_WILSON_TM)
-//|| lat.Fclass() == F_CLASS_BFM )
 	  lat.SetPhi (phi[i], tmp2, tmp1, bsn_mass[i], bsn_mass_epsilon[i],
 		      DAG_NO);
 	else
@@ -422,6 +421,7 @@ void AlgActionQuotient::heatbath ()
   dtime += dclock ();
   print_flops (cname, fname, 0, dtime);
   timer.stop (true);
+  VRB.Func (cname, fname);
 }
 
 //!< Calculate fermion contribution to the Hamiltonian
@@ -429,7 +429,7 @@ Float AlgActionQuotient::energy ()
 {
 
   char *fname = "energy()";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
   static Timer timer (cname, fname);
   Float dtime = -dclock ();
   Float h = 0.0;
@@ -475,8 +475,8 @@ Float AlgActionQuotient::energy ()
 	  //~~ changed for twisted mass Wilson fermions
 	  (lat.Fclass () == F_CLASS_WILSON_TM) ?
 	    lat.SetPhi (tmp1, phi[i], tmp2, bsn_mass[i], bsn_mass_epsilon[i],
-			DAG_YES) : 
-            lat.SetPhi (tmp1, phi[i], tmp2, bsn_mass[i], DAG_YES);
+			DAG_YES) :
+	    lat.SetPhi (tmp1, phi[i], tmp2, bsn_mass[i], DAG_YES);
 
 	  tmp2->VecZero (f_size);
 	  cg_iter = lat.FmatEvlInv (tmp2, tmp1, &frm_cg_arg_mc[i], CNV_FRM_NO);
@@ -494,7 +494,7 @@ Float AlgActionQuotient::energy ()
 		    frm_mass[i], bsn_mass[i], cg_iter);
 	updateCgStats (&frm_cg_arg_mc[i]);
 
-//	h += lat.FhamiltonNode (tmp1, tmp2);
+//      h += lat.FhamiltonNode (tmp1, tmp2);
       }
 
       LatticeFactory::Destroy ();
@@ -515,7 +515,7 @@ Float AlgActionQuotient::energy ()
 void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 {
   char *fname = "prepare_fg(M*,F)";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
@@ -664,7 +664,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 void AlgActionQuotient::evolve (Float dt, int nsteps)
 {
   char *fname = "evolve(Float,int)";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
   static Timer timer (cname, fname);
   timer.start (true);
   Float dtime = -dclock ();
