@@ -121,15 +121,11 @@ void mobius_mdagm_shift(Vector *out,
   
 //  5. out += mu^2 in
 
-//#ifndef USE_BLAS
-#if 1
+#ifndef USE_BLAS
   fTimesV1PlusV2( (IFloat*)out, mu*mu, (IFloat*)in, (IFloat*)out, f_size);
 #else
-<<<<<<< HEAD
   cblas_daxpy(f_size,   (IFloat*)out, mu*mu, (IFloat*)in, (IFloat*)out);
-=======
-  cblas_daxpy( f_size, mu*mu, (IFloat*)in, (IFloat*)out );
->>>>>>> f4d8b3efd7d075dbc6c035719b5fa7db21eaba29
+//  cblas_daxpy( f_size, mu*mu, (IFloat*)in, (IFloat*)out );
 #endif
 
   

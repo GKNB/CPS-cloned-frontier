@@ -368,13 +368,15 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
               + zid*GJP.YnodeSites()*GJP.XnodeSites()
               + yid*GJP.XnodeSites() + xid)/2)*24 + 6*spin + 2*clr;
           Float diff1 = fabs(gpu_vec[idx]-cpu_vec[idx]);
+          if(diff1 > 10e-12){ 
           printf("(%d,%d,%d,%d,%d,s %d,c %d) real: GPU : %e\t CPU : %e\t GPU-CPU = %e\n",
                  sid,tid,zid,yid,xid,spin,clr,gpu_vec[idx], cpu_vec[idx], diff1);
-          if(diff1 > 10e-12){ err_count++; printf("error!!!!!\n"); }
+		err_count++; printf("error!!!!!\n"); }
           Float diff2 = fabs(gpu_vec[idx+1]-cpu_vec[idx+1]);
+          if(diff2 > 10e-12){ 
           printf("(%d,%d,%d,%d,%d,s %d,c %d) img: GPU : %e\t CPU : %e\t GPU-CPU = %e\n",
                  sid,tid,zid,yid,xid,spin,clr, gpu_vec[idx+1], cpu_vec[idx+1], diff2);
-          if(diff2 > 10e-12){ err_count++; printf("error!!!!!\n"); }
+		err_count++; printf("error!!!!!\n"); }
         }
       }
       printf("\n");

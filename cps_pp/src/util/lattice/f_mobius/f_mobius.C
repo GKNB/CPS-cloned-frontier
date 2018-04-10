@@ -696,8 +696,8 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 //    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
     if(GJP.Gparity()) f_size*=2;
 
-    Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
-    Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
+//    Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
+//    Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
   {
     CgArg cg_arg ;
@@ -705,7 +705,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 #ifdef PROFILE
   time = -dclock();
 #endif
-    DiracOpMobius dwf(*this, v1, v2, &cg_arg, CNV_FRM_NO) ;
+    DiracOpMobius dwf(*this, phi1, phi2, &cg_arg, CNV_FRM_NO) ;
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
   time += dclock();
@@ -713,20 +713,20 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
   time = -dclock();
 #endif
 
-    Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
-    Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
+//    Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
+//    Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
 #ifdef PROFILE
   time += dclock();
   print_flops(fname,"Fconvert()",0,time);
 #endif
   }
 
-    FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
+    FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)phi1, (Float*)phi2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
 //    FforceWilsonType cal_force(mom, this->GaugeField(), v1, v2, Fmobius::bfm_args[current_arg_idx].Ls, coef);
 
-    sfree(cname, fname, "v1", v1);
-    sfree(cname, fname, "v2", v2);
+//    sfree(cname, fname, "v1", v1);
+//    sfree(cname, fname, "v2", v2);
 
     time.stop(true);
     return ret;
@@ -838,16 +838,8 @@ Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     ERR.Pointer(cname,fname,"frm1") ;
   
   DiracOpMobius dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
-#if 0
-  { IFloat *tmp = (IFloat *)frm1;
-  printf("frm1[0]=%e\n",*tmp);}
-#endif
   if (dag == DAG_YES) dwf.MatPcDag(phi, frm1) ;
   else dwf.MatPc(phi, frm1) ;
-#if 0
-{ IFloat *tmp = (IFloat *)phi;
-  printf("phi[0]=%e\n",*tmp);}
-#endif
 
   return FhamiltonNode(frm1, frm1);
 }
