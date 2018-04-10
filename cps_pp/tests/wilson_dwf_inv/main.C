@@ -167,7 +167,7 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
   Float true_res;
 
   for (int k = 0; k < 5; k++) {
-    double maxdiff = 0.;
+    double maxdiff = 0.,maxdiff2;
     VRB.Result ("", fname, "k=%d\n", k);
     if (k == 0)
       out = result;
@@ -189,11 +189,11 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 #endif
 
     if (1) {
-      if (k == 0) {
+//      if (k == 0) {
 	memset ((char *) X_out2, 0,
 		GJP.VolNodeSites () * lat.FsiteSize () * sizeof (IFloat));
 	lat.Fdslash (X_out2, out, &cg_arg, CNV_FRM_NO, 0);
-      }
+//      }
     }
     lat.Fconvert (out, CANONICAL, str_ord);
     lat.Fconvert (X_in, CANONICAL, str_ord);
@@ -265,10 +265,19 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 		    *((IFloat *) & X_in[n] + i * 2 + 1);
 		  if (fabs (diff) > maxdiff)
 		    maxdiff = fabs (diff);
+
+		  diff =
+		    *((IFloat *) & out[n] + i * 2) - *((IFloat *) & result[n] +
+							  i * 2);
+		  if (fabs (diff) > maxdiff2)
+		    maxdiff2 = fabs (diff);
+		  diff = *((IFloat *) & out[n] + i * 2 + 1) - *((IFloat *) & result[n] + i * 2 + 1);
+		  if (fabs (diff) > maxdiff2)
+		    maxdiff2 = fabs (diff);
 		}
 	      }
       VRB.Result ("", "run_inv()",
-		  "Max diff between X_in and M*X_out = %0.2e\n", maxdiff);
+		  "Max diff between X_in and M*X_out = %0.2e result and out = %0.2e\n", maxdiff,maxdiff2);
     }
   }
   if (DO_IO)
