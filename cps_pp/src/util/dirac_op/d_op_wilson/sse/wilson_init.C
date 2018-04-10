@@ -1,7 +1,7 @@
 #if (defined USE_SSE)||(defined SSE_TO_C)
 #include <config.h>
 #ifdef SSE_TO_C
-#include "sse-defs.h"
+#include "../noarch/sse-defs.h"
 #else
 #define SSE_C_FLOAT Float
 #endif

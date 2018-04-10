@@ -38,6 +38,7 @@ void wilson_dslash_bnd_dag0(
   M128D* send_buf5 = (M128D*)(wilson_p->send_buf[5]);
   M128D* send_buf6 = (M128D*)(wilson_p->send_buf[6]);
   M128D* send_buf7 = (M128D*)(wilson_p->send_buf[7]);
+//  for(int i=0;i<8;i++) VRB.Result("","wilson_dslash_bnd_dag0()","wilson_p->send_buf[%d]=%p\n",i,wilson_p->send_buf[i]);
 #else
   __m128d* send_buf0 = (__m128d*)(wilson_p->send_buf[0]);
   __m128d* send_buf1 = (__m128d*)(wilson_p->send_buf[1]);
