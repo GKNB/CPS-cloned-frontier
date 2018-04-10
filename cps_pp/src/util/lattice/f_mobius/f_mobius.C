@@ -104,7 +104,7 @@ if (!dminus){
 
 
     // TIZB check
-if (1){
+if (0){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
@@ -596,6 +596,7 @@ int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in,
   // Return the number of iterations
   dtime += dclock();
   print_flops(cname,fname,0,dtime);
+  VRB.FuncEnd(cname,fname);
   return iter;
 }
 
@@ -841,7 +842,9 @@ Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
   if (dag == DAG_YES) dwf.MatPcDag(phi, frm1) ;
   else dwf.MatPc(phi, frm1) ;
 
-  return FhamiltonNode(frm1, frm1);
+  Float temp= FhamiltonNode(frm1, frm1);
+  VRB.FuncEnd(cname,fname);
+  return temp;
 }
 
 CPS_END_NAMESPACE

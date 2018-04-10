@@ -169,6 +169,7 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 				  Vector *in, 
 				  Float *dot_prd){
 
+  Float dtime = -dclock();
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // and DiracOpMobius constructors but is done again in case the
@@ -191,6 +192,8 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 	       dot_prd,
 	       mass,
 	       (Dwf *) mobius_lib_arg);
+  dtime += dclock();
+  print_time(cname,"MatPcDag()",dtime);
 }
 
 //------------------------------------------------------------------
@@ -334,7 +337,7 @@ void DiracOpMobius::MatPc(Vector *out, Vector *in) {
 void DiracOpMobius::MatPcDag(Vector *out, Vector *in) {
 
   const char *fname = "MatPcDag(*V,*V)";
-  VRB.Func(fname,cname);
+  VRB.Func(cname,fname);
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // and DiracOpMobius constructors but is done again in case the
@@ -358,6 +361,7 @@ void DiracOpMobius::MatPcDag(Vector *out, Vector *in) {
 	      mass,
 	      (Dwf *) mobius_lib_arg);
   tmp = (IFloat *)out;
+  VRB.FuncEnd(cname,fname);
 }
 
 

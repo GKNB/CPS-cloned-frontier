@@ -259,6 +259,7 @@ const std::string CPSQuda::cname("CPSQuda");
 int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type) {
 
   const char * fname = "QudaInvert(V*, V*, F*, int)";
+  VRB.Func(cname,fname);
 
 //  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
 
@@ -317,7 +318,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
   
   int total_iter = 0, k = 0;
-  int MatDMat_test = 1;
+  int MatDMat_test = 0;
   int cg_test = 1;
 //----------------------Debug code------------------------
   if(MatDMat_test == 1)
@@ -379,7 +380,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 		err_count++; printf("error!!!!!\n"); }
         }
       }
-      printf("\n");
+//      printf("\n");
     }
 //    for(idx = 0; idx < f_size_cb; idx++)
 //    {
@@ -421,8 +422,8 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
     VRB.Result(cname, fname, "0 iterations, res^2 = %1.15e, restart = 0\n", r2);
 
-    VRB.Result(cname, fname, " stop = %1.15e, k = %d max_restart=%d \n", r2,k, QudaParam.max_restart);
     while (r2 > stop && k < QudaParam.max_restart) {
+    VRB.Result(cname, fname, " r2 stop = %0.7e %0.7e, k = %d max_restart=%d \n", r2,stop,k, QudaParam.max_restart);
       inv_param.tol = dirac_arg->stop_rsd;
       if(sqrt(stop/r2)>inv_param.tol) 
       {
@@ -462,17 +463,17 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
     }
-
     gettimeofday(&end,NULL);
     print_flops(cname,fname,flops,&start,&end);
-    VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
+    VRB.Result(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
         inv_param.spinorGiB, gauge_param.gaugeGiB);
-    VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
+    VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
         sqrt(r2)/sqrt(in_norm2), total_iter, k);
-    // if (true_res) *true_res = sqrt(r2);
+     if (true_res) *true_res = sqrt(r2);
   }
   total_time +=dclock();
    VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
+  exit(-43);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
@@ -480,6 +481,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   //----------------------------------------
   if(x) { sfree(x); x = NULL; }
   if(r) { sfree(r); r = NULL; }
+  VRB.FuncEnd(cname,fname);
 
   return total_iter;
 }
@@ -575,7 +577,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
         inv_param.spinorGiB, gauge_param.gaugeGiB);
     VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
         sqrt(r2)/sqrt(in_norm2), total_iter, k);
-    // if (true_res) *true_res = sqrt(r2);
+//     if (true_res) *true_res = sqrt(r2);
 //  }
   total_time +=dclock();
    VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
