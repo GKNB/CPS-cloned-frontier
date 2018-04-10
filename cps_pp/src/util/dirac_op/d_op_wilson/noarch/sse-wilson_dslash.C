@@ -199,28 +199,6 @@ void wilson_dslash(
   const int   vol = wilson_p->vol[0];
 
 
-#if 0
-  SSE_C_FLOAT *send_buf[4] = 
-    {wilson_p->send_buf[0],
-     wilson_p->send_buf[1],
-     wilson_p->send_buf[2],
-     wilson_p->send_buf[3],
-    };
-
-  SSE_C_FLOAT *recv_buf[8] =
-    {wilson_p->recv_buf[0],
-     wilson_p->recv_buf[1],
-     wilson_p->recv_buf[2],
-     wilson_p->recv_buf[3],
-     wilson_p->recv_buf[4],
-     wilson_p->recv_buf[5],
-     wilson_p->recv_buf[6],
-     wilson_p->recv_buf[7]
-    }; 
-#endif
-
-
-
 #ifdef PROFILE
   int NITR = wilson_p->NITR;
   const Float MultFlops=wilson_p->MultFlops;
