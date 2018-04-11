@@ -167,7 +167,7 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
   Float true_res;
 
   for (int k = 0; k < 5; k++) {
-    double maxdiff = 0.,maxdiff2;
+    double maxdiff=0., maxdiff2=0.;
     VRB.Result ("", fname, "k=%d\n", k);
     if (k == 0)
       out = result;
