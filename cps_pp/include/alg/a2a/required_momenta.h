@@ -64,6 +64,22 @@ public:
     addPandMinusP(p2);
   }
 
+
+  //Add a A and B momentum (respectively) from components
+  //Momenta with the same total momentum will be added to the same mom idx
+  inline void addP(const int p1x, const int p1y, const int p1z,
+		   const int p2x, const int p2y, const int p2z){
+    std::pair<ThreeMomentum,ThreeMomentum> p2( ThreeMomentum(p1x,p1y,p1z), ThreeMomentum(p2x,p2y,p2z) );
+    addP(p2);
+  }    
+  //Add a A and B momentum (respectively) from components, plus the negatives of these  
+  inline void addPandMinusP(const int p1x, const int p1y, const int p1z,
+			    const int p2x, const int p2y, const int p2z){
+    std::pair<ThreeMomentum,ThreeMomentum> p2( ThreeMomentum(p1x,p1y,p1z), ThreeMomentum(p2x,p2y,p2z) );
+    addPandMinusP(p2);
+  }
+
+
   //Functions to symmetrize the momentum assignment of the A and B vectors
   inline void reverseABmomentumAssignments(){
     std::swap(momA,momB);

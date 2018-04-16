@@ -177,8 +177,12 @@ public:
   //Output matrix ordering (tsrc, tdis)  where tdis = tsnk-tsrc
   //Note, 'products' is used as a storage for products of meson fields that might potentially be re-used later
 
+  //Calculate for general momenta
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
-		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, const int tsep, const int tstep_src,
+		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
+		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
+
+		      const int tsep, const int tstep_src,
 		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
@@ -186,8 +190,7 @@ public:
 		      ){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    ThreeMomentum p_pi2_src = -p_pi1_src;
-    ThreeMomentum p_pi2_snk = -p_pi1_snk;
+
     ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi1_snk, &p_pi2_src, &p_pi2_snk };
     for(int p=0;p<4;p++)
       if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
@@ -261,12 +264,32 @@ public:
 #endif
   }
 
-  //Compute the pion 'bubble'  0.5 tr( mf(t, p_pi) mf(t-tsep, -p_pi) )
+  //Calculate for p_cm=(0,0,0)
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
+		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi1_snk, 
+		      const int tsep, const int tstep_src,
+		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
+#endif		      
+		      ){
+    ThreeMomentum p_pi2_src = -p_pi1_src;
+    ThreeMomentum p_pi2_snk = -p_pi1_snk;
+
+    compute(into, diag, p_pi1_src, p_pi2_src, p_pi1_snk, p_pi2_snk, tsep, tstep_src, mesonfields, products
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+		      , do_redistribute_src, do_redistribute_snk
+#endif		      
+	    );
+  }
+
+
+  //Compute the pion 'bubble'  0.5 tr( mf(t, p_pi) mf(t-tsep, p_pi2) )  [note pi2 at earlier timeslice here]
   //output into vector element  [t]
-  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<mf_Policies> &mesonfields){
+
+  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const ThreeMomentum &p_pi2, const int tsep, MesonFieldMomentumContainer<mf_Policies> &mesonfields){
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","computeFigureVdis(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    ThreeMomentum p_pi2 = -p_pi;
 
     ThreeMomentum const* mom[4] = { &p_pi, &p_pi2 };
     for(int p=0;p<2;p++)
@@ -298,6 +321,12 @@ public:
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(2,&mf_pi,&mf_pi2);
 #endif
+  }
+
+  //p_cm = (0,0,0)
+  static void computeFigureVdis(fVector<typename mf_Policies::ScalarComplexType> &into, const ThreeMomentum &p_pi, const int tsep, MesonFieldMomentumContainer<mf_Policies> &mesonfields){
+    ThreeMomentum p_pi2 = -p_pi;
+    computeFigureVdis(into, p_pi, p_pi2, tsep, mesonfields);
   }
 
 
