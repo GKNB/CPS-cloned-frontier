@@ -23,11 +23,13 @@ void computePiPi2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const P
       for(int d = 0; d < 3; d++){
 	printMem(stringize("Doing pipi figure %c, psrcidx=%d psnkidx=%d",diag[d],psrcidx,psnkidx),0);
 
+#ifdef PIPI_FORCE_REDISTRIBUTE
+	bool redistribute_src = true;
+	bool redistribute_snk = true;
+#else
 	bool redistribute_src = d == 2 && psnkidx == nmom - 1;
 	bool redistribute_snk = d == 2;
-	
-	//bool redistribute_src = true;
-	//bool redistribute_snk = true;
+#endif	
 
 	double time = -dclock();
 	ComputePiPiGparity<A2Apolicies>::compute(pipi, diag[d], p_pi1_src, p_pi1_snk, params.jp.pipi_separation, params.jp.tstep_pipi, mf_ll_con, products
