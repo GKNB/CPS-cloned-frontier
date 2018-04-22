@@ -25,6 +25,7 @@ public:
     ForceArg run();
 
 private:
+    const char *cname;
     void collect_surface(int mu);
     void comm(int mu);
     // these 2 functions are called from within an OpenMP construction

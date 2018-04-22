@@ -93,6 +93,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 				Vector *phi1, Vector *phi2,
 				Float mass);
 
+#if 0
   ForceArg EvolveMomFforceBaseThreaded(Matrix *mom,
 				       Vector *phi1,
 				       Vector *phi2,
@@ -102,6 +103,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
   // note: this function does not exist in the base Lattice class.
   //CK: This function is not used, so I have not modified it for WilsonTM
+#endif
 
   ForceArg EvolveMomFforceBase(Matrix *mom,
 			       Vector *phi1,
@@ -111,27 +113,11 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   // It evolves the canonical Momemtum mom:
   // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
   // note: this function does not exist in the base Lattice class.
-#if 0
-  ForceArg EvolveMomFforceBase(Matrix *mom,
-			       Vector *phi1,
-			       Vector *phi2,
-			       Float mass,
-			       Float coef){
-    return EvolveMomFforceBase(mom,phi1,phi2,mass,-12345,coef);
-  }
-#endif
   //CK: Version for non-WilsonTm quarks. Will throw an error if used for WilsonTm
 
     FclassType Fclass()const {
         return F_CLASS_BFM;
     }
-
-#if 0
-    virtual int F5D(){
-      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM)  return 1;
-      else return 0;
-    }
-#endif
 
   // It returns the type of fermion class
   

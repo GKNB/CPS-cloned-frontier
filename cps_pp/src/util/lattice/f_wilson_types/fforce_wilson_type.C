@@ -141,6 +141,7 @@ static void do_site_force_f1(Matrix *force, const Matrix &gauge,
 
 FforceWilsonType::FforceWilsonType(Matrix *momentum, Matrix *gauge_field,
                                    Float *vec1, Float *vec2, int Ls, Float dt)
+:cname("FforceWilsonType")
 {
     lcl[0] = GJP.XnodeSites();
     lcl[1] = GJP.YnodeSites();
@@ -197,6 +198,7 @@ FforceWilsonType::~FforceWilsonType()
 // 2. we always send in negative direction.
 void FforceWilsonType::collect_surface(int mu)
 {
+    const char *fname="collect_surface(i)";
     long l[4] = { 0, 0, 0, 0 };
     long h[4] = { lcl[0], lcl[1], lcl[2], lcl[3] };
     h[mu] = 1;
@@ -214,11 +216,10 @@ void FforceWilsonType::collect_surface(int mu)
 	    compute_coord(x, h, l, i);
 	    long o4d = idx_4d(x, lcl);
 	    long o3d = idx_4d_surf(x, lcl, mu);
-	    
-	    memcpy(v1s + o3d * block, v1  + o4d * block,
-		   sizeof(Float) * block);
-	    memcpy(v2s + o3d * block, v2  + o4d * block,
-		   sizeof(Float) * block);
+//	    VRB.Result(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v1s,o3d,block,v1,o4d,block,block);
+	    memcpy(v1s + o3d * block, v1  + o4d * block, sizeof(Float) * block);
+//	    VRB.Result(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v2s,o3d,block,v2,o4d,block,block);
+	    memcpy(v2s + o3d * block, v2  + o4d * block, sizeof(Float) * block);
 	}
     }else{
 	//G-parity flavour twist at global lattice boundary

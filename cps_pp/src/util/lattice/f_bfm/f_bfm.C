@@ -383,12 +383,7 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     if (!bfm_initted) SetBfmArg(mass);
     VRB.Result(cname,fname,"started\n");
 
-#if 0
-    return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
-#endif
-
     long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
-//    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
     if(GJP.Gparity()) f_size*=2;
 
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);

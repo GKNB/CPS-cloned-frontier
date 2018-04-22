@@ -34,7 +34,7 @@ static void printMat(Matrix* m, int x,int y,int z,int t){
 
 ForceArg GimprRect::EvolveMomGforce(Matrix *mom, Float dt)
 {
-  char *fname = "EvolveMomGforce(M*,F)mod [QCDOC version]";  //Name of our function
+  char *fname = "EvolveMomGforce(M*,F)mod[QCDOC]";  //Name of our function
   VRB.Func(cname,fname);                     //Sets name of the function
 
   Float L1=0.0;

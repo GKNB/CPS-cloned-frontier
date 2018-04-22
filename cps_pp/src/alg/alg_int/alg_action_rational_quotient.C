@@ -297,7 +297,7 @@ void AlgActionRationalQuotient::reweight(Float *rw_fac,Float *norm) {
 //!< Heat Bath for the pseudo-fermions (phi)
 void AlgActionRationalQuotient::heatbath() {
   char fname[20+strlen(force_label)];
-  sprintf(fname, "heatbath() [%s]",force_label);
+  sprintf(fname, "heatbath()[%s]",force_label);
     
   //const char *fname = "heatbath()";
   static Timer timer(cname, fname);
@@ -320,7 +320,8 @@ void AlgActionRationalQuotient::heatbath() {
 	}
 #endif
       lat.RandGaussVector(phi[i], 0.5, Ncb);
-      if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
+      VRB.Result(cname,fname,
+	"phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
 
       Float h_i = lat.FhamiltonNode(phi[i],phi[i]);
       h_init += h_i;
@@ -356,13 +357,13 @@ void AlgActionRationalQuotient::heatbath() {
       	}
       }
 
-      if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
+      VRB.Result(cname,fname, "phi vector for mass %d: %.9e %.9e %.9e .....\n",force_label,i, ((Float*)phi[i])[0],((Float*)phi[i])[1], ((Float*)phi[i])[2]);
       
       Float delta_h = lat.FhamiltonNode(phi[i],phi[i]);
       {
 	Float gsum_h(delta_h);
 	glb_sum(&gsum_h);
-	if(UniqueID()==0)   printf("AlgActionRationalQuotient::heatbath() [%s] delta H for mass %d:  %.9e\n",force_label,i,gsum_h);
+      VRB.Result(cname,fname, "delta H for mass %d:  %.9e\n",force_label,i,gsum_h);
       }
      // h_init += delta_h;
 
@@ -419,7 +420,7 @@ Float AlgActionRationalQuotient::energy() {
 
   //const char *fname="energy()";
   char fname[20+strlen(force_label)];
-  sprintf(fname, "energy() [%s]",force_label);
+  sprintf(fname, "energy()[%s]",force_label);
    VRB.Result(cname,fname,"energeEval evolved h_init=%d %d %g\n",
         energyEval,evolved,h_init);
 
@@ -512,7 +513,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   //const char * fname = "prepare_fg(M*,F)";
 
   char fname[30+strlen(force_label)];
-  sprintf(fname, "prepare_fg(M*,F) [%s]",force_label);
+  sprintf(fname, "prepare_fg(M*,F)[%s]",force_label);
   static Timer timer(cname, fname);
   timer.start(true);
 
@@ -693,9 +694,9 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
   dtime += dclock();
 
   char fname_cg[30+strlen(force_label)];
-  sprintf(fname_cg,"prepare_fg::cg() [%s]",force_label);
+  sprintf(fname_cg,"prepare_fg::cg()[%s]",force_label);
   char fname_force[30+strlen(force_label)];
-  sprintf(fname_force,"prepare_fg::force() [%s]",force_label);
+  sprintf(fname_force,"prepare_fg::force()[%s]",force_label);
 
   print_flops(cname, fname, 0, dtime);
   print_flops(cname, fname_cg, 0, dtime_cg);
@@ -720,7 +721,7 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 {
   //const char * fname = "evolve(Float, int)";
   char fname[30+strlen(force_label)];
-  sprintf(fname, "evolve(Float, int) [%s]",force_label);
+  sprintf(fname, "evolve(F,i)[%s]",force_label);
   static Timer timer(cname, fname);
   timer.start(true);
 
@@ -931,9 +932,9 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
   LatticeFactory::Destroy();
 
   char fname_cg[30+strlen(force_label)];
-  sprintf(fname_cg,"evolve::cg() [%s]",force_label);
+  sprintf(fname_cg,"evolve::cg()[%s]",force_label);
   char fname_force[30+strlen(force_label)];
-  sprintf(fname_force,"evolve::force() [%s]",force_label);
+  sprintf(fname_force,"evolve::force()[%s]",force_label);
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);

@@ -258,7 +258,7 @@ const std::string CPSQuda::cname("CPSQuda");
 
 int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type) {
 
-  const char * fname = "QudaInvert(V*, V*, F*, int)";
+  const char * fname = "QudaInvert(V*,V*,F*,int)";
   VRB.Func(cname,fname);
 
 //  VRB.ActivateLevel(VERBOSE_FLOW_LEVEL);
@@ -473,7 +473,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   }
   total_time +=dclock();
    VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
-  exit(-43);
+//  exit(-43);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
@@ -489,9 +489,10 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
          int Nshift, int isz, Float *RsdCG,
            MultiShiftSolveType type, Float *alpha){
-  const char * fname = "MInvCG(V*, V*, F*, int)";
+  const char * fname = "MInvCG(V*,V*,F*,int)";
 
 
+  VRB.Func(cname,fname);
   struct timeval start, end;
   gettimeofday(&start,NULL);
 
@@ -499,8 +500,11 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
   CPSQuda::ParamSetup(QudaParam,gauge_param,inv_param);
+
+  inv_param.inv_type = QUDA_CG_INVERTER;
   inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
-  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+//  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+  inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;
@@ -539,7 +543,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 
   Float total_time=-dclock();
   Float inv_time=0.;
-  Float qudamat_time=0.;
+//  Float qudamat_time=0.;
 //  if(cg_test==1) {
 //    while (r2 > stop && k < QudaParam.max_restart) {
       inv_param.tol = dirac_arg->stop_rsd;
@@ -554,10 +558,16 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
       //---------------------------------
       inv_time -=dclock();
 //      invertQuda(x, r, &inv_param);
-      void **OutMulti=(void**)malloc(inv_param.num_offset*sizeof(void*));
+//      Vector **OutMulti=(Vector**)malloc(inv_param.num_offset*sizeof(Vector*));
+      void *OutMulti[inv_param.num_offset];
       for(int i=0;i<inv_param.num_offset;i++){
-         OutMulti[i] = out[i];
+         if ( type==MULTI ) OutMulti[i] = static_cast<Vector*> (out[i]);
+	else{
+		OutMulti[i] = (Vector*)smalloc(cname,fname,"OutMulti[i]",f_size_cb * sizeof(Float));
+        }
          inv_param.offset[i] = shift[i];
+         inv_param.tol_offset[i] = RsdCG[i];
+         VRB.Result(cname,fname,"%d: OutMulti %p offset %g tol_offset %g\n",i,OutMulti[i],inv_param.offset[i],inv_param.tol_offset[i]);
       }
       invertMultiShiftQuda(OutMulti, in, &inv_param);
       inv_time +=dclock();
@@ -570,6 +580,16 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
 //    }
+//      exit(-40);
+    if ( type!=MULTI ){
+	out[0] ->VecZero(f_size_cb);
+      for(int i=0;i<inv_param.num_offset;i++){
+        Vector *v_p = (Vector*)OutMulti[i];
+        out[0] -> FTimesV1PlusV2(alpha[i],v_p,out[0],f_size_cb);
+	sfree(cname,fname,"OutMulti[i]",OutMulti[i]);
+      }
+	
+    }
 
     gettimeofday(&end,NULL);
     print_flops(cname,fname,flops,&start,&end);
@@ -580,7 +600,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 //     if (true_res) *true_res = sqrt(r2);
 //  }
   total_time +=dclock();
-   VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
+   VRB.Result(cname, fname, "inv_time=%g total_time=%g\n",inv_time,total_time);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
@@ -588,7 +608,9 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
   //----------------------------------------
   if(x) { sfree(x); x = NULL; }
   if(r) { sfree(r); r = NULL; }
+//      free(OutMulti);OutMulti=NULL;
 
+  VRB.FuncEnd(cname,fname);
   return total_iter;
 }
 

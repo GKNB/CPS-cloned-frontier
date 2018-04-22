@@ -633,7 +633,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 			  Float *alpha, Vector **f_out_d)
 {
   int iter;
-  char *fname = "FmatEvlMInv(V**, V*, .....)";
+  char *fname = "FmatEvlMInv(V**,V*,.....)";
   VRB.Func(cname,fname);
   Float dtime = -dclock();
 
@@ -670,17 +670,6 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 // It evolves the canonical Momemtum mom:
 // mom += coef * (phi1^\dag e_i(M) \phi2 + \phi2^\dag e_i(M^\dag) \phi1)
 //
-// NOTE:
-//
-// 1. This function does not exist in the base Lattice class.
-//
-// 2. The 2 auxiliary vectors v1 and v2 calculated by
-// CalcHmdForceVecsBilinear must be in (reim, color, spin, s, x, y, z,
-// t) order.
-//
-// 3. For BFM M is M = M_oo - M_oe M^{-1}_ee M_eo
-
-//CK: when called below, phi1 = Mpc phi2
 ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
                                    Vector *phi1,
                                    Vector *phi2,
@@ -697,8 +686,8 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 //    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
     if(GJP.Gparity()) f_size*=2;
 
-//    Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
-//    Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
+    Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
+    Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
 
   {
     CgArg cg_arg ;
@@ -706,7 +695,9 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 #ifdef PROFILE
   time = -dclock();
 #endif
-    DiracOpMobius dwf(*this, phi1, phi2, &cg_arg, CNV_FRM_NO) ;
+    DiracOpMobius dwf(*this, v1,v2, &cg_arg, CNV_FRM_NO) ;
+// need to be added here
+//    dwf.CalcHmdForceVecs(v1,v2, phi1,phi2) ;
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
   time += dclock();
@@ -714,20 +705,19 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
   time = -dclock();
 #endif
 
-//    Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
-//    Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
+    Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
+    Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
 #ifdef PROFILE
   time += dclock();
   print_flops(fname,"Fconvert()",0,time);
 #endif
   }
 
-    FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)phi1, (Float*)phi2, GJP.SnodeSites(), coef);
+    FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
-//    FforceWilsonType cal_force(mom, this->GaugeField(), v1, v2, Fmobius::bfm_args[current_arg_idx].Ls, coef);
 
-//    sfree(cname, fname, "v1", v1);
-//    sfree(cname, fname, "v2", v2);
+    sfree(cname, fname, "v1", v1);
+    sfree(cname, fname, "v2", v2);
 
     time.stop(true);
     return ret;
@@ -742,17 +732,18 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom, Vector *frm,
     size_t f_size_4d = SPINOR_SIZE * GJP.VolNodeSites();
     if(GJP.Gparity()) f_size_4d *= 2;
     const size_t f_size_cb = f_size_4d * GJP.SnodeSites() / 2;
+    const size_t f_size= f_size_4d * GJP.SnodeSites() ;
   
 
     CgArg cg_arg;
     cg_arg.mass=mass;
-    Vector *tmp = (Vector *)smalloc(cname, fname, "tmp", sizeof(Float)*f_size_cb);
+    Vector *tmp = (Vector *)smalloc(cname, fname, "v1", sizeof(Float)*f_size);
 {
     DiracOpMobius dwf(*this, tmp, frm, &cg_arg, CNV_FRM_NO) ;
     dwf.MatPc(tmp, frm);
 }
 
-    ForceArg f_arg = EvolveMomFforce(mom, tmp, frm, mass, step_size);
+    ForceArg f_arg = EvolveMomFforce(mom, tmp, frm, mass, -step_size);
     sfree(cname, fname, "tmp", tmp);
 
     return f_arg;
