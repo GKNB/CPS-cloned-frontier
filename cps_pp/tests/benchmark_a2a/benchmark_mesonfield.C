@@ -199,7 +199,10 @@ int main(int argc,char *argv[])
   if(0) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
 #endif
   
-  if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
+  if(1) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
+#ifdef USE_GRID
+  if(0) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
+#endif
 
   if(0) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
@@ -261,7 +264,7 @@ int main(int argc,char *argv[])
 
   if(0) benchmarkCPSfieldIO();
 
-  if(1) testPointSource();
+  if(0) testPointSource();
 
   Grid::vComplexD a, b;
 

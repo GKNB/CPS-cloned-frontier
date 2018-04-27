@@ -18,7 +18,8 @@ struct computeParams{
   
   computeParams(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v), do_src_shift(false){}
   
-  computeParams(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v, const int _src_shift[3]): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v), do_src_shift(true){
+  computeParams(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v, const int _src_shift[3]): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v), 
+    do_src_shift(true){
     memcpy(src_shift,_src_shift,3*sizeof(int));
   }
 };
@@ -58,62 +59,27 @@ public:
     }else ERR.General("MesonFieldStorageBase","getGPmomParams","Invalid momentum (%d,%d,%d)   p[0]-1 % 4 = %d   p[0]+1 % 4 = %d\n",p[0],p[1],p[2], (p[0]-1) % 4, (p[0]+1) % 4);
   }
 
-  
-  void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v, bool use_mf_reln_simpl = false){
-    if(!GJP.Gparity() || !use_mf_reln_simpl) clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
-    else{
-      //M_ij^{4a+k,4b+l} =  \sum_{n=0}^{L-1} \Omega^{\dagger,4a+k}_i(n) \Gamma \gamma(n) N^{4b+l}_j(n)     (1)
-      //                    \sum_{n=0}^{L-1} \Omega^{\dagger,k}_i(n-a-b) \Gamma \gamma(n-b) N^l_j(n)         (2)
-      
-      //\Omega^{\dagger,k}_i(n) = [ \sum_{x=0}^{L-1} e^{-2\pi i nx/L} e^{- (-k) \pi ix/2L} W_i(x) ]^\dagger
-      //N^l_j(n) = \sum_{x=0}^{L-1} e^{-2\pi ix/L} e^{-l \pi ix/2L} V_i(x)
-
-      //Use \Omega^{\dagger,k}_i(n-a-b) = \Omega^{\dagger,4a+4b+k}_i(n)   because the code handles the FFT relations for the V, W vectors separately
-      ThreeMomentum a, k, b, l;
-      ThreeMomentum p_wdag = -p_w;
-      getGPmomParams(a.ptr(),k.ptr(),p_wdag.ptr());
-      getGPmomParams(b.ptr(),l.ptr(),p_v.ptr());
-
-      int src_shift[3] = {0,0,0};
-      ThreeMomentum new_p_wdag = p_wdag, new_p_v = p_v;
-      for(int i=0;i<3;i++)
-	if(GJP.Bc(i) == BND_CND_GPARITY){
-	  new_p_wdag(i) = 4*a(i) + 4*b(i) + k(i);
-	  new_p_v(i) = l(i);
-	  src_shift[i] = b(i); //shift in +b direction  \gamma(n') = \gamma(n-b)
-	}
-      
-      if(!UniqueID()) printf("MesonFieldStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
-			     p_wdag.str().c_str(), a.str().c_str(), k.str().c_str(),
-			     p_v.str().c_str(), b.str().c_str(), l.str().c_str(),
-			     new_p_wdag.str().c_str(), new_p_v.str().c_str(),
-			     src_shift[0],src_shift[1],src_shift[2]);
-      
-      clist.push_back( computeParams(qidx_w,qidx_v, -new_p_wdag, new_p_v, src_shift) );
-    }
+  //Add the parameters of a meson field to the list of pending calculations
+  inline void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
+    clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
   }
-  int nWffts(const int qidx) const{
+  inline int nWffts(const int qidx) const{
     int count = 0;
     for(int i=0;i<clist.size();i++) if(clist[i].qidx_w == qidx) ++count;
     return count;
   }
-  int nVffts(const int qidx) const{
+  inline int nVffts(const int qidx) const{
     int count = 0;
     for(int i=0;i<clist.size();i++) if(clist[i].qidx_v == qidx) ++count;
     return count;
   }
-  int nCompute() const{ return clist.size(); }
+  inline int nCompute() const{ return clist.size(); }
 
-  void getComputeParameters(int &qidx_w, int &qidx_v, ThreeMomentum &p_w, ThreeMomentum &p_v, const int cidx) const{
+  inline void getComputeParameters(int &qidx_w, int &qidx_v, ThreeMomentum &p_w, ThreeMomentum &p_v, const int cidx) const{
     qidx_w = clist[cidx].qidx_w;    qidx_v = clist[cidx].qidx_v;
     p_w = clist[cidx].p_w;     p_v = clist[cidx].p_v; 
   }
-  bool getSourceShift(int shift[3], const int cidx) const{
-    if(clist[cidx].do_src_shift){
-      memcpy(shift,clist[cidx].src_shift,3*sizeof(int));
-      return true;
-    }else return false;
-  }
+  inline bool needSourceShift(const int cidx) const{ return clist[cidx].do_src_shift; }
 };
 
 //Storage with source that remains constant for all computations
@@ -138,6 +104,7 @@ public:
     return mf[cidx]; //returns *reference*
   }  
   const InnerProductType & getInnerProduct(const int cidx){
+    if(needSourceShift(cidx)) ERR.General("BasicSourceStorage","getInnerProduct","Policy does not support source shifting\n");
     return inner;
   }
   void nodeDistributeResult(const int cidx){
@@ -172,6 +139,7 @@ public:
     return mf[cidx]; //returns *reference*
   }  
   const InnerProductType & getInnerProduct(const int cidx){
+    if(needSourceShift(cidx)) ERR.General("GparityFlavorProjectedBasicSourceStorage","getInnerProduct","Policy does not support source shifting\n");
     src.setMomentum(clist[cidx].p_v.ptr());
     return inner;
   }
@@ -210,6 +178,7 @@ public:
     return ret;
   }  
   const InnerProductType & getInnerProduct(const int cidx) const{
+    if(needSourceShift(cidx)) ERR.General("MultiSourceStorage","getInnerProduct","Policy does not support source shifting\n");
     return inner;
   }
   void nodeDistributeResult(const int cidx){
@@ -258,6 +227,7 @@ public:
     return ret;
   }  
   const InnerProductType & getInnerProduct(const int cidx){
+    if(needSourceShift(cidx)) ERR.General("GparityFlavorProjectedMultiSourceStorage","getInnerProduct","Policy does not support source shifting\n");
     _multiSrcRecurse<MultiSourceType,nSources>::setMomentum(src,clist[cidx].p_v.ptr());
     return inner;
   }
@@ -267,47 +237,45 @@ public:
   }
 };
 
-
-
-
-struct computeParamsMultiShift{
-  int qidx_w;
-  int qidx_v;
-  ThreeMomentum p_w;
-  ThreeMomentum p_v;
-
-  std::vector<std::vector<int> > shifts;
-
-  computeParamsMultiShift(){}
-  computeParamsMultiShift(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v, const int _src_shift[3]): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v){
-    addShift(_src_shift);
-  }
-  void addShift(const int _src_shift[3]){
-    std::vector<int> s(3); for(int i=0;i<3;i++) s[i] = _src_shift[i];    
-    shifts.push_back(s);
-  }
-};
-
-
-struct KeyOnSpeciesAndMomentum{
-  inline bool operator()(const computeParams &l, const computeParams &r) const{ 
-    if(l.qidx_w < r.qidx_w) return true;
-    else if(l.qidx_w > r.qidx_w) return false;
-    
-    if(l.qidx_v < r.qidx_v) return true;
-    else if(l.qidx_v > r.qidx_v) return false;
-    
-    if(l.p_w < r.p_w) return true;
-    else if(l.p_w > r.p_w) return false;
-    
-    if(l.p_v < r.p_v) return true;
-    else if(l.p_v > r.p_v) return false;
-
-    return false; //is equal
-  }
-};
+//If using G-parity BCs, we can move the momentum shift from base for the right A2A vector into a C-shift in the source accompanied by a different
+//momentum for the left A2A vector. This can speed up the calculation.
 
 class MesonFieldShiftSourceStorageBase : MesonFieldStorageBase{
+  struct computeParamsMultiShift{
+    int qidx_w;
+    int qidx_v;
+    ThreeMomentum p_w;
+    ThreeMomentum p_v;
+
+    std::vector<std::vector<int> > shifts;
+
+    computeParamsMultiShift(){}
+    computeParamsMultiShift(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v, const int _src_shift[3]): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v){
+    addShift(_src_shift);
+  }
+    void addShift(const int _src_shift[3]){
+      std::vector<int> s(3); for(int i=0;i<3;i++) s[i] = _src_shift[i];    
+      shifts.push_back(s);
+    }
+  };
+
+  struct KeyOnSpeciesAndMomentum{
+    inline bool operator()(const computeParams &l, const computeParams &r) const{ 
+      if(l.qidx_w < r.qidx_w) return true;
+      else if(l.qidx_w > r.qidx_w) return false;
+    
+      if(l.qidx_v < r.qidx_v) return true;
+      else if(l.qidx_v > r.qidx_v) return false;
+    
+      if(l.p_w < r.p_w) return true;
+      else if(l.p_w > r.p_w) return false;
+    
+      if(l.p_v < r.p_v) return true;
+      else if(l.p_v > r.p_v) return false;
+
+      return false; //is equal
+    }
+  };
 protected:
   typedef std::map<computeParams,int,KeyOnSpeciesAndMomentum> MapType;
   std::vector<computeParamsMultiShift> optimized_clist; //shifts with same quark species and momenta combined
@@ -356,13 +324,45 @@ private:
   bool getSourceShift(int shift[3], const int cidx) const{
     assert(0);
   }    
+  bool needSourceShift(const int cidx) const{
+    assert(0);
+  }
 public:
   
   MesonFieldShiftSourceStorageBase() : optimized_clist(0), optimized(false){}
 
   void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
     if(optimized){ optimized_clist.clear(); optimized = false; } //adding new computes means we have to redo the optimization
-    this->MesonFieldStorageBase::addCompute(qidx_w,qidx_v,p_w,p_v,true);
+
+    assert(GJP.Gparity());
+    //M_ij^{4a+k,4b+l} =  \sum_{n=0}^{L-1} \Omega^{\dagger,4a+k}_i(n) \Gamma \gamma(n) N^{4b+l}_j(n)     (1)
+    //                    \sum_{n=0}^{L-1} \Omega^{\dagger,k}_i(n-a-b) \Gamma \gamma(n-b) N^l_j(n)         (2)
+    
+    //\Omega^{\dagger,k}_i(n) = [ \sum_{x=0}^{L-1} e^{-2\pi i nx/L} e^{- (-k) \pi ix/2L} W_i(x) ]^\dagger
+    //N^l_j(n) = \sum_{x=0}^{L-1} e^{-2\pi ix/L} e^{-l \pi ix/2L} V_i(x)
+    
+    //Use \Omega^{\dagger,k}_i(n-a-b) = \Omega^{\dagger,4a+4b+k}_i(n)   because the code handles the FFT relations for the V, W vectors separately
+    ThreeMomentum a, k, b, l;
+    ThreeMomentum p_wdag = -p_w;
+    getGPmomParams(a.ptr(),k.ptr(),p_wdag.ptr());
+    getGPmomParams(b.ptr(),l.ptr(),p_v.ptr());
+    
+    int src_shift[3] = {0,0,0};
+    ThreeMomentum new_p_wdag = p_wdag, new_p_v = p_v;
+    for(int i=0;i<3;i++)
+      if(GJP.Bc(i) == BND_CND_GPARITY){
+	new_p_wdag(i) = 4*a(i) + 4*b(i) + k(i);
+	new_p_v(i) = l(i);
+	src_shift[i] = b(i); //shift in +b direction  \gamma(n') = \gamma(n-b)
+      }
+    
+    if(!UniqueID()) printf("esonFieldShiftSourceStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
+			   p_wdag.str().c_str(), a.str().c_str(), k.str().c_str(),
+			   p_v.str().c_str(), b.str().c_str(), l.str().c_str(),
+			   new_p_wdag.str().c_str(), new_p_v.str().c_str(),
+			   src_shift[0],src_shift[1],src_shift[2]);
+    
+    this->clist.push_back( computeParams(qidx_w,qidx_v, -new_p_wdag, new_p_v, src_shift) );
   }
   
   //override base functions to use optimized list

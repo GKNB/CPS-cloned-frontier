@@ -585,39 +585,44 @@ void testCyclicPermute(){
     from.testRandom();
 
     for(int dir=0;dir<4;dir++){
-      for(int pm=-1;pm<=1;pm+=2){
-	if(!UniqueID()) printf("Testing 4D permute in direction %c%d\n",pm == 1 ? '+' : '-',dir);
-	//permute in incr until we cycle all the way around
-	tmp1 = from;
-	CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *send = &tmp1;
-	CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *recv = &tmp2;
+      int incrs[3] = { GJP.NodeSites(dir)/2, GJP.NodeSites(dir), GJP.NodeSites(dir) + GJP.NodeSites(dir)/2  };
+      for(int i=0;i<3;i++){
+	int incr = incrs[i];
+	for(int pm=-1;pm<=1;pm+=2){
+	  if(!UniqueID()) printf("Testing 4D permute in direction %c%d with increment %d\n",pm == 1 ? '+' : '-',dir,incr);
+	  //permute in incr until we cycle all the way around
+	  tmp1 = from;
+	  CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *send = &tmp1;
+	  CPSfield<cps::ComplexD,1,FourDpolicy<FixedFlavorPolicy<1> >,StandardAllocPolicy> *recv = &tmp2;
 
-	int shifted = 0;
-	printRow(from,dir,"Initial line      ");
+	  int shifted = 0;
+	  printRow(from,dir,"Initial line      ");
 
-	int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
-	int incr = GJP.NodeSites(dir)/2;
-	int perm = 0;
-	while(shifted < total){
-	  cyclicPermute(*recv,*send,dir,pm,incr);
-	  shifted += incr;
-	  std::ostringstream comment; comment << "After perm " << perm++ << " by incr " << incr;
-	  printRow(*recv,dir,comment.str());
-	        
-	  if(shifted < total)
-	    std::swap(send,recv);
-	}
-	printRow(*recv,dir,"Final line      ");
-      
-	int coor[4];
-	for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
-	  for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
-	    for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
-	      for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
-		cps::ComplexD const* orig = from.site_ptr(coor);
-		cps::ComplexD const* permd = recv->site_ptr(coor);
-		if(orig->real() != permd->real() || orig->imag() != permd->imag()){
-		  printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+	  int total = GJP.Nodes(dir)*GJP.NodeSites(dir);
+	  int perm = 0;
+	  while(shifted < total){
+	    int amt = std::min(incr, total-shifted);
+
+	    cyclicPermute(*recv,*send,dir,pm,amt);
+	    shifted += amt;
+	    std::ostringstream comment; comment << "After perm " << perm++ << " by incr " << amt;
+	    printRow(*recv,dir,comment.str());
+	    
+	    if(shifted < total)
+	      std::swap(send,recv);
+	  }
+	  printRow(*recv,dir,"Final line      ");
+	  
+	  int coor[4];
+	  for(coor[0]=0;coor[0]<GJP.XnodeSites();coor[0]++){
+	    for(coor[1]=0;coor[1]<GJP.YnodeSites();coor[1]++){
+	      for(coor[2]=0;coor[2]<GJP.ZnodeSites();coor[2]++){
+		for(coor[3]=0;coor[3]<GJP.TnodeSites();coor[3]++){
+		  cps::ComplexD const* orig = from.site_ptr(coor);
+		  cps::ComplexD const* permd = recv->site_ptr(coor);
+		  if(orig->real() != permd->real() || orig->imag() != permd->imag()){
+		    printf("Error node coor (%d,%d,%d,%d) (%d,%d,%d,%d) : (%g,%g) vs (%g,%g) diff (%g,%g)\n",GJP.XnodeCoor(),GJP.YnodeCoor(),GJP.ZnodeCoor(),GJP.TnodeCoor(),coor[0],coor[1],coor[2],coor[3],orig->real(),orig->imag(),permd->real(),permd->imag(), orig->real()-permd->real(),orig->imag()-permd->imag());
+		  }
 		}
 	      }
 	    }
@@ -1105,88 +1110,210 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   ThreeMomentum pp3 = pp * 3;
   ThreeMomentum pm3 = pm * 3;
 
+  { //1s + 2s source
+    typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
+    typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
+    SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
+
+    typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
+    typedef A2AflavorProjectedHydrogenSource<typename A2Apolicies::SourcePolicies> HydSrcType;
   
-  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
-  typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
-  SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
+    ExpSrcType _1s_src(2.0, pp.ptr(), sfp);
+    HydSrcType _2s_src(2,0,0, 2.0, pp.ptr(), sfp);
 
-  typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
-  typedef A2AflavorProjectedHydrogenSource<typename A2Apolicies::SourcePolicies> HydSrcType;
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,HydSrcType,true,false> HydInnerType;
   
-  ExpSrcType _1s_src(2.0, pp.ptr(), sfp);
-  HydSrcType _2s_src(2,0,0, 2.0, pp.ptr(), sfp);
+    ExpInnerType _1s_inner(sigma3, _1s_src);
+    HydInnerType _2s_inner(sigma3, _2s_src);
 
-  typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
-  typedef SCFspinflavorInnerProduct<15,mf_Complex,HydSrcType,true,false> HydInnerType;
+    A2AvectorWfftw<A2Apolicies> Wfftw_pp(a2a_args,fp);
+    Wfftw_pp.gaugeFixTwistFFT(W,pp.ptr(),lat);
+
+    A2AvectorVfftw<A2Apolicies> Vfftw_pp(a2a_args,fp);
+    Vfftw_pp.gaugeFixTwistFFT(V,pp.ptr(),lat);
   
-  ExpInnerType _1s_inner(sigma3, _1s_src);
-  HydInnerType _2s_inner(sigma3, _2s_src);
+    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
+    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
 
-  A2AvectorWfftw<A2Apolicies> Wfftw_pp(a2a_args,fp);
-  Wfftw_pp.gaugeFixTwistFFT(W,pp.ptr(),lat);
-
-  A2AvectorVfftw<A2Apolicies> Vfftw_pp(a2a_args,fp);
-  Vfftw_pp.gaugeFixTwistFFT(V,pp.ptr(),lat);
+    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
   
-  std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_std_1s_pp_pp;
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_std_1s_pp_pp, Wfftw_pp, _1s_inner, Vfftw_pp);
+    ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
+    exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
+    std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
+    std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
+
+    std::cout << "Start 1s ExpStorage compute\n";
+    ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    for(int t=0;t<Lt;t++){
+      if(!UniqueID()) printf("Comparing test 1 t=%d\n",t);
+      assert( exp_store_1s_pp_pp[0][t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+    }
+    if(!UniqueID()) printf("Passed equivalence test 1\n");
+
+    typedef Elem<ExpSrcType,Elem<HydSrcType,ListEnd> > SrcList;
+    typedef A2AmultiSource<SrcList> MultiSrcType;
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,MultiSrcType,true,false> ExpHydMultiInnerType;
+
+    MultiSrcType exp_hyd_multi_src;
+    exp_hyd_multi_src.template getSource<0>().setup(2.0,pp.ptr(),sfp);
+    exp_hyd_multi_src.template getSource<1>().setup(2,0,0, 2.0, pp.ptr(), sfp);
   
-  ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
-  exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
+    ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
-  std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
-  std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
+    typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
+    HydStorageType exp_store_2s_pp_pp(_2s_inner,_2s_src);
+    exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
+    exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
+    exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
 
-  std::cout << "Start 1s ExpStorage compute\n";
-  ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
+  
+    ComputeMesonFields<A2Apolicies,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
 
-  int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  for(int t=0;t<Lt;t++){
-    if(!UniqueID()) printf("Comparing test 1 t=%d\n",t);
-    assert( exp_store_1s_pp_pp[0][t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+  
+    typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, ExpHydMultiInnerType> ExpHydMultiStorageType;
+    ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
+    exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
+
+    std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
+    ComputeMesonFields<A2Apolicies,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+  
+    for(int t=0;t<Lt;t++){
+      if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
+      assert( exp_store_1s_2s_pp_pp(0,0)[t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+    }
+    if(!UniqueID()) printf("Passed equivalence test 2\n");
+    for(int t=0;t<Lt;t++){
+      if(!UniqueID()) printf("Comparing test 3 t=%d\n",t);
+      assert( exp_store_1s_2s_pp_pp(1,0)[t].equals(exp_store_2s_pp_pp[0][t],1e-10,true) );
+    }
+    if(!UniqueID()) printf("Passed equivalence test 3\n");
   }
-  if(!UniqueID()) printf("Passed equivalence test 1\n");
 
-  typedef Elem<ExpSrcType,Elem<HydSrcType,ListEnd> > SrcList;
-  typedef A2AmultiSource<SrcList> MultiSrcType;
-  typedef SCFspinflavorInnerProduct<15,mf_Complex,MultiSrcType,true,false> ExpHydMultiInnerType;
+  { //1s + point source
+    typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
+    typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
+    SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
 
-  MultiSrcType exp_hyd_multi_src;
-  exp_hyd_multi_src.template getSource<0>().setup(2.0,pp.ptr(),sfp);
-  exp_hyd_multi_src.template getSource<1>().setup(2,0,0, 2.0, pp.ptr(), sfp);
+    typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
+    typedef A2AflavorProjectedPointSource<typename A2Apolicies::SourcePolicies> PointSrcType;
+    typedef A2ApointSource<typename A2Apolicies::SourcePolicies> PointSrcBasicType;
   
-  ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
+    ExpSrcType _1s_src(2.0, pp3.ptr(), sfp);
+    PointSrcType _pt_src(sfp);
+    PointSrcBasicType _pt_basic_src(sfp);
 
-  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
-  HydStorageType exp_store_2s_pp_pp(_2s_inner,_2s_src);
-  exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
-  exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
-  exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
-
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,PointSrcType,true,false> PointInnerType;
+    typedef SCFspinflavorInnerProduct<15,mf_Complex,PointSrcBasicType,true,false> PointBasicInnerType;
   
-  ComputeMesonFields<A2Apolicies,HydStorageType>::compute(exp_store_2s_pp_pp,Wspecies,Vspecies,lat);
+    ExpInnerType _1s_inner(sigma3, _1s_src);
+    PointInnerType _pt_inner(sigma3, _pt_src);
+    PointBasicInnerType _pt_basic_inner(sigma3, _pt_basic_src);
 
-  
-  typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, ExpHydMultiInnerType> ExpHydMultiStorageType;
-  ExpHydMultiStorageType exp_store_1s_2s_pp_pp(exp_hyd_multi_inner, exp_hyd_multi_src);
-  exp_store_1s_2s_pp_pp.addCompute(0,0,pp,pp);
+    A2AvectorWfftw<A2Apolicies> Wfftw_pp(a2a_args,fp);
+    Wfftw_pp.gaugeFixTwistFFT(W,pp.ptr(),lat);
 
-  std::cout << "Start 1s/2s ExpHydMultiStorage compute\n";
-  ComputeMesonFields<A2Apolicies,ExpHydMultiStorageType>::compute(exp_store_1s_2s_pp_pp,Wspecies,Vspecies,lat);
+    A2AvectorVfftw<A2Apolicies> Vfftw_pp(a2a_args,fp);
+    Vfftw_pp.gaugeFixTwistFFT(V,pp3.ptr(),lat);
   
-  for(int t=0;t<Lt;t++){
-    if(!UniqueID()) printf("Comparing test 2 t=%d\n",t);
-    assert( exp_store_1s_2s_pp_pp(0,0)[t].equals(mf_std_1s_pp_pp[t],1e-10,true) );
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    //Do the point and 1s by regular means
+    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pt_std;
+    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_pt_std, Wfftw_pp, _pt_inner, Vfftw_pp);
+
+    std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_1s_std;
+    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_1s_std, Wfftw_pp, _1s_inner, Vfftw_pp);
+
+    //1) Check flavor projected point and basic point give the same result (no projector for point)
+    {
+      std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_basic;
+      A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_basic, Wfftw_pp, _pt_basic_inner, Vfftw_pp);
+      
+      for(int t=0;t<Lt;t++){
+	if(!UniqueID()) printf("1) Comparing flavor projected point src to basic point src t=%d\n",t);
+	assert( mf_pt_std[t].equals(mf_basic[t],1e-10,true) );
+      }
+      if(!UniqueID()) printf("Passed point check test\n");
+    }
+
+    std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
+    std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
+    
+    //Prepare the compound src
+    typedef Elem<ExpSrcType,Elem<PointSrcType,ListEnd> > SrcList;
+    typedef A2AmultiSource<SrcList> MultiSrcType;
+
+    {
+      typedef SCFspinflavorInnerProduct<15,mf_Complex,MultiSrcType,true,false> MultiInnerType;
+      
+      MultiSrcType multi_src;    
+      multi_src.template getSource<0>().setup(2.0,pp3.ptr(),sfp);
+      multi_src.template getSource<1>().setup(sfp);
+      
+      MultiInnerType multi_inner(sigma3,multi_src);
+      
+      typedef GparityFlavorProjectedMultiSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      MultiStorageType store(multi_inner, multi_src);
+      store.addCompute(0,0,pp,pp3);
+
+      std::cout << "Start 1s/point MultiStorage compute\n";
+      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+  
+      //Test 1s
+      for(int t=0;t<Lt;t++){
+	if(!UniqueID()) printf("Comparing 1s t=%d\n",t);
+	assert( store(0,0)[t].equals(mf_1s_std[t],1e-6,true) );
+      }
+      if(!UniqueID()) printf("Passed 1s multisrc equivalence test\n");
+      
+      //Test point
+      for(int t=0;t<Lt;t++){
+	if(!UniqueID()) printf("Comparing point t=%d\n",t);
+	assert( store(1,0)[t].equals(mf_pt_std[t],1e-6,true) );
+      }
+      if(!UniqueID()) printf("Passed point multisrc equivalence test\n");
+    }
+
+    //Test the compound shift source also
+    {
+      typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType, flavorMatrixSpinColorContract<15,mf_Complex,true,false> > MultiInnerType;
+      
+      MultiSrcType multi_src;    
+      multi_src.template getSource<0>().setup(2.0,pp3.ptr(),sfp);
+      multi_src.template getSource<1>().setup(sfp);
+      
+      MultiInnerType multi_inner(sigma3,multi_src);
+      
+      typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, MultiInnerType> MultiStorageType;
+      MultiStorageType store(multi_inner, multi_src);
+      store.addCompute(0,0,pp,pp3);
+
+      std::cout << "Start 1s/point shift multiStorage compute\n";
+      ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
+  
+      //Test 1s
+      for(int t=0;t<Lt;t++){
+	if(!UniqueID()) printf("Comparing shift 1s t=%d\n",t);
+	assert( store(0,0)[t].equals(mf_1s_std[t],1e-6,true) );
+      }
+      if(!UniqueID()) printf("Passed 1s shift multisrc equivalence test\n");
+      
+      //Test point
+      for(int t=0;t<Lt;t++){
+	if(!UniqueID()) printf("Comparing shift point t=%d\n",t);
+	assert( store(1,0)[t].equals(mf_pt_std[t],1e-6,true) );
+      }
+      if(!UniqueID()) printf("Passed point shift multisrc equivalence test\n");
+    }
+
+  // typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+  // typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
   }
-  if(!UniqueID()) printf("Passed equivalence test 2\n");
-  for(int t=0;t<Lt;t++){
-    if(!UniqueID()) printf("Comparing test 3 t=%d\n",t);
-    assert( exp_store_1s_2s_pp_pp(1,0)[t].equals(exp_store_2s_pp_pp[0][t],1e-10,true) );
-  }
-  if(!UniqueID()) printf("Passed equivalence test 3\n");
-
   
 }
 

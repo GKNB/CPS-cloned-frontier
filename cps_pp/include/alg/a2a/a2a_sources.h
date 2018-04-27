@@ -437,6 +437,27 @@ public:
 };
 
 
+//No projector is required for point source, hence we just have to add a setMomentum method that does nothing
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2AflavorProjectedPointSource : public A2ApointSource<FieldPolicies>{
+public:
+  typedef A2ApointSource<FieldPolicies> BaseType;
+  typedef typename BaseType::FieldParamType FieldParamType;
+  typedef typename BaseType::ComplexType ComplexType;
+  
+  A2AflavorProjectedPointSource(const FieldParamType &src_field_params): BaseType(src_field_params){}
+  A2AflavorProjectedPointSource(): BaseType(){}
+
+  A2AflavorProjectedPointSource(const A2AflavorProjectedPointSource &r): BaseType(r){}
+  
+  void setup(const FieldParamType &src_field_params = NullObject()){
+    this->BaseType::setup(src_field_params);
+  }
+  inline void setMomentum(const int p[3]){
+  }
+};
+
+
 template<typename FieldPolicies = StandardSourcePolicies>
 class A2AflavorProjectedExpSource : public A2AflavorProjectedSource<A2AexpSource<FieldPolicies> >{
   void dummy(){}
