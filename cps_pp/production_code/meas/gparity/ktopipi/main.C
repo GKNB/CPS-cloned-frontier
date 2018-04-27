@@ -4,6 +4,7 @@
 
 #include <alg/a2a/utils_main.h>
 #include <alg/a2a/bfm_grid_combined_wrappers.h>
+#include <alg/a2a/compute_LLmesonfields.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
 #include <alg/a2a/compute_sigma.h>

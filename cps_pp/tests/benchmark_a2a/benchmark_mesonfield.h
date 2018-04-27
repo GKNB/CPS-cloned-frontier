@@ -3098,9 +3098,27 @@ void benchmarkCPSfieldIO(){
 }
 
 
+void testPointSource(){
+  typedef A2ApointSource<StandardSourcePolicies> SrcType;
+  
+  const int glb_size[3] = {GJP.XnodeSites()*GJP.Xnodes(), GJP.YnodeSites()*GJP.Ynodes(), GJP.ZnodeSites()*GJP.Znodes() };
+  int V = glb_size[0] * glb_size[1] * glb_size[2];
 
+  NullObject n;
+  SrcType src(n);
+  for(int i=0;i<V;i++){
+    int rem = i; 
+    int pos[3];
+    for(int d=0;d<3;d++){ pos[d] = rem % glb_size[d];  rem /= glb_size[d]; }
+    
+    double v = src.value(pos, glb_size).real();
+    ComplexD f = src.siteComplex(i);
 
-
+    if(!UniqueID()){
+      printf("%d %d %d  %f  (%f,%f)\n", pos[0],pos[1],pos[2], v, f.real(),f.imag());
+    }
+  }
+}
 
 #ifdef USE_GRID
 

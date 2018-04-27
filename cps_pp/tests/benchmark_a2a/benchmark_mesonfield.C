@@ -256,10 +256,12 @@ int main(int argc,char *argv[])
 #endif
   
   if(0) testCPSfieldIO();
-  if(1) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
-  if(1) testA2AvectorIO<GridA2Apolicies>(a2a_args);
+  if(0) testA2AvectorIO<ScalarA2Apolicies>(a2a_args);
+  if(0) testA2AvectorIO<GridA2Apolicies>(a2a_args);
 
   if(0) benchmarkCPSfieldIO();
+
+  if(1) testPointSource();
 
   Grid::vComplexD a, b;
 

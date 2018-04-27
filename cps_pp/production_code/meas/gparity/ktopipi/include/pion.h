@@ -3,7 +3,7 @@
 
 template<typename PionMomentumPolicy>
 void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
+			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
 			  const PionMomentumPolicy &pion_mom){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
@@ -28,7 +28,7 @@ void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 
 template<typename PionMomentumPolicy>
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
+			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
 			  const PionMomentumPolicy &pion_mom,
 			  const int conf, Lattice &lat, const Parameters &params, 
 			  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
@@ -38,9 +38,9 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
   double time = -dclock();
   if(randomize_mf){
     randomizeLLmesonFields(mf_ll_con, mf_ll_con_2s, V, W, pion_mom);
-  }else{  
-    if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
-    else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
+  }else{ 
+    assert(GJP.Gparity());
+    computeGparityLLmesonFields1s2s<A2Apolicies, PionMomentumPolicy>::computeMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams,mf_write_postpend);
   }
 
   time += dclock();

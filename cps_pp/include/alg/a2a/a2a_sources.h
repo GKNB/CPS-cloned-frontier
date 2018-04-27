@@ -107,6 +107,43 @@ public:
 };
 
 
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2ApointSource: public A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> >{
+public:
+  typedef A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> > BaseType;
+  typedef FieldPolicies Policies;
+  typedef typename BaseType::FieldParamType FieldParamType;
+  typedef typename Policies::ComplexType ComplexType;
+      
+  A2ApointSource(const FieldParamType &field_params): BaseType(field_params){
+    this->fft_source();
+  }
+
+  A2ApointSource(): BaseType(){} //src is not setup
+
+  A2ApointSource(const A2ApointSource &r): BaseType(r){}
+  
+  //Setup the source if the default constructor was used
+  void setup(const FieldParamType &field_params){
+    this->BaseType::setup(field_params);
+    this->fft_source();
+  }
+  void setup(){
+    return setup(NullObject());
+  }
+    
+  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
+    out(0,0) = out(1,1) = this->siteComplex(site);
+    out(0,1) = out(1,0) = ComplexType(0);    
+  }
+
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+    Float r = this->pmodr(site,glb_size);
+    return ComplexD(r == 0. ? 1./(glb_size[0]*glb_size[1]*glb_size[2]) : 0.);
+  }
+};
+
+
 template<typename FieldPolicies, typename Derived>
 class A2AhydrogenSourceBase: public A2AsourceBase<FieldPolicies, Derived >{
 protected:
