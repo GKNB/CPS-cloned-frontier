@@ -120,6 +120,8 @@ inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicie
 }
 #endif
 
+
+
 #ifdef USE_QMP
 
 //Cyclic permutation of *4D* CPSfield with std::complex type and FourDpolicy dimension policy
@@ -127,8 +129,9 @@ inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicie
 
 #define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<MappingPolicy,FourDpolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,SpatialPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
+//Version with QMP and no Grid
 template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
 		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
   enum {Dimension = MappingPolicy::EuclideanDimension};
@@ -139,7 +142,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   if(&to == &from){
     if(n==0) return;    
     CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
@@ -233,7 +236,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   
   QMP_status_t send_status = QMP_wait(send);
   if (send_status != QMP_SUCCESS) 
-    QMP_error("Send failed in cyclicPermute: %s\n", QMP_error_string(send_status));
+    QMP_error("Send failed in cyclicPermuteImpl: %s\n", QMP_error_string(send_status));
   QMP_status_t rcv_status = QMP_wait(recv);
   if (rcv_status != QMP_SUCCESS) 
     QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
@@ -270,9 +273,9 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
 
 #define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<MappingPolicy,FourDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,ThreeDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-//Version with SIMD vectorized data
+//Version with QMP and SIMD vectorized data
 template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
 		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
   enum {Dimension = MappingPolicy::EuclideanDimension};
@@ -283,7 +286,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   if(&to == &from){
     if(n==0) return;    
     CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
@@ -368,7 +371,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   
   QMP_status_t send_status = QMP_wait(send);
   if (send_status != QMP_SUCCESS) 
-    QMP_error("Send failed in cyclicPermute: %s\n", QMP_error_string(send_status));
+    QMP_error("Send failed in cyclicPermuteImpl: %s\n", QMP_error_string(send_status));
   QMP_status_t rcv_status = QMP_wait(recv);
   if (rcv_status != QMP_SUCCESS) 
     QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
@@ -442,10 +445,11 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
 
 #define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<MappingPolicy,FourDpolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,SpatialPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
+//Version without comms (local) and without Grid
 template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
-		   const int dir, const int pm, const int n,
-		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		       const int dir, const int pm, const int n,
+		       typename my_enable_if<CONDITION , const int>::type dummy = 0){
   enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
@@ -454,14 +458,14 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   if(&to == &from){
     if(n==0) return;    
     CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
   const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
-  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+  if(nodes != 1) ERR.General("","cyclicPermuteImpl","Parallel implementation requires QMP\n");
 
 #pragma omp parallel for
   for(int i=0;i<from.nfsites();i++){
@@ -479,11 +483,11 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
 
 #define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<MappingPolicy,FourDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,ThreeDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-//Version with SIMD vectorized data
+//Version without comms (local) and with SIMD vectorized data
 template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
-		   const int dir, const int pm, const int n,
-		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		       const int dir, const int pm, const int n,
+		       typename my_enable_if<CONDITION, const int>::type dummy = 0){
   enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
@@ -492,14 +496,14 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
   if(&to == &from){
     if(n==0) return;    
     CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
   const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
-  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+  if(nodes != 1) ERR.General("","cyclicPermuteImpl","Parallel implementation requires QMP\n");
   
   const int nsimd = mf_Complex::Nsimd();
 
@@ -545,6 +549,29 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, 
 # endif //ifdef USE_GRID
 
 #endif //ifdef USE_QMP
+
+
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		   const int dir, const int pm, const int n){
+  if(n >= GJP.NodeSites(dir)){ //deal with n > node size
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmp1(from);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmp2(from);
+
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy>* from_i = &tmp1;
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy>* to_i = &tmp2;
+    int nn = n;
+    while(nn >= GJP.NodeSites(dir)){
+      cyclicPermuteImpl(*to_i, *from_i, dir, pm, GJP.NodeSites(dir)-1);
+      nn -= (GJP.NodeSites(dir)-1);
+      std::swap(from_i, to_i); //on last iteration the data will be in from_i after leaving the loop
+    }
+    cyclicPermuteImpl(to, *from_i, dir, pm, nn);
+  }else{
+    cyclicPermuteImpl(to, from, dir, pm, n);
+  }
+}
+
 
 
 inline int getShiftSign(const int of){ return of > 0 ? +1 : -1; }
