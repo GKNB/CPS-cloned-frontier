@@ -27,6 +27,26 @@ void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 }
 
 template<typename PionMomentumPolicy>
+void randomizeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
+			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+			  const PionMomentumPolicy &pion_mom){
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > *ins;
+  for(int t=0;t<Lt;t++) mf[t].setup(W,V,t,t);
+
+  for(int p=0;p<pion_mom.nMom();p++){
+    for(int t=0;t<Lt;t++) mf[t].testRandom();
+    ins = &mf_ll_con.copyAdd(pion_mom.getTotalMomentum(p),mf);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,ins);
+#endif
+  }
+}
+
+
+
+template<typename PionMomentumPolicy>
 void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 			  typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
 			  const PionMomentumPolicy &pion_mom,
@@ -48,6 +68,29 @@ void computeLLmesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, M
 
   printMem("Memory after light-light meson field computation");
 }
+
+template<typename PionMomentumPolicy>
+void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
+			    typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+			    const PionMomentumPolicy &pion_mom,
+			    Lattice &lat, const Parameters &params, 
+			    const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams, 
+			    const bool randomize_mf){
+  if(!UniqueID()) printf("Computing light-light 1s pion meson fields\n");
+  double time = -dclock();
+  if(randomize_mf){
+    randomizeLLmesonFields(mf_ll_con, V, W, pion_mom);
+  }else{ 
+    assert(GJP.Gparity());
+    computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy>::computeMesonFields(mf_ll_con, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  }
+
+  time += dclock();
+  print_time("main","Light-light 1s pion meson fields",time);
+
+  printMem("Memory after light-light 1s pion meson field computation");
+}
+
 
 template<typename PionMomentumPolicy>
 void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){

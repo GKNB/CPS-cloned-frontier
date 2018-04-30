@@ -411,6 +411,8 @@ public:
     const std::pair<int,int> opt_loc = static_cast<Derived const*>(this)->clist_opt_map[orig_cidx];
     return static_cast<Derived const*>(this)->mf[opt_loc.first][opt_loc.second];
   }
+  inline storageType & operator()(const int orig_cidx){ return this->operator[](orig_cidx); }
+  inline const storageType & operator()(const int orig_cidx) const{ return this->operator[](orig_cidx); }
 
   typedef int accessorIdxType;
 };

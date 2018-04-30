@@ -118,6 +118,8 @@ public:
   //Read/write to binary files per node with separate metadata files. User provides path which is created internally
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void readParallelSeparateMetadata(const std::string &path);
+
+  inline void free_mem(){  std::vector<PtrWrapper<FermionFieldType> >().swap(v); }
 };
 
 
@@ -387,6 +389,11 @@ public:
   //Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
   void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
   void readParallelSeparateMetadata(const std::string &path);
+
+  inline void free_mem(){ 
+    std::vector<PtrWrapper<FermionFieldType> >().swap(wl);
+    std::vector<PtrWrapper<ComplexFieldType> >().swap(wh); 
+  }
 };
 
 

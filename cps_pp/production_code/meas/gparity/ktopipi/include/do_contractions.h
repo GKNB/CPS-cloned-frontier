@@ -227,6 +227,77 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
   }
 }
 
+struct AllPionMomenta{
+  std::vector<ThreeMomentum> p;
+  inline int nMom() const{ return p.size(); }
+
+  template<typename From>
+  inline void import(const From &from){
+    for(int i=0;i<from.nMom();i++) p.push_back(from.getMesonMomentum(i));
+  }
+    
+  inline ThreeMomentum getMesonMomentum(const int i) const{ return p[i]; }
+};
+
+//Extended calculation with additional pion momenta
+void doContractionsExtendedCalcV1(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
+				  A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
+				  A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
+				  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  //-------------------Fix gauge----------------------------
+  doGaugeFix(lat, cmdline.skip_gauge_fix, params);
+
+  //-------------------------Compute the kaon two-point function---------------------------------
+  StationaryKaonMomentaPolicy kaon_mom_std;
+  if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,kaon_mom_std,conf,lat,params,field3dparams,cmdline.randomize_mf);
+
+  //-------------------------Compute the LL meson fields ------------------------  
+  //Compute the 1s meson fields with the original set of momenta
+  StandardPionMomentaPolicy pion_mom_std;
+  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_std;
+  computeLLmesonFields1s(mf_ll_con_std, V, W, pion_mom_std, lat, params, field3dparams, cmdline.randomize_mf);
+
+  //Do 1s pion, compute K->pipi
+  //then reverse and symmetrize, then recompute K->pipi
+  //After this we no longer need the strange A2A vectors and we can free them for extra memory.
+  StandardLSWWmomentaPolicy lsWW_mom_std;
+  LSWWmesonFields mf_ls_ww_con_std;
+  if(cmdline.do_ktopipi){
+    computeKtoPiPi(mf_ll_con_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf,&mf_ls_ww_con_std);
+  }
+
+  ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
+  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
+  computeLLmesonFields1s(mf_ll_con_symm, V, W, pion_mom_rev, lat, params, field3dparams, cmdline.randomize_mf);
+  mf_ll_con_symm.average(mf_ll_con_std);
+  mf_ll_con_std.free_mem();
+
+  if(cmdline.do_ktopipi){  
+    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con_symm,pion_mom_std,conf,params,"1s","",false,"_symmpi");
+  }
+
+  //Free strange quark fields 
+  V_s.free_mem();
+  W_s.free_mem();
+  mf_ls_ww_con_std.free_mem();
+  
+  //Compute the other 24 meson fields (symmetrized by default)
+  ExtendedPionMomentaPolicy pion_mom_extended_symm;
+  computeLLmesonFields1s(mf_ll_con_symm, V, W, pion_mom_extended_symm, lat, params, field3dparams, cmdline.randomize_mf);
+
+  AllPionMomenta all_pimom; all_pimom.import(pion_mom_std); all_pimom.import(pion_mom_extended_symm);
+
+   //----------------------------Compute the pion two-point function--------------------------------- */
+  if(cmdline.do_pion2pt) computePion2pt(mf_ll_con_symm, all_pimom, conf, params, "_symm");
+
+  if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con_symm, "pipi_correlators.in", all_pimom, conf, params, "_symm");
+}
+
+
+
+
+
+
 
 
 void doContractions(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
@@ -240,6 +311,8 @@ void doContractions(const int conf, Parameters &params, const CommandLineArgs &c
   doContractionsStandardAndSymmetric(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
 #elif defined(USE_STANDARD_AND_SYMMETRIC_PION_MOM_POLICIES)
   doContractionsStandardAndSymmetricPion(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
+#elif defined(DO_EXTENDED_CALC_V1)
+  doContractionsExtendedCalcV1(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
 #else
   doContractionsBasic(conf,params,cmdline,lat,V,W,V_s,W_s,field3dparams);
 #endif

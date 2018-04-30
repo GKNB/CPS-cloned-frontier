@@ -36,7 +36,6 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
 				const LSWWmesonFields &mf_ls_ww_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 				const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, 
 				const std::string &src_descr, const std::string &src_fappend, bool do_type4, const std::string &postpend = ""){
-  const int nmom = pion_mom.nMom();
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
   typedef ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
@@ -52,18 +51,25 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
   int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
 #define TYPE1_DO_ASSUME_ROTINVAR_GP3  //For GPBC in 3 directions we can assume rotational invariance around the G-parity diagonal vector (1,1,1) and therefore calculate only one off-diagonal momentum
 
+#ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3
+  int nmom = 4;
+  ThreeMomentum p_pi1_all[4] = { ThreeMomentum(-2,-2,-2), ThreeMomentum(2,-2,-2),
+				 ThreeMomentum(2,2,2), ThreeMomentum(-2,2,2) };  // p_pi1 = (-1,-1,-1), (1,1,1) [diag] (1,-1,-1), (-1,1,1) [orth] only
+#else
+  int nmom = 8;
+  ThreeMomentum p_pi1_all[8] = { ThreeMomentum(-2,-2,-2), ThreeMomentum(2,-2,-2), ThreeMomentum(-2,2,-2), ThreeMomentum(-2,-2,2),
+				 ThreeMomentum(2,2,2), ThreeMomentum(-2,2,2), ThreeMomentum(2,-2,2), ThreeMomentum(2,2,-2) };
+#endif
+
   if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",nmom);
   double time = -dclock();
-    
-  for(int pidx=0; pidx < nmom; pidx++){
-#ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3
-    if(ngp == 3 && pidx >= 4) continue; // p_pi1 = (-1,-1,-1), (1,1,1) [diag] (1,-1,-1), (-1,1,1) [orth] only
-#endif
-      
-    if(!UniqueID()) printf("Starting type 1 contractions with pidx=%d and source %s\n",pidx,src_descr.c_str());
+
+  for(int pidx=0; pidx < nmom; pidx++){     
+    ThreeMomentum p_pi1 = p_pi1_all[pidx];
+
+    if(!UniqueID()) printf("Starting type 1 contractions with p_pi1=%s and source %s\n",p_pi1.str().c_str(),src_descr.c_str());
     printMem("Memory status before type1 K->pipi");
 
-    ThreeMomentum p_pi1 = pion_mom.getMesonMomentum(pidx);
     std::vector<ResultsContainerType> type1;
     ComputeKtoPiPiGparity<A2Apolicies>::type1(type1,
 					      k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, params.jp.xyzstep_type1, p_pi1,
@@ -199,6 +205,7 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
    }
 }
 
+//Both 2s and 1s
 template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
 void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
 		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
@@ -217,6 +224,29 @@ void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFi
   
   if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww_con.mf_ls_ww);
 }
+
+//Just 1s
+template<typename PionMomentumPolicy, typename LSWWmomentumPolicy>
+void computeKtoPiPi(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
+		    const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+		    const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
+		    Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
+		    const PionMomentumPolicy &pion_mom, const LSWWmomentumPolicy &lsWW_mom, const int conf, const Parameters &params, bool randomize_mf,
+		    LSWWmesonFields* mf_ls_ww_keep = NULL){
+
+  
+  //We first need to generate the light-strange W*W contraction
+  LSWWmesonFields mf_ls_ww_con;
+  computeKtoPipiWWmesonFields(mf_ls_ww_con,W,W_s,lat,field3dparams,lsWW_mom,params,randomize_mf);
+  printMem("Memory after computing W*W meson fields");
+
+  computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con,mf_ll_con,pion_mom,conf,params,"1s","",true,"");
+
+  if(mf_ls_ww_keep != NULL) mf_ls_ww_keep->move(mf_ls_ww_con.mf_ls_ww);
+}
+
+
+
 
 
 //Versions of the above but where meson fields are temporarily stored to disk to save space
