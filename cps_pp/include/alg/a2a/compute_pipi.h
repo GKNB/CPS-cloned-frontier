@@ -181,9 +181,10 @@ public:
   static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
 		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
 		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
-
 		      const int tsep, const int tstep_src,
-		      MesonFieldMomentumContainer<mf_Policies> &mesonfields, MesonFieldProductStore<mf_Policies> &products
+		      MesonFieldMomentumContainer<mf_Policies> &src_mesonfields,
+		      MesonFieldMomentumContainer<mf_Policies> &snk_mesonfields,
+		      MesonFieldProductStore<mf_Policies> &products
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
 		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
 #endif		      
@@ -191,9 +192,10 @@ public:
     if(!GJP.Gparity()) ERR.General("ComputePiPiGparity","compute(..)","Implementation is for G-parity only; different contractions are needed for periodic BCs\n"); 
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
-    ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi1_snk, &p_pi2_src, &p_pi2_snk };
-    for(int p=0;p<4;p++)
-      if(!mesonfields.contains(*mom[p])) ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
+    ThreeMomentum const* mom[4] = { &p_pi1_src, &p_pi2_src, &p_pi1_snk, &p_pi2_snk };
+    for(int p=0;p<2;p++)
+      if(! (p < 2 ? src_mesonfields.contains(*mom[p]) : snk_mesonfields.contains(*mom[p]) ) ) 
+	ERR.General("ComputePiPiGparity","compute(..)","Meson field container doesn't contain momentum %s\n",mom[p]->str().c_str());
 
     if(Lt % tstep_src != 0) ERR.General("ComputePiPiGparity","compute(..)","tstep_src must divide the time range exactly\n"); 
     
@@ -202,10 +204,10 @@ public:
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
 
-    std::vector<MfType >& mf_pi1_src = mesonfields.get(p_pi1_src);
-    std::vector<MfType >& mf_pi2_src = mesonfields.get(p_pi2_src);
-    std::vector<MfType >& mf_pi1_snk = mesonfields.get(p_pi1_snk);
-    std::vector<MfType >& mf_pi2_snk = mesonfields.get(p_pi2_snk);
+    std::vector<MfType >& mf_pi1_src = src_mesonfields.get(p_pi1_src);
+    std::vector<MfType >& mf_pi2_src = src_mesonfields.get(p_pi2_src);
+    std::vector<MfType >& mf_pi1_snk = snk_mesonfields.get(p_pi1_snk);
+    std::vector<MfType >& mf_pi2_snk = snk_mesonfields.get(p_pi2_snk);
     
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     //Get the meson fields we require. Only get those for the timeslices computed on this node
@@ -262,6 +264,26 @@ public:
       nodeDistributeUnique(mf_pi2_src, 2, &mf_pi1_snk, &mf_pi2_snk);
     }  
 #endif
+  }
+
+  //Source and sink meson field set is the same
+  static void compute(fMatrix<typename mf_Policies::ScalarComplexType> &into, const char diag, 
+		      const ThreeMomentum &p_pi1_src, const ThreeMomentum &p_pi2_src,
+		      const ThreeMomentum &p_pi1_snk, const ThreeMomentum &p_pi2_snk, 
+		      const int tsep, const int tstep_src,
+		      MesonFieldMomentumContainer<mf_Policies> &srcsnk_mesonfields,
+		      MesonFieldProductStore<mf_Policies> &products
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+		      , bool do_redistribute_src = true, bool do_redistribute_snk = true
+#endif		      
+		      ){
+    compute(into,diag,p_pi1_src,p_pi2_src,p_pi1_snk,p_pi2_snk,tsep,tstep_src,
+	    srcsnk_mesonfields,srcsnk_mesonfields,
+	    products
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	    , do_redistribute_src, do_redistribute_snk
+#endif	
+	    );
   }
 
   //Calculate for p_cm=(0,0,0)

@@ -482,6 +482,76 @@ public:
 
 
 
+template<typename mf_Policies, typename PionMomentumPolicy>
+class computeGparityLLmesonFieldsPoint{
+public:
+  INHERIT_FROM_BASE;
+
+  typedef A2AflavorProjectedPointSource<SourcePolicies> PointSrcType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,PointSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+  typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
+   
+public:
+
+  static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
+				 const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
+				 Wtype &W, Vtype &V,
+				 Lattice &lattice,
+				 const FieldParamType &src_setup_params = NullObject()){
+    assert(GJP.Gparity());
+    Float time = -dclock();    
+    std::vector<Wtype*> Wspecies(1, &W);
+    std::vector<Vtype*> Vspecies(1, &V);
+
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nmom = pion_mom.nMom();
+
+/* #ifdef ARCH_BGQ */
+/*     int init_thr = omp_get_max_threads(); */
+/*     if(init_thr > 32) omp_set_num_threads(32); */
+/* #endif */
+      
+    PointSrcType src(src_setup_params);
+    InnerType g5_s3_inner(sigma3, src);    
+    StorageType mf_store(g5_s3_inner,src);
+    
+    std::vector< std::vector<int> > toavg(nmom);
+
+    int cidx = 0;
+    for(int pidx=0;pidx<nmom;pidx++){      
+      for(int alt=0;alt<pion_mom.nAltMom(pidx);alt++){
+	ThreeMomentum p_w = pion_mom.getWmom(pidx,alt);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,alt);
+	mf_store.addCompute(0,0, p_w,p_v);
+	toavg[pidx].push_back(cidx++);
+      }
+    }
+
+    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+										       ,true
+#endif
+										       );
+/* #ifdef ARCH_BGQ */
+/*     omp_set_num_threads(init_thr); */
+/* #endif */
+  
+    struct indexer{
+      const std::vector<int> &cidx;
+      indexer(const std::vector<int> &cidx): cidx(cidx){}
+      inline int operator()(const int i) const{ return cidx[i]; }
+    };
+    for(int pidx=0;pidx<nmom;pidx++){
+      indexer idxr(toavg[pidx]);
+      stridedAverageFree(mf_store, idxr, toavg[pidx].size());
+      mf_con.moveAdd(pion_mom.getMesonMomentum(pidx), mf_store[toavg[pidx][0]]);
+    }
+  }
+
+};
+
+
+
 
 
 //Methods for generating meson fields for 1s and point sources together

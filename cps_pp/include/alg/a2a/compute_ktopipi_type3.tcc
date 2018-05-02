@@ -86,7 +86,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
   resize_2d(con_pi1_pi2_k,tpi_sampled,ntsep_k_pi);
   resize_2d(con_pi2_pi1_k,tpi_sampled,ntsep_k_pi);
 
-  A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> tmp_WV;
+  A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> WV_pi1pi2, WV_pi2pi1;
   A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> tmp_pi1pi2, tmp_pi2pi1;
 
   int nmom = p_pi_1_all.size();
@@ -115,17 +115,17 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
       int tpi1_idx = tpi1/tstep;
       int tpi2 = modLt(tpi1  + tsep_pion, Lt);
 
+      mult(WV_pi1pi2, mf_pi1[tpi1], mf_pi2[tpi2]); //we can re-use this from type 2 I think
+      mult(WV_pi2pi1, mf_pi2[tpi2], mf_pi1[tpi1]);
+
       for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
 	int tk = modLt(tpi1 - tsep_k_pi[tkp], Lt);
       
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> *into_pi1_pi2 = pidx == 0 ? &con_pi1_pi2_k[tpi1_idx][tkp] : &tmp_pi1pi2;
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> *into_pi2_pi1 = pidx == 0 ? &con_pi2_pi1_k[tpi1_idx][tkp] : &tmp_pi2pi1;
 	  
-	mult(tmp_WV, mf_pi1[tpi1], mf_pi2[tpi2]); //we can re-use this from type 2 I think
-	mult(*into_pi1_pi2, tmp_WV, mf_kaon[tk]);
-	  
-	mult(tmp_WV, mf_pi2[tpi2], mf_pi1[tpi1]);
-	mult(*into_pi2_pi1, tmp_WV, mf_kaon[tk]);
+	mult(*into_pi1_pi2, WV_pi1pi2, mf_kaon[tk]);	 
+	mult(*into_pi2_pi1, WV_pi2pi1, mf_kaon[tk]);
 	  
 	if(pidx > 0){
 	  con_pi1_pi2_k[tpi1_idx][tkp].plus_equals(tmp_pi1pi2,true);

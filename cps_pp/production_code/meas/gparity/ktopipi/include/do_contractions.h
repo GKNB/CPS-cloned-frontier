@@ -224,6 +224,14 @@ void doContractionsStandardAndSymmetricPion(const int conf, Parameters &params, 
   if(cmdline.do_ktopipi){  
     printMem("Memory after computing W*W meson fields");
     computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con_symm,mf_ll_con_2s_symm,pion_mom_std,conf,params,"_symmpi");
+
+    //Do the reversed kaon too for testing
+    // {
+    //   ReverseLSWWmomentaPolicy lsWW_mom_rev;
+    //   LSWWmesonFields mf_ls_ww_con_rev;
+    //   computeKtoPipiWWmesonFields(mf_ls_ww_con_rev,W,W_s,lat,field3dparams,lsWW_mom_rev,params,cmdline.randomize_mf);
+    //   computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_rev,mf_ll_con_symm,mf_ll_con_2s_symm,pion_mom_std,conf,params,"_symmpi_revtest");
+    // }
   }
 }
 
