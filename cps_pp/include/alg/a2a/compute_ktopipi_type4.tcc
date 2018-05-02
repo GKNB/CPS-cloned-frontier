@@ -145,6 +145,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
     for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
       int thread_id = omp_get_thread_num();
 
+      //Construct part 2 (doesn't care about kaon timeslice):
+      //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
+      SCFmat part2_L, part2_H;
+      mult(part2_L, vL, wL, xop3d_loc, top_loc, false, true);
+      mult(part2_H, vH, wH, xop3d_loc, top_loc, false, true);
+      
       for(int t_K = 0; t_K < Lt; t_K += tstep){ //global times
 	int t_dis = modLt(top_glb - t_K, Lt); //distance between kaon and operator is the output time coordinate
 
@@ -159,14 +165,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
 #else
 	part1 = mult_vMv_contracted_part1[t_K/tstep][xop3d_loc];
 #endif
-
-	part1.gr(-5);
-		
-	//Construct part 2:
-	//vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)  (CK: should re-use these from type-3)
-	SCFmat part2_L, part2_H;
-	mult(part2_L, vL, wL, xop3d_loc, top_loc, false, true);
-	mult(part2_H, vH, wH, xop3d_loc, top_loc, false, true);
+	part1.gr(-5);	       
 
 	type4_contract(result,t_K,t_dis,thread_id,part1,part2_L,part2_H);
 
