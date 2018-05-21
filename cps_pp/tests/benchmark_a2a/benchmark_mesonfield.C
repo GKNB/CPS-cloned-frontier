@@ -115,8 +115,9 @@ int main(int argc,char *argv[])
       }
       i+=4;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
-      exit(-1);
+      i++;
+      //if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+      //exit(-1);
     }
   }
 
@@ -199,7 +200,7 @@ int main(int argc,char *argv[])
   if(0) testA2AvectorFFTrelnGparity<GridA2Apolicies>(a2a_args,lattice);
 #endif
   
-  if(1) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
   if(0) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
 #endif
@@ -265,6 +266,12 @@ int main(int argc,char *argv[])
   if(0) benchmarkCPSfieldIO();
 
   if(0) testPointSource();
+
+#ifdef USE_GRID
+  if(0) testLMAprop<GridA2Apolicies>(lattice,argc,argv);
+#endif
+
+  if(1) testSCFmat();
 
   Grid::vComplexD a, b;
 

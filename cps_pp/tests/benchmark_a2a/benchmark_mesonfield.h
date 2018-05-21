@@ -3341,13 +3341,281 @@ void benchmarkTest(){
   
   CPSfermion4D<Grid::vComplexD,FourDSIMDPolicy<DynamicFlavorPolicy> > in(simd_dims);
   in.importField(rnd4d);
+}
 
 
+template<typename GridA2Apolicies>
+void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char* argv[]){
+  NullObject null_obj;
+  lattice.BondCond();
+  CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
+  cps_gauge.exportGridField(*lattice.getUmu());
+  lattice.BondCond();
+
+  if(lattice.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
+
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lattice,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+
+  LancArg lanc_arg;
+  bool read_larg = false;
+  for(int i=1;i<argc;i++){
+    if(std::string(argv[i]) == "-lanc_arg"){
+      if(!lanc_arg.Decode(argv[i+1],"lanc_arg")){
+	ERR.General("Parameters","Parameters","Can't open %s!\n",argv[i+1]);
+      }
+      read_larg = true;
+      break;
+    }
+  }
+  if(!read_larg){
+    lanc_arg.mass = 0.01;
+    lanc_arg.stop_rsd = 1e-08;
+    lanc_arg.qr_rsd = 1e-13;
+    lanc_arg.N_true_get = 100;
+    lanc_arg.N_get = 100;
+    lanc_arg.N_use = 120;
+    lanc_arg.EigenOper = DDAGD;
+    lanc_arg.precon = 1;
+    lanc_arg.ch_ord = 80;
+    lanc_arg.ch_alpha = 6.6;
+    lanc_arg.ch_beta = 1;
+    lanc_arg.lock = 0;
+    lanc_arg.maxits = 10000;
+  }    
+
+  GridLanczosWrapper<GridA2Apolicies> lanc;
+
+  lanc.compute(lanc_arg, lattice);
+
+  A2AArg a2a_args;
+  a2a_args.nl = 100;
+  a2a_args.nhits = 0;
+  a2a_args.rand_type = UONE;
+  a2a_args.src_width = 1;
+  
+  const int nsimd = Grid::vComplexD::Nsimd();      
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd);
+
+  A2AvectorV<GridA2Apolicies> V(a2a_args, simd_dims);
+  A2AvectorW<GridA2Apolicies> W(a2a_args, simd_dims);
+
+  W.computeVWlow(V, lattice, lanc.evec, lanc.eval, lanc.mass);
+  
+  //v_i^dag G v_i = (1/L_i)
+  //v_i^dag G^dag v_i = (1/L_i*)
+
+  //Let M be the number of eigenvectors of the matrix, and N < M
+
+  //LMA = \sum_{i=0}^N v_i (1/L_i) v_i^dag
+  //LMA^dag = \sum_{i=0}^N v_i (1/L_i*) v^dag_i
+  //        = \sum_{i=0}^N v_i v_i^dag G^dag v_i v^dag_i
+  //        = \sum_{i=0}^N v_i v_i^dag g5 G g5 v_i v^dag_i
+
+  //G = \sum_{i=0}^M v_i (1/L_i) v_i^dag   because  G v_j = (1/L_j) v_j    v_i^dag v_j = delta_ij   
+
+  //D G = 1 = \sum_{i=0}^M v_i v_i^dag
+
+  //thus for N=M
+  //LMA^dag
+  //        = g5 G g5 = g5 LMA g5
   
 
 
 
+
+  //LMA - g5 LMA^dag g5 
+  //= \sum_{i=0}^N   [  v_i (1/L_i) v_i^dag  -  g5 v_i (1/L^*_i) v^dag_i g5 ]
+  //= 
+
+
+  //\sum_y D(x,y) v_i(y) = L_i v_i(x)
+  //\sum_xy G(z,x) D(x,y) v_i(y) = \sum_x G(z,x) L_i v_i(x)
+  //v_i(z) = \sum_x G(z,x) L_i v_i(x)
+
+  //v_i(z) = \sum_x g5 G^dag(x,z) g5 L_i v_i(x)
+  //       = [\sum_x v_i^dag(x) L_i g5 G(x,z) g5]^dag
+  
+  //v_i^dag(z) = \sum_x  v_i^dag(x) L_i g5 G(x,z) g5
+
+  //\sum_y G(x,y) v_i(y) = (1/L_i) v_i(x)
+  //\sum_y v_i^dag(y) G^dag(y,x) = (1/L_i) v_i^dag(x)
+  
+
+
+
+  //LMA(x) =  \sum_{i=0}^{N} v_i(x) (1/L_i) v_i^dag(x)
+  //       =  \sum_{i=0}^{N} v_i(x) (1/L_i) \sum_z v_i^dag(z) L_i g5 G(z,x) g5
+  //       =  \sum_z \sum_{i=0}^{N} v_i(x) v_i^dag(z) g5 G(z,x) g5
+  //       == \sum_z \sum_{i=0}^{N} 
+
+
+  //Make meson fields
+  //Test g5 hermiticity and cc reln exactness 
+
+  //g5-herm
+  //sum_{x,y}e^{-ip1x} e^{-ip2y}  tr( G^dag(x,y) ) == sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) )
+  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( [V_i(x)W_i^dag(y)]^dag )  = tr( [sum_{x,y}e^{+ip1x} e^{+ip2y}V_i(x)W_i^dag(y)] )^* = M_ii(-p2,-p1)^* 
+  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) ) = tr( [sum_{x,y}e^{-ip1x} e^{-ip2y} V(y)W^dag(x)] ) = M(p1,p2)
+  
+
+  //sum_{x,y}e^{-ip1x} e^{-ip2y}  tr( G^dag(x,y) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) ) == sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) )
+
+  //q(p) = exp(i n(p) \pi)   = +/- 1
+  //q^dag(p) = exp(-i n(p)\pi ) = q(p)
+
+  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr(  G^dag(x,y) O(x-y) A^dag(x)  A(y) s3 (1 + q(p1)s2) )  
+  //[ sum_{x,y}e^{+ip1x} e^{+ip2y} tr(  (1 + q(p1)s2) )s3 A^dag(y) A(x) O(x-y) G(x,y)    ]^*
+  //[ sum_{x,y}e^{+ip1x} e^{+ip2y} tr( G(x,y) O(x-y) A^dag(y) A(x) s3(1 + q(-p1)s2) ) ]^*
+  //[ M_ii(-p2,-p1) ]^*
+
+  //sum_{x,y}e^{-ip1x} e^{-ip2y} tr( G(y,x) O(x-y) A^dag(x) A(y) s3(1 + q(p1)s2) )
+  //M_ii(p1,p2)
+
+  typedef typename A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
+  typedef typename A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
+  SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
+
+  typedef A2AflavorProjectedExpSource<typename GridA2Apolicies::SourcePolicies> ExpSrcType;
+  
+  int p1[3] = {1,1,1}; //n1 = (0,0,0)    exp(in1) = 1
+  int p2[3] = {-3,1,-3}; //n2 = (-2,0,-2)    exp(in2) = 1
+  int mp1[3] = {-1,-1,-1}; //nmp1 = (-1,-1,-1)   exp(imp1) = -1
+  int mp2[3] = {3,-1,3}; //nmp2 = (1,-1,1)  exp(inmp2) = -1
+
+  typedef typename GridA2Apolicies::ComplexType ComplexType;
+  typedef typename GridA2Apolicies::ScalarComplexType ScalarComplexType;
+
+  typedef SCFspinflavorInnerProduct<0,ComplexType,ExpSrcType,true,false> ExpInnerType;
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  std::vector< A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_mp2_mp1;
+  {
+    ExpSrcType src_mp2_mp1(2.0, mp1, sfp); //momentum associated with the V
+    ExpInnerType inner_mp2_mp1(sigma3, src_mp2_mp1);
+
+    A2AvectorVfftw<GridA2Apolicies> Vfftw(a2a_args,simd_dims);
+    Vfftw.gaugeFixTwistFFT(V,mp1,lattice);
+    
+    A2AvectorWfftw<GridA2Apolicies> Wfftw(a2a_args,simd_dims);
+    Wfftw.gaugeFixTwistFFT(W,p2,lattice);
+  
+    A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_mp2_mp1, Wfftw, inner_mp2_mp1, Vfftw);
+  }
+
+  std::vector< A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_p1_p2;
+  {
+    ExpSrcType src_p1_p2(2.0, p2, sfp);  
+    ExpInnerType inner_p1_p2(sigma3, src_p1_p2);
+
+    A2AvectorVfftw<GridA2Apolicies> Vfftw(a2a_args,simd_dims);
+    Vfftw.gaugeFixTwistFFT(V,p2,lattice);
+    
+    A2AvectorWfftw<GridA2Apolicies> Wfftw(a2a_args,simd_dims);
+    Wfftw.gaugeFixTwistFFT(W,mp1,lattice);
+  
+    A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_p1_p2, Wfftw, inner_p1_p2, Vfftw);
+  }
+
+  for(int t=0;t<Lt;t++){
+    ScalarComplexType a = std::conj(trace(mf_mp2_mp1[t]));
+    ScalarComplexType b = trace(mf_p1_p2[t]);
+
+    std::cout << t << " " << a.real() << " " << a.imag() << " " << b.real() << " " << b.imag() << std::endl;
+  }
+
+
+
+  //g5-herm:
+  //Tr( G^dag(x,y) G^dag(y,x) ) = Tr ( G(y,x) G(x,y) )
+
 }
+
+
+void testSCFmat(){
+  typedef std::complex<double> ComplexType;
+  typedef CPSspinMatrix<ComplexType> SpinMat;
+
+  SpinMat one; one.unit();
+  SpinMat minusone(one); minusone *= -1.;
+  SpinMat zero; zero.zero();
+
+  //Test 1.gr(i) == 1.gl(i)
+  {
+    std::cout << "Test 1.gr(i) == 1.gl(i)\n";
+    for(int i=0;i<5;i++){
+      int mu = i<4 ? i : -5;
+      SpinMat a(one); a.gr(mu);
+      SpinMat b(one); b.gl(mu);
+      std::cout << mu << " " << a << "\n" << b << std::endl;
+      assert(a==b);
+    }
+  }
+
+  SpinMat gamma[6] = {one,one,one,one,one,one};
+  for(int i=0;i<4;i++) gamma[i].gr(i);
+  gamma[5].gr(-5);
+
+  //Test anticommutation reln
+  {
+    SpinMat two(one); two *= 2.; 
+    std::cout << "Test anticommutation reln\n";
+
+    for(int mu=0;mu<4;mu++){
+      for(int nu=0; nu<4; nu++){
+	SpinMat c = gamma[mu]*gamma[nu] + gamma[nu]*gamma[mu];
+	std::cout << mu << " " << nu << " " << c << std::endl;
+	if(mu == nu) assert(c == two);
+	else assert(c == zero);
+      }
+    }
+  }
+
+  //Test glAx
+  {
+    std::cout << "Testing glAx\n";
+    for(int mu=0;mu<4;mu++){
+      SpinMat a(one); a.glAx(mu);
+      SpinMat b(one); b.gl(-5).gl(mu);
+      std::cout << mu << " " << a << "\n" << b << std::endl;
+      assert(a==b);
+    }
+  }
+
+  //Test grAx
+  {
+    std::cout << "Testing grAx\n";
+    for(int mu=0;mu<4;mu++){
+      SpinMat a(one); a.grAx(mu);
+      SpinMat b(one); b.gr(mu).gr(-5);
+      std::cout << mu << " " << a << "\n" << b << std::endl;
+      assert(a==b);
+
+      SpinMat c(one); c.glAx(mu); c.grAx(mu); 
+      
+      std::cout << mu << " pow2 " << c << std::endl;
+      assert(c == minusone);
+    }
+  }
+
+
+
+}
+
+
+
 #endif
 
 

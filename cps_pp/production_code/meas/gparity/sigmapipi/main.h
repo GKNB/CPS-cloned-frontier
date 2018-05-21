@@ -303,13 +303,12 @@ void doGaugeFix(Lattice &lat, const bool skip_gauge_fix, const Parameters &param
 }
 
 void computePionMesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con_2s,
-			  typename ComputePion<A2Apolicies>::Vtype &V, typename ComputePion<A2Apolicies>::Wtype &W,
-			  const StandardPionMomentaPolicy &pion_mom,
-			  const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+			    typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+			    const StandardPionMomentaPolicy &pion_mom,
+			    const int conf, Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
   if(!UniqueID()) printf("Computing pion meson fields\n");
   double time = -dclock();
-  if(!GJP.Gparity()) ComputePion<A2Apolicies>::computeMesonFields(mf_ll_con, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
-  else ComputePion<A2Apolicies>::computeGparityMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  computeGparityLLmesonFields1s2s<A2Apolicies,StandardPionMomentaPolicy>::computeMesonFields(mf_ll_con, mf_ll_con_2s, params.meas_arg.WorkDirectory,conf, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
   time += dclock();
   print_time("main","Pion meson fields",time);
 
@@ -610,8 +609,8 @@ struct ComputePiPiToSigmaContractions{
     cps::sync();
 #endif
 
-    //Do the contraction  +sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
-    //We can relate the two terms by g5-hermiticity
+    //Do the contraction  -sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
+    //We can relate the two terms by g5-hermiticity and invoking parity and the reality of the correlation function under the ensemble average
 #define PIPI_SIGMA_USE_G5_HERM
 
     if(do_work){
@@ -631,7 +630,7 @@ struct ComputePiPiToSigmaContractions{
 	ScalarComplexType incr(0,0);
 	incr += trace(pi_prod, mf_sigma[tsnk]);
 
-	into(tsrc,tdis) +=  sqrt(6.)/2. * incr; 	
+	into(tsrc,tdis) +=  -sqrt(6.)/2. * incr; 	
 #else
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod_1, pi_prod_2;
 	mult(pi_prod_1, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
@@ -641,11 +640,7 @@ struct ComputePiPiToSigmaContractions{
 	incr += trace(pi_prod_1, mf_sigma[tsnk]);
 	incr += trace(pi_prod_2, mf_sigma[tsnk]);
 
-	into(tsrc,tdis) +=  sqrt(6.)/4. * incr; //extra 1/2 from average of 2 topologies
-#endif
-
-#ifdef USE_TIANLES_CONVENTIONS
-	into(tsrc,tdis) *= -1.;
+	into(tsrc,tdis) +=  -sqrt(6.)/4. * incr; //extra 1/2 from average of 2 topologies
 #endif
       }
     }

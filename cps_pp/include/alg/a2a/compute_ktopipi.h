@@ -116,11 +116,6 @@ public:
 template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
 private:
-  inline static int modLt(int i, const int &Lt){
-    while(i<0) i += Lt;
-    return i % Lt;
-  }
-
   //Determine what node timeslices are actually needed. Returns true if at least one on-node top is needed
   inline static bool getUsedTimeslices(std::vector<bool> &node_top_used, const std::vector<int> &tsep_k_pi, const int t_pi1){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
