@@ -234,14 +234,6 @@ void LanczosTune(const Parameters &params, BFMGridSolverWrapper &solvers){
 void computeVW(A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W, const Parameters &params,
 	       const BFMGridLanczosWrapper<A2Apolicies> &eig, const BFMGridA2ALatticeWrapper<A2Apolicies> &a2a_lat,
 	       const bool randomize_vw){
-  typedef typename A2Apolicies::FermionFieldType::InputParamType Field4DparamType;
-  Field4DparamType field4dparams = V.getFieldInputParams();
-  
-  if(!UniqueID()){ printf("V vector requires %f MB, W vector %f MB of memory\n", 
-			  A2AvectorV<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams), A2AvectorW<A2Apolicies>::Mbyte_size(params.a2a_arg,field4dparams) );
-    fflush(stdout);
-  }
-  
   if(!UniqueID()) printf("Computing light quark A2A vectors\n");
   double time = -dclock();
 
