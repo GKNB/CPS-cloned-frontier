@@ -632,4 +632,62 @@ vml_ActionGaugeArg (VML *vmls, char *name,ActionGaugeArg *objp)
 	 vml_class_end(vmls,"ActionGaugeArg",name);
 	return TRUE;
 }
+	 bool TestA::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool TestA::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool TestA::Vml(VML *vmls,char *instance){
+		 if(!vml_TestA(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_TestA (VML *vmls, char *name,TestA *objp)
+{
+	 vml_class_begin(vmls,"TestA",name);
+	 if (!vml_array (vmls, "num", (char **)&objp->num.num_val, (u_int *) &objp->num.num_len, ~0,
+		sizeof (Float), (vmlproc_t) vml_Float))
+		 return FALSE;
+	 vml_class_end(vmls,"TestA",name);
+	return TRUE;
+}
+	 bool TestB::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool TestB::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool TestB::Vml(VML *vmls,char *instance){
+		 if(!vml_TestB(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_TestB (VML *vmls, char *name,TestB *objp)
+{
+	 vml_class_begin(vmls,"TestB",name);
+	 if (!vml_array (vmls, "test", (char **)&objp->test.test_val, (u_int *) &objp->test.test_len, ~0,
+		sizeof (TestA), (vmlproc_t) vml_TestA))
+		 return FALSE;
+	 vml_class_end(vmls,"TestB",name);
+	return TRUE;
+}
 CPS_END_NAMESPACE

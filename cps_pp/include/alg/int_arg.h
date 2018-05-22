@@ -279,6 +279,30 @@ public:
 	ActionArg action_arg;
 };
 
+class VML;
+class TestA {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	struct {
+		u_int num_len;
+		Float *num_val;
+	} num;
+};
+
+class VML;
+class TestB {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	struct {
+		u_int test_len;
+		TestA *test_val;
+	} test;
+};
+
 /* the xdr functions */
 
 #ifdef __cplusplus
@@ -304,6 +328,8 @@ extern  bool_t vml_QuotientDescr (VML *, char *instance, QuotientDescr*);
 extern  bool_t vml_ActionQuotientArg (VML *, char *instance, ActionQuotientArg*);
 extern  bool_t vml_ActionRationalQuotientArg (VML *, char *instance, ActionRationalQuotientArg*);
 extern  bool_t vml_ActionGaugeArg (VML *, char *instance, ActionGaugeArg*);
+extern  bool_t vml_TestA (VML *, char *instance, TestA*);
+extern  bool_t vml_TestB (VML *, char *instance, TestB*);
 
 #else /* K&R C */
 extern  bool_t vml_IntABArg (VML *, char *instance, IntABArg*);
@@ -324,6 +350,8 @@ extern  bool_t vml_QuotientDescr (VML *, char *instance, QuotientDescr*);
 extern  bool_t vml_ActionQuotientArg (VML *, char *instance, ActionQuotientArg*);
 extern  bool_t vml_ActionRationalQuotientArg (VML *, char *instance, ActionRationalQuotientArg*);
 extern  bool_t vml_ActionGaugeArg (VML *, char *instance, ActionGaugeArg*);
+extern  bool_t vml_TestA (VML *, char *instance, TestA*);
+extern  bool_t vml_TestB (VML *, char *instance, TestB*);
 
 #endif /* K&R C */
 

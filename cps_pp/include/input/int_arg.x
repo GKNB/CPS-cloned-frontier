@@ -206,3 +206,10 @@ class ActionGaugeArg {
   ActionArg action_arg;
 
 };
+
+class TestA{
+  Float num<>;
+};
+class TestB{
+  TestA test<>;
+};
