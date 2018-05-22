@@ -109,13 +109,30 @@ public:
     }
   }
 
+  void write(const std::string &file_stub, const bool redistribute){
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	std::ostringstream f;  f<<file_stub << "_mom" << it->first.file_str() << ".dat";
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	nodeGetMany(1,it->second);
+#endif
+	MfType::write(f.str(), *it->second);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+	if(redistribute) nodeDistributeMany(1,it->second);
+#endif
+      }
+    }
+  }
+
   //Store the meson fields to disk and free their memory. Intended for temporary storage
   void dumpToDiskAndFree(const std::string &file_stub){
     double time = -dclock();
     for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
       if(it->second != NULL){
 	std::ostringstream f;  f<<file_stub << "_mom" << it->first.file_str() << ".dat";
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
 	nodeGetMany(1,it->second);
+#endif
 	MfType::write(f.str(), *it->second);
 	int n = it->second->size();
 	for(int i=0;i<n;i++) it->second->at(i).free_mem();
