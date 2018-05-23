@@ -2,13 +2,7 @@
 #include <complex>
 #include <stdio.h>
 #include <stdlib.h>
-#include <util/random.h>
-#include <util/gjp.h>
-#include <util/time_cps.h>
-#include <util/error.h>
-#include <util/lat_data.h>
-#include <alg/alg_fix_gauge.h>
-#include <alg/do_arg.h>
+#include <cps.h>
 
 USING_NAMESPACE_CPS
 

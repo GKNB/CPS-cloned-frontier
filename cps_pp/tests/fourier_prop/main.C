@@ -1,27 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>	// exit()
-#include <comms/sysfunc_cps.h>
-#include <util/lattice.h>
-#include <alg/do_arg.h>
-#include <util/gjp.h>
-#include <util/verbose.h>
-#include <util/error.h>
-#include <alg/alg_plaq.h>
-#include <alg/alg_fourier_prop.h>
-#include <alg/do_arg.h>
-#include <alg/common_arg.h>
-#include <alg/fourierprop_arg.h>
-#include <alg/no_arg.h>
-#include <alg/fix_gauge_arg.h>
-#include <alg/alg_fix_gauge.h>
-#include <util/ReadLatticePar.h>
-#include <util/WriteLatticePar.h>
+#include <cps.h>
 
-//#include <util/CommandLine.h>
 USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
 {
+
+  Start(&argc,&argv);
   printf("Program starting...\n");
 
   DoArg do_arg;

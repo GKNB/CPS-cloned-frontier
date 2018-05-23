@@ -1,25 +1,18 @@
+#ifndef INCLUDED_PT_H
+#define INCLUDED_PT_H
+
 #include<config.h>
-#ifdef PARALLEL
 #include<comms/sysfunc_cps.h>
-#endif
-#if TARGET == QCDOC 
-#include<util/pt_int.h>
-#endif
 #ifdef USE_QMP
 #include<util/pt_int.h>
 #endif
-CPS_START_NAMESPACE
+#include <util/lattice.h>
+#include <util/vector.h>
 /*!\file
   \brief  Definition of the parallel transport classes.
 
 */
 
-#ifndef INCLUDED_PT_H
-#define INCLUDED_PT_H
-
-CPS_END_NAMESPACE
-#include <util/lattice.h>
-#include <util/vector.h>
 //#include <comms/scu.h>
 CPS_START_NAMESPACE
 

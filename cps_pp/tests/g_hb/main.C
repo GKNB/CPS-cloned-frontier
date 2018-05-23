@@ -1,13 +1,4 @@
-#include<config.h>
-
-#include<util/lattice.h>
-#include<alg/do_arg.h>
-#include<alg/alg_ghb.h>
-#include<alg/no_arg.h>
-#include<alg/alg_plaq.h>
-#include<comms/sysfunc_cps.h>
-
-
+#include<cps.h>
 USING_NAMESPACE_CPS
 
 

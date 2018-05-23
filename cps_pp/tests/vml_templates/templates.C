@@ -1,22 +1,4 @@
-#include<config.h>
-
-#include<alg/cg_arg.h>
-#include<alg/hmd_arg.h>
-#include<alg/do_arg.h>
-#include<alg/w_spect_arg.h>
-#include<alg/meas_arg.h>
-#include<alg/pot_arg.h>
-#include<alg/pbp_arg.h>
-#include<alg/array_arg.h>
-#include<alg/fix_gauge_arg.h>
-#include<alg/s_spect_arg.h>
-
-#include<alg/hmc_arg.h>
-#include<alg/int_arg.h>
-#include<alg/eig_arg.h>
-#include<alg/qpropw_arg.h>
-#include<alg/alg_nuc3pt.h>
-#include<alg/eigcg_arg.h>
+#include<cps.h>
 
 //--------------------------------------------------------------
 
@@ -61,6 +43,7 @@ Nuc3ptArg nuc3pt_arg;
 int main(int argc, char *argv[])
 { 
 
+  Start(&argc,&argv);
   Meas.TaskList.TaskList_len = 1;
   Meas.TaskList.TaskList_val = &Task;
 

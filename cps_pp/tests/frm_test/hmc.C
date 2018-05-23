@@ -1,38 +1,8 @@
-#include<config.h>
-
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
 
-#include<util/lattice.h>
-#include<util/random.h>
-
-#include<alg/alg_hmc.h>
-#include<alg/common_arg.h>
-#include<alg/hmc_arg.h>
-#include<alg/hmd_arg.h>
-
-#include<alg/alg_int.h>
-#include<alg/int_arg.h>
-
-#include<alg/no_arg.h>
-#include<alg/do_arg.h>
-#include<alg/alg_plaq.h>
-#include<alg/alg_remez.h>
-
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/error.h>
-#include<util/qcdio.h>
-#include<util/WriteLatticePar.h>
-#include<util/ReadLatticePar.h>
-#include<util/qioarg.h>
-
-#undef USE_SCU_CHECKSUMS
-#ifdef USE_SCU_CHECKSUMS
-#include <qcdocos/scu_checksum.h>
-#endif
-//--------------------------------------------------------------
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 using namespace std;
@@ -51,17 +21,11 @@ EvoArg evo_arg;
 DoArg do_arg;
 NoArg no_arg;
 
-#if TARGET == QCDOC
-extern "C" {
-  void _mcleanup(void);
-}
-#endif
-
 void checkpoint(int traj);
 
 int main(int argc, char *argv[])
 { 
-
+  Start(&argc,&argv);
   char plaq_file[256];
   char hmc_file[256];
 

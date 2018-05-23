@@ -1,17 +1,5 @@
-#include<omp.h>
-#include<config.h>
-#include <util/qcdio.h>
 #include <math.h>
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/dirac_op.h>
-#include<util/wilson.h>
-#include<util/error.h>
-#include<util/time_cps.h>
-#include<comms/scu.h>
-#include<alg/alg_hmd.h>
-#include<alg/do_arg.h>
+#include<cps.h>
 
 //#define OMP(A) #pragma omp A
 
@@ -29,15 +17,14 @@ MobiusArg mobius_arg;
 static int nx,ny,nz,nt,ns;
 static CgArg cg_arg;
 
-#include <util/omp_wrapper.h>
 
 //void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK);
 void run_inv(Lattice &lat, StrOrdType str_ord, char *out_name, int DO_CHECK);
 
 int main(int argc,char *argv[]){
 
-    Start(&argc, &argv);
     char *fname = "main()";
+    Start(&argc, &argv);
 #pragma omp parallel default(shared)
 {
   int tnum = omp_get_num_threads();
@@ -55,22 +42,6 @@ for(int  i = 0;i<100;i++){
     //----------------------------------------------------------------
     DoArg do_arg;
     char *out_file=NULL;
-#if 1
-    if(argc>1) out_file=argv[1];
-  if ( !do_arg.Decode("do_arg.vml","do_arg") )
-    {
-      do_arg.Encode("do_arg.dat","do_arg");
-      ERR.General("",fname,"Decoding of do_arg failed\n");
-    }
-  if ( !cg_arg.Decode("cg_arg.vml","cg_arg") )
-    {
-      ERR.General("",fname,"Decoding of cg_arg failed\n");
-    }
-#else
-
-
-    char *out_file=NULL;
-    char *fname = "main()";
 #if 1
     if(argc>1) out_file=argv[1];
   if ( !do_arg.Decode("do_arg.vml","do_arg") )
@@ -174,8 +145,7 @@ for(int  i = 0;i<100;i++){
 }
 #endif
 
-#if 0
-    wilson_set_sloppy(true);
+//    wilson_set_sloppy(true);
 for(int i = 0;i<1;i++)
 {
     GnoneFzmobius lat;
