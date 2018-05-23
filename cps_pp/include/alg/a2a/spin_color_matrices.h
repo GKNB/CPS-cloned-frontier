@@ -807,6 +807,8 @@ public:
   inline CPSspinMatrix<CPSflavorMatrix<ComplexType> > ColorTrace() const{
     return this->CPSsquareMatrix<value_type,4>::template TraceIndex<1>();
   }
+
+  //NOTE: This method is an in-place operation!
   inline CPSspinColorFlavorMatrix<ComplexType>& TransposeColor(){
     return static_cast<CPSspinColorFlavorMatrix<ComplexType> &>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
   }

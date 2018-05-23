@@ -255,9 +255,15 @@ void computePionMesonFields(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
 			    typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
 			    const MomentumPolicy &pion_mom,
 			    Lattice &lat, const Parameters &params, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
-  if(!UniqueID()) printf("Computing pion meson fields\n");
   double time = -dclock();
+#ifdef USE_POINT_SOURCES
+  if(!UniqueID()) printf("Computing point pion meson fields\n");
+  computeGparityLLmesonFieldsPoint<A2Apolicies,MomentumPolicy>::computeMesonFields(mf_ll_con, pion_mom, W, V, lat, field3dparams);
+#else
+  if(!UniqueID()) printf("Computing 1s pion meson fields\n");
   computeGparityLLmesonFields1s<A2Apolicies,MomentumPolicy>::computeMesonFields(mf_ll_con, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+#endif
+
   time += dclock();
   print_time("main","Pion meson fields",time);
 
