@@ -1,0 +1,571 @@
+#ifndef COMPUTE_KTOSIGMA_H_
+#define COMPUTE_KTOSIGMA_H_
+
+#include<alg/a2a/compute_ktopipi_base.h>
+#include<alg/a2a/compute_ktopipi.h>
+#include<alg/a2a/mf_momcontainer.h>
+#include<alg/a2a/mesonfield_mult_vMv_split.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
+#include<alg/a2a/required_momenta.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_productstore.h>
+
+CPS_START_NAMESPACE
+
+template<typename mf_Policies>
+class ComputeKtoSigma: public ComputeKtoPiPiGparityBase{
+public:
+  typedef typename mf_Policies::ComplexType ComplexType; //can be SIMD vectorized
+  typedef CPSspinColorFlavorMatrix<ComplexType> SCFmat; //supports SIMD vectorization
+  typedef typename getInnerVectorType<SCFmat,typename ComplexClassify<ComplexType>::type>::type SCFmatVector;
+  typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
+  typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> KaonMesonFieldType;
+private:
+  const A2AvectorV<mf_Policies> & vL;
+  const A2AvectorV<mf_Policies> & vH;
+  const A2AvectorW<mf_Policies> & wL;
+  const A2AvectorW<mf_Policies> & wH;
+  
+  const std::vector<KaonMesonFieldType> &mf_ls_WW;
+
+  const std::vector<int> tsep_k_sigma;
+  int tsep_k_sigma_lrg; //largest
+
+  int Lt;
+  int ntsep_k_sigma;
+  int nthread;
+  int size_3d;
+
+  //---------------------------Type1/2 contractions-----------------------------------------
+
+  //D1 = Tr( PH_KO M1 P_OS P_SO M2 P_OK G5 )
+  //   = Tr( PH^dag_OK G5 M1 P_OS P_SO M2 P_OK )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_S V_S W^dag_O M2 V_O W^dag_K )
+  //   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O [W^dag_S V_S] W^dag_O M2 )
+
+  //D6 = Tr( PH_KO M1 P_OK G5 ) Tr( P_OS P_SO M2 )
+  //   = Tr( PH^dag_OK G5 M1 P_OK ) Tr( P_OS P_SO M2 )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_K ) Tr( V_O W^dag_S V_S W^dag_O M2 )
+  //   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( V_O [W^dag_S V_S] W^dag_O M2 )
+    
+  //D8 = Tr( ( P_OS P_SO )_ba ( M2 P_OK G5 PH_KO M1 )_ba )
+  //   = Tr( ( P_OS P_SO )_ba ( M2 P_OK PH^dag_OK G5 M1 )_ba )
+  //   = Tr( ( V_O [W^dag_S V_S] W^dag_O )_ba ( M2 V_O [W^dag_K WH_K] VH^dag_O G5 M1 )_ba )
+
+  //D11 = Tr( P_OK G5 PH_KO M1 )_ba Tr( P_OS P_SO M2 )_ba
+  //    = Tr( P_OK PH^dag_OK G5 M1 )_ba Tr( P_OS P_SO M2 )_ba
+  //    = Tr( V_O W^dag_K WH_K VH^dag_O G5 M1 )_ba Tr( V_O W^dag_S V_S W^dag_O M2 )_ba
+  //    = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 )_ba Tr( V_O [W^dag_S V_S] W^dag_O M2 )_ba
+
+  //D19 = Tr(  Tr_c( P_OS P_SO )M2 Tr_c( P_OK G5 PH_KO M1 ) )
+  //    = Tr(  Tr_c( P_OS P_SO )M2 Tr_c( P_OK PH^dag_OK G5 M1 ) )
+  //    = Tr(  Tr_c( V_O [W^dag_S V_S] W^dag_O ) M2 Tr_c( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+
+  inline void compute_type12_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
+    mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
+  }
+  inline void compute_type12_part2(SCFmat &pt2, const int tS_glb, const int top_loc, const int xop_loc, const std::vector<SigmaMesonFieldType> &mf_S){
+    mult(pt2, vL, mf_S[tS_glb], wL, xop_loc, top_loc, false, true);
+  }
+
+  //Run inside threaded environment
+  void type12_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2){
+#ifndef MEMTEST_MODE
+
+    //D1   = Tr( [pt1] G5 M1 [pt2] M2 )
+    //D6   = Tr( [pt1] G5 M1 ) Tr( [pt2] M2 )
+    //D8   = Tr( ( [pt2] M2 )_ba ( [pt1] G5 M1 )_ba )
+    //D11  = Tr( [pt1] G5 M1 )_ba Tr( [pt2] M2 )_ba
+    //D19  = Tr(  Tr_c( [pt2] M2 ) Tr_c( [pt1] G5 M1 ) )  
+
+    for(int mu=0;mu<4;mu++){ //sum over mu here
+      for(int gcombidx=0;gcombidx<8;gcombidx++){
+	SCFmat pt1_G5_M1 = part1;       
+	pt1_G5_M1.gr(-5);
+	multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
+
+	SCFmat pt2_M2 = part2;
+	multGammaRight(pt2_M2, 2, gcombidx,mu);
+
+	SCFmat ctrans_pt1_G5_M1(pt1_G5_M1);
+	ctrans_pt1_G5_M1.TransposeColor();
+
+	CPScolorMatrix<ComplexType> tr_sf_pt1_G5_M1 = pt1_G5_M1.SpinFlavorTrace();
+	CPScolorMatrix<ComplexType> tr_sf_p2_M2 = pt2_M2.SpinFlavorTrace();
+       
+#define D(IDX) result(tK_glb,tdis_glb,c++,gcombidx,thread_id)	      
+	int c = 0;
+
+	D(1) += Trace( pt1_G5_M1, pt2_M2 );
+	D(6) += pt1_G5_M1.Trace() * pt2_M2.Trace();
+	D(8) += Trace( pt2_M2, ctrans_pt1_G5_M1 );
+	D(11) += Trace( tr_sf_pt1_G5_M1, Transpose(tr_sf_p2_M2) );
+	D(19) += Trace( pt1_G5_M1.ColorTrace(), pt2_M2.ColorTrace() );
+
+#undef D
+      }
+#endif
+    }
+  }
+
+public:
+
+  void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeGetMany(1, &mf_S);
+#endif
+ 
+    result.resize(ntsep_k_sigma); for(int i=0;i<ntsep_k_sigma;i++) result[i].resize(5,nthread);
+
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+           
+#pragma omp parallel for schedule(static)
+      for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
+	int thread_id = omp_get_thread_num();
+
+	std::vector<SCFmat*> pt2_store(Lt, NULL); //a given value of tS will appear for multiple tK if the number of K->S time seps > 1
+
+	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	  int tK_glb = modLt(top_glb - tdis, Lt);
+	    
+	  SCFmat pt1;
+	  compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc);
+	    	 
+	  for(int i=0;i<ntsep_k_sigma;i++){
+	    if(tdis > tsep_k_sigma[i]) continue;
+	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+
+	    if(pt2_store[tS_glb] == NULL){
+	      pt2_store[tS_glb] = new SCFmat;
+	      compute_type12_part2(*pt2_store[tS_glb], tS_glb, top_loc, xop3d_loc, mf_S);
+	    }
+	    const SCFmat &pt2 = *pt2_store[tS_glb];
+	    type12_contract(result[i], tK_glb, tdis, thread_id, pt1, pt2);
+	  }
+	}//tdis
+
+	for(int i=0;i<Lt;i++) if(pt2_store[i]) delete pt2_store[i];
+      }//xop
+    }//top
+
+    for(int i=0;i<ntsep_k_sigma;i++){ result[i].threadSum(); result[i].nodeSum(); }
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,&mf_S);
+#endif
+  }
+
+private:
+
+  //---------------------------Type3 contractions-----------------------------------------
+  //D2 = Tr( PH_KO M1 P_OS P_SK G5 ) * Tr( P_OO M2 )
+  //   = Tr( PH^dag_OK G5 M1 P_OS P_SK ) * Tr( P_OO M2 )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_S V_S W^dag_K ) * Tr( V_O W^dag_O M2 )
+  //   = Tr( [W^dag_K WH_K] VH^dag_O G5 M1 V_O [W^dag_S V_S] ) * Tr( V_O W^dag_O M2 )
+
+  //D3 = Tr( PH_KO M1 P_OO M2 P_OS P_SK G5 )
+  //   = Tr( PH^dag_OK G5 M1 P_OO M2 P_OS P_SK )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_O M2 V_O W^dag_S V_S W^dag_K )
+  //   = Tr( [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 V_O [W^dag_S V_S]  )
+
+  //D7 = Tr( ( P_OS P_SK G5 PH_KO )_ab  (M1 P_OO M2)_ab )
+  //   = Tr( ( P_OS P_SK PH^dag_OK G5 )_ab  (M1 P_OO M2)_ab )
+  //   = Tr( ( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 )_ab  (M1 V_O W^dag_O M2)_ab )
+
+  //D10 = Tr( M2 P_OO )_ab * Tr( P_OS P_SK G5 PH_KO M1 )_ab
+  //    = Tr( M2 P_OO )_ab * Tr( P_OS P_SK PH^dag_OK G5 M1 )_ab
+  //    = Tr( M2 V_O W^dag_O )_ab * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 )_ab
+
+  //D14 = Tr( P_SK G5 PH_KO M1 P_OS ) * Tr( PH_OO M2 )   //note heavy quark loop
+  //    = Tr( P_SK PH^dag_OK G5 M1 P_OS ) * Tr( PH_OO M2 )
+  //    = Tr( V_S W^dag_K WH_K VH^dag_O G5 M1 V_O Wdag_S ) * Tr( VH_O WH^dag_O M2 )
+  //    = Tr( [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 V_O  ) * Tr( VH_O WH^dag_O M2 )
+
+  //D16 = Tr( P_SK G5 PH_KO M2 PH_OO M1 P_OS )
+  //    = Tr( P_SK PH^dag_OK G5 M2 PH_OO M1 P_OS )
+  //    = Tr( V_S W^dag_K WH_K VH^dag_O G5 M2 VH_O WH^dag_O M1 V_O W^dag_S )
+  //    = Tr( [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1 V_O )
+
+  //D18 = Tr( Tr_c(P_OO M2) * Tr_c( P_OS P_SK G5 PH_KO M1 ) )
+  //    = Tr( Tr_c(P_OO M2) * Tr_c( P_OS P_SK PH^dag_OK G5 M1 ) )
+  //    = Tr( Tr_c(V_O W^dag_O M2) * Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+
+  //D21 = Tr_c(  Tr(PH_OO M2) * Tr( P_OS P_SK G5 PH_KO M1 ) )
+  //    = Tr_c(  Tr(PH_OO M2) * Tr( P_OS P_SK PH^dag_OK G5 M1 ) )
+  //    = Tr_c(  Tr(VH_O WH^dag_O M2) * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+
+  //D23 = Tr( Tr_c( P_OS P_SK G5 PH_KO M2 )  Tr_c( PH_OO M1 ) )
+  //    = Tr( Tr_c( P_OS P_SK PH^dag_OK G5 M2 )  Tr_c( PH_OO M1 ) )
+  //    = Tr( Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 )  Tr_c( VH_O WH^dag_O M1 ) )
+  
+  
+  //D2  = Tr( [W^dag_K WH_K] VH^dag_O G5 M1 V_O [W^dag_S V_S] ) * Tr( V_O W^dag_O M2 )
+  //D3  = Tr( [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 V_O [W^dag_S V_S]  )
+  //D7  = Tr( ( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 )_ab  (M1 V_O W^dag_O M2)_ab )
+  //D10 = Tr( M2 V_O W^dag_O )_ab * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 )_ab
+  //D14 = Tr( [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 V_O  ) * Tr( VH_O WH^dag_O M2 )
+  //D16 = Tr( [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1 V_O )
+  //D18 = Tr( Tr_c(V_O W^dag_O M2) * Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+  //D21 = Tr_c(  Tr(VH_O WH^dag_O M2) * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+  //D23 = Tr( Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 )  Tr_c( VH_O WH^dag_O M1 ) )
+
+
+  //D2  = Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1   ) * Tr( V_O W^dag_O M2 )
+  //D3  = Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 )
+  //D7  = Tr( ( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 )_ab  ( V_O W^dag_O M2)_ab )
+  //D10 = Tr( M2 V_O W^dag_O )_ab * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 )_ab
+  //D14 = Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1  ) * Tr( VH_O WH^dag_O M2 )
+  //D16 = Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1  )
+  //D18 = Tr( Tr_c(V_O W^dag_O M2) * Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+  //D21 = Tr_c(  Tr(VH_O WH^dag_O M2) * Tr( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M1 ) )
+  //D23 = Tr( Tr_c( V_O [W^dag_S V_S] [W^dag_K WH_K] VH^dag_O G5 M2 )  Tr_c( VH_O WH^dag_O M1 ) )
+
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> Type3MesonFieldProductType;
+
+  inline void compute_type3_part1(SCFmat &pt1, const int top_loc, const int xop_loc, const Type3MesonFieldProductType &mf_prod){
+    mult(pt1, vL, mf_prod, vH, xop_loc, top_loc, false, true);
+  }
+  
+  inline void compute_type3_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
+    mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
+    mult(pt2_H, vH, wH, xop_loc, top_loc, false, true);
+  }
+
+  //Run inside threaded environment
+  void type3_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+#ifndef MEMTEST_MODE
+
+    //D2  = Tr( [pt1] G5 M1   ) * Tr( [pt2_L] M2 )
+    //D3  = Tr( [pt1] G5 M1 [pt2_L] M2 )
+    //D7  = Tr( ( [pt1] G5 M1 )_ab  ( [pt2_L] M2)_ab )
+    //D10 = Tr( M2 [pt2_L] )_ab * Tr( [pt1] G5 M1 )_ab
+    //D14 = Tr( [pt1] G5 M1  ) * Tr( [pt2_H] M2 )
+    //D16 = Tr([pt1] G5 M2 [pt2_H] M1  )
+    //D18 = Tr( Tr_c([pt2_L] M2) * Tr_c( [pt1] G5 M1 ) )
+    //D21 = Tr_c(  Tr( [pt2_H] M2) * Tr( [pt1] G5 M1 ) )
+    //D23 = Tr( Tr_c( [pt1] G5 M2 )  Tr_c( [pt2_H] M1 ) )
+
+    for(int mu=0;mu<4;mu++){ //sum over mu here
+      for(int gcombidx=0;gcombidx<8;gcombidx++){
+	SCFmat pt1_G5_M1 = part1;
+	pt1_G5_M1.gr(-5);
+	multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
+
+	SCFmat pt2L_M2 = part2_L;
+	multGammaRight(pt2L_M2, 2, gcombidx,mu);
+
+	SCFmat pt2H_M2 = part2_H;
+	multGammaRight(pt2H_M2, 2, gcombidx,mu);
+
+	SCFmat ctrans_pt2L_M2(pt2L_M2);
+	ctrans_pt2L_M2.TransposeColor();
+
+	SCFmat pt1_G5_M2 = part1;
+	pt1_G5_M2.gr(-5);
+	multGammaRight(pt1_G5_M2, 2, gcombidx,mu);
+
+	SCFmat pt2H_M1 = part2_H;
+	multGammaRight(pt2H_M1, 1, gcombidx,mu);
+
+	int c = 0;
+	
+#define D(IDX) result(tK_glb,tdis_glb,c++,gcombidx,thread_id)	
+	
+	D(2) += pt1_G5_M1.Trace() * pt2L_M2.Trace();
+	D(3) += Trace( pt1_G5_M1, pt2L_M2 );
+	D(7) += Trace( pt1_G5_M1, ctrans_pt2L_M2 );	
+	D(10) += Trace( pt2L_M2.SpinFlavorTrace(), Transpose(pt1_G5_M1.SpinFlavorTrace()) );
+	D(14) += pt1_G5_M1.Trace() * pt2H_M2.Trace();
+	D(16) += Trace( pt1_G5_M2, pt2H_M1 );
+	D(18) += Trace( pt2L_M2.ColorTrace(), pt1_G5_M1.ColorTrace() );
+	D(21) += Trace( pt2H_M2.SpinFlavorTrace(), pt1_G5_M1.SpinFlavorTrace() );
+	D(23) += Trace( pt1_G5_M2.ColorTrace(), pt2H_M1.ColorTrace() );
+
+#undef D
+      }
+#endif
+    }
+  }
+
+public:
+
+  void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeGetMany(1, &mf_S);
+#endif
+
+    result.resize(ntsep_k_sigma); 
+    mix3.resize(ntsep_k_sigma);
+    for(int i=0;i<ntsep_k_sigma;i++){
+      result[i].resize(9,nthread);
+      mix3[i].resize(nthread);
+    }
+
+    SCFmat mix3_Gamma[2];
+    mix3_Gamma[0].unit().pr(F0).gr(-5);
+    mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
+
+    //Precompute meson field products but only for tK,tS pairs we actually need
+    std::vector<std::vector<Type3MesonFieldProductType*> > mf_prod(Lt, std::vector<Type3MesonFieldProductType*>(Lt,NULL)); //[tK][tS]
+    for(int tK=0;tK<Lt;tK++){
+      for(int i=0;i<ntsep_k_sigma;i++){
+	int tS = modLt(tK + tsep_k_sigma[i], Lt);
+	if(mf_prod[tK][tS] == NULL){
+	  mf_prod[tK][tS] = new Type3MesonFieldProductType;
+	  mult(*mf_prod[tK][tS], mf_S[tS], mf_ls_WW[tK]);
+	}
+      }
+    }
+
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+           
+#pragma omp parallel for schedule(static)
+      for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
+	int thread_id = omp_get_thread_num();
+  
+	SCFmat pt2_L, pt2_H;
+	compute_type3_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+
+	std::vector<std::vector<SCFmat*> > pt1_store(Lt, std::vector<SCFmat*>(Lt,NULL)); //[tK][tS]
+	
+	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	  int tK_glb = modLt(top_glb - tdis, Lt);
+
+	  for(int i=0;i<ntsep_k_sigma;i++){
+	    if(tdis > tsep_k_sigma[i]) continue;
+
+	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+
+	    if(pt1_store[tK_glb][tS_glb] == NULL){
+	      pt1_store[tK_glb][tS_glb] = new SCFmat;
+	      compute_type3_part1(*pt1_store[tK_glb][tS_glb], top_loc, xop3d_loc, *mf_prod[tK_glb][tS_glb]);
+	    }  
+
+	    type3_contract(result[i], tK_glb, tdis, thread_id, *pt1_store[tK_glb][tS_glb], pt2_L, pt2_H);
+
+	    //Compute mix3 diagram
+	    //These are identical to the type3 diagrams but without the internal quark loop, and with the vertex replaced with a pseudoscalar vertex
+	    SCFmat pt1_G5 = *pt1_store[tK_glb][tS_glb]; pt1_G5.gr(-5);
+	    for(int mix3_gidx=0; mix3_gidx<2; mix3_gidx++){
+#ifndef MEMTEST_MODE
+#define M mix3[i](tK_glb,tdis,mix3_gidx,thread_id)
+	      M += Trace( pt1_G5, mix3_Gamma[mix3_gidx] );
+#undef M
+#endif
+	    }
+	    
+	  }
+	}
+
+	for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(pt1_store[tK][tS]) delete pt1_store[tK][tS];
+      }//xop3d
+    }//top
+
+    for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(mf_prod[tK][tS]) delete mf_prod[tK][tS];
+
+    for(int i=0;i<ntsep_k_sigma;i++){ 
+      result[i].threadSum(); result[i].nodeSum(); 
+      mix3[i].threadSum(); mix3[i].nodeSum();
+    }
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,&mf_S);
+#endif
+  }
+
+private:
+  //----------------------------------- type 4 -----------------------------------------------
+  
+  //D4 = Tr( PH_KO M1 P_OO M2 P_OK G5 ) Tr( P_SS )
+  //   = Tr( PH^dag_OK G5 M1 P_OO M2 P_OK ) Tr( P_SS )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_O M2 V_O W^dag_K ) Tr( V_S W^dag_S )
+  //   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+
+  //D5 = Tr( PH_KO M1 P_OK G5 ) Tr( P_OO M2 ) Tr( P_SS )
+  //   = Tr( PH^dag_OK G5 M1 P_OK ) Tr( P_OO M2 ) Tr( P_SS )
+  //   = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_K ) Tr( V_O W^dag_O M2 ) Tr( V_S W^dag_S )
+  //   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+
+  //D9 = Tr( (M1 P_OO)_ab (M2 P_OK G5 PH_KO )_ab ) Tr( P_SS )
+  //   = Tr( (M1 P_OO)_ab (M2 P_OK PH^dag_OK G5 )_ab ) Tr( P_SS )
+  //   = Tr( (M1 V_O W^dag_O)_ab (M2 V_O [W^dag_K WH_K] VH^dag_O G5 )_ab ) Tr( [V_S W^dag_S] )
+
+  //D12 = Tr( P_OK G5 PH_KO M1 )_ab Tr( P_OO M2 )_ab Tr( P_SS )
+  //    = Tr( P_OK PH^dag_OK G5 M1 )_ab Tr( P_OO M2 )_ab Tr( P_SS )
+  //    = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 )_ab Tr( V_O W^dag_O M2 )_ab Tr( [V_S W^dag_S] )
+
+  //D13 = Tr( G5 PH_KO M1 P_OK ) Tr( M2 PH_OO ) Tr( P_SS )
+  //    = Tr( PH^dag_OK G5 M1 P_OK ) Tr( M2 PH_OO ) Tr( P_SS )
+  //    = Tr( WH_K VH^dag_O G5 M1 V_O W^dag_K ) Tr( M2 VH_O WH^dag_O ) Tr( V_S W^dag_S )
+  //    = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( M2 VH_O WH^dag_O ) Tr( [V_S W^dag_S] )
+
+  //D15 = Tr( G5 PH_KO M2 PH_OO M1 P_OK ) Tr( P_SS )
+  //    = Tr( PH^dag_OK G5 M2 PH_OO M1 P_OK ) Tr( P_SS )
+  //    = Tr( WH_K VH^dag_O G5 M2 VH_O WH^dag_O M1 V_O W^dag_K ) Tr( V_S W^dag_S )
+  //    = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1  ) Tr( [V_S W^dag_S] )
+
+  //D17 = Tr( Tr_c(P_OK G5 PH_KO M1 ) Tr_c( P_OO M2) ) Tr( P_SS )
+  //    = Tr( Tr_c(P_OK PH^dag_OK G5 M1 ) Tr_c( P_OO M2) ) Tr( P_SS )
+  //    = Tr( Tr_c(V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr_c( V_O W^dag_O M2) ) Tr( [V_S W^dag_S] )
+
+  //D20 = Tr_c(  Tr( P_OK G5 PH_KO M1 ) Tr( PH_OO M2 ) ) Tr( P_SS ) 
+  //    = Tr_c(  Tr( P_OK PH^dag_OK G5 M1 ) Tr( PH_OO M2 ) ) Tr( P_SS ) 
+  //    = Tr_c(  Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( VH_O WH^dag_O M2 ) ) Tr( [V_S W^dag_S] ) 
+
+  //D22 = Tr( Tr_c( PH_OO M1 ) Tr_c( P_OK G5 PH_KO M2 ) ) Tr( P_SS ) 
+  //    = Tr( Tr_c( PH_OO M1 ) Tr_c( P_OK PH^dag_OK G5 M2 ) ) Tr( P_SS ) 
+  //    = Tr( Tr_c( VH_O WH^dag_O M1 ) Tr_c( V_O [W^dag_K WH_K] VH^dag_O G5 M2 ) ) Tr( [V_S W^dag_S] ) 
+
+  //Note we don't include the sigma self-contraction in the calculation here; it should be added offline
+
+  //pt1 = V_O [W^dag_K WH_K] VH^dag_O
+  //pt2_L = V_O W^dag_O
+  //pt2_H = VH_O WH^dag_O
+
+  inline void compute_type4_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
+    mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
+  }
+  inline void compute_type4_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
+    mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
+    mult(pt2_H, vH, wH, xop_loc, top_loc, false, true);
+  }
+
+  void type4_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2_L, const SCFmat &part2_H){
+#ifndef MEMTEST_MODE
+
+    //D4   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+    //D5   = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( V_O W^dag_O M2 ) Tr( [V_S W^dag_S] )
+    //D9   = Tr( (M1 V_O W^dag_O)_ab (M2 V_O [W^dag_K WH_K] VH^dag_O G5 )_ab ) Tr( [V_S W^dag_S] )
+    //D12  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 )_ab Tr( V_O W^dag_O M2 )_ab Tr( [V_S W^dag_S] )
+    //D13  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( M2 VH_O WH^dag_O ) Tr( [V_S W^dag_S] )
+    //D15  = Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M2 VH_O WH^dag_O M1  ) Tr( [V_S W^dag_S] )
+    //D17  = Tr( Tr_c(V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr_c( V_O W^dag_O M2) ) Tr( [V_S W^dag_S] )
+    //D20  = Tr_c(  Tr( V_O [W^dag_K WH_K] VH^dag_O G5 M1 ) Tr( VH_O WH^dag_O M2 ) ) Tr( [V_S W^dag_S] ) 
+    //D22  = Tr( Tr_c( VH_O WH^dag_O M1 ) Tr_c( V_O [W^dag_K WH_K] VH^dag_O G5 M2 ) ) Tr( [V_S W^dag_S] ) 
+    
+    //D4   = Tr( [pt1] G5 M1 [pt2_L] M2 ) 
+    //D5   = Tr( [pt1] G5 M1 ) Tr( [pt2_L] M2 )
+    //D9   = Tr( (M1 [pt2_L])_ab (M2 [pt1] G5 )_ab )
+    //D12  = Tr( [pt1] G5 M1 )_ab Tr( [pt2_L] M2 )_ab
+    //D13  = Tr( [pt1] G5 M1 ) Tr( M2 [pt2_H] )
+    //D15  = Tr( [pt1] G5 M2 [pt2_H] M1  )
+    //D17  = Tr( Tr_c([pt1] G5 M1 ) Tr_c( [pt2_L] M2) )
+    //D20  = Tr_c(  Tr( [pt1] G5 M1 ) Tr( [pt2_H] M2 ) ) 
+    //D22  = Tr( Tr_c( [pt2_H] M1 ) Tr_c( [pt1] G5 M2 ) )
+
+
+    for(int mu=0;mu<4;mu++){ //sum over mu here
+      for(int gcombidx=0;gcombidx<8;gcombidx++){
+	SCFmat pt1_G5_M1 = part1;
+	pt1_G5_M1.gr(-5);
+	multGammaRight(pt1_G5_M1, 1, gcombidx,mu);
+
+	SCFmat pt2L_M2 = part2_L;
+	multGammaRight(pt2L_M2, 2, gcombidx,mu);
+
+	SCFmat pt2H_M2 = part2_H;
+	multGammaRight(pt2H_M2, 2, gcombidx,mu);
+
+	SCFmat ctrans_pt2L_M2 = pt2L_M2;
+	ctrans_pt2L_M2.TransposeColor();
+	
+	SCFmat pt1_G5_M2 = part1;
+	pt1_G5_M2.gr(-5);
+	multGammaRight(pt1_G5_M2, 2, gcombidx,mu);
+
+	SCFmat pt2H_M1 = part2_H;
+	multGammaRight(pt2H_M1, 1, gcombidx,mu);
+
+	int c = 0;
+
+#define D(IDX) result(tK_glb,tdis_glb,c++,gcombidx,thread_id)	
+	
+	D(4) += Trace( pt1_G5_M1, pt2L_M2 );
+	D(5) += pt1_G5_M1.Trace() * pt2L_M2.Trace();
+	D(9) += Trace( pt1_G5_M1, ctrans_pt2L_M2 );
+	D(12) += Trace( pt1_G5_M1.SpinFlavorTrace(), Transpose( pt2L_M2.SpinFlavorTrace() ) );
+	D(13) += pt1_G5_M1.Trace() * pt2H_M2.Trace();
+	D(15) += Trace( pt1_G5_M2, pt2H_M1 );
+	D(17) += Trace( pt1_G5_M1.ColorTrace(), pt2L_M2.ColorTrace() );
+	D(20) += Trace( pt1_G5_M1.SpinFlavorTrace(), pt2H_M2.SpinFlavorTrace() );
+	D(22) += Trace( pt1_G5_M2.ColorTrace(), pt2H_M1.ColorTrace() );
+
+#undef D
+      }
+#endif
+    }
+  }
+
+public:
+
+  void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+    result.resize(9, nthread);
+    mix4.resize(nthread);
+
+    SCFmat mix4_Gamma[2];
+    mix4_Gamma[0].unit().pr(F0).gr(-5);
+    mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
+
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+           
+#pragma omp parallel for schedule(static)
+      for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
+	int thread_id = omp_get_thread_num();
+  
+	SCFmat pt2_L, pt2_H;
+	compute_type4_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+
+	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	  int tK_glb = modLt(top_glb - tdis, Lt);
+
+	  SCFmat pt1;
+	  compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc);
+
+	  type4_contract(result, tK_glb, tdis, thread_id, pt1, pt2_L, pt2_H);
+
+	  //Compute mix4 diagram
+	  //These are identical to the type4 diagrams but without the quark loop, and with the vertex replaced with a pseudoscalar vertex
+	  SCFmat pt1_G5 = pt1; pt1_G5.gr(-5);
+	  for(int mix4_gidx=0; mix4_gidx<2; mix4_gidx++){
+#ifndef MEMTEST_MODE
+#define M mix4(tK_glb,tdis,mix4_gidx,thread_id)
+	    M += Trace( pt1_G5 , mix4_Gamma[mix4_gidx] );
+#undef M
+#endif
+	  }
+	}
+      }//xop3d
+    }//top
+
+    result.threadSum(); result.nodeSum();
+    mix4.threadSum(); mix4.nodeSum();
+  }
+
+  ComputeKtoSigma(const A2AvectorV<mf_Policies> & vL, const A2AvectorW<mf_Policies> & wL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wH, 
+		  const std::vector<KaonMesonFieldType> &mf_ls_WW, const std::vector<int> &tsep_k_sigma): vL(vL), wL(wL), vH(vH), wH(wH), mf_ls_WW(mf_ls_WW), tsep_k_sigma(tsep_k_sigma){
+    Lt = GJP.Tnodes()*GJP.TnodeSites();
+    ntsep_k_sigma = tsep_k_sigma.size();
+    nthread = omp_get_max_threads();
+    size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2); //don't use GJP; this size_3d respects the SIMD logical node packing
+
+    assert(tsep_k_sigma.size() > 0);
+    tsep_k_sigma_lrg = tsep_k_sigma[0];
+    for(int i=1;i<tsep_k_sigma.size();i++)
+      if(tsep_k_sigma[i] > tsep_k_sigma_lrg) 
+	tsep_k_sigma_lrg = tsep_k_sigma[i];
+  }
+
+ 
+
+
+};
+
+
+CPS_END_NAMESPACE
+
+#endif

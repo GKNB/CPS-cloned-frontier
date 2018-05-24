@@ -398,6 +398,131 @@ public:
 };
 
 
+
+template<typename mf_Policies>
+struct computeSigmaMesonFieldsBase{
+  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+
+#ifdef USE_DESTRUCTIVE_FFT
+  typedef A2AvectorW<mf_Policies> Wtype;
+  typedef A2AvectorV<mf_Policies> Vtype;
+#else
+  typedef const A2AvectorW<mf_Policies> Wtype;
+  typedef const A2AvectorV<mf_Policies> Vtype;
+#endif
+
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
+  typedef std::vector<MesonFieldType> MesonFieldVectorType;
+  typedef typename mf_Policies::ComplexType ComplexType;
+  typedef typename mf_Policies::SourcePolicies SourcePolicies;
+
+#define INHERIT(TYPE,FROM) typedef typename FROM::TYPE TYPE
+
+#define INHERIT_FROM_BASE \
+  INHERIT(FieldParamType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(Wtype, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(Vtype, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(MesonFieldType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(MesonFieldVectorType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(ComplexType, computeSigmaMesonFieldsBase<mf_Policies>); 	\
+  INHERIT(SourcePolicies, computeSigmaMesonFieldsBase<mf_Policies>)
+
+};
+
+template<typename mf_Policies, typename SigmaMomentumPolicy>
+class computeSigmaMesonFields1s{
+public:
+  INHERIT_FROM_BASE;
+
+  typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > InnerType;
+  typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
+   
+public:
+
+  static void computeMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, 
+				 const SigmaMomentumPolicy &sigma_mom, //object that tells us what quark momenta to use
+				 Wtype &W, Vtype &V,
+				 const Float rad_1s, //exponential wavefunction radius
+				 Lattice &lattice,
+				 const FieldParamType &src_setup_params = NullObject()){
+    assert(GJP.Gparity());
+    Float time = -dclock();    
+    std::vector<Wtype*> Wspecies(1, &W);
+    std::vector<Vtype*> Vspecies(1, &V);
+
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nmom = sigma_mom.nMom();
+
+    int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
+    GparityBaseMomentum(pbase,+1);
+        
+    ExpSrcType src(rad_1s,pbase,src_setup_params);
+    InnerType inner(sigma0, src);    
+    StorageType mf_store(inner,src);
+    
+    for(int pidx=0;pidx<nmom;pidx++){      
+      ThreeMomentum p_w = sigma_mom.getWmom(pidx);
+      ThreeMomentum p_v = sigma_mom.getVmom(pidx);
+      mf_store.addCompute(0,0, p_w,p_v);
+    }
+
+    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+										       ,true
+#endif
+										       );
+    for(int pidx=0;pidx<nmom;pidx++)
+      mf_con.moveAdd(sigma_mom.getWdagMom(pidx), sigma_mom.getVmom(pidx), mf_store[pidx]);
+  }
+
+  static void write(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
+    for(int i=0;i<sigma_mom.nMom();i++){
+      ThreeMomentum p_wdag = sigma_mom.getWdagMom(i);
+      ThreeMomentum p_v = sigma_mom.getVmom(i);
+
+      std::ostringstream os; //momenta in units of pi/2L
+      os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd1s_rad" << rad << ".dat";
+
+      MesonFieldVectorType &mf_q = mf_con.get(p_wdag,p_v);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      nodeGetMany(1,&mf_q);
+#endif
+
+#ifndef MEMTEST_MODE
+      MesonFieldType::write(os.str(),mf_q);
+#endif
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      nodeDistributeMany(1,&mf_q);
+#endif
+    }
+  }
+
+  static void read(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
+    for(int i=0;i<sigma_mom.nMom();i++){
+      ThreeMomentum p_wdag = sigma_mom.getWdagMom(i);
+      ThreeMomentum p_v = sigma_mom.getVmom(i);
+
+      std::ostringstream os; //momenta in units of pi/2L
+      os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd1s_rad" << rad << ".dat";
+      
+      MesonFieldVectorType mf_q;
+#ifndef MEMTEST_MODE
+      MesonFieldType::read(os.str(),mf_q);
+#endif
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      nodeDistributeMany(1,&mf_q);
+#endif
+      mf_con.moveAdd(p_wdag, p_v, mf_q);
+    }
+  }
+
+};
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif
