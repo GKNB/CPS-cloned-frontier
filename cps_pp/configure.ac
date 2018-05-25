@@ -650,7 +650,10 @@ AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 
 dnl configuring version number
+echo "`git log -n 1 --format=format:"#define GITHASH \\"%H:%d\\"%n" HEAD`" > $srcdir/include/version.h
+#git log -n 1 --format=format:GITHASH=\\\"%H:%d\\\"%n\\\" HEAD > $srcdir/GITHASH
 .  $srcdir/VERSION
+#.  $srcdir/GITHASH
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
@@ -662,6 +665,7 @@ AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)
 AC_SUBST(VERSION_STR)
+AC_SUBST(GITHASH)
 AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 

@@ -1,3 +1,4 @@
+#include <iostream>
 #include <config.h>
 #include <util/gjp.h>
 #include <util/error.h>
@@ -13,9 +14,6 @@
 #include <invert_quda.h>
 #endif
 
-//QMP definitions for CPS::Start() and CPS::End()
-
-//extern "C" void _mcleanup();
 CPS_START_NAMESPACE
 #ifdef USE_QMP
 void Start(){
@@ -23,24 +21,31 @@ void Start(){
 //  QMPSCU::init_qmp();
 }
 
+void printHash(){
+#ifdef GITHASH
+    std::cout << "CPS git commit hash=" << GITHASH << std::endl;
+#else
+    std::cout << "CPS git commit hash is undefined. Check makefile." << std::endl;
+#endif
+#undef GITHASH
+}
+
+
 void Start(int * argc, char *** argv) {
 //  printf("Start(%d %p)\n",*argc,*argv);
   //Initialize QMP
   QMPSCU::init_qmp(argc, argv);
   GJP.setArg(argc,argv);
+  printHash();
 #ifdef USE_QUDA
   initQuda(-1000);
 #endif
 }
 void End(){
-//  printf("End()\n");
   QMPSCU::destroy_qmp();
-//  printf("destroy_qmp()\n");
-//  _mcleanup();
 #ifdef USE_QUDA
   endQuda();
 #endif
-//  printf("End()\n");
 }
 #else
 void Start(int * argc, char *** argv) {
