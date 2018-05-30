@@ -330,6 +330,121 @@ public:
   }
 };
 
+
+
+//Have a base + alt momentum, symmetrized. These satisfy the conditions p1+p2=p3+p4=ptot  and p1-p2 + p3-p4 = n*ptot  with n=-2
+class NaiveExtendedPionMomentaPolicy: public RequiredMomentum{
+public:
+  NaiveExtendedPionMomentaPolicy(): RequiredMomentum() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+    const int ngp = this->nGparityDirs();
+    assert(ngp == 3);
+
+    //For the (+-6,+-2,+-2) define the 8 orientations of (-6.-2,-2) obtained by giving each component a minus sign respectively, and then cyclically permute to move the -6 around
+    std::vector<std::pair<ThreeMomentum, ThreeMomentum> > base(4);
+    
+    //(-6, -2, -2) (-1, -1, -1)+(-5, -1, -1) (1, 1, 1)+(-7, -3, -3)
+    base[0] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, -1)");
+    
+    //(6, -2, -2) (-1, -1, -1)+(7, -1, -1) (1, 1, 1)+(5, -3, -3)
+    base[1] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(7, -1, -1)");
+    
+    //(-6, 2, -2) (-1, -1, -1)+(-5, 3, -1) (1, 1, 1)+(-7, 1, -3)
+    base[2] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, 3, -1)");
+    
+    //(-6, -2, 2) (-1, -1, -1)+(-5, -1, 3) (1, 1, 1)+(-7, -3, 1)
+    base[3] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, 3)");
+
+    for(int perm=0;perm<3;perm++){
+      for(int o=0;o<4;o++){ 
+	addPandMinusP(base[o]);
+	base[o].first.cyclicPermute();
+	base[o].second.cyclicPermute();
+      }
+    }	
+    assert(nMom() == 24);
+  };
+};
+
+class NaiveAltExtendedPionMomentaPolicy: public RequiredMomentum{
+public:
+  NaiveAltExtendedPionMomentaPolicy(): RequiredMomentum() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+    const int ngp = this->nGparityDirs();
+    assert(ngp == 3);
+
+    //For the (+-6,+-2,+-2) define the 8 orientations of (-6.-2,-2) obtained by giving each component a minus sign respectively, and then cyclically permute to move the -6 around
+    std::vector<std::pair<ThreeMomentum, ThreeMomentum> > alt(4);
+    
+    //(-6, -2, -2) (-1, -1, -1)+(-5, -1, -1) (1, 1, 1)+(-7, -3, -3)
+    alt[0] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, -3, -3)");
+    
+    //(6, -2, -2) (-1, -1, -1)+(7, -1, -1) (1, 1, 1)+(5, -3, -3)
+    alt[1] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(5, -3, -3)");
+    
+    //(-6, 2, -2) (-1, -1, -1)+(-5, 3, -1) (1, 1, 1)+(-7, 1, -3)
+    alt[2] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, 1, -3)");
+    
+    //(-6, -2, 2) (-1, -1, -1)+(-5, -1, 3) (1, 1, 1)+(-7, -3, 1)
+    alt[3] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, -3, 1)");
+
+    for(int perm=0;perm<3;perm++){
+      for(int o=0;o<4;o++){ 
+	addPandMinusP(alt[o]);
+	alt[o].first.cyclicPermute();
+	alt[o].second.cyclicPermute();
+      }
+    }
+    assert(nMom() == 24);
+  };
+};
+
+class NaiveReverseExtendedPionMomentaPolicy: public NaiveExtendedPionMomentaPolicy{
+public:
+  NaiveReverseExtendedPionMomentaPolicy(): NaiveExtendedPionMomentaPolicy() {
+    this->reverseABmomentumAssignments();
+  }
+};
+
+
+//This experiment chooses alt momentum combinations that have the other quark boundary eigenstate but do not satisfy p1-p2 + p3-p4 = n*ptot
+class NaiveAltExperimentalExtendedPionMomentaPolicy: public RequiredMomentum{
+public:
+  NaiveAltExperimentalExtendedPionMomentaPolicy(): RequiredMomentum() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+    const int ngp = this->nGparityDirs();
+    assert(ngp == 3);
+
+    //For the (+-6,+-2,+-2) define the 8 orientations of (-6.-2,-2) obtained by giving each component a minus sign respectively, and then cyclically permute to move the -6 around
+    std::vector<std::pair<ThreeMomentum, ThreeMomentum> > alt(4);
+    
+    //(-6, -2, -2) base (-1, -1, -1)+(-5, -1, -1)
+    alt[0] = ThreeMomentum::parse_str_two_mom("(1, 1, -3)+(-7, -3, 1)");  //(4,0,0) + (8,4,-4) = (12,4,-4)
+    
+    //(6, -2, -2) base (-1, -1, -1)+(7, -1, -1)
+    alt[1] = ThreeMomentum::parse_str_two_mom("(1, 1, -3)+(5, -3, 1)"); //(-8,0,0) + (-4,4,-4) = (-12,4,-4)
+    
+    //(-6, 2, -2) base (-1, -1, -1)+(-5, 3, -1)
+    alt[2] = ThreeMomentum::parse_str_two_mom("(1, 1, -3)+(-7, 1, 1)"); //(4,-4,0) + (8,0,-4) = (12,-4,-4)
+    
+    //(-6, -2, 2) base (-1, -1, -1)+(-5, -1, 3)
+    alt[3] = ThreeMomentum::parse_str_two_mom("(1, -3, 1)+(-7, 1, 1)"); //(4,0,-4) + (8,-4,0) = (12,-4,-4)
+
+    for(int perm=0;perm<3;perm++){
+      for(int o=0;o<4;o++){ 
+	addPandMinusP(alt[o]);
+	alt[o].first.cyclicPermute();
+	alt[o].second.cyclicPermute();
+      }
+    }
+    assert(nMom() == 24);
+  };
+};
+
+
+
+
+
 template<typename PionMomentumPolicy>
 void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
   const int nmom = pion_mom.nMom();
@@ -404,18 +519,25 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   //-------------------Fix gauge----------------------------
   doGaugeFix(lat, cmdline.skip_gauge_fix, params);
 
-  //Naive pion meson fields (no alt mom or symm)
+#ifdef USE_EXTENDED_MOMENTA
+  NaiveExtendedPionMomentaPolicy naive_pion_mom;
+  NaiveAltExtendedPionMomentaPolicy alt_pion_mom;
+  NaiveReverseExtendedPionMomentaPolicy reverse_pion_mom;
+#else
   NaivePionMomentaPolicy naive_pion_mom;
+  NaiveAltPionMomentaPolicy alt_pion_mom;
+  NaiveReversePionMomentaPolicy reverse_pion_mom;
+#endif
+
+  //Naive pion meson fields (no alt mom or symm)
   MesonFieldMomentumContainer<A2Apolicies> mf_pion_naive;
   computePionMesonFields(mf_pion_naive,  V, W, naive_pion_mom, lat, params, field3dparams);
   
   //Alt pion mom
-  NaiveAltPionMomentaPolicy alt_pion_mom;
   MesonFieldMomentumContainer<A2Apolicies> mf_pion_alt;
   computePionMesonFields(mf_pion_alt,  V, W, alt_pion_mom, lat, params, field3dparams);
   
   //Reverse pion mom
-  NaiveReversePionMomentaPolicy reverse_pion_mom;
   MesonFieldMomentumContainer<A2Apolicies> mf_pion_rev;
   computePionMesonFields(mf_pion_rev,  V, W, reverse_pion_mom, lat, params, field3dparams);
   
@@ -431,6 +553,17 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   computePion2pt(mf_pion_naive, naive_pion_mom, conf, params, "_naive");
   computePion2pt(mf_pion_naive_plus_alt, naive_pion_mom, conf, params, "_naive_plus_alt");
   computePion2pt(mf_pion_naive_plus_rev, naive_pion_mom, conf, params, "_naive_plus_rev");
+
+#ifdef DO_EXTENDED_MOMENTUM_EXPT
+  NaiveAltExperimentalExtendedPionMomentaPolicy expt_pion_mom;
+  MesonFieldMomentumContainer<A2Apolicies> mf_pion_expt;
+  computePionMesonFields(mf_pion_expt,  V, W, expt_pion_mom, lat, params, field3dparams);
+
+  MesonFieldMomentumContainer<A2Apolicies> &mf_pion_naive_plus_expt = mf_pion_expt;
+  mf_pion_naive_plus_expt.average(mf_pion_naive);
+  computePion2pt(mf_pion_naive_plus_expt, naive_pion_mom, conf, params, "_naive_plus_expt");
+#endif
+
 }
 
 #endif
