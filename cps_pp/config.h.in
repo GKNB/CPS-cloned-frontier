@@ -23,7 +23,7 @@
 #define BGQ    5
 
 
-#include <version.h>
+//#include <version.h>
 #define VERSION_MAJOR @VERSION_MAJOR@
 #define VERSION_MINOR @VERSION_MINOR@
 #define VERSION_SUB @VERSION_SUB@

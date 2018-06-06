@@ -271,6 +271,7 @@ class Lattice
 
 
     int *SigmaField() const {
+	if(!sigma_field)ERR.General(cname,"SigmaField()", "sigma_field not allocated\n");
         return sigma_field;
     }
     //!< Returns the pointer to the sigma field configuration.

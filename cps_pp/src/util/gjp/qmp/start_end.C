@@ -1,5 +1,6 @@
 #include <iostream>
 #include <config.h>
+#include <version.h>
 #include <util/gjp.h>
 #include <util/error.h>
 #ifdef USE_QMP
@@ -25,7 +26,7 @@ void printHash(){
 #ifdef GITHASH
     std::cout << "CPS git commit hash=" << GITHASH << std::endl;
 #else
-    std::cout << "CPS git commit hash is undefined. Check makefile." << std::endl;
+    std::cout << "CPS git commit hash is undefined. Check version.h ." << std::endl;
 #endif
 #undef GITHASH
 }

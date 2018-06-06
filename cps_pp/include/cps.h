@@ -6,6 +6,7 @@
 ***************************************************************************/
 #ifndef INCLUDED_CPS_H
 #define INCLUDED_CPS_H
+#include<version.h>
 #include<config.h>
 #include<alg/alg_all.h>
 #include<comms/comms_all.h>
