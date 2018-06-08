@@ -356,9 +356,8 @@ public:
 
 
 
-
-
-
+#undef NODE_LOCAL
+#undef PIPI_COMPUTE_PRODUCT
 
 
 CPS_END_NAMESPACE

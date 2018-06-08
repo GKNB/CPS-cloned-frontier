@@ -7,7 +7,9 @@
 #include <alg/a2a/compute_LLmesonfields.h>
 #include <alg/a2a/compute_kaon.h>
 #include <alg/a2a/compute_pion.h>
+#include <alg/a2a/compute_sigmamesonfields.h>
 #include <alg/a2a/compute_sigma.h>
+#include <alg/a2a/compute_pipitosigma.h>
 #include <alg/a2a/compute_pipi.h>
 #include <alg/a2a/compute_ktopipi.h>
 

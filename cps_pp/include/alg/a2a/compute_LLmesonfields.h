@@ -118,7 +118,7 @@ public:
 
 
 
-//Additional pion momenta for the extended calculation. We symmetrize the quark momenta, which should automatically improve the rotational symmetry without the need for additional alt momenta
+//Additional pion momenta for the extended calculation. We symmetrize the quark momenta but don't include alt momenta. *THIS HAS ROTATIONAL SYMMETRY BREAKING*
 class ExtendedPionMomentaPolicy: public RequiredMomentum{
 public:
   ExtendedPionMomentaPolicy(): RequiredMomentum() {
@@ -129,17 +129,17 @@ public:
     //For the (+-6,+-2,+-2) define the 8 orientations of (-6.-2,-2) obtained by giving each component a minus sign respectively, and then cyclically permute to move the -6 around
     std::vector<std::pair<ThreeMomentum, ThreeMomentum> > base(4);
 
-    // (-6, -2, -2)   (-3, -3, -3)+(-3, 1, 1)
-    base[0] = ThreeMomentum::parse_str_two_mom("(-3, -3, -3)+(-3, 1, 1)");
-
-    // (6, -2, -2)    (3, -1, -1)+(3, -1, -1) 
-    base[1] = ThreeMomentum::parse_str_two_mom("(3, -1, -1)+(3, -1, -1)");
-
-    // (-6, 2, -2)    (-3, 1, -3)+(-3, 1, 1) 
-    base[2] = ThreeMomentum::parse_str_two_mom("(-3, 1, -3)+(-3, 1, 1)");
-
-    // (-6, -2, 2)    (-3, -3, 1)+(-3, 1, 1)
-    base[3] = ThreeMomentum::parse_str_two_mom("(-3, -3, 1)+(-3, 1, 1)");
+    //(-6, -2, -2) (-1, -1, -1)+(-5, -1, -1) 
+    base[0] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, -1)");
+    
+    //(6, -2, -2) (-1, -1, -1)+(7, -1, -1) 
+    base[1] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(7, -1, -1)");
+    
+    //(-6, 2, -2) (-1, -1, -1)+(-5, 3, -1) 
+    base[2] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, 3, -1)");
+    
+    //(-6, -2, 2) (-1, -1, -1)+(-5, -1, 3) 
+    base[3] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, 3)");
 
     for(int perm=0;perm<3;perm++){
       for(int o=0;o<4;o++){ 
@@ -154,6 +154,55 @@ public:
     for(int i=0;i<24;i++) assert(nAltMom(i) == 2);
   };
 };
+
+
+//Have a base + alt momentum, symmetrized. These satisfy the conditions p1+p2=p3+p4=ptot  and p1-p2 + p3-p4 = n*ptot  with n=-2. *THIS DOES |NOT| HAVE ROTATIONAL SYMMETRY BREAKING*
+class AltExtendedPionMomentaPolicy: public RequiredMomentum{
+public:
+  AltExtendedPionMomentaPolicy(): RequiredMomentum() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+    const int ngp = this->nGparityDirs();
+    assert(ngp == 3);
+
+    //For the (+-6,+-2,+-2) define the 8 orientations of (-6.-2,-2) obtained by giving each component a minus sign respectively, and then cyclically permute to move the -6 around
+    std::vector<std::pair<ThreeMomentum, ThreeMomentum> > base(4);
+    std::vector<std::pair<ThreeMomentum, ThreeMomentum> > alt(4);
+
+    //(-6, -2, -2) (-1, -1, -1)+(-5, -1, -1) (1, 1, 1)+(-7, -3, -3)
+    base[0] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, -1)");
+    alt[0] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, -3, -3)");
+    
+    //(6, -2, -2) (-1, -1, -1)+(7, -1, -1) (1, 1, 1)+(5, -3, -3)
+    base[1] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(7, -1, -1)");
+    alt[1] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(5, -3, -3)");
+    
+    //(-6, 2, -2) (-1, -1, -1)+(-5, 3, -1) (1, 1, 1)+(-7, 1, -3)
+    base[2] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, 3, -1)");
+    alt[2] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, 1, -3)");
+    
+    //(-6, -2, 2) (-1, -1, -1)+(-5, -1, 3) (1, 1, 1)+(-7, -3, 1)
+    base[3] = ThreeMomentum::parse_str_two_mom("(-1, -1, -1)+(-5, -1, 3)");
+    alt[3] = ThreeMomentum::parse_str_two_mom("(1, 1, 1)+(-7, -3, 1)");    
+
+    for(int perm=0;perm<3;perm++){
+      for(int o=0;o<4;o++){ 
+	addPandMinusP(base[o]);
+	addPandMinusP(alt[o]);
+	base[o].first.cyclicPermute();
+	base[o].second.cyclicPermute();
+	alt[o].first.cyclicPermute();
+	alt[o].second.cyclicPermute();
+      }
+    }
+    symmetrizeABmomentumAssignments();
+	
+    assert(nMom() == 24);
+    for(int i=0;i<24;i++) assert(nAltMom(i) == 4);
+  };
+};
+
+
+
 
 
 
