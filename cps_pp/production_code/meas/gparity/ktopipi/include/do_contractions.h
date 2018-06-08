@@ -247,11 +247,18 @@ struct AllPionMomenta{
   inline ThreeMomentum getMesonMomentum(const int i) const{ return p[i]; }
 };
 
-//Extended calculation with additional pion momenta
+//Extended calculation with additional pion momenta and K->sigma
 void doContractionsExtendedCalcV1(const int conf, Parameters &params, const CommandLineArgs &cmdline, Lattice& lat,
 				  A2AvectorV<A2Apolicies> &V, A2AvectorW<A2Apolicies> &W,
 				  A2AvectorV<A2Apolicies> &V_s, A2AvectorW<A2Apolicies> &W_s,
 				  const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  if(cmdline.save_all_a2a_inputs){
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_V"; V.writeParallel(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_W"; W.writeParallel(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Vs"; V_s.writeParallel(os.str()); }
+    { std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_Ws"; W_s.writeParallel(os.str()); }
+  }
+
   //-------------------Fix gauge----------------------------
   doGaugeFix(lat, cmdline.skip_gauge_fix, params);
 
@@ -259,29 +266,76 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   StationaryKaonMomentaPolicy kaon_mom_std;
   if(cmdline.do_kaon2pt) computeKaon2pt(V,W,V_s,W_s,kaon_mom_std,conf,lat,params,field3dparams,cmdline.randomize_mf);
 
-  //-------------------------Compute the LL meson fields ------------------------  
-  //Compute the 1s meson fields with the original set of momenta
-  StandardPionMomentaPolicy pion_mom_std;
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_std;
-  computeLLmesonFields1s(mf_ll_con_std, V, W, pion_mom_std, lat, params, field3dparams, cmdline.randomize_mf);
+  //-------------------------Compute the sigma meson fields--------------------------------------
+  StationarySigmaMomentaPolicy sigma_mom;
+  MesonFieldMomentumPairContainer<A2Apolicies> mf_sigma;
 
-  //Do 1s pion, compute K->pipi
-  //then reverse and symmetrize, then recompute K->pipi
-  //After this we no longer need the strange A2A vectors and we can free them for extra memory.
+  if(cmdline.ktosigma_load_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::read(mf_sigma, sigma_mom, cmdline.ktosigma_sigma_mf_dir, conf, params.jp.pion_rad);
+  else computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::computeMesonFields(mf_sigma, sigma_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  
+  if(cmdline.ktosigma_save_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::write(mf_sigma, sigma_mom, params.meas_arg.WorkDirectory, conf, params.jp.pion_rad);
+
+  //-------------------------Compute the K->sigma matrix elements -------------------------------
+  //First compute kaon WW meson fields
   StandardLSWWmomentaPolicy lsWW_mom_std;
   LSWWmesonFields mf_ls_ww_con_std;
-  if(cmdline.do_ktopipi){
-    computeKtoPiPi(mf_ll_con_std,V,W,V_s,W_s,lat,field3dparams,pion_mom_std,lsWW_mom_std,conf,params, cmdline.randomize_mf,&mf_ls_ww_con_std);
+  computeKtoPipiWWmesonFields(mf_ls_ww_con_std, W, W_s, lat, field3dparams, lsWW_mom_std, params, cmdline.randomize_mf);
+  
+  if(cmdline.save_all_a2a_inputs){
+    std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_kaon_mfww.dat";
+    mf_ls_ww_con_std.write(os.str(),false);
   }
 
-  ReversePionMomentaPolicy pion_mom_rev; //these are the W and V momentum combinations
-  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con_symm; //stores light-light meson fields, accessible by momentum
-  computeLLmesonFields1s(mf_ll_con_symm, V, W, pion_mom_rev, lat, params, field3dparams, cmdline.randomize_mf);
-  mf_ll_con_symm.average(mf_ll_con_std);
-  mf_ll_con_std.free_mem();
+  if(cmdline.do_ktosigma) computeKtoSigmaContractions(V, W, V_s, W_s, mf_ls_ww_con_std, mf_sigma, sigma_mom, conf, params, "1s", "", true, "");
+   
+  //-------------------------Compute the LL meson fields ------------------------  
+  MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;
 
+  SymmetricPionMomentaPolicy pion_mom_orig;   //Pion meson fields with original quark momentum selections (base+alt, symmetrized)
+  AltExtendedPionMomentaPolicy pion_mom_extended; //The other 24 pion meson fields (base+alt, symmetrized)
+
+  RequiredMomentum all_pimom;
+  all_pimom.combineSameTotalMomentum(true);
+  for(int i=0;i<pion_mom_orig.nMom();i++)
+    for(int j=0;j<pion_mom_orig.nAltMom(i);j++)
+      all_pimom.addP(std::pair<cps::ThreeMomentum, cps::ThreeMomentum>(pion_mom_orig.getMomA(i,j), pion_mom_orig.getMomB(i,j)));
+
+  for(int i=0;i<pion_mom_extended.nMom();i++)
+    for(int j=0;j<pion_mom_extended.nAltMom(i);j++)
+      all_pimom.addP(std::pair<cps::ThreeMomentum, cps::ThreeMomentum>(pion_mom_extended.getMomA(i,j), pion_mom_extended.getMomB(i,j)));
+
+  computeLLmesonFields1s(mf_ll_con, V, W, all_pimom, lat, params, field3dparams, cmdline.randomize_mf);  
+
+  if(cmdline.save_all_a2a_inputs){
+    std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_pion_mf_hyd1s_rad" << (int)params.jp.pion_rad;
+    mf_ll_con.write(os.str(),true);
+  }
+
+  //--------------------------Compute the K->pipi contractions---------------------------------------
   if(cmdline.do_ktopipi){  
-    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con_symm,pion_mom_std,conf,params,"1s","",false,"_symmpi");
+    //For K->pipi type1 with original momentum set we use the rotational symmetry to reduce the number of contractions
+    struct Type1momentumSubset{
+      inline int nMom() const{ return 4; }
+      inline ThreeMomentum getMesonMomentum(const int i) const{ 
+	switch(i){
+	case 0:
+	  return ThreeMomentum(-2,-2,-2);
+	case 1:
+	  return ThreeMomentum(2,-2,-2);
+	case 2:
+	  return ThreeMomentum(2,2,2);
+	case 3:
+	  return ThreeMomentum(-2,2,2);
+	default:
+	  assert(0);
+	}
+      }
+    };
+    Type1momentumSubset type1_subset;
+    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con, type1_subset, pion_mom_orig, conf, params,"1s","",true,"_symmpi");
+
+    //For extended momenta do all of them (FOR NOW)
+    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con, type1_subset, pion_mom_extended, conf, params,"1s","",false,"_symmpi_ext");
   }
 
   //Free strange quark fields 
@@ -289,16 +343,18 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   W_s.free_mem();
   mf_ls_ww_con_std.free_mem();
   
-  //Compute the other 24 meson fields (symmetrized by default)
-  ExtendedPionMomentaPolicy pion_mom_extended_symm;
-  computeLLmesonFields1s(mf_ll_con_symm, V, W, pion_mom_extended_symm, lat, params, field3dparams, cmdline.randomize_mf);
+  //----------------------------Compute the pion two-point function--------------------------------- */
+  if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, all_pimom, conf, params, "_symm");
 
-  AllPionMomenta all_pimom; all_pimom.import(pion_mom_std); all_pimom.import(pion_mom_extended_symm);
+  //----------------------------Compute the sigma 2pt function--------------------------------------
+  std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
+  if(cmdline.do_sigma2pt) computeSigma2pt(sigma_bub, mf_sigma, sigma_mom, conf, params);
 
-   //----------------------------Compute the pion two-point function--------------------------------- */
-  if(cmdline.do_pion2pt) computePion2pt(mf_ll_con_symm, all_pimom, conf, params, "_symm");
+  //----------------------------Compute pipi->sigma----------------------------------------------------
+  if(cmdline.do_pipitosigma) computePiPiToSigma(sigma_bub, mf_sigma,sigma_mom, mf_ll_con, all_pimom, conf, params);
 
-  if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con_symm, "pipi_correlators.in", all_pimom, conf, params, "_symm");
+  //----------------------------Compute the pipi 2pt function ---------------------------------------
+  if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con, "pipi_correlators.in", all_pimom, conf, params, "_symm");
 }
 
 

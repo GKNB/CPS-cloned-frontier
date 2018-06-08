@@ -12,8 +12,10 @@ using namespace cps;
 #include "kaon.h"
 #include "pion.h"
 #include "sigma.h"
+#include "pipitosigma.h"
 #include "pipi.h"
 #include "ktopipi.h"
+#include "ktosigma.h"
 #include "do_contractions.h"
 
 void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &cmdline,

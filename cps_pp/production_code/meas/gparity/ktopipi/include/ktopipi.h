@@ -27,14 +27,43 @@ struct LSWWmesonFields{
     for(int i=0;i<mf_ls_ww.size();i++)
       mf_ls_ww[i].free_mem();
   }
+  void write(const std::string &filename, const bool redistribute){
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeGetMany(1,&mf_ls_ww);
+#endif
+
+#ifndef MEMTEST_MODE
+    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw>::write(filename,mf_ls_ww);
+#endif
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    if(redistribute) nodeDistributeMany(1,&mf_ls_ww);
+#endif
+  }
+  void read(const std::string &filename, const bool distribute){
+#ifndef MEMTEST_MODE
+    A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw>::write(filename,mf_ls_ww);
+#endif
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    if(distribute) nodeDistributeMany(1,&mf_ls_ww);
+#endif
+  }
+
+
 };
 
+
+  
+  
+
+
 //Type 4 doesn't depend on pipi src so if you are doing multiple sources you can set do_type4=false for subsequent runs
-template<typename PionMomentumPolicy>
+template<typename Type1pionMomentumPolicy, typename Type23pionMomentumPolicy>
 void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
 				const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 				const LSWWmesonFields &mf_ls_ww_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
-				const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, 
+				const Type1pionMomentumPolicy &type1_pion_mom, const Type23pionMomentumPolicy &type23_pion_mom, const int conf, const Parameters &params, 
 				const std::string &src_descr, const std::string &src_fappend, bool do_type4, const std::string &postpend = ""){
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
   
@@ -49,23 +78,13 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
     
   //For type1 loop over momentum of pi1 (conventionally the pion closest to the kaon)
   int ngp = 0; for(int i=0;i<3;i++) if(GJP.Bc(i)==BND_CND_GPARITY) ngp++;
-#define TYPE1_DO_ASSUME_ROTINVAR_GP3  //For GPBC in 3 directions we can assume rotational invariance around the G-parity diagonal vector (1,1,1) and therefore calculate only one off-diagonal momentum
 
-#ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3
-  int nmom = 4;
-  ThreeMomentum p_pi1_all[4] = { ThreeMomentum(-2,-2,-2), ThreeMomentum(2,-2,-2),
-				 ThreeMomentum(2,2,2), ThreeMomentum(-2,2,2) };  // p_pi1 = (-1,-1,-1), (1,1,1) [diag] (1,-1,-1), (-1,1,1) [orth] only
-#else
-  int nmom = 8;
-  ThreeMomentum p_pi1_all[8] = { ThreeMomentum(-2,-2,-2), ThreeMomentum(2,-2,-2), ThreeMomentum(-2,2,-2), ThreeMomentum(-2,-2,2),
-				 ThreeMomentum(2,2,2), ThreeMomentum(-2,2,2), ThreeMomentum(2,-2,2), ThreeMomentum(2,2,-2) };
-#endif
 
-  if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",nmom);
+  if(!UniqueID()) printf("Starting type 1 contractions, nmom = %d\n",type1_pion_mom.nMom());
   double time = -dclock();
 
-  for(int pidx=0; pidx < nmom; pidx++){     
-    ThreeMomentum p_pi1 = p_pi1_all[pidx];
+  for(int pidx=0; pidx < type1_pion_mom.nMom(); pidx++){     
+    ThreeMomentum p_pi1 = type1_pion_mom.getMesonMomentum(pidx);
 
     if(!UniqueID()) printf("Starting type 1 contractions with p_pi1=%s and source %s\n",p_pi1.str().c_str(),src_descr.c_str());
     printMem("Memory status before type1 K->pipi");
@@ -101,7 +120,7 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
     if(!UniqueID()) printf("Starting type 2 contractions with source %s\n", src_descr.c_str());
     std::vector<ResultsContainerType> type2;
     ComputeKtoPiPiGparity<A2Apolicies>::type2(type2,
-					      k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, pion_mom,
+					      k_pi_separation, params.jp.pipi_separation, params.jp.tstep_type12, type23_pion_mom,
 					      mf_ls_ww, mf_ll_con,
 					      V, V_s,
 					      W, W_s);
@@ -124,7 +143,7 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
     std::vector<ResultsContainerType> type3;
     std::vector<MixDiagResultsContainerType> mix3;
     ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
-					      k_pi_separation, params.jp.pipi_separation, 1, pion_mom,
+					      k_pi_separation, params.jp.pipi_separation, 1, type23_pion_mom,
 					      mf_ls_ww, mf_ll_con,
 					      V, V_s,
 					      W, W_s);
@@ -169,6 +188,43 @@ void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename Compu
 
   printMem("Memory at end of K->pipi contractions");
 }
+
+template<typename PionMomentumPolicy>
+void computeKtoPiPiContractions(const A2AvectorV<A2Apolicies> &V, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W,
+				const A2AvectorV<A2Apolicies> &V_s, typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
+				const LSWWmesonFields &mf_ls_ww_con, MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
+				const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, 
+				const std::string &src_descr, const std::string &src_fappend, bool do_type4, const std::string &postpend = ""){
+#define TYPE1_DO_ASSUME_ROTINVAR_GP3  //For GPBC in 3 directions we can assume rotational invariance around the G-parity diagonal vector (1,1,1) and therefore calculate only one off-diagonal momentum
+  
+#ifdef TYPE1_DO_ASSUME_ROTINVAR_GP3 
+
+  struct Type1momentumSubset{
+    inline int nMom() const{ return 4; }
+    inline ThreeMomentum getMesonMomentum(const int i) const{ 
+      switch(i){
+      case 0:
+	return ThreeMomentum(-2,-2,-2);
+      case 1:
+	return ThreeMomentum(2,-2,-2);
+      case 2:
+	return ThreeMomentum(2,2,2);
+      case 3:
+	return ThreeMomentum(-2,2,2);
+      default:
+	assert(0);
+      }
+    }
+  };
+  Type1momentumSubset type1_mom;
+  computeKtoPiPiContractions(V, W, V_s, W_s, mf_ls_ww_con, mf_ll_con, type1_mom, pion_mom, conf, params, src_descr, src_fappend, do_type4, postpend);
+
+#else
+  computeKtoPiPiContractions(V, W, V_s, W_s, mf_ls_ww_con, mf_ll_con, pion_mom, pion_mom, conf, params, src_descr, src_fappend, do_type4, postpend);
+#endif
+}
+
+
 
 template<typename LSWWmomentumPolicy>		
 void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,

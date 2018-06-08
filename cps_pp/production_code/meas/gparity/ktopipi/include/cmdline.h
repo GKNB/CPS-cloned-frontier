@@ -18,6 +18,9 @@ struct CommandLineArgs{
   bool do_pipi;
   bool do_ktopipi;
   bool do_sigma;
+  bool do_ktosigma;
+  bool do_sigma2pt;
+  bool do_pipitosigma;
 
   //For split job version
   bool do_split_job;
@@ -27,6 +30,14 @@ struct CommandLineArgs{
   //For version that just computes light quark props (also sets checkpoint_dir as above)
   bool do_LL_props_only;
 
+  //For sigma->pipi, choose to save meson fields or load and not recompute
+  bool ktosigma_load_sigma_mf;
+  bool ktosigma_save_sigma_mf;
+  std::string ktosigma_sigma_mf_dir;
+
+  //
+  bool save_all_a2a_inputs; //save all meson fields and a2a vectors (not all jobs have this set up)
+  std::string save_all_a2a_inputs_dir;
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
   double bnl_knl_minperf; //in Mflops per node (not per rank, eg MPI3!)
@@ -55,10 +66,18 @@ struct CommandLineArgs{
     do_pipi = true;
     do_ktopipi = true;
     do_sigma = true;
+    do_ktosigma = true;
+    do_sigma2pt = true;
+    do_pipitosigma = true;
 
     do_split_job = false;
 
     do_LL_props_only = false;
+
+    ktosigma_load_sigma_mf = false;
+    ktosigma_save_sigma_mf = false;
+
+    save_all_a2a_inputs = false;
 
 #ifdef BNL_KNL_PERFORMANCE_CHECK
     bnl_knl_minperf = 50000;
@@ -168,6 +187,32 @@ struct CommandLineArgs{
       }else if( strncmp(cmd,"-skip_ktopipi",30) == 0){
 	do_ktopipi = false;
 	arg++;
+      }else if( cmdstr == "-skip_ktosigma"){
+	do_ktosigma = false;
+	arg++;
+      }else if( cmdstr == "-skip_sigma2pt"){
+	do_sigma2pt = false;
+	arg++;
+      }else if( cmdstr == "-skip_pipitosigma"){
+	do_pipitosigma = false;
+	arg++;
+      }else if( cmdstr == "-ktosigma_load_sigma_mf"){
+	ktosigma_load_sigma_mf = true;
+	ktosigma_sigma_mf_dir = argv[arg+1];
+	arg+=2;
+      }else if( cmdstr == "-ktosigma_save_sigma_mf"){
+	ktosigma_save_sigma_mf = true;
+	ktosigma_sigma_mf_dir = argv[arg+1];
+	arg+=2;
+      }else if( cmdstr == "-save_all_a2a_inputs"){
+	save_all_a2a_inputs = true;
+	save_all_a2a_inputs_dir = argv[arg+1];
+
+	ktosigma_save_sigma_mf = true;
+	ktosigma_sigma_mf_dir = argv[arg+1];
+
+	arg+=2;
+	
       }else if( strncmp(cmd,"-mmap_threshold_and_max",40) == 0){ //Using these options can reduce memory fragmentation but may impact performance
 	size_t threshold = strToAny<size_t>(argv[arg+1]);
 	size_t mmap_max = strToAny<size_t>(argv[arg+2]);
@@ -218,6 +263,8 @@ struct CommandLineArgs{
     }
 
     if(nthread_contractions == -1) nthread_contractions = nthreads; //default equal
+
+    if(do_pipitosigma && !do_sigma2pt) ERR.General("CommandLineArgs","parse","pipi->sigma calculation also requires sigma 2pt calculation\n");
   }
 
 };
