@@ -66,9 +66,31 @@ private:
   inline void compute_type12_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
+
+  void setup_type12_pt1_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb){
+    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      int tK_glb = modLt(top_glb - tdis, Lt);
+      if(part1_split.find(tK_glb) == part1_split.end())
+	part1_split[tK_glb].setup(vL,mf_ls_WW[tK_glb], vH,top_glb);
+    }
+  }
+
   inline void compute_type12_part2(SCFmat &pt2, const int tS_glb, const int top_loc, const int xop_loc, const std::vector<SigmaMesonFieldType> &mf_S){
     mult(pt2, vL, mf_S[tS_glb], wL, xop_loc, top_loc, false, true);
   }
+
+  void setup_type12_pt2_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &part2_split, std::vector<SigmaMesonFieldType> &mf_S, const int top_glb){
+    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      int tK_glb = modLt(top_glb - tdis, Lt);
+      for(int i=0;i<ntsep_k_sigma;i++){
+	if(tdis > tsep_k_sigma[i]) continue;
+	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+	if(part2_split.find(tS_glb) == part2_split.end())
+	  part2_split[tS_glb].setup(vL, mf_S[tS_glb], wL, top_glb);
+      }
+    }
+  }
+
 
   //Run inside threaded environment
   void type12_contract(ResultsContainerType &result, const int tK_glb, const int tdis_glb, const int thread_id, const SCFmat &part1, const SCFmat &part2){
@@ -121,7 +143,15 @@ public:
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
-           
+
+#ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
+      setup_type12_pt1_split(part1_split,top_glb);
+
+      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > part2_split;
+      setup_type12_pt2_split(part2_split,mf_S,top_glb);
+#endif
+
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
 	int thread_id = omp_get_thread_num();
@@ -132,7 +162,11 @@ public:
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 	    
 	  SCFmat pt1;
+#ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+	  part1_split.find(tK_glb)->second.contract(pt1, xop3d_loc, false, true);
+#else
 	  compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc);
+#endif
 	    	 
 	  for(int i=0;i<ntsep_k_sigma;i++){
 	    if(tdis > tsep_k_sigma[i]) continue;
@@ -140,7 +174,11 @@ public:
 
 	    if(pt2_store[tS_glb] == NULL){
 	      pt2_store[tS_glb] = new SCFmat;
+#ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+	      part2_split.find(tS_glb)->second.contract(*pt2_store[tS_glb],xop3d_loc, false, true);
+#else
 	      compute_type12_part2(*pt2_store[tS_glb], tS_glb, top_loc, xop3d_loc, mf_S);
+#endif
 	    }
 	    const SCFmat &pt2 = *pt2_store[tS_glb];
 	    type12_contract(result[i], tK_glb, tdis, thread_id, pt1, pt2);
@@ -228,6 +266,19 @@ private:
   inline void compute_type3_part1(SCFmat &pt1, const int top_loc, const int xop_loc, const Type3MesonFieldProductType &mf_prod){
     mult(pt1, vL, mf_prod, vH, xop_loc, top_loc, false, true);
   }
+
+  void setup_type3_pt1_split(std::map<std::pair<int,int>, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb,
+			     std::vector<std::vector<Type3MesonFieldProductType*> > &mf_prod){
+    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      int tK_glb = modLt(top_glb - tdis, Lt);
+      for(int i=0;i<ntsep_k_sigma;i++){
+	if(tdis > tsep_k_sigma[i]) continue;
+	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+	std::pair<int,int> coor(tK_glb,tS_glb);
+	if(part1_split.find(coor) == part1_split.end()) part1_split[coor].setup(vL,*mf_prod[tK_glb][tS_glb],vH, top_glb);
+      }
+    }
+  }
   
   inline void compute_type3_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
     mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
@@ -291,7 +342,7 @@ private:
   }
 
 public:
-
+ 
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeGetMany(1, &mf_S);
@@ -322,7 +373,12 @@ public:
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
-           
+
+#ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
+      std::map<std::pair<int,int>, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
+      setup_type3_pt1_split(part1_split,top_glb,mf_prod);
+#endif
+
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
 	int thread_id = omp_get_thread_num();
@@ -342,7 +398,11 @@ public:
 
 	    if(pt1_store[tK_glb][tS_glb] == NULL){
 	      pt1_store[tK_glb][tS_glb] = new SCFmat;
+#ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
+	      part1_split.find(std::pair<int,int>(tK_glb,tS_glb))->second.contract(*pt1_store[tK_glb][tS_glb], xop3d_loc, false, true);
+#else
 	      compute_type3_part1(*pt1_store[tK_glb][tS_glb], top_loc, xop3d_loc, *mf_prod[tK_glb][tS_glb]);
+#endif
 	    }  
 
 	    type3_contract(result[i], tK_glb, tdis, thread_id, *pt1_store[tK_glb][tS_glb], pt2_L, pt2_H);
@@ -429,6 +489,14 @@ private:
   inline void compute_type4_part1(SCFmat &pt1, const int tK_glb, const int top_loc, const int xop_loc){
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
+
+  inline void setup_type4_pt1_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb){
+    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+      int tK_glb = modLt(top_glb - tdis, Lt);
+      if(part1_split.find(tK_glb) == part1_split.end()) part1_split[tK_glb].setup(vL,mf_ls_WW[tK_glb],vH, top_glb);
+    }
+  }
+
   inline void compute_type4_part2(SCFmat &pt2_L, SCFmat &pt2_H, const int top_loc, const int xop_loc){
     mult(pt2_L, vL, wL, xop_loc, top_loc, false, true);
     mult(pt2_H, vH, wH, xop_loc, top_loc, false, true);
@@ -512,6 +580,11 @@ public:
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+
+#ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV  
+      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
+      setup_type4_pt1_split(part1_split,top_glb);
+#endif
            
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
@@ -524,7 +597,11 @@ public:
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 
 	  SCFmat pt1;
+#ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV 
+	  part1_split.find(tK_glb)->second.contract(pt1,xop3d_loc,false,true);
+#else
 	  compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc);
+#endif
 
 	  type4_contract(result, tK_glb, tdis, thread_id, pt1, pt2_L, pt2_H);
 
