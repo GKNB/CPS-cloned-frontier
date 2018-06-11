@@ -251,8 +251,8 @@ class MesonFieldShiftSourceStorageBase : MesonFieldStorageBase{
 
     computeParamsMultiShift(){}
     computeParamsMultiShift(const int _qidx_w, const int _qidx_v, const ThreeMomentum &_p_w, const ThreeMomentum &_p_v, const int _src_shift[3]): qidx_w(_qidx_w),  qidx_v(_qidx_v), p_w(_p_w), p_v(_p_v){
-    addShift(_src_shift);
-  }
+      addShift(_src_shift);
+    }
     void addShift(const int _src_shift[3]){
       std::vector<int> s(3); for(int i=0;i<3;i++) s[i] = _src_shift[i];    
       shifts.push_back(s);
@@ -281,7 +281,8 @@ protected:
   std::vector<computeParamsMultiShift> optimized_clist; //shifts with same quark species and momenta combined
   std::vector< std::pair<int,int> > clist_opt_map; //mapping from original clist index to those in optimized storage
   bool optimized;
-  
+  int nshift_max;
+
   void optimizeContractionList(){
     if(optimized) return;
     
@@ -294,7 +295,7 @@ protected:
       if(clist[i].do_src_shift) memcpy(shift, clist[i].src_shift, 3*sizeof(int));
 
       MapType::iterator loc = keymap.find(clist[i]);
-      if(loc == keymap.end()){	//is a new one
+      if(loc == keymap.end() || optimized_clist[loc->second].shifts.size() == nshift_max){	//is a new one
 	keymap[clist[i]] = optimized_clist.size();
 	clist_opt_map[i] = std::pair<int,int>(optimized_clist.size(), 0);	
 	optimized_clist.push_back( computeParamsMultiShift(clist[i].qidx_w, clist[i].qidx_v, clist[i].p_w, clist[i].p_v, shift) );	
@@ -329,7 +330,8 @@ private:
   }
 public:
   
-  MesonFieldShiftSourceStorageBase() : optimized_clist(0), optimized(false){}
+  //nshift_max sets the maximum number of momentum pairs that are combined into shift sources - useful to control memory usage. Set to -1 for unlimited
+  MesonFieldShiftSourceStorageBase(const int nshift_max = -1) : optimized_clist(0), optimized(false), nshift_max(nshift_max){}
 
   void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
     if(optimized){ optimized_clist.clear(); optimized = false; } //adding new computes means we have to redo the optimization
@@ -356,7 +358,7 @@ public:
 	src_shift[i] = b(i); //shift in +b direction  \gamma(n') = \gamma(n-b)
       }
     
-    if(!UniqueID()) printf("esonFieldShiftSourceStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
+    if(!UniqueID()) printf("MesonFieldShiftSourceStorageBase: Converted p_wdag  %s = 4%s + %s   and p_v  %s = 4%s + %s to  p_wdag %s and p_v %s accompanied by source shift (%d,%d,%d)\n",
 			   p_wdag.str().c_str(), a.str().c_str(), k.str().c_str(),
 			   p_v.str().c_str(), b.str().c_str(), l.str().c_str(),
 			   new_p_wdag.str().c_str(), new_p_v.str().c_str(),
@@ -474,7 +476,7 @@ private:
   setSourceMomentum(const int opt_cidx){ _multiSrcRecurse<S,S::nSources>::setMomentum(src,this->optimized_clist[opt_cidx].p_v.ptr() ); }
 
 public:  
-  GparityFlavorProjectedShiftSourceStorage(InnerProductType& _inner, SourceType &_src): inner(_inner),src(_src),locked(false){} //note 'inner' will have its momentum sign changed dynamically
+  GparityFlavorProjectedShiftSourceStorage(InnerProductType& _inner, SourceType &_src, const int nshift_max = -1): inner(_inner),src(_src),locked(false), MesonFieldShiftSourceStorageBase(nshift_max){} //note 'inner' will have its momentum sign changed dynamically
 
   mfComputeInputFormat getMf(const int opt_cidx){
     if(!locked){
