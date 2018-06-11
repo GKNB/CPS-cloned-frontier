@@ -103,11 +103,11 @@ private:
 	D(8) += Trace( pt2_M2, ctrans_pt1_G5_M1 );
 	D(11) += Trace( tr_sf_pt1_G5_M1, Transpose(tr_sf_p2_M2) );
 	D(19) += Trace( pt1_G5_M1.ColorTrace(), pt2_M2.ColorTrace() );
-
 #undef D
+
       }
-#endif
     }
+#endif
   }
 
 public:
@@ -286,8 +286,8 @@ private:
 
 #undef D
       }
-#endif
     }
+#endif
   }
 
 public:
@@ -496,8 +496,8 @@ private:
 
 #undef D
       }
-#endif
     }
+#endif
   }
 
 public:
