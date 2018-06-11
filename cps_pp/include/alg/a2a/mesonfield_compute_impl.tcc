@@ -288,7 +288,7 @@ struct MultiSrcVectorPolicies{
       typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::LeftDilutionType ll = l;
       typename A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::RightDilutionType rr = r;
       
-      printf("Initializing meson fields of size %d * %d. Memory requirement is %g MB, memory status is:\n", ll.getNmodes(),rr.getNmodes(),byte_to_MB(total_size));
+      printf("Initializing %d (Lt) * %d (mf/t) = %d meson fields of matrix size %d * %d (%g MB). Memory requirement is %g MB, memory status is:\n", Lt, mfPerTimeSlice, Lt*mfPerTimeSlice, ll.getNmodes(),rr.getNmodes(),byte_to_MB(mf_size), byte_to_MB(total_size));
       printMem("Meson field initialization",0);
     }
     cps::sync();

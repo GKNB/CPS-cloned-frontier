@@ -76,6 +76,14 @@ int main (int argc,char **argv )
     
     conf_time += dclock();
     print_time("main","Configuration total",conf_time);
+    
+    //Write a file to work directory indicate that the config has been complete
+    {
+      std::ostringstream fn; fn << "done." << conf;
+      std::ofstream of(fn.str().c_str());
+      of << "Config " << conf << " complete in " << conf_time << "s\n";
+    }
+
   }//end of config loop
 
   if(!UniqueID()) printf("Done\n");
