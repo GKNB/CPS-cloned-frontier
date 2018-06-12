@@ -295,6 +295,8 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   if(cmdline.do_ktosigma) computeKtoSigmaContractions(V, W, V_s, W_s, mf_ls_ww_con_std, mf_sigma, sigma_mom, conf, params, "1s", "", true, "");
    
+  mf_ls_ww_con_std.distribute();
+
   //-------------------------Compute the LL meson fields ------------------------  
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;
 
@@ -320,6 +322,8 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   //--------------------------Compute the K->pipi contractions---------------------------------------
   if(cmdline.do_ktopipi){  
+    mf_ls_ww_con_std.gather();
+
     //For K->pipi type1 with original momentum set we use the rotational symmetry to reduce the number of contractions
     struct Type1momentumSubset{
       inline int nMom() const{ return 4; }

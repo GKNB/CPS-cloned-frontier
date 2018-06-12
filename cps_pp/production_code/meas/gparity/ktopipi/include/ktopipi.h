@@ -23,6 +23,16 @@ struct LSWWmesonFields{
       if(redist_r) r.mf_ls_ww[i].nodeDistribute();
     }      
   }
+  void distribute(){
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,&mf_ls_ww);
+#endif
+  }
+  void gather(){
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeGetMany(1,&mf_ls_ww);
+#endif
+  }
   void free_mem(){
     for(int i=0;i<mf_ls_ww.size();i++)
       mf_ls_ww[i].free_mem();
@@ -232,6 +242,9 @@ void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,
 				 typename ComputeKtoPiPiGparity<A2Apolicies>::Wtype &W_s,
 				 Lattice &lat, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams,
 				 const LSWWmomentumPolicy &lsWW_mom, const Parameters &params, bool randomize_mf){
+  if(!UniqueID()) printf("Computing WW light-heavy meson fields\n");
+  double time = -dclock();
+
   if(randomize_mf){
     const int Lt=GJP.Tnodes()*GJP.TnodeSites();
     mf_ls_ww_con.mf_ls_ww.resize(Lt);
@@ -242,6 +255,9 @@ void computeKtoPipiWWmesonFields(LSWWmesonFields &mf_ls_ww_con,
   }else{
     ComputeKtoPiPiGparity<A2Apolicies>::generatelsWWmesonfields(mf_ls_ww_con.mf_ls_ww,W,W_s,lsWW_mom,params.jp.kaon_rad,lat, field3dparams);
   }
+
+  print_time("main","WW meson fields",time+dclock());
+  printMem("Memory after WW meson fields");
 }
 
 
