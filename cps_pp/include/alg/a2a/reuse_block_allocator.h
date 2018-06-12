@@ -79,7 +79,7 @@ public:
 
 
   inline void clear(){ //free all blocks
-    for(typename blockList::iterator it = blocks.begin(); it != blocks.end(); it++) free(it->ptr); 
+    for(typename blockList::iterator it = blocks.begin(); it != blocks.end(); it++) ::free(it->ptr); 
     blocks.clear();
   }
   inline ~ReuseBlockAllocator(){ clear(); }
