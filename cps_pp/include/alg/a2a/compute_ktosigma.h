@@ -206,7 +206,7 @@ public:
 	  }
 	}//tdis
 
-	for(int i=0;i<Lt;i++) if(pt2_store[i]) delete pt2_store[i];
+	for(int i=0;i<Lt;i++) if(pt2_store[i] != NULL) delete pt2_store[i];
       }//xop
     }//top
 
@@ -474,11 +474,11 @@ public:
 	  }
 	}
 
-	for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(pt1_store[tK][tS]) delete pt1_store[tK][tS];
+	for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(pt1_store[tK][tS]!=NULL) delete pt1_store[tK][tS];
       }//xop3d
     }//top
 
-    for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(mf_prod[tK][tS]) delete mf_prod[tK][tS];
+    for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(mf_prod[tK][tS]!=NULL) delete mf_prod[tK][tS];
 
     print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
     print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
