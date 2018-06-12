@@ -104,6 +104,10 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
 
   print_time("main","Kaon 2pt function",time + dclock());
   printMem("Memory after kaon 2pt function computation");
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  DistributedMemoryStorage::block_allocator().trim();
+#endif
 }
 
 

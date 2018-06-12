@@ -11,6 +11,47 @@ void computeSigmaMesonFields(typename ComputeSigma<A2Apolicies>::Vtype &V, typen
   print_time("main","Sigma meson fields ",time);
 }
 
+template<typename SigmaMomentumPolicy>
+void randomizeSigmaMesonFields(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma,
+			       typename computeMesonFieldsBase<A2Apolicies>::Vtype &V, typename computeMesonFieldsBase<A2Apolicies>::Wtype &W,
+			       const SigmaMomentumPolicy &sigma_mom){
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf(Lt);
+  std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > *ins;
+  for(int t=0;t<Lt;t++) mf[t].setup(W,V,t,t);
+
+  for(int p=0;p<sigma_mom.nMom();p++){
+    for(int t=0;t<Lt;t++) mf[t].testRandom();
+    ins = &mf_sigma.copyAdd(sigma_mom.getWdagMom(p), sigma_mom.getVmom(p),mf);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,ins);
+#endif 
+  }
+}
+
+
+template<typename SigmaMomentumPolicy>
+void computeSigmaMesonFieldsExt(MesonFieldMomentumPairContainer<A2Apolicies> &mf_sigma,
+				typename ComputeSigma<A2Apolicies>::Vtype &V, typename ComputeSigma<A2Apolicies>::Wtype &W, const SigmaMomentumPolicy &sigma_mom,
+				const int conf, Lattice &lat, const Parameters &params, const CommandLineArgs &cmdline, const typename A2Apolicies::SourcePolicies::MappingPolicy::ParamType &field3dparams){
+  if(cmdline.randomize_mf){
+    randomizeSigmaMesonFields(mf_sigma, V, W, sigma_mom);
+  }else{ 
+    if(cmdline.ktosigma_load_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::read(mf_sigma, sigma_mom, cmdline.ktosigma_sigma_mf_dir, conf, params.jp.pion_rad);
+    else{
+      computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::Options opt;
+#ifdef ARCH_BGQ
+      opt.nshift_combine_max = 2;
+      opt.thr_internal = 32;
+#endif
+      computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::computeMesonFields(mf_sigma, sigma_mom, W, V, params.jp.pion_rad, lat, field3dparams, opt);
+    }
+  }
+
+  if(cmdline.ktosigma_save_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::write(mf_sigma, sigma_mom, params.meas_arg.WorkDirectory, conf, params.jp.pion_rad);
+}
+
+
 //Compute sigma 2pt function with file in Tianle's format
 template<typename SigmaMomentumPolicy>
 void computeSigma2pt(std::vector< fVector<typename A2Apolicies::ScalarComplexType> > &sigma_bub, //output bubble

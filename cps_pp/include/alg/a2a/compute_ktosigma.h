@@ -495,7 +495,7 @@ public:
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     time = dclock();
     nodeDistributeMany(1,&mf_S);
-    print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);  
+    print_time("ComputeKtoSigma","type3 mf distribute",dclock()-time);  
 #endif
 
     print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
