@@ -473,7 +473,8 @@ public:
 				 Wtype &W, Vtype &V,
 				 const Float rad_1s, //exponential wavefunction radius
 				 Lattice &lattice,
-				 const FieldParamType &src_setup_params = NullObject()){
+				 const FieldParamType &src_setup_params = NullObject(),
+				 const int thr_internal = -1, const int mom_block_size = -1){
     assert(GJP.Gparity());
     Float time = -dclock();    
     std::vector<Wtype*> Wspecies(1, &W);
@@ -482,49 +483,56 @@ public:
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = pion_mom.nMom();
 
-/* #ifdef ARCH_BGQ */
-/*     int init_thr = omp_get_max_threads(); */
-/*     if(init_thr > 32) omp_set_num_threads(32); */
-/* #endif */
+    int init_thr = omp_get_max_threads();
+    if(thr_internal != -1) omp_set_num_threads(thr_internal);
 
     int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
     GparityBaseMomentum(pbase,+1);
         
     ExpSrcType src(rad_1s,pbase,src_setup_params);
     InnerType g5_s3_inner(sigma3, src);    
-    StorageType mf_store(g5_s3_inner,src);
     
-    std::vector< std::vector<int> > toavg(nmom);
+    int nmom_block = mom_block_size != -1 ? mom_block_size : nmom;
 
-    int cidx = 0;
-    for(int pidx=0;pidx<nmom;pidx++){      
-      for(int alt=0;alt<pion_mom.nAltMom(pidx);alt++){
-	ThreeMomentum p_w = pion_mom.getWmom(pidx,alt);
-	ThreeMomentum p_v = pion_mom.getVmom(pidx,alt);
-	mf_store.addCompute(0,0, p_w,p_v);
-	toavg[pidx].push_back(cidx++);
+    if(!UniqueID()) printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+
+    for(int b=0; b<nmom; b+= nmom_block){
+      int nmom_rem = nmom - b;
+      int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
+
+      if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
+
+      StorageType mf_store(g5_s3_inner,src);
+      std::vector< std::vector<int> > toavg(nmom_block_actual);
+
+      int cidx = 0;
+      for(int pidx=b;pidx<b+nmom_block_actual;pidx++){      
+	for(int alt=0;alt<pion_mom.nAltMom(pidx);alt++){
+	  ThreeMomentum p_w = pion_mom.getWmom(pidx,alt);
+	  ThreeMomentum p_v = pion_mom.getVmom(pidx,alt);
+	  mf_store.addCompute(0,0, p_w,p_v);
+	  toavg[pidx-b].push_back(cidx++);
+	}
       }
-    }
 
-    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-										       ,true
+							   ,true
 #endif
 										       );
-/* #ifdef ARCH_BGQ */
-/*     omp_set_num_threads(init_thr); */
-/* #endif */
-  
-    struct indexer{
-      const std::vector<int> &cidx;
-      indexer(const std::vector<int> &cidx): cidx(cidx){}
-      inline int operator()(const int i) const{ return cidx[i]; }
-    };
-    for(int pidx=0;pidx<nmom;pidx++){
-      indexer idxr(toavg[pidx]);
-      stridedAverageFree(mf_store, idxr, toavg[pidx].size());
-      mf_ll_1s_con.moveAdd(pion_mom.getMesonMomentum(pidx), mf_store[toavg[pidx][0]]);
-    }
+      struct indexer{
+	const std::vector<int> &cidx;
+	indexer(const std::vector<int> &cidx): cidx(cidx){}
+	inline int operator()(const int i) const{ return cidx[i]; }
+      };
+      for(int q=0;q<nmom_block_actual;q++){
+	indexer idxr(toavg[q]);
+	stridedAverageFree(mf_store, idxr, toavg[q].size());
+	mf_ll_1s_con.moveAdd(pion_mom.getMesonMomentum(b+q), mf_store[toavg[q][0]]);
+      }
+    } //block loop
+
+    if(thr_internal != -1) omp_set_num_threads(init_thr);
   }
 
 };

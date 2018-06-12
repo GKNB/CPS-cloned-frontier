@@ -353,6 +353,7 @@ public:
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
     SIMDcomplexType Mr[Mrows][nscf];
     SIMDcomplexType tmp_v;
+#ifndef MEMTEST_MODE	  
     for(int i=0;i<Mrows;i++){
       if(!rowidx_used[i]) continue;
       
@@ -365,7 +366,6 @@ public:
 	  Grid::vsplat(tmp_v, M(i, jlmap[scf][j]) );
 	  //const SIMDcomplexType &relem = r.nativeElem(jrmap[scf][j], site4dop, sc, f);
 	  //Mr[i][scf] = Mr[i][scf] + tmp_v * (conj_r ? Grid::conjugate(relem) : relem);
-	  
 	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord[scf][j];
 	}
       }
@@ -397,6 +397,7 @@ public:
 	}
       }
     }	    
+#endif
 
   }
 

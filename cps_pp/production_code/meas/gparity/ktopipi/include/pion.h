@@ -82,7 +82,12 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
     randomizeLLmesonFields(mf_ll_con, V, W, pion_mom);
   }else{ 
     assert(GJP.Gparity());
-    computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy>::computeMesonFields(mf_ll_con, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+    int nthr = -1;
+    int pblock = -1;
+#ifdef ARCH_BGQ
+    nthr = 32;
+#endif
+    computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy>::computeMesonFields(mf_ll_con, pion_mom, W, V, params.jp.pion_rad, lat, field3dparams, nthr, pblock);
   }
 
   time += dclock();

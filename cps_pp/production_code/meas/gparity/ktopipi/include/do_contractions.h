@@ -271,7 +271,14 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   MesonFieldMomentumPairContainer<A2Apolicies> mf_sigma;
 
   if(cmdline.ktosigma_load_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::read(mf_sigma, sigma_mom, cmdline.ktosigma_sigma_mf_dir, conf, params.jp.pion_rad);
-  else computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::computeMesonFields(mf_sigma, sigma_mom, W, V, params.jp.pion_rad, lat, field3dparams);
+  else{
+    computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::Options opt;
+#ifdef ARCH_BGQ
+    opt.nshift_combine_max = 2;
+    opt.thr_internal = 32;
+#endif
+    computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::computeMesonFields(mf_sigma, sigma_mom, W, V, params.jp.pion_rad, lat, field3dparams, opt);
+  }
   
   if(cmdline.ktosigma_save_sigma_mf) computeSigmaMesonFields1s<A2Apolicies, StationarySigmaMomentaPolicy>::write(mf_sigma, sigma_mom, params.meas_arg.WorkDirectory, conf, params.jp.pion_rad);
 

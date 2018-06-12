@@ -444,12 +444,20 @@ public:
    
 public:
 
+  struct Options{
+    int thr_internal; //number of threads used in the computation
+    int mom_block_size; //number of meson momenta fed into the computeMany algorithm
+    int nshift_combine_max; //max number of source shifts shiftSourceStorage is allowed to combine
+    Options(): thr_internal(-1), mom_block_size(-1), nshift_combine_max(-1){}
+  };
+
   static void computeMesonFields(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, 
 				 const SigmaMomentumPolicy &sigma_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
 				 const Float rad_1s, //exponential wavefunction radius
 				 Lattice &lattice,
-				 const FieldParamType &src_setup_params = NullObject()){
+				 const FieldParamType &src_setup_params = NullObject(),
+				 const Options &opt = Options()){
     assert(GJP.Gparity());
     Float time = -dclock();    
     std::vector<Wtype*> Wspecies(1, &W);
@@ -458,26 +466,43 @@ public:
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     const int nmom = sigma_mom.nMom();
 
+    int init_thr = omp_get_max_threads();
+    if(opt.thr_internal != -1) omp_set_num_threads(opt.thr_internal);
+
     int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
     GparityBaseMomentum(pbase,+1);
         
     ExpSrcType src(rad_1s,pbase,src_setup_params);
     InnerType inner(sigma0, src);    
-    StorageType mf_store(inner,src);
+    StorageType mf_store(inner,src, opt.nshift_combine_max);
+
+    int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
+
+    if(!UniqueID()) printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+
+    for(int b=0; b<nmom; b+= nmom_block){
+      int nmom_rem = nmom - b;
+      int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
+
+      if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
+
     
-    for(int pidx=0;pidx<nmom;pidx++){      
-      ThreeMomentum p_w = sigma_mom.getWmom(pidx);
-      ThreeMomentum p_v = sigma_mom.getVmom(pidx);
-      mf_store.addCompute(0,0, p_w,p_v);
+      for(int pidx=b;pidx<b+nmom_block_actual;pidx++){      
+	ThreeMomentum p_w = sigma_mom.getWmom(pidx);
+	ThreeMomentum p_v = sigma_mom.getVmom(pidx);
+	mf_store.addCompute(0,0, p_w,p_v);
+      }
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+							   ,true
+#endif
+							   );
+      for(int pidx=b;pidx<nmom_block_actual;pidx++)
+	mf_con.moveAdd(sigma_mom.getWdagMom(pidx), sigma_mom.getVmom(pidx), mf_store[pidx-b]);
     }
 
-    ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-										       ,true
-#endif
-										       );
-    for(int pidx=0;pidx<nmom;pidx++)
-      mf_con.moveAdd(sigma_mom.getWdagMom(pidx), sigma_mom.getVmom(pidx), mf_store[pidx]);
+    if(opt.thr_internal != -1) omp_set_num_threads(init_thr);
   }
 
   static void write(MesonFieldMomentumPairContainer<mf_Policies> &mf_con, const SigmaMomentumPolicy &sigma_mom, const std::string &work_dir, const int traj,const Float &rad){
