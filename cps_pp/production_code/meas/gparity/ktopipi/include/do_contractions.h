@@ -294,8 +294,10 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   }
 
   if(cmdline.do_ktosigma) computeKtoSigmaContractions(V, W, V_s, W_s, mf_ls_ww_con_std, mf_sigma, sigma_mom, conf, params, "1s", "", true, "");
-   
+
+  printMem("Memory prior to WW meson field distribute");
   mf_ls_ww_con_std.distribute();
+  printMem("Memory prior to LL meson field compute");
 
   //-------------------------Compute the LL meson fields ------------------------  
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;

@@ -135,21 +135,35 @@ private:
 public:
 
   void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
+    if(!UniqueID()) printf("Starting type 1/2 K->sigma contractions\n");
+    double total_time = dclock();
+       
+    double time;
+
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     nodeGetMany(1, &mf_S);
+    print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
 #endif
  
     result.resize(ntsep_k_sigma); for(int i=0;i<ntsep_k_sigma;i++) result[i].resize(5,nthread);
+
+    double vmv_setup_time = 0;
+    double pt1_time = 0;
+    double pt2_time = 0;
+    double contract_time = 0;
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+      time = dclock();
       std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
       setup_type12_pt1_split(part1_split,top_glb);
 
       std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > part2_split;
       setup_type12_pt2_split(part2_split,mf_S,top_glb);
+      vmv_setup_time += dclock() - time;
 #endif
 
 #pragma omp parallel for schedule(static)
@@ -162,26 +176,33 @@ public:
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 	    
 	  SCFmat pt1;
+	  double ttime = dclock();
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
 	  part1_split.find(tK_glb)->second.contract(pt1, xop3d_loc, false, true);
 #else
 	  compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc);
 #endif
+	  if(!thread_id) pt1_time += dclock() - ttime;
 	    	 
 	  for(int i=0;i<ntsep_k_sigma;i++){
 	    if(tdis > tsep_k_sigma[i]) continue;
 	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
 
 	    if(pt2_store[tS_glb] == NULL){
+	      ttime = dclock();
 	      pt2_store[tS_glb] = new SCFmat;
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
 	      part2_split.find(tS_glb)->second.contract(*pt2_store[tS_glb],xop3d_loc, false, true);
 #else
 	      compute_type12_part2(*pt2_store[tS_glb], tS_glb, top_loc, xop3d_loc, mf_S);
 #endif
+	      if(!thread_id) pt2_time += dclock() - ttime;
 	    }
 	    const SCFmat &pt2 = *pt2_store[tS_glb];
+
+	    ttime = dclock();
 	    type12_contract(result[i], tK_glb, tdis, thread_id, pt1, pt2);
+	    if(!thread_id) contract_time += dclock() - ttime;
 	  }
 	}//tdis
 
@@ -189,11 +210,22 @@ public:
       }//xop
     }//top
 
+    print_time("ComputeKtoSigma","type12 vMv setup",vmv_setup_time);     
+    print_time("ComputeKtoSigma","type12 pt1 compute",pt1_time);     
+    print_time("ComputeKtoSigma","type12 pt2 compute",pt2_time);     
+    print_time("ComputeKtoSigma","type12 contract",contract_time);     
+
+    time = dclock();
     for(int i=0;i<ntsep_k_sigma;i++){ result[i].threadSum(); result[i].nodeSum(); }
+    print_time("ComputeKtoSigma","type12 accum",dclock()-time);     
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     nodeDistributeMany(1,&mf_S);
+    print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);     
 #endif
+
+    print_time("ComputeKtoSigma","type12 total",dclock()-total_time); 
   }
 
 private:
@@ -344,8 +376,14 @@ private:
 public:
  
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
+    if(!UniqueID()) printf("Starting type 3 K->sigma contractions\n");
+    double total_time = dclock();
+       
+    double time;
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     nodeGetMany(1, &mf_S);
+    print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
 #endif
 
     result.resize(ntsep_k_sigma); 
@@ -360,6 +398,7 @@ public:
     mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
 
     //Precompute meson field products but only for tK,tS pairs we actually need
+    time = dclock();
     std::vector<std::vector<Type3MesonFieldProductType*> > mf_prod(Lt, std::vector<Type3MesonFieldProductType*>(Lt,NULL)); //[tK][tS]
     for(int tK=0;tK<Lt;tK++){
       for(int i=0;i<ntsep_k_sigma;i++){
@@ -370,21 +409,32 @@ public:
 	}
       }
     }
+    print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
+
+    double vmv_setup_time = 0;
+    double pt1_time = 0;
+    double pt2_time = 0;
+    double contract_time = 0;
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
+      time = dclock();
       std::map<std::pair<int,int>, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
       setup_type3_pt1_split(part1_split,top_glb,mf_prod);
+      vmv_setup_time += dclock() - time;
 #endif
 
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
 	int thread_id = omp_get_thread_num();
   
+	double ttime = dclock();
+
 	SCFmat pt2_L, pt2_H;
 	compute_type3_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+	if(!thread_id) pt2_time += dclock() - ttime;
 
 	std::vector<std::vector<SCFmat*> > pt1_store(Lt, std::vector<SCFmat*>(Lt,NULL)); //[tK][tS]
 	
@@ -397,14 +447,17 @@ public:
 	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
 
 	    if(pt1_store[tK_glb][tS_glb] == NULL){
+              ttime = dclock();
 	      pt1_store[tK_glb][tS_glb] = new SCFmat;
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
 	      part1_split.find(std::pair<int,int>(tK_glb,tS_glb))->second.contract(*pt1_store[tK_glb][tS_glb], xop3d_loc, false, true);
 #else
 	      compute_type3_part1(*pt1_store[tK_glb][tS_glb], top_loc, xop3d_loc, *mf_prod[tK_glb][tS_glb]);
 #endif
+	      if(!thread_id) pt1_time += dclock() - ttime;
 	    }  
 
+	    ttime = dclock();
 	    type3_contract(result[i], tK_glb, tdis, thread_id, *pt1_store[tK_glb][tS_glb], pt2_L, pt2_H);
 
 	    //Compute mix3 diagram
@@ -417,7 +470,7 @@ public:
 #undef M
 #endif
 	    }
-	    
+	    if(!thread_id) contract_time += dclock() - ttime;	    
 	  }
 	}
 
@@ -427,14 +480,25 @@ public:
 
     for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(mf_prod[tK][tS]) delete mf_prod[tK][tS];
 
+    print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
+    print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
+    print_time("ComputeKtoSigma","type3 pt2 compute",pt2_time);     
+    print_time("ComputeKtoSigma","type3 contract",contract_time);  
+
+    time = dclock();
     for(int i=0;i<ntsep_k_sigma;i++){ 
       result[i].threadSum(); result[i].nodeSum(); 
       mix3[i].threadSum(); mix3[i].nodeSum();
     }
+    print_time("ComputeKtoSigma","type3 accum",dclock()-time);  
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     nodeDistributeMany(1,&mf_S);
+    print_time("ComputeKtoSigma","type12 mf distribute",dclock()-time);  
 #endif
+
+    print_time("ComputeKtoSigma","type3 total",dclock()-total_time); 
   }
 
 private:
@@ -571,6 +635,11 @@ private:
 public:
 
   void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4){
+    if(!UniqueID()) printf("Starting type 4 K->sigma contractions\n");
+    double total_time = dclock();
+       
+    double time;
+
     result.resize(9, nthread);
     mix4.resize(nthread);
 
@@ -578,33 +647,47 @@ public:
     mix4_Gamma[0].unit().pr(F0).gr(-5);
     mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
 
+    double vmv_setup_time = 0;
+    double pt1_time = 0;
+    double pt2_time = 0;
+    double contract_time = 0;
+
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
-#ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV  
+#ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV
+      time = dclock();
       std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
       setup_type4_pt1_split(part1_split,top_glb);
+      vmv_setup_time += dclock() - time;
 #endif
            
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
 	int thread_id = omp_get_thread_num();
   
+	double ttime;
+
+	ttime = dclock();
 	SCFmat pt2_L, pt2_H;
 	compute_type4_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
+	if(!thread_id) pt2_time += dclock() - ttime;
 
 	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 
+	  ttime = dclock();
 	  SCFmat pt1;
 #ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV 
 	  part1_split.find(tK_glb)->second.contract(pt1,xop3d_loc,false,true);
 #else
 	  compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc);
 #endif
+	  if(!thread_id) pt1_time += dclock() - ttime;
 
+	  ttime = dclock();
 	  type4_contract(result, tK_glb, tdis, thread_id, pt1, pt2_L, pt2_H);
-
+	  
 	  //Compute mix4 diagram
 	  //These are identical to the type4 diagrams but without the quark loop, and with the vertex replaced with a pseudoscalar vertex
 	  SCFmat pt1_G5 = pt1; pt1_G5.gr(-5);
@@ -615,12 +698,22 @@ public:
 #undef M
 #endif
 	  }
+	  if(!thread_id) contract_time += dclock() - ttime;
 	}
       }//xop3d
     }//top
 
+    print_time("ComputeKtoSigma","type4 vMv setup",vmv_setup_time);     
+    print_time("ComputeKtoSigma","type4 pt1 compute",pt1_time);     
+    print_time("ComputeKtoSigma","type4 pt2 compute",pt2_time);     
+    print_time("ComputeKtoSigma","type4 contract",contract_time);  
+
+    time = dclock();
     result.threadSum(); result.nodeSum();
     mix4.threadSum(); mix4.nodeSum();
+    print_time("ComputeKtoSigma","type4 accum",dclock()-time);  
+
+    print_time("ComputeKtoSigma","type4 total",dclock()-total_time);  
   }
 
   ComputeKtoSigma(const A2AvectorV<mf_Policies> & vL, const A2AvectorW<mf_Policies> & wL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wH, 
