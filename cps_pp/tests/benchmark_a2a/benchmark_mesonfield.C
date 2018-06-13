@@ -220,6 +220,8 @@ int main(int argc,char *argv[])
   if(0) testVVdag<ScalarA2Apolicies>(lattice);
 #ifdef USE_GRID
   if(0) testVVdag<GridA2Apolicies>(lattice);
+
+  if(1) testvMvGridOrig<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, 1, nthreads, tol);
 #endif
   
   if(0) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);
@@ -271,7 +273,7 @@ int main(int argc,char *argv[])
   if(0) testLMAprop<GridA2Apolicies>(lattice,argc,argv);
 #endif
 
-  if(1) testSCFmat();
+  if(0) testSCFmat();
 
   Grid::vComplexD a, b;
 

@@ -1988,19 +1988,19 @@ void testVVgridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
 #ifdef USE_GRID
-  //#define CPS_VMV
+#define CPS_VMV
   //#define GRID_VMV
   //#define CPS_SPLIT_VMV
 #define GRID_SPLIT_VMV
   //#define CPS_SPLIT_VMV_XALL
-  //#define GRID_SPLIT_VMV_XALL
+#define GRID_SPLIT_VMV_XALL
 
   std::cout << "Starting vMv benchmark\n";
 
   const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
 
-  typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::MappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
-  FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::MappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+  typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
       
   A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
   A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
@@ -2053,7 +2053,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
   mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
 
   std::vector<CPSspinColorFlavorMatrix<mf_Complex> > orig_split_xall_tmp(orig_3vol);
-  Grid::Vector<CPSspinColorFlavorMatrix<grid_Complex> > grid_split_xall_tmp(grid_3vol);
+  typename AlignedVector<CPSspinColorFlavorMatrix<grid_Complex> >::type grid_split_xall_tmp(grid_3vol);
       
   for(int iter=0;iter<ntests;iter++){
     for(int i=0;i<nthreads;i++){
@@ -2152,18 +2152,23 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
     if(iter == 0){
 #  ifdef GRID_VMV
       if(!compare(orig_sum[0],grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid implementation test pass\n");
 #  endif
 #  ifdef CPS_SPLIT_VMV
       if(!compare(orig_sum[0],orig_sum_split[0],tol)) ERR.General("","","Standard vs Split implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Split implementation test pass\n");
 #  endif
 #  ifdef GRID_SPLIT_VMV
       if(!compare(orig_sum[0],grid_sum_split[0],tol)) ERR.General("","","Standard vs Grid Split implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid Split implementation test pass\n");
 #  endif
 #  ifdef CPS_SPLIT_VMV_XALL
       if(!compare(orig_sum[0],orig_sum_split_xall[0],tol)) ERR.General("","","Standard vs Split xall implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Split xall implementation test pass\n");
 #  endif
 #  ifdef GRID_SPLIT_VMV_XALL
       if(!compare(orig_sum[0],grid_sum_split_xall[0],tol)) ERR.General("","","Standard vs Grid split xall implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid split xall implementation test pass\n");
 #  endif
     }
 #endif
@@ -2183,7 +2188,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #ifdef CPS_SPLIT_VMV_XALL
   printf("vMv: Avg time old code split xall %d iters: %g secs\n",ntests,total_time_split_orig_xall/ntests);
 #endif
-#ifdef CPS_SPLIT_VMV_XALL
+#ifdef GRID_SPLIT_VMV_XALL
   printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
 #endif
 
