@@ -142,7 +142,19 @@ public:
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     time = dclock();
-    nodeGetMany(1, &mf_S);
+    std::vector<bool> gather_tslice_mask(Lt,false);
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+      for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	int tK_glb = modLt(top_glb - tdis, Lt);
+	for(int i=0;i<ntsep_k_sigma;i++){
+	  if(tdis > tsep_k_sigma[i]) continue;
+	  int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+	  gather_tslice_mask[tS_glb] = true;
+	}
+      }
+    }   
+    nodeGetMany(1, &mf_S, &gather_tslice_mask);
     print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
 #endif
  
@@ -378,14 +390,34 @@ public:
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
     if(!UniqueID()) printf("Starting type 3 K->sigma contractions\n");
     double total_time = dclock();
-       
     double time;
+    
+    //Determine tK,tS pairings needed for node, and also tS values
+    std::set<std::pair<int,int> > tK_tS_use;
+    std::set<int> tS_use;
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+      for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	int tK_glb = modLt(top_glb - tdis, Lt);
+	for(int i=0;i<ntsep_k_sigma;i++){
+	  if(tdis > tsep_k_sigma[i]) continue;
+	  int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
+	  tK_tS_use.insert(std::pair<int,int>(tK_glb,tS_glb));
+	  tS_use.insert(tS_glb);
+	}
+      }
+    }
+
+    //Gather meson fields
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    std::vector<bool> gather_tslice_mask(Lt,false);
+    for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
     time = dclock();
-    nodeGetMany(1, &mf_S);
+    nodeGetMany(1, &mf_S, &gather_tslice_mask);
     print_time("ComputeKtoSigma","type3 mf gather",dclock()-time);  
 #endif
 
+    //Setup output
     result.resize(ntsep_k_sigma); 
     mix3.resize(ntsep_k_sigma);
     for(int i=0;i<ntsep_k_sigma;i++){
@@ -400,14 +432,10 @@ public:
     //Precompute meson field products but only for tK,tS pairs we actually need
     time = dclock();
     std::vector<std::vector<Type3MesonFieldProductType*> > mf_prod(Lt, std::vector<Type3MesonFieldProductType*>(Lt,NULL)); //[tK][tS]
-    for(int tK=0;tK<Lt;tK++){
-      for(int i=0;i<ntsep_k_sigma;i++){
-	int tS = modLt(tK + tsep_k_sigma[i], Lt);
-	if(mf_prod[tK][tS] == NULL){
-	  mf_prod[tK][tS] = new Type3MesonFieldProductType;
-	  mult(*mf_prod[tK][tS], mf_S[tS], mf_ls_WW[tK]);
-	}
-      }
+    for(std::set<std::pair<int,int> >::const_iterator it = tK_tS_use.begin(); it != tK_tS_use.end(); it++){
+      int tK=it->first, tS = it->second;
+      mf_prod[tK][tS] = new Type3MesonFieldProductType;
+      mult(*mf_prod[tK][tS], mf_S[tS], mf_ls_WW[tK]);
     }
     print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
 

@@ -46,6 +46,8 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 
   for(int t=0;t<Lt;t++) mf_sigma[t].times_equals(1./sigma_mom.nMom());
 
+  nodeDistributeMany(1,&mf_sigma);
+
   print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);
 	
 

@@ -492,10 +492,10 @@ public:
   inline void* data(){ return ptr; }
   inline void const* data() const{ return ptr; }
   
-  //Every node performs gather but if not required and not master, data is not kept
-  void gather(bool require){
+  //Every node performs gather but if not required and not master, data is not kept  
+  void gather_bcast_full(bool require){
 #ifndef USE_MPI
-    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather","Implementation requires MPI\n");
+    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather_bcast_full","Implementation requires MPI\n");
 #else
     double time = dclock();
     int do_gather_node = (require && ptr == NULL);
@@ -536,6 +536,62 @@ public:
     }
 
 #endif
+  }
+  
+  //A smarter implementation of gather that uses an MPI sub-communicator to only send to nodes that need it - courtesy of D.Hoying
+  void gather_bcast_subcomm(bool require){
+#ifdef USE_MPI
+    double time = dclock();
+    int do_gather_node = (require && ptr == NULL);
+
+    //#define ENABLE_GATHER_PRECHECK
+# ifdef ENABLE_GATHER_PRECHECK
+    //Check to see if a gather is actually necessary
+    int do_gather_any = 0;
+    assert( MPI_Allreduce(&do_gather_node, &do_gather_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+    perf().check_calls++;
+    perf().check_time += dclock() - time;
+# else
+    int do_gather_any = 1;
+# endif
+
+    if (do_gather_any){
+      //only bcast to subset of nodes which require the meson field; this should scale with nodes much better than bcast to call
+      MPI_Comm req_comm;
+      int world_rank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+      int color = do_gather_node || UniqueID() == _master_uid ? 1 : 0;       //color 1 participates, color 0 does not
+      //_master_mpirank is given rank 0 in the new communicator, all others get rank 1 (mpi resolves ties by reordering according to their old rank order)  
+      // this ensures we know the rank of the sender which is all we care about
+      assert(MPI_SUCCESS==MPI_Comm_split(MPI_COMM_WORLD, color, world_rank==_master_mpirank ? 0 : 1, &req_comm));
+
+      if(color){
+	if(UniqueID() != _master_uid && ptr == NULL){
+	  time = dclock();
+	  alloc(_alignment, _size);      
+	  perf().alloc_calls++;
+	  perf().alloc_time += dclock() - time;
+	}
+	time = -dclock();
+	assert(MPI_Bcast(ptr, _size, MPI_BYTE, 0, req_comm) == MPI_SUCCESS); 
+	time += dclock();
+	
+	perf().gather_time += time;
+	perf().gather_calls++;
+	perf().bytes += _size;
+	int commsize;
+	MPI_Comm_size(req_comm, &commsize);
+      }
+      MPI_Comm_free(&req_comm);
+    }
+#else
+    if(ptr != NULL) ERR.General("DistributedMemoryStorage","gather_bcast_subcomm","Implementation requires MPI\n"); 
+#endif //USE_MPI
+  }
+
+  inline void gather(bool require){
+    //gather_bcast_full(require);
+    gather_bcast_subcomm(require);
   }
 
   void distribute(){
