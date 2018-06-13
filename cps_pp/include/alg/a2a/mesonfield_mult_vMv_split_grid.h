@@ -322,7 +322,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 #endif
 
   //Loop over scf, reconstructing packed matrix if necessary, calling operation for each scf
-  void constructPackedMloopSCF(SCFoperation<AlignedMComplexVector> &op) const{
+  void constructPackedMloopSCF(SCFoperation<AlignedMComplexVector> &op){
     int thr = omp_get_thread_num();
 
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
@@ -532,7 +532,7 @@ public:
   }
 
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
-  void contract(typename AlignedVector<CPSspinColorFlavorMatrix<SIMDcomplexType> >::type &out, const bool conj_l, const bool conj_r) const{
+  void contract(typename AlignedVector<CPSspinColorFlavorMatrix<SIMDcomplexType> >::type &out, const bool conj_l, const bool conj_r){
     int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
