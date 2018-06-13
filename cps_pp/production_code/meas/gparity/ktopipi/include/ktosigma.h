@@ -20,6 +20,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   printMem("Memory at start of K->sigma contraction section");
 
   //Pre-average over sigma meson fields
+  double time = dclock();
   std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
   
   for(int s = 0; s< sigma_mom.nMom(); s++){
@@ -44,7 +45,18 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   }
 
   for(int t=0;t<Lt;t++) mf_sigma[t].times_equals(1./sigma_mom.nMom());
-  
+
+  print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);
+	
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+  if(!UniqueID()) printf("Trimming block allocator\n");
+  DistributedMemoryStorage::block_allocator().trim();
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+#endif
+
+
   printMem("Memory at start of K->sigma contraction compute");
 
   //Start the computation

@@ -57,48 +57,6 @@ public:
 };
 
 
-//A standard library allocator for aligned memory
-template<typename _Tp>
-class BasicAlignedAllocator {
-public: 
-  typedef std::size_t     size_type;
-  typedef std::ptrdiff_t  difference_type;
-  typedef _Tp*       pointer;
-  typedef const _Tp* const_pointer;
-  typedef _Tp&       reference;
-  typedef const _Tp& const_reference;
-  typedef _Tp        value_type;
-
-  template<typename _Tp1>  struct rebind { typedef BasicAlignedAllocator<_Tp1> other; };
-  BasicAlignedAllocator() throw() { }
-  BasicAlignedAllocator(const BasicAlignedAllocator&) throw() { }
-  template<typename _Tp1> BasicAlignedAllocator(const BasicAlignedAllocator<_Tp1>&) throw() { }
-  ~BasicAlignedAllocator() throw() { }
-  pointer       address(reference __x)       const { return &__x; }
-  size_type  max_size() const throw() { return size_t(-1) / sizeof(_Tp); }
-
-  pointer allocate(size_type __n, const void* _p= 0)
-  { 
-    size_type bytes = __n*sizeof(_Tp);
-    return (pointer) memalign(128,bytes);
-  }
-
-  void deallocate(pointer __p, size_type __n) { 
-    free((void *)__p);
-  }
-  void construct(pointer __p, const _Tp& __val) { new((void *)__p) _Tp(__val); };
-  void construct(pointer __p) { new((void *)__p) _Tp();  };
-  void destroy(pointer __p) { ((_Tp*)__p)->~_Tp(); };
-};
-template<typename _Tp>  inline bool operator==(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return true; }
-template<typename _Tp>  inline bool operator!=(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return false; }
-
-//Wrapper to get an std::vector with the aligned allocator
-template<typename T>
-struct AlignedVector{
-  typedef std::vector<T,BasicAlignedAllocator<T> > type;
-};
-
 
 //A class that owns data via a pointer that has an assignment and copy constructor which does a deep copy.
 template<typename T>
@@ -251,6 +209,55 @@ inline void printMemNodeFile(const std::string &msg = ""){
   }
   calls++;
 }
+
+
+//A standard library allocator for aligned memory
+template<typename _Tp>
+class BasicAlignedAllocator {
+public: 
+  typedef std::size_t     size_type;
+  typedef std::ptrdiff_t  difference_type;
+  typedef _Tp*       pointer;
+  typedef const _Tp* const_pointer;
+  typedef _Tp&       reference;
+  typedef const _Tp& const_reference;
+  typedef _Tp        value_type;
+
+  template<typename _Tp1>  struct rebind { typedef BasicAlignedAllocator<_Tp1> other; };
+  BasicAlignedAllocator() throw() { }
+  BasicAlignedAllocator(const BasicAlignedAllocator&) throw() { }
+  template<typename _Tp1> BasicAlignedAllocator(const BasicAlignedAllocator<_Tp1>&) throw() { }
+  ~BasicAlignedAllocator() throw() { }
+  pointer       address(reference __x)       const { return &__x; }
+  size_type  max_size() const throw() { return size_t(-1) / sizeof(_Tp); }
+
+  pointer allocate(size_type __n, const void* _p= 0)
+  { 
+    size_type bytes = __n*sizeof(_Tp);
+    pointer ptr = (pointer) memalign(128,bytes);
+    if(ptr == NULL){
+      printMem("Fail",UniqueID());
+      ERR.General("BasicAlignedAllocator","allocate","Failed to allocate memory region of size %f MB on node %d",
+				double(bytes)/1024./1024., UniqueID());
+    }
+    return ptr;
+  }
+
+  void deallocate(pointer __p, size_type __n) { 
+    free((void *)__p);
+  }
+  void construct(pointer __p, const _Tp& __val) { new((void *)__p) _Tp(__val); };
+  void construct(pointer __p) { new((void *)__p) _Tp();  };
+  void destroy(pointer __p) { ((_Tp*)__p)->~_Tp(); };
+};
+template<typename _Tp>  inline bool operator==(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return true; }
+template<typename _Tp>  inline bool operator!=(const BasicAlignedAllocator<_Tp>&, const BasicAlignedAllocator<_Tp>&){ return false; }
+
+//Wrapper to get an std::vector with the aligned allocator
+template<typename T>
+struct AlignedVector{
+  typedef std::vector<T,BasicAlignedAllocator<T> > type;
+};
 
 
 #ifdef USE_MPI

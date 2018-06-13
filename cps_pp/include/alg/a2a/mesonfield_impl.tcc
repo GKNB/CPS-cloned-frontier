@@ -446,7 +446,7 @@ struct _nodeGetManyPerf<DistributedMemoryStorage>{
   static void print(){ 
     DistributedMemoryStorage::perf().print(); 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-    DistributedMemoryStorage::block_allocator().stats(std::cout);
+    if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
   }; 
 };

@@ -95,18 +95,21 @@ void computeKaon2pt(typename ComputeKaon<A2Apolicies>::Vtype &V, typename Comput
   if(!UniqueID()) printf("Computing kaon 2pt function\n");
   double time = -dclock();
   
-  KaonMesonFields mf;
-  computeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom,lat,params,field3dparams,randomize_mf);
-
-  computeKaon2ptContraction(conf,params,mf);
-  
-  if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
-
+  {  
+    KaonMesonFields mf;
+    computeKaonMesonFields(mf,V,W,V_s,W_s,kaon_mom,lat,params,field3dparams,randomize_mf);
+    
+    computeKaon2ptContraction(conf,params,mf);
+    
+    if(keep_mesonfields != NULL) keep_mesonfields->move(mf);
+  }  
   print_time("main","Kaon 2pt function",time + dclock());
   printMem("Memory after kaon 2pt function computation");
-
+     
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  if(!UniqueID()) printf("Trimming block storage\n");
   DistributedMemoryStorage::block_allocator().trim();
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
 #endif
 }
 
