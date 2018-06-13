@@ -67,11 +67,10 @@ private:
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
 
-  void setup_type12_pt1_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb){
-    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
-      int tK_glb = modLt(top_glb - tdis, Lt);
-      if(part1_split.find(tK_glb) == part1_split.end())
-	part1_split[tK_glb].setup(vL,mf_ls_WW[tK_glb], vH,top_glb);
+  void setup_type12_pt1_split(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
+    for(int i=0;i<tK_subset_map.size();i++){
+      int tK_glb = tK_subset_map[i];
+      part1_split[i].setup(vL,mf_ls_WW[tK_glb], vH,top_glb);
     }
   }
 
@@ -79,15 +78,11 @@ private:
     mult(pt2, vL, mf_S[tS_glb], wL, xop_loc, top_loc, false, true);
   }
 
-  void setup_type12_pt2_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &part2_split, std::vector<SigmaMesonFieldType> &mf_S, const int top_glb){
-    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
-      int tK_glb = modLt(top_glb - tdis, Lt);
-      for(int i=0;i<ntsep_k_sigma;i++){
-	if(tdis > tsep_k_sigma[i]) continue;
-	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
-	if(part2_split.find(tS_glb) == part2_split.end())
-	  part2_split[tS_glb].setup(vL, mf_S[tS_glb], wL, top_glb);
-      }
+  void setup_type12_pt2_split(std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &part2_split, std::vector<SigmaMesonFieldType> &mf_S, 
+			      const int top_glb, const std::vector<int> &tS_subset_map){
+    for(int i=0;i<tS_subset_map.size();i++){
+      int tS_glb = tS_subset_map[i];
+      part2_split[i].setup(vL, mf_S[tS_glb], wL, top_glb);
     }
   }
 
@@ -134,30 +129,57 @@ private:
 
 public:
 
+  inline void idx_t_map(std::vector<int> &map, std::vector<int> &inv_map, const std::set<int> &tset){
+    int ntuse = tset.size();
+    map.resize(ntuse);
+    inv_map.resize(Lt);
+
+    int map_idx = 0;
+    for(int t=0;t<Lt;t++) 
+      if(tset.count(t)){
+	map[map_idx] = t;
+	inv_map[t] = map_idx++;
+      }
+  }
+
+
   void type12(std::vector<ResultsContainerType> &result, std::vector<SigmaMesonFieldType> &mf_S){  
     if(!UniqueID()) printf("Starting type 1/2 K->sigma contractions\n");
     double total_time = dclock();
        
     double time;
 
-#ifdef NODE_DISTRIBUTE_MESONFIELDS
-    time = dclock();
-    std::vector<bool> gather_tslice_mask(Lt,false);
+    //Compute which tS and tK we need
+    std::set<int> tS_use, tK_use;
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
       for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
 	int tK_glb = modLt(top_glb - tdis, Lt);
+	tK_use.insert(tK_glb);
 	for(int i=0;i<ntsep_k_sigma;i++){
 	  if(tdis > tsep_k_sigma[i]) continue;
 	  int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
-	  gather_tslice_mask[tS_glb] = true;
+	  tS_use.insert(tS_glb);
 	}
       }
     }   
+
+    //Map an index to tS and tK
+    int ntS = tS_use.size(), ntK = tK_use.size();
+    std::vector<int> tS_subset_map, tS_subset_inv_map, tK_subset_map, tK_subset_inv_map;
+    idx_t_map(tS_subset_map, tS_subset_inv_map, tS_use);
+    idx_t_map(tK_subset_map, tK_subset_inv_map, tK_use);
+
+    //Gather
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
+    std::vector<bool> gather_tslice_mask(Lt,false);
+    for(std::set<int>::const_iterator it = tS_use.begin(); it != tS_use.end(); it++) gather_tslice_mask[*it] = true;
     nodeGetMany(1, &mf_S, &gather_tslice_mask);
     print_time("ComputeKtoSigma","type12 mf gather",dclock()-time);     
 #endif
  
+    //Start main loop
     result.resize(ntsep_k_sigma); for(int i=0;i<ntsep_k_sigma;i++) result[i].resize(5,nthread);
 
     double vmv_setup_time = 0;
@@ -165,32 +187,46 @@ public:
     double pt2_time = 0;
     double contract_time = 0;
 
+    std::vector<std::vector<SCFmat> > pt2_store(nthread, std::vector<SCFmat>(ntS));
+    
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
       time = dclock();
-      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
-      setup_type12_pt1_split(part1_split,top_glb);
+      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK);
+      setup_type12_pt1_split(part1_split,top_glb, tK_subset_map);
 
-      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > part2_split;
-      setup_type12_pt2_split(part2_split,mf_S,top_glb);
+      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > part2_split(ntS);
+      setup_type12_pt2_split(part2_split,mf_S,top_glb, tS_subset_map);
       vmv_setup_time += dclock() - time;
 #endif
 
 #pragma omp parallel for schedule(static)
       for(int xop3d_loc = 0; xop3d_loc < size_3d; xop3d_loc++){
 	int thread_id = omp_get_thread_num();
+	double ttime;
 
-	std::vector<SCFmat*> pt2_store(Lt, NULL); //a given value of tS will appear for multiple tK if the number of K->S time seps > 1
+	//Precompute part2
+	for(int tS_idx=0;tS_idx<ntS;tS_idx++){
+	  int tS = tS_subset_map[tS_idx];
+	  ttime = dclock();
+#ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
+	  part2_split[tS_idx].contract(pt2_store[thread_id][tS_idx],xop3d_loc, false, true);
+#else
+	  compute_type12_part2(pt2_store[thread_id][tS_idx], tS, top_loc, xop3d_loc, mf_S);
+#endif
+	  if(!thread_id) pt2_time += dclock() - ttime;	  
+	}
 
+	//Start loop over tdis
 	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 	    
 	  SCFmat pt1;
-	  double ttime = dclock();
+	  ttime = dclock();
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
-	  part1_split.find(tK_glb)->second.contract(pt1, xop3d_loc, false, true);
+	  part1_split[tK_subset_inv_map[tK_glb]].contract(pt1, xop3d_loc, false, true);
 #else
 	  compute_type12_part1(pt1, tK_glb, top_loc, xop3d_loc);
 #endif
@@ -200,25 +236,13 @@ public:
 	    if(tdis > tsep_k_sigma[i]) continue;
 	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
 
-	    if(pt2_store[tS_glb] == NULL){
-	      ttime = dclock();
-	      pt2_store[tS_glb] = new SCFmat;
-#ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
-	      part2_split.find(tS_glb)->second.contract(*pt2_store[tS_glb],xop3d_loc, false, true);
-#else
-	      compute_type12_part2(*pt2_store[tS_glb], tS_glb, top_loc, xop3d_loc, mf_S);
-#endif
-	      if(!thread_id) pt2_time += dclock() - ttime;
-	    }
-	    const SCFmat &pt2 = *pt2_store[tS_glb];
+	    const SCFmat &pt2 = pt2_store[thread_id][tS_subset_inv_map[tS_glb]];
 
 	    ttime = dclock();
 	    type12_contract(result[i], tK_glb, tdis, thread_id, pt1, pt2);
 	    if(!thread_id) contract_time += dclock() - ttime;
 	  }
 	}//tdis
-
-	for(int i=0;i<Lt;i++) if(pt2_store[i] != NULL) delete pt2_store[i];
       }//xop
     }//top
 
@@ -311,16 +335,10 @@ private:
     mult(pt1, vL, mf_prod, vH, xop_loc, top_loc, false, true);
   }
 
-  void setup_type3_pt1_split(std::map<std::pair<int,int>, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb,
-			     std::vector<std::vector<Type3MesonFieldProductType*> > &mf_prod){
-    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
-      int tK_glb = modLt(top_glb - tdis, Lt);
-      for(int i=0;i<ntsep_k_sigma;i++){
-	if(tdis > tsep_k_sigma[i]) continue;
-	int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
-	std::pair<int,int> coor(tK_glb,tS_glb);
-	if(part1_split.find(coor) == part1_split.end()) part1_split[coor].setup(vL,*mf_prod[tK_glb][tS_glb],vH, top_glb);
-      }
+  void setup_type3_pt1_split(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb,
+			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map){
+    for(int i=0;i<tK_tS_idx_map.size();i++){
+      part1_split[i].setup(vL,mf_prod[i],vH, top_glb);
     }
   }
   
@@ -387,6 +405,21 @@ private:
 
 public:
  
+  inline void idx_tpair_map(std::vector<std::pair<int,int> > &map, std::vector<std::vector<int> > &inv_map, const std::set<std::pair<int,int> > &tset){
+    int ntuse = tset.size();
+    map.resize(ntuse);
+    inv_map.resize(Lt,std::vector<int>(Lt));
+
+    int map_idx = 0;
+    for(int t1=0;t1<Lt;t1++)
+      for(int t2=0;t2<Lt;t2++)
+	if(tset.count(std::pair<int,int>(t1,t2))){
+	  map[map_idx] = std::pair<int,int>(t1,t2);
+	  inv_map[t1][t2] = map_idx++;
+	}
+  }
+
+
   void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3, std::vector<SigmaMesonFieldType> &mf_S){   
     if(!UniqueID()) printf("Starting type 3 K->sigma contractions\n");
     double total_time = dclock();
@@ -394,11 +427,12 @@ public:
     
     //Determine tK,tS pairings needed for node, and also tS values
     std::set<std::pair<int,int> > tK_tS_use;
-    std::set<int> tS_use;
+    std::set<int> tS_use, tK_use;
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
       for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
 	int tK_glb = modLt(top_glb - tdis, Lt);
+	tK_use.insert(tK_glb);
 	for(int i=0;i<ntsep_k_sigma;i++){
 	  if(tdis > tsep_k_sigma[i]) continue;
 	  int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
@@ -407,6 +441,12 @@ public:
 	}
       }
     }
+    
+    //Make a mapping between an int and a tK,tS pair
+    int ntK_tS = tK_tS_use.size();
+    std::vector<std::pair<int,int> > tK_tS_idx_map;
+    std::vector<std::vector<int> > tK_tS_idx_inv_map;
+    idx_tpair_map(tK_tS_idx_map, tK_tS_idx_inv_map, tK_tS_use);
 
     //Gather meson fields
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -431,11 +471,10 @@ public:
 
     //Precompute meson field products but only for tK,tS pairs we actually need
     time = dclock();
-    std::vector<std::vector<Type3MesonFieldProductType*> > mf_prod(Lt, std::vector<Type3MesonFieldProductType*>(Lt,NULL)); //[tK][tS]
-    for(std::set<std::pair<int,int> >::const_iterator it = tK_tS_use.begin(); it != tK_tS_use.end(); it++){
-      int tK=it->first, tS = it->second;
-      mf_prod[tK][tS] = new Type3MesonFieldProductType;
-      mult(*mf_prod[tK][tS], mf_S[tS], mf_ls_WW[tK]);
+    std::vector<Type3MesonFieldProductType> mf_prod(ntK_tS);
+    for(int i=0;i<ntK_tS;i++){
+      int tK=tK_tS_idx_map[i].first, tS = tK_tS_idx_map[i].second;
+      mult(mf_prod[i], mf_S[tS], mf_ls_WW[tK]);
     }
     print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
 
@@ -449,8 +488,8 @@ public:
 
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
       time = dclock();
-      std::map<std::pair<int,int>, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
-      setup_type3_pt1_split(part1_split,top_glb,mf_prod);
+      std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK_tS);
+      setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map);
       vmv_setup_time += dclock() - time;
 #endif
 
@@ -464,8 +503,18 @@ public:
 	compute_type3_part2(pt2_L, pt2_H, top_loc, xop3d_loc);
 	if(!thread_id) pt2_time += dclock() - ttime;
 
-	std::vector<std::vector<SCFmat*> > pt1_store(Lt, std::vector<SCFmat*>(Lt,NULL)); //[tK][tS]
-	
+	//Precompute part1
+	std::vector<SCFmat> pt1_store(ntK_tS);
+	for(int i=0;i<ntK_tS;i++){
+	  ttime = dclock();
+#ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
+	  part1_split[i].contract(pt1_store[i], xop3d_loc, false, true);
+#else
+	  compute_type3_part1(pt1_store[i], top_loc, xop3d_loc, mf_prod[i]);
+#endif
+	  if(!thread_id) pt1_time += dclock() - ttime;
+	}
+
 	for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
 	  int tK_glb = modLt(top_glb - tdis, Lt);
 
@@ -474,23 +523,14 @@ public:
 
 	    int tS_glb = modLt(tK_glb + tsep_k_sigma[i], Lt);
 
-	    if(pt1_store[tK_glb][tS_glb] == NULL){
-              ttime = dclock();
-	      pt1_store[tK_glb][tS_glb] = new SCFmat;
-#ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
-	      part1_split.find(std::pair<int,int>(tK_glb,tS_glb))->second.contract(*pt1_store[tK_glb][tS_glb], xop3d_loc, false, true);
-#else
-	      compute_type3_part1(*pt1_store[tK_glb][tS_glb], top_loc, xop3d_loc, *mf_prod[tK_glb][tS_glb]);
-#endif
-	      if(!thread_id) pt1_time += dclock() - ttime;
-	    }  
+	    const SCFmat &pt1 = pt1_store[ tK_tS_idx_inv_map[tK_glb][tS_glb] ];
 
 	    ttime = dclock();
-	    type3_contract(result[i], tK_glb, tdis, thread_id, *pt1_store[tK_glb][tS_glb], pt2_L, pt2_H);
+	    type3_contract(result[i], tK_glb, tdis, thread_id, pt1, pt2_L, pt2_H);
 
 	    //Compute mix3 diagram
 	    //These are identical to the type3 diagrams but without the internal quark loop, and with the vertex replaced with a pseudoscalar vertex
-	    SCFmat pt1_G5 = *pt1_store[tK_glb][tS_glb]; pt1_G5.gr(-5);
+	    SCFmat pt1_G5 = pt1; pt1_G5.gr(-5);
 	    for(int mix3_gidx=0; mix3_gidx<2; mix3_gidx++){
 #ifndef MEMTEST_MODE
 #define M mix3[i](tK_glb,tdis,mix3_gidx,thread_id)
@@ -501,12 +541,8 @@ public:
 	    if(!thread_id) contract_time += dclock() - ttime;	    
 	  }
 	}
-
-	for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(pt1_store[tK][tS]!=NULL) delete pt1_store[tK][tS];
       }//xop3d
     }//top
-
-    for(int tK=0;tK<Lt;tK++) for(int tS=0;tS<Lt;tS++) if(mf_prod[tK][tS]!=NULL) delete mf_prod[tK][tS];
 
     print_time("ComputeKtoSigma","type3 vMv setup",vmv_setup_time);     
     print_time("ComputeKtoSigma","type3 pt1 compute",pt1_time);     
@@ -582,10 +618,10 @@ private:
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
 
-  inline void setup_type4_pt1_split(std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb){
-    for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
-      int tK_glb = modLt(top_glb - tdis, Lt);
-      if(part1_split.find(tK_glb) == part1_split.end()) part1_split[tK_glb].setup(vL,mf_ls_WW[tK_glb],vH, top_glb);
+  inline void setup_type4_pt1_split(std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
+    for(int i=0;i<tK_subset_map.size();i++){
+      int tK_glb = tK_subset_map[i];
+      part1_split[i].setup(vL,mf_ls_WW[tK_glb],vH, top_glb);
     }
   }
 
@@ -671,6 +707,22 @@ public:
     result.resize(9, nthread);
     mix4.resize(nthread);
 
+
+    //Compute which tS and tK we need
+    std::set<int> tK_use;
+    for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
+      const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
+      for(int tdis=0; tdis< tsep_k_sigma_lrg; tdis++){
+	int tK_glb = modLt(top_glb - tdis, Lt);
+	tK_use.insert(tK_glb);
+      }
+    }   
+
+    //Map an index to  tK
+    int ntK = tK_use.size();
+    std::vector<int> tK_subset_map, tK_subset_inv_map;
+    idx_t_map(tK_subset_map, tK_subset_inv_map, tK_use);
+
     SCFmat mix4_Gamma[2];
     mix4_Gamma[0].unit().pr(F0).gr(-5);
     mix4_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
@@ -685,8 +737,8 @@ public:
 
 #ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV
       time = dclock();
-      std::map<int, mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split;
-      setup_type4_pt1_split(part1_split,top_glb);
+      std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK);
+      setup_type4_pt1_split(part1_split,top_glb,tK_subset_map);
       vmv_setup_time += dclock() - time;
 #endif
            
@@ -707,7 +759,7 @@ public:
 	  ttime = dclock();
 	  SCFmat pt1;
 #ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV 
-	  part1_split.find(tK_glb)->second.contract(pt1,xop3d_loc,false,true);
+	  part1_split[ tK_subset_inv_map[tK_glb] ].contract(pt1,xop3d_loc,false,true);
 #else
 	  compute_type4_part1(pt1, tK_glb, top_loc, xop3d_loc);
 #endif
