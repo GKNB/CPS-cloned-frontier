@@ -14,6 +14,8 @@
 #include<mpi.h>
 #endif
 
+#include<execinfo.h>
+
 #ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
 //Allows dumping of heap state. Requires linking against libtcmalloc  -ltcmalloc
 #include<gperftools/heap-profiler.h>
@@ -798,6 +800,12 @@ public:
   }
 };
 
+
+void printBacktrace(std::ostream &to){
+  void* tr[10];
+  int n = backtrace(tr,10);
+  for(int i=0;i<n;i++) to << tr[i] << std::endl;
+}
 
 CPS_END_NAMESPACE
 

@@ -93,7 +93,9 @@ public:
 	  lreord[scf].resize(ni_this);
 	  for(int i = 0; i < ni_this; i++){
 	    const ScalarComplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	    lreord[scf][i] = conj_l ? std::conj(lval_tmp) : lval_tmp;
+#endif
 	  }
 
 	  //j index
@@ -112,7 +114,9 @@ public:
 	  rreord[scf].resize(nj_this);
 	  for(int j = 0; j < nj_this; j++){
 	    const ScalarComplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	    rreord[scf][j] = conj_r ? std::conj(rval_tmp) : rval_tmp;
+#endif
 	  }
 
 	}
@@ -269,7 +273,9 @@ public:
 
     assert(l.getMode(0).SIMDlogicalNodes(3) == 1);
     
+#ifndef MEMTEST_MODE
     out.zero();
+#endif
     
     int top_glb = top+GJP.TnodeSites()*GJP.TnodeCoor();
 
@@ -327,7 +333,9 @@ public:
 	    rowidx_used[ irmap_this[i] ] = true; //this row index of Mr is used
 	    
 	    const SIMDcomplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	    lreord[scf][i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+#endif
     	  }
 
     	  //j index
@@ -342,7 +350,9 @@ public:
     	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
 
 	    const SIMDcomplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
+#ifndef MEMTEST_MODE
 	    rreord[scf][j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+#endif
     	  }
 
      	}

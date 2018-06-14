@@ -41,6 +41,13 @@ class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
     *p = memalign(128,byte_size);
+    if(*p == NULL){ 
+      printf("Aligned128AllocPolicy::_alloc mem alloc failed on node %d. Stack trace:\n", UniqueID());
+      printBacktrace(std::cout);
+      printMem("Memory status on fail", UniqueID());
+      std::cout.flush(); fflush(stdout);
+      ERR.General("Aligned128AllocPolicy","_alloc","Mem alloc failed\n");
+    }
   }
   inline static void _free(void* p){
     free(p);
