@@ -6,6 +6,7 @@
 #include<alg/a2a/mf_momcontainer.h>
 #include<alg/a2a/mesonfield_mult_vMv_split.h>
 #include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/inner_product.h>
 #include<alg/a2a/mf_productstore.h>
@@ -22,6 +23,15 @@ public:
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> SigmaMesonFieldType;
   typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> KaonMesonFieldType;
+
+#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+#else
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+#endif
+
 private:
   const A2AvectorV<mf_Policies> & vL;
   const A2AvectorV<mf_Policies> & vH;
@@ -67,7 +77,7 @@ private:
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
 
-  void setup_type12_pt1_split(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
+  void setup_type12_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
     for(int i=0;i<tK_subset_map.size();i++){
       int tK_glb = tK_subset_map[i];
       part1_split[i].setup(vL,mf_ls_WW[tK_glb], vH,top_glb);
@@ -78,7 +88,7 @@ private:
     mult(pt2, vL, mf_S[tS_glb], wL, xop_loc, top_loc, false, true);
   }
 
-  void setup_type12_pt2_split(std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &part2_split, std::vector<SigmaMesonFieldType> &mf_S, 
+  void setup_type12_pt2_split(std::vector<vMv_split_VWVW> &part2_split, std::vector<SigmaMesonFieldType> &mf_S, 
 			      const int top_glb, const std::vector<int> &tS_subset_map){
     for(int i=0;i<tS_subset_map.size();i++){
       int tS_glb = tS_subset_map[i];
@@ -194,10 +204,10 @@ public:
 
 #ifndef DISABLE_KTOSIGMA_TYPE12_SPLIT_VMV   
       time = dclock();
-      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK);
+      std::vector<vMv_split_VWWV> part1_split(ntK);
       setup_type12_pt1_split(part1_split,top_glb, tK_subset_map);
 
-      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > part2_split(ntS);
+      std::vector<vMv_split_VWVW> part2_split(ntS);
       setup_type12_pt2_split(part2_split,mf_S,top_glb, tS_subset_map);
       vmv_setup_time += dclock() - time;
 #endif
@@ -335,7 +345,7 @@ private:
     mult(pt1, vL, mf_prod, vH, xop_loc, top_loc, false, true);
   }
 
-  void setup_type3_pt1_split(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb,
+  void setup_type3_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb,
 			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map){
     for(int i=0;i<tK_tS_idx_map.size();i++){
       part1_split[i].setup(vL,mf_prod[i],vH, top_glb);
@@ -488,7 +498,7 @@ public:
 
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
       time = dclock();
-      std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK_tS);
+      std::vector<vMv_split_VWWV> part1_split(ntK_tS);
       setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map);
       vmv_setup_time += dclock() - time;
 #endif
@@ -618,7 +628,7 @@ private:
     mult(pt1, vL, mf_ls_WW[tK_glb], vH, xop_loc, top_loc, false, true);
   }
 
-  inline void setup_type4_pt1_split(std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
+  inline void setup_type4_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb, const std::vector<int> &tK_subset_map){
     for(int i=0;i<tK_subset_map.size();i++){
       int tK_glb = tK_subset_map[i];
       part1_split[i].setup(vL,mf_ls_WW[tK_glb],vH, top_glb);
@@ -737,7 +747,7 @@ public:
 
 #ifndef DISABLE_KTOSIGMA_TYPE4_SPLIT_VMV
       time = dclock();
-      std::vector< mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > part1_split(ntK);
+      std::vector<vMv_split_VWWV> part1_split(ntK);
       setup_type4_pt1_split(part1_split,top_glb,tK_subset_map);
       vmv_setup_time += dclock() - time;
 #endif

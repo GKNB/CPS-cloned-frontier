@@ -38,6 +38,7 @@ void ProfilerStop(){}
 #include<alg/a2a/inner_product.h>
 #include<alg/a2a/mesonfield_mult_vMv_split.h>
 #include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
 #include<alg/a2a/grid_wrappers.h>
 
 CPS_START_NAMESPACE
@@ -1994,6 +1995,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #define GRID_SPLIT_VMV
   //#define CPS_SPLIT_VMV_XALL
 #define GRID_SPLIT_VMV_XALL
+#define GRID_SPLIT_LITE_VMV;
 
   std::cout << "Starting vMv benchmark\n";
 
@@ -2032,7 +2034,8 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
   Float total_time_split_grid = 0.;
   Float total_time_split_orig_xall = 0.;
   Float total_time_split_grid_xall = 0.;
-       
+  Float total_time_split_lite_grid = 0.;
+
   CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
   CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
@@ -2045,12 +2048,14 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
   CPSspinColorFlavorMatrix<mf_Complex> orig_sum_split_xall[nthreads];
   CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_xall[nthreads];
 
-      
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_lite[nthreads];      
+
   int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
   int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
 
   mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
   mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
+  mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
 
   std::vector<CPSspinColorFlavorMatrix<mf_Complex> > orig_split_xall_tmp(orig_3vol);
   typename AlignedVector<CPSspinColorFlavorMatrix<grid_Complex> >::type grid_split_xall_tmp(grid_3vol);
@@ -2059,6 +2064,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
     for(int i=0;i<nthreads;i++){
       orig_sum[i].zero(); grid_sum[i].zero();
       orig_sum_split[i].zero(); grid_sum_split[i].zero();
+      grid_sum_split_lite[i].zero();
       orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
     }
 	
@@ -2139,6 +2145,21 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
       }
       total_time_split_grid_xall += dclock();
 #endif	  
+
+#ifdef GRID_SPLIT_LITE_VMV
+      //SPLIT LITE VMV GRID
+      total_time_split_lite_grid -= dclock();	  
+      vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split_lite[me] += grid_tmp[me];
+      }
+      total_time_split_lite_grid += dclock();
+#endif
+
     }//end top loop
     for(int i=1;i<nthreads;i++){
       orig_sum[0] += orig_sum[i];
@@ -2146,7 +2167,8 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
       orig_sum_split[0] += orig_sum_split[i];
       grid_sum_split[0] += grid_sum_split[i];
       orig_sum_split_xall[0] += orig_sum_split_xall[i];
-      grid_sum_split_xall[0] += grid_sum_split_xall[i];  
+      grid_sum_split_xall[0] += grid_sum_split_xall[i];
+      grid_sum_split_lite[0] += grid_sum_split_lite[i];  
     }
 #ifdef CPS_VMV
     if(iter == 0){
@@ -2170,6 +2192,10 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
       if(!compare(orig_sum[0],grid_sum_split_xall[0],tol)) ERR.General("","","Standard vs Grid split xall implementation test failed\n");
       else if(!UniqueID()) printf("Standard vs Grid split xall implementation test pass\n");
 #  endif
+#  ifdef GRID_SPLIT_LITE_VMV
+      if(!compare(orig_sum[0],grid_sum_split_lite[0],tol)) ERR.General("","","Standard vs Grid Split Lite implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid Split Lite implementation test pass\n");
+#  endif
     }
 #endif
   }
@@ -2191,6 +2217,10 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #ifdef GRID_SPLIT_VMV_XALL
   printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
 #endif
+#ifdef GRID_SPLIT_LITE_VMV
+  printf("vMv: Avg time new code split lite %d iters: %g secs\n",ntests,total_time_split_lite_grid/ntests);
+#endif
+
 
 #endif
 }
