@@ -468,13 +468,20 @@ public:
    
 public:
 
+  struct Options{
+    int thr_internal; //number of threads used in the computation
+    int mom_block_size; //number of meson momenta fed into the computeMany algorithm
+    int nshift_combine_max; //max number of source shifts shiftSourceStorage is allowed to combine
+    Options(): thr_internal(-1), mom_block_size(-1), nshift_combine_max(-1){}
+  };
+
+
   static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_1s_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
 				 const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
 				 const Float rad_1s, //exponential wavefunction radius
 				 Lattice &lattice,
-				 const FieldParamType &src_setup_params = NullObject(),
-				 const int thr_internal = -1, const int mom_block_size = -1){
+				 const FieldParamType &src_setup_params = NullObject(), const Options &opt = Options() ){
     assert(GJP.Gparity());
     Float time = -dclock();    
     std::vector<Wtype*> Wspecies(1, &W);
@@ -484,7 +491,7 @@ public:
     const int nmom = pion_mom.nMom();
 
     int init_thr = omp_get_max_threads();
-    if(thr_internal != -1) omp_set_num_threads(thr_internal);
+    if(opt.thr_internal != -1) omp_set_num_threads(opt.thr_internal);
 
     int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
     GparityBaseMomentum(pbase,+1);
@@ -492,7 +499,7 @@ public:
     ExpSrcType src(rad_1s,pbase,src_setup_params);
     InnerType g5_s3_inner(sigma3, src);    
     
-    int nmom_block = mom_block_size != -1 ? mom_block_size : nmom;
+    int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
     if(!UniqueID()) printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
 
@@ -502,7 +509,7 @@ public:
 
       if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
 
-      StorageType mf_store(g5_s3_inner,src);
+      StorageType mf_store(g5_s3_inner,src, opt.nshift_combine_max);
       std::vector< std::vector<int> > toavg(nmom_block_actual);
 
       int cidx = 0;
@@ -532,7 +539,7 @@ public:
       }
     } //block loop
 
-    if(thr_internal != -1) omp_set_num_threads(init_thr);
+    if(opt.thr_internal != -1) omp_set_num_threads(init_thr);
   }
 
 };
