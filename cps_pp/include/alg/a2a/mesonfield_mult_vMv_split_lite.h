@@ -280,6 +280,9 @@ public:
 
 };
 
+
+#undef STACK_ALLOC_REORD
+
 #endif //USE_GRID
 
 CPS_END_NAMESPACE

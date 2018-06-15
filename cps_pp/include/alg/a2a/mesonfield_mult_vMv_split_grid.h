@@ -14,6 +14,15 @@ CPS_START_NAMESPACE
 #define VMV_BLOCKED_MATRIX_MULT
 
 
+#define STACK_ALLOC_REORD
+
+
+template<typename ComplexType>
+class SCFoperationP{
+public:
+  virtual void operator()(ComplexType const* M, const int scf, const int rows, const int cols) = 0;
+};
+
 //Define common types
 template<typename mf_Policies>
 struct mult_vMv_split_grid_types{
@@ -29,13 +38,13 @@ struct mult_vMv_split_grid_types{
 
   typedef typename AlignedVector<MComplexType>::type AlignedMComplexVector;
 
-  typedef SCFoperation<typename AlignedVector<
+  typedef SCFoperationP<
 #ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 			 typename mf_Policies::ScalarComplexType
 #else
 			 typename mf_Policies::ComplexType
 #endif
-			 >::type > SCFoperationType;
+			 > SCFoperationType;
 };
 #define INHERIT_BASE_TYPE(A) typedef typename mult_vMv_split_grid_types<mf_Policies>::A A
 
@@ -44,25 +53,51 @@ struct mult_vMv_split_grid_types{
   INHERIT_BASE_TYPE(SIMDcomplexType);			\
   INHERIT_BASE_TYPE(AlignedSIMDcomplexVector);		\
   INHERIT_BASE_TYPE(MComplexType);		\
-  INHERIT_BASE_TYPE(AlignedMComplexVector)
+  INHERIT_BASE_TYPE(AlignedMComplexVector); \
+  INHERIT_BASE_TYPE(SCFoperationType)
 
+template<typename T>
+struct TwoDArrayWrap{
+  const int r;
+  const int c;
+  T* p;
+  TwoDArrayWrap(T* p, const int r, const int c): p(p), r(r), c(c){}  
 
+  T & operator()(const int i, const int j){ return p[j + c*i]; }
+  const T & operator()(const int i, const int j) const{ return p[j + c*i]; }
+};
+template<typename V>
+struct TwoDVectorWrap{
+  typedef typename V::value_type::value_type T;
+  V &v;
+  TwoDVectorWrap(V &v): v(v){}
+  inline T & operator()(const int i, const int j){ return v[i][j]; }
+  inline const T & operator()(const int i, const int j) const{ return v[i][j]; }
+};
+template<typename V>
+struct ThreeDVectorWrap{
+  typedef typename V::value_type::value_type::value_type T;
+  V &v;
+  ThreeDVectorWrap(V &v): v(v){}
+  inline T & operator()(const int i, const int j, const int k){ return v[i][j][k]; }
+  inline const T & operator()(const int i, const int j, const int k) const{ return v[i][j][k]; }
+};
 
 //Single-site matrix vector multiplication operator
-template<typename mf_Policies>
+template<typename mf_Policies, typename TwoDArrayType>
 class multiply_M_r_op_grid: public mult_vMv_split_grid_types<mf_Policies>::SCFoperationType{
   INHERIT_BASE_TYPES;
 
-  std::vector<AlignedSIMDcomplexVector>& Mr; //output
-  const std::vector<AlignedSIMDcomplexVector>& rreord;
+  TwoDArrayType &Mr; //output
+  const TwoDArrayType & rreord;
   std::vector<int> const* i_packed_unmap_all;
 
 public:
-  multiply_M_r_op_grid(std::vector<AlignedSIMDcomplexVector>& Mr, const std::vector<AlignedSIMDcomplexVector>& rreord,
+  multiply_M_r_op_grid(TwoDArrayType &Mr, const TwoDArrayType &rreord,
 		       std::vector<int> const* i_packed_unmap_all): Mr(Mr), rreord(rreord),i_packed_unmap_all(i_packed_unmap_all){
   }
   
-  void operator()(const AlignedMComplexVector& M_packed, const int scf, const int rows, const int cols){
+  void operator()(SIMDcomplexType const* M_packed, const int scf, const int rows, const int cols){
 #ifndef MEMTEST_MODE
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
 # ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
@@ -76,9 +111,9 @@ public:
 	int mpoff = cols*i + j;
 # ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	vsplat(tmp,M_packed[mpoff]);
-	into = into + tmp*rreord[scf][j];
+	into = into + tmp*rreord(scf,j);
 # else
-    	into = into + M_packed[mpoff]*rreord[scf][j];
+    	into = into + M_packed[mpoff]*rreord(scf,j);
 # endif
       }
     }
@@ -88,20 +123,20 @@ public:
 };
 
 //Same as above but with a blocked matrix algorithm
-template<typename mf_Policies>
+template<typename mf_Policies, typename TwoDArrayType>
 class multiply_M_r_op_grid_blocked: public mult_vMv_split_grid_types<mf_Policies>::SCFoperationType{
   INHERIT_BASE_TYPES;
 
-  std::vector<AlignedSIMDcomplexVector>& Mr; //output
-  const std::vector<AlignedSIMDcomplexVector>& rreord;
+  TwoDArrayType &Mr; //output
+  const TwoDArrayType &rreord;
   std::vector<int> const* i_packed_unmap_all;
 
 public:
-  multiply_M_r_op_grid_blocked(std::vector<AlignedSIMDcomplexVector>& Mr, const std::vector<AlignedSIMDcomplexVector>& rreord,
+  multiply_M_r_op_grid_blocked(TwoDArrayType &Mr, const TwoDArrayType &rreord,
 			       std::vector<int> const* i_packed_unmap_all): Mr(Mr), rreord(rreord),i_packed_unmap_all(i_packed_unmap_all){
   }
   
-  void operator()(const AlignedMComplexVector& M_packed, const int scf, const int rows, const int cols){
+  void operator()(SIMDcomplexType const* M_packed, const int scf, const int rows, const int cols){
 #ifndef MEMTEST_MODE
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
 # ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
@@ -119,14 +154,14 @@ public:
     	int jblock_size = std::min(cols - j0, block_width_max);
 	
     	for(int ii=0;ii<iblock_size;ii++){
-    	  SIMDcomplexType &into = Mr[scf][i_packed_unmap[i0+ii]];
+    	  SIMDcomplexType &into = Mr(scf,i_packed_unmap[i0+ii]);
     	  for(int jj=0;jj<jblock_size;jj++){
 	    int mpoff = cols*(i0+ii) +j0+jj;
 #  ifdef VMV_SPLIT_GRID_STREAMING_SPLAT
 	    vsplat(tmp,M_packed[mpoff]);
-	    into = into + tmp*rreord[scf][j0+jj];
+	    into = into + tmp*rreord(scf,j0+jj);
 #  else
-    	    into = into + M_packed[mpoff]*rreord[scf][j0+jj];
+    	    into = into + M_packed[mpoff]*rreord(scf,j0+jj);
 #  endif
 	  }
     	}
@@ -143,24 +178,28 @@ public:
 //Single spin-color-flavor index but multiple sites
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename ThreeDArrayType>
 class multiply_M_r_singlescf_op_grid: public mult_vMv_split_grid_types<mf_Policies>::SCFoperationType{
   INHERIT_BASE_TYPES;
  
+  typedef std::vector<std::vector<AlignedSIMDcomplexVector> >& MrPassType;
+  typedef const std::vector<std::vector<AlignedSIMDcomplexVector> >& rreordPassType;
+
   const int* work;
   const int* off;
   std::vector<int> const* i_packed_unmap_all;
-  std::vector< std::vector<AlignedSIMDcomplexVector> > &Mr; //output
-  const std::vector< std::vector<AlignedSIMDcomplexVector> > &rreord;
+  ThreeDArrayType &Mr; //output
+  const ThreeDArrayType &rreord;
   
 public:
   multiply_M_r_singlescf_op_grid(const int* _work, const int* _off, 
-				 std::vector<  std::vector<AlignedSIMDcomplexVector> > &_Mr, 
-				 const std::vector< std::vector<AlignedSIMDcomplexVector> > &_rreord,
+				 ThreeDArrayType &_Mr, 
+				 ThreeDArrayType &_rreord,
 				 std::vector<int> const* i_packed_unmap_all): 
     work(_work),off(_off),Mr(_Mr),rreord(_rreord), i_packed_unmap_all(i_packed_unmap_all){}
   
-  void operator()(const AlignedMComplexVector& M_packed, const int scf, const int rows, const int cols){
+  void operator()(SIMDcomplexType const* M_packed, const int scf, const int rows, const int cols){
 #ifndef MEMTEST_MODE
 
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
@@ -178,7 +217,7 @@ public:
 	int i_full = i_packed_unmap[i];
 
 	for(int s=off[me];s<off[me]+work[me];s++){
-	  SIMDcomplexType &into = Mr[s][scf][i_full];
+	  SIMDcomplexType &into = Mr(s,scf,i_full);
 	  zeroit(into);
 	
 	  for(int j=0;j<cols;j++){
@@ -186,7 +225,7 @@ public:
 	    vsplat(tmp,M_packed[cols*i+j]);
 	    into = into + tmp * rreord[s][scf][j];
 #  else
-	    into = into + M_packed[cols*i+j] * rreord[s][scf][j];
+	    into = into + M_packed[cols*i+j] * rreord(s,scf,j);
 #  endif
 	  }
 	}
@@ -200,24 +239,25 @@ public:
 //Blocked version
 template<typename mf_Policies, 
 	 template <typename> class lA2AfieldL,  template <typename> class lA2AfieldR,
-	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR>
+	 template <typename> class rA2AfieldL,  template <typename> class rA2AfieldR,
+	 typename ThreeDArrayType>
 class multiply_M_r_singlescf_op_grid_blocked: public mult_vMv_split_grid_types<mf_Policies>::SCFoperationType{
   INHERIT_BASE_TYPES;
  
   const int* work;
   const int* off;
   std::vector<int> const* i_packed_unmap_all;
-  std::vector< std::vector<AlignedSIMDcomplexVector> > &Mr; //output
-  const std::vector< std::vector<AlignedSIMDcomplexVector> > &rreord;
+  ThreeDArrayType &Mr; //output
+  const ThreeDArrayType &rreord;
   
 public:
   multiply_M_r_singlescf_op_grid_blocked(const int* _work, const int* _off, 
-					 std::vector<  std::vector<AlignedSIMDcomplexVector> > &_Mr, 
-					 const std::vector< std::vector<AlignedSIMDcomplexVector> > &_rreord,
+					 ThreeDArrayType &_Mr, 
+					 const ThreeDArrayType &_rreord,
 					 std::vector<int> const* i_packed_unmap_all): 
     work(_work),off(_off),Mr(_Mr),rreord(_rreord), i_packed_unmap_all(i_packed_unmap_all){}
   
-  void operator()(const AlignedMComplexVector& M_packed, const int scf, const int rows, const int cols){
+  void operator()(SIMDcomplexType const* M_packed, const int scf, const int rows, const int cols){
 #ifndef MEMTEST_MODE
     const std::vector<int> &i_packed_unmap = i_packed_unmap_all[scf];
     
@@ -240,9 +280,9 @@ public:
 	  int jblock_size = std::min(cols - j0, block_width_max);
 
 	  for(int s=off[me];s<off[me]+work[me];s++){
-	    SIMDcomplexType const* base = &rreord[s][scf][j0];
+	    SIMDcomplexType const* base = &rreord(s,scf,j0);
 	    for(int i_packed=0;i_packed < iblock_size; i_packed++){
-	      SIMDcomplexType &into = Mr[s][scf][ i_packed_unmap[i0+i_packed] ];
+	      SIMDcomplexType &into = Mr(s,scf, i_packed_unmap[i0+i_packed] );
 	      zeroit(into);
 	    
 	      for(int j_packed=0;j_packed<jblock_size;j_packed++){
@@ -298,54 +338,72 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 
   //Packed matrices
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
-  AlignedMComplexVector mf_reord_lo_lo; //shared nl*nl submatrix
-  AlignedMComplexVector mf_reord_lo_hi[nscf]; //the nl * nh[scf] submatrix
-  AlignedMComplexVector mf_reord_hi_lo[nscf]; //the nh[scf] * nl submatrix
-  AlignedMComplexVector mf_reord_hi_hi[nscf]; //the nh[scf] * nh[scf] submatrix
+  AlignedMComplexVector mf_reord_buf;
+  SIMDcomplexType *mf_reord_lo_lo; //shared nl*nl submatrix
+  SIMDcomplexType *mf_reord_lo_hi[nscf]; //the nl * nh[scf] submatrix
+  SIMDcomplexType *mf_reord_hi_lo[nscf]; //the nh[scf] * nl submatrix
+  SIMDcomplexType *mf_reord_hi_hi[nscf]; //the nh[scf] * nh[scf] submatrix
 #else
   std::vector<AlignedMComplexVector> mf_reord; //vector of linearized matrices in packed format where only the rows used are stored. One matrix for each spin/color/flavor combination of the vector r
 #endif
 
+#ifndef STACK_ALLOC_REORD
   //Temporary vectors used in parallel region (one per thread)
   int nthr_setup;
   std::vector<std::vector<AlignedSIMDcomplexVector> > lreord; //[thr][scf][reordered mode]
   std::vector<std::vector<AlignedSIMDcomplexVector> > rreord;
   std::vector<std::vector<AlignedSIMDcomplexVector> > Mr; //[thr][scf][M row]
+#endif
+
+  int ni_max;
+  int nj_max;
 
   //Stuff needed by constructPackedMloopSCF
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
   int nl_row;
   int nl_col;
-  int nj_max;
   bool nj_all_same;
+
+#ifndef STACK_ALLOC_REORD
   std::vector<AlignedMComplexVector> M_packed; //linearized matrix  [thr][j + nj_max*i]. Acts as buffer. Contains enough space for largest nj  //Also one per thread
 #endif
 
+#endif
+
   //Loop over scf, reconstructing packed matrix if necessary, calling operation for each scf
-  void constructPackedMloopSCF(SCFoperation<AlignedMComplexVector> &op){
+  void constructPackedMloopSCF(SCFoperationType &op){
     int thr = omp_get_thread_num();
 
-#ifdef VMV_SPLIT_GRID_MEM_SAVE
+#ifdef STACK_ALLOC_REORD
+    SIMDcomplexType mpptr[this->nrows_used * nj_max];
+#elif defined(VMV_SPLIT_GRID_MEM_SAVE)
     SIMDcomplexType* mpptr = M_packed[thr].data();
-    if(nj_all_same) pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_lo.data(), this->nrows_used, nj_max, 0, 0, nl_row, nl_col);
+#endif
+
+#ifdef VMV_SPLIT_GRID_MEM_SAVE
+    if(nj_all_same) pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_lo, this->nrows_used, nj_max, 0, 0, nl_row, nl_col);
 #endif
     
     //M * r
     for(int scf=0;scf<nscf;scf++){
+
+#if !defined(STACK_ALLOC_REORD) && !defined(VMV_SPLIT_GRID_MEM_SAVE)
+      SIMDcomplexType* mpptr = mf_reord[scf].data();
+#endif
+
       int nj_this = this->nj[scf]; //vector size
       
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
       int nh_row = this->nrows_used - nl_row;
       int nh_col = nj_this - nl_col;
       
-      if(!nj_all_same) pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_lo.data(), this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
-      pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_hi[scf].data(), this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
-      pokeSubmatrix<MComplexType>(mpptr, mf_reord_hi_lo[scf].data(), this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
-      pokeSubmatrix<MComplexType>(mpptr, mf_reord_hi_hi[scf].data(), this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
-      op(M_packed[thr], scf, this->nrows_used, nj_this);
+      if(!nj_all_same) pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_lo, this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
+      pokeSubmatrix<MComplexType>(mpptr, mf_reord_lo_hi[scf], this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+      pokeSubmatrix<MComplexType>(mpptr, mf_reord_hi_lo[scf], this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+      pokeSubmatrix<MComplexType>(mpptr, mf_reord_hi_hi[scf], this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+      op(mpptr, scf, this->nrows_used, nj_this);
 #else
-      const AlignedMComplexVector& M_packed = mf_reord[scf]; //scope for reuse here
-      op(M_packed, scf, this->nrows_used, nj_this);
+      op(mpptr, scf, this->nrows_used, nj_this);
 #endif
 
 
@@ -353,9 +411,10 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
   }
    
   //Vector inner product: Multiply l * Mr
+  template<typename TwoDArrayType>
   void site_multiply_l_Mr(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, 
-			  const std::vector<AlignedSIMDcomplexVector> &lreord,
-			  const std::vector<AlignedSIMDcomplexVector> &Mr) const{
+			  const TwoDArrayType &lreord,
+			  const TwoDArrayType &Mr) const{
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
       for(int sr=0;sr<4;sr++){
@@ -365,7 +424,8 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 	      int scfl = fl + 2*(cl + 3*sl);
 	      int ni_this = this->ni[scfl];
 
-	      AlignedSIMDcomplexVector const& lbase = lreord[scfl];
+	      SIMDcomplexType const* lbase = &lreord(scfl,0);
+
 	      const std::vector<std::pair<int,int> > &blocks = this->blocks_scf[scfl];
 	      
 	      for(int fr=0;fr<2;fr++){
@@ -374,7 +434,7 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 		SIMDcomplexType &into = out(sl,sr)(cl,cr)(fl,fr);
 		zeroit(into);
 
-		SIMDcomplexType const* Mr_base = &Mr[scfr][0];
+		SIMDcomplexType const* Mr_base = &Mr(scfr,0);
 
 		int loff = 0;
 		for(int b=0;b<blocks.size();b++){
@@ -394,8 +454,10 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 
   //Setup thread-local temporaries to avoid alloc under threaded loop
   void setup_parallel_temporaries(){
+#ifndef STACK_ALLOC_REORD
     lreord.resize(nthr_setup,std::vector<AlignedSIMDcomplexVector>(nscf));
     rreord.resize(nthr_setup,std::vector<AlignedSIMDcomplexVector>(nscf));
+#endif
 
     for(int sc=0;sc<12;sc++){
       for(int f=0;f<2;f++){
@@ -404,20 +466,28 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
 	//i index
 	int ni_this = this->ni[scf];
 	const std::vector<int> &ilmap_this = this->ilmap[scf];
+
+#ifndef STACK_ALLOC_REORD
 	for(int t=0;t<nthr_setup;t++)
 	  lreord[t][scf].resize(ni_this);
+#endif
 
 	//j index
 	int nj_this = this->nj[scf];
 	const std::vector<int> &jrmap_this = this->jrmap[scf]; //jrmap_this.resize(nj_this);
 
+#ifndef STACK_ALLOC_REORD
 	for(int t=0;t<nthr_setup;t++)
 	  rreord[t][scf].resize(nj_this);
+#endif
       }
     }
-
+#ifndef STACK_ALLOC_REORD
     Mr.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(nscf, AlignedSIMDcomplexVector(this->Mrows)));
+# ifdef VMV_SPLIT_GRID_MEM_SAVE
     M_packed.resize(nthr_setup, AlignedMComplexVector(this->nrows_used * nj_max));
+# endif
+#endif
   }
 
   //Unpack the reordered matrix
@@ -426,18 +496,24 @@ public mult_vMv_split_base<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2Afiel
     int nh_row = this->nrows_used - nl_row;
     int nh_col = nj_this - nl_col;
 
+    int sz1 = nl_row*nl_col;
+    int sz2 = nl_row*nh_col;
+    int sz3 = nh_row*nl_col;
+    int sz4 = nh_row*nh_col;
+
     if(scf == 0){
-      mf_reord_lo_lo.resize(nl_row*nl_col);
-      getSubmatrix<MComplexType >(mf_reord_lo_lo.data(), mf_reord_scf.data(), this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
+      mf_reord_buf.resize(sz1 + nscf*(sz2 + sz3 + sz4));
+      mf_reord_lo_lo = mf_reord_buf.data();
+      getSubmatrix<MComplexType >(mf_reord_lo_lo, mf_reord_scf.data(), this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
     }
-    mf_reord_lo_hi[scf].resize(nl_row*nh_col);
-    getSubmatrix<MComplexType >(mf_reord_lo_hi[scf].data(), mf_reord_scf.data(), this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
+    mf_reord_lo_hi[scf] = mf_reord_buf.data() + sz1 + scf*sz2;
+    getSubmatrix<MComplexType >(mf_reord_lo_hi[scf], mf_reord_scf.data(), this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
 
-    mf_reord_hi_lo[scf].resize(nh_row*nl_col);
-    getSubmatrix<MComplexType >(mf_reord_hi_lo[scf].data(), mf_reord_scf.data(), this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
+    mf_reord_hi_lo[scf] = mf_reord_buf.data() + sz1 + nscf*sz2 + scf*sz3;
+    getSubmatrix<MComplexType >(mf_reord_hi_lo[scf], mf_reord_scf.data(), this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
 
-    mf_reord_hi_hi[scf].resize(nh_row*nh_col);
-    getSubmatrix<MComplexType >(mf_reord_hi_hi[scf].data(), mf_reord_scf.data(), this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
+    mf_reord_hi_hi[scf] = mf_reord_buf.data() + sz1 + nscf*sz2 + nscf*sz3 + scf*sz4;
+    getSubmatrix<MComplexType >(mf_reord_hi_hi[scf], mf_reord_scf.data(), this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
   }
 #endif
 
@@ -449,22 +525,22 @@ public:
     this->free_mem_base();
 
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
-    AlignedMComplexVector().swap(mf_reord_lo_lo);
-    for(int scf=0;scf<nscf;scf++){
-      AlignedMComplexVector().swap(mf_reord_lo_hi[scf]);
-      AlignedMComplexVector().swap(mf_reord_hi_lo[scf]);
-      AlignedMComplexVector().swap(mf_reord_hi_hi[scf]);
-    }
+    AlignedMComplexVector().swap(mf_reord_buf);
 #else
     std::vector<AlignedMComplexVector>().swap(mf_reord);
 #endif
 
+#ifndef STACK_ALLOC_REORD
     std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(lreord);
     std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(rreord);
     std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr);
-#ifdef VMV_SPLIT_GRID_MEM_SAVE
+
+# ifdef VMV_SPLIT_GRID_MEM_SAVE
     std::vector<AlignedMComplexVector>().swap(M_packed);
+# endif
+
 #endif
+
   }
 
   //This should be called outside the site loop (and outside any parallel region)
@@ -481,16 +557,25 @@ public:
 
     logical_sites_3d = l.getMode(0).nodeSites(0)*l.getMode(0).nodeSites(1)*l.getMode(0).nodeSites(2);
 
+#ifndef STACK_ALLOC_REORD
     nthr_setup = omp_get_max_threads();
+#endif
 
 #ifdef VMV_SPLIT_GRID_MEM_SAVE
     nl_row = this->Mptr->getRowParams().getNl();
     nl_col = this->Mptr->getColParams().getNl();
-    nj_max = 0;
     nj_all_same = true;
+#endif
+
+    nj_max = 0;
+    ni_max = 0;
+
     for(int scf=0;scf<nscf;scf++){
       if(this->nj[scf] > nj_max) nj_max = this->nj[scf];
+      if(this->ni[scf] > ni_max) ni_max = this->ni[scf];
+#ifdef VMV_SPLIT_GRID_MEM_SAVE
       if(this->nj[scf] != this->nj[0]) nj_all_same = false;
+#endif
     }
 #endif
 
@@ -533,10 +618,10 @@ public:
 
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
   void contract(typename AlignedVector<CPSspinColorFlavorMatrix<SIMDcomplexType> >::type &out, const bool conj_l, const bool conj_r){
-    int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
+    const int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
-    int sites_3d = logical_sites_3d;
+    const int sites_3d = logical_sites_3d;
 
     out.resize(sites_3d);
 
@@ -570,10 +655,17 @@ public:
 	}
       }
     }
+
+    typedef ThreeDVectorWrap< std::vector<  std::vector<AlignedSIMDcomplexVector> > > ThreeDArrayType;
+    typedef TwoDVectorWrap< std::vector<AlignedSIMDcomplexVector> > TwoDArrayType;
+
+    ThreeDArrayType Mr_t(Mr);
+    ThreeDArrayType rreord_t(rreord);
+
 #ifdef VMV_BLOCKED_MATRIX_MULT
-    multiply_M_r_singlescf_op_grid_blocked<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> op(work,off,Mr,rreord,i_packed_unmap_all);
+    multiply_M_r_singlescf_op_grid_blocked<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,ThreeDArrayType> op(work,off,Mr_t,rreord_t,i_packed_unmap_all);
 #else
-    multiply_M_r_singlescf_op_grid<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR> op(work,off,Mr,rreord,i_packed_unmap_all);
+    multiply_M_r_singlescf_op_grid<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR,ThreeDArrayType> op(work,off,Mr_t,rreord_t,i_packed_unmap_all);
 #endif
     constructPackedMloopSCF(op);
 
@@ -583,24 +675,43 @@ public:
       
       //Vector vector multiplication l*(M*r)
       for(int x3d=off[me];x3d<off[me]+work[me];x3d++)
-	site_multiply_l_Mr(out[x3d], lreord[x3d], Mr[x3d]);
-      
+	site_multiply_l_Mr(out[x3d], TwoDArrayType(lreord[x3d]), TwoDArrayType(Mr[x3d]));
+
     } //end of parallel region
 
   }//end of method
 
   //Run inside a threaded/parallelized loop over 3d sites. xop is a 3d coordinate!
   void contract(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const int &xop, const bool &conj_l, const bool &conj_r){
+#ifndef STACK_ALLOC_REORD
     assert(omp_get_num_threads() <= nthr_setup);
+#endif
 
     const int thr_idx = omp_get_thread_num();
 
     const int top = this->top_glb - GJP.TnodeSites()*GJP.TnodeCoor();
     assert(top >= 0 && top < GJP.TnodeSites()); //make sure you use this method on the appropriate node!
 
+#ifdef STACK_ALLOC_REORD
+    typedef TwoDArrayWrap<SIMDcomplexType> ArrayType;
+
+    SIMDcomplexType Mr_d[nscf*this->Mrows];
+    SIMDcomplexType lreord_d[nscf*ni_max];
+    SIMDcomplexType rreord_d[nscf*nj_max];
+
+    ArrayType Mr_t(Mr_d, nscf, this->Mrows);
+    ArrayType lreord_t(lreord_d, nscf, ni_max);
+    ArrayType rreord_t(rreord_d, nscf, nj_max);
+#else
+    typedef TwoDVectorWrap<std::vector<AlignedSIMDcomplexVector> > ArrayType;
+    ArrayType Mr_t(Mr[thr_idx]);
+    ArrayType lreord_t(lreord[thr_idx]);
+    ArrayType rreord_t(rreord[thr_idx]);
+#endif    
+
     for(int scf=0;scf<nscf;scf++)
       for(int i=0;i<this->Mrows;i++)
-	zeroit(Mr[thr_idx][scf][i]);
+	zeroit(Mr_t(scf,i));
     
     const int sites_3d = logical_sites_3d;
     const int site4dop = xop + sites_3d*top;
@@ -617,7 +728,7 @@ public:
 	for(int i = 0; i < ni_this; i++){
 	  const SIMDcomplexType &lval_tmp = this->lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
 #ifndef MEMTEST_MODE
-	  lreord[thr_idx][scf][i] = conj_l ? cconj(lval_tmp) : lval_tmp;
+	  lreord_t(scf,i) = conj_l ? cconj(lval_tmp) : lval_tmp;
 #endif
 	}
 
@@ -628,7 +739,7 @@ public:
 	for(int j = 0; j < nj_this; j++){
 	  const SIMDcomplexType &rval_tmp = this->rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
 #ifndef MEMTEST_MODE
-	  rreord[thr_idx][scf][j] = conj_r ? cconj(rval_tmp) : rval_tmp;
+	  rreord_t(scf,j) = conj_r ? cconj(rval_tmp) : rval_tmp;
 #endif
 	}
 
@@ -637,14 +748,14 @@ public:
 
     //M * r
 #ifdef VMV_BLOCKED_MATRIX_MULT
-    multiply_M_r_op_grid_blocked<mf_Policies> op(Mr[thr_idx], rreord[thr_idx], this->i_packed_unmap_all);
+    multiply_M_r_op_grid_blocked<mf_Policies,ArrayType> op(Mr_t, rreord_t, this->i_packed_unmap_all);
 #else
-    multiply_M_r_op_grid<mf_Policies> op(Mr[thr_idx], rreord[thr_idx], this->i_packed_unmap_all);
+    multiply_M_r_op_grid<mf_Policies,ArrayType> op(Mr_t, rreord_t, this->i_packed_unmap_all);
 #endif
     constructPackedMloopSCF(op);
 
     //Vector vector multiplication l*(M*r)
-    site_multiply_l_Mr(out, lreord[thr_idx], Mr[thr_idx]);
+    site_multiply_l_Mr(out, lreord_t, Mr_t);
   }
 
 
@@ -653,9 +764,8 @@ public:
 #undef INHERIT_BASE_TYPE
 #undef INHERIT_BASE_TYPES
 
+#undef STACK_ALLOC_REORD
 
 CPS_END_NAMESPACE
-
-#endif
 
 #endif
