@@ -161,21 +161,21 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-							   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-							   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-							   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
-							   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
-							   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
-							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
-							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
-							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-							   const A2AvectorW<mf_Policies> & wL,
-							   const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
+void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mult_vMv_split_part1_pi1,
+							      vMv_split_VWVW &mult_vMv_split_part1_pi2,
+							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
+							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
+							      const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
+							      const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
+							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
+							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
+							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+							      const A2AvectorW<mf_Policies> & wL,
+							      const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
 							   const ModeContractionIndices<StandardIndexDilution,FullyPackedIndexDilution> &j_ind_vw,
-							   const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
-							   const int top_loc, const int t_pi1, const int t_pi2, 
-							   const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
+							      const ModeContractionIndices<TimePackedIndexDilution,StandardIndexDilution> &j_ind_wv,
+							      const int top_loc, const int t_pi1, const int t_pi2, 
+							      const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
   Type1timings::timer().type1_mult_vMv_setup -= dclock();
   assert(node_top_used[top_loc]);
 
@@ -205,14 +205,15 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(mult_vMv_split<mf_
 
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(SCFmatVector &mult_vMv_contracted_part1_pi1,
-								   SCFmatVector &mult_vMv_contracted_part1_pi2,
-								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1,
-								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2,
-								   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-								   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
-								   const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used){
+								      SCFmatVector &mult_vMv_contracted_part1_pi2,
+								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1,
+								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2,
+								      vMv_split_VWVW &mult_vMv_split_part1_pi1,
+								      vMv_split_VWVW &mult_vMv_split_part1_pi2,
+								      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
+								      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
+								      const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], 
+								      const std::vector<bool> &node_top_used){
   Type1timings::timer().type1_precompute_part1_part2 -= dclock();
   assert(node_top_used[top_loc]);
 
@@ -335,10 +336,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 
       //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
 #ifndef DISABLE_TYPE1_SPLIT_VMV
-      mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> mult_vMv_split_part1_pi1;
-      mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> mult_vMv_split_part1_pi2;
-      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part2_pi1; //[ntsep_k_pi];
-      std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part2_pi2; //[ntsep_k_pi];
+      vMv_split_VWVW mult_vMv_split_part1_pi1;
+      vMv_split_VWVW mult_vMv_split_part1_pi2;
+      std::vector<vMv_split_VWWV> mult_vMv_split_part2_pi1; //[ntsep_k_pi];
+      std::vector<vMv_split_VWWV> mult_vMv_split_part2_pi2; //[ntsep_k_pi];
       
       type1_mult_vMv_setup(mult_vMv_split_part1_pi1,mult_vMv_split_part1_pi2,mult_vMv_split_part2_pi1,mult_vMv_split_part2_pi2,
 			   con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,vL,vH,wL,i_ind_vw,j_ind_vw,j_ind_wv,top_loc, t_pi1,t_pi2, Lt, tsep_k_pi, ntsep_k_pi,t_K_all,node_top_used);

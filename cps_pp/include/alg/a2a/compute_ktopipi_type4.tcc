@@ -69,7 +69,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 							   const int top_loc, const int tstep, const int Lt){
@@ -84,7 +84,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<mult_v
 
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFmatVector> &mult_vMv_contracted_part1,
-							     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+							     std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 							     const int top_loc, const int tstep, const int Lt){
   Type4timings::timer().type4_precompute_part1 -= dclock();
   mult_vMv_contracted_part1.resize(Lt/tstep); //[tKidx]
@@ -130,7 +130,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, Mix
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_TYPE4_SPLIT_VMV
-    std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[tkidx in Lt/tstep]
+    std::vector<vMv_split_VWWV > mult_vMv_split_part1; //[tkidx in Lt/tstep]
     type4_mult_vMv_setup(mult_vMv_split_part1,mf_kaon,vL,vH,top_loc,tstep,Lt);
 
 # ifndef DISABLE_TYPE4_PRECOMPUTE

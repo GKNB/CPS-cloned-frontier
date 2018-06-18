@@ -149,12 +149,12 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<st
 }
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-							   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
-							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
-							   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
-							   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
-							   const int top_loc, const int t_pi1_idx, const int tkp){
+void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+							      vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
+							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+							      const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
+							      const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
+							      const int top_loc, const int t_pi1_idx, const int tkp){
   Type3timings::timer().type3_mult_vMv_setup -= dclock();
   //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
   int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
@@ -168,8 +168,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_mult_vMv_setup(mult_vMv_split<mf_
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
 							     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
-							     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-							     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
+							     vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+							     vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
 							     const int top_loc, const int t_pi1_idx, const int tkp){
   Type3timings::timer().type3_precompute_part1 -= dclock();
   //Contract on all 3d sites on this node with fixed operator time coord top_glb into a canonically ordered output vector
@@ -263,8 +263,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3(ResultsContainerType result[], Mi
 
 	//Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
 #ifndef DISABLE_TYPE3_SPLIT_VMV
-	mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> mult_vMv_split_part1_pi1_pi2;
-	mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> mult_vMv_split_part1_pi2_pi1;
+	vMv_split_VWWV mult_vMv_split_part1_pi1_pi2;
+	vMv_split_VWWV mult_vMv_split_part1_pi2_pi1;
 	type3_mult_vMv_setup(mult_vMv_split_part1_pi1_pi2,mult_vMv_split_part1_pi2_pi1,vL,vH,con_pi1_pi2_k,con_pi2_pi1_k,top_loc,t_pi1_idx,tkp);
 	
 # ifndef DISABLE_TYPE3_PRECOMPUTE

@@ -4,6 +4,7 @@
 #include<alg/a2a/compute_ktopipi_base.h>
 #include<alg/a2a/mf_momcontainer.h>
 #include<alg/a2a/mesonfield_mult_vMv_split.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
 #include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/inner_product.h>
@@ -177,6 +178,14 @@ public:
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
 
+#ifdef KTOPIPI_USE_SPLIT_VMV_LITE
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+#else
+  typedef vMv_split_VWWV vMv_split_VWWV;
+  typedef vMv_split_VWVW vMv_split_VWVW;
+#endif
+
 #ifdef USE_DESTRUCTIVE_FFT
   typedef A2AvectorW<mf_Policies> Wtype;
 #else
@@ -271,10 +280,10 @@ private:
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
 				       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask);
 
-  static void type1_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-				   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
+  static void type1_mult_vMv_setup(vMv_split_VWVW &mult_vMv_split_part1_pi1,
+				   vMv_split_VWVW &mult_vMv_split_part1_pi2,
+				   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi1,
+				   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi2,
 				   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
 				   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
 				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
@@ -290,10 +299,10 @@ private:
 					   SCFmatVector &mult_vMv_contracted_part1_pi2,
 					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi1,
 					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi2,
-					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
+					   vMv_split_VWVW &mult_vMv_split_part1_pi1,
+					   vMv_split_VWVW &mult_vMv_split_part1_pi2,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi1,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi2,
 					   const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used);
 
 public:
@@ -344,9 +353,9 @@ private:
 				       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 				       const int Lt, const int tpi_sampled);
 
-  static void type2_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
+  static void type2_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+				   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi1_pi2,
+				   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
 				   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
 				   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
@@ -357,9 +366,9 @@ private:
   static void type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
 					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
 					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+					   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi1_pi2,
+					   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
 					   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 					   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
 
@@ -431,8 +440,8 @@ private:
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
 				       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 				       const int Lt, const int tpi_sampled, const int ntsep_k_pi);
-  static void type3_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-				   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
+  static void type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+				   vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
 				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
@@ -440,8 +449,8 @@ private:
 
   static void type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
 				     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
-				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
+				     vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+				     vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
 				     const int top_loc, const int t_pi1_idx, const int tkp);
     
 public:
@@ -508,13 +517,13 @@ private:
   
 
 
-  static void type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+  static void type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
   static void type4_precompute_part1(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
-				     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+				     std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 				     const int top_loc, const int tstep, const int Lt);
 public:
 

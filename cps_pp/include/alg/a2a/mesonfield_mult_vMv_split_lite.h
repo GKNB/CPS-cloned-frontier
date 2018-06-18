@@ -66,6 +66,15 @@ public:
 
   _mult_vMv_split_lite_impl_v(){}
 
+  void free_mem(){
+#ifndef STACK_ALLOC_REORD
+    for(int i=0;i<nscf;i++){
+      std::vector<AlignedSIMDcomplexVector>().swap(lreord[i]);
+      std::vector<AlignedSIMDcomplexVector>().swap(rreord[i]);
+    }
+#endif
+  }
+
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb){
     //Precompute index mappings
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
@@ -276,6 +285,15 @@ public:
     }	    
 #endif
 
+  }
+	      
+  //Internally parallelized version
+  void contract(typename AlignedVector<CPSspinColorFlavorMatrix<SIMDcomplexType> >::type &out, const bool conj_l, const bool conj_r){
+    size_t logical_sites_3d = lptr->getMode(0).nodeSites(0)*lptr->getMode(0).nodeSites(1)*lptr->getMode(0).nodeSites(2);
+    out.resize(logical_sites_3d);
+#pragma omp parallel for
+    for(int x=0;x<logical_sites_3d;x++)
+      contract(out[x], x, conj_l, conj_r);
   }
 
 };

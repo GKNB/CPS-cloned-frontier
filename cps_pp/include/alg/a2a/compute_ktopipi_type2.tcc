@@ -143,15 +143,15 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-							   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-							   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
-							   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-							   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
-							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
-							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
-							   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
-							   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
+void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
+							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi1_pi2,
+							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi2_pi1,
+							      const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
+							      const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
+							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
+							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+							      const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
+							      const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
   Type2timings::timer().type2_mult_vMv_setup -= dclock();
   //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
   mult_vMv_split_part1.resize(t_K_all.size());
@@ -183,13 +183,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<mult_v
 
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
-								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
-								   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
-								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-								   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
-								   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
-								   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
+								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
+								      std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
+								      std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
+								      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi1_pi2,
+								      std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
+								      const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
+								      const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
   Type2timings::timer().type2_precompute_part1_part2 -= dclock();
   mult_vMv_contracted_part1.resize(t_K_all.size());
   mult_vMv_contracted_part2_pi1_pi2.resize(tpi_sampled);
@@ -266,10 +266,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 
 #ifndef DISABLE_TYPE2_SPLIT_VMV
     //Split the vector-mesonfield outer product into two stages where in the first we reorder the mesonfield to optimize cache hits
-    std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > mult_vMv_split_part1; //[t_K_all.size()];
+    std::vector<vMv_split_VWWV > mult_vMv_split_part1; //[t_K_all.size()];
 
-    std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi1_pi2; //[tpi_sampled];
-    std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > mult_vMv_split_part2_pi2_pi1; //[tpi_sampled];
+    std::vector<vMv_split_VWVW > mult_vMv_split_part2_pi1_pi2; //[tpi_sampled];
+    std::vector<vMv_split_VWVW > mult_vMv_split_part2_pi2_pi1; //[tpi_sampled];
     type2_mult_vMv_setup(mult_vMv_split_part1,mult_vMv_split_part2_pi1_pi2,mult_vMv_split_part2_pi2_pi1,con_pi1_pi2,con_pi2_pi1,vL,vH,wL,mf_kaon,t_K_all,top_loc,tstep, Lt,tpi_sampled,node_top_used,node_top_used_kaon);
 
 # ifndef DISABLE_TYPE2_PRECOMPUTE
