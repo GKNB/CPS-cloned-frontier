@@ -337,7 +337,7 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
     computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con, type1_subset, pion_mom_orig, conf, params,"1s","",true,"_symmpi");
 
     //For extended momenta do all of them (FOR NOW)
-    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con, type1_subset, pion_mom_extended, conf, params,"1s","",false,"_symmpi_ext");
+    computeKtoPiPiContractions(V,W,V_s,W_s,mf_ls_ww_con_std,mf_ll_con, pion_mom_extended, pion_mom_extended, conf, params,"1s","",false,"_symmpi_ext");
   }
 
   //Free strange quark fields 
