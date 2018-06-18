@@ -182,8 +182,8 @@ public:
   typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
   typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
 #else
-  typedef vMv_split_VWWV vMv_split_VWWV;
-  typedef vMv_split_VWVW vMv_split_VWVW;
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
 #endif
 
 #ifdef USE_DESTRUCTIVE_FFT
