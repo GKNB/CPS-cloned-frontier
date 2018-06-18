@@ -145,10 +145,9 @@ void LatNERSCHeader::read(istream & fin) {
 
   FPConv fp;
   floating_point = fp.setFileFormat(hd.asString("FLOATING_POINT").c_str());
-  std::stringstream dump;
-  dump <<  hd.asString("DATA_PER_SITE");
-  dump >> data_per_site;
-  VRB.Result(cname,fname,"data_per_site=%d\n",data_per_site);
+  int dint=hd.asInt("DATA_PER_SITE");
+  if (dint) {data_per_site=dint;}
+  VRB.Result(cname,fname,"data_per_site= %s %d %d\n",(hd.asString("DATA_PER_SITE")).c_str(),dint, data_per_site);
 //  exit(-44);
   
 }

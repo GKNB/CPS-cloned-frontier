@@ -119,6 +119,7 @@ void read(dtype *data, const QioArg & rd_arg)
       }
 
     if(!error) {
+      hd.setHeader(data_per_site);
       hd.read(input);
       VRB.Result(cname,fname,"data_per_site=%d hd.data_per_site=%d\n",data_per_site,hd.data_per_site);
       assert(data_per_site == hd.data_per_site);

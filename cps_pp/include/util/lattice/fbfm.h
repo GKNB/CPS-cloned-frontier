@@ -155,6 +155,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   
     int FsiteSize() const {
 	const char* fname = "FsiteSize()";
+<<<<<<< HEAD
 	if (arg_map.count(current_key_mass) == 0) {
 	    ERR.General(cname, fname, "No entry for current key mass %e in arg_map!\n", current_key_mass);
 	    return 0;
@@ -163,7 +164,18 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 	    int ret = 24 * Ls;
 	    VRB.Result(cname,fname,"using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
 	    return ret;
+=======
+	int Ls = GJP.SnodeSites();
+	int ret = 24 * Ls;
+	if (arg_map.count(current_key_mass) != 0) {
+	    Ls = arg_map.at(current_key_mass).Ls;
+	    ret = 24 * Ls;
+	    if (Ls > GJP.SnodeSites()) 
+			ERR.General(cname,fname, "using current_key_mass = %e -> Ls = %d > GJP.SnodeSite(%d)! \n", current_key_mass, Ls, GJP.SnodeSites());
+    	VRB.Debug(cname,fname, "using current_key_mass = %e -> Ls = %d -> site size = %d\n", current_key_mass, Ls, ret);
+>>>>>>> 9589c257f711e5fa06703300d913cbd238b07fd2
 	}
+	return ret;
     }
   // Returns the number of fermion field 
   // components (including real/imaginary) on a
