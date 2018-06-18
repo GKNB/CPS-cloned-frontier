@@ -120,11 +120,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
-							       std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
-							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
-							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,
-							       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<std::vector< mf_WW > > &con_pi1_K,
+							       std::vector<std::vector< mf_WW > > &con_pi2_K,
+							       const std::vector<mf_WV > &mf_pi1,
+							       const std::vector<mf_WV > &mf_pi2,
+							       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 							       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
 							       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask ){
   Type1timings::timer().type1_compute_mfproducts -= dclock();
@@ -138,8 +138,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_compute_mfproducts(std::vector<st
   if(!UniqueID()){ printf("Computing con_pi_K\n"); fflush(stdout); }
   for(int pi_idx = 0; pi_idx < 2; pi_idx++){
     const std::vector<bool> &tpi_mask = pi_idx == 0 ? tpi1_mask : tpi2_mask;
-    std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi_K = pi_idx == 0 ? con_pi1_K : con_pi2_K;
-    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi = pi_idx == 0 ? mf_pi1 : mf_pi2;
+    std::vector<std::vector< mf_WW > > &con_pi_K = pi_idx == 0 ? con_pi1_K : con_pi2_K;
+    const std::vector<mf_WV > &mf_pi = pi_idx == 0 ? mf_pi1 : mf_pi2;
     
     for(int tpi=0;tpi<Lt;tpi++){
       if(!tpi_mask[tpi]) continue;
@@ -165,10 +165,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_mult_vMv_setup(vMv_split_VWVW &mu
 							      vMv_split_VWVW &mult_vMv_split_part1_pi2,
 							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi1,
 							      std::vector<vMv_split_VWWV> &mult_vMv_split_part2_pi2,
-							      const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
-							      const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
-							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
-							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
+							      const std::vector<std::vector< mf_WW > > &con_pi1_K,
+							      const std::vector<std::vector< mf_WW > > &con_pi2_K,
+							      const std::vector<mf_WV > &mf_pi1,
+							      const std::vector<mf_WV > &mf_pi2,							   
 							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 							      const A2AvectorW<mf_Policies> & wL,
 							      const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
@@ -251,7 +251,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1_precompute_part1_part2(SCFmatVect
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
 					    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+					    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   Type1timings::timer().reset();
@@ -276,8 +276,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
     
   const int size_3d = vL.getMode(0).nodeSites(0)*vL.getMode(0).nodeSites(1)*vL.getMode(0).nodeSites(2);
 
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
-  std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
+  std::vector<mf_WV > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
+  std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;
 
   //Compute which pion timeslices are involved in the calculation on this node
   std::vector<bool> pi1_tslice_mask(Lt,false);
@@ -298,8 +298,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type1(ResultsContainerType result[],
   printMem();
 #endif
 
-  std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > con_pi1_K(Lt); //[tpi][tsep_k_pi]
-  std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > con_pi2_K(Lt);
+  std::vector<std::vector< mf_WW > > con_pi1_K(Lt); //[tpi][tsep_k_pi]
+  std::vector<std::vector< mf_WW > > con_pi2_K(Lt);
     
   type1_compute_mfproducts(con_pi1_K,con_pi2_K,mf_pi1,mf_pi2,mf_kaon,mf_pions,tsep_k_pi,tsep_pion,Lt,ntsep_k_pi,pi1_tslice_mask,pi2_tslice_mask);
 

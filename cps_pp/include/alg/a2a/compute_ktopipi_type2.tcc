@@ -57,8 +57,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_contract(ResultsContainerType &re
 
 
 template<typename mf_Policies>
-void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-							       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
+void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
+							       std::vector<mf_WV > &con_pi2_pi1,							     
 							       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
 							       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 							       const int Lt, const int tpi_sampled){
@@ -66,7 +66,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
   con_pi1_pi2.resize(tpi_sampled); //y is associated with pi1, z with pi2
   con_pi2_pi1.resize(tpi_sampled); //y is associated with pi2, z with pi1
 
-  A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> tmp;
+  mf_WV tmp;
     
   if(!UniqueID()){ printf("Computing con_*_*\n"); fflush(stdout); }
 
@@ -80,8 +80,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(std::vector<A2
     const ThreeMomentum &p_pi_1 = p_pi_1_all[pidx];
     ThreeMomentum p_pi_2 = -p_pi_1;
     
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pions.get(p_pi_1);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pions.get(p_pi_2);
+    std::vector<mf_WV > &mf_pi1 = mf_pions.get(p_pi_1);
+    std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2);
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     std::vector<bool> pi1_tslice_mask(Lt,false);
     std::vector<bool> pi2_tslice_mask(Lt,false);
@@ -146,10 +146,10 @@ template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_split_VWWV> &mult_vMv_split_part1,
 							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi1_pi2,
 							      std::vector<vMv_split_VWVW> &mult_vMv_split_part2_pi2_pi1,
-							      const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-							      const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
+							      const std::vector< mf_WV > &con_pi1_pi2,
+							      const std::vector< mf_WV > &con_pi2_pi1,
 							      const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
-							      const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+							      const std::vector<mf_WW > &mf_kaon,
 							      const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 							      const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon){
   Type2timings::timer().type2_mult_vMv_setup -= dclock();
@@ -222,7 +222,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_precompute_part1_part2(std::vecto
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 		  const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		  const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   Type2timings::timer().reset();
@@ -254,8 +254,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2(ResultsContainerType result[],
 
   //Form the product of the two meson fields
   //con_*_* = \sum_{\vec y,\vec z} [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]]
-  std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > con_pi1_pi2;//(tpi_sampled); //y is associated with pi1, z with pi2
-  std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > con_pi2_pi1; //(tpi_sampled); //y is associated with pi2, z with pi1
+  std::vector< mf_WV > con_pi1_pi2;//(tpi_sampled); //y is associated with pi1, z with pi2
+  std::vector< mf_WV > con_pi2_pi1; //(tpi_sampled); //y is associated with pi2, z with pi1
   type2_compute_mfproducts(con_pi1_pi2,con_pi2_pi1,tsep_pion,tstep,p_pi_1_all,mf_pions, Lt, tpi_sampled);
 
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++)

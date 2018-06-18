@@ -70,7 +70,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_contract(ResultsContainerType &re
 
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
-							   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+							   const std::vector<mf_WW > &mf_kaon,
 							   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 							   const int top_loc, const int tstep, const int Lt){
   Type4timings::timer().type4_mult_vMv_setup -= dclock();
@@ -103,7 +103,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type4_precompute_part1(std::vector<SCFm
 template<typename mf_Policies>
 void ComputeKtoPiPiGparity<mf_Policies>::type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 					    const int &tstep,
-					    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+					    const std::vector<mf_WW > &mf_kaon,
 					    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 					    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
   
