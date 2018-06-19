@@ -479,7 +479,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_v2(ResultsContainerType result[],
 #ifdef DISABLE_TYPE2_SPLIT_VMV
 	mult(part1, vL, mf_kaon[t_K], vH, xop3d_loc, top_loc, false, true);
 #else
-	mult_vMv_split_part1..contract(part1,xop3d_loc,false,true);
+	mult_vMv_split_part1.contract(part1,xop3d_loc,false,true);
 #endif
 	part1.gr(-5); //right multiply by g5
       }//xop3d_loc
