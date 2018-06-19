@@ -11,6 +11,7 @@ CPS_START_NAMESPACE
 
 struct ReuseBlockAllocatorMalloc{
   inline void* allocMem(const size_t sz){ return malloc(sz); }
+  inline void freeMem(void* p){ ::free(p); }
 };
 
 class ReuseBlockAllocatorMemalign{
@@ -25,6 +26,74 @@ public:
     assert( posix_memalign(&p, _alignment, sz) == 0);
     return p;
   }
+  inline void freeMem(void* p){ ::free(p); }
+};
+
+class ReuseBlockAllocatorAlignedMMAP{
+  size_t _alignment;
+
+  inline void* doAllocMMAP(size_t size){
+    size_t size_padded = size + sizeof(size_t);
+
+    void *p = mmap (0,
+		    size_padded,
+		    PROT_READ | PROT_WRITE,
+		    MAP_PRIVATE | MAP_ANONYMOUS,
+		    -1,
+		    0);
+    if (p == MAP_FAILED) {
+      ERR.General("ReuseBlockAllocatorMemalign","doAllocMap","Mem alloc failed\n");
+    }
+
+    memcpy(p, &size, sizeof(size_t));
+    return (void*)( (char*)p + sizeof(size_t) );
+  }
+
+  inline void doFreeMMAP(void* ptr){
+    void* ptr_base = (void*)( (char*)ptr - sizeof(size_t) );
+    size_t sz;
+    memcpy(&sz, ptr_base, sizeof(size_t));
+    
+    int ret = munmap(ptr_base, sz);
+    if(ret == -1){
+      ERR.General("ReuseBlockAllocatorMemalign","doFreeMap","Mem free failed\n");
+    }
+  }
+
+  typedef uint16_t offset_t;
+#define PTR_OFFSET_SZ sizeof(offset_t)
+
+#define align_up(num, align)			\
+    (((num) + ((align) - 1)) & ~((align) - 1))
+
+public:
+  inline ReuseBlockAllocatorAlignedMMAP(): _alignment(128){}
+
+  inline size_t & alignment(){ return _alignment; }
+  
+  inline void* allocMem(const size_t size){ 
+    void * ptr = NULL;
+    assert((_alignment & (_alignment - 1)) == 0);
+
+    if(_alignment && size){
+      uint32_t hdr_size = PTR_OFFSET_SZ + (_alignment - 1); //allocate space for an offset and buffer space to ensure alignment
+      void * p = doAllocMMAP(size + hdr_size);
+    
+      ptr = (void *) align_up( ( (uintptr_t)p + PTR_OFFSET_SZ ), _alignment);
+      *((offset_t *)ptr - 1) = (offset_t)((uintptr_t)ptr - (uintptr_t)p); //Calculate the offset and store it behind our aligned pointer
+    }
+
+    return ptr; 
+  }
+  inline void freeMem(void* ptr){
+    assert(ptr);
+    offset_t offset = *((offset_t *)ptr - 1);
+    void * p = (void *)( (char*)ptr - offset );
+    doFreeMMAP(p);
+  }
+
+#undef align_up
+#undef PTR_OFFSET_SZ
 };
 
 template<typename AllocPolicy>
@@ -67,7 +136,7 @@ public:
     for(typename allFreeMapType::iterator mit = all_free.begin(); mit != all_free.end(); mit++){
       for(typename blockIteratorList::iterator fit = mit->second.begin(); fit != mit->second.end(); fit++){
 	typename blockList::iterator bit = *fit;
-	::free(bit->ptr);
+	this->freeMem(bit->ptr);
 	torm.push_back(bit->ptr);
 	blocks.erase(bit);
       }
@@ -79,7 +148,7 @@ public:
 
 
   inline void clear(){ //free all blocks
-    for(typename blockList::iterator it = blocks.begin(); it != blocks.end(); it++) ::free(it->ptr); 
+    for(typename blockList::iterator it = blocks.begin(); it != blocks.end(); it++) this->freeMem(it->ptr); 
     blocks.clear();
   }
   inline ~ReuseBlockAllocator(){ clear(); }
@@ -114,7 +183,11 @@ public:
 
 //We should maintain different allocators for different alignments 
 class ReuseBlockAllocatorsAligned{
+#ifdef REUSE_BLOCK_ALLOCATOR_MMAP
+  typedef ReuseBlockAllocator<ReuseBlockAllocatorAlignedMMAP> Allocator;
+#else
   typedef ReuseBlockAllocator<ReuseBlockAllocatorMemalign> Allocator;
+#endif
   typedef std::map<size_t, Allocator* > AlignmentMap;
   AlignmentMap allocators;
 
