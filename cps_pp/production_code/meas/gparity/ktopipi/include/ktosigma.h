@@ -36,17 +36,22 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
     if(s==0)
       for(int t=0;t<Lt;t++) mf_sigma[t] = mf_sigma_s[t];
     else
+#ifndef MEMTEST_MODE
       for(int t=0;t<Lt;t++) mf_sigma[t].plus_equals(mf_sigma_s[t]);
-
+#endif
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     nodeDistributeMany(1,&mf_sigma_s);
 #endif
   }
 
+#ifndef MEMTEST_MODE
   for(int t=0;t<Lt;t++) mf_sigma[t].times_equals(1./sigma_mom.nMom());
+#endif
 
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
   nodeDistributeMany(1,&mf_sigma);
+#endif
 
   print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);
 	
@@ -80,6 +85,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
     }
     print_time("main","K->sigma type 1/2",time+dclock());
   }
+
   //Type3
   {
     double time = -dclock();
@@ -97,6 +103,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
     }
     print_time("main","K->sigma type 3",time+dclock());
   }  
+
   //Type4
   if(do_type4){
     double time = -dclock();

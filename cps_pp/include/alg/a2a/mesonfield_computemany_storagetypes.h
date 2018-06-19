@@ -527,13 +527,17 @@ void stridedAverageFree(StoreType &mf_store, const Indexer &offset, const int na
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
       mf_alt[t].nodeGet(); //gather iff distributed
 #endif	
+#ifndef MEMTEST_MODE
       mf_base[t].plus_equals(mf_alt[t]);
+#endif
       mf_alt[t].free_mem();
     }
   }
+#ifndef MEMTEST_MODE
   for(int t=0;t<Lt;t++)
     mf_base[t].times_equals(1./navg);
-    
+#endif    
+
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   if(!disable_redistribute) nodeDistributeMany(1, &mf_base);  
 #endif

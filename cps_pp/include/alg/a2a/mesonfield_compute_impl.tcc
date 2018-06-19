@@ -481,7 +481,14 @@ struct mfComputeGeneral: public mfVectorPolicies{
 
     const size_t accum_thr_size = nmodes_l*nmodes_r*this->mf_Accum_bytes();
     const size_t accum_buf_size = nthread*accum_thr_size;
+
+#define ACCUM_BUF_STACK_ALLOC   //this may not be allowed on some systems as it is a big alloc, but it works for BG/Q
+
+#ifdef ACCUM_BUF_STACK_ALLOC
+    char accum_buf[nmodes_l*nmodes_r*this->mf_Accum_bytes()];
+#else
     char* accum_buf = (char*)Aligned128AllocPolicyA::alloc(accum_buf_size);
+#endif
 
     //Create accessor wrappers to the matrix for use under accumulation
     typename mfVectorPolicies::AccumMatrixType mf_accum_thr[nthread];
@@ -565,7 +572,9 @@ struct mfComputeGeneral: public mfVectorPolicies{
       std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
+#ifndef ACCUM_BUF_STACK_ALLOC
     Aligned128AllocPolicyA::free(accum_buf);
+#endif
 
     print_time("A2AmesonField","local compute",time + dclock());
 
@@ -625,5 +634,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::v
   cg.compute(mf_st,l,M,r,do_setup);
 }
 
+
+#undef ACCUM_BUF_STACK_ALLOC
 
 #endif
