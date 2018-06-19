@@ -502,17 +502,18 @@ public:
     double time = dclock();
     int do_gather_node = (require && ptr == NULL);
 
-#define ENABLE_GATHER_PRECHECK
-#ifdef ENABLE_GATHER_PRECHECK
+# define ENABLE_GATHER_PRECHECK
+# ifdef ENABLE_GATHER_PRECHECK
     //Check to see if a gather is actually necessary
     int do_gather_any = 0;
     assert( MPI_Allreduce(&do_gather_node, &do_gather_any, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
 
     perf().check_calls++;
     perf().check_time += dclock() - time;
-#else
+# else
     int do_gather_any = 1;
-#endif
+# endif
+# undef ENABLE_GATHER_PRECHECK
 
     //Do the gather. All nodes need memory space, albeit temporarily
     if(do_gather_any){
@@ -556,6 +557,7 @@ public:
 # else
     int do_gather_any = 1;
 # endif
+# undef ENABLE_GATHER_PRECHECK
 
     if (do_gather_any){
       //only bcast to subset of nodes which require the meson field; this should scale with nodes much better than bcast to call
@@ -592,8 +594,11 @@ public:
   }
 
   inline void gather(bool require){
-    //gather_bcast_full(require);
+#ifdef GATHER_BCAST_SUBCOMM
     gather_bcast_subcomm(require);
+#else
+    gather_bcast_full(require);
+#endif
   }
 
   void distribute(){

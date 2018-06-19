@@ -348,7 +348,7 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
  
   static void type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
 				       std::vector<mf_WV > &con_pi2_pi1,							     
@@ -375,14 +375,37 @@ private:
 					   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 					   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
 
+  static void type2_compute_mfproducts(mf_WV &con_pi1_pi2,
+				       mf_WV &con_pi2_pi1,
+				       const int tpi1, const int tpi2,
+				       const std::vector<ThreeMomentum> &p_pi_1_all,
+				       MesonFieldMomentumContainer<mf_Policies> &mf_pions);
+
 public: 
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
   //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-  static void type2(ResultsContainerType result[],
-		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  static void type2_v1(ResultsContainerType result[],
+		       const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  
+  static void type2_v2(ResultsContainerType result[],
+		       const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  
+  inline static void type2(ResultsContainerType result[],
+			   const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+    //type2_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+    type2_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+  }
+
+
 
   static void type2(ResultsContainerType &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
@@ -489,7 +512,7 @@ public:
 		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
-    //type3_v1(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vH, wH);
+    //type3_v1(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vH, wH, wL, wH);
     type3_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
   }
 

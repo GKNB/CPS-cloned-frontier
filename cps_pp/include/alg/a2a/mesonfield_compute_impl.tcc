@@ -485,7 +485,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
 #define ACCUM_BUF_STACK_ALLOC   //this may not be allowed on some systems as it is a big alloc, but it works for BG/Q
 
 #ifdef ACCUM_BUF_STACK_ALLOC
-    char accum_buf[nmodes_l*nmodes_r*this->mf_Accum_bytes()];
+    char accum_buf[accum_buf_size];
 #else
     char* accum_buf = (char*)Aligned128AllocPolicyA::alloc(accum_buf_size);
 #endif
