@@ -205,6 +205,12 @@ int main(int argc,char *argv[])
   if(0) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
 #endif
 
+  if(1) testSumSource<ScalarA2Apolicies>(a2a_args,lattice);
+#ifdef USE_GRID
+  if(1) testSumSource<GridA2Apolicies>(a2a_args,lattice);
+#endif
+
+
   if(0) testMfFFTreln<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
   if(0) testMfFFTreln<GridA2Apolicies>(a2a_args,lattice);
@@ -221,7 +227,7 @@ int main(int argc,char *argv[])
 #ifdef USE_GRID
   if(0) testVVdag<GridA2Apolicies>(lattice);
 
-  if(1) testvMvGridOrig<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, 1, nthreads, tol);
+  if(0) testvMvGridOrig<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, 1, nthreads, tol);
 #endif
   
   if(0) testDestructiveFFT<A2ApoliciesDoubleManualAlloc>(a2a_args,lattice);

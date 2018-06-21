@@ -91,6 +91,8 @@ class ComputeMesonFields{
       
       A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw>::compute(cdest,fftw_W, M, fftw_V);
       
+      into.postContractAction(c);
+
       restore(*W[qidx_w], fftw_W, p_w, lattice, "W");
       restore(*V[qidx_v], fftw_V, p_v, lattice, "V");
 
@@ -292,6 +294,8 @@ class ComputeMesonFields{
 #else
 	      shiftBaseAndComputeMF(cdest, W_args,W_fieldparams,V_args,V_fieldparams,p_w,p_v,Wfftw_base, Vfftw_base, M);	      
 #endif
+
+	      into.postContractAction(cidx);
 
 	      if(node_distribute){
 		printMem("ComputeMesonFields::compute Memory before distribute");

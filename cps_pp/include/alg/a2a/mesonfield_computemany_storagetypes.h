@@ -80,6 +80,9 @@ public:
     p_w = clist[cidx].p_w;     p_v = clist[cidx].p_v; 
   }
   inline bool needSourceShift(const int cidx) const{ return clist[cidx].do_src_shift; }
+
+  //If some additional action needs to be performed immediately after a meson field is computed
+  inline void postContractAction(const int cidx){}
 };
 
 //Storage with source that remains constant for all computations
@@ -89,7 +92,7 @@ public:
   typedef InnerProduct InnerProductType;
   typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
   typedef storageType& mfComputeInputFormat;
-
+  
 private:
   const InnerProductType& inner;
   std::vector<storageType> mf;
@@ -147,6 +150,102 @@ public:
     nodeDistributeMany(1, &mf[cidx]);    
   }
     
+};
+
+
+//This version sums alternate momenta on the fly
+template<typename mf_Policies, typename InnerProduct, typename my_enable_if<!has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value, int>::type = 0>
+class GparityFlavorProjectedSumSourceStorage: public MesonFieldStorageBase{
+public:
+  typedef typename InnerProduct::InnerProductSourceType SourceType;
+  typedef InnerProduct InnerProductType;
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef storageType& mfComputeInputFormat;
+
+private:
+  const InnerProductType& inner;
+  SourceType &src; //altered by changing momentum projection
+  storageType tmp_mf;
+  std::vector<storageType> mf;
+
+  std::map<int,int> set_first_cidx; //keep track of the first cidx of a set that is computed
+  std::vector< std::vector<int> > set_cidx_map; //[set_idx] -> set of cidx
+  std::vector<int> cidx_set_map; //[cidx] -> set_idx
+
+  inline void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){ assert(0); };
+public:  
+  GparityFlavorProjectedSumSourceStorage(const InnerProductType& _inner, SourceType &_src): inner(_inner), src(_src){} //note 'inner' will have its momentum sign changed dynamically
+  
+  void addComputeSet(const int qidx_w, const int qidx_v, std::vector< std::pair<ThreeMomentum, ThreeMomentum> > &mom_wv_pairs){    
+    int set_idx = set_cidx_map.size();
+    std::vector<int> set_cidx;
+    for(int i=0;i<mom_wv_pairs.size();i++){
+      int cidx = clist.size();
+      clist.push_back( computeParams(qidx_w,qidx_v,mom_wv_pairs[i].first, mom_wv_pairs[i].second) );
+      cidx_set_map.push_back(set_idx);
+
+      set_cidx.push_back(cidx);
+    }
+    set_cidx_map.push_back(set_cidx);
+  }
+
+  const storageType & operator[](const int set_idx) const{ return mf[set_idx]; }
+  storageType & operator[](const int set_idx){ return mf[set_idx]; }
+
+  const storageType & operator()(const int set_idx) const{ return mf[set_idx]; }
+  storageType & operator()(const int set_idx){ return mf[set_idx]; }
+  
+  mfComputeInputFormat getMf(const int cidx){
+    if(mf.size() != set_cidx_map.size()) mf.resize(set_cidx_map.size());
+    int set = cidx_set_map[cidx];
+
+    std::map<int,int>::const_iterator it = set_first_cidx.find(set);
+    if(it == set_first_cidx.end()){
+      set_first_cidx[set] = cidx;
+      return mf[set];
+    }else{
+      return tmp_mf;
+    }
+  }  
+
+  inline void postContractAction(const int cidx){
+    int set = cidx_set_map[cidx];
+    int set_first = set_first_cidx[set];
+    if(cidx != set_first)
+      for(int t=0;t<mf[set].size();t++){
+	bool did_gather = false;
+	if(!mf[set][t].isOnNode()){ mf[set][t].nodeGet(); did_gather = true; }
+	mf[set][t].plus_equals(tmp_mf[t]);
+	if(did_gather) mf[set][t].nodeDistribute();
+      }
+  }
+
+  const InnerProductType & getInnerProduct(const int cidx){
+    if(needSourceShift(cidx)) ERR.General("GparityFlavorProjectedSumSourceStorage","getInnerProduct","Policy does not support source shifting\n");
+    src.setMomentum(clist[cidx].p_v.ptr());
+    return inner;
+  }
+  void nodeDistributeResult(const int cidx){
+    int set = cidx_set_map[cidx];
+    int set_first = set_first_cidx[set];
+    if(cidx == set_first){
+      nodeDistributeMany(1, &mf[set]);    
+    }
+  }
+  
+  //The internal operation sums the meson fields; use this method to normalize the sum to an average for all meson fields computed
+  void sumToAverage(){
+    for(int s=0;s<set_cidx_map.size();s++){
+      int nc = set_cidx_map[s].size();
+      for(int t=0;t<mf[s].size();t++){
+	bool did_gather = false;
+	if(!mf[s][t].isOnNode()){ mf[s][t].nodeGet(); did_gather = true; }
+	mf[s][t].times_equals(1./nc);
+	if(did_gather) mf[s][t].nodeDistribute();
+      }
+    }
+  }
+
 };
 
 
@@ -240,7 +339,7 @@ public:
 //If using G-parity BCs, we can move the momentum shift from base for the right A2A vector into a C-shift in the source accompanied by a different
 //momentum for the left A2A vector. This can speed up the calculation.
 
-class MesonFieldShiftSourceStorageBase : MesonFieldStorageBase{
+class MesonFieldShiftSourceStorageBase : public MesonFieldStorageBase{
   struct computeParamsMultiShift{
     int qidx_w;
     int qidx_v;
@@ -279,7 +378,7 @@ class MesonFieldShiftSourceStorageBase : MesonFieldStorageBase{
 protected:
   typedef std::map<computeParams,int,KeyOnSpeciesAndMomentum> MapType;
   std::vector<computeParamsMultiShift> optimized_clist; //shifts with same quark species and momenta combined
-  std::vector< std::pair<int,int> > clist_opt_map; //mapping from original clist index to those in optimized storage
+  std::vector< std::pair<int,int> > clist_opt_map; //mapping from original clist index to those in optimized storage  orig_cidx -> (opt_cidx, shift_idx)
   bool optimized;
   int nshift_max;
 
@@ -305,7 +404,7 @@ protected:
       }     
     }
     if(!UniqueID()){
-      printf("GparityFlavorProjectedShiftSourceStorage combined source shifts to:\n");
+      printf("MesonFieldShiftSourceStorageBase combined source shifts to:\n");
       for(int i=0;i<optimized_clist.size();i++){
 	const computeParamsMultiShift &c = optimized_clist[i];
 	printf("%d %d p_wdag %s p_v %s shifts : ",c.qidx_w, c.qidx_v, (-c.p_w).str().c_str(), c.p_v.str().c_str());
@@ -500,6 +599,230 @@ public:
   void nodeDistributeResult(const int opt_cidx){
     for(int s=0;s<mf[opt_cidx].size();s++) nodeDistributeMany(1, &mf[opt_cidx][s]);    
   }  
+};
+
+
+//Version of the above that sums alternate momenta on the fly
+template<typename mf_Policies, typename InnerProduct>
+class GparityFlavorProjectedShiftSourceSumStorage;
+
+template<typename mf_Policies, typename InnerProduct, bool isMultiSrc>
+class _GparityFlavorProjectedShiftSourceSumStorageAccessors{};
+
+//Single source
+template<typename mf_Policies, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,false>{
+  typedef typename InnerProduct::InnerProductSourceType SourceType;
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies,InnerProduct> Derived;
+public:
+  storageType & operator[](const int set_idx){ 
+    return static_cast<Derived*>(this)->mf_sum[set_idx][0];
+  }
+  const storageType & operator[](const int set_idx) const{ 
+    return static_cast<Derived const*>(this)->mf_sum[set_idx][0];
+  }
+  inline storageType & operator()(const int set_idx){ return this->operator[](set_idx); }
+  inline const storageType & operator()(const int set_idx) const{ return this->operator[](set_idx); }
+
+  typedef int accessorIdxType;
+};
+//Multi source
+template<typename mf_Policies, typename InnerProduct>
+class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,true>{
+  typedef typename InnerProduct::InnerProductSourceType SourceType;
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies,InnerProduct> Derived;
+public:
+  storageType & operator()(const int src_idx, const int set_idx){
+    return static_cast<Derived*>(this)->mf_sum[set_idx][src_idx];
+  }
+  const storageType & operator()(const int src_idx, const int set_idx) const{
+    return static_cast<Derived const*>(this)->mf_sum[set_idx][src_idx];
+  }
+
+  typedef std::pair<int,int> accessorIdxType; //(src, set_idx)
+  
+  storageType & operator()(const accessorIdxType &idx){ return (*this)(idx.first, idx.second); }
+  const storageType & operator()(const accessorIdxType &idx) const{ return (*this)(idx.first, idx.second); }
+};
+  
+
+template<typename mf_Policies, typename InnerProduct>
+class GparityFlavorProjectedShiftSourceSumStorage: public MesonFieldShiftSourceStorageBase,
+						   public _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>{
+public:
+  typedef typename InnerProduct::InnerProductSourceType SourceType;
+  typedef InnerProduct InnerProductType;
+  typedef std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > storageType;
+  typedef std::vector< storageType* > mfComputeInputFormat;
+  typedef typename _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>::accessorIdxType accessorIdxType;
+  friend class _GparityFlavorProjectedShiftSourceSumStorageAccessors<mf_Policies,InnerProduct,has_enum_nSources<typename InnerProduct::InnerProductSourceType>::value>;
+private:
+
+  InnerProductType& inner;
+  SourceType &src;
+  bool locked;
+
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type
+  getNsrc(){ return 1; }
+
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type
+  getNsrc(){ return S::nSources; }
+
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type
+  getNmf(const int opt_cidx){ return this->optimized_clist[opt_cidx].shifts.size(); }
+
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type
+  getNmf(const int opt_cidx){ return S::nSources * this->optimized_clist[opt_cidx].shifts.size(); } //indexed by source_idx + nSources*shift_idx
+
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  setSourceMomentum(const int opt_cidx){ src.setMomentum(this->optimized_clist[opt_cidx].p_v.ptr()); }
+
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  setSourceMomentum(const int opt_cidx){ _multiSrcRecurse<S,S::nSources>::setMomentum(src,this->optimized_clist[opt_cidx].p_v.ptr() ); }
+
+  void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){ assert(0); }
+
+  std::vector< std::vector<int> > set_cidx_map; //[set_idx] -> set of cidx
+  std::vector<int> cidx_set_map; //[cidx] -> set_idx
+
+  std::vector<bool> set_first;
+  std::vector< std::vector<storageType> > mf_sum;
+  std::vector<storageType*> mf_tmp;
+
+  std::map<int, std::vector<std::pair<storageType*, storageType*> > > sum_queue; //opt_cidx -> (sum_to, sum_from)
+  std::map<int, std::vector<storageType*> > distribute_queue;
+public:  
+  GparityFlavorProjectedShiftSourceSumStorage(InnerProductType& _inner, SourceType &_src, const int nshift_max = -1): inner(_inner),src(_src),locked(false), MesonFieldShiftSourceStorageBase(nshift_max){} //note 'inner' will have its momentum sign changed dynamically
+
+  ~GparityFlavorProjectedShiftSourceSumStorage(){ for(int i=0;i<mf_tmp.size();i++) delete(mf_tmp[i]); }
+
+  void addComputeSet(const int qidx_w, const int qidx_v, std::vector< std::pair<ThreeMomentum, ThreeMomentum> > &mom_wv_pairs){    
+    int set_idx = set_cidx_map.size();
+    std::vector<int> set_cidx;
+    for(int i=0;i<mom_wv_pairs.size();i++){
+      int cidx = clist.size();
+      this->MesonFieldShiftSourceStorageBase::addCompute(qidx_w,qidx_v,mom_wv_pairs[i].first, mom_wv_pairs[i].second);
+      cidx_set_map.push_back(set_idx);
+
+      set_cidx.push_back(cidx);
+    }
+    set_cidx_map.push_back(set_cidx);
+  }
+
+  mfComputeInputFormat getMf(const int opt_cidx){
+    if(!locked){
+      this->optimizeContractionList();
+      mf_sum.resize(set_cidx_map.size(), std::vector<storageType>(getNsrc<SourceType>()) ); //one mf for each set up to src multiplicity
+      set_first.resize(set_cidx_map.size(), true);
+      locked = true;
+    }
+
+    int tmpidx = 0;
+
+    int nsrc = getNsrc<SourceType>();
+
+    std::vector< storageType* > out(getNmf<SourceType>(opt_cidx), NULL);   //[ src_idx + nsrc * shift ]
+
+    int nshift = this->optimized_clist[opt_cidx].shifts.size();
+
+    for(int s=0;s<nshift;s++){
+      int orig_cidx = -1;
+      for(int i=0;i<clist_opt_map.size();i++) 
+	if(clist_opt_map[i].first == opt_cidx && clist_opt_map[i].second == s){
+	  orig_cidx = i;
+	  break;
+	}
+      assert(orig_cidx != -1);
+
+      int set = cidx_set_map[orig_cidx];
+
+      if(set_first[set]){ //first time set acted upon, point to output
+	for(int src=0;src<nsrc;src++){
+	  out[src + nsrc*s] = &mf_sum[set][src];
+	  distribute_queue[opt_cidx].push_back(&mf_sum[set][src]);	  
+	}
+	set_first[set] = false;
+      }else{
+	//Not first time this set has been acted on. Pointing into tmp
+	if(tmpidx == mf_tmp.size()){
+	  mf_tmp.resize(mf_tmp.size() + nsrc);
+	  for(int i=0;i<nsrc;i++) mf_tmp[mf_tmp.size()-nsrc + i] = new storageType;
+	}
+
+	for(int src=0;src<nsrc;src++){
+	  out[src + nsrc*s] = mf_tmp[tmpidx];
+	  sum_queue[opt_cidx].push_back(std::pair<storageType*, storageType*>(&mf_sum[set][src], mf_tmp[tmpidx]));
+	  ++tmpidx;
+	}
+      }
+    }
+    return out;
+  }
+
+  inline void postContractAction(const int opt_cidx){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    std::vector<std::pair<storageType*, storageType*> > &tosum = sum_queue[opt_cidx];
+    for(int i=0;i<tosum.size();i++){
+      storageType &to = *tosum[i].first;
+      storageType &from = *tosum[i].second;
+
+      int gather_distribute = to[0].isOnNode() ? 1 : 0;
+      MPI_Allreduce(MPI_IN_PLACE, &gather_distribute, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+      if(gather_distribute) nodeGetMany(1, &to);
+
+      for(int t=0;t<Lt;t++){
+	to[t].plus_equals(from[t]);
+      }
+      
+      if(gather_distribute) nodeDistributeMany(1, &to);
+
+    }
+    tosum.clear();
+  }
+
+  const InnerProductType & getInnerProduct(const int opt_cidx){
+    setSourceMomentum<SourceType>(opt_cidx);
+    inner.setShifts(this->optimized_clist[opt_cidx].shifts);    
+    return inner;
+  }
+
+  void nodeDistributeResult(const int opt_cidx){
+    std::vector<storageType*> &to_dist = distribute_queue[opt_cidx];
+    for(int s=0;s<to_dist.size();s++) nodeDistributeMany(1, to_dist[s]);
+    to_dist.clear();
+  }  
+
+  //The internal operation sums the meson fields; use this method to normalize the sum to an average for all meson fields computed
+  void sumToAverage(){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    int nsrc = getNsrc<SourceType>();
+
+    for(int s=0;s<set_cidx_map.size();s++){
+      int nc = set_cidx_map[s].size();
+      for(int src=0;src<nsrc;src++){
+	int gather_distribute = mf_sum[s][src][0].isOnNode() ? 1 : 0;
+	MPI_Allreduce(MPI_IN_PLACE, &gather_distribute, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+	if(gather_distribute) nodeGetMany(1, &mf_sum[s][src]);
+
+	for(int t=0;t<Lt;t++){
+	  mf_sum[s][src][t].times_equals(1./nc);
+	}
+
+	if(gather_distribute) nodeDistributeMany(1, &mf_sum[s][src]);
+      }
+    }
+  }
+  
 };
 
 

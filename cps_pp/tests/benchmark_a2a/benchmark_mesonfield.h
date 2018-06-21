@@ -1319,6 +1319,158 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 }
 
 
+//Test the compute-many storage that sums meson fields on the fly
+template<typename A2Apolicies>
+void testSumSource(const A2AArg &a2a_args,Lattice &lat){
+  assert(GJP.Gparity());
+  
+  if(lat.FixGaugeKind() == FIX_GAUGE_NONE){
+    FixGaugeArg fix_gauge_arg;
+    fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
+    fix_gauge_arg.hyperplane_start = 0;
+    fix_gauge_arg.hyperplane_step = 1;
+    fix_gauge_arg.hyperplane_num = GJP.Tnodes()*GJP.TnodeSites();
+    fix_gauge_arg.stop_cond = 1e-08;
+    fix_gauge_arg.max_iter_num = 10000;
+
+    CommonArg common_arg;
+  
+    AlgFixGauge fix_gauge(lat,&common_arg,&fix_gauge_arg);
+    fix_gauge.run();
+  }
+  
+  int Lt = GJP.TnodeSites() * GJP.Tnodes();
+
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies> V(a2a_args,fp);
+  W.testRandom();
+  V.testRandom();
+
+
+  std::vector<ThreeMomentum> p_wdag;
+  std::vector<ThreeMomentum> p_v;
+
+
+
+  //Total mom (-2,*,*)
+
+  //Base
+  p_wdag.push_back(ThreeMomentum(-3,0,0));
+  p_v.push_back(ThreeMomentum(1,0,0));
+  
+  //Symmetrized (lives in same momentum set as base)
+  p_wdag.push_back(ThreeMomentum(1,0,0));
+  p_v.push_back(ThreeMomentum(-3,0,0));
+  
+  //Alt (lives in other momentum set)
+  p_wdag.push_back(ThreeMomentum(3,0,0));
+  p_v.push_back(ThreeMomentum(-5,0,0));
+  
+  //Alt symmetrized
+  p_wdag.push_back(ThreeMomentum(-5,0,0));
+  p_v.push_back(ThreeMomentum(3,0,0));
+
+  int nmom = p_v.size();
+
+  for(int i=1;i<3;i++){
+    if(GJP.Bc(i) == BND_CND_GPARITY){
+      for(int p=0;p<nmom;p++){
+	p_wdag[p](i) = p_wdag[p](0);
+	p_v[p](i) = p_v[p](0);
+      }
+    }
+  }
+  
+  typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
+  typedef typename ExpSrcType::FieldParamType SrcFieldParamType;
+  typedef typename ExpSrcType::ComplexType SrcComplexType;
+  SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
+
+  typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
+  
+  ExpSrcType src(2.0, p_v[0].ptr(), sfp); //momentum is not relevant as it is shifted internally
+  ExpInnerType inner(sigma3, src);
+
+  std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
+  std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
+
+
+  typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> BasicStorageType;
+  
+  BasicStorageType store_basic(inner,src);
+  for(int p=0;p<nmom;p++){
+    store_basic.addCompute(0,0,-p_wdag[p],p_v[p]);
+  }
+
+  ComputeMesonFields<A2Apolicies,BasicStorageType>::compute(store_basic,Wspecies,Vspecies,lat);
+
+  typedef std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > MFvectorType;
+  
+  for(int p=0;p<nmom;p++)
+    nodeGetMany(1, &store_basic(p));
+
+  MFvectorType mf_basic = store_basic(0);
+  for(int t=0;t<Lt;t++){
+    for(int p=1;p<nmom;p++){
+      mf_basic[t].plus_equals(store_basic(p)[t]);
+    }
+    mf_basic[t].times_equals(1./nmom);
+  }
+  
+  std::vector< std::pair<ThreeMomentum,ThreeMomentum> > set_mom;
+  for(int p=0;p<nmom;p++)
+    set_mom.push_back( std::pair<ThreeMomentum,ThreeMomentum>(-p_wdag[p],p_v[p]) );
+  
+  typedef GparityFlavorProjectedSumSourceStorage<A2Apolicies, ExpInnerType> SumStorageType;
+
+  SumStorageType store_sum(inner,src);
+  store_sum.addComputeSet(0,0, set_mom);
+  
+  ComputeMesonFields<A2Apolicies,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
+
+  store_sum.sumToAverage();
+
+  nodeGetMany(1, &store_sum(0) );
+
+  for(int t=0;t<Lt;t++){
+    if(!UniqueID()) printf("Comparing mf avg t=%d\n",t);
+    assert( mf_basic[t].equals( store_sum(0)[t],1e-6,true) );
+  }
+  if(!UniqueID()) printf("Passed mf avg sum source equivalence test\n");
+
+  typedef typename A2Apolicies::ComplexType VectorComplexType;
+  
+  typedef GparitySourceShiftInnerProduct<VectorComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,VectorComplexType,true,false> > ShiftInnerType;
+  typedef GparityFlavorProjectedShiftSourceSumStorage<A2Apolicies, ShiftInnerType> ShiftSumStorageType;
+  
+  ShiftInnerType shift_inner(sigma3, src);
+
+  ShiftSumStorageType shift_store_sum(shift_inner,src);
+  shift_store_sum.addComputeSet(0,0, set_mom);
+  
+  ComputeMesonFields<A2Apolicies,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
+
+  shift_store_sum.sumToAverage();
+
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
+  const mfVector &avgd = shift_store_sum(0);
+  printf("Index 0 points to %p\n", &avgd); fflush(stdout);
+  
+  nodeGetMany(1, &shift_store_sum(0) );
+
+  for(int t=0;t<Lt;t++){
+    if(!UniqueID()) printf("Comparing mf avg t=%d\n",t);
+    assert( mf_basic[t].equals( shift_store_sum(0)[t],1e-6,true) );
+  }
+  if(!UniqueID()) printf("Passed mf avg sum source equivalence test\n");
+}
+
+
+
 template<typename A2Apolicies>
 void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   assert(GJP.Gparity());

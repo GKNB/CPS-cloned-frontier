@@ -464,8 +464,9 @@ public:
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
   typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
-   
+
 public:
 
   struct Options{
@@ -501,7 +502,7 @@ public:
     
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
-    if(!UniqueID()) printf("Computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+    if(!UniqueID()) printf("computeGparityLLmesonFields1s computing %d momenta with block sizes of %d\n",nmom,nmom_block);
 
     for(int b=0; b<nmom; b+= nmom_block){
       int nmom_rem = nmom - b;
@@ -543,6 +544,104 @@ public:
   }
 
 };
+
+
+//Version of the above that sums the sources on the fly rather than afterwards
+template<typename mf_Policies, typename PionMomentumPolicy>
+class computeGparityLLmesonFields1sSumOnTheFly{
+public:
+  INHERIT_FROM_BASE;
+
+  typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+
+  typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies, InnerType> StorageType;
+
+public:
+
+  struct Options{
+    int thr_internal; //number of threads used in the computation
+    int mom_block_size; //number of meson momenta fed into the computeMany algorithm
+    int nshift_combine_max; //max number of source shifts shiftSourceStorage is allowed to combine
+    Options(): thr_internal(-1), mom_block_size(-1), nshift_combine_max(-1){}
+  };
+
+
+  static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_1s_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
+				 const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
+				 Wtype &W, Vtype &V,
+				 const Float rad_1s, //exponential wavefunction radius
+				 Lattice &lattice,
+				 const FieldParamType &src_setup_params = NullObject(), const Options &opt = Options() ){
+    assert(GJP.Gparity());
+    Float time = -dclock();    
+    std::vector<Wtype*> Wspecies(1, &W);
+    std::vector<Vtype*> Vspecies(1, &V);
+
+    const int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    const int nmom = pion_mom.nMom();
+
+    int init_thr = omp_get_max_threads();
+    if(opt.thr_internal != -1) omp_set_num_threads(opt.thr_internal);
+
+    int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
+    GparityBaseMomentum(pbase,+1);
+        
+    ExpSrcType src(rad_1s,pbase,src_setup_params);
+    InnerType g5_s3_inner(sigma3, src);    
+    
+    int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
+
+    if(!UniqueID()) printf("computeGparityLLmesonFields1sSumOnTheFly computing %d momenta with block sizes of %d\n",nmom,nmom_block);
+
+    for(int b=0; b<nmom; b+= nmom_block){
+      int nmom_rem = nmom - b;
+      int nmom_block_actual = nmom_rem < nmom_block ? nmom_rem : nmom_block;
+
+      if(!UniqueID()) printf("computeGparityLLmesonFields1sSumOnTheFly Doing block %d->%d\n",b,b+nmom_rem);
+
+      StorageType mf_store(g5_s3_inner,src, opt.nshift_combine_max);
+
+      int cidx = 0;
+      for(int pidx=b;pidx<b+nmom_block_actual;pidx++){      
+	std::vector<std::pair<ThreeMomentum,ThreeMomentum> > mom_set;
+	
+	for(int alt=0;alt<pion_mom.nAltMom(pidx);alt++){
+	  ThreeMomentum p_w = pion_mom.getWmom(pidx,alt);
+	  ThreeMomentum p_v = pion_mom.getVmom(pidx,alt);
+	  mom_set.push_back(std::pair<ThreeMomentum,ThreeMomentum>(p_w,p_v));
+	}
+
+	mf_store.addComputeSet(0,0, mom_set);
+      }
+
+      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+							   ,true
+#endif
+										       );
+      
+      if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly computing averages for block %d->%d\n",b,b+nmom_rem); fflush(stdout); }
+
+      mf_store.sumToAverage();
+
+      if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly moving results into container for block %d->%d\n",b,b+nmom_rem); fflush(stdout); }
+
+      for(int pidx=b;pidx<b+nmom_block_actual;pidx++){  
+	ThreeMomentum p_wdag = pion_mom.getWdagMom(pidx,0);
+	ThreeMomentum p_v = pion_mom.getVmom(pidx,0);
+	ThreeMomentum ptot = p_wdag + p_v;
+	mf_ll_1s_con.moveAdd(ptot, mf_store(pidx));
+      }
+    } //block loop
+
+    if(opt.thr_internal != -1) omp_set_num_threads(init_thr);
+
+    if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly complete\n"); fflush(stdout); }
+  }
+
+};
+
 
 
 
