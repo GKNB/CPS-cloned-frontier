@@ -221,6 +221,15 @@ public:
   
   bool contains(const ThreeMomentum &p1, const ThreeMomentum &p2) const{ return mf.count(MomentumPair(p1,p2)) != 0; }
 
+  inline void free_mem(){
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      if(it->second != NULL){
+	delete it->second;
+	it->second = NULL;
+      }
+    }
+  }
+
   ~MesonFieldMomentumPairContainer(){
     for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++) delete it->second;
   }

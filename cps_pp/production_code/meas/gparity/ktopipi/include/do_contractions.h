@@ -288,6 +288,11 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   mf_ls_ww_con_std.distribute();
   printMem("Memory prior to LL meson field compute");
 
+
+  //----------------------------Compute the sigma 2pt function--------------------------------------
+  std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
+  if(cmdline.do_sigma2pt) computeSigma2pt(sigma_bub, mf_sigma, sigma_mom, conf, params);
+
   //-------------------------Compute the LL meson fields ------------------------  
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;
 
@@ -310,6 +315,20 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
     std::ostringstream os; os << cmdline.save_all_a2a_inputs_dir << "/traj_" << conf << "_pion_mf_hyd1s_rad" << (int)params.jp.pion_rad;
     mf_ll_con.write(os.str(),true);
   }
+
+  //----------------------------Compute pipi->sigma----------------------------------------------------
+  if(cmdline.do_pipitosigma) computePiPiToSigma(sigma_bub, mf_sigma,sigma_mom, mf_ll_con, all_pimom, conf, params);
+
+  //Sigma meson fields no longer needed
+  mf_sigma.free_mem();
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  printMem("Memory prior to trim");
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+  if(!UniqueID()) printf("Trimming block allocator\n");
+  DistributedMemoryStorage::block_allocator().trim();
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+  printMem("Memory after trim");
+#endif
 
   //--------------------------Compute the K->pipi contractions---------------------------------------
   if(cmdline.do_ktopipi){  
@@ -347,13 +366,6 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   
   //----------------------------Compute the pion two-point function--------------------------------- */
   if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, all_pimom, conf, params, "_symm");
-
-  //----------------------------Compute the sigma 2pt function--------------------------------------
-  std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
-  if(cmdline.do_sigma2pt) computeSigma2pt(sigma_bub, mf_sigma, sigma_mom, conf, params);
-
-  //----------------------------Compute pipi->sigma----------------------------------------------------
-  if(cmdline.do_pipitosigma) computePiPiToSigma(sigma_bub, mf_sigma,sigma_mom, mf_ll_con, all_pimom, conf, params);
 
   //----------------------------Compute the pipi 2pt function ---------------------------------------
   if(cmdline.do_pipi) computePiPi2ptFromFile(mf_ll_con, "pipi_correlators.in", all_pimom, conf, params, "_symm");

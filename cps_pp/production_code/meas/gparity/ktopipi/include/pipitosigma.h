@@ -12,13 +12,14 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
   
   const int Lt = GJP.Tnodes() * GJP.TnodeSites();
 
+  if(!UniqueID()) printf("Computing Pipi->sigma\n");
+
   std::vector<fVector<typename A2Apolicies::ScalarComplexType> > pipi_bub(nmom_pi);
   for(int pidx=0;pidx<nmom_pi;pidx++){
     ComputePiPiGparity<A2Apolicies>::computeFigureVdis(pipi_bub[pidx], pion_mom.getMesonMomentum(pidx), params.jp.pipi_separation, mf_pion_con);
   }
   
   //All momentum combinations have total momentum 0 at source and sink
-  if(!UniqueID()) printf("Computing Pipi->sigma\n");
   double time = -dclock();
   for(int ppi1_idx=0;ppi1_idx<nmom_pi;ppi1_idx++){
     for(int psigma_idx=0;psigma_idx<nmom_sigma;psigma_idx++){

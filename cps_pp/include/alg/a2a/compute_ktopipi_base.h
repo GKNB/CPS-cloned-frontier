@@ -21,6 +21,11 @@ class KtoPiPiGparityResultsContainer: public basicComplexArray<ComplexType,Alloc
     return con_idx + ncontract*( gcombidx + 8*( t_dis + Lt*( tk + Lt*thread) ) );
   }
 public:
+  inline static size_t byte_size(const int ncontract, const int nthread){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    return ncontract * 8 * Lt * Lt * nthread * sizeof(ComplexType);
+  }
+
   void resize(const int _ncontract, const int _nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     ncontract = _ncontract;
@@ -83,6 +88,11 @@ class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<ComplexTyp
     return fidx + 2*( t_dis + Lt*( tk + Lt*thread) );
   }
 public:
+  inline static size_t byte_size(const int nthread){
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    return 2 * Lt * Lt * nthread * sizeof(ComplexType);
+  }
+
   void resize(const int _nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     int thread_size = 2 * Lt * Lt;

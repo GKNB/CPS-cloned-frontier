@@ -46,7 +46,6 @@ struct ComputeSigmaContractions{
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
     nodeGetMany(1,&mf);
-    cps::sync();
 #endif
     
     //Distribute load over all nodes
@@ -60,6 +59,12 @@ struct ComputeSigmaContractions{
       }
     }
     into.nodeSum();
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(1,&mf);
+#endif
+
+
   }
 
 

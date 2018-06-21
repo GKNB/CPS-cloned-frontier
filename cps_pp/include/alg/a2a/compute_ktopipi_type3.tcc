@@ -418,12 +418,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
 						  const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 						  const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 						  const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+  printMemNodeFile("type3_v2 1");
+  
   Type3timings::timer().reset();
   Type3timings::timer().total -= dclock();
   SCFmat mix3_Gamma[2];
   mix3_Gamma[0].unit().pr(F0).gr(-5);
   mix3_Gamma[1].unit().pr(F1).gr(-5).timesMinusOne();
-  
+						   
   const int Lt = GJP.Tnodes()*GJP.TnodeSites();
   const int tpi_sampled = Lt/tstep;
   const int ntsep_k_pi = tsep_k_pi.size();
@@ -440,18 +442,31 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
     int t_pi1 = modLt(t_pi1_lin,Lt);   int t_pi1_idx = t_pi1 / tstep;
     getUsedTimeslices(node_top_used[t_pi1_idx],tsep_k_pi,t_pi1);
   }
-  
+
+  size_t bytes_needed = tsep_k_pi.size() * 
+    (ResultsContainerType::byte_size(n_contract, nthread) + MixDiagResultsContainerType::byte_size(nthread));
+
+  if(!UniqueID()){ printf("Output containers require %f MB\n",byte_to_MB(bytes_needed));  fflush(stdout); }
+				
+  printMemNodeFile("type3_v2 1.1");
+		   
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++){
     result[tkp].resize(n_contract,nthread); //it will be thread-reduced before this method ends
     mix3[tkp].resize(nthread);
   }
- 
-
-   //Construct part 2 (independent of kaon position):
+  
+  printMemNodeFile("type3_v2 2");
+  
+  //Construct part 2 (independent of kaon position):
   //vL(x_op) wL^dag(x_op)   or  vH(x_op) wH^dag(x_op)
   //Loop over Q_i insertion location. Each node naturally has its own sublattice to work on. Thread over sites in usual way
+					  
+  bytes_needed = 2*GJP.TnodeSites()*size_3d*sizeof(SCFmat);
+  if(!UniqueID()){ printf("part2 precompute requires %f MB\n",byte_to_MB(bytes_needed)); fflush(stdout); }
   std::vector<SCFmatVector> part2_L(GJP.TnodeSites(), SCFmatVector(size_3d)); //[top_loc][x3d]
   std::vector<SCFmatVector> part2_H(GJP.TnodeSites(), SCFmatVector(size_3d)); //[top_loc][x3d]
+
+  printMemNodeFile("type3_v2 3");
 
   Type3timings::timer().part2_calc -= dclock();
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
@@ -468,9 +483,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
   }
   Type3timings::timer().part2_calc += dclock();
 
+  printMemNodeFile("type3_v2 4");
+
   std::vector<mf_WW > con_pi1_pi2_k(ntsep_k_pi); // [tkp]
   std::vector<mf_WW > con_pi2_pi1_k(ntsep_k_pi);  
  
+  printMemNodeFile("type3_v2 5");
+
   //for(int t_pi1 = 0; t_pi1 < Lt; t_pi1+=tstep){ //my sensible ordering
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
     int t_pi1 = modLt(t_pi1_lin,Lt);
@@ -549,6 +568,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
     }//top_loc
   }//tpi1_lin	
   
+  printMemNodeFile("type3_v2 6");
+
   Type3timings::timer().finish_up -= dclock();
   for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
     result[tkp].threadSum();
@@ -562,6 +583,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
     mix3[tkp] *= Float(0.5);
 #endif
   }
+
+  printMemNodeFile("type3_v2 7");
+
   Type3timings::timer().finish_up += dclock();
   Type3timings::timer().total += dclock();
   Type3timings::timer().report();  
