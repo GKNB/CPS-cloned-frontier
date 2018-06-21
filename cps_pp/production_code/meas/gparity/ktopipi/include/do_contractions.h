@@ -363,7 +363,7 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   V_s.free_mem();
   W_s.free_mem();
   mf_ls_ww_con_std.free_mem();
-  
+
   //----------------------------Compute the pion two-point function--------------------------------- */
   if(cmdline.do_pion2pt) computePion2pt(mf_ll_con, all_pimom, conf, params, "_symm");
 

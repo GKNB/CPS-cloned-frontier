@@ -612,7 +612,7 @@ public:
 	  mom_set.push_back(std::pair<ThreeMomentum,ThreeMomentum>(p_w,p_v));
 	}
 
-	mf_store.addComputeSet(0,0, mom_set);
+	mf_store.addComputeSet(0,0, mom_set, true); //perform average on the fly
       }
 
       ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
@@ -621,10 +621,6 @@ public:
 #endif
 										       );
       
-      if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly computing averages for block %d->%d\n",b,b+nmom_rem); fflush(stdout); }
-
-      mf_store.sumToAverage();
-
       if(!UniqueID()){ printf("computeGparityLLmesonFields1sSumOnTheFly moving results into container for block %d->%d\n",b,b+nmom_rem); fflush(stdout); }
 
       for(int pidx=b;pidx<b+nmom_block_actual;pidx++){  

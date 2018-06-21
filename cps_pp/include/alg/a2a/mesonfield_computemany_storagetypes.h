@@ -696,15 +696,29 @@ private:
   std::vector<bool> set_first;
   std::vector< std::vector<storageType> > mf_sum;
   std::vector<storageType*> mf_tmp;
+  std::vector<double> set_nrm;
 
-  std::map<int, std::vector<std::pair<storageType*, storageType*> > > sum_queue; //opt_cidx -> (sum_to, sum_from)
+  struct sumInfo{
+    storageType* to;
+    storageType* from;
+    sumInfo(storageType* t, storageType* f): to(t), from(f){}
+  };
+  struct normInfo{
+    storageType* to;
+    double nrm;
+    normInfo(storageType* to, double nrm): to(to), nrm(nrm){}
+  };
+
+  std::map<int, std::vector<normInfo> > norm_queue; //opt_cidx -> (nrm_to, nrm_val)
+  std::map<int, std::vector<sumInfo>  > sum_queue; //opt_cidx -> (sum_to, sum_from)
   std::map<int, std::vector<storageType*> > distribute_queue;
 public:  
   GparityFlavorProjectedShiftSourceSumStorage(InnerProductType& _inner, SourceType &_src, const int nshift_max = -1): inner(_inner),src(_src),locked(false), MesonFieldShiftSourceStorageBase(nshift_max){} //note 'inner' will have its momentum sign changed dynamically
 
   ~GparityFlavorProjectedShiftSourceSumStorage(){ for(int i=0;i<mf_tmp.size();i++) delete(mf_tmp[i]); }
 
-  void addComputeSet(const int qidx_w, const int qidx_v, std::vector< std::pair<ThreeMomentum, ThreeMomentum> > &mom_wv_pairs){    
+  //if !do_average, the sets are just summed
+  void addComputeSet(const int qidx_w, const int qidx_v, std::vector< std::pair<ThreeMomentum, ThreeMomentum> > &mom_wv_pairs, bool do_average = false){    
     int set_idx = set_cidx_map.size();
     std::vector<int> set_cidx;
     for(int i=0;i<mom_wv_pairs.size();i++){
@@ -715,6 +729,7 @@ public:
       set_cidx.push_back(cidx);
     }
     set_cidx_map.push_back(set_cidx);
+    set_nrm.push_back(do_average ? 1./mom_wv_pairs.size() : 1.);
   }
 
   mfComputeInputFormat getMf(const int opt_cidx){
@@ -747,7 +762,8 @@ public:
       if(set_first[set]){ //first time set acted upon, point to output
 	for(int src=0;src<nsrc;src++){
 	  out[src + nsrc*s] = &mf_sum[set][src];
-	  distribute_queue[opt_cidx].push_back(&mf_sum[set][src]);	  
+	  distribute_queue[opt_cidx].push_back(&mf_sum[set][src]);
+	  if(set_nrm[set] != 1.) norm_queue[opt_cidx].push_back(normInfo(&mf_sum[set][src], set_nrm[set]));
 	}
 	set_first[set] = false;
       }else{
@@ -759,7 +775,8 @@ public:
 
 	for(int src=0;src<nsrc;src++){
 	  out[src + nsrc*s] = mf_tmp[tmpidx];
-	  sum_queue[opt_cidx].push_back(std::pair<storageType*, storageType*>(&mf_sum[set][src], mf_tmp[tmpidx]));
+	  sum_queue[opt_cidx].push_back(sumInfo(&mf_sum[set][src], mf_tmp[tmpidx]));
+	  if(set_nrm[set] != 1.) norm_queue[opt_cidx].push_back(normInfo(mf_tmp[tmpidx], set_nrm[set]));
 	  ++tmpidx;
 	}
       }
@@ -769,10 +786,25 @@ public:
 
   inline void postContractAction(const int opt_cidx){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    std::vector<std::pair<storageType*, storageType*> > &tosum = sum_queue[opt_cidx];
+
+    //Normalize either main or tmp mf. As main mf is only normalized once, just after generation, it will not yet have been distributed, 
+    //hence we can skip the gather/dist
+    std::vector<normInfo> &tonrm = norm_queue[opt_cidx];
+    for(int i=0;i<tonrm.size();i++){
+      storageType &to = *tonrm[i].to;
+      double nrm = tonrm[i].nrm;
+
+      for(int t=0;t<Lt;t++){
+	to[t].times_equals(nrm);
+      }
+    }
+    tonrm.clear();
+    
+    //For temp mf sum into the main mf
+    std::vector<sumInfo> &tosum = sum_queue[opt_cidx];
     for(int i=0;i<tosum.size();i++){
-      storageType &to = *tosum[i].first;
-      storageType &from = *tosum[i].second;
+      storageType &to = *tosum[i].to;
+      storageType &from = *tosum[i].from;
 
       int gather_distribute = to[0].isOnNode() ? 1 : 0;
       MPI_Allreduce(MPI_IN_PLACE, &gather_distribute, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -799,30 +831,7 @@ public:
     std::vector<storageType*> &to_dist = distribute_queue[opt_cidx];
     for(int s=0;s<to_dist.size();s++) nodeDistributeMany(1, to_dist[s]);
     to_dist.clear();
-  }  
-
-  //The internal operation sums the meson fields; use this method to normalize the sum to an average for all meson fields computed
-  void sumToAverage(){
-    int Lt = GJP.Tnodes()*GJP.TnodeSites();
-    int nsrc = getNsrc<SourceType>();
-
-    for(int s=0;s<set_cidx_map.size();s++){
-      int nc = set_cidx_map[s].size();
-      for(int src=0;src<nsrc;src++){
-	int gather_distribute = mf_sum[s][src][0].isOnNode() ? 1 : 0;
-	MPI_Allreduce(MPI_IN_PLACE, &gather_distribute, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-	if(gather_distribute) nodeGetMany(1, &mf_sum[s][src]);
-
-	for(int t=0;t<Lt;t++){
-	  mf_sum[s][src][t].times_equals(1./nc);
-	}
-
-	if(gather_distribute) nodeDistributeMany(1, &mf_sum[s][src]);
-      }
-    }
-  }
-  
+  }    
 };
 
 

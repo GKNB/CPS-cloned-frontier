@@ -1450,11 +1450,9 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   ShiftInnerType shift_inner(sigma3, src);
 
   ShiftSumStorageType shift_store_sum(shift_inner,src);
-  shift_store_sum.addComputeSet(0,0, set_mom);
+  shift_store_sum.addComputeSet(0,0, set_mom, true);
   
   ComputeMesonFields<A2Apolicies,ShiftSumStorageType>::compute(shift_store_sum,Wspecies,Vspecies,lat);
-
-  shift_store_sum.sumToAverage();
 
   typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mfVector;
   const mfVector &avgd = shift_store_sum(0);
