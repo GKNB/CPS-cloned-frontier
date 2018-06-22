@@ -91,7 +91,7 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::writeParallel(std::o
   static const int chunk = 32768; //32kb chunks
   assert(chunk % dsize == 0);
   int fdinchunk = chunk/dsize;
-  char* wbuf = (char*)malloc(chunk * sizeof(char)); 
+  char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
   char const* dptr = (char const*)f;
 
@@ -262,7 +262,7 @@ void CPSfield<SiteType,SiteSize,MappingPolicy,AllocPolicy>::readParallel(std::is
   static const int chunk = 32768; //32kb chunks
   assert(chunk % dsize == 0);
   int fdinchunk = chunk/dsize;
-  char *rbuf = (char *)malloc(chunk * sizeof(char)); //leave room for auto null char
+  char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char
       
   char *dptr = (char *)f;
 
@@ -407,7 +407,7 @@ private:
     
     node_data.checksum = conv.checksumCRC32( (char*)field.ptr(), floats_per_site*fsites, dataformat);
 
-    nd* recv_buf = myrank == headrank ? (nd*)malloc(nodes * sizeof(nd)) : NULL;
+    nd* recv_buf = myrank == headrank ? (nd*)malloc_check(nodes * sizeof(nd)) : NULL;
     
     int ret = MPI_Gather(&node_data, sizeof(nd), MPI_BYTE,
 			 recv_buf, sizeof(nd), MPI_BYTE,
@@ -436,7 +436,7 @@ private:
     nodeCoor mycoor;
     mycoor.set();
 
-    nodeCoor* recv_buf = myrank == headrank ? (nodeCoor*)malloc(nodes * sizeof(nodeCoor)) : NULL;
+    nodeCoor* recv_buf = myrank == headrank ? (nodeCoor*)malloc_check(nodes * sizeof(nodeCoor)) : NULL;
         
     int ret = MPI_Gather(&mycoor, sizeof(nodeCoor), MPI_BYTE,
 			 recv_buf, sizeof(nodeCoor), MPI_BYTE,
@@ -465,7 +465,7 @@ private:
     static const size_t chunk = 32768; //32kb chunks
     assert(chunk % float_bytes == 0);
     size_t fdinchunk = chunk/float_bytes;
-    char* wbuf = (char*)malloc(chunk * sizeof(char)); 
+    char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
     char const* dptr = (char const*)field.ptr();
     size_t fsites = field.nfsites();
@@ -722,10 +722,10 @@ private:
     static const int chunk = 32768; //32kb chunks
     assert(chunk % float_bytes == 0);
     size_t fdinchunk = chunk/float_bytes;
-    char *rbuf = (char *)malloc(chunk * sizeof(char)); //leave room for auto null char
+    char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char
 
     size_t fsize = size_t(fsites_in) * size_t(floats_per_site) * size_t(float_bytes);
-    char *dptr = (char *)malloc(fsize * sizeof(char));
+    char *dptr = (char *)malloc_check(fsize * sizeof(char));
     
     size_t off = 0;
     size_t nfd = size_t(floats_per_site) * fsites_in;

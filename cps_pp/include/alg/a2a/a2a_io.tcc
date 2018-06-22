@@ -32,7 +32,7 @@ void A2AvectorV<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   file << "END_HEADER\n";
 
   file << "BEGIN_PARAMS\n";
-  char* a2aparams_buf = (char*)malloc(10000 * sizeof(char));
+  char* a2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
   {
     VML vml;
     vml.Create(a2aparams_buf,10000,VML_ENCODE);
@@ -75,7 +75,7 @@ void A2AvectorV<mf_Policies>::readParallel(const std::string &file_stub){
   getline(file,str); assert( sscanf(str.c_str(),"STRLEN_A2AARGS = %d",&a2aparams_buflen) == 1 );
   ++a2aparams_buflen; //leave room for null char
 
-  char* a2aparams_buf = (char*)malloc(a2aparams_buflen * sizeof(char));
+  char* a2aparams_buf = (char*)malloc_check(a2aparams_buflen * sizeof(char));
   file.get(a2aparams_buf,a2aparams_buflen,EOF);
   
   A2AArg read_a2a_args;
@@ -122,7 +122,7 @@ void A2AvectorW<mf_Policies>::writeParallel(const std::string &file_stub, FP_FOR
   file << "END_HEADER\n";
 
   file << "BEGIN_PARAMS\n";
-  char* a2aparams_buf = (char*)malloc(10000 * sizeof(char));
+  char* a2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
   {
     VML vml;
     vml.Create(a2aparams_buf,10000,VML_ENCODE);
@@ -175,7 +175,7 @@ void A2AvectorW<mf_Policies>::readParallel(const std::string &file_stub){
   getline(file,str); assert( sscanf(str.c_str(),"STRLEN_A2AARGS = %d",&a2aparams_buflen) == 1 );
   ++a2aparams_buflen; //leave room for null char
 
-  char* a2aparams_buf = (char*)malloc(a2aparams_buflen * sizeof(char));
+  char* a2aparams_buf = (char*)malloc_check(a2aparams_buflen * sizeof(char));
   file.get(a2aparams_buf,a2aparams_buflen,EOF);
   
   A2AArg read_a2a_args;

@@ -124,7 +124,7 @@ public:
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
-    char* wbuf = (char*)malloc(chunk * sizeof(char));     
+    char* wbuf = (char*)malloc_check(chunk * sizeof(char));     
     char const* dptr = (char const*)v;
     
     int off = 0;
@@ -145,7 +145,7 @@ public:
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
-    char *rbuf = (char *)malloc(chunk * sizeof(char)); //leave room for auto null char      
+    char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char      
     char *dptr = (char *)v;
 
     int off = 0;

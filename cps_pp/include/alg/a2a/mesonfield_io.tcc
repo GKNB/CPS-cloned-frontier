@@ -56,8 +56,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     file << "END_HEADER\n";
     
     //Parameters    
-    char* la2aparams_buf = (char*)malloc(10000 * sizeof(char));
-    char* ra2aparams_buf = (char*)malloc(10000 * sizeof(char));
+    char* la2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
+    char* ra2aparams_buf = (char*)malloc_check(10000 * sizeof(char));
     {
       VML vml;
       vml.Create(la2aparams_buf,10000,VML_ENCODE);
@@ -94,7 +94,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::write(std::ostream *file_pt
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
-    char* wbuf = (char*)malloc(chunk * sizeof(char)); 
+    char* wbuf = (char*)malloc_check(chunk * sizeof(char)); 
       
     char const* dptr = (char const*)this->data();
 
@@ -186,8 +186,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     ++a2aparams_r_buflen;
     
     //Read the VMLs for the left and right A2A params and squirt out for each node to decode
-    a2aparams_l_buf = (char*)malloc(a2aparams_l_buflen * sizeof(char));
-    a2aparams_r_buf = (char*)malloc(a2aparams_r_buflen * sizeof(char));
+    a2aparams_l_buf = (char*)malloc_check(a2aparams_l_buflen * sizeof(char));
+    a2aparams_r_buf = (char*)malloc_check(a2aparams_r_buflen * sizeof(char));
     file.get(a2aparams_l_buf,a2aparams_l_buflen,EOF);
     file.get(a2aparams_r_buf,a2aparams_r_buflen,EOF);
 
@@ -217,8 +217,8 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
 
   if(UniqueID() != 0){
     //Other nodes create bufs for a2a params
-    a2aparams_l_buf = (char*)malloc(a2aparams_l_buflen * sizeof(char));
-    a2aparams_r_buf = (char*)malloc(a2aparams_r_buflen * sizeof(char));    
+    a2aparams_l_buf = (char*)malloc_check(a2aparams_l_buflen * sizeof(char));
+    a2aparams_r_buf = (char*)malloc_check(a2aparams_r_buflen * sizeof(char));    
   }
 
   ret = MPI_Bcast(a2aparams_l_buf, a2aparams_l_buflen, MPI_CHAR, head_mpi_rank, MPI_COMM_WORLD);
@@ -270,7 +270,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::read(std::istream *file_ptr
     static const int chunk = 32768; //32kb chunks
     assert(chunk % dsize == 0);
     int fdinchunk = chunk/dsize;
-    char *rbuf = (char *)malloc(chunk * sizeof(char)); //leave room for auto null char
+    char *rbuf = (char *)malloc_check(chunk * sizeof(char)); //leave room for auto null char
       
     char *dptr = (char *)this->data();
 

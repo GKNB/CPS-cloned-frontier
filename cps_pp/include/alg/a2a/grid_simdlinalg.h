@@ -154,7 +154,7 @@ namespace Grid_A2A{
 
     inline void alloc(uint r, uint c){
       _rows = r; _cols = c; size = r*c;
-      m = (T*)malloc(size * sizeof(T));
+      m = (T*)malloc_check(size * sizeof(T));
     }
     inline void freeme(){
       if(m!=NULL) free(m);

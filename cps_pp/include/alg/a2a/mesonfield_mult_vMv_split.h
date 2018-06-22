@@ -172,7 +172,7 @@ protected:
     Mcols = M.getNcols();
 
     if(rowidx_used != NULL) free(rowidx_used);
-    rowidx_used = (bool*)malloc(Mrows*sizeof(bool)); //Is a particular row of M actually used?
+    rowidx_used = (bool*)malloc_check(Mrows*sizeof(bool)); //Is a particular row of M actually used?
     for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
 
     //Store maps
@@ -554,16 +554,16 @@ public:
       int nh_col = nj_this - nl_col;
 
       if(scf == 0){
-	mf_reord_lo_lo = (ScalarComplexType*)malloc(nl_row*nl_col*sizeof(ScalarComplexType));
+	mf_reord_lo_lo = (ScalarComplexType*)malloc_check(nl_row*nl_col*sizeof(ScalarComplexType));
 	getSubmatrix<ScalarComplexType >(mf_reord_lo_lo, (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, 0, 0, nl_row, nl_col);
       }
-      mf_reord_lo_hi[scf] = (ScalarComplexType*)malloc(nl_row*nh_col*sizeof(ScalarComplexType));
+      mf_reord_lo_hi[scf] = (ScalarComplexType*)malloc_check(nl_row*nh_col*sizeof(ScalarComplexType));
       getSubmatrix<ScalarComplexType >(mf_reord_lo_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, 0, nl_col, nl_row, nh_col);
 
-      mf_reord_hi_lo[scf] = (ScalarComplexType*)malloc(nh_row*nl_col*sizeof(ScalarComplexType));
+      mf_reord_hi_lo[scf] = (ScalarComplexType*)malloc_check(nh_row*nl_col*sizeof(ScalarComplexType));
       getSubmatrix<ScalarComplexType >(mf_reord_hi_lo[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, nl_row, 0, nh_row, nl_col);
 
-      mf_reord_hi_hi[scf] = (ScalarComplexType*)malloc(nh_row*nh_col*sizeof(ScalarComplexType));
+      mf_reord_hi_hi[scf] = (ScalarComplexType*)malloc_check(nh_row*nh_col*sizeof(ScalarComplexType));
       getSubmatrix<ScalarComplexType >(mf_reord_hi_hi[scf], (const ScalarComplexType*)mf_scf_reord->data, this->nrows_used, nj_this, nl_row, nl_col, nh_row, nh_col);
 
       gw::matrix_complex_free(mf_scf_reord);

@@ -509,7 +509,7 @@ void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &
 
   typedef typename mf_Complex::scalar_type scalar_type;
   const int nthr = omp_get_max_threads();
-  scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign(128,nsimd*sizeof(scalar_type));
+  scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign_check(128,nsimd*sizeof(scalar_type));
   
 #pragma omp parallel for
   for(int ofto=0;ofto<to.nfsites();ofto++){ //loop over outer site index
@@ -755,7 +755,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   int send_buf_sizes[munodes];
   for(int i=0;i<munodes;i++){
     send_buf_sizes[i] = munodes_work[i] * munodesites * nf * SiteSize;
-    send_bufs[i] = (ComplexType*)malloc( send_buf_sizes[i] * sizeof(ComplexType) );
+    send_bufs[i] = (ComplexType*)malloc_check( send_buf_sizes[i] * sizeof(ComplexType) );
 
     for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
       const int orthsite = munodes_off[i] + w;
@@ -785,7 +785,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Prepare recv buf
   const int bufsz = munodes_work[munodecoor] * mutotalsites * nf * SiteSize; //complete line in mu for each orthogonal coordinate
-  ComplexType* recv_buf = (ComplexType*)malloc(bufsz * sizeof(ComplexType) );
+  ComplexType* recv_buf = (ComplexType*)malloc_check(bufsz * sizeof(ComplexType) );
 
   //Setup send/receive    
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self.

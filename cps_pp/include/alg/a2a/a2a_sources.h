@@ -387,10 +387,10 @@ protected:
   }
 public:
 
-  A2AflavorProjectedSource(): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), SourceType(){}
+  A2AflavorProjectedSource(): val000( (ComplexType*)memalign_check(128,sizeof(ComplexType)) ), SourceType(){}
   ~A2AflavorProjectedSource(){ free(val000); }
   
-  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000( (ComplexType*)memalign_check(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
     *val000 = *r.val000;
   }
   

@@ -16,6 +16,54 @@
 
 CPS_START_NAMESPACE
 
+#ifdef USE_MPI
+
+struct _MPI_UniqueID_map{
+  std::map<int,int> mpi_rank_to_uid;
+  std::map<int,int> uid_to_mpi_rank;
+  
+  void setup(){
+    int nodes = 1;
+    for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+
+    int* mpi_ranks = (int*)malloc_check(nodes *  sizeof(int));
+    memset(mpi_ranks, 0, nodes *  sizeof(int));
+    assert( MPI_Comm_rank(MPI_COMM_WORLD, mpi_ranks + UniqueID() ) == MPI_SUCCESS );
+
+    int* mpi_ranks_all = (int*)malloc_check(nodes *  sizeof(int));
+    assert( MPI_Allreduce(mpi_ranks, mpi_ranks_all, nodes, MPI_INT, MPI_SUM, MPI_COMM_WORLD) == MPI_SUCCESS );
+
+    for(int i=0;i<nodes;i++){
+      int uid = i;
+      int rank = mpi_ranks_all[i];
+      
+      mpi_rank_to_uid[rank] = uid;
+      uid_to_mpi_rank[uid] = rank;
+    }
+    
+    free(mpi_ranks);
+    free(mpi_ranks_all);
+  }
+};
+
+class MPI_UniqueID_map{
+  static _MPI_UniqueID_map *getMap(){
+    static _MPI_UniqueID_map* mp = NULL;
+    if(mp == NULL){
+      mp = new _MPI_UniqueID_map;
+      mp->setup();
+    }
+    return mp;
+  }
+public:
+  
+  static int MPIrankToUid(const int rank){ return getMap()->mpi_rank_to_uid[rank]; }
+  static int UidToMPIrank(const int uid){ return getMap()->uid_to_mpi_rank[uid]; }
+};
+
+#endif
+
+
 //Divide work over nodes 
 inline void getNodeWork(const int work, int &node_work, int &node_off, bool &do_work, const bool node_local = false){
   if(node_local){ node_work = work; node_off = 0; do_work = true; return; } //node does all the work
@@ -151,7 +199,7 @@ inline void getMPIrankMap(std::vector<int> &map){
   const int my_node_lex = node_lex( my_node_coor, 5 );
   const int my_mpi_rank = getMyMPIrank();
 
-  int *node_map_send = (int*)malloc(nodes*sizeof(int));
+  int *node_map_send = (int*)malloc_check(nodes*sizeof(int));
   memset(node_map_send,0,nodes*sizeof(int));
   node_map_send[my_node_lex] = my_mpi_rank;
 

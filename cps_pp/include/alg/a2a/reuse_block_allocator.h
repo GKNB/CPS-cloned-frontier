@@ -4,13 +4,19 @@
 #include<list>
 #include<map>
 #include<set>
+#include<sys/mman.h>
+#include<cassert>
+
+#include<util/fpconv.h>
+#include<alg/a2a/utils_malloc.h>
+#include<alg/a2a/utils_parallel.h>
 
 CPS_START_NAMESPACE
 
 //A class that maintains and distributes blocks of memory facilitating reuse
 
 struct ReuseBlockAllocatorMalloc{
-  inline void* allocMem(const size_t sz){ return malloc(sz); }
+  inline void* allocMem(const size_t sz){ return malloc_check(sz); }
   inline void freeMem(void* p){ ::free(p); }
 };
 
@@ -22,8 +28,7 @@ public:
   inline size_t & alignment(){ return _alignment; }
   
   inline void* allocMem(const size_t sz){ 
-    void *p;
-    assert( posix_memalign(&p, _alignment, sz) == 0);
+    void *p = memalign_check(_alignment, sz);
     return p;
   }
   inline void freeMem(void* p){ ::free(p); }

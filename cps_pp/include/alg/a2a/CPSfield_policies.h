@@ -40,14 +40,7 @@ class StandardAllocPolicy{
 class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
-    *p = memalign(128,byte_size);
-    if(*p == NULL){ 
-      printf("Aligned128AllocPolicy::_alloc mem alloc failed on node %d. Stack trace:\n", UniqueID());
-      printBacktrace(std::cout);
-      printMem("Memory status on fail", UniqueID());
-      std::cout.flush(); fflush(stdout);
-      ERR.General("Aligned128AllocPolicy","_alloc","Mem alloc failed\n");
-    }
+    *p = memalign_check(128,byte_size);
   }
   inline static void _free(void* p){
     free(p);
@@ -114,7 +107,7 @@ class ManualAligned128AllocPolicy{
  public:
   inline void allocField(){
     if(*ptr == NULL)
-      *ptr = memalign(128,bs);
+      *ptr = memalign_check(128,bs);    
   }
   inline void freeField(){
     if(*ptr != NULL){
@@ -671,7 +664,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
+    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign_check(128,nsimd*sizeof(typename Vtype::scalar_type));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)

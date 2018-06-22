@@ -34,7 +34,7 @@ public:
   EvecInterfaceBFM(BFM_Krylov::Lanczos_5d<double> &_eig, bfm_evo<double> &_dwf, Lattice &lat, const bool _singleprec_evecs): eig(_eig), dwf(_dwf), singleprec_evecs(_singleprec_evecs){
     
     len = 24 * eig.dop.node_cbvol * (1 + dwf.gparity) * eig.dop.cbLs;
-    cps_tmp_d = (double*)malloc(len * sizeof(double));
+    cps_tmp_d = (double*)malloc_check(len * sizeof(double));
     bq_tmp_bfm = dwf.allocCompactFermion(); 
 
     assert(lat.Fclass() == GridPolicies::FGRID_CLASS_NAME);
