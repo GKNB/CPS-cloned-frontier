@@ -376,22 +376,20 @@ public:
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-  ComplexType *val000;
+  ComplexType val000;
   virtual void dummy() = 0; //make sure this class can't be instantiated directly
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
-    SIMDsplat(*val000,v);    
+    SIMDsplat(val000,v);    
   }
 public:
 
-  A2AflavorProjectedSource(): val000( (ComplexType*)memalign_check(128,sizeof(ComplexType)) ), SourceType(){}
-  ~A2AflavorProjectedSource(){ free(val000); }
+  A2AflavorProjectedSource(): SourceType(){}
   
-  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000( (ComplexType*)memalign_check(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
-    *val000 = *r.val000;
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000(r.val000), sign(r.sign), SourceType(r){
   }
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
@@ -426,7 +424,7 @@ public:
     
     out(0,0) = out(1,1) = val;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    out(1,0) = multiplySignTimesI(sign,val - *val000);
+    out(1,0) = multiplySignTimesI(sign,val - val000);
     out(0,1) = -out(1,0); //-1 from sigma2
   }
 
