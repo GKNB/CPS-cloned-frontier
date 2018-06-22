@@ -127,7 +127,7 @@ public:
   }
 
   KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> & operator*=(const Float &f){
-    for(int t=0;t<nThreads();t++)
+    for(int t=0;t<this->nThreads();t++)
       for(int i=0;i<this->nElementsPerThread();i++) this->baseClass::operator()(i,t) = this->baseClass::operator()(i,t) * f;
     return *this;
   }
