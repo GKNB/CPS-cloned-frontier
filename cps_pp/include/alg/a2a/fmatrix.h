@@ -280,6 +280,70 @@ public:
 };
 
 
+
+//Same as the above but each thread has its own independent memory allocation. This relieves the requirement for large contiguous memory allocations
+template<typename mf_Complex, typename AllocPolicy = StandardAllocPolicy>
+class basicComplexArraySplitAlloc: public AllocPolicy{
+protected:
+  int thread_size; //size of each thread unit
+  std::vector<mf_Complex*> con;
+public:
+  basicComplexArraySplitAlloc(): con(0){}
+  basicComplexArraySplitAlloc(const int _thread_size, const int _nthread = 1): con(0){
+    resize(_thread_size,_nthread);
+  }
+  void free_mem(){
+    for(int t=0;t<con.size();t++)
+      if(con[t] != NULL){ AllocPolicy::_free(con[t]); con[t] = NULL; }
+  }
+  void resize(const int &_thread_size, const int &_nthread = 1){
+    free_mem();
+    thread_size = _thread_size;
+    con.resize(_nthread);
+    for(int t=0;t<con.size();t++){
+      this->_alloc((void**)&con[t], _thread_size*sizeof(mf_Complex));
+      memset((void*)con[t], 0, _thread_size * sizeof(mf_Complex));
+    }
+  }
+  ~basicComplexArraySplitAlloc(){
+    free_mem();
+  }
+  inline const mf_Complex & operator[](const int i) const{ return con[0][i]; }
+  inline mf_Complex & operator[](const int i){ return con[0][i]; }
+
+  inline mf_Complex & operator()(const int i, const int thread){ return con[thread][i]; }
+
+  int nElementsTotal() const{
+    return thread_size*con.size();
+  }
+  int nElementsPerThread() const{
+    return thread_size;
+  }
+  int nThreads() const{
+    return con.size();
+  }
+    
+  //Sum (reduce) over all threads
+  void threadSum(){
+    if(con.size() == 0 || con.size() == 1) return;
+
+#pragma omp parallel for
+    for(int i=0;i<thread_size;i++){
+      for(int t=1;t<con.size();t++)
+	con[0][i] += con[t][i];
+    }
+    
+    for(int t=1;t<con.size();t++) AllocPolicy::_free(con[t]);
+    con.resize(1);
+  }
+  void nodeSum(){
+    for(int t=0;t<con.size();t++)
+      globalSumComplex(this->con[t],thread_size);
+  }
+};
+
+
+
 CPS_END_NAMESPACE
 
 #endif

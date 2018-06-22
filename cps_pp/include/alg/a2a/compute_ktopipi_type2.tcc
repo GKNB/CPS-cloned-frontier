@@ -454,8 +454,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_v2(ResultsContainerType result[],
   for(int tkp=0;tkp<tsep_k_pi.size();tkp++)
     result[tkp].resize(n_contract,nthread); //Resize zeroes output. Result will be thread-reduced before this method ends 
 
-  //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately.
-  SCFmat part1_storage[t_K_all.size()][GJP.TnodeSites()][size_3d];  //[tkidx][top_loc][xop3d_loc]
+  //Part 1 does not care about the location of the pion, only that of the kaon. It may be used multiple times if we have multiple K->pi seps, so compute it separately
+  SCFmatVector part1_storage[t_K_all.size()][GJP.TnodeSites()];  //[tkidx][top_loc][xop3d_loc]
+  for(int tkidx=0;tkidx<t_K_all.size();tkidx++)
+    for(int t=0;t<GJP.TnodeSites();t++)
+      part1_storage[tkidx][t].resize(size_3d);
 
   for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
     const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();

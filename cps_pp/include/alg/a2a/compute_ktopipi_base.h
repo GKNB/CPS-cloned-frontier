@@ -11,14 +11,27 @@ CPS_START_NAMESPACE
 //Lt * Lt * 8 * ncontract tensor  (option for multiple independent threads)
 //Here 8 is the number of combinations of spin-color-flavor matrix pairs (see below for indexing)
 
+//#define KTOPIPI_RESULTSCONTAINER_BIG_ALLOC
+
 template<typename ComplexType, typename AllocPolicy>
-class KtoPiPiGparityResultsContainer: public basicComplexArray<ComplexType,AllocPolicy>{
+struct _resultsContainerBase{
+#ifdef KTOPIPI_RESULTSCONTAINER_BIG_ALLOC
+  typedef basicComplexArray<ComplexType,AllocPolicy> type;
+#else
+  typedef basicComplexArraySplitAlloc<ComplexType,AllocPolicy> type;
+#endif
+};
+
+template<typename ComplexType, typename AllocPolicy>
+class KtoPiPiGparityResultsContainer: public _resultsContainerBase<ComplexType,AllocPolicy>::type{
+  typedef typename _resultsContainerBase<ComplexType,AllocPolicy>::type baseClass;
+
   int Lt;
   int ncontract;
   
   //gcombidx \in {0..7}, cf. below
-  inline int map(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread) const{
-    return con_idx + ncontract*( gcombidx + 8*( t_dis + Lt*( tk + Lt*thread) ) );
+  inline int map(const int tk, const int t_dis, const int con_idx, const int gcombidx) const{
+    return con_idx + ncontract*( gcombidx + 8*( t_dis + Lt*tk ) );
   }
 public:
   inline static size_t byte_size(const int ncontract, const int nthread){
@@ -31,24 +44,25 @@ public:
     ncontract = _ncontract;
 
     int thread_size = ncontract * 8 * Lt * Lt;
-    this->basicComplexArray<ComplexType,AllocPolicy>::resize(thread_size, _nthread);
+    this->baseClass::resize(thread_size, _nthread);
   }
   int getNcontract() const{ return ncontract; }
 
-  KtoPiPiGparityResultsContainer(): basicComplexArray<ComplexType,AllocPolicy>(){}
-  KtoPiPiGparityResultsContainer(const int _ncontract, const int _nthread): basicComplexArray<ComplexType,AllocPolicy>(){
+  KtoPiPiGparityResultsContainer(): baseClass(){}
+  KtoPiPiGparityResultsContainer(const int _ncontract, const int _nthread): baseClass(){
     resize(_ncontract,_nthread);
   }
 
   inline ComplexType & operator()(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread = 0){
-    return this->con[map(tk,t_dis,con_idx,gcombidx,thread)];
+    return this->baseClass::operator()(map(tk,t_dis,con_idx,gcombidx),thread);
   }
   inline const ComplexType & operator()(const int tk, const int t_dis, const int con_idx, const int gcombidx, const int thread = 0) const{
-    return this->con[map(tk,t_dis,con_idx,gcombidx,thread)];
+    return this->baseClass::operator()(map(tk,t_dis,con_idx,gcombidx),thread);
   }
 
   KtoPiPiGparityResultsContainer & operator*=(const Float f){
-    for(int i=0;i<this->size;i++) this->con[i] = this->con[i] * f;
+    for(int t=0;t<this->nThreads();t++)
+      for(int i=0;i<this->nElementsPerThread();i++) this->baseClass::operator()(i,t) = this->baseClass::operator()(i,t) * f;
     return *this;
   }
   // //Daiqian's loops are in the following order (outer->inner): tk, tdis, mu, con_idx, gcombidx
@@ -80,12 +94,13 @@ public:
 //Lt * Lt * 2 tensor  (option for multiple independent threads)
 //Here 2 is the number of differen spin-color-flavor matrix insertions (F_0 g5  and  -F_1 g5)
 template<typename ComplexType, typename AllocPolicy>
-class KtoPiPiGparityMixDiagResultsContainer: public basicComplexArray<ComplexType,AllocPolicy>{
+class KtoPiPiGparityMixDiagResultsContainer: public _resultsContainerBase<ComplexType,AllocPolicy>::type{
+  typedef typename _resultsContainerBase<ComplexType,AllocPolicy>::type baseClass;
   int Lt;
   
   //fidx \in {0..1}, as above
-  inline int map(const int tk, const int t_dis, const int fidx, const int thread) const{
-    return fidx + 2*( t_dis + Lt*( tk + Lt*thread) );
+  inline int map(const int tk, const int t_dis, const int fidx) const{
+    return fidx + 2*( t_dis + Lt*tk );
   }
 public:
   inline static size_t byte_size(const int nthread){
@@ -96,23 +111,24 @@ public:
   void resize(const int _nthread){
     Lt = GJP.Tnodes()*GJP.TnodeSites();
     int thread_size = 2 * Lt * Lt;
-    this->basicComplexArray<ComplexType,AllocPolicy>::resize(thread_size, _nthread);
+    this->baseClass::resize(thread_size, _nthread);
   }
 
-  KtoPiPiGparityMixDiagResultsContainer(): basicComplexArray<ComplexType,AllocPolicy>(){}
-  KtoPiPiGparityMixDiagResultsContainer(const int _nthread): basicComplexArray<ComplexType,AllocPolicy>(){
+  KtoPiPiGparityMixDiagResultsContainer(): baseClass(){}
+  KtoPiPiGparityMixDiagResultsContainer(const int _nthread): baseClass(){
     resize(_nthread);
   }
 
   inline ComplexType & operator()(const int tk, const int t_dis, const int fidx, const int thread = 0){
-    return this->con[map(tk,t_dis,fidx,thread)];
+    return this->baseClass::operator()(map(tk,t_dis,fidx),thread);
   }
   inline const ComplexType & operator()(const int tk, const int t_dis, const int fidx, const int thread = 0) const{
-    return this->con[map(tk,t_dis,fidx,thread)];
+    return this->baseClass::operator()(map(tk,t_dis,fidx),thread);
   }
 
   KtoPiPiGparityMixDiagResultsContainer<ComplexType,AllocPolicy> & operator*=(const Float &f){
-    for(int i=0;i<this->size;i++) this->con[i] = this->con[i] * f;
+    for(int t=0;t<nThreads();t++)
+      for(int i=0;i<this->nElementsPerThread();i++) this->baseClass::operator()(i,t) = this->baseClass::operator()(i,t) * f;
     return *this;
   }
 
