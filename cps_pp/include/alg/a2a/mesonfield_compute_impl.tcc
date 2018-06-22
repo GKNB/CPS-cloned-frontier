@@ -474,20 +474,16 @@ struct mfComputeGeneral: public mfVectorPolicies{
     std::pair<int,int> site_offsets_j[nmodes_r];
  
     //Allocate space for thread accumulation
-    struct Aligned128AllocPolicyA : public Aligned128AllocPolicy{
-      inline static void* alloc(const size_t byte_size){ void* p; Aligned128AllocPolicy::_alloc(&p,byte_size); return p; }
-      inline static void free(void *p){ Aligned128AllocPolicy::_free(p); }
-    };
-
     const size_t accum_thr_size = nmodes_l*nmodes_r*this->mf_Accum_bytes();
     const size_t accum_buf_size = nthread*accum_thr_size;
 
 #define ACCUM_BUF_STACK_ALLOC   //this may not be allowed on some systems as it is a big alloc, but it works for BG/Q
 
 #ifdef ACCUM_BUF_STACK_ALLOC
-    char accum_buf[accum_buf_size];
+    char accum_buf_b[accum_buf_size+127]; //need aligned memory!
+    char* accum_buf = (char*)aligned_ptr((void*)accum_buf_b, 128); //is now aligned
 #else
-    char* accum_buf = (char*)Aligned128AllocPolicyA::alloc(accum_buf_size);
+    char* accum_buf = (char*)memalign_check(128,accum_buf_size);
 #endif
 
     //Create accessor wrappers to the matrix for use under accumulation
@@ -573,7 +569,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 #ifndef ACCUM_BUF_STACK_ALLOC
-    Aligned128AllocPolicyA::free(accum_buf);
+    free(accum_buf);
 #endif
 
     print_time("A2AmesonField","local compute",time + dclock());
