@@ -477,27 +477,42 @@ struct mfComputeGeneral: public mfVectorPolicies{
     const size_t accum_thr_size = nmodes_l*nmodes_r*this->mf_Accum_bytes();
     const size_t accum_buf_size = nthread*accum_thr_size;
 
-#define ACCUM_BUF_STACK_ALLOC   //this may not be allowed on some systems as it is a big alloc, but it works for BG/Q
+    //#define ACCUM_BUF_HEAP_ALLOC
+    //#define ACCUM_BUF_STACK_ALLOC   //this may not be allowed on some systems as it is a big alloc, but it works for BG/Q
+#define ACCUM_BUF_HEAP_MANY //multiple smaller allocations rather than one big one
 
 #ifdef ACCUM_BUF_STACK_ALLOC
     char accum_buf_b[accum_buf_size+127]; //need aligned memory!
     char* accum_buf = (char*)aligned_ptr((void*)accum_buf_b, 128); //is now aligned
-#else
+#elif defined ACCUM_BUF_HEAP_ALLOC   
     char* accum_buf = (char*)memalign_check(128,accum_buf_size);
+#elif defined ACCUM_BUF_HEAP_MANY
+    char* accum_buf_thr[nthread];
+    for(int t=0;t<nthread;t++) accum_buf_thr[t] = (char*)memalign_check(128,accum_thr_size);
+#else
+    assert(0);
 #endif
 
     //Create accessor wrappers to the matrix for use under accumulation
     typename mfVectorPolicies::AccumMatrixType mf_accum_thr[nthread];
+#ifdef ACCUM_BUF_HEAP_MANY
+    for(int t=0;t<nthread;t++) this->initializeAccumMatrix(mf_accum_thr[t], accum_buf_thr[t],  
+							   nmodes_l, nmodes_r);
+#else
     for(int t=0;t<nthread;t++) this->initializeAccumMatrix(mf_accum_thr[t], 
 							   accum_buf + t*accum_thr_size, 
 							   nmodes_l, nmodes_r);
+#endif
 
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
       double ttime = -dclock();
       const int t_lcl = t-GJP.TnodeCoor()*GJP.TnodeSites();
-
+#ifdef ACCUM_BUF_HEAP_MANY
+      for(int t=0;t<nthread;t++) memset(accum_buf_thr[t],0,accum_thr_size);
+#else
       memset(accum_buf, 0, accum_buf_size);
+#endif
 	
 #ifndef MEMTEST_MODE
       __SSC_MARK(0x1);
@@ -568,7 +583,11 @@ struct mfComputeGeneral: public mfVectorPolicies{
       std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
-#ifndef ACCUM_BUF_STACK_ALLOC
+
+#ifdef ACCUM_BUF_HEAP_MANY
+    for(int t=0;t<nthread;t++) 
+      free(accum_buf_thr[t]);
+#elif defined(ACCUM_BUF_HEAP_ALLOC)
     free(accum_buf);
 #endif
 
