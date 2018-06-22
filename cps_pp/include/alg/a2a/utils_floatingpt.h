@@ -4,6 +4,7 @@
 #include <cassert>
 #include <util/gjp.h>
 #include <util/fpconv.h>
+#include <alg/a2a/utils_malloc.h>
 //Utilities for floating point numbers
 
 CPS_START_NAMESPACE
