@@ -207,7 +207,10 @@ public:
 
     //Do the gather. All nodes need memory space, albeit temporarily
     if(do_gather_any){
+      bool did_alloc = false;
+
       if(UniqueID() != _master_uid && ptr == NULL){
+	did_alloc = true;
 	time = dclock();
 	alloc(_alignment, _size);      
 	perf().alloc_calls++;
@@ -218,16 +221,17 @@ public:
       perf().gather_calls++;
       perf().gather_time += dclock() - time;
       perf().bytes += _size;
-    }
-    
-    //Non-master copies safe to throw away data if not required. If data was already present we don't throw away because it may have been pulled by a different call to gather
-    if(!require && UniqueID() != _master_uid && ptr != NULL && do_gather_node){
-      time = dclock();
-      freeMem();
-      perf().free_calls++;
-      perf().free_time += dclock() - time;
-    }
 
+      //Non-master copies safe to throw away data if not required. 
+      //If data was already present we don't throw away because it may have been pulled by a different call to gather. 
+      //did_alloc is only true if this is not the master node and the mf was not allocated at the start of the call
+      if(did_alloc && !require){
+	time = dclock();
+	freeMem();
+	perf().free_calls++;
+	perf().free_time += dclock() - time;
+      }      
+    }
 #endif
   }
   
