@@ -51,6 +51,12 @@ struct Parameters{
     }
 
     common_arg.set_filename(meas_arg.WorkDirectory);
+
+#ifdef DO_EXTENDED_CALC_V1
+    //Check for existence and readability of input file for pipi    
+    std::vector<CorrelatorMomenta> correlators;
+    parsePiPiMomFile(correlators, "pipi_correlators.in");
+#endif
   }
 
 };

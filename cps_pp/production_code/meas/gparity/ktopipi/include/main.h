@@ -6,6 +6,7 @@ using namespace cps;
 
 #include "a2a_policies.h"
 #include "cmdline.h"
+#include "pipi_momfile.h"
 #include "args.h"
 #include "misc.h"
 #include "a2a_vectors.h"
