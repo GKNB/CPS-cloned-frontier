@@ -793,11 +793,13 @@ public:
     for(int i=0;i<tonrm.size();i++){
       storageType &to = *tonrm[i].to;
       double nrm = tonrm[i].nrm;
-
+#ifndef MEMTEST_MODE
       for(int t=0;t<Lt;t++){
 	to[t].times_equals(nrm);
       }
+#endif
     }
+
     tonrm.clear();
     
     //For temp mf sum into the main mf
@@ -811,9 +813,11 @@ public:
 
       if(gather_distribute) nodeGetMany(1, &to);
 
+#ifndef MEMTEST_MODE
       for(int t=0;t<Lt;t++){
 	to[t].plus_equals(from[t]);
       }
+#endif
       
       if(gather_distribute) nodeDistributeMany(1, &to);
 

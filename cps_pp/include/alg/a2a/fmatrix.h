@@ -245,6 +245,7 @@ public:
   inline mf_Complex & operator[](const int i){ return con[i]; }
 
   inline mf_Complex & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
+  inline mf_Complex & operator()(const int i, const int thread) const{ return con[i + thread * thread_size]; }
 
   int nElementsTotal() const{
     return size;
@@ -312,6 +313,7 @@ public:
   inline mf_Complex & operator[](const int i){ return con[0][i]; }
 
   inline mf_Complex & operator()(const int i, const int thread){ return con[thread][i]; }
+  inline mf_Complex & operator()(const int i, const int thread) const{ return con[thread][i]; }
 
   int nElementsTotal() const{
     return thread_size*con.size();

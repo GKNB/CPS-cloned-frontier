@@ -15,6 +15,27 @@
 CPS_START_NAMESPACE
 
 
+inline void printLogNodeFile(const char* fmt, ...){
+  va_list argptr;
+  va_start(argptr, fmt);
+
+  static int calls = 0;
+
+  std::ostringstream os; os << "node_log." << UniqueID();
+  FILE* out = fopen (os.str().c_str(), calls == 0 ? "w" : "a");
+  if(out == NULL){
+    printf("Non-fatal error in printLogNodeFile on node %d: could not open file %s with mode %c\n",UniqueID(),os.str().c_str(),calls==0 ? 'w' : 'a');
+    fflush(stdout);
+  }else{
+    vfprintf(out,fmt,argptr);
+    fclose(out);
+  }
+  calls++;
+
+  va_end(argptr);
+}
+
+
 //Gauge and RNG read
 void ReadGaugeField(const MeasArg &meas_arg, bool double_latt = false){
   double time = -dclock();
