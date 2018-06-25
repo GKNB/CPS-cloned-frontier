@@ -55,7 +55,7 @@ struct Parameters{
 #ifdef DO_EXTENDED_CALC_V1
     //Check for existence and readability of input file for pipi    
     std::vector<CorrelatorMomenta> correlators;
-    parsePiPiMomFile(correlators, "pipi_correlators.in");
+    parsePiPiMomFile(correlators, stringize("%s/pipi_correlators.in",meas_arg.WorkDirectory) );
 #endif
   }
 

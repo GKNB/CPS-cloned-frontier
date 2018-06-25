@@ -399,10 +399,15 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1
       mult(con_pi2_pi1, mf_pi2[tpi2], mf_pi1[tpi1]);
     }else{	
       mult(tmp, mf_pi1[tpi1], mf_pi2[tpi2]);
+#ifndef MEMTEST_MODE
       con_pi1_pi2.plus_equals(tmp, true);
+#endif
 
       mult(tmp, mf_pi2[tpi2], mf_pi1[tpi1]);   
+
+#ifndef MEMTEST_MODE
       con_pi2_pi1.plus_equals(tmp, true);
+#endif
     }
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
@@ -412,7 +417,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_compute_mfproducts(mf_WV &con_pi1
   }
   
   if(nmom > 1){
+#ifndef MEMTEST_MODE
     con_pi1_pi2.times_equals(1./nmom);  con_pi2_pi1.times_equals(1./nmom);
+#endif
   }
   Type2timings::timer().type2_compute_mfproducts += dclock();
 }

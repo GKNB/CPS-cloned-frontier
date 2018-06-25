@@ -375,8 +375,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
       mult(*into_pi2_pi1, WV_pi2pi1, mf_kaon[tk]);
 	  
       if(pidx > 0){
+#ifndef MEMTEST_MODE
 	con_pi1_pi2_k[tkp].plus_equals(tmp_pi1pi2,true);
 	con_pi2_pi1_k[tkp].plus_equals(tmp_pi2pi1,true);
+#endif
       }
 
     //NB time coordinate of con_*_* is the time coordinate of pi1 (that closest to the kaon)
@@ -390,8 +392,10 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
 
   if(nmom > 1)
     for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
+#ifndef MEMTEST_MODE
       con_pi1_pi2_k[tkp].times_equals(1./nmom);
       con_pi2_pi1_k[tkp].times_equals(1./nmom);
+#endif
     }
   Type3timings::timer().type3_compute_mfproducts += dclock();
 }

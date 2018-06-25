@@ -940,11 +940,13 @@ struct _setupFieldParams<ComplexType, FourDSIMDPolicy<FlavorPolicy>, typename Fo
   static inline void doit(typename FourDSIMDPolicy<FlavorPolicy>::ParamType &p){
     int nsimd = ComplexType::Nsimd();
     FourDSIMDPolicy<FlavorPolicy>::SIMDdefaultLayout(p,nsimd,2); //only divide over spatial directions
-    
-    printf("4D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
-    for(int i=0;i<4;i++)
-      printf("%d ", p[i]);
-    printf("\n");
+
+    if(!UniqueID()){
+      printf("4D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+      for(int i=0;i<4;i++)
+	printf("%d ", p[i]);
+      printf("\n");
+    }
   }
 };
 template<typename ComplexType, typename FlavorPolicy>
@@ -953,10 +955,12 @@ struct _setupFieldParams<ComplexType, ThreeDSIMDPolicy<FlavorPolicy>, typename T
     int nsimd = ComplexType::Nsimd();
     ThreeDSIMDPolicy<FlavorPolicy>::SIMDdefaultLayout(p,nsimd);
   
-    printf("3D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
-    for(int i=0;i<3;i++)
-      printf("%d ", p[i]);
-    printf("\n");
+    if(!UniqueID()){
+      printf("3D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+      for(int i=0;i<3;i++)
+	printf("%d ", p[i]);
+      printf("\n");
+    }
   }
 };
 #endif

@@ -24,18 +24,18 @@ inline uint32_t crc32_3mom(const ThreeMomentum &p, const uint32_t in, hostEndian
       int v = sizeof(int) - 1;
       for(int b=0;b<sizeof(int);b++) to_base[b] = big[v--];
     }
-    return (uint32_t)crc32(in, little, 3*sizeof(int));
+    return (uint32_t)crc32(in, (unsigned char const*)&little[0], 3*sizeof(int));
   }
 }
 
 void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::string &file){
   std::ifstream f(file.c_str());
-  assert(f.is_open() && f.good());
+  if(!f.is_open() || !f.good()) ERR.General("","parsePiPiMomFile","Node %d failed to open file %s\n",UniqueID(),file.c_str());
   f.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
 
   hostEndian::EndianType endian = hostEndian::get();
 
-  std::cout << "Checking file " << file << std::endl;
+  if(!UniqueID()){ std::cout << "parsePiPiMomFile: Checking file " << file << std::endl; fflush(stdout); }
 
   while(!f.eof()){
     int size;
@@ -44,7 +44,7 @@ void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::st
     uint32_t cksum_in;
     f >> cksum_in;
 
-    std::cout << "Got a size " << size << " and cksum " << cksum_in << std::endl;
+    if(!UniqueID()){ std::cout << "Got a size " << size << " and cksum " << cksum_in << std::endl; }
 
     uint32_t cksum = crc32(0L,Z_NULL,0);
     
@@ -68,10 +68,9 @@ void parsePiPiMomFile(std::vector<CorrelatorMomenta> &correlators, const std::st
       correlators.push_back(c);
     }
 
-    if(cksum != cksum_in){
-      printf("Set of size %d and checksum %lu failed cksum check, got %lu (%lu)\n",size,cksum_in,cksum); fflush(stdout);
-      exit(-1);
-    }
+    if(cksum != cksum_in)
+      ERR.General("","parsePiPiMomFile","Node %d, set of size %d and checksum %lu failed cksum check, got %lu (%lu)\n",UniqueID(),size,cksum_in,cksum); 
+
     if(f.peek()==10){
       f.get();
       f.peek(); //triggers eofbit if now at end of file
