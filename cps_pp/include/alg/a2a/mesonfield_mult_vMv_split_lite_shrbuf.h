@@ -97,9 +97,11 @@ public:
     Mptr = &M;
     rptr = &r;
     if(buf != NULL){
+      //if(!UniqueID()) printf("_mult_vMv_split_lite_shrbuf_impl_v::setup Using shared buffer\n");
       buf_ptr = buf;
       free_buf = false;
     }else{
+      //if(!UniqueID()) printf("_mult_vMv_split_lite_shrbuf_impl_v::setup Allocating own buffer\n");
       buf_ptr = new vMvLiteSharedBuf<mf_Policies>;
       free_buf = true;
     }

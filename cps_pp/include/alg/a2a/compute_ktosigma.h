@@ -360,9 +360,9 @@ private:
   }
 
   void setup_type3_pt1_split(std::vector<vMv_split_VWWV> &part1_split, const int top_glb,
-			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map){
+			     const std::vector<Type3MesonFieldProductType> &mf_prod, const std::vector<std::pair<int,int> > &tK_tS_idx_map BUF_ARG){
     for(int i=0;i<tK_tS_idx_map.size();i++){
-      part1_split[i].setup(vL,mf_prod[i],vH, top_glb);
+      part1_split[i].setup(vL,mf_prod[i],vH, top_glb BUF_PASS);
     }
   }
   
@@ -507,13 +507,15 @@ public:
     double pt2_time = 0;
     double contract_time = 0;
 
+    vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;
+
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
       time = dclock();
       std::vector<vMv_split_VWWV> part1_split(ntK_tS);
-      setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map);
+      setup_type3_pt1_split(part1_split,top_glb,mf_prod,tK_tS_idx_map BUF_PASS);
       vmv_setup_time += dclock() - time;
 #endif
 
