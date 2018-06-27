@@ -324,6 +324,8 @@ public:
     This is only relevant for Domain Wall Fermions.
     \return The size of the grid in the 5th direction.
   */
+  int TotalNodes() const
+      {return nodes[0]*nodes[1]*nodes[2]*nodes[3]*nodes[4];}
 
 
   int VolNodeSites() const

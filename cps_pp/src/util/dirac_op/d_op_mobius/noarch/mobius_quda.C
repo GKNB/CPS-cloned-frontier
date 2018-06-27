@@ -30,6 +30,8 @@ CPS_END_NAMESPACE
 #include <invert_quda.h>
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+#define QUDA_NEW_INTERFACE
+
 CPS_START_NAMESPACE
 
 class CPSQuda {
@@ -197,8 +199,9 @@ static void ParamSetup(QudaArg &quda_param, QudaGaugeParam & gauge_param,
   inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
   inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
   
-  inv_param.dirac_order = QUDA_CPS_WILSON_DIRAC_ORDER;
-  //inv_param.dirac_order = QUDA_DIRAC_ORDER;
+//  inv_param.dirac_order = QUDA_CPS_WILSON_DIRAC_ORDER;
+  inv_param.dirac_order = QUDA_DIRAC_ORDER;
+//  inv_param.siteSubset = QUDA_FULL_SITE_SUBSET;
 
   inv_param.input_location = QUDA_CPU_FIELD_LOCATION;
   inv_param.output_location = QUDA_CPU_FIELD_LOCATION;
@@ -213,14 +216,7 @@ static void ParamSetup(QudaArg &quda_param, QudaGaugeParam & gauge_param,
   // QUDA_VERBOSE
   // QUDA_DEBUG_VERBOSE
   //--------------------------
-  //inv_param.verbosity = QUDA_DEBUG_VERBOSE;
   inv_param.verbosity = QUDA_VERBOSE;
- // inv_param.verbosity = QUDA_SUMMARIZE;
-  //inv_param.verbosity = QUDA_SILENT;
-  //inv_param.verbosity_precondition = QUDA_DEBUG_VERBOSE;
-  inv_param.verbosity_precondition = QUDA_VERBOSE;
-  //inv_param.verbosity_precondition = QUDA_SUMMARIZE;
-  //inv_param.verbosity_precondition = QUDA_SILENT;
 
   // domain decomposition preconditioner parameters
   inv_param.inv_type_precondition = QUDA_INVALID_INVERTER;
@@ -321,7 +317,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   int MatDMat_test = 0;
   int cg_test = 1;
 //----------------------Debug code------------------------
-  if(MatDMat_test == 1)
+  if(MatDMat_test )
   {
     Vector *in_tmp = (Vector*)smalloc(f_size_cb * sizeof(Float));
     in_tmp->VecZero(f_size_cb);
@@ -342,9 +338,9 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     //MatPcDag(r, in_tmp);
 //    MatPcDagMatPc(r, in);
 //    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
-//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
 //    inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
-  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+//  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
     //MatQuda(r_tmp, in_tmp, &inv_param);
     MatQuda(r_tmp, in, &inv_param);
     //MatDagMatQuda(r_tmp, in, &inv_param);
@@ -456,10 +452,11 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       //------------------------------------
       k++;
       total_iter += inv_param.iter + 1;
-      flops += 1e9*inv_param.gflops + 8*f_size_cb + matvec_flops;
+      //dividing by the number of nodes
+      flops += 1e9*inv_param.gflops/(Float)GJP.TotalNodes() + 8*f_size_cb + matvec_flops;
 
-      VRB.Result(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
-          inv_param.gflops, inv_param.secs, inv_param.gflops / inv_param.secs);
+      VRB.Result(cname, fname, "Total Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
+          inv_param.gflops,inv_param.secs, inv_param.gflops / inv_param.secs);
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
     }
@@ -473,7 +470,6 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   }
   total_time +=dclock();
    VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
-//  exit(-43);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
@@ -538,7 +534,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
   Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
   
   int total_iter = 0, k = 0;
-  int MatDMat_test = 0;
+//  int MatDMat_test = 0;
   int cg_test = 1;
 
   Float total_time=-dclock();
@@ -580,7 +576,6 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
 //    }
-//      exit(-40);
     if ( type!=MULTI ){
 	out[0] ->VecZero(f_size_cb);
       for(int i=0;i<inv_param.num_offset;i++){
