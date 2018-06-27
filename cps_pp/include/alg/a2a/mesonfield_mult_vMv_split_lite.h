@@ -46,7 +46,7 @@ class _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,r
 
   int nthr_setup;
 
-#define STACK_ALLOC_REORD
+  //#define STACK_ALLOC_REORD
   
 #ifdef STACK_ALLOC_REORD
   int nimax;
@@ -56,6 +56,7 @@ class _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,r
   //This is done under the parallel loop and so space is needed for all threads
   std::vector<AlignedSIMDcomplexVector> lreord[nscf]; //[scf][thread_idx]
   std::vector<AlignedSIMDcomplexVector> rreord[nscf];
+  std::vector<std::vector<AlignedSIMDcomplexVector> > Mr_t; //[thr][Mrows][nscf]
 #endif
 
   lA2AfieldL<mf_Policies> const* lptr;
@@ -72,6 +73,7 @@ public:
       std::vector<AlignedSIMDcomplexVector>().swap(lreord[i]);
       std::vector<AlignedSIMDcomplexVector>().swap(rreord[i]);
     }
+    std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr_t);
 #endif
   }
 
@@ -107,6 +109,7 @@ public:
       lreord[scf].resize(nthr_setup);
       rreord[scf].resize(nthr_setup);      
     }
+    Mr_t.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(Mrows, AlignedSIMDcomplexVector(nscf)));
 #endif
 
     //Are particular row indices of M actually used?
@@ -229,7 +232,12 @@ public:
 
 
     //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
+#ifdef STACK_ALLOC_REORD
     SIMDcomplexType Mr[Mrows][nscf]; //stack
+#else
+    std::vector<AlignedSIMDcomplexVector> &Mr = Mr_t[thread_id];
+#endif
+
     SIMDcomplexType tmp_v;
 #ifndef MEMTEST_MODE	  
     for(int i=0;i<Mrows;i++){
