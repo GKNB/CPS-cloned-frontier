@@ -46,16 +46,15 @@ class _mult_vMv_split_lite_impl_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,r
 
   int nthr_setup;
 
-  //#define STACK_ALLOC_REORD
-  
-#ifdef STACK_ALLOC_REORD
   int nimax;
   int njmax;
-#else
+  int mmax; //max(nimax, njmax)
+
+  //#define STACK_ALLOC_REORD
+#ifndef STACK_ALLOC_REORD
   //Reorder rows and columns such that they can be accessed sequentially 
   //This is done under the parallel loop and so space is needed for all threads
-  std::vector<AlignedSIMDcomplexVector> lreord[nscf]; //[scf][thread_idx]
-  std::vector<AlignedSIMDcomplexVector> rreord[nscf];
+  std::vector<AlignedSIMDcomplexVector> reord_buf; //[thread_idx][mode idx]
   std::vector<std::vector<AlignedSIMDcomplexVector> > Mr_t; //[thr][Mrows][nscf]
 #endif
 
@@ -69,10 +68,7 @@ public:
 
   void free_mem(){
 #ifndef STACK_ALLOC_REORD
-    for(int i=0;i<nscf;i++){
-      std::vector<AlignedSIMDcomplexVector>().swap(lreord[i]);
-      std::vector<AlignedSIMDcomplexVector>().swap(rreord[i]);
-    }
+    std::vector<AlignedSIMDcomplexVector>().swap(reord_buf);
     std::vector<std::vector<AlignedSIMDcomplexVector> >().swap(Mr_t);
 #endif
   }
@@ -104,14 +100,6 @@ public:
 
     nthr_setup = omp_get_max_threads();
 
-#ifndef STACK_ALLOC_REORD    
-    for(int scf=0;scf<nscf;scf++){
-      lreord[scf].resize(nthr_setup);
-      rreord[scf].resize(nthr_setup);      
-    }
-    Mr_t.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(Mrows, AlignedSIMDcomplexVector(nscf)));
-#endif
-
     //Are particular row indices of M actually used?
     rowidx_used.resize(Mrows); for(int i=0;i<Mrows;i++) rowidx_used[i] = false;
     
@@ -120,6 +108,9 @@ public:
     //ir is the row index of M, 
     //jl is the column index of M and 
     //jr is the index of r
+
+    nimax = 0; 
+    njmax = 0;
 
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
@@ -137,11 +128,6 @@ public:
     	  std::vector<int> &ilmap_this = ilmap[scf]; ilmap_this.resize(ni_this);
     	  std::vector<int> &irmap_this = irmap[scf]; irmap_this.resize(ni_this);
 
-#ifndef STACK_ALLOC_REORD
-	  for(int t=0;t<nthr_setup;t++)
-	    lreord[scf][t].resize(ni_this);
-#endif
-
     	  for(int i = 0; i < ni_this; i++){
     	    i_ind.getBothIndices(ilmap_this[i],irmap_this[i],i,ilp,irp);
 	    rowidx_used[ irmap_this[i] ] = true; //this row index of Mr is used
@@ -154,27 +140,22 @@ public:
     	  std::vector<int> &jlmap_this = jlmap[scf]; jlmap_this.resize(nj_this);
     	  std::vector<int> &jrmap_this = jrmap[scf]; jrmap_this.resize(nj_this);
 
-#ifndef STACK_ALLOC_REORD
-	  for(int t=0;t<nthr_setup;t++)
-	    rreord[scf][t].resize(nj_this);
-#endif
-
     	  for(int j = 0; j < nj_this; j++){
     	    j_ind.getBothIndices(jlmap_this[j],jrmap_this[j],j,jlp,jrp);
     	  }
 
+	  if(ni[scf] > nimax) nimax = ni[scf];
+	  if(nj[scf] > njmax) njmax = nj[scf];
      	}
       }
     }
 
-#ifdef STACK_ALLOC_REORD
-    nimax = 0; 
-    njmax = 0;
-    for(int scf=0;scf<nscf;scf++){
-      if(ni[scf] > nimax) nimax = ni[scf];
-      if(nj[scf] > njmax) njmax = nj[scf];
-    }
-#endif	  
+    mmax = nimax > njmax ? nimax : njmax;
+    
+#ifndef STACK_ALLOC_REORD    
+    reord_buf.resize(nthr_setup, AlignedSIMDcomplexVector(mmax));
+    Mr_t.resize(nthr_setup, std::vector<AlignedSIMDcomplexVector>(Mrows, AlignedSIMDcomplexVector(nscf)));
+#endif 
   }
   
   void contract(CPSspinColorFlavorMatrix<SIMDcomplexType> &out, const int xop, const bool conj_l, const bool conj_r){
@@ -187,73 +168,40 @@ public:
     const int site4dop = lptr->getMode(0).threeToFour(xop, top_lcl);
 
 #ifdef STACK_ALLOC_REORD
-    SIMDcomplexType lreord[nscf][nimax];
-    SIMDcomplexType rreord[nscf][njmax];
-#endif
-
-    for(int s=0;s<4;s++){
-      for(int c=0;c<3;c++){
-    	int sc = c + 3*s;
-    	for(int f=0;f<2;f++){
-    	  int scf = f + 2*sc;
-
-#ifdef STACK_ALLOC_REORD
-	  SIMDcomplexType* lreord_p = lreord[scf];
-	  SIMDcomplexType* rreord_p = rreord[scf];
-#else
-	  SIMDcomplexType* lreord_p = lreord[scf][thread_id].data();
-	  SIMDcomplexType* rreord_p = rreord[scf][thread_id].data();
-#endif
-
-    	  //i index
-    	  int ni_this = ni[scf];
-    	  const std::vector<int> &ilmap_this = ilmap[scf];
-
-#ifndef MEMTEST_MODE
-    	  for(int i = 0; i < ni_this; i++){
-	    const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, sc, f);
-	    lreord_p[i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
-    	  }
-#endif
-
-    	  //j index
-    	  int nj_this = nj[scf];	  
-    	  const std::vector<int> &jrmap_this = jrmap[scf];
-
-#ifndef MEMTEST_MODE
-    	  for(int j = 0; j < nj_this; j++){
-	    const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
-	    rreord_p[j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
-    	  }
-#endif
-     	}
-      }
-    }	  
-
-
-    //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
-#ifdef STACK_ALLOC_REORD
+    SIMDcomplexType reord_buf[mmax];
     SIMDcomplexType Mr[Mrows][nscf]; //stack
 #else
     std::vector<AlignedSIMDcomplexVector> &Mr = Mr_t[thread_id];
 #endif
 
+    //Matrix vector multiplication  M*r contracted on mode index j. Only do it for rows that are actually used
     SIMDcomplexType tmp_v;
-#ifndef MEMTEST_MODE	  
-    for(int i=0;i<Mrows;i++){
-      if(!rowidx_used[i]) continue;
-      
-      for(int scf=0;scf<nscf;scf++){
-	int sc = scf/2; int f = scf % 2;
-	int nj_this = nj[scf];
-	zeroit(Mr[i][scf]);
+#ifndef MEMTEST_MODE	       
+    for(int scf=0;scf<nscf;scf++){
+      int sc = scf/2; int f = scf % 2;
 
 #ifdef STACK_ALLOC_REORD
-	SIMDcomplexType* rreord_p = rreord[scf];
+      SIMDcomplexType* rreord_p = reord_buf;
 #else
-	SIMDcomplexType* rreord_p = rreord[scf][thread_id].data();
-#endif
-	
+      SIMDcomplexType* rreord_p = reord_buf[thread_id].data();
+#endif      
+
+      //j index
+      int nj_this = nj[scf];	  
+      const std::vector<int> &jrmap_this = jrmap[scf];
+
+#ifndef MEMTEST_MODE
+      for(int j = 0; j < nj_this; j++){
+	const SIMDcomplexType &rval_tmp = rptr->nativeElem(jrmap_this[j], site4dop, sc, f);
+	rreord_p[j] = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+      }
+#endif      
+
+      for(int i=0;i<Mrows;i++){
+	if(!rowidx_used[i]) continue;
+
+	zeroit(Mr[i][scf]);
+
 	for(int j=0;j<nj_this;j++){
 	  Grid::vsplat(tmp_v, (*Mptr)(i, jlmap[scf][j]) );
 	  Mr[i][scf] = Mr[i][scf] + tmp_v * rreord_p[j];
@@ -263,25 +211,34 @@ public:
 
     //Vector vector multiplication l*(M*r)
     for(int sl=0;sl<4;sl++){
-      for(int sr=0;sr<4;sr++){
-	for(int cl=0;cl<3;cl++){
-	  int scl = cl + 3*sl;
-	  for(int cr=0;cr<3;cr++){
-	    for(int fl=0;fl<2;fl++){
-	      int scfl = fl + 2*scl;
-	      int ni_this = ni[scfl];
-
+      for(int cl=0;cl<3;cl++){
+	int scl = cl + 3*sl;
+	for(int fl=0;fl<2;fl++){
+	  int scfl = fl + 2*scl;	    
 #ifdef STACK_ALLOC_REORD
-	      SIMDcomplexType* lreord_p = lreord[scfl];
+	  SIMDcomplexType* lreord_p = reord_buf;
 #else
-	      SIMDcomplexType* lreord_p = lreord[scfl][thread_id].data();
+	  SIMDcomplexType* lreord_p = reord_buf[thread_id].data();
+#endif	  
+  
+   	  //i index
+	  int ni_this = ni[scfl];
+    	  const std::vector<int> &ilmap_this = ilmap[scfl];
+	  
+#ifndef MEMTEST_MODE
+    	  for(int i = 0; i < ni_this; i++){
+	    const SIMDcomplexType &lval_tmp = lptr->nativeElem(ilmap_this[i], site4dop, scl, fl);
+	    lreord_p[i] = conj_l ? Grid::conjugate(lval_tmp) : lval_tmp;
+	  }
 #endif
 
+	  for(int sr=0;sr<4;sr++){
+	    for(int cr=0;cr<3;cr++){
 	      for(int fr=0;fr<2;fr++){
 		int scfr = fr + 2*(cr + 3*sr);		
-
+		
 		SIMDcomplexType &into = out(sl,sr)(cl,cr)(fl,fr);
-
+		
 		for(int i=0;i<ni_this;i++){
 		  into = into + lreord_p[i]*Mr[irmap[scfl][i]][scfr];
 		}
