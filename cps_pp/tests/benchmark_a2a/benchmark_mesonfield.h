@@ -2877,23 +2877,109 @@ void testTraceSingle(const A2AArg &a2a_args, const double tol){
 
 template<typename A2Apolicies>
 void testMFmult(const A2AArg &a2a_args, const double tol){
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_wv;
-  mf_wv.setup(a2a_args,a2a_args,0,0);
-  mf_wv.testRandom();  
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV; 
+  typedef typename mf_WV::ScalarComplexType ScalarComplexType;
 
-  if(!UniqueID()) printf("WV sizes %d %d\n", mf_wv.getNrows(), mf_wv.getNcols());
-  
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_ww;
-  mf_ww.setup(a2a_args,a2a_args,0,0);
-  mf_ww.testRandom();  
+  mf_WV l;
+  l.setup(a2a_args,a2a_args,0,0);
+  l.testRandom();  
 
-  if(!UniqueID()) printf("WW sizes %d %d\n", mf_ww.getNrows(), mf_ww.getNcols());
-  
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> mf_out;
-  mult(mf_out, mf_wv, mf_ww);
+  if(!UniqueID()) printf("mf_WV sizes %d %d\n",l.getNrows(),l.getNcols());
 
+  mf_WV r;
+  r.setup(a2a_args,a2a_args,1,1);
+  r.testRandom();  
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c_base;
+  c_base.setup(a2a_args,a2a_args,0,1);
+
+  A2Aparams a2a_params(a2a_args);
+  int nfull = a2a_params.getNv();
+  if(!UniqueID()){ printf("Total modes %d\n", nfull); fflush(stdout); }
+
+  for(int i=0;i<nfull;i++){
+    for(int k=0;k<nfull;k++){
+      ScalarComplexType *oe = c_base.elem_ptr(i,k);
+      if(oe == NULL) continue; //zero by definition
+
+      *oe = 0.;
+      for(int j=0;j<nfull;j++)
+      	*oe += l.elem(i,j) * r.elem(j,k);
+    }
+  }
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
+  mult(c, l, r, true); //node local
+
+  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node local mult failed!\n");
   
+  mult(c, l, r, false); //node distributed
+
+  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node distributed mult failed!\n");
+
+  if(!UniqueID()) printf("Passed MF mult tests\n");
 }
+
+
+template<typename A2Apolicies>
+void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
+  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV; 
+  mf_WV l;
+  l.setup(a2a_args,a2a_args,0,0);
+  l.testRandom();  
+
+  if(!UniqueID()) printf("mf_WV sizes %d %d\n",l.getNrows(),l.getNcols());
+
+  mf_WV r;
+  r.setup(a2a_args,a2a_args,1,1);
+  r.testRandom();  
+
+  const int ni = l.getNrows();
+  const int nk = r.getNcols();
+
+  typedef typename mf_WV::RightDilutionType ConLeftDilutionType;
+  typedef typename mf_WV::LeftDilutionType ConRightDilutionType;
+
+  ModeContractionIndices<ConLeftDilutionType,ConRightDilutionType> ind(l.getColParams());
+    
+  modeIndexSet lmodeparams; lmodeparams.time = l.getColTimeslice();
+  modeIndexSet rmodeparams; rmodeparams.time = r.getRowTimeslice();
+    
+  const int nj = ind.getNindices(lmodeparams,rmodeparams);
+
+  //zmul 6 Flops
+  //zmadd 8 Flops
+  //zvecdot (N) = 6 + (N-1)*8 Flops
+
+  size_t Flops = ni * nk * ( 6 + (nj-1)*8 );
+
+  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
+  double time = -dclock();
+  for(int i=0;i<ntests;i++){
+    mult(c, l, r, true); //NODE LOCAL, used in pipi
+  }
+  time += dclock();
+
+  double Mflops = double(Flops)/time*ntests/1e6;
+
+  if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
+
+  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+
+  time = -dclock();
+  for(int i=0;i<ntests;i++){
+    mult(c, l, r, false); //NODE DISTRIBUTED, used in K->pipi
+  }
+  time += dclock();
+
+  Mflops = double(Flops)/time*ntests/1e6;
+  double Mflops_per_node = Mflops/nodes;
+  
+  if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
+}
+
+
+
 
 void testCPSfieldImpex(){
   { //4D fields

@@ -193,6 +193,33 @@ public:
     return this->operator()(packed_i,packed_j);
   }
 
+  //Version of the above that returns a pointer so that the element can be modified. A NULL pointer will be returned for elements that are enforced to be zero by the index packing
+  inline ScalarComplexType* elem_ptr(const int full_i, const int full_j){
+    StaticAssert< _equal<LeftDilutionType,StandardIndexDilution>::value || _equal<LeftDilutionType,TimePackedIndexDilution>::value >();
+    StaticAssert< _equal<RightDilutionType,StandardIndexDilution>::value || _equal<RightDilutionType,TimePackedIndexDilution>::value >();
+    
+    int nll = lindexdilution.getNl();
+    int nlr = rindexdilution.getNl();
+
+    int packed_i;
+    if(_equal<LeftDilutionType,StandardIndexDilution>::value || full_i < nll) packed_i = full_i; //  lindexdilution.getModeType() == StandardIndex
+    else{ // W *
+      StandardIndexDilution lfulldil(lindexdilution);
+      modeIndexSet i_idx; lfulldil.indexUnmap(full_i-nll, i_idx);
+      if(i_idx.time != tl) return NULL; //delta function in time
+      else packed_i = nll + lindexdilution.indexMap(i_idx);
+    }
+    int packed_j;
+    if(_equal<RightDilutionType,StandardIndexDilution>::value || full_j < nlr) packed_j = full_j; //rindexdilution.getModeType() == StandardIndex
+    else{ //* W
+      StandardIndexDilution rfulldil(rindexdilution);
+      modeIndexSet j_idx; rfulldil.indexUnmap(full_j-nlr, j_idx);
+      if(j_idx.time != tr) return NULL;
+      else packed_j = nlr + rindexdilution.indexMap(j_idx);
+    }
+    return &this->operator()(packed_i,packed_j);
+  }
+
   inline void zero(const bool parallel = true){
     memset(this->data(), 0, sizeof(ScalarComplexType) * fsize);      
   }

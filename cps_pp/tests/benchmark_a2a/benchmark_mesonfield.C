@@ -282,8 +282,14 @@ int main(int argc,char *argv[])
   if(0) testSCFmat();
 
 #ifdef USE_GRID
-  if(1) testKtoPiPiType3<GridA2Apolicies>(a2a_args,lattice);
+  if(0) testKtoPiPiType3<GridA2Apolicies>(a2a_args,lattice);
 #endif
+
+#ifdef USE_GRID
+  if(1) testMFmult<GridA2Apolicies>(a2a_args, tol);
+  if(1) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
+#endif
+
 
   Grid::vComplexD a, b;
 
