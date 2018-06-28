@@ -205,9 +205,9 @@ int main(int argc,char *argv[])
   if(0) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
 #endif
 
-  if(1) testSumSource<ScalarA2Apolicies>(a2a_args,lattice);
+  if(0) testSumSource<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
-  if(1) testSumSource<GridA2Apolicies>(a2a_args,lattice);
+  if(0) testSumSource<GridA2Apolicies>(a2a_args,lattice);
 #endif
 
 
@@ -280,6 +280,10 @@ int main(int argc,char *argv[])
 #endif
 
   if(0) testSCFmat();
+
+#ifdef USE_GRID
+  if(1) testKtoPiPiType3<GridA2Apolicies>(a2a_args,lattice);
+#endif
 
   Grid::vComplexD a, b;
 

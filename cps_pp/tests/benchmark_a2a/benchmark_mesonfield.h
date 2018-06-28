@@ -40,6 +40,8 @@ void ProfilerStop(){}
 #include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
 #include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
 #include<alg/a2a/grid_wrappers.h>
+#include<alg/a2a/mf_momcontainer.h>
+#include<alg/a2a/compute_ktopipi.h>
 
 CPS_START_NAMESPACE
 
@@ -1317,6 +1319,72 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   }
   
 }
+
+
+
+//Added to attempt to isolate a SEGV on BG/Q!
+template<typename A2Apolicies>
+void testKtoPiPiType3(const A2AArg &a2a_args,Lattice &lat){
+  if(!UniqueID()){ printf("Test run of K->pipi type 3\n"); fflush(stdout); }
+  assert(GJP.Gparity());
+
+  typedef typename A2Apolicies::ComplexType mf_Complex;
+  typedef typename A2AvectorWfftw<A2Apolicies>::FieldInputParamType FieldInputParamType;
+  FieldInputParamType fp; defaultFieldParams<FieldInputParamType, mf_Complex>::get(fp);
+  
+  A2AvectorW<A2Apolicies> W(a2a_args,fp);
+  A2AvectorV<A2Apolicies> V(a2a_args,fp);
+  W.testRandom();
+  V.testRandom();
+
+  int p[3];
+  GparityBaseMomentum(p,+1);
+  ThreeMomentum pp(p);
+
+  GparityBaseMomentum(p,-1);
+  ThreeMomentum pm(p);
+
+  MesonFieldMomentumContainer<A2Apolicies> mf_pions;
+
+  int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+  A2Aparams params(a2a_args);
+
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_WV;
+  typedef std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorWfftw> > mf_WW;
+  
+  mf_WV tmp_WV(Lt);
+  mf_WW tmp_WW(Lt);
+  for(int t=0;t<Lt;t++){
+    tmp_WV[t].setup(params,params,t,t);
+    tmp_WV[t].testRandom();
+
+    tmp_WW[t].setup(params,params,t,t);
+    tmp_WW[t].testRandom();
+  }
+  mf_pions.copyAdd(pp,tmp_WV);
+  mf_pions.copyAdd(pm,tmp_WV);
+
+  int pipi_sep = 2;
+  int tsep_k_pi = 6;
+  int tstep = 1;
+  
+  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::ResultsContainerType ResultsContainerType;
+  typedef typename ComputeKtoPiPiGparity<A2Apolicies>::MixDiagResultsContainerType MixDiagResultsContainerType;
+  
+  ResultsContainerType type3;
+  MixDiagResultsContainerType mix3;
+  ComputeKtoPiPiGparity<A2Apolicies>::type3(type3,mix3,
+					    tsep_k_pi, pipi_sep, tstep, pp,
+					    tmp_WW, mf_pions,
+					    V, V,
+					    W, W);
+  if(!UniqueID()){ printf("End of test run of K->pipi type 3\n"); fflush(stdout); }
+}
+
+
+
+
 
 
 //Test the compute-many storage that sums meson fields on the fly
@@ -2893,7 +2961,7 @@ void testCPSfieldImpex(){
 
       assert( a.equals(c) );
     }
-#endif
+#endif //USE_GRID
     
   }
 
@@ -3048,7 +3116,7 @@ void testGridFieldImpex(typename GridA2Apolicies::FgridGFclass &lattice){
 
 
 
-#endif
+#endif //USE_GRID
 
 
 
@@ -3799,9 +3867,7 @@ void testSCFmat(){
 
 }
 
-
-
-#endif
+#endif //USE_GRID
 
 
 

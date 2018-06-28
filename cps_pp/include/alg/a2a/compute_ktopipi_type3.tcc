@@ -543,7 +543,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_v2(ResultsContainerType result[],
 	  part1[0].gr(-5);
 	  part1[1].gr(-5);
 	  
-	  type3_contract(result[tkp], t_K, t_dis, thread_id, part1, part2_L[top_glb][xop3d_loc], part2_H[top_glb][xop3d_loc]);
+	  type3_contract(result[tkp], t_K, t_dis, thread_id, part1, part2_L[top_loc][xop3d_loc], part2_H[top_loc][xop3d_loc]);
 	  
 	  //Compute mix3 diagram
 	  //These are identical to the type3 diagrams but without the internal quark loop, and with the vertex replaced with a pseudoscalar vertex
