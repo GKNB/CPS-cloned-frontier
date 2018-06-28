@@ -1144,8 +1144,8 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
     exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
-    std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
-    std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
+    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::WspeciesVector Wspecies(1, &W);
+    typename ComputeMesonFields<A2Apolicies,ExpStorageType>::VspeciesVector Vspecies(1, &V);
 
     std::cout << "Start 1s ExpStorage compute\n";
     ComputeMesonFields<A2Apolicies,ExpStorageType>::compute(exp_store_1s_pp_pp,Wspecies,Vspecies,lat);
@@ -1243,9 +1243,6 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       }
       if(!UniqueID()) printf("Passed point check test\n");
     }
-
-    std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
-    std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
     
     //Prepare the compound src
     typedef Elem<ExpSrcType,Elem<PointSrcType,ListEnd> > SrcList;
@@ -1265,6 +1262,9 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       store.addCompute(0,0,pp,pp3);
 
       std::cout << "Start 1s/point MultiStorage compute\n";
+      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+
       ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
@@ -1297,6 +1297,9 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       store.addCompute(0,0,pp,pp3);
 
       std::cout << "Start 1s/point shift multiStorage compute\n";
+      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
+      typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
+
       ComputeMesonFields<A2Apolicies,MultiStorageType>::compute(store,Wspecies,Vspecies,lat);
   
       //Test 1s
@@ -1463,12 +1466,11 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   ExpSrcType src(2.0, p_v[0].ptr(), sfp); //momentum is not relevant as it is shifted internally
   ExpInnerType inner(sigma3, src);
 
-  std::vector< A2AvectorW<A2Apolicies> const*> Wspecies(1, &W);
-  std::vector< A2AvectorV<A2Apolicies> const*> Vspecies(1, &V);
-
-
   typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> BasicStorageType;
-  
+
+  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::WspeciesVector Wspecies(1, &W);
+  typename ComputeMesonFields<A2Apolicies,BasicStorageType>::VspeciesVector Vspecies(1, &V);
+
   BasicStorageType store_basic(inner,src);
   for(int p=0;p<nmom;p++){
     store_basic.addCompute(0,0,-p_wdag[p],p_v[p]);
@@ -1569,10 +1571,6 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   W.testRandom();
   V.testRandom();
 
-  std::vector< A2AvectorW<A2Apolicies> const* > Wspecies(1,&W);
-  std::vector< A2AvectorV<A2Apolicies> const* > Vspecies(1,&V);
-  
-  
   int pp[3]; GparityBaseMomentum(pp,+1); //(1,1,1)
   int pm[3]; GparityBaseMomentum(pm,-1); //(-1,-1,-1)
 
@@ -1616,6 +1614,9 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   mf_store1.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
   
   mf_store2.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
+
+  typename ComputeMesonFields<A2Apolicies,StorageType>::WspeciesVector Wspecies(1, &W);
+  typename ComputeMesonFields<A2Apolicies,StorageType>::VspeciesVector Vspecies(1, &V);
 
   ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store1,Wspecies,Vspecies,lat);
   ComputeMesonFields<A2Apolicies,StorageType>::compute(mf_store2,Wspecies,Vspecies,lat);
@@ -3685,6 +3686,8 @@ void benchmarkTest(){
 
 template<typename GridA2Apolicies>
 void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char* argv[]){
+#if defined(USE_GRID_LANCZOS) && defined(USE_GRID_A2A)
+
   NullObject null_obj;
   lattice.BondCond();
   CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
@@ -3879,7 +3882,7 @@ void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char
 
   //g5-herm:
   //Tr( G^dag(x,y) G^dag(y,x) ) = Tr ( G(y,x) G(x,y) )
-
+#endif
 }
 
 

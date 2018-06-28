@@ -4,6 +4,7 @@
 #include<string>
 #include<util/gjp.h>
 #include<util/qcdio.h>
+#include<alg/a2a/utils.h>
 
 CPS_START_NAMESPACE
 

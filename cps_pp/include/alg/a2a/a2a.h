@@ -14,6 +14,7 @@
 #include<alg/eigen/Krylov_5d.h>
 #endif
 
+#include<alg/ktopipi_jobparams.h>
 #include<alg/a2a/a2a_dilutions.h>
 #include<alg/a2a/a2a_policies.h>
 #include<alg/a2a/field_operation.h>

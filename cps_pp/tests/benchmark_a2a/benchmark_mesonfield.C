@@ -11,11 +11,19 @@
 using namespace cps;
 
 #ifdef USE_GRID
+#ifdef USE_DESTRUCTIVE_FFT
+typedef A2ApoliciesSIMDdoubleManualAlloc GridA2Apolicies;
+#else
 typedef A2ApoliciesSIMDdoubleAutoAlloc GridA2Apolicies;
+#endif
 typedef typename GridA2Apolicies::ComplexType grid_Complex;
 #endif
 
+#ifdef USE_DESTRUCTIVE_FFT
+typedef A2ApoliciesDoubleManualAlloc ScalarA2Apolicies;
+#else
 typedef A2ApoliciesDoubleAutoAlloc ScalarA2Apolicies;
+#endif
 typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
 typedef typename mf_Complex::value_type mf_Float;
 
@@ -134,7 +142,7 @@ int main(int argc,char *argv[])
 #endif
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
-#ifndef USE_GRID
+#if !defined(USE_GRID) || defined(ARCH_BGQ) 
   GnoneFnone lattice;
 #else
 
@@ -147,8 +155,11 @@ int main(int argc,char *argv[])
   assert(ngp == 0);
   std::cout << "Using standard BCs\n";
 #endif
+
+#ifndef ARCH_BGQ //on BGQ we just use Grid for its SIMD wrappers
   FgridParams fgp; fgp.epsilon = 0.; fgp.mobius_scale = 32./12.;
   typename GridA2Apolicies::FgridGFclass lattice(fgp);
+#endif
 #endif
   
   if(load_lrg){
@@ -262,7 +273,7 @@ int main(int argc,char *argv[])
   if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
   if(0) testCPSfieldImpex();
-#ifdef USE_GRID
+#if defined(USE_GRID) && !defined(ARCH_BGQ)
   if(0) testGridFieldImpex<GridA2Apolicies>(lattice);
   if(0) testLanczosIO<GridA2Apolicies>(lattice);
 #endif
@@ -275,7 +286,7 @@ int main(int argc,char *argv[])
 
   if(0) testPointSource();
 
-#ifdef USE_GRID
+#if defined(USE_GRID) && !defined(ARCH_BGQ)
   if(0) testLMAprop<GridA2Apolicies>(lattice,argc,argv);
 #endif
 
