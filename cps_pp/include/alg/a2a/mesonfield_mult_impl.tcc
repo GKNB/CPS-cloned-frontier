@@ -8,8 +8,12 @@
 //MULT_IMPL_GSL          :blocked matrix implementation using GSL BLAS (and I think other BLAS can be slotted in by linking to the appropriate libraries)
 //MULT_IMPL_GRID         :using Grid library SIMD intrinsics with a hand-crafted wrapper
 
+#if defined(ARCH_BGQ) && defined(USE_ESSL_A2A)
+//Requires linking to essl_interface and fortran libraries
+#define MULT_IMPL_ESSL
+#else
 #define MULT_IMPL_GSL
-//#define MULT_IMPL_GRID
+#endif
 
 #if defined(MULT_IMPL_BASIC)
 #  include<alg/a2a/mesonfield_mult_impl_basic.tcc>
@@ -19,6 +23,8 @@
 #  include<alg/a2a/mesonfield_mult_impl_gsl.tcc>
 #elif defined(MULT_IMPL_GRID)
 #  include<alg/a2a/mesonfield_mult_impl_grid.tcc>
+#elif defined(MULT_IMPL_ESSL)
+#  include<alg/a2a/mesonfield_mult_impl_essl.tcc>
 #else
 #  error Must specify a MULT_IMPL_* in alg/a2a/mult_impl.h
 #endif

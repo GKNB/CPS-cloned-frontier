@@ -2876,6 +2876,9 @@ void testTraceSingle(const A2AArg &a2a_args, const double tol){
   } 
 }
 
+
+
+
 template<typename A2Apolicies>
 void testMFmult(const A2AArg &a2a_args, const double tol){
   typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV; 
@@ -2935,8 +2938,8 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   r.setup(a2a_args,a2a_args,1,1);
   r.testRandom();  
 
-  const int ni = l.getNrows();
-  const int nk = r.getNcols();
+  const size_t ni = l.getNrows();
+  const size_t nk = r.getNcols();
 
   typedef typename mf_WV::RightDilutionType ConLeftDilutionType;
   typedef typename mf_WV::LeftDilutionType ConRightDilutionType;
@@ -2946,7 +2949,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   modeIndexSet lmodeparams; lmodeparams.time = l.getColTimeslice();
   modeIndexSet rmodeparams; rmodeparams.time = r.getRowTimeslice();
     
-  const int nj = ind.getNindices(lmodeparams,rmodeparams);
+  const size_t nj = ind.getNindices(lmodeparams,rmodeparams);
 
   //zmul 6 Flops
   //zmadd 8 Flops
@@ -2961,7 +2964,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   }
   time += dclock();
 
-  double Mflops = double(Flops)/time*ntests/1e6;
+  double Mflops = double(Flops)/time*double(ntests)/double(1.e6);
 
   if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
 
@@ -2973,7 +2976,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   }
   time += dclock();
 
-  Mflops = double(Flops)/time*ntests/1e6;
+  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
   double Mflops_per_node = Mflops/nodes;
   
   if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);

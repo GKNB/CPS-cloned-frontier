@@ -297,7 +297,7 @@ int main(int argc,char *argv[])
 #endif
 
 #ifdef USE_GRID
-  if(1) testMFmult<GridA2Apolicies>(a2a_args, tol);
+  if(0) testMFmult<GridA2Apolicies>(a2a_args, tol);
   if(1) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
 #endif
 
