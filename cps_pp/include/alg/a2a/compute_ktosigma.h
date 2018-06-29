@@ -507,7 +507,9 @@ public:
     double pt2_time = 0;
     double contract_time = 0;
 
+#ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
     vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;
+#endif
 
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
