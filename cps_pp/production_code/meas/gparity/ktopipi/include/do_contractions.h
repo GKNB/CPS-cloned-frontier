@@ -321,6 +321,40 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   //Sigma meson fields no longer needed
   mf_sigma.free_mem();
+
+#ifdef MESONFIELD_USE_DISTRIBUTED_STORAGE  
+
+  /* //TEST!!! */
+  /* //Deliberately cause an imbalance */
+  /* { */
+  /*   int nodes = 1; */
+  /*   for(int i=0;i<5;i++) nodes *= GJP.Nodes(i); */
+
+  /*   std::vector<DistributedMemoryStorage*> ptrs; */
+  /*   typedef typename MesonFieldMomentumContainer<A2Apolicies>::iterator iterator; */
+
+  /*   for(iterator it = mf_ll_con.begin(); it != mf_ll_con.end(); it++){ */
+  /*     for(int t=0;t<it->second->size();t++) */
+  /* 	ptrs.push_back( (DistributedMemoryStorage*)&it->second->operator[](t) ); */
+  /*   } */
+  /*   UniformRandomGenerator rng; */
+  /*   rng.Reset(1234); */
+
+  /*   int off = 0; */
+  /*   int nrem = ptrs.size(); */
+  /*   for(int n=0;n<nodes;n++){ */
+  /*     int nown = (n == nodes-1 ? nrem : (int)rng.Rand(nrem,0)); */
+  /*     for(int i=0;i<nown;i++) */
+  /* 	ptrs[off++]->reassign(n);      */
+  /*     nrem -= nown; */
+  /*   } */
+  /* } */
+  /* //TEST */
+
+  //Try to rebalance the number of meson fields over the nodes
+  mf_ll_con.rebalance();
+#endif
+
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
   printMem("Memory prior to trim");
   if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);

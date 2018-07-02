@@ -32,12 +32,16 @@ struct FlavorUnpacked<StandardIndexDilution>{
 //for example when taking the product of [[W(t1)*V(t1)]] [[W(t2)*W(t2)]] -> [[W(t1)*W(t2)]]
 
 //If using the NODE_DISTRIBUTE_MESONFIELDS option, we can choose whether to distribute over the memory of the nodes or to read/write from disk
+#define MESONFIELD_USE_DISTRIBUTED_STORAGE
+
 #ifdef MESONFIELD_USE_BURSTBUFFER
 typedef BurstBufferMemoryStorage MesonFieldDistributedStorageType;
 #elif defined(MESONFIELD_USE_NODE_SCRATCH)
 typedef IndependentDiskWriteStorage MesonFieldDistributedStorageType;
-#else
+#elif defined(MESONFIELD_USE_DISTRIBUTED_STORAGE)
 typedef DistributedMemoryStorage MesonFieldDistributedStorageType;
+#else
+#error "Meson field invalid storage type"
 #endif
 
 

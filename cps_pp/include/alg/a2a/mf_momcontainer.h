@@ -18,6 +18,17 @@ private:
   MapType mf; //store pointers so we don't have to copy
   
 public:
+  typedef typename MapType::iterator iterator;
+  typedef typename MapType::const_iterator const_iterator;
+
+  //Use these iterators at your own risk!
+  iterator begin(){ return mf.begin(); }  
+  iterator end(){ return mf.end(); }
+
+  const_iterator begin() const{ return mf.begin(); }  
+  const_iterator end() const{ return mf.end(); }
+  
+
   std::vector<MfType > const* getPtr(const ThreeMomentum &p) const{
     typename MapType::const_iterator it = mf.find(p);
     if(it == mf.end()) return NULL;
@@ -165,6 +176,21 @@ public:
   ~MesonFieldMomentumContainer(){
     free_mem();
   }
+
+#ifdef MESONFIELD_USE_DISTRIBUTED_STORAGE
+  
+  void rebalance(){
+    std::vector<DistributedMemoryStorage*> ptrs;
+    for(typename MapType::iterator it = mf.begin(); it != mf.end(); it++){
+      for(int t=0;t<it->second->size();t++){
+	ptrs.push_back(dynamic_cast<DistributedMemoryStorage*>(&it->second->operator[](t)));	
+      }
+    }
+    DistributedMemoryStorage::rebalance(ptrs);
+  }
+
+
+#endif
 };
 
 

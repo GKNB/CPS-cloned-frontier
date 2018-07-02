@@ -51,6 +51,10 @@ class DistributedMemoryStorage{
       _master_uid = master_uid;
       if(nodes > 1) ERR.General("DistributedMemoryStorage","initMaster","Implementation requires MPI\n");
 #else
+
+      //# define DO_MASTER_CHECK
+      
+# ifdef DO_MASTER_CHECK
       //Check all nodes are decided on the same master node
       int* masters = (int*)malloc_check(nodes *  sizeof(int));
       memset(masters, 0, nodes *  sizeof(int));
@@ -62,6 +66,8 @@ class DistributedMemoryStorage{
       for(int i=0;i<nodes;i++) assert(masters_all[i] == master_uid);
 
       free(masters); free(masters_all);
+# endif
+
       _master_uid = master_uid;
       _master_mpirank = MPI_UniqueID_map::UidToMPIrank(master_uid);
 #endif
@@ -132,6 +138,8 @@ public:
 
   inline bool isOnNode() const{ return ptr != NULL; }
   
+  inline int masterUID() const{ return _master_uid; }
+
   void move(DistributedMemoryStorage &r){
     ptr = r.ptr;
     _alignment = r._alignment;
@@ -300,6 +308,78 @@ public:
     if(UniqueID() != _master_uid) freeMem();
   }
   
+  //Change the master uid. THIS MUST BE THE SAME FOR ALL NODES!
+  void reassign(const int to_uid){
+    assert(_master_uid != -1);
+    gather(UniqueID() == to_uid);
+    
+    //All nodes change master
+    _master_uid = to_uid;
+    _master_mpirank = MPI_UniqueID_map::UidToMPIrank(to_uid);
+
+    distribute();
+  }
+
+  static void rebalance(std::vector<DistributedMemoryStorage*> &blocks){
+    if(!UniqueID()){ printf("DistributedMemoryStorage: Performing rebalance of %d blocks\n",blocks.size()); fflush(stdout); }
+    int nodes = 1;
+    for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+    
+    int init_count[nodes]; for(int i=0;i<nodes;i++) init_count[i] = 0;  
+
+    const int my_uid = UniqueID();
+
+    std::vector< std::vector<DistributedMemoryStorage*> > init_block_mapping(nodes);
+
+    for(int i=0;i<blocks.size();i++){
+      int master_uid = blocks[i]->masterUID();
+      if(master_uid != -1){
+	++init_count[master_uid];
+	init_block_mapping[master_uid].push_back(blocks[i]);
+      }
+    }
+    
+    //Balance the number of blocks over the nodes, with the remainder assigned one each to nodes in ascending order
+    int nblock = blocks.size();
+    int nblock_bal_base = nblock/nodes;
+    int nrem = nblock - nblock_bal_base * nodes;
+
+    int count[nodes]; 
+    for(int n=0;n<nodes;n++)
+      count[n] = n < nrem ? nblock_bal_base + 1 : nblock_bal_base;
+
+    if(!UniqueID()){
+      printf("node:old:new\n");
+      for(int n=0;n<nodes;n++) printf("%d:%d:%d ",n,init_count[n],count[n]);
+      printf("\n");
+      fflush(stdout);
+    }
+
+    //All the nodes that are relinquishing blocks first put their pointers in a pool, then all that are assuming blocks take from the pool
+    std::list<DistributedMemoryStorage*> pool;
+    for(int n=0;n<nodes;n++){
+      const int delta = count[n] - init_count[n];
+      if(delta < 0){
+	const int npool = -delta;
+	for(int i=0;i<npool;i++){
+	  pool.push_back(init_block_mapping[n][ init_count[n]-1-i ]); //take from back
+	}
+      }
+    }
+
+    for(int n=0;n<nodes;n++){
+      const int delta = count[n] - init_count[n];
+      if(delta > 0){
+	assert(pool.size() >= delta);
+	for(int i=0;i<delta;i++){
+	  pool.front()->reassign(n);
+	  pool.pop_front();
+	}
+      }
+    }
+
+  }
+
   ~DistributedMemoryStorage(){
     freeMem();
   }
