@@ -41,6 +41,11 @@ class DistributedMemoryStorage{
   int _master_uid;
   int _master_mpirank;
 
+  bool use_external_buffer;
+  void *external_buffer;
+  size_t external_buffer_size;
+  int external_buffer_alignment;
+
   void initMaster(){
     if(_master_uid == -1){
       int master_uid = nodeDistributeCounter::getNext(); //round-robin assignment
@@ -108,9 +113,9 @@ public:
   };
   static GatherPerf & perf(){ static GatherPerf p; return p; }
 
-  DistributedMemoryStorage(): ptr(NULL), _master_uid(-1){}
+  DistributedMemoryStorage(): ptr(NULL), _master_uid(-1), use_external_buffer(false), _size(0), _alignment(0){}
 
-  DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL){
+  DistributedMemoryStorage(const DistributedMemoryStorage &r): ptr(NULL), use_external_buffer(false), _size(0), _alignment(0){
     if(r.ptr != NULL){    
       alloc(r._alignment, r._size);
       memcpy(ptr, r.ptr, r._size);
@@ -123,9 +128,11 @@ public:
   }
 
   DistributedMemoryStorage & operator=(const DistributedMemoryStorage &r){
-    freeMem();
     if(r.ptr != NULL){
-      alloc(r._alignment, r._size);
+      if(_size != r._size || _alignment != r._alignment){
+	freeMem();
+	alloc(r._alignment, r._size);
+      }
       memcpy(ptr, r.ptr, r._size);      
     }else{
       _size = r._size;
@@ -146,45 +153,76 @@ public:
     _size = r._size;
     _master_uid = r._master_uid;
     _master_mpirank = r._master_mpirank;
+
+    use_external_buffer = r.use_external_buffer;
+    external_buffer = r.external_buffer;
+    external_buffer_size = r.external_buffer_size;
+    external_buffer_alignment = r.external_buffer_alignment;
+
     r._size = 0;
     r.ptr = NULL;
   }
 
+  //Future memory allocations will use this external buffer
+  void enableExternalBuffer(void* p, size_t sz, int align){
+    use_external_buffer = true;
+    external_buffer = p;
+    external_buffer_size = sz;
+    external_buffer_alignment = align;
+  }
+
+  void disableExternalBuffer(){
+    if(!use_external_buffer) return;
+    if(ptr == external_buffer) ERR.General("DistributedMemoryStorage","disableExternalBuffer","Cannot disable external buffer if it is being used to store data!");
+    use_external_buffer = false;
+    external_buffer = NULL;
+    external_buffer_size = 0;
+    external_buffer_alignment = 0;
+  }
 
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
   inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
 #endif
 
-
   void alloc(int alignment, size_t size){
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ 
+	if(use_external_buffer) ERR.General("DistributedMemoryStorage","alloc","Currently using external buffer but size and alignment of alloc call does not match that of buffer");
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-
-    if(ptr != NULL){
-      if(alignment == _alignment && size == _size) return;
-      else{ block_allocator().free(ptr); ptr = NULL; }
-    }
-    ptr = block_allocator().alloc(alignment,size);
-
+	block_allocator().free(ptr); 
 #else
-
-    if(ptr != NULL){
-      if(alignment == _alignment && size == _size) return;
-      else{ free(ptr); ptr = NULL; }
-    }
-    ptr = memalign_check(alignment, size);
-
+	free(ptr);
 #endif
+	ptr = NULL; 
+      }
+    }
+    
+    if(use_external_buffer){
+      if(external_buffer_size != size || external_buffer_alignment != alignment)
+	ERR.General("DistributedMemoryStorage","alloc","External buffer size and alignment of alloc call does not match that of buffer");
+      ptr = external_buffer;
+    }else{
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+      ptr = block_allocator().alloc(alignment,size);
+#else
+      ptr = memalign_check(alignment, size);
+#endif
+    }
+
     _size = size;
     _alignment = alignment;
   }
 
   void freeMem(){
     if(ptr != NULL){
+      if(!use_external_buffer){
 #ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
-      block_allocator().free(ptr);
+	block_allocator().free(ptr);
 #else
-      free(ptr);
+	free(ptr);
 #endif
+      }
       ptr = NULL;
     }
   }
