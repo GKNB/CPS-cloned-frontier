@@ -22,27 +22,44 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
   //Pre-average over sigma meson fields
   double time = dclock();
   std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_sigma(Lt);
-  
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  void* gather_buf;
+  size_t gather_buf_size = NULL;
+#endif  
+
   for(int s = 0; s< sigma_mom.nMom(); s++){
     ThreeMomentum pwdag = sigma_mom.getWdagMom(s);
     ThreeMomentum pv = sigma_mom.getVmom(s);
-
+ 
     std::vector<A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma_s = mf_sigma_con.get(pwdag,pv);
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    nodeGetMany(1, &mf_sigma_s);
-#endif
-    
-    if(s==0)
-      for(int t=0;t<Lt;t++) mf_sigma[t] = mf_sigma_s[t];
-    else
-#ifndef MEMTEST_MODE
-      for(int t=0;t<Lt;t++) mf_sigma[t].plus_equals(mf_sigma_s[t]);
+    if(s==0){
+      gather_buf_size = mf_sigma_s[0].byte_size();
+      gather_buf = memalign_check(128, gather_buf_size); //setup the buffer memory
+    }
 #endif
 
+    for(int t=0;t<Lt;t++){
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-    nodeDistributeMany(1,&mf_sigma_s);
+      mf_sigma_s[t].enableExternalBuffer(gather_buf, gather_buf_size, 128);
+      mf_sigma_s[t].nodeGet(); //allocs of non-master node use external buf
 #endif
+    
+      if(s==0){
+	mf_sigma[t] = mf_sigma_s[t];
+      }else{
+#ifndef MEMTEST_MODE
+	mf_sigma[t].plus_equals(mf_sigma_s[t]);
+#endif
+      }
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+      mf_sigma_s[t].nodeDistribute();
+      mf_sigma_s[t].disableExternalBuffer();
+#endif
+    }
   }
 
 #ifndef MEMTEST_MODE
@@ -51,6 +68,7 @@ void computeKtoSigmaContractions(const A2AvectorV<A2Apolicies> &V, typename Comp
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
   nodeDistributeMany(1,&mf_sigma);
+  free(gather_buf);
 #endif
 
   print_time("computeKtoSigmaContractions","Sigma meson field pre-average", dclock()-time);

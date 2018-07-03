@@ -352,6 +352,11 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
   mf_WV WV_pi1pi2, WV_pi2pi1;
   mf_WW tmp_pi1pi2, tmp_pi2pi1;
 
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  void *gather_buf_1, *gather_buf_2;
+  size_t gather_buf_sz;
+#endif
+
   int nmom = p_pi_1_all.size();
   for(int pidx=0;pidx<nmom;pidx++){ //Average over momentum orientations
     const ThreeMomentum &p_pi_1 = p_pi_1_all[pidx];
@@ -361,6 +366,13 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
     std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     time = dclock();
+    if(pidx == 0){
+      gather_buf_sz = mf_pi1[tpi1].byte_size();
+      gather_buf_1 = memalign_check(128,gather_buf_sz);
+      gather_buf_2 = memalign_check(128,gather_buf_sz);
+    }
+    mf_pi1[tpi1].enableExternalBuffer(gather_buf_1,gather_buf_sz,128);
+    mf_pi2[tpi2].enableExternalBuffer(gather_buf_2,gather_buf_sz,128);
     mf_pi1[tpi1].nodeGet();
     mf_pi2[tpi2].nodeGet();
     gather_time += dclock() - time;
@@ -399,8 +411,14 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
     mf_pi1[tpi1].nodeDistribute();
     mf_pi2[tpi2].nodeDistribute();
     distribute_time += dclock() - time;
+    mf_pi1[tpi1].disableExternalBuffer();
+    mf_pi2[tpi2].disableExternalBuffer();
 #endif
   }
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+  free(gather_buf_1); free(gather_buf_2);
+#endif
 
   if(nmom > 1)
     for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
