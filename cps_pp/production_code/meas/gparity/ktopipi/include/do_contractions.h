@@ -293,6 +293,15 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
   std::vector< fVector<typename A2Apolicies::ScalarComplexType> > sigma_bub;
   if(cmdline.do_sigma2pt) computeSigma2pt(sigma_bub, mf_sigma, sigma_mom, conf, params);
 
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  printMem("Memory prior to trim");
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+  if(!UniqueID()) printf("Trimming block allocator\n");
+  DistributedMemoryStorage::block_allocator().trim();
+  if(!UniqueID()) DistributedMemoryStorage::block_allocator().stats(std::cout);
+  printMem("Memory after trim");
+#endif
+
   //-------------------------Compute the LL meson fields ------------------------  
   MesonFieldMomentumContainer<A2Apolicies> mf_ll_con;
 

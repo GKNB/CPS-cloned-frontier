@@ -347,6 +347,8 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
   //con_*_*_k = [[ wL^dag(y) S_2 vL(y) ]] [[ wL^dag(z) S_2 vL(z) ]] [[ wL^dag(x_K) wH(x_K) ]]
   if(!UniqueID()){ printf("Computing con_*_*_k with tpi1=%d\n",tpi1); fflush(stdout); }
 
+  double gather_time = 0., distribute_time = 0., mult_time = 0., linalg_time = 0., total_time = -dclock(), time;
+  
   mf_WV WV_pi1pi2, WV_pi2pi1;
   mf_WW tmp_pi1pi2, tmp_pi2pi1;
 
@@ -358,12 +360,16 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
     std::vector<mf_WV > &mf_pi1 = mf_pions.get(p_pi_1); //*mf_pi1_ptr;
     std::vector<mf_WV > &mf_pi2 = mf_pions.get(p_pi_2); //*mf_pi2_ptr;    
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     mf_pi1[tpi1].nodeGet();
     mf_pi2[tpi2].nodeGet();
+    gather_time += dclock() - time;
 #endif
     
+    time = dclock();
     mult(WV_pi1pi2, mf_pi1[tpi1], mf_pi2[tpi2]); //we can re-use this from type 2 I think
     mult(WV_pi2pi1, mf_pi2[tpi2], mf_pi1[tpi1]);
+    mult_time += dclock() - time;
 
     for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
       int tk = modLt(tpi1 - tsep_k_pi[tkp], Lt);
@@ -371,13 +377,17 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
       mf_WW *into_pi1_pi2 = pidx == 0 ? &con_pi1_pi2_k[tkp] : &tmp_pi1pi2;
       mf_WW *into_pi2_pi1 = pidx == 0 ? &con_pi2_pi1_k[tkp] : &tmp_pi2pi1;
 	  
+      time = dclock();
       mult(*into_pi1_pi2, WV_pi1pi2, mf_kaon[tk]);	 
       mult(*into_pi2_pi1, WV_pi2pi1, mf_kaon[tk]);
-	  
+      mult_time += dclock() - time;
+
       if(pidx > 0){
 #ifndef MEMTEST_MODE
+	time = dclock();
 	con_pi1_pi2_k[tkp].plus_equals(tmp_pi1pi2,true);
 	con_pi2_pi1_k[tkp].plus_equals(tmp_pi2pi1,true);
+	linalg_time += dclock() - time;
 #endif
       }
 
@@ -385,18 +395,31 @@ void ComputeKtoPiPiGparity<mf_Policies>::type3_compute_mfproducts(std::vector<mf
     }
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
+    time = dclock();
     mf_pi1[tpi1].nodeDistribute();
     mf_pi2[tpi2].nodeDistribute();
+    distribute_time += dclock() - time;
 #endif
   }
 
   if(nmom > 1)
     for(int tkp = 0; tkp < ntsep_k_pi; tkp++){
 #ifndef MEMTEST_MODE
+      time = dclock();
       con_pi1_pi2_k[tkp].times_equals(1./nmom);
       con_pi2_pi1_k[tkp].times_equals(1./nmom);
+      linalg_time += dclock() - time;
 #endif
     }
+
+  total_time += dclock();
+
+  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts gather",gather_time);
+  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts distribute",distribute_time);
+  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts mult",mult_time);
+  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts linalg",linalg_time);
+  print_time("ComputeKtoPiPiGparity","type3_compute_mfproducts total",total_time);
+
   Type3timings::timer().type3_compute_mfproducts += dclock();
 }
 
