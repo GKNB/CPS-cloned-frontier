@@ -511,6 +511,8 @@ public:
     vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;
 #endif
 
+    std::vector< SCFmatVector > pt1_store_allthr(omp_get_max_threads(), SCFmatVector(ntK_tS));
+
     for(int top_loc = 0; top_loc < GJP.TnodeSites(); top_loc++){
       const int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
@@ -532,7 +534,7 @@ public:
 	if(!thread_id) pt2_time += dclock() - ttime;
 
 	//Precompute part1
-	std::vector<SCFmat> pt1_store(ntK_tS);
+	SCFmat* pt1_store = pt1_store_allthr[thread_id].data();
 	for(int i=0;i<ntK_tS;i++){
 	  ttime = dclock();
 #ifndef DISABLE_KTOSIGMA_TYPE3_SPLIT_VMV   
