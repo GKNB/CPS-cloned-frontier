@@ -101,6 +101,12 @@ public:
 #undef PTR_OFFSET_SZ
 };
 
+struct ReuseBlockAllocatorOptions{
+  //Fix the maximum number of blocks that the allocator will retain in its pool
+  //-1 = unlimited
+  inline static size_t & maxBlocks(){ static size_t b = -1; return b; }
+};
+
 template<typename AllocPolicy>
 class ReuseBlockAllocator: public AllocPolicy{
   struct Block{
@@ -179,9 +185,16 @@ public:
     typename blockPtrMapType::iterator pit = ptr_map.find(ptr);
     if(pit == ptr_map.end()) ERR.General("ReuseBlockAllocator","free ptr","%p is not in ptr_map!\n",ptr);
 
-    typename blockList::iterator bit = pit->second;
-    size_t size = bit->size;
-    all_free[size].push_back(bit);
+    typename blockList::iterator bit = pit->second; //iterator to block
+    size_t mem_size = bit->size;
+
+    if(ReuseBlockAllocatorOptions::maxBlocks() != -1 && all_free[mem_size].size() >= ReuseBlockAllocatorOptions::maxBlocks()){
+      this->freeMem(bit->ptr);
+      ptr_map.erase(pit);
+      blocks.erase(bit);
+    }else{
+      all_free[mem_size].push_back(bit);
+    }
   }
 };
 

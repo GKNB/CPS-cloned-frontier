@@ -227,24 +227,35 @@ struct CommandLineArgs{
 	ERR.General("","main","Grid option --comms-isend is deprecated: use --comms-concurrent instead");
       }else if( strncmp(cmd,"--comms-sendrecv",30) == 0){
 	ERR.General("","main","Grid option --comms-sendrecv is deprecated: use --comms-sequential instead");
+
 #ifdef BNL_KNL_PERFORMANCE_CHECK
       }else if( strncmp(cmd,"-bnl_knl_minperf",30) == 0){
 	bnl_knl_minperf = strToAny<double>(argv[arg+1]);
 	if(!UniqueID()) printf("Set BNL KNL min performance to %f Mflops/node\n",bnl_knl_minperf);
 	arg+=2;
 #endif
+
 #ifdef USE_GRID
       }else if( strncmp(cmd,"-run_initial_grid_benchmarks",50) == 0){
 	run_initial_grid_benchmarks = true;
 	if(!UniqueID()) printf("Running initial Grid benchmarks\n");
 	arg++;
 #endif
+
 #if defined(MESONFIELD_USE_BURSTBUFFER) || defined(MESONFIELD_USE_NODE_SCRATCH)
       }else if( strncmp(cmd,"-mesonfield_scratch_stub",50) == 0){
 	BurstBufferMemoryStorage::filestub() = argv[arg+1];
 	if(!UniqueID()) printf("Set mesonfield scratch stub to %s\n",BurstBufferMemoryStorage::filestub().c_str());
 	arg+=2;
 #endif
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+      }else if( cmdstr == "-max_memblocks" ){
+	ReuseBlockAllocatorOptions::maxBlocks() = strToAny<int>(argv[arg+1]);
+	if(!UniqueID()) printf("Set max memory blocks in block allocator to %d\n", ReuseBlockAllocatorOptions::maxBlocks());
+	arg+=2;
+#endif
+
       }else{
 	bool is_grid_arg = false;
 	for(int i=0;i<ngrid_arg;i++){
