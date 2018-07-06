@@ -498,7 +498,7 @@ public:
     std::vector<Type3MesonFieldProductType> mf_prod(ntK_tS);
     for(int i=0;i<ntK_tS;i++){
       int tK=tK_tS_idx_map[i].first, tS = tK_tS_idx_map[i].second;
-      mult(mf_prod[i], mf_S[tS], mf_ls_WW[tK]);
+      mult(mf_prod[i], mf_S[tS], mf_ls_WW[tK],true); //node local because the tK,tS pairings are specific to this node
     }
     print_time("ComputeKtoSigma","type3 mf product",dclock()-time); 
 
