@@ -115,13 +115,22 @@ public:
 class VML;
 class QPropW4DBoxArg {
 public:
-	 bool Encode(char *filename,char *instance);
-	 bool Decode(char *filename,char *instance);
-	 bool Vml(VML *vmls,char *instance);
-	int box_start[4];
-	int box_size[4];
-	Float mom[4];
-	   QPropW4DBoxArg (  ) ;
+  bool Encode(char *filename,char *instance);
+  bool Decode(char *filename,char *instance);
+  bool Vml(VML *vmls,char *instance);
+  struct {
+    u_int box_start_len;
+    int* box_start_val;
+  } box_start;
+  struct {
+    u_int box_size_len;
+    int* box_size_val;
+  } box_size;
+  struct {
+    u_int mom_len;
+    Float* mom_val;
+  } mom;
+  QPropW4DBoxArg();
 };
 
 class VML;

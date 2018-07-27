@@ -3695,9 +3695,9 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     cname = "QPropW4DBoxSrc";
 
     for (int mu = 0; mu < 4; ++mu) {
-      box_arg.box_start[mu] = b_arg->box_start[mu];
-      box_arg.box_size[mu] = b_arg->box_size[mu];
-      box_arg.mom[mu] = b_arg->mom[mu];
+      box_arg.box_start.box_start_val[mu] = b_arg->box_start.box_start_val[mu];
+      box_arg.box_size.box_size_val[mu] = b_arg->box_size.box_size_val[mu];
+      box_arg.mom.mom_val[mu] = b_arg->mom.mom_val[mu];
     }
 
     Run ();
@@ -3708,15 +3708,15 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     const char *fname = "SetSource()";
     VRB.Func (cname, fname);
 
-    src.Set4DBoxSource (color, spin, box_arg.box_start, box_arg.box_size,
-			box_arg.mom);
+    src.Set4DBoxSource (color, spin, box_arg.box_start.box_start_val, box_arg.box_size.box_size_val,
+			box_arg.mom.mom_val);
 
     if (GFixedSrc ()) {
       // only works for t direction!
       int t_size_glb = GJP.Tnodes () * GJP.TnodeSites ();
       for (int t = 0; t < t_size_glb; t++) {
-	if ((t + t_size_glb - box_arg.box_start[3]) % t_size_glb >=
-	    box_arg.box_size[3])
+	if ((t + t_size_glb - box_arg.box_start.box_start_val[3]) % t_size_glb >=
+	    box_arg.box_size.box_size_val[3])
 	  continue;
 	src.GFWallSource (AlgLattice (), spin, 3, t);
       }
@@ -3737,18 +3737,18 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     const char *fname = "QPropWZ3BWallSrc()";
 
     for (int mu = 0; mu < 4; ++mu) {
-      box_arg.box_start[mu] = b_arg->box_start[mu];
-      box_arg.box_size[mu] = b_arg->box_size[mu];
-      box_arg.mom[mu] = b_arg->mom[mu];
-      if (box_arg.box_size[mu] <= 0) {
+      box_arg.box_start.box_start_val[mu] = b_arg->box_start.box_start_val[mu];
+      box_arg.box_size.box_size_val[mu] = b_arg->box_size.box_size_val[mu];
+      box_arg.mom.mom_val[mu] = b_arg->mom.mom_val[mu];
+      if (box_arg.box_size.box_size_val[mu] <= 0) {
 	ERR.General (cname, fname, "Invalid size in %d direction: %d.\n",
-		     mu, box_arg.box_size[mu]);
+		     mu, box_arg.box_size.box_size_val[mu]);
       }
     }
-    if (box_arg.box_size[3] != 1) {
+    if (box_arg.box_size.box_size_val[3] != 1) {
       ERR.NotImplemented (cname, fname);
     }
-    if (box_arg.box_start[3] != arg->t) {
+    if (box_arg.box_start.box_start_val[3] != arg->t) {
       ERR.General (cname, fname,
 		   "BoxArg and QPropWArg starting time does not match.\n");
     }
@@ -3759,7 +3759,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     };
 
     for (int i = 0; i < 3; ++i) {
-      rand_grid[i] = (glb[i]) / box_arg.box_size[i];
+      rand_grid[i] = (glb[i]) / box_arg.box_size.box_size_val[i];
     }
     rand_size = rand_grid[0] * rand_grid[1] * rand_grid[2];
     rand_num.assign (rand_size, 0);
@@ -3794,7 +3794,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     const char *fname = "SetSource()";
     VRB.Func (cname, fname);
     VRB.Result (cname, fname, "Set Z3 boxed wall source at t=%d.\n", qp_arg.t);
-    src.SetZ3BWall (color, spin, qp_arg.t, box_arg.box_size, rand_num);
+    src.SetZ3BWall (color, spin, qp_arg.t, box_arg.box_size.box_size_val, rand_num);
 
     if (GFixedSrc ()) {
       src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
