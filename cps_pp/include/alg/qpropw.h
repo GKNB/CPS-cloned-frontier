@@ -538,11 +538,11 @@ public:
     SourceType SrcType(){ return BOX_4D; }
 
     int BoxSrcStart(int mu)const {
-        return box_arg.box_start[mu];
+        return box_arg.box_start.box_start_val[mu];
     }
 
     int BoxSrcSize(int mu)const {
-        return box_arg.box_size[mu];
+        return box_arg.box_size.box_size_val[mu];
     }
 };
 
@@ -566,7 +566,7 @@ public:
     SourceType SrcType(){ return BOX_4D; }
 
     int BoxSrcSize(int mu)const {
-        return box_arg.box_size[mu];
+        return box_arg.box_size.box_size_val[mu];
     }
 };
 
