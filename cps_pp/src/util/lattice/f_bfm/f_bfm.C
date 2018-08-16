@@ -132,7 +132,6 @@ Fbfm::Fbfm(void):cname("Fbfm")
         ERR.NotImplemented(cname, fname);
     }
 
-
     bfm_initted = false;
     if (arg_map.count(current_key_mass) > 0) 
     SetBfmArg(current_key_mass);
@@ -149,6 +148,9 @@ Fbfm::Fbfm(void):cname("Fbfm")
     evald = NULL;
     evalf = NULL;
     ecnt = 0;
+
+    // eigen_solver = NULL;
+
     VRB.Result(cname, fname,"ended");
 //    exit(-42);
 }
@@ -660,8 +662,27 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
-#pragma omp parallel
+
+    // bd.cps_impexFermion((Float*) f_out, out, 0);
+
+    if(madwf_arg_map.count(cg_arg->mass) > 0) // MADWF inversion
     {
+      VRB.Result(cname, fname, "Using MADWF: Main Ls = %d, cheap approx Ls = %d.\n", bd.Ls, madwf_arg_map[cg_arg->mass].cheap_approx.Ls);
+      iter = MADWF_CG_M(bd, bf, use_mixed_solver, out, in, bd.mass, this->GaugeField(), cg_arg->stop_rsd, madwf_arg_map[cg_arg->mass], cg_arg->Inverter);
+      #ifndef BFM_GPARITY
+    }
+    else if(cg_arg->Inverter == HDCG) // HDCG inversion
+    {
+      HDCG_wrapper* control = HDCGInstance::getInstance();
+      assert(control != NULL);
+      control->HDCG_set_mass(cg_arg->mass);
+      control->HDCG_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
+      #endif
+    }
+    else
+    {
+      #pragma omp parallel
+      {
         if(use_mixed_solver) {
             iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
         } else {
@@ -684,54 +705,10 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
                 break;
             }
         }
+      }
     }
 
 //    bd.cps_impexFermion((Float *)f_out, out, 1);
-    bd.cps_impexFermion((Float *)f_out, out, 0);
-
-    if (madwf_arg_map.count(cg_arg->mass) > 0) {
-	// MADWF inversion
-	VRB.Result(cname, fname, "Using MADWF: Main Ls = %d, cheap approx Ls = %d.\n", bd.Ls, madwf_arg_map[cg_arg->mass].cheap_approx.Ls);
-
-	iter = MADWF_CG_M(bd, bf, use_mixed_solver,
-	    out, in, bd.mass, this->GaugeField(), cg_arg->stop_rsd, madwf_arg_map[cg_arg->mass], cg_arg->Inverter);
-#ifndef BFM_GPARITY
-    } else if (cg_arg->Inverter == HDCG) {
-	HDCG_wrapper *control = HDCGInstance::getInstance();
-	assert(control != NULL);
-	control->HDCG_set_mass(cg_arg->mass);
-	control->HDCG_invert(out, in, cg_arg->stop_rsd, cg_arg->max_num_iter);
-#endif
-    } else {
-	// no MADWF:
-#pragma omp parallel
-	{
-	    if (use_mixed_solver) {
-		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
-	    } else {
-		switch (cg_arg->Inverter) {
-		    case CG:
-			if (evec && evald && ecnt) {
-			    iter = bd.CGNE_M(out, in, *evec, *evald);
-			} else {
-			    iter = bd.CGNE_M(out, in);
-			}
-			break;
-		    case EIGCG:
-			iter = bd.EIG_CGNE_M(out, in);
-			break;
-		    default:
-			if (bd.isBoss()) {
-			    printf("%s::%s: Not implemented\n", cname, fname);
-			}
-			exit(-1);
-			break;
-		}
-	    }
-	}
-    }
-
-
     bd.cps_impexFermion((Float *)f_out, out, 0);
 
     bd.freeFermion(in[0]);
