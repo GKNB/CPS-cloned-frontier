@@ -193,7 +193,7 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 	       mass,
 	       (Dwf *) mobius_lib_arg);
   dtime += dclock();
-  print_time(cname,"MatPcDag()",dtime);
+//  print_time(cname,"MatPcDag()",dtime);
 }
 
 //------------------------------------------------------------------

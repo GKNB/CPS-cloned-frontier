@@ -547,10 +547,10 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag){
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,i)";
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
+//Dslash is actually an unpreconditioned one!
   dop.Dslash(f_out,f_in,CHKB_EVEN,DAG_NO);
-#if 1
 {
-  unsigned long size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
   int local_ls = GJP.SnodeSites();
   const int s_node_coor = GJP.SnodeCoor();
   const int ls_stride = 24 * GJP.VolNodeSites()/2;
@@ -571,7 +571,6 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   }
   //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
 }
-#endif
 }
 int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in, 
 		     CgArg *cg_arg, 

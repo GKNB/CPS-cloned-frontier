@@ -1,6 +1,5 @@
-#ifdef USE_SSE
-//#if 0
-#include "mobius_dslash_5_plus-nonowait.C"
+#if ( defined USE_SSE ) && ( !defined SSE_TO_C )
+#include "mobius_dslash_5_plus-nonowait.C.inc"
 #else
 #include<config.h>
 CPS_START_NAMESPACE
