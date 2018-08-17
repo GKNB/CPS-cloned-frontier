@@ -51,7 +51,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
 //  exit(-24);
 //  ImplicitlyRestartedLanczos<FermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 //  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-  Grid::ImplicitlyRestartedLanczos < LATTICE_FERMION_F > IRL (HermOpF, Cheb,
+  Grid::ImplicitlyRestartedLanczosCJ < LATTICE_FERMION_F > IRL (HermOpF, Cheb,
 							      Nstop, Nk, Nm,
 							      resid_f, MaxIt);
   precisionChange (grid_rb_in_f, grid_rb_in);
@@ -86,6 +86,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
   int mem_save = eig_arg->mem_save;
+//  if (mem_save) ERR.General (cname, fname, " mem_save does not work yet!\n");
   int precision = eig_arg->precision;
   DIRAC::ImplParams params;
   SetParams (params);
@@ -150,12 +151,12 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   }
 #ifndef SINGLE
   Grid::Chebyshev < LATTICE_FERMION > Cheb (low, high, order);
-  Grid::ImplicitlyRestartedLanczos < LATTICE_FERMION > IRL (HermOp, Cheb, Nstop,
+  Grid::ImplicitlyRestartedLanczosCJ < LATTICE_FERMION > IRL (HermOp, Cheb, Nstop,
 							    Nk, Nm, resid,
 							    MaxIt);
 #else
   Grid::Chebyshev < LATTICE_FERMION_F > Cheb (low, high, order);
-  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::ImplicitlyRestartedLanczosCJ <LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
   precisionChange(grid_rb_in_f,grid_rb_in);
 #endif
 
@@ -178,12 +179,12 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 	else				 f_size *=sizeof(double);
 
   for (int i = Nstop-1; i >= 0  ; i--) {
-    if( (mem_save==0) && (f_eigenv[i] == NULL) )
+    if( (mem_save==0) && (!f_eigenv[i] ) )
       ERR.General (cname, fname, "f_eigenv[%d] not allocated\n", i);
     lambda[i] = eval[i];
 
     if(mem_save==1){
-		f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
+	f_eigenv[i] = (Vector *) smalloc(cname,fname,"f_eigenv[i]",f_size);
     } 
 #ifndef SINGLE
     setCheckerboard (grid_out, evec[i]);
@@ -194,6 +195,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 //    ImportFermion (f_eigenv[i], grid_out_f, Odd);
 // forcing it to be float, although it is ostensively double
     ImpexFermion < float,LATTICE_FERMION_F, SITE_FERMION_F > (f_eigenv[i], grid_out_f, 0, Odd, NULL);
+    VRB.Result(cname,fname,"f_eigenv[%d]=%p\n",i,f_eigenv[i]);
 	evec_f.resize(i,F_RB_GRID_F);
 #endif
     

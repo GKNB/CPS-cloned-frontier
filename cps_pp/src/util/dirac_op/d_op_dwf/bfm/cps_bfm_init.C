@@ -44,11 +44,10 @@ CPS_START_NAMESPACE
 int cps_qdp_init(int *argc, char ***argv){
   VRB.Result("","cps_qdp_init()","started\n");
   if (qdp_initted) return 1;
-  //  if (Chroma::isInitialized()) {
-  if ( qdp_already_initted ) {
-//|| QDP::QDP_isInitialized()) {
+//  if ( qdp_already_initted ) {
+  if ( qdp_already_initted || QDP::QDP_isInitialized()) {
 
-    VRB.Result("","cps_qdp_init()","Already started!");
+    VRB.Debug("","cps_qdp_init()","Already started!");
     qdp_initted = 1;
     return 1;
   }
@@ -382,6 +381,7 @@ void impexFermion(
     multi1d<int> ncoor = QDP::Layout::nodeCoord();
     multi1d<int> procs = QDP::Layout::logicalSize();
 
+#ifdef BFM_GPARITY
     if(GJP.Gparity()){
       dwfa.gparity = 1;
       Printf("G-parity directions: ");
@@ -394,6 +394,7 @@ void impexFermion(
       }
       Printf("\n");
     }
+#endif
 
     dwfa.verbose=1;
     dwfa.reproduce=0;

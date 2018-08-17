@@ -457,7 +457,7 @@ if (!UniqueID())
   VRB.FuncEnd(cname,fname);
 }
 
-const int GlobalJobParameter::SetNthreads(const int &n){ 
+int GlobalJobParameter::SetNthreads(const int &n){ 
   if (n>0) threads = n; 
   omp_set_num_threads(threads);
   return threads;

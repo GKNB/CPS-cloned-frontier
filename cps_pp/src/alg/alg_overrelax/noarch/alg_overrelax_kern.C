@@ -7,19 +7,6 @@ CPS_START_NAMESPACE
   $Id: alg_overrelax_kern.C,v 1.4 2007/06/06 16:06:22 chulwoo Exp $
 */
 //--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2007/06/06 16:06:22 $
-//  $Header: /space/cvs/cps/cps++/src/alg/alg_overrelax/noarch/alg_overrelax_kern.C,v 1.4 2007/06/06 16:06:22 chulwoo Exp $
-//  $Id: alg_overrelax_kern.C,v 1.4 2007/06/06 16:06:22 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: alg_overrelax_kern.C,v $
-//  $Revision: 1.4 $
-//  $Source: /space/cvs/cps/cps++/src/alg/alg_overrelax/noarch/alg_overrelax_kern.C,v $
-//  $State: Exp $
-//
 //--------------------------------------------------------------------
 //------------------------------------------------------------------
 //

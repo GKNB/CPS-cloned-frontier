@@ -1,27 +1,5 @@
-#include<config.h>
-#include <util/qcdio.h>
-#include <stdlib.h>
 #include <math.h>
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/dirac_op.h>
-#include<util/error.h>
-#include<util/time_cps.h>
-#include<comms/scu.h>
-#include<alg/alg_hmd.h>
-#include<alg/do_arg.h>
-#include<alg/common_arg.h>
-#include<alg/cg_arg.h>
-#include<alg/hmd_arg.h>
-#include<alg/ghb_arg.h>
-#if TARGET == QCDOC
-#include <qalloc.h>
-extern "C"{
-void _mcleanup(void);
-}
-#endif
-
+#include<cps.h>
 
 
 USING_NAMESPACE_CPS
@@ -36,11 +14,9 @@ int main(int argc,char *argv[]){
 
 //WfmFlops = 0;
 
-#if TARGET == QCDOC
-    DefaultSetup();
+    Start(&argc,&argv);
     printf("Sizes = %d %d %d %d %d %d\n",SizeX(),SizeY(),SizeZ(),SizeT(),SizeS(),SizeW());
     printf("Coors = %d %d %d %d %d %d\n",CoorX(),CoorY(),CoorZ(),CoorT(),CoorS(),CoorW());
-#endif
     FILE *fp;
     double dtime;
 

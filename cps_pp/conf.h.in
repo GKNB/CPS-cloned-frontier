@@ -3,8 +3,17 @@
 /* Define to 1 if the system has the type `bool_t'. */
 #undef HAVE_BOOL_T
 
+/* Define to 1 if you have the <cblas.h> header file. */
+#undef HAVE_CBLAS_H
+
 /* Define to 1 if the system has the type `enum_t'. */
 #undef HAVE_ENUM_T
+
+/* Define to 1 if you have the <gmp.h> header file. */
+#undef HAVE_GMP_H
+
+/* Define to 1 if you have the <gsl_cblas.h> header file. */
+#undef HAVE_GSL_CBLAS_H
 
 /* Define to 1 if the system has the type `int16_t'. */
 #undef HAVE_INT16_T
@@ -26,6 +35,9 @@
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <mkl_cblas.h> header file. */
+#undef HAVE_MKL_CBLAS_H
 
 /* Define to 1 if the system has the type `netobj'. */
 #undef HAVE_NETOBJ
@@ -95,3 +107,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define 1 if you have fftw3 library */
+#undef USE_FFTW
+
+/* Define 1 if you have zlib */
+#undef USE_ZLIB

@@ -114,7 +114,7 @@ void init_qmp(int * argc, char ***argv) {
 
     // check QMP thread level
     // Added by Hantao
-    if(peRank == 0) {
+    if(qmpRank == 0) {
         switch(prv) {
         case QMP_THREAD_SINGLE:
             printf("QMP thread level = QMP_THREAD_SINGLE\n");
@@ -166,6 +166,12 @@ void init_qmp(int * argc, char ***argv) {
 	}
 	QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
 	QMP_comm_set_default(qmp_comm);
+#else
+	peRank=0;
+	for(int i=NDIM-1;i>=0;i--){
+		peRank *= peGrid[i];
+		peRank += pePos[i];
+	}
 #endif
 
     if(peRank==0){
@@ -209,11 +215,19 @@ void init_qmp(int * argc, char ***argv) {
       QMP_error("Node %d: Failed to declare logical topology\n",peRank);
       exit(-4);
     }
+#ifdef USE_GRID
     pePos_t = QMP_get_logical_coordinates();
     peRank = pePos_t[NDIM-1];
     if(NDIM>1)
     for(int i = NDIM-2;i>=0 ;i--) peRank = peRank*peGrid[i] + pePos_t[i];
+    for(int i = 0; i<NDIM;i++)
+    if ( pePos_t[i] != grid_cart._processor_coor[i] ) { 
+       printf("%d %d: QMP %d Grid %d\n",peRank,i,pePos_t[i],grid_cart._processor_coor[i]);
+       QMP_abort(-32);
+    }
+#endif
  //debugging
+//    if(0){
     if (peRank != qmpRank){
 	printf("peRank(%d) != qmpRank(%d) pePos= ",peRank,qmpRank);
 	for(int i=0;i<NDIM;i++) printf("%d ",pePos[i]);

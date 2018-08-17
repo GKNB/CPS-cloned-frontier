@@ -35,7 +35,11 @@ class Krylov_5d : public Krylov<S>
 template <class S> 
 void Krylov_5d<S>::toSingle() // Change bq to single precision
 {
-	int words = 24 * this->dop.node_cbvol * this->dop.cbLs * (1 + this->dop.gparity);
+	int words = 24 * this->dop.node_cbvol * this->dop.cbLs * (1 
+#ifdef BFM_GPARITY
++ this->dop.gparity
+#endif
+);
 
 	for(int i = 0; i < this->get; i++) {
 		bfm_fermion bq_tmp;
@@ -97,8 +101,11 @@ void Krylov_5d<S>::init()
 
   this->bf.resize(sizebf); 
 
+#ifdef BFM_GPARITY
   if(this->dop.gparity) QDPIO::cout << "Krylov init for 2f G-parity\n";
-  else QDPIO::cout << "Krylov init for standard fermions\n";
+  else 
+#endif
+  QDPIO::cout << "Krylov init for standard fermions\n";
 
   for(int i = 0; i < sizebf; ++i){
     this->init_fermion(this->bf[i]);
@@ -116,7 +123,10 @@ void Krylov_5d<S>::init()
   for(int col = 0; col < 3; col++)
     pokeColor(of, tspin, col);
 
-  if(!this->dop.gparity){
+#ifdef BFM_GPARITY
+  if(!this->dop.gparity)
+#endif
+    {
     multi1d<LatticeFermion> st(this->dop.Ls);
     //CK: place the 4d source vector on both walls of the 5th dimension and set other s-slices to 0
     st[0] = of; 
@@ -124,7 +134,9 @@ void Krylov_5d<S>::init()
     for(int k = 1; k < this->dop.Ls - 1; ++k)
       st[k] = zero;
     this->qdp_to_bfm(st, this->bq[0]);
-  }else{
+  }
+#ifdef BFM_GPARITY
+else{
     //CK: for G-parity, on each s-slice, 2 4d fields are expected: s=0 |f0 f1| s=1 |f0 f1| ....
     //As the source is 1.0 on every spin-color index, it makes sense to make it 1.0 on both flavour indices too
     printf("Making multi1d<LatticeFermion> of size %d\n", 2*this->dop.Ls);
@@ -137,6 +149,7 @@ void Krylov_5d<S>::init()
       st[k] = zero;
     this->qdp_to_bfm(st, this->bq[0]);
   }
+#endif
   double hnorm = this->norm(this->bq[0]);
   printf("Starting vector norm %g\n",hnorm);
   

@@ -14,21 +14,6 @@
 
 CPS_START_NAMESPACE
 
-#if 0
-const char *RNGString = 
-#ifdef USE_C11_RNG
-#ifdef USE_C11_MT
-"LATTICE_RNG_C11_MT19937";
-#elif (defined USE_C11_RANLUX)
-"LATTICE_RNG_C11_RANLUX48";
-#else
-"LATTICE_RNG_C11_SITMO";
-#endif
-#else
-"LATTICE_RNG_5D_4D";
-#endif
-#endif
-
 // GCFheaderPar class
 // header parser for parallel IO
 // removed "exit()"'s, others same as class GCFheader
@@ -61,7 +46,8 @@ class LatHeaderBase {
  public:
   enum HEADER_TYPES {
     LATTICE_HEADER,
-    LATRNG_HEADER
+    LATRNG_HEADER,
+    LATTICE_NERSC
   };
   virtual enum HEADER_TYPES headerType() const = 0;
   virtual std::streamoff dataStart() const = 0;
@@ -78,6 +64,100 @@ class LatHeaderBase {
 
  protected:
   GCFheaderPar hd;
+};
+
+// header specification/interpretation
+class LatNERSCHeader : public LatHeaderBase {
+ public:
+     const char *cname;
+  // header strings
+    std::string hdr_version;
+//  int recon_row_3; // determines DATATYPE = 4D_SU3_GAUGE or 4D_SU3_GAUGE_3X3
+    std::string storage_format;
+    int data_per_site;
+
+  int dimension[4];
+//  Float link_trace;
+//  Float plaquette;
+
+  BndCndType boundary[4]; 
+  unsigned int checksum;
+
+//    std::string ensemble_id ;
+//    std::string ensemble_label ;
+//  int sequence_number ;
+    std::string creator ;
+    std::string creator_hardware ;
+    std::string creation_date ;
+    std::string archive_date ;
+
+  FP_FORMAT floating_point;
+
+  LatNERSCHeader():LatHeaderBase(),cname("LatNERSCHeader") {
+//    ensemble_id = "unspecified";
+//    ensemble_label = "unspecified";
+//    sequence_number = 0;
+  }
+
+  void init(const QioArg & qio_arg, FP_FORMAT FileFormat);
+  void setHeader(int ndata, const char *CreatorName = NULL, const char *CreatorHardware = NULL );
+    virtual void writeContent(std::ostream & fout);
+    void write(std::ostream & fout,std::vector<std::string> key, std::vector<std::string> value){
+    fout.seekp(0,std::ios::beg);
+    fout << "BEGIN_HEADER" << std::endl;
+     writeContent(fout);
+	if(key.size()!=value.size())
+        ERR.General(cname,"write()","key(%d) and value(%d) length mismatch\n",key.size(),value.size());
+    for(int i =0;i<key.size();i++){
+    std::cout << key[i] <<" = " << value[i] << std::endl;
+    fout << key[i] <<" = " << value[i] << std::endl;
+    }
+
+
+    fout << "END_HEADER" << std::endl;
+    data_start = fout.tellp();
+    VRB.Result(cname,"write()","data_start=%d csum_pos=%d\n",data_start,csum_pos);
+    }
+
+    void write(std::ostream &fout){
+	std::vector <std::string> key;
+	std::vector <std::string> value;
+	this->write(fout,key,value);
+    }
+
+    void fillInChecksum(std::ostream & fout, unsigned int checksum) const;
+  
+    virtual void read(std::istream & fin);
+
+  void show() const { hd.Show(); }
+
+  enum HEADER_TYPES headerType() const { return LATTICE_NERSC; }
+  std::streamoff dataStart() const { return data_start; }
+  void fillInCheckInfo(std::ostream & fout, unsigned int cs, unsigned int pdcs,
+		       const Float calc1, const Float calc2) const {
+    fillInChecksum(fout, cs);
+  }
+
+ private:
+  int csum_pos;
+};
+
+template<FixGaugeType gfix_type> 
+class LatGfixHeader : public LatNERSCHeader {
+ public:
+    const char *cname;
+    Float stp_cnd; //stopping condition
+//    FixGaugeType gfix_type;
+    
+    LatGfixHeader():LatNERSCHeader(),cname("LatGfixHeader") {}
+    void writeContent(std::ostream & fout);
+    void read(std::istream & fin);
+//    void setHeader(FixGaugeType fix, Float stp, const char *CreatorName = NULL, const char *CreatorHardware = NULL ){
+//       gfix_type=fix;	
+//       stp_cnd = stp;
+//       LatNERSCHeader::setHeader(18,CreatorName,CreatorHardware);
+//    }
+
 };
 
 

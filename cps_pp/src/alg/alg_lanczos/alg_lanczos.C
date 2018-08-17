@@ -123,7 +123,10 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
   lambda = ecache->eval_address();
   // eigenvectors are stored in cache. Pass along addresses.
   eigenv = (Vector**)smalloc(m*sizeof(Vector*));
-  for(int i=0;i<m;++i) eigenv[i] = ecache->vec_ptr(i);
+  for(int i=0;i<m;++i){
+	 eigenv[i] = ecache->vec_ptr(i);
+	VRB.Result (cname, fname, "eigenv[%d]=%p\n", i, eigenv[i]);
+  }
 
 
   if(!(  (lanczos_arg -> RitzMat_lanczos == MATPCDAG_MATPC 
@@ -231,6 +234,10 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
     iter = lat.FeigSolv(eigenv, lambda, lanczos_arg, CNV_FRM_YES);
   else if(Ncb==1)
     iter = lat.FeigSolv(eigenv, lambda, lanczos_arg, CNV_FRM_NO);
+  for(int i=0;i<m;++i){
+	 ecache->set_ptr(i,eigenv[i]);
+	VRB.Result (cname, fname, "eigenv[%d]=%p ecache %p\n", i, eigenv[i],ecache->vec_ptr(i));
+  }
  
   // Now Let's save them
 
@@ -245,18 +252,20 @@ void AlgLanczos::run(int init_flag, int ncompress, char* comp_file ){
 
   // write to disk if desired, confirm save in cache
   char filename[1024];
-  snprintf(filename,1024, "%s.bc%d%d%d%d", alg_lanczos_arg->file, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+//  snprintf(filename,1024, "%s.bc%d%d%d%d", alg_lanczos_arg->file, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
+  snprintf(filename,1024, "%s", alg_lanczos_arg->file);
   EigenContainer eigcon( lat, filename, nk, f_size_per_site, n_fields, ecache);
-  if(lanczos_arg->save) {
+//  if(lanczos_arg->save) {
+// I'm not sure why the eigenvectors are saved only when 'save' flag is on?
   eigcon. save_eval( lambda );
   ecache->eval_cached=1;
-  }
-  for(int iev=0; iev < nk; iev++)
+//  }
+  for(int iev=0; iev < nt; iev++)
     ecache->index[iev]=iev;
 
   int save_stride = GJP.SaveStride();
   if(lanczos_arg->save){
-    for(int iev=0; iev < nk; iev+= save_stride){
+    for(int iev=0; iev < nt; iev+= save_stride){
       // save in "nev" format
       eigcon.nev_save( iev, eigenv[iev], 
 		       field_type_label, ensemble_id, ensemble_label, seqNum );

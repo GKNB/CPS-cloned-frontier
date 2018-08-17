@@ -235,7 +235,7 @@ class DiracOp
   virtual void DiracArg(CgArg *arg) = 0;
      // It sets the dirac_arg pointer to arg and initializes
      // the relevant parameters (kappa, m^2, ...).
-  virtual CgArg * const DiracArg() {return dirac_arg;}
+  virtual CgArg * DiracArg() {return dirac_arg;}
 
   //! Multiplication by the square of the odd-even preconditioned fermion matrix.
   /*!

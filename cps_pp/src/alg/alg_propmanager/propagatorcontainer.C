@@ -605,15 +605,19 @@ void LanczosContainer::setupBfm(const int &prec){
   bfmarg dwfa;
   
   for(int d=0;d<4;d++){
+#ifdef BFM_GPARITY
     dwfa.nodes[d] = GJP.Nodes(d);
+#endif
     dwfa.ncoor[d] = GJP.NodeCoor(d);
     dwfa.node_latt[d] = GJP.NodeSites(d);
   }
 
+#ifdef BFM_GPARITY
   if(GJP.Gparity()){
     dwfa.gparity = 1;
     for(int d=0;d<3;d++) dwfa.gparity_dir[d] = (GJP.Bc(d) == BND_CND_GPARITY ? 1 : 0);
   }
+#endif
   dwfa.verbose=1;
   dwfa.reproduce=0;
 

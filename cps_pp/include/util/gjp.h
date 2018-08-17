@@ -169,7 +169,7 @@ public:
 
 
   inline const int & Nthreads() const{ return threads; }
-  const int SetNthreads(const int &n=0);
+  int SetNthreads(const int &n=0);
 
   ~GlobalJobParameter();
 
@@ -551,16 +551,16 @@ public:
   const char * StartSeedFilename() const
       {return doarg_int.start_seed_filename;}
 
-  const int StartConfAllocFlag() 
+  int StartConfAllocFlag() 
       {return doarg_int.start_conf_alloc_flag;}
-  const int StartU1ConfAllocFlag()
+  int StartU1ConfAllocFlag()
       {return doext_p->start_u1_conf_alloc_flag;}
-  const int mult_u1()
+  int mult_u1()
       {return doext_p->mult_u1_conf_flag;}
 
-  const int WfmSendAllocFlag() 
+  int WfmSendAllocFlag() 
       {return doarg_int.wfm_send_alloc_flag;}
-  const int WfmAllocFlag() 
+  int WfmAllocFlag() 
       {return doarg_int.wfm_alloc_flag;}
 
   StartSeedType StartSeedKind() const

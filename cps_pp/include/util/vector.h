@@ -420,6 +420,19 @@ class Matrix
         tmp.DotMEqual(*this, m);
         return tmp;
     }
+
+    Matrix operator*(const Complex &c) {
+      Matrix tmp(*this);
+      for(int i = 0; i < COLORS * COLORS; ++i){
+	int reidx = 2*i; int imidx = reidx+1;
+	Float rev = tmp.u[reidx];
+	tmp.u[reidx] = u[reidx]*c.real() - u[imidx]*c.imag();
+	tmp.u[imidx] = rev*c.imag() + u[imidx]*c.real();
+      }
+      return tmp;
+    }
+
+
      //! Assignment to matrix product; \a ab
      /*!
          \param a the matrix \a a

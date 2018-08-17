@@ -271,6 +271,7 @@ class Lattice
 
 
     int *SigmaField() const {
+	if(!sigma_field)ERR.General(cname,"SigmaField()", "sigma_field not allocated\n");
         return sigma_field;
     }
     //!< Returns the pointer to the sigma field configuration.
@@ -658,7 +659,7 @@ class Lattice
     void FixGaugeAllocate(FixGaugeType GaugeType,int NHplanes=0,int *Hplanes=0);
         //!< Allocates memory for the gauge fixing matrices.
 
-    int FixGauge(Float StopCond, int MaxIterNum);
+    int FixGauge(Float StopCond, unsigned long MaxIterNum);
     //!< Fixes the gauge.
 
         // FixGaugeAllocate must be called first.
@@ -684,6 +685,7 @@ class Lattice
     //   for Coulomb gauge, if the hyperplane on which site resides has not been gauge fixed, the function will return NULL    
 
     const Matrix* FixGaugeMatrix(int const* pos,const int &flavor = 0);
+    void SetFixGaugeMatrix(const Matrix &mat, int const* pos,const int &flavor = 0);
     //!< Returns the gauge fixing matrix for the position 'pos' (and G-parity flavor 'flavor')
     //   for Coulomb gauge, if the hyperplane on which pos resides has not been gauge fixed, the function will return NULL
 
@@ -878,23 +880,7 @@ class Lattice
 #endif
 
     //~~ to distinguish 5D types. Currently exclude BFM, as BFM does all the 5D stuff outside CPS.
-    virtual int F5D()
-#if 0
-    {return 0;}
-#else
-     {
-      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS) return 1;
-       if(Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) return 1;
-#ifdef USE_BFM
-     if ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1; //added by CK, moved here  by CJ
-#endif
-#ifdef USE_GRID
-      if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
-#endif
-      return 0;
-     }
-#endif
+    virtual int F5D();
 
 
 
@@ -1192,7 +1178,7 @@ class Lattice
     virtual int FeigSolv(Vector **f_eigenv, Float *lambda, 
 			 LanczosArg *eig_arg, 
 			 CnvFrmType cnv_frm = CNV_FRM_YES){
-		char *fname = "FeigSolv(**V,F*,L*,C)";
+		const char *fname = "FeigSolv(**V,F*,L*,C)";
 		ERR.NotImplemented(cname,fname);
 		return -1;
 	}
@@ -1234,7 +1220,7 @@ class Lattice
 	      Float *true_res,
 	      CnvFrmType cnv_frm ,
 	      PreserveType prs_f_in)
-  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");} // for now
+  {ERR.NotImplemented(cname,"FmatInv(V*,V*,M*,M*,F*,C*,P*)");return 1;} // for now
 
   
     virtual Float SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
@@ -1317,7 +1303,7 @@ class Lattice
     virtual void Fconvert(Vector *f_field, 
 		   	  StrOrdType to,
 			  StrOrdType from, int cb=2){
-		char *fname = "Fconvert(*V,O,O)";
+		const char *fname = "Fconvert(*V,O,O)";
 		ERR.NotImplemented(cname,fname);
 	}
     //!< Converts the field layout.
@@ -1370,6 +1356,8 @@ class Lattice
     virtual void BondCond();
     Float GetReTrPlaq(const int x[4],Float *ReTrPlaq);
     int BcApplied(){return bc_applied;}
+   
+    virtual void SetMassArg(Float mass){}
 };
 
 //------------------------------------------------------------------

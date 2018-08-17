@@ -173,6 +173,9 @@ QPropW::QPropW (Lattice & lat, QPropWArg * arg, CommonArg * c_arg)
   propls = NULL;
   prop5d = NULL;
 
+  VRB.Result(cname,fname,"mass=%g\n",arg->cg.mass);
+  lat.SetMassArg(arg->cg.mass);
+
 
   // YA
   lat_back = NULL;
@@ -415,8 +418,8 @@ void QPropW::Run (const int do_rerun, const Float precision)
   char *fname = "Run()";
   VRB.Func (cname, fname);
   //CJ: make it skip running CG when EigCG is intended
-  if (qp_arg.cg.Inverter == EIGCG)
-    return;
+//  if (qp_arg.cg.Inverter == EIGCG)
+//    return;
 
   Float dtime0 = dclock ();
 
@@ -3092,6 +3095,8 @@ QPropWWallSrc::QPropWWallSrc (Lattice & lat, QPropWArg * arg, CommonArg * c_arg)
     char *fname = "QPropWWallSrc(L&, QPropWArg*, ComArg*)";
     cname = "QPropWWallSrc";
     VRB.Func (cname, fname);
+  VRB.Result(cname,fname,"mass=%g\n",arg->cg.mass);
+  lat.SetMassArg(arg->cg.mass);
     // get the propagator
     Run ();
   }

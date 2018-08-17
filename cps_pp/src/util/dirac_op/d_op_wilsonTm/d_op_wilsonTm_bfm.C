@@ -114,8 +114,12 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.node_latt[3]  = lt;
     wilsa.verbose=0;
     wilsa.reproduce=0;
+<<<<<<< HEAD
 
     bfmarg::Threads(GJP.Nthreads());
+=======
+//    bfmarg::Threads(64);
+>>>>>>> 9589c257f711e5fa06703300d913cbd238b07fd2
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);
@@ -147,6 +151,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     
     multi1d<int> ncoor = QDP::Layout::nodeCoord();
   
+#ifdef BFM_GPARITY
     if(GJP.Gparity()){
       wilsa.gparity = 1;
       Printf("G-parity directions: ");
@@ -159,6 +164,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
       }
       Printf("\n");
     }
+#endif
   
     GJP.SetNthreads();
     
@@ -170,7 +176,7 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.mass = toDouble(mass);
     wilsa.twistedmass = toDouble(epsilon);
     wilsa.Csw  = 0.0;
-#ifndef USE_NEW_BFM_GPARITY
+#if 0
     wilsa.list_engine=0;
     wilsa.list_length=0;
 #endif
@@ -350,6 +356,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
     multi1d<int> ncoor = QDP::Layout::nodeCoord();
     multi1d<int> procs = QDP::Layout::logicalSize();
 
+#ifdef BFM_GPARITY
     if(GJP.Gparity()){
       wilsa.gparity = 1;
       Printf("G-parity directions: ");
@@ -362,6 +369,7 @@ int DiracOpWilsonTm::MInvCG(Vector **out, Vector *in, Float in_norm, Float *mass
       }
       Printf("\n");
     }
+#endif
 
 
     Printf("%d dim machine\n\t", procs.size());

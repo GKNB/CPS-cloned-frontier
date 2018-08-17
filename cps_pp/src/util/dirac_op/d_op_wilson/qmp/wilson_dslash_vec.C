@@ -257,7 +257,7 @@ void wilson_dslash_vec(IFloat *chi_p_f,
 
   //printf("Node %d, local_comm=%d %d %d %d\n",UniqueID(),local_comm[0],local_comm[1],local_comm[2],local_comm[3]); fflush(stdout);
 
-  if (called%100==0)
+  if (called%100000==0)
     VRB.Result(cname,fname,"local_comm=%d %d %d %d\n",local_comm[0],local_comm[1],local_comm[2],local_comm[3]);
 
   int u_cboff = vol; //vol is the checkerboard volume, i.e. half the 4d volume
@@ -811,11 +811,11 @@ void wilson_dslash_vec(IFloat *chi_p_f,
   called++;
 #if 1
 
-	if (called%10000==0){
-		print_flops("wilson_dslash_vec()","local*10000",0,local);
-		print_flops("wilson_dslash_vec()","nonlocal*00100",0,nonlocal);
-		print_flops("wilson_dslash_vec()","qmp*10000",0,qmp);
-		print_flops("wilson_dslash_vec()","setup*10000",0,setup);
+	if (called%100000==0){
+		print_flops("wilson_dslash_vec()","local*100000",0,local);
+		print_flops("wilson_dslash_vec()","nonlocal*10000",0,nonlocal);
+		print_flops("wilson_dslash_vec()","qmp*100000",0,qmp);
+		print_flops("wilson_dslash_vec()","setup*100000",0,setup);
 		local=nonlocal=qmp=setup=0.;
 	}
 #endif

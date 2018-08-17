@@ -1,15 +1,12 @@
-#include <config.h>
-#include <util/latrngio.h>
-#include <util/gjp.h>
-#include <alg/do_arg.h>
-#include <comms/sysfunc_cps.h>
-#include <stdlib.h>
+#include <cps.h>
 
 
 USING_NAMESPACE_CPS
 
 
 int main(int argc, char ** argv) {
+
+  Start(&argc,&argv);
   if(argc<6) {
     cout << "Usage:" << endl<<"      qrun QCDOC.x  -[r|w]  <RNG.file>  <x/y/z sites>  <t sites>  <s sites>"<< endl;
     cout << "Eg,   qrun QCDOC.x -r  rng8x8x8x8x4.file   8  8  4"<< endl;

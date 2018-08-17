@@ -1,40 +1,7 @@
-#include<config.h>
 #include<stdlib.h>
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2008/02/08 18:35:08 $
-//  $Header: /space/cvs/cps/cps++/tests/g_hmd/main.C,v 1.14 2008/02/08 18:35:08 chulwoo Exp $
-//  $Id: main.C,v 1.14 2008/02/08 18:35:08 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: main.C,v $
-//  $Revision: 1.14 $
-//  $Source: /space/cvs/cps/cps++/tests/g_hmd/main.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-
-#include<util/gjp.h>
-#include<util/pt.h>
-#include<util/lattice.h>
-#include<alg/alg_hmd.h>
-#include<alg/alg_plaq.h>
-#include<alg/alg_rect.h>
-#include<alg/do_arg.h>
-#include<alg/no_arg.h>
-#include<comms/sysfunc_cps.h>
-#include<util/omp_wrapper.h>
-
-
-
+#include<cps.h>
 
 USING_NAMESPACE_CPS
-
-
-
-
 
 int main(int argc,char *argv[])
 {

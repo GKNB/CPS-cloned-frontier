@@ -19,7 +19,7 @@ CPS_START_NAMESPACE
 //CK: In order to directly reproduce the Quotient action results for WilsonTm fermions from CPS using Fbfm, we need to apply a unitary
 //    transformation to the random vectors due to the differing normalization choices. If disabled the Fbfm results will differ slightly from the CPS results
 #define CPS_FBFM_WILSONTM_COMPAT_MODE
-  CPS_END_NAMESPACE
+CPS_END_NAMESPACE
 #include<alg/alg_hmd.h>
 #include<util/lattice.h>
 #include<util/vector.h>
@@ -35,9 +35,6 @@ CPS_START_NAMESPACE
 #ifdef USE_BFM
 #include <util/lattice/fbfm.h>
 #include <util/lattice/f_dwf4d.h>
-#endif
-#ifdef USE_BFM
-#include<util/lattice/fbfm.h>
 #ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
 CPS_START_NAMESPACE extern "C"
 {
@@ -47,7 +44,7 @@ CPS_END_NAMESPACE
 #endif
 #endif
  
-  CPS_START_NAMESPACE
+CPS_START_NAMESPACE
   AlgActionQuotient::AlgActionQuotient (AlgMomentum & mom,
 					ActionQuotientArg & q_arg)
 :AlgActionBilinear (mom, q_arg.bi_arg), cname ("AlgActionQuotient")
@@ -320,7 +317,7 @@ void AlgActionQuotient::heatbath ()
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
 
     h_init = 0.;
-    VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
+//    VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
 
     // tmp1, tmp2 < - random Gaussian vector (RGV)
     for (int i = 0; i < n_masses; i++) {
@@ -340,6 +337,8 @@ void AlgActionQuotient::heatbath ()
 #ifdef CPS_FBFM_WILSONTM_COMPAT_MODE
       if ((lat.Fclass () == F_CLASS_BFM)
 	  && Fbfm::arg_map.at (Fbfm::current_key_mass).solver == WilsonTM) {
+	VRB.Result (cname, fname,
+		    "CPS WilsonTM compatibility mode");
 	Float kappa_ferm =
 	  1.0 / 2.0 / sqrt ((frm_mass[i] + 4.0) * (frm_mass[i] + 4.0) +
 			    frm_mass_epsilon[i] * frm_mass_epsilon[i]);
@@ -359,6 +358,8 @@ void AlgActionQuotient::heatbath ()
       if (quo_arg->bi_arg.fermion == F_CLASS_DWF4D) {
 	// DWF with 4D pseudofermions needs separate treatment for efficiency reasons
 	// tmp1 = M_f^\dag (RGV)
+	VRB.Result (cname, fname,
+		    "F_CLASS_DWFD\n");
 	Fdwf4d::pauli_villars_resid = Fdwf4d::pauli_villars_resid_mc;
 	h_i = lat.SetPhi (tmp2, tmp1, NULL, frm_mass[i], DAG_YES);
 	h_init += h_i;
@@ -382,7 +383,7 @@ void AlgActionQuotient::heatbath ()
 
 	//~~ changed for twisted mass Wilson fermions
 	// phi <- M_f^\dag (RGV)
-	if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) {
+	if (lat.Fclass () == F_CLASS_WILSON_TM) {
 	  h_i =
 	    lat.SetPhi (phi[i], tmp1, tmp2, frm_mass[i], frm_mass_epsilon[i],
 			DAG_YES);
@@ -541,7 +542,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 
     //~~ changed for twisted mass Wilson fermions
     // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-    (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) ?
+    (lat.Fclass () == F_CLASS_WILSON_TM ) ?
       lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i],
 		  DAG_YES) : lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i],
 					 DAG_YES);
@@ -588,7 +589,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     //!< Evolve mom using fermion force
     //~~ changed for twisted mass Wilson fermions
     // cg_sol is aka \chi
-    Fdt = (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) ?
+    Fdt = (lat.Fclass () == F_CLASS_WILSON_TM ) ?
       lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i],
 			   dt_ratio) : lat.EvolveMomFforce (mom_tmp, cg_sol,
 							    frm_mass[i],
@@ -608,10 +609,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
       Fdt =
 	lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i],
 			     bsn_mass_epsilon[i], dt_ratio);
-    else if (lat.Fclass () == F_CLASS_BFM)
-      Fdt =
-	lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i],
-			     bsn_mass_epsilon[i], dt_ratio);
+//    else if (lat.Fclass () == F_CLASS_BFM)
     else
       Fdt =
 	lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i], dt_ratio);
@@ -691,7 +689,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 #endif
 
       // tmp1 <- M_b^dag phi[i] = (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-      if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
+      if (lat.Fclass () == F_CLASS_WILSON_TM )
 	lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i],
 		    DAG_YES);
       else
@@ -749,7 +747,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 
       dtime_force -= dclock ();
       //!< Evolve mom using fermion force
-      if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
+      if (lat.Fclass () == F_CLASS_WILSON_TM )
 	Fdt =
 	  lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i],
 			       frm_mass_epsilon[i], dt);
@@ -769,11 +767,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 	Fdt =
 	  lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i],
 			       bsn_mass_epsilon[i], dt);
-      else if (lat.Fclass () == F_CLASS_BFM)
-	Fdt =
-	  lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i],
-			       bsn_mass_epsilon[i], dt);
-      else
+//      else if (lat.Fclass () == F_CLASS_BFM)
 	Fdt = lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i], dt);
 
       dtime_force += dclock ();

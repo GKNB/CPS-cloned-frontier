@@ -49,6 +49,8 @@ uint32_t BOOTSTRAP_MAX = 1000000000;
 //#define RNG_SEED_RANLUX
 #define RNG_SEED_SKIP
 #endif
+#undef RNG_WARMUP
+#undef BOOTSTRAP
 const uint64_t RNG_SKIP = 1099511627776; // 2^40
 const uint64_t MAX_RNG = 16777216; // 2^24
 //const uint64_t RNG_SKIP = 23;
@@ -334,11 +336,10 @@ void LatRanGen::Initialize ()
 //      printf("(%d %d %d %d): index_4d=%d rng_count=%d start_seed_4d=%u\n",x[0],x[1],x[2],x[3],index_4d,rng_count,start_seed_4d);
 //      std::cout << "cpsran["<<index_4d<<"]:\n"<<cpsran[index_4d]<<std::endl;
 
-#undef RNG_WARMUP
 #ifdef RNG_WARMUP
 	  {
 	    int n_warm = ugran_4d[index_4d].Urand (100, 0);
-	    VRB.Result (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
+	    VRB.RNGSeed (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
 			n_warm);
 	    while (n_warm > 0) {
 	      int temp = ugran_4d[index_4d].Urand (100, 0);
@@ -346,12 +347,11 @@ void LatRanGen::Initialize ()
 	    }
 	  }
 #endif
-#undef BOOTSTRAP
 #ifdef BOOTSTRAP
 	  {
 	    std::uniform_int_distribution <> uniform_dist (0, BOOTSTRAP_MAX);
 	    int new_seed = uniform_dist (cpsran[index_4d]);
-	    VRB.Result (cname, fname,
+	    VRB.RNGSeed (cname, fname,
 			"index_4d=%d start_seed_4d=%d new_seed=%d\n", index_4d,
 			start_seed_4d, new_seed);
 	    cpsran[index_4d].seed (new_seed);

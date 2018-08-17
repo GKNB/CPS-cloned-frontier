@@ -3,9 +3,9 @@
 
 #include<config.h>
 
-# ifdef USE_BFM
-#  include <util/lattice/bfm_evo.h>
-#  include <util/lattice/bfm_mixed_solver.h>
+#ifdef USE_BFM
+#include <util/lattice/bfm_evo.h>
+#include <util/lattice/bfm_mixed_solver.h>
 #include <util/lattice/bfm_mixed_solver_multi.h>
 #include <util/lattice/eff_overlap.h>
 # endif
@@ -27,6 +27,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 //    static int nthreads[2];
   
     static std::map<Float, bfmarg> arg_map;
+    static Float default_key_mass;
     static Float current_key_mass;
 	Float key_mass;
 //BfmSolver solver;
@@ -125,9 +126,9 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
         return F_CLASS_BFM;
     }
 
-#if 1
+#if 0
     virtual int F5D(){
-      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) ) return 1;
+      if ( Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM)  return 1;
       else return 0;
     }
 #endif
@@ -154,15 +155,27 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   
     int FsiteSize() const {
 	const char* fname = "FsiteSize()";
+<<<<<<< HEAD
 	if (arg_map.count(current_key_mass) == 0) {
 	    ERR.General(cname, fname, "No entry for current key mass %e in arg_map!\n", current_key_mass);
 	    return 0;
 	} else {
 	    int Ls = arg_map.at(current_key_mass).Ls;
 	    int ret = 24 * Ls;
-	    //printf("FsiteSize() using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
+	    VRB.Result(cname,fname,"using current_key_mass = %e -> Ls = %d -> site size = %d!\n", current_key_mass, Ls, ret);
 	    return ret;
+=======
+	int Ls = GJP.SnodeSites();
+	int ret = 24 * Ls;
+	if (arg_map.count(current_key_mass) != 0) {
+	    Ls = arg_map.at(current_key_mass).Ls;
+	    ret = 24 * Ls;
+	    if (Ls > GJP.SnodeSites()) 
+			ERR.General(cname,fname, "using current_key_mass = %e -> Ls = %d > GJP.SnodeSite(%d)! \n", current_key_mass, Ls, GJP.SnodeSites());
+    	VRB.Debug(cname,fname, "using current_key_mass = %e -> Ls = %d -> site size = %d\n", current_key_mass, Ls, ret);
+>>>>>>> 9589c257f711e5fa06703300d913cbd238b07fd2
 	}
+	return ret;
     }
   // Returns the number of fermion field 
   // components (including real/imaginary) on a
@@ -365,13 +378,25 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
   //
   //!< Note: Agent classes which needs to import gauge field to
   //!external libraries need to overwrite this function.
-  virtual void BondCond();
+#ifndef NO_BFM_BC
+  void BondCond(){
+    Lattice::BondCond();
+//    if (bfm_initted) 
+	ImportGauge();
+  }
+#endif
+
+
 
   void ImportGauge();
 
     void SetBfmArg(Float key_mass);
 
-#if 1
+    void SetMassArg(Float mass){
+	VRB.Result(cname,"SetMassArg(F)","called\n");
+	SetBfmArg(mass);
+    }
+
     void SetMass(Float mass) {
 	const char *fname="SetMass(Float)";
     if(!bfm_initted) ERR.General(cname,fname,"Fbfm not initted\n");
@@ -412,7 +437,6 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
       bf.GeneralisedFiveDimInit();
     }
   }
-#endif
         void Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                     CnvFrmType cnv_frm, int dir_flag);
 

@@ -2,26 +2,10 @@
   $Id: main.C,v 1.19 2008/02/08 18:35:08 chulwoo Exp $
 */
 
-#include<config.h>
-#include <util/qcdio.h>
 #include <math.h>
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/lat_data.h>
-#include<util/dirac_op.h>
-#include<util/error.h>
-#include<util/time_cps.h>
-#include<comms/scu.h>
-#include<comms/sysfunc_cps.h>
-#include<alg/alg_hmd.h>
-#include<alg/do_arg.h>
+#include<cps.h>
 #ifdef HAVE_STRINGS_H
 #include<strings.h>
-#endif
-#if TARGET == QCDOC
-#include <qalloc.h>
-extern "C" void _mcleanup(void);
 #endif
 
 #define CG
@@ -36,7 +20,7 @@ static const char *input_filename = "f_asqtad_inv.in";
 
 int main(int argc,char *argv[]){
 
-    Start();
+    Start(&argc,&argv);
     printf("Sizes = %d %d %d %d %d %d\n",SizeX(),SizeY(),SizeZ(),SizeT(),SizeS(),SizeW());
     printf("Coors = %d %d %d %d %d %d\n",CoorX(),CoorY(),CoorZ(),CoorT(),CoorS(),CoorW());
 

@@ -134,8 +134,10 @@
 #define USE_QIO_SPARSE_PARTFILE
 
 #ifdef USE_QIO_SPARSE_PARTFILE
+#undef QIO_VOLFMT 
 #define QIO_VOLFMT QIO_PARTFILE
 #define QIO_SPARSE_PARTFILE
+#undef QIO_SERPAR 
 #define QIO_SERPAR QIO_PARALLEL
 // Number of nodes, per which one io-node is designated.
 // Set it to zero if you want all nodes to be io-node.
@@ -183,15 +185,16 @@
 
 CPS_START_NAMESPACE
 
-void setQioSparseNum(int n);
-int getQioSparseNum();
+
+
 
 //! source types
 enum QIO_PROP_SOURCE_TYPES {QIO_UNKNOWN_SOURCE=0, QIO_SCALAR_SOURCE, QIO_FULL_SOURCE};
 
 //! initialize everything needed for QIO
 #ifndef USE_QIO
-//#include <util/qio_dummy.h>
+void setQioSparseNum(int n){};
+int getQioSparseNum(){};
 class qio_init {
 
  private:
@@ -248,6 +251,9 @@ class qio_init {
 //void qio_getGlobalSingle(char *buf, size_t index, int count, void *arg);
 
 #else
+
+void setQioSparseNum(int n);
+int getQioSparseNum();
 
 //! initialize everything needed for QIO
 class qio_init {

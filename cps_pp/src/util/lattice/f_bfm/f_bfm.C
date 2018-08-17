@@ -49,7 +49,8 @@ MultiShiftCGcontroller MultiShiftController;
 bool Fbfm::use_mixed_solver = false;
 
 std::map<Float, bfmarg> Fbfm::arg_map;
-Float Fbfm::current_key_mass = -1789.8;
+Float Fbfm::default_key_mass = -1789.8;
+Float Fbfm::current_key_mass = Fbfm::default_key_mass;
 
 std::map<Float, MADWFParams> Fbfm::madwf_arg_map;
 
@@ -70,6 +71,7 @@ inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
     x[3] = i % hl[3] + low[3];
 }
 
+#if 0
 // ----------------------------------------------------------------
 // static void BondCond: toggle boundary condition on/off for any
 // gauge-like field. Based on code from
@@ -108,7 +110,7 @@ static void BondCond(Float *u_base)
         }
     }
 }
-
+#endif
 
 // NOTE:
 //
@@ -132,18 +134,22 @@ Fbfm::Fbfm(void):cname("Fbfm")
 
 
     bfm_initted = false;
-//    Float current_key_mass = -1789.8;
-    if (arg_map.count(current_key_mass) > 0) {
-        SetBfmArg(current_key_mass);
-    }
+    if (arg_map.count(current_key_mass) > 0) 
+    SetBfmArg(current_key_mass);
+#if 0
+    else
+    ERR.General(cname,fname," mass(%g) not initialized\n",current_key_mass);
+#endif
 
     // call our own version to import gauge field.
-    Fbfm::BondCond();
+//    Fbfm::BondCond();
+    Lattice::BondCond();
 
     evec = NULL;
     evald = NULL;
     evalf = NULL;
     ecnt = 0;
+    VRB.Result(cname, fname,"ended");
 //    exit(-42);
 }
 
@@ -201,7 +207,7 @@ void AutofillBfmarg(bfmarg &arg)
 void Fbfm::SetBfmArg(Float key_mass)
 {
     const char* fname = "SetBfmArg(F)";
-
+//    printf("Node %d: mass %g\n",UniqueID(),key_mass);
     if (arg_map.count(key_mass) == 0) {
 	ERR.General(cname, fname, "No entry for key mass %e in arg_map!\n", key_mass);
     }
@@ -217,7 +223,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     if (!bfm_initted) {
 	AutofillBfmarg(new_arg);
- 
+
 	bd.init(new_arg);
 	if (use_mixed_solver) {
 	    bd.comm_end();
@@ -226,8 +232,8 @@ void Fbfm::SetBfmArg(Float key_mass)
 	    bd.comm_init();
 	}
 
-	ImportGauge();
-	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale);
+        ImportGauge();
+	VRB.Result(cname, fname, "inited BFM objects with new BFM arg: solver = %d, mass = %e, Ls = %d, mobius_scale = %e CGdiagonalMee=%d\n", bd.solver, bd.mass, bd.Ls, bd.mobius_scale,bf.CGdiagonalMee);
     } else {
 	if (key_mass == current_key_mass) {
 	    VRB.Result(cname, fname, "Already inited from desired key mass %e\n", key_mass);
@@ -265,6 +271,7 @@ void Fbfm::SetBfmArg(Float key_mass)
 
     bfm_initted = true;
     current_key_mass = key_mass;
+//    ImportGauge();
 }
 
 // This function differs from the original CalcHmdForceVecsBilinear()
@@ -373,15 +380,14 @@ ForceArg Fbfm::EvolveMomFforceBase(Matrix *mom,
     static Timer time(cname, fname);
     time.start(true);
 
-    if (!bfm_initted) SetBfmArg(mass);
+    SetBfmArg(mass);
     VRB.Result(cname,fname,"started\n");
 
 #if 0
     return EvolveMomFforceBaseThreaded(mom, phi1, phi2, mass, coef);
 #endif
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
-//    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fbfm::bfm_args[current_arg_idx].Ls;
+    size_t f_size = (size_t)SPINOR_SIZE * GJP.VolNodeSites() * bd.Ls;
     if(GJP.Gparity()) f_size*=2;
 
     Float *v1 = (Float *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
@@ -491,6 +497,8 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
 
     bd.cps_impexcbFermion((Float *)f_in, in, 1, 1);
     bd.cps_impexcbFermion((Float *)f_out, out, 1, 1);
+    Float in_norm, out_norm;
+
 
 #pragma omp parallel
     {
@@ -499,6 +507,13 @@ int Fbfm::FmatEvlInv(Vector *f_out, Vector *f_in,
             ? mixed_cg::threaded_cg_mixed_MdagM(out, in, bd, bf, 5)
             : bd.CGNE_prec_MdagM(out, in);
     }
+
+#pragma omp parallel
+    {
+	in_norm=bd.norm(in);
+	out_norm=bd.norm(out);
+    }
+    VRB.Result(cname, fname, "norm(in)=%e norm(out)=%e\n", in_norm,out_norm);
 
     bd.cps_impexcbFermion((Float *)f_out, out, 0, 1);
 
@@ -645,8 +660,14 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bf.residual = 1e-5;
 
     // deal with Mobius Dminus
+<<<<<<< HEAD
     if(if_dminus && bd.solver == HmCayleyTanh) {
         bd.cps_impexFermion((Float *)f_in , out,  1);
+=======
+//    if (bd.solver == HmCayleyTanh) {
+    if ( bd.IsGeneralisedFiveDim() ) {
+	bd.cps_impexFermion((Float *)f_in, out, 1);
+>>>>>>> 9589c257f711e5fa06703300d913cbd238b07fd2
 #pragma omp parallel
         {
             bd.G5D_Dminus(out, in, 0);
@@ -658,18 +679,23 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
     bd.cps_impexFermion((Float *)f_out, out, 1);
 
     int iter = -1;
+
+#if 0
 #pragma omp parallel
     {
         if(use_mixed_solver) {
             iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
         } else {
             switch(cg_arg->Inverter) {
-            case CG:
+            case CG_LOWMODE_DEFL:
                 if(evec && evald && ecnt) {
                     iter = bd.CGNE_M(out, in, *evec, *evald);
                 } else {
                     iter = bd.CGNE_M(out, in);
                 }
+                break;
+            case CG:
+                iter = bd.CGNE_M(out, in);
                 break;
             case EIGCG:
                 iter = bd.EIG_CGNE_M(out, in);
@@ -684,8 +710,9 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
         }
     }
 
-//    bd.cps_impexFermion((Float *)f_out, out, 1);
     bd.cps_impexFermion((Float *)f_out, out, 0);
+#endif
+//    bd.cps_impexFermion((Float *)f_out, out, 1);
 
     if (madwf_arg_map.count(cg_arg->mass) > 0) {
 	// MADWF inversion
@@ -705,16 +732,21 @@ int Fbfm::FmatInv(Vector *f_out, Vector *f_in,
 #pragma omp parallel
 	{
 	    if (use_mixed_solver) {
-		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, ecnt);
+// threaded_cg_mixed_M project out the low mode part unless the last parameter is set to 0
+		iter = mixed_cg::threaded_cg_mixed_M(out, in, bd, bf, 5, cg_arg->Inverter, evec, evalf, 0);
 	    } else {
 		switch (cg_arg->Inverter) {
-		    case CG:
-			if (evec && evald && ecnt) {
-			    iter = bd.CGNE_M(out, in, *evec, *evald);
-			} else {
-			    iter = bd.CGNE_M(out, in);
-			}
-			break;
+            case CG_LOWMODE_DEFL:
+// Relying ont evald=NULL when single precision evecs are loaded.
+                if(evec && evald && ecnt) {
+                    iter = bd.CGNE_M(out, in, *evec, *evald);
+                } else {
+                    iter = bd.CGNE_M(out, in);
+                }
+                break;
+            case CG:
+                iter = bd.CGNE_M(out, in);
+                break;
 		    case EIGCG:
 			iter = bd.EIG_CGNE_M(out, in);
 			break;
@@ -926,10 +958,12 @@ Float Fbfm::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     if (frm1 == 0)
         ERR.Pointer(cname,fname,"frm1") ;
 
-//    SetBfmArg(mass);
+    SetBfmArg(mass);
 
     MatPc(phi, frm1, mass, dag);
-    Float ret = FhamiltonNode(frm1, frm1);
+    Float ret = FhamiltonNode(phi, phi);
+    VRB.Result(cname,fname,"phi*phi=%e\n",ret);
+    ret = FhamiltonNode(frm1, frm1);
     return ret;
 }
 
@@ -937,26 +971,36 @@ void Fbfm::MatPc(Vector *out, Vector *in, Float mass, DagType dag)
 {
     const char *fname = "MatPc()";
 
-    VRB.Result(cname, fname, "start MatPc: mass = %e\n", mass);
+    Float in_norm,out_norm;
     SetBfmArg(mass);
+    size_t f_size= GJP.VolNodeSites() * FsiteSize()/2;
+    in_norm = in->NormSqGlbSum(f_size);
+    VRB.Result(cname, fname, "start MatPc: mass = %e f_size=%d in=%0.10e \n", mass,f_size,in_norm);
 //    SetMass(mass, epsilon);
     Fermion_t i = bd.allocFermion();
     Fermion_t o = bd.allocFermion();
     Fermion_t t = bd.allocFermion();
 
 
+
     bd.cps_impexcbFermion((Float *)in , i, 1, 1);
+
 #pragma omp parallel
     {
         bd.Mprec(i, o, t, dag == DAG_YES, 0);
+	in_norm=bd.norm(i);
+	out_norm=bd.norm(o);
     }
+
     bd.cps_impexcbFermion((Float *)out, o, 0, 1);
 
     bd.freeFermion(i);
     bd.freeFermion(o);
     bd.freeFermion(t);
 
-    VRB.Result(cname, fname, "end MatPc: mass = %e\n", mass);
+    VRB.Result(cname, fname, "end MatPc: mass = %e in out = %e %e\n", mass,in_norm,out_norm);
+    out_norm = out->NormSqGlbSum(f_size);
+    VRB.Result(cname, fname, "end MatPc: mass = %e out = %e\n", mass,out_norm);
 }
 
 // It evolves the canonical momentum mom by step_size
@@ -1066,19 +1110,6 @@ Float Fbfm::FhamiltonNode(Vector *phi, Vector *chi)
     return phi->ReDotProductNode(chi, f_size);
 }
 
-// Convert fermion field f_field from -> to
-// Moved to fbfm.h by CJ
-#if 0
-                    StrOrdType from)
-{
-    const char *fname = "Fconvert()";
-
-    // nothing needs to be done
-    //ERR.NotImplemented(cname, fname);
-}
-#endif
-
-
 // The boson Hamiltonian of the node sublattice
 Float Fbfm::BhamiltonNode(Vector *boson, Float mass)
 {
@@ -1119,16 +1150,20 @@ void Fbfm::Dminus(Vector *out, Vector *in)
     ERR.NotImplemented(cname, fname);
 }
 
+#if 0
 void Fbfm::BondCond()
 {
     Lattice::BondCond();
     ImportGauge();
 }
+#endif
 
-#ifndef BFM_GPARITY
+//#ifdef USE_NEW_BFM_IMP
+#if 0
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
+//    if (!bfm_initted) SetBfmArg(current_key_mass);
     VRB.Result(cname,fname,"NEW VERSION with CPS parallel transport\n");
     LatMatrix One;
     LatMatrix LatDir[8];
@@ -1176,11 +1211,10 @@ void Fbfm::ImportGauge()
 void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
-    
+//    if (!bfm_initted) SetBfmArg(current_key_mass);
     Float *gauge = (Float *)(this->GaugeField());
     VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport mass=%g gauge=%p\n",current_key_mass, gauge);
     bd.cps_importGauge(gauge);
-//    exit(-43);
     if(use_mixed_solver) {
         bd.comm_end();
         bf.comm_init();
@@ -1204,7 +1238,7 @@ void Fbfm::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   int offset;
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,int)";
   VRB.Func(cname,fname);
-  VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,bfmarg::mobius_scale);
+  VRB.Result(cname,fname,"current_key_mass=%g mobius_scale=%g\n",current_key_mass,arg_map.at(current_key_mass).mobius_scale);
   if (dir_flag!=0) 
   ERR.General(cname,fname,"only implemented for dir_flag(%d)=0\n",dir_flag);
 

@@ -44,7 +44,7 @@ static double time_diff(const struct timeval &end_time, const struct timeval &st
 }
 
 //CK: The region below is now included in BFM directly
-#if 0
+#ifndef BFM_GPARITY
 template <class Float>
 Fermion_t bfm_evo<Float>::threadedAllocCompactFermion   (int mem_type)
 {
@@ -114,12 +114,25 @@ int bfm_evo<Float>::EIG_CGNE_M(Fermion_t solution[2], Fermion_t source[2])
     Fermion_t Mtmp= this->threadedAllocFermion(); 
 
     // src_o = Mdag * (source_o - Moe MeeInv source_e)
+if (this->CGdiagonalMee != 1) {
     this->MooeeInv(source[Even],tmp,DaggerNo);
     this->Meo(tmp,src,Odd,DaggerNo);
     this->axpy(tmp,src,source[Odd],-1.0);
     this->Mprec(tmp,src,Mtmp,DaggerYes);  
+} else {
+    this->MooeeInv(source[Even],tmp,DaggerNo);
+    this->Meo(tmp,src,Odd,DaggerNo);
+    this->axpy(src,src,source[Odd],-1.0);
+    this->MooeeInv(src,tmp,DaggerNo);
+    this->Mprec(tmp,src,Mtmp,DaggerYes);  
+}
   
     int iter = this->Eig_CGNE_prec(solution[Odd], src);
+
+if ( this->CGdiagonalMee==2 ) {
+  this->MooeeInv(solution[Odd],tmp,DaggerNo,Odd);
+  this->copy(solution[Odd],tmp);
+}
 
     // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
     this->Meo(solution[Odd],tmp,Even,DaggerNo);
@@ -138,7 +151,6 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
 {
     printf("int bfm_evo<Float>::Eig_CGNE_prec temporarily disabled\n");
     exit(-1);
-#if 0
 
     double f;
     double cp,c,a,d,b;
@@ -210,7 +222,8 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
         // FIXME: I don't know why copying stuff directly to psi doesn't work.
         this->set_zero(tmp);
         for(int i=0;i<eigcg->def_len;i++) {
-            this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]); 
+//            this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]); 
+            this->caxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i].real(),invHUb[i].imag()); 
             // this->copy(tmp,(Fermion_t)(eigcg->getU(i)));
             // this->scale(tmp,invHUb[i].real(), invHUb[i].imag());
             // this->axpy(psi,tmp,psi,1.0);
@@ -532,7 +545,8 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
             //set tmp=0.0;
             this->set_zero(tmp);
             for(int i=0;i<eigcg->def_len;i++) {
-                this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]);
+//                this->zaxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i]);
+            this->caxpy(tmp, (Fermion_t)(eigcg->getU(i)), tmp, invHUb[i].real(),invHUb[i].imag()); 
                 // this->copy(mp,(Fermion_t)(eigcg->getU(i)));
                 // this->scale(mp,invHUb[i].real(), invHUb[i].imag());
                 // this->axpy(tmp,mp,tmp,1.0);
@@ -705,7 +719,6 @@ int bfm_evo<Float>::Eig_CGNE_prec(Fermion_t psi, Fermion_t src)
     else {
         return this->iter;
     }
-#endif
 }
 
 #ifndef BLOCK_SIZE

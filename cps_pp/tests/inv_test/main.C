@@ -1,37 +1,4 @@
-/*
-*/
-
-#include<stdlib.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<config.h>
-#include <util/qcdio.h>
-#include <math.h>
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/dirac_op.h>
-#include<util/error.h>
-#include<util/time_cps.h>
-#include<comms/scu.h>
-#include<alg/alg_hmd.h>
-#include<alg/do_arg.h>
-#include <alg/qpropw.h>
-
-//#include<alg/common_arg.h>
-//#include<alg/no_arg.h>
-//#include<alg/alg_plaq.h>
-
-#ifdef USE_QUDA
-//#include <alg/quda_arg.h>
-#endif
-
-#if TARGET == QCDOC
-#include <qalloc.h>
-extern "C"{
-void _mcleanup(void);
-}
-#endif
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 
@@ -40,16 +7,6 @@ int main(int argc,char *argv[]){
 
   char *fname = "main()";
   char *cname = "none";
-
-//  double dtime;
-#ifdef USE_QUDA
-//  QudaArg QudaParam;
-  if ( !QudaParam.Decode(argv[4],"QudaParam") ) { printf("Bum quda_arg\n"); exit(-1);}  
-  //Start(&argc, &argv, 1);
-  //Start(&argc, &argv, 0);
-#else
-  //Start(&argc,&argv);
-#endif
 
 //  QudaParam = quda_arg;
 
@@ -69,6 +26,10 @@ int main(int argc,char *argv[]){
   chdir(argv[1]);
   if ( !do_arg.Decode(argv[2],"do_arg") ) { printf("Bum do_arg\n"); exit(-1);}
   if ( !cg_arg.Decode(argv[3],"cg_arg") ) { printf("Bum cg_arg\n"); exit(-1);}
+#ifdef USE_QUDA
+//  QudaArg QudaParam;
+  if ( !QudaParam.Decode(argv[4],"QudaParam") ) { printf("Bum quda_arg\n"); exit(-1);}  
+#endif
   
   Start(&argc, &argv);
 

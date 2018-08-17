@@ -205,8 +205,8 @@ if ( GJP.ExtInitialized()){
   } else if (start_conf_kind == START_CONF_FILE) {
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
 	      gauge_field);
-//    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
-    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
+    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
+//    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
     str_ord = CANONICAL;
     is_initialized = 1;
     GJP.StartConfKind (START_CONF_MEM);
@@ -4242,22 +4242,23 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
   if(GJP.Gparity()) nstacked_flav = 2;
 
   int s_node_sites = GJP.SnodeSites();
-  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D());
+  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d nflav=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D(),nstacked_flav);
   if(frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D()) ) {
     VRB.Result(cname,fname,"4D RNG used\n");
     s_node_sites = 1; frm_dim = FOUR_D;
   } else {
-    VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
+
 #ifdef USE_BFM
     // Fbfm can use an Ls that is different from GJP.SnodeSites()
     if (Fclass() == F_CLASS_BFM) {
       s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
+      VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
       VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
 #ifndef USE_C11_RNG
       if (s_node_sites > GJP.SnodeSites()) {
         ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
-#endif
       }
+#endif
     }
 #endif
 
@@ -4282,7 +4283,10 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
 	    LRG.AssignGenerator(x[0],x[1],x[2],x[3],s,flv);
 //	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
           for(k = 0; k < vec_size; k++) {
-            *(ptr++) = LRG.Grand(frm_dim);
+            *(ptr) = LRG.Grand(frm_dim);
+		sum += *ptr;
+		square += (*ptr)*(*ptr);
+	ptr++;
         VRB.Debug(cname,fname,"%d %d %d %d %d %d %g\n",x[0],x[1],x[2],x[3],     s,flv,*(ptr-1));
           }
         }
@@ -4351,11 +4355,9 @@ void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
     }
   }
   }
-#if 0
   glb_sum_five (&sum);
   glb_sum_five (&square);
-  printf ("sum=%0.18e square=%0.18e\n", sum, square);
-#endif
+  VRB.Result (cname,fname,"sum=%0.18e square=%0.18e\n", sum, square);
 }
 
 
@@ -4875,21 +4877,25 @@ void
 }
 #endif
 
-#if 0
 int Lattice::F5D(){
       if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-#ifdef USE_BFM
-     || ( (Fclass() == F_CLASS_BFM) && Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) //added by CK, moved here  by CJ
-#endif
-#ifdef USE_GRID
-      || Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS
-#endif
            || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
 	return 1;
-      else return 0;
-}
+//added by CK, moved here  by CJ
+#ifdef USE_BFM
+     if (Fclass() == F_CLASS_BFM) {
+	if ( !Fbfm::arg_map.count(Fbfm::current_key_mass) ) 
+         ERR.General(cname,"F5D()","key_mass(%g) needs to be set before calling F5D()\n");
+	if (Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1;
+     }
 #endif
+
+#ifdef USE_GRID
+      if( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
+      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+#endif
+      return 0;
+}
 
 int
   Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
@@ -5018,45 +5024,6 @@ int Lattice::SigmaOffset (const int index, int mu, int nu) const
 }
 
 
-// ----------------------------------------------------------------
-// BondCond: toggle boundary condition on/off for gauge field. Based
-// on code from src/util/dirac_op/d_op_base/comsrc/dirac_op_base.C
-//
-// The gauge field must be in CANONICAL order.
-// ----------------------------------------------------------------
-#if 0
-void Lattice::BondCond ()
-{
-    Matrix *u_base = this->GaugeField();
-    for(int mu = 0; mu < 4; ++mu) {
-        if(GJP.NodeBc(mu) != BND_CND_APRD) continue;
-
-    int low[4] = { 0, 0, 0, 0 };
-    int high[4] = { GJP.XnodeSites (), GJP.YnodeSites (),
-      GJP.ZnodeSites (), GJP.TnodeSites ()
-    };
-    low[mu] = high[mu] - 1;
-
-    int hl[4] = { high[0] - low[0], high[1] - low[1],
-      high[2] - low[2], high[3] - low[3]
-    };
-
-    const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
-
-#pragma omp parallel for
-    for (int i = 0; i < hl_sites; ++i) {
-      int x[4];
-      compute_coord (x, hl, low, i);
-
-      int off = mu + 4 * (x[0] + high[0] *
-			  (x[1] + high[1] * (x[2] + high[2] * x[3])));
-      u_base[off] *= -1.;
-    }
-  }
-    bc_applied = 1 - bc_applied;
-    VRB.Result(cname,"BondCond()","bc=%d\n",bc_applied);
-}
-#endif
 
 /*!
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
@@ -5180,6 +5147,7 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 // ----------------------------------------------------------------
 void Lattice::BondCond(){
   static int calls = 0; //CK: if calls %2 == 1 this operation reverses the BC. For PRD or APRD this makes no difference, but for Twisted BCs we need to reverse the twist angle
+  VRB.Result(cname,"BondCond()","calls=%d\n",calls);
 
   Matrix *u_base = this->GaugeField();
   Complex twist_phase;

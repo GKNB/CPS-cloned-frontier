@@ -628,10 +628,10 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 							       all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
 							       force_measure);
-#if 0
+#ifdef USE_BFM
     else if(fermion == F_CLASS_BFM )
       Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
-							  all_res, bsn_mass[i], bsn_mass_epsilon[i], dt_ratio, frmn_d, 
+							  all_res, bsn_mass[i], dt_ratio, frmn_d, 
 							  force_measure);
 #endif
     else
@@ -652,10 +652,10 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 							       frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 							       dt_ratio, frmn_d, force_measure);
-#if 0
+#ifdef USE_BFM
     else if(fermion == F_CLASS_BFM )
       Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
-							  frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+							  frm_remez_arg_md[i].residue, frm_mass[i], 
 							  dt_ratio, frmn_d, force_measure);
 #endif
     else
@@ -844,10 +844,10 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
 								 all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
 								 force_measure);
-#if 0
+#ifdef USE_BFM
       else if(fermion == F_CLASS_BFM )
 	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn_tmp, 3*bsn_deg, 0,
-							    all_res, bsn_mass[i], bsn_mass_epsilon[i], dt, frmn_d, 
+							    all_res, bsn_mass[i], dt, frmn_d, 
 							    force_measure);
 #endif
       else
@@ -867,10 +867,10 @@ void AlgActionRationalQuotient::evolve(Float dt, int nsteps)
 	Fdt = dynamic_cast<FwilsonTm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
 								 frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
 								 dt, frmn_d, force_measure);
-#if 0
+#ifdef USE_BFM
       else if(fermion == F_CLASS_BFM )
 	Fdt = dynamic_cast<Fbfm&>(lat).RHMC_EvolveMomFforce(mom_tmp, frmn+bsn_deg, frm_deg, 0,
-							    frm_remez_arg_md[i].residue, frm_mass[i], frm_mass_epsilon[i],
+							    frm_remez_arg_md[i].residue, frm_mass[i], 
 							    dt, frmn_d, force_measure);
 #endif
       else

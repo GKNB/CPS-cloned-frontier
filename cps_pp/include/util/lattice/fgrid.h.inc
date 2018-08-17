@@ -23,9 +23,9 @@
 #endif
 
 
-CPS_START_NAMESPACE 
-class FGRID:public virtual Lattice, public FgridParams,
-  public virtual FgridBase {
+CPS_START_NAMESPACE class FGRID:public virtual Lattice, public FgridParams,
+  public virtual FgridBase
+{
 
   using RealD = Grid::RealD;
   using RealF = Grid::RealF;
@@ -33,21 +33,25 @@ public:
   const char *cname;
 
 private:
-  template < typename CPSfloat, typename vobj, typename sobj >
+    template < typename CPSfloat, typename vobj, typename sobj >
     void ImpexFermion (Vector * cps_f, vobj & grid_f, int cps2grid, EvenOdd eo,
 		       Float * fac)
   {
     const char *fname = "ImpexFermion()";
-    VRB.Debug (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f, cps2grid, eo,this->F5D());fflush(stdout);fflush(stderr);
+      VRB.Debug (cname, fname, "%p %p %d %d F5D()=%d\n", cps_f, &grid_f,
+		 cps2grid, eo, this->F5D ());
+      fflush (stdout);
+      fflush (stderr);
     if (fac)
-      VRB.Result (cname, fname, "fac=%g\n", *fac);
+        VRB.Result (cname, fname, "fac=%g\n", *fac);
     if (!cps_f)
-      ERR.General (cname, fname, "CPS field not allocated\n");
+        ERR.General (cname, fname, "CPS field not allocated\n");
     unsigned long vol;
-    Grid::GridBase * grid = grid_f._grid;
+      Grid::GridBase * grid = grid_f._grid;
     unsigned long fourvol = GJP.VolNodeSites ();
     int ncb = 2;
-    if (eo != All) {
+    if (eo != All)
+    {
       fourvol /= 2;
       ncb = 1;
     }
@@ -60,17 +64,18 @@ private:
 		   grid->lSites (), vol);
 #pragma omp parallel for
     for (int site = 0; site < vol; site++) {
-//	  VRB.Result(cname,fname,"thread=%d of %d\n",omp_get_thread_num(),omp_get_num_threads());
+//        VRB.Result(cname,fname,"thread=%d of %d\n",omp_get_thread_num(),omp_get_num_threads());
       std::vector < int >grid_coor;
       sobj siteGrid;
       Grid::Lexicographic::CoorFromIndex (grid_coor, site, grid->_ldimensions);
       int pos[4], offset = 0;
-      if (F5D ()) offset = 1;
+      if (F5D ())
+	offset = 1;
       for (int i = 0; i < 4; i++)
 	pos[i] = grid_coor[i + offset];
       if ((ncb > 1) || (pos[0] + pos[1] + pos[2] + pos[3]) % 2 == eo)
 	if (cps2grid) {
-  //                    printf("%d: %s:%s: site=%d grid_coor=%d %d %d %d %d 4dindex = %d \n", UniqueID(),cname,fname, site,grid_coor[0],grid_coor[1],grid_coor[2],grid_coor[3],grid_coor[4], (FsiteOffset(pos)/(2/ncb)) );fflush(stdout);
+	  //                    printf("%d: %s:%s: site=%d grid_coor=%d %d %d %d %d 4dindex = %d \n", UniqueID(),cname,fname, site,grid_coor[0],grid_coor[1],grid_coor[2],grid_coor[3],grid_coor[4], (FsiteOffset(pos)/(2/ncb)) );fflush(stdout);
 	  for (int gp = 0; gp < n_gp; gp++)
 	    for (int s = 0; s < Ns; s++)
 	      for (int i = 0; i < Nc; i++) {
@@ -80,7 +85,7 @@ private:
 		int index =
 		  (FsiteOffset (pos) / (2 / ncb)) + fourvol * (gp +
 							       n_gp * i_gp);
-//		Float *cps = (Float *) cps_f;
+//              Float *cps = (Float *) cps_f;
 		CPSfloat *cps = (CPSfloat *) cps_f;
 		cps += 2 * (i + Nc * (s + Ns * (index)));
 		std::complex < double >elem (*cps, *(cps + 1));
@@ -92,12 +97,14 @@ private:
 	      }
 	  pokeLocalSite (siteGrid, grid_f, grid_coor);
 	} else {
-	  Grid::Lexicographic::CoorFromIndex (grid_coor, site, grid->_ldimensions);
+	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
+					      grid->_ldimensions);
 	  peekLocalSite (siteGrid, grid_f, grid_coor);
 	  for (int gp = 0; gp < n_gp; gp++)
 	    for (int s = 0; s < Ns; s++)
 	      for (int i = 0; i < Nc; i++) {
-		int i_gp = 0; if (F5D ())
+		int i_gp = 0;
+		if (F5D ())
 		  i_gp = grid_coor[0];	// s coor when 5D
 		std::complex < double >elem;
 		elem = siteGrid (GP) (s) (i);
@@ -107,7 +114,7 @@ private:
 		int index =
 		  (FsiteOffset (pos) / (2 / ncb)) + fourvol * (gp +
 							       n_gp * i_gp);
-//		Float *cps = (Float *) cps_f;
+//              Float *cps = (Float *) cps_f;
 		CPSfloat *cps = (CPSfloat *) cps_f;
 		cps += 2 * (i + Nc * (s + Ns * (index)));
 		if (fac) {
@@ -123,16 +130,19 @@ private:
   }
 
 public:
-   void PrintMass(const char *fname){
+  bool if_defl;
+  void PrintMass (const char *fname)
+  {
 #ifdef IF_TM
     VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, this->eps);
 #else
     VRB.Result (cname, fname, "mass=%0.14g\n", mass);
 #endif
-   }
+  }
 
 
-FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
+FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
+    if_defl (false) {
 #ifdef GRID_GPARITY
     if (!GJP.Gparity ())
       ERR.General (cname, XSTR (FGRID),
@@ -141,23 +151,27 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
   }
   void ImportFermion (Vector * cps_f, LATTICE_FERMION & grid_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 0, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 0, eo,
+							   fac);
   }
 
   void ImportFermion (LATTICE_FERMION & grid_f, Vector * cps_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 1, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION, SITE_FERMION > (cps_f, grid_f, 1, eo,
+							   fac);
   }
 
   void ImportFermion (Vector * cps_f, LATTICE_FERMION_F & grid_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 0, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 0,
+							       eo, fac);
   }
 
 
   void ImportFermion (LATTICE_FERMION_F & grid_f, Vector * cps_f, EvenOdd eo =
 		      All, Float * fac = NULL) {
-    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 1, eo, fac);
+    ImpexFermion < Float, LATTICE_FERMION_F, SITE_FERMION_F > (cps_f, grid_f, 1,
+							       eo, fac);
   }
 
   void SetParams (DIRAC::ImplParams & params)
@@ -167,15 +181,16 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     params.twists = twists;
 #endif
 //#ifdef GRID_ZMOB
-#if 0 
+#if 0
 //      this->setZmobius(GJP.zmobius_b);
 // assumes b=1 c=0
-    this->omegas.clear();
-    for(int i =0;i<GJP.zmobius_b.size();i++){
-    std::complex<double> temp = 1./(2.*GJP.zmobius_b[i] -1.);
-    VRB.Result("FgridParams","setZmobius","bs[%d]=%g %g, omega=%g %g\n",
-        i,GJP.zmobius_b[i].real(),GJP.zmobius_b[i].imag(), i,temp.real(),temp.imag());
-    this->omegas.push_back(temp);
+    this->omegas.clear ();
+    for (int i = 0; i < GJP.zmobius_b.size (); i++) {
+      std::complex < double >temp = 1. / (2. * GJP.zmobius_b[i] - 1.);
+      VRB.Result ("FgridParams", "setZmobius", "bs[%d]=%g %g, omega=%g %g\n",
+		  i, GJP.zmobius_b[i].real (), GJP.zmobius_b[i].imag (), i,
+		  temp.real (), temp.imag ());
+      this->omegas.push_back (temp);
     }
 
 #endif
@@ -191,7 +206,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 //      mass = cg_arg->mass;
     SetMass (cg_arg->mass);
     SetEpsilon (cg_arg->epsilon);
-    PrintMass(fname);
+    PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
@@ -255,37 +270,30 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 		  CgArg * cg_arg,
 		  Float * true_res, CnvFrmType cnv_frm = CNV_FRM_YES) {
     const char *fname ("FmatEvlInv()");
-#if 0
-    Float shift[1],alph[1];
-    shift[0]=0.; alph[0]=1.;
-    CgArg *args[1];
-    args[0] = cg_arg;
-    Vector *f_out_list[1];
-    Vector *f_out_d_fake[1];
-    f_out_list[0] = f_out;
-    f_out_d_fake[0] = NULL;
-    FmatEvlMInv( &f_out,f_in, shift,1,0,args,cnv_frm,SINGLE,alph,f_out_d_fake);
-#else
+
     SetMass (cg_arg->mass);
     SetEpsilon (cg_arg->epsilon);
-    PrintMass(fname);
+    PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
+    int total; //total iteration count
 
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
     int threads = Grid::GridThread::GetThreads ();
-    std::cout << Grid:: GridLogMessage << "Grid is setup to use " << threads << " threads" << std::endl;
-    if(0)
-{
-  Float max_dev=1;
-  Float max_diff=1;
-  CheckUnitarity(max_dev,max_diff);
-  VRB.Result(cname,fname,"CheckUnitarity():dev=%g max_diff=%g\n",max_dev,max_diff);
-}
+    std::
+      cout << Grid::GridLogMessage << "Grid is setup to use " << threads <<
+      " threads" << std::endl;
+    if (0) {
+      Float max_dev = 1;
+      Float max_diff = 1;
+      CheckUnitarity (max_dev, max_diff);
+      VRB.Result (cname, fname, "CheckUnitarity():dev=%g max_diff=%g\n",
+		  max_dev, max_diff);
+    }
 
 
     DIRAC::ImplParams params;
@@ -323,17 +331,17 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
-    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC)
-    {
+    if (MultiShiftController.getMode () == MultiShiftCGcontroller::DOUBLE_PREC) {
       VRB.Result (cname, fname, "running full double\n");
       time1 = dclock ();
       Float stp_cnd = cg_arg->stop_rsd;
-      Grid::ConjugateGradient< LATTICE_FERMION > CG_d (stp_cnd,cg_arg->max_num_iter);
+      Grid::ConjugateGradient < LATTICE_FERMION > CG_d (stp_cnd,
+							cg_arg->max_num_iter);
       CG_d (MdagMD, grid_rb_in, grid_rb_out);
       time2 = dclock ();
 
@@ -354,9 +362,11 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
       LATTICE_FERMION_F grid_in_f (FERM_GRID_F), psi_f (FERM_GRID_F);
       LATTICE_FERMION_F grid_rb_out_f (F_RB_GRID_F);
       LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F);
-	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
-	CG_m (cg_arg->stop_rsd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
-	CG_m (grid_rb_in, grid_rb_out);
+      Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
+				  F_RB_GRID_F, MdagMF, MdagMD);
+      CG_m (grid_rb_in, grid_rb_out);
+      total = CG_m.TotalInnerIterations;
       time2 = dclock ();
       print_time (fname, "MixedCG", time2 - time1);
       time1 = time2;
@@ -369,8 +379,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     print_time (fname, "Acc/Export", time2 - time1);
     time1 = time2;
     // print_flops(cname,fname,time2,-time_total,
-
-#endif
+   return total;
   }
 
   int FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
@@ -382,7 +391,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
 //      mass = cg_arg[0]->mass;
     SetMass (cg_arg[0]->mass);
     SetEpsilon (cg_arg[0]->epsilon);
-    PrintMass(fname);
+    PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg[0]->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
 
@@ -393,9 +402,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     std::vector < int >twists = SetTwist ();
 #if 1
     int threads = Grid::GridThread::GetThreads ();
-    std::cout << Grid::
-      GridLogMessage << "Grid is setup to use " << threads << " threads" <<
-      std::endl;
+    std::cout << Grid::GridLogMessage << "Grid is setup to use " << threads <<
+      " threads" << std::endl;
 #endif
 
 
@@ -454,8 +462,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
 #else
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
@@ -591,28 +599,32 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     }
     ImportFermion (f_out, grid_out, Odd);
 #endif
+   return 0;
   }
 
   void FminResExt (Vector * sol, Vector * source, Vector ** sol_old,
 		   Vector ** vm, int degree, CgArg * cg_arg, CnvFrmType cnv_frm)
   {
-    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
-    if (GJP.Gparity ()) f_size *= 2;
-    sol->VecZero(f_size);
+    size_t f_size = (size_t) GJP.VolNodeSites () * FsiteSize () / 2;
+    if (GJP.Gparity ())
+      f_size *= 2;
+    sol->VecZero (f_size);
 
 //    ERR.NotImplemented (cname, "FminResExt");
   }
 
-  
 
-  int FmatInv(Vector *f_out, Vector *f_in, 
-	      CgArg *cg_arg, 
-	      Float *true_res,
-	      CnvFrmType cnv_frm ,
-	      PreserveType prs_f_in ,int if_dminus){
+
+  int FmatInv (Vector * f_out, Vector * f_in,
+	       CgArg * cg_arg,
+	       Float * true_res,
+	       CnvFrmType cnv_frm, PreserveType prs_f_in, int if_dminus)
+  {
     const char *fname ("FmatInv()");
+
+    static int verbose = 1;		// turning off debug output after first time
     mass = cg_arg->mass;
-    VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass,if_dminus);
+    VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass, if_dminus);
     RealD M5 = GJP.DwfHeight ();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
@@ -620,8 +632,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params) {
     LATTICE_FERMION grid_in (FERM_GRID), grid_out (FERM_GRID);
     DIRAC::ImplParams params;
     SetParams (params);
-    VRB.Debug(cname,fname,"DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
-Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
+    VRB.Debug (cname, fname,
+	       "DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
+	       Umu, FGridD, FrbGridD, UGridD, UrbGridD, mass);
 
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
     Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
@@ -629,77 +642,74 @@ Umu, FGridD,FrbGridD,UGridD,UrbGridD,mass);
     DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 
 #ifndef IF_TM
-    if(if_dminus==1){
+    if (if_dminus == 1) {
 #if 1
 //was broken in Grid.
-        ImportFermion (grid_out, f_in);
-        Ddwf.Dminus(grid_out,grid_in);
+      ImportFermion (grid_out, f_in);
+      Ddwf.Dminus (grid_out, grid_in);
 #else
 // Obviously only for mobius, needs more work for zMobius
-        ImportFermion (grid_in, f_in);
-        Ddwf.DW(grid_in,grid_out,Grid::QCD::DaggerNo);
-	double mob_c = mob_b-1.;
-	axpy(grid_in,-mob_c,grid_out,grid_in);
+      ImportFermion (grid_in, f_in);
+      Ddwf.DW (grid_in, grid_out, Grid::QCD::DaggerNo);
+      double mob_c = mob_b - 1.;
+      axpy (grid_in, -mob_c, grid_out, grid_in);
 #endif
-    } else if(if_dminus==-1){
-        ImportFermion (grid_out, f_in);
-        Ddwf.Dminus(grid_out,grid_in);
-        ImportFermion (f_out, grid_in);
-	return 0;
-    } else 
+    } else if (if_dminus == -1) {
+      ImportFermion (grid_out, f_in);
+      Ddwf.Dminus (grid_out, grid_in);
+      ImportFermion (f_out, grid_in);
+      return 0;
+    } else
 #endif
-    ImportFermion (grid_in, f_in);
+      ImportFermion (grid_in, f_in);
 
-#if 0
-  std::string fname_root(cg_arg->fname_eigen);
-  std::stringstream fname_bc;
-  fname_bc << fname_root<<".bc"<<GJP.Bc(0)<<GJP.Bc(1)<<GJP.Bc(2)<<GJP.Bc(3)<<std::endl;
-  VRB.Result(cname,fname,"fname_eig=%s\n",fname_bc.str().c_str());
-  const char *fname_eig_root_bc = fname_bc.str().c_str();
-#else
-  char fname_eig_root_bc[1024];
-//  snprintf(fname_eig_root_bc,1024,"%s.bc%d%d%d%d",cg_arg->fname_eigen, GJP.Bc(0),GJP.Bc(1),GJP.Bc(2),GJP.Bc(3));
-  snprintf(fname_eig_root_bc,1024,"%s",cg_arg->fname_eigen);
-  VRB.Result(cname,fname,"fname=%s\n",fname_eig_root_bc);
-#endif
-  int n_fields =  GJP.SnodeSites();
-  const size_t f_size_per_site = FsiteSize() / GJP.SnodeSites()  /2 ;
+    char fname_eig_root_bc[1024];
+    snprintf (fname_eig_root_bc, 1024, "%s", cg_arg->fname_eigen);
+    VRB.Result (cname, fname, "fname=%s\n", fname_eig_root_bc);
+    int n_fields = GJP.SnodeSites ();
+    const size_t f_size_per_site = (size_t) FsiteSize () / GJP.SnodeSites () / 2;
 
-  int neig = 1;
-  bool if_defl=false;
-  if( (cg_arg->Inverter==CG_LOWMODE_DEFL) || 
-    ( cg_arg->Inverter==LOWMODEAPPROX) ) {
-	if_defl=true;
-  	neig = cg_arg->neig;
-  }
+    int neig = 1;
+    if_defl = false;
+    if ((cg_arg->Inverter == CG_LOWMODE_DEFL) ||
+	(cg_arg->Inverter == LOWMODEAPPROX)) {
+      if_defl = true;
+      neig = cg_arg->neig;
+    }
 
-  std::cout << "neig= "<<neig<<std::endl;
-  std::vector < Float > eval (neig);
-  std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
-  Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig,eval,evec_f);
+    std::cout << "neig= " << neig << std::endl;
+    std::vector < Float > eval (neig);
+    std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
+    Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval, evec_f);
 
-if(if_defl)
-{
-  LATTICE_FERMION_F grid_f(FERM_GRID_F),grid_f_rb(F_RB_GRID_F);
-  // search for eigen cache
-  EigenCache* ecache;
-  if( (ecache=EigenCacheListSearch( (char *)fname_eig_root_bc, neig ))== 0 ){
-    ERR.General(cname,fname,"Eigenvector cache does not exist: neig %d name %s \n",neig,fname_eig_root_bc);
-  }
-  Float mass = cg_arg->mass;
-  EigenContainer eigcon( *this, (char*) fname_eig_root_bc, neig, f_size_per_site/2 , n_fields, ecache );
+    if (if_defl) {
+      LATTICE_FERMION_F grid_f (FERM_GRID_F), grid_f_rb (F_RB_GRID_F);
+      // search for eigen cache
+      EigenCache *ecache;
+      if ((ecache =
+	   EigenCacheListSearch ((char *) fname_eig_root_bc, neig)) == 0) {
+	ERR.General (cname, fname,
+		     "Eigenvector cache does not exist: neig %d name %s \n",
+		     neig, fname_eig_root_bc);
+      }
+      Float mass = cg_arg->mass;
+      EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig,
+			     f_size_per_site / 2, n_fields, ecache);
 
-  Float* eval_cps = eigcon.load_eval();
-  for(int i=0;i<neig;i++){
-		 eval[i]=eval_cps[i];
-		VRB.Result(cname,fname,"eval[%d]=%0.14e\n",i,eval[i]);
-		Vector *evec =eigcon.nev_load(i);
-	    ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > ( evec, grid_f, 1, Odd, NULL);
-		pickCheckerboard (Odd, evec_f[i], grid_f);
-  }
-  
+      Float *eval_cps = eigcon.load_eval ();
+     VRB.Result (cname, fname, "eval_cps=%p\n", eval_cps);
+      for (int i = 0; i < neig; i++) {
+	eval[i] = eval_cps[i];
+	Vector *evec = eigcon.nev_load (i);
+	VRB.Debug (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
+	ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
+								   1, Odd,
+								   NULL);
+	pickCheckerboard (Odd, evec_f[i], grid_f);
+      }
 
-}
+
+    }
 
     ImportFermion (grid_out, f_out);
 
@@ -716,25 +726,30 @@ if(if_defl)
     }
 #else
     {
-	int maxinner = cg_arg->max_num_iter;
-	int maxouter = 10;
-//      Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL > MdagMD (Ddwf);
-    Grid::QCD::SchurDifferentiableDiagTwo< IMPL_F > MdagMF (DdwfF);
-	Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION, LATTICE_FERMION_F > 
-	CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F, MdagMF, MdagMD);
-  if( if_defl) { 
-    for(int i=0;i<neig;i++){
-        LATTICE_FERMION_F  tmp (F_RB_GRID_F);
-        MdagMF.HermOp(evec_f[i],tmp);
-		Grid::ComplexD zalph = innerProduct(evec_f[i],tmp);
-//		std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
-		Grid::RealD alph = real(zalph);
-		tmp = tmp - alph * evec_f[i];
-		VRB.Result(cname,fname,"norm(evec)= %e %e %e\n",norm2(evec_f[i]),alph,norm2(tmp));
-    }
-	CG_m.useGuesser(guesser);
-  }
+      int maxinner = cg_arg->max_num_iter;
+      int maxouter = 10;
+      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf);
+      Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+      Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
+				  MdagMF, MdagMD);
+	VRB.Result (cname, fname, "if_defl=%d verbose=%d\n",if_defl,verbose);
+      if (if_defl) {
+	if (verbose) {
+	  for (int i = 0; i < neig; i++) {
+	    LATTICE_FERMION_F tmp (F_RB_GRID_F);
+	    MdagMF.HermOp (evec_f[i], tmp);
+	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
+//              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
+	    Grid::RealD alph = real (zalph);
+	    tmp = tmp - eval[i] * evec_f[i];
+	    VRB.Result (cname, fname, "evec %d: norm alpha eval residual= %e %e %e %e\n",
+			i,norm2 (evec_f[i]), alph, eval[i],norm2 (tmp));
+	  }
+	  verbose=0;
+        }
+	CG_m.useGuesser (guesser);
+      }
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
       SchurSolver (Ddwf, grid_in, grid_out);
     }
@@ -747,22 +762,22 @@ if(if_defl)
       VRB.Result (cname, fname, "true_res=%g\n", *true_res);
     }
     ImportFermion (f_out, grid_out);
-   return 0;
+    return 0;
   }
-  int FmatInv(Vector *f_out, Vector *f_in, 
-	      CgArg *cg_arg, 
-	      Float *true_res,
-	      CnvFrmType cnv_frm = CNV_FRM_YES,
-	      PreserveType prs_f_in = PRESERVE_YES){
-	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,1);
+  int FmatInv (Vector * f_out, Vector * f_in,
+	       CgArg * cg_arg,
+	       Float * true_res,
+	       CnvFrmType cnv_frm = CNV_FRM_YES,
+	       PreserveType prs_f_in = PRESERVE_YES) {
+    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1);
   }
 
-  int FmatInvTest(Vector *f_out, Vector *f_in, 
-	      CgArg *cg_arg, 
-	      Float *true_res,
-	      CnvFrmType cnv_frm = CNV_FRM_YES,
-	      PreserveType prs_f_in = PRESERVE_YES){
-	FmatInv(f_out,f_in, cg_arg,true_res,cnv_frm,prs_f_in,0);
+  int FmatInvTest (Vector * f_out, Vector * f_in,
+		   CgArg * cg_arg,
+		   Float * true_res,
+		   CnvFrmType cnv_frm = CNV_FRM_YES,
+		   PreserveType prs_f_in = PRESERVE_YES) {
+    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 0);
   }
 
 
@@ -770,7 +785,7 @@ if(if_defl)
 	       CgArg * cg_arg,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-	FmatInv(f_out,f_in, cg_arg,NULL,cnv_frm,prs_f_in,1);
+    return FmatInv (f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1);
   }
 
   int FeigSolv (Vector ** f_eigenv, Float * lambda,
@@ -778,6 +793,7 @@ if(if_defl)
 		Float ** hsum,
 		EigArg * eig_arg, CnvFrmType cnv_frm = CNV_FRM_YES) {
     ERR.NotImplemented (cname, "FeigSolv");
+    return 0;
   }
 
   // It sets the pseudofermion field phi from frm1, frm2.
@@ -812,7 +828,7 @@ if(if_defl)
 //      mass = cg_arg->mass;
     SetMass (mass);
     SetEpsilon (epsilon);
-    PrintMass(fname);
+    PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
 #ifdef IF_TM
     if (epsilon < -10000)
@@ -838,10 +854,10 @@ if(if_defl)
 #else
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (Ddwf);
 #endif
-    if (dag==DAG_NO)
-    Mpc.Mpc (grid_rb_in, grid_rb_out);
-	else
-    Mpc.MpcDag(grid_rb_in, grid_rb_out);
+    if (dag == DAG_NO)
+      Mpc.Mpc (grid_rb_in, grid_rb_out);
+    else
+      Mpc.MpcDag (grid_rb_in, grid_rb_out);
     setCheckerboard (grid_out, grid_rb_out);
     ImportFermion (f_out, grid_out, Odd);
 #endif
@@ -901,7 +917,7 @@ if(if_defl)
     ImportGauge ();
     SetMass (mass);
     SetEpsilon (epsilon);
-    PrintMass(fname);
+    PrintMass (fname);
 
     Grid::QCD::LatticeGaugeFieldD grid_mom (UGridD), dSdU (UGridD),
       force (UGridD);
@@ -933,9 +949,10 @@ if(if_defl)
 
       Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
 #ifdef TWOKAPPA
-     ERR.General(cname,fname,"Not implemnted for DiagTwo Preconditioning yet\n");
-//	MpDeriv is written yet.
-//	Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
+      ERR.General (cname, fname,
+		   "Not implemnted for DiagTwo Preconditioning yet\n");
+//      MpDeriv is written yet.
+//      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
 #endif
 
       force = 0.;
@@ -1017,15 +1034,15 @@ if(if_defl)
 	pvals[ii] = ((Float *) mom)[off];
       }
       VRB.Debug (cname, fname,
-		  "initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
-		  pvals[0], pvals[1], pvals[2], pvals[3]);
+		 "initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
+		 pvals[0], pvals[1], pvals[2], pvals[3]);
     }
 
     for (int i = 0; i < degree; i++) {
       Float *sol_f = (Float *) sol[i];
       VRB.Debug (cname, fname,
-		  "sol[%d] = %g mass=%g epsilon=%g alpha[%d]=%g dt=%g\n", i,
-		  *sol_f, mass, epsilon, i, alpha[i], dt);
+		 "sol[%d] = %g mass=%g epsilon=%g alpha[%d]=%g dt=%g\n", i,
+		 *sol_f, mass, epsilon, i, alpha[i], dt);
       ForceArg Fdt =
 	EvolveMomFforce (mom_tmp, sol[i], mass, epsilon, alpha[i] * dt);
 
@@ -1041,8 +1058,8 @@ if(if_defl)
 	  pvals[ii] = ((Float *) mom_tmp)[off];
 	}
 	VRB.Debug (cname, fname,
-		    "mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
-		    i, pvals[0], pvals[1], pvals[2], pvals[3]);
+		   "mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",
+		   i, pvals[0], pvals[1], pvals[2], pvals[3]);
       }
     }
 
@@ -1082,7 +1099,7 @@ if(if_defl)
     if (chi == 0)
       ERR.Pointer (cname, fname, "chi");
 
-    size_t f_size = GJP.VolNodeSites () * FsiteSize () / 2;
+    size_t f_size = (size_t) GJP.VolNodeSites () * FsiteSize () / 2;
     if (GJP.Gparity ())
       f_size *= 2;
 
@@ -1101,11 +1118,13 @@ if(if_defl)
 
   Float BhamiltonNode (Vector * boson, Float mass, Float epsilon)
   {
-    ERR.NotImplemented (cname, "BhamiltonNode");return 0.;
+    ERR.NotImplemented (cname, "BhamiltonNode");
+    return 0.;
   }
   Float BhamiltonNode (Vector * boson, Float mass)
   {
-    ERR.NotImplemented (cname, "BhamiltonNode");return 0.;
+    ERR.NotImplemented (cname, "BhamiltonNode");
+    return 0.;
   }
   // The boson Hamiltonian of the node sublattice
   int SpinComponents () const
@@ -1140,16 +1159,14 @@ if(if_defl)
 #include "fgrid_lanczos.h.inc"
 #endif
 
+#ifdef GRID_MADWF
+#include "fgrid_madwf.h.inc"
+#endif
+
+
 };
 #if 1
 
-#if 0
-#define PASTER(x,y) x ## y
-#define EVALUATOR(x,y) PASTER(x,y)
-#define GFCLASS(class) EVALUATOR(class, FGRID )
-#define XSTR(s) STR(s)
-#define STR(s) #s
-#endif
 
 //------------------------------------------------------------------
 #define GFCLASS_NAME XSTR(GFCLASS(Gnone))
@@ -1177,13 +1194,26 @@ GFCLASS (Gnone) (FgridParams & params):cname (GFCLASS_NAME), FGRID (params),
 #undef GFCLASS_NAME
 #endif
 CPS_END_NAMESPACE
-
-#undef LATTICE_FERMION 
-#undef LATTICE_FERMION_F 
-
+#undef LATTICE_FERMION
+#undef LATTICE_FERMION_F
 #undef FIVE_GRID
 #undef FIVE_GRID_F
 #undef FERM_GRID
 #undef FERM_GRID_F
 #undef F_RB_GRID
 #undef F_RB_GRID_F
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef IMPL_F
+#undef PARAMS
+#undef GP
+#undef GRID_GPARITY

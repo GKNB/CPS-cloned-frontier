@@ -1,20 +1,4 @@
 #include<config.h>
-CPS_START_NAMESPACE
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2008/02/08 18:35:05 $
-//  $Header: /space/cvs/cps/cps++/src/alg/alg_s_spect/alg_s_spect.C,v 1.13 2008/02/08 18:35:05 chulwoo Exp $
-//  $Id: alg_s_spect.C,v 1.13 2008/02/08 18:35:05 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: alg_s_spect.C,v $
-//  $Revision: 1.13 $
-//  $Source: /space/cvs/cps/cps++/src/alg/alg_s_spect/alg_s_spect.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // alg_s_spect.C
@@ -28,7 +12,6 @@ CPS_START_NAMESPACE
 //------------------------------------------------------------------
 
 
-CPS_END_NAMESPACE
 #include <util/qcdio.h>
 #include <alg/quark_prop_s.h>
 #include <alg/meson_prop_s.h>
@@ -47,10 +30,7 @@ CPS_END_NAMESPACE
 #include <util/verbose.h>
 #include <util/error.h>
 #include <alg/myenum.h>
-
-#ifdef PARALLEL
 #include <comms/sysfunc_cps.h>
-#endif
 
 CPS_START_NAMESPACE
 

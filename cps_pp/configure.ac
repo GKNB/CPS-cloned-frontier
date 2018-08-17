@@ -179,11 +179,11 @@ if test "$enable_optimise" = "yes"; then
      CFLAGS="${CFLAGS} -O -Wall"
      CXXFLAGS="${CXXFLAGS} -O -Wall"
    elif test "$enable_target" = "bgq"; then
-     CFLAGS="${CFLAGS} -O2 -Wall"
-     CXXFLAGS="${CXXFLAGS} -O2 -Wall"
+     CFLAGS="${CFLAGS} -g -O2 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O2 -Wall -fno-strict-aliasing "
    else
-     CFLAGS="${CFLAGS} -g -O3 -Wall"
-     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall"
+     CFLAGS="${CFLAGS} -g -O3 -Wall -fno-strict-aliasing "
+     CXXFLAGS="${CXXFLAGS} -g -O3 -Wall -fno-strict-aliasing "
    fi
 fi
 
@@ -210,7 +210,7 @@ fi
 dnl Are we compiling with C11?
 AC_ARG_ENABLE(c11, 
 	AC_HELP_STRING([--enable-c11], 
-	[Compile with C11 features. (default=no)]), 
+	[Compile with C11 features. (default=yes)]), 
 	,[enable_c11="yes"])
 AC_MSG_CHECKING([if compile with c++11 ])
 AC_MSG_RESULT($enable_c11)
@@ -222,7 +222,7 @@ fi
 dnl Are we compiling with C11 RNG?
 AC_ARG_ENABLE(c11_rng, 
 	AC_HELP_STRING([--enable-c11-rng=sitmo|mt19937|ranlux48], 
-	[Compile with C11 RNG. (default=no, sitmo if enabled)]), 
+	[Compile with C11 RNG. (default=yes, sitmo if enabled)]), 
 	,[enable_c11_rng="no"])
 	AC_MSG_CHECKING([if compile with c++11 RNG])
 	AC_MSG_RESULT($enable_c11_rng)
@@ -444,6 +444,8 @@ dnl     echo "BFM_DIR environment variable not set"
 	LDFLAGS="${LDFLAGS} -lqio"
    fi		    					 
 
+dnl      LDFLAGS="${LDFLAGS} -lqdp -lXPathReader -lxmlWriter -lxml2 -lqio -lbfm -lgsl -lgslcblas -lqmp"
+dnl -L/soft/libraries/essl/current/lib64 -lesslbg -L/soft/compilers/ibmcmp-nov2012/xlf/bg/14.1/lib64 -lxlf90_r -lxlfmath -lxl -ldl 
    if test "X{$enable_xml}X" = "XX"; then
     enable_xml="yes"
    fi
@@ -524,22 +526,34 @@ fi
 #-------------------------windy---------------------------	
 
 dnl Are we compiling with fftw?
-AC_ARG_ENABLE(fftw, 
-	AC_HELP_STRING([--enable-fftw], 
-		[Compile with FFTW (default=no)]), 
-	,[enable_fftw="no"])
-AC_MSG_CHECKING([if including fftw])
-AC_MSG_RESULT($enable_fftw)
-if test "$enable_fftw" != "no"; then
-	if test "$enable_fftw" != "yes"; then
-   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib"
-   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
-#	else
+
+AC_SEARCH_LIBS([fftw_execute],[fftw3],
+	[AC_SEARCH_LIBS([fftwf_execute],[fftw3f], [], [AC_MSG_ERROR("single precision fftw library not found")])]
+	[AC_DEFINE([USE_FFTW],[1],[Define 1 if you have fftw3 library])]
+	[enable_fftw=true])
+
+AC_SEARCH_LIBS([crc32_combine],[z],
+	[AC_DEFINE([USE_ZLIB],[1],[Define 1 if you have zlib])]
+	[enable_zlib=true],
+	[AC_MSG_ERROR("zlib needed for crc32")]
+	)
+
+#AC_ARG_ENABLE(fftw, 
+#	AC_HELP_STRING([--enable-fftw], 
+#		[Compile with FFTW (default=no)]), 
+#	,[enable_fftw="no"])
+#AC_MSG_CHECKING([if including fftw])
+#AC_MSG_RESULT($enable_fftw)
+#if test "$enable_fftw" != "no"; then
+#	if test "$enable_fftw" != "yes"; then
+#   		LDFLAGS="${LDFLAGS} -L${enable_fftw}/lib"
+#   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${enable_fftw}/include"
+##	else
 #   		LDFLAGS="${LDFLAGS} -L\${SRCDIR}/aux/GotoBLAS2 -lgoto2"
 #   		INCLUDE_FLAGS="${INCLUDE_FLAGS} -I\${SRCDIR}/aux/GotoBLAS2"
-	fi
-   	DFLAGS="${DFLAGS} -DUSE_FFTW"
-fi
+#	fi
+#   	DFLAGS="${DFLAGS} -DUSE_FFTW"
+#fi
 
 if test "$enable_bfm" != "no"; then
    HAVE_BFM="define HAVE_BFM 1"
@@ -593,6 +607,7 @@ AC_SUBST(DFLAGS)
 AC_SUBST(INCLUDE_FLAGS)
 AC_SUBST(LD)
 AC_SUBST(LDFLAGS)
+AC_SUBST(LIBS)
 AC_SUBST(TESTING_PARALLEL)
 AC_SUBST(ENABLE_PARALLEL)
 AC_SUBST(QOS)
@@ -635,7 +650,10 @@ AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 
 dnl configuring version number
+echo "`git log -n 1 --format=format:"#define GITHASH \\"%H:%d\\"%n" HEAD`" > $srcdir/include/version.h
+#git log -n 1 --format=format:GITHASH=\\\"%H:%d\\\"%n\\\" HEAD > $srcdir/GITHASH
 .  $srcdir/VERSION
+#.  $srcdir/GITHASH
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
@@ -647,6 +665,7 @@ AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)
 AC_SUBST(VERSION_STR)
+AC_SUBST(GITHASH)
 AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 
@@ -673,6 +692,10 @@ AC_CHECK_TYPES(netobj)
 AC_CHECK_FUNCS(posix_memalign)
 dnl AC_CHECK_HEADERS([qcdocos/scu_checksum.h])
 #AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([gmp.h])
+AC_CHECK_HEADERS([cblas.h])
+AC_CHECK_HEADERS([mkl_cblas.h])
+AC_CHECK_HEADERS([gsl_cblas.h])
 AC_CONFIG_HEADERS([conf.h])
 
 

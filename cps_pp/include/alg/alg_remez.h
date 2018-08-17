@@ -25,12 +25,13 @@ CPS_START_NAMESPACE
 //
 //------------------------------------------------------------------
 
-#define JMAX 1000 //Maximum number of iterations of Newton's approximation
+#define JMAX 1000
 
 class AlgRemez
 {
  private:
   char *cname;
+//  const int  JMAX=1000; //Maximum number of iterations of Newton's approximation
 
   //!< The storage area for the rational approximation
   RemezArg *remez_arg;

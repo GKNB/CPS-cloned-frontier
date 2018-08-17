@@ -22,17 +22,11 @@ CPS_START_NAMESPACE
 Error ERR;
 
 static inline void Exit(int status){
-#if TARGET == QCDOC
-#ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
-  if ( ! ScuChecksum::CsumSwap() )
-    fprintf(stderr,"SCU Checksum mismatch\n" );
-#endif
+#if 1
    Float  *tmp = (Float *)0;
    *tmp = 1.;
-   exit(status);
-#else
-  exit(status);
 #endif
+   exit(status);
 }
 
 Error::Error() {
