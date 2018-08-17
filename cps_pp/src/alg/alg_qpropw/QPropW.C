@@ -3700,7 +3700,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
       box_arg.mom[mu] = b_arg->mom[mu];
     }
 
-    Run ();
+    Run();
   }
 
   void QPropW4DBoxSrc::SetSource (FermionVectorTp & src, int spin, int color)
@@ -3708,7 +3708,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     const char *fname = "SetSource()";
     VRB.Func (cname, fname);
 
-    src.Set4DBoxSource (color, spin, box_arg.box_start, box_arg.box_size,
+    src.Set4DBoxSource(color, spin, box_arg.box_start, box_arg.box_size,
 			box_arg.mom);
 
     if (GFixedSrc ()) {

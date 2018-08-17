@@ -28,233 +28,11 @@ CPS_END_NAMESPACE
 
 #ifdef USE_QUDA
 #include <invert_quda.h>
-#define MAX(a,b) ((a)>(b)?(a):(b))
+#include <util/dirac_op/cps_quda.h>
+
+#define QUDA_NEW_INTERFACE
 
 CPS_START_NAMESPACE
-
-class CPSQuda {
-
-public:
-  static const std::string cname;
-
-static QudaPrecision setPrecision_mdwf(CudaPrecision prec) {
-  switch (prec) {
-  case CUDA_HALF_PRECISION:
-    VRB.Result("","setPrecision_mdwf","CUDA_HALF_PRECISION\n");
-    return QUDA_HALF_PRECISION;
-  case CUDA_SINGLE_PRECISION:
-    VRB.Result("","setPrecision_mdwf","CUDA_SINGLE_PRECISION\n");
-    return QUDA_SINGLE_PRECISION;
-  case CUDA_DOUBLE_PRECISION:
-    VRB.Result("","setPrecision_mdwf","CUDA_DOUBLE_PRECISION\n");
-    return QUDA_DOUBLE_PRECISION;
-  default:
-    ERR.General("", "", "Undefined precision %d\n", prec);
-  }
-}
-
-static QudaReconstructType setReconstruct_mdwf(CudaReconstructType recon) {
-  switch (recon) {
-  case CUDA_RECONSTRUCT_8:
-    return QUDA_RECONSTRUCT_8;
-  case CUDA_RECONSTRUCT_12:
-    return QUDA_RECONSTRUCT_12;
-  case CUDA_RECONSTRUCT_NO:
-    return QUDA_RECONSTRUCT_NO;
-  }
-}
-
-static void ParamSetup(QudaArg &quda_param, QudaGaugeParam & gauge_param, 
-	QudaInvertParam &inv_param, int mat_type = 1 ){
-
-   const std::string fname="ParamSetup(QudaArg,QudaGaugeParam,QudaInvertParam,i)";
-
-  //--------------------------------------
-  //  Parameter setting for Gauge Data
-  //--------------------------------------
-
-  // set the CUDA precisions
-  gauge_param.reconstruct = setReconstruct_mdwf(quda_param.reconstruct);
-  gauge_param.cuda_prec = setPrecision_mdwf(quda_param.gauge_prec);
-
-  // set the CUDA sloppy precisions
-  gauge_param.reconstruct_sloppy = setReconstruct_mdwf(quda_param.reconstruct_sloppy);
-  gauge_param.cuda_prec_sloppy = setPrecision_mdwf(quda_param.gauge_prec_sloppy);
-
-  if (sizeof(Float) == sizeof(double)) {
-    gauge_param.cpu_prec = QUDA_DOUBLE_PRECISION;
-    inv_param.cpu_prec = QUDA_DOUBLE_PRECISION;
-  } else {
-    gauge_param.cpu_prec = QUDA_SINGLE_PRECISION;
-    inv_param.cpu_prec = QUDA_SINGLE_PRECISION;
-  }
-
-  gauge_param.X[0] = GJP.XnodeSites();
-  gauge_param.X[1] = GJP.YnodeSites();
-  gauge_param.X[2] = GJP.ZnodeSites();
-  gauge_param.X[3] = GJP.TnodeSites();
-  gauge_param.anisotropy = GJP.XiBare();
-  gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
-  gauge_param.reconstruct_precondition = setReconstruct_mdwf(quda_param.reconstruct_sloppy);
-
-  if (GJP.XiDir() != 3) ERR.General(cname.c_str(), fname.c_str(), "Anisotropy direction not supported\n");
- 
-  //---------------------------------------------------
-  // QUDA_FLOAT_GAUGE_ORDER = 1
-  // QUDA_FLOAT2_GAUGE_ORDER = 2, // no reconstruct and double precision
-  // QUDA_FLOAT4_GAUGE_ORDER = 4, // 8 and 12 reconstruct half and single
-  // QUDA_QDP_GAUGE_ORDER, // expect *gauge[4], even-odd, row-column color
-  // QUDA_CPS_WILSON_GAUGE_ORDER, // expect *gauge, even-odd, mu inside, column-row color
-  // QUDA_MILC_GAUGE_ORDER, // expect *gauge, even-odd, mu inside, row-column order
-  //
-  // MULTI GPU case, we have to use QDP format of gauge data
-  //
-  //---------------------------------------------------
-  
-  gauge_param.gauge_order = QUDA_CPS_WILSON_GAUGE_ORDER;
-  
-  //---------------------------------------------------
-
-  gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
-  gauge_param.type = QUDA_WILSON_LINKS;
-
-  for (int d=0; d<3; d++) if (GJP.Bc(d) != BND_CND_PRD) 
-    ERR.General(cname.c_str(), fname.c_str(), "Boundary condition not supported\n");
-  if (GJP.Tbc() == BND_CND_PRD)
-    gauge_param.t_boundary = QUDA_PERIODIC_T;
-  else
-    gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
-  
-  //------------------------------------------
-  //  Parameter setting for Matrix invertion
-  //------------------------------------------
-  inv_param.cuda_prec = setPrecision_mdwf(quda_param.spinor_prec);
-  inv_param.cuda_prec_sloppy = setPrecision_mdwf(quda_param.spinor_prec_sloppy);
-
-  inv_param.reliable_delta = quda_param.reliable_delta;
-  
-  inv_param.Ls = GJP.SnodeSites();
-  //inv_param.Ls = 1;
-
-  //--------------------------
-  // Possible dslash type
-  //--------------------------
-  // QUDA_WILSON_DSLASH
-  // QUDA_CLOVER_WILSON_DSLASH
-  // QUDA_DOMAIN_WALL_DSLASH
-  // QUDA_DOMAIN_WALL4D__DSLASH
-  // QUDA_MOBIUS_DWF_DSLASH
-  // QUDA_ASQTAD_DSLASH
-  // QUDA_TWISTED_MASS_DSLASH
-  //--------------------------
-  inv_param.dslash_type = QUDA_MOBIUS_DWF_DSLASH;
-  
-  
-  //--------------------------------
-  // Possible normalization method
-  //--------------------------------
-  // QUDA_KAPPA_NORMALIZATION
-  // QUDA_MASS_NORMALIZATION
-  // QUDA_ASYMMETRIC_MASS_NORMALIZATION
-  //--------------------------------
-  inv_param.mass_normalization = QUDA_KAPPA_NORMALIZATION;
-  //inv_param.mass_normalization = QUDA_MASS_NORMALIZATION;
-
-  inv_param.dagger = QUDA_DAG_NO;
-
-  //----------------------------------------------------------
-  //  Domain wall parameters
-  //----------------------------------------------------------
-  inv_param.m5 = -GJP.DwfHeight();
-
-  //----------------------------------------------------------
-  //  Build MDWF coefficients b_5 & c_5
-  //----------------------------------------------------------
-  // Currently, CPS program uses constant value for b_5, c_5 
-  // coefficients not array type data.
-  //
-  VRB.Result(cname.c_str(),fname.c_str(), "b_5 c_5 = %e %e\n", GJP.Mobius_b(), GJP.Mobius_c() );
-
-  for(int xs = 0; xs < GJP.SnodeSites(); xs++)
-  {
-    inv_param.b_5[xs] = GJP.Mobius_b();
-    inv_param.c_5[xs] = GJP.Mobius_c();
-  }
-
-  switch (mat_type) {
-  case 0:
-    inv_param.solution_type = QUDA_MATPC_SOLUTION;
-    break;
-  case 1:
-    inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
-    break;
-  default:
-    ERR.General(cname.c_str(), fname.c_str(), "Matrix solution type not defined\n");
-  }
-
-//  inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
-  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
-  inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
-  inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
-  
-  inv_param.dirac_order = QUDA_CPS_WILSON_DIRAC_ORDER;
-  //inv_param.dirac_order = QUDA_DIRAC_ORDER;
-
-  inv_param.input_location = QUDA_CPU_FIELD_LOCATION;
-  inv_param.output_location = QUDA_CPU_FIELD_LOCATION;
-  inv_param.tune = QUDA_TUNE_YES;
-  inv_param.use_init_guess = QUDA_USE_INIT_GUESS_YES;
-
-  //--------------------------
-  // Possible verbose type
-  //--------------------------
-  // QUDA_SILENT
-  // QUDA_SUMMARIZE
-  // QUDA_VERBOSE
-  // QUDA_DEBUG_VERBOSE
-  //--------------------------
-  //inv_param.verbosity = QUDA_DEBUG_VERBOSE;
-  inv_param.verbosity = QUDA_VERBOSE;
- // inv_param.verbosity = QUDA_SUMMARIZE;
-  //inv_param.verbosity = QUDA_SILENT;
-  //inv_param.verbosity_precondition = QUDA_DEBUG_VERBOSE;
-  inv_param.verbosity_precondition = QUDA_VERBOSE;
-  //inv_param.verbosity_precondition = QUDA_SUMMARIZE;
-  //inv_param.verbosity_precondition = QUDA_SILENT;
-
-  // domain decomposition preconditioner parameters
-  inv_param.inv_type_precondition = QUDA_INVALID_INVERTER;
-  inv_param.schwarz_type = QUDA_ADDITIVE_SCHWARZ;
-  inv_param.precondition_cycle = 1;
-  inv_param.tol_precondition = 1e-1;
-  inv_param.maxiter_precondition = 10;
-  inv_param.verbosity_precondition = QUDA_VERBOSE;
-  inv_param.omega = 1.0;
-
-  gauge_param.ga_pad = 0; 
-  inv_param.sp_pad = 0; 
-  inv_param.cl_pad = 0; 
-
-#ifdef USE_QMP
-  //------------------------------------------
-  // This part is needed to make buffer memory
-  // space for multi GPU Comm.
-  //------------------------------------------
-  int x_face_size = gauge_param.X[1]*gauge_param.X[2]*gauge_param.X[3]/2;
-  int y_face_size = gauge_param.X[0]*gauge_param.X[2]*gauge_param.X[3]/2;
-  int z_face_size = gauge_param.X[0]*gauge_param.X[1]*gauge_param.X[3]/2;
-  int t_face_size = gauge_param.X[0]*gauge_param.X[1]*gauge_param.X[2]/2;
-  int pad_size =MAX(x_face_size, y_face_size);
-  pad_size = MAX(pad_size, z_face_size);
-  pad_size = MAX(pad_size, t_face_size);
-  gauge_param.ga_pad = pad_size;
-  //------------------------------------------
-#endif
-
-}
-
-};
-const std::string CPSQuda::cname("CPSQuda");
 
 int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_type) {
 
@@ -269,10 +47,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
-#if 1
-  CPSQuda::ParamSetup(QudaParam,gauge_param,inv_param, mat_type);
-#else
-#endif
+  CPSQuda::ParamSetup_mdwf(QudaParam,gauge_param,inv_param, mat_type);
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;
@@ -321,7 +96,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   int MatDMat_test = 0;
   int cg_test = 1;
 //----------------------Debug code------------------------
-  if(MatDMat_test == 1)
+  if(MatDMat_test )
   {
     Vector *in_tmp = (Vector*)smalloc(f_size_cb * sizeof(Float));
     in_tmp->VecZero(f_size_cb);
@@ -342,9 +117,9 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     //MatPcDag(r, in_tmp);
 //    MatPcDagMatPc(r, in);
 //    inv_param.matpc_type = QUDA_MATPC_ODD_ODD;
-//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
 //    inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
-  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+//    inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+//  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
     //MatQuda(r_tmp, in_tmp, &inv_param);
     MatQuda(r_tmp, in, &inv_param);
     //MatDagMatQuda(r_tmp, in, &inv_param);
@@ -456,10 +231,11 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
       //------------------------------------
       k++;
       total_iter += inv_param.iter + 1;
-      flops += 1e9*inv_param.gflops + 8*f_size_cb + matvec_flops;
+      //dividing by the number of nodes
+      flops += 1e9*inv_param.gflops/(Float)GJP.TotalNodes() + 8*f_size_cb + matvec_flops;
 
-      VRB.Result(cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
-          inv_param.gflops, inv_param.secs, inv_param.gflops / inv_param.secs);
+      VRB.Result(cname, fname, "Total Gflops = %e, Seconds = %e, Gflops/s = %f\n", 
+          inv_param.gflops,inv_param.secs, inv_param.gflops / inv_param.secs);
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
     }
@@ -473,7 +249,6 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   }
   total_time +=dclock();
    VRB.Result(cname, fname, "inv_time=%g qudamat_time=%g total_time=%g\n",inv_time,qudamat_time,total_time);
-//  exit(-43);
   //----------------------------------------
   //  Finalize QUDA memory and API
   //----------------------------------------
@@ -499,7 +274,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 
   QudaGaugeParam gauge_param = newQudaGaugeParam();
   QudaInvertParam inv_param = newQudaInvertParam();
-  CPSQuda::ParamSetup(QudaParam,gauge_param,inv_param);
+  CPSQuda::ParamSetup_mdwf(QudaParam,gauge_param,inv_param);
 
   inv_param.inv_type = QUDA_CG_INVERTER;
   inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
@@ -538,7 +313,7 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
   Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
   
   int total_iter = 0, k = 0;
-  int MatDMat_test = 0;
+//  int MatDMat_test = 0;
   int cg_test = 1;
 
   Float total_time=-dclock();
@@ -580,7 +355,6 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
       VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",  
           sqrt(r2)/sqrt(in_norm2), total_iter, k);
 //    }
-//      exit(-40);
     if ( type!=MULTI ){
 	out[0] ->VecZero(f_size_cb);
       for(int i=0;i<inv_param.num_offset;i++){

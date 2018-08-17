@@ -237,19 +237,15 @@ vml_QPropWBoxArg (VML *vmls, char *name,QPropWBoxArg *objp)
 bool_t
 vml_QPropW4DBoxArg (VML *vmls, char *name,QPropW4DBoxArg *objp)
 {
-	 vml_class_begin(vmls,"QPropW4DBoxArg",name);
-	int i;
-	 if (!vml_vector (vmls, "box_start", (char *)objp->box_start, 4,
-		sizeof (int), (vmlproc_t) vml_int))
-		 return FALSE;
-	 if (!vml_vector (vmls, "box_size", (char *)objp->box_size, 4,
-		sizeof (int), (vmlproc_t) vml_int))
-		 return FALSE;
-	 if (!vml_vector (vmls, "mom", (char *)objp->mom, 4,
-		sizeof (Float), (vmlproc_t) vml_Float))
-		 return FALSE;
-	 vml_class_end(vmls,"QPropW4DBoxArg",name);
-	return TRUE;
+  vml_class_begin(vmls, "QPropW4DBoxArg", name);
+  if(!vml_vector(vmls, "box_start", (char*) objp->box_start, 4, sizeof(int), (vmlproc_t) vml_int))
+    return FALSE;
+  if(!vml_vector(vmls, "box_size", (char*) objp->box_size, 4, sizeof(int), (vmlproc_t) vml_int))
+    return FALSE;
+  if(!vml_vector(vmls, "mom", (char*) objp->mom, 4, sizeof(Float), (vmlproc_t) vml_Float))
+    return FALSE;
+  vml_class_end(vmls, "QPropW4DBoxArg", name);
+  return TRUE;
 }
 	 bool QPropWRandArg::Encode(char *filename,char *instance){
 		 VML vmls;

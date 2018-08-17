@@ -93,7 +93,7 @@ class Fbfm : public virtual Lattice,public virtual FwilsonTypes {
 				Vector *phi1, Vector *phi2,
 				Float mass);
 
-#if 0
+#if 1
   ForceArg EvolveMomFforceBaseThreaded(Matrix *mom,
 				       Vector *phi1,
 				       Vector *phi2,
