@@ -104,7 +104,7 @@ if (!dminus){
 
 
     // TIZB check
-if (0){
+if (1){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
