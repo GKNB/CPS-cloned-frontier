@@ -278,8 +278,9 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 
   inv_param.inv_type = QUDA_CG_INVERTER;
   inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
-//  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
-  inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
+  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+// for master and/or old QUDA branches
+//  inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;

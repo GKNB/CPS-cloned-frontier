@@ -11,21 +11,6 @@ CPS_START_NAMESPACE
 
   $Id: d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-06-07 19:26:34 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
-//  $Id: d_op_mobius.C,v 1.6 2013-06-07 19:26:34 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: d_op_mobius.C,v $
-//  $Revision: 1.6 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/d_op_mobius.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // d_op_mobius.C
@@ -614,8 +599,13 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
   
   if(!UniqueID())printf("TIZB mass=%e\n",mass);
   for(int TID=0; TID<=12; TID+=12){
+#ifndef MATRIX
     Complex mat_orig[100][100];
     Complex mat_inv[100][100];
+#else
+    MATRIX(Complex,mat_orig,100,100);
+    MATRIX(Complex,mat_inv,100,100);
+#endif
     for(int iturn=0;iturn<2;++iturn){
       
       for (int s1=0;s1<local_ls;++s1){
@@ -662,7 +652,8 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
       }
     }
     
-    Complex mat_prod[100][100];
+//    Complex mat_prod[100][100];
+    MATRIX(Complex,mat_prod,100,100);
     for(int s1=0;s1<local_ls;++s1) for(int s2=0;s2<local_ls;++s2)
 			      mat_prod[s1][s2]=0.0;
     

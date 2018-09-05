@@ -169,7 +169,7 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 				  Vector *in, 
 				  Float *dot_prd){
 
-  Float dtime = -dclock();
+//  Float dtime = -dclock();
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // and DiracOpMobius constructors but is done again in case the
@@ -192,8 +192,8 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
 	       dot_prd,
 	       mass,
 	       (Dwf *) mobius_lib_arg);
-  dtime += dclock();
-  print_time(cname,"MatPcDag()",dtime);
+//  dtime += dclock();
+//  print_time(cname,"MatPcDag()",dtime);
 }
 
 //------------------------------------------------------------------
