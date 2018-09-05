@@ -108,11 +108,23 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
   // GJP.SnodeSites() while in the scope of the Fmobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites();
+  
+  int Ls=GJP.SnodeSites();
+  mobius_arg->ls = Ls;
   mobius_arg->mobius_kappa_b = 
     1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
   mobius_arg->mobius_kappa_c = 
     1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+// to use zmobius dslash implementation
+  mobius_arg->zmobius_kappa_b.resize(Ls);
+  mobius_arg->zmobius_kappa_c.resize(Ls);
+  mobius_arg->zmobius_kappa_ratio.resize(Ls);
+  for(int i =0; i<Ls;i++){
+  mobius_arg->zmobius_kappa_b[i] = mobius_arg->mobius_kappa_b;
+  mobius_arg->zmobius_kappa_c[i] =  mobius_arg->mobius_kappa_c;
+  mobius_arg->zmobius_kappa_ratio[i] =
+  mobius_arg->zmobius_kappa_b[i] / mobius_arg->zmobius_kappa_c[i];
+  }
 
 }
 

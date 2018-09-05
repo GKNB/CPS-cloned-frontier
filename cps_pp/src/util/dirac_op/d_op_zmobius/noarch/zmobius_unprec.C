@@ -1,9 +1,5 @@
 #include<config.h>
 CPS_START_NAMESPACE
-//--------------------------------------------------------------------
-//
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // mobius_dslash.C
@@ -59,8 +55,8 @@ void zmobius_unprec(Vector *out,
 //------------------------------------------------------------------
 // Apply 5th-direction Dslash
 //------------------------------------------------------------------
-  Complex* kappa_c = mobius_lib_arg->zmobius_kappa_c;
-  Complex* kappa_b = mobius_lib_arg->zmobius_kappa_b;
+  Complex* kappa_c = mobius_lib_arg->zmobius_kappa_c.data();
+  Complex* kappa_b = mobius_lib_arg->zmobius_kappa_b.data();
   Complex *one = new Complex[mobius_lib_arg->ls];
   for(int i=0;i<mobius_lib_arg->ls;i++) one[i] = -1./kappa_c[i];
 

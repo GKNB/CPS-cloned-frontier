@@ -222,6 +222,7 @@ void reset_mobius_arg(void* mobius_lib_arg){
 
   mobius_arg->pc_type = GJP.ZMobius_PC_Type();
 
+#if 0
   if(mobius_arg->zmobius_kappa_b){
     delete [] mobius_arg->zmobius_kappa_b;
   }
@@ -234,6 +235,11 @@ void reset_mobius_arg(void* mobius_lib_arg){
     delete [] mobius_arg->zmobius_kappa_ratio;
   }
   mobius_arg->zmobius_kappa_ratio = (Complex*) new  Complex [mobius_arg->ls];
+#else
+  mobius_arg->zmobius_kappa_b.resize(mobius_arg->ls);
+  mobius_arg->zmobius_kappa_c.resize(mobius_arg->ls);
+  mobius_arg->zmobius_kappa_ratio.resize(mobius_arg->ls);
+#endif
 
 
   //  printf("TIZB Height %e %e\n", GJP.DwfHeight(), GJP.DwfA5Inv());
@@ -623,11 +629,11 @@ void test_m5inv(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
 	if(iturn==0)
 	  {
 	    zmobius_m5inv(temp2, temp, mass, dag, mobius_arg,
-			  mobius_arg->zmobius_kappa_ratio);  	  
+			  mobius_arg->zmobius_kappa_ratio.data());  	  
 	  }
 	else { // this is the M5
 	  moveFloat( (IFloat*)temp2, (IFloat*)temp, temp_size );
-	  Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+	  Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
 	  zmobius_kappa_dslash_5_plus_cmplx(temp2,
 					    temp,
 					    mass,
@@ -745,10 +751,10 @@ void test_m5inv_norm(void* mobius_lib_arg, Lattice &lat, Float mass, int dag )
 
   
   zmobius_m5inv(temp2, temp, mass, dag, mobius_arg,
-		mobius_arg->zmobius_kappa_ratio);  	  
+		mobius_arg->zmobius_kappa_ratio.data());  	  
   {
     moveFloat( (IFloat*)temp, (IFloat*)temp2, temp_size );
-    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
     zmobius_kappa_dslash_5_plus_cmplx(temp,temp2,mass,dag,
 				      mobius_arg, kappa_ratio);
   }
@@ -915,11 +921,11 @@ int DiracOpZMobius::MatInv(Vector *out,
   case ZMOB_PC_SYM2:
   case ZMOB_PC_SYM3:
     zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);  
+		  mobius_arg->zmobius_kappa_ratio.data());  
 
     zmobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO,
 		     mobius_arg, mass);
-    zmobius_zvectTimesV1PlusV2 (temp, mobius_arg->zmobius_kappa_b,  temp2, in,
+    zmobius_zvectTimesV1PlusV2 (temp, mobius_arg->zmobius_kappa_b.data(),  temp2, in,
 				local_ls, ls_stride, s_node_coor );
     break;
   default:
@@ -936,7 +942,7 @@ int DiracOpZMobius::MatInv(Vector *out,
     // Apply M5 to out for sym2 preconditioning
     moveFloat((IFloat *)temp2, (IFloat *)out, temp_size );
     zmobius_kappa_dslash_5_plus_cmplx(out, temp2, mass, DAG_NO, mobius_arg,
-				      mobius_arg->zmobius_kappa_ratio);
+				      mobius_arg->zmobius_kappa_ratio.data());
     break;
     default:
       ERR.NotImplemented(cname,fname);
@@ -1002,28 +1008,28 @@ int DiracOpZMobius::MatInv(Vector *out,
   case   ZMOB_PC_SYM3:
   case   ZMOB_PC_SYM2: {
     zmobius_m5inv(temp, out, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);
+		  mobius_arg->zmobius_kappa_ratio.data());
     moveFloat((IFloat *)out, (IFloat *)temp, temp_size );
 
   // Below is the same original postconditioning (dare to write again for clarity)
     zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-    zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b,
+    zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b.data(),
 				   local_ls, ls_stride, s_node_coor);
     zmobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);
+		  mobius_arg->zmobius_kappa_ratio.data());
     zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);
+		  mobius_arg->zmobius_kappa_ratio.data());
     odd_out->VecAddEquVec(temp, temp_size); 
     break;
   }
   case ZMOB_PC_ORIG: {
     zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-    zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b,
+    zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b.data(),
 				   local_ls, ls_stride, s_node_coor);
     zmobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);
+		  mobius_arg->zmobius_kappa_ratio.data());
     zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
-		  mobius_arg->zmobius_kappa_ratio);
+		  mobius_arg->zmobius_kappa_ratio.data());
     odd_out->VecAddEquVec(temp, temp_size); 
     break;}
   default:
@@ -1117,7 +1123,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
   out->VecTimesEquFloat(minus_kappa, temp_size); 
 #else
   for(int s=0; s<local_ls;++s){
-    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b.data();
     int glb_s = s + local_ls*s_node_coor;
     int idx = s*ls_stride/2;// "/2" is for complex
     vecTimesEquComplex((Complex*) out+idx, -kappa_b[glb_s], ls_stride);
@@ -1135,7 +1141,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
   out->VecAddEquVec(frm_tmp2, temp_size); 
 #else
   {
-    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
     out->VecAddEquVec(in, temp_size); 
     zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, 0, mobius_arg,
 				      kappa_ratio);
@@ -1149,7 +1155,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
   odd_out->VecTimesEquFloat(minus_kappa, temp_size); 
 #else
   for(int s=0; s<local_ls;++s){
-    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b.data();
     int glb_s = s + local_ls*s_node_coor;
     int idx = s*ls_stride/2;// "/2" is for complex
     vecTimesEquComplex((Complex*) odd_out+idx, -kappa_b[glb_s], ls_stride);
@@ -1166,7 +1172,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
   odd_out->VecAddEquVec(frm_tmp2, temp_size);
 #else
   {
-    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
     odd_out->VecAddEquVec(odd_in, temp_size); 
     zmobius_kappa_dslash_5_plus_cmplx(odd_out, odd_in, mass, 0, mobius_arg,
 				kappa_ratio);
@@ -1284,7 +1290,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
 #else
   moveFloat((IFloat*)frm_tmp2,(IFloat*)odd_in, temp_size);
   for(int s=0; s<local_ls;++s){
-    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b.data();
     int glb_s = s + local_ls*s_node_coor;
     int idx = s*ls_stride/2;// "/2" is for complex
     vecTimesEquComplex((Complex*) frm_tmp2+idx, -conj(kappa_b[glb_s]), ls_stride);
@@ -1304,7 +1310,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
   out->VecAddEquVec(frm_tmp2, temp_size); 
 #else
   {
-    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
     out->VecAddEquVec(in, temp_size); 
     zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, DAG_YES, mobius_arg,
 				kappa_ratio);
@@ -1317,7 +1323,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
 #else
   moveFloat((IFloat*)frm_tmp2,(IFloat*)in, temp_size);
   for(int s=0; s<local_ls;++s){
-    const Complex* kappa_b= mobius_arg->zmobius_kappa_b;
+    const Complex* kappa_b= mobius_arg->zmobius_kappa_b.data();
     int glb_s = s + local_ls*s_node_coor;
     int idx = s*ls_stride/2;// "/2" is for complex
     vecTimesEquComplex((Complex*) frm_tmp2+idx, -conj(kappa_b[glb_s]), ls_stride);
@@ -1338,7 +1344,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
   odd_out->VecAddEquVec(frm_tmp2, temp_size); 
 #else
     {
-    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio;
+    Complex* kappa_ratio= mobius_arg->zmobius_kappa_ratio.data();
     odd_out->VecAddEquVec(odd_in, temp_size); 
     zmobius_kappa_dslash_5_plus_cmplx(odd_out, odd_in, mass, DAG_YES, mobius_arg,
 				kappa_ratio);
