@@ -42,7 +42,7 @@ void  mobius_m(Vector *out,
   const char *fname="mobius_m()";
 #if 1
 //currently Zmobus = Dwf
-  VRB.Result("",fname,"pc=%d \n",mobius_lib_arg ->pc_type);
+  VRB.Debug("",fname,"pc=%d \n",mobius_lib_arg ->pc_type);
   if (mobius_lib_arg ->pc_type != ZMOB_PC_ORIG)
   ERR.General("",fname,"Only ZMOB_PC_ORIG tested\n");
   zmobius_m(out,gauge_field,in,mass,mobius_lib_arg);

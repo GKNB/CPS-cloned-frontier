@@ -43,12 +43,15 @@ void  mobius_mdag(Vector *out,
   //------------------------------------------------------------------
   // Initializations
   //------------------------------------------------------------------
+  const int ls = mobius_lib_arg->ls;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d * ls / 2;
+#if 1
+  zmobius_mdag(out,gauge_field,in,mass,mobius_lib_arg);
+#else 
   IFloat *g_field;
   Wilson *wilson_p;
   int size_cb[2];
 
-  const int ls = mobius_lib_arg->ls;
-  const size_t f_size = 24 * mobius_lib_arg->vol_4d * ls / 2;
   const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
   const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const Float b_coeff =  GJP.Mobius_b();
@@ -147,6 +150,7 @@ void  mobius_mdag(Vector *out,
   //------------------------------------------------------------------
   mobius_kappa_dslash_5_plus(out, in, mass, 1, mobius_lib_arg, kappa_ratio);
   DEBUG_MOBIUS_DSLASH("mobius_kappa_dslash_5_dag_plus %e\n", time_elapse());
+#endif
 
   // Flops count in this function is two AXPY = 4 flops per vector elements
   DiracOp::CGflops +=  3*f_size; 

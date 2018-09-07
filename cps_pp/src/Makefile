@@ -1,12 +1,156 @@
-NORECURSE_DIR = qcdoc qcdsp noarch mpi CVS 
-BGL_DIR = noarch
-BGL_QMP_DIR = noarch
-BGQ_DIR = noarch
-QCDOC_DIR = qcdoc
-QCDOC_SERIAL_DIR = qcdoc
-NOARCH_DIR = noarch
-NOARCH_BFM_DIR = noarch
-NOARCH_BFM_QMP_DIR = noarch
+# CPS makefile
+# Makefile.  Generated from Makefile.in by configure.
 
-include ../Makefile.rules
-# DO NOT DELETE
+SRCDIR = /home/chulwoo/CPS/branches/quda-CJ/cps_pp/src/..
+BUILDDIR = /home/chulwoo/CPS/branches/quda-CJ/cps_pp/src
+TESTDIR = tests
+HDW_TESTDIR= hdw_tests
+DOCDIR = doc
+
+# Added by Hantao
+#
+# Purpose is to have a single ar operation at the end (so we can
+# concurrently build).
+ifeq	($(LIB_NAME_SET),yes)
+SEPARATE_LIB = yes
+endif
+
+ifeq	($(SEPARATE_LIB),yes)
+DIR2 := $(subst util/,,$(DIR))
+DIR2 := $(subst dirac_op/,,$(DIR2))
+DIR2 := $(subst mem/,,$(DIR2))
+DIR2 := $(subst comms/,,$(DIR2))
+DIR2 := $(subst alg/,,$(DIR2))
+LIBNAME := XXX$(subst /,_,$(DIR2))XXX
+LIBNAME := $(subst XXX_,,$(LIBNAME))
+LIBNAME := $(subst _XXX,,$(LIBNAME))
+LIBNAME := $(subst XXX,,$(LIBNAME))
+else
+LIBNAME = libcps
+endif
+LIBNAME ?= libcps
+
+AR = ar
+#End of Hantao's addition
+
+ifneq "$(BUILDDIR)"  "$(SRCDIR)"
+builddir_isnt_srcdir="yes"
+else
+builddir_isnt_srcdir=
+endif
+
+LIBNAME = libcps
+
+all: rpcgenvml vml cps copy_testdir archive
+
+archive: cps
+	find $(BUILDDIR) \( -name '*.o' -o -name '*.xlo' \) -a -print0 | xargs -0 ${AR} rcs ${BUILDDIR}/$(LIBNAME).a
+
+cps: recurse
+
+cps_xlc: recurse
+
+depend: recurse
+
+clean: recurse
+
+buildlib: recurse
+
+recurse: vml
+#	@echo CONCUR = $(CONCUR)
+	mkdir -p $(BUILDDIR)/objs
+	touch -a $(BUILDDIR)/objs/Makefile_depend
+	cp -p $(SRCDIR)/src/Makefile $(BUILDDIR)/objs
+	$(MAKE) -C $(BUILDDIR)/objs CONCUR=yes $(filter-out test, $(MAKECMDGOALS))
+
+vml: rpcgenvml
+	-cp $(BUILDDIR)/include/input/Makefile ${SRCDIR}/include/input
+	$(MAKE) -C $(SRCDIR)/include/input
+
+rpcgenvml:
+	$(MAKE) -C $(SRCDIR)/misc/vml_encode/rpcgenvml all
+
+cleanlib: 
+	rm -f $(BUILDDIR)/*.a $(BUILDDIR)/*.xla
+
+copy_makefile:
+	-cp $(BUILDDIR)/Makefile* ${SRCDIR}
+	-cp $(BUILDDIR)/$(TESTDIR)/Makefile_common* ${SRCDIR}/$(TESTDIR)
+	-cp $(BUILDDIR)/$(TESTDIR)/regression.pl ${SRCDIR}/$(TESTDIR)
+
+copy_include:
+	$(if $(builddir_isnt_srcdir), rm -rf $(BUILDDIR)/include; cp -r $(SRCDIR)/include $(BUILDDIR))
+
+TESTSUBDIRS :=$(shell ls -p $(SRCDIR)/$(TESTDIR)/*/Makefile_regression)
+TESTSUBDIRS :=$(dir $(TESTSUBDIRS))
+TESTSUBDIRS :=$(patsubst $(SRCDIR)/$(TESTDIR)/%/, %, $(TESTSUBDIRS))
+HDW_TESTSUBDIRS :=$(shell ls -p $(SRCDIR)/$(HDW_TESTDIR)/*/Makefile_regression)
+HDW_TESTSUBDIRS :=$(dir $(HDW_TESTSUBDIRS))
+HDW_TESTSUBDIRS :=$(patsubst $(SRCDIR)/$(HDW_TESTDIR)/%/, %, $(HDW_TESTSUBDIRS))
+TESTBUILDDIRS :=$(shell ls -p $(SRCDIR)/$(TESTDIR)/*/test_command)
+TESTBUILDDIRS :=$(patsubst $(SRCDIR)/$(TESTDIR)/%/test_command, %/build.done, $(TESTBUILDDIRS))
+
+copy_testdir: $(TESTSUBDIRS) $(HDW_TESTSUBDIRS)
+	$(if $(findstring s, $(MAKEFLAGS)),,@echo TESTSUBDIRS = $(TESTSUBDIRS))
+
+$(TESTSUBDIRS):
+	$(if $(builddir_isnt_srcdir), mkdir -p $(TESTDIR)/$@)
+	-cp -p $(SRCDIR)/$(TESTDIR)/$@/Makefile*  $(TESTDIR)/$@
+	-cp -p $(SRCDIR)/$(TESTDIR)/$@/*.in  $(TESTDIR)/$@
+
+$(HDW_TESTSUBDIRS):
+	$(if $(builddir_isnt_srcdir), mkdir -p $(HDW_TESTDIR)/$@)
+	-cp -p $(SRCDIR)/$(HDW_TESTDIR)/$@/Makefile_regression  $(HDW_TESTDIR)/$@
+ 
+testbuild: $(TESTBUILDDIRS)
+	@echo TESTBUILDDIR = $(TESTBUILDDIRS)
+ 
+$(TESTBUILDDIRS):
+	$(if $(builddir_isnt_srcdir), mkdir -p $(TESTDIR)/$(@D))
+	-cp -p $(SRCDIR)/$(TESTDIR)/$(@D)/Makefile*  $(TESTDIR)/$(@D)
+	-cp -p $(SRCDIR)/$(TESTDIR)/$(@D)/*.in  $(TESTDIR)/$(@D)
+	cd $(TESTDIR)/$(@D); ($(MAKE) -f Makefile_regression all 2>&1 |tee make.log )
+
+#  Create the documentation
+
+have_doxygen = 
+
+ifneq "$(have_doxygen)" "yes"
+
+docs webdocs:
+	@echo doxygen must be installed to make the documentation.
+else
+
+docs:
+docs: 
+	$(if $(builddir_isnt_srcdir), cp -r $(SRCDIR)/$(DOCDIR) $(BUILDDIR))
+	bash $(BUILDDIR)/$(DOCDIR)/mkdocs.sh $(SRCDIR)
+
+#  Documentation for the web pages
+#  (this deletes the source code so that it is not posted on the web)
+
+docsubdirs = $(dir $(shell ls doc/*/Makefile))
+webdocs:
+	@echo Creating documentation for the web page
+	$(if $(builddir_isnt_srcdir),, @echo This will delete all source code!)
+	$(MAKE)  docs
+	$(if $(builddir_isnt_srcdir),, @rm -rf src include tests)
+	@for a in $(docsubdirs); do $(MAKE) -C $$a all clean; done
+	chmod o= `ls`
+	@find $(DOCDIR) -path "*CVS" -prune -o -type d -print | xargs chmod 775
+	@find $(DOCDIR) -name "*.html" -o -name "*.*ps" -o -name "*.gif" -o -name "*.png" -o -name "*.jp*g" -o -name "*.pdf" -o -name "*.tar.gz" |xargs chmod 644
+
+endif
+
+#  Run the regression test suite
+
+test: cps
+	-cp $(TESTDIR)/Makefile_common tests/regression.pl $(SRCDIR)/${TESTDIR}
+	cd $(SRCDIR)/$(TESTDIR); perl regression.pl
+
+
+
+# Remove everything made by this makefile
+
+realclean: 
+	rm -rf objs *.a

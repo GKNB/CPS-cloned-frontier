@@ -58,6 +58,8 @@ typedef struct{
   Rcomplex *zmobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]
   Rcomplex *zmobius_kappa_ratio;//    kappa_b / kappa_c
 #else
+  std::vector < Rcomplex > zmobius_b;    // b[i]
+  std::vector < Rcomplex > zmobius_c;    // c[i]
   std::vector < Rcomplex > zmobius_kappa_b;    // 1/[2*(b*(4-dwf_height)+1)]
   std::vector < Rcomplex > zmobius_kappa_c;    // 1/[2*(c*(4-dwf_height)-1)]
   std::vector < Rcomplex > zmobius_kappa_ratio;//    kappa_b / kappa_c

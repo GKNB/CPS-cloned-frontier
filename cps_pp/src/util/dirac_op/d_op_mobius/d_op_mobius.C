@@ -116,15 +116,26 @@ DiracOpMobius::DiracOpMobius(Lattice & latt,
   mobius_arg->mobius_kappa_c = 
     1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
 // to use zmobius dslash implementation
+  mobius_arg->zmobius_b.resize(Ls);
+  mobius_arg->zmobius_c.resize(Ls);
   mobius_arg->zmobius_kappa_b.resize(Ls);
   mobius_arg->zmobius_kappa_c.resize(Ls);
   mobius_arg->zmobius_kappa_ratio.resize(Ls);
   for(int i =0; i<Ls;i++){
+  mobius_arg->zmobius_b[i] = GJP.Mobius_b();
+  mobius_arg->zmobius_c[i] =  GJP.Mobius_c();
   mobius_arg->zmobius_kappa_b[i] = mobius_arg->mobius_kappa_b;
   mobius_arg->zmobius_kappa_c[i] =  mobius_arg->mobius_kappa_c;
   mobius_arg->zmobius_kappa_ratio[i] =
   mobius_arg->zmobius_kappa_b[i] / mobius_arg->zmobius_kappa_c[i];
   }
+  size_t f_size_cb = 12 * GJP.VolNodeSites() * GJP.SnodeSites() ;
+  if (!mobius_arg->frm_tmp3)
+  mobius_arg->frm_tmp3 = (IFloat *) smalloc(cname,fname,"frm_tmp3",f_size_cb*sizeof(IFloat));
+  if (!mobius_arg->frm_tmp2)
+  mobius_arg->frm_tmp2 = (IFloat *) smalloc(cname,fname,"frm_tmp2",f_size_cb*sizeof(IFloat));
+  if (!mobius_arg->frm_tmp1)
+  mobius_arg->frm_tmp1 = (IFloat *) smalloc(cname,fname,"frm_tmp1",f_size_cb*sizeof(IFloat));
 
 }
 
@@ -154,6 +165,13 @@ DiracOpMobius::~DiracOpMobius() {
   dtime += dclock();
   print_flops("lattice","Convert()",0,dtime);
 #endif
+  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
+  sfree(cname,fname,"frm_tmp1",mobius_arg->frm_tmp1);
+  mobius_arg->frm_tmp1=0;
+  sfree(cname,fname,"frm_tmp2",mobius_arg->frm_tmp2);
+  mobius_arg->frm_tmp2=0;
+  sfree(cname,fname,"frm_tmp3",mobius_arg->frm_tmp3);
+  mobius_arg->frm_tmp3=0;
 
 }
 
@@ -187,13 +205,16 @@ void DiracOpMobius::MatPcDagMatPc(Vector *out,
   // and DiracOpMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
+  // disabling this as zmobius is called - CJ
   //----------------------------------------------------------------
+#if 0
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
   mobius_arg->ls = GJP.SnodeSites();
   mobius_arg->mobius_kappa_b = 
     1.0 / ( 2 * (GJP.Mobius_b() *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
   mobius_arg->mobius_kappa_c = 
     1.0 / ( 2 * (GJP.Mobius_c() *(4 - GJP.DwfHeight()) - GJP.DwfA5Inv()) );
+#endif
 
   //----------------------------------------------------------------
   // Implement routine

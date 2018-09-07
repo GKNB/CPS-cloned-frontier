@@ -320,7 +320,7 @@ if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc in
 #endif
   
     DiracOpGlbSum(&d);
-  VRB.Flow(cname,fname, "d = %e\n", IFloat(d));
+  VRB.Flow(cname,fname, "d = %e", IFloat(d));
 
     // If d = 0 we are done
     if(d == 0.0) {
@@ -331,7 +331,7 @@ if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc in
     }
 
     a = res_norm_sq_prv / d;
-    VRB.Flow(cname,fname, "a = %e\n", IFloat(a));
+    VRB.Flow(cname,fname, "a = %e", IFloat(a));
 
     // Set circular buffer
 //    setCbufCntrlReg(4, CBUF_MODE4);
@@ -350,11 +350,11 @@ if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc in
 
     // if( |res|^2 <= stp_cnd ) we are done
     VRB.Flow(cname,fname,
-	     "|res[%d]|^2 = %e\n", itr, IFloat(res_norm_sq_cur));
+	     "|res[%d]|^2 = %e", itr, IFloat(res_norm_sq_cur));
     if(res_norm_sq_cur <= stp_cnd) break;
 
     b = res_norm_sq_cur / res_norm_sq_prv;
-    VRB.Flow(cname,fname, "b = %e\n", IFloat(b));
+    VRB.Flow(cname,fname, "b = %e", IFloat(b));
 
     // dir = b * dir + res;
     dir->FTimesV1PlusV2(b, dir, res, f_size_cb);
@@ -385,13 +385,13 @@ if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not yet enabled in comsrc in
     unsigned long long flops_per_site = CGflops;
     flops_per_site /= (GJP.VolNodeSites()*(itr+1));
     print_flops(cname,fname,CGflops,&start,&end);
-    VRB.Result(cname,fname,"flops_per_site=%llu\n",flops_per_site);
+    VRB.Result(cname,fname,"flops_per_site=%llu",flops_per_site);
 #endif
 
   // It has not reached stp_cnd: Issue a warning
   if(itr == dirac_arg->max_num_iter - 1){
     VRB.Warn(cname,fname,
-	      "CG reached max iterations = %d. |res|^2 = %e\n",
+	      "CG reached max iterations = %d. |res|^2 = %e",
 	     itr+1, IFloat(res_norm_sq_cur) );
   }
 
