@@ -74,7 +74,7 @@ void zmobius_dslash_4_dag0(Vector *out,
   
   IFloat* frm_;
   Vector  *frm_tmp3 = (Vector *) mobius_lib_arg->frm_tmp3;
-  VRB.Debug("",fname,"frm_tmp3=%p\n", mobius_lib_arg->frm_tmp3);
+//  VRB.Debug("",fname,"frm_tmp3=%p\n", mobius_lib_arg->frm_tmp3);
 
   frm_ = (IFloat*)frm_tmp3;
 
