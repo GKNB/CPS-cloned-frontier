@@ -481,10 +481,18 @@ int DiracOpMobius::MatInv (Vector * out,
   switch (dirac_arg->Inverter) {
   case CG:
     MatPcDag (in, temp);
+#ifdef USE_QUDA
+    iter = QudaInvert (out, in, true_res, 1);
+#else
     iter = InvCg (out, in, true_res);
+#endif
     break;
   case BICGSTAB:
+#ifdef USE_QUDA
+    iter = QudaInvert (out, in, true_res, 0);
+#else
     iter = BiCGstab (out, temp, 0.0, dirac_arg->bicgstab_n, true_res);
+#endif
   case LOWMODEAPPROX:
     MatPcDag (in, temp);
     iter =
@@ -495,7 +503,11 @@ int DiracOpMobius::MatInv (Vector * out,
     MatPcDag (in, temp);
     InvLowModeApprox (out, in, dirac_arg->fname_eigen, dirac_arg->neig,
 		      true_res);
+#ifdef USE_QUDA
+    iter = QudaInvert (out, in, true_res, 1);
+#else
     iter = InvCg (out, in, true_res);
+#endif
     break;
   default:
     ERR.General (cname, fname, "InverterType %d not implemented\n",
