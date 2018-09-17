@@ -60,6 +60,9 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   if (dminus){
+#if 0
+  VRB.Result(cname,fname,"Dminus skipping temporarily for debugging. Fixed for correct results!\n");
+#else
   VRB.Result(cname,fname,"Dminus applied\n");
     dminus_in = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
   //TIZB: this is bug !  below Dminus multiplication is not in effect.
@@ -69,6 +72,7 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 //    f_in->CopyVec(f_out, size);
     moveFloat((IFloat*)f_in, (IFloat*)dminus_in, size);
     sfree(cname, fname,  "dminus_in",  dminus_in);
+#endif
   }
 
 #if 0

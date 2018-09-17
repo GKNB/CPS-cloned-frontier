@@ -813,7 +813,8 @@ enum InverterType {
   EIGCG   = 2,  /* EigCG */
   LOWMODEAPPROX    = 3,  /* Low Mode Approximation */
   CG_LOWMODE_DEFL  = 4,  /* CG accelerated using low-mode deflation */
-  HDCG  = 5  /* HDCG */
+  HDCG  = 5,  /* HDCG */
+  FAKE  = 6  /* For testing */
 };
 
 /* Which type of approximation to use? */

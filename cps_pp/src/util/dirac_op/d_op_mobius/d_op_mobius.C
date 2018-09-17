@@ -162,11 +162,11 @@ DiracOpMobius::~DiracOpMobius ()
 #endif
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
   sfree (cname, fname, "frm_tmp1", mobius_arg->frm_tmp1);
-  mobius_arg->frm_tmp1 = 0;
+  mobius_arg->frm_tmp1 = NULL;
   sfree (cname, fname, "frm_tmp2", mobius_arg->frm_tmp2);
-  mobius_arg->frm_tmp2 = 0;
+  mobius_arg->frm_tmp2 = NULL;
   sfree (cname, fname, "frm_tmp3", mobius_arg->frm_tmp3);
-  mobius_arg->frm_tmp3 = 0;
+  mobius_arg->frm_tmp3 = NULL;
 
 }
 
@@ -394,7 +394,7 @@ int DiracOpMobius::MatInv (Vector * out,
   const int vol_4d_cb = ((Zmobus *) mobius_lib_arg)->vol_4d / 2;
   const int ls_stride = 24 * vol_4d_cb;
 
-  int temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
+  size_t temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
   Vector *temp =
     (Vector *) smalloc (cname, fname, "temp", temp_size * sizeof (Float));
 
@@ -479,6 +479,9 @@ int DiracOpMobius::MatInv (Vector * out,
 
   int iter;
   switch (dirac_arg->Inverter) {
+  case FAKE:
+    MatPcDag (out, temp);
+    break;
   case CG:
     MatPcDag (in, temp);
 #ifdef USE_QUDA
@@ -889,13 +892,6 @@ void DiracOpMobius::Dminus (Vector * out, Vector * in)
 {
   const char *fname = "Dminus(V*,V*)";
   VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
-  VRB.Func (cname, fname);
 
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
   VRB.Result (cname, fname, "in=%p out=%p mobius_arg=%p\n", in, out,
@@ -907,7 +903,7 @@ void DiracOpMobius::Dminus (Vector * out, Vector * in)
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  int temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
+  size_t temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
 
   // points to the odd part of fermion source 
   Vector *odd_in = (Vector *) ((IFloat *) in + temp_size);
