@@ -20,8 +20,16 @@
 #include <util/rcomplex.h>
 #include <util/vector.h>
 #include <util/wilson.h>
+#include <util/error.h>
 
-#undef INLINE_WILSON_MATRIX
+#define INLINE_WILSON_MATRIX
+
+#define TIMESPLUSONE(a,b) { b=a; }
+#define TIMESMINUSONE(a,b) { b=-a; }
+#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
+#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
+#define TIMESPLUSI(a,b) { b=Complex(-a.imag(),a.real()); }
+#define TIMESMINUSI(a,b) { b=Complex(a.imag(),-a.real()); }
 
 #include <alg/spin_matrix.h>
 
@@ -428,8 +436,72 @@ public:
   //! mult the prop by gamma_dir*gamma_5 on the left, and return the new matrix
     WilsonMatrix glA(int dir)const;
   //! glA another version. result = gamma_dir*gamma_5*from
+#ifndef INLINE_WILSON_MATRIX
     WilsonMatrix& glA(const WilsonMatrix & from, int dir);
-//  void glA(const WilsonMatrix & from, int dir);
+#else
+WilsonMatrix& glA(const WilsonMatrix & from, int dir)
+{
+  int i; /*color*/
+  int c2,s2;    /* column indices, color and spin */
+  const wilson_matrix & from_mat=from.wmat();
+
+  switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSI(  from_mat.d[3].c[i].d[s2].c[c2],
+                p.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                p.d[1].c[i].d[s2].c[c2] );
+            TIMESMINUSI( from_mat.d[1].c[i].d[s2].c[c2],
+                p.d[2].c[i].d[s2].c[c2] );
+            TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                p.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESPLUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                p.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSONE(  from_mat.d[2].c[i].d[s2].c[c2],
+                p.d[1].c[i].d[s2].c[c2] );
+            TIMESPLUSONE(  from_mat.d[1].c[i].d[s2].c[c2],
+                p.d[2].c[i].d[s2].c[c2] );
+            TIMESMINUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                p.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSI(  from_mat.d[2].c[i].d[s2].c[c2],
+                p.d[0].c[i].d[s2].c[c2] );
+            TIMESPLUSI( from_mat.d[3].c[i].d[s2].c[c2],
+                p.d[1].c[i].d[s2].c[c2] );
+            TIMESMINUSI( from_mat.d[0].c[i].d[s2].c[c2],
+                p.d[2].c[i].d[s2].c[c2] );
+            TIMESPLUSI(  from_mat.d[1].c[i].d[s2].c[c2],
+                p.d[3].c[i].d[s2].c[c2] );
+        }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSONE( from_mat.d[2].c[i].d[s2].c[c2],
+                p.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSONE( from_mat.d[3].c[i].d[s2].c[c2],
+                p.d[1].c[i].d[s2].c[c2] );
+            TIMESPLUSONE( from_mat.d[0].c[i].d[s2].c[c2],
+                p.d[2].c[i].d[s2].c[c2] );
+            TIMESPLUSONE( from_mat.d[1].c[i].d[s2].c[c2],
+                p.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    default:
+	ERR.General(cname, "glA()", "BAD CALL TO glA(from=%p, dir = %d\n", &from,dir);
+		//VRB.Result(cname,fname,"BAD CALL TO glA(int)\n");
+	break;
+  }
+	return *this;
+}
+#endif
 
   //! glA another version. this -> gamma_dir*gamma_5*this
   inline WilsonMatrix& glAx(int dir){
@@ -446,10 +518,6 @@ public:
     WilsonMatrix& glV(const WilsonMatrix & from, int dir);
 //  void glV(const WilsonMatrix & from, int dir);
 #else
-#define TIMESPLUSONE(a,b) { b=a; }
-#define TIMESMINUSONE(a,b) { b=-a; }
-#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
-#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
 
     //! glV another version. result = gamma_dir*from
     WilsonMatrix& glV(const WilsonMatrix & from, int dir)
@@ -576,8 +644,25 @@ public:
   void load_elem(int i, int j, int k, int l, Rcomplex elem);
 
 //  Rcomplex Trace();
+#ifndef INLINE_WILSON_MATRIX
   Rcomplex Trace() const;
-  const wilson_matrix& wmat() const; // get p 
+#else
+// trace of WilsonMatrix
+Rcomplex Trace() const
+{
+    int c1;
+    int s1;
+    Rcomplex tr(0.0,0.0);
+
+    for(s1=0;s1<4;++s1){
+        for(c1=0;c1<3;++c1){
+	    tr+=p.d[s1].c[c1].d[s1].c[c1];
+        }
+    }
+    return tr;
+}
+#endif
+  const wilson_matrix& wmat() const { return p; }
   WilsonMatrix& LeftTimesEqual(const WilsonMatrix& rhs);
   WilsonMatrix& LeftTimesEqual(const Matrix& rhs);
   
@@ -599,12 +684,80 @@ public:
         return *this;
     }
 
+#ifndef INLINE_WILSON_MATRIX
     WilsonMatrix& operator= (const Float& rhs);
+#else
+// equal member operator for WilsonMatrix
+WilsonMatrix& operator=(const Float& rhs)
+{
+
+    for(int s1=0;s1<4;++s1){
+        for(int c1=0;c1<3;++c1){
+	    for(int s2=0;s2<4;++s2){
+#if 1
+	      for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2]=Complex(rhs,0.0);
+	      }
+#else
+                for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2].real(rhs);
+		    p.d[s1].c[c1].d[s2].c[c2].imag(0.0);
+                }
+#endif
+	    }
+        }
+    }
+    return *this;
+} 
+#endif
     WilsonMatrix& operator+=(const WilsonMatrix& rhs);
     WilsonMatrix& operator-=(const WilsonMatrix& rhs);
+#ifndef INLINE_WILSON_MATRIX
     WilsonMatrix& operator*=(const WilsonMatrix& rhs);
+#else
+    WilsonMatrix& operator*=(const WilsonMatrix& rhs)
+{
+    wilson_matrix temp=p;
+    eq_mult(*this,temp,rhs);
+    return *this;
+} 
+#endif
+
+#ifndef INLINE_WILSON_MATRIX
     WilsonMatrix& operator*=(const Float& rhs);
     WilsonMatrix& operator*=(const Rcomplex& rhs);
+#else
+// times-equal member operator for WilsonMatrix
+WilsonMatrix& operator*=(const Float& rhs)
+{
+
+    for(int s1=0;s1<4;++s1){
+        for(int c1=0;c1<3;++c1){
+	    for(int s2=0;s2<4;++s2){
+                for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2] *= rhs;
+                }
+	    }
+        }
+    }
+    return *this;
+} 
+
+// times-equal member operator for WilsonMatrix
+WilsonMatrix& operator*=(const Rcomplex& rhs)
+{
+    for(int s1=0;s1<4;++s1){
+        for(int c1=0;c1<3;++c1){
+	    for(int s2=0;s2<4;++s2){
+                for(int c2=0;c2<3;++c2){
+		    p.d[s1].c[c1].d[s2].c[c2] *= rhs;
+                }
+	    }
+        }
+    }
+    return *this;
+}
+#endif
 
     friend WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm);
     friend WilsonMatrix operator*(const SpinMatrix &sm, const WilsonMatrix &wm);
@@ -698,9 +851,62 @@ inline const WilsonMatrixS &WilsonMatrixS::operator=(const WilsonMatrix &w) {
 }
 
 
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix& eq_mult( WilsonMatrix& xmat,
 		       const WilsonMatrix& amat,
 		       const WilsonMatrix& bmat );
+#else
+inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z ) { x += y * z; }
+inline void cmeq( Rcomplex& x, const Rcomplex& y, const Rcomplex& z ) { x = y * z; }
+inline WilsonMatrix& eq_mult( WilsonMatrix& xmat,
+		       const WilsonMatrix& amat,
+		       const WilsonMatrix& bmat )
+{
+  const Rcomplex* a(amat.ptr());
+  const Rcomplex* b(bmat.ptr());
+  Rcomplex* xoff(xmat.ptr());
+  register Rcomplex const *point;
+  for (int i1=0;i1<12;++i1)
+    {
+      point = b;
+      register const Rcomplex& aval(*a);
+      cmeq(xoff[0] ,aval, point[0]);
+      cmeq(xoff[1] ,aval, point[1]);
+      cmeq(xoff[2] ,aval, point[2]);
+      cmeq(xoff[3] ,aval, point[3]);
+      cmeq(xoff[4] ,aval, point[4]);
+      cmeq(xoff[5] ,aval, point[5]);
+      cmeq(xoff[6] ,aval, point[6]);
+      cmeq(xoff[7] ,aval, point[7]);
+      cmeq(xoff[8] ,aval, point[8]);
+      cmeq(xoff[9] ,aval, point[9]);
+      cmeq(xoff[10],aval, point[10]);
+      cmeq(xoff[11],aval, point[11]);
+      a++;
+      point+=12;
+      for (int i3=1;i3<12;++i3)
+	{
+	  register const Rcomplex& aval(*a);
+	  cmad(xoff[0] ,aval, point[0]);
+	  cmad(xoff[1] ,aval, point[1]);
+	  cmad(xoff[2] ,aval, point[2]);
+	  cmad(xoff[3] ,aval, point[3]);
+	  cmad(xoff[4] ,aval, point[4]);
+	  cmad(xoff[5] ,aval, point[5]);
+	  cmad(xoff[6] ,aval, point[6]);
+	  cmad(xoff[7] ,aval, point[7]);
+	  cmad(xoff[8] ,aval, point[8]);
+	  cmad(xoff[9] ,aval, point[9]);
+	  cmad(xoff[10],aval, point[10]);
+	  cmad(xoff[11],aval, point[11]);
+ 	  a++;
+	  point+=12;
+	}
+      xoff+=12;
+    }
+  return xmat;
+}
+#endif
 
 // some proto-types for functions that operate on WilsonMatrices
 //#ifdef _TARTAN
@@ -717,25 +923,41 @@ extern "C" void Tracewmatwmat(IFloat* C, const IFloat* A, const IFloat* B);
 //! times operator
 #ifndef INLINE_WILSON_MATRIX
 extern WilsonMatrix operator*(const WilsonMatrix& lhs, const WilsonMatrix& rhs);
+extern WilsonMatrix operator*(const Float& num, const WilsonMatrix& mat);
+extern WilsonMatrix operator*(const WilsonMatrix& mat, const Float& num);
+extern WilsonMatrix operator*(const Rcomplex& num, const WilsonMatrix& mat);
+extern WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num);
 #else
 static inline WilsonMatrix operator*(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
 {
     WilsonMatrix result(lhs);
     return result *= rhs;
 }
+
+static inline WilsonMatrix operator*(const Float& num, const WilsonMatrix& mat)
+{
+    WilsonMatrix result(mat);
+    return result *= num;
+}
+
+static inline WilsonMatrix operator*(const WilsonMatrix& mat, const Float& num)
+{
+    WilsonMatrix result(mat);
+    return result *= num;
+}
+
+static inline WilsonMatrix operator*(const Rcomplex& num, const WilsonMatrix& mat)
+{
+    WilsonMatrix result(mat);
+    return result *= num;
+}
+
+static inline WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num)
+{
+    WilsonMatrix result(mat);
+    return result *= num;
+}
 #endif
-
-//! times operator
-extern WilsonMatrix operator*(const Float& num, const WilsonMatrix& mat);
-
-//! times operator
-extern WilsonMatrix operator*(const WilsonMatrix& mat, const Float& num);
-
-//! times operator
-extern WilsonMatrix operator*(const Rcomplex& num, const WilsonMatrix& mat);
-
-//! times operator
-extern WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num);
 
 extern WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm);
 extern WilsonMatrix operator*(const SpinMatrix &sm, const WilsonMatrix &wm);
@@ -759,7 +981,26 @@ extern void mult_by_gamma_right(int dir, const wilson_matrix& src,
 inline Rcomplex Trace(const WilsonMatrix& p1){ return p1.Trace(); }
 
 //! Spin and Color trace of a 2 WilsonMatrices
+#ifndef INLINE_WILSON_MATRIX
 extern Rcomplex Trace(const WilsonMatrix& p1, const WilsonMatrix& p2);
+#else
+inline Rcomplex Trace( const WilsonMatrix& amat,
+                const WilsonMatrix& bmat )
+{
+    const Rcomplex* a(amat.ptr());
+    const Rcomplex* b(bmat.ptr());
+    Rcomplex tr(0,0);
+    for (int i1(0);i1<12;i1++)
+        {
+            for (int i2(0);i2<12;i2++)
+                {
+                    cmad(tr,*a,b[i2*12+i1]);
+                    a++;
+                }
+        }
+    return tr;
+}
+#endif
 
 //! Spin trace of a WilsonMatrix
 extern Matrix SpinTrace(const WilsonMatrix& Wmat); 

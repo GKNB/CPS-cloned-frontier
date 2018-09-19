@@ -116,10 +116,12 @@ void WilsonMatrix::load_elem(int i, int j, int k, int l, Rcomplex elem) {
 }
 
 // return the propagator
+#ifndef INLINE_WILSON_MATRIX
 const wilson_matrix& WilsonMatrix::wmat() const
 {
     return p;
 }
+#endif
 
 // return a wilson vector
 wilson_vector& WilsonMatrix::sol(int sink_spin, int sink_color)
@@ -131,6 +133,7 @@ wilson_vector& WilsonMatrix::sol(int sink_spin, int sink_color)
   Hermitian conjugate of the propagator
   \f[ P_{s_1,c_1;s_2,c_2} = P^*_{s_2,c_2;s_1,c_1}\f]
 */
+#ifndef INLINE_WILSON_MATRIX
 void WilsonMatrix::hconj()
 {
     int c1, c2;
@@ -144,6 +147,7 @@ void WilsonMatrix::hconj()
                     p.d[s2].c[c2].d[s1].c[c1] = conj(mat.d[s1].c[c1].d[s2].c[c2]);
 	
 }
+#endif
 
 void WilsonMatrix::dump()
 {
@@ -215,6 +219,7 @@ WilsonMatrix WilsonMatrix::conj_cp()
     return mat;
 }
 
+#ifndef INLINE_WILSON_MATRIX
 // trace of WilsonMatrix
 Rcomplex WilsonMatrix::Trace() const
 {
@@ -229,6 +234,7 @@ Rcomplex WilsonMatrix::Trace() const
     }
     return tr;
 }
+#endif
  
 // plus-equal member operator for WilsonMatrix
 WilsonMatrix& WilsonMatrix::operator+=(const WilsonMatrix& rhs)
@@ -290,12 +296,14 @@ WilsonMatrix& WilsonMatrix::operator-=(const WilsonMatrix& rhs)
 
 //Use C version 
 // times-equal member operator for WilsonMatrix
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix& WilsonMatrix::operator*=(const WilsonMatrix& rhs)
 {
     wilson_matrix temp=p;
     eq_mult(*this,temp,rhs);
     return *this;
 } 
+#endif
 
 // Part of quarantine #endif
 
@@ -359,6 +367,7 @@ WilsonMatrix& WilsonMatrix::LeftTimesEqual(const Matrix& lhs)
 #endif
 
 
+#ifndef INLINE_WILSON_MATRIX
 // times-equal member operator for WilsonMatrix
 WilsonMatrix& WilsonMatrix::operator*=(const Float& rhs)
 {
@@ -412,6 +421,7 @@ WilsonMatrix& WilsonMatrix::operator=(const Float& rhs)
     }
     return *this;
 } 
+#endif
 
 WilsonMatrix& WilsonMatrix::AddMult( const Rcomplex&    fact,
                                      const WilsonMatrix&   x )
@@ -435,6 +445,7 @@ WilsonMatrix& WilsonMatrix::AddMult( const Rcomplex&    fact,
 // global functions
 //-----------------------------------------------------------------------------
 
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix operator*(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
 {
     WilsonMatrix result(lhs);
@@ -464,6 +475,7 @@ WilsonMatrix operator*(const WilsonMatrix& mat, const Rcomplex& num)
     WilsonMatrix result(mat);
     return result *= num;
 }
+#endif
 
 WilsonMatrix operator*(const WilsonMatrix &wm, const SpinMatrix &sm)
 {
@@ -545,6 +557,7 @@ WilsonMatrix operator-(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
     return result -= rhs;
 }
 
+#ifndef INLINE_WILSON_MATRIX
 inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
     x += Rcomplex(y.real()*z.real() - y.imag()*z.imag(),
@@ -571,6 +584,7 @@ Rcomplex Trace( const WilsonMatrix& amat,
         }
     return tr;
 }
+#endif
 
 // Spin trace of WilsonMatrix
 Matrix SpinTrace(const WilsonMatrix& Wmat)
@@ -854,6 +868,7 @@ WilsonMatrix WilsonMatrix::glL(int dir) const
 	return WilsonMatrix(result);
 }
 
+#ifndef INLINE_WILSON_MATRIX
 //multiply gamma(i) on the left: result = gamma(i)*from
 WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
 {
@@ -929,6 +944,7 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
   }
 	return *this;
 }
+#endif
 //multiply gamma(i) on the left and return a new one
 WilsonMatrix WilsonMatrix::glV(int dir) const
 {
@@ -1005,6 +1021,7 @@ WilsonMatrix WilsonMatrix::glV(int dir) const
 	return WilsonMatrix(result);
 }
 
+#ifndef INLINE_WILSON_MATRIX
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*from
 WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
 {
@@ -1068,6 +1085,7 @@ WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
   }
 	return *this;
 }
+#endif
 //multiply gamma(i)gamma(5) on the left and return a new one
 WilsonMatrix WilsonMatrix::glA(int dir) const
 {
