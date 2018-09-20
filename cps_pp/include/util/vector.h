@@ -10,6 +10,7 @@
 #include <string.h>
 #include <util/data_types.h>
 #include <util/vector_asm.h>
+#define VEC_INLINE
 CPS_START_NAMESPACE
 
 
@@ -638,11 +639,18 @@ inline void TrLessAntiHermMatrix()
 	  COLORS*COLORS*2); }
 
 
+#ifndef VEC_INLINE
     // ACCESSORS
     //! Write access.
     Complex& operator()(int i, int j);
     //! Read access.
     const Complex& operator()(int i, int j) const;
+#else
+Complex& operator()(int i, int j)
+{ return ((Complex*)u)[i*COLORS+j]; }
+const Complex& operator()(int i, int j) const
+{ return ((Complex*)u)[i*COLORS+j]; }
+#endif
 
     //! Write access.
     /*!

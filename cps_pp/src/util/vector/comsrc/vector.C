@@ -92,6 +92,7 @@ IFloat Matrix::ErrorSU3() const
       \param j The column index,
       \return  The (i,j) matrix element
     */
+#ifndef VEC_INLINE
 Complex& Matrix::operator()(int i, int j)
 { return ((Complex*)u)[i*COLORS+j]; }
 
@@ -104,6 +105,7 @@ Complex& Matrix::operator()(int i, int j)
     */
 const Complex& Matrix::operator()(int i, int j) const
 { return ((Complex*)u)[i*COLORS+j]; }
+#endif
 
 
 //------------------------------------------------------------------

@@ -53,6 +53,7 @@ WilsonMatrix::WilsonMatrix(int sink_spin, int sink_color, const wilson_vector& z
     return;
 }
 
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix::WilsonMatrix(const Float& rhs)
 {
 
@@ -69,6 +70,7 @@ WilsonMatrix::WilsonMatrix(const Float& rhs)
                                     }
 #endif
 }
+#endif
 
 WilsonMatrix::WilsonMatrix(const Rcomplex& rhs)
 {
@@ -234,8 +236,6 @@ Rcomplex WilsonMatrix::Trace() const
     }
     return tr;
 }
-#endif
- 
 // plus-equal member operator for WilsonMatrix
 WilsonMatrix& WilsonMatrix::operator+=(const WilsonMatrix& rhs)
 {
@@ -271,6 +271,7 @@ WilsonMatrix& WilsonMatrix::operator-=(const WilsonMatrix& rhs)
     }
     return *this;
 }
+#endif
 
 
 // optimized times-equal member operator for WilsonMatrix
@@ -545,6 +546,7 @@ WilsonMatrix operator*(const Matrix &cm, const WilsonMatrix &wm)
     return ret;
 }
 
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix operator+(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
 {
     WilsonMatrix result(lhs);
@@ -557,7 +559,6 @@ WilsonMatrix operator-(const WilsonMatrix& lhs, const WilsonMatrix& rhs)
     return result -= rhs;
 }
 
-#ifndef INLINE_WILSON_MATRIX
 inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
     x += Rcomplex(y.real()*z.real() - y.imag()*z.imag(),
@@ -584,8 +585,6 @@ Rcomplex Trace( const WilsonMatrix& amat,
         }
     return tr;
 }
-#endif
-
 // Spin trace of WilsonMatrix
 Matrix SpinTrace(const WilsonMatrix& Wmat)
 {
@@ -646,6 +645,70 @@ Matrix SpinTrace(const WilsonMatrix& Wmat, const WilsonMatrix& Wmat2,
     }
     return tr;
 }
+//multiply gamma(i)gamma(5) on the left and return a new one
+WilsonMatrix WilsonMatrix::glA(int dir) const
+{
+  int i; /*color*/
+  int c2,s2;    /* column indices, color and spin */
+  wilson_matrix result;
+
+  switch(dir){
+    case 0:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSI(  p.d[3].c[i].d[s2].c[c2],
+                result.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSI(  p.d[2].c[i].d[s2].c[c2],
+                result.d[1].c[i].d[s2].c[c2] );
+            TIMESMINUSI( p.d[1].c[i].d[s2].c[c2],
+                result.d[2].c[i].d[s2].c[c2] );
+            TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                result.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    case 1:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESPLUSONE( p.d[3].c[i].d[s2].c[c2],
+                result.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSONE(  p.d[2].c[i].d[s2].c[c2],
+                result.d[1].c[i].d[s2].c[c2] );
+            TIMESPLUSONE(  p.d[1].c[i].d[s2].c[c2],
+                result.d[2].c[i].d[s2].c[c2] );
+            TIMESMINUSONE( p.d[0].c[i].d[s2].c[c2],
+                result.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    case 2:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSI(  p.d[2].c[i].d[s2].c[c2],
+                result.d[0].c[i].d[s2].c[c2] );
+            TIMESPLUSI( p.d[3].c[i].d[s2].c[c2],
+                result.d[1].c[i].d[s2].c[c2] );
+            TIMESMINUSI( p.d[0].c[i].d[s2].c[c2],
+                result.d[2].c[i].d[s2].c[c2] );
+            TIMESPLUSI(  p.d[1].c[i].d[s2].c[c2],
+                result.d[3].c[i].d[s2].c[c2] );
+        }
+	break;
+    case 3:
+        for(i=0;i<3;i++)for(s2=0;s2<4;s2++)for(c2=0;c2<3;c2++){
+            TIMESMINUSONE( p.d[2].c[i].d[s2].c[c2],
+                result.d[0].c[i].d[s2].c[c2] );
+            TIMESMINUSONE( p.d[3].c[i].d[s2].c[c2],
+                result.d[1].c[i].d[s2].c[c2] );
+            TIMESPLUSONE( p.d[0].c[i].d[s2].c[c2],
+                result.d[2].c[i].d[s2].c[c2] );
+            TIMESPLUSONE( p.d[1].c[i].d[s2].c[c2],
+                result.d[3].c[i].d[s2].c[c2] );
+        }
+        break;
+    default:
+	ERR.General(cname, "glA()", "BAD CALL TO glA(dir = %d\n",dir);
+		//VRB.Result(cname,fname,"BAD CALL TO glA(int)\n");
+	break;
+  }
+	return WilsonMatrix(result);
+}
+#endif
 
 
 #define TIMESPLUSONE(a,b) { b=a; }
@@ -667,6 +730,7 @@ Matrix SpinTrace(const WilsonMatrix& Wmat, const WilsonMatrix& Wmat2,
   \endverbatim
 */
 
+#ifndef INLINE_WILSON_MATRIX
 WilsonMatrix& WilsonMatrix::gl(int dir)
 {
     int i; /*color*/
@@ -868,7 +932,6 @@ WilsonMatrix WilsonMatrix::glL(int dir) const
 	return WilsonMatrix(result);
 }
 
-#ifndef INLINE_WILSON_MATRIX
 //multiply gamma(i) on the left: result = gamma(i)*from
 WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
 {
@@ -944,7 +1007,6 @@ WilsonMatrix& WilsonMatrix::glV(const WilsonMatrix &from, int dir)
   }
 	return *this;
 }
-#endif
 //multiply gamma(i) on the left and return a new one
 WilsonMatrix WilsonMatrix::glV(int dir) const
 {
@@ -1021,7 +1083,6 @@ WilsonMatrix WilsonMatrix::glV(int dir) const
 	return WilsonMatrix(result);
 }
 
-#ifndef INLINE_WILSON_MATRIX
 //multiply gamma(i)gamma(5) on the left: result = gamma(i)*gamma(5)*from
 WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
 {
@@ -1085,7 +1146,6 @@ WilsonMatrix& WilsonMatrix::glA(const WilsonMatrix & from, int dir)
   }
 	return *this;
 }
-#endif
 //multiply gamma(i)gamma(5) on the left and return a new one
 WilsonMatrix WilsonMatrix::glA(int dir) const
 {
@@ -1390,7 +1450,6 @@ WilsonMatrix& WilsonMatrix::grA(const WilsonMatrix & from, int dir)
   }
   return *this;
 }
-
 // Color trace of a WilsonMatrix
 SpinMatrix ColorTrace(const WilsonMatrix& Wmat)
 {
@@ -1479,6 +1538,7 @@ Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 
     return tr;
 }
+#endif
 
 
 // Things for baryons
@@ -1509,8 +1569,6 @@ Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 #ifndef TIMESPLUSONE
 #define TIMESPLUSONE(a,b) { b=a; }
 #define TIMESMINUSONE(a,b) { b=-a; }
-//#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
-//#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
 #define TIMESPLUSI(a,b) { b=Complex(-a.imag(),a.real()); }
 #define TIMESMINUSI(a,b) { b=Complex(a.imag(),-a.real()); }
 #endif
