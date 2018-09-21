@@ -140,6 +140,8 @@ void mobius_kappa_dslash_5_plus(Vector *out,
   IFloat *comm_buf = mobius_lib_arg->comm_buf;
   const IFloat neg_mass = -mass*fact;
 
+  VRB.Result("","mobius_kappa_dslash_5_plus","mass=%e fact=%e neg_mass=%e\n",mass,fact,neg_mass);
+
 // here we are acting on psi_in with P_L,R = 1/2 (1-+g5)  as
 // opposed to dwf where the result is multiplied by 2
 

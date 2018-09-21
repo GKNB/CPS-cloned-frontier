@@ -274,6 +274,7 @@ void DiracOpMobius::Dslash (Vector * out, Vector * in, ChkbType cb, DagType dag)
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
   //----------------------------------------------------------------
+  VRB.Result(cname,"Dslash","mass=%e\n",mass);
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
 
   //----------------------------------------------------------------
@@ -361,6 +362,7 @@ int DiracOpMobius::MatInv (Vector * out,
 {
   char *fname = "MatInv(V*,V*,F*)";
   VRB.Func (cname, fname);
+  VRB.Result (cname, fname,"mass=%e\n",mass);
 
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
@@ -395,11 +397,9 @@ int DiracOpMobius::MatInv (Vector * out,
   const int ls_stride = 24 * vol_4d_cb;
 
   size_t temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
-  Vector *temp =
-    (Vector *) smalloc (cname, fname, "temp", temp_size * sizeof (Float));
+  Vector *temp = (Vector *) smalloc (cname, fname, "temp", temp_size * sizeof (Float));
 
-  temp2 =
-    (Vector *) smalloc (cname, fname, "temp2", temp_size * sizeof (Float));
+  temp2 = (Vector *) smalloc (cname, fname, "temp2", temp_size * sizeof (Float));
 
   // points to the even part of fermion source 
   Vector *odd_in = (Vector *) ((IFloat *) in + temp_size);
@@ -480,7 +480,8 @@ int DiracOpMobius::MatInv (Vector * out,
   int iter;
   switch (dirac_arg->Inverter) {
   case FAKE:
-    MatPcDag (out, temp);
+//    MatPcDag (out, temp);
+      lat.RandGaussVector(out, 1.0,1,FIVE_D);
     break;
   case CG:
     MatPcDag (in, temp);

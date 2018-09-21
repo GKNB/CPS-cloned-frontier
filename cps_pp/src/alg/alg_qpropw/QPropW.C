@@ -23,6 +23,7 @@
 #include <cassert>
 #include <alg/common_arg.h>
 #include <comms/glb.h>
+#include <util/vector.h>
 #include <comms/scu.h>
 #include <comms/sysfunc_cps.h>
 
@@ -1148,10 +1149,16 @@ if (Lat.F5D () ) {
     //printf("CG converting 4D source to 5D\n"); //DEBUG
     Lat.Ffour2five (src_5d, src_4d, 0, ls_glb - 1);
     Lat.Ffour2five (sol_5d, sol_4d, ls_glb - 1, 0);
+    VRB.Result(cname,fname,"src_5d sol_5d src_4d sol_4d=%e %e %e %e\n",
+	src_5d->NormSqGlbSum(f_size_5d),
+	sol_5d->NormSqGlbSum(f_size_5d),
+	src_4d->NormSqGlbSum(f_size),
+	sol_5d->NormSqGlbSum(f_size)
+	);
 
     // do the MADWF or not
     if (!qp_arg.mob_arg_s) {
-      VRB.Result (cname, fname, "Fclass()=%d\n", Lat.Fclass ());
+      VRB.Result (cname, fname, "No MADWF, Fclass()=%d\n", Lat.Fclass ());
       //   if(GJP.Gparity()) nwilson*=2;
 
       //   FPConv fp;

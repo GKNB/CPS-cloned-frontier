@@ -26,8 +26,8 @@
 
 #define TIMESPLUSONE(a,b) { b=a; }
 #define TIMESMINUSONE(a,b) { b=-a; }
-#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
-#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
+//#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
+//#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
 #define TIMESPLUSI(a,b) { b=Complex(-a.imag(),a.real()); }
 #define TIMESMINUSI(a,b) { b=Complex(a.imag(),-a.real()); }
 
@@ -651,7 +651,7 @@ WilsonMatrix glL(int dir) const
 }
 
 //multiply gamma(i)gamma(5) on the left and return a new one
-WilsonMatrix WilsonMatrix::glA(int dir) const
+WilsonMatrix glA(int dir) const
 {
   int i; /*color*/
   int c2,s2;    /* column indices, color and spin */
