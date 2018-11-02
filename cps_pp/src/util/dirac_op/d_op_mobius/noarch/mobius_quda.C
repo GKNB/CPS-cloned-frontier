@@ -52,17 +52,17 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;
   switch (dirac_arg->Inverter) {
-  case CG:
-    inv_param.inv_type = QUDA_CG_INVERTER;
-    inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
-    break;
   case BICGSTAB:
     inv_param.inv_type = QUDA_BICGSTAB_INVERTER;
     inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;
     break;
+  case CG:
   default:
     inv_param.inv_type = QUDA_CG_INVERTER;
-    inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
+//    inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
+    inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+    if  ((GJP.ZMobius_PC_Type() == ZMOB_PC_SYM1) && (mat_type==1))
+    inv_param.inv_type = QUDA_MSPCG_INVERTER;
     break;
   }
 
@@ -278,8 +278,9 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 
   inv_param.inv_type = QUDA_CG_INVERTER;
   inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
-//  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
-  inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
+  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+// for master and/or old QUDA branches
+//  inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;

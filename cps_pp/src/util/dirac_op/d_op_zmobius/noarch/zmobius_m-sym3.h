@@ -42,12 +42,12 @@ void  zmobius_m_sym3 (Vector *out,
   //------------------------------------------------------------------
   // Apply M_5^-1 (hopping in 5th dir + diagonal)
   //------------------------------------------------------------------
-  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
+  zmobius_m5inv(frm_tmp2, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio.data());
   DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
 
   Complex *b_coeff = GJP.ZMobius_b();
   Complex *c_coeff = GJP.ZMobius_c();
-  const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b;
+  const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b.data();
   Complex Imag(0,1);
   DEBUG_MOBIUS_DSLASH("before new b,c coeff %e\n", time_elapse());
   for(int s=0;s<ls;++s){
@@ -67,7 +67,7 @@ void  zmobius_m_sym3 (Vector *out,
   //------------------------------------------------------------------
   // Apply M_5^-1 (hopping in 5th dir + diagonal)
   //------------------------------------------------------------------
-  zmobius_m5inv(out, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio);
+  zmobius_m5inv(out, mass, 0, mobius_lib_arg,mobius_lib_arg->zmobius_kappa_ratio.data());
   DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
   
 

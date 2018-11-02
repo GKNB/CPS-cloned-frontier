@@ -709,6 +709,7 @@ enum InverterType {
 	LOWMODEAPPROX = 3,
 	CG_LOWMODE_DEFL = 4,
 	HDCG = 5,
+	FAKE = 6,
 };
 typedef enum InverterType InverterType;
 extern struct vml_enum_map InverterType_map[];

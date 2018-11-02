@@ -77,7 +77,8 @@ class CPSQuda
       gauge_param.X[2] = GJP.ZnodeSites();
       gauge_param.X[3] = GJP.TnodeSites();
       gauge_param.anisotropy = GJP.XiBare();
-      gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
+//      gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
+      gauge_param.cuda_prec_precondition = QUDA_HALF_PRECISION;
       gauge_param.reconstruct_precondition = setReconstruct(quda_param.reconstruct_sloppy);
 
       if(GJP.XiDir() != 3){ ERR.General(cname, fname, "Anisotropy direction not supported\n"); }
@@ -235,7 +236,8 @@ class CPSQuda
       gauge_param.X[2] = GJP.ZnodeSites();
       gauge_param.X[3] = GJP.TnodeSites();
       gauge_param.anisotropy = GJP.XiBare();
-      gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
+//      gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
+      gauge_param.cuda_prec_precondition = QUDA_HALF_PRECISION;
       gauge_param.reconstruct_precondition = setReconstruct(quda_param.reconstruct_sloppy);
 
       if(GJP.XiDir() != 3){ ERR.General(cname, fname, "Anisotropy direction not supported\n"); }
@@ -328,7 +330,14 @@ class CPSQuda
       }
 
       // inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
-      inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+      switch (GJP.ZMobius_PC_Type()){
+      case ZMOB_PC_ORIG:
+          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC; break;
+      case ZMOB_PC_SYM1:
+          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN; break;
+      default:
+        ERR.NotImplemented (cname, fname);
+      }
       inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
       inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
 

@@ -53,7 +53,7 @@ void  zmobius_m_orig(Vector *out,
   //------------------------------------------------------------------
   // Apply kappa_b(s)
   //------------------------------------------------------------------
-  const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b;
+  const Complex *kappa_b = mobius_lib_arg->zmobius_kappa_b.data();
   for(int s=0;s<local_ls;++s){
     int glb_s = s + local_ls*s_node_coor;
     Complex* cp = (Complex*)( (Float*)out + s * ls_stride);
@@ -64,7 +64,7 @@ void  zmobius_m_orig(Vector *out,
   //------------------------------------------------------------------
   // Apply M_5^-1 (hopping in 5th dir + diagonal)
   //------------------------------------------------------------------
-  zmobius_m5inv(out, mass, 0, mobius_lib_arg, mobius_lib_arg->zmobius_kappa_ratio);
+  zmobius_m5inv(out, mass, 0, mobius_lib_arg, mobius_lib_arg->zmobius_kappa_ratio.data());
   DEBUG_MOBIUS_DSLASH("mobius_m5inv %e\n", time_elapse());
   
 
@@ -119,7 +119,7 @@ void  zmobius_m_orig(Vector *out,
   //    4. out +=  kappa_ratio dslash_5 in
   //------------------------------------------------------------------
   zmobius_kappa_dslash_5_plus_cmplx(out, in, mass, 0, mobius_lib_arg,
-    mobius_lib_arg->zmobius_kappa_ratio);
+    mobius_lib_arg->zmobius_kappa_ratio.data());
   DEBUG_MOBIUS_DSLASH("zmobius_kappa_dslash_5_plus %e\n", time_elapse());
 
   // Flops count in this function is two AXPY = 4 flops per vector elements

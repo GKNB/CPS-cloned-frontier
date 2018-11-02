@@ -4,6 +4,8 @@
 
 CPS_START_NAMESPACE
 
+#ifndef INLINE_WILSON_MATRIX
+
 #ifndef USE_C11
 inline void cmad( Rcomplex& x, const Rcomplex& y, const Rcomplex& z )
 {
@@ -83,5 +85,6 @@ WilsonMatrix& eq_mult( WilsonMatrix& xmat,
     }
   return xmat;
 }
+#endif
 
 CPS_END_NAMESPACE
