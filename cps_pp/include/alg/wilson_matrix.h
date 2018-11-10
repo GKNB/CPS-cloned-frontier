@@ -269,6 +269,11 @@ public:
     const WilsonMatrixS &operator=(const WilsonMatrix &w);
 
     float a[288];
+
+    // DJM: add accessor
+    std::complex<float> operator()(int s1, int c1, int s2, int c2) const {
+      return std::complex<float>( a[72*s1+24*c1+6*s2+2*c2], a[72*s1+24*c1+6*s2+2*c2+1] );
+    }
 };
 
 WilsonMatrix& eq_mult( WilsonMatrix& xmat,
