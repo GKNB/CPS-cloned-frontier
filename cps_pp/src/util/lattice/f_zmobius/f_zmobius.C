@@ -46,9 +46,9 @@ void zTimesV1PluszTimesV2(Complex *a, Complex b, const Complex *c,
 Fzmobius::Fzmobius() : FdwfBase(){
   cname = "Fzmobius";
 
-  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_b=0;
-  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_c=0;
-  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_ratio=0;
+//  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_b=0;
+//  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_c=0;
+//  ((Zmobus*)f_dirac_op_init_ptr)->zmobius_kappa_ratio=0;
 
   // default preconditioning
   ((Zmobus*)f_dirac_op_init_ptr)->pc_type=ZMOB_PC_SYM2;
@@ -57,9 +57,9 @@ Fzmobius::Fzmobius() : FdwfBase(){
  
 Fzmobius::~Fzmobius(){
   Zmobus* dwfarg=(Zmobus*)f_dirac_op_init_ptr;
-  if(dwfarg->zmobius_kappa_b) delete [] dwfarg->zmobius_kappa_b;
-  if(dwfarg->zmobius_kappa_c) delete [] dwfarg->zmobius_kappa_c;
-  if(dwfarg->zmobius_kappa_ratio) delete [] dwfarg->zmobius_kappa_ratio;
+//  if(dwfarg->zmobius_kappa_b) delete [] dwfarg->zmobius_kappa_b;
+//  if(dwfarg->zmobius_kappa_c) delete [] dwfarg->zmobius_kappa_c;
+//  if(dwfarg->zmobius_kappa_ratio) delete [] dwfarg->zmobius_kappa_ratio;
   
 }
 

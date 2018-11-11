@@ -636,15 +636,19 @@ public:
     \return The inverse of the 5th direction lattice spacing.
   */
   Float Mobius_b() const
-      {return doext_p->mobius_b_coeff;}
+      { 
+//VRB.Result(cname,"Mobius_b()","doext_p=%p\n",doext_p);fflush(stdout);
+	return doext_p->mobius_b_coeff;}
   Float Mobius_c() const
-      {return doext_p->mobius_c_coeff;}
+      { 
+//VRB.Result(cname,"Mobius_b()","doext_p=%p\n",doext_p);fflush(stdout);
+      return doext_p->mobius_c_coeff;}
 
   Float SetMobius (Float mob) { 
    doext_p->mobius_b_coeff = 0.5*(mob+1.);
    doext_p->mobius_c_coeff = 0.5*(mob-1.);
    VRB.Result(cname,"SetMobius()","mobius_b_coeff=%g mobius_c_coeff=%g \n",
-		 doext_p->mobius_b_coeff, doext_p->mobius_c_coeff);
+		 doext_p->mobius_b_coeff, doext_p->mobius_c_coeff);fflush(stdout);
     return mob;}
 
   Float GetMobius () {

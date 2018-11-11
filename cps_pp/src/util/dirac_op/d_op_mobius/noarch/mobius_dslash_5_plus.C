@@ -1,6 +1,5 @@
-#ifdef USE_SSE
-//#if 0
-#include "mobius_dslash_5_plus-nonowait.C"
+#if ( defined USE_SSE ) && ( !defined SSE_TO_C )
+#include "mobius_dslash_5_plus-nonowait.C.inc"
 #else
 #include<config.h>
 CPS_START_NAMESPACE
@@ -139,6 +138,8 @@ void mobius_kappa_dslash_5_plus(Vector *out,
   IFloat *f_temp;
   IFloat *comm_buf = mobius_lib_arg->comm_buf;
   const IFloat neg_mass = -mass*fact;
+
+  VRB.Result("","mobius_kappa_dslash_5_plus","mass=%e fact=%e neg_mass=%e\n",mass,fact,neg_mass);
 
 // here we are acting on psi_in with P_L,R = 1/2 (1-+g5)  as
 // opposed to dwf where the result is multiplied by 2

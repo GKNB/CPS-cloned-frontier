@@ -1,20 +1,5 @@
 #include<config.h>
 CPS_START_NAMESPACE
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/noarch/mobius_dminus.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: mobius_dminus.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: mobius_dminus.C,v $
-//  $Revision: 1.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/noarch/mobius_dminus.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // The in, out fields are defined on the checkerboard lattice

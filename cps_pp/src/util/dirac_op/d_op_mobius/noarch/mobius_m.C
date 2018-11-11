@@ -39,6 +39,16 @@ void  mobius_m(Vector *out,
 	       Dwf *mobius_lib_arg)
 {
 
+  const char *fname="mobius_m()";
+#if 1
+//currently Zmobus = Dwf
+  VRB.Debug("",fname,"pc=%d \n",mobius_lib_arg ->pc_type);
+//  if (mobius_lib_arg ->pc_type != ZMOB_PC_ORIG)
+//  ERR.General("",fname,"Only ZMOB_PC_ORIG tested\n");
+  zmobius_m(out,gauge_field,in,mass,mobius_lib_arg);
+    
+#else
+
   //------------------------------------------------------------------
   // Initializations
   //------------------------------------------------------------------
@@ -46,7 +56,6 @@ void  mobius_m(Vector *out,
   const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
   Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;
-  //Vector *temp = (Vector *) smalloc(f_size * sizeof(Float));
   Float norm;
 
   
@@ -111,6 +120,7 @@ void  mobius_m(Vector *out,
 
   // Flops count in this function is two AXPY = 4 flops per vector elements
   //DiracOp::CGflops +=  3*f_size; 
+#endif
 
 }
 

@@ -16,10 +16,7 @@
 #include <iomanip>
 #include <alg/alg_gparitycontract.h>
 #include <algorithm>
-
-#ifdef USE_OMP
-#include <omp.h>
-#endif
+#include <util/omp_wrapper.h>
 
 //#define USE_OFSTREAM
 

@@ -60,6 +60,9 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   if (dminus){
+#if 0
+  VRB.Result(cname,fname,"Dminus skipping temporarily for debugging. Fixed for correct results!\n");
+#else
   VRB.Result(cname,fname,"Dminus applied\n");
     dminus_in = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
   //TIZB: this is bug !  below Dminus multiplication is not in effect.
@@ -69,6 +72,7 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 //    f_in->CopyVec(f_out, size);
     moveFloat((IFloat*)f_in, (IFloat*)dminus_in, size);
     sfree(cname, fname,  "dminus_in",  dminus_in);
+#endif
   }
 
 #if 0
@@ -104,7 +108,7 @@ if (!dminus){
 
 
     // TIZB check
-if (0){
+if (1){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
     if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
@@ -547,10 +551,10 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
                  CnvFrmType cnv_frm, int dir_flag){
   char *fname = "Fdslash(V*,V*,CgArg*,CnvFrmType,i)";
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
-  dop.Dslash(f_out,f_in,CHKB_EVEN,DAG_NO);
-#if 1
+//Dslash is actually an unpreconditioned one!
+  dop.Dslash(f_out,f_in,DAG_NO);
 {
-  unsigned long size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
   int local_ls = GJP.SnodeSites();
   const int s_node_coor = GJP.SnodeCoor();
   const int ls_stride = 24 * GJP.VolNodeSites()/2;
@@ -571,7 +575,6 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   }
   //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
 }
-#endif
 }
 int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in, 
 		     CgArg *cg_arg, 
@@ -697,7 +700,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 #endif
     DiracOpMobius dwf(*this, v1,v2, &cg_arg, CNV_FRM_NO) ;
 // need to be added here
-//    dwf.CalcHmdForceVecs(v1,v2, phi1,phi2) ;
+    dwf.CalcHmdForceVecs(v1,v2, phi1,phi2) ;
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
   time += dclock();

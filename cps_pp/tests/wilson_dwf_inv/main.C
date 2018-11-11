@@ -12,6 +12,10 @@
 #include<comms/scu.h>
 #include<alg/alg_hmd.h>
 #include<alg/do_arg.h>
+#include <util/omp_wrapper.h>
+#include <util/command_line.h>
+
+//#include<cps.h>
 
 //#define OMP(A) #pragma omp A
 
@@ -27,7 +31,34 @@ DoArgExt doext_arg;
 static int nx, ny, nz, nt, ns;
 static CgArg cg_arg;
 
-#include <util/omp_wrapper.h>
+
+static void SetZmobiusPC(int flag)
+{
+    switch (flag){
+        case 0:
+        GJP.ZMobius_PC_Type (ZMOB_PC_ORIG);
+        break;
+        case 1:
+        GJP.ZMobius_PC_Type (ZMOB_PC_SYM1);
+        break;
+        case 2:
+        GJP.ZMobius_PC_Type (ZMOB_PC_SYM2);
+        break;
+#if 0
+        case 5:
+        GJP.ZMobius_PC_Type (ZMOB_PC_SYM3);
+        break;
+        case 3:
+        GJP.ZMobius_PC_Type (ZMOB_PC_SYM1_MIT);
+        break;
+        case 4:
+        GJP.ZMobius_PC_Type (ZMOB_PC_SYM2_MIT);
+        break;
+#endif
+    default:
+        ERR.General("","SetZmobiusPC()","%d Not implemented\n",flag);
+    }
+}
 
 //void run_inv(Lattice &lat, DiracOp &dirac, StrOrdType str_ord, char *out_name, int DO_CHECK);
 void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK);
@@ -49,30 +80,33 @@ int main (int argc, char *argv[])
     }
   }
 
+
   //----------------------------------------------------------------
   // Initializes all Global Job Parameters
   //----------------------------------------------------------------
   DoArg do_arg;
   char *out_file = NULL;
-  if (argc > 1)
-    out_file = argv[1];
-  if (!do_arg.Decode (argv[2], "do_arg")) {
+  CommandLine::is(argc,argv);
+//  if (argc > 1)
+    out_file = CommandLine::arg();
+  if (!do_arg.Decode (CommandLine::arg(), "do_arg")) {
     ERR.General ("", fname, "Decoding of do_arg failed\n");
   }
   do_arg.Encode ("do_arg.dat", "do_arg");
-  if (!doext_arg.Decode (argv[3], "doext_arg")) {
+  if (!doext_arg.Decode (CommandLine::arg(), "doext_arg")) {
     ERR.General ("", fname, "Decoding of doext_arg failed\n");
   }
   doext_arg.Encode ("doext_arg.dat", "doext_arg");
-  if (!cg_arg.Decode (argv[4], "cg_arg")) {
+  if (!cg_arg.Decode (CommandLine::arg(), "cg_arg")) {
     ERR.General ("", fname, "Decoding of cg_arg failed\n");
   }
 #ifdef USE_QUDA
-  if (!QudaParam.Decode (argv[5], "QudaParam")) {
+  if (!QudaParam.Decode (CommandLine::arg(), "QudaParam")) {
     printf ("Bum quda_arg\n");
     exit (-1);
   }
 #endif
+  SetZmobiusPC(CommandLine::arg_as_int());
 
   GJP.Initialize (do_arg);
   GJP.InitializeExt (doext_arg);
@@ -155,7 +189,7 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 
 	    IFloat *X_f = (IFloat *) (X_in) + (n * fsize);
 	    for (int v = 0; v < fsize; v += 1) {
-	      if (v == 0)
+	      if ((v%6)  == 0)
 		*(X_f + v) = crd;
 	      else
 		*(X_f + v) = 0;
@@ -166,8 +200,8 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
   Vector *out;
   Float true_res;
 
-  for (int k = 0; k < 5; k++) {
-    double maxdiff=0., maxdiff2=0.;
+  for (int k = 0; k < 1; k++) {
+    double maxdiff = 0.,maxdiff2=0.;
     VRB.Result ("", fname, "k=%d\n", k);
     if (k == 0)
       out = result;
@@ -181,6 +215,9 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 #if 1
     dtime = -dclock ();
     int iter =
+      lat.FmatInv (out, X_in, &cg_arg, &true_res, CNV_FRM_NO, PRESERVE_YES,
+		   0);
+// testing if the guess works
       lat.FmatInv (out, X_in, &cg_arg, &true_res, CNV_FRM_NO, PRESERVE_YES,
 		   0);
     dtime += dclock ();
@@ -226,15 +263,13 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 		  double in_im = *((IFloat *) & X_in[n] + i * 2 + 1);
 		  if ((re_re * re_re + re_im * re_im + in_re * in_re +
 		       in_im * in_im) > 1e-8)
-		    if (DO_IO) {
-		      if (k == 0)
+		    if ( (!k) && DO_IO) {
 			Fprintf (ADD_ID, fp, " %d %d %d %d %d (%d) ",
 				 CoorX () * GJP.NodeSites (0) + s[0],
 				 CoorY () * GJP.NodeSites (1) + s[1],
 				 CoorZ () * GJP.NodeSites (2) + s[2],
 				 CoorT () * GJP.NodeSites (3) + s[3],
 				 CoorS () * GJP.NodeSites (4) + s[4], i, n);
-		      if (k == 0)
 			Fprintf (ADD_ID, fp, " ( %0.7e %0.7e ) (%0.7e %0.7e)",
 				 *((IFloat *) & out[n] + i * 2),
 				 *((IFloat *) & out[n] + i * 2 + 1),
@@ -242,11 +277,9 @@ void run_inv (Lattice & lat, StrOrdType str_ord, char *out_name, int DO_CHECK)
 				 *((IFloat *) & X_in[n] + i * 2 + 1));
 #if 1
 		      Fprintf (ADD_ID, fp, " ( %0.2e %0.2e )\n",
-#if 0
-			       *((IFloat *) & X_out2[n] + i * 2) -
-			       *((IFloat *) & X_in[n] + i * 2),
-			       *((IFloat *) & X_out2[n] + i * 2 + 1) -
-			       *((IFloat *) & X_in[n] + i * 2 + 1));
+#if 1
+			       *((IFloat *) & X_out2[n] + i * 2) - *((IFloat *) & X_in[n] + i * 2),
+			       *((IFloat *) & X_out2[n] + i * 2 + 1) - *((IFloat *) & X_in[n] + i * 2 + 1));
 #else
 			       *((IFloat *) & X_out2[n] + i * 2),
 			       *((IFloat *) & X_out2[n] + i * 2 + 1));

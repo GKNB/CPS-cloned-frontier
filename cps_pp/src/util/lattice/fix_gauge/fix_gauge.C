@@ -773,11 +773,11 @@ void FixHPlane::iter()
   //                                        Takeshi Yamazaki
   //----------------------------------------------------------------------
   if (GJP.GfixChkb()==0){
-    VRB.Flow(cname,fname,"using sequential order gauge fixing");
+//    VRB.Flow(cname,fname,"using sequential order gauge fixing");
     for(int dist = dist_max[recurse] + 1; dist-- > 0; )
       iter(recurse, dist);
   } else {
-     VRB.Flow(cname,fname,"using checkerboared order gauge fixing");
+//     VRB.Flow(cname,fname,"using checkerboared order gauge fixing");
   //Even or Odd part
   for(int dist = dist_max[recurse] + 1; (dist=dist-2) >= 0; )
     iter(recurse, dist);

@@ -1912,6 +1912,13 @@ class DiracOpMobius : public DiracOpWilsonTypes
      // The in, out fields are defined on the checkerboard lattice
      // cb = 0/1 <--> even/odd checkerboard of in field.
      // dag = 0/1 <--> Dslash/Dslash^dagger is calculated.
+  
+  void Dslash(Vector *out, 
+	      Vector *in,
+	      DagType dag);
+     // Unpreconditioned dslash
+     // The in, out fields are defined on the checkerboard lattice
+     // dag = 0/1 <--> Dslash/Dslash^dagger is calculated.
 
   //! Multiplication by the odd-even preconditioned fermion matrix.
   void MatPc(Vector *out, Vector *in);
@@ -1973,6 +1980,8 @@ class DiracOpMobius : public DiracOpWilsonTypes
   // CANONICAL fermion vectors with conversion enabled to the
   // constructor.  Using chi, the function fills these vectors;
   // the result may be used to compute the HMD fermion force.
+  void CalcHmdForceVecs(Vector *v1, Vector *v2,
+                                Vector *phi1, Vector *phi2);
   
   void Reflex(Vector *out, Vector *in);
   //!< Not implemented

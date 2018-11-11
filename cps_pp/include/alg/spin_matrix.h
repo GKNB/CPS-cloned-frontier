@@ -16,6 +16,8 @@
 CPS_START_NAMESPACE
 class SpinMatrix;
 
+#define INLINE_SPIN_MATRIX
+
 
 
 //------------------------------------------------------------------
@@ -24,16 +26,36 @@ class SpinMatrix;
 class SpinMatrix
 {
     enum{SPINS=4};
-    Float u[2*SPINS*SPINS];	// The matrix
 
   public:
+   Float u[2*SPINS*SPINS];	// The matrix
     // CREATORS
     SpinMatrix() {}
-    SpinMatrix(Float c);
-    SpinMatrix(const Complex& c);
+    SpinMatrix(Float c){ *this = c; }
+    SpinMatrix(const Complex& c){ *this = c; }
+    SpinMatrix(Float *c){
+	for(int i =0;i<2*SPINS*SPINS;i++)
+	u[i] = *(c+i);
+    }
 
+#ifndef INLINE_SPIN_MATRIX
     SpinMatrix& operator=(Float c);
     SpinMatrix& operator=(const Complex& c);
+#else
+SpinMatrix& operator=(IFloat c) {
+  ZeroSpinMatrix();
+  u[2*(0+0*SPINS)] = u[2*(1+1*SPINS)] = u[2*(2+2*SPINS)] = u[2*(3+3*SPINS)] = c;
+  return *this;
+}
+SpinMatrix& operator=(const Complex& c) {
+  ZeroSpinMatrix();
+  ((Complex*)u)[0+0*SPINS] = 
+	((Complex*)u)[1+1*SPINS] = 
+	((Complex*)u)[2+2*SPINS] = 
+	((Complex*)u)[3+3*SPINS] = c;
+  return *this;
+}
+#endif
 
     void ZeroSpinMatrix(void) {
         for(int i=0; i<2*SPINS*SPINS; i++) u[i] = 0;
@@ -45,6 +67,7 @@ class SpinMatrix
     const Complex& operator()(int i, int j) const { return ((Complex*)u)[i*SPINS+j]; }
     inline Complex& operator[](int i) { return ((Complex*)u)[i]; }
     inline const Complex& operator[](int i) const { return ((Complex*)u)[i]; }
+   
 
     SpinMatrix operator*(const Complex &c)const {
         SpinMatrix ret;
