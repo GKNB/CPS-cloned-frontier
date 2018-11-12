@@ -62,7 +62,7 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
 //    inv_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
     inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
     if  ((GJP.ZMobius_PC_Type() == ZMOB_PC_SYM1) && (mat_type==1))
-    inv_param.inv_type = QUDA_MSPCG_INVERTER;
+    inv_param.inv_type = QUDA_MPCG_INVERTER;
     break;
   }
 
