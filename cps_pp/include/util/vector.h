@@ -730,6 +730,13 @@ const Complex& operator()(int i, int j) const
 	}
 #endif
 
+    Float Norm()
+    {
+      Float sum=0.;
+      for(int i=0; i<2*COLORS*COLORS; i++) sum +=u[i]*u[i];
+      return sum;
+    }
+
 
 };
 

@@ -35,6 +35,7 @@ private:
 private:
     ForceArg f_arg;
     long lcl[5]; // local size
+    size_t f_size,vol_5d;
     Matrix *mom;
     Matrix *gauge;
     Float *v1;

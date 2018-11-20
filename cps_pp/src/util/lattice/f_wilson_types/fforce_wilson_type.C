@@ -64,6 +64,11 @@ void updateForce(ForceArg *f_arg, const Matrix &m)
     f_arg->Linf = f_arg->Linf > a ? f_arg->Linf : a;
 }
 
+static Float vsum (Float *v){
+    Float sum=0.;
+    for(int i =0;i<SPINOR_SIZE;i++) sum +=*(v+i)**(v+i);
+    return sum;
+}
 // Calculate fermion force on a specific site, also do the
 // summation over s direction (if s > 1).
 static void do_site_force(Matrix *force, const Matrix &gauge,
@@ -71,10 +76,17 @@ static void do_site_force(Matrix *force, const Matrix &gauge,
                           Float *v2, Float *v2p,
                           int mu, int ls)
 {
+    const char *fname="do_site_force()";
     Matrix t1, t2;
     
     Float *t1f = (Float *)&t1;
     Float *t2f = (Float *)&t2;
+    VRB.Result("",fname,"ls=%d\n",ls);
+    VRB.Result("",fname,"v1=%g\n",vsum(v1));
+    VRB.Result("",fname,"v1p=%g\n",vsum(v1p));
+    VRB.Result("",fname,"v2=%g\n",vsum(v2));
+    VRB.Result("",fname,"v2p=%g\n",vsum(v2p));
+    
 
     // sproj_tr[mu](   (Float *)&t1, v1p, v2, ls, 0, 0);
     // sproj_tr[mu+4]( (Float *)&t2, v2p, v1, ls, 0, 0);
@@ -97,8 +109,11 @@ static void do_site_force(Matrix *force, const Matrix &gauge,
       sprojTrTp(t2f, v2p, v1, ls, 0, 0);
     }
 
+    VRB.Result("",fname,"t1=%g\n",t1.Norm());
+    VRB.Result("",fname,"t2=%g\n",t2.Norm());
     t1 += t2;
     force->DotMEqual(gauge, t1);
+    VRB.Result("",fname,"force=%g\n",force->Norm());
 }
 
 //CK: Same as above, only it calculates the contribution of the second G-parity flavour
@@ -151,22 +166,27 @@ FforceWilsonType::FforceWilsonType(Matrix *momentum, Matrix *gauge_field,
     // fermions together with 5D fermions, then GJP.SnodeSites() is
     // not reliable).
     lcl[4] = Ls;
+    vol_5d = (size_t)lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
+    f_size=(size_t)SPINOR_SIZE * vol_5d ;
 
     mom = momentum;
     gauge = gauge_field;
     v1 = vec1;
     v2 = vec2;
+    Vector *v_tmp = (Vector *)v1;
+    VRB.Result(cname,cname,"v1=%g\n",v_tmp->NormSqGlbSum(f_size));
+    v_tmp = (Vector *)v2;
+    VRB.Result(cname,cname,"v2=%g\n",v_tmp->NormSqGlbSum(f_size));
     coef = dt;
     if(cps::GJP.Gparity1fX()){
 	if(!UniqueID()) printf("FforceWilsonType::FforceWilsonType : Gparity1fX dt *= 2\n");
 	coef*=2; //This is for testing between 1f and 2f approaches
     }
-    long vol_5d = lcl[0] * lcl[1] * lcl[2] * lcl[3] * lcl[4];
     bufsize = 0;
     for(int mu = 0; mu < 4; ++mu) {
         surf_size[mu] = SPINOR_SIZE * (vol_5d / lcl[mu]);
 	if(GJP.Gparity()) surf_size[mu] *= 2; //stack second flavour after the first, offset for second flavour == SPINOR_SIZE * (vol_5d / lcl[mu]);
-	
+	VRB.Result(cname,cname,"surf_size[%d]=%d\n",mu,surf_size[mu]);
         v1so[mu] = bufsize;
         v2so[mu] = bufsize + surf_size[mu];
         surf_size[mu] *= 2;
@@ -216,9 +236,9 @@ void FforceWilsonType::collect_surface(int mu)
 	    compute_coord(x, h, l, i);
 	    long o4d = idx_4d(x, lcl);
 	    long o3d = idx_4d_surf(x, lcl, mu);
-//	    VRB.Result(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v1s,o3d,block,v1,o4d,block,block);
+	    VRB.Debug(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v1s,o3d,block,v1,o4d,block,block);
 	    memcpy(v1s + o3d * block, v1  + o4d * block, sizeof(Float) * block);
-//	    VRB.Result(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v2s,o3d,block,v2,o4d,block,block);
+	    VRB.Debug(cname,fname,"memcpy(%p+%d*%d,%p+%d*%d,sizeof(Float) *%d\n",v2s,o3d,block,v2,o4d,block,block);
 	    memcpy(v2s + o3d * block, v2  + o4d * block, sizeof(Float) * block);
 	}
     }else{
@@ -400,6 +420,7 @@ ForceArg FforceWilsonType::do_surface(int mu, int nthreads)
 
 ForceArg FforceWilsonType::run()
 {
+    VRB.Result(cname,"run()","start\n");
     for(int mu = 0; mu < 4; ++mu) {
         collect_surface(mu);
     }
@@ -488,5 +509,6 @@ ForceArg FforceWilsonType::run()
 
 
     ret.glb_reduce();
+    VRB.Result(cname,"run()","end\n");
     return ret;
 }

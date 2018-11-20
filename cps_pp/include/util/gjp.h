@@ -328,7 +328,7 @@ public:
       {return nodes[0]*nodes[1]*nodes[2]*nodes[3]*nodes[4];}
 
 
-  int VolNodeSites() const
+  size_t VolNodeSites() const
       {return vol_node_sites;}
   //!< Gets the local lattice volume.
   /*!<

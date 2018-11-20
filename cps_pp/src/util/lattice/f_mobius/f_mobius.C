@@ -51,7 +51,7 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   VRB.Func(cname,fname);
   Vector *temp, *dminus_in;
 
-  unsigned long size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
   if(prs_f_in==PRESERVE_YES){ 
     temp = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
     moveFloat((IFloat*)temp,(IFloat*)f_in, size);
@@ -701,6 +701,10 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     DiracOpMobius dwf(*this, v1,v2, &cg_arg, CNV_FRM_NO) ;
 // need to be added here
     dwf.CalcHmdForceVecs(v1,v2, phi1,phi2) ;
+    VRB.Result(cname,fname,"phi1=%g\n",phi1->NormSqGlbSum(f_size/2));
+    VRB.Result(cname,fname,"phi2=%g\n",phi2->NormSqGlbSum(f_size/2));
+    VRB.Debug(cname,fname,"v1=%g\n",v1->NormSqGlbSum(f_size));
+    VRB.Debug(cname,fname,"v2=%g\n",v2->NormSqGlbSum(f_size));
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
   time += dclock();
@@ -716,8 +720,15 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 #endif
   }
 
+    size_t g_size = GJP.VolNodeSites()*GsiteSize();
+    Vector *mom_p = (Vector *)mom;
+    VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
+    VRB.Result(cname,fname,"v1=%g\n",v1->NormSqGlbSum(f_size));
+    VRB.Result(cname,fname,"v2=%g\n",v2->NormSqGlbSum(f_size));
     FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
+    VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
+    exit(-4);
 
     sfree(cname, fname, "v1", v1);
     sfree(cname, fname, "v2", v2);
@@ -762,7 +773,7 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 
     char *force_label=NULL;
 
-    int g_size = GJP.VolNodeSites() * GsiteSize();
+    size_t g_size = GJP.VolNodeSites() * GsiteSize();
     if(GJP.Gparity()) g_size *= 2;
 
     Matrix *mom_tmp;
