@@ -923,7 +923,7 @@ int DiracOpZMobius::MatInv(Vector *out,
     zmobius_m5inv(temp, odd_in, mass, DAG_NO, mobius_arg,
 		  mobius_arg->zmobius_kappa_ratio.data());  
 
-    zmobius_dslash_4(temp2, gauge_field, temp, CHKB_ODD, DAG_NO,
+    zmobius_dslash_4(temp2, gauge_field, temp, CHKB_EVEN, DAG_NO,
 		     mobius_arg, mass);
     zmobius_zvectTimesV1PlusV2 (temp, mobius_arg->zmobius_kappa_b.data(),  temp2, in,
 				local_ls, ls_stride, s_node_coor );
@@ -1012,7 +1012,7 @@ int DiracOpZMobius::MatInv(Vector *out,
     moveFloat((IFloat *)out, (IFloat *)temp, temp_size );
 
   // Below is the same original postconditioning (dare to write again for clarity)
-    zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+    zmobius_dslash_4(temp, gauge_field, out, CHKB_ODD, DAG_NO, mobius_arg, mass);
     zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b.data(),
 				   local_ls, ls_stride, s_node_coor);
     zmobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg,
@@ -1023,7 +1023,7 @@ int DiracOpZMobius::MatInv(Vector *out,
     break;
   }
   case ZMOB_PC_ORIG: {
-    zmobius_dslash_4(temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+    zmobius_dslash_4(temp, gauge_field, out, CHKB_ODD, DAG_NO, mobius_arg, mass);
     zmobius_zvectTimesEquComplex(temp, mobius_arg->zmobius_kappa_b.data(),
 				   local_ls, ls_stride, s_node_coor);
     zmobius_m5inv(odd_out, temp, mass, DAG_NO, mobius_arg,
@@ -1117,7 +1117,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
 
   //odd part
   //mobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  zmobius_dslash_4(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg, mass);
+  zmobius_dslash_4(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
 
 #if 0
   out->VecTimesEquFloat(minus_kappa, temp_size); 
@@ -1149,7 +1149,7 @@ void DiracOpZMobius::Mat(Vector *out, Vector *in) {
 #endif
   
   //even part
-  zmobius_dslash_4(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg, mass);
+  zmobius_dslash_4(odd_out, gauge_field, in, CHKB_ODD, DAG_NO, mobius_arg, mass);
 
 #if 0
   odd_out->VecTimesEquFloat(minus_kappa, temp_size); 
@@ -1207,8 +1207,8 @@ void DiracOpZMobius::Dminus(Vector *out, Vector *in) {
   // points to the odd part of fermion solution
   Vector *odd_out = (Vector *) ( (IFloat *) out + temp_size );
 
-  zmobius_dminus(out, gauge_field, odd_in, CHKB_ODD, DAG_NO, mobius_arg);
-  zmobius_dminus(odd_out, gauge_field, in, CHKB_EVEN, DAG_NO, mobius_arg);
+  zmobius_dminus(out, gauge_field, odd_in, CHKB_EVEN, DAG_NO, mobius_arg);
+  zmobius_dminus(odd_out, gauge_field, in, CHKB_ODD, DAG_NO, mobius_arg);
   // out = -(c*D_W-1)*in (= 1 for DWF)
 
 #if 0
@@ -1297,7 +1297,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
   }
 #endif
 
-  zmobius_dslash_4(out, gauge_field, frm_tmp2, CHKB_ODD, DAG_YES, mobius_arg, mass);
+  zmobius_dslash_4(out, gauge_field, frm_tmp2, CHKB_EVEN, DAG_YES, mobius_arg, mass);
 
   
 #if 0
@@ -1332,7 +1332,7 @@ void DiracOpZMobius::MatDag(Vector *out, Vector *in) {
 
   
   //mobius_dslash_4(odd_out, gauge_field, in, CHKB_ODD, DAG_YES, mobius_arg, mass);
-  zmobius_dslash_4(odd_out, gauge_field, frm_tmp2, CHKB_EVEN, DAG_YES, mobius_arg, mass);
+  zmobius_dslash_4(odd_out, gauge_field, frm_tmp2, CHKB_ODD, DAG_YES, mobius_arg, mass);
 
 #if 0
   // intialize to zero since using the "plus-equal version"
@@ -1465,12 +1465,12 @@ void DiracOpZMobius::CalcHmdForceVecs(Vector *chi)
 
   rho = (Vector *)((Float *)f_out + f_size_cb) ;
 
-  Dslash(rho, chi, CHKB_ODD, DAG_NO) ;
+  Dslash(rho, chi, CHKB_EVEN, DAG_NO) ;
 //  fprintf(stderr,"Dslash\n");
 
   sigma = (Vector *)((Float *)f_in + f_size_cb) ;
 
-  Dslash(sigma, psi, CHKB_ODD, DAG_YES) ;
+  Dslash(sigma, psi, CHKB_EVEN, DAG_YES) ;
 //  fprintf(stderr,"Dslash\n");
 
   return ;

@@ -685,7 +685,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 
     VRB.Result(cname,fname,"started\n");
 
-    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * GJP.SnodeSites();
+    size_t f_size = (size_t)SPINOR_SIZE * GJP.VolNodeSites() * GJP.SnodeSites();
 //    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
     if(GJP.Gparity()) f_size*=2;
 
@@ -703,8 +703,12 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     dwf.CalcHmdForceVecs(v1,v2, phi1,phi2) ;
     VRB.Result(cname,fname,"phi1=%g\n",phi1->NormSqGlbSum(f_size/2));
     VRB.Result(cname,fname,"phi2=%g\n",phi2->NormSqGlbSum(f_size/2));
-    VRB.Debug(cname,fname,"v1=%g\n",v1->NormSqGlbSum(f_size));
-    VRB.Debug(cname,fname,"v2=%g\n",v2->NormSqGlbSum(f_size));
+    Float *v_tmp = (Float*)v1;
+    Vector *v_e = (Vector*)(v_tmp+f_size/2);
+    VRB.Result(cname,fname,"v1=(%g %g) %g %g\n",*v_tmp,*(v_tmp+f_size/2),v1->NormSqGlbSum(f_size/2),v_e->NormSqGlbSum(f_size/2));
+    v_tmp = (Float*)v2;
+    v_e = (Vector*)(v_tmp+f_size/2);
+    VRB.Result(cname,fname,"v2=(%g %g) %g %g\n",*v_tmp,*(v_tmp+f_size/2),v2->NormSqGlbSum(f_size/2),v_e->NormSqGlbSum(f_size/2));
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
   time += dclock();
@@ -714,21 +718,29 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 
     Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
     Fconvert(v2,CANONICAL,DWF_4D_EOPREC_EE);
+    v_tmp = (Float*)v1;
+    VRB.Result(cname,fname,"v1=(%g %g) %g\n",*v_tmp,*(v_tmp+24),v1->NormSqGlbSum(f_size));
+    v_tmp = (Float*)v2;
+    VRB.Result(cname,fname,"v2=(%g %g) %g\n",*v_tmp,*(v_tmp+24),v2->NormSqGlbSum(f_size));
 #ifdef PROFILE
   time += dclock();
   print_flops(fname,"Fconvert()",0,time);
 #endif
   }
 
+    Fconvert(v1,S_INNER,CANONICAL);
+    Fconvert(v2,S_INNER,CANONICAL);
+    Float *v_tmp = (Float*)v1;
+    VRB.Result(cname,fname,"v1=(%g %g) %g\n",*v_tmp,*(v_tmp+24*GJP.SnodeSites()),v1->NormSqGlbSum(f_size));
+    v_tmp = (Float*)v2;
+    VRB.Result(cname,fname,"v2=(%g %g) %g\n",*v_tmp,*(v_tmp+24*GJP.SnodeSites()),v2->NormSqGlbSum(f_size));
     size_t g_size = GJP.VolNodeSites()*GsiteSize();
     Vector *mom_p = (Vector *)mom;
     VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
-    VRB.Result(cname,fname,"v1=%g\n",v1->NormSqGlbSum(f_size));
-    VRB.Result(cname,fname,"v2=%g\n",v2->NormSqGlbSum(f_size));
     FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
     VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
-    exit(-4);
+//    exit(-4);
 
     sfree(cname, fname, "v1", v1);
     sfree(cname, fname, "v2", v2);

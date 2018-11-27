@@ -49,6 +49,17 @@ CPS_START_NAMESPACE
   the gauge field.
  */
 //------------------------------------------------------------------
+
+#if 0
+// CJ: Turning this off to be able to handle different Ls, etc. 
+// Need to be done throughout 
+  mobius_arg->ls = GJP.SnodeSites ();
+  mobius_arg->mobius_kappa_b =
+    1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
+  mobius_arg->mobius_kappa_c =
+    1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
+#endif
+
 static Matrix *new_gauge_field;
 static Matrix *old_gauge_field;
 DiracOpMobius::DiracOpMobius (Lattice & latt, Vector * f_field_out, Vector * f_field_in, CgArg * arg, CnvFrmType cnv_frm_flg):
@@ -422,10 +433,14 @@ int DiracOpMobius::MatInv (Vector * out,
   temp2 = (Vector *) smalloc (cname, fname, "temp2", temp_size * sizeof (Float));
 
   // points to the even part of fermion source 
+  // CJ: probably need to move odd to in front. Keeping it as is for now
   Vector *odd_in = (Vector *) ((IFloat *) in + temp_size);
+  Vector *even_in = (Vector *) ((IFloat *) in + 0);
 
   // points to the even part of fermion solution
   Vector *odd_out = (Vector *) ((IFloat *) out + temp_size);
+  Vector *even_out = (Vector *) ((IFloat *) out + 0);
+
 
   // prepare source
   // mult by Dminus to compare with Hantao
@@ -451,13 +466,13 @@ int DiracOpMobius::MatInv (Vector * out,
   case ZMOB_PC_SYM1:
   case ZMOB_PC_SYM2:
   case ZMOB_PC_SYM3:
-    zmobius_m5inv (temp, odd_in, mass, DAG_NO, mobius_arg,
+    zmobius_m5inv (temp, even_in, mass, DAG_NO, mobius_arg,
 		   mobius_arg->zmobius_kappa_ratio.data ());
 
-    zmobius_dslash_4 (temp2, gauge_field, temp, CHKB_ODD, DAG_NO,
+    zmobius_dslash_4 (temp2, gauge_field, temp, CHKB_EVEN, DAG_NO,
 		      mobius_arg, mass);
     zmobius_zvectTimesV1PlusV2 (temp, mobius_arg->zmobius_kappa_b.data (),
-				temp2, in, local_ls, ls_stride, s_node_coor);
+				temp2, odd_in, local_ls, ls_stride, s_node_coor);
     break;
   default:
     ERR.NotImplemented (cname, fname);
@@ -472,8 +487,8 @@ int DiracOpMobius::MatInv (Vector * out,
   case ZMOB_PC_SYM2:
   case ZMOB_PC_SYM3:
     // Apply M5 to out for sym2 preconditioning
-    moveFloat ((IFloat *) temp2, (IFloat *) out, temp_size);
-    zmobius_kappa_dslash_5_plus_cmplx (out, temp2, mass, DAG_NO, mobius_arg,
+    moveFloat ((IFloat *) temp2, (IFloat *) odd_out, temp_size);
+    zmobius_kappa_dslash_5_plus_cmplx (odd_out, temp2, mass, DAG_NO, mobius_arg,
 				       mobius_arg->zmobius_kappa_ratio.data ());
     break;
   default:
@@ -501,36 +516,36 @@ int DiracOpMobius::MatInv (Vector * out,
   switch (dirac_arg->Inverter) {
   case FAKE:
 //    MatPcDag (out, temp);
-      lat.RandGaussVector(out, 1.0,1,FIVE_D);
+      lat.RandGaussVector(odd_out, 1.0,1,FIVE_D);
     break;
   case CG:
-    MatPcDag (in, temp);
+    MatPcDag (odd_in, temp);
 #ifdef USE_QUDA
-    iter = QudaInvert (out, in, true_res, 1);
+    iter = QudaInvert (odd_out, odd_in, true_res, 1);
 #else
-    iter = InvCg (out, in, true_res);
+    iter = InvCg (odd_out, odd_in, true_res);
 #endif
     break;
   case BICGSTAB:
 #ifdef USE_QUDA
-    iter = QudaInvert (out, in, true_res, 0);
+    iter = QudaInvert (odd_out, odd_in, true_res, 0);
 #else
-    iter = BiCGstab (out, temp, 0.0, dirac_arg->bicgstab_n, true_res);
+    iter = BiCGstab (odd_out, temp, 0.0, dirac_arg->bicgstab_n, true_res);
 #endif
   case LOWMODEAPPROX:
-    MatPcDag (in, temp);
+    MatPcDag (odd_in, temp);
     iter =
-      InvLowModeApprox (out, in, dirac_arg->fname_eigen, dirac_arg->neig,
+      InvLowModeApprox (odd_out, odd_in, dirac_arg->fname_eigen, dirac_arg->neig,
 			true_res);
     break;
   case CG_LOWMODE_DEFL:
-    MatPcDag (in, temp);
-    InvLowModeApprox (out, in, dirac_arg->fname_eigen, dirac_arg->neig,
+    MatPcDag (odd_in, temp);
+    InvLowModeApprox (odd_out, odd_in, dirac_arg->fname_eigen, dirac_arg->neig,
 		      true_res);
 #ifdef USE_QUDA
-    iter = QudaInvert (out, in, true_res, 1);
+    iter = QudaInvert (odd_out, odd_in, true_res, 1);
 #else
-    iter = InvCg (out, in, true_res);
+    iter = InvCg (odd_out, odd_in, true_res);
 #endif
     break;
   default:
@@ -542,13 +557,13 @@ int DiracOpMobius::MatInv (Vector * out,
 
   if (VRB.IsActivated (VERBOSE_DEBUG_LEVEL)) {
     // check solution
-    norm = out->NormSqGlbSum (temp_size);
+    norm = odd_out->NormSqGlbSum (temp_size);
     if (!UniqueID ())
       printf ("Norm out %.14e\n", norm);
-    norm = in->NormSqGlbSum (temp_size);
+    norm = odd_in->NormSqGlbSum (temp_size);
     if (!UniqueID ())
       printf ("Norm in %.14e\n", norm);
-    MatPcDagMatPc (temp, out);
+    MatPcDagMatPc (temp, odd_out);
     norm = temp->NormSqGlbSum (temp_size);
     if (!UniqueID ())
       printf ("Norm MatPcDagMatPc*out %.14e\n", norm);
@@ -563,45 +578,45 @@ int DiracOpMobius::MatInv (Vector * out,
   //----------------------------------------------
   // post preconditioning aka  unpreconditioning 
   //----------------------------------------------
-  //  odd_out = M5inv kappa_b M4 out + M5inv odd_in
+  //  even_out = M5inv kappa_b M4 odd_out + M5inv odd_in
 
   // For ZMOBIUS_PC_SYM2
-  //  out_final  = M5inv out
-  //  out_out  = M5inv kappa_b M4 M5inv out  + M5inv odd_in
-  //           = M5inv kappa_b M4 out_final  + M5inv odd_in
+  //  out_final  = M5inv odd_out
+  //  out_out  = M5inv kappa_b M4 M5inv odd_out  + M5inv even_in
+  //           = M5inv kappa_b M4 out_final  + M5inv even_in
 
 
 
   switch (mobius_arg->pc_type) {
   case ZMOB_PC_SYM3:
   case ZMOB_PC_SYM2:{
-      zmobius_m5inv (temp, out, mass, DAG_NO, mobius_arg,
+      zmobius_m5inv (temp, odd_out, mass, DAG_NO, mobius_arg,
 		     mobius_arg->zmobius_kappa_ratio.data ());
-      moveFloat ((IFloat *) out, (IFloat *) temp, temp_size);
+      moveFloat ((IFloat *) odd_out, (IFloat *) temp, temp_size);
 
       // Below is the same original postconditioning (dare to write again for clarity)
-      zmobius_dslash_4 (temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg,
+      zmobius_dslash_4 (temp, gauge_field, odd_out, CHKB_ODD, DAG_NO, mobius_arg,
 			mass);
       zmobius_zvectTimesEquComplex (temp, mobius_arg->zmobius_kappa_b.data (),
 				    local_ls, ls_stride, s_node_coor);
-      zmobius_m5inv (odd_out, temp, mass, DAG_NO, mobius_arg,
+      zmobius_m5inv (even_out, temp, mass, DAG_NO, mobius_arg,
 		     mobius_arg->zmobius_kappa_ratio.data ());
-      zmobius_m5inv (temp, odd_in, mass, DAG_NO, mobius_arg,
+      zmobius_m5inv (temp, even_in, mass, DAG_NO, mobius_arg,
 		     mobius_arg->zmobius_kappa_ratio.data ());
-      odd_out->VecAddEquVec (temp, temp_size);
+      even_out->VecAddEquVec (temp, temp_size);
       break;
     }
   case ZMOB_PC_SYM1:
   case ZMOB_PC_ORIG:{
-      zmobius_dslash_4 (temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg,
+      zmobius_dslash_4 (temp, gauge_field, odd_out, CHKB_ODD, DAG_NO, mobius_arg,
 			mass);
       zmobius_zvectTimesEquComplex (temp, mobius_arg->zmobius_kappa_b.data (),
 				    local_ls, ls_stride, s_node_coor);
-      zmobius_m5inv (odd_out, temp, mass, DAG_NO, mobius_arg,
+      zmobius_m5inv (even_out, temp, mass, DAG_NO, mobius_arg,
 		     mobius_arg->zmobius_kappa_ratio.data ());
-      zmobius_m5inv (temp, odd_in, mass, DAG_NO, mobius_arg,
+      zmobius_m5inv (temp, even_in, mass, DAG_NO, mobius_arg,
 		     mobius_arg->zmobius_kappa_ratio.data ());
-      odd_out->VecAddEquVec (temp, temp_size);
+      even_out->VecAddEquVec (temp, temp_size);
       break;
     }
   default:
@@ -616,195 +631,6 @@ int DiracOpMobius::MatInv (Vector * out,
   return iter;
 }
 #else
-int DiracOpMobius::MatInv (Vector * out,
-			   Vector * in, Float * true_res, PreserveType prs_in)
-{
-  const char *fname = "MatInv(V*,V*,F*)";
-  VRB.Func (cname, fname);
-
-
-  //----------------------------------------------------------------
-  // Initialize kappa and ls. This has already been done by the Fmobius
-  // and DiracOpMobius constructors but is done again in case the
-  // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
-  // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
-  //----------------------------------------------------------------
-  //printf("KAPPA_B %g\n",((Dwf*)mobius_lib_arg)->mobius_kappa_b); //exit(0);
-  Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-  mobius_arg->ls = GJP.SnodeSites ();
-  mobius_arg->mobius_kappa_b =
-    1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
-  mobius_arg->mobius_kappa_c =
-    1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
-  Float minus_kappa_b = -mobius_arg->mobius_kappa_b;
-  Float kappa_b = -minus_kappa_b;
-  Float norm;
-
-  VRB.Flow (cname, fname, "LS %d B %f C %f\n", GJP.SnodeSites (),
-	    GJP.Mobius_b (), GJP.Mobius_c ());
-  //printf("KAPPA_B %g\n",kappa_b); exit(0);
-
-  //----------------------------------------------------------------
-  // Implement routine
-  //----------------------------------------------------------------
-  Vector *temp2;
-  Vector *temp3;
-  Vector *save_in;
-
-  int temp_size = GJP.VolNodeSites () * lat.FsiteSize () / 2;
-  Vector *temp =
-    (Vector *) smalloc (cname, fname, "temp", temp_size * sizeof (Float));
-
-  temp2 =
-    (Vector *) smalloc (cname, fname, "temp2", temp_size * sizeof (Float));
-
-  // points to the even part of fermion source 
-  Vector *odd_in = (Vector *) ((IFloat *) in + temp_size);
-
-  // points to the even part of fermion solution
-  Vector *odd_out = (Vector *) ((IFloat *) out + temp_size);
-
-  //DEBTIZB("insrc", (Vector*) in, 2*temp_size);
-  // save source
-  if (prs_in == PRESERVE_YES) {
-    temp3 =
-      (Vector *) smalloc (cname, fname, "temp3",
-			  2 * temp_size * sizeof (Float));
-    if (temp3 == 0)
-      ERR.Pointer (cname, fname, "temp2");
-    moveMem ((IFloat *) temp3, (IFloat *) in, 2 * temp_size * sizeof (IFloat));
-  }
-
-
-  mobius_m5inv (temp, odd_in, mass, DAG_NO, mobius_arg);
-  //DEBTIZB("after m5inv", (Vector*) temp, temp_size);
-
-#if 0
-  //----------------------------------
-  // check for m5inv
-  norm = odd_in->NormSqGlbSum (temp_size);
-  for (int i = 0; i < 24; ++i)
-    printf ("%e ", *((IFloat *) odd_in + i));
-  printf ("\n");
-  if (!UniqueID ())
-    printf ("TIZB M5 Norm odd_in %.14e\n", norm);
-  norm = temp->NormSqGlbSum (temp_size);
-  if (!UniqueID ())
-    printf ("M5 Norm temp  %.14e\n", norm);
-  for (int i = 0; i < 24; ++i)
-    printf ("%e ", *((IFloat *) temp + i));
-  printf ("\n");
-  {
-    moveFloat ((IFloat *) temp2, (IFloat *) temp, temp_size);
-
-    mobius_dslash_5_plus (temp2, temp, mass, DAG_NO, mobius_arg);
-
-    norm = temp2->NormSqGlbSum (temp_size);
-    if (!UniqueID ())
-      printf ("M5 Norm temp2  %.14e\n", norm);
-  }
-  for (int i = 0; i < 24; ++i)
-    printf ("%e ", *((IFloat *) temp2 + i));
-  printf ("\n");
-
-  exit (1);
-  //check end
-  //----------------------------------
-#endif
-
-
-
-  mobius_dslash_4 (temp2, gauge_field, temp, CHKB_ODD, DAG_NO, mobius_arg,
-		   mass);
-  //DEBTIZB("after dslash_4", (Vector*) temp2, temp_size);
-  fTimesV1PlusV2 ((IFloat *) temp, kappa_b, (IFloat *) temp2,
-		  (IFloat *) in, temp_size);
-  //DEBTIZB("after V1plusV2", (Vector*) temp, temp_size);
-
-  int iter;
-  switch (dirac_arg->Inverter) {
-  case CG:
-    MatPcDag (in, temp);
-//    DEBTIZB("after MatPcDag", (Vector*) in, temp_size);
-#ifdef PROFILE
-    Float dtime = dclock ();
-    printf ("CPU preconditioning time = %1.4e sec\n", dtime);
-    Float time_CG = -dclock ();
-#endif
-#ifdef USE_QUDA
-    iter = QudaInvert (out, in, true_res, 1);
-#else
-    iter = InvCg (out, in, true_res);
-#endif
-#ifdef PROFILE
-    time_CG += dclock ();
-    printf ("CG running time = %1.4e sec\n", time_CG);
-#endif
-    break;
-  case BICGSTAB:
-#ifdef USE_QUDA
-    iter = QudaInvert (out, in, true_res, 0);
-#else
-    iter = BiCGstab (out, temp, 0.0, dirac_arg->bicgstab_n, true_res);
-#endif
-    break;
-  case LOWMODEAPPROX:
-    MatPcDag (in, temp);
-    iter =
-      InvLowModeApprox (out, in, dirac_arg->fname_eigen, dirac_arg->neig,
-			true_res);
-    break;
-  case CG_LOWMODE_DEFL:
-    MatPcDag (in, temp);
-    InvLowModeApprox (out, in, dirac_arg->fname_eigen, dirac_arg->neig,
-		      true_res);
-    iter = InvCg (out, in, true_res);
-    break;
-  default:
-    ERR.General (cname, fname, "InverterType %d not implemented\n",
-		 dirac_arg->Inverter);
-  }
-
-
-#if 1
-  // check solution
-//  norm = out->NormSqGlbSum(temp_size);
-//  VRB.Result(cname,fname,"Norm out %.14e\n",norm);
-  norm = in->NormSqGlbSum (temp_size);
-  VRB.Result (cname, fname, "Norm in %.14e\n", norm);
-  MatPcDagMatPc (temp, out);
-  fTimesV1PlusV2 ((IFloat *) temp, -1., (IFloat *) temp,
-		  (IFloat *) in, temp_size);
-
-  norm = temp->NormSqGlbSum (temp_size);
-  VRB.Result (cname, fname, "Norm (in-MatPcDagMatPc*out) %.14e\n", norm);
-  //exit(0);
-#endif
-
-  // restore source
-  if (prs_in == PRESERVE_YES) {
-    moveMem ((IFloat *) in, (IFloat *) temp3,
-	     2 * temp_size * sizeof (IFloat) / sizeof (char));
-  }
-
-  // TIZB check below carefully !
-
-  // construct even site solution
-  // psi_e = M5inv . in_e - kappa*M5inv*D_Weo*psi_o
-
-  //TIZB mobius_dslash_4(temp, gauge_field, out, CHKB_ODD, DAG_NO, mobius_arg);
-  mobius_dslash_4 (temp, gauge_field, out, CHKB_EVEN, DAG_NO, mobius_arg, mass);
-  mobius_m5inv (odd_out, temp, mass, DAG_NO, mobius_arg);
-  mobius_m5inv (temp, odd_in, mass, DAG_NO, mobius_arg);
-  fTimesV1PlusV2 ((IFloat *) odd_out, kappa_b, (IFloat *) odd_out,
-		  (IFloat *) temp, temp_size);
-
-  sfree (cname, fname, "temp2", temp2);
-  sfree (cname, fname, "temp", temp);
-
-
-  return iter;
-}
 #endif
 
 
@@ -1097,14 +923,6 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-#if 0
-// CJ: Turning this off to be able to handle different Ls, etc. 
-  mobius_arg->ls = GJP.SnodeSites ();
-  mobius_arg->mobius_kappa_b =
-    1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
-  mobius_arg->mobius_kappa_c =
-    1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
-#endif
 
   //----------------------------------------------------------------
   // Implement routine
@@ -1124,10 +942,10 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
 
   psi = f_in;
 
-//  fprintf(stderr,"psi=%p chi=%p rho=%p sigma=%p\n",psi,chi,rho,sigma);
   MatPc (psi, chi);
-//  fprintf(stderr,"MatPc\n");
-
+#if 1
+  CalcHmdForceVecs(f_in,f_out,chi_new,psi);
+#else
   {
     Float kappa = ((Dwf *) mobius_lib_arg)->mobius_kappa_b;
     psi->VecTimesEquFloat (-kappa * kappa, f_size_cb);
@@ -1142,8 +960,14 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
 
   Dslash (sigma, psi, CHKB_ODD, DAG_YES);
 //  fprintf(stderr,"Dslash\n");
+#endif
 
   return;
+}
+
+static void print(const char *name,Vector *v,size_t f_size){
+Float *v_p = (Float*)v;
+if(!UniqueID()) printf("%s: %0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,v_p[0],v_p[1],v_p[2],v_p[3],v_p[4],v_p[5],v->NormSqGlbSum(f_size));
 }
 
 void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vector *phi2)
@@ -1164,15 +988,6 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
   //----------------------------------------------------------------
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
-#if 0
-// CJ: Turning this off to be able to handle different Ls, etc. 
-// Need to be done throughout 
-  mobius_arg->ls = GJP.SnodeSites ();
-  mobius_arg->mobius_kappa_b =
-    1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
-  mobius_arg->mobius_kappa_c =
-    1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
-#endif
 
   //----------------------------------------------------------------
   // Implement routine
@@ -1182,26 +997,41 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
 // f_out stores (chi,rho), f_in stores (psi,sigma)
 //------------------------------------------------------------------
 
-  Vector *phi=phi1, *eta=phi2;
+//  Vector *phi=phi1, *eta=phi2;
 
   size_t f_size_cb = 12 * GJP.VolNodeSites () * GJP.SnodeSites ();
+  Vector *v1_o = (Vector *) ((Float *) v1 + f_size_cb);
+  Vector *v1_e = (Vector *) ((Float *) v1 + 0);
+  Vector *v2_o = (Vector *) ((Float *) v2 + f_size_cb);
+  Vector *v2_e = (Vector *) ((Float *) v2 + 0);
 
-  v2->CopyVec (phi, f_size_cb);
+  v1_o->CopyVec (phi1, f_size_cb);
 
   Float kb = mobius_arg->mobius_kappa_b;
-  v2->VecTimesEquFloat(-kb*kb,f_size_cb);
+  v2_o->VecTimesEquFloat(-kb*kb,f_size_cb);
+  VRB.Result(cname,fname,"phi1=%g\n",phi1->NormSqGlbSum(f_size_cb));
+  VRB.Result(cname,fname,"v1_o=%g\n",v1_o->NormSqGlbSum(f_size_cb));
+  print("phi1",phi1,f_size_cb);
+  print("v1_o",v1_o,f_size_cb);
+  
 
-  v1->CopyVec(eta,f_size_cb);
+  v2_o->CopyVec(phi2,f_size_cb);
+  VRB.Result(cname,fname,"phi2=%g\n",phi2->NormSqGlbSum(f_size_cb));
+  VRB.Result(cname,fname,"v2_o=%g\n",v2_o->NormSqGlbSum(f_size_cb));
+  print("phi2",phi2,f_size_cb);
+  print("v2_o",v2_o,f_size_cb);
 
-  Vector *rho = (Vector *) ((Float *) v2 + f_size_cb);
+//  Vector *rho = (Vector *) ((Float *) v2 + 0);
 
-  Dslash (rho, v2, CHKB_ODD, DAG_YES);
-//  fprintf(stderr,"Dslash\n");
+  Dslash (v2_e, v2_o, CHKB_ODD, DAG_NO);
+  VRB.Result(cname,fname,"v2_e=%g\n",v2_e->NormSqGlbSum(f_size_cb));
+  print("v2_e",v2_e,f_size_cb);
 
-  Vector *sigma = (Vector *) ((Float *) v1 + f_size_cb);
+//  Vector *sigma = (Vector *) ((Float *) v1 + 0);
 
-  Dslash (sigma, v1, CHKB_ODD, DAG_NO);
-//  fprintf(stderr,"Dslash\n");
+  Dslash (v1_e, v1_o, CHKB_ODD, DAG_YES);
+  VRB.Result(cname,fname,"v1_e=%g\n",v1_e->NormSqGlbSum(f_size_cb));
+  print("v1_e",v1_e,f_size_cb);
 
   return;
 }

@@ -93,6 +93,7 @@ enum StrOrdType {
 	DWF_5D_EOPREC = WILSON,
 	DWF_4D_EOPREC = 5,
 	DWF_4D_EOPREC_EE = 6,
+	S_INNER = 7,
 };
 typedef enum StrOrdType StrOrdType;
 extern struct vml_enum_map StrOrdType_map[];

@@ -156,7 +156,8 @@ enum StrOrdType {
     STAG_BLOCK = 4,
     DWF_5D_EOPREC = WILSON,  /*!< DWF with 5 dimensional even/odd precondition, it's actually same as WILSON. */
     DWF_4D_EOPREC = 5, /*!<  DWF with 4 dimensional even/odd precondition, for odd-odd preconditioning. This should work for Mobius as well. */
-    DWF_4D_EOPREC_EE = 6  /*!<  DWF with 4 dimensional even/odd precondition, for even-even preconditioning. This should work for Mobius as well. */
+    DWF_4D_EOPREC_EE = 6,  /*!<  DWF with 4 dimensional even/odd precondition, for even-even preconditioning. This should work for Mobius as well. */
+    S_INNER = 7 // s innermost, for Force term, bfm ordering, etc.
 };
 
 

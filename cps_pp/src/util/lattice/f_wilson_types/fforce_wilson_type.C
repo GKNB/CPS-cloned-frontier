@@ -66,7 +66,11 @@ void updateForce(ForceArg *f_arg, const Matrix &m)
 
 static Float vsum (Float *v){
     Float sum=0.;
+#if 1
     for(int i =0;i<SPINOR_SIZE;i++) sum +=*(v+i)**(v+i);
+#else
+    sum = *v;
+#endif
     return sum;
 }
 // Calculate fermion force on a specific site, also do the

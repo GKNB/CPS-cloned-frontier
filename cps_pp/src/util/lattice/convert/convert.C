@@ -822,6 +822,25 @@ void FdwfBase::Fconvert (Vector * f_field, StrOrdType to, StrOrdType from,
       tmp_field_ptr = tmp_field_ptr + stride;
     }
 
+  } else if ((from == CANONICAL) && (to == S_INNER)) {
+    if(GJP.Gparity()) ERR.General(cname,fname_fconvert,"CANONICAL->S_INNER Not implemented\n");
+
+//  cas.site_size = FsiteSize () / ls;
+//  cas.start_ptr = (Float *) f_field;
+//  cas.vol = GJP.VolNodeSites ();
+    // convert from canonical to odd-even on each s-slice
+    field_ptr = cas.start_ptr;
+    size_t f_size = cas.vol * FsiteSize();
+    VRB.Result(cname,fname_fconvert,"site_size=%d vol=%d\n",cas.site_size,cas.vol);
+//     Vector *tmp_f_field =
+//	(Vector *) fmalloc (cname, fname_fconvert, "tmp_f_field",f_size*sizeof(Float));
+    tmp_field_ptr = (Float *) tmp_f_field;
+    memcpy(tmp_f_field,field_ptr,f_size*sizeof(Float));
+    for (i = 0; i < ls; i++) 
+    for (size_t j = 0; j < cas.vol; j++) {
+      memcpy(field_ptr+cas.site_size*(i+ls*j),
+	     tmp_field_ptr+cas.site_size*(j+cas.vol*i),cas.site_size*sizeof(Float));
+    }
 
   } else if ((from == WILSON) && (to == CANONICAL)) {
 

@@ -31,12 +31,8 @@ typedef struct ConvertArgStruct {
 } CAS, *CAP ;
  
 const unsigned CBUF_MODE4 = 0xcca52112;
-#ifdef _TARTAN
-static Matrix *mp2 = (Matrix *)CRAM_SCRATCH_ADDR+2;
-#else
 static Matrix tmp_2;
 static Matrix *mp2 = &tmp_2;
-#endif
 
 void MultStagPhases(CAP cap) ;
 void RunGConverter(CAP cap, unsigned *site_tbl, unsigned *link_tbl) ;
@@ -445,9 +441,7 @@ void FcanonToWilson(CAP cap, int num_chkbds)
 	RunGConverter(cap, site_sort_tbl, component_sort_tbl);
 
 	sfree(cname_none,fname, "component_sort_tbl", component_sort_tbl);
-//	sfree(component_sort_tbl);
 	sfree(cname_none,fname, "site_sort_tbl", site_sort_tbl);
-//	sfree(site_sort_tbl);
 }
 
 void FwilsonToCanon(CAP cap, int num_chkbds)
@@ -515,9 +509,7 @@ void FwilsonToCanon(CAP cap, int num_chkbds)
 	RunGConverter(cap, site_sort_tbl, component_sort_tbl);
 
 	sfree(cname_none,fname, "component_sort_tbl", component_sort_tbl);
-//	sfree(component_sort_tbl);
 	sfree(cname_none,fname, "site_sort_tbl", site_sort_tbl);
-//	sfree(site_sort_tbl);
 }
 
 void FcanonToStag(CAP cap, int num_chkbds)
@@ -596,10 +588,7 @@ void FcanonToStag(CAP cap, int num_chkbds)
         RunGConverter(cap, site_sort_tbl, component_sort_tbl);
 
         sfree(cname_none,fname, "component_sort_tbl", component_sort_tbl);
-//        sfree(component_sort_tbl);
-
         sfree(cname_none,fname, "site_sort_tbl", site_sort_tbl);
-//        sfree(site_sort_tbl);
 }
 
 void FstagToCanon(CAP cap, int num_chkbds)

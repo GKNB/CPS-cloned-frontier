@@ -147,6 +147,7 @@ struct vml_enum_map StrOrdType_map[] = {
 	{"StrOrdType","DWF_5D_EOPREC",DWF_5D_EOPREC},
 	{"StrOrdType","DWF_4D_EOPREC",DWF_4D_EOPREC},
 	{"StrOrdType","DWF_4D_EOPREC_EE",DWF_4D_EOPREC_EE},
+	{"StrOrdType","S_INNER",S_INNER},
 	{NULL,NULL,0}
 };
 

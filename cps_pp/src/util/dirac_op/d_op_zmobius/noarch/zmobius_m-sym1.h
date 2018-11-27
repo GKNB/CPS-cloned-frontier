@@ -41,7 +41,7 @@ void  zmobius_m_sym1 (Vector *out,
   // Apply Dslash O <- E
   //------------------------------------------------------------------
   time_elapse();
-  zmobius_dslash_4(out, gauge_field, in, 0, 0, mobius_lib_arg, mass);
+  zmobius_dslash_4(out, gauge_field, in, 1, 0, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
 
   //------------------------------------------------------------------
@@ -65,7 +65,7 @@ void  zmobius_m_sym1 (Vector *out,
   //------------------------------------------------------------------
   // Apply Dslash E <- O
   //------------------------------------------------------------------
-  zmobius_dslash_4(frm_tmp2, gauge_field, out, 1, 0, mobius_lib_arg, mass);
+  zmobius_dslash_4(frm_tmp2, gauge_field, out, 0, 0, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
   
   //------------------------------------------------------------------
