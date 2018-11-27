@@ -84,8 +84,8 @@ class FgridBase:public virtual Lattice, public virtual FgridParams,
   using RealD = Grid::RealD;
   using RealF = Grid::RealF;
 public:
-  typedef enum EvenOdd
-  { Even, Odd, All } EvenOdd;
+//  typedef enum EvenOdd
+//  { Even, Odd, All } EvenOdd;
   const char *cname;
   static bool grid_initted;
 

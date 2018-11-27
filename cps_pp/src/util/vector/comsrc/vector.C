@@ -140,13 +140,13 @@ Complex Matrix::Char10() const
   \return The square norm of this vector summed over all nodes.
 */
 //------------------------------------------------------------------
-Float Vector::NormSqGlbSum(int len)
+Float Vector::NormSqGlbSum(size_t len)
 {
   IFloat sum = dotProduct((IFloat *)&v, (IFloat *)&v, len);
   glb_sum_five((Float *)&sum);
   return Float(sum);
 }
-Float Vector::NormSqGlbSum4D(int len)
+Float Vector::NormSqGlbSum4D(size_t len)
 {
   IFloat sum = dotProduct((IFloat *)&v, (IFloat *)&v, len);
   glb_sum((Float *)&sum);

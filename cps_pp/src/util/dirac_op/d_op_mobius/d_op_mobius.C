@@ -965,10 +965,12 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
   return;
 }
 
+#if 0
 static void print(const char *name,Vector *v,size_t f_size){
 Float *v_p = (Float*)v;
 if(!UniqueID()) printf("%s: %0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,v_p[0],v_p[1],v_p[2],v_p[3],v_p[4],v_p[5],v->NormSqGlbSum(f_size));
 }
+#endif
 
 void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vector *phi2)
 {
@@ -1011,27 +1013,29 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   v2_o->VecTimesEquFloat(-kb*kb,f_size_cb);
   VRB.Result(cname,fname,"phi1=%g\n",phi1->NormSqGlbSum(f_size_cb));
   VRB.Result(cname,fname,"v1_o=%g\n",v1_o->NormSqGlbSum(f_size_cb));
-  print("phi1",phi1,f_size_cb);
-  print("v1_o",v1_o,f_size_cb);
+  phi1->print("phi1",f_size_cb);
+  lat.Dump("phi1",phi1,Odd);
+  v1_o->print("v1_o",f_size_cb);
   
 
   v2_o->CopyVec(phi2,f_size_cb);
   VRB.Result(cname,fname,"phi2=%g\n",phi2->NormSqGlbSum(f_size_cb));
   VRB.Result(cname,fname,"v2_o=%g\n",v2_o->NormSqGlbSum(f_size_cb));
-  print("phi2",phi2,f_size_cb);
-  print("v2_o",v2_o,f_size_cb);
+  phi2->print("phi2",f_size_cb);
+  lat.Dump("phi2",phi2,Even);
+  v2_o->print("v2_o",f_size_cb);
 
 //  Vector *rho = (Vector *) ((Float *) v2 + 0);
 
   Dslash (v2_e, v2_o, CHKB_ODD, DAG_NO);
   VRB.Result(cname,fname,"v2_e=%g\n",v2_e->NormSqGlbSum(f_size_cb));
-  print("v2_e",v2_e,f_size_cb);
+  v2_e->print("v2_e",f_size_cb);
 
 //  Vector *sigma = (Vector *) ((Float *) v1 + 0);
 
   Dslash (v1_e, v1_o, CHKB_ODD, DAG_YES);
   VRB.Result(cname,fname,"v1_e=%g\n",v1_e->NormSqGlbSum(f_size_cb));
-  print("v1_e",v1_e,f_size_cb);
+  v1_e->print("v1_e",f_size_cb);
 
   return;
 }

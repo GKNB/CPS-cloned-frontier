@@ -50,6 +50,10 @@ class LinkBuffer;
   fields, \e etc.  
 */
 //------------------------------------------------------------------
+
+typedef enum EvenOdd
+{ Even, Odd, All } EvenOdd;
+
 class Lattice
 {
 
@@ -1356,6 +1360,7 @@ class Lattice
     int BcApplied(){return bc_applied;}
    
     virtual void SetMassArg(Float mass){}
+    void Dump(const char *fname, Vector *vec, EvenOdd eo);
 };
 
 //------------------------------------------------------------------

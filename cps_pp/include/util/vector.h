@@ -8,6 +8,7 @@
 
 */
 #include <string.h>
+#include <comms/sysfunc_cps.h>
 #include <util/data_types.h>
 #include <util/vector_asm.h>
 #define VEC_INLINE
@@ -891,12 +892,12 @@ class Vector
       \param len The number of real numbers in the vectors.
       \return The square norm of this vector.
     */
-    Float NormSqNode(int len)
+    Float NormSqNode(size_t len)
     {return Float( dotProduct((IFloat *)&v, (IFloat *)&v, len) ); }
 
     //! Square norm with global sum.
-    Float NormSqGlbSum(int len);
-    Float NormSqGlbSum4D(int len);
+    Float NormSqGlbSum(size_t len);
+    Float NormSqGlbSum4D(size_t len);
     //! Print the vector content to the screen
     void Print(int len);
     
@@ -1059,6 +1060,13 @@ class Vector
                            const Vector *d, int len)
     { cTimesV1MinusV2((IFloat *)&v, real(fb), imag(fb), (IFloat *)c, 
 	                (IFloat *)d, len); }
+
+    void print(const char *name,size_t f_size){
+       Float *v_p = (Float*)v;
+       if(!UniqueID()) printf("%s: %0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,
+		v[0],v[1],v[2],v[3],v[4],v[5],NormSqGlbSum(f_size));
+    }
+
 
 };
 

@@ -76,8 +76,8 @@ Float Lattice::fix_gauge_stpCond = 0.;
 int Lattice::node_sites[5];
 int Lattice::g_dir_offset[4];
 
-int* Lattice::g_upd_cnt = 0 ;
-Float Lattice::md_time = (Float) 0.0 ;
+int *Lattice::g_upd_cnt = 0;
+Float Lattice::md_time = (Float) 0.0;
 int Lattice::bc_applied = 0;
 
 
@@ -85,26 +85,31 @@ static Matrix m_tmp1 CPS_FLOAT_ALIGN;
 static Matrix m_tmp2 CPS_FLOAT_ALIGN;
 // DRAM temp buffer, used for scu transfer
 
+#if 1
 //  CRAM temp buffer
 static Matrix mt0;
 static Matrix mt1;
 static Matrix mt2;
 static Matrix mt3;
 static Matrix mt4;
-static Matrix *mp0 = &mt0;	// ihdot
+//static Matrix *mp0 = &mt0;      // ihdot
 static Matrix *mp1 = &mt1;
 static Matrix *mp2 = &mt2;
 static Matrix *mp3 = &mt3;
 static Matrix *mp4 = &mt4;
+#endif
 
 
 #if 0
-inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
+inline void compute_coord (int x[4], const int hl[4], const int low[4], int i)
 {
-    x[0] = i % hl[0] + low[0]; i /= hl[0];
-    x[1] = i % hl[1] + low[1]; i /= hl[1];
-    x[2] = i % hl[2] + low[2]; i /= hl[2];
-    x[3] = i % hl[3] + low[3];
+  x[0] = i % hl[0] + low[0];
+  i /= hl[0];
+  x[1] = i % hl[1] + low[1];
+  i /= hl[1];
+  x[2] = i % hl[2] + low[2];
+  i /= hl[2];
+  x[3] = i % hl[3] + low[3];
 }
 #endif
 
@@ -123,7 +128,7 @@ Lattice::Lattice ()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-  uint64_t array_size;		// On-node size of the gauge field array.
+  uint64_t array_size;          // On-node size of the gauge field array.
 
   VRB.Func (cname, fname);
 
@@ -136,11 +141,11 @@ Lattice::Lattice ()
   //----------------------------------------------------------------
   if (scope_lock != 0) {
     ERR.General (cname, fname,
-		 "Only one lattice object is allowed to be on scope\n");
+                 "Only one lattice object is allowed to be on scope\n");
   }
   scope_lock = 1;
 
-  AllocGauge();
+  AllocGauge ();
 
   // Initialize the random number generator
   //--------------------------------------------------------------
@@ -155,17 +160,18 @@ Lattice::Lattice ()
 
   // QED (angles)
   //----------------------------------------------------------------
-if ( GJP.ExtInitialized()){
-  StartConfType start_u1_conf_kind = GJP.StartU1ConfKind();
-  // TIZB: It banged for sencond lattice creation. I am not sure.
-  //if(start_u1_conf_kind != START_CONF_LOAD ){  
-  VRB.Result(cname,fname,"u1_is_initialized=%d u1_conf_kind=%d\n",u1_is_initialized, start_u1_conf_kind);
-  if(!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD ){
-  	array_size = 4*GJP.VolNodeSites() * sizeof(Float);  
-      u1_gauge_field = (Float *) 
-      smalloc(cname, fname, "u1_gauge_field", array_size);
-      GJP.StartU1ConfLoadAddr(u1_gauge_field);
-  }
+  if (GJP.ExtInitialized ()) {
+    StartConfType start_u1_conf_kind = GJP.StartU1ConfKind ();
+    // TIZB: It banged for sencond lattice creation. I am not sure.
+    //if(start_u1_conf_kind != START_CONF_LOAD ){  
+    VRB.Result (cname, fname, "u1_is_initialized=%d u1_conf_kind=%d\n",
+                u1_is_initialized, start_u1_conf_kind);
+    if (!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD) {
+      array_size = 4 * GJP.VolNodeSites () * sizeof (Float);
+      u1_gauge_field = (Float *)
+        smalloc (cname, fname, "u1_gauge_field", array_size);
+      GJP.StartU1ConfLoadAddr (u1_gauge_field);
+    }
     if (start_u1_conf_kind == START_CONF_ORD) {
       SetU1GfieldOrd ();
       u1_is_initialized = 1;
@@ -175,7 +181,7 @@ if ( GJP.ExtInitialized()){
     } else if (start_u1_conf_kind == START_CONF_FILE) {
 #if TARGET == NOARCH || TARGET == BGL || TARGET == BGP
       VRB.Flow (cname, fname, "Load starting U1 configuration addr = %x\n",
-		gauge_field);
+                gauge_field);
       ReadU1LatticeParallel rd_lat (*this, GJP.StartU1ConfFilename ());
       str_ord = CANONICAL;
       u1_is_initialized = 1;
@@ -184,7 +190,7 @@ if ( GJP.ExtInitialized()){
       //???
       VRB.Flow (cname, fname, "File starting U1 configuration\n");
       ERR.NotImplemented (cname, fname,
-			  "Starting U1 config. type  START_CONF_FILE not implemented\n");
+                          "Starting U1 config. type  START_CONF_FILE not implemented\n");
 #endif
     }
   }
@@ -204,7 +210,7 @@ if ( GJP.ExtInitialized()){
     GJP.StartConfKind (START_CONF_MEM);
   } else if (start_conf_kind == START_CONF_FILE) {
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
-	      gauge_field);
+              gauge_field);
     ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
 //    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
     str_ord = CANONICAL;
@@ -215,24 +221,24 @@ if ( GJP.ExtInitialized()){
     is_initialized = 1;
     str_ord = CANONICAL;
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
-	      gauge_field);
+              gauge_field);
     GJP.StartConfKind (START_CONF_MEM);
   } else if (start_conf_kind == START_CONF_MEM) {
     VRB.Flow (cname, fname, "Memory starting configuration addr = %x\n",
-	      gauge_field);
+              gauge_field);
     if (is_initialized == 0) {
       if (gauge_field != GJP.StartConfLoadAddr ())
-	ERR.General (cname, fname,
-		     "Starting config. load address is %x but the pmalloc address %x is not the same\n",
-		     GJP.StartConfLoadAddr (), gauge_field);
+        ERR.General (cname, fname,
+                     "Starting config. load address is %x but the pmalloc address %x is not the same\n",
+                     GJP.StartConfLoadAddr (), gauge_field);
       else
-	is_initialized = 1;
+        is_initialized = 1;
     } else {
       Convert (CANONICAL);
     }
   } else {
     ERR.General (cname, fname,
-		 "Unknown starting config. type %d\n", int (start_conf_kind));
+                 "Unknown starting config. type %d\n", int (start_conf_kind));
   }
 #if 1
 
@@ -259,10 +265,11 @@ if ( GJP.ExtInitialized()){
   if (GJP.XiBare () != 1.0)
     Reunitarize ();
 #endif
-  Float max_dev=1;
-  Float max_diff=1;
-  CheckUnitarity(max_dev,max_diff);
-  VRB.Result(cname,fname,"CheckUnitarity():dev=%g max_diff=%g\n",max_dev,max_diff);
+  Float max_dev = 1;
+  Float max_diff = 1;
+  CheckUnitarity (max_dev, max_diff);
+  VRB.Result (cname, fname, "CheckUnitarity():dev=%g max_diff=%g\n", max_dev,
+              max_diff);
 
   smeared = 0;
 }
@@ -279,8 +286,8 @@ Lattice::~Lattice ()
 {
 #if 1
   const char *fname = "~Lattice()";
-  VRB.Func(cname,fname);
-  
+  VRB.Func (cname, fname);
+
   // if GJP.Snodes() != 1 check that the gauge field is identical
   // on all s-slices.
   //----------------------------------------------------------------
@@ -306,54 +313,56 @@ Lattice::~Lattice ()
 
 
 //!<Allocates memory for gauge field if not already done so
-void Lattice::AllocGauge(){
-  if(!(is_allocated)){
+void Lattice::AllocGauge ()
+{
+  if (!(is_allocated)) {
     const char *fname = "Lattice()";
-    StartConfType start_conf_kind = GJP.StartConfKind();
+    StartConfType start_conf_kind = GJP.StartConfKind ();
 
     // Allocate memory for the gauge field.
     //--------------------------------------------------------------
-    int array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
-    if(GJP.Gparity()) array_size*=2;
+    int array_size = GsiteSize () * GJP.VolNodeSites () * sizeof (Float);
+    if (GJP.Gparity ())
+      array_size *= 2;
 
-    if(start_conf_kind != START_CONF_LOAD ){
+    if (start_conf_kind != START_CONF_LOAD) {
       //       start_conf_kind!=START_CONF_FILE){
 #if TARGET == QCDOC
-      gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
-      VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
+      gauge_field = (Matrix *) qalloc (GJP.StartConfAllocFlag (), array_size);
+      VRB.Flow (cname, fname, "gauge_field=%p\n", gauge_field);
 #else
-      gauge_field = (Matrix *) pmalloc(array_size);
+      gauge_field = (Matrix *) pmalloc (array_size);
 #endif
       //     printf("gauge_field=%p\n",gauge_field);
-      if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
-      VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
-      GJP.StartConfLoadAddr(gauge_field); //store the location of the gauge field
+      if (gauge_field == 0)
+        ERR.Pointer (cname, fname, "gauge_field");
+      VRB.Pmalloc (cname, fname, "gauge_field", gauge_field, array_size);
+      GJP.StartConfLoadAddr (gauge_field);      //store the location of the gauge field
     }
-
     //--------------------------------------------------------------
     //   Pmalloc space for the gauge update counter and initialize 
     //   the counter to zero.
     //--------------------------------------------------------------
-    char *g_upd_cnt_str = "g_upd_cnt" ;
-    g_upd_cnt = (int *) pmalloc(sizeof(int));
+    char *g_upd_cnt_str = "g_upd_cnt";
+    g_upd_cnt = (int *) pmalloc (sizeof (int));
     if (g_upd_cnt == 0)
-      ERR.Pointer(cname, fname, g_upd_cnt_str);
-    VRB.Pmalloc(cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof(int));
+      ERR.Pointer (cname, fname, g_upd_cnt_str);
+    VRB.Pmalloc (cname, fname, g_upd_cnt_str, g_upd_cnt, sizeof (int));
 
-    *g_upd_cnt = 0 ;	// will this respect checkpoints with pmalloc???
+    *g_upd_cnt = 0;             // will this respect checkpoints with pmalloc???
 
 
     // initialize node_sites[] and g_dir_offset[]
     //--------------------------------------------------------------
-    node_sites[0] = GJP.XnodeSites();
-    node_sites[1] = GJP.YnodeSites();
-    node_sites[2] = GJP.ZnodeSites();
-    node_sites[3] = GJP.TnodeSites();
-    node_sites[4] = GJP.SnodeSites();
+    node_sites[0] = GJP.XnodeSites ();
+    node_sites[1] = GJP.YnodeSites ();
+    node_sites[2] = GJP.ZnodeSites ();
+    node_sites[3] = GJP.TnodeSites ();
+    node_sites[4] = GJP.SnodeSites ();
     g_dir_offset[0] = 4;
-    g_dir_offset[1] = g_dir_offset[0]*GJP.XnodeSites();
-    g_dir_offset[2] = g_dir_offset[1]*GJP.YnodeSites();
-    g_dir_offset[3] = g_dir_offset[2]*GJP.ZnodeSites();
+    g_dir_offset[1] = g_dir_offset[0] * GJP.XnodeSites ();
+    g_dir_offset[2] = g_dir_offset[1] * GJP.YnodeSites ();
+    g_dir_offset[3] = g_dir_offset[2] * GJP.ZnodeSites ();
 
     // Set is_allocated flag to 1
     //--------------------------------------------------------------
@@ -364,9 +373,10 @@ void Lattice::AllocGauge(){
 
 //!< Frees memory associated with gauge field and sets is_allocated = 0 and is_initialized = 0.
 //Does not take off the scope lock (destructor does this).
-void Lattice::FreeGauge(){
-  if(is_allocated){
-    pfree(gauge_field);
+void Lattice::FreeGauge ()
+{
+  if (is_allocated) {
+    pfree (gauge_field);
     is_initialized = 0;
     is_allocated = 0;
   }
@@ -410,21 +420,21 @@ void Lattice::twist_bc (int sign)
   for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++) {
     for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++) {
       for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++) {
-	for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
-	  for (int mu = 0; mu < 4; ++mu) {
-	    if (fabs (theta[mu]) < eps)
-	      continue;
-	    int offset_x = GsiteOffset (x);
-	    // the link matrix at current site, in direction mu:
-	    Matrix *su3_link = GaugeField () + offset_x + mu;
-	    Rcomplex cc (cos (theta[mu]), sin (theta[mu]));
-	    vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
-			     (IFloat) cc.imag (), (const IFloat *) su3_link,
-			     18);
-	    moveMem ((IFloat *) su3_link, (IFloat *) & temp,
-		     sizeof (IFloat) * 18);
-	  }			//loop(mu)
-	}
+        for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
+          for (int mu = 0; mu < 4; ++mu) {
+            if (fabs (theta[mu]) < eps)
+              continue;
+            int offset_x = GsiteOffset (x);
+            // the link matrix at current site, in direction mu:
+            Matrix *su3_link = GaugeField () + offset_x + mu;
+            Rcomplex cc (cos (theta[mu]), sin (theta[mu]));
+            vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
+                             (IFloat) cc.imag (), (const IFloat *) su3_link,
+                             18);
+            moveMem ((IFloat *) su3_link, (IFloat *) & temp,
+                     sizeof (IFloat) * 18);
+          }                     //loop(mu)
+        }
       }
     }
   }
@@ -447,22 +457,22 @@ void Lattice::mult_su3_links_by_u1 (const Float Q)
   for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++) {
     for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++) {
       for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++) {
-	for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
-	  for (int mu = 0; mu < 4; ++mu) {
-	    int offset_x = GsiteOffset (x);
-	    // the link matrix at current site, in direction mu:
-	    Matrix *su3_link = GaugeField () + offset_x + mu;
-	    // the u1 link at current site, in direction mu:
-	    Float theta = *(U1GaugeField () + offset_x + mu);
-	    theta *= Q;
-	    Rcomplex cc (cos (theta), sin (theta));
-	    vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
-			     (IFloat) cc.imag (), (const IFloat *) su3_link,
-			     18);
-	    moveMem ((IFloat *) su3_link, (IFloat *) & temp,
-		     sizeof (IFloat) * 18);
-	  }			//loop(mu)
-	}
+        for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
+          for (int mu = 0; mu < 4; ++mu) {
+            int offset_x = GsiteOffset (x);
+            // the link matrix at current site, in direction mu:
+            Matrix *su3_link = GaugeField () + offset_x + mu;
+            // the u1 link at current site, in direction mu:
+            Float theta = *(U1GaugeField () + offset_x + mu);
+            theta *= Q;
+            Rcomplex cc (cos (theta), sin (theta));
+            vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
+                             (IFloat) cc.imag (), (const IFloat *) su3_link,
+                             18);
+            moveMem ((IFloat *) su3_link, (IFloat *) & temp,
+                     sizeof (IFloat) * 18);
+          }                     //loop(mu)
+        }
       }
     }
   }
@@ -495,56 +505,56 @@ void Lattice::mult_su3_links_by_mag_field (Float * B0)
   for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++) {
     for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++) {
       for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++) {
-	for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
-	  // only for spatial links, A_t = 0
-	  for (int mu = 0; mu < 3; ++mu) {
-	    int offset_x = GsiteOffset (x);
-	    // the link matrix at current site, in direction mu:
-	    Matrix *su3_link = GaugeField () + offset_x + mu;
-	    // the linear vector potential, compactified
-	    int gx = x[0] + xshift;
-	    int gy = x[1] + yshift;
-	    int gz = x[2] + zshift;
-	    Float theta;
-	    switch (mu) {
-	    case 0:
-	      theta = (Float) gz *B0[1] - (Float) gy *B0[2];
-	      // fix up the boundary
-	      if (gx == Lx - 1) {
-		theta -= (Float) gy *B0[2] * Lx;
-		theta += (Float) gz *B0[1] * Lx;
-	      }
-	      break;
-	    case 1:
-	      theta = (Float) gx *B0[2] - (Float) gz *B0[0];
-	      // fix up the boundary
-	      if (gy == Ly - 1) {
-		theta += (Float) gx *B0[2] * Ly;
-		theta -= (Float) gz *B0[0] * Ly;
-	      }
-	      break;
-	    case 2:
-	      theta = (Float) gy *B0[0] - (Float) gx *B0[1];
-	      // fix up the boundary
-	      if (gz == Lz - 1) {
-		theta -= (Float) gx *B0[1] * Lz;
-		theta += (Float) gy *B0[0] * Lz;
-	      }
-	      break;
-	    default:
-	      ERR.General (cname, "mult_su3_links_by_const_mag_field",
-			   "Someone messed up!\n");
-	    }
-	    //
-	    theta *= 0.5;
-	    Rcomplex cc (cos (theta), sin (theta));
-	    vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
-			     (IFloat) cc.imag (), (const IFloat *) su3_link,
-			     18);
-	    moveMem ((IFloat *) su3_link, (IFloat *) & temp,
-		     sizeof (IFloat) * 18);
-	  }			//loop(mu)
-	}
+        for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
+          // only for spatial links, A_t = 0
+          for (int mu = 0; mu < 3; ++mu) {
+            int offset_x = GsiteOffset (x);
+            // the link matrix at current site, in direction mu:
+            Matrix *su3_link = GaugeField () + offset_x + mu;
+            // the linear vector potential, compactified
+            int gx = x[0] + xshift;
+            int gy = x[1] + yshift;
+            int gz = x[2] + zshift;
+            Float theta;
+            switch (mu) {
+            case 0:
+              theta = (Float) gz *B0[1] - (Float) gy *B0[2];
+              // fix up the boundary
+              if (gx == Lx - 1) {
+                theta -= (Float) gy *B0[2] * Lx;
+                theta += (Float) gz *B0[1] * Lx;
+              }
+              break;
+            case 1:
+              theta = (Float) gx *B0[2] - (Float) gz *B0[0];
+              // fix up the boundary
+              if (gy == Ly - 1) {
+                theta += (Float) gx *B0[2] * Ly;
+                theta -= (Float) gz *B0[0] * Ly;
+              }
+              break;
+            case 2:
+              theta = (Float) gy *B0[0] - (Float) gx *B0[1];
+              // fix up the boundary
+              if (gz == Lz - 1) {
+                theta -= (Float) gx *B0[1] * Lz;
+                theta += (Float) gy *B0[0] * Lz;
+              }
+              break;
+            default:
+              ERR.General (cname, "mult_su3_links_by_const_mag_field",
+                           "Someone messed up!\n");
+            }
+            //
+            theta *= 0.5;
+            Rcomplex cc (cos (theta), sin (theta));
+            vecTimesComplex ((IFloat *) & temp, (IFloat) cc.real (),
+                             (IFloat) cc.imag (), (const IFloat *) su3_link,
+                             18);
+            moveMem ((IFloat *) su3_link, (IFloat *) & temp,
+                     sizeof (IFloat) * 18);
+          }                     //loop(mu)
+        }
       }
     }
   }
@@ -568,7 +578,8 @@ void Lattice::GaugeField (Matrix * u)
   int size;
 
   size = GsiteSize () * GJP.VolNodeSites () * sizeof (IFloat);
-  if(GJP.Gparity()) size*=2;
+  if (GJP.Gparity ())
+    size *= 2;
 
   // Copy from u to gauge_field
   //----------------------------
@@ -590,38 +601,41 @@ void Lattice::U1GaugeField (Float * u)
   smeared = 0;
 }
 
-unsigned int Lattice::CheckSum(Matrix *field){
+unsigned int Lattice::CheckSum (Matrix * field)
+{
   //checksum the gauge field
   FPConv fp;
   enum FP_FORMAT format = FP_IEEE64LITTLE;
 
   int pos[4];
 
-  uint32_t csum(0); //checksum routines always return 32bit unsigned ints
+  uint32_t csum (0);            //checksum routines always return 32bit unsigned ints
 
-  for(int t=0;t<GJP.NodeSites(3);t++){
+  for (int t = 0; t < GJP.NodeSites (3); t++) {
     pos[3] = t;
-    for(int z=0;z<GJP.NodeSites(2);z++){
+    for (int z = 0; z < GJP.NodeSites (2); z++) {
       pos[2] = z;
-      for(int y=0;y<GJP.NodeSites(1);y++){
-  	pos[1] = y;
-  	for(int x=0;x<GJP.NodeSites(0);x++){
-  	  pos[0] = x;
+      for (int y = 0; y < GJP.NodeSites (1); y++) {
+        pos[1] = y;
+        for (int x = 0; x < GJP.NodeSites (0); x++) {
+          pos[0] = x;
 
-  	  int off = GsiteOffset(pos);
-	
-  	  for(int mu=0;mu<4;mu++){
-	    uint32_t csum_contrib = fp.checksum((char *)(field+off+mu),18,format);
-	    csum += csum_contrib;
-	    
-	    //printf("%d %d %d %d, %d, csum contrib %u\n",x,y,z,t,mu,(unsigned int) csum_contrib);
-  	  }
-  	}
+          int off = GsiteOffset (pos);
+
+          for (int mu = 0; mu < 4; mu++) {
+            uint32_t csum_contrib =
+              fp.checksum ((char *) (field + off + mu), 18, format);
+            csum += csum_contrib;
+
+            //printf("%d %d %d %d, %d, csum contrib %u\n",x,y,z,t,mu,(unsigned int) csum_contrib);
+          }
+        }
       }
     }
   }
   return csum;
 }
+
 //------------------------------------------------------------------
 /*!
   \param u An array
@@ -648,11 +662,12 @@ void Lattice::CopyGaugeField (Matrix * u)
 void Lattice::CopyU1GaugeField (Float * u)
 {
   const char *fname = "CopyGaugeField(M*)";
-  VRB.Func(cname,fname);
+  VRB.Func (cname, fname);
   int size;
 
-  size = GsiteSize() * GJP.VolNodeSites() * sizeof(IFloat);  
-  if(GJP.Gparity()) size*=2;
+  size = GsiteSize () * GJP.VolNodeSites () * sizeof (IFloat);
+  if (GJP.Gparity ())
+    size *= 2;
 
   // Copy from gauge_field to u
   //----------------------------
@@ -668,18 +683,21 @@ int Lattice::CompareGaugeField (Matrix * u)
   const char *fname = "CompareGaugeField(M*)";
   VRB.Func (cname, fname);
 
-  int m_size = GsiteSize() * GJP.VolNodeSites() ;
-  if(GJP.Gparity()) m_size*=2;
+  int m_size = GsiteSize () * GJP.VolNodeSites ();
+  if (GJP.Gparity ())
+    m_size *= 2;
 
-  Float *g1 = (Float*)u;
-  Float *g2 = (Float*)gauge_field;
-  int val=1;
-  for (int i=0; i<m_size; i++) {
-    if (*(g1+i) != *(g2+i) ){
-	double diff = *(g1+i) - *(g2+i);
-        fprintf(stderr,"Node %d: u[%d](%0.16e)!=gauge_field[%d](%0.16e), rel. diff=%e \n", UniqueID(),i,*(g1+i),i,*(g2+i),diff/(*(g1+1)) );
-       val=0;
-       exit(-3);
+  Float *g1 = (Float *) u;
+  Float *g2 = (Float *) gauge_field;
+  int val = 1;
+  for (int i = 0; i < m_size; i++) {
+    if (*(g1 + i) != *(g2 + i)) {
+      double diff = *(g1 + i) - *(g2 + i);
+      fprintf (stderr,
+               "Node %d: u[%d](%0.16e)!=gauge_field[%d](%0.16e), rel. diff=%e \n",
+               UniqueID (), i, *(g1 + i), i, *(g2 + i), diff / (*(g1 + 1)));
+      val = 0;
+      exit (-3);
     }
   }
 
@@ -715,12 +733,12 @@ int Lattice::Colors (void) const
 //------------------------------------------------------------------
 int Lattice::GsiteSize (void)
 {
-  return 2 * Colors () * Colors () * 4;	//re/im * colors*colors * dim
+  return 2 * Colors () * Colors () * 4; //re/im * colors*colors * dim
 }
 
 int Lattice::U1GsiteSize (void)
 {
-  return 4;			// dim
+  return 4;                     // dim
 }
 
 
@@ -751,8 +769,7 @@ int Lattice::U1GsiteSize (void)
 //    is the same on each node in a given direction.  Otherwise, this
 //    won't work properly.
 //--------------------------------------------------------------------------
-const Matrix *
-Lattice::GetLink(const int *site, int dir, const int &field_idx) const
+const Matrix *Lattice::GetLink (const int *site, int dir, const int &field_idx) const
 {
   const char *fname = "GetLink()";
 //VRB.Func(cname,fname);
@@ -767,14 +784,16 @@ Lattice::GetLink(const int *site, int dir, const int &field_idx) const
     for (int i = 0; i < 4; ++i) {
       on_node_site[i] = site[i];
       while (on_node_site[i] < 0) {
-	on_node_site[i] += node_sites[i];
+        on_node_site[i] += node_sites[i];
       }
       on_node_site[i] %= node_sites[i];
       if (on_node_site[i] != site[i]) {
-	on_node = 0;
+        on_node = 0;
       }
     }
-    on_node_link = gauge_field + GsiteOffset(on_node_site) + dir + field_idx * 4*GJP.VolNodeSites();
+    on_node_link =
+      gauge_field + GsiteOffset (on_node_site) + dir +
+      field_idx * 4 * GJP.VolNodeSites ();
   }
 
 #ifndef PARALLEL
@@ -790,14 +809,14 @@ Lattice::GetLink(const int *site, int dir, const int &field_idx) const
     Matrix & recv = m_tmp1;
     for (int i = 0; i < 4; ++i) {
       while (site[i] != on_node_site[i]) {
-	if (site[i] < 0) {
-	  getMinusData ((IFloat *) & recv, (IFloat *) & send, MATRIX_SIZE, i);
-	  on_node_site[i] -= node_sites[i];
-	} else {
-	  getPlusData ((IFloat *) & recv, (IFloat *) & send, MATRIX_SIZE, i);
-	  on_node_site[i] += node_sites[i];
-	}
-	send = recv;
+        if (site[i] < 0) {
+          getMinusData ((IFloat *) & recv, (IFloat *) & send, MATRIX_SIZE, i);
+          on_node_site[i] -= node_sites[i];
+        } else {
+          getPlusData ((IFloat *) & recv, (IFloat *) & send, MATRIX_SIZE, i);
+          on_node_site[i] += node_sites[i];
+        }
+        send = recv;
       }
     }
     return &recv;
@@ -808,12 +827,12 @@ Lattice::GetLink(const int *site, int dir, const int &field_idx) const
 // get U_mu(x+v)
 
 const Matrix *Lattice::GetLinkOld (Matrix * g_offset, const int *x, int v,
-				   int mu) const
+                                   int mu) const
 {
-  if (x[v] == node_sites[v] - 1) {	// off node
+  if (x[v] == node_sites[v] - 1) {      // off node
     getPlusData ((IFloat *) & m_tmp1,
-		 (IFloat *) (g_offset - x[v] * g_dir_offset[v] + mu),
-		 MATRIX_SIZE, v);
+                 (IFloat *) (g_offset - x[v] * g_dir_offset[v] + mu),
+                 MATRIX_SIZE, v);
     return &m_tmp1;
   } else {
     return g_offset + g_dir_offset[v] + mu;
@@ -823,9 +842,9 @@ const Matrix *Lattice::GetLinkOld (Matrix * g_offset, const int *x, int v,
 // U1 field
 const Float *Lattice::GetLinkOld (Float * g_offset, const int *x, int v, int mu) const
 {
-  if (x[v] == node_sites[v] - 1) {	// off node
+  if (x[v] == node_sites[v] - 1) {      // off node
     getPlusData ((IFloat *) & m_tmp1,
-		 (IFloat *) (g_offset - x[v] * g_dir_offset[v] + mu), 1, v);
+                 (IFloat *) (g_offset - x[v] * g_dir_offset[v] + mu), 1, v);
     return (Float *) & m_tmp1;
   } else {
     return g_offset + g_dir_offset[v] + mu;
@@ -846,11 +865,11 @@ int Lattice::GetSigma (const int *site, int mu, int nu) const
     for (int i = 0; i < 4; ++i) {
       on_node_site[i] = site[i];
       while (on_node_site[i] < 0) {
-	on_node_site[i] += node_sites[i];
+        on_node_site[i] += node_sites[i];
       }
       on_node_site[i] %= node_sites[i];
       if (on_node_site[i] != site[i]) {
-	on_node = 0;
+        on_node = 0;
       }
     }
     on_node_sigma = sigma_field[SigmaOffset (on_node_site, mu, nu)];
@@ -871,18 +890,18 @@ int Lattice::GetSigma (const int *site, int mu, int nu) const
     IFloat recv = -1.0;
     for (int i = 0; i < 4; ++i) {
       while (site[i] != on_node_site[i]) {
-	if (site[i] < 0) {
-	  //printf("%d starting getMinusData...\n", UniqueID());
-	  getMinusData ((IFloat *) & recv, (IFloat *) & send, 1, i);
-	  //printf("%d finished getMinusData...\n", UniqueID());
-	  on_node_site[i] -= node_sites[i];
-	} else {
-	  //printf("%d starting getPlusData...\n", UniqueID());
-	  getPlusData ((IFloat *) & recv, (IFloat *) & send, 1, i);
-	  //printf("%d finished getPlusData...\n", UniqueID());
-	  on_node_site[i] += node_sites[i];
-	}
-	send = recv;
+        if (site[i] < 0) {
+          //printf("%d starting getMinusData...\n", UniqueID());
+          getMinusData ((IFloat *) & recv, (IFloat *) & send, 1, i);
+          //printf("%d finished getMinusData...\n", UniqueID());
+          on_node_site[i] -= node_sites[i];
+        } else {
+          //printf("%d starting getPlusData...\n", UniqueID());
+          getPlusData ((IFloat *) & recv, (IFloat *) & send, 1, i);
+          //printf("%d finished getPlusData...\n", UniqueID());
+          on_node_site[i] += node_sites[i];
+        }
+        send = recv;
       }
     }
     assert (recv == 0.0 || recv == 1.0);
@@ -894,11 +913,11 @@ int Lattice::SetSigmaBlock (int block[])
 {
   const char *fname = "SetSigmaBlock\n";
   for (int i = 0; i < 4; i++) {
-    if(block[i]>0)
-    if ((GJP.NodeSites (i) % block[i]) != 0)
-      ERR.General (cname, fname,
-		   "block[%d](%d) should divide GJP.NodeSites(%d)(%d)\n", i,
-		   block[i], i, GJP.NodeSites (i));
+    if (block[i] > 0)
+      if ((GJP.NodeSites (i) % block[i]) != 0)
+        ERR.General (cname, fname,
+                     "block[%d](%d) should divide GJP.NodeSites(%d)(%d)\n", i,
+                     block[i], i, GJP.NodeSites (i));
     sigma_blocks[i] = block[i];
   }
 }
@@ -908,213 +927,257 @@ int Lattice::SigmaBlockSize ()
   int size = 1;
   for (int i = 0; i < 4; i++)
     size *= sigma_blocks[i];
-  size *= 6;			//number of plaquettes 
+  size *= 6;                    //number of plaquettes 
   return size;
 }
 
 
 
 //Added by C.Kelly for G-parity purposes
-void Lattice::CopyConjMatrixField(Matrix *field, const int & nmat_per_site){
-  const char* cnames = "Lattice";
-  const char* fname = "CopyConjMatrixField(Matrix *, const int &)";
-  if(!GJP.Gparity() && !GJP.Gparity1fX()){
-    ERR.General(cnames, fname, "Copy-conj operation only valid when using G-parity boundary conditions.\n") ;
+void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
+{
+  const char *cnames = "Lattice";
+  const char *fname = "CopyConjMatrixField(Matrix *, const int &)";
+  if (!GJP.Gparity () && !GJP.Gparity1fX ()) {
+    ERR.General (cnames, fname,
+                 "Copy-conj operation only valid when using G-parity boundary conditions.\n");
   }
-  if(GJP.Gparity()){
+  if (GJP.Gparity ()) {
     //2f G-parity
 
     Matrix *U = field;
-    Matrix *Ustar = field + nmat_per_site*GJP.VolNodeSites();
+    Matrix *Ustar = field + nmat_per_site * GJP.VolNodeSites ();
 
 #pragma omp parallel for
-    for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
-      Ustar[m].Conj(U[m]);
+    for (int m = 0; m < nmat_per_site * GJP.VolNodeSites (); m++) {
+      Ustar[m].Conj (U[m]);
     }
-  }else if(GJP.Gparity1fX() && !GJP.Gparity1fY()){
+  } else if (GJP.Gparity1fX () && !GJP.Gparity1fY ()) {
     //1f G-parity: doubled lattice in X direction
-    if(GJP.Xnodes()==1){
-      for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
-	//off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
-	int mu = m%nmat_per_site;
-	int x = (m/nmat_per_site)%GJP.XnodeSites();
-	int rest = m/nmat_per_site/GJP.XnodeSites(); //(y + Ly*(z + Lz*t) )
-	
-	if(x >= GJP.XnodeSites()/2){
-	  int m_hf1 = mu + nmat_per_site*(x - GJP.XnodeSites()/2 + GJP.XnodeSites()*rest);
-	  field[m].Conj(field[m_hf1]);
-	}
+    if (GJP.Xnodes () == 1) {
+      for (int m = 0; m < nmat_per_site * GJP.VolNodeSites (); m++) {
+        //off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
+        int mu = m % nmat_per_site;
+        int x = (m / nmat_per_site) % GJP.XnodeSites ();
+        int rest = m / nmat_per_site / GJP.XnodeSites ();       //(y + Ly*(z + Lz*t) )
+
+        if (x >= GJP.XnodeSites () / 2) {
+          int m_hf1 =
+            mu + nmat_per_site * (x - GJP.XnodeSites () / 2 +
+                                  GJP.XnodeSites () * rest);
+          field[m].Conj (field[m_hf1]);
+        }
       }
-    }else{
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites();  
-      Matrix *buf = (Matrix *) pmalloc(array_size*sizeof(Float));
-      Matrix *buf2 = (Matrix *) pmalloc(array_size*sizeof(Float));
+    } else {
+      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
+      Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
       //Communicate field from first half onto second half
-      if(GJP.XnodeCoor() < GJP.Xnodes()/2)
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) buf[i] = field[i];
+      if (GJP.XnodeCoor () < GJP.Xnodes () / 2)
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          buf[i] = field[i];
 
       Matrix *data_buf = buf;
       Matrix *send_buf = data_buf;
       Matrix *recv_buf = buf2;
 
       //pass between nodes
-      for(int i=0;i<GJP.Xnodes()/2;i++){
-	getMinusData((Float *)recv_buf, (Float *)send_buf, array_size , 0);
-	data_buf = recv_buf;
-	recv_buf = send_buf;
-	send_buf = data_buf;
+      for (int i = 0; i < GJP.Xnodes () / 2; i++) {
+        getMinusData ((Float *) recv_buf, (Float *) send_buf, array_size, 0);
+        data_buf = recv_buf;
+        recv_buf = send_buf;
+        send_buf = data_buf;
       }
-      if(GJP.XnodeCoor() >= GJP.Xnodes()/2){
-	for(int i=0;i<nmat_per_site*GJP.VolNodeSites();i++) field[i].Conj(data_buf[i]);
+      if (GJP.XnodeCoor () >= GJP.Xnodes () / 2) {
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          field[i].Conj (data_buf[i]);
       }
-      pfree(buf);
-      pfree(buf2);
+      pfree (buf);
+      pfree (buf2);
     }
-  }else if(GJP.Gparity1fX() && GJP.Gparity1fY()){
-    if(GJP.Xnodes()==1 && GJP.Ynodes()==1){
-      for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
-	int Lx = GJP.XnodeSites(); int Ly = GJP.YnodeSites();
-	//off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
-	int mu = m%nmat_per_site; int rest = m/nmat_per_site;
-	int x = rest%Lx; rest/=Lx;
-	int y = rest%Ly; rest/=Ly; //(z + Lz*t)
-	
-	if(x >= Lx/2 && y< Ly/2){ //LR quadrant
-	  int m_hf1 = mu + nmat_per_site*(x - Lx/2 + Lx*(y + Ly*rest));
-	  field[m].Conj(field[m_hf1]);
-	}else if(x < Lx/2 && y >= Ly/2){ //UL quadrant
-	  int m_hf1 = mu + nmat_per_site*(x + Lx*(y -Ly/2 + Ly*rest));
-	  field[m].Conj(field[m_hf1]);
-	}else if(x >= Lx/2 && y >= Ly/2){ //UR quadrant
-	  int m_hf1 = mu + nmat_per_site*(x -Lx/2 + Lx*(y -Ly/2 + Ly*rest));
-	  field[m] = field[m_hf1];
-	}
+  } else if (GJP.Gparity1fX () && GJP.Gparity1fY ()) {
+    if (GJP.Xnodes () == 1 && GJP.Ynodes () == 1) {
+      for (int m = 0; m < nmat_per_site * GJP.VolNodeSites (); m++) {
+        int Lx = GJP.XnodeSites ();
+        int Ly = GJP.YnodeSites ();
+        //off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
+        int mu = m % nmat_per_site;
+        int rest = m / nmat_per_site;
+        int x = rest % Lx;
+        rest /= Lx;
+        int y = rest % Ly;
+        rest /= Ly;             //(z + Lz*t)
+
+        if (x >= Lx / 2 && y < Ly / 2) {        //LR quadrant
+          int m_hf1 = mu + nmat_per_site * (x - Lx / 2 + Lx * (y + Ly * rest));
+          field[m].Conj (field[m_hf1]);
+        } else if (x < Lx / 2 && y >= Ly / 2) { //UL quadrant
+          int m_hf1 = mu + nmat_per_site * (x + Lx * (y - Ly / 2 + Ly * rest));
+          field[m].Conj (field[m_hf1]);
+        } else if (x >= Lx / 2 && y >= Ly / 2) {        //UR quadrant
+          int m_hf1 =
+            mu + nmat_per_site * (x - Lx / 2 + Lx * (y - Ly / 2 + Ly * rest));
+          field[m] = field[m_hf1];
+        }
       }
-    }else if( (GJP.Xnodes()>1 && GJP.Ynodes()==1) || (GJP.Ynodes()>1 && GJP.Xnodes()==1) ){
-      int longaxis = 0; int shortaxis = 1;
-      if(GJP.Ynodes()>1){ longaxis = 1; shortaxis = 0; }
+    } else if ((GJP.Xnodes () > 1 && GJP.Ynodes () == 1)
+               || (GJP.Ynodes () > 1 && GJP.Xnodes () == 1)) {
+      int longaxis = 0;
+      int shortaxis = 1;
+      if (GJP.Ynodes () > 1) {
+        longaxis = 1;
+        shortaxis = 0;
+      }
 
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites();  
-      Matrix *buf = (Matrix *) pmalloc(array_size*sizeof(Float));
-      Matrix *buf2 = (Matrix *) pmalloc(array_size*sizeof(Float));
+      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
+      Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
-      int npos[] = {GJP.XnodeCoor(),GJP.YnodeCoor()};
-      int nL[] = {GJP.Xnodes(),GJP.Ynodes()};
+      int npos[] = { GJP.XnodeCoor (), GJP.YnodeCoor () };
+      int nL[] = { GJP.Xnodes (), GJP.Ynodes () };
       //Communicate field from first half onto second half along longaxis
-      if(npos[longaxis] < nL[longaxis]/2)
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) buf[i] = field[i];
+      if (npos[longaxis] < nL[longaxis] / 2)
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          buf[i] = field[i];
 
       Matrix *data_buf = buf;
       Matrix *send_buf = data_buf;
       Matrix *recv_buf = buf2;
-      
+
       //pass between nodes
-      for(int i=0;i<GJP.Nodes(longaxis)/2;i++){
-	getMinusData((Float *)recv_buf, (Float *)send_buf, array_size , longaxis);
-	data_buf = recv_buf;
-	recv_buf = send_buf;
-	send_buf = data_buf;
+      for (int i = 0; i < GJP.Nodes (longaxis) / 2; i++) {
+        getMinusData ((Float *) recv_buf, (Float *) send_buf, array_size,
+                      longaxis);
+        data_buf = recv_buf;
+        recv_buf = send_buf;
+        send_buf = data_buf;
       }
-      for(int m=0;m<nmat_per_site*GJP.VolNodeSites();m++){
-	int Lx = GJP.XnodeSites(); int Ly = GJP.YnodeSites();
-	//off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
-	int mu = m%nmat_per_site; int rest = m/nmat_per_site;
-	int x = rest%Lx; rest/=Lx;
-	int y = rest%Ly; rest/=Ly; //(z + Lz*t)
-	
-	int pos[] = {x,y};
-	int L[] = {GJP.XnodeSites(),GJP.YnodeSites()};
+      for (int m = 0; m < nmat_per_site * GJP.VolNodeSites (); m++) {
+        int Lx = GJP.XnodeSites ();
+        int Ly = GJP.YnodeSites ();
+        //off = mu + nmat_per_site*(x + Lx*(y + Ly*(z + Lz*t) ) )
+        int mu = m % nmat_per_site;
+        int rest = m / nmat_per_site;
+        int x = rest % Lx;
+        rest /= Lx;
+        int y = rest % Ly;
+        rest /= Ly;             //(z + Lz*t)
 
-	if(pos[shortaxis] <  L[shortaxis]/2 && npos[longaxis] >= nL[longaxis]/2){ //LR quadrant
-	  int pos_ll[] = {x,y};
-	  int m_ll = mu + nmat_per_site*(pos_ll[0] + L[0]*(pos_ll[1] + L[1]*rest));
-	  field[m].Conj(data_buf[m_ll]);
-	}else if(pos[shortaxis] >=  L[shortaxis]/2 && npos[longaxis] < nL[longaxis]/2){ //UL quadrant
-	  int pos_ll[] = {x,y}; pos_ll[shortaxis]-=L[shortaxis]/2;
-	  int m_ll = mu + nmat_per_site*(pos_ll[0] + L[0]*(pos_ll[1] + L[1]*rest));
-	  field[m].Conj(field[m_ll]);
-	}else if(pos[shortaxis] >=  L[shortaxis]/2 && npos[longaxis] >= nL[longaxis]/2){ //UR quadrant
-	  int pos_ll[] = {x,y}; pos_ll[shortaxis]-=L[shortaxis]/2;
-	  int m_ll = mu + nmat_per_site*(pos_ll[0] + L[0]*(pos_ll[1] + L[1]*rest));
-	  field[m] = data_buf[m_ll];
-	}
+        int pos[] = { x, y };
+        int L[] = { GJP.XnodeSites (), GJP.YnodeSites () };
+
+        if (pos[shortaxis] < L[shortaxis] / 2 && npos[longaxis] >= nL[longaxis] / 2) {  //LR quadrant
+          int pos_ll[] = { x, y };
+          int m_ll =
+            mu + nmat_per_site * (pos_ll[0] + L[0] * (pos_ll[1] + L[1] * rest));
+          field[m].Conj (data_buf[m_ll]);
+        } else if (pos[shortaxis] >= L[shortaxis] / 2 && npos[longaxis] < nL[longaxis] / 2) {   //UL quadrant
+          int pos_ll[] = { x, y };
+          pos_ll[shortaxis] -= L[shortaxis] / 2;
+          int m_ll =
+            mu + nmat_per_site * (pos_ll[0] + L[0] * (pos_ll[1] + L[1] * rest));
+          field[m].Conj (field[m_ll]);
+        } else if (pos[shortaxis] >= L[shortaxis] / 2 && npos[longaxis] >= nL[longaxis] / 2) {  //UR quadrant
+          int pos_ll[] = { x, y };
+          pos_ll[shortaxis] -= L[shortaxis] / 2;
+          int m_ll =
+            mu + nmat_per_site * (pos_ll[0] + L[0] * (pos_ll[1] + L[1] * rest));
+          field[m] = data_buf[m_ll];
+        }
       }
-      pfree(buf);
-      pfree(buf2);
-    }else{
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites();  
-      Matrix *buf = (Matrix *) pmalloc(array_size*sizeof(Float));
-      Matrix *buf2 = (Matrix *) pmalloc(array_size*sizeof(Float));
+      pfree (buf);
+      pfree (buf2);
+    } else {
+      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
+      Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
-      int npos[] = {GJP.XnodeCoor(),GJP.YnodeCoor()};
-      int nL[] = {GJP.Xnodes(),GJP.Ynodes()};
+      int npos[] = { GJP.XnodeCoor (), GJP.YnodeCoor () };
+      int nL[] = { GJP.Xnodes (), GJP.Ynodes () };
 
       Matrix *LLdata;
-      if(npos[1] < nL[1]/2 && npos[0] >= nL[0]/2) LLdata = (Matrix *) pmalloc(array_size*sizeof(Float));  //to store the data from the LL quadrant
+      if (npos[1] < nL[1] / 2 && npos[0] >= nL[0] / 2)
+        LLdata = (Matrix *) pmalloc (array_size * sizeof (Float));      //to store the data from the LL quadrant
 
-      if(npos[0] < nL[0]/2 && npos[1] < nL[1]/2)
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) buf[i] = field[i]; //copy LL quadrant to buf
+      if (npos[0] < nL[0] / 2 && npos[1] < nL[1] / 2)
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          buf[i] = field[i];    //copy LL quadrant to buf
 
       //copy LL quadrant to LR quadrant first
       Matrix *databuf_last = buf;
       Matrix *otherbuf_last = buf2;
 
-      if(npos[1] < nL[1]/2){
-	printf("Node (%d,%d) communicating in x direction\n",npos[0],npos[1]); fflush(stdout);
+      if (npos[1] < nL[1] / 2) {
+        printf ("Node (%d,%d) communicating in x direction\n", npos[0],
+                npos[1]);
+        fflush (stdout);
 
-	Matrix *data_buf = buf;
-	Matrix *send_buf = data_buf;
-	Matrix *recv_buf = buf2;
-      
-	//pass between X nodes
-	for(int i=0;i<GJP.Xnodes()/2;i++){
-	  getMinusData((Float *)recv_buf, (Float *)send_buf, array_size , 0);
-	  data_buf = recv_buf;
-	  recv_buf = send_buf;
-	  send_buf = data_buf;
-	}
-	if(npos[0] >= nL[0]/2)
-	  for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) LLdata[i] = data_buf[i];
-	databuf_last = data_buf;
-	otherbuf_last = recv_buf; //next buffer that we can write to
+        Matrix *data_buf = buf;
+        Matrix *send_buf = data_buf;
+        Matrix *recv_buf = buf2;
+
+        //pass between X nodes
+        for (int i = 0; i < GJP.Xnodes () / 2; i++) {
+          getMinusData ((Float *) recv_buf, (Float *) send_buf, array_size, 0);
+          data_buf = recv_buf;
+          recv_buf = send_buf;
+          send_buf = data_buf;
+        }
+        if (npos[0] >= nL[0] / 2)
+          for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+            LLdata[i] = data_buf[i];
+        databuf_last = data_buf;
+        otherbuf_last = recv_buf;       //next buffer that we can write to
       }
-      cps::sync();
+      cps::sync ();
       //LR quadrant databuf_last contains LL quadrant data
       //on LL quadrant we need to refill databuf_last with LL quadrant data
-      if(npos[0] < nL[0]/2 && npos[1] < nL[1]/2)
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) databuf_last[i] = field[i];
+      if (npos[0] < nL[0] / 2 && npos[1] < nL[1] / 2)
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          databuf_last[i] = field[i];
 
       //copy LL quadrant data from bottom half onto top half
       Matrix *data_buf = databuf_last;
       Matrix *send_buf = data_buf;
       Matrix *recv_buf = otherbuf_last;
-      
-      printf("Node (%d,%d) communicating in y direction\n",npos[0],npos[1]); fflush(stdout);
+
+      printf ("Node (%d,%d) communicating in y direction\n", npos[0], npos[1]);
+      fflush (stdout);
 
       //pass between Y nodes
-      for(int i=0;i<GJP.Ynodes()/2;i++){
-	getMinusData((Float *)recv_buf, (Float *)send_buf, array_size , 1);
-	data_buf = recv_buf;
-	recv_buf = send_buf;
-	send_buf = data_buf;
+      for (int i = 0; i < GJP.Ynodes () / 2; i++) {
+        getMinusData ((Float *) recv_buf, (Float *) send_buf, array_size, 1);
+        data_buf = recv_buf;
+        recv_buf = send_buf;
+        send_buf = data_buf;
       }
 
-      if(npos[1] >= nL[1]/2) LLdata = data_buf;
+      if (npos[1] >= nL[1] / 2)
+        LLdata = data_buf;
 
       //LLdata on all quadrants should now contain data from LL quadrant
       //copy-conjugate on appropriate quadrants
-      if(!UniqueID()){ printf("Copying onto appropriate quadrants\n"); fflush(stdout);}
-      
-      if( (npos[1] >= nL[1]/2 && npos[0] < nL[0]/2) || (npos[1] < nL[1]/2 && npos[0] >= nL[0]/2) ) //UL and LR quadrants
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) field[i].Conj(LLdata[i]);
-      else if( npos[1] >= nL[1]/2 && npos[0] >= nL[0]/2) //UR quadrant
-	for(int i=0;i<nmat_per_site * GJP.VolNodeSites();i++) field[i] = LLdata[i];
+      if (!UniqueID ()) {
+        printf ("Copying onto appropriate quadrants\n");
+        fflush (stdout);
+      }
 
-      if(!UniqueID()){ printf("Finalising\n"); fflush(stdout);}
-      pfree(buf);
-      pfree(buf2);
-      if(npos[1] < nL[1]/2 && npos[0] >= nL[0]/2) pfree(LLdata);
+      if ((npos[1] >= nL[1] / 2 && npos[0] < nL[0] / 2) || (npos[1] < nL[1] / 2 && npos[0] >= nL[0] / 2))       //UL and LR quadrants
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          field[i].Conj (LLdata[i]);
+      else if (npos[1] >= nL[1] / 2 && npos[0] >= nL[0] / 2)    //UR quadrant
+        for (int i = 0; i < nmat_per_site * GJP.VolNodeSites (); i++)
+          field[i] = LLdata[i];
+
+      if (!UniqueID ()) {
+        printf ("Finalising\n");
+        fflush (stdout);
+      }
+      pfree (buf);
+      pfree (buf2);
+      if (npos[1] < nL[1] / 2 && npos[0] >= nL[0] / 2)
+        pfree (LLdata);
     }
   }
 
@@ -1175,11 +1238,11 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
       // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
       //----------------------------------------------------------
       if (nu == 0 || (mu == 0 && nu == 1))
-	mDotMEqual ((IFloat *) & stap, (const IFloat *) mp2,
-		    (const IFloat *) mp3);
+        mDotMEqual ((IFloat *) & stap, (const IFloat *) mp2,
+                    (const IFloat *) mp3);
       else
-	mDotMPlus ((IFloat *) & stap, (const IFloat *) mp2,
-		   (const IFloat *) mp3);
+        mDotMPlus ((IFloat *) & stap, (const IFloat *) mp2,
+                   (const IFloat *) mp3);
 
 
 
@@ -1188,7 +1251,7 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
       //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
       //----------------------------------------------------------
       int off_pv = (x[nu] == 0) ? (node_sites[nu] - 1) * g_dir_offset[nu]
-	: -g_dir_offset[nu];
+        : -g_dir_offset[nu];
 
       Matrix *g_offpv = g_offset + off_pv;
 
@@ -1205,7 +1268,7 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
       // mp2 = U_u(x-v) U_v(x+u-v)
       //----------------------------------------------------------
       mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offpv + mu),
-		  (const IFloat *) mp3);
+                  (const IFloat *) mp3);
 
 
       //----------------------------------------------------------
@@ -1218,28 +1281,28 @@ void Lattice::Staple (Matrix & stap, int *x, int mu)
       // mp2 = U_v(x-v)
       //----------------------------------------------------------
       moveMem ((IFloat *) mp2, (const IFloat *) (g_offpv + nu),
-	       MATRIX_SIZE * sizeof (IFloat));
+               MATRIX_SIZE * sizeof (IFloat));
 
 
       //----------------------------------------------------------
       // stap += mp3 * mp2
       //----------------------------------------------------------
-      if (x[nu] == 0) {		// x-v off node
-	mDotMEqual ((IFloat *) & m_tmp1, (const IFloat *) mp3,
-		    (const IFloat *) mp2);
+      if (x[nu] == 0) {         // x-v off node
+        mDotMEqual ((IFloat *) & m_tmp1, (const IFloat *) mp3,
+                    (const IFloat *) mp2);
 
-	// m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
-	getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
-		      MATRIX_SIZE, nu);
+        // m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
+        getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
+                      MATRIX_SIZE, nu);
 
-	//stap += m_tmp2;
-	vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
+        //stap += m_tmp2;
+        vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
 
       } else {
-	mDotMPlus ((IFloat *) & stap, (const IFloat *) mp3,
-		   (const IFloat *) mp2);
-	// dummy read
-	*((IFloat *) mp2) = *((IFloat *) g_offpv);
+        mDotMPlus ((IFloat *) & stap, (const IFloat *) mp3,
+                   (const IFloat *) mp2);
+        // dummy read
+        *((IFloat *) mp2) = *((IFloat *) g_offpv);
       }
     }
   }
@@ -1256,102 +1319,111 @@ Float Lattice::ReU1Plaq (int *x, int mu, int nu) const
   int offset_x = GsiteOffset (x);
   Float *g_offset = U1GaugeField () + offset_x;
 #else
-  \param x The coordinates of the lattice site 
-  \param mu The link direction
-  \param rect The computed staple sum.
-*/
+  \param x The coordinates of the lattice site
+    \ param mu The link direction \ param rect The computed staple sum. * /
 //------------------------------------------------------------------
-void Lattice::RectStaple(Matrix& rect, int *x, int mu)
-{
+  void Lattice::RectStaple (Matrix & rect, int *x, int mu)
+  {
 //const char *fname = "RectStaple(M&,i*,i)" ;
 //VRB.Func(cname, fname) ;
 //VRB.Debug(cname,fname, "rect %3i %3i %3i %3i ; %i\n",
 //          x[0], x[1], x[2], x[3], mu) ;
 #endif
 
-  //----------------------------------------------------------
-  // U_u(x)
-  //----------------------------------------------------------
-  Float p1 = *((IFloat *) (g_offset + mu));
+    //----------------------------------------------------------
+    // U_u(x)
+    //----------------------------------------------------------
+    Float p1 = *((IFloat *) (g_offset + mu));
 
-  //----------------------------------------------------------
-  // U_v(x+u)
-  //----------------------------------------------------------
-  p1 += *(GetLinkOld (g_offset, x, mu, nu));
+    //----------------------------------------------------------
+    // U_v(x+u)
+    //----------------------------------------------------------
+    p1 += *(GetLinkOld (g_offset, x, mu, nu));
 
-  //----------------------------------------------------------
-  // U_u(x+v)^dagger
-  //----------------------------------------------------------
-  p1 -= *(GetLinkOld (g_offset, x, nu, mu));
+    //----------------------------------------------------------
+    // U_u(x+v)^dagger
+    //----------------------------------------------------------
+    p1 -= *(GetLinkOld (g_offset, x, nu, mu));
 
-  //----------------------------------------------------------
-  // U_v(x)^dagger
-  //----------------------------------------------------------
-  p1 -= *((IFloat *) (g_offset + nu));
+    //----------------------------------------------------------
+    // U_v(x)^dagger
+    //----------------------------------------------------------
+    p1 -= *((IFloat *) (g_offset + nu));
 
-  return cos (p1);
+    return cos (p1);
 
-}
-
-Float Lattice::GetReTrPlaq (const int x[4], Float * ReTrPlaq)
-{
-  int x_local[4];
-
-  for (int i = 0; i < 4; i++) {
-    if (((x[i] < 0) || (x[i] >= GJP.NodeSites (i))) && (GJP.Nodes (i) > 1))
-      ERR.General ("", "GetReTrPlaq()", "Not implemented for multi node yet\n");
-    x_local[i] = x[i];
-    int nodes = GJP.NodeSites (i);
-    while (x_local[i] < 0) {
-      x_local[i] += nodes;
-    }
-    x_local[i] = x_local[i] % nodes;
   }
-  return *(ReTrPlaq + GsiteOffset (x_local) / 4);
-}
+
+  Float Lattice::GetReTrPlaq (const int x[4], Float * ReTrPlaq)
+  {
+    int x_local[4];
+
+    for (int i = 0; i < 4; i++) {
+      if (((x[i] < 0) || (x[i] >= GJP.NodeSites (i)))
+          && (GJP.Nodes (i) > 1))
+        ERR.General ("", "GetReTrPlaq()",
+                     "Not implemented for multi node yet\n");
+      x_local[i] = x[i];
+      int nodes = GJP.NodeSites (i);
+      while (x_local[i] < 0) {
+        x_local[i] += nodes;
+      }
+      x_local[i] = x_local[i] % nodes;
+    }
+    return *(ReTrPlaq + GsiteOffset (x_local) / 4);
+  }
 
 //Utility function for below
 //Scale this staple properly by multiplying mp3 by the appropriate sigma factor
-void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
-			   Float * ReTrPlaq)
-{
+  void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
+                             Float * ReTrPlaq)
+  {
 
-  //need to get the plaquette regardless of the value of sigma to make sure all
-  //nodes send the same communication requests
-  Float re_tr_plaq;
-  if (ReTrPlaq)
-    re_tr_plaq = GetReTrPlaq (x, ReTrPlaq);
-  ///if (ReTrPlaq) re_tr_plaq = *(ReTrPlaq+GsiteOffset(x)/4);
-  else
-    re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
-  //printf("x = (%d, %d, %d, %d), mu,nu = %d,%d, re_tr_plaq = %e\n", x[0], x[1], x[2], x[3], mu, nu, re_tr_plaq);
-  assert (!(re_tr_plaq != re_tr_plaq));
+    //need to get the plaquette regardless of the value of sigma to make sure all
+    //nodes send the same communication requests
+    Float re_tr_plaq;
+    if (ReTrPlaq)
+      re_tr_plaq = GetReTrPlaq (x, ReTrPlaq);
+    ///if (ReTrPlaq) re_tr_plaq = *(ReTrPlaq+GsiteOffset(x)/4);
+    else
+      re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
+    //printf("x = (%d, %d, %d, %d), mu,nu = %d,%d, re_tr_plaq = %e\n", x[0], x[1], x[2], x[3], mu, nu, re_tr_plaq);
+    assert (!(re_tr_plaq != re_tr_plaq));
 
-  Float multiplier;
+    Float multiplier;
 
-  int sigma = GetSigma (x, mu, nu);
-  if (sigma == 0) {
-    multiplier = 1.0 + (delta_beta / GJP.Beta ())*DeltaSDer(re_tr_plaq);
-  } else {
-    assert (sigma == 1);
-    Float exponent = DeltaS (re_tr_plaq);
-    assert (!(exponent != exponent));
-    if (!(exponent >= 0))
-      printf ("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
+    int sigma = GetSigma (x, mu, nu);
+    if (sigma == 0) {
+      multiplier = 1.0 + (delta_beta / GJP.Beta ()) * DeltaSDer (re_tr_plaq);
+    } else {
+      assert (sigma == 1);
+      Float exponent = DeltaS (re_tr_plaq);
+      assert (!(exponent != exponent));
+      if (!(exponent >= 0))
+        printf ("exponent = %e, re_tr_plaq = %e\n", exponent, re_tr_plaq);
 #if 1
-    assert (exponent >= 0);
+      assert (exponent >= 0);
 #else
-	     if (exponent < SMALL ) exponent = SMALL;
+      if (exponent < SMALL)
+        exponent = SMALL;
 #endif
-    Float multiplier2 = 1.0 - delta_beta / (GJP.Beta () * (exp (exponent) - 1.0))*DeltaSDer(re_tr_plaq);
-    multiplier = 1.0 - delta_beta / (GJP.Beta () * (deltaS_offset - (delta_beta/3.0) * re_tr_plaq))*DeltaSDer(re_tr_plaq);
+      Float multiplier2 =
+        1.0 -
+        delta_beta / (GJP.Beta () * (exp (exponent) - 1.0)) *
+        DeltaSDer (re_tr_plaq);
+      multiplier =
+        1.0 -
+        delta_beta / (GJP.Beta () *
+                      (deltaS_offset -
+                       (delta_beta / 3.0) * re_tr_plaq)) *
+        DeltaSDer (re_tr_plaq);
 
 //  if (multiplier != multiplier2) printf("multiplier %e != %e re_tr_plaq=%g \n",multiplier,multiplier2,re_tr_plaq);
-  assert (!(multiplier != multiplier));
-  }
+      assert (!(multiplier != multiplier));
+    }
 
-  *stap *= multiplier;
-}
+    *stap *= multiplier;
+  }
 
 //------------------------------------------------------------------
 /*!
@@ -1366,128 +1438,129 @@ void Lattice::ScaleStaple (Matrix * stap, int x[4], int mu, int nu,
   \param mu The link direction 
 */
 //------------------------------------------------------------------
-void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu,
-					  Float * ReTrPlaq)
-{
-  if(GJP.Gparity()) return GparityStaple(stap,x,mu);
+  void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu,
+                                            Float * ReTrPlaq)
+  {
+    if (GJP.Gparity ())
+      return GparityStaple (stap, x, mu);
 
 //char *fname = "Staple(M&,i*,i)";
 //VRB.Func(cname,fname);
 
 
-  const Matrix *p1;
-  int offset_x = GsiteOffset (x);
-  Matrix *g_offset = GaugeField () + offset_x;
+    const Matrix *p1;
+    int offset_x = GsiteOffset (x);
+    Matrix *g_offset = GaugeField () + offset_x;
 
-  for (int nu = 0; nu < 4; ++nu) {
-    if (nu != mu) {
+    for (int nu = 0; nu < 4; ++nu) {
+      if (nu != mu) {
 
-      //----------------------------------------------------------
-      // mp3 = U_u(x+v)~
-      //----------------------------------------------------------
-      p1 = GetLinkOld (g_offset, x, nu, mu);
-      mp3->Dagger ((IFloat *) p1);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+v)~
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offset, x, nu, mu);
+        mp3->Dagger ((IFloat *) p1);
 
-      ScaleStaple (mp3, x, mu, nu, ReTrPlaq);
+        ScaleStaple (mp3, x, mu, nu, ReTrPlaq);
 
-      //----------------------------------------------------------
-      // p1 = &U_v(x+u)
-      //----------------------------------------------------------
-      p1 = GetLinkOld (g_offset, x, mu, nu);
-
-
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u) U_u(x+v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // p1 = &U_v(x+u)
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offset, x, mu, nu);
 
 
-      //----------------------------------------------------------
-      //  mp3 = U_v(x)~
-      //----------------------------------------------------------
-      mp3->Dagger ((IFloat *) (g_offset + nu));
-
-      //----------------------------------------------------------
-      // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
-      //----------------------------------------------------------
-      if (nu == 0 || (mu == 0 && nu == 1))
-	mDotMEqual ((IFloat *) & stap, (const IFloat *) mp2,
-		    (const IFloat *) mp3);
-      else
-	mDotMPlus ((IFloat *) & stap, (const IFloat *) mp2,
-		   (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u) U_u(x+v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
 
 
+        //----------------------------------------------------------
+        //  mp3 = U_v(x)~
+        //----------------------------------------------------------
+        mp3->Dagger ((IFloat *) (g_offset + nu));
+
+        //----------------------------------------------------------
+        // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
+        //----------------------------------------------------------
+        if (nu == 0 || (mu == 0 && nu == 1))
+          mDotMEqual ((IFloat *) & stap, (const IFloat *) mp2,
+                      (const IFloat *) mp3);
+        else
+          mDotMPlus ((IFloat *) & stap, (const IFloat *) mp2,
+                     (const IFloat *) mp3);
 
 
 
-      //----------------------------------------------------------
-      //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
-      //----------------------------------------------------------
-      int off_pv = (x[nu] == 0) ? (node_sites[nu] - 1) * g_dir_offset[nu]
-	: -g_dir_offset[nu];
-
-      Matrix *g_offpv = g_offset + off_pv;
 
 
-      //----------------------------------------------------------
-      // p1 = U_v(x+u-v)
-      // mp3 = U_v(x+u-v)
-      //----------------------------------------------------------
-      p1 = GetLinkOld (g_offpv, x, mu, nu);
-      moveMem ((IFloat *) mp3, (IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
+        //----------------------------------------------------------
+        int off_pv = (x[nu] == 0) ? (node_sites[nu] - 1) * g_dir_offset[nu]
+          : -g_dir_offset[nu];
+
+        Matrix *g_offpv = g_offset + off_pv;
 
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x-v) U_v(x+u-v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offpv + mu),
-		  (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // p1 = U_v(x+u-v)
+        // mp3 = U_v(x+u-v)
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offpv, x, mu, nu);
+        moveMem ((IFloat *) mp3, (IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
 
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
-      //----------------------------------------------------------
-      mp3->Dagger ((IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp2 = U_u(x-v) U_v(x+u-v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offpv + mu),
+                    (const IFloat *) mp3);
 
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x-v)
-      //----------------------------------------------------------
-      moveMem ((IFloat *) mp2, (const IFloat *) (g_offpv + nu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
+        //----------------------------------------------------------
+        mp3->Dagger ((IFloat *) mp2);
 
-      int x_minus_nuhat[] = { x[0], x[1], x[2], x[3] };
-      x_minus_nuhat[nu] -= 1;
 
-      //----------------------------------------------------------
-      // stap += mp3 * mp2
-      //----------------------------------------------------------
-      if (x[nu] == 0) {		// x-v off node
-	mDotMEqual ((IFloat *) & m_tmp1, (const IFloat *) mp3,
-		    (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp2 = U_v(x-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp2, (const IFloat *) (g_offpv + nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-	// m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
-	getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
-		      MATRIX_SIZE, nu);
+        int x_minus_nuhat[] = { x[0], x[1], x[2], x[3] };
+        x_minus_nuhat[nu] -= 1;
 
-	ScaleStaple (&m_tmp2, x_minus_nuhat, mu, nu, ReTrPlaq);
+        //----------------------------------------------------------
+        // stap += mp3 * mp2
+        //----------------------------------------------------------
+        if (x[nu] == 0) {       // x-v off node
+          mDotMEqual ((IFloat *) & m_tmp1, (const IFloat *) mp3,
+                      (const IFloat *) mp2);
+
+          // m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
+          getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
+                        MATRIX_SIZE, nu);
+
+          ScaleStaple (&m_tmp2, x_minus_nuhat, mu, nu, ReTrPlaq);
 //      ScaleStaple (mp3, x, mu, nu,ReTrPlaq);
 
-	//stap += m_tmp2;
-	vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
+          //stap += m_tmp2;
+          vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
 
-      } else {
-	ScaleStaple (mp3, x_minus_nuhat, mu, nu, ReTrPlaq);
+        } else {
+          ScaleStaple (mp3, x_minus_nuhat, mu, nu, ReTrPlaq);
 
-	mDotMPlus ((IFloat *) & stap, (const IFloat *) mp3,
-		   (const IFloat *) mp2);
-	// dummy read
-	*((IFloat *) mp2) = *((IFloat *) g_offpv);
+          mDotMPlus ((IFloat *) & stap, (const IFloat *) mp3,
+                     (const IFloat *) mp2);
+          // dummy read
+          *((IFloat *) mp2) = *((IFloat *) g_offpv);
+        }
       }
     }
   }
-}
 
 //------------------------------------------------------------------
 // RectStaple(Matrix& stap, int *x, int mu):
@@ -1515,192 +1588,196 @@ void Lattice::StapleWithSigmaCorrections (Matrix & stap, int *x, int mu,
   \param rect The computed staple sum.
 */
 //------------------------------------------------------------------
-void Lattice::RectStaple (Matrix & rect, int *x, int mu)
-{
-  if(GJP.Gparity()) return GparityRectStaple(rect,x,mu);
+  void Lattice::RectStaple (Matrix & rect, int *x, int mu)
+  {
+    if (GJP.Gparity ())
+      return GparityRectStaple (rect, x, mu);
 //char *fname = "RectStaple(M&,i*,i)" ;
 //VRB.Func(cname, fname) ;
 //VRB.Debug(cname,fname, "rect %3i %3i %3i %3i ; %i\n",
 //          x[0], x[1], x[2], x[3], mu) ;
 
-  int link_site[4];
+    int link_site[4];
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  rect.ZeroMatrix ();
+    rect.ZeroMatrix ();
 
-  for (int i = 0; i < 4; ++i)
-    link_site[i] = x[i];
+    for (int i = 0; i < 4; ++i)
+      link_site[i] = x[i];
 
-  for (int nu = 0; nu < 4; ++nu)
-    if (nu != mu) {
+    for (int nu = 0; nu < 4; ++nu)
+      if (nu != mu) {
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x)~
-      //----------------------------------------------------------
-      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp4 = U_v(x)~
+        //----------------------------------------------------------
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
 
-      //----------------------------------------------------------
-      // mp3 = U_mu(x+v)~
-      //----------------------------------------------------------
-      ++(link_site[nu]);
-      mp3->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp3 = U_mu(x+v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        mp3->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x+v)~ U_v(x)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp2 = U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x+u+v)~
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x+u+v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
 
-      //----------------------------------------------------------
-      // p1 = &U_v(x+2u)
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      --(link_site[nu]);
-      p1 = GetLink (link_site, nu);
+        //----------------------------------------------------------
+        // p1 = &U_v(x+2u)
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        p1 = GetLink (link_site, nu);
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp4, (const IFloat *) p1, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // mp4 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp4, (const IFloat *) p1, (const IFloat *) mp3);
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x+u)
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp2 = U_u(x+u)
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // rect += U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2, (const IFloat *) mp4);
-
-
-
-      //----------------------------------------------------------
-      // mp4 = U_v(x+2u-v)~
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      --(link_site[nu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
-
-      //----------------------------------------------------------
-      // mp3 = U_u(x+u) U_v(x+2u-v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
-
-      //----------------------------------------------------------
-      // mp4 = U_u(x+u-v)~
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
-
-      //----------------------------------------------------------
-      // mp2 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
-
-      //----------------------------------------------------------
-      // mp4 = U_u(x-v)~
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
-
-      //----------------------------------------------------------
-      // mp3 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
-
-      //----------------------------------------------------------
-      // mp2 = U_v(x-v)
-      //----------------------------------------------------------
-      moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
-	       MATRIX_SIZE * sizeof (IFloat));
-
-      //----------------------------------------------------------
-      // rect += U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~ U_v(x-v)
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // rect += U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2,
+                   (const IFloat *) mp4);
 
 
 
-      //----------------------------------------------------------
-      // p1 = &U_v(x-2v)
-      //----------------------------------------------------------
-      --(link_site[nu]);
-      p1 = GetLink (link_site, nu);
+        //----------------------------------------------------------
+        // mp4 = U_v(x+2u-v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x-2v) U_v(x-v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) p1, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u) U_v(x+2u-v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x-2v)~
-      //----------------------------------------------------------
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x+u-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp4, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // mp2 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x+u-2v)~
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u-v)~
-      //----------------------------------------------------------
-      ++(link_site[nu]);
-      mp2->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp2 = U_v(x-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // rect += U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // rect += U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~ U_v(x-v)
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3,
+                   (const IFloat *) mp2);
 
 
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x-v)~
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // p1 = &U_v(x-2v)
+        //----------------------------------------------------------
+        --(link_site[nu]);
+        p1 = GetLink (link_site, nu);
 
-      //----------------------------------------------------------
-      // mp3 =  U_v(x+u-v)~ U_u(x-v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp3 = U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) p1, (const IFloat *) mp2);
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x-u-v)~
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x-2v)~
+        //----------------------------------------------------------
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp2 = U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp4, (const IFloat *) mp3);
+
+        //----------------------------------------------------------
+        // mp4 = U_v(x+u-2v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u-v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        mp2->Dagger ((IFloat *) GetLink (link_site, nu));
+
+        //----------------------------------------------------------
+        // rect += U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2,
+                   (const IFloat *) mp3);
+
+
+
+        //----------------------------------------------------------
+        // mp4 = U_u(x-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+
+        //----------------------------------------------------------
+        // mp3 =  U_v(x+u-v)~ U_u(x-v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
+
+        //----------------------------------------------------------
+        // mp4 = U_u(x-u-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
 
 //  GRF: this code may cause a hang
 //
@@ -1717,78 +1794,80 @@ void Lattice::RectStaple (Matrix & rect, int *x, int mu)
 //
 //  GRF: here is a work-around
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x-u-v)
-      //----------------------------------------------------------
-      moveMem ((IFloat *) mp4,
-	       (const IFloat *) GetLink (link_site, nu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp4 = U_v(x-u-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp4,
+                 (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
 
 //  GRF: end work-around
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x-u)
-      //----------------------------------------------------------
-      ++(link_site[nu]);
-      moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp2 = U_u(x-u)
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // rect += U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v) U_u(x-u)
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // rect += U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v) U_u(x-u)
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3,
+                   (const IFloat *) mp2);
 
 
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x-u)~
-      //----------------------------------------------------------
-      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp4 = U_v(x-u)~
+        //----------------------------------------------------------
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x-u)~ U_u(x-u)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp3 = U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x-u+v)~
-      //----------------------------------------------------------
-      ++(link_site[nu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x-u+v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp4, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // mp2 = U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp4, (const IFloat *) mp3);
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x+v)~
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x+v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp3 = U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u)
-      //----------------------------------------------------------
-      ++(link_site[mu]);
-      --(link_site[nu]);
-      moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u)
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // rect += U_v(x+u) U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2, (const IFloat *) mp3);
+        //----------------------------------------------------------
+        // rect += U_v(x+u) U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp2,
+                   (const IFloat *) mp3);
 
 
 
@@ -1808,95 +1887,115 @@ void Lattice::RectStaple (Matrix & rect, int *x, int mu)
 //
 //  GRF: here is a work-around
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x+u+v)
-      //----------------------------------------------------------
-      ++(link_site[nu]);
-      moveMem ((IFloat *) mp4,
-	       (const IFloat *) GetLink (link_site, nu),
-	       MATRIX_SIZE * sizeof (IFloat));
+        //----------------------------------------------------------
+        // mp4 = U_v(x+u+v)
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        moveMem ((IFloat *) mp4,
+                 (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u) U_v(x+u+v)
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u) U_v(x+u+v)
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
 
 //  GRF: end work-around
 
-      //----------------------------------------------------------
-      // mp4 = U_u(x+2v)~
-      //----------------------------------------------------------
-      --(link_site[mu]);
-      ++(link_site[nu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+        //----------------------------------------------------------
+        // mp4 = U_u(x+2v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        ++(link_site[nu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp4 = U_v(x+v)~
-      //----------------------------------------------------------
-      --(link_site[nu]);
-      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp4 = U_v(x+v)~
+        //----------------------------------------------------------
+        --(link_site[nu]);
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~
-      //----------------------------------------------------------
-      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~
+        //----------------------------------------------------------
+        mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp4);
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x)~
-      //----------------------------------------------------------
-      --(link_site[nu]);
-      mp2->Dagger ((IFloat *) GetLink (link_site, nu));
+        //----------------------------------------------------------
+        // mp2 = U_v(x)~
+        //----------------------------------------------------------
+        --(link_site[nu]);
+        mp2->Dagger ((IFloat *) GetLink (link_site, nu));
 
-      //----------------------------------------------------------
-      // rect += U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~  U_v(x)~
-      //----------------------------------------------------------
-      mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3, (const IFloat *) mp2);
+        //----------------------------------------------------------
+        // rect += U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~  U_v(x)~
+        //----------------------------------------------------------
+        mDotMPlus ((IFloat *) & rect, (const IFloat *) mp3,
+                   (const IFloat *) mp2);
 
-      //----------------------------------------------------------
-      // dummy read to switch CBUF banks for looping
-      //----------------------------------------------------------
-      *((IFloat *) mp4) = *((IFloat *) p1);
-    }
-}
+        //----------------------------------------------------------
+        // dummy read to switch CBUF banks for looping
+        //----------------------------------------------------------
+        *((IFloat *) mp4) = *((IFloat *) p1);
+      }
+  }
 
 
 //CK for testing
-unsigned int MCheckSum(Matrix &matrix){
-  FPConv fp;
-  enum FP_FORMAT format = FP_IEEE64LITTLE;
-  uint32_t csum_contrib = fp.checksum((char *)&matrix,18,format);
-  return csum_contrib;
-}
+  unsigned int MCheckSum (Matrix & matrix)
+  {
+    FPConv fp;
+    enum FP_FORMAT format = FP_IEEE64LITTLE;
+    uint32_t csum_contrib = fp.checksum ((char *) &matrix, 18, format);
+    return csum_contrib;
+  }
 
 //CK: dagger or transpose a matrix depending on boolean condition.
-void GP_DagTrans(Matrix &out, const Matrix &in, const bool &cond=false){
-  if(cond) return out.Trans((IFloat *)&in);
-  else return out.Dagger((IFloat *)&in);
-}
-//CK: Matrix product equals but conjugate matrices if conditions are set
-void GP_mDotMEqual(Matrix &out, const Matrix &A, const Matrix &B, const bool &conjA = false, const bool &conjB = false){
-  if(conjB && conjA){
-    //return mStarDotMStarEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-    Matrix tmp;
-    tmp.Conj(B);
-    return mStarDotMEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&tmp);
+  void GP_DagTrans (Matrix & out, const Matrix & in, const bool & cond = false) {
+    if (cond)
+      return out.Trans ((IFloat *) & in);
+    else
+      return out.Dagger ((IFloat *) & in);
   }
-  else if(conjA) return mStarDotMEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-  else if(conjB) return mDotMStarEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-  else return mDotMEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-}
+//CK: Matrix product equals but conjugate matrices if conditions are set
+  void GP_mDotMEqual (Matrix & out, const Matrix & A, const Matrix & B,
+                      const bool & conjA = false, const bool & conjB = false) {
+    if (conjB && conjA) {
+      //return mStarDotMStarEqual((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
+      Matrix tmp;
+      tmp.Conj (B);
+      return mStarDotMEqual ((IFloat *) & out, (const IFloat *) &A,
+                             (const IFloat *) &tmp);
+    } else if (conjA)
+      return mStarDotMEqual ((IFloat *) & out, (const IFloat *) &A,
+                             (const IFloat *) &B);
+    else if (conjB)
+      return mDotMStarEqual ((IFloat *) & out, (const IFloat *) &A,
+                             (const IFloat *) &B);
+    else
+      return mDotMEqual ((IFloat *) & out, (const IFloat *) &A,
+                         (const IFloat *) &B);
+  }
 //CK: Matrix product plus but conjugate matrices if conditions are set
-void GP_mDotMPlus(Matrix &out, const Matrix &A, const Matrix &B, const bool &conjA = false, const bool &conjB = false){
-  if(conjB && conjA) return mStarDotMStarPlus((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-  else if(conjA) return mStarDotMPlus((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-  else if(conjB) return mDotMStarPlus((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-  else return mDotMPlus((IFloat *)&out, (const IFloat *)&A, (const IFloat *)&B);
-}
+  void GP_mDotMPlus (Matrix & out, const Matrix & A, const Matrix & B,
+                     const bool & conjA = false, const bool & conjB = false) {
+    if (conjB && conjA)
+      return mStarDotMStarPlus ((IFloat *) & out, (const IFloat *) &A,
+                                (const IFloat *) &B);
+    else if (conjA)
+      return mStarDotMPlus ((IFloat *) & out, (const IFloat *) &A,
+                            (const IFloat *) &B);
+    else if (conjB)
+      return mDotMStarPlus ((IFloat *) & out, (const IFloat *) &A,
+                            (const IFloat *) &B);
+    else
+      return mDotMPlus ((IFloat *) & out, (const IFloat *) &A,
+                        (const IFloat *) &B);
+  }
 //------------------------------------------------------------------
 /*!
   The staple sum around the link \f$ U_mu(x) \f$ is
@@ -1910,148 +2009,157 @@ void GP_mDotMPlus(Matrix &out, const Matrix &A, const Matrix &B, const bool &con
   \param mu The link direction 
 */
 //------------------------------------------------------------------
-void Lattice::GparityStaple(Matrix& stap, int *x, int mu)
-{
-   const char *fname = "GparityStaple(M&,i*,i)";
+  void Lattice::GparityStaple (Matrix & stap, int *x, int mu)
+  {
+    const char *fname = "GparityStaple(M&,i*,i)";
 //VRB.Func(cname,fname);
 
-  const Matrix *p1;
-  int offset_x = GsiteOffset(x);
-  Matrix *g_offset = GaugeField()+offset_x;
-  //CK: determine if we are on any G-parity boundaries
-  bool on_bound_mu_lo(false);
-  bool on_bound_mu_hi(false);
-  if(GJP.Bc(mu)==BND_CND_GPARITY){
-    if( GJP.NodeCoor(mu) == GJP.Nodes(mu)-1 && x[mu] == GJP.NodeSites(mu)-1 ) on_bound_mu_hi = true;
-    if( GJP.NodeCoor(mu) == 0 && x[mu] == 0 ) on_bound_mu_lo = true;	
-  }
+    const Matrix *p1;
+    int offset_x = GsiteOffset (x);
+    Matrix *g_offset = GaugeField () + offset_x;
+    //CK: determine if we are on any G-parity boundaries
+    bool on_bound_mu_lo (false);
+    bool on_bound_mu_hi (false);
+    if (GJP.Bc (mu) == BND_CND_GPARITY) {
+      if (GJP.NodeCoor (mu) == GJP.Nodes (mu) - 1
+          && x[mu] == GJP.NodeSites (mu) - 1)
+        on_bound_mu_hi = true;
+      if (GJP.NodeCoor (mu) == 0 && x[mu] == 0)
+        on_bound_mu_lo = true;
+    }
 
-  for(int nu = 0; nu < 4; ++nu) {
-    if(nu != mu) {
-      bool on_bound_nu_lo(false);
-      bool on_bound_nu_hi(false);
+    for (int nu = 0; nu < 4; ++nu) {
+      if (nu != mu) {
+        bool on_bound_nu_lo (false);
+        bool on_bound_nu_hi (false);
 
-      if(GJP.Bc(nu)==BND_CND_GPARITY){
-	if( GJP.NodeCoor(nu) == GJP.Nodes(nu)-1 && x[nu] == GJP.NodeSites(nu)-1 ) on_bound_nu_hi = true;
-	if( GJP.NodeCoor(nu) == 0 && x[nu] == 0 ) on_bound_nu_lo = true;	
-      }
-      bool gp_mp2(false), gp_mp3(false), gp_mp4(false), gp_p1(false); //keep track of which links need conjugating
+        if (GJP.Bc (nu) == BND_CND_GPARITY) {
+          if (GJP.NodeCoor (nu) == GJP.Nodes (nu) - 1
+              && x[nu] == GJP.NodeSites (nu) - 1)
+            on_bound_nu_hi = true;
+          if (GJP.NodeCoor (nu) == 0 && x[nu] == 0)
+            on_bound_nu_lo = true;
+        }
+        bool gp_mp2 (false), gp_mp3 (false), gp_mp4 (false), gp_p1 (false);     //keep track of which links need conjugating
 
-      //----------------------------------------------------------
-      // mp3 = U_u(x+v)~
-      //----------------------------------------------------------
-      p1 = GetLinkOld(g_offset, x, nu, mu);
+        //----------------------------------------------------------
+        // mp3 = U_u(x+v)~
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offset, x, nu, mu);
 
-      GP_DagTrans(*mp3,*p1,on_bound_nu_hi);
-      gp_mp3 = false;
+        GP_DagTrans (*mp3, *p1, on_bound_nu_hi);
+        gp_mp3 = false;
 
-      //----------------------------------------------------------
-      // p1 = &U_v(x+u)
-      //----------------------------------------------------------
-      p1 = GetLinkOld(g_offset, x, mu, nu);
-      gp_p1 = on_bound_mu_hi;
+        //----------------------------------------------------------
+        // p1 = &U_v(x+u)
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offset, x, mu, nu);
+        gp_p1 = on_bound_mu_hi;
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x+u) U_u(x+v)~
-      //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u) U_u(x+v)~
+        //----------------------------------------------------------
 
-      GP_mDotMEqual(*mp2,*p1,*mp3,gp_p1,gp_mp3);
-      gp_mp2 = false;
+        GP_mDotMEqual (*mp2, *p1, *mp3, gp_p1, gp_mp3);
+        gp_mp2 = false;
 
-      //----------------------------------------------------------
-      //  mp3 = U_v(x)~
-      //----------------------------------------------------------
-      mp3->Dagger((IFloat *)(g_offset+nu));
-      gp_mp3 = false;
-      
-      //----------------------------------------------------------
-      // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
-      //----------------------------------------------------------
-      if( nu == 0  ||  (mu==0 && nu==1) )
-	GP_mDotMEqual(stap,*mp2,*mp3,gp_mp2,gp_mp3);
-      else
-	GP_mDotMPlus(stap,*mp2,*mp3,gp_mp2,gp_mp3);
-      
-      //----------------------------------------------------------
-      //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
-      //----------------------------------------------------------
-      int off_pv = (x[nu] == 0) ?
-              (node_sites[nu]-1)*g_dir_offset[nu]
-	    : -g_dir_offset[nu];
+        //----------------------------------------------------------
+        //  mp3 = U_v(x)~
+        //----------------------------------------------------------
+        mp3->Dagger ((IFloat *) (g_offset + nu));
+        gp_mp3 = false;
 
-      Matrix *g_offpv = g_offset+off_pv;
+        //----------------------------------------------------------
+        // calculate U_v(x+u)*U_u(x+v)~*U_v(x)~ = mp2 * mp3
+        //----------------------------------------------------------
+        if (nu == 0 || (mu == 0 && nu == 1))
+          GP_mDotMEqual (stap, *mp2, *mp3, gp_mp2, gp_mp3);
+        else
+          GP_mDotMPlus (stap, *mp2, *mp3, gp_mp2, gp_mp3);
 
-      //CK: For staple in -nu direction, if we are on the lower nu boundary we calculate the plaquette on the upper nu boundary and pass it to the next node. 
-      //Perform complex conjugation of full staple when passing across a G-parity boundary
+        //----------------------------------------------------------
+        //  calculate U_v(x+u-v)~ U_u(x-v)~ U_v(x-v)
+        //----------------------------------------------------------
+        int off_pv = (x[nu] == 0) ? (node_sites[nu] - 1) * g_dir_offset[nu]
+          : -g_dir_offset[nu];
 
-      //sites in nu direction are now shifted back by one, need to redetermine the boundary booleans
-      if(GJP.Bc(nu)==BND_CND_GPARITY){
-      	on_bound_nu_lo = false;
-      	on_bound_nu_hi = false;
+        Matrix *g_offpv = g_offset + off_pv;
 
-      	int xnu = off_pv/g_dir_offset[nu] +x[nu];
+        //CK: For staple in -nu direction, if we are on the lower nu boundary we calculate the plaquette on the upper nu boundary and pass it to the next node. 
+        //Perform complex conjugation of full staple when passing across a G-parity boundary
 
-      	if( GJP.NodeCoor(nu) == GJP.Nodes(nu)-1 && xnu == GJP.NodeSites(nu)-1 ) on_bound_nu_hi = true;
-      	if( GJP.NodeCoor(nu) == 0 && xnu == 0 ) on_bound_nu_lo = true;	
-      }
-      //----------------------------------------------------------
-      // p1 = U_v(x+u-v)
-      // mp3 = U_v(x+u-v)
-      //----------------------------------------------------------
-      p1 = GetLinkOld(g_offpv, x, mu, nu);
-      moveMem((IFloat *)mp3, (IFloat *)p1, 
-	      MATRIX_SIZE * sizeof(IFloat));
-      gp_mp3 = on_bound_mu_hi;
+        //sites in nu direction are now shifted back by one, need to redetermine the boundary booleans
+        if (GJP.Bc (nu) == BND_CND_GPARITY) {
+          on_bound_nu_lo = false;
+          on_bound_nu_hi = false;
 
-      bool gp_ndlink = false; //for (g_offpv+mu) link
+          int xnu = off_pv / g_dir_offset[nu] + x[nu];
 
-      //----------------------------------------------------------
-      // mp2 = U_u(x-v) U_v(x+u-v)
-      //----------------------------------------------------------
-      
-      GP_mDotMEqual(*mp2,g_offpv[mu],*mp3,gp_ndlink,gp_mp3);
-      gp_mp2 = false;
+          if (GJP.NodeCoor (nu) == GJP.Nodes (nu) - 1
+              && xnu == GJP.NodeSites (nu) - 1)
+            on_bound_nu_hi = true;
+          if (GJP.NodeCoor (nu) == 0 && xnu == 0)
+            on_bound_nu_lo = true;
+        }
+        //----------------------------------------------------------
+        // p1 = U_v(x+u-v)
+        // mp3 = U_v(x+u-v)
+        //----------------------------------------------------------
+        p1 = GetLinkOld (g_offpv, x, mu, nu);
+        moveMem ((IFloat *) mp3, (IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
+        gp_mp3 = on_bound_mu_hi;
 
-      //----------------------------------------------------------
-      // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
-      //----------------------------------------------------------
-      mp3->Dagger((IFloat *)mp2);
-      gp_mp3 = false;
+        bool gp_ndlink = false; //for (g_offpv+mu) link
+
+        //----------------------------------------------------------
+        // mp2 = U_u(x-v) U_v(x+u-v)
+        //----------------------------------------------------------
+
+        GP_mDotMEqual (*mp2, g_offpv[mu], *mp3, gp_ndlink, gp_mp3);
+        gp_mp2 = false;
+
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-v)~ U_u(x-v)~ = mp2~
+        //----------------------------------------------------------
+        mp3->Dagger ((IFloat *) mp2);
+        gp_mp3 = false;
 
 
-      //----------------------------------------------------------
-      // mp2 = U_v(x-v)
-      //----------------------------------------------------------
-      moveMem((IFloat *)mp2, (const IFloat *)(g_offpv+nu),
-	  MATRIX_SIZE * sizeof(IFloat));
-      
-      gp_mp2 = false; //on_bound_nu_lo;
+        //----------------------------------------------------------
+        // mp2 = U_v(x-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp2, (const IFloat *) (g_offpv + nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-      //----------------------------------------------------------
-      // stap += mp3 * mp2
-      //----------------------------------------------------------
-      if(x[nu] == 0) {	// x-v off node
-	
-	if(on_bound_nu_hi){ gp_mp3=!gp_mp3; gp_mp2=!gp_mp2; }//conjugate the whole staple that we pass across a G-parity boundary
-	
-	GP_mDotMEqual(m_tmp1,*mp3,*mp2,gp_mp3,gp_mp2);
+        gp_mp2 = false;         //on_bound_nu_lo;
 
-	// m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
-	getMinusData((IFloat *)&m_tmp2, (IFloat *)&m_tmp1,
-		     MATRIX_SIZE, nu);
-	
-	//stap += m_tmp2;
-	vecAddEquVec((IFloat *)&stap, (IFloat *)&m_tmp2,
-		MATRIX_SIZE);
-	
-      } else {
-	GP_mDotMPlus(stap,*mp3,*mp2,gp_mp3,gp_mp2);
-        // dummy read
-	*((IFloat *)mp2) = *((IFloat *)g_offpv);
+        //----------------------------------------------------------
+        // stap += mp3 * mp2
+        //----------------------------------------------------------
+        if (x[nu] == 0) {       // x-v off node
+
+          if (on_bound_nu_hi) {
+            gp_mp3 = !gp_mp3;
+            gp_mp2 = !gp_mp2;
+          }                     //conjugate the whole staple that we pass across a G-parity boundary
+
+          GP_mDotMEqual (m_tmp1, *mp3, *mp2, gp_mp3, gp_mp2);
+
+          // m_tmp2 = U_v(x+u-v)*U_u(x-v)*U_v(x-v)^dag
+          getMinusData ((IFloat *) & m_tmp2, (IFloat *) & m_tmp1,
+                        MATRIX_SIZE, nu);
+
+          //stap += m_tmp2;
+          vecAddEquVec ((IFloat *) & stap, (IFloat *) & m_tmp2, MATRIX_SIZE);
+
+        } else {
+          GP_mDotMPlus (stap, *mp3, *mp2, gp_mp3, gp_mp2);
+          // dummy read
+          *((IFloat *) mp2) = *((IFloat *) g_offpv);
+        }
       }
     }
   }
-}
 
 
 //------------------------------------------------------------------
@@ -2080,260 +2188,289 @@ void Lattice::GparityStaple(Matrix& stap, int *x, int mu)
   \param rect The computed staple sum.
 */
 //------------------------------------------------------------------
-void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
-{
+  void Lattice::GparityRectStaple (Matrix & rect, int *x, int mu)
+  {
 //char *fname = "RectStaple(M&,i*,i)" ;
 //VRB.Func(cname, fname) ;
 //VRB.Debug(cname,fname, "rect %3i %3i %3i %3i ; %i\n",
 //          x[0], x[1], x[2], x[3], mu) ;
 
-  int link_site[4] ;
+    int link_site[4];
 
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  rect.ZeroMatrix() ;
+    rect.ZeroMatrix ();
 
-  for (int i=0; i<4; ++i) link_site[i] = x[i] ;
+    for (int i = 0; i < 4; ++i)
+      link_site[i] = x[i];
 
-  //CK: determine if we are on any boundaries (only do for Gparity scenario)
-  //    also determine if we are one before the boundary element, as in rect staple we sometimes need U(x+2mu)
+    //CK: determine if we are on any boundaries (only do for Gparity scenario)
+    //    also determine if we are one before the boundary element, as in rect staple we sometimes need U(x+2mu)
 
-  bool on_bound_mu_lo(false);
-  bool on_bound_mu_hi(false);
-  bool one_after_bound_mu_lo(false);
-  bool one_before_bound_mu_hi(false);
+    bool on_bound_mu_lo (false);
+    bool on_bound_mu_hi (false);
+    bool one_after_bound_mu_lo (false);
+    bool one_before_bound_mu_hi (false);
 
-  if(GJP.Bc(mu)==BND_CND_GPARITY){
-    if( GJP.NodeCoor(mu) == GJP.Nodes(mu)-1){
-      if(x[mu] == GJP.NodeSites(mu)-1) on_bound_mu_hi = true;
-      else if(x[mu] == GJP.NodeSites(mu)-2) one_before_bound_mu_hi = true;
-    }
-    if( GJP.NodeCoor(mu) == 0){
-      if( x[mu] == 0 ) on_bound_mu_lo = true; 
-      else if ( x[mu] == 1 ) one_after_bound_mu_lo = true;
-    }
-  }
-  for(int nu = 0; nu < 4; ++nu)
-  if(nu != mu) {
-
-    //printf("Rect at start %u\n",MCheckSum(rect));
-
-    bool on_bound_nu_lo(false);
-    bool on_bound_nu_hi(false);
-    bool one_after_bound_nu_lo(false);
-    bool one_before_bound_nu_hi(false);
-    
-    if(GJP.Bc(nu)==BND_CND_GPARITY){
-      if( GJP.NodeCoor(nu) == GJP.Nodes(nu)-1){
-	if(x[nu] == GJP.NodeSites(nu)-1) on_bound_nu_hi = true;
-	else if(x[nu] == GJP.NodeSites(nu)-2) one_before_bound_nu_hi = true;
+    if (GJP.Bc (mu) == BND_CND_GPARITY) {
+      if (GJP.NodeCoor (mu) == GJP.Nodes (mu) - 1) {
+        if (x[mu] == GJP.NodeSites (mu) - 1)
+          on_bound_mu_hi = true;
+        else if (x[mu] == GJP.NodeSites (mu) - 2)
+          one_before_bound_mu_hi = true;
       }
-      if( GJP.NodeCoor(nu) == 0){
-	if( x[nu] == 0 ) on_bound_nu_lo = true; 
-	else if ( x[nu] == 1 ) one_after_bound_nu_lo = true;
+      if (GJP.NodeCoor (mu) == 0) {
+        if (x[mu] == 0)
+          on_bound_mu_lo = true;
+        else if (x[mu] == 1)
+          one_after_bound_mu_lo = true;
       }
     }
+    for (int nu = 0; nu < 4; ++nu)
+      if (nu != mu) {
 
-    //CK: Boundary combinations can get complicated here, so keep track of which of the temp matrices needs conjugating
-    bool gp_mp2(false), gp_mp3(false), gp_mp4(false), gp_p1(false);
-    //----------------------------------------------------------
-    // mp4 = U_v(x)~
-    //----------------------------------------------------------
-    mp4->Dagger((IFloat *)GetLink(link_site, nu)) ;
-    gp_mp4 = false;
+        //printf("Rect at start %u\n",MCheckSum(rect));
 
-    //----------------------------------------------------------
-    // mp3 = U_mu(x+v)~
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
-    GP_DagTrans(*mp3,*GetLink(link_site, mu), on_bound_nu_hi); //conjugate when crossing G-parity boundary
-    gp_mp3 = false;
+        bool on_bound_nu_lo (false);
+        bool on_bound_nu_hi (false);
+        bool one_after_bound_nu_lo (false);
+        bool one_before_bound_nu_hi (false);
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    //mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)mp4) ;
-    GP_mDotMEqual(*mp2,*mp3,*mp4,gp_mp3,gp_mp4) ;
-    gp_mp2 = false;
+        if (GJP.Bc (nu) == BND_CND_GPARITY) {
+          if (GJP.NodeCoor (nu) == GJP.Nodes (nu) - 1) {
+            if (x[nu] == GJP.NodeSites (nu) - 1)
+              on_bound_nu_hi = true;
+            else if (x[nu] == GJP.NodeSites (nu) - 2)
+              one_before_bound_nu_hi = true;
+          }
+          if (GJP.NodeCoor (nu) == 0) {
+            if (x[nu] == 0)
+              on_bound_nu_lo = true;
+            else if (x[nu] == 1)
+              one_after_bound_nu_lo = true;
+          }
+        }
+        //CK: Boundary combinations can get complicated here, so keep track of which of the temp matrices needs conjugating
+        bool gp_mp2 (false), gp_mp3 (false), gp_mp4 (false), gp_p1 (false);
+        //----------------------------------------------------------
+        // mp4 = U_v(x)~
+        //----------------------------------------------------------
+        mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x+u+v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi && !on_bound_mu_hi) );
-    gp_mp4 = false;
+        //----------------------------------------------------------
+        // mp3 = U_mu(x+v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        GP_DagTrans (*mp3, *GetLink (link_site, mu), on_bound_nu_hi);   //conjugate when crossing G-parity boundary
+        gp_mp3 = false;
 
+        //----------------------------------------------------------
+        // mp2 = U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        //mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)mp4) ;
+        GP_mDotMEqual (*mp2, *mp3, *mp4, gp_mp3, gp_mp4);
+        gp_mp2 = false;
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp4,*mp2,gp_mp4,gp_mp2);
-    gp_mp3 = false;
-
-    //----------------------------------------------------------
-    // p1 = &U_v(x+2u)
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    --(link_site[nu]) ;
-    p1 = GetLink(link_site, nu) ;
-    gp_p1 = one_before_bound_mu_hi || on_bound_mu_hi;
-
-    //----------------------------------------------------------
-    // mp4 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp4,*p1,*mp3, gp_p1, gp_mp3); //conjugate p1 if gp_p1 is true, sim for mp3
-    gp_mp4 = false;
-
-    //----------------------------------------------------------
-    // mp2 = U_u(x+u)
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    moveMem((IFloat *)mp2, (const IFloat *)GetLink(link_site, mu),
-            MATRIX_SIZE * sizeof(IFloat)) ;
-
-    gp_mp2 = on_bound_mu_hi;
-
-    //----------------------------------------------------------
-    // rect += U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    GP_mDotMPlus(rect,*mp2,*mp4,gp_mp2,gp_mp4);
+        //----------------------------------------------------------
+        // mp4 = U_u(x+u+v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, mu),
+                     (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi
+                                                             &&
+                                                             !on_bound_mu_hi));
+        gp_mp4 = false;
 
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x+2u-v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    --(link_site[nu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, nu), (!on_bound_nu_lo && (on_bound_mu_hi || one_before_bound_mu_hi) ) || (on_bound_nu_lo && !(on_bound_mu_hi || one_before_bound_mu_hi) )  );
-    gp_mp4 = false;
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp4, *mp2, gp_mp4, gp_mp2);
+        gp_mp3 = false;
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u) U_v(x+2u-v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4) ;
-    gp_mp3 = false;
-    //----------------------------------------------------------
-    // mp4 = U_u(x+u-v)~
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), (on_bound_mu_hi && !on_bound_nu_lo) || (on_bound_nu_lo && !on_bound_mu_hi) );
-    gp_mp4 = false;
+        //----------------------------------------------------------
+        // p1 = &U_v(x+2u)
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        p1 = GetLink (link_site, nu);
+        gp_p1 = one_before_bound_mu_hi || on_bound_mu_hi;
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp2,*mp3,*mp4,gp_mp3,gp_mp4);
-    gp_mp2 = false;
+        //----------------------------------------------------------
+        // mp4 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp4, *p1, *mp3, gp_p1, gp_mp3); //conjugate p1 if gp_p1 is true, sim for mp3
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x-v)~
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu),on_bound_nu_lo);
-    gp_mp4=false;
+        //----------------------------------------------------------
+        // mp2 = U_u(x+u)
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4) ;
-    gp_mp3=false;
+        gp_mp2 = on_bound_mu_hi;
 
-    //----------------------------------------------------------
-    // mp2 = U_v(x-v)
-    //----------------------------------------------------------
-    moveMem((IFloat *)mp2, (const IFloat *)GetLink(link_site, nu),
-            MATRIX_SIZE * sizeof(IFloat)) ;
-    gp_mp2 = on_bound_nu_lo;
-
-    //----------------------------------------------------------
-    // rect += U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~ U_v(x-v)
-    //----------------------------------------------------------
-    GP_mDotMPlus(rect,*mp3,*mp2,gp_mp3,gp_mp2) ;
+        //----------------------------------------------------------
+        // rect += U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+        //----------------------------------------------------------
+        GP_mDotMPlus (rect, *mp2, *mp4, gp_mp2, gp_mp4);
 
 
+        //----------------------------------------------------------
+        // mp4 = U_v(x+2u-v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, nu),
+                     (!on_bound_nu_lo
+                      && (on_bound_mu_hi || one_before_bound_mu_hi))
+                     || (on_bound_nu_lo
+                         && !(on_bound_mu_hi || one_before_bound_mu_hi)));
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // p1 = &U_v(x-2v)
-    //----------------------------------------------------------
-    --(link_site[nu]) ;
-    p1 = GetLink(link_site, nu) ;
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u) U_v(x+2u-v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
+        //----------------------------------------------------------
+        // mp4 = U_u(x+u-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, mu),
+                     (on_bound_mu_hi && !on_bound_nu_lo) || (on_bound_nu_lo
+                                                             &&
+                                                             !on_bound_mu_hi));
+        gp_mp4 = false;
 
-    gp_p1 = on_bound_nu_lo || one_after_bound_nu_lo;
-    //----------------------------------------------------------
-    // mp3 = U_v(x-2v) U_v(x-v)
-    //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp2 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp2, *mp3, *mp4, gp_mp3, gp_mp4);
+        gp_mp2 = false;
 
-    GP_mDotMEqual(*mp3,*p1,*mp2,gp_p1,gp_mp2);
-    gp_mp3 =false;
+        //----------------------------------------------------------
+        // mp4 = U_u(x-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, mu), on_bound_nu_lo);
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x-2v)~
-    //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp3 = U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
 
-    GP_DagTrans(*mp4,*GetLink(link_site, mu),on_bound_nu_lo || one_after_bound_nu_lo);
-    gp_mp4 = false;
-    
-    //----------------------------------------------------------
-    // mp2 = U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-    //----------------------------------------------------------
- 
-    GP_mDotMEqual(*mp2,*mp4,*mp3,gp_mp4,gp_mp3) ;
-    gp_mp2 = false;
+        //----------------------------------------------------------
+        // mp2 = U_v(x-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
+        gp_mp2 = on_bound_nu_lo;
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x+u-2v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-
-    GP_DagTrans(*mp4,*GetLink(link_site, nu), ( (on_bound_nu_lo || one_after_bound_nu_lo) && !on_bound_mu_hi) || (on_bound_mu_hi && !(on_bound_nu_lo || one_after_bound_nu_lo) )  );
-    gp_mp4 = false;
-
-    //----------------------------------------------------------
-    // mp3 = U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp4,*mp2,gp_mp4,gp_mp2) ;
-    gp_mp3 = false;
-
-    //----------------------------------------------------------
-    // mp2 = U_v(x+u-v)~
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
-    GP_DagTrans(*mp2,*GetLink(link_site, nu), (on_bound_nu_lo && !on_bound_mu_hi) || (on_bound_mu_hi && !on_bound_nu_lo) );
-    gp_mp2 = false;
-
-    //----------------------------------------------------------
-    // rect += U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
-    //----------------------------------------------------------
-
-    GP_mDotMPlus(rect,*mp2,*mp3,gp_mp2,gp_mp3) ;
+        //----------------------------------------------------------
+        // rect += U_u(x+u) U_v(x+2u-v)~ U_u(x+u-v)~ U_u(x-v)~ U_v(x-v)
+        //----------------------------------------------------------
+        GP_mDotMPlus (rect, *mp3, *mp2, gp_mp3, gp_mp2);
 
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x-v)~
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu),on_bound_nu_lo);
-    gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp3 =  U_v(x+u-v)~ U_u(x-v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4) ;
-    gp_mp3 = false;
+        //----------------------------------------------------------
+        // p1 = &U_v(x-2v)
+        //----------------------------------------------------------
+        --(link_site[nu]);
+        p1 = GetLink (link_site, nu);
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x-u-v)~
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), (on_bound_nu_lo && !on_bound_mu_lo) || (on_bound_mu_lo && !on_bound_nu_lo) );
-    gp_mp4 = false;
+        gp_p1 = on_bound_nu_lo || one_after_bound_nu_lo;
+        //----------------------------------------------------------
+        // mp3 = U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
 
-    //----------------------------------------------------------
-    // mp2 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp2,*mp3,*mp4,gp_mp3,gp_mp4) ;
-    gp_mp2 = false;
+        GP_mDotMEqual (*mp3, *p1, *mp2, gp_p1, gp_mp2);
+        gp_mp3 = false;
+
+        //----------------------------------------------------------
+        // mp4 = U_u(x-2v)~
+        //----------------------------------------------------------
+
+        GP_DagTrans (*mp4, *GetLink (link_site, mu), on_bound_nu_lo
+                     || one_after_bound_nu_lo);
+        gp_mp4 = false;
+
+        //----------------------------------------------------------
+        // mp2 = U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+
+        GP_mDotMEqual (*mp2, *mp4, *mp3, gp_mp4, gp_mp3);
+        gp_mp2 = false;
+
+        //----------------------------------------------------------
+        // mp4 = U_v(x+u-2v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+
+        GP_DagTrans (*mp4, *GetLink (link_site, nu),
+                     ((on_bound_nu_lo || one_after_bound_nu_lo)
+                      && !on_bound_mu_hi) || (on_bound_mu_hi
+                                              && !(on_bound_nu_lo
+                                                   || one_after_bound_nu_lo)));
+        gp_mp4 = false;
+
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp4, *mp2, gp_mp4, gp_mp2);
+        gp_mp3 = false;
+
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u-v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        GP_DagTrans (*mp2, *GetLink (link_site, nu),
+                     (on_bound_nu_lo && !on_bound_mu_hi) || (on_bound_mu_hi
+                                                             &&
+                                                             !on_bound_nu_lo));
+        gp_mp2 = false;
+
+        //----------------------------------------------------------
+        // rect += U_v(x+u-v)~ U_v(x+u-2v)~ U_u(x-2v)~ U_v(x-2v) U_v(x-v)
+        //----------------------------------------------------------
+
+        GP_mDotMPlus (rect, *mp2, *mp3, gp_mp2, gp_mp3);
+
+
+        //----------------------------------------------------------
+        // mp4 = U_u(x-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, mu), on_bound_nu_lo);
+        gp_mp4 = false;
+
+        //----------------------------------------------------------
+        // mp3 =  U_v(x+u-v)~ U_u(x-v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
+
+        //----------------------------------------------------------
+        // mp4 = U_u(x-u-v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        GP_DagTrans (*mp4, *GetLink (link_site, mu),
+                     (on_bound_nu_lo && !on_bound_mu_lo) || (on_bound_mu_lo
+                                                             &&
+                                                             !on_bound_nu_lo));
+        gp_mp4 = false;
+
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp2, *mp3, *mp4, gp_mp3, gp_mp4);
+        gp_mp2 = false;
 
 //  GRF: this code may cause a hang
 //
@@ -2350,93 +2487,97 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
 //
 //  GRF: here is a work-around
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x-u-v)
-    //----------------------------------------------------------
-    moveMem((IFloat *)mp4,
-            (const IFloat *)GetLink(link_site, nu),
-            MATRIX_SIZE*sizeof(IFloat)) ;
-    gp_mp4 = (on_bound_nu_lo && !on_bound_mu_lo) || (on_bound_mu_lo && !on_bound_nu_lo);
+        //----------------------------------------------------------
+        // mp4 = U_v(x-u-v)
+        //----------------------------------------------------------
+        moveMem ((IFloat *) mp4,
+                 (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
+        gp_mp4 = (on_bound_nu_lo && !on_bound_mu_lo) || (on_bound_mu_lo
+                                                         && !on_bound_nu_lo);
 
-    //----------------------------------------------------------
-    // mp3 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v)
-    //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v)
+        //----------------------------------------------------------
 
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4) ;
-    gp_mp3 = false;
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
 
 //  GRF: end work-around
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x-u)
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
-    moveMem((IFloat *)mp2, (const IFloat *)GetLink(link_site, mu),
-            MATRIX_SIZE * sizeof(IFloat)) ;
-    gp_mp2 = on_bound_mu_lo;
+        //----------------------------------------------------------
+        // mp2 = U_u(x-u)
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, mu),
+                 MATRIX_SIZE * sizeof (IFloat));
+        gp_mp2 = on_bound_mu_lo;
 
-    //----------------------------------------------------------
-    // rect += U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v) U_u(x-u)
-    //----------------------------------------------------------
-    GP_mDotMPlus(rect,*mp3,*mp2,gp_mp3,gp_mp2) ;
+        //----------------------------------------------------------
+        // rect += U_v(x+u-v)~ U_u(x-v)~ U_u(x-u-v)~ U_v(x-u-v) U_u(x-u)
+        //----------------------------------------------------------
+        GP_mDotMPlus (rect, *mp3, *mp2, gp_mp3, gp_mp2);
 
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x-u)~
-    //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp4 = U_v(x-u)~
+        //----------------------------------------------------------
 
-    GP_DagTrans(*mp4,*GetLink(link_site, nu), on_bound_mu_lo);
-    gp_mp4 = false;
+        GP_DagTrans (*mp4, *GetLink (link_site, nu), on_bound_mu_lo);
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp3 = U_v(x-u)~ U_u(x-u)
-    //----------------------------------------------------------
-    //need to conj U_u(x-u) again here if necessary
+        //----------------------------------------------------------
+        // mp3 = U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        //need to conj U_u(x-u) again here if necessary
 
-    GP_mDotMEqual(*mp3,*mp4,*mp2,gp_mp4,gp_mp2) ;
-    gp_mp3 = false;
-    //----------------------------------------------------------
-    // mp4 = U_u(x-u+v)~
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
+        GP_mDotMEqual (*mp3, *mp4, *mp2, gp_mp4, gp_mp2);
+        gp_mp3 = false;
+        //----------------------------------------------------------
+        // mp4 = U_u(x-u+v)~
+        //----------------------------------------------------------
+        ++(link_site[nu]);
 
-    GP_DagTrans(*mp4,*GetLink(link_site, mu),  (on_bound_mu_lo && !on_bound_nu_hi) || (on_bound_nu_hi && !on_bound_mu_lo) );
-    gp_mp4 = false;
+        GP_DagTrans (*mp4, *GetLink (link_site, mu),
+                     (on_bound_mu_lo && !on_bound_nu_hi) || (on_bound_nu_hi
+                                                             &&
+                                                             !on_bound_mu_lo));
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp2,*mp4,*mp3,gp_mp4,gp_mp3) ;
-    gp_mp2=false;
+        //----------------------------------------------------------
+        // mp2 = U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp2, *mp4, *mp3, gp_mp4, gp_mp3);
+        gp_mp2 = false;
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x+v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
+        //----------------------------------------------------------
+        // mp4 = U_u(x+v)~
+        //----------------------------------------------------------
+        ++(link_site[mu]);
 
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), on_bound_nu_hi);
-    gp_mp4 = false;
+        GP_DagTrans (*mp4, *GetLink (link_site, mu), on_bound_nu_hi);
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-    //----------------------------------------------------------
+        //----------------------------------------------------------
+        // mp3 = U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
 
-    GP_mDotMEqual(*mp3,*mp4,*mp2,gp_mp4,gp_mp2) ;
-    gp_mp3 = false;
-    //----------------------------------------------------------
-    // mp2 = U_v(x+u)
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    --(link_site[nu]) ;
-    moveMem((IFloat *)mp2, (const IFloat *)GetLink(link_site, nu),
-            MATRIX_SIZE * sizeof(IFloat)) ;
+        GP_mDotMEqual (*mp3, *mp4, *mp2, gp_mp4, gp_mp2);
+        gp_mp3 = false;
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u)
+        //----------------------------------------------------------
+        ++(link_site[mu]);
+        --(link_site[nu]);
+        moveMem ((IFloat *) mp2, (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
 
-    gp_mp2 = on_bound_mu_hi;
-    //----------------------------------------------------------
-    // rect += U_v(x+u) U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
-    //----------------------------------------------------------
+        gp_mp2 = on_bound_mu_hi;
+        //----------------------------------------------------------
+        // rect += U_v(x+u) U_u(x+v)~ U_u(x-u+v)~ U_v(x-u)~ U_u(x-u)
+        //----------------------------------------------------------
 
-    GP_mDotMPlus(rect,*mp2,*mp3,gp_mp2,gp_mp3) ;
+        GP_mDotMPlus (rect, *mp2, *mp3, gp_mp2, gp_mp3);
 
 
 
@@ -2456,68 +2597,70 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
 //
 //  GRF: here is a work-around
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x+u+v)
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
-    moveMem((IFloat *)mp4,
-            (const IFloat *)GetLink(link_site, nu),
-            MATRIX_SIZE*sizeof(IFloat)) ;
-    gp_mp4 = (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi && !on_bound_mu_hi);
+        //----------------------------------------------------------
+        // mp4 = U_v(x+u+v)
+        //----------------------------------------------------------
+        ++(link_site[nu]);
+        moveMem ((IFloat *) mp4,
+                 (const IFloat *) GetLink (link_site, nu),
+                 MATRIX_SIZE * sizeof (IFloat));
+        gp_mp4 = (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi
+                                                         && !on_bound_mu_hi);
 
-    //----------------------------------------------------------
-    // mp3 = U_v(x+u) U_v(x+u+v)
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4);
-    gp_mp3 = false;
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u) U_v(x+u+v)
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
 
 //  GRF: end work-around
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x+2v)~
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    ++(link_site[nu]) ;
+        //----------------------------------------------------------
+        // mp4 = U_u(x+2v)~
+        //----------------------------------------------------------
+        --(link_site[mu]);
+        ++(link_site[nu]);
 
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), on_bound_nu_hi || one_before_bound_nu_hi );
-    gp_mp4 = false;
+        GP_DagTrans (*mp4, *GetLink (link_site, mu), on_bound_nu_hi
+                     || one_before_bound_nu_hi);
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp2 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~
-    //----------------------------------------------------------
-    GP_mDotMEqual(*mp2,*mp3,*mp4,gp_mp3,gp_mp4) ;
-    gp_mp2 = false;
+        //----------------------------------------------------------
+        // mp2 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~
+        //----------------------------------------------------------
+        GP_mDotMEqual (*mp2, *mp3, *mp4, gp_mp3, gp_mp4);
+        gp_mp2 = false;
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x+v)~
-    //----------------------------------------------------------
-    --(link_site[nu]) ;
+        //----------------------------------------------------------
+        // mp4 = U_v(x+v)~
+        //----------------------------------------------------------
+        --(link_site[nu]);
 
-    GP_DagTrans(*mp4,*GetLink(link_site, nu),on_bound_nu_hi);
-    gp_mp4 = false;
+        GP_DagTrans (*mp4, *GetLink (link_site, nu), on_bound_nu_hi);
+        gp_mp4 = false;
 
-    //----------------------------------------------------------
-    // mp3 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~
-    //----------------------------------------------------------
-  
-    GP_mDotMEqual(*mp3,*mp2,*mp4,gp_mp2,gp_mp4) ;
-    gp_mp3 = false;
+        //----------------------------------------------------------
+        // mp3 = U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~
+        //----------------------------------------------------------
 
-    //----------------------------------------------------------
-    // mp2 = U_v(x)~
-    //----------------------------------------------------------
-    --(link_site[nu]) ;
-    mp2->Dagger((IFloat *)GetLink(link_site, nu)) ;
+        GP_mDotMEqual (*mp3, *mp2, *mp4, gp_mp2, gp_mp4);
+        gp_mp3 = false;
 
-    //----------------------------------------------------------
-    // rect += U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~  U_v(x)~
-    //----------------------------------------------------------
-   
-    GP_mDotMPlus(rect,*mp3,*mp2,gp_mp3,gp_mp2) ;
+        //----------------------------------------------------------
+        // mp2 = U_v(x)~
+        //----------------------------------------------------------
+        --(link_site[nu]);
+        mp2->Dagger ((IFloat *) GetLink (link_site, nu));
 
-    *((IFloat *)mp4) = *((IFloat *)p1) ;
+        //----------------------------------------------------------
+        // rect += U_v(x+u) U_v(x+u+v) U_u(x+2v)~ U_v(x+v)~  U_v(x)~
+        //----------------------------------------------------------
+
+        GP_mDotMPlus (rect, *mp3, *mp2, gp_mp3, gp_mp2);
+
+        *((IFloat *) mp4) = *((IFloat *) p1);
+      }
   }
-}
 
 
 //------------------------------------------------------------------
@@ -2538,41 +2681,48 @@ void Lattice::GparityRectStaple(Matrix& rect, int *x, int mu)
   \param mu The first plaquette direction.
   \param nu The second plaquette direction; should be different from \a mu.
 */
-void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const
-{
-  if(GJP.Gparity()){ printf("Calculation of solo plaquette not yet implemented for G-parity\n"); exit(-1); }
+  void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const
+  {
+    if (GJP.Gparity ())
+    {
+      printf
+        ("Calculation of solo plaquette not yet implemented for G-parity\n");
+      exit (-1);
+    }
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  //----------------------------------------
-  //  "g_offset" points to the links
-  //  at site "x"
-  //----------------------------------------
-  Matrix *g_offset = GaugeField () + GsiteOffset (x);
+    //----------------------------------------
+    //  "g_offset" points to the links
+    //  at site "x"
+    //----------------------------------------
+    Matrix *g_offset = GaugeField () + GsiteOffset (x);
 
-  //----------------------------------------
-  //  mp3 = U_u(x) U_v(x+u)
-  //    p1 = &U_v(x+u) --> mp2
-  //----------------------------------------
-  p1 = GetLinkOld (g_offset, x, mu, nu);
-  moveMem ((IFloat *) mp2, (const IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
-  mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
-	      (const IFloat *) mp2);
+    //----------------------------------------
+    //  mp3 = U_u(x) U_v(x+u)
+    //    p1 = &U_v(x+u) --> mp2
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, mu, nu);
+    moveMem ((IFloat *) mp2, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
+                (const IFloat *) mp2);
 
-  //----------------------------------------
-  //  mp1 = (U_v(x) U_u(x+v))~
-  //    p1 = &U_u(x+v) --> mp1
-  //    mp2 = U_v(x) U_u(x+v)
-  //    mp1 = mp2~
-  //----------------------------------------
-  p1 = GetLinkOld (g_offset, x, nu, mu);
-  moveMem ((IFloat *) mp1, (const IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
-  mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
-	      (const IFloat *) mp1);
-  mp1->Dagger ((IFloat *) mp2);
+    //----------------------------------------
+    //  mp1 = (U_v(x) U_u(x+v))~
+    //    p1 = &U_u(x+v) --> mp1
+    //    mp2 = U_v(x) U_u(x+v)
+    //    mp1 = mp2~
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, nu, mu);
+    moveMem ((IFloat *) mp1, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
+                (const IFloat *) mp1);
+    mp1->Dagger ((IFloat *) mp2);
 
-  mDotMEqual ((IFloat *) (&plaq), (const IFloat *) mp3, (const IFloat *) mp1);
-}
+    mDotMEqual ((IFloat *) (&plaq), (const IFloat *) mp3, (const IFloat *) mp1);
+  }
 
 
 //------------------------------------------------------------------
@@ -2587,55 +2737,58 @@ void Lattice::Plaq (Matrix & plaq, int *x, int mu, int nu) const
   \param nu The second plaquette direction; should be different from \a mu.
   \return  The real part of the trace of the plaquette.
 */
-Float Lattice::ReTrPlaq (int *x, int mu, int nu) const
-{
-  if(GJP.Gparity()) return GparityReTrPlaq(x,mu,nu);
+  Float Lattice::ReTrPlaq (int *x, int mu, int nu) const
+  {
+    if (GJP.Gparity ())
+      return GparityReTrPlaq (x, mu, nu);
 //  char *fname = "ReTrPlaq(i*,i,i) const";
 //  VRB.Func(cname,fname);
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  //----------------------------------------
-  //  "g_offset" points to the links
-  //  at site "x"
-  //----------------------------------------
-  Matrix *g_offset = GaugeField () + GsiteOffset (x);
-
-
-  //----------------------------------------
-  //  mp3 = U_u(x) U_v(x+u)
-  //    p1 = &U_v(x+u) --> mp2
-  //----------------------------------------
-  p1 = GetLinkOld (g_offset, x, mu, nu);
-  moveMem ((IFloat *) mp2, (const IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
-  mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
-	      (const IFloat *) mp2);
+    //----------------------------------------
+    //  "g_offset" points to the links
+    //  at site "x"
+    //----------------------------------------
+    Matrix *g_offset = GaugeField () + GsiteOffset (x);
 
 
-  //----------------------------------------
-  //  mp1 = (U_v(x) U_u(x+v))~
-  //    p1 = &U_u(x+v) --> mp1
-  //    mp2 = U_v(x) U_u(x+v)
-  //    mp1 = mp2~
-  //----------------------------------------
-  p1 = GetLinkOld (g_offset, x, nu, mu);
-  moveMem ((IFloat *) mp1, (const IFloat *) p1, MATRIX_SIZE * sizeof (IFloat));
-  mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
-	      (const IFloat *) mp1);
-  mp1->Dagger ((IFloat *) mp2);
+    //----------------------------------------
+    //  mp3 = U_u(x) U_v(x+u)
+    //    p1 = &U_v(x+u) --> mp2
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, mu, nu);
+    moveMem ((IFloat *) mp2, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
+                (const IFloat *) mp2);
+
+
+    //----------------------------------------
+    //  mp1 = (U_v(x) U_u(x+v))~
+    //    p1 = &U_u(x+v) --> mp1
+    //    mp2 = U_v(x) U_u(x+v)
+    //    mp1 = mp2~
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, nu, mu);
+    moveMem ((IFloat *) mp1, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
+                (const IFloat *) mp1);
+    mp1->Dagger ((IFloat *) mp2);
 
 
 
-  mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp1);
-  return mp2->ReTr ();
-}
+    mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp1);
+    return mp2->ReTr ();
+  }
 
-Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
-{
-  int dirs[] = { mu, nu, mu + 4, nu + 4 };
-  int length = 4;
-  return ReTrLoopReentrant (x, dirs, length);
-}
+  Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
+  {
+    int dirs[] = { mu, nu, mu + 4, nu + 4 };
+    int length = 4;
+    return ReTrLoopReentrant (x, dirs, length);
+  }
 
 
 //------------------------------------------------------------------
@@ -2650,65 +2803,73 @@ Float Lattice::ReTrPlaqNonlocal (int *x, int mu, int nu)
   \param nu The second plaquette direction; should be different from \a mu.
   \return  The real part of the trace of the plaquette.
 */
-Float Lattice::GparityReTrPlaq(int *x, int mu, int nu) const
-{
+  Float Lattice::GparityReTrPlaq (int *x, int mu, int nu) const
+  {
 //  char *fname = "ReTrPlaq(i*,i,i) const";
 //  VRB.Func(cname,fname);
-  //CK: determine if we are on any upper boundaries (only do for Gparity scenario)
-  bool on_bound_mu_hi(false);
-  bool on_bound_nu_hi(false);
-  if(GJP.Bc(mu)==BND_CND_GPARITY && GJP.NodeCoor(mu) == GJP.Nodes(mu)-1 && x[mu] == GJP.NodeSites(mu)-1 ) on_bound_mu_hi = true;
-  if(GJP.Bc(nu)==BND_CND_GPARITY && GJP.NodeCoor(nu) == GJP.Nodes(nu)-1 && x[nu] == GJP.NodeSites(nu)-1 ) on_bound_nu_hi = true;
+    //CK: determine if we are on any upper boundaries (only do for Gparity scenario)
+    bool on_bound_mu_hi (false);
+    bool on_bound_nu_hi (false);
+    if (GJP.Bc (mu) == BND_CND_GPARITY
+        && GJP.NodeCoor (mu) == GJP.Nodes (mu) - 1
+        && x[mu] == GJP.NodeSites (mu) - 1)
+      on_bound_mu_hi = true;
+    if (GJP.Bc (nu) == BND_CND_GPARITY
+        && GJP.NodeCoor (nu) == GJP.Nodes (nu) - 1
+        && x[nu] == GJP.NodeSites (nu) - 1)
+      on_bound_nu_hi = true;
 
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  //----------------------------------------
-  //  "g_offset" points to the links
-  //  at site "x"
-  //----------------------------------------
-  Matrix *g_offset = GaugeField()+GsiteOffset(x);
+    //----------------------------------------
+    //  "g_offset" points to the links
+    //  at site "x"
+    //----------------------------------------
+    Matrix *g_offset = GaugeField () + GsiteOffset (x);
 
 
-  //----------------------------------------
-  //  mp3 = U_u(x) U_v(x+u)
-  //	p1 = &U_v(x+u) --> mp2
-  //----------------------------------------
-  p1 = GetLinkOld(g_offset, x, mu, nu);
-  moveMem((IFloat *)mp2, (const IFloat *)p1,
-	  MATRIX_SIZE * sizeof(IFloat));
-  if(on_bound_mu_hi){
-    mDotMStarEqual((IFloat *)mp3, (const IFloat *)(g_offset+mu),
-		   (const IFloat *)mp2);
-  }else{
-  mDotMEqual((IFloat *)mp3, (const IFloat *)(g_offset+mu),
-	     (const IFloat *)mp2);
+    //----------------------------------------
+    //  mp3 = U_u(x) U_v(x+u)
+    //    p1 = &U_v(x+u) --> mp2
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, mu, nu);
+    moveMem ((IFloat *) mp2, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    if (on_bound_mu_hi)
+    {
+      mDotMStarEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
+                      (const IFloat *) mp2);
+    } else
+    {
+      mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
+                  (const IFloat *) mp2);
+    }
+
+
+    //----------------------------------------
+    //  mp1 = (U_v(x) U_u(x+v))~
+    //    p1 = &U_u(x+v) --> mp1
+    //    mp2 = U_v(x) U_u(x+v)
+    //    mp1 = mp2~
+    //----------------------------------------
+    p1 = GetLinkOld (g_offset, x, nu, mu);
+    moveMem ((IFloat *) mp1, (const IFloat *) p1,
+             MATRIX_SIZE * sizeof (IFloat));
+    if (on_bound_nu_hi) {
+      mDotMStarEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
+                      (const IFloat *) mp1);
+    } else {
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
+                  (const IFloat *) mp1);
+    }
+    mp1->Dagger ((IFloat *) mp2);
+
+
+
+    mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp1);
+    return mp2->ReTr ();
   }
-
-
-  //----------------------------------------
-  //  mp1 = (U_v(x) U_u(x+v))~
-  //	p1 = &U_u(x+v) --> mp1
-  //	mp2 = U_v(x) U_u(x+v)
-  //	mp1 = mp2~
-  //----------------------------------------
-  p1 = GetLinkOld(g_offset, x, nu, mu);
-  moveMem((IFloat *)mp1, (const IFloat *)p1,
-	  MATRIX_SIZE * sizeof(IFloat));
-  if(on_bound_nu_hi){
-    mDotMStarEqual((IFloat *)mp2, (const IFloat *)(g_offset+nu),
-		   (const IFloat *)mp1);
-  }else{
-  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+nu),
-	     (const IFloat *)mp1);
-  }
-  mp1->Dagger((IFloat *)mp2);
-
-
-  
-  mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)mp1);
-  return mp2->ReTr();
-}
 
 
 //------------------------------------------------------------------
@@ -2724,156 +2885,178 @@ Float Lattice::GparityReTrPlaq(int *x, int mu, int nu) const
   \return The summed real trace of the plaquette.
 */
 //------------------------------------------------------------------
-Float Lattice::SumReTrPlaqNode (void) const
-{
-  const char *fname = "SumReTrPlaqNode() const";
-  sync ();
-  VRB.Func (cname, fname);
+  Float Lattice::SumReTrPlaqNode (void) const
+  {
+    const char *fname = "SumReTrPlaqNode() const";
+    sync ();
+    VRB.Func (cname, fname);
 
-  Float sum = 0.0;
-  int x[4];
+    Float sum = 0.0;
+    int x[4];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
 
-	  for (int mu = 0; mu < 3; ++mu) {
-	    for (int nu = mu + 1; nu < 4; ++nu) {
+            for (int mu = 0; mu < 3; ++mu)
+            {
+              for (int nu = mu + 1; nu < 4; ++nu)
+              {
 //              VRB.Flow(cname,fname,"%d %d %d %d %d %d\n",x[0],x[1],x[2],x[3],mu,nu);
-	      sum += ReTrPlaq (x, mu, nu);
-	    }
-	  }
-	}
+                sum += ReTrPlaq (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
-  }
-  if(GJP.Gparity1fX() && !GJP.Gparity1fY()) sum/=2; //double counting of ReTr
-  else if(GJP.Gparity1fX() && GJP.Gparity1fY()) sum/=4; //quad counting of ReTr
+    if (GJP.Gparity1fX () && !GJP.Gparity1fY ())
+        sum /= 2;               //double counting of ReTr
+    else if (GJP.Gparity1fX () && GJP.Gparity1fY ())
+      sum /= 4;                 //quad counting of ReTr
 
 //  sync();
-  VRB.FuncEnd (cname, fname);
-  return sum;
-}
+    VRB.FuncEnd (cname, fname);
+    return sum;
+  }
 
-Float Lattice::SumReU1PlaqNode () const
-{
-  char *fname = "SumReU1PlaqNode() const";
-  sync ();
-  VRB.Func (cname, fname);
+  Float Lattice::SumReU1PlaqNode () const
+  {
+    char *fname = "SumReU1PlaqNode() const";
+    sync ();
+    VRB.Func (cname, fname);
 
-  Float sum = 0.0;
-  int x[4];
+    Float sum = 0.0;
+    int x[4];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
 
-	  for (int mu = 0; mu < 3; ++mu) {
-	    for (int nu = mu + 1; nu < 4; ++nu) {
+            for (int mu = 0; mu < 3; ++mu)
+            {
+              for (int nu = mu + 1; nu < 4; ++nu)
+              {
 //              VRB.Flow(cname,fname,"%d %d %d %d %d %d\n",x[0],x[1],x[2],x[3],mu,nu);
-	      sum += ReU1Plaq (x, mu, nu);
-	    }
-	  }
-	}
+                sum += ReU1Plaq (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
+    VRB.FuncEnd (cname, fname);
+    return sum;
   }
-  VRB.FuncEnd (cname, fname);
-  return sum;
-}
 
 #if 0
-void Lattice:SigmaOffset(int index, int x_block[], int offset[], int x[]){
-}
+  void Lattice:SigmaOffset (int index, int x_block[], int offset[], int x[])
+  {
+  }
 #endif
 
-Float Lattice::SumSigmaEnergyNode ()
-{
-  char *fname = "SumSigmaEnergyNode()";
-  VRB.Result (cname, fname, "Entered\n");
-  Float sum = 0.0;
-  int x[4];
+  Float Lattice::SumSigmaEnergyNode ()
+  {
+    char *fname = "SumSigmaEnergyNode()";
+    VRB.Result (cname, fname, "Entered\n");
+    Float sum = 0.0;
+    int x[4];
 
-  int if_block = 0;
-  if (SigmaBlockSize () > 0)
-    if_block = 1;
+    int if_block = 0;
+    if (SigmaBlockSize () > 0)
+      if_block = 1;
 
-	  if (if_block) {
-	for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0]) 
-	for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1]) 
-	for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2]) 
-	for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
-	    int sigma = GetSigma (x, 0, 1);
-	  int offset[4],x_tmp[4];
-	    Float re_tr_plaq = 0.;
-	for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1) 
-	for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1) 
-	for (offset[2] = 0; offset[2] < sigma_blocks[2]; offset[2] += 1) 
-	for (offset[3] = 0; offset[3] < sigma_blocks[3]; offset[3] += 1) {
-	    for(int i=0;i<4;i++) x_tmp[i] = x[i]+offset[i];
-	    for (int mu = 0; mu < 3; ++mu)
-	      for (int nu = mu + 1; nu < 4; ++nu)
-		re_tr_plaq += ReTrPlaqNonlocal (x_tmp, mu, nu);
-	}
-	    if (sigma == 0) {
-	      sum += DeltaS (re_tr_plaq);
-	    } else if (sigma == 1) {
-	      assert (sigma == 1);
-	      Float exponent = -DeltaS (re_tr_plaq);
+    if (if_block) {
+      for (x[0] = 0; x[0] < node_sites[0]; x[0] += sigma_blocks[0])
+        for (x[1] = 0; x[1] < node_sites[1]; x[1] += sigma_blocks[1])
+          for (x[2] = 0; x[2] < node_sites[2]; x[2] += sigma_blocks[2])
+            for (x[3] = 0; x[3] < node_sites[3]; x[3] += sigma_blocks[3]) {
+              int sigma = GetSigma (x, 0, 1);
+              int offset[4], x_tmp[4];
+              Float re_tr_plaq = 0.;
+              for (offset[0] = 0; offset[0] < sigma_blocks[0]; offset[0] += 1)
+                for (offset[1] = 0; offset[1] < sigma_blocks[1]; offset[1] += 1)
+                  for (offset[2] = 0; offset[2] < sigma_blocks[2];
+                       offset[2] += 1)
+                    for (offset[3] = 0; offset[3] < sigma_blocks[3];
+                         offset[3] += 1) {
+                      for (int i = 0; i < 4; i++)
+                        x_tmp[i] = x[i] + offset[i];
+                      for (int mu = 0; mu < 3; ++mu)
+                        for (int nu = mu + 1; nu < 4; ++nu)
+                          re_tr_plaq += ReTrPlaqNonlocal (x_tmp, mu, nu);
+                    }
+              if (sigma == 0) {
+                sum += DeltaS (re_tr_plaq);
+              } else if (sigma == 1) {
+                assert (sigma == 1);
+                Float exponent = -DeltaS (re_tr_plaq);
 #if 0
 #if 1
-	      assert (exponent < 0);
+                assert (exponent < 0);
 #else
-	     if (exponent > -SMALL ) exponent = -SMALL;
+                if (exponent > -SMALL)
+                  exponent = -SMALL;
 #endif
-	      sum += -log (1 - exp (exponent));
+                sum += -log (1 - exp (exponent));
 #else
-	      Float temp = -log (1 - exp (exponent));
-	      Float temp2 = DeltaS(re_tr_plaq)-DeltaSOrig(re_tr_plaq);
-	      if (fabs(temp-temp2)>0.001) printf("temp temp2 = %e %e\n",temp,temp2);
-	      sum += temp2;
+                Float temp = -log (1 - exp (exponent));
+                Float temp2 = DeltaS (re_tr_plaq) - DeltaSOrig (re_tr_plaq);
+                if (fabs (temp - temp2) > 0.001)
+                  printf ("temp temp2 = %e %e\n", temp, temp2);
+                sum += temp2;
 #endif
-	    } else
-	      ERR.General (cname, fname, "sigma(%d) is neither 0 or 1!", sigma);
-//	    assert (!(sum != sum));
-	    if (sum != sum) {
-		printf("sum=%0.14e DeltaS=%0.14g\n",sum,DeltaS(re_tr_plaq));
-	    }
-	}
-	  } else {
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) 
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) 
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) 
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	    for (int mu = 0; mu < 3; ++mu) {
-	      for (int nu = mu + 1; nu < 4; ++nu) {
-		int sigma = GetSigma (x, mu, nu);
+              } else
+                ERR.General (cname, fname, "sigma(%d) is neither 0 or 1!",
+                             sigma);
+//          assert (!(sum != sum));
+              if (sum != sum) {
+                printf ("sum=%0.14e DeltaS=%0.14g\n", sum, DeltaS (re_tr_plaq));
+              }
+            }
+    } else {
+      for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+        for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+          for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+            for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
+              for (int mu = 0; mu < 3; ++mu) {
+                for (int nu = mu + 1; nu < 4; ++nu) {
+                  int sigma = GetSigma (x, mu, nu);
 
-		Float re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
+                  Float re_tr_plaq = ReTrPlaqNonlocal (x, mu, nu);
 
-		if (sigma == 0) {
-		  sum += DeltaS (re_tr_plaq);
-		} else {
-		  assert (sigma == 1);
-		  Float exponent = -DeltaS (re_tr_plaq);
+                  if (sigma == 0) {
+                    sum += DeltaS (re_tr_plaq);
+                  } else {
+                    assert (sigma == 1);
+                    Float exponent = -DeltaS (re_tr_plaq);
 #if 1
-	      assert (exponent < 0);
+                    assert (exponent < 0);
 #else
-	     if (exponent > -SMALL ) exponent = -SMALL;
+                    if (exponent > -SMALL)
+                      exponent = -SMALL;
 #endif
-		  sum += -log (1 - exp (exponent));
-		}
-		assert (!(sum != sum));
-	      }
-	    }
-	}
-	  }
+                    sum += -log (1 - exp (exponent));
+                  }
+                  assert (!(sum != sum));
+                }
+              }
+            }
+    }
 //  sync();
-  VRB.FuncEnd (cname, fname);
-  return sum;
-}
+    VRB.FuncEnd (cname, fname);
+    return sum;
+  }
 
 //------------------------------------------------------------------
 /*!
@@ -2887,27 +3070,27 @@ Float Lattice::SumSigmaEnergyNode ()
   \return The globally summed real trace of the plaquette.
 */
 //------------------------------------------------------------------
-Float Lattice::SumReTrPlaq (void) const
-{
-  const char *fname = "SumReTrPlaq() const";
-  VRB.Func(cname,fname);
+  Float Lattice::SumReTrPlaq (void) const
+  {
+    const char *fname = "SumReTrPlaq() const";
+    VRB.Func (cname, fname);
 
-  Float sum = SumReTrPlaqNode ();
-  glb_sum (&sum);
+    Float sum = SumReTrPlaqNode ();
+    glb_sum (&sum);
 //  printf("sum= %0.18e\n",sum);
-  VRB.FuncEnd (cname, fname);
-  return sum;
-}
+    VRB.FuncEnd (cname, fname);
+    return sum;
+  }
 
-Float Lattice::SumReU1Plaq (void) const
-{
-  char *fname = "SumReTrPlaq() const";
-  VRB.Func (cname, fname);
+  Float Lattice::SumReU1Plaq (void) const
+  {
+    char *fname = "SumReTrPlaq() const";
+    VRB.Func (cname, fname);
 
-  Float sum = SumReU1PlaqNode ();
-  glb_sum (&sum);
-  return sum;
-}
+    Float sum = SumReU1PlaqNode ();
+    glb_sum (&sum);
+    return sum;
+  }
 
 //-----------------------------------------------------------------------------
 /*!
@@ -2925,88 +3108,90 @@ Float Lattice::SumReU1Plaq (void) const
 
 //
 //-----------------------------------------------------------------------------
-Float Lattice::ReTrRect (int *x, int mu, int nu) const
-{
-  if(GJP.Gparity()) return GparityReTrRect(x,mu,nu);
+  Float Lattice::ReTrRect (int *x, int mu, int nu) const
+  {
+    if (GJP.Gparity ())
+      return GparityReTrRect (x, mu, nu);
 
     const char *fname = "ReTrRect(i*,i,i) const";
 //  VRB.Func(cname,fname);
 
-  int link_site[4];
+    int link_site[4];
 
 
-  const Matrix *p1;
+    const Matrix *p1;
 
-  for (int i = 0; i < 4; ++i)
-    link_site[i] = x[i];
+    for (int i = 0; i < 4; ++i)
+      link_site[i] = x[i];
 
-  if (nu == mu) {
-    ERR.General (cname, fname, "(mu == nu) not allowed.\n");
-  } else {
+    if (nu == mu) {
+      ERR.General (cname, fname, "(mu == nu) not allowed.\n");
+    } else
+    {
 
-    //----------------------------------------------------------
-    // mp4 = U_v(x)~
-    //----------------------------------------------------------
-    mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+      //----------------------------------------------------------
+      // mp4 = U_v(x)~
+      //----------------------------------------------------------
+      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+v)~
-    //----------------------------------------------------------
-    ++(link_site[nu]);
-    mp3->Dagger ((IFloat *) GetLink (link_site, mu));
+      //----------------------------------------------------------
+      // mp3 = U_u(x+v)~
+      //----------------------------------------------------------
+      ++(link_site[nu]);
+      mp3->Dagger ((IFloat *) GetLink (link_site, mu));
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
+      //----------------------------------------------------------
+      // mp2 = U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) mp4);
 
-    //----------------------------------------------------------
-    // mp4 = U_u(x+u+v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]);
-    mp4->Dagger ((IFloat *) GetLink (link_site, mu));
+      //----------------------------------------------------------
+      // mp4 = U_u(x+u+v)~
+      //----------------------------------------------------------
+      ++(link_site[mu]);
+      mp4->Dagger ((IFloat *) GetLink (link_site, mu));
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
+      //----------------------------------------------------------
+      // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp4, (const IFloat *) mp2);
 
-    //----------------------------------------------------------
-    // p1 = &U_v(x+2u)
-    //----------------------------------------------------------
-    ++(link_site[mu]);
-    --(link_site[nu]);
-    p1 = GetLink (link_site, nu);
+      //----------------------------------------------------------
+      // p1 = &U_v(x+2u)
+      //----------------------------------------------------------
+      ++(link_site[mu]);
+      --(link_site[nu]);
+      p1 = GetLink (link_site, nu);
 
-    //----------------------------------------------------------
-    // mp2 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
+      //----------------------------------------------------------
+      // mp2 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
 
-    //----------------------------------------------------------
-    // p1 = &U_u(x+u)
-    //----------------------------------------------------------
-    --(link_site[mu]);
-    p1 = GetLink (link_site, mu);
+      //----------------------------------------------------------
+      // p1 = &U_u(x+u)
+      //----------------------------------------------------------
+      --(link_site[mu]);
+      p1 = GetLink (link_site, mu);
 
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    mDotMEqual ((IFloat *) mp3, (const IFloat *) p1, (const IFloat *) mp2);
+      //----------------------------------------------------------
+      // mp3 = U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+      mDotMEqual ((IFloat *) mp3, (const IFloat *) p1, (const IFloat *) mp2);
 
-    //----------------------------------------------------------
-    // p1 = &U_u(x)
-    //----------------------------------------------------------
-    p1 = GetLink (x, mu);
+      //----------------------------------------------------------
+      // p1 = &U_u(x)
+      //----------------------------------------------------------
+      p1 = GetLink (x, mu);
 
-    //----------------------------------------------------------
-    // mp2 = U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-    mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
+      //----------------------------------------------------------
+      // mp2 = U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) p1, (const IFloat *) mp3);
 
+    }
+    return mp2->ReTr ();
   }
-  return mp2->ReTr ();
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3025,121 +3210,130 @@ Float Lattice::ReTrRect (int *x, int mu, int nu) const
 
 //
 //-----------------------------------------------------------------------------
-Float Lattice::GparityReTrRect(int *x, int mu, int nu) const
-{
+  Float Lattice::GparityReTrRect (int *x, int mu, int nu) const
+  {
     char *fname = "ReTrRect(i*,i,i) const";
 //  VRB.Func(cname,fname);
 
-  //CK: determine if we are on any boundaries (only do for Gparity scenario)
-  //    also determine if we are one before the boundary element, as in rect staple we sometimes need U(x+2mu)
- 
-  bool on_bound_mu_hi(false);
-  bool one_before_bound_mu_hi(false);
+    //CK: determine if we are on any boundaries (only do for Gparity scenario)
+    //    also determine if we are one before the boundary element, as in rect staple we sometimes need U(x+2mu)
 
-  bool on_bound_nu_hi(false);
-  bool one_before_bound_nu_hi(false);
-  
-  if(GJP.Bc(mu)==BND_CND_GPARITY && GJP.NodeCoor(mu) == GJP.Nodes(mu)-1){
-    if(x[mu] == GJP.NodeSites(mu)-1) on_bound_mu_hi = true;
-    if(x[mu] == GJP.NodeSites(mu)-2) one_before_bound_mu_hi = true;
+    bool on_bound_mu_hi (false);
+    bool one_before_bound_mu_hi (false);
+
+    bool on_bound_nu_hi (false);
+    bool one_before_bound_nu_hi (false);
+
+    if (GJP.Bc (mu) == BND_CND_GPARITY
+        && GJP.NodeCoor (mu) == GJP.Nodes (mu) - 1) {
+      if (x[mu] == GJP.NodeSites (mu) - 1)
+        on_bound_mu_hi = true;
+      if (x[mu] == GJP.NodeSites (mu) - 2)
+        one_before_bound_mu_hi = true;
+    }
+    if (GJP.Bc (nu) == BND_CND_GPARITY
+        && GJP.NodeCoor (nu) == GJP.Nodes (nu) - 1) {
+      if (x[nu] == GJP.NodeSites (nu) - 1)
+        on_bound_nu_hi = true;
+      if (x[nu] == GJP.NodeSites (nu) - 2)
+        one_before_bound_nu_hi = true;
+    }
+
+    bool gp_p1 (false), gp_mp2 (false), gp_mp3 (false), gp_mp4 (false);
+
+
+    int link_site[4];
+
+
+    const Matrix *p1;
+
+    for (int i = 0; i < 4; ++i)
+      link_site[i] = x[i];
+
+    if (nu == mu) {
+      ERR.General (cname, fname, "(mu == nu) not allowed.\n");
+    } else {
+
+      //----------------------------------------------------------
+      // mp4 = U_v(x)~
+      //----------------------------------------------------------
+      mp4->Dagger ((IFloat *) GetLink (link_site, nu));
+      gp_mp4 = false;
+
+      //----------------------------------------------------------
+      // mp3 = U_u(x+v)~
+      //----------------------------------------------------------
+      ++(link_site[nu]);
+      GP_DagTrans (*mp3, *GetLink (link_site, mu), on_bound_nu_hi);
+      gp_mp3 = false;
+
+      //----------------------------------------------------------
+      // mp2 = U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+
+      GP_mDotMEqual (*mp2, *mp3, *mp4, gp_mp3, gp_mp4);
+      gp_mp2 = false;
+
+      //----------------------------------------------------------
+      // mp4 = U_u(x+u+v)~
+      //----------------------------------------------------------
+      ++(link_site[mu]);
+      GP_DagTrans (*mp4, *GetLink (link_site, mu),
+                   (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi
+                                                           && !on_bound_mu_hi));
+      gp_mp4 = false;
+
+      //----------------------------------------------------------
+      // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+
+      GP_mDotMEqual (*mp3, *mp4, *mp2, gp_mp4, gp_mp2);
+      gp_mp3 = false;
+      //----------------------------------------------------------
+      // p1 = &U_v(x+2u)
+      //----------------------------------------------------------
+      ++(link_site[mu]);
+      --(link_site[nu]);
+      p1 = GetLink (link_site, nu);
+      gp_p1 = on_bound_mu_hi || one_before_bound_mu_hi;
+
+      //----------------------------------------------------------
+      // mp2 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+
+
+      GP_mDotMEqual (*mp2, *p1, *mp3, gp_p1, gp_mp3);
+      gp_mp2 = false;
+
+      //----------------------------------------------------------
+      // p1 = &U_u(x+u)
+      //----------------------------------------------------------
+      --(link_site[mu]);
+      p1 = GetLink (link_site, mu);
+      gp_p1 = on_bound_mu_hi;
+
+      //----------------------------------------------------------
+      // mp3 = U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+
+      GP_mDotMEqual (*mp3, *p1, *mp2, gp_p1, gp_mp2);
+      gp_mp3 = false;
+      //----------------------------------------------------------
+      // p1 = &U_u(x)
+      //----------------------------------------------------------
+      p1 = GetLink (x, mu);
+      gp_p1 = false;
+
+      //----------------------------------------------------------
+      // mp2 = U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
+      //----------------------------------------------------------
+
+      GP_mDotMEqual (*mp2, *p1, *mp3, gp_p1, gp_mp3);
+      gp_mp2 = false;
+
+    }
+    return mp2->ReTr ();
   }
-  if(GJP.Bc(nu)==BND_CND_GPARITY && GJP.NodeCoor(nu) == GJP.Nodes(nu)-1){
-    if(x[nu] == GJP.NodeSites(nu)-1) on_bound_nu_hi = true;
-    if(x[nu] == GJP.NodeSites(nu)-2) one_before_bound_nu_hi = true;
-  }
-
-  bool gp_p1(false), gp_mp2(false), gp_mp3(false), gp_mp4(false);
-
-
-  int link_site[4] ;
-
-
-  const Matrix *p1;
-
-  for (int i=0; i<4; ++i) link_site[i] = x[i] ;
-
-  if (nu == mu) {
-    ERR.General(cname, fname, "(mu == nu) not allowed.\n") ;
-  } else {
-
-    //----------------------------------------------------------
-    // mp4 = U_v(x)~
-    //----------------------------------------------------------
-    mp4->Dagger((IFloat *)GetLink(link_site, nu)) ;
-    gp_mp4 = false;
-
-    //----------------------------------------------------------
-    // mp3 = U_u(x+v)~
-    //----------------------------------------------------------
-    ++(link_site[nu]) ;
-    GP_DagTrans(*mp3,*GetLink(link_site, mu),on_bound_nu_hi);
-    gp_mp3 = false;
-
-    //----------------------------------------------------------
-    // mp2 = U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-
-    GP_mDotMEqual(*mp2,*mp3,*mp4,gp_mp3,gp_mp4) ;
-    gp_mp2 = false;
-
-    //----------------------------------------------------------
-    // mp4 = U_u(x+u+v)~
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    GP_DagTrans(*mp4,*GetLink(link_site, mu), (on_bound_mu_hi && !on_bound_nu_hi) || (on_bound_nu_hi && !on_bound_mu_hi) );
-    gp_mp4 = false;
-
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-
-    GP_mDotMEqual(*mp3,*mp4,*mp2,gp_mp4,gp_mp2);
-    gp_mp3 = false;
-    //----------------------------------------------------------
-    // p1 = &U_v(x+2u)
-    //----------------------------------------------------------
-    ++(link_site[mu]) ;
-    --(link_site[nu]) ;
-    p1 = GetLink(link_site, nu) ;
-    gp_p1 = on_bound_mu_hi || one_before_bound_mu_hi;
-
-    //----------------------------------------------------------
-    // mp2 = U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-
-
-    GP_mDotMEqual(*mp2,*p1,*mp3,gp_p1,gp_mp3);
-    gp_mp2 = false;
-
-    //----------------------------------------------------------
-    // p1 = &U_u(x+u)
-    //----------------------------------------------------------
-    --(link_site[mu]) ;
-    p1 = GetLink(link_site, mu) ;
-    gp_p1 = on_bound_mu_hi;
-
-    //----------------------------------------------------------
-    // mp3 = U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-
-    GP_mDotMEqual(*mp3,*p1,*mp2,gp_p1,gp_mp2);
-    gp_mp3 = false;
-    //----------------------------------------------------------
-    // p1 = &U_u(x)
-    //----------------------------------------------------------
-    p1 = GetLink(x, mu) ;
-    gp_p1 =false;
-
-    //----------------------------------------------------------
-    // mp2 = U_u(x) U_u(x+u) U_v(x+2u) U_u(x+u+v)~ U_u(x+v)~ U_v(x)~
-    //----------------------------------------------------------
-
-    GP_mDotMEqual(*mp2,*p1,*mp3,gp_p1,gp_mp3);
-    gp_mp2 = false;
-
-  }
-  return mp2->ReTr();
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3157,29 +3351,32 @@ combinations.
   \return The summed real trace of the rectangle.
 */
 //-----------------------------------------------------------------------------
-Float Lattice::SumReTrRectNode (void) const
-{
+  Float Lattice::SumReTrRectNode (void) const
+  {
 //char *fname = "SumReTrRectNode() const";
 //VRB.Func(cname,fname);
 
-  Float sum = 0.0;
-  int x[4];
+    Float sum = 0.0;
+    int x[4];
 
-  for(x[0] = 0; x[0] < node_sites[0]; ++x[0])
-  for(x[1] = 0; x[1] < node_sites[1]; ++x[1])
-  for(x[2] = 0; x[2] < node_sites[2]; ++x[2])
-  for(x[3] = 0; x[3] < node_sites[3]; ++x[3])
-  for(int mu = 0; mu < 4; ++mu)
-  for(int nu = 0; nu < 4; ++nu) {
-    if (mu != nu) {
-      sum += ReTrRect(x,mu,nu);
-    }
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+            for (int mu = 0; mu < 4; ++mu)
+              for (int nu = 0; nu < 4; ++nu)
+              {
+                if (mu != nu) {
+                  sum += ReTrRect (x, mu, nu);
+                }
+              }
+    if (GJP.Gparity1fX () && !GJP.Gparity1fY ())
+        sum /= 2;               //double counting of ReTr
+    else if (GJP.Gparity1fX () && GJP.Gparity1fY ())
+      sum /= 4;                 //quad counting of ReTr
+
+    return sum;
   }
-  if(GJP.Gparity1fX() && !GJP.Gparity1fY()) sum/=2; //double counting of ReTr
-  else if(GJP.Gparity1fX() && GJP.Gparity1fY()) sum/=4; //quad counting of ReTr
-
-  return sum;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3196,15 +3393,15 @@ Float Lattice::SumReTrRectNode (void) const
   \return The globally summed real trace of the rectangle.
 */
 //-----------------------------------------------------------------------------
-Float Lattice::SumReTrRect (void) const
-{
-  const char *fname = "SumReTrRect() const";
-  VRB.Func (cname, fname);
+  Float Lattice::SumReTrRect (void) const
+  {
+    const char *fname = "SumReTrRect() const";
+    VRB.Func (cname, fname);
 
-  Float sum = SumReTrRectNode ();
-  glb_sum (&sum);
-  return sum;
-}
+    Float sum = SumReTrRectNode ();
+    glb_sum (&sum);
+    return sum;
+  }
 
 //-------------------------------------------------------------------
 /*!
@@ -3222,32 +3419,32 @@ Float Lattice::SumReTrRect (void) const
   \a N.B. The user is responsible for defining directions that close the loop.
 */
 //--------------------------------------------------------------------
-Float Lattice::ReTrLoop (const int *x, const int *dir, int length)
-{
-  const char *fname = "ReTrLoop(i*,i,i)";
-  VRB.Func (cname, fname);
+  Float Lattice::ReTrLoop (const int *x, const int *dir, int length)
+  {
+    const char *fname = "ReTrLoop(i*,i,i)";
+    VRB.Func (cname, fname);
 
 
-  mp3->ZeroMatrix ();
+    mp3->ZeroMatrix ();
 
-  PathOrdProdPlus (*mp3, x, dir, length);
+    PathOrdProdPlus (*mp3, x, dir, length);
 
-  return mp3->ReTr ();
-}
+    return mp3->ReTr ();
+  }
 
-Float Lattice::ReTrLoopReentrant (const int *x, const int *dir, int length)
-{
-  const char *fname = "ReTrLoop(i*,i,i)";
-  VRB.Func (cname, fname);
+  Float Lattice::ReTrLoopReentrant (const int *x, const int *dir, int length)
+  {
+    const char *fname = "ReTrLoop(i*,i,i)";
+    VRB.Func (cname, fname);
 
-  Matrix my_mp3;
+    Matrix my_mp3;
 
-  my_mp3.ZeroMatrix ();
+    my_mp3.ZeroMatrix ();
 
-  PathOrdProdPlus (my_mp3, x, dir, length);
+    PathOrdProdPlus (my_mp3, x, dir, length);
 
-  return my_mp3.ReTr ();
-}
+    return my_mp3.ReTr ();
+  }
 
 
 //-----------------------------------------------------------------------------
@@ -3267,47 +3464,47 @@ The sum runs over all positive values of \f$ \mu\f$, \f$ \nu>\mu \f$ and
      \todo Check this code.
 */
 //-----------------------------------------------------------------------------
-Float Lattice::SumReTrCubeNode (void)
-{
-  const char *fname = "SumReTrCubeNode()";
-  VRB.Func (cname, fname);
+  Float Lattice::SumReTrCubeNode (void)
+  {
+    const char *fname = "SumReTrCubeNode()";
+    VRB.Func (cname, fname);
 
-  Float sum = 0.0;
-  int x[4];
-  int dir[6];
+    Float sum = 0.0;
+    int x[4];
+    int dir[6];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
-	  for (int mu = 0; mu < 4; mu++) {
-	    dir[0] = mu;
-	    dir[3] = OPP_DIR (mu);
-	    for (int nu = 0; nu < 4; nu++)
-	      if (nu != mu) {
-		dir[1] = nu;
-		dir[4] = OPP_DIR (nu);
-		for (int rho = mu + 1; rho < 4; rho++)
-		  if (rho != mu && rho != nu) {
-		    dir[2] = rho;
-		    dir[5] = OPP_DIR (rho);
-		    sum += ReTrLoop (x, dir, 6);
-		  }
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+            for (int mu = 0; mu < 4; mu++) {
+              dir[0] = mu;
+              dir[3] = OPP_DIR (mu);
+              for (int nu = 0; nu < 4; nu++)
+                if (nu != mu) {
+                  dir[1] = nu;
+                  dir[4] = OPP_DIR (nu);
+                  for (int rho = mu + 1; rho < 4; rho++)
+                    if (rho != mu && rho != nu) {
+                      dir[2] = rho;
+                      dir[5] = OPP_DIR (rho);
+                      sum += ReTrLoop (x, dir, 6);
+                    }
 #if 1
-		dir[1] = OPP_DIR (nu);
-		dir[4] = nu;
-		for (int rho = mu + 1; rho < 4; rho++)
-		  if (rho != mu && rho != nu) {
-		    dir[2] = rho;
-		    dir[5] = OPP_DIR (rho);
-		    sum += 0.33333333333333333333333 * ReTrLoop (x, dir, 6);
-		  }
+                  dir[1] = OPP_DIR (nu);
+                  dir[4] = nu;
+                  for (int rho = mu + 1; rho < 4; rho++)
+                    if (rho != mu && rho != nu) {
+                      dir[2] = rho;
+                      dir[5] = OPP_DIR (rho);
+                      sum += 0.33333333333333333333333 * ReTrLoop (x, dir, 6);
+                    }
 #endif
-	      }
-	  }
+                }
+            }
 //  ClearAllBufferedLink();
-  return sum;
-}
+    return sum;
+  }
 
 
 //-----------------------------------------------------------------------------
@@ -3326,26 +3523,26 @@ U^\dagger_\nu(x+\nu+\rho) U^\dagger_\rho(x+\rho)
   \return The globally summed real trace of the cube.
 */
 //-----------------------------------------------------------------------------
-Float Lattice::SumReTrCube (void)
-{
-  const char *fname = "SumReTrCube()";
-  VRB.Func (cname, fname);
+  Float Lattice::SumReTrCube (void)
+  {
+    const char *fname = "SumReTrCube()";
+    VRB.Func (cname, fname);
 
-  Float sum = SumReTrCubeNode ();
-  glb_sum (&sum);
-  return sum;
-}
+    Float sum = SumReTrCubeNode ();
+    glb_sum (&sum);
+    return sum;
+  }
 
 
 //------------------------------------------------------------------
 // Added by Ping for anisotropic lattices
 //------------------------------------------------------------------
-enum
-{ NUM_SPACE_PLAQ = 3,		//!< Number of planes in a 3-dimensional lattice slice.
-  NUM_TIME_PLAQ = 3,		//!< Number of planes in a 3-dimensional lattice slice.
-  NUM_COLORS = 3,		//!< Number of colours (again).
-  NUM_DIM = 4			//!< Number of lattice dimensions.
-};
+  enum
+  { NUM_SPACE_PLAQ = 3,         //!< Number of planes in a 3-dimensional lattice slice.
+    NUM_TIME_PLAQ = 3,          //!< Number of planes in a 3-dimensional lattice slice.
+    NUM_COLORS = 3,             //!< Number of colours (again).
+    NUM_DIM = 4                 //!< Number of lattice dimensions.
+  };
 
 //------------------------------------------------------------------
 // Float AveReTrPlaqNodeNoXi(void) const
@@ -3367,31 +3564,37 @@ enum
 */
 
 //------------------------------------------------------------------
-Float Lattice::AveReTrPlaqNodeNoXi () const
-{
-  const char *fname = "AveReTrPlaqNodeNoXi()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrPlaqNodeNoXi () const
+  {
+    const char *fname = "AveReTrPlaqNodeNoXi()";
+    VRB.Func (cname, fname);
 
-  Float sum = 0.0;
-  int x[4];
+    Float sum = 0.0;
+    int x[4];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	  for (int mu = 0; mu < NUM_DIM; ++mu) {
-	    for (int nu = mu + 1; nu < NUM_DIM; ++nu) {
-	      if (mu != GJP.XiDir () && nu != GJP.XiDir ())
-		sum += ReTrPlaq (x, mu, nu);
-	    }
-	  }
-	}
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
+            for (int mu = 0; mu < NUM_DIM; ++mu)
+            {
+              for (int nu = mu + 1; nu < NUM_DIM; ++nu)
+              {
+                if (mu != GJP.XiDir () && nu != GJP.XiDir ())
+                  sum += ReTrPlaq (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
-  }
 
-  return (sum / (GJP.VolNodeSites () * NUM_SPACE_PLAQ * NUM_COLORS));
-}
+    return (sum / (GJP.VolNodeSites () * NUM_SPACE_PLAQ * NUM_COLORS));
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrPlaqNodeXi(void) const
@@ -3412,31 +3615,37 @@ Float Lattice::AveReTrPlaqNodeNoXi () const
   \return The real trace of the plaquette averaged over local sites, planes and colours.
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrPlaqNodeXi () const
-{
-  const char *fname = "AveReTrPlaqNodeXi()";
-  VRB.Func (cname, fname);
-  Float sum = 0.0;
-  int x[4];
+  Float Lattice::AveReTrPlaqNodeXi () const
+  {
+    const char *fname = "AveReTrPlaqNodeXi()";
+    VRB.Func (cname, fname);
+    Float sum = 0.0;
+    int x[4];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	  for (int mu = 0; mu < NUM_DIM; ++mu) {
-	    for (int nu = mu + 1; nu < NUM_DIM; ++nu) {
-	      if (mu == GJP.XiDir () || nu == GJP.XiDir ())
-		sum += ReTrPlaq (x, mu, nu);
-	    }
-	  }
-	}
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
+            for (int mu = 0; mu < NUM_DIM; ++mu)
+            {
+              for (int nu = mu + 1; nu < NUM_DIM; ++nu)
+              {
+                if (mu == GJP.XiDir () || nu == GJP.XiDir ())
+                  sum += ReTrPlaq (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
-  }
 
-  return (sum / (GJP.VolNodeSites () * NUM_TIME_PLAQ * NUM_COLORS *
-		 GJP.XiBare () * GJP.XiBare ()));
-}
+    return (sum / (GJP.VolNodeSites () * NUM_TIME_PLAQ * NUM_COLORS *
+                   GJP.XiBare () * GJP.XiBare ()));
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrPlaqNoXi(void) const
@@ -3455,15 +3664,15 @@ Float Lattice::AveReTrPlaqNodeXi () const
   \return The real trace of the plaquette averaged over sites, planes and colours.
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrPlaqNoXi () const
-{
-  const char *fname = "AveReTrPlaqNoXi()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrPlaqNoXi () const
+  {
+    const char *fname = "AveReTrPlaqNoXi()";
+    VRB.Func (cname, fname);
 
-  Float sum = AveReTrPlaqNodeNoXi ();
-  glb_sum (&sum);
-  return (sum * GJP.VolNodeSites () / GJP.VolSites ());
-}
+    Float sum = AveReTrPlaqNodeNoXi ();
+    glb_sum (&sum);
+    return (sum * GJP.VolNodeSites () / GJP.VolSites ());
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrPlaqXi(void) const
@@ -3483,23 +3692,23 @@ Float Lattice::AveReTrPlaqNoXi () const
   \return The real trace of the plaquette averaged over local sites, planes and colours.
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrPlaqXi () const
-{
-  const char *fname = "AveReTrPlaqXi()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrPlaqXi () const
+  {
+    const char *fname = "AveReTrPlaqXi()";
+    VRB.Func (cname, fname);
 
-  Float sum = AveReTrPlaqNodeXi ();
-  glb_sum (&sum);
-  return (sum * GJP.VolNodeSites () / GJP.VolSites ());
-}
+    Float sum = AveReTrPlaqNodeXi ();
+    glb_sum (&sum);
+    return (sum * GJP.VolNodeSites () / GJP.VolSites ());
+  }
 
 //------------------------------------------------------------------
 // Added by Schmidt for anisotropic lattices / Thermo
 //------------------------------------------------------------------
-enum
-{ NUM_SPACE_RECT = 6,		//!< Number of planes in a 3-dimensional lattice slice times two.
-  NUM_TIME_RECT = 3,		//!< Number of planes in a 3-dimensional lattice slice.
-};
+  enum
+  { NUM_SPACE_RECT = 6,         //!< Number of planes in a 3-dimensional lattice slice times two.
+    NUM_TIME_RECT = 3,          //!< Number of planes in a 3-dimensional lattice slice.
+  };
 
 //------------------------------------------------------------------
 // Float AveReTrRectNodeNoXi(void) const
@@ -3522,33 +3731,39 @@ enum
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectNodeNoXi () const
-{
-  const char *fname = "AveReTrRectNodeNoXi()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrRectNodeNoXi () const
+  {
+    const char *fname = "AveReTrRectNodeNoXi()";
+    VRB.Func (cname, fname);
 
-  Float sum = 0.0;
-  int x[4];
+    Float sum = 0.0;
+    int x[4];
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	  for (int mu = 0; mu < NUM_DIM; ++mu) {
-	    for (int nu = mu + 1; nu < NUM_DIM; ++nu) {
-	      if (mu != GJP.XiDir () && nu != GJP.XiDir ()) {
-		sum += ReTrRect (x, mu, nu);
-		sum += ReTrRect (x, nu, mu);
-	      }
-	    }
-	  }
-	}
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
+            for (int mu = 0; mu < NUM_DIM; ++mu)
+            {
+              for (int nu = mu + 1; nu < NUM_DIM; ++nu)
+              {
+                if (mu != GJP.XiDir () && nu != GJP.XiDir ()) {
+                  sum += ReTrRect (x, mu, nu);
+                  sum += ReTrRect (x, nu, mu);
+                }
+              }
+            }
+          }
+        }
       }
     }
-  }
 
-  return (sum / (GJP.VolNodeSites () * NUM_SPACE_RECT * NUM_COLORS));
-}
+    return (sum / (GJP.VolNodeSites () * NUM_SPACE_RECT * NUM_COLORS));
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrRectNodeXi1(void) const
@@ -3570,32 +3785,38 @@ Float Lattice::AveReTrRectNodeNoXi () const
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectNodeXi1 () const
-{
-  const char *fname = "AveReTrRectNodeXi1()";
-  VRB.Func(cname,fname);
-  
-  Float sum = 0.0;
-  int x[4];
+  Float Lattice::AveReTrRectNodeXi1 () const
+  {
+    const char *fname = "AveReTrRectNodeXi1()";
+    VRB.Func (cname, fname);
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	  for (int mu = 0; mu < NUM_DIM; ++mu) {
-	    for (int nu = mu + 1; nu < NUM_DIM; ++nu) {
-	      if (nu == GJP.XiDir ())
-		sum += ReTrRect (x, mu, nu);
-	    }
-	  }
-	}
+    Float sum = 0.0;
+    int x[4];
+
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
+            for (int mu = 0; mu < NUM_DIM; ++mu)
+            {
+              for (int nu = mu + 1; nu < NUM_DIM; ++nu)
+              {
+                if (nu == GJP.XiDir ())
+                  sum += ReTrRect (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
-  }
 
-  return (sum / (GJP.VolNodeSites () * NUM_TIME_RECT * NUM_COLORS *
-		 GJP.XiBare () * GJP.XiBare ()));
-}
+    return (sum / (GJP.VolNodeSites () * NUM_TIME_RECT * NUM_COLORS *
+                   GJP.XiBare () * GJP.XiBare ()));
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrRectNodeXi2(void) const
@@ -3617,33 +3838,39 @@ Float Lattice::AveReTrRectNodeXi1 () const
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectNodeXi2 () const
-{
-  const char *fname = "AveReTrRectNodeXi2()";
-  VRB.Func(cname,fname);
-  
-  Float sum = 0.0;
-  int x[4];
+  Float Lattice::AveReTrRectNodeXi2 () const
+  {
+    const char *fname = "AveReTrRectNodeXi2()";
+    VRB.Func (cname, fname);
 
-  for (x[0] = 0; x[0] < node_sites[0]; ++x[0]) {
-    for (x[1] = 0; x[1] < node_sites[1]; ++x[1]) {
-      for (x[2] = 0; x[2] < node_sites[2]; ++x[2]) {
-	for (x[3] = 0; x[3] < node_sites[3]; ++x[3]) {
-	  for (int mu = 0; mu < NUM_DIM; ++mu) {
-	    for (int nu = mu + 1; nu < NUM_DIM; ++nu) {
-	      if (mu == GJP.XiDir ())
-		sum += ReTrRect (x, mu, nu);
-	    }
-	  }
-	}
+    Float sum = 0.0;
+    int x[4];
+
+    for (x[0] = 0; x[0] < node_sites[0]; ++x[0])
+    {
+      for (x[1] = 0; x[1] < node_sites[1]; ++x[1])
+      {
+        for (x[2] = 0; x[2] < node_sites[2]; ++x[2])
+        {
+          for (x[3] = 0; x[3] < node_sites[3]; ++x[3])
+          {
+            for (int mu = 0; mu < NUM_DIM; ++mu)
+            {
+              for (int nu = mu + 1; nu < NUM_DIM; ++nu)
+              {
+                if (mu == GJP.XiDir ())
+                  sum += ReTrRect (x, mu, nu);
+              }
+            }
+          }
+        }
       }
     }
-  }
 
-  return (sum / (GJP.VolNodeSites () * NUM_TIME_RECT * NUM_COLORS *
-		 GJP.XiBare () * GJP.XiBare () * GJP.XiBare () *
-		 GJP.XiBare ()));
-}
+    return (sum / (GJP.VolNodeSites () * NUM_TIME_RECT * NUM_COLORS *
+                   GJP.XiBare () * GJP.XiBare () * GJP.XiBare () *
+                   GJP.XiBare ()));
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrRectNoXi(void) const
@@ -3666,15 +3893,15 @@ Float Lattice::AveReTrRectNodeXi2 () const
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectNoXi () const
-{
-  const char *fname = "AveReTrRectNoXi()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrRectNoXi () const
+  {
+    const char *fname = "AveReTrRectNoXi()";
+    VRB.Func (cname, fname);
 
-  Float sum = AveReTrRectNodeNoXi ();
-  glb_sum (&sum);
-  return (sum * GJP.VolNodeSites () / GJP.VolSites ());
-}
+    Float sum = AveReTrRectNodeNoXi ();
+    glb_sum (&sum);
+    return (sum * GJP.VolNodeSites () / GJP.VolSites ());
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrRectXi1(void) const
@@ -3696,15 +3923,15 @@ Float Lattice::AveReTrRectNoXi () const
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectXi1 () const
-{
-  const char *fname = "AveReTrRectXi1()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrRectXi1 () const
+  {
+    const char *fname = "AveReTrRectXi1()";
+    VRB.Func (cname, fname);
 
-  Float sum = AveReTrRectNodeXi1 ();
-  glb_sum (&sum);
-  return (sum * GJP.VolNodeSites () / GJP.VolSites ());
-}
+    Float sum = AveReTrRectNodeXi1 ();
+    glb_sum (&sum);
+    return (sum * GJP.VolNodeSites () / GJP.VolSites ());
+  }
 
 //------------------------------------------------------------------
 // Float AveReTrRectXi2(void) const
@@ -3726,15 +3953,15 @@ Float Lattice::AveReTrRectXi1 () const
 
 */
 //------------------------------------------------------------------
-Float Lattice::AveReTrRectXi2 () const
-{
-  const char *fname = "AveReTrRectXi2()";
-  VRB.Func (cname, fname);
+  Float Lattice::AveReTrRectXi2 () const
+  {
+    const char *fname = "AveReTrRectXi2()";
+    VRB.Func (cname, fname);
 
-  Float sum = AveReTrRectNodeXi2 ();
-  glb_sum (&sum);
-  return (sum * GJP.VolNodeSites () / GJP.VolSites ());
-}
+    Float sum = AveReTrRectNodeXi2 ();
+    glb_sum (&sum);
+    return (sum * GJP.VolNodeSites () / GJP.VolSites ());
+  }
 
 
 //------------------------------------------------------------------
@@ -3755,20 +3982,20 @@ Float Lattice::AveReTrRectXi2 () const
      \post The  gauge field  links in direction \a dir are scaled.
    */
 //------------------------------------------------------------------
-void Lattice::MltFloatImpl (Float factor, int dir)
-{
-  if (str_ord == G_WILSON_HB)
-    ++dir;
-  dir %= 4;
+  void Lattice::MltFloatImpl (Float factor, int dir)
+  {
+    if (str_ord == G_WILSON_HB)
+      ++dir;
+    dir %= 4;
 
-  int nodeSites = GJP.VolNodeSites ();
-  IFloat *u = (IFloat *) GaugeField () + dir * MATRIX_SIZE;
+    int nodeSites = GJP.VolNodeSites ();
+    IFloat *u = (IFloat *) GaugeField () + dir * MATRIX_SIZE;
 
-  for (int i = 0; i < nodeSites; ++i) {
-    vecTimesEquFloat (u, factor, MATRIX_SIZE);
-    u += 4 * MATRIX_SIZE;
+    for (int i = 0; i < nodeSites; ++i) {
+      vecTimesEquFloat (u, factor, MATRIX_SIZE);
+      u += 4 * MATRIX_SIZE;
+    }
   }
-}
 
 
 //------------------------------------------------------------------
@@ -3796,69 +4023,74 @@ void Lattice::MltFloatImpl (Float factor, int dir)
 //    are complex conjugated appropriately. We can therefore wait to sync the U* fields until the lowest level integrator has finished
 //    evolving. Use evolve_both_gparity_flavors = true to sync the U* links in this function (e.g. in force gradient integrator)
 
-void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparity_flavors)
-{
+  void Lattice::EvolveGfield (Matrix * mom, Float step_size,
+                              bool evolve_both_gparity_flavors)
+  {
     const char *fname = "EvolveGfield(M*,F,b)";
-  VRB.Func(cname,fname);
+    VRB.Func (cname, fname);
 
-  int n_links = 4 * GJP.VolNodeSites();
+    int n_links = 4 * GJP.VolNodeSites ();
 
 
 #ifdef UNIFORM_SEED_TESTING
-  VRB.Result(cname,fname,"gauge checksum(before) = %p\n",
-    global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
+    VRB.Result (cname, fname, "gauge checksum(before) = %p\n",
+                global_checksum ((Float *) GaugeField (),
+                                 n_links * MATRIX_SIZE));
 #endif
 
-  // checksuming local gauge matrices before update
-  //-------------------------------------------------
-  unsigned long loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
-  // checksuming local momentum matrices
-  //----------------------------------------------
-  loc_sum = local_checksum((Float *)mom,n_links*MATRIX_SIZE);
-  CSM.SaveCsum(CSUM_EVL_MOM,loc_sum);
+    // checksuming local gauge matrices before update
+    //-------------------------------------------------
+    unsigned long loc_sum =
+      local_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE);
+    // checksuming local momentum matrices
+    //----------------------------------------------
+    loc_sum = local_checksum ((Float *) mom, n_links * MATRIX_SIZE);
+    CSM.SaveCsum (CSUM_EVL_MOM, loc_sum);
 
-  Matrix *curU_p = GaugeField();
+    Matrix *curU_p = GaugeField ();
 
-  // Hantao: no problem with this since there are no thread reductions.
+    // Hantao: no problem with this since there are no thread reductions.
 #pragma omp parallel for
-  for(int i = 0; i < n_links; ++i) {
-    Matrix t1, t2, t3;
+    for (int i = 0; i < n_links; ++i) {
+      Matrix t1, t2, t3;
 
-    t1 = mom[i];
-    t1 *= step_size;
-    t2 = t1;
+      t1 = mom[i];
+      t1 *= step_size;
+      t2 = t1;
 
-    for(int j = 9; j > 1; --j) {
+      for (int j = 9; j > 1; --j) {
 
-      // t3 = 1 + (1/j) * t2
-      oneMinusfTimesMatrix((Float *)&t3, -1./j, (const Float *)&t2, 18);
-      // t2 = t1 * t3
-      t2.DotMEqual(t1, t3);
+        // t3 = 1 + (1/j) * t2
+        oneMinusfTimesMatrix ((Float *) & t3, -1. / j, (const Float *) &t2, 18);
+        // t2 = t1 * t3
+        t2.DotMEqual (t1, t3);
 
+      }
+
+      // t3 = 1 + t2
+      oneMinusfTimesMatrix ((Float *) & t3, -1., (const Float *) &t2, 18);
+      t2 = curU_p[i];
+      // U' = t3 * U
+      curU_p[i].DotMEqual (t3, t2);
     }
 
-    // t3 = 1 + t2
-    oneMinusfTimesMatrix((Float *)&t3, -1., (const Float *)&t2, 18);
-    t2 = curU_p[i];
-    // U' = t3 * U
-    curU_p[i].DotMEqual(t3, t2);
-  }
-
-  if(GJP.Gparity() && evolve_both_gparity_flavors) CopyConjMatrixField(GaugeField(),4);
+    if (GJP.Gparity () && evolve_both_gparity_flavors)
+      CopyConjMatrixField (GaugeField (), 4);
 
 
-  // checksuming local gauge matrices after update
-  //------------------------------------------------
-  loc_sum = local_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE);
-  CSM.SaveCsum(CSUM_EVL_LAT,loc_sum);
+    // checksuming local gauge matrices after update
+    //------------------------------------------------
+    loc_sum = local_checksum ((Float *) GaugeField (), n_links * MATRIX_SIZE);
+    CSM.SaveCsum (CSUM_EVL_LAT, loc_sum);
 
 #ifdef UNIFORM_SEED_TESTING
-  VRB.Result(cname,fname,"gauge checksum(after) = %p\n",
-    global_checksum((Float *)GaugeField(),n_links*MATRIX_SIZE));
+    VRB.Result (cname, fname, "gauge checksum(after) = %p\n",
+                global_checksum ((Float *) GaugeField (),
+                                 n_links * MATRIX_SIZE));
 #endif
 //  sync();
-  smeared = 0;
-}
+    smeared = 0;
+  }
 
 
 //------------------------------------------------------------------
@@ -3874,23 +4106,23 @@ void Lattice::EvolveGfield(Matrix *mom, Float step_size, bool evolve_both_gparit
   \return the local kinetic energy.
  */
 //------------------------------------------------------------------
-Float Lattice::MomHamiltonNode (Matrix * momentum)
-{
-  const char *fname = "MomHamiltonNode(M*)";
-  VRB.Func(cname,fname);
-  Float ham = 0.0;
-  int n_links = 4 * GJP.VolNodeSites ();
+  Float Lattice::MomHamiltonNode (Matrix * momentum)
+  {
+    const char *fname = "MomHamiltonNode(M*)";
+    VRB.Func (cname, fname);
+    Float ham = 0.0;
+    int n_links = 4 * GJP.VolNodeSites ();
 
-  // We remove the openmp directive since it may give different
-  // answers even on an identical set of data.
+    // We remove the openmp directive since it may give different
+    // answers even on an identical set of data.
 
-  //#pragma omp parallel for reduction(+:ham)
-  for (int i = 0; i < n_links; ++i) {
-    ham += momentum[i].NegHalfTrSquare ();
+    //#pragma omp parallel for reduction(+:ham)
+    for (int i = 0; i < n_links; ++i) {
+      ham += momentum[i].NegHalfTrSquare ();
+    }
+
+    return ham;
   }
-
-  return ham;
-}
 
 
 //------------------------------------------------------------------
@@ -3902,28 +4134,29 @@ Float Lattice::MomHamiltonNode (Matrix * momentum)
 /*!
   \post The gauge field is reunitarised.
  */
-void Lattice::Reunitarize (void)
-{
-  const char *fname = "Reunitarize()";
-  VRB.Func (cname, fname);
-  int i;
-  int links;
-  Matrix *u;
+  void Lattice::Reunitarize (void)
+  {
+    const char *fname = "Reunitarize()";
+    VRB.Func (cname, fname);
+    int i;
+    int links;
+    Matrix *u;
 
-  links = 4 * GJP.VolNodeSites();
-  if(GJP.Gparity()) links*=2; //reunitarisation respects complex conjugate relationship
+    links = 4 * GJP.VolNodeSites ();
+    if (GJP.Gparity ())
+      links *= 2;               //reunitarisation respects complex conjugate relationship
 
-  u = GaugeField();
+    u = GaugeField ();
 
-  for (i = 0; i < links; i++) {
-    u[i].Unitarize ();
+    for (i = 0; i < links; i++) {
+      u[i].Unitarize ();
+    }
+
+    // Modified here by Ping for anisotropic lattices
+    //----------------------------------------------------------------
+    MltFloat (GJP.XiBare (), GJP.XiDir ());
+    smeared = 0;
   }
-
-  // Modified here by Ping for anisotropic lattices
-  //----------------------------------------------------------------
-  MltFloat (GJP.XiBare (), GJP.XiDir ());
-  smeared = 0;
-}
 
 
 //------------------------------------------------------------------
@@ -3950,102 +4183,104 @@ void Lattice::Reunitarize (void)
 //------------------------------------------------------------------
 // Modefied by Ping on January 1999 for anisotropic lattices.
 //------------------------------------------------------------------
-void Lattice::Reunitarize (Float & dev, Float & max_diff)
-{
-  const char *fname = "Reunitarize(F&,F&)";
-  VRB.Func (cname, fname);
+  void Lattice::Reunitarize (Float & dev, Float & max_diff)
+  {
+    const char *fname = "Reunitarize(F&,F&)";
+    VRB.Func (cname, fname);
 
-  // Modified here by Ping for anisotropic lattices
-  //----------------------------------------------------------------
-  MltFloat (1.0 / GJP.XiBare (), GJP.XiDir ());
+    // Modified here by Ping for anisotropic lattices
+    //----------------------------------------------------------------
+    MltFloat (1.0 / GJP.XiBare (), GJP.XiDir ());
 
 
-  int i, j;
-  int links;
-  Matrix *u;
-  Matrix tmp;
-  Float *tmp_p = (Float *) & tmp;
+    int i, j;
+    int links;
+    Matrix *u;
+    Matrix tmp;
+    Float *tmp_p = (Float *) & tmp;
 
-  links = 4 * GJP.VolNodeSites ();
-  u = GaugeField ();
+    links = 4 * GJP.VolNodeSites ();
+    u = GaugeField ();
 
-  dev = 0.0;
-  max_diff = 0.0;
+    dev = 0.0;
+    max_diff = 0.0;
 
-  for (i = 0; i < links; i++) {
-    tmp = u[i];
-    u[i].Unitarize ();
-    tmp -= u[i];
-    for (j = 0; j < 18; j++) {
-      dev = dev + tmp_p[j] * tmp_p[j];
-      if (tmp_p[j] * tmp_p[j] > max_diff * max_diff) {
-	max_diff = tmp_p[j];
+    for (i = 0; i < links; i++) {
+      tmp = u[i];
+      u[i].Unitarize ();
+      tmp -= u[i];
+      for (j = 0; j < 18; j++) {
+        dev = dev + tmp_p[j] * tmp_p[j];
+        if (tmp_p[j] * tmp_p[j] > max_diff * max_diff) {
+          max_diff = tmp_p[j];
+        }
       }
     }
+    dev = dev / Float (18 * links);
+    dev = double (sqrt (double (dev)));
+
+    //----------------------------------------------------------------
+    // Modified here by Ping for anisotropic lattices
+    //----------------------------------------------------------------
+    MltFloat (GJP.XiBare (), GJP.XiDir ());
+    smeared = 0;
   }
-  dev = dev / Float (18 * links);
-  dev = double (sqrt (double (dev)));
+  void Lattice::CheckUnitarity (Float & max_dev, Float & max_diff)
+  {
+    const char *fname = "CheckUnitarity(F&,F&)";
+    VRB.Func (cname, fname);
 
-  //----------------------------------------------------------------
-  // Modified here by Ping for anisotropic lattices
-  //----------------------------------------------------------------
-  MltFloat (GJP.XiBare (), GJP.XiDir ());
-  smeared = 0;
-}
-void Lattice::CheckUnitarity(Float &max_dev, Float &max_diff)
-{
-  const char *fname = "CheckUnitarity(F&,F&)";
-  VRB.Func(cname,fname);
-
-  // Modified here by Ping for anisotropic lattices
-  //----------------------------------------------------------------
-  MltFloat(1.0 / GJP.XiBare(), GJP.XiDir());    
+    // Modified here by Ping for anisotropic lattices
+    //----------------------------------------------------------------
+    MltFloat (1.0 / GJP.XiBare (), GJP.XiDir ());
 
 
-  int i,j;
-  int links;
-  Matrix *u;
-  Matrix tmp;
-  Float *tmp_p = (Float *)&tmp;
+    int i, j;
+    int links;
+    Matrix *u;
+    Matrix tmp;
+    Float *tmp_p = (Float *) & tmp;
 
-  links = 4 * GJP.VolNodeSites();
-  if(GJP.Gparity()) links*=2; //reunitarisation respects complex conjugate relationship
+    links = 4 * GJP.VolNodeSites ();
+    if (GJP.Gparity ())
+      links *= 2;               //reunitarisation respects complex conjugate relationship
 
-  u = GaugeField();
+    u = GaugeField ();
 
-  Float dev = 0.0;
-  Float diff = 0.0;
+    Float dev = 0.0;
+    Float diff = 0.0;
 
-  for(i=0; i<links; i++){
-    tmp = u[i];
-    tmp.Unitarize();
-    tmp -= u[i];
-    for(j=0; j<18; j++){
-      dev = dev + tmp_p[j] * tmp_p[j];
-      if(tmp_p[j]*tmp_p[j] > diff*diff){
-	diff = fabs(tmp_p[j]);
-  if (diff > max_diff){
-  Float *u_p = (Float *)u;
-  for(int j=0;j<18;j++)
-  printf("u[%d]=%g dev[%d]=%g\n",j,u_p[j],j,tmp_p[j]);
-  ERR.General(cname,fname,"diff(%g)>max_diff(%g)!\n",diff,max_diff);
-}
+    for (i = 0; i < links; i++) {
+      tmp = u[i];
+      tmp.Unitarize ();
+      tmp -= u[i];
+      for (j = 0; j < 18; j++) {
+        dev = dev + tmp_p[j] * tmp_p[j];
+        if (tmp_p[j] * tmp_p[j] > diff * diff) {
+          diff = fabs (tmp_p[j]);
+          if (diff > max_diff) {
+            Float *u_p = (Float *) u;
+            for (int j = 0; j < 18; j++)
+              printf ("u[%d]=%g dev[%d]=%g\n", j, u_p[j], j, tmp_p[j]);
+            ERR.General (cname, fname, "diff(%g)>max_diff(%g)!\n", diff,
+                         max_diff);
+          }
+        }
       }
     }
-  }
-  dev = dev / Float(18 * links);
-  dev = double(sqrt(double(dev)));
+    dev = dev / Float (18 * links);
+    dev = double (sqrt (double (dev)));
 
-  //----------------------------------------------------------------
-  // Modified here by Ping for anisotropic lattices
-  //----------------------------------------------------------------
-  MltFloat(GJP.XiBare(), GJP.XiDir());    
-  if (dev > max_dev)
-  ERR.General(cname,fname,"dev(%g)>max_dev(%g)!\n",dev,max_dev);
-  max_dev = dev;
-  max_diff = diff;
+    //----------------------------------------------------------------
+    // Modified here by Ping for anisotropic lattices
+    //----------------------------------------------------------------
+    MltFloat (GJP.XiBare (), GJP.XiDir ());
+    if (dev > max_dev)
+      ERR.General (cname, fname, "dev(%g)>max_dev(%g)!\n", dev, max_dev);
+    max_dev = dev;
+    max_diff = diff;
 //  smeared = 0;
-}
+  }
 
 
 //------------------------------------------------------------------
@@ -4058,60 +4293,60 @@ void Lattice::CheckUnitarity(Float &max_dev, Float &max_diff)
   \post The acceptance probability is written to \a accept.
  */
 //------------------------------------------------------------------
-int Lattice::MetropolisAccept (Float delta_h, Float * accept)
-{
-  const char *fname = "MetropolisAccept(F)";
-  VRB.Func (cname, fname);
-  int node_id;
-  Float flag = 0.0;
+  int Lattice::MetropolisAccept (Float delta_h, Float * accept)
+  {
+    const char *fname = "MetropolisAccept(F)";
+    VRB.Func (cname, fname);
+    int node_id;
+    Float flag = 0.0;
 
-  node_id = GJP.XnodeCoor ();
-  node_id += GJP.YnodeCoor ();
-  node_id += GJP.ZnodeCoor ();
-  node_id += GJP.TnodeCoor ();
+    node_id = GJP.XnodeCoor ();
+    node_id += GJP.YnodeCoor ();
+    node_id += GJP.ZnodeCoor ();
+    node_id += GJP.TnodeCoor ();
 
-  // check that delta_h is the same across s-slices
-  // (relevant if GJP.Snodes() != 1)
-  if (GJP.Snodes () != 1) {
-    VRB.Flow (cname, fname, "Checking Delta H across s-slices\n");
-    SoCheck (delta_h);
-  }
-
-  if (node_id == 0) {
-    if (delta_h <= 0.0) {
-      flag = 1.0;
-      *accept = 1.0;
-//    } else if (delta_h < 20.0) {
-    } else {
-      LRG.AssignGenerator (0, 0, 0, 0);
-      LRG.SetInterval (1, 0);
-      IFloat exp_mdh;
-      IFloat rand_num;
-
-      exp_mdh = exp (-delta_h);
-      *accept = (Float) exp_mdh;
-      rand_num = LRG.Urand ();
-      if (rand_num <= exp_mdh)
-	flag = 1.0;
+    // check that delta_h is the same across s-slices
+    // (relevant if GJP.Snodes() != 1)
+    if (GJP.Snodes () != 1) {
+      VRB.Flow (cname, fname, "Checking Delta H across s-slices\n");
+      SoCheck (delta_h);
     }
-  }
-  // broadcast flag through all nodes
-  glb_sum (&flag);
 
-  // check that flag is the same across s-slices
-  // (relevant if GJP.Snodes() != 1)
-  if (GJP.Snodes () != 1) {
-    VRB.Flow (cname, fname, "Checking metropolis flag across s-slices\n");
-    SoCheck (flag);
-  }
+    if (node_id == 0) {
+      if (delta_h <= 0.0) {
+        flag = 1.0;
+        *accept = 1.0;
+//    } else if (delta_h < 20.0) {
+      } else {
+        LRG.AssignGenerator (0, 0, 0, 0);
+        LRG.SetInterval (1, 0);
+        IFloat exp_mdh;
+        IFloat rand_num;
 
-  if (flag < 0.2) {
-    return 0;			// Reject
-  } else {
-    return 1;			// Accept
-  }
+        exp_mdh = exp (-delta_h);
+        *accept = (Float) exp_mdh;
+        rand_num = LRG.Urand ();
+        if (rand_num <= exp_mdh)
+          flag = 1.0;
+      }
+    }
+    // broadcast flag through all nodes
+    glb_sum (&flag);
 
-}
+    // check that flag is the same across s-slices
+    // (relevant if GJP.Snodes() != 1)
+    if (GJP.Snodes () != 1) {
+      VRB.Flow (cname, fname, "Checking metropolis flag across s-slices\n");
+      SoCheck (flag);
+    }
+
+    if (flag < 0.2) {
+      return 0;                 // Reject
+    } else {
+      return 1;                 // Accept
+    }
+
+  }
 
 
 //------------------------------------------------------------------
@@ -4125,11 +4360,11 @@ int Lattice::MetropolisAccept (Float delta_h, Float * accept)
   (Included for backwards compatability)
  */
 //------------------------------------------------------------------
-int Lattice::MetropolisAccept (Float delta_h)
-{
-  Float accept;
-  return MetropolisAccept (delta_h, &accept);
-}
+  int Lattice::MetropolisAccept (Float delta_h)
+  {
+    Float accept;
+    return MetropolisAccept (delta_h, &accept);
+  }
 
 
 
@@ -4147,27 +4382,27 @@ int Lattice::MetropolisAccept (Float delta_h)
   \param sigma2 The variance of the gaussian distribution.
 */
 //------------------------------------------------------------------
-void Lattice::RandGaussAntiHermMatrix (Matrix * mat, Float sigma2)
-{
-  const char *fname = "RandGaussAntiHermMatrix(M*,F)";
-  VRB.Func (cname, fname);
+  void Lattice::RandGaussAntiHermMatrix (Matrix * mat, Float sigma2)
+  {
+    const char *fname = "RandGaussAntiHermMatrix(M*,F)";
+    VRB.Func (cname, fname);
 
-  IFloat a[8];
+    IFloat a[8];
 
-  LRG.SetSigma (0.5 * sigma2);
+    LRG.SetSigma (0.5 * sigma2);
 
-  Matrix *p = mat;
-  for (int n = 0; n < GJP.VolNodeSites (); n++) {
-    LRG.AssignGenerator (n);
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 8; ++i) {
-	*(a + i) = LRG.Grand (FOUR_D);
+    Matrix *p = mat;
+    for (int n = 0; n < GJP.VolNodeSites (); n++) {
+      LRG.AssignGenerator (n);
+      for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < 8; ++i) {
+          *(a + i) = LRG.Grand (FOUR_D);
+        }
+        p->AntiHermMatrix (a);
+        p++;
       }
-      p->AntiHermMatrix (a);
-      p++;
     }
   }
-}
 
 
 //--------------------------------------------------------------------------
@@ -4183,12 +4418,12 @@ void Lattice::RandGaussAntiHermMatrix (Matrix * mat, Float sigma2)
   at random from a gaussian distribution with mean 0 and variance \a sigma2. 
  */
 //--------------------------------------------------------------------------
-void
-  Lattice::RandGaussVector (Vector * frm, Float sigma2,
-			    FermionFieldDimension frm_dim)
-{
-  RandGaussVector (frm, sigma2, 2, frm_dim);
-}
+  void
+    Lattice::RandGaussVector (Vector * frm, Float sigma2,
+                              FermionFieldDimension frm_dim)
+  {
+    RandGaussVector (frm, sigma2, 2, frm_dim);
+  }
 
 //--------------------------------------------------------------------------
 /*!
@@ -4201,20 +4436,20 @@ void
   at random from a gaussian distribution with mean 0 and variance \a sigma2. 
  */
 //--------------------------------------------------------------------------
-void Lattice::RandGaussVector (Vector * frm, Float sigma2)
-{
-  RandGaussVector (frm, sigma2, 2, CANONICAL, FIVE_D);
-}
+  void Lattice::RandGaussVector (Vector * frm, Float sigma2)
+  {
+    RandGaussVector (frm, sigma2, 2, CANONICAL, FIVE_D);
+  }
 
-void
-  Lattice::RandGaussVector (Vector * frm, Float sigma2, int
-			    chkbds, FermionFieldDimension frm_field_dim)
-{
-  if (FstagType ())
-    RandGaussVector (frm, sigma2, chkbds, STAG, frm_field_dim);
-  else
-    RandGaussVector (frm, sigma2, chkbds, CANONICAL, frm_field_dim);
-}
+  void
+    Lattice::RandGaussVector (Vector * frm, Float sigma2, int
+                              chkbds, FermionFieldDimension frm_field_dim)
+  {
+    if (FstagType ())
+      RandGaussVector (frm, sigma2, chkbds, STAG, frm_field_dim);
+    else
+      RandGaussVector (frm, sigma2, chkbds, CANONICAL, frm_field_dim);
+  }
 
 //--------------------------------------------------------------------------
 /*!
@@ -4231,178 +4466,191 @@ void
   at random from a gaussian distribution with mean 0 and variance \a sigma2. 
  */
 //--------------------------------------------------------------------------
-void Lattice::RandGaussVector(Vector * frm, Float sigma2, int num_chkbds,
-             StrOrdType str, FermionFieldDimension frm_dim /* = FIVE_D */ )
-{
-  const char *fname = "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
-  VRB.Func(cname, fname);
+  void Lattice::RandGaussVector (Vector * frm, Float sigma2,
+                                 int num_chkbds, StrOrdType str,
+                                 FermionFieldDimension frm_dim
+                                 /* = FIVE_D */ )
+  {
+    const char *fname =
+      "RandGaussVector(Vector *, Float, int, FermionFieldDimension)";
+    VRB.Func (cname, fname);
 
-  int vec_size = 2 * Colors() * SpinComponents();
-  int nstacked_flav = 1; //number of stacked flavors in vector
-  if(GJP.Gparity()) nstacked_flav = 2;
+    int vec_size = 2 * Colors () * SpinComponents ();
+    int nstacked_flav = 1;      //number of stacked flavors in vector
+    if (GJP.Gparity ())
+      nstacked_flav = 2;
 
-  int s_node_sites = GJP.SnodeSites();
-  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D());
-  if(frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D()) ) {
-    VRB.Result(cname,fname,"4D RNG used\n");
-    s_node_sites = 1; frm_dim = FOUR_D;
-  } else {
+    int s_node_sites = GJP.SnodeSites ();
+    VRB.Result (cname, fname,
+                "Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",
+                this->Fclass (), frm_dim, s_node_sites, this->F5D ());
+    if (frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D ())) {
+      VRB.Result (cname, fname, "4D RNG used\n");
+      s_node_sites = 1;
+      frm_dim = FOUR_D;
+    } else {
 
 #ifdef USE_BFM
-    // Fbfm can use an Ls that is different from GJP.SnodeSites()
-    if (Fclass() == F_CLASS_BFM) {
-      s_node_sites = Fbfm::arg_map.at(Fbfm::current_key_mass).Ls;
-      VRB.Result(cname,fname,"5D RNG used,Ls=%d\n",s_node_sites);
-      VRB.Result(cname, fname, "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n", Fbfm::current_key_mass, s_node_sites);
+      // Fbfm can use an Ls that is different from GJP.SnodeSites()
+      if (Fclass () == F_CLASS_BFM) {
+        s_node_sites = Fbfm::arg_map.at (Fbfm::current_key_mass).Ls;
+        VRB.Result (cname, fname, "5D RNG used,Ls=%d\n", s_node_sites);
+        VRB.Result (cname, fname,
+                    "Taking Ls from Fbfm::current_key_mass = %e gives Ls = %d!\n",
+                    Fbfm::current_key_mass, s_node_sites);
 #ifndef USE_C11_RNG
-      if (s_node_sites > GJP.SnodeSites()) {
-        ERR.General(cname, fname, "s_node_sites > GJP.SnodeSites()! (%d > %d)\n", s_node_sites, GJP.SnodeSites());
+        if (s_node_sites > GJP.SnodeSites ()) {
+          ERR.General (cname, fname,
+                       "s_node_sites > GJP.SnodeSites()! (%d > %d)\n",
+                       s_node_sites, GJP.SnodeSites ());
+        }
+#endif
       }
 #endif
+
     }
+    LRG.SetSigma (sigma2);
+
+    IFloat *ptr = (IFloat *) frm;
+    int checker, i, k, s, x[4];
+    IFloat sum = 0.0, square = 0.0;
+
+
+    if (num_chkbds == 2) {
+      for (checker = 0; checker < 2; checker++)
+        for (s = 0; s < s_node_sites; s++) {
+          if ((s % 2) == checker) {
+            for (int flv = 0; flv < nstacked_flav; flv++)
+              for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3]++)
+                for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)
+                  for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++)
+                    for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++) {
+//      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
+                      LRG.AssignGenerator (x[0], x[1], x[2], x[3], s, flv);
+//      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
+                      for (k = 0; k < vec_size; k++) {
+                        *(ptr++) = LRG.Grand (frm_dim);
+                        VRB.Debug (cname, fname, "%d %d %d %d %d %d %g\n",
+                                   x[0], x[1], x[2], x[3], s, flv, *(ptr - 1));
+                      }
+                    }
+          }
+        }
+    } else if (num_chkbds == 1) {
+      if (str == STAG) {
+        if (GJP.Gparity ())
+          ERR.General (cname, fname,
+                       "G-parity not enabled for staggered fermions");
+        for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)        // z
+          for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++)      // y
+            for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++)    // x
+              for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3] += 2) {     // t
+                LRG.AssignGenerator (x);
+                for (k = 0; k < FsiteSize (); k++) {
+                  *(ptr) = LRG.Grand (frm_dim);
+                  sum += *ptr;
+                  square += (*ptr) * (*ptr);
+                  ptr++;
+                }
+              }
+#if 0
+      } else if (num_chkbds == 1) {
+        if (str == STAG) {
+          for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)      // z
+            for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++)    // y
+              for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++)  // x
+                for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3] += 2) {   // t
+                  LRG.AssignGenerator (x);
+                  for (k = 0; k < FsiteSize (); k++) {
+                    *(ptr) = LRG.Grand (frm_dim);
+                    sum += *ptr;
+                    square += (*ptr) * (*ptr);
+                    ptr++;
+                  }
+                }
 #endif
+        } else {
+          if (GJP.Gparity ()) {
+            for (s = 0; s < s_node_sites; s++) {
+              for (int flv = 0; flv < nstacked_flav; flv++) {
+                for (int p = 0; p < GJP.VolNodeSites (); p++) {
+                  i = GJP.VolNodeSites () * s + p;
+                  if (i % 2 == 1)
+                    continue;
 
-  }
-  LRG.SetSigma (sigma2);
-
-  IFloat *ptr = (IFloat *) frm;
-  int checker, i, k, s, x[4];
-  IFloat sum=0.0,square=0.0;
-
-
-  if(num_chkbds == 2) {
-    for(checker = 0; checker < 2; checker++)
-    for(s = 0; s < s_node_sites; s++) {
-      if( (s % 2) == checker) {
-	for(int flv=0;flv<nstacked_flav;flv++)
-        for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3]++)
-        for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]++)
-        for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]++)
-        for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]++) {
-//	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
-	    LRG.AssignGenerator(x[0],x[1],x[2],x[3],s,flv);
-//	printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
-          for(k = 0; k < vec_size; k++) {
-            *(ptr++) = LRG.Grand(frm_dim);
-        VRB.Debug(cname,fname,"%d %d %d %d %d %d %g\n",x[0],x[1],x[2],x[3],     s,flv,*(ptr-1));
+                  LRG.AssignGenerator (i, flv);
+                  for (k = 0; k < vec_size; k++) {
+                    *(ptr) = LRG.Grand (frm_dim);
+                    sum += *ptr;
+                    square += (*ptr) * (*ptr);
+                    ptr++;
+                  }
+                }
+              }
+            }
+          } else {
+            for (i = 0; i < GJP.VolNodeSites () * s_node_sites; i += 2) {
+              LRG.AssignGenerator (i);
+              for (k = 0; k < vec_size; k++) {
+                *(ptr) = LRG.Grand (frm_dim);
+                sum += *ptr;
+                square += (*ptr) * (*ptr);
+                ptr++;
+              }
+            }
           }
         }
       }
-    }
-  }
-  else if(num_chkbds == 1) {
-    if (str == STAG){           
-      if(GJP.Gparity()) ERR.General(cname,fname,"G-parity not enabled for staggered fermions");
-      for(x[2] = 0; x[2] < GJP.ZnodeSites(); x[2]++)     // z
-      for(x[1] = 0; x[1] < GJP.YnodeSites(); x[1]++)     // y
-      for(x[0] = 0; x[0] < GJP.XnodeSites(); x[0]++)     // x
-      for(x[3] = 0; x[3] < GJP.TnodeSites(); x[3] += 2) {   // t
-        LRG.AssignGenerator(x);
-        for(k = 0; k < FsiteSize(); k++) {
-          *(ptr) = LRG.Grand(frm_dim);
-          sum += *ptr;
-          square += (*ptr)*(*ptr);
-          ptr++;
-        }
-      }
 #if 0
-  } else if (num_chkbds == 1) {
-    if (str == STAG) {
-      for (x[2] = 0; x[2] < GJP.ZnodeSites (); x[2]++)	// z
-	for (x[1] = 0; x[1] < GJP.YnodeSites (); x[1]++)	// y
-	  for (x[0] = 0; x[0] < GJP.XnodeSites (); x[0]++)	// x
-	    for (x[3] = 0; x[3] < GJP.TnodeSites (); x[3] += 2) {	// t
-	      LRG.AssignGenerator (x);
-	      for (k = 0; k < FsiteSize (); k++) {
-		*(ptr) = LRG.Grand (frm_dim);
-		sum += *ptr;
-		square += (*ptr) * (*ptr);
-		ptr++;
-	      }
-	    }
+      glb_sum_five (&sum);
+      glb_sum_five (&square);
+      printf ("sum=%0.18e square=%0.18e\n", sum, square);
 #endif
-    } else {
-      if(GJP.Gparity()){
-	for(s=0; s< s_node_sites; s++){
-	  for(int flv=0; flv < nstacked_flav; flv++){
-	    for(int p = 0; p < GJP.VolNodeSites(); p++){
-	      i = GJP.VolNodeSites()*s + p;
-	      if(i%2 == 1) continue;
-
-	      LRG.AssignGenerator(i,flv);
-	      for(k = 0; k < vec_size; k++) {
-		*(ptr) = LRG.Grand(frm_dim);
-		sum += *ptr;
-		square += (*ptr)*(*ptr);
-		ptr++;
-	      }
-	    }
-	  }
-	}
-      }else{
-      for(i = 0; i < GJP.VolNodeSites()*s_node_sites; i+=2) {
-        LRG.AssignGenerator(i);
-        for(k = 0; k < vec_size; k++) {
-          *(ptr) = LRG.Grand(frm_dim);
-          sum += *ptr;
-          square += (*ptr)*(*ptr);
- 	  ptr++;
-        }
-      }
     }
-  }
-  }
-#if 0
-  glb_sum_five (&sum);
-  glb_sum_five (&square);
-  printf ("sum=%0.18e square=%0.18e\n", sum, square);
-#endif
-}
-
-
 //------------------------------------------------------------------
 /*
   \post Each gauge field link is set to the identity matrix.
 */
 //------------------------------------------------------------------
-void Lattice::SetGfieldOrd (void)
-{
-  const char *fname = "SetGfieldOrd()";
-  VRB.Func (cname, fname);
-  int i;
-  int links;
-  Matrix *u;
+    void Lattice::SetGfieldOrd (void)
+    {
+      const char *fname = "SetGfieldOrd()";
+      VRB.Func (cname, fname);
+      int i;
+      int links;
+      Matrix *u;
 
-  links = 4 * GJP.VolNodeSites();
-  if(GJP.Gparity()) links*=2;
+      links = 4 * GJP.VolNodeSites ();
+      if (GJP.Gparity ())
+        links *= 2;
 
-  u = GaugeField();
+      u = GaugeField ();
 
-  for (i = 0; i < links; i++) {
-    u[i].UnitMatrix ();
-  }
-}
+      for (i = 0; i < links; i++) {
+        u[i].UnitMatrix ();
+      }
+    }
 
 //------------------------------------------------------------------
 /*
   \post Each u1 field(angle) is set to zero.
 */
 //------------------------------------------------------------------
-void Lattice::SetU1GfieldOrd (void)
-{
-  char *fname = "SetGfieldOrd()";
-  VRB.Func (cname, fname);
-  int i;
-  int links;
-  Float *u;
+    void Lattice::SetU1GfieldOrd (void)
+    {
+      char *fname = "SetGfieldOrd()";
+      VRB.Func (cname, fname);
+      int i;
+      int links;
+      Float *u;
 
-  links = 4 * GJP.VolNodeSites ();
-  u = U1GaugeField ();
+      links = 4 * GJP.VolNodeSites ();
+      u = U1GaugeField ();
 
-  for (i = 0; i < links; i++) {
-    u[i] = 0.0;
-  }
-}
+      for (i = 0; i < links; i++) {
+        u[i] = 0.0;
+      }
+    }
 
 
 //------------------------------------------------------------------
@@ -4410,32 +4658,32 @@ void Lattice::SetU1GfieldOrd (void)
   \post Each gauge field link is set to a random SU(3) matrix.
 */
 //------------------------------------------------------------------
-void Lattice::SetGfieldDisOrd (void)
-{
+    void Lattice::SetGfieldDisOrd (void)
+    {
 #if 1
-  const char *fname = "SetGfieldDisOrd()";
-  VRB.Func(cname,fname);
+      const char *fname = "SetGfieldDisOrd()";
+      VRB.Func (cname, fname);
 
-  int site_size = GsiteSize ();
-  LRG.SetInterval (1, -1);
+      int site_size = GsiteSize ();
+      LRG.SetInterval (1, -1);
 
-  IFloat *pmat = (IFloat *) gauge_field;
+      IFloat *pmat = (IFloat *) gauge_field;
 
-  for(int i=0; i<GJP.VolNodeSites(); i++) {
-    LRG.AssignGenerator(i);
-    for(int k = 0; k < site_size; k++) {
-      *(pmat++) = LRG.Urand(FOUR_D);
-      //      printf("i=%d *pmat=%e\n",i,*(pmat-1));
-    }
-  }
-  Reunitarize ();
+      for (int i = 0; i < GJP.VolNodeSites (); i++) {
+        LRG.AssignGenerator (i);
+        for (int k = 0; k < site_size; k++) {
+          *(pmat++) = LRG.Urand (FOUR_D);
+          //      printf("i=%d *pmat=%e\n",i,*(pmat-1));
+        }
+      }
+      Reunitarize ();
 #endif
-  smeared = 0;
+      smeared = 0;
 
-  if(GJP.Gparity()){ //CK 08/11
-    CopyConjGaugeField();
-  }
-}
+      if (GJP.Gparity ()) {     //CK 08/11
+        CopyConjGaugeField ();
+      }
+    }
 
 
 //------------------------------------------------------------------
@@ -4445,10 +4693,10 @@ void Lattice::SetGfieldDisOrd (void)
 /*!
   \return The number of gauge field updates that have been performed.
 */
-int Lattice::GupdCnt (void)
-{
-  return *g_upd_cnt;
-}
+    int Lattice::GupdCnt (void)
+    {
+      return *g_upd_cnt;
+    }
 
 /*!
   Sets the the initial value of the counter of the number of gauge field
@@ -4456,53 +4704,53 @@ int Lattice::GupdCnt (void)
   \param set_val The inital value for the counter.
   \return The inital value for the counter.
 */
-int Lattice::GupdCnt (int set_val)
-{
-  *g_upd_cnt = set_val;
-  return *g_upd_cnt;
-}
+    int Lattice::GupdCnt (int set_val)
+    {
+      *g_upd_cnt = set_val;
+      return *g_upd_cnt;
+    }
 
 /*!
   \param inc_val The number by which to inrease the gauge field update counter.
   \return The new value of the gauge field update counter.
 */
-int Lattice::GupdCntInc (int inc_val)
-{
-  *g_upd_cnt += inc_val;
-  return *g_upd_cnt;
-}
+    int Lattice::GupdCntInc (int inc_val)
+    {
+      *g_upd_cnt += inc_val;
+      return *g_upd_cnt;
+    }
 
 //! The molecular dynamics time counter.
 /*!
   \return The number of timesteps completed so far in a molecular dynamics
   trajectory.
 */
-Float Lattice::MdTime (void)
-{
-  return md_time;
-}
+    Float Lattice::MdTime (void)
+    {
+      return md_time;
+    }
 
 //! Sets the value of the molecular dynamics time counter.
 /*!
   Sets the number of timesteps completed so far in a molecular dynamics
   trajectory.
 */
-Float Lattice::MdTime (Float set_val)
-{
-  md_time = set_val;
-  return md_time;
-}
+    Float Lattice::MdTime (Float set_val)
+    {
+      md_time = set_val;
+      return md_time;
+    }
 
 //! Increments the value of the molecular dynamics time counter.
 /*!
   Increments the number of timesteps completed so far in a molecular dynamics
   trajectory.
 */
-Float Lattice::MdTimeInc (Float inc_val)
-{
-  md_time += inc_val;
-  return md_time;
-}
+    Float Lattice::MdTimeInc (Float inc_val)
+    {
+      md_time += inc_val;
+      return md_time;
+    }
 
 
 //------------------------------------------------------------------
@@ -4511,24 +4759,24 @@ Float Lattice::MdTimeInc (Float inc_val)
   The array are allocated with FixGaugeAllocate.
 */
 //------------------------------------------------------------------
-Matrix **Lattice::FixGaugePtr (void)
-{
-  return fix_gauge_ptr;
-}
+    Matrix **Lattice::FixGaugePtr (void)
+    {
+      return fix_gauge_ptr;
+    }
 
 
 //------------------------------------------------------------------
 // Returns fix_gauge_kind (the kind of gauge).
 //------------------------------------------------------------------
-FixGaugeType Lattice::FixGaugeKind (void)
-{
-  return fix_gauge_kind;
-}
+    FixGaugeType Lattice::FixGaugeKind (void)
+    {
+      return fix_gauge_kind;
+    }
 
-Float Lattice::FixGaugeStopCond (void)
-{
-  return fix_gauge_stpCond;
-}
+    Float Lattice::FixGaugeStopCond (void)
+    {
+      return fix_gauge_stpCond;
+    }
 
 
 //==================================================================
@@ -4543,11 +4791,11 @@ Float Lattice::FixGaugeStopCond (void)
 //------------------------------------------------------------------
 // v_out = gamma_5 v_in
 //------------------------------------------------------------------
-void Lattice::Gamma5 (Vector * v_out, Vector * v_in, int num_sites)
-{
-  const char *fname = "Gamma5";
-  ERR.NotImplemented (cname, fname);
-}
+    void Lattice::Gamma5 (Vector * v_out, Vector * v_in, int num_sites)
+    {
+      const char *fname = "Gamma5";
+      ERR.NotImplemented (cname, fname);
+    }
 
 //==================================================================
 // Fermion action related virtual functions implemented
@@ -4561,22 +4809,24 @@ void Lattice::Gamma5 (Vector * v_out, Vector * v_in, int num_sites)
 //------------------------------------------------------------------
 // This is "truly" implemented only in the Fdwf derived class
 //------------------------------------------------------------------
-void
-  Lattice::Ffour2five (Vector * five, Vector * four, int s_r, int s_l, int Ncb)
-{
-  const char *fname = "Ffour2five";
-  ERR.NotImplemented (cname, fname);
-}
+    void
+      Lattice::Ffour2five (Vector * five, Vector * four, int s_r, int s_l,
+                           int Ncb)
+    {
+      const char *fname = "Ffour2five";
+      ERR.NotImplemented (cname, fname);
+    }
 
 //------------------------------------------------------------------
 // This is "truly" implemented only in the Fdwf derived class
 //------------------------------------------------------------------
-void
-  Lattice::Ffive2four (Vector * four, Vector * five, int s_r, int s_l, int Ncb)
-{
-  const char *fname = "Ffive2four";
-  ERR.NotImplemented (cname, fname);
-}
+    void
+      Lattice::Ffive2four (Vector * four, Vector * five, int s_r, int s_l,
+                           int Ncb)
+    {
+      const char *fname = "Ffive2four";
+      ERR.NotImplemented (cname, fname);
+    }
 
 //----------------------------------------------------------------------
 // dir_flag is flag which takes value 0 when all direction contribute to D
@@ -4584,13 +4834,13 @@ void
 // 2 - when all  except the special anisotropic direction.
 // Currently this function is implemented only in the Fstag class
 //------------------------------------------------------------------
-void
-  Lattice::Fdslash (Vector * f_out, Vector * f_in, CgArg * cg_arg,
-		    CnvFrmType cnv_frm, int dir_flag)
-{
-  const char *fname = "Fdslash";
-  ERR.NotImplemented (cname, fname);
-}
+    void
+      Lattice::Fdslash (Vector * f_out, Vector * f_in, CgArg * cg_arg,
+                        CnvFrmType cnv_frm, int dir_flag)
+    {
+      const char *fname = "Fdslash";
+      ERR.NotImplemented (cname, fname);
+    }
 
 //----------------------------------------------------------------------
 // order is the order of the derivative  with respect to the chemical
@@ -4598,13 +4848,13 @@ void
 // Currently this function is implemented only in the Fstag class
 //------------------------------------------------------------------
 
-void
-  Lattice::FdMdmu (Vector * f_out, Vector * f_in, CgArg * cg_arg,
-		   CnvFrmType cnv_frm, int order)
-{
-  const char *fname = "FdMdmu";
-  ERR.NotImplemented (cname, fname);
-}
+    void
+      Lattice::FdMdmu (Vector * f_out, Vector * f_in, CgArg * cg_arg,
+                       CnvFrmType cnv_frm, int order)
+    {
+      const char *fname = "FdMdmu";
+      ERR.NotImplemented (cname, fname);
+    }
 
 //~~------------------------------------------------------------------
 //~~ Added by DHR for twisted-mass fermions
@@ -4615,58 +4865,55 @@ void
 //~~ "truly" implemented only in the F_wilsonTm derived class
 //~~------------------------------------------------------------------
 
-Float
-  Lattice::SetPhi (Vector * phi, Vector * frm1, Vector * frm2,
-		   Float mass, Float epsilon, DagType dag)
-{
-  const char *fname = "SetPhi(V*,V*,V*,F,F,DagType)";
-  ERR.NotImplemented (cname, fname);
-  return ((Float) 0.0);
-};
+    Float
+      Lattice::SetPhi (Vector * phi, Vector * frm1, Vector * frm2,
+                       Float mass, Float epsilon, DagType dag) {
+      const char *fname = "SetPhi(V*,V*,V*,F,F,DagType)";
+      ERR.NotImplemented (cname, fname);
+      return ((Float) 0.0);
+    };
 
-ForceArg
-  Lattice::EvolveMomFforce (Matrix * mom, Vector * frm,
-			    Float mass, Float epsilon, Float step_size)
-{
-  const char *fname = "EvolveMomFforce(M*,V*,F,F,F)";
-  ERR.NotImplemented (cname, fname);
-  return ForceArg (0.0, 0.0, 0.0);
-};
+    ForceArg
+      Lattice::EvolveMomFforce (Matrix * mom, Vector * frm,
+                                Float mass, Float epsilon, Float step_size) {
+      const char *fname = "EvolveMomFforce(M*,V*,F,F,F)";
+      ERR.NotImplemented (cname, fname);
+      return ForceArg (0.0, 0.0, 0.0);
+    };
 
-ForceArg
-  Lattice::EvolveMomFforce (Matrix * mom, Vector * phi, Vector * eta,
-			    Float mass, Float epsilon, Float step_size)
-{
-  const char *fname = "EvolveMomFforce(M*,V*,V*,F,F,F)";
-  ERR.NotImplemented (cname, fname);
-  return ForceArg (0.0, 0.0, 0.0);
-};
+    ForceArg
+      Lattice::EvolveMomFforce (Matrix * mom, Vector * phi, Vector * eta,
+                                Float mass, Float epsilon, Float step_size) {
+      const char *fname = "EvolveMomFforce(M*,V*,V*,F,F,F)";
+      ERR.NotImplemented (cname, fname);
+      return ForceArg (0.0, 0.0, 0.0);
+    };
 
-Float Lattice::BhamiltonNode (Vector * boson, Float mass, Float epsilon)
-{
-  const char *fname = "BhamiltonNode(V*,F,F)";
-  ERR.NotImplemented (cname, fname);
-  return ((Float) 0.0);
-};
+    Float Lattice::BhamiltonNode (Vector * boson, Float mass, Float epsilon)
+    {
+      const char *fname = "BhamiltonNode(V*,F,F)";
+      ERR.NotImplemented (cname, fname);
+      return ((Float) 0.0);
+    };
 
 
 //------------------------------------------------------------------
 //void *Lattice::Aux0Ptr(void):
 // Returns the general purpose auxiliary pointer 0;
 //------------------------------------------------------------------
-void *Lattice::Aux0Ptr (void)
-{
-  return aux0_ptr;
-}
+    void *Lattice::Aux0Ptr (void)
+    {
+      return aux0_ptr;
+    }
 
 //------------------------------------------------------------------
 //void *Lattice::Aux1Ptr(void):
 // Returns the general purpose auxiliary pointer 1;
 //------------------------------------------------------------------
-void *Lattice::Aux1Ptr (void)
-{
-  return aux1_ptr;
-}
+    void *Lattice::Aux1Ptr (void)
+    {
+      return aux1_ptr;
+    }
 
 
 //------------------------------------------------------------------
@@ -4679,101 +4926,101 @@ void *Lattice::Aux1Ptr (void)
   If any of the node slices fail to match the program exits with an error.
 */
 //------------------------------------------------------------------
-void Lattice::GsoCheck (void)
-{
-  const char *fname = "GsoCheck()";
-  VRB.Func (cname, fname);
-  int s;
-  IFloat rcv_buf[2];
-  IFloat snd_buf[2];
-  IFloat failed_value;
-  Float failed_flag;
-  int failed_slice;
-  int s_nodes = GJP.Snodes ();
+    void Lattice::GsoCheck (void)
+    {
+      const char *fname = "GsoCheck()";
+      VRB.Func (cname, fname);
+      int s;
+      IFloat rcv_buf[2];
+      IFloat snd_buf[2];
+      IFloat failed_value;
+      Float failed_flag;
+      int failed_slice;
+      int s_nodes = GJP.Snodes ();
 
-  // If GJP.Snodes() != 1 do the check
-  //----------------------------------------------------------------
-  if (s_nodes != 1) {
+      // If GJP.Snodes() != 1 do the check
+      //----------------------------------------------------------------
+      if (s_nodes != 1) {
 #if 1
-    ERR.General (cname, fname, "s_nodes(%d)!=1!\n", s_nodes);
+        ERR.General (cname, fname, "s_nodes(%d)!=1!\n", s_nodes);
 #endif
 
-    // Calculate plaquette
-    //--------------------------------------------------------------
-    IFloat plaq = SumReTrPlaqNode ();
+        // Calculate plaquette
+        //--------------------------------------------------------------
+        IFloat plaq = SumReTrPlaqNode ();
 
-    // Compare plaquettes along fifth direction and set failed_flag
-    //--------------------------------------------------------------
-    failed_flag = 0.0;
-    failed_slice = 0;
-    snd_buf[0] = plaq;
-    for (s = 1; s < s_nodes; s++) {
-      getMinusData (rcv_buf, snd_buf, 2, 4);
-      if (rcv_buf[0] != plaq) {
-	printf ("plaq=%e rcv_buf=%e\n", plaq, rcv_buf[0]);
-	failed_flag = 1.0;
-	ERR.General (cname, fname, "GsoCheck: PLAQUETTE TEST FAILED");
-	if (failed_slice == 0) {
-	  failed_slice = s;
-	  failed_value = rcv_buf[0];
-	}
-      }
-      snd_buf[0] = rcv_buf[0];
-    }
-    glb_sum_five (&failed_flag);
-    if (failed_flag > 0.1) {
-      ERR.General (cname, fname,
-		   "Node (%d,%d,%d,%d,%d): plaquette test failed:\n\tlocal plaq = %e, but at -%d slices plaq = %e\n",
-		   GJP.XnodeCoor (),
-		   GJP.YnodeCoor (),
-		   GJP.ZnodeCoor (),
-		   GJP.TnodeCoor (),
-		   GJP.SnodeCoor (), plaq, failed_slice, failed_value);
-    }
-    // Calculate gauge field checksum
-    //--------------------------------------------------------------
-    Float *u = (Float *) gauge_field;
-    int size = GsiteSize () * GJP.VolNodeSites ();
-    IFloat checksum = 0.0;
-    for (int ic = 0; ic < size; ic++) {
-      checksum = checksum + u[ic];
-    }
+        // Compare plaquettes along fifth direction and set failed_flag
+        //--------------------------------------------------------------
+        failed_flag = 0.0;
+        failed_slice = 0;
+        snd_buf[0] = plaq;
+        for (s = 1; s < s_nodes; s++) {
+          getMinusData (rcv_buf, snd_buf, 2, 4);
+          if (rcv_buf[0] != plaq) {
+            printf ("plaq=%e rcv_buf=%e\n", plaq, rcv_buf[0]);
+            failed_flag = 1.0;
+            ERR.General (cname, fname, "GsoCheck: PLAQUETTE TEST FAILED");
+            if (failed_slice == 0) {
+              failed_slice = s;
+              failed_value = rcv_buf[0];
+            }
+          }
+          snd_buf[0] = rcv_buf[0];
+        }
+        glb_sum_five (&failed_flag);
+        if (failed_flag > 0.1) {
+          ERR.General (cname, fname,
+                       "Node (%d,%d,%d,%d,%d): plaquette test failed:\n\tlocal plaq = %e, but at -%d slices plaq = %e\n",
+                       GJP.XnodeCoor (),
+                       GJP.YnodeCoor (),
+                       GJP.ZnodeCoor (),
+                       GJP.TnodeCoor (),
+                       GJP.SnodeCoor (), plaq, failed_slice, failed_value);
+        }
+        // Calculate gauge field checksum
+        //--------------------------------------------------------------
+        Float *u = (Float *) gauge_field;
+        int size = GsiteSize () * GJP.VolNodeSites ();
+        IFloat checksum = 0.0;
+        for (int ic = 0; ic < size; ic++) {
+          checksum = checksum + u[ic];
+        }
 
-    // Compare checksum along fifth direction and set failed_flag
-    //--------------------------------------------------------------
-    failed_flag = 0.0;
-    failed_slice = 0;
-    snd_buf[0] = checksum;
-    for (s = 1; s < s_nodes; s++) {
-      getMinusData (rcv_buf, snd_buf, 2, 4);
-      if (rcv_buf[0] != checksum) {
-	failed_flag = 1.0;
+        // Compare checksum along fifth direction and set failed_flag
+        //--------------------------------------------------------------
+        failed_flag = 0.0;
+        failed_slice = 0;
+        snd_buf[0] = checksum;
+        for (s = 1; s < s_nodes; s++) {
+          getMinusData (rcv_buf, snd_buf, 2, 4);
+          if (rcv_buf[0] != checksum) {
+            failed_flag = 1.0;
 #ifdef _TARTAN
-	InterruptExit (-1, "GsoCheck: CHECKSUM TEST FAILED");
+            InterruptExit (-1, "GsoCheck: CHECKSUM TEST FAILED");
 #endif
-	if (failed_slice == 0) {
-	  failed_slice = s;
-	  failed_value = rcv_buf[0];
-	}
+            if (failed_slice == 0) {
+              failed_slice = s;
+              failed_value = rcv_buf[0];
+            }
+          }
+          snd_buf[0] = rcv_buf[0];
+        }
+        glb_sum_five (&failed_flag);
+        if (failed_flag > 0.1) {
+          ERR.General (cname, fname,
+                       "Node (%d,%d,%d,%d,%d): checksum test failed:\n\tlocal checksum = %e, but at -%d slices checksum = %e\n",
+                       GJP.XnodeCoor (),
+                       GJP.YnodeCoor (),
+                       GJP.ZnodeCoor (),
+                       GJP.TnodeCoor (),
+                       GJP.SnodeCoor (), checksum, failed_slice, failed_value);
+        }
+
       }
-      snd_buf[0] = rcv_buf[0];
+
+      VRB.Flow (cname, fname, "Plaquette, checksum test successful\n");
+
     }
-    glb_sum_five (&failed_flag);
-    if (failed_flag > 0.1) {
-      ERR.General (cname, fname,
-		   "Node (%d,%d,%d,%d,%d): checksum test failed:\n\tlocal checksum = %e, but at -%d slices checksum = %e\n",
-		   GJP.XnodeCoor (),
-		   GJP.YnodeCoor (),
-		   GJP.ZnodeCoor (),
-		   GJP.TnodeCoor (),
-		   GJP.SnodeCoor (), checksum, failed_slice, failed_value);
-    }
-
-  }
-
-  VRB.Flow (cname, fname, "Plaquette, checksum test successful\n");
-
-}
 
 
 
@@ -4785,242 +5032,260 @@ void Lattice::GsoCheck (void)
   and local in the 5th direction. 
   Obviously this is always the case when the entire 5th direction is local.
   If any of the node slices fail to match the program exits with an error.
-        \param num The number to check.
+                                      \param num The number to check.
 *///------------------------------------------------------------------
-void Lattice::SoCheck (Float num)
-{
-  const char *fname = "SoCheck()";
-  VRB.Func (cname, fname);
-  int s;
-  IFloat rcv_buf;
-  IFloat snd_buf;
-  IFloat failed_value;
-  Float failed_flag;
-  int failed_slice;
-  int s_nodes = GJP.Snodes ();
-  IFloat number = num;
+    void Lattice::SoCheck (Float num)
+    {
+      const char *fname = "SoCheck()";
+      VRB.Func (cname, fname);
+      int s;
+      IFloat rcv_buf;
+      IFloat snd_buf;
+      IFloat failed_value;
+      Float failed_flag;
+      int failed_slice;
+      int s_nodes = GJP.Snodes ();
+      IFloat number = num;
 
-  // If GJP.Snodes() != 1 do the check
-  //----------------------------------------------------------------
-  if (s_nodes != 1) {
+      // If GJP.Snodes() != 1 do the check
+      //----------------------------------------------------------------
+      if (s_nodes != 1) {
 
-    // Compare numbers along fifth direction and set failed_flag
-    //--------------------------------------------------------------
-    failed_flag = 0.0;
-    failed_slice = 0;
-    snd_buf = number;
-    for (s = 1; s < s_nodes; s++) {
-      getMinusData (&rcv_buf, &snd_buf, 1, 4);
-      if (rcv_buf != number) {
-	failed_flag = 1.0;
+        // Compare numbers along fifth direction and set failed_flag
+        //--------------------------------------------------------------
+        failed_flag = 0.0;
+        failed_slice = 0;
+        snd_buf = number;
+        for (s = 1; s < s_nodes; s++) {
+          getMinusData (&rcv_buf, &snd_buf, 1, 4);
+          if (rcv_buf != number) {
+            failed_flag = 1.0;
 #ifdef _TARTAN
-	InterruptExit (-1, "GsoCheck: CHECKSUM TEST FAILED");
+            InterruptExit (-1, "GsoCheck: CHECKSUM TEST FAILED");
 #endif
-	if (failed_slice == 0) {
-	  failed_slice = s;
-	  failed_value = rcv_buf;
-	}
+            if (failed_slice == 0) {
+              failed_slice = s;
+              failed_value = rcv_buf;
+            }
+          }
+          snd_buf = rcv_buf;
+        }
+        glb_sum_five (&failed_flag);
+        if (failed_flag > 0.1) {
+          ERR.General (cname, fname,
+                       "Node (%d,%d,%d,%d,%d): SoCheck test failed:\n\tlocal number = %e, but at -%d slices number = %e\n",
+                       GJP.XnodeCoor (),
+                       GJP.YnodeCoor (),
+                       GJP.ZnodeCoor (),
+                       GJP.TnodeCoor (),
+                       GJP.SnodeCoor (), number, failed_slice, failed_value);
+        }
+
       }
-      snd_buf = rcv_buf;
-    }
-    glb_sum_five (&failed_flag);
-    if (failed_flag > 0.1) {
-      ERR.General (cname, fname,
-		   "Node (%d,%d,%d,%d,%d): SoCheck test failed:\n\tlocal number = %e, but at -%d slices number = %e\n",
-		   GJP.XnodeCoor (),
-		   GJP.YnodeCoor (),
-		   GJP.ZnodeCoor (),
-		   GJP.TnodeCoor (),
-		   GJP.SnodeCoor (), number, failed_slice, failed_value);
+
+      VRB.Flow (cname, fname, "SoCheck test successful\n");
+
     }
 
-  }
-
-  VRB.Flow (cname, fname, "SoCheck test successful\n");
-
-}
-
-void Lattice::Shift ()
-{
-  GDS.Shift (gauge_field, GJP.VolNodeSites () * 4 * sizeof (Matrix));
-}
+    void Lattice::Shift ()
+    {
+      GDS.Shift (gauge_field, GJP.VolNodeSites () * 4 * sizeof (Matrix));
+    }
 
 #if 0
-void
-  Lattice::ForceMagnitude (Matrix * mom, Matrix * mom_old,
-			   Float mass, Float dt, char *type)
-{
+    void
+      Lattice::ForceMagnitude (Matrix * mom, Matrix * mom_old,
+                               Float mass, Float dt, char *type)
+    {
 
-  const char *fname = "ForceMagnitude(Matrix*, Matrix*, Float, Float, char*)";
-  FILE *fp;
+      const char *fname =
+        "ForceMagnitude(Matrix*, Matrix*, Float, Float, char*)";
+      FILE *fp;
 
 
-  int g_size = GJP.VolNodeSites () * GsiteSize ();
+      int g_size = GJP.VolNodeSites () * GsiteSize ();
 
-  vecMinusEquVec ((IFloat *) mom_old, (const IFloat *) mom, g_size);
-  Float force;
-  if (Fclass () == F_CLASS_DWF)
-    force = sqrt (((Vector *) mom_old)->NormSqGlbSum (g_size));
-  else
-    force = sqrt (((Vector *) mom_old)->NormSqGlbSum4D (g_size));
+      vecMinusEquVec ((IFloat *) mom_old, (const IFloat *) mom, g_size);
+      Float force;
+      if (Fclass () == F_CLASS_DWF)
+        force = sqrt (((Vector *) mom_old)->NormSqGlbSum (g_size));
+      else
+        force = sqrt (((Vector *) mom_old)->NormSqGlbSum4D (g_size));
 
-  // Print out monitor info
-  //---------------------------------------------------------------
-  if ((fp = Fopen ("force.dat", "a")) == NULL) {
-    ERR.FileA (cname, fname, "force.dat");
-  }
-  Fprintf (fp, "%s = %e mass = %f dt = %f\n", type, IFloat (force),
-	   (IFloat) mass, (IFloat) dt);
-  Fclose (fp);
+      // Print out monitor info
+      //---------------------------------------------------------------
+      if ((fp = Fopen ("force.dat", "a")) == NULL) {
+        ERR.FileA (cname, fname, "force.dat");
+      }
+      Fprintf (fp, "%s = %e mass = %f dt = %f\n", type, IFloat (force),
+               (IFloat) mass, (IFloat) dt);
+      Fclose (fp);
 
-}
+    }
 #endif
 
-int Lattice::F5D(){
-      if ( Fclass() ==F_CLASS_DWF || Fclass()==F_CLASS_MOBIUS
-           || Fclass()==F_CLASS_ZMOBIUS || Fclass() ==F_CLASS_MDWF ) 
-	return 1;
+    int Lattice::F5D ()
+    {
+      if (Fclass () == F_CLASS_DWF || Fclass () == F_CLASS_MOBIUS
+          || Fclass () == F_CLASS_ZMOBIUS || Fclass () == F_CLASS_MDWF)
+        return 1;
 //added by CK, moved here  by CJ
 #ifdef USE_BFM
-     if (Fclass() == F_CLASS_BFM) {
-	if ( !Fbfm::arg_map.count(Fbfm::current_key_mass) ) 
-         ERR.General(cname,"F5D()","key_mass(%g) needs to be set before calling F5D()\n");
-	if (Fbfm::arg_map.at(Fbfm::current_key_mass).solver != WilsonTM) return 1;
-     }
+      if (Fclass () == F_CLASS_BFM) {
+        if (!Fbfm::arg_map.count (Fbfm::current_key_mass))
+          ERR.General (cname, "F5D()",
+                       "key_mass(%g) needs to be set before calling F5D()\n");
+        if (Fbfm::arg_map.at (Fbfm::current_key_mass).solver != WilsonTM)
+          return 1;
+      }
 #endif
 
 #ifdef USE_GRID
-      if( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
-      || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
+      if (Fclass () == F_CLASS_GRID_GPARITY_MOBIUS
+          || Fclass () == F_CLASS_GRID_MOBIUS
+          || Fclass () == F_CLASS_GRID_ZMOBIUS)
+        return 1;
 #endif
       return 0;
-}
+    }
 
-int
-  Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
-			int Nshift, int isz, CgArg * cg_arg,
-			CnvFrmType cnv_frm, MultiShiftSolveType type,
-			Float * alpha, Vector ** f_out_d)
-{
-  CgArg **cg_arg_p = new CgArg *[Nshift];
-  for (int i = 0; i < Nshift; i++)
-    cg_arg_p[i] = cg_arg;
+    int
+      Lattice::FmatEvlMInv (Vector ** f_out, Vector * f_in, Float * shift,
+                            int Nshift, int isz, CgArg * cg_arg,
+                            CnvFrmType cnv_frm, MultiShiftSolveType type,
+                            Float * alpha, Vector ** f_out_d)
+    {
+      CgArg **cg_arg_p = new CgArg *[Nshift];
+      for (int i = 0; i < Nshift; i++)
+        cg_arg_p[i] = cg_arg;
 
-  int iter = FmatEvlMInv (f_out, f_in, shift, Nshift, isz, cg_arg_p, cnv_frm,
-			  type, alpha, f_out_d);
-  delete[]cg_arg_p;
-  return iter;
-}
+      int iter =
+        FmatEvlMInv (f_out, f_in, shift, Nshift, isz, cg_arg_p, cnv_frm,
+                     type, alpha, f_out_d);
+      delete[]cg_arg_p;
+      return iter;
+    }
 
 //by Qi Liu
-int
-  Lattice::eig_FmatInv (Vector ** V, const int vec_len, Float * M,
-			const int nev, const int m, float **U, Rcomplex * invH,
-			const int def_len, const Float * restart,
-			const int restart_len, Vector * f_out, Vector * f_in,
-			CgArg * cg_arg, Float * true_res, CnvFrmType cnv_frm,
-			PreserveType prs_f_in)
-{
-  char *cname = "Lattice";
-  const char *fname = "FmatInvProj()";
-  ERR.General (cname, fname,
-	       "Only have code for dwf class not others so this is not a pure virtual function\n");
-}
+    int
+      Lattice::eig_FmatInv (Vector ** V, const int vec_len, Float * M,
+                            const int nev, const int m, float **U,
+                            Rcomplex * invH, const int def_len,
+                            const Float * restart, const int restart_len,
+                            Vector * f_out, Vector * f_in, CgArg * cg_arg,
+                            Float * true_res, CnvFrmType cnv_frm,
+                            PreserveType prs_f_in)
+    {
+      char *cname = "Lattice";
+      const char *fname = "FmatInvProj()";
+      ERR.General (cname, fname,
+                   "Only have code for dwf class not others so this is not a pure virtual function\n");
+    }
 
-unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
-{
-  const char *fname = "GsiteOffset(*i,i)";
-  int parity = (x[0] + x[1] + x[2] + x[3]) % 2;
-  int vol = GJP.VolNodeSites ();
-  unsigned long index;
-  int cboff = vol;
-  if(GJP.Gparity()) cboff*=2;
+    unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
+    {
+      const char *fname = "GsiteOffset(*i,i)";
+      int parity = (x[0] + x[1] + x[2] + x[3]) % 2;
+      int vol = GJP.VolNodeSites ();
+      unsigned long index;
+      int cboff = vol;
+      if (GJP.Gparity ())
+        cboff *= 2;
 
-  switch(StrOrd()){
-  case WILSON:
+      switch (StrOrd ()) {
+      case WILSON:
 // XYZT ordering, checkerboarded, even first
-    index = x[3];
-    for(int i=2;i>=0;i--) index = x[i]+GJP.NodeSites(i)*index;
-    index = (index+cboff*parity)/2;  
+        index = x[3];
+        for (int i = 2; i >= 0; i--)
+          index = x[i] + GJP.NodeSites (i) * index;
+        index = (index + cboff * parity) / 2;
 // dir also XYZT
-    index = index * 4 + dir;
-    break;
-  case CANONICAL:
-    //Added by CK.
-    index = 4*(x[0]+GJP.XnodeSites()*(x[1]+GJP.YnodeSites()*(x[2]+GJP.ZnodeSites()*x[3])))+dir;
-    break;
-  default:
-    ERR.NotImplemented (cname, fname);
-  }
-  return index;
-}
+        index = index * 4 + dir;
+        break;
+        case CANONICAL:
+          //Added by CK.
+          index =
+          4 * (x[0] +
+               GJP.XnodeSites () * (x[1] +
+                                    GJP.YnodeSites () * (x[2] +
+                                                         GJP.ZnodeSites ()
+                                                         * x[3]))) + dir;
+        break;
+        default:ERR.NotImplemented (cname, fname);
+      }
+      return index;
+    }
 
-static const int sigma_offset_lookup[4][4] = { {-1, 0, 1, 2},
-{-1, -1, 3, 4},
-{-1, -1, -1, 5},
-{-1, -1, -1, -1}
-};
+    static const int sigma_offset_lookup[4][4] = { {-1, 0, 1, 2},
+    {-1, -1, 3, 4},
+    {-1, -1, -1, 5},
+    {-1, -1, -1, -1}
+    };
 
 // There is one sigma variable for each plaquette. This function gives the
 // index into the sigma_field array that corresponds to a given plaquette
-int Lattice::SigmaOffset (const int x[4], int mu, int nu) const
-{
-  assert (mu != nu);
-  assert (mu >= 0);
-  assert (nu >= 0);
-  assert (mu < 4);
-  assert (nu < 4);
+    int Lattice::SigmaOffset (const int x[4], int mu, int nu) const
+    {
+      assert (mu != nu);
+      assert (mu >= 0);
+      assert (nu >= 0);
+      assert (mu < 4);
+      assert (nu < 4);
 
-  if (mu > nu) {
-    int tmp = mu;
-    mu = nu;
-    nu = tmp;
-  }
-  assert (nu > mu);
-  //now nu > mu
+      if (mu > nu)
+      {
+        int tmp = mu;
+        mu = nu;
+        nu = tmp;
+      }
+      assert (nu > mu);
+      //now nu > mu
 
-  int plaq_offset = sigma_offset_lookup[mu][nu];
-  assert (plaq_offset != -1);
+      int plaq_offset = sigma_offset_lookup[mu][nu];
+      assert (plaq_offset != -1);
 
 //  int site_offset = 6 * (x[0] + node_sites[1]*(x[1] + node_sites[2]*(x[2] + node_sites[3]*x[3])));
-  int site_offset = 6 * (GsiteOffset (x) / 4);
-  if ((site_offset < 0) || (site_offset >= 6 * GJP.VolNodeSites ()))
-    ERR.General (cname, "SigmaOffset()",
-		 "Sigma(%d %d %d %d)(%d %d) =%d!\n", x[0], x[1], x[2],
-		 x[3], mu, nu, site_offset);
-  assert (site_offset >= 0);
-  assert (site_offset < 6 * GJP.VolNodeSites ());
+      int site_offset = 6 * (GsiteOffset (x) / 4);
+      if ((site_offset < 0) || (site_offset >= 6 * GJP.VolNodeSites ()))
+        ERR.General (cname, "SigmaOffset()",
+                     "Sigma(%d %d %d %d)(%d %d) =%d!\n", x[0], x[1], x[2],
+                     x[3], mu, nu, site_offset);
+      assert (site_offset >= 0);
+      assert (site_offset < 6 * GJP.VolNodeSites ());
 #if 0
-  if(x[0]<4)
-  if(x[1]<1)
-  if(x[2]<1)
-  if(x[3]<1)
-  VRB.Result(cname,"SigmaOffset()","Sigma[%d][%d][%d]=%d\n",mu,nu,x[0],site_offset + plaq_offset);
+      if (x[0] < 4)
+        if (x[1] < 1)
+          if (x[2] < 1)
+            if (x[3] < 1)
+              VRB.Result (cname, "SigmaOffset()", "Sigma[%d][%d][%d]=%d\n",
+                          mu, nu, x[0], site_offset + plaq_offset);
 #endif
 
-  return site_offset + plaq_offset;
-}
+      return site_offset + plaq_offset;
+    }
 
-int Lattice::SigmaOffset (const int index, int mu, int nu) const
-{
-  assert (mu != nu);
-  assert (mu >= 0);
-  assert (nu >= 0);
-  assert (mu < 4);
-  assert (nu < 4);
-  if (mu > nu) {
-    int tmp = mu;
-    mu = nu;
-    nu = tmp;
-  }
-  assert (nu > mu);
+    int Lattice::SigmaOffset (const int index, int mu, int nu) const
+    {
+      assert (mu != nu);
+      assert (mu >= 0);
+      assert (nu >= 0);
+      assert (mu < 4);
+      assert (nu < 4);
+      if (mu > nu)
+      {
+        int tmp = mu;
+        mu = nu;
+        nu = tmp;
+      }
+      assert (nu > mu);
 #if 0
-  if(index<4)
-  VRB.Result(cname,"SigmaOffset()","Sigma[%d][%d][%d]=%d\n",mu,nu,index,index * 6 + sigma_offset_lookup[mu][nu]);
+      if (index < 4)
+        VRB.Result (cname, "SigmaOffset()", "Sigma[%d][%d][%d]=%d\n", mu,
+                    nu, index, index * 6 + sigma_offset_lookup[mu][nu]);
 #endif
 
-  return index * 6 + sigma_offset_lookup[mu][nu];
-}
+      return index * 6 + sigma_offset_lookup[mu][nu];
+    }
 
 
 
@@ -5028,113 +5293,119 @@ int Lattice::SigmaOffset (const int index, int mu, int nu) const
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
   Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
 */
-void Lattice::CloverLeaf(Matrix& pl,  int* pos, int mu, int nu)
-{
-   Matrix P0,P1,P2,P3;
+    void Lattice::CloverLeaf (Matrix & pl, int *pos, int mu, int nu)
+    {
+      Matrix P0, P1, P2, P3;
 
-   P0.ZeroMatrix();
-   P1.ZeroMatrix();
-   P2.ZeroMatrix();
-   P3.ZeroMatrix();
+      P0.ZeroMatrix ();
+      P1.ZeroMatrix ();
+      P2.ZeroMatrix ();
+      P3.ZeroMatrix ();
 
-   // each direction could be {0,1,2,3,4,5,6,7} coresponding to
-   // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+      // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+      // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
 
-   int dirs0[4]={mu, nu, mu+4, nu+4};
-   PathOrdProdPlus(P0, pos, dirs0, 4);
+      int dirs0[4] = { mu, nu, mu + 4, nu + 4 };
+      PathOrdProdPlus (P0, pos, dirs0, 4);
 
-   int dirs1[4]={nu+4, mu+4, nu, mu};
-   PathOrdProdPlus(P1, pos, dirs1, 4);
+      int dirs1[4] = { nu + 4, mu + 4, nu, mu };
+      PathOrdProdPlus (P1, pos, dirs1, 4);
 
-   int dirs2[4]={nu, mu+4, nu+4, mu};
-   PathOrdProdPlus(P2, pos, dirs2, 4);
+      int dirs2[4] = { nu, mu + 4, nu + 4, mu };
+      PathOrdProdPlus (P2, pos, dirs2, 4);
 
-   int dirs3[4]={mu, nu+4, mu+4, nu};
-   PathOrdProdPlus(P3, pos, dirs3, 4);
+      int dirs3[4] = { mu, nu + 4, mu + 4, nu };
+      PathOrdProdPlus (P3, pos, dirs3, 4);
 
 
-   
-   P0 -=  P1;
-   P0 +=  P2;
-   P0 -=  P3;
-   P0 *= 0.25;
-   
-   moveMem((Float*) &pl,(Float*) &P0, 18 * sizeof(Float) );
 
-}
+      P0 -= P1;
+      P0 += P2;
+      P0 -= P3;
+      P0 *= 0.25;
+
+      moveMem ((Float *) & pl, (Float *) & P0, 18 * sizeof (Float));
+
+    }
 
 #if 0
 // compute the clover leaf version of field strength Gmunu. User must take anti-hermitian traceless part.
-void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu) 
-{
-  const Matrix *p1;
+    void Lattice::CloverLeaf (Matrix & plaq, int *link_site, int mu, int nu)
+    {
+      const Matrix *p1;
 
 
-  int x[4];
-  for (int i=0; i<4; ++i) x[i] = link_site[i] ;
- 
-  // Set the Lattice pointer
-  //------------------------
-  //Lattice& lat = AlgLattice();
+      int x[4];
+      for (int i = 0; i < 4; ++i)
+        x[i] = link_site[i];
 
-  //----------------------------------------
-  //  "g_offset" points to the links
-  //  at site "x"
-  //----------------------------------------
-  Matrix *g_offset = GaugeField()+GsiteOffset(x);
- 
-  //----------------------------------------
-  //    mp3 = U_u(x) U_v(x+u)
-  //    p1 = &U_v(x+u) --> mp2
-  //----------------------------------------
-  p1 = GetLinkOld(g_offset, x, mu, nu);
-  moveMem((IFloat *)mp2, (const IFloat *)p1, MATRIX_SIZE * sizeof(IFloat));
-  mDotMEqual((IFloat *)mp3, (const IFloat *)(g_offset+mu), (const IFloat *)mp2);
-  
-  //----------------------------------------
-  //    mp1 = (U_v(x) U_u(x+v))~
-  //    p1 = &U_u(x+v) --> mp1
-  //    mp2 = U_v(x) U_u(x+v)
-  //    mp1 = mp2~
-  //----------------------------------------
-  p1 = GetLinkOld(g_offset, x, nu, mu);
-  moveMem((IFloat *)mp1, (const IFloat *)p1, MATRIX_SIZE * sizeof(IFloat));
-  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+nu),
-             (const IFloat *)mp1);
-  mp1->Dagger((IFloat *)mp2);
- 
-  mDotMEqual((IFloat *)(&plaq), (const IFloat *)mp3, (const IFloat *)mp1);
+      // Set the Lattice pointer
+      //------------------------
+      //Lattice& lat = AlgLattice();
 
-  // now add H.c. of plaq at x-nu (code from RectStaple in lattice_base.C)
+      //----------------------------------------
+      //  "g_offset" points to the links
+      //  at site "x"
+      //----------------------------------------
+      Matrix *g_offset = GaugeField () + GsiteOffset (x);
 
-  //----------------------------------------------------------
-  // mp1 = U_v(x+mu-nu)~
-  // mp2 = U_mu(x) U_v(x+mu-nup)~
-  //----------------------------------------------------------
-  x[mu]++;
-  x[nu]--; // this is right! GetLink checks for negative x_i
-  mp1->Dagger((IFloat *)GetLink(x, nu)) ;
-  mDotMEqual((IFloat *)mp2, (const IFloat *)(g_offset+mu), (const IFloat *)mp1);
+      //----------------------------------------
+      //    mp3 = U_u(x) U_v(x+u)
+      //    p1 = &U_v(x+u) --> mp2
+      //----------------------------------------
+      p1 = GetLinkOld (g_offset, x, mu, nu);
+      moveMem ((IFloat *) mp2, (const IFloat *) p1,
+               MATRIX_SIZE * sizeof (IFloat));
+      mDotMEqual ((IFloat *) mp3, (const IFloat *) (g_offset + mu),
+                  (const IFloat *) mp2);
 
-  //----------------------------------------------------------
-  // mp4 = U_mu(x-nu)~
-  // mp3 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~
-  //----------------------------------------------------------
-  x[mu]--;
-  mp1->Dagger((IFloat *)GetLink(x, mu)) ;
-  mDotMEqual((IFloat *)mp3, (const IFloat *)mp2, (const IFloat *)mp1);
+      //----------------------------------------
+      //    mp1 = (U_v(x) U_u(x+v))~
+      //    p1 = &U_u(x+v) --> mp1
+      //    mp2 = U_v(x) U_u(x+v)
+      //    mp1 = mp2~
+      //----------------------------------------
+      p1 = GetLinkOld (g_offset, x, nu, mu);
+      moveMem ((IFloat *) mp1, (const IFloat *) p1,
+               MATRIX_SIZE * sizeof (IFloat));
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + nu),
+                  (const IFloat *) mp1);
+      mp1->Dagger ((IFloat *) mp2);
 
-  //----------------------------------------------------------
-  // p1 = U_nu(x-nu)
-  // mp2 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~U_nu(x-nu)
-  //----------------------------------------------------------
-  p1=GetLink(x, nu) ;
-  mDotMEqual((IFloat *)mp2, (const IFloat *)mp3, (const IFloat *)p1);
+      mDotMEqual ((IFloat *) (&plaq), (const IFloat *) mp3,
+                  (const IFloat *) mp1);
 
-  plaq += *mp2;
-  plaq *= -1.0;
+      // now add H.c. of plaq at x-nu (code from RectStaple in lattice_base.C)
 
-}
+      //----------------------------------------------------------
+      // mp1 = U_v(x+mu-nu)~
+      // mp2 = U_mu(x) U_v(x+mu-nup)~
+      //----------------------------------------------------------
+      x[mu]++;
+      x[nu]--;                  // this is right! GetLink checks for negative x_i
+      mp1->Dagger ((IFloat *) GetLink (x, nu));
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) (g_offset + mu),
+                  (const IFloat *) mp1);
+
+      //----------------------------------------------------------
+      // mp4 = U_mu(x-nu)~
+      // mp3 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~
+      //----------------------------------------------------------
+      x[mu]--;
+      mp1->Dagger ((IFloat *) GetLink (x, mu));
+      mDotMEqual ((IFloat *) mp3, (const IFloat *) mp2, (const IFloat *) mp1);
+
+      //----------------------------------------------------------
+      // p1 = U_nu(x-nu)
+      // mp2 = U_mu(x) U_v(x+mu-nup)~ U_mu(x-nu)~U_nu(x-nu)
+      //----------------------------------------------------------
+      p1 = GetLink (x, nu);
+      mDotMEqual ((IFloat *) mp2, (const IFloat *) mp3, (const IFloat *) p1);
+
+      plaq += *mp2;
+      plaq *= -1.0;
+
+    }
 #endif
 
 
@@ -5144,52 +5415,134 @@ void Lattice::CloverLeaf(Matrix &plaq, int *link_site, int mu, int nu)
 //
 // The gauge field must be in CANONICAL order.
 // ----------------------------------------------------------------
-void Lattice::BondCond(){
-  static int calls = 0; //CK: if calls %2 == 1 this operation reverses the BC. For PRD or APRD this makes no difference, but for Twisted BCs we need to reverse the twist angle
-  VRB.Result(cname,"BondCond()","calls=%d\n",calls);
+    void Lattice::BondCond ()
+    {
+      static int calls = 0;     //CK: if calls %2 == 1 this operation reverses the BC. For PRD or APRD this makes no difference, but for Twisted BCs we need to reverse the twist angle
+      VRB.Result (cname, "BondCond()", "calls=%d\n", calls);
 
-  Matrix *u_base = this->GaugeField();
-  Complex twist_phase;
-  const int uconj_offset = 4*GJP.VolNodeSites();
+      Matrix *u_base = this->GaugeField ();
+      Complex twist_phase;
+      const int uconj_offset = 4 * GJP.VolNodeSites ();
 
-  for(int mu = 0; mu < 4; ++mu) {
-    if(GJP.NodeBc(mu) == BND_CND_PRD) continue;
+      for (int mu = 0; mu < 4; ++mu) {
+        if (GJP.NodeBc (mu) == BND_CND_PRD)
+          continue;
 
-    if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED){
-      twist_phase = GJP.TwistPhase(mu);
-      if(calls %2 == 1) twist_phase = conj(twist_phase);
-    }
+        if (GJP.Bc (mu) == BND_CND_TWISTED
+            || GJP.Bc (mu) == BND_CND_GPARITY_TWISTED) {
+          twist_phase = GJP.TwistPhase (mu);
+          if (calls % 2 == 1)
+            twist_phase = conj (twist_phase);
+        }
 
-    int low[4] = { 0, 0, 0, 0 };
-    int high[4] = { GJP.XnodeSites(), GJP.YnodeSites(),
-		    GJP.ZnodeSites(), GJP.TnodeSites() };
-    low[mu] = high[mu] - 1;
+        int low[4] = { 0, 0, 0, 0 };
+        int high[4] = { GJP.XnodeSites (), GJP.YnodeSites (),
+          GJP.ZnodeSites (), GJP.TnodeSites ()
+        };
+        low[mu] = high[mu] - 1;
 
-    int hl[4] = { high[0] - low[0], high[1] - low[1],
-		  high[2] - low[2], high[3] - low[3] };
+        int hl[4] = { high[0] - low[0], high[1] - low[1],
+          high[2] - low[2], high[3] - low[3]
+        };
 
-    const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
+        const int hl_sites = hl[0] * hl[1] * hl[2] * hl[3];
 
 #pragma omp parallel for
-    for(int i = 0; i < hl_sites; ++i) {
-      int x[4];
-      compute_coord(x, hl, low, i);
+        for (int i = 0; i < hl_sites; ++i) {
+          int x[4];
+          compute_coord (x, hl, low, i);
 
-      int off = mu + 4 * (x[0] + high[0] *
-			  (x[1] + high[1] *
-			   (x[2] + high[2] * x[3])));
-      if(GJP.Bc(mu) == BND_CND_APRD)        u_base[off] *= -1;
-      else if(GJP.Bc(mu) == BND_CND_TWISTED) u_base[off] *= twist_phase;
+          int off = mu + 4 * (x[0] + high[0] *
+                              (x[1] + high[1] * (x[2] + high[2] * x[3])));
+          if (GJP.Bc (mu) == BND_CND_APRD)
+            u_base[off] *= -1;
+          else if (GJP.Bc (mu) == BND_CND_TWISTED)
+            u_base[off] *= twist_phase;
 
-      if(GJP.Gparity()){ //do BC on second quark flavour
-	//for example, APBC in time direction
-	off += uconj_offset;
-	if(GJP.Bc(mu) == BND_CND_APRD || GJP.Bc(mu) == BND_CND_GPARITY)                  u_base[off] *= -1;
-	else if(GJP.Bc(mu) == BND_CND_TWISTED || GJP.Bc(mu) == BND_CND_GPARITY_TWISTED)  u_base[off] *= twist_phase;	  
-      }	    
+          if (GJP.Gparity ()) { //do BC on second quark flavour
+            //for example, APBC in time direction
+            off += uconj_offset;
+            if (GJP.Bc (mu) == BND_CND_APRD || GJP.Bc (mu) == BND_CND_GPARITY)
+              u_base[off] *= -1;
+            else if (GJP.Bc (mu) == BND_CND_TWISTED
+                     || GJP.Bc (mu) == BND_CND_GPARITY_TWISTED)
+              u_base[off] *= twist_phase;
+          }
+        }
+      }
+      ++calls;
     }
-  }
-  ++calls;
-}
+#if 1
+    void Lattice::Dump (const char *name, Vector * vec, EvenOdd eo)
+    {
+      const char *fname = "Dump()";
+      int s[5];
+      int n_gp = 1;
+      if (GJP.Gparity ())
+        n_gp = 2;
+      int s_size = GJP.SnodeSites ();
+      if (!this->F5D ())
+        s_size = 1;
+      int fsize = this->FsiteSize ();
+      fsize /= s_size;
+      VRB.Result ("", fname, "s_size=%d fsize=%d n_gp=%d\n", s_size, fsize,
+                  n_gp);
+      FILE *fp = Fopen (ADD_ID, name, "w");
 
-CPS_END_NAMESPACE
+
+      for (s[4] = 0; s[4] < s_size; s[4]++)
+        for (int gp = 0; gp < n_gp; gp++)
+          for (s[3] = 0; s[3] < GJP.NodeSites (3); s[3]++)
+            for (s[2] = 0; s[2] < GJP.NodeSites (2); s[2]++)
+              for (s[1] = 0; s[1] < GJP.NodeSites (1); s[1]++)
+                for (s[0] = 0; s[0] < GJP.NodeSites (0); s[0]++) {
+//                if ((s[0] + s[1] + s[2] + s[3]) % 2 == 1) {   //Odd
+
+                  uint64_t n = this->GsiteOffset (s);
+                  int parity = (s[0] + s[1] + s[2] + s[3]) % 2;
+                  uint64_t n_half =
+                    (this->FsiteOffset (s) / 2) + (gp +
+                                                   n_gp * s[4]) *
+                    (GJP.VolNodeSites () / 2);
+                  n = (this->FsiteOffset (s) +
+                     (gp + n_gp * s[4]) * GJP.VolNodeSites ());
+                  n *= (fsize / 6);
+
+                  IFloat *Phi_f = (IFloat *)vec;
+                  if (parity && (eo == Odd))
+                    Phi_f += n_half*fsize;
+                  else if (!parity && (eo == Even))
+                    Phi_f += n_half*fsize;
+                  else
+                    continue;
+
+                  IFloat *res_p = (IFloat*)Phi_f;
+                  for (int i = 0; i < (fsize / 2); i++) {
+                    double re_re = *(res_p + i * 2);
+                    double re_im = *(res_p + i * 2 + 1);
+//                    if ((re_re * re_re + re_im * re_im + in_re * in_re + in_im * in_im) > 1e-8)
+                    if ((re_re * re_re + re_im * re_im) > 1e-8) {
+                      VRB.Debug ("", fname, "%d %d %d %d %d res_p=%p\n",
+                                 CoorX () * GJP.NodeSites (0) + s[0],
+                                 CoorY () * GJP.NodeSites (1) + s[1],
+                                 CoorZ () * GJP.NodeSites (2) + s[2],
+                                 CoorT () * GJP.NodeSites (3) + s[3],
+                                 CoorS () * GJP.NodeSites (4) + s[4], res_p);
+                      Fprintf (ADD_ID, fp, " %d %d %d %d %d %d (%d) ",
+                               CoorX () * GJP.NodeSites (0) + s[0],
+                               CoorY () * GJP.NodeSites (1) + s[1],
+                               CoorZ () * GJP.NodeSites (2) + s[2],
+                               CoorT () * GJP.NodeSites (3) + s[3],
+                               CoorS () * GJP.NodeSites (4) + s[4], gp, i);
+                      Fprintf (ADD_ID, fp, " ( %0.7e %0.7e )",  // (%0.7e %0.7e)",
+                               *(res_p + i * 2), *(res_p + i * 2 + 1));
+                      Fprintf (ADD_ID, fp, "\n");
+                    }           //DO_IO
+                  }
+                }
+//      VRB.Result ("", fname, "Max diff between X_in and M*X_out = %0.2e\n", maxdiff);
+        Fclose(fp);
+    }
+#endif
+
+    CPS_END_NAMESPACE
