@@ -999,9 +999,13 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
 // f_out stores (chi,rho), f_in stores (psi,sigma)
 //------------------------------------------------------------------
 
-//  Vector *phi=phi1, *eta=phi2;
-
   size_t f_size_cb = 12 * GJP.VolNodeSites () * GJP.SnodeSites ();
+//  Vector *phi=phi1, *eta=phi2;
+  Vector *tmp1 = (Vector *) smalloc(cname,fname,"tmp1",f_size_cb*sizeof(Float));
+  Vector *tmp2 = (Vector *) smalloc(cname,fname,"tmp2",f_size_cb*sizeof(Float));
+  Vector *tmp3 = (Vector *) smalloc(cname,fname,"tmp3",f_size_cb*sizeof(Float));
+  Vector *tmp4 = (Vector *) smalloc(cname,fname,"tmp4",f_size_cb*sizeof(Float));
+
   Vector *v1_o = (Vector *) ((Float *) v1 + f_size_cb);
   Vector *v1_e = (Vector *) ((Float *) v1 + 0);
   Vector *v2_o = (Vector *) ((Float *) v2 + f_size_cb);
@@ -1010,7 +1014,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   v1_o->CopyVec (phi1, f_size_cb);
 
   Float kb = mobius_arg->mobius_kappa_b;
-  v2_o->VecTimesEquFloat(-kb*kb,f_size_cb);
+//  v2_o->VecTimesEquFloat(-kb*kb,f_size_cb);
   VRB.Result(cname,fname,"phi1=%g\n",phi1->NormSqGlbSum(f_size_cb));
   VRB.Result(cname,fname,"v1_o=%g\n",v1_o->NormSqGlbSum(f_size_cb));
   phi1->print("phi1",f_size_cb);
@@ -1018,24 +1022,39 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   v1_o->print("v1_o",f_size_cb);
   
 
-  v2_o->CopyVec(phi2,f_size_cb);
+//  v2_o->CopyVec(phi2,f_size_cb);
   VRB.Result(cname,fname,"phi2=%g\n",phi2->NormSqGlbSum(f_size_cb));
-  VRB.Result(cname,fname,"v2_o=%g\n",v2_o->NormSqGlbSum(f_size_cb));
   phi2->print("phi2",f_size_cb);
-  lat.Dump("phi2",phi2,Even);
-  v2_o->print("v2_o",f_size_cb);
+  lat.Dump("phi2",phi2,Even); // hack to match the test program
 
 //  Vector *rho = (Vector *) ((Float *) v2 + 0);
 
-  Dslash (v2_e, v2_o, CHKB_ODD, DAG_NO);
+//  VRB.Result(cname,fname,"mass=%g Gparity=%d\n",mass,GJP.Gparity());
+//  Dslash (v2_e, v2_o, CHKB_ODD, DAG_NO);
+  mobius_dslash_4(tmp1, gauge_field, phi2, CHKB_ODD, DAG_NO, (Dwf *) mobius_lib_arg,mass);
+  lat.Dump("Meophi2",tmp1,Even); // (-2.)* BFM
+  mobius_m5inv (tmp2, tmp1, mass, DAG_NO, (Dwf *) mobius_lib_arg);
+  lat.Dump("MeeInvMeophi2",tmp2,Even); // Factor?
+  mobius_Booee(v2_e, tmp2, DAG_NO, (Dwf*) mobius_lib_arg,mass);
+  lat.Dump("v2_e",v2_e,Even); // Factor?
+
   VRB.Result(cname,fname,"v2_e=%g\n",v2_e->NormSqGlbSum(f_size_cb));
-  v2_e->print("v2_e",f_size_cb);
 
-//  Vector *sigma = (Vector *) ((Float *) v1 + 0);
+  mobius_Booee(v2_o, phi2, DAG_NO, (Dwf*) mobius_lib_arg,mass);
+  lat.Dump("v2_o",v2_o,Odd); // Factor?
 
-  Dslash (v1_e, v1_o, CHKB_ODD, DAG_YES);
+  mobius_dslash_4(tmp4, gauge_field, phi1, CHKB_ODD, DAG_YES, (Dwf *) mobius_lib_arg,mass);
+  lat.Dump("MeoDagphi1",tmp1,Even); // (-2.)* BFM
+  mobius_m5inv (v1_e, tmp4, mass, DAG_YES, (Dwf *) mobius_lib_arg);
+  lat.Dump("v1_e",v1_e,Even); // Factor?
+
   VRB.Result(cname,fname,"v1_e=%g\n",v1_e->NormSqGlbSum(f_size_cb));
   v1_e->print("v1_e",f_size_cb);
+
+  sfree(cname,fname,"tmp4",tmp4);
+  sfree(cname,fname,"tmp3",tmp3);
+  sfree(cname,fname,"tmp2",tmp2);
+  sfree(cname,fname,"tmp1",tmp1);
 
   return;
 }

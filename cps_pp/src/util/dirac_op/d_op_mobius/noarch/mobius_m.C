@@ -124,9 +124,4 @@ void  mobius_m(Vector *out,
 
 }
 
-
-
-
-
-
 CPS_END_NAMESPACE

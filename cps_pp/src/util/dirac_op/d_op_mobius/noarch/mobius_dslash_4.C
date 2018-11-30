@@ -69,6 +69,7 @@ void mobius_dslash_4(Vector *out,
   const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();
+  printf("b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
 
   frm_in = (IFloat *) in;
   frm_out = (IFloat *) out;
@@ -89,6 +90,104 @@ void mobius_dslash_4(Vector *out,
   vecEqualsVecTimesEquFloat(frm_, frm_in, b_coeff, f_size*ls);
   // frm_ += c * P_L * Psi(s+1) + c * P_R * Psi(s-1)
   mobius_kappa_dslash_5_plus((Vector*)frm_, in, mass, dag, mobius_lib_arg, c_coeff);
+
+  // out = D_W * frm_
+  for(i=0; i<ls; i++){
+
+    // parity of 4-D checkerboard
+    //------------------------------------------------------------
+    parity = cb;//4d odd-even preconditioning
+
+    // Apply on 4-dim "parity" checkerboard part
+    //------------------------------------------------------------
+    wilson_dslash(frm_out, g_field, frm_, parity, dag, wilson_p);
+    
+    frm_ = frm_ + size_cb[parity];
+    frm_out = frm_out + size_cb[parity];
+  }
+  
+}
+
+void mobius_Booee(Vector *out, 
+		     Vector *in, 
+		     int dag, 
+		     Dwf *mobius_lib_arg,
+		     Float mass)
+{
+  int i;
+  int ls;
+  IFloat *frm_in;
+  IFloat *frm_out;
+  IFloat *g_field;
+  Wilson *wilson_p;
+  int size_cb[2];
+  int parity;
+  
+  //----------------------------------------------------------------
+  // Initializations
+  //----------------------------------------------------------------
+  ls = mobius_lib_arg->ls;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  Float b_coeff = GJP.Mobius_b();
+  Float c_coeff = GJP.Mobius_c();
+  printf("b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
+
+  frm_in = (IFloat *) in;
+  frm_out = (IFloat *) out;
+  wilson_p = mobius_lib_arg->wilson_p;
+  size_cb[0] = 24*wilson_p->vol[0];
+  size_cb[1] = 24*wilson_p->vol[1];
+  
+  IFloat* frm_;
+//  Vector  *frm_tmp3 = (Vector *) mobius_lib_arg->frm_tmp3;
+  frm_ = (IFloat*)frm_out;
+
+  //----------------------------------------------------------------
+  // Apply 4-dimensional Dslash
+  //----------------------------------------------------------------
+
+  // frm_ = b * Psi(s)
+  vecEqualsVecTimesEquFloat(frm_, frm_in, b_coeff, f_size*ls);
+  // frm_ += c * P_L * Psi(s+1) + c * P_R * Psi(s-1)
+  mobius_kappa_dslash_5_plus((Vector*)frm_, in, mass, dag, mobius_lib_arg, c_coeff);
+
+}
+
+void mobius_dslash_4_nokappa(Vector *out, 
+		     Matrix *gauge_field, 
+		     Vector *in, 
+		     int cb, 
+		     int dag, 
+		     Dwf *mobius_lib_arg,
+		     Float mass)
+{
+  int i;
+  int ls;
+  IFloat *frm_in;
+  IFloat *frm_out;
+  IFloat *g_field;
+  Wilson *wilson_p;
+  int size_cb[2];
+  int parity;
+  
+  //----------------------------------------------------------------
+  // Initializations
+  //----------------------------------------------------------------
+  ls = mobius_lib_arg->ls;
+  const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
+  Float b_coeff = GJP.Mobius_b();
+  Float c_coeff = GJP.Mobius_c();
+  printf("mobius_dslash_4_nokappa called!\n");
+//exit(-4);
+
+  frm_in = (IFloat *) in;
+  frm_out = (IFloat *) out;
+  g_field = (IFloat *) gauge_field;
+  wilson_p = mobius_lib_arg->wilson_p;
+  size_cb[0] = 24*wilson_p->vol[0];
+  size_cb[1] = 24*wilson_p->vol[1];
+  
+  IFloat* frm_ = frm_in;
 
   // out = D_W * frm_
   for(i=0; i<ls; i++){
