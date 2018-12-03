@@ -1044,7 +1044,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   lat.Dump("v2_o",v2_o,Odd); // Factor?
 
   mobius_dslash_4(tmp4, gauge_field, phi1, CHKB_ODD, DAG_YES, (Dwf *) mobius_lib_arg,mass);
-  lat.Dump("MeoDagphi1",tmp1,Even); // (-2.)* BFM
+  lat.Dump("MeoDagphi1",tmp4,Even); // (-2.)* BFM
   mobius_m5inv (v1_e, tmp4, mass, DAG_YES, (Dwf *) mobius_lib_arg);
   lat.Dump("v1_e",v1_e,Even); // Factor?
 
