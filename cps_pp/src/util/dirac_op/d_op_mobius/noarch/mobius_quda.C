@@ -241,8 +241,8 @@ int DiracOpMobius::QudaInvert(Vector *out, Vector *in, Float *true_res, int mat_
     }
     gettimeofday(&end,NULL);
     print_flops(cname,fname,flops,&start,&end);
-    VRB.Result(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
-        inv_param.spinorGiB, gauge_param.gaugeGiB);
+//    VRB.Result(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
+//        inv_param.spinorGiB, gauge_param.gaugeGiB);
     VRB.Result(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
         sqrt(r2)/sqrt(in_norm2), total_iter, k);
      if (true_res) *true_res = sqrt(r2);
@@ -368,8 +368,8 @@ int DiracOpMobius::MInvCG(Vector **out, Vector *in, Float in_norm, Float *shift,
 
     gettimeofday(&end,NULL);
     print_flops(cname,fname,flops,&start,&end);
-    VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
-        inv_param.spinorGiB, gauge_param.gaugeGiB);
+//    VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
+//        inv_param.spinorGiB, gauge_param.gaugeGiB);
     VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
         sqrt(r2)/sqrt(in_norm2), total_iter, k);
 //     if (true_res) *true_res = sqrt(r2);

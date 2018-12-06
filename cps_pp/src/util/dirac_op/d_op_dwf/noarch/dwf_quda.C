@@ -160,8 +160,7 @@ int DiracOpDwf::QudaInvert(Vector* out, Vector* in, Float* true_res, int mat_typ
   print_flops(cname,fname,flops,&start,&end);
   CGflops += flops;
     
-  VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
-	   inv_param.spinorGiB, gauge_param.gaugeGiB);
+//  VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", inv_param.spinorGiB, gauge_param.gaugeGiB);
 
   VRB.Flow(cname, fname, "True |res| / |src| = %1.15e, iter = %d, restart = %d\n", 
 	     sqrt(r2)/sqrt(in_norm2), total_iter, k);

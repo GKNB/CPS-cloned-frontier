@@ -329,14 +329,15 @@ class CPSQuda
           ERR.General(cname, fname, "Matrix solution type not defined\n");
       }
 
-      // inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
       switch (GJP.ZMobius_PC_Type()){
       case ZMOB_PC_ORIG:
-          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC; break;
+//          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC; break;
+          inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
       case ZMOB_PC_SYM1:
-          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN; break;
+//          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN; break;
+          inv_param.matpc_type = QUDA_MATPC_ODD_ODD; break;
       default:
-        ERR.NotImplemented (cname, fname);
+        ERR.General (cname, fname,"Precondition type should be ZMOB_PC_ORIG or ZMOB_PC_SYM1\n");
       }
       inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
       inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;

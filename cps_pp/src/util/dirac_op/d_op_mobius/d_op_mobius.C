@@ -528,7 +528,7 @@ int DiracOpMobius::MatInv (Vector * out,
     break;
   case BICGSTAB:
 #ifdef USE_QUDA
-    iter = QudaInvert (odd_out, odd_in, true_res, 0);
+    iter = QudaInvert (odd_out, temp, true_res, 0);
 #else
     iter = BiCGstab (odd_out, temp, 0.0, dirac_arg->bicgstab_n, true_res);
 #endif
