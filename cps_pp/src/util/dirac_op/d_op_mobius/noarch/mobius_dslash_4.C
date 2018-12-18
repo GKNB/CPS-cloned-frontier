@@ -1,20 +1,5 @@
 #include<config.h>
 CPS_START_NAMESPACE
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/noarch/mobius_dslash_4.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: mobius_dslash_4.C,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: mobius_dslash_4.C,v $
-//  $Revision: 1.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/dirac_op/d_op_mobius/noarch/mobius_dslash_4.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // mobius_dslash_4.C
@@ -53,6 +38,11 @@ void mobius_dslash_4(Vector *out,
 		     Dwf *mobius_lib_arg,
 		     Float mass)
 {
+
+#if 1
+    zmobius_dslash_4(out,gauge_field,in,cb,dag,mobius_lib_arg,mass);
+#else
+// BROKEN for dag=1
   int i;
   int ls;
   IFloat *frm_in;
@@ -105,6 +95,7 @@ void mobius_dslash_4(Vector *out,
     frm_ = frm_ + size_cb[parity];
     frm_out = frm_out + size_cb[parity];
   }
+#endif
   
 }
 
@@ -130,7 +121,9 @@ void mobius_Booee(Vector *out,
   const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();
-  printf("b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
+  VRB.Result("","mobius_Booee","b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
+  if(dag)
+  ERR.General("","mobius_Booee", "Only implemented for dag=0\n");
 
   frm_in = (IFloat *) in;
   frm_out = (IFloat *) out;

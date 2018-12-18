@@ -1011,7 +1011,24 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   Vector *v2_o = (Vector *) ((Float *) v2 + f_size_cb);
   Vector *v2_e = (Vector *) ((Float *) v2 + 0);
 
-  v1_o->CopyVec (phi1, f_size_cb);
+  switch (mobius_arg->pc_type) {
+  case ZMOB_PC_SYM1:
+    mobius_m5inv (v1_o, phi1, mass, DAG_YES, (Dwf *) mobius_lib_arg);
+    phi1->CopyVec (v1_o, f_size_cb);
+    break;
+  case ZMOB_PC_SYM2:
+    mobius_m5inv (v1_o, phi2, mass, DAG_NO, (Dwf *) mobius_lib_arg);
+    phi2->CopyVec (v1_o, f_size_cb);
+    break;
+  case ZMOB_PC_ORIG:
+    break;
+  default:
+    ERR.NotImplemented (cname, fname);
+    break;
+  }
+    v1_o->CopyVec (phi1, f_size_cb);
+  
+
 
   Float kb = mobius_arg->mobius_kappa_b;
 //  v2_o->VecTimesEquFloat(-kb*kb,f_size_cb);
@@ -1020,6 +1037,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   phi1->print("phi1",f_size_cb);
   lat.Dump("phi1",phi1,Odd);
   v1_o->print("v1_o",f_size_cb);
+  lat.Dump("v1_o",v1_o,Odd);
   
 
 //  v2_o->CopyVec(phi2,f_size_cb);
@@ -1044,6 +1062,8 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
   lat.Dump("v2_o",v2_o,Odd); // Factor?
 
   mobius_dslash_4(tmp4, gauge_field, phi1, CHKB_ODD, DAG_YES, (Dwf *) mobius_lib_arg,mass);
+// FOR TEST ONLY!! REVERT!!
+//  mobius_dslash_4(tmp4, gauge_field, phi1, CHKB_ODD, DAG_NO, (Dwf *) mobius_lib_arg,mass);
   lat.Dump("MeoDagphi1",tmp4,Even); // (-2.)* BFM
   mobius_m5inv (v1_e, tmp4, mass, DAG_YES, (Dwf *) mobius_lib_arg);
   lat.Dump("v1_e",v1_e,Even); // Factor?
