@@ -683,7 +683,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     static Timer time(cname, fname);
     time.start(true);
 
-    VRB.Result(cname,fname,"started\n");
+    VRB.Result(cname,fname,"started coef=%g pc=%d \n",coef,GJP.ZMobius_PC_Type());
 
     size_t f_size = (size_t)SPINOR_SIZE * GJP.VolNodeSites() * GJP.SnodeSites();
 //    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
@@ -736,7 +736,14 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     VRB.Result(cname,fname,"v2=(%g %g) %g\n",*v_tmp,*(v_tmp+24*GJP.SnodeSites()),v2->NormSqGlbSum(f_size));
     size_t g_size = GJP.VolNodeSites()*GsiteSize();
     Vector *mom_p = (Vector *)mom;
-    VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
+    const Float  inv_kappa_b =
+         ( 2 * (GJP.Mobius_b()
+                     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
+    VRB.Result(cname,fname,"mom=%g 1/kappa_b=%g \n",mom_p->NormSqGlbSum(g_size),inv_kappa_b);
+    if (GJP.ZMobius_PC_Type()==ZMOB_PC_ORIG)
+    coef *= 2./(inv_kappa_b*inv_kappa_b);
+    else if (GJP.ZMobius_PC_Type()==ZMOB_PC_SYM1)
+    coef *= 2./(1);
     FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
     VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
@@ -858,10 +865,17 @@ Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
   DiracOpMobius dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
   if (dag == DAG_YES) dwf.MatPcDag(phi, frm1) ;
   else dwf.MatPc(phi, frm1) ;
+  Float ret= FhamiltonNode(phi, phi);
+  Float temp=ret;
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"phi*phi=%g\n",temp);
 
-  Float temp= FhamiltonNode(frm1, frm1);
+  ret= FhamiltonNode(frm1, frm1);
+  temp=ret;
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"frm1*frm1=%g\n",temp);
   VRB.FuncEnd(cname,fname);
-  return temp;
+  return ret;
 }
 
 CPS_END_NAMESPACE

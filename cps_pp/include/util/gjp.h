@@ -77,29 +77,6 @@ extern int gjp_scu_wire_map[];
      // so that the local direction wire number is not
      // used. 
 
-#if TARGET == BGL
-extern int bgl_machine_dir[8];
-     // This array is set by GJP.Initialize to:
-     // bgl_machine_dir[0] = 2*bgl_machine_dir_x;
-     // bgl_machine_dir[1] = 2*bgl_machine_dir_x+1;
-     // bgl_machine_dir[2] = 2*bgl_machine_dir_y;
-     // bgl_machine_dir[3] = 2*bgl_machine_dir_y+1;
-     // bgl_machine_dir[4] = 2*bgl_machine_dir_z;
-     // bgl_machine_dir[5] = 2*bgl_machine_dir_z+1;
-     // bgl_machine_dir[6] = 2*bgl_machine_dir_t;
-     // bgl_machine_dir[7] = 2*bgl_machine_dir_t+1;
-     // This array is for convenience when translating
-     // from the physics system directions to the processor
-     // grid directions.
-
-extern int bgl_cps_dir[8];
-     // This array is set by GJP.Initialize to be the
-     // "reverse" array of bgl_machine_dir. 
-     // This array is for convenience when translating
-     // from the the processor grid directions to the
-     // physics system directions
-
-#endif //TARGET == BGL
 
 #endif //PARALLEL
 
@@ -173,38 +150,6 @@ public:
 
   ~GlobalJobParameter();
 
-#if TARGET == BGL
-
-  int BglMachineDirX(void)
-    {return bgl_machine_dir[0]/2;}
-     // bgl_machine_dir[0] = 2*bgl_machine_dir_x;
-  //!< Gets the direction of the processor grid that X is "mapped" on. 
-  /*!<
-    \return The direction of the processor grid that X is "mapped" on. 
-  */
-
-  int BglMachineDirY(void)
-    {return bgl_machine_dir[2]/2;}
-  //!< Gets the direction of the processor grid that X is "mapped" on. 
-  /*!<
-    \return The direction of the processor grid that X is "mapped" on. 
-  */
-
-  int BglMachineDirZ(void)
-    {return bgl_machine_dir[4]/2;}
-  //!< Gets the direction of the processor grid that X is "mapped" on. 
-  /*!<
-    \return The direction of the processor grid that X is "mapped" on. 
-  */
-
-  int BglMachineDirT(void)
-    {return bgl_machine_dir[6]/2;}
-  //!< Gets the direction of the processor grid that X is "mapped" on. 
-  /*!<
-    \return The direction of the processor grid that X is "mapped" on. 
-  */
-
-#endif
 
 
 
@@ -1029,19 +974,12 @@ inline void Start(){}
 void End();
 void Start(int * argc, char ***argv);
 
-#if TARGET == QCDOC 
-extern "C" {
-  void _mcleanup(void);
-}
-inline void Start(int * argc, char ***argv){Start(); GJP.setArg(argc, argv);}
-#elif USE_QMP
+#ifdef USE_QMP
 namespace QMPSCU {
   void init_qmp();
   void init_qmp(int * argc, char *** argv);
   void destroy_qmp();
 }
-#elif TARGET == BGL
-void Start(const BGLAxisMap *);
 #endif
 
 #ifdef USE_BFM

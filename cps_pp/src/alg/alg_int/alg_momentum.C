@@ -100,6 +100,10 @@ void AlgMomentum::heatbath() {
   //!< reset MD time in Lattice (a momentum refresh means a new trajectory)
   lat.MdTime(0.0);
   VRB.Flow(cname,fname,"%s%f\n", md_time_str, IFloat(lat.MdTime()));
+  h_init = lat.MomHamiltonNode(mom);
+  Float h= h_init;
+  glb_sum(&h);
+  VRB.Result(cname, fname, "Initial ham = %0.16e\n", h);
       
   LatticeFactory::Destroy();
   
@@ -171,6 +175,9 @@ Float AlgMomentum::energy() {
   Float total_h = h;
   glb_sum(&total_h);
   VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
+  h= h - h_init;
+  glb_sum(&h);
+  VRB.Result(cname, fname, "delta_ham = %0.16e\n", h);
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);

@@ -5032,7 +5032,7 @@ U^\dagger_\nu(x+\nu+\rho) U^\dagger_\rho(x+\rho)
   and local in the 5th direction. 
   Obviously this is always the case when the entire 5th direction is local.
   If any of the node slices fail to match the program exits with an error.
-                                      \param num The number to check.
+                                              \param num The number to check.
 *///------------------------------------------------------------------
     void Lattice::SoCheck (Float num)
     {
@@ -5472,9 +5472,9 @@ U^\dagger_\nu(x+\nu+\rho) U^\dagger_\rho(x+\rho)
       }
       ++calls;
     }
-#if 1
     void Lattice::Dump (const char *name, Vector * vec, EvenOdd eo)
     {
+      return;
       const char *fname = "Dump()";
       int s[5];
       int n_gp = 1;
@@ -5505,18 +5505,18 @@ U^\dagger_\nu(x+\nu+\rho) U^\dagger_\rho(x+\rho)
                                                    n_gp * s[4]) *
                     (GJP.VolNodeSites () / 2);
                   n = (this->FsiteOffset (s) +
-                     (gp + n_gp * s[4]) * GJP.VolNodeSites ());
+                       (gp + n_gp * s[4]) * GJP.VolNodeSites ());
                   n *= (fsize / 6);
 
-                  IFloat *Phi_f = (IFloat *)vec;
+                  IFloat *Phi_f = (IFloat *) vec;
                   if (parity && (eo == Odd))
-                    Phi_f += n_half*fsize;
+                    Phi_f += n_half * fsize;
                   else if (!parity && (eo == Even))
-                    Phi_f += n_half*fsize;
+                    Phi_f += n_half * fsize;
                   else
                     continue;
 
-                  IFloat *res_p = (IFloat*)Phi_f;
+                  IFloat *res_p = (IFloat *) Phi_f;
                   for (int i = 0; i < (fsize / 2); i++) {
                     double re_re = *(res_p + i * 2);
                     double re_im = *(res_p + i * 2 + 1);
@@ -5541,8 +5541,7 @@ U^\dagger_\nu(x+\nu+\rho) U^\dagger_\rho(x+\rho)
                   }
                 }
 //      VRB.Result ("", fname, "Max diff between X_in and M*X_out = %0.2e\n", maxdiff);
-        Fclose(fp);
+      Fclose (fp);
     }
-#endif
 
     CPS_END_NAMESPACE

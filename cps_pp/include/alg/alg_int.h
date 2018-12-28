@@ -256,6 +256,7 @@ class AlgHamiltonian : public AlgInt {
 
 protected:
     int g_size;
+    Float h_init;
 
 private:
     const char *cname;
@@ -431,7 +432,7 @@ public: //CK: temporarily public for testing
     //!< Has the energy been evaluated?
     int energyEval;
 
-    Float h_init;
+//    Float h_init;
 
     //!<  frm_cg_arg_fg is specific to force gradient integrator and has no use otherwise.
     CgArg ***frm_cg_arg_fg;
@@ -630,7 +631,7 @@ private:
     CgArg **frm_cg_arg_mc;   //!< Pointer to an array of solver parameters.
 
     int evolved;
-    Float h_init;
+//    Float h_init;
 
     //!< Stores the history of cg solutions - used by chronological inversion
     Vector ***v;
@@ -699,7 +700,7 @@ private:
     std::vector<Float> frm_mass_epsilon; //!< The fermion mass parameter that appears in the quotient
 
     int evolved;
-    Float h_init;
+//    Float h_init;
 
     //!< Stores the history of cg solutions - used by chronological inversion
     Vector ***v;

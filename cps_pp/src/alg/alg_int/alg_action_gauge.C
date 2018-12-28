@@ -37,11 +37,16 @@ AlgActionGauge::~AlgActionGauge() {
 
 //!< Heat Bath for the gauge action (i.e., does nothing)
 void AlgActionGauge::heatbath() {
+  char *fname = "heatbath()";
 #if 0
-  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
   lat.SigmaHeatbath();
-  LatticeFactory::Destroy();
 #endif
+  Lattice &lat = LatticeFactory::Create(F_CLASS_NONE, gluon);
+  h_init = lat.GhamiltonNode();
+  Float total_h = h_init;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "Initial ham = %0.16e\n", total_h);
+  LatticeFactory::Destroy();
 }
 
 //!< Calculate gauge contribution to the Hamiltonian
@@ -56,6 +61,8 @@ Float AlgActionGauge::energy() {
     LatticeFactory::Create(F_CLASS_NONE, gluon);
   Float h = lat.GhamiltonNode();
 
+//duplicate???
+if(0)
   {
     Float gsum_h(h);
     glb_sum(&gsum_h);
@@ -67,6 +74,9 @@ Float AlgActionGauge::energy() {
   Float total_h = h;
   glb_sum(&total_h);
   VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
+  total_h = h-h_init;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "delta_ham = %0.16e\n", total_h);
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);

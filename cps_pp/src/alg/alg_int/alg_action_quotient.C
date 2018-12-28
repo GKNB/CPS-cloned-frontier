@@ -319,7 +319,7 @@ void AlgActionQuotient::heatbath ()
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
 
     h_init = 0.;
-    VRB.Result (cname, fname, "h_init=%0.14e\n", h_init);
+    VRB.Debug (cname, fname, "h_init=%0.14e\n", h_init);
 
     // tmp1, tmp2 < - random Gaussian vector (RGV)
     for (int i = 0; i < n_masses; i++) {
@@ -486,6 +486,8 @@ Float AlgActionQuotient::energy ()
 	}
 	Float total_h_i = h_i;
 	glb_sum (&total_h_i);
+//        h_init = h_i - h_init;
+//	glb_sum (&h_init);
 	VRB.Result (cname, fname,
 		    "energy: mass ratio (%0.4f)/%0.4f final ham = %0.16e\n",
 		    frm_mass[i], bsn_mass[i], total_h_i);
