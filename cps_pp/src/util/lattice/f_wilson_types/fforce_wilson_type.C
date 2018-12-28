@@ -85,11 +85,11 @@ static void do_site_force(Matrix *force, const Matrix &gauge,
     
     Float *t1f = (Float *)&t1;
     Float *t2f = (Float *)&t2;
-    VRB.Result("",fname,"ls=%d\n",ls);
-    VRB.Result("",fname,"v1=%g\n",vsum(v1));
-    VRB.Result("",fname,"v1p=%g\n",vsum(v1p));
-    VRB.Result("",fname,"v2=%g\n",vsum(v2));
-    VRB.Result("",fname,"v2p=%g\n",vsum(v2p));
+    VRB.Flow("",fname,"ls=%d\n",ls);
+    VRB.Flow("",fname,"v1=%g\n",vsum(v1));
+    VRB.Flow("",fname,"v1p=%g\n",vsum(v1p));
+    VRB.Flow("",fname,"v2=%g\n",vsum(v2));
+    VRB.Flow("",fname,"v2p=%g\n",vsum(v2p));
     
 
     // sproj_tr[mu](   (Float *)&t1, v1p, v2, ls, 0, 0);
@@ -113,11 +113,11 @@ static void do_site_force(Matrix *force, const Matrix &gauge,
       sprojTrTp(t2f, v2p, v1, ls, 0, 0);
     }
 
-    VRB.Result("",fname,"t1=%g\n",t1.Norm());
-    VRB.Result("",fname,"t2=%g\n",t2.Norm());
+    VRB.Flow("",fname,"t1=%g\n",t1.Norm());
+    VRB.Flow("",fname,"t2=%g\n",t2.Norm());
     t1 += t2;
     force->DotMEqual(gauge, t1);
-    VRB.Result("",fname,"force=%g\n",force->Norm());
+    VRB.Debug("",fname,"force=%g\n",force->Norm());
 }
 
 //CK: Same as above, only it calculates the contribution of the second G-parity flavour

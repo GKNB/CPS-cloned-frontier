@@ -11,6 +11,7 @@
 #include <comms/sysfunc_cps.h>
 #include <util/data_types.h>
 #include <util/vector_asm.h>
+#include <util/verbose.h>
 #define VEC_INLINE
 CPS_START_NAMESPACE
 
@@ -1063,8 +1064,9 @@ class Vector
 
     void print(const char *name,size_t f_size){
        Float *v_p = (Float*)v;
-       if(!UniqueID()) printf("%s: %0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,
-		v[0],v[1],v[2],v[3],v[4],v[5],NormSqGlbSum(f_size));
+       Float sum=NormSqGlbSum(f_size);
+       VRB.Result("",name,"%0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,
+		v[0],v[1],v[2],v[3],v[4],v[5],sum);
     }
 
 

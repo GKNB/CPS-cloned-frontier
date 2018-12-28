@@ -175,9 +175,9 @@ Float AlgMomentum::energy() {
   Float total_h = h;
   glb_sum(&total_h);
   VRB.Result(cname, fname, "ham = %0.16e\n", total_h);
-  h= h - h_init;
-  glb_sum(&h);
-  VRB.Result(cname, fname, "delta_ham = %0.16e\n", h);
+  total_h= h - h_init;
+  glb_sum(&total_h);
+  VRB.Result(cname, fname, "delta_ham = %0.16e\n", total_h);
 
   dtime += dclock();
   print_flops(cname, fname, 0, dtime);

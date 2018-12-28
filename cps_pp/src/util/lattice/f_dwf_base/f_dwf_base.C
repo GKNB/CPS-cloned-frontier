@@ -1510,7 +1510,7 @@ Float FdwfBase::FhamiltonNode(Vector *phi, Vector *chi){
   // Sum accross s nodes in case Snodes() != 1
   glb_sum_dir(&ret_val, 4) ;
 
-  printf("FdwfBase::FhamiltonNode Gparity=%d, fsize=%d val=%f\n",GJP.Gparity(),f_size,ret_val);
+  VRB.Result(cname,fname,"Gparity=%d, fsize=%d val=%f\n",GJP.Gparity(),f_size,ret_val);
   
   return ret_val ;
 
