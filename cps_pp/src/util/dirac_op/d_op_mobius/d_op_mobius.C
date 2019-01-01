@@ -256,9 +256,10 @@ void DiracOpMobius::MatPcDagMatPcShift (Vector * out,
   //----------------------------------------------------------------
 
   // we still check if shift is really needed
-  if (shift == 0.0) {
-    mobius_mdagm (out, gauge_field, in, dot_prd, mass, (Dwf *) mobius_lib_arg);
-  } else {
+//  if (shift == 0.0) {
+//    mobius_mdagm (out, gauge_field, in, dot_prd, mass, (Dwf *) mobius_lib_arg);
+//  } else 
+  {
 
     //mobius_arg->eigen_shift = dirac_arg->eigen_shift;
 

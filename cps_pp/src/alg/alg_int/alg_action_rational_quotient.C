@@ -456,6 +456,7 @@ Float AlgActionRationalQuotient::energy() {
     //!< Create an appropriate lattice
     Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  
 
+    Float total_h_i;
     for (int i=0; i<n_masses; i++) {
 
       //!< First apply boson rational
@@ -486,7 +487,7 @@ Float AlgActionRationalQuotient::energy() {
       // shift this evaluation into minvcg?
       Float h_i = lat.FhamiltonNode(frmn[1], frmn[1]);
       h += h_i;
-      Float total_h_i = h_i;
+      total_h_i = h_i;
       glb_sum(&total_h_i);
       VRB.Result(cname, fname, "energy: mass ratio %0.4f/%0.4f final ham = %0.16e\n", frm_cg_arg_mc[i][0]->mass, bsn_cg_arg_mc[i][0]->mass, total_h_i);
     }
@@ -503,6 +504,9 @@ Float AlgActionRationalQuotient::energy() {
       glb_sum(&gsum_h);
       if(UniqueID()==0)   printf("AlgActionRationalQuotient::energy() [%s] %.16e\n",force_label,gsum_h);
     }
+    total_h_i = h-h_init;
+    glb_sum(&total_h_i);
+    VRB.Result(cname, fname, "energy: delta_h = %0.16e\n", total_h_i);
 
     return h;
   }

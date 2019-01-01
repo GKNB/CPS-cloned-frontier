@@ -160,7 +160,8 @@ DiracOp::DiracOp(Lattice & latt,           // Lattice object
   // turn on the boundary condition
   //----------------------------------------------------------------
   if (ParTrans::scope_lock == 0)
-  BondCond(latt, gauge_field);
+//  BondCond(latt, gauge_field);
+  latt.BondCond();
 
   //???
 
@@ -191,7 +192,8 @@ DiracOp::~DiracOp() {
   // turn off the boundary condition
   //----------------------------------------------------------------
   if (ParTrans::scope_lock == 0)
-  BondCond(lat, gauge_field);
+//  BondCond(lat, gauge_field);
+  lat.BondCond();
 
   VRB.Clock(cname,fname,"Exiting\n");
 

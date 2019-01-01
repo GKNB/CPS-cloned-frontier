@@ -743,9 +743,12 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     if (GJP.ZMobius_PC_Type()==ZMOB_PC_ORIG)
     coef *= 2./(inv_kappa_b*inv_kappa_b);
     else if (GJP.ZMobius_PC_Type()==ZMOB_PC_SYM1)
-    coef *= 2./(1);
+    coef *= 2./(inv_kappa_b*inv_kappa_b);
+// Probably should be moved inside FforceWilsonType
+    Lattice::BondCond();
     FforceWilsonType cal_force(mom, this->GaugeField(), (Float*)v1, (Float*)v2, GJP.SnodeSites(), coef);
     ForceArg ret = cal_force.run();
+    Lattice::BondCond();
     VRB.Result(cname,fname,"mom=%g\n",mom_p->NormSqGlbSum(g_size));
 //    exit(-4);
 
