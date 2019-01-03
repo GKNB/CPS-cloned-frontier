@@ -118,71 +118,8 @@ void measure_tc(CommonArg &common_arg, int cycle);
 void measure_pbp(CommonArg &common_arg, int traj);
 void run_hmc(CommonArg &common_arg, int traj, AlgIntAB &int_ab);
 
-#ifndef USE_BFM
 void init(int *argc, char **argv[]){
 }
-#else
-void init(int *argc, char **argv[])
-{
-//    Chroma::initialize(argc, argv);
-    QDP::QDP_initialize(argc, argv);
-    multi1d<int> nrow(Nd);
-
-    for(int i = 0; i< Nd; ++i)
-        nrow[i] = GJP.Sites(i);
-
-    Layout::setLattSize(nrow);
-    Layout::create();
-
-    // Fbfm::bfm_arg.solver = HtCayleyTanh;
-    // Fbfm::bfm_arg.precon_5d = 0;
-    // Fbfm::bfm_arg.solver = DWF;
-    // Fbfm::bfm_arg.precon_5d = 1;
-#ifdef BFM_ARG_MAP
-    bfmarg *bfm_arg = &Fbfm::arg_map[MASS];
-        Fbfm::current_key_mass=MASS;
-#else
-    bfmarg *bfm_arg = &(Fbfm::bfm_args[0]);
-    Fbfm::current_arg_idx = 0;
-#endif
-    bfm_arg->solver = HmCayleyTanh;
-    bfm_arg->precon_5d = 0;
-
-    bfm_arg->Ls = GJP.SnodeSites();
-    bfm_arg->M5 = GJP.DwfHeight();
-    bfm_arg->mass = 0.1;
-    bfm_arg->residual = 1e-8;
-    bfm_arg->max_iter = 10000;
-    bfm_arg->Csw = 0.0;
-
-    bfm_arg->node_latt[0] = QDP::Layout::subgridLattSize()[0];
-    bfm_arg->node_latt[1] = QDP::Layout::subgridLattSize()[1];
-    bfm_arg->node_latt[2] = QDP::Layout::subgridLattSize()[2];
-    bfm_arg->node_latt[3] = QDP::Layout::subgridLattSize()[3];
-
-    multi1d<int> procs = QDP::Layout::logicalSize();
-
-    bfm_arg->local_comm[0] = procs[0] > 1 ? 0 : 1;
-    bfm_arg->local_comm[1] = procs[1] > 1 ? 0 : 1;
-    bfm_arg->local_comm[2] = procs[2] > 1 ? 0 : 1;
-    bfm_arg->local_comm[3] = procs[3] > 1 ? 0 : 1;
-
-    bfm_arg->ncoor[0] = 0;
-    bfm_arg->ncoor[1] = 0;
-    bfm_arg->ncoor[2] = 0;
-    bfm_arg->ncoor[3] = 0;
-
-    // mobius_scale = b + c in Andrew's notation
-    bfmarg::mobius_scale = 2.0;
-//    bfmarg::Threads(64);
-    bfmarg::Reproduce(0);
-    bfmarg::ReproduceChecksum(0);
-    bfmarg::ReproduceMasterCheck(0);
-    bfmarg::Verbose(0);
-
-    Fbfm::use_mixed_solver = true;
-}
-#endif
 
 void setup(int argc, char *argv[])
 {
@@ -217,6 +154,8 @@ void setup(int argc, char *argv[])
     GJP.InitializeExt(doext_arg);
 #endif
 //    GJP.SetMobius(32./12.);
+    GJP.ZMobius_PC_Type(ZMOB_PC_ORIG );
+//    GJP.ZMobius_PC_Type(ZMOB_PC_SYM1 );
     LRG.setSerial();
     LRG.Initialize();
  int threads;
@@ -259,8 +198,8 @@ int main(int argc, char *argv[])
 
     //!< Construct numerical integrators
     AlgIntAB &ab1 = AlgIntAB::Create(mom, gauge, ab1_arg);
-//    AlgIntAB &ab2 = AlgIntAB::Create(ab1, rat_quo,   ab2_arg);
-    AlgIntAB &ab2 = AlgIntAB::Create(ab1, quotient,   ab2_arg);
+    AlgIntAB &ab2 = AlgIntAB::Create(ab1, rat_quo,   ab2_arg);
+//    AlgIntAB &ab2 = AlgIntAB::Create(ab1, quotient,   ab2_arg);
 //    AlgIntAB &ab2 = AlgIntAB::Create(ab1, fermion,   ab2_arg);
 //    AlgIntAB &ab2 = AlgIntAB::Create(ab1, sum,   ab2_arg);
     // AlgIntAB &ab3 = AlgIntAB::Create(ab2, sum,         ab3_arg);

@@ -449,12 +449,16 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   // calculate chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
   size_t f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
-  Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
-  Vector *fourg5 = (Vector *) smalloc (cname,fname, "fourg5", f_size * sizeof(Float));
+//  Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
+//  Vector *fourg5 = (Vector *) smalloc (cname,fname, "fourg5", f_size * sizeof(Float));
+  LatVector four_lat(this->SpinComponents(),GJP.VolNodeSites()*Ncb/2);
+  LatVector fourg_lat(this->SpinComponents(),GJP.VolNodeSites()*Ncb/2);
+  Vector *four = four_lat.Vec();
+  Vector *fourg = fourg_lat.Vec();
   Float help;
 
   for (i=0; i<N_eig; i++) {
-    Ffive2four (four, f_eigenv[i], 0, GJP.Snodes()*GJP.SnodeSites()-1,Ncb);
+    Ffive2four (four.Vec(), f_eigenv[i], 0, GJP.Snodes()*GJP.SnodeSites()-1,Ncb);
 
     // normalize four
     factor=four->NormSqNode(f_size);
@@ -494,8 +498,8 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
 
     sfree(cname, fname, "f_in", f_in);
   }
-  sfree(cname,fname, "four",four);
-  sfree(cname,fname, "fourg5",fourg5);
+//  sfree(cname,fname, "four",four);
+//  sfree(cname,fname, "fourg5",fourg5);
   // Return the number of iterations
   return iter;
 }

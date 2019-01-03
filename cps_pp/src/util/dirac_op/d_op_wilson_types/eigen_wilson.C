@@ -326,7 +326,6 @@ int DiracOpWilsonTypes::RitzEig(Vector **psi, Float lambda_H[], int valid_eig[],
       NCG_tot += Ritz(psi, n, lambda_t, RsdR_a, RsdR_r, Rsdlam, 0.0 /*rsdl_sq*/,
 		      n_renorm, 0, 0, 0, Cv_fact, MaxCG, ProjApsiP);
 
-//      printf("lambda_old[%d]=%e\n",i,lambda_t);
       lambda_old[i] = lambda_t;
       VRB.Debug(cname,fname,"no KS: lambda[%d] = %g\n",i,(IFloat)lambda_old[i]);
 

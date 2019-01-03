@@ -19,7 +19,7 @@ Array bsn_mass[1] = {
 double bsn_mass[0] =   1.0000000000000000e+00
 }
 Array frm_mass[1] = { 
-double frm_mass[0] =   0.02132
+double frm_mass[0] =   0.45
 }
 Array bsn_mass_epsilon[1] = { 
 double bsn_mass_epsilon[0] =   0.
