@@ -332,7 +332,7 @@ class CPSQuda
       switch (GJP.ZMobius_PC_Type()){
       case ZMOB_PC_ORIG:
 //          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC; break;
-          inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
+          inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;break;
       case ZMOB_PC_SYM1:
 //          inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN; break;
           inv_param.matpc_type = QUDA_MATPC_ODD_ODD; break;
@@ -374,7 +374,7 @@ class CPSQuda
       inv_param.sp_pad = 0;
       inv_param.cl_pad = 0;
 
-      #ifdef USE_QMP
+#ifdef USE_QMP
       //---------------------------------------------------------------------
       // This part is needed to make buffer memory space for multi-GPU comms
       //---------------------------------------------------------------------
@@ -386,7 +386,7 @@ class CPSQuda
       pad_size = MAX(pad_size, z_face_size);
       pad_size = MAX(pad_size, t_face_size);
       gauge_param.ga_pad = pad_size;
-      #endif
+#endif
     }
 };
 

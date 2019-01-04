@@ -60,44 +60,14 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 
   if (dminus){
-#if 0
-  VRB.Result(cname,fname,"Dminus skipping temporarily for debugging. Fixed for correct results!\n");
-#else
-  VRB.Result(cname,fname,"Dminus applied\n");
+#if 1
+  VRB.Flow(cname,fname,"Dminus applied\n");
     dminus_in = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
-  //TIZB: this is bug !  below Dminus multiplication is not in effect.
-  // mult by Dminus
     dop.Dminus(dminus_in,f_in);
-  // fixed. TB
-//    f_in->CopyVec(f_out, size);
     moveFloat((IFloat*)f_in, (IFloat*)dminus_in, size);
     sfree(cname, fname,  "dminus_in",  dminus_in);
 #endif
   }
-
-#if 0
-if (!dminus){
-  int local_ls = GJP.SnodeSites();
-  const int s_node_coor = GJP.SnodeCoor();
-  const int ls_stride = 24 * GJP.VolNodeSites()/2;
-  // Multiply 2*kappa
-  // do even / odd 
-  for(int ieo=0;ieo<2;++ieo){
-    for(int s=0; s<local_ls;++s){
-      int glb_s = s + local_ls*s_node_coor;
-      const Complex kappa_b =
-	1.0 / ( 2 * (GJP.Mobius_b()
-		     *(4 - GJP.DwfHeight()) + GJP.DwfA5Inv()) );
- 	VRB.Flow(cname,fname,"s=%d Mobius_b=%e kappa_b=%e %e\n",
-	glb_s,GJP.Mobius_b(),kappa_b.real(),kappa_b.imag());
-      int idx = s*ls_stride/2;// "/2" is for complex
-      vecTimesEquComplex((Complex*)f_in+idx+ieo*size/4,
-			 2.0*kappa_b, ls_stride);
-    }
-  }
-  //moveFloat((IFloat*)f_in,(IFloat*)dminus_in, size);
-}
-#endif
 
   Float inv_time =-dclock();
   iter = dop.MatInv(true_res, prs_f_in);
@@ -454,11 +424,11 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   LatVector four_lat(this->SpinComponents(),GJP.VolNodeSites()*Ncb/2);
   LatVector fourg_lat(this->SpinComponents(),GJP.VolNodeSites()*Ncb/2);
   Vector *four = four_lat.Vec();
-  Vector *fourg = fourg_lat.Vec();
+  Vector *fourg5 = fourg_lat.Vec();
   Float help;
 
   for (i=0; i<N_eig; i++) {
-    Ffive2four (four.Vec(), f_eigenv[i], 0, GJP.Snodes()*GJP.SnodeSites()-1,Ncb);
+    Ffive2four (four, f_eigenv[i], 0, GJP.Snodes()*GJP.SnodeSites()-1,Ncb);
 
     // normalize four
     factor=four->NormSqNode(f_size);
@@ -596,7 +566,6 @@ int Fmobius::FmatEvlInv(Vector *f_out, Vector *f_in,
     iter = dop.QudaInvert(f_out, f_in, true_res, 1);
 #else
     iter = dop.InvCg(f_out,f_in,&(cg_arg->true_rsd));
-//  iter = dop.InvCg(&(cg_arg->true_rsd));
 #endif
   if (true_res) *true_res = cg_arg ->true_rsd;
 

@@ -178,9 +178,9 @@ FforceWilsonType::FforceWilsonType(Matrix *momentum, Matrix *gauge_field,
     v1 = vec1;
     v2 = vec2;
     Vector *v_tmp = (Vector *)v1;
-    VRB.Result(cname,cname,"v1=%g\n",v_tmp->NormSqGlbSum(f_size));
+    VRB.Debug(cname,cname,"v1=%g\n",v_tmp->NormSqGlbSum(f_size));
     v_tmp = (Vector *)v2;
-    VRB.Result(cname,cname,"v2=%g\n",v_tmp->NormSqGlbSum(f_size));
+    VRB.Debug(cname,cname,"v2=%g\n",v_tmp->NormSqGlbSum(f_size));
     coef = dt;
     if(cps::GJP.Gparity1fX()){
 	if(!UniqueID()) printf("FforceWilsonType::FforceWilsonType : Gparity1fX dt *= 2\n");
@@ -190,7 +190,7 @@ FforceWilsonType::FforceWilsonType(Matrix *momentum, Matrix *gauge_field,
     for(int mu = 0; mu < 4; ++mu) {
         surf_size[mu] = SPINOR_SIZE * (vol_5d / lcl[mu]);
 	if(GJP.Gparity()) surf_size[mu] *= 2; //stack second flavour after the first, offset for second flavour == SPINOR_SIZE * (vol_5d / lcl[mu]);
-	VRB.Result(cname,cname,"surf_size[%d]=%d\n",mu,surf_size[mu]);
+	VRB.Debug(cname,cname,"surf_size[%d]=%d\n",mu,surf_size[mu]);
         v1so[mu] = bufsize;
         v2so[mu] = bufsize + surf_size[mu];
         surf_size[mu] *= 2;
@@ -424,7 +424,7 @@ ForceArg FforceWilsonType::do_surface(int mu, int nthreads)
 
 ForceArg FforceWilsonType::run()
 {
-    VRB.Result(cname,"run()","start\n");
+    VRB.Func(cname,"run()");
     for(int mu = 0; mu < 4; ++mu) {
         collect_surface(mu);
     }
@@ -513,6 +513,6 @@ ForceArg FforceWilsonType::run()
 
 
     ret.glb_reduce();
-    VRB.Result(cname,"run()","end\n");
+    VRB.FuncEnd(cname,"run()");
     return ret;
 }
