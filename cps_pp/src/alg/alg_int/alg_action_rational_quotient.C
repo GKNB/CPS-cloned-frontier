@@ -363,7 +363,7 @@ void AlgActionRationalQuotient::heatbath() {
       {
 	Float gsum_h(delta_h);
 	glb_sum(&gsum_h);
-      VRB.Result(cname,fname, "delta H for mass %d:  %.9e\n",force_label,i,gsum_h);
+      VRB.Result(cname,fname, "delta H for mass %d:  %.9e\n",i,gsum_h);
       }
      // h_init += delta_h;
 
@@ -538,7 +538,7 @@ void AlgActionRationalQuotient::prepare_fg(Matrix * force, Float dt_ratio)
       int off = 18 * ii + 2;
       pvals[ii] = ((Float*)force)[off];
     }
-    if(UniqueID()==0) printf("AlgActionRationalQuotient::prepare_fg() [%s] start, input temp conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
+    VRB.Debug(cname,fname,"start, input temp conj mom Px(0) = %.9e, Py(0) = %.9e, Pz(0) = %.9e, Pt(0) = %.9e\n",force_label,pvals[0],pvals[1],pvals[2],pvals[3]);
   }  
 
   Lattice &lat = LatticeFactory::Create(fermion, G_CLASS_NONE);  

@@ -231,7 +231,7 @@ CPS_START_NAMESPACE
       if (mat_type == 0)
         MatQuda (r, out, &inv_param);
       else
-#if 0
+#if 1
         MatDagMatQuda (r, out, &inv_param);
 #else
         MatPcDagMatPc (r, out);
@@ -287,11 +287,12 @@ CPS_START_NAMESPACE
   return total_iter;
 }
 
-int DiracOpMobius::MInvCG (Vector ** out, Vector * in, Float in_norm,
-                           Float * shift, int Nshift, int isz, Float * RsdCG,
-                           MultiShiftSolveType type, Float * alpha)
+int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
+                               Float * shift, int Nshift, int isz,
+                               Float * RsdCG, MultiShiftSolveType type,
+                               Float * alpha)
 {
-  const char *fname = "MInvCG(V*,V*,F*,int)";
+  const char *fname = "QudaMInvCG(V*,V*,F*,int)";
 
 
   VRB.Func (cname, fname);
@@ -301,7 +302,9 @@ int DiracOpMobius::MInvCG (Vector ** out, Vector * in, Float in_norm,
 
   QudaGaugeParam gauge_param = newQudaGaugeParam ();
   QudaInvertParam inv_param = newQudaInvertParam ();
-  CPSQuda::ParamSetup_mdwf (QudaParam, gauge_param, inv_param);
+  CPSQuda::ParamSetup_mdwf (QudaParam, gauge_param, inv_param, 1);
+// overwrite to single, as half appears to be really poor!
+  inv_param.cuda_prec_sloppy = QUDA_HALF_PRECISION;
 
   inv_param.inv_type = QUDA_CG_INVERTER;
   inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
@@ -359,8 +362,6 @@ int DiracOpMobius::MInvCG (Vector ** out, Vector * in, Float in_norm,
   //  Inversion sequence start
   //---------------------------------
   inv_time -= dclock ();
-//      invertQuda(x, r, &inv_param);
-//      Vector **OutMulti=(Vector**)malloc(inv_param.num_offset*sizeof(Vector*));
   void *OutMulti[inv_param.num_offset];
   for (int i = 0; i < inv_param.num_offset; i++) {
     if (type == MULTI)
@@ -377,6 +378,23 @@ int DiracOpMobius::MInvCG (Vector ** out, Vector * in, Float in_norm,
   }
   invertMultiShiftQuda (OutMulti, in, &inv_param);
   inv_time += dclock ();
+  x->VecZero (f_size_cb);
+  r->VecZero (f_size_cb);
+  for (int i = 0; i < inv_param.num_offset; i++) {
+    Float d;
+#if 1
+    MatDagMatQuda (r, (Vector *) OutMulti[i], &inv_param);
+#else
+    MatPcDagMatPc (r, (Vector *) OutMulti[i]);
+#endif
+    r->FTimesV1PlusV2 (shift[i], (Vector *) OutMulti[i], r, f_size_cb);
+    r->FTimesV1PlusV2 (-1., in, r, f_size_cb);
+    d = r->NormSqGlbSum (f_size_cb);
+    Float *f_p = (Float*)OutMulti[i];
+    VRB.Result (cname, fname,
+                "Pole %d : shift %g (%g %g) True |res| / |src| = %1.15e\n",
+                i, shift[i], *f_p, *(f_p+1), sqrt (d) / sqrt (in_norm2));
+  }
 
   total_iter += inv_param.iter + 1;
   flops += 1e9 * inv_param.gflops + 8 * f_size_cb + matvec_flops;
@@ -388,8 +406,8 @@ int DiracOpMobius::MInvCG (Vector ** out, Vector * in, Float in_norm,
               "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",
               sqrt (r2) / sqrt (in_norm2), total_iter, k);
 //    }
-  if (type != MULTI) {
-    out[0]->VecZero (f_size_cb);
+  if (type == SINGLE) {
+//    out[0]->VecZero (f_size_cb); REALLY??
     for (int i = 0; i < inv_param.num_offset; i++) {
       Vector *v_p = (Vector *) OutMulti[i];
       out[0]->FTimesV1PlusV2 (alpha[i], v_p, out[0], f_size_cb);

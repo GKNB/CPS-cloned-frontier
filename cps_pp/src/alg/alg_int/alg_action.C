@@ -28,7 +28,7 @@ AlgAction::AlgAction(AlgMomentum &momentum, ActionArg &action_arg)
   mom = momentum.getMom();
   force_measure = action_arg.force_measure;
   force_label = action_arg.force_label;
-  if(!UniqueID()) printf("AlgAction constructor force label %s\n",force_label);
+  VRB.Debug(cname,fname,"constructor force label %s\n",force_label);
 }
 
 AlgAction::AlgAction() : AlgHamiltonian()

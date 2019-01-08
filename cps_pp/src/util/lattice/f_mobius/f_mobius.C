@@ -4,13 +4,6 @@ CPS_START_NAMESPACE
   \brief  Implementation of Fmobius class.
 
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_mobius/f_mobius.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // f_mobius.C
@@ -26,7 +19,6 @@ CPS_END_NAMESPACE
 #include <util/dirac_op.h>
 #include <util/time_cps.h>
 #include <util/enum_func.h>
-#include <util/time_cps.h>
 #include <util/timer.h>
 #include <util/lattice/fforce_wilson_type.h>
 
@@ -623,7 +615,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   for (int s=0; s<Nshift; s++) RsdCG[s] = cg_arg[s]->stop_rsd;
 
   Float * out_p = (Float *)f_in;
-  VRB.Result(cname,fname,"f_in=%g\n",out_p[0]);
+  VRB.Result(cname,fname,"f_in=%g %g\n",out_p[0], out_p[1]);
   for(int i =0;i<Nshift;i++){
 	Float a_tmp=1.; 
 	if (alpha) a_tmp=alpha[i];
@@ -632,9 +624,13 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
   //Fake the constructor
   DiracOpMobius dop(*this, f_out[0], f_in, cg_arg[0], cnv_frm);
 
+#ifdef USE_QUDA
+  int return_value= dop.QudaMInvCG(f_out,f_in,dot,shift,Nshift,isz,RsdCG,type,alpha);  
+#else
   int return_value= dop.MInvCG(f_out,f_in,dot,shift,Nshift,isz,RsdCG,type,alpha);  
+#endif
   out_p = (Float *)f_out[0];
-  VRB.Result(cname,fname,"f_out[0]=%g\n",out_p[0]);
+  VRB.Result(cname,fname,"f_out[0]=%g %g\n",out_p[0], out_p[1]);
   for (int s=0; s<Nshift; s++) cg_arg[s]->true_rsd = RsdCG[s];  
 
   delete[] RsdCG;

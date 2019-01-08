@@ -128,7 +128,7 @@ void mobius_m5inv_dag0(Vector *inout,
   const IFloat two_kappa = -mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
   const IFloat inv_two_kappa = 1.0 / two_kappa;
   const Float  inv_d_last = 1.0 / ( 1.0 + pow(two_kappa, ls)*mass); // 1.0 / d_{ls-1}
-  printf("two_kappa=%g inv_d_last=%g\n",two_kappa,inv_d_last);
+  VRB.Debug("","mobius_m5inv_dag0()", "two_kappa=%g inv_d_last=%g\n",two_kappa,inv_d_last);
 
   Float fact;
 

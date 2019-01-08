@@ -4853,7 +4853,7 @@ elif test "$enable_target" = "bgq"; then
    ARCHDIR="BGQ_DIR"
    TESTING_PARALLEL="yes";
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-   LDFLAGS="${LDFLAGS} -lgomp"
+   LDFLAGS="${LDFLAGS} -fopenmp"
    CFLAGS="${CFLAGS} -fopenmp"
    CXXFLAGS="${CXXLAGS} -fopenmp"
 
@@ -4983,9 +4983,6 @@ $as_echo_n "checking if using OpenMP... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_openmp" >&5
 $as_echo "$enable_openmp" >&6; }
 if test "$enable_openmp" = "yes"; then
-   LDFLAGS="${LDFLAGS} -lgomp"
-   CFLAGS="${CFLAGS} -fopenmp"
-   CXXFLAGS="${CXXLAGS} -fopenmp"
    DFLAGS="${DFLAGS} -DUSE_OMP"
 fi
 
@@ -5064,7 +5061,7 @@ fi
 $as_echo_n "checking if compile with c++11 RNG... " >&6; }
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_c11_rng" >&5
 $as_echo "$enable_c11_rng" >&6; }
-if test "$enable_c11_rng" == "mt19337"; then
+if test "$enable_c11_rng" == "mt19937"; then
    DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT "
 elif test "$enable_c11_rng" == "ranlux48"; then
    DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_RANLUX "
@@ -5390,7 +5387,7 @@ if test "$enable_cuda" != "no"; then
      CUDA_DIR=${enable_cuda}
    fi
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${CUDA_DIR}/include"
-   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcuda -lcudart"
+   LDFLAGS="${LDFLAGS} -L${CUDA_DIR}/lib64 -lcudart -lcuda"
 fi
 
 if test "$enable_quda" != "no"; then

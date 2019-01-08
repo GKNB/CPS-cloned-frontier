@@ -226,7 +226,7 @@ AC_ARG_ENABLE(c11_rng,
 	,[enable_c11_rng="no"])
 	AC_MSG_CHECKING([if compile with c++11 RNG])
 	AC_MSG_RESULT($enable_c11_rng)
-if test "$enable_c11_rng" == "mt19337"; then
+if test "$enable_c11_rng" == "mt19937"; then
    DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_MT " 
 elif test "$enable_c11_rng" == "ranlux48"; then
    DFLAGS="${DFLAGS} -DUSE_C11_RNG -DUSE_C11_RANLUX " 

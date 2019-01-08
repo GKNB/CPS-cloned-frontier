@@ -164,7 +164,7 @@ Lattice::Lattice ()
     StartConfType start_u1_conf_kind = GJP.StartU1ConfKind ();
     // TIZB: It banged for sencond lattice creation. I am not sure.
     //if(start_u1_conf_kind != START_CONF_LOAD ){  
-    VRB.Result (cname, fname, "u1_is_initialized=%d u1_conf_kind=%d\n",
+    VRB.Debug (cname, fname, "u1_is_initialized=%d u1_conf_kind=%d\n",
                 u1_is_initialized, start_u1_conf_kind);
     if (!u1_is_initialized && start_u1_conf_kind != START_CONF_LOAD) {
       array_size = 4 * GJP.VolNodeSites () * sizeof (Float);

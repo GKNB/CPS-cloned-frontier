@@ -4,11 +4,6 @@
 #include <omp.h>
 #include <qmp.h>
 
-//#ifdef USE_BFM
-#if 0
-#include "/bgsys/drivers/ppcfloor/hwi/include/bqc/nd_rese_dcr.h"
-#endif
-
 #warning "Using deprecated wilson dslash"
 
 CPS_START_NAMESPACE
