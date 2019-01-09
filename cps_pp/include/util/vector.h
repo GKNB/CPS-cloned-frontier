@@ -717,21 +717,8 @@ const Complex& operator()(int i, int j) const
     Complex Char10() const ;
 
     void FTimesV1PlusV2(Float fb, Matrix *c, Matrix *d, int len)
-#if TARGET == BGL  
-    { Float coef = fb; vaxpy3_m (this, &coef, c, d, len*3); }
-#else
 	{ fTimesV1PlusV2((IFloat *)&u, IFloat(fb), (IFloat *)c, 
 	                         (IFloat *)d, len*18); }
-#endif
-#if 0
-//#pragma omp parallel for default(shared)
-	{ 
-		for(int i=0;i<len;i++)
-		fTimesV1PlusV2(((IFloat *)u)+18*i, IFloat(fb), (IFloat *)(c+i), 
-                        (IFloat *)(d+i), 18); 
-	}
-#endif
-
     Float Norm()
     {
       Float sum=0.;
