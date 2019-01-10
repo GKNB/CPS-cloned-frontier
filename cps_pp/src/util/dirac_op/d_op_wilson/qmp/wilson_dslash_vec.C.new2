@@ -112,7 +112,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
 
   char *cname = "";
-  char *fname = "wilson_dslash_vec()";
+  char *fname = "wilson_dslash_vec";
   int lx, ly, lz, lt;
 //  int mu;
   //    int r, c, s;
@@ -197,7 +197,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       gparity_init_status = 0;
 
     VRB.Result (cname, fname, "init_len(%d)!=vec_len(%d)\n", init_len, vec_len);
-    if (init_len > 0) {
+    if (init_len != 0) {
       for (int i = 0; i < 8; i++) {
         if (u_ind[i])
           sfree (u_ind[i]);
@@ -241,10 +241,10 @@ void wilson_dslash_vec (IFloat * chi_p_f,
           fflush (stdout);
         }
       }
+
       else
         local_comm[i] = 1;
     }
-
     for (int i = 0; i < 8; i++) {
       int mu = i % 4;
       int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
@@ -280,7 +280,6 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       }
     }
     Printf ("initted\n");
-    VRB.Result (cname, fname, "initted n_dir=%d\n", multiple_n);
     init_len = vec_len;
   }
   multiple_n = 0;
@@ -296,6 +295,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       multiple_n++;
     }
   }
+  VRB.Result (cname, fname, "initted n_dir=%d\n", multiple_n);
   if (multiple_n > 0)
     multiple = QMP_declare_multiple (multiple_p, multiple_n);
   for (int i = 0; i < 8; i++) {
@@ -519,12 +519,22 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   int index = 0;
 
 //#pragma omp master
-    if (multiple_n > 0){
-#if 0
+  {
+#if 1
+    if (multiple_n > 0)
       QMP_start (multiple);
 #else
-      for(int i =0;i<multiple_n;i++)
-        QMP_start (multiple_p[i]);
+    for (int i = 0; i < 8; i++) {
+      if (ind_nl[i] != num_nl[i])
+        VRB.Result (cname, fname, "ind_nl[%d](%d)!=num_nl[%d](%d)\n", i,
+                    ind_nl[i], i, num_nl[i]);
+      if (!local_comm[i % 4]) {
+        Printf ("QMP_start(Recv[%d])(%p)\n", i, Recv[i]);
+        QMP_start (Recv[i]);
+        Printf ("QMP_start(Send[%d])(%p)\n", i, Send[i]);
+        QMP_start (Send[i]);
+      }
+    }
 #endif
   }
 
@@ -783,19 +793,29 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   dtime = -dclock ();
 
 //#pragma omp master
+  {
+#if 1
     if (multiple_n > 0) {
-#if 0
       QMP_status_t send_status = QMP_wait (multiple);
       if (send_status != QMP_SUCCESS)
         QMP_error ("QMP multiple failed in wilson_dslash: %s\n",
                    QMP_error_string (send_status));
+    }
 #else
-      for(int i =0;i<multiple_n;i++){
-      QMP_status_t send_status = QMP_wait (multiple_p[i]);
-      if (send_status != QMP_SUCCESS)
-        QMP_error ("QMP multiple %d failed in wilson_dslash: %s\n",i,
-                   QMP_error_string (send_status));
+    for (int i = 0; i < 8; i++) {
+      if (!local_comm[i % 4]) {
+        QMP_status_t send_status = QMP_wait (Send[i]);
+        if (send_status != QMP_SUCCESS)
+          QMP_error ("Send failed in wilson_dslash: %s\n",
+                     QMP_error_string (send_status));
+        QMP_status_t rcv_status = QMP_wait (Recv[i]);
+        if (rcv_status != QMP_SUCCESS)
+          QMP_error ("Receive failed in wilson_dslash: %s\n",
+                     QMP_error_string (rcv_status));
       }
+      ind_nl[i] = 0;
+      ind_buf[i] = Recv_buf[i];
+    }
 #endif
   }
 
@@ -848,8 +868,6 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
         int r, c, s;
         for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
-//	if(!i_mu && !i && !vec_ind)
-//	  VRB.Result(cname,fname," i_mu i vec_ind u tmp tmp1 sdag psi=%d %d %d %p %p %p %d %p\n", i_mu,i,vec_ind,u,tmp,tmp1,sdag,psi);
           MINUSMU (i_mu, u, tmp, tmp1, sdag, psi);
           for (s = 0; s < 4; s++)
             for (c = 0; c < 3; c++)

@@ -324,7 +324,10 @@ static inline void MINUSMU(int mu, Float *u, Float *tmp, Float *tmp4,int sdag, F
   int c,s;
   if(mu==0){
     for(c=0;c<3;c++){
-      TMP(0,c,0) = PSI(0,c,0) - sdag * ( -PSI(1,c,3) ); 
+      TMP(0,c,0) = 
+	      PSI(0,c,0) 
+	      - sdag 
+	      * ( -PSI(1,c,3) ); 
       TMP(1,c,0) = PSI(1,c,0) - sdag * (  PSI(0,c,3) ); 
 
       TMP(0,c,1) = PSI(0,c,1) - sdag * ( -PSI(1,c,2) ); 
