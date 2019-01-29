@@ -498,7 +498,7 @@ public:
 							   ,true
 #endif
 							   );
-      for(int pidx=b;pidx<nmom_block_actual;pidx++)
+      for(int pidx=b;pidx<b+nmom_block_actual;pidx++)
 	mf_con.moveAdd(sigma_mom.getWdagMom(pidx), sigma_mom.getVmom(pidx), mf_store[pidx-b]);
     }
 
