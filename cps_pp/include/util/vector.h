@@ -134,8 +134,9 @@ void vecAddEquVec(IFloat *a, const IFloat *b, int);
 #else 
 inline void vecAddEquVec(IFloat *a, const IFloat *b, int len)
 {
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*a++ += *b++;
+    	a[i] += b[i];
     }
 }
 #endif

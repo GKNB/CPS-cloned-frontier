@@ -100,14 +100,8 @@ void  zmobius_m_orig(Vector *out,
   //    3. out +=  ftmp2
   //------------------------------------------------------------------
 #if 1
-#if 0
-  fTimesV1PlusV2((IFloat*)out, minus_kappa_b_sq, (IFloat*)frm_tmp2,
-		 (IFloat *)out, f_size);
-#else
-
+//  fTimesV1PlusV2((IFloat*)out, minus_kappa_b_sq, (IFloat*)frm_tmp2, (IFloat *)out, f_size);
   vecAddEquVec((IFloat*)out, (IFloat*) frm_tmp2, f_size);
-
-#endif
 #else
   ! SENTINEL did not fix below !
   cblas_daxpy(f_size, minus_kappa_b_sq, (IFloat*)frm_tmp2,1, 

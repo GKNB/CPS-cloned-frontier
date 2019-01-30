@@ -112,9 +112,9 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
 
   char *cname = "";
-  char *fname = "wilson_dslash_vec()";
+  char *fname = "wilson_dslash_vec";
   int lx, ly, lz, lt;
-//  int mu;
+  int mu;
   //    int r, c, s;
   int vol;
 
@@ -176,11 +176,8 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   static Float *Recv_buf[8];
   static QMP_msgmem_t Send_mem[8];
   static QMP_msgmem_t Recv_mem[8];
-//  static QMP_msghandle_t Send[8];
-//  static QMP_msghandle_t Recv[8];
-  QMP_msghandle_t multiple;
-  QMP_msghandle_t multiple_p[16];
-  int multiple_n = 0;
+  static QMP_msghandle_t Send[8];
+  static QMP_msghandle_t Recv[8];
 
   //reset setup variables if G-parity status changes
   if (gparity_init_status == 1 && !GJP.Gparity () || gparity_init_status == 0
@@ -197,7 +194,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       gparity_init_status = 0;
 
     VRB.Result (cname, fname, "init_len(%d)!=vec_len(%d)\n", init_len, vec_len);
-    if (init_len > 0) {
+    if (init_len != 0)
       for (int i = 0; i < 8; i++) {
         if (u_ind[i])
           sfree (u_ind[i]);
@@ -211,12 +208,11 @@ void wilson_dslash_vec (IFloat * chi_p_f,
           QMP_free_msgmem (Send_mem[i]);
         if (Recv_mem[i])
           QMP_free_msgmem (Recv_mem[i]);
-//        if (Send[i]) QMP_free_msghandle (Send[i]);
-//        if (Recv[i]) QMP_free_msghandle (Recv[i]);
+        if (Send[i])
+          QMP_free_msghandle (Send[i]);
+        if (Recv[i])
+          QMP_free_msghandle (Recv[i]);
       }
-//        if (multiple)
-//          QMP_free_msghandle (multiple);
-    }
 
     num_nl[0] = num_nl[4] = vol / lx;
     num_nl[1] = num_nl[5] = vol / ly;
@@ -241,12 +237,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
           fflush (stdout);
         }
       }
+
       else
         local_comm[i] = 1;
     }
-
     for (int i = 0; i < 8; i++) {
-      int mu = i % 4;
+      mu = i % 4;
       int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
       if (local_comm[mu]) {
         num_nl[i] = 0;
@@ -256,8 +252,8 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         Recv_buf[i] = NULL;
         Send_mem[i] = NULL;
         Recv_mem[i] = NULL;
-//        Send[i] = NULL;
-//        Recv[i] = NULL;
+        Send[i] = NULL;
+        Recv[i] = NULL;
       } else {
         u_ind[i] =
           (unsigned long *) smalloc (cname, fname, "u_ind[i]",
@@ -277,27 +273,13 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         Recv_buf[i] = (Float *) smalloc (cname, fname, "Recv_buf[i]", buf_size);
         Send_mem[i] = QMP_declare_msgmem (Send_buf[i], buf_size);
         Recv_mem[i] = QMP_declare_msgmem (Recv_buf[i], buf_size);
+        Send[i] = QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
+        Recv[i] = QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
       }
     }
     Printf ("initted\n");
-    VRB.Result (cname, fname, "initted n_dir=%d\n", multiple_n);
     init_len = vec_len;
   }
-  multiple_n = 0;
-  for (int i = 0; i < 8; i++) {
-    int mu = i % 4;
-    int sign = 1 - 2 * (i / 4); //1,1,1,1,-1,-1,-1,-1
-    if (!local_comm[mu]) {
-      multiple_p[multiple_n] =
-        QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
-      multiple_n++;
-      multiple_p[multiple_n] =
-        QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
-      multiple_n++;
-    }
-  }
-  if (multiple_n > 0)
-    multiple = QMP_declare_multiple (multiple_p, multiple_n);
   for (int i = 0; i < 8; i++) {
     ind_nl[i] = 0;
     ind_buf[i] = Send_buf[i];
@@ -323,8 +305,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   //
   GJP.SetNthreads ();
 
-#pragma omp parallel for default(shared)
-//private(mu)
+#pragma omp parallel for default(shared) private(mu)
   for (int dir = 0; dir < 8; dir++) {
     int x, y, z, t;
     int r, c, s;
@@ -372,7 +353,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
               int psi_bufoff = num_nl[dir] * SPINOR_SIZE * vec_len;     //offset for G-parity f1 pointers in buffer
 
               if (dir < 4) {    //backwards send. Fermion site is on the left-most boundary. Send \psi{x+\mu} to x
-                int mu = dir;
+                mu = dir;
                 //printf("Node %d, dir %d, mu %d, 1, local_comm[mu] = %d\n",UniqueID(),dir,mu,local_comm[mu]); fflush(stdout); 
                 int posp[4] = { x, y, z, t };
                 posp[mu] = (posp[mu] + 1) % lattsz[mu];
@@ -429,7 +410,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
               } else {          //Forwards send, fermion is on right-most boundary. Send P_- U^\dagger_{x-\mu} \psi_{x-\mu} to x
                 /* 1+gamma_mu */
                 /*-----------*/
-                int mu = dir - 4;
+                mu = dir - 4;
 
                 int posm[4] = { x, y, z, t };
                 posm[mu] =
@@ -499,6 +480,17 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     }
   }
 
+  for (int i = 0; i < 8; i++) {
+    if (ind_nl[i] != num_nl[i])
+      VRB.Result (cname, fname, "ind_nl[%d](%d)!=num_nl[%d](%d)\n", i,
+                  ind_nl[i], i, num_nl[i]);
+    if (!local_comm[i % 4]) {
+      Printf ("QMP_start(Recv[%d])(%p)\n", i, Recv[i]);
+      QMP_start (Recv[i]);
+      Printf ("QMP_start(Send[%d])(%p)\n", i, Send[i]);
+      QMP_start (Send[i]);
+    }
+  }
 
   dtime += dclock ();
   setup += dtime;
@@ -517,288 +509,266 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   for (int i = 0; i < SPINOR_SIZE; i++)
     fbuf[i] = 0.;
   int index = 0;
+#pragma omp parallel for default(shared) private(mu)
+  for (index = 0; index < vol * 2; index++) {
+    //  Printf("wilson_dslash: %d %d %d %d\n",x,y,z,t);
+    //  if ((called%10000==0) &&(!UniqueID())){
+    //          printf("wilson_dslash: index=%d thread %d of %d\n",index,omp_get_thread_num(),omp_get_num_threads());
+    //  }
+    int r, c, s;
+    int x, y, z, t;
+    int xyzt;
+    int parity;
+    Float *chi;
+    Float *u;
+    Float *psi;
 
-//#pragma omp master
-    if (multiple_n > 0){
-#if 0
-      QMP_start (multiple);
-#else
-      for(int i =0;i<multiple_n;i++)
-        QMP_start (multiple_p[i]);
-#endif
-  }
+    //CK: for G-parity
+    Float *chi_f1;
+    Float *u_f1;
+    Float *psi_f1;
 
-//#pragma omp parallel
-//for default(shared) //private(mu)
-  {
+    Float tmp[temp_size];
+    Float tmp1[temp_size];
+    Float tmp2[temp_size];
+    Float tmp3[temp_size];
+    Float tmp4[temp_size];
+    Float tmp5[temp_size];
+    Float tmp6[temp_size];
+    Float tmp7[temp_size];
+    Float tmp8[temp_size];
 
-#pragma omp for
-    for (index = 0; index < vol * 2; index++) {
-      //  Printf("wilson_dslash: %d %d %d %d\n",x,y,z,t);
-      //  if ((called%10000==0) &&(!UniqueID())){
-      //          printf("wilson_dslash: index=%d thread %d of %d\n",index,omp_get_thread_num(),omp_get_num_threads());
-      //  }
-      int r, c, s;
-      int x, y, z, t;
-      int xyzt;
-      int parity;
-      Float *chi;
-      Float *u;
-      Float *psi;
+    Float *temps[4][2] =
+      { {tmp1, tmp5}, {tmp2, tmp6}, {tmp3, tmp7}, {tmp4, tmp8} };
 
-      //CK: for G-parity
-      Float *chi_f1;
-      Float *u_f1;
-      Float *psi_f1;
+    int temp = index;
+    x = temp % lx;
+    temp = temp / lx;
+    y = temp % ly;
+    temp = temp / ly;
+    z = temp % lz;
+    temp = temp / lz;
+    t = temp % lt;
+    temp = temp / lt;
 
-      Float tmp[temp_size];
-      Float tmp1[temp_size];
-      Float tmp2[temp_size];
-      Float tmp3[temp_size];
-      Float tmp4[temp_size];
-      Float tmp5[temp_size];
-      Float tmp6[temp_size];
-      Float tmp7[temp_size];
-      Float tmp8[temp_size];
-
-      Float *temps[4][2] =
-        { {tmp1, tmp5}, {tmp2, tmp6}, {tmp3, tmp7}, {tmp4, tmp8} };
-
-      int temp = index;
-      x = temp % lx;
-      temp = temp / lx;
-      y = temp % ly;
-      temp = temp / ly;
-      z = temp % lz;
-      temp = temp / lz;
-      t = temp % lt;
-      temp = temp / lt;
-
-      if (0)
-        if ((called % 1000000 == 0) && (!UniqueID ())) {
-          printf ("wilson_dslash: %d %d %d %d %d: thread %d of %d tmp=%p \n",
-                  index, x, y, z, t, omp_get_thread_num (),
-                  omp_get_num_threads (), tmp);
-        }
+    if (0)
+      if ((called % 1000000 == 0) && (!UniqueID ())) {
+        printf ("wilson_dslash: %d %d %d %d %d: thread %d of %d tmp=%p \n",
+                index, x, y, z, t, omp_get_thread_num (),
+                omp_get_num_threads (), tmp);
+      }
 
 
-      parity = x + y + z + t;
-      parity = parity % 2;
-      if (parity == cbn) {
+    parity = x + y + z + t;
+    parity = parity % 2;
+    if (parity == cbn) {
 
-        /* x,y,z,t addressing of cbn checkerboard */
-        xyzt = (x / 2) + (lx / 2) * (y + ly * (z + lz * t));
-        //        VRB.Result(fname,"local", "%d %d %d %d\n",x,y,z,t);
+      /* x,y,z,t addressing of cbn checkerboard */
+      xyzt = (x / 2) + (lx / 2) * (y + ly * (z + lz * t));
+      //        VRB.Result(fname,"local", "%d %d %d %d\n",x,y,z,t);
 
-        chi = chi_p + SPINOR_SIZE * xyzt;
-        if (GJP.Gparity ())
-          chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
+      chi = chi_p + SPINOR_SIZE * xyzt;
+      if (GJP.Gparity ())
+        chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
 
+      for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
+        for (s = 0; s < 4; s++)
+          for (c = 0; c < 3; c++)
+            for (r = 0; r < 2; r++)
+              FERM (chi, r, c, s) = 0.;
+        chi += vec_offset;
+      }
+
+      if (GJP.Gparity ()) {
         for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
           for (s = 0; s < 4; s++)
             for (c = 0; c < 3; c++)
               for (r = 0; r < 2; r++)
-                FERM (chi, r, c, s) = 0.;
-          chi += vec_offset;
+                FERM (chi_f1, r, c, s) = 0.;
+          chi_f1 += vec_offset;
         }
+      }
+
+      int pos[4] = { x, y, z, t };
+
+      for (mu = 0; mu < 4; mu++) {
+        //1-gamma_mu
+        int posp[4] = { x, y, z, t };
+        posp[mu] = (posp[mu] + 1) % lattsz[mu];
+        int posp_xyzt =
+          (posp[0] / 2) + (lx / 2) * (posp[1] + ly * (posp[2] + lz * posp[3]));
+
+        chi = chi_p + SPINOR_SIZE * xyzt;
+        u = u_p + GAUGE_SIZE * (xyzt + u_cboff * cbn);
+        psi = psi_p + SPINOR_SIZE * posp_xyzt;
 
         if (GJP.Gparity ()) {
-          for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
-            for (s = 0; s < 4; s++)
-              for (c = 0; c < 3; c++)
-                for (r = 0; r < 2; r++)
-                  FERM (chi_f1, r, c, s) = 0.;
-            chi_f1 += vec_offset;
-          }
+          chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
+          u_f1 = u_p + GAUGE_SIZE * (xyzt + u_cboff * cbn + vol);
+          psi_f1 = psi_p + SPINOR_SIZE * (posp_xyzt + vol);
         }
 
-        int pos[4] = { x, y, z, t };
+        if ((pos[mu] == lattsz[mu] - 1) && !local_comm[mu]) {
+          //not sure if this actually *does* anything!
+          psi = fbuf;
+          if (GJP.Gparity ())
+            psi_f1 = fbuf + SPINOR_SIZE;
+        } else {
+          //internal site or local comms for edge sites
 
-        for (int mu = 0; mu < 4; mu++) {
-          //1-gamma_mu
-          int posp[4] = { x, y, z, t };
-          posp[mu] = (posp[mu] + 1) % lattsz[mu];
-          int posp_xyzt =
-            (posp[0] / 2) + (lx / 2) * (posp[1] +
-                                        ly * (posp[2] + lz * posp[3]));
+          for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
+            if (!GJP.Gparity ()) {
+              MINUSMU (mu, u, tmp, temps[mu][0], sdag, psi);
 
-          chi = chi_p + SPINOR_SIZE * xyzt;
-          u = u_p + GAUGE_SIZE * (xyzt + u_cboff * cbn);
-          psi = psi_p + SPINOR_SIZE * posp_xyzt;
+              for (s = 0; s < 4; s++)
+                for (c = 0; c < 3; c++)
+                  for (r = 0; r < 2; r++)
+                    if (mu == 0)
+                      FERM (chi, r, c, s) = FERM (temps[mu][0], r, c, s);
+                    else
+                      FERM (chi, r, c, s) += FERM (temps[mu][0], r, c, s);
 
-          if (GJP.Gparity ()) {
-            chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
-            u_f1 = u_p + GAUGE_SIZE * (xyzt + u_cboff * cbn + vol);
-            psi_f1 = psi_p + SPINOR_SIZE * (posp_xyzt + vol);
-          }
+              psi += vec_offset;
+              chi += vec_offset;
 
-          if ((pos[mu] == lattsz[mu] - 1) && !local_comm[mu]) {
-            //not sure if this actually *does* anything!
-            psi = fbuf;
-            if (GJP.Gparity ())
-              psi_f1 = fbuf + SPINOR_SIZE;
-          } else {
-            //internal site or local comms for edge sites
+            } else {            //G-parity
+              Float *psi_f0_use = psi;
+              Float *psi_f1_use = psi_f1;
 
-            for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
-              if (!GJP.Gparity ()) {
-                MINUSMU (mu, u, tmp, temps[mu][0], sdag, psi);
+              if (GJP.Bc (mu) == BND_CND_GPARITY && pos[mu] == lattsz[mu] - 1) {
+                //psi crosses G-parity boundary, do flavour twist
+                psi_f0_use = psi_f1;
+                psi_f1_use = psi;
+              }
+              MINUSMU (mu, u, tmp, temps[mu][0], sdag, psi_f0_use);
+              MINUSMU (mu, u_f1, tmp, temps[mu][0] + SPINOR_SIZE, sdag,
+                       psi_f1_use);
 
-                for (s = 0; s < 4; s++)
-                  for (c = 0; c < 3; c++)
-                    for (r = 0; r < 2; r++)
-                      if (mu == 0)
-                        FERM (chi, r, c, s) = FERM (temps[mu][0], r, c, s);
-                      else
-                        FERM (chi, r, c, s) += FERM (temps[mu][0], r, c, s);
-
-                psi += vec_offset;
-                chi += vec_offset;
-
-              } else {          //G-parity
-                Float *psi_f0_use = psi;
-                Float *psi_f1_use = psi_f1;
-
-                if (GJP.Bc (mu) == BND_CND_GPARITY && pos[mu] == lattsz[mu] - 1) {
-                  //psi crosses G-parity boundary, do flavour twist
-                  psi_f0_use = psi_f1;
-                  psi_f1_use = psi;
-                }
-                MINUSMU (mu, u, tmp, temps[mu][0], sdag, psi_f0_use);
-                MINUSMU (mu, u_f1, tmp, temps[mu][0] + SPINOR_SIZE, sdag,
-                         psi_f1_use);
-
-                for (s = 0; s < 4; s++) {
-                  for (c = 0; c < 3; c++) {
-                    for (r = 0; r < 2; r++) {
-                      if (mu == 0) {
-                        FERM (chi, r, c, s) = FERM (temps[mu][0], r, c, s);
-                        FERM (chi_f1, r, c, s) =
-                          FERM (temps[mu][0] + SPINOR_SIZE, r, c, s);
-                      } else {
-                        FERM (chi, r, c, s) += FERM (temps[mu][0], r, c, s);
-                        FERM (chi_f1, r, c, s) +=
-                          FERM (temps[mu][0] + SPINOR_SIZE, r, c, s);
-                      }
+              for (s = 0; s < 4; s++) {
+                for (c = 0; c < 3; c++) {
+                  for (r = 0; r < 2; r++) {
+                    if (mu == 0) {
+                      FERM (chi, r, c, s) = FERM (temps[mu][0], r, c, s);
+                      FERM (chi_f1, r, c, s) =
+                        FERM (temps[mu][0] + SPINOR_SIZE, r, c, s);
+                    } else {
+                      FERM (chi, r, c, s) += FERM (temps[mu][0], r, c, s);
+                      FERM (chi_f1, r, c, s) +=
+                        FERM (temps[mu][0] + SPINOR_SIZE, r, c, s);
                     }
                   }
                 }
-
-                psi += vec_offset;
-                chi += vec_offset;
-
-                psi_f1 += vec_offset;
-                chi_f1 += vec_offset;
               }
 
-            }                   //vec_ind loop
-          }                     //local comms loop
-        }                       //mu loop
+              psi += vec_offset;
+              chi += vec_offset;
 
-        for (int mu = 0; mu < 4; mu++) {
-          /* 1+gamma_mu */
-        /*-----------*/
-          int posm[4] = { x, y, z, t };
-          posm[mu] =
-            posm[mu] - 1 + ((lattsz[mu] - posm[mu]) / lattsz[mu]) * lattsz[mu];
-          int posm_xyzt =
-            (posm[0] / 2) + (lx / 2) * (posm[1] +
-                                        ly * (posm[2] + lz * posm[3]));
-
-          chi = chi_p + SPINOR_SIZE * xyzt;
-          u = u_p + GAUGE_SIZE * (posm_xyzt + u_cboff * cb);    //note opposite parity
-          psi = psi_p + SPINOR_SIZE * posm_xyzt;
-
-          if (GJP.Gparity ()) {
-            chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
-            u_f1 = u_p + GAUGE_SIZE * (posm_xyzt + u_cboff * cb + vol); //note opposite parity
-            psi_f1 = psi_p + SPINOR_SIZE * (posm_xyzt + vol);
-          }
-
-          if (pos[mu] == 0 && (!local_comm[mu])) {
-            moveMem ((IFloat *) temps[mu][1], (IFloat *) fbuf,
-                     SPINOR_SIZE * sizeof (Float) / sizeof (char));
-
-            if (GJP.Gparity ()) {
-              moveMem ((IFloat *) (temps[mu][1] + SPINOR_SIZE),
-                       (IFloat *) (fbuf + SPINOR_SIZE),
-                       SPINOR_SIZE * sizeof (Float) / sizeof (char));
+              psi_f1 += vec_offset;
+              chi_f1 += vec_offset;
             }
-          } else {
-            for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
-              if (!GJP.Gparity ()) {
-                PLUSMU (mu, u, tmp, temps[mu][1], sdag, psi);
-                for (s = 0; s < 4; s++)
-                  for (c = 0; c < 3; c++)
-                    for (r = 0; r < 2; r++)
-                      FERM (chi, r, c, s) += FERM (temps[mu][1], r, c, s);
 
-                psi += vec_offset;
-                chi += vec_offset;
-              } else {
-                //here the gauge fields and psi are drawn from the same site but placed into chi at the next site over
-                //hence for the G-parity twist we need to swap over the parts contributing to psi_f0 and psi_f1
+          }                     //vec_ind loop
+        }                       //local comms loop
+      }                         //mu loop
 
-                PLUSMU (mu, u, tmp, temps[mu][1], sdag, psi);
-                PLUSMU (mu, u_f1, tmp, temps[mu][1] + SPINOR_SIZE, sdag,
-                        psi_f1);
+      for (mu = 0; mu < 4; mu++) {
+        /* 1+gamma_mu */
+        /*-----------*/
+        int posm[4] = { x, y, z, t };
+        posm[mu] =
+          posm[mu] - 1 + ((lattsz[mu] - posm[mu]) / lattsz[mu]) * lattsz[mu];
+        int posm_xyzt =
+          (posm[0] / 2) + (lx / 2) * (posm[1] + ly * (posm[2] + lz * posm[3]));
 
-                Float *chi_f0_use = chi;
-                Float *chi_f1_use = chi_f1;
+        chi = chi_p + SPINOR_SIZE * xyzt;
+        u = u_p + GAUGE_SIZE * (posm_xyzt + u_cboff * cb);      //note opposite parity
+        psi = psi_p + SPINOR_SIZE * posm_xyzt;
 
-                if (GJP.Bc (mu) == BND_CND_GPARITY && pos[mu] == 0) {
-                  //contribution to chi crosses G-parity boundary, do flavour twist
-                  chi_f0_use = chi_f1;
-                  chi_f1_use = chi;
-                }
+        if (GJP.Gparity ()) {
+          chi_f1 = chi_p + SPINOR_SIZE * (xyzt + vol);
+          u_f1 = u_p + GAUGE_SIZE * (posm_xyzt + u_cboff * cb + vol);   //note opposite parity
+          psi_f1 = psi_p + SPINOR_SIZE * (posm_xyzt + vol);
+        }
 
-                for (s = 0; s < 4; s++) {
-                  for (c = 0; c < 3; c++) {
-                    for (r = 0; r < 2; r++) {
-                      FERM (chi_f0_use, r, c, s) +=
-                        FERM (temps[mu][1], r, c, s);
-                      FERM (chi_f1_use, r, c, s) +=
-                        FERM (temps[mu][1] + SPINOR_SIZE, r, c, s);
-                    }
-                  }
-                }
+        if (pos[mu] == 0 && (!local_comm[mu])) {
+          moveMem ((IFloat *) temps[mu][1], (IFloat *) fbuf,
+                   SPINOR_SIZE * sizeof (Float) / sizeof (char));
 
-                psi += vec_offset;
-                chi += vec_offset;
+          if (GJP.Gparity ()) {
+            moveMem ((IFloat *) (temps[mu][1] + SPINOR_SIZE),
+                     (IFloat *) (fbuf + SPINOR_SIZE),
+                     SPINOR_SIZE * sizeof (Float) / sizeof (char));
+          }
+        } else {
+          for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
+            if (!GJP.Gparity ()) {
+              PLUSMU (mu, u, tmp, temps[mu][1], sdag, psi);
+              for (s = 0; s < 4; s++)
+                for (c = 0; c < 3; c++)
+                  for (r = 0; r < 2; r++)
+                    FERM (chi, r, c, s) += FERM (temps[mu][1], r, c, s);
 
-                psi_f1 += vec_offset;
-                chi_f1 += vec_offset;
+              psi += vec_offset;
+              chi += vec_offset;
+            } else {
+              //here the gauge fields and psi are drawn from the same site but placed into chi at the next site over
+              //hence for the G-parity twist we need to swap over the parts contributing to psi_f0 and psi_f1
+
+              PLUSMU (mu, u, tmp, temps[mu][1], sdag, psi);
+              PLUSMU (mu, u_f1, tmp, temps[mu][1] + SPINOR_SIZE, sdag, psi_f1);
+
+              Float *chi_f0_use = chi;
+              Float *chi_f1_use = chi_f1;
+
+              if (GJP.Bc (mu) == BND_CND_GPARITY && pos[mu] == 0) {
+                //contribution to chi crosses G-parity boundary, do flavour twist
+                chi_f0_use = chi_f1;
+                chi_f1_use = chi;
               }
 
+              for (s = 0; s < 4; s++) {
+                for (c = 0; c < 3; c++) {
+                  for (r = 0; r < 2; r++) {
+                    FERM (chi_f0_use, r, c, s) += FERM (temps[mu][1], r, c, s);
+                    FERM (chi_f1_use, r, c, s) +=
+                      FERM (temps[mu][1] + SPINOR_SIZE, r, c, s);
+                  }
+                }
+              }
 
-            }                   //vec_ind loop
-          }                     //if local comms
-        }                       //mu loop
+              psi += vec_offset;
+              chi += vec_offset;
 
-      }                         //parity==cbn
-    }
+              psi_f1 += vec_offset;
+              chi_f1 += vec_offset;
+            }
+
+
+          }                     //vec_ind loop
+        }                       //if local comms
+      }                         //mu loop
+
+    }                           //parity==cbn
   }
   dtime += dclock ();
   local += dtime;
+
   dtime = -dclock ();
 
-//#pragma omp master
-    if (multiple_n > 0) {
-#if 0
-      QMP_status_t send_status = QMP_wait (multiple);
+  for (int i = 0; i < 8; i++) {
+    if (!local_comm[i % 4]) {
+      QMP_status_t send_status = QMP_wait (Send[i]);
       if (send_status != QMP_SUCCESS)
-        QMP_error ("QMP multiple failed in wilson_dslash: %s\n",
+        QMP_error ("Send failed in wilson_dslash: %s\n",
                    QMP_error_string (send_status));
-#else
-      for(int i =0;i<multiple_n;i++){
-      QMP_status_t send_status = QMP_wait (multiple_p[i]);
-      if (send_status != QMP_SUCCESS)
-        QMP_error ("QMP multiple %d failed in wilson_dslash: %s\n",i,
-                   QMP_error_string (send_status));
-      }
-#endif
+      QMP_status_t rcv_status = QMP_wait (Recv[i]);
+      if (rcv_status != QMP_SUCCESS)
+        QMP_error ("Receive failed in wilson_dslash: %s\n",
+                   QMP_error_string (rcv_status));
+    }
+    ind_nl[i] = 0;
+    ind_buf[i] = Recv_buf[i];
   }
-
   dtime += dclock ();
   qmp += dtime;
 
@@ -848,8 +818,6 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
         int r, c, s;
         for (int vec_ind = 0; vec_ind < vec_len; vec_ind++) {
-//	if(!i_mu && !i && !vec_ind)
-//	  VRB.Result(cname,fname," i_mu i vec_ind u tmp tmp1 sdag psi=%d %d %d %p %p %p %d %p\n", i_mu,i,vec_ind,u,tmp,tmp1,sdag,psi);
           MINUSMU (i_mu, u, tmp, tmp1, sdag, psi);
           for (s = 0; s < 4; s++)
             for (c = 0; c < 3; c++)

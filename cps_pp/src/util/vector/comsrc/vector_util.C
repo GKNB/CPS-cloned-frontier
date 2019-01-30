@@ -724,7 +724,7 @@ void uDotXEqual(IFloat* y, const IFloat* u, const IFloat* x)
 IFloat dotProduct(const IFloat *a, const IFloat *b, int len)
 {
     IFloat sum = 0.0;
-// #pragma omp parallel for reduction(+:sum)
+#pragma omp parallel for reduction(+:sum)
     for(int i = 0; i < len; ++i) {
     	sum += a[i] * b[i];
     }
@@ -747,8 +747,9 @@ void vecTimesEquFloat(IFloat *a, IFloat b, int len)
 
 void vecAddEquFloat(IFloat *a, IFloat b, int len)
 {
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-        *a++ += b;
+        a[i] += b;
     }
 }
 
@@ -758,10 +759,11 @@ void vecTimesComplex(IFloat *a,
                      const IFloat *c,
                      int len)
 {
-  for(int i = 0; i < len; i += 2, c += 2)
+#pragma omp parallel for
+  for(int i = 0; i < len; i += 2)
     {
-      *a++ = re * *c     - im * *(c+1);   // real part
-      *a++ = re * *(c+1) + im * *c;       // imag part
+      a[i] = re * c[i]     - im * c[i+1];   // real part
+      a[i+1] = re * c[i+1] + im * c[i];       // imag part
     }
 }
 
@@ -773,8 +775,9 @@ void vecTimesComplex(IFloat *a,
 */
 void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, Float c, int len)
 {
+#pragma omp parallel for
   for (int i=0; i<len; i++) {
-    *a++ = c * *b++;
+    a[i] = c * b[i];
   }
 
 }
@@ -788,8 +791,9 @@ void vecEqualsVecTimesEquFloat(IFloat *a, IFloat *b, Float c, int len)
  */
 void vecAddEquVec(IFloat *a, const IFloat *b, int len)
 {
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*a++ += *b++;
+    	a[i] += b[i];
     }
 }
 #endif
@@ -802,8 +806,9 @@ void vecAddEquVec(IFloat *a, const IFloat *b, int len)
  */
 void vecMinusEquVec(IFloat *a, const IFloat *b, int len)
 {
+#pragma omp parallel for
     for(int i = 0; i < len; ++i) {
-    	*a++ -= *b++;
+    	a[i] -= b[i];
     }
 }
 
@@ -851,7 +856,7 @@ void oneMinusfTimesMatrix(IFloat *a, IFloat b, const IFloat *c, int n)
 {
     IFloat *p = a;
     for(int i = 0; i < n; ++i) {
-        *p++ = -b * *c++;
+        p[i] = -b * c[i];
     }
     *a += 1.0;    *(a+8) += 1.0;    *(a+16) += 1.0;
 }
@@ -863,8 +868,9 @@ void oneMinusfTimesMatrix(IFloat *a, IFloat b, const IFloat *c, int n)
  */
 void vecNegative(IFloat *a, const IFloat *b, int len)
 {
+#pragma omp parallel for default(shared)
     for(int i = 0; i < len; ++i) {
-        *a++ = -*b++;
+        a[i] = -b[i];
     }
 }
 
@@ -879,11 +885,15 @@ void compDotProduct(IFloat *c_r, IFloat *c_i,
 		    const IFloat *a, const IFloat *b, int len)
 {
     *c_r = *c_i = 0.0;
-    for(int i = 0; i < len; i += 2, a += 2, b += 2) 
+    Float re=0.,im=0.;
+#pragma omp parallel for reduction(+:re,im)
+    for(int i = 0; i < len; i += 2)
     {
-      *c_r += *a * *b     + *(a+1) * *(b+1);   // real part
-      *c_i += *a * *(b+1) - *(a+1) * *b;       // imag part
+       re+= a[i] * b[i]     + a[i+1] * b[i+1];   // real part
+       im+= a[i] * b[i+1] - a[i+1] * b[i];       // imag part
     }
+    *c_r =re;
+    *c_i =im;
 }
 
 /*!
@@ -897,11 +907,12 @@ void compDotProduct(IFloat *c_r, IFloat *c_i,
 void cTimesV1PlusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
 	const IFloat *d, int len)
 {
-    for(int i = 0; i < len; i += 2, c += 2) 
+#pragma omp parallel for 
+    for(int i = 0; i < len; i += 2)
     {
-      Float c_re = *c; Float c_im = *(c+1);
-      *a++ = re * c_re     - im * c_im+ *d++;   // real part
-      *a++ = re * c_im + im * c_re   + *d++;   // imag part
+      Float c_re = c[i]; Float c_im = c[i+1];
+      a[i] = re * c_re     - im * c_im+ d[i];   // real part
+      a[i+1] = re * c_im + im * c_re   + d[i+1];   // imag part
     }
 }
 
@@ -916,11 +927,12 @@ void cTimesV1PlusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
 void cTimesV1MinusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
 	const IFloat *d, int len)
 {
-    for(int i = 0; i < len; i += 2, c += 2) 
+#pragma omp parallel for
+    for(int i = 0; i < len; i += 2) 
     {
-      Float c_re = *c; Float c_im = *(c+1);
-      *a++ = re * c_re     - im * c_im - *d++;   // real part
-      *a++ = re * c_im + im * c_re   - *d++;   // imag part
+      Float c_re = c[i]; Float c_im = c[i+1];
+      a[i] = re * c_re     - im * c_im - d[i];   // real part
+      a[i+1] = re * c_im + im * c_re   - d[i+1];   // imag part
     }
 }
 

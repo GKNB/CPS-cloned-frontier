@@ -1,20 +1,5 @@
 #include<config.h>
 CPS_START_NAMESPACE
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2013-04-05 17:46:30 $
-//  $Header: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/mobius.h,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Id: mobius.h,v 1.2 2013-04-05 17:46:30 chulwoo Exp $
-//  $Name: not supported by cvs2svn $
-//  $Locker:  $
-//  $RCSfile: mobius.h,v $
-//  $Revision: 1.2 $
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/include/util/mobius.h,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // mobius.h
@@ -248,9 +233,29 @@ void zmobius_dminus(Vector *out,
 
 // TIZB
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len);
-void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
-			 const Complex *d, int len);
-void vecTimesEquComplex(Complex *a, Complex b, int len);
+inline void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
+                    const Complex *d, int len)
+{
+#if 0
+#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+        a[i] = b * c[i] + d[i];
+    }
+#else
+    cTimesV1PlusV2((IFloat*)a, b.real(),b.imag(),(IFloat*)c,(IFloat*)d,len);
+#endif
+}
+
+inline void vecTimesEquComplex(Complex *a, Complex b, int len)
+{
+#pragma omp parallel for
+    for(int i = 0; i < len/2; ++i) {
+        a[i] *= b;
+    }
+}
+
+// void vecTimesComplex(IFloat *a, IFloat re, IFloat im, const IFloat *c, int len)
+
 
 void DebugPrintVec(Vector* vp, int len);
 
