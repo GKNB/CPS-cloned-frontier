@@ -559,8 +559,8 @@ CPS_END_NAMESPACE
 #define PARAMS
 #define GP
 // Using TwoKappa only for zMobius for now, really SYM2
-#define TWOKAPPA
-#define GRID_MADWF
+//#define TWOKAPPA
+//#define GRID_MADWF
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
