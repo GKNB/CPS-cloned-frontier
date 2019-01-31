@@ -41,6 +41,7 @@ CPS_END_NAMESPACE
 
 CPS_START_NAMESPACE
 
+#if 0
 void vecTimesEquComplex(Complex *a, Complex b, int len)
 {
 #pragma omp parallel for
@@ -48,17 +49,37 @@ void vecTimesEquComplex(Complex *a, Complex b, int len)
     	a[i] *= b;
     }
 }
+#endif
 
 
 
-void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
+#if 0
+inline void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 		    const Complex *d, int len)
 {
+#if 0
 #pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
     	a[i] = b * c[i] + d[i];
     }
+#else
+    cTimesV1PlusV2((IFloat*)a, b.real(),b.imag(),(IFloat*)c,(IFloat*d),len);
+#endif
 }
+#endif
+
+//void cTimesV1PlusV2(IFloat *a, IFloat re, IFloat im, const IFloat *c,
+//        const IFloat *d, int len)
+//{
+//#pragma omp parallel for
+//    for(int i = 0; i < len; i += 2)
+//    {
+//      Float c_re = c[i]; Float c_im = c[i+1];
+//      a[i] = re * c_re     - im * c_im+ d[i];   // real part
+//      a[i+1] = re * c_im + im * c_re   + d[i+1];   // imag part
+//    }
+//}
+
 
 
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)

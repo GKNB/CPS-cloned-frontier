@@ -50,10 +50,10 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
 //  Cheb.csv(std::cout);
 //  exit(-24);
 //  ImplicitlyRestartedLanczos<FermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-//  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-  Grid::ImplicitlyRestartedLanczosCJ < LATTICE_FERMION_F > IRL (HermOpF, Cheb,
-							      Nstop, Nk, Nm,
-							      resid_f, MaxIt);
+  Grid::FunctionHermOp< LATTICE_FERMION_F > OpCheby(Cheb,HermOpF);
+  Grid::PlainHermOp< LATTICE_FERMION_F > Op(HermOpF);
+  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION_F> IRL(OpCheby,Op,Nstop,Nk,Nm,resid,MaxIt);
+//  Grid::ImplicitlyRestartedLanczosCJ < LATTICE_FERMION_F > IRL (HermOpF, Cheb, Nstop, Nk, Nm, resid_f, MaxIt);
   precisionChange (grid_rb_in_f, grid_rb_in);
 
   std::vector < Grid::RealD > eval (Nm);
@@ -156,7 +156,10 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 							    MaxIt);
 #else
   Grid::Chebyshev < LATTICE_FERMION_F > Cheb (low, high, order);
-  Grid::ImplicitlyRestartedLanczosCJ <LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+//  Grid::ImplicitlyRestartedLanczosCJ <LATTICE_FERMION_F> IRL(HermOpF,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::FunctionHermOp< LATTICE_FERMION_F > OpCheby(Cheb,HermOpF);
+  Grid::PlainHermOp< LATTICE_FERMION_F > Op(HermOpF);
+  Grid::ImplicitlyRestartedLanczos<LATTICE_FERMION_F> IRL(OpCheby,Op,Nstop,Nk,Nm,resid,MaxIt);
   precisionChange(grid_rb_in_f,grid_rb_in);
 #endif
 
@@ -205,6 +208,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 
 }
 
+#if 0 // SimpleLanczos only present in Lanczos branch
 #ifndef IF_TM
 #undef SINGLE
 int SimpleLanczos (std::vector<Float>  &lambda, LanczosArg * eig_arg)
@@ -308,5 +312,6 @@ int SimpleLanczos (std::vector<Float>  &lambda, LanczosArg * eig_arg)
   return Nconv;
 
 }
-#endif
+#endif //#ifndef IF_TM
+#endif //#if 0
 #undef SINGLE

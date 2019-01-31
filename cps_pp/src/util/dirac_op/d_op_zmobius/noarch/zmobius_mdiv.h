@@ -1,6 +1,6 @@
-//4d precond. mobius Dirac op:
-// M_5 - kappa_b M4eo M_5^-1 kappa_b M4oe
-void  zmobius_m_orig(Vector *out, 
+//Deriv term 
+// Bee M5inv Meo
+void  zmobius_mdiv(Vector *out, 
 	       Matrix *gauge_field, 
 	       Vector *in, 
 	       Float mass, 
@@ -20,15 +20,8 @@ void  zmobius_m_orig(Vector *out,
   const int s_node_coor = GJP.SnodeCoor();
 
   
-#if 0
-  const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;
-  const Float minus_kappa_b_sq = -mobius_lib_arg->mobius_kappa_b * mobius_lib_arg->mobius_kappa_b;
-#endif
-  
-
 
   Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;
-  //Vector *temp = (Vector *) smalloc(f_size * sizeof(Float));
   Float norm;
 
   
@@ -47,7 +40,7 @@ void  zmobius_m_orig(Vector *out,
   // Apply Dslash O <- E
   //------------------------------------------------------------------
   time_elapse();
-  zmobius_dslash_4(out, gauge_field, in, 1, 0, mobius_lib_arg, mass);
+  zmobius_dslash_4(out, gauge_field, in, CHKB_ODD, 0, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
 
   //------------------------------------------------------------------
@@ -71,7 +64,7 @@ void  zmobius_m_orig(Vector *out,
   //------------------------------------------------------------------
   // Apply Dslash E <- O
   //------------------------------------------------------------------
-  zmobius_dslash_4(frm_tmp2, gauge_field, out, 0, 0, mobius_lib_arg, mass);
+  zmobius_dslash_4(frm_tmp2, gauge_field, out, CHKB_EVEN, 0, mobius_lib_arg, mass);
   DEBUG_MOBIUS_DSLASH("mobius_dslash_4 %e\n", time_elapse());
   
   //------------------------------------------------------------------
@@ -100,8 +93,14 @@ void  zmobius_m_orig(Vector *out,
   //    3. out +=  ftmp2
   //------------------------------------------------------------------
 #if 1
-//  fTimesV1PlusV2((IFloat*)out, minus_kappa_b_sq, (IFloat*)frm_tmp2, (IFloat *)out, f_size);
+#if 0
+  fTimesV1PlusV2((IFloat*)out, minus_kappa_b_sq, (IFloat*)frm_tmp2,
+		 (IFloat *)out, f_size);
+#else
+
   vecAddEquVec((IFloat*)out, (IFloat*) frm_tmp2, f_size);
+
+#endif
 #else
   ! SENTINEL did not fix below !
   cblas_daxpy(f_size, minus_kappa_b_sq, (IFloat*)frm_tmp2,1, 
