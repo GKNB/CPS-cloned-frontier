@@ -37,14 +37,14 @@ void Start(int * argc, char *** argv) {
 #endif
 }
 void End(){
-  printf("End()\n");
+  // printf("End()\n");
   QMPSCU::destroy_qmp();
-  printf("destroy_qmp()\n");
+  // printf("destroy_qmp()\n");
 //  _mcleanup();
 #ifdef USE_QUDA
   endQuda();
 #endif
-  printf("End()\n");
+  // printf("End()\n");
 }
 #else
 void Start(int * argc, char *** argv) {
