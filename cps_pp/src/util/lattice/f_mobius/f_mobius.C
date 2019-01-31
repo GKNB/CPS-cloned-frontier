@@ -666,7 +666,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     CgArg cg_arg ;
     cg_arg.mass = mass ;
 #ifdef PROFILE
-  time = -dclock();
+  Float dtime = -dclock();
 #endif
     DiracOpMobius dwf(*this, v1,v2, &cg_arg, CNV_FRM_NO) ;
 // need to be added here
@@ -681,9 +681,9 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     VRB.Flow(cname,fname,"v2=(%g %g) %g %g\n",*v_tmp,*(v_tmp+f_size/2),v2->NormSqGlbSum(f_size/2),v_e->NormSqGlbSum(f_size/2));
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
-  time += dclock();
-  print_flops(fname,"CalcHmdForceVecs()",0,time);
-  time = -dclock();
+  dtime += dclock();
+  print_flops(fname,"CalcHmdForceVecs()",0,dtime);
+  dtime = -dclock();
 #endif
 
     Fconvert(v1,CANONICAL,DWF_4D_EOPREC_EE);
@@ -693,8 +693,8 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     v_tmp = (Float*)v2;
     VRB.Flow(cname,fname,"v2=(%g %g) %g\n",*v_tmp,*(v_tmp+24),v2->NormSqGlbSum(f_size));
 #ifdef PROFILE
-  time += dclock();
-  print_flops(fname,"Fconvert()",0,time);
+  dtime += dclock();
+  print_flops(fname,"Fconvert()",0,dtime);
 #endif
   }
 
