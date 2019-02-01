@@ -406,7 +406,9 @@ int DiracOpMobius::MatInv (Vector * out,
 
 //  reset_mobius_arg( mobius_lib_arg);
 
+
   Zmobus *mobius_arg = (Zmobus *) mobius_lib_arg;
+  // (b(4-M)+a5)
 
   //Float minus_kappa_b = -mobius_arg->mobius_kappa_b;
   //Float kappa_b = - minus_kappa_b;
@@ -437,6 +439,8 @@ int DiracOpMobius::MatInv (Vector * out,
   // CJ: probably need to move odd to in front. Keeping it as is for now
   Vector *odd_in = (Vector *) ((IFloat *) in + temp_size);
   Vector *even_in = (Vector *) ((IFloat *) in + 0);
+  
+  Float  two_kappa_b =2.*mobius_arg->mobius_kappa_b;
 
   // points to the even part of fermion solution
   Vector *odd_out = (Vector *) ((IFloat *) out + temp_size);
@@ -511,7 +515,6 @@ int DiracOpMobius::MatInv (Vector * out,
     ERR.NotImplemented (cname, fname);
     break;
   }
-  
 
   int iter;
   switch (dirac_arg->Inverter) {
@@ -520,6 +523,7 @@ int DiracOpMobius::MatInv (Vector * out,
       lat.RandGaussVector(odd_out, 1.0,1,FIVE_D);
     break;
   case CG:
+
     MatPcDag (odd_in, temp);
 #ifdef USE_QUDA
     iter = QudaInvert (odd_out, odd_in, true_res, 1);
@@ -623,6 +627,12 @@ int DiracOpMobius::MatInv (Vector * out,
   default:
     ERR.NotImplemented (cname, fname);
     break;
+  }
+
+  Float *temp_f = (Float *)out;
+  #pragma omp parallel for default(shared)
+  for(size_t i = 0; i < 2*temp_size; ++i) {
+        *(temp_f+i) *= two_kappa_b;
   }
 
   sfree (cname, fname, "temp2", temp2);
