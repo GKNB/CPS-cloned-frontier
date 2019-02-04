@@ -61,11 +61,11 @@ void FermionVectorTp::ZeroSource() {
   char *fname = "ZeroSource()";
   VRB.Func(cname, fname);
 
-  int fv_size = GJP.VolNodeSites() * 2 * GJP.Colors() * 4;
+  uint64_t fv_size = (uint64_t) GJP.VolNodeSites() * 2 * GJP.Colors() * 4;
   if(GJP.Gparity()) fv_size*=2;
 
 #pragma omp parallel for
-  for (int i=0; i<fv_size; i++) {
+  for (uint64_t i=0; i<fv_size; i++) {
 	fv[i] = 0.0;
   }
 }
@@ -320,12 +320,12 @@ void FermionVectorTp::SetBoxSource(int color,
   VRB.Result(cname,fname,"src_vol = %d\n",src_vol);
 }
 
-inline void compute_coord(int x[4], const int hl[4], const int low[4], int i)
+inline void compute_coord(int x[4], const int lcl[4], const int low[4], int i)
 {
-    x[0] = i % hl[0] + low[0]; i /= hl[0];
-    x[1] = i % hl[1] + low[1]; i /= hl[1];
-    x[2] = i % hl[2] + low[2]; i /= hl[2];
-    x[3] = i % hl[3] + low[3];
+    x[0] = i % lcl[0] + low[0]; i /= lcl[0];
+    x[1] = i % lcl[1] + low[1]; i /= lcl[1];
+    x[2] = i % lcl[2] + low[2]; i /= lcl[2];
+    x[3] = i % lcl[3] + low[3];
 }
 
 // Note: The following code sets a 4D box source. If you want to set a
@@ -442,6 +442,10 @@ void FermionVectorTp::SetZ3BWall(int color, int spin, int t, const int size[3],
         GJP.XnodeSites() * GJP.Xnodes(), GJP.YnodeSites() * GJP.Ynodes(),
         GJP.ZnodeSites() * GJP.Znodes(), GJP.TnodeSites() * GJP.Tnodes(),
     };
+    VRB.Result(cname,fname,"size=%d %d %d t=%d\n",size[0],size[1],size[2],t);
+    VRB.Result(cname,fname,"lcl=%d %d %d %d\n",lcl[0],lcl[1],lcl[2],lcl[3]);
+    VRB.Result(cname,fname,"shift=%d %d %d %d\n",shift[0],shift[1],shift[2],shift[3]);
+    VRB.Result(cname,fname,"glb=%d %d %d %d\n",glb[0],glb[1],glb[2],glb[3]);
 
 
 
@@ -475,16 +479,16 @@ void FermionVectorTp::SetZ3BWall(int color, int spin, int t, const int size[3],
     }
 
     // debug code, check the source by printing it.
-    // for(int i = 0; i < sites; ++i) {
-    //     int glb_x[4];
-    //     compute_coord(glb_x, lcl, shift, i);
-    //     if(glb_x[3] != t) continue;
+     for(int i = 0; i < sites; ++i) {
+         int glb_x[4];
+        compute_coord(glb_x, lcl, shift, i);
+         if(glb_x[3] != t) continue;
 
-    //     printf("Z3B Source: %d %d %d %d = %17.10e %17.10e\n",
-    //            glb_x[0], glb_x[1], glb_x[2], glb_x[3],
-    //            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)    ],
-    //            fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin) + 1]);
-    // }
+         printf("Z3B Source: %d %d %d %d = %17.10e %17.10e\n",
+                glb_x[0], glb_x[1], glb_x[2], glb_x[3],
+                fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin)    ],
+                fv[i * SPINOR_SIZE + 2 * (color + COLORS * spin) + 1]);
+     }
 }
 
 // Set source from previously defined source

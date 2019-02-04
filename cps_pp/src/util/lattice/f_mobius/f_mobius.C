@@ -519,6 +519,8 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   DiracOpMobius dop(*this, f_out, f_in, cg_arg, cnv_frm);
 //Dslash is actually an unpreconditioned one!
   dop.Dslash(f_out,f_in,DAG_NO);
+//finally absorbed kappa into FmatInv. Commenting out here
+if(0) 
 {
   size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
   int local_ls = GJP.SnodeSites();

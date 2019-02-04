@@ -1110,6 +1110,7 @@ if (Lat.F5D () ) {
       do_5d = true;
   }
 #endif
+ VRB.Result(cname,fname,"do_5d=%d\m",do_5d);
 
   if (do_5d) {
     Vector *src_4d = (Vector *) source.data ();
@@ -1153,8 +1154,16 @@ if (Lat.F5D () ) {
 	src_5d->NormSqGlbSum(f_size_5d),
 	sol_5d->NormSqGlbSum(f_size_5d),
 	src_4d->NormSqGlbSum(f_size),
-	sol_5d->NormSqGlbSum(f_size)
+	sol_4d->NormSqGlbSum(f_size)
 	);
+
+{
+      Float *temp_p = (Float*) src_5d;
+      VRB.Result (cname, fname, "src_5d = %g %g %g %g %g %g norm=%g\n",
+        *temp_p, *(temp_p+1), *(temp_p+2),
+        *(temp_p+3), *(temp_p+4), *(temp_p+6),
+        src_5d->NormSqGlbSum(f_size_5d));
+}
 
     // do the MADWF or not
     if (!qp_arg.mob_arg_s) {
@@ -1182,6 +1191,7 @@ if (Lat.F5D () ) {
 
       iter = Lat.FmatInv (sol_5d, src_5d, &(qp_arg.cg), &true_res,
 			  CNV_FRM_YES, PRESERVE_NO);
+
     } else {
       MobiusArg *mob_arg_l = (MobiusArg *) (qp_arg.mob_arg_l);
       MobiusArg *mob_arg_s = (MobiusArg *) (qp_arg.mob_arg_s);
@@ -1189,6 +1199,12 @@ if (Lat.F5D () ) {
       iter = Lat.FmatInv (sol_5d, src_5d, mob_arg_l, mob_arg_s, &true_res,
 			  CNV_FRM_YES, PRESERVE_NO);
     }
+
+      Float *temp_p = (Float*) sol_5d;
+      VRB.Result (cname, fname, "sol_5d = %g %g %g %g %g %g norm=%g\n",
+	*temp_p, *(temp_p+1), *(temp_p+2),
+	*(temp_p+3), *(temp_p+4), *(temp_p+6),
+	sol_5d->NormSqGlbSum(f_size_5d));
 
 #define STORE5DPROP
 #ifdef STORE5DPROP
@@ -3788,6 +3804,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
 #endif
       assert (rnd < 3);
       rand_num[i] = Z3consts[rnd];
+    VRB.Result (cname, fname, "rand_num[%d]=%g %g\n", i, rand_num[i].real(),rand_num[i].imag());
     }
 #ifdef USE_QMP			//should be OK as QMP is needed for any multi-node build now
     QMP_broadcast (rand_num.data (), sizeof (Rcomplex) * rand_size);
@@ -3806,7 +3823,7 @@ QPropWBoxSrc::QPropWBoxSrc (Lattice & lat, QPropWArg * arg, QPropWBoxArg * b_arg
     if (GFixedSrc ()) {
       src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
     } else {
-      VRB.Warn (cname, fname, "Warning: 4D box src not gauge fixed");
+      ERR.General (cname, fname, "Warning: 4D box src not gauge fixed");
     }
   }
 

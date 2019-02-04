@@ -1098,7 +1098,7 @@ void Fbfm::ImportGauge()
 {
     const char *fname="ImportGauge()";
     if (!bfm_initted) SetBfmArg(current_key_mass);
-    VRB.Result(cname,fname,"NEW VERSION with CPS parallel transport\n");
+    VRB.Flow(cname,fname,"NEW VERSION with CPS parallel transport\n");
     LatMatrix One;
     LatMatrix LatDir[8];
     Matrix *mout[8],*min[8];
@@ -1147,7 +1147,7 @@ void Fbfm::ImportGauge()
     const char *fname="ImportGauge()";
 //    if (!bfm_initted) SetBfmArg(current_key_mass);
     Float *gauge = (Float *)(this->GaugeField());
-    VRB.Result(cname,fname,"OLD VERSION with qpd++ parallel transport mass=%g gauge=%p\n",current_key_mass, gauge);
+    VRB.Flow(cname,fname,"OLD VERSION with qpd++ parallel transport mass=%g gauge=%p\n",current_key_mass, gauge);
     bd.cps_importGauge(gauge);
     if(use_mixed_solver) {
         bd.comm_end();
