@@ -87,26 +87,34 @@ struct _set_wh_random_impl<ComplexFieldType, complex_double_or_float_mark>{
       }
     }
   }
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const std::vector<ComplexFieldType> &to, const int nhits){
+    assert(to.size() == nhits);
+    for(int i=0;i<nhits;i++)
+      *wh[i] = to[i];
+  }
 };
 
 #ifdef USE_GRID
 //Randomization of wh fields must have handled with care to ensure order preservation
 template<typename ComplexFieldType>
 struct _set_wh_random_impl<ComplexFieldType, grid_vector_complex_mark>{
-  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
-    typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
-    
-    
-    typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
-		     typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
-      ScalarComplexFieldType;
+  typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
+      
+  typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
+		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
+  ScalarComplexFieldType;
 
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const RandomType &type, const int nhits){
     NullObject null_obj;
     
     //Use scalar generation code and import
     std::vector<PtrWrapper<ScalarComplexFieldType> > wh_scalar(nhits); for(int i=0;i<nhits;i++) wh_scalar[i].set(new ScalarComplexFieldType(null_obj));
     _set_wh_random_impl<ScalarComplexFieldType, complex_double_or_float_mark>::doit(wh_scalar,type,nhits);
     for(int i=0;i<nhits;i++) wh[i]->importField(*wh_scalar[i]);
+  }
+  static void doit(std::vector<PtrWrapper<ComplexFieldType> > &wh, const std::vector<ScalarComplexFieldType> &to, const int nhits){
+    assert(to.size() == nhits);
+    for(int i=0;i<nhits;i++) wh[i]->importField(to[i]);
   }
 };
 #endif
@@ -119,6 +127,17 @@ void A2AvectorW<mf_Policies>::setWhRandom(){
     wh_rand_performed = true;
   }
 }
+
+
+
+
+template< typename mf_Policies>
+void A2AvectorW<mf_Policies>::setWhRandom(const std::vector<ScalarComplexFieldType> &to){
+   _set_wh_random_impl<typename mf_Policies::ComplexFieldType, typename ComplexClassify<typename mf_Policies::ComplexFieldType::FieldSiteType>::type>::doit(wh,to,nhits);
+   wh_rand_performed = true;
+}
+
+
 
 //Get the diluted source with index id.
 //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them

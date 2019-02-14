@@ -100,6 +100,29 @@ void readGaugeRNG(const DoArg &do_arg, const MeasArg &meas_arg, const bool doubl
   }
 }
 
+//Rotate the temporal boundary links by a phase exp(i degrees/180 *pi)
+void TboundaryTwist(const double degrees){
+  std::complex<double> twist = std::polar(1., degrees/180. * M_PI);
+  std::complex<double> ctwist = std::conj(twist);
+
+  GwilsonFdwf lat;
+  if(GJP.NodeCoor(3) == GJP.Nodes(3)-1){ //nodes on outer temporal boundary
+    int x[4];
+    x[3] = GJP.NodeSites(3)-1;
+    for(x[0]=0;x[0]<GJP.NodeSites(0);x[0]++){
+      for(x[1]=0;x[1]<GJP.NodeSites(1);x[1]++){
+	for(x[2]=0;x[2]<GJP.NodeSites(2);x[2]++){
+	  for(int f=0;f<GJP.Gparity()-1;f++){
+	    std::complex<double>* m = (std::complex<double>*)(lat.GaugeField() + 3 + lat.GsiteOffset(x) + 4*f*GJP.VolNodeSites());
+	    for(int i=0;i<9;i++) m[i] *= ( f == 0 ? twist : ctwist );
+	  }
+	}
+      }
+    }
+  }
+}
+
+
 
 //template-factory for CPS lattice class
 struct isGridtype{};
