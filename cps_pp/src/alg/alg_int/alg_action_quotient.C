@@ -607,13 +607,9 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     // cg_sol is aka \chi
     // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
     //Twisted mass guy has argument order backwards (nevertheless it is correct)
-    if (lat.Fclass () == F_CLASS_WILSON_TM)
+    if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
       Fdt =
 	lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i],
-			     bsn_mass_epsilon[i], dt_ratio);
-    else if (lat.Fclass () == F_CLASS_BFM)
-      Fdt =
-	lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i],
 			     bsn_mass_epsilon[i], dt_ratio);
     else
       Fdt =

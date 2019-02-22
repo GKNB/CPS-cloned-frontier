@@ -482,7 +482,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     }
 #endif
   }
-  QMP_start (multiple);
+  if(n_dir>0) QMP_start (multiple);
 
   dtime += dclock ();
   setup += dtime;
@@ -763,9 +763,11 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     ind_nl[i] = 0;
     ind_buf[i] = Recv_buf[i];
   }
+  if(n_dir>0){
   QMP_status_t send_status = QMP_wait (multiple);
       if (send_status != QMP_SUCCESS)
         QMP_error ("QMP_multiple failed in wilson_dslash: %s\n", QMP_error_string (send_status));
+  }
   dtime += dclock ();
   qmp += dtime;
 
@@ -897,7 +899,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 //        QMP_free_msghandle (multiple_p[i*2]);
 //        QMP_free_msghandle (multiple_p[i*2+1]);
       }
-      QMP_free_msghandle (multiple);
+      if(n_dir>0) QMP_free_msghandle (multiple);
 }
 
 CPS_END_NAMESPACE

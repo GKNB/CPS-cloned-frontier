@@ -73,12 +73,12 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 if (1){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius  Norm out %.14e\n",norm);
+    VRB.Flow(cname,fname,"f_mobius  Norm out %.14e\n",norm);
     norm = f_in->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius Norm in %.14e\n",norm);
+    VRB.Flow(cname,fname,"f_mobius Norm in %.14e\n",norm);
     dop.Mat(temp,f_out);  
     norm = temp->NormSqGlbSum(size);
-    if(!UniqueID()) printf("f_mobius  Norm Mat*out %.14e\n",norm);
+    VRB.Flow(cname,fname,"f_mobius  Norm Mat*out %.14e\n",norm);
 }
 
     sfree(cname, fname,  "temp",  temp);
@@ -786,7 +786,7 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 	    int off = 18 * ii + 2;
 	    pvals[ii] = ((Float*)mom)[off];
 	}
-	if(UniqueID()==0) printf("Fmobius::RHMC_EvolveMomFforce initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
+	VRB.Flow(cname,fname,"initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
     }  
 
     for (int i=0; i<degree; i++) {
@@ -803,7 +803,7 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 		int off = 18 * ii + 2;
 		pvals[ii] = ((Float*)mom_tmp)[off];
 	    }
-	    if(UniqueID()==0) printf("Fmobius::RHMC_EvolveMomFforce mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
+	    VRB.Flow(cname,fname,"mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
 	}  
     }
 
