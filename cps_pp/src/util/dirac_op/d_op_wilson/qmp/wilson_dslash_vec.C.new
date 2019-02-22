@@ -174,10 +174,10 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   static unsigned long *t_ind[8];
   static Float *Send_buf[8];
   static Float *Recv_buf[8];
-  static QMP_msgmem_t Send_mem[8];
-  static QMP_msgmem_t Recv_mem[8];
-  static QMP_msghandle_t Send[8];
-  static QMP_msghandle_t Recv[8];
+  QMP_msgmem_t Send_mem[8];
+  QMP_msgmem_t Recv_mem[8];
+//  static QMP_msghandle_t Send[8];
+//  static QMP_msghandle_t Recv[8];
   static QMP_msghandle_t multiple;
   static QMP_msghandle_t multiple_p[16];
   static int multiple_n = 0;
@@ -197,27 +197,21 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       gparity_init_status = 0;
 
     VRB.Result (cname, fname, "init_len(%d)!=vec_len(%d)\n", init_len, vec_len);
-    if (init_len != 0)
+    if (init_len != 0) {
       for (int i = 0; i < 8; i++) {
         if (u_ind[i])
           sfree (u_ind[i]);
         if (f_ind[i])
           sfree (f_ind[i]);
-        if (Send_buf[i])
-          sfree (Send_buf[i]);
-        if (Recv_buf[i])
-          sfree (Recv_buf[i]);
-        if (Send_mem[i])
-          QMP_free_msgmem (Send_mem[i]);
-        if (Recv_mem[i])
-          QMP_free_msgmem (Recv_mem[i]);
-        if (Send[i])
-          QMP_free_msghandle (Send[i]);
-        if (Recv[i])
-          QMP_free_msghandle (Recv[i]);
+        if (Send_buf[i]) sfree (Send_buf[i]);
+        if (Recv_buf[i]) sfree (Recv_buf[i]);
+//        if (Send_mem[i]) QMP_free_msgmem (Send_mem[i]);
+//        if (Recv_mem[i]) QMP_free_msgmem (Recv_mem[i]);
+//        if (Send[i]) QMP_free_msghandle (Send[i]);
+//        if (Recv[i]) QMP_free_msghandle (Recv[i]);
       }
-        if (multiple)
-          QMP_free_msghandle (multiple);
+      if (multiple_n>0) QMP_free_msghandle (multiple);
+    }
 
     num_nl[0] = num_nl[4] = vol / lx;
     num_nl[1] = num_nl[5] = vol / ly;
@@ -256,10 +250,10 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         f_ind[i] = NULL;
         Send_buf[i] = NULL;
         Recv_buf[i] = NULL;
-        Send_mem[i] = NULL;
-        Recv_mem[i] = NULL;
-        Send[i] = NULL;
-        Recv[i] = NULL;
+//        Send_mem[i] = NULL;
+//        Recv_mem[i] = NULL;
+//        Send[i] = NULL;
+//        Recv[i] = NULL;
       } else {
         u_ind[i] =
           (unsigned long *) smalloc (cname, fname, "u_ind[i]",
@@ -271,30 +265,36 @@ void wilson_dslash_vec (IFloat * chi_p_f,
           (unsigned long *) smalloc (cname, fname, "f_ind[i]",
                                      num_nl[i] * sizeof (unsigned long));
 
-        int buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
+        size_t buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
         if (GJP.Gparity ())
           buf_size *= 2;        //use second half of buffer for f1
 
         Send_buf[i] = (Float *) smalloc (cname, fname, "Send_buf[i]", buf_size);
         Recv_buf[i] = (Float *) smalloc (cname, fname, "Recv_buf[i]", buf_size);
+      }
+    }
+    VRB.Result (cname,fname,"initted\n");
+    init_len = vec_len;
+  }
+    multiple_n = 0;
+    for (int i = 0; i < 8; i++) {
+      int mu = i % 4;
+      int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
+      if (!local_comm[mu]) {
+        size_t buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
+	assert(Send_buf[i]);
         Send_mem[i] = QMP_declare_msgmem (Send_buf[i], buf_size);
+	assert(Recv_buf[i]);
         Recv_mem[i] = QMP_declare_msgmem (Recv_buf[i], buf_size);
-        Send[i] = QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
-        multiple_p[multiple_n] = Send[i];
+        multiple_p[multiple_n] = QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
         multiple_n++;
-        Recv[i] = QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
-        multiple_p[multiple_n] = Recv[i];
+        multiple_p[multiple_n] = QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
         multiple_n++;
       }
     }
-    Printf ("initted\n");
     VRB.Result (cname, fname, "initted n_dir=%d\n", multiple_n);
     if (multiple_n > 0)
       multiple = QMP_declare_multiple (multiple_p, multiple_n);
-    else
-      multiple = NULL;
-    init_len = vec_len;
-  }
   for (int i = 0; i < 8; i++) {
     ind_nl[i] = 0;
     ind_buf[i] = Send_buf[i];

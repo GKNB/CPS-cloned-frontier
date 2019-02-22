@@ -88,9 +88,9 @@ int DiracOp::InvCgShift(Vector *out,
 		   Float *shift ){
   int itr;                       // Current number of CG iterations
   int max_itr;                       // Max number of CG iterations
-  Float stp_cnd;                   // Stop if residual^2 <= stp_cnd
-  Float res_norm_sq_prv;          // The previous step |residual|^2
-  Float res_norm_sq_cur;           // The current step |residual|^2 
+  Float stp_cnd=0.;;                   // Stop if residual^2 <= stp_cnd
+  Float res_norm_sq_prv=0.;;          // The previous step |residual|^2
+  Float res_norm_sq_cur=0.;;           // The current step |residual|^2 
   Float a;
   Float b;
   Float d;

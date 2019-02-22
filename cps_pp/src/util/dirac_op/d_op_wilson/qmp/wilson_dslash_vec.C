@@ -114,7 +114,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   char *cname = "";
   char *fname = "wilson_dslash_vec";
   int lx, ly, lz, lt;
-  int mu;
+//  int mu;
   //    int r, c, s;
   int vol;
 
@@ -174,10 +174,10 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   static unsigned long *t_ind[8];
   static Float *Send_buf[8];
   static Float *Recv_buf[8];
-  static QMP_msgmem_t Send_mem[8];
-  static QMP_msgmem_t Recv_mem[8];
-  static QMP_msghandle_t Send[8];
-  static QMP_msghandle_t Recv[8];
+  QMP_msgmem_t Send_mem[8];
+  QMP_msgmem_t Recv_mem[8];
+  QMP_msghandle_t Send[8];
+  QMP_msghandle_t Recv[8];
 
   //reset setup variables if G-parity status changes
   if (gparity_init_status == 1 && !GJP.Gparity () || gparity_init_status == 0
@@ -196,22 +196,10 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     VRB.Result (cname, fname, "init_len(%d)!=vec_len(%d)\n", init_len, vec_len);
     if (init_len != 0)
       for (int i = 0; i < 8; i++) {
-        if (u_ind[i])
-          sfree (u_ind[i]);
-        if (f_ind[i])
-          sfree (f_ind[i]);
-        if (Send_buf[i])
-          sfree (Send_buf[i]);
-        if (Recv_buf[i])
-          sfree (Recv_buf[i]);
-        if (Send_mem[i])
-          QMP_free_msgmem (Send_mem[i]);
-        if (Recv_mem[i])
-          QMP_free_msgmem (Recv_mem[i]);
-        if (Send[i])
-          QMP_free_msghandle (Send[i]);
-        if (Recv[i])
-          QMP_free_msghandle (Recv[i]);
+        if (u_ind[i]) sfree (u_ind[i]);
+        if (f_ind[i]) sfree (f_ind[i]);
+        if (Send_buf[i]) sfree (Send_buf[i]);
+        if (Recv_buf[i]) sfree (Recv_buf[i]);
       }
 
     num_nl[0] = num_nl[4] = vol / lx;
@@ -227,7 +215,6 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 //      fflush(stdout);
     }
 
-
     for (int i = 0; i < 4; i++) {
       if (GJP.Nodes (i) > 1) {
         local_comm[i] = 0;
@@ -242,7 +229,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         local_comm[i] = 1;
     }
     for (int i = 0; i < 8; i++) {
-      mu = i % 4;
+      int mu = i % 4;
       int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
       if (local_comm[mu]) {
         num_nl[i] = 0;
@@ -250,35 +237,29 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         f_ind[i] = NULL;
         Send_buf[i] = NULL;
         Recv_buf[i] = NULL;
-        Send_mem[i] = NULL;
-        Recv_mem[i] = NULL;
-        Send[i] = NULL;
-        Recv[i] = NULL;
       } else {
-        u_ind[i] =
-          (unsigned long *) smalloc (cname, fname, "u_ind[i]",
-                                     num_nl[i] * sizeof (unsigned long));
-        f_ind[i] =
-          (unsigned long *) smalloc (cname, fname, "f_ind[i]",
-                                     num_nl[i] * sizeof (unsigned long));
-        t_ind[i] =
-          (unsigned long *) smalloc (cname, fname, "f_ind[i]",
-                                     num_nl[i] * sizeof (unsigned long));
-
-        int buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
-        if (GJP.Gparity ())
-          buf_size *= 2;        //use second half of buffer for f1
-
+        u_ind[i] = (unsigned long *) smalloc (cname, fname, "u_ind[i]", num_nl[i] * sizeof (unsigned long));
+        f_ind[i] = (unsigned long *) smalloc (cname, fname, "f_ind[i]", num_nl[i] * sizeof (unsigned long));
+        t_ind[i] = (unsigned long *) smalloc (cname, fname, "f_ind[i]", num_nl[i] * sizeof (unsigned long));
+        size_t buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
+        if (GJP.Gparity ()) buf_size *= 2;        //use second half of buffer for f1
         Send_buf[i] = (Float *) smalloc (cname, fname, "Send_buf[i]", buf_size);
         Recv_buf[i] = (Float *) smalloc (cname, fname, "Recv_buf[i]", buf_size);
+      }
+    }
+    VRB.Flow (cname,fname,"initted\n");
+    init_len = vec_len;
+  }
+  for (int i = 0; i < 8; i++) {
+      int mu = i % 4;
+      int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
+      if (!local_comm[i%4]) {
+        size_t buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
         Send_mem[i] = QMP_declare_msgmem (Send_buf[i], buf_size);
         Recv_mem[i] = QMP_declare_msgmem (Recv_buf[i], buf_size);
         Send[i] = QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
         Recv[i] = QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
       }
-    }
-    Printf ("initted\n");
-    init_len = vec_len;
   }
   for (int i = 0; i < 8; i++) {
     ind_nl[i] = 0;
@@ -305,12 +286,13 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   //
   GJP.SetNthreads ();
 
-#pragma omp parallel for default(shared) private(mu)
+#pragma omp parallel for default(shared)
   for (int dir = 0; dir < 8; dir++) {
     int x, y, z, t;
     int r, c, s;
     int xyzt;
     int parity;
+    int mu;
     Float *chi;
     Float *u;
     Float *psi;
@@ -509,7 +491,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   for (int i = 0; i < SPINOR_SIZE; i++)
     fbuf[i] = 0.;
   int index = 0;
-#pragma omp parallel for default(shared) private(mu)
+#pragma omp parallel for default(shared)
   for (index = 0; index < vol * 2; index++) {
     //  Printf("wilson_dslash: %d %d %d %d\n",x,y,z,t);
     //  if ((called%10000==0) &&(!UniqueID())){
@@ -519,6 +501,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     int x, y, z, t;
     int xyzt;
     int parity;
+    int mu;
     Float *chi;
     Float *u;
     Float *psi;
@@ -893,6 +876,15 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   }
 #endif
   DiracOp::CGflops += 1320 * vol * vec_len;
+
+      for (int i = 0; i < 8; i++) {
+      if (!local_comm[i%4]) {
+        QMP_free_msgmem (Send_mem[i]);
+        QMP_free_msgmem (Recv_mem[i]);
+        QMP_free_msghandle (Send[i]);
+        QMP_free_msghandle (Recv[i]);
+      }
+      }
 }
 
 CPS_END_NAMESPACE
