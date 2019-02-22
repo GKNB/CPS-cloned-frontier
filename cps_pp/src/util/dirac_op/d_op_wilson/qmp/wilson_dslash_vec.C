@@ -176,8 +176,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   static Float *Recv_buf[8];
   QMP_msgmem_t Send_mem[8];
   QMP_msgmem_t Recv_mem[8];
-  QMP_msghandle_t Send[8];
-  QMP_msghandle_t Recv[8];
+//  QMP_msghandle_t Send[8];
+//  QMP_msghandle_t Recv[8];
+  QMP_msghandle_t multiple_p[16];
+  QMP_msghandle_t multiple;
+  int n_dir=0;
+
 
   //reset setup variables if G-parity status changes
   if (gparity_init_status == 1 && !GJP.Gparity () || gparity_init_status == 0
@@ -250,17 +254,20 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     VRB.Flow (cname,fname,"initted\n");
     init_len = vec_len;
   }
+  n_dir=0;
   for (int i = 0; i < 8; i++) {
       int mu = i % 4;
       int sign = 1 - 2 * (i / 4);       //1,1,1,1,-1,-1,-1,-1
       if (!local_comm[i%4]) {
         size_t buf_size = num_nl[i] * SPINOR_SIZE * sizeof (Float) * vec_len;
-        Send_mem[i] = QMP_declare_msgmem (Send_buf[i], buf_size);
-        Recv_mem[i] = QMP_declare_msgmem (Recv_buf[i], buf_size);
-        Send[i] = QMP_declare_send_relative (Send_mem[i], mu, -sign, 0);
-        Recv[i] = QMP_declare_receive_relative (Recv_mem[i], mu, sign, 0);
+        Send_mem[n_dir] = QMP_declare_msgmem (Send_buf[i], buf_size);
+        multiple_p[n_dir*2] = QMP_declare_send_relative (Send_mem[n_dir], mu, -sign, 0);
+        Recv_mem[n_dir] = QMP_declare_msgmem (Recv_buf[i], buf_size);
+        multiple_p[n_dir*2+1] = QMP_declare_receive_relative (Recv_mem[n_dir], mu, sign, 0);
+	n_dir ++;
       }
   }
+  if(n_dir>0) multiple = QMP_declare_multiple(multiple_p,2*n_dir);
   for (int i = 0; i < 8; i++) {
     ind_nl[i] = 0;
     ind_buf[i] = Send_buf[i];
@@ -466,13 +473,16 @@ void wilson_dslash_vec (IFloat * chi_p_f,
     if (ind_nl[i] != num_nl[i])
       VRB.Result (cname, fname, "ind_nl[%d](%d)!=num_nl[%d](%d)\n", i,
                   ind_nl[i], i, num_nl[i]);
+#if 0
     if (!local_comm[i % 4]) {
       Printf ("QMP_start(Recv[%d])(%p)\n", i, Recv[i]);
       QMP_start (Recv[i]);
       Printf ("QMP_start(Send[%d])(%p)\n", i, Send[i]);
       QMP_start (Send[i]);
     }
+#endif
   }
+  QMP_start (multiple);
 
   dtime += dclock ();
   setup += dtime;
@@ -484,7 +494,6 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   /* Loop over sites                                                          */
   /*--------------------------------------------------------------------------*/
 
-  dtime = -dclock ();
 /*--------------------------------------------------------------------------*/
 /* Loop over sites                                                          */
 /*--------------------------------------------------------------------------*/
@@ -739,6 +748,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   dtime = -dclock ();
 
   for (int i = 0; i < 8; i++) {
+#if 0
     if (!local_comm[i % 4]) {
       QMP_status_t send_status = QMP_wait (Send[i]);
       if (send_status != QMP_SUCCESS)
@@ -749,9 +759,13 @@ void wilson_dslash_vec (IFloat * chi_p_f,
         QMP_error ("Receive failed in wilson_dslash: %s\n",
                    QMP_error_string (rcv_status));
     }
+#endif
     ind_nl[i] = 0;
     ind_buf[i] = Recv_buf[i];
   }
+  QMP_status_t send_status = QMP_wait (multiple);
+      if (send_status != QMP_SUCCESS)
+        QMP_error ("QMP_multiple failed in wilson_dslash: %s\n", QMP_error_string (send_status));
   dtime += dclock ();
   qmp += dtime;
 
@@ -877,14 +891,13 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 #endif
   DiracOp::CGflops += 1320 * vol * vec_len;
 
-      for (int i = 0; i < 8; i++) {
-      if (!local_comm[i%4]) {
+      for (int i = 0; i < n_dir; i++) {
         QMP_free_msgmem (Send_mem[i]);
         QMP_free_msgmem (Recv_mem[i]);
-        QMP_free_msghandle (Send[i]);
-        QMP_free_msghandle (Recv[i]);
+//        QMP_free_msghandle (multiple_p[i*2]);
+//        QMP_free_msghandle (multiple_p[i*2+1]);
       }
-      }
+      QMP_free_msghandle (multiple);
 }
 
 CPS_END_NAMESPACE
