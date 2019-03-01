@@ -508,7 +508,7 @@ Float AlgActionQuotient::energy ()
   Float total_dh = h - h_init;
   glb_sum (&total_dh);
   VRB.Result (cname, fname,
-	      "total delta-h from this set of quotients = %0.16e\n", total_dh);
+	      "total delta_ham from this set of quotients = %0.16e\n", total_dh);
 
   timer.stop (true);
   return h;
@@ -765,13 +765,9 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
       //Arguments for general case:   (M_f^\dag M_f)^{-1} M_f^\dag (RGV)   and   M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
       //Arguments for WilsonTM case:  M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)   and    (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
 
-      if (lat.Fclass () == F_CLASS_WILSON_TM)
+      if (lat.Fclass () == F_CLASS_WILSON_TM || (lat.Fclass () == F_CLASS_BFM))
 	Fdt =
 	  lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i],
-			       bsn_mass_epsilon[i], dt);
-      else if (lat.Fclass () == F_CLASS_BFM)
-	Fdt =
-	  lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i],
 			       bsn_mass_epsilon[i], dt);
       else
 	Fdt = lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i], dt);

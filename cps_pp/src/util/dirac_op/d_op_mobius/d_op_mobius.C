@@ -954,24 +954,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
   psi = f_in;
 
   MatPc (psi, chi);
-#if 1
   CalcHmdForceVecs(f_in,f_out,chi_new,psi);
-#else
-  {
-    Float kappa = ((Dwf *) mobius_lib_arg)->mobius_kappa_b;
-    psi->VecTimesEquFloat (-kappa * kappa, f_size_cb);
-  }
-
-  rho = (Vector *) ((Float *) f_out + f_size_cb);
-
-  Dslash (rho, chi, CHKB_ODD, DAG_NO);
-//  fprintf(stderr,"Dslash\n");
-
-  sigma = (Vector *) ((Float *) f_in + f_size_cb);
-
-  Dslash (sigma, psi, CHKB_ODD, DAG_YES);
-//  fprintf(stderr,"Dslash\n");
-#endif
 
   return;
 }
