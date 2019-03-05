@@ -124,7 +124,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
   Float fbuf[temp_size];
 
-  Float dtime = -dclock ();
+  Float dtime = -dclock (true);
   for (int i = 0; i < temp_size; i++)
     fbuf[i] = 0.;
 
@@ -484,7 +484,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   }
   if(n_dir>0) QMP_start (multiple);
 
-  dtime += dclock ();
+  dtime += dclock (true);
   setup += dtime;
 
   dtime = -dclock ();
@@ -742,7 +742,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
     }                           //parity==cbn
   }
-  dtime += dclock ();
+  dtime += dclock (true);
   local += dtime;
 
   dtime = -dclock ();
@@ -768,7 +768,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       if (send_status != QMP_SUCCESS)
         QMP_error ("QMP_multiple failed in wilson_dslash: %s\n", QMP_error_string (send_status));
   }
-  dtime += dclock ();
+  dtime += dclock (true);
   qmp += dtime;
 
   dtime = -dclock ();
@@ -878,12 +878,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
 #endif
 
-  dtime += dclock ();
+  dtime += dclock (true);
   nonlocal += dtime;
 
   called++;
 #if 1
-  if (called % 1000 == 0) {
+  if (called % 100 == 0) {
     print_flops ("wilson_dslash_vec()", "local*1000", 0, local);
     print_flops ("wilson_dslash_vec()", "nonlocal*1000", 0, nonlocal);
     print_flops ("wilson_dslash_vec()", "qmp*1000", 0, qmp);

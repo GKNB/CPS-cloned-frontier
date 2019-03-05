@@ -5368,6 +5368,8 @@ void Lattice::BondCond ()
   ++calls;
 }
 
+#if 0
+// inlined out in lattice.h
 void Lattice::Dump (const char *name, Vector * vec, EvenOdd eo)
 {
   return;
@@ -5438,5 +5440,6 @@ void Lattice::Dump (const char *name, Vector * vec, EvenOdd eo)
   Fclose (fp);
   exit(-43);
 }
+#endif
 
 CPS_END_NAMESPACE

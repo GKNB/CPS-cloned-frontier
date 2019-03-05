@@ -21,7 +21,7 @@ CPS_START_NAMESPACE
 
 //! Gets the wall-clock time.
 
-Float dclock(void);
+Float dclock(bool stop = false);
 Float print_time(const char *cname, const char *fname, Float time);
 
 //! Prints the FLOPS rate to stdout
