@@ -28,7 +28,8 @@ CPS_START_NAMESPACE
 /*!
   \return The current time in seconds (accurate to the microsecond),
 */
-Float dclock(void){
+Float dclock(bool stop){
+	if(stop) Barrier();
 	struct timeval tp;
 	gettimeofday(&tp, NULL);
 	return((Float) tp.tv_sec + (Float) tp.tv_usec * 1e-6);

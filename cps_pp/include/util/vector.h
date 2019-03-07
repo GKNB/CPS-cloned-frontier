@@ -1053,7 +1053,7 @@ class Vector
     void print(const char *name,size_t f_size){
        Float *v_p = (Float*)v;
        Float sum=NormSqGlbSum(f_size);
-       VRB.Result("",name,"%0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",name,
+       VRB.Result("",name,"%0.12g %0.12g %0.12g %0.12g %0.12g %0.12g norm=%0.12g\n",
 		v[0],v[1],v[2],v[3],v[4],v[5],sum);
     }
 

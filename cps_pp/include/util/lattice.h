@@ -1360,7 +1360,7 @@ class Lattice
     int BcApplied(){return bc_applied;}
    
     virtual void SetMassArg(Float mass){}
-    void Dump(const char *fname, Vector *vec, EvenOdd eo);
+    void Dump(const char *fname, Vector *vec, EvenOdd eo){}
 };
 
 //------------------------------------------------------------------
