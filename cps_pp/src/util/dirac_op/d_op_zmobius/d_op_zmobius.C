@@ -82,6 +82,8 @@ inline void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 
 
 
+#if 0
+//moved to zmobius.h
 void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
 {
 //  VRB.Result("", "vecEqualsVecTimesEquComplex()", "(%p %p %g %g %d)\n", a, b, c.real(),c.imag(),len);
@@ -119,6 +121,8 @@ void zmobius_zvectTimesV1PlusV2 (Vector* temp, Complex* kappa_b,  Vector* temp2,
     vecTimesEquComplex((Complex*)temp+idx,  kappa_b[glb_s], ls_stride);
   }
 }
+
+#endif
 
 
 

@@ -22,26 +22,7 @@
 
 //#define DEBUG_MOBIUS_DSLASH
 //#undef DEBUG_MOBIUS_DSLASH
-#ifdef  DEBUG_MOBIUS_DSLASH
-#undef DEBUG_MOBIUS_DSLASH
-#define DEBUG_MOBIUS_DSLASH(msg,a ...) do \
-     printf("[%05d] " msg, UniqueID() ,##a); \
-  while(0);
-
-static double time_now, time_prev;
-static double time_elapse(){
-  time_now = cps::dclock();
-  double elp  = time_now - time_prev;
-  time_prev=time_now;
-  return elp;
-}
-
-#else
-#define time_elapse() 0
-#define DEBUG_MOBIUS_DSLASH(msg,a ...) {}
-#endif
-
-
+//moved zmobius.h
 
 #ifndef USE_BLAS
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)

@@ -70,15 +70,15 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
 
 
     // TIZB check
-if (1){
+if (0){
     Float norm;
     norm = f_out->NormSqGlbSum(size);
-    VRB.Flow(cname,fname,"f_mobius  Norm out %.14e\n",norm);
+    VRB.Result(cname,fname,"f_mobius  Norm out %.14e\n",norm);
     norm = f_in->NormSqGlbSum(size);
-    VRB.Flow(cname,fname,"f_mobius Norm in %.14e\n",norm);
+    VRB.Result(cname,fname,"f_mobius Norm in %.14e\n",norm);
     dop.Mat(temp,f_out);  
     norm = temp->NormSqGlbSum(size);
-    VRB.Flow(cname,fname,"f_mobius  Norm Mat*out %.14e\n",norm);
+    VRB.Result(cname,fname,"f_mobius  Norm Mat*out %.14e\n",norm);
 }
 
     sfree(cname, fname,  "temp",  temp);
@@ -663,12 +663,13 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 
     Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
+    Float dtime;
 
   {
     CgArg cg_arg ;
     cg_arg.mass = mass ;
 #ifdef PROFILE
-  Float dtime = -dclock();
+  dtime = -dclock(true);
 #endif
     DiracOpMobius dwf(*this, v1,v2, &cg_arg, CNV_FRM_NO) ;
 // need to be added here
@@ -683,7 +684,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     VRB.Flow(cname,fname,"v2=(%g %g) %g %g\n",*v_tmp,*(v_tmp+f_size/2),v2->NormSqGlbSum(f_size/2),v_e->NormSqGlbSum(f_size/2));
 //    dwf.CalcHmdForceVecs(chi) ;
 #ifdef PROFILE
-  dtime += dclock();
+  dtime += dclock(true);
   print_flops(fname,"CalcHmdForceVecs()",0,dtime);
   dtime = -dclock();
 #endif
@@ -694,14 +695,15 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     VRB.Flow(cname,fname,"v1=(%g %g) %g\n",*v_tmp,*(v_tmp+24),v1->NormSqGlbSum(f_size));
     v_tmp = (Float*)v2;
     VRB.Flow(cname,fname,"v2=(%g %g) %g\n",*v_tmp,*(v_tmp+24),v2->NormSqGlbSum(f_size));
-#ifdef PROFILE
-  dtime += dclock();
-  print_flops(fname,"Fconvert()",0,dtime);
-#endif
   }
 
     Fconvert(v1,S_INNER,CANONICAL);
     Fconvert(v2,S_INNER,CANONICAL);
+#ifdef PROFILE
+  dtime += dclock(true);
+  print_flops(fname,"Fconvert()",0,dtime);
+  dtime = -dclock();
+#endif
     Float *v_tmp = (Float*)v1;
     VRB.Flow(cname,fname,"v1=(%g %g) %g\n",*v_tmp,*(v_tmp+24*GJP.SnodeSites()),v1->NormSqGlbSum(f_size));
     v_tmp = (Float*)v2;
@@ -726,6 +728,10 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
 
     sfree(cname, fname, "v1", v1);
     sfree(cname, fname, "v2", v2);
+#ifdef PROFILE
+  dtime += dclock(true);
+  print_flops(fname,"cal_force()",0,dtime);
+#endif
 
     time.stop(true);
     return ret;
@@ -746,10 +752,13 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom, Vector *frm,
     CgArg cg_arg;
     cg_arg.mass=mass;
     Vector *tmp = (Vector *)smalloc(cname, fname, "v1", sizeof(Float)*f_size);
+Float dtime=-dclock(true);
 {
     DiracOpMobius dwf(*this, tmp, frm, &cg_arg, CNV_FRM_NO) ;
     dwf.MatPc(tmp, frm);
 }
+dtime +=dclock(true);
+print_flops(fname,"MatPc()",0,dtime);
 
     ForceArg f_arg = EvolveMomFforce(mom, tmp, frm, mass, -step_size);
     sfree(cname, fname, "tmp", tmp);
@@ -766,6 +775,7 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
     time.start(true);
 
     char *force_label=NULL;
+    Float dtime = -dclock(true);
 
     size_t g_size = GJP.VolNodeSites() * GsiteSize();
     if(GJP.Gparity()) g_size *= 2;
@@ -788,6 +798,9 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 	}
 	VRB.Flow(cname,fname,"initial mom Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",pvals[0],pvals[1],pvals[2],pvals[3]);
     }  
+    dtime += dclock(true);
+    print_flops(fname,"alloc()",0,dtime);
+    dtime = -dclock();
 
     for (int i=0; i<degree; i++) {
         ForceArg Fdt = EvolveMomFforce(mom_tmp, sol[i], mass, alpha[i]*dt);
@@ -805,8 +818,10 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
 	    }
 	    VRB.Flow(cname,fname,"mom_tmp after pole %d:  Px(0) = %e, Py(0) = %e, Pz(0) = %e, Pt(0) = %e\n",i,pvals[0],pvals[1],pvals[2],pvals[3]);
 	}  
+    dtime += dclock(true);
+    print_flops(fname,"EvolveMomFforces()()",0,dtime);
+    dtime = -dclock();
     }
-
     ForceArg ret;
 
     // If measuring the force, need to measure and then sum to mom
@@ -819,6 +834,8 @@ ForceArg Fmobius::RHMC_EvolveMomFforce(Matrix *mom, Vector **sol, int degree,
         delete[] force_label;
         sfree(mom_tmp, cname, fname, "mom_tmp");
     }
+    dtime += dclock(true);
+    print_flops(fname,"force_measure()",0,dtime);
 
     time.stop(true);
     return ret;

@@ -232,11 +232,19 @@ void zmobius_dminus(Vector *out,
 
 
 // TIZB
-void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len);
+inline void vecEqualsVecTimesEquComplex(Complex *a, Complex *b, Complex c, int len)
+{
+//  VRB.Result("", "vecEqualsVecTimesEquComplex()", "(%p %p %g %g %d)\n", a, b, c.real(),c.imag(),len);
+#pragma omp parallel for
+  for (int i=0; i<len/2; i++) {
+//    *a++ = c * *b++;
+    a[i] = c * b[i];
+   }
+}
 inline void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
                     const Complex *d, int len)
 {
-#if 0
+#if 1
 #pragma omp parallel for
     for(int i = 0; i < len/2; ++i) {
         a[i] = b * c[i] + d[i];
@@ -244,6 +252,14 @@ inline void zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 #else
     cTimesV1PlusV2((IFloat*)a, b.real(),b.imag(),(IFloat*)c,(IFloat*)d,len);
 #endif
+}
+
+inline void zTimesV1PlusV2Single(Complex *a, Complex b, const Complex *c,
+                    const Complex *d, int len)
+{
+    for(int i = 0; i < len/2; ++i) {
+        a[i] = b * c[i] + d[i];
+    }
 }
 
 inline void vecTimesEquComplex(Complex *a, Complex b, int len)
@@ -267,14 +283,41 @@ void zmobius_zTimesV1PlusV2(Complex *a, Complex b, const Complex *c,
 //  temp[s]  <-  kappa_b[s] *temp2[s]  +  in[s]  s=0..ls-1,
 // ls_stride is the number of Floats stored in one s-slice
 // s_node_coor is the coordinate of the current node in s-direction 
-void zmobius_zvectTimesV1PlusV2 (Vector* temp, Complex* kappa_b,  Vector* temp2,
-				 Vector* in, int local_ls, int ls_stride, int s_node_coor );
+inline void zmobius_zvectTimesV1PlusV2 (Vector* temp, Complex* kappa_b,  Vector* temp2,
+                                 Vector* in, int local_ls, int ls_stride, int s_node_coor )
+{
+  for(int s=0; s<local_ls;++s){
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    zTimesV1PlusV2((Complex*) temp+idx, kappa_b[glb_s], (Complex*) temp2+idx,
+                   (Complex*)in+idx, ls_stride);
+  }
+}
 
 //  temp[s]  <-  kappa_b[s] *temp[s]  s=0..ls-1,
 // ls_stride is the number of Floats stored in one s-slice
 // s_node_coor is the coordinate of the current node in s-direction 
-  void zmobius_zvectTimesEquComplex(Vector* temp, Complex* kappa_b, 
-				    int local_ls, int ls_stride, int s_node_coor );
+inline  void zmobius_zvectTimesEquComplex(Vector* temp, Complex* kappa_b, 
+                                  int local_ls, int ls_stride, int s_node_coor )
+{
+  for(int s=0; s<local_ls;++s){
+    int glb_s = s + local_ls*s_node_coor;
+    int idx = s*ls_stride/2;// "/2" is for complex
+    vecTimesEquComplex((Complex*)temp+idx,  kappa_b[glb_s], ls_stride);
+  }
+}
+
+// moved from blas-subs.h
+#ifdef  DEBUG_MOBIUS_DSLASH
+#undef DEBUG_MOBIUS_DSLASH
+#define DEBUG_MOBIUS_DSLASH(msg,a ...) do \
+     printf("[%05d] " msg, UniqueID() ,##a); \
+  while(0);
+
+#else
+#define DEBUG_MOBIUS_DSLASH(msg,a ...) {}
+#endif
+
 
 
 #endif
