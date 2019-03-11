@@ -26,8 +26,8 @@
 
 #ifndef USE_BLAS
 #define MOVE_FLOAT( pa, pb, n )  moveFloat(pa, pb, n)
-#define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloat( py, fact, n)
-#define AXPY(n, fact, px, py)  fTimesV1PlusV2(py, fact, px, py, n)
+#define VEC_TIMESEQU_FLOAT(py, fact, n ) vecTimesEquFloatSingle( py, fact, n)
+#define AXPY(n, fact, px, py)  fTimesV1PlusV2Single(py, fact, px, py, n)
 #else
 #define MOVE_FLOAT( pa, pb, n )  cblas_dcopy(n, pb, 1, pa, 1)
 #define VEC_TIMESEQU_FLOAT(py, fact, n ) cblas_dscal( n,  fact, py,1 )

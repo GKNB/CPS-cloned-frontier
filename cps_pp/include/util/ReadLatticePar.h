@@ -32,7 +32,7 @@ class  ReadLatticeParallel : public QioControl
  private:
   const char *cname;
   LatticeHeader hd;
-  bool UseParIO;
+  static bool UseParIO;
   const int default_concur=16;
 
  public:
@@ -82,9 +82,9 @@ class  ReadLatticeParallel : public QioControl
 			  const Float plaq_inheader, const Float linktrace_inheader);
 
  public:
-  inline void setParallel() { UseParIO = 1; }
-  inline void setSerial() { UseParIO = 0; }
-  inline void setDefault() { UseParIO = 1; }
+  inline static void setParallel() { UseParIO = 1; }
+  inline static void setSerial() { UseParIO = 0; }
+  inline static void setDefault() { UseParIO = 1; }
   inline int parIO() const { return UseParIO; }
 };
 

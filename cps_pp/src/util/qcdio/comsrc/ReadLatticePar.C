@@ -7,6 +7,8 @@
 CPS_START_NAMESPACE
 using namespace std;
 
+bool ReadLatticeParallel::UseParIO=false;
+
 #define PROFILE
 
 void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)

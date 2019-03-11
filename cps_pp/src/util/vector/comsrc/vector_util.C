@@ -24,6 +24,8 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
+#if 0
+//moved to vector.h
 /*!
   \param b The vector to be copied to
   \param a The vector to be copied from.
@@ -63,6 +65,7 @@ void moveFloat(Float *b, const Float *a, int len) {
     print_flops("","moveFloat",len*sizeof(Float),time);
 #endif
 }
+#endif
 
 void moveVec(Float *b, const Float *a, int len) {
 #undef PROFILE

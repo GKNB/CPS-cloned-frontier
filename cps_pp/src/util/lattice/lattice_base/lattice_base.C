@@ -211,8 +211,8 @@ Lattice::Lattice ()
   } else if (start_conf_kind == START_CONF_FILE) {
     VRB.Flow (cname, fname, "Load starting configuration addr = %x\n",
               gauge_field);
-    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
-//    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
+//    ReadLatticeSerial rd_lat (*this, GJP.StartConfFilename ());
+    ReadLatticeParallel rd_lat (*this, GJP.StartConfFilename ());
     str_ord = CANONICAL;
     is_initialized = 1;
     GJP.StartConfKind (START_CONF_MEM);

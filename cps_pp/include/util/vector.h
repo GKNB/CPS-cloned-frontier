@@ -27,8 +27,40 @@ class Matrix;
 extern "C" 
 {
     //! vector copy; b = a
-void moveMem(void *b, const void *a, int len); 
-void moveFloat(Float *b, const Float *a, int len); 
+//void moveMem(void *b, const void *a, int len); 
+inline void moveMem(void *b, const void *a, int len) 
+{
+#undef PROFILE
+#ifdef PROFILE
+    double time  = -dclock();
+#endif
+    memcpy(b, a, len); 
+#ifdef PROFILE
+    time += dclock();
+    print_flops("","moveMem",len,time);
+#endif
+}
+
+//void moveFloat(Float *b, const Float *a, int len); 
+inline void moveFloat(Float *b, const Float *a, int len) {
+#undef PROFILE
+#ifdef PROFILE
+    double time  = -dclock();
+#endif
+
+#ifdef USE_OMP
+    //#if 0
+#pragma omp parallel for
+    for(int i =0;i<len;i++) b[i] = a[i];
+#else
+    memcpy(b, a, len*sizeof(Float)); 
+#endif
+#ifdef PROFILE
+    time += dclock();
+    print_flops("","moveFloat",len*sizeof(Float),time);
+#endif
+}
+
 
     //! 3x3 complex matrix multiplication; c = ab 
 #ifndef VEC_INLINE
