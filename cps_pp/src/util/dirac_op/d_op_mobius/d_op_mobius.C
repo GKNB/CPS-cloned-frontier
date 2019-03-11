@@ -337,6 +337,8 @@ void DiracOpMobius::MatPc (Vector * out, Vector * in)
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
+  const char *fname = "MatPc(*V,*V)";
+  VRB.Result(cname,fname,"called\n");
   mobius_m (out, gauge_field, in, mass, (Dwf *) mobius_lib_arg);
 }
 
@@ -351,27 +353,30 @@ void DiracOpMobius::MatPcDag (Vector * out, Vector * in)
 {
 
   const char *fname = "MatPcDag(*V,*V)";
-  VRB.Func (cname, fname);
+//  VRB.Func (cname, fname);
+  VRB.Result(cname,fname,"called\n");
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // and DiracOpMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
   //----------------------------------------------------------------
+#if 0
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
   mobius_arg->ls = GJP.SnodeSites ();
   mobius_arg->mobius_kappa_b =
     1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
   mobius_arg->mobius_kappa_c =
     1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
+#endif
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  IFloat *tmp = (IFloat *) in;
+//  IFloat *tmp = (IFloat *) in;
   mobius_mdag (out, gauge_field, in, mass, (Dwf *) mobius_lib_arg);
-  tmp = (IFloat *) out;
-  VRB.FuncEnd (cname, fname);
+//  tmp = (IFloat *) out;
+//  VRB.FuncEnd (cname, fname);
 }
 
 
@@ -954,24 +959,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
   psi = f_in;
 
   MatPc (psi, chi);
-#if 1
   CalcHmdForceVecs(f_in,f_out,chi_new,psi);
-#else
-  {
-    Float kappa = ((Dwf *) mobius_lib_arg)->mobius_kappa_b;
-    psi->VecTimesEquFloat (-kappa * kappa, f_size_cb);
-  }
-
-  rho = (Vector *) ((Float *) f_out + f_size_cb);
-
-  Dslash (rho, chi, CHKB_ODD, DAG_NO);
-//  fprintf(stderr,"Dslash\n");
-
-  sigma = (Vector *) ((Float *) f_in + f_size_cb);
-
-  Dslash (sigma, psi, CHKB_ODD, DAG_YES);
-//  fprintf(stderr,"Dslash\n");
-#endif
 
   return;
 }

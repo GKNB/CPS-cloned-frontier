@@ -268,7 +268,7 @@ Lattice::Lattice ()
   Float max_dev = 1;
   Float max_diff = 1;
   CheckUnitarity (max_dev, max_diff);
-  VRB.Result (cname, fname, "CheckUnitarity():dev=%g max_diff=%g\n", max_dev,
+  VRB.Flow (cname, fname, "CheckUnitarity():dev=%g max_diff=%g\n", max_dev,
               max_diff);
 
   smeared = 0;

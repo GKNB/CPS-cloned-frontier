@@ -22,6 +22,10 @@ void  zmobius_m_sym1 (Vector *out,
   const int global_ls = local_ls * s_nodes;
   const int s_node_coor = GJP.SnodeCoor();
 
+  VRB.Result("","zmobius_m_sym1","f_size=%d mobius_lib_arg->vol_4d=%d mobius_lib_arg->ls=%d mass=%g\n",
+                  f_size, mobius_lib_arg->vol_4d, mobius_lib_arg->ls,mass);
+
+
   
   Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;
   //Vector *temp = (Vector *) smalloc(f_size * sizeof(Float));

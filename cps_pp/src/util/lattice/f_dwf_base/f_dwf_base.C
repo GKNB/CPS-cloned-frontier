@@ -59,6 +59,12 @@ FdwfBase::FdwfBase()
   char *fname = "FdwfBase()";
   VRB.Func(cname,fname);
 
+  full_size =  GJP.VolNodeSites() * (size_t) this->FsiteSize();
+  if(GJP.Gparity()) full_size*=2;
+  half_size = full_size/2;
+  VRB.Result(cname,fname,"full_size=%d half_sie=%d\n",full_size,half_size);
+
+
   //----------------------------------------------------------------
   // Check if anisotropy is present and exit since FdwfBase has
   // not been tested for anisotropic lattices.
@@ -1510,7 +1516,7 @@ Float FdwfBase::FhamiltonNode(Vector *phi, Vector *chi){
   // Sum accross s nodes in case Snodes() != 1
   glb_sum_dir(&ret_val, 4) ;
 
-  VRB.Result(cname,fname,"Gparity=%d, fsize=%d val=%f\n",GJP.Gparity(),f_size,ret_val);
+  VRB.Debug(cname,fname,"Gparity=%d, fsize=%d val=%f\n",GJP.Gparity(),f_size,ret_val);
   
   return ret_val ;
 

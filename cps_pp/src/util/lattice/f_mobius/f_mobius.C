@@ -44,6 +44,7 @@ int Fmobius::FmatInv(Vector *f_out, Vector *f_in,
   Vector *temp, *dminus_in;
 
   size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  assert(this->full_size == size);
   if(prs_f_in==PRESERVE_YES){ 
     temp = (Vector *) smalloc(cname,fname, "temp",size * sizeof(Float));
     moveFloat((IFloat*)temp,(IFloat*)f_in, size);
@@ -855,17 +856,45 @@ Float Fmobius::SetPhi(Vector *phi, Vector *frm1, Vector *frm2,
     ERR.Pointer(cname,fname,"frm1") ;
   
   DiracOpMobius dwf(*this, frm1, 0, &cg_arg, CNV_FRM_NO) ;
+if(0)
+{
+  Float temp= FhamiltonNode(frm1, frm1);
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"<frm1|frm1>=%0.16e\n",temp);
+  dwf.MatPc(phi, frm1) ;
+  temp= FhamiltonNode(phi, phi);
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"|MatPc*frm1>^2=%0.16e\n",temp);
+  dwf.MatPcDagMatPc(phi, frm1) ;
+  temp= FhamiltonNode(frm1,phi);
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"<frm1|MatPcDagMatPc|frm1>=%0.16e\n",temp);
+
+  Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * full_size);
+  VRB.Result(cname,fname,"full_size=%d\n",full_size);
+  dwf.MatPcDag(v1,frm1);
+  temp= FhamiltonNode(frm1,v1);
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"<frm1|(MatPcDag|frm1>)=%0.16e\n",temp);
+//  exit(-43);
+  dwf.MatPc(v1,frm1);
+  temp= FhamiltonNode(v1,frm1);
+  glb_sum(&temp);
+  VRB.Result(cname,fname,"(|MatPc|frm1>)^\dagger|frm1>=%0.16e\n",temp);
+  sfree(v1);
+//  exit(-42);
+}
   if (dag == DAG_YES) dwf.MatPcDag(phi, frm1) ;
   else dwf.MatPc(phi, frm1) ;
   Float ret= FhamiltonNode(phi, phi);
   Float temp=ret;
   glb_sum(&temp);
-  VRB.Flow(cname,fname,"phi*phi=%g\n",temp);
+  VRB.Result(cname,fname,"phi*phi=%g\n",temp);
 
   ret= FhamiltonNode(frm1, frm1);
   temp=ret;
   glb_sum(&temp);
-  VRB.Flow(cname,fname,"frm1*frm1=%g\n",temp);
+  VRB.Result(cname,fname,"frm1*frm1=%g\n",temp);
   VRB.FuncEnd(cname,fname);
   return ret;
 }

@@ -172,7 +172,7 @@ int DiracOp::Ritz(Vector **psi_all, int N_eig, Float &lambda,
   Float rsd;
   Float rsda_sq;
   Float rsdr_sq;
-  Float ct;
+  Float ct=0.;
   Float st;
   Float b;
   Float acc;
