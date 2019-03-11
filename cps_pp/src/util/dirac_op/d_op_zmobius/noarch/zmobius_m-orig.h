@@ -19,6 +19,10 @@ void  zmobius_m_orig(Vector *out,
   const int global_ls = local_ls * s_nodes;
   const int s_node_coor = GJP.SnodeCoor();
 
+  VRB.Result("","zmobius_mdag_sym1","f_size=%d mobius_lib_arg->vol_4d=%d mobius_lib_arg->ls=%d mass=%g\n",
+                  f_size, mobius_lib_arg->vol_4d, mobius_lib_arg->ls,mass);
+
+
   
 #if 0
   const Float kappa_ratio = mobius_lib_arg->mobius_kappa_b/mobius_lib_arg->mobius_kappa_c;

@@ -4,6 +4,7 @@
 #define INCLUDED_F_WILSON_TYPES_H           //!< Prevent multiple inclusion
 
 #include<util/dwf.h>
+#include<util/gjp.h>
 //#include<util/error.h>
 
 CPS_START_NAMESPACE
@@ -1159,7 +1160,10 @@ class Fmobius : public virtual FdwfBase {
     
  public:
 
-    Fmobius(void):FdwfBase(),cname("Fmobius"){}
+    Fmobius(void):FdwfBase(),cname("Fmobius"){
+//	  full_size =  GJP.VolNodeSites() * (size_t) FsiteSize();
+//	  half_size = full_size/2;
+    }
     ~Fmobius(void){}
 
     FclassType Fclass(void) const;

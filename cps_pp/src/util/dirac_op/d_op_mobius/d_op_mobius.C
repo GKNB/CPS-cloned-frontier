@@ -337,6 +337,8 @@ void DiracOpMobius::MatPc (Vector * out, Vector * in)
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
+  const char *fname = "MatPc(*V,*V)";
+  VRB.Result(cname,fname,"called\n");
   mobius_m (out, gauge_field, in, mass, (Dwf *) mobius_lib_arg);
 }
 
@@ -351,27 +353,30 @@ void DiracOpMobius::MatPcDag (Vector * out, Vector * in)
 {
 
   const char *fname = "MatPcDag(*V,*V)";
-  VRB.Func (cname, fname);
+//  VRB.Func (cname, fname);
+  VRB.Result(cname,fname,"called\n");
   //----------------------------------------------------------------
   // Initialize kappa and ls. This has already been done by the Fmobius
   // and DiracOpMobius constructors but is done again in case the
   // user has modified the GJP.DwfA5Inv(), GJP.DwfHeight() or
   // GJP.SnodeSites() while in the scope of the DiracOpMobius object.
   //----------------------------------------------------------------
+#if 0
   Dwf *mobius_arg = (Dwf *) mobius_lib_arg;
   mobius_arg->ls = GJP.SnodeSites ();
   mobius_arg->mobius_kappa_b =
     1.0 / (2 * (GJP.Mobius_b () * (4 - GJP.DwfHeight ()) + GJP.DwfA5Inv ()));
   mobius_arg->mobius_kappa_c =
     1.0 / (2 * (GJP.Mobius_c () * (4 - GJP.DwfHeight ()) - GJP.DwfA5Inv ()));
+#endif
 
   //----------------------------------------------------------------
   // Implement routine
   //----------------------------------------------------------------
-  IFloat *tmp = (IFloat *) in;
+//  IFloat *tmp = (IFloat *) in;
   mobius_mdag (out, gauge_field, in, mass, (Dwf *) mobius_lib_arg);
-  tmp = (IFloat *) out;
-  VRB.FuncEnd (cname, fname);
+//  tmp = (IFloat *) out;
+//  VRB.FuncEnd (cname, fname);
 }
 
 

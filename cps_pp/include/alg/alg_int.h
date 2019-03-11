@@ -708,6 +708,7 @@ private:
     Vector *cg_sol;
     Vector *tmp1;
     Vector *tmp2;
+    Vector *tmp3;// temporarily keep RGV for debugging
 
     //!< Stores the orthogonalised vectors multiplied by MatPcDagMatPc
     //!< These currently live in AlgActionQuotient for a future

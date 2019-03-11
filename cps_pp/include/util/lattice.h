@@ -169,9 +169,13 @@ class Lattice
 
 	//block noisy MC;
     static int sigma_blocks[4]; 
-    
 
  public:
+
+    size_t full_size;
+    size_t half_size;
+    
+
 
     const Matrix * GetLink(const int *x, int mu, const int &field_idx = 0) const;
       //!< Gets the gauge link U_mu(x).
