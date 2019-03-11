@@ -166,8 +166,8 @@ AlgActionQuotient::~AlgActionQuotient ()
       sfree (vm[i], "vm[i]", fname, cname);
       sfree (v[i], "v[i]", fname, cname);
     }
-    sfree (tmp2, "tmp3", fname, cname);
-    sfree (tmp3, "tmp2", fname, cname);
+    sfree (tmp3, "tmp3", fname, cname);
+    sfree (tmp2, "tmp2", fname, cname);
     sfree (tmp1, "tmp1", fname, cname);
     sfree (cg_sol_old, "cg_sol_old", fname, cname);
     sfree (vm, "vm", fname, cname);
@@ -399,9 +399,9 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
     (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) ?
       lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) : 
-      lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i],
-					 DAG_YES);
+      lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], DAG_YES);
      VRB.Result (cname,fname,"%p %p: phi[%d] = M(m_b) (1/MdagM(m_b)) Mdag(m_f)|R>=%e\n", phi[i],phi[i], i, lat.FhamiltonNode (phi[i],phi[i]) );
+     moveFloat((Float*)tmp3,(Float*)phi[i],lat.half_size);
 
     chronoDeg = (md_steps > chrono[i]) ? chrono[i] : md_steps;
 
@@ -465,6 +465,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     else
       Fdt =
 	lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i], dt_ratio);
+    moveFloat((Float*)phi[i],(Float*)tmp3,lat.half_size);
 	VRB.Result (cname,fname,"%p %p: phi[%d] = M(m_b) (1/MdagM(m_b)) Mdag(m_f)|R>=%e\n", phi[i],phi[i], i, lat.FhamiltonNode (phi[i],phi[i]) );
 
     //CK: for DWF above does:
