@@ -59,7 +59,7 @@ void mobius_Booee(Vector *out,
   const size_t f_size = 24 * mobius_lib_arg->vol_4d / 2;
   Float b_coeff = GJP.Mobius_b();
   Float c_coeff = GJP.Mobius_c();
-  VRB.Result("","mobius_Booee","b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
+  VRB.Debug("","mobius_Booee","b_coeff=%g c_coeff=%g\n",b_coeff,c_coeff);
   if(dag)
   ERR.General("","mobius_Booee", "Only implemented for dag=0\n");
 

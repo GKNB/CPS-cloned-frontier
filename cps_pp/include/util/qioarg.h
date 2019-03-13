@@ -83,10 +83,10 @@ class QioArg {
 
 
  public:
-  inline int VolNodeSites() const 
-    { return node_sites[0] * node_sites[1] * node_sites[2] * node_sites[3]; }
-  inline int VolSites()     const 
-    { return nodes[0] * nodes[1] * nodes[2] * nodes[3] * VolNodeSites(); }
+  inline size_t VolNodeSites() const 
+    { return (size_t)node_sites[0] * node_sites[1] * node_sites[2] * node_sites[3]; }
+  inline size_t VolSites()     const 
+    { return (size_t)nodes[0] * nodes[1] * nodes[2] * nodes[3] * VolNodeSites(); }
 
  public:
   QioArg(const char * file){  

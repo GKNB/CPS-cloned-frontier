@@ -1,9 +1,10 @@
 #include <config.h>
 #include <stdio.h>
 #include <math.h>
+#include <qmp.h>
 #include <util/dirac_op.h>
 #include <util/omp_wrapper.h>
-#include <qmp.h>
+#include <util/timer.h>
 
 #warning "Using vectorised wilson dslash"
 
@@ -113,6 +114,11 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
   char *cname = "";
   char *fname = "wilson_dslash_vec";
+  static Timer timer_setup (fname,"setup()");
+  static Timer timer_local (fname,"local()");
+  static Timer timer_nl (fname,"nonlocal()");
+  static Timer timer_qmp (fname,"qmp()");
+
   int lx, ly, lz, lt;
 //  int mu;
   //    int r, c, s;
@@ -124,7 +130,8 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
   Float fbuf[temp_size];
 
-  Float dtime = -dclock (true);
+//  Float dtime = -dclock (true);
+  timer_setup.start();
   for (int i = 0; i < temp_size; i++)
     fbuf[i] = 0.;
 
@@ -484,10 +491,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
   }
   if(n_dir>0) QMP_start (multiple);
 
-  dtime += dclock (true);
-  setup += dtime;
+  timer_setup.stop();
+//  dtime += dclock (true);
+//  setup += dtime;
+  timer_local.start();
 
-  dtime = -dclock ();
+//  dtime = -dclock ();
   GJP.SetNthreads ();
 
   /*--------------------------------------------------------------------------*/
@@ -742,10 +751,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
     }                           //parity==cbn
   }
-  dtime += dclock (true);
-  local += dtime;
+  timer_local.stop();
+//  dtime += dclock (true);
+//  local += dtime;
 
-  dtime = -dclock ();
+  timer_qmp.start();
+//  dtime = -dclock ();
 
   for (int i = 0; i < 8; i++) {
 #if 0
@@ -768,10 +779,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
       if (send_status != QMP_SUCCESS)
         QMP_error ("QMP_multiple failed in wilson_dslash: %s\n", QMP_error_string (send_status));
   }
-  dtime += dclock (true);
-  qmp += dtime;
+  timer_qmp.stop();
+//  dtime += dclock ();
+//  qmp += dtime;
 
-  dtime = -dclock ();
+  timer_nl.start();
+//  dtime = -dclock ();
 
   //
   // non-local
@@ -878,11 +891,12 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
 #endif
 
-  dtime += dclock (true);
-  nonlocal += dtime;
+//  dtime += dclock (true);
+//  nonlocal += dtime;
+  timer_nl.stop();
 
   called++;
-#if 1
+#if 0
   if (called % 100 == 0) {
     print_flops ("wilson_dslash_vec()", "local*1000", 0, local);
     print_flops ("wilson_dslash_vec()", "nonlocal*1000", 0, nonlocal);

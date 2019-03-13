@@ -229,8 +229,8 @@ void AlgActionQuotient::heatbath ()
   char *fname = "heatbath()";
   VRB.Func (cname, fname);
   static Timer timer (cname, fname);
-  timer.start (true);
-  Float dtime = -dclock ();
+  timer.start ();
+//  Float dtime = -dclock ();
 
   if (n_masses > 0) {
     Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
@@ -289,8 +289,8 @@ void AlgActionQuotient::heatbath ()
     evolved = 0;
   }
 
-  dtime += dclock ();
-  print_flops (cname, fname, 0, dtime);
+//  dtime += dclock ();
+//  print_flops (cname, fname, 0, dtime);
   timer.stop (true);
   VRB.Func (cname, fname);
 }
@@ -302,7 +302,7 @@ Float AlgActionQuotient::energy ()
   char *fname = "energy()";
   VRB.Func (cname, fname);
   static Timer timer (cname, fname);
-  Float dtime = -dclock ();
+//  Float dtime = -dclock ();
   Float h = 0.0;
   VRB.Result (cname, fname, "evolved h_init= %d %0.14e\n", evolved, h_init);
 
@@ -311,7 +311,7 @@ Float AlgActionQuotient::energy ()
     if (!evolved) {
       return h_init;
     } else {
-      timer.start (true);
+      timer.start ();
       Lattice & lat = LatticeFactory::Create (fermion, G_CLASS_NONE);
 
       for (int i = 0; i < n_masses; i++) {
@@ -355,8 +355,8 @@ Float AlgActionQuotient::energy ()
       LatticeFactory::Destroy ();
     }
   }
-  dtime += dclock ();
-  print_flops (cname, fname, 0, dtime);
+//  dtime += dclock ();
+//  print_flops (cname, fname, 0, dtime);
 
   Float total_dh = h - h_init;
   glb_sum (&total_dh);
@@ -372,16 +372,18 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
   char *fname = "prepare_fg(M*,F)";
   VRB.Func (cname, fname);
   static Timer timer (cname, fname);
-  timer.start (true);
-  Float dtime = -dclock ();
-  Float dtime_cg = 0.;
-  Float dtime_force = 0.;
+  static Timer timer_cg (fname,"prepare_fg::cg()");
+  static Timer timer_force (fname,"prepare_fg::force()");
+  timer.start ();
+//  Float dtime = -dclock ();
+//  Float dtime_cg = 0.;
+//  Float dtime_force = 0.;
 
   if (skip_force) {
     VRB.Result (cname, fname,
 		"WARNING! skipping prepare_fg() because AlgActionQuotient::skip_force is true!\n");
     evolved = 1;
-    timer.stop (true);
+    timer.stop ();
     return;
   }
 
@@ -420,13 +422,15 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     lat.FminResExt (cg_sol, tmp1, cg_sol_old[i], vm[i],
 		    chronoDeg, &frm_cg_arg_fg[i], CNV_FRM_NO);
 
-    dtime_cg -= dclock ();
+//    dtime_cg -= dclock ();
     // cg_sol = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
+    timer_cg.start ();
     cg_iter = lat.FmatEvlInv (cg_sol, tmp1, &frm_cg_arg_fg[i], CNV_FRM_NO);
     VRB.Result (cname, fname,
 		"prepare_fg: mass ratio (%0.4f)/%0.4f cg_iter = %d\n",
 		frm_mass[i], bsn_mass[i], cg_iter);
-    dtime_cg += dclock ();
+//    dtime_cg += dclock ();
+    timer_cg.stop ();
 
     updateCgStats (&frm_cg_arg_fg[i]);
 
@@ -440,7 +444,8 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
       ((Vector *) mom_tmp)->VecZero (g_size);
     }
 
-    dtime_force -= dclock ();
+//    dtime_force -= dclock ();
+    timer_force.start ();
 
     //!< Evolve mom using fermion force
     //~~ changed for twisted mass Wilson fermions
@@ -478,7 +483,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     //v2 = f_field_in  = ( -kappa^2 g5theta(ctheta,stheta)cg_sol, -kappa^2 g5theta(ctheta,stheta) Deo^dag g5theta(ctheta,stheta)cg_sol )
 
 
-    dtime_force += dclock ();
+//    dtime_force += dclock ();
 
     if (force_measure == FORCE_MEASURE_YES) {
       char label[200];
@@ -497,6 +502,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 
       sfree (mom_tmp, "mom_tmp", fname, cname);
     }
+    timer_force.stop ();
   }
   // We now have a solution to forecast the next normal solve.
   fg_forecast = true;
@@ -504,10 +510,10 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
   md_steps++;
   LatticeFactory::Destroy ();
 
-  dtime += dclock ();
-  print_flops (cname, fname, 0, dtime);
-  print_flops (cname, "prepare_fg::cg()", 0, dtime_cg);
-  print_flops (cname, "prepare_fg::force()", 0, dtime_force);
+//  dtime += dclock ();
+//  print_flops (cname, fname, 0, dtime);
+//  print_flops (cname, "prepare_fg::cg()", 0, dtime_cg);
+//  print_flops (cname, "prepare_fg::force()", 0, dtime_force);
   timer.stop (true);
 }
 
@@ -517,10 +523,12 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
   char *fname = "evolve(Float,int)";
   VRB.Func (cname, fname);
   static Timer timer (cname, fname);
-  timer.start (true);
-  Float dtime = -dclock ();
-  Float dtime_cg = 0.;
-  Float dtime_force = 0.;
+  static Timer timer_cg (fname,"evolve::cg()");
+  static Timer timer_force (fname,"evolve::force()");
+  timer.start ();
+//  Float dtime = -dclock ();
+//  Float dtime_cg = 0.;
+//  Float dtime_force = 0.;
 
   if (skip_force) {
     VRB.Result (cname, fname,
@@ -576,13 +584,15 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 	VRB.Result (cname, fname, "Using force gradient forecasting.\n");
       }
 
-      dtime_cg -= dclock ();
+//      dtime_cg -= dclock ();
       // cg_sol = (M_f^\dag M_f)^{-1} tmp1 = (M_f^\dag M_f)^{-1} M_f^\dag (RGV)
+      timer_cg.start ();
       cg_iter = lat.FmatEvlInv (cg_sol, tmp1, &frm_cg_arg_md[i], CNV_FRM_NO);
       VRB.Result (cname, fname,
 		  "evolve: mass ratio (%0.4f)/%0.4f cg_iter = %d\n",
 		  frm_mass[i], bsn_mass[i], cg_iter);
-      dtime_cg += dclock ();
+//      dtime_cg += dclock ();
+      timer_cg.stop ();
 
       updateCgStats (&frm_cg_arg_md[i]);
 
@@ -599,7 +609,8 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 	mom_tmp = mom;
       }
 
-      dtime_force -= dclock ();
+//      dtime_force -= dclock ();
+      timer_force.start ();
       //!< Evolve mom using fermion force
       if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
 	Fdt = lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt);
@@ -623,7 +634,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
       moveFloat((Float*)phi[i],(Float*)tmp3,lat.half_size);
 	VRB.Result (cname,fname,"%p %p: phi[%d] = M(m_b) (1/MdagM(m_b)) Mdag(m_f)|R>=%e\n", phi[i],phi[i], i, lat.FhamiltonNode (phi[i],phi[i]) );
 
-      dtime_force += dclock ();
+//      dtime_force += dclock ();
 
       if (force_measure == FORCE_MEASURE_YES) {
 	char label[200];
@@ -642,6 +653,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 
 	sfree (mom_tmp, "mom_tmp", fname, cname);
       }
+      timer_force.stop ();
     }
     // Note that as long as the last solve in a trajectory is NOT a
     // force gradient solve (which should always be the case), we
@@ -655,10 +667,10 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
   LatticeFactory::Destroy ();
   evolved = 1;
 
-  dtime += dclock ();
-  print_flops (cname, fname, 0, dtime);
-  print_flops (cname, "evolve::cg()", 0, dtime_cg);
-  print_flops (cname, "evolve::force()", 0, dtime_force);
+//  dtime += dclock ();
+//  print_flops (cname, fname, 0, dtime);
+//  print_flops (cname, "evolve::cg()", 0, dtime_cg);
+//  print_flops (cname, "evolve::force()", 0, dtime_force);
   timer.stop (true);
 }
 

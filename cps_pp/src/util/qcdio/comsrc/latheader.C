@@ -150,6 +150,7 @@ void LatticeHeader::init(const QioArg & qio_arg, FP_FORMAT FileFormat, Float Lin
 
   link_trace = LinkTrace;
   plaquette = Plaq;
+  VRB.Result("LatticeHeader","init()","link_trace=%g plaquette=%g\n",LinkTrace,Plaq);
 
   for(int i=0;i<4;i++) 
     boundary[i] = qio_arg.Bc(i);

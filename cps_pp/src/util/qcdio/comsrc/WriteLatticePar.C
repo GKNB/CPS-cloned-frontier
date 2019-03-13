@@ -39,10 +39,10 @@ void WriteLatticeParallel::write(Lattice & lat, const QioArg & wt_arg)
   // calc Plaq and LinkTrace
   const int size_matrices(wt_arg.VolNodeSites()*4);
   Matrix * lpoint = lat.GaugeField();
-  VRB.Flow(cname,fname, "Writing Gauge Field at Lattice::GaugeField() = %p\n", lpoint);
 
-  Float plaq = lat.SumReTrPlaq()/(18*wt_arg.VolSites()) ;
-  if(GJP.Gparity()) plaq/=2;
+  Float plaq = lat.SumReTrPlaq()/(18.*(Float)wt_arg.VolSites()) ;
+  if(GJP.Gparity()) plaq/=2.;
+  VRB.Result(cname,fname, "Writing Gauge Field at Lattice::GaugeField() = %p SumReTrPlaq()=%0.10e wt_arg.VolSites()=%0.10e plaq = %g\n", lpoint,lat.SumReTrPlaq(),(Float)wt_arg.VolSites(),plaq);
   
   Float ltrace(0.0);
   if(wt_arg.Scoor() == 0) {

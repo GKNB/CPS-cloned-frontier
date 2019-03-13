@@ -17,8 +17,8 @@ CPS_START_NAMESPACE
 #include <util/verbose.h>
 #include <util/error.h>
 #include <util/gjp.h>
-//#include <comms/nga_reg.h>
-#include <comms/cbuf.h>
+#include <util/timer.h>
+//#include <comms/cbuf.h>
   CPS_START_NAMESPACE
 //! A data container in the layout conversion routines.
   typedef struct ConvertArgStruct
@@ -190,7 +190,7 @@ void Lattice::Convert (StrOrdType new_str_ord)
       Matrix *p = GaugeField ();
       int n_links = 4 * GJP.VolNodeSites ();
 
-      setCbufCntrlReg (4, CBUF_MODE4);
+//      setCbufCntrlReg (4, CBUF_MODE4);
 
       for (int i = 0; i < n_links; ++i) {
 	mp2->Dagger ((IFloat *) p);
@@ -243,7 +243,7 @@ void Lattice::Convert (StrOrdType new_str_ord)
 	Matrix *p = GaugeField ();
 	int n_links = 4 * GJP.VolNodeSites ();
 
-	setCbufCntrlReg (4, CBUF_MODE4);
+//	setCbufCntrlReg (4, CBUF_MODE4);
 
 	for (int i = 0; i < n_links; ++i) {
 	  mp2->Dagger ((IFloat *) p);
@@ -651,6 +651,8 @@ void FdwfBase::Fconvert (Vector * f_field, StrOrdType to, StrOrdType from,
    * | 4d f0 | 4d f1 | 4d f0 | 4d f1 | ....
    *
    */
+  static Timer timer(cname,"Fconvert()");
+  timer.start();
 
 
   Float *field_ptr;
@@ -1024,6 +1026,7 @@ void FdwfBase::Fconvert (Vector * f_field, StrOrdType to, StrOrdType from,
   // Free temporary fermion field memory
   //----------------------------------------------------------
   ffree (cname, fname_fconvert, "tmp_f_field", tmp_f_field);
+  timer.stop();
 
   return;
 

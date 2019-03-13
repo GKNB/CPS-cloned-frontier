@@ -51,7 +51,7 @@ void mobius_unprec(Vector *out,
 
 //  Vector  *frm_tmp2 = (Vector *) mobius_lib_arg->frm_tmp2;
 
-  VRB.Result("","mobius_unprec","mass=%e\n",mass);
+  VRB.Debug("","mobius_unprec","mass=%e\n",mass);
   const unsigned long  f_size = (24/(2*6)) * mobius_lib_arg->vol_4d * mobius_lib_arg->ls;
   Vector  *frm_tmp2 = (Vector*)smalloc("","mobius_unpre()","frm_tmp2",2*f_size*(2*6)*sizeof(Float));
   memset(out,0,f_size*(2*6)*sizeof(Float));
