@@ -28,6 +28,7 @@ CPS_START_NAMESPACE
 #include <util/time_cps.h>
 #include <util/dwf.h>
 #include <util/mobius.h>
+#include <util/timer.h>
 #include <comms/glb.h>
 #ifdef USE_BLAS
 #include "noarch/blas-subs.h"
@@ -924,6 +925,8 @@ void DiracOpMobius::MatHerm (Vector * out, Vector * in)
 void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
 {
   const char *fname = "CalcHmdForceVecs(V*)";
+  static Timer timer(cname,fname);
+  timer.start(false);
   VRB.Func (cname, fname);
 
   if (f_out == 0)
@@ -960,7 +963,7 @@ void DiracOpMobius::CalcHmdForceVecs (Vector * chi)
 
   MatPc (psi, chi);
   CalcHmdForceVecs(f_in,f_out,chi_new,psi);
-
+  timer.stop(false);
   return;
 }
 
@@ -975,6 +978,8 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
 {
   const char *fname = "CalcHmdForceVecs(V*,V*,V*,V*)";
   VRB.Func (cname, fname);
+  static Timer timer(cname,fname);
+  timer.start(false);
 
   if (f_out == 0)
     ERR.Pointer (cname, fname, "f_out");
@@ -1027,9 +1032,9 @@ void DiracOpMobius::CalcHmdForceVecs (Vector *v1, Vector *v2, Vector *phi1, Vect
     break;
   }
     v1_o->CopyVec (phi1, f_size_cb);
-  dtime += dclock(true);
-  print_flops(fname,"m5inv+CopyVec()",0,dtime);
-  dtime =-dclock();
+//  dtime += dclock(true);
+//  print_flops(fname,"m5inv+CopyVec()",0,dtime);
+//  dtime =-dclock();
   
 
 
@@ -1053,37 +1058,50 @@ if(0){
 
 //  VRB.Result(cname,fname,"mass=%g Gparity=%d\n",mass,GJP.Gparity());
 //  Dslash (v2_e, v2_o, CHKB_ODD, DAG_NO);
-  dtime += dclock(true);
-  print_flops(fname,"Dump()",0,dtime);
-  dtime =-dclock();
+//  dtime += dclock(true);
+//  print_flops(fname,"Dump()",0,dtime);
+//  dtime =-dclock();
 }
+  static Timer timer_dslash(fname,"mobius_dslash");
+  timer_dslash.start(false);
   mobius_dslash_4(tmp1, gauge_field, phi2, CHKB_ODD, DAG_NO, (Dwf *) mobius_lib_arg,mass);
-  dtime += dclock(true);
-  print_flops(fname,"mobius_dslash",0,dtime);
-  dtime =-dclock();
+  timer_dslash.stop(false);
+//  dtime += dclock(true);
+//  print_flops(fname,"mobius_dslash",0,dtime);
+//  dtime =-dclock();
 // lat.Dump("Meophi2",tmp1,Even); // (-2.)* BFM
+  static Timer timer_m5inv(fname,"mobius_m5inv");
+  timer_m5inv.start(false);
   mobius_m5inv (tmp2, tmp1, mass, DAG_NO, (Dwf *) mobius_lib_arg);
-  dtime += dclock(true);
-  print_flops(fname,"mobius_m5inv",0,dtime);
-  dtime =-dclock();
+  timer_m5inv.stop(false);
+//  dtime += dclock(true);
+//  print_flops(fname,"mobius_m5inv",0,dtime);
+//  dtime =-dclock();
 //  lat.Dump("MeeInvMeophi2",tmp2,Even); // Factor?
+  static Timer timer_Booee(fname,"mobius_Booee");
+  timer_Booee.start(false);
   mobius_Booee(v2_e, tmp2, DAG_NO, (Dwf*) mobius_lib_arg,mass);
 //  lat.Dump("v2_e",v2_e,Even); // Factor?
 
   VRB.Result(cname,fname,"v2_e=%g\n",v2_e->NormSqGlbSum(f_size_cb));
 
   mobius_Booee(v2_o, phi2, DAG_NO, (Dwf*) mobius_lib_arg,mass);
-  dtime += dclock(true);
-  print_flops(fname,"mobius_Booee",0,dtime);
-  dtime =-dclock();
+  timer_Booee.stop(false);
+//  dtime += dclock(true);
+//  print_flops(fname,"mobius_Booee",0,dtime);
+//  dtime =-dclock();
 //  lat.Dump("v2_o",v2_o,Odd); // Factor?
 
+  timer_dslash.start(false);
   mobius_dslash_4(tmp4, gauge_field, phi1, CHKB_ODD, DAG_YES, (Dwf *) mobius_lib_arg,mass);
+  timer_dslash.stop(false);
 //  lat.Dump("MeoDagphi1",tmp4,Even); // (-2.)* BFM
+  timer_m5inv.start(false);
   mobius_m5inv (v1_e, tmp4, mass, DAG_YES, (Dwf *) mobius_lib_arg);
-  dtime += dclock(true);
-  print_flops(fname,"mobius_m5inv()",0,dtime);
-  dtime =-dclock();
+  timer_m5inv.stop(false);
+//  dtime += dclock(true);
+//  print_flops(fname,"mobius_m5inv()",0,dtime);
+//  dtime =-dclock();
 //  lat.Dump("v1_e",v1_e,Even); // Factor?
 
 //  VRB.Result(cname,fname,"v1_e=%g\n",v1_e->NormSqGlbSum(f_size_cb));
@@ -1093,8 +1111,10 @@ if(0){
   sfree(cname,fname,"tmp3",tmp3);
   sfree(cname,fname,"tmp2",tmp2);
   sfree(cname,fname,"tmp1",tmp1);
-  dtime += dclock(true);
-  print_flops(fname,"print()",0,dtime);
+//  dtime += dclock(true);
+//  print_flops(fname,"print()",0,dtime);
+
+  timer.stop(false);
 
   return;
 }

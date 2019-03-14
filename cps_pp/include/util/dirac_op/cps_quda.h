@@ -388,6 +388,91 @@ class CPSQuda
       gauge_param.ga_pad = pad_size;
 #endif
     }
+    static void ParamSetup_mdwf(QudaArg& quda_param, QudaGaugeParam& gauge_param, 
+        QudaEigParam& eig_param, int mat_type = 1)
+    {
+      const char* fname = "ParamSetup_mdwf(QudaArg&, QudaGaugeParam&, QudaInvertParam&, i)";
+
+      //-----------------------------------
+      // Parameter setting for gauge data
+      //-----------------------------------
+
+      // Set the CUDA precisions
+      gauge_param.reconstruct = setReconstruct(quda_param.reconstruct);
+      gauge_param.cuda_prec= setPrecision(quda_param.gauge_prec);
+
+      // Set the CUDA sloppy precisions
+      gauge_param.reconstruct_sloppy = setReconstruct(quda_param.reconstruct_sloppy);
+//      gauge_param.cuda_prec_sloppy   = setPrecision(quda_param.gauge_prec_sloppy);
+
+      if(sizeof(Float) == sizeof(double)) {
+        gauge_param.cpu_prec = QUDA_DOUBLE_PRECISION;
+      } else {
+        gauge_param.cpu_prec = QUDA_SINGLE_PRECISION;
+      }
+
+      gauge_param.X[0] = GJP.XnodeSites();
+      gauge_param.X[1] = GJP.YnodeSites();
+      gauge_param.X[2] = GJP.ZnodeSites();
+      gauge_param.X[3] = GJP.TnodeSites();
+      gauge_param.anisotropy = GJP.XiBare();
+//      gauge_param.cuda_prec_precondition = QUDA_DOUBLE_PRECISION;
+      gauge_param.cuda_prec_precondition = QUDA_HALF_PRECISION;
+      gauge_param.reconstruct_precondition = setReconstruct(quda_param.reconstruct_sloppy);
+
+      if(GJP.XiDir() != 3){ ERR.General(cname, fname, "Anisotropy direction not supported\n"); }
+
+      //----------------------------------------------------------------------------------------
+      // QUDA_FLOAT_GAUGE_ORDER = 1
+      // QUDA_FLOAT2_GAUGE_ORDER = 2, // no reconstruct and double precision
+      // QUDA_FLOAT4_GAUGE_ORDER = 4, // 8 and 12 reconstruct half and single
+      // QUDA_QDP_GAUGE_ORDER,        // expect *gauge[4], even-odd, row-column color
+      // QUDA_CPS_WILSON_GAUGE_ORDER, // expect *gauge, even-odd, mu inside, column-row color
+      // QUDA_MILC_GAUGE_ORDER,       // expect *gauge, even-odd, mu inside, row-column order
+      //
+      // Multi-GPU case, we have to use QDP format of gauge data
+      //----------------------------------------------------------------------------------------
+
+      gauge_param.gauge_order = QUDA_CPS_WILSON_GAUGE_ORDER;
+
+      gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
+      gauge_param.type = QUDA_WILSON_LINKS;
+
+      for(int d=0; d<3; d++){ if(GJP.Bc(d) != BND_CND_PRD){ ERR.General(cname, fname, "Boundary condition not supported\n"); } }
+      if(GJP.Tbc() == BND_CND_PRD) {
+        gauge_param.t_boundary = QUDA_PERIODIC_T;
+      } else {
+        gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
+      }
+
+      //-------------------------------------------------
+      // Parameter setting for fermion matrix inversion
+      //-------------------------------------------------
+      eig_param.cuda_prec_ritz = setPrecision(quda_param.spinor_prec);
+//      eig_param.cuda_prec_sloppy = setPrecision(quda_param.spinor_prec_sloppy);
+      
+//      eig_param.Ls = GJP.SnodeSites();
+
+
+
+      eig_param.location = QUDA_CPU_FIELD_LOCATION;
+
+      gauge_param.ga_pad = 0;
+
+#ifdef USE_QMP
+      //---------------------------------------------------------------------
+      // This part is needed to make buffer memory space for multi-GPU comms
+      //---------------------------------------------------------------------
+      int x_face_size = gauge_param.X[1] * gauge_param.X[2] * gauge_param.X[3] / 2;
+      int y_face_size = gauge_param.X[0] * gauge_param.X[2] * gauge_param.X[3] / 2;
+      int z_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[3] / 2;
+      int t_face_size = gauge_param.X[0] * gauge_param.X[1] * gauge_param.X[2] / 2;
+      int pad_size = MAX(x_face_size, y_face_size);
+      pad_size = MAX(pad_size, z_face_size);
+      pad_size = MAX(pad_size, t_face_size);
+      gauge_param.ga_pad = pad_size;
+#endif
+    }
 };
 
 CPS_END_NAMESPACE

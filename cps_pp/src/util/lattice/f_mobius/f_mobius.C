@@ -28,6 +28,16 @@ CPS_END_NAMESPACE
 CPS_START_NAMESPACE
 
 
+Fmobius::Fmobius(void):
+FdwfBase(),cname("Fmobius"){
+  const char *fname="Fmobius()";
+  full_size =  GJP.VolNodeSites() * (size_t) this->FsiteSize();
+  if(GJP.Gparity()) full_size*=2;
+  half_size = full_size/2;
+  VRB.Result(cname,fname,"full_size=%d half_sie=%d\n",full_size,half_size);
+}
+
+
 FclassType Fmobius::Fclass(void) const {
   return F_CLASS_MOBIUS;
 }
@@ -420,6 +430,7 @@ int Fmobius::FeigSolv(Vector **f_eigenv, Float *lambda,
   // calculate chirality
   int Ncb = NumChkb(cg_arg.RitzMatOper);
   size_t f_size = GJP.VolNodeSites()*2*Colors()*SpinComponents()*Ncb/2;
+  assert(this->half_size == f_size);
 //  Vector *four = (Vector *) smalloc (cname,fname, "four", f_size * sizeof(Float));
 //  Vector *fourg5 = (Vector *) smalloc (cname,fname, "fourg5", f_size * sizeof(Float));
   LatVector four_lat(this->SpinComponents(),GJP.VolNodeSites()*Ncb/2);
@@ -532,6 +543,7 @@ void Fmobius::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
 if(0) 
 {
   size_t size = GJP.VolNodeSites() * GJP.SnodeSites() * 2 * Colors() * SpinComponents();
+  assert(this->full_size == size);
   int local_ls = GJP.SnodeSites();
   const int s_node_coor = GJP.SnodeCoor();
   const int ls_stride = 24 * GJP.VolNodeSites()/2;
@@ -623,6 +635,7 @@ int Fmobius::FmatEvlMInv(Vector **f_out, Vector *f_in, Float *shift,
 
   size_t f_size = GJP.VolNodeSites() * FsiteSize() / (FchkbEvl()+1);
   if(GJP.Gparity()) f_size*=2;
+  assert((this->full_size)/ (FchkbEvl()+1) == f_size );
 
   Float dot = f_in -> NormSqGlbSum(f_size);
   VRB.Flow(cname,fname,"f_size=%d\n",f_size);
@@ -675,6 +688,7 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom,
     size_t f_size = (size_t)SPINOR_SIZE * GJP.VolNodeSites() * GJP.SnodeSites();
 //    long f_size = (long)SPINOR_SIZE * GJP.VolNodeSites() * Fmobius::bfm_args[current_arg_idx].Ls;
     if(GJP.Gparity()) f_size*=2;
+  assert(this->full_size == f_size);
 
     Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * f_size);
     Vector *v2 = (Vector *)smalloc(cname, fname, "v2", sizeof(Float) * f_size);
@@ -762,6 +776,8 @@ ForceArg Fmobius::EvolveMomFforce(Matrix *mom, Vector *frm,
     if(GJP.Gparity()) f_size_4d *= 2;
     const size_t f_size_cb = f_size_4d * GJP.SnodeSites() / 2;
     const size_t f_size= f_size_4d * GJP.SnodeSites() ;
+    assert(this->full_size == f_size);
+    assert(this->half_size == f_size_cb);
   
 
     CgArg cg_arg;
@@ -885,7 +901,7 @@ if(0)
   VRB.Result(cname,fname,"<frm1|MatPcDagMatPc|frm1>=%0.16e\n",temp);
 
   Vector *v1 = (Vector *)smalloc(cname, fname, "v1", sizeof(Float) * full_size);
-  VRB.Result(cname,fname,"full_size=%d\n",full_size);
+//  VRB.Result(cname,fname,"full_size=%d\n",full_size);
   dwf.MatPcDag(v1,frm1);
   temp= FhamiltonNode(frm1,v1);
   glb_sum(&temp);

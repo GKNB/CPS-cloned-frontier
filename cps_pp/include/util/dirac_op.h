@@ -2010,6 +2010,9 @@ class DiracOpMobius : public DiracOpWilsonTypes
   int QudaMInvCG(Vector **out, Vector *in, Float in_norm, Float *shift, 
 	     int Nshift, int isz, Float *RsdCG, 
 	     MultiShiftSolveType type, Float *alpha);
+  int QudaLanczos (Vector ** V,        //Lanczos vectors, eigenvectors of RitzMat on return
+                            Float * alpha,      // eigenvalues
+                            LanczosArg * eig_arg);
 #endif
 };
 

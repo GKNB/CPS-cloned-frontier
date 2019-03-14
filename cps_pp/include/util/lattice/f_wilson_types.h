@@ -1160,10 +1160,11 @@ class Fmobius : public virtual FdwfBase {
     
  public:
 
-    Fmobius(void):FdwfBase(),cname("Fmobius"){
+//    Fmobius(void):FdwfBase(),cname("Fmobius"){
 //	  full_size =  GJP.VolNodeSites() * (size_t) FsiteSize();
 //	  half_size = full_size/2;
-    }
+//    }
+     Fmobius(void);
     ~Fmobius(void){}
 
     FclassType Fclass(void) const;

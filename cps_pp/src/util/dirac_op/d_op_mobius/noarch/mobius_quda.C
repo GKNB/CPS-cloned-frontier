@@ -69,6 +69,7 @@ CPS_START_NAMESPACE
   // And 'lat.FsiteSize()' has the information of 5th dimension.
   // So, for the total lattice volume, we don`t need inv_param.Ls.
   size_t f_size_cb = (size_t) GJP.VolNodeSites () * lat.FsiteSize () / 2;
+  assert (lat.half_size == f_size_cb);
 
   Vector *x = (Vector *) smalloc (f_size_cb * sizeof (Float));
   Vector *r = (Vector *) smalloc (f_size_cb * sizeof (Float));
@@ -100,7 +101,7 @@ CPS_START_NAMESPACE
     Vector *r_tmp = (Vector *) smalloc (f_size_cb * sizeof (Float));
     r_tmp->VecZero (f_size_cb);
     Float *in_vec = (Float *) in_tmp;
-    for (int tmp = 0; tmp < f_size_cb; tmp++)
+    for (size_t tmp = 0; tmp < f_size_cb; tmp++)
       in_vec[tmp] = 0.0;
     in_vec[24] = 1.0;
     in_vec[1560] = 1.0;
@@ -314,7 +315,7 @@ int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;
-  inv_param.num_offset = Nshift;
+//  inv_param.num_offset = Nshift;
 
   loadGaugeQuda ((void *) gauge_field, &gauge_param);
 
@@ -322,6 +323,7 @@ int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
   // And 'lat.FsiteSize()' has the information of 5th dimension.
   // So, for the total lattice volume, we don`t need inv_param.Ls.
   size_t f_size_cb = (size_t) GJP.VolNodeSites () * lat.FsiteSize () / 2;
+  assert (lat.half_size == f_size_cb);
 
   Vector *x = (Vector *) smalloc (f_size_cb * sizeof (Float));
   Vector *r = (Vector *) smalloc (f_size_cb * sizeof (Float));
@@ -390,10 +392,10 @@ int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
     r->FTimesV1PlusV2 (shift[i], (Vector *) OutMulti[i], r, f_size_cb);
     r->FTimesV1PlusV2 (-1., in, r, f_size_cb);
     d = r->NormSqGlbSum (f_size_cb);
-    Float *f_p = (Float*)OutMulti[i];
+    Float *f_p = (Float *) OutMulti[i];
     VRB.Result (cname, fname,
                 "Pole %d : shift %g (%g %g) True |res| / |src| = %1.15e\n",
-                i, shift[i], *f_p, *(f_p+1), sqrt (d) / sqrt (in_norm2));
+                i, shift[i], *f_p, *(f_p + 1), sqrt (d) / sqrt (in_norm2));
   }
 
   total_iter += inv_param.iter + 1;
@@ -447,5 +449,163 @@ int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
   return total_iter;
 }
 
-CPS_END_NAMESPACE
+
+//void lanczosQuda(int k0, int m, void *hp_Apsi, void *hp_r, void *hp_V,
+//                 void *hp_alpha, void *hp_beta, QudaEigParam *eig_param)
+
+int DiracOpMobius::QudaLanczos (Vector ** V,    //Lanczos vectors, eigenvectors of RitzMat on return
+                                Float * alpha,  // eigenvalues
+                                LanczosArg * eig_arg)
+{
+  const char *fname = "QudaLanczos(V*,V*,F*,int)";
+
+
+  VRB.Func (cname, fname);
+  struct timeval start, end;
+  gettimeofday (&start, NULL);
+
+
+  QudaGaugeParam gauge_param = newQudaGaugeParam ();
+  QudaInvertParam inv_param = newQudaInvertParam ();
+  QudaEigParam eig_param = newQudaEigParam ();
+  CPSQuda::ParamSetup_mdwf (QudaParam, gauge_param, inv_param, 1);
+  CPSQuda::ParamSetup_mdwf (QudaParam, gauge_param, eig_param, 1);
+  inv_param.cuda_prec_sloppy = QUDA_HALF_PRECISION;
+
+  eig_param.eig_type = QUDA_LANCZOS;
+  inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
+  inv_param.solve_type = QUDA_NORMOP_PC_SOLVE;
+// for master and/or old QUDA branches
+//  eig_param.solve_type = QUDA_NORMEQ_PC_SOLVE;
+
+  inv_param.maxiter = dirac_arg->max_num_iter;
+  inv_param.mass = dirac_arg->mass;
+
+  loadGaugeQuda ((void *) gauge_field, &gauge_param);
+
+  // F_size_cb is defined by "GJP.VolNodeSites()/2*lat.FsiteSize()".
+  // And 'lat.FsiteSize()' has the information of 5th dimension.
+  // So, for the total lattice volume, we don`t need eig_param.Ls.
+  size_t f_size_cb = (size_t) GJP.VolNodeSites () * lat.FsiteSize () / 2;
+  assert (lat.half_size == f_size_cb);
+
+  Vector *x = (Vector *) smalloc (f_size_cb * sizeof (Float));
+  Vector *r = (Vector *) smalloc (f_size_cb * sizeof (Float));
+  x->VecZero (f_size_cb);
+  r->VecZero (f_size_cb);
+  Float r2 = r->NormSqGlbSum (f_size_cb);
+
+  //----------------------------------------------
+  //  Calculate Flops value 
+  //----------------------------------------------
+  Float flops = 0.0;
+  Float matvec_flops = (2 * 1320 + 48) * GJP.VolNodeSites () / 2;
+  matvec_flops *= 2;            // double flops since normal equations
+  //----------------------------------------------
+
+  //----------------------------------------------
+  // Calculate Stop condition
+  //----------------------------------------------
+//  Float in_norm2 = in->NormSqGlbSum (f_size_cb);
+//  Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd * in_norm2;
+  Float stop = dirac_arg->stop_rsd * dirac_arg->stop_rsd;
+
+
+  int total_iter = 0, k = 0;
+//  int MatDMat_test = 0;
+  int cg_test = 1;
+
+  Float total_time = -dclock ();
+  Float inv_time = 0.;
+//  Float qudamat_time=0.;
+//  if(cg_test==1) {
+//    while (r2 > stop && k < QudaParam.max_restart) {
+  inv_param.tol = dirac_arg->stop_rsd;
+  if (sqrt (stop / r2) > inv_param.tol) {
+    inv_param.tol = sqrt (stop / r2);
+  }
+
+  x->VecZero (f_size_cb);
+  //---------------------------------
+  //  Inversion sequence start
+  //---------------------------------
+  inv_time -= dclock ();
+  void *OutMulti[inv_param.num_offset];
+  for (int i = 0; i < inv_param.num_offset; i++) {
+    OutMulti[i] =
+      (Vector *) smalloc (cname, fname, "OutMulti[i]",
+                          f_size_cb * sizeof (Float));
+  }
+  x->VecZero (f_size_cb);
+  r->VecZero (f_size_cb);
+  for (int i = 0; i < inv_param.num_offset; i++) {
+    Float d;
+#if 1
+    MatDagMatQuda (r, (Vector *) OutMulti[i], &inv_param);
+#else
+    MatPcDagMatPc (r, (Vector *) OutMulti[i]);
+#endif
+//    r->FTimesV1PlusV2 (shift[i], (Vector *) OutMulti[i], r, f_size_cb);
+//    r->FTimesV1PlusV2 (-1., in, r, f_size_cb);
+    d = r->NormSqGlbSum (f_size_cb);
+    Float *f_p = (Float *) OutMulti[i];
+//    VRB.Result (cname, fname,
+//                "Pole %d : shift %g (%g %g) True |res| / |src| = %1.15e\n",
+//                i, shift[i], *f_p, *(f_p+1), sqrt (d) / sqrt (1));
+ }
+
+    total_iter += inv_param.iter + 1;
+    flops += 1e9 * eig_param.gflops + 8 * f_size_cb + matvec_flops;
+
+    VRB.Result (cname, fname, "Gflops = %e, Seconds = %e, Gflops/s = %f\n",
+                eig_param.gflops, inv_param.secs,
+                eig_param.gflops / inv_param.secs);
+    VRB.Result (cname, fname,
+                "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",
+                sqrt (r2), total_iter, k);
+//    }
+    {
+//    out[0]->VecZero (f_size_cb); REALLY??
+      for (int i = 0; i < inv_param.num_offset; i++) {
+        Vector *v_p = (Vector *) OutMulti[i];
+//      out[0]->FTimesV1PlusV2 (alpha[i], v_p, out[0], f_size_cb);
+        sfree (cname, fname, "OutMulti[i]", OutMulti[i]);
+      }
+
+    }
+
+    gettimeofday (&end, NULL);
+    print_flops (cname, fname, flops, &start, &end);
+//    VRB.Flow(cname, fname, "Cuda Space Required. Spinor:%f + Gauge:%f GiB\n", 
+//        eig_param.spinorGiB, gauge_param.gaugeGiB);
+    VRB.Flow (cname, fname,
+              "True |res| / |src| = %1.15e, iter = %d, restart = %d\n",
+              sqrt (r2), total_iter, k);
+//     if (true_res) *true_res = sqrt(r2);
+//  }
+    total_time += dclock ();
+    VRB.Result (cname, fname, "inv_time=%g total_time=%g\n", inv_time,
+                total_time);
+    //----------------------------------------
+    //  Finalize QUDA memory and API
+    //----------------------------------------
+    freeGaugeQuda ();
+    //----------------------------------------
+    if (x) {
+      sfree (x);
+      x = NULL;
+    }
+    if (r) {
+      sfree (r);
+      r = NULL;
+    }
+//      free(OutMulti);OutMulti=NULL;
+
+    VRB.FuncEnd (cname, fname);
+    return total_iter;
+#if 0
+#endif
+  }
+
+  CPS_END_NAMESPACE
 #endif
