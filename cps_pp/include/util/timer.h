@@ -166,8 +166,9 @@ class Timer {
     }
 
     static double& minimum_duration_for_show_start_info() {
-      static double time = 0.1;
-      return time;
+//      static double time = 0.1;
+//      return time;
+      return show_stop;
     }
 
     Timer() {

@@ -315,7 +315,7 @@ int DiracOpMobius::QudaMInvCG (Vector ** out, Vector * in, Float in_norm,
 
   inv_param.maxiter = dirac_arg->max_num_iter;
   inv_param.mass = dirac_arg->mass;
-//  inv_param.num_offset = Nshift;
+  inv_param.num_offset = Nshift;
 
   loadGaugeQuda ((void *) gauge_field, &gauge_param);
 

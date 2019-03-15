@@ -223,8 +223,8 @@ CPS_START_NAMESPACE
 #if 1
 Float Timer::dtime_begin(dclock());
 Float Timer::dtime_last(dclock());
-double Timer::autodisplay_interval;
-double Timer::show_stop;
+double Timer::autodisplay_interval=60;
+double Timer::show_stop=1.;
 
 
 void Timer::reset(){
