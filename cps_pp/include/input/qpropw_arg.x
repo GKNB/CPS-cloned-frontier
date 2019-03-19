@@ -20,7 +20,8 @@ enum SourceType {
   SUM_MOM         = 14,
   FL_FUNC         = 15,
   MOM         = 16,
-  BOX_4D     = 17
+  BOX_4D     = 17,
+  RANDMOM = 18
 };
 
 enum RandomType {

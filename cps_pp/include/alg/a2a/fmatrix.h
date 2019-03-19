@@ -1,49 +1,61 @@
 #ifndef _FMATRIX_H
 #define _FMATRIX_H
 
+#include<string>
+#include<util/gjp.h>
+#include<util/qcdio.h>
+#include<alg/a2a/utils.h>
+
 CPS_START_NAMESPACE
 
-template<typename T>
-class basicMatrix{
+class StandardAllocPolicy;
+
+template<typename T, typename AllocPolicy = StandardAllocPolicy>
+class basicMatrix : public AllocPolicy{
   T* tt;
   int rows, cols;
   int fsize; //number of elements
   
-  void free(){
-    if(tt!=NULL) sfree("basicMatrix","~basicMatrix","free",tt);
+  inline void free(){
+    if(tt!=NULL) AllocPolicy::_free(tt);
   }
 
-  void alloc(const int &_rows, const int &_cols, T const* cp = NULL){
-    if(_rows != rows || _cols != cols){
-      free();
-      rows = _rows; cols = _cols; fsize = rows*cols;
-      tt = (T*)smalloc("basicMatrix", "basicMatrix", "alloc" , sizeof(T) * fsize);
-    }
-    if(cp != NULL) for(int i=0;i<fsize;i++) tt[i] = cp[i];
+  inline void alloc(const int _rows, const int _cols){
+    rows = _rows; cols = _cols; fsize = rows*cols;
+    AllocPolicy::_alloc((void**)&tt, fsize*sizeof(T));
   }
 
 public:
   basicMatrix(): rows(0),cols(0),fsize(0),tt(NULL){ }
 
-  basicMatrix(const int &_rows, const int &_cols): tt(NULL){ 
-    alloc(_rows,_cols);
+  basicMatrix(const int _rows, const int _cols){
+    this->alloc(_rows,_cols);
   }
   basicMatrix(const basicMatrix<T> &r){
-    alloc(r.rows,r.cols,r.tt);
+    this->alloc(r.rows,r.cols);
+    for(int i=0;i<fsize;i++) tt[i] = r.tt[i];
   }
   
   T* ptr(){ return tt;}
+  T const* ptr() const{ return tt;}
+  
+  const int size() const{ return fsize; }
+  
+  void resize(const int _rows, const int _cols){
+    if(tt == NULL || _rows * _cols != fsize){
+      this->free();
+      this->alloc(_rows,_cols);
+    }
+  }
 
-  void resize(const int &_rows, const int &_cols){ alloc(_rows,_cols); }
+  inline const T & operator()(const int i, const int j) const{ return tt[j + cols*i]; }
+  inline T & operator()(const int i, const int j){ return tt[j + cols*i]; }
 
-  inline const T & operator()(const int &i, const int &j) const{ return tt[j + cols*i]; }
-  inline T & operator()(const int &i, const int &j){ return tt[j + cols*i]; }
-
-  inline const int &nRows() const{ return rows; }
-  inline const int &nCols() const{ return cols; }
+  inline const int nRows() const{ return rows; }
+  inline const int nCols() const{ return cols; }
 
   ~basicMatrix(){
-    free();
+    this->free();
   }
 };
 
@@ -104,15 +116,18 @@ public:
     free_matrix();
   }
 
-  void write(const std::string &filename) const{
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%d %d %a %a\n" : "%d %d %.16e %.16e\n";
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("fMatrix","write",filename.c_str());
     for(int r=0;r<rows;r++)
       for(int c=0;c<cols;c++)
-	Fprintf(p,"%d %d %.16e %.16e\n",r,c, (*this)(r,c).real(), (*this)(r,c).imag());
+	Fprintf(p,fmt,r,c, (*this)(r,c).real(), (*this)(r,c).imag());
     Fclose(p);
   }
+
 };
 
 //Rearrange an Lt*Lt matrix from ordering  tsnk, tsrc  to   tsrc,  tsep=tsnk-tsrc
@@ -183,15 +198,19 @@ public:
   ~fVector(){
     free_mem();
   }
-
-  void write(const std::string &filename) const{
+  
+  //hexfloat option: For reproducibility testing, write the output in hexfloat format rather than truncating the precision
+  void write(const std::string &filename, const bool hexfloat = false) const{
+    const char* fmt = hexfloat ? "%d %a %a\n" : "%d %.16e %.16e\n";
     FILE *p;
     if((p = Fopen(filename.c_str(),"w")) == NULL)
       ERR.FileA("fVector","write",filename.c_str());
     for(int i=0;i<fsize;i++)
-      Fprintf(p,"%d %.16e %.16e\n",i, tt[i].real(), tt[i].imag());
+      Fprintf(p,fmt,i, tt[i].real(), tt[i].imag());
     Fclose(p);
   }
+
+
 };
 
 
@@ -217,7 +236,7 @@ public:
     free_mem();
     thread_size = _thread_size; nthread = _nthread;
     size = _thread_size * _nthread;
-    this->_alloc(&con, size*sizeof(mf_Complex));
+    this->_alloc((void**)&con, size*sizeof(mf_Complex));
     memset((void*)con, 0, size * sizeof(mf_Complex));
   }
   ~basicComplexArray(){
@@ -227,6 +246,7 @@ public:
   inline mf_Complex & operator[](const int i){ return con[i]; }
 
   inline mf_Complex & operator()(const int i, const int thread){ return con[i + thread * thread_size]; }
+  inline mf_Complex & operator()(const int i, const int thread) const{ return con[i + thread * thread_size]; }
 
   int nElementsTotal() const{
     return size;
@@ -260,6 +280,71 @@ public:
     //QMP_sum_array( (typename mf_Complex::value_type*)con,2*size);
   }
 };
+
+
+
+//Same as the above but each thread has its own independent memory allocation. This relieves the requirement for large contiguous memory allocations
+template<typename mf_Complex, typename AllocPolicy = StandardAllocPolicy>
+class basicComplexArraySplitAlloc: public AllocPolicy{
+protected:
+  int thread_size; //size of each thread unit
+  std::vector<mf_Complex*> con;
+public:
+  basicComplexArraySplitAlloc(): con(0){}
+  basicComplexArraySplitAlloc(const int _thread_size, const int _nthread = 1): con(0){
+    resize(_thread_size,_nthread);
+  }
+  void free_mem(){
+    for(int t=0;t<con.size();t++)
+      if(con[t] != NULL){ AllocPolicy::_free(con[t]); con[t] = NULL; }
+  }
+  void resize(const int &_thread_size, const int &_nthread = 1){
+    free_mem();
+    thread_size = _thread_size;
+    con.resize(_nthread);
+    for(int t=0;t<con.size();t++){
+      this->_alloc((void**)&con[t], _thread_size*sizeof(mf_Complex));
+      memset((void*)con[t], 0, _thread_size * sizeof(mf_Complex));
+    }
+  }
+  ~basicComplexArraySplitAlloc(){
+    free_mem();
+  }
+  inline const mf_Complex & operator[](const int i) const{ return con[0][i]; }
+  inline mf_Complex & operator[](const int i){ return con[0][i]; }
+
+  inline mf_Complex & operator()(const int i, const int thread){ return con[thread][i]; }
+  inline mf_Complex & operator()(const int i, const int thread) const{ return con[thread][i]; }
+
+  int nElementsTotal() const{
+    return thread_size*con.size();
+  }
+  int nElementsPerThread() const{
+    return thread_size;
+  }
+  int nThreads() const{
+    return con.size();
+  }
+    
+  //Sum (reduce) over all threads
+  void threadSum(){
+    if(con.size() == 0 || con.size() == 1) return;
+
+#pragma omp parallel for
+    for(int i=0;i<thread_size;i++){
+      for(int t=1;t<con.size();t++)
+	con[0][i] += con[t][i];
+    }
+    
+    for(int t=1;t<con.size();t++) AllocPolicy::_free(con[t]);
+    con.resize(1);
+  }
+  void nodeSum(){
+    for(int t=0;t<con.size();t++)
+      globalSumComplex(this->con[t],thread_size);
+  }
+};
+
 
 
 CPS_END_NAMESPACE

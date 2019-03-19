@@ -16,6 +16,40 @@ CPS_START_NAMESPACE
 
 #include <util/vml/vml_templates.h>
 class VML;
+class CGcontrols {
+public:
+	 bool Encode(char *filename,char *instance);
+	 bool Decode(char *filename,char *instance);
+	 bool Vml(VML *vmls,char *instance);
+	A2ACGalgorithm CGalgorithm;
+	double CG_tolerance;
+	int CG_max_iters;
+	double mixedCG_init_inner_tolerance;
+	double reliable_update_delta;
+	double reliable_update_transition_tol;
+	int multiCG_block_size;
+	struct {
+		u_int split_grid_geometry_len;
+		int *split_grid_geometry_val;
+	} split_grid_geometry;
+	   void print(const std::string &prefix ="");
+	   void deep_copy(const CGcontrols &rhs);
+};
+#ifndef _USE_STDLIB
+#error "Cannot generate rpc_print commands without the standard library"
+#endif
+template<> struct rpc_print<CGcontrols>{
+	static void doit(CGcontrols const &what, const std::string &prefix="" );
+};
+
+template<> struct rpc_deepcopy<CGcontrols>{
+	static void doit(CGcontrols &into, CGcontrols const &from);
+};
+
+
+
+#include <util/vml/vml_templates.h>
+class VML;
 class JobParams {
 public:
 	 bool Encode(char *filename,char *instance);
@@ -23,6 +57,8 @@ public:
 	 bool Vml(VML *vmls,char *instance);
 	BfmSolverType solver;
 	double mobius_scale;
+	bool_t convert_evecs_to_single_precision;
+	CGcontrols cg_controls;
 	double pion_rad;
 	double kaon_rad;
 	int pipi_separation;
@@ -55,9 +91,11 @@ extern "C" {
 #endif
 
 #if defined(__STDC__) || defined(__cplusplus)
+extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 
 #else /* K&R C */
+extern  bool_t vml_CGcontrols (VML *, char *instance, CGcontrols*);
 extern  bool_t vml_JobParams (VML *, char *instance, JobParams*);
 
 #endif /* K&R C */

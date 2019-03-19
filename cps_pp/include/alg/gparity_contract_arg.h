@@ -444,7 +444,7 @@ struct A2ASmearing {
 };
 typedef struct A2ASmearing A2ASmearing;
 template <typename T> A2ASmearingType A2ASmearing::type_map(){
-	 return -1000;
+	 return A2ASmearingType(-1000);
 }
 template <> A2ASmearingType A2ASmearing::type_map<Box3dSmearing>();
 template <> A2ASmearingType A2ASmearing::type_map<Exponential3dSmearing>();
@@ -571,7 +571,7 @@ struct GparityMeasurement {
 };
 typedef struct GparityMeasurement GparityMeasurement;
 template <typename T> ContractionType GparityMeasurement::type_map(){
-	 return -1000;
+	 return ContractionType(-1000);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeLLMesons>();
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeHLMesons>();

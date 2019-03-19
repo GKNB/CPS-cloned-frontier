@@ -1,6 +1,9 @@
 #ifndef  _MF_PRODUCT_STORE_H
 #define  _MF_PRODUCT_STORE_H
 
+#include<alg/a2a/a2a.h>
+#include<alg/a2a/mesonfield.h>
+
 CPS_START_NAMESPACE
 
 //Try to avoid recomputing products of meson fields by re-using wherever possible

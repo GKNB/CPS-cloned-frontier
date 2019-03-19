@@ -1,7 +1,11 @@
 #ifndef _A2A_DILUTIONS_H
 #define _A2A_DILUTIONS_H
 
+#include<cassert>
+#include<vector>
+
 #include<alg/a2a/fmatrix.h>
+#include<alg/a2a/a2a_params.h>
 
 CPS_START_NAMESPACE
 

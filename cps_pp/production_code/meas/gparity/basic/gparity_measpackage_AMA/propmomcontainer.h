@@ -2,6 +2,7 @@
 #define _PROP_MOM_CONTAINER_H
 
 #include <set>
+#include <alg/a2a/threemomentum.h>
 #include "propwrapper.h"
 
 CPS_START_NAMESPACE
@@ -94,6 +95,49 @@ public:
   }
 };
 
+
+
+class Props{
+  std::map< std::pair<int, ThreeMomentum>, PropWrapper > props;
+public:
+  typedef std::map< std::pair<int, ThreeMomentum>, PropWrapper >::iterator iterator;
+  typedef std::map< std::pair<int, ThreeMomentum>, PropWrapper >::const_iterator const_iterator;
+  
+  PropWrapper & operator()(const int t, const ThreeMomentum &p){ return props[ std::pair<int, ThreeMomentum>(t,p) ]; }
+  
+  const PropWrapper & operator()(const int t, const ThreeMomentum &p) const{
+    const_iterator it = props.find( std::pair<int, ThreeMomentum>(t,p) );
+    assert(it != props.end());
+    return it->second;
+  }
+  const_iterator begin() const{ return props.begin(); }
+  const_iterator end() const{ return props.end(); }
+
+  void clear(){
+    //This container takes ownership of the memory associated with the propagators.
+    //As a propagator may appear in multiple entries we must avoid double deletion
+    std::set<QPropW*> deleted;
+    for(iterator it = props.begin(); it != props.end(); it++){
+      for(int f=0;f<1+GJP.Gparity();f++){
+	QPropW* p = it->second.getPtr(f);
+	if(!deleted.count(p)){ 
+	  deleted.insert(p);
+	  delete p;
+	}
+      }
+    }
+    props.clear();
+  }
+  ~Props(){
+    clear();
+  }
+
+  bool contains(const int t, const ThreeMomentum &p) const{
+    const_iterator it = props.find( std::pair<int, ThreeMomentum>(t,p) );
+    return it != props.end();
+  }
+  
+};
 
 
 CPS_END_NAMESPACE

@@ -1,6 +1,16 @@
 #ifndef _TESTS_GPARITY_AMA
 #define _TESTS_GPARITY_AMA
 
+#include <util/time_cps.h>
+#include <alg/fix_gauge_arg.h>
+#include <alg/alg_fix_gauge.h>
+#include <alg/bfm_arg.h>
+#include <alg/prop_dft.h>
+#include "meas.h"
+#include "lattice_doubleT.h"
+#include "cshift.h"
+#include "gparity.h"
+
 CPS_START_NAMESPACE
 
 bool exit_on_error = true;
@@ -377,7 +387,7 @@ QPropWPointSrc* computePointPropagator(const double mass, const double stop_prec
 
 QPropW* computePropagator(const SourceType src_type, const double mass, const double stop_prec, const int t, const int flav, const int p[3], const BndCndType time_bc, const bool store_midprop, 
 			  Lattice &latt,  BFM_Krylov::Lanczos_5d<double> *deflate = NULL){ 
-  if(src_type == WALL) return (QPropW*)computePropagator(mass,stop_prec,t,flav,p,time_bc,store_midprop,latt,deflate);
+  if(src_type == WALL) return (QPropW*)computeMomSourcePropagator(mass,stop_prec,t,flav,p,time_bc,store_midprop,latt,deflate);
   else if(src_type == POINT) return (QPropW*)computePointPropagator(mass,stop_prec,t,flav,p,time_bc,store_midprop,latt,deflate);
   else{
     ERR.General("","computePropagator","Unknown type\n");
@@ -818,12 +828,12 @@ int run_tests(int argc,char *argv[])
   if(!UniqueID()) printf("cconj reln test plus passed\n");
 
   //Check we can reproduce the propagator using the new code
-  QPropWMomSrc* prop_f0_pplus_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, false,lattice);
+  QPropWMomSrc* prop_f0_pplus_test = computeMomSourcePropagator(0.01, prec, tsrc, 0, p, BND_CND_APRD, false,lattice);
   
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus,"","").getProp(lattice), *prop_f0_pplus_test, "f0 p+ test", 1e-12);
 
   PropagatorContainer &prop_f0_pplus_P = computePropagatorOld("prop_f0_pplus_P",0.01,prec,tsrc,0,p.ptr(),BND_CND_PRD,lattice, "prop_f1_pplus_P");
-  QPropWMomSrc* prop_f0_pplus_P_test = computePropagator(0.01, prec, tsrc, 0, p, BND_CND_PRD, false, lattice);
+  QPropWMomSrc* prop_f0_pplus_P_test = computeMomSourcePropagator(0.01, prec, tsrc, 0, p, BND_CND_PRD, false, lattice);
 
   compareProps(QPropWcontainer::verify_convert(prop_f0_pplus_P,"","").getProp(lattice), *prop_f0_pplus_P_test, "f0 p+ P test", 1e-12);
 

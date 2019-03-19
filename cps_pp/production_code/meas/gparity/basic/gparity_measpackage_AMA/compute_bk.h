@@ -1,6 +1,9 @@
 #ifndef _COMPUTE_BK_AMA_H
 #define _COMPUTE_BK_AMA_H
 
+#include "prop_sitematrix_getter.h"
+#include "spin_flav_op.h"
+
 CPS_START_NAMESPACE
 
 //We compute B_K for a given first kaon timeslice (t0) and a fixed K->K separation for each operator insertion time. The sink kaon timeslice is t1 = (t0 + tsep) % Lt
@@ -143,26 +146,6 @@ void StandardBK(fMatrix<Rcomplex> &into, const int t0, const int t1,
 
   for(int tdis=0;tdis<Lt;tdis++)
     into(t0, tdis) = tmp[tdis];
-}
-
-
-
-
-inline void getBKsnkPropBcAndWrapperTsnk(TbcStatus &time_bc_t1, int &t1, const TbcStatus &time_bc_t0, const int t0, const int tsep){
-  const int Lt = GJP.Tnodes()*GJP.TnodeSites();
-  time_bc_t1 = time_bc_t0;
-  t1 = t0 + tsep;
-  if(t1 >= Lt){
-    if(time_bc_t0.isCombinedType()){ //Use F(t+Lt) = B(t) and B(t+Lt) = F(t)
-      time_bc_t1.swapTbcCombination();
-      t1 -= Lt;
-    }else if(time_bc_t0.getSingleBc() == BND_CND_PRD){
-      t1 -= Lt;
-    }else if(time_bc_t0.getSingleBc() == BND_CND_APRD){
-      ERR.General("","getBKsnkPropBcAndWrapperTsnk","- sign from tsnk prop crossing boundary not implemented yet\n"); //G(t-Lt) = -G(t), need to pass the minus sign into the function
-    }
-  }
-  assert(t1>=0 && t1<Lt);
 }
 
 

@@ -1,12 +1,14 @@
 #ifndef _COMPUTE_KTOPIPI_H
 #define _COMPUTE_KTOPIPI_H
 
-#include<alg/a2a/fmatrix.h>
-#include<alg/a2a/required_momenta.h>
 #include<alg/a2a/compute_ktopipi_base.h>
-
-#include<memory>
-#include <algorithm>
+#include<alg/a2a/mf_momcontainer.h>
+#include<alg/a2a/mesonfield_mult_vMv_split.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
+#include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
+#include<alg/a2a/required_momenta.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_productstore.h>
 
 CPS_START_NAMESPACE
 
@@ -26,18 +28,95 @@ struct getInnerVectorType{
 #ifdef USE_GRID
 template<typename T>
 struct getInnerVectorType<T,grid_vector_complex_mark>{
-  typedef Grid::Vector<T> type;
+  typedef typename AlignedVector<T>::type type;
 };
 #endif
+
+#define TIMER_ELEMS \
+  ELEM(type1_compute_mfproducts) \
+  ELEM(type1_mult_vMv_setup) \
+  ELEM(type1_precompute_part1_part2) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type1timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type2_compute_mfproducts) \
+  ELEM(type2_mult_vMv_setup) \
+  ELEM(type2_precompute_part1_part2) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type2timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type3_compute_mfproducts) \
+  ELEM(type3_mult_vMv_setup) \
+  ELEM(type3_precompute_part1) \
+  ELEM(part2_calc) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type3timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+
+#define TIMER_ELEMS \
+  ELEM(type4_mult_vMv_setup) \
+  ELEM(type4_precompute_part1) \
+  ELEM(contraction_time) \
+  ELEM(finish_up)\
+  ELEM(total)
+#define TIMER Type4timings
+#include<alg/a2a/static_timer_impl.tcc>
+
+//K->pipi requires calculation of a meson field of the form   W_l^\dagger . W_h. Here is it's momentum policy
+
+class StandardLSWWmomentaPolicy: public MomentumAssignments{
+public:
+  StandardLSWWmomentaPolicy(): MomentumAssignments() {
+    this->combineSameTotalMomentum(true); //momentum pairs with same total momentum will be added to same entry and treated as 'alternates' which we average together below
+
+    const int ngp = this->nGparityDirs();
+    if(ngp == 0){
+      addP("(0,0,0) + (0,0,0)");      
+    }else if(ngp == 1){
+      addP("(-1,0,0) + (1,0,0)");
+    }else if(ngp == 2){
+      addP("(-1,-1,0) + (1,1,0)");
+    }else if(ngp == 3){
+      addP("(-1,-1,-1) + (1,1,1)");
+    }else{
+      ERR.General("StandardLSWWmomentaPolicy","constructor","ngp cannot be >3\n");
+    }
+  }
+};
+
+//Same as the above but where we reverse the momentum assignments of the W^dag and W
+class ReverseLSWWmomentaPolicy: public StandardLSWWmomentaPolicy{
+public:
+  ReverseLSWWmomentaPolicy(): StandardLSWWmomentaPolicy() {
+    this->reverseABmomentumAssignments();
+  }
+};
+
+//Add Wdag, W momenta and the reverse assignment to make a symmetric combination
+class SymmetricLSWWmomentaPolicy: public StandardLSWWmomentaPolicy{
+public:
+  SymmetricLSWWmomentaPolicy(): StandardLSWWmomentaPolicy() {
+    this->symmetrizeABmomentumAssignments();
+  }
+};
+
 
 template<typename mf_Policies>
 class ComputeKtoPiPiGparity: public ComputeKtoPiPiGparityBase{  
 private:
-  inline static int modLt(int i, const int &Lt){
-    while(i<0) i += Lt;
-    return i % Lt;
-  }
-
   //Determine what node timeslices are actually needed. Returns true if at least one on-node top is needed
   inline static bool getUsedTimeslices(std::vector<bool> &node_top_used, const std::vector<int> &tsep_k_pi, const int t_pi1){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
@@ -99,6 +178,17 @@ public:
   typedef KtoPiPiGparityResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> ResultsContainerType;
   typedef KtoPiPiGparityMixDiagResultsContainer<typename mf_Policies::ComplexType, typename mf_Policies::AllocPolicy> MixDiagResultsContainerType;
 
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> mf_WV;
+  typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> mf_WW;
+
+#ifdef KTOPIPI_USE_SPLIT_VMV_LITE
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split_lite<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+#else
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> vMv_split_VWWV;
+  typedef mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> vMv_split_VWVW;
+#endif
+
 #ifdef USE_DESTRUCTIVE_FFT
   typedef A2AvectorW<mf_Policies> Wtype;
 #else
@@ -115,12 +205,12 @@ public:
 
   //The kaon meson field is expected to be constructed in the W*W form
 
-  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
+  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::MappingPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType SourceParamType;
   
   //ls_WW meson fields
-  template< typename Allocator >
-  static void generatelsWWmesonfields(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>,Allocator> &mf_ls_ww,
-				      Wtype &W, Wtype &W_s, const int kaon_rad, Lattice &lat,
+  template< typename Allocator, typename MomentumPolicy>
+  static void generatelsWWmesonfields(std::vector<mf_WW,Allocator> &mf_ls_ww,
+				      Wtype &W, Wtype &W_s, const MomentumPolicy &lsWWmom, const int kaon_rad, Lattice &lat,
 				      const SourceParamType &src_params = NullObject()){
     typedef typename mf_Policies::SourcePolicies SourcePolicies;
     if(!UniqueID()) printf("Computing ls WW meson fields for K->pipi\n");
@@ -129,41 +219,55 @@ public:
     const int Lt = GJP.Tnodes()*GJP.TnodeSites();
     mf_ls_ww.resize(Lt);
 
-    //0 momentum kaon constructed from (-1,-1,-1) + (1,1,1)  in units of pi/2L
-    int p[3];
-    for(int i=0;i<3;i++) p[i] = (GJP.Bc(i) == BND_CND_GPARITY ? 1 : 0);
-
+    typedef A2AflavorProjectedExpSource<SourcePolicies> SourceType;
+    typedef SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,SourceType> InnerType;
     typedef typename mf_Policies::FermionFieldType::InputParamType VWfieldInputParams;
-    VWfieldInputParams fld_params = W.getWh(0).getDimPolParams();
-    
-    A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
-    A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
-    
+
+    VWfieldInputParams fld_params = W.getFieldInputParams();
+
+    assert(lsWWmom.nMom() == 1);
+    int nalt = lsWWmom.nAltMom(0);
+
+    for(int a=0;a<nalt;a++){
+      ThreeMomentum pA = lsWWmom.getMomA(0,a);
+      ThreeMomentum mpA = -pA;
+      ThreeMomentum pB = lsWWmom.getMomB(0,a);
+      
+      SourceType fpexp(kaon_rad, pB.ptr() , src_params);
+      InnerType mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
+
+      A2AvectorWfftw<mf_Policies> fftw_Wl_p(W.getArgs(),fld_params);
+      A2AvectorWfftw<mf_Policies> fftw_Ws_p(W_s.getArgs(),fld_params);
+      
 #ifdef USE_DESTRUCTIVE_FFT
-    fftw_Wl_p.destructiveGaugeFixTwistFFT(W, p,lat);
-    fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,p,lat); 
+      fftw_Wl_p.destructiveGaugeFixTwistFFT(W, mpA.ptr(),lat); //will be daggered, swapping momentum
+      fftw_Ws_p.destructiveGaugeFixTwistFFT(W_s,pB.ptr(),lat); 
 #else
-    fftw_Wl_p.gaugeFixTwistFFT(W, p,lat); //will be daggered, swapping momentum
-    fftw_Ws_p.gaugeFixTwistFFT(W_s,p,lat); 
+      fftw_Wl_p.gaugeFixTwistFFT(W, mpA.ptr(),lat); 
+      fftw_Ws_p.gaugeFixTwistFFT(W_s,pB.ptr(),lat); 
 #endif
-
-    A2AflavorProjectedExpSource<SourcePolicies> fpexp(kaon_rad, p, src_params);
-    SCFspinflavorInnerProduct<0,typename mf_Policies::ComplexType,A2AflavorProjectedExpSource<SourcePolicies> > mf_struct(sigma0,fpexp); // (1)_flav * (1)_spin 
-
-    A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw>::compute(mf_ls_ww, fftw_Wl_p, mf_struct, fftw_Ws_p);
+      std::vector<mf_WW,Allocator> mf_ls_ww_tmp(Lt);
+      mf_WW::compute(mf_ls_ww_tmp, fftw_Wl_p, mf_struct, fftw_Ws_p);
 
 #ifdef USE_DESTRUCTIVE_FFT
-    fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, p,lat);
-    fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, p,lat);
+      fftw_Wl_p.destructiveUnapplyGaugeFixTwistFFT(W, mpA.ptr(),lat);
+      fftw_Ws_p.destructiveUnapplyGaugeFixTwistFFT(W_s, pB.ptr(),lat);
 #endif
-    
+
+      if(a == 0)
+	for(int t=0;t<Lt;t++) mf_ls_ww[t].move(mf_ls_ww_tmp[t]);
+      else
+	for(int t=0;t<Lt;t++) mf_ls_ww[t].plus_equals(mf_ls_ww_tmp[t]);
+    }
+    for(int t=0;t<Lt;t++) mf_ls_ww[t].times_equals(1./nalt);
+          
     time += dclock();
     print_time("ComputeKtoPiPiGparity","ls WW meson fields",time);
   }
 
   //--------------------------------------------------------------------------
   //TYPE 1
-  typedef CPSfield<int,1,FourDpolicy,OneFlavorPolicy> OneFlavorIntegerField;
+  typedef CPSfield<int,1,FourDpolicy<OneFlavorPolicy> > OneFlavorIntegerField;
 
 private:
   //Run inside threaded environment
@@ -171,21 +275,22 @@ private:
 
   static void generateRandomOffsets(std::vector<OneFlavorIntegerField*> &random_fields, const std::vector<int> &tsep_k_pi, const int tstep, const int xyzStep);
 
-  static void type1_compute_mfproducts(std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
-				       std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
-				       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
-				       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,
-				       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi);
+  static void type1_compute_mfproducts(std::vector<std::vector< mf_WW > > &con_pi1_K,
+				       std::vector<std::vector< mf_WW > > &con_pi2_K,
+				       const std::vector<mf_WV > &mf_pi1,
+				       const std::vector<mf_WV > &mf_pi2,
+				       const std::vector<mf_WW > &mf_kaon, const MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int Lt, const int ntsep_k_pi,
+				       const std::vector<bool> &tpi1_mask, const std::vector<bool> &tpi2_mask);
 
-  static void type1_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-				   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
-				   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_K,
-				   const std::vector<std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_K,
-				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1,
-				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2,							   
+  static void type1_mult_vMv_setup(vMv_split_VWVW &mult_vMv_split_part1_pi1,
+				   vMv_split_VWVW &mult_vMv_split_part1_pi2,
+				   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi1,
+				   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi2,
+				   const std::vector<std::vector< mf_WW > > &con_pi1_K,
+				   const std::vector<std::vector< mf_WW > > &con_pi2_K,
+				   const std::vector<mf_WV > &mf_pi1,
+				   const std::vector<mf_WV > &mf_pi2,							   
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 				   const A2AvectorW<mf_Policies> & wL,
 				   const ModeContractionIndices<StandardIndexDilution,TimePackedIndexDilution> &i_ind_vw,
@@ -197,10 +302,10 @@ private:
 					   SCFmatVector &mult_vMv_contracted_part1_pi2,
 					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi1,
 					   std::vector<SCFmatVector> &mult_vMv_contracted_part2_pi2,
-					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi1,
-					   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> &mult_vMv_split_part1_pi2,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part2_pi2,
+					   vMv_split_VWVW &mult_vMv_split_part1_pi1,
+					   vMv_split_VWVW &mult_vMv_split_part1_pi2,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi1,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part2_pi2,
 					   const int top_loc, const int Lt, const std::vector<int> &tsep_k_pi, const int ntsep_k_pi, const int t_K_all[], const std::vector<bool> &node_top_used);
 
 public:
@@ -210,13 +315,13 @@ public:
   //This version overlaps computation for multiple K->pi separations. Result should be an array of KtoPiPiGparityResultsContainer the same size as the vector 'tsep_k_pi'
   static void type1(ResultsContainerType result[],
 		    const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
   static void type1(ResultsContainerType &result,
 		    const int tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     std::vector<int> tt(1,tsep_k_pi);
@@ -227,7 +332,7 @@ public:
   }
   static void type1(std::vector<ResultsContainerType> &result,
 		    const std::vector<int> tsep_k_pi, const int tsep_pion, const int tstep, const int xyzStep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     result.resize(tsep_k_pi.size());
@@ -243,45 +348,68 @@ public:
   //TYPE 2
 private:
   //Run inside threaded environment
-  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmatVector &part2);
+  static void type2_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, const SCFmat &part1, const SCFmat part2[2]);
  
-  static void type2_compute_mfproducts(std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-				       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,							     
+  static void type2_compute_mfproducts(std::vector<mf_WV > &con_pi1_pi2,
+				       std::vector<mf_WV > &con_pi2_pi1,							     
 				       const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
 				       MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 				       const int Lt, const int tpi_sampled);
 
-  static void type2_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-				   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
-				   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi1_pi2,
-				   const std::vector< A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &con_pi2_pi1,
+  static void type2_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+				   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi1_pi2,
+				   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
+				   const std::vector< mf_WV > &con_pi1_pi2,
+				   const std::vector< mf_WV > &con_pi2_pi1,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, const A2AvectorW<mf_Policies> & wL,
-				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+				   const std::vector<mf_WW > &mf_kaon,
 				   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 				   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
 
   static void type2_precompute_part1_part2(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
 					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi1_pi2,
 					   std::vector<SCFmatVector > &mult_vMv_contracted_part2_pi2_pi1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi1_pi2,
-					   std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorVfftw,A2AvectorW> > &mult_vMv_split_part2_pi2_pi1,
+					   std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+					   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi1_pi2,
+					   std::vector<vMv_split_VWVW > &mult_vMv_split_part2_pi2_pi1,
 					   const std::vector<int> &t_K_all, const int top_loc, const int tstep, const int Lt,const int tpi_sampled,
 					   const std::vector< std::vector<bool> > &node_top_used, const std::vector< std::vector<bool> > &node_top_used_kaon);
+
+  static void type2_compute_mfproducts(mf_WV &con_pi1_pi2,
+				       mf_WV &con_pi2_pi1,
+				       const int tpi1, const int tpi2,
+				       const std::vector<ThreeMomentum> &p_pi_1_all,
+				       MesonFieldMomentumContainer<mf_Policies> &mf_pions);
 
 public: 
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
   //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-  static void type2(ResultsContainerType result[],
-		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
-		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
-		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  static void type2_v1(ResultsContainerType result[],
+		       const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  
+  static void type2_v2(ResultsContainerType result[],
+		       const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		       const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		       const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+  
+  inline static void type2(ResultsContainerType result[],
+			   const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+			   const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+			   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+			   const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+    //type2_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+    type2_v2(result, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+  }
+
+
 
   static void type2(ResultsContainerType &result,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
@@ -293,8 +421,8 @@ public:
   }
   template<typename MomComputePolicy>
   static void type2(ResultsContainerType &result,
-		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
@@ -308,8 +436,8 @@ public:
   }
   template<typename MomComputePolicy>
   static void type2(std::vector<ResultsContainerType> &result,
-		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     result.resize(tsep_k_pi.size());
@@ -333,36 +461,64 @@ private:
   static void type3_contract(ResultsContainerType &result, const int t_K, const int t_dis, const int thread_id, 
 			     const SCFmat part1[2], const SCFmat &part2_L, const SCFmat &part2_H);
 
-  static void type3_compute_mfproducts(std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
-				       std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,							     
+  static void type3_compute_mfproducts(std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
+				       std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,							     
 				       const std::vector<int> &tsep_k_pi, const int tsep_pion, const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-				       const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 				       const int Lt, const int tpi_sampled, const int ntsep_k_pi);
-  static void type3_mult_vMv_setup(mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-				   mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
+  static void type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+				   vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
-				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi1_pi2_k,
-				   const std::vector<std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > > &con_pi2_pi1_k,
+				   const std::vector<std::vector<mf_WW > > &con_pi1_pi2_k,
+				   const std::vector<std::vector<mf_WW > > &con_pi2_pi1_k,
 				   const int top_loc, const int t_pi1_idx, const int tkp);
 
   static void type3_precompute_part1(SCFmatVector &mult_vMv_contracted_part1_pi1_pi2,
 				     SCFmatVector &mult_vMv_contracted_part1_pi2_pi1,
-				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi1_pi2,
-				     mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> &mult_vMv_split_part1_pi2_pi1,
-				     const int top_loc, const int t_pi1_idx, const int tkp);
+				     vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+				     vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1);
     
+  static void type3_compute_mfproducts(std::vector<mf_WW > &con_pi1_pi2_k,
+				       std::vector<mf_WW > &con_pi2_pi1_k,
+				       const int tpi1, const int tpi2, const std::vector<int> &tsep_k_pi, const int tsep_pion, 
+				       const int tstep, const std::vector<ThreeMomentum> &p_pi_1_all,
+				       const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+				       const int Lt, const int ntsep_k_pi);
+
+  static void type3_mult_vMv_setup(vMv_split_VWWV &mult_vMv_split_part1_pi1_pi2,
+				   vMv_split_VWWV &mult_vMv_split_part1_pi2_pi1,
+				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
+				   const std::vector<mf_WW > &con_pi1_pi2_k,
+				   const std::vector<mf_WW > &con_pi2_pi1_k,
+				   const int top_loc, const int tkp);
+
 public:
   //This version averages over multiple pion momentum configurations. Use to project onto A1 representation at run-time. Saves a lot of time!
   //This version also overlaps computation for multiple K->pi separations. Result should be an array of ResultsContainerType the same size as the vector 'tsep_k_pi'
-  static void type3(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+  static void type3_v1(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
 		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
+  static void type3_v2(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
+
+  inline static void type3(ResultsContainerType result[], MixDiagResultsContainerType mix3[],
+		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const std::vector<ThreeMomentum> &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
+		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
+    //type3_v1(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vH, wH, wL, wH);
+    type3_v2(result, mix3, tsep_k_pi, tsep_pion, tstep, p_pi_1_all, mf_kaon, mf_pions, vL, vH, wL, wH);
+  }
+
   static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
 		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const ThreeMomentum &p_pi_1, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
@@ -374,8 +530,8 @@ public:
   }
   template<typename MomComputePolicy>
   static void type3(ResultsContainerType &result, MixDiagResultsContainerType &mix3,
-		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const int &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     std::vector<int> tkp(1,tsep_k_pi);
@@ -389,8 +545,8 @@ public:
   }
   template<typename MomComputePolicy>
   static void type3(std::vector<ResultsContainerType> &result, std::vector<MixDiagResultsContainerType> &mix3,
-		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const RequiredMomentum<MomComputePolicy> &p_pi_1_all, 
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
+		    const std::vector<int> &tsep_k_pi, const int &tsep_pion, const int &tstep, const MomComputePolicy &p_pi_1_all, 
+		    const std::vector<mf_WW > &mf_kaon, MesonFieldMomentumContainer<mf_Policies> &mf_pions,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH){
     result.resize(tsep_k_pi.size()); mix3.resize(tsep_k_pi.size());
@@ -415,19 +571,19 @@ private:
   
 
 
-  static void type4_mult_vMv_setup(std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
-				   const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+  static void type4_mult_vMv_setup(std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
+				   const std::vector<mf_WW > &mf_kaon,
 				   const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH,
 				   const int top_loc, const int tstep, const int Lt);
 
   static void type4_precompute_part1(std::vector<SCFmatVector > &mult_vMv_contracted_part1,
-				     std::vector<mult_vMv_split<mf_Policies,A2AvectorV,A2AvectorWfftw,A2AvectorWfftw,A2AvectorV> > &mult_vMv_split_part1,
+				     std::vector<vMv_split_VWWV > &mult_vMv_split_part1,
 				     const int top_loc, const int tstep, const int Lt);
 public:
 
   static void type4(ResultsContainerType &result, MixDiagResultsContainerType &mix4,
 		    const int &tstep,
-		    const std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorWfftw> > &mf_kaon,
+		    const std::vector<mf_WW > &mf_kaon,
 		    const A2AvectorV<mf_Policies> & vL, const A2AvectorV<mf_Policies> & vH, 
 		    const A2AvectorW<mf_Policies> & wL, const A2AvectorW<mf_Policies> & wH);
 
@@ -436,13 +592,13 @@ public:
 
 };
 
+#include<alg/a2a/compute_ktopipi_type1.tcc>
+#include<alg/a2a/compute_ktopipi_type2.tcc>
+#include<alg/a2a/compute_ktopipi_type3.tcc>
+#include<alg/a2a/compute_ktopipi_type4.tcc>
+
+
 CPS_END_NAMESPACE
-
-
-#include<alg/a2a/compute_ktopipi_type1.h>
-#include<alg/a2a/compute_ktopipi_type2.h>
-#include<alg/a2a/compute_ktopipi_type3.h>
-#include<alg/a2a/compute_ktopipi_type4.h>
 
 #undef DAIQIAN_COMPATIBILITY_MODE
 #undef DAIQIAN_EVIL_RANDOM_SITE_OFFSET

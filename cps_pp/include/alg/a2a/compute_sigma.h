@@ -3,195 +3,141 @@
 
 #include<alg/a2a/required_momenta.h>
 #include<alg/a2a/mesonfield_computemany.h>
+#include<alg/a2a/inner_product.h>
+#include<alg/a2a/mf_momcontainer.h>
 
 //Compute stationary sigma meson two-point function with and without GPBC
 CPS_START_NAMESPACE
 
-//Policy for stationary sigma with and without GPBC
-class StationarySigmaMomentaPolicy{
-public:
-  void setupMomenta(const int &ngp){
-    RequiredMomentum<StationarySigmaMomentaPolicy> *tt = static_cast<RequiredMomentum<StationarySigmaMomentaPolicy>*>(this);
-    if(ngp == 0){
-      tt->addP("(0,0,0) + (0,0,0)");
-    }else if(ngp == 1){
-      tt->addPandMinusP("(-1,0,0) + (1,0,0)");
-      tt->addPandMinusP("(-3,0,0) + (3,0,0)");
-    }else if(ngp == 2){
-      tt->addPandMinusP("(-1,-1,0) + (1,1,0)");
-      tt->addPandMinusP("(3,-1,0) + (-3,1,0)");
-      tt->addPandMinusP("(-1,3,0) + (1,-3,0)");
-    }else if(ngp == 3){
-      tt->addPandMinusP("(-1,-1,-1) + (1,1,1)");
-      tt->addPandMinusP("(3,-1,-1) + (-3,1,1)");
-      tt->addPandMinusP("(-1,3,-1) + (1,-3,1)");
-      tt->addPandMinusP("(-1,-1,3) + (1,1,-3)");
-    }else{
-      ERR.General("StationarySigmaMomentaPolicy","setupMomenta","ngp cannot be >3\n");
-    }
-  }
-};
-
+#define USE_TIANLES_CONVENTIONS
 
 template<typename mf_Policies>
-class ComputeSigma{
- public:
-  typedef typename A2Asource<typename mf_Policies::SourcePolicies::ComplexType, typename mf_Policies::SourcePolicies::DimensionPolicy, typename mf_Policies::SourcePolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
-
-#ifdef USE_DESTRUCTIVE_FFT
-  typedef A2AvectorW<mf_Policies> Wtype;
-  typedef A2AvectorV<mf_Policies> Vtype;
-#else
-  typedef const A2AvectorW<mf_Policies> Wtype;
-  typedef const A2AvectorV<mf_Policies> Vtype;
-#endif
+struct ComputeSigmaContractions{
+  //Sigma has 2 terms in it's Wick contraction:    
+  //0.5 * tr( G(x1,tsnk; x2, tsnk) ) * tr( G(y1, tsrc; y2, tsrc) )
+  //-0.5 tr( G(y2, tsrc; x1, tsnk) * G(x2, tsnk; y1, tsrc) )
+  //where x are sink locations and y src locations
   
-  //Computes sigma meson fields and saves to disk
-  static void computeAndWrite(const std::string &work_dir, const int traj,
-			      Wtype &W, Vtype &V, const Float &rad, Lattice &lattice,
-			      const FieldParamType &src_setup_params = NullObject()){
+  //We perform the Fourier transform   \Theta_x\Theta_y = \sum_{x1,x2,y1,y2} exp(-i p1_snk x1) exp(-i p2_snk x2) exp(-i p1_src y1) exp(-i p2_src y2) 
+  
+  
+  //The first term has a vacuum subtraction so we just compute tr( G(x1,x2) ) and do the rest offline
+  //\Theta_x tr( G(x1,tsnk; x2, tsnk) ) = \Theta_x tr( V(x1,tsnk) W^dag(x2,tsnk) ) =  tr( [\Theta_x W^dag(x2,tsnk) V(x1,tsnk)]  ) = tr( M(tsnk,tsnk) )
 
+  template<typename SigmaMomentumPolicy>
+  static void computeDisconnectedBubble(fVector<typename mf_Policies::ScalarComplexType> &into,
+					MesonFieldMomentumPairContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx
+		      ){
     typedef typename mf_Policies::ComplexType ComplexType;
     typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
-    typedef typename mf_Policies::SourcePolicies SourcePolicies;
-    typedef A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> MesonFieldType;
-    typedef std::vector<MesonFieldType> MesonFieldVectorType;
     
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt);
 
-    RequiredMomentum<StationarySigmaMomentaPolicy> momenta;
-
-    std::vector<Wtype*> Wspecies(1,&W);
-    std::vector<Vtype*> Vspecies(1,&V);
+    if(sigma_mom.nAltMom(pidx) != 1) ERR.General("ComputeSigmaContractions","computeDisconnectedBubble","Sigma with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx, sigma_mom.getWdagMom(pidx).str().c_str(),  sigma_mom.getVmom(pidx).str().c_str(), sigma_mom.nAltMom(pidx) );
     
-    if(GJP.Gparity()){
-      typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-      typedef A2AflavorProjectedHydrogenSource<SourcePolicies> HydSrcType;
+    ThreeMomentum p1 = sigma_mom.getWdagMom(pidx);
+    ThreeMomentum p2 = sigma_mom.getVmom(pidx);
 
-      int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
-      GparityBaseMomentum(pbase,+1);
+    assert(mf_sigma_con.contains(p1,p2));
 
-#ifdef SIGMA_DO_SOURCES_SEPARATELY
-      //Multi-src multi-mom strategy consumes a lot of memory - too much for a 64-node job on Cori I. This option does the two sources separately, reducing the memory usage by a factor of 2 at the loss of computational efficiency
-      typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > ExpInnerType;
-      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, ExpInnerType> ExpStorageType;
-
-      typedef GparitySourceShiftInnerProduct<ComplexType,HydSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > HydInnerType;
-      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, HydInnerType> HydStorageType;
-
-      ExpSrcType exp_src(rad,pbase,src_setup_params); //1s
-      HydSrcType hyd_src(2,0,0,rad,pbase,src_setup_params); //2s
-      
-      ExpInnerType exp_gunit_s0_inner(sigma0, exp_src);
-      ExpStorageType exp_mf_store(exp_gunit_s0_inner,exp_src);
-
-      HydInnerType hyd_gunit_s0_inner(sigma0, hyd_src);
-      HydStorageType hyd_mf_store(hyd_gunit_s0_inner,hyd_src);
-
-      for(int pidx=0;pidx<momenta.nMom();pidx++){
-	ThreeMomentum p_w = momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
-	exp_mf_store.addCompute(0,0, p_w,p_v);	
-	hyd_mf_store.addCompute(0,0, p_w,p_v);	
-      }
-      if(!UniqueID()) printf("Computing sigma meson fields with 1s source\n");
-
-      ComputeMesonFields<mf_Policies,ExpStorageType>::compute(exp_mf_store,Wspecies,Vspecies,lattice
-#  ifdef NODE_DISTRIBUTE_MESONFIELDS
-							      ,true
-#  endif
-							      );
-      
-      if(!UniqueID()) printf("Computing sigma meson fields with 2s source\n");
-      ComputeMesonFields<mf_Policies,HydStorageType>::compute(hyd_mf_store,Wspecies,Vspecies,lattice
-#  ifdef NODE_DISTRIBUTE_MESONFIELDS
-							      ,true
-#  endif
-							      );
-#else      
-      typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
-      typedef A2AmultiSource<SrcList> MultiSrcType;      
-      //typedef SCFspinflavorInnerProduct<0,ComplexType,MultiSrcType,true,false> MultiInnerType; //unit matrix spin structure
-      //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
-
-      //Allows for more memory efficient computation algorithm
-      typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > MultiInnerType;
-      typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
-      
-      MultiSrcType src;
-      src.template getSource<0>().setup(rad,pbase,src_setup_params); //1s
-      src.template getSource<1>().setup(2,0,0,rad,pbase,src_setup_params); //2s
-      
-      MultiInnerType gunit_s0_inner(sigma0, src);
-      StorageType mf_store(gunit_s0_inner,src);
-
-      for(int pidx=0;pidx<momenta.nMom();pidx++){
-	ThreeMomentum p_w = momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
-	mf_store.addCompute(0,0, p_w,p_v);	
-      }
-      if(!UniqueID()) printf("Computing sigma meson fields with 1s/2s sources\n");
-
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice
-#  ifdef NODE_DISTRIBUTE_MESONFIELDS
-							   ,true
-#  endif
-							   );
-
+    //Construct the meson fields
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf = mf_sigma_con.get(p1,p2);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    nodeGetMany(1,&mf);
 #endif
-
-      std::string src_names[2] = {"1s","2s"};
-      if(!UniqueID()) printf("Writing sigma meson fields to disk\n");
-      for(int pidx=0;pidx<momenta.nMom();pidx++){
-	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
-	
-	for(int s=0;s<2;s++){
-	  std::ostringstream os; //momenta in units of pi/2L
-	  os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd" << src_names[s] << "_rad" << rad << ".dat";
-#ifdef SIGMA_DO_SOURCES_SEPARATELY
-	  MesonFieldVectorType &mf_q = (s == 0 ? exp_mf_store[pidx] : hyd_mf_store[pidx] );
-#else
-	  MesonFieldVectorType &mf_q = mf_store(s,pidx);
-#endif
+    
+    //Distribute load over all nodes
+    int work = Lt; //consider a better parallelization
+    int node_work, node_off; bool do_work;
+    getNodeWork(work,node_work,node_off,do_work);
+    
+    if(do_work){
+      for(int t=node_off; t<node_off + node_work; t++){
+	into(t) = trace(mf[t]);
+      }
+    }
+    into.nodeSum();
 
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
-	  nodeGetMany(1,&mf_q);
+    nodeDistributeMany(1,&mf);
 #endif
-	  MesonFieldType::write(os.str(),mf_q);
-	  for(int t=0;t<Lt;t++) mf_q[t].free_mem(); //no longer needed
-	}
-      } 
 
-    }else{
-      typedef A2AexpSource<SourcePolicies> SrcType;
-      typedef SCspinInnerProduct<0,ComplexType,SrcType> InnerType;
-      typedef BasicSourceStorage<mf_Policies,InnerType> StorageType;
-      
-      SrcType src(rad,src_setup_params);
-      InnerType gunit_inner(src);
 
-      StorageType mf_store(gunit_inner);
-
-      for(int pidx=0;pidx<momenta.nMom();pidx++){
-	ThreeMomentum p_w = momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
-	mf_store.addCompute(0,0, p_w,p_v);	
-      }
-      ComputeMesonFields<mf_Policies,StorageType>::compute(mf_store,Wspecies,Vspecies,lattice);
-      
-      for(int pidx=0;pidx<momenta.nMom();pidx++){
-	ThreeMomentum p_wdag = -momenta.getWmom(pidx,false);
-	ThreeMomentum p_v = momenta.getVmom(pidx,false);
-	
-	std::ostringstream os; //momenta in units of pi/2L
-	os << work_dir << "/traj_" << traj << "_sigma_mfwv_mom" << p_wdag.file_str() << "_plus" << p_v.file_str() << "_hyd1s_rad" << rad << ".dat";
-	MesonFieldType::write(os.str(),mf_store[pidx]);
-      } 
-    }
   }
 
+
+
+  //Tianle computes the product of the traces online and adds it to his answer. For consistency I do the same here
+  static void computeDisconnectedDiagram(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_snk,
+					 const fVector<typename mf_Policies::ScalarComplexType> &sigma_bubble_src){
+    //0.5 * tr( G(x1,tsnk; x2, tsnk) ) * tr( G(y1, tsrc; y2, tsrc) )
+    typedef typename mf_Policies::ScalarComplexType Complex;
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt,Lt);
+    for(int tsrc=0; tsrc<Lt; tsrc++){
+      for(int tsep=0; tsep<Lt; tsep++){
+	int tsnk = (tsrc + tsep) % Lt;
+	into(tsrc, tsep) = Complex(0.5) * sigma_bubble_snk(tsnk) * sigma_bubble_src(tsrc); 
+      }
+    }
+  }
+  
+  //The second term we compute in full
+  //  \Theta_x \Theta_y -0.5 tr( G(y2, tsrc; x1, tsnk) * G(x2, tsnk; y1, tsrc) )
+  //= \Theta_x \Theta_y -0.5 tr( V(y2, tsrc) * W^dag(x1, tsnk) * V(x2, tsnk)*W^dag(y1, tsrc) )
+  //= -0.5 tr(  [ \Theta_x W^dag(x1, tsnk) * V(x2, tsnk)] * [ \Theta_y W^dag(y1, tsrc) V(y2, tsrc) ] )
+  //= -0.5 tr( M(tsnk,tsnk) * M(tsrc, tsrc) )
+  
+  template<typename SigmaMomentumPolicy>
+  static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+		      MesonFieldMomentumPairContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_src, const int pidx_snk
+		      ){
+    typedef typename mf_Policies::ComplexType ComplexType;
+    typedef typename mf_Policies::ScalarComplexType ScalarComplexType;
+    
+    int Lt = GJP.Tnodes()*GJP.TnodeSites();
+    into.resize(Lt,Lt);
+
+    if(sigma_mom.nAltMom(pidx_snk) != 1) ERR.General("ComputeSigmaContractions","computeConnected","Sigma (sink) with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx_snk, sigma_mom.getWdagMom(pidx_snk).str().c_str(),  sigma_mom.getVmom(pidx_snk).str().c_str(), sigma_mom.nAltMom(pidx_snk) );
+
+    if(sigma_mom.nAltMom(pidx_src) != 1) ERR.General("ComputeSigmaContractions","computeConnected","Sigma (source) with alternate momenta not implemented. Idx %d with momenta %s %s has %d alternative momenta", pidx_src, sigma_mom.getWdagMom(pidx_src).str().c_str(),  sigma_mom.getVmom(pidx_src).str().c_str(), sigma_mom.nAltMom(pidx_src) );
+        
+    ThreeMomentum p1_src = sigma_mom.getWdagMom(pidx_src);
+    ThreeMomentum p2_src = sigma_mom.getVmom(pidx_src);
+
+    ThreeMomentum p1_snk = sigma_mom.getWdagMom(pidx_snk);
+    ThreeMomentum p2_snk = sigma_mom.getVmom(pidx_snk);
+
+    assert(mf_sigma_con.contains(p1_src,p2_src));
+    assert(mf_sigma_con.contains(p1_snk,p2_snk));
+	   
+    //Construct the meson fields
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_src = mf_sigma_con.get(p1_src,p2_src);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_snk = mf_sigma_con.get(p1_snk,p2_snk);
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
+    nodeGetMany(2,&mf_src,&mf_snk);
+    cps::sync();
+#endif
+
+    if(!UniqueID()){ printf("Starting trace\n");  fflush(stdout); }
+    trace(into,mf_snk,mf_src);
+    into *= ScalarComplexType(-0.5,0);
+    rearrangeTsrcTsep(into); //rearrange temporal ordering
+    
+    cps::sync();
+    if(!UniqueID()){ printf("Finished trace\n");  fflush(stdout); }
+
+#ifdef NODE_DISTRIBUTE_MESONFIELDS
+    nodeDistributeMany(2,&mf_src,&mf_snk);
+#endif
+  }
 };
+
+#undef USE_TIANLES_CONVENTIONS
 
 CPS_END_NAMESPACE
 

@@ -2,30 +2,31 @@
 #define CK_A2A
 
 #include<util/lattice.h>
+#include<util/time_cps.h>
 
 #ifdef USE_GRID
-#include <util/lattice/fgrid.h>
+#include<util/lattice/fgrid.h>
 #endif
 
 #ifdef USE_BFM
 #include<util/lattice/bfm_mixed_solver.h>
-#include <util/lattice/bfm_evo.h>
-#include <alg/eigen/Krylov_5d.h>
+#include<util/lattice/bfm_evo.h>
+#include<alg/eigen/Krylov_5d.h>
 #endif
 
-#include<alg/a2a_arg.h>
-#include<alg/a2a/CPSfield.h>
-#include<alg/a2a/CPSfield_utils.h>
-#include<alg/a2a/scfvectorptr.h>
-#include<alg/a2a/utils.h>
-
-#include<alg/a2a/a2a_params.h>
+#include<alg/ktopipi_jobparams.h>
 #include<alg/a2a/a2a_dilutions.h>
-#include<alg/a2a/field_operation.h>
 #include<alg/a2a/a2a_policies.h>
+#include<alg/a2a/field_operation.h>
+#include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/evec_interface.h>
+#include<alg/a2a/CPSfield_utils.h>
+#include<alg/a2a/bfm_cgne_m_high.h>
 #include<alg/a2a/grid_cgne_m_high.h>
-CPS_START_NAMESPACE 
+#include<alg/a2a/a2a_fft.h>
+#include<alg/a2a/spin_color_matrices.h>
+
+CPS_START_NAMESPACE
 
 //If using SIMD, we don't want to vectorize across the time direction
 template<typename FieldInputParamType>
@@ -72,6 +73,12 @@ public:
   
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
+  inline FieldInputParamType getFieldInputParams() const{
+    if(v.size() == 0) ERR.General("A2AvectorV","getFieldInputParams","Vector size is zero\n");
+    if(!v[0].assigned()) ERR.General("A2AvectorV","getFieldInputParams","Zeroth field is unassigned\n");
+    return v[0]->getDimPolParams();
+  }    
+  
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline FermionFieldType & getMode(const int i){ return *v[i]; }  
 
@@ -105,7 +112,15 @@ public:
   void testRandom(const Float &hi = 0.5, const Float &lo = -0.5){
     for(int i=0;i<nv;i++) v[i]->testRandom(hi,lo);
   }
-  
+
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
+  void readParallel(const std::string &file_stub);
+
+  //Read/write to binary files per node with separate metadata files. User provides path which is created internally
+  void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void readParallelSeparateMetadata(const std::string &path);
+
+  inline void free_mem(){  std::vector<PtrWrapper<FermionFieldType> >().swap(v); }
 };
 
 
@@ -117,7 +132,7 @@ public:
   typedef typename FermionFieldType::FieldSiteType FieldSiteType;
   typedef typename FermionFieldType::InputParamType FieldInputParamType;
 
-  #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , int>::type
+  #define VFFTW_ENABLE_IF_MANUAL_ALLOC(P) typename my_enable_if<  _equal<typename P::A2AvectorVfftwPolicies::FieldAllocStrategy,ManualAllocStrategy>::value , void>::type
 private:
   std::vector<PtrWrapper<FermionFieldType> > v;
 
@@ -133,9 +148,15 @@ public:
     v.resize(nv);
     this->allocInitializeFields(v,field_setup_params);
   }
-
+  
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
 
+  inline FieldInputParamType getFieldInputParams() const{
+    if(v.size() == 0) ERR.General("A2AvectorVfftw","getFieldInputParams","Vector size is zero\n");
+    if(!v[0].assigned()) ERR.General("A2AvectorVfftw","getFieldInputParams","Zeroth field is unassigned\n");
+    return v[0]->getDimPolParams();
+  }   
+  
   inline const FermionFieldType & getMode(const int i) const{ return *v[i]; }
   inline const FermionFieldType & getMode(const int i, const modeIndexSet &i_high_unmapped) const{ return getMode(i); }
 
@@ -145,36 +166,19 @@ public:
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorV<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
-
-  //Same as the above but allocates Vfft modes and deallocates V along the way to minimize memory usage. Only defined for manual alloc policies
-  template<typename P = Policies>
-  void destructivefft(A2AvectorV<P> &from, fieldOperation<typename P::FermionFieldType>* mode_preop = NULL, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   void inversefft(A2AvectorV<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
-
-  template<typename P = Policies>
-  void destructiveInversefft(A2AvectorV<P> &to, fieldOperation<typename P::FermionFieldType>* mode_postop = NULL, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
 
-  template<typename P=mf_Policies>
-  void destructiveGaugeFixTwistFFT(A2AvectorV<Policies> &from, const int _p[3], Lattice &_lat, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructivefft(from, &op);
-  }
-  
   //Unapply the phase and gauge fixing to give back a V vector
   void unapplyGaugeFixTwistFFT(A2AvectorV<Policies> &to, const int _p[3], Lattice &_lat) const{
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
   }
   
-  template<typename P=mf_Policies>
-  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorV<Policies> &to, const int _p[3], Lattice &_lat, VFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
-  }
-
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
   //With G-parity BCs there are 2 disjoint sets of momenta hence there are 2 base FFTs
   void getTwistedFFT(const int p[3], A2AvectorVfftw<Policies> const *base_p, A2AvectorVfftw<Policies> const *base_m = NULL);
@@ -234,30 +238,50 @@ public:
   typedef mf_Policies Policies;
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename Policies::ComplexFieldType ComplexFieldType;
+
+  typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
+      
+  typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
+		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
+  ScalarComplexFieldType;
+
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
 private:
   std::vector<PtrWrapper<FermionFieldType> > wl; //The low mode part of the W field, comprised of nl fermion fields
   std::vector<PtrWrapper<ComplexFieldType> > wh; //The high mode random part of the W field, comprised of nhits complex scalar fields. Note: the dilution is performed later
 
-  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
-  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
-  void setWhRandom(const RandomType &type);
-  
+  bool wh_rand_performed; //store if the wh random numbers have been set
 public:
   typedef FullyPackedIndexDilution DilutionType;
 
-  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args){
+  A2AvectorW(const A2AArg &_args): FullyPackedIndexDilution(_args), wh_rand_performed(false){
     wl.resize(nl); this->allocInitializeLowModeFields(wl,NullObject());
     wh.resize(nhits); this->allocInitializeHighModeFields(wh,NullObject());
   }
-  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args){
+  A2AvectorW(const A2AArg &_args, const FieldInputParamType &field_setup_params): FullyPackedIndexDilution(_args), wh_rand_performed(false){
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
     wh.resize(nhits); this->allocInitializeHighModeFields(wh,field_setup_params);
   }
 
+  //Generate the wh field. We store in a compact notation that knows nothing about any dilution we apply when generating V from this
+  //For reproducibility we want to generate the wh field in the same order that Daiqian did originally. Here nhit random numbers are generated for each site/flavor
+  //Note - this does not have to be called manually; it will be called by computeVWhigh if not previously called
+  void setWhRandom();
+  
+  //Manually set the Wh random fields. Expects a vector of size nhits
+  void setWhRandom(const std::vector<ScalarComplexFieldType> &to);
+
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  inline FieldInputParamType getFieldInputParams() const{
+    if(wl.size() == 0 && wh.size() == 0) ERR.General("A2AvectorW","getFieldInputParams","Wl and Wh sizes are both zero\n");
+    if(wl.size() != 0 && wl[0].assigned()) return wl[0]->getDimPolParams();
+    if(wh.size() != 0 && wh[0].assigned()) return wh[0]->getDimPolParams();
+    
+    ERR.General("A2AvectorW","getFieldInputParams","Neither of the zeroth fields are assigned\n");
+  }   
   
   const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   const ComplexFieldType & getWh(const int hit) const{ return *wh[hit]; }
@@ -272,17 +296,23 @@ public:
     *wh[hit] = whin;
   }
 
-#ifdef USE_GRID
+#if defined(USE_GRID_A2A) && ( defined(USE_GRID_LANCZOS) || defined(USE_BFM_LANCZOS) )
   //Generic Grid VW compute interface that can use either Grid or BFM-computed eigenvectors
 
   //Compute the low mode part of the W and V vectors.
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass);
 
-  //Compute the high mode parts of V and W. 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const Float residual, const int max_iter);
+  //Compute the high mode parts of V and W using either standard CG or a multi-RHS CG variant, respectively
+  void computeVWhighSingle(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+  void computeVWhighMulti(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+
+  //Chooses the appropriate function from the previous two based on the cg_controls
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
 #endif
 
-#if defined(USE_BFM_LANCZOS)
+#if defined(USE_BFM_LANCZOS) && ( defined(USE_BFM_A2A) || defined(USE_GRID_A2A) )
+  //BFM for Lanczos and either BFM or Grid for A2A
+  
   //In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
   //Set 'singleprec_evecs' if this has been done
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs);
@@ -290,33 +320,34 @@ public:
   //singleprec_evecs specifies whether the input eigenvectors are stored in single precision
   //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
   //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-  void computeVWhigh(A2AvectorV<Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
+  void computeVWhigh(A2AvectorV<Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp = NULL){
     computeVWlow(V,lat,eig,dwf_d,singleprec_evecs);
-    computeVWhigh(V,eig,singleprec_evecs,lat,dwf_d,dwf_fp);
+    computeVWhigh(V,eig,singleprec_evecs,lat,cg_controls,dwf_d,dwf_fp);
   }
 #endif
 
 
-#if defined(USE_GRID_LANCZOS)
+#if defined(USE_GRID_LANCZOS) && defined(USE_GRID_A2A)
+  //Pure Grid for both Lanczos and A2A
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
     computeVWlow(V,lat,evec,eval,mass);
-    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
+    computeVWhigh(V,lat,evec,eval,mass,cg_controls);
   }
 
   //Single-precision variants (use mixed_CG internally)
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass);
 
-  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float residual, const int max_iter);
+  void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls);
 
-  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const Float high_mode_residual, const int high_mode_max_iter){
+  void computeVW(A2AvectorV<Policies> &V, Lattice &lat, const std::vector<typename Policies::GridFermionFieldF> &evec, const std::vector<Grid::RealD> &eval, const double mass, const CGcontrols &cg_controls){
     computeVWlow(V,lat,evec,eval,mass);
-    computeVWhigh(V,lat,evec,eval,mass,high_mode_residual,high_mode_max_iter);
+    computeVWhigh(V,lat,evec,eval,mass,cg_controls);
   }
 #endif
 
@@ -363,6 +394,17 @@ public:
     for(int i=0;i<nhits;i++) wh[i]->testRandom(hi,lo);
   }
 
+  void writeParallel(const std::string &file_stub, FP_FORMAT fileformat = FP_AUTOMATIC, CPSfield_checksumType cksumtype = checksumCRC32) const; //node id will be appended
+  void readParallel(const std::string &file_stub);
+
+  //Write V/W fields to a format with metadata and binary data separate. User provides a unique directory path. Directory is created if doesn't already exist
+  void writeParallelSeparateMetadata(const std::string &path, FP_FORMAT fileformat = FP_AUTOMATIC) const;
+  void readParallelSeparateMetadata(const std::string &path);
+
+  inline void free_mem(){ 
+    std::vector<PtrWrapper<FermionFieldType> >().swap(wl);
+    std::vector<PtrWrapper<ComplexFieldType> >().swap(wh); 
+  }
 };
 
 
@@ -398,6 +440,14 @@ public:
   }
 
   static double Mbyte_size(const A2AArg &_args, const FieldInputParamType &field_setup_params);
+
+  inline FieldInputParamType getFieldInputParams() const{
+    if(wl.size() == 0 && wh.size() == 0) ERR.General("A2AvectorWfft","getFieldInputParams","Wl and Wh sizes are both zero\n");
+    if(wl.size() != 0 && wl[0].assigned()) return wl[0]->getDimPolParams();
+    if(wh.size() != 0 && wh[0].assigned()) return wh[0]->getDimPolParams();
+    
+    ERR.General("A2AvectorWfftw","getFieldInputParams","Neither of the zeroth fields are assigned\n");
+  }   
   
   inline const FermionFieldType & getWl(const int i) const{ return *wl[i]; }
   inline const FermionFieldType & getWh(const int hit, const int spin_color) const{ return *wh[spin_color + 12*hit]; }
@@ -416,33 +466,17 @@ public:
   //Can optionally supply an object that performs a transformation on each mode prior to the FFT. 
   //We can use this to avoid intermediate storage for the gauge fixing and momentum phase application steps
   void fft(const A2AvectorW<Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL);
-
-  template<typename P = mf_Policies>
-  void destructivefft(A2AvectorW<mf_Policies> &from, fieldOperation<FermionFieldType>* mode_preop = NULL, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   void inversefft(A2AvectorW<Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL) const;
-
-  template<typename P=mf_Policies>
-  void destructiveInversefft(A2AvectorW<mf_Policies> &to, fieldOperation<FermionFieldType>* mode_postop = NULL, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0);
   
   //For each mode, gauge fix, apply the momentum factor, then perform the FFT and store the result in this object
   void gaugeFixTwistFFT(const A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat){
     gaugeFixAndTwist<FermionFieldType> op(_p,_lat); fft(from, &op);
   }
-
-  template<typename P=mf_Policies>
-  void destructiveGaugeFixTwistFFT(A2AvectorW<Policies> &from, const int _p[3], Lattice &_lat, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    gaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructivefft(from, &op);
-  }
   
   //Unapply the phase and gauge fixing to give back a V vector
   void unapplyGaugeFixTwistFFT(A2AvectorW<Policies> &to, const int _p[3], Lattice &_lat) const{
     reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); inversefft(to, &op);
-  }
-
-  template<typename P=mf_Policies>
-  void destructiveUnapplyGaugeFixTwistFFT(A2AvectorW<Policies> &to, const int _p[3], Lattice &_lat, WFFTW_ENABLE_IF_MANUAL_ALLOC(P) = 0){
-    reverseGaugeFixAndTwist<FermionFieldType> op(_p,_lat); destructiveInversefft(to, &op);
   }
 
   //Use the relations between FFTs to obtain the FFT for a chosen quark momentum
@@ -534,11 +568,8 @@ public:
 
 
 
-#include <alg/a2a/a2a_impl.h>
-
-#ifdef USE_GRID
-#include<alg/a2a/evec_interface_impl.h>
-#endif
+#include <alg/a2a/a2a_impl.tcc>
+#include <alg/a2a/a2a_io.tcc>
 
 //Can do Lanczos in BFM or Grid, and A2A in BFM or Grid. I have a BFM Lanczos -> Grid interface
 
@@ -553,7 +584,7 @@ public:
 #  error "No Grid Lanczos -> BFM A2A interface implemented"
 # endif
 
-# include <alg/a2a/a2a_impl_vwbfm.h>
+# include <alg/a2a/a2a_impl_vwbfm.tcc>
 
 #elif defined(USE_GRID_A2A)
 # warning "Using Grid A2A"
@@ -566,7 +597,7 @@ public:
 #  error "BFM Lanczos -> Grid A2A interface requires BFM!"
 # endif
 
-# include <alg/a2a/a2a_impl_vwgrid.h>
+# include <alg/a2a/a2a_impl_vwgrid.tcc>
 
 #else
 

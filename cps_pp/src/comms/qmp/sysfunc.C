@@ -23,16 +23,11 @@
 #include <math.h>
 #include <qmp.h>
 #include <mpi.h>
-#if TARGET == BGL
-#include <sys/bgl/bgl_sys_all.h>
-#endif
-#if TARGET == BGP
-void spi_init();
-#endif
 #ifdef USE_GRID
 #include <Grid/Grid.h>
 #include <util/lattice/fgrid.h>
 #endif
+
 CPS_START_NAMESPACE
 
 /*!\namespace cps
@@ -61,12 +56,11 @@ namespace QMPSCU {
 #else
   static int* pePos;  /*!< Position of this process in the grid.*/ 
   static int* peGrid; /*!< Number of processors in each direction */
-//    static std::vector<int> pePos;
-//    static std::vector<int> peGrid;
 
 #ifdef USE_GRID
   static QMP_comm_t qmp_comm; // generate new comm
 #endif
+  
 #endif
 
   //Clean up resources used by QMP
@@ -102,6 +96,7 @@ void init_qmp(int * argc, char ***argv) {
     QMP_thread_level_t prv;
 #ifndef UNIFORM_SEED_NO_COMMS
     QMP_status_t init_status = QMP_init_msg_passing(argc, argv, QMP_THREAD_MULTIPLE, &prv);
+
     if (init_status) printf("QMP_init_msg_passing returned %d\n",init_status);
     qmpRank = QMP_get_node_number();
     peNum = QMP_get_number_of_nodes();
@@ -174,6 +169,21 @@ void init_qmp(int * argc, char ***argv) {
 	}
 #endif
 
+#if 0
+    Grid::Grid_init(argc,argv);
+    FgridBase::setGridInitted(true);
+    std::vector<int> processors;
+    for(int i=0;i<NDIM;i++) processors.push_back(peGrid[i]);
+    Grid::CartesianCommunicator grid_cart(processors);
+    peRank=0;
+    for(int i=NDIM-1;i>=0;i--){
+      peRank *= peGrid[i];
+      peRank += grid_cart._processor_coor[i];
+    }
+    QMP_comm_split(QMP_comm_get_default(),0,peRank,&qmp_comm); 
+    QMP_comm_set_default(qmp_comm);
+#endif
+    
     if(peRank==0){
       for(int i = 0; i<*argc;i++){
         printf("argv[%d])(after)=%s\n",i,(*argv)[i]); 

@@ -692,10 +692,10 @@ vml_A2ASmearing (VML *vmls, char *name,A2ASmearing *objp)
 	return TRUE;
 }
 template <> A2ASmearingType A2ASmearing::type_map<Box3dSmearing>(){
-	 return BOX_3D_SMEARING;
+	 return A2ASmearingType(BOX_3D_SMEARING);
 }
 template <> A2ASmearingType A2ASmearing::type_map<Exponential3dSmearing>(){
-	 return EXPONENTIAL_3D_SMEARING;
+	 return A2ASmearingType(EXPONENTIAL_3D_SMEARING);
 }
 void rpc_deepcopy<A2ASmearing>::doit(A2ASmearing &into, A2ASmearing const &from){
 	  into.type = from.type;
@@ -948,43 +948,43 @@ vml_GparityMeasurement (VML *vmls, char *name,GparityMeasurement *objp)
 	return TRUE;
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeLLMesons>(){
-	 return CONTRACTION_TYPE_LL_MESONS;
+	 return ContractionType(CONTRACTION_TYPE_LL_MESONS);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeHLMesons>(){
-	 return CONTRACTION_TYPE_HL_MESONS;
+	 return ContractionType(CONTRACTION_TYPE_HL_MESONS);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeOVVpAA>(){
-	 return CONTRACTION_TYPE_O_VV_P_AA;
+	 return ContractionType(CONTRACTION_TYPE_O_VV_P_AA);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllBilinears>(){
-	 return CONTRACTION_TYPE_ALL_BILINEARS;
+	 return ContractionType(CONTRACTION_TYPE_ALL_BILINEARS);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeAllWallSinkBilinearsSpecificMomentum>(){
-	 return CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM;
+	 return ContractionType(CONTRACTION_TYPE_ALL_WALLSINK_BILINEARS_SPECIFIC_MOMENTUM);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeFourierProp>(){
-	 return CONTRACTION_TYPE_FOURIER_PROP;
+	 return ContractionType(CONTRACTION_TYPE_FOURIER_PROP);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeBilinearVertex>(){
-	 return CONTRACTION_TYPE_BILINEAR_VERTEX;
+	 return ContractionType(CONTRACTION_TYPE_BILINEAR_VERTEX);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeQuadrilinearVertex>(){
-	 return CONTRACTION_TYPE_QUADRILINEAR_VERTEX;
+	 return ContractionType(CONTRACTION_TYPE_QUADRILINEAR_VERTEX);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeTopologicalCharge>(){
-	 return CONTRACTION_TYPE_TOPOLOGICAL_CHARGE;
+	 return ContractionType(CONTRACTION_TYPE_TOPOLOGICAL_CHARGE);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeMres>(){
-	 return CONTRACTION_TYPE_MRES;
+	 return ContractionType(CONTRACTION_TYPE_MRES);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeA2ABilinear>(){
-	 return CONTRACTION_TYPE_A2A_BILINEAR;
+	 return ContractionType(CONTRACTION_TYPE_A2A_BILINEAR);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeWilsonFlow>(){
-	 return CONTRACTION_TYPE_WILSON_FLOW;
+	 return ContractionType(CONTRACTION_TYPE_WILSON_FLOW);
 }
 template <> ContractionType GparityMeasurement::type_map<ContractionTypeKtoPiPi>(){
-	 return CONTRACTION_TYPE_K_TO_PIPI;
+	 return ContractionType(CONTRACTION_TYPE_K_TO_PIPI);
 }
 void rpc_deepcopy<GparityMeasurement>::doit(GparityMeasurement &into, GparityMeasurement const &from){
 	  into.type = from.type;

@@ -192,7 +192,11 @@ void setup_bfmargs(bfmarg &dwfa, const BfmSolver &solver){
 
   dwfa.verbose=1;
   dwfa.reproduce=0;
+#ifdef USE_NEW_BFM_GPARITY
+  dwfa.threads = nthreads;
+#else
   bfmarg::Threads(nthreads);
+#endif
   bfmarg::Reproduce(0);
   bfmarg::ReproduceChecksum(0);
   bfmarg::ReproduceMasterCheck(0);
@@ -653,7 +657,7 @@ int main(int argc,char *argv[])
 
 #ifdef HAVE_BFM
   cps_qdp_init(&argc,&argv);
-  Chroma::initialize(&argc,&argv);
+  //  Chroma::initialize(&argc,&argv);
 #endif
   
   if(load_lrg){
@@ -725,7 +729,7 @@ int main(int argc,char *argv[])
 
     bool fail(false);
     for(int i=0;i<18;i++){
-      if(mcp[i] != c[i]){ printf("Mprod check fail %d: %f %f\n",i,mcp[i],c[i]); fail =true; }
+      if(fabs(mcp[i]- c[i])>1e-10){ printf("Mprod check fail %d: %f %f\n",i,mcp[i],c[i]); fail =true; }
     }
     if(fail){ printf("Mprod check fail\n"); exit(-1); }
     else{ printf("Mprod check pass\n"); }

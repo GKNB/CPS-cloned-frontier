@@ -1,6 +1,16 @@
 #ifndef _TEMPLATE_WIZARDRY_H
 #define _TEMPLATE_WIZARDRY_H
 
+#include <config.h>
+#include <complex>
+#include <iostream>
+
+#ifdef USE_GRID
+#include<Grid/Grid.h>
+#endif
+
+CPS_START_NAMESPACE
+
 template <int LorR, typename T, typename U>
 struct _selectLR{};
 template <typename T, typename U>
@@ -300,6 +310,12 @@ struct _printcout{
 };
 
 
+template<bool> struct StaticAssert;
+template<> struct StaticAssert<true> {};
 
+
+
+
+CPS_END_NAMESPACE
 
 #endif

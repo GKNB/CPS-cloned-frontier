@@ -607,55 +607,55 @@ vml_AttributeContainer (VML *vmls, char *name,AttributeContainer *objp)
 	return TRUE;
 }
 template <> AttrType AttributeContainer::type_map<GenericPropAttrArg>(){
-	 return GENERIC_PROP_ATTR;
+	 return AttrType(GENERIC_PROP_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<PointSourceAttrArg>(){
-	 return POINT_SOURCE_ATTR;
+	 return AttrType(POINT_SOURCE_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<WallSourceAttrArg>(){
-	 return WALL_SOURCE_ATTR;
+	 return AttrType(WALL_SOURCE_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<VolumeSourceAttrArg>(){
-	 return VOLUME_SOURCE_ATTR;
+	 return AttrType(VOLUME_SOURCE_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<MomentumAttrArg>(){
-	 return MOMENTUM_ATTR;
+	 return AttrType(MOMENTUM_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<PropIOAttrArg>(){
-	 return PROP_IO_ATTR;
+	 return AttrType(PROP_IO_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<GparityFlavorAttrArg>(){
-	 return GPARITY_FLAVOR_ATTR;
+	 return AttrType(GPARITY_FLAVOR_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<CGAttrArg>(){
-	 return CG_ATTR;
+	 return AttrType(CG_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<GaugeFixAttrArg>(){
-	 return GAUGE_FIX_ATTR;
+	 return AttrType(GAUGE_FIX_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<MomCosAttrArg>(){
-	 return MOM_COS_ATTR;
+	 return AttrType(MOM_COS_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<PropCombinationAttrArg>(){
-	 return PROP_COMBINATION_ATTR;
+	 return AttrType(PROP_COMBINATION_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<GparityOtherFlavPropAttrArg>(){
-	 return GPARITY_OTHER_FLAV_PROP_ATTR;
+	 return AttrType(GPARITY_OTHER_FLAV_PROP_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<GparityComplexConjSourcePartnerPropAttrArg>(){
-	 return GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR;
+	 return AttrType(GPARITY_COMPLEX_CONJ_SOURCE_PARTNER_PROP_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<TwistedBcAttrArg>(){
-	 return TWISTED_BC_ATTR;
+	 return AttrType(TWISTED_BC_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<StoreMidpropAttrArg>(){
-	 return STORE_MIDPROP_ATTR;
+	 return AttrType(STORE_MIDPROP_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<A2AAttrArg>(){
-	 return A2A_ATTR;
+	 return AttrType(A2A_ATTR);
 }
 template <> AttrType AttributeContainer::type_map<DeflatedCGAttrArg>(){
-	 return DEFLATED_CG_ATTR;
+	 return AttrType(DEFLATED_CG_ATTR);
 }
 void rpc_deepcopy<AttributeContainer>::doit(AttributeContainer &into, AttributeContainer const &from){
 	  into.type = from.type;

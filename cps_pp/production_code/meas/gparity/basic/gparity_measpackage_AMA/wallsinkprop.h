@@ -1,6 +1,9 @@
 #ifndef _WALLSINK_PROP_H
 #define _WALLSINK_PROP_H
 
+#include <alg/a2a/threemomentum.h>
+#include "propwrapper.h"
+
 CPS_START_NAMESPACE
 
 

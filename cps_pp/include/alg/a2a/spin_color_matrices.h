@@ -3,6 +3,7 @@
 
 //These are alternatives to Matrix, WilsonMatrix, SpinColorFlavorMatrix
 #include<util/flavormatrix.h>
+#include<alg/a2a/template_wizardry.h>
 
 CPS_START_NAMESPACE
 
@@ -705,6 +706,54 @@ public:
     return *this;
   }
 
+  //multiply gamma(i)gamma(5) on the right: result = from*gamma(i)*gamma(5)
+  CPSspinMatrix<T>& grAx(int dir)
+  {
+    int s1;
+    CPSspinMatrix<T> cp(*this);
+    const T (&src)[4][4] = cp.v;
+    T (&p)[4][4] = this->v;
+
+    switch(dir){
+    case 0:
+      for(s1=0;s1<4;s1++){
+	TIMESMINUSI( src[s1][3], p[s1][0] );
+	TIMESMINUSI( src[s1][2], p[s1][1] );
+	TIMESMINUSI(  src[s1][1], p[s1][2] );
+	TIMESMINUSI(  src[s1][0], p[s1][3] );
+      }
+      break;
+    case 1:
+      for(s1=0;s1<4;s1++){
+	TIMESMINUSONE( src[s1][3], p[s1][0] );
+	TIMESPLUSONE(  src[s1][2], p[s1][1] );
+	TIMESMINUSONE(  src[s1][1], p[s1][2] );
+	TIMESPLUSONE( src[s1][0], p[s1][3] );
+      }
+      break;
+    case 2:
+      for(s1=0;s1<4;s1++){
+	TIMESMINUSI( src[s1][2], p[s1][0] );
+	TIMESPLUSI(  src[s1][3], p[s1][1] );
+	TIMESMINUSI(  src[s1][0], p[s1][2] );
+	TIMESPLUSI( src[s1][1], p[s1][3] );
+      }
+      break;
+    case 3:
+      for(s1=0;s1<4;s1++){
+	TIMESPLUSONE( src[s1][2], p[s1][0] );
+	TIMESPLUSONE( src[s1][3], p[s1][1] );
+	TIMESMINUSONE( src[s1][0], p[s1][2] );
+	TIMESMINUSONE( src[s1][1], p[s1][3] );
+      }
+      break;
+    default:
+      assert(0);
+      break;
+    }
+    return *this;
+  }
+
   
 };
 
@@ -758,6 +807,8 @@ public:
   inline CPSspinMatrix<CPSflavorMatrix<ComplexType> > ColorTrace() const{
     return this->CPSsquareMatrix<value_type,4>::template TraceIndex<1>();
   }
+
+  //NOTE: This method is an in-place operation!
   inline CPSspinColorFlavorMatrix<ComplexType>& TransposeColor(){
     return static_cast<CPSspinColorFlavorMatrix<ComplexType> &>(this->CPSsquareMatrix<value_type,4>::template TransposeOnIndex<1>());
   }

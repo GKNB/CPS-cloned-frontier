@@ -2,6 +2,9 @@
 #define _INNER_PRODUCT_SPINCOLOR_CONTRACT
 
 #include<alg/a2a/inner_product_grid.h>
+#include<alg/a2a/inner_product_avx512.h>
+#include<alg/a2a/conj_zmul.h>
+#include<alg/a2a/template_wizardry.h>
 
 #ifdef USE_GRID
 #define USE_GRID_SCCON //switch on inner_product_grid code
@@ -125,32 +128,84 @@ public:
     }
     return v3;
   }
+  //numbering g<0,1,2> follows wilson_matrix.h convention
+  //gamma_x
+  inline static vComplexType g0(const vComplexType *const l, const vComplexType *const r){
+    //const static int sc_size =12;
+    const static int half_sc = 6;
+    const static int c = 3;
+
+    vComplexType v3; zeroit(v3);
+
+    for(int j = 0; j < c; j++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+half_sc+c+j);
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+half_sc+c+j,r+j);
+    }
+    for(int j = c; j < half_sc; j ++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+c+j);
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+c+j,r+j);
+    }
+    //mult by i
+    return timesI(v3);
+  }
+  //gamma_y
+  inline static vComplexType g1(const vComplexType *const l, const vComplexType *const r){
+    //const static int sc_size =12;
+    const static int half_sc = 6;
+    const static int c = 3;
+
+    vComplexType v3; zeroit(v3);
+
+    for(int j = 0; j < c; j++){ 
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+half_sc+c+j);
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+half_sc+c+j,r+j);
+    }
+    for(int j = c; j < half_sc; j ++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+c+j);
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+c+j,r+j);
+    }
+    return v3;
+  }
+  //gamma_z
+  inline static vComplexType g2(const vComplexType *const l, const vComplexType *const r){
+    //const static int sc_size =12;
+    const static int half_sc = 6;
+    const static int c = 3;
+
+    vComplexType v3; zeroit(v3);
+
+    for(int j = 0; j < c; j++){ 
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+half_sc+j);
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+half_sc+j,r+j);
+    }
+    for(int j = c; j < half_sc; j ++){ 
+      v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+j,r+half_sc+j);
+      v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+half_sc+j,r+j);
+    }
+    //mult by i
+    return timesI(v3);
+  }
 
 };
 
 
 //Hand-optimized AVX512 kernel
-#ifdef AVX512
-CPS_END_NAMESPACE
-#include<alg/a2a/inner_product_avx512.h>
-CPS_START_NAMESPACE
+# ifdef AVX512
 
 template<>
-class GridVectorizedSpinColorContract<Grid::vComplexD,true,false>{
-public:
-  inline static Grid::vComplexD g5(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+inline static Grid::vComplexD GridVectorizedSpinColorContract<Grid::vComplexD,true,false>::g5(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
     Grid::vComplexD v3;
     v3.v = g5d_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
     return v3;
-  }
-  inline static Grid::vComplexD unit(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
+}
+template<>
+inline static Grid::vComplexD GridVectorizedSpinColorContract<Grid::vComplexD,true,false>::unit(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
     Grid::vComplexD v3;
     v3.v = gunitd_conjl_r_asm_avx512( (__m512d const*)l, (__m512d const*)r );
     return v3;
-  }
-};
+}
 
-#endif //AVX512
+# endif //AVX512
 
 template<int smatidx,typename vComplexType, bool conj_left, bool conj_right>
 struct GridVectorizedSpinColorContractSelect{};
@@ -163,7 +218,18 @@ template<typename vComplexType, bool conj_left, bool conj_right>
 struct GridVectorizedSpinColorContractSelect<0,vComplexType,conj_left,conj_right>{
   inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::unit(l,r); }
 };
-
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect<1,vComplexType,conj_left,conj_right>{
+  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g0(l,r); }
+};
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect<2,vComplexType,conj_left,conj_right>{
+  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g1(l,r); }
+};
+template<typename vComplexType, bool conj_left, bool conj_right>
+struct GridVectorizedSpinColorContractSelect<4,vComplexType,conj_left,conj_right>{
+  inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g2(l,r); }
+};
 #endif //USE_GRID
 
 
@@ -188,6 +254,18 @@ struct GeneralSpinColorContractSelect<15,ComplexType,conj_left,conj_right,grid_v
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<0,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
   inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::unit(l,r); }
+};
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct GeneralSpinColorContractSelect<1,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
+  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g0(l,r); }
+};
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct GeneralSpinColorContractSelect<2,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
+  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g1(l,r); }
+};
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct GeneralSpinColorContractSelect<4,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
+  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g2(l,r); }
 };
 #endif
 

@@ -286,7 +286,6 @@ namespace BFM_Krylov{
     void qpoly(double beta, double alpha, bfm_fermion input, bfm_fermion &result);
     void shift_multiply(bfm_fermion input, bfm_fermion &result);
     void multiply(bfm_fermion input, bfm_fermion &result);
-
   };
 
   /// Constructor
@@ -393,8 +392,9 @@ namespace BFM_Krylov{
   template <class S> 
   void Krylov<S>::free_bq()
   {
-    for(int i = 0; i < bq.size(); i++)
+    for(int i = 0; i < bq.size(); i++){
       if(bq[i][0] != NULL || bq[i][1]!=NULL) this->free_fermion(bq[i]);
+    }
     bq.resize(0);
   }
 
@@ -403,11 +403,8 @@ namespace BFM_Krylov{
   void Krylov<S>::Run()
   {
     tot_time -= dclock();
-    printf("THIS pointer pre-init %p\n",this);
     init();
 
-    printf("THIS pointer %p\n",this);
-    printf("con %d\n",this->con);
     int ff = this->con;
 
     QDPIO::cout << "Krylov: Run()"<<std::endl;
@@ -1345,7 +1342,7 @@ dop.gparity ? 2 :
   //QZ is saved in column major format. 
   //perform V = V*QZ;
   {
-    printf("Using eigcg_vec_mult2\n");
+    //    printf("Using eigcg_vec_mult2\n");
 
     std::vector<Fermion_t> ret(n, NULL);
     for(int i = 0; i < n; ++i) {

@@ -89,6 +89,9 @@ class FPConv : public DataConversion
   unsigned int checksum(char * data, const int data_len, 
 			const enum FP_FORMAT dataFormat) const;
 
+  uint32_t checksumCRC32(char * data, const int data_len,
+			 const enum FP_FORMAT dataFormat) const;
+  
   int size(const enum FP_FORMAT datatype) const ;
   bool big_endian(const enum FP_FORMAT datatype) const;
   inline int fileFpSize() const { return size(fileFormat); }

@@ -261,6 +261,7 @@ int main(int argc,char *argv[])
   if(gparity_Y) do_arg.y_bc = BND_CND_GPARITY;
 
   GJP.Initialize(do_arg);
+  cps_qdp_init(&argc,&argv);
 
   SerialIO::dbl_latt_storemode = dbl_latt_storemode;
   
@@ -412,11 +413,15 @@ int main(int argc,char *argv[])
 
   PropManager::setup(prop_args);
 
-  if(gauge_fix) lattice->FixGaugeFree();
   IFloat gparity_prop_norm;
   if(!skip_gparity_inversion) gparity_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice).norm();
   else gparity_prop_norm = 0.0;
   PropManager::clear();
+
+  if(gauge_fix){
+    if(!UniqueID()){ printf("Freeing gauge fixing matrices\n"); fflush(stdout); }
+    lattice->FixGaugeFree();
+  }
 
   if(UniqueID()==0) printf("Starting double lattice inversion\n");
 

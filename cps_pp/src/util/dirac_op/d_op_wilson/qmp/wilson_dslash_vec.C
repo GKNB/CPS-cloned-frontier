@@ -191,9 +191,7 @@ void wilson_dslash_vec (IFloat * chi_p_f,
 
 
   //reset setup variables if G-parity status changes
-  if (gparity_init_status == 1 && !GJP.Gparity () || gparity_init_status == 0
-      && GJP.Gparity ())
-    init_len = -1;
+  if(init_len != 0 && ( gparity_init_status == 1 && !GJP.Gparity() ||  gparity_init_status == 0 && GJP.Gparity() ) ) init_len = -1;
 
   if (vec_len != init_len) {
     //These are only initialized once unless the vec_len changes

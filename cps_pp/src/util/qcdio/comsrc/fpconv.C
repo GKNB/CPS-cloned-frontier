@@ -5,6 +5,7 @@
 #include <util/fpconv.h>
 #include <util/qioarg.h>
 #include <sys/types.h>
+#include <zlib.h> //crc32
 
 CPS_START_NAMESPACE
 using namespace std;
@@ -359,6 +360,50 @@ unsigned int FPConv::checksum(char * data, const int data_len,
 //  VRB.Result(cname,fname," need_byterevn=%d s=%x",need_byterevn,s);
   return s;
 }
+
+uint32_t FPConv::checksumCRC32(char * data, const int data_len,
+			       const enum FP_FORMAT dataFormat) const{
+  const char * fname = "checksumCRC32()";
+
+  enum FP_FORMAT chkFormat = dataFormat;
+  if(dataFormat == FP_AUTOMATIC)  chkFormat = fileFormat;
+
+  if(chkFormat == FP_UNKNOWN) {
+    VRB.Flow(cname,fname, "checksum data format UNKNOWN!\n");
+    return 0;
+  }
+
+  int ndata32bits = data_len; //number of data elements of size 32 bits
+  if(size(chkFormat) == 8)  ndata32bits *= 2;
+
+  int need_byterevn = 0;
+  if(sim_qcdsp && !big_endian(chkFormat)) 
+    need_byterevn = 1;
+  if(!sim_qcdsp && big_endian(hostFormat) != big_endian(chkFormat))
+    need_byterevn = 1;
+
+  if(need_byterevn)
+    byterevn((type32*)data, ndata32bits);
+
+
+  uint64_t rembytes =  uint64_t(size(chkFormat)) * data_len;
+  const uint32_t chunkbytes = 4096;  //Do the CRC checksum in chunks of 4096 bytes
+  uint32_t s = crc32(0L, NULL, 0);
+  unsigned char* d = (unsigned char*)data;
+  
+  while(rembytes > 0){
+    uint32_t thischunkbytes = rembytes < chunkbytes ? rembytes : chunkbytes;
+    s = crc32(s, d, thischunkbytes);
+    d += thischunkbytes;
+    rembytes -= thischunkbytes;
+  }
+
+  if(need_byterevn)
+    byterevn((type32*)data, ndata32bits);
+
+  return s;
+}
+
 
 int FPConv::size(const enum FP_FORMAT datatype) const {
   switch(datatype) {

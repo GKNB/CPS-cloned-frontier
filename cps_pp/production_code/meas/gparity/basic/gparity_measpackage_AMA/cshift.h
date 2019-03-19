@@ -1,6 +1,10 @@
 #ifndef _CK_CSHIFT_H
 #define _CK_CSHIFT_H
 
+#include <config.h>
+#include <util/gjp.h>
+#include <comms/scu.h>
+
 CPS_START_NAMESPACE
 
 //C-shift any 4d field with canonical ordering in the time direction

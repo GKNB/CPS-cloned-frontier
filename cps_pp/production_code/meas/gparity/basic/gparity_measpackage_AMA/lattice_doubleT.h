@@ -3,6 +3,8 @@
 
 #include<util/lat_cont.h>
 #include<util/dwf.h>
+#include<util/lattice/fbfm.h>
+
 CPS_START_NAMESPACE
 
 //Take a lattice resident in memory and double the temporal length by duplication

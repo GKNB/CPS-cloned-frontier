@@ -3847,11 +3847,11 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     VRB.Func (cname, fname);
 
     if (rsrc == NULL) {
-      int rsrc_size = 2 * GJP.VolNodeSites ();
-      rsrc = (Float *) smalloc (rsrc_size * sizeof (Float));
-      if (rsrc == 0)
+    int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
+    rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
+    if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
 	ERR.Pointer (cname, fname, "rsrc");
-      VRB.Smalloc (cname, fname, "rsrc", rsrc, rsrc_size * sizeof (Float));
+    VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
     }
   }
   void QPropWRand::DeleteRsrc ()
@@ -3861,11 +3861,25 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     VRB.Func (cname, fname);
 
     if (rsrc != NULL) {
-      VRB.Sfree (cname, fname, "rsrc", rsrc);
-      sfree (rsrc);
-      rsrc = NULL;
+    VRB.Sfree(cname, fname, "rsrc", rsrc);
+    sfree(rsrc);
+    rsrc = NULL;
     }
   }
+
+QPropWRand::QPropWRand(Lattice& lat,  QPropWArg* arg, QPropWRandArg *r_arg, 
+		       CommonArg* c_arg, Complex const* rsrc_in) : QPropW(lat, arg, c_arg),rand_arg(*r_arg) 
+{
+  char *fname = "QPropWRand(L&, QPropWArg*, ComArg*)";
+  cname = "QPropWRand";
+  VRB.Func(cname, fname);
+
+  rsrc = NULL;
+  AllocateRsrc();
+  size_t sz = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1) * sizeof(Float);
+  memcpy(rsrc, rsrc_in, sz);
+}
+
 
 QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, CommonArg * c_arg):QPropW (lat, arg, c_arg), rand_arg (*r_arg)
   {
@@ -3875,45 +3889,43 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 
     rsrc = NULL;
     AllocateRsrc ();
-
     int rsrc_size = 2 * GJP.VolNodeSites ();
 
+  int vol4d = GJP.VolNodeSites();
+  int fstride = 2*vol4d;
+  
     if (rand_arg.rng == GAUSS) {
-      // MGE 06/10/2008
-      LRG.SetSigma (0.5);
-      for (int i = 0; i < rsrc_size / 2; i++) {
-	LRG.AssignGenerator (i);
-	rsrc[2 * i] = LRG.Grand (FOUR_D);
-	rsrc[2 * i + 1] = LRG.Grand (FOUR_D);
+    LRG.SetSigma(0.5);
+    for (int f=0; f<GJP.Gparity()+1; f++)
+      for (int i=0; i<vol4d; i++) {
+	LRG.AssignGenerator(i,f);
+	rsrc[2*i + f*fstride] = LRG.Grand(FOUR_D);
+	rsrc[2*i+1 + f*fstride] = LRG.Grand(FOUR_D);
       }
-      // END MGE 06/10/2008
-
     }
     if (rand_arg.rng == UONE) {
-      // MGE 06/10/2008
-      LRG.SetInterval (6.283185307179586, 0);
-      for (int i = 0; i < rsrc_size / 2; i++) {
-	LRG.AssignGenerator (i);
-	Float theta (LRG.Urand (FOUR_D));
-	rsrc[2 * i] = cos (theta);	// real part
-	rsrc[2 * i + 1] = sin (theta);	// imaginary part
+    LRG.SetInterval(6.283185307179586,0);
+    for (int f=0; f<GJP.Gparity()+1; f++)
+      for (int i=0; i<vol4d; i++) {
+	LRG.AssignGenerator(i,f);
+	Float theta(LRG.Urand(FOUR_D));
+	rsrc[2*i + f*fstride] = cos(theta); // real part
+	rsrc[2*i+1 + f*fstride] = sin(theta); // imaginary part
       }
 
-      // END MGE 06/10/2008
     }
     if (rand_arg.rng == ZTWO) {
-      // MGE 06/10/2008  
-      LRG.SetInterval (1, -1);
-      for (int i = 0; i < rsrc_size / 2; i++) {
-	LRG.AssignGenerator (i);
-	if (LRG.Urand (FOUR_D) > 0.) {
-	  rsrc[2 * i] = 1.;
+    LRG.SetInterval(1,-1);
+    for (int f=0; f<GJP.Gparity()+1; f++)
+      for (int i=0; i<vol4d; i++) {
+	LRG.AssignGenerator(i,f);
+	if (LRG.Urand(FOUR_D)>0.) {
+	  rsrc[2*i + f*fstride] =  1.;
 	} else {
-	  rsrc[2 * i] = -1.;
+	  rsrc[2*i + f*fstride] = -1.;
 	}
-	rsrc[2 * i + 1] = 0.0;	// source is purely real
+	rsrc[2*i+1 + f*fstride] = 0.0; // source is purely real
       }
-      // END MGE 06/10/2008
     }
     if (rand_arg.rng == TEST) {	// deterministic source for testing
       for (int i = 0; i < rsrc_size / 2; i++) {
@@ -3935,7 +3947,7 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
     VRB.Func (cname, fname);
 
     AllocateRsrc ();
-    for (int i = 0; i < 2 * GJP.VolNodeSites (); i++)
+  for (int i=0; i<2*GJP.VolNodeSites()*(GJP.Gparity()+1); i++)
       rsrc[i] = rhs.rsrc[i];
   }
 
@@ -3954,7 +3966,7 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
       QPropW::operator= (rhs);	// This copies the QPropW stuff...
 
       AllocateRsrc ();
-      for (int i = 0; i < 2 * GJP.VolNodeSites (); i++)
+	for (int i=0; i<2*GJP.VolNodeSites()*(GJP.Gparity()+1); i++)
 	rsrc[i] = rhs.rsrc[i];
     }
 
@@ -3970,10 +3982,10 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 
   void QPropWRand::ShiftPropForward (int n)
   {
-
     char *fname = "ShiftPropForward()";
     VRB.Func (cname, fname);
-
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for Gparity");
+  
     QPropW::ShiftPropForward (n);
 
     Float *recv_buf;
@@ -4005,7 +4017,8 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 
     char *fname = "ShiftPropBackward()";
     VRB.Func (cname, fname);
-
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for Gparity");
+  
     QPropW::ShiftPropBackward (n);
 
     Float *recv_buf;
@@ -4115,6 +4128,54 @@ QPropWRandWallSrc::QPropWRandWallSrc (Lattice & lat, CommonArg * c_arg):
     if (GFixedSrc ())
       src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
   }
+
+
+//------------------------------------------------------------------
+// Quark Propagator (Wilson type) with Random Wall-Momentum Source
+//------------------------------------------------------------------
+QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat, CommonArg* c_arg) : 
+  QPropWRand(lat, c_arg) {
+  
+  const char *fname = "QPropWRandMomSrc(L&, ComArg*)";
+  cname = "QPropWRandMomSrc";
+  VRB.Func(cname, fname);
+}
+QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg, 
+				     QPropWRandArg *r_arg, int *p, CommonArg* c_arg) 
+  : QPropWRand(lat, arg, r_arg, c_arg), mom(p) {
+ 
+  const char *fname = "QPropWRandMomSrc(...)";
+  cname = "QPropWRandWallSrc";
+  VRB.Func(cname, fname);
+
+  Run();
+}
+QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg, 
+				   QPropWRandArg *r_arg, int *p, CommonArg* c_arg, Complex const* rsrc_in) 
+  : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in), mom(p) {
+ 
+  const char *fname = "QPropWRandMomSrc(...)";
+  cname = "QPropWRandWallSrc";
+  VRB.Func(cname, fname);
+
+  Run();
+}
+
+void QPropWRandMomSrc::SetSource(FermionVectorTp& src, int spin, int color) {
+
+  const char *fname = "SetSource()"; 
+  VRB.Func(cname, fname);
+
+  if (rsrc==NULL) {//need random numbers may implemented later
+    ERR.General(cname,fname,"No randrom numbers found!\n") ;
+  }
+
+  src.ZeroSource();
+  src.SetMomSource(color, spin, qp_arg.t, mom, rsrc, qp_arg.flavor);
+  if (GFixedSrc())
+    src.GFWallSource(AlgLattice(), spin, 3, qp_arg.t, qp_arg.flavor);
+}
+
 
 
 //------------------------------------------------------------------

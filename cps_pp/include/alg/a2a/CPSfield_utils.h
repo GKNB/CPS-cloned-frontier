@@ -1,6 +1,8 @@
 #ifndef CPS_FIELD_UTILS_H
 #define CPS_FIELD_UTILS_H
 
+#include<alg/a2a/CPSfield.h>
+
 CPS_START_NAMESPACE
 
 inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<ComplexD> &B, const std::string &descr = "Ferms", const double tol = 1e-9){
@@ -36,13 +38,13 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
-template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
+template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,void>::type>
 inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
   typedef typename FieldType::FieldSiteType::value_type value_type;
   
   double fail = 0.;
   for(int xf=0;xf<A.nfsites();xf++){
-    int f; int x[FieldType::FieldDimensionPolicy::EuclideanDimension];
+    int f; int x[FieldType::FieldMappingPolicy::EuclideanDimension];
     A.fsiteUnmap(xf, x,f);
 
     for(int i=0;i<FieldType::FieldSiteSize;i++){
@@ -54,9 +56,9 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 	  if(!print_all) std::cout << "Fail: (";
 	  else std::cout << "Pass: (";
 	  
-	  for(int xx=0;xx<FieldType::FieldDimensionPolicy::EuclideanDimension-1;xx++)
+	  for(int xx=0;xx<FieldType::FieldMappingPolicy::EuclideanDimension-1;xx++)
 	    std::cout << x[xx] << ", ";
-	  std::cout << x[FieldType::FieldDimensionPolicy::EuclideanDimension-1];
+	  std::cout << x[FieldType::FieldMappingPolicy::EuclideanDimension-1];
 
 	  std::cout << ") f=" << f << " reim " << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
 	  if(!print_all) fail = 1.;
@@ -82,7 +84,7 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
 
 
 #ifdef USE_BFM
-inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
+inline void exportBFMcb(CPSfermion5D<cps::ComplexD> &into, Fermion_t from, bfm_evo<double> &dwf, int cb, bool singleprec_evec = false){
   Fermion_t zero_a = dwf.allocFermion();
 #pragma omp parallel
   {   
@@ -100,7 +102,7 @@ inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<do
     tmp[cb] = etmp;
   }else tmp[cb] = from;
 
-  dwf.cps_impexFermion(into.ptr(),tmp,0);
+  dwf.cps_impexFermion((double*)into.ptr(),tmp,0);
   dwf.freeFermion(zero_a);
   dwf.freeFermion(etmp);
 }
@@ -108,7 +110,7 @@ inline void exportBFMcb(CPSfermion5D<ComplexD> &into, Fermion_t from, bfm_evo<do
 
 #ifdef USE_GRID
 template<typename GridPolicies>
-inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
+inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   typename GridPolicies::GridFermionField tmp_g(FGrid);
   tmp_g = Grid::zero;
@@ -118,26 +120,29 @@ inline void exportGridcb(CPSfermion5D<ComplexD> &into, typename GridPolicies::Gr
 }
 #endif
 
+
+
 #ifdef USE_QMP
 
 //Cyclic permutation of *4D* CPSfield with std::complex type and FourDpolicy dimension policy
 //Conventions are direction of *data flow*: For shift n in direction +1   f'(x) = f(x-\hat i)  so data is sent in the +x direction.
 
-#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<DimensionPolicy,FourDpolicy>::value || _equal<DimensionPolicy,SpatialPolicy>::value)
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<MappingPolicy,FourDpolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,SpatialPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
+//Version with QMP and no Grid
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
 		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
-  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
   assert(pm == 1 || pm == -1);
 	   
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
@@ -231,7 +236,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
   
   QMP_status_t send_status = QMP_wait(send);
   if (send_status != QMP_SUCCESS) 
-    QMP_error("Send failed in cyclicPermute: %s\n", QMP_error_string(send_status));
+    QMP_error("Send failed in cyclicPermuteImpl: %s\n", QMP_error_string(send_status));
   QMP_status_t rcv_status = QMP_wait(recv);
   if (rcv_status != QMP_SUCCESS) 
     QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
@@ -266,22 +271,22 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 
 # ifdef USE_GRID
 
-#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<DimensionPolicy,FourDSIMDPolicy>::value || _equal<DimensionPolicy,ThreeDSIMDPolicy>::value)
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<MappingPolicy,FourDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,ThreeDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-//Version with SIMD vectorized data
-template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
+//Version with QMP and SIMD vectorized data
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
 		   const int dir, const int pm, const int n,
 		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
-  enum {Dimension = DimensionPolicy::EuclideanDimension};
+  enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
   assert(pm == 1 || pm == -1);
   
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
@@ -341,7 +346,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
     int i_dest = from.SIMDmap(coor_dest);
     int o_dest = from.siteMap(coor_dest);
 
-    Grid::Vector<scalarType> ounpacked(nsimd);
+    typename AlignedVector<scalarType>::type ounpacked(nsimd);
     for(int f=0;f<nf;f++){
       mf_Complex const *osite_ptr = from.site_ptr(o,f);
       int send_buf_off = (c + bcsites*f)*SiteSize;
@@ -366,7 +371,7 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
   
   QMP_status_t send_status = QMP_wait(send);
   if (send_status != QMP_SUCCESS) 
-    QMP_error("Send failed in cyclicPermute: %s\n", QMP_error_string(send_status));
+    QMP_error("Send failed in cyclicPermuteImpl: %s\n", QMP_error_string(send_status));
   QMP_status_t rcv_status = QMP_wait(recv);
   if (rcv_status != QMP_SUCCESS) 
     QMP_error("Receive failed in PassDataT: %s\n", QMP_error_string(rcv_status));
@@ -402,8 +407,8 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
     }
 
     //Now loop over flavor and element within the site as well as SIMD lanes of the destination vector and gather what we need to poke - then poke it
-    Grid::Vector<scalarType> towrite(nsimd);
-    Grid::Vector<scalarType> unpack(nsimd);
+    typename AlignedVector<scalarType>::type towrite(nsimd);
+    typename AlignedVector<scalarType>::type unpack(nsimd);
     
     for(int f=0;f<nf;f++){
       for(int s=0;s<SiteSize;s++){
@@ -438,28 +443,29 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 
 #else //ifdef USE_QMP
 
-#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<DimensionPolicy,FourDpolicy>::value || _equal<DimensionPolicy,SpatialPolicy>::value)
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, complex_double_or_float_mark>::value && (_equal<MappingPolicy,FourDpolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,SpatialPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
-		   const int dir, const int pm, const int n,
-		   typename my_enable_if<CONDITION , const int>::type dummy = 0){
-  enum {Dimension = DimensionPolicy::EuclideanDimension};
+//Version without comms (local) and without Grid
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		       const int dir, const int pm, const int n,
+		       typename my_enable_if<CONDITION , const int>::type dummy = 0){
+  enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
   assert(pm == 1 || pm == -1);
   
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
   const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
-  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+  if(nodes != 1) ERR.General("","cyclicPermuteImpl","Parallel implementation requires QMP\n");
 
 #pragma omp parallel for
   for(int i=0;i<from.nfsites();i++){
@@ -475,35 +481,35 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 
 # ifdef USE_GRID
 
-#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<DimensionPolicy,FourDSIMDPolicy>::value || _equal<DimensionPolicy,ThreeDSIMDPolicy>::value)
+#define CONDITION _equal<typename ComplexClassify<mf_Complex>::type, grid_vector_complex_mark>::value && (_equal<MappingPolicy,FourDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value || _equal<MappingPolicy,ThreeDSIMDPolicy<typename MappingPolicy::FieldFlavorPolicy> >::value)
 
-//Version with SIMD vectorized data
-template< typename mf_Complex, int SiteSize, typename DimensionPolicy, typename FlavorPolicy, typename AllocPolicy>
-void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> &from,
-		   const int dir, const int pm, const int n,
-		   typename my_enable_if<CONDITION, const int>::type dummy = 0){
-  enum {Dimension = DimensionPolicy::EuclideanDimension};
+//Version without comms (local) and with SIMD vectorized data
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermuteImpl(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		       const int dir, const int pm, const int n,
+		       typename my_enable_if<CONDITION, const int>::type dummy = 0){
+  enum {Dimension = MappingPolicy::EuclideanDimension};
   assert(dir < Dimension);
   assert(n < GJP.NodeSites(dir));
   assert(pm == 1 || pm == -1);
   
   if(&to == &from){
     if(n==0) return;    
-    CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,AllocPolicy> tmpfrom(from);
-    return cyclicPermute(to,tmpfrom,dir,pm,n);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmpfrom(from);
+    return cyclicPermuteImpl(to,tmpfrom,dir,pm,n);
   }
   if(n == 0){
     to = from;
     return;
   }
   const int nodes = GJP.Xnodes()*GJP.Ynodes()*GJP.Znodes()*GJP.Tnodes()*GJP.Snodes();
-  if(nodes != 1) ERR.General("","cyclicPermute","Parallel implementation requires QMP\n");
+  if(nodes != 1) ERR.General("","cyclicPermuteImpl","Parallel implementation requires QMP\n");
   
   const int nsimd = mf_Complex::Nsimd();
 
   typedef typename mf_Complex::scalar_type scalar_type;
   const int nthr = omp_get_max_threads();
-  scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign(128,nsimd*sizeof(scalar_type));
+  scalar_type* tmp_store_thr[nthr]; for(int i=0;i<nthr;i++) tmp_store_thr[i] = (scalar_type*)memalign_check(128,nsimd*sizeof(scalar_type));
   
 #pragma omp parallel for
   for(int ofto=0;ofto<to.nfsites();ofto++){ //loop over outer site index
@@ -543,6 +549,29 @@ void cyclicPermute(CPSfield<mf_Complex,SiteSize,DimensionPolicy,FlavorPolicy,All
 # endif //ifdef USE_GRID
 
 #endif //ifdef USE_QMP
+
+
+template< typename mf_Complex, int SiteSize, typename MappingPolicy, typename AllocPolicy>
+void cyclicPermute(CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &to, const CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> &from,
+		   const int dir, const int pm, const int n){
+  if(n >= GJP.NodeSites(dir)){ //deal with n > node size
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmp1(from);
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy> tmp2(from);
+
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy>* from_i = &tmp1;
+    CPSfield<mf_Complex,SiteSize,MappingPolicy,AllocPolicy>* to_i = &tmp2;
+    int nn = n;
+    while(nn >= GJP.NodeSites(dir)){
+      cyclicPermuteImpl(*to_i, *from_i, dir, pm, GJP.NodeSites(dir)-1);
+      nn -= (GJP.NodeSites(dir)-1);
+      std::swap(from_i, to_i); //on last iteration the data will be in from_i after leaving the loop
+    }
+    cyclicPermuteImpl(to, *from_i, dir, pm, nn);
+  }else{
+    cyclicPermuteImpl(to, from, dir, pm, n);
+  }
+}
+
 
 
 inline int getShiftSign(const int of){ return of > 0 ? +1 : -1; }
@@ -592,12 +621,12 @@ template<typename CPSfieldType>
 void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, const bool inverse_transform = false,
 	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	 ){
-  typedef typename LocalToGlobalInOneDirMap<typename CPSfieldType::FieldDimensionPolicy>::type DimPolGlobalInOneDir;
-  typedef CPSfieldGlobalInOneDir<typename CPSfieldType::FieldSiteType, CPSfieldType::FieldSiteSize, DimPolGlobalInOneDir, typename CPSfieldType::FieldFlavorPolicy, typename CPSfieldType::FieldAllocPolicy> CPSfieldTypeGlobalInOneDir;
+  typedef typename LocalToGlobalInOneDirMap<typename CPSfieldType::FieldMappingPolicy>::type DimPolGlobalInOneDir;
+  typedef CPSfieldGlobalInOneDir<typename CPSfieldType::FieldSiteType, CPSfieldType::FieldSiteSize, DimPolGlobalInOneDir, typename CPSfieldType::FieldAllocPolicy> CPSfieldTypeGlobalInOneDir;
 
   int dcount = 0;
   
-  for(int mu=0;mu<CPSfieldType::FieldDimensionPolicy::EuclideanDimension;mu++)
+  for(int mu=0;mu<CPSfieldType::FieldMappingPolicy::EuclideanDimension;mu++)
     if(do_dirs[mu]){
       CPSfieldTypeGlobalInOneDir tmp_dbl(mu);
       tmp_dbl.gather( dcount==0 ? from : into );
@@ -613,8 +642,8 @@ void fft(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, cons
 	 typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, grid_vector_complex_mark>::value, const int>::type = 0
 	 ){
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
-  typedef typename CPSfieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
-  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
+  typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarMapPol;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarMapPol, StandardAllocPolicy> ScalarFieldType;
 
   NullObject null_obj;
   ScalarFieldType tmp_in(null_obj);
@@ -638,7 +667,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
   fft(into,from,do_dirs,inverse_transform);
 #else
   
-  enum { Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
+  enum { Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   int ndirs_fft = 0; for(int i=0;i<Dimension;i++) if(do_dirs[i]) ++ndirs_fft;
   if(! ndirs_fft ) return;
 
@@ -677,7 +706,7 @@ template<typename CPSfieldType>
 void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, const std::vector<int> &node_map, const bool inverse_transform,
 	     typename my_enable_if<_equal<typename ComplexClassify<typename CPSfieldType::FieldSiteType>::type, complex_double_or_float_mark>::value, const int>::type = 0
 	     ){
-  enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldDimensionPolicy::EuclideanDimension };
+  enum {SiteSize = CPSfieldType::FieldSiteSize, Dimension = CPSfieldType::FieldMappingPolicy::EuclideanDimension };
   typedef typename CPSfieldType::FieldSiteType ComplexType;
   typedef typename ComplexType::value_type FloatType;
   typedef typename FFTWwrapper<FloatType>::complexType FFTComplex;
@@ -726,7 +755,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
   int send_buf_sizes[munodes];
   for(int i=0;i<munodes;i++){
     send_buf_sizes[i] = munodes_work[i] * munodesites * nf * SiteSize;
-    send_bufs[i] = (ComplexType*)malloc( send_buf_sizes[i] * sizeof(ComplexType) );
+    send_bufs[i] = (ComplexType*)malloc_check( send_buf_sizes[i] * sizeof(ComplexType) );
 
     for(int w = 0; w < munodes_work[i]; w++){ //index of orthogonal site within workload for i'th node in mu direction
       const int orthsite = munodes_off[i] + w;
@@ -756,7 +785,7 @@ void fft_opt_mu(CPSfieldType &into, const CPSfieldType &from, const int mu, cons
 
   //Prepare recv buf
   const int bufsz = munodes_work[munodecoor] * mutotalsites * nf * SiteSize; //complete line in mu for each orthogonal coordinate
-  ComplexType* recv_buf = (ComplexType*)malloc(bufsz * sizeof(ComplexType) );
+  ComplexType* recv_buf = (ComplexType*)malloc_check(bufsz * sizeof(ComplexType) );
 
   //Setup send/receive    
   for(int i=0;i<munodes;i++){ //works fine to send to all nodes, even if this involves a send to self.
@@ -883,7 +912,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
   fft(into,from,do_dirs,inverse_transform);
 # else
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
-  typedef typename CPSfieldType::FieldDimensionPolicy::EquivalentScalarPolicy ScalarDimPol;
+  typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
   typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
 
   NullObject null_obj;
@@ -895,6 +924,57 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 # endif
 }
 #endif
+
+
+template<typename ComplexType, typename MappingType, typename ParamType>
+struct _setupFieldParams{};
+
+template<typename ComplexType, typename MappingType>
+struct _setupFieldParams<ComplexType,MappingType,cps::NullObject>{ //any field with NullObject params
+  static inline void doit(cps::NullObject &n){}
+}; 
+
+#ifdef USE_GRID
+template<typename ComplexType, typename FlavorPolicy>
+struct _setupFieldParams<ComplexType, FourDSIMDPolicy<FlavorPolicy>, typename FourDSIMDPolicy<FlavorPolicy>::ParamType>{
+  static inline void doit(typename FourDSIMDPolicy<FlavorPolicy>::ParamType &p){
+    int nsimd = ComplexType::Nsimd();
+    FourDSIMDPolicy<FlavorPolicy>::SIMDdefaultLayout(p,nsimd,2); //only divide over spatial directions
+
+    if(!UniqueID()){
+      printf("4D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+      for(int i=0;i<4;i++)
+	printf("%d ", p[i]);
+      printf("\n");
+    }
+  }
+};
+template<typename ComplexType, typename FlavorPolicy>
+struct _setupFieldParams<ComplexType, ThreeDSIMDPolicy<FlavorPolicy>, typename ThreeDSIMDPolicy<FlavorPolicy>::ParamType>{
+  static inline void doit(typename ThreeDSIMDPolicy<FlavorPolicy>::ParamType &p){
+    int nsimd = ComplexType::Nsimd();
+    ThreeDSIMDPolicy<FlavorPolicy>::SIMDdefaultLayout(p,nsimd);
+  
+    if(!UniqueID()){
+      printf("3D field params: Nsimd = %d, SIMD dimensions:\n", nsimd);
+      for(int i=0;i<3;i++)
+	printf("%d ", p[i]);
+      printf("\n");
+    }
+  }
+};
+#endif
+
+template<typename FieldType>
+void setupFieldParams(typename FieldType::InputParamType &p){
+  _setupFieldParams<typename FieldType::FieldSiteType, typename FieldType::FieldMappingPolicy, typename FieldType::FieldMappingPolicy::ParamType>::doit(p);
+}
+
+
+template<typename DerivedType>
+struct baseCPSfieldType{
+  typedef CPSfield<typename DerivedType::FieldSiteType, DerivedType::FieldSiteSize, typename DerivedType::FieldMappingPolicy, typename DerivedType::FieldAllocPolicy> type;
+};
 
 CPS_END_NAMESPACE
 #endif

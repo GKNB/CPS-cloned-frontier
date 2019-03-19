@@ -2,7 +2,10 @@
 #define _A2A_GRID_LANCZOS_H
 
 #ifdef USE_GRID
+#include<util/time_cps.h>
 #include<util/lattice/fgrid.h>
+#include<alg/lanc_arg.h>
+#include<alg/a2a/CPSfield.h>
 
 CPS_START_NAMESPACE
 
@@ -41,10 +44,20 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   if(!UniqueID()) printf("Chebyshev lo=%g hi=%g ord=%d\n",lo,hi,ord);
   
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
-  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
-
-  if(lanc_arg.lock) IRL.lock = 1;
-
+#ifdef USE_CHULWOOS_LANCZOS
+#warning "Using Chulwoo's Grid Lanczos implementation"
+  Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+#else
+#warning "Using default Grid Lanczos implementation"
+  Grid::PlainHermOp<GridFermionField> HermOpF(HermOp);
+  Grid::FunctionHermOp<GridFermionField> ChebF(Cheb,HermOp); 
+  Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(ChebF,HermOpF,Nstop,Nk,Nm,resid,MaxIt);
+  
+  //Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+#endif
+  //if(lanc_arg.lock) IRL.lock = 1;
+  if(lanc_arg.lock) ERR.General("::","gridLanczos","Grid Lanczos does not currently support locking\n");
+  
   eval.resize(Nm);
   evec.reserve(Nm);
   evec.resize(Nm, FrbGrid);
@@ -70,8 +83,12 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   src.checkerboard = Grid::Odd;
 # else
   {
+    LatRanGen lrgbak(LRG);
+    
     CPSfermion5D<cps::ComplexD> tmp;
     tmp.setGaussianRandom();
+
+    LRG = lrgbak;
     
     GridFermionField src_all(FGrid);
     tmp.exportGridField(src_all);
@@ -83,12 +100,17 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   time = -dclock();
 
   
-  if(!UniqueID()) printf("Starting Lanczos algorithm\n");
+  if(!UniqueID()) printf("Starting Lanczos algorithm with %d threads (omp_get_max_threads %d)\n", Grid::GridThread::GetThreads(),omp_get_max_threads());
   int Nconv;
+  IRL.normalise(src);
   IRL.calc(eval,evec,
 	   src,
-	   Nconv);
-
+	   Nconv
+#ifndef USE_CHULWOOS_LANCZOS
+	   , true
+#endif
+	   );
+  
   print_time("gridLanczos","Algorithm",time+dclock());
 #endif
 }
@@ -118,6 +140,8 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
   GridDirac Ddwf(*Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,lanc_arg.mass,M5,mob_b,mob_c, params);
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, *Umu, UGrid, UrbGrid, FGrid, FrbGrid);
+
+  //Ddwf.Report();
 }
 
 template<typename GridPolicies>
@@ -136,7 +160,7 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   
   NullObject null_obj;
   lattice.BondCond();
-  CPSfield<cps::ComplexD,4*9,FourDpolicy,OneFlavorPolicy> cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
+  CPSfield<cps::ComplexD,4*9,FourDpolicy<OneFlavorPolicy> > cps_gauge((cps::ComplexD*)lattice.GaugeField(),null_obj);
   cps_gauge.exportGridField(Umu_f);
   lattice.BondCond();
 
@@ -151,6 +175,8 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   GridDiracF Ddwf(Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,lanc_arg.mass,M5,mob_b,mob_c, params);
 
   gridLanczos(eval, evec, lanc_arg, Ddwf, Umu_f, UGrid_f, UrbGrid_f, FGrid_f, FrbGrid_f);
+
+  //Ddwf.Report();
 }
 
 

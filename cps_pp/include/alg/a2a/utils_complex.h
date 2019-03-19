@@ -1,0 +1,152 @@
+#ifndef _UTILS_COMPLEX_H_
+#define _UTILS_COMPLES_H_
+
+#include <alg/qpropw_arg.h>
+#include <util/random.h>
+#include <alg/a2a/template_wizardry.h>
+//Useful functions for complex numbers
+
+CPS_START_NAMESPACE
+
+//Set the complex number at pointer p to a random value of a chosen type
+//Uses the current LRG for the given FermionFieldDimension. User should choose the range and the particular site-RNG themselves beforehand
+template<typename mf_Float>
+class RandomComplex{};
+
+//Only for float and double, hence I have to control its access
+template<typename mf_Float>
+class RandomComplexBase{
+ protected:
+  template<typename T> friend class RandomComplex;
+  
+  static void rand(mf_Float *p, const RandomType type, const FermionFieldDimension frm_dim){
+    static const Float PI = 3.14159265358979323846;
+    Float theta = LRG.Urand(frm_dim);
+  
+    switch(type) {
+    case UONE:
+      p[0] = cos(2. * PI * theta);
+      p[1] = sin(2. * PI * theta);
+      break;
+    case ZTWO:
+      p[0] = theta > 0.5 ? 1 : -1;
+      p[1] = 0;
+      break;
+    case ZFOUR:
+      if(theta > 0.75) {
+	p[0] = 1;
+	p[1] = 0;
+      }else if(theta > 0.5) {
+	p[0] = -1;
+	p[1] = 0;
+      }else if(theta > 0.25) {
+	p[0] = 0;
+	p[1] = 1;
+      }else {
+	p[0] = 0;
+	p[1] = -1;
+      }
+      break;
+    default:
+      ERR.NotImplemented("RandomComplexBase", "rand(...)");
+    }
+  }
+};
+
+//Only implementation for std::complex
+template<typename T>
+class RandomComplex<std::complex<T> > : public RandomComplexBase<T>{
+public:
+  static void rand(std::complex<T> *p, const RandomType &type, const FermionFieldDimension &frm_dim){
+    RandomComplexBase<T>::rand( (T*)p, type, frm_dim);
+  }
+};
+
+
+//Wrapper function to multiply a number by +/-i for std::complex and Grid complex
+template<typename T, typename T_class>
+struct _mult_sgn_times_i_impl{};
+
+template<typename T>
+struct _mult_sgn_times_i_impl<T,complex_double_or_float_mark>{
+  inline static T doit(const int sgn, const T &val){
+    return T( -sgn * val.imag(), sgn * val.real() ); // sign * i * val
+  }
+};
+
+#ifdef USE_GRID
+template<typename T>
+struct _mult_sgn_times_i_impl<T,grid_vector_complex_mark>{
+  inline static T doit(const int sgn, const T &val){
+    return sgn == -1 ? timesMinusI(val) : timesI(val);
+  }
+};
+#endif
+
+template<typename T>
+inline T multiplySignTimesI(const int sgn, const T &val){
+  return _mult_sgn_times_i_impl<T,typename ComplexClassify<T>::type>::doit(sgn,val);
+}
+
+
+//Wrapper function to take complex conjugate for std::complex and Grid complex
+template<typename T, typename ComplexClass>
+struct _cconj{};
+
+template<typename T>
+struct _cconj<T,complex_double_or_float_mark>{
+  static inline T doit(const T &in){ return std::conj(in); }
+};
+#ifdef USE_GRID
+template<typename T>
+struct _cconj<T,grid_vector_complex_mark>{
+  static inline T doit(const T &in){ return Grid::conjugate(in); }
+};
+#endif
+
+template<typename T>
+inline T cconj(const T& in){
+  return _cconj<T,typename ComplexClassify<T>::type>::doit(in);
+}
+
+//Wrapper function for equals for std::complex and Grid complex
+template<typename T>
+inline bool equals(const T &a, const T &b){ return a == b; }
+
+#ifdef USE_GRID
+inline bool equals(const Grid::vComplexD &a, const Grid::vComplexD &b){
+  Grid::vComplexD::conv_t ac, bc;
+  ac.v = a.v; bc.v = b.v;
+  for(int i=0;i<Grid::vComplexD::Nsimd();i++) if(ac.s[i] != bc.s[i]) return false;
+  return true;
+}
+inline bool equals(const Grid::vComplexF &a, const Grid::vComplexF &b){
+  Grid::vComplexF::conv_t ac, bc;
+  ac.v = a.v; bc.v = b.v;
+  for(int i=0;i<Grid::vComplexF::Nsimd();i++) if(ac.s[i] != bc.s[i]) return false;
+  return true;
+}
+#endif
+
+//Convert Grid or std complex number to double precision std::complex
+template<typename T>
+std::complex<double> convertComplexD(const std::complex<T> &what){
+  return what;
+}
+#ifdef USE_GRID
+std::complex<double> convertComplexD(const Grid::vComplexD &what){  
+  return Reduce(what);
+}
+std::complex<double> convertComplexD(const Grid::vComplexF &what){  
+  return Reduce(what);
+}
+#endif
+
+
+
+
+
+CPS_END_NAMESPACE
+
+
+#endif

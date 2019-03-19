@@ -1,15 +1,18 @@
 #ifndef _A2A_SOURCES_H
 #define _A2A_SOURCES_H
 
+#include<alg/a2a/CPSfield.h>
+#include<alg/a2a/a2a_policies.h>
+
 CPS_START_NAMESPACE
 
 //Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
 
 //3D complex field. Defined for a *single flavor* if GPBC
-template<typename mf_Complex,typename DimensionPolicy = SpatialPolicy, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<DimensionPolicy::EuclideanDimension == 3, int>::type = 0>
+template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
 class A2Asource{
 public:
-  typedef CPSfield<mf_Complex,1,DimensionPolicy,OneFlavorPolicy,FieldAllocPolicy> FieldType;  
+  typedef CPSfield<mf_Complex,1,MappingPolicy,FieldAllocPolicy> FieldType;  
 protected:
   FieldType *src;
 public:
@@ -31,8 +34,8 @@ public:
   inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
   inline const int nsites() const{ return src->nsites(); }
 
-  template< typename extComplexType, typename extDimPol, typename extAllocPol>
-  void importSource(const A2Asource<extComplexType,extDimPol,extAllocPol> &from){
+  template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
+  void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
     src->importField(*from.src);
   }
   FieldType & getSource(){ return *src; } //For testing
@@ -75,14 +78,14 @@ public:
 
 //Use CRTP for 'setSite' method which should be specialized according to the source type
 template<typename FieldPolicies, typename Child>
-class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>{
+class A2AsourceBase: public A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>{
 public:
   typedef FieldPolicies Policies;
-  typedef typename A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
+  typedef typename A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>::FieldType::InputParamType FieldParamType;
   
-  A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(p){};
-  A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
-  A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(r){}
+  A2AsourceBase(const FieldParamType &p): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(p){};
+  A2AsourceBase(): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(){}; //SOURCE IS NOT SETUP
+  A2AsourceBase(const A2AsourceBase &r): A2Asource<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(r){}
   
   void fft_source(){
     assert(this->src != NULL);
@@ -99,7 +102,44 @@ public:
     }
     //Perform the FFT and pull out this nodes subvolume
     glb.fft();
-    glb.scatter<typename FieldPolicies::ComplexType, typename FieldPolicies::DimensionPolicy, typename FieldPolicies::AllocPolicy>(*this->src);
+    glb.scatter<typename FieldPolicies::ComplexType, typename FieldPolicies::MappingPolicy, typename FieldPolicies::AllocPolicy>(*this->src);
+  }
+};
+
+
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2ApointSource: public A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> >{
+public:
+  typedef A2AsourceBase<FieldPolicies, A2ApointSource<FieldPolicies> > BaseType;
+  typedef FieldPolicies Policies;
+  typedef typename BaseType::FieldParamType FieldParamType;
+  typedef typename Policies::ComplexType ComplexType;
+      
+  A2ApointSource(const FieldParamType &field_params): BaseType(field_params){
+    this->fft_source();
+  }
+
+  A2ApointSource(): BaseType(){} //src is not setup
+
+  A2ApointSource(const A2ApointSource &r): BaseType(r){}
+  
+  //Setup the source if the default constructor was used
+  void setup(const FieldParamType &field_params){
+    this->BaseType::setup(field_params);
+    this->fft_source();
+  }
+  void setup(){
+    return setup(NullObject());
+  }
+    
+  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
+    out(0,0) = out(1,1) = this->siteComplex(site);
+    out(0,1) = out(1,0) = ComplexType(0);    
+  }
+
+  inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
+    Float r = this->pmodr(site,glb_size);
+    return ComplexD(r == 0. ? 1./(glb_size[0]*glb_size[1]*glb_size[2]) : 0.);
   }
 };
 
@@ -336,22 +376,20 @@ public:
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-  ComplexType *val000;
+  ComplexType val000;
   virtual void dummy() = 0; //make sure this class can't be instantiated directly
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
-    SIMDsplat(*val000,v);    
+    SIMDsplat(val000,v);    
   }
 public:
 
-  A2AflavorProjectedSource(): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), SourceType(){}
-  ~A2AflavorProjectedSource(){ free(val000); }
+  A2AflavorProjectedSource(): SourceType(){}
   
-  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000( (ComplexType*)memalign(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
-    *val000 = *r.val000;
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000(r.val000), sign(r.sign), SourceType(r){
   }
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
@@ -386,13 +424,34 @@ public:
     
     out(0,0) = out(1,1) = val;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    out(1,0) = multiplySignTimesI(sign,val - *val000);
+    out(1,0) = multiplySignTimesI(sign,val - val000);
     out(0,1) = -out(1,0); //-1 from sigma2
   }
 
   //Can change momentum sign without redoing FFT
   void setMomentum(const int p[3]){
     sign = getProjSign(p);
+  }
+};
+
+
+//No projector is required for point source, hence we just have to add a setMomentum method that does nothing
+template<typename FieldPolicies = StandardSourcePolicies>
+class A2AflavorProjectedPointSource : public A2ApointSource<FieldPolicies>{
+public:
+  typedef A2ApointSource<FieldPolicies> BaseType;
+  typedef typename BaseType::FieldParamType FieldParamType;
+  typedef typename BaseType::ComplexType ComplexType;
+  
+  A2AflavorProjectedPointSource(const FieldParamType &src_field_params): BaseType(src_field_params){}
+  A2AflavorProjectedPointSource(): BaseType(){}
+
+  A2AflavorProjectedPointSource(const A2AflavorProjectedPointSource &r): BaseType(r){}
+  
+  void setup(const FieldParamType &src_field_params = NullObject()){
+    this->BaseType::setup(src_field_params);
+  }
+  inline void setMomentum(const int p[3]){
   }
 };
 

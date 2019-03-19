@@ -65,6 +65,11 @@ struct vml_enum_map FclassType_map[] = {
 	{"FclassType","F_CLASS_MDWF",F_CLASS_MDWF},
 	{"FclassType","F_CLASS_BFM",F_CLASS_BFM},
 	{"FclassType","F_CLASS_BFM_TYPE2",F_CLASS_BFM_TYPE2},
+	{"FclassType","F_CLASS_GRID",F_CLASS_GRID},
+	{"FclassType","F_CLASS_GRID_GPARITY_MOBIUS",F_CLASS_GRID_GPARITY_MOBIUS},
+	{"FclassType","F_CLASS_GRID_MOBIUS",F_CLASS_GRID_MOBIUS},
+	{"FclassType","F_CLASS_GRID_GPARITY_WILSON_TM",F_CLASS_GRID_GPARITY_WILSON_TM},
+	{"FclassType","F_CLASS_GRID_WILSON_TM",F_CLASS_GRID_WILSON_TM},
 	{NULL,NULL,0}
 };
 
@@ -1091,6 +1096,21 @@ struct vml_enum_map BfmSolverType_map[] = {
 	{"BfmSolverType","BFM_DWFTransferInv",BFM_DWFTransferInv},
 	{"BfmSolverType","BFM_HtContFracTanh",BFM_HtContFracTanh},
 	{"BfmSolverType","BFM_HtContFracZolo",BFM_HtContFracZolo},
+	{NULL,NULL,0}
+};
+
+bool_t
+vml_A2ACGalgorithm (VML *vmls, char *name,A2ACGalgorithm *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2ACGalgorithm_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2ACGalgorithm_map[] = {
+	{"A2ACGalgorithm","AlgorithmCG",AlgorithmCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionRestartedCG",AlgorithmMixedPrecisionRestartedCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateSplitCG",AlgorithmMixedPrecisionReliableUpdateSplitCG},
 	{NULL,NULL,0}
 };
 CPS_END_NAMESPACE

@@ -3,7 +3,10 @@
 
 //Grid implementations of performance critical components of inner_mult
 #ifdef USE_GRID
+#include<util/flavormatrix.h>
+#include<alg/a2a/scfvectorptr.h>
 #include<alg/a2a/grid_simdlinalg.h>
+
 CPS_START_NAMESPACE
 
 template<typename mf_Complex, bool conj_left, bool conj_right>

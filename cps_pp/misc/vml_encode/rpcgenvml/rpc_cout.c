@@ -148,7 +148,7 @@ prpc_generate_union_typemap_emit(definition *def){
   case_list* l;
   for (l = c; l != NULL; l = l->next){
     f_print (fout, "template <> %s %s::type_map<%s>(){\n",enum_type,name,l->case_decl.type);
-    f_print (fout, "\t return %s;\n",l->case_name);
+    f_print (fout, "\t return %s(%s);\n",enum_type,l->case_name);
     f_print( fout, "}\n");
   }
 }

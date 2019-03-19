@@ -1,6 +1,8 @@
 #ifndef _THREEMOMENTUM_H
 #define _THREEMOMENTUM_H
 
+#include<util/gjp.h>
+
 CPS_START_NAMESPACE
 
 class ThreeMomentum{
@@ -101,6 +103,15 @@ public:
       p_latt[i] = p[i] * unit;
     }
   }
+  inline int norm2(){return p[0]*p[0]+p[1]*p[1]+p[2]*p[2];}
+
+  inline void cyclicPermute(const int n = 1){
+    int pold[3] = {p[0],p[1],p[2]};
+    for(int i=0;i<3;i++){
+      int ii = (i+n) % 3;
+      p[ii] = pold[i];
+    }
+  } 
 
 };
 

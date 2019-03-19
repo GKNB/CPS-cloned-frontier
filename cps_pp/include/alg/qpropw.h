@@ -584,6 +584,8 @@ public:
   
   QPropWRand(Lattice& lat, QPropWArg* , QPropWRandArg *, CommonArg*);
 
+  QPropWRand(Lattice& lat, QPropWArg* , QPropWRandArg *, CommonArg*, Complex const* rsrc_in); //pass in the random source
+
   QPropWRand(const QPropWRand& rhs);  //copy constructor
 
   //MANIPULATORS
@@ -619,6 +621,20 @@ public:
   SourceType SrcType() { return RANDWALL; }
 
 };
+
+//Random wall-momentum source
+class QPropWRandMomSrc : public QPropWRand {
+  ThreeMom mom;
+public:
+  QPropWRandMomSrc(Lattice& lat, CommonArg* c_arg);
+  QPropWRandMomSrc(Lattice& lat, QPropWArg* , QPropWRandArg *, int *p, CommonArg*);
+  QPropWRandMomSrc(Lattice& lat, QPropWArg* , QPropWRandArg *, int *p, CommonArg*, Complex const* rsrc_in);
+  void SetSource(FermionVectorTp& src, int spin, int color);
+  SourceType SrcType() { return RANDMOM; }
+  
+  ThreeMom Mom() { return mom; } 
+};
+
 
 class QPropWRandVolSrc : public QPropWRand {
 

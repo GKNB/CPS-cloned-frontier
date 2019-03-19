@@ -2,11 +2,24 @@
 #define CPS_FIELD_POLICIES
 
 #include <malloc.h>
+#include <alg/a2a/utils.h>
 
 CPS_START_NAMESPACE
 
 template<typename polA, typename polB>
 struct sameDim{ static const bool val = intEq<polA::EuclideanDimension, polB::EuclideanDimension>::val; };
+
+
+inline void writePolicyName(std::ostream &file, const std::string &policy, const std::string &name, bool newline = true){
+  file << policy << " = " << name << (newline ? "\n" : "");
+}
+
+inline void checkPolicyName(std::istream &file, const std::string &policy, const std::string &name){
+  std::string tmp; getline(file,tmp);
+  std::ostringstream expect; writePolicyName(expect,policy,name,false);
+  if(tmp != expect.str()){ printf("checkPolicyName expected \"%s\" got \"%s\"\n",expect.str().c_str(), tmp.c_str()); fflush(stdout); exit(-1); }
+}
+
 
 //AllocPolicy controls mem alloc
 class StandardAllocPolicy{
@@ -17,16 +30,26 @@ class StandardAllocPolicy{
   inline static void _free(void* p){
     sfree("CPSfield","CPSfield","free",p);
   }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "StandardAllocPolicy");
+  }
 };
 class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
-    *p = memalign(128,byte_size);
-    //if(!UniqueID()) printf("Aligned128AllocPolicy alloc %p, size %f MB\n",*p, double(byte_size)/1024./1024.);
+    *p = memalign_check(128,byte_size);
   }
   inline static void _free(void* p){
     free(p);
-    //if(!UniqueID()) printf("Aligned128AllocPolicy free %p\n",p);
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");
   }
 };
 class NullAllocPolicy{
@@ -35,6 +58,12 @@ class NullAllocPolicy{
     *p = NULL;
   }
   inline static void _free(void* p){
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "NullAllocPolicy");
   }
 };
 class ManualAllocPolicy{
@@ -57,7 +86,13 @@ class ManualAllocPolicy{
       sfree("CPSfield","CPSfield","free",*ptr);
       *ptr = NULL;
     }
-  } 
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualAllocPolicy");
+  }
 };
 class ManualAligned128AllocPolicy{
   void** ptr;
@@ -72,14 +107,20 @@ class ManualAligned128AllocPolicy{
  public:
   inline void allocField(){
     if(*ptr == NULL)
-      *ptr = memalign(128,bs);
+      *ptr = memalign_check(128,bs);    
   }
   inline void freeField(){
     if(*ptr != NULL){
       free(*ptr);
       *ptr = NULL;
     }
-  } 
+  }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "ALLOCPOLICY", "ManualAligned128AllocPolicy");
+  }
 };
 
 
@@ -87,25 +128,51 @@ class ManualAligned128AllocPolicy{
 template<int Nf>
 class FixedFlavorPolicy{
 protected:
-  void setFlavors(int &flavors) const{ flavors = Nf; }
+  inline void writeParams(std::ostream &file) const{
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    writePolicyName(file, "FLAVORPOLICY", os.str());
+  }
+  inline void readParams(std::istream &file){
+    std::ostringstream os; os << "FixedFlavorPolicy<" << Nf << ">";
+    checkPolicyName(file, "FLAVORPOLICY", os.str());
+  }
+public:
+  inline const int nflavors() const{ return Nf; }
 };
 typedef FixedFlavorPolicy<1> OneFlavorPolicy;
 
 //Default is to use two flavors if GPBC, 1 otherwise
 class DynamicFlavorPolicy{
 protected:
-  void setFlavors(int &flavors) const{ flavors = GJP.Gparity() ? 2:1 ; }
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "FLAVORPOLICY", "DynamicFlavorPolicy");
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "FLAVORPOLICY", "DynamicFlavorPolicy");
+  }
+public:
+  inline const int nflavors() const{ return GJP.Gparity() ? 2:1; }
 };
 
+#define _DEF_REBASE(P) \
+  template<typename T> \
+  struct Rebase{ \
+    typedef P<T> type; \
+  }
 
 //The DimensionPolicy controls the mapping between an N-dimensional vector and a flavor index to an integer which is used to compute the pointer offset.
 //Each policy contains 2 mappings; a linearization of a Euclidean vector to an index, and a linearization of the Euclidean vector plus a flavor index. The latter is used to compute pointer offsets, the former for convenient site looping
 //We generically refer to 'sites' as being those of the Euclidean lattice, and fsites as those of the Euclidean+flavor lattice (as if flavor was another dimension)
 
-class FourDpolicy{ //Canonical layout 4D field with second flavor stacked after full 4D block
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = GJP.VolNodeSites(); fsites = nf * sites; }
+template<typename FlavorPolicy  = DynamicFlavorPolicy>
+class FourDpolicy: public FlavorPolicy{ //Canonical layout 4D field with second flavor stacked after full 4D block
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(FourDpolicy);
+  
+  inline const int nsites() const{ return GJP.VolNodeSites(); }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*x[3])); }
 
   inline void siteUnmap(int site, int x[]) const{
@@ -135,13 +202,26 @@ public:
   inline int threeToFour(const int x3d, const int t) const{ return x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t; } //convert 3d index to 4d index
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDpolicy");
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDpolicy");
+    this->FlavorPolicy::readParams(file);
+  }
 };
 //Canonical layout 5D field. The fsite second flavor is stacked inside the s-loop. The site is just linearized in the canonical format
-class FiveDpolicy{ 
-  int nf; //store nf so we don't have to keep passing it
-protected:
-  void setSites(int &sites, int &fsites, const int _nf){ nf = _nf; sites = GJP.VolNodeSites()*GJP.SnodeSites(); fsites = nf*sites; }
+template<typename FlavorPolicy  = DynamicFlavorPolicy>
+class FiveDpolicy: public FlavorPolicy{ 
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(FiveDpolicy);
+  
+  inline const int nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites(); }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))); }
 
   inline void siteUnmap(int site, int x[]) const{
@@ -150,22 +230,22 @@ public:
     }
   }
 
-  inline int fsiteMap(const int x[], const int f) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))); }
+  inline int fsiteMap(const int x[], const int f) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + this->nflavors()*x[4]) ))); }
 
   inline void fsiteUnmap(int fsite, int x[], int &f) const{
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
     }
-    f = fsite % nf; fsite /= nf;
+    f = fsite % this->nflavors(); fsite /= this->nflavors();
     x[4] = fsite;
   }
 
   inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites(); }
 
-  inline int siteFsiteConvert(const int site, const int f) const{ 
+  inline int siteFsiteConvert(const int site, const int f) const{
     int x4d = site % GJP.VolNodeSites();
     int s = site / GJP.VolNodeSites();
-    return x4d + GJP.VolNodeSites()*(f + nf*s);
+    return x4d + GJP.VolNodeSites()*(f + this->nflavors()*s);
   }
 
   inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
@@ -176,8 +256,19 @@ public:
   const static int EuclideanDimension = 5;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+  
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FiveDpolicy");
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FiveDpolicy");
+    this->FlavorPolicy::readParams(file);
+  }
 };
-class FourDglobalInOneDir{ //4D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
+
+template<typename FlavorPolicy = DynamicFlavorPolicy>
+class FourDglobalInOneDir: public FlavorPolicy{ //4D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
   int lmap[4]; //map of local dimension to physical X,Y,Z,T dimension. e.g.  [1,0,2,3] means local dimension 0 is the Y dimension, local dimension 1 is the X-direction and so on
   int dims[4];
   int dir;
@@ -193,10 +284,13 @@ class FourDglobalInOneDir{ //4D field where one direction 'dir' spans the entire
 
     dvol = dims[0]*dims[1]*dims[2]*dims[3];
   }
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = dvol; fsites = nf * sites; }
-
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(FourDglobalInOneDir);
+  
+  inline const int nsites() const{ return dvol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*( x[lmap[2]] + dims[2]*x[lmap[3]])); }
 
   inline void siteUnmap(int site, int x[]) const{
@@ -229,14 +323,37 @@ public:
 
   ParamType getDimPolParams() const{ return dir; }
 
-  typedef FourDpolicy EquivalentLocalPolicy;
+  typedef FourDpolicy<FlavorPolicy> EquivalentLocalPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDglobalInOneDir");
+    file << "LMAP = " << lmap[0] << " " << lmap[1] << " " << lmap[2] << " " << lmap[3] << "\n";
+    file << "DIMS = " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << "\n";
+    file << "DIR = " << dir << "\n";
+    file << "DVOL = " << dvol << "\n";
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){ //overwrite existing dir
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDglobalInOneDir");
+    std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"LMAP = %d %d %d %d",&lmap[0],&lmap[1],&lmap[2],&lmap[3]) == 4 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIMS = %d %d %d %d",&dims[0],&dims[1],&dims[2],&dims[3]) == 4 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIR = %d",&dir) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"DVOL = %d",&dvol) == 1 );
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
-class SpatialPolicy{ //Canonical layout 3D field
+template<typename FlavorPolicy = DynamicFlavorPolicy >
+class SpatialPolicy: public FlavorPolicy{ //Canonical layout 3D field
   int threevol;
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = threevol; fsites = nf*sites; }
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(SpatialPolicy);
+  
+  inline const int nsites() const{ return threevol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*x[2]); }
   inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
@@ -244,7 +361,7 @@ public:
     }
   }
 
-  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + GJP.VolNodeSites()/GJP.TnodeSites()*f; }
+  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + threevol*f; }
 
   inline void fsiteUnmap(int fsite, int x[], int &f) const{
     siteUnmap(fsite,x);
@@ -265,14 +382,29 @@ public:
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "SpatialPolicy");
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "SpatialPolicy");
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
-class GlobalSpatialPolicy{ //Global canonical 3D field
+template<typename FlavorPolicy = DynamicFlavorPolicy>
+class GlobalSpatialPolicy: public FlavorPolicy{ //Global canonical 3D field
 protected:
   int glb_size[3];
   int glb_vol;
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = glb_vol; fsites = nf*sites; }
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+    _DEF_REBASE(GlobalSpatialPolicy);
+  
+  inline const int nsites() const{ return glb_vol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[0] + glb_size[0]*( x[1] + glb_size[1]*x[2]); }
 
   inline void siteUnmap(int site, int x[]){
@@ -305,9 +437,20 @@ public:
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "GlobalSpatialPolicy");
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "GlobalSpatialPolicy");
+    this->FlavorPolicy::readParams(file);
+  }
+  
 };
 
-class ThreeDglobalInOneDir{ //3D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
+template<typename FlavorPolicy = DynamicFlavorPolicy>
+class ThreeDglobalInOneDir: public FlavorPolicy{ //3D field where one direction 'dir' spans the entire lattice on each node separately. The ordering is setup so that the 'dir' points are blocked (change most quickly)
   int lmap[3]; //map of local dimension to physical X,Y,Z dimension. e.g.  [1,0,2] means local dimension 0 is the Y dimension, local dimension 1 is the X-direction and so on
   int dims[3];
   int dir;
@@ -323,10 +466,13 @@ class ThreeDglobalInOneDir{ //3D field where one direction 'dir' spans the entir
 
     dvol = dims[0]*dims[1]*dims[2];
   }
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = dvol; fsites = nf*sites; }
-
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(ThreeDglobalInOneDir);
+  
+  inline const int nsites() const{ return dvol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ return x[lmap[0]] + dims[0]*( x[lmap[1]] + dims[1]*x[lmap[2]]); }
   inline void siteUnmap(int site, int x[]) const{
     for(int i=0;i<3;i++){ 
@@ -358,7 +504,25 @@ public:
 
   ParamType getDimPolParams() const{ return dir; }
 
-  typedef SpatialPolicy EquivalentLocalPolicy;
+  typedef SpatialPolicy<FlavorPolicy> EquivalentLocalPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "ThreeDglobalInOneDir");
+    file << "LMAP = " << lmap[0] << " " << lmap[1] << " " << lmap[2] << "\n";
+    file << "DIMS = " << dims[0] << " " << dims[1] << " " << dims[2] << "\n";
+    file << "DIR = " << dir << "\n";
+    file << "DVOL = " << dvol << "\n";
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){ //overwrite existing dir
+    checkPolicyName(file, "DIMENSIONPOLICY", "ThreeDglobalInOneDir");
+    std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"LMAP = %d %d %d",&lmap[0],&lmap[1],&lmap[2]) == 3 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIMS = %d %d %d",&dims[0],&dims[1],&dims[2]) == 3 );
+    getline(file,str); assert( sscanf(str.c_str(),"DIR = %d",&dir) == 1 );
+    getline(file,str); assert( sscanf(str.c_str(),"DVOL = %d",&dvol) == 1 );
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
 
@@ -381,6 +545,9 @@ public:
     int c = 0; for(int i=0;i<_CBdim;i++) c += x[i];
     return c % 2 == _CB;
   }
+
+  inline std::string getPolicyName() const{ std::ostringstream os; os << "CheckerBoard<" << _CBdim << "," << _CB << ">"; return os.str(); }
+  
 };
 
 template<typename T>
@@ -397,12 +564,15 @@ public:
 
 //Checkerboarded 5D field. The fsite second flavor is stacked inside the s-loop. The checkerboard dimension and which checkerboard it is are handled by the policy CheckerBoard
 //Note, the mappings do not check that the site is on the checkerboard; you should do that using onCb(x[])
-template<typename CheckerBoardType>
-class FiveDevenOddpolicy: public CheckerBoardType{ 
-  int nf; //store nf so we don't have to keep passing it
-protected:
-  void setSites(int &sites, int &fsites, const int _nf){ nf = _nf; sites = GJP.VolNodeSites()*GJP.SnodeSites()/2; fsites = nf*sites; }
+template<typename CheckerBoardType,typename FlavorPolicy = DynamicFlavorPolicy>
+class FiveDevenOddpolicy: public CheckerBoardType, public FlavorPolicy{ 
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(FiveDevenOddpolicy);
+  
+  inline const int nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites()/2; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int siteMap(const int x[]) const{ 
     return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))))/2; 
   }
@@ -415,14 +585,14 @@ public:
     if(!this->onCb(x)) x[0] += 1; //deal with int convert x[0]/2 giving same number for 0,1 etc
   }
 
-  inline int fsiteMap(const int x[], const int f) const{ return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + nf*x[4]) ))))/2; }
+  inline int fsiteMap(const int x[], const int f) const{ return (x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*( f + this->nflavors()*x[4]) ))))/2; }
 
   inline void fsiteUnmap(int fsite, int x[], int &f) const{
     fsite *= 2;
     for(int i=0;i<4;i++){ 
       x[i] = fsite % GJP.NodeSites(i); fsite /= GJP.NodeSites(i);
     }
-    f = fsite % nf; fsite /= nf;
+    f = fsite % this->nflavors(); fsite /= this->nflavors();
     x[4] = fsite;
     if(!this->onCb(x)) x[0] += 1; //deal with int convert x[0]/2 giving same number for 0,1 etc
   }
@@ -432,7 +602,7 @@ public:
   inline int siteFsiteConvert(const int site, const int f) const{ 
     int x4d = site % (GJP.VolNodeSites()/2);
     int s = site / (GJP.VolNodeSites()/2);
-    return x4d + GJP.VolNodeSites()*(f + nf*s)/2;
+    return x4d + GJP.VolNodeSites()*(f + this->nflavors()*s)/2;
   }
 
   typedef NullObject ParamType;
@@ -441,6 +611,17 @@ public:
   const static int EuclideanDimension = 5;
 
   ParamType getDimPolParams() const{ return ParamType(); }
+
+  inline void writeParams(std::ostream &file) const{
+    std::ostringstream os; os << "FiveDevenOddpolicy< " << this->CheckerBoardType::getPolicyName() << " >";    
+    writePolicyName(file, "DIMENSIONPOLICY", os.str());
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    std::ostringstream os; os << "FiveDevenOddpolicy< " << this->CheckerBoardType::getPolicyName() << " >";  
+    checkPolicyName(file, "DIMENSIONPOLICY", os.str());
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
 template<int N>
@@ -452,9 +633,16 @@ public:
   inline int* ptr(){ return &v[0]; }
   inline int const* ptr() const{ return &v[0]; }
   inline void set(const int* f){ for(int i=0;i<N;i++) v[i] = f[i]; }
-  SIMDdims(){}
+  SIMDdims(){ for(int i=0;i<N;i++) v[i] = 1; }
   SIMDdims(const int* f){ set(f); }
 };
+template<int N>
+std::ostream & operator<<(std::ostream &os, const SIMDdims<N> &v){
+  os << "SIMDdims(";
+  for(int i=0;i<N-1;i++) os << v[i] << ", ";
+  os << v[N-1] << ")";
+  return os;
+}
 
 template<int Dimension>
 class SIMDpolicyBase{
@@ -476,7 +664,7 @@ class SIMDpolicyBase{
   template<typename Vtype, typename Stype>
   static inline void SIMDunpack(std::vector<Stype*> &into, const Vtype *from, const int n = 1){
     int nsimd = Vtype::Nsimd();
-    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign(128,nsimd*sizeof(typename Vtype::scalar_type));
+    typename Vtype::scalar_type* tmp = (typename Vtype::scalar_type*)memalign_check(128,nsimd*sizeof(typename Vtype::scalar_type));
     for(int idx=0;idx<n;idx++){ //offset of elements on site
       vstore(*(from+idx),tmp);      
       for(int s=0;s<nsimd;s++)
@@ -488,6 +676,8 @@ class SIMDpolicyBase{
   //Iteratively divide the dimensions over the SIMD lanes up to a chosen maximum dimension (so we can exclude the time dimension for example, by setting max_dim_idx = 2)
   inline static void SIMDdefaultLayout(ParamType &simd_dims, const int nsimd, const int max_dim_idx = Dimension-1){
     for(int i=0;i<Dimension;i++) simd_dims[i] = 1;
+    if(nsimd == 1) return;
+
     assert(nsimd % 2 == 0);
     int rem = nsimd;
     int i=0;
@@ -502,16 +692,19 @@ class SIMDpolicyBase{
   }
 };
 
-
-class FourDSIMDPolicy: public SIMDpolicyBase<4>{ //4D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
+template<typename FlavorPolicy = DynamicFlavorPolicy>
+class FourDSIMDPolicy: public SIMDpolicyBase<4>, public FlavorPolicy{ //4D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
   int simd_dims[4]; //number of SIMD logical nodes in each direction
   int logical_dim[4]; //dimension of logical nodes
   int logical_vol;
   int nsimd;
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = logical_vol; fsites = nf*sites; }
-
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+  _DEF_REBASE(FourDSIMDPolicy);
+  
+  inline const int nsites() const{ return logical_vol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int Nsimd() const{ return nsimd; }
   inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; } 
   
@@ -561,7 +754,8 @@ public:
   
   typedef SIMDpolicyBase<4>::ParamType ParamType;
 
-  FourDSIMDPolicy(const ParamType &_simd_dims){
+private:
+  void setup(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<4;i++){
       simd_dims[i] = _simd_dims[i];
@@ -570,6 +764,10 @@ public:
       logical_vol *= logical_dim[i];
     }
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2]*simd_dims[3];
+  }
+public:
+  FourDSIMDPolicy(const ParamType &_simd_dims){
+    setup(_simd_dims);
   }
   const static int EuclideanDimension = 4;
 
@@ -580,21 +778,37 @@ public:
     return ParamType(simd_dims);
   }
 
-  typedef FourDpolicy EquivalentScalarPolicy;
+  typedef FourDpolicy<FlavorPolicy> EquivalentScalarPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "FourDSIMDPolicy");
+    file << "SIMD_DIMS = " << simd_dims[0] << " " << simd_dims[1] << " " << simd_dims[2] << " " << simd_dims[3] << "\n";
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "FourDSIMDPolicy");
+    ParamType rd_simd_dims; std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"SIMD_DIMS = %d %d %d %d",&rd_simd_dims[0],&rd_simd_dims[1],&rd_simd_dims[2],&rd_simd_dims[3]) == 4 );
+    setup(rd_simd_dims);
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
 
 
-
-class ThreeDSIMDPolicy: public SIMDpolicyBase<3>{ //3D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
+template<typename FlavorPolicy = DynamicFlavorPolicy>
+class ThreeDSIMDPolicy: public SIMDpolicyBase<3>, public FlavorPolicy{ //3D field with the dimensions blocked into logical nodes to be mapped into elements of SIMD vectors
   int simd_dims[3]; //number of SIMD logical nodes in each direction
   int logical_dim[3]; //dimension of logical nodes
   int logical_vol;
   int nsimd;
-protected:
-  void setSites(int &sites, int &fsites, const int nf) const{ sites = logical_vol; fsites = nf*sites; }
-
 public:
+  typedef FlavorPolicy FieldFlavorPolicy;
+   _DEF_REBASE(ThreeDSIMDPolicy);
+  
+  inline const int nsites() const{ return logical_vol; }
+  inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
+  
   inline int Nsimd() const{ return nsimd; }
   inline int SIMDlogicalNodes(const int dir) const{ return simd_dims[dir]; }
   
@@ -639,8 +853,9 @@ public:
   inline int nodeSites(const int dir) const{ return logical_dim[dir]; }
 
   typedef SIMDpolicyBase<3>::ParamType ParamType;
-  
-  ThreeDSIMDPolicy(const ParamType &_simd_dims){
+
+private:
+  void setup(const ParamType &_simd_dims){
     logical_vol = 1;
     for(int i=0;i<3;i++){
       simd_dims[i] = _simd_dims[i];
@@ -650,13 +865,30 @@ public:
     }
     nsimd = simd_dims[0]*simd_dims[1]*simd_dims[2];
   }
+public:
+  ThreeDSIMDPolicy(const ParamType &_simd_dims){
+    setup(_simd_dims);
+  }
   const static int EuclideanDimension = 3;
 
   ParamType getDimPolParams() const{
     return ParamType(simd_dims);
   }
 
-  typedef SpatialPolicy EquivalentScalarPolicy;
+  typedef SpatialPolicy<FlavorPolicy> EquivalentScalarPolicy;
+
+  inline void writeParams(std::ostream &file) const{
+    writePolicyName(file, "DIMENSIONPOLICY", "ThreeDSIMDPolicy");
+    file << "SIMD_DIMS = " << simd_dims[0] << " " << simd_dims[1] << " " << simd_dims[2] << "\n";
+    this->FlavorPolicy::writeParams(file);
+  }
+  inline void readParams(std::istream &file){
+    checkPolicyName(file, "DIMENSIONPOLICY", "ThreeDSIMDPolicy");
+    ParamType rd_simd_dims; std::string str;
+    getline(file,str); assert( sscanf(str.c_str(),"SIMD_DIMS = %d %d %d",&rd_simd_dims[0],&rd_simd_dims[1],&rd_simd_dims[2]) == 3 );
+    setup(rd_simd_dims);
+    this->FlavorPolicy::readParams(file);
+  }
 };
 
 
@@ -670,39 +902,89 @@ public:
 };
 
 
+//Structs to get a scalar mapping policy from a SIMD mapping policy
+template<typename MappingPolicy, int is_SIMD = isSIMDdimensionPolicy<MappingPolicy>::value>
+struct getScalarMappingPolicy{};
+
+template<typename MappingPolicy>
+struct getScalarMappingPolicy<MappingPolicy, 0>{
+  typedef MappingPolicy type;
+};
+template<typename MappingPolicy>
+struct getScalarMappingPolicy<MappingPolicy, 1>{
+  typedef typename MappingPolicy::EquivalentScalarPolicy type;
+};
 
 
 //Some helper structs to get policies for common field types
-template<int Nd>
+template<int Nd, typename FlavorPolicy = DynamicFlavorPolicy>
 struct StandardDimensionPolicy{};
 
-template<>
-struct StandardDimensionPolicy<3>{
-  typedef SpatialPolicy type;
+template<typename FlavorPolicy>
+struct StandardDimensionPolicy<3,FlavorPolicy>{
+  typedef SpatialPolicy<FlavorPolicy> type;
 };
-template<>
-struct StandardDimensionPolicy<4>{
-  typedef FourDpolicy type;
+template<typename FlavorPolicy>
+struct StandardDimensionPolicy<4,FlavorPolicy>{
+  typedef FourDpolicy<FlavorPolicy> type;
 };
-template<>
-struct StandardDimensionPolicy<5>{
-  typedef FiveDpolicy type;
+template<typename FlavorPolicy>
+struct StandardDimensionPolicy<5,FlavorPolicy>{
+  typedef FiveDpolicy<FlavorPolicy> type;
 };
 
 //Mapping between local and global-in-one-dir policies
 template<typename LocalDimPol>
 struct LocalToGlobalInOneDirMap{};
 
-template<>
-struct LocalToGlobalInOneDirMap<FourDpolicy>{
-  typedef FourDglobalInOneDir type;
+template<typename FlavorPolicy>
+struct LocalToGlobalInOneDirMap<FourDpolicy<FlavorPolicy> >{
+  typedef FourDglobalInOneDir<FlavorPolicy> type;
 };
-template<>
-struct LocalToGlobalInOneDirMap<SpatialPolicy>{
-  typedef ThreeDglobalInOneDir type;
+template<typename FlavorPolicy>
+struct LocalToGlobalInOneDirMap<SpatialPolicy<FlavorPolicy> >{
+  typedef ThreeDglobalInOneDir<FlavorPolicy> type;
 };
 
 
+
+template<int Dimension>
+struct IncludeSite{
+  virtual bool query(const int x[Dimension], const int f = 0) const = 0;
+};
+template<int Dimension>
+struct IncludeCBsite: public IncludeSite<Dimension>{
+  int cb;
+  int excludeflav;
+  
+  IncludeCBsite(const int _cb, int frestrict = -1): cb(_cb),  excludeflav(frestrict == -1 ? -1 : !frestrict){  //frestrict : restrict to a particular flavor
+    for(int i=0;i<Dimension;i++) assert(GJP.NodeSites(i) % 2 == 0);
+  }
+  
+  bool query(const int x[Dimension], const int f = 0) const{
+    int c = 0;
+    for(int i=0;i<Dimension;i++) c += x[i];
+    return c % 2 == cb && f != excludeflav;    
+  }
+};
+template<>
+struct IncludeCBsite<5>: public IncludeSite<5>{
+  int cb;
+  bool fived_prec;
+  int excludeflav;
+  
+  IncludeCBsite(const int _cb, bool _fived_prec = false, int frestrict = -1): cb(_cb), fived_prec(_fived_prec),  excludeflav(frestrict == -1 ? -1 : !frestrict){
+    for(int i=0;i<4;i++) assert(GJP.NodeSites(i) % 2 == 0);
+    if(fived_prec) assert(GJP.SnodeSites() % 2 == 0);
+  }
+  
+  bool query(const int x[5], const int f = 0) const{
+    int c = 0;
+    for(int i=0;i<4;i++) c += x[i];
+    if(fived_prec) c += x[4];
+    return c % 2 == cb && f != excludeflav;        
+  }
+};
 
 
 CPS_END_NAMESPACE

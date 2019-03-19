@@ -1,5 +1,9 @@
 #ifndef _FLAVOR_MATRIX_H
 #define _FLAVOR_MATRIX_H
+
+#include<util/data_types.h>
+#include<util/error.h>
+
 CPS_START_NAMESPACE
 
 template<typename T>

@@ -331,6 +331,7 @@ LatRanGen & LatRanGen::operator= (const LatRanGen & in)
     }
     cname = "LatRanGen";
   }
+  return *this;
 }
 
 bool LatRanGen::operator== (const LatRanGen & in) const

@@ -129,7 +129,10 @@ public:
   //  void FermionVectorTp::setMomSource(int color, int spin, int source_time,
   //                                   int* mom);
 
+  //Wall momentum sources
   void SetMomSource(int color, int spin, int source_time, ThreeMom& mom, int flavor = 0) ; //this works for G-parity BCs (quark momenta discretised in units of pi/2L)
+  void SetMomSource(int color, int spin, int source_time, ThreeMom& mom, Float* src, int flavor = 0); //Expect a lexicographically-ordered *4D complex* source. 2x volume if G-parity
+  
   void SetMomCosSource(int color, int spin, int source_time, ThreeMom& mom, int flavor = 0) ; //this works for G-parity BCs
   void SetMomCosTwistSource(int color, int spin, int source_time, ThreeMomTwist& mom); // Use this if you are using twisted boundary conditions
 

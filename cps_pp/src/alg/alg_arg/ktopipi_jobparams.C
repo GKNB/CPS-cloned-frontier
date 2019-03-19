@@ -5,6 +5,79 @@
 
 #include <alg/ktopipi_jobparams.h>
 CPS_START_NAMESPACE
+	 bool CGcontrols::Encode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
+		 if ( !Vml(&vmls,instance) ) return false;
+		 vmls.Destroy(); return true;
+	 }
+
+	 bool CGcontrols::Decode(char *filename,char *instance){
+		 VML vmls;
+		 if ( !vmls.Create(filename,VML_DECODE)) return false;
+		 if ( !Vml(&vmls,instance)) return false;
+		 vmls.Destroy(); return true;
+	 }
+	 bool CGcontrols::Vml(VML *vmls,char *instance){
+		 if(!vml_CGcontrols(vmls,instance,this)) return false;
+	 return true;
+	}
+
+
+bool_t
+vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
+{
+	 vml_class_begin(vmls,"CGcontrols",name);
+	 if (!vml_A2ACGalgorithm (vmls, "CGalgorithm", &objp->CGalgorithm))
+		 return FALSE;
+	 if (!vml_double (vmls, "CG_tolerance", &objp->CG_tolerance))
+		 return FALSE;
+	 if (!vml_int (vmls, "CG_max_iters", &objp->CG_max_iters))
+		 return FALSE;
+	 if (!vml_double (vmls, "mixedCG_init_inner_tolerance", &objp->mixedCG_init_inner_tolerance))
+		 return FALSE;
+	 if (!vml_double (vmls, "reliable_update_delta", &objp->reliable_update_delta))
+		 return FALSE;
+	 if (!vml_double (vmls, "reliable_update_transition_tol", &objp->reliable_update_transition_tol))
+		 return FALSE;
+	 if (!vml_int (vmls, "multiCG_block_size", &objp->multiCG_block_size))
+		 return FALSE;
+	 if (!vml_array (vmls, "split_grid_geometry", (char **)&objp->split_grid_geometry.split_grid_geometry_val, (u_int *) &objp->split_grid_geometry.split_grid_geometry_len, ~0,
+		sizeof (int), (vmlproc_t) vml_int))
+		 return FALSE;
+	 vml_class_end(vmls,"CGcontrols",name);
+	return TRUE;
+}
+void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &prefix){
+	std::cout << prefix << "{\n";
+	std::string spaces(prefix.size(),' ');
+	rpc_print<A2ACGalgorithm>::doit(what.CGalgorithm,spaces+" CGalgorithm = ");
+	rpc_print<double>::doit(what.CG_tolerance,spaces+" CG_tolerance = ");
+	rpc_print<int>::doit(what.CG_max_iters,spaces+" CG_max_iters = ");
+	rpc_print<double>::doit(what.mixedCG_init_inner_tolerance,spaces+" mixedCG_init_inner_tolerance = ");
+	rpc_print<double>::doit(what.reliable_update_delta,spaces+" reliable_update_delta = ");
+	rpc_print<double>::doit(what.reliable_update_transition_tol,spaces+" reliable_update_transition_tol = ");
+	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
+	rpc_print<int *>::doit(what.split_grid_geometry.split_grid_geometry_val,what.split_grid_geometry.split_grid_geometry_len,spaces+" split_grid_geometry = ");
+	std::cout << spaces << "}\n";
+}
+void CGcontrols::print(const std::string &prefix){
+	rpc_print<CGcontrols>::doit(*this,prefix);
+}
+void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
+	  rpc_deepcopy<A2ACGalgorithm>::doit(into.CGalgorithm,from.CGalgorithm);
+	  rpc_deepcopy<double>::doit(into.CG_tolerance,from.CG_tolerance);
+	  rpc_deepcopy<int>::doit(into.CG_max_iters,from.CG_max_iters);
+	  rpc_deepcopy<double>::doit(into.mixedCG_init_inner_tolerance,from.mixedCG_init_inner_tolerance);
+	  rpc_deepcopy<double>::doit(into.reliable_update_delta,from.reliable_update_delta);
+	  rpc_deepcopy<double>::doit(into.reliable_update_transition_tol,from.reliable_update_transition_tol);
+	  rpc_deepcopy<int>::doit(into.multiCG_block_size,from.multiCG_block_size);
+	  into.split_grid_geometry.split_grid_geometry_len = from.split_grid_geometry.split_grid_geometry_len;
+	  rpc_deepcopy<int *>::doit(into.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_len);
+}
+void CGcontrols::deep_copy(CGcontrols const &rhs){
+	rpc_deepcopy<CGcontrols>::doit(*this,rhs);
+}
 	 bool JobParams::Encode(char *filename,char *instance){
 		 VML vmls;
 		 if ( !vmls.Create(filename,VML_ENCODE)) return false;
@@ -32,6 +105,10 @@ vml_JobParams (VML *vmls, char *name,JobParams *objp)
 		 return FALSE;
 	 if (!vml_double (vmls, "mobius_scale", &objp->mobius_scale))
 		 return FALSE;
+	 if (!vml_bool (vmls, "convert_evecs_to_single_precision", &objp->convert_evecs_to_single_precision))
+		 return FALSE;
+	 if (!vml_CGcontrols (vmls, "cg_controls", &objp->cg_controls))
+		 return FALSE;
 	 if (!vml_double (vmls, "pion_rad", &objp->pion_rad))
 		 return FALSE;
 	 if (!vml_double (vmls, "kaon_rad", &objp->kaon_rad))
@@ -55,6 +132,8 @@ void rpc_print<JobParams>::doit(JobParams const &what, const std::string &prefix
 	std::string spaces(prefix.size(),' ');
 	rpc_print<BfmSolverType>::doit(what.solver,spaces+" solver = ");
 	rpc_print<double>::doit(what.mobius_scale,spaces+" mobius_scale = ");
+	rpc_print<bool_t>::doit(what.convert_evecs_to_single_precision,spaces+" convert_evecs_to_single_precision = ");
+	rpc_print<CGcontrols>::doit(what.cg_controls,spaces+" cg_controls = ");
 	rpc_print<double>::doit(what.pion_rad,spaces+" pion_rad = ");
 	rpc_print<double>::doit(what.kaon_rad,spaces+" kaon_rad = ");
 	rpc_print<int>::doit(what.pipi_separation,spaces+" pipi_separation = ");
@@ -70,6 +149,8 @@ void JobParams::print(const std::string &prefix){
 void rpc_deepcopy<JobParams>::doit(JobParams &into, JobParams const &from){
 	  rpc_deepcopy<BfmSolverType>::doit(into.solver,from.solver);
 	  rpc_deepcopy<double>::doit(into.mobius_scale,from.mobius_scale);
+	  rpc_deepcopy<bool_t>::doit(into.convert_evecs_to_single_precision,from.convert_evecs_to_single_precision);
+	  rpc_deepcopy<CGcontrols>::doit(into.cg_controls,from.cg_controls);
 	  rpc_deepcopy<double>::doit(into.pion_rad,from.pion_rad);
 	  rpc_deepcopy<double>::doit(into.kaon_rad,from.kaon_rad);
 	  rpc_deepcopy<int>::doit(into.pipi_separation,from.pipi_separation);

@@ -1185,7 +1185,7 @@ GFCLASS (Gnone) (FgridParams & params):cname (GFCLASS_NAME), FGRID (params),
   }
 
   ~GFCLASS (Gnone) () {
-    const char *fname = "~" GFCLASS_NAME "()";
+      const char *fname = "~" GFCLASS_NAME "()";
     VRB.Func (cname, fname);
   }
 

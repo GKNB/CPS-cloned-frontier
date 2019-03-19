@@ -890,3 +890,10 @@ enum BfmSolverType {
  BFM_HtContFracTanh, 
  BFM_HtContFracZolo
 };
+
+enum A2ACGalgorithm {
+ AlgorithmCG,
+ AlgorithmMixedPrecisionRestartedCG,
+ AlgorithmMixedPrecisionReliableUpdateCG,
+ AlgorithmMixedPrecisionReliableUpdateSplitCG
+};
