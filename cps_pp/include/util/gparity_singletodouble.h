@@ -38,6 +38,7 @@ public:
   virtual void LoadX(Float *buf, int* pos, int flav)=0; //load from buf into new data at position pos and flavour flav (gparity_X)
   virtual void LoadXY(Float *buf, int* pos, int flav)=0; //load from buf into new data at position pos and flavour flav (gparity_X && gparity_Y)
   virtual void IncrPos(int *pos) = 0; //increment the position vector
+  virtual void Finalize(){} //do anything else that needs doing at the end!
   
   virtual void StartPos(int *pos){
     pos[0]=0; pos[1]=0; pos[2]=0; pos[3]=0; pos[4]=0;
@@ -148,7 +149,7 @@ public:
       }
       pfree(buf);
     }
-
+    this->Finalize();
   }
     
   void RunGparityXY(){
@@ -418,7 +419,7 @@ public:
       }
       pfree(buf);
     }
-
+    this->Finalize();
   }
 
   void Run(){
@@ -429,6 +430,8 @@ public:
     }
   }
 };
+
+#ifndef USE_C11_RNG
 
 class RNGComms{
 public:
@@ -617,6 +620,109 @@ public:
   }
 
 };
+
+#else //# USE_C11_RNG
+//CK 2019
+//Modern RNG has only 4D generators (one per 2^4 hypercube) 
+
+
+class RNGComms{
+public:
+  static void rngstore(RNGSTATE *what, const int state_size, Float *to){
+    assert(sizeof(RNGSTATE) <= sizeof(Float));
+    char tmp[sizeof(Float)];
+    for(int i=0;i<state_size;i++){
+      memset(tmp, 0, sizeof(Float)); //pad with zeros
+      memcpy((void*)tmp, (void*)(what+i), sizeof(RNGSTATE));
+      memcpy((void*)(to + i), (void*)tmp, sizeof(Float));
+    }
+  }
+  static void rngload(RNGSTATE *into, const int state_size, Float *from){
+    assert(sizeof(RNGSTATE) <= sizeof(Float));
+    for(int i=0;i<state_size;i++){
+      memcpy((void*)(into + i), (void*)(from+i), sizeof(RNGSTATE));
+    }
+  }
+};
+
+
+
+//Note this is supposed to be used after reinitializing GJP with the doubled-volume but prior to reinitializing the RNG
+class SingleToDouble4dRNG : public SingleToDouble{
+public:
+  std::vector<RNGSTATE> state_orig; //s + state_size * i    where i is a Nf * Vol4D/16 lexicographic index with f as the slowest changing index
+  std::vector<RNGSTATE> state_new;
+  int n_rgen_4d_orig;
+  int state_size;
+  
+  SingleToDouble4dRNG(bool _gparity_X, bool _gparity_Y): SingleToDouble(_gparity_X,_gparity_Y){
+    int n_rgen_4d_now = GJP.VolNodeSites()/16; 
+
+    n_rgen_4d_orig = n_rgen_4d_now; //factor of 2 in X direction included already as VolNodeSites calculated *after* lattice doubling
+    if(gparity_X && gparity_Y) n_rgen_4d_orig/=2; //duplication in Y direction
+
+    state_size = LRG.StateSize();
+    state_orig.resize(n_rgen_4d_orig * state_size);
+    LRG.GetAllStates(state_orig.data());
+    state_new.resize(n_rgen_4d_now * state_size);
+  } 
+
+  void Finalize(){ LRG.SetAllStates(state_new.data()); }
+
+  int SiteSize(){ return state_size; }//in units of Float
+  int Ndata(){ return n_rgen_4d_orig; }
+  void Store(Float *buf, int site){
+    Float* to = buf + state_size*site;
+    RNGComms::rngstore(state_orig.data() + site * state_size,state_size,to);
+  }
+  
+  void LoadX(Float *buf, int* pos, int flav){
+    //load from buf into new data at position pos and flavour flav
+    int orig_idx;
+    if(pos[0] >= GJP.XnodeSites()/2)
+      orig_idx = (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + flav * n_rgen_4d_orig/2;
+    else 
+      orig_idx = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + flav * n_rgen_4d_orig/2;
+
+    Float* orig_data = buf + state_size * orig_idx;
+    int new_idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
+    RNGComms::rngload(state_new.data() + new_idx*state_size, state_size, orig_data);
+  }
+
+  void LoadXY(Float *buf, int* pos, int flav){
+    //load from buf into new data at position pos and flavour flav
+    int orig_idx;
+    int posorig[4] = {pos[0],pos[1],pos[2],pos[3]}; //equivalent site on one-quarter lattice
+    if(posorig[0]>=GJP.XnodeSites()/2) posorig[0]-=GJP.XnodeSites()/2;
+    if(posorig[1]>=GJP.YnodeSites()/2) posorig[1]-=GJP.YnodeSites()/2;
+
+    orig_idx = posorig[0]/2 + GJP.XnodeSites()/4*(posorig[1]/2 + GJP.YnodeSites()/4*(posorig[2]/2 + GJP.ZnodeSites()/2*posorig[3]/2)) + flav * n_rgen_4d_orig/2;
+
+    Float* orig_data = buf + state_size * orig_idx;
+    int new_idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
+    RNGComms::rngload(state_new.data() + new_idx*state_size, state_size, orig_data);
+  }
+
+  void IncrPos(int *pos){
+    //increment the position vector
+    pos[0] +=2; 
+    if(pos[0]>=GJP.XnodeSites()){
+      pos[0] = 0;
+      pos[1] +=2;
+      if(pos[1]>=GJP.YnodeSites()){
+	pos[1] = 0;
+	pos[2] +=2;
+	if(pos[2]>=GJP.ZnodeSites()){
+	  pos[2] = 0;
+	  pos[3] +=2;
+	}
+      }
+    }
+  }
+
+};
+
+#endif
 
 
 class SingleToDoubleMatrixField : public SingleToDouble{

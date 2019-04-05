@@ -54,6 +54,8 @@
 
 #include <util/gparity_singletodouble.h>
 
+#include <util/lattice/fgrid.h>
+
 #ifdef HAVE_BFM
 #include <chroma.h>
 #endif
@@ -80,14 +82,17 @@ void setup_double_rng(bool gparity_X, bool gparity_Y){
   //orig 5D rng 2 stacked 4D volumes per ls/2 slice (ls/2 as only one RNG per 2^4 block)
 
   SingleToDouble4dRNG fourDsetup(gparity_X,gparity_Y);
+#ifndef USE_C11_RNG
   SingleToDouble5dRNG fiveDsetup(gparity_X,gparity_Y);
-  
+#endif  
   LRG.Reinitialize(); //reset the LRG and prepare for doubled lattice form
   
   if(!UniqueID()){ printf("Setting up 1f 4D RNG\n"); fflush(stdout); }
   fourDsetup.Run();      
+#ifndef USE_C11_RNG
   if(!UniqueID()){ printf("Setting up 1f 5D RNG\n"); fflush(stdout); }
-  fiveDsetup.Run();    
+  fiveDsetup.Run();
+#endif    
 }
 void GaugeTransformU(Matrix *gtrans, Lattice &lat);
 
@@ -180,6 +185,8 @@ int main(int argc,char *argv[])
     }else if( strncmp(cmd,"-unit_gauge",15) == 0){
       unit_gauge=true;
       i++;
+    }else if( std::string(cmd) == "--log"){
+      i+=2;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
       exit(-1);
@@ -275,8 +282,29 @@ int main(int argc,char *argv[])
     LRG.Write(save_lrg_file,32);
   }
   
-  GwilsonFdwf* lattice = new GwilsonFdwf;
-					       
+  #define GRID_TEST
+
+#ifdef GRID_TEST
+  typedef GnoneFgridGparityMobius TwoFlavorLattice;
+  typedef GnoneFgridMobius OneFlavorLattice;
+#else
+  typedef GwilsonFdwf TwoFlavorLattice;
+  typedef GwilsonFdwf OneFlavorLattice;
+#endif
+
+  //GwilsonFdwf* lattice = new GwilsonFdwf;
+
+#ifdef GRID_TEST
+  FgridParams fgrid_params;
+  fgrid_params.mobius_scale = 1.0;
+
+  TwoFlavorLattice* lattice = new TwoFlavorLattice(fgrid_params);
+  std::cout << "Nsimd = " << lattice->getFrbGrid ()->Nsimd() << std::endl;
+#else
+  TwoFlavorLattice* lattice = new TwoFlavorLattice;
+#endif
+
+			       
   if(!load_config){
     printf("Creating gauge field\n");
     if(!unit_gauge) lattice->SetGfieldDisOrd();
@@ -308,6 +336,234 @@ int main(int argc,char *argv[])
     lattice->FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
+
+#if 1
+  //Diagnose Grid converge fail multi node
+  //Conclusion: only appears for G-parity when the node x-size < 4. Odd.
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test standard 1\n");
+    Grid::QCD::LatticeGaugeFieldD Umu(lattice->getUGrid());    
+    typedef typename Grid::QCD::MobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+     
+    DiracOp Ddwf(Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid standard test 1 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test standard 2\n");
+    lattice->ImportGauge();
+    Grid::QCD::LatticeGaugeFieldD* Umu = lattice->getUmu();
+    typedef typename Grid::QCD::MobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+    
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+    
+    DiracOp Ddwf(*Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid standard test 2 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test Gparity 1\n");
+    int Nd = Grid::QCD::Nd;
+    std::vector<int> simd_layout = Grid::GridDefaultSimd(Nd,Grid::vComplexD::Nsimd());
+
+    if(!UniqueID()){
+      printf("SIMD layout: ");
+      for(int i=0;i<4;i++) printf("%d ", simd_layout[i]);
+      printf("\n");
+    }
+
+    std::vector<int> vol(4), nodes(4);
+    for (int i = 0; i < 4; i++)
+      vol[i] = GJP.NodeSites(i) * GJP.Nodes(i);;
+    for (int i = 0; i < 4; i++)
+      nodes[i] = GJP.Nodes(i);
+    
+    int Ls = GJP.Snodes() * GJP.SnodeSites();
+
+    Grid::GridCartesian*   UGrid =  Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol, simd_layout, nodes);
+    Grid::GridRedBlackCartesian * UrbGrid = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid);
+    Grid::GridCartesian         * FGrid   = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid);
+    Grid::GridRedBlackCartesian * FrbGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGrid);
+
+    Grid::QCD::LatticeGaugeFieldD Umu(UGrid);    
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(FGrid);
+    random(RNG5,src);
+    FermionField sol(FGrid);
+    sol = Grid::zero;
+     
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+
+    DiracOp Ddwf(Umu, *FGrid, *FrbGrid, *UGrid, *UrbGrid, 0.04, 1.8,  1.5,0.5, params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid Gparity test 1 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test Gparity 2\n");
+    Grid::QCD::LatticeGaugeFieldD Umu(lattice->getUGrid());    
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+     
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+
+    DiracOp Ddwf(Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5, params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid Gparity test 2 norm %g\n", nrm);
+  }
+  {
+    if(!UniqueID()) printf("Starting Grid CG test G-parity 3\n");
+    lattice->ImportGauge();
+    Grid::QCD::LatticeGaugeFieldD* Umu = lattice->getUmu();
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+    
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+    
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+    
+    DiracOp Ddwf(*Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5,params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid G-parity test 3 norm %g\n", nrm);
+  }
+
+
+#endif
+
+
+
+
+
+
+
+
+
+#ifdef USE_C11_RNG
+  //Test the RNG state store/load
+  {
+    LatRanGen LRGbak(LRG);
+    double r1 = LRG.Urand();
+    LRG = LRGbak;
+
+    double r1_test = LRG.Urand();
+    assert(r1_test == r1);
+    LRG = LRGbak;
+
+    std::vector<RNGSTATE> state(LRG.NStates()*LRG.StateSize());
+    LRG.GetAllStates(state.data());
+    for(int i=0;i<10;i++) LRG.Urand();
+    LRG.SetAllStates(state.data());
+    double r2 = LRG.Urand();
+
+    assert(r2==r1);
+
+    LRG = LRGbak;
+
+    //Test whether the store/load to doubles works
+    for(int i=0;i<10;i++) LRG.Urand();
+
+    std::vector<Float> fstate(LRG.NStates()*LRG.StateSize());
+    std::vector<RNGSTATE> state2(LRG.NStates()*LRG.StateSize());
+    for(int site=0;site<LRG.NStates();site++)
+      RNGComms::rngstore(&state[LRG.StateSize()*site], LRG.StateSize(), &fstate[LRG.StateSize()*site]);
+    for(int site=0;site<LRG.NStates();site++)
+      RNGComms::rngload(&state2[LRG.StateSize()*site], LRG.StateSize(), &fstate[LRG.StateSize()*site]);
+    
+    LRG.SetAllStates(state2.data());
+
+    assert(LRG == LRGbak);
+
+    double r3 = LRG.Urand();
+
+    assert(r3==r1);
+
+    LRG = LRGbak;
+    std::cout << "Passed LRG store/load test" << std::endl;
+  }
+#endif
+
   
 #define RNG_LATT_2F_1F_TEST
 #ifdef RNG_LATT_2F_1F_TEST
@@ -393,11 +649,6 @@ int main(int argc,char *argv[])
   a1.type = GPARITY_FLAVOR_ATTR;
   a1.AttributeContainer_u.gparity_flavor_attr.flavor = 0;
 
-
-  // if(!prop_args.Decode("parg.vml","prop_arg")){
-  //   printf("Failed to decode parg.vml\n"); exit(-1);
-  // }
-
   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args.props.props_len);
   if(gparity_X){
     for(int i=0;i<prop_args.props.props_len;i++){
@@ -416,8 +667,34 @@ int main(int argc,char *argv[])
   IFloat gparity_prop_norm;
   if(!skip_gparity_inversion) gparity_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice).norm();
   else gparity_prop_norm = 0.0;
-  PropManager::clear();
 
+
+  //Scan over the line (x,0,0,0)
+  int xsize  = GJP.XnodeSites()*GJP.Xnodes();
+  double twof_xscan[2*xsize];
+  for(int i=0;i<2*xsize;i++) twof_xscan[i] = 0.;
+
+  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
+    QPropW &prop = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice);
+
+    int xbase = GJP.XnodeCoor() * GJP.XnodeSites();
+    for(int i=0;i<GJP.XnodeSites();i++){
+      int x = xbase + i;
+
+      int coord[4] = {i,0,0,0};
+      int site = coord[0] + GJP.XnodeSites()*(coord[1] + GJP.YnodeSites() * (coord[2] * GJP.ZnodeSites()*coord[3]));      
+
+      WilsonMatrix const & wmat0 = prop.SiteMatrix(site,0);
+      WilsonMatrix const & wmat1 = prop.SiteMatrix(site,1);
+
+      twof_xscan[x] = ((double const*)(&wmat0))[0];
+      twof_xscan[x+xsize] = ((double const*)(&wmat1))[0];
+    }
+  }
+  glb_sum(twof_xscan, 2*xsize);
+
+
+  PropManager::clear();
   if(UniqueID()==0) printf("Starting double lattice inversion\n");
 
   
@@ -430,10 +707,15 @@ int main(int argc,char *argv[])
   
   //setup 1f model. Upon calling GJP.Initialize the lattice size will be doubled in the appropriate directions
   //and the boundary condition set to APRD
-  if(gparity_X) do_arg.gparity_1f_X = 1;
-  if(gparity_Y) do_arg.gparity_1f_Y = 1;
+  //if(gparity_X) do_arg.gparity_1f_X = 1;
+  //if(gparity_Y) do_arg.gparity_1f_Y = 1;
+  
+  if(gparity_X){ do_arg.x_sites *= 2; do_arg.x_bc = BND_CND_APRD; }
+  if(gparity_Y){ do_arg.y_sites *= 2; do_arg.y_bc = BND_CND_APRD; }
 
   GJP.Initialize(do_arg);
+  if(gparity_X) GJP.setGparity1fX();
+  if(gparity_Y) GJP.setGparity1fY();
 
   if(GJP.Gparity()){ printf("Que?\n"); exit(-1); }
   if(UniqueID()==0) printf("Doubled lattice : %d %d %d %d\n", GJP.XnodeSites()*GJP.Xnodes(),GJP.YnodeSites()*GJP.Ynodes(),
@@ -450,15 +732,71 @@ int main(int argc,char *argv[])
   }
 #endif
 
-  GwilsonFdwf doubled_lattice;
+#ifdef GRID_TEST
+  OneFlavorLattice doubled_lattice(fgrid_params);
+#else
+  OneFlavorLattice doubled_lattice;
+#endif
+
   setup_double_latt(doubled_lattice,orig_lattice,gparity_X,gparity_Y);
   setup_double_rng(gparity_X,gparity_Y);
  
+#ifdef GRID_TEST
+  doubled_lattice.ImportGauge();
+#endif
+
   if(gauge_fix){
     doubled_lattice.FixGaugeAllocate(FIX_GAUGE_COULOMB_T);
     doubled_lattice.FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
+
+#ifdef RNG_LATT_2F_1F_TEST_2
+  //in this test we generate a field of random numbers and do the same on the 1f lattice, compare
+  {
+    LatRanGen LRGbak(LRG);
+    int array_size = GJP.VolNodeSites() * sizeof(Float);
+    Float *_1f_rand_field = (Float *) pmalloc(array_size);
+    for(int i=0;i<GJP.VolNodeSites();i++){
+      LRG.AssignGenerator(i);
+      _1f_rand_field[i] = LRG.Urand();
+    }
+    LRG = LRGbak;
+
+    //bring over the 2f random field
+    Float * _2f_rand_field_1fvers = (Float *) pmalloc(array_size);
+    SingleToDoubleField dblr(gparity_X,gparity_Y,1,rand_field,_2f_rand_field_1fvers);
+    dblr.Run();
+
+    bool err(false);
+    
+    for(int t=0;t<GJP.TnodeSites();t++){
+      for(int z=0;z<GJP.ZnodeSites();z++){
+	for(int y=0;y<GJP.YnodeSites();y++){
+	  for(int x=0;x<GJP.XnodeSites();x++){
+	    int pos[4] = {x,y,z,t};
+	    int off = x+GJP.XnodeSites()*(y+GJP.YnodeSites()*(z+GJP.ZnodeSites()*t));
+	    double* m = (double*)(_1f_rand_field+off);
+	    double* mc = (double*)(_2f_rand_field_1fvers+off);
+	    if(fabs(*m - *mc) > 1e-06){
+	      printf("Error: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
+	      err=true;
+	    }else{
+	      printf("Pass: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
+	    }
+	  }
+	}
+      }
+    }
+    pfree(_1f_rand_field);
+    pfree(_2f_rand_field_1fvers);
+    pfree(rand_field);
+    
+    if(err){ printf("Failed rand field comparison test\n"); exit(-1); }
+    if(!UniqueID()) printf("Passed rand field comparison test\n");
+  }
+#endif
+
 
 #ifdef RNG_LATT_2F_1F_TEST
   //in this test we generate a random gauge transformation and apply it to the gauge links, save the new gauge field and restore both the RNG and original g field
@@ -524,49 +862,6 @@ int main(int argc,char *argv[])
   }
 #endif
 
-#ifdef RNG_LATT_2F_1F_TEST_2
-  //in this test we generate a field of random numbers and do the same on the 1f lattice, compare
-  {
-    LatRanGen LRGbak(LRG);
-    int array_size = GJP.VolNodeSites() * sizeof(Float);
-    Float *_1f_rand_field = (Float *) pmalloc(array_size);
-    for(int i=0;i<GJP.VolNodeSites();i++){
-      LRG.AssignGenerator(i);
-      _1f_rand_field[i] = LRG.Urand();
-    }
-    LRG = LRGbak;
-
-    //bring over the 2f random field
-    Float * _2f_rand_field_1fvers = (Float *) pmalloc(array_size);
-    SingleToDoubleField dblr(gparity_X,gparity_Y,1,rand_field,_2f_rand_field_1fvers);
-    dblr.Run();
-
-    bool err(false);
-    
-    for(int t=0;t<GJP.TnodeSites();t++){
-      for(int z=0;z<GJP.ZnodeSites();z++){
-	for(int y=0;y<GJP.YnodeSites();y++){
-	  for(int x=0;x<GJP.XnodeSites();x++){
-	    int pos[4] = {x,y,z,t};
-	    int off = x+GJP.XnodeSites()*(y+GJP.YnodeSites()*(z+GJP.ZnodeSites()*t));
-	    double* m = (double*)(_1f_rand_field+off);
-	    double* mc = (double*)(_2f_rand_field_1fvers+off);
-	    if(fabs(*m - *mc) > 1e-06){
-	      printf("Error: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
-	      err=true;
-	    }
-	  }
-	}
-      }
-    }
-    pfree(_1f_rand_field);
-    pfree(_2f_rand_field_1fvers);
-    pfree(rand_field);
-    
-    if(err){ printf("Failed rand field comparison test\n"); exit(-1); }
-    if(!UniqueID()) printf("Passed rand field comparison test\n");
-  }
-#endif
   if(gparity_X){
     for(int i=0;i<prop_args.props.props_len;i++){
       prop_args.props.props_val[i].generics.bc[0] = BND_CND_APRD;
@@ -585,9 +880,46 @@ int main(int argc,char *argv[])
   IFloat dbl_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(doubled_lattice).norm();
   if(gparity_X && gparity_Y) dbl_prop_norm/=2; //quad volume but only 2 independent flavors
 
-  //IFloat dbl_prop_norm = 0.0;
+  double norm = 1.;
+#ifdef GRID_TEST
+  norm = (5.-1.8); //Mobius (b+c=1) is 1/(5-M5) smaller norm than DWF 
+#endif
+  dbl_prop_norm *= norm*norm;
+  gparity_prop_norm *= norm*norm;
 
   if(!UniqueID()) printf("norms: gparity = %f  double latt = %f. diff = %f\n",gparity_prop_norm,dbl_prop_norm,fabs(gparity_prop_norm-dbl_prop_norm) );
+
+
+  //Scan over the line (x,0,0,0)
+  xsize  = GJP.XnodeSites()*GJP.Xnodes();
+  double onef_xscan[xsize];
+  for(int i=0;i<xsize;i++) onef_xscan[i] = 0.;
+
+  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
+    QPropW &prop = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(doubled_lattice);
+
+    int xbase = GJP.XnodeCoor() * GJP.XnodeSites();
+    for(int i=0;i<GJP.XnodeSites();i++){
+      int x = xbase + i;
+
+      int coord[4] = {i,0,0,0};
+      int site = coord[0] + GJP.XnodeSites()*(coord[1] + GJP.YnodeSites() * (coord[2] * GJP.ZnodeSites()*coord[3]));      
+
+      WilsonMatrix const & wmat = prop.SiteMatrix(site);
+
+      onef_xscan[x] = ((double const*)(&wmat))[0];
+    }
+  }
+  glb_sum(onef_xscan, xsize);
+
+  if(!UniqueID()){
+    std::cout << "One-flavor x-scan:\n";
+    for(int i=0;i<xsize;i++) std::cout << onef_xscan[i]*norm << " ";
+    std::cout << std::endl << "Two-flavor x-scan:\n";
+    for(int i=0;i<xsize;i++) std::cout << twof_xscan[i]*norm << " ";
+    std::cout << std::endl;
+  }
+
 
 #ifdef HAVE_BFM
   Chroma::finalize();
@@ -597,6 +929,8 @@ int main(int argc,char *argv[])
     printf("Main job complete\n"); 
     fflush(stdout);
   }
+
+  End();
   
   return 0;
 }
@@ -664,536 +998,3 @@ void GaugeTransformU(Matrix *gtrans, Lattice &lat){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// void print(const WilsonMatrix &w){
-//   for(int i=0;i<4;i++){
-//     for(int j=0;j<4;j++){
-//       Complex c = w(i,0,j,0);
-//       printf("(%.2f %.2f) ",c.real(),c.imag());
-//     }
-//     printf("\n");
-//   }
-//   printf("\n");
-// }
-
-// bool test_equals(const WilsonMatrix &a, const WilsonMatrix &b, const double &eps){
-//   for(int i=0;i<4;i++){
-//     for(int j=0;j<4;j++){
-//       for(int aa=0;aa<3;aa++){
-// 	for(int bb=0;bb<3;bb++){
-// 	  Complex ca = a(i,aa,j,bb);
-// 	  Complex cb = b(i,aa,j,bb);
-// 	  if( fabs(ca.real()-cb.real()) > eps || fabs(ca.imag()-cb.imag()) > eps ) return false;
-// 	}
-//       }
-//     }
-//   }
-//   return true;
-// }
-
-
-
-
-
-//   if(gparity_X && !gparity_Y){
-//     if(GJP.Xnodes()>1){
-//       
-
-//       SingleToDoubleLattice lattdoubler(gparity_X,gparity_Y,orig_gfield,double_latt);
-//       lattdoubler.Run();
-
-//       if(!UniqueID()){ printf("Finished setting up doubled lattice\n"); fflush(stdout); }
-//     }else{
-//       //only one node in X-direction
-//       //copy data from orig_latt stored on this node
-//       int pos[4];
-//       for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]++){
-// 	for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]++){
-// 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]++){
-// 	    for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]++){
-// 	      for(int mu=0;mu<4;mu++){
-// 		int dbl_site_idx = 4*(pos[0]+GJP.XnodeSites() *(pos[1]+GJP.YnodeSites()*(pos[2]+GJP.ZnodeSites()*pos[3])))+mu;
-// 		if(pos[0] < GJP.XnodeSites()/2){
-// 		  //site is stored on-node in orig_gfield
-// 		  int orig_site_idx = 4*(pos[0]+GJP.XnodeSites()/2 *(pos[1]+GJP.YnodeSites()*(pos[2]+GJP.ZnodeSites()*pos[3])))+mu;
-// 		  dbl_gfield[dbl_site_idx] = orig_gfield[orig_site_idx];
-// 		}else{
-// 		  //site is stored on-node in orig_gfield but needs complex conjugating
-// 		  int orig_site_idx = 4*(pos[0]-GJP.XnodeSites()/2 +GJP.XnodeSites()/2 *(pos[1]+GJP.YnodeSites()*(pos[2]+GJP.ZnodeSites()*pos[3])))+mu;
-// 		  dbl_gfield[dbl_site_idx].Conj(orig_gfield[orig_site_idx]);
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-// #if 0
-//       printf("Converted single to double lattice. Scan across X-direction of original:\n");
-//       for(int mu=0;mu<4;mu++){
-// 	for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]++){
-// 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]++){
-// 	    for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]++){
-// 	      for(pos[0]=0;pos[0]<GJP.XnodeSites()/2;pos[0]++){
-// 		int orig_site_idx = 4*(pos[0]+GJP.XnodeSites()/2 *(pos[1]+GJP.YnodeSites()*(pos[2]+GJP.ZnodeSites()*pos[3])))+mu;
-// 		printf("U(%d,%d,%d,%d)_%d = (%f,%f) ",pos[0],pos[1],pos[2],pos[3],mu,*((IFloat*)(orig_gfield+orig_site_idx)),*((IFloat*)(orig_gfield+orig_site_idx)+1));
-// 	      }
-// 	      printf("\n");
-// 	    }
-// 	  }
-// 	}
-//       }
-//       printf("\nDoubled lattice:\n");
-//       for(int mu=0;mu<4;mu++){
-// 	for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]++){
-// 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]++){
-// 	    for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]++){
-// 	      for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]++){
-// 		int dbl_site_idx = 4*(pos[0]+GJP.XnodeSites() *(pos[1]+GJP.YnodeSites()*(pos[2]+GJP.ZnodeSites()*pos[3])))+mu;
-// 		printf("U(%d,%d,%d,%d)_%d = (%f,%f) ",pos[0],pos[1],pos[2],pos[3],mu,*((IFloat*)(dbl_gfield+dbl_site_idx)),*((IFloat*)(dbl_gfield+dbl_site_idx)+1));
-// 	      }
-// 	      printf("\n");
-// 	    }
-// 	  }
-// 	}
-// 	printf("\n");
-//       }
-// #endif
-//     }
-
-
-//   }else if(gparity_X && gparity_Y){
-//     if(!UniqueID()){ printf("Setting up quad lattice. sizeof(Float) %d sizeof(IFloat) %d\n",sizeof(Float), sizeof(IFloat)); fflush(stdout); }
-
-//       SingleToDoubleLattice lattdoubler(gparity_X,gparity_Y,orig_gfield,double_latt);
-//       lattdoubler.Run();
-
-//       if(!UniqueID()){ printf("Finished setting up quad lattice\n"); fflush(stdout); }
-//   }
-
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-  // if(gparity_X && !gparity_Y){
-  //   if(!UniqueID()) printf("Setting up RNG from original stacked version\n");
-
-
-  // //orig 4D rng 2 stacked 4D volumes
-  // //orig   ([R_0 R_1][R'_0 R'_1]) ([R_2 R_3][R'_2 R'_3]) ([R_4 R_5][R'_4 R'_5]) ([R_6 R_7][R'_6 R'_7]) ([R_8 R_9][R'_8 R'_9]) ([R_10 R_11][R'_10 R'_11]) ([R_12 R_13][R'_12 R'_13]) ([R_14 R_15][R'_14 R'_15])
-  // //double (R_0 R_1 R_2 R_3)      (R_4 R_5 R_6 R_7)      (R_8 R_9 R_10 R_11)    (R_12 R_13 R_13 R_15)  (R'_0 R'_1 R'_2 R'_3)  (R'_4 R'_5 R'_6 R'_7)      (R'_8 R'_9 R'_10 R'_11)    (R'_12 R'_13 R'_14 R'_15)
-
-  //   if(GJP.Xnodes()>1){
-  //     SingleToDouble4dRNG fourDsetup;
-  //     SingleToDouble5dRNG fiveDsetup;
-
-  //     LRG.Reinitialize(); //reset the LRG and prepare for doubled lattice form
-      
-  //     if(!UniqueID()){ printf("Setting up 4D RNG\n"); fflush(stdout); }
-  //     fourDsetup.Run(gparity_X,gparity_Y);      
-  //     if(!UniqueID()){ printf("Setting up 5D RNG\n"); fflush(stdout); }
-  //     fiveDsetup.Run(gparity_X,gparity_Y);    
-  //   }else{    
-  //     int n_rgen_4d = GJP.VolNodeSites()/16; //applies both to original and doubled latt
-  //     int n_rgen = n_rgen_4d;
-  //     if (GJP.SnodeSites()>=2)
-  // 	n_rgen = GJP.VolNodeSites()*GJP.SnodeSites() / 32;
-
-  //     int stk_index_4d_off = n_rgen_4d/2; //offset for R' on 4D orig latt
-  //     int blocks_per_s_layer = n_rgen /( GJP.SnodeSites() / 2 ); //also same for original and doubled latt
-  //     int stk_index_5d_off = blocks_per_s_layer/2; //offset for R' on 5D orig latt
-
-  //     //copy the originals
-  //     UGrandomGenerator *ugran_4d_orig = new UGrandomGenerator[n_rgen_4d];
-  //     for(int i=0;i<n_rgen_4d;i++) ugran_4d_orig[i] = LRG.UGrandGen4D(i);
-
-  //     UGrandomGenerator *ugran_orig = new UGrandomGenerator[n_rgen];
-  //     for(int i=0;i<n_rgen;i++) ugran_orig[i] = LRG.UGrandGen(i);
-
-  //     LRG.Reinitialize(); //reset the LRG and prepare for doubled lattice form
-
-  
-  //     int pos[5];
-
-  //     for(pos[4]=0;pos[4]<GJP.SnodeSites();pos[4]+=2){
-  // 	for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-  // 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-  // 	    for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-  // 	      for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]+=2){
-  // 		//do the 4D RNG
-  // 		if(pos[4]==0){
-  // 		  if(pos[0]>=GJP.XnodeSites()/2){
-  // 		    int orig_idx = (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + stk_index_4d_off;
-  // 		    int new_idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		    LRG.UGrandGen4D(new_idx) = ugran_4d_orig[orig_idx];
-  // 		  }else{
-  // 		    int orig_idx = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		    int new_idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		    LRG.UGrandGen4D(new_idx) = ugran_4d_orig[orig_idx];
-  // 		  }
-  // 		}
-  // 		//do the 5D RNG
-  // 		if(pos[0]>=GJP.XnodeSites()/2){
-  // 		  int orig_idx = pos[4]/2*blocks_per_s_layer + (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + stk_index_5d_off;
-  // 		  int new_idx = pos[4]/2*blocks_per_s_layer + pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		  LRG.UGrandGen(new_idx) = ugran_orig[orig_idx];
-  // 		}else{
-  // 		  int orig_idx = pos[4]/2*blocks_per_s_layer + pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		  int new_idx = pos[4]/2*blocks_per_s_layer + pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2));
-  // 		  LRG.UGrandGen(new_idx) = ugran_orig[orig_idx];
-  // 		}
-
-  // 	      }
-  // 	    }
-  // 	  }
-  // 	}
-  //     }
-  //     delete[] ugran_4d_orig;
-  //     delete[] ugran_orig;
-  //   }//single node
-
-  // }//gpx and gpy
-  // else if(gparity_X && gparity_Y){
-  //   SingleToDouble4dRNG fourDsetup;
-  //   SingleToDouble5dRNG fiveDsetup;
-    
-  //   LRG.Reinitialize(); //reset the LRG and prepare for doubled lattice form
-    
-  //   if(!UniqueID()){ printf("Setting up 4D RNG\n"); fflush(stdout); }
-  //   fourDsetup.Run(gparity_X,gparity_Y);      
-  //   if(!UniqueID()){ printf("Setting up 5D RNG\n"); fflush(stdout); }
-  //   fiveDsetup.Run(gparity_X,gparity_Y);  
-  // }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// #ifdef DOUBLE_RNG_TEST
-//   if(gparity_X && !gparity_Y){
-//     if(!UniqueID()) printf("Testing RNG\n");
-
-//     //generate rands again and compare to originals
-//     if(GJP.Xnodes()==1){
-//       int pos[5];
-
-//       for(pos[4]=0;pos[4]<GJP.SnodeSites();pos[4]+=2){
-// 	for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-// 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-// 	    for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-// 	      for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]+=2){
-// 		LRG.AssignGenerator(pos);
-// 		if(pos[4]==0){
-// 		  int origflav = 0;
-// 		  int origidx = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]+GJP.ZnodeSites()/2*pos[3]));
-// 		  if(pos[0]>=GJP.XnodeSites()/2){
-// 		    origflav = 1;
-// 		    origidx = (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*pos[3]/2));
-// 		  }
-// 		  IFloat &origval = orig_4d_rands[origflav][origidx];
-// 		  IFloat newval = LRG.Urand(FOUR_D);//do the 4D RNG
-// 		  if(origval != newval){ 
-// 		    printf("4D RNG disparity: (%d %d %d %d): orig %f new %f\n",pos[0],pos[1],pos[2],pos[3],origval,newval); exit(-1);
-// 		  }
-// 		}
-// 		int origflav = 0;
-// 		int origidx = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*(pos[3]/2+GJP.SnodeSites()/2*pos[4]/2)));
-// 		if(pos[0]>=GJP.XnodeSites()/2){
-// 		  origflav = 1;
-// 		  origidx = (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*(pos[3]/2+GJP.SnodeSites()/2*pos[4]/2)));
-// 		}
-// 		IFloat &origval = orig_5d_rands[origflav][origidx];
-// 		IFloat newval = LRG.Urand(FIVE_D);//do the 5D RNG
-// 		if(origval != newval){ 
-// 		  printf("5D RNG disparity: (%d %d %d %d): orig %f new %f\n",pos[0],pos[1],pos[2],pos[3],origval,newval); exit(-1);
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-
-//     }else{
-//       bool printnode = false;
-//       if(GJP.YnodeCoor()==0 && GJP.ZnodeCoor()==0 && GJP.TnodeCoor()==0) printnode=true;
-
-//       { //4D RNG check
-// 	int n_rgen_4d = GJP.VolNodeSites()/16;// both flavours (remember volume doubled now)      
-// 	int buf_size = n_rgen_4d * sizeof(Float);
-// 	Float *recv_buf = (Float *) pmalloc(buf_size);
-// 	Float *send_buf = (Float *) pmalloc(buf_size);
-    
-// 	for(int f=0;f<2;f++){
-// 	  int foff = n_rgen_4d/2;
-// 	  for(int site =0; site < n_rgen_4d/2; site++){
-// 	    send_buf[site+f*foff] = orig_4d_rands[f][site];
-// 	    //if(printnode) printf("Node %d: f %d site %d rand %f\n",GJP.XnodeCoor(),f,site,orig_4d_rands[f][site]);
-// 	  }
-// 	}
-
-// 	// for(int i=0;i<n_rgen_4d;i++){
-// 	// 	if(printnode) printf("Node %d: send_buf site %d = %f\n",GJP.XnodeCoor(),i,send_buf[i]);
-// 	// }
-      
-// 	int data_nodecoor_hf1;  //what xnode coor is this nodes data for the first halves currently stored on? (second half is always on the next node)
-// 	int data_nodecoor_hf2;
-// 	int data_flav = 0; 
-// 	int x_origin = GJP.XnodeCoor()*GJP.XnodeSites(); //x position of start of first half
-// 	if(GJP.XnodeCoor()>=GJP.Xnodes()/2){  
-// 	  x_origin = (GJP.XnodeCoor()-GJP.Xnodes()/2)*GJP.XnodeSites(); 
-// 	  data_flav = 1;
-// 	}
-// 	data_nodecoor_hf1 = (x_origin/(GJP.XnodeSites()/2) ) % GJP.Xnodes();
-// 	data_nodecoor_hf2 = (data_nodecoor_hf1+1) % GJP.Xnodes();
-
-// 	Float nodes_unhappy = 1.0;
-// 	Float *cur_data_buf = send_buf;
-// 	Float *send_buf_p = send_buf;
-// 	Float *recv_buf_p = recv_buf;
-// 	int xnode_coor_of_buf_data = GJP.XnodeCoor(); 
-// 	int got_hf1 = 0;
-// 	int got_hf2 = 0;
-
-// 	int pos[5]; pos[4] = 0;
-// 	while(nodes_unhappy != 0.0){
-// 	  if(xnode_coor_of_buf_data == data_nodecoor_hf1 || xnode_coor_of_buf_data == data_nodecoor_hf2 ){
-// 	    if(xnode_coor_of_buf_data == data_nodecoor_hf1 && printnode) printf("Node %d: Buffer contains data from node %d, testing 1st half (flav %d)\n",GJP.XnodeCoor(),xnode_coor_of_buf_data,data_flav);
-// 	    else if(xnode_coor_of_buf_data == data_nodecoor_hf2 && printnode) printf("Node %d: Buffer contains data from node %d, testing 2nd half (flav %d)\n",GJP.XnodeCoor(),xnode_coor_of_buf_data,data_flav);
-
-// 	    for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-// 	      for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-// 		for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-// 		  for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]+=2){
-// 		    LRG.AssignGenerator(pos);
-
-// 		    if(pos[0]>=GJP.XnodeSites()/2 && xnode_coor_of_buf_data == data_nodecoor_hf2){
-// 		      int orig_idx = (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + data_flav * n_rgen_4d/2;
-
-// 		      IFloat &origval = cur_data_buf[orig_idx];
-// 		      IFloat newval = LRG.Urand(FOUR_D);//do the 4D RNG
-// 		      if(origval != newval){ 
-// 			printf("Node %d: 4D RNG disparity: (%d %d %d %d): orig %f new %f (idx %d)\n",GJP.XnodeCoor(),pos[0],pos[1],pos[2],pos[3],origval,newval,orig_idx); exit(-1);
-// 		      }
-// 		      got_hf2 = 1;
-// 		    }else if(pos[0]<GJP.XnodeSites()/2 && xnode_coor_of_buf_data == data_nodecoor_hf1){
-// 		      int orig_idx = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + data_flav * n_rgen_4d/2;
-
-// 		      IFloat &origval = cur_data_buf[orig_idx];
-// 		      IFloat newval = LRG.Urand(FOUR_D);//do the 4D RNG
-// 		      if(origval != newval){ 
-// 			printf("Node %d: 4D RNG disparity: (%d %d %d %d): orig %f new %f (idx %d)\n",GJP.XnodeCoor(),pos[0],pos[1],pos[2],pos[3],origval,newval,orig_idx); exit(-1);
-// 		      }
-// 		      got_hf1 = 1;
-// 		    }
-// 		  }
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	  if(got_hf1 && got_hf2) nodes_unhappy = 0.0;
-// 	  else nodes_unhappy = 1.0;
-	
-// 	  glb_sum(&nodes_unhappy);
-// 	  if(!UniqueID()) printf("nodes_unhappy = %f\n",nodes_unhappy);
-
-// 	  if(nodes_unhappy!=0.0){
-// 	    if(!UniqueID()) printf("Passing data left\n");
-// 	    cur_data_buf = recv_buf_p;
-// 	    getPlusData((IFloat *)recv_buf_p, (IFloat *)send_buf_p, buf_size/sizeof(Float), 0);
-// 	    xnode_coor_of_buf_data = (xnode_coor_of_buf_data+1) % GJP.Xnodes();
-// 	    //swap buffers over for next send
-// 	    Float *tmp = recv_buf_p;
-// 	    recv_buf_p = send_buf_p;
-// 	    send_buf_p = tmp;
-
-// 	    // for(int i=0;i<n_rgen_4d;i++){
-// 	    //   if(printnode) printf("Node %d: post-pass recv_buf site %d = %f\n",GJP.XnodeCoor(),i,cur_data_buf[i]);
-// 	    // }
-// 	  }
-
-
-// 	}
-// 	pfree(recv_buf);
-// 	pfree(send_buf);
-//       }//end of 4d RNG check
-
-//       { //5D RNG check
-// 	int n_rgen = GJP.SnodeSites()/2*GJP.VolNodeSites()/16;// both flavours (remember volume doubled now)      
-// 	int buf_size = n_rgen * sizeof(Float);
-// 	Float *recv_buf = (Float *) pmalloc(buf_size);
-// 	Float *send_buf = (Float *) pmalloc(buf_size);
-	
-// 	int pos[5];
-// 	for(pos[4]=0;pos[4]<GJP.SnodeSites();pos[4]+=2){
-// 	  for(int f=0;f<2;f++){
-// 	    for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-// 	      for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-// 		for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-// 		  for(pos[0]=0;pos[0]<GJP.XnodeSites()/2;pos[0]+=2){
-// 		    int osite = pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*(pos[3]/2+GJP.SnodeSites()/2*pos[4]/2)));
-// 		    int bsite = pos[4]/2*GJP.VolNodeSites()/16 +  pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*pos[3]/2)) + f*GJP.VolNodeSites()/32;
-// 		    send_buf[bsite] = orig_5d_rands[f][osite];
-// 		  }
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	}
-      
-// 	int data_nodecoor_hf1;  //what xnode coor is this nodes data for the first halves currently stored on? (second half is always on the next node)
-// 	int data_nodecoor_hf2;
-// 	int data_flav = 0; 
-// 	int x_origin = GJP.XnodeCoor()*GJP.XnodeSites(); //x position of start of first half
-// 	if(GJP.XnodeCoor()>=GJP.Xnodes()/2){  
-// 	  x_origin = (GJP.XnodeCoor()-GJP.Xnodes()/2)*GJP.XnodeSites(); 
-// 	  data_flav = 1;
-// 	}
-// 	data_nodecoor_hf1 = (x_origin/(GJP.XnodeSites()/2) ) % GJP.Xnodes();
-// 	data_nodecoor_hf2 = (data_nodecoor_hf1+1) % GJP.Xnodes();
-
-// 	Float nodes_unhappy = 1.0;
-// 	Float *cur_data_buf = send_buf;
-// 	Float *send_buf_p = send_buf;
-// 	Float *recv_buf_p = recv_buf;
-// 	int xnode_coor_of_buf_data = GJP.XnodeCoor(); 
-// 	int got_hf1 = 0;
-// 	int got_hf2 = 0;
-	
-// 	while(nodes_unhappy != 0.0){
-// 	  if(xnode_coor_of_buf_data == data_nodecoor_hf1 || xnode_coor_of_buf_data == data_nodecoor_hf2 ){
-// 	    if(xnode_coor_of_buf_data == data_nodecoor_hf1 && printnode) printf("Node %d: Buffer contains data from node %d, testing 1st half (flav %d)\n",GJP.XnodeCoor(),xnode_coor_of_buf_data,data_flav);
-// 	    else if(xnode_coor_of_buf_data == data_nodecoor_hf2 && printnode) printf("Node %d: Buffer contains data from node %d, testing 2nd half (flav %d)\n",GJP.XnodeCoor(),xnode_coor_of_buf_data,data_flav);
-
-// 	    for(pos[4]=0;pos[4]<GJP.SnodeSites();pos[4]+=2){
-// 	      for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-// 		for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-// 		  for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-// 		    for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]+=2){
-// 		      LRG.AssignGenerator(pos);
-
-// 		      if(pos[0]>=GJP.XnodeSites()/2 && xnode_coor_of_buf_data == data_nodecoor_hf2){
-// 			int orig_idx = pos[4]/2 * GJP.VolNodeSites()/16 + (pos[0]-GJP.XnodeSites()/2)/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + data_flav * GJP.VolNodeSites()/32;
-
-// 			IFloat &origval = cur_data_buf[orig_idx];
-// 			IFloat newval = LRG.Urand(FIVE_D);
-// 			if(origval != newval){ 
-// 			  printf("Node %d: 5D RNG disparity: (%d %d %d %d %d): orig %f new %f (idx %d)\n",GJP.XnodeCoor(),pos[0],pos[1],pos[2],pos[3],pos[4],origval,newval,orig_idx); exit(-1);
-// 			}
-// 			got_hf2 = 1;
-// 		      }else if(pos[0]<GJP.XnodeSites()/2 && xnode_coor_of_buf_data == data_nodecoor_hf1){
-// 			int orig_idx = pos[4]/2 * GJP.VolNodeSites()/16 + pos[0]/2 + GJP.XnodeSites()/4*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2 + GJP.ZnodeSites()/2*pos[3]/2)) + data_flav * GJP.VolNodeSites()/32;
-
-// 			IFloat &origval = cur_data_buf[orig_idx];
-// 			IFloat newval = LRG.Urand(FIVE_D);
-// 			if(origval != newval){ 
-// 			  printf("Node %d: 5D RNG disparity: (%d %d %d %d %d): orig %f new %f (idx %d)\n",GJP.XnodeCoor(),pos[0],pos[1],pos[2],pos[3],pos[4],origval,newval,orig_idx); exit(-1);
-// 			}
-// 			got_hf1 = 1;
-// 		      }
-// 		    }
-// 		  }
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	  if(got_hf1 && got_hf2) nodes_unhappy = 0.0;
-// 	  else nodes_unhappy = 1.0;
-	
-// 	  glb_sum(&nodes_unhappy);
-// 	  if(!UniqueID()) printf("nodes_unhappy = %f\n",nodes_unhappy);
-
-// 	  if(nodes_unhappy!=0.0){
-// 	    if(!UniqueID()) printf("Passing data left\n");
-// 	    cur_data_buf = recv_buf_p;
-// 	    getPlusData((IFloat *)recv_buf_p, (IFloat *)send_buf_p, buf_size/sizeof(Float), 0);
-// 	    xnode_coor_of_buf_data = (xnode_coor_of_buf_data+1) % GJP.Xnodes();
-// 	    //swap buffers over for next send
-// 	    Float *tmp = recv_buf_p;
-// 	    recv_buf_p = send_buf_p;
-// 	    send_buf_p = tmp;
-
-// 	    // for(int i=0;i<n_rgen_4d;i++){
-// 	    //   if(printnode) printf("Node %d: post-pass recv_buf site %d = %f\n",GJP.XnodeCoor(),i,cur_data_buf[i]);
-// 	    // }
-// 	  }
-
-
-// 	}
-// 	pfree(recv_buf);
-// 	pfree(send_buf);
-//       }//end of 5d RNG check
-//     }
-//     printf("Passed RNG test\n");
-//   }
-
-// #endif
-
-
-
-
-
-
-// #define DOUBLE_RNG_TEST
-// #ifdef DOUBLE_RNG_TEST
-//   IFloat orig_4d_rands[2][GJP.VolNodeSites()/16]; //one per RNG
-//   IFloat orig_5d_rands[2][GJP.SnodeSites()/2*GJP.VolNodeSites()/16];
-//   if(gparity_X && !gparity_Y){
-//     //generate fields of 4D and 5D random numbers and reset the generator. After lattice doubling compare the new and old random fields to ensure they are the same
-//     LatRanGen LRGbak(LRG);
-//     int pos[5];
-
-//     for(int flav=0;flav<2;flav++){
-//       for(pos[4]=0;pos[4]<GJP.SnodeSites();pos[4]+=2){
-// 	for(pos[3]=0;pos[3]<GJP.TnodeSites();pos[3]+=2){
-// 	  for(pos[2]=0;pos[2]<GJP.ZnodeSites();pos[2]+=2){
-// 	    for(pos[1]=0;pos[1]<GJP.YnodeSites();pos[1]+=2){
-// 	      for(pos[0]=0;pos[0]<GJP.XnodeSites();pos[0]+=2){
-// 		LRG.AssignGenerator(pos,flav);
-// 		if(pos[4]==0){
-// 		  int idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*pos[3]/2));
-// 		  orig_4d_rands[flav][idx] = LRG.Urand(FOUR_D);//do the 4D RNG
-// 		}
-// 		int idx = pos[0]/2 + GJP.XnodeSites()/2*(pos[1]/2 + GJP.YnodeSites()/2*(pos[2]/2+GJP.ZnodeSites()/2*(pos[3]/2+GJP.SnodeSites()/2*pos[4]/2)));
-// 		orig_5d_rands[flav][idx] = LRG.Urand(FIVE_D);//do the 5D RNG
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-//     }
-//     LRG = LRGbak;
-//   }
-// #endif
