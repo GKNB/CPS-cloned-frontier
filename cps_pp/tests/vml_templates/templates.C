@@ -25,11 +25,12 @@ using namespace std;
 
 MdwfArg mdwf_arg;
 CgArg  cg_arg;
-HmdArg hmd_arg;
+//HmdArg hmd_arg;
 EvoArg evo_arg;
 DoArg  do_arg;
-WspectArg  ws_arg;
-WspectOutput ws_out;
+DoArgExt  do_ext;
+//WspectArg  ws_arg;
+//WspectOutput ws_out;
 PotArg pa;
 PbpArg pbp;
 FixGaugeArg fga;
@@ -69,16 +70,6 @@ int main(int argc, char *argv[])
 
   Task.OutputFilestem = "";
   Task.ArgFilename = "arg_stem";
-  ws_out.cg = "";
-  ws_out.cg2 = "filename";
-  ws_out.pbp = "filename";
-  ws_out.mid_point = "filename";
-  ws_out.nucleon = "filename";
-  ws_out.nucleon_prime = "filename";
-  ws_out.delta_x = "filename";
-  ws_out.delta_y = "filename";
-  ws_out.delta_z = "filename";
-  ws_out.delta_t = "filename";
   evo_arg.ensemble_id = "id";
   evo_arg.ensemble_label = "label";
   evo_arg.creator = "creator";
@@ -87,8 +78,6 @@ int main(int argc, char *argv[])
   evo_arg.plaquette_stem = "plaq";
   evo_arg.evo_stem = "hmd";
   evo_arg.work_directory = "";
-
-  ws_arg.CgArgFile = "CgFile";
 
   rat_arg.resize(4);
   rat_arg.resize(0, 10, 16);
@@ -154,11 +143,9 @@ int main(int argc, char *argv[])
 
   cg_arg.Encode("cg_arg.vml","cg_arg");
   mdwf_arg.Encode("mdwf_arg.vml","mdwf_arg");
-  hmd_arg.Encode("hmd_arg.vml","hmd_arg");
   evo_arg.Encode("evo_arg.vml","evo_arg");
   do_arg.Encode("do_arg.vml","do_arg");
-  ws_arg.Encode("w_spect_arg.vml","w_spect_arg");
-  ws_out.Encode("w_spect_output.vml","w_spect_output");
+  do_ext.Encode("do_ext.vml","do_ext");
   Meas.Encode("meas_arg.vml","meas_arg");
   pa.Encode("pot_arg.vml","pot_arg");
   pbp.Encode("pbp_arg.vml","pbp_arg");
@@ -189,11 +176,9 @@ int main(int argc, char *argv[])
   vml_markup_type(VML_XML);
   
   cg_arg.Encode("cg_arg.xml","cg_arg");
-  hmd_arg.Encode("hmd_arg.xml","hmd_arg");
   evo_arg.Encode("evo_arg.xml","evo_arg");
   do_arg.Encode("do_arg.xml","do_arg");
-  ws_arg.Encode("w_spect_arg.xml","w_spect_arg");
-  ws_out.Encode("w_spect_output.xml","w_spect_output");
+  do_ext.Encode("do_ext.xml","do_ext");
   hmc_arg.Encode("hmc_arg.xml","hmc_arg");
   quo_arg.Encode("quo_arg.xml","quo_arg");
   frm_arg.Encode("frm_arg.xml","frm_arg");

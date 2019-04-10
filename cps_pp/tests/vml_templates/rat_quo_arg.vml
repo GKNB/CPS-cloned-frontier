@@ -21,6 +21,10 @@ double bsn_mass[0] =   0.0000000000000000e+00
 Array frm_mass[1] = { 
 double frm_mass[0] =   0.0000000000000000e+00
 }
+Array bsn_mass_epsilon[0] = { 
+}
+Array frm_mass_epsilon[0] = { 
+}
 Array bosons[1] = { 
 class RationalDescr bosons[0] = {
 FieldType field_type = FERMION
