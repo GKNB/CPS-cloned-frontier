@@ -4,14 +4,15 @@
 #include<config.h>
 #include<assert.h>
 #ifdef USE_GRID
+#include<Grid/Grid.h>
 #include<util/lattice.h>
 #include<util/time_cps.h>
+#include<util/lattice/SchurRedBlackMixed.h>
 #ifdef USE_BFM
 #include<util/lattice/bfm_mixed_solver.h>
 #endif
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
-#include<Grid/Grid.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
 #undef HAVE_HANDOPT
@@ -522,6 +523,7 @@ CPS_END_NAMESPACE
 #define IMPL_F Grid::QCD::WilsonImplF
 #define PARAMS
 #define GP
+#undef TWOKAPPA
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D

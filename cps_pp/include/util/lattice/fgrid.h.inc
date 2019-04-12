@@ -328,8 +328,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-    Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
@@ -459,8 +459,10 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-    Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+//    Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
+//    Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
@@ -636,7 +638,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       "DIRAC Ddwf (*Umu(%p), FIVE_GRID (%p %p) * UGridD(%p), *UrbGridD(%p), mass(%g), MOB PARAMS)\n",
 	       Umu, FGridD, FrbGridD, UGridD, UrbGridD, mass);
 
-    DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
+    DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
     Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
     precisionChange (UmuF, *Umu);
     DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
@@ -646,17 +648,17 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 #if 1
 //was broken in Grid.
       ImportFermion (grid_out, f_in);
-      Ddwf.Dminus (grid_out, grid_in);
+      DdwfD.Dminus (grid_out, grid_in);
 #else
 // Obviously only for mobius, needs more work for zMobius
       ImportFermion (grid_in, f_in);
-      Ddwf.DW (grid_in, grid_out, Grid::QCD::DaggerNo);
+      DdwfD.DW (grid_in, grid_out, Grid::QCD::DaggerNo);
       double mob_c = mob_b - 1.;
       axpy (grid_in, -mob_c, grid_out, grid_in);
 #endif
     } else if (if_dminus == -1) {
       ImportFermion (grid_out, f_in);
-      Ddwf.Dminus (grid_out, grid_in);
+      DdwfD.Dminus (grid_out, grid_in);
       ImportFermion (f_out, grid_in);
       return 0;
     } else
@@ -717,20 +719,22 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
 
 // should be fixed to use evecs gnenerated from Lanczos. Making it compile for now.
-#ifndef TWOKAPPA
-    {
-      Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd,
-						      cg_arg->max_num_iter);
-      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
-      SchurSolver (Ddwf, grid_in, grid_out);
-    }
-#else
     {
       int maxinner = cg_arg->max_num_iter;
       int maxouter = 10;
-      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (Ddwf);
+#ifndef TWOKAPPA
+//      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+//      SchurSolver (Ddwf, grid_in, grid_out);
+//      Grid::QCD::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
+//      Grid::QCD::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#else
+      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
       Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
-      Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
+#endif
+      Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
+      Grid::MixedPrecisionConjugateGradientOp < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
 	VRB.Result (cname, fname, "if_defl=%d verbose=%d\n",if_defl,verbose);
@@ -750,13 +754,27 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
         }
 	CG_m.useGuesser (guesser);
       }
-      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
-      SchurSolver (Ddwf, grid_in, grid_out);
-    }
+#ifndef TWOKAPPA
+#if 0
+      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+      SchurSolver (DdwfD, grid_in, grid_out);
+#else
+{
+      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
+      SchurSolver (DdwfD, grid_in, grid_out);
+//      CGcontrols cg_controls;
+//      Grid_CGNE_M_high<mf_Policies>(grid_out, grid_out, cg_controls, evecs, 0, latg, DdwfD, FERM_GRID, F_RB_GRID);
+      
+}
 #endif
+#else
+      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
+      SchurSolver (DdwfD, grid_in, grid_out);
+#endif
+    }
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);
-      Ddwf.M (grid_out, temp);
+      DdwfD.M (grid_out, temp);
       temp = temp - grid_in;
       *true_res = std::sqrt (norm2 (temp) / norm2 (grid_in));
       VRB.Result (cname, fname, "true_res=%g\n", *true_res);
