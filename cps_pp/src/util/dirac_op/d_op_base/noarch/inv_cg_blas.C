@@ -131,7 +131,8 @@ int DiracOp::InvCg(Vector *out,
   } else {
     f_size_cb = GJP.VolNodeSites() * lat.FsiteSize() / (lat.FchkbEvl()+1);
   }
-  
+  f_size_cb *= (GJP.Gparity() + 1);
+
   // Allocate memory for the residual vector res.
   Vector *res = (Vector *) smalloc(f_size_cb * sizeof(Float));
   if(res == 0)

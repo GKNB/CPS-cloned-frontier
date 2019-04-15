@@ -54,6 +54,8 @@
 
 #include <util/gparity_singletodouble.h>
 
+#include <util/lattice/fgrid.h>
+
 #ifdef HAVE_BFM
 #include <chroma.h>
 #endif
@@ -80,14 +82,17 @@ void setup_double_rng(bool gparity_X, bool gparity_Y){
   //orig 5D rng 2 stacked 4D volumes per ls/2 slice (ls/2 as only one RNG per 2^4 block)
 
   SingleToDouble4dRNG fourDsetup(gparity_X,gparity_Y);
+#ifndef USE_C11_RNG
   SingleToDouble5dRNG fiveDsetup(gparity_X,gparity_Y);
-  
+#endif  
   LRG.Reinitialize(); //reset the LRG and prepare for doubled lattice form
   
   if(!UniqueID()){ printf("Setting up 1f 4D RNG\n"); fflush(stdout); }
   fourDsetup.Run();      
+#ifndef USE_C11_RNG
   if(!UniqueID()){ printf("Setting up 1f 5D RNG\n"); fflush(stdout); }
   fiveDsetup.Run();    
+#endif    
 }
 void GaugeTransformU(Matrix *gtrans, Lattice &lat);
 
@@ -180,6 +185,8 @@ int main(int argc,char *argv[])
     }else if( strncmp(cmd,"-unit_gauge",15) == 0){
       unit_gauge=true;
       i++;
+    }else if( std::string(cmd) == "--log"){
+      i+=2;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
       exit(-1);
@@ -261,7 +268,6 @@ int main(int argc,char *argv[])
   if(gparity_Y) do_arg.y_bc = BND_CND_GPARITY;
 
   GJP.Initialize(do_arg);
-  cps_qdp_init(&argc,&argv);
 
   SerialIO::dbl_latt_storemode = dbl_latt_storemode;
   
@@ -276,7 +282,28 @@ int main(int argc,char *argv[])
     LRG.Write(save_lrg_file,32);
   }
   
-  GwilsonFdwf* lattice = new GwilsonFdwf;
+  #define GRID_TEST
+
+#ifdef GRID_TEST
+  typedef GnoneFgridGparityMobius TwoFlavorLattice;
+  typedef GnoneFgridMobius OneFlavorLattice;
+#else
+  typedef GwilsonFdwf TwoFlavorLattice;
+  typedef GwilsonFdwf OneFlavorLattice;
+#endif
+
+  //GwilsonFdwf* lattice = new GwilsonFdwf;
+
+#ifdef GRID_TEST
+  FgridParams fgrid_params;
+  fgrid_params.mobius_scale = 1.0;
+
+  TwoFlavorLattice* lattice = new TwoFlavorLattice(fgrid_params);
+  std::cout << "Nsimd = " << lattice->getFrbGrid ()->Nsimd() << std::endl;
+#else
+  TwoFlavorLattice* lattice = new TwoFlavorLattice;
+#endif
+
 					       
   if(!load_config){
     printf("Creating gauge field\n");
@@ -309,6 +336,234 @@ int main(int argc,char *argv[])
     lattice->FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
+
+#if 1
+  //Diagnose Grid converge fail multi node
+  //Conclusion: only appears for G-parity when the node x-size < 4. Odd.
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test standard 1\n");
+    Grid::QCD::LatticeGaugeFieldD Umu(lattice->getUGrid());    
+    typedef typename Grid::QCD::MobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+     
+    DiracOp Ddwf(Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid standard test 1 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test standard 2\n");
+    lattice->ImportGauge();
+    Grid::QCD::LatticeGaugeFieldD* Umu = lattice->getUmu();
+    typedef typename Grid::QCD::MobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+    
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+    
+    DiracOp Ddwf(*Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid standard test 2 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test Gparity 1\n");
+    int Nd = Grid::QCD::Nd;
+    std::vector<int> simd_layout = Grid::GridDefaultSimd(Nd,Grid::vComplexD::Nsimd());
+
+    if(!UniqueID()){
+      printf("SIMD layout: ");
+      for(int i=0;i<4;i++) printf("%d ", simd_layout[i]);
+      printf("\n");
+    }
+
+    std::vector<int> vol(4), nodes(4);
+    for (int i = 0; i < 4; i++)
+      vol[i] = GJP.NodeSites(i) * GJP.Nodes(i);;
+    for (int i = 0; i < 4; i++)
+      nodes[i] = GJP.Nodes(i);
+    
+    int Ls = GJP.Snodes() * GJP.SnodeSites();
+
+    Grid::GridCartesian*   UGrid =  Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol, simd_layout, nodes);
+    Grid::GridRedBlackCartesian * UrbGrid = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid);
+    Grid::GridCartesian         * FGrid   = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid);
+    Grid::GridRedBlackCartesian * FrbGrid = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,UGrid);
+
+    Grid::QCD::LatticeGaugeFieldD Umu(UGrid);    
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(FGrid);
+    random(RNG5,src);
+    FermionField sol(FGrid);
+    sol = Grid::zero;
+     
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+
+    DiracOp Ddwf(Umu, *FGrid, *FrbGrid, *UGrid, *UrbGrid, 0.04, 1.8,  1.5,0.5, params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid Gparity test 1 norm %g\n", nrm);
+  }
+
+  {
+    if(!UniqueID()) printf("Starting Grid CG test Gparity 2\n");
+    Grid::QCD::LatticeGaugeFieldD Umu(lattice->getUGrid());    
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+
+    Grid::QCD::SU3::HotConfiguration(RNG4,Umu);
+
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+     
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+
+    DiracOp Ddwf(Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5, params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid Gparity test 2 norm %g\n", nrm);
+  }
+  {
+    if(!UniqueID()) printf("Starting Grid CG test G-parity 3\n");
+    lattice->ImportGauge();
+    Grid::QCD::LatticeGaugeFieldD* Umu = lattice->getUmu();
+    typedef typename Grid::QCD::GparityMobiusFermionD DiracOp;
+    
+    std::vector<int> seeds4({1,2,3,4});
+    std::vector<int> seeds5({5,6,7,8});
+    Grid::GridParallelRNG RNG5(lattice->getFGrid());  RNG5.SeedFixedIntegers(seeds5);
+    Grid::GridParallelRNG RNG4(lattice->getUGrid());  RNG4.SeedFixedIntegers(seeds4);
+    
+    typedef typename DiracOp::FermionField FermionField;
+    FermionField src(lattice->getFGrid());
+    random(RNG5,src);
+    FermionField sol(lattice->getFGrid());
+    sol = Grid::zero;
+    
+    DiracOp::ImplParams params;
+    params.twists = lattice->SetTwist ();
+    
+    DiracOp Ddwf(*Umu,  *lattice->getFGrid(), *lattice->getFrbGrid(), *lattice->getUGrid(), *lattice->getUrbGrid(), 0.04, 1.8,  1.5,0.5,params);
+    
+    Grid::ConjugateGradient<FermionField> CG (1e-08, 10000);
+    Grid::SchurRedBlackDiagMooeeSolve <FermionField> Solver (CG);
+    Solver(Ddwf, src, sol);
+    
+    double nrm = norm2(sol);
+    if(!UniqueID()) printf("Grid G-parity test 3 norm %g\n", nrm);
+  }
+
+
+#endif
+
+
+
+
+
+
+
+
+
+#ifdef USE_C11_RNG
+  //Test the RNG state store/load
+  {
+    LatRanGen LRGbak(LRG);
+    double r1 = LRG.Urand();
+    LRG = LRGbak;
+
+    double r1_test = LRG.Urand();
+    assert(r1_test == r1);
+    LRG = LRGbak;
+
+    std::vector<RNGSTATE> state(LRG.NStates()*LRG.StateSize());
+    LRG.GetAllStates(state.data());
+    for(int i=0;i<10;i++) LRG.Urand();
+    LRG.SetAllStates(state.data());
+    double r2 = LRG.Urand();
+
+    assert(r2==r1);
+
+    LRG = LRGbak;
+
+    //Test whether the store/load to doubles works
+    for(int i=0;i<10;i++) LRG.Urand();
+
+    std::vector<Float> fstate(LRG.NStates()*LRG.StateSize());
+    std::vector<RNGSTATE> state2(LRG.NStates()*LRG.StateSize());
+    for(int site=0;site<LRG.NStates();site++)
+      RNGComms::rngstore(&state[LRG.StateSize()*site], LRG.StateSize(), &fstate[LRG.StateSize()*site]);
+    for(int site=0;site<LRG.NStates();site++)
+      RNGComms::rngload(&state2[LRG.StateSize()*site], LRG.StateSize(), &fstate[LRG.StateSize()*site]);
+    
+    LRG.SetAllStates(state2.data());
+
+    assert(LRG == LRGbak);
+
+    double r3 = LRG.Urand();
+
+    assert(r3==r1);
+
+    LRG = LRGbak;
+    std::cout << "Passed LRG store/load test" << std::endl;
+  }
+#endif
+
   
 #define RNG_LATT_2F_1F_TEST
 #ifdef RNG_LATT_2F_1F_TEST
@@ -394,11 +649,6 @@ int main(int argc,char *argv[])
   a1.type = GPARITY_FLAVOR_ATTR;
   a1.AttributeContainer_u.gparity_flavor_attr.flavor = 0;
 
-
-  // if(!prop_args.Decode("parg.vml","prop_arg")){
-  //   printf("Failed to decode parg.vml\n"); exit(-1);
-  // }
-
   if(UniqueID()==0) printf("prop_args contains %d propagators\n", prop_args.props.props_len);
   if(gparity_X){
     for(int i=0;i<prop_args.props.props_len;i++){
@@ -413,16 +663,38 @@ int main(int argc,char *argv[])
 
   PropManager::setup(prop_args);
 
+  if(gauge_fix) lattice->FixGaugeFree();
   IFloat gparity_prop_norm;
   if(!skip_gparity_inversion) gparity_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice).norm();
   else gparity_prop_norm = 0.0;
-  PropManager::clear();
 
-  if(gauge_fix){
-    if(!UniqueID()){ printf("Freeing gauge fixing matrices\n"); fflush(stdout); }
-    lattice->FixGaugeFree();
+
+  //Scan over the line (x,0,0,0)
+  int xsize  = GJP.XnodeSites()*GJP.Xnodes();
+  double twof_xscan[2*xsize];
+  for(int i=0;i<2*xsize;i++) twof_xscan[i] = 0.;
+
+  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
+    QPropW &prop = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(*lattice);
+
+    int xbase = GJP.XnodeCoor() * GJP.XnodeSites();
+    for(int i=0;i<GJP.XnodeSites();i++){
+      int x = xbase + i;
+
+      int coord[4] = {i,0,0,0};
+      int site = coord[0] + GJP.XnodeSites()*(coord[1] + GJP.YnodeSites() * (coord[2] * GJP.ZnodeSites()*coord[3]));      
+
+      WilsonMatrix const & wmat0 = prop.SiteMatrix(site,0);
+      WilsonMatrix const & wmat1 = prop.SiteMatrix(site,1);
+
+      twof_xscan[x] = ((double const*)(&wmat0))[0];
+      twof_xscan[x+xsize] = ((double const*)(&wmat1))[0];
+    }
   }
+  glb_sum(twof_xscan, 2*xsize);
 
+
+  PropManager::clear();
   if(UniqueID()==0) printf("Starting double lattice inversion\n");
 
   
@@ -435,10 +707,15 @@ int main(int argc,char *argv[])
   
   //setup 1f model. Upon calling GJP.Initialize the lattice size will be doubled in the appropriate directions
   //and the boundary condition set to APRD
-  if(gparity_X) do_arg.gparity_1f_X = 1;
-  if(gparity_Y) do_arg.gparity_1f_Y = 1;
+  //if(gparity_X) do_arg.gparity_1f_X = 1;
+  //if(gparity_Y) do_arg.gparity_1f_Y = 1;
+  
+  if(gparity_X){ do_arg.x_sites *= 2; do_arg.x_bc = BND_CND_APRD; }
+  if(gparity_Y){ do_arg.y_sites *= 2; do_arg.y_bc = BND_CND_APRD; }
 
   GJP.Initialize(do_arg);
+  if(gparity_X) GJP.setGparity1fX();
+  if(gparity_Y) GJP.setGparity1fY();
 
   if(GJP.Gparity()){ printf("Que?\n"); exit(-1); }
   if(UniqueID()==0) printf("Doubled lattice : %d %d %d %d\n", GJP.XnodeSites()*GJP.Xnodes(),GJP.YnodeSites()*GJP.Ynodes(),
@@ -455,15 +732,71 @@ int main(int argc,char *argv[])
   }
 #endif
 
-  GwilsonFdwf doubled_lattice;
+#ifdef GRID_TEST
+  OneFlavorLattice doubled_lattice(fgrid_params);
+#else
+  OneFlavorLattice doubled_lattice;
+#endif
+
   setup_double_latt(doubled_lattice,orig_lattice,gparity_X,gparity_Y);
   setup_double_rng(gparity_X,gparity_Y);
+ 
+#ifdef GRID_TEST
+  doubled_lattice.ImportGauge();
+#endif
  
   if(gauge_fix){
     doubled_lattice.FixGaugeAllocate(FIX_GAUGE_COULOMB_T);
     doubled_lattice.FixGauge(1e-06,2000);
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
+
+#ifdef RNG_LATT_2F_1F_TEST_2
+  //in this test we generate a field of random numbers and do the same on the 1f lattice, compare
+  {
+    LatRanGen LRGbak(LRG);
+    int array_size = GJP.VolNodeSites() * sizeof(Float);
+    Float *_1f_rand_field = (Float *) pmalloc(array_size);
+    for(int i=0;i<GJP.VolNodeSites();i++){
+      LRG.AssignGenerator(i);
+      _1f_rand_field[i] = LRG.Urand();
+    }
+    LRG = LRGbak;
+
+    //bring over the 2f random field
+    Float * _2f_rand_field_1fvers = (Float *) pmalloc(array_size);
+    SingleToDoubleField dblr(gparity_X,gparity_Y,1,rand_field,_2f_rand_field_1fvers);
+    dblr.Run();
+
+    bool err(false);
+    
+    for(int t=0;t<GJP.TnodeSites();t++){
+      for(int z=0;z<GJP.ZnodeSites();z++){
+	for(int y=0;y<GJP.YnodeSites();y++){
+	  for(int x=0;x<GJP.XnodeSites();x++){
+	    int pos[4] = {x,y,z,t};
+	    int off = x+GJP.XnodeSites()*(y+GJP.YnodeSites()*(z+GJP.ZnodeSites()*t));
+	    double* m = (double*)(_1f_rand_field+off);
+	    double* mc = (double*)(_2f_rand_field_1fvers+off);
+	    if(fabs(*m - *mc) > 1e-06){
+	      printf("Error: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
+	      err=true;
+	    }else{
+	      printf("Pass: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
+	    }
+	  }
+	}
+      }
+    }
+    pfree(_1f_rand_field);
+    pfree(_2f_rand_field_1fvers);
+    pfree(rand_field);
+    
+    if(err){ printf("Failed rand field comparison test\n"); exit(-1); }
+    if(!UniqueID()) printf("Passed rand field comparison test\n");
+  }
+#endif
+
 
 #ifdef RNG_LATT_2F_1F_TEST
   //in this test we generate a random gauge transformation and apply it to the gauge links, save the new gauge field and restore both the RNG and original g field
@@ -529,49 +862,6 @@ int main(int argc,char *argv[])
   }
 #endif
 
-#ifdef RNG_LATT_2F_1F_TEST_2
-  //in this test we generate a field of random numbers and do the same on the 1f lattice, compare
-  {
-    LatRanGen LRGbak(LRG);
-    int array_size = GJP.VolNodeSites() * sizeof(Float);
-    Float *_1f_rand_field = (Float *) pmalloc(array_size);
-    for(int i=0;i<GJP.VolNodeSites();i++){
-      LRG.AssignGenerator(i);
-      _1f_rand_field[i] = LRG.Urand();
-    }
-    LRG = LRGbak;
-
-    //bring over the 2f random field
-    Float * _2f_rand_field_1fvers = (Float *) pmalloc(array_size);
-    SingleToDoubleField dblr(gparity_X,gparity_Y,1,rand_field,_2f_rand_field_1fvers);
-    dblr.Run();
-
-    bool err(false);
-    
-    for(int t=0;t<GJP.TnodeSites();t++){
-      for(int z=0;z<GJP.ZnodeSites();z++){
-	for(int y=0;y<GJP.YnodeSites();y++){
-	  for(int x=0;x<GJP.XnodeSites();x++){
-	    int pos[4] = {x,y,z,t};
-	    int off = x+GJP.XnodeSites()*(y+GJP.YnodeSites()*(z+GJP.ZnodeSites()*t));
-	    double* m = (double*)(_1f_rand_field+off);
-	    double* mc = (double*)(_2f_rand_field_1fvers+off);
-	    if(fabs(*m - *mc) > 1e-06){
-	      printf("Error: rand field (%d %d %d %d): (%f), (%f)\n",x,y,z,t,*m,*mc);
-	      err=true;
-	    }
-	  }
-	}
-      }
-    }
-    pfree(_1f_rand_field);
-    pfree(_2f_rand_field_1fvers);
-    pfree(rand_field);
-    
-    if(err){ printf("Failed rand field comparison test\n"); exit(-1); }
-    if(!UniqueID()) printf("Passed rand field comparison test\n");
-  }
-#endif
   if(gparity_X){
     for(int i=0;i<prop_args.props.props_len;i++){
       prop_args.props.props_val[i].generics.bc[0] = BND_CND_APRD;
@@ -590,9 +880,46 @@ int main(int argc,char *argv[])
   IFloat dbl_prop_norm = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(doubled_lattice).norm();
   if(gparity_X && gparity_Y) dbl_prop_norm/=2; //quad volume but only 2 independent flavors
 
-  //IFloat dbl_prop_norm = 0.0;
+  double norm = 1.;
+#ifdef GRID_TEST
+  norm = (5.-1.8); //Mobius (b+c=1) is 1/(5-M5) smaller norm than DWF 
+#endif
+  dbl_prop_norm *= norm*norm;
+  gparity_prop_norm *= norm*norm;
 
   if(!UniqueID()) printf("norms: gparity = %f  double latt = %f. diff = %f\n",gparity_prop_norm,dbl_prop_norm,fabs(gparity_prop_norm-dbl_prop_norm) );
+
+
+  //Scan over the line (x,0,0,0)
+  xsize  = GJP.XnodeSites()*GJP.Xnodes();
+  double onef_xscan[xsize];
+  for(int i=0;i<xsize;i++) onef_xscan[i] = 0.;
+
+  if(GJP.YnodeCoor() == 0 && GJP.ZnodeCoor() == 0 && GJP.TnodeCoor() == 0){
+    QPropW &prop = PropManager::getProp(prop_args.props.props_val[0].generics.tag).convert<QPropWcontainer>().getProp(doubled_lattice);
+
+    int xbase = GJP.XnodeCoor() * GJP.XnodeSites();
+    for(int i=0;i<GJP.XnodeSites();i++){
+      int x = xbase + i;
+
+      int coord[4] = {i,0,0,0};
+      int site = coord[0] + GJP.XnodeSites()*(coord[1] + GJP.YnodeSites() * (coord[2] * GJP.ZnodeSites()*coord[3]));      
+
+      WilsonMatrix const & wmat = prop.SiteMatrix(site);
+
+      onef_xscan[x] = ((double const*)(&wmat))[0];
+    }
+  }
+  glb_sum(onef_xscan, xsize);
+
+  if(!UniqueID()){
+    std::cout << "One-flavor x-scan:\n";
+    for(int i=0;i<xsize;i++) std::cout << onef_xscan[i]*norm << " ";
+    std::cout << std::endl << "Two-flavor x-scan:\n";
+    for(int i=0;i<xsize;i++) std::cout << twof_xscan[i]*norm << " ";
+    std::cout << std::endl;
+  }
+
 
 #ifdef HAVE_BFM
   Chroma::finalize();
@@ -602,6 +929,8 @@ int main(int argc,char *argv[])
     printf("Main job complete\n"); 
     fflush(stdout);
   }
+  
+  End();
   
   return 0;
 }

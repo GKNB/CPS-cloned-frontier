@@ -413,12 +413,18 @@ public:
   /*!<
     \return true if G-parity boundary conditions are in use.
   */
+
+
+  //These options are for the "one-flavor" implementation of G-parity BCs
+  void setGparity1fX(const int val = 1){ gparity_1f_X = val; }
+  void setGparity1fY(const int val = 1){ gparity_1f_Y = val; }
   
   bool Gparity1fX() const { return gparity_1f_X == 1; }
   bool Gparity1fY() const { return gparity_1f_Y == 1; }
 
   void EnableGparity1f2fComparisonCode(){  gparity_doing_1f2f_comparison = 1; }
   bool Gparity1f2fComparisonCode() const { return gparity_doing_1f2f_comparison == 1; }
+
 
   BndCndType NodeBc(int dir) const
       { return node_bc[dir];}
