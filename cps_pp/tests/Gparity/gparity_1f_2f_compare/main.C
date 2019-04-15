@@ -282,7 +282,7 @@ int main(int argc,char *argv[])
     LRG.Write(save_lrg_file,32);
   }
   
-  #define GRID_TEST
+  //#define GRID_TEST
 
 #ifdef GRID_TEST
   typedef GnoneFgridGparityMobius TwoFlavorLattice;
@@ -337,7 +337,7 @@ int main(int argc,char *argv[])
     if(!UniqueID()){ printf("Gauge fixing finished\n"); fflush(stdout); }
   }
 
-#if 1
+#ifdef GRID_TEST
   //Diagnose Grid converge fail multi node
   //Conclusion: only appears for G-parity when the node x-size < 4. Odd.
 
