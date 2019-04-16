@@ -83,6 +83,7 @@ for(int  i = 0;i<100;i++){
 
   GJP.Initialize(do_arg);
   GJP.InitializeExt(do_ext);
+  LRG.Initialize();
 #if 0
   GJP.SnodeSites(mobius_arg.ls);
   GJP.ZMobius_b (mobius_arg.zmobius_b_coeff.zmobius_b_coeff_val,
@@ -94,22 +95,20 @@ for(int  i = 0;i<100;i++){
 //HACK!! Needs to be fixed, as cg_arg has dynamical allocation now.
     cg_arg = mobius_arg.cg; 
     LRGState rng_state;
-    rng_state.GetStates();
-    
 {
-    LRG.Initialize();
     GnoneFmobius lat;
+    rng_state.GetStates();
 	run_inv(lat,DWF_4D_EOPREC_EE,"Fmobius",1);
 }
-    rng_state.SetStates();
 
 #ifdef USE_GRID
 {
-   LRG.Initialize();
+//   LRG.Initialize();
    FgridParams params;
    params.mobius_scale=GJP.GetMobius();
    params.epsilon=0.;
    GnoneFgridMobius lat(params);
+    rng_state.SetStates();
    run_inv(lat,CANONICAL,"FgridMobius",1);
 }
 #endif
@@ -144,7 +143,7 @@ void run_inv(Lattice &lat,  StrOrdType str_ord, char *out_name, int DO_CHECK){
 	(Vector*)smalloc(GJP.VolNodeSites()*lat.FsiteSize()*sizeof(IFloat));
     if(!X_in) ERR.Pointer("","","X_in");
 	memset(X_in,0,GJP.VolNodeSites()*lat.FsiteSize()*sizeof(IFloat));
-#if 0
+#if 1
 	lat.RandGaussVector(X_in,1.0);
 #else
 
@@ -195,8 +194,10 @@ void run_inv(Lattice &lat,  StrOrdType str_ord, char *out_name, int DO_CHECK){
 		int offset = GJP.VolNodeSites()*lat.FsiteSize()/ (2*6);
 #if 1
 		dtime = -dclock();
-//   		int iter = dirac.MatInv(result,X_in,&true_res,PRESERVE_YES);
+// With dminus
    		int iter = lat.FmatInv(result,X_in,&cg_arg,&true_res,CNV_FRM_NO,PRESERVE_YES);
+// Without dminus
+//   		int iter = lat.FmatInvTest(result,X_in,&cg_arg,&true_res,CNV_FRM_NO,PRESERVE_YES);
 		dtime +=dclock();
 #else
 		lat.Fdslash(result,X_in,&cg_arg,CNV_FRM_NO,0);
