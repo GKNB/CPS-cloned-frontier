@@ -1117,224 +1117,262 @@ void FixHPlane::unitarize(int recurse)
 //  int MaxIterNum - issues a warning if reached.                          //
 //                                                                         //
 //-------------------------------------------------------------------------//
-int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
-{
-    char *fname = "FixGauge(F,i)";
+ int Lattice::FixGauge(Float SmallFloat, int MaxIterNum)
+ {
+   char *fname = "FixGauge(F,i)";
 
-    VRB.Func(cname, fname);
+   VRB.Func(cname, fname);
 
-    //------------------------------------------------------------------------
-    // Initial checking
-    //------------------------------------------------------------------------
-    {
-        if( (fix_gauge_kind == FIX_GAUGE_NONE) || (fix_gauge_ptr == NULL) )
-            ERR.General(cname, fname, "Not initialized");
+   //------------------------------------------------------------------------
+   // Initial checking
+   //------------------------------------------------------------------------
+   {
+     if( (fix_gauge_kind == FIX_GAUGE_NONE) || (fix_gauge_ptr == NULL) )
+       ERR.General(cname, fname, "Not initialized");
 
-        if(Colors() != COLORS)
-            ERR.NotImplemented(cname, fname, "Implemented only for Colors = %d. "
-                               "Called with Colors == %d\n", COLORS, Colors());
-    }
+     if(Colors() != COLORS)
+       ERR.NotImplemented(cname, fname, "Implemented only for Colors = %d. "
+			  "Called with Colors == %d\n", COLORS, Colors());
+   }
 
-    // set last Stopping Condition
-    fix_gauge_stpCond = SmallFloat;
+   // set last Stopping Condition
+   fix_gauge_stpCond = SmallFloat;
 
 
-    //------------------------------------------------------------------------
-    // NormDir is numerically identical to fix_gauge_kind
-    //------------------------------------------------------------------------
-    int NormDir = int(fix_gauge_kind);
+   //------------------------------------------------------------------------
+   // NormDir is numerically identical to fix_gauge_kind
+   //------------------------------------------------------------------------
+   int NormDir = int(fix_gauge_kind);
 
-    //------------------------------------------------------------------------
-    // calculate hyperplane dimensionality
-    //------------------------------------------------------------------------
-    int HplDim = (fix_gauge_kind == FIX_GAUGE_LANDAU) ? 
-        XXX::Dimension : XXX::Dimension-1;
+   //------------------------------------------------------------------------
+   // calculate hyperplane dimensionality
+   //------------------------------------------------------------------------
+   int HplDim = (fix_gauge_kind == FIX_GAUGE_LANDAU) ? 
+     XXX::Dimension : XXX::Dimension-1;
 
-    //------------------------------------------------------------------------
-    // allocate and initialize Ind2Dir with the initial order skipping 
-    // the normal direction 
-    //------------------------------------------------------------------------
+   //------------------------------------------------------------------------
+   // allocate and initialize Ind2Dir with the initial order skipping 
+   // the normal direction 
+   //------------------------------------------------------------------------
 
-    int *Ind2Dir;
+   int *Ind2Dir;
   
-    {
-        int mem_size = XXX::Dimension * sizeof(int);
-        Ind2Dir = (int*) smalloc(mem_size);
-        if(Ind2Dir == NULL)
-            ERR.Pointer(cname, fname, "Ind2Dir");
-        VRB.Smalloc(cname, fname, "Ind2Dir", Ind2Dir, mem_size);
+   {
+     int mem_size = XXX::Dimension * sizeof(int);
+     Ind2Dir = (int*) smalloc(mem_size);
+     if(Ind2Dir == NULL)
+       ERR.Pointer(cname, fname, "Ind2Dir");
+     VRB.Smalloc(cname, fname, "Ind2Dir", Ind2Dir, mem_size);
     
-        int i, ii;
-        for(ii=i=0; i<HplDim; i++, ii++)
-            {
-                if(ii == NormDir)
-                    ii++;
-                Ind2Dir[i] = ii;
-            }
-    }
+     int i, ii;
+     for(ii=i=0; i<HplDim; i++, ii++)
+       {
+	 if(ii == NormDir)
+	   ii++;
+	 Ind2Dir[i] = ii;
+       }
+   }
   
   
-    //------------------------------------------------------------------------
-    // find stride - between hplanes in the L[]
-    //------------------------------------------------------------------------
+   //------------------------------------------------------------------------
+   // find stride - between hplanes in the L[]
+   //------------------------------------------------------------------------
   
-    int stride = XXX::SiteSize;
+   int stride = XXX::SiteSize;
   
-    if(fix_gauge_kind != FIX_GAUGE_LANDAU)
-        {
-            for(int i=0; i<NormDir; i++)
-                stride *= XXX::Node_Size_in_Dir(i);
-        }
+   if(fix_gauge_kind != FIX_GAUGE_LANDAU)
+     {
+       for(int i=0; i<NormDir; i++)
+	 stride *= XXX::Node_Size_in_Dir(i);
+     }
   
-    //------------------------------------------------------------------------
-    // for each hyperplane - iterate until the stopping condition is reached
-    //------------------------------------------------------------------------
+   //------------------------------------------------------------------------
+   // for each hyperplane - iterate until the stopping condition is reached
+   //------------------------------------------------------------------------
 
-    Float not_converged = 0;
-    unsigned long tot_iternum = 0;
+   Float not_converged = 0;
+   unsigned long tot_iternum = 0;
 
-    {
-        int loop_num = 
-            (fix_gauge_kind==FIX_GAUGE_LANDAU) ? 1 : XXX::Node_Size_in_Dir(NormDir);
+   {
+     int loop_num = 
+       (fix_gauge_kind==FIX_GAUGE_LANDAU) ? 1 : XXX::Node_Size_in_Dir(NormDir);
 
-        for(int i=0; i < loop_num; i++)
-            {
-                //------------------------------------------------------------------
-                // if initialized - fix
-                //------------------------------------------------------------------
+     for(int i=0; i < loop_num; i++)
+       {
+	 //------------------------------------------------------------------
+	 // if initialized - fix
+	 //------------------------------------------------------------------
 
-                if( fix_gauge_ptr[i] != NULL )
-                    {
+	 if( fix_gauge_ptr[i] != NULL )
+	   {
 	
-                        //--------------------------------------------------------------
-                        // construct hyperplane
-                        //--------------------------------------------------------------
+	     //--------------------------------------------------------------
+	     // construct hyperplane
+	     //--------------------------------------------------------------
 	    
-                        FixHPlane hplane(GaugeField() + i*stride, Ind2Dir, HplDim, 
-                                         fix_gauge_ptr[i], SmallFloat);
+	     FixHPlane hplane(GaugeField() + i*stride, Ind2Dir, HplDim, 
+			      fix_gauge_ptr[i], SmallFloat);
 	
-                        //--------------------------------------------------------------
-                        // find gauge fixing matrices for hyperplane
-                        //--------------------------------------------------------------
+	     //--------------------------------------------------------------
+	     // find gauge fixing matrices for hyperplane
+	     //--------------------------------------------------------------
 
-                        unsigned long int iternum = 0;
+	     unsigned long int iternum = 0;
 
-                        while((hplane.delta() > hplane.small_enough) && (iternum < MaxIterNum))
-                            {
-                                //----------------------------------------------------------
-                                // Make iterations
-                                //----------------------------------------------------------
+	     while((hplane.delta() > hplane.small_enough) && (iternum < MaxIterNum))
+	       {
+		 //----------------------------------------------------------
+		 // Make iterations
+		 //----------------------------------------------------------
 
-                                for(int j=0; j<XXX::CheckFreq; j++)
-                                    {
-										if((iternum%100) ==0 ) VRB.Result(cname,fname,"delta[%d]=%g\n",iternum,hplane.delta());
-                                        hplane.iter();
-                                        iternum++;
-                                    }
+		 for(int j=0; j<XXX::CheckFreq; j++)
+		   {
+		     if((iternum%100) ==0 ) VRB.Result(cname,fname,"delta[%d]=%g\n",iternum,hplane.delta());
+		     hplane.iter();
+		     iternum++;
+		   }
 
-                                //----------------------------------------------------------
-                                // Make sure the matrices are still unitary
-                                //----------------------------------------------------------
+		 //----------------------------------------------------------
+		 // Make sure the matrices are still unitary
+		 //----------------------------------------------------------
 
-                                hplane.unitarize();
-                            }
+		 hplane.unitarize();
+	       }
 
-                        if(iternum >= MaxIterNum)
-                            not_converged += 1;
-	    //--------------------------------------------------------------
-	    // find gauge fixing matrices for hyperplane
-	    //--------------------------------------------------------------
+	     if(iternum >= MaxIterNum)
+	       not_converged += 1;
 
-//	    int iternum = 0;
+	     if(GJP.Gparity()){
+	       //C.Kelly: In order to save time, we don't run the gauge fixing algorithm for the U^* field, just copy-conjugate the 
+	       //gauge-fixing matrices after they are determined for the U field (G-parity BC is implemented within by complex-conjugating
+	       //the links/G when necessary in such a way as to incur no extra computational cost)
 
-	    while((hplane.delta() > hplane.small_enough)
-		  && (iternum < MaxIterNum))
-	      {
-		//----------------------------------------------------------
-		// Make iterations
-		//----------------------------------------------------------
+	       if(fix_gauge_kind==FIX_GAUGE_LANDAU){
+		 //For Landau we have a single 'hyperplane' of size Lx*Ly*Lz*Lt. In memory we allocated space for 2 of these, where the
+		 //second will contain the Landau gauge-fixing matrices for the U^* field
 
-		for(int j=0; j<XXX::CheckFreq; j++)
-		  {
-		    hplane.iter();
-		    iternum++;
-		  }
+		 int fourvol = 1;
+		 for(int d=0; d<XXX::Dimension; d++)
+		   fourvol *= XXX::Node_Size_in_Dir(d);
+		
+		 for(int from=0;from<fourvol;from++){
+		   int to = from + fourvol;
+		   fix_gauge_ptr[0][to].Conj( (IFloat*)&fix_gauge_ptr[0][from] );
+		 }
 
-		//----------------------------------------------------------
-		// Make sure the matrices are still unitary
-		//----------------------------------------------------------
+	       }else{ //Coulomb gauge
+		 //Copy-conjugate hyperplane i onto 'hyperplane' i+L, where the latter corresponds to the U^* field
 
-		hplane.unitarize();
-	      }
+		 int threevol = 1;
+		 for(int d=0; d<XXX::Dimension; d++)
+		   if(d != NormDir)
+		     threevol *= XXX::Node_Size_in_Dir(d);
 
-	    if(iternum >= MaxIterNum)
-	      not_converged += 1;
-	    
+		 int hplane_to = i + XXX::Node_Size_in_Dir(NormDir);
+
+		 for(int pos=0;pos<threevol;pos++)
+		   fix_gauge_ptr[hplane_to][pos].Conj( (IFloat*)&fix_gauge_ptr[i][pos] );
+		
+	       }
+	     }
+
+
+	     //--------------------------------------------------------------
+	     // find gauge fixing matrices for hyperplane
+	     //--------------------------------------------------------------
+
+	     //	    int iternum = 0;
+#if 0
+//Repeated code block!?
+	     while((hplane.delta() > hplane.small_enough)
+		   && (iternum < MaxIterNum))
+	       {
+		 //----------------------------------------------------------
+		 // Make iterations
+		 //----------------------------------------------------------
+
+		 for(int j=0; j<XXX::CheckFreq; j++)
+		   {
+		     hplane.iter();
+		     iternum++;
+		   }
+
+		 //----------------------------------------------------------
+		 // Make sure the matrices are still unitary
+		 //----------------------------------------------------------
+
+		 hplane.unitarize();
+	       }
+
+	     if(iternum >= MaxIterNum)
+	       not_converged += 1;
+#endif	    
+
 #ifdef NEW_GFIX
-                        tot_iternum += iternum;
-                    }
-            }
+	     tot_iternum += iternum;
+	   }
+       }
 #else
-	    tot_iternum += iternum;
-	  }
-      }
+     tot_iternum += iternum;
+   }
+ }
+}
+
+//------------------------------------------------------------------------
+// deallocate Ind2Dir
+//------------------------------------------------------------------------
+VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
+sfree(Ind2Dir);
+
+//Add by Jianglei
+VRB.Result(cname, fname, "Iteration numbers = %lu", tot_iternum);
+
+//--------------------------------------------------------------
+// Issue a warning through broadcast if MaxIterNum is reached
+//--------------------------------------------------------------
+glb_sum(&not_converged);
+if (not_converged > 0.5) 
+  {
+    VRB.Warn(cname,fname, 
+	     "Some hyperplanes did not reach accuracy in %d iterations\n",
+	     MaxIterNum);
+    return -tot_iternum;
   }
-
-  //------------------------------------------------------------------------
-  // deallocate Ind2Dir
-  //------------------------------------------------------------------------
-  VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
-  sfree(Ind2Dir);
-
-	//Add by Jianglei
-	VRB.Result(cname, fname, "Iteration numbers = %lu", tot_iternum);
-
-  //--------------------------------------------------------------
-  // Issue a warning through broadcast if MaxIterNum is reached
-  //--------------------------------------------------------------
-  glb_sum(&not_converged);
-  if (not_converged > 0.5) 
-    {
-      VRB.Warn(cname,fname, 
-	       "Some hyperplanes did not reach accuracy in %d iterations\n",
-	       MaxIterNum);
-      return -tot_iternum;
-    }
-  else
-    {
-      return tot_iternum;
+ else
+   {
+     return tot_iternum;
 #endif
 #ifdef NEW_GFIX
-    }
+   }
 
-    //------------------------------------------------------------------------
-    // deallocate Ind2Dir
-    //------------------------------------------------------------------------
-    VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
-    sfree(Ind2Dir);
+//------------------------------------------------------------------------
+// deallocate Ind2Dir
+//------------------------------------------------------------------------
+VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
+sfree(Ind2Dir);
   
-    // Added by Hantao, sum in t direction.
-    glb_sum(&tot_iternum);
-    tot_iternum /= GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes();
-    //Add by Jianglei
-    VRB.Result(cname, fname, "Iteration numbers = %f\n", tot_iternum);
+// Added by Hantao, sum in t direction.
+glb_sum(&tot_iternum);
+tot_iternum /= GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes();
+//Add by Jianglei
+VRB.Result(cname, fname, "Iteration numbers = %f\n", tot_iternum);
 
-    //--------------------------------------------------------------
-    // Issue a warning through broadcast if MaxIterNum is reached
-    //--------------------------------------------------------------
-    glb_sum(&not_converged);
-    if (not_converged > 0.5) 
-        {
-            VRB.Warn(cname,fname, 
-                     "Some hyperplanes did not reach accuracy in %d iterations\n",
-                     MaxIterNum);
-            return -(int)tot_iternum;
-        }
-    else
-        {
-            return (int)tot_iternum;
+//--------------------------------------------------------------
+// Issue a warning through broadcast if MaxIterNum is reached
+//--------------------------------------------------------------
+glb_sum(&not_converged);
+if (not_converged > 0.5) 
+  {
+    VRB.Warn(cname,fname, 
+	     "Some hyperplanes did not reach accuracy in %d iterations\n",
+	     MaxIterNum);
+    return -(int)tot_iternum;
+  }
+ else
+   {
+     return (int)tot_iternum;
 #endif
-        }
+   }
 }
 
 
