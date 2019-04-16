@@ -677,11 +677,20 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfi
 }
 
 
+
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
+	  typename extSiteType, typename extMapPol, typename extAllocPol, typename Enable = void>
+struct _gather_scatter_impl;
+
+
 //When the local field has the right dimension but is not the same as the equivalent local dimension policy, do an intermediate impex
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
-	  typename extSiteType, typename extMapPol, typename extAllocPol,
-	  typename my_enable_if<intEq<MappingPolicy::EuclideanDimension,extMapPol::EuclideanDimension>::val && _equal<typename MappingPolicy::FieldFlavorPolicy,typename extMapPol::FieldFlavorPolicy>::value, int>::type = 0>
-struct _gather_scatter_impl{
+	  typename extSiteType, typename extMapPol, typename extAllocPol>
+struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy, extSiteType,extMapPol,extAllocPol,
+			    typename my_enable_if<
+			      !_equal<MappingPolicy, typename MappingPolicy::EquivalentLocalPolicy>::val &&
+			      intEq<MappingPolicy::EuclideanDimension,extMapPol::EuclideanDimension>::val && 
+			      _equal<typename MappingPolicy::FieldFlavorPolicy,typename extMapPol::FieldFlavorPolicy>::value, void>::type>{
   typedef typename MappingPolicy::EquivalentLocalPolicy EquivalentLocalPolicy;
   
   static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &into, const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &from){
@@ -702,10 +711,10 @@ struct _gather_scatter_impl{
 };
 
 //When the local field has DimensionPolicy equal to the EquivalentLocalPolicy
-template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
-	  typename my_enable_if<intEq<MappingPolicy::EuclideanDimension,MappingPolicy::EquivalentLocalPolicy::EuclideanDimension>::val, int>::type test>
+template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
-		    SiteType, typename MappingPolicy::EquivalentLocalPolicy, AllocPolicy, test>{
+			    SiteType, typename MappingPolicy::EquivalentLocalPolicy, AllocPolicy,
+			    typename my_enable_if<intEq<MappingPolicy::EuclideanDimension,MappingPolicy::EquivalentLocalPolicy::EuclideanDimension>::val, void>::type>{
   typedef typename MappingPolicy::EquivalentLocalPolicy LocalMappingPolicy;
 
   static void gather(CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy> &into, const CPSfield<SiteType,SiteSize,LocalMappingPolicy,AllocPolicy> &from){
