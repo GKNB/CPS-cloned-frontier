@@ -641,6 +641,7 @@ class QPropWRandVolSrc : public QPropWRand {
 public:
   QPropWRandVolSrc(Lattice& lat, CommonArg* c_arg);
   QPropWRandVolSrc(Lattice& lat, QPropWArg* , QPropWRandArg *, CommonArg*);
+  QPropWRandVolSrc(Lattice& lat, QPropWArg* , QPropWRandArg *, CommonArg*, Complex const* rsrc_in);
    
   void SetSource(FermionVectorTp& src, int spin, int color);
   SourceType SrcType() { return RANDVOLUME; }

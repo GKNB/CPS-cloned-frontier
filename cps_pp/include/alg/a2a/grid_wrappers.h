@@ -165,8 +165,10 @@ struct GridLanczosWrapper{
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
 
     if(FrbGrid_f == NULL) setupSPgrids();
+
+    int nev = evec.size();
     
-    if(!UniqueID()){
+    if(!UniqueID() && nev > 0){
       std::cout << "Double-precision 5D even-odd Grid info:\n";
       evec.back()._grid->show_decomposition();
 
@@ -174,7 +176,6 @@ struct GridLanczosWrapper{
       FrbGrid_f->show_decomposition();
     }
 
-    int nev = evec.size();
     if(!UniqueID()) printf("Lanczos container holds %d eigenvectors\n", nev);
 
     for(int i=0;i<nev;i++){      

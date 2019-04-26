@@ -3840,11 +3840,10 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     VRB.Func (cname, fname);
 
     if (rsrc == NULL) {
-    int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
-    rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
-    if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
-	ERR.Pointer (cname, fname, "rsrc");
-    VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
+      int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
+      rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
+      if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
+      VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
     }
   }
   void QPropWRand::DeleteRsrc ()
@@ -4138,7 +4137,7 @@ QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg,
   : QPropWRand(lat, arg, r_arg, c_arg), mom(p) {
  
   const char *fname = "QPropWRandMomSrc(...)";
-  cname = "QPropWRandWallSrc";
+  cname = "QPropWRandMomSrc";
   VRB.Func(cname, fname);
 
   Run();
@@ -4148,7 +4147,7 @@ QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg,
   : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in), mom(p) {
  
   const char *fname = "QPropWRandMomSrc(...)";
-  cname = "QPropWRandWallSrc";
+  cname = "QPropWRandMomSrc";
   VRB.Func(cname, fname);
 
   Run();
@@ -4191,6 +4190,18 @@ QPropWRandVolSrc::QPropWRandVolSrc (Lattice & lat, CommonArg * c_arg):
 
     Run ();
   }
+QPropWRandVolSrc::QPropWRandVolSrc(Lattice& lat,  QPropWArg* arg, 
+				   QPropWRandArg *r_arg, CommonArg* c_arg, Complex const* rsrc_in) 
+  : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in){
+ 
+  const char *fname = "QPropWRandVolSrc(...)";
+  cname = "QPropWRandVolSrc";
+  VRB.Func(cname, fname);
+
+  Run();
+}
+
+
 
 //set the random source
 /*void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {
