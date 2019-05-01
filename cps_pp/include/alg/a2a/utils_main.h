@@ -194,6 +194,7 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   GJP.SetNthreads(nthreads);
 #ifdef USE_GRID
   Grid::GridThread::SetThreads(nthreads);
+  if(!UniqueID()) printf("Set number of Grid threads to %d (check returns %d)\n", nthreads, Grid::GridThread::GetThreads()); 
 #endif
 }
 

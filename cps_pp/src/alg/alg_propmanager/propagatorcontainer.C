@@ -193,6 +193,7 @@ void QPropWcontainer::calcProp(Lattice &latt){
   cg.RitzMatOper = NONE;
   cg.Inverter = CG;
   cg.bicgstab_n = 0;
+  cg.fname_eigen = "No evecs";
 
   CGAttrArg *cgattr;
   if(getAttr(cgattr)){

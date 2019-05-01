@@ -34,11 +34,13 @@ struct BFMGridLanczosWrapper{
   void compute(const LancArg &lanc_arg){
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
     wrapper.compute(lanc_arg, *lanczos_lat);
+    wrapper.moveDPevecsToIndependentGrid(*lanczos_lat); //make sure the underlying Grids don't get deleted when we delete the lattice instance
     delete lanczos_lat;
   }
   void randomizeEvecs(const LancArg &lanc_arg){
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
     wrapper.randomizeEvecs(lanc_arg, *lanczos_lat);
+    wrapper.moveDPevecsToIndependentGrid(*lanczos_lat);
     delete lanczos_lat;
   }
     

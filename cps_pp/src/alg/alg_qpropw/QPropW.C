@@ -512,9 +512,7 @@ if (do_cg) {
 
     // we need to store the source
     if (qp_arg.save_prop || do_rerun) {
-      int sz = GJP.VolNodeSites () * 288 * sizeof (Float);
-      if (GJP.Gparity ())
-	sz *= 2;
+      int sz = GJP.VolNodeSites () * 288 * sizeof (Float) * (GJP.Gparity() + 1);
       save_source = (Float *) smalloc (cname, fname, "save_source", sz);
     }
     // TY Add End
@@ -522,9 +520,7 @@ if (do_cg) {
 
     // in case we do a rerun, we also need to store a propagator
     if (do_rerun) {
-      int sz = GJP.VolNodeSites () * sizeof (WilsonMatrix);
-      if (GJP.Gparity ())
-	sz *= 2;
+      int sz = GJP.VolNodeSites () * sizeof (WilsonMatrix) * (GJP.Gparity() + 1);
       read_prop = (WilsonMatrix *) smalloc (cname, fname, "read_prop", sz);
 
 #ifdef USE_QIO
@@ -548,7 +544,7 @@ if (do_cg) {
   //-----------------------------------------------------------------
   // M. Lightman
   // For m_res
-  if (AlgLattice ().F5D ()) {
+    if (AlgLattice ().F5D () && !GJP.Gparity()) {
     j5q_pion =
       (Float *) smalloc (cname, fname, "d_j5q_pion_p",
 			 glb_walls * sizeof (Float));
@@ -577,9 +573,8 @@ if (do_cg) {
 
 	// store the source
 	if (qp_arg.save_prop) {
-	  int nmat = GJP.VolNodeSites ();
-	  if (GJP.Gparity ())
-	    nmat *= 2;
+	  int nmat = GJP.VolNodeSites () * (GJP.Gparity() + 1);
+
 	  for (int index (0); index < nmat; ++index)
 	    for (int mm (0); mm < 4; ++mm)
 	      for (int cc (0); cc < GJP.Colors (); ++cc) {
@@ -591,9 +586,8 @@ if (do_cg) {
 	      }
 	}
       } else {			// rerun
-	int nmat = GJP.VolNodeSites ();
-	if (GJP.Gparity ())
-	  nmat *= 2;
+	int nmat = GJP.VolNodeSites () * (GJP.Gparity() + 1);
+
 	for (int index (0); index < nmat; ++index) {
 	  WilsonMatrix *tmp_mat = (WilsonMatrix *) save_source + index;
 	  src.CopyWilsonMatSink (index, spn, col, *tmp_mat);
@@ -690,24 +684,25 @@ if (AlgLattice ().Fclass () == F_CLASS_DWF
   //-----------------------------------------------------------------
   // M. Lightman
   // Print out J5q Pion contraction
-if (AlgLattice ().Fclass () == F_CLASS_DWF
-    || AlgLattice ().Fclass () == F_CLASS_MOBIUS) {
-  int time_size = GJP.TnodeSites () * GJP.Tnodes ();
-  for (int t (0); t < time_size; t++)
-    slice_sum ((Float *) & j5q_pion[t], 1, 99);
-  if (common_arg->results != 0) {
-    FILE *fp1;
-    if ((fp1 = Fopen ((char *) common_arg->results, "a")) == NULL) {
-      ERR.FileA (cname, fname, (char *) common_arg->results);
-    }
-    Fprintf (fp1, "J5q Pion Contraction\n");
-    for (int t = 0; t < time_size; t++) {
-      Fprintf (fp1, "%d = %.16e\n", t, j5q_pion[t]);
-    }
-    Fclose (fp1);
-  }
-  sfree (cname, fname, "j5q_pion", j5q_pion);
-}
+ if ((AlgLattice ().Fclass () == F_CLASS_DWF
+      || AlgLattice ().Fclass () == F_CLASS_MOBIUS) 
+     && !GJP.Gparity()) {
+   int time_size = GJP.TnodeSites () * GJP.Tnodes ();
+   for (int t (0); t < time_size; t++)
+     slice_sum ((Float *) & j5q_pion[t], 1, 99);
+   if (common_arg->results != 0) {
+     FILE *fp1;
+     if ((fp1 = Fopen ((char *) common_arg->results, "a")) == NULL) {
+       ERR.FileA (cname, fname, (char *) common_arg->results);
+     }
+     Fprintf (fp1, "J5q Pion Contraction\n");
+     for (int t = 0; t < time_size; t++) {
+       Fprintf (fp1, "%d = %.16e\n", t, j5q_pion[t]);
+     }
+     Fclose (fp1);
+   }
+   sfree (cname, fname, "j5q_pion", j5q_pion);
+ }
   // End M. Lightman
   //-----------------------------------------------------------------
 
@@ -1241,7 +1236,7 @@ if (Lat.F5D () ) {
 
     //-----------------------------------------------------------------
     // M. Lightman
-    if (AlgLattice ().F5D ()) {
+    if (AlgLattice ().F5D () && !GJP.Gparity() ) {
       MeasJ5qPion (sol_5d);
     }
     // End M. Lightman
@@ -1511,9 +1506,7 @@ void QPropW::SaveRow (int spin, int color, FermionVectorTp & sol,
   {
     IFloat out (0.0);
 
-    int sz = GJP.VolNodeSites ();
-    if (GJP.Gparity ())
-      sz *= 2;
+    int sz = GJP.VolNodeSites () * (GJP.Gparity() + 1);
 
     for (int i = 0; i < sz; i++)
       out += prop[i].norm ();
@@ -3847,11 +3840,10 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     VRB.Func (cname, fname);
 
     if (rsrc == NULL) {
-    int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
-    rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
-    if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
-	ERR.Pointer (cname, fname, "rsrc");
-    VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
+      int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
+      rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
+      if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
+      VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
     }
   }
   void QPropWRand::DeleteRsrc ()
@@ -4145,7 +4137,7 @@ QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg,
   : QPropWRand(lat, arg, r_arg, c_arg), mom(p) {
  
   const char *fname = "QPropWRandMomSrc(...)";
-  cname = "QPropWRandWallSrc";
+  cname = "QPropWRandMomSrc";
   VRB.Func(cname, fname);
 
   Run();
@@ -4155,7 +4147,7 @@ QPropWRandMomSrc::QPropWRandMomSrc(Lattice& lat,  QPropWArg* arg,
   : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in), mom(p) {
  
   const char *fname = "QPropWRandMomSrc(...)";
-  cname = "QPropWRandWallSrc";
+  cname = "QPropWRandMomSrc";
   VRB.Func(cname, fname);
 
   Run();
@@ -4198,6 +4190,18 @@ QPropWRandVolSrc::QPropWRandVolSrc (Lattice & lat, CommonArg * c_arg):
 
     Run ();
   }
+QPropWRandVolSrc::QPropWRandVolSrc(Lattice& lat,  QPropWArg* arg, 
+				   QPropWRandArg *r_arg, CommonArg* c_arg, Complex const* rsrc_in) 
+  : QPropWRand(lat, arg, r_arg, c_arg, rsrc_in){
+ 
+  const char *fname = "QPropWRandVolSrc(...)";
+  cname = "QPropWRandVolSrc";
+  VRB.Func(cname, fname);
+
+  Run();
+}
+
+
 
 //set the random source
 /*void QPropWRandVolSrc::SetSource(FermionVectorTp& src, int spin, int color) {

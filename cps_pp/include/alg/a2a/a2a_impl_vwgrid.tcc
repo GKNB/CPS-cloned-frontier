@@ -65,7 +65,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
   
-  const char *fname = "computeVQlow(....)";
+  if(evecs.nEvecs() < nl) 
+    ERR.General("A2AvectorW","computeVWlow","Number of low modes %d is larger than the number of provided eigenvectors %d\n",nl,evecs.nEvecs());
 
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;

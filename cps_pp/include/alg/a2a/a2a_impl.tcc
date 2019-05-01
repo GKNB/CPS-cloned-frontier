@@ -142,6 +142,11 @@ void A2AvectorW<mf_Policies>::setWhRandom(const std::vector<ScalarComplexFieldTy
 //Get the diluted source with index id.
 //We use the same set of random numbers for each spin and dilution as we do not need to rely on stochastic cancellation to separate them
 //For legacy reasons we use different random numbers for the two G-parity flavors, although this is not strictly necessary
+
+//We allow for time dilution into Lt/src_width blocks of size src_width in the time direction
+//Alongside the spin/color/flavor index upon which to place the random numbers, the index dil_id also contains the time block index
+
+
 template< typename mf_Policies>
 template<typename TargetFermionFieldType>
 void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, const int dil_id) const{
@@ -151,23 +156,35 @@ void A2AvectorW<mf_Policies>::getDilutedSource(TargetFermionFieldType &into, con
   int hit, tblock, spin_color, flavor;
   StandardIndexDilution stdidx(getArgs());  
   stdidx.indexUnmap(dil_id,hit,tblock,spin_color,flavor);
-
+  
+  //Dimensions of 4d (possibly SIMD vectorized [spatial only]) complex field
   const int src_layout[4] = { wh[hit]->nodeSites(0), wh[hit]->nodeSites(1), wh[hit]->nodeSites(2), wh[hit]->nodeSites(3) };
   
-  assert(src_layout[3] == GJP.TnodeSites());
-  const int src_size = src_layout[0]*src_layout[1]*src_layout[2]*args.src_width;  //size of source 3D*width slice in units of complex numbers
+  assert(src_layout[3] == GJP.TnodeSites()); //check no vectorization in t
   
-  VRB.Result("A2AvectorW", fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
-  const int tblock_origt = tblock * args.src_width;
+  assert(GJP.Tnodes()*GJP.TnodeSites() % args.src_width == 0); //assumed an even number of time blocks fit into lattice
 
+  VRB.Result("A2AvectorW", fname, "Generating random wall source %d = (%d, %d, %d, %d).\n    ", dil_id, hit, tblock, flavor, spin_color);
+  const int tblock_origt = tblock * args.src_width; //origin of t block in global coordinates
+  const int tblock_lessthant = tblock_origt + args.src_width; //where does it end?
+
+  int tblock_origt_lcl = tblock_origt - GJP.TnodeCoor()*GJP.TnodeSites(); //same as above in local coords
+  int tblock_lessthant_lcl = tblock_lessthant - GJP.TnodeCoor()*GJP.TnodeSites();
+  
   into.zero();
 
-  if(tblock_origt / GJP.TnodeSites() != GJP.TnodeCoor()){
+  if(tblock_lessthant_lcl <= 0 || tblock_origt_lcl >= GJP.TnodeSites()){ //none of source is on this node
     VRB.Result("A2AvectorW", fname, "Not on node\n    ");
     return;
   }
 
-  const int tblock_origt_lcl = tblock_origt % GJP.TnodeSites();
+  //Some of the source is on this node
+  if(tblock_origt_lcl < 0) tblock_origt_lcl = 0; //beginning of source is before origin
+  if(tblock_lessthant_lcl > GJP.TnodeSites()) tblock_lessthant_lcl = GJP.TnodeSites(); //end is after local time size
+
+  const int lcl_src_twidth = tblock_lessthant_lcl - tblock_origt_lcl;
+  
+  const int src_size = src_layout[0]*src_layout[1]*src_layout[2]*lcl_src_twidth;  //size of source 3D*width slice in units of complex numbers  
   
 #pragma omp parallel for
   for(int i=0;i<src_size;i++){

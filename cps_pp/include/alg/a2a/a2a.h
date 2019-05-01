@@ -239,11 +239,8 @@ public:
   typedef typename Policies::FermionFieldType FermionFieldType;
   typedef typename Policies::ComplexFieldType ComplexFieldType;
 
-  typedef typename Grid::GridTypeMapper<typename ComplexFieldType::FieldSiteType>::scalar_type ScalarComplexType;
-      
-  typedef CPSfield<ScalarComplexType, ComplexFieldType::FieldSiteSize,
-		   typename ComplexFieldType::FieldMappingPolicy::EquivalentScalarPolicy, typename ComplexFieldType::FieldAllocPolicy>
-  ScalarComplexFieldType;
+  typedef typename Policies::ScalarComplexType ScalarComplexType;
+  typedef typename Policies::ScalarComplexFieldType ScalarComplexFieldType;
 
   typedef typename my_enable_if< _equal<typename FermionFieldType::FieldSiteType, typename ComplexFieldType::FieldSiteType>::value,  typename FermionFieldType::FieldSiteType>::type FieldSiteType;
   typedef typename my_enable_if< _equal<typename FermionFieldType::InputParamType, typename ComplexFieldType::InputParamType>::value,  typename FermionFieldType::InputParamType>::type FieldInputParamType;
