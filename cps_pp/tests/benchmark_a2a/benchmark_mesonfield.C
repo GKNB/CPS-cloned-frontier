@@ -298,8 +298,10 @@ int main(int argc,char *argv[])
 
 #ifdef USE_GRID
   if(0) testMFmult<GridA2Apolicies>(a2a_args, tol);
-  if(1) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
+  if(0) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
 #endif
+
+  if(1) timeAllReduce();
 
 
   Grid::vComplexD a, b;

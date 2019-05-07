@@ -3963,6 +3963,40 @@ void testSCFmat(){
 
 
 
+void timeAllReduce(){
+#ifdef USE_MPI
+
+  size_t bytes = 1024;
+  size_t scale = 2;
+  size_t max_bytes = 1024*1024*1024 + 1; //512MB max comm
+  
+  while(bytes < max_bytes){
+    void* buf = malloc(bytes);
+    
+    int nrpt = 10;
+
+    Float time = -dclock();
+    {
+      assert( (size_t) ((int)bytes) == bytes );
+
+      for(int n=0;n<nrpt;n++)
+	MPI_Allreduce(MPI_IN_PLACE, buf, bytes, MPI_BYTE, MPI_SUM, MPI_COMM_WORLD);
+    }
+    time += dclock();
+
+    time /= nrpt;
+
+    Float MB =  ( (double)bytes )/1024./1024.;
+
+    Float MB_per_s = MB / time;
+    std::cout << "Size " << MB << " MB  time " << time << " secs, " << MB_per_s << " MB/s" << std::endl;
+
+    bytes *= scale;
+  }
+#endif
+}
+
+
 
 
 CPS_END_NAMESPACE
