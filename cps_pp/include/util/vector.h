@@ -592,6 +592,9 @@ inline void TrLessAntiHermMatrix()
     //! Force this matrix to be an SU(3) matrix.
     void Unitarize(void);
 
+    //! Only do the last step in Unitarize.
+    void Construct3rdRow(void);
+
     //! Project this matrix onto SU(3) according to its polar decomposition
     //! Added by Thomas Dumitrescu 06/2006
     int ProjSU3(void);

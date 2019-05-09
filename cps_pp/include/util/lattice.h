@@ -35,7 +35,8 @@
 
 CPS_START_NAMESPACE
 
-class LinkBuffer;
+class LinkBuffer; //forward declaration
+class GaugeField; //forward declaration
 
 //------------------------------------------------------------------
 //
@@ -153,6 +154,7 @@ class Lattice
       //!< Another pointer!
 
     friend class LinkBuffer;
+    friend class GaugeField;
     
     // Added in by Ping for anisotropic lattices
     //------------------------------------------------------------------
