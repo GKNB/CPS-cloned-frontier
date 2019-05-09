@@ -301,7 +301,8 @@ int main(int argc,char *argv[])
   if(0) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
 #endif
 
-  if(1) timeAllReduce();
+  if(1) timeAllReduce(false);
+  if(1) timeAllReduce(true);
 
 
   Grid::vComplexD a, b;
