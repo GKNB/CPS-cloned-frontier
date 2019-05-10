@@ -41,7 +41,10 @@ MeasArg meas_arg;
 
 void erase_file(const char* filename)
 {
+  VRB.Result("","erase_file()","erasing %s\n",filename);
   FILE* f = Fopen(filename, "w");
+  if(!f)
+  ERR.General("","erase_file()","erasing %s failed\n",filename);
   Fclose(f);
 }
 
@@ -146,7 +149,7 @@ void setup(int argc, char *argv[])
   GJP.Initialize(do_arg);
 
   //Throw floating point exceptions to crash the program if bad stuff happens:
-  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+//  feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 }
  
 

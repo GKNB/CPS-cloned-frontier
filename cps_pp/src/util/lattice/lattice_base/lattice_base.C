@@ -313,17 +313,12 @@ void Lattice::AllocGauge(){
 
     // Allocate memory for the gauge field.
     //--------------------------------------------------------------
-    int array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
+    size_t array_size = (size_t) GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
     if(GJP.Gparity()) array_size*=2;
 
     if(start_conf_kind != START_CONF_LOAD ){
       //       start_conf_kind!=START_CONF_FILE){
-#if TARGET == QCDOC
-      gauge_field = (Matrix *) qalloc(GJP.StartConfAllocFlag(),array_size);
-      VRB.Flow(cname,fname,"gauge_field=%p\n",gauge_field);
-#else
       gauge_field = (Matrix *) pmalloc(array_size);
-#endif
       //     printf("gauge_field=%p\n",gauge_field);
       if( gauge_field == 0) ERR.Pointer(cname,fname, "gauge_field");
       VRB.Pmalloc(cname, fname, "gauge_field", gauge_field, array_size);
