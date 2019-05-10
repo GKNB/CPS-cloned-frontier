@@ -1,81 +1,80 @@
 #include <config.h>
-#include <alg/alg_actiondensity.h>
 #include <stdio.h>
 #include <util/gjp.h>
 #include <util/site.h>
 #include <util/qcdio.h>
-#include <util/gauge_field.h>
+#include <alg/alg_tcharge.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
-#include <omp.h>
-#include <util/time_cps.h>
-#include <cassert>
+#include <util/omp_wrapper.h>
 CPS_START_NAMESPACE
+
+//----------------------------------------------------------
+//
+// alg_tcharge.C
+// 
+// measures a simple defintion of the
+// topological charge
+//  
+//  Using Clover Leaf   c.f   hep-lat/010610  Eq (6) -- (10)
+//-----------------------------------------------------------
+
 
 /*!
   takes the imaginary part of a matrix
 */
-void AlgActionDensity::ZeroReal(Matrix& m)
+void ZeroReal(Matrix& m)
 {
-/*  Matrix temp;
+  Matrix temp;
   temp.Dagger( m );
   m-=temp;
-  m*=0.5;*/
-
-  //Replacing above with below gives a factor of 2 speedup for the entire smartrun:
-  for(int i = 0; i < 3; i++) {
-    m(i, i).real(0);
-  }
-
-  for(int x = 0; x < 2; x++) {
-    for(int y = x+1; y < 3; y++) {
-      Float a = m(x, y).real();
-      Float b = m(x, y).imag();
-      Float c = m(y, x).real();
-      Float d = m(y, x).imag();
-      m(x, y).real(0.5 * (a - c));
-      m(x, y).imag(0.5 * (b + d));
-      m(y, x).real(0.5 * (c - a));
-      m(y, x).imag(0.5 * (b + d));
-    }
-  }
+  m*=0.5;
 }
 
 /*!
-  Computes (1/2) tr(F_mu_nu F_mu_nu)
+  constructs 
 
-  Input should be a set of six matrices giving the field strength
-  tensor F_mu_nu in each direction:
+  \f[
+  \frac{1}{32 \pi^2} \epsilon_{\mu \nu \eta \nu } {\rm Tr} \left\{ F_{\mu \nu} F_{\eta \nu} \right\}
+  \f]
 
-  clovers[0]  = F_01
-  clovers[1]  = F_02
-  clovers[2]  = F_03
-  clovers[3]  = F_12
-  clovers[4]  = F_13
-  clovers[5]  = F_23
+  passed two arrays of matrices holding the approximations for F:
+
+  plaqs[0]  = F_01
+  plaqs[1]  = F_02
+  plaqs[2]  = F_03
+  plaqs[3]  = F_12
+  plaqs[4]  = F_13
+  plaqs[5]  = F_23
   
 */
 
-Complex AlgActionDensity::ActionDensity(Matrix clovers[])
+Complex MkTop( Matrix plaqs1[], Matrix plaqs2[] )
 {
-  Matrix action;
+  const Float nfactor(-1.0/( 4 * 3.141592654 * 3.141592654 ));
 
-  action.ZeroMatrix();
+  Matrix Top;
 
-  for(int i = 0; i < 6; i++) {
-    action.DotMPlus(clovers[i], clovers[i]);
-  }
+  // negative weight
 
-  //Minus sign accounts for the fact that that the input is actual i*F_mu_nu
-  return -action.Tr();
+  Top.DotMEqual( plaqs1[1] , plaqs2[4] );
+  
+  Top *= -1.0 ;
+  // positive weight 
+  
+  Top.DotMPlus ( plaqs1[2] , plaqs2[3] );
+  Top.DotMPlus ( plaqs1[5] , plaqs2[0] );
+  
+  return nfactor*Top.Tr();
 }
+
 
 
 /*!
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
   Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
 */
-void AlgActionDensity::CloverLeaf(GaugeField& gf, Matrix& pl,  int* pos, int mu, int nu)
+void CloverLeaf(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
 {
    Matrix P0,P1,P2,P3;
 
@@ -89,16 +88,17 @@ void AlgActionDensity::CloverLeaf(GaugeField& gf, Matrix& pl,  int* pos, int mu,
 
 
    int dirs0[4]={mu,nu, mu+4, nu+4};
-   gfPathOrdProdPlus(P0, gf, pos, dirs0, 4);
+   lattice.PathOrdProdPlus(P0, pos, dirs0, 4);
+
 
    int dirs1[4]={nu+4,mu+4, nu, mu};
-   gfPathOrdProdPlus(P1, gf, pos, dirs1, 4);
+   lattice.PathOrdProdPlus(P1, pos, dirs1, 4);
 
    int dirs2[4]={nu,mu+4, nu+4, mu};
-   gfPathOrdProdPlus(P2, gf, pos, dirs2, 4);
+   lattice.PathOrdProdPlus(P2, pos, dirs2, 4);
 
    int dirs3[4]={mu,nu+4, mu+4, nu};
-   gfPathOrdProdPlus(P3, gf, pos, dirs3, 4);
+   lattice.PathOrdProdPlus(P3, pos, dirs3, 4);
 
 
    
@@ -111,113 +111,646 @@ void AlgActionDensity::CloverLeaf(GaugeField& gf, Matrix& pl,  int* pos, int mu,
 
 }
 
-void AlgActionDensity::run(Float *result)
+
+// Calculate Clover leaf (2x1, 1x2 size) SU(3) Matrix 
+// Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
+// hep-lat/010610  Eq (8)
+void CloverLeafRect(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
 {
-  const char fname[] = "run()";
-  Lattice& lat( AlgLattice() );  
+   Matrix P0,P1,P2,P3;
 
-  static bool initialized = false;
-  static Offsets offsets;
 
-  cps::GaugeField gf(lat);
-  const int buffer_thickness = 1; //Required expansion in each direction
-  gf.resize(buffer_thickness);
-  if (!initialized) {
-    gf.refresh();
-    gf.recordOffsetStart(false, true);
-  } else {
-    gf.refresh(offsets);
-  }
+   // 1x2 size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
 
-  Float action = 0;  
+   // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+   // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
 
-  const int t_extent = GJP.Sites(3); //Global number of time slices.
 
-  //Action summed over each time slice:
-  Float slice_actions[t_extent];
-  for(int t = 0; t < t_extent; t++) slice_actions[t] = 0.0;
+   {
+     int dirs0[6]={mu,mu, nu, mu+4,mu+4, nu+4};
+     lattice.PathOrdProdPlus(P0, pos, dirs0, 6);
+     
 
-#pragma omp parallel reduction(+:action)
-  {
-    //Thread-local sums over time slices, since OpenMP can't automatically
-    //reduce arrays.
-    Float thread_slice_actions[t_extent];
-    for(int t = 0; t < t_extent; t++) thread_slice_actions[t] = 0.0;
+     int dirs1[6]={nu+4,mu+4,mu+4, nu, mu,mu};
+     lattice.PathOrdProdPlus(P1, pos, dirs1, 6);
 
-#pragma omp for 
-    for(int i = 0; i < GJP.VolNodeSites(); ++i)
+     int dirs2[6]={nu,mu+4,mu+4, nu+4, mu,mu};
+     lattice.PathOrdProdPlus(P2, pos, dirs2, 6);
+
+     int dirs3[6]={mu,mu, nu+4, mu+4,mu+4, nu};
+     lattice.PathOrdProdPlus(P3, pos, dirs3, 6);
+   }
+
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+   
+
+   moveMem((Float*) &pl,(Float*) &P0, 18 * sizeof(Float) );
+   
+   // 2x1  size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+
+   // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+   // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+
+
+   {
+     int dirs0[6]={mu,nu,nu, mu+4, nu+4,nu+4};
+     lattice.PathOrdProdPlus(P0, pos, dirs0, 6);
+     
+
+     int dirs1[6]={nu+4,nu+4,mu+4, nu,nu, mu};
+     lattice.PathOrdProdPlus(P1, pos, dirs1, 6);
+
+     int dirs2[6]={nu,nu,mu+4, nu+4,nu+4, mu};
+     lattice.PathOrdProdPlus(P2, pos, dirs2, 6);
+     
+     int dirs3[6]={mu,nu+4,nu+4, mu+4, nu, nu};
+     lattice.PathOrdProdPlus(P3, pos, dirs3, 6);
+   }
+
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+
+   pl += P0;
+   pl *= 1.0/16.0;
+}
+
+void CloverLeaf1x3(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
+{
+   Matrix P0,P1,P2,P3;
+
+
+   // 1x3 size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+
+   // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+   // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+
+
+   {
+     int dirs0[8]={mu,mu, mu,
+		   nu, 
+		   mu+4,mu+4,mu+4,
+		   nu+4};
+     lattice.PathOrdProdPlus(P0, pos, dirs0, 8);
+     
+
+     int dirs1[8]={nu+4,
+		   mu+4,mu+4, mu+4,
+		   nu, 
+		   mu,mu,mu };
+     lattice.PathOrdProdPlus(P1, pos, dirs1, 8);
+
+     int dirs2[8]={nu,
+		   mu+4,mu+4,mu+4,
+		   nu+4, 
+		   mu,mu,mu};
+     lattice.PathOrdProdPlus(P2, pos, dirs2, 8);
+
+     int dirs3[8]={mu,mu,mu,
+		   nu+4, 
+		   mu+4,mu+4, mu+4,
+		   nu};
+     lattice.PathOrdProdPlus(P3, pos, dirs3, 8);
+   }
+
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+   
+
+   moveMem((Float*) &pl,(Float*) &P0, 18 * sizeof(Float) );
+   
+   // 3x1  size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+
+   // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+   // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+   {
+     int dirs0[8]={mu,
+		   nu,nu,nu,
+		   mu+4, 
+		   nu+4,nu+4,nu+4};
+     lattice.PathOrdProdPlus(P0, pos, dirs0, 8);
+     
+     int dirs1[8]={nu+4,nu+4,nu+4,
+		   mu+4, 
+		   nu,nu,nu,
+		   mu};
+     lattice.PathOrdProdPlus(P1, pos, dirs1, 8);
+
+     int dirs2[8]={nu,nu,nu,
+		   mu+4, 
+		   nu+4,nu+4,nu+4,
+		   mu};
+     lattice.PathOrdProdPlus(P2, pos, dirs2, 8);
+     
+     int dirs3[8]={mu,
+		   nu+4,nu+4,nu+4,
+		   mu+4, 
+		   nu, nu, nu};
+     lattice.PathOrdProdPlus(P3, pos, dirs3, 8);
+   }
+
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+
+   pl += P0;
+   pl *= 1.0/24.0;
+}
+
+void CloverLeaf2x2(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
+{
+  Matrix P0,P1,P2,P3;
+  // 1x2 size
+  P0.ZeroMatrix();
+  P1.ZeroMatrix();
+  P2.ZeroMatrix();
+  P3.ZeroMatrix();
+  
+  // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+  // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+  int dirs0[8]={mu,mu, nu, nu, mu+4,mu+4, nu+4, nu+4};
+  lattice.PathOrdProdPlus(P0, pos, dirs0, 8);
+    
+  int dirs1[8]={nu+4, nu+4, mu+4, mu+4, nu, nu, mu,mu };
+  lattice.PathOrdProdPlus(P1, pos, dirs1, 8);
+  
+  int dirs2[8]={nu, nu, mu+4, mu+4, nu+4, nu+4, mu, mu };
+  lattice.PathOrdProdPlus(P2, pos, dirs2, 8);
+  
+  int dirs3[8]={mu,mu, nu+4, nu+4, mu+4, mu+4, nu, nu };
+  lattice.PathOrdProdPlus(P3, pos, dirs3, 8);
+  
+  P0 -=  P1;
+  P0 +=  P2;
+  P0 -=  P3;
+  P0 *= 1.0/16;
+   
+  moveMem((Float*) &pl,(Float*) &P0, 18 * sizeof(Float) );
+  
+}
+
+void CloverLeaf3x3(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
+{
+  Matrix P0,P1,P2,P3;
+  // 1x2 size
+  P0.ZeroMatrix();
+  P1.ZeroMatrix();
+  P2.ZeroMatrix();
+  P3.ZeroMatrix();
+  
+  // each direction could be {0,1,2,3,4,5,6,7} coresponding to
+  // the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+  int dirs0[12]={ mu, mu, mu,
+		  nu, nu, nu,
+		  mu+4, mu+4, mu+4,
+		  nu+4, nu+4, nu+4 };
+  lattice.PathOrdProdPlus(P0, pos, dirs0, 12);
+    
+  int dirs1[12]={nu+4, nu+4, nu+4,
+		 mu+4, mu+4, mu+4,
+		 nu,   nu,   nu, 
+		 mu,   mu,   mu   };
+  lattice.PathOrdProdPlus(P1, pos, dirs1, 12);
+  
+  int dirs2[12]={nu, nu, nu,
+		 mu+4, mu+4, mu+4,
+		 nu+4, nu+4, nu+4,
+		 mu,   mu  , mu   };
+  lattice.PathOrdProdPlus(P2, pos, dirs2, 12);
+  
+  int dirs3[12]={mu  , mu,   mu,
+		 nu+4, nu+4, nu+4, 
+		 mu+4, mu+4, mu+4, 
+		 nu  , nu  , nu };
+  lattice.PathOrdProdPlus(P3, pos, dirs3, 12);
+  
+  P0 -=  P1;
+  P0 +=  P2;
+  P0 -=  P3;
+  P0 *= 1./(9*4);
+   
+  moveMem((Float*) &pl,(Float*) &P0, 18 * sizeof(Float) );
+}
+
+
+// number of clover-leaf functions
+const int nfunc(5);
+
+typedef void (*leaf_function)(Lattice&, Matrix&,  int*, int, int);
+
+// map to the functions used
+leaf_function leaf_map[5] = { &CloverLeaf,
+			      &CloverLeafRect,
+			      &CloverLeaf2x2,
+			      &CloverLeaf3x3,
+			      &CloverLeaf1x3 };
+// map to the names
+const char* names[5] = { "1x1",
+			 "1x2",
+			 "2x2",
+			 "3x3",
+			 "1x3" };
+
+
+void AlgTcharge::run(Float **result)
+{
+  Lattice& lattice( AlgLattice() );  
+
+  Float tmat[nfunc][nfunc];
+  for (int f1(0);f1<nfunc;f1++)
+    for (int f2(0);f2<nfunc;f2++)
+      tmat[f1][f2] = 0;
+
+  // sum over lattice
+  Site nloop;
+  
+  while ( nloop.LoopsOverNode() )
     {
-      int y[4];
-      gf.coordinatesFromIndex(y, i);
-
-      int index = 0;
-      Matrix clovers[6];
-      for(int mu = 0; mu < 3; ++mu)
-        for(int nu = mu + 1; nu < 4; ++nu)
-        {
-          CloverLeaf(gf, clovers[index], y, mu, nu);
-          ZeroReal(clovers[index]);
-          index++;
-        }
-
-      Float a = ActionDensity(clovers).real();
-      action += a;
-
-      int t = y[3] + GJP.TnodeSites() * GJP.TnodeCoor(); //global time slice index
-      thread_slice_actions[t] += a;
-    }
-
-    //Manually reduce the slice actions
-#pragma omp critical
-    {
-      for(int t = 0; t < t_extent; t++) {
-        slice_actions[t] += thread_slice_actions[t];
-      }
-    }
-  } //action is automatically reduced
-
-  if (!initialized) {
-    offsets = gf.getRecordedOffsets();
-    gf.recordOffsetEnd();
-    initialized = true;
-  }
-
-  //Sum results over all nodes.
-#ifdef USE_QMP
-  glb_sum(&action);
-  QMP_sum_double_array(slice_actions, t_extent);
-#endif
-
-  Float action_density = action / GJP.VolSites();
-  if(result) *result = action_density;
-
-  const int slice_sites = GJP.Sites(0) * GJP.Sites(1) * GJP.Sites(2);
-  Float slice_densities[t_extent];
-  for(int t = 0; t < t_extent; t++) {
-    slice_densities[t] = slice_actions[t] / slice_sites;
-  }
-
-  //Print out results
-  if(common_arg->filename != 0) {
-    char *fname = "run()";
-    FILE *fp;
-    if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
-      ERR.FileA(cname,fname,common_arg->filename);
-    }
-
-    //Prints mean value of (1/2)tr(F_mu_nu F_mu_nu), in units of a^4
-    Fprintf(fp, "%15e\n", action_density);
-
-    for(int t = 0; t < t_extent; t++) {
-      Fprintf(fp, "%15e ", slice_densities[t]);
-    }
-    Fprintf(fp, "\n");
+      // Array of imaginary parts of the plaquettes
+      // at a given site
       
-    Fclose(fp);
+      // plaqs[0]  = F_01
+      // plaqs[1]  = F_02
+      // plaqs[2]  = F_03
+      // plaqs[3]  = F_12
+      // plaqs[4]  = F_13
+      // plaqs[5]  = F_23
+
+      Matrix plaqs[nfunc][6];
+      //
+      // fill plaqs with the full plaquettes
+      // - then zero the real parts
+      //
+
+      int mu;
+      int nu;
+      int index(0);
+
+      for (mu=0;mu<3;++mu)
+        {
+          for (nu=mu+1;nu<4;nu++)
+            { 
+	      for (int f(0);f<nfunc;f++)
+		{
+		  (*(leaf_map[f]))( lattice, plaqs[f][index], nloop.pos(), mu, nu );
+		  ZeroReal(plaqs[f][index]);
+		}
+	      index++;
+            }
+        }
+      for (int f1(0);f1<nfunc;f1++)
+	{
+	  for (int f2(f1);f2<nfunc;f2++)
+	    {
+	      tmat[f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+	    }
+	}
+    }
+  
+  // global sum the approximations
+  for (int f1(0);f1<nfunc;f1++)
+    {
+      for (int f2(f1);f2<nfunc;f2++)
+	{
+	  glb_sum( &tmat[f1][f2] );
+	  if(GJP.Gparity1fX()) tmat[f1][f2]/=2; //counted twice
+	  if(GJP.Gparity1fX() && GJP.Gparity1fY()) tmat[f1][f2]/=2; //counted twice more
+	}
+    }
+  
+
+  
+
+  // Print out results
+  //----------------------------------------------------------------
+
+  if(common_arg->filename != 0)
+    {
+      char *fname = "alg_tcharge()";
+      FILE *fp;
+      if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
+        ERR.FileA(cname,fname,common_arg->filename);
+      }
+      Fprintf(fp,"AlgTcharge:\n");
+      Fprintf(fp,"nleaf : %i\n",nfunc);
+      for (int f(0);f<nfunc;f++)
+	Fprintf(fp,"   %i : %s\n",f,names[f]);
+      for (int f1(0);f1<nfunc;f1++)
+	{
+	  for (int f2(f1);f2<nfunc;f2++)
+	    {
+	      Fprintf(fp,"%i %i : %15e\n",f1,f2,tmat[f1][f2]);
+	    }
+	}
+      Fclose(fp);
+    }
+
+  //CK: output the results
+  if(result != NULL)
+  for (int f1(0);f1<nfunc;f1++)
+    for (int f2(0);f2<nfunc;f2++)
+      result[f1][f2] = tmat[f1][f2];
+
+}
+
+inline Float * GsiteOffset(Float * p, const int *x, const int *g_dir_offset)
+{
+  return p + 
+    x[0] * g_dir_offset[0] +
+    x[1] * g_dir_offset[1] +
+    x[2] * g_dir_offset[2] +
+    x[3] * g_dir_offset[3];
+}
+
+void PathOrdProd(Matrix & mat, int* x, int* dirs, int n, 
+    Float *gfield, int *g_dir_offset)
+{
+  int abs_dir;
+  int dir_sign;
+  int link_site[4];
+  const int MatrixSize = 18;
+  
+  const Matrix * p1;
+
+  int i;
+  for(i = 0; i < 4; ++i)
+    link_site[i] = x[i]; 
+
+  //deal with the first link
+  //abs_dir is {0,1,2,3}
+  //dir_sign is {0 = positive, 1 = negative}
+  //------------------------------
+  abs_dir = dirs[0] & 3; 
+  dir_sign = dirs[0] >> 2; 
+
+  //if dir_sign == 1, the link is at x-n_v
+  link_site[abs_dir] -= dir_sign; 
+
+  //p1 = GetBufferedLink(link_site, abs_dir);  
+  //get the first link 
+  p1 = (Matrix*) GsiteOffset(gfield, link_site, g_dir_offset) + abs_dir;    
+
+  //if dir_sign == 0, march on to the next site, 
+  //if dir_sign == 1, we have already moved.
+  link_site[abs_dir] += 1 - dir_sign; 
+  
+  //Temporary matrices and ther pointers
+  Matrix ma, mb, mc;
+  Matrix *pma  = &ma;
+  Matrix *pmb  = &mb;
+  Matrix *pmc  = &mc;
+
+  //if dir_sign==1 the link is going backward so get its dagger
+  if(dir_sign) 
+    pma -> Dagger((IFloat*)p1);
+  else 
+    memcpy((IFloat*)pma, (IFloat*)p1, MatrixSize * sizeof(IFloat));
+  
+  for(i = 1; i < n; ++i)
+  {
+    abs_dir = dirs[i]&3; 
+    dir_sign = dirs[i]>>2; 
+    
+    link_site[abs_dir] -= dir_sign; 
+    p1 = (Matrix*) GsiteOffset(gfield, link_site, g_dir_offset) + abs_dir;    
+    link_site[abs_dir] += 1 - dir_sign; 
+
+    //put the next link on the path in mb
+    //--------------------------------------
+    if(dir_sign)
+      mb.Dagger((IFloat*)p1); 
+    else 
+      memcpy((IFloat*)pmb, (IFloat*)p1, MatrixSize * sizeof(IFloat));
+
+    // if not the last link on the path, just multiply to the earlier result
+    // mc = ma * mb
+    // if the last link, multiply and add to mat
+    if(i != n - 1)
+      mDotMEqual((IFloat*)pmc, (IFloat*)pma, (IFloat*)pmb);
+    else
+      mDotMPlus((IFloat*)&mat, (IFloat*)pma, (IFloat*)pmb);
+
+    //swap pma and pmc;
+    Matrix * tmp_p = pma; pma = pmc; pmc = tmp_p;
   }
 }
 
-#if 0
+// ------------------------------------------------------------------
+// each direction could be {0,1,2,3,4,5,6,7} coresponding to
+// the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
+// ------------------------------------------------------------------
+/*!
+  Calculate Clover leaf (1x1 size) SU(3) Matrix 
+  Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
+*/
+void CloverLeaf(Matrix& pl, int* pos, int mu, int nu, 
+    Float *gfield, int *g_dir_offset)
+{
+   Matrix P0, P1, P2, P3;
+
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+
+   int dirs0[4] = {mu, nu, mu + 4, nu + 4};
+   int dirs1[4] = {nu + 4, mu + 4, nu, mu};
+   int dirs2[4] = {nu, mu + 4, nu + 4, mu};
+   int dirs3[4] = {mu, nu + 4, mu + 4, nu};
+
+   PathOrdProd(P0, pos, dirs0, 4, gfield, g_dir_offset);
+   PathOrdProd(P1, pos, dirs1, 4, gfield, g_dir_offset);
+   PathOrdProd(P2, pos, dirs2, 4, gfield, g_dir_offset);
+   PathOrdProd(P3, pos, dirs3, 4, gfield, g_dir_offset);
+   
+   P0 -= P1;
+   P0 += P2;
+   P0 -= P3;
+   P0 *= 0.25;
+   
+   memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
+}
+
+// Calculate Clover leaf (2x1, 1x2 size) SU(3) Matrix 
+void CloverLeafRect(Matrix& pl, int* pos, int mu, int nu, 
+    Float *gfield, int *g_dir_offset)
+{
+   Matrix P0, P1, P2, P3;
+
+   // 1x2 size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+   {
+     int dirs0[6] = {mu, mu, nu, mu + 4, mu + 4, nu + 4};
+     int dirs1[6] = {nu + 4, mu + 4, mu + 4, nu, mu, mu};
+     int dirs2[6] = {nu, mu + 4, mu + 4, nu + 4, mu, mu};
+     int dirs3[6] = {mu, mu, nu + 4, mu + 4, mu + 4, nu};
+
+     PathOrdProd(P0, pos, dirs0, 6, gfield, g_dir_offset);
+     PathOrdProd(P1, pos, dirs1, 6, gfield, g_dir_offset);
+     PathOrdProd(P2, pos, dirs2, 6, gfield, g_dir_offset);
+     PathOrdProd(P3, pos, dirs3, 6, gfield, g_dir_offset);
+   }
+   P0 -= P1;
+   P0 += P2;
+   P0 -= P3;
+   memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
+   
+   // 2x1  size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+   {
+     int dirs0[6] = {mu, nu, nu, mu + 4, nu + 4, nu + 4};
+     int dirs1[6] = {nu + 4, nu + 4, mu + 4, nu, nu, mu};
+     int dirs2[6] = {nu, nu, mu + 4, nu + 4, nu + 4, mu};
+     int dirs3[6] = {mu, nu + 4, nu + 4, mu + 4, nu, nu};
+
+     PathOrdProd(P0, pos, dirs0, 6, gfield, g_dir_offset);
+     PathOrdProd(P1, pos, dirs1, 6, gfield, g_dir_offset);
+     PathOrdProd(P2, pos, dirs2, 6, gfield, g_dir_offset);
+     PathOrdProd(P3, pos, dirs3, 6, gfield, g_dir_offset);
+   }
+   P0 -= P1;
+   P0 += P2;
+   P0 -= P3;
+   pl += P0;
+   pl *= 1.0/16.0;
+}
+
+void CloverLeaf1x3(Matrix& pl, int* pos, int mu, int nu, 
+    Float *gfield, int *g_dir_offset)
+{
+   Matrix P0,P1,P2,P3;
+
+   // 1x3 size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+   {
+     int dirs0[8] = {mu, mu, mu, nu, mu + 4, mu + 4, mu + 4, nu + 4};
+     int dirs1[8] = {nu + 4, mu + 4, mu + 4, mu + 4, nu, mu, mu, mu};
+     int dirs2[8] = {nu, mu + 4, mu + 4, mu + 4, nu + 4, mu, mu, mu};
+     int dirs3[8] = {mu, mu, mu, nu + 4, mu + 4, mu + 4, mu + 4, nu};
+     PathOrdProd(P0, pos, dirs0, 8, gfield, g_dir_offset);
+     PathOrdProd(P1, pos, dirs1, 8, gfield, g_dir_offset);
+     PathOrdProd(P2, pos, dirs2, 8, gfield, g_dir_offset);
+     PathOrdProd(P3, pos, dirs3, 8, gfield, g_dir_offset);
+   }
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+   memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
+   
+   // 3x1  size
+   P0.ZeroMatrix();
+   P1.ZeroMatrix();
+   P2.ZeroMatrix();
+   P3.ZeroMatrix();
+   {
+     int dirs0[8] = {mu, nu, nu, nu, mu + 4, nu + 4, nu + 4, nu + 4};
+     int dirs1[8] = {nu + 4, nu + 4, nu + 4, mu + 4, nu, nu, nu, mu};
+     int dirs2[8] = {nu, nu, nu, mu + 4, nu + 4, nu + 4, nu + 4, mu};
+     int dirs3[8] = {mu, nu + 4, nu + 4, nu + 4, mu + 4, nu, nu, nu};
+     PathOrdProd(P0, pos, dirs0, 8, gfield, g_dir_offset);
+     PathOrdProd(P1, pos, dirs1, 8, gfield, g_dir_offset);
+     PathOrdProd(P2, pos, dirs2, 8, gfield, g_dir_offset);
+     PathOrdProd(P3, pos, dirs3, 8, gfield, g_dir_offset);
+   }
+   P0 -=  P1;
+   P0 +=  P2;
+   P0 -=  P3;
+   pl += P0;
+   pl *= 1.0/24.0;
+}
+
+void CloverLeaf2x2(Matrix& pl, int* pos, int mu, int nu, 
+    Float *gfield, int *g_dir_offset)
+{
+  Matrix P0,P1,P2,P3;
+
+  P0.ZeroMatrix();
+  P1.ZeroMatrix();
+  P2.ZeroMatrix();
+  P3.ZeroMatrix();
+  
+  int dirs0[8] = {mu, mu, nu, nu, mu + 4, mu + 4, nu + 4, nu + 4};
+  int dirs1[8] = {nu + 4, nu + 4, mu + 4, mu + 4, nu, nu, mu, mu};
+  int dirs2[8] = {nu, nu, mu + 4, mu + 4, nu + 4, nu + 4, mu, mu};
+  int dirs3[8] = {mu, mu, nu + 4, nu + 4, mu + 4, mu + 4, nu, nu};
+
+  PathOrdProd(P0, pos, dirs0, 8, gfield, g_dir_offset);
+  PathOrdProd(P1, pos, dirs1, 8, gfield, g_dir_offset);
+  PathOrdProd(P2, pos, dirs2, 8, gfield, g_dir_offset);
+  PathOrdProd(P3, pos, dirs3, 8, gfield, g_dir_offset);
+  
+  P0 -=  P1;
+  P0 +=  P2;
+  P0 -=  P3;
+  P0 *= 1.0/16;
+   
+  memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
+}
+
+void CloverLeaf3x3(Matrix& pl, int* pos, int mu, int nu, 
+    Float *gfield, int *g_dir_offset)
+{
+  Matrix P0,P1,P2,P3;
+
+  P0.ZeroMatrix();
+  P1.ZeroMatrix();
+  P2.ZeroMatrix();
+  P3.ZeroMatrix();
+  
+  int dirs0[12] = {mu, mu, mu, nu, nu, nu, mu + 4, mu + 4, mu + 4, nu + 4, nu + 4, nu + 4};
+  int dirs1[12] = {nu + 4, nu + 4, nu + 4, mu + 4, mu + 4, mu + 4, nu, nu, nu, mu, mu, mu};
+  int dirs2[12] = {nu, nu, nu, mu + 4, mu + 4, mu + 4, nu + 4, nu + 4, nu + 4, mu, mu, mu};
+  int dirs3[12] = {mu, mu, mu, nu + 4, nu + 4, nu + 4, mu + 4, mu + 4, mu + 4, nu, nu, nu};
+  
+  PathOrdProd(P0, pos, dirs0, 12, gfield, g_dir_offset);
+  PathOrdProd(P1, pos, dirs1, 12, gfield, g_dir_offset);
+  PathOrdProd(P2, pos, dirs2, 12, gfield, g_dir_offset);
+  PathOrdProd(P3, pos, dirs3, 12, gfield, g_dir_offset);
+
+  P0 -=  P1;
+  P0 +=  P2;
+  P0 -=  P3;
+  P0 *= 1./(9*4);
+   
+  memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
+}
+
+typedef void (*leaf_func)(Matrix&, int*, int, int, Float *, int*);
+
+leaf_func leaf_mapg[5] = {&CloverLeaf,
+                         &CloverLeafRect,
+                         &CloverLeaf2x2,
+                         &CloverLeaf3x3,
+                         &CloverLeaf1x3};
+
 // A communication efficient way of calculating the t-charge
 // Pass the surface slab to adjacent nodes once
 // Do all the calculation locally.
@@ -229,22 +762,14 @@ void AlgActionDensity::run(Float *result)
 // volume and pass on the data to the next neighbor
 // Local size  >= 2 & Slab = 3
 // Twice as large on each dimension will suffice.
-
-void AlgActionDensity::smartrun(Float* result)
+void AlgTcharge::smartrun()
 {
   const char fname[] = "smartrun()";
   Lattice& lat( AlgLattice() );  
-#if 1
-  ERR.General(cname,fname,"Not ported to GaugeField yet");
-#else
 
-  const int Slab = 1; //Expansion in each direction
+  if(GJP.Gparity()) ERR.General(cname,fname,"Not implemented for G-parity");
 
-  if(GJP.Gparity() && Slab!=1){ //In this case the local field is doubled up and I'm not sure my G-parity changes will work
-    if(!UniqueID()) printf("AlgActionDensity::smartrun(Float* result) : Code not implemented to deal with surface slab sizes > 1\n");
-    exit(-1);
-  }
-
+  const int Slab = 3; //Expansion in each direction
   const int MatrixSize = 2 * lat.Colors() * lat.Colors();
   const int GsiteSize = 4 * MatrixSize;
   int l_node_sites[4] = {
@@ -276,12 +801,9 @@ void AlgActionDensity::smartrun(Float* result)
       continue;
 
     flag[k] = 1;
-
     Float * afield = (Float*) smalloc(cname, fname, "afield", GsiteSize * vol_node_sites * sizeof(Float));
 
     getPlusData(afield, lfield, GsiteSize * vol_node_sites, k);
-
-    if(GJP.Bc(k) == BND_CND_GPARITY && GJP.NodeCoor(k) == GJP.Nodes(k)-1) for(int f=1;f<GsiteSize * vol_node_sites;f+=2) afield[f]*=-1; //complex conjugate links received from over G-parity boundary
 
     Float * bfield = lfield;
     lfield = (Float*) smalloc(cname, fname, "lfield", 2 * GsiteSize * vol_node_sites * sizeof(Float));
@@ -416,14 +938,9 @@ void AlgActionDensity::smartrun(Float* result)
 
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
-    if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == 0) for(int f=1;f<GsiteSize * SurfSize;f+=2) surf0[f]*=-1;
-
     if(flag[i])
     {
       getPlusData(surfx, surf0, GsiteSize * SurfSize, i);
-
-      if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == 0) for(int f=1;f<GsiteSize * SurfSize;f+=2) surfx[f]*=-1;
-
       getPlusData(surf1, surfx, GsiteSize * SurfSize, i);
     }
     else
@@ -474,14 +991,9 @@ void AlgActionDensity::smartrun(Float* result)
       ysta[i] = Slab;
     }
 
-    if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == GJP.Nodes(i)-1) for(int f=1;f<GsiteSize * SurfSize;f+=2) surf0[f]*=-1;
-
     if(flag[i])
-    {      
+    {
       getMinusData(surfx, surf0, GsiteSize * SurfSize, i);
-
-      if(GJP.Bc(i) == BND_CND_GPARITY && GJP.NodeCoor(i) == GJP.Nodes(i)-1) for(int f=1;f<GsiteSize * SurfSize;f+=2) surfx[f]*=-1;
-
       getMinusData(surf1, surfx, GsiteSize * SurfSize, i);
     }
     else
@@ -573,14 +1085,9 @@ void AlgActionDensity::smartrun(Float* result)
           }
       ysta[i] = Slab;
 
-      if(GJP.Bc(j) == BND_CND_GPARITY && GJP.NodeCoor(j) == 0) for(int f=1;f< 2*GsiteSize * SurfSize;f+=2) surf0[f]*=-1;
-
       if(flag[j])
       {
         getPlusData(surfx, surf0, 2 * GsiteSize * SurfSize, j);
-
-	if(GJP.Bc(j) == BND_CND_GPARITY && GJP.NodeCoor(j) == 0) for(int f=1;f< 2*GsiteSize * SurfSize;f+=2) surfx[f]*=-1;
-
         getPlusData(surf1, surfx, 2 * GsiteSize * SurfSize, j);
       }
       else
@@ -663,14 +1170,9 @@ void AlgActionDensity::smartrun(Float* result)
         ysta[j] = Slab;
       }
 
-      if(GJP.Bc(j) == BND_CND_GPARITY && GJP.NodeCoor(j) == GJP.Nodes(j)-1) for(int f=1;f< 2*GsiteSize * SurfSize;f+=2) surf0[f]*=-1;
-
       if(flag[j])
       {
         getMinusData(surfx, surf0, 2 * GsiteSize * SurfSize, j);
-
-	if(GJP.Bc(j) == BND_CND_GPARITY && GJP.NodeCoor(j) == GJP.Nodes(j)-1) for(int f=1;f< 2*GsiteSize * SurfSize;f+=2) surfx[f]*=-1;
-
         getMinusData(surf1, surfx, 2 * GsiteSize * SurfSize, j);
       }
       else
@@ -730,10 +1232,26 @@ void AlgActionDensity::smartrun(Float* result)
   yend[2] = ysta[2] + GJP.ZnodeSites();
   yend[3] = ysta[3] + GJP.TnodeSites();
 
-  int nthread = GJP.SetNthreads();
-  Float tmp_action[nthread];  for(int i=0;i<nthread;i++) tmp_action[i]=0.0;
+  Float tmat[nfunc][nfunc] = {0};
 
-  Float timer = -dclock();
+  const int nthread = GJP.Nthreads();
+  GJP.SetNthreads();
+  Float tmp[nthread][nfunc][nfunc];
+  for(int i=0;i<nthread;i++)
+    for(int j=0;j<nfunc;j++)
+      for(int k=0;k<nfunc;k++)
+	tmp[i][j][k] = 0;
+
+  Float* process_slice_sums[64][nfunc];
+  for(int p = 0; p < 64; p++) {
+    for(int f = 0; f < nfunc; f++) {
+      process_slice_sums[p][f] = new Float[GJP.Sites(3)];
+      for(int t = 0; t < GJP.Sites(3); t++) {
+	process_slice_sums[p][f][t] = 0;
+      }
+    }
+  }
+
 
 #pragma omp parallel for 
   for(int i = 0; i < GJP.VolNodeSites(); ++i)
@@ -744,57 +1262,102 @@ void AlgActionDensity::smartrun(Float* result)
     y[1] = j % GJP.YnodeSites() + ysta[1]; j /= GJP.YnodeSites();
     y[2] = j % GJP.ZnodeSites() + ysta[2]; j /= GJP.ZnodeSites();
     y[3] = j  + ysta[3]; 
-    
+  //for(y[0] = ysta[0]; y[0] < yend[0]; ++y[0])
+  //  for(y[1] = ysta[1]; y[1] < yend[1]; ++y[1])
+  //    for(y[2] = ysta[2]; y[2] < yend[2]; ++y[2])
+  //      for(y[3] = ysta[3]; y[3] < yend[3]; ++y[3])
+  //      {
     int index = 0;
-    Matrix clovers[6];
+    Matrix plaqs[nfunc][6];
     for(int mu = 0; mu < 3; ++mu)
       for(int nu = mu + 1; nu < 4; ++nu)
-      {
-        CloverLeaf(clovers[index], y, mu, nu, gfield, g_dir_offset);
-        ZeroReal(clovers[index]);
+      { 
+        for(int f(0); f < nfunc; ++f)
+        {
+          (*(leaf_mapg[f]))(plaqs[f][index], y, mu, nu, gfield, g_dir_offset);
+          ZeroReal(plaqs[f][index]);
+        }
         index ++;
       }
     
     j = omp_get_thread_num();
-
-    tmp_action[j] += ActionDensity(clovers).real();
-    if(tmp_action[j] != tmp_action[j]) {
-      VRB.Result(cname, fname, "NaN!!, y = (%d, %d, %d, %d), i = %d, j = %d\n", y[0], y[1], y[2], y[3], i, j);
+    int t = y[3] - ysta[3] + GJP.TnodeSites() * GJP.TnodeCoor(); //global time slice index
+    
+    for(int f1(0); f1 < nfunc; ++f1) {
+      for(int f2(f1); f2 < nfunc; ++f2) {
+	Float top = MkTop(plaqs[f1],plaqs[f2]).real();
+        tmp[j][f1][f2] += top;
+        
+	if(f1 == f2) {
+	  process_slice_sums[j][f1][t] += top;
+	}
+      }
     }
   }
 
-  Float action = 0;
-  for(int i = 0; i < nthread; ++i) {
-    action += tmp_action[i];
+  Float* slice_sums[nfunc];
+  for(int f = 0; f < nfunc; f++) {
+    slice_sums[f] = new Float[GJP.Sites(3)];
+    for(int t = 0; t < GJP.Sites(3); t++) {
+      slice_sums[f][t] = 0;
+      for(int p = 0; p < 64; p++) {
+        slice_sums[f][t] += process_slice_sums[p][f][t];
+      }
+      glb_sum(&slice_sums[f][t]);
+    }
+#if 0
+    j = omp_get_thread_num();
+    for(int f1(0); f1 < nfunc; ++f1)
+      for(int f2(f1); f2 < nfunc; ++f2)
+        tmp[j][f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+       // tmat[f1][f2] += MkTop(plaqs[f1],plaqs[f2]).real();
+#endif
   }
 
-  glb_sum(&action);
+  for(int f1(0); f1 < nfunc; ++f1)
+    for(int f2(f1); f2 < nfunc; ++f2)
+    {
+      for(int i = 0; i < nthread; ++i)
+        tmat[f1][f2] += tmp[i][f1][f2];
+      glb_sum( &tmat[f1][f2] );
+//      VRB.Result(cname, fname, "tmat f1, f2 = %.6e\n", tmat[f1][f2]);
+    }
 
   sfree(cname, fname, "gfield", gfield);
   sfree(cname, fname, "lfield", lfield);
 
-  Float action_density = action / GJP.VolSites();
-
-  if(result!=NULL) *result = action_density;
-
-  // Print out results
-  //----------------------------------------------------------------
-
-  if(common_arg->filename != 0) {
-    const char *fname = "run()";
+  if(common_arg->filename != 0)
+  {
     FILE *fp;
-    if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
-      ERR.FileA(cname,fname,common_arg->filename);
+    if((fp = Fopen(common_arg->filename, "a")) == NULL)
+      ERR.FileA(cname, fname, common_arg->filename);
+    Fprintf(fp, "AlgTcharge:\n");
+    Fprintf(fp, "nleaf : %i\n", nfunc);
+    for(int f(0); f < nfunc; ++f)
+      Fprintf(fp,"   %i : %s\n", f, names[f]);
+    for (int f1(0); f1 < nfunc; ++f1)
+      for (int f2(f1); f2 < nfunc; ++f2)
+        Fprintf(fp, "%i %i : %15e\n", f1, f2, tmat[f1][f2]);
+    
+    for(int f = 0; f < nfunc; f++) {
+      Fprintf(fp, "%d : ", f);
+      for(int t = 0; t < GJP.Sites(3); t++) {
+	Fprintf(fp, "%15e ", slice_sums[f][t]);
+      }
+      Fprintf(fp, "\n");
     }
 
-    //Prints mean value of (1/2)tr(F_mu_nu F_mu_nu), in units of a^4
-    Fprintf(fp, "%15e\n", action_density);
-      
     Fclose(fp);
   }
-#endif
+  
+  
+  for(int f = 0; f < nfunc; f++) {
+    delete[] slice_sums[f];
+    for(int p = 0; p < 64; p++) {
+      delete[] process_slice_sums[p][f];
+    }
+  }
 }
-#endif
 
 
 CPS_END_NAMESPACE

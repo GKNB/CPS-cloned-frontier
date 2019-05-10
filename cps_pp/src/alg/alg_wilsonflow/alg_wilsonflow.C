@@ -7,7 +7,7 @@
 #include<util/gjp.h>
 #include<util/error.h>
 #include<util/site.h>
-#include<util/link_buffer.h>
+#include<util/timer.h>
 #include<util/link_buffer.h>
 #include<util/lat_cont.h>
 #include<util/smalloc.h>
@@ -906,7 +906,9 @@ void AlgWilsonFlow::do_rk_step_adaptive(Lattice &lat, GaugeField& gf, GaugeField
 
 double AlgWilsonFlow::run_adaptive(double& input_dt)
 {
-  const char fname[] = "run()";
+  const char fname[] = "run_adaptive()";
+  static Timer timer(cname,fname);
+  timer.start();
 
   static const double tolerance = 1e-3;
   static const double multiplier = 0.95;
@@ -972,6 +974,7 @@ double AlgWilsonFlow::run_adaptive(double& input_dt)
 //  if(GJP.TopenBc() && !lat.TestZeroTboundary()) ERR.General(cname, fname, "Nonzero boundary link!\n");
 
   input_dt = dt;
+  timer.stop(true);
   return previous_dt;
 }
 

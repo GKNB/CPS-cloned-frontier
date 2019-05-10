@@ -47,7 +47,7 @@ public:
   
   virtual ~AlgTcharge() {;}
   
-  void run(Float **result = NULL);
+  void run();
   void smartrun();
 
 };

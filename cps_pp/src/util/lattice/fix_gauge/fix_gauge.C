@@ -936,11 +936,7 @@ void FixHPlane::fix_g(Matrix& g)
         Complex v00(real(a) + real(d), imag(d) - imag(a)), 
             v01(real(c) - real(b), -(imag(c) + imag(b)));
 
-#ifdef _TARTAN
-        Float sdet = double( sqrt(norm(v00) + norm(v01)) );
-#else
         Float sdet = sqrt(norm(v00) + norm(v01));
-#endif
 
 
         v00 /= sdet; v01 /= sdet;
@@ -969,11 +965,7 @@ void FixHPlane::fix_g(Matrix& g)
         Complex v00(real(A[COLORS+1]) + real(d), imag(d) - imag(A[COLORS+1])), 
             v01(real(c) - real(A[COLORS+2]), -(imag(c) + imag(A[COLORS+2])));
 
-#ifdef _TARTAN
-        Float sdet = double( sqrt(norm(v00) + norm(v01)) );
-#else
         Float sdet = sqrt(norm(v00) + norm(v01));
-#endif
 
         v00 /= sdet; v01 /= sdet;
 
@@ -1003,11 +995,7 @@ void FixHPlane::fix_g(Matrix& g)
         tmp_m[2*COLORS] = Complex(real(A[2*COLORS]) - real(A[2]), 
                                   imag(A[2*COLORS]) + imag(A[2]));
 
-#ifdef _TARTAN
-        Float sdet = double( sqrt(norm(tmp_m[0]) + norm(tmp_m[2*COLORS])) );
-#else
         Float sdet = sqrt(norm(tmp_m[0]) + norm(tmp_m[2*COLORS]));
-#endif
         tmp_m[0] /= sdet; tmp_m[2*COLORS] /= sdet;
         tmp_m[2] = Complex(-real(tmp_m[2*COLORS]), imag(tmp_m[2*COLORS]));
         tmp_m[2*COLORS+2] = conj(tmp_m[0]);
@@ -1159,10 +1147,7 @@ int Lattice::FixGauge(Float SmallFloat, unsigned long MaxIterNum)
   
     {
         int mem_size = XXX::Dimension * sizeof(int);
-        Ind2Dir = (int*) smalloc(mem_size);
-        if(Ind2Dir == NULL)
-            ERR.Pointer(cname, fname, "Ind2Dir");
-        VRB.Smalloc(cname, fname, "Ind2Dir", Ind2Dir, mem_size);
+        Ind2Dir = (int*) smalloc (cname, fname, "Ind2Dir", mem_size);
     
         int i, ii;
         for(ii=i=0; i<HplDim; i++, ii++)

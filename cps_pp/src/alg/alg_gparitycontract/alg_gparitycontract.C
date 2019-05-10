@@ -1792,7 +1792,8 @@ void AlgGparityContract::measure_wilson_flow(const ContractionTypeWilsonFlow &ar
   for(int i=0;i<=args.n_steps;++i){
     AlgActionDensity ad(AlgLattice(),&carg_null);
     Float action_density;
-    ad.smartrun(&action_density);
+//    ad.smartrun(&action_density);
+    ad.run(&action_density);
 
     Float t = i*args.time_step;
     
