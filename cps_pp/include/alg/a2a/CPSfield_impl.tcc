@@ -804,6 +804,9 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::scatte
 //Perform a fast Fourier transform along the principal direction
 //NOTE: This won't work correctly if the DimensionPolicy does not use canonical ordering: FIXME
 //Assumes SiteType is a std::complex type
+
+//This implementation performs the FFT of a vector data type of size  nsites_pll * this->siteSize(),   where nsites_pll is the global lattice size in the direction of the FFT
+
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(const bool inverse_transform){
   const int dir = this->getDir();
@@ -856,6 +859,8 @@ void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(co
 }
 
 #else
+
+//This implementation performs the FFT of a scalar data type of size 1. Consequently more FFTs are performed than in the above implementation. The above is more efficient.
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::fft(const bool inverse_transform){
