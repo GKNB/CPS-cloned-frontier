@@ -457,13 +457,16 @@ public:
 };
 
 
-template<typename mf_Policies, typename PionMomentumPolicy>
+//This class computes meson fields with G-parity and a 1s hydroge wavefunction (exponential) source structure.
+//It allows for the possibility of a series if "alternative momenta" choices with the same total momenta, which will be averaged. 
+//It is assumed that the resulting meson fields can be uniquely described only by their total momentum (MesonFieldMomentumContainer)
+template<typename mf_Policies, typename MomentumPolicy, int SpinMatrix, FlavorMatrixType FlavorMatrix>
 class computeGparityLLmesonFields1s{
 public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,ComplexType,true,false> > InnerType;
 
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
 
@@ -478,7 +481,7 @@ public:
 
 
   static void computeMesonFields(MesonFieldMomentumContainer<mf_Policies> &mf_ll_1s_con, //container for 1s pion output fields, accessible by ThreeMomentum of pion
-				 const PionMomentumPolicy &pion_mom, //object that tells us what quark momenta to use
+				 const MomentumPolicy &pion_mom, //object that tells us what quark momenta to use
 				 Wtype &W, Vtype &V,
 				 const Float rad_1s, //exponential wavefunction radius
 				 Lattice &lattice,
@@ -498,7 +501,7 @@ public:
     GparityBaseMomentum(pbase,+1);
         
     ExpSrcType src(rad_1s,pbase,src_setup_params);
-    InnerType g5_s3_inner(sigma3, src);    
+    InnerType inner(FlavorMatrix, src);    
     
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
@@ -510,7 +513,7 @@ public:
 
       if(!UniqueID()) printf("Doing block %d->%d\n",b,b+nmom_rem);
 
-      StorageType mf_store(g5_s3_inner,src, opt.nshift_combine_max);
+      StorageType mf_store(inner,src, opt.nshift_combine_max);
       std::vector< std::vector<int> > toavg(nmom_block_actual);
 
       int cidx = 0;
@@ -547,13 +550,13 @@ public:
 
 
 //Version of the above that sums the sources on the fly rather than afterwards
-template<typename mf_Policies, typename PionMomentumPolicy>
+template<typename mf_Policies, typename PionMomentumPolicy, int SpinMatrix, FlavorMatrixType FlavorMatrix>
 class computeGparityLLmesonFields1sSumOnTheFly{
 public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,ComplexType,true,false> > InnerType;
 
   typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies, InnerType> StorageType;
 
@@ -588,7 +591,7 @@ public:
     GparityBaseMomentum(pbase,+1);
         
     ExpSrcType src(rad_1s,pbase,src_setup_params);
-    InnerType g5_s3_inner(sigma3, src);    
+    InnerType inner(FlavorMatrix, src);    
     
     int nmom_block = opt.mom_block_size != -1 ? opt.mom_block_size : nmom;
 
@@ -600,7 +603,7 @@ public:
 
       if(!UniqueID()) printf("computeGparityLLmesonFields1sSumOnTheFly Doing block %d->%d\n",b,b+nmom_rem);
 
-      StorageType mf_store(g5_s3_inner,src, opt.nshift_combine_max);
+      StorageType mf_store(inner,src, opt.nshift_combine_max);
 
       int cidx = 0;
       for(int pidx=b;pidx<b+nmom_block_actual;pidx++){      

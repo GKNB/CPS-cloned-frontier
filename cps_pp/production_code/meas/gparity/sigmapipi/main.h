@@ -425,7 +425,7 @@ void computeSigma2ptTianle(std::vector< fVector<typename A2Apolicies::ScalarComp
       ComputeSigmaContractions<A2Apolicies>::computeConnected(into, mf_sigma_con, sigma_mom, psrcidx, psnkidx);
 
       fMatrix<typename A2Apolicies::ScalarComplexType> disconn(Lt,Lt);
-      ComputeSigmaContractions<A2Apolicies>::computeDisconnectedDiagram(disconn, sigma_bub[psnkidx], sigma_bub[psrcidx]);
+      ComputeSigmaContractions<A2Apolicies>::computeDisconnectedDiagram(disconn, sigma_bub[psrcidx], sigma_bub[psnkidx]);
 
       into += disconn;
 

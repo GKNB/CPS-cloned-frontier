@@ -115,6 +115,12 @@ public:
 
 };
 
+
+std::ostream & operator<<(std::ostream &os, const ThreeMomentum &p){
+  os << "(" << p(0) << "," << p(1) << "," << p(2) << ")";
+  return os;
+}
+
 //exp(-i p.x)
 //if xlocal == false, it assumes the coordinate is global rather than node-local
 inline std::complex<double> mom_phase(const ThreeMomentum &p, const int x[3], const bool xlocal = true){

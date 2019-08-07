@@ -83,9 +83,9 @@ void computeLLmesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con,
   }else{ 
 #define MF_1S_SUM_ON_THE_FLY
 #ifdef MF_1S_SUM_ON_THE_FLY
-    typedef computeGparityLLmesonFields1sSumOnTheFly<A2Apolicies, PionMomentumPolicy> computeType;
+    typedef computeGparityLLmesonFields1sSumOnTheFly<A2Apolicies, PionMomentumPolicy, 15, sigma3> computeType;
 #else
-    typedef computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy> computeType;
+    typedef computeGparityLLmesonFields1s<A2Apolicies, PionMomentumPolicy, 15, sigma3> computeType;
 #endif
 
     assert(GJP.Gparity());

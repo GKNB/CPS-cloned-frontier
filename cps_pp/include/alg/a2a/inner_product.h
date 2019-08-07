@@ -182,9 +182,13 @@ public:
 };
 
 
+//All of the inner products for G-parity can be separated into a part involving only the spin-color structure of the source and a part involving the flavor and smearing function.
+//For many sources that share the same spin structure, the source flavor and momentum-space structure differ between sources but the spin-color contract, which is the most expensive part, is common.
+//Thus we allow for operation on containers that contain either one or many sources that share spin structure allowing re-use of the spin-color contraction.
 
+//The GparityInnerProduct class implements the flavor/smearing function part and leaves the spin-color part to the derived class. 
 
-
+//Helper structs to iterate recursively over Remaining sources, where Remaining is known at compile time
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurse{
   template<typename AccumVtype>
@@ -203,8 +207,10 @@ struct _siteFmatRecurse<SourceType,mf_Complex,0,Idx>{
   static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
 };
 
-//All of the inner products for G-parity can be separated into a part involving only the spin-color structure of the source and a part involving the flavor and smearing function.
-//This case class implements the flavor/smearing function part and leaves the spin-color part to the derived class
+//SpinColorContractPolicy is a policy class that has a static method
+//spinColorContract(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r)
+//that performs the spin-color contraction for each flavor component of l, r
+
 template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
 class GparityInnerProduct: public SpinColorContractPolicy{
   const SourceType &src;
@@ -271,7 +277,8 @@ public:
     GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >(_sigma,_src){}
 };
 
-
+//The class GparitySourceShiftInnerProduct generalizes the concept of multi-source to allow for a series of momentum-space vector shifts applied to each source, reducing memory usage by performing those shifts
+//on-the-fly
 
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseShift{
@@ -305,7 +312,6 @@ template<typename SourceType, int Idx>
 struct _shiftRecurse<SourceType,0,Idx>{
   static void inline doit(SourceType &what, const std::vector<int> &shift){}
 };
-
 
 template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
 class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{

@@ -467,7 +467,7 @@ struct mfComputeGeneral: public mfVectorPolicies{
     const int bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bp = BlockedMesonFieldArgs::bp;
     const int nthread = omp_get_max_threads();
 
-    //Make a table of p base pointers and site offsets for each i,j
+    //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j
     SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> base_ptrs_i[nmodes_l];
     SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> base_ptrs_j[nmodes_r];
     std::pair<int,int> site_offsets_i[nmodes_l];

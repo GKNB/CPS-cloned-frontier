@@ -433,6 +433,7 @@ struct computeSigmaMesonFieldsBase{
 
 };
 
+//Note this differs from the computation of the pion meson fields for 2 reasons: the spin/flavor structure and the fact that the resulting meason fields are placed in MesonFieldMomentumPairContainer that keys the meson fields on the combination of both quark momenta rather than the total momentum.
 template<typename mf_Policies, typename SigmaMomentumPolicy>
 class computeSigmaMesonFields1s{
 public:

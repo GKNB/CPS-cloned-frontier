@@ -310,13 +310,8 @@ void doContractionsExtendedCalcV1(const int conf, Parameters &params, const Comm
 
   RequiredMomentum all_pimom;
   all_pimom.combineSameTotalMomentum(true);
-  for(int i=0;i<pion_mom_orig.nMom();i++)
-    for(int j=0;j<pion_mom_orig.nAltMom(i);j++)
-      all_pimom.addP(std::pair<cps::ThreeMomentum, cps::ThreeMomentum>(pion_mom_orig.getMomA(i,j), pion_mom_orig.getMomB(i,j)));
-
-  for(int i=0;i<pion_mom_extended.nMom();i++)
-    for(int j=0;j<pion_mom_extended.nAltMom(i);j++)
-      all_pimom.addP(std::pair<cps::ThreeMomentum, cps::ThreeMomentum>(pion_mom_extended.getMomA(i,j), pion_mom_extended.getMomB(i,j)));
+  all_pimom.addAll(pion_mom_orig);
+  all_pimom.addAll(pion_mom_extended);
 
   computeLLmesonFields1s(mf_ll_con, V, W, all_pimom, lat, params, field3dparams, cmdline.randomize_mf);  
 

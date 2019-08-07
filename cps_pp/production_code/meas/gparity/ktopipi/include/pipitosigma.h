@@ -38,7 +38,7 @@ void computePiPiToSigma(const std::vector< fVector<typename A2Apolicies::ScalarC
       
       std::ostringstream os;
       os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pipitosigma_sigmawdagmom";
-      os << sigma_mom.getWmom(psigma_idx).file_str() << "_pionmom" << (-pion_mom.getMesonMomentum(ppi1_idx)).file_str() << "_v2";
+      os << sigma_mom.getWmom(psigma_idx).file_str() << "_pionmom" << (-pion_mom.getMesonMomentum(ppi1_idx)).file_str() << "_v2"; //Note this is Daiqian's phase convention (which is - the standard one)
       
       if(!UniqueID()) printf("Pipi->sigma writing to file %s\n", os.str().c_str());
 

@@ -33,11 +33,10 @@ struct ComputePiPiToSigmaContractions{
 
   //  +sqrt(6)/4 tr( [mf_pi1(tsrc,tsrc) mf_pi2(tsrc-delta,tsrc-delta) + mf_pi2(tsrc-delta,tsrc-delta) mf_pi1(tsrc,tsrc) ] mf_sigma(tsnk,tsnk)   )
   
-  //We provide the momentum index of the second (inner) sink pion
-  template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
   static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
-			       MesonFieldMomentumPairContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_sigma,
-			       MesonFieldMomentumContainer<mf_Policies> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1,
+			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma,
+			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1, //inner pion
+			       std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2, //outer pion
 			       const int tsep_pipi, const int tstep_src
 		      ){
     typedef typename mf_Policies::ComplexType ComplexType;
@@ -48,47 +47,24 @@ struct ComputePiPiToSigmaContractions{
 
     if(Lt % tstep_src != 0) ERR.General("ComputeSigmaToPipiContractions","computeConnected(..)","tstep_src must divide the time range exactly\n"); 
 
-    if(sigma_mom.nAltMom(pidx_sigma) != 1) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
-
-    //Work out the momenta we need
-    ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(pidx_pi1);
-    ThreeMomentum p_pi2_src = -p_pi1_src; //total zero momentum
-
-
-    ThreeMomentum pWdag_sigma_snk = sigma_mom.getWdagMom(pidx_sigma);
-    ThreeMomentum pV_sigma_snk = sigma_mom.getVmom(pidx_sigma);
-    
-    assert(mf_sigma_con.contains(pWdag_sigma_snk,pV_sigma_snk));
-    assert(mf_pion_con.contains(p_pi1_src));
-    assert(mf_pion_con.contains(p_pi2_src));
-
     //Distribute load over all nodes
     int work = Lt*Lt/tstep_src;
     int node_work, node_off; bool do_work;
     getNodeWork(work,node_work,node_off,do_work);
-    
-    //Gather the meson fields
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(pWdag_sigma_snk, pV_sigma_snk);
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
-    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
+
 #ifdef NODE_DISTRIBUTE_MESONFIELDS
     if(!UniqueID()){ printf("Gathering meson fields\n");  fflush(stdout); }
 
     //Only get the meson fields we actually need
-    std::vector<bool> tslice_sigma_mask(Lt, false);
-    std::vector<bool> tslice_pi1_mask(Lt, false);
-    std::vector<bool> tslice_pi2_mask(Lt, false);
+    std::vector<bool> tslice_sigma_mask(Lt, false), tslice_pi1_mask(Lt, false), tslice_pi2_mask(Lt, false);
 
     if(do_work){
       for(int tt=node_off; tt<node_off + node_work; tt++){
-	int rem = tt;
-	int tsnk = rem % Lt; rem /= Lt; //sink time
-	int tsrc = rem * tstep_src; //source time
+	int tsnk = tt % Lt; //sink time
+	int tsrc = tt / Lt * tstep_src; //source time
 	int tsrc2 = (tsrc-tsep_pipi+Lt) % Lt;
 
-	tslice_sigma_mask[tsnk] = true;
-	tslice_pi1_mask[tsrc] = true;
-	tslice_pi2_mask[tsrc2] = true;
+	tslice_sigma_mask[tsnk] = tslice_pi1_mask[tsrc] = tslice_pi2_mask[tsrc2] = true;
       }
     }
     
@@ -105,17 +81,14 @@ struct ComputePiPiToSigmaContractions{
 
     if(do_work){
       for(int tt=node_off; tt<node_off + node_work; tt++){
-	int rem = tt;
-	int tsnk = rem % Lt; rem /= Lt; //sink time
-	int tsrc = rem * tstep_src; //source time
+	int tsnk = tt % Lt; //sink time
+	int tsrc = tt / Lt * tstep_src; //source time
 	int tsrc2 = (tsrc-tsep_pipi+Lt) % Lt;
 	int tdis = (tsnk - tsrc + Lt) % Lt;
 	
 #ifdef PIPI_SIGMA_USE_G5_HERM
 	A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> pi_prod;
-	//mult(pi_prod, mf_pi2[tsrc2], mf_pi1[tsrc],NODE_LOCAL);
 	mult(pi_prod, mf_pi1[tsrc], mf_pi2[tsrc2],NODE_LOCAL);
-
 	
 	ScalarComplexType incr(0,0);
 	incr += trace(pi_prod, mf_sigma[tsnk]);
@@ -140,6 +113,63 @@ struct ComputePiPiToSigmaContractions{
     nodeDistributeMany(3,&mf_sigma,&mf_pi1,&mf_pi2);
 #endif
   }
+    
+  //We provide the momentum index of the second (inner) sink pion
+  template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
+  static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+			       MesonFieldMomentumPairContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom, const int pidx_sigma,
+			       MesonFieldMomentumContainer<mf_Policies> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1,
+			       const int tsep_pipi, const int tstep_src
+		      ){
+    if(sigma_mom.nAltMom(pidx_sigma) != 1) ERR.General("ComputeSigmaContractions","compute","Sigma with alternate momenta not implemented");
+
+    //Work out the momenta we need
+    ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(pidx_pi1);
+    ThreeMomentum p_pi2_src = -p_pi1_src; //total zero momentum
+
+
+    ThreeMomentum pWdag_sigma_snk = sigma_mom.getWdagMom(pidx_sigma);
+    ThreeMomentum pV_sigma_snk = sigma_mom.getVmom(pidx_sigma);
+    
+    assert(mf_sigma_con.contains(pWdag_sigma_snk,pV_sigma_snk));
+    assert(mf_pion_con.contains(p_pi1_src));
+    assert(mf_pion_con.contains(p_pi2_src));
+    
+    //Gather the meson fields
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(pWdag_sigma_snk, pV_sigma_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
+
+    computeConnected(into, mf_sigma, mf_pi1, mf_pi2, tsep_pipi, tstep_src);
+  }
+
+  //Allows for moving pipi->sigma. Provide index of momenta for both pions; this then uniquely identifies the sigma momentum
+  template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
+  static void computeConnected(fMatrix<typename mf_Policies::ScalarComplexType> &into,
+			       MesonFieldMomentumContainer<mf_Policies> &mf_sigma_con, const SigmaMomentumPolicy &sigma_mom,
+			       MesonFieldMomentumContainer<mf_Policies> &mf_pion_con, const PionMomentumPolicy &pion_mom, const int pidx_pi1, const int pidx_pi2,
+			       const int tsep_pipi, const int tstep_src
+		      ){
+    //Work out the momenta we need
+    ThreeMomentum p_pi1_src = pion_mom.getMesonMomentum(pidx_pi1);
+    ThreeMomentum p_pi2_src = pion_mom.getMesonMomentum(pidx_pi2);
+
+    ThreeMomentum p_sigma_snk = -(p_pi1_src + p_pi2_src);
+
+    assert(mf_sigma_con.contains(p_sigma_snk));
+    assert(mf_pion_con.contains(p_pi1_src));
+    assert(mf_pion_con.contains(p_pi2_src));
+    
+    //Gather the meson fields
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_sigma = mf_sigma_con.get(p_sigma_snk);
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi1 = mf_pion_con.get(p_pi1_src); //meson field of the inner pion
+    std::vector<A2AmesonField<mf_Policies,A2AvectorWfftw,A2AvectorVfftw> > &mf_pi2 = mf_pion_con.get(p_pi2_src);
+
+    computeConnected(into, mf_sigma, mf_pi1, mf_pi2, tsep_pipi, tstep_src);
+  }
+
+
+
 
 
   //Tianle computes the product of the traces online and adds it to his answer. For consistency I do the same here

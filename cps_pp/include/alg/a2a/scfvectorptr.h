@@ -34,6 +34,7 @@ public:
   { p[0] = r.p[0]; p[1] = r.p[1]; zero_hint[0] = r.zero_hint[0]; zero_hint[1] = r.zero_hint[1]; }
 #endif
 
+  //Shift a base pointer container by some number of sites. site_incr is the stride between sites
   inline SCFvectorPtr(const SCFvectorPtr &r, const std::pair<int,int> &site_incr, const int sites = 1)
 #if __cplusplus >= 201103L
     : p{r.p[0]+sites*site_incr.first, r.p[1]+sites*site_incr.second}, zero_hint{r.zero_hint[0],r.zero_hint[1]}{}

@@ -31,6 +31,13 @@
 #include <alg/alg_gparitycontract.h>
 
 #include <sstream>
+
+#ifdef USE_GRID
+#include<util/lattice/fgrid.h>
+#endif
+
+
+
 USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
@@ -113,7 +120,22 @@ int main(int argc,char *argv[])
     prop_args.print();
   }
   
+#ifdef USE_GRID
+  //NOTE: Normalization of non-Grid and Grid result will differ, with the Grid result being 1/(5-M5)^nprop   due to Mobius/Schamir conventions. nprop is the number of propagators
+
+  int ngp=0;
+  for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
+  if(!ngp) ERR.General("","main","Grid version only supports G-parity BCs currently");
+  if(!UniqueID()) printf("Using Grid lattice class\n");
+  FgridParams fgp;
+  fgp.mobius_scale = 1.0; //b+c
+
+  GnoneFgridGparityMobius lattice(fgp);
+#else
+  if(!UniqueID()) printf("Using CPS lattice class\n");
   GwilsonFdwf lattice;
+#endif
+
   CommonArg carg("label","filename");
   char load_config_file[1000];
   

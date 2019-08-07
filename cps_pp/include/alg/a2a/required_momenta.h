@@ -9,6 +9,7 @@ CPS_START_NAMESPACE
 
 //For generic meson fields of form  A . B  this class contains the momenta assigned to A and B
 class MomentumAssignments{
+  //Outer index is total momentum, inner index are different assignments of quark momenta that have the same total momentum (optional)
   std::vector<std::vector<ThreeMomentum> >  momA;
   std::vector<std::vector<ThreeMomentum> >  momB;
   std::vector<ThreeMomentum> mom_total;
@@ -32,6 +33,8 @@ public:
 
   inline ThreeMomentum getMomA(const int i, const int alt_idx = 0) const{ return momA[i][alt_idx]; }
   inline ThreeMomentum getMomB(const int i, const int alt_idx = 0) const{ return momB[i][alt_idx]; }
+
+  inline std::pair<ThreeMomentum,ThreeMomentum> getMomAB(const int i, const int alt_idx = 0) const{ return std::pair<ThreeMomentum,ThreeMomentum>( momA[i][alt_idx], momB[i][alt_idx] ); }
 
   void addP(const std::pair<ThreeMomentum,ThreeMomentum> &pAB){
     ThreeMomentum ptot = pAB.first + pAB.second;
@@ -93,8 +96,31 @@ public:
       }
     }
   };
+
+  //Add all momentum assignments from the input
+  //Make sure to enable combineSameTotalMomentum if you want meson fields with the same total momenta to be stored as alternative momenta (eg if you want them averaged when the meson fields are generated)
+  void addAll(const MomentumAssignments &from){
+    for(int i=0;i<from.nMom(); i++)
+      for(int j=0;j<from.nAltMom(i);j++)
+	this->addP(from.getMomAB(i,j));
+  }
+
+  void print(const std::string &name = "") const{
+    if(!UniqueID()){
+      std::cout << "Momentum policy " << name << std::endl;
+      for(int p=0;p<nMom();p++){
+	std::cout << "Total momentum " << getTotalMomentum(p) << " : ";
+	for(int a=0;a<nAltMom(p);a++)
+	  std::cout << '[' << momA[p][a] << "+" << momB[p][a] << ']';
+	std::cout << std::endl;
+      }
+    }
+  }
+
 };
   
+
+
 
 //A class to compute and store the W^dagger V meson field momenta
 class RequiredMomentum: public MomentumAssignments{
