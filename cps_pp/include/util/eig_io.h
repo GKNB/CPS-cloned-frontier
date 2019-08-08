@@ -2,7 +2,9 @@
 #define INCLUDED_EIG_IO_H
 
 #define _FILE_OFFSET_BITS 64
+#ifdef USE_MPI
 #include <mpi.h>
+#endif
 #include <omp.h>
 #include <stdio.h>
 #include <stdint.h>

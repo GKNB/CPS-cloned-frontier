@@ -167,8 +167,10 @@ void alcf_evecs_save(char* dest,EigenCache* ec, int nkeep) {
     uint32_t this_crc32 = 0x0;
     if (i == id)
       this_crc32 += crc32_all;
-    uint32_t rcv_crc32;
-    MPI_Allreduce(&this_crc32, &rcv_crc32, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    uint32_t rcv_crc32=this_crc32;
+//    MPI_Allreduce(&this_crc32, &rcv_crc32, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+//    int glb_sum (uint32_t * send, const long n_elem)x
+    glb_sum(&rcv_crc32,1);
     if (f)
       fprintf(f,"%X\n",rcv_crc32);
   }
