@@ -354,7 +354,12 @@ public:
     
     //All nodes change master
     _master_uid = to_uid;
+#ifdef USE_MPI
     _master_mpirank = MPI_UniqueID_map::UidToMPIrank(to_uid);
+#else
+    _master_mpirank = 0;
+#endif
+
 
     distribute();
   }

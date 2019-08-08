@@ -5,9 +5,10 @@
 #ifdef USE_GRID
 #include <Grid/Grid.h>
 #endif
-#ifdef USE_QMP
-#define USE_MPI
-#endif
+//QMP does not guarantee MPI
+//#ifdef USE_QMP
+//#define USE_MPI
+//#endif
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
