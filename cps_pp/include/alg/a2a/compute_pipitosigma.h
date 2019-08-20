@@ -197,6 +197,10 @@ struct ComputePiPiToSigmaContractions{
     //-sqrt(6)/2 \tr( M_sigma(tsnk,tsnk) ) B(tsrc)
         
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
+
+    assert(sigma_bubble.size() == Lt);
+    assert(pipi_bubble.size() == Lt);
+	
     into.resize(Lt,Lt); into.zero();
     double coeff = -sqrt(6.)/2;
 #ifdef USE_TIANLES_CONVENTIONS
