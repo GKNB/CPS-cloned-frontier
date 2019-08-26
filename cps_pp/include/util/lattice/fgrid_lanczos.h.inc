@@ -14,7 +14,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   DIRAC::ImplParams params;
   SetParams (params);
   DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-  Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+  Grid::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 #ifndef TWOKAPPA
@@ -101,7 +101,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 #endif
 
 #ifdef SINGLE
-  Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+  Grid::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 #ifndef TWOKAPPA
@@ -169,11 +169,11 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
 #ifndef SINGLE
   std::vector < LATTICE_FERMION > evec (Nm, F_RB_GRID);
   for (int i = 0; i < Nm; i++)
-    evec[i].checkerboard = Grid::Odd;
+    evec[i].Checkerboard() = Grid::Odd;
   IRL.calc (eval, evec, grid_rb_in, Nconv);
 #else
   std::vector < LATTICE_FERMION_F > evec_f (Nm, F_RB_GRID_F);
-  for (int i = 0; i < Nm; i++) evec_f[i].checkerboard = Grid::Odd;
+  for (int i = 0; i < Nm; i++) evec_f[i].Checkerboard() = Grid::Odd;
   IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
 #endif
 
@@ -237,7 +237,7 @@ int SimpleLanczos (std::vector<Float>  &lambda, LanczosArg * eig_arg)
 #endif
 
 #ifdef SINGLE
-  Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+  Grid::LatticeGaugeFieldF UmuF (UGridF);
   precisionChange (UmuF, *Umu);
   DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 #ifndef TWOKAPPA

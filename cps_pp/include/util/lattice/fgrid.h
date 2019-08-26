@@ -13,8 +13,6 @@
 #endif
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
-//using namespace Grid;
-//using namespace Grid::QCD;
 #undef HAVE_HANDOPT
 
 namespace Grid
@@ -91,9 +89,9 @@ public:
   static bool grid_initted;
 
 protected:
-  const int Nc = Grid::QCD::Nc;
-  const int Nd = Grid::QCD::Nd;
-  const int Ns = Grid::QCD::Ns;
+  const int Nc = Grid::Nc;
+  const int Nd = Grid::Nd;
+  const int Ns = Grid::Ns;
   int n_gp;
     Grid::GridCartesian * UGridD;
     Grid::GridCartesian * UGridF;
@@ -103,8 +101,8 @@ protected:
     Grid::GridCartesian * FGridF;
     Grid::GridRedBlackCartesian * FrbGridF;
     Grid::GridRedBlackCartesian * FrbGridD;
-    Grid::QCD::LatticeGaugeFieldD * Umu;
-//      Grid::QCD::LatticeGaugeFieldF *Umu_f;
+    Grid::LatticeGaugeFieldD * Umu;
+//      Grid::LatticeGaugeFieldF *Umu_f;
   int threads;
     std::vector < int >vol;	// global volume
     std::vector < int >nodes;
@@ -135,10 +133,10 @@ public:
   Grid::GridRedBlackCartesian * getUrbGrid () {
     return UrbGridD;
   }
-  Grid::QCD::LatticeGaugeFieldD * getUmu () {
+  Grid::LatticeGaugeFieldD * getUmu () {
     return Umu;
   }
-//      Grid::QCD::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
+//      Grid::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
 FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), mass (1.),
     Ls (1) {
 //,epsilon(0.),
@@ -172,11 +170,11 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
     for (int i = 0; i < 4; i++)
       VRB.Debug (cname, fname, "%d %d \n", vol[i], nodes[i]);
     UGridD =
-      Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
+      Grid::SpaceTimeGrid::makeFourDimGrid (vol,
 						 Grid::GridDefaultSimd (Nd, Grid:: vComplexD:: Nsimd ()),
 						 nodes);
     UGridF =
-      Grid::QCD::SpaceTimeGrid::makeFourDimGrid (vol,
+      Grid::SpaceTimeGrid::makeFourDimGrid (vol,
 						 Grid::GridDefaultSimd (Nd, Grid:: vComplexF:: Nsimd ()),
 						 nodes);
     VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n", UGridD, UGridF);
@@ -192,24 +190,24 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
       }
 #ifdef HAVE_HANDOPT
     if (GJP.Gparity ())
-      Grid::QCD::WilsonKernelsStatic::HandOpt = 0;	//Doesn't seem to be working with Gparity
+      Grid::WilsonKernelsStatic::HandOpt = 0;	//Doesn't seem to be working with Gparity
     else
-      Grid::QCD::WilsonKernelsStatic::HandOpt = 1;
+      Grid::WilsonKernelsStatic::HandOpt = 1;
 #endif
     VRB.Debug (cname, fname, "UGrid.lSites()=%d\n", UGridD->lSites ());
     SetLs (GJP.SnodeSites ());
-    UrbGridD = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
-    UrbGridF = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
+    UrbGridD = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
+    UrbGridF = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
     VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n", UrbGridD, UrbGridF);
-    FGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
-    FGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
+    FGridD = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
+    FGridF = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
     VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n", FGridD, FGridF);
     VRB.Debug (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
-    FrbGridD = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
-    FrbGridF = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
+    FrbGridD = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
+    FrbGridF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
     VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n", FrbGridD, FrbGridF);
-    Umu = new Grid::QCD::LatticeGaugeFieldD (UGridD);
-//  Umu_f = new Grid::QCD::LatticeGaugeFieldF(UGrid_f);
+    Umu = new Grid::LatticeGaugeFieldD (UGridD);
+//  Umu_f = new Grid::LatticeGaugeFieldF(UGrid_f);
     grid_initted = true;
     VRB.FuncEnd (cname, fname);
 //#ifdef USE_QMP
@@ -286,12 +284,12 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
   }
 
 
-  void ImportGauge (Grid::QCD::LatticeGaugeFieldD * grid_lat, Matrix * mom)
+  void ImportGauge (Grid::LatticeGaugeFieldD * grid_lat, Matrix * mom)
   {
     ImpexGauge (grid_lat, NULL, mom, 1);
   }
 
-  void ImportGauge (Matrix * mom, Grid::QCD::LatticeGaugeFieldD * grid_lat)
+  void ImportGauge (Matrix * mom, Grid::LatticeGaugeFieldD * grid_lat)
   {
     ImpexGauge (grid_lat, NULL, mom, 0);
   }
@@ -301,8 +299,8 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
     ImpexGauge (Umu, NULL, NULL, 1);
   }
 
-  void ImpexGauge (Grid::QCD::LatticeGaugeFieldD * grid_lat,
-		   Grid::QCD::LatticeGaugeFieldF * grid_lat_f, Matrix * mom,
+  void ImpexGauge (Grid::LatticeGaugeFieldD * grid_lat,
+		   Grid::LatticeGaugeFieldF * grid_lat_f, Matrix * mom,
 		   int cps2grid)
   {
 
@@ -314,14 +312,14 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
 //              if (!grid_lat_f && cps2grid )  grid_lat_f = Umu_f;
     unsigned long vol;
     const char *fname = "ImpexGauge()";
-    Grid::GridBase * grid = grid_lat->_grid;
-    if (grid_lat->_grid->lSites () != (vol = GJP.VolNodeSites ()))
+    Grid::GridBase * grid = grid_lat->Grid();
+    if (grid_lat->Grid()->lSites () != (vol = GJP.VolNodeSites ()))
       ERR.General (cname, fname,
 		   "numbers of grid(%d) and GJP(%d) does not match\n",
-		   grid_lat->_grid->lSites (), vol);
-    std::vector < int >grid_coor;
-    Grid::QCD::LorentzColourMatrixD siteGrid;
-    Grid::QCD::LorentzColourMatrixF siteGrid_f;
+		   grid_lat->Grid()->lSites (), vol);
+    Grid::Coordinate grid_coor;
+    Grid::LorentzColourMatrixD siteGrid;
+    Grid::LorentzColourMatrixF siteGrid_f;
     for (int site = 0; site < vol; site++)
       for (int mu = 0; mu < 4; mu++) {
 	if (cps2grid) {
@@ -458,13 +456,13 @@ CPS_END_NAMESPACE
 #undef IF_TM
 #define FGRID FgridGparityMobius
 #define CLASS_NAME F_CLASS_GRID_GPARITY_MOBIUS
-#define DIRAC Grid::QCD::GparityMobiusFermionD
-#define DIRAC_F Grid::QCD::GparityMobiusFermionF
+#define DIRAC Grid::GparityMobiusFermionD
+#define DIRAC_F Grid::GparityMobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
-#define IMPL Grid::QCD::GparityWilsonImplD
-#define IMPL_F Grid::QCD::GparityWilsonImplF
-#define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
+#define IMPL Grid::GparityWilsonImplD
+#define IMPL_F Grid::GparityWilsonImplF
+#define SITE_FERMION Grid::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -486,13 +484,13 @@ CPS_END_NAMESPACE
 #define IF_TM
 #define FGRID FgridGparityWilsonTM
 #define CLASS_NAME F_CLASS_GRID_GPARITY_WILSON_TM
-#define DIRAC Grid::QCD::GparityWilsonTMFermionD
-#define DIRAC_F Grid::QCD::GparityWilsonTMFermionF
+#define DIRAC Grid::GparityWilsonTMFermionD
+#define DIRAC_F Grid::GparityWilsonTMFermionF
 #define MOB  ,eps
-#define IMPL Grid::QCD::GparityWilsonImplD
-#define IMPL_F Grid::QCD::GparityWilsonImplF
-#define SITE_FERMION Grid::QCD::iGparitySpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iGparitySpinColourVector<Grid::ComplexF>
+#define IMPL Grid::GparityWilsonImplD
+#define IMPL_F Grid::GparityWilsonImplF
+#define SITE_FERMION Grid::iGparitySpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iGparitySpinColourVector<Grid::ComplexF>
 #define PARAMS	,params
 #define GP gp
 #include "fgrid.h.inc"
@@ -514,13 +512,13 @@ CPS_END_NAMESPACE
 #undef IF_TM
 #define FGRID FgridMobius
 #define CLASS_NAME F_CLASS_GRID_MOBIUS
-#define DIRAC Grid::QCD::MobiusFermionD
-#define DIRAC_F Grid::QCD::MobiusFermionF
+#define DIRAC Grid::MobiusFermionD
+#define DIRAC_F Grid::MobiusFermionF
 #define MOB	,M5,mob_b,mob_b-1.
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
-#define IMPL Grid::QCD::WilsonImplD
-#define IMPL_F Grid::QCD::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
 #define PARAMS
 #define GP
 #undef TWOKAPPA
@@ -543,13 +541,13 @@ CPS_END_NAMESPACE
 #define GRID_ZMOB
 #define FGRID FgridZmobius
 #define CLASS_NAME F_CLASS_GRID_ZMOBIUS
-#define DIRAC Grid::QCD::ZMobiusFermionD
-#define DIRAC_F Grid::QCD::ZMobiusFermionF
+#define DIRAC Grid::ZMobiusFermionD
+#define DIRAC_F Grid::ZMobiusFermionF
 #define MOB	,M5,omegas,1.,0.
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
-#define IMPL Grid::QCD::ZWilsonImplD
-#define IMPL_F Grid::QCD::ZWilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::ZWilsonImplD
+#define IMPL_F Grid::ZWilsonImplF
 #define PARAMS
 #define GP
 // Using TwoKappa only for zMobius for now, really SYM2
@@ -577,13 +575,13 @@ CPS_END_NAMESPACE
 #define IF_TM
 #define FGRID FgridWilsonTM
 #define CLASS_NAME F_CLASS_GRID_WILSON_TM
-#define DIRAC Grid::QCD::WilsonTMFermionD
-#define DIRAC_F Grid::QCD::WilsonTMFermionF
+#define DIRAC Grid::WilsonTMFermionD
+#define DIRAC_F Grid::WilsonTMFermionF
 #define MOB  ,eps
-#define IMPL Grid::QCD::WilsonImplD
-#define IMPL_F Grid::QCD::WilsonImplF
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
 #include "fgrid.h.inc"

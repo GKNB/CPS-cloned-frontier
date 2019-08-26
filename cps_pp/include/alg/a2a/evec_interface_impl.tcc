@@ -171,13 +171,13 @@ public:
       vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
       nodes[i]= GJP.Nodes(i);
     }
-    Grid::GridCartesian *UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd()),nodes);
-    Grid::GridCartesian *FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-    Grid::GridRedBlackCartesian *UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
+    Grid::GridCartesian *UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd()),nodes);
+    Grid::GridCartesian *FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+    Grid::GridRedBlackCartesian *UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
 
-    if(_evec.size() > 0) FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0]._grid);
+    if(_evec.size() > 0) FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0].Grid());
     else{
-      FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+      FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
       delete_FrbGrid_f = true;
     }
     

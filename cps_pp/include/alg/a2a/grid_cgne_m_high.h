@@ -45,14 +45,14 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   int Nev = evecs.nEvecs();
 
   GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)  
-  lsol_full = Grid::zero;
+  lsol_full = Grid::Zero();
 
   GridFermionField lsol_defl(FrbGrid); //low-mode part for subset of evecs with index < nLowMode
-  lsol_defl = Grid::zero;
-  lsol_defl.checkerboard = Grid::Odd;
+  lsol_defl = Grid::Zero();
+  lsol_defl.Checkerboard() = Grid::Odd;
   
   GridFermionField sol_o(FrbGrid); //CG solution
-  sol_o = Grid::zero;
+  sol_o = Grid::Zero();
 
   if(Nev < nLowMode)
     ERR.General("","Grid_CGNE_M_High","Number of low eigen modes to do deflation is smaller than number of low modes to be substracted!\n");
@@ -90,14 +90,14 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   f = norm2(sol_o);
   if (!UniqueID()) printf("Grid_CGNE_M_high: sol norm after subtracting low-mode part %le\n",f);
 
-  assert(sol_o.checkerboard == Grid::Odd);
+  assert(sol_o.Checkerboard() == Grid::Odd);
   setCheckerboard(solution, sol_o);
   
   // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
   pickCheckerboard(Grid::Even,tmp_cb1,source);  //tmp_cb1 = src_e
   
   Ddwf.Meooe(sol_o,tmp_cb2); //tmp_cb2 = Meo sol_o
-  assert(tmp_cb2.checkerboard == Grid::Even);
+  assert(tmp_cb2.Checkerboard() == Grid::Even);
 
   axpy(tmp_cb1, -1.0, tmp_cb2, tmp_cb1); //tmp_cb1 = (-Meo sol_o + src_e)   (tmp_cb2 free)
   
@@ -106,7 +106,7 @@ inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, 
   f = norm2(tmp_cb2);
   if (!UniqueID()) printf("Grid_CGNE_M_high: even checkerboard of sol %le\n",f);
 
-  assert(tmp_cb2.checkerboard == Grid::Even);
+  assert(tmp_cb2.Checkerboard() == Grid::Even);
   setCheckerboard(solution, tmp_cb2);
 
   f = norm2(solution);
@@ -136,7 +136,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
 
   GridFermionField tmp_full(FGrid);
   GridFermionField lsol_full(FrbGrid); //full low-mode part (all evecs)
-  lsol_full.checkerboard = Grid::Odd;
+  lsol_full.Checkerboard() = Grid::Odd;
   
   const int Nev = evecs.nEvecs();
   if(Nev < nLowMode)
@@ -169,10 +169,10 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     linop.MpcDag(tmp_cb3, src_o[s]); //src_o = Mprecdag * (source_o - Moe MeeInv source_e)    (tmp_cb3, tmp_cb4 free)
 
     //Compute low-mode projection and CG guess (=low-mode part)
-    lsol_full = Grid::zero;
-    lsol_defl[s].checkerboard = Grid::Odd;
-    lsol_defl[s] = Grid::zero;
-    sol_o[s].checkerboard = Grid::Odd;
+    lsol_full = Grid::Zero();
+    lsol_defl[s].Checkerboard() = Grid::Odd;
+    lsol_defl[s] = Grid::Zero();
+    sol_o[s].Checkerboard() = Grid::Odd;
     
     if(Nev > 0){
       if (!UniqueID()) printf("Grid_CGNE_M_High: deflating src %d with %d evecs\n",s,Nev);
@@ -185,7 +185,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
 	if(n == nLowMode - 1) lsol_defl[s] = lsol_full; //store until after CG
       }
       sol_o[s] = lsol_full; //sol_o = lsol   Set guess equal to low mode projection 
-    }else sol_o[s] = Grid::zero;
+    }else sol_o[s] = Grid::Zero();
 
     f = norm2(src_o[s]);
     if (!UniqueID()) printf("Grid_CGNE_M_high: CGNE_prec_MdagM src %d norm %le\n",s,f);
@@ -209,14 +209,14 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     f = norm2(sol_o[s]);
     if (!UniqueID()) printf("Grid_CGNE_M_high: sol %d norm after subtracting low-mode part %le\n",s,f);
 
-    assert(sol_o[s].checkerboard == Grid::Odd);
+    assert(sol_o[s].Checkerboard() == Grid::Odd);
     setCheckerboard(solutions[s], sol_o[s]);
   
     // sol_e = M_ee^-1 * ( src_e - Meo sol_o )...
     pickCheckerboard(Grid::Even,tmp_cb1,sources[s]);  //tmp_cb1 = src_e
     
     Ddwf.Meooe(sol_o[s],tmp_cb2); //tmp_cb2 = Meo sol_o
-    assert(tmp_cb2.checkerboard == Grid::Even);
+    assert(tmp_cb2.Checkerboard() == Grid::Even);
 
     axpy(tmp_cb1, -1.0, tmp_cb2, tmp_cb1); //tmp_cb1 = (-Meo sol_o + src_e)   (tmp_cb2 free)
   
@@ -225,7 +225,7 @@ inline void Grid_CGNE_M_high_multi(std::vector<typename GridPolicies::GridFermio
     f = norm2(tmp_cb2);
     if (!UniqueID()) printf("Grid_CGNE_M_high: even checkerboard of sol %d is %le\n",s,f);
 
-    assert(tmp_cb2.checkerboard == Grid::Even);
+    assert(tmp_cb2.Checkerboard() == Grid::Even);
     setCheckerboard(solutions[s], tmp_cb2);
 
     f = norm2(solutions[s]);

@@ -47,7 +47,7 @@ private:
     if (!cps_f)
         ERR.General (cname, fname, "CPS field not allocated\n");
     unsigned long vol;
-      Grid::GridBase * grid = grid_f._grid;
+      Grid::GridBase * grid = grid_f.Grid();
     unsigned long fourvol = GJP.VolNodeSites ();
     int ncb = 2;
     if (eo != All)
@@ -58,14 +58,14 @@ private:
     vol = fourvol * (2 / ncb);
     if (F5D ())
       vol *= GJP.SnodeSites ();
-    if (((grid_f._grid)->lSites ()) != vol)
+    if (((grid_f.Grid())->lSites ()) != vol)
       ERR.General (cname, fname,
 		   "numbers of grid(%d) and GJP(%d) does not match\n",
 		   grid->lSites (), vol);
 #pragma omp parallel for
     for (int site = 0; site < vol; site++) {
 //        VRB.Result(cname,fname,"thread=%d of %d\n",omp_get_thread_num(),omp_get_num_threads());
-      std::vector < int >grid_coor;
+      Grid::Coordinate grid_coor;
       sobj siteGrid;
       Grid::Lexicographic::CoorFromIndex (grid_coor, site, grid->_ldimensions);
       int pos[4], offset = 0;
@@ -220,7 +220,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     Ddwf.M (grid_in, grid_out);
 #ifdef IF_TM
     LATTICE_FERMION grid_tmp (FERM_GRID);
-    grid_tmp = Grid::QCD::Gamma (Grid::QCD::Gamma::Algebra::Gamma5) * grid_in;
+    grid_tmp = Grid::Gamma (Grid::Gamma::Algebra::Gamma5) * grid_in;
     grid_out += std::complex < double >(0, 1.) * grid_tmp;
 #endif
     ImportFermion (f_out, grid_out);
@@ -299,7 +299,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     DIRAC::ImplParams params;
     SetParams (params);
     DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-    Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+    Grid::LatticeGaugeFieldF UmuF (UGridF);
     precisionChange (UmuF, *Umu);
     DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 
@@ -328,11 +328,11 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+    Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
-    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+    Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+    Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
@@ -410,7 +410,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     DIRAC::ImplParams params;
     SetParams (params);
     DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-    Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+    Grid::LatticeGaugeFieldF UmuF (UGridF);
     precisionChange (UmuF, *Umu);
     DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 
@@ -459,13 +459,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
 #ifndef TWOKAPPA
-//    Grid::QCD::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
-//    Grid::QCD::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+//    Grid::SchurDifferentiableOperator < IMPL > MdagMD (DdwfD);
+//    Grid::SchurDifferentiableOperator < IMPL_F > MdagMF (DdwfF);
+    Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
-    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-    Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+    Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+    Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
@@ -639,7 +639,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       Umu, FGridD, FrbGridD, UGridD, UrbGridD, mass);
 
     DIRAC DdwfD (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
-    Grid::QCD::LatticeGaugeFieldF UmuF (UGridF);
+    Grid::LatticeGaugeFieldF UmuF (UGridF);
     precisionChange (UmuF, *Umu);
     DIRAC_F DdwfF (UmuF, FIVE_GRID_F * UGridF, *UrbGridF, mass MOB PARAMS);
 
@@ -652,7 +652,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 #else
 // Obviously only for mobius, needs more work for zMobius
       ImportFermion (grid_in, f_in);
-      DdwfD.DW (grid_in, grid_out, Grid::QCD::DaggerNo);
+      DdwfD.DW (grid_in, grid_out, Grid::DaggerNo);
       double mob_c = mob_b - 1.;
       axpy (grid_in, -mob_c, grid_out, grid_in);
 #endif
@@ -725,13 +725,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 #ifndef TWOKAPPA
 //      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
 //      SchurSolver (Ddwf, grid_in, grid_out);
-//      Grid::QCD::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
-//      Grid::QCD::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+//      Grid::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
+//      Grid::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
+    Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
-      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-      Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+      Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+      Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
       Grid::MixedPrecisionConjugateGradientOp < LATTICE_FERMION,
@@ -868,9 +868,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetParams (params);
     DIRAC Ddwf (*Umu, FIVE_GRID * UGridD, *UrbGridD, mass MOB PARAMS);
 #ifndef TWOKAPPA
-    Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (Ddwf);
+    Grid::SchurDifferentiableOperator < IMPL > Mpc (Ddwf);
 #else
-    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (Ddwf);
+    Grid::SchurDifferentiableDiagTwo < IMPL > Mpc (Ddwf);
 #endif
     if (dag == DAG_NO)
       Mpc.Mpc (grid_rb_in, grid_rb_out);
@@ -937,7 +937,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetEpsilon (epsilon);
     PrintMass (fname);
 
-    Grid::QCD::LatticeGaugeFieldD grid_mom (UGridD), dSdU (UGridD),
+    Grid::LatticeGaugeFieldD grid_mom (UGridD), dSdU (UGridD),
       force (UGridD);
     ImportGauge (&grid_mom, mom);
 
@@ -958,19 +958,19 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 // not really used. Just to fill invoke TwoFlavourEvenOddRatioPseudoFermionAction
     Grid::ConjugateGradient < LATTICE_FERMION > CG (1e-8, 10000);
 
-    Grid::QCD::TwoFlavourEvenOddRatioPseudoFermionAction < IMPL > quo (NumOp,
+    Grid::TwoFlavourEvenOddRatioPseudoFermionAction < IMPL > quo (NumOp,
 								       DenOp,
 								       CG, CG);
 
     {
       DenOp.ImportGauge (*Umu);
 
-      Grid::QCD::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
+      Grid::SchurDifferentiableOperator < IMPL > Mpc (DenOp);
 #ifdef TWOKAPPA
       ERR.General (cname, fname,
 		   "Not implemnted for DiagTwo Preconditioning yet\n");
 //      MpDeriv is written yet.
-//      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
+//      Grid::SchurDifferentiableDiagTwo < IMPL > Mpc (DenOp);
 #endif
 
       force = 0.;

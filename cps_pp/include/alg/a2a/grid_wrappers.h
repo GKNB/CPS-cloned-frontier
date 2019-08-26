@@ -37,19 +37,39 @@ struct GridLanczosWrapper{
       vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
       nodes[i]= GJP.Nodes(i);
     }
-    std::vector<int> simd_layout = Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd());
+    Grid::Coordinate simd_layout = Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd());
     if(!UniqueID()) printf("Created single-prec Grids: nodes (%d,%d,%d,%d) vol (%d,%d,%d,%d) and SIMD layout (%d,%d,%d,%d)\n",nodes[0],nodes[1],nodes[2],nodes[3],vol[0],vol[1],vol[2],vol[3],simd_layout[0],simd_layout[1],simd_layout[2],simd_layout[3]);
     
-    UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
-    UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
-    FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid_f);
-    FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);     
+    UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
+    UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
+    FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid_f);
+    FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);     
+  }
+
+  //Copy from one lattice to another under the programmer's assurance that the Grid instances are equivalent (not Grid::conformable which checks pointer equality)
+  void copyVecNoGridCheck(typename GridPolicies::GridFermionField &out, const typename GridPolicies::GridFermionField &in){
+    out.Checkerboard() = in.Checkerboard();
+    auto iview = in.View();
+    auto oview = out.View();
+    typedef typename GridPolicies::GridFermionField::vector_object vobj;
+    accelerator_for(ss,iview.size(),vobj::Nsimd(),{
+      coalescedWrite(oview[ss],iview(ss));
+    });
   }
 
   //If we delete the lattice class we need to move the evecs to a different Grid instance that is not deleted
   void moveDPevecsToIndependentGrid(typename GridPolicies::FgridGFclass &lat){
     if(FrbGrid_d == NULL) FrbGrid_d = new Grid::GridRedBlackCartesian(lat.getFrbGrid());
-    for(int i=0;i<evec.size();i++) evec[i]._grid = FrbGrid_d;
+    typename GridPolicies::GridFermionField tmp(FrbGrid_d);
+
+    for(int i=0;i<evec.size();i++){
+      //Painful double-copy. Could be avoided if it were possible to change the Grid pointer under the hood. Used to be possible but is no longer!
+      copyVecNoGridCheck(tmp, evec[i]);
+      assert(tmp.Grid() == FrbGrid_d);
+      evec[i].reset(FrbGrid_d);
+      evec[i] = tmp;
+      assert(evec[i].Grid() == FrbGrid_d);
+    }
   }
   
   void compute(const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lat){
@@ -88,7 +108,7 @@ struct GridLanczosWrapper{
     Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
     Grid::GridCartesian *FGrid = lattice.getFGrid();
     Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
-    Grid::QCD::LatticeGaugeFieldD *Umu = lattice.getUmu();
+    Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
     double mob_b = lattice.get_mob_b();
     double mob_c = mob_b - 1.;   //b-c = 1
     double M5 = GJP.DwfHeight();
@@ -135,7 +155,7 @@ struct GridLanczosWrapper{
     IncludeCBsite<5> evensitesf1(0, 0, 1);
 
     for(int i=0;i<lanc_arg.N_true_get;i++){
-      evec[i].checkerboard = Grid::Odd;
+      evec[i].Checkerboard() = Grid::Odd;
       tmp.setGaussianRandom();
       double nrmcps = tmp.norm2();
       double nrmoddcps = tmp.norm2(oddsites);
@@ -170,7 +190,7 @@ struct GridLanczosWrapper{
     
     if(!UniqueID() && nev > 0){
       std::cout << "Double-precision 5D even-odd Grid info:\n";
-      evec.back()._grid->show_decomposition();
+      evec.back().Grid()->show_decomposition();
 
       std::cout << "Single-precision 5D even-odd Grid info:\n";
       FrbGrid_f->show_decomposition();
@@ -197,7 +217,7 @@ struct GridLanczosWrapper{
     bool single_prec = singleprec_evecs;
     int n_evec = single_prec ? evec_f.size() : evec.size();
 
-    Grid::GridBase* grd = single_prec ? evec_f[0]._grid : evec[0]._grid;
+    Grid::GridBase* grd = single_prec ? evec_f[0].Grid() : evec[0].Grid();
     bool is_rb(false); for(int i=0;i<5;i++) if(grd->CheckerBoarded(i)){ is_rb = true; break; }
     assert(is_rb);
     Grid::GridRedBlackCartesian* grd_rb = dynamic_cast<Grid::GridRedBlackCartesian*>(grd);
@@ -294,7 +314,7 @@ struct GridLanczosWrapper{
       evec_f.resize(read_nvecs, FrbGrid_f);
       for(int i=0;i<read_nvecs;i++){
 	c_odd_f.readParallel(file);
-	evec_f[i].checkerboard = Grid::Odd;
+	evec_f[i].Checkerboard() = Grid::Odd;
 	c_odd_f.exportGridField(evec_f[i]);
       }
       singleprec_evecs = true;
@@ -304,7 +324,7 @@ struct GridLanczosWrapper{
       evec.resize(read_nvecs, FrbGrid);
       for(int i=0;i<read_nvecs;i++){
 	c_odd_d.readParallel(file);
-	evec[i].checkerboard = Grid::Odd;
+	evec[i].Checkerboard() = Grid::Odd;
 	c_odd_d.exportGridField(evec[i]);
       }
       singleprec_evecs = false;

@@ -113,7 +113,7 @@ template<typename GridPolicies>
 inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
   Grid::GridCartesian *FGrid = latg.getFGrid();
   typename GridPolicies::GridFermionField tmp_g(FGrid);
-  tmp_g = Grid::zero;
+  tmp_g = Grid::Zero();
 
   setCheckerboard(tmp_g, from);
   latg.ImportFermion((Vector*)into.ptr(), tmp_g);

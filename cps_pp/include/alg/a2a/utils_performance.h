@@ -55,8 +55,8 @@ double gridBenchmark(Lattice &lat){
   Grid::RealD N2 = 1.0/::sqrt(norm2(src));
   src = src*N2;
   
-  GridFermionField result(FGrid); result=Grid::zero;
-  GridFermionField    ref(FGrid);    ref=Grid::zero;
+  GridFermionField result(FGrid); result = Grid::Zero();
+  GridFermionField    ref(FGrid); ref = Grid::Zero();
   GridFermionField    tmp(FGrid);
   GridFermionField    err(FGrid);
   
@@ -65,12 +65,12 @@ double gridBenchmark(Lattice &lat){
   
   std::cout << Grid::GridLogMessage<< "* Vectorising space-time by "<<Grid::vComplexF::Nsimd()<<std::endl;
 #ifdef GRID_OMP
-  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsAndCompute ) std::cout << Grid::GridLogMessage<< "* Using Overlapped Comms/Compute" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsThenCompute) std::cout << Grid::GridLogMessage<< "* Using sequential comms compute" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Comms == Grid::WilsonKernelsStatic::CommsAndCompute ) std::cout << Grid::GridLogMessage<< "* Using Overlapped Comms/Compute" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Comms == Grid::WilsonKernelsStatic::CommsThenCompute) std::cout << Grid::GridLogMessage<< "* Using sequential comms compute" <<std::endl;
 #endif
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptGeneric   ) std::cout << Grid::GridLogMessage<< "* Using GENERIC Nc WilsonKernels" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptHandUnroll) std::cout << Grid::GridLogMessage<< "* Using Nc=3       WilsonKernels" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptInlineAsm ) std::cout << Grid::GridLogMessage<< "* Using Asm Nc=3   WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptGeneric   ) std::cout << Grid::GridLogMessage<< "* Using GENERIC Nc WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptHandUnroll) std::cout << Grid::GridLogMessage<< "* Using Nc=3       WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptInlineAsm ) std::cout << Grid::GridLogMessage<< "* Using Asm Nc=3   WilsonKernels" <<std::endl;
   std::cout << Grid::GridLogMessage<< "*****************************************************************" <<std::endl;
   
   int ncall =1000;
@@ -135,10 +135,10 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
     vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
     nodes[i]= GJP.Nodes(i);
   }
-  Grid::GridCartesian *UGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::QCD::Nd,Grid::vComplexF::Nsimd()),nodes);
-  Grid::GridCartesian *FGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-  Grid::GridRedBlackCartesian *UrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
-  Grid::GridRedBlackCartesian *FrbGrid_f = Grid::QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+  Grid::GridCartesian *UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd()),nodes);
+  Grid::GridCartesian *FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
+  Grid::GridRedBlackCartesian *UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
+  Grid::GridRedBlackCartesian *FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
 
   Grid::RealD NP = UGrid_f->_Nprocessors;
   Grid::RealD NN = UGrid_f->NodeCount();
@@ -164,8 +164,8 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
   Grid::RealD N2 = 1.0/::sqrt(norm2(src));
   src = src*N2;
 
-  GridFermionFieldF result(FGrid_f); result=Grid::zero;
-  GridFermionFieldF    ref(FGrid_f);    ref=Grid::zero;
+  GridFermionFieldF result(FGrid_f); result = Grid::Zero();
+  GridFermionFieldF    ref(FGrid_f); ref = Grid::Zero();
   GridFermionFieldF    tmp(FGrid_f);
   GridFermionFieldF    err(FGrid_f);
 
@@ -173,12 +173,12 @@ std::pair<double,double> gridBenchmarkSinglePrec(Lattice &lat){
 
   std::cout << Grid::GridLogMessage<< "* Vectorising space-time by "<<Grid::vComplexF::Nsimd()<<std::endl;
 #ifdef GRID_OMP
-  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsAndCompute ) std::cout << Grid::GridLogMessage<< "* Using Overlapped Comms/Compute" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Comms == Grid::QCD::WilsonKernelsStatic::CommsThenCompute) std::cout << Grid::GridLogMessage<< "* Using sequential comms compute" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Comms == Grid::WilsonKernelsStatic::CommsAndCompute ) std::cout << Grid::GridLogMessage<< "* Using Overlapped Comms/Compute" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Comms == Grid::WilsonKernelsStatic::CommsThenCompute) std::cout << Grid::GridLogMessage<< "* Using sequential comms compute" <<std::endl;
 #endif
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptGeneric   ) std::cout << Grid::GridLogMessage<< "* Using GENERIC Nc WilsonKernels" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptHandUnroll) std::cout << Grid::GridLogMessage<< "* Using Nc=3       WilsonKernels" <<std::endl;
-  if ( Grid::QCD::WilsonKernelsStatic::Opt == Grid::QCD::WilsonKernelsStatic::OptInlineAsm ) std::cout << Grid::GridLogMessage<< "* Using Asm Nc=3   WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptGeneric   ) std::cout << Grid::GridLogMessage<< "* Using GENERIC Nc WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptHandUnroll) std::cout << Grid::GridLogMessage<< "* Using Nc=3       WilsonKernels" <<std::endl;
+  if ( Grid::WilsonKernelsStatic::Opt == Grid::WilsonKernelsStatic::OptInlineAsm ) std::cout << Grid::GridLogMessage<< "* Using Asm Nc=3   WilsonKernels" <<std::endl;
   std::cout << Grid::GridLogMessage<< "*****************************************************************" <<std::endl;
   int ncall =1000;
   double volume=GJP.Snodes()*GJP.SnodeSites();  for(int mu=0;mu<4;mu++) volume=volume*GJP.NodeSites(mu)*GJP.Nodes(mu);

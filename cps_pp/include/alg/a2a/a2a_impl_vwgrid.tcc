@@ -13,14 +13,14 @@ void chiralProject(FermionField &out, const FermionField &in, const char sgn){
     assert(0);
   }
   
-  out.checkerboard = in.checkerboard;
+  out.Checkerboard() = in.Checkerboard();
   conformable(in,out);
 
   const int Ns = 4;
-  Grid::GridBase *grid=in._grid;
+  Grid::GridBase *grid=in.Grid();
 
-  //decltype(Grid::QCD::peekSpin(static_cast<const Grid::Lattice<typename FermionField::vector_object>&>(in),0)) zero_spn(in._grid);
-  decltype(Grid::PeekIndex<SpinIndex>(in,0)) zero_spn(in._grid);
+  //decltype(Grid::peekSpin(static_cast<const Grid::Lattice<typename FermionField::vector_object>&>(in),0)) zero_spn(in._grid);
+  decltype(Grid::PeekIndex<SpinIndex>(in,0)) zero_spn(in.Grid());
   Grid::zeroit(zero_spn);
 
   out = in;
@@ -31,11 +31,11 @@ void chiralProject(FermionField &out, const FermionField &in, const char sgn){
 //Convert a 5D field to a 4D field, with the upper 2 spin components taken from s-slice 's_u' and the lower 2 from 's_l'
 template<typename FermionField>
 void DomainWallFiveToFour(FermionField &out, const FermionField &in, int s_u, int s_l){
-  assert(out._grid->Nd() == 4 && in._grid->Nd() == 5);
+  assert(out.Grid()->Nd() == 4 && in.Grid()->Nd() == 5);
 
-  FermionField tmp1_4d(out._grid);
-  FermionField tmp2_4d(out._grid);
-  FermionField tmp3_4d(out._grid);
+  FermionField tmp1_4d(out.Grid());
+  FermionField tmp2_4d(out.Grid());
+  FermionField tmp3_4d(out.Grid());
   ExtractSlice(tmp1_4d,const_cast<FermionField&>(in),s_u, 0); //Note Grid conventions, s-dimension is index 0!
   chiralProject(tmp2_4d, tmp1_4d, '+'); // 1/2(1+g5)  zeroes lower spin components
   
@@ -46,10 +46,10 @@ void DomainWallFiveToFour(FermionField &out, const FermionField &in, int s_u, in
 }
 template<typename FermionField>
 void DomainWallFourToFive(FermionField &out, const FermionField &in, int s_u, int s_l){
-  assert(out._grid->Nd() == 5 && in._grid->Nd() == 4);
+  assert(out.Grid()->Nd() == 5 && in.Grid()->Nd() == 4);
 
   zeroit(out);
-  FermionField tmp1_4d(in._grid);
+  FermionField tmp1_4d(in.Grid());
   chiralProject(tmp1_4d, in, '+'); // 1/2(1+g5)  zeroes lower spin components
   InsertSlice(tmp1_4d, out,s_u, 0);
 
@@ -85,7 +85,7 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   Grid::GridRedBlackCartesian *UrbGrid = latg.getUrbGrid();
   Grid::GridCartesian *FGrid = latg.getFGrid();
   Grid::GridRedBlackCartesian *FrbGrid = latg.getFrbGrid();
-  Grid::QCD::LatticeGaugeFieldD *Umu = latg.getUmu();
+  Grid::LatticeGaugeFieldD *Umu = latg.getUmu();
   
   //Mobius parameters
   const double mob_b = latg.get_mob_b();
@@ -124,14 +124,14 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   for(int i = 0; i < nl; i++) {
     //Step 1) Compute V
     Float eval = evecs.getEvec(bq_tmp,i);
-    assert(bq_tmp.checkerboard == Grid::Odd);
+    assert(bq_tmp.Checkerboard() == Grid::Odd);
 
     //Compute  [ -(Mee)^-1 Meo bq_tmp, bg_tmp ]
     Ddwf.Meooe(bq_tmp,tmp2);	//tmp2 = Meo bq_tmp 
     Ddwf.MooeeInv(tmp2,tmp);   //tmp = (Mee)^-1 Meo bq_tmp
     tmp = -tmp; //even checkerboard
     
-    assert(tmp.checkerboard == Grid::Even);
+    assert(tmp.Checkerboard() == Grid::Even);
     
     setCheckerboard(tmp_full, tmp); //even checkerboard
     setCheckerboard(tmp_full, bq_tmp); //odd checkerboard
@@ -153,8 +153,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     Ddwf.MooeeInvDag(tmp3,tmp); //tmp = [Mee^-1]^dag Meo^dag Doo bq_tmp
     tmp = -tmp;
     
-    assert(tmp.checkerboard == Grid::Even);
-    assert(tmp2.checkerboard == Grid::Odd);
+    assert(tmp.Checkerboard() == Grid::Even);
+    assert(tmp2.Checkerboard() == Grid::Odd);
 
     setCheckerboard(tmp_full, tmp);
     setCheckerboard(tmp_full, tmp2);
@@ -199,7 +199,7 @@ void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, La
   Grid::GridRedBlackCartesian *UrbGrid = latg.getUrbGrid();
   Grid::GridCartesian *FGrid = latg.getFGrid();
   Grid::GridRedBlackCartesian *FrbGrid = latg.getFrbGrid();
-  Grid::QCD::LatticeGaugeFieldD *Umu = latg.getUmu();
+  Grid::LatticeGaugeFieldD *Umu = latg.getUmu();
   
   //Mobius parameters
   const double mob_b = latg.get_mob_b();
@@ -249,7 +249,7 @@ void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, La
     DomainWallFourToFive(gsrc, tmp_full_4d, 0, glb_ls-1);
 
     //Left-multiply by D-.  D- = (1-c*DW)
-    Ddwf.DW(gsrc, gtmp_full, Grid::QCD::DaggerNo);
+    Ddwf.DW(gsrc, gtmp_full, Grid::DaggerNo);
     axpy(gsrc, -mob_c, gtmp_full, gsrc); 
 
     //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
@@ -258,7 +258,7 @@ void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, La
     V.getVh(i).exportGridField(tmp_full_4d);
     DomainWallFourToFive(gtmp_full, tmp_full_4d, 0, glb_ls-1);
 
-    Ddwf.DW(gtmp_full, gtmp_full2, Grid::QCD::DaggerNo);
+    Ddwf.DW(gtmp_full, gtmp_full2, Grid::DaggerNo);
     axpy(gtmp_full, -mob_c, gtmp_full2, gtmp_full); 
 
     //Do the CG
@@ -302,7 +302,7 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
   Grid::GridRedBlackCartesian *UrbGrid = latg.getUrbGrid();
   Grid::GridCartesian *FGrid = latg.getFGrid();
   Grid::GridRedBlackCartesian *FrbGrid = latg.getFrbGrid();
-  Grid::QCD::LatticeGaugeFieldD *Umu = latg.getUmu();
+  Grid::LatticeGaugeFieldD *Umu = latg.getUmu();
   
   //Mobius parameters
   const double mob_b = latg.get_mob_b();
@@ -361,7 +361,7 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
       DomainWallFourToFive(gsrc[s], tmp_full_4d, 0, glb_ls-1);
 
       //Left-multiply by D-.  D- = (1-c*DW)
-      Ddwf.DW(gsrc[s], gtmp_full[s], Grid::QCD::DaggerNo);
+      Ddwf.DW(gsrc[s], gtmp_full[s], Grid::DaggerNo);
       axpy(gsrc[s], -mob_c, gtmp_full[s], gsrc[s]); 
       
       //We can re-use previously computed solutions to speed up the calculation if rerunning for a second mass by using them as a guess
@@ -370,7 +370,7 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
       V.getVh(i).exportGridField(tmp_full_4d);
       DomainWallFourToFive(gtmp_full[s], tmp_full_4d, 0, glb_ls-1);
 
-      Ddwf.DW(gtmp_full[s], gtmp_full2, Grid::QCD::DaggerNo);
+      Ddwf.DW(gtmp_full[s], gtmp_full2, Grid::DaggerNo);
       axpy(gtmp_full[s], -mob_c, gtmp_full2, gtmp_full[s]); 
     }
       

@@ -63,7 +63,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   evec.resize(Nm, FrbGrid);
  
   for(int i=0;i<Nm;i++){
-    evec[i].checkerboard = Grid::Odd;
+    evec[i].Checkerboard() = Grid::Odd;
   }
   GridFermionField src(FrbGrid);
   
@@ -127,7 +127,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolici
   Grid::GridRedBlackCartesian *UrbGrid = lattice.getUrbGrid();
   Grid::GridCartesian *FGrid = lattice.getFGrid();
   Grid::GridRedBlackCartesian *FrbGrid = lattice.getFrbGrid();
-  Grid::QCD::LatticeGaugeFieldD *Umu = lattice.getUmu();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
 
   double mob_b = lattice.get_mob_b();
   double mob_c = mob_b - 1.;   //b-c = 1
@@ -153,9 +153,9 @@ void gridSinglePrecLanczos(std::vector<Grid::RealD> &eval, std::vector<typename 
   typedef typename GridPolicies::FgridFclass FgridFclass;
   typedef typename GridPolicies::GridDiracF GridDiracF;
   
-  Grid::QCD::LatticeGaugeFieldD *Umu = lattice.getUmu();
+  Grid::LatticeGaugeFieldD *Umu = lattice.getUmu();
 
-  Grid::QCD::LatticeGaugeFieldF Umu_f(UGrid_f);
+  Grid::LatticeGaugeFieldF Umu_f(UGrid_f);
   //Grid::precisionChange(Umu_f,*Umu);
   
   NullObject null_obj;

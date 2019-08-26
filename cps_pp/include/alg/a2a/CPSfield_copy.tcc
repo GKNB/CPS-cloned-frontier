@@ -142,52 +142,52 @@ template<typename T,typename CPScomplex>
 struct GridTensorConvert{};
 
 template<typename complex_scalar, typename CPScomplex>
-struct GridTensorConvert<Grid::QCD::iSpinColourVector<complex_scalar>, CPScomplex>{
+struct GridTensorConvert<Grid::iSpinColourVector<complex_scalar>, CPScomplex>{
   static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
 
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
-  inline static void doit(CPScomplex* cps, const Grid::QCD::iSpinColourVector<complex_scalar> &grid, const int f){
-    for(int s=0;s<Grid::QCD::Ns;s++)
-      for(int c=0;c<Grid::QCD::Nc;c++)
+  inline static void doit(CPScomplex* cps, const Grid::iSpinColourVector<complex_scalar> &grid, const int f){
+    for(int s=0;s<Grid::Ns;s++)
+      for(int c=0;c<Grid::Nc;c++)
 	*cps++ = grid()(s)(c);
   }
-  inline static void doit(Grid::QCD::iSpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
-    for(int s=0;s<Grid::QCD::Ns;s++)
-      for(int c=0;c<Grid::QCD::Nc;c++)
+  inline static void doit(Grid::iSpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
+    for(int s=0;s<Grid::Ns;s++)
+      for(int c=0;c<Grid::Nc;c++)
 	grid()(s)(c) = *cps++;
   }
 };
 template<typename complex_scalar, typename CPScomplex>
-struct GridTensorConvert<Grid::QCD::iGparitySpinColourVector<complex_scalar>, CPScomplex>{
+struct GridTensorConvert<Grid::iGparitySpinColourVector<complex_scalar>, CPScomplex>{
   static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
 
   //12-component complex spin-color vector
   //We have assured the input is not SIMD vectorized so the output type is the same
-  inline static void doit(CPScomplex* cps, const Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, const int f){
-    for(int s=0;s<Grid::QCD::Ns;s++)
-      for(int c=0;c<Grid::QCD::Nc;c++)
+  inline static void doit(CPScomplex* cps, const Grid::iGparitySpinColourVector<complex_scalar> &grid, const int f){
+    for(int s=0;s<Grid::Ns;s++)
+      for(int c=0;c<Grid::Nc;c++)
 	*cps++ = grid(f)(s)(c);
   }
-  inline static void doit(Grid::QCD::iGparitySpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
-    for(int s=0;s<Grid::QCD::Ns;s++)
-      for(int c=0;c<Grid::QCD::Nc;c++)
+  inline static void doit(Grid::iGparitySpinColourVector<complex_scalar> &grid, CPScomplex const* cps, const int f){
+    for(int s=0;s<Grid::Ns;s++)
+      for(int c=0;c<Grid::Nc;c++)
   	grid(f)(s)(c) = *cps++;
   }
 };
 template<typename complex_scalar, typename CPScomplex>
-struct GridTensorConvert<Grid::QCD::iLorentzColourMatrix<complex_scalar>, CPScomplex>{
+struct GridTensorConvert<Grid::iLorentzColourMatrix<complex_scalar>, CPScomplex>{
   static_assert(!Grid::isSIMDvectorized<complex_scalar>::value && Grid::isComplex<complex_scalar>::value, "Only applies to scalar complex types");
 
   //Gauge field  mu=0..3  3*3 complex
   //We have assured the input is not SIMD vectorized so the output type is the same
-  inline static void doit(CPScomplex* cps, const Grid::QCD::iLorentzColourMatrix<complex_scalar> &grid, const int f){
+  inline static void doit(CPScomplex* cps, const Grid::iLorentzColourMatrix<complex_scalar> &grid, const int f){
     for(int mu=0;mu<4;mu++)
       for(int i=0;i<3;i++)
 	for(int j=0;j<3;j++)
 	  *cps++ = grid(mu)()(i,j);
   }
-  inline static void doit(Grid::QCD::iLorentzColourMatrix<complex_scalar> &grid, CPScomplex const* cps, const int f){
+  inline static void doit(Grid::iLorentzColourMatrix<complex_scalar> &grid, CPScomplex const* cps, const int f){
     for(int mu=0;mu<4;mu++)
       for(int i=0;i<3;i++)
 	for(int j=0;j<3;j++)
@@ -214,10 +214,10 @@ struct dimensionMap<4>{
 inline void getLocalLatticeCoord(std::vector<int> &lcoor, const int oidx, const int iidx, Grid::GridBase const* grid, const int checkerboard){
   Grid::GridBase* gridc = const_cast<Grid::GridBase*>(grid); //the lookup functions are not const for some reason
   const int Nd = grid->Nd();
-  std::vector<int> ocoor(Nd);
+  Grid::Coordinate ocoor(Nd);
   gridc->oCoorFromOindex(ocoor, oidx);
 
-  std::vector<int> icoor(Nd);
+  Grid::Coordinate icoor(Nd);
   gridc->iCoorFromIindex(icoor, iidx);
 
   int checker_dim = -1;
@@ -259,7 +259,7 @@ public:
   
   static void import(CPSfieldType &into, const GridField &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
-    assert(Nd == from._grid->Nd());
+    assert(Nd == from.Grid()->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
 
 #pragma omp parallel for
@@ -267,11 +267,11 @@ public:
       std::vector<int> x(Nd);
       into.siteUnmap(site, &x[0]);
 
-      std::vector<int> grid_x(Nd);
+      Grid::Coordinate grid_x(Nd);
       for(int i=0;i<Nd;i++)
 	grid_x[ dim_map.cps_to_grid[i] ] = x[i];
 
-      if(from._grid->CheckerBoard(grid_x) != from.checkerboard){ //skip sites not on Grid checkerboard
+      if(from.Grid()->CheckerBoard(grid_x) != from.Checkerboard()){ //skip sites not on Grid checkerboard
 	continue;
       }	
       
@@ -291,18 +291,20 @@ public:
   
   static void exportit(GridField &into, const CPSfieldType &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
-    assert(Nd == into._grid->Nd());
+    assert(Nd == into.Grid()->Nd());
     dimensionMap<CPSfieldType::EuclideanDimension> dim_map;
     const int Nsimd = GridField::vector_type::Nsimd();
     
+    auto oview = into.View();
+
 #pragma omp parallel for
-    for(int out_oidx=0;out_oidx<into._grid->oSites();out_oidx++){
+    for(int out_oidx=0;out_oidx<into.Grid()->oSites();out_oidx++){
       std::vector<int> lcoor_cps(Nd);
 
       for(int lane=0;lane<Nsimd;lane++){
-	getLocalCanonicalLatticeCoord<Nd>(lcoor_cps, out_oidx, lane, into._grid, into.checkerboard);
+	getLocalCanonicalLatticeCoord<Nd>(lcoor_cps, out_oidx, lane, into.Grid(), into.Checkerboard());
 
-	sobj tmp; peekLane(tmp,into._odata[out_oidx],lane);
+	sobj tmp; peekLane(tmp,oview[out_oidx],lane);
 	
 	for(int f=0;f<from.nflavors();f++){
 	  if(fromsitemask == NULL || fromsitemask->query(lcoor_cps.data(),f)){	    	   
@@ -311,7 +313,7 @@ public:
 	  }
 	}
 
-	pokeLane(into._odata[out_oidx], tmp, lane);
+	pokeLane(oview[out_oidx], tmp, lane);
       }
     }
   }
@@ -327,7 +329,7 @@ public:
 
   static void import(CPSfieldType &into, const GridField &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
-    assert(Nd == from._grid->Nd());
+    assert(Nd == from.Grid()->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
     typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
     
@@ -342,7 +344,7 @@ public:
   
   static void exportit(GridField &into, const CPSfieldType &from, IncludeSite<MapPol::EuclideanDimension> const* fromsitemask){
     const int Nd = MapPol::EuclideanDimension;
-    assert(Nd == into._grid->Nd());
+    assert(Nd == into.Grid()->Nd());
     typedef typename Grid::GridTypeMapper<Type>::scalar_type CPSscalarType;
     typedef typename ComplexClassify<CPSscalarType>::type CPSscalarTypeClass;
 

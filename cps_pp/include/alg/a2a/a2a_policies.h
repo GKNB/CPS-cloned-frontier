@@ -38,16 +38,16 @@ struct BaseGridPolicies{
 # ifdef USE_GRID_GPARITY
   typedef FgridGparityMobius FgridFclass;
   typedef GnoneFgridGparityMobius FgridGFclass;
-  typedef Grid::QCD::GparityMobiusFermionD GridDirac;
-  typedef Grid::QCD::GparityMobiusFermionF GridDiracF; //single prec
-  typedef Grid::QCD::GparityMobiusFermionFH GridDiracFH; //half-precision comms
+  typedef Grid::GparityMobiusFermionD GridDirac;
+  typedef Grid::GparityMobiusFermionF GridDiracF; //single prec
+  typedef Grid::GparityMobiusFermionFH GridDiracFH; //half-precision comms
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_GPARITY_MOBIUS };
 # else
   typedef FgridMobius FgridFclass;
   typedef GnoneFgridMobius FgridGFclass;
-  typedef Grid::QCD::MobiusFermionD GridDirac;
-  typedef Grid::QCD::MobiusFermionF GridDiracF;
-  typedef Grid::QCD::MobiusFermionFH GridDiracFH;
+  typedef Grid::MobiusFermionD GridDirac;
+  typedef Grid::MobiusFermionF GridDiracF;
+  typedef Grid::MobiusFermionFH GridDiracFH;
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_MOBIUS };
 # endif  
   

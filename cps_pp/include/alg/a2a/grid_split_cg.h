@@ -19,12 +19,12 @@ namespace Grid{
 				 subgrid_geometry,
 				 *UGrid); 
 
-      SFGrid   = QCD::SpaceTimeGrid::makeFiveDimGrid(Ls,SUGrid);
-      SUrbGrid  = QCD::SpaceTimeGrid::makeFourDimRedBlackGrid(SUGrid);
-      SFrbGrid = QCD::SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGrid);
+      SFGrid   = SpaceTimeGrid::makeFiveDimGrid(Ls,SUGrid);
+      SUrbGrid  = SpaceTimeGrid::makeFourDimRedBlackGrid(SUGrid);
+      SFrbGrid = SpaceTimeGrid::makeFiveDimRedBlackGrid(Ls,SUGrid);
 
       NsubGrids = 1;
-      for(int i=0;i<QCD::Nd;i++)
+      for(int i=0;i<Nd;i++)
 	NsubGrids *= UGrid->_processors[i]/subgrid_geometry[i];
     }
     
@@ -118,7 +118,7 @@ namespace Grid{
 					 const int Ls, bool _use_rbgrid = true, bool err_on_no_conv = true):
       linop_check(_linop_check),
       linop_d(linop_params), linop_f(linop_params),
-      sgrids_d(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_d._grid), Ls), sgrids_f(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_f._grid), Ls),
+      sgrids_d(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_d.Grid()), Ls), sgrids_f(subgrid_geometry, dynamic_cast<GridCartesian*>(Umu_f.Grid()), Ls),
       use_rbgrid(_use_rbgrid){
       
       assert(sgrids_d.NsubGrids == sgrids_f.NsubGrids);
@@ -183,8 +183,8 @@ namespace Grid{
       tunsplit_sol += usecond();
 
       //Check the solutions
-      FermionFieldD mmp(src[0]._grid);
-      FermionFieldD p(src[0]._grid);
+      FermionFieldD mmp(src[0].Grid());
+      FermionFieldD p(src[0].Grid());
       for(int i=0; i<Nfield; i++){
 	linop_check.HermOp(sol[i], mmp);
         p = mmp - src[i];
