@@ -2,6 +2,22 @@
 #define _GSL_WRAPPER
 
 #include<config.h>
+
+//If you compile with MKL the compiler automatically includes mkl_cblas.h header. Given that this contains identical information to gsl_cblas.h you get compile errors
+//due to multiple definitions (at least with icpc v18). The following prevents the GSL headers from being included if the corresponding MKL headers have been, and 
+//works around the missing typedefs 
+#ifdef __MKL_CBLAS_H__ 
+#define __GSL_CBLAS_H__
+#define __GSL_BLAS_TYPES_H__
+
+#define CBLAS_INDEX_t CBLAS_INDEX
+#define CBLAS_ORDER_t CBLAS_ORDER
+#define CBLAS_TRANSPOSE_t CBLAS_TRANSPOSE
+#define CBLAS_UPLO_t CBLAS_UPLO
+#define CBLAS_DIAG_t CBLAS_DIAG
+#define CBLAS_SIDE_t CBLAS_SIDE
+#endif
+
 #include<gsl/gsl_blas.h>
 
 CPS_START_NAMESPACE

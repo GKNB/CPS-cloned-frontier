@@ -44,6 +44,10 @@ void ProfilerStop(){}
 #include<alg/a2a/compute_ktopipi.h>
 
 CPS_START_NAMESPACE
+#include<alg/a2a/mesonfield_compute_impl_offload.tcc>
+CPS_END_NAMESPACE
+
+CPS_START_NAMESPACE
 
 inline int toInt(const char* a){
   std::stringstream ss; ss << a; int o; ss >> o;
@@ -2556,15 +2560,23 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   V.testRandom();
   Wgrid.importFields(W);
   Vgrid.importFields(V);
-      
-  //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid,Wgrid,mf_struct_grid,Vgrid);
+  
+#if 0
+  //Original Grid implementation
   {
     typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
     typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
     mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
     cg.compute(mf_grid,Wgrid,mf_struct_grid,Vgrid, true);
   }
-
+#else
+  {
+    typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
+    typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+    mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+    cg.compute(mf_grid,Wgrid,mf_struct_grid,Vgrid, true);
+  }
+#endif
   
   A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf,W,mf_struct,V);
 
@@ -2576,7 +2588,7 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
       Ftype rdiff = fabs(gd.real()-cp.real());
       Ftype idiff = fabs(gd.imag()-cp.imag());
       if(rdiff > tol|| idiff > tol){
-	printf("Fail: t %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",t, gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+	printf("Fail: t %d idx %d Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",t, i,gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
 	fail = true;
       }
     }
@@ -3709,8 +3721,11 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       
       assert( c_odd_d_1.equals( c_odd_d_2 ) );
 
-      for(int s=0;s<lanc.evec[i]._grid->oSites();s++)
-	assert( GridTensorEquals(lanc.evec[i]._odata[s] , lanc2.evec[i]._odata[s]) );
+      auto view = lanc.evec[i].View();
+      auto view2 = lanc2.evec[i].View();
+
+      for(int s=0;s<lanc.evec[i].Grid()->oSites();s++)
+	assert( GridTensorEquals(view[s] , view2[s]) );
       
       
     }
@@ -3737,8 +3752,11 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
       
       assert( c_odd_f_1.equals( c_odd_f_2 ) );
 
-      for(int s=0;s<lanc.evec_f[i]._grid->oSites();s++)
-	assert( GridTensorEquals(lanc.evec_f[i]._odata[s] , lanc2.evec_f[i]._odata[s]) );
+      auto view = lanc.evec_f[i].View();
+      auto view2 = lanc2.evec_f[i].View();
+
+      for(int s=0;s<lanc.evec_f[i].Grid()->oSites();s++)
+	assert( GridTensorEquals(view[s] , view2[s]) );
     }
   }
 }

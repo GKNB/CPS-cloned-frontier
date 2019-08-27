@@ -260,7 +260,7 @@ int main(int argc,char *argv[])
   if(0) benchmarkmultGammaLeft(ntests, tol);
 
 #ifdef USE_GRID
-  if(0) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
 #endif
 
 #ifdef USE_GRID
@@ -270,7 +270,7 @@ int main(int argc,char *argv[])
 
   if(0) testTraceSingle<ScalarA2Apolicies>(a2a_args,tol);
 
-  if(1) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
+  if(0) testMFmult<ScalarA2Apolicies>(a2a_args,tol);
 
   if(0) testCPSfieldImpex();
 #if defined(USE_GRID) && !defined(ARCH_BGQ)
@@ -298,7 +298,7 @@ int main(int argc,char *argv[])
 
 #ifdef USE_GRID
   if(0) testMFmult<GridA2Apolicies>(a2a_args, tol);
-  if(1) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
+  if(0) benchmarkMFmult<GridA2Apolicies>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);
