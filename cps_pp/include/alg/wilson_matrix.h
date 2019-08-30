@@ -430,6 +430,24 @@ public:
 	    p.d[s2].c[c2].d[s1].c[c1] = mat.d[s2].c[c1].d[s1].c[c2];
   }
 
+  // added by DJM
+  // transpose the spin index of WilsonMatrix
+  void transpose_spin() 
+  {
+    wilson_matrix mat = p;
+    
+    int j, s1, c1, s2, c2;
+    for(int i=0; i<144; ++i) 
+    {
+      j = i;
+      c2 = j % 3; j /= 3;
+      s2 = j % 4; j /= 4;
+      c1 = j % 3; j /= 3;
+      s1 = j % 4;
+
+      p.d[s2].c[c2].d[s1].c[c1] = mat.d[s1].c[c2].d[s2].c[c1];
+    }
+  }
 
   // added by CK
   //! norm^2 of the WilsonMatrix
