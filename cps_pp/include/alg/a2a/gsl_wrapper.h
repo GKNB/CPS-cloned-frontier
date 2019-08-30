@@ -2,6 +2,17 @@
 #define _GSL_WRAPPER
 
 #include<config.h>
+
+#ifdef __MKL_CBLAS_H__
+#define __GSL_CBLAS_H__
+#define __GSL_BLAS_TYPES_H__
+#define CBLAS_INDEX_t CBLAS_INDEX
+#define CBLAS_ORDER_t CBLAS_ORDER
+#define CBLAS_TRANSPOSE_t CBLAS_TRANSPOSE
+#define CBLAS_UPLO_t CBLAS_UPLO
+#define CBLAS_DIAG_t CBLAS_DIAG
+#define CBLAS_SIDE_t CBLAS_SIDE
+#endif
 #include<gsl/gsl_blas.h>
 
 CPS_START_NAMESPACE
@@ -102,6 +113,5 @@ struct gsl_wrapper<double>{
 };
 
 CPS_END_NAMESPACE
-
 
 #endif
