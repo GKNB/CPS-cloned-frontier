@@ -68,6 +68,8 @@ enum FclassType {
 	F_CLASS_GRID_ZMOBIUS = 19,
 	F_CLASS_GRID_GPARITY_WILSON_TM = 20,
 	F_CLASS_GRID_WILSON_TM = 21,
+	F_CLASS_GRID_WILSON = 22,
+	F_CLASS_GRID_WILSON_CLOVER = 23,
 };
 typedef enum FclassType FclassType;
 extern struct vml_enum_map FclassType_map[];

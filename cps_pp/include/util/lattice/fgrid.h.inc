@@ -208,6 +208,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetEpsilon (cg_arg->epsilon);
     PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
 
@@ -276,6 +277,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
@@ -394,6 +396,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg[0]->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
@@ -628,6 +631,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     mass = cg_arg->mass;
     VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass, if_dminus);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
 
@@ -787,7 +791,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       Float * true_res,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1);
+    if(F5D()){ return FmatInv(f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1); }
+    else{ return FmatInv(f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 0); }
   }
 
   int FmatInvTest (Vector * f_out, Vector * f_in,
@@ -803,7 +808,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       CgArg * cg_arg,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    return FmatInv (f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1);
+    if(F5D()){ return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1); }
+    else{ return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 0); }
   }
 
   int FeigSolv (Vector ** f_eigenv, Float * lambda,
@@ -848,6 +854,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetEpsilon (epsilon);
     PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 #ifdef IF_TM
     if (epsilon < -10000)
       ERR.General (cname, fname,
@@ -928,6 +935,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     mass = mass_;
     VRB.Result (cname, fname, "mass=%0.14g\n", mass);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ForceArg Fdt;
 
 
