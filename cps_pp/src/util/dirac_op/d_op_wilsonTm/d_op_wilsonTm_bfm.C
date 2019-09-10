@@ -114,8 +114,12 @@ int DiracOpWilsonTm::InvCg(Vector *out,
     wilsa.node_latt[3]  = lt;
     wilsa.verbose=0;
     wilsa.reproduce=0;
+<<<<<<< HEAD
 
     bfmarg::Threads(GJP.Nthreads());
+=======
+//    bfmarg::Threads(64);
+>>>>>>> 9589c257f711e5fa06703300d913cbd238b07fd2
     bfmarg::Reproduce(0);
     bfmarg::ReproduceChecksum(0);
     bfmarg::ReproduceMasterCheck(0);

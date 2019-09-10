@@ -35,7 +35,8 @@
 
 CPS_START_NAMESPACE
 
-class LinkBuffer;
+class LinkBuffer; //forward declaration
+class GaugeField; //forward declaration
 
 //------------------------------------------------------------------
 //
@@ -157,6 +158,7 @@ class Lattice
       //!< Another pointer!
 
     friend class LinkBuffer;
+    friend class GaugeField;
     
     // Added in by Ping for anisotropic lattices
     //------------------------------------------------------------------
@@ -279,6 +281,7 @@ class Lattice
 
 
     int *SigmaField() const {
+	if(!sigma_field)ERR.General(cname,"SigmaField()", "sigma_field not allocated\n");
         return sigma_field;
     }
     //!< Returns the pointer to the sigma field configuration.
@@ -666,7 +669,7 @@ class Lattice
     void FixGaugeAllocate(FixGaugeType GaugeType,int NHplanes=0,int *Hplanes=0);
         //!< Allocates memory for the gauge fixing matrices.
 
-    int FixGauge(Float StopCond, int MaxIterNum);
+    int FixGauge(Float StopCond, unsigned long MaxIterNum);
     //!< Fixes the gauge.
 
         // FixGaugeAllocate must be called first.
@@ -692,6 +695,7 @@ class Lattice
     //   for Coulomb gauge, if the hyperplane on which site resides has not been gauge fixed, the function will return NULL    
 
     const Matrix* FixGaugeMatrix(int const* pos,const int &flavor = 0);
+    void SetFixGaugeMatrix(const Matrix &mat, int const* pos,const int &flavor = 0);
     //!< Returns the gauge fixing matrix for the position 'pos' (and G-parity flavor 'flavor')
     //   for Coulomb gauge, if the hyperplane on which pos resides has not been gauge fixed, the function will return NULL
 

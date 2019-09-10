@@ -8,29 +8,7 @@
  *
  *****************************************************
  */
-#include<config.h>
-
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
-
-#include<util/lattice.h>
-
-#include<alg/common_arg.h>
-#include<alg/do_arg.h>
-
-#include<alg/meas_arg.h>
-#include<alg/alg_meas.h>
-
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/error.h>
-#include<util/qcdio.h>
-#include<util/WriteLatticePar.h>
-#include<util/ReadLatticePar.h>
-#include<util/qioarg.h>
-
-//--------------------------------------------------------------
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 using namespace std;
@@ -46,6 +24,7 @@ int main(int argc, char *argv[])
   char *cname=argv[0];
   char *fname="main()";
 
+  Start(&argc,&argv);
   CommonArg common_arg;
   DoArg do_arg;
   MeasArg meas_arg;

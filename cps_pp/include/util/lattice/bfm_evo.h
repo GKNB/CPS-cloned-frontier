@@ -308,7 +308,7 @@ public:
 #endif
 
   //EigCG
-#if 0 //THESE ARE IN BFM
+#ifndef BFM_GPARITY
   Fermion_t allocCompactFermion   (int mem_type=mem_slow);
   Fermion_t threadedAllocCompactFermion   (int mem_type=mem_slow);
   void* threaded_alloc(int length, int mem_type=mem_slow);
@@ -481,6 +481,62 @@ integer bfm_evo<Float>::cps_idx_s_gparity(int x[4], int s, int reim, int i, int 
   return (csite*i_size + i)*2 + reim;
 }
 
+#ifndef BFM_GPARITY
+
+template < class Float > template < typename FloatEXT >
+  void bfm_evo < Float >::cps_impexcbFermion (FloatEXT * psi,
+					      Fermion_t handle, int doimport,
+					      int cb)
+{
+  int Nspinco = 12;
+  int i_inc = this->simd () * 2;
+  int vol5d =
+    this->node_latt[0] *
+    this->node_latt[1] * this->node_latt[2] * this->node_latt[3] * this->Ls;
+
+  Float *bagel = (Float *) handle;
+  omp_set_num_threads (this->nthread);
+
+#pragma omp parallel for
+  for (int site = 0; site < vol5d; site++)
+    {
+
+      int x[4], s;
+      int si = site;
+      x[0] = si % this->node_latt[0]; si = si / this->node_latt[0];
+      x[1] = si % this->node_latt[1]; si = si / this->node_latt[1];
+      x[2] = si % this->node_latt[2]; si = si / this->node_latt[2];
+      x[3] = si % this->node_latt[3]; s = si / this->node_latt[3];
+
+      int sp = this->precon_5d ? s : 0;
+      if ((x[0] + x[1] + x[2] + x[3] + sp & 0x1) == cb)
+	{
+
+	  int bidx_base = this->bagel_idx5d (x, s, 0, 0, Nspinco, 1);
+	  int cidx_base = this->cps_idx_cb (x, s, 0, 0, Nspinco);
+
+	  for (int co = 0; co < Nspinco; co++)
+	    {
+	      for (int reim = 0; reim < 2; reim++)
+		{
+		  // int bidx = bagel_idx(x, reim, co + Nspinco * (s / 2), Nspinco * this->cbLs, 1);
+		  // int bidx = this->bagel_idx5d(x, s, reim, co, Nspinco, 1);
+		  // int cidx = cps_idx_cb(x, s, reim, co, Nspinco);
+		  int bidx = bidx_base + reim + co * i_inc;
+		  int cidx = cidx_base + reim + co * 2;
+
+		  if (doimport)
+		    bagel[bidx] = psi[cidx];
+		  else
+		    psi[cidx] = bagel[bidx];
+		}
+	    }			//co,reim
+	}			//cb
+    }				//xyzts
+}
+
+
+#else
 //CK: Note if the BFM preconditioning is 4D then the 4D checkerboard of the imported field will be the opposite of the 5D checkerboard of the CPS field! cb is the output checkerboard.
 //The set of all sites with  x+y+z+t+s odd is the same as the set of sites with x+y+z+t even, and vice versa.
 template <class Float> template<typename FloatEXT>
@@ -489,30 +545,28 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
   int Nspinco=12;
   int i_inc = this->simd() * 2;
   int vol5d =
-    this->node_latt[0] *
-    this->node_latt[1] *
-    this->node_latt[2] *
-    this->node_latt[3] *
+    this->node_latt[0] * this->node_latt[1] *
+    this->node_latt[2] * this->node_latt[3] *
     this->Ls;
 
   Float *bagel = (Float *)handle;
   omp_set_num_threads(this->nthread);
 
-  int work = vol5d;
+  size_t work = (size_t) vol5d;
   if(cps::GJP.Gparity()) work*=2;
+  if(this->isBoss()) printf("cps_impexcbFermion: %d %d %d %d %d\n",this->node_latt[0],this->node_latt[1],this->node_latt[2],this->node_latt[3],this->Ls);
 
 #pragma omp parallel for 
-  for (int sf = 0; sf < work; sf++) {
-    int flav = sf;
-    int site = flav % vol5d; flav /= vol5d;
+  for (size_t sf = 0; sf < work; sf++) {
+    size_t flav = sf;
+    size_t site = flav % vol5d; flav /= vol5d;
     
     int x[4], s;
-    int si=site;
+    size_t si=site;
     x[0]=si%this->node_latt[0];    si=si/this->node_latt[0];
     x[1]=si%this->node_latt[1];    si=si/this->node_latt[1];
     x[2]=si%this->node_latt[2];    si=si/this->node_latt[2];
-    x[3]=si%this->node_latt[3];
-    s   =si/this->node_latt[3];
+    x[3]=si%this->node_latt[3];    s=si/this->node_latt[3];
     
     int sp = this->precon_5d ? s : 0;
     if ( (x[0]+x[1]+x[2]+x[3] + (sp &0x1)) == cb ) {
@@ -540,6 +594,7 @@ void bfm_evo<Float>::cps_impexcbFermion(FloatEXT *psi, Fermion_t handle, int doi
     }//cb
   }//xyzts
 }
+#endif
 
 
 //Convert a bfm-style Fermion_t pair to or from a CANONICAL format CPS-style fermion
@@ -727,6 +782,7 @@ void bfm_evo<Float>::thread_impexFermion_s_test(FloatEXT *psi, Fermion_t handle[
 }
 
 #endif
+
 
 
 

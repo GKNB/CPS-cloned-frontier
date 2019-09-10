@@ -9,7 +9,7 @@ CPS_END_NAMESPACE
 #include <alg/hadron_prop_s.h>
 #include <util/rcomplex.h>
 #include <alg/s_spect_arg.h>
-#include <util/mom.h>
+//#include <util/mom.h>
 CPS_START_NAMESPACE
 
 //-------------------------------------------------------------------

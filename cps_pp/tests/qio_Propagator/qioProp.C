@@ -5,8 +5,6 @@
  *
  ***********************************************************/
 
-
-
 /***********************************************************
  * PAB: simplified main programme for off line measurements
  *      using VML for parameter loading
@@ -17,41 +15,12 @@
  *
  *****************************************************
  */
-#include<config.h>
+#include<cps.h>
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
+//#include<stdio.h>
+//#include<stdlib.h>
+//#include<unistd.h>
 
-#include<util/lattice.h>
-
-#include<alg/common_arg.h>
-#include<alg/do_arg.h>
-
-#include<alg/meas_arg.h>
-#include<alg/alg_meas.h>
-
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/error.h>
-#include<util/qcdio.h>
-#include<util/WriteLatticePar.h>
-#include<util/ReadLatticePar.h>
-#include<util/qioarg.h>
-
-#include <alg/qpropw.h>
-#include <alg/qpropw_arg.h>
-
-#ifdef HAVE_QCDOCOS_SCU_CHECKSUM_H
-#define USE_SCU_CHECKSUMS
-#else
-#undef USE_SCU_CHECKSUMS
-#endif
-
-#ifdef USE_SCU_CHECKSUMS
-#include <qcdocos/scu_checksum.h>
-#endif
-//--------------------------------------------------------------
 
 USING_NAMESPACE_CPS
 using namespace std;
@@ -86,9 +55,6 @@ int main(int argc, char *argv[])
 
   chdir (meas_arg.WorkDirectory);
 
-#ifdef USE_SCU_CHECKSUMS
-  ScuChecksum::Initialise(meas_arg.HdwXCsum,meas_arg.HdwRCsum);
-#endif
 
   do_arg.verbose_level=VERBOSE_RESULT_LEVEL;
   GJP.Initialize(do_arg);

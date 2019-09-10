@@ -3,6 +3,7 @@
 #include <config.h>
 #include <alg/alg_base.h>
 #include<util/site.h>
+#include<util/gauge_field.h>
 
 //using namespace cps;
 CPS_START_NAMESPACE
@@ -38,12 +39,17 @@ private:
         void AssembleGfield(Float* lfield,Float* gfield);
         void DoRK4Step(int rk4_step, int site, Float* lfield, int l_dir_offset[4], Float* gfield, int g_dir_offset[4]);
 
+	void calculateZ(GaugeField &gf, const int pos[4], int mu, Float Z[8]);
+    	void DoRKStep(Lattice &lat, GaugeField& gf, int rk_step, int site);
+	void do_rk_step_adaptive(Lattice &lat, GaugeField& gf, GaugeField& gfp, int rk_step, int site);
+
 public:
 	AlgWilsonFlow(Lattice& lat, CommonArg *ca, Float dtime=0.01, bool proj=true, Float tol=1e-8);
 	virtual ~AlgWilsonFlow();
 
 	void run();
 	void smartrun();
+	double run_adaptive(double& input_dt);
 
 	void su3projon(){su3_proj=true;}
 	void su3projoff(){su3_proj=false;}

@@ -1,9 +1,4 @@
-#include <config.h>
-#include <util/qcdio.h>
-#include <comms/sysfunc_cps.h>
-#include <util/sproj_tr.h>
-#include <util/vector.h>
-#include <util/time_cps.h>
+#include <cps.h>
 
 #if 1
 #define qalloc(A,B) smalloc(B)

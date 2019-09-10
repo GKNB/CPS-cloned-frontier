@@ -16,20 +16,7 @@
 
 */
 
-#include <config.h>
-#include <util/qcdio.h>
-#include <util/lattice.h>
-#include <util/gjp.h>
-#include <util/verbose.h>
-#include <util/error.h>
-#include <util/random.h>
-#include <alg/alg_plaq.h>
-#include <alg/do_arg.h>
-//#include <util/ReadLattice.h>
-#include <alg/alg_rnd_gauge.h>
-#include<util/testing_framework.h>
-#include<util/dump_xml.h>
-#include <comms/sysfunc_cps.h>
+#include <cps.h>
 
 USING_NAMESPACE_CPS
 
@@ -62,6 +49,7 @@ static const int nt = 4 ;
 int main(int argc,char *argv[])
 {
 
+  Start(&argc,&argv);
     DoArg do_arg;
     setup_do_arg(do_arg);
 

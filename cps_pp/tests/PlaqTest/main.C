@@ -1,36 +1,4 @@
-#include<config.h>
-<<<<<<< HEAD
-=======
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2004/09/21 20:16:50 $
-//  $Header: /space/cvs/cps/cps++/tests/PlaqTest/main.C,v 1.10 2004/09/21 20:16:50 chulwoo Exp $
-//  $Id: main.C,v 1.10 2004/09/21 20:16:50 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: main.C,v $
-//  $Revision: 1.10 $
-//  $Source: /space/cvs/cps/cps++/tests/PlaqTest/main.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
->>>>>>> 8d384c144ad6ce719f894a1b46153b32abf2e66a
-
-// Simple plaquette measurement.
-
-#include <util/qcdio.h>
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/error.h>
-#include<util/random.h>
-#include<alg/alg_plaq.h>
-#include <alg/do_arg.h>
-
-
-
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 

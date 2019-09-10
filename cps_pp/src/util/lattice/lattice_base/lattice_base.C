@@ -321,7 +321,7 @@ void Lattice::AllocGauge ()
 
     // Allocate memory for the gauge field.
     //--------------------------------------------------------------
-    size_t array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
+    size_t array_size = (size_t) GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
     if (GJP.Gparity ())
       array_size *= 2;
 
@@ -4398,7 +4398,7 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
     nstacked_flav = 2;
 
   int s_node_sites = GJP.SnodeSites ();
-  VRB.Result (cname, fname,
+  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d nflav=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D(),nstacked_flav);
               "Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",
               this->Fclass (), frm_dim, s_node_sites, this->F5D ());
   if (frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D ())) {
@@ -4446,9 +4446,10 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
                     LRG.AssignGenerator (x[0], x[1], x[2], x[3], s, flv);
 //      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
                     for (k = 0; k < vec_size; k++) {
-                      *(ptr++) = LRG.Grand (frm_dim);
-                      VRB.Debug (cname, fname, "%d %d %d %d %d %d %g\n",
-                                 x[0], x[1], x[2], x[3], s, flv, *(ptr - 1));
+            *(ptr) = LRG.Grand(frm_dim);
+		sum += *ptr;
+		square += (*ptr)*(*ptr);
+	ptr++;
                     }
                   }
         }
@@ -4502,11 +4503,9 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
       }
     }
   }
-#if 0
   glb_sum_five (&sum);
   glb_sum_five (&square);
-  printf ("sum=%0.18e square=%0.18e\n", sum, square);
-#endif
+  VRB.Result (cname,fname,"sum=%0.18e square=%0.18e\n", sum, square);
 }
 
 //------------------------------------------------------------------

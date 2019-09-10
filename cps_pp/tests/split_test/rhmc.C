@@ -1,38 +1,8 @@
-#include<config.h>
+#include<cps.h>
 
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
-
-#include<util/lattice.h>
-#include<util/random.h>
-
-#include<alg/alg_hmc.h>
-#include<alg/common_arg.h>
-#include<alg/hmc_arg.h>
-#include<alg/hmd_arg.h>
-
-#include<alg/alg_int.h>
-#include<alg/int_arg.h>
-
-#include<alg/no_arg.h>
-#include<alg/do_arg.h>
-#include<alg/alg_plaq.h>
-#include<alg/alg_remez.h>
-
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/error.h>
-#include<util/qcdio.h>
-#include<util/WriteLatticePar.h>
-#include<util/ReadLatticePar.h>
-#include<util/qioarg.h>
-
-#undef USE_SCU_CHECKSUMS
-#ifdef USE_SCU_CHECKSUMS
-#include <qcdocos/scu_checksum.h>
-#endif
-//--------------------------------------------------------------
 
 USING_NAMESPACE_CPS
 using namespace std;
@@ -61,12 +31,6 @@ NoArg no_arg;
 //!< Storage for the rational approximations
 RemezArg (*remez_arg)[2];
 
-#if TARGET == QCDOC
-extern "C" {
-  void _mcleanup(void);
-}
-#endif
-
 void checkpoint(int traj);
 
 int main(int argc, char *argv[])
@@ -81,6 +45,7 @@ int main(int argc, char *argv[])
   CommonArg common_arg_hmc;
   CommonArg common_arg_plaq;
 
+  Start(&argc,&argv);
   if ( argc!=13 ) { 
     printf("Args: doarg-file hmcarg-file evoarg-file initial-directory\n");
     exit(-1);
@@ -128,10 +93,6 @@ int main(int argc, char *argv[])
   if ( !ab3_arg.Decode(argv[11],"ab3_arg")){printf("Bum ab3_arg\n"); exit(-1);}
 
   chdir(evo_arg.work_directory);
-
-#ifdef USE_SCU_CHECKSUMS
-  ScuChecksum::Initialise(evo_arg.hdw_xcsum,evo_arg.hdw_rcsum);
-#endif
 
   // do_arg.verbose_level=VERBOSE_RESULT_LEVEL;
   GJP.Initialize(do_arg);
@@ -202,13 +163,6 @@ int main(int argc, char *argv[])
 	  AlgHmc hmc(ab3, common_arg_hmc, hmc_arg);
 	  hmc.run();
 	}
-
-#ifdef USE_SCU_CHECKSUMS
-        if ( ! ScuChecksum::CsumSwap() ) { 
-	  fprintf(stderr, "Checksum mismatch\n");
-	  exit(-1);
-	}
-#endif
 
       }
 

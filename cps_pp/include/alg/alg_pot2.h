@@ -21,10 +21,11 @@ CPS_END_NAMESPACE
 #include <alg/alg_base.h>
 #include <alg/common_arg.h>
 #include <util/lattice.h> // for PathOrderedProduct
+#include <util/consts.h>
 CPS_START_NAMESPACE
 
 
-const Float le=log(exp(1.));
+//const Float le=log(exp(1.));
 
 class AlgPot2 : public Alg
 {

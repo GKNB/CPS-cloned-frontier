@@ -492,7 +492,7 @@ namespace cps
 
       int64_t nsites = n / nsc;
       if (n % nsc) {
-	fprintf (stderr, "Invalid size in write_floats_fp16\n");
+	fprintf (stderr, "Invalid size in read_floats_fp16\n");
 	exit (4);
       }
 
@@ -536,14 +536,15 @@ namespace cps
       uint32_t status = 0;
 
       if (UniqueID () == 0) {
-	VRB.Debug (cname, fname, "node 0, before fopen \n");
+	VRB.Result (cname, fname, "node 0, before fopen \n");
 	f = fopen (buf, "r");
 	status = f ? 1 : 0;
+	VRB.Result (cname, fname, "node 0, fopen %s returns %d\n",buf,status);
       }
       sumArray (&status, 1);
-//      _grid->GlobalSum(status);
       if (!status) {
 	ERR.General (cname, fname, "failed to open %s \n", buf);
+	// should terminate here
 	return false;
       }
       for (int i = 0; i < 5; i++) {
@@ -749,7 +750,7 @@ namespace cps
       assert(nvec <=args.neig);
       for (int i = 0; i < args.neig; i++) {
         fscanf (file, "%lE\n", vals + i);
-        std::cout << sqrt (evals[i]) << std::endl;
+        std::cout << (evals[i]) << std::endl;
       }
       fclose (file);
     }
