@@ -643,6 +643,7 @@ DO_GMP
 QOS
 ENABLE_PARALLEL
 TESTING_PARALLEL
+CXXLD
 INCLUDE_FLAGS
 DFLAGS
 ASFLAGS
@@ -3635,6 +3636,16 @@ $as_echo_n "checking if including QMP... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_qmp" >&5
 $as_echo "$enable_qmp" >&6; }
 
+#CK stop the configure script from overriding my choice of compiler with that of QMP!
+DISABLE_CC_OVERRIDE="no"
+if test "${CC}set" != "set"; then
+  echo "CC is set by user: $CC  disabling CC override"
+  DISABLE_CC_OVERRIDE="yes"
+else
+  echo "CC is not set: $CC  not disabling CC override"
+fi
+
+
 if test "$cross_compiling" = "yes"; then
    if test "$host" != "none-none-none"; then
       if test "$host" = "powerpc-bgl-blrts-gnu"; then
@@ -4323,7 +4334,7 @@ fi
 done
 test -n "$CXX" || CXX="g++"
 
-   elif test "$enable_qmp" != "no"; then
+   elif test "$enable_qmp" != "no" && test "$DISABLE_CC_OVERRIDE" != "yes"; then
    CC=`$enable_qmp/bin/qmp-config --cc`
    for ac_prog in mpicxx mpic++ mpiCC
 do
@@ -4804,6 +4815,7 @@ done
      exit 1
    fi
 fi
+
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
 
 
@@ -4920,8 +4932,9 @@ else
    ARCH=NOARCH
    ARCHDIR="NOARCH_DIR"
    if test "$enable_qmp" != "no"; then
-   CC=`$enable_qmp/bin/qmp-config --cc`
-   for ac_prog in mpic++ mpiCC mpCC
+      if test "$DISABLE_CC_OVERRIDE" != "yes"; then
+         CC=`$enable_qmp/bin/qmp-config --cc`
+	 for ac_prog in mpic++ mpiCC mpCC
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -4964,9 +4977,10 @@ fi
 done
 test -n "$CXX" || CXX="g++"
 
-   TESTING_PARALLEL="yes";
+      fi
+      TESTING_PARALLEL="yes";
    else
-   TESTING_PARALLEL="no";
+      TESTING_PARALLEL="no";
    fi
 fi
 
@@ -5644,6 +5658,12 @@ then
         CPS_NAMESPACE="cps"
         CPS_START_NAMESPACE="namespace cps {"
 fi
+
+if test "${CXXLD}set" = "set"; then
+   CXXLD=$CXX
+fi
+
+
 
 
 

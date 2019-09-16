@@ -20,7 +20,8 @@ inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
 }
 #ifdef USE_GRID
 inline void doAccum(std::complex<double> &to, const Grid::vComplexD &from){
-  to += Reduce(from);
+  auto v = Reduce(from);
+  to += std::complex<double>(v.real(),v.imag());
 }
 inline void doAccum(Grid::vComplexD &to, const Grid::vComplexD &from){
   to += from;

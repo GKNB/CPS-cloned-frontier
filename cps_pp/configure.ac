@@ -18,6 +18,16 @@ AC_ARG_ENABLE(qmp,
 AC_MSG_CHECKING([if including QMP])
 AC_MSG_RESULT($enable_qmp)
 
+#CK stop the configure script from overriding my choice of compiler with that of QMP!
+DISABLE_CC_OVERRIDE="no"
+if test "${CC}set" != "set"; then
+  echo "CC is set by user: $CC  disabling CC override"
+  DISABLE_CC_OVERRIDE="yes"
+else
+  echo "CC is not set: $CC  not disabling CC override"
+fi
+
+
 dnl Set correct compiler information
 if test "$cross_compiling" = "yes"; then
    if test "$host" != "none-none-none"; then
@@ -54,7 +64,7 @@ dnl check if Intel compiler is available if running on 686
 	   CC=""
        AC_CHECK_PROGS(CC, xlC, gcc)
        AC_CHECK_PROGS(CXX, xlC, g++)
-   elif test "$enable_qmp" != "no"; then
+   elif test "$enable_qmp" != "no" && test "$DISABLE_CC_OVERRIDE" != "yes"; then
    CC=`$enable_qmp/bin/qmp-config --cc`
    AC_CHECK_PROGS(CXX, mpicxx mpic++ mpiCC, g++)
      AC_PATH_PROGS(CXX, mpicxx mpic++ mpiCC, g++)
@@ -69,6 +79,7 @@ dnl check if Intel compiler is available if running on 686
      exit 1
    fi
 fi
+
 dnl path for the compiler
 CC_PATH=`which "$CXX" |sed -e 's/bin\/powerpc-gnu-elf-g++//'`
 AC_SUBST(CC_PATH)
@@ -147,11 +158,13 @@ else
    ARCH=NOARCH
    ARCHDIR="NOARCH_DIR"
    if test "$enable_qmp" != "no"; then
-   CC=`$enable_qmp/bin/qmp-config --cc`
-   AC_CHECK_PROGS(CXX, mpic++ mpiCC mpCC, g++)
-   TESTING_PARALLEL="yes";
+      if test "$DISABLE_CC_OVERRIDE" != "yes"; then
+         CC=`$enable_qmp/bin/qmp-config --cc`
+	 AC_CHECK_PROGS(CXX, mpic++ mpiCC mpCC, g++)
+      fi
+      TESTING_PARALLEL="yes";
    else
-   TESTING_PARALLEL="no";
+      TESTING_PARALLEL="no";
    fi
 fi
 
@@ -595,6 +608,12 @@ then
         CPS_START_NAMESPACE="namespace cps {"
 fi
 
+dnl Linker defaults to CXX unless CXXLD is defined
+if test "${CXXLD}set" = "set"; then
+   CXXLD=$CXX
+fi
+
+
 dnl Make visible all variables declared above
 AC_SUBST(AR)
 AC_SUBST(ARCH)
@@ -605,6 +624,7 @@ AC_SUBST(CFLAGS)
 AC_SUBST(CXXFLAGS)
 AC_SUBST(DFLAGS)
 AC_SUBST(INCLUDE_FLAGS)
+AC_SUBST(CXXLD)
 AC_SUBST(LD)
 AC_SUBST(LDFLAGS)
 AC_SUBST(LIBS)

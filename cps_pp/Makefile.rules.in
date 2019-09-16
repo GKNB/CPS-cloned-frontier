@@ -9,11 +9,19 @@ BUILDDIR = @BUILDDIR@
 HAVE_MAKEDEPEND=@HAVE_MAKEDEPEND@
 
 PWD := $(shell pwd)
-DIR := $(subst $(BUILDDIR)/objs,,$(PWD))
-DIR := $(subst $(SRCDIR)/src,,$(DIR))/
+#DIR := $(subst $(BUILDDIR)/objs,,$(PWD))
+#DIR := $(subst $(SRCDIR)/src,,$(DIR))/
+
+#CK this avoids directory aliasing issues on Cori
+DIR := $(shell pwd | sed -E 's/.*\/(objs|src)\/?//')
+
 SRCDIR2 := $(SRCDIR)/src/$(DIR)
 BUILDDIR2 := $(BUILDDIR)/objs/$(DIR)
 VPATH:=$(SRCDIR2) ${BUILDDIR2}
+
+$(info DIR is ${DIR})
+$(info SRCDIR2 is ${SRCDIR2})
+$(info BUILDDIR2 is ${BUILDDIR2})
 
 CC = @CC@
 CXX = @CXX@

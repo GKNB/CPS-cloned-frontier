@@ -65,6 +65,15 @@ template<>
 struct is_complex_double_or_float<std::complex<float> >{ enum {value = 1}; };
 
 #ifdef USE_GRID
+
+#ifdef GRID_NVCC
+template<>
+struct is_complex_double_or_float<thrust::complex<double> >{ enum {value = 1}; };
+
+template<>
+struct is_complex_double_or_float<thrust::complex<float> >{ enum {value = 1}; };
+#endif
+
 //A method of asking a Grid vector type if it's scalar_type is complex, predicated on whether the type is indeed a Grid vector type
 template<bool is_grid_vector, typename T>
 struct is_scalar_type_complex{};

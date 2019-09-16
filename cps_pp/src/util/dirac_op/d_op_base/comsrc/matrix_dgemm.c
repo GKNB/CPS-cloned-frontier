@@ -2,7 +2,7 @@
 #ifndef BLOCK_SIZE
 #define BLOCK_SIZE ((int) 4)
 #endif
-void basic_dgemm (const int KB, const int M, const int N, const int K, double **A, const double *B, double *C, const int NB)
+void basic_dgemm (const int KB, const int M, const int N, const int K, const double **A, const double *B, double *C, const int NB)
 {
 	int i, j, k;
 	register const double *Bp;
@@ -66,7 +66,7 @@ void basic_dgemm (const int KB, const int M, const int N, const int K, double **
 	}
 }
 
-void unrolled_dgemm (const int lda, double **A, const double *B, double *C, const int N)
+void unrolled_dgemm (const int lda, const double **A, const double *B, double *C, const int N)
 {
 	const double * pB=B;
 	register const double A0_0 = A[0][0];
@@ -235,12 +235,12 @@ void matrix_dgemm (const int M,const int N, const int K, double **A, const doubl
 				if((M_cblock==BLOCK_SIZE)&&(N_cblock==BLOCK_SIZE)&&(K_cblock==BLOCK_SIZE))
 				{
 					//unrolled_dgemm (K, A + i*K + k, B + k + j*K, C + i*N + j, N);
-					unrolled_dgemm (K, A+k, B + k*BLOCK_SIZE+ j*K, C + i*N + j, N);
+				  unrolled_dgemm (K, (const double**)(A+k), B + k*BLOCK_SIZE+ j*K, C + i*N + j, N);
 				}
 				else
 				{
 					//basic_dgemm (K,M_cblock, N_cblock, K_cblock, A + i*K + k, B + k + j*K, C + i*N + j,N);
-					basic_dgemm (K,M_cblock, N_cblock, K_cblock, A + k, B + k*N_cblock+ j*K, C + i*N + j,N);
+				  basic_dgemm (K,M_cblock, N_cblock, K_cblock, (const double**)(A + k), B + k*N_cblock+ j*K, C + i*N + j,N);
 				}
 			}
 		}

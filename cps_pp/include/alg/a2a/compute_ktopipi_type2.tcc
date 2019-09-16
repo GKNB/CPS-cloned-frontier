@@ -160,6 +160,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
 
   int top_glb = top_loc  + GJP.TnodeCoor()*GJP.TnodeSites();
 
+  {
   //Part 1
 #pragma omp parallel for
   for(int tkidx=0; tkidx < t_K_all.size(); tkidx++){
@@ -167,7 +168,9 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
     int t_K = t_K_all[tkidx];
     mult_vMv_split_part1[tkidx].setup(vL,mf_kaon[t_K],vH,top_glb);
   }
+  }
 
+  {
   //Part 2
 #pragma omp parallel for
   for(int t_pi1_lin = 1; t_pi1_lin <= Lt; t_pi1_lin += tstep){ //Daiqian's weird ordering
@@ -177,6 +180,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::type2_mult_vMv_setup(std::vector<vMv_sp
     
     mult_vMv_split_part2_pi1_pi2[t_pi1_idx].setup(vL,con_pi1_pi2[t_pi1_idx],wL, top_glb);
     mult_vMv_split_part2_pi2_pi1[t_pi1_idx].setup(vL,con_pi2_pi1[t_pi1_idx],wL, top_glb);
+  }
   }
   Type2timings::timer().type2_mult_vMv_setup += dclock();
 }

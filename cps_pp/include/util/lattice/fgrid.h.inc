@@ -106,8 +106,7 @@ private:
 		int i_gp = 0;
 		if (F5D ())
 		  i_gp = grid_coor[0];	// s coor when 5D
-		std::complex < double >elem;
-		elem = siteGrid (GP) (s) (i);
+		auto elem = siteGrid (GP) (s) (i);
 //                              if (norm(elem)>0.01) printf("%d %d %d %d %d: grid[%d][%d][%d][%d] = %g %g\n",
 //grid_coor[0], grid_coor[1], grid_coor[2], grid_coor[3], grid_coor[4],
 //site,gp,s,i,elem.real(),elem.imag());
@@ -745,7 +744,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	    MdagMF.HermOp (evec_f[i], tmp);
 	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
 //              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
-	    Grid::RealD alph = real (zalph);
+	    Grid::RealD alph = Grid::real (zalph);
 	    tmp = tmp - eval[i] * evec_f[i];
 	    VRB.Result (cname, fname, "evec %d: norm alpha eval residual= %e %e %e %e\n",
 			i,norm2 (evec_f[i]), alph, eval[i],norm2 (tmp));

@@ -53,7 +53,6 @@ class RandomComplexBase{
   }
 };
 
-//Only implementation for std::complex
 template<typename T>
 class RandomComplex<std::complex<T> > : public RandomComplexBase<T>{
 public:
@@ -61,6 +60,19 @@ public:
     RandomComplexBase<T>::rand( (T*)p, type, frm_dim);
   }
 };
+
+#ifdef GRID_NVCC
+template<typename T>
+class RandomComplex<thrust::complex<T> > : public RandomComplexBase<T>{
+public:
+  static void rand(thrust::complex<T> *p, const RandomType &type, const FermionFieldDimension &frm_dim){
+    std::complex<T> tmp;
+    RandomComplexBase<T>::rand( (T*)&tmp, type, frm_dim);
+    *p = tmp;
+  }
+};
+#endif
+
 
 
 //Wrapper function to multiply a number by +/-i for std::complex and Grid complex
@@ -134,13 +146,16 @@ std::complex<double> convertComplexD(const std::complex<T> &what){
   return what;
 }
 #ifdef USE_GRID
-std::complex<double> convertComplexD(const Grid::vComplexD &what){  
-  return Reduce(what);
+inline std::complex<double> convertComplexD(const Grid::vComplexD &what){  
+  auto v = Reduce(what);
+  return std::complex<double>(v.real(),v.imag());
 }
-std::complex<double> convertComplexD(const Grid::vComplexF &what){  
-  return Reduce(what);
+inline std::complex<double> convertComplexD(const Grid::vComplexF &what){  
+  auto v = Reduce(what);
+  return std::complex<double>(v.real(),v.imag());
 }
 #endif
+
 
 
 

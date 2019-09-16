@@ -154,6 +154,7 @@ void FourierProp<MatrixType>::calcProp(const std::string &tag, Lattice &lat){
   }
   QPropWcontainer &prop = QPropWcontainer::verify_convert(PropManager::getProp(tag.c_str()),"FourierProp<MatrixType>","calcProp(const std::string &tag, Lattice &lat)");
 
+  {
 #pragma omp parallel for default(shared)
   for(int x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
@@ -200,6 +201,9 @@ void FourierProp<MatrixType>::calcProp(const std::string &tag, Lattice &lat){
       thread_mats[ vec_pos ][local_t][omp_get_thread_num()] += mat * phase;
     }
   }
+  }
+
+  {
   //accumulate thread results; thread this too
 #pragma omp parallel for default(shared)
   for(int i=0;i<nmom*local_T;i++){
@@ -210,6 +214,7 @@ void FourierProp<MatrixType>::calcProp(const std::string &tag, Lattice &lat){
     for(int thr=0;thr<omp_get_max_threads();thr++){
       mats[p][t] += thread_mats[p][t][thr];
     }
+  }
   }
     
   //lattice sum, output vector is of size global_T
