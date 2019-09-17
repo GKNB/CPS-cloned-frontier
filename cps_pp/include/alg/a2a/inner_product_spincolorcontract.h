@@ -13,37 +13,38 @@
 //Optimized code for taking the spin-color contraction of two 12-component complex vectors
 CPS_START_NAMESPACE
 
-//For std::complex types. Option to use SIMD intrinsics underneath for minor speed-up. Not as optimal as using Grid SIMD vectorized types as native complex type due to additional overheads
-template<typename mf_Complex, bool conj_left, bool conj_right>
+//For non-SIMD complex types
+//Option USE_GRID_SCCON to use SIMD intrinsics underneath for minor speed-up. Not as optimal as using Grid SIMD vectorized types as native complex type due to additional overheads
+template<typename ComplexType, bool conj_left, bool conj_right>
 class OptimizedSpinColorContract{
 public:
-  inline static std::complex<double> g5(const mf_Complex *const l, const mf_Complex *const r){
+  inline static ComplexType g5(const ComplexType *const l, const ComplexType *const r){
     const static int sc_size =12;
     const static int half_sc = 6;
     
-    std::complex<double> v3(0,0);
+    ComplexType v3(0,0);
 
 #if defined(USE_GRID_SCCON)
-    grid_g5contract<mf_Complex,conj_left,conj_right>::doit(v3,l,r);
+    grid_g5contract<ComplexType,conj_left,conj_right>::doit(v3,l,r);
 #else
     for(int i = half_sc; i < sc_size; i++){ 
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
+      v3 += Mconj<ComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
     v3 *= -1;
       
     for(int i = 0; i < half_sc; i ++){ 
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
+      v3 += Mconj<ComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
 #endif
 
     return v3;
   }
-  inline static std::complex<double> unit(const mf_Complex *const l, const mf_Complex *const r){
+  inline static ComplexType unit(const ComplexType *const l, const ComplexType *const r){
     const static int sc_size =12;
-    std::complex<double> v3(0,0);
+    ComplexType v3(0,0);
 
 #ifdef USE_GSL_SCCON    
-    typedef gsl_wrapper<typename mf_Complex::value_type> gw;
+    typedef gsl_wrapper<typename ComplexType::value_type> gw;
     
     typename gw::block_complex_struct lblock;
     typename gw::vector_complex lgsl;
@@ -66,14 +67,14 @@ public:
     lblock.data = lgsl.data = l;
     rblock.data = rgsl.data = r;
 
-    gsl_dotproduct<typename mf_Complex::value_type,conj_left,conj_right>::doit(&lgsl,&rgsl,&result);
+    gsl_dotproduct<typename ComplexType::value_type,conj_left,conj_right>::doit(&lgsl,&rgsl,&result);
     double(&v3_a)[2] = reinterpret_cast<double(&)[2]>(v3);
     v3_a[0] = GSL_REAL(result);
     v3_a[1] = GSL_IMAG(result);
  
 #else
     for(int i = 0; i < sc_size; i ++){
-      v3 += Mconj<mf_Complex,conj_left,conj_right>::doit(l+i,r+i);
+      v3 += Mconj<ComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
 #endif
 
@@ -82,19 +83,19 @@ public:
 
 };
 
-template<int smatidx,typename mf_Complex, bool conj_left, bool conj_right>
+template<int smatidx,typename ComplexType, bool conj_left, bool conj_right>
 struct SpinColorContractSelect{};
 
-template<typename mf_Complex, bool conj_left, bool conj_right>
-struct SpinColorContractSelect<15,mf_Complex,conj_left,conj_right>{
-  inline static mf_Complex doit(const mf_Complex *const l, const mf_Complex *const r){
-    return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::g5(l,r);
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct SpinColorContractSelect<15,ComplexType,conj_left,conj_right>{
+  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){
+    return OptimizedSpinColorContract<ComplexType,conj_left,conj_right>::g5(l,r);
   }
 };
-template<typename mf_Complex, bool conj_left, bool conj_right>
-struct SpinColorContractSelect<0,mf_Complex,conj_left,conj_right>{
-  inline static mf_Complex doit(const mf_Complex *const l, const mf_Complex *const r){
-    return OptimizedSpinColorContract<mf_Complex,conj_left,conj_right>::unit(l,r);
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct SpinColorContractSelect<0,ComplexType,conj_left,conj_right>{
+  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){
+    return OptimizedSpinColorContract<ComplexType,conj_left,conj_right>::unit(l,r);
   }
 };
 
@@ -231,7 +232,6 @@ struct GridVectorizedSpinColorContractSelect<4,vComplexType,conj_left,conj_right
   inline static vComplexType doit(const vComplexType *const l, const vComplexType *const r){ return GridVectorizedSpinColorContract<vComplexType,conj_left,conj_right>::g2(l,r); }
 };
 #endif //USE_GRID
-
 
 
 template<int smatidx,typename ComplexType, bool conj_left, bool conj_right, typename ComplexClass>

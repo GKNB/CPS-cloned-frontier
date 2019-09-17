@@ -30,7 +30,11 @@ typedef typename mf_Complex::value_type mf_Float;
 
 int main(int argc,char *argv[])
 {
+  std::cout << "Begin: omp_get_max_threads()=" << omp_get_max_threads() << std::endl;
   Start(&argc, &argv);
+
+  std::cout << "0: omp_get_max_threads()=" << omp_get_max_threads() << std::endl;
+  
   int ngp;
   { std::stringstream ss; ss << argv[1]; ss >> ngp; }
 
@@ -134,9 +138,16 @@ int main(int argc,char *argv[])
   CommonArg common_arg;
   DoArg do_arg;  setupDoArg(do_arg,size,ngp,verbose);
 
-  GJP.Initialize(do_arg);
-  GJP.SetNthreads(nthreads);
+  std::cout << "1: omp_get_max_threads()=" << omp_get_max_threads() << std::endl;
   
+  GJP.Initialize(do_arg);
+
+
+  std::cout << "2: omp_get_max_threads()=" << omp_get_max_threads() << std::endl;
+  
+  GJP.SetNthreads(nthreads);
+
+  std::cout << "3: omp_get_max_threads()=" << omp_get_max_threads() << std::endl;
 #if TARGET == BGQ
   LRG.setSerial();
 #endif

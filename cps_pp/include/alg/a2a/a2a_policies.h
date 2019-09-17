@@ -22,7 +22,11 @@ struct GridSIMDSourcePoliciesSingle{
 #endif
 
 struct StandardSourcePolicies{
+#ifdef USE_GRID
+  typedef Grid::ComplexD ComplexType;
+#else
   typedef cps::ComplexD ComplexType;
+#endif
   typedef SpatialPolicy<OneFlavorPolicy> MappingPolicy;
   typedef StandardAllocPolicy AllocPolicy;
 };
@@ -78,13 +82,21 @@ struct BaseGridPolicies{
 struct A2ApoliciesDoubleAutoAlloc{
 #ifdef USE_GRID
   INHERIT_BASE_GRID_TYPEDEFS;
-#endif
-  
+
+  typedef Grid::ComplexD ComplexType;
+  typedef Grid::ComplexD ComplexTypeD;
+  typedef Grid::ComplexF ComplexTypeF;
+
+  typedef Grid::ComplexD ScalarComplexType;
+#else
   typedef cps::ComplexD ComplexType;
   typedef cps::ComplexD ComplexTypeD;
   typedef cps::ComplexF ComplexTypeF;
-  typedef StandardAllocPolicy AllocPolicy;
+
   typedef cps::ComplexD ScalarComplexType;
+#endif
+  
+  typedef StandardAllocPolicy AllocPolicy;
   typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef FermionFieldType ScalarFermionFieldType; //SIMD vectorized and scalar (non-vectorized) fields are the same
@@ -97,13 +109,21 @@ struct A2ApoliciesDoubleAutoAlloc{
 struct A2ApoliciesDoubleManualAlloc{
 #ifdef USE_GRID
   INHERIT_BASE_GRID_TYPEDEFS;
-#endif
-  
+
+  typedef Grid::ComplexD ComplexType;
+  typedef Grid::ComplexD ComplexTypeD;
+  typedef Grid::ComplexF ComplexTypeF;
+
+  typedef Grid::ComplexD ScalarComplexType;
+#else
   typedef cps::ComplexD ComplexType;
   typedef cps::ComplexD ComplexTypeD;
   typedef cps::ComplexF ComplexTypeF;
-  typedef StandardAllocPolicy AllocPolicy;
+
   typedef cps::ComplexD ScalarComplexType;
+#endif
+  
+  typedef StandardAllocPolicy AllocPolicy;
   typedef CPSfermion4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, FourDpolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
   typedef FermionFieldType ScalarFermionFieldType; //SIMD vectorized and scalar (non-vectorized) fields are the same
@@ -124,7 +144,7 @@ struct A2ApoliciesSIMDdoubleAutoAlloc{
   typedef Grid::vComplexD ComplexTypeD;
   typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
-  typedef cps::ComplexD ScalarComplexType;
+  typedef Grid::ComplexD ScalarComplexType;
 
   typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;
@@ -144,7 +164,7 @@ struct A2ApoliciesSIMDdoubleManualAlloc{
   typedef Grid::vComplexD ComplexTypeD;
   typedef Grid::vComplexF ComplexTypeF;
   typedef Aligned128AllocPolicy AllocPolicy;
-  typedef cps::ComplexD ScalarComplexType;
+  typedef Grid::ComplexD ScalarComplexType;
 
   typedef CPSfermion4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> FermionFieldType;
   typedef CPScomplex4D<ComplexType, FourDSIMDPolicy<DynamicFlavorPolicy>, AllocPolicy> ComplexFieldType;

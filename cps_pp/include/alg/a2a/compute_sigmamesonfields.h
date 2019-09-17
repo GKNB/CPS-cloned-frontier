@@ -153,10 +153,10 @@ private:
     int pbase[3]; //we reset the momentum for each computation so we technically don't need this - however the code demands a valid momentum
     GparityBaseMomentum(pbase,+1);
 
-    typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > ExpInnerType;
+    typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,true,false> > ExpInnerType;
     typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, ExpInnerType> ExpStorageType;
 
-    typedef GparitySourceShiftInnerProduct<ComplexType,HydSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > HydInnerType;
+    typedef GparitySourceShiftInnerProduct<ComplexType,HydSrcType, flavorMatrixSpinColorContract<0,true,false> > HydInnerType;
     typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, HydInnerType> HydStorageType;
 
     ExpSrcType exp_src(rad,pbase,src_setup_params); //1s
@@ -274,7 +274,7 @@ private:
     //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
 
     //Allows for more memory efficient computation algorithm
-    typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > MultiInnerType;
+    typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<0,true,false> > MultiInnerType;
     typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
       
     MultiSrcType src;
@@ -440,7 +440,7 @@ public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<0,true,false> > InnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
    
 public:

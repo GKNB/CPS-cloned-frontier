@@ -94,7 +94,7 @@ public:
 	  for(int i = 0; i < ni_this; i++){
 	    const ScalarComplexType &lval_tmp = l.nativeElem(ilmap_this[i], site4dop, sc, f);
 #ifndef MEMTEST_MODE
-	    lreord[scf][i] = conj_l ? std::conj(lval_tmp) : lval_tmp;
+	    lreord[scf][i] = conj_l ? cconj(lval_tmp) : lval_tmp;
 #endif
 	  }
 
@@ -115,7 +115,7 @@ public:
 	  for(int j = 0; j < nj_this; j++){
 	    const ScalarComplexType &rval_tmp = r.nativeElem(jrmap_this[j], site4dop, sc, f);
 #ifndef MEMTEST_MODE
-	    rreord[scf][j] = conj_r ? std::conj(rval_tmp) : rval_tmp;
+	    rreord[scf][j] = conj_r ? cconj(rval_tmp) : rval_tmp;
 #endif
 	  }
 
@@ -223,11 +223,11 @@ public:
 
 		for(int i=0;i<ni;i++){
 		  const ScalarComplexType &lval_tmp = l.elem(i,xop,top,cl+3*sl,fl);
-		  ScalarComplexType lval = conj_l ? std::conj(lval_tmp) : lval_tmp;
+		  ScalarComplexType lval = conj_l ? cconj(lval_tmp) : lval_tmp;
 		  
   		  for(int j=0;j<nj;j++){
   		    const ScalarComplexType &rval_tmp = r.elem(j,xop,top,cr+3*sr,fr);
-  		    ScalarComplexType rval = conj_r ? std::conj(rval_tmp) : rval_tmp;
+  		    ScalarComplexType rval = conj_r ? cconj(rval_tmp) : rval_tmp;
 
 		    const ScalarComplexType &Mval = M.elem(i,j);
 		    ScalarComplexType delta = lval * Mval * rval;

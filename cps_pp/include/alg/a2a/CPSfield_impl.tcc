@@ -24,6 +24,15 @@ struct normdefs<std::complex<T> >{
   inline static std::complex<T> conjugate(const std::complex<T> in){ return std::conj(in); }
 };
 #ifdef USE_GRID
+
+#ifdef GRID_NVCC
+template<typename T>
+struct normdefs<Grid::complex<T> >{
+  inline static double real_reduce(const Grid::complex<T> in){ return in.real(); }
+  inline static Grid::complex<T> conjugate(const Grid::complex<T> in){ return Grid::conjugate(in); }
+};
+#endif
+
 template<>
 struct normdefs<Grid::vRealD>{
   inline static double real_reduce(const Grid::vRealD in){ return Reduce(in); }

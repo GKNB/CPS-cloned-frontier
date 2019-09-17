@@ -106,10 +106,19 @@ template<typename T, typename ComplexClass>
 struct _cconj{};
 
 template<typename T>
-struct _cconj<T,complex_double_or_float_mark>{
-  static inline T doit(const T &in){ return std::conj(in); }
+struct _cconj<std::complex<T>,complex_double_or_float_mark>{
+  static inline std::complex<T> doit(const std::complex<T> &in){ return std::conj(in); }
 };
+
 #ifdef USE_GRID
+
+#ifdef GRID_NVCC
+template<typename T>
+struct _cconj<Grid::complex<T>,complex_double_or_float_mark>{
+  static inline Grid::complex<T> doit(const Grid::complex<T> &in){ return Grid::conjugate(in); }
+};
+#endif
+
 template<typename T>
 struct _cconj<T,grid_vector_complex_mark>{
   static inline T doit(const T &in){ return Grid::conjugate(in); }

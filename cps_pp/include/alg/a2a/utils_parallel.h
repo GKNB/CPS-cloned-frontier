@@ -143,6 +143,14 @@ void globalSumComplex(std::complex<T>* v, const int n){
   QMP_sum_array( (T*)v,2*n);
 }
 #ifdef USE_GRID
+
+#ifdef GRID_NVCC
+template<typename T>
+void globalSumComplex(thrust::complex<T>* v, const int n){
+  QMP_sum_array( (T*)v,2*n);
+}
+#endif
+
 template<typename T>
 struct _globalSumComplexGrid{
   static inline void doit(T *v, const int n){

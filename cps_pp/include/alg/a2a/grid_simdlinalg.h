@@ -25,14 +25,15 @@ namespace Grid_A2A{
   struct SIMDvtype{};
 
   template<>
-  struct SIMDvtype< std::complex<double> >{
+  struct SIMDvtype< Grid::ComplexD >{
     typedef Grid::vComplexD Vtype;
   };
   template<>
-  struct SIMDvtype< std::complex<float> >{
+  struct SIMDvtype< Grid::ComplexF >{
     typedef Grid::vComplexF Vtype;
   };
 
+  
 
   //SIMD paralellized vector
   template<typename T>

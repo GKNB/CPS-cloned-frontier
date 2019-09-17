@@ -1288,7 +1288,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
     //Test the compound shift source also
     {
-      typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType, flavorMatrixSpinColorContract<15,mf_Complex,true,false> > MultiInnerType;
+      typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
       
       MultiSrcType multi_src;    
       multi_src.template getSource<0>().setup(2.0,pp3.ptr(),sfp);
@@ -1321,7 +1321,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       if(!UniqueID()) printf("Passed point shift multisrc equivalence test\n");
     }
 
-  // typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+  // typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
   // typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
   }
   
@@ -1518,7 +1518,7 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
 
   typedef typename A2Apolicies::ComplexType VectorComplexType;
   
-  typedef GparitySourceShiftInnerProduct<VectorComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,VectorComplexType,true,false> > ShiftInnerType;
+  typedef GparitySourceShiftInnerProduct<VectorComplexType,ExpSrcType, flavorMatrixSpinColorContract<15,true,false> > ShiftInnerType;
   typedef GparityFlavorProjectedShiftSourceSumStorage<A2Apolicies, ShiftInnerType> ShiftSumStorageType;
   
   ShiftInnerType shift_inner(sigma3, src);
@@ -1633,7 +1633,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
   // mf_store3.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v), true );
 #if 1
   
-  typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftInnerType;
+  typedef GparitySourceShiftInnerProduct<mf_Complex,SrcType,flavorMatrixSpinColorContract<0,true,false> > ShiftInnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftInnerType> ShiftStorageType;
   
   SrcType src3(2., pp, sp);
@@ -1652,7 +1652,7 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 
   typedef Elem<SrcType, Elem<SrcType,ListEnd > > SrcList;
   typedef A2AmultiSource<SrcList> MultiSrcType;
-  typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType,flavorMatrixSpinColorContract<0,mf_Complex,true,false> > ShiftMultiSrcInnerType;
+  typedef GparitySourceShiftInnerProduct<mf_Complex,MultiSrcType,flavorMatrixSpinColorContract<0,true,false> > ShiftMultiSrcInnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<A2Apolicies, ShiftMultiSrcInnerType> ShiftMultiSrcStorageType;
 
   MultiSrcType multisrc;
@@ -2520,6 +2520,35 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol){
+
+  {
+    typedef typename GridA2Apolicies::ComplexType grid_Complex;
+    const int Nsimd = grid_Complex::Nsimd();      
+
+    std::cout << "Nsimd = " << Nsimd << std::endl;
+
+    std::cout << "GPU vector size " << grid_Complex::vector_type::N << std::endl;
+    
+    size_t n = 1000;
+    grid_Complex* a = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
+    grid_Complex* b = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
+    grid_Complex* c = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
+    
+    accelerator_for(item, n, Nsimd,
+    		    {
+		      Grid::iScalar<grid_Complex>* aa = (Grid::iScalar<grid_Complex>*)(a+item);
+		      Grid::iScalar<grid_Complex>* bb = (Grid::iScalar<grid_Complex>*)(b+item);
+		      Grid::iScalar<grid_Complex>* cc = (Grid::iScalar<grid_Complex>*)(c+item);
+		      
+    		      auto aav = coalescedRead(*aa);
+    		      auto bbv = coalescedRead(*bb);
+    		      coalescedWrite(*cc, aav*bbv);
+    		    });
+  }
+
+
+
+  
 #ifdef USE_GRID
   std::cout << "Starting MF contraction test\n";
 
@@ -2748,7 +2777,7 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
   typedef A2AflavorProjectedHydrogenSource<GridSrcPolicy> HydSrcType;
   typedef Elem<ExpSrcType, Elem<HydSrcType,ListEnd > > SrcList;
   typedef A2AmultiSource<SrcList> MultiSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
 
   const double rad = 2.0;
   MultiSrcType src;
@@ -3965,7 +3994,7 @@ void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char
   }
 
   for(int t=0;t<Lt;t++){
-    ScalarComplexType a = std::conj(trace(mf_mp2_mp1[t]));
+    ScalarComplexType a = cconj(trace(mf_mp2_mp1[t]));
     ScalarComplexType b = trace(mf_p1_p2[t]);
 
     std::cout << t << " " << a.real() << " " << a.imag() << " " << b.real() << " " << b.imag() << std::endl;

@@ -38,7 +38,18 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
   typedef typename mfVectorPolicies::mfVectorType mfVectorType;
   typedef typename mfVectorPolicies::accumType accumType;
   enum { Nsimd = mfVectorPolicies::Nsimd };
-  
+
+  template<typename T>
+  inline T* Alloc(size_t n){
+    T* p = (T*)managed_alloc_check(128, n*sizeof(T));
+    return p;
+  }
+  template<typename T>
+  inline void Free(T* p){
+    managed_free((void*)p);
+  }
+
+    
   void compute(mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
     this->setupPolicy(mf_t,l,M,r);
     
@@ -74,14 +85,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j
     //These need to be in managed memory so they can be accessed on the device
     typedef SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> vPtr;
-    Grid::alignedAllocator<vPtr> vPtr_alloc;
-    vPtr *base_ptrs_i = vPtr_alloc.allocate(nmodes_l);
-    vPtr *base_ptrs_j = vPtr_alloc.allocate(nmodes_r);
+    vPtr *base_ptrs_i = Alloc<vPtr>(nmodes_l);
+    vPtr *base_ptrs_j = Alloc<vPtr>(nmodes_r);
 
     typedef std::pair<int,int> offsetT;
-    Grid::alignedAllocator<offsetT> offsetT_alloc;
-    offsetT *site_offsets_i = offsetT_alloc.allocate(nmodes_l);
-    offsetT *site_offsets_j = offsetT_alloc.allocate(nmodes_r);
+    offsetT *site_offsets_i = Alloc<offsetT>(nmodes_l);
+    offsetT *site_offsets_j = Alloc<offsetT>(nmodes_r);
  
     //Total number of work items is nmodes_l * nmodes_r * size_3d, and kernel is M
     //A reduction is performed over the 3d site
@@ -98,8 +107,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
     //Allocate work item temp memory
     size_t naccum = bi * bj * size_3d * this->accumMultiplicity();
-    Grid::alignedAllocator<accumType> accum_alloc;
-    accumType *accum = accum_alloc.allocate(naccum); 
+    accumType *accum = Alloc<accumType>(naccum);
 
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
@@ -135,7 +143,10 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  size_t njb = jup - j0;
 
 	  size_t nwork = nib * njb * size_3d;
-	  
+
+	  std::cout << "START RUN" << std::endl;
+
+	  {
 	  accelerator_for(item, nwork, Nsimd, 
 			  {
 			    size_t rem = item;
@@ -152,6 +163,10 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
 			    M(*into,lptr,rptr,x,t);
 			  });
+	  }
+
+	  std::cout << "END RUN" << std::endl;
+	   
 
 	  //Reduce over size_3d
 	  //(Do this on host for now) //GENERALIZE ME
@@ -184,11 +199,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->nodeSum(mf_t,Lt);
 #endif
 
-    vPtr_alloc.deallocate(base_ptrs_i, nmodes_l);
-    vPtr_alloc.deallocate(base_ptrs_j, nmodes_r);
-    offsetT_alloc.deallocate(site_offsets_i, nmodes_l);
-    offsetT_alloc.deallocate(site_offsets_j, nmodes_r);
-    accum_alloc.deallocate(accum, naccum); 
+    Free(base_ptrs_i);
+    Free(base_ptrs_j);
+    Free(site_offsets_i);
+    Free(site_offsets_j);
+    Free(accum);
 
     print_time("A2AmesonField","nodeSum",time + dclock());
   }

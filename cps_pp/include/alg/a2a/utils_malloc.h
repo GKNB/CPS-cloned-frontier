@@ -73,6 +73,47 @@ inline void* malloc_check(const size_t sz){
   return p;
 }
 
+//Note, CUDA does not allow alignment; apparently it is always "sufficient"
+inline void* managed_alloc_check(const size_t align, const size_t byte_size){
+#ifdef GRID_NVCC
+  void *p;
+  auto err = cudaMallocManaged(&p,byte_size);
+  if( err != cudaSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }
+  return p;
+#else
+  return memalign_check(align, byte_size);
+#endif
+}
+
+inline void* managed_alloc_check(const size_t byte_size){
+#ifdef GRID_NVCC
+  void *p;
+  auto err = cudaMallocManaged(&p,byte_size);
+  if( err != cudaSuccess ) {
+    p = (void*)NULL;
+    std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }
+  return p;
+#else
+  return malloc_check(byte_size);
+#endif
+}
+
+inline void managed_free(void* p){
+#ifdef GRID_NVCC
+  cudaFree(p);
+#else
+  free(p);
+#endif
+}
+
+
+
 //Simple test  standard library allocator to find out when memory is allocated
 template <typename T>
 class mmap_allocator: public std::allocator<T>{

@@ -129,8 +129,8 @@ public:
 	for(int j=0;j<nj;j++){
 	  const ScalarComplexType & el = lreord(i, j);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(lreord_gsl,i,j);
-	  *(el_gsl++) = std::real(el);
-	  *(el_gsl) = std::imag(el);
+	  *(el_gsl++) = el.real();
+	  *(el_gsl) = el.imag();
 	}
 
 #pragma omp parallel for
@@ -138,8 +138,8 @@ public:
 	for(int k=0;k<nk;k++){
 	  const ScalarComplexType & el = rreord(j, k);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(rreord_gsl,j,k);
-	  *(el_gsl++) = std::real(el);
-	  *(el_gsl) = std::imag(el);
+	  *(el_gsl++) = el.real();
+	  *(el_gsl) = el.imag();
 	}
       
 #endif
@@ -446,8 +446,8 @@ public:
 	for(int j=0;j<nj;j++){
 	  const ScalarComplexType & el = l(i, jlmap[j]);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(lreord_gsl,i,j);
-	  *(el_gsl++) = std::real(el);
-	  *(el_gsl) = std::imag(el);
+	  *(el_gsl++) = el.real();
+	  *(el_gsl) = el.imag();
 	}
 
 #pragma omp parallel for
@@ -456,8 +456,8 @@ public:
 	for(int k=0;k<nk;k++){
 	  const ScalarComplexType & el = r(j_actual, k);
 	  mf_Float *el_gsl = (mf_Float*)gw::matrix_complex_ptr(rreord_gsl,j,k);
-	  *(el_gsl++) = std::real(el);
-	  *(el_gsl) = std::imag(el);
+	  *(el_gsl++) = el.real();
+	  *(el_gsl) = el.imag();
 	}
       }
 #endif

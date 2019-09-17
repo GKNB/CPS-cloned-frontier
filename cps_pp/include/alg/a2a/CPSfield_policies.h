@@ -40,10 +40,10 @@ class StandardAllocPolicy{
 class Aligned128AllocPolicy{
  protected:
   inline static void _alloc(void** p, const size_t byte_size){
-    *p = memalign_check(128,byte_size);
+    *p = managed_alloc_check(128,byte_size); //note CUDA ignores alignment
   }
   inline static void _free(void* p){
-    free(p);
+    managed_free(p);
   }
   inline void writeParams(std::ostream &file) const{
     writePolicyName(file, "ALLOCPOLICY", "Aligned128AllocPolicy");

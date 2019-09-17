@@ -19,9 +19,15 @@ inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
   to += from;
 }
 #ifdef USE_GRID
-inline void doAccum(std::complex<double> &to, const Grid::vComplexD &from){
-  auto v = Reduce(from);
-  to += std::complex<double>(v.real(),v.imag());
+
+#ifdef GRID_NVCC
+inline void doAccum(Grid::ComplexD &to, const Grid::ComplexD &from){
+  to += from;
+}
+#endif
+
+inline void doAccum(Grid::ComplexD &to, const Grid::vComplexD &from){
+  to += Reduce(from);
 }
 inline void doAccum(Grid::vComplexD &to, const Grid::vComplexD &from){
   to += from;
@@ -270,12 +276,12 @@ public:
 };
 
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
-class SCFspinflavorInnerProduct: public GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >{
+class SCFspinflavorInnerProduct: public GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,conj_left,conj_right> >{
 public:
   typedef SourceType InnerProductSourceType;
   
   SCFspinflavorInnerProduct(const FlavorMatrixType &_sigma, SourceType &_src):
-    GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,mf_Complex,conj_left,conj_right> >(_sigma,_src){}
+    GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,conj_left,conj_right> >(_sigma,_src){}
 };
 
 //The class GparitySourceShiftInnerProduct generalizes the concept of multi-source to allow for a series of momentum-space vector shifts applied to each source, reducing memory usage by performing those shifts

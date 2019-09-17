@@ -303,7 +303,7 @@ public:
   //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
   
   //Allows for more memory efficient computation algorithm
-  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
   
 private:
@@ -466,7 +466,7 @@ public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,true,false> > InnerType;
 
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
 
@@ -556,7 +556,7 @@ public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedExpSource<SourcePolicies> ExpSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,ExpSrcType, flavorMatrixSpinColorContract<SpinMatrix,true,false> > InnerType;
 
   typedef GparityFlavorProjectedShiftSourceSumStorage<mf_Policies, InnerType> StorageType;
 
@@ -650,7 +650,7 @@ public:
   INHERIT_FROM_BASE;
 
   typedef A2AflavorProjectedPointSource<SourcePolicies> PointSrcType;
-  typedef GparitySourceShiftInnerProduct<ComplexType,PointSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > InnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,PointSrcType, flavorMatrixSpinColorContract<15,true,false> > InnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, InnerType> StorageType;
    
 public:
@@ -730,7 +730,7 @@ public:
   //typedef GparityFlavorProjectedMultiSourceStorage<mf_Policies, MultiInnerType> StorageType;
   
   //Allows for more memory efficient computation algorithm
-  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,ComplexType,true,false> > MultiInnerType;
+  typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
   typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
    
 public:

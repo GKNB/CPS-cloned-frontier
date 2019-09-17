@@ -34,7 +34,7 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(const A2AfieldL<mf_
 
 #pragma omp parallel for
     for(int i = 0; i < nmodes_l; i++){
-      cps::ComplexD mf_accum;
+      typename mf_Policies::ComplexType mf_accum;
 
       modeIndexSet i_high_unmapped; if(i>=nl_l) lindexdilution.indexUnmap(i-nl_l,i_high_unmapped);
 
@@ -220,14 +220,14 @@ public:
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct SingleSrcVectorPolicies{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
-  typedef InPlaceMatrixSingle<cps::ComplexD> AccumMatrixType;
+  typedef InPlaceMatrixSingle<typename mf_Policies::ScalarComplexType> AccumMatrixType;
 
   static inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){ 
     if(!UniqueID()){ printf("Using SingleSrcVectorPolicies\n"); fflush(stdout); }
     assert(M.mfPerTimeSlice() == 1); 
   }
 
-  static inline size_t mf_Accum_bytes(){ return sizeof(cps::ComplexD); }
+  static inline size_t mf_Accum_bytes(){ return sizeof(typename mf_Policies::ScalarComplexType); }
 
   static inline void initializeAccumMatrix(AccumMatrixType &m, char* p, const int nmodes_l, const int nmodes_r){
     m.setup(p,nmodes_l,nmodes_r);
@@ -260,7 +260,7 @@ struct SingleSrcVectorPolicies{
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct MultiSrcVectorPolicies{
   typedef std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;  //indexed by [srcidx][t]
-  typedef InPlaceMatrixMulti<cps::ComplexD> AccumMatrixType;
+  typedef InPlaceMatrixMulti<typename mf_Policies::ScalarComplexType> AccumMatrixType;
 
   int mfPerTimeSlice;
    
@@ -269,10 +269,10 @@ struct MultiSrcVectorPolicies{
     if(!UniqueID()){ printf("Using MultiSrcVectorPolicies with #MF per timeslice %d\n",mfPerTimeSlice); fflush(stdout); }
   }
   
-  inline size_t mf_Accum_bytes(){ return mfPerTimeSlice*sizeof(cps::ComplexD); }
+  inline size_t mf_Accum_bytes(){ return mfPerTimeSlice*sizeof(typename mf_Policies::ScalarComplexType); }
 
   inline void initializeAccumMatrix(AccumMatrixType &m, char* p, const int nmodes_l, const int nmodes_r){
-    m.setup(p,mfPerTimeSlice*sizeof(cps::ComplexD),nmodes_l,nmodes_r);
+    m.setup(p,mfPerTimeSlice*sizeof(typename mf_Policies::ScalarComplexType),nmodes_l,nmodes_r);
   }
 
   void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
@@ -301,7 +301,7 @@ struct MultiSrcVectorPolicies{
   }
   inline void sumThreadedResults(mfVectorType &mf_st, AccumMatrixType const* mf_accum_thr, const int i, const int j, const int t, const int nthread) const{
     for(int thr=0;thr<nthread;thr++){
-      cps::ComplexD const* v = mf_accum_thr[thr](i,j);
+      typename mf_Policies::ScalarComplexType const* v = mf_accum_thr[thr](i,j);
       for(int s=0;s<mfPerTimeSlice;s++){
 	mf_st[s]->operator[](t)(i,j) += v[s];
       }

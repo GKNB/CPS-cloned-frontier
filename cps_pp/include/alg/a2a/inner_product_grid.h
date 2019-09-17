@@ -44,7 +44,7 @@ struct grid_mul<mf_Complex,false,false>{
 template<typename mf_Complex, bool conj_left, bool conj_right>
 struct grid_g5contract{
 
-  inline static void doit(std::complex<double> &v3, const mf_Complex *const l, const mf_Complex *const r){
+  inline static void doit(mf_Complex &v3, const mf_Complex *const l, const mf_Complex *const r){
     const static int sc_size =12;
     const static int half_sc = 6;
     typedef typename Grid_A2A::SIMDvtype<mf_Complex>::Vtype Vtype;
@@ -112,13 +112,13 @@ struct grid_g5contract{
 
 
 //Version of the above for G-parity that produces a flavor matrix reusing vectors where possible
-template<typename mf_Complex, bool conj_left, bool conj_right>
+template<typename ComplexType, bool conj_left, bool conj_right>
 struct grid_scf_contract{
-  typedef typename Grid_A2A::SIMDvtype<mf_Complex>::Vtype Vtype;
+  typedef typename Grid_A2A::SIMDvtype<ComplexType>::Vtype Vtype;
   
-  inline static void grid_g5_forml(Vtype l_f[], const int f, const SCFvectorPtr<mf_Complex> &l, 
-				   mf_Complex block[], const int nsimd, const int overspill_amnt, const int mid_block, const int mid_subidx, const int nblocks ){
-    mf_Complex *il = const_cast<mf_Complex*>(l.getPtr(f));
+  inline static void grid_g5_forml(Vtype l_f[], const int f, const SCFvectorPtr<ComplexType> &l, 
+				   ComplexType block[], const int nsimd, const int overspill_amnt, const int mid_block, const int mid_subidx, const int nblocks ){
+    ComplexType *il = const_cast<ComplexType*>(l.getPtr(f));
     if(nsimd == 4){ //avx256 with complex<float> or avx512 with complex<double>
       vset(l_f[0],il); //first 4 complexes
       block[0] = il[4]; //second 4
@@ -157,9 +157,9 @@ struct grid_scf_contract{
       }
     }
   }
-  inline static void grid_g5_formr(Vtype r_f[], const int f, const SCFvectorPtr<mf_Complex> &r, 
-				   mf_Complex block[], const int nsimd, const int overspill_amnt, const int nblocks ){
-    mf_Complex *ir = const_cast<mf_Complex*>(r.getPtr(f));
+  inline static void grid_g5_formr(Vtype r_f[], const int f, const SCFvectorPtr<ComplexType> &r, 
+				   ComplexType block[], const int nsimd, const int overspill_amnt, const int nblocks ){
+    ComplexType *ir = const_cast<ComplexType*>(r.getPtr(f));
       
     //Packed blocks
     for(int i=0;i<nblocks;i++){
@@ -174,8 +174,10 @@ struct grid_scf_contract{
       vset(r_f[nblocks],block);
     }
   }
+  
+  static void grid_g5con(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r){
+    static_assert(Vtype::Nsimd() < 12, "Grid SIMD-optimized scf contract only works for Nsimd<12");
 
-  static void grid_g5con(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
     const int sc_size = 12;
     const int nsimd = Vtype::Nsimd();
     const int overspill_amnt = sc_size % nsimd; //how many elements don't fit in nice SIMD blocks
@@ -189,7 +191,7 @@ struct grid_scf_contract{
     Vtype r_0[nblocks_inc_overspill];
     Vtype r_1[nblocks_inc_overspill];
 
-    mf_Complex block[nsimd];
+    ComplexType block[nsimd];
 
     if(!l.isZero(0))
       grid_g5_forml(l_0,0,l, block, nsimd, overspill_amnt, mid_block, mid_subidx, nblocks );
@@ -205,34 +207,36 @@ struct grid_scf_contract{
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
       lMr(0,0) = Reduce(sol);
     }
     //0,1
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
       lMr(0,1) = Reduce(sol);
     }
     //1,0
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
       lMr(1,0) = Reduce(sol);
     }
     //1,1
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
       lMr(1,1) = Reduce(sol);
     }
   }
 
 
-  static void grid_unitcon(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
+  static void grid_unitcon(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r){
+    static_assert(Vtype::Nsimd() < 12, "Grid SIMD-optimized scf contract only works for Nsimd<12");
+    
     const int sc_size = 12;
     const int nsimd = Vtype::Nsimd();
     const int overspill_amnt = sc_size % nsimd; //how many elements don't fit in nice SIMD blocks
@@ -246,7 +250,7 @@ struct grid_scf_contract{
     Vtype r_0[nblocks_inc_overspill];
     Vtype r_1[nblocks_inc_overspill];
 
-    mf_Complex block[nsimd];
+    ComplexType block[nsimd];
 
     if(!l.isZero(0))
       grid_g5_formr(l_0,0,l, block, nsimd, overspill_amnt, nblocks );
@@ -262,28 +266,28 @@ struct grid_scf_contract{
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_0[i],r_0[i]);
       lMr(0,0) = Reduce(sol);
     }
     //0,1
     zeroit(sol);
     if(!l.isZero(0) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_0[i],r_1[i]);
       lMr(0,1) = Reduce(sol);
     }
     //1,0
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(0)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_1[i],r_0[i]);
       lMr(1,0) = Reduce(sol);
     }
     //1,1
     zeroit(sol);
     if(!l.isZero(1) && !r.isZero(1)){
       for(int i=0;i<nblocks_inc_overspill;i++)
-	grid_mul<mf_Complex,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
+	grid_mul<ComplexType,conj_left,conj_right>::doit(sol,l_1[i],r_1[i]);
       lMr(1,1) = Reduce(sol);
     }
   }
@@ -291,19 +295,19 @@ struct grid_scf_contract{
 
 
 
-template<int smatidx,typename mf_Complex, bool conj_left, bool conj_right>
+template<int smatidx,typename ComplexType, bool conj_left, bool conj_right>
 struct grid_scf_contract_select{};
 
-template<typename mf_Complex, bool conj_left, bool conj_right>
-struct grid_scf_contract_select<15,mf_Complex,conj_left,conj_right>{
-  inline static void doit(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
-    grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_g5con(lMr,l,r);
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct grid_scf_contract_select<15,ComplexType,conj_left,conj_right>{
+  inline static void doit(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r){
+    grid_scf_contract<ComplexType,conj_left,conj_right>::grid_g5con(lMr,l,r);
   }
 };
-template<typename mf_Complex, bool conj_left, bool conj_right>
-struct grid_scf_contract_select<0,mf_Complex,conj_left,conj_right>{
-  inline static void doit(FlavorMatrix &lMr, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r){
-    grid_scf_contract<mf_Complex,conj_left,conj_right>::grid_unitcon(lMr,l,r);
+template<typename ComplexType, bool conj_left, bool conj_right>
+struct grid_scf_contract_select<0,ComplexType,conj_left,conj_right>{
+  inline static void doit(FlavorMatrixGeneral<ComplexType> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r){
+    grid_scf_contract<ComplexType,conj_left,conj_right>::grid_unitcon(lMr,l,r);
   }
 };
 
