@@ -4,36 +4,37 @@
 #include<util/data_types.h>
 #include<util/error.h>
 
+#ifdef USE_GRID
+#include<Grid/Grid.h>
+#endif
+
 CPS_START_NAMESPACE
 
 template<typename T>
-inline T timesI(const T &v){
+accelerator_inline T timesI(const T &v){
   return T( -v.imag(), v.real() );
 }
 template<typename T>
-inline T timesMinusI(const T &v){
+accelerator_inline T timesMinusI(const T &v){
   return T( v.imag(), -v.real() );
 }
 
 #ifdef USE_GRID
-CPS_END_NAMESPACE
-#include<Grid/Grid.h>
-CPS_START_NAMESPACE
 
 template<>
-inline Grid::vComplexD timesI(const Grid::vComplexD &v){
+accelerator_inline Grid::vComplexD timesI(const Grid::vComplexD &v){
   return Grid::timesI(v);
 }
 template<>
-inline Grid::vComplexD timesMinusI(const Grid::vComplexD &v){
+accelerator_inline Grid::vComplexD timesMinusI(const Grid::vComplexD &v){
   return Grid::timesMinusI(v);
 }
 template<>
-inline Grid::vComplexF timesI(const Grid::vComplexF &v){
+accelerator_inline Grid::vComplexF timesI(const Grid::vComplexF &v){
   return Grid::timesI(v);
 }
 template<>
-inline Grid::vComplexF timesMinusI(const Grid::vComplexF &v){
+accelerator_inline Grid::vComplexF timesMinusI(const Grid::vComplexF &v){
   return Grid::timesMinusI(v);
 }
 #endif
@@ -47,56 +48,56 @@ class FlavorMatrixGeneral{
 protected:
   T fmat[2][2];
 public:
-  FlavorMatrixGeneral(){
+  accelerator_inline FlavorMatrixGeneral(){
   }
-  FlavorMatrixGeneral(const FlavorMatrixGeneral<T> &from){
+  accelerator_inline FlavorMatrixGeneral(const FlavorMatrixGeneral<T> &from){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = from.fmat[i][j];
   }
 
   template<typename U>
-  FlavorMatrixGeneral(const U rhs){
+  accelerator_inline FlavorMatrixGeneral(const U rhs){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = rhs;
   }
 
-  void zero(){
+  accelerator_inline void zero(){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = 0.0;
   }
 
-  FlavorMatrixGeneral<T>& operator=(const FlavorMatrixGeneral<T> &from){
+  accelerator_inline FlavorMatrixGeneral<T>& operator=(const FlavorMatrixGeneral<T> &from){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] = from.fmat[i][j];
     return *this;
   }
 
-  inline T &operator()(int f_row,int f_col){
+  accelerator_inline T &operator()(int f_row,int f_col){
     return fmat[f_row][f_col];
   }
-  inline const T &operator()(int f_row,int f_col) const{
+  accelerator_inline const T &operator()(int f_row,int f_col) const{
     return fmat[f_row][f_col];
   }
 
-  FlavorMatrixGeneral<T> & operator+=(const FlavorMatrixGeneral<T> &r){
+  accelerator_inline FlavorMatrixGeneral<T> & operator+=(const FlavorMatrixGeneral<T> &r){
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] += r.fmat[i][j];
     return *this;
   }
   template<typename U>
-  FlavorMatrixGeneral<T> & operator*=(const U rhs){ 
+  accelerator_inline FlavorMatrixGeneral<T> & operator*=(const U rhs){ 
     for(int i = 0 ; i < 2; i++)
       for(int j = 0 ; j < 2; j++)
 	fmat[i][j] *= rhs;
     return *this;
   }
 
-  FlavorMatrixGeneral<T> operator*(const FlavorMatrixGeneral<T>& rhs) const{
+  accelerator_inline FlavorMatrixGeneral<T> operator*(const FlavorMatrixGeneral<T>& rhs) const{
     FlavorMatrixGeneral<T> out;
     out.fmat[0][0] = fmat[0][0]*rhs.fmat[0][0] + fmat[0][1]*rhs.fmat[1][0];
     out.fmat[0][1] = fmat[0][0]*rhs.fmat[0][1] + fmat[0][1]*rhs.fmat[1][1];
@@ -105,7 +106,7 @@ public:
     return out;
   }
 
-  FlavorMatrixGeneral<T> transpose() const{
+  accelerator_inline FlavorMatrixGeneral<T> transpose() const{
     FlavorMatrixGeneral<T> out;
     out.fmat[0][0] = fmat[0][0];
     out.fmat[0][1] = fmat[1][0];
@@ -114,13 +115,13 @@ public:
     return out;
   }
 
-  T Trace() const{
+  accelerator_inline T Trace() const{
     return fmat[0][0] + fmat[1][1];
   }
 
   //Added by CK
   //multiply on left by a flavor matrix
-  FlavorMatrixGeneral<T> & pl(const FlavorMatrixType &type){
+  accelerator_inline FlavorMatrixGeneral<T> & pl(const FlavorMatrixType &type){
     T tmp1, tmp2;
 
     switch( type ){
@@ -163,7 +164,8 @@ public:
       (*this)(1,1)*=-1.0;
       break;
     default:
-      ERR.General("FlavorMatrixGeneral","pl(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
+      assert(0);
+      //ERR.General("FlavorMatrixGeneral","pl(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
       break;
     }
     return *this;
@@ -171,7 +173,7 @@ public:
   }
 
   //multiply on right by a flavor matrix
-  FlavorMatrixGeneral<T> & pr(const FlavorMatrixType &type){
+  accelerator_inline FlavorMatrixGeneral<T> & pr(const FlavorMatrixType &type){
     T tmp1, tmp2;
 
     switch(type){
@@ -214,7 +216,8 @@ public:
       (*this)(1,1)*=-1.0;
       break;
     default:
-      ERR.General("FlavorMatrixGeneral","pr(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
+      assert(0);
+      //ERR.General("FlavorMatrixGeneral","pr(const FlavorMatrixGeneralType &type)","Unknown FlavorMatrixGeneralType");
       break;
     }
     return *this;
@@ -222,12 +225,12 @@ public:
 };
 //Trace(A * B);
 template<typename T>
-inline static T Trace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
+accelerator_inline static T Trace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
   return a(0,0)*b(0,0) + a(0,1)*b(1,0) + a(1,0)*b(0,1) + a(1,1)*b(1,1);
 }
 //Trace(A^T * B)
 template<typename T>
-inline static T TransLeftTrace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
+accelerator_inline static T TransLeftTrace(const FlavorMatrixGeneral<T> &a, const FlavorMatrixGeneral<T> &b){
   return a(0,0)*b(0,0) + a(1,0)*b(1,0) + a(0,1)*b(0,1) + a(1,1)*b(1,1);
 }
 

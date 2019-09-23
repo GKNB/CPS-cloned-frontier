@@ -4,8 +4,6 @@
 //#define USE_GRID_A2A
 //#define USE_GRID_LANCZOS
 
-#if 1
-
 #include "benchmark_mesonfield.h"
 
 using namespace cps;
@@ -327,10 +325,7 @@ int main(int argc,char *argv[])
     
   if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }
   End();
+  
   return 0;
 }
 
-
-
-
-#endif

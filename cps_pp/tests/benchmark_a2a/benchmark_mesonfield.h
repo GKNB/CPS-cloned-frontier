@@ -2520,35 +2520,7 @@ void testMesonFieldReadWrite(const A2AArg &a2a_args){
 
 template<typename ScalarA2Apolicies, typename GridA2Apolicies>
 void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol){
-
-  {
-    typedef typename GridA2Apolicies::ComplexType grid_Complex;
-    const int Nsimd = grid_Complex::Nsimd();      
-
-    std::cout << "Nsimd = " << Nsimd << std::endl;
-
-    std::cout << "GPU vector size " << grid_Complex::vector_type::N << std::endl;
-    
-    size_t n = 1000;
-    grid_Complex* a = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
-    grid_Complex* b = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
-    grid_Complex* c = (grid_Complex*)managed_alloc_check(n*sizeof(grid_Complex));
-    
-    accelerator_for(item, n, Nsimd,
-    		    {
-		      Grid::iScalar<grid_Complex>* aa = (Grid::iScalar<grid_Complex>*)(a+item);
-		      Grid::iScalar<grid_Complex>* bb = (Grid::iScalar<grid_Complex>*)(b+item);
-		      Grid::iScalar<grid_Complex>* cc = (Grid::iScalar<grid_Complex>*)(c+item);
-		      
-    		      auto aav = coalescedRead(*aa);
-    		      auto bbv = coalescedRead(*bb);
-    		      coalescedWrite(*cc, aav*bbv);
-    		    });
-  }
-
-
-
-  
+ 
 #ifdef USE_GRID
   std::cout << "Starting MF contraction test\n";
 
@@ -2580,6 +2552,11 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
   typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
   GridInnerProduct mf_struct_grid(sigma3,src_grid);
+
+
+  //typedef GparityNoSourceInnerProduct<typename GridA2Apolicies::ComplexType, flavorMatrixSpinColorContract<15,true,false> > GridInnerProduct;
+  //GridInnerProduct mf_struct_grid(sigma3);
+  
   
   A2AflavorProjectedExpSource<> src(2.0,p);
   typedef SCFspinflavorInnerProduct<15,typename ScalarA2Apolicies::ComplexType,A2AflavorProjectedExpSource<> > StdInnerProduct;

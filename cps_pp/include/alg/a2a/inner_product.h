@@ -15,23 +15,31 @@ CPS_START_NAMESPACE
 //mf_Complex is the base complex type for the vectors
 //Output should be *double precision complex* even if the vectors are stored in single precision. Do this to avoid finite prec errors on spatial sum
 
-inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
+accelerator_inline void doAccum(std::complex<double> &to, const std::complex<double> &from){
   to += from;
 }
 #ifdef USE_GRID
 
 #ifdef GRID_NVCC
-inline void doAccum(Grid::ComplexD &to, const Grid::ComplexD &from){
+accelerator_inline void doAccum(Grid::ComplexD &to, const Grid::ComplexD &from){
   to += from;
 }
 #endif
 
-inline void doAccum(Grid::ComplexD &to, const Grid::vComplexD &from){
+accelerator_inline void doAccum(Grid::ComplexD &to, const Grid::vComplexD &from){
   to += Reduce(from);
 }
-inline void doAccum(Grid::vComplexD &to, const Grid::vComplexD &from){
-  to += from;
+// accelerator_inline void doAccum(Grid::vComplexD &to, const Grid::vComplexD &from){
+//   to += from;
+// }
+
+//SIMT version
+accelerator_inline void doAccum(Grid::vComplexD &to, const typename SIMT<Grid::vComplexD>::value_type &from){
+  auto v = SIMT<Grid::vComplexD>::read(to);
+  v += from;
+  SIMT<Grid::vComplexD>::write(to, v);
 }
+
 #endif
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
@@ -199,8 +207,8 @@ public:
 template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurse{
   template<typename AccumVtype>
-  static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
-    FlavorMatrixGeneral<mf_Complex> phi;
+  static accelerator_inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
     src.template getSource<Idx>().siteFmat(phi,p);
     phi.pl(sigma);
     
@@ -211,7 +219,7 @@ struct _siteFmatRecurse{
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurse<SourceType,mf_Complex,0,Idx>{
   template<typename AccumVtype>
-  static inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
+  static accelerator_inline void doit(AccumVtype &into, const SourceType &src, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){}
 };
 
 //SpinColorContractPolicy is a policy class that has a static method
@@ -220,7 +228,7 @@ struct _siteFmatRecurse<SourceType,mf_Complex,0,Idx>{
 
 template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy>
 class GparityInnerProduct: public SpinColorContractPolicy{
-  const SourceType &src;
+  SourceType src;
   FlavorMatrixType sigma;
 
   //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
@@ -232,14 +240,14 @@ class GparityInnerProduct: public SpinColorContractPolicy{
 
   //Single source
   template<typename AccumType, typename S>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  accelerator_inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
   do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
     this->spinColorContract(lMr,l,r);
     
     //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
-    FlavorMatrixGeneral<mf_Complex> phi;
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
     src.siteFmat(phi,p);
     phi.pl(sigma);
 
@@ -251,10 +259,10 @@ class GparityInnerProduct: public SpinColorContractPolicy{
   //Multi source
   //Does out += op(l,r,p,t);
   template<typename AccumVtype, typename S>
-  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  accelerator_inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
   do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<mf_Complex> lMr; //is vectorized
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vectorized otherwise
     this->spinColorContract(lMr,l,r);
 
     _siteFmatRecurse<SourceType,mf_Complex,SourceType::nSources>::doit(out,src,sigma,p,lMr);
@@ -270,7 +278,7 @@ public:
   inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
   
   template<typename AccumType>
-  inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     do_op<AccumType,SourceType>(out,l,r,p,t);
   }  
 };
@@ -284,6 +292,48 @@ public:
     GparityInnerProduct<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,conj_left,conj_right> >(_sigma,_src){}
 };
 
+
+
+//Just a simple spin/color/flavor matrix inner product with no source. (Equivalent to source whose Fourier transform is unity on all momentum sites)
+template<typename mf_Complex, typename SpinColorContractPolicy>
+class GparityNoSourceInnerProduct: public SpinColorContractPolicy{
+  FlavorMatrixType sigma;
+
+  template<typename AccumType>
+  accelerator_inline void 
+  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
+    this->spinColorContract(lMr,l,r);
+    
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+    phi.pl(sigma);
+
+    //Do the sum over the SIMD vectorized sites
+    doAccum(out, TransLeftTrace(lMr, phi));
+#endif
+  }  
+
+public:
+  GparityNoSourceInnerProduct(const FlavorMatrixType &_sigma): sigma(_sigma){ }
+ 
+  template<typename AccumType>
+  accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+    do_op<AccumType>(out,l,r,p,t);
+  }  
+
+  inline int mfPerTimeSlice() const{ return 1; }
+};
+
+
+
+
+
+
+
+
+
 //The class GparitySourceShiftInnerProduct generalizes the concept of multi-source to allow for a series of momentum-space vector shifts applied to each source, reducing memory usage by performing those shifts
 //on-the-fly
 
@@ -291,8 +341,9 @@ template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseShift{
 
   template<typename AccumVtype>
-  static inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){
-    FlavorMatrixGeneral<mf_Complex> phi;
+  static accelerator_inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
+				      const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
     for(int i=0;i<shifted_sources.size();i++){
       shifted_sources[i]->template getSource<Idx>().siteFmat(phi,p);
       phi.pl(sigma);
@@ -304,7 +355,8 @@ struct _siteFmatRecurseShift{
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseShift<SourceType,mf_Complex,0,Idx>{
   template<typename AccumVtype>
-  static inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p, const FlavorMatrixGeneral<mf_Complex> &lMr){}
+  static accelerator_inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
+				      const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){}
 };
 
 
@@ -353,13 +405,13 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
 
   //Single src, output vector indexed by src shift index
   template<typename AccumVtype, typename S>
-  inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  accelerator_inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
   do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<mf_Complex> lMr;
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr;
     this->spinColorContract(lMr,l,r);
 
-    FlavorMatrixGeneral<mf_Complex> phi;
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
     for(int i=0;i<shifts.size();i++){
       shifted_sources[i]->siteFmat(phi,p);
       phi.pl(sigma);
@@ -370,10 +422,10 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
 
   //Multi src. output indexed by source_idx + nSources*shift_idx
   template<typename AccumVtype,typename S>
-  inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  accelerator_inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
   do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
 #ifndef MEMTEST_MODE
-    FlavorMatrixGeneral<mf_Complex> lMr;
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr;
     this->spinColorContract(lMr,l,r);
     _siteFmatRecurseShift<S,mf_Complex,S::nSources>::doit(out,shifted_sources,sigma,p,lMr);
 #endif
@@ -401,7 +453,7 @@ public:
   }
   
   template<typename AccumVtype>
-  inline void operator()(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+  accelerator_inline void operator()(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     return do_op<AccumVtype,SourceType>(out,l,r,p,t);
   }
 };

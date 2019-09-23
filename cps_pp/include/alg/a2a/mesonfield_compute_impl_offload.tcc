@@ -6,7 +6,7 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct SingleSrcVectorPoliciesSIMDoffload{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef Grid::vComplexD accumType;
-  inline const int accumMultiplicity() const{ return 1;}
+  accelerator_inline const int accumMultiplicity() const{ return 1;}
 
   enum { Nsimd = accumType::Nsimd() }; //should be 1 for scalar types
 
@@ -143,9 +143,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  size_t njb = jup - j0;
 
 	  size_t nwork = nib * njb * size_3d;
-
-	  std::cout << "START RUN" << std::endl;
-
+	    
 	  {
 	  accelerator_for(item, nwork, Nsimd, 
 			  {
@@ -160,13 +158,10 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			    accumType *into = accum + this->accumMultiplicity()*(x + size_3d*(jj + bj*ii));
 			    vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 			    vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
-
+			    
 			    M(*into,lptr,rptr,x,t);
 			  });
-	  }
-
-	  std::cout << "END RUN" << std::endl;
-	   
+	  }   
 
 	  //Reduce over size_3d
 	  //(Do this on host for now) //GENERALIZE ME

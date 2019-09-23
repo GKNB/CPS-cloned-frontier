@@ -47,20 +47,26 @@ struct MconjGrid{};
 
 template<typename vComplexType>
 struct MconjGrid<vComplexType,false,false>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return (*l) * (*r);
+  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
+    auto ll = SIMT<vComplexType>::read(*l);
+    auto rr = SIMT<vComplexType>::read(*r);
+    return ll * rr;
   }
 };
 template<typename vComplexType>
 struct MconjGrid<vComplexType,false,true>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return (*l) * conjugate(*r);
+  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
+    auto ll = SIMT<vComplexType>::read(*l);
+    auto rr = SIMT<vComplexType>::read(*r);  
+    return ll * conjugate(rr);
   }
 };
 template<typename vComplexType>
 struct MconjGrid<vComplexType,true,true>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
-    return conjugate(*l)*conjugate(*r);
+  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
+    auto ll = SIMT<vComplexType>::read(*l);
+    auto rr = SIMT<vComplexType>::read(*r);  
+    return conjugate(ll)*conjugate(rr);
   }
 };
 
@@ -107,11 +113,13 @@ inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vCom
 
 template<typename vComplexType>
 struct MconjGrid<vComplexType,true,false>{
-  static inline vComplexType doit(const vComplexType *const l, const vComplexType *const r){
+  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
 #if defined (AVX2) || defined (AVX512)
     return conjMult(l,r);
-#else    
-    return conjugate(*l) * (*r);
+#else
+    auto ll = SIMT<vComplexType>::read(*l);
+    auto rr = SIMT<vComplexType>::read(*r);  
+    return Grid::conjugate(ll) * (rr);
 #endif
   }
 };

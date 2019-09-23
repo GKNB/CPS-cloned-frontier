@@ -74,6 +74,21 @@ template<>
 struct is_complex_double_or_float<thrust::complex<float> >{ enum {value = 1}; };
 #endif
 
+
+//Is T a Grid::iScalar<Grid::Complex<double/float> > ?
+template<typename T>
+struct is_grid_iscalar_complex_double_or_float{ enum {value = 0}; };
+
+#ifdef USE_GRID
+template<>
+struct is_grid_iscalar_complex_double_or_float<Grid::iScalar<Grid::complex<double> > >{ enum {value = 1}; };
+
+template<>
+struct is_grid_iscalar_complex_double_or_float<Grid::iScalar<Grid::complex<float> > >{ enum {value = 1}; };
+#endif
+
+
+
 //A method of asking a Grid vector type if it's scalar_type is complex, predicated on whether the type is indeed a Grid vector type
 template<bool is_grid_vector, typename T>
 struct is_scalar_type_complex{};
@@ -127,12 +142,15 @@ struct LastElem{
 //An expandable method of classifying a complex type
 struct complex_double_or_float_mark{};
 struct grid_vector_complex_mark{};
+struct grid_iscalar_complex_double_or_float_mark{};
 
 template<typename T>
 struct ComplexClassify{
   typedef typename TestElem< is_complex_double_or_float<T>::value, complex_double_or_float_mark,
-			     TestElem< is_grid_vector_complex<T>::value, grid_vector_complex_mark,				       
-				       LastElem>
+			     TestElem< is_grid_vector_complex<T>::value, grid_vector_complex_mark,
+                                      TestElem< is_grid_iscalar_complex_double_or_float<T>::value, grid_iscalar_complex_double_or_float_mark,
+				                LastElem>
+                                      >
 			     >::type type;
 };
 

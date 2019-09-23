@@ -24,15 +24,34 @@ public:
   }
   
   A2Asource(): src(NULL){}
-  A2Asource(const A2Asource &cp): src(cp.src == NULL ? NULL : new FieldType(*cp.src)){}
+  A2Asource(const A2Asource &cp){
+#ifdef GRID_NVCC
+    //Allocate pointer in managed memory so it makes sense once the object is copied to the device
+    if(cp.src != NULL){
+      void* p = managed_alloc_check(sizeof(FieldType));
+      src = new (p) FieldType(*cp.src);
+    }else src = NULL;
+#else    
+    src = cp.src == NULL ? NULL : new FieldType(*cp.src);
+#endif
+  }
+
+  A2Asource & operator=(const A2Asource &r) = delete;
   
   ~A2Asource(){
+#ifdef GRID_NVCC
+    if(src != NULL){
+      src->~FieldType();
+      managed_free(src);
+    }
+#else     
     if(src != NULL) delete src;
+#endif
   }
 
   
-  inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
-  inline const int nsites() const{ return src->nsites(); }
+  accelerator_inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
+  accelerator_inline const int nsites() const{ return src->nsites(); }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>
   void importSource(const A2Asource<extComplexType,extDimPol<OneFlavorPolicy>,extAllocPol> &from){
@@ -132,9 +151,9 @@ public:
     return setup(NullObject());
   }
     
-  inline void siteFmat(FlavorMatrixGeneral<typename Policies::ComplexType> &out, const int site) const{
-    out(0,0) = out(1,1) = this->siteComplex(site);
-    out(0,1) = out(1,0) = ComplexType(0);    
+  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const int site) const{
+    out(0,0) = out(1,1) = SIMT<ComplexType>::read(this->siteComplex(site));
+    out(0,1) = out(1,0) = typename SIMT<ComplexType>::value_type(0);    
   }
 
   inline cps::ComplexD value(const int site[3], const int glb_size[3]) const{
@@ -417,14 +436,15 @@ public:
     return sgn;
   }
 
-  inline void siteFmat(FlavorMatrixGeneral<ComplexType> &out, const int site) const{
+  accelerator_inline void siteFmat(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &out, const int site) const{
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
-    const ComplexType &val = this->siteComplex(site);
+    auto val_ln = SIMT<ComplexType>::read(this->siteComplex(site));
+    auto val000_ln = SIMT<ComplexType>::read(val000);
     
-    out(0,0) = out(1,1) = val;
+    out(0,0) = out(1,1) = val_ln;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0
-    out(1,0) = multiplySignTimesI(sign,val - val000);
+    out(1,0) = multiplySignTimesI(sign,val_ln - val000_ln);
     out(0,1) = -out(1,0); //-1 from sigma2
   }
 

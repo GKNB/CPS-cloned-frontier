@@ -73,9 +73,8 @@ public:
 };
 #endif
 
-
-
 //Wrapper function to multiply a number by +/-i for std::complex and Grid complex
+
 template<typename T, typename T_class>
 struct _mult_sgn_times_i_impl{};
 
@@ -93,7 +92,16 @@ struct _mult_sgn_times_i_impl<T,grid_vector_complex_mark>{
     return sgn == -1 ? timesMinusI(val) : timesI(val);
   }
 };
+
+template<typename T>
+struct _mult_sgn_times_i_impl<T,grid_iscalar_complex_double_or_float_mark>{
+  inline static T doit(const int sgn, const T &val){
+    return sgn == -1 ? timesMinusI(val) : timesI(val);
+  }
+};
+
 #endif
+
 
 template<typename T>
 inline T multiplySignTimesI(const int sgn, const T &val){
