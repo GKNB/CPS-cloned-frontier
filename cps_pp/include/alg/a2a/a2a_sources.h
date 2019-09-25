@@ -16,22 +16,37 @@ public:
 protected:
   FieldType *src;
 public:
+#ifdef GRID_NVCC
+  //Make sure pointers to objects of this type created by new are in managed memory
+  static inline void* operator new(const size_t sz){
+    return managed_alloc_check(sz);
+  }
+  static inline void operator delete(void* ptr){
+    managed_free(ptr);
+  }
+#endif
+  
   A2Asource(const typename FieldType::InputParamType &params){
     setup(params);
   }
   inline void setup(const typename FieldType::InputParamType &params){
+    //Make sure the src pointer remains valid on the device
+#ifdef GRID_NVCC
+    void* p = managed_alloc_check(sizeof(FieldType));
+    src = new (p) FieldType(params);
+#else
     src = new FieldType(params);
+#endif
   }
   
   A2Asource(): src(NULL){}
   A2Asource(const A2Asource &cp){
 #ifdef GRID_NVCC
-    //Allocate pointer in managed memory so it makes sense once the object is copied to the device
     if(cp.src != NULL){
       void* p = managed_alloc_check(sizeof(FieldType));
       src = new (p) FieldType(*cp.src);
     }else src = NULL;
-#else    
+#else
     src = cp.src == NULL ? NULL : new FieldType(*cp.src);
 #endif
   }
@@ -535,9 +550,21 @@ public:
 
   //Accessors for sources  (call like  src.template get<Idx>() )
   template<int i>
-  typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
+  accelerator_inline typename getTypeFromList<SourceListStruct,i>::type & getSource(){ return getElemFromListStruct<SourceListStruct,i>::get(sources); }
   template<int i>
-  const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }
+  accelerator_inline const typename getTypeFromList<SourceListStruct,i>::type & getSource() const{ return getConstElemFromListStruct<SourceListStruct,i>::get(sources); }    
+
+#ifdef GRID_NVCC
+  //Allocate source in managed memory 
+  static inline void* operator new(const size_t sz){
+    return managed_alloc_check(sz);
+  }
+  static inline void operator delete(void* ptr){
+    managed_free(ptr);
+  }
+#endif
+
+
 };
 
 

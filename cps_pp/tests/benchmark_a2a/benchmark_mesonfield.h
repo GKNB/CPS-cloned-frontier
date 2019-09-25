@@ -1117,7 +1117,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
   ThreeMomentum pp3 = pp * 3;
   ThreeMomentum pm3 = pm * 3;
 
-  { //1s + 2s source
+  if(1){ //1s + 2s source
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
     SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
@@ -1200,7 +1200,8 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     if(!UniqueID()) printf("Passed equivalence test 3\n");
   }
 
-  { //1s + point source
+  if(1){ //1s + point source
+    if(!UniqueID()) printf("Doing 1s+point source\n");
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::FieldParamType SrcFieldParamType;
     typedef typename A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies>::ComplexType SrcComplexType;
     SrcFieldParamType sfp; defaultFieldParams<SrcFieldParamType, SrcComplexType>::get(sfp);
@@ -1208,11 +1209,11 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     typedef A2AflavorProjectedExpSource<typename A2Apolicies::SourcePolicies> ExpSrcType;
     typedef A2AflavorProjectedPointSource<typename A2Apolicies::SourcePolicies> PointSrcType;
     typedef A2ApointSource<typename A2Apolicies::SourcePolicies> PointSrcBasicType;
-  
+
     ExpSrcType _1s_src(2.0, pp3.ptr(), sfp);
     PointSrcType _pt_src(sfp);
     PointSrcBasicType _pt_basic_src(sfp);
-
+    
     typedef SCFspinflavorInnerProduct<15,mf_Complex,ExpSrcType,true,false> ExpInnerType;
     typedef SCFspinflavorInnerProduct<15,mf_Complex,PointSrcType,true,false> PointInnerType;
     typedef SCFspinflavorInnerProduct<15,mf_Complex,PointSrcBasicType,true,false> PointBasicInnerType;
@@ -1230,14 +1231,17 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     int Lt = GJP.Tnodes()*GJP.TnodeSites();
 
     //Do the point and 1s by regular means
+    if(!UniqueID()){ printf("Computing with point source\n"); fflush(stdout); }       
     std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_pt_std;
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_pt_std, Wfftw_pp, _pt_inner, Vfftw_pp);
 
+    if(!UniqueID()){ printf("Computing with 1s source\n"); fflush(stdout); }
     std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_1s_std;
     A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_1s_std, Wfftw_pp, _1s_inner, Vfftw_pp);
 
     //1) Check flavor projected point and basic point give the same result (no projector for point)
     {
+      if(!UniqueID()){ printf("Computing with non-flavor projected point source\n"); fflush(stdout); }
       std::vector< A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> > mf_basic;
       A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_basic, Wfftw_pp, _pt_basic_inner, Vfftw_pp);
       
@@ -1252,12 +1256,12 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     typedef Elem<ExpSrcType,Elem<PointSrcType,ListEnd> > SrcList;
     typedef A2AmultiSource<SrcList> MultiSrcType;
 
-    {
+    if(1){
       typedef SCFspinflavorInnerProduct<15,mf_Complex,MultiSrcType,true,false> MultiInnerType;
       
       MultiSrcType multi_src;    
       multi_src.template getSource<0>().setup(2.0,pp3.ptr(),sfp);
-      multi_src.template getSource<1>().setup(sfp);
+      multi_src.template getSource<1>().setup(sfp);      
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
@@ -1292,7 +1296,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       
       MultiSrcType multi_src;    
       multi_src.template getSource<0>().setup(2.0,pp3.ptr(),sfp);
-      multi_src.template getSource<1>().setup(sfp);
+      multi_src.template getSource<1>().setup(sfp);      
       
       MultiInnerType multi_inner(sigma3,multi_src);
       
@@ -1300,7 +1304,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       MultiStorageType store(multi_inner, multi_src);
       store.addCompute(0,0,pp,pp3);
 
-      std::cout << "Start 1s/point shift multiStorage compute\n";
+      if(!UniqueID()){ printf("Start 1s/point shift multiStorage compute\n"); fflush(stdout); }
       typename ComputeMesonFields<A2Apolicies,MultiStorageType>::WspeciesVector Wspecies(1, &W);
       typename ComputeMesonFields<A2Apolicies,MultiStorageType>::VspeciesVector Vspecies(1, &V);
 
@@ -1320,9 +1324,6 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
       }
       if(!UniqueID()) printf("Passed point shift multisrc equivalence test\n");
     }
-
-  // typedef GparitySourceShiftInnerProduct<ComplexType,MultiSrcType, flavorMatrixSpinColorContract<15,true,false> > MultiInnerType;
-  // typedef GparityFlavorProjectedShiftSourceStorage<mf_Policies, MultiInnerType> StorageType;
   }
   
 }

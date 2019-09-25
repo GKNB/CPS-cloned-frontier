@@ -245,26 +245,26 @@ struct ListStruct<ListEnd>{};
 //Access elements by compile time index
 template<typename aListStruct, int i>
 struct getConstElemFromListStruct{
-  static inline const typename getTypeFromList<aListStruct,i>::type & get(const aListStruct &from){
+  static accelerator_inline const typename getTypeFromList<aListStruct,i>::type & get(const aListStruct &from){
     return getConstElemFromListStruct<typename aListStruct::NextType,i-1>::get(from.n);
   }
 };
 template<typename aListStruct>
 struct getConstElemFromListStruct<aListStruct,0>{
-  static inline const typename aListStruct::ValueType & get(const aListStruct &from){
+  static accelerator_inline const typename aListStruct::ValueType & get(const aListStruct &from){
     return from.v;
   }
 };
     
 template<typename aListStruct, int i>
 struct getElemFromListStruct{
-  static inline typename getTypeFromList<aListStruct,i>::type & get(aListStruct &from){
+  static accelerator_inline typename getTypeFromList<aListStruct,i>::type & get(aListStruct &from){
     return getElemFromListStruct<typename aListStruct::NextType,i-1>::get(from.n);
   }
 };
 template<typename aListStruct>
 struct getElemFromListStruct<aListStruct,0>{
-  static inline typename aListStruct::ValueType & get(aListStruct &from){
+  static accelerator_inline typename aListStruct::ValueType & get(aListStruct &from){
     return from.v;
   }
 };

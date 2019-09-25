@@ -5,6 +5,7 @@
 #include <cassert>
 #include <util/gjp.h>
 
+#include "utils_malloc.h"
 //Utilities for arrays
 
 CPS_START_NAMESPACE
@@ -59,6 +60,125 @@ inline void resize_3d(std::vector<std::vector<std::vector<T> > > &v, const size_
       v[a][b].resize(k);
   }
 }
+
+
+
+//A vector class that uses managed memory (if available) such that the internal pointer is valid on host and device
+//The copy-constructor deep-copies the data
+template<typename T>
+class ManagedVector{
+  T* v;
+  size_t sz;
+public:
+  //Destructive resize
+  void resize(const size_t n){
+    if(v) managed_free(v);
+    if(n==0){ v = NULL; sz = n; return; }
+    v = (T*)managed_alloc_check(n*sizeof(T));
+    sz = n;
+  }
+  ManagedVector(): v(NULL), sz(0){}
+  ManagedVector(const int n): v(NULL), sz(0){
+    this->resize(n);
+  }
+  ManagedVector(const ManagedVector &r){
+    this->resize(r.sz);
+    for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
+  }   
+  ManagedVector(ManagedVector &&r): v(r.v), sz(r.sz){
+    r.v = NULL;
+  }   
+  ~ManagedVector(){
+    if(v) managed_free(v);
+  }
+  accelerator_inline size_t size() const{
+    return sz;
+  }
+
+  ManagedVector & operator=(const ManagedVector &r){
+    this->resize(r.sz);
+    for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
+    return *this;
+  }
+
+  ManagedVector & operator=(ManagedVector &&r){
+    if(v) managed_free(v);
+    v = r.v;
+    sz = r.sz;
+    r.v = NULL;
+    return *this;
+  }
+
+  accelerator_inline T & operator[](const size_t i){ return v[i]; }
+  accelerator_inline const T & operator[](const size_t i) const{ return v[i]; }
+};
+
+
+
+
+//A vector class that uses managed memory (if available) such that the internal pointer is valid on host and device
+//The copy-constructor copies the pointer *by value* (for use within host/device lambdas); if you want a complete copy use the deepcopy method
+template<typename T>
+class ShallowCopyManagedVector{
+  T* v;
+  size_t sz;
+  bool own_memory; //am I the original and thus responsible for deallocating?
+public:
+  //Destructive resize
+  void resize(const size_t n){
+    if(v && own_memory) managed_free(v);
+    if(n==0){ v = NULL; sz = n; return; }
+    v = (T*)managed_alloc_check(n*sizeof(T));
+    sz = n;
+    own_memory = true;
+  }
+  ShallowCopyManagedVector(): v(NULL), sz(0), own_memory(true){}
+  ShallowCopyManagedVector(const int n): v(NULL), sz(0){
+    this->resize(n);
+  }
+  ShallowCopyManagedVector(const ShallowCopyManagedVector &r): v(r.v), sz(r.sz), own_memory(false){ //I am a copy!
+  }   
+  ShallowCopyManagedVector(ShallowCopyManagedVector &&r): v(r.v), sz(r.sz), own_memory(true){ //I assume responsibility from the rvalue
+    r.own_memory = false;
+  }   
+
+  ~ShallowCopyManagedVector(){
+    if(v && own_memory) managed_free(v);
+  }
+  accelerator_inline size_t size() const{
+    return sz;
+  }
+
+  ShallowCopyManagedVector & operator=(const ShallowCopyManagedVector &r){
+    if(v && own_memory) managed_free(v);
+    v = r.v;
+    sz = r.sz;
+    own_memory = false; //I am a copy
+    return *this;
+  }
+
+  ShallowCopyManagedVector & operator=(ShallowCopyManagedVector &&r){
+    if(v && own_memory) managed_free(v);
+    v = r.v;
+    sz = r.sz;
+    own_memory = true; //I assume responsibility for the malloc
+    r.own_memory = false;
+    return *this;
+  }
+
+  void deepcopy(const ShallowCopyManagedVector &r){
+    this->resize(r.sz);
+    for(int i=0;i<sz;i++) T* s = new (v + i) T(r.v[i]);
+  }   
+
+  accelerator_inline T & operator[](const size_t i){ return v[i]; }
+  accelerator_inline const T & operator[](const size_t i) const{ return v[i]; }
+};
+
+
+
+
+
 
 
 CPS_END_NAMESPACE

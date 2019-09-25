@@ -628,28 +628,6 @@ struct _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allo
 };
 #endif
 
-
-
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-template<typename InnerProduct, typename Allocator>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > &mf_t,
-							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::SingleSrcVectorPoliciesT VectorPolicies;  
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
-  cg.compute(mf_t,l,M,r,do_setup);
-}
-
-  //Version of the above for multi-src inner products (output vector indexed by [src idx][t]
-template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
-template<typename InnerProduct, typename Allocator>
-void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st,
-							     const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup){
-  typedef typename _choose_vector_policies<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator, typename ComplexClassify<typename mf_Policies::ComplexType>::type>::MultiSrcVectorPoliciesT VectorPolicies;  
-  mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPolicies> cg;
-  cg.compute(mf_st,l,M,r,do_setup);
-}
-
-
 #undef ACCUM_BUF_STACK_ALLOC
 
 #endif

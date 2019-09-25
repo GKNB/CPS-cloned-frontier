@@ -341,7 +341,7 @@ template<typename SourceType, typename mf_Complex, int Remaining, int Idx=0>
 struct _siteFmatRecurseShift{
 
   template<typename AccumVtype>
-  static accelerator_inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
+  static accelerator_inline void doit(AccumVtype &into, const ManagedVector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
 				      const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){
     FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
     for(int i=0;i<shifted_sources.size();i++){
@@ -355,7 +355,7 @@ struct _siteFmatRecurseShift{
 template<typename SourceType, typename mf_Complex, int Idx>
 struct _siteFmatRecurseShift<SourceType,mf_Complex,0,Idx>{
   template<typename AccumVtype>
-  static accelerator_inline void doit(AccumVtype &into, const std::vector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
+  static accelerator_inline void doit(AccumVtype &into, const ManagedVector<SourceType*> &shifted_sources, const FlavorMatrixType sigma, const int p,
 				      const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){}
 };
 
@@ -377,7 +377,7 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
   const SourceType &src;
   FlavorMatrixType sigma;
   std::vector< std::vector<int> > shifts; //should be a set of 3-vectors
-  std::vector<SourceType*> shifted_sources; 
+  ManagedVector<SourceType*> shifted_sources; //internal pointer uses managed memory
   std::vector<int> cur_shift;
 
   template<typename S>
@@ -412,7 +412,7 @@ class GparitySourceShiftInnerProduct: public SpinColorContractPolicy{
     this->spinColorContract(lMr,l,r);
 
     FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
-    for(int i=0;i<shifts.size();i++){
+    for(int i=0;i<shifted_sources.size();i++){
       shifted_sources[i]->siteFmat(phi,p);
       phi.pl(sigma);
       doAccum(out[i],TransLeftTrace(lMr, phi));
@@ -437,7 +437,16 @@ public:
   GparitySourceShiftInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src): sigma(_sigma),src(_src), shifts(0), cur_shift(3,0){ }
   GparitySourceShiftInnerProduct(const FlavorMatrixType &_sigma, const SourceType &_src, const std::vector< std::vector<int> > &_shifts): sigma(_sigma),src(_src), shifts(_shifts), cur_shift(3,0){ }
 
-  ~GparitySourceShiftInnerProduct(){ for(int i=0;i<shifted_sources.size();i++) delete shifted_sources[i]; }
+  GparitySourceShiftInnerProduct(const GparitySourceShiftInnerProduct &cp): sigma(cp.sigma), src(cp.src), shifts(cp.shifts), cur_shift(cp.cur_shift), shifted_sources(cp.shifted_sources.size()){
+    for(int i=0;i<cp.shifted_sources.size();i++)
+      shifted_sources[i] = new SourceType(*cp.shifted_sources[i]);
+  }
+
+  ~GparitySourceShiftInnerProduct(){
+    for(int i=0;i<shifted_sources.size();i++){
+      delete shifted_sources[i];
+    }      
+  }
   
   inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); } //indexed by  source_idx + nSources*shift_idx
 

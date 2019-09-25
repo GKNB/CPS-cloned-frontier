@@ -106,7 +106,11 @@ inline void* managed_alloc_check(const size_t byte_size){
 
 inline void managed_free(void* p){
 #ifdef GRID_NVCC
-  cudaFree(p);
+  auto err = cudaFree(p);
+  if( err != cudaSuccess ) {
+    std::cerr << "managed_free: cudaFree failed with error " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }  
 #else
   free(p);
 #endif

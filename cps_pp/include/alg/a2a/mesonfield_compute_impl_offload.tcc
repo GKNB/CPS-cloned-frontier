@@ -6,7 +6,10 @@ template<typename mf_Policies, template <typename> class A2AfieldL,  template <t
 struct SingleSrcVectorPoliciesSIMDoffload{
   typedef std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator > mfVectorType;
   typedef Grid::vComplexD accumType;
-  accelerator_inline const int accumMultiplicity() const{ return 1;}
+  typedef Grid::vComplexD& accessType; //used by the source
+  accelerator_inline static accessType getAccessor(accumType *p){ return *p; }
+
+  static accelerator_inline int accumMultiplicity(){ return 1;}
 
   enum { Nsimd = accumType::Nsimd() }; //should be 1 for scalar types
 
@@ -31,7 +34,94 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   static inline void nodeSum(mfVectorType &mf_t, const int Lt){
     for(int t=0; t<Lt; t++) mf_t[t].nodeSum();
   }
+
+  //Sum over x and SIMD reduce
+  static inline void reduce(mfVectorType &mf_t, accumType const* accum,
+			    const size_t i0, const size_t j0, //block index
+			    const size_t nib, const size_t njb, //true size of this block
+			    const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
+			    const int t, const size_t size_3d){
+    //Reduce over size_3d
+    //(Do this on host for now) //GENERALIZE ME
+    for(int ii=0;ii<nib;ii++)
+      for(int jj=0;jj<njb;jj++){
+	size_t i = ii+i0;
+	size_t j = jj+j0;
+	accumType const* from_base = accum + size_3d*(jj + bj*ii);
+	for(int x=0;x<size_3d;x++)
+	  mf_t[t](i,j) += Reduce(from_base[x]);
+      }
+  }
+  
 };
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
+struct MultiSrcVectorPoliciesSIMDoffload{
+  typedef std::vector<std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > mfVectorType;
+  typedef Grid::vComplexD accumType;
+  typedef Grid::vComplexD* accessType; //used by the source
+  accelerator_inline static accessType getAccessor(accumType *p){ return p; }
+  
+  int mfPerTimeSlice;
+  
+  accelerator_inline int accumMultiplicity() const{ return mfPerTimeSlice;}
+
+  enum { Nsimd = accumType::Nsimd() }; //should be 1 for scalar types
+
+  inline void setupPolicy(const mfVectorType &mf_t, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r){
+    mfPerTimeSlice = M.mfPerTimeSlice();
+    if(!UniqueID()){ printf("Using MultiSrcVectorPoliciesSIMDoffload with $MF per timeslice %d\n", mfPerTimeSlice); fflush(stdout); }
+  }
+
+  void initializeMesonFields(mfVectorType &mf_st, const A2AfieldL<mf_Policies> &l, const A2AfieldR<mf_Policies> &r, const int Lt, const bool do_setup) const{
+    if(mf_st.size() != mfPerTimeSlice) ERR.General("mf_Vector_policies <multi src>","initializeMesonFields","Expect output vector to be of size %d, got size %d\n",mfPerTimeSlice,mf_st.size());
+
+    for(int s=0;s<mfPerTimeSlice;s++){
+      mf_st[s]->resize(Lt);
+      for(int t=0;t<Lt;t++) 
+	if(do_setup) mf_st[s]->operator[](t).setup(l,r,t,t); //both vectors have same timeslice (zeroes the starting matrix)
+	else{
+	  assert(mf_st[s]->operator[](t).ptr() != NULL);
+	  mf_st[s]->operator[](t).zero();
+	}
+    }
+  }
+
+  inline const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> & getReferenceMf(const mfVectorType &mf_st, const int t) const{
+    return mf_st[0]->operator[](t);
+  }
+
+  inline void nodeSum(mfVectorType &mf_st, const int Lt) const{
+    for(int s=0;s<mfPerTimeSlice;s++)
+      for(int t=0; t<Lt; t++) mf_st[s]->operator[](t).nodeSum();
+  }
+
+  
+  //Sum over x and SIMD reduce
+  inline void reduce(mfVectorType &mf_st, accumType const* accum,
+		     const size_t i0, const size_t j0, //block index
+		     const size_t nib, const size_t njb, //true size of this block
+		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
+		     const int t, const size_t size_3d) const{
+    //Reduce over size_3d
+    //(Do this on host for now) //GENERALIZE ME
+    for(int ii=0;ii<nib;ii++)
+      for(int jj=0;jj<njb;jj++){
+	size_t i = ii+i0;
+	size_t j = jj+j0;
+	accumType const* from_base = accum + mfPerTimeSlice*size_3d*(jj + bj*ii);
+	for(int x=0;x<size_3d;x++)
+	  for(int s=0;s<mfPerTimeSlice;s++)
+	    mf_st[s]->operator[](t)(i,j) += Reduce(from_base[s + mfPerTimeSlice*x]);    
+      }
+  }
+
+  
+  
+};
+
+
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
 struct mfComputeGeneralOffload: public mfVectorPolicies{
@@ -106,7 +196,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //Note, block sizes will depend on the multiplicity of the accumulation type
 
     //Allocate work item temp memory
-    size_t naccum = bi * bj * size_3d * this->accumMultiplicity();
+    const size_t multiplicity = this->accumMultiplicity();
+    const size_t naccum = bi * bj * size_3d * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
     //Each node only works on its time block
@@ -155,25 +246,17 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			    size_t i = ii+i0;
 			    size_t j = jj+j0;
 
-			    accumType *into = accum + this->accumMultiplicity()*(x + size_3d*(jj + bj*ii));
+			    accumType *into = accum + multiplicity*(x + size_3d*(jj + bj*ii));
 			    vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 			    vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
+
+			    typename mfVectorPolicies::accessType acc = this->getAccessor(into);
 			    
-			    M(*into,lptr,rptr,x,t);
+			    M(acc,lptr,rptr,x,t);
 			  });
 	  }   
 
-	  //Reduce over size_3d
-	  //(Do this on host for now) //GENERALIZE ME
-	  assert(this->accumMultiplicity()==1);
-	  for(int ii=0;ii<nib;ii++)
-	    for(int jj=0;jj<njb;jj++){
-	      size_t i = ii+i0;
-	      size_t j = jj+j0;
-	      accumType const* from_base = accum + size_3d*(jj + bj*ii);
-	      for(int x=0;x<size_3d;x++)
-		mf_t[t](i,j) += Reduce(from_base[x]);
-	    }
+	  this->reduce(mf_t, accum, i0, j0, nib, njb, bj, t, size_3d);
 	}
       }
  
@@ -203,6 +286,39 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     print_time("A2AmesonField","nodeSum",time + dclock());
   }
 };
+
+
+//Use offload only if A2A policies is Grid vectorized
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator, typename ComplexClass>
+struct _choose_mf_mult_impl_offload;
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
+struct _choose_mf_mult_impl_offload<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,grid_vector_complex_mark>{
+  typedef SingleSrcVectorPoliciesSIMDoffload<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPoliciesSingle;
+  typedef mfComputeGeneralOffload<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPoliciesSingle> ComputeImplSingle;
+
+  typedef MultiSrcVectorPoliciesSIMDoffload<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPoliciesMulti;
+  typedef mfComputeGeneralOffload<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPoliciesMulti> ComputeImplMulti;
+};
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename Allocator>
+struct _choose_mf_mult_impl_offload<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct,Allocator,complex_double_or_float_mark>{
+  typedef SingleSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPoliciesSingle;
+  typedef mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPoliciesSingle> ComputeImplSingle;
+  
+  typedef MultiSrcVectorPolicies<mf_Policies, A2AfieldL, A2AfieldR, Allocator, InnerProduct> VectorPoliciesMulti;
+  typedef mfComputeGeneral<mf_Policies,A2AfieldL,A2AfieldR,InnerProduct, VectorPoliciesMulti> ComputeImplMulti;
+};
+
+
+
+
+
+
+
+
 
 
 #endif
