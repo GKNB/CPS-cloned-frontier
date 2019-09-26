@@ -1,6 +1,58 @@
 #ifndef _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 #define _MESONFIELD_COMPUTE_IMPL_OFFLOAD
 
+#ifdef GRID_NVCC
+
+template<typename ComplexType>
+__global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t nib, const size_t njb, const size_t bj, const size_t size_3d, const size_t multiplicity){
+  constexpr int nsimd = ComplexType::Nsimd();
+  __shared__ typename SIMT<ComplexType>::value_type thrbuf[nsimd];
+  int ii = blockIdx.x;
+  int jj = blockIdx.y;
+  int m = blockIdx.z;
+  int lane = threadIdx.x;
+
+  //input off = m + multiplicity*(x + size_3d*(jj + bj*ii))
+  //output off = m + multiplicity*(jj + bj*ii)
+  
+  ComplexType const* fb = from + m + multiplicity*size_3d*(jj + bj*ii); //x=0
+  typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + njb*ii);
+
+  //Each thread sums its lane into a temp shared buffer
+  typename SIMT<ComplexType>::value_type &v = thrbuf[lane];
+  v = SIMT<ComplexType>::read(fb[0],lane);
+  
+  for(size_t x=1; x<size_3d; x++){
+    v += SIMT<ComplexType>::read(fb[multiplicity*x],lane);
+  }
+  __syncthreads();
+
+  //Thread 0 sums over the temp buffer
+  if(lane == 0){
+    *ib = thrbuf[0];
+    for(int i=1; i<nsimd; i++) *ib += thrbuf[i];
+  }
+}
+
+template<typename ComplexType>
+void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t nib, const size_t njb, const size_t bj, const size_t size_3d, const size_t multiplicity){
+  //We will work with 1 thread per block and blocks over a 3d grid   nij x njb x multiplicity
+  //Each thread does thr reduction for a single element over the whole 3d grid
+  dim3 blocks(nib, njb, multiplicity);
+  constexpr int nsimd = ComplexType::Nsimd();
+  
+  reduceKernel<<< blocks, nsimd>>>(into, from, nib, njb, bj, size_3d, multiplicity);
+  cudaDeviceSynchronize();
+
+  cudaError err = cudaGetLastError();
+  if ( cudaSuccess != err ) {
+    printf("blockReduce: Cuda error %s\n",cudaGetErrorString( err ));
+    exit(0);
+  }
+}
+
+#endif
+
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename Allocator, typename InnerProduct>
 struct SingleSrcVectorPoliciesSIMDoffload{
@@ -39,10 +91,46 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   static inline void reduce(mfVectorType &mf_t, accumType const* accum,
 			    const size_t i0, const size_t j0, //block index
 			    const size_t nib, const size_t njb, //true size of this block
-			    const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
+			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
+
+#ifdef GRID_NVCC
+    double talloc_free = 0;
+    double tkernel = 0;
+    double tpoke = 0;
+  
+    const int multiplicity = 1;
+
+    double time = dclock();
+    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(nib * njb * multiplicity * sizeof(Grid::ComplexD));
+    talloc_free += dclock() - time;
+    time = dclock();
+    blockReduce(tmp, accum, nib, njb, bj, size_3d, multiplicity);
+    tkernel += dclock() - time;
+
+    time = dclock();
+#pragma omp parallel for
+    for(size_t z=0; z < nib*njb; z++){
+      size_t jj = z % njb;
+      size_t ii = z / njb;
+
+      size_t i = ii+i0;
+      size_t j = jj+j0;
+
+      mf_t[t](i,j) += tmp[jj + njb*ii];
+    }
+    tpoke += dclock() - time;
+
+    time = dclock();
+    managed_free(tmp);
+    talloc_free += dclock() - time;
+
+    print_time("GPU reduce","alloc_free",talloc_free);
+    print_time("GPU reduce","kernel",tkernel);
+    print_time("GPU reduce","poke",tpoke);
+#else
     //Reduce over size_3d
-    //(Do this on host for now) //GENERALIZE ME
+    //Paralllelize me!
     for(int ii=0;ii<nib;ii++)
       for(int jj=0;jj<njb;jj++){
 	size_t i = ii+i0;
@@ -51,6 +139,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 	for(int x=0;x<size_3d;x++)
 	  mf_t[t](i,j) += Reduce(from_base[x]);
       }
+#endif
   }
   
 };
@@ -104,6 +193,43 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 		     const size_t nib, const size_t njb, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
+#ifdef GRID_NVCC
+    double talloc_free = 0;
+    double tkernel = 0;
+    double tpoke = 0;
+  
+    const int multiplicity = mfPerTimeSlice;
+
+    double time = dclock();
+    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(nib * njb * multiplicity * sizeof(Grid::ComplexD));
+    talloc_free += dclock() - time;
+    time = dclock();
+    blockReduce(tmp, accum, nib, njb, bj, size_3d, multiplicity);
+    tkernel += dclock() - time;
+
+    time = dclock();
+#pragma omp parallel for
+    for(size_t z=0; z < nib*njb*multiplicity; z++){
+      size_t rem = z;     
+      size_t m = rem % multiplicity; rem /= multiplicity;
+      size_t jj = rem % njb; rem /= njb;
+      size_t ii = rem;
+      
+      size_t i = ii+i0;
+      size_t j = jj+j0;
+
+      mf_st[m]->operator[](t)(i,j) += tmp[m + multiplicity *(jj + njb*ii)];
+    }
+    tpoke += dclock() - time;
+
+    time = dclock();
+    managed_free(tmp);
+    talloc_free += dclock() - time;
+
+    print_time("GPU reduce","alloc_free",talloc_free);
+    print_time("GPU reduce","kernel",tkernel);
+    print_time("GPU reduce","poke",tpoke);
+#else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
     for(int ii=0;ii<nib;ii++)
@@ -115,6 +241,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 	  for(int s=0;s<mfPerTimeSlice;s++)
 	    mf_st[s]->operator[](t)(i,j) += Reduce(from_base[s + mfPerTimeSlice*x]);    
       }
+#endif
   }
 
   
@@ -200,6 +327,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t naccum = bi * bj * size_3d * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
+    double reduce_time = 0;
+    
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
       double ttime = -dclock();
@@ -256,7 +385,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			  });
 	  }   
 
+	  double treduce = -dclock();
 	  this->reduce(mf_t, accum, i0, j0, nib, njb, bj, t, size_3d);
+	  treduce += dclock();
+
+	  reduce_time += treduce;
 	}
       }
  
@@ -266,7 +399,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     }
 
     print_time("A2AmesonField","local compute",time + dclock());
-
+    print_time("A2AmesonField","reduce time in local compute",reduce_time);
+    
     time = -dclock();
     sync();
     print_time("A2AmesonField","sync",time + dclock());
@@ -276,14 +410,13 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #ifndef MEMTEST_MODE
     this->nodeSum(mf_t,Lt);
 #endif
-
+    print_time("A2AmesonField","nodeSum",time + dclock());
+    
     Free(base_ptrs_i);
     Free(base_ptrs_j);
     Free(site_offsets_i);
     Free(site_offsets_j);
     Free(accum);
-
-    print_time("A2AmesonField","nodeSum",time + dclock());
   }
 };
 
