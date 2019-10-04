@@ -259,23 +259,23 @@ struct GeneralSpinColorContractSelect<0,ComplexType,conj_left,conj_right,complex
 #ifdef USE_GRID
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<15,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
-  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g5(l,r); }
+  accelerator_inline static typename SIMT<ComplexType>::value_type doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g5(l,r); }
 };
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<0,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
-  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::unit(l,r); }
+  accelerator_inline static typename SIMT<ComplexType>::value_type doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::unit(l,r); }
 };
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<1,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
-  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g0(l,r); }
+  accelerator_inline static typename SIMT<ComplexType>::value_type doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g0(l,r); }
 };
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<2,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
-  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g1(l,r); }
+  accelerator_inline static typename SIMT<ComplexType>::value_type doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g1(l,r); }
 };
 template<typename ComplexType, bool conj_left, bool conj_right>
 struct GeneralSpinColorContractSelect<4,ComplexType,conj_left,conj_right,grid_vector_complex_mark>{
-  inline static ComplexType doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g2(l,r); }
+  accelerator_inline static typename SIMT<ComplexType>::value_type doit(const ComplexType *const l, const ComplexType *const r){ return GridVectorizedSpinColorContract<ComplexType,conj_left,conj_right>::g2(l,r); }
 };
 #endif
 

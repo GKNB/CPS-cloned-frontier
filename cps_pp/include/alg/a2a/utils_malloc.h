@@ -81,6 +81,7 @@ inline void* managed_alloc_check(const size_t align, const size_t byte_size){
   if( err != cudaSuccess ) {
     p = (void*)NULL;
     std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
     assert(0);
   }
   return p;
@@ -96,6 +97,7 @@ inline void* managed_alloc_check(const size_t byte_size){
   if( err != cudaSuccess ) {
     p = (void*)NULL;
     std::cerr << "managed_alloc_check: cudaMallocManaged failed for " << byte_size<<" bytes " <<cudaGetErrorString(err)<< std::endl;
+    printMem("malloc failed",UniqueID());
     assert(0);
   }
   return p;

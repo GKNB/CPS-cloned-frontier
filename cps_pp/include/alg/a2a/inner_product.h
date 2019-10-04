@@ -44,6 +44,7 @@ accelerator_inline void doAccum(Grid::vComplexD &to, const typename SIMT<Grid::v
 
 //Simple inner product of a momentum-space scalar source function and a constant spin matrix
 //Assumed diagonal matrix in flavor space if G-parity
+//Will not work with Grid vectorized types
 template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCmatrixInnerProduct{
   const WilsonMatrix &sc;
@@ -81,6 +82,7 @@ public:
 
 
 //Optimized gamma^5 inner product with unit flavor matrix
+//Will not work with Grid vectorized types
 template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCg5InnerProduct{
   const SourceType &src;
@@ -119,8 +121,9 @@ public:
 
 template<int smatidx,typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCspinInnerProduct{
-  const SourceType &src;
-
+  const SourceType src;
+  bool gparity;
+  
   template<typename S>
   inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
 
@@ -131,15 +134,17 @@ class SCspinInnerProduct{
 public:
   typedef SourceType InnerProductSourceType;
   
-  SCspinInnerProduct(const SourceType &_src): src(_src){ }
+  SCspinInnerProduct(const SourceType &_src): src(_src), gparity(GJP.Gparity()){ }
 
   inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
 
   template<typename AccumType>  
-  void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
-    assert(!GJP.Gparity());
-    mf_Complex out = GeneralSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l.getPtr(0),r.getPtr(0));
-    doAccum(into,out * src.siteComplex(p));
+  accelerator_inline void operator()(AccumType &into, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+    assert(mfPerTimeSlice() == 1); //not yet generalized to multi-src types
+    assert(gparity);
+    auto out = GeneralSpinColorContractSelect<smatidx,mf_Complex,conj_left,conj_right, typename ComplexClassify<mf_Complex>::type>::doit(l.getPtr(0),r.getPtr(0));
+    auto site_val = SIMT<mf_Complex>::read(src.siteComplex(p));
+    doAccum(into,out * site_val);
   }  
 };
 
@@ -147,6 +152,7 @@ public:
 //Constant spin-color-flavor matrix source structure with position-dependent flavor matrix from source
 // l M N r    where l,r are the vectors, M is the constant matrix and N the position-dependent
 //For use with GPBC
+//Will not work for Grid vectorized types
 template<typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
 class SCFfmatSrcInnerProduct{
   const SourceType &src;

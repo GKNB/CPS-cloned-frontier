@@ -64,8 +64,10 @@ public:
 #endif
   }
 
-  
+
   accelerator_inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
+  //On the GPU this pulls out an individual SIMD lane for the kernel to act on
+  //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const int site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
   accelerator_inline const int nsites() const{ return src->nsites(); }
 
   template< typename extComplexType, template<typename> typename extDimPol, typename extAllocPol>

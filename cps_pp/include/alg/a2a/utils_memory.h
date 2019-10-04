@@ -15,6 +15,10 @@
 #include<mpi.h>
 #endif
 
+#ifdef USE_GRID
+#include<Grid.h>
+#endif
+
 #include<execinfo.h>
 
 #ifdef PRINTMEM_HEAPDUMP_GPERFTOOLS
@@ -24,6 +28,9 @@
 
 CPS_START_NAMESPACE
 
+inline double byte_to_MB(const size_t b){
+  return double(b)/1024./1024.;
+}
 
 //Print memory usage
 inline void printMem(const std::string &reason = "", int node = 0, FILE* stream = stdout){
@@ -104,6 +111,21 @@ inline void printMem(const std::string &reason = "", int node = 0, FILE* stream 
   //if(UniqueID()==node) reason == "" ? HeapProfilerDump("printMem") : HeapProfilerDump(reason.c_str());
   HeapProfilerDump(reason.c_str());
 #endif
+
+#ifdef GRID_NVCC
+  size_t gpu_free, gpu_tot;
+  cudaError_t err = cudaMemGetInfo(&gpu_free, &gpu_tot);
+  if( err != cudaSuccess ) {
+    std::cerr << "printMem: cudaMemGetInfo failed: " <<cudaGetErrorString(err)<< std::endl;
+    assert(0);
+  }
+  if(UniqueID()==node){
+    fprintf(stream,"printMem node %d: GPU memory free %f MB, total %f MB\n",
+	    node, byte_to_MB(gpu_free), byte_to_MB(gpu_tot) );
+  }
+
+#endif
+
   fflush(stream);
 }
 
@@ -166,10 +188,6 @@ public:
   } 
 };
 
-
-inline double byte_to_MB(const size_t b){
-  return double(b)/1024./1024.;
-}
 
 //Empty shells for google perftools heap profile funcs
 #ifndef BASE_HEAP_PROFILER_H_
