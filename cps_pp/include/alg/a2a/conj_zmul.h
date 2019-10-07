@@ -113,7 +113,7 @@ inline Grid::vComplexF conjMult(const Grid::vComplexF *const l, const Grid::vCom
 
 template<typename vComplexType>
 struct MconjGrid<vComplexType,true,false>{
-  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const l, const vComplexType *const r){
+  static accelerator_inline typename SIMT<vComplexType>::value_type doit(const vComplexType *const __restrict__ l, const vComplexType *const __restrict__ r){
 #if defined (AVX2) || defined (AVX512)
     return conjMult(l,r);
 #else

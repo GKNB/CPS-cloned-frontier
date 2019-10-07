@@ -269,7 +269,7 @@ int main(int argc,char *argv[])
 
   if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
 #ifdef USE_GRID
-  if(1) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
+  if(0) testMultiSource<GridA2Apolicies>(a2a_args,lattice);
 #endif
 
   

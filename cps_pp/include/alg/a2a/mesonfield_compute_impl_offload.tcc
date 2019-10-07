@@ -327,6 +327,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t naccum = bi * bj * size_3d * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
+    if(!UniqueID()){ printf("Using block sizes %d %d, temp memory requirement is %f MB\n", bi, bj, byte_to_MB(naccum * sizeof(accumType))); }
+    
     double reduce_time = 0;
     
     //Each node only works on its time block

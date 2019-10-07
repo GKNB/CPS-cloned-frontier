@@ -106,15 +106,16 @@ struct SpinColorContractSelect<0,ComplexType,conj_left,conj_right>{
 template<typename vComplexType, bool conj_left, bool conj_right>
 class GridVectorizedSpinColorContract{
 public:
-  accelerator_inline static typename SIMT<vComplexType>::value_type g5(const vComplexType *const l, const vComplexType *const r){
-    const static int sc_size =12;
-    const static int half_sc = 6;
+  accelerator_inline static typename SIMT<vComplexType>::value_type g5(const vComplexType *const __restrict__ l, const vComplexType *const __restrict__ r){
+    constexpr int sc_size =12;
+    constexpr int half_sc = 6;
 
     typename SIMT<vComplexType>::value_type v3; Grid::zeroit(v3);
-
+#pragma unroll
     for(int i = half_sc; i < sc_size; i++){ 
       v3 -= MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }
+#pragma unroll
     for(int i = 0; i < half_sc; i ++){ 
       v3 += MconjGrid<vComplexType,conj_left,conj_right>::doit(l+i,r+i);
     }

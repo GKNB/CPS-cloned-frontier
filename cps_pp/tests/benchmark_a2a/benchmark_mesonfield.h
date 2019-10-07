@@ -2064,7 +2064,7 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
   CPSfield<GVtype,12,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> bb(simd_dims); bb.importField(b);
   CPSfield<GVtype,1,FourDSIMDPolicy<OneFlavorPolicy>,Aligned128AllocPolicy> cc(simd_dims);
 
-  int ntests_scaled = ntests * 1000;
+  int ntests_scaled = ntests;// * 1000;
   printf("Max threads %d\n",omp_get_max_threads());
 #ifdef TIMERS_OFF
   printf("Timers are OFF\n"); fflush(stdout);
@@ -2073,9 +2073,11 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 #endif
   __itt_resume();
 
-  for(int oloop=0; oloop < 100; oloop++){
+  for(int oloop=0; oloop < 1; oloop++){
     double t0 = Grid::usecond();
 
+#if 0
+    
 #pragma omp parallel //avoid thread creation overheads
     {
       int me = omp_get_thread_num();
@@ -2101,16 +2103,67 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
       }
     }
 
+
+#else
+    //Should operate entirely out of GPU memoru
+    size_t work = aa.nfsites();
+    static const int Nsimd = GVtype::Nsimd();
+
+    size_t site_size_ab = aa.siteSize();
+    size_t site_size_c = cc.siteSize();
+    
+    GVtype const* adata = aa.ptr();
+    GVtype const* bdata = bb.ptr();
+    GVtype * cdata = cc.ptr();
+
+    for(int test=0;test<ntests_scaled;test++){   
+      {
+	accelerator_for(item, work, Nsimd, 
+			{
+			  size_t x = item;
+			  GVtype const* ax = adata + site_size_ab*x;
+			  GVtype const* bx = bdata + site_size_ab*x;
+			  GVtype *cx = cdata + site_size_c*x;
+			
+			  typename SIMT<GVtype>::value_type v = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ax,bx);
+
+			  SIMT<GVtype>::write(*cx, v);			
+			});
+      }   
+    }    
+
+#endif
+
+    
+
     double t1 = Grid::usecond();
     double dt = t1 - t0;
       
     int FLOPs = 12*6*nsimd //12 vectorized conj(a)*b
       + 12*2*nsimd; //12 vectorized += or -=
-    double total_FLOPs = double(FLOPs) * double(aa.nfsites()) * double(ntests_scaled);
-      
-    double flops = total_FLOPs/dt; //dt in us   dt/(1e-6 s) in Mflops
-    std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
+    double call_FLOPs = double(FLOPs) * double(aa.nfsites());
 
+    double call_time_us = dt/ntests_scaled;
+    double call_time_s = dt/ntests_scaled /1e6;
+    
+    double flops = call_FLOPs/call_time_us; //dt in us   dt/(1e-6 s) in Mflops
+
+    double bytes_read = 2* 12 * 2*8 * nsimd; 
+    double bytes_store = 2 * nsimd;
+
+    double call_bytes = (bytes_read + bytes_store) * double(aa.nfsites());
+        
+    double bandwidth = call_bytes/call_time_s / 1024./1024.; // in MB/s
+
+    double FLOPS_per_byte = FLOPs/(bytes_read + bytes_store);
+    double theor_perf = FLOPS_per_byte * bandwidth; //in Mflops (assuming bandwidth bound)
+    
+    std::cout << "GridVectorizedSpinColorContract( conj(a)*b ): New code " << ntests_scaled << " tests over " << nthreads << " threads: Time " << dt << " usecs  flops " << flops/1e3 << " Gflops\n";
+    std::cout << "Time per call " << call_time_us << " usecs" << std::endl;
+    std::cout << "Memory bandwidth " << bandwidth << " MB/s" << std::endl;
+    std::cout << "FLOPS/byte " << FLOPS_per_byte << std::endl;
+    std::cout << "Theoretical performance " << theor_perf/1e3 << " Gflops\n";    
+    std::cout << "Total work is " << work << " and Nsimd = " << Nsimd << std::endl;
   }
   __itt_detach();
 #endif
