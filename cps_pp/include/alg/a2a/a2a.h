@@ -420,16 +420,30 @@ private:
   std::vector<PtrWrapper<FermionFieldType> > wl;
   std::vector<PtrWrapper<FermionFieldType> > wh; //these have been diluted in spin/color but not the other indices, hence there are nhit * 12 fields here (spin/color index changes fastest in mapping)
 
+  //#define ZEROSC_MANAGED
+  
+#ifdef ZEROSC_MANAGED
+  ManagedVector<FieldSiteType> zerosc;
+#else
   FieldSiteType zerosc[12];
+#endif
 public:
   typedef TimeFlavorPackedIndexDilution DilutionType;
 
-  A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args){
+ A2AvectorWfftw(const A2AArg &_args): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+    {
     wl.resize(nl); this->allocInitializeLowModeFields(wl,NullObject());
     wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,NullObject());
     for(int i=0;i<12;i++) CPSsetZero(zerosc[i]);
   }
-  A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args){
+ A2AvectorWfftw(const A2AArg &_args, const FieldInputParamType &field_setup_params): TimeFlavorPackedIndexDilution(_args)
+#ifdef ZEROSC_MANAGED
+    , zerosc(12)
+#endif
+  {
     checkSIMDparams<FieldInputParamType>::check(field_setup_params);
     wl.resize(nl); this->allocInitializeLowModeFields(wl,field_setup_params);
     wh.resize(12*nhits); this->allocInitializeHighModeFields(wh,field_setup_params);

@@ -60,7 +60,13 @@ template<> struct SIMT< Grid::vComplexF >: public SIMT_GridVector<Grid::vComplex
 
 #endif
 #endif
-  
+
+//Global variable controlling whether participating copy constructors are shallow or deep copies. Switch to shallow for structs with managed memory pointers to prevent extra copy
+struct copyControl{
+  static inline bool & shallow(){ static bool s=false; return s; }
+};
+
+
 enum CPSfield_checksumType { checksumCRC32, checksumBasic };
 inline std::string checksumTypeToString(CPSfield_checksumType type){ return type == checksumCRC32 ? "checksumCRC32" : "checksumBasic"; }
 inline CPSfield_checksumType checksumTypeFromString(const std::string &str){

@@ -330,6 +330,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     if(!UniqueID()){ printf("Using block sizes %d %d, temp memory requirement is %f MB\n", bi, bj, byte_to_MB(naccum * sizeof(accumType))); }
     
     double reduce_time = 0;
+    double ptr_setup_time = 0;
     
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
@@ -352,6 +353,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 		   site_offsets_j[j] = offsetT( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
 		 });
 
+      ptr_setup_time += dclock()+ttime;
+
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
 	size_t iup = std::min(i0+bi,nmodes_l);
 	
@@ -365,7 +368,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  size_t njb = jup - j0;
 
 	  size_t nwork = nib * njb * size_3d;
-	    
+	  copyControl::shallow() = true; //enable shallow copy of inner product object
 	  {
 	  accelerator_for(item, nwork, Nsimd, 
 			  {
@@ -386,7 +389,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			    M(acc,lptr,rptr,x,t);
 			  });
 	  }   
-
+	  copyControl::shallow() = false;
+	  
 	  double treduce = -dclock();
 	  this->reduce(mf_t, accum, i0, j0, nib, njb, bj, t, size_3d);
 	  treduce += dclock();
@@ -396,11 +400,12 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       }
  
 #endif //memtest mode
-      std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d <<  " divided over " << omp_get_max_threads() << " threads";
+      std::ostringstream os; os << "timeslice " << t << " from range " << GJP.TnodeCoor()*GJP.TnodeSites() << " to " << (GJP.TnodeCoor()+1)*GJP.TnodeSites()-1 << " : " << nmodes_l << "*" <<  nmodes_r << " modes and inner p loop of size " <<  size_3d << std::endl;
       print_time("A2AmesonField",os.str().c_str(),ttime + dclock());
     }
 
     print_time("A2AmesonField","local compute",time + dclock());
+    print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
     print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
     time = -dclock();

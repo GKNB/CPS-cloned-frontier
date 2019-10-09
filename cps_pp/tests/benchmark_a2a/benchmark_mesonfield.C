@@ -264,7 +264,7 @@ int main(int argc,char *argv[])
   if(0) benchmarkmultGammaLeft(ntests, tol);
 
 #ifdef USE_GRID
-  if(1) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
+  if(0) testMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, nthreads,tol);
 #endif
 
   if(0) testMultiSource<ScalarA2Apolicies>(a2a_args,lattice);
@@ -274,7 +274,7 @@ int main(int argc,char *argv[])
 
   
 #ifdef USE_GRID
-  if(0) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
+  if(1) benchmarkMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2Apolicies,GridA2Apolicies>(a2a_args, ntests, nthreads);
 #endif
 

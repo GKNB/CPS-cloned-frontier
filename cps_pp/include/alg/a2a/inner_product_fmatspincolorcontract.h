@@ -30,6 +30,11 @@ struct flavorMatrixSpinColorContract{
   static accelerator_inline typename my_enable_if<_equal<typename ComplexClassify<ComplexType>::type,grid_vector_complex_mark>::value, void>::type
   spinColorContract(FlavorMatrixGeneral<typename SIMT<ComplexType>::value_type> &lMr, const SCFvectorPtr<ComplexType> &l, const SCFvectorPtr<ComplexType> &r){
     typedef typename SIMT<ComplexType>::value_type SIMT_ztype;
+
+    /* lMr(0,0) = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0)); */
+    /* lMr(0,1) = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(1)); */
+    /* lMr(1,0) = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(1),r.getPtr(0)); */
+    /* lMr(1,1) = GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(1),r.getPtr(1)); */
     
     lMr(0,0) = l.isZero(0) || r.isZero(0) ? SIMT_ztype(0.) : GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(0));
     lMr(0,1) = l.isZero(0) || r.isZero(1) ? SIMT_ztype(0.) : GridVectorizedSpinColorContractSelect<smatidx,ComplexType,conj_left,conj_right>::doit(l.getPtr(0),r.getPtr(1));

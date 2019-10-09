@@ -41,6 +41,12 @@ public:
   
   A2Asource(): src(NULL){}
   A2Asource(const A2Asource &cp){
+    if(copyControl::shallow()){
+      //printf("Performing shallow copy\n"); fflush(stdout);
+      src = cp.src;
+      return;
+    }
+    
 #ifdef GRID_NVCC
     if(cp.src != NULL){
       void* p = managed_alloc_check(sizeof(FieldType));
@@ -54,6 +60,8 @@ public:
   A2Asource & operator=(const A2Asource &r) = delete;
   
   ~A2Asource(){
+    if(copyControl::shallow()) return;
+    
 #ifdef GRID_NVCC
     if(src != NULL){
       src->~FieldType();
