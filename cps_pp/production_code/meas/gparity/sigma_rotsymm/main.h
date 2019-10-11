@@ -272,19 +272,20 @@ void readGaugeRNG(const Parameters &params, const CommandLineArgs &cmdline){
   readGaugeRNG(params.do_arg, params.meas_arg, cmdline.double_latt);
 }
   
-//(-4,0,0)pi/2L + perms. Use parity to avoid computing (4,0,0)
+//(4,0,0)pi/2L + perms. Use parity to avoid computing (4,0,0)
 //We symmetrize but do not do alternative momenta because the meson fields contain both psi_+ and psi_- quark fields naturally
 class MovingSigmaMomentaPolicy400: public RequiredMomentum{
 public:
   MovingSigmaMomentaPolicy400(): RequiredMomentum() {
     const int ngp = this->nGparityDirs();
     assert(ngp==3);
-
-    addPandMinusP("(-1, -1, -1)+(-3, 1, 1)");
-
-    addPandMinusP("(-1, -1, -1)+(1, -3, 1)");
-
-    addPandMinusP("(-1, -1, -1)+(1, 1, -3)");
+   
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair = ThreeMomentum::parse_str_two_mom("(1,1,1) + (3,-1,-1)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair);
+      mom_pair.first.cyclicPermute();
+      mom_pair.second.cyclicPermute();
+    }
 
     this->symmetrizeABmomentumAssignments();
   }
@@ -296,55 +297,38 @@ public:
     const int ngp = this->nGparityDirs();
     assert(ngp==3);
 
-    addPandMinusP("(1, 1, 1)+(-5, -1, -1)");
-
-    addPandMinusP("(1, 1, 1)+(-1, -5, -1)");
-
-    addPandMinusP("(1, 1, 1)+(-1, -1, -5)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair = ThreeMomentum::parse_str_two_mom("(-1,-1,-1) + (5,1,1)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair);
+      mom_pair.first.cyclicPermute();
+      mom_pair.second.cyclicPermute();
+    }
 
     this->symmetrizeABmomentumAssignments();
   }
 };
 
-//(-4,-4,0),  (-4,4,0)  + perms. Use parity to avoid computing negatives
+//(4,4,0),  (4,-4,0)  + perms. Use parity to avoid computing negatives
 //We symmetrize but do not do alternative momenta because the meson fields contain both psi_+ and psi_- quark fields naturally
-//Choose p1 in psi_-  (-1,-1,-1) + 4(n1,n2,n3)  momentum set
+//Choose p1 in psi_+  (1,1,1) + 4(n1,n2,n3)  momentum set
 class MovingSigmaMomentaPolicy440: public RequiredMomentum{
 public:
   MovingSigmaMomentaPolicy440(): RequiredMomentum() {
     const int ngp = this->nGparityDirs();
+
     assert(ngp==3);
 
-    //(-4,-4,0)
-    addPandMinusP("(-1, -1, -1)+(-3, -3, 1)");
-
-    //(-4,0,-4)
-    addPandMinusP("(-1, -1, -1)+(-3, 1, -3)");
-
-     //(0,-4,-4)
-    addPandMinusP("(-1, -1, -1)+(1, -3, -3)");
-
-
-
-    //    "(-1, 3, -1)+(-3, 1, 1)"  = -4 4 0
-    //    "(-1, -1, 3)+(1, -3, 1)"  = 0 -4 4
-    //    "(3, -1, -1)+(1, 1, -3)"  = 4, 0, -4
-
-    //(-4,4,0)
-    addPandMinusP("(-1, 3, -1)+(-3, 1, 1)");
-
-    //(-4,0,4)
-    //addPandMinusP("(-1, -1, 3)+(-3, 1, 1)");
-
-    //(4,0,-4)
-    addPandMinusP("(3, -1, -1)+(1, 1, -3)");
-
-
-    //(0,-4,4)
-    addPandMinusP("(-1, -1, 3)+(1, -3, 1)");
-
-
-
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_same = ThreeMomentum::parse_str_two_mom("(1,1,1) + (3,3,-1)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_diff = ThreeMomentum::parse_str_two_mom("(3,-1,-1) + (1,-3,1)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair_same);
+      mom_pair_same.first.cyclicPermute();
+      mom_pair_same.second.cyclicPermute();
+      addPandMinusP(mom_pair_diff);
+      mom_pair_diff.first.cyclicPermute();
+      mom_pair_diff.second.cyclicPermute();
+    } 
+    
     this->symmetrizeABmomentumAssignments();
   }
 };
@@ -355,53 +339,39 @@ public:
     const int ngp = this->nGparityDirs();
     assert(ngp==3);
 
-    //(-4,-4,0)
-    addPandMinusP("(-3, 1, 1)+(-1, -5, -1)");
-
-    //(-4,0,-4)
-    addPandMinusP("(1, 1, -3)+(-5, -1, -1)");
-
-     //(0,-4,-4)
-    addPandMinusP("(1, -3, 1)+(-1, -1, -5)");
-
-
-    //(-4,4,0)
-    addPandMinusP("(1, 1, 1)+(-5, 3, -1)");
-
-    //(-4,0,4)
-    //addPandMinusP("(1, 1, 1)+(-5, -1, 3)");
-
-    //(4,0,-4)
-    addPandMinusP("(1, 1, 1)+(3, -1, -5)");
-
-    //(0,-4,4)
-    addPandMinusP("(1, 1, 1)+(-1, -5, 3)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_same = ThreeMomentum::parse_str_two_mom("(3,-1,-1) + (1,5,1)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_diff = ThreeMomentum::parse_str_two_mom("(3,-5,-1) + (1,1,1)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair_same);
+      mom_pair_same.first.cyclicPermute();
+      mom_pair_same.second.cyclicPermute();
+      addPandMinusP(mom_pair_diff);
+      mom_pair_diff.first.cyclicPermute();
+      mom_pair_diff.second.cyclicPermute();
+    }
 
     this->symmetrizeABmomentumAssignments();
   }
 };
 
 
-//(-4,-4,-4),  (-4,-4,4),  (-4,4,-4),   (4,-4,-4). Use parity to avoid computing negatives
+//(4,4,4),  (4,4,-4),  (4,-4,4),   (-4,4,4). Use parity to avoid computing negatives
 //We symmetrize but do not do alternative momenta because the meson fields contain both psi_+ and psi_- quark fields naturally
-//Choose p1 in psi_-  (-1,-1,-1) + 4(n1,n2,n3)  momentum set
+//Choose p1 in psi_+  (1,1,1) + 4(n1,n2,n3)  momentum set
 class MovingSigmaMomentaPolicy444: public RequiredMomentum{
 public:
   MovingSigmaMomentaPolicy444(): RequiredMomentum() {
     const int ngp = this->nGparityDirs();
     assert(ngp==3);
 
-    //(-4,-4,-4)
-    addPandMinusP("(-1, -1, -1)+(-3, -3, -3)");
-
-    //(-4,-4,4)
-    addPandMinusP("(-1, -1, 3)+(-3, -3, 1)");
-
-    //(-4,4,-4)
-    addPandMinusP("(-1, 3, -1)+(-3, 1, -3)");
-
-    //(4,-4,-4)
-    addPandMinusP("(3, -1, -1)+(1, -3, -3)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_diff = ThreeMomentum::parse_str_two_mom("(3,3,-1) + (1,1,-3)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair_diff);
+      mom_pair_diff.first.cyclicPermute();
+      mom_pair_diff.second.cyclicPermute();
+    }
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_same = ThreeMomentum::parse_str_two_mom("(3,3,3) + (1,1,1)");
+    addPandMinusP(mom_pair_same);
 
     this->symmetrizeABmomentumAssignments();
   }
@@ -413,18 +383,14 @@ public:
     const int ngp = this->nGparityDirs();
     assert(ngp==3);
 
-    //(-4,-4,-4)
-    //addPandMinusP("(1, -3, -3)+(-5, -1, -1)");
-    addPandMinusP("(-3, -3, 1)+(-1, -1, -5)");
-
-    //(-4,-4,4)
-    addPandMinusP("(-3, 1, 1)+(-1, -5, 3)");
-
-    //(-4,4,-4)
-    addPandMinusP("(1, 1, -3)+(-5, 3, -1)");
-
-    //(4,-4,-4)
-    addPandMinusP("(1, -3, 1)+(3, -1, -5)");
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_diff = ThreeMomentum::parse_str_two_mom("(3,-1,-1) + (1,5,-3)");
+    for(int perm=0; perm<3; perm++){
+      addPandMinusP(mom_pair_diff);
+      mom_pair_diff.first.cyclicPermute();
+      mom_pair_diff.second.cyclicPermute();
+    }
+    std::pair<ThreeMomentum,ThreeMomentum> mom_pair_same = ThreeMomentum::parse_str_two_mom("(3,3,-1) + (1,1,5)");
+    addPandMinusP(mom_pair_same);
 
     this->symmetrizeABmomentumAssignments();
   }
@@ -482,7 +448,7 @@ void computeMovingSigma2pt(std::vector< fVector<typename A2Apolicies::ScalarComp
     ComputeSigmaContractions<A2Apolicies>::computeDisconnectedBubble(into, mf_sigma_con, sigma_mom, pidx);
 
     std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf;
-    os  << "_sigmaself_ptot" << sigma_mom.getTotalMomentum(pidx).file_str(1);
+    os  << "_sigmaself_ptot" << sigma_mom.getTotalMomentum(pidx).file_str(1); //MOVE TO DAIQIAN'S CONVENTIONS
     into.write(os.str());
 # ifdef WRITE_HEX_OUTPUT
     os << ".hexfloat";
@@ -534,6 +500,33 @@ void computePionMesonFields1s(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_co
   print_time("main","Pion meson fields",time);
 
   printMem("Memory after pion meson field computation");
+}
+
+template<typename PionMomentumPolicy>
+void computePion2pt(MesonFieldMomentumContainer<A2Apolicies> &mf_ll_con, const PionMomentumPolicy &pion_mom, const int conf, const Parameters &params, const std::string &postpend = ""){
+  const int nmom = pion_mom.nMom();
+  const int Lt = GJP.Tnodes() * GJP.TnodeSites();
+  
+  if(!UniqueID()) printf("Computing pion 2pt function\n");
+  double time = -dclock();
+  for(int p=0;p<nmom;p+=2){ //note odd indices 1,3,5 etc have equal and opposite momenta to 0,2,4... 
+    if(!UniqueID()) printf("Starting pidx %d\n",p);
+    fMatrix<typename A2Apolicies::ScalarComplexType> pion(Lt,Lt);
+    ComputePion<A2Apolicies>::compute(pion, mf_ll_con, pion_mom, p);
+
+    std::ostringstream os; os << params.meas_arg.WorkDirectory << "/traj_" << conf << "_pioncorr_mom";
+    os << (-pion_mom.getMesonMomentum(p)).file_str(2);
+    os << postpend;
+    pion.write(os.str());
+#ifdef WRITE_HEX_OUTPUT
+    os << ".hexfloat";
+    pion.write(os.str(),true);
+#endif
+  }
+  time += dclock();
+  print_time("main","Pion 2pt function",time);
+
+  printMem("Memory after pion 2pt function computation");
 }
 
 template<typename SigmaMomentumPolicy, typename PionMomentumPolicy>
@@ -719,7 +712,7 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   computeMovingSigma2pt(sigma_bub_440, mf_sigma, sigma_mom_440, conf, params);
   computeMovingSigma2pt(sigma_bub_444, mf_sigma, sigma_mom_444, conf, params);
 
-  StandardPionMomentaPolicy pion_mom_111;
+  SymmetricPionMomentaPolicy pion_mom_111;
   AltExtendedPionMomentaPolicy pion_mom_311;
   
   RequiredMomentum pion_mom_all; 
@@ -732,6 +725,9 @@ void doConfiguration(const int conf, Parameters &params, const CommandLineArgs &
   MesonFieldMomentumContainer<A2Apolicies> mf_pion;
   computePionMesonFields1s(mf_pion,  V, W, pion_mom_all, lat, params, field3dparams);
   
+  //-----------------Pion 2pt------------------------------------------------
+  computePion2pt(mf_pion, pion_mom_all, conf, params);
+
   //------------------PiPi->Sigma---------------------------------------------
   for(int i=0;i<sigma_mom_400.nMom();i++)
     computeMovingPipiToSigma(mf_sigma, sigma_mom_400, i, mf_pion, pion_mom_all, conf, params, sigma_bub_400);
