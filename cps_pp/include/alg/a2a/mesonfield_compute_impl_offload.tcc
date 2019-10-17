@@ -248,6 +248,11 @@ struct MultiSrcVectorPoliciesSIMDoffload{
   
 };
 
+struct Off{
+  int x;
+  int ii;
+  int jj;
+};
 
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
@@ -308,7 +313,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     typedef std::pair<int,int> offsetT;
     offsetT *site_offsets_i = Alloc<offsetT>(nmodes_l);
     offsetT *site_offsets_j = Alloc<offsetT>(nmodes_r);
- 
+    
     //Total number of work items is nmodes_l * nmodes_r * size_3d, and kernel is M
     //A reduction is performed over the 3d site
     //Access pattern should be blocked to ensure cache reuse of rows and columns
@@ -331,6 +336,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     
     double reduce_time = 0;
     double ptr_setup_time = 0;
+    double kernel_time = 0;
     
     //Each node only works on its time block
     for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){   
@@ -352,7 +358,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 		   base_ptrs_j[j] = r.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);
 		   site_offsets_j[j] = offsetT( r.siteStride3D(j,j_high_unmapped,0), r.siteStride3D(j,j_high_unmapped,1) );
 		 });
-
+            
       ptr_setup_time += dclock()+ttime;
 
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
@@ -360,27 +366,33 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	
 	for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
 	  size_t jup = std::min(j0+bj,nmodes_r);
-      
-	  memset(accum, 0, naccum * sizeof(accumType));
+	  
+	  //memset(accum, 0, naccum * sizeof(accumType));
 
 	  //Number of work items is (iup - i0) * (jup - j0) * size_3d
 	  size_t nib = iup - i0;
 	  size_t njb = jup - j0;
 
 	  size_t nwork = nib * njb * size_3d;
+
+	  kernel_time -= dclock();
 	  copyControl::shallow() = true; //enable shallow copy of inner product object
 	  {
 	  accelerator_for(item, nwork, Nsimd, 
 			  {
-			    size_t rem = item;
-			    size_t x = rem % size_3d; rem /= size_3d;
-			    size_t jj = rem % njb; rem /= njb;
-			    size_t ii = rem;
+			    int rem = item;
+			    int x = rem % size_3d; rem /= size_3d;
+			    int jj = rem % njb; rem /= njb;
+			    int ii = rem;			    
 			    
-			    size_t i = ii+i0;
-			    size_t j = jj+j0;
-
+			    int i = ii+i0;
+			    int j = jj+j0;
+			    
 			    accumType *into = accum + multiplicity*(x + size_3d*(jj + bj*ii));
+			    typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
+			    for(int m=0;m<multiplicity;m++)			      
+			      SIMT<accumType>::write(into[m], zero); 	    
+			    
 			    vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
 			    vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
 
@@ -390,6 +402,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 			  });
 	  }   
 	  copyControl::shallow() = false;
+	  kernel_time += dclock();
 	  
 	  double treduce = -dclock();
 	  this->reduce(mf_t, accum, i0, j0, nib, njb, bj, t, size_3d);
@@ -405,6 +418,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     }
 
     print_time("A2AmesonField","local compute",time + dclock());
+    print_time("A2AmesonField","kernel time in local compute",kernel_time);
     print_time("A2AmesonField","ptr setup time in local compute",ptr_setup_time);
     print_time("A2AmesonField","reduce time in local compute",reduce_time);
     
@@ -418,7 +432,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     this->nodeSum(mf_t,Lt);
 #endif
     print_time("A2AmesonField","nodeSum",time + dclock());
-    
+
     Free(base_ptrs_i);
     Free(base_ptrs_j);
     Free(site_offsets_i);

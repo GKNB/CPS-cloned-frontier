@@ -300,6 +300,99 @@ public:
 
 
 
+
+//Helper structs to iterate recursively over Remaining sources, where Remaining is known at compile time
+template<typename SourceType, FlavorMatrixType F, typename mf_Complex, int Remaining, int Idx=0>
+struct _siteFmatRecurseCT{
+  template<typename AccumVtype>
+  static accelerator_inline void doit(AccumVtype &into, const SourceType &src, const int p, const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+    src.template getSource<Idx>().siteFmat(phi,p);
+    plCT<typename SIMT<mf_Complex>::value_type, F>::action(phi);
+    
+    doAccum(into[Idx], TransLeftTrace(lMr, phi));
+    _siteFmatRecurse<SourceType,mf_Complex,Remaining-1,Idx+1>::doit(into,src,p,lMr);
+  }
+};
+template<typename SourceType, FlavorMatrixType F, typename mf_Complex, int Idx>
+struct _siteFmatRecurseCT<SourceType,F,mf_Complex,0,Idx>{
+  template<typename AccumVtype>
+  static accelerator_inline void doit(AccumVtype &into, const SourceType &src, const int p, const FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> &lMr){}
+};
+
+
+template<typename mf_Complex, typename SourceType, typename SpinColorContractPolicy, FlavorMatrixType F>
+class GparityInnerProductCT: public SpinColorContractPolicy{
+  SourceType src;
+
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
+  template<typename S>
+  inline typename my_enable_if<has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return S::nSources; }
+  
+  template<typename S>
+  inline typename my_enable_if<!has_enum_nSources<S>::value, int>::type _mfPerTimeSlice() const{ return 1; }
+
+  //Single source
+  template<typename AccumType, typename S>
+  accelerator_inline typename my_enable_if<!has_enum_nSources<S>::value, void>::type
+  do_op(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vector otherwise
+    this->spinColorContract(lMr,l,r);
+    
+    //Compute   lMr[f1,f3] s3[f1,f2] phi[f2,f3]  =   lMr^T[f3,f1] s3[f1,f2] phi[f2,f3] 
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> phi;
+    src.siteFmat(phi,p);
+    plCT<typename SIMT<mf_Complex>::value_type, F>::action(phi);
+
+    //Do the sum over the SIMD vectorized sites
+    doAccum(out, TransLeftTrace(lMr, phi));
+#endif
+  }  
+  
+  //Multi source
+  //Does out += op(l,r,p,t);
+  template<typename AccumVtype, typename S>
+  accelerator_inline typename my_enable_if<has_enum_nSources<S>::value, void>::type
+  do_op(AccumVtype &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+#ifndef MEMTEST_MODE
+    FlavorMatrixGeneral<typename SIMT<mf_Complex>::value_type> lMr; //scalar on GPU, vectorized otherwise
+    this->spinColorContract(lMr,l,r);
+
+    _siteFmatRecurseCT<SourceType,F,mf_Complex,SourceType::nSources>::doit(out,src,p,lMr);
+#endif
+  }
+  
+public:
+  typedef SourceType InnerProductSourceType;
+
+  GparityInnerProductCT(const SourceType &_src): src(_src){ }
+
+  //When running with a multisrc type this returns the number of meson fields per timeslice = nSources
+  inline int mfPerTimeSlice() const{ return _mfPerTimeSlice<SourceType>(); }
+  
+  template<typename AccumType>
+  accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
+    do_op<AccumType,SourceType>(out,l,r,p,t);
+  }  
+};
+
+template<int smatidx, FlavorMatrixType F, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>
+class SCFspinflavorInnerProductCT: public GparityInnerProductCT<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,conj_left,conj_right>, F >{
+public:
+  typedef SourceType InnerProductSourceType;
+  
+  SCFspinflavorInnerProductCT(SourceType &_src):
+    GparityInnerProductCT<mf_Complex, SourceType, flavorMatrixSpinColorContract<smatidx,conj_left,conj_right>, F >(_src){}
+};
+
+
+
+
+
+
+
 //Just a simple spin/color/flavor matrix inner product with no source. (Equivalent to source whose Fourier transform is unity on all momentum sites)
 template<typename mf_Complex, typename SpinColorContractPolicy>
 class GparityNoSourceInnerProduct: public SpinColorContractPolicy{

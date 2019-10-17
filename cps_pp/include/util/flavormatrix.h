@@ -236,5 +236,19 @@ accelerator_inline static T TransLeftTrace(const FlavorMatrixGeneral<T> &a, cons
 
 typedef FlavorMatrixGeneral<Complex> FlavorMatrix;
 
+//Compile-time implementation of pl operator
+template<typename T, FlavorMatrixType F>
+struct plCT{
+};
+
+template<typename T>
+struct plCT<T, sigma3>{
+  static accelerator_inline void action(FlavorMatrixGeneral<T> &m){
+    m(1,0) = -m(1,0);
+    m(1,1) = -m(1,1);
+  }
+};
+
+
 CPS_END_NAMESPACE
 #endif

@@ -2689,9 +2689,12 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   
   int p[3] = {1,1,1};
   A2AflavorProjectedExpSource<GridSrcPolicy> src_grid(2.0,p,simd_dims_3d);
+  //typedef SCFspinflavorInnerProductCT<15,sigma3,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
+  //GridInnerProduct mf_struct_grid(src_grid);
+
   typedef SCFspinflavorInnerProduct<15,typename GridA2Apolicies::ComplexType,A2AflavorProjectedExpSource<GridSrcPolicy> > GridInnerProduct;
   GridInnerProduct mf_struct_grid(sigma3,src_grid);
-      
+  
   std::cout << "Starting all-time mesonfield contract benchmark\n";
   if(!UniqueID()) printf("Using outer blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bi,BlockedMesonFieldArgs::bj,BlockedMesonFieldArgs::bp);
   if(!UniqueID()) printf("Using inner blocking bi %d bj %d bp %d\n",BlockedMesonFieldArgs::bii,BlockedMesonFieldArgs::bjj,BlockedMesonFieldArgs::bpp);
