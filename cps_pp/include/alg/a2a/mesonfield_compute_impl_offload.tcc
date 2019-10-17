@@ -4,7 +4,7 @@
 #ifdef GRID_NVCC
 
 template<typename ComplexType>
-__global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t nib, const size_t njb, const size_t bj, const size_t size_3d, const size_t multiplicity){
+__global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
   constexpr int nsimd = ComplexType::Nsimd();
   __shared__ typename SIMT<ComplexType>::value_type thrbuf[nsimd];
   int ii = blockIdx.x;
@@ -16,7 +16,7 @@ __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexTyp
   //output off = m + multiplicity*(jj + bj*ii)
   
   ComplexType const* fb = from + m + multiplicity*size_3d*(jj + bj*ii); //x=0
-  typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + njb*ii);
+  typename ComplexType::scalar_type* ib = into + m + multiplicity*(jj + bj_true*ii);
 
   //Each thread sums its lane into a temp shared buffer
   typename SIMT<ComplexType>::value_type &v = thrbuf[lane];
@@ -35,13 +35,13 @@ __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexTyp
 }
 
 template<typename ComplexType>
-void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t nib, const size_t njb, const size_t bj, const size_t size_3d, const size_t multiplicity){
-  //We will work with 1 thread per block and blocks over a 3d grid   nij x njb x multiplicity
+void blockReduce(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
+  //We will work with 1 thread per block and blocks over a 3d grid   nij x bj_true x multiplicity
   //Each thread does thr reduction for a single element over the whole 3d grid
-  dim3 blocks(nib, njb, multiplicity);
+  dim3 blocks(bi_true, bj_true, multiplicity);
   constexpr int nsimd = ComplexType::Nsimd();
   
-  reduceKernel<<< blocks, nsimd>>>(into, from, nib, njb, bj, size_3d, multiplicity);
+  reduceKernel<<< blocks, nsimd>>>(into, from, bi_true, bj_true, bj, size_3d, multiplicity);
   cudaDeviceSynchronize();
 
   cudaError err = cudaGetLastError();
@@ -90,7 +90,7 @@ struct SingleSrcVectorPoliciesSIMDoffload{
   //Sum over x and SIMD reduce
   static inline void reduce(mfVectorType &mf_t, accumType const* accum,
 			    const size_t i0, const size_t j0, //block index
-			    const size_t nib, const size_t njb, //true size of this block
+			    const size_t bi_true, const size_t bj_true, //true size of this block
 			    const size_t bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 			    const int t, const size_t size_3d){
 
@@ -102,22 +102,22 @@ struct SingleSrcVectorPoliciesSIMDoffload{
     const int multiplicity = 1;
 
     double time = dclock();
-    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(nib * njb * multiplicity * sizeof(Grid::ComplexD));
+    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(bi_true * bj_true * multiplicity * sizeof(Grid::ComplexD));
     talloc_free += dclock() - time;
     time = dclock();
-    blockReduce(tmp, accum, nib, njb, bj, size_3d, multiplicity);
+    blockReduce(tmp, accum, bi_true, bj_true, bj, size_3d, multiplicity);
     tkernel += dclock() - time;
 
     time = dclock();
 #pragma omp parallel for
-    for(size_t z=0; z < nib*njb; z++){
-      size_t jj = z % njb;
-      size_t ii = z / njb;
+    for(size_t z=0; z < bi_true*bj_true; z++){
+      size_t jj = z % bj_true;
+      size_t ii = z / bj_true;
 
       size_t i = ii+i0;
       size_t j = jj+j0;
 
-      mf_t[t](i,j) += tmp[jj + njb*ii];
+      mf_t[t](i,j) += tmp[jj + bj_true*ii];
     }
     tpoke += dclock() - time;
 
@@ -131,8 +131,8 @@ struct SingleSrcVectorPoliciesSIMDoffload{
 #else
     //Reduce over size_3d
     //Paralllelize me!
-    for(int ii=0;ii<nib;ii++)
-      for(int jj=0;jj<njb;jj++){
+    for(int ii=0;ii<bi_true;ii++)
+      for(int jj=0;jj<bj_true;jj++){
 	size_t i = ii+i0;
 	size_t j = jj+j0;
 	accumType const* from_base = accum + size_3d*(jj + bj*ii);
@@ -190,7 +190,7 @@ struct MultiSrcVectorPoliciesSIMDoffload{
   //Sum over x and SIMD reduce
   inline void reduce(mfVectorType &mf_st, accumType const* accum,
 		     const size_t i0, const size_t j0, //block index
-		     const size_t nib, const size_t njb, //true size of this block
+		     const size_t bi_true, const size_t bj_true, //true size of this block
 		     const int bj, //size of block. If block size not an even divisor of the number of modes, the above will differ from this for the last block 
 		     const int t, const size_t size_3d) const{
 #ifdef GRID_NVCC
@@ -201,24 +201,24 @@ struct MultiSrcVectorPoliciesSIMDoffload{
     const int multiplicity = mfPerTimeSlice;
 
     double time = dclock();
-    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(nib * njb * multiplicity * sizeof(Grid::ComplexD));
+    Grid::ComplexD* tmp = (Grid::ComplexD*)managed_alloc_check(bi_true * bj_true * multiplicity * sizeof(Grid::ComplexD));
     talloc_free += dclock() - time;
     time = dclock();
-    blockReduce(tmp, accum, nib, njb, bj, size_3d, multiplicity);
+    blockReduce(tmp, accum, bi_true, bj_true, bj, size_3d, multiplicity);
     tkernel += dclock() - time;
 
     time = dclock();
 #pragma omp parallel for
-    for(size_t z=0; z < nib*njb*multiplicity; z++){
+    for(size_t z=0; z < bi_true*bj_true*multiplicity; z++){
       size_t rem = z;     
       size_t m = rem % multiplicity; rem /= multiplicity;
-      size_t jj = rem % njb; rem /= njb;
+      size_t jj = rem % bj_true; rem /= bj_true;
       size_t ii = rem;
       
       size_t i = ii+i0;
       size_t j = jj+j0;
 
-      mf_st[m]->operator[](t)(i,j) += tmp[m + multiplicity *(jj + njb*ii)];
+      mf_st[m]->operator[](t)(i,j) += tmp[m + multiplicity *(jj + bj_true*ii)];
     }
     tpoke += dclock() - time;
 
@@ -232,8 +232,8 @@ struct MultiSrcVectorPoliciesSIMDoffload{
 #else
     //Reduce over size_3d
     //(Do this on host for now) //GENERALIZE ME
-    for(int ii=0;ii<nib;ii++)
-      for(int jj=0;jj<njb;jj++){
+    for(int ii=0;ii<bi_true;ii++)
+      for(int jj=0;jj<bj_true;jj++){
 	size_t i = ii+i0;
 	size_t j = jj+j0;
 	accumType const* from_base = accum + mfPerTimeSlice*size_3d*(jj + bj*ii);
@@ -247,13 +247,6 @@ struct MultiSrcVectorPoliciesSIMDoffload{
   
   
 };
-
-struct Off{
-  int x;
-  int ii;
-  int jj;
-};
-
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
 struct mfComputeGeneralOffload: public mfVectorPolicies{
@@ -302,8 +295,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     const size_t nmodes_l = mf_ref.getNrows();
     const size_t nmodes_r = mf_ref.getNcols();
 
-    const size_t bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bp = BlockedMesonFieldArgs::bp;
-
+    size_t bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bx = BlockedMesonFieldArgs::bp;
+    if(bi > nmodes_l) bi = nmodes_l;
+    if(bj > nmodes_r) bj = nmodes_r;
+    if(bx > size_3d || bx == -1) bx = size_3d; //optional disable of x blocking
+    
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j
     //These need to be in managed memory so they can be accessed on the device
     typedef SCFvectorPtr<typename mf_Policies::FermionFieldType::FieldSiteType> vPtr;
@@ -322,17 +318,18 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     //and the number of blocks is scaled to the problem
 
     //If each work item writes to a separate memory location we need  nmodes_l * nmodes_r * size_3d temporary storage, which is far too big. We thus need to divide the
-    //problem into smaller blocks of size   nl_block * nr_block * size3d,   where nl_block is tuned such that the temporaries fit in GPU memory
-    //We will use BlockedMesonFieldArgs::bi and BlockedMesonFieldArgs::bj for this purpose
+    //problem into smaller blocks of size   nl_block * nr_block * np_block,   where nl_block is tuned such that the temporaries fit in GPU memory
+    //We will use BlockedMesonFieldArgs::bi, BlockedMesonFieldArgs::bj and BlockedMesonFieldArgs::bp for this purpose
 
     //Note, block sizes will depend on the multiplicity of the accumulation type
+    
 
     //Allocate work item temp memory
     const size_t multiplicity = this->accumMultiplicity();
-    const size_t naccum = bi * bj * size_3d * multiplicity;
+    const size_t naccum = bi * bj * bx * multiplicity;
     accumType *accum = Alloc<accumType>(naccum);
 
-    if(!UniqueID()){ printf("Using block sizes %d %d, temp memory requirement is %f MB\n", bi, bj, byte_to_MB(naccum * sizeof(accumType))); }
+    if(!UniqueID()){ printf("Using block sizes %d %d %d, temp memory requirement is %f MB\n", bi, bj, bx, byte_to_MB(naccum * sizeof(accumType))); }
     
     double reduce_time = 0;
     double ptr_setup_time = 0;
@@ -363,52 +360,52 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
 	size_t iup = std::min(i0+bi,nmodes_l);
+	size_t bi_true = iup - i0;
 	
 	for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
 	  size_t jup = std::min(j0+bj,nmodes_r);
+	  size_t bj_true = jup - j0;
+
+	  for(int x0 = 0; x0<size_3d; x0+=bx){
+	    int xup = std::min(x0+bx, size_3d);
+	    int bx_true = xup - x0;
 	  
-	  //memset(accum, 0, naccum * sizeof(accumType));
-
-	  //Number of work items is (iup - i0) * (jup - j0) * size_3d
-	  size_t nib = iup - i0;
-	  size_t njb = jup - j0;
-
-	  size_t nwork = nib * njb * size_3d;
-
-	  kernel_time -= dclock();
-	  copyControl::shallow() = true; //enable shallow copy of inner product object
-	  {
-	  accelerator_for(item, nwork, Nsimd, 
-			  {
-			    int rem = item;
-			    int x = rem % size_3d; rem /= size_3d;
-			    int jj = rem % njb; rem /= njb;
-			    int ii = rem;			    
-			    
-			    int i = ii+i0;
-			    int j = jj+j0;
-			    
-			    accumType *into = accum + multiplicity*(x + size_3d*(jj + bj*ii));
-			    typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
-			    for(int m=0;m<multiplicity;m++)			      
-			      SIMT<accumType>::write(into[m], zero); 	    
-			    
-			    vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
-			    vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
-
-			    typename mfVectorPolicies::accessType acc = this->getAccessor(into);
-			    
-			    M(acc,lptr,rptr,x,t);
-			  });
-	  }   
-	  copyControl::shallow() = false;
-	  kernel_time += dclock();
+	    size_t nwork = bi_true * bj_true * bx_true;	  
 	  
-	  double treduce = -dclock();
-	  this->reduce(mf_t, accum, i0, j0, nib, njb, bj, t, size_3d);
-	  treduce += dclock();
+	    kernel_time -= dclock();
+	    copyControl::shallow() = true; //enable shallow copy of inner product object
+	    {
+	      accelerator_for(item, nwork, Nsimd, 
+			      {
+				int rem = item;
+				int xx = rem % bx_true; rem /= bx_true;
+				int jj = rem % bj_true; rem /= bj_true;
+				int ii = rem;			    
+				
+				int i = ii+i0;
+				int j = jj+j0;
+				int x = xx+x0;
+				
+				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
+				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
+				for(int m=0;m<multiplicity;m++)			      
+				  SIMT<accumType>::write(into[m], zero);
+			    
+				vPtr lptr = base_ptrs_i[i]; lptr.incrementPointers(site_offsets_i[i], x);
+				vPtr rptr = base_ptrs_j[j]; rptr.incrementPointers(site_offsets_j[j], x);
 
-	  reduce_time += treduce;
+				typename mfVectorPolicies::accessType acc = this->getAccessor(into);
+				
+				M(acc,lptr,rptr,x,t);
+			      });
+	    }	  
+	    copyControl::shallow() = false;
+	    kernel_time += dclock();
+
+	    reduce_time -= dclock();
+	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
+	    reduce_time += dclock();
+	  }
 	}
       }
  
