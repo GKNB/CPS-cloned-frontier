@@ -43,6 +43,14 @@ void ProfilerStop(){}
 #include<alg/a2a/mf_momcontainer.h>
 #include<alg/a2a/compute_ktopipi.h>
 
+#ifdef GRID_NVCC
+#include <cuda_profiler_api.h>
+#else
+/* void cudaProfilerStart(){} */
+/* void cudaProfilerStop(){} */
+#endif
+
+
 CPS_START_NAMESPACE
 #include<alg/a2a/mesonfield_compute_impl_offload.tcc>
 CPS_END_NAMESPACE
@@ -2723,9 +2731,11 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
 
-    __itt_resume();
+    //__itt_resume();
+    if(iter == ntests-1) cudaProfilerStart();
     cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
-    __itt_pause();
+    if(iter == ntests-1) cudaProfilerStop();
+    //__itt_pause();
 
     //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);
     total_time += dclock();
@@ -2737,11 +2747,11 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   CALLGRIND_STOP_INSTRUMENTATION ;
 
   int g5_FLOPs = 12*6*nsimd + 12*2*nsimd;//4 flav * 12 vectorized conj(a)*b  + 12 vectorized += or -=         
-  int siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z                                                                                                                             
-  int s3_FLOPs = 4*nsimd; //2 vectorized -1*z                                                                                                                                                          
-  int TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd                                                                                                                                 
-  int reduce_FLOPs = 0; // (nsimd - 1)*2; //nsimd-1 cadd                                                                                                                                                    
-
+  int siteFmat_FLOPs = 3*nsimd;  //1 vectorized z.im*-1, 1 vectorized -1*z
+  int s3_FLOPs = 4*nsimd; //2 vectorized -1*z
+  int TransLeftTrace_FLOPs = nsimd*4*6 + nsimd*3*2; //4 vcmul + 3vcadd
+  int reduce_FLOPs = nsimd*2; //nsimd cadd  (reduce over lanes and sites)
+  
   double FLOPs_per_site = 0.;
   for(int t=GJP.TnodeCoor()*GJP.TnodeSites(); t<(GJP.TnodeCoor()+1)*GJP.TnodeSites(); t++){
     const int nl_l = mf_grid_t[t].getRowParams().getNl();
@@ -2751,8 +2761,8 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
 
     for(int i = 0; i < mf_grid_t[t].getNrows(); i++){
       modeIndexSet i_high_unmapped; if(i>=nl_l) mf_grid_t[t].getRowParams().indexUnmap(i-nl_l,i_high_unmapped);
-      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already \
-                                                                                                                                                                                                           
+      SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> lscf = Wgrid.getFlavorDilutedVect(i,i_high_unmapped,0,t_lcl); //dilute flavor in-place if it hasn't been already
+                                                                                                                                                                       
       for(int j = 0; j < mf_grid_t[t].getNcols(); j++) {
 	modeIndexSet j_high_unmapped; if(j>=nl_r) mf_grid_t[t].getColParams().indexUnmap(j-nl_r,j_high_unmapped);
 	SCFvectorPtr<typename GridA2Apolicies::FermionFieldType::FieldSiteType> rscf = Vgrid.getFlavorDilutedVect(j,j_high_unmapped,0,t_lcl);

@@ -254,7 +254,7 @@ int main(int argc,char *argv[])
 #endif
 
 #ifdef USE_GRID
-  if(0) testGridg5Contract<Grid::vComplexD>(); //Keep active because its very quick and checks that the kernel is correct
+  if(0) testGridg5Contract<Grid::vComplexD>();
 #endif
   
   if(0) benchmarkTrace(ntests,tol);

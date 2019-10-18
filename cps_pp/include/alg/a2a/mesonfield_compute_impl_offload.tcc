@@ -248,6 +248,13 @@ struct MultiSrcVectorPoliciesSIMDoffload{
   
 };
 
+inline int nearestDivisor(const int of, const int init){
+  int out = init;
+  while(of % out != 0) --out;
+  return out;
+}
+
+
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR, typename InnerProduct, typename mfVectorPolicies>
 struct mfComputeGeneralOffload: public mfVectorPolicies{
   typedef typename mfVectorPolicies::mfVectorType mfVectorType;
@@ -299,6 +306,15 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     if(bi > nmodes_l) bi = nmodes_l;
     if(bj > nmodes_r) bj = nmodes_r;
     if(bx > size_3d || bx == -1) bx = size_3d; //optional disable of x blocking
+
+#define MF_OFFLOAD_INNER_BLOCKING
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+    //Note these will be shrunk if necessary to be an exact divisor of the true block size, which can be smaller for the last block if the block size is not a divisor
+    size_t sbi = BlockedMesonFieldArgs::bii, sbj = BlockedMesonFieldArgs::bjj, sbx = BlockedMesonFieldArgs::bpp;
+    if(sbi == -1 || sbi > bi) sbi = bi;
+    if(sbj == -1 || sbj > bj) sbj = bj;
+    if(sbx == -1 || sbx > bx) sbx = bx;
+#endif
     
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j
     //These need to be in managed memory so they can be accessed on the device
@@ -330,7 +346,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
     accumType *accum = Alloc<accumType>(naccum);
 
     if(!UniqueID()){ printf("Using block sizes %d %d %d, temp memory requirement is %f MB\n", bi, bj, bx, byte_to_MB(naccum * sizeof(accumType))); }
-    
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+    if(!UniqueID()) printf("Using subblock sizes %d %d %d\n", sbi, sbj, sbx);
+#endif
     double reduce_time = 0;
     double ptr_setup_time = 0;
     double kernel_time = 0;
@@ -361,22 +379,55 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
       for(size_t i0 = 0; i0 < nmodes_l; i0+=bi){
 	size_t iup = std::min(i0+bi,nmodes_l);
 	size_t bi_true = iup - i0;
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+	int sbi_use = nearestDivisor(bi_true, sbi);
+	int niblk = bi_true / sbi_use;	
+#endif
 	
 	for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
 	  size_t jup = std::min(j0+bj,nmodes_r);
 	  size_t bj_true = jup - j0;
-
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+	  int sbj_use = nearestDivisor(bj_true, sbj);
+	  int njblk = bj_true / sbj_use;	
+#endif
+	  
 	  for(int x0 = 0; x0<size_3d; x0+=bx){
 	    int xup = std::min(x0+bx, size_3d);
 	    int bx_true = xup - x0;
-	  
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+	    int sbx_use = nearestDivisor(bx_true, sbx);
+	    int nxblk = bx_true / sbx_use;	
+#endif
+
+	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
+	    
 	    size_t nwork = bi_true * bj_true * bx_true;	  
-	  
+	    
 	    kernel_time -= dclock();
 	    copyControl::shallow() = true; //enable shallow copy of inner product object
 	    {
 	      accelerator_for(item, nwork, Nsimd, 
 			      {
+#ifdef MF_OFFLOAD_INNER_BLOCKING
+				//item = xs + sbx_use*( js + sbj_use * ( is + sbi_use * ( xblk + nxblk * (jblk + njblk * iblk))))
+				int rem = item;
+				int xs = rem % sbx_use; rem /= sbx_use;
+				int js = rem % sbj_use; rem /= sbj_use;
+				int is = rem % sbi_use; rem /= sbi_use;
+				int xblk = rem % nxblk; rem /= nxblk;
+				int jblk = rem % njblk; rem /= njblk;
+				int iblk = rem;
+
+				int ii = is + sbi_use*iblk;
+				int jj = js + sbj_use*jblk;
+				int xx = xs + sbx_use*xblk;
+				
+				int i = ii + i0;
+				int j = jj + j0;
+				int x = xx + x0;
+								
+#else
 				int rem = item;
 				int xx = rem % bx_true; rem /= bx_true;
 				int jj = rem % bj_true; rem /= bj_true;
@@ -385,6 +436,7 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 				int i = ii+i0;
 				int j = jj+j0;
 				int x = xx+x0;
+#endif
 				
 				accumType *into = accum + multiplicity*(xx + bx*(jj + bj*ii));
 				typename SIMT<accumType>::value_type zero; Grid::zeroit(zero);
