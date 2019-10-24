@@ -13,13 +13,9 @@
 #endif
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
-<<<<<<< HEAD
-=======
-#include<Grid/Grid.h>
-#include<Grid/algorithms/iterative/SimpleLanczos.h>
+//#include<Grid/algorithms/iterative/SimpleLanczos.h>
 //using namespace Grid;
 //using namespace Grid::QCD;
->>>>>>> d79c187f17ad05e4f95a97b451b6fe2c9f4a0760
 #undef HAVE_HANDOPT
 
 namespace Grid

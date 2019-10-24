@@ -92,37 +92,14 @@ AC_MSG_CHECKING([what target we are compiling for])
 AC_MSG_RESULT($enable_target)
 
 dnl Can add more cases as we need to
-if test "$enable_target" = "bgl"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/"
-   LDFLAGS="${LDFLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/ -L/bgl/BlueLight/ppcfloor/bglsys/lib/ -lrts.rts"
-
-   ARCH="BGL"
-   ARCHDIR="BGL_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgp"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgsys/drivers/ppcfloor/arch/include/"
-
-   ARCH="BGP"
-   ARCHDIR="BGL_QMP_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgq"; then
+if test "$enable_target" = "bgq"; then
 dnl  AC_CHECK_PROGS(CC, mpicc)
 dnl  AC_CHECK_PROGS(CXX, mpicxx)
    ARCH="BGQ"
    ARCHDIR="BGQ_DIR"
    TESTING_PARALLEL="yes";
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-   LDFLAGS="${LDFLAGS} -fopenmp"
+   LDFLAGS="-fopenmp ${LDFLAGS} "
    CFLAGS="${CFLAGS} -fopenmp"
    CXXFLAGS="${CXXLAGS} -fopenmp"
 
@@ -336,14 +313,9 @@ if test "$enable_qmp" != "no"; then
    QMP_CFLAGS=`${QMP_DIR}/bin/qmp-config --cflags`
    QMP_LDFLAGS=`${QMP_DIR}/bin/qmp-config --ldflags`
    QMP_LIBS=`${QMP_DIR}/bin/qmp-config --libs`
-   LDFLAGS="${LDFLAGS} ${QMP_LDFLAGS} ${QMP_LIBS}"
+   LDFLAGS="${QMP_LDFLAGS} ${QMP_LIBS} ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_CFLAGS} "
    DFLAGS="${DFLAGS} -DUSE_QMP"
-   if test "$enable_target" = "bgl"; then
-     ARCHDIR="BGL_QMP_DIR"
-   elif test "$enable_target" = "bgp"; then
-     ARCHDIR="BGL_QMP_DIR"
-   fi
    TESTING_PARALLEL="yes";
 fi
 
@@ -382,7 +354,7 @@ if test "$enable_qio" != "no"; then
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_FLAGS} "
 if test "$enable_qio" != "yes"; then
    QIO_DIR=${enable_qio}
-   LDFLAGS="${LDFLAGS} -L${QIO_DIR}/lib"
+   LDFLAGS="-L${QIO_DIR}/lib ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${QIO_DIR}/include"
 fi
    LDFLAGS="${LDFLAGS} -lqio -llime "
