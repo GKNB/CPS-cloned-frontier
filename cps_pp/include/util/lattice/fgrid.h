@@ -13,6 +13,7 @@
 #endif
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
+#include<util/eigen_grid.h>
 //#include<Grid/algorithms/iterative/SimpleLanczos.h>
 //using namespace Grid;
 //using namespace Grid::QCD;

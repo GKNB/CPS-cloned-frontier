@@ -282,7 +282,7 @@ public:
   /*! Returns the prop */
   WilsonMatrix& operator[](int i){ return prop[i]; }
   /*! Returns the 5d prop */
-  WilsonMatrix& operator()(int s,int site){ return prop5d[site+GJP.VolNodeSites()*s]; }
+  WilsonMatrix& operator()(size_t s,size_t site){ return prop5d[site+GJP.VolNodeSites()*s]; }
 
   /*! Returns the prop */
   const WilsonMatrix& operator[](int i)const{ return prop[i]; }

@@ -48,7 +48,7 @@ private:
         ERR.General (cname, fname, "CPS field not allocated\n");
     unsigned long vol;
       Grid::GridBase * grid = grid_f.Grid();
-    unsigned long fourvol = GJP.VolNodeSites ();
+    size_t fourvol = GJP.VolNodeSites ();
     int ncb = 2;
     if (eo != All)
     {
@@ -681,8 +681,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
     std::cout << "neig= " << neig << std::endl;
     std::vector < Float > eval (neig);
-    std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
-    Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval, evec_f);
+//    std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
+    std::vector < LATTICE_FERMION_F > *evec_f ;
+    std::vector < LATTICE_FERMION_F > evec_f1 (1, F_RB_GRID_F);
 
     if (if_defl) {
       LATTICE_FERMION_F grid_f (FERM_GRID_F), grid_f_rb (F_RB_GRID_F);
@@ -695,24 +696,42 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 		     neig, fname_eig_root_bc);
       }
       Float mass = cg_arg->mass;
-      EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig,
-			     f_size_per_site / 2, n_fields, ecache);
+//      EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig, f_size_per_site / 2, n_fields, ecache);
 
-      Float *eval_cps = eigcon.load_eval ();
-     VRB.Result (cname, fname, "eval_cps=%p\n", eval_cps);
+//      Float *eval_cps = eigcon.load_eval ();
+      Float *eval_cps = ecache->evals.data();
+      assert(ecache->evals.size() >= neig);
+     VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache->evals.size());
+      assert(ecache->evals.size() >= neig);
+      for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
+if(ecache->allocFlag()==1){
+      evec_f1.resize(neig,F_RB_GRID_F);
       for (int i = 0; i < neig; i++) {
-	eval[i] = eval_cps[i];
-	Vector *evec = eigcon.nev_load (i);
+//	Vector *evec = eigcon.nev_load (i);
+	Vector *evec = (Vector*) ecache->evecs[i];
 	VRB.Debug (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
 	ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
 								   1, Odd,
 								   NULL);
-	pickCheckerboard (Odd, evec_f[i], grid_f);
+	pickCheckerboard (Odd, evec_f1[i], grid_f);
       }
+      evec_f = &evec_f1;
+} else 
+if(ecache->allocFlag()==2){
+  EigenCacheGrid < LATTICE_FERMION_F > * ecache_grid = static_cast < EigenCacheGrid < LATTICE_FERMION_F > * >  (ecache);
+  Float *eval_cps = (ecache_grid->evals).data();
+     VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache_grid->evals.size());
+      assert((ecache_grid->evals).size() >= neig);
+      for (int i = 0; i < neig; i++) eval[i] = ecache_grid->evals[i];
+  VRB.Result(cname,fname,"ecache grid=%p lat grid=%p\n",ecache_grid->grid, F_RB_GRID_F);
+  for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
+      evec_f = ecache_grid->evec_grid;
+}
 
 
     }
 
+    Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval, *evec_f);
     ImportFermion (grid_out, f_out);
 
     Float stp_cnd = cg_arg->stop_rsd;
@@ -742,13 +761,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	if (verbose) {
 	  for (int i = 0; i < neig; i++) {
 	    LATTICE_FERMION_F tmp (F_RB_GRID_F);
-	    MdagMF.HermOp (evec_f[i], tmp);
-	    Grid::ComplexD zalph = innerProduct (evec_f[i], tmp);
+	    MdagMF.HermOp ((*evec_f)[i], tmp);
+	    Grid::ComplexD zalph = innerProduct ((*evec_f)[i], tmp);
 //              std::cout <<" <lambda|A|lambda>= " <<zalph<<std::endl;
 	    Grid::RealD alph = real (zalph);
-	    tmp = tmp - eval[i] * evec_f[i];
+	    tmp = tmp - eval[i] * (*evec_f)[i];
 	    VRB.Result (cname, fname, "evec %d: norm alpha eval residual= %e %e %e %e\n",
-			i,norm2 (evec_f[i]), alph, eval[i],norm2 (tmp));
+			i,norm2 ((*evec_f)[i]), alph, eval[i],norm2 (tmp));
 	  }
 	  verbose=0;
         }
@@ -1030,7 +1049,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     const char *fname ("RHMC_EvolveMomFforce()");
     char *force_label = NULL;
 
-    int g_size = GJP.VolNodeSites () * GsiteSize ();
+    size_t g_size = GJP.VolNodeSites () * GsiteSize ();
     if (GJP.Gparity ())
       g_size *= 2;
 

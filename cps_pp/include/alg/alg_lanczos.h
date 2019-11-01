@@ -23,6 +23,8 @@ CPS_END_NAMESPACE
 #include <util/eigen_container.h>
 CPS_START_NAMESPACE
 
+//class EigenCache; //forward declaration
+
 //! A class implementing a Lanczos eigenvalue solver for the fermion matrix.
 /*! \ingroup alg */
 class AlgLanczos : public Alg

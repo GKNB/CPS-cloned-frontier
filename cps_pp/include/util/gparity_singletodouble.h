@@ -656,7 +656,7 @@ public:
   int state_size;
   
   SingleToDouble4dRNG(bool _gparity_X, bool _gparity_Y): SingleToDouble(_gparity_X,_gparity_Y){
-    int n_rgen_4d_now = GJP.VolNodeSites()/16; 
+    size_t n_rgen_4d_now = GJP.VolNodeSites()/16; 
 
     n_rgen_4d_orig = n_rgen_4d_now; //factor of 2 in X direction included already as VolNodeSites calculated *after* lattice doubling
     if(gparity_X && gparity_Y) n_rgen_4d_orig/=2; //duplication in Y direction

@@ -177,7 +177,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
 #endif
 
-	uint64_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
+	size_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
 	if(precision=PREC_SINGLE) f_size *=sizeof(float);
 	else				 f_size *=sizeof(double);
 

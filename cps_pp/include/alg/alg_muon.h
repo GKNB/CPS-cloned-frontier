@@ -65,7 +65,7 @@ class AlgMuon : public Alg
       ERR.General(cname,"FFTW4()","Needs FFTW");
 #else
 
-      const int data_size = GJP.VolNodeSites()*nleft*nright;
+      const size_t data_size = GJP.VolNodeSites()*nleft*nright;
       //< total data length in units of Float
       
       int nr_stride = 1;
@@ -84,7 +84,7 @@ class AlgMuon : public Alg
 #ifndef USE_FFTW
       ERR.General(cname,"FFTWXYZ()","Needs FFTW");
 #else
-      const int data_size = GJP.VolNodeSites()*nleft*nright;
+      const size_t data_size = GJP.VolNodeSites()*nleft*nright;
       //< total data length in the unit of Float
       
       int nr_stride = 1;

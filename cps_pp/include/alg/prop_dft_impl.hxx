@@ -19,7 +19,7 @@ void DFT<SiteObjectType>::transform(std::vector<SiteObjectType> &result) const{ 
 
   //threaded site loop
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     {
       int rem = x;
@@ -155,7 +155,7 @@ void FourierProp<MatrixType>::calcProp(const std::string &tag, Lattice &lat){
   QPropWcontainer &prop = QPropWcontainer::verify_convert(PropManager::getProp(tag.c_str()),"FourierProp<MatrixType>","calcProp(const std::string &tag, Lattice &lat)");
 
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -312,7 +312,7 @@ void PropagatorBilinear<MatrixType>::calcAllBilinears(const prop_info_pair &prop
     }
   }
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -406,7 +406,7 @@ void PropagatorBilinear<MatrixType>::calcBilinear(const int &idx, const prop_inf
   }
 
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -654,7 +654,7 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears1(const prop_info
   time = Timer::relative_time(); time.print("Starting site loop at time ");
 
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int me = omp_get_thread_num();
 
     int x_pos_vec[4];
@@ -773,7 +773,7 @@ void ContractedBilinear<MatrixType>::calcAllContractedBilinears2(const prop_info
   QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(props.second.first.c_str()),"ContractedBilinear<MatrixType>","calcAllContractedBilinears2(const prop_info_pair &props, Lattice &lat)");
 
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
   
@@ -1089,7 +1089,7 @@ void ContractedBilinearSimple<MatrixType>::calculateBilinears(Lattice &lat,
   QPropWcontainer &prop_B = QPropWcontainer::verify_convert(PropManager::getProp(tag_B),"ContractedBilinearSimple<MatrixType>","calculateBilinears(..)");
 
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -1344,7 +1344,7 @@ void PropagatorQuadrilinear<MatrixType>::calcQuadrilinear(const int &idx, const 
   std::pair<int,int> spin_flav_2 = _PropagatorBilinear_helper<MatrixType>::unmap(idx2);
         
 #pragma omp parallel for default(shared)
-  for(int x=0;x<GJP.VolNodeSites();x++){
+  for(size_t x=0;x<GJP.VolNodeSites();x++){
     int x_pos_vec[4];
     global_coord(x,x_pos_vec);
     int local_t = x_pos_vec[3] - local_toff;
@@ -1473,7 +1473,7 @@ void PropagatorQuadrilinear<MatrixType>::calcAllQuadrilinears(const prop_info_qu
     std::pair<int,int> spin_flav_1 = _PropagatorBilinear_helper<MatrixType>::unmap(idx1);
     std::pair<int,int> spin_flav_2 = _PropagatorBilinear_helper<MatrixType>::unmap(idx2);
         
-    for(int x=0;x<GJP.VolNodeSites();x++){
+    for(size_t x=0;x<GJP.VolNodeSites();x++){
       int x_pos_vec[4];
       global_coord(x,x_pos_vec);
       int local_t = x_pos_vec[3] - local_toff;

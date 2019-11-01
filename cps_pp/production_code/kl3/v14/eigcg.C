@@ -18,7 +18,7 @@ EigCG::EigCG(EigCGArg *eigcg_arg, bool use_float)
     vector<double> restart(eigcg_arg->restart,
                            eigcg_arg->restart + eigcg_arg->restart_len);
 
-    int vec_len = GJP.VolNodeSites() * GJP.SnodeSites() * 12;
+    size_t vec_len = GJP.VolNodeSites() * GJP.SnodeSites() * 12;
     
     if(use_float) {
         EigCGController<float>::setInstance(eigcg_arg->nev, 

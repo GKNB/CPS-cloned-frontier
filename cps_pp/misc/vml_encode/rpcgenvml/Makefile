@@ -1,5 +1,5 @@
-CC= icx
-CXX= icx
+CC= gcc
+CXX= g++
 CSRC:= $(wildcard *.c)
 CPPSRC:= 
 COBJ=$(CSRC:.c=.o)

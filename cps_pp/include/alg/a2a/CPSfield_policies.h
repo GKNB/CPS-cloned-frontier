@@ -170,7 +170,7 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FourDpolicy);
   
-  inline const int nsites() const{ return GJP.VolNodeSites(); }
+  inline const size_t nsites() const{ return GJP.VolNodeSites(); }
   inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
   
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*x[3])); }
@@ -181,16 +181,16 @@ public:
     }
   }
 
-  inline int fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*GJP.VolNodeSites(); }
+  inline size_t fsiteMap(const int x[], const int f) const{ return siteMap(x) + f*GJP.VolNodeSites(); }
 
-  inline void fsiteUnmap(int fsite, int x[], int &f) const{
+  inline void fsiteUnmap(size_t fsite, int x[], int &f) const{
     siteUnmap(fsite,x); f = fsite / GJP.VolNodeSites();
   }
 
-  inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites(); } //increment of linearized coordinate between flavors
+  inline size_t fsiteFlavorOffset() const{ return GJP.VolNodeSites(); } //increment of linearized coordinate between flavors
   inline int dimpol_site_stride_3d() const{ return 1; }
  
-  inline int siteFsiteConvert(const int site, const int f) const{ return site + GJP.VolNodeSites()*f; } //convert a site-flavor pair to an fsite
+  inline size_t siteFsiteConvert(const int site, const int f) const{ return site + GJP.VolNodeSites()*f; } //convert a site-flavor pair to an fsite
 
   inline int nodeSites(const int dir) const{ return GJP.NodeSites(dir); }
   
@@ -199,7 +199,7 @@ public:
   FourDpolicy(){}
   const static int EuclideanDimension = 4;
 
-  inline int threeToFour(const int x3d, const int t) const{ return x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t; } //convert 3d index to 4d index
+  inline size_t threeToFour(const int x3d, const int t) const{ return x3d + GJP.VolNodeSites()/GJP.TnodeSites()*t; } //convert 3d index to 4d index
 
   ParamType getDimPolParams() const{ return ParamType(); }
 
@@ -219,7 +219,7 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FiveDpolicy);
   
-  inline const int nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites(); }
+  inline const size_t nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites(); }
   inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
   
   inline int siteMap(const int x[]) const{ return x[0] + GJP.XnodeSites()*( x[1] + GJP.YnodeSites()*( x[2] + GJP.ZnodeSites()*(x[3] + GJP.TnodeSites()*x[4]))); }
@@ -240,11 +240,11 @@ public:
     x[4] = fsite;
   }
 
-  inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites(); }
+  inline size_t fsiteFlavorOffset() const{ return GJP.VolNodeSites(); }
 
-  inline int siteFsiteConvert(const int site, const int f) const{
-    int x4d = site % GJP.VolNodeSites();
-    int s = site / GJP.VolNodeSites();
+  inline size_t siteFsiteConvert(const size_t site, const int f) const{
+    size_t x4d = site % GJP.VolNodeSites();
+    size_t s = site / GJP.VolNodeSites();
     return x4d + GJP.VolNodeSites()*(f + this->nflavors()*s);
   }
 
@@ -570,7 +570,7 @@ public:
   typedef FlavorPolicy FieldFlavorPolicy;
   _DEF_REBASE(FiveDevenOddpolicy);
   
-  inline const int nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites()/2; }
+  inline const size_t nsites() const{ return GJP.VolNodeSites()*GJP.SnodeSites()/2; }
   inline const int nfsites() const{ return this->nflavors()*this->nsites(); }
   
   inline int siteMap(const int x[]) const{ 
@@ -597,11 +597,11 @@ public:
     if(!this->onCb(x)) x[0] += 1; //deal with int convert x[0]/2 giving same number for 0,1 etc
   }
 
-  inline int fsiteFlavorOffset() const{ return GJP.VolNodeSites()/2; }
+  inline size_t fsiteFlavorOffset() const{ return GJP.VolNodeSites()/2; }
 
-  inline int siteFsiteConvert(const int site, const int f) const{ 
-    int x4d = site % (GJP.VolNodeSites()/2);
-    int s = site / (GJP.VolNodeSites()/2);
+  inline int siteFsiteConvert(const size_t site, const int f) const{ 
+    size_t x4d = site % (GJP.VolNodeSites()/2);
+    size_t s = site / (GJP.VolNodeSites()/2);
     return x4d + GJP.VolNodeSites()*(f + this->nflavors()*s)/2;
   }
 

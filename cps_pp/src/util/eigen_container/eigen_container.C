@@ -7,7 +7,7 @@
 CPS_START_NAMESPACE
 
 #if 1
-const char *EvecReader::cname = "EvecReader";
+//const char *EvecReader::cname = "EvecReader";
 const char* EvecReader::header =
 "QCD eigenvector decompressor\n"
 "Authors: Christoph Lehner, Ziyuan Bai, Chulwoo Jung\n"
@@ -22,7 +22,8 @@ EigenCache* EigenCacheListSearch( char* fname_root_bc, int neig )
   const char *fname("EigenCacheListSearch()");
   EigenCache* ecache=0;
 
-  printf("EigenCacheList.size()=%d\n",EigenCacheList.size());
+  VRB.Result("",fname,"cache_name=%s neig=%d\n",fname_root_bc,neig);
+  VRB.Debug("",fname,"EigenCacheList.size()=%d\n",EigenCacheList.size());
 
   for(int i=0; i< EigenCacheList.size(); ++i  ){
     VRB.Debug("EigenCacheList",fname,"EigenCacheListSearch(%d): %s %d\n",

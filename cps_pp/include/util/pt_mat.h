@@ -56,7 +56,7 @@ namespace pt_generic {
                              int N, const int dir[])
     {
         int lcl[4] = { GJP.XnodeSites(), GJP.YnodeSites(), GJP.ZnodeSites(), GJP.TnodeSites() };
-        int vol4d = GJP.VolNodeSites();
+        size_t vol4d = GJP.VolNodeSites();
         int surf[4] = {vol4d / lcl[0], vol4d / lcl[1], vol4d / lcl[2], vol4d / lcl[3] };
 
         for(int i = 0; i < NUM_DIR; ++i) total[i] = 0;

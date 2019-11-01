@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <alg/alg_s_vacpol.h>
 #include <alg/alg_s_spect.h>
-#include <util/eigen_container.h>
+//#include <util/eigen_container.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
-#include <util/site.h>;
-#include <util/fft.h>;
-#include <util/qcdio.h>;
-#include <util/time_cps.h>;
+#include <util/site.h>
+#include <util/fft.h>
+#include <util/qcdio.h>
+#include <util/time_cps.h>
 
 #define PI 3.141592654
 #define NXMOM 5

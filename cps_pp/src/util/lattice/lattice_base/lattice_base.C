@@ -128,7 +128,7 @@ Lattice::Lattice ()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-  uint64_t array_size;          // On-node size of the gauge field array.
+  size_t array_size;          // On-node size of the gauge field array.
 
   VRB.Func (cname, fname);
 
@@ -964,7 +964,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
         }
       }
     } else {
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
@@ -1025,7 +1025,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
         shortaxis = 0;
       }
 
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
@@ -1084,7 +1084,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
       pfree (buf);
       pfree (buf2);
     } else {
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 

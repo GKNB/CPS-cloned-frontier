@@ -5032,7 +5032,7 @@ fi
 if test "${enable_c11_rng+set}" = set; then :
   enableval=$enable_c11_rng;
 else
-  enable_c11_rng="no"
+  enable_c11_rng="yes"
 fi
 
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 RNG" >&5

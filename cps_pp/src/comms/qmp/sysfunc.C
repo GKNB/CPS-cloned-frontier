@@ -45,7 +45,7 @@ CPS_START_NAMESPACE
   //! Number of grid dimensions.
   static int NDIM = 5;
 
-  static int qmpRank;           /*!< QMP Rank/identify of this  process */
+  static int qmpRank,qmpRankOrig;           /*!< QMP Rank/identify of this  process */
   static int peRank;            /*!< Rank/identify of this  process */
   static int peNum;             /*!< Total number of processors */
 #ifdef UNIFORM_SEED_NO_COMMS
@@ -164,6 +164,8 @@ CPS_START_NAMESPACE
       peRank *= peGrid[i];
       peRank += pePos[i];
     }
+    qmpRankOrig=qmpRank;
+//    printf("qmpRank %d: pePos_t %d %d %d %d: pePos %d %d %d %d: peRank %d\n", qmpRank, pePos_t[0],pePos_t[1],pePos_t[2],pePos_t[3], pePos[0],pePos[1],pePos[2],pePos[3],peRank );
     QMP_comm_split (QMP_comm_get_default (), 0, peRank, &qmp_comm);
     QMP_comm_set_default (qmp_comm);
 #else
@@ -172,22 +174,6 @@ CPS_START_NAMESPACE
       peRank *= peGrid[i];
       peRank += pePos[i];
     }
-#endif
-
-#if 0
-    Grid::Grid_init (argc, argv);
-    FgridBase::setGridInitted (true);
-    std::vector < int >processors;
-    for (int i = 0; i < NDIM; i++)
-      processors.push_back (peGrid[i]);
-    Grid::CartesianCommunicator grid_cart (processors);
-    peRank = 0;
-    for (int i = NDIM - 1; i >= 0; i--) {
-      peRank *= peGrid[i];
-      peRank += grid_cart._processor_coor[i];
-    }
-    QMP_comm_split (QMP_comm_get_default (), 0, peRank, &qmp_comm);
-    QMP_comm_set_default (qmp_comm);
 #endif
 
     if (peRank == 0) {
@@ -208,9 +194,9 @@ CPS_START_NAMESPACE
         peNum *= peGrid[i];
       peRank = peRank % peNum;
     }
-    int if_print = 0;
+    int if_print = 1;
     for (int i = 0; i < NDIM; i++)
-      if (pePos[i] >= 0)
+      if (pePos[i] >= 2)
         if_print = 0;
 
     if (if_print) {
@@ -232,6 +218,8 @@ CPS_START_NAMESPACE
       exit (-4);
     }
 #ifdef USE_GRID
+    QMP_comm_set_default (qmp_comm);
+    qmpRank = QMP_get_node_number ();
     pePos_t = QMP_get_logical_coordinates ();
     peRank = pePos_t[NDIM - 1];
     if (NDIM > 1)
@@ -239,7 +227,7 @@ CPS_START_NAMESPACE
         peRank = peRank * peGrid[i] + pePos_t[i];
     for (int i = 0; i < NDIM; i++)
       if (pePos_t[i] != grid_cart._processor_coor[i]) {
-        printf ("%d %d: QMP %d Grid %d\n", peRank, i, pePos_t[i],
+        printf ("qmpRankOrig %d qmpRank %d: peRank %d dim %d: QMP %d Grid %d\n", qmpRankOrig, qmpRank, peRank, i, pePos_t[i],
                 grid_cart._processor_coor[i]);
         QMP_abort (-32);
       }

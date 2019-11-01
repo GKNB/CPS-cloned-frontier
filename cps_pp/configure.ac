@@ -200,7 +200,7 @@ dnl Are we compiling with C11 RNG?
 AC_ARG_ENABLE(c11_rng, 
 	AC_HELP_STRING([--enable-c11-rng=sitmo|mt19937|ranlux48], 
 	[Compile with C11 RNG. (default=yes, sitmo if enabled)]), 
-	,[enable_c11_rng="no"])
+	,[enable_c11_rng="yes"])
 	AC_MSG_CHECKING([if compile with c++11 RNG])
 	AC_MSG_RESULT($enable_c11_rng)
 if test "$enable_c11_rng" == "mt19937"; then
