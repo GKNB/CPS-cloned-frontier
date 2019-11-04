@@ -1,0 +1,15 @@
+class CGcontrols cg_controls = {
+A2ACGalgorithm CGalgorithm = AlgorithmMixedPrecisionRestartedCG
+double CG_tolerance = 1e-08
+int CG_max_iters = 10000
+double mixedCG_init_inner_tolerance = 1e-04
+double reliable_update_delta = 0.1
+double reliable_update_transition_tol = 1e-06
+int multiCG_block_size = 4
+Array split_grid_geometry[4] = { 
+int split_grid_geometry[0] = 1
+int split_grid_geometry[1] = 1
+int split_grid_geometry[2] = 2
+int split_grid_geometry[3] = 2
+}
+}

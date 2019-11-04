@@ -1,0 +1,201 @@
+#!/bin/bash
+#source ~/icc.sh
+#module list
+#env |grep LD_
+
+exec >run.log 2>&1 
+
+#shuf < set-1-8 > set-1-8.suf
+HOSTFILE=$(mktemp)
+#/sdcc/u/tomii/run-knl/slurm-hostfile > $HOSTFILE
+#/hpcgpfs01/work/clehner/run-knl/slurm-hostfile > $HOSTFILE
+n=$(cat $HOSTFILE | wc -l)
+#echo HOSTFILE=
+#cat $HOSTFILE
+#if ((n<32))
+#then
+#echo "Wrong number of nodes $n"
+#exit
+#fi
+#env  |grep knl
+#env  |grep host
+#env  |grep HOST
+
+#srun /sdcc/u/tomii/run-knl/blackmagic
+echo "cat lanc_arg.vml"
+#cat lanc_arg.vml
+echo "-----------------"
+echo "cat cg_arg.vml"
+#cat cg_arg.vml
+
+n=1
+ppn=1
+let processes=n*ppn
+
+xsize=4
+ysize=2
+zsize=4
+tsize=8
+if ((processes==1024))
+then
+    xsize=8
+    ysize=4
+    zsize=4
+    tsize=8
+elif ((processes==512))
+then
+    xsize=4
+    ysize=4
+    zsize=4
+    tsize=8
+elif ((processes==256))
+then
+    xsize=4
+    ysize=2
+    zsize=4
+    tsize=8
+elif ((processes==128))
+then
+    xsize=4
+    ysize=2
+    zsize=4
+    tsize=4
+elif((processes==64))
+then
+    xsize=4
+    ysize=2
+    zsize=2
+    tsize=4
+elif((processes==32))
+then
+    xsize=2
+    ysize=2
+    zsize=2
+    tsize=4
+elif((processes==16))
+then
+    xsize=2
+    ysize=2
+    zsize=2
+    tsize=2
+elif((processes==8))
+then
+    xsize=2
+    ysize=1
+    zsize=2
+    tsize=2
+elif((processes==4))
+then
+    xsize=1
+    ysize=1
+    zsize=2
+    tsize=2
+elif((processes==2))
+then
+    xsize=1
+    ysize=1
+    zsize=1
+    tsize=2
+elif((processes==1))
+then
+    xsize=1
+    ysize=1
+    zsize=1
+    tsize=1
+else
+    echo "Wrong number of nodes $n"
+    exit
+fi
+
+echo "Number of nodes: $n"
+echo "Number of processes per node $ppn"
+echo "Geometry: $xsize $ysize $zsize $tsize"
+
+cwd=`pwd`
+exe=dwf
+
+# 6x6x6x6 minimal local volume
+# default simd lanes y,z,t ->
+# 6x12x12x12
+
+
+# 4.4.3.4 blocking out of
+# 48.48.48.96
+
+# Local volume: 12.24.12.24
+# Reduced volume: 12.12.6.12
+# blocked 3.3.2.3
+
+#
+
+#export SHM_DIMS=2.2.1.1
+#let processes=xsize*ysize*zsize*tsize 
+#let t=15
+
+#grid=32.32.32.64
+grid=4.4.4.8
+##grid=48.48.48.96
+##grid=64.64.64.128
+echo Grid is $grid
+
+
+#let MQM=1024*1024*4
+#export PSM2_MQ_RNDV_HFI_THRESH=1024
+#export PSM2_RCVTHREAD=0x2
+#export HFI_NO_CPUAFFINITY=YES
+#export PSM2_MQ_RECVREQS_MAX=$MQM
+
+## Good
+##export TMI_CONFIG=/share/intel/compilers_and_libraries_2017.0.098/linux/mpi/etc64/tmi.conf 
+##export I_MPI_FABRICS=shm:ofi  # very important for good performance
+#export I_MPI_FABRICS=shm:tmi  # very important for good performance
+
+# TODO
+#export LD_LIBRARY_PATH=/sdcc/u/clehner/Grid-larry/grid/libs:$LD_LIBRARY_PATH
+#export LD_PRELOAD=/hpcgpfs01/work/clehner/opa-psm2/libpsm2.so
+
+
+echo "\n"
+
+module list
+
+#
+
+# Test
+#export I_MPI_FABRICS=shm:ofa
+#export I_MPI_OFA_NUM_PORTS=1
+#export I_MPI_OFA_NUM_ADAPTERS=2
+
+start=260
+step=40
+end=300
+
+#let threads=4/$ppn
+threads=1
+#BIN=/sdcc/u/tomii/src/spincolordiluted_A2A_demo/NOARCH.x
+BIN=./NOARCH.x
+ldd $BIN
+#VALGRIND=valgrind
+#OPT=' --dslash-asm --shm 512 --shm-hugepages --comms-threads 4'
+
+echo "Running on $processes processes and $n nodes"
+#mpirun -localhost 10.42.12.7 -hostfile $HOSTFILE -n $processes -ppn $ppn hostname
+
+#-env I_MPI_DEBUG=6 \
+echo "Geometry: --mpi ${xsize}.${ysize}.${zsize}.${tsize} --grid $grid"
+#
+export OMP_NUM_THREADS=$threads
+#export KMP_AFFINITY=explicit,proclist=[0,1,2,3,4,5,6,7,8-61]
+#mpirun -np $processes -ppn $ppn  \
+#     ./NOARCH.x -qmp-geom ${xsize} ${ysize} ${zsize} ${tsize} \
+#     -nthread 64 --dslash-asm --shm 2048 --shm-hugepages --comms-threads 8
+#echo mpirun -np $processes -ppn $ppn  \
+echo mpirun -np $processes \
+     $VALGRIND $BIN -qmp-geom ${xsize} ${ysize} ${zsize} ${tsize} \
+     --mpi ${xsize}.${ysize}.${zsize}.${tsize} --grid $grid \
+     -nthread $threads $OPT
+mpirun -np $processes \
+     $VALGRIND $BIN -qmp-geom ${xsize} ${ysize} ${zsize} ${tsize} \
+     --mpi ${xsize}.${ysize}.${zsize}.${tsize} --grid $grid \
+     -nthread $threads $OPT
+
