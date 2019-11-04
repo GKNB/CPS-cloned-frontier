@@ -125,8 +125,14 @@ public:
   Grid::GridCartesian * getFGrid () {
     return FGridD;
   }
+  Grid::GridCartesian * getFGridF () {
+    return FGridF;
+  }
   Grid::GridRedBlackCartesian * getFrbGrid () {
     return FrbGridD;
+  }
+  Grid::GridRedBlackCartesian * getFrbGridF () {
+    return FrbGridF;
   }
   Grid::GridCartesian * getUGrid () {
     return UGridD;
@@ -136,6 +142,9 @@ public:
   }
   Grid::GridRedBlackCartesian * getUrbGrid () {
     return UrbGridD;
+  }
+  Grid::GridRedBlackCartesian * getUrbGridF () {
+    return UrbGridF;
   }
   Grid::LatticeGaugeFieldD * getUmu () {
     return Umu;
@@ -202,14 +211,14 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
     SetLs (GJP.SnodeSites ());
     UrbGridD = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
     UrbGridF = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
-    VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n", UrbGridD, UrbGridF);
+    VRB.Result (cname, fname, "UrbGridD=%p UrbGridF=%p\n", UrbGridD, UrbGridF);
     FGridD = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
     FGridF = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n", FGridD, FGridF);
-    VRB.Debug (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
+    VRB.Result (cname, fname, "FGridD=%p FGridF=%p\n", FGridD, FGridF);
+    VRB.Result (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
     FrbGridD = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
     FrbGridF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n", FrbGridD, FrbGridF);
+    VRB.Result (cname, fname, "FrbGridD=%p FrbGridF=%p\n", FrbGridD, FrbGridF);
     Umu = new Grid::LatticeGaugeFieldD (UGridD);
 //  Umu_f = new Grid::LatticeGaugeFieldF(UGrid_f);
     grid_initted = true;

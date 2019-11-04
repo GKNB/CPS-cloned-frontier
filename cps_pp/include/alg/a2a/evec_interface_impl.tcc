@@ -233,6 +233,7 @@ public:
 # endif
       mCG(source,solution);
     }
+
 #ifndef DISABLE_GRID_RELIABLE_UPDATE_CG //Old versions of Grid don't have it      
     else if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
       Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta, FrbGrid_f, *Linop_f, linop);

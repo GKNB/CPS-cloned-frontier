@@ -22,12 +22,13 @@ public:
   void load( std::vector<Grid::RealD> &_evals, std::vector <Field> & evecs){
     alloc_flag=2;
     ordering=GRID;
-    int size = _evals.size();
-    evals.resize(size);
-    for(int i=0;i<size;i++) evals[i] = _evals[i];
-    assert(size == evecs.size());
+    neig = _evals.size();
+    evals.resize(neig);
+    for(int i=0;i<neig;i++) evals[i] = _evals[i];
+    assert(neig == evecs.size());
     grid = evecs[0].Grid();
     evec_grid = & evecs;
+    VRB.Result(cname,"EigenCacheGrid()","grid=%p\n",grid);
   }
 
 };

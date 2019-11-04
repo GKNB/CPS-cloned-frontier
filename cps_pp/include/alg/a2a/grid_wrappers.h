@@ -28,7 +28,7 @@ struct GridLanczosWrapper{
   GridLanczosWrapper(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL), FrbGrid_d(NULL), singleprec_evecs(false){
   }
 
-  void setupSPgrids(){
+  void setupSPgrids(typename GridPolicies::FgridGFclass &lattice){
     //Make single precision Grids
     int Ls = GJP.Snodes()*GJP.SnodeSites();
     std::vector<int> nodes(4);
@@ -40,10 +40,17 @@ struct GridLanczosWrapper{
     Grid::Coordinate simd_layout = Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd());
     if(!UniqueID()) printf("Created single-prec Grids: nodes (%d,%d,%d,%d) vol (%d,%d,%d,%d) and SIMD layout (%d,%d,%d,%d)\n",nodes[0],nodes[1],nodes[2],nodes[3],vol[0],vol[1],vol[2],vol[3],simd_layout[0],simd_layout[1],simd_layout[2],simd_layout[3]);
     
+#if 0
     UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
     UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
     FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid_f);
     FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);     
+#else
+    UGrid_f = lattice.getUGridF();
+    UrbGrid_f = lattice.getUrbGridF();
+    FGrid_f = lattice.getFGridF();
+    FrbGrid_f = lattice.getFrbGridF();
+#endif
   }
 
   //Copy from one lattice to another under the programmer's assurance that the Grid instances are equivalent (not Grid::conformable which checks pointer equality)
@@ -77,7 +84,7 @@ struct GridLanczosWrapper{
     resid = lanc_arg.stop_rsd;
     
 # ifdef A2A_LANCZOS_SINGLE
-    setupSPgrids();
+    setupSPgrids(lat);
     gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
     singleprec_evecs = true;
 
@@ -178,13 +185,14 @@ struct GridLanczosWrapper{
     singleprec_evecs = false;
   }
   
-  void toSingle(){
+  void toSingle(typename GridPolicies::FgridGFclass &lattice){
     if(singleprec_evecs) return;
     
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
 
-    if(FrbGrid_f == NULL) setupSPgrids();
+    if(FrbGrid_f == NULL) setupSPgrids(lattice);
+//    if(FrbGrid_f == NULL) FrbGrid_f = lattice.getFrbGridF();
 
     int nev = evec.size();
     
@@ -310,7 +318,7 @@ struct GridLanczosWrapper{
 
     if(single_prec){
       CPSfermion5Dcb4Dodd<cps::ComplexF> c_odd_f;
-      if(FrbGrid_f == NULL) setupSPgrids();
+      if(FrbGrid_f == NULL) setupSPgrids(lat);
       evec_f.resize(read_nvecs, FrbGrid_f);
       for(int i=0;i<read_nvecs;i++){
 	c_odd_f.readParallel(file);
@@ -341,7 +349,9 @@ struct GridLanczosWrapper{
   void freeEvecs(){
     std::vector<typename GridPolicies::GridFermionField>().swap(evec); //evec.clear();
     std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
-#define CKDEL(A) if(A != NULL){ delete A; A=NULL; }
+//#define CKDEL(A) if(A != NULL){ delete A; A=NULL; }
+// rely on CPS Lattice now
+#define CKDEL(A) 
     CKDEL(UGrid_f);
     CKDEL(UrbGrid_f);
     CKDEL(FGrid_f);
