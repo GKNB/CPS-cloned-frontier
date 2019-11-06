@@ -26,10 +26,10 @@
 
 #define TIMESPLUSONE(a,b) { b=a; }
 #define TIMESMINUSONE(a,b) { b=-a; }
-//#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
-//#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
 #define TIMESPLUSI(a,b) { b=Complex(-a.imag(),a.real()); }
 #define TIMESMINUSI(a,b) { b=Complex(a.imag(),-a.real()); }
+//#define TIMESPLUSI(a,b) { b.real(-a.imag()); b.imag(a.real()); }
+//#define TIMESMINUSI(a,b) { b.real(a.imag()); b.imag(-a.real()); }
 
 #include <alg/spin_matrix.h>
 
@@ -1804,5 +1804,9 @@ inline Rcomplex Tr(const SpinMatrix& a, const SpinMatrix& b)
 
 
 CPS_END_NAMESPACE
+#undef TIMESPLUSONE
+#undef TIMESMINUSONE
+#undef TIMESPLUSI
+#undef TIMESMINUSI
 
 #endif

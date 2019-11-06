@@ -679,7 +679,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       neig = cg_arg->neig;
     }
 
-    std::cout << "neig= " << neig << std::endl;
+    VRB.Result(cname,fname,"if_defl=%d\n",(if_defl ? 1 : 0 ));
+//    std::cout << "neig= " << neig << std::endl;
     std::vector < Float > eval (neig);
 //    std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
     std::vector < LATTICE_FERMION_F > *evec_f ;

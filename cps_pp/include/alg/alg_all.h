@@ -75,6 +75,8 @@
 #include<alg/alg_w_spect.h>
 #if (defined USE_GRID_A2A ) || (defined USE_BFM_A2A)
 #include<alg/a2a/a2a.h>
+#include <alg/a2a/utils_main.h>
+#include <alg/a2a/grid_wrappers.h>
 #endif
 #include<alg/cg_arg.h>
 #include<alg/propvector.h>
