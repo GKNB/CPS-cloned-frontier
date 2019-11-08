@@ -671,25 +671,26 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     int n_fields = GJP.SnodeSites ();
     const size_t f_size_per_site = (size_t) FsiteSize () / GJP.SnodeSites () / 2;
 
-    int neig = 1;
-    if_defl = false;
+    int neig = 0;
+    if_defl = true; // Needs to be fixed later
     if ((cg_arg->Inverter == CG_LOWMODE_DEFL) ||
-	(cg_arg->Inverter == LOWMODEAPPROX)) {
+	(cg_arg->Inverter == LOWMODEAPPROX) && (cg_arg->neig>0) ) {
       if_defl = true;
       neig = cg_arg->neig;
     }
 
-    VRB.Result(cname,fname,"if_defl=%d\n",(if_defl ? 1 : 0 ));
-//    std::cout << "neig= " << neig << std::endl;
+    VRB.Result(cname,fname,"if_defl=%d neig=%d \n",(if_defl ? 1 : 0 ),neig );
     std::vector < Float > eval (neig);
 //    std::vector < LATTICE_FERMION_F > evec_f (neig, F_RB_GRID_F);
     std::vector < LATTICE_FERMION_F > *evec_f ;
     std::vector < LATTICE_FERMION_F > evec_f1 (1, F_RB_GRID_F);
 
+    VRB.Result(cname,fname,"if_defl=%d neig=%d \n",(if_defl ? 1 : 0 ),neig );
     if (if_defl) {
       LATTICE_FERMION_F grid_f (FERM_GRID_F), grid_f_rb (F_RB_GRID_F);
       // search for eigen cache
-      EigenCache *ecache;
+      EigenCache *ecache=NULL;
+      if(neig>0)
       if ((ecache =
 	   EigenCacheListSearch ((char *) fname_eig_root_bc, neig)) == 0) {
 	ERR.General (cname, fname,
@@ -701,39 +702,42 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 
 //      Float *eval_cps = eigcon.load_eval ();
       Float *eval_cps = ecache->evals.data();
-      assert(ecache->evals.size() >= neig);
+      if(neig>0) assert(ecache->evals.size() >= neig);
      VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache->evals.size());
-      assert(ecache->evals.size() >= neig);
       for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
-if(ecache->allocFlag()==1){
-      evec_f1.resize(neig,F_RB_GRID_F);
-      for (int i = 0; i < neig; i++) {
+      if(ecache->allocFlag()==1){
+        if (neig>0) evec_f1.resize(neig,F_RB_GRID_F);
+        for (int i = 0; i < neig; i++) {
 //	Vector *evec = eigcon.nev_load (i);
-	Vector *evec = (Vector*) ecache->evecs[i];
-	VRB.Debug (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
-	ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
+          Vector *evec = (Vector*) ecache->evecs[i];
+          VRB.Debug (cname, fname, "eval[%d]=%0.14e evec[%d]=%p\n", i, eval[i],i,evec);
+          ImpexFermion < float, LATTICE_FERMION_F, SITE_FERMION_F > (evec, grid_f,
 								   1, Odd,
 								   NULL);
-	pickCheckerboard (Odd, evec_f1[i], grid_f);
+  	pickCheckerboard (Odd, evec_f1[i], grid_f);
+        }
+        evec_f = &evec_f1;
+      } else if(ecache->allocFlag()==2){
+        EigenCacheGrid < LATTICE_FERMION_F > * ecache_grid = static_cast < EigenCacheGrid < LATTICE_FERMION_F > * >  (ecache);
+        Float *eval_cps = (ecache_grid->evals).data();
+       VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache_grid->evals.size());
+        if(neig>0) assert((ecache_grid->evals).size() >= neig);
+        for (int i = 0; i < neig; i++) eval[i] = ecache_grid->evals[i];
+        if(neig>0) 
+        VRB.Result(cname,fname,"ecache grid=%p lat grid=%p\n",ecache_grid->grid, F_RB_GRID_F);
+        for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
+        if(neig>0) 
+        evec_f = ecache_grid->evec_grid;
       }
-      evec_f = &evec_f1;
-} else 
-if(ecache->allocFlag()==2){
-  EigenCacheGrid < LATTICE_FERMION_F > * ecache_grid = static_cast < EigenCacheGrid < LATTICE_FERMION_F > * >  (ecache);
-  Float *eval_cps = (ecache_grid->evals).data();
-     VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache_grid->evals.size());
-      assert((ecache_grid->evals).size() >= neig);
-      for (int i = 0; i < neig; i++) eval[i] = ecache_grid->evals[i];
-  VRB.Result(cname,fname,"ecache grid=%p lat grid=%p\n",ecache_grid->grid, F_RB_GRID_F);
-  for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
-      evec_f = ecache_grid->evec_grid;
-}
 
 
     }
 
+    VRB.Result(cname,fname,"before guesser()\n");
     Grid::Guesser < Float, LATTICE_FERMION_F > guesser (neig, eval, *evec_f);
+    VRB.Result(cname,fname,"guesser()\n");
     ImportFermion (grid_out, f_out);
+    VRB.Result(cname,fname,"ImportFermion() f_in=%e f_out=%e \n",norm2(grid_in),norm2(grid_out));
 
     Float stp_cnd = cg_arg->stop_rsd;
 //      stp_cnd = stp_cnd*stp_cnd*norm2(grid_in);
@@ -743,17 +747,16 @@ if(ecache->allocFlag()==2){
       int maxinner = cg_arg->max_num_iter;
       int maxouter = 10;
 #ifndef TWOKAPPA
-//      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
-//      SchurSolver (Ddwf, grid_in, grid_out);
-//      Grid::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
-//      Grid::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
+      VRB.Result(cname,fname,"no TWOKAPPA\n");
     Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
+      VRB.Result(cname,fname,"TWOKAPPA\n");
       Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
       Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
+    VRB.Result(cname,fname,"CG()");
       Grid::MixedPrecisionConjugateGradientOp < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
@@ -774,7 +777,9 @@ if(ecache->allocFlag()==2){
         }
 	CG_m.useGuesser (guesser);
       }
+      VRB.Result(cname,fname,"after defl()\n");
 #ifndef TWOKAPPA
+      VRB.Result(cname,fname,"No TWOKAPPA\n");
 #if 0
       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
       SchurSolver (DdwfD, grid_in, grid_out);
@@ -788,9 +793,11 @@ if(ecache->allocFlag()==2){
 }
 #endif
 #else
+      VRB.Result(cname,fname,"TWOKAPPA"\n");
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
       SchurSolver (DdwfD, grid_in, grid_out);
 #endif
+      VRB.Result(cname,fname,"after SchurSolver()");
     }
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);

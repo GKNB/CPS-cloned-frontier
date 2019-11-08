@@ -329,7 +329,7 @@ public:
     index[n] = n;
   }
 
-  int read_compressed (char *root_, const char *checksum_dir=NULL, int interval=-1)
+  virtual int read_compressed (char *root_, const char *checksum_dir=NULL, int interval=-1)
   {
     const char *fname="read_compressed()";
     if(interval>0) read_interval = interval;

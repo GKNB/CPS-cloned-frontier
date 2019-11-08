@@ -30,7 +30,28 @@ public:
     evec_grid = & evecs;
     VRB.Result(cname,"EigenCacheGrid()","grid=%p\n",grid);
   }
-
+ 
+#ifdef ECACHE_GRID
+// assumes alloc
+  int read_compressed (char *root_, const char *checksum_dir=NULL, Grid::GridBase *_grid=NULL, int interval=-1){
+    const char *fname="read_compressed()";
+    VRB.Result(cname,fname,"Entered\n");
+    if(alloc_flag==0) ERR.General(cname,fname,"should be allocated first\n");
+    if(!grid) { 
+      if(!_grid) ERR.General(cname,fname,"GridBase pointer not set\n");
+      grid = _grid;
+    } else {
+      if(_grid && (grid!=_grid)) 
+      ERR.General(cname,fname,"GridBase pointer different!(%p != %p)\n",grid,_grid);
+    }
+      EigenCache::read_compressed(root,checksum_dir,interval);
+    evec_grid = new std::vector<Field> 
+    for(int i=0;i<neig;i++){
+    }
+    alloc_flag=2;
+    ordering=GRID;
+  }
+#endif
 };
 
 CPS_END_NAMESPACE

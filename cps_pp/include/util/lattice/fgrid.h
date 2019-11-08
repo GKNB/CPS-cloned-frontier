@@ -33,8 +33,11 @@ namespace Grid
 	       std::vector < Field > &_evec)
     : neig (n), eval (_eval), evec (_evec)
     {
+       std::cout << "Guesser::neig= "<<neig <<std::endl;
+      if (neig>0){
       assert (eval.size () >= neig);
       assert (evec.size () >= neig);
+      }
     }
     void operator  () (const Field & in, Field & out)
     {
