@@ -39,6 +39,8 @@ public:
   static int bii;
   static int bjj;
   static int bpp;
+
+  static bool enable_profiling;
 };
 
 

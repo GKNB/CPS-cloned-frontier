@@ -2126,6 +2126,8 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 
     for(int test=0;test<ntests_scaled;test++){   
       {
+	if(test == ntests_scaled -1) cudaProfilerStart();
+
 	accelerator_for(item, work, Nsimd, 
 			{
 			  size_t x = item;
@@ -2135,8 +2137,9 @@ void benchmarkMFcontractKernel(const int ntests, const int nthreads){
 			
 			  typename SIMT<GVtype>::value_type v = GridVectorizedSpinColorContract<GVtype,true,false>::g5(ax,bx);
 
-			  SIMT<GVtype>::write(*cx, v);			
+			  SIMT<GVtype>::write(*cx, v);			  
 			});
+	if(test == ntests_scaled -1) cudaProfilerStop();
       }   
     }    
 
@@ -2726,15 +2729,17 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
 
   typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+
+  BlockedMesonFieldArgs::enable_profiling = false; 
   
   ProfilerStart("SingleSrcProfile.prof");
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
 
     //__itt_resume();
-    if(iter == ntests-1) cudaProfilerStart();
+    if(iter == ntests-1) BlockedMesonFieldArgs::enable_profiling = true;
     cg.compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid, true);
-    if(iter == ntests-1) cudaProfilerStop();
+    if(iter == ntests-1) BlockedMesonFieldArgs::enable_profiling = false;
     //__itt_pause();
 
     //A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw>::compute(mf_grid_t,Wgrid,mf_struct_grid,Vgrid);

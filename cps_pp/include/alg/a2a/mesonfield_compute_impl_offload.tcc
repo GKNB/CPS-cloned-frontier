@@ -3,6 +3,10 @@
 
 #ifdef GRID_NVCC
 
+CPS_END_NAMESPACE
+#include <cuda_profiler_api.h>
+CPS_START_NAMESPACE
+
 template<typename ComplexType>
 __global__ void reduceKernel(typename ComplexType::scalar_type* into, ComplexType const* from, const size_t bi_true, const size_t bj_true, const size_t bj, const size_t size_3d, const size_t multiplicity){
   constexpr int nsimd = ComplexType::Nsimd();
@@ -398,10 +402,11 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 	    int sbx_use = nearestDivisor(bx_true, sbx);
 	    int nxblk = bx_true / sbx_use;	
+	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
 #endif
 
-	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
-	    
+	    if(t_lcl == 0 && x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStart();
+	        
 	    size_t nwork = bi_true * bj_true * bx_true;	  
 	    
 	    kernel_time -= dclock();
@@ -457,6 +462,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    reduce_time -= dclock();
 	    this->reduce(mf_t, accum, i0, j0, bi_true, bj_true, bj, t, bx_true);
 	    reduce_time += dclock();
+
+	    if(x0 == 0 && j0 == 0 && i0 == 0 && BlockedMesonFieldArgs::enable_profiling) cudaProfilerStop();
 	  }
 	}
       }

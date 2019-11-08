@@ -11,4 +11,7 @@ int BlockedMesonFieldArgs::bii(MF_COMPUTE_BII);
 int BlockedMesonFieldArgs::bjj(MF_COMPUTE_BJJ);
 int BlockedMesonFieldArgs::bpp(MF_COMPUTE_BPP);  
 
+bool BlockedMesonFieldArgs::enable_profiling(false);  
+
+
 CPS_END_NAMESPACE
