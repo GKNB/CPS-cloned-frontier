@@ -619,6 +619,278 @@ public:
   }
 };
 
+#ifdef USE_MPI
+
+//Use MPI one-sided communication to manage the gather
+class DistributedMemoryStorageOneSided{
+  void *ptr;
+  int _alignment;
+  size_t _size;
+  int _master_uid;
+  int _master_mpirank;
+
+  MPI_Win window;
+
+  //Assumes _master_uid has been set
+  void initWindow(){
+    //Only master exposes memory
+    if(UniqueID() == _master_uid){ 
+      assert(MPI_Win_create(ptr, _size, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &window) == MPI_SUCCESS);
+    }else{
+      assert(MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &window) == MPI_SUCCESS);
+    }
+  }
+
+  void initMaster(){
+    if(_master_uid == -1){
+      int master_uid = nodeDistributeCounter::getNext(); //round-robin assignment
+      
+      int nodes = 1;
+      for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+      _master_uid = master_uid;
+      _master_mpirank = MPI_UniqueID_map::UidToMPIrank(master_uid);
+      initWindow();
+    }
+  }
+
+public:
+  struct GatherPerf{ //Note performance is only recorded for gathers that required communications from target node to origin
+    double alloc_time;
+    size_t gather_calls;
+    double gather_time;
+    size_t bytes;
+    
+    void reset(){
+      gather_calls=bytes=0;
+      alloc_time=gather_time=0;
+    }
+    GatherPerf(){
+      reset();
+    }
+    void print(int uid = 0){
+      if(UniqueID() == uid){
+	double avg_alloc_time = alloc_time / double(gather_calls);
+	double avg_gather_time = gather_time / double(gather_calls);
+	double avg_bandwidth = double(bytes)/gather_time/(1024*1024); //MB/s
+	std::ostringstream os; 
+	os << "DistributedMemoryStorageOneSided::GatherPerf over " << gather_calls << " calls,  avg alloc time " << avg_alloc_time << "s, avg gather time " << avg_gather_time << "s, gather bandwidth " << avg_bandwidth << " MB/s\n";
+	printf(os.str().c_str()); fflush(stdout);
+      }
+    }
+  };
+  static GatherPerf & perf(){ static GatherPerf p; return p; }
+
+  DistributedMemoryStorageOneSided(): ptr(NULL), _master_uid(-1), _size(0), _alignment(0), window(MPI_WIN_NULL){}
+
+  DistributedMemoryStorageOneSided(const DistributedMemoryStorageOneSided &r): ptr(NULL),  _size(0), _alignment(0), window(MPI_WIN_NULL){
+    if(r.ptr != NULL){    
+      alloc(r._alignment, r._size);
+      memcpy(ptr, r.ptr, r._size);
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+    if(r.window != MPI_WIN_NULL) initWindow();
+  }
+
+  DistributedMemoryStorageOneSided & operator=(const DistributedMemoryStorageOneSided &r){
+    if(window != MPI_WIN_NULL) assert(MPI_Win_free(&window)==MPI_SUCCESS);
+
+    if(r.ptr != NULL){
+      if(_size != r._size || _alignment != r._alignment){
+	freeMem();
+	alloc(r._alignment, r._size);
+      }
+      memcpy(ptr, r.ptr, r._size);      
+    }else{
+      _size = r._size;
+      _alignment = r._alignment;
+    }      
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+    if(r.window != MPI_WIN_NULL) initWindow();
+    return *this;
+  }
+
+  inline bool isOnNode() const{ return ptr != NULL; }
+  
+  inline int masterUID() const{ return _master_uid; }
+
+  void move(DistributedMemoryStorageOneSided &r){
+    ptr = r.ptr;
+    _alignment = r._alignment;
+    _size = r._size;
+    _master_uid = r._master_uid;
+    _master_mpirank = r._master_mpirank;
+    window = r.window;
+
+    r._size = 0;
+    r.ptr = NULL;
+    r.window = MPI_WIN_NULL;
+  }
+
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+  inline static ReuseBlockAllocatorsAligned & block_allocator(){ static ReuseBlockAllocatorsAligned r; return r; }
+#endif
+
+  void alloc(int alignment, size_t size){
+    if(ptr != NULL){
+      if(alignment == _alignment && size == _size) return;
+      else{ 
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+	block_allocator().free(ptr); 
+#else
+	free(ptr);
+#endif
+	ptr = NULL; 
+      }
+    }
+    
+    _size = size;
+    _alignment = alignment;
+
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+    ptr = block_allocator().alloc(alignment,size);
+#else
+    ptr = memalign_check(alignment, size);
+#endif
+  }
+
+  void freeMem(){
+    if(ptr != NULL){
+#ifdef DISTRIBUTED_MEMORY_STORAGE_REUSE_MEMORY
+      block_allocator().free(ptr);
+#else
+      free(ptr);
+#endif
+      ptr = NULL;
+    }
+  }
+
+  inline void* data(){ return ptr; }
+  inline void const* data() const{ return ptr; }
+  
+  inline void gather(bool require){
+    if(require && UniqueID() != _master_uid && _size != 0){
+      perf().alloc_time -= dclock();
+      alloc(_alignment,_size);
+      perf().alloc_time += dclock();
+
+      perf().gather_calls++;
+      perf().bytes += _size;
+      perf().gather_time -= dclock();
+      assert(MPI_Win_lock(MPI_LOCK_SHARED, _master_mpirank, MPI_MODE_NOCHECK, window)==MPI_SUCCESS);
+      assert(MPI_Get(ptr, _size, MPI_BYTE, _master_mpirank, 0, _size, MPI_BYTE, window)==MPI_SUCCESS);
+      assert(MPI_Win_unlock(_master_mpirank, window)==MPI_SUCCESS);
+      perf().gather_time += dclock();      
+    }
+  }
+
+  void distribute(){
+    initMaster();
+    if(UniqueID() != _master_uid) freeMem();
+  }
+  
+  //Change the master uid. THIS MUST BE THE SAME FOR ALL NODES!
+  void reassign(const int to_uid){
+    assert(_master_uid != -1);
+    gather(UniqueID() == to_uid);
+    
+    //All nodes change master
+    assert(MPI_Win_free(&window) == MPI_SUCCESS);
+    _master_uid = to_uid;
+#ifdef USE_MPI
+    _master_mpirank = MPI_UniqueID_map::UidToMPIrank(to_uid);
+#else
+    _master_mpirank = 0;
+#endif
+    initWindow();
+    distribute();
+  }
+
+  static void rebalance(std::vector<DistributedMemoryStorageOneSided*> &blocks){
+    if(!UniqueID()){ printf("DistributedMemoryStorageOneSided: Performing rebalance of %d blocks\n",blocks.size()); fflush(stdout); }
+    int nodes = 1;
+    for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+    
+    int init_count[nodes]; for(int i=0;i<nodes;i++) init_count[i] = 0;  
+
+    const int my_uid = UniqueID();
+
+    std::vector< std::vector<DistributedMemoryStorageOneSided*> > init_block_mapping(nodes);
+
+    for(int i=0;i<blocks.size();i++){
+      int master_uid = blocks[i]->masterUID();
+      if(master_uid != -1){
+	++init_count[master_uid];
+	init_block_mapping[master_uid].push_back(blocks[i]);
+      }
+    }
+    
+    //Balance the number of blocks over the nodes, with the remainder assigned one each to nodes in ascending order
+    int nblock = blocks.size();
+    int nblock_bal_base = nblock/nodes;
+    int nrem = nblock - nblock_bal_base * nodes;
+
+    int count[nodes]; 
+    for(int n=0;n<nodes;n++)
+      count[n] = n < nrem ? nblock_bal_base + 1 : nblock_bal_base;
+
+    if(!UniqueID()){
+      printf("node:old:new\n");
+      for(int n=0;n<nodes;n++) printf("%d:%d:%d ",n,init_count[n],count[n]);
+      printf("\n");
+      fflush(stdout);
+    }
+
+    //All the nodes that are relinquishing blocks first put their pointers in a pool, then all that are assuming blocks take from the pool
+    std::list<DistributedMemoryStorageOneSided*> pool;
+    for(int n=0;n<nodes;n++){
+      const int delta = count[n] - init_count[n];
+      if(delta < 0){
+	const int npool = -delta;
+	for(int i=0;i<npool;i++){
+	  pool.push_back(init_block_mapping[n][ init_count[n]-1-i ]); //take from back
+	}
+      }
+    }
+
+    for(int n=0;n<nodes;n++){
+      const int delta = count[n] - init_count[n];
+      if(delta > 0){
+	assert(pool.size() >= delta);
+	for(int i=0;i<delta;i++){
+	  pool.front()->reassign(n);
+	  pool.pop_front();
+	}
+      }
+    }
+
+  }
+
+  ~DistributedMemoryStorageOneSided(){    
+    /* if(window != MPI_WIN_NULL){ */
+    /*   printf("Node %d fence\n", UniqueID()); fflush(stdout); */
+    /*   MPI_Win_fence(0,window); */
+    /* } */
+
+    MPI_Barrier(MPI_COMM_WORLD); //ensure everything is complete before destroying
+    printf("Node %d free\n", UniqueID()); fflush(stdout);
+    freeMem();
+    if(window != MPI_WIN_NULL){
+      printf("Node %d win free\n", UniqueID()); fflush(stdout);
+      assert(MPI_Win_free(&window)==MPI_SUCCESS);
+    }
+  }
+  
+};
+
+#endif
+
+
 CPS_END_NAMESPACE
 
 #endif
