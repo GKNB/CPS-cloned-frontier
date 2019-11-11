@@ -465,6 +465,11 @@ struct mfComputeGeneral: public mfVectorPolicies{
     const int nmodes_r = mf_ref.getNcols();
 
     const int bi = BlockedMesonFieldArgs::bi, bj = BlockedMesonFieldArgs::bj, bp = BlockedMesonFieldArgs::bp;
+    if(!UniqueID()) printf("Meson field compute using outer block sizes %d %d %d\n", bi, bj, bp);
+#ifdef USE_INNER_BLOCKING
+    if(!UniqueID()) printf("Meson field compute using inner block sizes %d %d %d\n", BlockedMesonFieldArgs::bii, BlockedMesonFieldArgs::bjj, BlockedMesonFieldArgs::bpp);
+#endif
+
     const int nthread = omp_get_max_threads();
 
     //Make a table of p base pointers and site offsets (stride between 3d sites) for each i,j

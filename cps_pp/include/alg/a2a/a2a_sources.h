@@ -420,21 +420,24 @@ public:
   typedef typename SourceType::Policies::ComplexType ComplexType;
 protected:
   int sign;
-  ComplexType val000;
+  ComplexType *val000;
   virtual void dummy() = 0; //make sure this class can't be instantiated directly
 
   void setup_projected_src_info(const int p[3]){
     sign = getProjSign(p);
     int zero[3] = {0,0,0}; int L[3] = {GJP.NodeSites(0)*GJP.Nodes(0), GJP.NodeSites(1)*GJP.Nodes(1), GJP.NodeSites(2)*GJP.Nodes(2) };
     cps::ComplexD v = this->value(zero,L);
-    SIMDsplat(val000,v);    
+    SIMDsplat(*val000,v);    
   }
 public:
 
-  A2AflavorProjectedSource(): SourceType(){}
+  A2AflavorProjectedSource(): SourceType(), val000((ComplexType*)managed_alloc_check(128,sizeof(ComplexType)) ) {}
   
-  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000(r.val000), sign(r.sign), SourceType(r){
+  A2AflavorProjectedSource(const A2AflavorProjectedSource &r): val000((ComplexType*)managed_alloc_check(128,sizeof(ComplexType)) ), sign(r.sign), SourceType(r){
+    *val000 = *r.val000;
   }
+
+  ~A2AflavorProjectedSource(){ managed_free(val000); }
   
   //Assumes momenta are in units of \pi/2L, and must be *odd integer* (checked)
   inline static int getProjSign(const int p[3]){
@@ -465,7 +468,7 @@ public:
     //Matrix is FFT of  (1 + [sign]*sigma_2) when |x-y| !=0 or 1 when |x-y| == 0
     //It is always 1 on the diagonals
     auto val_ln = SIMT<ComplexType>::read(this->siteComplex(site));
-    auto val000_ln = SIMT<ComplexType>::read(val000);
+    auto val000_ln = SIMT<ComplexType>::read(*val000);
     
     out(0,0) = out(1,1) = val_ln;
     //and has \pm i on the diagonals with a momentum structure that is computed by omitting site 0,0,0

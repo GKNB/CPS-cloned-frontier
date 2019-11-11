@@ -207,7 +207,7 @@ public:
     double pt2_time = 0;
     double contract_time = 0;
 
-    std::vector<std::vector<SCFmat> > pt2_store(nthread, std::vector<SCFmat>(ntS));
+    std::vector<typename AlignedVector<SCFmat>::type > pt2_store(nthread, typename AlignedVector<SCFmat>::type(ntS));
     
 #ifdef KTOSIGMA_USE_SPLIT_VMV_LITE
     vMv_split_shrbuf shared_buf_inst; vMv_split_shrbuf *shared_buf = &shared_buf_inst;

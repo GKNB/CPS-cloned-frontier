@@ -61,6 +61,7 @@ public:
 
   //Add the parameters of a meson field to the list of pending calculations
   inline void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){
+    if(!UniqueID()) printf("MesonFieldStorageBase added computation with qidx_w=%d, qidx_v=%d, p_w=%s, p_v=%s\n", qidx_w, qidx_v, p_w.str().c_str(), p_v.str().c_str());    
     clist.push_back( computeParams(qidx_w,qidx_v,p_w,p_v) );
   }
   inline int nWffts(const int qidx) const{
@@ -125,11 +126,10 @@ public:
   typedef storageType& mfComputeInputFormat;
 
 private:
-  const InnerProductType& inner;
-  SourceType &src; //altered by changing momentum projection
+  InnerProductType& inner;
   std::vector<storageType> mf;
 public:  
-  GparityFlavorProjectedBasicSourceStorage(const InnerProductType& _inner, SourceType &_src): inner(_inner), src(_src){} //note 'inner' will have its momentum sign changed dynamically
+  GparityFlavorProjectedBasicSourceStorage(InnerProductType& _inner): inner(_inner){} //note 'inner' will have its momentum sign changed dynamically
 
   const storageType & operator[](const int cidx) const{ return mf[cidx]; }
   storageType & operator[](const int cidx){ return mf[cidx]; }
@@ -143,7 +143,7 @@ public:
   }  
   const InnerProductType & getInnerProduct(const int cidx){
     if(needSourceShift(cidx)) ERR.General("GparityFlavorProjectedBasicSourceStorage","getInnerProduct","Policy does not support source shifting\n");
-    src.setMomentum(clist[cidx].p_v.ptr());
+    inner.getSource()->setMomentum(clist[cidx].p_v.ptr());
     return inner;
   }
   void nodeDistributeResult(const int cidx){
@@ -163,8 +163,7 @@ public:
   typedef storageType& mfComputeInputFormat;
 
 private:
-  const InnerProductType& inner;
-  SourceType &src; //altered by changing momentum projection
+  InnerProductType& inner;
   storageType tmp_mf;
   std::vector<storageType> mf;
 
@@ -174,7 +173,7 @@ private:
 
   inline void addCompute(const int qidx_w, const int qidx_v, const ThreeMomentum &p_w, const ThreeMomentum &p_v){ assert(0); };
 public:  
-  GparityFlavorProjectedSumSourceStorage(const InnerProductType& _inner, SourceType &_src): inner(_inner), src(_src){} //note 'inner' will have its momentum sign changed dynamically
+  GparityFlavorProjectedSumSourceStorage(InnerProductType& _inner): inner(_inner){} //note 'inner' will have its momentum sign changed dynamically
   
   void addComputeSet(const int qidx_w, const int qidx_v, std::vector< std::pair<ThreeMomentum, ThreeMomentum> > &mom_wv_pairs){    
     int set_idx = set_cidx_map.size();
@@ -199,6 +198,8 @@ public:
     if(mf.size() != set_cidx_map.size()) mf.resize(set_cidx_map.size());
     int set = cidx_set_map[cidx];
 
+    //If this is the first contraction in a set, store the result in the appropriate output entry,
+    //otherwise store in temp location and add to existing output in postContractAction
     std::map<int,int>::const_iterator it = set_first_cidx.find(set);
     if(it == set_first_cidx.end()){
       set_first_cidx[set] = cidx;
@@ -222,7 +223,7 @@ public:
 
   const InnerProductType & getInnerProduct(const int cidx){
     if(needSourceShift(cidx)) ERR.General("GparityFlavorProjectedSumSourceStorage","getInnerProduct","Policy does not support source shifting\n");
-    src.setMomentum(clist[cidx].p_v.ptr());
+    inner.getSource()->setMomentum(clist[cidx].p_v.ptr()); //sets the momentum used to determine the flavor projection
     return inner;
   }
   void nodeDistributeResult(const int cidx){

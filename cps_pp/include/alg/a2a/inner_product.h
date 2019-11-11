@@ -286,7 +286,9 @@ public:
   template<typename AccumType>
   accelerator_inline void operator()(AccumType &out, const SCFvectorPtr<mf_Complex> &l, const SCFvectorPtr<mf_Complex> &r, const int p, const int t) const{
     do_op<AccumType,SourceType>(out,l,r,p,t);
-  }  
+  }
+
+  inline SourceType * getSource(){ return &src; }
 };
 
 template<int smatidx, typename mf_Complex, typename SourceType, bool conj_left = true, bool conj_right=false>

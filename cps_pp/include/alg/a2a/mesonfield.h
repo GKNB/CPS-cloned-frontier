@@ -164,6 +164,14 @@ public:
   inline const ScalarComplexType & operator()(const int i, const int j) const{
     return this->ptr()[j + nmodes_r*i];
   }
+
+  inline double norm2() const{
+    double out = 0.;
+    for(int i=0;i<size();i++) out += norm(ptr()[i]);
+    QMP_sum_array(&out, 1);
+    return out;
+  }
+
   
   inline const int getRowTimeslice() const{ return tl; }
   inline const int getColTimeslice() const{ return tr; }
@@ -368,6 +376,14 @@ template<typename mf_Policies,
 	 >
 void trace(std::vector<typename mf_Policies::ScalarComplexType> &into, const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &m);
 
+template<typename mf_Policies, 
+	 template <typename> class A2AfieldL,  template <typename> class A2AfieldR
+	 >
+double norm2(const std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> > &m){
+  double out = 0.;
+  for(int i=0;i<m.size();i++) out += m[i].norm2();
+  return out;
+}
 
 template<typename T>
 void nodeGetMany(const int n, std::vector<T> *a, ...);

@@ -117,7 +117,7 @@ class ComputeKaon{
       
       SourceType src(rad,pbase,src_setup_params);
       InnerType g5_s0_inner(sigma0,src);
-      StorageType mf_store(g5_s0_inner,src);
+      StorageType mf_store(g5_s0_inner);
 
       int nalt = kaon_momentum.LightHeavy.nAltMom(0);  assert(kaon_momentum.HeavyLight.nAltMom(0) == nalt);
       for(int a=0;a<nalt;a++){
