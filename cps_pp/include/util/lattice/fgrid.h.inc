@@ -30,6 +30,8 @@ CPS_START_NAMESPACE class FGRID:public virtual Lattice, public FgridParams,
   using RealD = Grid::RealD;
   using RealF = Grid::RealF;
 public:
+  typedef SITE_FERMION_F  GridFermionFieldF;
+  typedef SITE_FERMION  GridFermionField;
   const char *cname;
 
 private:
