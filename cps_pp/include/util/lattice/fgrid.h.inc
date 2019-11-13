@@ -672,7 +672,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     const size_t f_size_per_site = (size_t) FsiteSize () / GJP.SnodeSites () / 2;
 
     int neig = 0;
-    if_defl = true; // Needs to be fixed later
+    if_defl = false; // Needs to be fixed later
     if ((cg_arg->Inverter == CG_LOWMODE_DEFL) ||
 	(cg_arg->Inverter == LOWMODEAPPROX) && (cg_arg->neig>0) ) {
       if_defl = true;
@@ -701,9 +701,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 //      EigenContainer eigcon (*this, (char *) fname_eig_root_bc, neig, f_size_per_site / 2, n_fields, ecache);
 
 //      Float *eval_cps = eigcon.load_eval ();
-      Float *eval_cps = ecache->evals.data();
-      if(neig>0) assert(ecache->evals.size() >= neig);
-     VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache->evals.size());
+      Float *eval_cps = NULL;
+      if(neig>0){
+        assert(ecache->evals.size() >= neig);
+        eval_cps = ecache->evals.data();
+        VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache->evals.size());
+      }
+
       for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
       if(ecache->allocFlag()==1){
         if (neig>0) evec_f1.resize(neig,F_RB_GRID_F);
@@ -719,15 +723,17 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
         evec_f = &evec_f1;
       } else if(ecache->allocFlag()==2){
         EigenCacheGrid < LATTICE_FERMION_F > * ecache_grid = static_cast < EigenCacheGrid < LATTICE_FERMION_F > * >  (ecache);
-        Float *eval_cps = (ecache_grid->evals).data();
-       VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache_grid->evals.size());
-        if(neig>0) assert((ecache_grid->evals).size() >= neig);
+        Float *eval_cps = NULL;
+        
+        if(neig>0){  
+           eval_cps = (ecache_grid->evals).data();
+           VRB.Result (cname, fname, "eval_cps=%p evals.size=%d\n", eval_cps,ecache_grid->evals.size());
+          assert((ecache_grid->evals).size() >= neig);
         for (int i = 0; i < neig; i++) eval[i] = ecache_grid->evals[i];
-        if(neig>0) 
         VRB.Result(cname,fname,"ecache grid=%p lat grid=%p\n",ecache_grid->grid, F_RB_GRID_F);
         for (int i = 0; i < neig; i++) eval[i] = eval_cps[i];
-        if(neig>0) 
         evec_f = ecache_grid->evec_grid;
+        }
       }
 
 
@@ -775,7 +781,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	  }
 	  verbose=0;
         }
-	CG_m.useGuesser (guesser);
+	if(neig>0) CG_m.useGuesser (guesser);
       }
       VRB.Result(cname,fname,"after defl()\n");
 #ifndef TWOKAPPA
