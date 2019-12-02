@@ -5,6 +5,7 @@
 
 CPS_END_NAMESPACE
 #include <cuda_profiler_api.h>
+//#include<int_fastdiv.h>
 CPS_START_NAMESPACE
 
 template<typename ComplexType>
@@ -385,7 +386,8 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	size_t bi_true = iup - i0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 	int sbi_use = nearestDivisor(bi_true, sbi);
-	int niblk = bi_true / sbi_use;	
+	int niblk = bi_true / sbi_use;
+	//int_fastdiv sbi_use_div(sbi_use);
 #endif
 	
 	for(size_t j0 = 0; j0< nmodes_r; j0+=bj) {
@@ -393,7 +395,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	  size_t bj_true = jup - j0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 	  int sbj_use = nearestDivisor(bj_true, sbj);
-	  int njblk = bj_true / sbj_use;	
+	  int njblk = bj_true / sbj_use;
+	  //int_fastdiv sbj_use_div(sbj_use);
+	  //int_fastdiv njblk_div(njblk);
 #endif
 	  
 	  for(int x0 = 0; x0<size_3d; x0+=bx){
@@ -401,7 +405,9 @@ struct mfComputeGeneralOffload: public mfVectorPolicies{
 	    int bx_true = xup - x0;
 #ifdef MF_OFFLOAD_INNER_BLOCKING
 	    int sbx_use = nearestDivisor(bx_true, sbx);
-	    int nxblk = bx_true / sbx_use;	
+	    int nxblk = bx_true / sbx_use;
+	    //int_fastdiv sbx_use_div(sbx_use);
+	    //int_fastdiv nxblk_div(nxblk);
 	    if(!UniqueID()) printf("Kernel execute with true outer block sizes %d %d %d and inner %d %d %d\n", bi_true, bj_true, bx_true, sbi_use, sbj_use, sbx_use);
 #endif
 
