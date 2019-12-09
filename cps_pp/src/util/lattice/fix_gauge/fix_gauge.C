@@ -127,15 +127,6 @@ protected:
     // index coordinates of site (used to avoid argument passing)
     int *index;
 
-#ifdef NEW_GFIX
-    //Add by Jianglei
-    Matrix **nbr_gauge_minus_rec;
-    Matrix **nbr_gauge_plus_rec;
-    Matrix **nbr_gauge_minus_send;
-    Matrix **nbr_gauge_plus_send;
-    void copy_nbr_gauge();
-
-#endif
 private:
 
     Matrix *gauge;          // pointer to a hyperplane of gauge fixing matrices
@@ -255,49 +246,6 @@ HyperPlane::HyperPlane(const Matrix*L0, int Ind2Dir[],
                 copy_nbr_links(i);
             }
     }
-#ifdef NEW_GFIX
-    //-------------------------------------------------------------------------------
-    //creat and initialize buffers for copies of neighbor node gaueg matrices
-    //, add by Jianglei
-    //------------------------------------------------------------------------------
-  //CK: this code only works for Coulomb gauge and breaks Landau! It also breaks non-checkerboarded gauge fixing
-  //Therefore I add a check to revert to old code when doing Landau
-  if(hplane_dim == XXX::Dimension-1 && GJP.GfixChkb()==1){ //Coulomb
-    {
-        int mem_size = hplane_dim * sizeof(Matrix*);
-        nbr_gauge_minus_rec = (Matrix**) smalloc(mem_size);
-        nbr_gauge_minus_send = (Matrix**) smalloc(mem_size);
-        nbr_gauge_plus_rec = (Matrix**) smalloc(mem_size);
-        nbr_gauge_plus_send = (Matrix**) smalloc(mem_size);
-
-        for(int i=0; i<hplane_dim; i++)
-            {
-                mem_size = sizeof(Matrix);
-                for(int j=0; j<hplane_dim; j++)
-                    mem_size *= (i==j) ? 1 : node_size[j];
-
-                nbr_gauge_minus_rec[i] = (Matrix*) smalloc(mem_size);
-                nbr_gauge_minus_send[i] = (Matrix*) smalloc(mem_size);
-                nbr_gauge_plus_rec[i] = (Matrix*) smalloc(mem_size);
-                nbr_gauge_plus_send[i] = (Matrix*) smalloc(mem_size);
-            }
-        copy_nbr_gauge();
-    }
-    for(int i=0; i<hplane_dim; i++)
-      {
-	int mem_size = sizeof(Matrix);
-	for(int j=0; j<hplane_dim; j++)
-	  mem_size *= (i==j) ? 1 : node_size[j];
-
-	neighbor_link[i] = (Matrix*) smalloc(mem_size);
-	if(neighbor_link[i] == NULL)
-	  ERR.Pointer(cname, fname, "neighbor_link[i]");
-        VRB.Smalloc(cname,fname,"neighbor_link[i]",neighbor_link[i],mem_size);
-
-	copy_nbr_links(i);
-      }
-  }
-#endif
   
 }
 
@@ -324,20 +272,6 @@ HyperPlane::~HyperPlane()
     VRB.Sfree(cname, fname, "neighbor_link", neighbor_link);
     sfree(neighbor_link);
 
-#ifdef NEW_GFIX
-  if(hplane_dim == XXX::Dimension-1 && GJP.GfixChkb()==1){
-    for(int i=hplane_dim; i--; )
-	{
-            sfree(nbr_gauge_minus_rec[i]);
-            sfree(nbr_gauge_minus_send[i]);
-            sfree(nbr_gauge_plus_rec[i]);
-            sfree(nbr_gauge_plus_send[i]);
-	}
-    sfree(nbr_gauge_minus_rec);
-    sfree(nbr_gauge_minus_send);
-    sfree(nbr_gauge_plus_rec);
-    sfree(nbr_gauge_plus_send);
-#endif
 
     VRB.Sfree(cname, fname, "node_size", node_size);
     sfree(node_size);
@@ -442,52 +376,6 @@ void HyperPlane::copy_nbr_links(int nbr_num, int recurse)
         }
 }
 
-#ifdef NEW_GFIX
-//Coulumb Gauge only !!!
-void HyperPlane::copy_nbr_gauge()
-{
-    int ind1, ind2;
-  if(hplane_dim == XXX::Dimension || GJP.GfixChkb()==0) return; //CK: do nothing for Landau or non-checkerboarded gfix
-
-    for(int i = 0; i < node_size[1]; i++)	
-        for(int j = 0; j < node_size[2]; j++)	
-            {
-		ind1 = i + j * node_size[1];
-		ind2 = node_size[0] - 1 + node_size[0] * (i + j * node_size[1]);
-		nbr_gauge_minus_send[0][ind1] = gauge[ind2];
-		ind2 = 0 + node_size[0] * (i + j * node_size[1]);
-		nbr_gauge_plus_send[0][ind1] = gauge[ind2];
-            }
-
-    for(int i = 0; i < node_size[0]; i++)	
-        for(int j = 0; j < node_size[2]; j++)	
-            {
-		ind1 = i + j * node_size[0];
-		ind2 = i + node_size[0] * ( node_size[1] - 1 + node_size[1] * j );
-		nbr_gauge_minus_send[1][ind1] = gauge[ind2];
-		ind2 = i + node_size[0] * ( 0 + node_size[1] * j );
-		nbr_gauge_plus_send[1][ind1] = gauge[ind2];
-            }
-
-    for(int i = 0; i < node_size[0]; i++)	
-        for(int j = 0; j < node_size[1]; j++)	
-            {
-		ind1 = i + j * node_size[0];
-		ind2 = i + node_size[0] * ( j + node_size[1] * (node_size[2] - 1));
-		nbr_gauge_minus_send[2][ind1] = gauge[ind2];
-		ind2 = i + node_size[0] * ( j + node_size[1] * (0));
-		nbr_gauge_plus_send[2][ind1] = gauge[ind2];
-            }
-	
-    for(int i = 0; i < 3; i++)
-	{
-            int memsize = sizeof(Matrix) / sizeof(IFloat);
-            for(int j = 0; j < 3; j++) if(j != i) memsize *= node_size[j];
-            getMinusData((IFloat*)nbr_gauge_minus_rec[i], (IFloat*)nbr_gauge_minus_send[i], memsize, ind2dir[i]);
-            getPlusData((IFloat*)nbr_gauge_plus_rec[i], (IFloat*)nbr_gauge_plus_send[i], memsize, ind2dir[i]);
-	}
-}	
-#endif
 
 
 //-------------------------------------------------------------------------
@@ -564,44 +452,6 @@ Matrix& HyperPlane::G_loc()
 
 Matrix& HyperPlane::G(int ind_link)
 {
-#ifdef NEW_GFIX
-    if(index[ind_link] == -1)
-	{
-            //index[ind_link] = node_size[ind_link] - 1;
-            //getMinusData((IFloat*)&g_buf, (IFloat*)&G_loc(), 
-            // sizeof(Matrix)/sizeof(IFloat), ind2dir[ind_link]);
-            //index[ind_link] = -1;
-            //return g_buf;
-            int idx = 0;
-            for(int i=hplane_dim; i--; )
-                if(i != ind_link) // skip index field related to the neighbor direction
-                    {
-                        idx *= node_size[i];
-                        idx += index[i];
-                    }
-            return nbr_gauge_minus_rec[ind_link][idx];
-	}
-    else if(index[ind_link] == node_size[ind_link])
-	{
-            //index[ind_link] = 0;
-            //getPlusData((IFloat*)&g_buf, (IFloat*)&G_loc(), 
-            //		sizeof(Matrix)/sizeof(IFloat), ind2dir[ind_link]);
-            //index[ind_link] = node_size[ind_link];
-            //return g_buf;
-            int idx = 0;
-            for(int i=hplane_dim; i--; )
-                if(i != ind_link) // skip index field related to the neighbor direction
-                    {
-                        idx *= node_size[i];
-                        idx += index[i];
-                    }
-            return nbr_gauge_plus_rec[ind_link][idx];
-	}
-    else
-	{
-            return G_loc();
-	}
-#else
   if(index[ind_link] == -1)
     {
       index[ind_link] = node_size[ind_link] - 1;
@@ -622,7 +472,6 @@ Matrix& HyperPlane::G(int ind_link)
     {
       return G_loc();
     }
-#endif
 }
 
 
@@ -737,33 +586,6 @@ void FixHPlane::iter()
 
     VRB.Func(cname, fname);
   
-#ifdef NEW_GFIX
-    int recurse = hplane_dim - 1;
-    //----------------------------------------------------------------------
-    // I divided distance loop to even and odd part.
-    //
-    // Even or Odd is defined by
-    // mod( index[0]+...+index[hplane_dim-1], 2 ) = 0 or 1
-    //                                        Takeshi Yamazaki
-    //----------------------------------------------------------------------
-    if (GJP.GfixChkb()==0) {
-        ERR.General(cname,fname,"Not implemented, you must turn on the checkboard flag!\n");
-        exit(-1);
-        // VRB.Flow(cname,fname,"using sequential order gauge fixing");
-        for(int dist = dist_max[recurse] + 1; dist-- > 0; )
-            iter(recurse, dist);
-    } else {
-        VRB.Flow(cname,fname,"using checkerboared order gauge fixing");
-        //Even or Odd part
-        for(int dist = dist_max[recurse] + 1; (dist=dist-2) >= 0; )
-            iter(recurse, dist);
-        copy_nbr_gauge();
-        //Odd or Even part
-        for(int dist = dist_max[recurse] + 2; (dist=dist-2) >= 0; )
-            iter(recurse, dist);
-        copy_nbr_gauge();
-    }
-#else
   int recurse = hplane_dim - 1;
   //----------------------------------------------------------------------
   // I divided distance loop to even and odd part.
@@ -785,7 +607,6 @@ void FixHPlane::iter()
   for(int dist = dist_max[recurse] + 2; (dist=dist-2) >= 0; )
     iter(recurse, dist);
   }
-#endif
 
 }
 
@@ -1296,11 +1117,6 @@ int Lattice::FixGauge(Float SmallFloat, unsigned long MaxIterNum)
 	       not_converged += 1;
 #endif	    
 
-#ifdef NEW_GFIX
-	     tot_iternum += iternum;
-	   }
-       }
-#else
      tot_iternum += iternum;
    }
  }
@@ -1309,11 +1125,11 @@ int Lattice::FixGauge(Float SmallFloat, unsigned long MaxIterNum)
 //------------------------------------------------------------------------
 // deallocate Ind2Dir
 //------------------------------------------------------------------------
-VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
-sfree(Ind2Dir);
+sfree(cname, fname, "Ind2Dir", Ind2Dir);
+//sfree(Ind2Dir);
 
 //Add by Jianglei
-VRB.Result(cname, fname, "Iteration numbers = %lu", tot_iternum);
+VRB.Result(cname, fname, "Iteration numbers = %lu\n", tot_iternum);
 
 //--------------------------------------------------------------
 // Issue a warning through broadcast if MaxIterNum is reached
@@ -1329,37 +1145,6 @@ if (not_converged > 0.5)
  else
    {
      return tot_iternum;
-#endif
-#ifdef NEW_GFIX
-   }
-
-//------------------------------------------------------------------------
-// deallocate Ind2Dir
-//------------------------------------------------------------------------
-VRB.Sfree(cname, fname, "Ind2Dir", Ind2Dir);
-sfree(Ind2Dir);
-  
-// Added by Hantao, sum in t direction.
-glb_sum(&tot_iternum);
-tot_iternum /= GJP.Xnodes() * GJP.Ynodes() * GJP.Znodes();
-//Add by Jianglei
-VRB.Result(cname, fname, "Iteration numbers = %f\n", tot_iternum);
-
-//--------------------------------------------------------------
-// Issue a warning through broadcast if MaxIterNum is reached
-//--------------------------------------------------------------
-glb_sum(&not_converged);
-if (not_converged > 0.5) 
-  {
-    VRB.Warn(cname,fname, 
-	     "Some hyperplanes did not reach accuracy in %d iterations\n",
-	     MaxIterNum);
-    return -(int)tot_iternum;
-  }
- else
-   {
-     return (int)tot_iternum;
-#endif
    }
 }
 
