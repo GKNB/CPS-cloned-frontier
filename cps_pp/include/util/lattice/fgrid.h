@@ -611,6 +611,7 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
+#define NONHERMSOLVE
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
@@ -625,6 +626,7 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
+#undef NONHERMSOLVE
 #define FGRID FgridWilsonClover
 #define CLASS_NAME F_CLASS_GRID_WILSON_CLOVER
 #define DIRAC Grid::QCD::WilsonCloverFermionD
@@ -636,6 +638,7 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
+#define NONHERMSOLVE
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
@@ -650,5 +653,6 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
+#undef NONHERMSOLVE
 #endif //#ifdef USE_GRID
 #endif

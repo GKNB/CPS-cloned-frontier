@@ -22,7 +22,6 @@
 #include<Grid/qcd/action/fermion/SchurDiagTwoKappa.h>
 #endif
 
-
 CPS_START_NAMESPACE class FGRID:public virtual Lattice, public FgridParams,
   public virtual FgridBase
 {
@@ -329,12 +328,22 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     ImportFermion (grid_in, f_in, Odd);
 
     pickCheckerboard (Odd, grid_rb_in, grid_in);
-#ifndef TWOKAPPA
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
-    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
-#else
+// #ifndef TWOKAPPA
+//     Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+//     Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+// #else
+//     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+//     Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+// #endif
+#if defined(TWOKAPPA)
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
     Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+#elif defined(NONHERMSOLVE)
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#else
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #endif
     VRB.Result (cname, fname, "MultiShiftController.getMode()=%d\n",
 		MultiShiftController.getMode ());
@@ -342,8 +351,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       VRB.Result (cname, fname, "running full double\n");
       time1 = dclock ();
       Float stp_cnd = cg_arg->stop_rsd;
+#ifdef NONHERMSOLVE
+      Grid::BiCGSTAB < LATTICE_FERMION > CG_d (stp_cnd, 
+              cg_arg->max_num_iter);
+#else
       Grid::ConjugateGradient < LATTICE_FERMION > CG_d (stp_cnd,
 							cg_arg->max_num_iter);
+#endif
       CG_d (MdagMD, grid_rb_in, grid_rb_out);
       time2 = dclock ();
 
@@ -364,9 +378,15 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       LATTICE_FERMION_F grid_in_f (FERM_GRID_F), psi_f (FERM_GRID_F);
       LATTICE_FERMION_F grid_rb_out_f (F_RB_GRID_F);
       LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F);
+#ifdef NONHERMSOLVE
+      Grid::MixedPrecisionBiCGSTAB < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
+				  F_RB_GRID_F, MdagMF, MdagMD);
+#else
       Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
 				  F_RB_GRID_F, MdagMF, MdagMD);
+#endif
       CG_m (grid_rb_in, grid_rb_out);
       total = CG_m.TotalInnerIterations;
       time2 = dclock ();
@@ -726,21 +746,38 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     {
       int maxinner = cg_arg->max_num_iter;
       int maxouter = 10;
-#ifndef TWOKAPPA
-//      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
-//      SchurSolver (Ddwf, grid_in, grid_out);
-//      Grid::QCD::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
-//      Grid::QCD::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
+// #ifndef TWOKAPPA
+// //      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+// //      SchurSolver (Ddwf, grid_in, grid_out);
+// //      Grid::QCD::SchurDiagMooeeOperator< IMPL > MdagMD (Ddwf);
+// //      Grid::QCD::SchurDiagMooeeOperator< IMPL_F > MdagMF (DdwfF);
+//     Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+//     Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+// #else
+//       Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+//       Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+// #endif
+#if defined(TWOKAPPA)
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
+    Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
+#elif defined(NONHERMSOLVE)
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#else
     Grid::QCD::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::QCD::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
-#else
-      Grid::QCD::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-      Grid::QCD::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
 #endif
+#ifdef NONHERMSOLVE
+      Grid::BiCGSTAB < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
+      Grid::MixedPrecisionBiCGSTABOp < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
+				  MdagMF, MdagMD);
+#else
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
       Grid::MixedPrecisionConjugateGradientOp < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
+#endif
 	VRB.Result (cname, fname, "if_defl=%d verbose=%d\n",if_defl,verbose);
       if (if_defl) {
 	if (verbose) {
@@ -758,21 +795,31 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
         }
 	CG_m.useGuesser (guesser);
       }
-#ifndef TWOKAPPA
-#if 0
-      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
-      SchurSolver (DdwfD, grid_in, grid_out);
-#else
-{
-      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
-      SchurSolver (DdwfD, grid_in, grid_out);
-//      CGcontrols cg_controls;
-//      Grid_CGNE_M_high<mf_Policies>(grid_out, grid_out, cg_controls, evecs, 0, latg, DdwfD, FERM_GRID, F_RB_GRID);
-      
-}
-#endif
-#else
+// #ifndef TWOKAPPA
+// #if 0
+//       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG);
+//       SchurSolver (DdwfD, grid_in, grid_out);
+// #else
+// {
+//       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
+//       SchurSolver (DdwfD, grid_in, grid_out);
+// //      CGcontrols cg_controls;
+// //      Grid_CGNE_M_high<mf_Policies>(grid_out, grid_out, cg_controls, evecs, 0, latg, DdwfD, FERM_GRID, F_RB_GRID);
+//       
+// }
+// #endif
+// #else
+//       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
+//       SchurSolver (DdwfD, grid_in, grid_out);
+// #endif
+#if defined(TWOKAPPA)
       Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
+      SchurSolver (DdwfD, grid_in, grid_out);
+#elif defined(NONHERMSOLVE)
+      Grid::NonHermitianSchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
+      SchurSolver (DdwfD, grid_in, grid_out);
+#else
+      Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
       SchurSolver (DdwfD, grid_in, grid_out);
 #endif
     }
