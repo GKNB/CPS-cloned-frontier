@@ -334,19 +334,13 @@ class LatRanGen
     bool operator==(const LatRanGen &in) const;
 
     void Initialize();  
-#if 0
-//doesn't work properly. Fix needed before enabling
-    void ReInit()  
-{
-  is_initialized == 0;
-  this->Initialize();
-}
+    void Reinitialize(); //added by CK - turns off is_initialised flag, frees memory and runs initialize again
 
+#if 0
     int RngSize(){return state_size;}
     int RngNum(){return n_rgen_4d;}
 #endif
 
-    void Reinitialize(); //added by CK - turns off is_initialised flag, frees memory and runs initialize again
 #ifndef USE_C11_RNG
     //below added by CK as I need access to the random number gens themselves.
     UGrandomGenerator & UGrandGen(const int &idx){ return ugran[idx]; }
