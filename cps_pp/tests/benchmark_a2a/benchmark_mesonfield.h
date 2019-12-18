@@ -1153,7 +1153,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
 
     typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, ExpInnerType> ExpStorageType;
   
-    ExpStorageType exp_store_1s_pp_pp(_1s_inner,_1s_src);
+    ExpStorageType exp_store_1s_pp_pp(_1s_inner);
     exp_store_1s_pp_pp.addCompute(0,0,pp,pp);
 
     typename ComputeMesonFields<A2Apolicies,ExpStorageType>::WspeciesVector Wspecies(1, &W);
@@ -1180,7 +1180,7 @@ void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
     ExpHydMultiInnerType exp_hyd_multi_inner(sigma3,exp_hyd_multi_src);
 
     typedef GparityFlavorProjectedBasicSourceStorage<A2Apolicies, HydInnerType> HydStorageType;
-    HydStorageType exp_store_2s_pp_pp(_2s_inner,_2s_src);
+    HydStorageType exp_store_2s_pp_pp(_2s_inner);
     exp_store_2s_pp_pp.addCompute(0,0,pp,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pm,pp);
     exp_store_2s_pp_pp.addCompute(0,0,pp3,pp);
@@ -1484,7 +1484,7 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   typename ComputeMesonFields<A2Apolicies,BasicStorageType>::WspeciesVector Wspecies(1, &W);
   typename ComputeMesonFields<A2Apolicies,BasicStorageType>::VspeciesVector Vspecies(1, &V);
 
-  BasicStorageType store_basic(inner,src);
+  BasicStorageType store_basic(inner);
   for(int p=0;p<nmom;p++){
     store_basic.addCompute(0,0,-p_wdag[p],p_v[p]);
   }
@@ -1510,7 +1510,7 @@ void testSumSource(const A2AArg &a2a_args,Lattice &lat){
   
   typedef GparityFlavorProjectedSumSourceStorage<A2Apolicies, ExpInnerType> SumStorageType;
 
-  SumStorageType store_sum(inner,src);
+  SumStorageType store_sum(inner);
   store_sum.addComputeSet(0,0, set_mom);
   
   ComputeMesonFields<A2Apolicies,SumStorageType>::compute(store_sum,Wspecies,Vspecies,lat);
@@ -1620,8 +1620,8 @@ void testMfFFTreln(const A2AArg &a2a_args,Lattice &lat){
 
   InnerType inner1(sigma0,src1);
   InnerType inner2(sigma0,src2);
-  StorageType mf_store1(inner1,src1);
-  StorageType mf_store2(inner2,src2);
+  StorageType mf_store1(inner1);
+  StorageType mf_store2(inner2);
 
   mf_store1.addCompute(0,0, ThreeMomentum(p1w), ThreeMomentum(p1v) );
   mf_store1.addCompute(0,0, ThreeMomentum(p2w), ThreeMomentum(p2v) );
