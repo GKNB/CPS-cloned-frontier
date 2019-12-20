@@ -795,7 +795,7 @@ void FermionVectorTp::SetLandauGaugeMomentaSource( Lattice& lat,
   
   const Float PI(3.14159265358979323846264338327950288319716939937510);
 
-  Float pp[4] = {p[0],p[1],p[2],p[3]};
+  Float pp[4] = { static_cast<Float>(p[0]), static_cast<Float>(p[1]), static_cast<Float>(p[2]), static_cast<Float>(p[3]) };
   for(int i=0;i<4;i++){
     pp[i] *= 2.0*PI/(GJP.NodeSites(i)*GJP.Nodes(i));
     if(GJP.Bc(i)==BND_CND_GPARITY) pp[i]/=4.0; //CK: units of momentum are pi/2L not 2pi/L in G-parity directions  
