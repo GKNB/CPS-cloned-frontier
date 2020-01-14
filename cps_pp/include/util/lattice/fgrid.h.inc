@@ -783,7 +783,9 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
           static int eig_check=0;
       if (if_defl && neig>0 ) {
 //	if (verbose) {
-	  for (int i = 0; i < (neig/100) ; i++) {
+          int n_check=neig/100;
+	  if(!n_check) n_check=1;
+	  for (int i = 0; i < n_check ; i++) {
 	    eig_check =(eig_check+23)%neig ; 
 	    LATTICE_FERMION_F tmp (F_RB_GRID_F);
 	    MdagMF.HermOp ((*evec_f)[eig_check], tmp);
