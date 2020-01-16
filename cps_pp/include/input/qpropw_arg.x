@@ -21,7 +21,8 @@ enum SourceType {
   FL_FUNC         = 15,
   MOM         = 16,
   BOX_4D     = 17,
-  RANDMOM = 18
+  RANDMOM = 18,
+  RANDSPARSE   = 19
 };
 
 enum RandomType {
@@ -117,6 +118,7 @@ class QPropWRandArg {
   RandomType rng;
   //! random number seed
   int seed;
+  int sep; //parameter for separation
   memfun QPropWRandArg();
 };
 

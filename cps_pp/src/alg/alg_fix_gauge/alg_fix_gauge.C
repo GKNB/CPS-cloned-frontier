@@ -24,8 +24,6 @@ CPS_START_NAMESPACE
 
 
 CPS_END_NAMESPACE
-//#include <stdlib.h>	// exit()
-//#include <util/qcdio.h>
 #include <util/lattice.h>
 #include <util/gjp.h>
 #include <util/site.h>
@@ -220,7 +218,9 @@ void AlgFixGauge::Save(const QioArg &wt_arg, int pario){
 
 
   WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem(),key,value);
-  if (!pario ) nersc_write.setSerial();
+  VRB.Result(cname,fname,"pario=%d resetting to serial\n",pario);
+//  if (!pario ) 
+  nersc_write.setSerial();
   nersc_write.write(gfix_mat.Field(),wt_arg);
 }
 

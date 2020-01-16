@@ -525,6 +525,10 @@ public:
 
   int StartSeedValue() const
       {return doarg_int.start_seed_value;}
+  int SettSeedValue(int seed) {
+      doarg_int.start_seed_value=seed; 
+      return doarg_int.start_seed_value;
+  }
   //!< Gets the value of the starting seed.
   /*!<
     \return The value of the starting seed.

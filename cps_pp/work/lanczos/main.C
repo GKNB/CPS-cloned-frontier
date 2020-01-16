@@ -59,7 +59,7 @@ static void SetZmobiusPC(int flag)
     }
 }
 
-typedef Grid::QCD::ZMobiusFermionF::FermionField GRID_FERMION_F;
+typedef Grid::ZMobiusFermionF::FermionField GRID_FERMION_F;
 
 EigenCache *ecache;
 char *cname;

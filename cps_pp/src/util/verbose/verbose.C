@@ -93,7 +93,7 @@ void Verbose::Level(int value){
     else{
 	if(value>=N_VERBOSE_LEVELS) value = N_VERBOSE_LEVELS-1;
 	for(i=0; i<=value; i++) active[i] = 1;
-	for(i=value; i<N_VERBOSE_LEVELS; i++) active[i] = 0;
+	for(i=value+1; i<N_VERBOSE_LEVELS; i++) active[i] = 0;
     }
     
 }

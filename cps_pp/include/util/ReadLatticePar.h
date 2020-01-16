@@ -31,6 +31,7 @@ class  ReadLatticeParallel : public QioControl
 
  private:
   const char *cname;
+ protected: 
   LatticeHeader hd;
   static bool UseParIO;
   const int default_concur=16;
@@ -77,7 +78,7 @@ class  ReadLatticeParallel : public QioControl
   std::string getEnsembleLabel(){ return hd.ensemble_label; } // CAREFULL: only on MasterNode!!
   int getSequenceNumber();// same on all nodes!
 
- private:
+ protected:
   bool CheckPlaqLinktrace(Lattice & lat, const QioArg & rd_arg,
 			  const Float plaq_inheader, const Float linktrace_inheader);
 
@@ -114,6 +115,37 @@ class ReadLatticeSerial : public ReadLatticeParallel {
   }
   
   virtual ~ReadLatticeSerial() {}
+};
+
+class ReadMILCParallel : public ReadLatticeParallel {
+ private:
+  const char * cname;
+
+ public:
+  // ctor for 2-step loading
+  ReadMILCParallel() : ReadLatticeParallel(), cname("ReadMILCParallel") {
+    setSerial();
+  }
+
+  // ctor invoking loading behavior
+  ReadMILCParallel(Lattice & lat, const char * filename, const Float chkprec = 0.01) 
+    : ReadLatticeParallel(), cname("ReadMILCParallel") {
+    setSerial();
+//    read(lat, filename, chkprec);
+    QioArg rd_arg(filename,chkprec);
+    read(lat,rd_arg);
+  }
+
+  // ctor invoking loading behavior
+  ReadMILCParallel(Lattice & lat, const QioArg & rd_arg) 
+    : ReadLatticeParallel(), cname("ReadMILCParallel") {
+    setSerial();
+    read(lat, rd_arg);
+  }
+
+  void read(Lattice & lat, const QioArg & rd_arg);
+  
+  virtual ~ReadMILCParallel() {}
 };
 
 

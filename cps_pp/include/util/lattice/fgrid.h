@@ -46,7 +46,7 @@ namespace Grid
       for (int i = 0; i < neig; i++) {
 	Grid::ComplexD coef = innerProduct (evec[i], in);
 	coef = coef / eval[i];
-//	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
+	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
           std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
 	out += coef * evec[i];
       }
@@ -226,38 +226,7 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
 //  Umu_f = new Grid::LatticeGaugeFieldF(UGrid_f);
     grid_initted = true;
     VRB.FuncEnd (cname, fname);
-//#ifdef USE_QMP
-/* #ifdef USE_QMP */
-/* 		bool fail = false; */
-/* 		for(int t=0;t<GJP.Tnodes();t++) */
-/* 		  for(int z=0;z<GJP.Znodes();z++) */
-/* 		    for(int y=0;y<GJP.Ynodes();y++) */
-/* 		      for(int x=0;x<GJP.Xnodes();x++){ */
-/* 			std::vector<int> node {x,y,z,t}; */
-/* 			int cps_rank = QMP_get_node_number_from(&node[0]); //is a MPI_COMM_WORLD rank */
-/* 			int grid_rank = UGrid->RankFromProcessorCoor(node); //is an MPI_Cart rank. However this MPI_Cart is drawn from MPI_COMM_WORLD and so the rank mapping to physical processors should be the same. However check below */
-/* 			int fail = 0; */
-/* 			if(UGrid->_processor == grid_rank){ */
-/* 			  int world_rank; MPI_Comm_rank(MPI_COMM_WORLD,&world_rank); */
-/* 			  if(world_rank != UGrid->_processor) fail = 1; */
-/* 			} */
-/* 			QMP_status_t ierr = QMP_sum_int(&fail); */
-/* 			if(ierr != QMP_SUCCESS) */
-/* 			  ERR.General("FgridBase","FgridBase","Rank check sum failed\n"); */
-/* 			if(fail != 0) */
-/* 			  ERR.General("FgridBase","FgridBase","Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n"); */
-/*			   "Grid MPI_Cart rank does not align with MPI_COMM_WORLD rank\n"); */
 
-/* 			if(cps_rank != grid_rank){ */
-/* 			  if(!UniqueID()){ std::cout << "Error in FgridBase constructor: node (" << node[0] << "," << node[1] << "," << node[2] << "," << node[3] << ") maps to different MPI ranks for Grid " << grid_rank << " and CPS " << cps_rank << std::endl; */
-/* 			    std::cout.flush(); */
-/* 			  } */
-/* 			  fail = true; */
-/* 			} */
-/* 		      } */
-/* 		if(fail) */
-/* 		  exit(0); */
-/* #endif */
 	}
 
   void ResetParams (FgridParams & params)
@@ -395,19 +364,6 @@ FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), 
   //! Multiplication of a lattice spin-colour vector by gamma_5.
 //  void Gamma5(Vector *v_out, Vector *v_in, int num_sites);
 
-#if 0
-  int FsiteOffsetChkb (const int *x) const
-  {
-    ERR.NotImplemented (cname, "FsiteOffsetChkb");
-  }
-  // Sets the offsets for the fermion fields on a 
-  // checkerboard. The fermion field storage order
-  // is not the canonical one but it is particular
-  // to the Dwf fermion type. x[i] is the 
-  // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
-//  int FsiteOffset(const int *x) const;
-#endif
-
 
 #if 1
   // doing nothing for now
@@ -535,6 +491,8 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::WilsonImplD
 #define IMPL_F Grid::WilsonImplF
+#define MOB_ASYM
+#undef MOB_SYM2
 #define PARAMS
 #define GP
 #undef TWOKAPPA
@@ -553,6 +511,37 @@ CPS_END_NAMESPACE
 #undef PARAMS
 #undef GP
 #undef GRID_GPARITY
+#undef MOB_ASYM
+#define IF_FIVE_D
+#undef IF_TM
+#define FGRID FgridMobiusSYM2
+#define CLASS_NAME F_CLASS_GRID_MOBIUS_SYM2
+#define DIRAC Grid::MobiusFermionD
+#define DIRAC_F Grid::MobiusFermionF
+#define MOB	,M5,mob_b,mob_b-1.
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#undef MOB_ASYM
+#define MOB_SYM2
+#define PARAMS
+#define GP
+#undef TWOKAPPA
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef MOB_SYM2
 #define IF_FIVE_D
 #define GRID_ZMOB
 #define FGRID FgridZmobius

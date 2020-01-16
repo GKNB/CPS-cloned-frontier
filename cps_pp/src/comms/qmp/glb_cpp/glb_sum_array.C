@@ -1,6 +1,9 @@
 #include<config.h>
 #include<util/qcdio.h>
 //These are routines not provided for by 
+//#ifndef USE_QMP
+//#define USE_MPI
+//#endif
 #ifdef USE_MPI
 #include<mpi.h>
 #endif
@@ -15,9 +18,6 @@
 #include <comms/sysfunc_cps.h>
 #include <comms/glb_sum_internal.h>
 CPS_START_NAMESPACE
-//#ifndef USE_QMP
-//#define USE_QMP
-//#endif
 int glb_sum (long *send, const long n_elem)
 {
   int ret = n_elem;

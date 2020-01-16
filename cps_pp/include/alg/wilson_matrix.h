@@ -292,9 +292,9 @@ class WilsonMatrix
 {
 private:
     static const char *cname;
-  wilson_matrix p;
   
 public:
+  wilson_matrix p;
     WilsonMatrix() {}
 
     // no need to redefine copy constructor.

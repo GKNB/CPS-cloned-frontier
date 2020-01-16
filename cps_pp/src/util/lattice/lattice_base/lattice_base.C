@@ -5041,7 +5041,8 @@ int Lattice::F5D ()
 
 #ifdef USE_GRID
   if (Fclass () == F_CLASS_GRID_GPARITY_MOBIUS
-      || Fclass () == F_CLASS_GRID_MOBIUS || Fclass () == F_CLASS_GRID_ZMOBIUS)
+      || Fclass () == F_CLASS_GRID_MOBIUS || Fclass () == F_CLASS_GRID_ZMOBIUS
+      || Fclass () == F_CLASS_GRID_MOBIUS_SYM2 || Fclass () == F_CLASS_GRID_MOBIUS_SYM1)
     return 1;
 #endif
   return 0;

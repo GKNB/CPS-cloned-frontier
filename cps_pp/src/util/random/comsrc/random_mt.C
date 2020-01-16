@@ -94,11 +94,12 @@ void LatRanGen::Reinitialize ()
 //---------------------------------------------------------
 void LatRanGen::Initialize ()
 {
+  const char *fname = "Initialize";
+//  VRB.Func (cname, fname);
+  VRB.Result(cname,fname,"is_initialized=%d\n",is_initialized);
   if (is_initialized == 1)
     return;
 
-  const char *fname = "Initialize";
-  VRB.Func (cname, fname);
 
 //  stringstream cpsran_dump;
 //  cpsran_dump.open("cpsran_dump");
@@ -321,10 +322,12 @@ void LatRanGen::Initialize ()
 #ifdef RNG_SEED_SKIP
 #ifdef USE_C11_SITMO
 //#if 0 
+	  VRB.RNGSeed (cname, fname, "index_4d=%d sitmo start_seed=%ld rng_offset=%d\n", index_4d,start_seed_4d,rng_offset);
 	  cpsran[index_4d].set_counter (0, 0, (uint64_t) rng_offset, 0, 0);
 #else
 	  assert(index_4d < MAX_RNG); // can be changed to do it sequentially, circumventing the limit
 	  uint64_t nskip = RNG_SKIP * (uint64_t) rng_offset;
+	  VRB.RNGSeed (cname, fname, "index_4d=%d nskip=%ld\n", index_4d,nskip);
 	  cpsran[index_4d].discard (nskip);
 #endif
 #endif
