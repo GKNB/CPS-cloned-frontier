@@ -33,6 +33,7 @@ enum SourceType {
 	MOM = 16,
 	BOX_4D = 17,
 	RANDMOM = 18,
+	RANDSPARSE = 19,
 };
 typedef enum SourceType SourceType;
 extern struct vml_enum_map SourceType_map[];
@@ -133,6 +134,7 @@ public:
 	 bool Vml(VML *vmls,char *instance);
 	RandomType rng;
 	int seed;
+	int sep;
 	   QPropWRandArg (  ) ;
 };
 

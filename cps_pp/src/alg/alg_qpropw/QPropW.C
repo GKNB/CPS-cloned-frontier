@@ -1105,7 +1105,7 @@ if (Lat.F5D () ) {
       do_5d = true;
   }
 #endif
- VRB.Result(cname,fname,"do_5d=%d\m",do_5d);
+ VRB.Result(cname,fname,"do_5d=%d\n",do_5d);
 
   if (do_5d) {
     Vector *src_4d = (Vector *) source.data ();
@@ -3839,11 +3839,11 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     char *fname = "AllocateRsrc()";
     VRB.Func (cname, fname);
 
-    if (rsrc == NULL) {
+    if ( !rsrc ) {
       int rsrc_size = 2 * GJP.VolNodeSites() * (GJP.Gparity()+1);
-      rsrc = (Float*)smalloc(rsrc_size * sizeof(Float));
-      if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
-      VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
+      rsrc = (Float*)smalloc(cname,fname,"rsrc",rsrc_size * sizeof(Float));
+//      if (rsrc == 0) ERR.Pointer(cname, fname, "rsrc");
+//      VRB.Smalloc(cname, fname, "rsrc", rsrc, rsrc_size * sizeof(Float));
     }
   }
   void QPropWRand::DeleteRsrc ()
@@ -3852,9 +3852,9 @@ QPropWRand::QPropWRand (Lattice & lat, CommonArg * c_arg):QPropW (lat, c_arg) {
     char *fname = "DeleteRsrc()";
     VRB.Func (cname, fname);
 
-    if (rsrc != NULL) {
-    VRB.Sfree(cname, fname, "rsrc", rsrc);
-    sfree(rsrc);
+    if (rsrc ) {
+    sfree(cname, fname, "rsrc", rsrc);
+//    sfree(rsrc);
     rsrc = NULL;
     }
   }
@@ -3895,7 +3895,7 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 	rsrc[2*i+1 + f*fstride] = LRG.Grand(FOUR_D);
       }
     }
-    if (rand_arg.rng == UONE) {
+    else if (rand_arg.rng == UONE) {
     LRG.SetInterval(6.283185307179586,0);
     for (int f=0; f<GJP.Gparity()+1; f++)
       for (int i=0; i<vol4d; i++) {
@@ -3906,7 +3906,7 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
       }
 
     }
-    if (rand_arg.rng == ZTWO) {
+    else if (rand_arg.rng == ZTWO) {
     LRG.SetInterval(1,-1);
     for (int f=0; f<GJP.Gparity()+1; f++)
       for (int i=0; i<vol4d; i++) {
@@ -3917,6 +3917,27 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 	  rsrc[2*i + f*fstride] = -1.;
 	}
 	rsrc[2*i+1 + f*fstride] = 0.0; // source is purely real
+      }
+    }
+    else if (rand_arg.rng == ZFOUR) {
+    LRG.SetInterval(1,-1);
+    for (int f=0; f<GJP.Gparity()+1; f++)
+      for (int i=0; i<vol4d; i++) {
+	LRG.AssignGenerator(i,f);
+	Float tmp = LRG.Urand(FOUR_D);
+	if ( tmp <-0.5) {
+	  rsrc[2*i + f*fstride] =  1.;
+	  rsrc[2*i + f*fstride+1] =  0.;
+	} else if ( tmp <0.) {
+	  rsrc[2*i + f*fstride] =  0.;
+	  rsrc[2*i + f*fstride+1] =  1.;
+	} else if ( tmp <0.5) {
+	  rsrc[2*i + f*fstride] =  -1.;
+	  rsrc[2*i + f*fstride+1] =  0.;
+	} else {
+	  rsrc[2*i + f*fstride] =  0.;
+	  rsrc[2*i + f*fstride+1] = -1.;
+	}
       }
     }
     if (rand_arg.rng == TEST) {	// deterministic source for testing
@@ -4119,6 +4140,47 @@ QPropWRandWallSrc::QPropWRandWallSrc (Lattice & lat, CommonArg * c_arg):
     src.SetWallSource (color, spin, qp_arg.t, rsrc);
     if (GFixedSrc ())
       src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
+  }
+
+//------------------------------------------------------------------
+// Quark Propagator (Wilson type) with Random Sparse Source
+//------------------------------------------------------------------
+QPropWRandSparse::QPropWRandSparse (Lattice & lat, CommonArg * c_arg):
+  QPropWRand (lat, c_arg) {
+
+    char *fname = "QPropWRandSparse(L&, ComArg*)";
+    cname = "QPropWRandSparse";
+    VRB.Func (cname, fname);
+  }
+  QPropWRandSparse::QPropWRandSparse (Lattice & lat, QPropWArg * arg,
+					QPropWRandArg * r_arg,
+					CommonArg * c_arg)
+:  QPropWRand (lat, arg, r_arg, c_arg) {
+
+    char *fname = "QPropWRandSparse(L&, ComArg*)";
+    cname = "QPropWRandSparse";
+    VRB.Func (cname, fname);
+
+    Run ();
+  }
+
+  void QPropWRandSparse::SetSource (FermionVectorTp & src, int spin, int color)
+  {
+
+    char *fname = "SetSource()";
+    VRB.Func (cname, fname);
+
+    if (rsrc == NULL) {		//need random numbers may implemented later
+      ERR.General (cname, fname, "No randrom numbers found!\n");
+    }
+
+    src.ZeroSource ();
+    src.SetWallSource (color, spin, qp_arg.t, rsrc);
+    if (GFixedSrc ())
+      src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
+    for(size_t i=0;i<GJP.VolNodeSites();i++){
+       Site s(i);
+    }
   }
 
 
