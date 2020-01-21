@@ -3919,6 +3919,26 @@ QPropWRand::QPropWRand (Lattice & lat, QPropWArg * arg, QPropWRandArg * r_arg, C
 	rsrc[2*i+1 + f*fstride] = 0.0; // source is purely real
       }
     }
+    else if (rand_arg.rng == ZTHREE) {
+    LRG.SetInterval(0,3);
+    Float sine = 0.5;
+    Float cosine = sqrt(0.75);
+    for (int f=0; f<GJP.Gparity()+1; f++)
+      for (int i=0; i<vol4d; i++) {
+	LRG.AssignGenerator(i,f);
+	Float tmp = LRG.Urand(FOUR_D);
+	if (tmp <1.) {
+	  rsrc[2*i + f*fstride] =  1.;
+	  rsrc[2*i + f*fstride+1] = 0.;
+	} else if ( tmp <2.) {
+	  rsrc[2*i + f*fstride] =  -sine;
+	  rsrc[2*i + f*fstride+1] =  cosine;
+	} else {
+	  rsrc[2*i + f*fstride] =  -sine;
+	  rsrc[2*i + f*fstride+1] =  -cosine;
+	}
+      }
+    }
     else if (rand_arg.rng == ZFOUR) {
     LRG.SetInterval(1,-1);
     for (int f=0; f<GJP.Gparity()+1; f++)
@@ -4145,6 +4165,7 @@ QPropWRandWallSrc::QPropWRandWallSrc (Lattice & lat, CommonArg * c_arg):
 //------------------------------------------------------------------
 // Quark Propagator (Wilson type) with Random Sparse Source
 //------------------------------------------------------------------
+#if 0
 QPropWRandSparse::QPropWRandSparse (Lattice & lat, CommonArg * c_arg):
   QPropWRand (lat, c_arg) {
 
@@ -4152,6 +4173,7 @@ QPropWRandSparse::QPropWRandSparse (Lattice & lat, CommonArg * c_arg):
     cname = "QPropWRandSparse";
     VRB.Func (cname, fname);
   }
+#endif
   QPropWRandSparse::QPropWRandSparse (Lattice & lat, QPropWArg * arg,
 					QPropWRandArg * r_arg,
 					CommonArg * c_arg)
@@ -4160,6 +4182,35 @@ QPropWRandSparse::QPropWRandSparse (Lattice & lat, CommonArg * c_arg):
     char *fname = "QPropWRandSparse(L&, ComArg*)";
     cname = "QPropWRandSparse";
     VRB.Func (cname, fname);
+
+    const int glb[4] = {
+      GJP.XnodeSites () * GJP.Xnodes (), GJP.YnodeSites () * GJP.Ynodes (),
+      GJP.ZnodeSites () * GJP.Znodes (), GJP.TnodeSites () * GJP.Tnodes (),
+    };
+  size_t vol4d = GJP.VolNodeSites();
+  size_t fstride = 2*vol4d;
+
+    
+for (int f=0; f<GJP.Gparity()+1; f++){
+#pragma omp parallel for
+    for(size_t i=0;i<vol4d;i++){
+       Site s(i);
+	int x_diff = (s.physX()-arg->x+glb[0])%r_arg->sep;
+	int y_diff = (s.physY()-arg->y+glb[1])%r_arg->sep;
+	int z_diff = (s.physZ()-arg->z+glb[2])%r_arg->sep;
+	int t_diff = (s.physT()-arg->t+glb[3])%r_arg->sep;
+	if(x_diff==r_arg->sep/2&& y_diff==r_arg->sep/2&&z_diff==r_arg->sep/2&&t_diff==r_arg->sep/2){
+	  printf("Keeping source (%e %e) at %d %d %d %d\n", rsrc[2*i + f*fstride],rsrc[2*i+1 + f*fstride],
+          s.physX(),s.physY(),s.physZ(),s.physT() );
+        } else if ( (x_diff==0) && (y_diff==0) && (z_diff==0)  && (t_diff==0) ) {
+	  printf("Keeping source (%e %e) at %d %d %d %d\n", rsrc[2*i + f*fstride],rsrc[2*i+1 + f*fstride],
+          s.physX(),s.physY(),s.physZ(),s.physT() );
+        } else {
+	  rsrc[2*i + f*fstride] = 0.;
+	  rsrc[2*i+1 + f*fstride] = 0.;
+        }
+    }
+}
 
     Run ();
   }
@@ -4174,14 +4225,40 @@ QPropWRandSparse::QPropWRandSparse (Lattice & lat, CommonArg * c_arg):
       ERR.General (cname, fname, "No randrom numbers found!\n");
     }
 
-    src.ZeroSource ();
-    src.SetWallSource (color, spin, qp_arg.t, rsrc);
-    if (GFixedSrc ())
-      src.GFWallSource (AlgLattice (), spin, 3, qp_arg.t);
-    for(size_t i=0;i<GJP.VolNodeSites();i++){
-       Site s(i);
+    Lattice & lat = AlgLattice ();
+    src.SetVolSource (color, spin, rsrc);
+    if (GFixedSrc ()) {
+      if (lat.FixGaugeKind () == FIX_GAUGE_COULOMB_T)
+	for (int t = 0; t < GJP.Tnodes () * GJP.TnodeSites (); t++)
+	  src.GFWallSource (lat, spin, 3, t);
+      else if (lat.FixGaugeKind () == FIX_GAUGE_LANDAU)
+	src.LandauGaugeFixSrc (lat, spin);
+      else
+	ERR.General (cname, fname,
+		     "gauge fixing method does not work for qpropwrandvolSrc\n");
     }
   }
+
+#if 0
+  void QPropWRandSparse::SetSource (FermionVectorTp & src, int spin, int color)
+  {
+
+    char *fname = "SetSource()";
+    VRB.Func (cname, fname);
+
+    if (rsrc == NULL) {		//need random numbers may implemented later
+      ERR.General (cname, fname, "No randrom numbers found!\n");
+    }
+
+    src.ZeroSource ();
+for(int t=0;t<GJP.Sites(3);t++){
+    src.SetWallSource (color, spin, t, rsrc);
+    if (GFixedSrc ())
+      src.GFWallSource (AlgLattice (), spin, 3, t);
+}
+
+  }
+#endif
 
 
 //------------------------------------------------------------------

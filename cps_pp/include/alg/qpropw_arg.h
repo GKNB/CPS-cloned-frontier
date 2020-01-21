@@ -42,9 +42,10 @@ enum RandomType {
 	GAUSS = 0,
 	UONE = 1,
 	ZTWO = 2,
-	NORAND = 3,
+	ZTHREE = 3,
 	ZFOUR = 4,
-	TEST = 5,
+	NORAND = 5,
+	TEST = 6,
 };
 typedef enum RandomType RandomType;
 extern struct vml_enum_map RandomType_map[];
@@ -135,6 +136,7 @@ public:
 	RandomType rng;
 	int seed;
 	int sep;
+	int sparse_kind;
 	   QPropWRandArg (  ) ;
 };
 

@@ -625,7 +625,7 @@ public:
 class QPropWRandSparse : public QPropWRand {
   
 public:
-  QPropWRandSparse(Lattice& lat, CommonArg* c_arg);
+//  QPropWRandSparse(Lattice& lat, CommonArg* c_arg);
   QPropWRandSparse(Lattice& lat, QPropWArg* , QPropWRandArg *, CommonArg*);
   
   void SetSource(FermionVectorTp& src, int spin, int color);
