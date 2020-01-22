@@ -2,17 +2,7 @@
 #define NODE_DISTRIBUTE_MESONFIELDS //Save memory by keeping meson fields only on single node until needed
 #endif
 
-#include <alg/a2a/utils_main.h>
-#include <alg/a2a/bfm_grid_combined_wrappers.h>
-#include <alg/a2a/compute_LLmesonfields.h>
-#include <alg/a2a/compute_kaon.h>
-#include <alg/a2a/compute_pion.h>
-#include <alg/a2a/compute_sigmamesonfields.h>
-#include <alg/a2a/compute_sigma.h>
-#include <alg/a2a/compute_pipitosigma.h>
-#include <alg/a2a/compute_pipi.h>
-#include <alg/a2a/compute_ktopipi.h>
-#include <alg/a2a/compute_ktosigma.h>
+#include <alg/a2a/ktopipi_gparity.h>
 
 #include "include/main.h"
 

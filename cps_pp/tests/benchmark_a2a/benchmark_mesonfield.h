@@ -24,36 +24,17 @@ int ProfilerStart(const char* fname){}
 void ProfilerStop(){}
 #endif
 
-//bfm headers
-#ifdef USE_BFM
-#include<bfm.h>
-#include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
-#include<util/lattice/bfm_evo.h>
-#endif
+#include<alg/a2a/a2a_fields.h>
+#include<alg/a2a/mesonfield.h>
+#include<alg/a2a/ktopipi_gparity.h>
 
-#include<alg/a2a/compute_ktopipi_base.h>
-#include<alg/a2a/a2a.h>
-#include<alg/fix_gauge_arg.h>
-#include<alg/alg_fix_gauge.h>
-#include<alg/a2a/inner_product.h>
-#include<alg/a2a/mesonfield_mult_vMv_split.h>
-#include<alg/a2a/mesonfield_mult_vMv_split_grid.h>
-#include<alg/a2a/mesonfield_mult_vMv_split_lite.h>
-#include<alg/a2a/grid_wrappers.h>
-#include<alg/a2a/mf_momcontainer.h>
-#include<alg/a2a/compute_ktopipi.h>
 
 #ifdef GRID_NVCC
 #include <cuda_profiler_api.h>
 #else
-/* void cudaProfilerStart(){} */
-/* void cudaProfilerStop(){} */
+void cudaProfilerStart(){}
+void cudaProfilerStop(){}
 #endif
-
-
-CPS_START_NAMESPACE
-#include<alg/a2a/mesonfield_compute_impl_offload.tcc>
-CPS_END_NAMESPACE
 
 CPS_START_NAMESPACE
 
@@ -1081,10 +1062,6 @@ T randomvType(){
   vset(out,r);
   return out;
 }
-
-CPS_END_NAMESPACE
-#include<alg/a2a/mesonfield_computemany.h>
-CPS_START_NAMESPACE
 
 template<typename A2Apolicies>
 void testMultiSource(const A2AArg &a2a_args,Lattice &lat){
@@ -2632,7 +2609,7 @@ void testMFcontract(const A2AArg &a2a_args, const int nthreads, const double tol
   Wgrid.importFields(W);
   Vgrid.importFields(V);
   
-#if 0
+#ifndef GRID_NVCC
   //Original Grid implementation
   {
     typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
@@ -2723,12 +2700,14 @@ void benchmarkMFcontract(const A2AArg &a2a_args, const int ntests, const int nth
   
   typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
 
-  //typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
+#ifndef GRID_NVCC
+    typedef SingleSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   //typedef SingleSrcVectorPolicies<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
-  //mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
-
+    mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+#else
   typedef SingleSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,GridInnerProduct> VectorPolicies;
   mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, GridInnerProduct, VectorPolicies> cg;
+#endif
 
   BlockedMesonFieldArgs::enable_profiling = false; 
   
@@ -2865,13 +2844,16 @@ void benchmarkMultiSrcMFcontract(const A2AArg &a2a_args, const int ntests, const
   CALLGRIND_TOGGLE_COLLECT ;
   
   typedef typename std::vector<A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> >::allocator_type Allocator;
-  //typedef MultiSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
-  //typedef MultiSrcVectorPolicies<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
-  //mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, MultiInnerType, VectorPolicies> cg;
 
+#ifndef GRID_NVCC
+  typedef MultiSrcVectorPoliciesSIMD<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
+  //typedef MultiSrcVectorPolicies<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
+  mfComputeGeneral<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, MultiInnerType, VectorPolicies> cg;
+#else
   typedef MultiSrcVectorPoliciesSIMDoffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw,Allocator,MultiInnerType> VectorPolicies;
   mfComputeGeneralOffload<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw, MultiInnerType, VectorPolicies> cg;
-  
+#endif  
+
   ProfilerStart("MultiSrcProfile.prof");
   for(int iter=0;iter<ntests;iter++){
     total_time -= dclock();
