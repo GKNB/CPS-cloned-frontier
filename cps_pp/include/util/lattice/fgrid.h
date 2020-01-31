@@ -605,16 +605,16 @@ CPS_END_NAMESPACE
 #undef GP
 #define FGRID FgridWilson
 #define CLASS_NAME F_CLASS_GRID_WILSON
-#define DIRAC Grid::QCD::WilsonFermionD
-#define DIRAC_F Grid::QCD::WilsonFermionF
+#define DIRAC Grid::WilsonFermionD
+#define DIRAC_F Grid::WilsonFermionF
 #define MOB
-#define IMPL Grid::QCD::WilsonImplD
-#define IMPL_F Grid::QCD::WilsonImplF
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
-#define NONHERMSOLVE
+#undef NONHERMSOLVE
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D
@@ -632,16 +632,16 @@ CPS_END_NAMESPACE
 #undef NONHERMSOLVE
 #define FGRID FgridWilsonClover
 #define CLASS_NAME F_CLASS_GRID_WILSON_CLOVER
-#define DIRAC Grid::QCD::WilsonCloverFermionD
-#define DIRAC_F Grid::QCD::WilsonCloverFermionF
+#define DIRAC Grid::WilsonCloverFermionD
+#define DIRAC_F Grid::WilsonCloverFermionF
 #define MOB  , csw, csw
-#define IMPL Grid::QCD::WilsonImplD
-#define IMPL_F Grid::QCD::WilsonImplF
-#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
-#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define PARAMS
 #define GP
-#define NONHERMSOLVE
+#undef NONHERMSOLVE
 #include "fgrid.h.inc"
 #undef GRID_GPARITY
 #undef IF_FIVE_D

@@ -17,6 +17,7 @@ namespace Grid {
       }
   };
 
+#ifdef NONHERMSOLVE
 //  MixedPrecisionBiCGSTABOp
    template<class FieldD,class FieldF, typename std::enable_if< getPrecision<FieldD>::value == 2, int>::type = 0,typename std::enable_if< getPrecision<FieldF>::value == 1, int>::type = 0>
   class MixedPrecisionBiCGSTABOp : public MixedPrecisionBiCGSTAB<FieldD,FieldF>, public OperatorFunction<FieldD> {
@@ -29,6 +30,7 @@ namespace Grid {
               this->MixedPrecisionBiCGSTAB<FieldD,FieldF>::operator()(in,out);
       }
   };
+#endif
 
 }
 #endif

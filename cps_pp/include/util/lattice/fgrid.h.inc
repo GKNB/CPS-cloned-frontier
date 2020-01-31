@@ -339,9 +339,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #elif defined(NONHERMSOLVE)
-// QCD namespace should be taken out.
-    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
-    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+    Grid::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
     Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
@@ -833,8 +832,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       Grid::NonHermitianSchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
 #else
       VRB.Result(cname,fname,"SYM2\n");
-//      Grid::SchurRedBlackDiagTwoSolve< LATTICE_FERMION > SchurSolver (CG_m);
-      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
+      Grid::SchurRedBlackDiagTwoSolve< LATTICE_FERMION > SchurSolver (CG_m);
+//      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
 #endif
       SchurSolver (DdwfD, grid_in, grid_out);
       VRB.Result(cname,fname,"after SchurSolver()");
