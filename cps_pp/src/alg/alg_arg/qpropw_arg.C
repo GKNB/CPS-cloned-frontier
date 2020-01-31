@@ -48,8 +48,9 @@ struct vml_enum_map RandomType_map[] = {
 	{"RandomType","GAUSS",GAUSS},
 	{"RandomType","UONE",UONE},
 	{"RandomType","ZTWO",ZTWO},
-	{"RandomType","NORAND",NORAND},
+	{"RandomType","ZTHREE",ZTHREE},
 	{"RandomType","ZFOUR",ZFOUR},
+	{"RandomType","NORAND",NORAND},
 	{"RandomType","TEST",TEST},
 	{NULL,NULL,0}
 };

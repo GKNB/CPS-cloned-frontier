@@ -29,9 +29,10 @@ enum RandomType {
   GAUSS  = 0, 
   UONE   = 1, 
   ZTWO   = 2, 
-  NORAND = 3,
+  ZTHREE = 3,
   ZFOUR  = 4,
-  TEST = 5 };
+  NORAND = 5,
+  TEST = 6 };
 
 class QPropWArg {
 
