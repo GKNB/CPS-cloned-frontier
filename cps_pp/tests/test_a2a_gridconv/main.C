@@ -17,7 +17,7 @@ int main(int argc,char *argv[])
 {
   Start(&argc, &argv);
   
-  bool verbose = true;
+  bool verbose = false;
   int ngp = 0;
 #ifdef USE_GRID_GPARITY
   ngp = 3;
@@ -104,7 +104,7 @@ int main(int argc,char *argv[])
 
   ComplexD cps_tr = trace( mf_g5_s3[0], mf_g1_s3[0] );
 
-  std::cout << "Mesonfield check  CPS: " << cps_tr << " Grid: " << grid_tr << std::endl;  
+  printf("Node %d Mesonfield check  CPS (%g,%g) Grid (%g,%g)\n", UniqueID(), cps_tr.real(), cps_tr.imag(), grid_tr.real(), grid_tr.imag());
 
   if(!UniqueID()){ printf("Finished\n"); fflush(stdout); }
   End();
