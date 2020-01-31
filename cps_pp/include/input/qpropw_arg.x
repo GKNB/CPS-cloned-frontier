@@ -120,6 +120,7 @@ class QPropWRandArg {
   //! random number seed
   int seed;
   int sep; //parameter for separation
+  int sparse_kind;
   memfun QPropWRandArg();
 };
 

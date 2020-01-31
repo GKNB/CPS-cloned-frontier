@@ -882,7 +882,8 @@ class Lattice
 #ifdef USE_GRID
       if ( Fclass() ==F_CLASS_GRID_GPARITY_MOBIUS || Fclass()==F_CLASS_GRID_MOBIUS
       || Fclass()==F_CLASS_GRID_ZMOBIUS ) return 1;
-      if ( Fclass() ==F_CLASS_GRID_GPARITY_WILSON_TM || Fclass()==F_CLASS_GRID_WILSON_TM )
+      if ( Fclass() ==F_CLASS_GRID_GPARITY_WILSON_TM || Fclass()==F_CLASS_GRID_WILSON_TM 
+          || Fclass() == F_CLASS_GRID_WILSON || Fclass() == F_CLASS_GRID_WILSON_CLOVER )
       return 1;
 #endif
       return 0;

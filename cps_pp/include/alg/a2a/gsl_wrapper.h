@@ -119,5 +119,4 @@ struct gsl_wrapper<double>{
 
 CPS_END_NAMESPACE
 
-
 #endif

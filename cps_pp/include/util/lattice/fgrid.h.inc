@@ -22,7 +22,6 @@
 #include<Grid/qcd/action/fermion/SchurDiagTwoKappa.h>
 #endif
 
-
 CPS_START_NAMESPACE class FGRID:public virtual Lattice, public FgridParams,
   public virtual FgridBase
 {
@@ -215,6 +214,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetEpsilon (cg_arg->epsilon);
     PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
 
@@ -283,6 +283,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
@@ -337,9 +338,11 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 #ifdef MOB_ASYM
     Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#elif defined(NONHERMSOLVE)
+// QCD namespace should be taken out.
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
-//    Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-//    Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
     Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #endif
@@ -349,8 +352,13 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       VRB.Result (cname, fname, "running full double\n");
       time1 = dclock ();
       Float stp_cnd = cg_arg->stop_rsd;
+#ifdef NONHERMSOLVE
+      Grid::BiCGSTAB < LATTICE_FERMION > CG_d (stp_cnd, 
+              cg_arg->max_num_iter);
+#else
       Grid::ConjugateGradient < LATTICE_FERMION > CG_d (stp_cnd,
 							cg_arg->max_num_iter);
+#endif
       CG_d (MdagMD, grid_rb_in, grid_rb_out);
       time2 = dclock ();
 
@@ -371,9 +379,15 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       LATTICE_FERMION_F grid_in_f (FERM_GRID_F), psi_f (FERM_GRID_F);
       LATTICE_FERMION_F grid_rb_out_f (F_RB_GRID_F);
       LATTICE_FERMION_F grid_rb_in_f (F_RB_GRID_F);
+#ifdef NONHERMSOLVE
+      Grid::MixedPrecisionBiCGSTAB < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
+				  F_RB_GRID_F, MdagMF, MdagMD);
+#else
       Grid::MixedPrecisionConjugateGradient < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (cg_arg->stop_rsd, maxinner, maxouter,
 				  F_RB_GRID_F, MdagMF, MdagMD);
+#endif
       CG_m (grid_rb_in, grid_rb_out);
       total = CG_m.TotalInnerIterations;
       time2 = dclock ();
@@ -403,6 +417,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     PrintMass (fname);
     VRB.Result (cname, fname, "max_iter=%d\n", cg_arg[0]->max_num_iter);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 
     Float time_total, time1, time2;
     time_total = time1 = dclock ();
@@ -639,6 +654,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     mass = cg_arg->mass;
     VRB.Result (cname, fname, "mass=%0.14g dminus=%d\n", mass, if_dminus);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ImportGauge ();
     std::vector < int >twists = SetTwist ();
 
@@ -767,18 +783,27 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       VRB.Result(cname,fname,"ASYM\n");
     Grid::SchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
     Grid::SchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
+#elif defined(NONHERMSOLVE)
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
+    Grid::QCD::NonHermitianSchurDiagMooeeOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #else
       VRB.Result(cname,fname,"SYM2\n");
-//      Grid::SchurDifferentiableDiagTwo < IMPL > MdagMD (DdwfD);
-//      Grid::SchurDifferentiableDiagTwo < IMPL_F > MdagMF (DdwfF);
       Grid::SchurDiagTwoOperator < DIRAC, LATTICE_FERMION > MdagMD (DdwfD);
       Grid::SchurDiagTwoOperator < DIRAC_F, LATTICE_FERMION_F > MdagMF (DdwfF);
 #endif
+
+#ifdef NONHERMSOLVE
+      Grid::BiCGSTAB < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
+      Grid::MixedPrecisionBiCGSTABOp < LATTICE_FERMION,
+	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
+				  MdagMF, MdagMD);
+#else
       Grid::ConjugateGradient < LATTICE_FERMION > CG (stp_cnd, cg_arg->max_num_iter);
     VRB.Result(cname,fname,"CG()");
       Grid::MixedPrecisionConjugateGradientOp < LATTICE_FERMION,
 	LATTICE_FERMION_F > CG_m (stp_cnd, maxinner, maxouter, F_RB_GRID_F,
 				  MdagMF, MdagMD);
+#endif
 	VRB.Result (cname, fname, "if_defl=%d verbose=%d\n",if_defl,verbose);
           static int eig_check=0;
       if (if_defl && neig>0 ) {
@@ -803,20 +828,18 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
       VRB.Debug(cname,fname,"after defl()\n");
 #ifdef MOB_ASYM
       VRB.Result(cname,fname,"ASYM\n");
-{
       Grid::SchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
-      SchurSolver (DdwfD, grid_in, grid_out);
-//      CGcontrols cg_controls;
-//      Grid_CGNE_M_high<mf_Policies>(grid_out, grid_out, cg_controls, evecs, 0, latg, DdwfD, FERM_GRID, F_RB_GRID);
-      
-}
+#elif defined(NONHERMSOLVE)
+      Grid::NonHermitianSchurRedBlackDiagMooeeSolve < LATTICE_FERMION > SchurSolver (CG_m);
 #else
       VRB.Result(cname,fname,"SYM2\n");
-      Grid::SchurRedBlackDiagTwoSolve< LATTICE_FERMION > SchurSolver (CG_m);
-      SchurSolver (DdwfD, grid_in, grid_out);
+//      Grid::SchurRedBlackDiagTwoSolve< LATTICE_FERMION > SchurSolver (CG_m);
+      Grid::SchurRedBlackDiagTwoMixed < LATTICE_FERMION > SchurSolver (CG_m);
 #endif
+      SchurSolver (DdwfD, grid_in, grid_out);
       VRB.Result(cname,fname,"after SchurSolver()");
     }
+
     if (true_res) {
       LATTICE_FERMION temp (FERM_GRID);
       DdwfD.M (grid_out, temp);
@@ -832,7 +855,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       Float * true_res,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    return FmatInv (f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1);
+    if(F5D()){ return FmatInv(f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 1); }
+    else{ return FmatInv(f_out, f_in, cg_arg, true_res, cnv_frm, prs_f_in, 0); }
   }
 
   int FmatInvTest (Vector * f_out, Vector * f_in,
@@ -848,7 +872,8 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
 	       CgArg * cg_arg,
 	       CnvFrmType cnv_frm = CNV_FRM_YES,
 	       PreserveType prs_f_in = PRESERVE_YES) {
-    return FmatInv (f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1);
+    if(F5D()){ return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 1); }
+    else{ return FmatInv(f_out, f_in, cg_arg, NULL, cnv_frm, prs_f_in, 0); }
   }
 
   int FeigSolv (Vector ** f_eigenv, Float * lambda,
@@ -893,6 +918,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     SetEpsilon (epsilon);
     PrintMass (fname);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
 #ifdef IF_TM
     if (epsilon < -10000)
       ERR.General (cname, fname,
@@ -974,6 +1000,7 @@ FGRID (FgridParams & params):cname (XSTR (FGRID)), FgridBase (params),
     mass = mass_;
     VRB.Result (cname, fname, "mass=%0.14g\n", mass);
     RealD M5 = GJP.DwfHeight ();
+    RealD csw = GJP.CloverCoeff();
     ForceArg Fdt;
 
 

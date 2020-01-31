@@ -116,7 +116,7 @@ protected:
   RealD mass;
   RealD mob_b;			//Mobius
   RealD mob_c;			//Mobius
-  RealD eps;			// WilsonTM 
+  RealD eps;			// WilsonTM
     std::vector < std::complex < double >>omegas;	//ZMobius
   int Ls;
 
@@ -603,5 +603,59 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
+#define FGRID FgridWilson
+#define CLASS_NAME F_CLASS_GRID_WILSON
+#define DIRAC Grid::QCD::WilsonFermionD
+#define DIRAC_F Grid::QCD::WilsonFermionF
+#define MOB
+#define IMPL Grid::QCD::WilsonImplD
+#define IMPL_F Grid::QCD::WilsonImplF
+#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define PARAMS
+#define GP
+#define NONHERMSOLVE
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef NONHERMSOLVE
+#define FGRID FgridWilsonClover
+#define CLASS_NAME F_CLASS_GRID_WILSON_CLOVER
+#define DIRAC Grid::QCD::WilsonCloverFermionD
+#define DIRAC_F Grid::QCD::WilsonCloverFermionF
+#define MOB  , csw, csw
+#define IMPL Grid::QCD::WilsonImplD
+#define IMPL_F Grid::QCD::WilsonImplF
+#define SITE_FERMION Grid::QCD::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::QCD::iSpinColourVector<Grid::ComplexF>
+#define PARAMS
+#define GP
+#define NONHERMSOLVE
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef NONHERMSOLVE
 #endif //#ifdef USE_GRID
 #endif

@@ -283,6 +283,8 @@ vml_QPropWRandArg (VML *vmls, char *name,QPropWRandArg *objp)
 		 return FALSE;
 	 if (!vml_int (vmls, "sep", &objp->sep))
 		 return FALSE;
+	 if (!vml_int (vmls, "sparse_kind", &objp->sparse_kind))
+		 return FALSE;
 	 vml_class_end(vmls,"QPropWRandArg",name);
 	return TRUE;
 }
