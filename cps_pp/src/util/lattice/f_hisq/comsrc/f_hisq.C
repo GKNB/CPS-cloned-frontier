@@ -7,13 +7,6 @@ CPS_START_NAMESPACE
 
   $Id: f_hisq.C,v 1.20 2013-06-07 19:26:34 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Source: /home/chulwoo/CPS/repo/CVS/cps_only/cps_pp/src/util/lattice/f_hisq/comsrc/f_hisq.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // f_hisq.C
@@ -300,6 +293,7 @@ int Fhisq::FeigSolv(Vector **f_eigenv, Float lambda[],
 // returned eigenvalues.
 // f_eigenv is defined on the whole lattice.
 //------------------------------------------------------------------
+#if 1
 int Fhisq::FeigSolv(Vector **f_eigenv, Float *lambda,
                     LanczosArg *eig_arg,
                     CnvFrmType cnv_frm)
@@ -332,9 +326,16 @@ int Fhisq::FeigSolv(Vector **f_eigenv, Float *lambda,
 
   if(cnv_frm == CNV_FRM_YES) for(int i=0; i < nk; ++i) // convert only nk, not (nk+np)
                                Fconvert(f_eigenv[i], CANONICAL, StrOrd());
-
+#if 1
+  int my_size = FsiteSize()*GJP.VolNodeSites()/2;
+  for(int i=0;i<nk;i++){
+  for(int k=0;k<my_size;k++){
+   printf("EVEC %d %d %e\n",i,k,*((float*)f_eigenv[i]+k));
+  }}
+#endif
   return iter;
 }
+#endif
 //------------------------------------------------------------------
 // SetPhi(Vector *phi, Vector *frm_e, Vector *frm_o, Float mass,
 //        DagType dag):
@@ -405,6 +406,10 @@ void Fhisq::Fdslash(Vector *f_out, Vector *f_in, CgArg *cg_arg,
   
   stag.Dslash(f_out, f_in+offset, CHKB_ODD, DAG_NO);
   stag.Dslash(f_out+offset, f_in, CHKB_EVEN, DAG_NO);
+// void FTimesV1PlusV2(Float fb, Vector *c, Vector *d, int len)
+  f_out->FTimesV1PlusV2(2.*cg_arg->mass,f_in,f_out,offset*2);
+  
+  
 
 }
 //------------------------------------------------------------------
@@ -749,6 +754,7 @@ void Fhisq::Smear(){
 #if 1
    // Asq smear
 
+{ // when pt2 goes out of scope, lattice converted back to canonical
    ParTransAsqtad pt2(*this);
 
    c1 = 7./8.;
@@ -891,6 +897,7 @@ void Fhisq::Smear(){
 	 nflops +=vol*18*2*N;
        }
    }
+}
    // end Asq smearing
 #endif
    

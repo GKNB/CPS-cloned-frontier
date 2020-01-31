@@ -293,7 +293,7 @@ if( nt >=n ) {
       printf("thread %d of %d done\n",iam,nt);
 } else {
   //Interleaving of local computation of matrix multiplication
-#pragma omp for default(shared)
+#pragma omp for 
   for(i=0;i<n;i++){
 //  int iam,nt;
 //  iam = omp_get_thread_num();
@@ -355,7 +355,7 @@ if( nt>=n ){
     if ( if_print )
       printf("thread %d of %d done\n",iam,nt);
 } else {
-#pragma omp parallel for
+#pragma omp for
   for(i=0;i<n;i++) 
   if (!local[wire[i]/2]) {
 #ifdef USE_OMP

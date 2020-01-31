@@ -496,6 +496,8 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 
   //  int data_per_site = hd.recon_row_3? 4*12 : 4*18;
   int chars_per_site  = data_per_site * dconv.fileDataSize();
+  VRB.Result(cname,fname,"chars_per_site=%d data_per_site=%d dconv.fileDataSize()(%d)\n"
+		  ,chars_per_site,data_per_site,dconv.fileDataSize());
 
   ifstream input;
   if(isNode0()) {
@@ -548,7 +550,7 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
 		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) 
-		VRB.Result(cname,fname,"%d %d %d %d %d\n",0,0,zc,tc,sc);
+		VRB.Flow(cname,fname,"%d %d %d %d %d\n",0,0,zc,tc,sc);
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<rd_arg.Xnodes(); xnd++) {
 	    if(isNode0()) { // only node 0 reads
@@ -570,6 +572,9 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
 		  for(int mat=0;mat<4;mat++) {
 		    dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
+		    Float *pd_f = (Float*)pd;
+		    if(!yc && !xnd)
+		    VRB.Debug(cname,fname,"%d %d %d %d pd=%0.4e %0.4e %0.4e %0.4e %0.4e %0.4e\n",xnd,yc,zc,tc,pd_f[0],pd_f[1],pd_f[2],pd_f[3],pd_f[4],pd_f[5]);
 		    pd += site_mem/4;
 		  }
 		}

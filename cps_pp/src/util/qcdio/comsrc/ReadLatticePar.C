@@ -4,118 +4,128 @@
 #include <util/time_cps.h>
 #include <assert.h>
 
-CPS_START_NAMESPACE
-using namespace std;
+CPS_START_NAMESPACE using namespace std;
 
-bool ReadLatticeParallel::UseParIO=false;
+bool ReadLatticeParallel::UseParIO = false;
 
 #define PROFILE
 
-void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
+void ReadLatticeParallel::read (Lattice & lat, const QioArg & rd_arg)
 {
-  const char * fname = "read()";
-  VRB.Func(cname,fname);
-  
-  char loginfo[strlen(rd_arg.FileName) + 10];
-  sprintf(loginfo,"Load %s",rd_arg.FileName);
-  startLogging(loginfo);
+  const char *fname = "read()";
+  VRB.Func (cname, fname);
+
+  char loginfo[strlen (rd_arg.FileName) + 10];
+  sprintf (loginfo, "Load %s", rd_arg.FileName);
+  startLogging (loginfo);
 
 #ifdef PROFILE
-  struct timeval start,end;
-  gettimeofday(&start,NULL);
+  struct timeval start, end;
+  gettimeofday (&start, NULL);
 #endif
 
   io_good = false;
   int error = 0;
 
-  if (isRoot()) { // commander, analyze file header
-    
-    ifstream input(rd_arg.FileName);
-    if ( !input.good() )
-      {
-	if(!UniqueID()){ printf("%s:%s Could not open file ptr %p for input.\n",cname,fname,rd_arg.FileName); fflush(stdout); }
-	if(!UniqueID()){ printf("%s:%s Filename %s\n",cname,fname,rd_arg.FileName); fflush(stdout); }
-	error = 1;
-      }
+  if (isRoot ()) {              // commander, analyze file header
 
-    if(!error) {
-      hd.read(input);
-      input.close();
+    ifstream input (rd_arg.FileName);
+    if (!input.good ()) {
+      if (!UniqueID ()) {
+        printf ("%s:%s Could not open file ptr %p for input.\n", cname, fname,
+                rd_arg.FileName);
+        fflush (stdout);
+      }
+      if (!UniqueID ()) {
+        printf ("%s:%s Filename %s\n", cname, fname, rd_arg.FileName);
+        fflush (stdout);
+      }
+      error = 1;
+    }
+
+    if (!error) {
+      hd.read (input);
+      input.close ();
     }
   }
-  if(synchronize(error) != 0)
-    ERR.FileR(cname, fname, rd_arg.FileName);
-  log();
+  if (synchronize (error) != 0)
+    ERR.FileR (cname, fname, rd_arg.FileName);
+  log ();
 
-  broadcast(&hd.data_start, sizeof(streamoff));
+  broadcast (&hd.data_start, sizeof (streamoff));
 //#ifdef USE_QMP
 //  QMP_broadcast(&hd.data_start, sizeof(streamoff));
 //#else
 //  assert(sizeof(int) == sizeof(streamoff));
 //  int temp_start = hd.data_start;
 //  broadcastInt(&temp_start);
-//  hd.data_start = temp_start;
+//  hd.data_start = temp_etart;
 //#endif
-  broadcastInt(&hd.recon_row_3);
+  hd.recon_row_3 = 0;
+  broadcastInt (&hd.recon_row_3);
   //  cout << "recon_row_3 = " << hd.recon_row_3 << endl;
 
 
 
   // check all conditions between FILE and GJP
-  int nx = rd_arg.Xnodes() * rd_arg.XnodeSites();
-  int ny = rd_arg.Ynodes() * rd_arg.YnodeSites();
-  int nz = rd_arg.Znodes() * rd_arg.ZnodeSites();
-  int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
+  int nx = rd_arg.Xnodes () * rd_arg.XnodeSites ();
+  int ny = rd_arg.Ynodes () * rd_arg.YnodeSites ();
+  int nz = rd_arg.Znodes () * rd_arg.ZnodeSites ();
+  int nt = rd_arg.Tnodes () * rd_arg.TnodeSites ();
 
-  if(isRoot()) {
-    if(hd.dimension[0] != nx || hd.dimension[1] != ny || hd.dimension[2] != nz || hd.dimension[3] != nt) {
-      VRB.Flow(cname,fname,"Dimensions in file DISAGREE with GlobalJobParameter!\n");
-      VRB.Flow(cname,fname,"In File: %d x %d x %d x %d\n",
-	       hd.dimension[0],hd.dimension[1], hd.dimension[2], hd.dimension[3]);
-      VRB.Flow(cname,fname,"In GJP:  %d x %d x %d x %d\n",nx, ny, nz, nt);
+  if (isRoot ()) {
+    if (hd.dimension[0] != nx || hd.dimension[1] != ny || hd.dimension[2] != nz
+        || hd.dimension[3] != nt) {
+      VRB.Flow (cname, fname,
+                "Dimensions in file DISAGREE with GlobalJobParameter!\n");
+      VRB.Flow (cname, fname, "In File: %d x %d x %d x %d\n", hd.dimension[0],
+                hd.dimension[1], hd.dimension[2], hd.dimension[3]);
+      VRB.Flow (cname, fname, "In GJP:  %d x %d x %d x %d\n", nx, ny, nz, nt);
       error = 1;
     }
-
 // Turned off the boundary check, as it is inconsistent  with NERSC convention.
 // 04/03/05, CJ
 #if 0
-    if(hd.boundary[0] != rd_arg.Xbc() || hd.boundary[1] != rd_arg.Ybc() || hd.boundary[2] != rd_arg.Zbc() || hd.boundary[3] != rd_arg.Tbc()) {
-      VRB.Flow(cname,fname,"Boundary conditions in file DISAGREE with GlobalJobParameter!\n");
+    if (hd.boundary[0] != rd_arg.Xbc () || hd.boundary[1] != rd_arg.Ybc ()
+        || hd.boundary[2] != rd_arg.Zbc () || hd.boundary[3] != rd_arg.Tbc ()) {
+      VRB.Flow (cname, fname,
+                "Boundary conditions in file DISAGREE with GlobalJobParameter!\n");
 
-      VRB.Flow(cname,fname,"In File: %s x %s x %s x %s\n",
-	       hd.boundary[0]==BND_CND_PRD ? "P":"A",
-	       hd.boundary[1]==BND_CND_PRD ? "P":"A",
-	       hd.boundary[2]==BND_CND_PRD ? "P":"A",
-	       hd.boundary[3]==BND_CND_PRD ? "P":"A");
+      VRB.Flow (cname, fname, "In File: %s x %s x %s x %s\n",
+                hd.boundary[0] == BND_CND_PRD ? "P" : "A",
+                hd.boundary[1] == BND_CND_PRD ? "P" : "A",
+                hd.boundary[2] == BND_CND_PRD ? "P" : "A",
+                hd.boundary[3] == BND_CND_PRD ? "P" : "A");
 
-      VRB.Flow(cname,fname,"In GJP:  %s x %s x %s x %s\n",
-	       rd_arg.Xbc()==BND_CND_PRD ? "P":"A",
-	       rd_arg.Ybc()==BND_CND_PRD ? "P":"A",
-	       rd_arg.Zbc()==BND_CND_PRD ? "P":"A",
-	       rd_arg.Tbc()==BND_CND_PRD ? "P":"A");
+      VRB.Flow (cname, fname, "In GJP:  %s x %s x %s x %s\n",
+                rd_arg.Xbc () == BND_CND_PRD ? "P" : "A",
+                rd_arg.Ybc () == BND_CND_PRD ? "P" : "A",
+                rd_arg.Zbc () == BND_CND_PRD ? "P" : "A",
+                rd_arg.Tbc () == BND_CND_PRD ? "P" : "A");
 
       error = 1;
     }
- #endif
+#endif
   }
 
-  if(synchronize(error) != 0)  
-    ERR.General(cname, fname, "Wrong Parameters Specified\n");
+  if (synchronize (error) != 0)
+    ERR.General (cname, fname, "Wrong Parameters Specified\n");
 
   // see if file Floating Points is acceptable
-  if(isRoot()) {
-    fpconv.setFileFormat(hd.floating_point);
+  if (isRoot ()) {
+    fpconv.setFileFormat (hd.floating_point);
   }
-  VRB.Flow(cname,fname,"FileFormat=%d",hd.floating_point);
-  broadcastInt((int*)&fpconv.fileFormat);
-  if(fpconv.fileFormat == FP_UNKNOWN) {
-    ERR.General(cname,fname, "Data file Floating Point Format UNKNOWN\n");
+  VRB.Flow (cname, fname, "FileFormat=%d", hd.floating_point);
+  broadcastInt ((int *) &fpconv.fileFormat);
+  if (fpconv.fileFormat == FP_UNKNOWN) {
+    ERR.General (cname, fname, "Data file Floating Point Format UNKNOWN\n");
   }
-  
-  VRB.Flow(cname,fname,"A copy of header info from file:\n");
-  if(isRoot())  hd.show();
 
-  int data_per_site = hd.recon_row_3 ? 4*12 : 4*18;
+  VRB.Flow (cname, fname, "A copy of header info from file:\n");
+  if (isRoot ())
+    hd.show ();
+
+  int data_per_site = hd.recon_row_3 ? 4 * 12 : 4 * 18;
 
   // read lattice data, using parallel style or serial (all on node 0) style
   unsigned int csum;
@@ -125,32 +135,38 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 //   setSerial();
 // #endif
 
-  log();
+  log ();
 
-  VRB.Flow(cname,fname,"Reading configuation to address: %p\n", rd_arg.StartConfLoadAddr);
-  if(parIO()) {
-    ParallelIO pario(rd_arg);
-    if(!doGparityReconstructUstarField() ){
-      if(!UniqueID()) printf("ReadLatticeParallel is disabling reconstruction bit on the ParallelIO object\n");
-      pario.disableGparityReconstructUstarField();
+  VRB.Flow (cname, fname, "Reading configuation to address: %p\n",
+            rd_arg.StartConfLoadAddr);
+  if (parIO ()) {
+    ParallelIO pario (rd_arg);
+    if (!doGparityReconstructUstarField ()) {
+      if (!UniqueID ())
+        printf
+          ("ReadLatticeParallel is disabling reconstruction bit on the ParallelIO object\n");
+      pario.disableGparityReconstructUstarField ();
     }
 
-    if(! pario.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
-		    hd, fpconv, 4, &csum))  
-      ERR.General(cname,fname,"Load Failed\n");  // failed to load
+    if (!pario.
+        load ((char *) rd_arg.StartConfLoadAddr, data_per_site,
+              sizeof (Matrix) * 4, hd, fpconv, 4, &csum))
+      ERR.General (cname, fname, "Load Failed\n");      // failed to load
   }
 #if 1
   else {
-    SerialIO serio(rd_arg);
-    if(!doGparityReconstructUstarField() ) serio.disableGparityReconstructUstarField();
+    SerialIO serio (rd_arg);
+    if (!doGparityReconstructUstarField ())
+      serio.disableGparityReconstructUstarField ();
 
-    if(! serio.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
-		    hd, fpconv, 4, &csum))
-      ERR.General(cname,fname,"Load Failed\n");  // failed to load
+    if (!serio.
+        load ((char *) rd_arg.StartConfLoadAddr, data_per_site,
+              sizeof (Matrix) * 4, hd, fpconv, 4, &csum))
+      ERR.General (cname, fname, "Load Failed\n");      // failed to load
   }
 #endif
 
-  log();
+  log ();
 
 //  printf("Node %d: lattice read csum=%x\n",UniqueID(),csum);
   //  cout << "loader finish, csum = " << hex << csum << dec << endl << endl;
@@ -159,215 +175,274 @@ void ReadLatticeParallel::read(Lattice & lat, const QioArg & rd_arg)
 
   // After reading...
   // STEP 1: checksum
-  if(rd_arg.Scoor() == 0)
-    csum = globalSumUint(csum);
+  if (rd_arg.Scoor () == 0)
+    csum = globalSumUint (csum);
   else
-    globalSumUint(0);
+    globalSumUint (0);
 
-  if(isRoot()) {
-    if( hd.checksum != csum ) {
-      VRB.Flow(cname,fname, "CheckSUM error !! Header: %x  Host calc: %x\n",hd.checksum,csum);
-      
-      printf("Node %d: CheckSUM error !! Header: %x  Host calc: %x\n",UniqueID(),hd.checksum,csum);
+  if (isRoot ()) {
+    if (hd.checksum != csum) {
+      VRB.Flow (cname, fname, "CheckSUM error !! Header: %x  Host calc: %x\n",
+                hd.checksum, csum);
+
+      printf ("Node %d: CheckSUM error !! Header: %x  Host calc: %x\n",
+              UniqueID (), hd.checksum, csum);
       error = 1;
-    }
-    else
-      VRB.Flow(cname,fname,"CheckSUM is ok\n");
+    } else
+      VRB.Flow (cname, fname, "CheckSUM is ok\n");
   }
 
-  if(synchronize(error) != 0) 
-    ERR.General(cname, fname, "Checksum error\n");
+  if (synchronize (error) != 0)
+    ERR.General (cname, fname, "Checksum error\n");
 
 
   // STEP 2: reconstruct row 3
-  int size_matrices( rd_arg.XnodeSites() * rd_arg.YnodeSites() 
-		     * rd_arg.ZnodeSites() * rd_arg.TnodeSites() * 4); 
+  int size_matrices (rd_arg.XnodeSites () * rd_arg.YnodeSites ()
+                     * rd_arg.ZnodeSites () * rd_arg.TnodeSites () * 4);
 
-  Matrix * lpoint = rd_arg.StartConfLoadAddr;
+  Matrix *lpoint = rd_arg.StartConfLoadAddr;
 
-  if(hd.recon_row_3) {
-    VRB.Flow(cname,fname,"Reconstructing row 3\n");
+  if (hd.recon_row_3) {
+    VRB.Flow (cname, fname, "Reconstructing row 3\n");
     int nstacked = 1;
-    
+
     //CK: rather than saving/loading the U* links, we save just the U links and reconstruct the U* links at load-time
-    if(GJP.Gparity() && !doGparityReconstructUstarField() ) nstacked = 2;     //if this option is turned off, load and check both the U and U* links
+    if (GJP.Gparity () && !doGparityReconstructUstarField ())
+      nstacked = 2;             //if this option is turned off, load and check both the U and U* links
 
-    for(int stk=0;stk<nstacked;stk++){
-    for(int mat=0; mat<size_matrices; mat++) {
-	Float * rec = (Float*)&lpoint[mat + stk*size_matrices];
-      // reconstruct the 3rd row
-      rec[12] =  rec[2] * rec[10] - rec[3] * rec[11] - rec[4] * rec[8] + rec[5] * rec[9];
-      rec[13] = -rec[2] * rec[11] - rec[3] * rec[10] + rec[4] * rec[9] + rec[5] * rec[8];
-      rec[14] = -rec[0] * rec[10] + rec[1] * rec[11] + rec[4] * rec[6] - rec[5] * rec[7];
-      rec[15] =  rec[0] * rec[11] + rec[1] * rec[10] - rec[4] * rec[7] - rec[5] * rec[6];
-      rec[16] =  rec[0] * rec[ 8] - rec[1] * rec[ 9] - rec[2] * rec[6] + rec[3] * rec[7];
-      rec[17] = -rec[0] * rec[ 9] - rec[1] * rec[ 8] + rec[2] * rec[7] + rec[3] * rec[6];
-    }
+    for (int stk = 0; stk < nstacked; stk++) {
+      for (int mat = 0; mat < size_matrices; mat++) {
+        Float *rec = (Float *) & lpoint[mat + stk * size_matrices];
+        // reconstruct the 3rd row
+        rec[12] =
+          rec[2] * rec[10] - rec[3] * rec[11] - rec[4] * rec[8] +
+          rec[5] * rec[9];
+        rec[13] =
+          -rec[2] * rec[11] - rec[3] * rec[10] + rec[4] * rec[9] +
+          rec[5] * rec[8];
+        rec[14] =
+          -rec[0] * rec[10] + rec[1] * rec[11] + rec[4] * rec[6] -
+          rec[5] * rec[7];
+        rec[15] =
+          rec[0] * rec[11] + rec[1] * rec[10] - rec[4] * rec[7] -
+          rec[5] * rec[6];
+        rec[16] =
+          rec[0] * rec[8] - rec[1] * rec[9] - rec[2] * rec[6] + rec[3] * rec[7];
+        rec[17] =
+          -rec[0] * rec[9] - rec[1] * rec[8] + rec[2] * rec[7] +
+          rec[3] * rec[6];
+      }
     }
   }
 
-  if(GJP.Gparity() && doGparityReconstructUstarField() ){
+  if (GJP.Gparity () && doGparityReconstructUstarField ()) {
     //regenerate U* links
-    for(int mat=0;mat<size_matrices; mat++) {
-      lpoint[mat + size_matrices].Conj(lpoint[mat]);
+    for (int mat = 0; mat < size_matrices; mat++) {
+      lpoint[mat + size_matrices].Conj (lpoint[mat]);
     }
   }
-
   // STEP 3: check plaq and linktrace
-  if(lat.GaugeField() != lpoint) lat.GaugeField(lpoint);
-  if(! CheckPlaqLinktrace(lat,rd_arg, hd.plaquette, hd.link_trace))  
-    ERR.General(cname,fname,"Plaquette or Link trace check failed\n");
+  if (lat.GaugeField () != lpoint)
+    lat.GaugeField (lpoint);
+  if (!CheckPlaqLinktrace (lat, rd_arg, hd.plaquette, hd.link_trace))
+    ERR.General (cname, fname, "Plaquette or Link trace check failed\n");
 
 #ifdef PROFILE
-  gettimeofday(&end,NULL);
-  print_flops(cname,"read",0,&start,&end);
+  gettimeofday (&end, NULL);
+  print_flops (cname, "read", 0, &start, &end);
 #endif
 
   io_good = true;
 
-  log();
-  finishLogging();
+  log ();
+  finishLogging ();
 
-  lat.ClearSmeared();
-  VRB.FuncEnd(cname,fname);
+  lat.ClearSmeared ();
+  VRB.FuncEnd (cname, fname);
 };
 
 
-bool ReadLatticeParallel::CheckPlaqLinktrace(Lattice &lat, const QioArg & rd_arg,
-					     const Float plaq_inheader, const Float linktrace_inheader) 
+bool ReadLatticeParallel::CheckPlaqLinktrace (Lattice & lat,
+                                              const QioArg & rd_arg,
+                                              const Float plaq_inheader,
+                                              const Float linktrace_inheader)
 {
-  const char * fname = "CheckPlaqLinktrace()";
+  const char *fname = "CheckPlaqLinktrace()";
   int error = 0;
 
-  Float plaq = lat.SumReTrPlaq() / 18.0 / rd_arg.VolSites() ;
+  Float plaq = lat.SumReTrPlaq () / 18.0 / rd_arg.VolSites ();
 
   //some old lattices that did not use the reconstruct option also did not divide the plaquette by 2
-  if(GJP.Gparity() && doGparityReconstructUstarField() ) plaq/=2;
+  if (GJP.Gparity () && doGparityReconstructUstarField ())
+    plaq /= 2;
 
-  Float devplaq(0.0);
-  if(isRoot()) {
-    devplaq = fabs(  (plaq - plaq_inheader) / plaq ) ;
-    printf("%s::%s: plaquette::\n  calc: %0.8e  header: %0.8e   rel.dev.: %0.8e\n",
-	     cname,fname,plaq, plaq_inheader, devplaq);
+  Float devplaq (0.0);
+  if (isRoot ()) {
+    devplaq = fabs ((plaq - plaq_inheader) / plaq);
+    printf
+      ("%s::%s: plaquette::\n  calc: %0.8e  header: %0.8e   rel.dev.: %0.8e\n",
+       cname, fname, plaq, plaq_inheader, devplaq);
   }
-
   //CK: G-parity; ReTr should be the same for U and U*
   //int nstacked = 1;
   //if(GJP.Gparity()) nstacked = 2;
 
   //for(int stk=0;stk<nstacked;stk++){ //after 1 iteration, m will point to second stacked field
-  Float linktrace(0);
+  Float linktrace (0);
   int is;
-  Matrix *m =  lat.GaugeField(); 
-  for(is=0;is< rd_arg.VolNodeSites()*4; is++){
-    linktrace += m->ReTr();
+  Matrix *m = lat.GaugeField ();
+  for (is = 0; is < rd_arg.VolNodeSites () * 4; is++) {
+    linktrace += m->ReTr ();
     m++;
   }
-  if(rd_arg.Scoor() == 0) 
-    linktrace = globalSumFloat(linktrace) / (rd_arg.VolSites()*12.0);
+  if (rd_arg.Scoor () == 0)
+    linktrace = globalSumFloat (linktrace) / (rd_arg.VolSites () * 12.0);
   else
-    globalSumFloat(0.0);
+    globalSumFloat (0.0);
 
-  if(isRoot()) {
-    Float devlinktrace =   
-      fabs(  (linktrace - linktrace_inheader) / linktrace );
+  if (isRoot ()) {
+    Float devlinktrace = fabs ((linktrace - linktrace_inheader) / linktrace);
 
-    printf("%s::%s: linktrace::\n  calc: %0.8e  header: %0.8e   rel.dev.: %0.8e\n",
-	     cname,fname,linktrace, linktrace_inheader, devlinktrace);
-  
+    printf
+      ("%s::%s: linktrace::\n  calc: %0.8e  header: %0.8e   rel.dev.: %0.8e\n",
+       cname, fname, linktrace, linktrace_inheader, devlinktrace);
+
     Float chkprec = rd_arg.CheckPrecision;
 
 //  CJ:  turning off the link trace test, as some lattices have a very small link trace by accident.
 //    if(devplaq > chkprec || devlinktrace > chkprec) {
 //      VRB.Flow(cname,fname, "Plaquette and/or Link trace different from header\n");
-    if(devplaq > chkprec) {
-      VRB.Flow(cname,fname, "Plaquette different from header\n");
+    if (devplaq > chkprec) {
+      VRB.Flow (cname, fname, "Plaquette different from header\n");
       error = 1;
-      }
     }
+  }
   //}
 
-  if(synchronize(error) != 0) return false;
+  if (synchronize (error) != 0)
+    return false;
 
   return true;
 }
 
 // added EES for getting header info consistent on every node
-int ReadLatticeParallel::getSequenceNumber(){
+int ReadLatticeParallel::getSequenceNumber ()
+{
 
-  int tmp=hd.sequence_number;
-  broadcastInt(&tmp);
+  int tmp = hd.sequence_number;
+  broadcastInt (&tmp);
   return tmp;
 
 }
 
-void ReadMILCParallel::read(Lattice & lat, const QioArg & rd_arg)
+void ReadMILCParallel::read (Lattice & lat, const QioArg & rd_arg)
 {
-  const char * fname = "read()";
-  VRB.Func(cname,fname);
-  
-  char loginfo[strlen(rd_arg.FileName) + 10];
-  sprintf(loginfo,"Load %s",rd_arg.FileName);
-  startLogging(loginfo);
+  const char *fname = "read()";
+  VRB.Func (cname, fname);
+
+  char loginfo[strlen (rd_arg.FileName) + 10];
+  sprintf (loginfo, "Load %s", rd_arg.FileName);
+  startLogging (loginfo);
 
 #ifdef PROFILE
-  struct timeval start,end;
-  gettimeofday(&start,NULL);
+  struct timeval start, end;
+  gettimeofday (&start, NULL);
 #endif
 
   io_good = false;
   int error = 0;
 
-  if (isRoot()) { // commander, analyze file header
-    
-    const string hname = string(rd_arg.FileName)+".info";
-//    ifstream input(rd_arg.FileName);
-    ifstream input(hname.c_str());
-    if ( !input.good() )
-      {
-	if(!UniqueID()){ printf("%s:%s Could not open file ptr %p for input.\n",cname,fname,rd_arg.FileName); fflush(stdout); }
-	if(!UniqueID()){ printf("%s:%s Filename %s\n",cname,fname,rd_arg.FileName); fflush(stdout); }
-	error = 1;
-      }
+  if (isRoot ()) {              // commander, analyze file header
 
-    if(!error) {
-      hd.read(input);
-      input.close();
-      char magic[4];
-      FILE *fp=fopen("r",rd_arg.FileName);
-      fread(magic,4,1,fp);
-      VRB.Result(cname,fname,"magic=%x %x %x %x\n",magic[0],magic[1],magic[2],magic[3]);
-      if( magic[0]==4 ) { // big-endian
-        hd.floating_point = FP_IEEE32BIG;
-      } else {
-        hd.floating_point = FP_IEEE32LITTLE;
+    std::string hname (rd_arg.FileName);
+    std::string hinfo = hname + ".info";
+//    ifstream input(rd_arg.FileName);
+    ifstream input (hinfo.c_str ());
+    if (!input.good ()) {
+      if (!UniqueID ()) {
+        printf ("%s:%s Could not open file ptr %p for input.\n", cname, fname,
+                rd_arg.FileName);
+        fflush (stdout);
+      }
+      if (!UniqueID ()) {
+        printf ("%s:%s Filename %s\n", cname, fname, rd_arg.FileName);
+        fflush (stdout);
+      }
+      error = 1;
+    }
+
+    if (error) {
+      input.close ();
+    } else {
+      printf("We are here!!\n");
+      hd.readMILC (input);
+      input.close ();
+//      char magic[4];
+      unsigned char magic_c[4];
+      int32_t *magic = (int32_t *) magic_c;
+      FILE *fp = fopen (rd_arg.FileName, "r");
+      VRB.Result (cname, fname,
+                  "rd_arg.FileName=%s fp=%p sizeof(unsigned char)=%d\n",
+                  rd_arg.FileName, fp, sizeof (unsigned char));
+      hd.data_start = 0;
+      if (1) {
+        fread (magic, sizeof (int32_t), 1, fp);
+        hd.data_start += 4;
+        VRB.Result (cname, fname, "magic(%p)=%x %d\n", magic, *magic, *magic);
+        VRB.Result (cname, fname, "magic_c(%p)=%x %x %x %x\n", magic_c,
+                    *magic_c, *(magic_c + 1), *(magic_c + 2), *(magic_c + 3));
+//      std::cout <<"magic_c= "<<*magic_c<<" "<<*(magic_c+1)<<" "<<*(magic_c+2)<<" "<<*(magic_c+3)<<std::endl;
+        if (magic_c[0] == 0x87) {       // little-endian
+          VRB.Result (cname, fname, "%s is little endian\n", rd_arg.FileName);
+          hd.floating_point = FP_IEEE32LITTLE;
+        } else {
+          VRB.Result (cname, fname, "%s is big endian\n", rd_arg.FileName);
+          hd.floating_point = FP_IEEE32BIG;
+        }
       }
       int32_t sizes[4];
-      for(int i=0;i<4;i++){
-      fread(&sizes[i],sizeof(int32_t),1,fp);
+      for (int i = 0; i < 4; i++) {
+        fread (&sizes[i], sizeof (int32_t), 1, fp);
+        hd.dimension[i] = sizes[i];
       }
-      VRB.Result(cname,fname,"sizes=%x %x %x %x\n",sizes[0],sizes[1],sizes[2],magic[3]);
-      for(int i=0;i<4;i++){
-	if(sizes[i]!=GJP.Sites(i))
-	ERR.General(cname,fname,"file dimension %d(%d) does not match GJP(%d)\n",i,sizes[i],GJP.Sites(i));
+      hd.data_start += 16;
+//      VRB.Result(cname,fname,"sizes=%x %x %x %x\n",sizes[0],sizes[1],sizes[2],sizes[3]);
+//      VRB.Result(cname,fname,"sizes=%x %x %x %x\n",sizes[4],sizes[5],sizes[6],magic[7]);
+//      VRB.Result(cname,fname,"sizes=%x %x %x %x\n",sizes[8],sizes[9],sizes[10],magic[11]);
+      for (int i = 0; i < 4; i++) {
+        if (sizes[i] != GJP.Sites (i))
+          ERR.General (cname, fname,
+                       "file dimension %d(%d) does not match GJP(%d)\n", i,
+                       sizes[i], GJP.Sites (i));
       }
-      VRB.Result(cname,fname,"sizes=%x %x %x %x\n",sizes[0],sizes[1],sizes[2],magic[3]);
+      VRB.Result (cname, fname, "sizes=%d %d %d %d\n", sizes[0], sizes[1],
+                  sizes[2], sizes[3]);
       char string[48];
-      fread(string ,48,1,fp);
-      VRB.Result(cname,fname,"string=%s\n",string);
-      int32_t if_list=0;
-      fread(&if_list ,sizeof(int32_t),1,fp);
-      if(if_list) ERR.General(cname,fname,"file says coordinate list is attached(%d) : file correupted or read incorrectly?\n",if_list);
-      fclose(fp);
+      fread (string, 48, 1, fp);
+      VRB.Result (cname, fname, "string=%s\n", string);
+      hd.data_start += 48;
+      int32_t if_list = 0;
+      fread (&if_list, sizeof (int32_t), 1, fp);
+      hd.data_start += 4;
+      if (if_list)
+        ERR.General (cname, fname,
+                     "file says coordinate list is attached(%d) : file correupted or read incorrectly?\n",
+                     if_list);
+      for (int i = 0; i < 6; i++) {
+//      fread(&sizes[i],sizeof(int32_t),1,fp);
+        hd.data_start += 4;
+      }
+      fclose (fp);
     }
   }
-  if(synchronize(error) != 0)
-    ERR.FileR(cname, fname, rd_arg.FileName);
-  log();
+  if (synchronize (error) != 0)
+    ERR.FileR (cname, fname, rd_arg.FileName);
+  log ();
 
+  VRB.Result (cname, fname, "hd.data_start=%d\n", hd.data_start);
 //  broadcast(&hd.data_start, sizeof(streamoff));
-  const int MILC_SKIP=80;
-  hd.data_start=MILC_SKIP;
+//  const int MILC_SKIP=80;
+//    hd.data_start=MILC_SKIP;
 //  broadcast(&hd.data_start, sizeof(streamoff));
 //#ifdef USE_QMP
 //  QMP_broadcast(&hd.data_start, sizeof(streamoff));
@@ -377,46 +452,49 @@ void ReadMILCParallel::read(Lattice & lat, const QioArg & rd_arg)
 //  broadcastInt(&temp_start);
 //  hd.data_start = temp_start;
 //#endif
-  hd.recon_row_3=0;
+  hd.recon_row_3 = 0;
 //  broadcastInt(&hd.recon_row_3);
   //  cout << "recon_row_3 = " << hd.recon_row_3 << endl;
 
 
 
   // check all conditions between FILE and GJP
-  int nx = rd_arg.Xnodes() * rd_arg.XnodeSites();
-  int ny = rd_arg.Ynodes() * rd_arg.YnodeSites();
-  int nz = rd_arg.Znodes() * rd_arg.ZnodeSites();
-  int nt = rd_arg.Tnodes() * rd_arg.TnodeSites();
+  int nx = rd_arg.Xnodes () * rd_arg.XnodeSites ();
+  int ny = rd_arg.Ynodes () * rd_arg.YnodeSites ();
+  int nz = rd_arg.Znodes () * rd_arg.ZnodeSites ();
+  int nt = rd_arg.Tnodes () * rd_arg.TnodeSites ();
 
-  if(isRoot()) {
-    if(hd.dimension[0] != nx || hd.dimension[1] != ny || hd.dimension[2] != nz || hd.dimension[3] != nt) {
-      VRB.Flow(cname,fname,"Dimensions in file DISAGREE with GlobalJobParameter!\n");
-      VRB.Flow(cname,fname,"In File: %d x %d x %d x %d\n",
-	       hd.dimension[0],hd.dimension[1], hd.dimension[2], hd.dimension[3]);
-      VRB.Flow(cname,fname,"In GJP:  %d x %d x %d x %d\n",nx, ny, nz, nt);
+  if (isRoot ()) {
+    if (hd.dimension[0] != nx || hd.dimension[1] != ny || hd.dimension[2] != nz
+        || hd.dimension[3] != nt) {
+      VRB.Result (cname, fname,
+                  "Dimensions in file DISAGREE with GlobalJobParameter!\n");
+      VRB.Result (cname, fname, "In File: %d x %d x %d x %d\n", hd.dimension[0],
+                  hd.dimension[1], hd.dimension[2], hd.dimension[3]);
+      VRB.Result (cname, fname, "In GJP:  %d x %d x %d x %d\n", nx, ny, nz, nt);
       error = 1;
     }
 
   }
 
-  if(synchronize(error) != 0)  
-    ERR.General(cname, fname, "Wrong Parameters Specified\n");
+  if (synchronize (error) != 0)
+    ERR.General (cname, fname, "Wrong Parameters Specified\n");
 
   // see if file Floating Points is acceptable
-  if(isRoot()) {
-    fpconv.setFileFormat(hd.floating_point);
+  if (isRoot ()) {
+    fpconv.setFileFormat (hd.floating_point);
   }
-  VRB.Result(cname,fname,"FileFormat=%d",hd.floating_point);
-  broadcastInt((int*)&fpconv.fileFormat);
-  if(fpconv.fileFormat == FP_UNKNOWN) {
-    ERR.General(cname,fname, "Data file Floating Point Format UNKNOWN\n");
+  VRB.Result (cname, fname, "FileFormat=%d", hd.floating_point);
+  broadcastInt ((int *) &fpconv.fileFormat);
+  if (fpconv.fileFormat == FP_UNKNOWN) {
+    ERR.General (cname, fname, "Data file Floating Point Format UNKNOWN\n");
   }
-  
-  VRB.Flow(cname,fname,"A copy of header info from file:\n");
-  if(isRoot())  hd.show();
 
-  int data_per_site = hd.recon_row_3 ? 4*12 : 4*18;
+  VRB.Flow (cname, fname, "A copy of header info from file:\n");
+  if (isRoot ())
+    hd.show ();
+
+  int data_per_site = hd.recon_row_3 ? 4 * 12 : 4 * 18;
 
   // read lattice data, using parallel style or serial (all on node 0) style
   unsigned int csum;
@@ -426,32 +504,38 @@ void ReadMILCParallel::read(Lattice & lat, const QioArg & rd_arg)
 //   setSerial();
 // #endif
 
-  log();
+  log ();
 
-  VRB.Flow(cname,fname,"Reading configuation to address: %p\n", rd_arg.StartConfLoadAddr);
-  if(parIO()) {
-    ParallelIO pario(rd_arg);
-    if(!doGparityReconstructUstarField() ){
-      if(!UniqueID()) printf("ReadLatticeParallel is disabling reconstruction bit on the ParallelIO object\n");
-      pario.disableGparityReconstructUstarField();
+  VRB.Flow (cname, fname, "Reading configuation to address: %p\n",
+            rd_arg.StartConfLoadAddr);
+  if (parIO ()) {
+    ParallelIO pario (rd_arg);
+    if (!doGparityReconstructUstarField ()) {
+      if (!UniqueID ())
+        printf
+          ("ReadLatticeParallel is disabling reconstruction bit on the ParallelIO object\n");
+      pario.disableGparityReconstructUstarField ();
     }
 
-    if(! pario.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
-		    hd, fpconv, 4, &csum))  
-      ERR.General(cname,fname,"Load Failed\n");  // failed to load
+    if (!pario.
+        load ((char *) rd_arg.StartConfLoadAddr, data_per_site,
+              sizeof (Matrix) * 4, hd, fpconv, 4, &csum))
+      ERR.General (cname, fname, "Load Failed\n");      // failed to load
   }
 #if 1
   else {
-    SerialIO serio(rd_arg);
-    if(!doGparityReconstructUstarField() ) serio.disableGparityReconstructUstarField();
+    SerialIO serio (rd_arg);
+    if (!doGparityReconstructUstarField ())
+      serio.disableGparityReconstructUstarField ();
 
-    if(! serio.load((char*)rd_arg.StartConfLoadAddr, data_per_site, sizeof(Matrix)*4,
-		    hd, fpconv, 4, &csum))
-      ERR.General(cname,fname,"Load Failed\n");  // failed to load
+    if (!serio.
+        load ((char *) rd_arg.StartConfLoadAddr, data_per_site,
+              sizeof (Matrix) * 4, hd, fpconv, 4, &csum))
+      ERR.General (cname, fname, "Load Failed\n");      // failed to load
   }
 #endif
 
-  log();
+  log ();
 
 //  printf("Node %d: lattice read csum=%x\n",UniqueID(),csum);
   //  cout << "loader finish, csum = " << hex << csum << dec << endl << endl;
@@ -460,77 +544,89 @@ void ReadMILCParallel::read(Lattice & lat, const QioArg & rd_arg)
 
   // After reading...
   // STEP 1: checksum
-  if(rd_arg.Scoor() == 0)
-    csum = globalSumUint(csum);
+  if (rd_arg.Scoor () == 0)
+    csum = globalSumUint (csum);
   else
-    globalSumUint(0);
+    globalSumUint (0);
 
-  if(isRoot()) {
-    if( hd.checksum != csum ) {
-      VRB.Flow(cname,fname, "CheckSUM error !! Header: %x  Host calc: %x\n",hd.checksum,csum);
-      
-      printf("Node %d: CheckSUM error !! Header: %x  Host calc: %x\n",UniqueID(),hd.checksum,csum);
+  if (isRoot ()) {
+    if (hd.checksum != csum) {
+      VRB.Flow (cname, fname, "CheckSUM error !! Header: %x  Host calc: %x\n",
+                hd.checksum, csum);
+
+      printf ("Node %d: CheckSUM error !! Header: %x  Host calc: %x\n",
+              UniqueID (), hd.checksum, csum);
       error = 1;
-    }
-    else
-      VRB.Flow(cname,fname,"CheckSUM is ok\n");
+    } else
+      VRB.Flow (cname, fname, "CheckSUM is ok\n");
   }
-
-  if(synchronize(error) != 0) 
-    ERR.General(cname, fname, "Checksum error\n");
+//  if(synchronize(error) != 0) 
+//    ERR.General(cname, fname, "Checksum error\n");
 
 
   // STEP 2: reconstruct row 3
-  int size_matrices( rd_arg.XnodeSites() * rd_arg.YnodeSites() 
-		     * rd_arg.ZnodeSites() * rd_arg.TnodeSites() * 4); 
+  int size_matrices (rd_arg.XnodeSites () * rd_arg.YnodeSites ()
+                     * rd_arg.ZnodeSites () * rd_arg.TnodeSites () * 4);
 
-  Matrix * lpoint = rd_arg.StartConfLoadAddr;
+  Matrix *lpoint = rd_arg.StartConfLoadAddr;
 
-  if(hd.recon_row_3) {
-    VRB.Flow(cname,fname,"Reconstructing row 3\n");
+  if (hd.recon_row_3) {
+    VRB.Flow (cname, fname, "Reconstructing row 3\n");
     int nstacked = 1;
-    
+
     //CK: rather than saving/loading the U* links, we save just the U links and reconstruct the U* links at load-time
-    if(GJP.Gparity() && !doGparityReconstructUstarField() ) nstacked = 2;     //if this option is turned off, load and check both the U and U* links
+    if (GJP.Gparity () && !doGparityReconstructUstarField ())
+      nstacked = 2;             //if this option is turned off, load and check both the U and U* links
 
-    for(int stk=0;stk<nstacked;stk++){
-    for(int mat=0; mat<size_matrices; mat++) {
-	Float * rec = (Float*)&lpoint[mat + stk*size_matrices];
-      // reconstruct the 3rd row
-      rec[12] =  rec[2] * rec[10] - rec[3] * rec[11] - rec[4] * rec[8] + rec[5] * rec[9];
-      rec[13] = -rec[2] * rec[11] - rec[3] * rec[10] + rec[4] * rec[9] + rec[5] * rec[8];
-      rec[14] = -rec[0] * rec[10] + rec[1] * rec[11] + rec[4] * rec[6] - rec[5] * rec[7];
-      rec[15] =  rec[0] * rec[11] + rec[1] * rec[10] - rec[4] * rec[7] - rec[5] * rec[6];
-      rec[16] =  rec[0] * rec[ 8] - rec[1] * rec[ 9] - rec[2] * rec[6] + rec[3] * rec[7];
-      rec[17] = -rec[0] * rec[ 9] - rec[1] * rec[ 8] + rec[2] * rec[7] + rec[3] * rec[6];
-    }
+    for (int stk = 0; stk < nstacked; stk++) {
+      for (int mat = 0; mat < size_matrices; mat++) {
+        Float *rec = (Float *) & lpoint[mat + stk * size_matrices];
+        // reconstruct the 3rd row
+        rec[12] =
+          rec[2] * rec[10] - rec[3] * rec[11] - rec[4] * rec[8] +
+          rec[5] * rec[9];
+        rec[13] =
+          -rec[2] * rec[11] - rec[3] * rec[10] + rec[4] * rec[9] +
+          rec[5] * rec[8];
+        rec[14] =
+          -rec[0] * rec[10] + rec[1] * rec[11] + rec[4] * rec[6] -
+          rec[5] * rec[7];
+        rec[15] =
+          rec[0] * rec[11] + rec[1] * rec[10] - rec[4] * rec[7] -
+          rec[5] * rec[6];
+        rec[16] =
+          rec[0] * rec[8] - rec[1] * rec[9] - rec[2] * rec[6] + rec[3] * rec[7];
+        rec[17] =
+          -rec[0] * rec[9] - rec[1] * rec[8] + rec[2] * rec[7] +
+          rec[3] * rec[6];
+      }
     }
   }
 
-  if(GJP.Gparity() && doGparityReconstructUstarField() ){
+  if (GJP.Gparity () && doGparityReconstructUstarField ()) {
     //regenerate U* links
-    for(int mat=0;mat<size_matrices; mat++) {
-      lpoint[mat + size_matrices].Conj(lpoint[mat]);
+    for (int mat = 0; mat < size_matrices; mat++) {
+      lpoint[mat + size_matrices].Conj (lpoint[mat]);
     }
   }
-
   // STEP 3: check plaq and linktrace
-  if(lat.GaugeField() != lpoint) lat.GaugeField(lpoint);
-  if(! CheckPlaqLinktrace(lat,rd_arg, hd.plaquette, hd.link_trace))  
-    ERR.General(cname,fname,"Plaquette or Link trace check failed\n");
+  if (lat.GaugeField () != lpoint)
+    lat.GaugeField (lpoint);
+  if (!CheckPlaqLinktrace (lat, rd_arg, hd.plaquette, hd.link_trace))
+    VRB.Warn (cname, fname, "Plaquette or Link trace check failed\n");
 
 #ifdef PROFILE
-  gettimeofday(&end,NULL);
-  print_flops(cname,"read",0,&start,&end);
+  gettimeofday (&end, NULL);
+  print_flops (cname, "read", 0, &start, &end);
 #endif
 
   io_good = true;
 
-  log();
-  finishLogging();
+  log ();
+  finishLogging ();
 
-  lat.ClearSmeared();
-  VRB.FuncEnd(cname,fname);
+  lat.ClearSmeared ();
+  VRB.FuncEnd (cname, fname);
 };
 
 

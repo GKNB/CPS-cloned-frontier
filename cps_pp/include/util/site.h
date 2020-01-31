@@ -17,13 +17,13 @@ class Site
 {
 private:
   //! site index
-  int s        ; 
+  size_t s        ; 
   //! site vector x:0 y:1 z:2 t:3 
   int x    [4] ;
   //! dimensions of local volume
-  int size [4] ; 
+  size_t size [4] ; 
 
-  int vol  [5] ;
+  size_t vol  [5] ;
   //! the shift need to convert to physical coordinates 
   int shift[4] ; 
   //! looping over node ?
@@ -65,7 +65,7 @@ private:
 public:
   
   Site();
-  Site( int site );
+  Site( size_t site );
   Site( int x0, int x1, int x2, int x3 );
 
   ~Site() {;}

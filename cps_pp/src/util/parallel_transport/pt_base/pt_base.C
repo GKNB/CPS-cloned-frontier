@@ -6,22 +6,6 @@ CPS_START_NAMESPACE
   
   $Id: pt_base.C,v 1.10 2004/08/18 11:58:06 zs Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: ckelly $
-//  $Date: 2004/08/18 11:58:06 $
-//  $Header: /space/cvs/cps/cps++/src/util/parallel_transport/pt_base/pt_base.C,v 1.10 2004/08/18 11:58:06 zs Exp $
-//  $Id: pt_base.C,v 1.10 2004/08/18 11:58:06 zs Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: pt_base.C,v $
-//  $Revision: 1.10.470.1 $
-//  $Source: /space/cvs/cps/cps++/src/util/parallel_transport/pt_base/pt_base.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-
 
 CPS_END_NAMESPACE
 #include <util/pt.h>

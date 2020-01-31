@@ -35,7 +35,7 @@ Site::Site():
   computeShifts() ;   
 }
 
-Site::Site(int site):
+Site::Site(size_t site):
   s(site),
   _looping(false)
 {

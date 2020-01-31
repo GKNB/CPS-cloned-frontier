@@ -49,6 +49,7 @@ class LatHeaderBase {
     LATRNG_HEADER,
     LATTICE_NERSC
   };
+  const char *cname;
   virtual enum HEADER_TYPES headerType() const = 0;
   virtual std::streamoff dataStart() const = 0;
   virtual void read(std::istream & fin) = 0;
@@ -164,6 +165,7 @@ class LatGfixHeader : public LatNERSCHeader {
 // header specification/interpretation
 class LatticeHeader : public LatHeaderBase {
  public:
+  const char *cname;
   // header strings
     std::string hdr_version;
   int recon_row_3; // determines DATATYPE = 4D_SU3_GAUGE or 4D_SU3_GAUGE_3X3
@@ -186,11 +188,11 @@ class LatticeHeader : public LatHeaderBase {
 
   FP_FORMAT floating_point;
 
-  LatticeHeader() {
-    ensemble_id = "unspecified";
-    ensemble_label = "unspecified";
-    sequence_number = 0;
-  }
+  LatticeHeader():cname("LatticeHeader") ,
+    ensemble_id ("unspecified"),
+    ensemble_label ("unspecified"),
+    sequence_number (0)
+  {}
 
   void init(const QioArg & qio_arg, FP_FORMAT FileFormat, Float LinkTrace, Float Plaq);
   void setHeader(const char * EnsembleId, const char * EnsembleLabel, const int SequenceNumber,const char *CreatorName = NULL, const char *CreatorHardware = NULL );
@@ -198,6 +200,7 @@ class LatticeHeader : public LatHeaderBase {
     void fillInChecksum(std::ostream & fout, unsigned int checksum) const;
   
     void read(std::istream & fin);
+    void readMILC(std::istream & fin);
 
   void show() const { hd.Show(); }
 
@@ -239,6 +242,65 @@ FLOATING_POINT = IEEE64BIG
 END_HEADER
   */
 
+
+#if 0
+// header specification/interpretation
+class LatMILCHeader : public LatHeaderBase {
+ public:
+  // header strings
+    const char *cname;
+    std::string hdr_version;
+  int recon_row_3; // determines DATATYPE = 4D_SU3_GAUGE or 4D_SU3_GAUGE_3X3
+    std::string storage_format;
+
+  int dimension[4];
+  Float link_trace;
+  Float plaquette;
+
+  BndCndType boundary[4]; 
+  unsigned int checksum;
+
+    std::string ensemble_id ;
+    std::string ensemble_label ;
+  int sequence_number ;
+    std::string creator ;
+    std::string creator_hardware ;
+    std::string creation_date ;
+    std::string archive_date ;
+
+  FP_FORMAT floating_point;
+
+  LatMILCHeader() :
+    ensemble_id ("unspecified"),
+    ensemble_label ("unspecified"),
+    cname ("LatMILCHeader"),
+    sequence_number (0)
+    {}
+
+#if 0
+  void init(const QioArg & qio_arg, FP_FORMAT FileFormat, Float LinkTrace, Float Plaq);
+  void setHeader(const char * EnsembleId, const char * EnsembleLabel, const int SequenceNumber,const char *CreatorName = NULL, const char *CreatorHardware = NULL );
+    void write(std::ostream & fout);
+    void fillInChecksum(std::ostream & fout, unsigned int checksum) const;
+#endif
+  
+    void read(std::istream & fin);
+
+//  void show() const { hd.Show(); }
+
+  enum HEADER_TYPES headerType() const { return LAT_MILC_HEADER; }
+  std::streamoff dataStart() const { return data_start; }
+#if 0
+  void fillInCheckInfo(std::ostream & fout, unsigned int cs, unsigned int pdcs,
+		       const Float calc1, const Float calc2) const {
+    fillInChecksum(fout, cs);
+  }
+#endif
+
+ private:
+  int csum_pos;
+};
+#endif
 
 
 // header specification/interpretation

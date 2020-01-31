@@ -120,7 +120,7 @@ class ReadLatticeSerial : public ReadLatticeParallel {
 class ReadMILCParallel : public ReadLatticeParallel {
  private:
   const char * cname;
-
+ 
  public:
   // ctor for 2-step loading
   ReadMILCParallel() : ReadLatticeParallel(), cname("ReadMILCParallel") {
