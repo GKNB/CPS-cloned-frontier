@@ -12,5 +12,6 @@
 #include "mesonfield/mesonfield_distributed_storage.h"
 #include "mesonfield/mf_momcontainer.h"
 #include "mesonfield/required_momenta.h"
+#include "mesonfield/mesonfield_convert.h"
 
 #endif

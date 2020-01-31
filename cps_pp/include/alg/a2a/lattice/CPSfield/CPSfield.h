@@ -150,7 +150,7 @@ public:
     freemem();
   }
 
-  //Import an export field with arbitrary MappingPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
+  //Import and export field with arbitrary MappingPolicy (must have same Euclidean dimension!) and precision. Must have same SiteSize and FlavorPolicy
   //Optional inclusion of a mask for accepting sites from the input field
   template< typename extSiteType, typename extMapPol, typename extAllocPol>
   void importField(const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &r, IncludeSite<extMapPol::EuclideanDimension> const* fromsitemask = NULL);

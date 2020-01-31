@@ -6,9 +6,9 @@
 
 CPS_START_NAMESPACE
 
-//Spatial source structure in *momentum-space*. Should assign the same value to both flavors if G-parity
-
-//3D complex field. Defined for a *single flavor* if GPBC
+//Spatial source structure in *momentum-space*. 
+//We will assume the source is flavor diagonal (i.e. the same value for both flavors) and so will use a SpatialPolicy<OneFlavorPolicy> for the mapping
+//*NOTE  If using SIMD vectorization the SIMD mapping for the 3d part must be the same as for the 4d a2a fields. To ensure this use setupFieldParams function*
 template<typename mf_Complex,typename MappingPolicy = SpatialPolicy<OneFlavorPolicy>, typename FieldAllocPolicy = StandardAllocPolicy, typename my_enable_if<MappingPolicy::EuclideanDimension == 3 && _equal<typename MappingPolicy::FieldFlavorPolicy, OneFlavorPolicy>::value, int>::type = 0>
 class A2Asource{
 public:
@@ -72,8 +72,10 @@ public:
 #endif
   }
 
-
+  //Get the value of the source at a particular 3d site.
+  //site is an 3d site index in the logical 3d volume (i.e. a SIMD site coordinate if vectorized)
   accelerator_inline const mf_Complex & siteComplex(const int site) const{ return *src->site_ptr(site); }
+
   //On the GPU this pulls out an individual SIMD lane for the kernel to act on
   //accelerator_inline const typename SIMT<mf_Complex>::value_type & siteComplex(const int site) const{ return SIMT<mf_Complex>::read(*src->site_ptr(site)); }
   accelerator_inline const int nsites() const{ return src->nsites(); }

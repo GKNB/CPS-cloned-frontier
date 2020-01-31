@@ -223,6 +223,26 @@ void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::transpose(A2AmesonField<mf_
       into(j,i) = (*this)(i,j);
 }
 
+//Take the complex conjugate of the meson field
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::conj(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into) const{
+  assert( (void*)this != (void*)&into );
+  into.setup(lindexdilution, rindexdilution, tl, tr);
+#pragma omp parallel for
+  for(int i=0;i<nmodes_l;i++)
+    for(int j=0;j<nmodes_r;j++)
+      into(i,j) = std::conj((*this)(i,j));
+}
+//Take the hermitian conjugate of the meson field
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::hconj(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const{
+  assert( (void*)this != (void*)&into );
+  into.setup(rindexdilution, lindexdilution, tr, tl);
+#pragma omp parallel for
+  for(int i=0;i<nmodes_l;i++)
+    for(int j=0;j<nmodes_r;j++)
+      into(j,i) = conj((*this)(i,j));
+}
 
 
 

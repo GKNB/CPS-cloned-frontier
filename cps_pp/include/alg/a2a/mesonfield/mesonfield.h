@@ -147,7 +147,6 @@ public:
     QMP_sum_array(&out, 1);
     return out;
   }
-
   
   inline const int getRowTimeslice() const{ return tl; }
   inline const int getColTimeslice() const{ return tr; }
@@ -226,9 +225,15 @@ public:
   template<typename InnerProduct, typename Allocator>
   static void compute(std::vector< std::vector<A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>, Allocator >* > &mf_st, const A2AfieldL<mf_Policies> &l, const InnerProduct &M, const A2AfieldR<mf_Policies> &r, bool do_setup = true);
 
+  //These functions return the number of *packed* modes not the full number of modes
   inline const int getNrows() const{ return nmodes_l; }
   inline const int getNcols() const{ return nmodes_r; }
 
+  //These functions return the number of *full* modes
+  inline const int getNrowsFull() const{ return lindexdilution.getNv(); }
+  inline const int getNcolsFull() const{ return rindexdilution.getNv(); }
+
+  //Return the full set of dilution parameters
   inline const LeftDilutionType & getRowParams() const{ return lindexdilution; }
   inline const RightDilutionType & getColParams() const{ return rindexdilution; }
   
@@ -266,6 +271,12 @@ public:
   
   //Transpose the meson field! (parallel)
   void transpose(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const;
+
+  //Take the complex conjugate of the meson field (parallel)
+  void conj(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into) const;
+
+  //Take the hermitian conjugate of the meson field (parallel)
+  void hconj(A2AmesonField<mf_Policies,A2AfieldR,A2AfieldL> &into) const;
 
   //Delete all the data associated with this meson field apart from on node with UniqueID 'node'. The node index is saved so that the data can be later retrieved.
   //The memory will be distributed according to a global index that cycles between 0... nodes-1 (with looping) to ensure even distribution

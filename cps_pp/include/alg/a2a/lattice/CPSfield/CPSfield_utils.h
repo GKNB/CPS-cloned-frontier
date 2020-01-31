@@ -108,6 +108,7 @@ inline void exportBFMcb(CPSfermion5D<cps::ComplexD> &into, Fermion_t from, bfm_e
 }
 #endif
 
+//Export a checkerboarded Grid field to an un-checkerboarded CPS field
 #ifdef USE_GRID
 template<typename GridPolicies>
 inline void exportGridcb(CPSfermion5D<cps::ComplexD> &into, typename GridPolicies::GridFermionField &from, typename GridPolicies::FgridFclass &latg){
