@@ -11,10 +11,7 @@
 #include <util/spincolorflavormatrix.h>
 #include <util/vector.h>
 #include <alg/fix_gauge_arg.h>
-#include <alg/a2a/utils.h>
-#include <alg/a2a/template_wizardry.h>
-#include <alg/a2a/CPSfield_policies.h>
-#include <alg/a2a/compute_ktopipi_base.h>
+#include <alg/a2a/ktopipi_gparity/compute_ktopipi_base.h>
 
 
 CPS_START_NAMESPACE

@@ -1,5 +1,5 @@
 #include<config.h>
-#include <alg/a2a/mesonfield_controls.h>
+#include <alg/a2a/mesonfield/mesonfield_controls.h>
 
 CPS_START_NAMESPACE
 

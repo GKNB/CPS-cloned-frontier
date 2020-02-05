@@ -16,7 +16,7 @@
 #include <alg/eigen/Krylov_5d.h>
 #endif
 
-#include <alg/a2a/a2a_params.h>
+#include <alg/a2a/base/a2a_params.h>
 
 
 CPS_START_NAMESPACE
