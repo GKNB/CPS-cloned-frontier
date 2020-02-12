@@ -914,7 +914,7 @@ void fft_opt(CPSfieldType &into, const CPSfieldType &from, const bool* do_dirs, 
 # else
   typedef typename Grid::GridTypeMapper<typename CPSfieldType::FieldSiteType>::scalar_type ScalarType;
   typedef typename CPSfieldType::FieldMappingPolicy::EquivalentScalarPolicy ScalarDimPol;
-  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, typename CPSfieldType::FieldFlavorPolicy, StandardAllocPolicy> ScalarFieldType;
+  typedef CPSfield<ScalarType, CPSfieldType::FieldSiteSize, ScalarDimPol, StandardAllocPolicy> ScalarFieldType;
 
   NullObject null_obj;
   ScalarFieldType tmp_in(null_obj);

@@ -194,6 +194,8 @@ public:
 //Hand-optimized AVX512 kernel
 # ifdef AVX512
 
+#warning "Using AVX512 hand-coded mesonfield kernels"
+
 template<>
 inline static Grid::vComplexD GridVectorizedSpinColorContract<Grid::vComplexD,true,false>::g5(const Grid::vComplexD *const l, const Grid::vComplexD *const r){
     Grid::vComplexD v3;

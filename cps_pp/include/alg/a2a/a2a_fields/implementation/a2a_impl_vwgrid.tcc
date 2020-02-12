@@ -173,9 +173,11 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 
 
 
-//Compute the high mode parts of V and W. 
+//Compute the high mode parts of V and W.   "Single" means this version is designed for single-RHS inverters
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+  assert(!isMultiCG(cg_controls.CGalgorithm));
+  
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;
@@ -279,6 +281,8 @@ void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, La
 //Version of the above that calls into CG with multiple src/solution pairs so we can use split-CG or multi-RHS CG
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
+  assert(isMultiCG(cg_controls.CGalgorithm));
+
   typedef typename mf_Policies::GridFermionField GridFermionField;
   typedef typename mf_Policies::FgridFclass FgridFclass;
   typedef typename mf_Policies::GridDirac GridDirac;

@@ -1,5 +1,17 @@
 /* conf.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Using BFM for A2A CG/mesonfields */
+#undef ENABLE_BFM_A2A
+
+/* Using BFM for A2A Lanczos */
+#undef ENABLE_BFM_LANCZOS
+
+/* Using Grid for A2A CG/mesonfields */
+#undef ENABLE_GRID_A2A
+
+/* Using Grid for A2A Lanczos */
+#undef ENABLE_GRID_LANCZOS
+
 /* Define to 1 if the system has the type `bool_t'. */
 #undef HAVE_BOOL_T
 

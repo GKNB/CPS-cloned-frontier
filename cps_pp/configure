@@ -742,6 +742,8 @@ enable_cuda
 enable_quda
 enable_grid
 enable_namespace
+enable_bfm_lanczos
+enable_bfm_a2a
 enable_double_prec
 '
       ac_precious_vars='build_alias
@@ -1394,6 +1396,10 @@ Optional Features:
   --enable-grid           Compile with Grid library (default=no)
   --enable-namespace      Build the library inside a 'cps' namespace.
                           (default=no for QCDOC, yes otherwise)
+  --enable-bfm-lanczos    If compiling with both Grid and BFM, force the A2A
+                          library to use BFM for the Lanczos
+  --enable-bfm-a2a        If compiling with both Grid and BFM, force the A2A
+                          library to use BFM for the CG/mesonfields
   --enable-double-prec    Build the library in double precision (default=yes)
 
 Some influential environment variables:
@@ -5363,6 +5369,34 @@ if test "$TESTING_PARALLEL" = "yes"; then
 else
    ENABLE_PARALLEL="undef PARALLEL"
 fi
+
+if test "$TESTING_PARALLEL" = "yes"; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compiler able to compile MPI programs" >&5
+$as_echo_n "checking if compiler able to compile MPI programs... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+	int main(int argc, char** argv) { MPI_Init(&argc, &argv); return 0; }
+
+
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+
+			echo "yes"
+			DFLAGS+=" -DUSE_MPI"
+
+else
+
+			echo "no"
+
+
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+
+
 # Check whether --enable-cuda was given.
 if test "${enable_cuda+set}" = set; then :
   enableval=$enable_cuda;
@@ -5662,6 +5696,80 @@ fi
 if test "${CXXLD}set" = "set"; then
    CXXLD=$CXX
 fi
+
+ENABLE_GRID_A2A="no"
+ENABLE_GRID_LANCZOS="no"
+ENABLE_BFM_A2A="no"
+ENABLE_BFM_LANCZOS="no"
+
+if test "$enable_bfm" != "no"; then
+   ENABLE_BFM_A2A="yes"
+   ENABLE_BFM_LANCZOS="yes"
+fi
+if test "$enable_grid" != "no"; then
+   ENABLE_GRID_A2A="yes"
+   ENABLE_GRID_LANCZOS="yes"
+
+   ENABLE_BFM_A2A="no"
+   ENABLE_BFM_LANCZOS="no"
+fi
+
+# Check whether --enable-bfm-lanczos was given.
+if test "${enable_bfm_lanczos+set}" = set; then :
+  enableval=$enable_bfm_lanczos; case ${enableval} in #(
+  yes) :
+    ENABLE_BFM_LANCZOS="yes"; ENABLE_GRID_LANCZOS="no" ;; #(
+  no) :
+     ;; #(
+  *) :
+    as_fn_error $? "bad value ${enableval} for --enable-bfm-lanczos" "$LINENO" 5 ;;
+esac
+fi
+
+# Check whether --enable-bfm-a2a was given.
+if test "${enable_bfm_a2a+set}" = set; then :
+  enableval=$enable_bfm_a2a; case ${enableval} in #(
+  yes) :
+    ENABLE_BFM_A2A="yes"; ENABLE_GRID_A2A="no" ;; #(
+  no) :
+     ;; #(
+  *) :
+    as_fn_error $? "bad value ${enableval} for --enable-bfm-a2a" "$LINENO" 5 ;;
+esac
+fi
+
+
+if test "$ENABLE_BFM_LANCZOS" = "yes"; then
+   echo "Using BFM for A2A Lanczos"
+
+$as_echo "#define ENABLE_BFM_LANCZOS 1" >>confdefs.h
+
+   #DFLAGS+=" -DENABLE_BFM_LANCZOS"
+fi
+if test "$ENABLE_BFM_A2A" = "yes"; then
+   echo "Using BFM for A2A CG/mesonfields"
+
+$as_echo "#define ENABLE_BFM_A2A 1" >>confdefs.h
+
+   #DFLAGS+=" -DENABLE_BFM_A2A"
+fi
+if test "$ENABLE_GRID_LANCZOS" = "yes"; then
+   echo "Using Grid for A2A Lanczos"
+
+$as_echo "#define ENABLE_GRID_LANCZOS 1" >>confdefs.h
+
+   #DFLAGS+=" -DENABLE_GRID_LANCZOS"
+fi
+if test "$ENABLE_GRID_A2A" = "yes"; then
+   echo "Using Grid for A2A CG/mesonfields"
+
+$as_echo "#define ENABLE_GRID_A2A 1" >>confdefs.h
+
+   #DFLAGS+=" -DENABLE_GRID_A2A"
+fi
+
+
+
 
 
 

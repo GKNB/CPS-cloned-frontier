@@ -488,6 +488,27 @@ if test "$TESTING_PARALLEL" = "yes"; then
 else
    ENABLE_PARALLEL="undef PARALLEL"
 fi
+
+dnl-----CK: test if the compiler compiles MPI programs-------
+if test "$TESTING_PARALLEL" = "yes"; then
+AC_MSG_CHECKING([if compiler able to compile MPI programs])
+AC_LINK_IFELSE([
+	AC_LANG_SOURCE(
+			[[int main(int argc, char** argv) { MPI_Init(&argc, &argv); return 0; }]]
+		      )
+	        ],
+		[
+			echo "yes"
+			DFLAGS+=" -DUSE_MPI"
+		],
+		[
+			echo "no"
+		]
+	      ) 
+
+fi
+
+
 dnl -------------------------windy---------------------------
 dnl  Edited by hjkim. This configuration is need by QUDA&CUDA
 dnl -------------------------windy---------------------------
@@ -612,6 +633,61 @@ dnl Linker defaults to CXX unless CXXLD is defined
 if test "${CXXLD}set" = "set"; then
    CXXLD=$CXX
 fi
+
+dnl CK: For the A2A library we need to decide whether to use BFM or Grid. It will default to Grid if both present, but user overrides
+dnl for re-enabling BFM are provided
+ENABLE_GRID_A2A="no"
+ENABLE_GRID_LANCZOS="no"
+ENABLE_BFM_A2A="no"
+ENABLE_BFM_LANCZOS="no"
+
+if test "$enable_bfm" != "no"; then
+   ENABLE_BFM_A2A="yes"
+   ENABLE_BFM_LANCZOS="yes"
+fi
+if test "$enable_grid" != "no"; then
+   ENABLE_GRID_A2A="yes"
+   ENABLE_GRID_LANCZOS="yes"
+
+   ENABLE_BFM_A2A="no"
+   ENABLE_BFM_LANCZOS="no"
+fi
+
+dnl Overrides for forcing BFM use if both Grid and BFM present
+AC_ARG_ENABLE([bfm-lanczos],
+    AC_HELP_STRING([--enable-bfm-lanczos],[If compiling with both Grid and BFM, force the A2A library to use BFM for the Lanczos]),
+    [AS_CASE(${enableval}, [yes], [ENABLE_BFM_LANCZOS="yes"; ENABLE_GRID_LANCZOS="no"], [no], [],
+             [AC_MSG_ERROR([bad value ${enableval} for --enable-bfm-lanczos])])],
+    [])
+AC_ARG_ENABLE([bfm-a2a],
+    AC_HELP_STRING([--enable-bfm-a2a],[If compiling with both Grid and BFM, force the A2A library to use BFM for the CG/mesonfields]),
+    [AS_CASE(${enableval}, [yes], [ENABLE_BFM_A2A="yes"; ENABLE_GRID_A2A="no"], [no], [],
+             [AC_MSG_ERROR([bad value ${enableval} for --enable-bfm-a2a])])],
+    [])
+
+if test "$ENABLE_BFM_LANCZOS" = "yes"; then
+   echo "Using BFM for A2A Lanczos"
+   AC_DEFINE([ENABLE_BFM_LANCZOS],[1],[Using BFM for A2A Lanczos])
+   #DFLAGS+=" -DENABLE_BFM_LANCZOS"
+fi
+if test "$ENABLE_BFM_A2A" = "yes"; then
+   echo "Using BFM for A2A CG/mesonfields"
+   AC_DEFINE([ENABLE_BFM_A2A],[1],[Using BFM for A2A CG/mesonfields])
+   #DFLAGS+=" -DENABLE_BFM_A2A"
+fi
+if test "$ENABLE_GRID_LANCZOS" = "yes"; then
+   echo "Using Grid for A2A Lanczos"
+   AC_DEFINE([ENABLE_GRID_LANCZOS],[1],[Using Grid for A2A Lanczos])
+   #DFLAGS+=" -DENABLE_GRID_LANCZOS"
+fi
+if test "$ENABLE_GRID_A2A" = "yes"; then
+   echo "Using Grid for A2A CG/mesonfields"
+   AC_DEFINE([ENABLE_GRID_A2A],[1],[Using Grid for A2A CG/mesonfields])
+   #DFLAGS+=" -DENABLE_GRID_A2A"
+fi
+
+
+
 
 
 dnl Make visible all variables declared above
