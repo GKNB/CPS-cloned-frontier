@@ -667,23 +667,19 @@ AC_ARG_ENABLE([bfm-a2a],
 
 if test "$ENABLE_BFM_LANCZOS" = "yes"; then
    echo "Using BFM for A2A Lanczos"
-   AC_DEFINE([ENABLE_BFM_LANCZOS],[1],[Using BFM for A2A Lanczos])
-   #DFLAGS+=" -DENABLE_BFM_LANCZOS"
+   AC_DEFINE([USE_BFM_LANCZOS],[1],[Using BFM for A2A Lanczos])
 fi
 if test "$ENABLE_BFM_A2A" = "yes"; then
    echo "Using BFM for A2A CG/mesonfields"
-   AC_DEFINE([ENABLE_BFM_A2A],[1],[Using BFM for A2A CG/mesonfields])
-   #DFLAGS+=" -DENABLE_BFM_A2A"
+   AC_DEFINE([USE_BFM_A2A],[1],[Using BFM for A2A CG/mesonfields])
 fi
 if test "$ENABLE_GRID_LANCZOS" = "yes"; then
    echo "Using Grid for A2A Lanczos"
-   AC_DEFINE([ENABLE_GRID_LANCZOS],[1],[Using Grid for A2A Lanczos])
-   #DFLAGS+=" -DENABLE_GRID_LANCZOS"
+   AC_DEFINE([USE_GRID_LANCZOS],[1],[Using Grid for A2A Lanczos])
 fi
 if test "$ENABLE_GRID_A2A" = "yes"; then
    echo "Using Grid for A2A CG/mesonfields"
-   AC_DEFINE([ENABLE_GRID_A2A],[1],[Using Grid for A2A CG/mesonfields])
-   #DFLAGS+=" -DENABLE_GRID_A2A"
+   AC_DEFINE([USE_GRID_A2A],[1],[Using Grid for A2A CG/mesonfields])
 fi
 
 

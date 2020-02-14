@@ -5,13 +5,13 @@
 #ifdef USE_DESTRUCTIVE_FFT
 
 #ifdef A2A_PREC_DOUBLE
-typedef A2ApoliciesDoubleManualAlloc A2Apolicies;
+typedef A2ApoliciesDoubleManualAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SINGLE)
-typedef A2ApoliciesSingleManualAlloc A2Apolicies;
+typedef A2ApoliciesSingleManualAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef A2ApoliciesSIMDdoubleManualAlloc A2Apolicies;
+typedef A2ApoliciesSIMDdoubleManualAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SIMD_SINGLE)
-typedef A2ApoliciesSIMDsingleManualAlloc A2Apolicies;
+typedef A2ApoliciesSIMDsingleManualAllocGparity A2Apolicies;
 #else
 #error "Must provide an A2A precision"
 #endif
@@ -19,13 +19,13 @@ typedef A2ApoliciesSIMDsingleManualAlloc A2Apolicies;
 #else
 
 #ifdef A2A_PREC_DOUBLE
-typedef A2ApoliciesDoubleAutoAlloc A2Apolicies;
+typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SINGLE)
-typedef A2ApoliciesSingleAutoAlloc A2Apolicies;
+typedef A2ApoliciesSingleAutoAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SIMD_DOUBLE)
-typedef A2ApoliciesSIMDdoubleAutoAlloc A2Apolicies;
+typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies;
 #elif defined(A2A_PREC_SIMD_SINGLE)
-typedef A2ApoliciesSIMDsingleAutoAlloc A2Apolicies;
+typedef A2ApoliciesSIMDsingleAutoAllocGparity A2Apolicies;
 #else
 #error "Must provide an A2A precision"
 #endif

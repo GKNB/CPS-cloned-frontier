@@ -5742,30 +5742,26 @@ fi
 if test "$ENABLE_BFM_LANCZOS" = "yes"; then
    echo "Using BFM for A2A Lanczos"
 
-$as_echo "#define ENABLE_BFM_LANCZOS 1" >>confdefs.h
+$as_echo "#define USE_BFM_LANCZOS 1" >>confdefs.h
 
-   #DFLAGS+=" -DENABLE_BFM_LANCZOS"
 fi
 if test "$ENABLE_BFM_A2A" = "yes"; then
    echo "Using BFM for A2A CG/mesonfields"
 
-$as_echo "#define ENABLE_BFM_A2A 1" >>confdefs.h
+$as_echo "#define USE_BFM_A2A 1" >>confdefs.h
 
-   #DFLAGS+=" -DENABLE_BFM_A2A"
 fi
 if test "$ENABLE_GRID_LANCZOS" = "yes"; then
    echo "Using Grid for A2A Lanczos"
 
-$as_echo "#define ENABLE_GRID_LANCZOS 1" >>confdefs.h
+$as_echo "#define USE_GRID_LANCZOS 1" >>confdefs.h
 
-   #DFLAGS+=" -DENABLE_GRID_LANCZOS"
 fi
 if test "$ENABLE_GRID_A2A" = "yes"; then
    echo "Using Grid for A2A CG/mesonfields"
 
-$as_echo "#define ENABLE_GRID_A2A 1" >>confdefs.h
+$as_echo "#define USE_GRID_A2A 1" >>confdefs.h
 
-   #DFLAGS+=" -DENABLE_GRID_A2A"
 fi
 
 

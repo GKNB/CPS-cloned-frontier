@@ -22,6 +22,8 @@ int main (int argc,char **argv )
 
   setupJob(argc, argv, params, cmdline);
 
+  assert(GJP.Gparity());
+
 #ifdef BNL_KNL_PERFORMANCE_CHECK
   bnl_knl_performance_check(cmdline,params);
 #endif

@@ -36,7 +36,7 @@ public:
 
 #ifdef USE_GRID
 
-std::string vtostring(const int* v, const int ndim){
+inline std::string vtostring(const int* v, const int ndim){
   std::ostringstream os;
   os << '(';
   for(int i=0;i<ndim-1;i++) os << v[i] << ", ";

@@ -19,7 +19,7 @@ inline void* aligned_ptr(void* p, size_t alignment){
 }
 
 //Check if a pointer is aligned
-bool isAligned(void *p, const size_t alignment){
+inline bool isAligned(void *p, const size_t alignment){
   return (((uintptr_t)p) % alignment == 0 );
 }
 

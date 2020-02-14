@@ -1,17 +1,5 @@
 /* conf.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Using BFM for A2A CG/mesonfields */
-#undef ENABLE_BFM_A2A
-
-/* Using BFM for A2A Lanczos */
-#undef ENABLE_BFM_LANCZOS
-
-/* Using Grid for A2A CG/mesonfields */
-#undef ENABLE_GRID_A2A
-
-/* Using Grid for A2A Lanczos */
-#undef ENABLE_GRID_LANCZOS
-
 /* Define to 1 if the system has the type `bool_t'. */
 #undef HAVE_BOOL_T
 
@@ -120,8 +108,20 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Using BFM for A2A CG/mesonfields */
+#undef USE_BFM_A2A
+
+/* Using BFM for A2A Lanczos */
+#undef USE_BFM_LANCZOS
+
 /* Define 1 if you have fftw3 library */
 #undef USE_FFTW
+
+/* Using Grid for A2A CG/mesonfields */
+#undef USE_GRID_A2A
+
+/* Using Grid for A2A Lanczos */
+#undef USE_GRID_LANCZOS
 
 /* Define 1 if you have zlib */
 #undef USE_ZLIB

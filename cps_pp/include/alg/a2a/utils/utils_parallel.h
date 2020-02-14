@@ -164,10 +164,10 @@ struct _globalSumComplexGrid{
   }
 };
 
-void globalSumComplex(Grid::vComplexD* v, const int n){
+inline void globalSumComplex(Grid::vComplexD* v, const int n){
   _globalSumComplexGrid<Grid::vComplexD>::doit(v,n);
 }
-void globalSumComplex(Grid::vComplexF* v, const int n){
+inline void globalSumComplex(Grid::vComplexF* v, const int n){
   _globalSumComplexGrid<Grid::vComplexF>::doit(v,n);
 }
 #endif
@@ -240,7 +240,7 @@ struct getMPIdataType<float>{
 #endif //USE_MPI
 
 //Check each node can write to disk
-void checkWriteable(const std::string &dir,const int conf){
+inline void checkWriteable(const std::string &dir,const int conf){
   std::string file;
   {
     std::ostringstream os; os << dir << "/writeTest.node" << UniqueID() << ".conf" << conf;
@@ -265,7 +265,7 @@ void checkWriteable(const std::string &dir,const int conf){
 
 
 
-bool checkDirExists(const std::string& dir){
+inline bool checkDirExists(const std::string& dir){
   DIR* dirp = opendir(dir.c_str());
   if(dirp){
     closedir(dirp);
@@ -278,7 +278,7 @@ bool checkDirExists(const std::string& dir){
 }
 
 
-void makedir(const std::string& dir, const mode_t mode = 0775){
+inline void makedir(const std::string& dir, const mode_t mode = 0775){
   if(!UniqueID()){
     int ret = mkdir(dir.c_str(), mode);
     if(ret == 0 || (ret == -1 && errno == EEXIST) ){

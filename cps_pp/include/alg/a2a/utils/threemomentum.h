@@ -116,7 +116,7 @@ public:
 };
 
 
-std::ostream & operator<<(std::ostream &os, const ThreeMomentum &p){
+inline std::ostream & operator<<(std::ostream &os, const ThreeMomentum &p){
   os << "(" << p(0) << "," << p(1) << "," << p(2) << ")";
   return os;
 }

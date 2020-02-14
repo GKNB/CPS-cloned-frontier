@@ -100,19 +100,7 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   
   GJP.Initialize(do_arg_tmp);
   LRG.Initialize();
-
-#if defined(USE_GRID_A2A) || defined(USE_GRID_LANCZOS)
-  if(GJP.Gparity()){
-#ifndef USE_GRID_GPARITY
-    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY to enable G-parity\n");
-#endif
-  }else{
-#ifdef USE_GRID_GPARITY
-    ERR.General("","","Must compile main program with flag USE_GRID_GPARITY off to disable G-parity\n");
-#endif
-  }      
-#endif
-  
+ 
 #ifdef USE_BFM
   cps_qdp_init(&argc,&argv);
   //Chroma::initialize(&argc,&argv);

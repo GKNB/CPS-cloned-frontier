@@ -66,7 +66,7 @@ inline std::string anyToStr(const T &t){
   return os.str();
 }
 
-std::string demangle( const char* mangled_name ) {
+inline std::string demangle( const char* mangled_name ) {
 
   std::size_t len = 0 ;
   int status = 0 ;

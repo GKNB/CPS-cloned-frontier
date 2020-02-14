@@ -71,11 +71,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
-#ifdef USE_GRID_GPARITY
-  if(ngp == 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is currently compiled for G-parity\n");
-#else
-  if(ngp != 0) ERR.General("A2AvectorW","computeVWlow","Fgrid is not currently compiled for G-parity\n");
-#endif
+  if(mf_Policies::GPARITY == 1 && ngp == 0) ERR.General("A2AvectorW","computeVWlow","A2Apolicy is for G-parity\n");
+  if(mf_Policies::GPARITY == 0 && ngp != 0) ERR.General("A2AvectorW","computeVWlow","A2Apolicy is not for G-parity\n");
 
   assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
   FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
@@ -172,6 +169,13 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 }
 
 
+inline bool isMultiCG(const A2ACGalgorithm al){
+  if(al == AlgorithmMixedPrecisionReliableUpdateSplitCG) return true;
+  return false;
+}
+
+
+
 
 //Compute the high mode parts of V and W.   "Single" means this version is designed for single-RHS inverters
 template< typename mf_Policies>
@@ -187,11 +191,8 @@ void A2AvectorW<mf_Policies>::computeVWhighSingle(A2AvectorV<mf_Policies> &V, La
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
-#ifdef USE_GRID_GPARITY
-  if(ngp == 0) ERR.General("A2AvectorW",fname,"Fgrid is currently compiled for G-parity\n");
-#else
-  if(ngp != 0) ERR.General("A2AvectorW",fname,"Fgrid is not currently compiled for G-parity\n");
-#endif
+  if(mf_Policies::GPARITY == 1 && ngp == 0) ERR.General("A2AvectorW","computeVWhighSingle","A2Apolicy is for G-parity\n");
+  if(mf_Policies::GPARITY == 0 && ngp != 0) ERR.General("A2AvectorW","computeVWhighSingle","A2Apolicy is not for G-parity\n");
 
   assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
   FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
@@ -292,11 +293,8 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
   int ngp = 0;
   for(int i=0;i<3;i++) if(GJP.Bc(i) == BND_CND_GPARITY) ++ngp;
 
-#ifdef USE_GRID_GPARITY
-  if(ngp == 0) ERR.General("A2AvectorW",fname,"Fgrid is currently compiled for G-parity\n");
-#else
-  if(ngp != 0) ERR.General("A2AvectorW",fname,"Fgrid is not currently compiled for G-parity\n");
-#endif
+  if(mf_Policies::GPARITY == 1 && ngp == 0) ERR.General("A2AvectorW","computeVWhighMulti","A2Apolicy is for G-parity\n");
+  if(mf_Policies::GPARITY == 0 && ngp != 0) ERR.General("A2AvectorW","computeVWhighMulti","A2Apolicy is not for G-parity\n");
 
   assert(lat.Fclass() == mf_Policies::FGRID_CLASS_NAME);
   FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
@@ -394,10 +392,6 @@ void A2AvectorW<mf_Policies>::computeVWhighMulti(A2AvectorV<mf_Policies> &V, Lat
 }
 
 
-inline bool isMultiCG(const A2ACGalgorithm al){
-  if(al == AlgorithmMixedPrecisionReliableUpdateSplitCG) return true;
-  return false;
-}
 
 template< typename mf_Policies>
 void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, Lattice &lat, EvecInterface<mf_Policies> &evecs, const Float mass, const CGcontrols &cg_controls){
