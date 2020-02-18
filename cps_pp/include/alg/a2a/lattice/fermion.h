@@ -8,4 +8,5 @@
 #include "fermion/grid_lanczos.h"
 #include "fermion/grid_split_cg.h"
 #include "fermion/grid_wrappers.h"
+#include "fermion/grid_gparity_ZMobius.h"
 #endif
