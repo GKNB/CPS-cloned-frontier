@@ -15,7 +15,9 @@
 
 
 
-USING_NAMESPACE_CPS int read_lattice (int argc, char **argv)
+USING_NAMESPACE_CPS 
+
+int read_lattice (int argc, char **argv)
 {
   cout << "ReadLatticeParallel class test!" << endl;
 
@@ -46,91 +48,16 @@ USING_NAMESPACE_CPS int read_lattice (int argc, char **argv)
 
   cout << "Load complete" << endl << endl;
 
-#if 0
-  cout << "================== PARALLEL IO ======================" << endl;
-  cout << "-----------------------------------------------------" << endl;
-  cout << "================== SERIAL   IO ======================" << endl <<
-    endl;
-
-  ReadLatticeSerial rd2;
-  rd2.setLogDir ("logs");
-  //  rd2.SimQCDSP(1);
-  rd2.read (lat, argv[2]);
-
-  if (!rd2.good ()) {
-    cout << "Serial Loading failed" << endl;
-    exit (-13);
-  }
-
-  cout << "Load Complete" << endl;
-#endif
 
   return 0;
 }
 
-
-int write_lattice (int argc, char **argv)
-{
-  cout << "WriteLatticeParallel class test!" << endl;
-
-  GwilsonFnone lat;
-
-  // TWO-STEP writing, to set some labels in header
-  WriteLatticeParallel wt;
-  wt.setHeader ("EnsTest", "Testing Ensemble by Sam Oct,2004", 1001);
-  wt.setLogDir ("logs");
-  wt.write (lat, argv[2]);
-
-  if (!wt.good ()) {
-    cout << "Unloading failed" << endl;
-    exit (-13);
-  }
-
-  cout << "===================  PARALLEL UNLOADING [" << argv[2] <<
-    "] =========================" << endl;
-  cout <<
-    "--------------------------------------------------------------------------------------"
-    << endl;
-  cout << "===================  SERIAL   UNLOADING [" << argv[2] <<
-    ".serial] ==================" << endl << endl;
-
-  WriteLatticeSerial wt2;
-  wt2.setHeader ("EnsSerial", "Serial unloading test Nov, 2004", 1002);
-  wt2.setLogDir ("logs");
-
-  char filename2[256];
-  strcpy (filename2, argv[2]);
-  strcat (filename2, ".serial");
-
-  wt2.write (lat, filename2);
-  if (!wt2.good ()) {
-    cout << "Unloading failed" << endl;
-    exit (-13);
-  }
-
-  cout << "Unload complete" << endl << endl;
-
-  return 0;
-}
 
 
 int main (int argc, char **argv)
 {
   const char *cname = "";
   const char *fname = "main(argc,argv)";
-  if (0)
-    if (argc < 11) {
-      cout << "Usage:" << endl <<
-        "      qrun QCDOC.x  -[r|w]  <conf.dat>  <x sites> <y sites> <z sites> <t sites>  <Xbc> <Ybc> <Zbc> <Tbc>"
-        << endl;
-      cout << "(use letter \'P\' or \'A\' for arguments of gauge BC's)" << endl;
-      cout << "Eg,   qrun QCDOC.x -r  conf8x8x8x16.file   8 8 8 16  P P P P" <<
-        endl;
-      cout << "      qrun QCDOC.x -w  conf4x4x4x32.file   4 4 4 32  P P A A" <<
-        endl;
-      exit (1);
-    }
-
 
   Start (&argc, &argv);
   // init  GJP
@@ -169,6 +96,7 @@ int main (int argc, char **argv)
     VRB.Result (cname, fname, "vol=%u \n", vol);
     size_t interval = vol / 100;
     time_elapse ();
+    if(0)
     for (size_t i = 0; i < vol; i++) {
       Site s (i);
       if (i % interval == 0)
