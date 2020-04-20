@@ -1,7 +1,7 @@
 #ifndef _CPS_MESONFIELD_CONVERT_H
 #define _CPS_MESONFIELD_CONVERT_H
 
-#ifdef USE_GRID
+#if defined(USE_GRID) && defined(USE_HADRONS)
 #include<Hadrons/A2AMatrix.hpp>
 #endif
 
@@ -9,7 +9,7 @@
 
 CPS_START_NAMESPACE
 
-#ifdef USE_GRID
+#if defined(USE_GRID) && defined(USE_HADRONS)
 
 template<typename A2Apolicies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void convertToGrid(Grid::Hadrons::A2AMatrix<Grid::ComplexD> &mf_out, const A2AmesonField<A2Apolicies, A2AfieldL, A2AfieldR> &mf_in){
