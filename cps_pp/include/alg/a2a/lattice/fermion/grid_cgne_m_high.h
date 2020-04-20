@@ -7,6 +7,10 @@
 
 CPS_START_NAMESPACE
 
+//These functions compute the low-mode approximation, feed it as a guess to the inversion, then subtract the low-mode approximation from the result, leaving
+//only the high-mode contribution. 
+
+
 //nLowMode is the number of modes we actually use to deflate. This must be <= evals.size(). The full set of computed eigenvectors is used to improve the guess.
 template<typename GridPolicies>
 inline void Grid_CGNE_M_high(typename GridPolicies::GridFermionField &solution, const typename GridPolicies::GridFermionField &source, const CGcontrols &cg_controls,

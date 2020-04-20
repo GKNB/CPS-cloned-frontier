@@ -4190,6 +4190,86 @@ void timeAllReduce(bool huge_pages){
 
 
 
+#ifdef USE_GRID
+template<typename GridA2Apolicies>
+void test4DlowmodeSubtraction(A2AArg a2a_args, const int ntests, const int nthreads, typename GridA2Apolicies::FgridGFclass &lattice){
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  FourDSIMDPolicy<DynamicFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<DynamicFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+
+  a2a_args.nl = 10;
+
+  assert(GJP.Snodes() == 1);
+  int Ls = GJP.SnodeSites();
+  double b_minus_c_outer = lattice.get_mob_b() - lattice.get_mob_c();
+  assert(b_minus_c_outer == 1.0);
+  double b_plus_c_outer = lattice.get_mob_b() + lattice.get_mob_c();
+  double mass = 0.01;
+
+  if(!UniqueID()) printf("test4DlowmodeSubtraction outer b+c=%g\n", b_plus_c_outer);
+  
+  CGcontrols cg_controls_4dsub;
+  cg_controls_4dsub.CGalgorithm = AlgorithmMixedPrecisionMADWF; //currently only MADWF version supports 4d subtraction, but it will use regular CG internally if the inner and outer Dirac ops match
+  cg_controls_4dsub.CG_tolerance = 1e-8;
+  cg_controls_4dsub.CG_max_iters = 10000;
+  cg_controls_4dsub.mixedCG_init_inner_tolerance = 1e-4;
+  cg_controls_4dsub.MADWF_Ls_inner = Ls;
+  cg_controls_4dsub.MADWF_b_plus_c_inner = b_plus_c_outer;
+  cg_controls_4dsub.MADWF_use_ZMobius = false;
+  cg_controls_4dsub.MADWF_ZMobius_lambda_max = 1.42;
+  cg_controls_4dsub.MADWF_precond = SchurOriginal;
+
+  CGcontrols cg_controls_5dsub(cg_controls_4dsub);
+  cg_controls_5dsub.CGalgorithm = AlgorithmMixedPrecisionRestartedCG;
+
+  //Random evecs or evals
+  std::vector<typename GridA2Apolicies::GridFermionFieldF> evec(a2a_args.nl, typename GridA2Apolicies::GridFermionFieldF(lattice.getFrbGridF()) );
+  std::vector<Grid::RealD> eval(a2a_args.nl);
+  CPSfermion5D<typename GridA2Apolicies::ScalarComplexType> tmp;
+  for(int i=0;i<a2a_args.nl;i++){
+    eval[i] = fabs(LRG.Urand(FOUR_D));
+    tmp.testRandom();
+    tmp.exportGridField(evec[i]);
+    evec[i].Checkerboard() = Grid::Odd;
+  }
+
+  EvecInterfaceGridSinglePrec<GridA2Apolicies> eve_4dsub(evec, eval, lattice, lattice.get_mass(), cg_controls_4dsub);
+  EvecInterfaceGridSinglePrec<GridA2Apolicies> eve_5dsub(evec, eval, lattice, lattice.get_mass(), cg_controls_5dsub);
+
+  A2AvectorW<GridA2Apolicies> W_5dsub(a2a_args, simd_dims);
+  A2AvectorW<GridA2Apolicies> W_4dsub(a2a_args, simd_dims);
+  
+  LatRanGen LRGbak(LRG);
+  W_5dsub.setWhRandom();
+  LRG = LRGbak;
+  W_4dsub.setWhRandom();
+
+  assert( W_5dsub.getWh(0).equals( W_4dsub.getWh(0) ));
+
+
+  A2AvectorV<GridA2Apolicies> V_5dsub(a2a_args, simd_dims);
+  A2AvectorV<GridA2Apolicies> V_4dsub(a2a_args, simd_dims);
+
+  W_4dsub.computeVWhigh(V_4dsub, lattice, eve_4dsub, mass, cg_controls_4dsub);
+  W_5dsub.computeVWhigh(V_5dsub, lattice, eve_5dsub, mass, cg_controls_5dsub);
+  
+  std::cout << "V " << std::endl;
+  typename GridA2Apolicies::ScalarFermionFieldType v_scal1, v_scal2;
+
+  for(int i=0;i<V_5dsub.getNv();i++){
+    printf("Testing %d\n",i);
+    v_scal1.importField(V_5dsub.getMode(i));
+    v_scal2.importField(V_4dsub.getMode(i));
+    compareField(v_scal1, v_scal2, "Field", 1e-4, true);
+  }
+}
+#endif
+
+
+
+
+
 CPS_END_NAMESPACE
 
 #endif

@@ -65,6 +65,8 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #ifndef ARCH_BGQ //on BGQ we just use Grid for its SIMD wrappers
   FgridParams fgp; fgp.epsilon = 0.; fgp.mobius_scale = 32./12.;
   typename GridA2ApoliciesType::FgridGFclass lattice(fgp);
+
+  std::cout << "Lattice created with b+c = " << lattice.get_mob_b() + lattice.get_mob_c() << std::endl;
 #endif
 #endif
 
@@ -165,7 +167,7 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   
 #ifdef USE_GRID
-  if(1) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
+  if(0) benchmarkMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
   if(0) benchmarkMultiSrcMFcontract<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, ntests, nthreads);
 #endif
 
@@ -204,6 +206,10 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   if(0) timeAllReduce(false);
   if(0) timeAllReduce(true);
+
+#ifdef USE_GRID
+  if(1) test4DlowmodeSubtraction<GridA2ApoliciesType>(a2a_args, ntests, nthreads, lattice);
+#endif
 }
 
 
@@ -335,3 +341,5 @@ int main(int argc,char *argv[])
   
   return 0;
 }
+
+

@@ -1153,6 +1153,19 @@ struct vml_enum_map BfmSolverType_map[] = {
 };
 
 bool_t
+vml_A2Apreconditioning (VML *vmls, char *name,A2Apreconditioning *objp)
+{
+	if (!vml_enum (vmls,name,(enum_t *)objp,A2Apreconditioning_map))
+		return FALSE;
+	return TRUE;
+}
+struct vml_enum_map A2Apreconditioning_map[] = {
+	{"A2Apreconditioning","SchurOriginal",SchurOriginal},
+	{"A2Apreconditioning","SchurDiagTwo",SchurDiagTwo},
+	{NULL,NULL,0}
+};
+
+bool_t
 vml_A2ACGalgorithm (VML *vmls, char *name,A2ACGalgorithm *objp)
 {
 	if (!vml_enum (vmls,name,(enum_t *)objp,A2ACGalgorithm_map))
@@ -1164,6 +1177,7 @@ struct vml_enum_map A2ACGalgorithm_map[] = {
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionRestartedCG",AlgorithmMixedPrecisionRestartedCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateCG",AlgorithmMixedPrecisionReliableUpdateCG},
 	{"A2ACGalgorithm","AlgorithmMixedPrecisionReliableUpdateSplitCG",AlgorithmMixedPrecisionReliableUpdateSplitCG},
+	{"A2ACGalgorithm","AlgorithmMixedPrecisionMADWF",AlgorithmMixedPrecisionMADWF},
 	{NULL,NULL,0}
 };
 CPS_END_NAMESPACE

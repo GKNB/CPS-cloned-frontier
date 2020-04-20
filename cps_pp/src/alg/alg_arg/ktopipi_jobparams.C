@@ -45,6 +45,16 @@ vml_CGcontrols (VML *vmls, char *name,CGcontrols *objp)
 	 if (!vml_array (vmls, "split_grid_geometry", (char **)&objp->split_grid_geometry.split_grid_geometry_val, (u_int *) &objp->split_grid_geometry.split_grid_geometry_len, ~0,
 		sizeof (int), (vmlproc_t) vml_int))
 		 return FALSE;
+	 if (!vml_int (vmls, "MADWF_Ls_inner", &objp->MADWF_Ls_inner))
+		 return FALSE;
+	 if (!vml_double (vmls, "MADWF_b_plus_c_inner", &objp->MADWF_b_plus_c_inner))
+		 return FALSE;
+	 if (!vml_bool (vmls, "MADWF_use_ZMobius", &objp->MADWF_use_ZMobius))
+		 return FALSE;
+	 if (!vml_double (vmls, "MADWF_ZMobius_lambda_max", &objp->MADWF_ZMobius_lambda_max))
+		 return FALSE;
+	 if (!vml_A2Apreconditioning (vmls, "MADWF_precond", &objp->MADWF_precond))
+		 return FALSE;
 	 vml_class_end(vmls,"CGcontrols",name);
 	return TRUE;
 }
@@ -59,6 +69,11 @@ void rpc_print<CGcontrols>::doit(CGcontrols const &what, const std::string &pref
 	rpc_print<double>::doit(what.reliable_update_transition_tol,spaces+" reliable_update_transition_tol = ");
 	rpc_print<int>::doit(what.multiCG_block_size,spaces+" multiCG_block_size = ");
 	rpc_print<int *>::doit(what.split_grid_geometry.split_grid_geometry_val,what.split_grid_geometry.split_grid_geometry_len,spaces+" split_grid_geometry = ");
+	rpc_print<int>::doit(what.MADWF_Ls_inner,spaces+" MADWF_Ls_inner = ");
+	rpc_print<double>::doit(what.MADWF_b_plus_c_inner,spaces+" MADWF_b_plus_c_inner = ");
+	rpc_print<bool_t>::doit(what.MADWF_use_ZMobius,spaces+" MADWF_use_ZMobius = ");
+	rpc_print<double>::doit(what.MADWF_ZMobius_lambda_max,spaces+" MADWF_ZMobius_lambda_max = ");
+	rpc_print<A2Apreconditioning>::doit(what.MADWF_precond,spaces+" MADWF_precond = ");
 	std::cout << spaces << "}\n";
 }
 void CGcontrols::print(const std::string &prefix){
@@ -74,6 +89,11 @@ void rpc_deepcopy<CGcontrols>::doit(CGcontrols &into, CGcontrols const &from){
 	  rpc_deepcopy<int>::doit(into.multiCG_block_size,from.multiCG_block_size);
 	  into.split_grid_geometry.split_grid_geometry_len = from.split_grid_geometry.split_grid_geometry_len;
 	  rpc_deepcopy<int *>::doit(into.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_val,from.split_grid_geometry.split_grid_geometry_len);
+	  rpc_deepcopy<int>::doit(into.MADWF_Ls_inner,from.MADWF_Ls_inner);
+	  rpc_deepcopy<double>::doit(into.MADWF_b_plus_c_inner,from.MADWF_b_plus_c_inner);
+	  rpc_deepcopy<bool_t>::doit(into.MADWF_use_ZMobius,from.MADWF_use_ZMobius);
+	  rpc_deepcopy<double>::doit(into.MADWF_ZMobius_lambda_max,from.MADWF_ZMobius_lambda_max);
+	  rpc_deepcopy<A2Apreconditioning>::doit(into.MADWF_precond,from.MADWF_precond);
 }
 void CGcontrols::deep_copy(CGcontrols const &rhs){
 	rpc_deepcopy<CGcontrols>::doit(*this,rhs);

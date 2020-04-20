@@ -9,6 +9,7 @@
 
 CPS_START_NAMESPACE
 
+//Call Grid Lanczos with given Dirac operator
 template<typename GridFermionField, typename GridGaugeField, typename GridDirac>
 void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
 		 GridDirac &Ddwf, const GridGaugeField& Umu,
@@ -116,7 +117,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
 }
 
   
-
+//Construct Grids and Dirac operator
 template<typename GridPolicies>
 void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<typename GridPolicies::GridFermionField> &evec, const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lattice){
   typedef typename GridPolicies::GridFermionField GridFermionField;

@@ -38,7 +38,7 @@ inline void compareFermion(const CPSfermion5D<ComplexD> &A, const CPSfermion5D<C
   }
 }
 
-template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,void>::type>
+template<typename FieldType, typename my_enable_if<_equal<typename ComplexClassify<typename FieldType::FieldSiteType>::type, complex_double_or_float_mark>::value,int>::type = 0>
 inline void compareField(const FieldType &A, const FieldType &B, const std::string &descr = "Field", const double tol = 1e-9, bool print_all = false){
   typedef typename FieldType::FieldSiteType::value_type value_type;
   
@@ -53,15 +53,16 @@ inline void compareField(const FieldType &A, const FieldType &B, const std::stri
       for(int reim=0;reim<2;reim++){
 	value_type diff_rat = (av[reim] == 0.0 && bv[reim] == 0.0) ? 0.0 : fabs( 2.*(av[reim]-bv[reim])/(av[reim]+bv[reim]) );
 	if(diff_rat > tol || print_all){
-	  if(!print_all) std::cout << "Fail: (";
-	  else std::cout << "Pass: (";
+	  if(diff_rat > tol) std::cout << "!FAIL: ";
+	  else std::cout << "Pass: ";
 	  
+	  std::cout << "coord=(";
 	  for(int xx=0;xx<FieldType::FieldMappingPolicy::EuclideanDimension-1;xx++)
 	    std::cout << x[xx] << ", ";
 	  std::cout << x[FieldType::FieldMappingPolicy::EuclideanDimension-1];
 
-	  std::cout << ") f=" << f << " reim " << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
-	  if(!print_all) fail = 1.;
+	  std::cout << ") f=" << f << " i=" << i << " reim=" << reim << " A " << av[reim] << " B " << bv[reim] << " fracdiff " << diff_rat << std::endl;
+	  if(diff_rat > tol) fail = 1.;
 	}
       }
     }

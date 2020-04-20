@@ -891,9 +891,15 @@ enum BfmSolverType {
  BFM_HtContFracZolo
 };
 
+enum A2Apreconditioning{
+     SchurOriginal,
+     SchurDiagTwo
+};
+
 enum A2ACGalgorithm {
  AlgorithmCG,
  AlgorithmMixedPrecisionRestartedCG,
  AlgorithmMixedPrecisionReliableUpdateCG,
- AlgorithmMixedPrecisionReliableUpdateSplitCG
+ AlgorithmMixedPrecisionReliableUpdateSplitCG,
+ AlgorithmMixedPrecisionMADWF
 };

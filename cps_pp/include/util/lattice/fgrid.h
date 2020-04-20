@@ -118,14 +118,28 @@ protected:
 
 public:
   static void setGridInitted(const bool value = true){ grid_initted = value; }
-  double get_mob_b (){
+
+  inline double get_mob_b () const{
     return mob_b;
   };
+  inline double get_mob_c () const{
+    return mob_c;
+  };
+  inline double get_mass () const{
+    return mass;
+  }  
+
   Grid::GridCartesian * getFGrid () {
     return FGridD;
   }
+  Grid::GridCartesian * getFGridF () {
+    return FGridF;
+  }
   Grid::GridRedBlackCartesian * getFrbGrid () {
     return FrbGridD;
+  }
+  Grid::GridRedBlackCartesian * getFrbGridF () {
+    return FrbGridF;
   }
   Grid::GridCartesian * getUGrid () {
     return UGridD;
@@ -136,6 +150,10 @@ public:
   Grid::GridRedBlackCartesian * getUrbGrid () {
     return UrbGridD;
   }
+  Grid::GridRedBlackCartesian * getUrbGridF () {
+    return UrbGridF;
+  }
+
   Grid::LatticeGaugeFieldD * getUmu () {
     return Umu;
   }

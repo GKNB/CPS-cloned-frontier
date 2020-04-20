@@ -32,6 +32,11 @@ public:
 		u_int split_grid_geometry_len;
 		int *split_grid_geometry_val;
 	} split_grid_geometry;
+	int MADWF_Ls_inner;
+	double MADWF_b_plus_c_inner;
+	bool_t MADWF_use_ZMobius;
+	double MADWF_ZMobius_lambda_max;
+	A2Apreconditioning MADWF_precond;
 	   void print(const std::string &prefix ="");
 	   void deep_copy(const CGcontrols &rhs);
 };

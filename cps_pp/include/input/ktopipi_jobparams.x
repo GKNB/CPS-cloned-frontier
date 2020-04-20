@@ -3,11 +3,19 @@ class CGcontrols{
   double CG_tolerance;
   int CG_max_iters;
   double mixedCG_init_inner_tolerance; //mixed precision restarted CG inner CG initial tolerance
+
   double reliable_update_delta; //'delta' parameter of reliable update CG, controlling how often the reliable update is performed
   double reliable_update_transition_tol; //tolerance at which the single precision linear operator is replaced by the 'fallback' operator (use 0 to not use the fallback)
+
   int multiCG_block_size; //if using multi-RHS or split-CG, how many solves are we performing at once?
   int split_grid_geometry<>; //if using a split-Grid technique, how do you want to divide up the lattice?
   
+  int MADWF_Ls_inner; //Inner Ls for MADWF
+  double MADWF_b_plus_c_inner; //Inner b+c for MADWF
+  bool MADWF_use_ZMobius; //Use ZMobius instead of Mobius (complex coefficients, allows smaller inner Ls)
+  double MADWF_ZMobius_lambda_max; //In generating ZMobius approx we need the upper bound of the eigenvalues of the Wilson kernel. 1.42 seems to be a standard number!
+  A2Apreconditioning MADWF_precond; //SchurDiagTwo typically converges faster for MADWF (make sure your eigenvectors are also computed using this preconditioning!) 
+
   rpccommand GENERATE_PRINT_METHOD;
   rpccommand GENERATE_DEEPCOPY_METHOD;
 };

@@ -294,11 +294,13 @@ public:
 
   //Compute the low mode part of the W and V vectors.
   void computeVWlow(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass);
-
+  
+private:
   //Compute the high mode parts of V and W using either standard CG or a multi-RHS CG variant, respectively
   void computeVWhighSingle(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
   void computeVWhighMulti(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
-
+  void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+public:
   //Chooses the appropriate function from the previous two based on the cg_controls
   void computeVWhigh(A2AvectorV<Policies> &V, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
 #endif

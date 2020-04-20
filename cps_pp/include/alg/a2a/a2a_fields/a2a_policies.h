@@ -46,12 +46,16 @@ struct BaseGridPolicies{
   typedef Grid::MobiusFermionFH GridDiracFH;
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_MOBIUS };
   
+  typedef Grid::ZMobiusFermionD GridDiracZMobius;
+  
   typedef typename GridDirac::FermionField GridFermionField;
   typedef typename GridDiracF::FermionField GridFermionFieldF;
 #ifdef GRID_INNER_CG_HALFPREC_COMMS
   typedef GridDiracFH GridDiracFMixedCGInner; //which single-precision fermion action to use for inner CG of Grid high mode calculation
+  typedef Grid::ZMobiusFermionFH GridDiracFZMobiusInner;
 #else
   typedef GridDiracF GridDiracFMixedCGInner;
+  typedef Grid::ZMobiusFermionF GridDiracFZMobiusInner;
 #endif
 };
 
@@ -63,12 +67,16 @@ struct BaseGridPoliciesGparity{
   typedef Grid::GparityMobiusFermionFH GridDiracFH; //half-precision comms
   enum { FGRID_CLASS_NAME=F_CLASS_GRID_GPARITY_MOBIUS };
   
+  typedef Grid::ZGparityMobiusFermionD GridDiracZMobius;
+
   typedef typename GridDirac::FermionField GridFermionField;
   typedef typename GridDiracF::FermionField GridFermionFieldF;
 #ifdef GRID_INNER_CG_HALFPREC_COMMS
   typedef GridDiracFH GridDiracFMixedCGInner; //which single-precision fermion action to use for inner CG of Grid high mode calculation
+  typedef Grid::ZGparityMobiusFermionFH GridDiracFZMobiusInner;
 #else
   typedef GridDiracF GridDiracFMixedCGInner;
+  typedef Grid::ZGparityMobiusFermionF GridDiracFZMobiusInner;
 #endif
 };
 
@@ -78,9 +86,11 @@ struct BaseGridPoliciesGparity{
   typedef typename BGP::GridDirac GridDirac;		\
   typedef typename BGP::GridDiracF GridDiracF;		\
   typedef typename BGP::GridDiracFH GridDiracFH;		\
-  typedef typename BGP::GridDiracFMixedCGInner GridDiracFMixedCGInner; \
+  typedef typename BGP::GridDiracZMobius GridDiracZMobius;	\
   typedef typename BGP::GridFermionField GridFermionField;	\
   typedef typename BGP::GridFermionFieldF GridFermionFieldF; \
+  typedef typename BGP::GridDiracFMixedCGInner GridDiracFMixedCGInner; \
+  typedef typename BGP::GridDiracFZMobiusInner GridDiracFZMobiusInner; \
   enum { FGRID_CLASS_NAME=BGP::FGRID_CLASS_NAME }
 
 #endif
