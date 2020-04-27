@@ -1,7 +1,4 @@
-#include <alg/a2a/a2a.h>
-#include <alg/a2a/utils_main.h>
-#include <alg/a2a/grid_wrappers.h>
-
+#include <alg/a2a/a2a_fields.h>
 
 USING_NAMESPACE_CPS
 
@@ -59,7 +56,6 @@ void testRandVol(const A2AvectorW<A2Apolicies> &W, Lattice &lat, double mass){
   cg.stop_rsd = 1e-08;
   cg.true_rsd = 1e-08;
   cg.RitzMatOper = MATPCDAG_MATPC;
-  cg.Inverter = CG_LOWMODE_DEFL;
 
   qpropw_arg.file = "";
   qpropw_arg.flavor = 0;
@@ -89,7 +85,7 @@ void testRandVol(const A2AvectorW<A2Apolicies> &W, Lattice &lat, double mass){
     
     Rcomplex tr = loop.Trace();
 
-    std::cout << "TEST: " << std::real(tr) << " " << std::imag(tr) << std::endl;
+    std::cout << "TEST: Loop trace, site 0 - using random volume source: " << std::real(tr) << " " << std::imag(tr) << std::endl;
   }
 
 }
@@ -169,14 +165,14 @@ int main (int argc,char **argv )
   printf("Grid b=%g c=%g b+c=%g\n",mob_b,mob_c,mob_b+mob_c);
 
   //Do the Lanczos
-  std::cout << "GridLanczosWrapper<A2Apolicies> lanczos" << endl;
+  std::cout << "GridLanczosWrapper<A2Apolicies> lanczos" << std::endl;
   GridLanczosWrapper<A2Apolicies> lanczos;
-  std::cout << "lanczos.compute(lanc_arg, lattice)" << endl;
+  std::cout << "lanczos.compute(lanc_arg, lattice)" << std::endl;
   lanczos.compute(lanc_arg, lattice);
 
   //Typically we convert the evecs to single precision to save memory
   //(Note split Grid not yet supported if we don't have single-prec evecs)
-  lanczos.toSingle(lattice);
+  lanczos.toSingle();
   
   A2AvectorW<A2Apolicies> W(a2a_arg);
   A2AvectorV<A2Apolicies> V(a2a_arg);
@@ -218,10 +214,10 @@ int main (int argc,char **argv )
     
     Rcomplex tr = loop.Trace();
 
-    std::cout << "Loop trace, site 0: " << std::real(tr) << " " << std::imag(tr) << std::endl;
+    std::cout << "TEST: Loop trace, site 0 - using A2A V and W vectors: " << std::real(tr) << " " << std::imag(tr) << std::endl;
   }
 
-
+  qpropw_arg.cg.Inverter = CG;
   const char *evec_name = "light_evec";
 
   qpropw_arg.cg.fname_eigen = (char *) evec_name;
@@ -231,29 +227,15 @@ int main (int argc,char **argv )
 
   if(N_evec>0)
   {
-
+    qpropw_arg.cg.Inverter = CG_LOWMODE_DEFL;
     EigenCacheGrid<GridFermionFieldF>  *ecache = new EigenCacheGrid <GridFermionFieldF> (evec_name);
-//    const int n_fields = GJP.SnodeSites ();
-//    const size_t f_size_per_site = lattice.FsiteSize () / n_fields / 2;     // checkerboarding
-//    size_t evec_size = (size_t) (GJP.VolNodeSites () / 2) * lattice.FsiteSize ();
-//    assert(evec_size != lattice.half_size)
-//    size_t fsize = evec_size;
-//    int data_size = sizeof (Float);
-//    if (lanczos_arg.precision == PREC_SINGLE)
-//      data_size = sizeof (float);
-//    ecache->alloc (N_evec,evec_size, data_size);
     ecache->load(lanczos.eval, lanczos.evec_f);
-//    ecache->read_compressed ((char*)evec_dir);
     EigenCacheList.push_back (ecache);
   }
 
-
-
   VRB.Result("",fname,"W.getNl()=%d\n",W.getNl());
-//  if(W.getNl() == 0) 
   testRandVol(W, lattice, lanc_arg.mass);
-  /*
-  */
+
   if(!UniqueID()) printf("Done\n");
   End();
 }
