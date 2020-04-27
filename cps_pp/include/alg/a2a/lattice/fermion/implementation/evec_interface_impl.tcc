@@ -157,8 +157,6 @@ class EvecInterfaceGridSinglePrec: public EvecInterface<GridPolicies>{
   GridDiracF* Ddwf_f_ss;
   Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF> *Linop_f_ss; //single/single
 
-  bool delete_FrbGrid_f; //if this object news the grid rather than imports it, it must be deleted
-
   //Operators required for MADWF
   GridDiracFZMobiusInner* DZmob_f;
   Grid::GridCartesian * FGrid_Zmob_f;
@@ -183,31 +181,20 @@ public:
   EvecInterfaceGridSinglePrec(const std::vector<GridFermionFieldF> &_evec, 
 			      const std::vector<Grid::RealD> &_eval, 
 			      Lattice &lat, const double _mass): evec(_evec), eval(_eval),
-								 delete_FrbGrid_f(false), mass(_mass),
+								 mass(_mass),
 								 Umu(*dynamic_cast<FgridFclass&>(lat).getUmu()),								 
 								 DZmob_f(NULL), FGrid_Zmob_f(NULL), FrbGrid_Zmob_f(NULL), delete_FrbGrid_Zmob_f(false)
   {
+    //Copy the Grid pointers
     FgridFclass &latg = dynamic_cast<FgridFclass&>(lat);
     UGrid = latg.getUGrid();
     UrbGrid = latg.getUrbGrid();
-    
-    //Make a single precision Grid (used by the Mixed prec solver also even if no evecs)
-    std::vector<int> nodes(4);
-    std::vector<int> vol(4);
-    for(int i=0;i<4;i++){
-      vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
-      nodes[i]= GJP.Nodes(i);
-    }
-    UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd()),nodes);
-    FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-    UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
-
-    if(_evec.size() > 0) FrbGrid_f = dynamic_cast<Grid::GridRedBlackCartesian*>(_evec[0].Grid());
-    else{
-      FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);
-      delete_FrbGrid_f = true;
-    }
-    
+    UGrid_f = latg.getUGridF();
+    FGrid_f = latg.getFGridF();
+    UrbGrid_f = latg.getUrbGridF();
+    FrbGrid_f = latg.getFrbGridF();
+   
+    //Setup gauge field and Dirac operators
     Umu_f = new GridGaugeFieldF(UGrid_f);
     precisionChange(*Umu_f, Umu);
 
@@ -217,9 +204,11 @@ public:
 
     latg.SetParams(params);
     
+    //single-single/single-half
     Ddwf_f = new GridDiracFMixedCGInner(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
     Linop_f = new Grid::SchurDiagMooeeOperator<GridDiracFMixedCGInner,GridFermionFieldF>(*Ddwf_f);
 
+    //single-single
     Ddwf_f_ss = new GridDiracF(*Umu_f,*FGrid_f,*FrbGrid_f,*UGrid_f,*UrbGrid_f,mass,M5,mob_b,mob_c, params);
     Linop_f_ss = new Grid::SchurDiagMooeeOperator<GridDiracF,GridFermionFieldF>(*Ddwf_f_ss);
   }
@@ -260,15 +249,11 @@ public:
   
 
   ~EvecInterfaceGridSinglePrec(){
-    delete UGrid_f;
-    delete UrbGrid_f;
-    delete FGrid_f;
     delete Umu_f;
     delete Ddwf_f;
     delete Linop_f;
     delete Ddwf_f_ss;
     delete Linop_f_ss;
-    if(delete_FrbGrid_f) delete FrbGrid_f;
 
     if(DZmob_f) delete DZmob_f;
     if(FGrid_Zmob_f) delete FGrid_Zmob_f;
@@ -303,6 +288,7 @@ public:
 # endif
       mCG(source,solution);
     }
+
 #ifndef DISABLE_GRID_RELIABLE_UPDATE_CG //Old versions of Grid don't have it      
     else if(cg_controls.CGalgorithm == AlgorithmMixedPrecisionReliableUpdateCG){
       Grid::ConjugateGradientReliableUpdate<GridFermionField,GridFermionFieldF> rlCG(cg_controls.CG_tolerance, cg_controls.CG_max_iters, cg_controls.reliable_update_delta, FrbGrid_f, *Linop_f, linop);

@@ -4,11 +4,12 @@
 #include <util/gjp.h>
 #include <util/site.h>
 #include <util/qcdio.h>
-#include <util/link_buffer.h>
+#include <util/gauge_field.h>
 #include <comms/glb.h>
 #include <comms/scu.h>
 #include <omp.h>
 #include <util/time_cps.h>
+#include <cassert>
 CPS_START_NAMESPACE
 
 /*!
@@ -23,22 +24,19 @@ void AlgActionDensity::ZeroReal(Matrix& m)
 
   //Replacing above with below gives a factor of 2 speedup for the entire smartrun:
   for(int i = 0; i < 3; i++) {
-    Rcomplex & elem = m(i, i);
-    elem = Rcomplex(0.0,elem.imag());
+    m(i, i).real(0);
   }
 
   for(int x = 0; x < 2; x++) {
     for(int y = x+1; y < 3; y++) {
-      Rcomplex & mxy = m(x, y);
-      Rcomplex & myx = m(y, x);
-
-      Float a = mxy.real();
-      Float b = mxy.imag();
-      Float c = myx.real();
-      Float d = myx.imag();
-   
-      mxy = Rcomplex( 0.5 * (a - c), 0.5 * (b + d) );
-      myx = Rcomplex( 0.5 * (c - a), 0.5 * (b + d) );
+      Float a = m(x, y).real();
+      Float b = m(x, y).imag();
+      Float c = m(y, x).real();
+      Float d = m(y, x).imag();
+      m(x, y).real(0.5 * (a - c));
+      m(x, y).imag(0.5 * (b + d));
+      m(y, x).real(0.5 * (c - a));
+      m(y, x).imag(0.5 * (b + d));
     }
   }
 }
@@ -77,7 +75,7 @@ Complex AlgActionDensity::ActionDensity(Matrix clovers[])
   Calculate Clover leaf (1x1 size) SU(3) Matrix 
   Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
 */
-void AlgActionDensity::CloverLeaf(Lattice& lattice, Matrix& pl,  int* pos, int mu, int nu)
+void AlgActionDensity::CloverLeaf(GaugeField& gf, Matrix& pl,  int* pos, int mu, int nu)
 {
    Matrix P0,P1,P2,P3;
 
@@ -91,17 +89,16 @@ void AlgActionDensity::CloverLeaf(Lattice& lattice, Matrix& pl,  int* pos, int m
 
 
    int dirs0[4]={mu,nu, mu+4, nu+4};
-   lattice.PathOrdProdPlus(P0, pos, dirs0, 4);
-
+   gfPathOrdProdPlus(P0, gf, pos, dirs0, 4);
 
    int dirs1[4]={nu+4,mu+4, nu, mu};
-   lattice.PathOrdProdPlus(P1, pos, dirs1, 4);
+   gfPathOrdProdPlus(P1, gf, pos, dirs1, 4);
 
    int dirs2[4]={nu,mu+4, nu+4, mu};
-   lattice.PathOrdProdPlus(P2, pos, dirs2, 4);
+   gfPathOrdProdPlus(P2, gf, pos, dirs2, 4);
 
    int dirs3[4]={mu,nu+4, mu+4, nu};
-   lattice.PathOrdProdPlus(P3, pos, dirs3, 4);
+   gfPathOrdProdPlus(P3, gf, pos, dirs3, 4);
 
 
    
@@ -114,195 +111,113 @@ void AlgActionDensity::CloverLeaf(Lattice& lattice, Matrix& pl,  int* pos, int m
 
 }
 
-
 void AlgActionDensity::run(Float *result)
 {
-  Lattice& lattice( AlgLattice() );  
+  const char fname[] = "run()";
+  Lattice& lat( AlgLattice() );  
 
-  Float action = 0;
+  static bool initialized = false;
+  static Offsets offsets;
 
-  // sum over lattice
-  Site nloop;
-  
-  while ( nloop.LoopsOverNode() )
-    {
-      // Array of imaginary parts of the plaquettes
-      // at a given site
-      
-      // clovers[0]  = F_01
-      // clovers[1]  = F_02
-      // clovers[2]  = F_03
-      // clovers[3]  = F_12
-      // clovers[4]  = F_13
-      // clovers[5]  = F_23
+  cps::GaugeField gf(lat);
+  const int buffer_thickness = 1; //Required expansion in each direction
+  gf.resize(buffer_thickness);
+  if (!initialized) {
+    gf.refresh();
+    gf.recordOffsetStart(false, true);
+  } else {
+    gf.refresh(offsets);
+  }
 
-      Matrix clovers[6];
-      //
-      // fill clovers, then zero the real parts
-      //
+  Float action = 0;  
 
-      int mu;
-      int nu;
-      int index(0);
+  const int t_extent = GJP.Sites(3); //Global number of time slices.
 
-      for (mu=0;mu<3;++mu)
-        {
-          for (nu=mu+1;nu<4;nu++)
-            { 
-		CloverLeaf( lattice, clovers[index], nloop.pos(), mu, nu );
-      	        ZeroReal(clovers[index]);
-	        index++;
-            }
-        }
-	      
-      action += ActionDensity(clovers).real();
-    }
-  
-  // global sum the approximations
-  glb_sum(&action);
-  
-  Float action_density = action / GJP.VolSites();
-  
-  if(result!=NULL) *result = action_density;
+  //Action summed over each time slice:
+  Float slice_actions[t_extent];
+  for(int t = 0; t < t_extent; t++) slice_actions[t] = 0.0;
 
-  // Print out results
-  //----------------------------------------------------------------
-
-  if(common_arg->filename != 0)
-    {
-      const char *fname = "run()";
-      FILE *fp;
-      if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
-        ERR.FileA(cname,fname,common_arg->filename);
-      }
-
-      //Prints mean value of (1/2)tr(F_mu_nu F_mu_nu), in units of a^4
-      Fprintf(fp, "%15e\n", action_density);
-      
-      Fclose(fp);
-    }
-
-}
-
-inline Float * AlgActionDensity::GsiteOffset(Float * p, const int *x, const int *g_dir_offset)
-{
-  return p + 
-    x[0] * g_dir_offset[0] +
-    x[1] * g_dir_offset[1] +
-    x[2] * g_dir_offset[2] +
-    x[3] * g_dir_offset[3];
-}
-
-void AlgActionDensity::PathOrdProd(Matrix & mat, int* x, int* dirs, int n, 
-    Float *gfield, int *g_dir_offset)
-{
-  int abs_dir;
-  int dir_sign;
-  int link_site[4];
-  const int MatrixSize = 18;
-  
-  const Matrix * p1;
-
-  int i;
-  for(i = 0; i < 4; ++i)
-    link_site[i] = x[i]; 
-
-  //deal with the first link
-  //abs_dir is {0,1,2,3}
-  //dir_sign is {0 = positive, 1 = negative}
-  //------------------------------
-  abs_dir = dirs[0] & 3; 
-  dir_sign = dirs[0] >> 2; 
-
-  //if dir_sign == 1, the link is at x-n_v
-  link_site[abs_dir] -= dir_sign; 
-
-  //p1 = GetBufferedLink(link_site, abs_dir);  
-  //get the first link 
-  p1 = (Matrix*) GsiteOffset(gfield, link_site, g_dir_offset) + abs_dir;    
-
-  //if dir_sign == 0, march on to the next site, 
-  //if dir_sign == 1, we have already moved.
-  link_site[abs_dir] += 1 - dir_sign; 
-  
-  //Temporary matrices and ther pointers
-  Matrix ma, mb, mc;
-  Matrix *pma  = &ma;
-  Matrix *pmb  = &mb;
-  Matrix *pmc  = &mc;
-
-  //if dir_sign==1 the link is going backward so get its dagger
-  if(dir_sign) 
-    pma -> Dagger((IFloat*)p1);
-  else 
-    memcpy((IFloat*)pma, (IFloat*)p1, MatrixSize * sizeof(IFloat));
-  
-  for(i = 1; i < n; ++i)
+#pragma omp parallel reduction(+:action)
   {
-    abs_dir = dirs[i]&3; 
-    dir_sign = dirs[i]>>2; 
-    
-    link_site[abs_dir] -= dir_sign; 
-    p1 = (Matrix*) GsiteOffset(gfield, link_site, g_dir_offset) + abs_dir;    
-    link_site[abs_dir] += 1 - dir_sign; 
+    //Thread-local sums over time slices, since OpenMP can't automatically
+    //reduce arrays.
+    Float thread_slice_actions[t_extent];
+    for(int t = 0; t < t_extent; t++) thread_slice_actions[t] = 0.0;
 
-    //put the next link on the path in mb
-    //--------------------------------------
-    if(dir_sign)
-      mb.Dagger((IFloat*)p1); 
-    else 
-      memcpy((IFloat*)pmb, (IFloat*)p1, MatrixSize * sizeof(IFloat));
+#pragma omp for 
+    for(int i = 0; i < GJP.VolNodeSites(); ++i)
+    {
+      int y[4];
+      gf.coordinatesFromIndex(y, i);
 
-    // if not the last link on the path, just multiply to the earlier result
-    // mc = ma * mb
-    // if the last link, multiply and add to mat
-    if(i != n - 1)
-      mDotMEqual((IFloat*)pmc, (IFloat*)pma, (IFloat*)pmb);
-    else
-      mDotMPlus((IFloat*)&mat, (IFloat*)pma, (IFloat*)pmb);
+      int index = 0;
+      Matrix clovers[6];
+      for(int mu = 0; mu < 3; ++mu)
+        for(int nu = mu + 1; nu < 4; ++nu)
+        {
+          CloverLeaf(gf, clovers[index], y, mu, nu);
+          ZeroReal(clovers[index]);
+          index++;
+        }
 
-    //swap pma and pmc;
-    Matrix * tmp_p = pma; pma = pmc; pmc = tmp_p;
+      Float a = ActionDensity(clovers).real();
+      action += a;
+
+      int t = y[3] + GJP.TnodeSites() * GJP.TnodeCoor(); //global time slice index
+      thread_slice_actions[t] += a;
+    }
+
+    //Manually reduce the slice actions
+#pragma omp critical
+    {
+      for(int t = 0; t < t_extent; t++) {
+        slice_actions[t] += thread_slice_actions[t];
+      }
+    }
+  } //action is automatically reduced
+
+  if (!initialized) {
+    offsets = gf.getRecordedOffsets();
+    gf.recordOffsetEnd();
+    initialized = true;
+  }
+
+  //Sum results over all nodes.
+#ifdef USE_QMP
+  glb_sum(&action);
+  QMP_sum_double_array(slice_actions, t_extent);
+#endif
+
+  Float action_density = action / GJP.VolSites();
+  if(result) *result = action_density;
+
+  const int slice_sites = GJP.Sites(0) * GJP.Sites(1) * GJP.Sites(2);
+  Float slice_densities[t_extent];
+  for(int t = 0; t < t_extent; t++) {
+    slice_densities[t] = slice_actions[t] / slice_sites;
+  }
+
+  //Print out results
+  if(common_arg->filename != 0) {
+    char *fname = "run()";
+    FILE *fp;
+    if( (fp = Fopen(common_arg->filename, "a")) == NULL ) {
+      ERR.FileA(cname,fname,common_arg->filename);
+    }
+
+    //Prints mean value of (1/2)tr(F_mu_nu F_mu_nu), in units of a^4
+    Fprintf(fp, "%15e\n", action_density);
+
+    for(int t = 0; t < t_extent; t++) {
+      Fprintf(fp, "%15e ", slice_densities[t]);
+    }
+    Fprintf(fp, "\n");
+      
+    Fclose(fp);
   }
 }
 
-// ------------------------------------------------------------------
-// each direction could be {0,1,2,3,4,5,6,7} coresponding to
-// the directions {n_x, n_y, n_z, n_t, -n_x, -n_y, -n_z, -n_t}
-// ------------------------------------------------------------------
-/*!
-  Calculate Clover leaf (1x1 size) SU(3) Matrix 
-  Sheikholeslami, Wohlert, NPB259, 572 (1985)  Eq. (2.9)
-*/
-void AlgActionDensity::CloverLeaf(Matrix& pl, int* pos, int mu, int nu, 
-    Float *gfield, int *g_dir_offset)
-{
-   Matrix P0, P1, P2, P3;
-
-   P0.ZeroMatrix();
-   P1.ZeroMatrix();
-   P2.ZeroMatrix();
-   P3.ZeroMatrix();
-
-   int dirs0[4] = {mu, nu, mu + 4, nu + 4};
-   int dirs1[4] = {nu + 4, mu + 4, nu, mu};
-   int dirs2[4] = {nu, mu + 4, nu + 4, mu};
-   int dirs3[4] = {mu, nu + 4, mu + 4, nu};
-
-   PathOrdProd(P0, pos, dirs0, 4, gfield, g_dir_offset);
-   PathOrdProd(P1, pos, dirs1, 4, gfield, g_dir_offset);
-   PathOrdProd(P2, pos, dirs2, 4, gfield, g_dir_offset);
-   PathOrdProd(P3, pos, dirs3, 4, gfield, g_dir_offset);
-   
-   P0 -= P1;
-   P0 += P2;
-   P0 -= P3;
-   P0 *= 0.25;
-   
-   memcpy((Float*) &pl, (Float*) &P0, 18 * sizeof(Float));
-}
-
-
+#if 0
 // A communication efficient way of calculating the t-charge
 // Pass the surface slab to adjacent nodes once
 // Do all the calculation locally.
@@ -314,10 +229,14 @@ void AlgActionDensity::CloverLeaf(Matrix& pl, int* pos, int mu, int nu,
 // volume and pass on the data to the next neighbor
 // Local size  >= 2 & Slab = 3
 // Twice as large on each dimension will suffice.
+
 void AlgActionDensity::smartrun(Float* result)
 {
   const char fname[] = "smartrun()";
   Lattice& lat( AlgLattice() );  
+#if 1
+  ERR.General(cname,fname,"Not ported to GaugeField yet");
+#else
 
   const int Slab = 1; //Expansion in each direction
 
@@ -873,7 +792,9 @@ void AlgActionDensity::smartrun(Float* result)
       
     Fclose(fp);
   }
+#endif
 }
+#endif
 
 
 CPS_END_NAMESPACE

@@ -7,12 +7,10 @@
 
 SRCDIR = @abs_top_srcdir@
 BUILDDIR = @abs_top_builddir@
-QOS = @QOS@
-QOSLIB = ${QOS}/quser/gcc-lib-user///
 CC = @CC@
 CXX = @CXX@
 AS  = @AS@
-LDFLAGS = @LDFLAGS@
+LDFLAGS = @LDFLAGS@ @LIBS@
 
 me = $(notdir $(PWD))
 BIN = @ARCH@.x
@@ -30,6 +28,8 @@ CFLAGS= @CFLAGS@
 CXXFLAGS= @CXXFLAGS@
 ASFLAGS= @ASFLAGS@
 DFLAGS += @DFLAGS@
+libcps_CXXFLAGS = $(INCLIST) $(CXXFLAGS) $(DFLAGS)
+libcps_CFLAGS = $(INCLIST) $(CFLAGS) $(DFLAGS)
 
 #
 # Libraries for the Columbia code
@@ -52,7 +52,7 @@ LIBLIST = $(BUILDDIR)/libcps.a
 all:$(BIN)
 
 .SUFFIXES:
-.SUFFIXES:  .o .C .S .c
+.SUFFIXES:  .o .C .S .c .x
 
 CSRC := $(notdir $(wildcard $(VPATH)/*.c) )
 CCSRC := $(notdir $(wildcard $(VPATH)/*.C) )
@@ -69,11 +69,15 @@ $(BIN):  $(OBJS) $(LIBLIST)
 	$(CXX) $(OBJS) $(LIBLIST) $(LDFLAGS) -o $(BIN)
 
 .c.o:
-	$(CC) -o $@ $(CFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CC) -o $@ $(libcps_CFLAGS) -c $(INCLIST) $<
 .C.o:
-	$(CXX) -o $@ $(CXXFLAGS) $(DFLAGS) -c $(INCLIST) $<
+	$(CXX) -E $(libcps_CXXFLAGS) $< > $*.i
+	$(CXX) -o $@ $(libcps_CXXFLAGS) -c $(INCLIST) $<
 .S.o:
 	$(AS) -o $@ $(ASFLAGS) -c $(INCLIST) $<
+.o.x: $(LIBLIST)
+	$(CXX) $< $(LIBLIST) $(LDFLAGS) -o $@
+
 
 cps:
 	$(MAKE) -C $(BUILDDIR)

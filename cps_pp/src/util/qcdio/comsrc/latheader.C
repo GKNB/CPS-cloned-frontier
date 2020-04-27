@@ -311,6 +311,58 @@ void LatticeHeader::read(istream & fin) {
   floating_point = fp.setFileFormat(hd.asString("FLOATING_POINT").c_str());
 }
 
+void LatticeHeader::readMILC(istream & fin) {
+  
+  const char *fname="readMILC(s&)";
+  VRB.Result(cname,fname,"Entered\n");
+  string line;
+  while(!fin.eof()) {
+    getline(fin,line); // read one line
+    std::cout << "line= "<< line;
+    hd.add(line);
+  } 
+//  while( line.find("END_HEADER") == string::npos);
+  
+  data_start = fin.tellg();
+  
+  // interpret header
+//  hdr_version = hd.asString("HDR_VERSION");
+//  if(hd.asString("DATATYPE") == "4D_SU3_GAUGE")
+//    recon_row_3 = 1;
+//  else
+    recon_row_3 = 0;
+//  storage_format = hd.asString("STORAGE_FORMAT");
+
+  dimension[0] = hd.asInt("nx");
+  dimension[1] = hd.asInt("ny");
+  dimension[2] = hd.asInt("nz");
+  dimension[3] = hd.asInt("nt");
+
+  link_trace = hd.asFloat("gauge.nersc_linktr");
+  plaquette = (hd.asFloat("gauge.ssplaq") + hd.asFloat("gauge.stplaq"))/6.;
+
+  string bcs[] = {"PERIODIC","PERIODIC","PERIODIC","PERIODIC"};
+  for(int d=0;d<4;d++){
+    if(bcs[d] == "PERIODIC") boundary[d] == BND_CND_PRD;
+    else if(bcs[d] == "ANTIPERIODIC") boundary[d] == BND_CND_APRD;
+    else if(bcs[d] == "GPARITY") boundary[d] == BND_CND_GPARITY;
+  }
+//  checksum = hd.asHex("CHECKSUM");
+  //  sscanf(hd.asString("CHECKSUM").c_str(), "%x ", &checksum);
+
+//  ensemble_id = hd.asString("ENSEMBLE_ID");
+//  ensemble_label = hd.asString("ENSEMBLE_LABEL");
+//  sequence_number = hd.asInt("SEQUENCE_NUMBER");
+//  creator = hd.asString("CREATOR");
+//  creator_hardware = hd.asString("CREATOR_HARDWARE");
+  creation_date = hd.asString("time_stamp");
+//  archive_date = hd.asString("ARCHIVE_DATE");
+
+//  FPConv fp;
+// Being done in the payload reading
+//  floating_point = fp.setFileFormat(hd.asString("FLOATING_POINT").c_str());
+}
+
 /////////////////////////////////////////////////////////////////////
 // LatRngHeader members 
 /////////////////////////////////////////////////////////////////////
@@ -492,6 +544,7 @@ void LatRngHeader::read(istream & fin) {
   int_format = intconv.setFileFormat(hd.asString("INT_FORMAT").c_str());
 
 }
+
 
 
 

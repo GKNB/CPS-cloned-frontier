@@ -21,16 +21,18 @@ enum SourceType {
   FL_FUNC         = 15,
   MOM         = 16,
   BOX_4D     = 17,
-  RANDMOM = 18
+  RANDMOM = 18,
+  RANDSPARSE   = 19
 };
 
 enum RandomType {
   GAUSS  = 0, 
   UONE   = 1, 
   ZTWO   = 2, 
-  NORAND = 3,
+  ZTHREE = 3,
   ZFOUR  = 4,
-  TEST = 5 };
+  NORAND = 5,
+  TEST = 6 };
 
 class QPropWArg {
 
@@ -117,6 +119,8 @@ class QPropWRandArg {
   RandomType rng;
   //! random number seed
   int seed;
+  int sep; //parameter for separation
+  int sparse_kind;
   memfun QPropWRandArg();
 };
 

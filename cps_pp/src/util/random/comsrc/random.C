@@ -607,15 +607,15 @@ void LatRanGen::Initialize ()
 #ifdef RNG_WARMUP
 		{
 		  int n_warm = ugran_4d[index_4d].Urand (N_WARMUP, 0);
-		  //VRB.RNGSeed (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
-		  //             n_warm);
+		  VRB.Debug (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
+			      n_warm);
 		  while (n_warm > 0) {
 		    int temp = ugran_4d[index_4d].Urand (100, 0);
 		    n_warm--;
 		  }
 		  n_warm = ugran_4d[stk_index_4d].Urand (N_WARMUP, 0);
-		  //VRB.RNGSeed (cname, fname, "index_4d=%d n_warm=%d\n",
-		  //stk_index_4d, n_warm);
+		  VRB.Debug (cname, fname, "index_4d=%d n_warm=%d\n",
+			      stk_index_4d, n_warm);
 		  while (n_warm > 0) {
 		    int temp = ugran_4d[stk_index_4d].Urand (100, 0);
 		    n_warm--;
@@ -630,7 +630,7 @@ void LatRanGen::Initialize ()
 #ifdef RNG_WARMUP
 	      {
 		int n_warm = ugran[index].Urand (N_WARMUP, 0);
-		//VRB.RNGSeed (cname, fname, "index=%d n_warm=%d\n", index, n_warm);
+		  VRB.Debug (cname, fname, "index=%d n_warm=%d\n", index, n_warm);
 		while (n_warm > 0) {
 		  int temp = ugran[index].Urand (100, 0);
 		  n_warm--;
@@ -646,9 +646,9 @@ void LatRanGen::Initialize ()
 	      stk_index++;
 	    } else {		//GJP.Gparity
 	      start_seed = base_seed + OFFSET * start_seed;
-	      //VRB.Debug (cname, fname,
-	      //"%d %d %d %d %d index=%d start_seed= %d\n", x[0],
-	      //x[1], x[2], x[3], x[4], index, start_seed);
+	      VRB.Debug (cname, fname,
+			   "%d %d %d %d %d index=%d start_seed= %d\n", x[0],
+			   x[1], x[2], x[3], x[4], index, start_seed);
 	      ugran[index].Reset (start_seed);
 #ifdef BOOTSTRAP
 	      {
@@ -659,16 +659,16 @@ void LatRanGen::Initialize ()
 //              int new_seed = ugran[index].Urand(RandomGenerator::MBIG,0);
 		int new_seed = rng_seed_5d.Urand (RandomGenerator::MBIG, 0);
 		rng_count++;
-		//VRB.RNGSeed (cname, fname,
-		//"index=%d start_seed=%d new_seed=%d\n", index,
-		//start_seed, new_seed);
+		VRB.Debug (cname, fname,
+			     "index=%d start_seed=%d new_seed=%d\n", index,
+			     start_seed, new_seed);
 		ugran[index].Reset (new_seed);
 	      }
 #endif
 #ifdef RNG_WARMUP
 	      {
 		int n_warm = ugran[index].Urand (N_WARMUP, 0);
-		//VRB.RNGSeed (cname, fname, "index=%d n_warm=%d\n", index, n_warm);
+		VRB.Debug (cname, fname, "index=%d n_warm=%d\n", index, n_warm);
 		while (n_warm > 0) {
 		  int temp = ugran[index].Urand (100, 0);
 		  n_warm--;
@@ -678,8 +678,8 @@ void LatRanGen::Initialize ()
 	      index++;
 	      if (x[4] == x_o[4]) {
 		start_seed_4d = base_seed + OFFSET * start_seed_4d;
-		// VRB.RNGSeed (cname, fname, "index_4d=%d start_seed= %d\n",
-		// 	     index_4d, start_seed_4d);
+		VRB.Debug (cname, fname, "index_4d=%d start_seed= %d\n",
+			     index_4d, start_seed_4d);
 		ugran_4d[index_4d].Reset (start_seed_4d);
 #ifdef BOOTSTRAP
 		{
@@ -690,17 +690,17 @@ void LatRanGen::Initialize ()
 //              int new_seed = ugran[index_4d].Urand(RandomGenerator::MBIG,0);
 		  int new_seed = rng_seed_4d.Urand (RandomGenerator::MBIG, 0);
 		  rng_count_4d++;
-		  // VRB.RNGSeed (cname, fname,
-		  // 	       "index_4d=%d start_seed_4d=%d new_seed=%d\n",
-		  // 	       index_4d, start_seed_4d, new_seed);
+		  VRB.Debug (cname, fname,
+			       "index_4d=%d start_seed_4d=%d new_seed=%d\n",
+			       index_4d, start_seed_4d, new_seed);
 		  ugran_4d[index_4d].Reset (new_seed);
 		}
 #endif
 #ifdef RNG_WARMUP
 		{
 		  int n_warm = ugran_4d[index_4d].Urand (N_WARMUP, 0);
-		// VRB.RNGSeed (cname, fname, "index_4d=%d n_warm= %d\n",
-		// 	     index_4d, n_warm);
+		VRB.Debug (cname, fname, "index_4d=%d n_warm= %d\n",
+			     index_4d, n_warm);
 		  while (n_warm > 0) {
 		    int temp = ugran_4d[index_4d].Urand (100, 0);
 		    n_warm--;

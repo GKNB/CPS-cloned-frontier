@@ -35,7 +35,7 @@ Site::Site():
   computeShifts() ;   
 }
 
-Site::Site(int site):
+Site::Site(size_t site):
   s(site),
   _looping(false)
 {
@@ -98,6 +98,7 @@ void Site::nextSite(void)
           x[nu]++ ;
         }
     }
+//  printf("Site::nextSite: s: %d %d %d %d\n",s,x[0],x[1],x[2],x[3]);
 }
 
 void Site::nextSiteExcept( int mu)

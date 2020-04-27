@@ -26,21 +26,9 @@
 #include <alg/nuc3pt.h>
 #include <alg/nuc3pt_gammar.h>
 
-#if TARGET == QCDOC
-#include <comms/sysfunc_cps.h>
-#endif
-
 
 CPS_START_NAMESPACE
 
-
-enum DIR {
- X =  0, 
- Y =  1,
- Z =  2,
- T =  3,
- G5 = -5
-} ;
 
 
 //------------------------------------------------------------------
@@ -56,6 +44,16 @@ enum DIR {
 //------------------------------------------------------------------
 class AlgNuc3pt : public Alg
 {
+   public: 
+
+enum DIR {
+ X =  0, 
+ Y =  1,
+ Z =  2,
+ T =  3,
+ G5 = -5
+} ;
+
  private:
     char* cname;
 

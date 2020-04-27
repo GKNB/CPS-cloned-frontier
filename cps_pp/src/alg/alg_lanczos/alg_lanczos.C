@@ -1,32 +1,14 @@
+#include <math.h>
 #include<config.h>
-CPS_START_NAMESPACE
 //------------------------------------------------------------------
 /*!\file
   \brief Methods of the AlgLanczos class.
   
   $Id: alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2009/03/23 19:13:32 $
-//  $Header: /space/cvs/cps/cps++/src/alg/alg_lanczos/alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
-//  $Id: alg_lanczos.C,v 1.25 2009/03/23 19:13:32 chulwoo Exp $
-//  $Name: v5_0_8_eigCG_Qi $
-//  $Locker:  $
-//  $RCSfile: alg_lanczos.C,v $
-//  $Revision: 1.25 $
-//  $Source: /space/cvs/cps/cps++/src/alg/alg_lanczos/alg_lanczos.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 
-CPS_END_NAMESPACE
 #include <util/qcdio.h>
 #include <util/enum.h>
-#include <math.h>
-#include <alg/alg_lanczos.h>
 #include <util/lattice.h>
 #include <util/gjp.h>
 #include <util/smalloc.h>
@@ -34,12 +16,13 @@ CPS_END_NAMESPACE
 #include <util/vector.h>
 #include <util/verbose.h>
 #include <util/error.h>
+#include <alg/alg_lanczos.h>
 //#include <util/time_cps.h>
 //#include <util/qcdio.h>
 //#include <util/qio_writeGenericFields.h>
 //#include <util/qio_readGenericFields.h>
 
-#include <util/eigen_container.h>
+#include <util/eigen_grid.h>
 
 
 #include <alg/alg_eig.h>

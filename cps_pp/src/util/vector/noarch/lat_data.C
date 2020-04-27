@@ -26,7 +26,7 @@ void LatData::Init(LatDataAlloc flags, int len, int volume){
 	}
 	if (data == NULL)
 	ERR.General("LatData","Init()","out of memory");
-        VRB.Flow(cname,"Init()","this=%p flags=%x vol=%d data=%p\n",this,flags,vol,data);
+        VRB.Result(cname,"Init()","this=%p flags=%x size=%d vol=%d data=%p\n",this,flags,size,vol,data);
 
     status = INITTED;
 }

@@ -5,21 +5,6 @@ CPS_START_NAMESPACE
 
   $Id: pt_stag_types.C,v 1.6 2004/08/18 11:58:07 zs Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: zs $
-//  $Date: 2004/08/18 11:58:07 $
-//  $Header: /space/cvs/cps/cps++/src/util/parallel_transport/pt_stag_types/pt_stag_types.C,v 1.6 2004/08/18 11:58:07 zs Exp $
-//  $Id: pt_stag_types.C,v 1.6 2004/08/18 11:58:07 zs Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: pt_stag_types.C,v $
-//  $Revision: 1.6 $
-//  $Source: /space/cvs/cps/cps++/src/util/parallel_transport/pt_stag_types/pt_stag_types.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 
 CPS_END_NAMESPACE
 #include <util/pt.h>

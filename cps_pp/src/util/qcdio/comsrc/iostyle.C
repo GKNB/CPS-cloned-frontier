@@ -154,6 +154,11 @@ data, data_per_site, site_mem,
 		for(int yr=ybegin;yr<yend;yr++) {
 		  jump += xbegin * chars_per_site;
 		  input.seekg(jump,ios_base::cur);
+		  if(!input.good()) {
+		    error = 1;
+		    printf("Node %d: xrow jump error in ParIO::load() badbit:%d eofbit:%d failbit:%d\n", UniqueID(), input.bad(), input.eof(), input.fail() ); fflush(stdout);
+		    goto sync_error;
+		  }
 
 		  for(int xr=xbegin;xr<xend;xr++) {
 		    int try_num =0;
@@ -165,27 +170,38 @@ data, data_per_site, site_mem,
 		   }
 #else
 		    streampos r_pos = input.tellg();
+		    //Read the site twice and compute the checksum; if the two checksums agree, continue
 		    long long lcsum=-1,lcsum2=-1;
 		    do {
 		      lcsum2=lcsum;
 		      input.seekg(r_pos,ios::beg);
+		      if(!input.good()) {
+			error = 1;
+			printf("Node %d: csum IO seek error in ParIO::load() badbit:%d eofbit:%d failbit:%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n", UniqueID(), input.bad(), input.eof(), input.fail(),xr,yr,zr,tr,stk,sr ); fflush(stdout);
+			goto sync_error;
+		      }
 		      input.read(fbuf,chars_per_site);
+		      if(!input.good()) {
+			error = 1;
+			printf("Node %d: csum IO read error in ParIO::load() buf %p badbit:%d eofbit:%d failbit:%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n", UniqueID(), fbuf, input.bad(), input.eof(), input.fail(),xr,yr,zr,tr,stk,sr ); fflush(stdout);
+			goto sync_error;
+		      }
 		      lcsum = dconv.checksum(fbuf,data_per_site);
 		      try_num++;
 		      if(try_num%100==0)
-			printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
+			printf("Node %d:read jump=%lld csum=%x try_num=%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n",UniqueID(),(long long)jump,dconv.checksum(fbuf,data_per_site),try_num,xr,yr,zr,tr,stk,sr);
 		    } while ( ( (lcsum==0) || (lcsum!=lcsum2)) && try_num<1000);
-	//	    if(!input.good()) {
-	//	      error = 1;
-	//             printf("Node %d: csum error in ParIO::load()\n",UniqueID());
-	//	      goto sync_error;
-	//	    }
+		    if(!input.good()) {
+		      error = 1;
+		      printf("Node %d: csum IO error in ParIO::load() badbit:%d eofbit:%d failbit:%d xr=%d yr=%d zr=%d tr=%d stk=%d sr=%d\n", UniqueID(), input.bad(), input.eof(), input.fail(),xr,yr,zr,tr,stk,sr ); fflush(stdout);
+		      goto sync_error;
+		    }
 #endif
 
 		    csum += dconv.checksum(fbuf,data_per_site);
 		    pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension,	rd_arg, siteid, 0);
 		    if(try_num>2)
-		    printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
+		      printf("Node %d:read jump=%d csum=%x try_num=%d\n",UniqueID(),jump,dconv.checksum(fbuf,data_per_site),try_num);
 
 		    if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
 		      for(int mat=0;mat<4;mat++) {
@@ -193,7 +209,7 @@ data, data_per_site, site_mem,
 			pd += site_mem/4;
 		      }
 		    }
-		    else { // LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		      // load
 #ifdef USE_C11_RNG
 	      dconv.file2host(pd, fbuf, data_per_site);
@@ -210,6 +226,10 @@ data, data_per_site, site_mem,
 	      ugran[siteid].load(rng.IntPtr());
 #endif
 	    }
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.file2host(pd,fbuf,data_per_site);
+		pd +=site_mem;
+ 	      }
 	   
 	    siteid++;
 	  }
@@ -240,7 +260,10 @@ data, data_per_site, site_mem,
   //
   
   input.close();
-  if ( !input.good() )  error = 1;
+  if ( !input.good() ){
+    printf("node %d parallelIO reports !good input stream: badbit:%d eofbit:%d failbit:%d\n", UniqueID(), input.bad(), input.eof(), input.fail() ); fflush(stdout);
+    error = 1;
+  }
 
   if(synchronize(error) != 0)  
     ERR.FileR(cname, fname, rd_arg.FileName);
@@ -352,7 +375,7 @@ do {
 		  pd += site_mem/4;
 		}
 	      }
-	      else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		// dump
 #ifdef USE_C11_RNG
 		dconv.host2file(fbuf,pd,data_per_site);
@@ -369,6 +392,10 @@ do {
 		ugran[siteid].load(rng.IntPtr());
 #endif
 	      }
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 	      csum += dconv.checksum(fbuf,data_per_site);
 	      pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, siteid, 0);
@@ -488,6 +515,8 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 
   //  int data_per_site = hd.recon_row_3? 4*12 : 4*18;
   int chars_per_site  = data_per_site * dconv.fileDataSize();
+  VRB.Result(cname,fname,"chars_per_site=%d data_per_site=%d dconv.fileDataSize()(%d)\n"
+		  ,chars_per_site,data_per_site,dconv.fileDataSize());
 
   ifstream input;
   if(isNode0()) {
@@ -540,7 +569,7 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
     for(int tc=0;tc<nt;tc++) {
       for(int zc=0;zc<nz;zc++) {
 		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) 
-		VRB.Result(cname,fname,"%d %d %d %d %d\n",0,0,zc,tc,sc);
+		VRB.Flow(cname,fname,"%d %d %d %d %d\n",0,0,zc,tc,sc);
 	for(int yc=0;yc<ny;yc++) {
 	  for(int xnd=0; xnd<rd_arg.Xnodes(); xnd++) {
 	    if(isNode0()) { // only node 0 reads
@@ -562,10 +591,13 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		if(hd.headerType() == LatHeaderBase::LATTICE_HEADER) {
 		  for(int mat=0;mat<4;mat++) {
 		    dconv.file2host(pd, fbuf + chars_per_site/4*mat, data_per_site/4);
+		    Float *pd_f = (Float*)pd;
+		    if(!yc && !xnd)
+		    VRB.Debug(cname,fname,"%d %d %d %d pd=%0.4e %0.4e %0.4e %0.4e %0.4e %0.4e\n",xnd,yc,zc,tc,pd_f[0],pd_f[1],pd_f[2],pd_f[3],pd_f[4],pd_f[5]);
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // load
 #ifdef USE_C11_RNG
 	      dconv.file2host(pd, fbuf, data_per_site);
@@ -582,6 +614,10 @@ int SerialIO::load(char * data, const int data_per_site, const int site_mem,
 		  ugran[xst].load(rng.IntPtr());
 #endif
 		}
+	      else { //LatHeaderBase::LAT_NERSC
+		dconv.file2host(pd,fbuf,data_per_site);
+		pd +=site_mem;
+ 	      }
 		global_id ++;
 	      }
 	    } // endif(isNode0())
@@ -711,7 +747,7 @@ int SerialIO::store(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 #ifdef USE_C11_RNG
 	      dconv.host2file(fbuf, pd, data_per_site);
               CalcRand(pd,data_per_site,&RandSum, &Rand2Sum);
@@ -729,7 +765,10 @@ int SerialIO::store(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		csum += dconv.checksum(fbuf,data_per_site);
 		pdcsum += dconv.posDepCsum(fbuf, data_per_site, dimension, wt_arg, 
@@ -860,7 +899,7 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -878,7 +917,10 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
 		csum += csum_contrib;
@@ -916,7 +958,7 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -934,7 +976,10 @@ int SerialIO::storeGparityInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
 		csum += csum_contrib;
@@ -1094,7 +1139,7 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -1112,7 +1157,10 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  // recover
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);
 		csum += csum_contrib;
@@ -1157,7 +1205,7 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		    pd += site_mem/4;
 		  }
 		}
-		else { //LatHeaderBase::LATRNG_HEADER
+	      else if(hd.headerType() == LatHeaderBase::LATRNG_HEADER) {
 		  // dump
 		  //                  printf("Node %d: ugran[%d]=%e\n",UniqueID(),xst,ugran[xst].Urand(0,1));
 #ifdef USE_C11_RNG
@@ -1180,7 +1228,10 @@ int SerialIO::storeGparityXYInterleaved(iostream & output,
 		  printf("rn=%0.15e rn2=%0.15e\n",rn,rn2);
 		  ugran[xst].load(rng.IntPtr());
 #endif
-		} // if(hd.headerType() == LatHeaderBase::LATTICE_HEADER)
+		} else { //LatHeaderBase::LAT_NERSC
+		dconv.host2file(fbuf,pd,data_per_site);
+		pd +=site_mem;
+ 	      }
 
 		unsigned int csum_contrib = dconv.checksum(fbuf,data_per_site);		
 		csum += csum_contrib;

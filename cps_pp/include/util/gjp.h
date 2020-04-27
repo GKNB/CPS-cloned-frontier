@@ -525,6 +525,10 @@ public:
 
   int StartSeedValue() const
       {return doarg_int.start_seed_value;}
+  int SettSeedValue(int seed) {
+      doarg_int.start_seed_value=seed; 
+      return doarg_int.start_seed_value;
+  }
   //!< Gets the value of the starting seed.
   /*!<
     \return The value of the starting seed.
@@ -936,9 +940,11 @@ public:
   char** argv(void);
   int *argc_p(void);
   char*** argv_p(void);
-  
+
   void setArg(int* argc, char*** argv);
 
+  //Return 1 if the command line arguments have been set
+  int getArgSet() const{ return arg_set; }
 
   void SetMdwfArg(const MdwfArg *);
 

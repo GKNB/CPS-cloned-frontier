@@ -6,21 +6,6 @@ CPS_START_NAMESPACE
 
   $Id: pt_asqtad.C,v 1.10 2005/06/16 14:36:50 chulwoo Exp $
 */
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2005/06/16 14:36:50 $
-//  $Header: /space/cvs/cps/cps++/src/util/parallel_transport/pt_asqtad/qcdoc/pt_asqtad.C,v 1.10 2005/06/16 14:36:50 chulwoo Exp $
-//  $Id: pt_asqtad.C,v 1.10 2005/06/16 14:36:50 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: pt_asqtad.C,v $
-//  $Revision: 1.10 $
-//  $Source: /space/cvs/cps/cps++/src/util/parallel_transport/pt_asqtad/qcdoc/pt_asqtad.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
 //------------------------------------------------------------------
 //
 // pt_asqtad.C

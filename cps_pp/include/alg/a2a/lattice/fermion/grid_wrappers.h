@@ -16,60 +16,7 @@ struct GridLanczosWrapper{
   double resid;
   bool singleprec_evecs;
   
-  //Keep a copy of the double-precision Grid because we delete the Lattice instance after compute
-  Grid::GridRedBlackCartesian *FrbGrid_d; 
-
-  //For precision change
-  Grid::GridCartesian *UGrid_f;
-  Grid::GridRedBlackCartesian *UrbGrid_f;
-  Grid::GridCartesian *FGrid_f;
-  Grid::GridRedBlackCartesian *FrbGrid_f;
-  
-  GridLanczosWrapper(): UGrid_f(NULL), UrbGrid_f(NULL), FGrid_f(NULL), FrbGrid_f(NULL), FrbGrid_d(NULL), singleprec_evecs(false){
-  }
-
-  void setupSPgrids(){
-    //Make single precision Grids
-    int Ls = GJP.Snodes()*GJP.SnodeSites();
-    std::vector<int> nodes(4);
-    std::vector<int> vol(4);
-    for(int i=0;i<4;i++){
-      vol[i]= GJP.NodeSites(i)*GJP.Nodes(i);;
-      nodes[i]= GJP.Nodes(i);
-    }
-    Grid::Coordinate simd_layout = Grid::GridDefaultSimd(Grid::Nd,Grid::vComplexF::Nsimd());
-    if(!UniqueID()) printf("Created single-prec Grids: nodes (%d,%d,%d,%d) vol (%d,%d,%d,%d) and SIMD layout (%d,%d,%d,%d)\n",nodes[0],nodes[1],nodes[2],nodes[3],vol[0],vol[1],vol[2],vol[3],simd_layout[0],simd_layout[1],simd_layout[2],simd_layout[3]);
-    
-    UGrid_f = Grid::SpaceTimeGrid::makeFourDimGrid(vol,simd_layout,nodes);
-    UrbGrid_f = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid(UGrid_f);
-    FGrid_f = Grid::SpaceTimeGrid::makeFiveDimGrid(Ls,UGrid_f);
-    FrbGrid_f = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(GJP.SnodeSites()*GJP.Snodes(),UGrid_f);     
-  }
-
-  //Copy from one lattice to another under the programmer's assurance that the Grid instances are equivalent (not Grid::conformable which checks pointer equality)
-  void copyVecNoGridCheck(typename GridPolicies::GridFermionField &out, const typename GridPolicies::GridFermionField &in){
-    out.Checkerboard() = in.Checkerboard();
-    auto iview = in.View();
-    auto oview = out.View();
-    typedef typename GridPolicies::GridFermionField::vector_object vobj;
-    accelerator_for(ss,iview.size(),vobj::Nsimd(),{
-      coalescedWrite(oview[ss],iview(ss));
-    });
-  }
-
-  //If we delete the lattice class we need to move the evecs to a different Grid instance that is not deleted
-  void moveDPevecsToIndependentGrid(typename GridPolicies::FgridGFclass &lat){
-    if(FrbGrid_d == NULL) FrbGrid_d = new Grid::GridRedBlackCartesian(lat.getFrbGrid());
-    typename GridPolicies::GridFermionField tmp(FrbGrid_d);
-
-    for(int i=0;i<evec.size();i++){
-      //Painful double-copy. Could be avoided if it were possible to change the Grid pointer under the hood. Used to be possible but is no longer!
-      copyVecNoGridCheck(tmp, evec[i]);
-      assert(tmp.Grid() == FrbGrid_d);
-      evec[i].reset(FrbGrid_d);
-      evec[i] = tmp;
-      assert(evec[i].Grid() == FrbGrid_d);
-    }
+  GridLanczosWrapper(): singleprec_evecs(false){
   }
   
   void compute(const LancArg &lanc_arg, typename GridPolicies::FgridGFclass &lat){
@@ -77,11 +24,10 @@ struct GridLanczosWrapper{
     resid = lanc_arg.stop_rsd;
     
 # ifdef A2A_LANCZOS_SINGLE
-    setupSPgrids();
-    gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat,UGrid_f,UrbGrid_f,FGrid_f,FrbGrid_f);
+    gridSinglePrecLanczos<GridPolicies>(eval,evec_f,lanc_arg,lat, lat.getUGridF(), lat.getUrbGridF(), lat.getFGridF(), lat.getFrbGridF());
     singleprec_evecs = true;
 
-    evec_f.resize(lanc_arg.N_true_get, FrbGrid_f); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
+    evec_f.resize(lanc_arg.N_true_get, lat.getFrbGridF()); //in case the Lanczos implementation does not explicitly remove the extra evecs used for the restart
     eval.resize(lanc_arg.N_true_get);
     
 # else    
@@ -98,7 +44,9 @@ struct GridLanczosWrapper{
 # endif    
   }
 
-  static void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, const double mass, typename GridPolicies::FgridGFclass &lattice){
+  //Test double prec eigenvectors (TODO: generalize to test single prec)
+  static void test_eigenvectors(const std::vector<typename GridPolicies::GridFermionField> &evec, const std::vector<Grid::RealD> &eval, 
+				const double mass, typename GridPolicies::FgridGFclass &lattice){
     if(!UniqueID()) printf("Starting eigenvector residual test\n");
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::FgridFclass FgridFclass;
@@ -136,6 +84,7 @@ struct GridLanczosWrapper{
 
   }
 
+  //Randomize double precision eigenvectors
   void randomizeEvecs(const LancArg &lanc_arg,typename GridPolicies::FgridGFclass &lat){
     typedef typename GridPolicies::GridFermionField GridFermionField;
 
@@ -154,6 +103,11 @@ struct GridLanczosWrapper{
     IncludeCBsite<5> evensitesf0(0, 0, 0);
     IncludeCBsite<5> evensitesf1(0, 0, 1);
 
+#ifdef USE_C11_RNG
+    CPS_RNG rng(1234);
+    std::uniform_real_distribution<double> dist(0.1,10);
+#endif
+
     for(int i=0;i<lanc_arg.N_true_get;i++){
       evec[i].Checkerboard() = Grid::Odd;
       tmp.setGaussianRandom();
@@ -169,7 +123,12 @@ struct GridLanczosWrapper{
       tmp.exportGridField(evec[i]);
       
       double nrm = Grid::norm2(evec[i]);
+#ifdef USE_C11_RNG
+      eval[i] = dist(rng);
+#else 
       eval[i] = LRG.Lrand(10,0.1); //same on all nodes
+#endif
+
       if(!UniqueID()){
 	printf("random evec %d Grid norm %g CPS norm %g (odd %g : odd f0 %g, odd f1 %g) (even %g : even f0 %g, even f1 %g) and eval %g\n",i,nrm,nrmcps,nrmoddcps,nrmoddf0cps,nrmoddf1cps,nrmevencps,nrmevenf0cps,nrmevenf1cps,eval[i]);
       }
@@ -178,13 +137,12 @@ struct GridLanczosWrapper{
     singleprec_evecs = false;
   }
   
+  //Convert double to single precision eigenvectors
   void toSingle(){
     if(singleprec_evecs) return;
     
     typedef typename GridPolicies::GridFermionField GridFermionField;
     typedef typename GridPolicies::GridFermionFieldF GridFermionFieldF;
-
-    if(FrbGrid_f == NULL) setupSPgrids();
 
     int nev = evec.size();
     
@@ -193,13 +151,13 @@ struct GridLanczosWrapper{
       evec.back().Grid()->show_decomposition();
 
       std::cout << "Single-precision 5D even-odd Grid info:\n";
-      FrbGrid_f->show_decomposition();
+      FgridBase::getFrbGridF()->show_decomposition();
     }
 
     if(!UniqueID()) printf("Lanczos container holds %d eigenvectors\n", nev);
 
     for(int i=0;i<nev;i++){      
-      GridFermionFieldF tmp_f(FrbGrid_f);
+      GridFermionFieldF tmp_f(FgridBase::getFrbGridF());
 # ifndef MEMTEST_MODE
       precisionChange(tmp_f, evec.back());
 # endif
@@ -263,7 +221,7 @@ struct GridLanczosWrapper{
     file.close();
   }
 
-  void readParallel(const std::string &file_stub, typename GridPolicies::FgridGFclass &lat){
+  void readParallel(const std::string &file_stub){
     { //clear all memory associated with existing evecs
       std::vector<typename GridPolicies::GridFermionField>().swap(evec);
       std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
@@ -310,8 +268,7 @@ struct GridLanczosWrapper{
 
     if(single_prec){
       CPSfermion5Dcb4Dodd<cps::ComplexF> c_odd_f;
-      if(FrbGrid_f == NULL) setupSPgrids();
-      evec_f.resize(read_nvecs, FrbGrid_f);
+      evec_f.resize(read_nvecs, FgridBase::getFrbGridF());
       for(int i=0;i<read_nvecs;i++){
 	c_odd_f.readParallel(file);
 	evec_f[i].Checkerboard() = Grid::Odd;
@@ -320,8 +277,7 @@ struct GridLanczosWrapper{
       singleprec_evecs = true;
     }else{
       CPSfermion5Dcb4Dodd<cps::ComplexD> c_odd_d;
-      Grid::GridRedBlackCartesian *FrbGrid = lat.getFrbGrid();
-      evec.resize(read_nvecs, FrbGrid);
+      evec.resize(read_nvecs, FgridBase::getFrbGrid());
       for(int i=0;i<read_nvecs;i++){
 	c_odd_d.readParallel(file);
 	evec[i].Checkerboard() = Grid::Odd;
@@ -341,13 +297,6 @@ struct GridLanczosWrapper{
   void freeEvecs(){
     std::vector<typename GridPolicies::GridFermionField>().swap(evec); //evec.clear();
     std::vector<typename GridPolicies::GridFermionFieldF>().swap(evec_f);
-#define CKDEL(A) if(A != NULL){ delete A; A=NULL; }
-    CKDEL(UGrid_f);
-    CKDEL(UrbGrid_f);
-    CKDEL(FGrid_f);
-    CKDEL(FrbGrid_f);
-    CKDEL(FrbGrid_d);
-#undef CKDEL
   }
 
   ~GridLanczosWrapper(){

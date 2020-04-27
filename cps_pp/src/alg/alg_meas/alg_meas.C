@@ -442,6 +442,16 @@ Lattice & LatticeFactory::Create(FclassType fermion,GclassType gluon)
   }
 
 #ifdef USE_GRID
+  if ( (fermion == F_CLASS_GRID_WILSON) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    lat_p = new GnoneFgridWilson(params);
+    return *lat_p;
+  }
+  if ( (fermion == F_CLASS_GRID_WILSON_CLOVER) && (gluon == G_CLASS_NONE ) ) {
+    FgridParams params; // needs for constructor. Params needs to be overwritten later
+    lat_p = new GnoneFgridWilsonClover(params);
+    return *lat_p;
+  }
   if ( (fermion == F_CLASS_GRID_WILSON_TM) && (gluon == G_CLASS_NONE ) ) {
     FgridParams params; // needs for constructor. Params needs to be overwritten later
     lat_p = new GnoneFgridWilsonTM(params);

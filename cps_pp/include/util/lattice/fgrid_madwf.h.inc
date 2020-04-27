@@ -89,9 +89,9 @@ int FmatInv (Vector * f_out,
   std::vector < std::complex < double >>omegas_s;
 
   setZmobius (omegas_l, mob_l->zmobius_b_coeff.zmobius_b_coeff_val,
-	      mob_l->zmobius_b_coeff.zmobius_b_coeff_len);
+	      mob_l->ls);
   setZmobius (omegas_s, mob_s->zmobius_b_coeff.zmobius_b_coeff_val,
-	      mob_s->zmobius_b_coeff.zmobius_b_coeff_len);
+	      mob_s->ls);
 
   int mob_l_ls = mob_l->ls;
   Grid::GridCartesian * FGridD_l;

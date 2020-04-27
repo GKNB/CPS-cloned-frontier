@@ -110,7 +110,7 @@ void ComputeKtoPiPiGparity<mf_Policies>::generateRandomOffsets(std::vector<OneFl
       for(int i = 0; i < size_3d / xyzStep; i++){
 	int x = i*xyzStep + GJP.VolNodeSites()/GJP.TnodeSites()*t;
 	LRG.AssignGenerator(x);
-	*(random_fields[t_pi1].site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
+	*(random_fields[t_pi1]->site_ptr(x)) = ((int)(LRG.Urand(FOUR_D) * xyzStep)) % xyzStep;
       }
     }
   }

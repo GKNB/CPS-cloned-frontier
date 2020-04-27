@@ -7,6 +7,7 @@ int IRL (Vector ** f_out, Vector * f_in, CgArg * cg_arg,
   VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
 //      VRB.Result(cname,fname,"max_iter=%d\n",cg_arg->max_num_iter);
   RealD M5 = GJP.DwfHeight ();
+  RealD csw = GJP.CloverCoeff();
 
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
@@ -82,6 +83,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
 //      VRB.Result(cname,fname,"max_iter=%d\n",cg_arg->max_num_iter);
   RealD M5 = GJP.DwfHeight ();
+  RealD csw = GJP.CloverCoeff();
 
   ImportGauge ();
   std::vector < int >twists = SetTwist ();
@@ -177,7 +179,7 @@ int FeigSolv (Vector ** f_eigenv, Float * lambda,
   IRL.calc(eval,evec_f,grid_rb_in_f,Nconv);
 #endif
 
-	uint64_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
+	size_t f_size = (FsiteSize () * n_gp) *  (GJP.VolNodeSites () / 2) * Ncb;
 	if(precision=PREC_SINGLE) f_size *=sizeof(float);
 	else				 f_size *=sizeof(double);
 
@@ -220,6 +222,7 @@ int SimpleLanczos (std::vector<Float>  &lambda, LanczosArg * eig_arg)
   VRB.Result (cname, fname, "mass=%0.14g epsilon=%g \n", mass, eps);
 //      VRB.Result(cname,fname,"max_iter=%d\n",cg_arg->max_num_iter);
   RealD M5 = GJP.DwfHeight ();
+  RealD csw = GJP.CloverCoeff();
 
   ImportGauge ();
   std::vector < int >twists = SetTwist ();

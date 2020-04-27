@@ -1,29 +1,4 @@
-#include<config.h>
-#include<util/checksum.h>
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2005/04/25 07:09:30 $
-//  $Header: /space/cvs/cps/cps++/tests/checksum/csum_test.C,v 1.2 2005/04/25 07:09:30 chulwoo Exp $
-//  $Id: csum_test.C,v 1.2 2005/04/25 07:09:30 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: csum_test.C,v $
-//  $Revision: 1.2 $
-//  $Source: /space/cvs/cps/cps++/tests/checksum/csum_test.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-
-#include<util/lattice.h>
-#include<alg/do_arg.h>
-#include<alg/no_arg.h>
-#include<alg/alg_hmd.h>
-#include<alg/alg_plaq.h>
-#include<unistd.h>
-#include<util/verbose.h>
-
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 

@@ -33,6 +33,7 @@ struct vml_enum_map SourceType_map[] = {
 	{"SourceType","MOM",MOM},
 	{"SourceType","BOX_4D",BOX_4D},
 	{"SourceType","RANDMOM",RANDMOM},
+	{"SourceType","RANDSPARSE",RANDSPARSE},
 	{NULL,NULL,0}
 };
 
@@ -47,8 +48,9 @@ struct vml_enum_map RandomType_map[] = {
 	{"RandomType","GAUSS",GAUSS},
 	{"RandomType","UONE",UONE},
 	{"RandomType","ZTWO",ZTWO},
-	{"RandomType","NORAND",NORAND},
+	{"RandomType","ZTHREE",ZTHREE},
 	{"RandomType","ZFOUR",ZFOUR},
+	{"RandomType","NORAND",NORAND},
 	{"RandomType","TEST",TEST},
 	{NULL,NULL,0}
 };
@@ -278,6 +280,10 @@ vml_QPropWRandArg (VML *vmls, char *name,QPropWRandArg *objp)
 	 if (!vml_RandomType (vmls, "rng", &objp->rng))
 		 return FALSE;
 	 if (!vml_int (vmls, "seed", &objp->seed))
+		 return FALSE;
+	 if (!vml_int (vmls, "sep", &objp->sep))
+		 return FALSE;
+	 if (!vml_int (vmls, "sparse_kind", &objp->sparse_kind))
 		 return FALSE;
 	 vml_class_end(vmls,"QPropWRandArg",name);
 	return TRUE;

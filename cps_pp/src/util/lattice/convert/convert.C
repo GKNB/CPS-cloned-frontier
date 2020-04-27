@@ -35,12 +35,8 @@ CPS_START_NAMESPACE
 } CAS, *CAP;
 
 const unsigned CBUF_MODE4 = 0xcca52112;
-#ifdef _TARTAN
-static Matrix *mp2 = (Matrix *) CRAM_SCRATCH_ADDR + 2;
-#else
 static Matrix tmp_2;
 static Matrix *mp2 = &tmp_2;
-#endif
 
 extern void MultStagPhases (CAP cap);
 extern void RunGConverter (CAP cap, unsigned *site_tbl, unsigned *link_tbl);
@@ -142,6 +138,7 @@ void Lattice::Convert (StrOrdType new_str_ord)
 {
   char *fname = "Convert(StrOrdType)";
   VRB.Func (cname, fname);
+  VRB.Result (cname, fname,"from %d to %d\n",str_ord,new_str_ord);
 
 //-------------------------------------------------------------------------
 // Check if conversion is needed

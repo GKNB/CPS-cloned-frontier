@@ -1,33 +1,11 @@
-#include<config.h>
-//--------------------------------------------------------------------
-//  CVS keywords
-//
-//  $Author: chulwoo $
-//  $Date: 2004/09/21 20:16:52 $
-//  $Header: /space/cvs/cps/cps++/tests/f_stag_pbp/main.C,v 1.9 2004/09/21 20:16:52 chulwoo Exp $
-//  $Id: main.C,v 1.9 2004/09/21 20:16:52 chulwoo Exp $
-//  $Name: v5_0_16_hantao_io_test_v7 $
-//  $Locker:  $
-//  $RCSfile: main.C,v $
-//  $Revision: 1.9 $
-//  $Source: /space/cvs/cps/cps++/tests/f_stag_pbp/main.C,v $
-//  $State: Exp $
-//
-//--------------------------------------------------------------------
-
-
-#include<util/lattice.h>
-#include<alg/alg_pbp.h>
-#include<alg/do_arg.h>
-
-
-
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
 {
 
+  Start(&argc,&argv);
   //----------------------------------------------------------------
   // Initializes all Global Job Parameters
   //----------------------------------------------------------------

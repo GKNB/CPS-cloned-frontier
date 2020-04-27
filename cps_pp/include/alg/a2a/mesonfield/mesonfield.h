@@ -245,13 +245,7 @@ public:
 
   //Set each float to a uniform random number in the specified range
   //Uses a fixed-seed uniform RNG that every node has an identical copy of
-  void testRandom(const Float hi=0.5, const Float lo=-0.5){    
-    static UniformRandomGenerator urng(hi,lo);
-    static bool init = false;
-    if(!init){ urng.Reset(1234); init = true; }
-
-    for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urng.Rand(hi,lo), urng.Rand(hi,lo) );
-  }
+  void testRandom(const Float hi=0.5, const Float lo=-0.5);
 
   //Reorder the rows so that all the elements in idx_map are sequential. Indices not in map may be written over. Use at your own risk
   void rowReorder(A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &into, const int idx_map[], int map_size, bool parallel = true) const;

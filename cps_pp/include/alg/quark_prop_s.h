@@ -112,7 +112,7 @@ public:
    // ACCESSORS: was for debugging, now implemented
    //-----------------------------------------------------------
    Float* AccessQuarkPropS(int color, int site) const{
-     int vol=GJP.VolNodeSites();
+     size_t vol=GJP.VolNodeSites();
      return (&prop[color][6*site]);
    };
 

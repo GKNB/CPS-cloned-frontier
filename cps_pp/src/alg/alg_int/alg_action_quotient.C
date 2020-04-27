@@ -243,15 +243,19 @@ void AlgActionQuotient::heatbath ()
       lat.RandGaussVector (tmp1, 0.5, Ncb);
       lat.RandGaussVector (tmp2, 0.5, Ncb);
 
+	VRB.Result (cname, fname,
+		    "CPS WilsonTM compatibility mode");
 
       Float h_i;
+	VRB.Result (cname, fname,
+		    "F_CLASS_DWFD\n");
       {
 	// everything besides Fdwf4d:
 
 	//~~ changed for twisted mass Wilson fermions
 	// phi <- M_f^\dag (RGV)
 	VRB.Result (cname,fname,"|R>=%e\n", lat.FhamiltonNode (tmp1, tmp1));
-	if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) {
+ if (lat.Fclass () == F_CLASS_WILSON_TM ) {
 	  h_i = lat.SetPhi (tmp3, tmp1, tmp2, frm_mass[i], frm_mass_epsilon[i], DAG_YES);
 	} else {
 	  h_i = lat.SetPhi (tmp3, tmp1, tmp2, frm_mass[i], DAG_YES);
@@ -399,7 +403,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
 
     //~~ changed for twisted mass Wilson fermions
     // tmp1 <- (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-    (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) ?
+    (lat.Fclass () == F_CLASS_WILSON_TM ) ?
       lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], bsn_mass_epsilon[i], DAG_YES) : 
       lat.SetPhi (tmp1, phi[i], tmp1, bsn_mass[i], DAG_YES);
      VRB.Result (cname,fname,"%p %p: phi[%d] = M(m_b) (1/MdagM(m_b)) Mdag(m_f)|R>=%e\n", phi[i],phi[i], i, lat.FhamiltonNode (phi[i],phi[i]) );
@@ -450,7 +454,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     //!< Evolve mom using fermion force
     //~~ changed for twisted mass Wilson fermions
     // cg_sol is aka \chi
-    Fdt = (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM) ?
+    Fdt = (lat.Fclass () == F_CLASS_WILSON_TM ) ?
       lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt_ratio) : 
       lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], dt_ratio);
 
@@ -464,7 +468,7 @@ void AlgActionQuotient::prepare_fg (Matrix * force, Float dt_ratio)
     // cg_sol is aka \chi
     // phi <- M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
     //Twisted mass guy has argument order backwards (nevertheless it is correct)
-    if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
+    if (lat.Fclass () == F_CLASS_WILSON_TM )
       Fdt =
 	lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt_ratio);
     else
@@ -549,7 +553,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
       //phi[i] = M_b (M_b^\dag M_b)^{-1} M_f^\dag (RGV)
 
       // tmp1 <- M_b^dag phi[i] = (M_b^\dag M_b) (M_b^\dag M_b)^{-1} M_f^\dag (RGV) = M_f^\dag (RGV)
-      if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
+      if (lat.Fclass () == F_CLASS_WILSON_TM )
 	lat.SetPhi (tmp1, phi[i], tmp3, bsn_mass[i], bsn_mass_epsilon[i],
 		    DAG_YES);
       else
@@ -612,7 +616,7 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
 //      dtime_force -= dclock ();
       timer_force.start ();
       //!< Evolve mom using fermion force
-      if (lat.Fclass () == F_CLASS_WILSON_TM || lat.Fclass () == F_CLASS_BFM)
+      if (lat.Fclass () == F_CLASS_WILSON_TM )
 	Fdt = lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], frm_mass_epsilon[i], dt);
       else
 	Fdt = lat.EvolveMomFforce (mom_tmp, cg_sol, frm_mass[i], dt);
@@ -629,7 +633,6 @@ void AlgActionQuotient::evolve (Float dt, int nsteps)
       moveFloat((Float*)tmp3,(Float*)phi[i],lat.half_size);
       if (lat.Fclass () == F_CLASS_WILSON_TM || (lat.Fclass () == F_CLASS_BFM))
 	Fdt = lat.EvolveMomFforce (mom_tmp, cg_sol, phi[i], bsn_mass[i], bsn_mass_epsilon[i], dt);
-      else
 	Fdt = lat.EvolveMomFforce (mom_tmp, phi[i], cg_sol, bsn_mass[i], dt);
       moveFloat((Float*)phi[i],(Float*)tmp3,lat.half_size);
 	VRB.Result (cname,fname,"%p %p: phi[%d] = M(m_b) (1/MdagM(m_b)) Mdag(m_f)|R>=%e\n", phi[i],phi[i], i, lat.FhamiltonNode (phi[i],phi[i]) );

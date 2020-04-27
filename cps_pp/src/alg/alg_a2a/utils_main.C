@@ -1,4 +1,7 @@
 #include <alg/a2a/base/utils_main.h>
+#ifdef USE_OMP
+#include<omp.h>
+#endif
 
 CPS_START_NAMESPACE
 
@@ -105,10 +108,21 @@ void initCPS(int argc, char **argv, const DoArg &do_arg, const int nthreads){
   cps_qdp_init(&argc,&argv);
   //Chroma::initialize(&argc,&argv);
 #endif
+
+#if defined(USE_OMP) && !defined(_OPENMP)
+#error "CPS was configured to use openmp but preprocessor flag _OPENMP not set!"
+#endif
+
+#ifndef _OPENMP
+  if(!UniqueID()) printf("WARNING: CPS was not compiled with openmp!\n");
+#endif
+
+  if(!UniqueID()) printf("omp_get_max_threads()=%d (pre GJP.SetNthreads())\n",omp_get_max_threads());
   GJP.SetNthreads(nthreads);
+  if(!UniqueID()) printf("omp_get_max_threads()=%d (post GJP.SetNthreads())\n",omp_get_max_threads());
 #ifdef USE_GRID
   Grid::GridThread::SetThreads(nthreads);
-  if(!UniqueID()) printf("Set number of Grid threads to %d (check returns %d)\n", nthreads, Grid::GridThread::GetThreads()); 
+  if(!UniqueID()) printf("Set number of Grid threads to %d (check returns %d,   omp_get_max_threads()=%d)\n", nthreads, Grid::GridThread::GetThreads(), omp_get_max_threads()); 
 #endif
 }
 

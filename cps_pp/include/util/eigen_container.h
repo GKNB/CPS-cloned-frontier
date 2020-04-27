@@ -2,7 +2,7 @@
 #define _EIGEN_CONTAINER_H_
 #include<config.h>
 #ifdef USE_GRID
-#include<Grid/Grid.h>
+//#include<Grid/Grid.h>
 #endif
 
 /*
@@ -55,46 +55,11 @@ CPS_START_NAMESPACE
 //-----------------------------------------------------------
 //  Some temporay stuff for compress decompress experiments
 //-----------------------------------------------------------
-void lanczos_GramSchm (Float * psi, Float ** vec, int Nvec, size_t f_size,
-		       Float * alpha);
-
-#if 0
-// specific to dwf 
-static void ReflectAndMultGamma5 (Vector * out, const Vector * in, int nodevol,
-				  int ls)
-{
-  const char *fname = "MultGamma5(V*,V*,i)";
-  VRB.Func ("", fname);
-  for (int s = 0; s < ls; ++s) {
-    IFloat *p = (IFloat *) out + 24 * nodevol * s;
-    IFloat *q = (IFloat *) in + 24 * nodevol * (ls - 1 - s);
-    for (int n = 0; n < nodevol; ++n) {
-      int i;
-      for (i = 0; i < 12; ++i)
-	*p++ = *q++;
-
-      for (i = 0; i < 12; ++i)
-	*p++ = -*q++;
-    }
-  }
-
-}
-
-static void HermicianDWF_ee (Vector * vtmp, Vector * evec, Float mass,
-			     Lattice * lattice, Vector * Apsi)
-{
-  CgArg cg_arg;
-  cg_arg.mass = mass;
-  cg_arg.RitzMatOper = MATPC_HERM;	// could be MATPCDAG_MATPC;
-  DiracOpDwf dop (*lattice, 0, 0, &cg_arg, CNV_FRM_NO);
-
-  dop.MatPc (Apsi, evec);
-  ReflectAndMultGamma5 (vtmp, Apsi, GJP.VolNodeSites () / 2, GJP.SnodeSites ());
-}
-#endif
+void lanczos_GramSchm (Float * psi, Float ** vec, int Nvec, size_t f_size, Float * alpha);
 
 //----------------------------------------------------------------------------
 class EigenContainer;		// forward declaration
+// Not maintained. Probabaly to be deprecated 
 
 //
 // A class for eigenvector cache to reduce I/O
@@ -107,14 +72,15 @@ class EigenCache
   friend class AlgLanczos;
 
   char *cname;
+
+  protected:
   int neig;
+  size_t d_size; //data size (float? double?);
 
-  char fname_root_bc[1024];	// cached root_fname
+//  char fname_root_bc[1024];	// cached root_fname
   //int bc[4]; // boundary conditions in 4 dim, those used in the cached eigen vectors
-    std::vector < Float > eval;
-    std::vector < Float * >evec;
 
-  size_t f_size;
+  size_t f_size; //size of evec in units of Float. Template??
 
   int alloc_flag;		// if the memory for cache is allocated or not
   int eval_cached;		// if the eval is already cached or not
@@ -131,74 +97,84 @@ class EigenCache
   char cache_name[1024];	// name to identify the cache
   EvecReader evec_reader;
 
+  
+
 public:
+  int allocFlag(){return alloc_flag;};
+  enum { NONE=0, LEX=1,GRID=2} ordering;
   // Constructer null-ing flags, should be called once in the global scope
     EigenCache ():
     cname ("EigenCache"), read_interval (1000), neig (0), alloc_flag (0),
-    eval_cached (0)
+    eval_cached (0),ordering(NONE)
   {
-    *fname_root_bc = 0;		// clear file name
+//    *fname_root_bc = 0;		// clear file name
 //      index = 0;
   }
+  std::vector < Float > evals;
+  std::vector < Float * >evecs;
 
-  EigenCache (char *name)
-  : cname ("EigenCache"), read_interval (10), neig (0), alloc_flag (0),
+//  void * evec_grid;
+
+  EigenCache (const char *name)
+  : cname ("EigenCache"), read_interval (1000), neig (0), alloc_flag (0),
     eval_cached (0)
   {
     strcpy (cache_name, name);
 
-    *fname_root_bc = 0;		// clear file name
+//    *fname_root_bc = 0;		// clear file name
 //      index = 0;
   }
 
   int Neig ()
   {
-    assert(neig == eval.size());
-    assert(neig == evec.size());
+    assert(neig == evals.size());
+    assert(neig == evecs.size());
     return neig;
   }
   char *Name ()
   {
-    return fname_root_bc;
+    return cache_name;
   }
 
   // if the arguments are already cached
   int is_cached (char *a_fname_root_bc, int a_neig)
   {
     VRB.Result (cname, "is_cached", "%s %d: %s %d\n",
-		fname_root_bc, neig, a_fname_root_bc, a_neig);
+		cache_name, neig, a_fname_root_bc, a_neig);
 
-    return strcmp (fname_root_bc, a_fname_root_bc) == 0 && neig == a_neig;
+    return strcmp (cache_name, a_fname_root_bc) == 0 && neig == a_neig;
   }
 
-  void alloc (char *a_fname_root_bc, int a_neig, size_t a_f_size)
+
+  void alloc (size_t a_neig, size_t a_f_size, size_t a_d_size=sizeof(Float))
   {
     const char *fname = "alloc(C*,I,I)";
     VRB.Func (cname, fname);
-    VRB.Result (cname, fname, "fname=%s neig=%d f_size=%ld\n",
-		a_fname_root_bc, a_neig, a_f_size);
+    VRB.Result (cname, fname, "cache_name=%s neig=%d f_size=%ld data_size=%d\n",
+		cache_name, a_neig, a_f_size,a_d_size);
 
     // first deallocate if already allocated
     if(alloc_flag) dealloc ();
 
     f_size = a_f_size;
     neig = a_neig;
+    d_size = a_d_size;
 
-    strcpy (fname_root_bc, a_fname_root_bc);
+//    strcpy (fname_root_bc, a_fname_root_bc);
 
-//      eval = (Float*) smalloc(cname,fname, "eval", neig*sizeof(Float) );
-    eval.resize (neig);
-    evec.resize (neig);
+    evals.resize (neig);
+    evecs.resize (neig);
     for (int i = 0; i < neig; i++) {
-      evec[i] =
-	(Float *) smalloc (cname, fname, "evec[]", f_size * sizeof (Float));
-      VRB.Debug (cname, fname, "evec[%d]=%p\n", i, evec[i]);
+      evecs[i] =
+	(Float *) smalloc (cname, fname, "evecs[]", f_size * d_size);
+      VRB.Debug (cname, fname, "evecs[%d]=%p\n", i, evecs[i]);
     }
-    index.resize (neig);
+    index.resize (neig,-1);
 //      index = (int*) smalloc(cname,fname,"index", neig*sizeof(int));
 
     clear ();
     alloc_flag = 1;
+    ordering = LEX;
   }
 
   void clear ()
@@ -213,19 +189,8 @@ public:
   {
     const char *fname = "dealloc()";
     VRB.Func (cname, fname);
-    if (!alloc_flag)
-      return;
-    *fname_root_bc = 0;
-#if 1
+    if (alloc_flag==0) return;
     resize(0);
-#else
-    for (int i = 0; i < neig; i++)
-      sfree (cname, fname, "evec[i]", evec[i]);
-    neig = 0;
-    eval.resize(0);
-    evec.resize(0);
-    index.resize (neig);
-#endif
     alloc_flag = 0;
     eval_cached = 0;
   }
@@ -239,9 +204,9 @@ public:
     if (!alloc_flag)
       return;
     assert (vec_i == (neig - 1));
-    sfree (evec[vec_i]);
+    sfree (evecs[vec_i]);
     neig--;
-    evec.resize (neig);
+    evecs.resize (neig);
   }
 #endif
 
@@ -249,14 +214,15 @@ public:
   {
     const char *fname = "resize(i)";
 //    VRB.Func (cname, fname);
-    if (!alloc_flag)
-      return;
+    if (!alloc_flag) return; 
+    if(alloc_flag>1) 
+    ERR.General(cname,fname,"not implemnted for alloc_flag=%d\n",alloc_flag);
     assert (new_size < neig);
     for(int i=(neig-1); i>=new_size;i--)
-    sfree (evec[i]);
+    sfree (evecs[i]);
     neig=new_size;
-    evec.resize (neig);
-    eval.resize (neig);
+    evecs.resize (neig);
+    evals.resize (neig);
     index.resize (neig);
   }
 
@@ -264,7 +230,7 @@ public:
   void save (Float * lam)
   {
     VRB.Result (cname, "save(F*)", "here\n");
-    moveFloat (eval.data (), lam, neig);
+    moveFloat (evals.data (), lam, neig);
     eval_cached = 1;
   }
 
@@ -275,7 +241,7 @@ public:
     VRB.Result (cname, "load(F*)", "%d\n", eval_cached);
     if (!eval_cached)
       return 0;
-    moveFloat (lam, eval.data (), neig);
+    moveFloat (lam, evals.data (), neig);
     return 1;
   }
 
@@ -286,8 +252,8 @@ public:
       index[idx] = idx;		// currently only for a full contents support
 
       int c_idx = index[idx];	// for future extention, like circular buffer 
-//      moveFloat((Float*)evec + c_idx*f_size, (Float*)v, f_size);
-      moveFloat ((Float *) evec[c_idx], (Float *) v, f_size);
+      size_t data_size = f_size*d_size/sizeof(Float);
+      moveFloat ((Float *) evecs[c_idx], (Float *) v, data_size);
     }
   }
 
@@ -299,8 +265,8 @@ public:
     if (index[idx] < 0)
       return 0;
     int c_idx = index[idx];	// for future extention, like circular buffer 
-    moveFloat ((Float *) v, (Float *) (evec[c_idx]), f_size);
-//    moveFloat( (Float*)v, (Float*)evec+c_idx*f_size, f_size);
+    size_t data_size = f_size*d_size/sizeof(Float);
+    moveFloat ((Float *) v, (Float *) (evecs[c_idx]), data_size);
     return 1;
   }
 
@@ -310,11 +276,10 @@ public:
     VRB.Flow (cname, "vec_ptr(index)", "idx %d index %d\n", idx, index[idx]);
     if (!alloc_flag)
       return 0;
-//    return (Vector*)((Float*)evec + idx*f_size);
     VRB.Debug (cname, "vec_ptr(index)", "idx %d index %d %p\n", idx,
-		index[idx], evec[idx]);
+		index[idx], evecs[idx]);
     assert (idx < neig);
-    return (Vector *) ((Float *) evec[idx]);
+    return (Vector *) ((Float *) evecs[idx]);
   }
 
   // just return the pointer in the cache
@@ -324,10 +289,10 @@ public:
     if (!alloc_flag)
       return 0;
     assert (idx < neig);
-    evec[idx] = (Float *) ptr;
+    evecs[idx] = (Float *) ptr;
     VRB.Debug (cname, "set_ptr(index)", "idx %d index %d %p\n", idx,
-		index[idx], evec[idx]);
-    return (Vector *) ((Float *) evec[idx]);
+		index[idx], evecs[idx]);
+    return (Vector *) ((Float *) evecs[idx]);
   }
 
   // just return the pointer in the cache, not copy
@@ -338,8 +303,8 @@ public:
     if (index[idx] < 0)
       return 0;
     int c_idx = index[idx];	// for future extention, like circular buffer 
-    return (Vector *) (evec[c_idx]);
-//    Vector* ptr = (Vector*)((Float*)evec + c_idx*f_size);
+    return (Vector *) (evecs[c_idx]);
+//    Vector* ptr = (Vector*)((Float*)evecs + c_idx*f_size);
     //printf("evec: %d %d %x",idx, c_idx, ptr);
 //    return ptr;
   }
@@ -353,7 +318,7 @@ public:
   Float *eval_address ()
   {
     VRB.Flow (cname, "eval_address()", "\n");
-    return eval.data ();
+    return evals.data ();
   }
   void set_neig (int n)
   {
@@ -364,109 +329,38 @@ public:
     index[n] = n;
   }
 
-#if 0
-  int decompress (const char *root_)
+  virtual int read_compressed (char *root_, const char *checksum_dir=NULL, int interval=-1)
   {
-
-    EvecReader evec_reader;
-    evec_reader.read_metadata (root_);
-    std::vector < float *>evec_f;
-    for (int i = 0; i < evec.size (); i++) {
-      evec_f.push_back ((float *) evec[i]);
-    }
-    evec_reader.decompress (root_, evec_f);
-    for (int i = 0; i < evec.size (); i++) {
-      float *temp = (float *) evec[i];
-      char *c_tmp = (char *) temp;
-      Float sum = 0.;
-      for (size_t ind = 0; ind < f_size * (sizeof (Float) / sizeof (float));
-	   ind++)
-	sum += temp[ind] * temp[ind];
-      glb_sum (&sum);
-      VRB.Result (cname, "decompress", "evec[%d][0]=%g sum[%d]=%g\n", i, *temp,
-		  i, sum);
-    }
-  }
-#endif
-  int read_compressed (const char *root_, const char *checksum_dir, int interval=-1)
-  {
-
+    const char *fname="read_compressed()";
     if(interval>0) read_interval = interval;
-    evec_reader.read_metadata (root_);
-    if (!UniqueID ())
-      printf ("read_interval=%d\n", read_interval);
-    for (int i = 0; i < evec.size (); i += read_interval) {
+    VRB.Result(cname,fname,"dir=%s checksum_dir=%s read_interval=%d\n", root_, checksum_dir, read_interval);
+//    exit(-42);
+    evec_reader.read_metadata (root_,evals);
+    for(int i=0;i< evals.size();i++)
+    VRB.Result(cname,fname,"eval[%d]=%e\n",i,evals[i]);
+    for (int i = 0; i < evecs.size (); i += read_interval) {
       std::vector < float *>evec_f;
-      for (int j = 0; j < read_interval && (i + j) < evec.size (); j++)
-	evec_f.push_back ((float *) evec[i + j]);
+      for (int j = 0; j < read_interval && (i + j) < evecs.size (); j++)
+	evec_f.push_back ((float *) evecs[i + j]);
       evec_reader.read_compressed_vectors (root_, checksum_dir, evec_f, i,
 					   i + evec_f.size ());
+      float *temp = (float *) evecs[i];
+//      printf("Node  %d: read_compressed: evecs[%d][0]=%g\n",UniqueID(),i,*temp);
     }
-    for (int i = 0; i < evec.size (); i++) {
-      float *temp = (float *) evec[i];
+    for (int i = 0; i < evecs.size (); i++) {
+      float *temp = (float *) evecs[i];
       char *c_tmp = (char *) temp;
       Float sum = 0.;
-      for (size_t ind = 0; ind < (size_t) f_size * (sizeof (Float) / sizeof (float)); ind++)
+//      for (size_t ind = 0; ind < (size_t) f_size * (sizeof (Float) / sizeof (float)); ind++)
+      for (size_t ind = 0; ind < (size_t) f_size ; ind++)
 	sum += temp[ind] * temp[ind];
       glb_sum (&sum);
-      VRB.Result (cname, "read_compressed", "evec[%d][0]=%g sum[%d]=%g\n", i,
-		  *temp, i, sum);
-      set_index (i);
+      if(!UniqueID()) printf("Node  %d: read_compressed: evecs[%d][0]=%g sum[%d]=%g\n", UniqueID(), i, *temp, i, sum);
+//      set_index (i);
     }
-    return evec.size();
+    return evecs.size();
   }
 };
-
-#ifdef USE_GRID
-template < class Field > class EigenCacheGrid:public EigenCache {
-private:
-  char *cname;
-//  const char *fname;
-public:
-
-  Grid::GridBase * grid;
-
-  std::vector < Field > evec_grid;
-EigenCacheGrid ():grid (NULL), cname ("EigenCacheGrid") {
-  }
-  EigenCacheGrid (char *name):EigenCache (name)
-  {
-  }
-  ~EigenCacheGrid () {
-  }
-
-};
-#endif
-
-
-//----------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------//
-// Dear Chulwoo :
-//  Here is the extern declaration  of a global instance, EigenCacheList
-//
-//  The cache list needes to live after the dirac operator destory, as the same eigen vector
-//  would be needed again (at least 12 times for the propagator, and more for other source locations)
-//  This is why currently this is a global variable, just like GJP.
-//
-//  The cleanup (deallocation) of potentially large size memory of cache 
-//  is a responsibility of writers of Alg  or main.C, as the appropriate timing for deallocation is unknown. 
-//  For example, one would need more than one quark mass or boundary condition at a time in LMA, so it will need
-//  more than one instance of a cache  (that's why there is the global vector<Ecache*>, and which timing each of cache
-//  becomes useless is hard to know in this low level routine.
-//  I don't know how to write a smart automatic garbage collector without perfomance/memory penalties.
-//
-//  Service routines are provided below also.
-//
-//------------------------------------------------------------------------------------------------//
-
-extern std::vector < EigenCache * >EigenCacheList;
-
-//Search contents that match to arguments, return 0 if not found
-EigenCache *EigenCacheListSearch (char *fname_root_bc, int neig);
-
-// Cleanup list EigenCache, it also destroies contents pointed by the elements.
-void EigenCacheListCleanup ();
 
 
 //----0----------------------------------------------------------------
@@ -528,7 +422,7 @@ public:
   //   This is why I needed to set up three different integers in the argument. Perhpas there is a better way....
   //
 
-  EigenContainer (Lattice & latt, char *a_fname_root_bc,
+  EigenContainer (Lattice & latt, const char *a_fname_root_bc,
 		  int neig_, size_t f_size_per_site_, int n_fields_,
 		  EigenCache * a_ecache = 0)
 :  cname ("EigenContainer"), lattice (&latt), format (UNDEFINED) {
@@ -536,8 +430,18 @@ public:
 
     f_size_per_site = f_size_per_site_;
     n_fields = n_fields_;
-    f_size = f_size_per_site * n_fields * GJP.VolNodeSites ();
+    f_size = f_size_per_site_ * n_fields * GJP.VolNodeSites ();
     neig = neig_;
+
+#if 0
+ EigenContainer (Lattice & latt, EigenCache * a_acache)
+:  cname ("EigenContainer"), lattice (&latt), format (UNDEFINED) {
+    const char *fname = "EigenContainer(...)";
+
+   if(!a_cache) ERR.General(cname,fname,"EigenCache should have been allocated before this\n");
+   f_size = a_cache-> 
+#endif
+
     f_stride_size =
       f_size_per_site * n_fields * GJP.SaveStride () * GJP.VolNodeSites ();
     // number of Vectors in one eigenvector
@@ -980,7 +884,7 @@ public:
     //    sfree(cname,fname,"sol",sol);
   }
 
-  int load_rbc (const char *dir, int interval=-1)
+  int load_rbc (char *dir, int interval=-1)
   {
     const char *fname = "load_rbc(s)";
     if (!ecache)
@@ -999,6 +903,36 @@ public:
   friend class EvecReader;
 
 };
+
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------//
+// Dear Chulwoo :
+//  Here is the extern declaration  of a global instance, EigenCacheList
+//
+//  The cache list needes to live after the dirac operator destory, as the same eigen vector
+//  would be needed again (at least 12 times for the propagator, and more for other source locations)
+//  This is why currently this is a global variable, just like GJP.
+//
+//  The cleanup (deallocation) of potentially large size memory of cache 
+//  is a responsibility of writers of Alg  or main.C, as the appropriate timing for deallocation is unknown. 
+//  For example, one would need more than one quark mass or boundary condition at a time in LMA, so it will need
+//  more than one instance of a cache  (that's why there is the global vector<Ecache*>, and which timing each of cache
+//  becomes useless is hard to know in this low level routine.
+//  I don't know how to write a smart automatic garbage collector without perfomance/memory penalties.
+//
+//  Service routines are provided below also.
+//
+//------------------------------------------------------------------------------------------------//
+
+extern std::vector < EigenCache * >EigenCacheList;
+
+//Search contents that match to arguments, return 0 if not found
+EigenCache *EigenCacheListSearch (char *cache_name, int neig);
+
+// Cleanup list EigenCache, it also destroies contents pointed by the elements.
+void EigenCacheListCleanup ();
+
 
 //extern std::vector<EigenCache*> EigenCacheList;
 

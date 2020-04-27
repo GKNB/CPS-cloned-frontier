@@ -14,23 +14,8 @@
 
 
 
-#include<config.h>
-
-#include <util/qcdio.h>
 #include <math.h>
-
-#include<util/lattice.h>
-#include<util/gjp.h>
-#include<util/verbose.h>
-#include<util/dirac_op.h>
-#include<util/error.h>
-#include<alg/alg_hmd.h>
-#include<alg/do_arg.h>
-#include <util/qcdio.h>
-#include <comms/sysfunc_cps.h>
-#include<util/testing_framework.h>
-#include<util/dump_xml.h>
-
+#include<cps.h>
 
 USING_NAMESPACE_CPS
 
@@ -38,7 +23,7 @@ USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
 {
-    Start(); 
+    Start(&argc,&argv); 
     const int nx=4;
     const int ny=4;
     const int nz=4;

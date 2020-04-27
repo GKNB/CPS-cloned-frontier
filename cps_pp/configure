@@ -626,6 +626,7 @@ INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
 HAVE_BFM
+GITHASH
 VERSION_STR
 VERSION_SUB
 VERSION_MINOR
@@ -4843,35 +4844,12 @@ $as_echo_n "checking what target we are compiling for... " >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_target" >&5
 $as_echo "$enable_target" >&6; }
 
-if test "$enable_target" = "bgl"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/"
-   LDFLAGS="${LDFLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/ -L/bgl/BlueLight/ppcfloor/bglsys/lib/ -lrts.rts"
-
-   ARCH="BGL"
-   ARCHDIR="BGL_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgp"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgsys/drivers/ppcfloor/arch/include/"
-
-   ARCH="BGP"
-   ARCHDIR="BGL_QMP_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgq"; then
+if test "$enable_target" = "bgq"; then
    ARCH="BGQ"
    ARCHDIR="BGQ_DIR"
    TESTING_PARALLEL="yes";
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-   LDFLAGS="${LDFLAGS} -fopenmp"
+   LDFLAGS="-fopenmp ${LDFLAGS} "
    CFLAGS="${CFLAGS} -fopenmp"
    CXXFLAGS="${CXXLAGS} -fopenmp"
 
@@ -5074,7 +5052,7 @@ fi
 if test "${enable_c11_rng+set}" = set; then :
   enableval=$enable_c11_rng;
 else
-  enable_c11_rng="no"
+  enable_c11_rng="yes"
 fi
 
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compile with c++11 RNG" >&5
@@ -5220,14 +5198,9 @@ if test "$enable_qmp" != "no"; then
    QMP_CFLAGS=`${QMP_DIR}/bin/qmp-config --cflags`
    QMP_LDFLAGS=`${QMP_DIR}/bin/qmp-config --ldflags`
    QMP_LIBS=`${QMP_DIR}/bin/qmp-config --libs`
-   LDFLAGS="${LDFLAGS} ${QMP_LDFLAGS} ${QMP_LIBS}"
+   LDFLAGS="${QMP_LDFLAGS} ${QMP_LIBS} ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_CFLAGS} "
    DFLAGS="${DFLAGS} -DUSE_QMP"
-   if test "$enable_target" = "bgl"; then
-     ARCHDIR="BGL_QMP_DIR"
-   elif test "$enable_target" = "bgp"; then
-     ARCHDIR="BGL_QMP_DIR"
-   fi
    TESTING_PARALLEL="yes";
 fi
 
@@ -5270,7 +5243,7 @@ if test "$enable_qio" != "no"; then
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_FLAGS} "
 if test "$enable_qio" != "yes"; then
    QIO_DIR=${enable_qio}
-   LDFLAGS="${LDFLAGS} -L${QIO_DIR}/lib"
+   LDFLAGS="-L${QIO_DIR}/lib ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${QIO_DIR}/include"
 fi
    LDFLAGS="${LDFLAGS} -lqio -llime "
@@ -5826,7 +5799,10 @@ fi
 
 
 
+echo "`git log -n 1 --format=format:"#define GITHASH \\"%H:%d\\"%n" HEAD`" > $srcdir/include/version.h
+#git log -n 1 --format=format:GITHASH=\\\"%H:%d\\\"%n\\\" HEAD > $srcdir/GITHASH
 .  $srcdir/VERSION
+#.  $srcdir/GITHASH
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
@@ -5834,6 +5810,7 @@ echo "CPS Version SUB:   ${VERSION_SUB}"
 echo Version ${VERSION_STR}
 echo "SRCDIR = " ${SRCDIR}
 echo "BUILDDIR = " ${BUILDDIR}
+
 
 
 

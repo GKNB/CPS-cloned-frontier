@@ -94,11 +94,12 @@ void LatRanGen::Reinitialize ()
 //---------------------------------------------------------
 void LatRanGen::Initialize ()
 {
+  const char *fname = "Initialize";
+//  VRB.Func (cname, fname);
+  VRB.Result(cname,fname,"is_initialized=%d\n",is_initialized);
   if (is_initialized == 1)
     return;
 
-  const char *fname = "Initialize";
-  VRB.Func (cname, fname);
 
 //  stringstream cpsran_dump;
 //  cpsran_dump.open("cpsran_dump");
@@ -184,13 +185,13 @@ void LatRanGen::Initialize ()
 
 #ifdef RNG_SEED_RANLUX
 	    start_seed = ran_std ();
-	    VRB.RNGSeed (cname, fname, "index_4d=%d start_seed=%ld\n", index_4d,
+	    VRB.Debug (cname, fname, "index_4d=%d start_seed=%ld\n", index_4d,
 			 start_seed);
 	    cpsran[index_4d++].seed (start_seed);
 #else
 	    cpsran[index_4d].seed (start_seed);
 	    uint64_t nskip = RNG_SKIP * (uint64_t) index_4d;
-	    VRB.RNGSeed (cname, fname, "index_4d=%d nskip=%ld\n", index_4d,
+	    VRB.Debug (cname, fname, "index_4d=%d nskip=%ld\n", index_4d,
 			 nskip);
 	    cpsran[index_4d].discard (nskip);
 	    index_4d++;
@@ -300,7 +301,7 @@ void LatRanGen::Initialize ()
 			     index_4d, temp);
 	      else
 		SeedList.push_back (temp);
-	      VRB.RNGSeed (cname, fname, "rng_count=%d start_seed=%ld\n",
+	      VRB.Debug (cname, fname, "rng_count=%d start_seed=%ld\n",
 			   rng_count, temp);
 	      rng_count++;
 	    }
@@ -313,7 +314,7 @@ void LatRanGen::Initialize ()
 	    else
 	      SeedList.push_back (temp);
 	    start_seed_4d = temp;
-	    VRB.RNGSeed (cname, fname, "index_4d=%d start_seed=%ld\n", index_4d,
+	    VRB.Debug (cname, fname, "index_4d=%d start_seed=%ld\n", index_4d,
 			 start_seed_4d);
 	    rng_count++;
 #endif
@@ -321,10 +322,12 @@ void LatRanGen::Initialize ()
 #ifdef RNG_SEED_SKIP
 #ifdef USE_C11_SITMO
 //#if 0 
+	  VRB.RNGSeed (cname, fname, "index_4d=%d sitmo start_seed=%ld rng_offset=%d\n", index_4d,start_seed_4d,rng_offset);
 	  cpsran[index_4d].set_counter (0, 0, (uint64_t) rng_offset, 0, 0);
 #else
 	  assert(index_4d < MAX_RNG); // can be changed to do it sequentially, circumventing the limit
 	  uint64_t nskip = RNG_SKIP * (uint64_t) rng_offset;
+	  VRB.RNGSeed (cname, fname, "index_4d=%d nskip=%ld\n", index_4d,nskip);
 	  cpsran[index_4d].discard (nskip);
 #endif
 #endif
@@ -349,7 +352,7 @@ void LatRanGen::Initialize ()
 #ifdef RNG_WARMUP
 	  {
 	    int n_warm = ugran_4d[index_4d].Urand (100, 0);
-	    VRB.RNGSeed (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
+	    VRB.Debug (cname, fname, "index_4d=%d n_warm=%d\n", index_4d,
 			n_warm);
 	    while (n_warm > 0) {
 	      int temp = ugran_4d[index_4d].Urand (100, 0);
@@ -361,7 +364,7 @@ void LatRanGen::Initialize ()
 	  {
 	    std::uniform_int_distribution <> uniform_dist (0, BOOTSTRAP_MAX);
 	    int new_seed = uniform_dist (cpsran[index_4d]);
-	    VRB.RNGSeed (cname, fname,
+	    VRB.Debug (cname, fname,
 			"index_4d=%d start_seed_4d=%d new_seed=%d\n", index_4d,
 			start_seed_4d, new_seed);
 	    cpsran[index_4d].seed (new_seed);

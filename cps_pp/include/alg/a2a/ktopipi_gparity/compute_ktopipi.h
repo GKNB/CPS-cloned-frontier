@@ -11,7 +11,10 @@ CPS_START_NAMESPACE
 //time but I have corrected it in the code (if you disable the #define below!)
 
 #define DAIQIAN_COMPATIBILITY_MODE  //do not divide by 2, to match Daiqian's files
+
+#ifndef USE_C11_RNG //no point reproducing Daiqian's code if we don't have the same RNG!
 #define DAIQIAN_EVIL_RANDOM_SITE_OFFSET //use Daiqian's machine-size dependent random spatial sampling (cf below)
+#endif
 
 //For arrays of SIMD vectorized types we must use an aligned allocator in the std::vector. This wrapper gets the aligned vector type in that case, otherwise gives a std::vector
 template<typename T, typename ComplexClass>

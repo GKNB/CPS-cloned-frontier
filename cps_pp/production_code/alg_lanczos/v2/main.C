@@ -150,7 +150,7 @@ void comp_read_eigenvectors (Lattice & lattice, int eig_start=0,int num_eig=0)
 
   AlgLanczos eig (lattice, &common_arg, &lanczos_arg, ecache);
   int Ncb = eig.NumChkb (lanczos_arg.RitzMat_lanczos);
-  int fsize = GJP.VolNodeSites () * lattice.FsiteSize () * Ncb / 2 / 2;	//last 2 for single prec.;
+  size_t fsize = GJP.VolNodeSites () * lattice.FsiteSize () * Ncb / 2 / 2;	//last 2 for single prec.;
   EigenCacheList.push_back (ecache);
   int neig;
 

@@ -45,7 +45,7 @@ class AlgVacPolStag : public Alg
     void  FFT4(Float* fpin, const int nleft, const int nright,
                int flag_dist_back=1, int fft_forward=1  )
     {
-      const int data_size = GJP.VolNodeSites()*nleft*nright;
+      const size_t data_size = GJP.VolNodeSites()*nleft*nright;
       //< total data length in units of Float
       
       int nr_stride = 1;

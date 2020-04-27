@@ -34,13 +34,11 @@ struct BFMGridLanczosWrapper{
   void compute(const LancArg &lanc_arg){
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
     wrapper.compute(lanc_arg, *lanczos_lat);
-    wrapper.moveDPevecsToIndependentGrid(*lanczos_lat); //make sure the underlying Grids don't get deleted when we delete the lattice instance
     delete lanczos_lat;
   }
   void randomizeEvecs(const LancArg &lanc_arg){
     LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
     wrapper.randomizeEvecs(lanc_arg, *lanczos_lat);
-    wrapper.moveDPevecsToIndependentGrid(*lanczos_lat);
     delete lanczos_lat;
   }
     
@@ -70,13 +68,7 @@ struct BFMGridLanczosWrapper{
     wrapper.writeParallel(file_stub, fileformat);
   }  
   void readParallel(const std::string &file_stub){
-#ifdef USE_GRID_LANCZOS
-    LanczosLattice* lanczos_lat = createLattice<LanczosLattice,isGridtype>::doit(jp);
-    wrapper.readParallel(file_stub, *lanczos_lat);
-    delete lanczos_lat;
-#else
     wrapper.readParallel(file_stub);
-#endif
   }
   
 };

@@ -2,6 +2,21 @@
 #define MESON_FIELD_IMPL
 
 template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
+void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::testRandom(const Float hi, const Float lo){
+#ifndef USE_C11_RNG    
+  static UniformRandomGenerator urng(hi,lo);
+  static bool init = false;
+  if(!init){ urng.Reset(1234); init = true; }
+  for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urng.Rand(hi,lo), urng.Rand(hi,lo) );
+#else
+  static CPS_RNG eng(1234);
+  std::uniform_real_distribution<Float> urand(lo,hi);
+  for(int i=0;i<this->fsize;i++) this->ptr()[i] = ScalarComplexType(urand(eng), urand(eng) );
+#endif
+}
+
+
+template<typename mf_Policies, template <typename> class A2AfieldL,  template <typename> class A2AfieldR>
 void A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR>::plus_equals(const A2AmesonField<mf_Policies,A2AfieldL,A2AfieldR> &with, const bool parallel){
   if(nmodes_l != with.nmodes_l || nmodes_r != with.nmodes_r || 
      !lindexdilution.paramsEqual(with.lindexdilution) || !rindexdilution.paramsEqual(with.rindexdilution) ){

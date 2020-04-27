@@ -103,37 +103,14 @@ AC_MSG_CHECKING([what target we are compiling for])
 AC_MSG_RESULT($enable_target)
 
 dnl Can add more cases as we need to
-if test "$enable_target" = "bgl"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/"
-   LDFLAGS="${LDFLAGS} -I/bgl/BlueLight/ppcfloor/bglsys/include/ -L/bgl/BlueLight/ppcfloor/bglsys/lib/ -lrts.rts"
-
-   ARCH="BGL"
-   ARCHDIR="BGL_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgp"; then
-
-   CFLAGS+="${CFLAGS}"
-   CXXFLAGS+="${CXXFLAGS}"
-   INCLUDE_FLAGS+="${INCLUDE_FLAGS} -I/bgsys/drivers/ppcfloor/arch/include/"
-
-   ARCH="BGP"
-   ARCHDIR="BGL_QMP_DIR"
-   TESTING_PARALLEL="yes";
-   namespace_default="yes"
-
-elif test "$enable_target" = "bgq"; then
+if test "$enable_target" = "bgq"; then
 dnl  AC_CHECK_PROGS(CC, mpicc)
 dnl  AC_CHECK_PROGS(CXX, mpicxx)
    ARCH="BGQ"
    ARCHDIR="BGQ_DIR"
    TESTING_PARALLEL="yes";
    DFLAGS="${DFLAGS} -DUSE_OMP -DVEC_INLINE"
-   LDFLAGS="${LDFLAGS} -fopenmp"
+   LDFLAGS="-fopenmp ${LDFLAGS} "
    CFLAGS="${CFLAGS} -fopenmp"
    CXXFLAGS="${CXXLAGS} -fopenmp"
 
@@ -236,7 +213,7 @@ dnl Are we compiling with C11 RNG?
 AC_ARG_ENABLE(c11_rng, 
 	AC_HELP_STRING([--enable-c11-rng=sitmo|mt19937|ranlux48], 
 	[Compile with C11 RNG. (default=yes, sitmo if enabled)]), 
-	,[enable_c11_rng="no"])
+	,[enable_c11_rng="yes"])
 	AC_MSG_CHECKING([if compile with c++11 RNG])
 	AC_MSG_RESULT($enable_c11_rng)
 if test "$enable_c11_rng" == "mt19937"; then
@@ -349,14 +326,9 @@ if test "$enable_qmp" != "no"; then
    QMP_CFLAGS=`${QMP_DIR}/bin/qmp-config --cflags`
    QMP_LDFLAGS=`${QMP_DIR}/bin/qmp-config --ldflags`
    QMP_LIBS=`${QMP_DIR}/bin/qmp-config --libs`
-   LDFLAGS="${LDFLAGS} ${QMP_LDFLAGS} ${QMP_LIBS}"
+   LDFLAGS="${QMP_LDFLAGS} ${QMP_LIBS} ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_CFLAGS} "
    DFLAGS="${DFLAGS} -DUSE_QMP"
-   if test "$enable_target" = "bgl"; then
-     ARCHDIR="BGL_QMP_DIR"
-   elif test "$enable_target" = "bgp"; then
-     ARCHDIR="BGL_QMP_DIR"
-   fi
    TESTING_PARALLEL="yes";
 fi
 
@@ -395,7 +367,7 @@ if test "$enable_qio" != "no"; then
    INCLUDE_FLAGS="${INCLUDE_FLAGS} ${QMP_FLAGS} "
 if test "$enable_qio" != "yes"; then
    QIO_DIR=${enable_qio}
-   LDFLAGS="${LDFLAGS} -L${QIO_DIR}/lib"
+   LDFLAGS="-L${QIO_DIR}/lib ${LDFLAGS}"
    INCLUDE_FLAGS="${INCLUDE_FLAGS} -I${QIO_DIR}/include"
 fi
    LDFLAGS="${LDFLAGS} -lqio -llime "
@@ -742,7 +714,10 @@ AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 
 dnl configuring version number
+echo "`git log -n 1 --format=format:"#define GITHASH \\"%H:%d\\"%n" HEAD`" > $srcdir/include/version.h
+#git log -n 1 --format=format:GITHASH=\\\"%H:%d\\\"%n\\\" HEAD > $srcdir/GITHASH
 .  $srcdir/VERSION
+#.  $srcdir/GITHASH
 echo CPS source: $srcdir
 echo "CPS Version MAJOR: ${VERSION_MAJOR}"
 echo "CPS Version MINOR: ${VERSION_MINOR}"
@@ -754,6 +729,7 @@ AC_SUBST(VERSION_MAJOR)
 AC_SUBST(VERSION_MINOR)
 AC_SUBST(VERSION_SUB)
 AC_SUBST(VERSION_STR)
+AC_SUBST(GITHASH)
 AC_SUBST(SRCDIR)
 AC_SUBST(BUILDDIR)
 

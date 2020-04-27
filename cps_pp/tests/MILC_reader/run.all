@@ -1,0 +1,31 @@
+#!/bin/bash
+export OMP_NUM_THREADS=1
+mpiprocs=$1
+if [ $1 == '4' ] ; then
+geom="1 1 2 2"
+elif [ $1 == '2' ] ; then
+geom="1 1 1 2"
+elif [ $1 == '16' ] ; then
+geom="2 2 2 2"
+elif [ $1 == '8' ] ; then
+geom="1 2 2 2"
+else 
+mpiprocs=1
+geom="1 1 1 1"
+fi
+
+echo mpiprocs = $mpiprocs
+echo geom = $geom
+#exit
+BIN=./develop2.x
+LAT=l3248f211b580m002426m06730m8447j.1000
+#LAT=l2064f211b600m011m055m645.1000
+args=' -r '$LAT' --shm 512'
+
+if [ X"$2"X == "X1X" ] ; then
+VALGRIND='valgrind --track-origins=yes --leak-check=full '
+VALG=.valg
+fi
+OUT=run.log."$mpiprocs""$VALG"
+echo mpirun -n $mpiprocs nice $VALGRIND $BIN $args -qmp-geom $geom  2>&1 |tee $OUT
+mpirun -n $mpiprocs nice $VALGRIND $BIN $args -qmp-geom $geom  2>&1 |tee -a $OUT

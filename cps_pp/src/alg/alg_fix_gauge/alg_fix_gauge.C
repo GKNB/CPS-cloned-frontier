@@ -24,17 +24,16 @@ CPS_START_NAMESPACE
 
 
 CPS_END_NAMESPACE
-//#include <stdlib.h>	// exit()
-//#include <util/qcdio.h>
-#include <alg/alg_fix_gauge.h>
-// #include <alg/common_arg.h>
-// #include <alg/fix_gauge_arg.h>
 #include <util/lattice.h>
 #include <util/gjp.h>
+#include <util/site.h>
+#include <alg/alg_fix_gauge.h>
 #include <util/smalloc.h>
 #include <util/vector.h>
 #include <util/verbose.h>
 #include <util/error.h>
+#include <util/ReadNERSC.h>
+#include <util/WriteNERSC.h>
 CPS_START_NAMESPACE
 
 
@@ -79,7 +78,7 @@ AlgFixGauge::~AlgFixGauge() {
 //------------------------------------------------------------------
 // Allocates memory and constructs the gauge fixing matrices
 //------------------------------------------------------------------
-void AlgFixGauge::run()
+void AlgFixGauge::run(const QioArg *rd_arg)
 {
   const char *fname = "run";
   VRB.Func(cname,fname);
@@ -93,9 +92,8 @@ void AlgFixGauge::run()
   FixGaugeType fix = alg_fix_gauge_arg->fix_gauge_kind;
   int start = alg_fix_gauge_arg->hyperplane_start;
   int step = alg_fix_gauge_arg->hyperplane_step;
-  int num = alg_fix_gauge_arg->hyperplane_num;
-  int lattice_dir_size=0;
-  int *h_planes = 0;
+  num = alg_fix_gauge_arg->hyperplane_num;
+  int *h_planes = NULL;
 
   // If coulomb gauge
   //----------------------------------------------------------------
@@ -117,8 +115,8 @@ void AlgFixGauge::run()
       case FIX_GAUGE_COULOMB_T:
 	  lattice_dir_size = GJP.TnodeSites() * GJP.Tnodes();
 	  break;
-      case FIX_GAUGE_NONE:
       case FIX_GAUGE_LANDAU:
+      case FIX_GAUGE_NONE:
 	  break;
       }
 
@@ -133,11 +131,13 @@ void AlgFixGauge::run()
     
     for(int i=0; i<num; i++) h_planes[i] = start + step * i;
 
-  }
+  } 
 
   // Allocate gauge fixing matrices and set them to 1
   //----------------------------------------------------------------
   lat.FixGaugeAllocate(fix, num, h_planes);
+  if(rd_arg)
+  this->Load(*rd_arg);
 
 
   // Calculate the gauge fixing matrices
@@ -146,7 +146,6 @@ void AlgFixGauge::run()
   if ( alg_fix_gauge_arg->max_iter_num > 0 ) 
   lat.FixGauge(alg_fix_gauge_arg->stop_cond, 
 	       alg_fix_gauge_arg->max_iter_num);
-
 
   VRB.Sfree(cname,fname, "h_planes",h_planes);
   sfree(h_planes);
@@ -168,6 +167,85 @@ void AlgFixGauge::free()
   // Free gauge fixing matrices
   //----------------------------------------------------------------
   lat.FixGaugeFree();
+}
+
+void AlgFixGauge::Save(const QioArg &wt_arg, int pario){
+
+  const char *fname("Save()");
+  Lattice& lat = AlgLattice();
+  LatMatrix gfix_mat(1);
+
+  Site s;
+  while(s.LoopsOverNode()){
+//	int *pos = s.pos();
+	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos());
+	if(mat1 !=NULL ){
+		Matrix *mat2 = gfix_mat.Mat(s.Index());
+		*mat2 = *mat1;
+	Float *tmp_p = (Float*)mat2;
+//	printf("LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	VRB.Debug(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	s.physX(),s.physY(),s.physZ(),s.physT(), s.Index(),
+	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
+        } else {
+	ERR.General(cname,fname,"Gauge fix matrix should be available on every sites!\n");
+        }
+  }
+//  WriteNERSC<LatGfixHeader < alg_fix_gauge_arg->fix_gauge_kind >,4,Float> nersc_write(gfix_mat.Nelem());
+  std::vector <std::string > key;
+  key.push_back("GF_TYPE");
+  key.push_back("GF_ACCRUACY");
+
+  std::vector <std::string > value;
+  switch ( alg_fix_gauge_arg->fix_gauge_kind){
+        case FIX_GAUGE_LANDAU:
+        value.push_back( "LANDAU"); break;
+        case FIX_GAUGE_COULOMB_X:
+        value.push_back( "COULOMB_X"); break;
+        case FIX_GAUGE_COULOMB_Y:
+        value.push_back( "COULOMB_Y"); break;
+        case FIX_GAUGE_COULOMB_Z:
+        value.push_back( "COULOMB_Z"); break;
+        case FIX_GAUGE_COULOMB_T:
+        value.push_back( "COULOMB_T"); break;
+        default:
+        ERR.General(cname,fname,"Gauge fixing type not defined\n");
+  }
+  std::stringstream accuracy;
+  accuracy.precision(8);  
+  accuracy << alg_fix_gauge_arg->stop_cond;
+  value.push_back(accuracy.str());
+
+
+  WriteNERSC<LatNERSCHeader,4,Float> nersc_write(gfix_mat.Nelem(),key,value);
+  VRB.Result(cname,fname,"pario=%d resetting to serial\n",pario);
+//  if (!pario ) 
+  nersc_write.setSerial();
+  nersc_write.write(gfix_mat.Field(),wt_arg);
+}
+
+void AlgFixGauge::Load(const QioArg &rd_arg){
+
+  const char *fname("Load()");
+  Lattice& lat = AlgLattice();
+  LatMatrix gfix_mat(1);
+
+  ReadNERSC<LatNERSCHeader,4,Float> nersc_read(gfix_mat.Nelem());
+//  Being lazy. Should be fixed eventually!
+//  ReadNERSC<LatNERSCHeader,4,Float> nersc_read(18);
+  nersc_read.read(gfix_mat.Field(),rd_arg);
+
+  Site s;
+  while(s.LoopsOverNode()){
+//	int *pos = s.pos();
+//	const Matrix *mat1 = lat.FixGaugeMatrix(s.pos());
+	Matrix *mat2 = gfix_mat.Mat(s.Index());
+	Float *tmp_p = (Float*)mat2;
+	VRB.Debug(cname,fname,"LoopsOverNode: %d %d %d %d index %d %0.6e %0.6e %0.6e %0.6e %0.6e %0.6e\n", 
+	s.physX(),s.physY(),s.physZ(),s.physT(), s.Index(),
+	tmp_p[0],tmp_p[1],tmp_p[2],tmp_p[3],tmp_p[4],tmp_p[5]);
+	lat.SetFixGaugeMatrix(*mat2,s.pos());
+  }
 }
 
 

@@ -13,6 +13,10 @@
 #endif
 #include<util/multi_cg_controller.h>
 #include<util/eigen_container.h>
+#include<util/eigen_grid.h>
+//#include<Grid/algorithms/iterative/SimpleLanczos.h>
+//using namespace Grid;
+//using namespace Grid::QCD;
 #undef HAVE_HANDOPT
 
 namespace Grid
@@ -29,8 +33,11 @@ namespace Grid
 	       std::vector < Field > &_evec)
     : neig (n), eval (_eval), evec (_evec)
     {
+       std::cout << "Guesser::neig= "<<neig <<std::endl;
+      if (neig>0){
       assert (eval.size () >= neig);
       assert (evec.size () >= neig);
+    }
     }
     void operator  () (const Field & in, Field & out)
     {
@@ -39,7 +46,7 @@ namespace Grid
       for (int i = 0; i < neig; i++) {
 	Grid::ComplexD coef = innerProduct (evec[i], in);
 	coef = coef / eval[i];
-//	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
+	if (cps::VRB.IsActivated(cps::VERBOSE_DEBUG_LEVEL))
           std::cout<<GridLogMessage <<"eval coef norm(evec) "<<i<<" : "<<eval[i]<<" "<<coef<<" "<<norm2(evec[i])<< std::endl;
 	out += coef * evec[i];
       }
@@ -50,28 +57,24 @@ namespace Grid
 
 }
 
-CPS_START_NAMESPACE
-
-class FgridParams
+CPS_START_NAMESPACE class FgridParams
 {
 public:
   Float mobius_scale;
   Float mobius_bmc;
   std::vector <Grid::ComplexD> omega;	//ZMobius
   Float epsilon;		//WilsonTM
-  FgridParams ():mobius_scale (1.), mobius_bmc (1.)
+    FgridParams ():mobius_scale (1.), mobius_bmc (1.)
   {
   }
-  
-  ~FgridParams ()
+   ~FgridParams ()
   {
   }
-
   void setZmobius (cps::Complex * bs, int ls)
   {
     omega.clear ();
     for (int i = 0; i < ls; i++) {
-      std::complex < double > temp = 1. / (2. * bs[i] - 1.);
+      std::complex < double >temp = 1. / (2. * bs[i] - 1.);
       VRB.Result ("FgridParams", "setZmobius", "bs[%d]=%g %g, omega=%g %g\n",
 		  i, bs[i].real (), bs[i].imag (), i, temp.real (),
 		  temp.imag ());
@@ -81,7 +84,7 @@ public:
 };
 
 class FgridBase:public virtual Lattice, public virtual FgridParams,
-		public virtual FwilsonTypes
+  public virtual FwilsonTypes
 {
 
   using RealD = Grid::RealD;
@@ -91,33 +94,47 @@ public:
   //  { Even, Odd, All } EvenOdd;
   const char *cname;
   static bool grid_initted;
-
+  static bool grid_layouts_initted;
 protected:
-  const int Nc = Grid::Nc;
-  const int Nd = Grid::Nd;
-  const int Ns = Grid::Ns;
+  static const int Nc = Grid::Nc;
+  static const int Nd = Grid::Nd;
+  static const int Ns = Grid::Ns;
   int n_gp;
-  Grid::GridCartesian * UGridD;
-  Grid::GridCartesian * UGridF;
-  Grid::GridRedBlackCartesian * UrbGridD;
-  Grid::GridRedBlackCartesian * UrbGridF;
-  Grid::GridCartesian * FGridD;
-  Grid::GridCartesian * FGridF;
-  Grid::GridRedBlackCartesian * FrbGridF;
-  Grid::GridRedBlackCartesian * FrbGridD;
+  static Grid::GridCartesian * UGridD;
+  static Grid::GridCartesian * UGridF;
+  static Grid::GridRedBlackCartesian * UrbGridD;
+  static Grid::GridRedBlackCartesian * UrbGridF;
+  static Grid::GridCartesian * FGridD;
+  static Grid::GridCartesian * FGridF;
+  static Grid::GridRedBlackCartesian * FrbGridF;
+  static Grid::GridRedBlackCartesian * FrbGridD;
   Grid::LatticeGaugeFieldD * Umu;
+  //      Grid::LatticeGaugeFieldF *Umu_f;
   int threads;
-  std::vector < int >vol;	// global volume
-  std::vector < int >nodes;
+  static std::vector < int >vol;	// global volume
+  static std::vector < int >nodes;
   RealD mass;
   RealD mob_b;			//Mobius
   RealD mob_c;			//Mobius
   RealD eps;			// WilsonTM 
   std::vector <Grid::ComplexD>omegas;	//ZMobius
-  int Ls;
-
-public:
+  static int Ls;
+  
   static void setGridInitted(const bool value = true){ grid_initted = value; }
+  static void setGridLayoutsInitted(const bool value = true){ grid_layouts_initted = value; }
+public:
+  //Initialize Grid
+  //Can be called manually a priori, if not it is called in FGrid constructor
+  //Will use the argc,argv pointers provided. If these are null it will use those stored in GJP
+  static void initializeGrid(int *argc = NULL, char ***argv = NULL);
+
+  //Initialize the static Grid objects
+  //Can be called manually a priori, if not it is called in FGrid constructor
+  //We separate this from initializeGrid because initializeGrid can be called before GJP is initialized (eg in src/comms/qmp/sysfunc.C)
+  static void initializeGridLayouts();
+
+  //Check if Grid and the Grids have been initialized
+  static bool getGridInitted(){ return grid_initted; }
 
   inline double get_mob_b () const{
     return mob_b;
@@ -129,107 +146,36 @@ public:
     return mass;
   }  
 
-  Grid::GridCartesian * getFGrid () {
+  static Grid::GridCartesian * getFGrid () {
     return FGridD;
   }
-  Grid::GridCartesian * getFGridF () {
+  static Grid::GridCartesian * getFGridF () {
     return FGridF;
   }
-  Grid::GridRedBlackCartesian * getFrbGrid () {
+  static Grid::GridRedBlackCartesian * getFrbGrid () {
     return FrbGridD;
   }
-  Grid::GridRedBlackCartesian * getFrbGridF () {
+  static Grid::GridRedBlackCartesian * getFrbGridF () {
     return FrbGridF;
   }
-  Grid::GridCartesian * getUGrid () {
+  static Grid::GridCartesian * getUGrid () {
     return UGridD;
   }
-  Grid::GridCartesian * getUGridF () {
+  static Grid::GridCartesian * getUGridF () {
     return UGridF;
   }
-  Grid::GridRedBlackCartesian * getUrbGrid () {
+  static Grid::GridRedBlackCartesian * getUrbGrid () {
     return UrbGridD;
   }
-  Grid::GridRedBlackCartesian * getUrbGridF () {
+  static Grid::GridRedBlackCartesian * getUrbGridF () {
     return UrbGridF;
   }
-
   Grid::LatticeGaugeFieldD * getUmu () {
     return Umu;
   }
+  //      Grid::LatticeGaugeFieldF *getUmu_f(){return Umu_f;}
 
-  FgridBase (FgridParams & params):cname ("FgridBase"), vol (4, 1), nodes (4, 1), mass (1.),
-				   Ls (1) {
-    const char *fname ("FgridBase()");
-    if (!grid_initted)
-      Grid::Grid_init (GJP.argc_p (), GJP.argv_p ());
-    grid_initted = true;
-    *((FgridParams *) this) = params;
-    eps = params.epsilon;  
-    omegas = params.omega;
-
-    //              VRB.Debug(cname,fname,"mobius_scale=%g\n",mobius_scale);
-    mob_b = 0.5 * (mobius_scale + mobius_bmc);
-    mob_c = mob_b - mobius_bmc;
-    VRB.Func (cname, fname);
-    if (!GJP.Gparity ()) {
-      //              ERR.General(cname,fname,"Only implemented for Grid with Gparity at the moment\n");
-      n_gp = 1;
-    } else
-      n_gp = 2;
-    VRB.Debug (cname, fname, "Grid initted\n");
-    threads = Grid::GridThread::GetThreads ();
-    VRB.Result(cname,fname,"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d threads %d\n",Nd,Grid::vComplexD::Nsimd(),threads);
-    for (int i = 0; i < 4; i++)
-      vol[i] = GJP.NodeSites (i) * GJP.Nodes (i);;
-    for (int i = 0; i < 4; i++)
-      nodes[i] = GJP.Nodes (i);
-    VRB.Result (cname, fname,
-		"vol nodes Nd=%d Grid::vComplexD::Nsimd()=%d threads=%d omp_get_max_threads()=%d\n",
-		Nd, Grid::vComplexD::Nsimd (), threads, omp_get_max_threads ());
-    for (int i = 0; i < 4; i++)
-      VRB.Debug (cname, fname, "%d %d \n", vol[i], nodes[i]);
-    UGridD =
-      Grid::SpaceTimeGrid::makeFourDimGrid (vol,
-					    Grid::GridDefaultSimd (Nd, Grid:: vComplexD:: Nsimd ()),
-					    nodes);
-    UGridF =
-      Grid::SpaceTimeGrid::makeFourDimGrid (vol,
-					    Grid::GridDefaultSimd (Nd, Grid:: vComplexF:: Nsimd ()),
-					    nodes);
-    VRB.Debug (cname, fname, "UGridD=%p UGridF=%p\n", UGridD, UGridF);
-    bool fail = false;
-    for (int i = 0; i < 4; i++)
-      if (GJP.NodeCoor (i) != UGridD->_processor_coor[i])
-	fail = true;
-    if (fail)
-      for (int i = 0; i < 4; i++) {
-	printf ("CPS: %d  pos[%d]=%d Grid: %d pos[%d]=%d\n", UniqueID (), i,
-		GJP.NodeCoor (i), UGridD->_processor, i,
-		UGridD->_processor_coor[i]);
-      }
-#ifdef HAVE_HANDOPT
-    if (GJP.Gparity ())
-      Grid::WilsonKernelsStatic::HandOpt = 0;	//Doesn't seem to be working with Gparity
-    else
-      Grid::WilsonKernelsStatic::HandOpt = 1;
-#endif
-    VRB.Debug (cname, fname, "UGrid.lSites()=%d\n", UGridD->lSites ());
-    SetLs (GJP.SnodeSites ());
-    UrbGridD = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridD);
-    UrbGridF = Grid::SpaceTimeGrid::makeFourDimRedBlackGrid (UGridF);
-    VRB.Debug (cname, fname, "UrbGridD=%p UrbGridF=%p\n", UrbGridD, UrbGridF);
-    FGridD = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridD);
-    FGridF = Grid::SpaceTimeGrid::makeFiveDimGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FGridD=%p FGridF=%p\n", FGridD, FGridF);
-    VRB.Debug (cname, fname, "FGridD.lSites()=%d\n", FGridD->lSites ());
-    FrbGridD = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridD);
-    FrbGridF = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid (Ls, UGridF);
-    VRB.Debug (cname, fname, "FrbGridD=%p FrbGridF=%p\n", FrbGridD, FrbGridF);
-    Umu = new Grid::LatticeGaugeFieldD (UGridD);
-    grid_initted = true;
-    VRB.FuncEnd (cname, fname);
-  }
+  FgridBase (FgridParams & params);
 
   void ResetParams (FgridParams & params)
   {
@@ -242,20 +188,13 @@ public:
   {
     if (Umu)
       delete Umu;
-    delete UGridD;
-    delete UGridF;
-    delete UrbGridD;
-    delete UrbGridF;
-    delete FGridD;
-    delete FGridF;
-    delete FrbGridD;
-    delete FrbGridF;
   }
-  int SetLs (int _Ls)
-  {
-    Ls = _Ls;
-    return Ls;
-  }
+
+  //Set Ls to new value (defaults to that of GJP)
+  //This function regenerates the 5D Grids. However it does not delete the old ones as that would make
+  //any Grid objects currently using those Grids no longer function
+  static int SetLs (int _Ls);
+
   Float SetMass (Float _mass)
   {
     mass = _mass;
@@ -292,8 +231,8 @@ public:
     Float *gauge = (Float *) mom;
     if (!mom)
       gauge = (Float *) GaugeField ();
-    //              if (!grid_lat)  grid_lat = Umu;
-    //              if (!grid_lat_f && cps2grid )  grid_lat_f = Umu_f;
+//              if (!grid_lat)  grid_lat = Umu;
+//              if (!grid_lat_f && cps2grid )  grid_lat_f = Umu_f;
     unsigned long vol;
     const char *fname = "ImpexGauge()";
     Grid::GridBase * grid = grid_lat->Grid();
@@ -313,7 +252,7 @@ public:
 	      std::complex < double >elem (*cps, *(cps + 1));
 	      siteGrid (mu) ()(j, i) = elem;
 	      siteGrid_f (mu) ()(j, i) = elem;
-	      //                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
+//                              if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
 	    }
 	  Grid::Lexicographic::CoorFromIndex (grid_coor, site,
 					      grid->_ldimensions);
@@ -331,7 +270,7 @@ public:
 	      Float *cps = gauge + 18 * (site * 4 + mu) + 6 * j + 2 * i;
 	      *cps = elem.real ();
 	      *(cps + 1) = elem.imag ();
-	      //i	if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
+//i	if (norm(elem)>0.01) printf("gauge[%d][%d][%d][%d] = %g %g\n",site,mu,i,j,elem.real(),elem.imag());
 	    }
 	}
       }
@@ -361,20 +300,7 @@ public:
   // It returns the type of fermion class
 
   //! Multiplication of a lattice spin-colour vector by gamma_5.
-  //  void Gamma5(Vector *v_out, Vector *v_in, int num_sites);
-
-#if 0
-  int FsiteOffsetChkb (const int *x) const
-  {
-    ERR.NotImplemented (cname, "FsiteOffsetChkb");
-  }
-  // Sets the offsets for the fermion fields on a 
-  // checkerboard. The fermion field storage order
-  // is not the canonical one but it is particular
-  // to the Dwf fermion type. x[i] is the 
-  // ith coordinate where i = {0,1,2,3} = {x,y,z,t}.
-  //  int FsiteOffset(const int *x) const;
-#endif
+//  void Gamma5(Vector *v_out, Vector *v_in, int num_sites);
 
 
 #if 1
@@ -503,6 +429,8 @@ CPS_END_NAMESPACE
 #define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
 #define IMPL Grid::WilsonImplD
 #define IMPL_F Grid::WilsonImplF
+#define MOB_ASYM
+#undef MOB_SYM2
 #define PARAMS
 #define GP
 #undef TWOKAPPA
@@ -521,6 +449,37 @@ CPS_END_NAMESPACE
 #undef PARAMS
 #undef GP
 #undef GRID_GPARITY
+#undef MOB_ASYM
+#define IF_FIVE_D
+#undef IF_TM
+#define FGRID FgridMobiusSYM2
+#define CLASS_NAME F_CLASS_GRID_MOBIUS_SYM2
+#define DIRAC Grid::MobiusFermionD
+#define DIRAC_F Grid::MobiusFermionF
+#define MOB	,M5,mob_b,mob_b-1.
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#undef MOB_ASYM
+#define MOB_SYM2
+#define PARAMS
+#define GP
+#undef TWOKAPPA
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef MOB_SYM2
 #define IF_FIVE_D
 #define GRID_ZMOB
 #define FGRID FgridZmobius
@@ -582,5 +541,59 @@ CPS_END_NAMESPACE
 #undef IMPL
 #undef PARAMS
 #undef GP
+#define FGRID FgridWilson
+#define CLASS_NAME F_CLASS_GRID_WILSON
+#define DIRAC Grid::WilsonFermionD
+#define DIRAC_F Grid::WilsonFermionF
+#define MOB
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define PARAMS
+#define GP
+#undef NONHERMSOLVE
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef NONHERMSOLVE
+#define FGRID FgridWilsonClover
+#define CLASS_NAME F_CLASS_GRID_WILSON_CLOVER
+#define DIRAC Grid::WilsonCloverFermionD
+#define DIRAC_F Grid::WilsonCloverFermionF
+#define MOB  , csw, csw
+#define IMPL Grid::WilsonImplD
+#define IMPL_F Grid::WilsonImplF
+#define SITE_FERMION Grid::iSpinColourVector<Grid::ComplexD>
+#define SITE_FERMION_F Grid::iSpinColourVector<Grid::ComplexF>
+#define PARAMS
+#define GP
+#undef NONHERMSOLVE
+#include "fgrid.h.inc"
+#undef GRID_GPARITY
+#undef IF_FIVE_D
+#undef IF_TM
+#undef FGRID
+#undef CLASS_NAME
+#undef DIRAC
+#undef DIRAC_F
+#undef MOB
+#undef SITE_FERMION
+#undef SITE_FERMION_F
+#undef IMPL
+#undef PARAMS
+#undef GP
+#undef NONHERMSOLVE
 #endif //#ifdef USE_GRID
 #endif

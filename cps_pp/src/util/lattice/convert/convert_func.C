@@ -61,6 +61,8 @@ extern void site2dram(void *src, void *dst, unsigned *link_tbl, unsigned site_si
 
 void MultStagPhases(CAP cap)
 {
+	const char *fname="MultStagPhases(CAP)";
+	VRB.Result("",fname,"Entered\n");
 	unsigned x,y,t,z,link_size ;
 	Float *site ;
 

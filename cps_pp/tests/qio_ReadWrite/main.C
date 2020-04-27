@@ -44,50 +44,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <util/lattice.h>
-#include <alg/do_arg.h>
-#include <alg/common_arg.h>
-#include <alg/hmd_arg.h>
-
-#if(0==1)
- #include <ReadLattice.h>
- #include <WriteLattice.h>
-#endif
-
-#include <util/ReadLatticePar.h>
-#include <util/WriteLatticePar.h>
-
-#include <util/command_line.h>
 #include <sstream>
-
-#include <util/qio_readLattice.h>
-#include <util/qio_writeLattice.h>
-
 #include<unistd.h>
-#include<config.h>
 
-#include <alg/qpropw.h>
-#include <alg/qpropw_arg.h>
-
-#include <util/qio_readPropagator.h>
-#include <util/qio_writePropagator.h>
-
+#include<cps.h>
 using namespace std;
-using namespace cps;
-
-#if(0==1)
- GlobalJobParameter GJP;
- Verbose VRB;
- Error ERR;
-#endif
-
-
+USING_NAMESPACE_CPS
 
 int main(int argc,char *argv[])
 {
 
-
+  Start(&argc,&argv);
   CommandLine::is(argc,argv);
 
   DoArg do_arg;

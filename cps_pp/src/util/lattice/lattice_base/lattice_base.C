@@ -128,7 +128,7 @@ Lattice::Lattice ()
 {
   cname = "Lattice";
   const char *fname = "Lattice()";
-  uint64_t array_size;          // On-node size of the gauge field array.
+  size_t array_size;          // On-node size of the gauge field array.
 
   VRB.Func (cname, fname);
 
@@ -321,7 +321,7 @@ void Lattice::AllocGauge ()
 
     // Allocate memory for the gauge field.
     //--------------------------------------------------------------
-    size_t array_size = GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
+    size_t array_size = (size_t) GsiteSize() * GJP.VolNodeSites() * sizeof(Float);  
     if (GJP.Gparity ())
       array_size *= 2;
 
@@ -964,7 +964,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
         }
       }
     } else {
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
@@ -1025,7 +1025,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
         shortaxis = 0;
       }
 
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
@@ -1084,7 +1084,7 @@ void Lattice::CopyConjMatrixField (Matrix * field, const int &nmat_per_site)
       pfree (buf);
       pfree (buf2);
     } else {
-      int array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
+      size_t array_size = nmat_per_site * MATRIX_SIZE * GJP.VolNodeSites ();
       Matrix *buf = (Matrix *) pmalloc (array_size * sizeof (Float));
       Matrix *buf2 = (Matrix *) pmalloc (array_size * sizeof (Float));
 
@@ -4398,9 +4398,7 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
     nstacked_flav = 2;
 
   int s_node_sites = GJP.SnodeSites ();
-  VRB.Result (cname, fname,
-              "Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d\n",
-              this->Fclass (), frm_dim, s_node_sites, this->F5D ());
+  VRB.Result(cname,fname,"Fclass()=%d frm_dim=%d s_node_sites=%d F5D()=%d nflav=%d\n",this->Fclass(), frm_dim,s_node_sites,this->F5D(),nstacked_flav);
   if (frm_dim == FOUR_D || s_node_sites < 2 || (!this->F5D ())) {
     VRB.Result (cname, fname, "4D RNG used\n");
     s_node_sites = 1;
@@ -4446,9 +4444,10 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
                     LRG.AssignGenerator (x[0], x[1], x[2], x[3], s, flv);
 //      printf("%d %d %d %d %d \n",x[0],x[1],x[2],x[3],s);
                     for (k = 0; k < vec_size; k++) {
-                      *(ptr++) = LRG.Grand (frm_dim);
-                      VRB.Debug (cname, fname, "%d %d %d %d %d %d %g\n",
-                                 x[0], x[1], x[2], x[3], s, flv, *(ptr - 1));
+            *(ptr) = LRG.Grand(frm_dim);
+		sum += *ptr;
+		square += (*ptr)*(*ptr);
+	ptr++;
                     }
                   }
         }
@@ -4502,11 +4501,9 @@ void Lattice::RandGaussVector (Vector * frm, Float sigma2,
       }
     }
   }
-#if 0
   glb_sum_five (&sum);
   glb_sum_five (&square);
-  printf ("sum=%0.18e square=%0.18e\n", sum, square);
-#endif
+  VRB.Result (cname,fname,"sum=%0.18e square=%0.18e\n", sum, square);
 }
 
 //------------------------------------------------------------------
@@ -5044,7 +5041,8 @@ int Lattice::F5D ()
 
 #ifdef USE_GRID
   if (Fclass () == F_CLASS_GRID_GPARITY_MOBIUS
-      || Fclass () == F_CLASS_GRID_MOBIUS || Fclass () == F_CLASS_GRID_ZMOBIUS)
+      || Fclass () == F_CLASS_GRID_MOBIUS || Fclass () == F_CLASS_GRID_ZMOBIUS
+      || Fclass () == F_CLASS_GRID_MOBIUS_SYM2 || Fclass () == F_CLASS_GRID_MOBIUS_SYM1)
     return 1;
 #endif
   return 0;
@@ -5080,6 +5078,7 @@ int
   const char *fname = "FmatInvProj()";
   ERR.General (cname, fname,
                "Only have code for dwf class not others so this is not a pure virtual function\n");
+  return 0;
 }
 
 unsigned long Lattice::GsiteOffset (const int *x, const int dir) const
