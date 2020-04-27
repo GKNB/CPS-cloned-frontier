@@ -12,4 +12,9 @@ int split_grid_geometry[1] = 1
 int split_grid_geometry[2] = 2
 int split_grid_geometry[3] = 2
 }
+int MADWF_Ls_inner = 8
+double MADWF_b_plus_c_inner = 1.0
+bool MADWF_use_ZMobius = 0
+double MADWF_ZMobius_lambda_max =   0.0000000000000000e+00
+A2Apreconditioning MADWF_precond = SchurOriginal
 }
