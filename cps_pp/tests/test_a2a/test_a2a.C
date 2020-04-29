@@ -1,76 +1,7 @@
-#define USE_GRID
-#define USE_GRID_A2A
-#define USE_GRID_LANCZOS
-
-//#define DISABLE_TYPE1_SPLIT_VMV
-//#define DISABLE_TYPE2_SPLIT_VMV
-//#define DISABLE_TYPE3_SPLIT_VMV
-//#define DISABLE_TYPE4_SPLIT_VMV
-
-// #define DISABLE_TYPE1_PRECOMPUTE
-// #define DISABLE_TYPE2_PRECOMPUTE
-// #define DISABLE_TYPE3_PRECOMPUTE
-// #define DISABLE_TYPE4_PRECOMPUTE
+#include <alg/a2a/ktopipi_gparity.h>
 
 
-
-
-
-#include<chroma.h>
-
-//bfm headers
-#ifdef USE_BFM
-#include<bfm.h>
-#include<util/lattice/bfm_eigcg.h> // This is for the Krylov.h function "matrix_dgemm"
-#include<util/lattice/bfm_evo.h>
-#endif
-
-//cps headers
-#include<util/time_cps.h>
-#include<alg/common_arg.h>
-#include<alg/fix_gauge_arg.h>
-#include<alg/do_arg.h>
-#include<alg/meas_arg.h>
-#include<alg/a2a_arg.h>
-#include<alg/lanc_arg.h>
-#include<alg/ktopipi_jobparams.h>
-#include<util/qioarg.h>
-#include<util/ReadLatticePar.h>
-#include<alg/alg_fix_gauge.h>
-#include<util/flavormatrix.h>
-#include<alg/wilson_matrix.h>
-#include<util/spincolorflavormatrix.h>
-
-#if defined(USE_GRID) && !defined(DISABLE_GRID_A2A)
-#include<util/lattice/fgrid.h>
-#endif
-
-#ifdef USE_MPI
-//mpi headers
-#warning "WARNING : USING MPI"
-#include<mpi.h>
-#endif
-
-//c++ classes
-#include<sys/stat.h>
-#include<unistd.h>
-
-//using namespace Chroma;
 using namespace cps;
-
-#include <alg/a2a/a2a.h>
-#include <alg/a2a/mesonfield.h>
-#include <alg/a2a/CPSfield_utils.h>
-#include <alg/a2a/threemomentum.h>
-#include <alg/a2a/required_momenta.h>
-#include <alg/a2a/compute_pion.h>
-#include <alg/a2a/compute_kaon.h>
-#include <alg/a2a/compute_pipi.h>
-#include <alg/a2a/compute_ktopipi.h>
-#include <alg/a2a/main.h>
-#include <alg/a2a/spin_color_matrices.h>
-
-#include <type_traits>
 
 inline int toInt(const char* a){
   std::stringstream ss; ss << a; int o; ss >> o;
@@ -387,28 +318,30 @@ int main(int argc,char *argv[])
     }
   }
 
-  typedef double mf_Float;
-  typedef std::complex<mf_Float> mf_Complex;
+  typedef A2ApoliciesSIMDdoubleAutoAllocGparity A2Apolicies_grid;
+  typedef A2ApoliciesDoubleAutoAllocGparity A2Apolicies_std; 
 
-  typedef Grid::vComplexD grid_Complex;
-  
-  typedef deduceA2Apolicies<grid_Complex> A2ApoliciesBase_grid;
-  typedef GridA2APoliciesBase LanczosPolicies;
-  typedef GridA2APoliciesBase::FgridGFclass LatticeType;  
-  typedef GridA2APolicies<A2ApoliciesBase_grid> A2Apolicies_grid; //combines A2ApoliciesBase and GridPoliciesBase
-  typedef GridA2APoliciesBase::GridFermionField GridFermionField;
-  
-  typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase_std;
-  typedef GridA2APolicies<A2ApoliciesBase_std> A2Apolicies_std; //combines A2ApoliciesBase and GridPoliciesBase
+  typedef A2Apolicies_std::ComplexType mf_Complex;
+  typedef A2Apolicies_grid::ComplexType grid_Complex;
 
-  static_assert( std::is_same<typename A2Apolicies_grid::FermionFieldType::FieldDimensionPolicy, FourDSIMDPolicy>::value, "SIMDpolicy unexpected");
-  static_assert( std::is_same<typename A2Apolicies_grid::FermionFieldType::FieldAllocPolicy, Aligned128AllocPolicy>::value, "AllocPolicy unexpected");
+  // typedef double mf_Float;
+  // typedef std::complex<mf_Float> mf_Complex;
+
+  // typedef Grid::vComplexD grid_Complex;
   
+  // typedef deduceA2Apolicies<grid_Complex> A2ApoliciesBase_grid;
+  // typedef GridA2APoliciesBase LanczosPolicies;
+  typedef A2Apolicies_grid::FgridGFclass LatticeType;  
+  // typedef GridA2APolicies<A2ApoliciesBase_grid> A2Apolicies_grid; //combines A2ApoliciesBase and GridPoliciesBase
+  typedef A2Apolicies_grid::GridFermionField GridFermionField;
+  
+  // typedef deduceA2Apolicies<mf_Complex> A2ApoliciesBase_std;
+  // typedef GridA2APolicies<A2ApoliciesBase_std> A2Apolicies_std; //combines A2ApoliciesBase and GridPoliciesBase
+
   FgridParams grid_params; 
   grid_params.mobius_scale = 2.0;
-  LatticeType lattice(grid_params); //applies BondCond in constructor
+  LatticeType lattice(grid_params);
   lattice.ImportGauge(); //lattice -> Grid  
-  lattice.BondCond(); //unapply BondCond
 
   std::cout << "OPENMP threads is " << omp_get_max_threads() << std::endl;
 
@@ -451,14 +384,14 @@ int main(int argc,char *argv[])
       GridFermionField fivedcb(grid5d_cb);
       Grid::pickCheckerboard(Grid::Odd, fivedcb, fivedin);
 
-      std::vector<int> test_site(5,0);
+      Grid::Coordinate test_site(5,0);
       test_site[1] = 3;
 
       typedef typename Grid::GridTypeMapper<GridFermionField::vector_object>::scalar_object sobj;
       sobj v1, v2;
-      peekLocalSite(v1,fivedin,test_site);
+      Grid::peekLocalSite(v1,fivedin,test_site);
 
-      peekLocalSite(v2,fivedcb,test_site);
+      Grid::peekLocalSite(v2,fivedcb,test_site);
       
       std::cout << "v1:\n" << v1 << std::endl;
       std::cout << "v2:\n" << v2 << std::endl;
@@ -499,8 +432,8 @@ int main(int argc,char *argv[])
   
   //Setup SIMD info
   int nsimd = grid_Complex::Nsimd();
-  typename FourDSIMDPolicy::ParamType simd_dims;
-  FourDSIMDPolicy::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
+  typename SIMDpolicyBase<4>::ParamType simd_dims;
+  SIMDpolicyBase<4>::SIMDdefaultLayout(simd_dims,nsimd,2); //only divide over spatial directions
   
   printf("Nsimd = %d, SIMD dimensions:\n", nsimd);
   for(int i=0;i<4;i++)
@@ -592,7 +525,7 @@ int main(int argc,char *argv[])
     field_std_tmp.importField(field_grid);
     compareField(field_std, field_std_tmp, "Phase test", 1e-10);
 
-    CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType> dbl_grid(0);
+    CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType, DynamicFlavorPolicy, typename A2Apolicies_grid::AllocPolicy> dbl_grid(0);
     CPSfermion4DglobalInOneDir<typename A2Apolicies_std::ComplexType> dbl_std(0);
     dbl_std.gather(field_std);
     dbl_std.fft();
@@ -609,18 +542,16 @@ int main(int argc,char *argv[])
     compareField(field_std, field_std_tmp, "FFT/scatter test", 1e-10);
     
   }
-  typename ThreeDSIMDPolicy::ParamType simd_dims_3d;
-  ThreeDSIMDPolicy::SIMDdefaultLayout(simd_dims_3d,nsimd);
+  typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
+  SIMDpolicyBase<3>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
   
-  RequiredMomentum<StandardPionMomentaPolicy> momenta;
-  std::vector< std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll_std;
-  std::vector< std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > > mf_ll_grid;
+  StandardPionMomentaPolicy momenta;
   MesonFieldMomentumContainer<A2Apolicies_std> mf_ll_con_std;
   MesonFieldMomentumContainer<A2Apolicies_grid> mf_ll_con_grid;
   
-  ComputePion<A2Apolicies_std>::computeMesonFields<StandardPionMomentaPolicy>(mf_ll_std,mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
-  ComputePion<A2Apolicies_grid>::computeMesonFields<StandardPionMomentaPolicy>(mf_ll_grid,mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
+  computeGparityLLmesonFields1s<A2Apolicies_std,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_std,momenta,W_std,V_std,2.0,lattice);
+  computeGparityLLmesonFields1s<A2Apolicies_grid,StandardPionMomentaPolicy,15,sigma3>::computeMesonFields(mf_ll_con_grid,momenta,W_grid,V_grid,2.0,lattice,simd_dims_3d);
 
   fMatrix<typename A2Apolicies_std::ScalarComplexType> fmat_std;
   ComputePion<A2Apolicies_std>::compute<StandardPionMomentaPolicy>(fmat_std, mf_ll_con_std, momenta, 0);
@@ -643,8 +574,26 @@ int main(int argc,char *argv[])
   if(fail)ERR.General("","","Standard vs Grid implementation pion test failed\n");
   printf("Pion pass\n");
 
-  ComputeKaon<A2Apolicies_std>::compute(fmat_std, W_std, V_std, W_std, V_std, 2.0, lattice);
-  ComputeKaon<A2Apolicies_grid>::compute(fmat_grid, W_grid, V_grid, W_grid, V_grid, 2.0, lattice, simd_dims_3d);
+  StationaryKaonMomentaPolicy kaon_mom;
+
+  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_ls_std;
+  std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorVfftw> > mf_sl_std;
+  ComputeKaon<A2Apolicies_std>::computeMesonFields(mf_ls_std, mf_sl_std,
+						   W_std, V_std,
+						   W_std, V_std,
+						   kaon_mom,
+						   2.0, lattice);
+
+  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_ls_grid;
+  std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorVfftw> > mf_sl_grid;
+  ComputeKaon<A2Apolicies_grid>::computeMesonFields(mf_ls_grid, mf_sl_grid,
+						    W_grid, V_grid,
+						    W_grid, V_grid,
+						    kaon_mom,
+						    2.0, lattice, simd_dims_3d);
+
+  ComputeKaon<A2Apolicies_std>::compute(fmat_std, mf_ls_std, mf_sl_std);
+  ComputeKaon<A2Apolicies_grid>::compute(fmat_grid, mf_ls_grid, mf_sl_grid);
   
   fail = false;
   for(int r=0;r<fmat_std.nRows();r++){
@@ -706,12 +655,13 @@ int main(int argc,char *argv[])
     if(fail)ERR.General("","","Standard vs Grid implementation pipi fig V test failed\n");
     printf("Pipi fig V pass\n");    
   }
-  
+
+  StandardLSWWmomentaPolicy ww_mom;  
   std::vector<A2AmesonField<A2Apolicies_grid,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_grid;
-  ComputeKtoPiPiGparity<A2Apolicies_grid>::generatelsWWmesonfields(mf_ls_ww_grid,W_grid,W_grid,2.0,lattice, simd_dims_3d);
+  ComputeKtoPiPiGparity<A2Apolicies_grid>::generatelsWWmesonfields(mf_ls_ww_grid,W_grid,W_grid, ww_mom, 2.0,lattice, simd_dims_3d);
 
   std::vector<A2AmesonField<A2Apolicies_std,A2AvectorWfftw,A2AvectorWfftw> > mf_ls_ww_std;
-  ComputeKtoPiPiGparity<A2Apolicies_std>::generatelsWWmesonfields(mf_ls_ww_std,W_std,W_std,2.0,lattice);
+  ComputeKtoPiPiGparity<A2Apolicies_std>::generatelsWWmesonfields(mf_ls_ww_std,W_std,W_std, ww_mom, 2.0,lattice);
 
   mf_ll_con_grid.printMomenta(std::cout);
 

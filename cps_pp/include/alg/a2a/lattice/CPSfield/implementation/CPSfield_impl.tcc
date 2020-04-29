@@ -689,7 +689,7 @@ void CPSglobalComplexSpatial<mf_Complex,FlavorPolicy,AllocPolicy>::scatter(CPSfi
 
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
 	  typename extSiteType, typename extMapPol, typename extAllocPol, typename Enable = void>
-struct _gather_scatter_impl;
+struct _gather_scatter_impl{};
 
 
 //When the local field has the right dimension but is not the same as the equivalent local dimension policy, do an intermediate impex
@@ -720,6 +720,7 @@ struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy, extSite
 };
 
 //When the local field has DimensionPolicy equal to the EquivalentLocalPolicy
+//and all other policies are identical (SiteType, AllocPolicy)
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy>
 struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
 			    SiteType, typename MappingPolicy::EquivalentLocalPolicy, AllocPolicy,
@@ -794,7 +795,7 @@ template< typename SiteType, int SiteSize, typename MappingPolicy, typename Allo
 template<typename extSiteType, typename extMapPol, typename extAllocPol>
 void CPSfieldGlobalInOneDir<SiteType,SiteSize,MappingPolicy,AllocPolicy>::gather(const CPSfield<extSiteType,SiteSize,extMapPol,extAllocPol> &from){
   _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy,
-	       extSiteType, extMapPol, extAllocPol>::gather(*this, from);  
+  	       extSiteType, extMapPol, extAllocPol>::gather(*this, from);  
 }
 
 
