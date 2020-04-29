@@ -44,7 +44,14 @@ inline double cblas_ddot(const int N, const double *X)
 
 inline void cblas_zdotc_sub(const int N, const double *X, const double *Y,
 			  double* dot)
-{ return cblas_zdotc_sub(N,X,1,Y,1, dot); }
+{ 
+#ifdef OPENBLAS_VERSION
+  //Openblas messes with the function signature!
+  return cblas_zdotc_sub(N,X,1,Y,1, (openblas_complex_double*)dot);
+#else
+  return cblas_zdotc_sub(N,X,1,Y,1, dot); 
+#endif
+}
 
 //inline void cblas_cdotc_sub(const int N, const float *X, const float *Y,
 //		  float* dot)

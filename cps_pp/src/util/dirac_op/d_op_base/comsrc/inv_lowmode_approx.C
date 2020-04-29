@@ -177,8 +177,16 @@ int DiracOp::InvLowModeApprox(
     Complex z;
 
 #if TARGET != BGL
+
+#ifdef OPENBLAS_VERSION
+    //Openblas messes with the function signature
+    cblas_zdotc_sub( f_size_cb / 2,
+		     (double*)evecFloat, 1, (double*)src, 1, (openblas_complex_double*)&z);
+#else
     cblas_zdotc_sub( f_size_cb / 2,
 		     (double*)evecFloat, 1, (double*)src, 1, (double*)&z);
+#endif
+
 #else
     *(complex<double>*)&z=cblas_zdotc( f_size_cb / 2,
 		     (complex<double>*)evecFloat, 1, (complex<double>*)src, 1);
@@ -324,8 +332,16 @@ void DiracOp::InvLowModeProj( Vector *in,
     Complex z;
 
 #if TARGET != BGL
+
+#ifdef OPENBLAS_VERSION
+    //Openblas messes with the function signature
+    cblas_zdotc_sub( f_size_cb / 2,
+		     (double*)evec, 1, (double*)src, 1, (openblas_complex_double*)&z);
+#else
     cblas_zdotc_sub( f_size_cb / 2,
 		     (double*)evec, 1, (double*)src, 1, (double*)&z);
+#endif
+
 #else
     *(complex<double>*)&z=cblas_zdotc( f_size_cb / 2,
 		     (complex<double>*)evec, 1, (complex<double>*)src, 1);

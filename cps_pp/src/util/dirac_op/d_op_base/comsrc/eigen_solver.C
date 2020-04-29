@@ -1235,7 +1235,14 @@ ZAXPYfloat (const int N, const float *alpha, const float *X,  float *Y)
 #define glb_DDOT(n, px, py, p_dot) { *(p_dot) = cblas_ddot(n,px,py); glb_sum((p_dot)); }
 #define ZDOT(n,px,py,p_dot) cblas_zdotc_sub( n/2, px,py, p_dot)
 #define ZAXPY(n, fact, px, py)  cblas_zaxpy(n/2, fact, px,1,py,1)
+
+#ifdef OPENBLAS_VERSION
+//Openblas messes with the function signature
+#define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,1, py,1, (openblas_complex_float*)p_dot)
+#else
 #define ZDOTfloat(n,px,py,p_dot) cblas_cdotc_sub( n/2,px,1, py,1, p_dot)
+#endif
+
 //      ZDOTfloat(f_size, (float*)(vec[i]), (float*)vtmp, xp);
 //      cblas_cdotc_sub(f_size/2, vec[i], 1, (float*)vtmp, 1, xp);
 #define ZAXPYfloat(n, fact, px, py)  cblas_caxpy(n/2, fact, px,1,py,1)
