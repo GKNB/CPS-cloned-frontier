@@ -466,7 +466,10 @@ if test "$TESTING_PARALLEL" = "yes"; then
 AC_MSG_CHECKING([if compiler able to compile MPI programs])
 AC_LINK_IFELSE([
 	AC_LANG_SOURCE(
-			[[int main(int argc, char** argv) { MPI_Init(&argc, &argv); return 0; }]]
+			[[
+				#include<mpi.h>
+				int main(int argc, char** argv) { MPI_Init(&argc, &argv); return 0; }
+				]]
 		      )
 	        ],
 		[
