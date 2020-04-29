@@ -18,31 +18,34 @@
 
 NAMESPACE_BEGIN(Grid);
 
+//No longer needed apparently
+// template <>								\
+// void WilsonKernels<IMPLEMENTATION>::ContractConservedCurrentSiteFwd(const SitePropagator &q_in_1, \
+// 								      const SitePropagator &q_in_2, \
+// 								      SitePropagator &q_out, \
+// 								      DoubledGaugeFieldView &U,	\
+// 								      unsigned int sU, \
+// 								      unsigned int mu, \
+// 								      bool switch_sign)	\
+// {									\
+//   assert(0);								\
+// }									\
+// template <>								\
+// void WilsonKernels<IMPLEMENTATION>::ContractConservedCurrentSiteBwd( const SitePropagator &q_in_1, \
+// 								       const SitePropagator &q_in_2, \
+// 								       SitePropagator &q_out, \
+// 								       DoubledGaugeFieldView &U, \
+// 								       unsigned int mu,	\
+// 								       unsigned int sU,	\
+// 								       bool switch_sign) \
+// {									\
+//   assert(0);								\
+// }									\
+// 									\
+
+
 // G-parity requires more specialised implementation.
 #define DEFCON(IMPLEMENTATION)						\
-  template <>								\
-  void WilsonKernels<IMPLEMENTATION>::ContractConservedCurrentSiteFwd(const SitePropagator &q_in_1, \
-								      const SitePropagator &q_in_2, \
-								      SitePropagator &q_out, \
-								      DoubledGaugeFieldView &U,	\
-								      unsigned int sU, \
-								      unsigned int mu, \
-								      bool switch_sign)	\
-  {									\
-    assert(0);								\
-  }									\
-  template <>								\
-  void WilsonKernels<IMPLEMENTATION>::ContractConservedCurrentSiteBwd( const SitePropagator &q_in_1, \
-								       const SitePropagator &q_in_2, \
-								       SitePropagator &q_out, \
-								       DoubledGaugeFieldView &U, \
-								       unsigned int mu,	\
-								       unsigned int sU,	\
-								       bool switch_sign) \
-  {									\
-    assert(0);								\
-  }									\
-									\
   HAND_SPECIALISE_GPARITY(IMPLEMENTATION);
 
 DEFCON(ZGparityWilsonImplF);
