@@ -101,13 +101,7 @@ int main(int argc,char *argv[])
   { std::stringstream ss; ss << argv[1]; ss >> ngp; }
 
   if(!UniqueID()) printf("Doing G-parity in %d directions\n",ngp);
-
-#ifdef USE_GRID_GPARITY
-  if(ngp == 0) ERR.General("","main","Fgrid is currently compiled for G-parity\n");
-#else
-  if(ngp != 0) ERR.General("","main","Fgrid is not currently compiled for G-parity\n");
-#endif
-
+  assert(ngp > 0); //we use Gparity classes 
   
   std::string workdir = argv[2];
   if(chdir(workdir.c_str())!=0) ERR.General("","main","Unable to switch to directory '%s'\n",workdir.c_str());
@@ -122,73 +116,98 @@ int main(int argc,char *argv[])
   char *load_lrg_file;
   bool verbose(false);
   bool unit_gauge(false);
+  bool load_lanc_arg(false);
+  std::string lanc_arg_file;
 
-  int size[] = {2,2,2,2,2};
+  int size[] = {4,4,4,4,4};
   int nthreads = 1;
   int ntests = 10;
   
-  double tol = 1e-8;
+  double tol = 1e-5;
 
   printf("Argc is %d\n",argc);
   int i=3;
   while(i<argc){
-    char* cmd = argv[i];  
-    if( strncmp(cmd,"-save_config",15) == 0){
+    std::string cmd = argv[i];  
+    if( cmd == "-save_config"){
       if(i==argc-1){ printf("-save_config requires an argument\n"); exit(-1); }
       save_config=true;
       save_config_file = argv[i+1];
       i+=2;
-    }else if( strncmp(cmd,"-load_config",15) == 0){
+    }else if( cmd == "-load_config"){
       if(i==argc-1){ printf("-save_config requires an argument\n"); exit(-1); }
       load_config=true;
       load_config_file = argv[i+1];
       i+=2;
-    }else if( strncmp(cmd,"-latt",10) == 0){
+    }else if( cmd == "-latt" ){
       if(i>argc-6){
 	printf("Did not specify enough arguments for 'latt' (require 5 dimensions)\n"); exit(-1);
       }
       for(int d=0;d<5;d++)
 	size[d] = toInt(argv[i+1+d]);
       i+=6;
-    }else if( strncmp(cmd,"-load_lrg",15) == 0){
+    }else if( cmd == "-load_lrg"){
       if(i==argc-1){ printf("-load_lrg requires an argument\n"); exit(-1); }
       load_lrg=true;
       load_lrg_file = argv[i+1];
       i+=2;
-    }else if( strncmp(cmd,"-save_lrg",15) == 0){
+    }else if( cmd == "-save_lrg"){
       if(i==argc-1){ printf("-save_lrg requires an argument\n"); exit(-1); }
       save_lrg=true;
       save_lrg_file = argv[i+1];
       i+=2;  
-    }else if( strncmp(cmd,"-verbose",15) == 0){
+    }else if( cmd == "-verbose"){
       verbose=true;
       i++;
-    }else if( strncmp(cmd,"-nthread",15) == 0){
+    }else if( cmd == "-nthread"){
       nthreads = toInt(argv[i+1]);
       printf("Set nthreads to %d\n", nthreads);
       i+=2;
-    }else if( strncmp(cmd,"-ntest",15) == 0){
+    }else if( cmd == "-ntest" ){
       ntests = toInt(argv[i+1]);
       printf("Set ntests to %d\n", ntests);
       i+=2;
-    }else if( strncmp(cmd,"-unit_gauge",15) == 0){
+    }else if( cmd == "-unit_gauge"){
       unit_gauge=true;
       i++;
-    }else if( strncmp(cmd,"-tolerance",15) == 0){
+    }else if( cmd == "-tolerance"){
       std::stringstream ss; ss << argv[i+1];
       ss >> tol;
       if(!UniqueID()) printf("Set tolerance to %g\n",tol);
       i+=2;
+    }else if( cmd == "-load_lanc_arg"){
+      load_lanc_arg = true;
+      lanc_arg_file = argv[i+1];
+      i+=2;
     }else{
-      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd);
+      if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd.c_str());
       exit(-1);
     }
   }
 
   LancArg lanc_arg;
-  if(!lanc_arg.Decode("lanc_arg.vml","lanc_arg")){
-    lanc_arg.Encode("lanc_arg.templ","lanc_arg");
-    VRB.Result("","main","Can't open lanc_arg.vml!\n");exit(1);
+#define L(A,B) lanc_arg.A = B
+  L(mass, 0.01);
+  L(qr_rsd, 1e-10);
+  L(EigenOper, DDAG);
+  L(precon, 1);
+  L(N_get, 10);
+  L(N_use, 14);
+  L(N_true_get, 10);
+  L(ch_ord, 10);
+  L(ch_alpha, 1e-3);
+  L(ch_beta, 1.5);
+  L(ch_sh, false);
+  L(ch_mu, 0);
+  L(lock, false);
+  L(maxits, 100);
+  L(fname, "");
+    
+  if(load_lanc_arg){
+    if(!lanc_arg.Decode((char*)lanc_arg_file.c_str(),"lanc_arg")){
+      lanc_arg.Encode("lanc_arg.templ","lanc_arg");
+      VRB.Result("","main","Can't open lanc_arg.vml!\n");exit(1);
+    }
   }
 
   A2AArg a2a_arg;
@@ -762,5 +781,7 @@ int main(int argc,char *argv[])
     printf("Type 4 pass\n");
   }
   
+  std::cout << "Done" << std::endl;
+
   return 0;
 }
