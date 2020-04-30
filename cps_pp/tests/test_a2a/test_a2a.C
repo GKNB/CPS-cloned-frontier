@@ -525,8 +525,9 @@ int main(int argc,char *argv[])
     field_std_tmp.importField(field_grid);
     compareField(field_std, field_std_tmp, "Phase test", 1e-10);
 
-    CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType, DynamicFlavorPolicy, typename A2Apolicies_grid::AllocPolicy> dbl_grid(0);
+    CPSfermion4DglobalInOneDir<typename A2Apolicies_grid::ScalarComplexType> dbl_grid(0);
     CPSfermion4DglobalInOneDir<typename A2Apolicies_std::ComplexType> dbl_std(0);
+
     dbl_std.gather(field_std);
     dbl_std.fft();
     

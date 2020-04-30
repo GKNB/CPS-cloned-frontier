@@ -693,12 +693,13 @@ struct _gather_scatter_impl{};
 
 
 //When the local field has the right dimension but is not the same as the equivalent local dimension policy, do an intermediate impex
+//Also converts external siteType to scalar, thus extracting from SIMD packing
 template< typename SiteType, int SiteSize, typename MappingPolicy, typename AllocPolicy,
 	  typename extSiteType, typename extMapPol, typename extAllocPol>
 struct _gather_scatter_impl<SiteType,SiteSize,MappingPolicy,AllocPolicy, extSiteType,extMapPol,extAllocPol,
 			    typename my_enable_if<
-			      !_equal<MappingPolicy, typename MappingPolicy::EquivalentLocalPolicy>::val &&
 			      intEq<MappingPolicy::EuclideanDimension,extMapPol::EuclideanDimension>::val && 
+			      !_equal<extMapPol, typename MappingPolicy::EquivalentLocalPolicy>::value &&
 			      _equal<typename MappingPolicy::FieldFlavorPolicy,typename extMapPol::FieldFlavorPolicy>::value, void>::type>{
   typedef typename MappingPolicy::EquivalentLocalPolicy EquivalentLocalPolicy;
   

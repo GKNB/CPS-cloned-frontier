@@ -55,12 +55,12 @@ public:
 	
 	mf_Float const* base = (mf_Float const*)&rreord[scf][j0];
 	typename gw::block_complex_struct block;
-	block.data = base;
+	block.data = (double*)base; //don't worry, these aren't modified!
 	block.size = jblock_size;
 	  
 	typename gw::vector_complex rgsl;
 	rgsl.block = &block;
-	rgsl.data = base;
+	rgsl.data = (double*)base;
 	rgsl.stride = 1;
 	rgsl.owner = 1;
 	rgsl.size = jblock_size;
@@ -322,7 +322,7 @@ class mult_vMv_split_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA2AfieldR, 
 	   template <typename> class,  template <typename> class>
   friend class multiply_M_r_singlescf_op;
 
-  void constructPackedMloopSCF(SCFoperation<typename gw::matrix_complex> &op){
+  void constructPackedMloopSCF(SCFoperation<typename gw::matrix_complex> &op) const{
 #ifdef VMV_SPLIT_MEM_SAVE
     int nl_row = this->Mptr->getRowParams().getNl();
     int nl_col = this->Mptr->getColParams().getNl();
@@ -535,7 +535,7 @@ public:
   }
   void setup(const lA2AfieldL<mf_Policies> &l,  const A2AmesonField<mf_Policies,lA2AfieldR,rA2AfieldL> &M, const rA2AfieldR<mf_Policies> &r, const int &_top_glb, 
 	     const ModeContractionIndices<iLeftDilutionType,iRightDilutionType> &i_ind, const ModeContractionIndices<jLeftDilutionType,jRightDilutionType>& j_ind){
-    setup_base(l,M,r,_top_glb,i_ind,j_ind);
+    this->setup_base(l,M,r,_top_glb,i_ind,j_ind);
 
     //Use GSL BLAS
 #ifndef VMV_SPLIT_MEM_SAVE
@@ -614,7 +614,7 @@ public:
 
       for(int s=off[me];s<off[me]+work[me];s++){
 	int site4dop = s + sites_3d*top;
-	site_reorder_lr(lreord[s],rreord[s],conj_l,conj_r,site4dop);
+	this->site_reorder_lr(lreord[s],rreord[s],conj_l,conj_r,site4dop);
       }
       
       for(int s=off[me];s<off[me]+work[me];s++){
@@ -669,7 +669,7 @@ public:
     }
     int sites_3d = GJP.VolNodeSites()/GJP.TnodeSites();
     int site4dop = xop + sites_3d*top;
-    site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
+    this->site_reorder_lr(lreord,rreord,conj_l,conj_r,site4dop);
 
     //M * r
     multiply_M_r(Mr,rreord);
