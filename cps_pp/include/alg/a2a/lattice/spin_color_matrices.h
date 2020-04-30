@@ -324,6 +324,16 @@ public:
     _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusOne(*this,*this);
     return *this;
   }
+  //this = i*this
+  CPSsquareMatrix<T,N> & timesI(){
+    _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesI(*this,*this);
+    return *this;
+  }
+  //this = -i*this
+  CPSsquareMatrix<T,N> & timesMinusI(){
+    _timespmI<CPSsquareMatrix<T,N>,cps_square_matrix_mark>::timesMinusI(*this,*this);
+    return *this;
+  }
     
   CPSsquareMatrix<T,N> & operator+=(const CPSsquareMatrix<T,N> &r){
     for(int i=0;i<N;i++)

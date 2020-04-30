@@ -1,7 +1,8 @@
 #include <alg/a2a/ktopipi_gparity.h>
 
-
 using namespace cps;
+
+#include "test_a2a.h"
 
 inline int toInt(const char* a){
   std::stringstream ss; ss << a; int o; ss >> o;
@@ -81,13 +82,6 @@ void setupDoArg(DoArg &do_arg, int size[5], int ngp, bool verbose = true){
     *(bc[i]) = BND_CND_GPARITY;
   }
 }
-
-
-// template <typename U, U> struct Check;
-
-// //Check<int,  &CPSfermion5Dcb4Deven<cps::ComplexD>::CB> tmp;
-
-// Check<int, CheckerBoard<4,0>::CB> tmp;
 
 
 
@@ -232,73 +226,8 @@ int main(int argc,char *argv[])
   LRG.Initialize(); //usually initialised when lattice generated, but I pre-init here so I can load the state from file
 
 
-  if(0){
-    //CPSspinColorFlavorMatrix<cps::Complex> scf1;
+  if(1) testSpinFlavorMatrices();
 
-    CPSflavorMatrix<cps::Complex> f1, f2, f3;
-    f1.unit(); f2.unit();
-    f1.pr(sigma1);
-    f2.pr(sigma2);
-
-    f3 = f1 * f2;
-    std::cout << f1 << std::endl;
-    std::cout << f2 << std::endl;
-    std::cout << f3 << std::endl;
-
-
-    CPSspinMatrix<CPSflavorMatrix<cps::Complex> > sf1;
-    sf1.unit();
-    sf1.gr(-5);
-    std::cout << sf1 << std::endl;
-
-    typedef typename CPSspinMatrix<CPSflavorMatrix<cps::Complex> >::scalar_type scalar_type;
-    static_assert( _equal<scalar_type, cps::Complex>::value, "scalar_type deduction");
-    scalar_type tr = sf1.Trace();
-
-    std::cout << "Trace: ";
-    CPSprintT(std::cout, tr);
-    std::cout << std::endl;
-
-    cps::Complex dbl_trace = sf1.TraceIndex<0>().TraceIndex<0>();
-    std::cout << "Double Trace 0: ";
-    CPSprintT(std::cout, dbl_trace);
-    std::cout << std::endl;
-
-    
-    std::cout << "Trace product: ";
-    scalar_type tr_prod = Trace(sf1,sf1);
-    CPSprintT(std::cout, tr_prod);
-    std::cout << std::endl;
-
-    typedef CPSspinMatrix<CPSflavorMatrix<cps::Complex> > SFmat;
-    typedef CPSflavorMatrix<cps::Complex> Fmat;
-    typedef CPSspinMatrix<cps::Complex> Smat;
-    
-    static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,0>::type, Fmat>::value, "Trace reduce 1");
-    static_assert( _equal< typename _PartialTraceFindReducedType<SFmat,1>::type, Smat>::value, "Trace reduce 2");
-
-    SFmat sf2;
-    sf2.unit();
-    Fmat tridx = sf2.TraceIndex<0>();
-
-    std::cout << "Spin trace of spin-flavor unit matrix:\n" << tridx << std::endl;
-    
-    sf2.unit();
-    for(int i=0;i<4;i++)
-      for(int j=0;j<4;j++)
-	sf2(i,j).pr(sigma3);
-    sf2.gr(-5);
-    
-    std::cout << "Spin-flavor matrix g5*sigma3\n" << sf2 << std::endl;
-
-
-    typedef CPSspinMatrix<CPSflavorMatrix<Grid::vComplexD> > vSFmat;
-    vSFmat vsf;
-    vsf.unit();
-    std::cout << "Vectorized sf unit matrix\n" << vsf << std::endl;
-
-    static_assert( _equal<typename _PartialTraceFindReducedType<Fmat,0>::type, cps::Complex>::value, "Foutertracetest");
-  }
   
   {
     GnoneFnone lattice_tmp; //is destroyed at end of scope but the underlying gauge field remains in memory
