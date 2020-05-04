@@ -196,6 +196,12 @@ struct AlignedVector{
 };
 
 
+//Global variable controlling whether participating copy constructors are shallow or deep copies. Switch to shallow for structs with managed memory pointers to prevent extra copy
+struct copyControl{
+  static inline bool & shallow(){ static bool s=false; return s; }
+};
+
+
 
 CPS_END_NAMESPACE
 

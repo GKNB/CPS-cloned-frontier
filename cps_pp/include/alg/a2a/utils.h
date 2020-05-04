@@ -20,5 +20,6 @@
 #include "utils/scfvectorptr.h"
 #include "utils/SIMT.h"
 #include "utils/grid_simdlinalg.h"
+#include "utils/cublas_wrapper.h"
 
 #endif

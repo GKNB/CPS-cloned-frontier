@@ -279,9 +279,13 @@ int main(int argc,char *argv[])
   std::cout << "Starting tests" << std::endl;
 
 
-  if(1) testSpinFlavorMatrices();
-  if(1) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
+  if(0) testSpinFlavorMatrices();
+  if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
+  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
+
+  return 0;
+  
 
   FixGaugeArg fix_gauge_arg;  
   fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;

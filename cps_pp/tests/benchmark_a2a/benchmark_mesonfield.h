@@ -2956,77 +2956,6 @@ void testTraceSingle(const A2AArg &a2a_args, const double tol){
 }
 
 
-
-
-template<typename A2Apolicies>
-void testMFmult(const A2AArg &a2a_args, const double tol){
-  typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV; 
-  typedef typename mf_WV::ScalarComplexType ScalarComplexType;
-
-  mf_WV l;
-  l.setup(a2a_args,a2a_args,0,0);
-  l.testRandom();  
-
-  if(!UniqueID()) printf("mf_WV sizes %d %d\n",l.getNrows(),l.getNcols());
-
-  mf_WV r;
-  r.setup(a2a_args,a2a_args,1,1);
-  r.testRandom();  
-
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c_base;
-  c_base.setup(a2a_args,a2a_args,0,1);
-
-  A2Aparams a2a_params(a2a_args);
-  int nfull = a2a_params.getNv();
-  if(!UniqueID()){ printf("Total modes %d\n", nfull); fflush(stdout); }
-
-  for(int i=0;i<nfull;i++){
-    for(int k=0;k<nfull;k++){
-      ScalarComplexType *oe = c_base.elem_ptr(i,k);
-      if(oe == NULL) continue; //zero by definition
-
-      *oe = 0.;
-      for(int j=0;j<nfull;j++)
-      	*oe += l.elem(i,j) * r.elem(j,k);
-    }
-  }
-
-  /////////////////////////////////////
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_orig(c, l, r, true); //node local
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node local mult_orig failed!\n");
-  
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_orig(c, l, r, false); //node distributed
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node distributed mult_orig failed!\n");
-
-  if(!UniqueID()) printf("Passed MF mult_orig tests\n");
-
-  /////////////////////////////////////
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_opt1(c,l,r, true);
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node local mult_opt1 failed!\n");
-
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_opt1(c,l,r, false);
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node distributed mult_opt1 failed!\n");
-
-  if(!UniqueID()) printf("Passed MF mult_opt1 tests\n");
-
-  /////////////////////////////////////
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_opt2(c,l,r, true);
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node local mult_opt2 failed!\n");
-
-  _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_opt2(c,l,r, false);
-
-  if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node distributed mult_opt2 failed!\n");
-
-  if(!UniqueID()) printf("Passed MF mult_opt2 tests\n");
-}
-
-
 template<typename A2Apolicies>
 void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   typedef A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_WV; 
@@ -3058,17 +2987,48 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   //zvecdot (N) = 6 + (N-1)*8 Flops
 
   size_t Flops = ni * nk * ( 6 + (nj-1)*8 );
+  double time, Mflops, Mflops_per_node;
 
   A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
 
+  time = -dclock();
+  for(int i=0;i<ntests;i++){
+    mult(c, l, r, true); //NODE LOCAL, used in pipi
+  }
+  time += dclock();
+
+  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
+
+  if(!UniqueID()) printf("MF mult node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
+
+#ifdef MULT_IMPL_CUBLASXT
+  if(!UniqueID()) _mult_impl_base::getTimers().print();
+#endif
+
+  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+
+  time = -dclock();
+  for(int i=0;i<ntests;i++){
+    mult(c, l, r, false); //NODE DISTRIBUTED, used in K->pipi
+  }
+  time += dclock();
+
+  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
+  Mflops_per_node = Mflops/nodes;
+  
+  if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
+
+
   //////////////////////////////////////////
-  double time = -dclock();
+#ifdef MULT_IMPL_GSL
+
+  time = -dclock();
   for(int i=0;i<ntests;i++){
     _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_orig(c, l, r, true); //NODE LOCAL, used in pipi
   }
   time += dclock();
 
-  double Mflops = double(Flops)/time*double(ntests)/double(1.e6);
+  Mflops = double(Flops)/time*double(ntests)/double(1.e6);
 
   if(!UniqueID()) printf("MF mult_orig node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
 
@@ -3081,7 +3041,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   time += dclock();
 
   Mflops = double(Flops)/time*double(ntests)/double(1.e6);
-  double Mflops_per_node = Mflops/nodes;
+  Mflops_per_node = Mflops/nodes;
   
   if(!UniqueID()) printf("MF mult_orig node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
 
@@ -3130,7 +3090,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   Mflops_per_node = Mflops/nodes;
   
   if(!UniqueID()) printf("MF mult_opt2 node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
-
+#endif //MULT_IMPL_GSL
 }
 
 
@@ -3772,7 +3732,7 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
 
   {
     GridLanczosWrapper<GridA2Apolicies> lanc2;
-    lanc2.readParallel("lanc",lattice);
+    lanc2.readParallel("lanc");
 
     assert(lanc2.evec_f.size() == 0);
     assert(lanc.evec.size() == lanc2.evec.size());
@@ -3803,7 +3763,7 @@ void testLanczosIO(typename GridA2Apolicies::FgridGFclass &lattice){
   
   {
     GridLanczosWrapper<GridA2Apolicies> lanc2;
-    lanc2.readParallel("lanc",lattice);
+    lanc2.readParallel("lanc");
 
     assert(lanc2.evec.size() == 0);
     assert(lanc.evec_f.size() == lanc2.evec_f.size());

@@ -327,7 +327,7 @@ void A2AvectorW<mf_Policies>::computeVWhighSingleMADWF(A2AvectorV<mf_Policies> &
   Grid::GridCartesian * FGrid_inner = Grid::SpaceTimeGrid::makeFiveDimGrid(cg_controls.MADWF_Ls_inner,UGrid);
   Grid::GridRedBlackCartesian * FrbGrid_inner = Grid::SpaceTimeGrid::makeFiveDimRedBlackGrid(cg_controls.MADWF_Ls_inner,UGrid);
 
-  std::vector<ComplexD> gamma_inner = computeZmobiusGammaWithCache(cg_controls.MADWF_b_plus_c_inner, 
+  std::vector<Grid::ComplexD> gamma_inner = computeZmobiusGammaWithCache(cg_controls.MADWF_b_plus_c_inner, 
 								   cg_controls.MADWF_Ls_inner, 
 								   mob_b+mob_c, GJP.SnodeSites()*GJP.Snodes(),
 								   cg_controls.MADWF_ZMobius_lambda_max, cg_controls.MADWF_use_ZMobius);

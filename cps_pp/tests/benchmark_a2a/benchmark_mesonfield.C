@@ -173,8 +173,6 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 
   if(0) testTraceSingle<ScalarA2ApoliciesType>(a2a_args,tol);
 
-  if(0) testMFmult<ScalarA2ApoliciesType>(a2a_args,tol);
-
   if(0) testCPSfieldImpex();
 #if defined(USE_GRID) && !defined(ARCH_BGQ)
   if(0) testGridFieldImpex<GridA2ApoliciesType>(lattice);
@@ -200,15 +198,14 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
 #endif
 
 #ifdef USE_GRID
-  if(0) testMFmult<GridA2ApoliciesType>(a2a_args, tol);
-  if(0) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
+  if(1) benchmarkMFmult<GridA2ApoliciesType>(a2a_args, ntests);
 #endif
 
   if(0) timeAllReduce(false);
   if(0) timeAllReduce(true);
 
 #ifdef USE_GRID
-  if(1) test4DlowmodeSubtraction<GridA2ApoliciesType>(a2a_args, ntests, nthreads, lattice);
+  if(0) test4DlowmodeSubtraction<GridA2ApoliciesType>(a2a_args, ntests, nthreads, lattice);
 #endif
 }
 

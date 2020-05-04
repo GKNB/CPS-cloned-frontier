@@ -5,14 +5,19 @@
 //Options for _mult_impl:
 //MULT_IMPL_BASIC        :not using any external libraries
 //MULT_IMPL_BLOCK_BASIC  :blocked matrix implementation without external libraries
-//MULT_IMPL_GSL          :blocked matrix implementation using GSL BLAS (and I think other BLAS can be slotted in by linking to the appropriate libraries)
+//MULT_IMPL_GSL          :blocked matrix implementation using GSL BLAS (and other BLAS can be slotted in by linking to the appropriate libraries)
 //MULT_IMPL_GRID         :using Grid library SIMD intrinsics with a hand-crafted wrapper
 //MULT_IMPL_ESSL:        :using BG/Q ESSL library
+//MULT_IMPL_CUBLASXT     :using CUDA CUBLASXT library
 
 #if defined(ARCH_BGQ) && defined(USE_ESSL_A2A)
 //Requires linking to essl_interface and fortran libraries
 #define MULT_IMPL_ESSL
+#elif defined(GRID_NVCC)
+//Use cuda version
+#define MULT_IMPL_CUBLASXT
 #else
+//Default to GSL version
 #define MULT_IMPL_GSL
 #endif
 
@@ -26,6 +31,8 @@
 #  include "mesonfield_mult_impl_grid.tcc"
 #elif defined(MULT_IMPL_ESSL)
 #  include "mesonfield_mult_impl_essl.tcc"
+#elif defined(MULT_IMPL_CUBLASXT)
+#  include "mesonfield_mult_impl_cublasxt.tcc"
 #else
 #  error Must specify a MULT_IMPL_* in mesonfield_mult_impl.tcc
 #endif
