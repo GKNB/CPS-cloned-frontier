@@ -201,6 +201,88 @@ struct copyControl{
   static inline bool & shallow(){ static bool s=false; return s; }
 };
 
+#ifdef GRID_NVCC
+
+//Cache for pinned host memory; a modified version of Grid's pointer cache
+class PinnedHostMemoryCache {
+private:
+  static const int Ncache=128;
+
+  inline static int & getVictim(){
+    static int victim = 0;
+    return victim;
+  }
+
+  typedef struct { 
+    void *address;
+    size_t bytes;
+    int valid;
+  } PointerCacheEntry;
+    
+  inline static PointerCacheEntry* getEntries(){
+    static PointerCacheEntry Entries[Ncache];
+    return Entries;
+  }
+
+public:
+
+  static void free(void *ptr,size_t bytes){
+#ifdef GRID_OMP
+    assert(omp_in_parallel()==0);
+#endif 
+    PointerCacheEntry* Entries = getEntries();
+    int & victim = getVictim();
+
+    void * ret = NULL;
+    int v = -1;
+
+    for(int e=0;e<Ncache;e++) {
+      if ( Entries[e].valid==0 ) {
+	v=e; 
+	break;
+      }
+    }
+
+    if ( v==-1 ) {
+      v=victim;
+      victim = (victim+1)%Ncache;
+    }
+
+    if ( Entries[v].valid ) {
+      ret = Entries[v].address;
+      Entries[v].valid = 0;
+      Entries[v].address = NULL;
+      Entries[v].bytes = 0;
+    }
+
+    Entries[v].address=ptr;
+    Entries[v].bytes  =bytes;
+    Entries[v].valid  =1;
+
+    if(ret != NULL) assert( cudaFree(ret) == cudaSuccess );
+  }
+
+  static void * alloc(size_t bytes){
+#ifdef GRID_OMP
+    assert(omp_in_parallel()==0);
+#endif 
+
+    PointerCacheEntry* Entries = getEntries();
+
+    for(int e=0;e<Ncache;e++){
+      if ( Entries[e].valid && ( Entries[e].bytes == bytes ) ) {
+	Entries[e].valid = 0;
+	return Entries[e].address;
+      }
+    }
+    void* ret;
+    assert( cudaMallocHost(&ret, bytes, cudaHostAllocDefault) == cudaSuccess );    
+    return ret;
+  }
+};
+
+#endif //GRID_NVCC
+
 
 
 CPS_END_NAMESPACE

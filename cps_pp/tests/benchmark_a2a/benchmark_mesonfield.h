@@ -3003,6 +3003,7 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
 
 #ifdef MULT_IMPL_CUBLASXT
   if(!UniqueID()) _mult_impl_base::getTimers().print();
+  _mult_impl_base::getTimers().reset();
 #endif
 
   int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
@@ -3017,6 +3018,10 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   Mflops_per_node = Mflops/nodes;
   
   if(!UniqueID()) printf("MF mult node distributed (ni=%d nj=%d nk=%d) %f Mflops,  %f Mflops/node\n",ni,nj,nk,Mflops, Mflops_per_node);
+
+#ifdef MULT_IMPL_CUBLASXT
+  if(!UniqueID()) _mult_impl_base::getTimers().print();
+#endif
 
 
   //////////////////////////////////////////

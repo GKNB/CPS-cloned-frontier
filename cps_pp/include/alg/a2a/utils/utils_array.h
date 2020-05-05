@@ -19,6 +19,7 @@ inline void compute_overlap(std::vector<bool> &out, const std::vector<bool> &a, 
 
 
 //Look for contiguous blocks of indices in the idx_map, output a list of start,size pairs
+//The start index here is the 'packed' (smaller) index that indexes the array idx_map
 inline void find_contiguous_blocks(std::vector<std::pair<int,int> > &blocks, const int idx_map[], int map_size){
   blocks.resize(0);
   std::pair<int,int> block(0,1); //start, size

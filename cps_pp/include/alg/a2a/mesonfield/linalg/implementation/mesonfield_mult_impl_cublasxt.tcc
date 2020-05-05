@@ -6,6 +6,7 @@ public:
   struct timers{
     int calls;
     double t_init;
+    double t_alloc;
     double t_reord;
     double t_compute;
     double t_write;
@@ -13,13 +14,13 @@ public:
 
     void reset(){
       calls = 0;
-      t_init = t_reord = t_compute = t_write = t_globalsum = 0;
+      t_init = t_alloc = t_reord = t_compute = t_write = t_globalsum = 0;
     }
     timers(){
       reset();
     }
     void print() const{
-      printf("Timers: calls=%d init=%g reord=%g compute=%g write=%g gsum=%g\n", calls, t_init/calls, t_reord/calls, t_compute/calls, t_write/calls, t_globalsum/calls);
+      printf("Timers: calls=%d init=%g alloc=%g reord=%g compute=%g write=%g gsum=%g\n", calls, t_init/calls, t_alloc/calls, t_reord/calls, t_compute/calls, t_write/calls, t_globalsum/calls);
     }
   };
 
@@ -86,6 +87,11 @@ public:
       j_ind2.getBothIndices(jlmap[j],jrmap[j],j,lmodeparams,rmodeparams);
 
 
+    //Find consecutive blocks in jlmap
+    std::vector<std::pair<int,int> > jlmap_blocks;
+    find_contiguous_blocks(jlmap_blocks, jlmap, nj);
+
+
     //We're going to let cublas decide how to "thread" the matrix multiplication internally, thus we just have to make the number of blocks equal to the number of nodes
     //Because ni, nk are different and not necessarily multiples of a common blocking we need to dynamically choose the block size
     int nodes = 1;
@@ -126,6 +132,12 @@ public:
     getTimers().t_init += dclock();
 
     if(do_work){    
+      //Pull out the submatrices
+      getTimers().t_alloc -= dclock();
+      gpuHostPinnedMatrix lreord(bi,nj);
+      gpuHostPinnedMatrix rreord(nj,bk);
+      getTimers().t_alloc += dclock();	
+
       //Compute which iblock,kblock index this node is responsible for
       //Some nodes might have to do >1 block depending on geometry
       for(int i0k0 = node_off; i0k0 < node_off + node_work; ++i0k0){
@@ -134,81 +146,46 @@ public:
 	int i0 = rem;
 	i0 *= bi; k0 *= bk;
 
-	//Pull out the submatrices
 	getTimers().t_reord -= dclock();
-	
-	gpuMatrix lreord(bi,nj);
-	gpuMatrix rreord(nj,bk);
-      
 #ifndef MEMTEST_MODE
       
 	static_assert( sizeof(gpuMatrix::complexD) == sizeof(ScalarComplexType) );
 
-// #pragma omp parallel for
-// 	for(int i=i0;i<i0+bi;i++)
-// 	  for(int j=0;j<nj;j++){
-// 	    const ScalarComplexType & el = l(i, jlmap[j]);
-// 	    lreord(i-i0,j) = gpuMatrix::complexD( el.real(), el.imag() );
-// 	  }
-
-// #pragma omp parallel for
-// 	for(int j=0;j<nj;j++){
-// 	  int j_actual = jrmap[j];
-// 	  for(int k=k0;k<k0+bk;k++){
-// 	    const ScalarComplexType & el = r(j_actual, k);
-// 	    rreord(j,k-k0) = gpuMatrix::complexD( el.real(), el.imag() );
-// 	  }
-// 	}
-
-       
 #pragma omp parallel for
 	for(int i=i0;i<i0+bi;i++){
-	  gpuMatrix::complexD* p = &lreord(i-i0,0);
-
-	  for(int j=0;j<nj;j++){
-	    const ScalarComplexType & el = l(i, jlmap[j]);
-	    memcpy(p++, &el, sizeof(gpuMatrix::complexD));
-
-	    //lreord(i-i0,j) = gpuMatrix::complexD( el.real(), el.imag() );
+	  for(int b=0;b<jlmap_blocks.size();b++){
+	    int j_start = jlmap_blocks[b].first;
+	    int j_start_actual = jlmap[j_start];
+	    int sz = jlmap_blocks[b].second;
+	    
+	    gpuMatrix::complexD *p = &lreord(i-i0,j_start);
+	    const ScalarComplexType & el = l(i, j_start_actual);
+	    memcpy(p, &el, sz*sizeof(gpuMatrix::complexD));
 	  }
 	}
 
 #pragma omp parallel for
 	for(int j=0;j<nj;j++){
 	  int j_actual = jrmap[j];
-	  gpuMatrix::complexD* p = &rreord(j,0);
 	  ScalarComplexType const* e = &r(j_actual, k0);
-	  memcpy(p, e, bk*sizeof(gpuMatrix::complexD)); //columns contiguous
+	  gpuMatrix::complexD *p = &rreord(j,0);
+	  memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
 	}
 
 	getTimers().t_reord += dclock();
 	
 	getTimers().t_compute -= dclock();
-	gpuMatrix lr = mult_offload_cuBLASxt(lreord,rreord);
+	gpuHostPinnedMatrix lr = mult_offload_cuBLASxt(lreord,rreord);
 	getTimers().t_compute += dclock();
 
 	getTimers().t_write -= dclock();
-// #pragma omp parallel for
-// 	for(int i=i0;i<i0+bi;i++){
-// 	  for(int k=k0;k<k0+bk;k++){
-// 	    const auto & lr_val = lr(i-i0,k-k0);
-// 	    out(i,k) = ScalarComplexType( lr_val.real(), lr_val.imag() );
-// 	  }	    
-// 	}
 
 #pragma omp parallel for
 	for(int i=i0;i<i0+bi;i++){
 	  ScalarComplexType *p = &out(i,k0);
 	  gpuMatrix::complexD const* e = &lr(i-i0,0);
 	  memcpy(p, e, bk*sizeof(gpuMatrix::complexD));
-
-	  // for(int k=k0;k<k0+bk;k++){
-	  //   const auto & lr_val = lr(i-i0,k-k0);
-	  //   out(i,k) = ScalarComplexType( lr_val.real(), lr_val.imag() );
-	  // }	    
 	}
-
-
 
 	getTimers().t_write += dclock();
 
