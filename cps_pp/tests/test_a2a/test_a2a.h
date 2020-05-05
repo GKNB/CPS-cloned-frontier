@@ -582,7 +582,6 @@ void testMFmult(const A2AArg &a2a_args, const double tol){
   //Test other GSL implementations
   
   /////////////////////////////////////
-  A2AmesonField<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw> c;
   _mult_impl<A2Apolicies,A2AvectorWfftw,A2AvectorVfftw,A2AvectorWfftw,A2AvectorVfftw>::mult_orig(c, l, r, true); //node local
 
   if(!c.equals(c_base, tol, true)) ERR.General("","testMFmult","Node local mult_orig failed!\n");

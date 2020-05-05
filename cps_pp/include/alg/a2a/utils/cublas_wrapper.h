@@ -288,12 +288,8 @@ gpuHostPinnedMatrix mult_offload_cuBLASxt(const gpuHostPinnedMatrix &A, const gp
 
 
 
-
+CPS_END_NAMESPACE
 #endif
 //GRID_NVCC
-
-
-
-CPS_END_NAMESPACE
 
 #endif
