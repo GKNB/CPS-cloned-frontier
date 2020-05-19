@@ -616,6 +616,315 @@ void testMFmult(const A2AArg &a2a_args, const double tol){
 #endif //MULT_IMPL_GSL
 }
 
+template<typename mf_Complex, typename grid_Complex>
+bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColorFlavorMatrix<grid_Complex> &grid, const double tol){
+  bool fail = false;
+  
+  mf_Complex gd;
+  for(int sl=0;sl<4;sl++)
+    for(int cl=0;cl<3;cl++)
+      for(int fl=0;fl<2;fl++)
+	for(int sr=0;sr<4;sr++)
+	  for(int cr=0;cr<3;cr++)
+	    for(int fr=0;fr<2;fr++){
+	      gd = Reduce( grid(sl,sr)(cl,cr)(fl,fr) );
+	      const mf_Complex &cp = orig(sl,sr)(cl,cr)(fl,fr);
+	      
+	      double rdiff = fabs(gd.real()-cp.real());
+	      double idiff = fabs(gd.imag()-cp.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: Grid (%g,%g) CPS (%g,%g) Diff (%g,%g)\n",gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		fail = true;
+	      }
+	    }
+  return !fail;
+}
+
+template<typename mf_Complex>
+bool compare(const CPSspinColorFlavorMatrix<mf_Complex> &orig, const CPSspinColorFlavorMatrix<mf_Complex> &newimpl, const double tol){
+  bool fail = false;
+  
+  for(int sl=0;sl<4;sl++)
+    for(int cl=0;cl<3;cl++)
+      for(int fl=0;fl<2;fl++)
+	for(int sr=0;sr<4;sr++)
+	  for(int cr=0;cr<3;cr++)
+	    for(int fr=0;fr<2;fr++){
+	      const mf_Complex &gd = newimpl(sl,sr)(cl,cr)(fl,fr);
+	      const mf_Complex &cp = orig(sl,sr)(cl,cr)(fl,fr);
+	      
+	      double rdiff = fabs(gd.real()-cp.real());
+	      double idiff = fabs(gd.imag()-cp.imag());
+	      if(rdiff > tol|| idiff > tol){
+		printf("Fail: Newimpl (%g,%g) Orig (%g,%g) Diff (%g,%g)\n",gd.real(),gd.imag(), cp.real(),cp.imag(), cp.real()-gd.real(), cp.imag()-gd.imag());
+		fail = true;
+	      }
+	    }
+  return !fail;
+}
+
+
+
+template<typename ScalarA2Apolicies, typename GridA2Apolicies>
+void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthreads, const double tol){
+#ifdef USE_GRID
+#define CPS_VMV
+  //#define GRID_VMV
+  //#define CPS_SPLIT_VMV
+#define GRID_SPLIT_VMV
+  //#define CPS_SPLIT_VMV_XALL
+#define GRID_SPLIT_VMV_XALL
+#define GRID_SPLIT_LITE_VMV;
+
+  std::cout << "Starting vMv benchmark\n";
+
+  const int nsimd = GridA2Apolicies::ComplexType::Nsimd();      
+
+  typename FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::ParamType simd_dims;
+  FourDSIMDPolicy<typename ScalarA2Apolicies::FermionFieldType::FieldMappingPolicy::FieldFlavorPolicy>::SIMDdefaultLayout(simd_dims,nsimd,2);
+      
+  A2AvectorWfftw<ScalarA2Apolicies> W(a2a_args);
+  A2AvectorVfftw<ScalarA2Apolicies> V(a2a_args);
+    
+  A2AvectorWfftw<GridA2Apolicies> Wgrid(a2a_args, simd_dims);
+  A2AvectorVfftw<GridA2Apolicies> Vgrid(a2a_args, simd_dims);
+
+  W.testRandom();
+  V.testRandom();
+  Wgrid.importFields(W);
+  Vgrid.importFields(V);
+  
+  A2AmesonField<ScalarA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf;
+  A2AmesonField<GridA2Apolicies,A2AvectorWfftw,A2AvectorVfftw> mf_grid;
+  mf.setup(W,V,0,0);
+  mf_grid.setup(Wgrid,Vgrid,0,0);     
+  mf.testRandom();
+  for(int i=0;i<mf.getNrows();i++)
+    for(int j=0;j<mf.getNcols();j++)
+      mf_grid(i,j) = mf(i,j); //both are scalar complex
+  
+  typedef typename GridA2Apolicies::ComplexType grid_Complex;
+  typedef typename ScalarA2Apolicies::ComplexType mf_Complex;
+
+      
+  Float total_time = 0.;
+  Float total_time_orig = 0.;
+  Float total_time_split_orig = 0.;
+  Float total_time_split_grid = 0.;
+  Float total_time_split_orig_xall = 0.;
+  Float total_time_split_grid_xall = 0.;
+  Float total_time_split_lite_grid = 0.;
+  Float total_time_field_offload = 0.;
+  
+  CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
+
+  CPSspinColorFlavorMatrix<mf_Complex> orig_tmp[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_tmp[nthreads];
+
+  CPSspinColorFlavorMatrix<mf_Complex> orig_sum_split[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split[nthreads];
+
+  CPSspinColorFlavorMatrix<mf_Complex> orig_sum_split_xall[nthreads];
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_xall[nthreads];
+
+  CPSspinColorFlavorMatrix<grid_Complex> grid_sum_split_lite[nthreads];      
+
+  int orig_3vol = GJP.VolNodeSites()/GJP.TnodeSites();
+  int grid_3vol = Vgrid.getMode(0).nodeSites(0) * Vgrid.getMode(0).nodeSites(1) *Vgrid.getMode(0).nodeSites(2);
+
+  mult_vMv_split<ScalarA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_orig;
+  mult_vMv_split<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_grid;
+  mult_vMv_split_lite<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw> vmv_split_lite_grid;
+
+  std::vector<CPSspinColorFlavorMatrix<mf_Complex> > orig_split_xall_tmp(orig_3vol);
+  typename AlignedVector<CPSspinColorFlavorMatrix<grid_Complex> >::type grid_split_xall_tmp(grid_3vol);
+      
+  for(int iter=0;iter<ntests;iter++){
+    for(int i=0;i<nthreads;i++){
+      orig_sum[i].zero(); grid_sum[i].zero();
+      orig_sum_split[i].zero(); grid_sum_split[i].zero();
+      grid_sum_split_lite[i].zero();
+      orig_sum_split_xall[i].zero(); grid_sum_split_xall[i].zero();
+    }
+	
+    for(int top = 0; top < GJP.TnodeSites(); top++){
+#ifdef CPS_VMV
+      //ORIG VMV
+      total_time_orig -= dclock();	  
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(orig_tmp[me], V, mf, W, xop, top, false, true);
+	orig_sum[me] += orig_tmp[me];
+      }
+      total_time_orig += dclock();
+#endif
+#ifdef GRID_VMV
+      //GRID VMV
+      total_time -= dclock();
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	mult(grid_tmp[me], Vgrid, mf_grid, Wgrid, xop, top, false, true);
+	grid_sum[me] += grid_tmp[me];
+      }
+      total_time += dclock();
+#endif
+
+#ifdef CPS_SPLIT_VMV
+      //SPLIT VMV
+      total_time_split_orig -= dclock();	  
+      vmv_split_orig.setup(V, mf, W, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_orig.contract(orig_tmp[me], xop, false, true);
+	orig_sum_split[me] += orig_tmp[me];
+      }
+      total_time_split_orig += dclock();
+#endif
+
+#ifdef GRID_SPLIT_VMV
+      //SPLIT VMV GRID
+      total_time_split_grid -= dclock();	  
+      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split[me] += grid_tmp[me];
+      }
+      total_time_split_grid += dclock();
+#endif
+
+#ifdef CPS_SPLIT_VMV_XALL	  	 
+      //SPLIT VMV THAT DOES IT FOR ALL SITES
+      total_time_split_orig_xall -= dclock();	  
+      vmv_split_orig.setup(V, mf, W, top);
+      vmv_split_orig.contract(orig_split_xall_tmp, false, true);
+#pragma omp parallel for
+      for(int xop=0;xop<orig_3vol;xop++){
+	int me = omp_get_thread_num();
+	orig_sum_split_xall[me] += orig_split_xall_tmp[xop];
+      }
+      total_time_split_orig_xall += dclock();
+#endif
+
+#ifdef GRID_SPLIT_VMV_XALL
+      //SPLIT VMV GRID THAT DOES IT FOR ALL SITES
+      total_time_split_grid_xall -= dclock();	  
+      vmv_split_grid.setup(Vgrid, mf_grid, Wgrid, top);
+      vmv_split_grid.contract(grid_split_xall_tmp, false, true);
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();	    
+	grid_sum_split_xall[me] += grid_split_xall_tmp[xop];
+      }
+      total_time_split_grid_xall += dclock();
+#endif	  
+
+#ifdef GRID_SPLIT_LITE_VMV
+      //SPLIT LITE VMV GRID
+      total_time_split_lite_grid -= dclock();	  
+      vmv_split_lite_grid.setup(Vgrid, mf_grid, Wgrid, top);
+
+#pragma omp parallel for
+      for(int xop=0;xop<grid_3vol;xop++){
+	int me = omp_get_thread_num();
+	vmv_split_lite_grid.contract(grid_tmp[me], xop, false, true);
+	grid_sum_split_lite[me] += grid_tmp[me];
+      }
+      total_time_split_lite_grid += dclock();
+#endif
+    }//end top loop
+    for(int i=1;i<nthreads;i++){
+      orig_sum[0] += orig_sum[i];
+      grid_sum[0] += grid_sum[i];
+      orig_sum_split[0] += orig_sum_split[i];
+      grid_sum_split[0] += grid_sum_split[i];
+      orig_sum_split_xall[0] += orig_sum_split_xall[i];
+      grid_sum_split_xall[0] += grid_sum_split_xall[i];
+      grid_sum_split_lite[0] += grid_sum_split_lite[i];  
+    }
+
+    //Offload version computes all x,t, so we just have to sum over 4 volume afterwards
+    total_time_field_offload -= dclock();
+    typedef _mult_vMv_field_offload_v<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, grid_vector_complex_mark> offload;
+    typename offload::PropagatorField pfield(simd_dims);
+    
+    offload::doit(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    total_time_field_offload += dclock();
+
+    CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;
+    vmv_offload_sum4.zero();
+    for(size_t i=0;i<pfield.size();i++){
+      vmv_offload_sum4 += *pfield.fsite_ptr(i);
+    }
+
+
+#ifdef CPS_VMV
+    if(iter == 0){
+#  ifdef GRID_VMV
+      if(!compare(orig_sum[0],grid_sum[0],tol)) ERR.General("","","Standard vs Grid implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid implementation test pass\n");
+#  endif
+#  ifdef CPS_SPLIT_VMV
+      if(!compare(orig_sum[0],orig_sum_split[0],tol)) ERR.General("","","Standard vs Split implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Split implementation test pass\n");
+#  endif
+#  ifdef GRID_SPLIT_VMV
+      if(!compare(orig_sum[0],grid_sum_split[0],tol)) ERR.General("","","Standard vs Grid Split implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid Split implementation test pass\n");
+#  endif
+#  ifdef CPS_SPLIT_VMV_XALL
+      if(!compare(orig_sum[0],orig_sum_split_xall[0],tol)) ERR.General("","","Standard vs Split xall implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Split xall implementation test pass\n");
+#  endif
+#  ifdef GRID_SPLIT_VMV_XALL
+      if(!compare(orig_sum[0],grid_sum_split_xall[0],tol)) ERR.General("","","Standard vs Grid split xall implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid split xall implementation test pass\n");
+#  endif
+#  ifdef GRID_SPLIT_LITE_VMV
+      if(!compare(orig_sum[0],grid_sum_split_lite[0],tol)) ERR.General("","","Standard vs Grid Split Lite implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid Split Lite implementation test pass\n");
+#  endif
+
+      if(!compare(orig_sum[0],vmv_offload_sum4,tol)) ERR.General("","","Standard vs Grid field offload implementation test failed\n");
+      else if(!UniqueID()) printf("Standard vs Grid field offload implementation test pass\n");
+    }
+#endif
+  }
+#ifdef CPS_VMV
+  printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
+#endif
+#ifdef GRID_VMV
+  printf("vMv: Avg time new code %d iters: %g secs\n",ntests,total_time/ntests);
+#endif
+#ifdef CPS_SPLIT_VMV
+  printf("vMv: Avg time old code split %d iters: %g secs\n",ntests,total_time_split_orig/ntests);
+#endif
+#ifdef GRID_SPLIT_VMV
+  printf("vMv: Avg time new code split %d iters: %g secs\n",ntests,total_time_split_grid/ntests);
+#endif
+#ifdef CPS_SPLIT_VMV_XALL
+  printf("vMv: Avg time old code split xall %d iters: %g secs\n",ntests,total_time_split_orig_xall/ntests);
+#endif
+#ifdef GRID_SPLIT_VMV_XALL
+  printf("vMv: Avg time new code split xall %d iters: %g secs\n",ntests,total_time_split_grid_xall/ntests);
+#endif
+#ifdef GRID_SPLIT_LITE_VMV
+  printf("vMv: Avg time new code split lite %d iters: %g secs\n",ntests,total_time_split_lite_grid/ntests);
+#endif
+  printf("vMv: Avg time offload %d iters: %g secs\n",ntests,total_time_field_offload/ntests);
+
+
+#endif
+}
+
+
 
 
 #endif

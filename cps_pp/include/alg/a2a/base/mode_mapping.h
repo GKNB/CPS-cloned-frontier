@@ -83,10 +83,6 @@ A_{sc, f, t, h} B_{sc, f, t, h} = a_h b_{sc,h} \delta_{sc, sc'_A} [\delta_{f,f'_
 
 Thus non-zero values only occur if      sc == sc'_A  && (f == f'_A && f == f'_B) && (t == t'_A && t == t'_B )
 
-
-
-
-
 The ModeMapping class determines the set of pairs  (i_A, i_B) that must be computed given values of sc'_A, f'_A, t'_A  and  f'_B, t'_B
 
 It is assumed that the dilution type specified by the left "PackedType" is more packed than the right "UnpackedType"

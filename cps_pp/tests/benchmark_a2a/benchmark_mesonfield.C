@@ -134,8 +134,6 @@ void runBenchmarks(int argc,char *argv[], const Options &opt){
   if(0) testVVdag<ScalarA2ApoliciesType>(lattice);
 #ifdef USE_GRID
   if(0) testVVdag<GridA2ApoliciesType>(lattice);
-
-  if(0) testvMvGridOrig<ScalarA2ApoliciesType,GridA2ApoliciesType>(a2a_args, 1, nthreads, tol);
 #endif
   
   if(0) testDestructiveFFT<ScalarA2ApoliciesManualAllocType>(a2a_args,lattice);

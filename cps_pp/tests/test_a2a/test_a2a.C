@@ -1,5 +1,7 @@
 #include <alg/a2a/ktopipi_gparity.h>
 
+#include <alg/a2a/mesonfield/linalg/mesonfield_mult_vMv_field_offload.h>
+
 using namespace cps;
 
 #include "test_a2a.h"
@@ -282,10 +284,7 @@ int main(int argc,char *argv[])
   if(0) testSpinFlavorMatrices();
   if(0) checkCPSfieldGridImpex5Dcb<A2Apolicies_grid>(lattice);
 
-  if(1) testMFmult<A2Apolicies_std>(a2a_arg,tol);
-
-  return 0;
-  
+  if(0) testMFmult<A2Apolicies_std>(a2a_arg,tol);
 
   FixGaugeArg fix_gauge_arg;  
   fix_gauge_arg.fix_gauge_kind = FIX_GAUGE_COULOMB_T;
@@ -308,7 +307,7 @@ int main(int argc,char *argv[])
   printf("\n");
 
 
-  if(1) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
+  if(0) testGaugeFixAndPhasingGridStd<A2Apolicies_std, A2Apolicies_grid>(simd_dims,lattice);
   
 
   //#define COMPUTE_VW
@@ -339,30 +338,31 @@ int main(int argc,char *argv[])
   randomizeVW<A2Apolicies_std>(V_std,W_std);
 #endif
   
-  if(1) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
+  if(0) compareVgridstd<A2Apolicies_std, A2Apolicies_grid>(V_std, V_grid);
   
   
   typename SIMDpolicyBase<3>::ParamType simd_dims_3d;
   SIMDpolicyBase<3>::SIMDdefaultLayout(simd_dims_3d,nsimd);
 
-  if(1) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(0) testPionContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 							 V_grid, W_grid,
 							 lattice, simd_dims_3d, tol);
 
-  if(1) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(0) testKaonContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 							 V_grid, W_grid,
 							 lattice, simd_dims_3d, tol);
 
-  if(1) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(0) testPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 								V_grid, W_grid,
 								lattice, simd_dims_3d, tol);
 
-  if(1) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
+  if(0) testKtoPiPiContractionGridStd<A2Apolicies_std, A2Apolicies_grid>(V_std, W_std,
 								   V_grid, W_grid,
 								   lattice, simd_dims_3d, tol);
   
+  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 
-  
+
   std::cout << "Done" << std::endl;
 
   return 0;
