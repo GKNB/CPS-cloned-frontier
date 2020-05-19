@@ -28,62 +28,63 @@ struct computeModeUnmapping<0,DilutionType>{
 
 //Compute the mode map between types recursively
 
-//First move through packed nested coords   //spincolor=3, flavor=2, time=1
-template<int DepthPacked, int DepthUnpacked, typename PackedType, typename UnpackedType>
+//First move through left nested coords   //spincolor=3, flavor=2, time=1
+template<int DepthLeftDilution, int DepthRightDilution, typename LeftDilutionType, typename RightDilutionType>
 struct computeModeMap{
-  typedef typename IndexVector<DepthPacked>::Type VectorTypePacked;
-  typedef typename IndexVector<DepthUnpacked>::Type VectorTypeUnpacked;
+  typedef typename IndexVector<DepthLeftDilution>::Type VectorTypeLeftDilution;
+  typedef typename IndexVector<DepthRightDilution>::Type VectorTypeRightDilution;
 
-  typedef typename IndexTensor<DepthPacked, DepthUnpacked>::Type TensorType;
+  typedef typename IndexTensor<DepthLeftDilution, DepthRightDilution>::Type TensorType;
   
-  static void doit(TensorType &v,const VectorTypePacked &packed_unmap, const VectorTypeUnpacked &unpacked_unmap){
-    int nidx = IndexConvention<DepthPacked>::getNidx();
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
+    int nidx = IndexConvention<DepthLeftDilution>::getNidx();
     v.resize(nidx);
     for(int i=0;i<nidx;i++)
-      computeModeMap<DepthPacked-1,DepthUnpacked, PackedType,UnpackedType>::doit(v[i],packed_unmap[i],unpacked_unmap);
+      computeModeMap<DepthLeftDilution-1,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap[i],right_unmap);
   }
 };
-template<int DepthUnpacked, typename PackedType, typename UnpackedType>
-struct computeModeMap<0,DepthUnpacked,PackedType,UnpackedType>{ //gotten down to the base modes for packed, start on unpacked
-  typedef typename IndexVector<0>::Type VectorTypePacked;
-  typedef typename IndexVector<DepthUnpacked>::Type VectorTypeUnpacked;
+//Gotten down to the base modes for left, start on right
+template<int DepthRightDilution, typename LeftDilutionType, typename RightDilutionType>
+struct computeModeMap<0,DepthRightDilution,LeftDilutionType,RightDilutionType>{ 
+  typedef typename IndexVector<0>::Type VectorTypeLeftDilution;
+  typedef typename IndexVector<DepthRightDilution>::Type VectorTypeRightDilution;
 
-  typedef typename IndexTensor<0, DepthUnpacked>::Type TensorType;
+  typedef typename IndexTensor<0, DepthRightDilution>::Type TensorType;
   
-  static void doit(TensorType &v,const VectorTypePacked &packed_unmap, const VectorTypeUnpacked &unpacked_unmap){
-    int nidx = IndexConvention<DepthUnpacked>::getNidx();
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
+    int nidx = IndexConvention<DepthRightDilution>::getNidx();
     v.resize(nidx);
     for(int i=0;i<nidx;i++)
-      computeModeMap<0,DepthUnpacked-1, PackedType,UnpackedType>::doit(v[i],packed_unmap,unpacked_unmap[i]);
+      computeModeMap<0,DepthRightDilution-1, LeftDilutionType,RightDilutionType>::doit(v[i],left_unmap,right_unmap[i]);
   }
 };
-template<typename PackedType, typename UnpackedType>
-struct computeModeMap<0,0,PackedType,UnpackedType>{ //gotten down to the base modes for packed, start on unpacked
-  typedef typename IndexVector<0>::Type VectorTypePacked;
-  typedef typename IndexVector<0>::Type VectorTypeUnpacked;
+template<typename LeftDilutionType, typename RightDilutionType>
+struct computeModeMap<0,0,LeftDilutionType,RightDilutionType>{ //gotten down to the base modes for left, start on right
+  typedef typename IndexVector<0>::Type VectorTypeLeftDilution;
+  typedef typename IndexVector<0>::Type VectorTypeRightDilution;
 
   typedef typename IndexTensor<0, 0>::Type TensorType; //mode * mode
   
-  static void doit(TensorType &v,const VectorTypePacked &packed_unmap, const VectorTypeUnpacked &unpacked_unmap){
+  static void doit(TensorType &v,const VectorTypeLeftDilution &left_unmap, const VectorTypeRightDilution &right_unmap){
     //Fully unpack both and find the overlap between the sets of non-zero indices
-    const std::vector<bool> &non_zeroes_packed = packed_unmap.second;
-    const std::vector<bool> &non_zeroes_unpacked = unpacked_unmap.second;
+    const std::vector<bool> &non_zeroes_left = left_unmap.second;
+    const std::vector<bool> &non_zeroes_right = right_unmap.second;
 
-    const std::vector<int> &std_to_packed = packed_unmap.first;
-    const std::vector<int> &std_to_unpacked = unpacked_unmap.first;
+    const std::vector<int> &std_to_left = left_unmap.first;
+    const std::vector<int> &std_to_right = right_unmap.first;
 
     std::vector<bool> overlap;
-    compute_overlap(overlap, non_zeroes_packed, non_zeroes_unpacked);
+    compute_overlap(overlap, non_zeroes_left, non_zeroes_right);
 
     int n_std = overlap.size();
-    assert(std_to_packed.size() == n_std);
-    assert(std_to_unpacked.size() == n_std);
+    assert(std_to_left.size() == n_std);
+    assert(std_to_right.size() == n_std);
 
     v.resize(0); v.reserve(n_std);
 
     for(int i=0;i<n_std;i++)
       if(overlap[i]){
-	std::pair<int,int> idx_pair(std_to_packed[i], std_to_unpacked[i]);
+	std::pair<int,int> idx_pair(std_to_left[i], std_to_right[i]);
 	v.push_back(idx_pair);
       }
   }
@@ -91,20 +92,19 @@ struct computeModeMap<0,0,PackedType,UnpackedType>{ //gotten down to the base mo
 
 
 
-template<typename PackedType, typename UnpackedType>
-void ModeMapping<PackedType,UnpackedType>::compute(TensorType &idx_map, const A2Aparams &p){
+template<typename LeftDilutionType, typename RightDilutionType>
+void ModeMapping<LeftDilutionType,RightDilutionType>::compute(TensorType &idx_map, const A2Aparams &p){
   modeIndexSet tmp;
-  const PackedType &packed = static_cast<const PackedType &>(p);
-  const UnpackedType &unpacked = static_cast<const UnpackedType &>(p);
+  const LeftDilutionType &left = static_cast<const LeftDilutionType &>(p);
+  const RightDilutionType &right = static_cast<const RightDilutionType &>(p);
     
-  //Completely unpack the 'packed' and 'unpacked' (or *less* packed anyway - it doesn't have to be a fully unpacked index) type
-  VectorTypePacked packed_unmap;
-  computeModeUnmapping<DepthPacked,PackedType>::doit(packed_unmap,tmp,packed);
+  VectorTypeLeftDilution left_unmap;
+  computeModeUnmapping<DepthLeftDilution,LeftDilutionType>::doit(left_unmap,tmp,left);
 
-  VectorTypeUnpacked unpacked_unmap;
-  computeModeUnmapping<DepthUnpacked,UnpackedType>::doit(unpacked_unmap,tmp,unpacked);
+  VectorTypeRightDilution right_unmap;
+  computeModeUnmapping<DepthRightDilution,RightDilutionType>::doit(right_unmap,tmp,right);
   
-  computeModeMap<DepthPacked,DepthUnpacked, PackedType,UnpackedType>::doit(idx_map,packed_unmap,unpacked_unmap);
+  computeModeMap<DepthLeftDilution,DepthRightDilution, LeftDilutionType,RightDilutionType>::doit(idx_map,left_unmap,right_unmap);
 }
 
 

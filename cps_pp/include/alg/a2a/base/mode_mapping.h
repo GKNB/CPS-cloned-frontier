@@ -95,16 +95,16 @@ vector<pair(i_A,i_B)> = idx_map[sc'_A][f'_A][t'_A] [f'_B][t'_B]
 
 */
 
-template<typename PackedType, typename UnpackedType>
+template<typename LeftDilutionType, typename RightDilutionType>
 class ModeMapping{
 public:
-  enum { DepthPacked = PackedType::UndilutedIndices };
-  enum { DepthUnpacked = UnpackedType::UndilutedIndices };
+  enum { DepthLeftDilution = LeftDilutionType::UndilutedIndices };
+  enum { DepthRightDilution = RightDilutionType::UndilutedIndices };
 
-  typedef typename IndexVector<DepthPacked>::Type VectorTypePacked;
-  typedef typename IndexVector<DepthUnpacked>::Type VectorTypeUnpacked;
+  typedef typename IndexVector<DepthLeftDilution>::Type VectorTypeLeftDilution;
+  typedef typename IndexVector<DepthRightDilution>::Type VectorTypeRightDilution;
 
-  typedef typename IndexTensor<DepthPacked, DepthUnpacked>::Type TensorType;
+  typedef typename IndexTensor<DepthLeftDilution, DepthRightDilution>::Type TensorType;
 
   static void compute(TensorType &idx_map, const A2Aparams &p);
 };
