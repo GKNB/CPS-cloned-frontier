@@ -64,6 +64,41 @@ struct IndexTensor<0,0>{
 };
 
 
+
+
+
+/*
+When performing products of two vectors A and B with different packed indices, we need to work out which index of A corresponds to which index of B
+For clarity let us work with specific examples, say A=FullyPackedIndexDilution and B=TimeFlavorPackedIndexDilution
+Given these classifications we know
+A_{sc, f, t, h} = a_h \delta_{sc, sc'_A}\delta_{f,f'_A}\delta_{t, t'_A}
+B_{sc, f, t, h} = b_{sc,h} \delta_{f,f'_B}\delta_{t, t'_B}
+
+In memory A and B are indexed by packed indices  i_A \in {0..nh}  ,  i_B \in {0..12*nh}
+
+Let's say we aim to compute  A_{sc, f, t, h} B_{sc, f, t, h}  for all sc,f,t,h
+We know that the delta-function structure highly-constrains the number of non-zero values that need to be computed
+
+A_{sc, f, t, h} B_{sc, f, t, h} = a_h b_{sc,h} \delta_{sc, sc'_A} [\delta_{f,f'_A}\delta_{f,f'_B}] [\delta_{t, t'_B}\delta_{t, t'_A}]
+
+Thus non-zero values only occur if      sc == sc'_A  && (f == f'_A && f == f'_B) && (t == t'_A && t == t'_B )
+
+
+
+
+
+The ModeMapping class determines the set of pairs  (i_A, i_B) that must be computed given values of sc'_A, f'_A, t'_A  and  f'_B, t'_B
+
+It is assumed that the dilution type specified by the left "PackedType" is more packed than the right "UnpackedType"
+(Note that UnpackedType doesn't have to be fully diluted, it just has to be more or equally diluted than "PackedType"  (IS THIS ACTUALLY NECESSARY?) )
+
+As such for the example above we will use PackedType=FullyPackedIndexDilution   UnpackedType=TimeFlavorPackedIndexDilution
+The result will be an object 'idx_map' for which a vector of pairs (i_A, i_B) can be obtained as
+
+vector<pair(i_A,i_B)> = idx_map[sc'_A][f'_A][t'_A] [f'_B][t'_B]
+
+*/
+
 template<typename PackedType, typename UnpackedType>
 class ModeMapping{
 public:

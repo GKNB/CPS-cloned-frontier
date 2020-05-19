@@ -776,6 +776,12 @@ public:
   //Convert space-time indices on logical volume
   inline int threeToFour(const int x3d, const int t) const{ return x3d + logical_vol/logical_dim[3]*t; } //convert 3d index to 4d index
 
+  inline void fourToThree(size_t &x3d, size_t &t, const size_t x4d) const{ 
+    size_t vol3d = logical_vol/logical_dim[3];
+    x3d = x4d % vol3d;
+    t = x4d / vol3d;
+  }
+
   ParamType getDimPolParams() const{
     return ParamType(simd_dims);
   }
