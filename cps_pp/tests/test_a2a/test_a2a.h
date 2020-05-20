@@ -855,7 +855,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
     typedef _mult_vMv_field_offload_v<GridA2Apolicies, A2AvectorVfftw, A2AvectorWfftw, A2AvectorVfftw, A2AvectorWfftw, grid_vector_complex_mark> offload;
     typename offload::PropagatorField pfield(simd_dims);
     
-    offload::v2(pfield, Vgrid, mf_grid, Wgrid, false, true);
+    offload::v4(pfield, Vgrid, mf_grid, Wgrid, false, true);
     total_time_field_offload += dclock();
 
     CPSspinColorFlavorMatrix<grid_Complex> vmv_offload_sum4;

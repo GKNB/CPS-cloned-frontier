@@ -121,6 +121,8 @@ int main(int argc,char *argv[])
   
   double tol = 1e-5;
 
+  int nl = 10;
+
   printf("Argc is %d\n",argc);
   int i=3;
   while(i<argc){
@@ -175,6 +177,14 @@ int main(int argc,char *argv[])
       load_lanc_arg = true;
       lanc_arg_file = argv[i+1];
       i+=2;
+    }else if( cmd == "-vMv_offload_blocksize" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> BlockedvMvOffloadArgs::b;
+      if(!UniqueID()) printf("Set vMv offload blocksize to %d\n", BlockedvMvOffloadArgs::b);
+      i+=2;
+    }else if( cmd == "-nl" ){
+      std::stringstream ss; ss  << argv[i+1]; ss >> nl;
+      if(!UniqueID()) printf("Set nl to %d\n", nl);
+      i+=2;
     }else{
       if(UniqueID()==0) printf("Unrecognised argument: %s\n",cmd.c_str());
       exit(-1);
@@ -187,9 +197,9 @@ int main(int argc,char *argv[])
   L(qr_rsd, 1e-10);
   L(EigenOper, DDAG);
   L(precon, 1);
-  L(N_get, 10);
-  L(N_use, 14);
-  L(N_true_get, 10);
+  L(N_get, nl);
+  L(N_use, nl+4);
+  L(N_true_get, nl);
   L(ch_ord, 10);
   L(ch_alpha, 1e-3);
   L(ch_beta, 1.5);
