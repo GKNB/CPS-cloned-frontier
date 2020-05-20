@@ -360,9 +360,9 @@ int main(int argc,char *argv[])
 								   V_grid, W_grid,
 								   lattice, simd_dims_3d, tol);
   
-  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 
-  if(1) testModeMappingTranspose(a2a_arg);
+  if(0) testModeMappingTranspose(a2a_arg);
 
   std::cout << "Done" << std::endl;
 
