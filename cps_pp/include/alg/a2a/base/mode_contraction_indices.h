@@ -13,30 +13,31 @@ template<typename mf_Float,template <typename> class A2AfieldL,template <typenam
 class A2AmesonField;
 
 
-//Get an index
+//Get an index vector
 template<int LeftDilutionDepth, int RightDilutionDepth>
-struct getIndex{
+struct _getIndexVector{
   typedef typename IndexTensor<LeftDilutionDepth,RightDilutionDepth>::Type TensorType;
-  inline static const std::pair<int,int> & doit(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
+  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
     int val_left = IndexConvention<LeftDilutionDepth>::get(left_coord); 
-    return getIndex<LeftDilutionDepth-1,RightDilutionDepth>::doit(i, left_coord, right_coord,mode_map[val_left] );
+    return _getIndexVector<LeftDilutionDepth-1,RightDilutionDepth>::doit(left_coord, right_coord,mode_map[val_left] );
   }
 };
 template<int RightDilutionDepth>
-struct getIndex<0,RightDilutionDepth>{
+struct _getIndexVector<0,RightDilutionDepth>{
   typedef typename IndexTensor<0,RightDilutionDepth>::Type TensorType;
-  inline static const std::pair<int,int> & doit(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
+  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
     int val_right = IndexConvention<RightDilutionDepth>::get(right_coord); 
-    return getIndex<0,RightDilutionDepth-1>::doit(i, left_coord, right_coord,mode_map[val_right] );
+    return _getIndexVector<0,RightDilutionDepth-1>::doit(left_coord, right_coord,mode_map[val_right] );
   }
 };
 template<>
-struct getIndex<0,0>{
+struct _getIndexVector<0,0>{
   typedef typename IndexTensor<0,0>::Type TensorType;
-  inline static const std::pair<int,int> & doit(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
-    return mode_map[i];
+  inline static const ModeMapType & doit(const modeIndexSet &left_coord, const modeIndexSet &right_coord, const TensorType &mode_map){
+    return mode_map;
   }
 };
+
 
 //Get number of overlapping indices
 template<int LeftDilutionDepth, int RightDilutionDepth>
@@ -82,23 +83,29 @@ class ModeContractionIndices{
   void compute(const A2Aparams &a2a_params){
     ModeMapping<LeftDilutionType,RightDilutionType>::compute(mode_map,a2a_params);
   }
+
+  //Get the tensor that contains the set of matching mode indices (i,j) for each choice of field index (sc, f, t) as appropriate (cf ModeMapping)
+  inline const TensorType & getIndexTensor() const{ return mode_map; }
+
+  //Get the vector of matching indices (i,j)
+  inline const ModeMapType & getIndexVector(const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
+    return _getIndexVector<DepthLeftDilution,DepthRightDilution>::doit(left_coord, right_coord, mode_map);
+  }
   
-  int getLeftIndex(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
-    const std::pair<int,int> &idx_pair = getIndex<DepthLeftDilution,DepthRightDilution>::doit(i, left_coord, right_coord, mode_map);
-    return idx_pair.first;
+  inline int getLeftIndex(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
+    return getIndexVector(left_coord, right_coord)[i].first;
   }
-  int getRightIndex(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
-    const std::pair<int,int> &idx_pair = getIndex<DepthLeftDilution,DepthRightDilution>::doit(i, left_coord, right_coord, mode_map);
-    return idx_pair.second;
+  inline int getRightIndex(const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
+    return getIndexVector(left_coord, right_coord)[i].second;
   }
 
-  void getBothIndices(int &il, int &ir, const int &i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
-    const std::pair<int,int> &idx_pair = getIndex<DepthLeftDilution,DepthRightDilution>::doit(i, left_coord, right_coord, mode_map);
-    il = idx_pair.first; 
-    ir = idx_pair.second; 
+  inline void getBothIndices(int &il, int &ir, const int i, const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
+    const auto &p = getIndexVector(left_coord, right_coord)[i];
+    il = p.first; 
+    ir = p.second; 
   }
 
-  int getNindices(const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
+  inline int getNindices(const modeIndexSet &left_coord, const modeIndexSet &right_coord) const{
     return _getNindices<DepthLeftDilution,DepthRightDilution>::doit(left_coord, right_coord, mode_map);
   }
 
