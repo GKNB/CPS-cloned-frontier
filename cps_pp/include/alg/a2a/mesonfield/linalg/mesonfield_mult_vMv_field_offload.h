@@ -455,40 +455,45 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 
 			//Get the maximum number of j indices that need to be summed over
 			size_t j_max_t = j_max[top];
-
-			//Loop over ir, scr, fr,  and sum over j
-			for(size_t tmpir = tmpir_start; tmpir < tmpir_lessthan; tmpir++){ //the element of the current block
-			  size_t irblock_elem = tmpir - tmpir_start;
-			  size_t ir = tmpidx_to_ir_map[tmpir]; //the actual ir value
-
-			  VectorComplexType *into_base = Mr + 12*nf*(x4d + vol4d*irblock_elem); //store Mr in temp memory alloc
+			size_t njblocks = (j_max_t + blocksize - 1)/blocksize;
+			for(size_t jblock=0;jblock<njblocks;jblock++){
+			  size_t j_start = jblock * blocksize;
+			  size_t j_lessthan = std::min(j_start + blocksize, j_max_t);
 			  
-			  for(size_t j=0;j<j_max_t;j++){
-			    VectorComplexType *into = into_base;
+			  //Loop over ir, scr, fr,  and sum over j
+			  for(size_t tmpir = tmpir_start; tmpir < tmpir_lessthan; tmpir++){ //the element of the current block
+			    size_t irblock_elem = tmpir - tmpir_start;
+			    size_t ir = tmpidx_to_ir_map[tmpir]; //the actual ir value
 			    
-			    for(int fr=0;fr<nf;fr++){
-			      jlp.flavor = jrp.flavor = fr;
-			      for(int scr=0;scr<12;scr++){
-				jlp.spin_color = jrp.spin_color = scr;
+			    VectorComplexType *into_base = Mr + 12*nf*(x4d + vol4d*irblock_elem); //store Mr in temp memory alloc
+			    
+			    for(size_t j=j_start;j<j_lessthan;j++){
+			      VectorComplexType *into = into_base;
 			      
-				//Do the j product-sum
-				const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
-				if(j >= j_ind_pairs.size()) continue;
-
-				size_t jl = j_ind_pairs[j].first,  jr = j_ind_pairs[j].second;
-
-				ScalarComplexType rval_tmp = ACC::read(r.nativeElem(jr,x4d,scr,fr));
-				ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
-					    
-				ScalarComplexType Mval = M(ir,jl);
-				
-				ScalarComplexType val = ACC::read(*into) + Mval * rval;
-				ACC::write(*into, val);
-				++into;
-			      }//scr
-			    }//fr
-			  }//j
-			}//ir
+			      for(int fr=0;fr<nf;fr++){
+				jlp.flavor = jrp.flavor = fr;
+				for(int scr=0;scr<12;scr++){
+				  jlp.spin_color = jrp.spin_color = scr;
+				  
+				  //Do the j product-sum
+				  const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+				  if(j >= j_ind_pairs.size()) continue;
+				  
+				  size_t jl = j_ind_pairs[j].first,  jr = j_ind_pairs[j].second;
+				  
+				  ScalarComplexType rval_tmp = ACC::read(r.nativeElem(jr,x4d,scr,fr));
+				  ScalarComplexType rval = conj_r ? Grid::conjugate(rval_tmp) : rval_tmp;
+				  
+				  ScalarComplexType Mval = M(ir,jl);
+				  
+				  ScalarComplexType val = ACC::read(*into) + Mval * rval;
+				  ACC::write(*into, val);
+				  ++into;
+				}//scr
+			      }//fr
+			    }//j
+			  }//ir
+			}//jblock
 		      });
 
       time.Mr += dclock();
@@ -586,6 +591,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     managed_free(Mr);
 
   }//end of func
+    
 
 
 
