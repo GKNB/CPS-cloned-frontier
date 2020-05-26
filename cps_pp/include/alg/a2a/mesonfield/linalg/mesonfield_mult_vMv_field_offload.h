@@ -25,6 +25,36 @@ struct _mult_vMv_field_offload_fields<mf_Policies,0>{
   typedef CPSfield<VectorMatrixType,1, FourDSIMDPolicy<OneFlavorPolicy>, Aligned128AllocPolicy> PropagatorField;
 };
 
+struct mult_vMv_field_offload_timers{
+  struct timers{
+    double init1;
+    double Mr;
+    double init2;
+    double v_Mr;
+    size_t calls;
+
+    timers(): init1(0), Mr(0), init2(0), v_Mr(0), calls(0){}
+
+    void reset(){
+      init1=Mr=init2=v_Mr=0;
+      calls = 0;
+    }
+    void average(){
+      init1/=calls;
+      Mr/=calls;
+      init2/=calls;
+      v_Mr/=calls;
+    }
+    void print(){
+      average();
+      printf("calls=%zu init1=%g Mr=%g init2=%g v(Mr)=%g\n", calls, init1, Mr, init2, v_Mr);
+    }
+
+  };
+  static timers & get(){ static timers t; return t; }
+};
+
+
 //For A,B,C... \in { A2AvectorW, A2AvectorV, A2AvectorWfftw, A2AvectorVfftw }
 //Compute   A (BC) D    where  (BC) is a meson field, A, D are A2A vectors
 template<typename mf_Policies, 
@@ -318,6 +348,12 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
   		   const MesonFieldType &M,
   		   const rA2AfieldType &r,
   		   bool conj_l, bool conj_r){
+    mult_vMv_field_offload_timers::timers &time = mult_vMv_field_offload_timers::get();
+
+    ++time.calls;
+
+    time.init1 -= dclock();
+
     into.zero();
 
     ModeContractionIndices<iLeftDilutionType,iRightDilutionType> i_ind(l);
@@ -339,7 +375,8 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     //Compute Mr(ir)_{scr,fr}(x) for blocks of ir, but to be efficient compute only for the ir we actually need
 
     //Tune block size to reduce memory requirement
-    VectorComplexType* Mr = (VectorComplexType*)managed_alloc_check( BlockedvMvOffloadArgs::b * 12 * nf * vol4d * sizeof(VectorComplexType)); //block in ir
+    size_t Mr_size =  BlockedvMvOffloadArgs::b * 12 * nf * vol4d * sizeof(VectorComplexType);
+    VectorComplexType* Mr = (VectorComplexType*)managed_alloc_check(Mr_size); //block in ir. Make this device memory!
 
     //Which ir do we actually need?
     std::vector<bool> ir_need(M.getNrows(), false);
@@ -374,7 +411,25 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	tmpidx_to_ir_map.push_back(ir);
       }
     }
-    
+
+    //Get the maximum number of j indices that need to be summed over
+    std::vector<size_t> j_max(GJP.TnodeSites());
+    for(int t=0;t<GJP.TnodeSites();t++){
+      modeIndexSet jlp, jrp;
+      jlp.time = M.getNcols();
+      jrp.time = t + t_off;
+      j_max[t] = 0;
+      for(int fr=0;fr<nf;fr++){
+	jlp.flavor = jrp.flavor = fr;
+	for(int scr=0;scr<12;scr++){
+	  jlp.spin_color = jrp.spin_color = scr;
+	  j_max[t] = std::max(j_max[t], j_ind.getIndexVector(jlp,jrp).size());
+	}
+      }
+    }
+
+
+    time.init1 += dclock();
 
     //Block over the subset of ir and perform the M*v multiplication for each site, spin/color and flavor, then do the v*(Mv) product still within the block
     size_t nir_needed = xx;
@@ -382,6 +437,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(size_t irblock=0; irblock<nir_blocks; irblock++){
       size_t tmpir_start = irblock * blocksize; //start of block in tmpir index
       size_t tmpir_lessthan = std::min( tmpir_start + blocksize,  nir_needed );
+
+      memset(Mr, 0, Mr_size); //this should be done on the device
+
+      time.Mr -= dclock();
 
       //Step 1: Compute \sum_j  M(ir, jl) * v(jr)_{sc,f}(x)     for ir in block
       accelerator_for(x4d, vol4d, nsimd,
@@ -394,23 +453,28 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			jlp.time = M.getNcols();
 			jrp.time = t_glob;
 
+			//Get the maximum number of j indices that need to be summed over
+			size_t j_max_t = j_max[top];
+
+			//Loop over ir, scr, fr,  and sum over j
 			for(size_t tmpir = tmpir_start; tmpir < tmpir_lessthan; tmpir++){ //the element of the current block
 			  size_t irblock_elem = tmpir - tmpir_start;
-			  
-			  for(int fr=0;fr<nf;fr++){
-			    jlp.flavor = jrp.flavor = fr;
-			    for(int scr=0;scr<12;scr++){
-			      jlp.spin_color = jrp.spin_color = scr;
-			      
-			      VectorComplexType & into = Mr[scr + 12*(fr + nf*(x4d + vol4d*irblock_elem) )]; //store Mr in temp memory alloc
-			      ACC::write(into, ScalarComplexType(0.));
+			  size_t ir = tmpidx_to_ir_map[tmpir]; //the actual ir value
 
-			      size_t ir = tmpidx_to_ir_map[tmpir]; //the actual ir value
+			  VectorComplexType *into_base = Mr + 12*nf*(x4d + vol4d*irblock_elem); //store Mr in temp memory alloc
+			  
+			  for(size_t j=0;j<j_max_t;j++){
+			    VectorComplexType *into = into_base;
+			    
+			    for(int fr=0;fr<nf;fr++){
+			      jlp.flavor = jrp.flavor = fr;
+			      for(int scr=0;scr<12;scr++){
+				jlp.spin_color = jrp.spin_color = scr;
 			      
-			      //Do the j product-sum
-			      const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
-			      size_t nj = j_ind_pairs.size();
-			      for(size_t j=0;j<nj;j++){
+				//Do the j product-sum
+				const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+				if(j >= j_ind_pairs.size()) continue;
+
 				size_t jl = j_ind_pairs[j].first,  jr = j_ind_pairs[j].second;
 
 				ScalarComplexType rval_tmp = ACC::read(r.nativeElem(jr,x4d,scr,fr));
@@ -418,13 +482,17 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 					    
 				ScalarComplexType Mval = M(ir,jl);
 				
-				ScalarComplexType val = ACC::read(into) + Mval * rval;
-				ACC::write(into, val);
-			      }
-			    }
-			  }
-			}
+				ScalarComplexType val = ACC::read(*into) + Mval * rval;
+				ACC::write(*into, val);
+				++into;
+			      }//scr
+			    }//fr
+			  }//j
+			}//ir
 		      });
+
+      time.Mr += dclock();
+      time.init2 -= dclock();
 
       //Step 2: Compute \sum_i v(il)_{scl,fl}(x) Mr(ir)_{scr,fr}(x)
       //As we only have ir in the block we can only perform part of the sum over i
@@ -436,6 +504,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	i_do[sc].resize(nf);
 	for(int f=0;f<nf;f++)
 	  i_do[sc][f].resize(Lt);
+	//Maybe reserve memory here to speed up
       }
       
       irp.time = M.getRowTimeslice();
@@ -463,6 +532,9 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 	  }
 	}
       }
+
+      time.init2 += dclock();
+      time.v_Mr -= dclock();
       
       //Do the i contraction
       accelerator_for(x4d, vol4d, nsimd,
@@ -506,9 +578,13 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			  }
 			}
 		      });
+
+      time.v_Mr += dclock();
+
     }//irblock
 
     managed_free(Mr);
+
   }//end of func
 
 

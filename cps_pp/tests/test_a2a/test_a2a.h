@@ -715,7 +715,8 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
   Float total_time_split_grid_xall = 0.;
   Float total_time_split_lite_grid = 0.;
   Float total_time_field_offload = 0.;
-  
+  mult_vMv_field_offload_timers::get().reset();
+
   CPSspinColorFlavorMatrix<mf_Complex> orig_sum[nthreads];
   CPSspinColorFlavorMatrix<grid_Complex> grid_sum[nthreads];
 
@@ -896,7 +897,7 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
       else if(!UniqueID()) printf("Standard vs Grid field offload implementation test pass\n");
     }
 #endif
-  }
+  } //tests loop
 #ifdef CPS_VMV
   printf("vMv: Avg time old code %d iters: %g secs\n",ntests,total_time_orig/ntests);
 #endif
@@ -920,6 +921,10 @@ void testvMvGridOrig(const A2AArg &a2a_args, const int ntests, const int nthread
 #endif
   printf("vMv: Avg time offload %d iters: %g secs\n",ntests,total_time_field_offload/ntests);
 
+  if(!UniqueID()){
+    printf("vMv offload timings:\n");
+    mult_vMv_field_offload_timers::get().print();
+  }
 
 #endif
 }
