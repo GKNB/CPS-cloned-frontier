@@ -465,18 +465,19 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			    size_t irblock_elem = tmpir - tmpir_start;
 			    size_t ir = tmpidx_to_ir_map[tmpir]; //the actual ir value
 			    
-			    VectorComplexType *into_base = Mr + 12*nf*(x4d + vol4d*irblock_elem); //store Mr in temp memory alloc
-			    
-			    for(size_t j=j_start;j<j_lessthan;j++){
-			      VectorComplexType *into = into_base;
-			      
-			      for(int fr=0;fr<nf;fr++){
-				jlp.flavor = jrp.flavor = fr;
-				for(int scr=0;scr<12;scr++){
-				  jlp.spin_color = jrp.spin_color = scr;
-				  
-				  //Do the j product-sum
-				  const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+			    for(int fr=0;fr<nf;fr++){
+			      jlp.flavor = jrp.flavor = fr;
+			      for(int scr=0;scr<12;scr++){
+				jlp.spin_color = jrp.spin_color = scr;
+				
+				VectorComplexType *into = Mr + scr + 12*(fr + nf*(x4d + vol4d*irblock_elem)); //store Mr in temp memory alloc
+				
+				//Do the j product-sum
+				const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
+				
+				ScalarComplexType val_sum = ACC::read(*into);
+				
+				for(size_t j=j_start;j<j_lessthan;j++){				  
 				  if(j >= j_ind_pairs.size()) continue;
 				  
 				  size_t jl = j_ind_pairs[j].first,  jr = j_ind_pairs[j].second;
@@ -486,12 +487,11 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 				  
 				  ScalarComplexType Mval = M(ir,jl);
 				  
-				  ScalarComplexType val = ACC::read(*into) + Mval * rval;
-				  ACC::write(*into, val);
-				  ++into;
-				}//scr
-			      }//fr
-			    }//j
+				  val_sum = val_sum + Mval * rval;
+				}
+				ACC::write(*into, val_sum);
+			      }//scr
+			    }//fr
 			  }//ir
 			}//jblock
 		      });
