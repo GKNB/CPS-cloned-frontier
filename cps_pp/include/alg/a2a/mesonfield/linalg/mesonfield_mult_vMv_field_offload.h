@@ -413,17 +413,16 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     }
 
     //Get the maximum number of j indices that need to be summed over
-    std::vector<size_t> j_max(GJP.TnodeSites());
+    size_t j_max = 0;
     for(int t=0;t<GJP.TnodeSites();t++){
       modeIndexSet jlp, jrp;
       jlp.time = M.getNcols();
       jrp.time = t + t_off;
-      j_max[t] = 0;
       for(int fr=0;fr<nf;fr++){
 	jlp.flavor = jrp.flavor = fr;
 	for(int scr=0;scr<12;scr++){
 	  jlp.spin_color = jrp.spin_color = scr;
-	  j_max[t] = std::max(j_max[t], j_ind.getIndexVector(jlp,jrp).size());
+	  j_max = std::max(j_max, j_ind.getIndexVector(jlp,jrp).size());
 	}
       }
     }
@@ -437,8 +436,6 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
     for(size_t irblock=0; irblock<nir_blocks; irblock++){
       size_t tmpir_start = irblock * blocksize; //start of block in tmpir index
       size_t tmpir_lessthan = std::min( tmpir_start + blocksize,  nir_needed );
-
-      memset(Mr, 0, Mr_size); //this should be done on the device
 
       time.Mr -= dclock();
 
@@ -454,11 +451,10 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 			jrp.time = t_glob;
 
 			//Get the maximum number of j indices that need to be summed over
-			size_t j_max_t = j_max[top];
-			size_t njblocks = (j_max_t + blocksize - 1)/blocksize;
+			size_t njblocks = (j_max + blocksize - 1)/blocksize;
 			for(size_t jblock=0;jblock<njblocks;jblock++){
 			  size_t j_start = jblock * blocksize;
-			  size_t j_lessthan = std::min(j_start + blocksize, j_max_t);
+			  size_t j_lessthan = std::min(j_start + blocksize, j_max);
 			  
 			  //Loop over ir, scr, fr,  and sum over j
 			  for(size_t tmpir = tmpir_start; tmpir < tmpir_lessthan; tmpir++){ //the element of the current block
@@ -475,7 +471,7 @@ struct _mult_vMv_field_offload_v<mf_Policies,lA2AfieldL,lA2AfieldR,rA2AfieldL,rA
 				//Do the j product-sum
 				const ModeMapType &j_ind_pairs = j_ind.getIndexVector(jlp,jrp);
 				
-				ScalarComplexType val_sum = ACC::read(*into);
+				ScalarComplexType val_sum = jblock == 0 ? ScalarComplexType(0) : ACC::read(*into);
 				
 				for(size_t j=j_start;j<j_lessthan;j++){				  
 				  if(j >= j_ind_pairs.size()) continue;
