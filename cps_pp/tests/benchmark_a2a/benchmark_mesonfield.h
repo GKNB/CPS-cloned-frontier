@@ -2725,6 +2725,8 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   l.setup(a2a_args,a2a_args,0,0);
   l.testRandom();  
 
+  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
+
   if(!UniqueID()) printf("mf_WV sizes %d %d. Using %d threads\n",l.getNrows(),l.getNcols(), omp_get_max_threads());
 
   mf_WV r;
@@ -2768,8 +2770,6 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   _mult_impl_base::getTimers().reset();
 #endif
 
-  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
-
   time = -dclock();
   for(int i=0;i<ntests;i++){
     mult(c, l, r, false); //NODE DISTRIBUTED, used in K->pipi
@@ -2798,8 +2798,6 @@ void benchmarkMFmult(const A2AArg &a2a_args, const int ntests){
   Mflops = double(Flops)/time*double(ntests)/double(1.e6);
 
   if(!UniqueID()) printf("MF mult_orig node local (ni=%d nj=%d nk=%d) %f Mflops\n",ni,nj,nk,Mflops);
-
-  int nodes = 1; for(int i=0;i<5;i++) nodes *= GJP.Nodes(i);
 
   time = -dclock();
   for(int i=0;i<ntests;i++){
@@ -3640,7 +3638,9 @@ void testLMAprop(typename GridA2Apolicies::FgridGFclass &lattice, int argc, char
   A2AvectorV<GridA2Apolicies> V(a2a_args, simd_dims);
   A2AvectorW<GridA2Apolicies> W(a2a_args, simd_dims);
 
-  W.computeVWlow(V, lattice, lanc.evec, lanc.eval, lanc.mass);
+  CGcontrols cg_controls;
+  cg_controls.CGalgorithm = AlgorithmCG;
+  computeVWlow(V,W, lattice, lanc.evec, lanc.eval, lanc.mass, cg_controls);
   
   //v_i^dag G v_i = (1/L_i)
   //v_i^dag G^dag v_i = (1/L_i*)
@@ -3978,8 +3978,8 @@ void test4DlowmodeSubtraction(A2AArg a2a_args, const int ntests, const int nthre
   A2AvectorV<GridA2Apolicies> V_5dsub(a2a_args, simd_dims);
   A2AvectorV<GridA2Apolicies> V_4dsub(a2a_args, simd_dims);
 
-  W_4dsub.computeVWhigh(V_4dsub, lattice, eve_4dsub, mass, cg_controls_4dsub);
-  W_5dsub.computeVWhigh(V_5dsub, lattice, eve_5dsub, mass, cg_controls_5dsub);
+  computeVWhigh(V_4dsub, W_4dsub, lattice, eve_4dsub, mass, cg_controls_4dsub);
+  computeVWhigh(V_5dsub, W_5dsub, lattice, eve_5dsub, mass, cg_controls_5dsub);
   
   std::cout << "V " << std::endl;
   typename GridA2Apolicies::ScalarFermionFieldType v_scal1, v_scal2;

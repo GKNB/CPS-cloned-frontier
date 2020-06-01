@@ -1,7 +1,7 @@
 //Compute the low mode part of the W and V vectors. In the Lanczos class you can choose to store the vectors in single precision (despite the overall precision, which is fixed to double here)
 //Set 'singleprec_evecs' if this has been done
-template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
+template< typename Policies>
+void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, BFM_Krylov::Lanczos_5d<double> &eig, bfm_evo<double> &dwf, bool singleprec_evecs){
   const char *fname = "computeVQlow(....)";
   const int gparity = GJP.Gparity();
   if(eig.dop.gparity != gparity){ ERR.General("A2AvectorW",fname,"Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
@@ -75,8 +75,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
     //Get 4D part, poke onto a then copy into wl
     dwf.cps_impexFermion((Float *)b,tmp,0);
     lat.Ffive2four(a,b,0,glb_ls-1, 2);
-    assert(wl[i].assigned());
-    this->getWl(i).importField(afield);
+    W.getWl(i).assigned();
+    W.getWl(i).importField(afield);
   }
 
   dwf.freeFermion(tmp[0]);
@@ -93,8 +93,8 @@ void A2AvectorW<mf_Policies>::computeVWlow(A2AvectorV<mf_Policies> &V, Lattice &
 //singleprec_evecs specifies whether the input eigenvectors are stored in single preciison
 //You can optionally pass a single precision bfm instance, which if given will cause the underlying CG to be performed in mixed precision.
 //WARNING: if using the mixed precision solve, the eigenvectors *MUST* be in single precision (there is a runtime check)
-template< typename mf_Policies>
-void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
+template< typename Policies>
+void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, BFM_Krylov::Lanczos_5d<double> &eig, bool singleprec_evecs, Lattice &lat, const CGcontrols &cg_controls, bfm_evo<double> &dwf_d, bfm_evo<float> *dwf_fp){
   const char *fname = "computeVWhigh(....)";
   dwf_d.residual = cg_controls.CG_tolerance;
   dwf_d.max_iter = cg_controls.CG_max_iters;    
@@ -115,7 +115,7 @@ void A2AvectorW<mf_Policies>::computeVWhigh(A2AvectorV<mf_Policies> &V, BFM_Kryl
   VRB.Result("A2AvectorW", fname, "Start computing high modes.\n");
     
   //Generate the compact random sources for the high modes if they have not already been set
-  setWhRandom();
+  W.setWhRandom();
 
   //Allocate temp *double precision* storage for fermions
   CPSfermion5D<cps::ComplexD> afield,bfield;

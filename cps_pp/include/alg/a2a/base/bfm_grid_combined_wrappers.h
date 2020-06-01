@@ -104,12 +104,12 @@ struct BFMGridA2ALatticeWrapper{
 #endif  
     if(!randomize_vw){
 #ifdef USE_BFM_LANCZOS
-      W.computeVW(V, *a2a_lat, *eig.wrapper.eig, eig.wrapper.singleprec_evecs, cg_controls, solvers.bfm_solvers.dwf_d, &solvers.bfm_solvers.dwf_f);
+      cps::computeVW(V, W, *a2a_lat, *eig.wrapper.eig, eig.wrapper.singleprec_evecs, cg_controls, solvers.bfm_solvers.dwf_d, &solvers.bfm_solvers.dwf_f);
 #else
       if(eig.wrapper.singleprec_evecs){
-	W.computeVW(V, *a2a_lat, eig.wrapper.evec_f, eig.wrapper.eval, eig.wrapper.mass, cg_controls);
+	cps::computeVW(V, W, *a2a_lat, eig.wrapper.evec_f, eig.wrapper.eval, eig.wrapper.mass, cg_controls);
       }else{
-	W.computeVW(V, *a2a_lat, eig.wrapper.evec, eig.wrapper.eval, eig.wrapper.mass, cg_controls);
+	cps::computeVW(V, W, *a2a_lat, eig.wrapper.evec, eig.wrapper.eval, eig.wrapper.mass, cg_controls);
       }
 #endif     
     }else randomizeVW<A2Apolicies>(V,W);  
