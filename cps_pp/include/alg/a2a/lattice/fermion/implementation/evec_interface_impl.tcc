@@ -270,9 +270,12 @@ public:
   }
 
   const std::vector<Grid::RealD> getEvals() const{ return eval; }
-  const std::vector<GridFermionFieldF> getEvecs() const{ return evec; }
+  const std::vector<GridFermionFieldF> &getEvecs() const{ return evec; }
   
   //Overload high-mode solve to call mixed precision CG with single prec evecs
+  //Note that the solution vector guess provided for this function typically is computed from the low-mode approximation and so
+  //further use of the eigenvectors is not strictly necessary. Here we use them to speed up the inner solves of the restarted algorithms.
+  //The above does not apply when using MADWF as the eigenvectors have a different Ls than the source/solution; instead they are used to form the low-mode guess internally
   void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> &linop,
 		  GridFermionField &solution, const GridFermionField &source,
 		  const CGcontrols &cg_controls){
@@ -306,7 +309,7 @@ public:
       Grid_MADWF_mixedprec_invert<GridPolicies, deflateGuess<GridFermionFieldF> >(solution, source, cg_controls, Umu, linop._Mat, *DZmob_f, guesser, cg_controls.MADWF_precond);
 
     }else if(cg_controls.CGalgorithm == AlgorithmCG){
-      this->EvecInterface<GridPolicies>::CGNE_MdagM(linop, solution, source, cg_controls);
+      this->EvecInterface<GridPolicies>::CGNE_MdagM(linop, solution, source, cg_controls); //converts evecs to double precision on-the-fly
     }
     else ERR.General("EvecInterfaceGridSinglePrec","CGNE_MdagM","Unknown CG algorithm");
   }
