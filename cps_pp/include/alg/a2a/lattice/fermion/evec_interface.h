@@ -22,9 +22,14 @@ class EvecInterface{
   typedef typename GridPolicies::GridDirac GridDirac;
  public:
   
+  virtual Grid::GridBase* getEvecGrid() const = 0;
+
   //Get an eigenvector and eigenvalue
   virtual Float getEvec(GridFermionField &into, const int idx) const = 0;
   virtual int nEvecs() const = 0;
+
+  //Get the internal storage precision of the eigenvectors: 1(single), 2(double)
+  virtual int evecPrecision() const = 0;
 
   //Allow the interface to choose which function computes the preconditioned M^dag M matrix inverse. Default is CG
   virtual void CGNE_MdagM(Grid::SchurDiagMooeeOperator<GridDirac,GridFermionField> &linop,

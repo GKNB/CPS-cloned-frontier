@@ -23,7 +23,18 @@ void computeVWhighSingleMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, 
 template<typename Policies>
 void computeVWhigh(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
 
-//Compute the low mode part of the W and V vectors.
+
+//Implementation of VW low where the Dirac operator is the same as that used for the gauge fields (and FGrid)
+template< typename Policies>
+void computeVWlowStandard(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+
+//When using MADWF the Dirac operator used for the eigenvectors is different from the Dirac operator associated with the gauge fields (and with FGrid)
+//A different preconditioning scheme is also typically used
+//We therefore use a different function to compute the low modes
+template< typename Policies>
+void computeVWlowMADWF(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
+
+//Compute the low mode part of the W and V vectors. Chooses between implementations based on cg_controls.CGalgorithm
 template<typename Policies>
 void computeVWlow(A2AvectorV<Policies> &V, A2AvectorW<Policies> &W, Lattice &lat, EvecInterface<Policies> &evecs, const Float mass, const CGcontrols &cg_controls);
 

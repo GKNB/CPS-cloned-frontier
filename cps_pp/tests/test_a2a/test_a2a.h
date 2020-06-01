@@ -999,4 +999,51 @@ void testModeMappingTranspose(const A2AArg &a2a_arg){
 
 
 
+#ifdef USE_GRID
+
+template<typename GridA2Apolicies>
+void testComputeLowModeMADWF(const A2AArg &a2a_args, const LancArg &lanc_arg,
+			     typename GridA2Apolicies::FgridGFclass &lattice, const typename SIMDpolicyBase<4>::ParamType &simd_dims, 
+			     const double tol){
+  //If we use the same eigenvectors and the same Dirac operator we should get the same result
+  GridLanczosWrapper<GridA2Apolicies> evecs_rand;
+  evecs_rand.randomizeEvecs(lanc_arg, lattice);
+  EvecInterfaceGrid<GridA2Apolicies> eveci_rand(evecs_rand.evec, evecs_rand.eval);
+
+  A2AvectorV<GridA2Apolicies> V_orig(a2a_args,simd_dims);
+  A2AvectorW<GridA2Apolicies> W_orig(a2a_args,simd_dims);
+
+  A2AvectorV<GridA2Apolicies> V_test(a2a_args,simd_dims);
+  A2AvectorW<GridA2Apolicies> W_test(a2a_args,simd_dims);
+
+  int Ls = GJP.Snodes() * GJP.SnodeSites();
+  double mob_b = lattice.get_mob_b();
+  double mob_c = mob_b - 1.;
+  
+  CGcontrols cg_con_orig;
+
+  CGcontrols cg_con_test;
+  cg_con_test.MADWF_Ls_inner = Ls;
+  cg_con_test.MADWF_b_plus_c_inner = mob_b + mob_c;
+  cg_con_test.MADWF_use_ZMobius = false;
+  cg_con_test.MADWF_precond = SchurOriginal;
+  
+  computeVWlowStandard(V_orig, W_orig, lattice, eveci_rand, evecs_rand.mass, cg_con_orig);
+  computeVWlowMADWF(V_test, W_test, lattice, eveci_rand, evecs_rand.mass, cg_con_test);
+
+  int nl = a2a_args.nl;
+  for(int i=0;i<nl;i++){
+    if( ! V_orig.getVl(i).equals(  V_test.getVl(i), tol, true ) ){ std::cout << "FAIL" << std::endl; exit(1); }
+  }
+  if(!UniqueID()) printf("Passed Vl test\n");
+
+  for(int i=0;i<nl;i++){
+    if( ! W_orig.getWl(i).equals(  W_test.getWl(i), tol, true ) ){ std::cout << "FAIL" << std::endl; exit(1); }
+  }
+
+}
+
+
+#endif //USE_GRID
+
 #endif

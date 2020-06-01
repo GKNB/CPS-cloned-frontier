@@ -14,7 +14,8 @@ template<typename GridFermionField, typename GridGaugeField, typename GridDirac>
 void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &evec, const LancArg &lanc_arg,		 
 		 GridDirac &Ddwf, const GridGaugeField& Umu,
 		 Grid::GridCartesian *UGrid, Grid::GridRedBlackCartesian *UrbGrid,
-		 Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid){
+		 Grid::GridCartesian *FGrid, Grid::GridRedBlackCartesian *FrbGrid,
+		 A2Apreconditioning precon_type = SchurOriginal){
   
   if(lanc_arg.N_true_get == 0){
     std::vector<Grid::RealD>().swap(eval); 	std::vector<GridFermionField>().swap(evec);      
@@ -24,8 +25,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   }
 
   assert(lanc_arg.precon);
-  Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField> HermOp(Ddwf);
-
+  Grid::SchurOperatorBase<GridFermionField>  *HermOp;
+  if(precon_type == SchurOriginal) HermOp = new Grid::SchurDiagMooeeOperator<GridDirac, GridFermionField>(Ddwf);
+  else if(precon_type == SchurDiagTwo) HermOp = new Grid::SchurDiagTwoOperator<GridDirac, GridFermionField>(Ddwf);
+  else assert(0);
+  
     // int Nstop;   // Number of evecs checked for convergence
     // int Nk;      // Number of converged sought
     // int Np;      // Np -- Number of spare vecs in kryloc space
@@ -47,11 +51,11 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   Grid::Chebyshev<GridFermionField> Cheb(lo,hi,ord);
 #ifdef USE_CHULWOOS_LANCZOS
 #warning "Using Chulwoo's Grid Lanczos implementation"
-  Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
+  Grid::ImplicitlyRestartedLanczosCJ<GridFermionField> IRL(*HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
 #else
 #warning "Using default Grid Lanczos implementation"
-  Grid::PlainHermOp<GridFermionField> HermOpF(HermOp);
-  Grid::FunctionHermOp<GridFermionField> ChebF(Cheb,HermOp); 
+  Grid::PlainHermOp<GridFermionField> HermOpF(*HermOp);
+  Grid::FunctionHermOp<GridFermionField> ChebF(Cheb,*HermOp); 
   Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(ChebF,HermOpF,Nstop,Nk,Nm,resid,MaxIt);
   
   //Grid::ImplicitlyRestartedLanczos<GridFermionField> IRL(HermOp,Cheb,Nstop,Nk,Nm,resid,MaxIt);
@@ -114,6 +118,7 @@ void gridLanczos(std::vector<Grid::RealD> &eval, std::vector<GridFermionField> &
   
   print_time("gridLanczos","Algorithm",time+dclock());
 #endif
+  delete HermOp;
 }
 
   

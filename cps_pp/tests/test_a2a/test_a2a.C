@@ -370,11 +370,16 @@ int main(int argc,char *argv[])
 								   V_grid, W_grid,
 								   lattice, simd_dims_3d, tol);
   
-  if(1) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
+  if(0) testvMvGridOrig<A2Apolicies_std, A2Apolicies_grid>(a2a_arg, 1, nthreads, tol);
 
   if(0) testModeMappingTranspose(a2a_arg);
 
+#ifdef USE_GRID
+  if(1) testComputeLowModeMADWF<A2Apolicies_grid>(a2a_arg, lanc_arg, lattice, simd_dims, tol);
+#endif
+
   std::cout << "Done" << std::endl;
 
+  End();
   return 0;
 }

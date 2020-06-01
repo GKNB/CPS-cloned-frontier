@@ -47,6 +47,9 @@ public:
     const int gparity = GJP.Gparity();
     if(eig.dop.gparity != gparity){ ERR.General("EvecInterfaceBFM","EvecInterfaceBFM","Gparity must be disabled/enabled for *both* CPS and the eigenvectors"); }
   }
+
+  Grid::GridBase* getEvecGrid() const{ return latg->getFrbGrid(); }
+
   Float getEvec(GridFermionField &into, const int idx){
     omp_set_num_threads(bfmarg::threads);
     
@@ -74,6 +77,7 @@ public:
   int nEvecs() const{
     return eig.get;
   }
+  int evecPrecision() const{ return 2; }
 
   ~EvecInterfaceBFM(){
     free(cps_tmp_d);
@@ -100,6 +104,8 @@ class EvecInterfaceGrid: public EvecInterface<GridPolicies>{
 public:
   EvecInterfaceGrid(const std::vector<GridFermionField> &_evec, const std::vector<Grid::RealD> &_eval): evec(_evec), eval(_eval){}
 
+  Grid::GridBase* getEvecGrid() const{ assert(evec.size()>0); return evec[0].Grid(); }
+
   Float getEvec(GridFermionField &into, const int idx) const{
     into = evec[idx];
     return eval[idx];
@@ -107,6 +113,7 @@ public:
   int nEvecs() const{
     return eval.size();
   }
+  int evecPrecision() const{ return 2; }
 };
 
 
@@ -260,6 +267,8 @@ public:
     if(delete_FrbGrid_Zmob_f && FrbGrid_Zmob_f) delete FrbGrid_Zmob_f;
   }
   
+  Grid::GridBase* getEvecGrid() const{ assert(evec.size()>0); return evec[0].Grid(); }
+
   Float getEvec(GridFermionField &into, const int idx) const{ //get *double precision* eigenvector
     precisionChange(into,evec[idx]);
     return eval[idx];
@@ -345,6 +354,7 @@ public:
     Ddwf_f->Report();
   }
   
+  int evecPrecision() const{ return 1; }
 };
 
 #endif
